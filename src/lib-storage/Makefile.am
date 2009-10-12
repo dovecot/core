@@ -71,9 +71,13 @@ libstorage_test_a_SOURCES = \
 	test-mailbox.c \
 	test-mail.c
 
+test_headers = \
+	test-mail-storage.h
+
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)
   pkginc_lib_HEADERS = $(headers)
+  noinst_HEADERS = $(test_headers)
 else
-  noinst_HEADERS = $(headers)
+  noinst_HEADERS = $(headers) $(test_headers)
 endif
