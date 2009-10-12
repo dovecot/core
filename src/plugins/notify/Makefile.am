@@ -18,7 +18,7 @@ lib15_notify_plugin_la_SOURCES = \
 	notify-storage.c
 
 noinst_HEADERS = \
-	notify-plugin.h
+	notify-plugin.h \
 	notify-plugin-private.h
 
 install-exec-local:
