@@ -13,6 +13,7 @@
 #include "mail-storage-service.h"
 #include "index/raw/raw-storage.h"
 #include "lda-settings.h"
+#include "lmtp-settings.h"
 #include "mail-deliver.h"
 #include "main.h"
 #include "client.h"
@@ -265,7 +266,7 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
-	if (client->try_proxying) {
+	if (client->lmtp_set->lmtp_proxy) {
 		if (client_proxy_rcpt(client, name))
 			return 0;
 	}

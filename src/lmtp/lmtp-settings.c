@@ -1,0 +1,36 @@
+/* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "settings-parser.h"
+#include "master-service-settings.h"
+#include "lmtp-settings.h"
+
+#include <stddef.h>
+#include <unistd.h>
+
+#undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct lmtp_settings, name), NULL }
+
+static struct setting_define lmtp_setting_defines[] = {
+	DEF(SET_BOOL, lmtp_proxy),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static struct lmtp_settings lmtp_default_settings = {
+	MEMBER(lmtp_proxy) FALSE
+};
+
+struct setting_parser_info lmtp_setting_parser_info = {
+	MEMBER(defines) lmtp_setting_defines,
+	MEMBER(defaults) &lmtp_default_settings,
+
+	MEMBER(parent) NULL,
+	MEMBER(dynamic_parsers) NULL,
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(type_offset) (size_t)-1,
+	MEMBER(struct_size) sizeof(struct lmtp_settings),
+	MEMBER(check_func) NULL
+};

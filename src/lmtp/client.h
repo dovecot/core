@@ -35,6 +35,7 @@ struct client {
 	struct client *prev, *next;
 
 	const struct lda_settings *set;
+	const struct lmtp_settings *lmtp_set;
 	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;
@@ -55,7 +56,6 @@ struct client {
 	struct lmtp_proxy *proxy;
 
 	unsigned int disconnected:1;
-	unsigned int try_proxying:1;
 	unsigned int mail_body_7bit:1;
 	unsigned int mail_body_8bitmime:1;
 };

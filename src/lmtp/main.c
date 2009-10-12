@@ -7,9 +7,11 @@
 #include "fd-close-on-exec.h"
 #include "process-title.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-interface.h"
 #include "mail-storage-service.h"
 #include "lda-settings.h"
+#include "lmtp-settings.h"
 #include "client.h"
 #include "main.h"
 
@@ -26,11 +28,15 @@ struct mail_storage_service_multi_ctx *multi_service;
 static void client_connected(const struct master_service_connection *conn)
 {
 	struct client *client;
+	void **sets;
 
 	client = client_create(conn->fd, conn->fd);
 	client->remote_ip = conn->remote_ip;
 	client->remote_port = conn->remote_port;
-	client->set = mail_storage_service_get_settings(master_service);
+
+	sets = master_service_settings_get_others(master_service);
+	client->set = sets[1];
+	client->lmtp_set = sets[2];
 
 	(void)net_getsockname(conn->fd, &client->local_ip, &client->local_port);
 }
@@ -50,6 +56,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	const struct setting_parser_info *set_roots[] = {
 		&lda_setting_parser_info,
+		&lmtp_setting_parser_info,
 		NULL
 	};
 	enum master_service_flags service_flags = 0;

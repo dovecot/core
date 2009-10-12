@@ -162,7 +162,6 @@ struct client *client_create(int fd_in, int fd_out)
 	client->my_domain = my_hostname;
 	client->state_pool = pool_alloconly_create("client state", 4096);
 	client->state.mail_data_fd = -1;
-	client->try_proxying = TRUE; // FIXME: setting!
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
