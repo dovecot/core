@@ -623,9 +623,12 @@ prevfile:
 			str_append(str, key);
 			str_append_c(str, '=');
 
-			if (type != CONFIG_LINE_TYPE_KEYFILE || !expand_files)
+			if (type != CONFIG_LINE_TYPE_KEYFILE)
 				str_append(str, value);
-			else if (str_append_file(str, key, value, &errormsg) < 0) {
+			else if (!expand_files) {
+				str_append_c(str, '<');
+				str_append(str, value);
+			} else if (str_append_file(str, key, value, &errormsg) < 0) {
 				/* file reading failed */
 				break;
 			}
