@@ -1,15 +1,16 @@
- - running from inetd
- - settings: ssl_parameters_regenerate
-    - lib-auth: connect only to "auth" socket
-    - create ssl-params service listening on login/ssl-params socket
+ - mail_uid, mail_gid, mail_chroot not works!
+ - Allow %variables in mail_chroot setting
+ - what the hell does --with-sql-drivers do?
+    - --with-sql=plugin --with-mysql, --with-sql --with-mysql=plugin, .. ???
 
- - config protocol should tell after lookups if there's something more specific
-   also available so login process wouldn't have to do config lookup for
-   each connection if there's no per-IP config.
+ - config process is handling requests too slowly. maybe add some caching.
+ - delete convert plugin, replace with dsync
+ - running from inetd
  - dsync:
    - handle INBOX GUID conflicts.
    - mailbox GUID conflicts: if one mailbox is empty, drop it.
    - subscriptions
+   - invalid mailbox names give all kinds of failures
    - cache
    - use transaction_commit_get_changes(), retry sync if uids are not what we
      wanted.
@@ -17,6 +18,17 @@
    - other side crashes -> worker server disconnected unexpectedly -> hang
    - add some timeout
    - sieve scripts
+ - single-dbox is still buggy?
+
+ - perhaps home dir shouldn't be chdir()ed to until privileges are actually
+   dropped? it doesn't work if it requires extra group privileges..
+ - allow overriding mail_access_groups from userdb.
+    - ldap also kind of supports multiple gids, but not really.
+ - PERMANENTFLAGS returns () with readonly mailboxes, even when private flag
+   changes are allowed (because index is stored elsewhere)
+ - config protocol should tell after lookups if there's something more specific
+   also available so login process wouldn't have to do config lookup for
+   each connection if there's no per-IP config.
  - lib-lda/duplicate.c uses home_expand()
  - dbox: we get back to dbox_sync_file() over and over again when expunging..
    especially with a broken guid expunge, it doesn't go away.
@@ -170,8 +182,6 @@
    - UID renumbering doesn't really work after all?
    - still problems with CRLF mboxes..
 
- - proxy: If remote server disconnects on login:
-   login: tried to change state 2 -> 2
  - logging consistency:
    http://www.dovecot.org/list/dovecot/2007-April/021532.html
  - EXPUNGE command in read-only mailbox should give an error message if
@@ -180,7 +190,6 @@
    slow if mremap() doesn't exist.
  - login_max_processes_count shouldn't count proxying processes
 
- - Allow %variables in mail_chroot setting
  - ssl_verify_client_cert isn't working if the SSL cert doesn't have CRL
 
  - keywords:

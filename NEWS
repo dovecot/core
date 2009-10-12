@@ -1,4 +1,139 @@
-v1.2.rc1  Timo Sirainen <tss@iki.fi>
+v2.0.alpha1 2009-10-12  Timo Sirainen <tss@iki.fi>
+
+	* Global ACLs are now looked up using namespace prefixes. For example
+	  if you previously had INBOX. namespace prefix and a global ACL for
+	  "INBOX.Sent", it's now looked up from "INBOX.Sent" file instead of
+	  "Sent" as before.
+
+	+ Redesigned master process. It's now more modular and there is less
+	  code running as root.
+	+ Configuration supports now per-local/remote ip/network settings.
+	+ dsync utility does a two-way mailbox synchronization.
+	+ LMTP server and proxying.
+	+ Added mdbox (multi-dbox) mail storage backend.
+	+ doveadm utility can be used to do all kinds of administration
+	  functions. Old dovecotpw and *view utilities now exist in its
+	  subcommands.
+
+v1.2.6 2009-10-05  Timo Sirainen <tss@iki.fi>
+
+	* Upgraded to Unicode 5.2.0
+
+	+ Added authtest utility for doing passdb and userdb lookups.
+	+ login: ssl_security string now also shows the used compression.
+	- quota: Don't crash with non-Maildir++ quota backend.
+	- imap proxy: Fixed crashing with some specific password characters.
+	- dovecot --exec-mail was broken.
+	- Avoid assert-crashing when two processes try to create index at the
+	  same time.
+
+v1.2.5 2009-09-13  Timo Sirainen <tss@iki.fi>
+
+	* Authentication: DIGEST-MD5 and RPA mechanisms no longer require
+	  user's login realm to be listed in auth_realms. It only made
+	  configuration more difficult without really providing extra security.
+	* zlib plugin: Don't allow clients to save compressed data directly.
+	  This prevents users from exploiting (most of the) potential security
+	  holes in zlib/bzlib.
+
+	+ Added pop3_save_uidl setting.
+	+ dict quota: When updating quota and user isn't already in dict,
+	  recalculate and save the quota.
+	- file_set_size() was broken with OSes that didn't support
+	  posix_fallocate() (almost everyone except Linux), causing all kinds
+	  of index file errors.
+	- v1.2.4 index file handling could have caused an assert-crash
+	- IMAP: Fixes to QRESYNC extension.
+	- virtual plugin: Crashfix
+	- deliver: Don't send rejects to any messages that have Auto-Submitted
+	  header. This avoids emails loops.
+	- Maildir: Performance fixes, especially with maildir_very_dirty_syncs.
+	- Maildir++ quota: Limits weren't read early enough from maildirsize
+	  file (when quota limits not enforced by Dovecot)
+	- Message decoding fixes (mainly for IMAP SEARCH, Sieve).
+
+v1.2.4 2009-08-17  Timo Sirainen <tss@iki.fi>
+
+	* acl: When looking up ACL defaults, use global/local default files
+	  if they exist. So it's now possible to set default ACLs by creating
+	  dovecot-acl file to the mail root directory.
+
+	+ imap/pop3 proxy: If proxy destination is known to be down,
+	  fail connections to it immediately.
+	+ imap/pop3 proxy: Added proxy_timeout passdb extra field to specify
+	  proxy's connect timeout.
+	- Fixed a crash in index file handling.
+	- Fixed a crash in saving messages where message contained a CR
+	  character that wasn't followed by LF (and the CR happened to be the
+	  last character in an internal buffer).
+	- v1.2.3 crashed when listing shared namespace prefix.
+	- listescape plugin: Several fixes.
+	- autocreate plugin: Fixed autosubscribing to mailboxes in
+	  subscriptions=no namespaces.
+
+v1.2.3 2009-08-07  Timo Sirainen <tss@iki.fi>
+
+	* Mailbox names with control characters can't be created anymore.
+	  Existing mailboxes can still be accessed though.
+
+	+ Allow namespace prefix to be opened as mailbox, if a mailbox
+	  already exists in the root dir.
+	- Maildir: dovecot-uidlist was being recreated every time a mailbox
+	  was accessed, even if nothing changed.
+	- listescape plugin was somewhat broken
+	- Compiling fixes for non-Linux/BSDs
+	- imap: tb-extra-mailbox-sep workaround was broken.
+	- ldap: Fixed hang when >128 requests were sent at once.
+	- fts_squat: Fixed crashing when searching virtual mailbox.
+	- imap: Fixed THREAD .. INTHREAD crashing.
+
+v1.2.2 2009-07-27  Timo Sirainen <tss@iki.fi>
+
+	* GSSAPI: More changes to authentication. Hopefully good now.
+	* lazy_expunge plugin: Drop \Deleted flag when moving message.
+
+	+ dovecot -n/-a now outputs also lda settings.
+	+ dovecot.conf !include now supports globs (e.g.
+	  !include /etc/dovecot/*.conf). Based on patch by Thomas Guthmann.
+	+ acl: Support spaces in user/group identifiers.
+	+ shared mailboxes: If only %%n is specified in prefix, default to
+	  current user's domain.
+	- Dovecot master process could hang if it received signals too rapidly.
+	- Fixed "corrupted index cache file" errors (and perhaps others) caused
+	  by e.g. IMAP's FETCH BODY[] command.
+	- IMAP: When QRESYNC is enabled, don't crash when a new mail is
+	  received while IDLEing.
+	- IMAP: FETCH X-* parameters weren't working.
+	- Maildir++ quota: Quota was sometimes updated wrong when it was
+	  being recalculated.
+	- Searching quoted-printable message body internally converted "_"
+	  characters to spaces and didn't match search keys with "_".
+	- Messages in year's first/last day may have had broken timezones
+	  with OSes not having struct tm->tm_gmtoff (e.g. Solaris).
+	- virtual plugin: If another session adds a new mailbox to index,
+	  don't crash.
+
+v1.2.1 2009-07-09 Timo Sirainen <tss@iki.fi>
+
+	* GSSAPI: Changed logging levels and improved the messages.
+	  Changed the way cross-realm authentication handling is done,
+	  hopefully it's working now for everyone.
+	* imap/pop3 logins now fail if home directory path is relative.
+	  v1.2.0 deliver was already failing with these and they could have
+	  caused problems even with v1.1.
+	* IMAP: Custom authentication failure messages are now prefixed with
+	  [ALERT] to get more clients to actually show them.
+
+	+ Improved some error messages.
+	- pop3: AUTH PLAIN was broken when SASL initial response wasn't given.
+	- mbox: New mailboxes were created with UIDVALIDITY 1.
+	- quota-fs was defaulting to group quota instead of user quota.
+	- Fixed ACLs to work with mbox.
+	- Fixed fchmod(-1, -1) errors with BSDs
+	- convert plugin / convert-tool: Fixed changing hierarchy separators
+	  in mailbox names when alt_hierarchy_char isn't set.
+
+v1.2.0 2009-07-01 Timo Sirainen <tss@iki.fi>
 
 	* When creating files or directories to mailboxes, Dovecot now uses
 	  the mailbox directory's permissions and GID for them. Previous
@@ -26,6 +161,102 @@ v1.2.rc1  Timo Sirainen <tss@iki.fi>
 	+ Virtual mailboxes: http://wiki.dovecot.org/Plugins/Virtual
 	+ Autocreate plugin: http://wiki.dovecot.org/Plugins/Autocreate
 	+ Listescape plugin: http://wiki.dovecot.org/Plugins/Listescape
+
+v1.2.rc8 2009-06-30 Timo Sirainen <tss@iki.fi>
+
+	- Fixed building LDAP as plugin
+	- Fixed starting up in OS X
+
+v1.2.rc7 2009-06-27 Timo Sirainen <tss@iki.fi>
+
+	* Removed configure --with-deliver, --with-pop3d and --disable-ipv6
+	  parameters.
+
+	+ Improved permission related error messages.
+	- mbox: Don't write garbage to mbox if message doesn't have a body.
+	- virtual: Fixed saving messages with keywords.
+	- virtual: Fixed infinite looping bug.
+	- zlib: Fixed error handling.
+
+v1.2.rc6 2009-06-22 Timo Sirainen <tss@iki.fi>
+
+	* imap proxy: Pass through to client unexpected untagged replies
+	  from remote server (e.g. alerts).
+	* Solr: Don't use "any" copyfield, it doubles the index size.
+	* mail_location: Allow using ":" characters in dir names by escaping
+	  it as "::".
+
+	- mbox: Don't crash with invalid From_-lines.
+	- IMAP: Don't crash if IDLE command is pipelined after a long-running
+	  UID FETCH or UID SEARCH.
+	- ACL / shared mailbox fixes
+	- Some metadata files were incorrectly getting 0666 permissions.
+
+v1.2.rc5 2009-06-04 Timo Sirainen <tss@iki.fi>
+
+	* auth_cache_negative_ttl is now used also for password mismatches
+	  (currently only with plaintext authentication mechanisms).
+
+	+ Added support for EXTERNAL SASL mechanism.
+	+ FETCH X-SAVEDATE can now be used to get messages' save timestamps
+	+ deliver_log_format: %s is now in UTF8
+	- If message body started with a space, some operations could have
+	  assert-crashed.
+	- Fixed using LDAP support as a plugin
+	- Fixes to virtual mailboxes.
+
+v1.2.rc4 2009-05-17 Timo Sirainen <tss@iki.fi>
+
+	* If /dev/arandom exists, use it instead of /dev/urandom (OpenBSD).
+	* When logging to a file, the lines now start with a timestamp instead
+	  of "dovecot: " prefix.
+
+	+ IMAP: When multiple commands are pipelined, try harder to combine
+	  their mailbox syncing together. For example with Maildir pipelining
+	  STORE 1:* +FLAGS \Deleted and EXPUNGE commands the files won't
+	  be unnecessarily rename()d before being unlink()ed.
+	+ imap-proxy: Send backend's CAPABILITY if it's different from what
+	  was sent to client before.
+	+ IMAP: struct mail now keeps track of all kinds of statistics, such
+	  as number of open()s, stat()s, bytes read, etc. These fields could
+	  be exported by some kind of a statistics plugin (not included yet).
+	+ IMAP: SEARCH command now dynamically figures out how to run about
+	  0.20 .. 0.25 seconds before seeing if there's other work to do.
+	  This makes the SEARCH performance much better.
+	- Fixes to shared mailbox handling.
+	- Fixes to virtual mailboxes.
+	- THREAD command could have crashed.
+	- Fixes to expire-tool.
+	- mbox: Don't break if From_-line is preceded by CRLF (instead of LF).
+	- dict process wasn't restarted after SIGHUP was sent to master.
+
+v1.2.rc3 2009-04-16 Timo Sirainen <tss@iki.fi>
+
+	* IMAP proxy no longer simply forwards tagged reply from
+	  remote authentication command. It's now done only if the remote
+	  server sent a [resp-code], otherwise all failure strings are
+	  converted to Dovecot's "Authentication failed." to make sure that
+	  if remote isn't using Dovecot it won't reveal user's existence.
+
+	+ Quota roots can now specify which namespace's quota they're
+	  tracking. This is probably the most useful for giving public
+	  namespaces a quota.
+	+ Added imap_idle_notify_interval setting.
+	- Fixes to shared mailbox handling
+	- Fixes to virtual mailboxes
+	- Fixed compiling with some FreeBSD and NetBSD versions
+	- THREAD REFS still might have returned one (0) at the beginning.
+	- deliver wasn't using mail_access_groups setting.
+	- Fixed some error handling in maildir and index code.
+
+v1.2.rc2 2009-04-03  Timo Sirainen <tss@iki.fi>
+
+	- rquota.x file was missing from rc1 distribution, causing compiling
+	  to fail.
+
+v1.2.rc1 2009-04-03  Timo Sirainen <tss@iki.fi>
+
+	* See v1.2.0 notes
 
 v1.1.5 2008-10-22  Timo Sirainen <tss@iki.fi>
 
