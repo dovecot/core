@@ -46,27 +46,26 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
-	test-dsync-common.o \
 	../lib-test/libtest.la \
 	../lib-mail/libmail.la \
 	../lib-imap/libimap.la \
 	../lib/liblib.la
 
-test_dsync_brain_SOURCES = test-dsync-brain.c
-test_dsync_brain_LDADD = test-dsync-worker.o dsync-data.o dsync-brain.o dsync-worker.o $(test_libs)
-test_dsync_brain_DEPENDENCIES = test-dsync-worker.o dsync-data.o dsync-brain.o dsync-worker.o $(test_libs)
+test_dsync_brain_SOURCES = test-dsync-brain.c test-dsync-worker.c test-dsync-common.c
+test_dsync_brain_LDADD = dsync-data.o dsync-brain.o dsync-worker.o $(test_libs)
+test_dsync_brain_DEPENDENCIES = dsync-data.o dsync-brain.o dsync-worker.o $(test_libs)
 
-test_dsync_brain_msgs_SOURCES = test-dsync-brain-msgs.c
-test_dsync_brain_msgs_LDADD = test-dsync-worker.o dsync-data.o dsync-brain-msgs.o dsync-worker.o $(test_libs)
-test_dsync_brain_msgs_DEPENDENCIES = test-dsync-worker.o dsync-data.o dsync-brain-msgs.o dsync-worker.o $(test_libs)
+test_dsync_brain_msgs_SOURCES = test-dsync-brain-msgs.c test-dsync-worker.c test-dsync-common.c
+test_dsync_brain_msgs_LDADD = dsync-data.o dsync-brain-msgs.o dsync-worker.o $(test_libs)
+test_dsync_brain_msgs_DEPENDENCIES = dsync-data.o dsync-brain-msgs.o dsync-worker.o $(test_libs)
 
-test_dsync_proxy_SOURCES = test-dsync-proxy.c
+test_dsync_proxy_SOURCES = test-dsync-proxy.c test-dsync-common.c
 test_dsync_proxy_LDADD = dsync-proxy.o $(test_libs)
 test_dsync_proxy_DEPENDENCIES = dsync-proxy.o $(test_libs)
 
-test_dsync_proxy_server_cmd_SOURCES = test-dsync-proxy-server-cmd.c
-test_dsync_proxy_server_cmd_LDADD = test-dsync-worker.o dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o $(test_libs)
-test_dsync_proxy_server_cmd_DEPENDENCIES = test-dsync-worker.o dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o $(test_libs)
+test_dsync_proxy_server_cmd_SOURCES = test-dsync-proxy-server-cmd.c test-dsync-worker.c test-dsync-common.c
+test_dsync_proxy_server_cmd_LDADD = dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o $(test_libs)
+test_dsync_proxy_server_cmd_DEPENDENCIES = dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o $(test_libs)
 
 check: check-am check-test
 check-test: all-am
