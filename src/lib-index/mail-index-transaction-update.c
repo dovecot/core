@@ -929,8 +929,9 @@ int mail_index_atomic_inc_ext(struct mail_index_transaction *t,
 		  seq <= t->last_new_seq));
 	i_assert(ext_id < array_count(&t->view->index->extensions));
 	/* currently non-external transactions can be applied multiple times,
-	   causing multiple increments. */
-	//FIXME:i_assert((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	   causing multiple increments. FIXME: we need this now and it doesn't
+	   actually seem to be a real problem at least right now - why? */
+	/*i_assert((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);*/
 
 	t->log_ext_updates = TRUE;
 	if (!array_is_created(&t->ext_rec_atomics))

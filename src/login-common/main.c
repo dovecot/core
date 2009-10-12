@@ -167,8 +167,6 @@ int main(int argc, char *argv[], char *envp[])
 	pool_t set_pool;
 	int c;
 
-	//FIXME:is_inetd = getenv("DOVECOT_MASTER") == NULL;
-
 	master_service = master_service_init(login_process_name,
 					MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN,
 					argc, argv);
@@ -192,13 +190,6 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
-#if 0
-	if (is_inetd) {
-		/* running from inetd. create master process before
-		   dropping privileges. */
-		master_fd = master_connect(t_strcut(login_process_name, '-'));
-	}
-#endif
 	login_process_preinit();
 
 	process_title_init(argv, envp);
