@@ -39,5 +39,6 @@ doveadm_SOURCES = \
 	doveadm-pw.c
 
 noinst_HEADERS = \
+	doveadm.h \
 	doveadm-dump.h \
 	doveadm-mail.h
