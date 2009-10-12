@@ -13,8 +13,6 @@
 #include <bsd_auth.h>
 #include <pwd.h>
 
-#define BSDAUTH_PASS_SCHEME "CRYPT"
-
 static void
 bsdauth_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
@@ -56,12 +54,12 @@ bsdauth_preinit(struct auth_passdb *auth_passdb, const char *args)
 	struct passdb_module *module;
 
 	module = p_new(auth_passdb->auth->pool, struct passdb_module, 1);
+	module->module.default_pass_scheme = "PLAIN"; /* same reason as PAM */
 
 	if (strncmp(args, "cache_key=", 10) == 0) {
 		module->cache_key =
 			auth_cache_parse_key(auth_passdb->auth->pool,
 					     args + 10);
-		module->default_pass_scheme = BSDAUTH_PASS_SCHEME;
 	} else if (*args != '\0')
 		i_fatal("passdb bsdauth: Unknown setting: %s", args);
 	return module;
