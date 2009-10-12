@@ -24,6 +24,10 @@ const char *login_protocol = "pop3";
 const char *login_process_name = "pop3-login";
 unsigned int login_default_port = 110;
 
+void login_process_preinit(void)
+{
+}
+
 static bool cmd_stls(struct pop3_client *client)
 {
 	client_cmd_starttls(&client->common);

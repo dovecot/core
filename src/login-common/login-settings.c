@@ -83,6 +83,11 @@ struct setting_parser_info login_setting_parser_info = {
 	MEMBER(check_func) login_settings_check
 };
 
+const struct setting_parser_info *login_set_roots[] = {
+	&login_setting_parser_info,
+	NULL
+};
+
 /* <settings checks> */
 static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 {
@@ -152,17 +157,13 @@ login_settings_read(struct master_service *service, pool_t pool,
 		    const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip)
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&login_setting_parser_info,
-		NULL
-	};
 	struct master_service_settings_input input;
 	const char *error;
 	void **sets;
 	struct login_settings *set;
 
 	memset(&input, 0, sizeof(input));
-	input.roots = set_roots;
+	input.roots = login_set_roots;
 	input.module = "login";
 	input.service = login_protocol;
 

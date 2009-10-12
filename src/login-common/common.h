@@ -21,4 +21,6 @@ extern int anvil_fd;
 
 extern const struct login_settings *global_login_settings;
 
+void login_process_preinit(void);
+
 #endif

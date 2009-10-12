@@ -199,6 +199,7 @@ int main(int argc, char *argv[], char *envp[])
 		master_fd = master_connect(t_strcut(login_process_name, '-'));
 	}
 #endif
+	login_process_preinit();
 
 	process_title_init(argv, envp);
 	set_pool = pool_alloconly_create("global login settings", 4096);

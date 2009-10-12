@@ -32,6 +32,10 @@ const char *login_protocol = "imap";
 const char *login_process_name = "imap-login";
 unsigned int login_default_port = 143;
 
+void login_process_preinit(void)
+{
+}
+
 /* Skip incoming data until newline is found,
    returns TRUE if newline was found. */
 bool client_skip_line(struct imap_client *client)
