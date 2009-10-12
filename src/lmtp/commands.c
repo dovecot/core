@@ -302,7 +302,7 @@ int cmd_rcpt(struct client *client, const char *args)
 
 int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 {
-	client_destroy(client, "221 2.0.0", "Logged out");
+	client_destroy(client, "221 2.0.0", "Client quit");
 	return -1;
 }
 
