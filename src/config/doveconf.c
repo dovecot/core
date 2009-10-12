@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     argc, argv);
 	i_set_failure_prefix("doveconf: ");
-	getopt_str = t_strconcat("af:m:nN:e",
+	getopt_str = t_strconcat("af:m:nNe",
 				 master_service_getopt_string(), NULL);
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		if (c == 'e')
