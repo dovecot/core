@@ -10,3 +10,6 @@ example_DATA = \
 
 EXTRA_DIST = \
 	$(example_DATA)
+
+install-data-local:
+	$(mkdir_p) $(DESTDIR)/$(sysconfdir)/dovecot
