@@ -42,6 +42,7 @@ The connection starts by both client and server sending handshakes:
  S: "VERSION" TAB <major> TAB <minor>
  S: "SPID" TAB <pid>
  S: "CUID" TAB <pid>
+ S: "COOKIE" TAB <cookie>
  S: "MECH" TAB <name> [TAB <parameters>] (multiple times)
  S: "DONE"
 
@@ -62,6 +63,9 @@ SPID can be used by authentication client to tell master what server
 process handled the authentication.
 
 CUID is currently useful only for APOP authentication.
+
+COOKIE returns connection-specific 128 bit cookie in hex. It must be
+given to REQUEST command. (v2.0+)
 
 DONE finishes the handshake from server. CPID finishes the handshake from
 client.
@@ -156,7 +160,7 @@ SPID can be used to let master identify the server process.
 Master Requests
 ---------------
 
- M: "REQUEST" TAB <id> TAB <client-pid> TAB <client-id>
+ M: "REQUEST" TAB <id> TAB <client-pid> TAB <client-id> TAB <cookie>
  M: "USER" TAB <id> TAB <userid> TAB service=<service> [TAB <parameters>]
 
  S: "NOTFOUND" TAB <id>
