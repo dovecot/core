@@ -1,4 +1,4 @@
-Dovecot Authentication Protocol v1.0
+Dovecot Authentication Protocol v1.1
 
 
 General
@@ -49,7 +49,7 @@ The connection starts by both client and server sending handshakes:
 Both client and server should check that they support the same major version
 number. If they don't, the other side isn't expected to be talking the same
 protocol and should be disconnected. Minor version can be ignored. This
-document is version number 1.0.
+document is version number 1.1.
 
 CPID, SPID and specify client and server PIDs. They should be unique
 identifiers for the specific process. UNIX process IDs are good choices.
@@ -65,7 +65,7 @@ process handled the authentication.
 CUID is currently useful only for APOP authentication.
 
 COOKIE returns connection-specific 128 bit cookie in hex. It must be
-given to REQUEST command. (v2.0+)
+given to REQUEST command. (Protocol v1.1+ / Dovecot v2.0+)
 
 DONE finishes the handshake from server. CPID finishes the handshake from
 client.
