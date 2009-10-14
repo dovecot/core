@@ -1296,6 +1296,53 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	return 0;
 }
 
+static void
+maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
+{
+	struct mail_index_view *view;
+	struct maildir_uidlist_rec *const *recs;
+	ARRAY_TYPE(maildir_uidlist_rec_p) new_records;
+	const struct mail_index_header *hdr;
+	const struct mail_index_record *rec;
+	unsigned int i, count;
+	uint32_t seq;
+
+	mail_index_refresh(uidlist->mbox->ibox.index);
+	view = mail_index_view_open(uidlist->mbox->ibox.index);
+	count = array_count(&uidlist->records);
+	hdr = mail_index_get_header(view);
+	if (count * UIDLIST_COMPRESS_PERCENTAGE / 100 <= hdr->messages_count) {
+		/* too much trouble to be worth it */
+		mail_index_view_close(&view);
+		return;
+	}
+
+	i_array_init(&new_records, hdr->messages_count + 64);
+	recs = array_get(&uidlist->records, &count);
+	for (i = 0, seq = 1; i < count && seq <= hdr->messages_count; i++) {
+		rec = mail_index_lookup(view, seq);
+		if (recs[i]->uid != rec->uid)
+			i_assert(recs[i]->uid < rec->uid);
+		else {
+			array_append(&new_records, &recs[i], 1);
+			seq++;
+		}
+	}
+
+	/* drop messages expunged at the end of index */
+	while (i < count && recs[i]->uid < hdr->next_uid)
+		i++;
+	/* view might not be completely up-to-date, so preserve any
+	   messages left */
+	for (; i < count; i++)
+		array_append(&new_records, &recs[i], 1);
+
+	array_free(&uidlist->records);
+	uidlist->records = new_records;
+
+	mail_index_view_close(&view);
+}
+
 static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 {
 	struct mailbox *box = &uidlist->ibox->box;
@@ -1306,6 +1353,8 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 	int i, fd, ret;
 
 	i_assert(uidlist->initial_read);
+
+	maildir_uidlist_records_drop_expunges(uidlist);
 
 	control_dir = mailbox_list_get_path(box->list, box->name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
@@ -1402,7 +1451,8 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 
 static bool maildir_uidlist_want_compress(struct maildir_uidlist_sync_ctx *ctx)
 {
-	unsigned int min_rewrite_count;
+	struct mail_index_view *view = ctx->uidlist->mbox->ibox.view;
+	unsigned int min_rewrite_count, messages_count;
 
 	if (!ctx->uidlist->locked_refresh)
 		return FALSE;
@@ -1412,7 +1462,9 @@ static bool maildir_uidlist_want_compress(struct maildir_uidlist_sync_ctx *ctx)
 	min_rewrite_count =
 		(ctx->uidlist->read_records_count + ctx->new_files_count) *
 		UIDLIST_COMPRESS_PERCENTAGE / 100;
-	return min_rewrite_count >= array_count(&ctx->uidlist->records);
+	messages_count = I_MIN(mail_index_view_get_messages_count(view),
+			       array_count(&ctx->uidlist->records));
+	return min_rewrite_count >= messages_count;
 }
 
 static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
