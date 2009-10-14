@@ -49,13 +49,15 @@ static const char *escape_local_part(const char *local_part)
 {
 	const char *p;
 
-	/* if local_part isn't dot-atom-text, we need to return quoted-string */
+	/* if local_part isn't dot-atom-text, we need to return quoted-string
+	   dot-atom-text = 1*atext *("." 1*atext) */
 	for (p = local_part; *p != '\0'; p++) {
-		if (!IS_ATEXT(*p) && *p != '.') {
-			return t_strdup_printf("\"%s\"",
-					       str_escape(local_part));
-		}
+		if (!IS_ATEXT(*p) && *p != '.')
+			break;
 	}
+	if (*p != '\0' || *local_part == '.' ||
+	    (p != local_part && p[-1] == '.'))
+		local_part = t_strdup_printf("\"%s\"", str_escape(local_part));
 	return local_part;
 }
 
