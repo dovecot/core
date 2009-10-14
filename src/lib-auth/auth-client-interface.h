@@ -4,7 +4,7 @@
 /* Major version changes are not backwards compatible,
    minor version numbers can be ignored. */
 #define AUTH_CLIENT_PROTOCOL_MAJOR_VERSION 1
-#define AUTH_CLIENT_PROTOCOL_MINOR_VERSION 0
+#define AUTH_CLIENT_PROTOCOL_MINOR_VERSION 1
 
 /* GSSAPI can use quite large packets */
 #define AUTH_CLIENT_MAX_LINE_LENGTH 16384
