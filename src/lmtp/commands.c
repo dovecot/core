@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "istream.h"
 #include "ostream.h"
 #include "istream-dot.h"
@@ -227,6 +228,39 @@ static bool client_proxy_rcpt(struct client *client, const char *address)
 	return TRUE;
 }
 
+static const char *lmtp_unescape_address(const char *name)
+{
+	string_t *str;
+	const char *p;
+
+	if (*name != '"')
+		return name;
+
+	/* quoted-string local-part. drop the quotes unless there's a
+	   '@' character inside or there's an error. */
+	str = t_str_new(128);
+	for (p = name+1; *p != '"'; p++) {
+		if (*p == '\0')
+			return name;
+		if (*p == '\\') {
+			if (p[1] == '\0') {
+				/* error */
+				return name;
+			}
+			p++;
+		}
+		if (*p == '@')
+			return name;
+		str_append_c(str, *p);
+	}
+	p++;
+	if (*p != '@' && *p != '\0')
+		return name;
+
+	str_append(str, p);
+	return str_c(str);
+}
+
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
@@ -254,7 +288,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	}
 
 	memset(&rcpt, 0, sizeof(rcpt));
-	name = t_strndup(addr + 4, len - 5);
+	name = lmtp_unescape_address(t_strndup(addr + 4, len - 5));
 
 	if (rcpt_is_duplicate(client, name)) {
 		client_send_line(client, "250 2.1.5 OK, ignoring duplicate");
