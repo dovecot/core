@@ -966,6 +966,9 @@ int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 		uidlist->next_uid = hdr->next_uid;
 		uidlist->initial_hdr_read = TRUE;
 		mail_index_view_close(&view);
+
+		if (UIDLIST_IS_LOCKED(uidlist))
+			uidlist->locked_refresh = TRUE;
 		return 1;
 	} else {
 		return maildir_uidlist_refresh(uidlist);
@@ -1416,7 +1419,7 @@ static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 
-	if (!uidlist->locked_refresh)
+	if (!uidlist->locked_refresh || !uidlist->initial_read)
 		return FALSE;
 
 	if (ctx->finish_change_counter != uidlist->change_counter)
