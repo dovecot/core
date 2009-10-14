@@ -34,15 +34,19 @@ struct log_service_handshake {
    to make sure there's space to transfer the command tag  */
 #define MASTER_AUTH_MAX_DATA_SIZE (1024*2)
 
+/* Authentication client process's cookie size */
+#define MASTER_AUTH_COOKIE_SIZE (128/8)
+
 /* Authentication request. File descriptor may be sent along with the
    request. */
 struct master_auth_request {
 	/* Request tag. Reply is sent back using same tag. */
 	unsigned int tag;
 
-	/* Authentication process and authentication ID. */
+	/* Authentication process, authentication ID and auth cookie. */
 	pid_t auth_pid;
 	unsigned int auth_id;
+	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
 
 	/* Local and remote IPs of the connection. The file descriptor
 	   itself may be a local socketpair. */

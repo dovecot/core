@@ -3,6 +3,7 @@
 #include "common.h"
 #include "base64.h"
 #include "buffer.h"
+#include "hex-binary.h"
 #include "istream.h"
 #include "write-full.h"
 #include "strescape.h"
@@ -102,8 +103,11 @@ master_send_request(struct client *client, struct auth_client_request *request)
 {
 	struct master_auth_request req;
 	const unsigned char *data;
+	const char *cookie;
 	size_t size;
 	buffer_t *buf;
+
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	memset(&req, 0, sizeof(req));
 	req.auth_pid = auth_client_request_get_server_pid(request);
@@ -111,7 +115,11 @@ master_send_request(struct client *client, struct auth_client_request *request)
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	cookie = auth_client_get_cookie(auth_client);
+	if (hex_to_binary(cookie, buf) == 0 && buf->used == sizeof(req.cookie))
+		memcpy(req.cookie, buf->data, sizeof(req.cookie));
+
+	buffer_set_used_size(buf, 0);
 	buffer_append(buf, client->master_data_prefix,
 		      client->master_data_prefix_len);
 

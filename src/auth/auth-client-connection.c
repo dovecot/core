@@ -6,9 +6,11 @@
 #include "istream.h"
 #include "ostream.h"
 #include "network.h"
+#include "hex-binary.h"
 #include "hostpid.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "randgen.h"
 #include "safe-memset.h"
 #include "master-service.h"
 #include "auth-stream.h"
@@ -274,6 +276,7 @@ auth_client_connection_create(struct auth *auth, int fd)
 	conn->auth = auth;
 	conn->refcount = 1;
 	conn->connect_uid = ++connect_uid_counter;
+	random_fill(conn->cookie, sizeof(conn->cookie));
 
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH,
@@ -285,11 +288,13 @@ auth_client_connection_create(struct auth *auth, int fd)
 	array_append(&auth_client_connections, &conn, 1);
 
 	str = t_str_new(128);
-	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nDONE\n",
+	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
                     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 		    str_c(conn->auth->mech_handshake),
 		    my_pid, conn->connect_uid);
+	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
+	str_append(str, "\nDONE\n");
 
 	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0)
 		auth_client_connection_destroy(&conn);

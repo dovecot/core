@@ -1,6 +1,8 @@
 #ifndef AUTH_CLIENT_CONNECTION_H
 #define AUTH_CLIENT_CONNECTION_H
 
+#include "master-interface.h"
+
 struct auth_client_connection {
 	struct auth *auth;
 	int refcount;
@@ -12,6 +14,7 @@ struct auth_client_connection {
 
 	unsigned int pid;
 	unsigned int connect_uid;
+	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
 	struct auth_request_handler *request_handler;
 
 	unsigned int version_received:1;

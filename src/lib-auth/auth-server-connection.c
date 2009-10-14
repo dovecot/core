@@ -84,8 +84,24 @@ auth_server_input_cuid(struct auth_server_connection *conn,
 		i_error("BUG: Authentication server already sent handshake");
 		return -1;
 	}
+	if (args[0] == NULL) {
+		i_error("BUG: Authentication server sent broken CUID line");
+		return -1;
+	}
 
 	conn->connect_uid = (unsigned int)strtoul(args[0], NULL, 10);
+	return 0;
+}
+
+static int
+auth_server_input_cookie(struct auth_server_connection *conn,
+			 const char *const *args)
+{
+	if (conn->cookie != NULL) {
+		i_error("BUG: Authentication server already sent cookie");
+		return -1;
+	}
+	conn->cookie = p_strdup(conn->pool, args[0]);
 	return 0;
 }
 
@@ -93,6 +109,10 @@ static int auth_server_input_done(struct auth_server_connection *conn)
 {
 	if (array_count(&conn->available_auth_mechs) == 0) {
 		i_error("BUG: Authentication server returned no mechanisms");
+		return -1;
+	}
+	if (conn->cookie == NULL) {
+		i_error("BUG: Authentication server didn't send a cookie");
 		return -1;
 	}
 
@@ -197,6 +217,8 @@ auth_server_connection_input_line(struct auth_server_connection *conn,
 		return auth_server_input_spid(conn, args + 1);
 	else if (strcmp(args[0], "CUID") == 0)
 		return auth_server_input_cuid(conn, args + 1);
+	else if (strcmp(args[0], "COOKIE") == 0)
+		return auth_server_input_cookie(conn, args + 1);
 	else if (strcmp(args[0], "DONE") == 0)
 		return auth_server_input_done(conn);
 	else {

@@ -5,8 +5,9 @@
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
-#include "hostpid.h"
 #include "str-sanitize.h"
+#include "hostpid.h"
+#include "hex-binary.h"
 #include "ioloop.h"
 #include "network.h"
 #include "istream.h"
@@ -69,10 +70,12 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	struct auth_client_connection *client_conn;
 	const char *const *list;
 	unsigned int id, client_pid, client_id;
+	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
+	buffer_t buf;
 
-	/* <id> <client-pid> <client-id> */
+	/* <id> <client-pid> <client-id> <cookie> */
 	list = t_strsplit(args, "\t");
-	if (list[0] == NULL || list[1] == NULL || list[2] == NULL) {
+	if (str_array_length(list) < 4) {
 		i_error("BUG: Master sent broken REQUEST");
 		return FALSE;
 	}
@@ -80,10 +83,20 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	id = (unsigned int)strtoul(list[0], NULL, 10);
 	client_pid = (unsigned int)strtoul(list[1], NULL, 10);
 	client_id = (unsigned int)strtoul(list[2], NULL, 10);
+	buffer_create_data(&buf, cookie, sizeof(cookie));
+	if (hex_to_binary(list[3], &buf) < 0) {
+		i_error("BUG: Master sent broken REQUEST cookie");
+		return FALSE;
+	}
 
 	client_conn = auth_client_connection_lookup(client_pid);
 	if (client_conn == NULL) {
 		i_error("Master requested auth for nonexisting client %u",
+			client_pid);
+		(void)o_stream_send_str(conn->output,
+					t_strdup_printf("NOTFOUND\t%u\n", id));
+	} else if (memcmp(client_conn->cookie, cookie, sizeof(cookie)) != 0) {
+		i_error("Master requested auth for client %u with invalid cookie",
 			client_pid);
 		(void)o_stream_send_str(conn->output,
 					t_strdup_printf("NOTFOUND\t%u\n", id));

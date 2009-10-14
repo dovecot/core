@@ -3,6 +3,7 @@
 #include "common.h"
 #include "hash.h"
 #include "str.h"
+#include "hex-binary.h"
 #include "ioloop.h"
 #include "ostream.h"
 #include "fdpass.h"
@@ -85,7 +86,8 @@ void service_process_auth_source_send_reply(struct service_process_auth_source *
 static unsigned int
 auth_server_send_request(struct service_process_auth_server *server_process,
 			 struct service_process_auth_source *source_process,
-			 unsigned int auth_id)
+			 unsigned int auth_id,
+			 const uint8_t cookie[MASTER_AUTH_COOKIE_SIZE])
 {
 	unsigned int tag = 0;
 	string_t *str;
@@ -104,8 +106,11 @@ auth_server_send_request(struct service_process_auth_server *server_process,
 		str_truncate(str, 0);
 	}
 
-	str_printfa(str, "REQUEST\t%u\t%s\t%u\n",
+	str_printfa(str, "REQUEST\t%u\t%s\t%u\t",
 		    tag, dec2str(source_process->process.pid), auth_id);
+	binary_to_hex_append(str, cookie, MASTER_AUTH_COOKIE_SIZE);
+	str_append_c(str, '\n');
+
 	o_stream_send(server_process->auth_output, str_data(str), str_len(str));
 	return tag;
 }
@@ -241,7 +246,8 @@ service_process_auth_source_input(struct service_process_auth_source *process)
 	auth_req->data_size = req.data_size;
 	memcpy(auth_req->data, data, req.data_size);
 
-	tag = auth_server_send_request(auth_process, process, req.auth_id);
+	tag = auth_server_send_request(auth_process, process, req.auth_id,
+				       req.cookie);
 
 	service_process_ref(&process->process);
 	hash_table_insert(auth_process->auth_requests,

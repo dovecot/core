@@ -70,3 +70,8 @@ void auth_client_get_connect_id(struct auth_client *client,
 	*server_pid_r = client->conn->server_pid;
 	*connect_uid_r = client->conn->connect_uid;
 }
+
+const char *auth_client_get_cookie(struct auth_client *client)
+{
+	return client->conn->cookie;
+}
