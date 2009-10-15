@@ -113,8 +113,14 @@ int service_list_init_anvil(struct service_list *service_list,
 	service_list->anvil_kills =
 		service_process_notify_init(service_list->nonblocking_anvil_fd[1],
 					    service_process_write_anvil_kill);
-	service_list_anvil_discard_input(service_list);
 	return 0;
+}
+
+void services_anvil_init(struct service_list *service_list)
+{
+	/* this can't be in _init_anvil() because we can't do io_add()s
+	   before forking with kqueue. */
+	service_list_anvil_discard_input(service_list);
 }
 
 void service_list_deinit_anvil(struct service_list *service_list)

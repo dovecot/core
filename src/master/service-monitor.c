@@ -9,6 +9,7 @@
 #include "service-auth-source.h"
 #include "service-process.h"
 #include "service-process-notify.h"
+#include "service-anvil.h"
 #include "service-log.h"
 #include "service-monitor.h"
 
@@ -267,6 +268,7 @@ void services_monitor_start(struct service_list *service_list)
 	struct service *const *services;
 	unsigned int i, count;
 
+	services_anvil_init(service_list);
 	services_log_init(service_list);
 
 	services = array_get(&service_list->services, &count);
