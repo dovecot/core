@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "crc32.h"
 #include "mail-storage-settings.h"
 #include "imap-commands.h"
 #include "imap-sync.h"
@@ -21,6 +22,7 @@ struct cmd_idle_context {
 	unsigned int sync_pending:1;
 };
 
+static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx);
 static bool cmd_idle_continue(struct client_command_context *cmd);
 
 static void
@@ -108,6 +110,8 @@ static void keepalive_timeout(struct cmd_idle_context *ctx)
 	   several clients that really want to IDLE forever and there's not
 	   much harm in letting them do so. */
 	timeout_reset(ctx->client->to_idle);
+	/* recalculate time for the next keepalive timeout */
+	idle_add_keepalive_timeout(ctx);
 }
 
 static void idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
@@ -127,6 +131,22 @@ static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)
 		ctx->manual_cork = TRUE;
 		idle_sync_now(box, ctx);
 	}
+}
+
+static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx)
+{
+	unsigned int interval = ctx->client->set->imap_idle_notify_interval;
+
+	if (interval == 0)
+		return;
+
+	interval -= (time(NULL) +
+		     crc32_str(ctx->client->user->username)) % interval;
+
+	if (ctx->keepalive_to != NULL)
+		timeout_remove(&ctx->keepalive_to);
+	ctx->keepalive_to = timeout_add(interval * 1000,
+					keepalive_timeout, ctx);
 }
 
 static bool cmd_idle_continue(struct client_command_context *cmd)
@@ -166,7 +186,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 	}
 	if (client->output->offset != orig_offset &&
 	    ctx->keepalive_to != NULL)
-		timeout_reset(ctx->keepalive_to);
+		idle_add_keepalive_timeout(ctx);
 
 	if (ctx->sync_pending) {
 		/* more changes occurred while we were sending changes to
@@ -204,10 +224,7 @@ bool cmd_idle(struct client_command_context *cmd)
 	ctx = p_new(cmd->pool, struct cmd_idle_context, 1);
 	ctx->cmd = cmd;
 	ctx->client = client;
-
-	ctx->keepalive_to = client->set->imap_idle_notify_interval == 0 ? NULL :
-		timeout_add(client->set->imap_idle_notify_interval * 1000,
-			    keepalive_timeout, ctx);
+	idle_add_keepalive_timeout(ctx);
 
 	if (client->mailbox != NULL) {
 		const struct mail_storage_settings *set;
