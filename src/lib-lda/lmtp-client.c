@@ -146,7 +146,7 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 {
 	struct lmtp_rcpt *rcpt;
 	unsigned int i, count;
-	bool last;
+	bool last = TRUE;
 
 	switch (client->protocol) {
 	case LMTP_CLIENT_PROTOCOL_SMTP:
@@ -159,7 +159,6 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 					      rcpt[i].context);
 		}
 		client->rcpt_next_data_idx = count;
-		last = TRUE;
 		break;
 	case LMTP_CLIENT_PROTOCOL_LMTP:
 		rcpt = array_idx_modifiable(&client->recipients,
