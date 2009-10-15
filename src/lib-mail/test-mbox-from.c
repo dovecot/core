@@ -51,6 +51,7 @@ static void test_mbox_from_parse(void)
 		{ 0, 0, NULL, -1 },
 	};
 	unsigned int i, j, len;
+	struct tm *tm;
 	char *sender;
 	bool success;
 	time_t t;
@@ -71,7 +72,8 @@ static void test_mbox_from_parse(void)
 		/* prepare for testing without timezone */
 		if (output[i].ret == 0) {
 			output[i].time += output[i].tz_offset*60;
-			output[i].tz_offset = -timezone/60;
+			tm = localtime(&output[i].time);
+			output[i].tz_offset = utc_offset(tm, output[i].time);
 			output[i].time -= output[i].tz_offset*60;
 		}
 	}
