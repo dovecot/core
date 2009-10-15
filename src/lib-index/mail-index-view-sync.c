@@ -55,6 +55,17 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 	end_seq = hdr->log_file_seq;
 	end_offset = hdr->log_file_head_offset;
 
+	if (end_seq < view->log_file_head_seq ||
+	    (end_seq == view->log_file_head_seq &&
+	     end_offset < view->log_file_head_offset)) {
+		mail_index_set_error(view->index,
+			"%s log position went backwards "
+			"(%u,%"PRIuUOFF_T" < %u,%"PRIuUOFF_T")",
+			view->index->filepath, end_seq, end_offset,
+			view->log_file_head_seq, view->log_file_head_offset);
+		return -1;
+	}
+
 	for (;;) {
 		/* the view begins from the first non-synced transaction */
 		ret = mail_transaction_log_view_set(view->log_view,
