@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "utc-mktime.h"
+#include "utc-offset.h"
 #include "mbox-from.h"
 
 #include <time.h>
@@ -237,7 +238,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	} else {
 		/* assume local timezone */
 		*time_r = mktime(&tm);
-		*tz_offset_r = -timezone/60;
+		*tz_offset_r = utc_offset(localtime(time_r), *time_r);
 	}
 
 	*sender_r = i_strdup_until(msg_start, sender_end);

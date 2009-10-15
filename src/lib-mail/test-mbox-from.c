@@ -1,6 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "utc-offset.h"
 #include "mbox-from.h"
 #include "test-common.h"
 
@@ -79,8 +80,12 @@ static void test_mbox_from_parse(void)
 
 static void test_mbox_from_create(void)
 {
+	time_t t = 1234567890;
+	int tz;
+
 	test_begin("mbox_from_create()");
-	test_assert(strcmp(mbox_from_create("user", 1234567890+timezone),
+	tz = utc_offset(localtime(&t), t) * -60;
+	test_assert(strcmp(mbox_from_create("user", t+tz),
 			   "From user  Fri Feb 13 23:31:30 2009\n") == 0);
 	test_end();
 }
