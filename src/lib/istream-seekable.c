@@ -3,10 +3,13 @@
 #include "lib.h"
 #include "buffer.h"
 #include "close-keep-errno.h"
+#include "read-full.h"
 #include "write-full.h"
 #include "istream-internal.h"
 #include "istream-concat.h"
 #include "istream-seekable.h"
+
+#include <unistd.h>
 
 #define BUF_INITIAL_SIZE (1024*32)
 
@@ -76,14 +79,14 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	if (fd == -1)
 		return -1;
 
-	sstream->temp_path = i_strdup(path);
-
 	/* copy our currently read buffer to it */
 	if (write_full(fd, sstream->buffer->data, sstream->buffer->used) < 0) {
-		i_error("write_full(%s) failed: %m", path);
+		if (!ENOSPACE(errno))
+			i_error("write_full(%s) failed: %m", path);
 		close_keep_errno(fd);
 		return -1;
 	}
+	sstream->temp_path = i_strdup(path);
 	sstream->write_peak = sstream->buffer->used;
 
 	buffer_free(&sstream->buffer);
@@ -140,10 +143,16 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 		if (sstream->buffer->used >= stream->max_buffer_size)
 			return FALSE;
 
-		/* read more to buffer */
-		*ret_r = read_more(sstream);
-		if (*ret_r <= 0)
-			return TRUE;
+		if (sstream->cur_input == NULL)
+			size = 0;
+		else
+			(void)i_stream_get_data(sstream->cur_input, &size);
+		if (size == 0) {
+			/* read more to buffer */
+			*ret_r = read_more(sstream);
+			if (*ret_r <= 0)
+				return TRUE;
+		}
 
 		/* we should have more now. */
 		data = i_stream_get_data(sstream->cur_input, &size);
@@ -159,6 +168,31 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 	i_assert(*ret_r > 0);
 	stream->pos = pos;
 	return TRUE;
+}
+
+static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
+{
+	struct istream_private *stream = &sstream->istream;
+	void *data;
+
+	i_assert(sstream->buffer == NULL);
+
+	sstream->buffer =
+		buffer_create_dynamic(default_pool, sstream->write_peak);
+	data = buffer_append_space_unsafe(sstream->buffer, sstream->write_peak);
+
+	if (pread_full(sstream->fd, data, sstream->write_peak, 0) < 0) {
+		i_error("read(%s) failed: %m", sstream->temp_path);
+		buffer_free(&sstream->buffer);
+		return -1;
+	}
+	i_stream_destroy(&sstream->fd_input);
+	(void)close(sstream->fd);
+	sstream->fd = -1;
+
+	stream->max_buffer_size = (size_t)-1;
+	i_free_and_null(sstream->temp_path);
+	return 0;
 }
 
 static ssize_t i_stream_seekable_read(struct istream_private *stream)
@@ -178,15 +212,16 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 
 		/* copy everything to temp file and use it as the stream */
 		if (copy_to_temp_file(sstream) < 0) {
-			i_assert(errno != 0);
-			stream->istream.stream_errno = errno;
-			i_stream_close(&stream->istream);
-			return -1;
+			stream->max_buffer_size = (size_t)-1;
+			if (!read_from_buffer(sstream, &ret))
+				i_unreached();
+			return ret;
 		}
 		i_assert(sstream->buffer == NULL);
 	}
 
-	while (stream->istream.v_offset + stream->pos >= sstream->write_peak) {
+	i_assert(stream->istream.v_offset + stream->pos <= sstream->write_peak);
+	if (stream->istream.v_offset + stream->pos == sstream->write_peak) {
 		/* need to read more */
 		ret = read_more(sstream);
 		if (ret <= 0)
@@ -194,17 +229,21 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 
 		/* save to our file */
 		data = i_stream_get_data(sstream->cur_input, &size);
-		if (write_full(sstream->fd, data, size) < 0) {
-			i_assert(errno != 0);
-			stream->istream.stream_errno = errno;
-			i_error("write_full(%s) failed: %m",
-				sstream->temp_path);
-			i_stream_close(&stream->istream);
-			return -1;
+		ret = write(sstream->fd, data, size);
+		if (ret <= 0) {
+			if (ret < 0 && !ENOSPACE(errno)) {
+				i_error("write_full(%s) failed: %m",
+					sstream->temp_path);
+			}
+			if (i_stream_seekable_write_failed(sstream) < 0)
+				return -1;
+			if (!read_from_buffer(sstream, &ret))
+				i_unreached();
+			return ret;
 		}
 		i_stream_sync(sstream->fd_input);
-		i_stream_skip(sstream->cur_input, size);
-		sstream->write_peak += size;
+		i_stream_skip(sstream->cur_input, ret);
+		sstream->write_peak += ret;
 	}
 
 	i_stream_seek(sstream->fd_input, stream->istream.v_offset);
