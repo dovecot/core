@@ -783,9 +783,6 @@ maildir_quota_namespace_added(struct quota *quota, struct mail_namespace *ns)
 	struct quota_root **roots;
 	unsigned int i, count;
 
-	if (strcmp(ns->storage->name, "maildir") != 0)
-		return;
-
 	roots = array_get_modifiable(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		if (roots[i]->backend.name == quota_backend_maildir.name &&
