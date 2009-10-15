@@ -64,7 +64,7 @@ static struct setting_define inet_listener_setting_defines[] = {
 };
 
 static struct inet_listener_settings inet_listener_default_settings = {
-	MEMBER(address) "*",
+	MEMBER(address) "",
 	MEMBER(port) 0,
 	MEMBER(ssl) FALSE
 };
