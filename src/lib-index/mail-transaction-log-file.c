@@ -1006,6 +1006,10 @@ int mail_transaction_log_file_get_modseq_next_offset(
 		*next_offset_r = file->sync_offset;
 		return 0;
 	}
+	if (modseq == file->hdr.initial_modseq) {
+		*next_offset_r = file->hdr.hdr_size;
+		return 0;
+	}
 
 	cache = modseq_cache_get_modseq(file, modseq);
 	if (cache == NULL) {
