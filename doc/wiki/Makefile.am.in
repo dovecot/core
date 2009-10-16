@@ -6,4 +6,4 @@ endif
 EXTRA_DIST = \
 	$(wikifiles)
 
-wikifiles = \
+wikifiles = 
