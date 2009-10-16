@@ -115,6 +115,14 @@ size_t o_stream_get_buffer_used_size(const struct ostream *stream)
 		_stream->get_used_size(_stream);
 }
 
+size_t o_stream_get_buffer_avail_size(const struct ostream *stream)
+{
+	size_t used = o_stream_get_buffer_used_size(stream);
+
+	return stream->real_stream->max_buffer_size <= used ? 0 :
+		stream->real_stream->max_buffer_size - used;
+}
+
 int o_stream_seek(struct ostream *stream, uoff_t offset)
 {
 	struct ostream_private *_stream = stream->real_stream;

@@ -72,6 +72,8 @@ int o_stream_flush(struct ostream *stream);
 void o_stream_set_flush_pending(struct ostream *stream, bool set);
 /* Returns number of bytes currently in buffer. */
 size_t o_stream_get_buffer_used_size(const struct ostream *stream) ATTR_PURE;
+/* Returns number of bytes we can still write without failing. */
+size_t o_stream_get_buffer_avail_size(const struct ostream *stream) ATTR_PURE;
 
 /* Seek to specified position from beginning of file. This works only for
    files. Returns 1 if successful, -1 if error. */
