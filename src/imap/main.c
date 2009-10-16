@@ -23,43 +23,7 @@
 #define IS_STANDALONE() \
         (getenv("CLIENT_INPUT") == NULL)
 
-struct client_workaround_list {
-	const char *name;
-	enum client_workarounds num;
-};
-
-static struct client_workaround_list client_workaround_list[] = {
-	{ "delay-newmail", WORKAROUND_DELAY_NEWMAIL },
-	{ "outlook-idle", 0 }, /* only for backwards compatibility */
-	{ "netscape-eoh", WORKAROUND_NETSCAPE_EOH },
-	{ "tb-extra-mailbox-sep", WORKAROUND_TB_EXTRA_MAILBOX_SEP },
-	{ NULL, 0 }
-};
-
 void (*hook_client_created)(struct client **client) = NULL;
-
-static enum client_workarounds
-parse_workarounds(const struct imap_settings *set)
-{
-        enum client_workarounds client_workarounds = 0;
-        struct client_workaround_list *list;
-	const char *const *str;
-
-        str = t_strsplit_spaces(set->imap_client_workarounds, " ,");
-	for (; *str != NULL; str++) {
-		list = client_workaround_list;
-		for (; list->name != NULL; list++) {
-			if (strcasecmp(*str, list->name) == 0) {
-				client_workarounds |= list->num;
-				break;
-			}
-		}
-		if (list->name == NULL)
-			i_fatal("Unknown client workaround: %s", *str);
-	}
-
-	return client_workarounds;
-}
 
 static void client_add_input(struct client *client, const char *input)
 {
@@ -122,7 +86,6 @@ static void main_init(const struct imap_settings *set, struct mail_user *user,
 		master_service_set_die_with_master(master_service, TRUE);
 
 	client = client_create(0, 1, user, set);
-        client->workarounds = parse_workarounds(set);
 
 	if (dump_capability) {
 		printf("%s\n", str_c(client->capability_string));

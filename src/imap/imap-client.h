@@ -95,7 +95,6 @@ struct client {
 	struct timeout *to_idle, *to_idle_output;
 
         const struct imap_settings *set;
-	enum client_workarounds workarounds;
 	string_t *capability_string;
 
         struct mail_user *user;

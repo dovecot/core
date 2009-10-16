@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+static bool pop3_settings_verify(void *_set, pool_t pool,
+				 const char **error_r);
+
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
@@ -59,6 +62,56 @@ struct setting_parser_info pop3_setting_parser_info = {
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct pop3_settings),
-	MEMBER(check_func) NULL,
+	MEMBER(check_func) pop3_settings_verify,
 	MEMBER(dependencies) pop3_setting_dependencies
 };
+
+/* <settings checks> */
+struct pop3_client_workaround_list {
+	const char *name;
+	enum pop3_client_workarounds num;
+};
+
+static struct pop3_client_workaround_list pop3_client_workaround_list[] = {
+	{ "outlook-no-nuls", WORKAROUND_OUTLOOK_NO_NULS },
+	{ "oe-ns-eoh", WORKAROUND_OE_NS_EOH },
+	{ NULL, 0 }
+};
+
+static int
+pop3_settings_parse_workarounds(struct pop3_settings *set,
+				const char **error_r)
+{
+        enum pop3_client_workarounds client_workarounds = 0;
+	struct pop3_client_workaround_list *list;
+	const char *const *str;
+
+        str = t_strsplit_spaces(set->pop3_client_workarounds, " ,");
+	for (; *str != NULL; str++) {
+		list = pop3_client_workaround_list;
+		for (; list->name != NULL; list++) {
+			if (strcasecmp(*str, list->name) == 0) {
+				client_workarounds |= list->num;
+				break;
+			}
+		}
+		if (list->name == NULL) {
+			*error_r = t_strdup_printf("pop3_client_workarounds: "
+				"Unknown workaround: %s", *str);
+			return -1;
+		}
+	}
+	set->parsed_workarounds = client_workarounds;
+	return 0;
+}
+
+static bool
+pop3_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **error_r)
+{
+	struct pop3_settings *set = _set;
+
+	if (pop3_settings_parse_workarounds(set, error_r) < 0)
+		return FALSE;
+	return TRUE;
+}
+/* </settings checks> */

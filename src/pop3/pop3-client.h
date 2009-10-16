@@ -52,7 +52,6 @@ struct client {
 	/* settings: */
 	const struct pop3_settings *set;
 	const struct mail_storage_settings *mail_set;
-	enum client_workarounds workarounds;
 	enum uidl_keys uidl_keymask;
 
 	unsigned int disconnected:1;

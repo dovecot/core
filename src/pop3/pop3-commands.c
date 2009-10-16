@@ -321,7 +321,7 @@ static void fetch_callback(struct client *client)
 				add = '.';
 				break;
 			} else if (data[i] == '\0' &&
-				   (client->workarounds &
+				   (client->set->parsed_workarounds &
 				    WORKAROUND_OUTLOOK_NO_NULS) != 0) {
 				add = 0x80;
 				break;
@@ -360,7 +360,7 @@ static void fetch_callback(struct client *client)
 	}
 
 	if (!ctx->in_body &&
-	    (client->workarounds & WORKAROUND_OE_NS_EOH) != 0) {
+	    (client->set->parsed_workarounds & WORKAROUND_OE_NS_EOH) != 0) {
 		/* Add the missing end of headers line. */
 		(void)o_stream_send(client->output, "\r\n", 2);
 	}

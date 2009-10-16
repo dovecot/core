@@ -3,6 +3,14 @@
 
 struct mail_user_settings;
 
+/* <settings checks> */
+enum imap_client_workarounds {
+	WORKAROUND_DELAY_NEWMAIL		= 0x01,
+	WORKAROUND_NETSCAPE_EOH			= 0x04,
+	WORKAROUND_TB_EXTRA_MAILBOX_SEP		= 0x08
+};
+/* </settings checks> */
+
 struct imap_settings {
 	bool mail_debug;
 	bool shutdown_clients;
@@ -15,6 +23,8 @@ struct imap_settings {
 	const char *imap_logout_format;
 	const char *imap_id_send;
 	const char *imap_id_log;
+
+	enum imap_client_workarounds parsed_workarounds;
 };
 
 extern struct setting_parser_info imap_setting_parser_info;

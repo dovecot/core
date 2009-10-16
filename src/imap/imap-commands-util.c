@@ -46,7 +46,8 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 	}
 
 	mailbox_len = strlen(mailbox);
-	if ((cmd->client->workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
+	if ((cmd->client->set->parsed_workarounds &
+	     		WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
 	    mailbox[mailbox_len-1] == mailbox_list_get_hierarchy_sep(ns->list)) {
 		/* drop the extra trailing hierarchy separator */
 		mailbox = t_strndup(mailbox, mailbox_len-1);

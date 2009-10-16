@@ -35,17 +35,6 @@
    transaction. This allows the mailbox to become unlocked. */
 #define CLIENT_COMMIT_TIMEOUT_MSECS (10*1000)
 
-struct client_workaround_list {
-	const char *name;
-	enum client_workarounds num;
-};
-
-static struct client_workaround_list client_workaround_list[] = {
-	{ "outlook-no-nuls", WORKAROUND_OUTLOOK_NO_NULS },
-	{ "oe-ns-eoh", WORKAROUND_OE_NS_EOH },
-	{ NULL, 0 }
-};
-
 static struct client *pop3_clients;
 
 static void client_input(struct client *client);
@@ -167,28 +156,6 @@ static bool init_mailbox(struct client *client, const char **error_r)
 	return FALSE;
 }
 
-static enum client_workarounds
-parse_workarounds(const struct pop3_settings *set)
-{
-        enum client_workarounds client_workarounds = 0;
-	struct client_workaround_list *list;
-	const char *const *str;
-
-        str = t_strsplit_spaces(set->pop3_client_workarounds, " ,");
-	for (; *str != NULL; str++) {
-		list = client_workaround_list;
-		for (; list->name != NULL; list++) {
-			if (strcasecmp(*str, list->name) == 0) {
-				client_workarounds |= list->num;
-				break;
-			}
-		}
-		if (list->name == NULL)
-			i_fatal("Unknown client workaround: %s", *str);
-	}
-	return client_workarounds;
-}
-
 static enum uidl_keys parse_uidl_keymask(const char *format)
 {
 	enum uidl_keys mask = 0;
@@ -281,7 +248,6 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		return NULL;
 	}
 
-	client->workarounds = parse_workarounds(set);
 	client->uidl_keymask =
 		parse_uidl_keymask(client->mail_set->pop3_uidl_format);
 	if (client->uidl_keymask == 0)

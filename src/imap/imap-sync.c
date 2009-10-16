@@ -579,7 +579,7 @@ static bool cmd_sync_client(struct client_command_context *sync_cmd)
 	get_common_sync_flags(client, &flags, &imap_flags);
 	client->sync_counter++;
 
-	no_newmail = (client->workarounds & WORKAROUND_DELAY_NEWMAIL) != 0 &&
+	no_newmail = (client->set->parsed_workarounds & WORKAROUND_DELAY_NEWMAIL) != 0 &&
 		(imap_flags & IMAP_SYNC_FLAG_SAFE) == 0;
 	if (no_newmail) {
 		/* expunges might break the client just as badly as new mail

@@ -433,7 +433,7 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 	i_stream_seek(ctx->cur_input, old_offset);
 
 	if (!ctx->cur_have_eoh &&
-	    (ctx->client->workarounds & WORKAROUND_NETSCAPE_EOH) != 0) {
+	    (ctx->client->set->parsed_workarounds & WORKAROUND_NETSCAPE_EOH) != 0) {
 		/* Netscape 4.x doesn't like if end of headers line is
 		   missing. */
 		msg_size.virtual_size += 2;

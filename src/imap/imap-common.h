@@ -13,12 +13,6 @@
 /* Disconnect client when it sends too many bad commands in a row */
 #define CLIENT_MAX_BAD_COMMANDS 20
 
-enum client_workarounds {
-	WORKAROUND_DELAY_NEWMAIL		= 0x01,
-	WORKAROUND_NETSCAPE_EOH			= 0x04,
-	WORKAROUND_TB_EXTRA_MAILBOX_SEP		= 0x08
-};
-
 #include "lib.h"
 #include "imap-client.h"
 #include "imap-settings.h"

@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+static bool imap_settings_verify(void *_set, pool_t pool,
+				 const char **error_r);
+
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
@@ -62,6 +65,59 @@ struct setting_parser_info imap_setting_parser_info = {
 	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct imap_settings),
-	MEMBER(check_func) NULL,
+	MEMBER(check_func) imap_settings_verify,
 	MEMBER(dependencies) imap_setting_dependencies
 };
+
+/* <settings checks> */
+struct imap_client_workaround_list {
+	const char *name;
+	enum imap_client_workarounds num;
+};
+
+static struct imap_client_workaround_list imap_client_workaround_list[] = {
+	{ "delay-newmail", WORKAROUND_DELAY_NEWMAIL },
+	{ "outlook-idle", 0 }, /* only for backwards compatibility */
+	{ "netscape-eoh", WORKAROUND_NETSCAPE_EOH },
+	{ "tb-extra-mailbox-sep", WORKAROUND_TB_EXTRA_MAILBOX_SEP },
+	{ NULL, 0 }
+};
+
+static int
+imap_settings_parse_workarounds(struct imap_settings *set,
+				const char **error_r)
+{
+        enum imap_client_workarounds client_workarounds = 0;
+        struct imap_client_workaround_list *list;
+	const char *const *str;
+
+        str = t_strsplit_spaces(set->imap_client_workarounds, " ,");
+	for (; *str != NULL; str++) {
+		list = imap_client_workaround_list;
+		for (; list->name != NULL; list++) {
+			if (strcasecmp(*str, list->name) == 0) {
+				client_workarounds |= list->num;
+				break;
+			}
+		}
+		if (list->name == NULL) {
+			*error_r = t_strdup_printf("imap_client_workarounds: "
+				"Unknown workaround: %s", *str);
+			return -1;
+		}
+	}
+	set->parsed_workarounds = client_workarounds;
+	return 0;
+}
+
+
+static bool
+imap_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **error_r)
+{
+	struct imap_settings *set = _set;
+
+	if (imap_settings_parse_workarounds(set, error_r) < 0)
+		return FALSE;
+	return TRUE;
+}
+/* </settings checks> */

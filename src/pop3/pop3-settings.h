@@ -3,6 +3,13 @@
 
 struct mail_user_settings;
 
+/* <settings checks> */
+enum pop3_client_workarounds {
+	WORKAROUND_OUTLOOK_NO_NULS		= 0x01,
+	WORKAROUND_OE_NS_EOH			= 0x02
+};
+/* </settings checks> */
+
 struct pop3_settings {
 	bool mail_debug;
 	bool shutdown_clients;
@@ -15,6 +22,8 @@ struct pop3_settings {
 	bool pop3_lock_session;
 	const char *pop3_client_workarounds;
 	const char *pop3_logout_format;
+
+	enum pop3_client_workarounds parsed_workarounds;
 };
 
 extern struct setting_parser_info pop3_setting_parser_info;
