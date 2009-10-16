@@ -205,7 +205,7 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 		return NULL;
 	}
 
-	rec = login_proxy_state_get(proxy_state, &ip);
+	rec = login_proxy_state_get(proxy_state, &ip, set->port);
 	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
 	    rec->num_waiting_connections != 0) {
 		/* the server is down. fail immediately */
