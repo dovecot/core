@@ -130,8 +130,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 
 		key = t_strconcat(DICT_EXPIRE_PREFIX,
 				  box->storage->user->username, "/",
-				  mailbox_get_namespace(box)->prefix,
-				  box->name, NULL);
+				  mailbox_get_vname(box), NULL);
 		if (xt->first_expunged) {
 			if (new_stamp == 0 && xt->saves)
 				new_stamp = ioloop_time;
