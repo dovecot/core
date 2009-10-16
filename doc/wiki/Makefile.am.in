@@ -1,10 +1,9 @@
-wikidir = $(docdir)/wiki
-
-EXTRA_DIST = \
-	$(wiki_DATA)
-
 if BUILD_DOCS
+wikidir = $(docdir)/wiki
 wiki_DATA = $(wikifiles)
 endif
 
-wikifiles = 
+EXTRA_DIST = \
+	$(wikifiles)
+
+wikifiles = \
