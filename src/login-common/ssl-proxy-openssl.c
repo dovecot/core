@@ -649,7 +649,7 @@ const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
 	comp_str = comp == NULL ? "" :
 		t_strconcat(" ", SSL_COMP_get_name(comp), NULL);
 #else
-	comp_str = NULL;
+	comp_str = "";
 #endif
 	return t_strdup_printf("%s with cipher %s (%d/%d bits)%s",
 			       SSL_get_version(proxy->ssl),
