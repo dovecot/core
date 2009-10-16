@@ -1,4 +1,4 @@
-/* Copyright (C) 2007 Timo Sirainen, LGPLv2.1 */
+/* Copyright (c) 2007-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "mail-storage.h"
