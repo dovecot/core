@@ -713,6 +713,22 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 	str_free(&ctx->headers);
 }
 
+static void mbox_save_truncate(struct mbox_save_context *ctx)
+{
+	if (ctx->append_offset == (uoff_t)-1 || ctx->mbox->mbox_fd == -1)
+		return;
+
+	i_assert(ctx->mbox->mbox_lock_type == F_WRLCK);
+
+	/* failed, truncate file back to original size. output stream needs to
+	   be flushed before truncating so unref() won't write anything. */
+	if (ctx->output != NULL)
+		o_stream_flush(ctx->output);
+
+	if (ftruncate(ctx->mbox->mbox_fd, (off_t)ctx->append_offset) < 0)
+		mbox_set_syscall_error(ctx->mbox, "ftruncate()");
+}
+
 int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
@@ -759,11 +775,11 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 			mbox_set_syscall_error(mbox, "utime()");
 	}
 
-	if (!ctx->synced && mbox->mbox_fd != -1 &&
-	    !mbox->mbox_writeonly &&
+	if (mbox->mbox_fd != -1 && !mbox->mbox_writeonly &&
 	    !mbox->storage->storage.set->fsync_disable) {
 		if (fdatasync(mbox->mbox_fd) < 0) {
 			mbox_set_syscall_error(mbox, "fdatasync()");
+			mbox_save_truncate(ctx);
 			ret = -1;
 		}
 	}
@@ -792,24 +808,11 @@ void mbox_transaction_save_commit_post(struct mail_save_context *_ctx)
 void mbox_transaction_save_rollback(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
-	struct mbox_mailbox *mbox = ctx->mbox;
 
 	if (!ctx->finished)
 		mbox_save_cancel(&ctx->ctx);
 
-	if (ctx->append_offset != (uoff_t)-1 && mbox->mbox_fd != -1) {
-		i_assert(mbox->mbox_lock_type == F_WRLCK);
-
-		/* failed, truncate file back to original size.
-		   output stream needs to be flushed before truncating
-		   so unref() won't write anything. */
-		if (ctx->output != NULL)
-			o_stream_flush(ctx->output);
-
-		if (ftruncate(mbox->mbox_fd, (off_t)ctx->append_offset) < 0)
-			mbox_set_syscall_error(mbox, "ftruncate()");
-	}
-
+	mbox_save_truncate(ctx);
 	mbox_transaction_save_deinit(ctx);
 	i_free(ctx);
 }
