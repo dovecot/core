@@ -485,7 +485,7 @@ void quota_mail_user_created(struct mail_user *user)
 
 		MODULE_CONTEXT_SET(user, quota_user_module, quser);
 	} else if (user->mail_debug) {
-		i_info("quota: No quota setting - plugin disabled");
+		i_debug("quota: No quota setting - plugin disabled");
 	}
 
 	if (quota_next_hook_mail_user_created != NULL)

@@ -66,8 +66,8 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 		username = _root->quota->user->username;
 
 	if (_root->quota->set->debug) {
-		i_info("dict quota: user=%s, uri=%s, noenforcing=%d",
-		       username, args, _root->no_enforcing);
+		i_debug("dict quota: user=%s, uri=%s, noenforcing=%d",
+			username, args, _root->no_enforcing);
 	}
 
 	/* FIXME: we should use 64bit integer as datatype instead but before

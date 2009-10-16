@@ -83,8 +83,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     }
 
     if (mailbox_get_settings(mail->box)->mail_debug) {
-	    i_info("Sending a rejection to %s: %s", recipient,
-		   str_sanitize(reason, 512));
+	    i_debug("Sending a rejection to %s: %s", recipient,
+		    str_sanitize(reason, 512));
     }
 
     smtp_client = smtp_client_open(ctx->set, return_addr, NULL, &f);
@@ -188,8 +188,8 @@ int mail_send_forward(struct mail_deliver_context *ctx, const char *forwardto)
 
     return_path = mail_deliver_get_return_address(ctx);
     if (mailbox_get_settings(ctx->src_mail->box)->mail_debug) {
-	    i_info("Sending a forward to <%s> with return path <%s>",
-		   forwardto, return_path);
+	    i_debug("Sending a forward to <%s> with return path <%s>",
+		    forwardto, return_path);
     }
 
     smtp_client = smtp_client_open(ctx->set, forwardto, return_path, &f);

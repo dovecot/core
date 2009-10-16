@@ -102,14 +102,14 @@ namespace_add(struct mail_user *user,
 		ns->flags |= NAMESPACE_FLAG_SUBSCRIPTIONS;
 
 	if (mail_set->mail_debug) {
-		i_info("Namespace: type=%s, prefix=%s, sep=%s, "
-		       "inbox=%s, hidden=%s, list=%s, subscriptions=%s",
-		       ns_set->type, ns_set->prefix,
-		       ns_set->separator == NULL ? "" : ns_set->separator,
-		       ns_set->inbox ? "yes" : "no",
-		       ns_set->hidden ? "yes" : "no",
-		       ns_set->list ? "yes" : "no",
-		       ns_set->subscriptions ? "yes" : "no");
+		i_debug("Namespace: type=%s, prefix=%s, sep=%s, "
+			"inbox=%s, hidden=%s, list=%s, subscriptions=%s",
+			ns_set->type, ns_set->prefix,
+			ns_set->separator == NULL ? "" : ns_set->separator,
+			ns_set->inbox ? "yes" : "no",
+			ns_set->hidden ? "yes" : "no",
+			ns_set->list ? "yes" : "no",
+			ns_set->subscriptions ? "yes" : "no");
 	}
 
 	if (*ns_set->location == '\0')

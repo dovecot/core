@@ -175,10 +175,10 @@ err:
 
 	if (size_expunged < size_needed) {
 		if (ctx->quota->user->mail_debug) {
-			i_info("trash plugin: Failed to remove enough messages "
-			       "(needed %llu bytes, expunged only %llu bytes)",
-			       (unsigned long long)size_needed,
-			       (unsigned long long)size_expunged);
+			i_debug("trash plugin: Failed to remove enough messages "
+				"(needed %llu bytes, expunged only %llu bytes)",
+				(unsigned long long)size_needed,
+				(unsigned long long)size_expunged);
 		}
 		return FALSE;
 	}
@@ -200,8 +200,8 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 		ret = trash_next_quota_test_alloc(ctx, size, too_large_r);
 		if (ret != 0 || *too_large_r) {
 			if (ctx->quota->user->mail_debug && *too_large_r) {
-				i_info("trash plugin: Mail is larger than "
-				       "quota, won't even try to handle");
+				i_debug("trash plugin: Mail is larger than "
+					"quota, won't even try to handle");
 			}
 			return ret;
 		}
@@ -282,8 +282,8 @@ static int read_configuration(struct mail_user *user, const char *path)
 		}
 
 		if (user->mail_debug) {
-			i_info("trash plugin: Added '%s' with priority %d",
-			       trash->name, trash->priority);
+			i_debug("trash plugin: Added '%s' with priority %d",
+				trash->name, trash->priority);
 		}
 	}
 	i_stream_destroy(&input);
@@ -304,7 +304,7 @@ trash_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	env = mail_user_plugin_getenv(user, "trash");
 	if (env == NULL) {
 		if (user->mail_debug)
-			i_info("trash: No trash setting - plugin disabled");
+			i_debug("trash: No trash setting - plugin disabled");
 	} else if (quser == NULL) {
 		i_error("trash plugin: quota plugin not initialized");
 	} else {

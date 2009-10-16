@@ -152,7 +152,7 @@ static void mbox_storage_get_list_settings(const struct mail_namespace *ns,
 	if (set->inbox_path == NULL) {
 		set->inbox_path = t_strconcat(set->root_dir, "/inbox", NULL);
 		if (ns->mail_set->mail_debug)
-			i_info("mbox: INBOX defaulted to %s", set->inbox_path);
+			i_debug("mbox: INBOX defaulted to %s", set->inbox_path);
 	}
 }
 
@@ -162,28 +162,28 @@ static bool mbox_is_file(const char *path, const char *name, bool debug)
 
 	if (stat(path, &st) < 0) {
 		if (debug) {
-			i_info("mbox autodetect: %s: stat(%s) failed: %m",
-			       name, path);
+			i_debug("mbox autodetect: %s: stat(%s) failed: %m",
+				name, path);
 		}
 		return FALSE;
 	}
 	if (S_ISDIR(st.st_mode)) {
 		if (debug) {
-			i_info("mbox autodetect: %s: is a directory (%s)",
+			i_debug("mbox autodetect: %s: is a directory (%s)",
 			       name, path);
 		}
 		return FALSE;
 	}
 	if (access(path, R_OK|W_OK) < 0) {
 		if (debug) {
-			i_info("mbox autodetect: %s: no R/W access (%s)",
+			i_debug("mbox autodetect: %s: no R/W access (%s)",
 			       name, path);
 		}
 		return FALSE;
 	}
 
 	if (debug)
-		i_info("mbox autodetect: %s: yes (%s)", name, path);
+		i_debug("mbox autodetect: %s: yes (%s)", name, path);
 	return TRUE;
 }
 
@@ -193,28 +193,28 @@ static bool mbox_is_dir(const char *path, const char *name, bool debug)
 
 	if (stat(path, &st) < 0) {
 		if (debug) {
-			i_info("mbox autodetect: %s: stat(%s) failed: %m",
+			i_debug("mbox autodetect: %s: stat(%s) failed: %m",
 			       name, path);
 		}
 		return FALSE;
 	}
 	if (!S_ISDIR(st.st_mode)) {
 		if (debug) {
-			i_info("mbox autodetect: %s: is not a directory (%s)",
+			i_debug("mbox autodetect: %s: is not a directory (%s)",
 			       name, path);
 		}
 		return FALSE;
 	}
 	if (access(path, R_OK|W_OK|X_OK) < 0) {
 		if (debug) {
-			i_info("mbox autodetect: %s: no R/W/X access (%s)",
+			i_debug("mbox autodetect: %s: no R/W/X access (%s)",
 			       name, path);
 		}
 		return FALSE;
 	}
 
 	if (debug)
-		i_info("mbox autodetect: %s: yes (%s)", name, path);
+		i_debug("mbox autodetect: %s: yes (%s)", name, path);
 	return TRUE;
 }
 
@@ -237,7 +237,7 @@ static const char *mbox_storage_find_root_dir(const struct mail_namespace *ns)
 
 	if (mail_user_get_home(ns->user, &home) <= 0) {
 		if (debug)
-			i_info("maildir: Home directory not set");
+			i_debug("maildir: Home directory not set");
 		home = "";
 	}
 
@@ -259,20 +259,20 @@ mbox_storage_find_inbox_file(const char *user, bool debug)
 	path = t_strconcat("/var/mail/", user, NULL);
 	if (access(path, R_OK|W_OK) == 0) {
 		if (debug)
-			i_info("mbox: INBOX exists (%s)", path);
+			i_debug("mbox: INBOX exists (%s)", path);
 		return path;
 	}
 	if (debug)
-		i_info("mbox: INBOX: access(%s, rw) failed: %m", path);
+		i_debug("mbox: INBOX: access(%s, rw) failed: %m", path);
 
 	path = t_strconcat("/var/spool/mail/", user, NULL);
 	if (access(path, R_OK|W_OK) == 0) {
 		if (debug)
-			i_info("mbox: INBOX exists (%s)", path);
+			i_debug("mbox: INBOX exists (%s)", path);
 		return path;
 	}
 	if (debug)
-		i_info("mbox: INBOX: access(%s, rw) failed: %m", path);
+		i_debug("mbox: INBOX: access(%s, rw) failed: %m", path);
 	return NULL;
 }
 
@@ -298,7 +298,7 @@ static bool mbox_storage_autodetect(const struct mail_namespace *ns,
 		root_dir = mbox_storage_find_root_dir(ns);
 		if (root_dir == NULL) {
 			if (debug)
-				i_info("mbox: couldn't find root dir");
+				i_debug("mbox: couldn't find root dir");
 			return FALSE;
 		}
 	}

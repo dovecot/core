@@ -429,8 +429,8 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 
 		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
 	} else if (user->mail_debug) {
-		i_info("lazy_expunge: No lazy_expunge setting - "
-		       "plugin disabled");
+		i_debug("lazy_expunge: No lazy_expunge setting - "
+			"plugin disabled");
 	}
 
 	if (lazy_expunge_next_hook_mail_user_created != NULL)

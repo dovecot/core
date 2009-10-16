@@ -262,11 +262,11 @@ static void expire_mailbox_allocate_init(struct mailbox *box,
 	secs = expire_box_find_min_secs(euser->env, box->vname, &altmove);
 	if (box->storage->user->mail_debug) {
 		if (secs == 0) {
-			i_info("expire: No expiring in mailbox: %s",
-			       box->vname);
+			i_debug("expire: No expiring in mailbox: %s",
+				box->vname);
 		} else {
-			i_info("expire: Mails expire in %u secs in mailbox: %s",
-			       secs, box->vname);
+			i_debug("expire: Mails expire in %u secs in mailbox: "
+				"%s", secs, box->vname);
 		}
 	}
 	if (secs != 0)
@@ -309,8 +309,8 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 		/* expire-tool handles all of this internally */
 	} else if (expunge_env == NULL && altmove_env == NULL) {
 		if (user->mail_debug) {
-			i_info("expire: No expire or expire_altmove settings - "
-			       "plugin disabled");
+			i_debug("expire: No expire or expire_altmove settings - "
+				"plugin disabled");
 		}
 	} else if (dict_uri == NULL) {
 		i_error("expire plugin: expire_dict setting missing");

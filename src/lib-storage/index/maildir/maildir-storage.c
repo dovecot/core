@@ -165,17 +165,17 @@ maildir_storage_find_root_dir(const struct mail_namespace *ns)
 		path = t_strconcat(home, "/Maildir", NULL);
 		if (access(path, R_OK|W_OK|X_OK) == 0) {
 			if (debug)
-				i_info("maildir: root exists (%s)", path);
+				i_debug("maildir: root exists (%s)", path);
 			return path;
 		} 
 		if (debug)
-			i_info("maildir: access(%s, rwx): failed: %m", path);
+			i_debug("maildir: access(%s, rwx): failed: %m", path);
 	} else {
 		if (debug)
-			i_info("maildir: Home directory not set");
+			i_debug("maildir: Home directory not set");
 		if (access("/cur", R_OK|W_OK|X_OK) == 0) {
 			if (debug)
-				i_info("maildir: /cur exists, assuming chroot");
+				i_debug("maildir: /cur exists, assuming chroot");
 			return "/";
 		}
 	}
@@ -195,7 +195,7 @@ static bool maildir_storage_autodetect(const struct mail_namespace *ns,
 		root_dir = maildir_storage_find_root_dir(ns);
 		if (root_dir == NULL) {
 			if (debug)
-				i_info("maildir: couldn't find root dir");
+				i_debug("maildir: couldn't find root dir");
 			return FALSE;
 		}
 	}
@@ -203,13 +203,13 @@ static bool maildir_storage_autodetect(const struct mail_namespace *ns,
 	path = t_strconcat(root_dir, "/cur", NULL);
 	if (stat(path, &st) < 0) {
 		if (debug)
-			i_info("maildir autodetect: stat(%s) failed: %m", path);
+			i_debug("maildir autodetect: stat(%s) failed: %m", path);
 		return FALSE;
 	}
 
 	if (!S_ISDIR(st.st_mode)) {
 		if (debug)
-			i_info("maildir autodetect: %s not a directory", path);
+			i_debug("maildir autodetect: %s not a directory", path);
 		return FALSE;
 	}
 

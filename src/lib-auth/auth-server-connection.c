@@ -202,7 +202,7 @@ auth_server_connection_input_line(struct auth_server_connection *conn,
 	const char *const *args;
 
 	if (conn->client->debug)
-		i_info("auth input: %s", line);
+		i_debug("auth input: %s", line);
 
 	args = t_strsplit(line, "\t");
 	if (strcmp(args[0], "OK") == 0)

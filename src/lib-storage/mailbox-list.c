@@ -158,14 +158,14 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	}
 
 	if (ns->mail_set->mail_debug) {
-		i_info("%s: root=%s, index=%s, control=%s, inbox=%s",
-		       list->name,
-		       list->set.root_dir == NULL ? "" : list->set.root_dir,
-		       list->set.index_dir == NULL ? "" : list->set.index_dir,
-		       list->set.control_dir == NULL ?
-		       "" : list->set.control_dir,
-		       list->set.inbox_path == NULL ?
-		       "" : list->set.inbox_path);
+		i_debug("%s: root=%s, index=%s, control=%s, inbox=%s",
+			list->name,
+			list->set.root_dir == NULL ? "" : list->set.root_dir,
+			list->set.index_dir == NULL ? "" : list->set.index_dir,
+			list->set.control_dir == NULL ?
+			"" : list->set.control_dir,
+			list->set.inbox_path == NULL ?
+			"" : list->set.inbox_path);
 	}
 
 	mail_namespace_finish_list_init(ns, list);
@@ -367,7 +367,7 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
 						  path);
 		} else if (list->mail_set->mail_debug) {
-			i_info("Namespace %s: Permission lookup failed from %s",
+			i_debug("Namespace %s: Permission lookup failed from %s",
 			       list->ns->prefix, path);
 		}
 		if (name != NULL) {
@@ -419,11 +419,11 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 	}
 
 	if (list->mail_set->mail_debug && name == NULL) {
-		i_info("Namespace %s: Using permissions from %s: "
-		       "mode=0%o gid=%ld", list->ns->prefix, path,
-		       (int)list->dir_create_mode,
-		       list->file_create_gid == (gid_t)-1 ? -1L :
-		       (long)list->file_create_gid);
+		i_debug("Namespace %s: Using permissions from %s: "
+			"mode=0%o gid=%ld", list->ns->prefix, path,
+			(int)list->dir_create_mode,
+			list->file_create_gid == (gid_t)-1 ? -1L :
+			(long)list->file_create_gid);
 	}
 }
 

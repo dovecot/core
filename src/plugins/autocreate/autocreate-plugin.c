@@ -23,7 +23,7 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 	ns = mail_namespace_find(namespaces, &name);
 	if (ns == NULL) {
 		if (namespaces->mail_set->mail_debug)
-			i_info("autocreate: No namespace found for %s", name);
+			i_debug("autocreate: No namespace found for %s", name);
 		return;
 	}
 
@@ -32,8 +32,8 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 		str = mail_storage_get_last_error(mailbox_get_storage(box),
 						  &error);
 		if (error != MAIL_ERROR_EXISTS && ns->mail_set->mail_debug) {
-			i_info("autocreate: Failed to create mailbox %s: %s",
-			       name, str);
+			i_debug("autocreate: Failed to create mailbox %s: %s",
+				name, str);
 		}
 	}
 	mailbox_close(&box);
@@ -66,7 +66,7 @@ autosubscribe_mailbox(struct mail_namespace *namespaces, const char *name)
 	ns = mail_namespace_find_subscribable(namespaces, &name);
 	if (ns == NULL) {
 		if (namespaces->mail_set->mail_debug)
-			i_info("autocreate: No namespace found for %s", name);
+			i_debug("autocreate: No namespace found for %s", name);
 		return;
 	}
 
@@ -74,8 +74,8 @@ autosubscribe_mailbox(struct mail_namespace *namespaces, const char *name)
 		str = mailbox_list_get_last_error(ns->list,
 						  &error);
 		if (error != MAIL_ERROR_EXISTS && ns->mail_set->mail_debug) {
-			i_info("autocreate: Failed to subscribe mailbox %s: %s",
-			       name, str);
+			i_debug("autocreate: Failed to subscribe mailbox "
+				"%s: %s", name, str);
 		}
 	}
 }

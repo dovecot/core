@@ -188,8 +188,8 @@ quota_root_settings_init(struct quota_settings *quota_set, const char *root_def)
 	root_set->args = p_strdup(quota_set->pool, args);
 
 	if (quota_set->debug) {
-		i_info("Quota root: name=%s backend=%s args=%s",
-		       root_set->name, backend_name, args == NULL ? "" : args);
+		i_debug("Quota root: name=%s backend=%s args=%s",
+			root_set->name, backend_name, args == NULL ? "" : args);
 	}
 
 	p_array_init(&root_set->rules, quota_set->pool, 4);
@@ -459,8 +459,8 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 	if (strcmp(p, "ignore") == 0) {
 		rule->ignore = TRUE;
 		if (root_set->set->debug) {
-			i_info("Quota rule: root=%s mailbox=%s ignored",
-			       root_set->name, mailbox_name);
+			i_debug("Quota rule: root=%s mailbox=%s ignored",
+				root_set->name, mailbox_name);
 		}
 		return 0;
 	}
@@ -479,15 +479,14 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 
 	quota_root_recalculate_relative_rules(root_set);
 	if (root_set->set->debug) {
-		i_info("Quota rule: root=%s mailbox=%s "
-		       "bytes=%lld%s messages=%lld%s", root_set->name,
-		       mailbox_name,
-		       (long long)rule->bytes_limit,
-		       rule->bytes_percent == 0 ? "" :
-		       t_strdup_printf(" (%u%%)", rule->bytes_percent),
-		       (long long)rule->count_limit,
-		       rule->count_percent == 0 ? "" :
-		       t_strdup_printf(" (%u%%)", rule->count_percent));
+		i_debug("Quota rule: root=%s mailbox=%s "
+			"bytes=%lld%s messages=%lld%s", root_set->name,
+			mailbox_name, (long long)rule->bytes_limit,
+			rule->bytes_percent == 0 ? "" :
+			t_strdup_printf(" (%u%%)", rule->bytes_percent),
+			(long long)rule->count_limit,
+			rule->count_percent == 0 ? "" :
+			t_strdup_printf(" (%u%%)", rule->count_percent));
 	}
 	return ret;
 }
@@ -626,15 +625,15 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 
 	quota_root_recalculate_relative_rules(root_set);
 	if (root_set->set->debug) {
-		i_info("Quota warning: bytes=%llu%s "
-		       "messages=%llu%s command=%s",
-		       (unsigned long long)warning->rule.bytes_limit,
-		       warning->rule.bytes_percent == 0 ? "" :
-		       t_strdup_printf(" (%u%%)", warning->rule.bytes_percent),
-		       (unsigned long long)warning->rule.count_limit,
-		       warning->rule.count_percent == 0 ? "" :
-		       t_strdup_printf(" (%u%%)", warning->rule.count_percent),
-		       warning->command);
+		i_debug("Quota warning: bytes=%llu%s "
+			"messages=%llu%s command=%s",
+			(unsigned long long)warning->rule.bytes_limit,
+			warning->rule.bytes_percent == 0 ? "" :
+			t_strdup_printf(" (%u%%)", warning->rule.bytes_percent),
+			(unsigned long long)warning->rule.count_limit,
+			warning->rule.count_percent == 0 ? "" :
+			t_strdup_printf(" (%u%%)", warning->rule.count_percent),
+			warning->command);
 	}
 	return 0;
 }
@@ -876,7 +875,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd)
 	int ret;
 
 	if (root->quota->set->debug)
-		i_info("quota: Executing warning: %s", cmd);
+		i_debug("quota: Executing warning: %s", cmd);
 
 	ret = system(cmd);
 	if (ret < 0) {

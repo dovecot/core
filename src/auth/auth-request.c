@@ -1449,7 +1449,7 @@ void auth_request_log_debug(struct auth_request *auth_request,
 
 	va_start(va, format);
 	T_BEGIN {
-		i_info("%s", get_log_str(auth_request, subsystem, format, va));
+		i_debug("%s", get_log_str(auth_request, subsystem, format, va));
 	} T_END;
 	va_end(va);
 }

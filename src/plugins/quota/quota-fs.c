@@ -261,9 +261,9 @@ static void fs_quota_namespace_added(struct quota *quota,
 	mount = fs_quota_mountpoint_get(dir);
 	if (mount != NULL) {
 		if (quota->set->debug) {
-			i_info("fs quota add mailbox dir = %s", dir);
-			i_info("fs quota block device = %s", mount->device_path);
-			i_info("fs quota mount point = %s", mount->mount_path);
+			i_debug("fs quota add mailbox dir = %s", dir);
+			i_debug("fs quota block device = %s", mount->device_path);
+			i_debug("fs quota mount point = %s", mount->mount_path);
 		}
 
 		root = fs_quota_root_find_mountpoint(quota, mount);
@@ -315,9 +315,9 @@ static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 	path++;
 
 	if (root->root.quota->set->debug) {
-		i_info("quota-fs: host=%s, path=%s, uid=%s, %s",
-		       host, path, dec2str(root->uid),
-		       bytes ? "bytes" : "files");
+		i_debug("quota-fs: host=%s, path=%s, uid=%s, %s",
+			host, path, dec2str(root->uid),
+			bytes ? "bytes" : "files");
 	}
 
 	/* clnt_create() polls for a while to establish a connection */
@@ -372,17 +372,17 @@ static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 			}
 		}
 		if (root->root.quota->set->debug) {
-			i_info("quota-fs: uid=%s, value=%llu, "
-			       "limit=%llu, active=%d", dec2str(root->uid),
-			       (unsigned long long)*value_r,
-			       (unsigned long long)*limit_r, rq->rq_active);
+			i_debug("quota-fs: uid=%s, value=%llu, "
+				"limit=%llu, active=%d", dec2str(root->uid),
+				(unsigned long long)*value_r,
+				(unsigned long long)*limit_r, rq->rq_active);
 		}
 		return 1;
 	}
 	case Q_NOQUOTA:
 		if (root->root.quota->set->debug) {
-			i_info("quota-fs: uid=%s, limit=unlimited",
-			       dec2str(root->uid));
+			i_debug("quota-fs: uid=%s, limit=unlimited",
+				dec2str(root->uid));
 		}
 		return 1;
 	case Q_EPERM:
@@ -415,9 +415,9 @@ static int do_rquota_group(struct fs_quota_root *root, bool bytes,
 	path++;
 
 	if (root->root.quota->set->debug) {
-		i_info("quota-fs: host=%s, path=%s, gid=%s, %s",
-		       host, path, dec2str(root->gid),
-		       bytes ? "bytes" : "files");
+		i_debug("quota-fs: host=%s, path=%s, gid=%s, %s",
+			host, path, dec2str(root->gid),
+			bytes ? "bytes" : "files");
 	}
 
 	/* clnt_create() polls for a while to establish a connection */
@@ -473,17 +473,17 @@ static int do_rquota_group(struct fs_quota_root *root, bool bytes,
 			}
 		}
 		if (root->root.quota->set->debug) {
-			i_info("quota-fs: gid=%s, value=%llu, "
-			       "limit=%llu, active=%d", dec2str(root->gid),
-			       (unsigned long long)*value_r,
-			       (unsigned long long)*limit_r, rq->rq_active);
+			i_debug("quota-fs: gid=%s, value=%llu, "
+				"limit=%llu, active=%d", dec2str(root->gid),
+				(unsigned long long)*value_r,
+				(unsigned long long)*limit_r, rq->rq_active);
 		}
 		return 1;
 	}
 	case Q_NOQUOTA:
 		if (root->root.quota->set->debug) {
-			i_info("quota-fs: gid=%s, limit=unlimited",
-			       dec2str(root->gid));
+			i_debug("quota-fs: gid=%s, limit=unlimited",
+				dec2str(root->gid));
 		}
 		return 1;
 	case Q_EPERM:
@@ -724,15 +724,15 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 	}
 	if (stat(root->storage_mount_path, &rst) < 0) {
 		if (_root->quota->set->debug) {
-			i_error("stat(%s) failed: %m",
+			i_debug("stat(%s) failed: %m",
 				root->storage_mount_path);
 		}
 		return FALSE;
 	}
 	match = CMP_DEV_T(mst.st_dev, rst.st_dev);
 	if (_root->quota->set->debug) {
-	 	i_info("box=%s mount=%s match=%s", mailbox_path,
-		       root->storage_mount_path, match ? "yes" : "no");
+	 	i_debug("box=%s mount=%s match=%s", mailbox_path,
+			root->storage_mount_path, match ? "yes" : "no");
 	}
  	return match;
 }

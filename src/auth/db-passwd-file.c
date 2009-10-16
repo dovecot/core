@@ -202,8 +202,8 @@ static bool passwd_file_open(struct passwd_file *pw)
 	i_stream_destroy(&input);
 
 	if (pw->db->debug) {
-		i_info("passwd-file %s: Read %u users",
-		       pw->path, hash_table_count(pw->users));
+		i_debug("passwd-file %s: Read %u users",
+			pw->path, hash_table_count(pw->users));
 	}
 	return TRUE;
 }

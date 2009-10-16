@@ -201,10 +201,10 @@ userdb_ldap_iterate_init(struct auth_userdb *userdb,
 	request->request.attributes = conn->iterate_attr_names;
 
 	if (userdb->auth->set->debug) {
-		i_info("ldap: iterate: base=%s scope=%s filter=%s fields=%s",
-		       conn->set.base, conn->set.scope, request->request.filter,
-		       attr_names == NULL ? "(all)" :
-		       t_strarray_join(attr_names, ","));
+		i_debug("ldap: iterate: base=%s scope=%s filter=%s fields=%s",
+			conn->set.base, conn->set.scope,
+			request->request.filter, attr_names == NULL ? "(all)" :
+			t_strarray_join(attr_names, ","));
 	}
 	request->request.request.callback = userdb_ldap_iterate_callback;
 	db_ldap_request(conn, &request->request.request);

@@ -188,7 +188,7 @@ service_auth_userdb_lookup(struct auth_master_connection *conn,
 
 	if (ret > 0 && strcmp(*user, orig_user) != 0) {
 		if (mail_user_set_get_storage_set(user_set)->mail_debug)
-			i_info("changed username to %s", *user);
+			i_debug("changed username to %s", *user);
 	}
 
 	pool_unref(&pool);
@@ -363,9 +363,9 @@ mail_storage_service_init_post(struct master_service *service,
 	mail_set = mail_user_set_get_storage_set(user_set);
 
 	if (mail_set->mail_debug) {
-		i_info("Effective uid=%s, gid=%s, home=%s",
-		       dec2str(geteuid()), dec2str(getegid()),
-		       home != NULL ? home : "(none)");
+		i_debug("Effective uid=%s, gid=%s, home=%s",
+			dec2str(geteuid()), dec2str(getegid()),
+			home != NULL ? home : "(none)");
 	}
 
 	if (setuid_root) {
@@ -380,7 +380,7 @@ mail_storage_service_init_post(struct master_service *service,
 			if (errno != ENOENT)
 				i_error("chdir(%s) failed: %m", home);
 			else if (mail_set->mail_debug)
-				i_info("Home dir not found: %s", home);
+				i_debug("Home dir not found: %s", home);
 		}
 	}
 

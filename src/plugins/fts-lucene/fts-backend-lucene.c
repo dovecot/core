@@ -53,7 +53,7 @@ static struct fts_backend *fts_backend_lucene_init(struct mailbox *box)
 		if (path == NULL) {
 			/* in-memory indexes */
 			if (box->storage->set->mail_debug)
-				i_info("fts squat: Disabled with in-memory indexes");
+				i_debug("fts squat: Disabled with in-memory indexes");
 			return NULL;
 		}
 

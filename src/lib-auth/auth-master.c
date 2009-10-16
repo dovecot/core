@@ -130,7 +130,7 @@ static void auth_parse_input(struct auth_master_user_lookup_ctx *ctx,
 	reply->user = p_strdup(ctx->pool, *args);
 	for (args++; *args != NULL; args++) {
 		if (ctx->conn->debug)
-			i_info("auth input: %s", *args);
+			i_debug("auth input: %s", *args);
 
 		if (strncmp(*args, "uid=", 4) == 0)
 			reply->uid = strtoul(*args + 4, NULL, 10);

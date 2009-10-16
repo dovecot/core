@@ -113,7 +113,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 					       auth_request->realm, NULL);
 		}
 		if (auth_request->auth->set->debug_passwords) {
-			auth_request_log_info(auth_request, "password",
+			auth_request_log_debug(auth_request, "password",
 				"Generating %s from user '%s', password '%s'",
 				wanted_scheme, username, plaintext);
 		}

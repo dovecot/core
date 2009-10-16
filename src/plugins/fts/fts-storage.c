@@ -933,7 +933,7 @@ static void fts_box_backends_init(struct mailbox *box)
 	}
 	if (box->storage->set->mail_debug &&
 	    fbox->backend_substr == NULL && fbox->backend_fast == NULL)
-		i_info("fts: No backends enabled by the fts setting");
+		i_debug("fts: No backends enabled by the fts setting");
 }
 
 static struct mailbox_transaction_context *

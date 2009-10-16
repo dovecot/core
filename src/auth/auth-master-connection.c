@@ -54,7 +54,7 @@ void auth_master_request_callback(struct auth_stream_reply *reply,
 	reply_str = auth_stream_reply_export(reply);
 
 	if (conn->auth->set->debug)
-		i_info("master out: %s", reply_str);
+		i_debug("master out: %s", reply_str);
 
 	iov[0].iov_base = reply_str;
 	iov[0].iov_len = strlen(reply_str);
@@ -181,7 +181,7 @@ user_callback(enum userdb_result result,
 	}
 
 	if (conn->auth->set->debug)
-		i_info("master out: %s", str_c(str));
+		i_debug("master out: %s", str_c(str));
 
 	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
@@ -240,7 +240,7 @@ pass_callback(enum passdb_result result,
 	}
 
 	if (conn->auth->set->debug)
-		i_info("master out: %s", str_c(str));
+		i_debug("master out: %s", str_c(str));
 
 	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
@@ -381,7 +381,7 @@ static bool
 auth_master_input_line(struct auth_master_connection *conn, const char *line)
 {
 	if (conn->auth->set->debug)
-		i_info("master in: %s", line);
+		i_debug("master in: %s", line);
 
 	if (strncmp(line, "USER\t", 5) == 0)
 		return master_input_user(conn, line + 5);

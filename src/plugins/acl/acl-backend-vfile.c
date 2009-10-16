@@ -100,8 +100,8 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 		}
 	}
 	if (_backend->debug) {
-		i_info("acl vfile: Global ACL directory: %s",
-		       backend->global_dir);
+		i_debug("acl vfile: Global ACL directory: %s",
+			backend->global_dir);
 	}
 
 	_backend->cache =
@@ -487,11 +487,12 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 	if (fd == -1) {
 		if (errno == ENOENT || errno == ENOTDIR) {
 			if (aclobj->aclobj.backend->debug)
-				i_info("acl vfile: file %s not found", path);
+				i_debug("acl vfile: file %s not found", path);
 			validity->last_mtime = VALIDITY_MTIME_NOTFOUND;
 		} else if (errno == EACCES) {
 			if (aclobj->aclobj.backend->debug)
-				i_info("acl vfile: no access to file %s", path);
+				i_debug("acl vfile: no access to file %s",
+					path);
 
 			acl_backend_remove_all_access(&aclobj->aclobj);
 			validity->last_mtime = VALIDITY_MTIME_NOACCESS;
@@ -523,7 +524,7 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 	}
 
 	if (aclobj->aclobj.backend->debug)
-		i_info("acl vfile: reading file %s", path);
+		i_debug("acl vfile: reading file %s", path);
 
 	input = i_stream_create_fd(fd, 4096, FALSE);
 	i_stream_set_return_partial_line(input, TRUE);

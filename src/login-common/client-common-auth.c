@@ -132,7 +132,7 @@ static void client_auth_parse_args(struct client *client,
 		} else if (strcmp(key, "user") == 0) {
 			/* already handled in login-common */
 		} else if (client->set->auth_debug)
-			i_info("Ignoring unknown passdb extra field: %s", key);
+			i_debug("Ignoring unknown passdb extra field: %s", key);
 	}
 
 	if (reply_r->destuser == NULL)
