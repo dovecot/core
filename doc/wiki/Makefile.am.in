@@ -3,4 +3,8 @@ wikidir = $(docdir)/wiki
 EXTRA_DIST = \
 	$(wiki_DATA)
 
-wiki_DATA = 
+if BUILD_DOCS
+wiki_DATA = $(wikifiles)
+endif
+
+wikifiles = 
