@@ -37,7 +37,7 @@ struct file_ostream {
 	uoff_t real_offset;
 
 	unsigned char *buffer; /* ring-buffer */
-	size_t buffer_size, max_buffer_size, optimal_block_size;
+	size_t buffer_size, optimal_block_size;
 	size_t head, tail; /* first unsent/unused byte */
 
 	unsigned int full:1; /* if head == tail, is buffer empty or full? */
@@ -81,15 +81,6 @@ static void o_stream_file_destroy(struct iostream_private *stream)
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	i_free(fstream->buffer);
-}
-
-static void
-o_stream_file_set_max_buffer_size(struct iostream_private *stream,
-				  size_t max_size)
-{
-	struct file_ostream *fstream = (struct file_ostream *)stream;
-
-	fstream->max_buffer_size = max_size;
 }
 
 static size_t file_buffer_get_used_size(struct file_ostream *fstream)
@@ -420,13 +411,13 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 	size_t size, new_size, end_size;
 
 	size = nearest_power(fstream->buffer_size + bytes);
-	if (size > fstream->max_buffer_size) {
+	if (size > fstream->ostream.max_buffer_size) {
 		/* limit the size */
-		size = fstream->max_buffer_size;
+		size = fstream->ostream.max_buffer_size;
 	} else if (fstream->corked) {
 		/* try to use optimal buffer size with corking */
 		new_size = I_MIN(fstream->optimal_block_size,
-				 fstream->max_buffer_size);
+				 fstream->ostream.max_buffer_size);
 		if (new_size > size)
 			size = new_size;
 	}
@@ -545,7 +536,7 @@ static ssize_t o_stream_file_sendv(struct ostream_private *stream,
 	}
 
 	optimal_size = I_MIN(fstream->optimal_block_size,
-			     fstream->max_buffer_size);
+			     fstream->ostream.max_buffer_size);
 	if (IS_STREAM_EMPTY(fstream) &&
 	    (!fstream->corked || size >= optimal_size)) {
 		/* send immediately */
@@ -888,8 +879,6 @@ o_stream_create_fd_common(int fd, bool autoclose_fd)
 
 	fstream->ostream.iostream.close = o_stream_file_close;
 	fstream->ostream.iostream.destroy = o_stream_file_destroy;
-	fstream->ostream.iostream.set_max_buffer_size =
-		o_stream_file_set_max_buffer_size;
 
 	fstream->ostream.cork = o_stream_file_cork;
 	fstream->ostream.flush = o_stream_file_flush;
@@ -931,7 +920,7 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 	off_t offset;
 
 	fstream = o_stream_create_fd_common(fd, autoclose_fd);
-	fstream->max_buffer_size = max_buffer_size;
+	fstream->ostream.max_buffer_size = max_buffer_size;
 	ostream = o_stream_create(&fstream->ostream);
 
 	offset = lseek(fd, 0, SEEK_CUR);
@@ -948,7 +937,7 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 	}
 
 	if (max_buffer_size == 0)
-		fstream->max_buffer_size = fstream->optimal_block_size;
+		fstream->ostream.max_buffer_size = fstream->optimal_block_size;
 
 	return ostream;
 }
@@ -964,7 +953,7 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 
 	fstream = o_stream_create_fd_common(fd, autoclose_fd);
 	fstream_init_file(fstream);
-	fstream->max_buffer_size = fstream->optimal_block_size;
+	fstream->ostream.max_buffer_size = fstream->optimal_block_size;
 	fstream->real_offset = offset;
 	fstream->buffer_offset = offset;
 

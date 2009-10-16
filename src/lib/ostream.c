@@ -48,7 +48,12 @@ void o_stream_unset_flush_callback(struct ostream *stream)
 
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size)
 {
-	io_stream_set_max_buffer_size(&stream->real_stream->iostream, max_size);
+	if (stream->real_stream->iostream.set_max_buffer_size != NULL) {
+		io_stream_set_max_buffer_size(&stream->real_stream->iostream,
+					      max_size);
+	} else {
+		stream->real_stream->max_buffer_size = max_size;
+	}
 }
 
 void o_stream_cork(struct ostream *stream)
@@ -58,7 +63,8 @@ void o_stream_cork(struct ostream *stream)
 	if (unlikely(stream->closed))
 		return;
 
-	_stream->cork(_stream, TRUE);
+	if (_stream->cork != NULL)
+		_stream->cork(_stream, TRUE);
 }
 
 void o_stream_uncork(struct ostream *stream)
@@ -68,21 +74,24 @@ void o_stream_uncork(struct ostream *stream)
 	if (unlikely(stream->closed))
 		return;
 
-	_stream->cork(_stream, FALSE);
+	if (_stream->cork != NULL)
+		_stream->cork(_stream, FALSE);
 }
 
 int o_stream_flush(struct ostream *stream)
 {
 	struct ostream_private *_stream = stream->real_stream;
-	int ret;
+	int ret = 1;
 
 	if (unlikely(stream->closed))
 		return -1;
 
 	stream->stream_errno = 0;
-	if (unlikely((ret = _stream->flush(_stream)) < 0)) {
-		i_assert(stream->stream_errno != 0);
-		stream->last_failed_errno = stream->stream_errno;
+	if (_stream->flush != NULL) {
+		if (unlikely((ret = _stream->flush(_stream)) < 0)) {
+			i_assert(stream->stream_errno != 0);
+			stream->last_failed_errno = stream->stream_errno;
+		}
 	}
 	return ret;
 }
@@ -94,14 +103,16 @@ void o_stream_set_flush_pending(struct ostream *stream, bool set)
 	if (unlikely(stream->closed))
 		return;
 
-	_stream->flush_pending(_stream, set);
+	if (_stream->flush_pending != NULL)
+		_stream->flush_pending(_stream, set);
 }
 
 size_t o_stream_get_buffer_used_size(const struct ostream *stream)
 {
 	const struct ostream_private *_stream = stream->real_stream;
 
-	return _stream->get_used_size(_stream);
+	return _stream->get_used_size == NULL ? 0 :
+		_stream->get_used_size(_stream);
 }
 
 int o_stream_seek(struct ostream *stream, uoff_t offset)
@@ -112,9 +123,15 @@ int o_stream_seek(struct ostream *stream, uoff_t offset)
 		return -1;
 
 	stream->stream_errno = 0;
-	if (unlikely(_stream->seek(_stream, offset) < 0)) {
-		i_assert(stream->stream_errno != 0);
-		stream->last_failed_errno = stream->stream_errno;
+	if (_stream->seek != NULL) {
+		if (unlikely(_stream->seek(_stream, offset) < 0)) {
+			i_assert(stream->stream_errno != 0);
+			stream->last_failed_errno = stream->stream_errno;
+		}
+	} else {
+		stream->stream_errno = EPIPE;
+		stream->last_failed_errno = EPIPE;
+		return -1;
 	}
 	return 1;
 }
@@ -196,9 +213,17 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 	return ret;
 }
 
+static off_t o_stream_default_send_istream(struct ostream_private *outstream,
+					   struct istream *instream)
+{
+	return io_stream_copy(&outstream->ostream, instream, 1024);
+}
+
 struct ostream *o_stream_create(struct ostream_private *_stream)
 {
 	_stream->ostream.real_stream = _stream;
+	if (_stream->send_istream == NULL)
+		_stream->send_istream = o_stream_default_send_istream;
 
 	io_stream_init(&_stream->iostream);
 	return &_stream->ostream;

@@ -24,6 +24,7 @@ struct ostream_private {
 
 /* data: */
 	struct ostream ostream;
+	size_t max_buffer_size;
 
 	stream_flush_callback_t *callback;
 	void *context;
