@@ -5,6 +5,7 @@
 #include "password-scheme.h"
 #include "randgen.h"
 #include "doveadm.h"
+#include "askpass.h"
 
 #include <ctype.h>
 #include <fcntl.h>
@@ -67,8 +68,8 @@ static void cmd_pw(int argc, char *argv[])
 		const char *check;
 		static int lives = 3;
 
-		plaintext = t_strdup(getpass("Enter new password: "));
-		check = t_strdup(getpass("Retype new password: "));
+		plaintext = t_askpass("Enter new password: ");
+		check = t_askpass("Retype new password: ");
 		if (strcmp(plaintext, check) != 0) {
 			fprintf(stderr, "Passwords don't match!\n");
 			if (--lives == 0)
