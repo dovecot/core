@@ -48,6 +48,12 @@ int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
 			break;
 	} while (i_stream_read(input) != -1);
 
+	if (ctx->keywords != NULL) {
+		/* keywords gets unreferenced twice, because we call
+		   mailbox_save_cancel/finish */
+		mailbox_keywords_ref(ctx->transaction->box, ctx->keywords);
+	}
+
 	if (input->stream_errno != 0) {
 		mail_storage_set_critical(ctx->transaction->box->storage,
 					  "copy: i_stream_read() failed: %m");
