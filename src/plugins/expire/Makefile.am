@@ -38,8 +38,7 @@ endif
 libs = \
 	expire-env.o \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
 	$(unused_objects)
 
-expire_tool_LDADD = $(libs) $(MODULE_LIBS)
-expire_tool_DEPENDENCIES = $(libs)
+expire_tool_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
+expire_tool_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)

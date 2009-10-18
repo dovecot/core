@@ -11,7 +11,7 @@ anvil_LDADD = \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS) \
 	$(RAND_LIBS)
-anvil_DEPENDENCIES = $(LIBDOVECOT)
+anvil_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 anvil_SOURCES = \
 	main.c \

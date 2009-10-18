@@ -21,11 +21,10 @@ endif
 
 libs = \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
 	$(unused_objects)
 
-imap_LDADD = $(libs) $(MODULE_LIBS)
-imap_DEPENDENCIES = $(libs)
+imap_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
+imap_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 
 cmds = \
 	cmd-append.c \

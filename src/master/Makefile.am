@@ -11,12 +11,10 @@ AM_CPPFLAGS = \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DBINDIR=\""$(bindir)"\"
 
-libs = \
+dovecot_LDADD = \
 	$(LIBCAP) \
 	$(LIBDOVECOT)
-
-dovecot_LDADD = $(libs)
-dovecot_DEPENDENCIES = $(libs)
+dovecot_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 dovecot_SOURCES = \
 	capabilities-posix.c \

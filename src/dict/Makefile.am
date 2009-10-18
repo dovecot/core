@@ -15,15 +15,15 @@ dict_LDFLAGS = -export-dynamic
 
 libs = \
 	../lib-dict/libdict_backend.a \
-	$(LIBDOVECOT_SQL) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT_SQL)
 
 dict_LDADD = \
 	$(libs) \
+	$(LIBDOVECOT) \
 	$(MODULE_LIBS) \
 	$(DICT_LIBS) \
 	$(SQL_LIBS)
-dict_DEPENDENCIES = $(libs)
+dict_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 
 dict_SOURCES = \
 	dict-connection.c \

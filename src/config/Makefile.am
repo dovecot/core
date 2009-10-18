@@ -18,13 +18,13 @@ config_LDADD = \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS) \
 	$(RAND_LIBS)
-config_DEPENDENCIES = $(LIBDOVECOT)
+config_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 doveconf_LDADD = \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS) \
 	$(RAND_LIBS)
-doveconf_DEPENDENCIES = $(LIBDOVECOT)
+doveconf_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 common = \
 	all-settings.c \

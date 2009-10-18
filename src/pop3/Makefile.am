@@ -20,11 +20,10 @@ endif
 
 libs = \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
 	$(unused_objects)
 
-pop3_LDADD = $(libs) $(MODULE_LIBS)
-pop3_DEPENDENCIES = $(libs)
+pop3_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
+pop3_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 
 pop3_SOURCES = \
 	main.c \

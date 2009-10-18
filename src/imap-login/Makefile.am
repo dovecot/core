@@ -14,7 +14,7 @@ imap_login_LDADD = \
 	$(LIBDOVECOT)
 imap_login_DEPENDENCIES = \
 	$(LIBDOVECOT_LOGIN) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT_DEPS)
 
 imap_login_SOURCES = \
 	client.c \

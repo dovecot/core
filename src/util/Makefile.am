@@ -20,26 +20,26 @@ AM_CPPFLAGS = \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
 rawlog_LDADD = $(LIBDOVECOT)
-rawlog_DEPENDENCIES = $(LIBDOVECOT)
+rawlog_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 rawlog_SOURCES = \
 	rawlog.c
 
 gdbhelper_LDADD = $(LIBDOVECOT)
-gdbhelper_DEPENDENCIES = $(LIBDOVECOT)
+gdbhelper_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 gdbhelper_SOURCES = \
 	gdbhelper.c
 
 imap_utf7_LDADD = $(LIBDOVECOT)
-imap_utf7_DEPENDENCIES = $(LIBDOVECOT)
+imap_utf7_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 imap_utf7_SOURCES = \
 	imap-utf7.c
 
 listview_LDADD = $(LIBDOVECOT)
-listview_DEPENDENCIES = $(LIBDOVECOT)
+listview_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 listview_SOURCES = \
 	listview.c
 
 maildirlock_LDADD = $(LIBDOVECOT)
-maildirlock_DEPENDENCIES = $(LIBDOVECOT)
+maildirlock_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 maildirlock_SOURCES = \
 	maildirlock.c

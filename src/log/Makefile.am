@@ -8,7 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master
 
 log_LDADD = $(LIBDOVECOT)
-log_DEPENDENCIES = $(LIBDOVECOT)
+log_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 log_SOURCES = \
 	log-connection.c \

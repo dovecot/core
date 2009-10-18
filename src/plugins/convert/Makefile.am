@@ -30,11 +30,11 @@ common_objects = \
 
 libs = \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(common_objects)
 
 convert_tool_LDADD = \
-	$(MODULE_LIBS) \
-	$(common_objects) \
-	$(libs)
+	$(libs) \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
 
-convert_tool_DEPENDENCIES = $(libs) $(common_objects)
+convert_tool_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)

@@ -25,7 +25,7 @@ doveadm_LDADD = \
 doveadm_DEPENDENCIES = \
 	$(cmd_pw_libs) \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT_DEPS)
 
 doveadm_SOURCES = \
 	doveadm.c \

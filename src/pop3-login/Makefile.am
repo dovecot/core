@@ -13,7 +13,7 @@ pop3_login_LDADD = \
 	$(LIBDOVECOT)
 pop3_login_DEPENDENCIES = \
 	$(LIBDOVECOT_LOGIN) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT_DEPS)
 
 pop3_login_SOURCES = \
 	client.c \

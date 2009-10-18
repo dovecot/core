@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-DPKG_STATEDIR=\""$(statedir)"\"
 
 ssl_params_LDADD = $(LIBDOVECOT) $(SSL_LIBS)
-ssl_params_DEPENDENCIES = $(LIBDOVECOT)
+ssl_params_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 ssl_params_SOURCES = \
 	main.c \
 	ssl-params.c \

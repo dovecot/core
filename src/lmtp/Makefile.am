@@ -19,12 +19,10 @@ lmtp_LDFLAGS = -export-dynamic
 
 libs = \
 	../lib-lda/liblda.a \
-	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT_STORAGE)
 
-lmtp_LDADD = $(libs) $(MODULE_LIBS)
-
-lmtp_DEPENDENCIES = $(libs)
+lmtp_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
+lmtp_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 
 lmtp_SOURCES = \
 	main.c \

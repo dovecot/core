@@ -12,7 +12,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage
 
 dsync_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT) $(MODULE_LIBS)
-dsync_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
+dsync_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_DEPS)
 dsync_SOURCES = \
 	dsync.c \
 	dsync-brain.c \

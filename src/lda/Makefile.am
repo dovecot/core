@@ -25,12 +25,10 @@ endif
 libs = \
 	../lib-lda/liblda.a \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT) \
 	$(unused_objects)
 
-dovecot_lda_LDADD = $(libs) $(MODULE_LIBS)
-
-dovecot_lda_DEPENDENCIES = $(libs)
+dovecot_lda_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
+dovecot_lda_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 
 dovecot_lda_SOURCES = \
 	main.c

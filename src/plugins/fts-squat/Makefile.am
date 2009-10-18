@@ -36,10 +36,7 @@ common_objects = \
 
 libs = \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(common_objects)
 
-squat_test_LDADD = \
-	$(common_objects) \
-	$(libs)
-
-squat_test_DEPENDENCIES = $(libs) $(common_objects)
+squat_test_LDADD = $(libs) $(LIBDOVECOT)
+squat_test_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
