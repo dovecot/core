@@ -205,7 +205,7 @@ bool master_service_parse_option(struct master_service *service,
 		array_append(&service->config_overrides, &arg, 1);
 		break;
 	case 'O':
-		service->default_settings = TRUE;
+		service->flags |= MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS;
 		break;
 	case 's':
 		if ((i = atoi(arg)) < 0)

@@ -192,7 +192,8 @@ int master_service_settings_read(struct master_service *service,
 	int ret, fd = -1;
 	time_t now, timeout;
 
-	if (getenv("DOVECONF_ENV") == NULL && !service->default_settings) {
+	if (getenv("DOVECONF_ENV") == NULL &&
+	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
 		path = input->config_path != NULL ? input->config_path :
 			master_service_get_config_path(service);
 		fd = master_service_read_config(service, path, input, error_r);
@@ -258,18 +259,21 @@ int master_service_settings_read(struct master_service *service,
 	else if (fd != -1)
 		(void)close(fd);
 
-	/* let environment override settings. especially useful for the
-	   settings from userdb. */
-	if (settings_parse_environ(parser) < 0) {
-		*error_r = settings_parser_get_error(parser);
-		return -1;
+	if ((service->flags & MASTER_SERVICE_FLAG_NO_ENV_SETTINGS) == 0) {
+		/* let environment override settings. especially useful for the
+		   settings from userdb. */
+		if (settings_parse_environ(parser) < 0) {
+			*error_r = settings_parser_get_error(parser);
+			return -1;
+		}
+		env = getenv("VARS_EXPANDED");
+		if (env != NULL) T_BEGIN {
+			keys = t_strsplit(env, " ");
+			settings_parse_set_keys_expandeded(parser,
+							   service->set_pool,
+							   keys);
+		} T_END;
 	}
-	env = getenv("VARS_EXPANDED");
-	if (env != NULL) T_BEGIN {
-		keys = t_strsplit(env, " ");
-		settings_parse_set_keys_expandeded(parser, service->set_pool,
-						   keys);
-	} T_END;
 
 	if (array_is_created(&service->config_overrides)) {
 		if (master_service_apply_config_overrides(service, parser,
