@@ -5,6 +5,7 @@
 #include "str.h"
 #include "unichar.h"
 #include "message-address.h"
+#include "message-header-decode.h"
 #include "imap-base-subject.h"
 #include "index-storage.h"
 #include "index-sort-private.h"
@@ -266,6 +267,8 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 	case MAIL_SORT_FROM:
 	case MAIL_SORT_SUBJECT:
 	case MAIL_SORT_TO:
+	case MAIL_SORT_DISPLAYFROM:
+	case MAIL_SORT_DISPLAYTO:
 		program->sort_list_add = index_sort_list_add_string;
 		program->sort_list_finish = index_sort_list_finish_string;
 		index_sort_list_init_string(program);
@@ -300,21 +303,64 @@ void index_sort_program_deinit(struct mail_search_sort_program **_program)
 }
 
 static int
-get_first_mailbox(struct mail *mail, const char *header, const char **mailbox_r)
+get_first_addr(struct mail *mail, const char *header,
+	       struct message_address **addr_r)
 {
-	struct message_address *addr;
 	const char *str;
 	int ret;
 
 	if ((ret = mail_get_first_header_utf8(mail, header, &str)) <= 0) {
-		*mailbox_r = "";
+		*addr_r = NULL;
 		return ret;
 	}
 
-	addr = message_address_parse(pool_datastack_create(),
-				     (const unsigned char *)str,
-				     strlen(str), 1, TRUE);
-	*mailbox_r = addr != NULL ? addr->mailbox : "";
+	*addr_r = message_address_parse(pool_datastack_create(),
+					(const unsigned char *)str,
+					strlen(str), 1, TRUE);
+	return 0;
+}
+
+static int
+get_first_mailbox(struct mail *mail, const char *header, const char **mailbox_r)
+{
+	struct message_address *addr;
+
+	if (get_first_addr(mail, header, &addr) < 0) {
+		*mailbox_r = "";
+		return -1;
+	}
+	*mailbox_r = addr != NULL && addr->mailbox != NULL ? addr->mailbox : "";
+	return 0;
+}
+
+static int
+get_display_name(struct mail *mail, const char *header, const char **name_r)
+{
+	struct message_address *addr;
+
+	*name_r = "";
+
+	if (get_first_addr(mail, header, &addr) < 0)
+		return -1;
+	if (addr == NULL)
+		return 0;
+
+	if (addr->name != NULL) {
+		string_t *str;
+		unsigned int len = strlen(addr->name);
+
+		str = t_str_new(len*2);
+		(void)message_header_decode_utf8(
+			(const unsigned char *)addr->name, len, str, FALSE);
+		if (str_len(str) > 0) {
+			*name_r = str_c(str);
+			return 0;
+		}
+	}
+	if (addr->mailbox != NULL && addr->domain != NULL)
+		*name_r = t_strconcat(addr->mailbox, "@", addr->domain, NULL);
+	else if (addr->mailbox != NULL)
+		*name_r = addr->mailbox;
 	return 0;
 }
 
@@ -344,6 +390,12 @@ int index_sort_header_get(struct mail *mail, uint32_t seq,
 	case MAIL_SORT_TO:
 		ret = get_first_mailbox(mail, "To", &str);
 		break;
+	case MAIL_SORT_DISPLAYFROM:
+		ret = get_display_name(mail, "From", &str);
+		break;
+	case MAIL_SORT_DISPLAYTO:
+		ret = get_display_name(mail, "To", &str);
+		break;
 	default:
 		i_unreached();
 	}
@@ -368,6 +420,8 @@ int index_sort_node_cmp_type(struct mail *mail,
 	case MAIL_SORT_FROM:
 	case MAIL_SORT_TO:
 	case MAIL_SORT_SUBJECT:
+	case MAIL_SORT_DISPLAYFROM:
+	case MAIL_SORT_DISPLAYTO:
 		T_BEGIN {
 			string_t *str1, *str2;
 

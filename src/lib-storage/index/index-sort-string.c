@@ -71,6 +71,12 @@ void index_sort_list_init_string(struct mail_search_sort_program *program)
 	case MAIL_SORT_TO:
 		name = "sort-t";
 		break;
+	case MAIL_SORT_DISPLAYFROM:
+		name = "sort-df";
+		break;
+	case MAIL_SORT_DISPLAYTO:
+		name = "sort-dt";
+		break;
 	default:
 		i_unreached();
 	}
