@@ -999,9 +999,9 @@ AC_CACHE_CHECK([if we can use C99-like flexible array members],i_cv_c99_flex_arr
 ])
 
 if test $i_cv_c99_flex_arrays = yes; then
-  flexible_value=1
-else
   flexible_value=
+else
+  flexible_value=1
 fi
 AC_DEFINE_UNQUOTED(FLEXIBLE_ARRAY_MEMBER, $flexible_value, How to define flexible array members in structs)
 
