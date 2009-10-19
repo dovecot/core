@@ -159,6 +159,7 @@ service_auth_userdb_lookup(struct auth_master_connection *conn,
 	struct auth_user_info info;
 	struct auth_user_reply reply;
 	const char *system_groups_user, *orig_user = *user;
+	const char *new_username, *const *fields;
 	unsigned int len;
 	pool_t pool;
 	int ret;
@@ -169,11 +170,13 @@ service_auth_userdb_lookup(struct auth_master_connection *conn,
 	info.remote_ip = input->remote_ip;
 
 	pool = pool_alloconly_create("userdb lookup", 1024);
-	ret = auth_master_user_lookup(conn, *user, &info, pool, &reply);
+	ret = auth_master_user_lookup(conn, *user, &info, pool,
+				      &new_username, &fields);
 	if (ret > 0) {
+		auth_user_fields_parse(fields, pool, &reply);
 		len = reply.chroot == NULL ? 0 : strlen(reply.chroot);
 
-		*user = t_strdup(reply.user);
+		*user = t_strdup(new_username);
 		if (user_reply_handle(set_parser, user_set, &reply,
 				      &system_groups_user, error_r) < 0)
 			ret = -1;

@@ -48,15 +48,9 @@ struct auth_master_connection {
 	unsigned int aborted:1;
 };
 
-struct auth_master_user_lookup_ctx {
+struct auth_master_lookup_ctx {
 	struct auth_master_connection *conn;
-	pool_t pool;
-	struct auth_user_reply *user_reply;
-	int return_value;
-};
-
-struct auth_master_pass_lookup_ctx {
-	struct auth_master_connection *conn;
+	const char *expected_reply;
 	int return_value;
 
 	pool_t pool;
@@ -117,36 +111,6 @@ static void auth_request_lookup_abort(struct auth_master_connection *conn)
 	conn->aborted = TRUE;
 }
 
-static void auth_parse_input(struct auth_master_user_lookup_ctx *ctx,
-			     const char *const *args)
-{
-	struct auth_user_reply *reply = ctx->user_reply;
-
-	memset(reply, 0, sizeof(*reply));
-	reply->uid = (uid_t)-1;
-	reply->gid = (gid_t)-1;
-	p_array_init(&reply->extra_fields, ctx->pool, 64);
-
-	reply->user = p_strdup(ctx->pool, *args);
-	for (args++; *args != NULL; args++) {
-		if (ctx->conn->debug)
-			i_debug("auth input: %s", *args);
-
-		if (strncmp(*args, "uid=", 4) == 0)
-			reply->uid = strtoul(*args + 4, NULL, 10);
-		else if (strncmp(*args, "gid=", 4) == 0)
-			reply->gid = strtoul(*args + 4, NULL, 10);
-		else if (strncmp(*args, "home=", 5) == 0)
-			reply->home = p_strdup(ctx->pool, *args + 5);
-		else if (strncmp(*args, "chroot=", 7) == 0)
-			reply->chroot = p_strdup(ctx->pool, *args + 7);
-		else {
-			const char *field = p_strdup(ctx->pool, *args);
-			array_append(&reply->extra_fields, &field, 1);
-		}
-	}
-}
-
 static int auth_input_handshake(struct auth_master_connection *conn)
 {
 	const char *line, *const *tmp;
@@ -190,14 +154,24 @@ static int parse_reply(struct auth_master_connection *conn,
 	return -1;
 }
 
-static bool auth_user_reply_callback(const char *cmd, const char *const *args,
-				     void *context)
+static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
+				       void *context)
 {
-	struct auth_master_user_lookup_ctx *ctx = context;
+	struct auth_master_lookup_ctx *ctx = context;
+	unsigned int i, len;
 
-	ctx->return_value = parse_reply(ctx->conn, cmd, args, "USER");
-	if (ctx->return_value > 0)
-		auth_parse_input(ctx, args);
+	ctx->return_value =
+		parse_reply(ctx->conn, cmd, args, ctx->expected_reply);
+	if (ctx->return_value > 0) {
+		len = str_array_length(args);
+		ctx->fields = p_new(ctx->pool, const char *, len + 1);
+		for (i = 0; i < len; i++) {
+			if (ctx->conn->debug)
+				i_debug("auth input: %s", *args);
+
+			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
+		}
+	}
 	return TRUE;
 }
 
@@ -423,9 +397,10 @@ auth_user_info_export(string_t *str, const struct auth_user_info *info)
 
 int auth_master_user_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
-			    pool_t pool, struct auth_user_reply *reply_r)
+			    pool_t pool, const char **username_r,
+			    const char *const **fields_r)
 {
-	struct auth_master_user_lookup_ctx ctx;
+	struct auth_master_lookup_ctx ctx;
 	string_t *str;
 
 	if (!is_valid_string(user) || !is_valid_string(info->service)) {
@@ -437,9 +412,9 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	ctx.conn = conn;
 	ctx.return_value = -1;
 	ctx.pool = pool;
-	ctx.user_reply = reply_r;
+	ctx.expected_reply = "USER";
 
-	conn->reply_callback = auth_user_reply_callback;
+	conn->reply_callback = auth_lookup_reply_callback;
 	conn->reply_context = &ctx;
 
 	str = t_str_new(128);
@@ -452,30 +427,49 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	(void)auth_master_run_cmd(conn, str_c(str));
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 
+	if (ctx.return_value <= 0 || ctx.fields[0] == NULL) {
+		*username_r = NULL;
+		*fields_r = NULL;
+		if (ctx.return_value > 0) {
+			i_error("Userdb lookup didn't return username");
+			ctx.return_value = -1;
+		}
+	} else {
+		*username_r = ctx.fields[0];
+		*fields_r = ctx.fields + 1;
+	}
 	return ctx.return_value;
 }
 
-static bool auth_pass_reply_callback(const char *cmd, const char *const *args,
-				     void *context)
+void auth_user_fields_parse(const char *const *fields, pool_t pool,
+			    struct auth_user_reply *reply_r)
 {
-	struct auth_master_pass_lookup_ctx *ctx = context;
-	unsigned int i, len;
+	memset(reply_r, 0, sizeof(*reply_r));
+	reply_r->uid = (uid_t)-1;
+	reply_r->gid = (gid_t)-1;
+	p_array_init(&reply_r->extra_fields, pool, 64);
 
-	ctx->return_value = parse_reply(ctx->conn, cmd, args, "PASS");
-	if (ctx->return_value > 0) {
-		len = str_array_length(args);
-		ctx->fields = p_new(ctx->pool, const char *, len + 1);
-		for (i = 0; i < len; i++)
-			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
+	for (; *fields != NULL; fields++) {
+		if (strncmp(*fields, "uid=", 4) == 0)
+			reply_r->uid = strtoul(*fields + 4, NULL, 10);
+		else if (strncmp(*fields, "gid=", 4) == 0)
+			reply_r->gid = strtoul(*fields + 4, NULL, 10);
+		else if (strncmp(*fields, "home=", 5) == 0)
+			reply_r->home = p_strdup(pool, *fields + 5);
+		else if (strncmp(*fields, "chroot=", 7) == 0)
+			reply_r->chroot = p_strdup(pool, *fields + 7);
+		else {
+			const char *field = p_strdup(pool, *fields);
+			array_append(&reply_r->extra_fields, &field, 1);
+		}
 	}
-	return TRUE;
 }
 
 int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char *const **fields_r)
 {
-	struct auth_master_pass_lookup_ctx ctx;
+	struct auth_master_lookup_ctx ctx;
 	string_t *str;
 
 	if (!is_valid_string(user) || !is_valid_string(info->service)) {
@@ -487,8 +481,9 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	ctx.conn = conn;
 	ctx.return_value = -1;
 	ctx.pool = pool;
+	ctx.expected_reply = "PASS";
 
-	conn->reply_callback = auth_pass_reply_callback;
+	conn->reply_callback = auth_lookup_reply_callback;
 	conn->reply_context = &ctx;
 
 	str = t_str_new(128);

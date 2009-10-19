@@ -244,6 +244,7 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 	struct auth_user_info info;
 	struct auth_user_reply reply;
 	pool_t userdb_pool;
+	const char *username, *const *fields;
 	int ret;
 
 	memset(&info, 0, sizeof(info));
@@ -260,10 +261,11 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 
 	userdb_pool = pool_alloconly_create("userdb lookup", 512);
 	ret = auth_master_user_lookup(auth_master_conn, user->username,
-				      &info, userdb_pool, &reply);
+				      &info, userdb_pool, &username, &fields);
 	if (ret < 0)
 		*home_r = NULL;
 	else {
+		auth_user_fields_parse(fields, userdb_pool, &reply);
 		user->_home = ret == 0 ? NULL :
 			p_strdup(user->pool, reply.home);
 		user->home_looked_up = TRUE;

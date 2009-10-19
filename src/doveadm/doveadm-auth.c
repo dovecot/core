@@ -26,9 +26,7 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 {
 	struct auth_master_connection *conn;
 	pool_t pool;
-	struct auth_user_reply reply;
-	const char *const *fields;
-	unsigned int i, count;
+	const char *username, *const *fields, *p;
 	int ret;
 
 	if (auth_socket_path == NULL)
@@ -38,7 +36,7 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 
 	conn = auth_master_init(auth_socket_path, FALSE);
 	ret = auth_master_user_lookup(conn, input->username, &input->info,
-				      pool, &reply);
+				      pool, &username, &fields);
 	if (ret < 0)
 		i_fatal("userdb lookup failed");
 	else if (ret == 0) {
@@ -47,21 +45,14 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 	} else {
 		printf("userdb: %s\n", input->username);
 
-		if (reply.uid != (uid_t)-1)
-			printf("uid   : %s\n", dec2str(reply.uid));
-		if (reply.gid != (gid_t)-1)
-			printf("gid   : %s\n", dec2str(reply.gid));
-		if (reply.user != NULL)
-			printf("user  : %s\n", reply.user);
-		if (reply.home != NULL)
-			printf("home  : %s\n", reply.home);
-		if (reply.chroot != NULL)
-			printf("chroot: %s\n", reply.chroot);
-		fields = array_get(&reply.extra_fields, &count);
-		if (count > 0) {
-			printf("extra fields:\n");
-			for (i = 0; i < count; i++)
-				printf("  %s\n", fields[i]);
+		for (; *fields; fields++) {
+			p = strchr(*fields, '=');
+			if (p == NULL)
+				printf("  %-10s\n", *fields);
+			else {
+				printf("  %-10s: %s\n",
+				       t_strcut(*fields, '='), p + 1);
+			}
 		}
 	}
 	auth_master_deinit(&conn);
