@@ -62,6 +62,8 @@ struct service {
 
 	/* all listeners, even those that aren't currently listening */
 	ARRAY_DEFINE(listeners, struct service_listener *);
+	/* linked list of all processes belonging to this service */
+	struct service_process *processes;
 
 	/* number of processes currently created for this service */
 	unsigned int process_count;

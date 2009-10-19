@@ -10,6 +10,7 @@
 #include "base64.h"
 #include "hash.h"
 #include "str.h"
+#include "llist.h"
 #include "hostpid.h"
 #include "env-util.h"
 #include "fd-close-on-exec.h"
@@ -566,7 +567,8 @@ service_process_create(struct service *service, const char *const *auth_args,
 		i_assert(fd[0] == -1);
 		break;
 	}
-		
+
+	DLLIST_PREPEND(&service->processes, process);
 	process->refcount = 1;
 	process->pid = pid;
 	process->uid = uid;
@@ -588,6 +590,7 @@ void service_process_destroy(struct service_process *process)
 	struct service *service = process->service;
 	struct service_list *service_list = service->list;
 
+	DLLIST_REMOVE(&service->processes, process);
 	hash_table_remove(service_pids, &process->pid);
 
 	if (process->available_count > 0)

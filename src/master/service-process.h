@@ -2,6 +2,7 @@
 #define SERVICE_PROCESS_H
 
 struct service_process {
+	struct service_process *prev, *next;
 	struct service *service;
 	int refcount;
 
