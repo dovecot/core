@@ -447,22 +447,16 @@ int services_create(const struct master_settings *set,
 
 void service_signal(struct service *service, int signo)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
+	struct service_process *process = service->processes;
 
-	iter = hash_table_iterate_init(service_pids);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct service_process *process = value;
-
-		if (process->service != service)
-			continue;
+	for (; process != NULL; process = process->next) {
+		i_assert(process->service == service);
 
 		if (kill(process->pid, signo) < 0 && errno != ESRCH) {
 			service_error(service, "kill(%s, %d) failed: %m",
 				      dec2str(process->pid), signo);
 		}
 	}
-	hash_table_iterate_deinit(&iter);
 }
 
 static void services_kill_timeout(struct service_list *service_list)
