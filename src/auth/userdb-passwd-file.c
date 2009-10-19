@@ -124,7 +124,11 @@ static void passwd_file_iterate_next(struct userdb_iterate_context *_ctx)
 	if (ctx->input == NULL)
 		line = NULL;
 	else {
-		line = i_stream_read_next_line(ctx->input);
+		while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+			if (*line == '\0' || *line == ':' || *line == '#')
+				continue; /* no username or comment */
+			break;
+		}
 		if (line == NULL && ctx->input->stream_errno != 0) {
 			i_error("read(%s) failed: %m", ctx->path);
 			_ctx->failed = TRUE;
