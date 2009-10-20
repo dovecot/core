@@ -317,12 +317,14 @@ static void auth_server_connection_close(struct auth_server_connection *conn)
 		timeout_remove(&conn->to);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
-	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
+	if (conn->fd != -1) {
+		i_stream_destroy(&conn->input);
+		o_stream_destroy(&conn->output);
 
-	if (close(conn->fd) < 0)
-		i_error("close(auth server connection) failed: %m");
-	conn->fd = -1;
+		if (close(conn->fd) < 0)
+			i_error("close(auth server connection) failed: %m");
+		conn->fd = -1;
+	}
 
 	auth_server_connection_remove_requests(conn);
 
