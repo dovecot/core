@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "randgen.h"
+#include "hostpid.h"
 #include "safe-memset.h"
 #include "str.h"
 #include "strescape.h"
@@ -15,7 +16,7 @@
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "pop3-proxy.h"
-#include "hostpid.h"
+#include "pop3-login-settings.h"
 
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
@@ -109,7 +110,8 @@ static struct client *pop3_client_alloc(pool_t pool)
 	return &pop3_client->common;
 }
 
-static void pop3_client_create(struct client *client ATTR_UNUSED)
+static void pop3_client_create(struct client *client ATTR_UNUSED,
+			       void **other_sets ATTR_UNUSED)
 {
 }
 
@@ -206,7 +208,7 @@ pop3_client_send_line(struct client *client, enum client_cmd_reply reply,
 
 void clients_init(void)
 {
-	/* Nothing to initialize for POP3 */
+	login_set_roots = pop3_login_setting_roots;
 }
 
 void clients_deinit(void)

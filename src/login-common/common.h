@@ -21,6 +21,7 @@ extern bool closing_down;
 extern int anvil_fd;
 
 extern const struct login_settings *global_login_settings;
+extern void **global_other_settings;
 
 void login_process_preinit(void);
 

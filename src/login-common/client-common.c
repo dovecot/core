@@ -37,10 +37,10 @@ static void client_open_streams(struct client *client)
 		o_stream_create_fd(client->fd, LOGIN_MAX_OUTBUF_SIZE, FALSE);
 }
 
-struct client *client_create(int fd, bool ssl, pool_t pool,
-			     const struct login_settings *set,
-			     const struct ip_addr *local_ip,
-			     const struct ip_addr *remote_ip)
+struct client *
+client_create(int fd, bool ssl, pool_t pool,
+	      const struct login_settings *set, void **other_sets,
+	      const struct ip_addr *local_ip, const struct ip_addr *remote_ip)
 {
 	struct client *client;
 
@@ -78,7 +78,7 @@ struct client *client_create(int fd, bool ssl, pool_t pool,
 			    client_idle_disconnect_timeout, client);
 	client_open_streams(client);
 
-	client->v.create(client);
+	client->v.create(client, other_sets);
 
 	if (auth_client_is_connected(auth_client))
 		client->v.send_greeting(client);

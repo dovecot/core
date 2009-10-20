@@ -24,6 +24,7 @@ bool closing_down;
 int anvil_fd = -1;
 
 const struct login_settings *global_login_settings;
+void **global_other_settings;
 
 static bool ssl_connections = FALSE;
 
@@ -36,6 +37,7 @@ static void client_connected(const struct master_service_connection *conn)
 	unsigned int local_port;
 	pool_t pool;
 	int fd_ssl;
+	void **other_sets;
 
 	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0) {
 		memset(&local_ip, 0, sizeof(local_ip));
@@ -44,11 +46,11 @@ static void client_connected(const struct master_service_connection *conn)
 
 	pool = pool_alloconly_create("login client", 3*1024);
 	set = login_settings_read(master_service, pool, &local_ip,
-				  &conn->remote_ip);
+				  &conn->remote_ip, &other_sets);
 
 	if (!ssl_connections && !conn->ssl) {
-		client = client_create(conn->fd, FALSE, pool, set, &local_ip,
-				       &conn->remote_ip);
+		client = client_create(conn->fd, FALSE, pool, set, other_sets,
+				       &local_ip, &conn->remote_ip);
 	} else {
 		fd_ssl = ssl_proxy_new(conn->fd, &conn->remote_ip, set, &proxy);
 		if (fd_ssl == -1) {
@@ -57,7 +59,7 @@ static void client_connected(const struct master_service_connection *conn)
 			return;
 		}
 
-		client = client_create(fd_ssl, TRUE, pool, set,
+		client = client_create(fd_ssl, TRUE, pool, set, other_sets,
 				       &local_ip, &conn->remote_ip);
 		client->ssl_proxy = proxy;
 		ssl_proxy_set_client(proxy, client);
@@ -198,7 +200,8 @@ int main(int argc, char *argv[], char *envp[])
 	process_title_init(argv, envp);
 	set_pool = pool_alloconly_create("global login settings", 4096);
 	global_login_settings =
-		login_settings_read(master_service, set_pool, NULL, NULL);
+		login_settings_read(master_service, set_pool, NULL, NULL,
+				    &global_other_settings);
 
 	/* main_preinit() needs to know the client limit, which is set by
 	   this. so call it first. */

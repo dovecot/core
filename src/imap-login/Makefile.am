@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = imap-login
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-master \
@@ -19,9 +20,11 @@ imap_login_DEPENDENCIES = \
 imap_login_SOURCES = \
 	client.c \
 	client-authenticate.c \
+	imap-login-settings.c \
 	imap-proxy.c
 
 noinst_HEADERS = \
 	client.h \
 	client-authenticate.h \
+	imap-login-settings.h \
 	imap-proxy.h

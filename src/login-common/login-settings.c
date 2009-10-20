@@ -84,10 +84,12 @@ struct setting_parser_info login_setting_parser_info = {
 	MEMBER(check_func) login_settings_check
 };
 
-const struct setting_parser_info *login_set_roots[] = {
+static const struct setting_parser_info *default_login_set_roots[] = {
 	&login_setting_parser_info,
 	NULL
 };
+
+const struct setting_parser_info **login_set_roots = default_login_set_roots;
 
 /* <settings checks> */
 static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
@@ -156,16 +158,17 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r)
 struct login_settings *
 login_settings_read(struct master_service *service, pool_t pool,
 		    const struct ip_addr *local_ip,
-		    const struct ip_addr *remote_ip)
+		    const struct ip_addr *remote_ip,
+		    void ***other_settings_r)
 {
 	struct master_service_settings_input input;
 	const char *error;
 	void **sets;
-	struct login_settings *set;
+	unsigned int i;
 
 	memset(&input, 0, sizeof(input));
 	input.roots = login_set_roots;
-	input.module = "login";
+	input.module = login_process_name;
 	input.service = login_protocol;
 
 	if (local_ip != NULL)
@@ -180,8 +183,15 @@ login_settings_read(struct master_service *service, pool_t pool,
 		i_fatal("Error reading configuration: %s", error);
 
 	sets = master_service_settings_get_others(service);
-	set = settings_dup(&login_setting_parser_info, sets[0], pool);
-	if (!login_settings_check(set, pool, &error))
-		i_fatal("login_settings_check() failed: %s", error);
-	return set;
+	for (i = 0; sets[i] != NULL; i++) {
+		sets[i] = settings_dup(input.roots[i], sets[i], pool);
+		if (!settings_check(input.roots[i], pool, sets[i], &error)) {
+			const char *name = input.roots[i]->module_name;
+			i_fatal("settings_check(%s) failed: %s",
+				name != NULL ? name : "unknown", error);
+		}
+	}
+
+	*other_settings_r = sets + 1;
+	return sets[0];
 }

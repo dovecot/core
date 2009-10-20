@@ -7,6 +7,7 @@
 struct imap_client {
 	struct client common;
 
+	const struct imap_login_settings *set;
 	struct imap_parser *parser;
 	char *proxy_backend_capability;
 

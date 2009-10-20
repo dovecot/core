@@ -19,6 +19,7 @@
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "imap-proxy.h"
+#include "imap-login-settings.h"
 
 #include <stdlib.h>
 
@@ -57,10 +58,13 @@ bool client_skip_line(struct imap_client *client)
 
 static const char *get_capability(struct client *client)
 {
-	const char *auths;
+	struct imap_client *imap_client = (struct imap_client *)client;
+	const char *auths, *cap_str;
 
+	cap_str = *imap_client->set->imap_capability != '\0' ?
+		imap_client->set->imap_capability : CAPABILITY_BANNER_STRING;
 	auths = client_authenticate_get_capabilities(client);
-	return t_strconcat(CAPABILITY_BANNER_STRING,
+	return t_strconcat(cap_str,
 			   (ssl_initialized && !client->tls) ? " STARTTLS" : "",
 			   client->set->disable_plaintext_auth &&
 			   !client->secured ? " LOGINDISABLED" : "",
@@ -306,10 +310,11 @@ static struct client *imap_client_alloc(pool_t pool)
 	return &imap_client->common;
 }
 
-static void imap_client_create(struct client *client)
+static void imap_client_create(struct client *client, void **other_sets)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
 
+	imap_client->set = other_sets[0];
 	imap_client->parser =
 		imap_parser_create(imap_client->common.input,
 				   imap_client->common.output, MAX_IMAP_LINE);
@@ -419,7 +424,7 @@ imap_client_send_line(struct client *client, enum client_cmd_reply reply,
 
 void clients_init(void)
 {
-	/* Nothing to initialize for IMAP */
+	login_set_roots = imap_login_setting_roots;
 }
 
 void clients_deinit(void)

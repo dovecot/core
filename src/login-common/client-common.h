@@ -53,7 +53,7 @@ struct client_auth_reply {
 
 struct client_vfuncs {
 	struct client *(*alloc)(pool_t pool);
-	void (*create)(struct client *client);
+	void (*create)(struct client *client, void **other_sets);
 	void (*destroy)(struct client *client);
 	void (*send_greeting)(struct client *client);
 	void (*starttls)(struct client *client);
@@ -126,10 +126,10 @@ struct client {
 extern struct client *clients;
 extern struct client_vfuncs client_vfuncs;
 
-struct client *client_create(int fd, bool ssl, pool_t pool,
-			     const struct login_settings *set,
-			     const struct ip_addr *local_ip,
-			     const struct ip_addr *remote_ip);
+struct client *
+client_create(int fd, bool ssl, pool_t pool,
+	      const struct login_settings *set, void **other_sets,
+	      const struct ip_addr *local_ip, const struct ip_addr *remote_ip);
 void client_destroy(struct client *client, const char *reason);
 void client_destroy_success(struct client *client, const char *reason);
 void client_destroy_internal_failure(struct client *client);
