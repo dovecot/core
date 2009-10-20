@@ -690,9 +690,8 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	return ret;
 }
 
-static bool
-settings_parser_check_info(const struct setting_parser_info *info, pool_t pool,
-			   void *set, const char **error_r)
+bool settings_check(const struct setting_parser_info *info, pool_t pool,
+		    void *set, const char **error_r)
 {
 	const struct setting_define *def;
 	const ARRAY_TYPE(void_array) *val;
@@ -714,8 +713,8 @@ settings_parser_check_info(const struct setting_parser_info *info, pool_t pool,
 
 		children = array_get(val, &count);
 		for (i = 0; i < count; i++) {
-			if (!settings_parser_check_info(def->list_info, pool,
-							children[i], error_r))
+			if (!settings_check(def->list_info, pool,
+					    children[i], error_r))
 				return FALSE;
 		}
 	}
@@ -728,10 +727,9 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 	unsigned int i;
 
 	for (i = 0; i < ctx->root_count; i++) {
-		if (!settings_parser_check_info(ctx->roots[i].info, pool,
-						ctx->roots[i].set_struct,
-						error_r))
-		    return FALSE;
+		if (!settings_check(ctx->roots[i].info, pool,
+				    ctx->roots[i].set_struct, error_r))
+			return FALSE;
 	}
 	return TRUE;
 }

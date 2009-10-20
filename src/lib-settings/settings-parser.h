@@ -129,6 +129,8 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 /* Call all check_func()s to see if currently parsed settings are valid. */
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 			   const char **error_r);
+bool settings_check(const struct setting_parser_info *info, pool_t pool,
+		    void *set, const char **error_r);
 
 /* While parsing values, specifies if STR_VARS strings are already expanded. */
 void settings_parse_set_expanded(struct setting_parser_context *ctx,
