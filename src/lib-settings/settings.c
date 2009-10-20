@@ -227,6 +227,12 @@ prevfile:
 				if (*p == '\0')
 					break;
 			} else if (*p == '#') {
+				if (!IS_WHITE(p[-1])) {
+					i_warning("Configuration file %s line %u: "
+						  "Ambiguous '#' character in line, treating it as comment. "
+						  "Add a space before it to remove this warning.",
+						  input->path, input->linenum);
+				}
 				*p = '\0';
 				break;
 			}

@@ -414,8 +414,8 @@ enum config_line_type {
 };
 
 static enum config_line_type
-config_parse_line(char *line, string_t *full_line, const char **key_r,
-		  const char **value_r)
+config_parse_line(struct parser_context *ctx, char *line, string_t *full_line,
+		  const char **key_r, const char **value_r)
 {
 	const char *key;
 	unsigned int len;
@@ -445,6 +445,13 @@ config_parse_line(char *line, string_t *full_line, const char **key_r,
 			if (*p == '\0')
 				break;
 		} else if (*p == '#') {
+			if (!IS_WHITE(p[-1])) {
+				i_warning("Configuration file %s line %u: "
+					  "Ambiguous '#' character in line, treating it as comment. "
+					  "Add a space before it to remove this warning.",
+					  ctx->cur_input->path,
+					  ctx->cur_input->linenum);
+			}
 			*p = '\0';
 			break;
 		}
@@ -609,7 +616,7 @@ int config_parse_file(const char *path, bool expand_files,
 prevfile:
 	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
 		ctx.cur_input->linenum++;
-		type = config_parse_line(line, full_line,
+		type = config_parse_line(&ctx, line, full_line,
 					 &key, &value);
 		switch (type) {
 		case CONFIG_LINE_TYPE_SKIP:
