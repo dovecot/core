@@ -39,12 +39,11 @@ static struct setting_parser_info mbox_setting_parser_info = {
 	MEMBER(defines) mbox_setting_defines,
 	MEMBER(defaults) &mbox_default_settings,
 
-	MEMBER(parent) &mail_user_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
+	MEMBER(type_offset) (size_t)-1,
+	MEMBER(struct_size) sizeof(struct mbox_settings),
 
 	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct mbox_settings)
+	MEMBER(parent) &mail_user_setting_parser_info
 };
 
 const struct setting_parser_info *mbox_get_setting_parser_info(void)

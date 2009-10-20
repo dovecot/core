@@ -68,12 +68,12 @@ struct setting_parser_info mail_storage_setting_parser_info = {
 	MEMBER(defines) mail_storage_setting_defines,
 	MEMBER(defaults) &mail_storage_default_settings,
 
-	MEMBER(parent) &mail_user_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct mail_storage_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) &mail_user_setting_parser_info,
+
 	MEMBER(check_func) mail_storage_settings_check
 };
 
@@ -113,12 +113,12 @@ struct setting_parser_info mail_namespace_setting_parser_info = {
 	MEMBER(defines) mail_namespace_setting_defines,
 	MEMBER(defaults) &mail_namespace_default_settings,
 
-	MEMBER(parent) &mail_user_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) offsetof(struct mail_namespace_settings, user_set),
 	MEMBER(type_offset) offsetof(struct mail_namespace_settings, type),
 	MEMBER(struct_size) sizeof(struct mail_namespace_settings),
+
+	MEMBER(parent_offset) offsetof(struct mail_namespace_settings, user_set),
+	MEMBER(parent) &mail_user_setting_parser_info,
+
 	MEMBER(check_func) namespace_settings_check
 };
 
@@ -188,12 +188,12 @@ struct setting_parser_info mail_user_setting_parser_info = {
 	MEMBER(defines) mail_user_setting_defines,
 	MEMBER(defaults) &mail_user_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct mail_user_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) NULL,
+
 	MEMBER(check_func) mail_user_settings_check
 };
 

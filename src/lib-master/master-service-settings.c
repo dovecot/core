@@ -48,12 +48,10 @@ struct setting_parser_info master_service_setting_parser_info = {
 	MEMBER(defines) master_service_setting_defines,
 	MEMBER(defaults) &master_service_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct master_service_settings)
+	MEMBER(struct_size) sizeof(struct master_service_settings),
+
+	MEMBER(parent_offset) (size_t)-1
 };
 
 static void ATTR_NORETURN

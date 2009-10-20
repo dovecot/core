@@ -31,12 +31,11 @@ static struct setting_parser_info maildir_setting_parser_info = {
 	MEMBER(defines) maildir_setting_defines,
 	MEMBER(defaults) &maildir_default_settings,
 
-	MEMBER(parent) &mail_user_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
+	MEMBER(type_offset) (size_t)-1,
+	MEMBER(struct_size) sizeof(struct maildir_settings),
 
 	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct maildir_settings)
+	MEMBER(parent) &mail_user_setting_parser_info
 };
 
 const struct setting_parser_info *maildir_get_setting_parser_info(void)

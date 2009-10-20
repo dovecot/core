@@ -36,12 +36,12 @@ static struct setting_parser_info mdbox_setting_parser_info = {
 	MEMBER(defines) mdbox_setting_defines,
 	MEMBER(defaults) &mdbox_default_settings,
 
-	MEMBER(parent) &mail_user_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct mdbox_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) &mail_user_setting_parser_info,
+
 	MEMBER(check_func) mdbox_settings_verify
 };
 

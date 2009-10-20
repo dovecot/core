@@ -46,10 +46,11 @@ static struct setting_parser_info file_listener_setting_parser_info = {
 	MEMBER(defines) file_listener_setting_defines,
 	MEMBER(defaults) &file_listener_default_settings,
 
-	MEMBER(parent) &service_setting_parser_info,
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct file_listener_settings)
+	MEMBER(struct_size) sizeof(struct file_listener_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) &service_setting_parser_info
 };
 
 #undef DEF
@@ -74,10 +75,11 @@ static struct setting_parser_info inet_listener_setting_parser_info = {
 	MEMBER(defines) inet_listener_setting_defines,
 	MEMBER(defaults) &inet_listener_default_settings,
 
-	MEMBER(parent) &service_setting_parser_info,
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct inet_listener_settings)
+	MEMBER(struct_size) sizeof(struct inet_listener_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) &service_setting_parser_info
 };
 
 #undef DEF
@@ -146,12 +148,11 @@ struct setting_parser_info service_setting_parser_info = {
 	MEMBER(defines) service_setting_defines,
 	MEMBER(defaults) &service_default_settings,
 
-	MEMBER(parent) &master_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
+	MEMBER(type_offset) offsetof(struct service_settings, name),
+	MEMBER(struct_size) sizeof(struct service_settings),
 
 	MEMBER(parent_offset) offsetof(struct service_settings, master_set),
-	MEMBER(type_offset) offsetof(struct service_settings, name),
-	MEMBER(struct_size) sizeof(struct service_settings)
+	MEMBER(parent) &master_setting_parser_info
 };
 
 #undef DEF
@@ -213,10 +214,12 @@ struct setting_parser_info master_setting_parser_info = {
 	MEMBER(defines) master_setting_defines,
 	MEMBER(defaults) &master_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct master_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) NULL,
+
 	MEMBER(check_func) master_settings_verify
 };
 

@@ -53,14 +53,15 @@ struct setting_parser_info {
 	const struct setting_define *defines;
 	const void *defaults;
 
-	struct setting_parser_info *parent;
-	struct dynamic_settings_parser *dynamic_parsers;
-
-	size_t parent_offset;
 	size_t type_offset;
 	size_t struct_size;
+
+	size_t parent_offset;
+	struct setting_parser_info *parent;
+
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
 	struct setting_parser_info *const *dependencies;
+	struct dynamic_settings_parser *dynamic_parsers;
 
 };
 ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);

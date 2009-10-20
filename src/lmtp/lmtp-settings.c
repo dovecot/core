@@ -26,11 +26,8 @@ struct setting_parser_info lmtp_setting_parser_info = {
 	MEMBER(defines) lmtp_setting_defines,
 	MEMBER(defaults) &lmtp_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct lmtp_settings),
-	MEMBER(check_func) NULL
+
+	MEMBER(parent_offset) (size_t)-1
 };

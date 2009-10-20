@@ -59,12 +59,12 @@ struct setting_parser_info imap_setting_parser_info = {
 	MEMBER(defines) imap_setting_defines,
 	MEMBER(defaults) &imap_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct imap_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) NULL,
+
 	MEMBER(check_func) imap_settings_verify,
 	MEMBER(dependencies) imap_setting_dependencies
 };

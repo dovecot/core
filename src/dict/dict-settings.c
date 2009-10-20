@@ -26,12 +26,10 @@ struct setting_parser_info dict_setting_parser_info = {
 	MEMBER(defines) dict_setting_defines,
 	MEMBER(defaults) &dict_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct dict_settings)
+	MEMBER(struct_size) sizeof(struct dict_settings),
+
+	MEMBER(parent_offset) (size_t)-1
 };
 
 struct dict_settings *dict_settings;

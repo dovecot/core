@@ -29,12 +29,11 @@ struct setting_parser_info auth_passdb_setting_parser_info = {
 	MEMBER(defines) auth_passdb_setting_defines,
 	MEMBER(defaults) NULL,
 
-	MEMBER(parent) &auth_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
+	MEMBER(type_offset) offsetof(struct auth_passdb_settings, driver),
+	MEMBER(struct_size) sizeof(struct auth_passdb_settings),
 
 	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(type_offset) offsetof(struct auth_passdb_settings, driver),
-	MEMBER(struct_size) sizeof(struct auth_passdb_settings)
+	MEMBER(parent) &auth_setting_parser_info
 };
 
 #undef DEF
@@ -52,12 +51,11 @@ struct setting_parser_info auth_userdb_setting_parser_info = {
 	MEMBER(defines) auth_userdb_setting_defines,
 	MEMBER(defaults) NULL,
 
-	MEMBER(parent) &auth_setting_parser_info,
-	MEMBER(dynamic_parsers) NULL,
+	MEMBER(type_offset) offsetof(struct auth_userdb_settings, driver),
+	MEMBER(struct_size) sizeof(struct auth_userdb_settings),
 
 	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(type_offset) offsetof(struct auth_userdb_settings, driver),
-	MEMBER(struct_size) sizeof(struct auth_userdb_settings)
+	MEMBER(parent) &auth_setting_parser_info
 };
 
 /* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
@@ -134,12 +132,12 @@ struct setting_parser_info auth_setting_parser_info = {
 	MEMBER(defines) auth_setting_defines,
 	MEMBER(defaults) &auth_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct auth_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) NULL,
+
 	MEMBER(check_func) auth_settings_check
 };
 

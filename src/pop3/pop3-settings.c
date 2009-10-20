@@ -56,12 +56,12 @@ struct setting_parser_info pop3_setting_parser_info = {
 	MEMBER(defines) pop3_setting_defines,
 	MEMBER(defaults) &pop3_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct pop3_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) NULL,
+
 	MEMBER(check_func) pop3_settings_verify,
 	MEMBER(dependencies) pop3_setting_dependencies
 };

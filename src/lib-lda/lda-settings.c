@@ -52,12 +52,12 @@ struct setting_parser_info lda_setting_parser_info = {
 	MEMBER(defines) lda_setting_defines,
 	MEMBER(defaults) &lda_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct lda_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) NULL,
+
 #ifdef CONFIG_BINARY
 	MEMBER(check_func) NULL,
 #else

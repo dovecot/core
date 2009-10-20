@@ -74,12 +74,12 @@ struct setting_parser_info login_setting_parser_info = {
 	MEMBER(defines) login_setting_defines,
 	MEMBER(defaults) &login_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct login_settings),
+
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) NULL,
+
 	MEMBER(check_func) login_settings_check
 };
 

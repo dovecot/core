@@ -54,12 +54,10 @@ static const struct setting_parser_info strlist_info = {
 	MEMBER(defines) NULL,
 	MEMBER(defaults) NULL,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) 0
+	MEMBER(struct_size) 0,
+
+	MEMBER(parent_offset) (size_t)-1
 };
 
 struct setting_parser_context *

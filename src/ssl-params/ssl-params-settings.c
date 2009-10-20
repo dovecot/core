@@ -27,12 +27,10 @@ struct setting_parser_info ssl_params_setting_parser_info = {
 	MEMBER(defines) ssl_params_setting_defines,
 	MEMBER(defaults) &ssl_params_default_settings,
 
-	MEMBER(parent) NULL,
-	MEMBER(dynamic_parsers) NULL,
-
-	MEMBER(parent_offset) (size_t)-1,
 	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct ssl_params_settings)
+	MEMBER(struct_size) sizeof(struct ssl_params_settings),
+
+	MEMBER(parent_offset) (size_t)-1
 };
 
 struct ssl_params_settings *
