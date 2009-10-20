@@ -134,6 +134,7 @@ drop_privileges(struct service *service)
 {
 	struct restrict_access_settings rset;
 	bool disallow_root;
+	unsigned int len;
 
 	if (service->vsz_limit != 0)
 		restrict_process_size(service->vsz_limit, -1U);
@@ -144,6 +145,12 @@ drop_privileges(struct service *service)
 	rset.privileged_gid = service->privileged_gid;
 	rset.chroot_dir = *service->set->chroot == '\0' ? NULL :
 		service->set->chroot;
+	if (rset.chroot_dir != NULL) {
+		/* drop trailing / if it exists */
+		len = strlen(rset.chroot_dir);
+		if (rset.chroot_dir[len-1] == '/')
+			rset.chroot_dir = t_strndup(rset.chroot_dir, len-1);
+	}
 	rset.extra_groups = service->extra_gids;
 
 	if (service->set->drop_priv_before_exec) {
