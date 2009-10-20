@@ -165,7 +165,7 @@ void **settings_parser_get_list(struct setting_parser_context *ctx)
 	unsigned int i;
 	void **sets;
 
-	sets = t_new(void *, ctx->root_count);
+	sets = t_new(void *, ctx->root_count + 1);
 	for (i = 0; i < ctx->root_count; i++)
 		sets[i] = ctx->roots[i].set_struct;
 	return sets;

@@ -94,7 +94,8 @@ void settings_parser_deinit(struct setting_parser_context **ctx);
 
 /* Return pointer to root setting structure. */
 void *settings_parser_get(struct setting_parser_context *ctx);
-/* If there are multiple roots, return list to all of their settings. */
+/* If there are multiple roots, return a NULL-terminated list to all of
+   their settings. */
 void **settings_parser_get_list(struct setting_parser_context *ctx);
 /* Like settings_parser_get(), but return change struct. */
 void *settings_parser_get_changes(struct setting_parser_context *ctx);
