@@ -56,6 +56,7 @@ static struct setting_parser_info *imap_setting_dependencies[] = {
 };
 
 struct setting_parser_info imap_setting_parser_info = {
+	MEMBER(module_name) "imap",
 	MEMBER(defines) imap_setting_defines,
 	MEMBER(defaults) &imap_default_settings,
 

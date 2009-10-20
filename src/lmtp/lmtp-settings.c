@@ -23,6 +23,7 @@ static struct lmtp_settings lmtp_default_settings = {
 };
 
 struct setting_parser_info lmtp_setting_parser_info = {
+	MEMBER(module_name) "lmtp",
 	MEMBER(defines) lmtp_setting_defines,
 	MEMBER(defaults) &lmtp_default_settings,
 

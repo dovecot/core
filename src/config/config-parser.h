@@ -2,8 +2,7 @@
 #define CONFIG_PARSER_H
 
 struct config_module_parser {
-	const char *module_name;
-	struct setting_parser_info *root;
+	const struct setting_parser_info *root;
 	struct setting_parser_context *parser;
 	void *settings;
 };

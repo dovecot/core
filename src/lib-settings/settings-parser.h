@@ -50,6 +50,7 @@ struct setting_define {
 	  #name, offsetof(struct struct_name, name), NULL }
 
 struct setting_parser_info {
+	const char *module_name;
 	const struct setting_define *defines;
 	const void *defaults;
 

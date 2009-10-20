@@ -71,6 +71,7 @@ static struct login_settings login_default_settings = {
 };
 
 struct setting_parser_info login_setting_parser_info = {
+	MEMBER(module_name) "login",
 	MEMBER(defines) login_setting_defines,
 	MEMBER(defaults) &login_default_settings,
 

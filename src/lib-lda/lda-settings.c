@@ -49,6 +49,7 @@ static struct setting_parser_info *lda_setting_dependencies[] = {
 };
 
 struct setting_parser_info lda_setting_parser_info = {
+	MEMBER(module_name) "lda",
 	MEMBER(defines) lda_setting_defines,
 	MEMBER(defaults) &lda_default_settings,
 

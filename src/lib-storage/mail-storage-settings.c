@@ -65,6 +65,7 @@ struct mail_storage_settings mail_storage_default_settings = {
 };
 
 struct setting_parser_info mail_storage_setting_parser_info = {
+	MEMBER(module_name) "mail",
 	MEMBER(defines) mail_storage_setting_defines,
 	MEMBER(defaults) &mail_storage_default_settings,
 
@@ -110,6 +111,7 @@ struct mail_namespace_settings mail_namespace_default_settings = {
 };
 
 struct setting_parser_info mail_namespace_setting_parser_info = {
+	MEMBER(module_name) NULL,
 	MEMBER(defines) mail_namespace_setting_defines,
 	MEMBER(defaults) &mail_namespace_default_settings,
 
@@ -185,6 +187,7 @@ static struct mail_user_settings mail_user_default_settings = {
 };
 
 struct setting_parser_info mail_user_setting_parser_info = {
+	MEMBER(module_name) "mail",
 	MEMBER(defines) mail_user_setting_defines,
 	MEMBER(defaults) &mail_user_default_settings,
 

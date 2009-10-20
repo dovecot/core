@@ -27,7 +27,7 @@ struct config_section_stack {
 	struct config_section_stack *prev;
 
 	struct config_filter filter;
-	/* module_name=NULL-terminated list of parsers */
+	/* root=NULL-terminated list of parsers */
 	struct config_module_parser *parsers;
 	unsigned int pathlen;
 };
@@ -106,7 +106,7 @@ config_apply_line(struct parser_context *ctx, const char *key,
 	bool found = FALSE;
 	int ret;
 
-	for (l = ctx->cur_section->parsers; l->module_name != NULL; l++) {
+	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
 		ret = settings_parse_line(l->parser, line);
 		if (ret > 0) {
 			found = TRUE;
@@ -146,13 +146,12 @@ config_module_parsers_init(pool_t pool)
 	struct config_module_parser *dest;
 	unsigned int i, count;
 
-	for (count = 0; all_roots[count].module_name != NULL; count++) ;
+	for (count = 0; all_roots[count] != NULL; count++) ;
 
 	dest = p_new(pool, struct config_module_parser, count + 1);
 	for (i = 0; i < count; i++) {
-		dest[i].module_name = all_roots[i].module_name;
-		dest[i].root = all_roots[i].root;
-		dest[i].parser = settings_parser_init(pool, all_roots[i].root,
+		dest[i].root = all_roots[i];
+		dest[i].parser = settings_parser_init(pool, all_roots[i],
 						      settings_parser_flags);
 	}
 	return dest;
@@ -266,7 +265,7 @@ config_filter_parser_check(struct parser_context *ctx,
 			   const struct config_module_parser *p,
 			   const char **error_r)
 {
-	for (; p->module_name != NULL; p++) {
+	for (; p->root != NULL; p++) {
 		settings_parse_var_skip(p->parser);
 		if (!settings_parser_check(p->parser, ctx->pool, error_r))
 			return -1;
@@ -589,14 +588,13 @@ int config_parse_file(const char *path, bool expand_files,
 	ctx.pool = pool_alloconly_create("config file parser", 1024*64);
 	ctx.path = path;
 
-	for (count = 0; all_roots[count].module_name != NULL; count++) ;
+	for (count = 0; all_roots[count] != NULL; count++) ;
 	ctx.root_parsers =
 		p_new(ctx.pool, struct config_module_parser, count+1);
 	for (i = 0; i < count; i++) {
-		ctx.root_parsers[i].module_name = all_roots[i].module_name;
-		ctx.root_parsers[i].root = all_roots[i].root;
+		ctx.root_parsers[i].root = all_roots[i];
 		ctx.root_parsers[i].parser =
-			settings_parser_init(ctx.pool, all_roots[i].root,
+			settings_parser_init(ctx.pool, all_roots[i],
 					     settings_parser_flags);
 	}
 

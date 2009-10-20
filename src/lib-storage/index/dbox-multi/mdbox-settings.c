@@ -33,6 +33,7 @@ static struct mdbox_settings mdbox_default_settings = {
 };
 
 static struct setting_parser_info mdbox_setting_parser_info = {
+	MEMBER(module_name) "mdbox",
 	MEMBER(defines) mdbox_setting_defines,
 	MEMBER(defaults) &mdbox_default_settings,
 

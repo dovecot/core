@@ -22,6 +22,7 @@ foreach my $file (@ARGV) {
   my $externs = "";
   my $code = "";
   my %funcs;
+  my $cur_name = "";
   
   while (<$f>) {
     my $write = 0;
@@ -32,8 +33,7 @@ foreach my $file (@ARGV) {
 	$state++;
       } elsif (/^(static )?struct setting_parser_info (.*) = {/) {
 	$state++;
-	my $name = $2;
-	$parsers{$name} = 1 if ($name !~ /\*/);
+	$cur_name = $2;
       } elsif (/^extern struct setting_parser_info (.*);/) {
 	$externs .= "extern struct setting_parser_info $1;\n";
       } elsif (/\/\* <settings checks> \*\//) {
@@ -55,6 +55,9 @@ foreach my $file (@ARGV) {
     
     if ($state == 1 || $state == 3) {
       if ($state == 1) {
+	if (/MEMBER\(module_name\) "(.*)"/) {
+	  $parsers{$cur_name} = $1;
+	}
 	if (/DEFLIST.*".*",(.*)$/) {
 	  my $value = $1;
 	  if ($value =~ /.*&(.*)\)/) {
@@ -87,15 +90,12 @@ foreach my $file (@ARGV) {
   close $f;
 }
 
-print "const struct all_settings_root all_roots[] = {\n";
+print "const struct setting_parser_info *all_roots[] = {\n";
 foreach my $name (keys %parsers) {
-  next if (!$parsers{$name});
+  my $module = $parsers{$name};
+  next if (!$module);
 
-  my $module = "";
-  if ($name =~ /^([^_]*)/) {
-    $module = $1;
-  }
-  print "  { \"$module\", &".$name." }, \n";
+  print "\t&".$name.", \n";
 }
-print "  { NULL, NULL }\n";
+print "\tNULL\n";
 print "};\n";

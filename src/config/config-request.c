@@ -22,10 +22,11 @@ struct settings_export_context {
 	void *context;
 };
 
-static bool parsers_are_connected(struct setting_parser_info *root,
-				  struct setting_parser_info *info)
+static bool parsers_are_connected(const struct setting_parser_info *root,
+				  const struct setting_parser_info *info)
 {
-	struct setting_parser_info *const *dep, *p;
+	const struct setting_parser_info *p;
+	struct setting_parser_info *const *dep;
 
 	/* we're trying to find info or its parents from root's dependencies. */
 
@@ -51,15 +52,15 @@ config_module_parser_is_in_service(const struct config_module_parser *list,
 {
 	struct config_module_parser *l;
 
-	if (strcmp(list->module_name, module) == 0)
+	if (strcmp(list->root->module_name, module) == 0)
 		return TRUE;
 	if (list->root == &master_service_setting_parser_info) {
 		/* everyone wants master service settings */
 		return TRUE;
 	}
 
-	for (l = config_module_parsers; l->module_name != NULL; l++) {
-		if (strcmp(l->module_name, module) != 0)
+	for (l = config_module_parsers; l->root != NULL; l++) {
+		if (strcmp(l->root->module_name, module) != 0)
 			continue;
 
 		/* see if we can find a way to get from the original parser
@@ -260,7 +261,7 @@ int config_request_handle(const struct config_filter *filter,
 	ctx.keys = hash_table_create(default_pool, ctx.pool, 0,
 				     str_hash, (hash_cmp_callback_t *)strcmp);
 
-	for (i = 0; parsers[i].module_name != NULL; i++) {
+	for (i = 0; parsers[i].root != NULL; i++) {
 		parser = &parsers[i];
 		if (*module != '\0' &&
 		    !config_module_parser_is_in_service(parser, module))

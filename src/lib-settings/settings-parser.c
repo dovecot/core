@@ -51,6 +51,7 @@ struct setting_parser_context {
 };
 
 static const struct setting_parser_info strlist_info = {
+	MEMBER(module_name) NULL,
 	MEMBER(defines) NULL,
 	MEMBER(defaults) NULL,
 

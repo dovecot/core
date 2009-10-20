@@ -26,6 +26,7 @@ static struct setting_define auth_passdb_setting_defines[] = {
 };
 
 struct setting_parser_info auth_passdb_setting_parser_info = {
+	MEMBER(module_name) NULL,
 	MEMBER(defines) auth_passdb_setting_defines,
 	MEMBER(defaults) NULL,
 
@@ -48,6 +49,7 @@ static struct setting_define auth_userdb_setting_defines[] = {
 };
 
 struct setting_parser_info auth_userdb_setting_parser_info = {
+	MEMBER(module_name) NULL,
 	MEMBER(defines) auth_userdb_setting_defines,
 	MEMBER(defaults) NULL,
 
@@ -129,6 +131,7 @@ static struct auth_settings auth_default_settings = {
 };
 
 struct setting_parser_info auth_setting_parser_info = {
+	MEMBER(module_name) "auth",
 	MEMBER(defines) auth_setting_defines,
 	MEMBER(defaults) &auth_default_settings,
 

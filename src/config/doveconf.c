@@ -188,8 +188,8 @@ static const char *get_mail_location(void)
 	const char *const *value;
 	const void *set;
 
-	for (l = config_module_parsers; l->module_name != NULL; l++) {
-		if (strcmp(l->module_name, "mail") != 0)
+	for (l = config_module_parsers; l->root != NULL; l++) {
+		if (strcmp(l->root->module_name, "mail") != 0)
 			continue;
 
 		set = settings_parser_get(l->parser);

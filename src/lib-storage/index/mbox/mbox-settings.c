@@ -36,6 +36,7 @@ static struct mbox_settings mbox_default_settings = {
 };
 
 static struct setting_parser_info mbox_setting_parser_info = {
+	MEMBER(module_name) "mbox",
 	MEMBER(defines) mbox_setting_defines,
 	MEMBER(defaults) &mbox_default_settings,
 

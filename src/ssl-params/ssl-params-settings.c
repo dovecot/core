@@ -24,6 +24,7 @@ static struct ssl_params_settings ssl_params_default_settings = {
 };
 
 struct setting_parser_info ssl_params_setting_parser_info = {
+	MEMBER(module_name) "ssl-params",
 	MEMBER(defines) ssl_params_setting_defines,
 	MEMBER(defaults) &ssl_params_default_settings,
 

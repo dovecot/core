@@ -53,6 +53,7 @@ static struct setting_parser_info *pop3_setting_dependencies[] = {
 };
 
 struct setting_parser_info pop3_setting_parser_info = {
+	MEMBER(module_name) "pop3",
 	MEMBER(defines) pop3_setting_defines,
 	MEMBER(defaults) &pop3_default_settings,
 

@@ -43,6 +43,7 @@ static struct file_listener_settings file_listener_default_settings = {
 };
 
 static struct setting_parser_info file_listener_setting_parser_info = {
+	MEMBER(module_name) NULL,
 	MEMBER(defines) file_listener_setting_defines,
 	MEMBER(defaults) &file_listener_default_settings,
 
@@ -72,6 +73,7 @@ static struct inet_listener_settings inet_listener_default_settings = {
 };
 
 static struct setting_parser_info inet_listener_setting_parser_info = {
+	MEMBER(module_name) NULL,
 	MEMBER(defines) inet_listener_setting_defines,
 	MEMBER(defaults) &inet_listener_default_settings,
 
@@ -145,6 +147,7 @@ static struct service_settings service_default_settings = {
 };
 
 struct setting_parser_info service_setting_parser_info = {
+	MEMBER(module_name) NULL,
 	MEMBER(defines) service_setting_defines,
 	MEMBER(defaults) &service_default_settings,
 
@@ -211,6 +214,7 @@ static struct master_settings master_default_settings = {
 };
 
 struct setting_parser_info master_setting_parser_info = {
+	MEMBER(module_name) "master",
 	MEMBER(defines) master_setting_defines,
 	MEMBER(defaults) &master_default_settings,
 

@@ -148,7 +148,7 @@ config_module_parser_apply_changes(struct config_module_parser *dest,
 {
 	unsigned int i;
 
-	for (i = 0; dest[i].module_name != NULL; i++) {
+	for (i = 0; dest[i].root != NULL; i++) {
 		if (settings_parser_apply_changes(dest[i].parser,
 						  src->parsers[i].parser, pool,
 						  error_r) < 0) {
@@ -175,7 +175,7 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 
 	/* all of them should have the same number of parsers.
 	   duplicate our initial parsers from the first match */
-	for (count = 0; src[0]->parsers[count].module_name != NULL; count++) ;
+	for (count = 0; src[0]->parsers[count].root != NULL; count++) ;
 	dest = p_new(pool, struct config_module_parser, count + 1);
 	for (i = 0; i < count; i++) {
 		dest[i] = src[0]->parsers[i];
@@ -206,6 +206,6 @@ void config_filter_parsers_free(struct config_module_parser *parsers)
 {
 	unsigned int i;
 
-	for (i = 0; parsers[i].module_name != NULL; i++)
+	for (i = 0; parsers[i].root != NULL; i++)
 		settings_parser_deinit(&parsers[i].parser);
 }

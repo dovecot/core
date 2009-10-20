@@ -45,6 +45,7 @@ static struct master_service_settings master_service_default_settings = {
 };
 
 struct setting_parser_info master_service_setting_parser_info = {
+	MEMBER(module_name) "master",
 	MEMBER(defines) master_service_setting_defines,
 	MEMBER(defaults) &master_service_default_settings,
 

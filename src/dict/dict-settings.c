@@ -23,6 +23,7 @@ struct dict_settings dict_default_settings = {
 };
 
 struct setting_parser_info dict_setting_parser_info = {
+	MEMBER(module_name) "dict",
 	MEMBER(defines) dict_setting_defines,
 	MEMBER(defaults) &dict_default_settings,
 

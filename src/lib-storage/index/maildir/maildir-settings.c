@@ -28,6 +28,7 @@ static struct maildir_settings maildir_default_settings = {
 };
 
 static struct setting_parser_info maildir_setting_parser_info = {
+	MEMBER(module_name) "maildir",
 	MEMBER(defines) maildir_setting_defines,
 	MEMBER(defaults) &maildir_default_settings,
 
