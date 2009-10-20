@@ -127,6 +127,9 @@ settings_parser_init_list(pool_t set_pool,
 	ctx->roots = p_new(ctx->parser_pool, struct setting_link, count);
 	for (i = 0; i < count; i++) {
 		ctx->roots[i].info = roots[i];
+		if (roots[i]->struct_size == 0)
+			continue;
+
 		ctx->roots[i].set_struct =
 			p_malloc(ctx->set_pool, roots[i]->struct_size);
 		if ((flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
@@ -964,6 +967,9 @@ void *settings_dup(const struct setting_parser_info *info,
 	void *dest_set, *dest, *const *children;
 	unsigned int i, count;
 
+	if (info->struct_size == 0)
+		return NULL;
+
 	/* don't just copy everything from set to dest_set. it may contain
 	   some non-setting fields allocated from the original pool. */
 	dest_set = p_malloc(pool, info->struct_size);
@@ -1002,7 +1008,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 	void *dest_set, *dest, *const *children;
 	unsigned int i, count;
 
-	if (change_set == NULL)
+	if (change_set == NULL || info->struct_size == 0)
 		return NULL;
 
 	dest_set = p_malloc(pool, info->struct_size);
@@ -1256,6 +1262,9 @@ settings_changes_init(const struct setting_parser_info *info,
 	ARRAY_TYPE(void_array) *dest_arr;
 	void *dest_set, *set, *const *children;
 	unsigned int i, count;
+
+	if (info->struct_size == 0)
+		return NULL;
 
 	dest_set = p_malloc(pool, info->struct_size);
 	for (def = info->defines; def->key != NULL; def++) {
