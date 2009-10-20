@@ -223,10 +223,12 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 							  next_uid,
 							  mail->uid - 1);
 			}
-			if (uid_filter[i].seq2 == mail->uid)
-				next_uid = uid_filter[++i].seq1;
-			else
+			if (uid_filter[i].seq2 != mail->uid)
 				next_uid = mail->uid + 1;
+			else if (++i < count)
+				next_uid = uid_filter[i].seq1;
+			else
+				break;
 		}
 	}
 	if (i < count) {
