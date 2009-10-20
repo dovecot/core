@@ -55,7 +55,7 @@ static struct login_settings login_default_settings = {
 	MEMBER(ssl_key) "",
 	MEMBER(ssl_key_password) "",
 	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
-	MEMBER(ssl_cipher_list) "ALL:!LOW:!SSLv2",
+	MEMBER(ssl_cipher_list) "ALL:!LOW:!SSLv2:!EXP:!aNULL",
 	MEMBER(ssl_cert_username_field) "commonName",
 	MEMBER(ssl_verify_client_cert) FALSE,
 	MEMBER(ssl_require_client_cert) FALSE,
