@@ -35,12 +35,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-/* Timeout chdir() completely after this many seconds */
-#define CHDIR_TIMEOUT 30
-/* Give a warning about chdir() taking a while if it took longer than this
-   many seconds to finish. */
-#define CHDIR_WARN_SECS 10
-
 static void
 service_dup_fds(struct service *service)
 {
