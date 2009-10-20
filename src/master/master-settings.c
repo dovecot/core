@@ -487,9 +487,6 @@ bool master_settings_do_fixes(const struct master_settings *set)
 		return FALSE;
 	}
 
-	/* remove auth worker sockets left by unclean exits */
-	unlink_sockets(set->base_dir, "auth-worker.");
-
 	login_dir = t_strconcat(set->base_dir, "/login", NULL);
 	if (settings_have_auth_unix_listeners_in(set, login_dir)) {
 		/* we are not using external authentication, so make sure the
