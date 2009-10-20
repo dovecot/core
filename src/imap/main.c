@@ -102,8 +102,7 @@ main_stdio_init_user(const struct imap_settings *set, struct mail_user *user)
 	client_add_input(client, input_buf);
 }
 
-static void
-main_stdio_run(bool dump_capability)
+static void main_stdio_run(void)
 {
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user;
@@ -130,12 +129,6 @@ main_stdio_run(bool dump_capability)
 	restrict_access_allow_coredumps(TRUE);
 	if (set->shutdown_clients)
 		master_service_set_die_with_master(master_service, TRUE);
-
-	if (dump_capability) {
-		struct client *client = client_create(0, 1, mail_user, set);
-		printf("%s\n", str_c(client->capability_string));
-		exit(0);
-	}
 
 	/* fake that we're running, so we know if client was destroyed
 	   while handling its initial input */
@@ -208,7 +201,6 @@ static void client_connected(const struct master_service_connection *conn)
 int main(int argc, char *argv[], char *envp[])
 {
 	enum master_service_flags service_flags = 0;
-	bool dump_capability;
 	int c;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
@@ -226,12 +218,6 @@ int main(int argc, char *argv[], char *envp[])
 			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 	}
 
-	dump_capability = getenv("DUMP_CAPABILITY") != NULL;
-	if (dump_capability) {
-		storage_service_flags |=
-			MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS;
-	}
-
 	master_service = master_service_init("imap", service_flags, argc, argv);
 	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
 		if (!master_service_parse_option(master_service, c, optarg))
@@ -244,9 +230,9 @@ int main(int argc, char *argv[], char *envp[])
 	commands_init();
 	imap_fetch_handlers_init();
 
-	if (IS_STANDALONE() || dump_capability) {
+	if (IS_STANDALONE()) {
 		T_BEGIN {
-			main_stdio_run(dump_capability);
+			main_stdio_run();
 		} T_END;
 	} else {
 		master_login = master_login_init("auth-master",
