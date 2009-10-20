@@ -1,6 +1,16 @@
 #ifndef MASTER_SETTINGS_H
 #define MASTER_SETTINGS_H
 
+/* <settings checks> */
+enum service_type {
+	SERVICE_TYPE_UNKNOWN,
+	SERVICE_TYPE_LOG,
+	SERVICE_TYPE_ANVIL,
+	SERVICE_TYPE_CONFIG,
+	SERVICE_TYPE_LOGIN
+};
+/* </settings checks> */
+
 struct file_listener_settings {
 	const char *path;
 	unsigned int mode;
@@ -27,7 +37,6 @@ struct service_settings {
 	const char *privileged_group;
 	const char *extra_groups;
 	const char *chroot;
-	const char *auth_dest_service;
 
 	bool drop_priv_before_exec;
 
@@ -40,6 +49,8 @@ struct service_settings {
 	ARRAY_TYPE(file_listener_settings) unix_listeners;
 	ARRAY_TYPE(file_listener_settings) fifo_listeners;
 	ARRAY_DEFINE(inet_listeners, struct inet_listener_settings *);
+
+	enum service_type parsed_type;
 };
 
 struct master_settings {

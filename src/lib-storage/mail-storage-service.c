@@ -120,7 +120,7 @@ user_reply_handle(struct setting_parser_context *set_parser,
 	for (i = 0; i < count && ret == 0; i++) {
 		line = str[i];
 		if (strncmp(line, "system_groups_user=", 19) == 0)
-			*system_groups_user_r = line + 19;
+			*system_groups_user_r = t_strdup(line + 19);
 		else T_BEGIN {
 			if (strncmp(line, "mail=", 5) == 0) {
 				line = t_strconcat("mail_location=",
@@ -149,19 +149,15 @@ user_reply_handle(struct setting_parser_context *set_parser,
 
 static int
 service_auth_userdb_lookup(struct auth_master_connection *conn,
-			   struct setting_parser_context *set_parser,
 			   const char *service_name,
 			   const struct mail_storage_service_input *input,
 			   const struct mail_user_settings *user_set,
-			   const char **user, const char **system_groups_user_r,
+			   pool_t pool, const char **user,
+			   const char *const **fields_r,
 			   const char **error_r)
 {
 	struct auth_user_info info;
-	struct auth_user_reply reply;
-	const char *system_groups_user, *orig_user = *user;
-	const char *new_username, *const *fields;
-	unsigned int len;
-	pool_t pool;
+	const char *new_username;
 	int ret;
 
 	memset(&info, 0, sizeof(info));
@@ -169,32 +165,19 @@ service_auth_userdb_lookup(struct auth_master_connection *conn,
 	info.local_ip = input->local_ip;
 	info.remote_ip = input->remote_ip;
 
-	pool = pool_alloconly_create("userdb lookup", 1024);
 	ret = auth_master_user_lookup(conn, *user, &info, pool,
-				      &new_username, &fields);
+				      &new_username, fields_r);
 	if (ret > 0) {
-		auth_user_fields_parse(fields, pool, &reply);
-		len = reply.chroot == NULL ? 0 : strlen(reply.chroot);
-
-		*user = t_strdup(new_username);
-		if (user_reply_handle(set_parser, user_set, &reply,
-				      &system_groups_user, error_r) < 0)
-			ret = -1;
-		*system_groups_user_r = t_strdup(system_groups_user);
-	} else {
-		if (ret == 0)
-			*error_r = "unknown user";
-		else
-			*error_r = "userdb lookup failed";
-		*system_groups_user_r = NULL;
-	}
-
-	if (ret > 0 && strcmp(*user, orig_user) != 0) {
-		if (mail_user_set_get_storage_set(user_set)->mail_debug)
-			i_debug("changed username to %s", *user);
-	}
-
-	pool_unref(&pool);
+		if (strcmp(*user, new_username) != 0) {
+			if (mail_user_set_get_storage_set(user_set)->mail_debug)
+				i_debug("changed username to %s", new_username);
+			*user = t_strdup(new_username);
+		}
+		*user = new_username;
+	} else if (ret == 0)
+		*error_r = "unknown user";
+	else
+		*error_r = "userdb lookup failed";
 	return ret;
 }
 
@@ -515,13 +498,14 @@ init_user_real(struct master_service *service,
 	struct mail_user *mail_user;
 	struct auth_master_connection *conn;
 	void **sets;
-	const char *user, *orig_user, *home, *system_groups_user, *error;
+	const char *user, *orig_user, *home, *error;
+	const char *system_groups_user = NULL, *const *userdb_fields = NULL;
 	unsigned int len;
 	bool userdb_lookup;
+	pool_t userdb_pool = NULL;
 
 	io_loop_set_time_moved_callback(current_ioloop,
 					mail_storage_service_time_moved);
-	master_service_init_finish(service);
 
 	userdb_lookup = (flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
 	mail_storage_service_init_settings(service, &input, set_roots,
@@ -542,25 +526,36 @@ init_user_real(struct master_service *service,
 		orig_user = user = input.username;
 		conn = auth_master_init(user_set->auth_socket_path,
 					mail_set->mail_debug);
-		if (service_auth_userdb_lookup(conn, service->set_parser,
-					       service->name, &input,
-					       user_set, &user,
-					       &system_groups_user,
-					       &error) <= 0)
+		userdb_pool = pool_alloconly_create("userdb lookup", 1024);
+		if (service_auth_userdb_lookup(conn, service->name, &input,
+					       user_set, userdb_pool, &user,
+					       &userdb_fields, &error) <= 0)
 			i_fatal("%s", error);
 		auth_master_deinit(&conn);
 		input.username = user;
 
 		/* set up logging again in case username changed */
 		mail_storage_service_init_log(service, &input);
+	} else if (input.userdb_fields != NULL) {
+		userdb_fields = input.userdb_fields;
+		userdb_pool = pool_alloconly_create("userdb fields", 1024);
 	}
+	if (userdb_fields != NULL) {
+		struct auth_user_reply reply;
+
+		auth_user_fields_parse(userdb_fields, userdb_pool, &reply);
+		if (user_reply_handle(service->set_parser, user_set, &reply,
+				      &system_groups_user, &error) < 0)
+			i_fatal("%s", error);
+	}
+	if (userdb_pool != NULL)
+		pool_unref(&userdb_pool);
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home sooner so do it separately here. */
 	home = user_expand_varstr(service, &input, user_set->mail_home);
 
 	if (!userdb_lookup) {
-		system_groups_user = NULL;
 		if (*home == '\0' && getenv("HOME") != NULL) {
 			home = getenv("HOME");
 			set_keyval(service->set_parser, "mail_home", home);
@@ -638,7 +633,6 @@ mail_storage_service_multi_init(struct master_service *service,
 
 	io_loop_set_time_moved_callback(current_ioloop,
 					mail_storage_service_time_moved);
-	master_service_init_finish(service);
 
 	ctx = i_new(struct mail_storage_service_multi_ctx, 1);
 	ctx->service = service;
@@ -676,6 +670,33 @@ mail_storage_service_multi_get_auth_conn(struct mail_storage_service_multi_ctx *
 	return ctx->conn;
 }
 
+static int multi_userdb_lookup(struct mail_storage_service_multi_ctx *ctx,
+			       struct mail_storage_service_multi_user *user,
+			       pool_t userdb_pool, const char **error_r)
+{
+	struct auth_user_reply reply;
+	const char *username, *system_groups_user, *const *userdb_fields;
+	int ret;
+
+	username = user->input.username;
+	ret = service_auth_userdb_lookup(ctx->conn, ctx->service->name,
+					 &user->input, user->user_set,
+					 userdb_pool, &username,
+					 &userdb_fields, error_r);
+	if (ret <= 0)
+		return ret;
+
+	auth_user_fields_parse(userdb_fields, userdb_pool, &reply);
+	ret = user_reply_handle(ctx->service->set_parser, user->user_set,
+				&reply, &system_groups_user, error_r);
+	if (ret <= 0)
+		return ret;
+
+	user->input.username = p_strdup(user->pool, username);
+	user->system_groups_user = p_strdup(user->pool, system_groups_user);
+	return 1;
+}
+
 int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx,
 				      const struct mail_storage_service_input *input,
 				      pool_t pool,
@@ -683,9 +704,9 @@ int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx
 				      const char **error_r)
 {
 	struct mail_storage_service_multi_user *user;
-	const char *orig_user, *username;
 	void **sets;
-	int ret;
+	pool_t userdb_pool;
+	int ret = 1;
 
 	user = p_new(pool, struct mail_storage_service_multi_user, 1);
 	memset(user_r, 0, sizeof(user_r));
@@ -698,15 +719,9 @@ int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx
 	user->user_set = sets[1];
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
-		orig_user = username = user->input.username;
-		ret = service_auth_userdb_lookup(ctx->conn, user->set_parser,
-						 ctx->service->name, input,
-						 user->user_set, &username,
-						 &user->system_groups_user,
-						 error_r);
-		if (ret <= 0)
-			return ret;
-		user->input.username = p_strdup(pool, username);
+		userdb_pool = pool_alloconly_create("userdb lookup", 1024);
+		ret = multi_userdb_lookup(ctx, user, userdb_pool, error_r);
+		pool_unref(&userdb_pool);
 	}
 	*user_r = user;
 	return 1;

@@ -1,7 +1,7 @@
 #ifndef AUTH_CLIENT_CONNECTION_H
 #define AUTH_CLIENT_CONNECTION_H
 
-#include "master-interface.h"
+#include "master-auth.h"
 
 struct auth_client_connection {
 	struct auth *auth;

@@ -17,6 +17,7 @@
 #include <signal.h>
 
 #define SERVICE_DIE_TIMEOUT_MSECS (1000*10)
+#define SERVICE_LOGIN_NOTIFY_MIN_INTERVAL_SECS 2
 
 struct hash_table *service_pids;
 
@@ -177,23 +178,7 @@ service_create(pool_t pool, const struct service_settings *set,
 
 	service->vsz_limit = set->vsz_limit != 0 ? set->vsz_limit :
 		set->master_set->default_vsz_limit;
-
-	service->type = SERVICE_TYPE_UNKNOWN;
-	if (*set->type != '\0') {
-		if (strcmp(set->type, "log") == 0)
-			service->type = SERVICE_TYPE_LOG;
-		else if (strcmp(set->type, "config") == 0)
-			service->type = SERVICE_TYPE_CONFIG;
-		else if (strcmp(set->type, "anvil") == 0)
-			service->type = SERVICE_TYPE_ANVIL;
-		else if (strcmp(set->type, "auth") == 0)
-			service->type = SERVICE_TYPE_AUTH_SERVER;
-		else if (strcmp(set->type, "auth-source") == 0)
-			service->type = SERVICE_TYPE_AUTH_SOURCE;
-	}
-
-	if (*set->auth_dest_service != '\0')
-		service->type = SERVICE_TYPE_AUTH_SOURCE;
+	service->type = service->set->parsed_type;
 
 	if (set->process_limit == 0) {
 		/* unlimited */
@@ -258,6 +243,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	service->status_fd[0] = -1;
 	service->status_fd[1] = -1;
 	service->log_process_internal_fd = -1;
+	service->login_notify_fd = -1;
 
 	if (array_is_created(&set->unix_listeners))
 		unix_listeners = array_get(&set->unix_listeners, &unix_count);
@@ -358,7 +344,7 @@ int services_create(const struct master_settings *set,
 		    struct service_list **services_r, const char **error_r)
 {
 	struct service_list *service_list;
-	struct service *service, *const *services;
+	struct service *service;
 	struct service_settings *const *service_settings;
 	pool_t pool;
 	const char *error;
@@ -411,23 +397,6 @@ int services_create(const struct master_settings *set,
 		array_append(&service_list->services, &service, 1);
 	}
 
-	/* resolve service dependencies */
-	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++) {
-		if (services[i]->type == SERVICE_TYPE_AUTH_SOURCE) {
-			const char *dest_service =
-				services[i]->set->auth_dest_service;
-			services[i]->auth_dest_service =
-				service_lookup(service_list, dest_service);
-			if (services[i]->auth_dest_service == NULL) {
-				*error_r = t_strdup_printf(
-					"auth_dest_service doesn't exist: %s",
-					dest_service);
-				return -1;
-			}
-		}
-	}
-
 	if (service_list->log == NULL) {
 		*error_r = "log service not specified";
 		return -1;
@@ -452,10 +421,61 @@ void service_signal(struct service *service, int signo)
 	for (; process != NULL; process = process->next) {
 		i_assert(process->service == service);
 
+		if (!SERVICE_PROCESS_IS_INITIALIZED(process) &&
+		    signo != SIGKILL) {
+			/* too early to signal it */
+			continue;
+		}
+		    
 		if (kill(process->pid, signo) < 0 && errno != ESRCH) {
 			service_error(service, "kill(%s, %d) failed: %m",
 				      dec2str(process->pid), signo);
 		}
+	}
+}
+
+static void service_login_notify_send(struct service *service)
+{
+	service->last_login_notify_time = ioloop_time;
+	if (service->to_login_notify != NULL)
+		timeout_remove(&service->to_login_notify);
+
+	service_signal(service, SIGUSR1);
+}
+
+static void service_login_notify_timeout(struct service *service)
+{
+	service_login_notify_send(service);
+}
+
+void service_login_notify(struct service *service, bool all_processes_full)
+{
+	enum master_login_state state;
+	int diff;
+
+	if (service->last_login_full_notify == all_processes_full ||
+	    service->login_notify_fd == -1)
+		return;
+
+	/* change the state always immediately. it's cheap. */
+	service->last_login_full_notify = all_processes_full;
+	state = all_processes_full ? MASTER_LOGIN_STATE_FULL :
+		MASTER_LOGIN_STATE_NONFULL;
+	if (lseek(service->login_notify_fd, state, SEEK_SET) < 0)
+		service_error(service, "lseek(notify fd) failed: %m");
+
+	/* but don't send signal to processes too often */
+	diff = ioloop_time - service->last_login_notify_time;
+	if (diff < SERVICE_LOGIN_NOTIFY_MIN_INTERVAL_SECS) {
+		if (service->to_login_notify != NULL)
+			return;
+
+		diff = (SERVICE_LOGIN_NOTIFY_MIN_INTERVAL_SECS - diff) * 1000;
+		service->to_login_notify =
+			timeout_add(diff, service_login_notify_timeout,
+				    service);
+	} else {
+		service_login_notify_send(service);
 	}
 }
 

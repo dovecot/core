@@ -109,7 +109,6 @@ headers = \
 	auth-cache.h \
 	auth-client-connection.h \
 	auth-common.h \
-	auth-master-interface.h \
 	auth-master-connection.h \
 	mech-otp-skey-common.h \
 	mech-plain-common.h \

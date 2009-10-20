@@ -1,8 +1,6 @@
 #ifndef MASTER_INTERFACE_H
 #define MASTER_INTERFACE_H
 
-#include "network.h"
-
 /* We are attempting semi-compatibility with Postfix's master process here.
    Whether this is useful or not remains to be seen. */
 
@@ -30,46 +28,9 @@ struct log_service_handshake {
 	/* unsigned char prefix[]; */
 };
 
-/* This should be kept in sync with LOGIN_MAX_INBUF_SIZE. Multiply it by two
-   to make sure there's space to transfer the command tag  */
-#define MASTER_AUTH_MAX_DATA_SIZE (1024*2)
-
-/* Authentication client process's cookie size */
-#define MASTER_AUTH_COOKIE_SIZE (128/8)
-
-/* Authentication request. File descriptor may be sent along with the
-   request. */
-struct master_auth_request {
-	/* Request tag. Reply is sent back using same tag. */
-	unsigned int tag;
-
-	/* Authentication process, authentication ID and auth cookie. */
-	pid_t auth_pid;
-	unsigned int auth_id;
-	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
-
-	/* Local and remote IPs of the connection. The file descriptor
-	   itself may be a local socketpair. */
-	struct ip_addr local_ip, remote_ip;
-
-	/* request follows this many bytes of client input */
-	uint32_t data_size;
-	/* inode of the transferred fd. verified just to be sure that the
-	   correct fd is mapped to the correct struct. */
-	ino_t ino;
-};
-
-enum master_auth_status {
-	MASTER_AUTH_STATUS_OK,
-	MASTER_AUTH_STATUS_INTERNAL_ERROR
-};
-
-struct master_auth_reply {
-	/* tag=0 are notifications from master */
-	unsigned int tag;
-	enum master_auth_status status;
-	/* PID of the post-login mail process handling this connection */
-	pid_t mail_pid;
+enum master_login_state {
+	MASTER_LOGIN_STATE_NONFULL = 0,
+	MASTER_LOGIN_STATE_FULL
 };
 
 /* getenv(MASTER_UID_ENV) provides master_status.uid value */
@@ -93,13 +54,10 @@ struct master_auth_reply {
    if dovecot was started with -p parameter. */
 #define MASTER_SSL_KEY_PASSWORD_ENV "SSL_KEY_PASSWORD"
 
-/* Write pipe to anvil. Currently available only for auth destination
-   services, for others it's /dev/null. */
+/* Write pipe to anvil. */
 #define MASTER_ANVIL_FD 3
-
-/* Socket for sending master_auth_requests. Also used by auth server process
-   as a master socket. */
-#define MASTER_AUTH_FD 4
+/* Master's "all processes full" notification fd for login processes */
+#define MASTER_LOGIN_NOTIFY_FD 4
 
 /* Shared pipe to master, used to send master_status reports */
 #define MASTER_STATUS_FD 5

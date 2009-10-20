@@ -5,8 +5,9 @@
 #include "ioloop.h"
 #include "fd-close-on-exec.h"
 #include "hash.h"
+#include "str.h"
+#include "safe-mkstemp.h"
 #include "service.h"
-#include "service-auth-source.h"
 #include "service-process.h"
 #include "service-process-notify.h"
 #include "service-anvil.h"
@@ -59,6 +60,11 @@ static void service_status_more(struct service_process *process,
 	i_assert(service->process_avail > 0);
 	service->process_avail--;
 
+	if (service->type == SERVICE_TYPE_LOGIN &&
+	    service->process_avail == 0 &&
+	    service->process_count == service->process_limit)
+		service_login_notify(service, TRUE);
+
 	/* we may need to start more  */
 	service_monitor_start_extra_avail(service);
 	service_monitor_listen_start(service);
@@ -90,6 +96,8 @@ static void service_status_less(struct service_process *process,
 					    process);
 		}
 	}
+	if (service->type == SERVICE_TYPE_LOGIN)
+		service_login_notify(service, FALSE);
 }
 
 static void service_status_input(struct service *service)
@@ -98,6 +106,7 @@ static void service_status_input(struct service *service)
         struct service_process *process;
 	ssize_t ret;
 
+	status.pid = 0;
 	ret = read(service->status_fd[0], &status, sizeof(status));
 	switch (ret) {
 	case 0:
@@ -177,11 +186,11 @@ static void service_drop_connections(struct service *service)
 	service->listen_pending = TRUE;
 	service_monitor_listen_stop(service);
 
-	if (service->type == SERVICE_TYPE_AUTH_SOURCE) {
+	if (service->type == SERVICE_TYPE_LOGIN) {
 		/* reached process limit, notify processes that they
 		   need to start killing existing connections if they
 		   reach connection limit */
-		service_processes_auth_source_notify(service, TRUE);
+		service_login_notify(service, TRUE);
 	}
 }
 
@@ -197,7 +206,7 @@ static void service_accept(struct service *service)
 	}
 
 	/* create a child process and let it accept() this connection */
-	if (service_process_create(service, NULL, NULL) == NULL)
+	if (service_process_create(service) == NULL)
 		service_monitor_throttle(service);
 	else
 		service_monitor_listen_stop(service);
@@ -215,7 +224,7 @@ static void service_monitor_start_extra_avail(struct service *service)
 		count = service->process_limit - service->process_count;
 
 	for (i = 0; i < count; i++) {
-		if (service_process_create(service, NULL, NULL) == NULL) {
+		if (service_process_create(service) == NULL) {
 			service_monitor_throttle(service);
 			break;
 		}
@@ -263,6 +272,38 @@ void service_monitor_listen_stop(struct service *service)
 	service->listening = FALSE;
 }
 
+static int service_login_create_notify_fd(struct service *service)
+{
+	int fd;
+
+	if (service->login_notify_fd != -1)
+		return 0;
+
+	T_BEGIN {
+		string_t *prefix = t_str_new(128);
+		const char *path;
+
+		str_append(prefix, "/tmp/dovecot-master");
+
+		fd = safe_mkstemp(prefix, 0600, (uid_t)-1, (gid_t)-1);
+		path = str_c(prefix);
+
+		if (fd == -1) {
+			service_error(service, "safe_mkstemp(%s) failed: %m",
+				      path);
+		} else if (unlink(path) < 0) {
+			service_error(service, "unlink(%s) failed: %m", path);
+		} else {
+			fd_close_on_exec(fd, TRUE);
+			service->login_notify_fd = fd;
+		}
+	} T_END;
+
+	if (fd != service->login_notify_fd)
+		(void)close(fd);
+	return fd == -1 ? -1 : 0;
+}
+
 void services_monitor_start(struct service_list *service_list)
 {
 	struct service *const *services;
@@ -273,6 +314,10 @@ void services_monitor_start(struct service_list *service_list)
 
 	services = array_get(&service_list->services, &count);
 	for (i = 0; i < count; i++) {
+		if (services[i]->type == SERVICE_TYPE_LOGIN) {
+			if (service_login_create_notify_fd(services[i]) < 0)
+				continue;
+		}
 		if (services[i]->status_fd[0] == -1) {
 			/* we haven't yet created status pipe */
 			if (pipe(services[i]->status_fd) < 0) {
@@ -289,14 +334,13 @@ void services_monitor_start(struct service_list *service_list)
 				io_add(services[i]->status_fd[0], IO_READ,
 				       service_status_input, services[i]);
 		}
-
 		if (services[i]->status_fd[0] != -1) {
 			service_monitor_start_extra_avail(services[i]);
 			service_monitor_listen_start(services[i]);
 		}
 	}
 
-	if (service_process_create(service_list->log, NULL, NULL) != NULL)
+	if (service_process_create(service_list->log) != NULL)
 		service_monitor_listen_stop(service_list->log);
 }
 
@@ -316,6 +360,15 @@ void service_monitor_stop(struct service *service)
 			service->status_fd[i] = -1;
 		}
 	}
+	if (service->login_notify_fd != -1) {
+		if (close(service->login_notify_fd) < 0) {
+			service_error(service,
+				      "close(login notify fd) failed: %m");
+		}
+		service->login_notify_fd = -1;
+	}
+	if (service->to_login_notify != NULL)
+		timeout_remove(&service->to_login_notify);
 	service_monitor_listen_stop(service);
 
 	if (service->to_throttle != NULL)

@@ -15,8 +15,8 @@
 #include "master-service.h"
 #include "userdb.h"
 #include "userdb-blocking.h"
+#include "master-interface.h"
 #include "auth-request-handler.h"
-#include "auth-master-interface.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
@@ -502,7 +502,6 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
         struct auth_master_connection *conn = *_conn;
         struct auth_master_connection *const *masters;
 	unsigned int i, count;
-	bool service_connection = conn->fd != MASTER_AUTH_FD;
 
 	*_conn = NULL;
 	if (conn->destroyed)
@@ -529,8 +528,7 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 		conn->fd = -1;
 	}
 
-	if (service_connection)
-		master_service_client_connection_destroyed(master_service);
+	master_service_client_connection_destroyed(master_service);
 	auth_master_connection_unref(&conn);
 }
 

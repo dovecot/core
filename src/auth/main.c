@@ -11,13 +11,13 @@
 #include "module-dir.h"
 #include "randgen.h"
 #include "master-service.h"
+#include "master-interface.h"
 #include "password-scheme.h"
 #include "mech.h"
 #include "auth.h"
 #include "auth-request-handler.h"
 #include "auth-worker-server.h"
 #include "auth-worker-client.h"
-#include "auth-master-interface.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
@@ -86,9 +86,6 @@ static void main_init(void)
 		/* workers have only a single connection from the master
 		   auth process */
 		master_service_set_client_limit(master_service, 1);
-	} else if (getenv("MASTER_AUTH_FD") != NULL) {
-		(void)auth_master_connection_create(auth, MASTER_AUTH_FD,
-						    FALSE);
 	}
 }
 

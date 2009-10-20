@@ -200,42 +200,12 @@ static void fatal_log_check(const struct master_settings *set)
 		i_error("unlink(%s) failed: %m", path);
 }
 
-static bool
-services_has_name(const struct master_settings *set, const char *name)
-{
-	struct service_settings *const *services;
-	unsigned int i, count;
-
-	services = array_get(&set->services, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(services[i]->name, name) == 0)
-			return TRUE;
-	}
-	return FALSE;
-}
-
-static bool services_have_auth_destinations(const struct master_settings *set)
-{
-	struct service_settings *const *services;
-	unsigned int i, count;
-
-	services = array_get(&set->services, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(services[i]->type, "auth-source") == 0) {
-			if (services_has_name(set, services[i]->auth_dest_service))
-				return TRUE;
-		}
-	}
-	return FALSE;
-}
-
 static void auth_warning_print(const struct master_settings *set)
 {
 	struct stat st;
 
 	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
-	if (!auth_success_written && !set->auth_debug &&
-	    services_have_auth_destinations(set)) {
+	if (!auth_success_written && !set->auth_debug) {
 		fprintf(stderr,
 "If you have trouble with authentication failures,\n"
 "enable auth_debug setting. See http://wiki.dovecot.org/WhyDoesItNotWork\n"
@@ -334,8 +304,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	if (services->config->process_avail == 0) {
 		/* we can't reload config if there's no config process. */
-		if (service_process_create(services->config,
-					   NULL, NULL) == NULL) {
+		if (service_process_create(services->config) == NULL) {
 			i_error("Can't reload configuration because "
 				"we couldn't create a config process");
 			return;

@@ -118,7 +118,7 @@ void client_destroy(struct client *client, const char *reason)
 		i_assert(client->authenticating);
 		i_assert(client->refcount > 1);
 		client->authenticating = FALSE;
-		master_auth_request_abort(master_service, client->master_tag);
+		master_auth_request_abort(master_auth, client->master_tag);
 		client->refcount--;
 	} else if (client->auth_request != NULL) {
 		i_assert(client->authenticating);

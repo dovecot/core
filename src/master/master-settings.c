@@ -4,6 +4,7 @@
 #include "array.h"
 #include "env-util.h"
 #include "istream.h"
+#include "network.h"
 #include "str.h"
 #include "mkdir-parents.h"
 #include "safe-mkdir.h"
@@ -96,7 +97,6 @@ static struct setting_define service_setting_defines[] = {
 	DEF(SET_STR, privileged_group),
 	DEF(SET_STR, extra_groups),
 	DEF(SET_STR, chroot),
-	DEF(SET_STR, auth_dest_service),
 
 	DEF(SET_BOOL, drop_priv_before_exec),
 
@@ -128,7 +128,6 @@ static struct service_settings service_default_settings = {
 	MEMBER(privileged_group) "",
 	MEMBER(extra_groups) "",
 	MEMBER(chroot) "",
-	MEMBER(auth_dest_service) "",
 
 	MEMBER(drop_priv_before_exec) FALSE,
 
@@ -240,6 +239,27 @@ static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 	}
 }
 
+static bool master_settings_parse_type(struct service_settings *set,
+				       const char **error_r)
+{
+	if (*set->type == '\0')
+		set->parsed_type = SERVICE_TYPE_UNKNOWN;
+	else if (strcmp(set->type, "log") == 0)
+		set->parsed_type = SERVICE_TYPE_LOG;
+	else if (strcmp(set->type, "config") == 0)
+		set->parsed_type = SERVICE_TYPE_CONFIG;
+	else if (strcmp(set->type, "anvil") == 0)
+		set->parsed_type = SERVICE_TYPE_ANVIL;
+	else if (strcmp(set->type, "login") == 0)
+		set->parsed_type = SERVICE_TYPE_LOGIN;
+	else {
+		*error_r = t_strconcat("Unknown service type: ",
+				       set->type, NULL);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
@@ -274,16 +294,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				"Service #%d is missing name", i);
 			return FALSE;
 		}
-		if (*service->type != '\0' &&
-		    strcmp(service->type, "log") != 0 &&
-		    strcmp(service->type, "config") != 0 &&
-		    strcmp(service->type, "anvil") != 0 &&
-		    strcmp(service->type, "auth") != 0 &&
-		    strcmp(service->type, "auth-source") != 0) {
-			*error_r = t_strconcat("Unknown service type: ",
-					       service->type, NULL);
+		if (!master_settings_parse_type(service, error_r))
 			return FALSE;
-		}
 		for (j = 0; j < i; j++) {
 			if (strcmp(service->name, services[j]->name) == 0) {
 				*error_r = t_strdup_printf(
@@ -342,8 +354,7 @@ login_want_core_dumps(const struct master_settings *set, gid_t *gid_r)
 
 	services = array_get(&set->services, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(services[i]->type, "auth-source") == 0 &&
-		    strstr(services[i]->name, "-login") != NULL) {
+		if (strcmp(services[i]->type, "login") == 0) {
 			if (strstr(services[i]->executable, " -D") != NULL)
 				cores = TRUE;
 			(void)get_uidgid(services[i]->user, &uid, gid_r, &error);
@@ -364,8 +375,7 @@ settings_have_auth_unix_listeners_in(const struct master_settings *set,
 
 	services = array_get(&set->services, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(services[i]->type, "auth") == 0 &&
-		    array_is_created(&services[i]->unix_listeners)) {
+		if (array_is_created(&services[i]->unix_listeners)) {
 			u = array_get(&services[i]->unix_listeners, &count2);
 			for (j = 0; j < count2; j++) {
 				if (strncmp(u[j]->path, dir, strlen(dir)) == 0)

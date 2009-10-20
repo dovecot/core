@@ -21,7 +21,7 @@
 extern struct mail_storage_callbacks mail_storage_callbacks;
 struct imap_module_register imap_module_register = { 0 };
 
-static struct client *imap_clients = NULL;
+struct client *imap_clients = NULL;
 
 static void client_idle_timeout(struct client *client)
 {

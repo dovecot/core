@@ -2,12 +2,14 @@
 
 #include "pop3-common.h"
 #include "ioloop.h"
-#include "istream.h"
 #include "buffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "base64.h"
 #include "restrict-access.h"
 #include "process-title.h"
 #include "master-service.h"
+#include "master-login.h"
 #include "master-interface.h"
 #include "var-expand.h"
 #include "mail-storage-service.h"
@@ -17,63 +19,151 @@
 #include <unistd.h>
 
 #define IS_STANDALONE() \
-        (getenv("LOGGED_IN") == NULL)
+        (getenv(MASTER_UID_ENV) == NULL)
+
+static const struct setting_parser_info *set_roots[] = {
+	&pop3_setting_parser_info,
+	NULL
+};
+static struct master_login *master_login = NULL;
+static enum mail_storage_service_flags storage_service_flags = 0;
+static bool user_initialized = FALSE;
 
 void (*hook_client_created)(struct client **client) = NULL;
 
-static bool main_init(const struct pop3_settings *set, struct mail_user *user)
+static void client_add_input(struct client *client, const buffer_t *buf)
 {
-	struct client *client;
-	const char *str;
-	bool ret = TRUE;
+	struct ostream *output;
 
-	if (set->shutdown_clients)
-		master_service_set_die_with_master(master_service, TRUE);
+	if (buf != NULL && buf->used > 0) {
+		if (!i_stream_add_data(client->input, buf->data, buf->used))
+			i_panic("Couldn't add client input to stream");
+	}
 
-	client = client_create(0, 1, user, set);
-	if (client == NULL)
-		return FALSE;
-
+	output = client->output;
+	o_stream_ref(output);
+	o_stream_cork(output);
 	if (!IS_STANDALONE())
 		client_send_line(client, "+OK Logged in.");
-
-	str = getenv("CLIENT_INPUT");
-	if (str != NULL) T_BEGIN {
-		buffer_t *buf = t_base64_decode_str(str);
-		if (buf->used > 0) {
-			if (!i_stream_add_data(client->input, buf->data,
-					       buf->used))
-				i_panic("Couldn't add client input to stream");
-			ret = client_handle_input(client);
-		}
-	} T_END;
-	return ret;
+	(void)client_handle_input(client);
+	o_stream_uncork(output);
+	o_stream_unref(&output);
 }
 
-static void main_deinit(void)
+static void
+main_stdio_init_user(const struct pop3_settings *set, struct mail_user *user)
 {
-	clients_destroy_all();
+	struct client *client;
+	buffer_t *input_buf;
+	const char *input_base64;
+
+	input_base64 = getenv("CLIENT_INPUT");
+	input_buf = input_base64 == NULL ? NULL :
+		t_base64_decode_str(input_base64);
+
+	client = client_create(STDIN_FILENO, STDOUT_FILENO, user, set);
+	client_add_input(client, input_buf);
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void main_stdio_run(void)
 {
-	/* we can't handle this yet */
-	(void)close(conn->fd);
-}
-
-int main(int argc, char *argv[], char *envp[])
-{
-	const struct setting_parser_info *set_roots[] = {
-		&pop3_setting_parser_info,
-		NULL
-	};
-	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_STD_CLIENT;
-	enum mail_storage_service_flags storage_service_flags = 0;
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user;
 	const struct pop3_settings *set;
 	const char *value;
+
+	memset(&input, 0, sizeof(input));
+	input.module = input.service = "pop3";
+	input.username = getenv("USER");
+	if (input.username == NULL && IS_STANDALONE())
+		input.username = getlogin();
+	if (input.username == NULL)
+		i_fatal("USER environment missing");
+	if ((value = getenv("IP")) != NULL)
+		net_addr2ip(value, &input.remote_ip);
+	if ((value = getenv("LOCAL_IP")) != NULL)
+		net_addr2ip(value, &input.local_ip);
+
+	user_initialized = TRUE;
+	mail_user = mail_storage_service_init_user(master_service,
+						   &input, set_roots,
+						   storage_service_flags);
+	set = mail_storage_service_get_settings(master_service);
+	restrict_access_allow_coredumps(TRUE);
+	if (set->shutdown_clients)
+		master_service_set_die_with_master(master_service, TRUE);
+
+	/* fake that we're running, so we know if client was destroyed
+	   while handling its initial input */
+	io_loop_set_running(current_ioloop);
+	main_stdio_init_user(set, mail_user);
+}
+
+static void
+login_client_connected(const struct master_login_client *client,
+		       const char *username, const char *const *extra_fields)
+{
+	struct mail_storage_service_input input;
+	struct mail_user *mail_user;
+	struct client *pop3_client;
+	const struct pop3_settings *set;
+	buffer_t input_buf;
+
+	if (pop3_clients != NULL) {
+		i_error("Can't handle more than one connection currently");
+		(void)close(client->fd);
+		return;
+	}
+	i_assert(!user_initialized);
+
+	memset(&input, 0, sizeof(input));
+	input.module = input.service = "pop3";
+	input.local_ip = client->auth_req.local_ip;
+	input.remote_ip = client->auth_req.remote_ip;
+	input.username = username;
+	input.userdb_fields = extra_fields;
+
+	if (input.username == NULL) {
+		i_error("login client: Username missing from auth reply");
+		(void)close(client->fd);
+		return;
+	}
+	user_initialized = TRUE;
+	master_login_deinit(&master_login);
+
+	mail_user = mail_storage_service_init_user(master_service,
+						   &input, set_roots,
+						   storage_service_flags);
+	set = mail_storage_service_get_settings(master_service);
+	restrict_access_allow_coredumps(TRUE);
+	if (set->shutdown_clients)
+		master_service_set_die_with_master(master_service, TRUE);
+
+	/* fake that we're running, so we know if client was destroyed
+	   while handling its initial input */
+	io_loop_set_running(current_ioloop);
+
+	buffer_create_const_data(&input_buf, client->data,
+				 client->auth_req.data_size);
+	pop3_client = client_create(client->fd, client->fd, mail_user, set);
+	T_BEGIN {
+		client_add_input(pop3_client, &input_buf);
+	} T_END;
+}
+
+static void client_connected(const struct master_service_connection *conn)
+{
+	if (master_login == NULL) {
+		/* running standalone, we shouldn't even get here */
+		(void)close(conn->fd);
+	} else {
+		master_login_add(master_login, conn->fd);
+	}
+}
+
+int main(int argc, char *argv[], char *envp[])
+{
+	enum master_service_flags service_flags = 0;
 	int c;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
@@ -83,12 +173,12 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	if (IS_STANDALONE())
-		service_flags |= MASTER_SERVICE_FLAG_STANDALONE;
-	else {
+	if (IS_STANDALONE()) {
+		service_flags |= MASTER_SERVICE_FLAG_STANDALONE |
+			MASTER_SERVICE_FLAG_STD_CLIENT;
+	} else {
 		storage_service_flags |=
-			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
-			MAIL_STORAGE_SERVICE_FLAG_RESTRICT_BY_ENV;
+			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 	}
 
 	master_service = master_service_init("pop3", service_flags, argc, argv);
@@ -96,43 +186,27 @@ int main(int argc, char *argv[], char *envp[])
 		if (!master_service_parse_option(master_service, c, optarg))
 			exit(FATAL_DEFAULT);
 	}
-
-	memset(&input, 0, sizeof(input));
-	input.module = "pop3";
-	input.service = "pop3";
-	input.username = getenv("USER");
-	if (input.username == NULL && IS_STANDALONE())
-		input.username = getlogin();
-	if (input.username == NULL) {
-		if (getenv(MASTER_UID_ENV) == NULL)
-			i_fatal("USER environment missing");
-		else {
-			i_fatal("login_executable setting must be pop3-login, "
-				"not pop3");
-		}
-	}
-	if ((value = getenv("IP")) != NULL)
-		net_addr2ip(value, &input.remote_ip);
-	if ((value = getenv("LOCAL_IP")) != NULL)
-		net_addr2ip(value, &input.local_ip);
-
-	mail_user = mail_storage_service_init_user(master_service,
-						   &input, set_roots,
-						   storage_service_flags);
-	set = mail_storage_service_get_settings(master_service);
-	restrict_access_allow_coredumps(TRUE);
-
         process_title_init(argv, envp);
+	master_service_init_finish(master_service);
 
-	/* fake that we're running, so we know if client was destroyed
-	   while initializing */
-	io_loop_set_running(current_ioloop);
+	if (IS_STANDALONE()) {
+		T_BEGIN {
+			main_stdio_run();
+		} T_END;
+	} else {
+		master_login = master_login_init("auth-master",
+						 login_client_connected);
+		io_loop_set_running(current_ioloop);
+	}
 
-	if (main_init(set, mail_user))
+	if (io_loop_is_running(current_ioloop))
 		master_service_run(master_service, client_connected);
+	clients_destroy_all();
 
-	main_deinit();
-	mail_storage_service_deinit_user();
+	if (master_login != NULL)
+		master_login_deinit(&master_login);
+	if (user_initialized)
+		mail_storage_service_deinit_user();
 	master_service_deinit(&master_service);
 	return 0;
 }

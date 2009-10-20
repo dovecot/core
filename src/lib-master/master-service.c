@@ -26,8 +26,14 @@
 /* getenv(MASTER_DOVECOT_VERSION_ENV) provides master's version number */
 #define MASTER_DOVECOT_VERSION_ENV "DOVECOT_VERSION"
 
+/* when we're full of connections, how often to check if login state has
+   changed. we normally notice it immediately because of a signal, so this is
+   just a fallback against race conditions. */
+#define MASTER_SERVICE_STATE_CHECK_MSECS 1000
+
 struct master_service *master_service;
 
+static void master_service_refresh_login_state(struct master_service *service);
 static void io_listeners_remove(struct master_service *service);
 static void master_status_update(struct master_service *service);
 
@@ -49,6 +55,14 @@ static void sig_die(const siginfo_t *si, void *context)
 			  lib_signal_code_to_str(si->si_signo, si->si_code));
 	}
 	io_loop_stop(service->ioloop);
+}
+
+static void
+sig_state_changed(const siginfo_t *si ATTR_UNUSED, void *context)
+{
+	struct master_service *service = context;
+
+	master_service_refresh_login_state(service);
 }
 
 static void master_service_verify_version(struct master_service *service)
@@ -261,6 +275,10 @@ void master_service_init_finish(struct master_service *service)
         lib_signals_ignore(SIGALRM, FALSE);
         lib_signals_set_handler(SIGINT, TRUE, sig_die, service);
 	lib_signals_set_handler(SIGTERM, TRUE, sig_die, service);
+	if ((service->flags & MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE) != 0) {
+		lib_signals_set_handler(SIGUSR1, TRUE,
+					sig_state_changed, service);
+	}
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		if (fstat(MASTER_STATUS_FD, &st) < 0 || !S_ISFIFO(st.st_mode))
@@ -475,6 +493,47 @@ void master_service_client_connection_destroyed(struct master_service *service)
 	}
 }
 
+static void master_service_set_login_state(struct master_service *service,
+					   enum master_login_state state)
+{
+	if (service->to_overflow_state != NULL)
+		timeout_remove(&service->to_overflow_state);
+
+	switch (state) {
+	case MASTER_LOGIN_STATE_NONFULL:
+		service->call_avail_overflow = FALSE;
+		if (service->master_status.available_count > 0)
+			return;
+
+		/* some processes should now be able to handle new connections,
+		   although we can't. but there may be race conditions, so
+		   make sure that we'll check again soon if the state has
+		   changed to "full" without our knowledge. */
+		service->to_overflow_state =
+			timeout_add(MASTER_SERVICE_STATE_CHECK_MSECS,
+				    master_service_refresh_login_state,
+				    service);
+		return;
+	case MASTER_LOGIN_STATE_FULL:
+		/* make sure we're listening for more connections */
+		service->call_avail_overflow = TRUE;
+		master_service_io_listeners_add(service);
+		return;
+	}
+	i_error("Invalid master login state: %d", state);
+}
+
+static void master_service_refresh_login_state(struct master_service *service)
+{
+	int ret;
+
+	ret = lseek(MASTER_LOGIN_NOTIFY_FD, 0, SEEK_CUR);
+	if (ret < 0)
+		i_error("lseek(login notify fd) failed: %m");
+	else
+		master_service_set_login_state(service, ret);
+}
+
 static void master_service_close_config_fd(struct master_service *service)
 {
 	if (service->config_fd != -1) {
@@ -493,6 +552,8 @@ void master_service_deinit(struct master_service **_service)
 	io_listeners_remove(service);
 
 	master_service_close_config_fd(service);
+	if (service->to_overflow_state != NULL)
+		timeout_remove(&service->to_overflow_state);
 	if (service->io_status_error != NULL)
 		io_remove(&service->io_status_error);
 	if (service->io_status_write != NULL)
@@ -523,8 +584,11 @@ static void master_service_listen(struct master_service_listener *l)
 		/* we are full. stop listening for now, unless overflow
 		   callback destroys one of the existing connections */
 		if (service->call_avail_overflow &&
-		    service->avail_overflow_callback != NULL)
+		    service->avail_overflow_callback != NULL) {
+			service->delay_status_updates = TRUE;
 			service->avail_overflow_callback();
+			service->delay_status_updates = FALSE;
+		}
 
 		if (service->master_status.available_count == 0) {
 			io_listeners_remove(service);
@@ -631,7 +695,7 @@ static void master_status_update(struct master_service *service)
 {
 	ssize_t ret;
 
-	if (service->master_status.pid == 0)
+	if (service->master_status.pid == 0 || service->delay_status_updates)
 		return; /* closed */
 
 	ret = write(MASTER_STATUS_FD, &service->master_status,

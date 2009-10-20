@@ -60,6 +60,8 @@ struct client {
 	unsigned int anvil_sent:1;
 };
 
+extern struct client *pop3_clients;
+
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out, struct mail_user *user,

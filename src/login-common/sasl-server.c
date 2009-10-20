@@ -114,6 +114,7 @@ master_send_request(struct client *client, struct auth_client_request *request)
 	req.auth_id = auth_client_request_get_id(request);
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
+	req.client_pid = getpid();
 
 	cookie = auth_client_get_cookie(auth_client);
 	if (hex_to_binary(cookie, buf) == 0 && buf->used == sizeof(req.cookie))
@@ -127,9 +128,8 @@ master_send_request(struct client *client, struct auth_client_request *request)
 	buffer_append(buf, data, size);
 	req.data_size = buf->used;
 
-	client->master_tag =
-		master_auth_request(master_service, client->fd, &req, buf->data,
-				    master_auth_callback, client);
+	master_auth_request(master_auth, client->fd, &req, buf->data,
+			    master_auth_callback, client, &client->master_tag);
 }
 
 static bool anvil_has_too_many_connections(struct client *client)

@@ -2,21 +2,11 @@
 #define SERVICE_H
 
 #include "network.h"
-
-struct master_settings;
+#include "master-settings.h"
 
 /* If a service process doesn't send its first status notification in
    this many seconds, kill the process */
 #define SERVICE_FIRST_STATUS_TIMEOUT_SECS 30
-
-enum service_type {
-	SERVICE_TYPE_UNKNOWN,
-	SERVICE_TYPE_LOG,
-	SERVICE_TYPE_ANVIL,
-	SERVICE_TYPE_CONFIG,
-	SERVICE_TYPE_AUTH_SERVER,
-	SERVICE_TYPE_AUTH_SOURCE
-};
 
 enum service_listener_type {
 	SERVICE_LISTENER_UNIX,
@@ -87,13 +77,15 @@ struct service {
 	int status_fd[2];
 	struct io *io_status;
 
+	/* Login process's notify fd. We change its seek position to
+	   communicate state to login processes. */
+	int login_notify_fd;
+	time_t last_login_notify_time;
+	struct timeout *to_login_notify;
+
 	/* if a process fails before servicing its first request, assume it's
 	   broken and start throtting new process creations */
 	struct timeout *to_throttle;
-
-	/* SERVICE_TYPE_AUTH_SOURCE: Destination service to run after
-	   successful authentication. */
-	struct service *auth_dest_service;
 
 	/* Last time a "dropping client connections" warning was logged */
 	time_t last_drop_warning;
@@ -104,6 +96,8 @@ struct service {
 	unsigned int listening:1;
 	/* TRUE if service has at least one inet_listener */
 	unsigned int have_inet_listeners:1;
+	/* service_login_notify()'s last notification state */
+	unsigned int last_login_full_notify:1;
 };
 
 struct service_list {
@@ -122,7 +116,7 @@ struct service_list {
 	int master_log_fd[2];
 	struct service_process_notify *log_byes;
 
-	/* passed to auth destination processes */
+	/* passed to child processes */
 	int blocking_anvil_fd[2];
 	/* used by master process to notify about dying processes */
 	int nonblocking_anvil_fd[2];
@@ -154,6 +148,10 @@ const char *services_get_config_socket_path(struct service_list *service_list);
 
 /* Send a signal to all processes in a given service */
 void service_signal(struct service *service, int signo);
+/* Notify all processes (if necessary) that no more connections can be handled
+   by the service without killing existing connections (TRUE) or that they
+   can be (FALSE). */
+void service_login_notify(struct service *service, bool all_processes_full);
 
 /* Prevent service from launching new processes for a while. */
 void service_throttle(struct service *service, unsigned int secs);

@@ -17,7 +17,9 @@ enum master_service_flags {
 	/* Don't read settings by executing config binary */
 	MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS	= 0x10,
 	/* Don't read settings from environment */
-	MASTER_SERVICE_FLAG_NO_ENV_SETTINGS	= 0x20
+	MASTER_SERVICE_FLAG_NO_ENV_SETTINGS	= 0x20,
+	/* Use MASTER_LOGIN_NOTIFY_FD to track login overflow state */
+	MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE	= 0x40
 };
 
 struct master_service_connection {

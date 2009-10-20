@@ -35,7 +35,7 @@
    transaction. This allows the mailbox to become unlocked. */
 #define CLIENT_COMMIT_TIMEOUT_MSECS (10*1000)
 
-static struct client *pop3_clients;
+struct client *pop3_clients;
 
 static void client_input(struct client *client);
 static int client_output(struct client *client);

@@ -23,8 +23,6 @@
 #include "service.h"
 #include "service-anvil.h"
 #include "service-log.h"
-#include "service-auth-server.h"
-#include "service-auth-source.h"
 #include "service-process-notify.h"
 #include "service-process.h"
 
@@ -44,8 +42,7 @@
 #define CHDIR_WARN_SECS 10
 
 static void
-service_dup_fds(struct service *service, int auth_fd, int std_fd,
-		bool give_anvil_fd)
+service_dup_fds(struct service *service)
 {
 	struct service_listener *const *listeners;
 	ARRAY_TYPE(dup2) dups;
@@ -105,32 +102,13 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd,
 		}
 	}
 
-	if (!give_anvil_fd)
-		dup2_append(&dups, null_fd, MASTER_ANVIL_FD);
-	else {
-		dup2_append(&dups, service->list->blocking_anvil_fd[1],
-			    MASTER_ANVIL_FD);
+	if (service->login_notify_fd != -1) {
+		dup2_append(&dups, service->login_notify_fd,
+			    MASTER_LOGIN_NOTIFY_FD);
 	}
+	dup2_append(&dups, service->list->blocking_anvil_fd[1],
+		    MASTER_ANVIL_FD);
 	dup2_append(&dups, service->status_fd[1], MASTER_STATUS_FD);
-
-	switch (service->type) {
-	case SERVICE_TYPE_AUTH_SOURCE:
-	case SERVICE_TYPE_AUTH_SERVER:
-		i_assert(auth_fd != -1);
-		dup2_append(&dups, auth_fd, MASTER_AUTH_FD);
-		env_put(t_strdup_printf("MASTER_AUTH_FD=%d", MASTER_AUTH_FD));
-		break;
-	default:
-		i_assert(auth_fd == -1);
-		dup2_append(&dups, null_fd, MASTER_AUTH_FD);
-		break;
-	}
-
-	if (std_fd != -1) {
-		dup2_append(&dups, std_fd, STDIN_FILENO);
-		dup2_append(&dups, std_fd, STDOUT_FILENO);
-		env_put("LOGGED_IN=1");
-	}
 
 	if (service->type != SERVICE_TYPE_LOG) {
 		/* set log file to stderr. dup2() here immediately so that
@@ -158,193 +136,10 @@ service_dup_fds(struct service *service, int auth_fd, int std_fd,
 }
 
 static void
-validate_uid_gid(struct master_settings *set,
-		 uid_t uid, gid_t gid, const char *user,
-		 const struct service_process_auth_request *request)
+drop_privileges(struct service *service)
 {
-	struct service_process *request_process =
-		request == NULL ? NULL : &request->process->process;
-
-	if (uid == 0) {
-		i_fatal("User %s not allowed to log in using UNIX UID 0 "
-			"(root logins are never allowed)", user);
-	}
-
-	if (request != NULL && request_process->service->uid == uid &&
-	    master_uid != uid) {
-		struct passwd *pw;
-
-		pw = getpwuid(uid);
-		i_fatal("User %s not allowed to log in using %s's "
-			"UNIX UID %s%s (see http://wiki.dovecot.org/UserIds)",
-			user, request_process->service->set->name,
-			dec2str(uid), pw == NULL ? "" :
-			t_strdup_printf("(%s)", pw->pw_name));
-	}
-
-	if (uid < (uid_t)set->first_valid_uid ||
-	    (set->last_valid_uid != 0 && uid > (uid_t)set->last_valid_uid)) {
-		struct passwd *pw;
-		bool low = uid < (uid_t)set->first_valid_uid;
-
-		pw = getpwuid(uid);
-		i_fatal("User %s not allowed to log in using too %s "
-			"UNIX UID %s%s (see %s in config file)",
-			user, low ? "low" : "high",
-			dec2str(uid), pw == NULL ? "" :
-			t_strdup_printf("(%s)", pw->pw_name),
-			low ? "first_valid_uid" : "last_valid_uid");
-	}
-
-	if (gid < (gid_t)set->first_valid_gid ||
-	    (set->last_valid_gid != 0 && gid > (gid_t)set->last_valid_gid)) {
-		struct group *gr;
-		bool low = gid < (gid_t)set->first_valid_gid;
-
-		gr = getgrgid(gid);
-		i_fatal("User %s not allowed to log in using too %s primary "
-			"UNIX group ID %s%s (see %s in config file)",
-			user, low ? "low" : "high",
-			dec2str(gid), gr == NULL ? "" :
-			t_strdup_printf("(%s)", gr->gr_name),
-			low ? "first_valid_gid" : "last_valid_gid");
-	}
-}
-
-static void auth_args_apply(const char *const *args,
-			    struct restrict_access_settings *rset,
-			    const char **home)
-{
-	const char *key, *value;
-	string_t *expanded_vars;
-
-	expanded_vars = t_str_new(128);
-	str_append(expanded_vars, "VARS_EXPANDED=");
-	for (; *args != NULL; args++) {
-		if (strncmp(*args, "uid=", 4) == 0)
-			rset->uid = (uid_t)strtoul(*args + 4, NULL, 10);
-		else if (strncmp(*args, "gid=", 4) == 0)
-			rset->gid = (gid_t)strtoul(*args + 4, NULL, 10);
-		else if (strncmp(*args, "home=", 5) == 0) {
-			*home = *args + 5;
-			env_put(t_strconcat("HOME=", *args + 5, NULL));
-		} else if (strncmp(*args, "chroot=", 7) == 0)
-			rset->chroot_dir = *args + 7;
-		else if (strncmp(*args, "system_groups_user=", 19) == 0)
-			rset->system_groups_user = *args + 19;
-		else if (strncmp(*args, "mail_access_groups=", 19) == 0) {
-			rset->extra_groups =
-				rset->extra_groups == NULL ? *args + 19 :
-				t_strconcat(*args + 19, ",",
-					    rset->extra_groups, NULL);
-		} else {
-			/* unknown, set as environment */
-			value = strchr(*args, '=');
-			if (value == NULL) {
-				/* boolean */
-				key = *args;
-				value = "=1";
-			} else {
-				key = t_strdup_until(*args, value);
-				if (strcmp(key, "mail") == 0) {
-					/* FIXME: kind of ugly to have it
-					   here.. */
-					key = "mail_location";
-				}
-			}
-			str_append(expanded_vars, key);
-			str_append_c(expanded_vars, ' ');
-			env_put(t_strconcat(t_str_ucase(key), value, NULL));
-		}
-	}
-	env_put(str_c(expanded_vars));
-}        
-
-static void auth_success_write(void)
-{
-	int fd;
-
-	if (auth_success_written)
-		return;
-
-	fd = creat(AUTH_SUCCESS_PATH, 0666);
-	if (fd == -1)
-		i_error("creat(%s) failed: %m", AUTH_SUCCESS_PATH);
-	else
-		(void)close(fd);
-	auth_success_written = TRUE;
-}
-
-static void chdir_to_home(const struct restrict_access_settings *rset,
-			  const char *user, const char *home)
-{
-	unsigned int left;
-	int ret, chdir_errno;
-
-	if (*home != '/') {
-		i_fatal("user %s: Relative home directory paths not supported: "
-			"%s", user, home);
-	}
-
-	/* if home directory is NFS-mounted, we might not have access to it as
-	   root. Change the effective UID and GID temporarily to make it
-	   work. */
-	if (rset->uid != master_uid) {
-		if (setegid(rset->gid) < 0)
-			i_fatal("setegid(%s) failed: %m", dec2str(rset->gid));
-		if (seteuid(rset->uid) < 0)
-			i_fatal("seteuid(%s) failed: %m", dec2str(rset->uid));
-	}
-
-	alarm(CHDIR_TIMEOUT);
-	ret = chdir(home);
-	chdir_errno = errno;
-	if ((left = alarm(0)) < CHDIR_TIMEOUT - CHDIR_WARN_SECS) {
-		i_warning("user %s: chdir(%s) blocked for %u secs",
-			  user, home, CHDIR_TIMEOUT - left);
-	}
-
-	errno = chdir_errno;
-	if (ret == 0) {
-		/* chdir succeeded */
-	} else if ((errno == ENOENT || errno == ENOTDIR || errno == EINTR) &&
-		   rset->chroot_dir == NULL) {
-		/* Not chrooted, fallback to using /tmp.
-
-		   ENOENT: No home directory yet, but it might be automatically
-		     created by the service process, so don't complain.
-		   ENOTDIR: This check is mainly for /dev/null home directory.
-		   EINTR: chdir() timed out. */
-	} else if (errno == EACCES) {
-		i_fatal("user %s: %s", user, eacces_error_get("chdir", home));
-	} else {
-		i_fatal("user %s: chdir(%s) failed with uid %s: %m",
-			user, home, dec2str(rset->uid));
-	}
-	/* Change UID back. No need to change GID back, it doesn't
-	   really matter. */
-	if (rset->uid != master_uid && seteuid(master_uid) < 0)
-		i_fatal("seteuid(%s) failed: %m", dec2str(master_uid));
-
-	if (ret < 0) {
-		/* We still have to change to some directory where we have
-		   rx-access. /tmp should exist everywhere. */
-		if (chdir("/tmp") < 0)
-			i_fatal("chdir(/tmp) failed: %m");
-	}
-}
-
-static void
-drop_privileges(struct service *service, const char *const *auth_args,
-		const struct service_process_auth_request *request)
-{
-	struct master_settings *master_set = service->set->master_set;
 	struct restrict_access_settings rset;
-	const char *user, *home = NULL;
 	bool disallow_root;
-
-	if (auth_args != NULL && service->set->master_set->mail_debug)
-		env_put("DEBUG=1");
 
 	if (service->vsz_limit != 0)
 		restrict_process_size(service->vsz_limit, -1U);
@@ -357,31 +152,9 @@ drop_privileges(struct service *service, const char *const *auth_args,
 		service->set->chroot;
 	rset.extra_groups = service->extra_gids;
 
-	if (auth_args == NULL) {
-		/* non-authenticating service. don't use *_valid_gid checks */
-	} else {
-		i_assert(auth_args[0] != NULL);
-
-		rset.first_valid_gid = master_set->first_valid_gid;
-		rset.last_valid_gid = master_set->last_valid_gid;
-
-		user = auth_args[0];
-		env_put(t_strconcat("USER=", user, NULL));
-
-		auth_success_write();
-		auth_args_apply(auth_args + 1, &rset, &home);
-
-		validate_uid_gid(master_set, rset.uid, rset.gid, user,
-				 request);
-	}
-
-	if (home != NULL)
-		chdir_to_home(&rset, user, home);
-
 	if (service->set->drop_priv_before_exec) {
-		disallow_root = service->type == SERVICE_TYPE_AUTH_SERVER ||
-			service->type == SERVICE_TYPE_AUTH_SOURCE;
-		restrict_access(&rset, home, disallow_root);
+		disallow_root = service->type == SERVICE_TYPE_LOGIN;
+		restrict_access(&rset, NULL, disallow_root);
 	} else {
 		restrict_access_set_env(&rset);
 	}
@@ -451,120 +224,38 @@ static void service_process_status_timeout(struct service_process *process)
 	timeout_remove(&process->to_status);
 }
 
-static void
-handle_request(const struct service_process_auth_request *request)
-{
-	string_t *str;
-
-	if (request == NULL)
-		return;
-
-	if (request->data_size > 0) {
-		str = t_str_new(request->data_size*3);
-		str_append(str, "CLIENT_INPUT=");
-		base64_encode(request->data, request->data_size, str);
-		env_put(str_c(str));
-	}
-
-	env_put(t_strconcat("LOCAL_IP=", net_ip2addr(&request->local_ip), NULL));
-	env_put(t_strconcat("IP=", net_ip2addr(&request->remote_ip), NULL));
-}
-
-static const char **
-get_extra_args(struct service *service,
-	       const struct service_process_auth_request *request,
-	       const char *const *auth_args)
-{
-	const char **extra;
-
-	if (!service->set->master_set->verbose_proctitle || request == NULL)
-		return NULL;
-
-	extra = t_new(const char *, 2);
-	extra[0] = t_strdup_printf("[%s %s]", auth_args[0],
-				   net_ip2addr(&request->remote_ip));
-	return extra;
-}
-
-struct service_process *
-service_process_create(struct service *service, const char *const *auth_args,
-		       const struct service_process_auth_request *request)
+struct service_process *service_process_create(struct service *service)
 {
 	static unsigned int uid_counter = 0;
 	struct service_process *process;
 	unsigned int uid = ++uid_counter;
-	int fd[2];
 	pid_t pid;
 
 	if (service->to_throttle != NULL) {
 		/* throttling service, don't create new processes */
 		return NULL;
 	}
-	if (service->process_count >= service->process_limit) {
-		/* we should get here only with auth dest services */
-		i_warning("service(%s): process_limit reached, "
-			  "dropping this client connection",
-			  service->set->name);
-		return NULL;
-	}
-
-	switch (service->type) {
-	case SERVICE_TYPE_AUTH_SOURCE:
-	case SERVICE_TYPE_AUTH_SERVER:
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
-			service_error(service, "socketpair() failed: %m");
-			return NULL;
-		}
-		fd_close_on_exec(fd[0], TRUE);
-		fd_close_on_exec(fd[1], TRUE);
-		break;
-	default:
-		fd[0] = fd[1] = -1;
-		break;
-	}
 
 	pid = fork();
 	if (pid < 0) {
 		service_error(service, "fork() failed: %m");
-		if (fd[0] != -1) {
-			(void)close(fd[0]);
-			(void)close(fd[1]);
-		}
 		return NULL;
 	}
 	if (pid == 0) {
 		/* child */
-		if (fd[0] != -1)
-			(void)close(fd[0]);
 		service_process_setup_environment(service, uid);
-		handle_request(request);
-		service_dup_fds(service, fd[1], request == NULL ? -1 :
-				request->fd, auth_args != NULL);
-		drop_privileges(service, auth_args, request);
-		process_exec(service->executable,
-			     get_extra_args(service, request, auth_args));
+		service_dup_fds(service);
+		drop_privileges(service);
+		process_exec(service->executable, NULL);
 	}
 
 	switch (service->type) {
-	case SERVICE_TYPE_AUTH_SERVER:
-		process = i_malloc(sizeof(struct service_process_auth_server));
-		process->service = service;
-		service_process_auth_server_init(process, fd[0]);
-		(void)close(fd[1]);
-		break;
-	case SERVICE_TYPE_AUTH_SOURCE:
-		process = i_malloc(sizeof(struct service_process_auth_source));
-		process->service = service;
-		service_process_auth_source_init(process, fd[0]);
-		(void)close(fd[1]);
-		break;
 	case SERVICE_TYPE_ANVIL:
 		service_anvil_process_created(service);
 		/* fall through */
 	default:
 		process = i_new(struct service_process, 1);
 		process->service = service;
-		i_assert(fd[0] == -1);
 		break;
 	}
 
@@ -604,12 +295,6 @@ void service_process_destroy(struct service_process *process)
 		timeout_remove(&process->to_idle);
 
 	switch (process->service->type) {
-	case SERVICE_TYPE_AUTH_SERVER:
-		service_process_auth_server_deinit(process);
-		break;
-	case SERVICE_TYPE_AUTH_SOURCE:
-		service_process_auth_source_deinit(process);
-		break;
 	case SERVICE_TYPE_ANVIL:
 		service_anvil_process_destroyed(service);
 		break;
@@ -624,8 +309,8 @@ void service_process_destroy(struct service_process *process)
 	service_process_unref(process);
 
 	if (service->process_count < service->process_limit &&
-	    service->type == SERVICE_TYPE_AUTH_SOURCE)
-		service_processes_auth_source_notify(service, FALSE);
+	    service->type == SERVICE_TYPE_LOGIN)
+		service_login_notify(service, FALSE);
 
 	service_list_unref(service_list);
 }

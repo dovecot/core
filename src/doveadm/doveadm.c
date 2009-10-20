@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
+	master_service_init_finish(master_service);
 	if (!doveadm_try_run(cmd_name, argc, argv) &&
 	    !doveadm_mail_try_run(cmd_name, argc, argv))
 		usage();

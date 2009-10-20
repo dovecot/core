@@ -112,6 +112,7 @@ int main(int argc, char *argv[])
 	}
 	if (optind != argc)
 		usage();
+	master_service_init_finish(master_service);
 
 	memset(&input, 0, sizeof(input));
 	input.username = username;

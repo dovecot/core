@@ -19,6 +19,7 @@
 #include <syslog.h>
 
 struct auth_client *auth_client;
+struct master_auth *master_auth;
 bool closing_down;
 int anvil_fd = -1;
 
@@ -139,10 +140,10 @@ static void main_init(void)
 
 	auth_client = auth_client_init("auth", (unsigned int)getpid(), FALSE);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
+	master_auth = master_auth_init(master_service, login_protocol);
 
 	clients_init();
 	login_proxy_init();
-	master_auth_init(master_service);
 }
 
 static void main_deinit(void)
@@ -153,23 +154,25 @@ static void main_deinit(void)
 	if (auth_client != NULL)
 		auth_client_deinit(&auth_client);
 	clients_deinit();
+	master_auth_deinit(&master_auth);
 
 	if (anvil_fd != -1) {
 		if (close(anvil_fd) < 0)
 			i_error("close(anvil) failed: %m");
 	}
-	master_auth_deinit(master_service);
 }
 
 int main(int argc, char *argv[], char *envp[])
 {
+	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
+		MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE;
 	const char *getopt_str;
 	pool_t set_pool;
 	int c;
 
-	master_service = master_service_init(login_process_name,
-					MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN,
-					argc, argv);
+	master_service = master_service_init(login_process_name, service_flags,
+					     argc, argv);
 	master_service_init_log(master_service, t_strconcat(
 		login_process_name, ": ", NULL));
 

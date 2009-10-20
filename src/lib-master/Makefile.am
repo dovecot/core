@@ -10,6 +10,8 @@ AM_CPPFLAGS = \
 
 libmaster_la_SOURCES = \
 	master-auth.c \
+	master-login.c \
+	master-login-auth.c \
 	master-service.c \
 	master-service-settings.c \
 	syslog-util.c
@@ -17,6 +19,8 @@ libmaster_la_SOURCES = \
 noinst_HEADERS = \
 	master-auth.h \
 	master-interface.h \
+	master-login.h \
+	master-login-auth.h \
 	master-service.h \
 	master-service-private.h \
 	master-service-settings.h \

@@ -378,6 +378,7 @@ int main(int argc, char *argv[])
 		i_fatal_status(EX_USAGE,
 			"destination user parameter (-d user) not given");
 	}
+	master_service_init_finish(master_service);
 
 	memset(&service_input, 0, sizeof(service_input));
 	service_input.module = "lda";
