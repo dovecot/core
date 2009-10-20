@@ -93,7 +93,7 @@ static int anvil_connect(void)
 	return fd;
 }
 
-static void main_preinit(void)
+static void main_preinit(bool allow_core_dumps)
 {
 	unsigned int max_fds;
 
@@ -125,6 +125,8 @@ static void main_preinit(void)
 		anvil_fd = anvil_connect();
 
 	restrict_access_by_env(NULL, TRUE);
+	if (allow_core_dumps)
+		restrict_access_allow_coredumps(TRUE);
 }
 
 static void main_init(void)
@@ -171,6 +173,7 @@ int main(int argc, char *argv[], char *envp[])
 		MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE;
 	const char *getopt_str;
 	pool_t set_pool;
+	bool allow_core_dumps = FALSE;
 	int c;
 
 	master_service = master_service_init(login_process_name, service_flags,
@@ -182,7 +185,7 @@ int main(int argc, char *argv[], char *envp[])
 	while ((c = getopt(argc, argv, getopt_str)) > 0) {
 		switch (c) {
 		case 'D':
-			restrict_access_allow_coredumps(TRUE);
+			allow_core_dumps = TRUE;
 			break;
 		case 'S':
 			ssl_connections = TRUE;
@@ -206,7 +209,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* main_preinit() needs to know the client limit, which is set by
 	   this. so call it first. */
 	master_service_init_finish(master_service);
-	main_preinit();
+	main_preinit(allow_core_dumps);
 	main_init();
 
 	master_service_run(master_service, client_connected);

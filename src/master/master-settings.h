@@ -51,6 +51,7 @@ struct service_settings {
 	ARRAY_DEFINE(inet_listeners, struct inet_listener_settings *);
 
 	enum service_type parsed_type;
+	unsigned int login_dump_core:1;
 };
 
 struct master_settings {

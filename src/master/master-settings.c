@@ -267,6 +267,18 @@ static bool master_settings_parse_type(struct service_settings *set,
 	return TRUE;
 }
 
+static void service_set_login_dump_core(struct service_settings *set)
+{
+	const char *p;
+
+	if (set->parsed_type != SERVICE_TYPE_LOGIN)
+		return;
+
+	p = strstr(set->executable, " -D");
+	if (p != NULL && (p[3] == '\0' || p[3] == ' '))
+		set->login_dump_core = TRUE;
+}
+
 static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
@@ -311,6 +323,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				return FALSE;
 			}
 		}
+		service_set_login_dump_core(service);
 	}
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
@@ -361,8 +374,8 @@ login_want_core_dumps(const struct master_settings *set, gid_t *gid_r)
 
 	services = array_get(&set->services, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(services[i]->type, "login") == 0) {
-			if (strstr(services[i]->executable, " -D") != NULL)
+		if (services[i]->parsed_type == SERVICE_TYPE_LOGIN) {
+			if (services[i]->login_dump_core)
 				cores = TRUE;
 			(void)get_uidgid(services[i]->user, &uid, gid_r, &error);
 			if (*services[i]->group != '\0')

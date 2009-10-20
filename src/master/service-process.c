@@ -382,13 +382,18 @@ static void log_coredump(struct service *service ATTR_UNUSED,
 		return;
 	}
 
-#ifdef HAVE_PR_SET_DUMPABLE
+#ifndef HAVE_PR_SET_DUMPABLE
 	if (!service->set->drop_priv_before_exec) {
 		str_append(str, " (core not dumped - set drop_priv_before_exec=yes)");
 		return;
 	}
 	if (*service->set->privileged_group != '\0') {
 		str_append(str, " (core not dumped - privileged_group prevented it)");
+		return;
+	}
+#else
+	if (!service->set->login_dump_core) {
+		str_append(str, " (core not dumped - add -D parameter to service executable");
 		return;
 	}
 #endif
