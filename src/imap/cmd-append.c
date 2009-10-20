@@ -230,7 +230,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	/* [<flags>] [<internal date>] <message literal> */
 	ret = imap_parser_read_args(ctx->save_parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE, &args);
-	if (ret == -1 || client->output->closed) {
+	if (ret == -1) {
 		if (!ctx->failed)
 			client_send_command_error(cmd, NULL);
 		cmd_append_finish(ctx);
