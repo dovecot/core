@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
 					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
+	master_service_init_finish(master_service);
 
 	multi_service = mail_storage_service_multi_init(master_service,
 							set_roots,
