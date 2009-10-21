@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("convert-tool",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv, NULL);
+					     &argc, &argv, NULL);
 
 	if (master_getopt(master_service) > 0)
 		i_fatal(USAGE_STRING);

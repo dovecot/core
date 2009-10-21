@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("lda",
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
-		argc, argv, "a:d:p:ekm:nsf:");
+		&argc, &argv, "a:d:p:ekm:nsf:");
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("mail deliver context", 256);

@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("doveadm",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv, "+");
+					     &argc, &argv, "+");
 	i_array_init(&doveadm_cmds, 32);
 	doveadm_mail_init();
 	doveadm_register_cmd(&doveadm_cmd_help);

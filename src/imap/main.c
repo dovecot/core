@@ -8,7 +8,6 @@
 #include "base64.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
-#include "process-title.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "master-login.h"
@@ -198,7 +197,7 @@ static void client_connected(const struct master_service_connection *conn)
 	}
 }
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags = 0;
 
@@ -218,10 +217,9 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	master_service = master_service_init("imap", service_flags,
-					     argc, argv, NULL);
+					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		exit(FATAL_DEFAULT);
-        process_title_init(argv, envp);
 	master_service_init_finish(master_service);
 
 	/* plugins may want to add commands, so this needs to be called early */

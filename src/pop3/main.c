@@ -7,7 +7,6 @@
 #include "ostream.h"
 #include "base64.h"
 #include "restrict-access.h"
-#include "process-title.h"
 #include "master-service.h"
 #include "master-login.h"
 #include "master-interface.h"
@@ -161,7 +160,7 @@ static void client_connected(const struct master_service_connection *conn)
 	}
 }
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags = 0;
 
@@ -181,10 +180,9 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	master_service = master_service_init("pop3", service_flags,
-					     argc, argv, NULL);
+					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
-        process_title_init(argv, envp);
 	master_service_init_finish(master_service);
 
 	if (IS_STANDALONE()) {

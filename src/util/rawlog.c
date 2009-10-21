@@ -348,7 +348,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	lib_init();
 	i_set_failure_internal();
-	process_title_init(argv, envp);
+	process_title_init(&argv, envp);
 
 	argc--;
 	argv++;

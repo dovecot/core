@@ -233,7 +233,7 @@ int main(int argc, char *argv[])
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv, "af:m:nNe");
+					     &argc, &argv, "af:m:nNe");
 	i_set_failure_prefix("doveconf: ");
 	while ((c = master_getopt(master_service)) > 0) {
 		if (c == 'e')

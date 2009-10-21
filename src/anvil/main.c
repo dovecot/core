@@ -19,7 +19,7 @@ static void client_connected(const struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	master_service = master_service_init("anvil", 0, argc, argv, NULL);
+	master_service = master_service_init("anvil", 0, &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 

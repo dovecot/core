@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 {
 	int c;
 
-	master_service = master_service_init("auth", 0, argc, argv, "w");
+	master_service = master_service_init("auth", 0, &argc, &argv, "w");
 	master_service_init_log(master_service, "auth: ");
 
 	while ((c = master_getopt(master_service)) > 0) {

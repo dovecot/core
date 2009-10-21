@@ -48,6 +48,23 @@ static void linux_proctitle_init(char *argv[], char *envp[])
 	process_title_len = (size_t) (envp[i-1] - argv[0]) + strlen(envp[i-1]);
 }
 
+static char **argv_dup(char *old_argv[])
+{
+	char **new_argv;
+	unsigned int i, count;
+
+	for (count = 0; old_argv[count] != NULL; count++) ;
+
+	new_argv = malloc(sizeof(char *) * (count + 1));
+	for (i = 0; i < count; i++) {
+		new_argv[i] = strdup(old_argv[i]);
+		if (new_argv[i] == NULL)
+			i_fatal_status(FATAL_OUTOFMEM, "strdup() failed: %m");
+	}
+	new_argv[i] = NULL;
+	return new_argv;
+}
+
 static void linux_proctitle_set(const char *title)
 {
 	i_strocpy(process_title, title, process_title_len);
@@ -55,12 +72,13 @@ static void linux_proctitle_set(const char *title)
 
 #endif
 
-void process_title_init(char *argv[], char *envp[] ATTR_UNUSED)
+void process_title_init(char **argv[], char *envp[] ATTR_UNUSED)
 {
 #ifdef LINUX_PROCTITLE_HACK
-	linux_proctitle_init(argv, envp);
+	*argv = argv_dup(*argv);
+	linux_proctitle_init(*argv, envp);
 #endif
-	process_name = argv[0];
+	process_name = (*argv)[0];
 }
 
 void process_title_set(const char *title ATTR_UNUSED)
@@ -76,4 +94,3 @@ void process_title_set(const char *title ATTR_UNUSED)
 	linux_proctitle_set(t_strconcat(process_name, " ", title, NULL));
 #endif
 }
-

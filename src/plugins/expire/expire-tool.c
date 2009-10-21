@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("expire-tool",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv, "t");
+					     &argc, &argv, "t");
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {

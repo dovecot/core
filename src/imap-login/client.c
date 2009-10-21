@@ -5,7 +5,6 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "process-title.h"
 #include "safe-memset.h"
 #include "str.h"
 #include "strescape.h"

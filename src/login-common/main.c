@@ -5,7 +5,6 @@
 #include "randgen.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
-#include "process-title.h"
 #include "master-auth.h"
 #include "master-service.h"
 #include "master-interface.h"
@@ -166,7 +165,7 @@ static void main_deinit(void)
 	}
 }
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
@@ -176,7 +175,7 @@ int main(int argc, char *argv[], char *envp[])
 	int c;
 
 	master_service = master_service_init(login_process_name, service_flags,
-					     argc, argv, "DS");
+					     &argc, &argv, "DS");
 	master_service_init_log(master_service, t_strconcat(
 		login_process_name, ": ", NULL));
 
@@ -195,7 +194,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	login_process_preinit();
 
-	process_title_init(argv, envp);
 	set_pool = pool_alloconly_create("global login settings", 4096);
 	global_login_settings =
 		login_settings_read(master_service, set_pool, NULL, NULL,

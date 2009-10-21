@@ -5,7 +5,6 @@
 #include "ioloop.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
-#include "process-title.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
@@ -52,7 +51,7 @@ static void main_deinit(void)
 	clients_destroy();
 }
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
 	const struct setting_parser_info *set_roots[] = {
 		&lda_setting_parser_info,
@@ -70,7 +69,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	master_service = master_service_init("lmtp", service_flags,
-					     argc, argv, NULL);
+					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 
@@ -78,8 +77,6 @@ int main(int argc, char *argv[], char *envp[])
 							set_roots,
 							storage_service_flags);
 	restrict_access_allow_coredumps(TRUE);
-
-        process_title_init(argv, envp);
 
 	main_init();
 	master_service_run(master_service, client_connected);

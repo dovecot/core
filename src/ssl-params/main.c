@@ -116,7 +116,8 @@ int main(int argc, char *argv[])
 {
 	const struct ssl_params_settings *set;
 
-	master_service = master_service_init("ssl-params", 0, argc, argv, NULL);
+	master_service = master_service_init("ssl-params", 0,
+					     &argc, &argv, NULL);
 	master_service_init_log(master_service, "ssl-params: ");
 
 	if (master_getopt(master_service) > 0)

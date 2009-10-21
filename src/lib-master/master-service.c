@@ -6,6 +6,7 @@
 #include "array.h"
 #include "env-util.h"
 #include "home-expand.h"
+#include "process-title.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "settings-parser.h"
@@ -78,8 +79,9 @@ static void master_service_verify_version(struct master_service *service)
 
 struct master_service *
 master_service_init(const char *name, enum master_service_flags flags,
-		    int argc, char *argv[], const char *getopt_str)
+		    int *argc, char **argv[], const char *getopt_str)
 {
+	extern char **environ;
 	struct master_service *service;
 	const char *str;
 
@@ -106,9 +108,11 @@ master_service_init(const char *name, enum master_service_flags flags,
 	if (getenv(MASTER_UID_ENV) == NULL)
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
+	process_title_init(argv, environ);
+
 	service = i_new(struct master_service, 1);
-	service->argc = argc;
-	service->argv = argv;
+	service->argc = *argc;
+	service->argv = *argv;
 	service->name = i_strdup(name);
 	service->getopt_str =
 		i_strconcat(master_service_getopt_string(), getopt_str, NULL);
