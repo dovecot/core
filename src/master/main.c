@@ -591,7 +591,7 @@ int main(int argc, char *argv[])
 {
 	struct master_settings *set;
 	unsigned int child_process_env_idx = 0;
-	const char *getopt_str, *error, *env_tz, *doveconf_arg = NULL;
+	const char *error, *env_tz, *doveconf_arg = NULL;
 	failure_callback_t *orig_info_callback, *orig_debug_callback;
 	void **sets;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
@@ -606,7 +606,7 @@ int main(int argc, char *argv[])
 	master_service = master_service_init(MASTER_SERVICE_NAME,
 				MASTER_SERVICE_FLAG_STANDALONE |
 				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
-				argc, argv);
+				argc, argv, "Fanp-");
 	i_set_failure_prefix("");
 
 	io_loop_set_time_moved_callback(current_ioloop, master_time_moved);
@@ -614,8 +614,7 @@ int main(int argc, char *argv[])
 	master_uid = geteuid();
 	master_gid = getegid();
 
-	getopt_str = t_strconcat("Fanp-", master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+	while ((c = master_getopt(master_service)) > 0) {
 		if (c == '-')
 			break;
 		switch (c) {

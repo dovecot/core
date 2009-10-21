@@ -8,8 +8,6 @@
 #include "ssl-params-settings.h"
 #include "ssl-params.h"
 
-#include <stdlib.h>
-#include <unistd.h>
 #include <sys/wait.h>
 
 #define SSL_BUILD_PARAM_FNAME "ssl-parameters.dat"
@@ -117,15 +115,12 @@ static void main_deinit(void)
 int main(int argc, char *argv[])
 {
 	const struct ssl_params_settings *set;
-	int c;
 
-	master_service = master_service_init("ssl-params", 0, argc, argv);
+	master_service = master_service_init("ssl-params", 0, argc, argv, NULL);
 	master_service_init_log(master_service, "ssl-params: ");
 
-	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(master_service, c, optarg))
-			exit(FATAL_DEFAULT);
-	}
+	if (master_getopt(master_service) > 0)
+		return FATAL_DEFAULT;
 
 	set = ssl_params_settings_read(master_service);
 	master_service_init_finish(master_service);

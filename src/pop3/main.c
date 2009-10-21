@@ -164,7 +164,6 @@ static void client_connected(const struct master_service_connection *conn)
 int main(int argc, char *argv[], char *envp[])
 {
 	enum master_service_flags service_flags = 0;
-	int c;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
@@ -181,11 +180,10 @@ int main(int argc, char *argv[], char *envp[])
 			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 	}
 
-	master_service = master_service_init("pop3", service_flags, argc, argv);
-	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(master_service, c, optarg))
-			exit(FATAL_DEFAULT);
-	}
+	master_service = master_service_init("pop3", service_flags,
+					     argc, argv, NULL);
+	if (master_getopt(master_service) > 0)
+		return FATAL_DEFAULT;
         process_title_init(argv, envp);
 	master_service_init_finish(master_service);
 

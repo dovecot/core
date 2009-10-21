@@ -23,16 +23,14 @@ int main(int argc, char *argv[])
 	struct mail_namespace *dest_ns;
 	struct mail_namespace_settings ns_set;
 	const char *error;
-	int i, c, ret = 0;
+	int i, ret = 0;
 
 	master_service = master_service_init("convert-tool",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv);
+					     argc, argv, NULL);
 
-	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(master_service, c, optarg))
-			i_fatal(USAGE_STRING);
-	}
+	if (master_getopt(master_service) > 0)
+		i_fatal(USAGE_STRING);
 	if (argc - optind < 4)
 		i_fatal(USAGE_STRING);
 

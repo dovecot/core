@@ -43,7 +43,10 @@ const char *master_service_getopt_string(void);
 /* Start service initialization. */
 struct master_service *
 master_service_init(const char *name, enum master_service_flags flags,
-		    int argc, char *argv[]);
+		    int argc, char *argv[], const char *getopt_str);
+/* Call getopt() and handle internal parameters. Return values are the same as
+   getopt()'s. */
+int master_getopt(struct master_service *service);
 /* Parser command line option. Returns TRUE if processed. */
 bool master_service_parse_option(struct master_service *service,
 				 int opt, const char *arg);

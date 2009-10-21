@@ -13,7 +13,6 @@
 #include "config-request.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 struct config_request_get_string_ctx {
@@ -225,7 +224,7 @@ static void filter_parse_arg(struct config_filter *filter, const char *arg)
 int main(int argc, char *argv[])
 {
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
-	const char *getopt_str, *config_path, *module = "";
+	const char *config_path, *module = "";
 	struct config_filter filter;
 	const char *error;
 	char **exec_args = NULL;
@@ -234,11 +233,9 @@ int main(int argc, char *argv[])
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv);
+					     argc, argv, "af:m:nNe");
 	i_set_failure_prefix("doveconf: ");
-	getopt_str = t_strconcat("af:m:nNe",
-				 master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+	while ((c = master_getopt(master_service)) > 0) {
 		if (c == 'e')
 			break;
 		switch (c) {
@@ -257,9 +254,7 @@ int main(int argc, char *argv[])
 			scope = CONFIG_DUMP_SCOPE_SET;
 			break;
 		default:
-			if (!master_service_parse_option(master_service,
-							 c, optarg))
-				exit(FATAL_DEFAULT);
+			return FATAL_DEFAULT;
 		}
 	}
 	config_path = master_service_get_config_path(master_service);

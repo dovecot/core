@@ -171,18 +171,16 @@ int main(int argc, char *argv[], char *envp[])
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
 		MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE;
-	const char *getopt_str;
 	pool_t set_pool;
 	bool allow_core_dumps = FALSE;
 	int c;
 
 	master_service = master_service_init(login_process_name, service_flags,
-					     argc, argv);
+					     argc, argv, "DS");
 	master_service_init_log(master_service, t_strconcat(
 		login_process_name, ": ", NULL));
 
-        getopt_str = t_strconcat("DS", master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
 			allow_core_dumps = TRUE;
@@ -191,10 +189,7 @@ int main(int argc, char *argv[], char *envp[])
 			ssl_connections = TRUE;
 			break;
 		default:
-			if (!master_service_parse_option(master_service,
-							 c, optarg))
-				exit(FATAL_DEFAULT);
-			break;
+			return FATAL_DEFAULT;
 		}
 	}
 

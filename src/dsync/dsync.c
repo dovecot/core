@@ -72,19 +72,17 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user;
 	struct dsync_worker *worker1, *worker2;
-	const char *getopt_str, *username, *mailbox = NULL, *cmd = NULL;
+	const char *username, *mailbox = NULL, *cmd = NULL;
 	bool dest = TRUE;
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE |
 					     MASTER_SERVICE_FLAG_STD_CLIENT,
-					     argc, argv);
+					     argc, argv, "b:e:fu:v");
 
 	username = getenv("USER");
-	getopt_str = t_strconcat("b:e:fu:v",
-				 master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+	while ((c = master_getopt(master_service)) > 0) {
 		if (c == '-')
 			break;
 		switch (c) {
@@ -105,9 +103,7 @@ int main(int argc, char *argv[])
 			brain_flags |= DSYNC_BRAIN_FLAG_VERBOSE;
 			break;
 		default:
-			if (!master_service_parse_option(master_service,
-							 c, optarg))
-				usage();
+			usage();
 		}
 	}
 	if (optind != argc)

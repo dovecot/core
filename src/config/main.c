@@ -8,9 +8,6 @@
 #include "config-parser.h"
 #include "config-request.h"
 
-#include <stdlib.h>
-#include <unistd.h>
-
 static void client_connected(const struct master_service_connection *conn)
 {
 	config_connection_create(conn->fd);
@@ -19,13 +16,10 @@ static void client_connected(const struct master_service_connection *conn)
 int main(int argc, char *argv[])
 {
 	const char *path, *error;
-	int c;
 
-	master_service = master_service_init("config", 0, argc, argv);
-	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(master_service, c, optarg))
-			exit(FATAL_DEFAULT);
-	}
+	master_service = master_service_init("config", 0, argc, argv, NULL);
+	if (master_getopt(master_service) > 0)
+		return FATAL_DEFAULT;
 
 	master_service_init_log(master_service, "config: ");
 	master_service_init_finish(master_service);

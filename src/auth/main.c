@@ -21,10 +21,6 @@
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/un.h>
-
 enum auth_socket_type {
 	AUTH_SOCKET_UNKNOWN = 0,
 	AUTH_SOCKET_CLIENT,
@@ -161,23 +157,18 @@ static void client_connected(const struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	const char *getopt_str;
 	int c;
 
-	master_service = master_service_init("auth", 0, argc, argv);
+	master_service = master_service_init("auth", 0, argc, argv, "w");
 	master_service_init_log(master_service, "auth: ");
 
-        getopt_str = t_strconcat("w", master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'w':
 			worker = TRUE;
 			break;
 		default:
-			if (!master_service_parse_option(master_service,
-							 c, optarg))
-				exit(FATAL_DEFAULT);
-			break;
+			return FATAL_DEFAULT;
 		}
 	}
 

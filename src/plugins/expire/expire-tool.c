@@ -312,25 +312,20 @@ static void expire_run(struct master_service *service, bool testrun)
 
 int main(int argc, char *argv[])
 {
-	const char *getopt_str;
 	bool test = FALSE;
 	int c;
 
 	master_service = master_service_init("expire-tool",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv);
+					     argc, argv, "t");
 
-	getopt_str = t_strconcat("t", master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 't':
 			test = TRUE;
 			break;
 		default:
-			if (!master_service_parse_option(master_service,
-							 c, optarg))
-				i_fatal("Unknown parameter: -%c", c);
-			break;
+			return FATAL_DEFAULT;
 		}
 	}
 	if (optind != argc)

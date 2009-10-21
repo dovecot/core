@@ -7,7 +7,6 @@
 #include "master-service-settings.h"
 #include "log-connection.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 pid_t master_pid;
@@ -39,18 +38,15 @@ static void client_connected(const struct master_service_connection *conn)
 int main(int argc, char *argv[])
 {
 	const char *error;
-	int c;
 
-	master_service = master_service_init("log", 0, argc, argv);
+	master_service = master_service_init("log", 0, argc, argv, NULL);
 
 	/* use log prefix and log to stderr until we've configured the real
 	   logging */
 	i_set_failure_file("/dev/stderr", "log: ");
 
-	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(master_service, c, optarg))
-			exit(FATAL_DEFAULT);
-	}
+	if (master_getopt(master_service) > 0)
+		return FATAL_DEFAULT;
 
 	if (master_service_settings_read_simple(master_service,
 						NULL, &error) < 0)

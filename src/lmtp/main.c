@@ -63,18 +63,16 @@ int main(int argc, char *argv[], char *envp[])
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-	int c;
 
 	if (IS_STANDALONE()) {
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE |
 			MASTER_SERVICE_FLAG_STD_CLIENT;
 	}
 
-	master_service = master_service_init("lmtp", service_flags, argc, argv);
-	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(master_service, c, optarg))
-			exit(FATAL_DEFAULT);
-	}
+	master_service = master_service_init("lmtp", service_flags,
+					     argc, argv, NULL);
+	if (master_getopt(master_service) > 0)
+		return FATAL_DEFAULT;
 
 	multi_service = mail_storage_service_multi_init(master_service,
 							set_roots,

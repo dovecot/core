@@ -70,12 +70,11 @@ static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-	const char *cmd_name, *getopt_str;
-	int c;
+	const char *cmd_name;
 
 	master_service = master_service_init("doveadm",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     argc, argv);
+					     argc, argv, "+");
 	i_array_init(&doveadm_cmds, 32);
 	doveadm_mail_init();
 	doveadm_register_cmd(&doveadm_cmd_help);
@@ -86,11 +85,8 @@ int main(int argc, char *argv[])
 
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */
-	getopt_str = t_strconcat("+", master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
-		if (!master_service_parse_option(master_service, c, optarg))
-			usage();
-	}
+	if (master_getopt(master_service) > 0)
+		usage();
 	if (optind == argc)
 		usage();
 

@@ -8,9 +8,6 @@
 #include "connect-limit.h"
 #include "anvil-connection.h"
 
-#include <stdlib.h>
-#include <unistd.h>
-
 struct connect_limit *connect_limit;
 
 static void client_connected(const struct master_service_connection *conn)
@@ -22,13 +19,9 @@ static void client_connected(const struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	int c;
-
-	master_service = master_service_init("anvil", 0, argc, argv);
-	while ((c = getopt(argc, argv, master_service_getopt_string())) > 0) {
-		if (!master_service_parse_option(master_service, c, optarg))
-			exit(FATAL_DEFAULT);
-	}
+	master_service = master_service_init("anvil", 0, argc, argv, NULL);
+	if (master_getopt(master_service) > 0)
+		return FATAL_DEFAULT;
 
 	master_service_set_die_with_master(master_service, TRUE);
 	master_service_init_log(master_service, "anvil: ");

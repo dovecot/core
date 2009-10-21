@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
 	};
 	struct mail_deliver_context ctx;
 	enum mail_storage_service_flags service_flags = 0;
-	const char *user, *errstr, *path, *getopt_str;
+	const char *user, *errstr, *path;
 	struct mail_storage_service_input service_input;
 	struct mail_user *raw_mail_user;
 	struct mail_namespace *raw_ns;
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("lda",
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
-		argc, argv);
+		argc, argv, "a:d:p:ekm:nsf:");
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("mail deliver context", 256);
@@ -295,9 +295,7 @@ int main(int argc, char *argv[])
 	path = NULL;
 
 	user = getenv("USER");
-	getopt_str = t_strconcat("a:d:p:ekm:nsf:",
-				 master_service_getopt_string(), NULL);
-	while ((c = getopt(argc, argv, getopt_str)) > 0) {
+	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'a':
 			/* destination address */
@@ -341,12 +339,8 @@ int main(int argc, char *argv[])
 				p_strdup(ctx.pool, address_sanitize(optarg));
 			break;
 		default:
-			if (!master_service_parse_option(master_service,
-							 c, optarg)) {
-				print_help();
-				exit(EX_USAGE);
-			}
-			break;
+			print_help();
+			return EX_USAGE;
 		}
 	}
 	if (optind != argc) {

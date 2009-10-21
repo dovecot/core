@@ -78,7 +78,7 @@ static void master_service_verify_version(struct master_service *service)
 
 struct master_service *
 master_service_init(const char *name, enum master_service_flags flags,
-		    int argc, char *argv[])
+		    int argc, char *argv[], const char *getopt_str)
 {
 	struct master_service *service;
 	const char *str;
@@ -110,6 +110,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->argc = argc;
 	service->argv = argv;
 	service->name = i_strdup(name);
+	service->getopt_str =
+		i_strconcat(master_service_getopt_string(), getopt_str, NULL);
 	service->flags = flags;
 	service->ioloop = io_loop_create();
 	service->service_count_left = (unsigned int)-1;
@@ -145,6 +147,18 @@ master_service_init(const char *name, enum master_service_flags flags,
 
 	master_service_verify_version(service);
 	return service;
+}
+
+int master_getopt(struct master_service *service)
+{
+	int c;
+
+	while ((c = getopt(service->argc, service->argv,
+			   service->getopt_str)) > 0) {
+		if (!master_service_parse_option(service, c, optarg))
+			break;
+	}
+	return c;
 }
 
 void master_service_init_log(struct master_service *service,
@@ -569,6 +583,7 @@ void master_service_deinit(struct master_service **_service)
 	io_loop_destroy(&service->ioloop);
 
 	i_free(service->listeners);
+	i_free(service->getopt_str);
 	i_free(service->name);
 	i_free(service);
 
