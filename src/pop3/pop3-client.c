@@ -12,6 +12,7 @@
 #include "var-expand.h"
 #include "master-service.h"
 #include "mail-storage.h"
+#include "mail-storage-service.h"
 #include "pop3-commands.h"
 #include "mail-search-build.h"
 #include "mail-namespace.h"
@@ -182,6 +183,7 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 }
 
 struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set)
 {
 	struct mail_namespace *ns;
@@ -197,6 +199,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	net_set_nonblock(fd_out, TRUE);
 
 	client = i_new(struct client, 1);
+	client->service_user = service_user;
 	client->set = set;
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
@@ -368,7 +371,7 @@ void client_destroy(struct client *client, const char *reason)
 		if (close(client->fd_out) < 0)
 			i_error("close(client out) failed: %m");
 	}
-
+	mail_storage_service_user_free(&client->service_user);
 	i_free(client);
 
 	master_service_client_connection_destroyed(master_service);

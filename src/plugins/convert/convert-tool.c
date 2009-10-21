@@ -17,6 +17,8 @@
 
 int main(int argc, char *argv[])
 {
+	struct mail_storage_service_ctx *storage_service;
+	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input input;
 	struct mail_user *user;
 	struct convert_plugin_settings set;
@@ -53,7 +55,10 @@ int main(int argc, char *argv[])
 
 	master_service_init_log(master_service,
 		t_strdup_printf("convert-tool(%s): ", input.username));
-	user = mail_storage_service_init_user(master_service, &input, NULL, 0);
+	storage_service = mail_storage_service_init(master_service, NULL, 0);
+	if (mail_storage_service_lookup_next(storage_service, &input,
+					     &service_user, &user, &error) <= 0)
+		i_fatal("%s", error);
 
 	memset(&ns_set, 0, sizeof(ns_set));
 	ns_set.location = argv[4];
@@ -75,7 +80,8 @@ int main(int argc, char *argv[])
 		i_error("Internal failure");
 
 	mail_user_unref(&user);
-	mail_storage_service_deinit_user();
+	mail_storage_service_user_free(&service_user);
+	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
 	return ret <= 0 ? 1 : 0;
 }

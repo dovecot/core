@@ -69,10 +69,12 @@ int main(int argc, char *argv[])
 	enum mail_storage_service_flags ssflags =
 		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR;
 	enum dsync_brain_flags brain_flags = 0;
+	struct mail_storage_service_ctx *storage_service;
+	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user;
 	struct dsync_worker *worker1, *worker2;
-	const char *username, *mailbox = NULL, *cmd = NULL;
+	const char *error, *username, *mailbox = NULL, *cmd = NULL;
 	bool dest = TRUE;
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
@@ -112,8 +114,13 @@ int main(int argc, char *argv[])
 
 	memset(&input, 0, sizeof(input));
 	input.username = username;
-	mail_user = mail_storage_service_init_user(master_service,
-						   &input, NULL, ssflags);
+
+	storage_service = mail_storage_service_init(master_service, NULL,
+						    ssflags);
+	if (mail_storage_service_lookup_next(storage_service, &input,
+					     &service_user, &mail_user,
+					     &error) <= 0)
+		i_fatal("%s", error);
 
 	if (cmd != NULL) {
 		/* user initialization may exec doveconf, so do our forking
@@ -152,7 +159,8 @@ int main(int argc, char *argv[])
 		dsync_worker_deinit(&worker2);
 
 	mail_user_unref(&mail_user);
-	mail_storage_service_deinit_user();
+	mail_storage_service_user_free(&service_user);
+	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
 	return ret < 0 ? 1 : 0;
 }

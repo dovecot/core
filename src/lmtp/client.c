@@ -1,7 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "str.h"
 #include "llist.h"
 #include "istream.h"
@@ -11,6 +11,7 @@
 #include "master-service-settings.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "mail-storage-service.h"
 #include "main.h"
 #include "lmtp-proxy.h"
 #include "commands.h"
@@ -228,6 +229,11 @@ void client_disconnect(struct client *client, const char *prefix,
 
 void client_state_reset(struct client *client)
 {
+	struct mail_recipient *rcpt;
+
+	array_foreach_modifiable(&client->state.rcpt_to, rcpt)
+		mail_storage_service_user_free(&rcpt->service_user);
+
 	if (client->state.raw_mail != NULL)
 		mail_free(&client->state.raw_mail);
 	if (client->state.raw_trans != NULL)

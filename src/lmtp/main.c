@@ -22,7 +22,7 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_UID_ENV) == NULL)
 
-struct mail_storage_service_multi_ctx *multi_service;
+struct mail_storage_service_ctx *storage_service;
 
 static void client_connected(const struct master_service_connection *conn)
 {
@@ -74,16 +74,15 @@ int main(int argc, char *argv[])
 		return FATAL_DEFAULT;
 	master_service_init_finish(master_service);
 
-	multi_service = mail_storage_service_multi_init(master_service,
-							set_roots,
-							storage_service_flags);
+	storage_service = mail_storage_service_init(master_service, set_roots,
+						    storage_service_flags);
 	restrict_access_allow_coredumps(TRUE);
 
 	main_init();
 	master_service_run(master_service, client_connected);
 
 	main_deinit();
-	mail_storage_service_multi_deinit(&multi_service);
+	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
 	return 0;
 }

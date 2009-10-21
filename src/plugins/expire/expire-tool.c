@@ -18,8 +18,8 @@
 #include <time.h>
 
 struct expire_context {
-	pool_t multi_user_pool;
-	struct mail_storage_service_multi_ctx *multi;
+	struct mail_storage_service_ctx *storage_service;
+	struct mail_storage_service_user *service_user;
 	struct mail_user *mail_user;
 	struct expire_env *env;
 	bool testrun;
@@ -28,7 +28,6 @@ struct expire_context {
 static int expire_init_user(struct expire_context *ctx, const char *user)
 {
 	struct mail_storage_service_input input;
-	struct mail_storage_service_multi_user *multi_user;
 	const char *expire, *expire_altmove, *errstr;
 	int ret;
 
@@ -38,19 +37,12 @@ static int expire_init_user(struct expire_context *ctx, const char *user)
 	input.service = "expire-tool";
 	input.username = user;
 
-	p_clear(ctx->multi_user_pool);
-	ret = mail_storage_service_multi_lookup(ctx->multi, &input,
-						ctx->multi_user_pool,
-						&multi_user, &errstr);
+	ret = mail_storage_service_lookup_next(ctx->storage_service, &input,
+					       &ctx->service_user,
+					       &ctx->mail_user, &errstr);
 	if (ret <= 0) {
 		if (ret < 0 || ctx->testrun)
-			i_error("User lookup failed: %s", errstr);
-		return ret;
-	}
-	ret = mail_storage_service_multi_next(ctx->multi, multi_user,
-					      &ctx->mail_user, &errstr);
-	if (ret < 0) {
-		i_error("User init failed: %s", errstr);
+			i_error("%s", errstr);
 		return ret;
 	}
 
@@ -68,6 +60,7 @@ static int expire_init_user(struct expire_context *ctx, const char *user)
 static void expire_deinit_user(struct expire_context *ctx)
 {
 	mail_user_unref(&ctx->mail_user);
+	mail_storage_service_user_free(&ctx->service_user);
 	expire_env_deinit(&ctx->env);
 }
 
@@ -214,8 +207,7 @@ static void expire_run(struct master_service *service, bool testrun)
 	int ret;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.multi_user_pool = pool_alloconly_create("multi user pool", 512);
-	ctx.multi = mail_storage_service_multi_init(service, NULL,
+	ctx.storage_service = mail_storage_service_init(service, NULL,
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
 
 	sets = master_service_settings_get_others(service);
@@ -306,8 +298,7 @@ static void expire_run(struct master_service *service, bool testrun)
 
 	if (ctx.mail_user != NULL)
 		expire_deinit_user(&ctx);
-	mail_storage_service_multi_deinit(&ctx.multi);
-	pool_unref(&ctx.multi_user_pool);
+	mail_storage_service_deinit(&ctx.storage_service);
 }
 
 int main(int argc, char *argv[])

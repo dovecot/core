@@ -7,7 +7,7 @@
 
 struct mail_recipient {
 	const char *name;
-	struct mail_storage_service_multi_user *multi_user;
+	struct mail_storage_service_user *service_user;
 };
 
 struct client_state {

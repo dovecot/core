@@ -19,9 +19,9 @@
 #include <stdlib.h>
 
 struct mail_user_module_register mail_user_module_register = { 0 };
-void (*hook_mail_user_created)(struct mail_user *user) = NULL;
+struct auth_master_connection *mail_user_auth_master_conn;
 
-static struct auth_master_connection *auth_master_conn;
+void (*hook_mail_user_created)(struct mail_user *user) = NULL;
 
 static void mail_user_deinit_base(struct mail_user *user)
 {
@@ -259,12 +259,13 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 		return user->_home != NULL ? 1 : 0;
 	}
 
-	if (auth_master_conn == NULL)
+	if (mail_user_auth_master_conn == NULL)
 		return 0;
 
 	userdb_pool = pool_alloconly_create("userdb lookup", 512);
-	ret = auth_master_user_lookup(auth_master_conn, user->username,
-				      &info, userdb_pool, &username, &fields);
+	ret = auth_master_user_lookup(mail_user_auth_master_conn,
+				      user->username, &info, userdb_pool,
+				      &username, &fields);
 	if (ret < 0)
 		*home_r = NULL;
 	else {
@@ -346,16 +347,4 @@ const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
 		return NULL;
 	return t_strconcat(net_ip2addr(user->remote_ip), "/",
 			   str_tabescape(user->username), NULL);
-}
-
-void mail_users_init(const char *auth_socket_path, bool debug)
-{
-	auth_master_conn = auth_socket_path == NULL ? NULL :
-		auth_master_init(auth_socket_path, debug);
-}
-
-void mail_users_deinit(void)
-{
-	if (auth_master_conn != NULL)
-		auth_master_deinit(&auth_master_conn);
 }

@@ -23,13 +23,8 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_UID_ENV) == NULL)
 
-static const struct setting_parser_info *set_roots[] = {
-	&imap_setting_parser_info,
-	NULL
-};
+static struct mail_storage_service_ctx *storage_service;
 static struct master_login *master_login = NULL;
-static enum mail_storage_service_flags storage_service_flags = 0;
-static bool user_initialized = FALSE;
 
 void (*hook_client_created)(struct client **client) = NULL;
 
@@ -87,7 +82,9 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 }
 
 static void
-main_stdio_init_user(const struct imap_settings *set, struct mail_user *user)
+main_stdio_init_user(const struct imap_settings *set,
+		     struct mail_user *mail_user,
+		     struct mail_storage_service_user *user)
 {
 	struct client *client;
 	buffer_t *input_buf;
@@ -97,7 +94,8 @@ main_stdio_init_user(const struct imap_settings *set, struct mail_user *user)
 	input_buf = input_base64 == NULL ? NULL :
 		t_base64_decode_str(input_base64);
 
-	client = client_create(STDIN_FILENO, STDOUT_FILENO, user, set);
+	client = client_create(STDIN_FILENO, STDOUT_FILENO,
+			       mail_user, user, set);
 	client_add_input(client, input_buf);
 }
 
@@ -107,6 +105,10 @@ static void main_stdio_run(void)
 	struct mail_user *mail_user;
 	const struct imap_settings *set;
 	const char *value;
+	struct mail_storage_service_user *user;
+	const char *error;
+	pool_t user_pool;
+	int ret;
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "imap";
@@ -120,11 +122,17 @@ static void main_stdio_run(void)
 	if ((value = getenv("LOCAL_IP")) != NULL)
 		net_addr2ip(value, &input.local_ip);
 
-	user_initialized = TRUE;
-	mail_user = mail_storage_service_init_user(master_service,
-						   &input, set_roots,
-						   storage_service_flags);
-	set = mail_storage_service_get_settings(master_service);
+	user_pool = pool_alloconly_create("storage user pool", 512);
+	ret = mail_storage_service_lookup(storage_service, &input,
+					  &user, &error);
+	if (ret <= 0)
+		i_fatal("User lookup failed: %s", error);
+	if (mail_storage_service_next(storage_service,
+				      user, &mail_user, &error) < 0)
+		i_fatal("User init failed: %s", error);
+
+	set = mail_storage_service_user_get_set(user)[1];
+
 	restrict_access_allow_coredumps(TRUE);
 	if (set->shutdown_clients)
 		master_service_set_die_with_master(master_service, TRUE);
@@ -132,7 +140,7 @@ static void main_stdio_run(void)
 	/* fake that we're running, so we know if client was destroyed
 	   while handling its initial input */
 	io_loop_set_running(current_ioloop);
-	main_stdio_init_user(set, mail_user);
+	main_stdio_init_user(set, mail_user, user);
 }
 
 static void
@@ -140,9 +148,11 @@ login_client_connected(const struct master_login_client *client,
 		       const char *username, const char *const *extra_fields)
 {
 	struct mail_storage_service_input input;
+	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct client *imap_client;
 	const struct imap_settings *set;
+	const char *error;
 	buffer_t input_buf;
 
 	if (imap_clients != NULL) {
@@ -150,7 +160,6 @@ login_client_connected(const struct master_login_client *client,
 		(void)close(client->fd);
 		return;
 	}
-	i_assert(!user_initialized);
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "imap";
@@ -164,13 +173,13 @@ login_client_connected(const struct master_login_client *client,
 		(void)close(client->fd);
 		return;
 	}
-	user_initialized = TRUE;
 	master_login_deinit(&master_login);
 
-	mail_user = mail_storage_service_init_user(master_service,
-						   &input, set_roots,
-						   storage_service_flags);
-	set = mail_storage_service_get_settings(master_service);
+	if (mail_storage_service_lookup_next(storage_service, &input,
+					     &user, &mail_user, &error) <= 0)
+		i_fatal("%s", error);
+	set = mail_storage_service_user_get_set(user)[1];
+
 	restrict_access_allow_coredumps(TRUE);
 	if (set->shutdown_clients)
 		master_service_set_die_with_master(master_service, TRUE);
@@ -181,7 +190,8 @@ login_client_connected(const struct master_login_client *client,
 
 	buffer_create_const_data(&input_buf, client->data,
 				 client->auth_req.data_size);
-	imap_client = client_create(client->fd, client->fd, mail_user, set);
+	imap_client = client_create(client->fd, client->fd, mail_user,
+				    user, set);
 	T_BEGIN {
 		client_add_input(imap_client, &input_buf);
 	} T_END;
@@ -199,7 +209,12 @@ static void client_connected(const struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
+	static const struct setting_parser_info *set_roots[] = {
+		&imap_setting_parser_info,
+		NULL
+	};
 	enum master_service_flags service_flags = 0;
+	enum mail_storage_service_flags storage_service_flags = 0;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
@@ -219,12 +234,16 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("imap", service_flags,
 					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
-		exit(FATAL_DEFAULT);
+		return FATAL_DEFAULT;
 	master_service_init_finish(master_service);
 
 	/* plugins may want to add commands, so this needs to be called early */
 	commands_init();
 	imap_fetch_handlers_init();
+
+	storage_service =
+		mail_storage_service_init(master_service,
+					  set_roots, storage_service_flags);
 
 	if (IS_STANDALONE()) {
 		T_BEGIN {
@@ -242,8 +261,8 @@ int main(int argc, char *argv[])
 
 	if (master_login != NULL)
 		master_login_deinit(&master_login);
-	if (user_initialized)
-		mail_storage_service_deinit_user();
+	mail_storage_service_deinit(&storage_service);
+
 	imap_fetch_handlers_deinit();
 	commands_deinit();
 

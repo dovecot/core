@@ -79,35 +79,44 @@ doveadm_mail_single_user(doveadm_mail_command_t *cmd, const char *username,
 			 enum mail_storage_service_flags service_flags,
 			 const char *args[])
 {
+	struct mail_storage_service_ctx *storage_service;
+	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user;
+	const char *error;
 
 	if (username == NULL)
 		i_fatal("USER environment is missing and -u option not used");
 
 	memset(&input, 0, sizeof(input));
 	input.username = username;
-	mail_user = mail_storage_service_init_user(master_service, &input, NULL,
-						   service_flags);
+
+	storage_service = mail_storage_service_init(master_service, NULL,
+						    service_flags);
+	if (mail_storage_service_lookup_next(storage_service, &input,
+					     &service_user, &mail_user,
+					     &error) <= 0)
+		i_fatal("%s", error);
 	cmd(mail_user, args);
 	mail_user_unref(&mail_user);
-	mail_storage_service_deinit_user();
+	mail_storage_service_user_free(&service_user);
+	mail_storage_service_deinit(&storage_service);
 }
 
 static int
 doveadm_mail_next_user(doveadm_mail_command_t *cmd,
-		       struct mail_storage_service_multi_ctx *multi,
+		       struct mail_storage_service_ctx *storage_service,
 		       const struct mail_storage_service_input *input,
-		       pool_t pool, const char *args[])
+		       const char *args[])
 {
-	struct mail_storage_service_multi_user *multi_user;
+	struct mail_storage_service_user *service_user;
 	struct mail_user *mail_user;
 	const char *error;
 	int ret;
 
 	i_set_failure_prefix(t_strdup_printf("doveadm(%s): ", input->username));
-	ret = mail_storage_service_multi_lookup(multi, input, pool,
-						&multi_user, &error);
+	ret = mail_storage_service_lookup(storage_service, input,
+					  &service_user, &error);
 	if (ret <= 0) {
 		if (ret == 0) {
 			i_info("User no longer exists, skipping");
@@ -117,14 +126,14 @@ doveadm_mail_next_user(doveadm_mail_command_t *cmd,
 			return -1;
 		}
 	}
-	if (mail_storage_service_multi_next(multi, multi_user,
-					    &mail_user, &error) < 0) {
+	if (mail_storage_service_next(storage_service, service_user,
+				      &mail_user, &error) < 0) {
 		i_error("User init failed: %s", error);
-		mail_storage_service_multi_user_free(multi_user);
+		mail_storage_service_user_free(&service_user);
 		return -1;
 	}
-	mail_storage_service_multi_user_free(multi_user);
 	cmd(mail_user, args);
+	mail_storage_service_user_free(&service_user);
 	mail_user_unref(&mail_user);
 	return 0;
 }
@@ -140,10 +149,9 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 		       const char *args[])
 {
 	struct mail_storage_service_input input;
-	struct mail_storage_service_multi_ctx *multi;
+	struct mail_storage_service_ctx *storage_service;
 	unsigned int user_idx, user_count, interval, n;
 	const char *user;
-	pool_t pool;
 	int ret;
 
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
@@ -151,25 +159,24 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 	memset(&input, 0, sizeof(input));
 	input.service = "doveadm";
 
-	multi = mail_storage_service_multi_init(master_service, NULL,
-						service_flags);
-	pool = pool_alloconly_create("multi user", 8192);
+	storage_service = mail_storage_service_init(master_service, NULL,
+						    service_flags);
 
         lib_signals_set_handler(SIGINT, FALSE, sig_die, NULL);
 	lib_signals_set_handler(SIGTERM, FALSE, sig_die, NULL);
 
-	user_count = mail_storage_service_multi_all_init(multi);
+	user_count = mail_storage_service_all_init(storage_service);
 	n = user_count / 10000;
 	for (interval = 10; n > 0 && interval < 1000; interval *= 10)
 		n /= 10;
 	
 	user_idx = 0;
-	while ((ret = mail_storage_service_multi_all_next(multi, &user)) > 0) {
-		p_clear(pool);
+	while ((ret = mail_storage_service_all_next(storage_service,
+						    &user)) > 0) {
 		input.username = user;
 		T_BEGIN {
-			ret = doveadm_mail_next_user(cmd, multi, &input,
-						     pool, args);
+			ret = doveadm_mail_next_user(cmd, storage_service,
+						     &input, args);
 		} T_END;
 		if (ret < 0)
 			break;
@@ -190,8 +197,7 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 	i_set_failure_prefix("doveadm: ");
 	if (ret < 0)
 		i_error("Failed to iterate through some users");
-	mail_storage_service_multi_deinit(&multi);
-	pool_unref(&pool);
+	mail_storage_service_deinit(&storage_service);
 }
 
 static void

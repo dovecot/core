@@ -13,6 +13,7 @@
 #include "imap-resp-code.h"
 #include "imap-util.h"
 #include "mail-namespace.h"
+#include "mail-storage-service.h"
 #include "imap-commands.h"
 
 #include <stdlib.h>
@@ -31,6 +32,7 @@ static void client_idle_timeout(struct client *client)
 }
 
 struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set)
 {
 	struct client *client;
@@ -42,6 +44,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 
 	client = i_new(struct client, 1);
 	client->set = set;
+	client->service_user = service_user;
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in,
@@ -212,6 +215,7 @@ void client_destroy(struct client *client, const char *reason)
 		array_free(&client->search_updates);
 	str_free(&client->capability_string);
 	pool_unref(&client->command_pool);
+	mail_storage_service_user_free(&client->service_user);
 	i_free(client);
 
 	master_service_client_connection_destroyed(master_service);

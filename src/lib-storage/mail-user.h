@@ -53,12 +53,10 @@ union mail_user_module_context {
 	struct mail_user_module_register *reg;
 };
 extern struct mail_user_module_register mail_user_module_register;
+extern struct auth_master_connection *mail_user_auth_master_conn;
 
 /* Called after user has been created */
 extern void (*hook_mail_user_created)(struct mail_user *user);
-
-void mail_users_init(const char *auth_socket_path, bool debug);
-void mail_users_deinit(void);
 
 struct mail_user *mail_user_alloc(const char *username,
 				  const struct mail_user_settings *set);

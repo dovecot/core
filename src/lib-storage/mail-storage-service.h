@@ -4,6 +4,7 @@
 #include "network.h"
 
 struct master_service;
+struct mail_user;
 
 enum mail_storage_service_flags {
 	/* Fail if we don't drop root privileges */
@@ -14,10 +15,10 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_DEBUG			= 0x04,
 	/* Keep the current process permissions */
 	MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS	= 0x08,
-	/* Get the process permissions from environment */
-	MAIL_STORAGE_SERVICE_FLAG_RESTRICT_BY_ENV	= 0x10,
 	/* Don't chdir() to user's home */
-	MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR		= 0x20
+	MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR		= 0x10,
+	/* Drop privileges only temporarily (keep running as setuid-root) */
+	MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP	= 0x20
 };
 
 struct mail_storage_service_input {
@@ -30,44 +31,42 @@ struct mail_storage_service_input {
 };
 
 struct setting_parser_info;
-struct mail_storage_service_multi_user;
+struct mail_storage_service_user;
 
-struct mail_user *
-mail_storage_service_init_user(struct master_service *service,
-			       const struct mail_storage_service_input *input,
-			       const struct setting_parser_info *set_roots[],
-			       enum mail_storage_service_flags flags);
-void mail_storage_service_deinit_user(void);
-
-struct mail_storage_service_multi_ctx *
-mail_storage_service_multi_init(struct master_service *service,
-				const struct setting_parser_info *set_roots[],
-				enum mail_storage_service_flags flags);
+struct mail_storage_service_ctx *
+mail_storage_service_init(struct master_service *service,
+			  const struct setting_parser_info *set_roots[],
+			  enum mail_storage_service_flags flags);
 struct auth_master_connection *
-mail_storage_service_multi_get_auth_conn(struct mail_storage_service_multi_ctx *ctx);
+mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx);
 /* Returns 1 if ok, 0 if user wasn't found, -1 if error. */
-int mail_storage_service_multi_lookup(struct mail_storage_service_multi_ctx *ctx,
-				      const struct mail_storage_service_input *input,
-				      pool_t pool,
-				      struct mail_storage_service_multi_user **user_r,
-				      const char **error_r);
-int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
-				    struct mail_storage_service_multi_user *user,
-				    struct mail_user **mail_user_r,
-				    const char **error_r);
-void mail_storage_service_multi_user_free(struct mail_storage_service_multi_user *user);
+int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
+				const struct mail_storage_service_input *input,
+				struct mail_storage_service_user **user_r,
+				const char **error_r);
+int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
+			      struct mail_storage_service_user *user,
+			      struct mail_user **mail_user_r,
+			      const char **error_r);
+/* Combine lookup() and next() into one call. */
+int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
+				     const struct mail_storage_service_input *input,
+				     struct mail_storage_service_user **user_r,
+				     struct mail_user **mail_user_r,
+				     const char **error_r);
+void mail_storage_service_user_free(struct mail_storage_service_user **user);
 /* Initialize iterating through all users. Return the number of users. */
 unsigned int
-mail_storage_service_multi_all_init(struct mail_storage_service_multi_ctx *ctx);
+mail_storage_service_all_init(struct mail_storage_service_ctx *ctx);
 /* Iterate through all usernames. Returns 1 if username was returned, 0 if
    there are no more users, -1 if error. */
-int mail_storage_service_multi_all_next(struct mail_storage_service_multi_ctx *ctx,
-					const char **username_r);
-void mail_storage_service_multi_deinit(struct mail_storage_service_multi_ctx **ctx);
+int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,
+				  const char **username_r);
+void mail_storage_service_deinit(struct mail_storage_service_ctx **ctx);
 
 /* Return the settings pointed to by set_root parameter in _init().
    The settings contain all the changes done by userdb lookups. */
-void *mail_storage_service_multi_user_get_set(struct mail_storage_service_multi_user *user);
+void **mail_storage_service_user_get_set(struct mail_storage_service_user *user);
 
 /* Return the settings pointed to by set_root parameter in _init() */
 void *mail_storage_service_get_settings(struct master_service *service);

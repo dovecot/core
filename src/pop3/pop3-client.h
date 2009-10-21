@@ -21,6 +21,7 @@ struct client {
 	command_func_t *cmd;
 	void *cmd_context;
 
+	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	struct mail_namespace *inbox_ns;
 	struct mailbox *mailbox;
@@ -65,6 +66,7 @@ extern struct client *pop3_clients;
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set);
 void client_destroy(struct client *client, const char *reason);
 

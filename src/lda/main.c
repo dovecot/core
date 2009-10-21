@@ -245,6 +245,8 @@ int main(int argc, char *argv[])
 	struct mail_deliver_context ctx;
 	enum mail_storage_service_flags service_flags = 0;
 	const char *user, *errstr, *path;
+	struct mail_storage_service_ctx *storage_service;
+	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
 	struct mail_user *raw_mail_user;
 	struct mail_namespace *raw_ns;
@@ -380,14 +382,17 @@ int main(int argc, char *argv[])
 	service_input.username = user;
 
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
-	ctx.dest_user = mail_storage_service_init_user(master_service,
-						       &service_input,
-						       set_roots,
-						       service_flags);
+	storage_service = mail_storage_service_init(master_service, set_roots,
+						    service_flags);
+	if (mail_storage_service_lookup_next(storage_service, &service_input,
+					     &service_user, &ctx.dest_user,
+					     &errstr) <= 0)
+		i_fatal("%s", errstr);
+
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
-	ctx.set = mail_storage_service_get_settings(master_service);
+	ctx.set = mail_storage_service_user_get_set(service_user)[1];
         duplicate_init(mail_user_set_get_storage_set(ctx.dest_user->set));
 
 	/* create a separate mail user for the internal namespace */
@@ -489,7 +494,8 @@ int main(int argc, char *argv[])
 	duplicate_deinit();
 	pool_unref(&ctx.pool);
 
-	mail_storage_service_deinit_user();
+	mail_storage_service_user_free(&service_user);
+	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
         return EX_OK;
 }

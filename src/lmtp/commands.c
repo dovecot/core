@@ -175,7 +175,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address)
 	info.remote_port = client->remote_port;
 
 	pool = pool_alloconly_create("auth lookup", 1024);
-	auth_conn = mail_storage_service_multi_get_auth_conn(multi_service);
+	auth_conn = mail_storage_service_get_auth_conn(storage_service);
 	ret = auth_master_pass_lookup(auth_conn, address, &info,
 				      pool, &fields);
 	if (ret <= 0) {
@@ -312,9 +312,8 @@ int cmd_rcpt(struct client *client, const char *args)
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;
 
-	ret = mail_storage_service_multi_lookup(multi_service, &input,
-						client->state_pool,
-						&rcpt.multi_user, &error);
+	ret = mail_storage_service_lookup(storage_service, &input,
+					  &rcpt.service_user, &error);
 
 	if (ret < 0) {
 		i_error("User lookup failed: %s", error);
@@ -371,14 +370,14 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	int ret;
 
 	i_set_failure_prefix(t_strdup_printf("lmtp(%s): ", rcpt->name));
-	if (mail_storage_service_multi_next(multi_service, rcpt->multi_user,
-					    &client->state.dest_user,
-					    &error) < 0) {
+	if (mail_storage_service_next(storage_service, rcpt->service_user,
+				      &client->state.dest_user,
+				      &error) < 0) {
 		i_error("%s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL, rcpt->name);
 		return -1;
 	}
-	sets = mail_storage_service_multi_user_get_set(rcpt->multi_user);
+	sets = mail_storage_service_user_get_set(rcpt->service_user);
 
 	memset(&dctx, 0, sizeof(dctx));
 	dctx.pool = pool_alloconly_create("mail delivery", 1024);
