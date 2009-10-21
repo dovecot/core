@@ -139,7 +139,7 @@ static struct setting_define mail_user_setting_defines[] = {
 	DEF(SET_STR, mail_uid),
 	DEF(SET_STR, mail_gid),
 	DEF(SET_STR_VARS, mail_home),
-	DEF(SET_STR, mail_chroot),
+	DEF(SET_STR_VARS, mail_chroot),
 	DEF(SET_STR, mail_access_groups),
 	DEF(SET_STR, mail_privileged_group),
 	DEF(SET_STR, valid_chroot_dirs),

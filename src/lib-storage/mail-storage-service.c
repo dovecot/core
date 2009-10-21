@@ -221,7 +221,8 @@ static bool parse_gid(const char *str, gid_t *gid_r)
 
 static void
 service_drop_privileges(const struct mail_user_settings *set,
-			const char *system_groups_user, const char *home,
+			const char *system_groups_user,
+			const char *home, const char *chroot,
 			bool disallow_root, bool keep_setuid_root)
 {
 	struct restrict_access_settings rset;
@@ -262,8 +263,7 @@ service_drop_privileges(const struct mail_user_settings *set,
 	rset.last_valid_gid = set->last_valid_gid;
 	/* we can't chroot if we want to switch between users. there's not
 	   much point either (from security point of view) */
-	rset.chroot_dir = *set->mail_chroot == '\0' || keep_setuid_root ?
-		NULL : set->mail_chroot;
+	rset.chroot_dir = *chroot == '\0' || keep_setuid_root ? NULL : chroot;
 	rset.system_groups_user = system_groups_user;
 
 	if (disallow_root &&
@@ -498,7 +498,7 @@ init_user_real(struct master_service *service,
 	struct mail_user *mail_user;
 	struct auth_master_connection *conn;
 	void **sets;
-	const char *user, *orig_user, *home, *error;
+	const char *user, *orig_user, *home, *chroot, *error;
 	const char *system_groups_user = NULL, *const *userdb_fields = NULL;
 	unsigned int len;
 	bool userdb_lookup;
@@ -510,6 +510,11 @@ init_user_real(struct master_service *service,
 	userdb_lookup = (flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
 	mail_storage_service_init_settings(service, &input, set_roots,
 					   !userdb_lookup);
+
+	/* the SET_VARS changes we do to set_parser are in their expanded form.
+	   lib-master should have already called settings_parse_set_expanded()
+	   to make this happen, but do it here again just in case. */
+	settings_parse_set_expanded(service->set_parser, TRUE);
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		set_keyval(service->set_parser, "mail_debug", "yes");
@@ -552,8 +557,9 @@ init_user_real(struct master_service *service,
 		pool_unref(&userdb_pool);
 
 	/* variable strings are expanded in mail_user_init(),
-	   but we need the home sooner so do it separately here. */
+	   but we need the home and chroot sooner so do them separately here. */
 	home = user_expand_varstr(service, &input, user_set->mail_home);
+	chroot = user_expand_varstr(service, &input, user_set->mail_chroot);
 
 	if (!userdb_lookup) {
 		if (*home == '\0' && getenv("HOME") != NULL) {
@@ -568,12 +574,16 @@ init_user_real(struct master_service *service,
 
 	}
 
-	len = strlen(user_set->mail_chroot);
-	if (len > 2 && strcmp(user_set->mail_chroot + len - 2, "/.") == 0 &&
-	    strncmp(home, user_set->mail_chroot, len - 2) == 0) {
+	len = strlen(chroot);
+	if (len > 2 && strcmp(chroot + len - 2, "/.") == 0 &&
+	    strncmp(home, chroot, len - 2) == 0) {
 		/* If chroot ends with "/.", strip chroot dir from home dir */
 		home += len - 2;
+		if (*home == '\0')
+			home = "/";
+
 		set_keyval(service->set_parser, "mail_home", home);
+		chroot = t_strndup(chroot, len - 2);
 	}
 
 	modules = *user_set->mail_plugins == '\0' ? NULL :
@@ -587,7 +597,8 @@ init_user_real(struct master_service *service,
 		restrict_access_by_env(home,
 			(flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0);
 	} else {
-		service_drop_privileges(user_set, system_groups_user, home,
+		service_drop_privileges(user_set, system_groups_user,
+			home, chroot,
 			(flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0,
 			FALSE);
 	}
@@ -739,18 +750,21 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 				    const char **error_r)
 {
 	const struct mail_user_settings *user_set = user->user_set;
-	const char *home;
+	const char *home, *chroot;
 	unsigned int len;
 
 	/* variable strings are expanded in mail_user_init(),
-	   but we need the home sooner so do it separately here. */
+	   but we need the home and chroot sooner so do them separately here. */
 	home = user_expand_varstr(ctx->service, &user->input,
 				  user_set->mail_home);
+	chroot = user_expand_varstr(ctx->service, &user->input,
+				    user_set->mail_chroot);
 
 	mail_storage_service_init_log(ctx->service, &user->input);
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
-		service_drop_privileges(user_set, user->system_groups_user, home,
+		service_drop_privileges(user_set, user->system_groups_user,
+			home, chroot,
 			(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0,
 			TRUE);
 	}
@@ -763,13 +777,13 @@ int mail_storage_service_multi_next(struct mail_storage_service_multi_ctx *ctx,
 
 	/* we couldn't do chrooting, so if chrooting was enabled fix
 	   the home directory */
-	len = strlen(user_set->mail_chroot);
-	if (len > 2 && strcmp(user_set->mail_chroot + len - 2, "/.") == 0 &&
-	    strncmp(home, user_set->mail_chroot, len - 2) == 0) {
+	len = strlen(chroot);
+	if (len > 2 && strcmp(chroot + len - 2, "/.") == 0 &&
+	    strncmp(home, chroot, len - 2) == 0) {
 		/* home dir already contains the chroot dir */
 	} else if (len > 0) {
 		set_keyval(user->set_parser, "mail_home",
-			t_strconcat(user_set->mail_chroot, "/", home, NULL));
+			t_strconcat(chroot, "/", home, NULL));
 	}
 	if (mail_storage_service_init_post(ctx->service, &user->input,
 					   home, user_set, TRUE, ctx->flags,
