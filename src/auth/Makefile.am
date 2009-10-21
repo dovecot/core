@@ -15,7 +15,7 @@ auth_module_LTLIBRARIES = \
 
 pkglibexecdir = $(libexecdir)/dovecot
 
-pkglibexec_PROGRAMS = dovecot-auth checkpassword-reply
+pkglibexec_PROGRAMS = auth checkpassword-reply
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -29,7 +29,7 @@ AM_CPPFLAGS = \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	$(AUTH_CFLAGS)
 
-dovecot_auth_LDFLAGS = -export-dynamic
+auth_LDFLAGS = -export-dynamic
 
 libpassword_a_SOURCES = \
 	mycrypt.c \
@@ -38,18 +38,18 @@ libpassword_a_SOURCES = \
 	password-scheme-otp.c \
 	password-scheme-rpa.c
 
-dovecot_auth_libs = \
+auth_libs = \
 	libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a \
 	$(LIBDOVECOT_SQL)
 
-dovecot_auth_LDADD = $(dovecot_auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(MODULE_LIBS)
-dovecot_auth_DEPENDENCIES = $(dovecot_auth_libs) $(LIBDOVECOT_DEPS)
+auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(MODULE_LIBS)
+auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
 
-dovecot_auth_SOURCES = \
+auth_SOURCES = \
 	auth.c \
 	auth-cache.c \
 	auth-client-connection.c \
