@@ -259,6 +259,9 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 		return user->_home != NULL ? 1 : 0;
 	}
 
+	if (auth_master_conn == NULL)
+		return 0;
+
 	userdb_pool = pool_alloconly_create("userdb lookup", 512);
 	ret = auth_master_user_lookup(auth_master_conn, user->username,
 				      &info, userdb_pool, &username, &fields);
@@ -347,10 +350,12 @@ const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
 
 void mail_users_init(const char *auth_socket_path, bool debug)
 {
-	auth_master_conn = auth_master_init(auth_socket_path, debug);
+	auth_master_conn = auth_socket_path == NULL ? NULL :
+		auth_master_init(auth_socket_path, debug);
 }
 
 void mail_users_deinit(void)
 {
-	auth_master_deinit(&auth_master_conn);
+	if (auth_master_conn != NULL)
+		auth_master_deinit(&auth_master_conn);
 }
