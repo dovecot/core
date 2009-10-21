@@ -110,7 +110,7 @@ void io_loop_handle_add(struct io_file *io)
 	op = first ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
 
 	if (epoll_ctl(ctx->epfd, op, io->fd, &event) < 0) {
-		i_fatal("io_loop_handle_add: epoll_ctl(%d, %d): %m",
+		i_panic("io_loop_handle_add: epoll_ctl(%d, %d): %m",
 			op, io->fd);
 	}
 
