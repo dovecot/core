@@ -704,7 +704,7 @@ static int multi_userdb_lookup(struct mail_storage_service_multi_ctx *ctx,
 		return ret;
 
 	auth_user_fields_parse(userdb_fields, userdb_pool, &reply);
-	ret = user_reply_handle(ctx->service->set_parser, user->user_set,
+	ret = user_reply_handle(user->set_parser, user->user_set,
 				&reply, &system_groups_user, error_r);
 	if (ret <= 0)
 		return ret;
