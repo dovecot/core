@@ -562,6 +562,12 @@ init_user_real(struct master_service *service,
 		}
 	}
 
+	if (*home != '/') {
+		i_fatal("user %s: Relative home directory paths not supported: "
+			"%s", input.username, home);
+
+	}
+
 	len = strlen(user_set->mail_chroot);
 	if (len > 2 && strcmp(user_set->mail_chroot + len - 2, "/.") == 0 &&
 	    strncmp(home, user_set->mail_chroot, len - 2) == 0) {
