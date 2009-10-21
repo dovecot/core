@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("lda",
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
-		&argc, &argv, "a:d:p:ekm:nsf:");
+		&argc, &argv, "a:d:ef:km:p:");
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("mail deliver context", 256);
@@ -306,18 +306,13 @@ int main(int argc, char *argv[])
 			user = optarg;
 			service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			break;
-		case 'p':
-			/* input path */
-			path = optarg;
-			if (*path != '/') {
-				/* expand relative paths before we chdir */
-				if (getcwd(cwd, sizeof(cwd)) == NULL)
-					i_fatal("getcwd() failed: %m");
-				path = t_strconcat(cwd, "/", path, NULL);
-			}
-			break;
 		case 'e':
 			stderr_rejection = TRUE;
+			break;
+		case 'f':
+			/* envelope sender address */
+			ctx.src_envelope_sender =
+				p_strdup(ctx.pool, address_sanitize(optarg));
 			break;
 		case 'm':
 			/* destination mailbox.
@@ -333,10 +328,15 @@ int main(int argc, char *argv[])
 					p_strdup(ctx.pool, str_c(str));
 			} T_END;
 			break;
-		case 'f':
-			/* envelope sender address */
-			ctx.src_envelope_sender =
-				p_strdup(ctx.pool, address_sanitize(optarg));
+		case 'p':
+			/* input path */
+			path = optarg;
+			if (*path != '/') {
+				/* expand relative paths before we chdir */
+				if (getcwd(cwd, sizeof(cwd)) == NULL)
+					i_fatal("getcwd() failed: %m");
+				path = t_strconcat(cwd, "/", path, NULL);
+			}
 			break;
 		default:
 			print_help();
