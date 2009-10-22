@@ -11,12 +11,18 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+#endif
+#ifdef HAVE_SYS_RESOURCE_H
+#  include <sys/resource.h>
+#endif
 
 #define MAX_PARAM_FILE_SIZE 1024
 #define SSL_BUILD_PARAM_TIMEOUT_SECS (60*30)
+#define SSL_PARAMS_PRIORITY 15
 
 struct ssl_params {
 	char *path;
@@ -34,6 +40,11 @@ static void ssl_params_if_unchanged(const char *path, time_t mtime)
 	struct stat st, st2;
 	mode_t old_mask;
 	int fd, ret;
+
+#ifdef HAVE_SETPRIORITY
+	if (setpriority(PRIO_PROCESS, 0, SSL_PARAMS_PRIORITY) < 0)
+		i_error("setpriority(%d) failed: %m", SSL_PARAMS_PRIORITY);
+#endif
 
 	temp_path = t_strconcat(path, ".tmp", NULL);
 
