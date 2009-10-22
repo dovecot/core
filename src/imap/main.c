@@ -155,12 +155,6 @@ login_client_connected(const struct master_login_client *client,
 	const char *error;
 	buffer_t input_buf;
 
-	if (imap_clients != NULL) {
-		i_error("Can't handle more than one connection currently");
-		(void)close(client->fd);
-		return;
-	}
-
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "imap";
 	input.local_ip = client->auth_req.local_ip;
@@ -173,7 +167,6 @@ login_client_connected(const struct master_login_client *client,
 		(void)close(client->fd);
 		return;
 	}
-	master_login_deinit(&master_login);
 
 	if (mail_storage_service_lookup_next(storage_service, &input,
 					     &user, &mail_user, &error) <= 0)
