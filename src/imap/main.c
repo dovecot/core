@@ -88,7 +88,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 {
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
-	struct client *imap_client;
+	struct client *client;
 	const struct imap_settings *set;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
