@@ -299,13 +299,14 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 	return 0;
 }
 
-static int file_write_pid(int fd, const char *path)
+static int file_write_pid(int fd, const char *path, bool nfs_flush)
 {
 	const char *str;
 
 	/* write our pid and host, if possible */
 	str = t_strdup_printf("%s:%s", my_pid, my_hostname);
-	if (write_full(fd, str, strlen(str)) < 0) {
+	if (write_full(fd, str, strlen(str)) < 0 ||
+	    (nfs_flush && fdatasync(fd) < 0)) {
 		/* failed, leave it empty then */
 		if (ftruncate(fd, 0) < 0) {
 			i_error("ftruncate(%s) failed: %m", path);
@@ -357,7 +358,8 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 
 		if (write_pid) {
 			if (file_write_pid(lock_info->fd,
-					   str_c(tmp_path)) < 0) {
+					   str_c(tmp_path),
+					   lock_info->set->nfs_flush) < 0) {
 				(void)close(lock_info->fd);
 				lock_info->fd = -1;
 				return -1;
@@ -402,7 +404,8 @@ static int try_create_lock_excl(struct lock_info *lock_info, bool write_pid)
 	}
 
 	if (write_pid) {
-		if (file_write_pid(fd, lock_info->lock_path) < 0) {
+		if (file_write_pid(fd, lock_info->lock_path,
+				   lock_info->set->nfs_flush) < 0) {
 			(void)close(fd);
 			return -1;
 		}
