@@ -1131,7 +1131,7 @@ void settings_parser_info_update(pool_t pool,
 	} T_END;
 }
 
-const void *settings_find_dynamic(struct setting_parser_info *info,
+const void *settings_find_dynamic(const struct setting_parser_info *info,
 				  const void *base_set, const char *name)
 {
 	unsigned int i;

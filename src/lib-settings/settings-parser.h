@@ -169,7 +169,7 @@ void settings_parser_info_update(pool_t pool,
 
 /* Return pointer to beginning of settings for given name, or NULL if there is
    no such registered name. */
-const void *settings_find_dynamic(struct setting_parser_info *info,
+const void *settings_find_dynamic(const struct setting_parser_info *info,
 				  const void *base_set, const char *name);
 
 /* Copy changed settings from src to dest. If conflict_key_r is not NULL and
