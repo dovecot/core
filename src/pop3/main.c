@@ -44,34 +44,37 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 	o_stream_unref(&output);
 }
 
-static void
-main_stdio_init_user(const struct pop3_settings *set,
-		     struct mail_user *mail_user,
-		     struct mail_storage_service_user *user)
+static int
+client_create_from_input(const struct mail_storage_service_input *input,
+			 int fd_in, int fd_out, const buffer_t *input_buf,
+			 const char **error_r)
 {
+	struct mail_storage_service_user *user;
+	struct mail_user *mail_user;
 	struct client *client;
-	buffer_t *input_buf;
-	const char *input_base64;
+	const struct pop3_settings *set;
 
-	input_base64 = getenv("CLIENT_INPUT");
-	input_buf = input_base64 == NULL ? NULL :
-		t_base64_decode_str(input_base64);
+	if (mail_storage_service_lookup_next(storage_service, input,
+					     &user, &mail_user, error_r) <= 0)
+		return -1;
+	set = mail_storage_service_user_get_set(user)[1];
 
-	client = client_create(STDIN_FILENO, STDOUT_FILENO,
-			       mail_user, user, set);
-	client_add_input(client, input_buf);
+	restrict_access_allow_coredumps(TRUE);
+	if (set->shutdown_clients)
+		master_service_set_die_with_master(master_service, TRUE);
+
+	client = client_create(fd_in, fd_out, mail_user, user, set);
+	T_BEGIN {
+		client_add_input(client, input_buf);
+	} T_END;
+	return 0;
 }
 
 static void main_stdio_run(void)
 {
 	struct mail_storage_service_input input;
-	struct mail_user *mail_user;
-	const struct pop3_settings *set;
-	const char *value;
-	struct mail_storage_service_user *user;
-	const char *error;
-	pool_t user_pool;
-	int ret;
+	buffer_t *input_buf;
+	const char *value, *error, *input_base64;
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "pop3";
@@ -85,24 +88,13 @@ static void main_stdio_run(void)
 	if ((value = getenv("LOCAL_IP")) != NULL)
 		net_addr2ip(value, &input.local_ip);
 
-	user_pool = pool_alloconly_create("storage user pool", 512);
-	ret = mail_storage_service_lookup(storage_service, &input,
-					  &user, &error);
-	if (ret <= 0)
-		i_fatal("User lookup failed: %s", error);
-	if (mail_storage_service_next(storage_service,
-				      user, &mail_user, &error) < 0)
-		i_fatal("User init failed: %s", error);
-	set = mail_storage_service_user_get_set(user)[1];
+	input_base64 = getenv("CLIENT_INPUT");
+	input_buf = input_base64 == NULL ? NULL :
+		t_base64_decode_str(input_base64);
 
-	restrict_access_allow_coredumps(TRUE);
-	if (set->shutdown_clients)
-		master_service_set_die_with_master(master_service, TRUE);
-
-	/* fake that we're running, so we know if client was destroyed
-	   while handling its initial input */
-	io_loop_set_running(current_ioloop);
-	main_stdio_init_user(set, mail_user, user);
+	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
+				     input_buf, &error) < 0)
+		i_fatal("%s", error);
 }
 
 static void
@@ -110,10 +102,6 @@ login_client_connected(const struct master_login_client *client,
 		       const char *username, const char *const *extra_fields)
 {
 	struct mail_storage_service_input input;
-	struct mail_storage_service_user *user;
-	struct mail_user *mail_user;
-	struct client *pop3_client;
-	const struct pop3_settings *set;
 	const char *error;
 	buffer_t input_buf;
 
@@ -130,26 +118,13 @@ login_client_connected(const struct master_login_client *client,
 		return;
 	}
 
-	if (mail_storage_service_lookup_next(storage_service, &input,
-					     &user, &mail_user, &error) <= 0)
-		i_fatal("%s", error);
-	set = mail_storage_service_user_get_set(user)[1];
-
-	restrict_access_allow_coredumps(TRUE);
-	if (set->shutdown_clients)
-		master_service_set_die_with_master(master_service, TRUE);
-
-	/* fake that we're running, so we know if client was destroyed
-	   while handling its initial input */
-	io_loop_set_running(current_ioloop);
-
 	buffer_create_const_data(&input_buf, client->data,
 				 client->auth_req.data_size);
-	pop3_client = client_create(client->fd, client->fd, mail_user,
-				    user, set);
-	T_BEGIN {
-		client_add_input(pop3_client, &input_buf);
-	} T_END;
+	if (client_create_from_input(&input, client->fd, client->fd,
+				     &input_buf, &error) < 0) {
+		i_error("%s", error);
+		(void)close(client->fd);
+	}
 }
 
 static void client_connected(const struct master_service_connection *conn)
@@ -195,6 +170,10 @@ int main(int argc, char *argv[])
 	storage_service =
 		mail_storage_service_init(master_service,
 					  set_roots, storage_service_flags);
+
+	/* fake that we're running, so we know if client was destroyed
+	   while handling its initial input */
+	io_loop_set_running(current_ioloop);
 
 	if (IS_STANDALONE()) {
 		T_BEGIN {
