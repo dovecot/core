@@ -30,6 +30,7 @@ static void mail_user_deinit_base(struct mail_user *user)
 }
 
 struct mail_user *mail_user_alloc(const char *username,
+				  const struct setting_parser_info *set_info,
 				  const struct mail_user_settings *set)
 {
 	struct mail_user *user;
@@ -43,9 +44,9 @@ struct mail_user *mail_user_alloc(const char *username,
 	user->pool = pool;
 	user->refcount = 1;
 	user->username = p_strdup(pool, username);
-	user->unexpanded_set =
-		settings_dup(&mail_user_setting_parser_info, set, pool);
-	user->set = settings_dup(&mail_user_setting_parser_info, set, pool);
+	user->set_info = set_info;
+	user->unexpanded_set = settings_dup(set_info, set, pool);
+	user->set = settings_dup(set_info, set, pool);
 	user->v.deinit = mail_user_deinit_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
 	return user;
@@ -87,7 +88,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	const char *home, *key, *value;
 
 	if (user->_home == NULL &&
-	    settings_vars_have_key(&mail_user_setting_parser_info, user->set,
+	    settings_vars_have_key(user->set_info, user->set,
 				   'h', "home", &key, &value) &&
 	    mail_user_get_home(user, &home) <= 0) {
 		*error_r = t_strdup_printf(
@@ -96,12 +97,12 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 		return -1;
 	}
 
-	settings_var_expand(&mail_user_setting_parser_info, user->set,
+	settings_var_expand(user->set_info, user->set,
 			    user->pool, mail_user_var_expand_table(user));
 	if (mail_user_expand_plugins_envs(user, error_r) < 0)
 		return -1;
 
-	mail_set = mail_user_set_get_storage_set(user->set);
+	mail_set = mail_user_set_get_storage_set(user);
 	user->mail_debug = mail_set->mail_debug;
 
 	user->initialized = TRUE;

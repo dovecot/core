@@ -39,6 +39,11 @@ mail_storage_service_init(struct master_service *service,
 			  enum mail_storage_service_flags flags);
 struct auth_master_connection *
 mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx);
+int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
+				       const struct mail_storage_service_input *input,
+				       pool_t pool,
+				       const struct setting_parser_info **user_info_r,
+				       const char **error_r);
 /* Returns 1 if ok, 0 if user wasn't found, -1 if error. */
 int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				const struct mail_storage_service_input *input,

@@ -472,14 +472,14 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 		"From", "To", "Message-ID", "Subject", "Return-Path",
 		NULL
 	};
-	struct mailbox_list *raw_list = client->raw_mail_user->namespaces->list;
 	struct mailbox *box;
 	struct raw_mailbox *raw_box;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	enum mail_error error;
 
 	client->state.raw_box = box =
-		mailbox_alloc(raw_list, "Dovecot Delivery Mail", input,
+		mailbox_alloc(client->raw_mail_user->namespaces->list,
+			      "Dovecot Delivery Mail", input,
 			      MAILBOX_FLAG_NO_INDEX_FILES);
 	if (mailbox_open(box) < 0 ||
 	    mailbox_sync(box, 0, 0, NULL) < 0) {

@@ -44,6 +44,7 @@ struct mail_storage_service_user {
 
 	const char *system_groups_user;
 	const struct mail_user_settings *user_set;
+	const struct setting_parser_info *user_info;
 	struct setting_parser_context *set_parser;
 };
 
@@ -291,16 +292,20 @@ service_drop_privileges(const struct mail_user_settings *set,
 
 static int
 mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
-			       const struct mail_storage_service_input *input,
-			       const char *home,
-			       const struct mail_user_settings *user_set,
-			       struct mail_user **mail_user_r,
+			       struct mail_storage_service_user *user,
+			       const char *home, struct mail_user **mail_user_r,
 			       const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
 	struct mail_user *mail_user;
 
-	mail_set = mail_user_set_get_storage_set(user_set);
+	mail_user = mail_user_alloc(user->input.username, user->user_info,
+				    user->user_set);
+	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
+	mail_user_set_vars(mail_user, geteuid(), ctx->service->name,
+			   &user->input.local_ip, &user->input.remote_ip);
+
+	mail_set = mail_user_set_get_storage_set(mail_user);
 
 	if (mail_set->mail_debug) {
 		i_debug("Effective uid=%s, gid=%s, home=%s",
@@ -323,10 +328,6 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		}
 	}
 
-	mail_user = mail_user_alloc(input->username, user_set);
-	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
-	mail_user_set_vars(mail_user, geteuid(), ctx->service->name,
-			   &input->local_ip, &input->remote_ip);
 	if (mail_user_init(mail_user, error_r) < 0) {
 		mail_user_unref(&mail_user);
 		return -1;
@@ -482,19 +483,93 @@ mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx)
 	return ctx->conn;
 }
 
-static int
-mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
-				   const struct mail_storage_service_input *input,
-				   bool preserve_home, const char **error_r)
+static void
+settings_parser_update_children_parent(struct setting_parser_info *parent,
+				       pool_t pool)
+{
+	struct setting_define *new_defs;
+	struct setting_parser_info *new_info;
+	unsigned int i, count;
+
+	for (count = 0; parent->defines[count].key != NULL; count++) ;
+
+	new_defs = p_new(pool, struct setting_define, count + 1);
+	memcpy(new_defs, parent->defines, sizeof(*new_defs) * count);
+	parent->defines = new_defs;
+
+	for (i = 0; i < count; i++) {
+		if (new_defs[i].list_info == NULL ||
+		    new_defs[i].list_info->parent == NULL)
+			continue;
+
+		new_info = p_new(pool, struct setting_parser_info, 1);
+		*new_info = *new_defs[i].list_info;
+		new_info->parent = parent;
+		new_defs[i].list_info = new_info;
+	}
+}
+
+static void
+dyn_parsers_update_parent(pool_t pool,
+			  struct master_service_settings_input *input)
+{
+	const struct setting_parser_info *old_parent, **new_roots;
+	struct setting_parser_info *new_parent, *new_info;
+	struct dynamic_settings_parser *new_dyn_parsers;
+	unsigned int i, count;
+
+	/* settings_parser_info_update() modifies the parent structure.
+	   since we may be using the same structure later, we want it to be
+	   in its original state, so we'll have to copy all structures. */
+	old_parent = input->dyn_parsers[0].info->parent;
+	new_parent = p_new(pool, struct setting_parser_info, 1);
+	*new_parent = *old_parent;
+	settings_parser_update_children_parent(new_parent, pool);
+
+	/* update root */
+	for (count = 0; input->roots[count] != NULL; count++) ;
+	new_roots = p_new(pool, const struct setting_parser_info *, count + 1);
+	for (i = 0; i < count; i++) {
+		if (input->roots[i] == old_parent)
+			new_roots[i] = new_parent;
+		else
+			new_roots[i] = input->roots[i];
+	}
+	input->roots = new_roots;
+
+	/* update parent in dyn_parsers */
+	for (count = 0; input->dyn_parsers[count].name != NULL; count++) ;
+	new_dyn_parsers = p_new(pool, struct dynamic_settings_parser, count + 1);
+	for (i = 0; i < count; i++) {
+		new_dyn_parsers[i] = input->dyn_parsers[i];
+
+		new_info = p_new(pool, struct setting_parser_info, 1);
+		*new_info = *input->dyn_parsers[i].info;
+		new_info->parent = new_parent;
+		new_dyn_parsers[i].info = new_info;
+	}
+	input->dyn_parsers = new_dyn_parsers;
+}
+
+int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
+				       const struct mail_storage_service_input *input,
+				       pool_t pool,
+				       const struct setting_parser_info **user_info_r,
+				       const char **error_r)
 {
 	struct master_service_settings_input set_input;
+	unsigned int i;
 
-	/* read settings after registering storages so they can have their
-	   own setting definitions too */
 	memset(&set_input, 0, sizeof(set_input));
 	set_input.roots = ctx->set_roots;
 	set_input.dyn_parsers = mail_storage_get_dynamic_parsers();
-	set_input.preserve_home = preserve_home;
+	/* settings reader may exec doveconf, which is going to clear
+	   environment, and if we're not doing a userdb lookup we want to
+	   use $HOME */
+	set_input.preserve_home = 
+		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
+	dyn_parsers_update_parent(pool, &set_input);
+
 	if (input != NULL) {
 		set_input.module = input->module;
 		set_input.service = input->service;
@@ -508,17 +583,27 @@ mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 					   *error_r);
 		return -1;
 	}
-	return 0;
+
+	for (i = 0; ctx->set_roots[i] != NULL; i++) {
+		if (ctx->set_roots[i] == &mail_user_setting_parser_info) {
+			*user_info_r = set_input.roots[i];
+			return 0;
+		}
+	}
+	i_unreached();
+	return -1;
 }
 
 static void
 mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
+				const struct setting_parser_info *user_info,
 				const struct mail_user_settings *user_set)
 {
 	const struct mail_storage_settings *mail_set;
 
-	mail_set = mail_user_set_get_storage_set(user_set);
-	ctx->debug = mail_user_set_get_storage_set(user_set)->mail_debug;
+	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
+						MAIL_STORAGE_SET_DRIVER_NAME);
+	ctx->debug = mail_set->mail_debug;
 
 	modules = *user_set->mail_plugins == '\0' ? NULL :
 		module_dir_load(user_set->mail_plugin_dir,
@@ -526,7 +611,7 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 				master_service_get_version_string(ctx->service));
 
 	ctx->conn = auth_master_init(user_set->auth_socket_path,
-				     mail_set->mail_debug);
+				     ctx->debug);
 
 	i_assert(mail_user_auth_master_conn == NULL);
 	mail_user_auth_master_conn = ctx->conn;
@@ -539,26 +624,26 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 {
 	struct mail_storage_service_user *user;
 	const char *username = input->username;
+	const struct setting_parser_info *user_info;
 	const struct mail_user_settings *user_set;
 	const char *const *userdb_fields;
 	struct auth_user_reply reply;
 	void **sets;
 	pool_t user_pool, temp_pool;
-	bool keep_home;
 	int ret = 1;
 
-	/* settings reader may exec doveconf, which is going to clear
-	   environment, and if we're not doing a userdb lookup we want to
-	   use $HOME */
-	keep_home = (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
-	if (mail_storage_service_read_settings(ctx, input, keep_home,
-					       error_r) < 0)
+	user_pool = pool_alloconly_create("mail storage service user", 1024*4);
+
+	if (mail_storage_service_read_settings(ctx, input, user_pool,
+					       &user_info, error_r) < 0) {
+		pool_unref(&user_pool);
 		return -1;
+	}
 	sets = settings_parser_get_list(ctx->service->set_parser);
 	user_set = sets[1];
 
 	if (ctx->conn == NULL)
-		mail_storage_service_first_init(ctx, user_set);
+		mail_storage_service_first_init(ctx, user_info, user_set);
 
 	temp_pool = pool_alloconly_create("userdb lookup", 1024);
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
@@ -567,26 +652,27 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 						 error_r);
 		if (ret <= 0) {
 			pool_unref(&temp_pool);
+			pool_unref(&user_pool);
 			return ret;
 		}
 	} else {
 		userdb_fields = input->userdb_fields;
 	}
 
-	user_pool = pool_alloconly_create("mail storage service user", 1024*3);
 	user = p_new(user_pool, struct mail_storage_service_user, 1);
 	memset(user_r, 0, sizeof(user_r));
 	user->pool = user_pool;
 	user->input = *input;
 	user->input.userdb_fields = NULL;
 	user->input.username = p_strdup(user_pool, username);
+	user->user_info = user_info;
 
 	user->set_parser =
 		settings_parser_dup(ctx->service->set_parser, user_pool);
 	sets = settings_parser_get_list(user->set_parser);
 	user->user_set = sets[1];
 
-	if (keep_home) {
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0) {
 		const char *home = getenv("HOME");
 		if (home != NULL)
 			set_keyval(user->set_parser, "mail_home", home);
@@ -662,7 +748,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		set_keyval(user->set_parser, "mail_home",
 			t_strconcat(chroot, "/", home, NULL));
 	}
-	if (mail_storage_service_init_post(ctx, &user->input, home, user_set,
+	if (mail_storage_service_init_post(ctx, user, home,
 					   mail_user_r, error_r) < 0)
 		return -1;
 	return 0;

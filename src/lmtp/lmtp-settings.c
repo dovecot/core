@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "settings-parser.h"
 #include "master-service-settings.h"
+#include "lda-settings.h"
 #include "lmtp-settings.h"
 
 #include <stddef.h>
@@ -22,6 +23,11 @@ static struct lmtp_settings lmtp_default_settings = {
 	MEMBER(lmtp_proxy) FALSE
 };
 
+static struct setting_parser_info *lmtp_setting_dependencies[] = {
+	&lda_setting_parser_info,
+	NULL
+};
+
 struct setting_parser_info lmtp_setting_parser_info = {
 	MEMBER(module_name) "lmtp",
 	MEMBER(defines) lmtp_setting_defines,
@@ -30,5 +36,9 @@ struct setting_parser_info lmtp_setting_parser_info = {
 	MEMBER(type_offset) (size_t)-1,
 	MEMBER(struct_size) sizeof(struct lmtp_settings),
 
-	MEMBER(parent_offset) (size_t)-1
+	MEMBER(parent_offset) (size_t)-1,
+	MEMBER(parent) NULL,
+
+	MEMBER(check_func) NULL,
+	MEMBER(dependencies) lmtp_setting_dependencies
 };

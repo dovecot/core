@@ -26,24 +26,17 @@ struct mail_storage_service_ctx *storage_service;
 
 static void client_connected(const struct master_service_connection *conn)
 {
-	struct client *client;
-	void **sets;
-
-	client = client_create(conn->fd, conn->fd);
-	client->remote_ip = conn->remote_ip;
-	client->remote_port = conn->remote_port;
-
-	sets = master_service_settings_get_others(master_service);
-	client->set = sets[1];
-	client->lmtp_set = sets[2];
-
-	(void)net_getsockname(conn->fd, &client->local_ip, &client->local_port);
+	(void)client_create(conn->fd, conn->fd, conn);
 }
 
 static void main_init(void)
 {
-	if (IS_STANDALONE())
-		(void)client_create(STDIN_FILENO, STDOUT_FILENO);
+	struct master_service_connection conn;
+
+	if (IS_STANDALONE()) {
+		memset(&conn, 0, sizeof(conn));
+		(void)client_create(STDIN_FILENO, STDOUT_FILENO, &conn);
+	}
 }
 
 static void main_deinit(void)
@@ -61,7 +54,8 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
-		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
+		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 
 	if (IS_STANDALONE()) {
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE |

@@ -25,6 +25,7 @@ struct mail_user {
 	/* error during initialization */
 	const char *error;
 
+	const struct setting_parser_info *set_info;
 	const struct mail_user_settings *unexpanded_set;
 	struct mail_user_settings *set;
 	struct mail_namespace *namespaces;
@@ -59,6 +60,7 @@ extern struct auth_master_connection *mail_user_auth_master_conn;
 extern void (*hook_mail_user_created)(struct mail_user *user);
 
 struct mail_user *mail_user_alloc(const char *username,
+				  const struct setting_parser_info *set_info,
 				  const struct mail_user_settings *set);
 /* Returns -1 if settings were invalid. */
 int mail_user_init(struct mail_user *user, const char **error_r);

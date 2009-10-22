@@ -3,6 +3,8 @@
 
 #include "file-lock.h"
 
+#define MAIL_STORAGE_SET_DRIVER_NAME "MAIL"
+
 struct mail_user;
 struct mail_storage;
 
@@ -73,10 +75,11 @@ extern struct setting_parser_info mail_storage_setting_parser_info;
 extern struct mail_namespace_settings mail_namespace_default_settings;
 
 const void *
-mail_user_set_get_driver_settings(const struct mail_user_settings *set,
+mail_user_set_get_driver_settings(const struct setting_parser_info *info,
+				  const struct mail_user_settings *set,
 				  const char *driver);
 const struct mail_storage_settings *
-mail_user_set_get_storage_set(const struct mail_user_settings *set);
+mail_user_set_get_storage_set(struct mail_user *user);
 const void *mail_storage_get_driver_settings(struct mail_storage *storage);
 
 enum mail_index_open_flags

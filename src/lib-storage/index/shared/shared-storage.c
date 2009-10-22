@@ -223,7 +223,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		return 0;
 	}
 
-	owner = mail_user_alloc(userdomain, user->unexpanded_set);
+	owner = mail_user_alloc(userdomain, user->set_info,
+				user->unexpanded_set);
 	if (!var_has_key(storage->location, 'h', "home"))
 		ret = 1;
 	else {

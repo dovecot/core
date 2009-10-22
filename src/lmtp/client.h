@@ -33,7 +33,9 @@ struct client_state {
 
 struct client {
 	struct client *prev, *next;
+	pool_t pool;
 
+	const struct setting_parser_info *user_set_info;
 	const struct lda_settings *set;
 	const struct lmtp_settings *lmtp_set;
 	int fd_in, fd_out;
@@ -62,7 +64,8 @@ struct client {
 
 extern unsigned int clients_count;
 
-struct client *client_create(int fd_in, int fd_out);
+struct client *client_create(int fd_in, int fd_out,
+			     const struct master_service_connection *conn);
 void client_destroy(struct client *client, const char *prefix,
 		    const char *reason);
 void client_disconnect(struct client *client, const char *prefix,

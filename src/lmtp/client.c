@@ -127,7 +127,8 @@ static void client_raw_user_create(struct client *client)
 
 	sets = master_service_settings_get_others(master_service);
 
-	client->raw_mail_user = mail_user_alloc("raw user", sets[0]);
+	client->raw_mail_user = mail_user_alloc("raw user",
+						client->user_set_info, sets[0]);
 	mail_user_set_home(client->raw_mail_user, "/");
 	if (mail_user_init(client->raw_mail_user, &error) < 0)
 		i_fatal("Raw user initialization failed: %s", error);
@@ -142,17 +143,47 @@ static void client_raw_user_create(struct client *client)
 		i_fatal("Couldn't create internal raw storage: %s", error);
 }
 
-struct client *client_create(int fd_in, int fd_out)
+static void client_read_settings(struct client *client)
+{
+	struct mail_storage_service_input input;
+	const char *error;
+	void **sets;
+
+	memset(&input, 0, sizeof(input));
+	input.module = input.service = "lmtp";
+	input.local_ip = client->local_ip;
+	input.remote_ip = client->remote_ip;
+
+	if (mail_storage_service_read_settings(storage_service, &input,
+					       client->pool,
+					       &client->user_set_info,
+					       &error) < 0)
+		i_fatal("%s", error);
+
+	sets = master_service_settings_get_others(master_service);
+	client->set = sets[1];
+	client->lmtp_set = sets[2];
+}
+
+struct client *client_create(int fd_in, int fd_out,
+			     const struct master_service_connection *conn)
 {
 	struct client *client;
+	pool_t pool;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
 	net_set_nonblock(fd_out, TRUE);
 
-	client = i_new(struct client, 1);
+	pool = pool_alloconly_create("lmtp client", 1024);
+	client = p_new(pool, struct client, 1);
+	client->pool = pool;
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
+	client->remote_ip = conn->remote_ip;
+	client->remote_port = conn->remote_port;
+	(void)net_getsockname(conn->fd, &client->local_ip, &client->local_port);
+
 	client->input = i_stream_create_fd(fd_in, CLIENT_MAX_INPUT_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
 
@@ -163,13 +194,14 @@ struct client *client_create(int fd_in, int fd_out)
 	client->my_domain = my_hostname;
 	client->state_pool = pool_alloconly_create("client state", 4096);
 	client->state.mail_data_fd = -1;
+	client_read_settings(client);
+	client_raw_user_create(client);
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
 	client_send_line(client, "220 %s Dovecot LMTP ready",
 			 client->my_domain);
-	client_raw_user_create(client);
 	return client;
 }
 
@@ -181,7 +213,8 @@ void client_destroy(struct client *client, const char *prefix,
 	clients_count--;
 	DLLIST_REMOVE(&clients, client);
 
-	mail_user_unref(&client->raw_mail_user);
+	if (client->raw_mail_user != NULL)
+		mail_user_unref(&client->raw_mail_user);
 	if (client->proxy != NULL)
 		lmtp_proxy_deinit(&client->proxy);
 	if (client->io != NULL)
@@ -198,7 +231,7 @@ void client_destroy(struct client *client, const char *prefix,
 	}
 	client_state_reset(client);
 	pool_unref(&client->state_pool);
-	i_free(client);
+	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
 }
@@ -231,8 +264,10 @@ void client_state_reset(struct client *client)
 {
 	struct mail_recipient *rcpt;
 
-	array_foreach_modifiable(&client->state.rcpt_to, rcpt)
-		mail_storage_service_user_free(&rcpt->service_user);
+	if (array_is_created(&client->state.rcpt_to)) {
+		array_foreach_modifiable(&client->state.rcpt_to, rcpt)
+			mail_storage_service_user_free(&rcpt->service_user);
+	}
 
 	if (client->state.raw_mail != NULL)
 		mail_free(&client->state.raw_mail);

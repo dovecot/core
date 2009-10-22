@@ -12,8 +12,6 @@
 
 #include <stddef.h>
 
-#define MAIL_STORAGE_SET_DRIVER_NAME "MAIL"
-
 static bool mail_storage_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool namespace_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
@@ -201,13 +199,13 @@ struct setting_parser_info mail_user_setting_parser_info = {
 };
 
 const void *
-mail_user_set_get_driver_settings(const struct mail_user_settings *set,
+mail_user_set_get_driver_settings(const struct setting_parser_info *info,
+				  const struct mail_user_settings *set,
 				  const char *driver)
 {
 	const void *dset;
 
-	dset = settings_find_dynamic(&mail_user_setting_parser_info,
-				     set, driver);
+	dset = settings_find_dynamic(info, set, driver);
 	if (dset == NULL) {
 		i_panic("Default settings not found for storage driver %s",
 			driver);
@@ -216,15 +214,16 @@ mail_user_set_get_driver_settings(const struct mail_user_settings *set,
 }
 
 const struct mail_storage_settings *
-mail_user_set_get_storage_set(const struct mail_user_settings *set)
+mail_user_set_get_storage_set(struct mail_user *user)
 {
-	return mail_user_set_get_driver_settings(set,
+	return mail_user_set_get_driver_settings(user->set_info, user->set,
 						 MAIL_STORAGE_SET_DRIVER_NAME);
 }
 
 const void *mail_storage_get_driver_settings(struct mail_storage *storage)
 {
-	return mail_user_set_get_driver_settings(storage->user->set,
+	return mail_user_set_get_driver_settings(storage->user->set_info,
+						 storage->user->set,
 						 storage->name);
 }
 
