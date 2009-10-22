@@ -23,6 +23,13 @@
 #include <pwd.h>
 #include <grp.h>
 
+#ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+#endif
+#ifdef HAVE_SYS_RESOURCE_H
+#  include <sys/resource.h>
+#endif
+
 /* If time moves backwards more than this, kill ourself instead of sleeping. */
 #define MAX_TIME_BACKWARDS_SLEEP 5
 #define MAX_NOWARN_FORWARD_SECS 10
@@ -123,6 +130,15 @@ user_reply_handle(struct mail_storage_service_user *user,
 		if (strncmp(line, "system_groups_user=", 19) == 0) {
 			user->system_groups_user =
 				p_strdup(user->pool, line + 19);
+		} else if (strncmp(line, "nice=", 5) == 0) {
+#ifdef HAVE_SETPRIORITY
+			int n = atoi(line + 5);
+
+			if (n != 0) {
+				if (setpriority(PRIO_PROCESS, 0, n) < 0)
+					i_error("setpriority(%d) failed: %m", n);
+			}
+#endif
 		} else T_BEGIN {
 			if (strncmp(line, "mail=", 5) == 0) {
 				line = t_strconcat("mail_location=",
