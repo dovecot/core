@@ -29,7 +29,7 @@ struct maildir_index_sync_context {
 	enum mail_flags flags;
 	ARRAY_TYPE(keyword_indexes) keywords, idx_keywords;
 
-	uint32_t seq, uid;
+	uint32_t /*seq, */uid;
 	bool update_maildir_hdr_cur;
 };
 
@@ -45,10 +45,8 @@ maildir_index_expunge(struct maildir_index_sync_context *ctx, uint32_t seq)
 	enum maildir_uidlist_rec_flag flags;
 	uint8_t guid_128[MAIL_GUID_128_SIZE];
 	const char *fname;
-	uint32_t uid;
 
-	mail_index_lookup_uid(ctx->view, seq, &uid);
-	if (maildir_uidlist_lookup(ctx->mbox->uidlist, uid,
+	if (maildir_uidlist_lookup(ctx->mbox->uidlist, ctx->uid,
 				   &flags, &fname) <= 0)
 		memset(guid_128, 0, sizeof(guid_128));
 	else T_BEGIN {
@@ -56,7 +54,7 @@ maildir_index_expunge(struct maildir_index_sync_context *ctx, uint32_t seq)
 					    guid_128);
 	} T_END;
 
-	mail_index_expunge_guid(ctx->trans, ctx->seq, guid_128);
+	mail_index_expunge_guid(ctx->trans, seq, guid_128);
 }
 
 static bool
@@ -495,7 +493,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		ctx->flags &= ~mbox->ibox.box.private_flags_mask;
 
 	again:
-		ctx->seq = ++seq;
+		seq++;
 		ctx->uid = uid;
 
 		if (seq > hdr->messages_count) {
@@ -605,8 +603,10 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 	if (!partial) {
 		/* expunge the rest */
-		for (seq++; seq <= hdr->messages_count; seq++)
+		for (seq++; seq <= hdr->messages_count; seq++) {
+			mail_index_lookup_uid(ctx->view, seq, &ctx->uid);
 			maildir_index_expunge(ctx, seq);
+		}
 	}
 
 	/* add \Recent flags. use updated view so it contains newly
