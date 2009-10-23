@@ -282,22 +282,24 @@ static void imap_client_input(struct client *client)
 		return;
 
 	client_ref(client);
+	o_stream_cork(imap_client->common.output);
+	for (;;) {
+		if (!auth_client_is_connected(auth_client)) {
+			/* we're not currently connected to auth process -
+			   don't allow any commands */
+			client_send_line(client, CLIENT_CMD_REPLY_STATUS,
+					 AUTH_SERVER_WAITING_MSG);
+			if (client->to_auth_waiting != NULL)
+				timeout_remove(&client->to_auth_waiting);
 
-	if (!auth_client_is_connected(auth_client)) {
-		/* we're not yet connected to auth process -
-		   don't allow any commands */
-		client_send_line(client, CLIENT_CMD_REPLY_STATUS,
-				 AUTH_SERVER_WAITING_MSG);
-		if (client->to_auth_waiting != NULL)
-			timeout_remove(&client->to_auth_waiting);
-
-		client->input_blocked = TRUE;
-	} else {
-		o_stream_cork(imap_client->common.output);
-		while (client_handle_input(imap_client)) ;
-		o_stream_uncork(imap_client->common.output);
+			client->input_blocked = TRUE;
+			break;
+		} else {
+			if (!client_handle_input(imap_client))
+				break;
+		}
 	}
-
+	o_stream_uncork(imap_client->common.output);
 	client_unref(&client);
 }
 

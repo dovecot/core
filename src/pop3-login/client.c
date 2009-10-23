@@ -82,6 +82,7 @@ static void pop3_client_input(struct client *client)
 	/* if a command starts an authentication, stop processing further
 	   commands until the authentication is finished. */
 	while (!client->output->closed && !client->authenticating &&
+	       auth_client_is_connected(auth_client) &&
 	       (line = i_stream_next_line(client->input)) != NULL) {
 		args = strchr(line, ' ');
 		if (args != NULL)
@@ -97,6 +98,9 @@ static void pop3_client_input(struct client *client)
 				       "Disconnected: Too many bad commands");
 		}
 	}
+
+	if (!auth_client_is_connected(auth_client))
+		client->input_blocked = TRUE;
 
 	if (client_unref(&client))
 		o_stream_uncork(client->output);

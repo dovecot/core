@@ -247,6 +247,8 @@ void sasl_server_auth_begin(struct client *client,
 	struct auth_request_info info;
 	const struct auth_mech_desc *mech;
 
+	i_assert(auth_client_is_connected(auth_client));
+
 	client->auth_attempts++;
 	client->authenticating = TRUE;
 	i_free(client->auth_mech_name);
