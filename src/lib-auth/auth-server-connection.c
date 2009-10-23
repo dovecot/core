@@ -313,6 +313,14 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn)
 
 static void auth_server_connection_close(struct auth_server_connection *conn)
 {
+	conn->handshake_received = FALSE;
+	conn->version_received = FALSE;
+	conn->has_plain_mech = FALSE;
+	conn->server_pid = 0;
+	conn->connect_uid = 0;
+	conn->cookie = NULL;
+	array_clear(&conn->available_auth_mechs);
+
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 	if (conn->io != NULL)
