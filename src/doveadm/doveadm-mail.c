@@ -228,6 +228,7 @@ doveadm_mail_cmd(doveadm_mail_command_t *cmd, int argc, char *argv[])
 		doveadm_mail_single_user(cmd, username, service_flags,
 					 (const char **)argv + optind);
 	} else {
+		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(cmd, service_flags,
 				       (const char **)argv + optind);
 	}
