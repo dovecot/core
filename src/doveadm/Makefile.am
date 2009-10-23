@@ -36,7 +36,8 @@ doveadm_SOURCES = \
 	doveadm-dump-mailboxlog.c \
 	doveadm-dump-thread.c \
 	doveadm-mail.c \
-	doveadm-pw.c
+	doveadm-pw.c \
+	doveadm-who.c
 
 noinst_HEADERS = \
 	doveadm.h \

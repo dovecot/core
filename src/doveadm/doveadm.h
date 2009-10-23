@@ -16,6 +16,7 @@ extern struct doveadm_cmd doveadm_cmd_auth;
 extern struct doveadm_cmd doveadm_cmd_user;
 extern struct doveadm_cmd doveadm_cmd_dump;
 extern struct doveadm_cmd doveadm_cmd_pw;
+extern struct doveadm_cmd doveadm_cmd_who;
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd);
 
