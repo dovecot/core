@@ -411,6 +411,8 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	struct auth_worker_client *client = ctx->client;
 	string_t *str;
 
+	i_assert(client->io == NULL);
+
 	str = t_str_new(32);
 	if (ctx->userdb->iface->iterate_deinit(ctx->iter) < 0)
 		str_printfa(str, "%u\tFAIL\n", ctx->id);
@@ -616,8 +618,9 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 
 	net_disconnect(client->fd);
 	client->fd = -1;
+	auth_worker_client_unref(&client);
 
-        master_service_client_connection_destroyed(master_service);
+	master_service_client_connection_destroyed(master_service);
 }
 
 void auth_worker_client_unref(struct auth_worker_client **_client)
@@ -628,9 +631,6 @@ void auth_worker_client_unref(struct auth_worker_client **_client)
 		*_client = NULL;
 		return;
 	}
-
-	if (client->fd != -1)
-		auth_worker_client_destroy(_client);
 
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);

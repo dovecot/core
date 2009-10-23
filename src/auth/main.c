@@ -88,7 +88,7 @@ static void main_init(void)
 static void main_deinit(void)
 {
 	if (worker_client != NULL)
-		auth_worker_client_unref(&worker_client);
+		auth_worker_client_destroy(&worker_client);
 	else
 		auth_request_handler_flush_failures(TRUE);
 
