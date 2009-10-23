@@ -377,21 +377,15 @@ static void auth_client_handshake_timeout(struct auth_server_connection *conn)
 int auth_server_connection_connect(struct auth_server_connection *conn)
 {
 	const char *handshake;
-	int fd, try;
+	int fd;
 
 	i_assert(conn->fd == -1);
 
 	conn->last_connect = ioloop_time;
 
 	/* max. 1 second wait here. */
-	for (try = 0; try < 10; try++) {
-		fd = net_connect_unix(conn->client->auth_socket_path);
-		if (fd != -1 || (errno != EAGAIN && errno != ECONNREFUSED))
-			break;
-
-		/* busy. wait for a while. */
-		usleep(((rand() % 10) + 1) * 10000);
-	}
+	fd = net_connect_unix_with_retries(conn->client->auth_socket_path,
+					   1000);
 	if (fd == -1) {
 		if (errno == EACCES) {
 			i_error("auth: %s",

@@ -123,34 +123,15 @@ static void auth_worker_request_send_next(struct auth_worker_connection *conn)
 static struct auth_worker_connection *auth_worker_create(struct auth *auth)
 {
 	struct auth_worker_connection *conn;
-	int fd, try;
+	int fd;
 
 	if (array_count(&connections) >= auth->set->worker_max_count)
 		return NULL;
 
-	for (try = 0;; try++) {
-		fd = net_connect_unix(worker_socket_path);
-		if (fd >= 0)
-			break;
-
-		if (errno == EAGAIN || errno == ECONNREFUSED) {
-			/* we're busy. */
-		} else if (errno == ENOENT) {
-			/* master didn't yet create it? */
-		} else {
-			i_fatal("net_connect_unix(%s) failed: %m",
-				worker_socket_path);
-		}
-
-		if (try == 50) {
-			i_error("net_connect_unix(%s) "
-				"failed after %d secs: %m",
-				worker_socket_path, try/10);
-			return NULL;
-		}
-
-		/* wait and try again */
-		usleep(100000);
+	fd = net_connect_unix_with_retries(worker_socket_path, 5000);
+	if (fd == -1) {
+		i_fatal("net_connect_unix(%s) failed: %m",
+			worker_socket_path);
 	}
 
 	conn = i_new(struct auth_worker_connection, 1);
@@ -208,8 +189,7 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 
 	if (idle_count == 0 && restart) {
 		conn = auth_worker_create(auth);
-		if (conn != NULL)
-			auth_worker_request_send_next(conn);
+		auth_worker_request_send_next(conn);
 	}
 }
 

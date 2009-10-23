@@ -242,19 +242,12 @@ static void auth_input(struct auth_master_connection *conn)
 
 static int auth_master_connect(struct auth_master_connection *conn)
 {
-	int fd, try;
+	int fd;
 
 	i_assert(conn->fd == -1);
 
 	/* max. 1 second wait here. */
-	for (try = 0; try < 10; try++) {
-		fd = net_connect_unix(conn->auth_socket_path);
-		if (fd != -1 || (errno != EAGAIN && errno != ECONNREFUSED))
-			break;
-
-		/* busy. wait for a while. */
-		usleep(((rand() % 10) + 1) * 10000);
-	}
+	fd = net_connect_unix_with_retries(conn->auth_socket_path, 1000);
 	if (fd == -1) {
 		if (errno == EACCES) {
 			i_error("userdb lookup: %s",

@@ -111,7 +111,7 @@ master_service_read_config(struct master_service *service, const char *path,
 		fd = service->config_fd;
 		service->config_fd = -1;
 	} else {
-		fd = net_connect_unix(path);
+		fd = net_connect_unix_with_retries(path, 1000);
 		if (fd < 0) {
 			*error_r = t_strdup_printf(
 				"net_connect_unix(%s) failed: %m", path);

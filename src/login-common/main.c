@@ -78,13 +78,11 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 static int anvil_connect(void)
 {
 #define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
-	int i = 0, fd;
+	int fd;
 
-	while ((fd = net_connect_unix("anvil")) == -1) {
-		if (errno != EAGAIN || ++i == 3)
-			i_fatal("net_connect_unix(anvil) failed: %m");
-		sleep(1);
-	}
+	fd = net_connect_unix_with_retries("anvil", 5000);
+	if (fd == -1)
+		i_fatal("net_connect_unix(anvil) failed: %m");
 	net_set_nonblock(fd, FALSE);
 
 	if (write(fd, ANVIL_HANDSHAKE, strlen(ANVIL_HANDSHAKE)) < 0)

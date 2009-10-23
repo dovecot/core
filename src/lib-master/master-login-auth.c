@@ -240,7 +240,7 @@ master_login_auth_connect(struct master_login_auth *auth)
 
 	i_assert(auth->fd == -1);
 
-	fd = net_connect_unix(auth->auth_socket_path);
+	fd = net_connect_unix_with_retries(auth->auth_socket_path, 1000);
 	if (fd == -1) {
 		i_error("net_connect_unix(%s) failed: %m",
 			auth->auth_socket_path);
