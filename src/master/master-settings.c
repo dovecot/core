@@ -86,10 +86,13 @@ static struct setting_parser_info inet_listener_setting_parser_info = {
 
 #undef DEF
 #undef DEFLIST
+#undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct service_settings, name), NULL }
 #define DEFLIST(field, name, defines) \
 	{ SET_DEFLIST, name, offsetof(struct service_settings, field), defines }
+#define DEFLIST_UNIQUE(field, name, defines) \
+	{ SET_DEFLIST_UNIQUE, name, offsetof(struct service_settings, field), defines }
 
 static struct setting_define service_setting_defines[] = {
 	DEF(SET_STR, name),
@@ -110,10 +113,10 @@ static struct setting_define service_setting_defines[] = {
 	DEF(SET_UINT, service_count),
 	DEF(SET_UINT, vsz_limit),
 
-	DEFLIST(unix_listeners, "unix_listener",
-		&file_listener_setting_parser_info),
-	DEFLIST(fifo_listeners, "fifo_listener",
-		&file_listener_setting_parser_info),
+	DEFLIST_UNIQUE(unix_listeners, "unix_listener",
+		       &file_listener_setting_parser_info),
+	DEFLIST_UNIQUE(fifo_listeners, "fifo_listener",
+		       &file_listener_setting_parser_info),
 	DEFLIST(inet_listeners, "inet_listener",
 		&inet_listener_setting_parser_info),
 
@@ -159,11 +162,11 @@ struct setting_parser_info service_setting_parser_info = {
 };
 
 #undef DEF
-#undef DEFLIST
+#undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct master_settings, name), NULL }
-#define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct master_settings, field), defines }
+#define DEFLIST_UNIQUE(field, name, defines) \
+	{ SET_DEFLIST_UNIQUE, name, offsetof(struct master_settings, field), defines }
 
 static struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, base_dir),
@@ -185,7 +188,7 @@ static struct setting_define master_setting_defines[] = {
 	DEF(SET_UINT, first_valid_gid),
 	DEF(SET_UINT, last_valid_gid),
 
-	DEFLIST(services, "service", &service_setting_parser_info),
+	DEFLIST_UNIQUE(services, "service", &service_setting_parser_info),
 
 	SETTING_DEFINE_LIST_END
 };

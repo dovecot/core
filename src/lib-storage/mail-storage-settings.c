@@ -123,11 +123,11 @@ struct setting_parser_info mail_namespace_setting_parser_info = {
 };
 
 #undef DEF
-#undef DEFLIST
+#undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct mail_user_settings, name), NULL }
-#define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, \
+#define DEFLIST_UNIQUE(field, name, defines) \
+	{ SET_DEFLIST_UNIQUE, name, \
 	  offsetof(struct mail_user_settings, field), defines }
 
 static struct setting_define mail_user_setting_defines[] = {
@@ -152,7 +152,7 @@ static struct setting_define mail_user_setting_defines[] = {
 
 	DEF(SET_STR, mail_log_prefix),
 
-	DEFLIST(namespaces, "namespace", &mail_namespace_setting_parser_info),
+	DEFLIST_UNIQUE(namespaces, "namespace", &mail_namespace_setting_parser_info),
 	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
