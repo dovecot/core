@@ -1,6 +1,8 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "hostpid.h"
+#include "var-expand.h"
 #include "settings-parser.h"
 #include "master-service-settings.h"
 #include "login-settings.h"
@@ -16,7 +18,7 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static struct setting_define login_setting_defines[] = {
 	DEF(SET_STR, login_trusted_networks),
-	DEF(SET_STR, login_greeting),
+	DEF(SET_STR_VARS, login_greeting),
 	DEF(SET_STR, login_log_format_elements),
 	DEF(SET_STR, login_log_format),
 
@@ -155,6 +157,30 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r)
 }
 /* </settings checks> */
 
+static const struct var_expand_table *
+login_set_var_expand_table(const struct master_service_settings_input *input)
+{
+	static struct var_expand_table static_tab[] = {
+		{ 'l', NULL, "lip" },
+		{ 'r', NULL, "rip" },
+		{ 'p', NULL, "pid" },
+		{ 's', NULL, "service" },
+		{ '\0', NULL, "hostname" },
+		{ '\0', NULL, NULL }
+	};
+	struct var_expand_table *tab;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = net_ip2addr(&input->local_ip);
+	tab[1].value = net_ip2addr(&input->remote_ip);
+	tab[2].value = my_pid;
+	tab[3].value = input->service;
+	tab[4].value = my_hostname;
+	return tab;
+}
+
 struct login_settings *
 login_settings_read(struct master_service *service, pool_t pool,
 		    const struct ip_addr *local_ip,
@@ -191,6 +217,9 @@ login_settings_read(struct master_service *service, pool_t pool,
 				name != NULL ? name : "unknown", error);
 		}
 	}
+
+	settings_var_expand(&login_setting_parser_info, sets[0], pool,
+			    login_set_var_expand_table(&input));
 
 	*other_settings_r = sets + 1;
 	return sets[0];
