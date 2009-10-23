@@ -156,8 +156,8 @@ static void who_lookup(struct who_context *ctx, who_callback_t *callback)
 	i_stream_destroy(&input);
 }
 
-static bool who_filter_match(const struct who_user *user,
-			     const struct who_filter *filter)
+static bool who_user_filter_match(const struct who_user *user,
+				  const struct who_filter *filter)
 {
 	if (filter->username != NULL) {
 		if (strstr(user->username, filter->username) == NULL)
@@ -194,7 +194,7 @@ static void who_print(struct who_context *ctx)
 		const pid_t *pid;
 		bool first = TRUE;
 
-		if (!who_filter_match(user, &ctx->filter))
+		if (!who_user_filter_match(user, &ctx->filter))
 			continue;
 
 		printf("%-30s %2u %-5s ", user->username,
@@ -222,10 +222,28 @@ static void who_print(struct who_context *ctx)
 	hash_table_iterate_deinit(&iter);
 }
 
-static void who_print_line(struct who_context *ctx ATTR_UNUSED,
+static bool who_line_filter_match(const struct who_line *line,
+				  const struct who_filter *filter)
+{
+	if (filter->username != NULL) {
+		if (strstr(line->username, filter->username) == NULL)
+			return FALSE;
+	}
+	if (filter->net_bits > 0) {
+		if (!net_is_in_network(&line->ip, &filter->net_ip,
+				       filter->net_bits))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static void who_print_line(struct who_context *ctx,
 			   const struct who_line *line)
 {
 	unsigned int i;
+
+	if (!who_line_filter_match(line, &ctx->filter))
+		return;
 
 	for (i = 0; i < line->refcount; i++) T_BEGIN {
 		printf("%-30s %-15s %-5s %ld\n", line->username,
