@@ -803,11 +803,34 @@ void mail_storage_service_user_free(struct mail_storage_service_user **_user)
 	pool_unref(&user->pool);
 }
 
+static void
+mail_storage_service_all_init_first(struct mail_storage_service_ctx *ctx)
+{
+	const struct setting_parser_info *user_info;
+	const struct mail_user_settings *user_set;
+	const char *error;
+	void **sets;
+	pool_t temp_pool;
+
+	temp_pool = pool_alloconly_create("service all settings", 4096);
+	if (mail_storage_service_read_settings(ctx, NULL, temp_pool,
+					       &user_info, &error) < 0)
+		i_fatal("%s", error);
+	sets = settings_parser_get_list(ctx->service->set_parser);
+	user_set = sets[1];
+
+	mail_storage_service_first_init(ctx, user_info, user_set);
+	pool_unref(&temp_pool);
+}
+
 unsigned int
 mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
 {
 	if (ctx->auth_list != NULL)
 		(void)auth_master_user_list_deinit(&ctx->auth_list);
+	if (ctx->conn == NULL)
+		mail_storage_service_all_init_first(ctx);
+
 	ctx->auth_list = auth_master_user_list_init(ctx->conn);
 	return auth_master_user_list_count(ctx->auth_list);
 }
