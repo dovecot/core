@@ -47,7 +47,7 @@ static struct setting_parser_info file_listener_setting_parser_info = {
 	MEMBER(defines) file_listener_setting_defines,
 	MEMBER(defaults) &file_listener_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
+	MEMBER(type_offset) offsetof(struct file_listener_settings, path),
 	MEMBER(struct_size) sizeof(struct file_listener_settings),
 
 	MEMBER(parent_offset) (size_t)-1,
