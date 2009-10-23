@@ -11,8 +11,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+struct who_line {
+	const char *username;
+	const char *service;
+	struct ip_addr ip;
+	pid_t pid;
+	unsigned int refcount;
+};
+
 struct who_user {
 	const char *username;
+	const char *service;
 	ARRAY_DEFINE(ips, struct ip_addr);
 	ARRAY_DEFINE(pids, pid_t);
 	unsigned int connection_count;
@@ -32,6 +41,27 @@ struct who_context {
 	struct hash_table *users; /* username -> who_user */
 };
 
+typedef void who_callback_t(struct who_context *ctx,
+			    const struct who_line *line);
+
+static unsigned int who_user_hash(const void *p)
+{
+	const struct who_user *user = p;
+
+	return str_hash(user->username) + str_hash(user->service);
+}
+
+static int who_user_cmp(const void *p1, const void *p2)
+{
+	const struct who_user *user1 = p1, *user2 = p2;
+
+	if (strcmp(user1->username, user2->username) != 0)
+		return 1;
+	if (strcmp(user1->service, user2->service) != 0)
+		return 1;
+	return 0;
+}
+
 static bool
 who_user_has_ip(const struct who_user *user, const struct ip_addr *ip)
 {
@@ -44,48 +74,57 @@ who_user_has_ip(const struct who_user *user, const struct ip_addr *ip)
 	return FALSE;
 }
 
-static void who_line(struct who_context *ctx,
-		     const char *const *args)
+static void who_parse_line(const char *line, struct who_line *line_r)
 {
+	const char *const *args = t_strsplit(line, "\t");
 	const char *ident = args[0];
-	pid_t pid = strtoul(args[1], NULL, 10);
-	unsigned int refcount = atoi(args[2]);
-	const char *p, *service, *ip_str, *username;
-	struct who_user *user;
-	struct ip_addr ip;
-	const pid_t *ex_pid;
-	char *username_dup;
+	const char *pid_str = args[1];
+	const char *refcount_str = args[2];
+	const char *p, *ip_str;
+
+	memset(line_r, 0, sizeof(*line_r));
 
 	p = strchr(ident, '/');
-	service = t_strdup_until(ident, p++);
-	username = strchr(p, '/');
-	ip_str = t_strdup_until(p, username++);
-	if (net_addr2ip(ip_str, &ip) < 0)
-		memset(&ip, 0, sizeof(ip));
-
-	user = hash_table_lookup(ctx->users, username);
-	if (user == NULL) {
-		user = p_new(ctx->pool, struct who_user, 1);
-		username_dup = p_strdup(ctx->pool, username);
-		user->username = username_dup;
-		p_array_init(&user->ips, ctx->pool, 3);
-		p_array_init(&user->pids, ctx->pool, 8);
-		hash_table_insert(ctx->users, username_dup, user);
-	}
-	user->connection_count += refcount;
-
-	if (ip.family != 0 && !who_user_has_ip(user, &ip))
-		array_append(&user->ips, &ip, 1);
-
-	array_foreach(&user->pids, ex_pid) {
-		if (*ex_pid == pid)
-			break;
-	}
-	if (*ex_pid != pid)
-		array_append(&user->pids, &pid, 1);
+	line_r->pid = strtoul(pid_str, NULL, 10);
+	line_r->service = t_strdup_until(ident, p++);
+	line_r->username = strchr(p, '/');
+	line_r->refcount = atoi(refcount_str);
+	ip_str = t_strdup_until(p, line_r->username++);
+	(void)net_addr2ip(ip_str, &line_r->ip);
 }
 
-static void who_lookup(struct who_context *ctx)
+static void who_aggregate_line(struct who_context *ctx,
+			       const struct who_line *line)
+{
+	struct who_user *user, lookup_user;
+	const pid_t *ex_pid;
+
+	lookup_user.username = line->username;
+	lookup_user.service = line->service;
+
+	user = hash_table_lookup(ctx->users, &lookup_user);
+	if (user == NULL) {
+		user = p_new(ctx->pool, struct who_user, 1);
+		user->username = p_strdup(ctx->pool, line->username);
+		user->service = p_strdup(ctx->pool, line->service);
+		p_array_init(&user->ips, ctx->pool, 3);
+		p_array_init(&user->pids, ctx->pool, 8);
+		hash_table_insert(ctx->users, user, user);
+	}
+	user->connection_count += line->refcount;
+
+	if (line->ip.family != 0 && !who_user_has_ip(user, &line->ip))
+		array_append(&user->ips, &line->ip, 1);
+
+	array_foreach(&user->pids, ex_pid) {
+		if (*ex_pid == line->pid)
+			break;
+	}
+	if (*ex_pid != line->pid)
+		array_append(&user->pids, &line->pid, 1);
+}
+
+static void who_lookup(struct who_context *ctx, who_callback_t *callback)
 {
 #define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
 #define ANVIL_CMD ANVIL_HANDSHAKE"CONNECT-DUMP\n"
@@ -105,7 +144,10 @@ static void who_lookup(struct who_context *ctx)
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			who_line(ctx, t_strsplit(line, "\t"));
+			struct who_line who_line;
+
+			who_parse_line(line, &who_line);
+			callback(ctx, &who_line);
 		} T_END;
 	}
 	if (input->stream_errno != 0)
@@ -143,7 +185,7 @@ static void who_print(struct who_context *ctx)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	fprintf(stderr, "%-30s  # (ips) (pids)\n", "username");
+	fprintf(stderr, "%-30s  # proto (ips) (pids)\n", "username");
 
 	iter = hash_table_iterate_init(ctx->users);
 	while (hash_table_iterate(iter, &key, &value)) {
@@ -155,7 +197,8 @@ static void who_print(struct who_context *ctx)
 		if (!who_filter_match(user, &ctx->filter))
 			continue;
 
-		printf("%-30s %2u ", user->username, user->connection_count);
+		printf("%-30s %2u %-5s ", user->username,
+		       user->connection_count, user->service);
 
 		printf("(");
 		array_foreach(&user->ips, ip) T_BEGIN {
@@ -179,21 +222,36 @@ static void who_print(struct who_context *ctx)
 	hash_table_iterate_deinit(&iter);
 }
 
+static void who_print_line(struct who_context *ctx ATTR_UNUSED,
+			   const struct who_line *line)
+{
+	unsigned int i;
+
+	for (i = 0; i < line->refcount; i++) T_BEGIN {
+		printf("%-30s %-15s %-5s %ld\n", line->username,
+		       net_ip2addr(&line->ip), line->service, (long)line->pid);
+	} T_END;
+}
+
 static void cmd_who(int argc, char *argv[])
 {
 	struct who_context ctx;
 	struct ip_addr net_ip;
 	unsigned int net_bits;
+	bool separate_connections = FALSE;
 	int c;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.anvil_path = PKG_RUNDIR"/anvil";
 	ctx.pool = pool_alloconly_create("who users", 10240);
-	ctx.users = hash_table_create(default_pool, ctx.pool, 0, str_hash,
-				      (hash_cmp_callback_t *)strcmp);
+	ctx.users = hash_table_create(default_pool, ctx.pool, 0,
+				      who_user_hash, who_user_cmp);
 
-	while ((c = getopt(argc, argv, "a:")) > 0) {
+	while ((c = getopt(argc, argv, "1a:")) > 0) {
 		switch (c) {
+		case '1':
+			separate_connections = TRUE;
+			break;
 		case 'a':
 			ctx.anvil_path = optarg;
 			break;
@@ -217,8 +275,13 @@ static void cmd_who(int argc, char *argv[])
 		argv++;
 	}
 
-	who_lookup(&ctx);
-	who_print(&ctx);
+	if (!separate_connections) {
+		who_lookup(&ctx, who_aggregate_line);
+		who_print(&ctx);
+	} else {
+		fprintf(stderr, "%-30s %-15s proto pid\n", "username", "ip");
+		who_lookup(&ctx, who_print_line);
+	}
 
 	hash_table_destroy(&ctx.users);
 	pool_unref(&ctx.pool);
@@ -226,5 +289,5 @@ static void cmd_who(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_who = {
 	cmd_who, "who",
-	"[-a <anvil socket path>] [<user>] [<ip/bits>]", NULL
+	"[-a <anvil socket path>] [-1] [<user>] [<ip/bits>]", NULL
 };
