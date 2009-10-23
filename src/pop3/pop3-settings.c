@@ -36,7 +36,7 @@ static struct setting_define pop3_setting_defines[] = {
 
 static struct pop3_settings pop3_default_settings = {
 	MEMBER(mail_debug) FALSE,
-	MEMBER(shutdown_clients) FALSE,
+	MEMBER(shutdown_clients) TRUE,
 
 	MEMBER(pop3_no_flag_updates) FALSE,
 	MEMBER(pop3_enable_last) FALSE,

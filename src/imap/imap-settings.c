@@ -36,7 +36,7 @@ static struct setting_define imap_setting_defines[] = {
 
 static struct imap_settings imap_default_settings = {
 	MEMBER(mail_debug) FALSE,
-	MEMBER(shutdown_clients) FALSE,
+	MEMBER(shutdown_clients) TRUE,
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
 	   break large message sets to multiple commands, so we're pretty
