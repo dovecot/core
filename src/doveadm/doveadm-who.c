@@ -185,7 +185,7 @@ static void who_print(struct who_context *ctx)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	fprintf(stderr, "%-30s  # proto (ips) (pids)\n", "username");
+	fprintf(stderr, "%-30s  # proto\t(pids)\t(ips)\n", "username");
 
 	iter = hash_table_iterate_init(ctx->users);
 	while (hash_table_iterate(iter, &key, &value)) {
@@ -201,21 +201,21 @@ static void who_print(struct who_context *ctx)
 		       user->connection_count, user->service);
 
 		printf("(");
-		array_foreach(&user->ips, ip) T_BEGIN {
-			if (first)
-				first = FALSE;
-			else
-				printf(" ");
-			printf("%s", net_ip2addr(ip));
-		} T_END;
-		printf(") (");
-		first = TRUE;
 		array_foreach(&user->pids, pid) T_BEGIN {
 			if (first)
 				first = FALSE;
 			else
 				printf(" ");
 			printf("%ld", (long)*pid);
+		} T_END;
+		printf(") (");
+		first = TRUE;
+		array_foreach(&user->ips, ip) T_BEGIN {
+			if (first)
+				first = FALSE;
+			else
+				printf(" ");
+			printf("%s", net_ip2addr(ip));
 		} T_END;
 		printf(")\n");
 	};
@@ -246,8 +246,8 @@ static void who_print_line(struct who_context *ctx,
 		return;
 
 	for (i = 0; i < line->refcount; i++) T_BEGIN {
-		printf("%-30s %-15s %-5s %ld\n", line->username,
-		       net_ip2addr(&line->ip), line->service, (long)line->pid);
+		printf("%-30s %-5s\t%ld\t%-15s\n", line->username,
+		       line->service, (long)line->pid, net_ip2addr(&line->ip));
 	} T_END;
 }
 
@@ -297,7 +297,7 @@ static void cmd_who(int argc, char *argv[])
 		who_lookup(&ctx, who_aggregate_line);
 		who_print(&ctx);
 	} else {
-		fprintf(stderr, "%-30s %-15s proto pid\n", "username", "ip");
+		fprintf(stderr, "%-30s proto\tpid\t%-15s\n", "username", "ip");
 		who_lookup(&ctx, who_print_line);
 	}
 
