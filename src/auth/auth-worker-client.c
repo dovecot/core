@@ -627,10 +627,10 @@ void auth_worker_client_unref(struct auth_worker_client **_client)
 {
 	struct auth_worker_client *client = *_client;
 
-	if (--client->refcount > 0) {
-		*_client = NULL;
+	*_client = NULL;
+
+	if (--client->refcount > 0)
 		return;
-	}
 
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);

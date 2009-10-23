@@ -21,6 +21,8 @@
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
+#include <unistd.h>
+
 enum auth_socket_type {
 	AUTH_SOCKET_UNKNOWN = 0,
 	AUTH_SOCKET_CLIENT,
@@ -111,7 +113,12 @@ static void main_deinit(void)
 
 static void worker_connected(const struct master_service_connection *conn)
 {
-        auth_worker_client_create(auth, conn->fd);
+	if (worker_client != NULL) {
+		i_error("Auth workers can handle only a single client");
+		(void)close(conn->fd);
+		return;
+	}
+	worker_client = auth_worker_client_create(auth, conn->fd);
 }
 
 static void client_connected(const struct master_service_connection *conn)
