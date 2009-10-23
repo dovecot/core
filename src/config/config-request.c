@@ -157,7 +157,8 @@ static void settings_export(struct settings_export_context *ctx,
 				str_append(ctx->value, *val);
 			break;
 		}
-		case SET_DEFLIST: {
+		case SET_DEFLIST:
+		case SET_DEFLIST_UNIQUE: {
 			const ARRAY_TYPE(void_array) *val = value;
 			const ARRAY_TYPE(void_array) *change_val = change_value;
 
@@ -212,8 +213,8 @@ static void settings_export(struct settings_export_context *ctx,
 					  def->key, NULL);
 			if (hash_table_lookup(ctx->keys, key) == NULL) {
 				ctx->callback(key, str_c(ctx->value),
-					      def->type == SET_DEFLIST,
-					      ctx->context);
+					SETTING_TYPE_IS_DEFLIST(def->type),
+					ctx->context);
 				hash_table_insert(ctx->keys, key, key);
 			}
 		}

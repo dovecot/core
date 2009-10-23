@@ -61,6 +61,11 @@ static const struct setting_parser_info strlist_info = {
 	MEMBER(parent_offset) (size_t)-1
 };
 
+static int
+settings_apply(struct setting_link *dest_link,
+	       const struct setting_link *src_link,
+	       pool_t pool, const char **conflict_key_r);
+
 struct setting_parser_context *
 settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 		     enum settings_parser_flags flags)
@@ -262,6 +267,7 @@ static int get_enum(struct setting_parser_context *ctx, const char *value,
 
 static int
 get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
+	    const struct setting_define *def,
 	    const struct setting_parser_info *info,
 	    const char *key, const char *value, ARRAY_TYPE(void_array) *result,
 	    ARRAY_TYPE(void_array) *change_result)
@@ -284,7 +290,11 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 
 		full_key = p_strconcat(ctx->parser_pool, key,
 				       SETTINGS_SEPARATOR_S, *list, NULL);
-		if (hash_table_lookup(ctx->links, full_key) != NULL) {
+		link = hash_table_lookup(ctx->links, full_key);
+		if (link != NULL) {
+			if (def != NULL && def->type == SET_DEFLIST_UNIQUE &&
+			    link->parent == parent && link->info == info)
+				return 0;
 			ctx->error = p_strconcat(ctx->parser_pool, full_key,
 						 " already exists", NULL);
 			return -1;
@@ -363,13 +373,14 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	case SET_DEFLIST:
+	case SET_DEFLIST_UNIQUE:
 		ctx->prev_info = def->list_info;
-		return get_deflist(ctx, link, def->list_info,
+		return get_deflist(ctx, link, def, def->list_info,
 				   key, value, (ARRAY_TYPE(void_array) *)ptr,
 				   (ARRAY_TYPE(void_array) *)change_ptr);
 	case SET_STRLIST: {
 		ctx->prev_info = &strlist_info;
-		if (get_deflist(ctx, link, &strlist_info, key, value,
+		if (get_deflist(ctx, link, NULL, &strlist_info, key, value,
 				(ARRAY_TYPE(void_array) *)ptr, NULL) < 0)
 			return -1;
 		break;
@@ -707,10 +718,10 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 	}
 
 	for (def = info->defines; def->key != NULL; def++) {
-		if (def->type != SET_DEFLIST)
+		if (!SETTING_TYPE_IS_DEFLIST(def->type))
 			continue;
 
-		val = CONST_PTR_OFFSET(set, def->offset);;
+		val = CONST_PTR_OFFSET(set, def->offset);
 		if (!array_is_created(val))
 			continue;
 
@@ -791,6 +802,12 @@ settings_var_expand_info(const struct setting_parser_info *info,
 	for (def = info->defines; def->key != NULL; def++) {
 		value = PTR_OFFSET(set, def->offset);
 		switch (def->type) {
+		case SET_BOOL:
+		case SET_UINT:
+		case SET_STR:
+		case SET_ENUM:
+		case SET_STRLIST:
+			break;
 		case SET_STR_VARS: {
 			const char **val = value;
 
@@ -811,7 +828,8 @@ settings_var_expand_info(const struct setting_parser_info *info,
 			}
 			break;
 		}
-		case SET_DEFLIST: {
+		case SET_DEFLIST:
+		case SET_DEFLIST_UNIQUE: {
 			const ARRAY_TYPE(void_array) *val = value;
 
 			if (!array_is_created(val))
@@ -825,8 +843,6 @@ settings_var_expand_info(const struct setting_parser_info *info,
 			}
 			break;
 		}
-		default:
-			break;
 		}
 	}
 }
@@ -855,6 +871,12 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 	for (def = info->defines; def->key != NULL; def++) {
 		value = CONST_PTR_OFFSET(set, def->offset);
 		switch (def->type) {
+		case SET_BOOL:
+		case SET_UINT:
+		case SET_STR:
+		case SET_ENUM:
+		case SET_STRLIST:
+			break;
 		case SET_STR_VARS: {
 			const char *const *val = value;
 
@@ -873,7 +895,8 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 			}
 			break;
 		}
-		case SET_DEFLIST: {
+		case SET_DEFLIST:
+		case SET_DEFLIST_UNIQUE: {
 			const ARRAY_TYPE(void_array) *val = value;
 
 			if (!array_is_created(val))
@@ -889,8 +912,6 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 			}
 			break;
 		}
-		default:
-			break;
 		}
 	}
 	return FALSE;
@@ -936,6 +957,7 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 		break;
 	}
 	case SET_DEFLIST:
+	case SET_DEFLIST_UNIQUE:
 		return FALSE;
 	case SET_STRLIST: {
 		const ARRAY_TYPE(const_string) *src_arr = src;
@@ -1025,7 +1047,8 @@ settings_changes_dup(const struct setting_parser_info *info,
 		case SET_STRLIST:
 			*((char *)dest) = *((char *)src);
 			break;
-		case SET_DEFLIST: {
+		case SET_DEFLIST:
+		case SET_DEFLIST_UNIQUE: {
 			const ARRAY_TYPE(void_array) *src_arr = src;
 			ARRAY_TYPE(void_array) *dest_arr = dest;
 			void *child_set;
@@ -1268,7 +1291,7 @@ settings_changes_init(const struct setting_parser_info *info,
 
 	dest_set = p_malloc(pool, info->struct_size);
 	for (def = info->defines; def->key != NULL; def++) {
-		if (def->type != SET_DEFLIST)
+		if (!SETTING_TYPE_IS_DEFLIST(def->type))
 			continue;
 
 		src_arr = CONST_PTR_OFFSET(change_set, def->offset);
@@ -1288,6 +1311,119 @@ settings_changes_init(const struct setting_parser_info *info,
 	return dest_set;
 }
 
+static void settings_copy_deflist(const struct setting_define *def,
+				  const struct setting_link *src_link,
+				  struct setting_link *dest_link,
+				  pool_t pool)
+{
+	const ARRAY_TYPE(void_array) *src_arr;
+	ARRAY_TYPE(void_array) *dest_arr;
+	void *const *children, *child_set;
+	unsigned int i, count;
+
+	src_arr = CONST_PTR_OFFSET(src_link->set_struct, def->offset);
+	dest_arr = PTR_OFFSET(dest_link->set_struct, def->offset);
+
+	if (!array_is_created(src_arr))
+		return;
+
+	children = array_get(src_arr, &count);
+	if (!array_is_created(dest_arr))
+		p_array_init(dest_arr, pool, count);
+	for (i = 0; i < count; i++) {
+		child_set = settings_dup(def->list_info, children[i], pool);
+		array_append(dest_arr, &child_set, 1);
+		settings_set_parent(def->list_info, child_set,
+				    dest_link->set_struct);
+	}
+
+	/* copy changes */
+	dest_arr = PTR_OFFSET(dest_link->change_struct, def->offset);
+	if (!array_is_created(dest_arr))
+		p_array_init(dest_arr, pool, count);
+	for (i = 0; i < count; i++) {
+		child_set = settings_changes_init(def->list_info,
+						  children[i], pool);
+		array_append(dest_arr, &child_set, 1);
+	}
+}
+
+static int
+settings_copy_deflist_unique(const struct setting_define *def,
+			     const struct setting_link *src_link,
+			     struct setting_link *dest_link,
+			     pool_t pool, const char **conflict_key_r)
+{
+	struct setting_link child_dest_link, child_src_link;
+	const ARRAY_TYPE(void_array) *src_arr, *src_carr;
+	ARRAY_TYPE(void_array) *dest_arr, *dest_carr;
+	void *const *src_children, *const *src_cchildren;
+	void *const *dest_children, *const *dest_cchildren, *child_set;
+	const char *const *src_namep, *const *dest_namep;
+	unsigned int i, j, src_count, dest_count, ccount;
+	unsigned int type_offset;
+
+	i_assert(def->list_info->type_offset != (size_t)-1);
+
+	src_arr = CONST_PTR_OFFSET(src_link->set_struct, def->offset);
+	src_carr = CONST_PTR_OFFSET(src_link->change_struct, def->offset);
+	dest_arr = PTR_OFFSET(dest_link->set_struct, def->offset);
+	dest_carr = PTR_OFFSET(dest_link->change_struct, def->offset);
+
+	if (!array_is_created(src_arr))
+		return 0;
+	type_offset = def->list_info->type_offset;
+
+	memset(&child_dest_link, 0, sizeof(child_dest_link));
+	memset(&child_src_link, 0, sizeof(child_src_link));
+
+	child_dest_link.info = child_src_link.info = def->list_info;
+
+	src_children = array_get(src_arr, &src_count);
+	src_cchildren = array_get(src_carr, &ccount);
+	i_assert(src_count == ccount);
+	if (!array_is_created(dest_arr)) {
+		p_array_init(dest_arr, pool, src_count);
+		p_array_init(dest_carr, pool, src_count);
+	}
+	for (i = 0; i < src_count; i++) {
+		src_namep = CONST_PTR_OFFSET(src_children[i], type_offset);
+		dest_children = array_get(dest_arr, &dest_count);
+		dest_cchildren = array_get(dest_carr, &ccount);
+		i_assert(dest_count == ccount);
+		for (j = 0; j < dest_count; j++) {
+			dest_namep = CONST_PTR_OFFSET(dest_children[j],
+						      type_offset);
+			if (strcmp(*src_namep, *dest_namep) == 0)
+				break;
+		}
+
+		if (j < dest_count) {
+			/* merge */
+			child_src_link.set_struct = src_children[i];
+			child_src_link.change_struct = src_cchildren[i];
+			child_dest_link.set_struct = dest_children[j];
+			child_dest_link.change_struct = dest_cchildren[j];
+			if (settings_apply(&child_dest_link, &child_src_link,
+					   pool, conflict_key_r) < 0)
+				return -1;
+		} else {
+			/* append */
+			child_set = settings_dup(def->list_info,
+						 src_children[i], pool);
+			array_append(dest_arr, &child_set, 1);
+			settings_set_parent(def->list_info, child_set,
+					    dest_link->set_struct);
+
+			child_set = settings_changes_init(def->list_info,
+							  src_cchildren[i],
+							  pool);
+			array_append(dest_carr, &child_set, 1);
+		}
+	}
+	return 0;
+}
+
 static int
 settings_apply(struct setting_link *dest_link,
 	       const struct setting_link *src_link,
@@ -1295,8 +1431,7 @@ settings_apply(struct setting_link *dest_link,
 {
 	const struct setting_define *def;
 	const void *src, *csrc;
-	void *dest, *cdest, *const *children;
-	unsigned int i, count;
+	void *dest, *cdest;
 
 	for (def = dest_link->info->defines; def->key != NULL; def++) {
 		csrc = CONST_PTR_OFFSET(src_link->change_struct, def->offset);
@@ -1304,6 +1439,8 @@ settings_apply(struct setting_link *dest_link,
 
 		if (def->type == SET_DEFLIST || def->type == SET_STRLIST) {
 			/* just add the new values */
+		} else if (def->type == SET_DEFLIST_UNIQUE) {
+			/* merge sections */
 		} else if (*((const char *)csrc) == 0) {
 			/* unchanged */
 			continue;
@@ -1322,36 +1459,16 @@ settings_apply(struct setting_link *dest_link,
 		src = CONST_PTR_OFFSET(src_link->set_struct, def->offset);
 		dest = PTR_OFFSET(dest_link->set_struct, def->offset);
 
-		if (!setting_copy(def->type, src, dest, pool)) {
-			const ARRAY_TYPE(void_array) *src_arr = src;
-			ARRAY_TYPE(void_array) *dest_arr = dest;
-			void *child_set;
-
-			if (!array_is_created(src_arr))
-				continue;
-
-			children = array_get(src_arr, &count);
-			if (!array_is_created(dest_arr))
-				p_array_init(dest_arr, pool, count);
-			for (i = 0; i < count; i++) {
-				child_set = settings_dup(def->list_info,
-							 children[i], pool);
-				array_append(dest_arr, &child_set, 1);
-				settings_set_parent(def->list_info, child_set,
-						    dest_link->set_struct);
-			}
-
-			/* copy changes */
-			dest_arr = cdest;
-			if (!array_is_created(dest_arr))
-				p_array_init(dest_arr, pool, count);
-			for (i = 0; i < count; i++) {
-				child_set =
-					settings_changes_init(def->list_info,
-							      children[i],
-							      pool);
-				array_append(dest_arr, &child_set, 1);
-			}
+		if (setting_copy(def->type, src, dest, pool)) {
+			/* non-list */
+		} else if (def->type == SET_DEFLIST) {
+			settings_copy_deflist(def, src_link, dest_link, pool);
+		} else {
+			i_assert(def->type == SET_DEFLIST_UNIQUE);
+			if (settings_copy_deflist_unique(def, src_link,
+							 dest_link, pool,
+							 conflict_key_r) < 0)
+				return -1;
 		}
 	}
 	return 0;

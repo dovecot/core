@@ -23,8 +23,11 @@ enum setting_type {
 	SET_STR_VARS, /* string with %variables */
 	SET_ENUM,
 	SET_DEFLIST, /* of type array_t */
+	SET_DEFLIST_UNIQUE,
 	SET_STRLIST /* of type ARRAY_TYPE(const_string) */
 };
+#define SETTING_TYPE_IS_DEFLIST(type) \
+	((type) == SET_DEFLIST || (type) == SET_DEFLIST_UNIQUE)
 
 #define SETTING_DEFINE_LIST_END { 0, NULL, 0, NULL }
 
