@@ -1,11 +1,19 @@
- - mail_uid, mail_gid, mail_chroot not works!
- - Allow %variables in mail_chroot setting
- - what the hell does --with-sql-drivers do?
-    - --with-sql=plugin --with-mysql, --with-sql --with-mysql=plugin, .. ???
+ - change the plugin hooks into some better API that allows adding/removing
+   them and maybe allows also calling them per-user basis to get per-user
+   plugins when multiple users are handled by same process
+ - shutdown_clients
+    - yes should probably also stop proxying
+    - no causes master now to kill the children after 10 secs
+ - verbose_proctitle=yes is now completely useless with imap/pop3 processes
+ - deliver -r <address> used as autoreplies' From-address?
+ - auth: add increasing per-ip failure delay using anvil?
+ - add fd limit checks/warnings
+ - config: ssl=no, ssl_cert=</not-exists fails everything
+ - anvil seems to be getting more useful, maybe never disable it
 
  - config process is handling requests too slowly. maybe add some caching.
  - delete convert plugin, replace with dsync
- - running from inetd
+ - running from inetd?
  - dsync:
    - handle INBOX GUID conflicts.
    - mailbox GUID conflicts: if one mailbox is empty, drop it.
@@ -20,16 +28,13 @@
    - sieve scripts
  - single-dbox is still buggy?
 
- - perhaps home dir shouldn't be chdir()ed to until privileges are actually
-   dropped? it doesn't work if it requires extra group privileges..
- - allow overriding mail_access_groups from userdb.
-    - ldap also kind of supports multiple gids, but not really.
+
+ - ldap: fix multiple-gid support somehow
  - PERMANENTFLAGS returns () with readonly mailboxes, even when private flag
    changes are allowed (because index is stored elsewhere)
  - config protocol should tell after lookups if there's something more specific
    also available so login process wouldn't have to do config lookup for
    each connection if there's no per-IP config.
- - lib-lda/duplicate.c uses home_expand()
  - dbox: we get back to dbox_sync_file() over and over again when expunging..
    especially with a broken guid expunge, it doesn't go away.
  - Add mailbox_list_create_dir() and remove bool directory from mailbox_create()

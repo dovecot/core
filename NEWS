@@ -1,4 +1,4 @@
-v2.0.alpha1 2009-10-12  Timo Sirainen <tss@iki.fi>
+v2.0.UNSTABLE  Timo Sirainen <tss@iki.fi>
 
 	* Global ACLs are now looked up using namespace prefixes. For example
 	  if you previously had INBOX. namespace prefix and a global ACL for
@@ -14,6 +14,7 @@ v2.0.alpha1 2009-10-12  Timo Sirainen <tss@iki.fi>
 	+ doveadm utility can be used to do all kinds of administration
 	  functions. Old dovecotpw and *view utilities now exist in its
 	  subcommands.
+	+ imap and pop3 processes can now handle multiple connections.
 
 v1.2.6 2009-10-05  Timo Sirainen <tss@iki.fi>
 
