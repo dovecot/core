@@ -14,6 +14,7 @@ struct master_service_settings {
 	const char *log_timestamp;
 	const char *syslog_facility;
 	bool version_ignore;
+	bool shutdown_clients;
 };
 
 struct master_service_settings_input {

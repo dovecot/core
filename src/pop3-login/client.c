@@ -11,6 +11,7 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "strescape.h"
+#include "master-service.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
@@ -209,10 +210,16 @@ pop3_client_send_line(struct client *client, enum client_cmd_reply reply,
 	} T_END;
 }
 
+static void pop3_login_die(void)
+{
+	/* do nothing. pop3 connections typically die pretty quick anyway. */
+}
 
 void clients_init(void)
 {
 	login_set_roots = pop3_login_setting_roots;
+	/* override the default login_die() */
+	master_service_set_die_callback(master_service, pop3_login_die);
 }
 
 void clients_deinit(void)

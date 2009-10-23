@@ -12,7 +12,6 @@ enum pop3_client_workarounds {
 
 struct pop3_settings {
 	bool mail_debug;
-	bool shutdown_clients;
 
 	/* pop3: */
 	bool pop3_no_flag_updates;

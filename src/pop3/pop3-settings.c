@@ -21,7 +21,6 @@ static bool pop3_settings_verify(void *_set, pool_t pool,
 
 static struct setting_define pop3_setting_defines[] = {
 	DEF(SET_BOOL, mail_debug),
-	DEF(SET_BOOL, shutdown_clients),
 
 	DEF(SET_BOOL, pop3_no_flag_updates),
 	DEF(SET_BOOL, pop3_enable_last),
@@ -36,7 +35,6 @@ static struct setting_define pop3_setting_defines[] = {
 
 static struct pop3_settings pop3_default_settings = {
 	MEMBER(mail_debug) FALSE,
-	MEMBER(shutdown_clients) TRUE,
 
 	MEMBER(pop3_no_flag_updates) FALSE,
 	MEMBER(pop3_enable_last) FALSE,

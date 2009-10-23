@@ -15,6 +15,11 @@
 
 static struct module *modules;
 
+static void dict_die(void)
+{
+	/* hope that other processes relying on us will die first. */
+}
+
 static void client_connected(const struct master_service_connection *conn)
 {
 	dict_connection_create(conn->fd);
@@ -86,6 +91,7 @@ int main(int argc, char *argv[])
 	master_service_init_log(master_service, "dict: ");
 	main_preinit();
 	master_service_init_finish(master_service);
+	master_service_set_die_callback(master_service, dict_die);
 
 	main_init();
 	master_service_run(master_service, client_connected);

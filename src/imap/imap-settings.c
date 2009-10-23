@@ -21,7 +21,6 @@ static bool imap_settings_verify(void *_set, pool_t pool,
 
 static struct setting_define imap_setting_defines[] = {
 	DEF(SET_BOOL, mail_debug),
-	DEF(SET_BOOL, shutdown_clients),
 
 	DEF(SET_UINT, imap_max_line_length),
 	DEF(SET_UINT, imap_idle_notify_interval),
@@ -36,7 +35,6 @@ static struct setting_define imap_setting_defines[] = {
 
 static struct imap_settings imap_default_settings = {
 	MEMBER(mail_debug) FALSE,
-	MEMBER(shutdown_clients) TRUE,
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
 	   break large message sets to multiple commands, so we're pretty

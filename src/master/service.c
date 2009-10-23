@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#define SERVICE_DIE_TIMEOUT_MSECS (1000*10)
+#define SERVICE_DIE_TIMEOUT_MSECS (1000*60)
 #define SERVICE_LOGIN_NOTIFY_MIN_INTERVAL_SECS 2
 
 struct hash_table *service_pids;
@@ -520,7 +520,8 @@ void services_destroy(struct service_list *service_list)
 	services_monitor_stop(service_list);
 	service_list_deinit_anvil(service_list);
 
-	if (service_list->refcount > 1) {
+	if (service_list->refcount > 1 &&
+	    service_list->service_set->shutdown_clients) {
 		service_list->to_kill =
 			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
 				    services_kill_timeout, service_list);

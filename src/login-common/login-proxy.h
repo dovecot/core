@@ -60,6 +60,8 @@ unsigned int login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;
 enum login_proxy_ssl_flags
 login_proxy_get_ssl_flags(const struct login_proxy *proxy) ATTR_PURE;
 
+void login_proxy_kill_idle(void);
+
 void login_proxy_init(void);
 void login_proxy_deinit(void);
 

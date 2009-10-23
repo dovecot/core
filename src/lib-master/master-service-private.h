@@ -35,6 +35,9 @@ struct master_service {
 	unsigned int total_available_count;
 	struct master_status master_status;
 
+	void (*die_callback)(void);
+	struct timeout *to_die;
+
 	void (*avail_overflow_callback)(void);
 	struct timeout *to_overflow_state;
 

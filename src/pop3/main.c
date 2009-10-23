@@ -25,6 +25,11 @@ static struct master_login *master_login = NULL;
 
 void (*hook_client_created)(struct client **client) = NULL;
 
+static void pop3_die(void)
+{
+	/* do nothing. pop3 connections typically die pretty quick anyway. */
+}
+
 static void client_add_input(struct client *client, const buffer_t *buf)
 {
 	struct ostream *output;
@@ -57,12 +62,9 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (mail_storage_service_lookup_next(storage_service, input,
 					     &user, &mail_user, error_r) <= 0)
 		return -1;
-	set = mail_storage_service_user_get_set(user)[1];
-
 	restrict_access_allow_coredumps(TRUE);
-	if (set->shutdown_clients)
-		master_service_set_die_with_master(master_service, TRUE);
 
+	set = mail_storage_service_user_get_set(user)[1];
 	client = client_create(fd_in, fd_out, mail_user, user, set);
 	T_BEGIN {
 		client_add_input(client, input_buf);
@@ -166,6 +168,7 @@ int main(int argc, char *argv[])
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 	master_service_init_finish(master_service);
+	master_service_set_die_callback(master_service, pop3_die);
 
 	storage_service =
 		mail_storage_service_init(master_service,

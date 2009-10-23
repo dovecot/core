@@ -15,6 +15,7 @@
 
 #define MAX_PROXY_INPUT_SIZE 4096
 #define OUTBUF_THRESHOLD 1024
+#define LOGIN_PROXY_DIE_IDLE_SECS 2
 
 struct login_proxy {
 	struct login_proxy *prev, *next;
@@ -25,6 +26,7 @@ struct login_proxy {
 	struct istream *server_input;
 	struct ostream *client_output, *server_output;
 	struct ssl_proxy *ssl_server_proxy;
+	time_t last_io;
 
 	struct timeval created;
 	struct timeout *to;
@@ -49,6 +51,7 @@ static void server_input(struct login_proxy *proxy)
 	unsigned char buf[OUTBUF_THRESHOLD];
 	ssize_t ret;
 
+	proxy->last_io = ioloop_time;
 	if (o_stream_get_buffer_used_size(proxy->client_output) >
 	    OUTBUF_THRESHOLD) {
 		/* client's output buffer is already quite full.
@@ -67,6 +70,7 @@ static void proxy_client_input(struct login_proxy *proxy)
 	unsigned char buf[OUTBUF_THRESHOLD];
 	ssize_t ret;
 
+	proxy->last_io = ioloop_time;
 	if (o_stream_get_buffer_used_size(proxy->server_output) >
 	    OUTBUF_THRESHOLD) {
 		/* proxy's output buffer is already quite full.
@@ -82,6 +86,7 @@ static void proxy_client_input(struct login_proxy *proxy)
 
 static int server_output(struct login_proxy *proxy)
 {
+	proxy->last_io = ioloop_time;
 	if (o_stream_flush(proxy->server_output) < 0) {
                 login_proxy_free(&proxy);
 		return 1;
@@ -100,6 +105,7 @@ static int server_output(struct login_proxy *proxy)
 
 static int proxy_client_output(struct login_proxy *proxy)
 {
+	proxy->last_io = ioloop_time;
 	if (o_stream_flush(proxy->client_output) < 0) {
                 login_proxy_free(&proxy);
 		return 1;
@@ -432,6 +438,32 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	proxy->server_fd = fd;
 	proxy_plain_connected(proxy);
 	return 0;
+}
+
+static void proxy_kill_idle(struct login_proxy *proxy)
+{
+	login_proxy_free(&proxy);
+}
+
+void login_proxy_kill_idle(void)
+{
+	struct login_proxy *proxy, *next;
+	time_t now = time(NULL);
+	time_t stop_timestamp = now - LOGIN_PROXY_DIE_IDLE_SECS;
+	unsigned int stop_msecs;
+
+	for (proxy = login_proxies; proxy != NULL; proxy = next) {
+		next = proxy->next;
+
+		if (proxy->last_io <= stop_timestamp)
+			proxy_kill_idle(proxy);
+		else {
+			i_assert(proxy->to == NULL);
+			stop_msecs = (proxy->last_io - stop_timestamp) * 1000;
+			proxy->to = timeout_add(stop_msecs,
+						proxy_kill_idle, proxy);
+		}
+	}
 }
 
 void login_proxy_init(void)

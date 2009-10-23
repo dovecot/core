@@ -27,6 +27,11 @@ void **global_other_settings;
 
 static bool ssl_connections = FALSE;
 
+static void login_die(void)
+{
+	login_proxy_kill_idle();
+}
+
 static void client_connected(const struct master_service_connection *conn)
 {
 	struct client *client;
@@ -138,6 +143,7 @@ static void main_init(void)
 
 	master_service_set_avail_overflow_callback(master_service,
 						   client_destroy_oldest);
+	master_service_set_die_callback(master_service, login_die);
 
 	auth_client = auth_client_init("auth", (unsigned int)getpid(), FALSE);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);

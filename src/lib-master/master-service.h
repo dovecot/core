@@ -65,6 +65,11 @@ void master_service_init_log(struct master_service *service,
    Normally all existing clients are handled first. */
 void master_service_set_die_with_master(struct master_service *service,
 					bool set);
+/* Call the given when master connection dies and die_with_master is TRUE.
+   The callback is expected to shut down the service somewhat soon or it's
+   done forcibly. If NULL, the service is stopped immediately. */
+void master_service_set_die_callback(struct master_service *service,
+				     void (*callback)(void));
 /* Call the given callback when there are no available connections and master
    has indicated that it can't create any more processes to handle requests.
    The callback could decide to kill one of the existing connections. */

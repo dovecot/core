@@ -32,6 +32,10 @@
    just a fallback against race conditions. */
 #define MASTER_SERVICE_STATE_CHECK_MSECS 1000
 
+/* If die callback hasn't managed to stop the service for this many seconds,
+   force it. */
+#define MASTER_SERVICE_DIE_TIMEOUT_MSECS (30*1000)
+
 struct master_service *master_service;
 
 static void master_service_refresh_login_state(struct master_service *service);
@@ -221,6 +225,12 @@ void master_service_set_die_with_master(struct master_service *service,
 	service->die_with_master = set;
 }
 
+void master_service_set_die_callback(struct master_service *service,
+				     void (*callback)(void))
+{
+	service->die_callback = callback;
+}
+
 bool master_service_parse_option(struct master_service *service,
 				 int opt, const char *arg)
 {
@@ -257,11 +267,19 @@ bool master_service_parse_option(struct master_service *service,
 
 static void master_service_error(struct master_service *service)
 {
+	io_listeners_remove(service);
 	if (service->master_status.available_count ==
-	    service->total_available_count || service->die_with_master)
-		master_service_stop(service);
-	else
-		io_listeners_remove(service);
+	    service->total_available_count || service->die_with_master) {
+		if (service->die_callback == NULL)
+			master_service_stop(service);
+		else {
+			service->to_die =
+				timeout_add(MASTER_SERVICE_DIE_TIMEOUT_MSECS,
+					    master_service_stop,
+					    service);
+			service->die_callback();
+		}
+	}
 }
 
 static void master_status_error(void *context)
@@ -572,6 +590,8 @@ void master_service_deinit(struct master_service **_service)
 	io_listeners_remove(service);
 
 	master_service_close_config_fd(service);
+	if (service->to_die != NULL)
+		timeout_remove(&service->to_die);
 	if (service->to_overflow_state != NULL)
 		timeout_remove(&service->to_overflow_state);
 	if (service->io_status_error != NULL)

@@ -31,6 +31,7 @@ static struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, log_timestamp),
 	DEF(SET_STR, syslog_facility),
 	DEF(SET_BOOL, version_ignore),
+	DEF(SET_BOOL, shutdown_clients),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -41,7 +42,8 @@ static struct master_service_settings master_service_default_settings = {
 	MEMBER(debug_log_path) "",
 	MEMBER(log_timestamp) DEFAULT_FAILURE_STAMP_FORMAT,
 	MEMBER(syslog_facility) "mail",
-	MEMBER(version_ignore) FALSE
+	MEMBER(version_ignore) FALSE,
+	MEMBER(shutdown_clients) TRUE
 };
 
 struct setting_parser_info master_service_setting_parser_info = {
@@ -294,6 +296,9 @@ int master_service_settings_read(struct master_service *service,
 		/* running standalone. we want to ignore plugin versions. */
 		service->version_string = NULL;
 	}
+
+	if (service->set->shutdown_clients)
+		master_service_set_die_with_master(master_service, TRUE);
 
 	/* if we change any settings afterwards, they're in expanded form.
 	   especially all settings from userdb are already expanded. */

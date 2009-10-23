@@ -23,10 +23,43 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_UID_ENV) == NULL)
 
+#define IMAP_DIE_IDLE_SECS 10
+
 static struct mail_storage_service_ctx *storage_service;
 static struct master_login *master_login = NULL;
 
 void (*hook_client_created)(struct client **client) = NULL;
+
+static void client_kill_idle(struct client *client)
+{
+	if (client->output_lock != NULL)
+		return;
+
+	client_send_line(client, "* BYE Server shutting down.");
+	client_destroy(client, "Server shutting down.");
+}
+
+static void imap_die(void)
+{
+	struct client *client, *next;
+	time_t last_io, now = time(NULL);
+	time_t stop_timestamp = now - IMAP_DIE_IDLE_SECS;
+	unsigned int stop_msecs;
+
+	for (client = imap_clients; client != NULL; client = next) {
+		next = client->next;
+
+		last_io = I_MAX(client->last_input, client->last_output);
+		if (last_io <= stop_timestamp)
+			client_kill_idle(client);
+		else {
+			timeout_remove(&client->to_idle);
+			stop_msecs = (last_io - stop_timestamp) * 1000;
+			client->to_idle = timeout_add(stop_msecs,
+						      client_kill_idle, client);
+		}
+	}
+}
 
 static void client_add_input(struct client *client, const buffer_t *buf)
 {
@@ -94,12 +127,9 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (mail_storage_service_lookup_next(storage_service, input,
 					     &user, &mail_user, error_r) <= 0)
 		return -1;
-	set = mail_storage_service_user_get_set(user)[1];
-
 	restrict_access_allow_coredumps(TRUE);
-	if (set->shutdown_clients)
-		master_service_set_die_with_master(master_service, TRUE);
 
+	set = mail_storage_service_user_get_set(user)[1];
 	client = client_create(fd_in, fd_out, mail_user, user, set);
 	T_BEGIN {
 		client_add_input(client, input_buf);
@@ -203,6 +233,7 @@ int main(int argc, char *argv[])
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 	master_service_init_finish(master_service);
+	master_service_set_die_callback(master_service, imap_die);
 
 	/* plugins may want to add commands, so this needs to be called early */
 	commands_init();
