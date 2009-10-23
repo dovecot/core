@@ -8,6 +8,8 @@ struct mail_deliver_context {
 	pool_t pool;
 	const struct lda_settings *set;
 
+	struct duplicate_context *dup_ctx;
+
 	/* Mail to save */
 	struct mail *src_mail;
 	/* Envelope sender, if known. */

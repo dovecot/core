@@ -10,6 +10,7 @@
 #include "lda-settings.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
+#include "duplicate.h"
 #include "mail-deliver.h"
 
 deliver_mail_func_t *deliver_mail = NULL;
@@ -247,6 +248,7 @@ int mail_deliver(struct mail_deliver_context *ctx,
 	if (deliver_mail == NULL)
 		ret = -1;
 	else {
+		ctx->dup_ctx = duplicate_init(ctx->dest_user);
 		if (deliver_mail(ctx, storage_r) <= 0) {
 			/* if message was saved, don't bounce it even though
 			   the script failed later. */
@@ -255,6 +257,7 @@ int mail_deliver(struct mail_deliver_context *ctx,
 			/* success. message may or may not have been saved. */
 			ret = 0;
 		}
+		duplicate_deinit(&ctx->dup_ctx);
 	}
 
 	if (ret < 0 && !ctx->tried_default_save) {

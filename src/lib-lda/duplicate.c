@@ -7,6 +7,7 @@
 #include "home-expand.h"
 #include "file-dotlock.h"
 #include "hash.h"
+#include "mail-user.h"
 #include "mail-storage-settings.h"
 #include "duplicate.h"
 
@@ -14,7 +15,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#define DUPLICATE_PATH "~/.dovecot.lda-dupes"
+#define DUPLICATE_FNAME ".dovecot.lda-dupes"
 #define COMPRESS_PERCENTAGE 10
 #define DUPLICATE_BUFSIZE 4096
 #define DUPLICATE_VERSION 2
@@ -47,7 +48,13 @@ struct duplicate_file {
 	unsigned int changed:1;
 };
 
-static struct dotlock_settings duplicate_dotlock_set = {
+struct duplicate_context {
+	char *path;
+	struct dotlock_settings dotlock_set;
+	struct duplicate_file *file;
+};
+
+static const struct dotlock_settings default_duplicate_dotlock_set = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 
@@ -59,7 +66,6 @@ static struct dotlock_settings duplicate_dotlock_set = {
 
 	MEMBER(use_excl_lock) FALSE
 };
-static struct duplicate_file *duplicate_file = NULL;
 
 static int duplicate_cmp(const void *p1, const void *p2)
 {
@@ -200,7 +206,7 @@ static int duplicate_read(struct duplicate_file *file)
 	return 0;
 }
 
-static struct duplicate_file *duplicate_new(const char *path)
+static struct duplicate_file *duplicate_file_new(struct duplicate_context *ctx)
 {
 	struct duplicate_file *file;
 	pool_t pool;
@@ -209,18 +215,18 @@ static struct duplicate_file *duplicate_new(const char *path)
 
 	file = p_new(pool, struct duplicate_file, 1);
 	file->pool = pool;
-	file->path = p_strdup(pool, path);
-	file->new_fd = file_dotlock_open(&duplicate_dotlock_set, path, 0,
+	file->path = p_strdup(pool, ctx->path);
+	file->new_fd = file_dotlock_open(&ctx->dotlock_set, file->path, 0,
 					 &file->dotlock);
 	if (file->new_fd == -1)
-		i_error("file_dotlock_create(%s) failed: %m", path);
+		i_error("file_dotlock_create(%s) failed: %m", file->path);
 	file->hash = hash_table_create(default_pool, pool, 0,
 				       duplicate_hash, duplicate_cmp);
 	(void)duplicate_read(file);
 	return file;
 }
 
-static void duplicate_free(struct duplicate_file **_file)
+static void duplicate_file_free(struct duplicate_file **_file)
 {
 	struct duplicate_file *file = *_file;
 
@@ -232,52 +238,54 @@ static void duplicate_free(struct duplicate_file **_file)
 	pool_unref(&file->pool);
 }
 
-int duplicate_check(const void *id, size_t id_size, const char *user)
+int duplicate_check(struct duplicate_context *ctx,
+		    const void *id, size_t id_size, const char *user)
 {
 	struct duplicate d;
 
-	if (duplicate_file == NULL)
-		duplicate_file = duplicate_new(home_expand(DUPLICATE_PATH));
+	if (ctx->file == NULL)
+		ctx->file = duplicate_file_new(ctx);
 
 	d.id = id;
 	d.id_size = id_size;
 	d.user = user;
 
-	return hash_table_lookup(duplicate_file->hash, &d) != NULL;
+	return hash_table_lookup(ctx->file->hash, &d) != NULL;
 }
 
-void duplicate_mark(const void *id, size_t id_size,
+void duplicate_mark(struct duplicate_context *ctx,
+		    const void *id, size_t id_size,
                     const char *user, time_t timestamp)
 {
 	struct duplicate *d;
 	void *new_id;
 
-	if (duplicate_file == NULL)
-		duplicate_file = duplicate_new(home_expand(DUPLICATE_PATH));
+	if (ctx->file == NULL)
+		ctx->file = duplicate_file_new(ctx);
 
-	new_id = p_malloc(duplicate_file->pool, id_size);
+	new_id = p_malloc(ctx->file->pool, id_size);
 	memcpy(new_id, id, id_size);
 
-	d = p_new(duplicate_file->pool, struct duplicate, 1);
+	d = p_new(ctx->file->pool, struct duplicate, 1);
 	d->id = new_id;
 	d->id_size = id_size;
-	d->user = p_strdup(duplicate_file->pool, user);
+	d->user = p_strdup(ctx->file->pool, user);
 	d->time = timestamp;
 
-	duplicate_file->changed = TRUE;
-	hash_table_insert(duplicate_file->hash, d, d);
+	ctx->file->changed = TRUE;
+	hash_table_insert(ctx->file->hash, d, d);
 }
 
-void duplicate_flush(void)
+void duplicate_flush(struct duplicate_context *ctx)
 {
-	struct duplicate_file *file = duplicate_file;
+	struct duplicate_file *file = ctx->file;
 	struct duplicate_file_header hdr;
 	struct duplicate_record_header rec;
 	struct ostream *output;
         struct hash_iterate_context *iter;
 	void *key, *value;
 
-	if (duplicate_file == NULL || !file->changed || file->new_fd == -1)
+	if (file == NULL || !file->changed || file->new_fd == -1)
 		return;
 
 	memset(&hdr, 0, sizeof(hdr));
@@ -308,16 +316,34 @@ void duplicate_flush(void)
 	file->new_fd = -1;
 }
 
-void duplicate_init(const struct mail_storage_settings *set)
+struct duplicate_context *duplicate_init(struct mail_user *user)
 {
-	duplicate_dotlock_set.use_excl_lock = set->dotlock_use_excl;
-	duplicate_dotlock_set.nfs_flush = set->mail_nfs_storage;
+	struct duplicate_context *ctx;
+	const struct mail_storage_settings *mail_set;
+	const char *home;
+
+	if (mail_user_get_home(user, &home) < 0)
+		i_fatal("User %s doesn't have home dir set", user->username);
+
+	ctx = i_new(struct duplicate_context, 1);
+	ctx->path = i_strconcat(home, "/"DUPLICATE_FNAME, NULL);
+	ctx->dotlock_set = default_duplicate_dotlock_set;
+
+	mail_set = mail_user_set_get_storage_set(user);
+	ctx->dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
+	ctx->dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
+	return ctx;
 }
 
-void duplicate_deinit(void)
+void duplicate_deinit(struct duplicate_context **_ctx)
 {
-	if (duplicate_file != NULL) {
-		duplicate_flush();
-		duplicate_free(&duplicate_file);
+	struct duplicate_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	if (ctx->file != NULL) {
+		duplicate_flush(ctx);
+		duplicate_file_free(&ctx->file);
 	}
+	i_free(ctx->path);
+	i_free(ctx);
 }

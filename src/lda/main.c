@@ -24,7 +24,6 @@
 #include "raw-storage.h"
 #include "mail-deliver.h"
 #include "mail-send.h"
-#include "duplicate.h"
 #include "mbox-from.h"
 #include "lda-settings.h"
 
@@ -393,7 +392,6 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 	ctx.set = mail_storage_service_user_get_set(service_user)[1];
-        duplicate_init(mail_user_set_get_storage_set(ctx.dest_user));
 
 	/* create a separate mail user for the internal namespace */
 	if (master_service_set(master_service,
@@ -491,7 +489,6 @@ int main(int argc, char *argv[])
 
 	mail_user_unref(&ctx.dest_user);
 	mail_user_unref(&raw_mail_user);
-	duplicate_deinit();
 	pool_unref(&ctx.pool);
 
 	mail_storage_service_user_free(&service_user);
