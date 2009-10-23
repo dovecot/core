@@ -49,6 +49,9 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		   const struct ip_addr *my_ip);
 /* Connect to named UNIX socket */
 int net_connect_unix(const char *path);
+/* Try to connect to UNIX socket for give number of seconds when connect()
+   returns EAGAIN or ECONNREFUSED. */
+int net_connect_unix_with_retries(const char *path, unsigned int msecs);
 /* Disconnect socket */
 void net_disconnect(int fd);
 

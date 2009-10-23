@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "close-keep-errno.h"
 #include "fd-set-nonblock.h"
+#include "time-util.h"
 #include "network.h"
 
 #include <stdlib.h>
@@ -246,6 +247,27 @@ int net_connect_unix(const char *path)
 		return -1;
 	}
 
+	return fd;
+}
+
+int net_connect_unix_with_retries(const char *path, unsigned int msecs)
+{
+	struct timeval start, now;
+	int fd;
+
+	if (gettimeofday(&start, NULL) < 0)
+		i_panic("gettimeofday() failed: %m");
+
+	do {
+		fd = net_connect_unix(path);
+		if (fd != -1 || (errno != EAGAIN && errno != ECONNREFUSED))
+			break;
+
+		/* busy. wait for a while. */
+		usleep(((rand() % 10) + 1) * 10000);
+		if (gettimeofday(&now, NULL) < 0)
+			i_panic("gettimeofday() failed: %m");
+	} while (timeval_diff_msecs(&now, &start) < (int)msecs);
 	return fd;
 }
 
