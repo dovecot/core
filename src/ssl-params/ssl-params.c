@@ -133,6 +133,8 @@ static void ssl_params_set_timeout(struct ssl_params *param)
 
 	if (param->to_rebuild != NULL)
 		timeout_remove(&param->to_rebuild);
+	if (param->set.ssl_parameters_regenerate == 0)
+		return;
 
 	next_rebuild = param->last_mtime +
 		param->set.ssl_parameters_regenerate * 3600;
