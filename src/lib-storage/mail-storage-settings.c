@@ -113,7 +113,7 @@ struct setting_parser_info mail_namespace_setting_parser_info = {
 	MEMBER(defines) mail_namespace_setting_defines,
 	MEMBER(defaults) &mail_namespace_default_settings,
 
-	MEMBER(type_offset) offsetof(struct mail_namespace_settings, type),
+	MEMBER(type_offset) offsetof(struct mail_namespace_settings, prefix),
 	MEMBER(struct_size) sizeof(struct mail_namespace_settings),
 
 	MEMBER(parent_offset) offsetof(struct mail_namespace_settings, user_set),
