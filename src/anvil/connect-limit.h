@@ -11,5 +11,6 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 			      const char *ident);
 void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid);
+void connect_limit_dump(struct connect_limit *limit, struct ostream *output);
 
 #endif

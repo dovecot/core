@@ -2,6 +2,9 @@
 
 #include "common.h"
 #include "hash.h"
+#include "str.h"
+#include "strescape.h"
+#include "ostream.h"
 #include "connect-limit.h"
 
 struct ident_pid {
@@ -163,4 +166,24 @@ void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
 		}
 	}
 	hash_table_iterate_deinit(&iter);
+}
+
+void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
+	string_t *str = t_str_new(256);
+
+	iter = hash_table_iterate_init(limit->ident_pid_hash);
+	while (hash_table_iterate(iter, &key, &value)) {
+		struct ident_pid *i = key;
+
+		str_truncate(str, 0);
+		str_tabescape_write(str, i->ident);
+		str_printfa(str, "\t%ld\t%u\n", (long)i->pid, i->refcount);
+		if (o_stream_send(output, str_data(str), str_len(str)) < 0)
+			break;
+	}
+	hash_table_iterate_deinit(&iter);
+	(void)o_stream_send(output, "\n", 1);
 }

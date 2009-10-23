@@ -66,6 +66,9 @@ anvil_connection_request(struct anvil_connection *conn,
 		pid = strtol(args[0], NULL, 10);
 		connect_limit_disconnect(connect_limit, pid, args[1]);
 		return 0;
+	} else if (strcmp(cmd, "CONNECT-DUMP") == 0) {
+		connect_limit_dump(connect_limit, conn->output);
+		return 0;
 	} else if (strcmp(cmd, "KILL") == 0) {
 		if (args[0] == NULL) {
 			*error_r = "KILL: Not enough parameters";
