@@ -114,8 +114,10 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->argc = *argc;
 	service->argv = *argv;
 	service->name = i_strdup(name);
-	service->getopt_str =
-		i_strconcat(master_service_getopt_string(), getopt_str, NULL);
+	/* keep getopt_str first in case it contains "+" */
+	service->getopt_str = getopt_str == NULL ?
+		i_strdup(master_service_getopt_string()) :
+		i_strconcat(getopt_str, master_service_getopt_string(), NULL);
 	service->flags = flags;
 	service->ioloop = io_loop_create();
 	service->service_count_left = (unsigned int)-1;
