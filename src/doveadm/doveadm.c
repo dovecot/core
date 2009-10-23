@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
 	cmd_name = argv[optind];
 	argc -= optind;
 	argv += optind;
+	optind = 0;
 
 	master_service_init_finish(master_service);
 	if (!doveadm_try_run(cmd_name, argc, argv) &&
