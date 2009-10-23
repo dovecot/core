@@ -73,7 +73,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {
 		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\t", ident, "/imap\n", NULL));
+			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL));
 		client->anvil_sent = TRUE;
 	}
 
@@ -185,8 +185,8 @@ void client_destroy(struct client *client, const char *reason)
 	}
 	if (client->anvil_sent) {
 		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\t",
-			mail_user_get_anvil_userip_ident(client->user), "/imap"
+			"DISCONNECT\t", my_pid, "\timap/",
+			mail_user_get_anvil_userip_ident(client->user),
 			"\n", NULL));
 	}
 	mail_user_unref(&client->user);

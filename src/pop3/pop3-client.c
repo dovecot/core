@@ -262,7 +262,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {
 		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\t", ident, "/pop3\n", NULL));
+			"CONNECT\t", my_pid, "\tpop3/", ident, "\n", NULL));
 		client->anvil_sent = TRUE;
 	}
 
@@ -346,8 +346,8 @@ void client_destroy(struct client *client, const char *reason)
 		mailbox_close(&client->mailbox);
 	if (client->anvil_sent) {
 		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\t",
-			mail_user_get_anvil_userip_ident(client->user), "/pop3"
+			"DISCONNECT\t", my_pid, "\tpop3/",
+			mail_user_get_anvil_userip_ident(client->user),
 			"\n", NULL));
 	}
 	mail_user_unref(&client->user);

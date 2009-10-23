@@ -143,9 +143,9 @@ static bool anvil_has_too_many_connections(struct client *client)
 	if (client->set->mail_max_userip_connections == 0)
 		return FALSE;
 
-	ident = t_strconcat("LOOKUP\t", net_ip2addr(&client->ip), "/",
-			    str_tabescape(client->virtual_user), "/",
-			    login_protocol, "\n", NULL);
+	ident = t_strconcat("LOOKUP\t", login_protocol, "/",
+			    net_ip2addr(&client->ip), "/",
+			    str_tabescape(client->virtual_user), "\n", NULL);
 	if (write_full(anvil_fd, ident, strlen(ident)) < 0) {
 		if (errno == EPIPE) {
 			/* anvil process was probably recreated, don't bother
