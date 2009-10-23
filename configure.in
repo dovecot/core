@@ -224,20 +224,6 @@ AC_ARG_WITH(storages,
 	mail_storages="shared maildir mbox dbox mdbox cydir")
 AC_SUBST(mail_storages)
 
-AC_ARG_WITH(sql-drivers,
-[  --with-sql-drivers      Build with specified SQL drivers (all)], [
-	sql_drivers=`echo "$withval"|sed 's/,/ /g'` ],
-	sql_drivers="all")
-
-if test "$sql_drivers" = "all" || test "$sql_drivers" = "yes"; then
-  all_sql_drivers=yes
-  sql_drivers=
-elif test "$sql_drivers" = "no"; then
-  # --without-sql-drivers given
-  sql_drivers=
-fi
-not_sql_drivers=
-
 AC_ARG_WITH(moduledir,
 [  --with-moduledir=DIR    Base directory for dynamically loadable modules],
 	moduledir="$withval",
@@ -2073,10 +2059,6 @@ if test $want_pgsql != no; then
 		  PGSQL_LIBS="$PGSQL_LIBS -lpq"
 		  AC_DEFINE(HAVE_PGSQL,, Build with PostgreSQL support)
 		  found_sql_drivers="$found_sql_drivers pgsql"
-
-		  if test "$all_sql_drivers" = "yes"; then
-		    sql_drivers="$sql_drivers pgsql"
-		  fi
 	  ], [
 	    if test $want_pgsql = yes; then
 	      AC_ERROR([Can't build with PostgreSQL support: libpq-fe.h not found])
@@ -2189,10 +2171,11 @@ else
 	AC_DEFINE(SQL_DRIVER_PLUGINS,, Build SQL drivers as plugins)
 fi
 
+sql_drivers=
+not_sql_drivers=
+
 if test "$found_sql_drivers" != "" || test "$want_sql" != "no"; then
-	if test "$all_sql_drivers" = "yes"; then
-	  sql_drivers="$found_sql_drivers"
-	fi
+	sql_drivers="$found_sql_drivers"
 
 	AC_DEFINE(PASSDB_SQL,, Build with SQL support)
 	AC_DEFINE(USERDB_SQL,, Build with SQL support)
