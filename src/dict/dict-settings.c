@@ -1,8 +1,47 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "settings-parser.h"
+#include "service-settings.h"
 #include "dict-settings.h"
+
+/* <settings checks> */
+static struct file_listener_settings dict_unix_listeners_array[] = {
+	{ "dict", 0600, "", "" }
+};
+static struct file_listener_settings *dict_unix_listeners[] = {
+	&dict_unix_listeners_array[0]
+};
+static buffer_t dict_unix_listeners_buf = {
+	dict_unix_listeners, sizeof(dict_unix_listeners), { 0, }
+};
+/* </settings checks> */
+
+struct service_settings dict_service_settings = {
+	MEMBER(name) "dict",
+	MEMBER(protocol) "",
+	MEMBER(type) "",
+	MEMBER(executable) "dict",
+	MEMBER(user) "dovecot",
+	MEMBER(group) "",
+	MEMBER(privileged_group) "",
+	MEMBER(extra_groups) "",
+	MEMBER(chroot) "",
+
+	MEMBER(drop_priv_before_exec) FALSE,
+
+	MEMBER(process_min_avail) 0,
+	MEMBER(process_limit) 0,
+	MEMBER(client_limit) 0,
+	MEMBER(service_count) 0,
+	MEMBER(vsz_limit) -1U,
+
+	MEMBER(unix_listeners) { { &dict_unix_listeners_buf,
+				   sizeof(dict_unix_listeners[0]) } },
+	MEMBER(fifo_listeners) ARRAY_INIT,
+	MEMBER(inet_listeners) ARRAY_INIT
+};
 
 #undef DEF
 #define DEF(type, name) \

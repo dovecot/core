@@ -4,6 +4,7 @@
 #include "array.h"
 #include "settings-parser.h"
 #include "master-service-settings.h"
+#include "service-settings.h"
 #include "auth-settings.h"
 
 #include <stddef.h>
@@ -12,6 +13,84 @@ extern const struct setting_parser_info auth_setting_parser_info;
 extern const struct setting_parser_info auth_root_setting_parser_info;
 
 static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
+
+/* <settings checks> */
+static struct file_listener_settings auth_unix_listeners_array[] = {
+	{ "login/auth", 0666, "", "" },
+	{ "auth-userdb", 0600, "", "" },
+	{ "auth-master", 0600, "", "" }
+};
+static struct file_listener_settings *auth_unix_listeners[] = {
+	&auth_unix_listeners_array[0],
+	&auth_unix_listeners_array[1],
+	&auth_unix_listeners_array[2]
+};
+static buffer_t auth_unix_listeners_buf = {
+	auth_unix_listeners, sizeof(auth_unix_listeners), { 0, }
+};
+/* </settings checks> */
+
+struct service_settings auth_service_settings = {
+	MEMBER(name) "auth",
+	MEMBER(protocol) "",
+	MEMBER(type) "",
+	MEMBER(executable) "auth",
+	MEMBER(user) "",
+	MEMBER(group) "",
+	MEMBER(privileged_group) "",
+	MEMBER(extra_groups) "",
+	MEMBER(chroot) "",
+
+	MEMBER(drop_priv_before_exec) FALSE,
+
+	MEMBER(process_min_avail) 0,
+	MEMBER(process_limit) 1,
+	MEMBER(client_limit) 0,
+	MEMBER(service_count) 0,
+	MEMBER(vsz_limit) -1U,
+
+	MEMBER(unix_listeners) { { &auth_unix_listeners_buf,
+				   sizeof(auth_unix_listeners[0]) } },
+	MEMBER(fifo_listeners) ARRAY_INIT,
+	MEMBER(inet_listeners) ARRAY_INIT
+};
+
+/* <settings checks> */
+static struct file_listener_settings auth_worker_unix_listeners_array[] = {
+	{ "auth-worker", 0600, "", "" }
+};
+static struct file_listener_settings *auth_worker_unix_listeners[] = {
+	&auth_worker_unix_listeners_array[0]
+};
+static buffer_t auth_worker_unix_listeners_buf = {
+	auth_worker_unix_listeners, sizeof(auth_worker_unix_listeners), { 0, }
+};
+/* </settings checks> */
+
+struct service_settings auth_worker_service_settings = {
+	MEMBER(name) "auth-worker",
+	MEMBER(protocol) "",
+	MEMBER(type) "",
+	MEMBER(executable) "auth -w",
+	MEMBER(user) "",
+	MEMBER(group) "",
+	MEMBER(privileged_group) "",
+	MEMBER(extra_groups) "",
+	MEMBER(chroot) "",
+
+	MEMBER(drop_priv_before_exec) FALSE,
+
+	MEMBER(process_min_avail) 0,
+	MEMBER(process_limit) 0,
+	MEMBER(client_limit) 1,
+	MEMBER(service_count) 0,
+	MEMBER(vsz_limit) -1U,
+
+	MEMBER(unix_listeners) { { &auth_worker_unix_listeners_buf,
+				   sizeof(auth_worker_unix_listeners[0]) } },
+	MEMBER(fifo_listeners) ARRAY_INIT,
+	MEMBER(inet_listeners) ARRAY_INIT
+};
 
 #undef DEF
 #define DEF(type, name) \

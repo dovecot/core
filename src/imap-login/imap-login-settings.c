@@ -2,10 +2,35 @@
 
 #include "lib.h"
 #include "settings-parser.h"
+#include "service-settings.h"
 #include "login-settings.h"
 #include "imap-login-settings.h"
 
 #include <stddef.h>
+
+struct service_settings imap_login_service_settings = {
+	MEMBER(name) "imap-login",
+	MEMBER(protocol) "imap",
+	MEMBER(type) "login",
+	MEMBER(executable) "imap-login",
+	MEMBER(user) "dovecot",
+	MEMBER(group) "",
+	MEMBER(privileged_group) "",
+	MEMBER(extra_groups) "",
+	MEMBER(chroot) "login",
+
+	MEMBER(drop_priv_before_exec) FALSE,
+
+	MEMBER(process_min_avail) 0,
+	MEMBER(process_limit) 0,
+	MEMBER(client_limit) 0,
+	MEMBER(service_count) 1,
+	MEMBER(vsz_limit) 64,
+
+	MEMBER(unix_listeners) ARRAY_INIT,
+	MEMBER(fifo_listeners) ARRAY_INIT,
+	MEMBER(inet_listeners) ARRAY_INIT
+};
 
 #undef DEF
 #define DEF(type, name) \

@@ -124,8 +124,6 @@ static const struct setting_define service_setting_defines[] = {
 };
 
 static const struct service_settings service_default_settings = {
-	MEMBER(master_set) NULL,
-
 	MEMBER(name) "",
 	MEMBER(protocol) "",
 	MEMBER(type) "",
@@ -213,7 +211,12 @@ static const struct master_settings master_default_settings = {
 	MEMBER(first_valid_gid) 1,
 	MEMBER(last_valid_gid) 0,
 
+#ifndef CONFIG_BINARY
 	MEMBER(services) ARRAY_INIT
+#else
+	MEMBER(services) { { &config_all_services_buf,
+			     sizeof(struct service_settings *) } },
+#endif
 };
 
 const struct setting_parser_info master_setting_parser_info = {

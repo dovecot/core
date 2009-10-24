@@ -1,7 +1,9 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "settings-parser.h"
+#include "service-settings.h"
 #include "mail-storage-settings.h"
 #include "imap-settings.h"
 
@@ -11,6 +13,43 @@
 
 static bool imap_settings_verify(void *_set, pool_t pool,
 				 const char **error_r);
+
+/* <settings checks> */
+static struct file_listener_settings imap_unix_listeners_array[] = {
+	{ "login/imap", 0666, "", "" }
+};
+static struct file_listener_settings *imap_unix_listeners[] = {
+	&imap_unix_listeners_array[0]
+};
+static buffer_t imap_unix_listeners_buf = {
+	imap_unix_listeners, sizeof(imap_unix_listeners), { 0, }
+};
+/* </settings checks> */
+
+struct service_settings imap_service_settings = {
+	MEMBER(name) "imap",
+	MEMBER(protocol) "imap",
+	MEMBER(type) "",
+	MEMBER(executable) "imap",
+	MEMBER(user) "",
+	MEMBER(group) "",
+	MEMBER(privileged_group) "",
+	MEMBER(extra_groups) "",
+	MEMBER(chroot) "",
+
+	MEMBER(drop_priv_before_exec) FALSE,
+
+	MEMBER(process_min_avail) 0,
+	MEMBER(process_limit) 0,
+	MEMBER(client_limit) 0,
+	MEMBER(service_count) 1,
+	MEMBER(vsz_limit) -1U,
+
+	MEMBER(unix_listeners) { { &imap_unix_listeners_buf,
+				   sizeof(imap_unix_listeners[0]) } },
+	MEMBER(fifo_listeners) ARRAY_INIT,
+	MEMBER(inet_listeners) ARRAY_INIT
+};
 
 #undef DEF
 #undef DEFLIST

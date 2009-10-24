@@ -23,6 +23,8 @@ struct setting_link {
         struct setting_link *parent;
 	const struct setting_parser_info *info;
 
+	const char *full_key;
+
 	/* Points to array inside parent->set_struct.
 	   SET_DEFLIST : array of set_structs
 	   SET_STRLIST : array of const_strings */
@@ -61,6 +63,10 @@ static const struct setting_parser_info strlist_info = {
 	MEMBER(parent_offset) (size_t)-1
 };
 
+static void
+setting_parser_copy_defaults(struct setting_parser_context *ctx, 
+			     const struct setting_parser_info *info,
+			     struct setting_link *link);
 static int
 settings_apply(struct setting_link *dest_link,
 	       const struct setting_link *src_link,
@@ -74,8 +80,71 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 }
 
 static void
-setting_parser_copy_defaults(const struct setting_parser_info *info,
-			     pool_t pool, void *dest)
+copy_unique_defaults(struct setting_parser_context *ctx, 
+		     const struct setting_define *def,
+		     struct setting_link *link)
+{
+	ARRAY_TYPE(void_array) *arr =
+		STRUCT_MEMBER_P(link->set_struct, def->offset);
+	ARRAY_TYPE(void_array) *carr = NULL;
+	struct setting_link *new_link;
+	struct setting_parser_info info;
+	const char *const *keyp, *key, *prefix;
+	void *const *children;
+	void *new_set, *new_changes = NULL;
+	char *full_key;
+	unsigned int i, count;
+
+	if (!array_is_created(arr))
+		return;
+
+	children = array_get(arr, &count);
+	if (link->change_struct != NULL) {
+		carr = STRUCT_MEMBER_P(link->change_struct, def->offset);
+		i_assert(!array_is_created(carr));
+		p_array_init(carr, ctx->set_pool, count + 4);
+	}
+	p_array_init(arr, ctx->set_pool, count + 4);
+
+	memset(&info, 0, sizeof(info));
+	info = *def->list_info;
+
+	for (i = 0; i < count; i++) {
+		new_set = p_malloc(ctx->set_pool, info.struct_size);
+		array_append(arr, &new_set, 1);
+
+		if (link->change_struct != NULL) {
+			new_changes = p_malloc(ctx->set_pool, info.struct_size);
+			array_append(carr, &new_changes, 1);
+		}
+
+		keyp = CONST_PTR_OFFSET(children[i], info.type_offset);
+		key = settings_section_escape(*keyp);
+
+		new_link = p_new(ctx->set_pool, struct setting_link, 1);
+		prefix = link->full_key == NULL ?
+			t_strconcat(def->key, SETTINGS_SEPARATOR_S, NULL) :
+			t_strconcat(link->full_key, SETTINGS_SEPARATOR_S,
+				    def->key, SETTINGS_SEPARATOR_S,NULL);
+		full_key = p_strconcat(ctx->set_pool, prefix, key, NULL);
+		new_link->full_key = full_key;
+		new_link->parent = link;
+		new_link->info = def->list_info;
+		new_link->array = arr;
+		new_link->change_array = carr;
+		new_link->set_struct = new_set;
+		new_link->change_struct = new_changes;
+		hash_table_insert(ctx->links, full_key, new_link);
+
+		info.defaults = children[i];
+		setting_parser_copy_defaults(ctx, &info, new_link);
+	}
+}
+
+static void
+setting_parser_copy_defaults(struct setting_parser_context *ctx, 
+			     const struct setting_parser_info *info,
+			     struct setting_link *link)
 {
 	const struct setting_define *def;
 	const char *p, **strp;
@@ -83,28 +152,31 @@ setting_parser_copy_defaults(const struct setting_parser_info *info,
 	if (info->defaults == NULL)
 		return;
 
-	memcpy(dest, info->defaults, info->struct_size);
+	memcpy(link->set_struct, info->defaults, info->struct_size);
 	for (def = info->defines; def->key != NULL; def++) {
 		switch (def->type) {
 		case SET_ENUM: {
 			/* fix enums by dropping everything after the
 			   first ':' */
-			strp = STRUCT_MEMBER_P(dest, def->offset);
+			strp = STRUCT_MEMBER_P(link->set_struct, def->offset);
 			p = strchr(*strp, ':');
 			if (p != NULL)
-				*strp = p_strdup_until(pool, *strp, p);
+				*strp = p_strdup_until(ctx->set_pool, *strp, p);
 			break;
 		}
 		case SET_STR_VARS: {
 			/* insert the unexpanded-character */
-			strp = STRUCT_MEMBER_P(dest, def->offset);
+			strp = STRUCT_MEMBER_P(link->set_struct, def->offset);
 			if (*strp != NULL) {
-				*strp = p_strconcat(pool,
+				*strp = p_strconcat(ctx->set_pool,
 						    SETTING_STRVAR_UNEXPANDED,
 						    *strp, NULL);
 			}
 			break;
 		}
+		case SET_DEFLIST_UNIQUE:
+			copy_unique_defaults(ctx, def, link);
+			break;
 		default:
 			break;
 		}
@@ -127,6 +199,8 @@ settings_parser_init_list(pool_t set_pool,
 	ctx->set_pool = set_pool;
 	ctx->parser_pool = parser_pool;
 	ctx->flags = flags;
+	ctx->links = hash_table_create(default_pool, ctx->parser_pool, 0,
+				       str_hash, (hash_cmp_callback_t *)strcmp);
 
 	ctx->root_count = count;
 	ctx->roots = p_new(ctx->parser_pool, struct setting_link, count);
@@ -141,12 +215,9 @@ settings_parser_init_list(pool_t set_pool,
 			ctx->roots[i].change_struct =
 				p_malloc(ctx->set_pool, roots[i]->struct_size);
 		}
-		setting_parser_copy_defaults(roots[i], ctx->set_pool,
-					     ctx->roots[i].set_struct);
+		setting_parser_copy_defaults(ctx, roots[i], &ctx->roots[i]);
 	}
 
-	ctx->links = hash_table_create(default_pool, ctx->parser_pool, 0,
-				       str_hash, (hash_cmp_callback_t *)strcmp);
 	pool_ref(ctx->set_pool);
 	return ctx;
 }
@@ -301,6 +372,7 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 		}
 
 		link = p_new(ctx->parser_pool, struct setting_link, 1);
+		link->full_key = full_key;
 		link->parent = parent;
 		link->info = info;
 		link->array = result;
@@ -322,16 +394,15 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	if (link->set_struct == NULL) {
 		link->set_struct =
 			p_malloc(ctx->set_pool, link->info->struct_size);
-		setting_parser_copy_defaults(link->info, ctx->set_pool,
-					     link->set_struct);
-		array_append(link->array, &link->set_struct, 1);
-
 		if ((ctx->flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
 			link->change_struct = p_malloc(ctx->set_pool,
 						       link->info->struct_size);
 			array_append(link->change_array,
 				     &link->change_struct, 1);
 		}
+
+		setting_parser_copy_defaults(ctx, link->info, link);
+		array_append(link->array, &link->set_struct, 1);
 
 		if (link->info->parent_offset != (size_t)-1 &&
 		    link->parent != NULL) {
@@ -1488,3 +1559,39 @@ int settings_parser_apply_changes(struct setting_parser_context *dest,
 	}
 	return 0;
 }
+
+const char *settings_section_escape(const char *name)
+{
+#define CHAR_NEED_ESCAPE(c) \
+	((c) == '=' || (c) == SETTINGS_SEPARATOR || (c) == '\\')
+	string_t *str;
+	unsigned int i;
+
+	for (i = 0; name[i] != '\0'; i++) {
+		if (CHAR_NEED_ESCAPE(name[i]))
+			break;
+	}
+	if (name[i] == '\0')
+		return name;
+
+	str = t_str_new(i + strlen(name+i) + 8);
+	str_append_n(str, name, i);
+	for (; name[i] != '\0'; i++) {
+		switch (name[i]) {
+		case '=':
+			str_append(str, "\\e");
+			break;
+		case SETTINGS_SEPARATOR:
+			str_append(str, "\\s");
+			break;
+		case '\\':
+			str_append(str, "\\\\");
+			break;
+		default:
+			str_append_c(str, name[i]);
+			break;
+		}
+	}
+	return str_c(str);
+}
+

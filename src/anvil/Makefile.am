@@ -16,6 +16,7 @@ anvil_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 anvil_SOURCES = \
 	main.c \
 	anvil-connection.c \
+	anvil-settings.c \
 	connect-limit.c
 
 noinst_HEADERS = \

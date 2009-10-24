@@ -54,4 +54,5 @@ all-settings.c: $(SETTING_FILES) $(top_srcdir)/src/config/settings-get.pl
 	$(top_srcdir)/src/config/settings-get.pl $(SETTING_FILES) > all-settings.c || rm -f all-settings.c
 
 EXTRA_DIST = \
+	config-settings.c \
 	settings-get.pl

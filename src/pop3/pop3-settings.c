@@ -1,7 +1,9 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "settings-parser.h"
+#include "service-settings.h"
 #include "mail-storage-settings.h"
 #include "pop3-settings.h"
 
@@ -11,6 +13,43 @@
 
 static bool pop3_settings_verify(void *_set, pool_t pool,
 				 const char **error_r);
+
+/* <settings checks> */
+static struct file_listener_settings pop3_unix_listeners_array[] = {
+	{ "login/pop3", 0666, "", "" }
+};
+static struct file_listener_settings *pop3_unix_listeners[] = {
+	&pop3_unix_listeners_array[0]
+};
+static buffer_t pop3_unix_listeners_buf = {
+	pop3_unix_listeners, sizeof(pop3_unix_listeners), { 0, }
+};
+/* </settings checks> */
+
+struct service_settings pop3_service_settings = {
+	MEMBER(name) "pop3",
+	MEMBER(protocol) "pop3",
+	MEMBER(type) "",
+	MEMBER(executable) "pop3",
+	MEMBER(user) "",
+	MEMBER(group) "",
+	MEMBER(privileged_group) "",
+	MEMBER(extra_groups) "",
+	MEMBER(chroot) "",
+
+	MEMBER(drop_priv_before_exec) FALSE,
+
+	MEMBER(process_min_avail) 0,
+	MEMBER(process_limit) 0,
+	MEMBER(client_limit) 0,
+	MEMBER(service_count) 1,
+	MEMBER(vsz_limit) -1U,
+
+	MEMBER(unix_listeners) { { &pop3_unix_listeners_buf,
+				   sizeof(pop3_unix_listeners[0]) } },
+	MEMBER(fifo_listeners) ARRAY_INIT,
+	MEMBER(inet_listeners) ARRAY_INIT
+};
 
 #undef DEF
 #undef DEFLIST

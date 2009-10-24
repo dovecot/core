@@ -183,4 +183,7 @@ int settings_parser_apply_changes(struct setting_parser_context *dest,
 				  const struct setting_parser_context *src,
 				  pool_t pool, const char **conflict_key_r);
 
+/* Return section name escaped */
+const char *settings_section_escape(const char *name);
+
 #endif

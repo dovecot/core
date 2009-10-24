@@ -565,41 +565,6 @@ static int config_parse_finish(struct parser_context *ctx, const char **error_r)
 	return 0;
 }
 
-static const char *section_name_escape(const char *name)
-{
-#define CHAR_NEED_ESCAPE(c) \
-	((c) == '=' || (c) == SETTINGS_SEPARATOR || (c) == '\\')
-	string_t *str;
-	unsigned int i;
-
-	for (i = 0; name[i] != '\0'; i++) {
-		if (CHAR_NEED_ESCAPE(name[i]))
-			break;
-	}
-	if (name[i] == '\0')
-		return name;
-
-	str = t_str_new(i + strlen(name+i) + 8);
-	str_append_n(str, name, i);
-	for (; name[i] != '\0'; i++) {
-		switch (name[i]) {
-		case '=':
-			str_append(str, "\\e");
-			break;
-		case SETTINGS_SEPARATOR:
-			str_append(str, "\\s");
-			break;
-		case '\\':
-			str_append(str, "\\\\");
-			break;
-		default:
-			str_append_c(str, name[i]);
-			break;
-		}
-	}
-	return str_c(str);
-}
-
 int config_parse_file(const char *path, bool expand_files,
 		      const char **error_r)
 {
@@ -689,7 +654,7 @@ prevfile:
 				/* no section name, use a counter */
 				section_name = dec2str(counter++);
 			} else {
-				section_name = section_name_escape(value);
+				section_name = settings_section_escape(value);
 			}
 			str_truncate(str, pathlen);
 			str_append(str, key);

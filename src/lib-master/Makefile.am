@@ -24,4 +24,5 @@ noinst_HEADERS = \
 	master-service.h \
 	master-service-private.h \
 	master-service-settings.h \
+	service-settings.h \
 	syslog-util.h

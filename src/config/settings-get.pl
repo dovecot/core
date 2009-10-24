@@ -10,7 +10,9 @@ print '#include "all-settings.h"'."\n";
 print '#include <stddef.h>'."\n";
 print '#include <unistd.h>'."\n";
 print '#define CONFIG_BINARY'."\n";
+print 'extern buffer_t config_all_services_buf;';
 
+my @services = ();
 my %parsers = {};
 
 foreach my $file (@ARGV) {
@@ -31,6 +33,9 @@ foreach my $file (@ARGV) {
 	  /struct setting_define.*{/ ||
 	  /struct .*_default_settings = {/) {
 	$state++;
+      } elsif (/^struct service_settings (.*) = {/) {
+	$state++;
+	push @services, $1;
       } elsif (/^(static )?const struct setting_parser_info (.*) = {/) {
 	$cur_name = $2;
 	$state++ if ($cur_name !~ /^\*default_/);
@@ -89,6 +94,16 @@ foreach my $file (@ARGV) {
 
   close $f;
 }
+
+print "static struct service_settings *config_all_services[] = {\n";
+
+foreach my $name (@services) {
+  print "\t&$name,\n";
+}
+print "};\n";
+print "buffer_t config_all_services_buf = {\n";
+print "\tconfig_all_services, sizeof(config_all_services), { 0, }\n";
+print "};\n";
 
 print "const struct setting_parser_info *all_roots[] = {\n";
 foreach my $name (keys %parsers) {

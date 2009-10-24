@@ -12,6 +12,7 @@ log_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 log_SOURCES = \
 	log-connection.c \
+	log-settings.c \
 	main.c
 
 noinst_HEADERS = \
