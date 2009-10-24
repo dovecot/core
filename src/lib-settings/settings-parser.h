@@ -61,10 +61,10 @@ struct setting_parser_info {
 	size_t struct_size;
 
 	size_t parent_offset;
-	struct setting_parser_info *parent;
+	const struct setting_parser_info *parent;
 
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
-	struct setting_parser_info *const *dependencies;
+	const struct setting_parser_info *const *dependencies;
 	struct dynamic_settings_parser *dynamic_parsers;
 
 };
@@ -168,6 +168,7 @@ settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool);
    dynamic_settings_list structures to their parent. All must have the same
    parent. The new structures are allocated from the given pool. */
 void settings_parser_info_update(pool_t pool,
+				 struct setting_parser_info *parent,
 				 const struct dynamic_settings_parser *parsers);
 
 /* Return pointer to beginning of settings for given name, or NULL if there is

@@ -20,13 +20,13 @@
 static bool master_settings_verify(void *_set, pool_t pool,
 				   const char **error_r);
 
-extern struct setting_parser_info service_setting_parser_info;
+extern const struct setting_parser_info service_setting_parser_info;
 
 #undef DEF
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct file_listener_settings, name), NULL }
 
-static struct setting_define file_listener_setting_defines[] = {
+static const struct setting_define file_listener_setting_defines[] = {
 	DEF(SET_STR, path),
 	DEF(SET_UINT, mode),
 	DEF(SET_STR, user),
@@ -35,14 +35,14 @@ static struct setting_define file_listener_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct file_listener_settings file_listener_default_settings = {
+static const struct file_listener_settings file_listener_default_settings = {
 	MEMBER(path) "",
 	MEMBER(mode) 0600,
 	MEMBER(user) "",
 	MEMBER(group) "",
 };
 
-static struct setting_parser_info file_listener_setting_parser_info = {
+static const struct setting_parser_info file_listener_setting_parser_info = {
 	MEMBER(module_name) NULL,
 	MEMBER(defines) file_listener_setting_defines,
 	MEMBER(defaults) &file_listener_default_settings,
@@ -58,7 +58,7 @@ static struct setting_parser_info file_listener_setting_parser_info = {
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct inet_listener_settings, name), NULL }
 
-static struct setting_define inet_listener_setting_defines[] = {
+static const struct setting_define inet_listener_setting_defines[] = {
 	DEF(SET_STR, address),
 	DEF(SET_UINT, port),
 	DEF(SET_BOOL, ssl),
@@ -66,13 +66,13 @@ static struct setting_define inet_listener_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct inet_listener_settings inet_listener_default_settings = {
+static const struct inet_listener_settings inet_listener_default_settings = {
 	MEMBER(address) "",
 	MEMBER(port) 0,
 	MEMBER(ssl) FALSE
 };
 
-static struct setting_parser_info inet_listener_setting_parser_info = {
+static const struct setting_parser_info inet_listener_setting_parser_info = {
 	MEMBER(module_name) NULL,
 	MEMBER(defines) inet_listener_setting_defines,
 	MEMBER(defaults) &inet_listener_default_settings,
@@ -94,7 +94,7 @@ static struct setting_parser_info inet_listener_setting_parser_info = {
 #define DEFLIST_UNIQUE(field, name, defines) \
 	{ SET_DEFLIST_UNIQUE, name, offsetof(struct service_settings, field), defines }
 
-static struct setting_define service_setting_defines[] = {
+static const struct setting_define service_setting_defines[] = {
 	DEF(SET_STR, name),
 	DEF(SET_STR, protocol),
 	DEF(SET_STR, type),
@@ -123,7 +123,7 @@ static struct setting_define service_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct service_settings service_default_settings = {
+static const struct service_settings service_default_settings = {
 	MEMBER(master_set) NULL,
 
 	MEMBER(name) "",
@@ -149,7 +149,7 @@ static struct service_settings service_default_settings = {
 	MEMBER(inet_listeners) ARRAY_INIT
 };
 
-struct setting_parser_info service_setting_parser_info = {
+const struct setting_parser_info service_setting_parser_info = {
 	MEMBER(module_name) NULL,
 	MEMBER(defines) service_setting_defines,
 	MEMBER(defaults) &service_default_settings,
@@ -168,7 +168,7 @@ struct setting_parser_info service_setting_parser_info = {
 #define DEFLIST_UNIQUE(field, name, defines) \
 	{ SET_DEFLIST_UNIQUE, name, offsetof(struct master_settings, field), defines }
 
-static struct setting_define master_setting_defines[] = {
+static const struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, base_dir),
 	DEF(SET_STR, libexec_dir),
 	DEF(SET_STR, protocols),
@@ -193,7 +193,7 @@ static struct setting_define master_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct master_settings master_default_settings = {
+static const struct master_settings master_default_settings = {
 	MEMBER(base_dir) PKG_RUNDIR,
 	MEMBER(libexec_dir) PKG_LIBEXECDIR,
 	MEMBER(protocols) "imap pop3 lmtp",
@@ -216,7 +216,7 @@ static struct master_settings master_default_settings = {
 	MEMBER(services) ARRAY_INIT
 };
 
-struct setting_parser_info master_setting_parser_info = {
+const struct setting_parser_info master_setting_parser_info = {
 	MEMBER(module_name) "master",
 	MEMBER(defines) master_setting_defines,
 	MEMBER(defaults) &master_default_settings,

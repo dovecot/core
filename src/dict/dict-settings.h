@@ -7,7 +7,7 @@ struct dict_settings {
 	ARRAY_DEFINE(dicts, const char *);
 };
 
-extern struct setting_parser_info dict_setting_parser_info;
-extern struct dict_settings *dict_settings;
+extern const struct setting_parser_info dict_setting_parser_info;
+extern const struct dict_settings *dict_settings;
 
 #endif

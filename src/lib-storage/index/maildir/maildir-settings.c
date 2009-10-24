@@ -11,7 +11,7 @@
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct maildir_settings, name), NULL }
 
-static struct setting_define maildir_setting_defines[] = {
+static const struct setting_define maildir_setting_defines[] = {
 	DEF(SET_BOOL, maildir_stat_dirs),
 	DEF(SET_BOOL, maildir_copy_with_hardlinks),
 	DEF(SET_BOOL, maildir_copy_preserve_filename),
@@ -20,14 +20,14 @@ static struct setting_define maildir_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct maildir_settings maildir_default_settings = {
+static const struct maildir_settings maildir_default_settings = {
 	MEMBER(maildir_stat_dirs) FALSE,
 	MEMBER(maildir_copy_with_hardlinks) TRUE,
 	MEMBER(maildir_copy_preserve_filename) FALSE,
 	MEMBER(maildir_very_dirty_syncs) FALSE
 };
 
-static struct setting_parser_info maildir_setting_parser_info = {
+static const struct setting_parser_info maildir_setting_parser_info = {
 	MEMBER(module_name) "maildir",
 	MEMBER(defines) maildir_setting_defines,
 	MEMBER(defaults) &maildir_default_settings,

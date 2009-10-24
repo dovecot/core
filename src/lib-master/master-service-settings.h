@@ -20,6 +20,7 @@ struct master_service_settings {
 struct master_service_settings_input {
 	const struct setting_parser_info **roots;
 	const struct dynamic_settings_parser *dyn_parsers;
+	struct setting_parser_info *dyn_parsers_parent;
 	const char *config_path;
 	bool preserve_home;
 
@@ -29,7 +30,7 @@ struct master_service_settings_input {
 	struct ip_addr local_ip, remote_ip;
 };
 
-extern struct setting_parser_info master_service_setting_parser_info;
+extern const struct setting_parser_info master_service_setting_parser_info;
 
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,

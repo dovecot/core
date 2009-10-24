@@ -19,7 +19,7 @@ static bool pop3_settings_verify(void *_set, pool_t pool,
 #define DEFLIST(field, name, defines) \
 	{ SET_DEFLIST, name, offsetof(struct pop3_settings, field), defines }
 
-static struct setting_define pop3_setting_defines[] = {
+static const struct setting_define pop3_setting_defines[] = {
 	DEF(SET_BOOL, mail_debug),
 
 	DEF(SET_BOOL, pop3_no_flag_updates),
@@ -33,7 +33,7 @@ static struct setting_define pop3_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct pop3_settings pop3_default_settings = {
+static const struct pop3_settings pop3_default_settings = {
 	MEMBER(mail_debug) FALSE,
 
 	MEMBER(pop3_no_flag_updates) FALSE,
@@ -45,12 +45,12 @@ static struct pop3_settings pop3_default_settings = {
 	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s"
 };
 
-static struct setting_parser_info *pop3_setting_dependencies[] = {
+static const struct setting_parser_info *pop3_setting_dependencies[] = {
 	&mail_user_setting_parser_info,
 	NULL
 };
 
-struct setting_parser_info pop3_setting_parser_info = {
+const struct setting_parser_info pop3_setting_parser_info = {
 	MEMBER(module_name) "pop3",
 	MEMBER(defines) pop3_setting_defines,
 	MEMBER(defaults) &pop3_default_settings,
@@ -71,7 +71,7 @@ struct pop3_client_workaround_list {
 	enum pop3_client_workarounds num;
 };
 
-static struct pop3_client_workaround_list pop3_client_workaround_list[] = {
+static const struct pop3_client_workaround_list pop3_client_workaround_list[] = {
 	{ "outlook-no-nuls", WORKAROUND_OUTLOOK_NO_NULS },
 	{ "oe-ns-eoh", WORKAROUND_OE_NS_EOH },
 	{ NULL, 0 }
@@ -82,7 +82,7 @@ pop3_settings_parse_workarounds(struct pop3_settings *set,
 				const char **error_r)
 {
         enum pop3_client_workarounds client_workarounds = 0;
-	struct pop3_client_workaround_list *list;
+	const struct pop3_client_workaround_list *list;
 	const char *const *str;
 
         str = t_strsplit_spaces(set->pop3_client_workarounds, " ,");

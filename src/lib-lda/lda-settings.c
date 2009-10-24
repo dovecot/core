@@ -16,7 +16,7 @@ static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 #define DEFLIST(field, name, defines) \
 	{ SET_DEFLIST, name, offsetof(struct lda_settings, field), defines }
 
-static struct setting_define lda_setting_defines[] = {
+static const struct setting_define lda_setting_defines[] = {
 	DEF(SET_STR, postmaster_address),
 	DEF(SET_STR, hostname),
 	DEF(SET_STR, sendmail_path),
@@ -30,7 +30,7 @@ static struct setting_define lda_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct lda_settings lda_default_settings = {
+static const struct lda_settings lda_default_settings = {
 	MEMBER(postmaster_address) "",
 	MEMBER(hostname) "",
 	MEMBER(sendmail_path) "/usr/lib/sendmail",
@@ -43,12 +43,12 @@ static struct lda_settings lda_default_settings = {
 	MEMBER(lda_mailbox_autosubscribe) FALSE
 };
 
-static struct setting_parser_info *lda_setting_dependencies[] = {
+static const struct setting_parser_info *lda_setting_dependencies[] = {
 	&mail_user_setting_parser_info,
 	NULL
 };
 
-struct setting_parser_info lda_setting_parser_info = {
+const struct setting_parser_info lda_setting_parser_info = {
 	MEMBER(module_name) "lda",
 	MEMBER(defines) lda_setting_defines,
 	MEMBER(defaults) &lda_default_settings,

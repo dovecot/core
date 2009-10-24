@@ -14,7 +14,7 @@
 static bool mdbox_settings_verify(void *_set, pool_t pool ATTR_UNUSED,
 				  const char **error_r);
 
-static struct setting_define mdbox_setting_defines[] = {
+static const struct setting_define mdbox_setting_defines[] = {
 	DEF(SET_UINT, mdbox_rotate_size),
 	DEF(SET_UINT, mdbox_rotate_min_size),
 	DEF(SET_UINT, mdbox_rotate_days),
@@ -24,7 +24,7 @@ static struct setting_define mdbox_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct mdbox_settings mdbox_default_settings = {
+static const struct mdbox_settings mdbox_default_settings = {
 	MEMBER(mdbox_rotate_size) 2048*1024,
 	MEMBER(mdbox_rotate_min_size) 16*1024,
 	MEMBER(mdbox_rotate_days) 0,
@@ -32,7 +32,7 @@ static struct mdbox_settings mdbox_default_settings = {
 	MEMBER(mdbox_purge_min_percentage) 0
 };
 
-static struct setting_parser_info mdbox_setting_parser_info = {
+static const struct setting_parser_info mdbox_setting_parser_info = {
 	MEMBER(module_name) "mdbox",
 	MEMBER(defines) mdbox_setting_defines,
 	MEMBER(defaults) &mdbox_default_settings,

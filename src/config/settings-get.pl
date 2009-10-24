@@ -31,11 +31,11 @@ foreach my $file (@ARGV) {
 	  /struct setting_define.*{/ ||
 	  /struct .*_default_settings = {/) {
 	$state++;
-      } elsif (/^(static )?struct setting_parser_info (.*) = {/) {
-	$state++;
+      } elsif (/^(static )?const struct setting_parser_info (.*) = {/) {
 	$cur_name = $2;
-      } elsif (/^extern struct setting_parser_info (.*);/) {
-	$externs .= "extern struct setting_parser_info $1;\n";
+	$state++ if ($cur_name !~ /^\*default_/);
+      } elsif (/^extern const struct setting_parser_info (.*);/) {
+	$externs .= "extern const struct setting_parser_info $1;\n";
       } elsif (/\/\* <settings checks> \*\//) {
 	$state = 4;
 	$code .= $_;
@@ -62,7 +62,7 @@ foreach my $file (@ARGV) {
 	  my $value = $1;
 	  if ($value =~ /.*&(.*)\)/) {
 	    $parsers{$1} = 0;
-	    $externs .= "extern struct setting_parser_info $1;\n";
+	    $externs .= "extern const struct setting_parser_info $1;\n";
 	  } else {
 	    $state = 3;
 	  }

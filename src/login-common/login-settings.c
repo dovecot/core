@@ -16,7 +16,7 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r);
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct login_settings, name), NULL }
 
-static struct setting_define login_setting_defines[] = {
+static const struct setting_define login_setting_defines[] = {
 	DEF(SET_STR, login_trusted_networks),
 	DEF(SET_STR_VARS, login_greeting),
 	DEF(SET_STR, login_log_format_elements),
@@ -45,7 +45,7 @@ static struct setting_define login_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct login_settings login_default_settings = {
+static const struct login_settings login_default_settings = {
 	MEMBER(login_trusted_networks) "",
 	MEMBER(login_greeting) PACKAGE_NAME" ready.",
 	MEMBER(login_log_format_elements) "user=<%u> method=%m rip=%r lip=%l %c",
@@ -72,7 +72,7 @@ static struct login_settings login_default_settings = {
 	MEMBER(mail_max_userip_connections) 10
 };
 
-struct setting_parser_info login_setting_parser_info = {
+const struct setting_parser_info login_setting_parser_info = {
 	MEMBER(module_name) "login",
 	MEMBER(defines) login_setting_defines,
 	MEMBER(defaults) &login_default_settings,

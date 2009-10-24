@@ -26,7 +26,7 @@ static bool parsers_are_connected(const struct setting_parser_info *root,
 				  const struct setting_parser_info *info)
 {
 	const struct setting_parser_info *p;
-	struct setting_parser_info *const *dep;
+	const struct setting_parser_info *const *dep;
 
 	/* we're trying to find info or its parents from root's dependencies. */
 

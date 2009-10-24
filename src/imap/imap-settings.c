@@ -19,7 +19,7 @@ static bool imap_settings_verify(void *_set, pool_t pool,
 #define DEFLIST(field, name, defines) \
 	{ SET_DEFLIST, name, offsetof(struct imap_settings, field), defines }
 
-static struct setting_define imap_setting_defines[] = {
+static const struct setting_define imap_setting_defines[] = {
 	DEF(SET_BOOL, mail_debug),
 
 	DEF(SET_UINT, imap_max_line_length),
@@ -33,7 +33,7 @@ static struct setting_define imap_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct imap_settings imap_default_settings = {
+static const struct imap_settings imap_default_settings = {
 	MEMBER(mail_debug) FALSE,
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
@@ -48,12 +48,12 @@ static struct imap_settings imap_default_settings = {
 	MEMBER(imap_id_log) ""
 };
 
-static struct setting_parser_info *imap_setting_dependencies[] = {
+static const struct setting_parser_info *imap_setting_dependencies[] = {
 	&mail_user_setting_parser_info,
 	NULL
 };
 
-struct setting_parser_info imap_setting_parser_info = {
+const struct setting_parser_info imap_setting_parser_info = {
 	MEMBER(module_name) "imap",
 	MEMBER(defines) imap_setting_defines,
 	MEMBER(defaults) &imap_default_settings,
@@ -74,7 +74,7 @@ struct imap_client_workaround_list {
 	enum imap_client_workarounds num;
 };
 
-static struct imap_client_workaround_list imap_client_workaround_list[] = {
+static const struct imap_client_workaround_list imap_client_workaround_list[] = {
 	{ "delay-newmail", WORKAROUND_DELAY_NEWMAIL },
 	{ "outlook-idle", 0 }, /* only for backwards compatibility */
 	{ "netscape-eoh", WORKAROUND_NETSCAPE_EOH },
@@ -87,7 +87,7 @@ imap_settings_parse_workarounds(struct imap_settings *set,
 				const char **error_r)
 {
         enum imap_client_workarounds client_workarounds = 0;
-        struct imap_client_workaround_list *list;
+        const struct imap_client_workaround_list *list;
 	const char *const *str;
 
         str = t_strsplit_spaces(set->imap_client_workarounds, " ,");

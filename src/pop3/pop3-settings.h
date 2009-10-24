@@ -25,6 +25,6 @@ struct pop3_settings {
 	enum pop3_client_workarounds parsed_workarounds;
 };
 
-extern struct setting_parser_info pop3_setting_parser_info;
+extern const struct setting_parser_info pop3_setting_parser_info;
 
 #endif

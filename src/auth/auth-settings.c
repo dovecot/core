@@ -8,8 +8,8 @@
 
 #include <stddef.h>
 
-extern struct setting_parser_info auth_setting_parser_info;
-extern struct setting_parser_info auth_root_setting_parser_info;
+extern const struct setting_parser_info auth_setting_parser_info;
+extern const struct setting_parser_info auth_root_setting_parser_info;
 
 static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
 
@@ -17,7 +17,7 @@ static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct auth_passdb_settings, name), NULL }
 
-static struct setting_define auth_passdb_setting_defines[] = {
+static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(SET_STR, driver),
 	DEF(SET_STR, args),
 	DEF(SET_BOOL, deny),
@@ -25,7 +25,7 @@ static struct setting_define auth_passdb_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-struct setting_parser_info auth_passdb_setting_parser_info = {
+const struct setting_parser_info auth_passdb_setting_parser_info = {
 	MEMBER(module_name) NULL,
 	MEMBER(defines) auth_passdb_setting_defines,
 	MEMBER(defaults) NULL,
@@ -41,14 +41,14 @@ struct setting_parser_info auth_passdb_setting_parser_info = {
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct auth_userdb_settings, name), NULL }
 
-static struct setting_define auth_userdb_setting_defines[] = {
+static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(SET_STR, driver),
 	DEF(SET_STR, args),
 
 	SETTING_DEFINE_LIST_END
 };
 
-struct setting_parser_info auth_userdb_setting_parser_info = {
+const struct setting_parser_info auth_userdb_setting_parser_info = {
 	MEMBER(module_name) NULL,
 	MEMBER(defines) auth_userdb_setting_defines,
 	MEMBER(defaults) NULL,
@@ -68,7 +68,7 @@ struct setting_parser_info auth_userdb_setting_parser_info = {
 #define DEFLIST(field, name, defines) \
 	{ SET_DEFLIST, name, offsetof(struct auth_settings, field), defines }
 
-static struct setting_define auth_setting_defines[] = {
+static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_STR, mechanisms),
 	DEF(SET_STR, realms),
 	DEF(SET_STR, default_realm),
@@ -100,7 +100,7 @@ static struct setting_define auth_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct auth_settings auth_default_settings = {
+static const struct auth_settings auth_default_settings = {
 	MEMBER(mechanisms) "plain",
 	MEMBER(realms) "",
 	MEMBER(default_realm) "",
@@ -130,7 +130,7 @@ static struct auth_settings auth_default_settings = {
 	MEMBER(userdbs) ARRAY_INIT
 };
 
-struct setting_parser_info auth_setting_parser_info = {
+const struct setting_parser_info auth_setting_parser_info = {
 	MEMBER(module_name) "auth",
 	MEMBER(defines) auth_setting_defines,
 	MEMBER(defaults) &auth_default_settings,

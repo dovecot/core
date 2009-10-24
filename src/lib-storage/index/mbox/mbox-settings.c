@@ -11,7 +11,7 @@
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct mbox_settings, name), NULL }
 
-static struct setting_define mbox_setting_defines[] = {
+static const struct setting_define mbox_setting_defines[] = {
 	DEF(SET_STR, mbox_read_locks),
 	DEF(SET_STR, mbox_write_locks),
 	DEF(SET_UINT, mbox_lock_timeout),
@@ -24,7 +24,7 @@ static struct setting_define mbox_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct mbox_settings mbox_default_settings = {
+static const struct mbox_settings mbox_default_settings = {
 	MEMBER(mbox_read_locks) "fcntl",
 	MEMBER(mbox_write_locks) "dotlock fcntl",
 	MEMBER(mbox_lock_timeout) 5*60,
@@ -35,7 +35,7 @@ static struct mbox_settings mbox_default_settings = {
 	MEMBER(mbox_lazy_writes) TRUE
 };
 
-static struct setting_parser_info mbox_setting_parser_info = {
+static const struct setting_parser_info mbox_setting_parser_info = {
 	MEMBER(module_name) "mbox",
 	MEMBER(defines) mbox_setting_defines,
 	MEMBER(defaults) &mbox_default_settings,

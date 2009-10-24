@@ -26,6 +26,6 @@ struct imap_settings {
 	enum imap_client_workarounds parsed_workarounds;
 };
 
-extern struct setting_parser_info imap_setting_parser_info;
+extern const struct setting_parser_info imap_setting_parser_info;
 
 #endif

@@ -33,7 +33,7 @@ struct login_settings {
 };
 
 extern const struct setting_parser_info **login_set_roots;
-extern struct setting_parser_info login_setting_parser_info;
+extern const struct setting_parser_info login_setting_parser_info;
 
 struct login_settings *
 login_settings_read(struct master_service *service, pool_t pool,

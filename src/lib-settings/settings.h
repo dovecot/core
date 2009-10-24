@@ -37,7 +37,7 @@ typedef bool settings_section_callback_t(const char *type, const char *name,
 extern settings_section_callback_t *null_settings_section_callback;
 
 const char *
-parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
+parse_setting_from_defs(pool_t pool, const struct setting_def *defs, void *base,
 			const char *key, const char *value);
 
 bool settings_read(const char *path, const char *section,

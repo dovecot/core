@@ -29,7 +29,7 @@ struct setting_parser_ctx {
 
 #define DEF_STR(name) DEF_STRUCT_STR(name, dict_sql_map)
 
-static struct setting_def dict_sql_map_setting_defs[] = {
+static const struct setting_def dict_sql_map_setting_defs[] = {
 	DEF_STR(pattern),
 	DEF_STR(table),
 	DEF_STR(username_field),

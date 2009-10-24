@@ -51,10 +51,10 @@ static const char *get_uint(const char *value, unsigned int *result)
 }
 
 const char *
-parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
+parse_setting_from_defs(pool_t pool, const struct setting_def *defs, void *base,
 			const char *key, const char *value)
 {
-	struct setting_def *def;
+	const struct setting_def *def;
 
 	for (def = defs; def->name != NULL; def++) {
 		if (strcmp(def->name, key) == 0) {

@@ -13,17 +13,17 @@
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct ssl_params_settings, name), NULL }
 
-static struct setting_define ssl_params_setting_defines[] = {
+static const struct setting_define ssl_params_setting_defines[] = {
 	DEF(SET_UINT, ssl_parameters_regenerate),
 
 	SETTING_DEFINE_LIST_END
 };
 
-static struct ssl_params_settings ssl_params_default_settings = {
+static const struct ssl_params_settings ssl_params_default_settings = {
 	MEMBER(ssl_parameters_regenerate) 24*7
 };
 
-struct setting_parser_info ssl_params_setting_parser_info = {
+const struct setting_parser_info ssl_params_setting_parser_info = {
 	MEMBER(module_name) "ssl-params",
 	MEMBER(defines) ssl_params_setting_defines,
 	MEMBER(defaults) &ssl_params_default_settings,

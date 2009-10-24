@@ -20,7 +20,7 @@ static bool mail_user_settings_check(void *_set, pool_t pool, const char **error
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct mail_storage_settings, name), NULL }
 
-static struct setting_define mail_storage_setting_defines[] = {
+static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_STR_VARS, mail_location),
 	DEF(SET_STR, mail_cache_fields),
 	DEF(SET_STR, mail_never_cache_fields),
@@ -42,7 +42,7 @@ static struct setting_define mail_storage_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-struct mail_storage_settings mail_storage_default_settings = {
+const struct mail_storage_settings mail_storage_default_settings = {
 	MEMBER(mail_location) "",
 	MEMBER(mail_cache_fields) "flags",
 	MEMBER(mail_never_cache_fields) "imap.envelope",
@@ -62,7 +62,7 @@ struct mail_storage_settings mail_storage_default_settings = {
 	MEMBER(pop3_uidl_format) "%08Xu%08Xv"
 };
 
-struct setting_parser_info mail_storage_setting_parser_info = {
+const struct setting_parser_info mail_storage_setting_parser_info = {
 	MEMBER(module_name) "mail",
 	MEMBER(defines) mail_storage_setting_defines,
 	MEMBER(defaults) &mail_storage_default_settings,
@@ -80,7 +80,7 @@ struct setting_parser_info mail_storage_setting_parser_info = {
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct mail_namespace_settings, name), NULL }
 
-static struct setting_define mail_namespace_setting_defines[] = {
+static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(SET_ENUM, type),
 	DEF(SET_STR, separator),
 	DEF(SET_STR_VARS, prefix),
@@ -95,7 +95,7 @@ static struct setting_define mail_namespace_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-struct mail_namespace_settings mail_namespace_default_settings = {
+const struct mail_namespace_settings mail_namespace_default_settings = {
 	MEMBER(type) "private:shared:public",
 	MEMBER(separator) "",
 	MEMBER(prefix) "",
@@ -108,7 +108,7 @@ struct mail_namespace_settings mail_namespace_default_settings = {
 	MEMBER(subscriptions) TRUE
 };
 
-struct setting_parser_info mail_namespace_setting_parser_info = {
+const struct setting_parser_info mail_namespace_setting_parser_info = {
 	MEMBER(module_name) NULL,
 	MEMBER(defines) mail_namespace_setting_defines,
 	MEMBER(defaults) &mail_namespace_default_settings,
@@ -130,7 +130,7 @@ struct setting_parser_info mail_namespace_setting_parser_info = {
 	{ SET_DEFLIST_UNIQUE, name, \
 	  offsetof(struct mail_user_settings, field), defines }
 
-static struct setting_define mail_user_setting_defines[] = {
+static const struct setting_define mail_user_setting_defines[] = {
 	DEF(SET_STR, base_dir),
 	DEF(SET_STR, auth_socket_path),
 
@@ -158,7 +158,7 @@ static struct setting_define mail_user_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct mail_user_settings mail_user_default_settings = {
+static const struct mail_user_settings mail_user_default_settings = {
 	MEMBER(base_dir) PKG_RUNDIR,
 	MEMBER(auth_socket_path) "auth-userdb",
 
@@ -184,7 +184,7 @@ static struct mail_user_settings mail_user_default_settings = {
 	MEMBER(plugin_envs) ARRAY_INIT
 };
 
-struct setting_parser_info mail_user_setting_parser_info = {
+const struct setting_parser_info mail_user_setting_parser_info = {
 	MEMBER(module_name) "mail",
 	MEMBER(defines) mail_user_setting_defines,
 	MEMBER(defaults) &mail_user_default_settings,

@@ -7,16 +7,16 @@
 
 #include <stddef.h>
 
-static struct setting_define pop3_login_setting_defines[] = {
+static const struct setting_define pop3_login_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct setting_parser_info *pop3_login_setting_dependencies[] = {
+static const struct setting_parser_info *pop3_login_setting_dependencies[] = {
 	&login_setting_parser_info,
 	NULL
 };
 
-struct setting_parser_info pop3_login_setting_parser_info = {
+const struct setting_parser_info pop3_login_setting_parser_info = {
 	MEMBER(module_name) "pop3-login",
 	MEMBER(defines) pop3_login_setting_defines,
 	MEMBER(defaults) NULL,

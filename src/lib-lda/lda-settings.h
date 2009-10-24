@@ -15,6 +15,6 @@ struct lda_settings {
 	bool lda_mailbox_autosubscribe;
 };
 
-extern struct setting_parser_info lda_setting_parser_info;
+extern const struct setting_parser_info lda_setting_parser_info;
 
 #endif

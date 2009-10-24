@@ -69,10 +69,10 @@ struct mail_user_settings {
 	ARRAY_DEFINE(plugin_envs, const char *);
 };
 
-extern struct setting_parser_info mail_user_setting_parser_info;
-extern struct setting_parser_info mail_namespace_setting_parser_info;
-extern struct setting_parser_info mail_storage_setting_parser_info;
-extern struct mail_namespace_settings mail_namespace_default_settings;
+extern const struct setting_parser_info mail_user_setting_parser_info;
+extern const struct setting_parser_info mail_namespace_setting_parser_info;
+extern const struct setting_parser_info mail_storage_setting_parser_info;
+extern const struct mail_namespace_settings mail_namespace_default_settings;
 
 const void *
 mail_user_set_get_driver_settings(const struct setting_parser_info *info,

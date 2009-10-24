@@ -525,7 +525,7 @@ settings_parser_update_children_parent(struct setting_parser_info *parent,
 	}
 }
 
-static void
+static struct setting_parser_info *
 dyn_parsers_update_parent(pool_t pool,
 			  struct master_service_settings_input *input)
 {
@@ -565,6 +565,7 @@ dyn_parsers_update_parent(pool_t pool,
 		new_dyn_parsers[i].info = new_info;
 	}
 	input->dyn_parsers = new_dyn_parsers;
+	return new_parent;
 }
 
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
@@ -584,7 +585,8 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	   use $HOME */
 	set_input.preserve_home = 
 		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
-	dyn_parsers_update_parent(pool, &set_input);
+	set_input.dyn_parsers_parent =
+		dyn_parsers_update_parent(pool, &set_input);
 
 	if (input != NULL) {
 		set_input.module = input->module;

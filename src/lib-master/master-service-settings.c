@@ -24,7 +24,7 @@
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct master_service_settings, name), NULL }
 
-static struct setting_define master_service_setting_defines[] = {
+static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, log_path),
 	DEF(SET_STR, info_log_path),
 	DEF(SET_STR, debug_log_path),
@@ -36,7 +36,7 @@ static struct setting_define master_service_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static struct master_service_settings master_service_default_settings = {
+static const struct master_service_settings master_service_default_settings = {
 	MEMBER(log_path) "",
 	MEMBER(info_log_path) "",
 	MEMBER(debug_log_path) "",
@@ -46,7 +46,7 @@ static struct master_service_settings master_service_default_settings = {
 	MEMBER(shutdown_clients) TRUE
 };
 
-struct setting_parser_info master_service_setting_parser_info = {
+const struct setting_parser_info master_service_setting_parser_info = {
 	MEMBER(module_name) "master",
 	MEMBER(defines) master_service_setting_defines,
 	MEMBER(defaults) &master_service_default_settings,
@@ -213,6 +213,7 @@ int master_service_settings_read(struct master_service *service,
 
 	if (input->dyn_parsers != NULL) {
 		settings_parser_info_update(service->set_pool,
+					    input->dyn_parsers_parent,
 					    input->dyn_parsers);
 	}
 
