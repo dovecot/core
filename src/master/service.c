@@ -176,14 +176,14 @@ service_create(pool_t pool, const struct service_settings *set,
 	    service->client_limit < set->service_count)
 		service->client_limit = set->service_count;
 
-	service->vsz_limit = set->vsz_limit != 0 ? set->vsz_limit :
+	service->vsz_limit = set->vsz_limit != -1U ? set->vsz_limit :
 		set->master_set->default_vsz_limit;
 	service->type = service->set->parsed_type;
 
 	if (set->process_limit == 0) {
 		/* unlimited */
 		service->process_limit = INT_MAX;
-	} else if (set->process_limit == (unsigned int)-1) {
+	} else if (set->process_limit == -1U) {
 		/* use default */
 		service->process_limit =
 			set->master_set->default_process_limit;

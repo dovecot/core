@@ -139,10 +139,10 @@ static const struct service_settings service_default_settings = {
 	MEMBER(drop_priv_before_exec) FALSE,
 
 	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) (unsigned int)-1,
+	MEMBER(process_limit) -1U,
 	MEMBER(client_limit) 0,
 	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) 256,
+	MEMBER(vsz_limit) -1U,
 
 	MEMBER(unix_listeners) ARRAY_INIT,
 	MEMBER(fifo_listeners) ARRAY_INIT,
