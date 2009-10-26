@@ -85,7 +85,6 @@ struct master_service *
 master_service_init(const char *name, enum master_service_flags flags,
 		    int *argc, char **argv[], const char *getopt_str)
 {
-	extern char **environ;
 	struct master_service *service;
 	const char *str;
 
@@ -112,7 +111,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	if (getenv(MASTER_UID_ENV) == NULL)
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
-	process_title_init(argv, environ);
+	process_title_init(argv);
 
 	service = i_new(struct master_service, 1);
 	service->argc = *argc;

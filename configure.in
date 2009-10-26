@@ -588,6 +588,9 @@ case "$host_os" in
 		LIBS="-lxnet $LIBS"
 		AC_DEFINE(PREAD_BROKEN,, Defint if pread/pwrite implementation is broken)
 		;;
+	linux*)
+		AC_DEFINE(PROCTITLE_HACK,, Define if process title can be changed by modifying argv)
+		;;
 	*)
 		;;
 esac

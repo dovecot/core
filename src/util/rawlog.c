@@ -339,7 +339,7 @@ static void rawlog_open(enum rawlog_flags flags)
 	exit(0);
 }
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
 	char *executable, *p;
 	enum rawlog_flags flags;
@@ -348,7 +348,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	lib_init();
 	i_set_failure_internal();
-	process_title_init(&argv, envp);
+	process_title_init(&argv);
 
 	argc--;
 	argv++;
