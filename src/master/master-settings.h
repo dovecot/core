@@ -16,7 +16,6 @@ struct master_settings {
 	bool version_ignore;
 	bool mail_debug;
 	bool auth_debug;
-	bool verbose_proctitle;
 
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;

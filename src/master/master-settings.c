@@ -179,7 +179,6 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(SET_BOOL, version_ignore),
 	DEF(SET_BOOL, mail_debug),
 	DEF(SET_BOOL, auth_debug),
-	DEF(SET_BOOL, verbose_proctitle),
 
 	DEF(SET_UINT, first_valid_uid),
 	DEF(SET_UINT, last_valid_uid),
@@ -204,7 +203,6 @@ static const struct master_settings master_default_settings = {
 	MEMBER(version_ignore) FALSE,
 	MEMBER(mail_debug) FALSE,
 	MEMBER(auth_debug) FALSE,
-	MEMBER(verbose_proctitle) FALSE,
 
 	MEMBER(first_valid_uid) 500,
 	MEMBER(last_valid_uid) 0,
