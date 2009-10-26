@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "strescape.h"
 #include "istream.h"
+#include "module-dir.h"
 #include "settings-parser.h"
 #include "all-settings.h"
 #include "config-filter.h"
@@ -711,4 +712,33 @@ prevfile:
 		return -1;
 	}
 	return 1;
+}
+
+void config_parse_load_modules(void)
+{
+	struct module *modules, *m;
+	const struct setting_parser_info **roots;
+	ARRAY_DEFINE(new_roots, const struct setting_parser_info *);
+	unsigned int i;
+
+	modules = module_dir_load(CONFIG_MODULE_DIR, NULL, FALSE, NULL);
+	module_dir_init(modules);
+
+	i_array_init(&new_roots, 64);
+	for (m = modules; m != NULL; m = m->next) {
+		roots = module_get_symbol(m,
+			t_strdup_printf("%s_set_roots", m->name));
+		if (roots != NULL) {
+			for (i = 0; roots[i] != NULL; i++)
+				array_append(&new_roots, &roots[i], 1);
+		}
+	}
+	if (array_count(&new_roots) > 0) {
+		/* modules added new settings. add the defaults and start
+		   using the new list. */
+		for (i = 0; all_roots[i] != NULL; i++)
+			array_append(&new_roots, &all_roots[i], 1);
+		(void)array_append_space(&new_roots);
+		all_roots = array_idx(&new_roots, 0);
+	}
 }

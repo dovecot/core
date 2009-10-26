@@ -270,6 +270,7 @@ int main(int argc, char *argv[])
 		fflush(stdout);
 	}
 	master_service_init_finish(master_service);
+	config_parse_load_modules();
 
 	if ((ret = config_parse_file(config_path, FALSE, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {

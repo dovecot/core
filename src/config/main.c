@@ -23,6 +23,7 @@ int main(int argc, char *argv[])
 
 	master_service_init_log(master_service, "config: ");
 	master_service_init_finish(master_service);
+	config_parse_load_modules();
 
 	path = master_service_get_config_path(master_service);
 	if (config_parse_file(path, TRUE, &error) <= 0)

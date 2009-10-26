@@ -105,7 +105,7 @@ print "buffer_t config_all_services_buf = {\n";
 print "\tconfig_all_services, sizeof(config_all_services), { 0, }\n";
 print "};\n";
 
-print "const struct setting_parser_info *all_roots[] = {\n";
+print "const struct setting_parser_info *all_default_roots[] = {\n";
 foreach my $name (keys %parsers) {
   my $module = $parsers{$name};
   next if (!$module);
@@ -114,3 +114,4 @@ foreach my $name (keys %parsers) {
 }
 print "\tNULL\n";
 print "};\n";
+print "const struct setting_parser_info *const *all_roots = all_default_roots;\n";
