@@ -118,8 +118,9 @@ master_service_read_config(struct master_service *service, const char *path,
 			*error_r = t_strdup_printf(
 				"net_connect_unix(%s) failed: %m", path);
 
-			if (stat(path, &st) == 0 && !S_ISFIFO(st.st_mode)) {
-				/* it's a file, not a socket */
+			if (stat(path, &st) == 0 && 
+			    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
+				/* it's a file, not a socket/pipe */
 				master_service_exec_config(service,
 							   input->preserve_home);
 			}
