@@ -737,8 +737,6 @@ message_parser_init_from_parts(struct message_part *parts,
 {
 	struct message_parser_ctx *ctx;
 
-	i_assert((flags & MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK) != 0);
-
 	ctx = message_parser_init(NULL, input, hdr_flags, flags);
 	ctx->parts = ctx->part = parts;
 	ctx->parse_next_block = preparsed_parse_next_header_init;
