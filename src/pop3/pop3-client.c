@@ -37,6 +37,7 @@
 #define CLIENT_COMMIT_TIMEOUT_MSECS (10*1000)
 
 struct client *pop3_clients;
+unsigned int pop3_client_count;
 
 static void client_input(struct client *client);
 static int client_output(struct client *client);
@@ -266,9 +267,12 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		client->anvil_sent = TRUE;
 	}
 
+	pop3_client_count++;
 	DLLIST_PREPEND(&pop3_clients, client);
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
+
+	pop3_refresh_proctitle();
 	return client;
 }
 
@@ -334,6 +338,7 @@ void client_destroy(struct client *client, const char *reason)
 		client->cmd(client);
 		i_assert(client->cmd == NULL);
 	}
+	pop3_client_count--;
 	DLLIST_REMOVE(&pop3_clients, client);
 
 	if (client->trans != NULL) {
@@ -375,6 +380,7 @@ void client_destroy(struct client *client, const char *reason)
 	i_free(client);
 
 	master_service_client_connection_destroyed(master_service);
+	pop3_refresh_proctitle();
 }
 
 void client_disconnect(struct client *client, const char *reason)

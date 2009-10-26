@@ -60,6 +60,7 @@ struct service_settings pop3_service_settings = {
 
 static const struct setting_define pop3_setting_defines[] = {
 	DEF(SET_BOOL, mail_debug),
+	DEF(SET_BOOL, verbose_proctitle),
 
 	DEF(SET_BOOL, pop3_no_flag_updates),
 	DEF(SET_BOOL, pop3_enable_last),
@@ -74,6 +75,7 @@ static const struct setting_define pop3_setting_defines[] = {
 
 static const struct pop3_settings pop3_default_settings = {
 	MEMBER(mail_debug) FALSE,
+	MEMBER(verbose_proctitle) FALSE,
 
 	MEMBER(pop3_no_flag_updates) FALSE,
 	MEMBER(pop3_enable_last) FALSE,

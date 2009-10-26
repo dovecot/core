@@ -62,6 +62,7 @@ struct client {
 };
 
 extern struct client *pop3_clients;
+extern unsigned int pop3_client_count;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */

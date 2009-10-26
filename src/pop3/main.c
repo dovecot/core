@@ -6,11 +6,14 @@
 #include "istream.h"
 #include "ostream.h"
 #include "base64.h"
+#include "str.h"
+#include "process-title.h"
 #include "restrict-access.h"
 #include "master-service.h"
 #include "master-login.h"
 #include "master-interface.h"
 #include "var-expand.h"
+#include "mail-user.h"
 #include "mail-storage-service.h"
 
 #include <stdio.h>
@@ -20,10 +23,40 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_UID_ENV) == NULL)
 
+static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;
 static struct master_login *master_login = NULL;
 
 void (*hook_client_created)(struct client **client) = NULL;
+
+void pop3_refresh_proctitle(void)
+{
+	struct client *client;
+	string_t *title = t_str_new(128);
+
+	if (!verbose_proctitle)
+		return;
+
+	str_append_c(title, '[');
+	switch (pop3_client_count) {
+	case 0:
+		str_append(title, "idling");
+		break;
+	case 1:
+		client = pop3_clients;
+		str_append(title, client->user->username);
+		if (client->user->remote_ip != NULL) {
+			str_append_c(title, ' ');
+			str_append(title, net_ip2addr(client->user->remote_ip));
+		}
+		break;
+	default:
+		str_printfa(title, "%u connections", pop3_client_count);
+		break;
+	}
+	str_append_c(title, ']');
+	process_title_set(str_c(title));
+}
 
 static void pop3_die(void)
 {
@@ -65,6 +98,9 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	restrict_access_allow_coredumps(TRUE);
 
 	set = mail_storage_service_user_get_set(user)[1];
+	if (set->verbose_proctitle)
+		verbose_proctitle = TRUE;
+
 	client = client_create(fd_in, fd_out, mail_user, user, set);
 	T_BEGIN {
 		client_add_input(client, input_buf);

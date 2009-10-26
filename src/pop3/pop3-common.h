@@ -14,4 +14,6 @@ enum uidl_keys {
 
 extern void (*hook_client_created)(struct client **client);
 
+void pop3_refresh_proctitle(void);
+
 #endif
