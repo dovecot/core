@@ -49,8 +49,10 @@ static void cmd_help(int argc ATTR_UNUSED, char *argv[])
 		if (strcmp(cmd->name, argv[1]) == 0)
 			help(cmd);
 	}
+	doveadm_mail_help_name(argv[1]);
 	usage();
 }
+
 static struct doveadm_cmd doveadm_cmd_help = {
 	cmd_help, "help", "<cmd>", NULL
 };

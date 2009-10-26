@@ -14,6 +14,7 @@
 #include "doveadm-mail.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 
@@ -62,7 +63,7 @@ static void cmd_force_resync(struct mail_user *user, const char *args[])
 	struct mailbox *box;
 
 	if (mailbox == NULL)
-		usage();
+		doveadm_mail_help_name("force-resync");
 
 	box = mailbox_find_and_open(user, mailbox);
 	storage = mailbox_get_storage(box);
@@ -201,7 +202,7 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 }
 
 static void
-doveadm_mail_cmd(doveadm_mail_command_t *cmd, int argc, char *argv[])
+doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 {
 	enum mail_storage_service_flags service_flags = 0;
 	const char *username;
@@ -217,19 +218,19 @@ doveadm_mail_cmd(doveadm_mail_command_t *cmd, int argc, char *argv[])
 			service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 			break;
 		default:
-			usage();
+			doveadm_mail_help(cmd);
 		}
 	}
 	if (!all_users) {
 		if (optind == argc)
-			usage();
+			doveadm_mail_help(cmd);
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 		username = argv[optind++];
-		doveadm_mail_single_user(cmd, username, service_flags,
+		doveadm_mail_single_user(cmd->cmd, username, service_flags,
 					 (const char **)argv + optind);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
-		doveadm_mail_all_users(cmd, service_flags,
+		doveadm_mail_all_users(cmd->cmd, service_flags,
 				       (const char **)argv + optind);
 	}
 }
@@ -240,7 +241,7 @@ bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[])
 
 	array_foreach(&doveadm_mail_cmds, cmd) {
 		if (strcmp(cmd->name, cmd_name) == 0) {
-			doveadm_mail_cmd(cmd->cmd, argc, argv);
+			doveadm_mail_cmd(cmd, argc, argv);
 			return TRUE;
 		}
 	}
@@ -262,6 +263,23 @@ void doveadm_mail_usage(void)
 		if (cmd->usage_args != NULL)
 			fprintf(stderr, " %s", cmd->usage_args);
 		fputc('\n', stderr);
+	}
+}
+
+void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
+{
+	fprintf(stderr, "doveadm %s %s\n", cmd->name,
+		cmd->usage_args == NULL ? "" : cmd->usage_args);
+	exit(0);
+}
+
+void doveadm_mail_help_name(const char *cmd_name)
+{
+	const struct doveadm_mail_cmd *cmd;
+
+	array_foreach(&doveadm_mail_cmds, cmd) {
+		if (strcmp(cmd->name, cmd_name) == 0)
+			doveadm_mail_help(cmd);
 	}
 }
 
