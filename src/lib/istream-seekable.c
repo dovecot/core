@@ -252,6 +252,8 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 		stream->istream.eof = sstream->fd_input->eof;
 		stream->istream.stream_errno =
 			sstream->fd_input->stream_errno;
+	} else {
+		ret = -2;
 	}
 
 	stream->buffer = i_stream_get_data(sstream->fd_input, &pos);
