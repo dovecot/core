@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "base64.h"
+#include "process-title.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "master-interface.h"
@@ -25,10 +26,51 @@
 
 #define IMAP_DIE_IDLE_SECS 10
 
+static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;
 static struct master_login *master_login = NULL;
 
 void (*hook_client_created)(struct client **client) = NULL;
+
+void imap_refresh_proctitle(void)
+{
+#define IMAP_PROCTITLE_PREFERRED_LEN 80
+	struct client *client;
+	struct client_command_context *cmd;
+	string_t *title = t_str_new(128);
+
+	if (!verbose_proctitle)
+		return;
+
+	str_append_c(title, '[');
+	switch (imap_client_count) {
+	case 0:
+		str_append(title, "idling");
+		break;
+	case 1:
+		client = imap_clients;
+		str_append(title, client->user->username);
+		if (client->user->remote_ip != NULL) {
+			str_append_c(title, ' ');
+			str_append(title, net_ip2addr(client->user->remote_ip));
+		}
+		for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
+			if (cmd->name == NULL)
+				continue;
+
+			if (str_len(title) > IMAP_PROCTITLE_PREFERRED_LEN)
+				break;
+			str_append_c(title, ' ');
+			str_append(title, cmd->name);
+		}
+		break;
+	default:
+		str_printfa(title, "%u connections", imap_client_count);
+		break;
+	}
+	str_append_c(title, ']');
+	process_title_set(str_c(title));
+}
 
 static void client_kill_idle(struct client *client)
 {
@@ -130,6 +172,9 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	restrict_access_allow_coredumps(TRUE);
 
 	set = mail_storage_service_user_get_set(user)[1];
+	if (set->verbose_proctitle)
+		verbose_proctitle = TRUE;
+
 	client = client_create(fd_in, fd_out, mail_user, user, set);
 	T_BEGIN {
 		client_add_input(client, input_buf);

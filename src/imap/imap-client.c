@@ -23,6 +23,7 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 struct imap_module_register imap_module_register = { 0 };
 
 struct client *imap_clients = NULL;
+unsigned int imap_client_count = 0;
 
 static void client_idle_timeout(struct client *client)
 {
@@ -77,9 +78,12 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		client->anvil_sent = TRUE;
 	}
 
+	imap_client_count++;
 	DLLIST_PREPEND(&imap_clients, client);
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
+
+	imap_refresh_proctitle();
 	return client;
 }
 
@@ -160,6 +164,7 @@ void client_destroy(struct client *client, const char *reason)
 		i_info("%s %s", reason, client_stats(client));
 	}
 
+	imap_client_count--;
 	DLLIST_REMOVE(&imap_clients, client);
 
 	i_stream_close(client->input);
@@ -219,6 +224,7 @@ void client_destroy(struct client *client, const char *reason)
 	i_free(client);
 
 	master_service_client_connection_destroyed(master_service);
+	imap_refresh_proctitle();
 }
 
 void client_disconnect(struct client *client, const char *reason)
@@ -529,6 +535,7 @@ void client_command_free(struct client_command_context **_cmd)
 		if (client->to_idle_output != NULL)
 			timeout_remove(&client->to_idle_output);
 	}
+	imap_refresh_proctitle();
 }
 
 static void client_add_missing_io(struct client *client)
@@ -656,6 +663,7 @@ static bool client_command_input(struct client_command_context *cmd)
 		if (cmd->name == NULL)
 			return FALSE; /* need more data */
 		cmd->name = p_strdup(cmd->pool, cmd->name);
+		imap_refresh_proctitle();
 	}
 
 	client->input_skip_line = TRUE;

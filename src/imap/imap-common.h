@@ -19,4 +19,6 @@
 
 extern void (*hook_client_created)(struct client **client);
 
+void imap_refresh_proctitle(void);
+
 #endif

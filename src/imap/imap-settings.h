@@ -13,6 +13,7 @@ enum imap_client_workarounds {
 
 struct imap_settings {
 	bool mail_debug;
+	bool verbose_proctitle;
 
 	/* imap: */
 	unsigned int imap_max_line_length;

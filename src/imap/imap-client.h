@@ -148,6 +148,7 @@ struct client {
 };
 
 extern struct client *imap_clients;
+extern unsigned int imap_client_count;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
