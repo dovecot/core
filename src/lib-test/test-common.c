@@ -73,12 +73,12 @@ static void test_seek(struct istream_private *stream, uoff_t v_offset,
 	stream->pos = stream->skip;
 }
 
-struct istream *test_istream_create(const char *data)
+struct istream *test_istream_create_data(const void *data, size_t size)
 {
 	struct test_istream *tstream;
 
 	tstream = i_new(struct test_istream, 1);
-	tstream->istream.buffer = (const void *)data;
+	tstream->istream.buffer = data;
 
 	tstream->istream.read = test_read;
 	tstream->istream.seek = test_seek;
@@ -86,10 +86,15 @@ struct istream *test_istream_create(const char *data)
 	tstream->istream.istream.blocking = FALSE;
 	tstream->istream.istream.seekable = TRUE;
 	(void)i_stream_create(&tstream->istream, NULL, -1);
-	tstream->istream.statbuf.st_size = tstream->max_pos = strlen(data);
+	tstream->istream.statbuf.st_size = tstream->max_pos = size;
 	tstream->allow_eof = TRUE;
 	tstream->max_buffer_size = (size_t)-1;
 	return &tstream->istream.istream;
+}
+
+struct istream *test_istream_create(const char *data)
+{
+	return test_istream_create_data(data, strlen(data));
 }
 
 void test_istream_set_allow_eof(struct istream *input, bool allow)
