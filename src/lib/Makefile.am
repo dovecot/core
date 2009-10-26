@@ -221,7 +221,9 @@ test_lib_SOURCES = \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
 	test-hex-binary.c \
+	test-istream-concat.c \
 	test-istream-crlf.c \
+	test-istream-seekable.c \
 	test-istream-tee.c \
 	test-mempool-alloconly.c \
 	test-network.c \
