@@ -102,12 +102,11 @@ static void test_istream_seekable_random(void)
 			if (input->v_offset + size == offset)
 				test_assert(ret < 0);
 			else if (ret == -2) {
-				data = i_stream_get_data(input, &size);
 				test_assert(size == buffer_size);
 			} else {
 				test_assert(ret > 0);
 				test_assert(input->v_offset + ret <= offset);
-				i_stream_skip(input, rand() % ret);
+				i_stream_skip(input, rand() % (ret+1));
 
 				data = i_stream_get_data(input, &size);
 				for (j = 0; j < size; j++) {
