@@ -119,7 +119,9 @@ static void config_connection_request_human(struct ostream *output,
 
 	ctx.pool = pool_alloconly_create("config human strings", 10240);
 	i_array_init(&ctx.strings, 256);
-	if (config_request_handle(filter, module, scope, TRUE,
+	if (config_request_handle(filter, module, scope,
+				  CONFIG_DUMP_FLAG_CHECK_SETTINGS |
+				  CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
 				  config_request_get_strings, &ctx) < 0)
 		return;
 
@@ -366,7 +368,8 @@ int main(int argc, char *argv[])
 	} else {
 		env_put("DOVECONF_ENV=1");
 		if (config_request_handle(&filter, module,
-					  CONFIG_DUMP_SCOPE_SET, TRUE,
+					  CONFIG_DUMP_SCOPE_SET,
+					  CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					  config_request_putenv, NULL) < 0)
 			i_fatal("Invalid configuration");
 		execvp(exec_args[0], exec_args);

@@ -20,6 +20,8 @@ struct settings_export_context {
 
 	config_request_callback_t *callback;
 	void *context;
+
+	enum config_dump_flags flags;
 };
 
 static bool parsers_are_connected(const struct setting_parser_info *root,
@@ -101,12 +103,16 @@ settings_export(struct settings_export_context *ctx,
 			dump_default = FALSE;
 			break;
 		}
-		if (*((const char *)change_value) == 0) {
+		if (!parent_unique_deflist ||
+		    (ctx->flags & CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS) == 0) {
+			/* .. */
+		} else if (*((const char *)change_value) == 0 &&
+			   def->offset != info->type_offset) {
 			/* this is mainly for service {} blocks. if value
 			   hasn't changed, it's the default. even if
 			   info->defaults has a different value. */
 			default_value = value;
-		} else if (parent_unique_deflist) {
+		} else {
 			/* value is set explicitly, but we don't know the
 			   default here. assume it's not the default. */
 			dump_default = TRUE;
@@ -256,7 +262,7 @@ settings_export(struct settings_export_context *ctx,
 
 int config_request_handle(const struct config_filter *filter,
 			  const char *module, enum config_dump_scope scope,
-			  bool check_settings,
+			  enum config_dump_flags flags,
 			  config_request_callback_t *callback, void *context)
 {
 	struct config_module_parser *parsers, *parser;
@@ -275,6 +281,7 @@ int config_request_handle(const struct config_filter *filter,
 		return -1;
 	}
 
+	ctx.flags = flags;
 	ctx.callback = callback;
 	ctx.context = context;
 	ctx.scope = scope;
@@ -293,7 +300,7 @@ int config_request_handle(const struct config_filter *filter,
 				settings_parser_get(parser->parser),
 				settings_parser_get_changes(parser->parser));
 
-		if (check_settings) {
+		if ((flags & CONFIG_DUMP_FLAG_CHECK_SETTINGS) != 0) {
 			settings_parse_var_skip(parser->parser);
 			if (!settings_parser_check(parser->parser, ctx.pool,
 						   &error)) {
