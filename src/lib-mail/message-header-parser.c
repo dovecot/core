@@ -136,6 +136,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			   b) header ended unexpectedly */
 			if (colon_pos == UINT_MAX && ret == -2 && !continued) {
 				/* header name is huge. just skip it. */
+				i_assert(size > 1);
 				if (msg[size-1] == '\r')
 					size--;
 

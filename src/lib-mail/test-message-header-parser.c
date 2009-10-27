@@ -225,13 +225,13 @@ static void test_message_header_parser_long_lines(void)
 
 	test_begin("message header parser long lines");
 	len = strlen(lf_str);
-	for (i = 1; i < len; i++) {
+	for (i = 2; i < len; i++) {
 		test_message_header_parser_long_lines_str(lf_str, i, &hdr_size);
 		test_assert(hdr_size.physical_size == len);
 		test_assert(hdr_size.virtual_size == len + 2);
 	}
 	len = strlen(crlf_str);
-	for (i = 1; i < len; i++) {
+	for (i = 2; i < len; i++) {
 		test_message_header_parser_long_lines_str(crlf_str, i, &hdr_size);
 		test_assert(hdr_size.physical_size == len);
 		test_assert(hdr_size.virtual_size == len);
