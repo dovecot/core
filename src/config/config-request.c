@@ -71,9 +71,11 @@ config_module_parser_is_in_service(const struct config_module_parser *list,
 	return FALSE;
 }
 
-static void settings_export(struct settings_export_context *ctx,
-			    const struct setting_parser_info *info,
-			    const void *set, const void *change_set)
+static void
+settings_export(struct settings_export_context *ctx,
+		const struct setting_parser_info *info,
+		bool parent_unique_deflist,
+		const void *set, const void *change_set)
 {
 	const struct setting_define *def;
 	const void *value, *default_value, *change_value;
@@ -104,6 +106,10 @@ static void settings_export(struct settings_export_context *ctx,
 			   hasn't changed, it's the default. even if
 			   info->defaults has a different value. */
 			default_value = value;
+		} else if (parent_unique_deflist) {
+			/* value is set explicitly, but we don't know the
+			   default here. assume it's not the default. */
+			dump_default = TRUE;
 		}
 
 		dump = FALSE;
@@ -196,7 +202,7 @@ static void settings_export(struct settings_export_context *ctx,
 				break;
 			}
 			hash_table_insert(ctx->keys, key, key);
-			ctx->callback(key, "0", TRUE, ctx->context);
+			ctx->callback(key, "0", CONFIG_KEY_LIST, ctx->context);
 
 			strings = array_get(val, &count);
 			i_assert(count % 2 == 0);
@@ -207,8 +213,8 @@ static void settings_export(struct settings_export_context *ctx,
 						      SETTINGS_SEPARATOR,
 						      SETTINGS_SEPARATOR,
 						      strings[i]);
-				ctx->callback(str, strings[i+1], FALSE,
-					      ctx->context);
+				ctx->callback(str, strings[i+1],
+					      CONFIG_KEY_NORMAL, ctx->context);
 			}
 			count = 0;
 			break;
@@ -218,8 +224,16 @@ static void settings_export(struct settings_export_context *ctx,
 			key = p_strconcat(ctx->pool, str_c(ctx->prefix),
 					  def->key, NULL);
 			if (hash_table_lookup(ctx->keys, key) == NULL) {
-				ctx->callback(key, str_c(ctx->value),
-					SETTING_TYPE_IS_DEFLIST(def->type),
+				enum config_key_type type;
+
+				if (def->offset == info->type_offset &&
+				    parent_unique_deflist)
+					type = CONFIG_KEY_UNIQUE_KEY;
+				else if (SETTING_TYPE_IS_DEFLIST(def->type))
+					type = CONFIG_KEY_LIST;
+				else
+					type = CONFIG_KEY_NORMAL;
+				ctx->callback(key, str_c(ctx->value), type,
 					ctx->context);
 				hash_table_insert(ctx->keys, key, key);
 			}
@@ -231,8 +245,9 @@ static void settings_export(struct settings_export_context *ctx,
 			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
 			str_printfa(ctx->prefix, "%u", i);
 			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
-			settings_export(ctx, def->list_info, children[i],
-					change_children[i]);
+			settings_export(ctx, def->list_info,
+					def->type == SET_DEFLIST_UNIQUE,
+					children[i], change_children[i]);
 
 			str_truncate(ctx->prefix, prefix_len);
 		}
@@ -274,7 +289,7 @@ int config_request_handle(const struct config_filter *filter,
 		    !config_module_parser_is_in_service(parser, module))
 			continue;
 
-		settings_export(&ctx, parser->root,
+		settings_export(&ctx, parser->root, FALSE,
 				settings_parser_get(parser->parser),
 				settings_parser_get_changes(parser->parser));
 

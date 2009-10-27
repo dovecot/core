@@ -12,8 +12,14 @@ enum config_dump_scope {
 	CONFIG_DUMP_SCOPE_CHANGED
 };
 
+enum config_key_type {
+	CONFIG_KEY_NORMAL,
+	CONFIG_KEY_LIST,
+	CONFIG_KEY_UNIQUE_KEY
+};
+
 typedef void config_request_callback_t(const char *key, const char *value,
-				       bool list, void *context);
+				       enum config_key_type type, void *context);
 
 int config_request_handle(const struct config_filter *filter,
 			  const char *module, enum config_dump_scope scope,

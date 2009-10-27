@@ -46,7 +46,7 @@ config_connection_next_line(struct config_connection *conn)
 
 static void
 config_request_output(const char *key, const char *value,
-		      bool list ATTR_UNUSED, void *context)
+		      enum config_key_type type ATTR_UNUSED, void *context)
 {
 	struct ostream *output = context;
 	const char *p;

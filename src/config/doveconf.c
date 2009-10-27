@@ -4,6 +4,7 @@
 #include "array.h"
 #include "env-util.h"
 #include "ostream.h"
+#include "str.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "all-settings.h"
@@ -15,19 +16,42 @@
 #include <stdio.h>
 #include <unistd.h>
 
+struct prefix_stack {
+	unsigned int prefix_idx;
+	unsigned int str_pos;
+};
+ARRAY_DEFINE_TYPE(prefix_stack, struct prefix_stack);
+
 struct config_request_get_string_ctx {
 	pool_t pool;
 	ARRAY_TYPE(const_string) strings;
 };
 
+#define LIST_KEY_PREFIX "\001"
+#define UNIQUE_KEY_SUFFIX "\xff"
+
 static void
 config_request_get_strings(const char *key, const char *value,
-			   bool list, void *context)
+			   enum config_key_type type, void *context)
 {
 	struct config_request_get_string_ctx *ctx = context;
+	const char *p;
 
-	value = p_strdup_printf(ctx->pool, list ? "-%s=%s" : "%s=%s",
-				key, value);
+	switch (type) {
+	case CONFIG_KEY_NORMAL:
+		value = p_strdup_printf(ctx->pool, "%s=%s", key, value);
+		break;
+	case CONFIG_KEY_LIST:
+		value = p_strdup_printf(ctx->pool, LIST_KEY_PREFIX"%s=%s",
+					key, value);
+		break;
+	case CONFIG_KEY_UNIQUE_KEY:
+		p = strrchr(key, '/');
+		i_assert(p != NULL);
+		value = p_strdup_printf(ctx->pool, "%s/"UNIQUE_KEY_SUFFIX"%s=%s",
+					t_strdup_until(key, p), p + 1, value);
+		break;
+	}
 	array_append(&ctx->strings, &value, 1);
 }
 
@@ -46,18 +70,34 @@ static int config_string_cmp(const char *const *p1, const char *const *p2)
 		return -1;
 	if (s2[i] == '=')
 		return 1;
+
 	return s1[i] - s2[i];
 }
 
-static unsigned int prefix_stack_pop(ARRAY_TYPE(uint) *stack)
+static struct prefix_stack prefix_stack_pop(ARRAY_TYPE(prefix_stack) *stack)
 {
-	const unsigned int *indexes;
-	unsigned int idx, count;
+	const struct prefix_stack *s;
+	struct prefix_stack sc;
+	unsigned int count;
 
-	indexes = array_get(stack, &count);
-	idx = count <= 1 ? -1U : indexes[count-2];
+	s = array_get(stack, &count);
+	i_assert(count > 0);
+	if (count == 1) {
+		sc.prefix_idx = -1U;
+	} else {
+		sc.prefix_idx = s[count-2].prefix_idx;
+	}
+	sc.str_pos = s[count-1].str_pos;
 	array_delete(stack, count-1, 1);
-	return idx;
+	return sc;
+}
+
+static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
+{
+	struct prefix_stack *s;
+
+	array_foreach_modifiable(stack, s)
+		s->str_pos = -1U;
 }
 
 static void config_connection_request_human(struct ostream *output,
@@ -65,14 +105,17 @@ static void config_connection_request_human(struct ostream *output,
 					    const char *module,
 					    enum config_dump_scope scope)
 {
-	static const char *ident_str = "               ";
+	static const char *indent_str = "               ";
 	ARRAY_TYPE(const_string) prefixes_arr;
-	ARRAY_TYPE(uint) prefix_idx_stack;
+	ARRAY_TYPE(prefix_stack) prefix_stack;
+	struct prefix_stack prefix;
 	struct config_request_get_string_ctx ctx;
 	const char *const *strings, *const *args, *p, *str, *const *prefixes;
 	const char *key, *key2, *value;
 	unsigned int i, j, count, len, prefix_count, skip_len;
 	unsigned int indent = 0, prefix_idx = -1U;
+	string_t *list_prefix;
+	bool unique_key;
 
 	ctx.pool = pool_alloconly_create("config human strings", 10240);
 	i_array_init(&ctx.strings, 256);
@@ -84,7 +127,7 @@ static void config_connection_request_human(struct ostream *output,
 	strings = array_get(&ctx.strings, &count);
 
 	p_array_init(&prefixes_arr, ctx.pool, 32);
-	for (i = 0; i < count && strings[i][0] == '-'; i++) T_BEGIN {
+	for (i = 0; i < count && strings[i][0] == LIST_KEY_PREFIX[0]; i++) T_BEGIN {
 		p = strchr(strings[i], '=');
 		i_assert(p != NULL);
 		for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
@@ -96,22 +139,36 @@ static void config_connection_request_human(struct ostream *output,
 	} T_END;
 	prefixes = array_get(&prefixes_arr, &prefix_count);
 
-	p_array_init(&prefix_idx_stack, ctx.pool, 8);
+	list_prefix = str_new(ctx.pool, 128);
+	p_array_init(&prefix_stack, ctx.pool, 8);
 	for (; i < count; i++) T_BEGIN {
 		value = strchr(strings[i], '=');
 		i_assert(value != NULL);
-		key = t_strdup_until(strings[i], value);
-		value++;
+
+		key = t_strdup_until(strings[i], value++);
+		unique_key = FALSE;
+
+		p = strrchr(key, '/');
+		if (p != NULL && p[1] == UNIQUE_KEY_SUFFIX[0]) {
+			key = t_strconcat(t_strdup_until(key, p + 1),
+					  p + 2, NULL);
+			unique_key = TRUE;
+		}
 
 	again:
 		j = 0;
 		while (prefix_idx != -1U) {
 			len = strlen(prefixes[prefix_idx]);
 			if (strncmp(prefixes[prefix_idx], key, len) != 0) {
-				prefix_idx = prefix_stack_pop(&prefix_idx_stack);
+				prefix = prefix_stack_pop(&prefix_stack);
 				indent--;
-				o_stream_send(output, ident_str, indent*2);
-				o_stream_send_str(output, "}\n");
+				if (prefix.str_pos != -1U)
+					str_truncate(list_prefix, prefix.str_pos);
+				else {
+					o_stream_send(output, indent_str, indent*2);
+					o_stream_send_str(output, "}\n");
+				}
+				prefix_idx = prefix.prefix_idx;
 			} else {
 				/* keep the prefix */
 				j = prefix_idx + 1;
@@ -123,31 +180,52 @@ static void config_connection_request_human(struct ostream *output,
 			if (strncmp(prefixes[j], key, len) == 0) {
 				key2 = key + (prefix_idx == -1U ? 0 :
 					      strlen(prefixes[prefix_idx]));
-				o_stream_send(output, ident_str, indent*2);
-				o_stream_send_str(output, t_strcut(key2, '/'));
-				o_stream_send_str(output, " {\n");
-				indent++;
+				prefix.str_pos = !unique_key ? -1U :
+					str_len(list_prefix);
 				prefix_idx = j;
-				array_append(&prefix_idx_stack, &prefix_idx, 1);
-				goto again;
+				prefix.prefix_idx = prefix_idx;
+				array_append(&prefix_stack, &prefix, 1);
+
+				str_append_n(list_prefix, indent_str, indent*2);
+				p = strchr(key2, '/');
+				if (p != NULL)
+					str_append_n(list_prefix, key2, p - key2);
+				else
+					str_append(list_prefix, key2);
+				if (unique_key)
+					str_printfa(list_prefix, " %s", value);
+				str_append(list_prefix, " {\n");
+				indent++;
+
+				if (unique_key)
+					goto end;
+				else
+					goto again;
 			}
 		}
+		o_stream_send(output, str_data(list_prefix), str_len(list_prefix));
+		str_truncate(list_prefix, 0);
+		prefix_stack_reset_str(&prefix_stack);
+
 		skip_len = prefix_idx == -1U ? 0 : strlen(prefixes[prefix_idx]);
 		i_assert(skip_len == 0 ||
 			 strncmp(prefixes[prefix_idx], strings[i], skip_len) == 0);
-		o_stream_send(output, ident_str, indent*2);
+		o_stream_send(output, indent_str, indent*2);
 		key = strings[i] + skip_len;
+		if (unique_key) key++;
 		value = strchr(key, '=');
 		o_stream_send(output, key, value-key);
 		o_stream_send_str(output, " = ");
 		o_stream_send_str(output, value+1);
 		o_stream_send(output, "\n", 1);
+	end: ;
 	} T_END;
 
 	while (prefix_idx != -1U) {
-		prefix_idx = prefix_stack_pop(&prefix_idx_stack);
+		prefix = prefix_stack_pop(&prefix_stack);
+		prefix_idx = prefix.prefix_idx;
 		indent--;
-		o_stream_send(output, ident_str, indent*2);
+		o_stream_send(output, indent_str, indent*2);
 		o_stream_send_str(output, "}\n");
 	}
 
@@ -169,7 +247,7 @@ static void config_dump_human(const struct config_filter *filter,
 }
 
 static void config_request_putenv(const char *key, const char *value,
-				  bool list ATTR_UNUSED,
+				  enum config_key_type type ATTR_UNUSED,
 				  void *context ATTR_UNUSED)
 {
 	T_BEGIN {
