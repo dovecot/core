@@ -32,7 +32,7 @@ struct service_settings anvil_service_settings = {
 
 	MEMBER(drop_priv_before_exec) FALSE,
 
-	MEMBER(process_min_avail) 0,
+	MEMBER(process_min_avail) 1,
 	MEMBER(process_limit) 1,
 	MEMBER(client_limit) 0,
 	MEMBER(service_count) 0,
