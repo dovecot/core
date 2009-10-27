@@ -40,7 +40,6 @@ struct master_service *master_service;
 
 static void master_service_refresh_login_state(struct master_service *service);
 static void io_listeners_remove(struct master_service *service);
-static void master_status_update(struct master_service *service);
 
 const char *master_service_getopt_string(void)
 {
@@ -571,7 +570,7 @@ static void master_service_refresh_login_state(struct master_service *service)
 		master_service_set_login_state(service, ret);
 }
 
-static void master_service_close_config_fd(struct master_service *service)
+void master_service_close_config_fd(struct master_service *service)
 {
 	if (service->config_fd != -1) {
 		if (close(service->config_fd) < 0)
@@ -619,6 +618,7 @@ static void master_service_listen(struct master_service_listener *l)
 {
 	struct master_service *service = l->service;
 	struct master_service_connection conn;
+	bool close_config;
 
 	if (service->master_status.available_count == 0) {
 		/* we are full. stop listening for now, unless overflow
@@ -660,13 +660,18 @@ static void master_service_listen(struct master_service_listener *l)
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
 
-	service->master_status.available_count--;
-        master_status_update(service);
+	if (service->login_connections)
+		close_config = FALSE;
+	else {
+		service->master_status.available_count--;
+		master_status_update(service);
+		close_config = service->master_status.available_count == 0 &&
+			service->service_count_left == 1;
+	}
 
 	service->callback(&conn);
 
-	if (service->master_status.available_count == 0 &&
-	    service->service_count_left == 1) {
+	if (close_config) {
 		/* we're dying as soon as this connection closes. */
 		master_service_close_config_fd(service);
 	}
@@ -731,7 +736,7 @@ static bool master_status_update_is_important(struct master_service *service)
 	return FALSE;
 }
 
-static void master_status_update(struct master_service *service)
+void master_status_update(struct master_service *service)
 {
 	ssize_t ret;
 

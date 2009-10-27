@@ -195,6 +195,7 @@ int main(int argc, char *argv[])
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE |
 			MASTER_SERVICE_FLAG_STD_CLIENT;
 	} else {
+		service_flags |= MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 		storage_service_flags |=
 			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 	}
@@ -219,7 +220,7 @@ int main(int argc, char *argv[])
 			main_stdio_run();
 		} T_END;
 	} else {
-		master_login = master_login_init("auth-master",
+		master_login = master_login_init(master_service, "auth-master",
 						 login_client_connected);
 		io_loop_set_running(current_ioloop);
 	}

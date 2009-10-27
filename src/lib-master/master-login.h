@@ -16,7 +16,7 @@ master_login_callback_t(const struct master_login_client *client,
 			const char *username, const char *const *extra_fields);
 
 struct master_login *
-master_login_init(const char *auth_socket_path,
+master_login_init(struct master_service *service, const char *auth_socket_path,
 		  master_login_callback_t *callback);
 void master_login_deinit(struct master_login **login);
 

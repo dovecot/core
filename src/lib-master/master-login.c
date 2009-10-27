@@ -6,6 +6,7 @@
 #include "fdpass.h"
 #include "fd-close-on-exec.h"
 #include "llist.h"
+#include "master-service-private.h"
 #include "master-login.h"
 #include "master-login-auth.h"
 
@@ -22,6 +23,7 @@ struct master_login_connection {
 };
 
 struct master_login {
+	struct master_service *service;
 	master_login_callback_t *callback;
 	struct master_login_connection *conns;
 	struct master_login_auth *auth;
@@ -30,14 +32,16 @@ struct master_login {
 static void master_login_conn_deinit(struct master_login_connection **_conn);
 
 struct master_login *
-master_login_init(const char *auth_socket_path,
+master_login_init(struct master_service *service, const char *auth_socket_path,
 		  master_login_callback_t *callback)
 {
 	struct master_login *login;
 
 	login = i_new(struct master_login, 1);
+	login->service = service;
 	login->callback = callback;
 	login->auth = master_login_auth_init(auth_socket_path);
+	service->login_connections = TRUE;
 	return login;
 }
 
@@ -127,6 +131,8 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 {
 	struct master_login_client *client = context;
 	struct master_auth_reply reply;
+	struct master_service *service = client->conn->login->service;
+	bool close_config;
 
 	memset(&reply, 0, sizeof(reply));
 	reply.tag = client->auth_req.tag;
@@ -142,8 +148,18 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 		return;
 	}
 
+	service->master_status.available_count--;
+	master_status_update(service);
+	close_config = service->master_status.available_count == 0 &&
+		service->service_count_left == 1;
+
 	client->conn->login->callback(client, auth_args[0], auth_args+1);
 	i_free(client);
+
+	if (close_config) {
+		/* we're dying as soon as this connection closes. */
+		master_service_close_config_fd(service);
+	}
 }
 
 static void master_login_conn_input(struct master_login_connection *conn)

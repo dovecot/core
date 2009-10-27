@@ -53,8 +53,13 @@ struct master_service {
 	unsigned int die_with_master:1;
 	unsigned int call_avail_overflow:1;
 	unsigned int delay_status_updates:1;
+	/* incoming connections are going to master-login and they're not
+	   counted as real connections */
+	unsigned int login_connections:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);
+void master_status_update(struct master_service *service);
+void master_service_close_config_fd(struct master_service *service);
 
 #endif
