@@ -211,11 +211,31 @@ static int listener_equals(const struct service_listener *l1,
 int services_listen_using(struct service_list *new_service_list,
 			  struct service_list *old_service_list)
 {
-	struct service *const *services;
+	struct service *const *services, *old_service, *new_service;
 	ARRAY_DEFINE(new_listeners_arr, struct service_listener *);
 	ARRAY_DEFINE(old_listeners_arr, struct service_listener *);
 	struct service_listener *const *new_listeners, *const *old_listeners;
 	unsigned int i, j, count, new_count, old_count;
+
+	/* rescue anvil's UNIX socket listener */
+	new_service = service_lookup_type(new_service_list, SERVICE_TYPE_ANVIL);
+	old_service = service_lookup_type(old_service_list, SERVICE_TYPE_ANVIL);
+	if (old_service != NULL && new_service != NULL) {
+		new_listeners = array_get(&new_service->listeners, &new_count);
+		old_listeners = array_get(&old_service->listeners, &old_count);
+		for (i = 0; i < old_count && i < new_count; i++) {
+			if (new_listeners[i]->type != old_listeners[i]->type)
+				break;
+		}
+		if (i != new_count && i != old_count) {
+			i_error("Can't change anvil's listeners on the fly");
+			return -1;
+		}
+		for (i = 0; i < new_count; i++) {
+			new_listeners[i]->fd = old_listeners[i]->fd;
+			old_listeners[i]->fd = -1;
+		}
+	}
 
 	/* first create an arrays of all listeners to make things easier */
 	t_array_init(&new_listeners_arr, 64);
@@ -246,10 +266,11 @@ int services_listen_using(struct service_list *new_service_list,
 
 	/* close what's left */
 	for (j = 0; j < old_count; j++) {
-		if (old_listeners[j]->fd != -1) {
-			if (close(old_listeners[j]->fd) < 0)
-				i_error("close(listener) failed: %m");
-		}
+		if (old_listeners[j]->fd == -1)
+			continue;
+
+		if (close(old_listeners[j]->fd) < 0)
+			i_error("close(listener) failed: %m");
 		switch (old_listeners[j]->type) {
 		case SERVICE_LISTENER_UNIX:
 		case SERVICE_LISTENER_FIFO: {

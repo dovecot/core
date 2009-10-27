@@ -116,13 +116,6 @@ struct service_list {
 	int master_log_fd[2];
 	struct service_process_notify *log_byes;
 
-	/* passed to child processes */
-	int blocking_anvil_fd[2];
-	/* used by master process to notify about dying processes */
-	int nonblocking_anvil_fd[2];
-	struct service_process_notify *anvil_kills;
-	struct io *anvil_io_blocking, *anvil_io_nonblocking;
-
 	ARRAY_DEFINE(services, struct service *);
 
 	unsigned int destroyed:1;
@@ -159,9 +152,12 @@ void service_throttle(struct service *service, unsigned int secs);
 void services_throttle_time_sensitives(struct service_list *list,
 				       unsigned int secs);
 
-/* Find a service by name. */
+/* Find service by name. */
 struct service *
 service_lookup(struct service_list *service_list, const char *name);
+/* Find service by type */
+struct service *
+service_lookup_type(struct service_list *service_list, enum service_type type);
 
 void service_error(struct service *service, const char *format, ...)
 	ATTR_FORMAT(2, 3);

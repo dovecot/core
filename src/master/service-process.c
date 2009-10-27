@@ -63,9 +63,9 @@ service_dup_fds(struct service *service)
 	case SERVICE_TYPE_ANVIL:
 		/* nonblocking anvil fd must be the first one. anvil treats it
 		   as the master's fd */
-		dup2_append(&dups, service->list->nonblocking_anvil_fd[0],
+		dup2_append(&dups, service_anvil_global->nonblocking_fd[0],
 			    MASTER_LISTEN_FD_FIRST + n++);
-		dup2_append(&dups, service->list->blocking_anvil_fd[0],
+		dup2_append(&dups, service_anvil_global->blocking_fd[0],
 			    MASTER_LISTEN_FD_FIRST + n++);
 		socket_listener_count += 2;
 		break;
@@ -100,7 +100,7 @@ service_dup_fds(struct service *service)
 		dup2_append(&dups, service->login_notify_fd,
 			    MASTER_LOGIN_NOTIFY_FD);
 	}
-	dup2_append(&dups, service->list->blocking_anvil_fd[1],
+	dup2_append(&dups, service_anvil_global->blocking_fd[1],
 		    MASTER_ANVIL_FD);
 	dup2_append(&dups, service->status_fd[1], MASTER_STATUS_FD);
 
@@ -231,13 +231,23 @@ struct service_process *service_process_create(struct service *service)
 	struct service_process *process;
 	unsigned int uid = ++uid_counter;
 	pid_t pid;
+	bool process_forked;
 
 	if (service->to_throttle != NULL) {
 		/* throttling service, don't create new processes */
 		return NULL;
 	}
 
-	pid = fork();
+	if (service->type == SERVICE_TYPE_ANVIL &&
+	    service_anvil_global->pid != 0) {
+		pid = service_anvil_global->pid;
+		uid = service_anvil_global->uid;
+		process_forked = FALSE;
+	} else {
+		pid = fork();
+		process_forked = TRUE;
+	}
+
 	if (pid < 0) {
 		service_error(service, "fork() failed: %m");
 		return NULL;
@@ -250,30 +260,27 @@ struct service_process *service_process_create(struct service *service)
 		process_exec(service->executable, NULL);
 	}
 
-	switch (service->type) {
-	case SERVICE_TYPE_ANVIL:
-		service_anvil_process_created(service);
-		/* fall through */
-	default:
-		process = i_new(struct service_process, 1);
-		process->service = service;
-		break;
-	}
-
-	DLLIST_PREPEND(&service->processes, process);
+	process = i_new(struct service_process, 1);
+	process->service = service;
 	process->refcount = 1;
 	process->pid = pid;
 	process->uid = uid;
-	process->to_status =
-		timeout_add(SERVICE_FIRST_STATUS_TIMEOUT_SECS * 1000,
-			    service_process_status_timeout, process);
+	if (process_forked) {
+		process->to_status =
+			timeout_add(SERVICE_FIRST_STATUS_TIMEOUT_SECS * 1000,
+				    service_process_status_timeout, process);
+	}
 
 	process->available_count = service->client_limit;
 	service->process_count++;
 	service->process_avail++;
+	DLLIST_PREPEND(&service->processes, process);
 
 	service_list_ref(service->list);
 	hash_table_insert(service_pids, &process->pid, process);
+
+	if (service->type == SERVICE_TYPE_ANVIL && process_forked)
+		service_anvil_process_created(process);
 	return process;
 }
 
@@ -294,15 +301,6 @@ void service_process_destroy(struct service_process *process)
 		timeout_remove(&process->to_status);
 	if (process->to_idle != NULL)
 		timeout_remove(&process->to_idle);
-
-	switch (process->service->type) {
-	case SERVICE_TYPE_ANVIL:
-		service_anvil_process_destroyed(service);
-		break;
-	default:
-		break;
-	}
-
 	if (service->list->log_byes != NULL)
 		service_process_notify_add(service->list->log_byes, process);
 

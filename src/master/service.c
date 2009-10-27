@@ -245,6 +245,11 @@ service_create(pool_t pool, const struct service_settings *set,
 	service->log_process_internal_fd = -1;
 	service->login_notify_fd = -1;
 
+	if (service->type == SERVICE_TYPE_ANVIL) {
+		service->status_fd[0] = service_anvil_global->status_fd[0];
+		service->status_fd[1] = service_anvil_global->status_fd[1];
+	}
+
 	if (array_is_created(&set->unix_listeners))
 		unix_listeners = array_get(&set->unix_listeners, &unix_count);
 	else {
@@ -320,6 +325,20 @@ service_lookup(struct service_list *service_list, const char *name)
 	services = array_get(&service_list->services, &count);
 	for (i = 0; i < count; i++) {
 		if (strcmp(services[i]->set->name, name) == 0)
+			return services[i];
+	}
+	return NULL;
+}
+
+struct service *
+service_lookup_type(struct service_list *service_list, enum service_type type)
+{
+	struct service *const *services;
+	unsigned int i, count;
+
+	services = array_get(&service_list->services, &count);
+	for (i = 0; i < count; i++) {
+		if (services[i]->type == type)
 			return services[i];
 	}
 	return NULL;
@@ -406,9 +425,6 @@ int services_create(const struct master_settings *set,
 		*error_r = "config process not specified";
 		return -1;
 	}
-
-	if (service_list_init_anvil(service_list, error_r) < 0)
-		return -1;
 
 	*services_r = service_list;
 	return 0;
@@ -518,7 +534,6 @@ void services_destroy(struct service_list *service_list)
         services_monitor_reap_children();
 
 	services_monitor_stop(service_list);
-	service_list_deinit_anvil(service_list);
 
 	if (service_list->refcount > 1 &&
 	    service_list->service_set->shutdown_clients) {

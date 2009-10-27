@@ -14,6 +14,7 @@
 #include "askpass.h"
 #include "capabilities.h"
 #include "service.h"
+#include "service-anvil.h"
 #include "service-listen.h"
 #include "service-monitor.h"
 #include "service-process.h"
@@ -295,6 +296,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	const struct master_settings *set;
 	void **sets;
 	struct service_list *new_services;
+	struct service *service;
 	const char *error;
 
 	i_warning("SIGHUP received - reloading configuration");
@@ -334,7 +336,17 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	/* switch to new configuration. */
 	services_monitor_stop(services);
-	(void)services_listen_using(new_services, services);
+	if (services_listen_using(new_services, services) < 0) {
+		services_monitor_start(services);
+		return;
+	}
+
+	/* anvil never dies. it just gets moved to the new services list */
+	service = service_lookup_type(services, SERVICE_TYPE_ANVIL);
+	if (service != NULL) {
+		while (service->processes != NULL)
+			service_process_destroy(service->processes);
+	}
 	services_destroy(services);
 
 	services = new_services;
@@ -416,6 +428,7 @@ static void main_deinit(void)
 	i_free(pidfile_path);
 
 	services_destroy(services);
+	service_anvil_global_deinit();
 	service_pids_deinit();
 }
 
@@ -740,6 +753,7 @@ int main(int argc, char *argv[])
 	/* create service structures from settings. if there are any errors in
 	   service configuration we'll catch it here. */
 	service_pids_init();
+	service_anvil_global_init();
 	if (services_create(set, child_process_env, &services, &error) < 0)
 		i_fatal("%s", error);
 

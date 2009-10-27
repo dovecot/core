@@ -309,8 +309,8 @@ void services_monitor_start(struct service_list *service_list)
 	struct service *const *services;
 	unsigned int i, count;
 
-	services_anvil_init(service_list);
 	services_log_init(service_list);
+	service_anvil_monitor_start(service_list);
 
 	services = array_get(&service_list->services, &count);
 	for (i = 0; i < count; i++) {
@@ -329,7 +329,8 @@ void services_monitor_start(struct service_list *service_list)
 			fd_close_on_exec(services[i]->status_fd[0], TRUE);
 			net_set_nonblock(services[i]->status_fd[1], TRUE);
 			fd_close_on_exec(services[i]->status_fd[1], TRUE);
-
+		}
+		if (services[i]->io_status == NULL) {
 			services[i]->io_status =
 				io_add(services[i]->status_fd[0], IO_READ,
 				       service_status_input, services[i]);
@@ -351,7 +352,8 @@ void service_monitor_stop(struct service *service)
 	if (service->io_status != NULL)
 		io_remove(&service->io_status);
 
-	if (service->status_fd[0] != -1) {
+	if (service->status_fd[0] != -1 &&
+	    service->type != SERVICE_TYPE_ANVIL) {
 		for (i = 0; i < 2; i++) {
 			if (close(service->status_fd[i]) < 0) {
 				service_error(service,
@@ -395,8 +397,7 @@ static void service_process_failure(struct service_process *process, int status)
 	if (process->total_count == 0)
 		service_monitor_throttle(service);
 
-	if (service->list->anvil_kills != NULL)
-		service_process_notify_add(service->list->anvil_kills, process);
+	service_process_notify_add(service_anvil_global->kills, process);
 }
 
 void services_monitor_reap_children(void)
@@ -424,6 +425,8 @@ void services_monitor_reap_children(void)
 			service_process_failure(process, status);
 		}
 		service_destroyed = service->list->destroyed;
+		if (service->type == SERVICE_TYPE_ANVIL)
+			service_anvil_process_destroyed(process);
 		service_process_destroy(process);
 
 		if (!service_destroyed) {

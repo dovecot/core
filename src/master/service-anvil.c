@@ -13,17 +13,18 @@
 
 #define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
 
+struct service_anvil_global *service_anvil_global;
+
 static void
-service_list_anvil_discard_input_stop(struct service_list *service_list)
+service_list_anvil_discard_input_stop(struct service_anvil_global *anvil)
 {
-	if (service_list->anvil_io_blocking != NULL) {
-		io_remove(&service_list->anvil_io_blocking);
-		io_remove(&service_list->anvil_io_nonblocking);
+	if (anvil->io_blocking != NULL) {
+		io_remove(&anvil->io_blocking);
+		io_remove(&anvil->io_nonblocking);
 	}
 }
 
-static void
-anvil_input_fd_discard(struct service_list *service_list, int fd)
+static void anvil_input_fd_discard(struct service_anvil_global *anvil, int fd)
 {
 	char buf[1024];
 	ssize_t ret;
@@ -31,30 +32,29 @@ anvil_input_fd_discard(struct service_list *service_list, int fd)
 	ret = read(fd, buf, sizeof(buf));
 	if (ret <= 0) {
 		i_error("read(anvil fd) failed: %m");
-		service_list_anvil_discard_input_stop(service_list);
+		service_list_anvil_discard_input_stop(anvil);
 	}
 }
 
-static void anvil_input_blocking_discard(struct service_list *service_list)
+static void anvil_input_blocking_discard(struct service_anvil_global *anvil)
 {
-	anvil_input_fd_discard(service_list,
-			       service_list->blocking_anvil_fd[0]);
+	anvil_input_fd_discard(anvil, anvil->blocking_fd[0]);
 }
 
-static void anvil_input_nonblocking_discard(struct service_list *service_list)
+static void anvil_input_nonblocking_discard(struct service_anvil_global *anvil)
 {
-	anvil_input_fd_discard(service_list,
-			       service_list->nonblocking_anvil_fd[0]);
+	anvil_input_fd_discard(anvil, anvil->nonblocking_fd[0]);
 }
 
-static void service_list_anvil_discard_input(struct service_list *service_list)
+static void service_list_anvil_discard_input(struct service_anvil_global *anvil)
 {
-	service_list->anvil_io_blocking =
-		io_add(service_list->blocking_anvil_fd[0], IO_READ,
-		       anvil_input_blocking_discard, service_list);
-	service_list->anvil_io_nonblocking =
-		io_add(service_list->nonblocking_anvil_fd[0], IO_READ,
-		       anvil_input_nonblocking_discard, service_list);
+	if (anvil->io_blocking != NULL)
+		return;
+
+	anvil->io_blocking = io_add(anvil->blocking_fd[0], IO_READ,
+				    anvil_input_blocking_discard, anvil);
+	anvil->io_nonblocking = io_add(anvil->nonblocking_fd[0], IO_READ,
+				       anvil_input_nonblocking_discard, anvil);
 }
 
 static int anvil_send_handshake(int fd, const char **error_r)
@@ -89,71 +89,90 @@ service_process_write_anvil_kill(int fd, struct service_process *process)
 	return 0;
 }
 
-int service_list_init_anvil(struct service_list *service_list,
-			    const char **error_r)
+void service_anvil_monitor_start(struct service_list *service_list)
 {
-	if (pipe(service_list->blocking_anvil_fd) < 0) {
-		*error_r = t_strdup_printf("pipe() failed: %m");
-		return -1;
+	struct service *service;
+
+	if (service_anvil_global->process_count == 0)
+		service_list_anvil_discard_input(service_anvil_global);
+	else {
+		service = service_lookup_type(service_list, SERVICE_TYPE_ANVIL);
+		service_process_create(service);
 	}
-	if (pipe(service_list->nonblocking_anvil_fd) < 0) {
-		(void)close(service_list->blocking_anvil_fd[0]);
-		(void)close(service_list->blocking_anvil_fd[1]);
-		*error_r = t_strdup_printf("pipe() failed: %m");
-		return -1;
-	}
-	fd_set_nonblock(service_list->nonblocking_anvil_fd[1], TRUE);
-
-	fd_close_on_exec(service_list->blocking_anvil_fd[0], TRUE);
-	fd_close_on_exec(service_list->blocking_anvil_fd[1], TRUE);
-	fd_close_on_exec(service_list->nonblocking_anvil_fd[0], TRUE);
-	fd_close_on_exec(service_list->nonblocking_anvil_fd[1], TRUE);
-
-	i_assert(service_list->anvil_kills == NULL);
-	service_list->anvil_kills =
-		service_process_notify_init(service_list->nonblocking_anvil_fd[1],
-					    service_process_write_anvil_kill);
-	return 0;
 }
 
-void services_anvil_init(struct service_list *service_list)
+void service_anvil_process_created(struct service_process *process)
 {
-	/* this can't be in _init_anvil() because we can't do io_add()s
-	   before forking with kqueue. */
-	service_list_anvil_discard_input(service_list);
-}
-
-void service_list_deinit_anvil(struct service_list *service_list)
-{
-	service_list_anvil_discard_input_stop(service_list);
-	service_process_notify_deinit(&service_list->anvil_kills);
-	if (close(service_list->blocking_anvil_fd[0]) < 0)
-		i_error("close(anvil) failed: %m");
-	if (close(service_list->blocking_anvil_fd[1]) < 0)
-		i_error("close(anvil) failed: %m");
-	if (close(service_list->nonblocking_anvil_fd[0]) < 0)
-		i_error("close(anvil) failed: %m");
-	if (close(service_list->nonblocking_anvil_fd[1]) < 0)
-		i_error("close(anvil) failed: %m");
-	service_list->blocking_anvil_fd[0] = -1;
-}
-
-void service_anvil_process_created(struct service *service)
-{
-	struct service_list *list = service->list;
+	struct service_anvil_global *anvil = service_anvil_global;
 	const char *error;
 
-	service_list_anvil_discard_input_stop(service->list);
+	service_anvil_global->pid = process->pid;
+	service_anvil_global->uid = process->uid;
+	service_anvil_global->process_count++;
+	service_list_anvil_discard_input_stop(anvil);
 
-	if (anvil_send_handshake(list->blocking_anvil_fd[1], &error) < 0 ||
-	    anvil_send_handshake(list->nonblocking_anvil_fd[1], &error) < 0)
-		service_error(service, "%s", error);
+	if (anvil_send_handshake(anvil->blocking_fd[1], &error) < 0 ||
+	    anvil_send_handshake(anvil->nonblocking_fd[1], &error) < 0)
+		service_error(process->service, "%s", error);
 }
 
-void service_anvil_process_destroyed(struct service *service)
+void service_anvil_process_destroyed(struct service_process *process)
 {
-	if (service->process_count == 0 &&
-	    service->list->anvil_io_blocking == NULL &&
-	    service->list->blocking_anvil_fd[0] != -1)
-		service_list_anvil_discard_input(service->list);
+	i_assert(service_anvil_global->process_count > 0);
+	if (--service_anvil_global->process_count == 0)
+		service_list_anvil_discard_input(service_anvil_global);
+
+	if (service_anvil_global->pid == process->pid)
+		service_anvil_global->pid = 0;
+}
+
+void service_anvil_global_init(void)
+{
+	struct service_anvil_global *anvil;
+
+	anvil = i_new(struct service_anvil_global, 1);
+	if (pipe(anvil->status_fd) < 0)
+		i_fatal("pipe() failed: %m");
+	if (pipe(anvil->blocking_fd) < 0)
+		i_fatal("pipe() failed: %m");
+	if (pipe(anvil->nonblocking_fd) < 0)
+		i_fatal("pipe() failed: %m");
+	fd_set_nonblock(anvil->status_fd[0], TRUE);
+	fd_set_nonblock(anvil->status_fd[1], TRUE);
+	fd_set_nonblock(anvil->nonblocking_fd[1], TRUE);
+
+	fd_close_on_exec(anvil->status_fd[0], TRUE);
+	fd_close_on_exec(anvil->status_fd[1], TRUE);
+	fd_close_on_exec(anvil->blocking_fd[0], TRUE);
+	fd_close_on_exec(anvil->blocking_fd[1], TRUE);
+	fd_close_on_exec(anvil->nonblocking_fd[0], TRUE);
+	fd_close_on_exec(anvil->nonblocking_fd[1], TRUE);
+
+	anvil->kills =
+		service_process_notify_init(anvil->nonblocking_fd[1],
+					    service_process_write_anvil_kill);
+	service_anvil_global = anvil;
+}
+
+void service_anvil_global_deinit(void)
+{
+	struct service_anvil_global *anvil = service_anvil_global;
+
+	service_list_anvil_discard_input_stop(anvil);
+	service_process_notify_deinit(&anvil->kills);
+	if (close(anvil->blocking_fd[0]) < 0)
+		i_error("close(anvil) failed: %m");
+	if (close(anvil->blocking_fd[1]) < 0)
+		i_error("close(anvil) failed: %m");
+	if (close(anvil->nonblocking_fd[0]) < 0)
+		i_error("close(anvil) failed: %m");
+	if (close(anvil->nonblocking_fd[1]) < 0)
+		i_error("close(anvil) failed: %m");
+	if (close(anvil->status_fd[0]) < 0)
+		i_error("close(anvil) failed: %m");
+	if (close(anvil->status_fd[1]) < 0)
+		i_error("close(anvil) failed: %m");
+	i_free(anvil);
+
+	service_anvil_global = NULL;
 }
