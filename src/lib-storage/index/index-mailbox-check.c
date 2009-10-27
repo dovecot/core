@@ -9,6 +9,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#define NOTIFY_DELAY_MSECS 500
+
 struct index_notify_file {
 	struct index_notify_file *next;
 
@@ -25,9 +27,8 @@ static void check_timeout(struct index_mailbox *ibox)
 {
 	struct index_notify_file *file;
 	struct stat st;
-	bool notify;
+	bool notify = FALSE;
 
-	notify = ibox->notify_pending;
 	for (file = ibox->notify_files; file != NULL; file = file->next) {
 		if (stat(file->path, &st) == 0 &&
 		    file->last_stamp != st.st_mtime) {
@@ -37,23 +38,25 @@ static void check_timeout(struct index_mailbox *ibox)
 	}
 
 	if (notify) {
-		ibox->notify_last_sent = ioloop_time;
-		ibox->notify_pending = FALSE;
+		if (ibox->notify_delay_to != NULL)
+			timeout_remove(&ibox->notify_delay_to);
 		ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
 	}
+}
+
+static void notify_delay_callback(struct index_mailbox *ibox)
+{
+	ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
 }
 
 static void notify_callback(struct index_mailbox *ibox)
 {
 	timeout_reset(ibox->notify_to);
 
-	/* don't notify more often than once a second */
-	if (ioloop_time > ibox->notify_last_sent) {
-		ibox->notify_last_sent = ioloop_time;
-                ibox->notify_pending = FALSE;
-		ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
-	} else {
-		ibox->notify_pending = TRUE;
+	if (ibox->notify_delay_to == NULL) {
+		ibox->notify_delay_to =
+			timeout_add(NOTIFY_DELAY_MSECS,
+				    notify_delay_callback, ibox);
 	}
 }
 
@@ -95,9 +98,6 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox)
 	struct index_notify_file *file;
 	struct index_notify_io *aio;
 
-	/* reset notify stamp */
-	ibox->notify_last_sent = 0;
-
 	while (ibox->notify_files != NULL) {
 		file = ibox->notify_files;
 		ibox->notify_files = file->next;
@@ -114,6 +114,8 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox)
 		i_free(aio);
 	}
 
+	if (ibox->notify_delay_to != NULL)
+		timeout_remove(&ibox->notify_delay_to);
 	if (ibox->notify_to != NULL)
 		timeout_remove(&ibox->notify_to);
 }

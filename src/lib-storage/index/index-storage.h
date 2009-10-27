@@ -43,10 +43,10 @@ struct index_mailbox {
 	struct mail_cache *cache;
 	struct mail_vfuncs *mail_vfuncs;
 
-	struct timeout *notify_to;
+	struct timeout *notify_to, *notify_delay_to;
 	struct index_notify_file *notify_files;
         struct index_notify_io *notify_ios;
-	time_t notify_last_check, notify_last_sent;
+	time_t notify_last_check;
 
 	time_t next_lock_notify; /* temporary */
 	enum mailbox_lock_notify_type last_notify_type;
@@ -62,7 +62,6 @@ struct index_mailbox {
 
 	/* we've discovered there aren't enough permissions to modify mailbox */
 	unsigned int backend_readonly:1;
-	unsigned int notify_pending:1;
 	unsigned int move_to_memory:1;
 };
 
