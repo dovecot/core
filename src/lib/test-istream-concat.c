@@ -50,7 +50,7 @@ static void test_istream_concat_random(void)
 	struct istream **streams, *input;
 	const unsigned char *data;
 	unsigned char *w_data;
-	size_t size;
+	size_t size = 0;
 	unsigned int i, j, offset, stream_count, data_len;
 
 	srand(1234);
