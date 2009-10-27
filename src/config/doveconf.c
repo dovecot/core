@@ -70,7 +70,7 @@ static void config_connection_request_human(struct ostream *output,
 	ARRAY_TYPE(uint) prefix_idx_stack;
 	struct config_request_get_string_ctx ctx;
 	const char *const *strings, *const *args, *p, *str, *const *prefixes;
-	const char *key, *value;
+	const char *key, *key2, *value;
 	unsigned int i, j, count, len, prefix_count, skip_len;
 	unsigned int indent = 0, prefix_idx = -1U;
 
@@ -103,6 +103,7 @@ static void config_connection_request_human(struct ostream *output,
 		key = t_strdup_until(strings[i], value);
 		value++;
 
+	again:
 		j = 0;
 		while (prefix_idx != -1U) {
 			len = strlen(prefixes[prefix_idx]);
@@ -111,28 +112,24 @@ static void config_connection_request_human(struct ostream *output,
 				indent--;
 				o_stream_send(output, ident_str, indent*2);
 				o_stream_send_str(output, "}\n");
-			} else if (strchr(key + len, '/') == NULL) {
-				/* keep the prefix */
-				j = prefix_count;
-				break;
 			} else {
-				/* subprefix */
+				/* keep the prefix */
+				j = prefix_idx + 1;
 				break;
 			}
 		}
 		for (; j < prefix_count; j++) {
 			len = strlen(prefixes[j]);
-			if (strncmp(prefixes[j], key, len) == 0 &&
-			    strchr(key + len, '/') == NULL) {
-				key += prefix_idx == -1U ? 0 :
-					strlen(prefixes[prefix_idx]);
+			if (strncmp(prefixes[j], key, len) == 0) {
+				key2 = key + (prefix_idx == -1U ? 0 :
+					      strlen(prefixes[prefix_idx]));
 				o_stream_send(output, ident_str, indent*2);
-				o_stream_send_str(output, t_strcut(key, '/'));
+				o_stream_send_str(output, t_strcut(key2, '/'));
 				o_stream_send_str(output, " {\n");
 				indent++;
 				prefix_idx = j;
 				array_append(&prefix_idx_stack, &prefix_idx, 1);
-				break;
+				goto again;
 			}
 		}
 		skip_len = prefix_idx == -1U ? 0 : strlen(prefixes[prefix_idx]);

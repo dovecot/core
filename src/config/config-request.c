@@ -99,6 +99,12 @@ static void settings_export(struct settings_export_context *ctx,
 			dump_default = FALSE;
 			break;
 		}
+		if (*((const char *)change_value) == 0) {
+			/* this is mainly for service {} blocks. if value
+			   hasn't changed, it's the default. even if
+			   info->defaults has a different value. */
+			default_value = value;
+		}
 
 		dump = FALSE;
 		count = 0;
