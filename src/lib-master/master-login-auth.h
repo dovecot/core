@@ -14,5 +14,6 @@ void master_login_auth_request(struct master_login_auth *auth,
 			       const struct master_auth_request *req,
 			       master_login_auth_request_callback_t *callback,
 			       void *context);
+unsigned int master_login_auth_request_count(struct master_login_auth *auth);
 
 #endif

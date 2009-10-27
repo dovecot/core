@@ -288,3 +288,8 @@ void master_login_auth_request(struct master_login_auth *auth,
 	login_req->context = context;
 	hash_table_insert(auth->requests, POINTER_CAST(id), login_req);
 }
+
+unsigned int master_login_auth_request_count(struct master_login_auth *auth)
+{
+	return hash_table_count(auth->requests);
+}

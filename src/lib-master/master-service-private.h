@@ -62,4 +62,6 @@ void master_service_io_listeners_add(struct master_service *service);
 void master_status_update(struct master_service *service);
 void master_service_close_config_fd(struct master_service *service);
 
+void master_service_io_listeners_remove(struct master_service *service);
+
 #endif

@@ -131,7 +131,8 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 {
 	struct master_login_client *client = context;
 	struct master_auth_reply reply;
-	struct master_service *service = client->conn->login->service;
+	struct master_login_connection *conn = client->conn;
+	struct master_service *service = conn->login->service;
 	bool close_config;
 
 	memset(&reply, 0, sizeof(reply));
@@ -139,7 +140,7 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 	reply.status = auth_args != NULL ? MASTER_AUTH_STATUS_OK :
 		MASTER_AUTH_STATUS_INTERNAL_ERROR;
 	reply.mail_pid = getpid();
-	o_stream_send(client->conn->output, &reply, sizeof(reply));
+	o_stream_send(conn->output, &reply, sizeof(reply));
 
 	if (auth_args == NULL) {
 		if (close(client->fd) < 0)
@@ -148,17 +149,19 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 		return;
 	}
 
+	i_assert(service->master_status.available_count > 0);
 	service->master_status.available_count--;
 	master_status_update(service);
 	close_config = service->master_status.available_count == 0 &&
 		service->service_count_left == 1;
 
-	client->conn->login->callback(client, auth_args[0], auth_args+1);
+	conn->login->callback(client, auth_args[0], auth_args+1);
 	i_free(client);
 
 	if (close_config) {
 		/* we're dying as soon as this connection closes. */
 		master_service_close_config_fd(service);
+		master_login_conn_deinit(&conn);
 	}
 }
 
@@ -166,7 +169,9 @@ static void master_login_conn_input(struct master_login_connection *conn)
 {
 	struct master_auth_request req;
 	struct master_login_client *client;
+	struct master_login *login = conn->login;
 	unsigned char data[MASTER_AUTH_MAX_DATA_SIZE];
+	unsigned int request_count;
 	int ret, client_fd;
 
 	ret = master_login_conn_read_request(conn, &req, data, &client_fd);
@@ -188,8 +193,11 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	client->auth_req = req;
 	memcpy(client->data, data, req.data_size);
 
-	master_login_auth_request(conn->login->auth, &req,
+	master_login_auth_request(login->auth, &req,
 				  master_login_auth_callback, client);
+	request_count = master_login_auth_request_count(login->auth);
+	if (login->service->master_status.available_count <= request_count)
+		io_remove(&conn->io);
 }
 
 void master_login_add(struct master_login *login, int fd)
@@ -203,6 +211,10 @@ void master_login_add(struct master_login *login, int fd)
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 
 	DLLIST_PREPEND(&login->conns, conn);
+
+	/* don't accept more connections. this is mainly a temporary
+	   workaround.. */
+	master_service_io_listeners_remove(login->service);
 }
 
 static void master_login_conn_deinit(struct master_login_connection **_conn)
@@ -213,9 +225,11 @@ static void master_login_conn_deinit(struct master_login_connection **_conn)
 
 	DLLIST_REMOVE(&conn->login->conns, conn);
 
-	io_remove(&conn->io);
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 	o_stream_unref(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(master login) failed: %m");
+	master_service_io_listeners_add(conn->login->service);
 	i_free(conn);
 }

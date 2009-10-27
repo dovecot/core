@@ -39,7 +39,6 @@
 struct master_service *master_service;
 
 static void master_service_refresh_login_state(struct master_service *service);
-static void io_listeners_remove(struct master_service *service);
 
 const char *master_service_getopt_string(void)
 {
@@ -265,7 +264,7 @@ bool master_service_parse_option(struct master_service *service,
 
 static void master_service_error(struct master_service *service)
 {
-	io_listeners_remove(service);
+	master_service_io_listeners_remove(service);
 	if (service->master_status.available_count ==
 	    service->total_available_count || service->die_with_master) {
 		if (service->die_callback == NULL)
@@ -585,7 +584,7 @@ void master_service_deinit(struct master_service **_service)
 
 	*_service = NULL;
 
-	io_listeners_remove(service);
+	master_service_io_listeners_remove(service);
 
 	master_service_close_config_fd(service);
 	if (service->to_die != NULL)
@@ -631,7 +630,7 @@ static void master_service_listen(struct master_service_listener *l)
 		}
 
 		if (service->master_status.available_count == 0) {
-			io_listeners_remove(service);
+			master_service_io_listeners_remove(service);
 			return;
 		}
 	}
@@ -663,6 +662,7 @@ static void master_service_listen(struct master_service_listener *l)
 	if (service->login_connections)
 		close_config = FALSE;
 	else {
+		i_assert(service->master_status.available_count > 0);
 		service->master_status.available_count--;
 		master_status_update(service);
 		close_config = service->master_status.available_count == 0 &&
@@ -715,7 +715,7 @@ void master_service_io_listeners_add(struct master_service *service)
 	}
 }
 
-static void io_listeners_remove(struct master_service *service)
+void master_service_io_listeners_remove(struct master_service *service)
 {
 	unsigned int i;
 
