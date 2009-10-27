@@ -107,7 +107,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				return -1;
 			}
 
-			if (size > 0 &&
+			if (size > 0 && !ctx->skip_line &&
 			    (msg[0] == '\n' ||
 			     (msg[0] == '\r' && size > 1 && msg[1] == '\n'))) {
 				/* end of headers - this mostly happens just
@@ -172,7 +172,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				if (msg[i] > ':')
 					continue;
 
-				if (msg[i] == ':') {
+				if (msg[i] == ':' && !ctx->skip_line) {
 					colon_pos = i;
 					line->full_value_offset =
 						ctx->input->v_offset + i + 1;
@@ -203,20 +203,19 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		if (i < parse_size) {
 			/* got a line */
 			if (ctx->skip_line) {
-				/* skipping a huge line */
+				/* skipping a line with a huge header name */
 				if (ctx->hdr_size != NULL) {
-					ctx->hdr_size->physical_size += i;
-					ctx->hdr_size->virtual_size += i;
+					ctx->hdr_size->lines++;
+					ctx->hdr_size->physical_size += i + 1;
+					ctx->hdr_size->virtual_size += i + 1;
 				}
-
 				if (i == 0 || msg[i-1] != '\r') {
 					/* missing CR */
 					if (ctx->hdr_size != NULL)
 						ctx->hdr_size->virtual_size++;
-				} else {
-					crlf_newline = TRUE;
 				}
-				i_stream_skip(ctx->input, i);
+
+				i_stream_skip(ctx->input, i + 1);
 				startpos = 0;
 				ctx->skip_line = FALSE;
 				continue;

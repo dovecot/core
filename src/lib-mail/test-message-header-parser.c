@@ -194,11 +194,57 @@ static void test_message_header_parser_partial(void)
 	test_end();
 }
 
+static void
+test_message_header_parser_long_lines_str(const char *str,
+					  unsigned int buffer_size,
+					  struct message_size *size_r)
+{
+	struct message_header_parser_ctx *parser;
+	struct message_header_line *hdr;
+	struct istream *input;
+	unsigned int i, len = strlen(str);
+
+	input = test_istream_create(str);
+	test_istream_set_max_buffer_size(input, buffer_size);
+
+	parser = message_parse_header_init(input, size_r, 0);
+	for (i = 1; i <= len; i++) {
+		test_istream_set_size(input, i);
+		while (message_parse_header_next(parser, &hdr) > 0) ;
+	}
+	message_parse_header_deinit(&parser);
+	i_stream_unref(&input);
+}
+
+static void test_message_header_parser_long_lines(void)
+{
+	static const char *lf_str = "1234567890: 345\n\n";
+	static const char *crlf_str = "1234567890: 345\r\n\r\n";
+	struct message_size hdr_size;
+	unsigned int i, len;
+
+	test_begin("message header parser long lines");
+	len = strlen(lf_str);
+	for (i = 1; i < len; i++) {
+		test_message_header_parser_long_lines_str(lf_str, i, &hdr_size);
+		test_assert(hdr_size.physical_size == len);
+		test_assert(hdr_size.virtual_size == len + 2);
+	}
+	len = strlen(crlf_str);
+	for (i = 1; i < len; i++) {
+		test_message_header_parser_long_lines_str(crlf_str, i, &hdr_size);
+		test_assert(hdr_size.physical_size == len);
+		test_assert(hdr_size.virtual_size == len);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_message_header_parser,
 		test_message_header_parser_partial,
+		test_message_header_parser_long_lines,
 		NULL
 	};
 	return test_run(test_functions);
