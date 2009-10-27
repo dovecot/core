@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "randgen.h"
+#include "process-title.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "master-auth.h"
@@ -26,6 +27,27 @@ const struct login_settings *global_login_settings;
 void **global_other_settings;
 
 static bool ssl_connections = FALSE;
+
+void login_refresh_proctitle(void)
+{
+	struct client *client = clients;
+	const char *addr;
+
+	if (!global_login_settings->verbose_proctitle)
+		return;
+
+	if (clients_get_count() == 0) {
+		process_title_set("");
+	} else if (clients_get_count() > 1 || client == NULL) {
+		process_title_set(t_strdup_printf("[%u connections (%u TLS)]",
+			clients_get_count(), ssl_proxy_get_count()));
+	} else if ((addr = net_ip2addr(&client->ip)) != NULL) {
+		process_title_set(t_strdup_printf(client->tls ?
+						  "[%s TLS]" : "[%s]", addr));
+	} else {
+		process_title_set(client->tls ? "[TLS]" : "");
+	}
+}
 
 static void login_die(void)
 {

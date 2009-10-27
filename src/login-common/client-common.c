@@ -71,8 +71,6 @@ client_create(int fd, bool ssl, pool_t pool,
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
-	client_set_title(client);
-
 	client->to_idle_disconnect =
 		timeout_add(CLIENT_LOGIN_IDLE_TIMEOUT_MSECS,
 			    client_idle_disconnect_timeout, client);
@@ -84,6 +82,8 @@ client_create(int fd, bool ssl, pool_t pool,
 		client->v.send_greeting(client);
 	else
 		client_set_auth_waiting(client);
+
+	login_refresh_proctitle();
 	return client;
 }
 
@@ -100,12 +100,8 @@ void client_destroy(struct client *client, const char *reason)
 	if (reason != NULL)
 		client_log(client, reason);
 
-	i_assert(clients_count > 0);
-	clients_count--;
-	if (last_client == client) {
-		i_assert(client->prev != NULL || clients_count == 0);
+	if (last_client == client)
 		last_client = client->prev;
-	}
 	DLLIST_REMOVE(&clients, client);
 
 	if (client->input != NULL)
@@ -165,6 +161,7 @@ void client_destroy(struct client *client, const char *reason)
 		if (auth_client != NULL)
 			auth_client_deinit(&auth_client);
 	}
+	login_refresh_proctitle();
 }
 
 void client_destroy_success(struct client *client, const char *reason)
@@ -209,7 +206,11 @@ bool client_unref(struct client **_client)
 	i_free(client->auth_mech_name);
 	pool_unref(&client->pool);
 
+	i_assert(clients_count > 0);
+	clients_count--;
+
 	master_service_client_connection_destroyed(master_service);
+	login_refresh_proctitle();
 	return FALSE;
 }
 
@@ -267,7 +268,7 @@ static void client_start_tls(struct client *client)
 	client->starttls = TRUE;
 	client->tls = TRUE;
 	client->secured = TRUE;
-	client_set_title(client);
+	login_refresh_proctitle();
 
 	client->fd = fd_ssl;
 	client->io = io_add(client->fd, IO_READ, client_input, client);
@@ -332,22 +333,6 @@ void client_cmd_starttls(struct client *client)
 unsigned int clients_get_count(void)
 {
 	return clients_count;
-}
-
-void client_set_title(struct client *client)
-{
-	const char *addr;
-
-	if (!client->set->verbose_proctitle ||
-	    master_service_get_client_limit(master_service) > 1)
-		return;
-
-	addr = net_ip2addr(&client->ip);
-	if (addr == NULL)
-		addr = "??";
-
-	process_title_set(t_strdup_printf(client->tls ?
-					  "[%s TLS]" : "[%s]", addr));
 }
 
 static const struct var_expand_table *
