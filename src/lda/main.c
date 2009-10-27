@@ -274,7 +274,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "stat(%s) failed: %s\n",
 				argv[0], strerror(errno));
 			return EX_TEMPFAIL;
-		} else if ((st.st_mode & 1) != 0) {
+		} else if ((st.st_mode & 1) != 0 && (st.st_mode & 04000) != 0) {
 			fprintf(stderr, "%s must not be both world-executable "
 				"and setuid-root. This allows root exploits. "
 				"See http://wiki.dovecot.org/LDA#multipleuids\n",
