@@ -36,8 +36,7 @@
 
 /* After buffer grows larger than this, create a temporary file to /tmp
    where to read the mail. */
-//#define MAIL_MAX_MEMORY_BUFFER (1024*128)
-#define MAIL_MAX_MEMORY_BUFFER 10
+#define MAIL_MAX_MEMORY_BUFFER (1024*128)
 
 static const char *wanted_headers[] = {
 	"From", "To", "Message-ID", "Subject", "Return-Path",
