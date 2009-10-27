@@ -151,7 +151,8 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 			if (errno == EACCES)
 				str_printfa(errmsg, " missing +w perm: %s", path);
 		} else
-			str_printfa(errmsg, " UNIX perms seem ok, ACL problem?");
+			str_printfa(errmsg, " UNIX perms appear ok, "
+				    "some security policy wrong?");
 	}
 	str_append_c(errmsg, ')');
 	errno = orig_errno;
