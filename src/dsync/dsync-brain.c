@@ -333,12 +333,15 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 static void dsync_brain_sync_msgs(struct dsync_brain *brain)
 {
 	ARRAY_TYPE(dsync_brain_mailbox) mailboxes;
+	pool_t pool;
 
-	t_array_init(&mailboxes, 128);
+	pool = pool_alloconly_create("dsync changed mailboxes", 10240);
+	p_array_init(&mailboxes, pool, 128);
 	dsync_brain_get_changed_mailboxes(brain, &mailboxes,
 		(brain->flags & DSYNC_BRAIN_FLAG_FULL_SYNC) != 0);
 	brain->mailbox_sync = dsync_brain_msg_sync_init(brain, &mailboxes);
 	dsync_brain_msg_sync_more(brain->mailbox_sync);
+	pool_unref(&pool);
 }
 
 static void

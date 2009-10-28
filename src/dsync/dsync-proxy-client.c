@@ -379,16 +379,18 @@ proxy_client_worker_msg_iter_init(struct dsync_worker *_worker,
 
 	iter = i_new(struct proxy_client_dsync_worker_msg_iter, 1);
 	iter->iter.worker = _worker;
-	iter->pool = pool_alloconly_create("proxy message iter", 1024);
+	iter->pool = pool_alloconly_create("proxy message iter", 10240);
 
-	str = t_str_new(512);
+	str = str_new(iter->pool, 512);
 	str_append(str, "MSG-LIST");
-	for (i = 0; i < mailbox_count; i++) {
+	for (i = 0; i < mailbox_count; i++) T_BEGIN {
 		str_append_c(str, '\t');
 		dsync_proxy_mailbox_guid_export(str, &mailboxes[i]);
-	}
+	} T_END;
 	str_append_c(str, '\n');
 	o_stream_send(worker->output, str_data(str), str_len(str));
+	p_clear(iter->pool);
+
 	proxy_client_worker_output_flush(_worker);
 	return &iter->iter;
 }
