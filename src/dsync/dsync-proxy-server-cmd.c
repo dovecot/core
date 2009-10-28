@@ -65,12 +65,17 @@ cmd_msg_list_init(struct dsync_proxy_server *server, const char *const *args)
 {
 	mailbox_guid_t *mailboxes;
 	unsigned int i, count;
+	int ret;
 
 	count = str_array_length(args);
 	mailboxes = count == 0 ? NULL : t_new(mailbox_guid_t, count);
 	for (i = 0; i < count; i++) {
-		if (dsync_proxy_mailbox_guid_import(args[i],
-						    &mailboxes[i]) < 0) {
+		T_BEGIN {
+			ret = dsync_proxy_mailbox_guid_import(args[i],
+							      &mailboxes[i]);
+		} T_END;
+
+		if (ret < 0) {
 			i_error("msg-list: Invalid mailbox GUID '%s'", args[i]);
 			return -1;
 		}

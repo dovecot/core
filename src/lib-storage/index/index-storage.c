@@ -512,7 +512,9 @@ int index_storage_mailbox_enable(struct mailbox *box,
 			if (mailbox_open(box) < 0)
 				return -1;
 		}
-		mail_index_modseq_enable(ibox->index);
+		T_BEGIN {
+			mail_index_modseq_enable(ibox->index);
+		} T_END;
 	}
 	return 0;
 }

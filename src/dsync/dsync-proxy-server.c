@@ -57,7 +57,8 @@ proxy_server_input_line(struct dsync_proxy_server *server, const char *line)
 
 	i_assert(server->cur_cmd == NULL);
 
-	args = t_strsplit(line, "\t");
+	p_clear(server->cmd_pool);
+	args = (const char *const *)p_strsplit(server->cmd_pool, line, "\t");
 	if (args[0] == NULL) {
 		i_error("proxy client sent invalid input: %s", line);
 		return -1;
@@ -71,7 +72,6 @@ proxy_server_input_line(struct dsync_proxy_server *server, const char *line)
 		args++;
 		count = str_array_length(args);
 
-		p_clear(server->cmd_pool);
 		cmd_args = p_new(server->cmd_pool, const char *, count + 1);
 		for (i = 0; i < count; i++) {
 			cmd_args[i] = str_tabunescape(p_strdup(server->cmd_pool,

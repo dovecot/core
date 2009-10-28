@@ -107,7 +107,9 @@ void dsync_worker_rename_mailbox(struct dsync_worker *worker,
 void dsync_worker_update_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *dsync_box)
 {
-	worker->v.update_mailbox(worker, dsync_box);
+	T_BEGIN {
+		worker->v.update_mailbox(worker, dsync_box);
+	} T_END;
 }
 
 void dsync_worker_select_mailbox(struct dsync_worker *worker,
