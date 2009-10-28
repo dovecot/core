@@ -64,6 +64,7 @@ void message_header_encode_q(const unsigned char *input, unsigned int len,
 		case '=':
 		case '?':
 		case '_':
+			line_len_left -= 2;
 			str_printfa(output, "=%2X", input[i]);
 			break;
 		default:
