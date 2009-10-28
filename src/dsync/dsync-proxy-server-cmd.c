@@ -282,6 +282,7 @@ cmd_msg_save(struct dsync_proxy_server *server, const char *const *args)
 	struct dsync_message msg;
 	struct dsync_msg_static_data data;
 	const char *error;
+	int ret;
 
 	if (dsync_proxy_msg_static_import_unescaped(pool_datastack_create(),
 						    args, &data, &error) < 0) {
@@ -300,9 +301,10 @@ cmd_msg_save(struct dsync_proxy_server *server, const char *const *args)
 	net_set_nonblock(server->fd_in, FALSE);
 	dsync_worker_msg_save(server->worker, &msg, &data);
 	net_set_nonblock(server->fd_in, TRUE);
-	i_assert(data.input->eof);
+	ret = dsync_worker_has_failed(server->worker) ? -1 : 1;
+	i_assert(data.input->eof || ret < 0);
 	i_stream_destroy(&data.input);
-	return 1;
+	return ret;
 }
 
 static void cmd_msg_get_send_more(struct dsync_proxy_server *server)

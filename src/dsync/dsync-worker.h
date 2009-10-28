@@ -113,4 +113,7 @@ void dsync_worker_finish(struct dsync_worker *worker,
 			 dsync_worker_finish_callback_t *callback,
 			 void *context);
 
+/* Returns TRUE if some commands have failed. */
+bool dsync_worker_has_failed(struct dsync_worker *worker);
+
 #endif

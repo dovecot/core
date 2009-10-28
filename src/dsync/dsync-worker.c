@@ -184,3 +184,8 @@ void dsync_worker_set_failure(struct dsync_worker *worker)
 {
 	worker->failed = TRUE;
 }
+
+bool dsync_worker_has_failed(struct dsync_worker *worker)
+{
+	return worker->failed;
+}
