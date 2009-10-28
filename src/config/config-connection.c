@@ -75,6 +75,10 @@ static int config_connection_request(struct config_connection *conn,
 			filter.service = *args + 8;
 		else if (strncmp(*args, "module=", 7) == 0)
 			module = *args + 7;
+		else if (strncmp(*args, "lhost=", 6) == 0)
+			filter.local_host = *args + 6;
+		else if (strncmp(*args, "rhost=", 6) == 0)
+			filter.remote_host = *args + 6;
 		else if (strncmp(*args, "lip=", 4) == 0) {
 			if (net_addr2ip(*args + 4, &filter.local_net) == 0) {
 				filter.local_bits =

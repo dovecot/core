@@ -12,6 +12,7 @@
 #include "config-filter.h"
 #include "config-parser.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #ifdef HAVE_GLOB_H
@@ -209,6 +210,40 @@ config_filter_parser_find(struct parser_context *ctx,
 	return NULL;
 }
 
+static int
+config_parse_net(struct parser_context *ctx, const char *value,
+		 const char **host_r, struct ip_addr *ip_r,
+		 unsigned int *bits_r, const char **error_r)
+{
+	struct ip_addr *ips;
+	const char *p;
+	unsigned int ip_count;
+	int ret;
+
+	if (net_parse_range(value, ip_r, bits_r) == 0)
+		return 0;
+
+	p = strchr(value, '/');
+	if (p != NULL) {
+		value = t_strdup_until(value, p);
+		p++;
+	}
+
+	ret = net_gethostbyname(value, &ips, &ip_count);
+	if (ret != 0) {
+		*error_r = t_strdup_printf("gethostbyname(%s) failed: %s",
+					   value, net_gethosterror(ret));
+		return -1;
+	}
+	*host_r = p_strdup(ctx->pool, value);
+	*ip_r = ips[0];
+	if (p != NULL && is_numeric(p, '\0'))
+		*bits_r = atoi(p);
+	else
+		*bits_r = IPADDR_IS_V4(&ips[0]) ? 32 : 128;
+	return 0;
+}
+
 static bool
 config_filter_add_new_filter(struct parser_context *ctx,
 			     const char *key, const char *value,
@@ -223,32 +258,34 @@ config_filter_add_new_filter(struct parser_context *ctx,
 			*error_r = "protocol must not be under protocol";
 		else
 			filter->service = p_strdup(ctx->pool, value);
-	} else if (strcmp(key, "local_ip") == 0) {
+	} else if (strcmp(key, "local") == 0) {
 		if (parent->remote_bits > 0)
-			*error_r = "local_ip must not be under remote_ip";
+			*error_r = "local must not be under remote";
 		else if (parent->service != NULL)
-			*error_r = "local_ip must not be under protocol";
-		else if (net_parse_range(value, &filter->local_net,
-					 &filter->local_bits) < 0)
-			*error_r = "Invalid network mask";
+			*error_r = "local must not be under protocol";
+		else if (config_parse_net(ctx, value, &filter->local_host,
+					  &filter->local_net,
+					  &filter->local_bits, error_r) < 0)
+			;
 		else if (parent->local_bits > filter->local_bits ||
 			 (parent->local_bits > 0 &&
 			  !net_is_in_network(&filter->local_net,
 					     &parent->local_net,
 					     parent->local_bits)))
-			*error_r = "local_ip not a subset of parent local_ip";
-	} else if (strcmp(key, "remote_ip") == 0) {
+			*error_r = "local not a subset of parent local";
+	} else if (strcmp(key, "remote") == 0) {
 		if (parent->service != NULL)
-			*error_r = "remote_ip must not be under protocol";
-		else if (net_parse_range(value, &filter->remote_net,
-					 &filter->remote_bits) < 0)
-			*error_r = "Invalid network mask";
+			*error_r = "remote must not be under protocol";
+		else if (config_parse_net(ctx, value, &filter->remote_host,
+					  &filter->remote_net,
+					  &filter->remote_bits, error_r) < 0)
+			;
 		else if (parent->remote_bits > filter->remote_bits ||
 			 (parent->remote_bits > 0 &&
 			  !net_is_in_network(&filter->remote_net,
 					     &parent->remote_net,
 					     parent->remote_bits)))
-			*error_r = "remote_ip not a subset of parent remote_ip";
+			*error_r = "remote not a subset of parent remote";
 	} else {
 		return FALSE;
 	}

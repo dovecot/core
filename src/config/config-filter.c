@@ -17,18 +17,30 @@ bool config_filter_match(const struct config_filter *mask,
 	if (mask->service != NULL) {
 		if (filter->service == NULL)
 			return FALSE;
-		if (strcasecmp(filter->service, mask->service) != 0)
+		if (strcmp(filter->service, mask->service) != 0)
+			return FALSE;
+	}
+	if (mask->local_host != NULL) {
+		if (filter->local_host == NULL)
+			return FALSE;
+		if (strcmp(filter->local_host, mask->local_host) != 0)
+			return FALSE;
+	}
+	if (mask->remote_host != NULL) {
+		if (filter->remote_host == NULL)
+			return FALSE;
+		if (strcmp(filter->remote_host, mask->remote_host) != 0)
 			return FALSE;
 	}
 	/* FIXME: it's not comparing full masks */
-	if (mask->remote_bits != 0) {
+	if (mask->remote_bits != 0 && mask->remote_host == NULL) {
 		if (filter->remote_bits == 0)
 			return FALSE;
 		if (!net_is_in_network(&filter->remote_net, &mask->remote_net,
 				       mask->remote_bits))
 			return FALSE;
 	}
-	if (mask->local_bits != 0) {
+	if (mask->local_bits != 0 && mask->local_host == NULL) {
 		if (filter->local_bits == 0)
 			return FALSE;
 		if (!net_is_in_network(&filter->local_net, &mask->local_net,
@@ -52,6 +64,11 @@ bool config_filters_equal(const struct config_filter *f1,
 	if (f1->local_bits != f2->local_bits)
 		return FALSE;
 	if (!net_ip_compare(&f1->local_net, &f2->local_net))
+		return FALSE;
+
+	if (null_strcmp(f1->remote_host, f2->remote_host) != 0)
+		return FALSE;
+	if (null_strcmp(f1->local_host, f2->local_host) != 0)
 		return FALSE;
 
 	return TRUE;
@@ -90,7 +107,7 @@ config_filter_parser_cmp(struct config_filter_parser *const *p1,
 {
 	const struct config_filter *f1 = &(*p1)->filter, *f2 = &(*p2)->filter;
 
-	/* remote_ip and local_ips are first, although it doesn't really
+	/* remote and local are first, although it doesn't really
 	   matter which one comes first */
 	if (f1->local_bits > f2->local_bits)
 		return -1;

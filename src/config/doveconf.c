@@ -285,6 +285,10 @@ static void filter_parse_arg(struct config_filter *filter, const char *arg)
 		filter->service = arg + 8;
 	else if (strncmp(arg, "protocol=", 9) == 0)
 		filter->service = arg + 9;
+	else if (strncmp(arg, "lhost=", 6) == 0)
+		filter->local_host = arg + 6;
+	else if (strncmp(arg, "rhost=", 6) == 0)
+		filter->remote_host = arg + 6;
 	else if (strncmp(arg, "lip=", 4) == 0) {
 		if (net_parse_range(arg + 4, &filter->local_net,
 				    &filter->local_bits) < 0)

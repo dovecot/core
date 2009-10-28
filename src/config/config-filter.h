@@ -5,6 +5,7 @@
 
 struct config_filter {
 	const char *service;
+	const char *local_host, *remote_host;
 	struct ip_addr local_net, remote_net;
 	unsigned int local_bits, remote_bits;
 };
