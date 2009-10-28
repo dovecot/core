@@ -129,7 +129,7 @@ void str_printfa(string_t *str, const char *fmt, ...)
 
 void str_vprintfa(string_t *str, const char *fmt, va_list args)
 {
-#define SNPRINTF_INITIAL_EXTRA_SIZE 256
+#define SNPRINTF_INITIAL_EXTRA_SIZE 128
 	va_list args2;
 	char *tmp;
 	unsigned int init_size;

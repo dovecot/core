@@ -522,7 +522,7 @@ internal_handler(enum log_type log_type, const char *format, va_list args)
 		string_t *str;
 		unsigned int prefix_len;
 
-		str = t_str_new(512);
+		str = t_str_new(128);
 		str_printfa(str, "\001%c%s ", log_type + 1, my_pid);
 		prefix_len = str_len(str);
 
