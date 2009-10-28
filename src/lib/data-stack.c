@@ -69,7 +69,7 @@ static bool outofmem = FALSE;
 
 static union {
 	struct stack_block block;
-	unsigned char data[128];
+	unsigned char data[512];
 } outofmem_area;
 
 static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
@@ -169,7 +169,8 @@ static void free_blocks(struct stack_block *block)
 			unused_block = block;
 		} else {
 #ifndef USE_GC
-			free(block);
+			if (block != &outofmem_area.block)
+				free(block);
 #endif
 		}
 
