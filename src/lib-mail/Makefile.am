@@ -13,6 +13,7 @@ libmail_la_SOURCES = \
 	message-date.c \
 	message-decoder.c \
 	message-header-decode.c \
+	message-header-encode.c \
 	message-header-parser.c \
 	message-id.c \
 	message-parser.c \
@@ -33,6 +34,7 @@ headers = \
 	message-date.h \
 	message-decoder.h \
 	message-header-decode.h \
+	message-header-encode.h \
 	message-header-parser.h \
 	message-id.h \
 	message-parser.h \
@@ -59,6 +61,7 @@ test_programs = \
 	test-message-date \
 	test-message-decoder \
 	test-message-header-decode \
+	test-message-header-encode \
 	test-message-header-parser \
 	test-message-id \
 	test-message-parser \
@@ -98,6 +101,10 @@ test_message_decoder_DEPENDENCIES = message-decoder.lo rfc822-parser.lo rfc2231-
 test_message_header_decode_SOURCES = test-message-header-decode.c
 test_message_header_decode_LDADD = message-header-decode.lo quoted-printable.lo $(test_libs)
 test_message_header_decode_DEPENDENCIES = message-header-decode.lo quoted-printable.lo $(test_libs)
+
+test_message_header_encode_SOURCES = test-message-header-encode.c
+test_message_header_encode_LDADD = message-header-encode.lo $(test_libs)
+test_message_header_encode_DEPENDENCIES = message-header-encode.lo $(test_libs)
 
 test_message_header_parser_SOURCES = test-message-header-parser.c
 test_message_header_parser_LDADD = message-header-parser.lo $(test_libs)
