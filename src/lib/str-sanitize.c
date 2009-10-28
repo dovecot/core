@@ -1,32 +1,52 @@
 /* Copyright (c) 2004-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "unichar.h"
 #include "str.h"
 #include "str-sanitize.h"
 
 static size_t str_sanitize_skip_start(const char *src, size_t max_len)
 {
+	unsigned int len;
+	unichar_t chr;
 	size_t i;
 
-	for (i = 0; i < max_len; i++) {
-		if (((unsigned char)src[i] & 0x7f) < 32)
+	for (i = 0; i < max_len; ) {
+		len = uni_utf8_char_bytes(src[i]);
+		if (uni_utf8_get_char(src+i, &chr) <= 0)
 			break;
+		if ((unsigned char)src[i] < 32)
+			break;
+		i += len;
 	}
 	return i;
 }
 
 void str_sanitize_append(string_t *dest, const char *src, size_t max_len)
 {
+	unsigned int len;
+	unichar_t chr;
 	size_t i;
+	int ret;
 
-	i = str_sanitize_skip_start(src, max_len);
-	str_append_n(dest, src, i);
-
-	for (; i < max_len && src[i] != '\0'; i++) {
-		if (((unsigned char)src[i] & 0x7f) < 32)
+	for (i = 0; i < max_len && src[i] != '\0'; ) {
+		len = uni_utf8_char_bytes(src[i]);
+		ret = uni_utf8_get_char(src+i, &chr);
+		if (ret <= 0) {
+			/* invalid UTF-8 */
+			str_append_c(dest, '?');
+			if (ret == 0) {
+				/* input ended too early */
+				return;
+			}
+			i++;
+			continue;
+		}
+		if ((unsigned char)src[i] < 32)
 			str_append_c(dest, '?');
 		else
 			str_append_c(dest, src[i]);
+		i += len;
 	}
 
 	if (src[i] != '\0') {
