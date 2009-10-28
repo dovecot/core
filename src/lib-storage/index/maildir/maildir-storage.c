@@ -507,6 +507,11 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	struct maildir_uidlist *uidlist = mbox->uidlist;
 	int ret;
 
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			return -1;
+	}
+
 	if (maildir_uidlist_lock(uidlist) <= 0)
 		return -1;
 
