@@ -177,6 +177,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 
 		*value_r = istream_raw_mbox_get_sender(mbox->mbox_stream);
 		return 0;
+	case MAIL_FETCH_GUID:
 	case MAIL_FETCH_HEADER_MD5:
 		if (mbox_mail_get_md5_header(mail, value_r))
 			return 0;
