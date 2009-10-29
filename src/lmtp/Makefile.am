@@ -17,9 +17,17 @@ AM_CPPFLAGS = \
 
 lmtp_LDFLAGS = -export-dynamic
 
+if !BUILD_SHARED_LIBS
+unused_objects = \
+	../lib/mountpoint.o \
+	../lib-mail/message-header-encode.o \
+	../lib-imap/imap-util.o
+endif
+
 libs = \
 	../lib-lda/liblda.a \
-	$(LIBDOVECOT_STORAGE)
+	$(LIBDOVECOT_STORAGE) \
+	$(unused_objects)
 
 lmtp_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
 lmtp_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
