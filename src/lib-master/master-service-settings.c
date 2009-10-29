@@ -148,6 +148,10 @@ master_service_read_config(struct master_service *service, const char *path,
 			str_printfa(str, "\trip=%s",
 				    net_ip2addr(&input->remote_ip));
 		}
+		if (input->local_host != NULL)
+			str_printfa(str, "\tlhost=%s", input->local_host);
+		if (input->remote_host != NULL)
+			str_printfa(str, "\tlhost=%s", input->remote_host);
 		str_append_c(str, '\n');
 		ret = write_full(fd, str_data(str), str_len(str));
 	} T_END;

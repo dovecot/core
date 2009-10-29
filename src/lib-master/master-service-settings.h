@@ -28,6 +28,7 @@ struct master_service_settings_input {
 	const char *service;
 	const char *username;
 	struct ip_addr local_ip, remote_ip;
+	const char *local_host, *remote_host;
 };
 
 extern const struct setting_parser_info master_service_setting_parser_info;
