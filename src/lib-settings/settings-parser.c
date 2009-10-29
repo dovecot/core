@@ -834,6 +834,10 @@ void settings_parse_set_key_expandeded(struct setting_parser_context *ctx,
 
 	if (!settings_find_key(ctx, key, &def, &link))
 		return;
+	if (link->info == &strlist_info) {
+		/* parent is strlist, no expansion needed */
+		return;
+	}
 
 	val = PTR_OFFSET(link->set_struct, def->offset);
 	if (def->type == SET_STR_VARS && *val != NULL) {
