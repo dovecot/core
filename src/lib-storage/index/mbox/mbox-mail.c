@@ -145,15 +145,30 @@ static int mbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	return 0;
 }
 
+static bool
+mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
+{
+	static uint8_t empty_md5[16] =
+		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
+	const void *ext_data;
+
+	mail_index_lookup_ext(mail->trans->trans_view, mail->mail.mail.seq,
+			      mbox->md5hdr_ext_idx, &ext_data, NULL);
+	if (ext_data != NULL && memcmp(ext_data, empty_md5, 16) != 0) {
+		*value_r = binary_to_hex(ext_data, 16);
+		return TRUE;
+	} else {
+		return FALSE;
+	}
+}
+
 static int
 mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		      const char **value_r)
 {
-	static uint8_t empty_md5[16] =
-		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
-	const void *ext_data;
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:
@@ -163,16 +178,8 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = istream_raw_mbox_get_sender(mbox->mbox_stream);
 		return 0;
 	case MAIL_FETCH_HEADER_MD5:
-		mail_index_lookup_ext(mail->trans->trans_view, _mail->seq,
-				      mbox->md5hdr_ext_idx, &ext_data, NULL);
-		if (ext_data == NULL) {
-			*value_r = "";
+		if (mbox_mail_get_md5_header(mail, value_r))
 			return 0;
-		}
-		if (memcmp(ext_data, empty_md5, 16) != 0) {
-			*value_r = binary_to_hex(ext_data, 16);
-			return 0;
-		}
 
 		/* i guess in theory the empty_md5 is valid and can happen,
 		   but it's almost guaranteed that it means the MD5 sum is
@@ -181,7 +188,12 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
                 mbox_prepare_resync(mail);
 		if (mbox_sync(mbox, MBOX_SYNC_FORCE_SYNC) < 0)
 			return -1;
-		break;
+
+		if (!mbox_mail_get_md5_header(mail, value_r)) {
+			i_error("mbox resyncing didn't save header MD5 values");
+			return -1;
+		}
+		return 0;
 	default:
 		break;
 	}
