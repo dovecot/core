@@ -336,6 +336,30 @@ static int get_enum(struct setting_parser_context *ctx, const char *value,
 	return 0;
 }
 
+static int setting_link_add(struct setting_parser_context *ctx,
+			    const struct setting_define *def,
+			    const struct setting_link *link_copy, char *key)
+{
+	struct setting_link *link;
+
+	link = hash_table_lookup(ctx->links, key);
+	if (link != NULL) {
+		if (def != NULL && def->type == SET_DEFLIST_UNIQUE &&
+		    link->parent == link_copy->parent &&
+		    link->info == link_copy->info)
+			return 0;
+		ctx->error = p_strconcat(ctx->parser_pool, key,
+					 " already exists", NULL);
+		return -1;
+	}
+
+	link = p_new(ctx->parser_pool, struct setting_link, 1);
+	*link = *link_copy;
+	link->full_key = key;
+	hash_table_insert(ctx->links, key, link);
+	return 0;
+}
+
 static int
 get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 	    const struct setting_define *def,
@@ -343,7 +367,7 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 	    const char *key, const char *value, ARRAY_TYPE(void_array) *result,
 	    ARRAY_TYPE(void_array) *change_result)
 {
-	struct setting_link *link;
+	struct setting_link new_link;
 	const char *const *list;
 	char *full_key;
 
@@ -354,6 +378,20 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 	if (change_result != NULL && !array_is_created(change_result))
 		p_array_init(change_result, ctx->set_pool, 5);
 
+	memset(&new_link, 0, sizeof(new_link));
+	new_link.parent = parent;
+	new_link.info = info;
+	new_link.array = result;
+	new_link.change_array = change_result;
+
+	if (info == &strlist_info) {
+		/* there are no sections below strlist, so allow referencing it
+		   without the key (e.g. plugin/foo instead of plugin/0/foo) */
+		full_key = p_strdup(ctx->parser_pool, key);
+		if (setting_link_add(ctx, def, &new_link, full_key) < 0)
+			return -1;
+	}
+
 	list = t_strsplit(value, "\t ");
 	for (; *list != NULL; list++) {
 		if (**list == '\0')
@@ -361,23 +399,8 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 
 		full_key = p_strconcat(ctx->parser_pool, key,
 				       SETTINGS_SEPARATOR_S, *list, NULL);
-		link = hash_table_lookup(ctx->links, full_key);
-		if (link != NULL) {
-			if (def != NULL && def->type == SET_DEFLIST_UNIQUE &&
-			    link->parent == parent && link->info == info)
-				return 0;
-			ctx->error = p_strconcat(ctx->parser_pool, full_key,
-						 " already exists", NULL);
+		if (setting_link_add(ctx, def, &new_link, full_key) < 0)
 			return -1;
-		}
-
-		link = p_new(ctx->parser_pool, struct setting_link, 1);
-		link->full_key = full_key;
-		link->parent = parent;
-		link->info = info;
-		link->array = result;
-		link->change_array = change_result;
-		hash_table_insert(ctx->links, full_key, link);
 	}
 	return 0;
 }
