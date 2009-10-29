@@ -19,6 +19,7 @@ dovecot_lda_LDFLAGS = -export-dynamic
 if !BUILD_SHARED_LIBS
 unused_objects = \
 	../lib/mountpoint.o \
+	../lib-mail/message-header-encode.o \
 	../lib-imap/imap-util.o
 endif
 
