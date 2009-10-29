@@ -20,6 +20,9 @@ struct dsync_worker *dsync_worker_init_local(struct mail_user *user);
 struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out);
 void dsync_worker_deinit(struct dsync_worker **worker);
 
+/* Set this worker as read-only. All attempted changes are ignored. */
+void dsync_worker_set_readonly(struct dsync_worker *worker);
+
 /* If any function returns with "waiting for more data", the given callback
    gets called when more data is available. */
 void dsync_worker_set_input_callback(struct dsync_worker *worker,

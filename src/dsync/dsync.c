@@ -75,13 +75,13 @@ int main(int argc, char *argv[])
 	struct mail_user *mail_user;
 	struct dsync_worker *worker1, *worker2;
 	const char *error, *username, *mailbox = NULL, *cmd = NULL;
-	bool dest = TRUE;
+	bool dest = TRUE, readonly = FALSE;
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE |
 					     MASTER_SERVICE_FLAG_STD_CLIENT,
-					     &argc, &argv, "b:e:fu:v");
+					     &argc, &argv, "b:e:fru:v");
 
 	username = getenv("USER");
 	while ((c = master_getopt(master_service)) > 0) {
@@ -93,6 +93,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'e':
 			cmd = optarg;
+			break;
+		case 'r':
+			readonly = TRUE;
 			break;
 		case 'f':
 			brain_flags |= DSYNC_BRAIN_FLAG_FULL_SYNC;
@@ -130,6 +133,8 @@ int main(int argc, char *argv[])
 	}
 
 	worker1 = dsync_worker_init_local(mail_user);
+	if (readonly)
+		dsync_worker_set_readonly(worker1);
 	if (dest) {
 		i_set_failure_prefix(t_strdup_printf("dsync-dest(%s): ",
 						     username));

@@ -26,11 +26,19 @@ static void msg_get_callback(enum dsync_msg_get_result result,
 {
 	struct dsync_brain_msg_save_context *ctx = context;
 	struct istream *input;
+	const unsigned char *idata;
+	size_t size;
 
 	switch (result) {
 	case DSYNC_MSG_GET_RESULT_SUCCESS:
 		input = data->input;
 		dsync_worker_msg_save(ctx->iter->worker, ctx->msg, data);
+
+		/* if input is coming from proxy, we'll need to read the input
+		   until EOF or we'll start treating the input as commands.
+		   make sure saving read everything. */
+		while ((i_stream_read_data(input, &idata, &size, 0)) > 0)
+			i_stream_skip(input, size);
 		i_stream_unref(&input);
 		break;
 	case DSYNC_MSG_GET_RESULT_EXPUNGED:

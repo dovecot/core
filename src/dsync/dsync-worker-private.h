@@ -63,6 +63,7 @@ struct dsync_worker {
 	io_callback_t *input_callback, *output_callback;
 	void *input_context, *output_context;
 
+	unsigned int readonly:1;
 	unsigned int failed:1;
 };
 
