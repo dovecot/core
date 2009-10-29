@@ -301,23 +301,40 @@ static void plain_write(struct ssl_proxy *proxy)
 	ssl_proxy_unref(proxy);
 }
 
-static const char *ssl_last_error(void)
+static const char *ssl_err2str(unsigned long err, const char *data, int flags)
 {
-	unsigned long err;
+	const char *ret;
 	char *buf;
 	size_t err_size = 256;
 
-	err = ERR_get_error();
+	buf = t_malloc(err_size);
+	buf[err_size-1] = '\0';
+	ERR_error_string_n(err, buf, err_size-1);
+	ret = buf;
+
+	if ((flags & ERR_TXT_STRING) != 0)
+		ret = t_strdup_printf("%s: %s", buf, data);
+	return ret;
+}
+
+static const char *ssl_last_error(void)
+{
+	unsigned long err, err2;
+	const char *data;
+	int flags;
+
+	err = ERR_get_error_line_data(NULL, NULL, &data, &flags);
+	while (err != 0 && (err2 = ERR_peek_error()) != 0) {
+		i_error("SSL: Stacked error: %s",
+			ssl_err2str(err, data, flags));
+		err = ERR_get_error();
+	}
 	if (err == 0) {
 		if (errno != 0)
 			return strerror(errno);
 		return "Unknown error";
 	}
-
-	buf = t_malloc(err_size);
-	buf[err_size-1] = '\0';
-	ERR_error_string_n(err, buf, err_size-1);
-	return buf;
+	return ssl_err2str(err, data, flags);
 }
 
 static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
