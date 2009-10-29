@@ -437,6 +437,7 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_set_subscribed,
 		fs_list_delete_mailbox,
 		fs_list_rename_mailbox,
+		NULL,
 		NULL
 	}
 };

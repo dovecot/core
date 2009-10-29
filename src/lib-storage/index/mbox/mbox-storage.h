@@ -14,6 +14,7 @@
 #define MBOX_SUBSCRIPTION_FILE_NAME ".subscriptions"
 #define MBOX_INDEX_PREFIX "dovecot.index"
 #define MBOX_INDEX_DIR_NAME ".imap"
+#define MBOX_DIR_GUID_FILE_NAME "dovecot-dir-guid"
 
 struct mbox_index_header {
 	uint64_t sync_size;

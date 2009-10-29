@@ -325,6 +325,7 @@ struct mailbox_list shared_mailbox_list = {
 		shared_list_set_subscribed,
 		shared_list_delete_mailbox,
 		shared_list_rename_mailbox,
-		shared_list_rename_mailbox_pre
+		shared_list_rename_mailbox_pre,
+		NULL
 	}
 };

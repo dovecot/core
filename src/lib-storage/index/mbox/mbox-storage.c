@@ -822,6 +822,20 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 	return 0;
 }
 
+static int mbox_get_guid(struct mailbox_list *list, const char *name,
+			 uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+{
+	const char *dir, *path;
+
+	memset(mailbox_guid, 0, MAIL_GUID_128_SIZE);
+	dir = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (index_list_create_missing_index_dir(list, name) < 0)
+		return -1;
+	path = t_strconcat(dir, "/"MBOX_DIR_GUID_FILE_NAME, NULL);
+
+	return mailbox_list_get_guid_path(list, path, mailbox_guid);
+}
+
 static void mbox_storage_add_list(struct mail_storage *storage,
 				  struct mailbox_list *list)
 {
@@ -840,6 +854,7 @@ static void mbox_storage_add_list(struct mail_storage *storage,
 	list->v.delete_mailbox = mbox_list_delete_mailbox;
 	list->v.is_valid_existing_name = mbox_is_valid_existing_name;
 	list->v.is_valid_create_name = mbox_is_valid_create_name;
+	list->v.get_guid = mbox_get_guid;
 
 	MODULE_CONTEXT_SET(list, mbox_mailbox_list_module, mlist);
 }

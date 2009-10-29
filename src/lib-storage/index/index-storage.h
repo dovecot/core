@@ -172,4 +172,7 @@ void index_save_context_free(struct mail_save_context *ctx);
 bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
 			     const ARRAY_TYPE(keyword_indexes) *k2);
 
+int index_list_create_missing_index_dir(struct mailbox_list *list,
+					const char *name);
+
 #endif

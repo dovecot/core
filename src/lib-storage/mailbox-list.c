@@ -824,23 +824,11 @@ static int mailbox_list_read_guid(struct mailbox_list *list, const char *path,
 	}
 }
 
-static int
-mailbox_list_get_guid_real(struct mailbox_list *list, const char *name,
-			   uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+int mailbox_list_get_guid_path(struct mailbox_list *list, const char *path,
+			       uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
 {
 	string_t *temp_path;
-	const char *dir, *path;
 	int fd, ret;
-
-	memset(mailbox_guid, 0, MAIL_GUID_128_SIZE);
-	if (list->set.dir_guid_fname == NULL) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
-			"Storage doesn't support mailbox GUIDs");
-		return -1;
-	}
-
-	dir = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
-	path = t_strconcat(dir, "/", list->set.dir_guid_fname, NULL);
 
 	/* try reading the GUID from the file */
 	if ((ret = mailbox_list_read_guid(list, path, mailbox_guid)) < 0)
@@ -872,7 +860,8 @@ mailbox_list_get_guid_real(struct mailbox_list *list, const char *name,
 		if (ret == 0) {
 			/* broken? shouldn't really happen. we anyway deleted
 			   it already, so try again. */
-			return mailbox_list_get_guid(list, name, mailbox_guid);
+			return mailbox_list_get_guid_path(list, path,
+							  mailbox_guid);
 		}
 	} else {
 		mailbox_list_set_critical(list, "link(%s, %s) failed: %m",
@@ -883,13 +872,34 @@ mailbox_list_get_guid_real(struct mailbox_list *list, const char *name,
 	return ret < 0 ? -1 : 0;
 }
 
+static int
+mailbox_list_get_guid_default(struct mailbox_list *list, const char *name,
+			      uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+{
+	const char *dir, *path;
+
+	memset(mailbox_guid, 0, MAIL_GUID_128_SIZE);
+	if (list->set.dir_guid_fname == NULL) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			"Storage doesn't support mailbox GUIDs");
+		return -1;
+	}
+
+	dir = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	path = t_strconcat(dir, "/", list->set.dir_guid_fname, NULL);
+
+	return mailbox_list_get_guid_path(list, path, mailbox_guid);
+}
+
 int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
 			  uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
 {
 	int ret;
 
 	T_BEGIN {
-		ret = mailbox_list_get_guid_real(list, name, mailbox_guid);
+		ret = list->v.get_guid != NULL ?
+			list->v.get_guid(list, name, mailbox_guid) :
+			mailbox_list_get_guid_default(list, name, mailbox_guid);
 	} T_END;
 	return ret;
 }

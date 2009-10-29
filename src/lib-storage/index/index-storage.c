@@ -71,7 +71,8 @@ static void index_list_free(struct index_list *list)
 	i_free(list);
 }
 
-static int create_missing_index_dir(struct mailbox *box)
+int index_list_create_missing_index_dir(struct mailbox_list *list,
+					const char *name)
 {
 	const char *root_dir, *index_dir, *p, *parent_dir;
 	const char *origin, *parent_origin;
@@ -79,34 +80,32 @@ static int create_missing_index_dir(struct mailbox *box)
 	gid_t gid, parent_gid;
 	int n = 0;
 
-	root_dir = mailbox_list_get_path(box->list, box->name,
+	root_dir = mailbox_list_get_path(list, name,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(box->list, box->name,
+	index_dir = mailbox_list_get_path(list, name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (strcmp(index_dir, root_dir) == 0 || *index_dir == '\0')
 		return 0;
 
-	mailbox_list_get_dir_permissions(box->list, box->name, &mode,
-					 &gid, &origin);
+	mailbox_list_get_dir_permissions(list, name, &mode, &gid, &origin);
 	while (mkdir_chgrp(index_dir, mode, gid, origin) < 0) {
 		if (errno == EEXIST)
 			break;
 
 		p = strrchr(index_dir, '/');
 		if (errno != ENOENT || p == NULL || ++n == 2) {
-			mail_storage_set_critical(box->storage,
+			mailbox_list_set_critical(list,
 				"mkdir(%s) failed: %m", index_dir);
 			return -1;
 		}
 		/* create the parent directory first */
-		mailbox_list_get_dir_permissions(box->list, NULL,
-						 &parent_mode, &parent_gid,
-						 &parent_origin);
+		mailbox_list_get_dir_permissions(list, NULL, &parent_mode,
+						 &parent_gid, &parent_origin);
 		parent_dir = t_strdup_until(index_dir, p);
 		if (mkdir_parents_chgrp(parent_dir, parent_mode,
 					parent_gid, parent_origin) < 0 &&
 		    errno != EEXIST) {
-			mail_storage_set_critical(box->storage,
+			mailbox_list_set_critical(list,
 				"mkdir(%s) failed: %m", parent_dir);
 			return -1;
 		}
@@ -397,8 +396,10 @@ int index_storage_mailbox_open(struct mailbox *box)
 		}
 	}
 
-	if (create_missing_index_dir(box) < 0)
+	if (index_list_create_missing_index_dir(box->list, box->name) < 0) {
+		mail_storage_set_internal_error(box->storage);
 		return -1;
+	}
 
 	index_dir = mailbox_list_get_path(box->list, box->name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
