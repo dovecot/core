@@ -533,9 +533,9 @@ static void ssl_step(struct ssl_proxy *proxy)
 }
 
 static int
-ssl_proxy_new_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
-		     const struct login_settings *set,
-		     struct ssl_proxy **proxy_r)
+ssl_proxy_alloc_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
+		       const struct login_settings *set,
+		       struct ssl_proxy **proxy_r)
 {
 	struct ssl_proxy *proxy;
 	SSL *ssl;
@@ -590,11 +590,11 @@ ssl_proxy_new_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
 	return sfd[1];
 }
 
-int ssl_proxy_new(int fd, const struct ip_addr *ip,
-		  const struct login_settings *set, struct ssl_proxy **proxy_r)
+int ssl_proxy_alloc(int fd, const struct ip_addr *ip,
+		    const struct login_settings *set,
+		    struct ssl_proxy **proxy_r)
 {
 	struct ssl_server_context *ctx, lookup_ctx;
-	int ret;
 
 	memset(&lookup_ctx, 0, sizeof(lookup_ctx));
 	lookup_ctx.cert = set->ssl_cert;
@@ -607,30 +607,29 @@ int ssl_proxy_new(int fd, const struct ip_addr *ip,
 	if (ctx == NULL)
 		ctx = ssl_server_context_init(set);
 
-	ret = ssl_proxy_new_common(ctx->ctx, fd, ip, set, proxy_r);
-	if (ret < 0)
-		return -1;
-
-	ssl_step(*proxy_r);
-	return ret;
+	return ssl_proxy_alloc_common(ctx->ctx, fd, ip, set, proxy_r);
 }
 
-int ssl_proxy_client_new(int fd, struct ip_addr *ip,
-			 const struct login_settings *set,
-			 ssl_handshake_callback_t *callback, void *context,
-			 struct ssl_proxy **proxy_r)
+int ssl_proxy_client_alloc(int fd, struct ip_addr *ip,
+			   const struct login_settings *set,
+			   ssl_handshake_callback_t *callback, void *context,
+			   struct ssl_proxy **proxy_r)
 {
 	int ret;
 
-	ret = ssl_proxy_new_common(ssl_client_ctx, fd, ip, set, proxy_r);
+	ret = ssl_proxy_alloc_common(ssl_client_ctx, fd, ip, set, proxy_r);
 	if (ret < 0)
 		return -1;
 
 	(*proxy_r)->handshake_callback = callback;
 	(*proxy_r)->handshake_context = context;
 	(*proxy_r)->client_proxy = TRUE;
-	ssl_step(*proxy_r);
 	return ret;
+}
+
+void ssl_proxy_start(struct ssl_proxy *proxy)
+{
+	ssl_step(proxy);
 }
 
 void ssl_proxy_set_client(struct ssl_proxy *proxy, struct client *client)

@@ -423,10 +423,10 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		o_stream_destroy(&proxy->server_output);
 	io_remove(&proxy->server_io);
 
-	fd = ssl_proxy_client_new(proxy->server_fd, &proxy->client->ip,
-				  proxy->client->set,
-				  login_proxy_ssl_handshaked, proxy,
-				  &proxy->ssl_server_proxy);
+	fd = ssl_proxy_client_alloc(proxy->server_fd, &proxy->client->ip,
+				    proxy->client->set,
+				    login_proxy_ssl_handshaked, proxy,
+				    &proxy->ssl_server_proxy);
 	if (fd < 0) {
 		client_log_err(proxy->client, t_strdup_printf(
 			"proxy: SSL handshake failed to %s:%u",
@@ -434,6 +434,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		return -1;
 	}
 	ssl_proxy_set_client(proxy->ssl_server_proxy, proxy->client);
+	ssl_proxy_start(proxy->ssl_server_proxy);
 
 	proxy->server_fd = fd;
 	proxy_plain_connected(proxy);

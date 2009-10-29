@@ -254,8 +254,8 @@ static void client_start_tls(struct client *client)
 	if (!client_unref(&client) || client->destroyed)
 		return;
 
-	fd_ssl = ssl_proxy_new(client->fd, &client->ip,
-			       client->set, &client->ssl_proxy);
+	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip,
+				 client->set, &client->ssl_proxy);
 	if (fd_ssl == -1) {
 		client_send_line(client, CLIENT_CMD_REPLY_BYE,
 				 "TLS initialization failed.");
@@ -264,6 +264,7 @@ static void client_start_tls(struct client *client)
 		return;
 	}
 	ssl_proxy_set_client(client->ssl_proxy, client);
+	ssl_proxy_start(client->ssl_proxy);
 
 	client->starttls = TRUE;
 	client->tls = TRUE;
