@@ -9,6 +9,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "master-service.h"
 #include "imap-util.h"
 #include "dsync-proxy.h"
 #include "dsync-worker-private.h"
@@ -64,6 +65,13 @@ extern struct dsync_worker_vfuncs proxy_client_dsync_worker;
 
 static void proxy_client_worker_input(struct proxy_client_dsync_worker *worker);
 static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker);
+
+static void proxy_client_fail(struct proxy_client_dsync_worker *worker)
+{
+	i_stream_close(worker->input);
+	dsync_worker_set_failure(&worker->worker);
+	master_service_stop(master_service);
+}
 
 static int
 proxy_client_worker_read_line(struct proxy_client_dsync_worker *worker,
@@ -125,7 +133,7 @@ proxy_client_worker_next_msg_get(struct proxy_client_dsync_worker *worker,
 						  line, &worker->msg_get_data,
 						  &error) < 0) {
 			i_error("Invalid msg-get static input: %s", error);
-			i_stream_close(worker->input);
+			proxy_client_fail(worker);
 			return FALSE;
 		}
 		worker->msg_get_data.input =
@@ -164,6 +172,12 @@ proxy_client_worker_next_reply(struct proxy_client_dsync_worker *worker,
 	const struct proxy_client_request *requests;
 	struct proxy_client_request request;
 	bool ret = TRUE;
+
+	if (aqueue_count(worker->request_queue) == 0) {
+		i_error("Unexpected reply from server: %s", line);
+		proxy_client_fail(worker);
+		return FALSE;
+	}
 
 	requests = array_idx(&worker->request_array, 0);
 	request = requests[aqueue_idx(worker->request_queue, 0)];
