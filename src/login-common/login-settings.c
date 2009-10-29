@@ -185,6 +185,7 @@ struct login_settings *
 login_settings_read(struct master_service *service, pool_t pool,
 		    const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
+		    const char *local_host,
 		    void ***other_settings_r)
 {
 	struct master_service_settings_input input;
@@ -196,6 +197,7 @@ login_settings_read(struct master_service *service, pool_t pool,
 	input.roots = login_set_roots;
 	input.module = login_process_name;
 	input.service = login_protocol;
+	input.local_host = local_host;
 
 	if (local_ip != NULL)
 		input.local_ip = *local_ip;

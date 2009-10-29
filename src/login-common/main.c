@@ -72,7 +72,7 @@ static void client_connected(const struct master_service_connection *conn)
 
 	pool = pool_alloconly_create("login client", 3*1024);
 	set = login_settings_read(master_service, pool, &local_ip,
-				  &conn->remote_ip, &other_sets);
+				  &conn->remote_ip, NULL, &other_sets);
 
 	if (!ssl_connections && !conn->ssl) {
 		client = client_create(conn->fd, FALSE, pool, set, other_sets,
@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
 
 	set_pool = pool_alloconly_create("global login settings", 4096);
 	global_login_settings =
-		login_settings_read(master_service, set_pool, NULL, NULL,
+		login_settings_read(master_service, set_pool, NULL, NULL, NULL,
 				    &global_other_settings);
 
 	/* main_preinit() needs to know the client limit, which is set by

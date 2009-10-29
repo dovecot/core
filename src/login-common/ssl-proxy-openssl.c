@@ -590,9 +590,8 @@ ssl_proxy_alloc_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
 	return sfd[1];
 }
 
-int ssl_proxy_alloc(int fd, const struct ip_addr *ip,
-		    const struct login_settings *set,
-		    struct ssl_proxy **proxy_r)
+static struct ssl_server_context *
+ssl_server_context_get(const struct login_settings *set)
 {
 	struct ssl_server_context *ctx, lookup_ctx;
 
@@ -606,7 +605,16 @@ int ssl_proxy_alloc(int fd, const struct ip_addr *ip,
 	ctx = hash_table_lookup(ssl_servers, &lookup_ctx);
 	if (ctx == NULL)
 		ctx = ssl_server_context_init(set);
+	return ctx;
+}
 
+int ssl_proxy_alloc(int fd, const struct ip_addr *ip,
+		    const struct login_settings *set,
+		    struct ssl_proxy **proxy_r)
+{
+	struct ssl_server_context *ctx;
+
+	ctx = ssl_server_context_get(set);
 	return ssl_proxy_alloc_common(ctx->ctx, fd, ip, set, proxy_r);
 }
 
@@ -1007,6 +1015,28 @@ end:
 	return ret;
 }
 
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+static void ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
+				    void *context ATTR_UNUSED)
+{
+	struct ssl_server_context *ctx;
+	struct ssl_proxy *proxy;
+	struct client *client;
+	const char *host;
+	void **other_sets;
+
+	proxy = SSL_get_ex_data(ssl, extdata_index);
+	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+
+	client = proxy->client;
+	client->set = login_settings_read(master_service, client->pool,
+					  &client->local_ip, &client->ip, host,
+					  &other_sets);
+	ctx = ssl_server_context_get(client->set);
+	SSL_set_SSL_CTX(ssl, ctx->ctx);
+}
+#endif
+
 static struct ssl_server_context *
 ssl_server_context_init(const struct login_settings *set)
 {
@@ -1037,6 +1067,14 @@ ssl_server_context_init(const struct login_settings *set)
 		i_fatal("Can't load ssl_cert: %s",
 			ssl_proxy_get_use_certificate_error(ctx->cert));
 	}
+
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+	if (SSL_CTX_set_tlsext_servername_callback(ctx->ctx,
+						   ssl_servername_callback) != 1) {
+		if (set->verbose_ssl)
+			i_debug("OpenSSL library doesn't support SNI");
+	}
+#endif
 
 	ssl_proxy_ctx_use_key(ctx->ctx, set);
 	SSL_CTX_set_info_callback(ctx->ctx, ssl_info_callback);
