@@ -1,6 +1,4 @@
-pkglibexecdir = $(libexecdir)/dovecot
-
-pkglibexec_PROGRAMS = dsync
+bin_PROGRAMS = dsync
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
