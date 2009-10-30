@@ -449,8 +449,7 @@ list_file_inbox(struct fs_list_iterate_context *ctx, const char *fname)
 	}
 	inbox_flags_set(ctx);
 
-	if ((ctx->info.flags & MAILBOX_NOINFERIORS) != 0 &&
-	    list_file_is_inbox(ctx, fname)) {
+	if (list_file_is_inbox(ctx, fname)) {
 		/* delay listing in case there's a INBOX/ directory */
 		ctx->inbox_found = TRUE;
 		ctx->inbox_flags = ctx->info.flags;
