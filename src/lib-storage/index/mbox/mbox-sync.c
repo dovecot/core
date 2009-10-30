@@ -1200,6 +1200,16 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 
 	i_assert(sync_ctx->write_fd != -1);
 
+	if (sync_ctx->mbox->sync_hdr_update != NULL) {
+		const struct mailbox_update *update =
+			sync_ctx->mbox->sync_hdr_update;
+
+		if (update->uid_validity != 0)
+			sync_ctx->base_uid_validity = update->uid_validity;
+		if (update->min_next_uid != 0)
+			sync_ctx->base_uid_last = update->min_next_uid-1;
+	}
+
 	uid_validity = sync_ctx->base_uid_validity != 0 ?
 		sync_ctx->base_uid_validity : sync_ctx->hdr->uid_validity;
 	i_assert(uid_validity != 0);
@@ -1351,6 +1361,11 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
                 sync_ctx->expunged_space = 0;
 		mbox_sync_file_updated(sync_ctx, FALSE);
+	} else {
+		if (file_size == 0 && sync_ctx->mbox->sync_hdr_update != NULL) {
+			if (mbox_write_pseudo(sync_ctx) < 0)
+				return -1;
+		}
 	}
 	return 0;
 }
