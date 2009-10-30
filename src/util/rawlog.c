@@ -3,6 +3,7 @@
 #include "lib.h"
 
 #include "ioloop.h"
+#include "fd-set-nonblock.h"
 #include "network.h"
 #include "write-full.h"
 #include "istream.h"
@@ -263,6 +264,9 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	proxy->client_io = io_add(proxy->client_in_fd, IO_READ,
 				  client_input, proxy);
 	o_stream_set_flush_callback(proxy->client_output, client_output, proxy);
+
+	fd_set_nonblock(client_in_fd, TRUE);
+	fd_set_nonblock(client_out_fd, TRUE);
 
 	proxy->last_out_lf = TRUE;
 	proxy->flags = flags;
