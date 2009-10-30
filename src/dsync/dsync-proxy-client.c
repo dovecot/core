@@ -101,11 +101,20 @@ proxy_client_worker_read_line(struct proxy_client_dsync_worker *worker,
 static void
 proxy_client_worker_msg_get_done(struct proxy_client_dsync_worker *worker)
 {
+	struct istream *input = worker->msg_get_data.input;
+	const unsigned char *data;
+	size_t size;
+
 	i_assert(worker->io == NULL);
 
 	worker->msg_get_data.input = NULL;
 	worker->io = io_add(worker->fd_in, IO_READ,
 			    proxy_client_worker_input, worker);
+
+	/* we'll need to read the input until EOF or we'll start treating the
+	   input as commands. make sure saving read everything. */
+	while ((i_stream_read_data(input, &data, &size, 0)) > 0)
+		i_stream_skip(input, size);
 }
 
 static bool
