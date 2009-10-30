@@ -344,9 +344,9 @@ static int setting_link_add(struct setting_parser_context *ctx,
 
 	link = hash_table_lookup(ctx->links, key);
 	if (link != NULL) {
-		if (def != NULL && def->type == SET_DEFLIST_UNIQUE &&
-		    link->parent == link_copy->parent &&
-		    link->info == link_copy->info)
+		if (link->parent == link_copy->parent &&
+		    link->info == link_copy->info &&
+		    (def == NULL || def->type == SET_DEFLIST_UNIQUE))
 			return 0;
 		ctx->error = p_strconcat(ctx->parser_pool, key,
 					 " already exists", NULL);
