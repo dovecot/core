@@ -312,6 +312,8 @@ static void rawlog_open(enum rawlog_flags flags)
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) < 0)
 		i_fatal("socketpair() failed: %m");
+	fd_set_nonblock(sfd[0], TRUE);
+	fd_set_nonblock(sfd[1], TRUE);
 
 	pid = fork();
 	if (pid < 0)
