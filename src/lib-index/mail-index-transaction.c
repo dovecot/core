@@ -158,12 +158,14 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 					   uoff_t *log_file_offset_r)
 {
 	struct mail_index *index = t->view->index;
+	bool changed;
 	int ret;
 
 	i_assert(t->first_new_seq >
 		 mail_index_view_get_messages_count(t->view));
 
-	if (!MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) && !t->reset) {
+	changed = MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) || t->reset;
+	if (!changed) {
 		/* nothing to append */
 		ret = 0;
 	} else {
@@ -172,7 +174,7 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 	mail_transaction_log_get_head(index->log, log_file_seq_r,
 				      log_file_offset_r);
 
-	if (ret == 0 && !index->syncing) {
+	if (ret == 0 && !index->syncing && changed) {
 		/* if we're committing a normal transaction, we want to
 		   have those changes in the index mapping immediately. this
 		   is especially important when committing cache offset
