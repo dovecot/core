@@ -42,7 +42,7 @@ struct mbox_save_context {
 
 	string_t *headers;
 	size_t space_end_idx;
-	uint32_t seq, next_uid, uid_validity, first_saved_uid;
+	uint32_t seq, next_uid, uid_validity;
 
 	struct istream *input;
 	struct ostream *output;
@@ -184,7 +184,6 @@ static void mbox_save_init_sync(struct mailbox_transaction_context *t)
 	hdr = mail_index_get_header(view);
 
 	ctx->next_uid = hdr->next_uid;
-	ctx->first_saved_uid = ctx->next_uid;
 	ctx->uid_validity = hdr->uid_validity;
 	ctx->synced = TRUE;
 
@@ -262,7 +261,8 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		return -1;
 	}
 
-	if ((_t->flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0)
+	if ((_t->flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0 ||
+	    ctx->ctx.uid != 0)
 		want_mail = TRUE;
 
 	if (ctx->append_offset == (uoff_t)-1) {
@@ -458,6 +458,10 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	if (ctx->synced) {
 		if (ctx->mbox->mbox_save_md5)
 			ctx->mbox_md5_ctx = mbox_md5_init();
+		if (ctx->next_uid < _ctx->uid) {
+			/* we can use the wanted UID */
+			ctx->next_uid = _ctx->uid;
+		}
 		if (ctx->output->offset == 0) {
 			/* writing the first mail. Insert X-IMAPbase as well. */
 			str_printfa(ctx->headers, "X-IMAPbase: %u %010u\n",
@@ -734,7 +738,6 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	struct mbox_mailbox *mbox = ctx->mbox;
-	struct seq_range *range;
 	struct stat st;
 	int ret = 0;
 
@@ -747,9 +750,8 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	if (ctx->synced) {
 		_t->changes->uid_validity = ctx->uid_validity;
-		range = array_append_space(&_t->changes->saved_uids);
-		range->seq1 = ctx->first_saved_uid;
-		range->seq2 = ctx->next_uid - 1;
+		mail_index_append_finish_uids(ctx->trans, 0,
+					      &_t->changes->saved_uids);
 
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
