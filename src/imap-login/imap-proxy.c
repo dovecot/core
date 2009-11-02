@@ -52,27 +52,9 @@ static void get_plain_auth(struct client *client, string_t *dest)
 	base64_encode(str_data(str), str_len(str), dest);
 }
 
-static void
-client_send_capability_if_needed(struct imap_client *client, string_t *str,
-				 const char *capability)
-{
-	if (!client->client_ignores_capability_resp_code || capability == NULL)
-		return;
-
-	/* reset this so that we don't re-send the CAPABILITY in case server
-	   sends it multiple times */
-	client->client_ignores_capability_resp_code = FALSE;
-
-	/* client has used CAPABILITY command, so it didn't understand the
-	   capabilities in the banner. send the backend's untagged CAPABILITY
-	   reply and hope that the client understands it */
-	str_printfa(str, "* CAPABILITY %s\r\n", capability);
-}
-
 static void proxy_write_login(struct imap_client *client, string_t *str)
 {
-	if (client->client_ignores_capability_resp_code)
-		str_append(str, "C CAPABILITY\r\n");
+	str_append(str, "C CAPABILITY\r\n");
 
 	if (client->common.proxy_master_user == NULL) {
 		/* logging in normally - use LOGIN command */
@@ -136,11 +118,45 @@ static int proxy_input_banner(struct imap_client *client,
 	return 0;
 }
 
+static void
+client_send_login_reply(struct imap_client *client, string_t *str,
+			const char *line)
+{
+	const char *capability;
+	bool tagged_capability;
+
+	capability = client->proxy_backend_capability;
+	tagged_capability = strncasecmp(line, "[CAPABILITY ", 12) == 0;
+	if (tagged_capability)
+		capability = t_strcut(line + 12, ']');
+
+	if (client->client_ignores_capability_resp_code && capability != NULL) {
+		/* client has used CAPABILITY command, so it didn't understand
+		   the capabilities in the banner. send the backend's untagged
+		   CAPABILITY reply and hope that the client understands it */
+		str_printfa(str, "* CAPABILITY %s\r\n", capability);
+	}
+	str_append(str, client->cmd_tag);
+	str_append(str, " OK ");
+	if (!client->client_ignores_capability_resp_code &&
+	    !tagged_capability && capability != NULL) {
+		str_printfa(str, "[CAPABILITY %s] ", capability);
+		if (*line == '[') {
+			/* we need to send the capability.
+			   skip over this resp-code */
+			while (*line != ']' && *line != '\0')
+				line++;
+			if (*line == ' ') line++;
+		}
+	}
+	str_append(str, line);
+	str_append(str, "\r\n");
+}
+
 int imap_proxy_parse_line(struct client *client, const char *line)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
 	struct ostream *output;
-	const char *capability;
 	string_t *str;
 
 	i_assert(!client->destroyed);
@@ -191,15 +207,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 1;
 	} else if (strncmp(line, "L OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
-		capability = imap_client->proxy_backend_capability;
-		if (strncmp(line + 5, "[CAPABILITY ", 12) == 0)
-			capability = t_strcut(line + 5 + 12, ']');
-
 		str = t_str_new(128);
-		client_send_capability_if_needed(imap_client, str, capability);
-		str_append(str, imap_client->cmd_tag);
-		str_append(str, line + 1);
-		str_append(str, "\r\n");
+		client_send_login_reply(imap_client, str, line + 5);
 		(void)o_stream_send(client->output,
 				    str_data(str), str_len(str));
 
