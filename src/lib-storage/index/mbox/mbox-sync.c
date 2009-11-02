@@ -972,6 +972,7 @@ static void mbox_sync_hdr_update(struct mbox_sync_context *sync_ctx,
 	if (update->min_next_uid != 0 &&
 	    sync_ctx->base_uid_last <= update->min_next_uid) {
 		sync_ctx->base_uid_last = update->min_next_uid-1;
+		sync_ctx->next_uid = update->min_next_uid;
 		mail_ctx->imapbase_rewrite = TRUE;
 		mail_ctx->need_rewrite = TRUE;
 	}
