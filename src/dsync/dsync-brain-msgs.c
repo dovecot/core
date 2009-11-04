@@ -10,6 +10,9 @@ static void dsync_brain_guid_add(struct dsync_brain_msg_iter *iter)
 {
 	struct dsync_brain_guid_instance *inst, *prev_inst;
 
+	if ((iter->msg.flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0)
+		return;
+
 	inst = p_new(iter->sync->pool, struct dsync_brain_guid_instance, 1);
 	inst->mailbox_idx = iter->mailbox_idx;
 	inst->uid = iter->msg.uid;
@@ -60,6 +63,9 @@ dsync_brain_msg_sync_save(struct dsync_brain_msg_iter *iter,
 			  const struct dsync_message *msg)
 {
 	struct dsync_brain_new_msg *new_msg;
+
+	if ((msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0)
+		return;
 
 	new_msg = array_append_space(&iter->new_msgs);
 	new_msg->mailbox_idx = mailbox_idx;
@@ -230,8 +236,10 @@ dsync_brain_msg_sync_mailbox_more(struct dsync_brain_mailbox_sync *sync)
 	while ((ret = dsync_brain_msg_iter_next_pair(sync)) > 0) {
 		if (dsync_brain_msg_sync_pair(sync) < 0)
 			break;
-		if (dsync_worker_is_output_full(sync->dest_worker))
-			return FALSE;
+		if (dsync_worker_is_output_full(sync->dest_worker)) {
+			if (dsync_worker_output_flush(sync->dest_worker) <= 0)
+				return FALSE;
+		}
 	}
  	if (ret == 0)
 		return FALSE;

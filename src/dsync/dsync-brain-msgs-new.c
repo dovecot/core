@@ -15,6 +15,7 @@ struct dsync_brain_msg_copy_context {
 struct dsync_brain_msg_save_context {
 	struct dsync_brain_msg_iter *iter;
 	const struct dsync_message *msg;
+	unsigned int mailbox_idx;
 };
 
 static void
@@ -25,10 +26,18 @@ static void msg_get_callback(enum dsync_msg_get_result result,
 			     void *context)
 {
 	struct dsync_brain_msg_save_context *ctx = context;
+	const struct dsync_brain_mailbox *mailbox;
+	const mailbox_guid_t *mailbox_guid;
 	struct istream *input;
 
+	mailbox = array_idx(&ctx->iter->sync->mailboxes, ctx->mailbox_idx);
 	switch (result) {
 	case DSYNC_MSG_GET_RESULT_SUCCESS:
+		/* the mailbox may have changed, make sure we've the
+		   right one */
+		mailbox_guid = &mailbox->box.mailbox_guid;
+		dsync_worker_select_mailbox(ctx->iter->worker, mailbox_guid);
+
 		input = data->input;
 		dsync_worker_msg_save(ctx->iter->worker, ctx->msg, data);
 		i_stream_unref(&input);
@@ -37,8 +46,8 @@ static void msg_get_callback(enum dsync_msg_get_result result,
 		/* mail got expunged during sync. just skip this. */
 		break;
 	case DSYNC_MSG_GET_RESULT_FAILED:
-		i_error("msg-get failed: uid=%u guid=%s",
-			ctx->msg->uid, ctx->msg->guid);
+		i_error("msg-get failed: box=%s uid=%u guid=%s",
+			mailbox->box.name, ctx->msg->uid, ctx->msg->guid);
 		dsync_brain_fail(ctx->iter->sync->brain);
 		break;
 	}
@@ -102,6 +111,7 @@ dsync_brain_msg_sync_add_new_msg(struct dsync_brain_msg_iter *dest_iter,
 		save_ctx->iter = dest_iter;
 		save_ctx->msg = dsync_message_dup(src_iter->sync->pool,
 						  msg->msg);
+		save_ctx->mailbox_idx = dest_iter->mailbox_idx;
 
 		dest_iter->adding_msgs = TRUE;
 		dest_iter->save_results_left++;
@@ -201,6 +211,7 @@ dsync_brain_mailbox_retry_copies(struct dsync_brain_msg_iter *iter,
 	   worry about filling output buffer. */
 	for (i = 0; i < idx_count; i++) {
 		msg_idx = indexes[i];
+		// FIXME: if buffer fills, we assert-crash
 		(void)dsync_brain_msg_sync_add_new_msg(iter, mailbox_guid,
 						       msg_idx, &msgs[msg_idx]);
 	}

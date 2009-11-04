@@ -49,6 +49,7 @@ cmd_box_list(struct dsync_proxy_server *server,
 	}
 	if (ret >= 0) {
 		/* continue later */
+		o_stream_set_flush_pending(server->output, TRUE);
 		return 0;
 	}
 	if (dsync_worker_mailbox_iter_deinit(&server->mailbox_iter) < 0) {
@@ -111,6 +112,7 @@ cmd_msg_list(struct dsync_proxy_server *server, const char *const *args)
 	}
 	if (ret >= 0) {
 		/* continue later */
+		o_stream_set_flush_pending(server->output, TRUE);
 		return 0;
 	}
 	if (dsync_worker_msg_iter_deinit(&server->msg_iter) < 0) {
@@ -319,7 +321,7 @@ static void cmd_msg_get_send_more(struct dsync_proxy_server *server)
 			/* done */
 			o_stream_send(server->output, "\n.\n", 3);
 			i_stream_unref(&server->get_input);
-			break;
+			return;
 		} else {
 			/* for now we assume input is blocking */
 			i_assert(ret != 0);
@@ -330,6 +332,7 @@ static void cmd_msg_get_send_more(struct dsync_proxy_server *server)
 					    data, size);
 		i_stream_skip(server->get_input, size);
 	}
+	o_stream_set_flush_pending(server->output, TRUE);
 }
 
 static void
@@ -351,7 +354,7 @@ cmd_msg_get_callback(enum dsync_msg_get_result result,
 	}
 
 	str = t_str_new(128);
-	str_append(str, "1\t");
+	str_printfa(str, "1\t%u\t", server->get_uid);
 	dsync_proxy_msg_static_export(str, data);
 	str_append_c(str, '\n');
 	o_stream_send(server->output, str_data(str), str_len(str));
@@ -379,13 +382,13 @@ cmd_msg_get(struct dsync_proxy_server *server, const char *const *args)
 	if (uid == 0)
 		return -1;
 
-	if (server->get_input != NULL)
+	if (server->get_input != NULL) {
+		i_assert(server->get_uid == uid);
 		cmd_msg_get_send_more(server);
-	else {
+	} else {
+		server->get_uid = uid;
 		dsync_worker_msg_get(server->worker, &mailbox_guid, uid,
 				     cmd_msg_get_callback, server);
-		/* FIXME: why? this shouldn't be needed.. */
-		o_stream_uncork(server->output);
 	}
 	return server->get_input == NULL ? 1 : 0;
 }

@@ -124,6 +124,8 @@ static int proxy_server_output(struct dsync_proxy_server *server)
 		if (server->cur_cmd == NULL && server->io == NULL) {
 			server->io = io_add(server->fd_in, IO_READ,
 					    proxy_server_input, server);
+			/* handle pending input */
+			proxy_server_input(server);
 		}
 	}
 	return ret;

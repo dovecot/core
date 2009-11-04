@@ -130,14 +130,24 @@ proxy_client_worker_next_msg_get(struct proxy_client_dsync_worker *worker,
 				 const struct proxy_client_request *request,
 				 const char *line)
 {
-	enum dsync_msg_get_result result;
-	const char *error;
+	enum dsync_msg_get_result result = DSYNC_MSG_GET_RESULT_FAILED;
+	const char *p, *error;
+	uint32_t uid;
 
 	i_assert(worker->msg_get_data.input == NULL);
 	p_clear(worker->msg_get_pool);
 	switch (line[0]) {
 	case '1':
 		/* ok */
+		if (line[1] != '\t')
+			break;
+		line += 2;
+
+		if ((p = strchr(line, '\t')) == NULL)
+			break;
+		uid = strtoul(t_strcut(line, '\t'), NULL, 10);
+		line = p + 1;
+
 		if (dsync_proxy_msg_static_import(worker->msg_get_pool,
 						  line, &worker->msg_get_data,
 						  &error) < 0) {
@@ -159,7 +169,6 @@ proxy_client_worker_next_msg_get(struct proxy_client_dsync_worker *worker,
 		break;
 	default:
 		/* failure */
-		result = DSYNC_MSG_GET_RESULT_FAILED;
 		break;
 	}
 
@@ -293,6 +302,13 @@ static void proxy_client_worker_deinit(struct dsync_worker *_worker)
 	i_free(worker);
 }
 
+static bool
+worker_is_output_stream_full(struct proxy_client_dsync_worker *worker)
+{
+	return o_stream_get_buffer_used_size(worker->output) >=
+		OUTBUF_THROTTLE_SIZE;
+}
+
 static bool proxy_client_worker_is_output_full(struct dsync_worker *_worker)
 {
 	struct proxy_client_dsync_worker *worker =
@@ -302,9 +318,7 @@ static bool proxy_client_worker_is_output_full(struct dsync_worker *_worker)
 		/* we haven't finished sending a message save, so we're full. */
 		return TRUE;
 	}
-
-	return o_stream_get_buffer_used_size(worker->output) >=
-		OUTBUF_THROTTLE_SIZE;
+	return worker_is_output_stream_full(worker);
 }
 
 static int proxy_client_worker_output_flush(struct dsync_worker *_worker)
@@ -677,9 +691,9 @@ static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker)
 					    data, size);
 		i_stream_skip(worker->save_input, size);
 
-		if (proxy_client_worker_is_output_full(&worker->worker)) {
+		if (worker_is_output_stream_full(worker)) {
 			o_stream_uncork(worker->output);
-			if (proxy_client_worker_is_output_full(&worker->worker))
+			if (worker_is_output_stream_full(worker))
 				return;
 			o_stream_cork(worker->output);
 		}

@@ -529,6 +529,7 @@ iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 				     MAIL_GUID_128_SIZE);
 		msg_r->guid = str_c(iter->tmp_guid_str);
 		msg_r->uid = expunges[iter->expunge_idx].uid;
+		msg_r->flags = DSYNC_MAIL_FLAG_EXPUNGED;
 		iter->expunge_idx++;
 		return TRUE;
 	}
@@ -1067,6 +1068,7 @@ static void local_worker_msg_box_close(struct local_dsync_worker *worker)
 	mail_free(&worker->get_mail);
 	(void)mailbox_transaction_commit(&trans);
 	mailbox_close(&box);
+	memset(&worker->get_mailbox, 0, sizeof(worker->get_mailbox));
 }
 
 static void
@@ -1088,6 +1090,8 @@ local_worker_msg_get(struct dsync_worker *_worker,
 			callback(DSYNC_MSG_GET_RESULT_FAILED, NULL, context);
 			return;
 		}
+		worker->get_mailbox = *mailbox;
+
 		trans = mailbox_transaction_begin(box, 0);
 		worker->get_mail = mail_alloc(trans, 0, NULL);
 	}
