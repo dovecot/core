@@ -5,6 +5,7 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
+#include "hostpid.h"
 #include "istream.h"
 #include "istream-concat.h"
 #include "ostream.h"
@@ -402,7 +403,8 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	enum mail_error mail_error;
 	int ret;
 
-	i_set_failure_prefix(t_strdup_printf("lmtp(%s): ", rcpt->name));
+	i_set_failure_prefix(t_strdup_printf("lmtp(%s, %s): ",
+					     my_pid, rcpt->name));
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
 				      &client->state.dest_user,
 				      &error) < 0) {
@@ -465,7 +467,7 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail)
 	while (client->state.rcpt_idx < count) {
 		ret = client_deliver(client, &rcpts[client->state.rcpt_idx],
 				     src_mail);
-		i_set_failure_prefix("lmtp: ");
+		i_set_failure_prefix(t_strdup_printf("lmtp(%s): ", my_pid));
 
 		client->state.rcpt_idx++;
 		if (ret == 0)

@@ -178,6 +178,16 @@ static void client_generate_session_id(struct client *client)
 	client->state.session_id = p_strdup(client->state_pool, str_c(id));
 }
 
+static const char *client_remote_id(struct client *client)
+{
+	const char *addr;
+
+	addr = net_ip2addr(&client->remote_ip);
+	if (addr == NULL)
+		addr = "local";
+	return addr;
+}
+
 struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn)
 {
@@ -216,6 +226,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client_send_line(client, "220 %s Dovecot LMTP ready",
 			 client->my_domain);
+	i_info("Connect from %s", client_remote_id(client));
 	return client;
 }
 
@@ -269,7 +280,7 @@ void client_disconnect(struct client *client, const char *prefix,
 		client_send_line(client, "%s %s", prefix, reason);
 	else
 		reason = client_get_disconnect_reason(client);
-	i_info("%s", reason);
+	i_info("Disconnect from %s: %s", client_remote_id(client), reason);
 
 	client->disconnected = TRUE;
 }

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "hostpid.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "master-service.h"
@@ -55,7 +56,8 @@ int main(int argc, char *argv[])
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
-		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
+		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP |
+		MAIL_STORAGE_SERVICE_NO_LOG_INIT;
 
 	if (IS_STANDALONE()) {
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE |
@@ -67,6 +69,8 @@ int main(int argc, char *argv[])
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 	master_service_init_finish(master_service);
+	master_service_init_log(master_service,
+				t_strdup_printf("lmtp(%s): ", my_pid));
 
 	storage_service = mail_storage_service_init(master_service, set_roots,
 						    storage_service_flags);
