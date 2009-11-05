@@ -220,6 +220,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client_read_settings(client);
 	client_raw_user_create(client);
 	client_generate_session_id(client);
+	client->state.lhlo = "missing";
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
