@@ -11,6 +11,8 @@ struct mail_recipient {
 };
 
 struct client_state {
+	const char *lhlo;
+	const char *session_id;
 	const char *mail_from;
 	ARRAY_DEFINE(rcpt_to, struct mail_recipient);
 	unsigned int rcpt_idx;
@@ -22,6 +24,7 @@ struct client_state {
 	buffer_t *mail_data;
 	int mail_data_fd;
 	struct ostream *mail_data_output;
+	const char *received_line;
 
 	struct mailbox *raw_box;
 	struct mailbox_transaction_context *raw_trans;

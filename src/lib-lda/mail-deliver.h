@@ -10,6 +10,8 @@ struct mail_deliver_context {
 
 	struct duplicate_context *dup_ctx;
 
+	/* Session ID, used as log line prefix if non-NULL. */
+	const char *session_id;
 	/* Mail to save */
 	struct mail *src_mail;
 	/* Envelope sender, if known. */

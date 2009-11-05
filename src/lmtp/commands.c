@@ -6,10 +6,13 @@
 #include "str.h"
 #include "strescape.h"
 #include "istream.h"
+#include "istream-concat.h"
 #include "ostream.h"
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
 #include "master-service.h"
+#include "rfc822-parser.h"
+#include "message-date.h"
 #include "auth-master.h"
 #include "mail-storage-service.h"
 #include "index/raw/raw-storage.h"
@@ -28,13 +31,43 @@
 
 #define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*30)
 
-int cmd_lhlo(struct client *client, const char *args ATTR_UNUSED)
+int cmd_lhlo(struct client *client, const char *args)
 {
+	struct rfc822_parser_context parser;
+	string_t *domain = t_str_new(128);
+	const char *p;
+	int ret;
+
+	if (*args == '\0') {
+		client_send_line(client, "501 Missing hostname");
+		return 0;
+	}
+
+	/* domain / address-literal */
+	rfc822_parser_init(&parser, (const unsigned char *)args, strlen(args),
+			   NULL);
+	if (*args != '[')
+		ret = rfc822_parse_dot_atom(&parser, domain);
+	else {
+		for (p = args+1; *p != ']'; p++) {
+			if (*p == '\\' || *p == '[')
+				break;
+		}
+		if (strcmp(p, "]") != 0)
+			ret = -1;
+	}
+	if (ret < 0) {
+		str_truncate(domain, 0);
+		str_append(domain, "invalid");
+	}
+
 	client_state_reset(client);
 	client_send_line(client, "250-%s", client->my_domain);
 	client_send_line(client, "250-8BITMIME");
 	client_send_line(client, "250-ENHANCEDSTATUSCODES");
 	client_send_line(client, "250 PIPELINING");
+
+	client->state.lhlo = p_strdup(client->state_pool, str_c(domain));
 	return 0;
 }
 
@@ -382,6 +415,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	memset(&dctx, 0, sizeof(dctx));
 	dctx.pool = pool_alloconly_create("mail delivery", 1024);
 	dctx.set = sets[1];
+	dctx.session_id = client->state.session_id;
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
 	dctx.dest_user = client->state.dest_user;
@@ -395,7 +429,8 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			i_assert(client->state.first_saved_mail == NULL);
 			client->state.first_saved_mail = dctx.dest_mail;
 		}
-		client_send_line(client, "250 2.0.0 <%s> Saved", rcpt->name);
+		client_send_line(client, "250 2.0.0 <%s> %s Saved",
+				 rcpt->name, client->state.session_id);
 		ret = 0;
 	} else if (storage == NULL) {
 		/* This shouldn't happen */
@@ -452,18 +487,29 @@ static void client_rcpt_fail_all(struct client *client)
 
 static struct istream *client_get_input(struct client *client)
 {
-	struct istream *input;
+	struct client_state *state = &client->state;
+	struct istream *cinput, *inputs[3];
 
-	if (client->state.mail_data_output != NULL) {
-		o_stream_unref(&client->state.mail_data_output);
-		input = i_stream_create_fd(client->state.mail_data_fd,
-					   MAIL_READ_FULL_BLOCK_SIZE, FALSE);
-		i_stream_set_init_buffer_size(input, MAIL_READ_FULL_BLOCK_SIZE);
+	inputs[0] = i_stream_create_from_data(state->received_line,
+					      strlen(state->received_line));
+
+	if (state->mail_data_output != NULL) {
+		o_stream_unref(&state->mail_data_output);
+		inputs[1] = i_stream_create_fd(state->mail_data_fd,
+					       MAIL_READ_FULL_BLOCK_SIZE,
+					       FALSE);
+		i_stream_set_init_buffer_size(inputs[1],
+					      MAIL_READ_FULL_BLOCK_SIZE);
 	} else {
-		input = i_stream_create_from_data(client->state.mail_data->data,
-						  client->state.mail_data->used);
+		inputs[1] = i_stream_create_from_data(state->mail_data->data,
+						      state->mail_data->used);
 	}
-	return input;
+	inputs[2] = NULL;
+
+	cinput = i_stream_create_concat(inputs);
+	i_stream_unref(&inputs[0]);
+	i_stream_unref(&inputs[1]);
+	return cinput;
 }
 
 static int client_open_raw_mail(struct client *client, struct istream *input)
@@ -557,12 +603,37 @@ static void client_proxy_finish(void *context)
 	client_input_data_finish(client);
 }
 
+static const char *client_get_received_line(struct client *client)
+{
+	string_t *str = t_str_new(200);
+	const char *host;
+
+	str_printfa(str, "Received: from %s", client->state.lhlo);
+	if ((host = net_ip2addr(&client->remote_ip)) != NULL)
+		str_printfa(str, " ([%s])", host);
+	str_printfa(str, "\r\n\tby %s ("PACKAGE_NAME") with LMTP id %s",
+		    client->my_domain, client->state.session_id);
+
+	str_append(str, "\r\n\t");
+	if (array_count(&client->state.rcpt_to) == 1) {
+		const struct mail_recipient *rcpt =
+			array_idx(&client->state.rcpt_to, 0);
+
+		str_printfa(str, "for <%s>", rcpt->name);
+	}
+	str_printfa(str, "; %s\r\n", message_date_create(ioloop_time));
+	return str_c(str);
+}
+
 static bool client_input_data_write(struct client *client)
 {
 	struct istream *input;
 	bool ret = TRUE;
 
 	i_stream_destroy(&client->dot_input);
+
+	client->state.received_line =
+		p_strdup(client->state_pool, client_get_received_line(client));
 
 	input = client_get_input(client);
 	client_input_data_write_local(client, input);

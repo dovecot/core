@@ -66,6 +66,8 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	msg = t_strdup_vprintf(fmt, args);
 
 	str = t_str_new(256);
+	if (ctx->session_id != NULL)
+		str_printfa(str, "%s: ", ctx->session_id);
 	var_expand(str, ctx->set->deliver_log_format,
 		   get_log_var_expand_table(ctx, msg));
 	i_info("%s", str_c(str));

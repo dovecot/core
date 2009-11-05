@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "base64.h"
 #include "str.h"
 #include "llist.h"
 #include "istream.h"
@@ -165,6 +166,18 @@ static void client_read_settings(struct client *client)
 	client->lmtp_set = sets[2];
 }
 
+static void client_generate_session_id(struct client *client)
+{
+	uint8_t guid[MAIL_GUID_128_SIZE];
+	string_t *id = t_str_new(30);
+
+	mail_generate_guid_128(guid);
+	base64_encode(guid, sizeof(guid), id);
+	i_assert(str_c(id)[str_len(id)-2] == '=');
+	str_truncate(id, str_len(id)-2); /* drop trailing "==" */
+	client->state.session_id = p_strdup(client->state_pool, str_c(id));
+}
+
 struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn)
 {
@@ -196,6 +209,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client->state.mail_data_fd = -1;
 	client_read_settings(client);
 	client_raw_user_create(client);
+	client_generate_session_id(client);
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
@@ -288,6 +302,8 @@ void client_state_reset(struct client *client)
 	memset(&client->state, 0, sizeof(client->state));
 	p_clear(client->state_pool);
 	client->state.mail_data_fd = -1;
+
+	client_generate_session_id(client);
 }
 
 void client_send_line(struct client *client, const char *fmt, ...)
