@@ -72,8 +72,7 @@
 	     (elem)++)
 #  define array_foreach_modifiable(array, elem) \
 	for (elem = ARRAY_TYPE_CAST_MODIFIABLE(array) \
-			buffer_get_modifiable_data((array)->arr.buffer, NULL) + \
-			(array)->arr.buffer->used; \
+			buffer_get_modifiable_data((array)->arr.buffer, NULL); \
 	     elem != CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used); \
 	     (elem)++)
 #endif
