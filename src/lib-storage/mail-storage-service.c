@@ -57,6 +57,9 @@ struct mail_storage_service_user {
 
 static struct module *modules = NULL;
 
+static void
+mail_storage_service_all_init_first(struct mail_storage_service_ctx *ctx);
+
 static void set_keyval(struct setting_parser_context *set_parser,
 		       const char *key, const char *value)
 {
@@ -496,6 +499,8 @@ mail_storage_service_init(struct master_service *service,
 struct auth_master_connection *
 mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx)
 {
+	if (ctx->conn == NULL)
+		mail_storage_service_all_init_first(ctx);
 	return ctx->conn;
 }
 
