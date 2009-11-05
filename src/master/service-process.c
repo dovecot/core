@@ -123,7 +123,7 @@ service_dup_fds(struct service *service)
 	closelog();
 
 	if (dup2_array(&dups) < 0)
-		service_error(service, "dup2s failed");
+		i_fatal("service(%s): dup2s failed", service->set->name);
 
 	env_put(t_strdup_printf("SOCKET_COUNT=%d", socket_listener_count));
 	env_put(t_strdup_printf("SSL_SOCKET_COUNT=%d", ssl_socket_count));
@@ -232,6 +232,8 @@ struct service_process *service_process_create(struct service *service)
 	unsigned int uid = ++uid_counter;
 	pid_t pid;
 	bool process_forked;
+
+	i_assert(service->status_fd[0] != -1);
 
 	if (service->to_throttle != NULL) {
 		/* throttling service, don't create new processes */

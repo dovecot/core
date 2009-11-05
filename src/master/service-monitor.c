@@ -335,10 +335,8 @@ void services_monitor_start(struct service_list *service_list)
 				io_add(services[i]->status_fd[0], IO_READ,
 				       service_status_input, services[i]);
 		}
-		if (services[i]->status_fd[0] != -1) {
-			service_monitor_start_extra_avail(services[i]);
-			service_monitor_listen_start(services[i]);
-		}
+		service_monitor_start_extra_avail(services[i]);
+		service_monitor_listen_start(services[i]);
 	}
 
 	if (service_process_create(service_list->log) != NULL)
@@ -406,7 +404,7 @@ void services_monitor_reap_children(void)
 	struct service *service;
 	pid_t pid;
 	int status;
-	bool service_destroyed;
+	bool service_stopped;
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		process = hash_table_lookup(service_pids, &pid);
@@ -424,12 +422,12 @@ void services_monitor_reap_children(void)
 		} else {
 			service_process_failure(process, status);
 		}
-		service_destroyed = service->list->destroyed;
+		service_stopped = service->status_fd[0] == -1;
 		if (service->type == SERVICE_TYPE_ANVIL)
 			service_anvil_process_destroyed(process);
 		service_process_destroy(process);
 
-		if (!service_destroyed) {
+		if (!service_stopped) {
 			service_monitor_start_extra_avail(service);
 			if (service->to_throttle == NULL)
 				service_monitor_listen_start(service);
