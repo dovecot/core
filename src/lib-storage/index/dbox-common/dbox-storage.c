@@ -42,13 +42,14 @@ uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 void dbox_notify_changes(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
-	const char *path;
+	const char *dir, *path;
 
 	if (box->notify_callback == NULL)
 		index_mailbox_check_remove_all(ibox);
 	else {
-		path = t_strdup_printf("%s/"DBOX_INDEX_PREFIX".log",
-				       ibox->box.path);
+		dir = mailbox_list_get_path(box->list, box->name,
+					    MAILBOX_LIST_PATH_TYPE_INDEX);
+		path = t_strdup_printf("%s/"DBOX_INDEX_PREFIX".log", dir);
 		index_mailbox_check_add(ibox, path);
 	}
 }
