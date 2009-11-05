@@ -71,10 +71,10 @@
 # use any pass_attrs if you use this setting.
 #
 # If you use this setting, it's a good idea to use a different
-# dovecot-ldap.conf for userdb (it can even be a symlink, just as long as the
-# filename is different in userdb's args). That way one connection is used only
-# for LDAP binds and another connection is used for user lookups. Otherwise
-# the binding is changed to the default DN before each user lookup.
+# dovecot-ldap.conf.ext for userdb (it can even be a symlink, just as long as
+# the filename is different in userdb's args). That way one connection is used
+# only for LDAP binds and another connection is used for user lookups.
+# Otherwise the binding is changed to the default DN before each user lookup.
 #
 # For example:
 #   auth_bind_userdn = cn=%u,ou=people,o=org
