@@ -1763,8 +1763,11 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags,
 		*lock_id = 0;
 	}
 
-	/* reopen input stream to make sure it has nothing buffered */
-        mbox_file_close_stream(mbox);
+	/* flush input streams' buffers */
+	if (mbox->mbox_stream != NULL)
+		i_stream_sync(mbox->mbox_stream);
+	if (mbox->mbox_file_stream != NULL)
+		i_stream_sync(mbox->mbox_file_stream);
 
 again:
 	if (changed) {
