@@ -5,6 +5,7 @@ example_DATA = \
 	auth.conf \
 	imap.conf \
 	lda.conf \
+	lmtp.conf \
 	logging.conf \
 	mail.conf \
 	master.conf \
