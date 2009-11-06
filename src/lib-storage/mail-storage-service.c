@@ -490,8 +490,10 @@ mail_storage_service_init(struct master_service *service,
 
 	/* do all the global initialization. delay initializing plugins until
 	   we drop privileges the first time. */
-	master_service_init_log(service, t_strconcat(service->name, ": ", NULL));
-
+	if ((flags & MAIL_STORAGE_SERVICE_NO_LOG_INIT) == 0) {
+		master_service_init_log(service,
+					t_strconcat(service->name, ": ", NULL));
+	}
 	dict_drivers_register_builtin();
 	return ctx;
 }
@@ -736,7 +738,8 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		return -1;
 	}
 
-	mail_storage_service_init_log(ctx->service, user);
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_NO_LOG_INIT) == 0)
+		mail_storage_service_init_log(ctx->service, user);
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		service_drop_privileges(user_set, user->system_groups_user,
