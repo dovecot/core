@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-DBINDIR=\""$(bindir)"\"
 
 libmaster_la_SOURCES = \
+	anvil-client.c \
 	master-auth.c \
 	master-login.c \
 	master-login-auth.c \
@@ -17,6 +18,7 @@ libmaster_la_SOURCES = \
 	syslog-util.c
 
 noinst_HEADERS = \
+	anvil-client.h \
 	master-auth.h \
 	master-interface.h \
 	master-login.h \
