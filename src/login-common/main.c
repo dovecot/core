@@ -10,6 +10,7 @@
 #include "master-service.h"
 #include "master-interface.h"
 #include "client-common.h"
+#include "anvil-client.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "login-proxy.h"
@@ -21,7 +22,7 @@
 struct auth_client *auth_client;
 struct master_auth *master_auth;
 bool closing_down;
-int anvil_fd = -1;
+struct anvil_client *anvil;
 
 const struct login_settings *global_login_settings;
 void **global_other_settings;
@@ -104,19 +105,10 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
                 clients_notify_auth_connected();
 }
 
-static int anvil_connect(void)
+static bool anvil_reconnect_callback(void)
 {
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
-	int fd;
-
-	fd = net_connect_unix_with_retries("anvil", 5000);
-	if (fd == -1)
-		i_fatal("net_connect_unix(anvil) failed: %m");
-	net_set_nonblock(fd, FALSE);
-
-	if (write(fd, ANVIL_HANDSHAKE, strlen(ANVIL_HANDSHAKE)) < 0)
-		i_fatal("write(anvil) failed: %m");
-	return fd;
+	master_service_stop_new_connections(master_service);
+	return FALSE;
 }
 
 static void main_preinit(bool allow_core_dumps)
@@ -147,8 +139,11 @@ static void main_preinit(bool allow_core_dumps)
 	i_assert(strcmp(global_login_settings->ssl, "no") == 0 ||
 		 ssl_initialized);
 
-	if (global_login_settings->mail_max_userip_connections > 0)
-		anvil_fd = anvil_connect();
+	if (global_login_settings->mail_max_userip_connections > 0) {
+		anvil = anvil_client_init("anvil", anvil_reconnect_callback);
+		if (anvil_client_connect(anvil, TRUE) < 0)
+			i_fatal("Couldn't connect to anvil");
+	}
 
 	restrict_access_by_env(NULL, TRUE);
 	if (allow_core_dumps)
@@ -187,10 +182,8 @@ static void main_deinit(void)
 	clients_deinit();
 	master_auth_deinit(&master_auth);
 
-	if (anvil_fd != -1) {
-		if (close(anvil_fd) < 0)
-			i_error("close(anvil) failed: %m");
-	}
+	if (anvil != NULL)
+		anvil_client_deinit(&anvil);
 }
 
 int main(int argc, char *argv[])

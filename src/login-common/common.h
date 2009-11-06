@@ -18,7 +18,7 @@ extern unsigned int login_default_port;
 extern struct auth_client *auth_client;
 extern struct master_auth *master_auth;
 extern bool closing_down;
-extern int anvil_fd;
+extern struct anvil_client *anvil;
 
 extern const struct login_settings *global_login_settings;
 extern void **global_other_settings;

@@ -8,6 +8,7 @@
 #include "write-full.h"
 #include "strescape.h"
 #include "str-sanitize.h"
+#include "anvil-client.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "master-service.h"
@@ -21,6 +22,11 @@
 #define ERR_TOO_MANY_USERIP_CONNECTIONS \
 	"Maximum number of connections from user+IP exceeded " \
 	"(mail_max_userip_connections)"
+
+struct anvil_request {
+	struct client *client;
+	unsigned int auth_pid, auth_id;
+};
 
 const struct auth_mech_desc *
 sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
@@ -98,9 +104,9 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 	call_client_callback(client, sasl_reply, data, NULL);
 }
 
-static void
-master_send_request(struct client *client, struct auth_client_request *request)
+static void master_send_request(struct anvil_request *anvil_request)
 {
+	struct client *client = anvil_request->client;
 	struct master_auth_request req;
 	const unsigned char *data;
 	const char *cookie;
@@ -110,8 +116,8 @@ master_send_request(struct client *client, struct auth_client_request *request)
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	memset(&req, 0, sizeof(req));
-	req.auth_pid = auth_client_request_get_server_pid(request);
-	req.auth_id = auth_client_request_get_id(request);
+	req.auth_pid = anvil_request->auth_pid;
+	req.auth_id = anvil_request->auth_id;
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
 	req.client_pid = getpid();
@@ -132,39 +138,44 @@ master_send_request(struct client *client, struct auth_client_request *request)
 			    master_auth_callback, client, &client->master_tag);
 }
 
-static bool anvil_has_too_many_connections(struct client *client)
+static void anvil_lookup_callback(const char *reply, void *context)
 {
-	const char *ident;
-	char buf[64];
-	ssize_t ret;
+	struct anvil_request *req = context;
+	struct client *client = req->client;
 
-	if (client->virtual_user == NULL)
-		return FALSE;
-	if (client->set->mail_max_userip_connections == 0)
-		return FALSE;
-
-	ident = t_strconcat("LOOKUP\t", login_protocol, "/",
-			    net_ip2addr(&client->ip), "/",
-			    str_tabescape(client->virtual_user), "\n", NULL);
-	if (write_full(anvil_fd, ident, strlen(ident)) < 0) {
-		if (errno == EPIPE) {
-			/* anvil process was probably recreated, don't bother
-			   logging an error about losing connection to it */
-			return FALSE;
-		}
-		i_fatal("write(anvil) failed: %m");
+	if (reply == NULL ||
+	    strtoul(reply, NULL, 10) < client->set->mail_max_userip_connections)
+		master_send_request(req);
+	else {
+		client->authenticating = FALSE;
+		call_client_callback(client, SASL_SERVER_REPLY_MASTER_FAILED,
+				     ERR_TOO_MANY_USERIP_CONNECTIONS, NULL);
 	}
-	ret = read(anvil_fd, buf, sizeof(buf)-1);
-	if (ret < 0)
-		i_fatal("read(anvil) failed: %m");
-	else if (ret == 0)
-		i_fatal("read(anvil) failed: EOF");
-	if (buf[ret-1] != '\n')
-		i_fatal("anvil lookup failed: Invalid input in reply");
-	buf[ret-1] = '\0';
+	i_free(req);
+}
 
-	return strtoul(buf, NULL, 10) >=
-		client->set->mail_max_userip_connections;
+static void
+anvil_check_too_many_connections(struct client *client,
+				 struct auth_client_request *request)
+{
+	struct anvil_request *req;
+	const char *query;
+
+	req = i_new(struct anvil_request, 1);
+	req->client = client;
+	req->auth_pid = auth_client_request_get_server_pid(request);
+	req->auth_id = auth_client_request_get_id(request);
+
+	if (client->virtual_user == NULL ||
+	    client->set->mail_max_userip_connections == 0) {
+		anvil_lookup_callback(NULL, req);
+		return;
+	}
+
+	query = t_strconcat("LOOKUP\t", login_protocol, "/",
+			    net_ip2addr(&client->ip), "/",
+			    str_tabescape(client->virtual_user), NULL);
+	anvil_client_query(anvil, query, anvil_lookup_callback, req);
 }
 
 static void
@@ -209,13 +220,8 @@ authenticate_callback(struct auth_client_request *request,
 			client->authenticating = FALSE;
 			call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
 					     NULL, args);
-		} else if (anvil_has_too_many_connections(client)) {
-			client->authenticating = FALSE;
-			call_client_callback(client,
-					SASL_SERVER_REPLY_MASTER_FAILED,
-					ERR_TOO_MANY_USERIP_CONNECTIONS, NULL);
 		} else {
-			master_send_request(client, request);
+			anvil_check_too_many_connections(client, request);
 		}
 		break;
 	case AUTH_REQUEST_STATUS_FAIL:
