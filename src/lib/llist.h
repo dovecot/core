@@ -14,8 +14,11 @@
 		*(list) = (item)->next; \
 	else \
 		(item)->prev->next = (item)->next; \
-	if ((item)->next != NULL) \
+	if ((item)->next != NULL) { \
 		(item)->next->prev = (item)->prev; \
+		(item)->next = NULL; \
+	} \
+	(item)->prev = NULL; \
 	} STMT_END
 
 #endif
