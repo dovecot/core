@@ -225,6 +225,7 @@ test_lib_SOURCES = \
 	test-istream-crlf.c \
 	test-istream-seekable.c \
 	test-istream-tee.c \
+	test-llist.c \
 	test-mempool-alloconly.c \
 	test-network.c \
 	test-primes.c \

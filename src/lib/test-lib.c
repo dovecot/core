@@ -15,6 +15,7 @@ int main(void)
 		test_istream_crlf,
 		test_istream_seekable,
 		test_istream_tee,
+		test_llist,
 		test_mempool_alloconly,
 		test_network,
 		test_primes,

@@ -14,6 +14,7 @@ void test_istream_concat(void);
 void test_istream_crlf(void);
 void test_istream_seekable(void);
 void test_istream_tee(void);
+void test_llist(void);
 void test_mempool_alloconly(void);
 void test_network(void);
 void test_primes(void);
