@@ -478,8 +478,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	time_before_sync = time(NULL);
 	mbox->syncing_commit = TRUE;
 	seq = prev_uid = 0; first_recent_uid = I_MAX(hdr->first_recent_uid, 1);
-	t_array_init(&ctx->keywords, MAILDIR_MAX_KEYWORDS);
-	t_array_init(&ctx->idx_keywords, MAILDIR_MAX_KEYWORDS);
+	i_array_init(&ctx->keywords, MAILDIR_MAX_KEYWORDS);
+	i_array_init(&ctx->idx_keywords, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
 		maildir_filename_get_flags(ctx->keywords_sync_ctx, filename,
@@ -662,6 +662,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			offsetof(struct mail_index_header, first_recent_uid),
 			&first_recent_uid, sizeof(first_recent_uid), FALSE);
 	}
+	array_free(&ctx->keywords);
+	array_free(&ctx->idx_keywords);
 	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
 
