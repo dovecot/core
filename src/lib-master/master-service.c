@@ -264,7 +264,7 @@ bool master_service_parse_option(struct master_service *service,
 
 static void master_service_error(struct master_service *service)
 {
-	master_service_io_listeners_remove(service);
+	master_service_stop_new_connections(service);
 	if (service->master_status.available_count ==
 	    service->total_available_count || service->die_with_master) {
 		if (service->die_callback == NULL)
@@ -470,6 +470,29 @@ void master_service_stop(struct master_service *service)
         io_loop_stop(service->ioloop);
 }
 
+void master_service_stop_new_connections(struct master_service *service)
+{
+	unsigned int current_count;
+
+	service->stopping = TRUE;
+	master_service_io_listeners_remove(service);
+
+	/* make sure we stop after servicing current connections */
+	current_count = service->total_available_count -
+		service->master_status.available_count;
+	service->service_count_left = current_count;
+	service->total_available_count = current_count;
+
+	if (current_count == 0)
+		master_service_stop(service);
+	else {
+		/* notify master that we're not accepting any more
+		   connections */
+		service->master_status.available_count = 0;
+		master_status_update(service);
+	}
+}
+
 void master_service_anvil_send(struct master_service *service, const char *cmd)
 {
 	ssize_t ret;
@@ -504,6 +527,7 @@ void master_service_client_connection_destroyed(struct master_service *service)
 		i_assert(service->master_status.available_count <
 			 service->total_available_count);
 		service->master_status.available_count++;
+		master_status_update(service);
 	} else {
 		/* we have only limited amount of service requests left */
 		i_assert(service->service_count_left > 0);
@@ -516,7 +540,6 @@ void master_service_client_connection_destroyed(struct master_service *service)
 			master_service_stop(service);
 		}
 	}
-	master_status_update(service);
 
 	if ((service->io_status_error == NULL || service->listeners == NULL) &&
 	    service->master_status.available_count ==
@@ -701,6 +724,9 @@ static void io_listeners_init(struct master_service *service)
 void master_service_io_listeners_add(struct master_service *service)
 {
 	unsigned int i;
+
+	if (service->stopping)
+		return;
 
 	if (service->listeners == NULL)
 		io_listeners_init(service);

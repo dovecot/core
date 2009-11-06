@@ -47,6 +47,7 @@ struct master_service {
 	const struct master_service_settings *set;
 	struct setting_parser_context *set_parser;
 
+	unsigned int stopping:1;
 	unsigned int keep_environment:1;
 	unsigned int log_directly:1;
 	unsigned int initial_status_sent:1;
