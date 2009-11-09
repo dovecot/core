@@ -640,7 +640,6 @@ static void master_service_listen(struct master_service_listener *l)
 {
 	struct master_service *service = l->service;
 	struct master_service_connection conn;
-	bool close_config;
 
 	if (service->master_status.available_count == 0) {
 		/* we are full. stop listening for now, unless overflow
@@ -682,22 +681,12 @@ static void master_service_listen(struct master_service_listener *l)
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
 
-	if (service->login_connections)
-		close_config = FALSE;
-	else {
+	if (!service->login_connections) {
 		i_assert(service->master_status.available_count > 0);
 		service->master_status.available_count--;
 		master_status_update(service);
-		close_config = service->master_status.available_count == 0 &&
-			service->service_count_left == 1;
 	}
-
 	service->callback(&conn);
-
-	if (close_config) {
-		/* we're dying as soon as this connection closes. */
-		master_service_close_config_fd(service);
-	}
 }
 
 static void io_listeners_init(struct master_service *service)
