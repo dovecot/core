@@ -310,6 +310,62 @@ get_uint(struct setting_parser_context *ctx, const char *value,
 }
 
 static int
+get_time(struct setting_parser_context *ctx, const char *value,
+	 unsigned int *result_r)
+{
+	unsigned int num, multiply;
+	char *p;
+
+	num = strtoull(value, &p, 10);
+	while (*p == ' ') p++;
+	switch (i_toupper(*p)) {
+	case '\0':
+		multiply = 1;
+		break;
+	case 'S':
+		multiply = 1;
+		if (strncasecmp(p, "secs", strlen(p)) == 0)
+			p = "";
+		break;
+	case 'M':
+		multiply = 60;
+		if (strncasecmp(p, "mins", strlen(p)) == 0)
+			p = "";
+		break;
+	case 'H':
+		multiply = 60*60;
+		if (strncasecmp(p, "hours", strlen(p)) == 0)
+			p = "";
+		break;
+	case 'D':
+		multiply = 60*60*24;
+		if (strncasecmp(p, "days", strlen(p)) == 0)
+			p = "";
+		break;
+	case 'W':
+		multiply = 60*60*24*7;
+		if (strncasecmp(p, "weeks", strlen(p)) == 0)
+			p = "";
+		break;
+	}
+
+	if (*p != '\0') {
+		ctx->error = p_strconcat(ctx->parser_pool,
+					 "Invalid time interval: ",
+					 value, NULL);
+		return -1;
+	}
+	if (num > -1U / multiply) {
+		ctx->error = p_strconcat(ctx->parser_pool,
+					 "Time interval is too large: ",
+					 value, NULL);
+		return -1;
+	}
+	*result_r = num * multiply;
+	return 0;
+}
+
+static int
 get_size(struct setting_parser_context *ctx, const char *value,
 	 uoff_t *result_r)
 {
@@ -317,6 +373,7 @@ get_size(struct setting_parser_context *ctx, const char *value,
 	char *p;
 
 	num = strtoull(value, &p, 10);
+	while (*p == ' ') p++;
 	switch (i_toupper(*p)) {
 	case '\0':
 		multiply = 1;
@@ -502,6 +559,10 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 		break;
 	case SET_UINT:
 		if (get_uint(ctx, value, (unsigned int *)ptr) < 0)
+			return -1;
+		break;
+	case SET_TIME:
+		if (get_time(ctx, value, (unsigned int *)ptr) < 0)
 			return -1;
 		break;
 	case SET_SIZE:
@@ -962,6 +1023,7 @@ settings_var_expand_info(const struct setting_parser_info *info,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_TIME:
 		case SET_SIZE:
 		case SET_STR:
 		case SET_ENUM:
@@ -1032,6 +1094,7 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_TIME:
 		case SET_SIZE:
 		case SET_STR:
 		case SET_ENUM:
@@ -1100,7 +1163,8 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 		*dest_bool = *src_bool;
 		break;
 	}
-	case SET_UINT: {
+	case SET_UINT:
+	case SET_TIME: {
 		const unsigned int *src_uint = src;
 		unsigned int *dest_uint = dest;
 
@@ -1208,6 +1272,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_TIME:
 		case SET_SIZE:
 		case SET_STR_VARS:
 		case SET_STR:

@@ -25,7 +25,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_STR, mail_cache_fields),
 	DEF(SET_STR, mail_never_cache_fields),
 	DEF(SET_UINT, mail_cache_min_mail_count),
-	DEF(SET_UINT, mailbox_idle_check_interval),
+	DEF(SET_TIME, mailbox_idle_check_interval),
 	DEF(SET_UINT, mail_max_keyword_length),
 	DEF(SET_BOOL, mail_save_crlf),
 	DEF(SET_BOOL, fsync_disable),
