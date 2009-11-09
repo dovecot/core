@@ -33,7 +33,7 @@ while (<>) {
       my $value = eval("0x$1");
       if ($value > 0xffff) {
 	print STDERR "Error: We've assumed decomposition codes are max. 16bit\n";
-	exit;
+	exit 1;
       }
       if ($code <= 0xffff) {
 	push @uni16_decomp_keys, $code;
@@ -46,7 +46,7 @@ while (<>) {
       # multicharacter decomposition.
       if ($code > 0xffffffff) {
 	print STDERR "Error: We've assumed multi-decomposition key codes are max. 32bit\n";
-	exit;
+	exit 1;
       }
       
       push @multidecomp_keys, $code;
@@ -56,7 +56,7 @@ while (<>) {
 	my $value = eval("0x$dcode");
 	if ($value > 0xffff) {
 	  print STDERR "Error: We've assumed decomposition codes are max. 16bit\n";
-	  exit;
+	  exit 1;
 	}
 	push @multidecomp_values, $value;
       }
