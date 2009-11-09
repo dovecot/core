@@ -23,6 +23,13 @@ struct index_notify_io {
 	struct io *io;
 };
 
+static void notify_delay_callback(struct index_mailbox *ibox)
+{
+	if (ibox->notify_delay_to != NULL)
+		timeout_remove(&ibox->notify_delay_to);
+	ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
+}
+
 static void check_timeout(struct index_mailbox *ibox)
 {
 	struct index_notify_file *file;
@@ -37,16 +44,8 @@ static void check_timeout(struct index_mailbox *ibox)
 		}
 	}
 
-	if (notify) {
-		if (ibox->notify_delay_to != NULL)
-			timeout_remove(&ibox->notify_delay_to);
-		ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
-	}
-}
-
-static void notify_delay_callback(struct index_mailbox *ibox)
-{
-	ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
+	if (notify)
+		notify_delay_callback(ibox);
 }
 
 static void notify_callback(struct index_mailbox *ibox)
