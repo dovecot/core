@@ -46,6 +46,11 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       pool_t pool,
 				       const struct setting_parser_info **user_info_r,
 				       const char **error_r);
+/* Read settings and initialize context to use them. Do nothing if service is
+   already initialized. This is mainly necessary when calling _get_auth_conn()
+   or _all_init(). */
+void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
+					const struct mail_storage_service_input *input);
 /* Returns 1 if ok, 0 if user wasn't found, -1 if error. */
 int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				const struct mail_storage_service_input *input,

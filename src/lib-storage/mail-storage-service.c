@@ -57,9 +57,6 @@ struct mail_storage_service_user {
 
 static struct module *modules = NULL;
 
-static void
-mail_storage_service_all_init_first(struct mail_storage_service_ctx *ctx);
-
 static void set_keyval(struct setting_parser_context *set_parser,
 		       const char *key, const char *value)
 {
@@ -501,8 +498,7 @@ mail_storage_service_init(struct master_service *service,
 struct auth_master_connection *
 mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx)
 {
-	if (ctx->conn == NULL)
-		mail_storage_service_all_init_first(ctx);
+	i_assert(ctx->conn != NULL);
 	return ctx->conn;
 }
 
@@ -625,6 +621,8 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 				const struct mail_user_settings *user_set)
 {
 	const struct mail_storage_settings *mail_set;
+
+	i_assert(ctx->conn == NULL);
 
 	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
 						MAIL_STORAGE_SET_DRIVER_NAME);
@@ -813,8 +811,8 @@ void mail_storage_service_user_free(struct mail_storage_service_user **_user)
 	pool_unref(&user->pool);
 }
 
-static void
-mail_storage_service_all_init_first(struct mail_storage_service_ctx *ctx)
+void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
+					const struct mail_storage_service_input *input)
 {
 	const struct setting_parser_info *user_info;
 	const struct mail_user_settings *user_set;
@@ -822,8 +820,11 @@ mail_storage_service_all_init_first(struct mail_storage_service_ctx *ctx)
 	void **sets;
 	pool_t temp_pool;
 
+	if (ctx->conn != NULL)
+		return;
+
 	temp_pool = pool_alloconly_create("service all settings", 4096);
-	if (mail_storage_service_read_settings(ctx, NULL, temp_pool,
+	if (mail_storage_service_read_settings(ctx, input, temp_pool,
 					       &user_info, &error) < 0)
 		i_fatal("%s", error);
 	sets = settings_parser_get_list(ctx->service->set_parser);
@@ -838,8 +839,7 @@ mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
 {
 	if (ctx->auth_list != NULL)
 		(void)auth_master_user_list_deinit(&ctx->auth_list);
-	if (ctx->conn == NULL)
-		mail_storage_service_all_init_first(ctx);
+	mail_storage_service_init_settings(ctx, NULL);
 
 	ctx->auth_list = auth_master_user_list_init(ctx->conn);
 	return auth_master_user_list_count(ctx->auth_list);
