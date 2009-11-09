@@ -111,7 +111,7 @@ static const struct setting_define service_setting_defines[] = {
 	DEF(SET_UINT, process_limit),
 	DEF(SET_UINT, client_limit),
 	DEF(SET_UINT, service_count),
-	DEF(SET_UINT, vsz_limit),
+	DEF(SET_SIZE, vsz_limit),
 
 	DEFLIST_UNIQUE(unix_listeners, "unix_listener",
 		       &file_listener_setting_parser_info),
@@ -140,7 +140,7 @@ static const struct service_settings service_default_settings = {
 	MEMBER(process_limit) -1U,
 	MEMBER(client_limit) 0,
 	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) -1U,
+	MEMBER(vsz_limit) (uoff_t)-1,
 
 	MEMBER(unix_listeners) ARRAY_INIT,
 	MEMBER(fifo_listeners) ARRAY_INIT,
@@ -174,7 +174,7 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(SET_ENUM, ssl),
 	DEF(SET_UINT, default_process_limit),
 	DEF(SET_UINT, default_client_limit),
-	DEF(SET_UINT, default_vsz_limit),
+	DEF(SET_SIZE, default_vsz_limit),
 
 	DEF(SET_BOOL, version_ignore),
 	DEF(SET_BOOL, mail_debug),
@@ -198,7 +198,7 @@ static const struct master_settings master_default_settings = {
 	MEMBER(ssl) "yes:no:required",
 	MEMBER(default_process_limit) 100,
 	MEMBER(default_client_limit) 1000,
-	MEMBER(default_vsz_limit) 256,
+	MEMBER(default_vsz_limit) 256*1024*1024,
 
 	MEMBER(version_ignore) FALSE,
 	MEMBER(mail_debug) FALSE,

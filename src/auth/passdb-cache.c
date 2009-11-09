@@ -127,7 +127,7 @@ void passdb_cache_init(const struct auth_settings *set)
 	if (set->cache_size == 0 || set->cache_ttl == 0)
 		return;
 
-	passdb_cache = auth_cache_new(set->cache_size * 1024UL, set->cache_ttl,
+	passdb_cache = auth_cache_new(set->cache_size, set->cache_ttl,
 				      set->cache_negative_ttl);
 }
 

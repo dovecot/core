@@ -16,7 +16,7 @@ static const struct setting_define mbox_setting_defines[] = {
 	DEF(SET_STR, mbox_write_locks),
 	DEF(SET_UINT, mbox_lock_timeout),
 	DEF(SET_UINT, mbox_dotlock_change_timeout),
-	DEF(SET_UINT, mbox_min_index_size),
+	DEF(SET_SIZE, mbox_min_index_size),
 	DEF(SET_BOOL, mbox_dirty_syncs),
 	DEF(SET_BOOL, mbox_very_dirty_syncs),
 	DEF(SET_BOOL, mbox_lazy_writes),

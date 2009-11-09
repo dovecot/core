@@ -6,7 +6,7 @@ struct mbox_settings {
 	const char *mbox_write_locks;
 	unsigned int mbox_lock_timeout;
 	unsigned int mbox_dotlock_change_timeout;
-	unsigned int mbox_min_index_size;
+	uoff_t mbox_min_index_size;
 	bool mbox_dirty_syncs;
 	bool mbox_very_dirty_syncs;
 	bool mbox_lazy_writes;

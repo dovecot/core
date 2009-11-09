@@ -137,7 +137,7 @@ drop_privileges(struct service *service)
 	unsigned int len;
 
 	if (service->vsz_limit != 0)
-		restrict_process_size(service->vsz_limit, -1U);
+		restrict_process_size(service->vsz_limit/1024, -1U);
 
 	restrict_access_init(&rset);
 	rset.uid = service->uid;
@@ -350,8 +350,8 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 		if (service->vsz_limit == 0)
 			return "Out of memory";
 		return t_strdup_printf("Out of memory (vsz_limit=%u MB, "
-				       "you may need to increase it)",
-				       service->vsz_limit);
+				"you may need to increase it)",
+				(unsigned int)(service->vsz_limit/1024/1024));
 	case FATAL_EXEC:
 		return "exec() failed";
 

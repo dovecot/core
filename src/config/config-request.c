@@ -128,6 +128,14 @@ settings_export(struct settings_export_context *ctx,
 			}
 			break;
 		}
+		case SET_SIZE: {
+			const uoff_t *val = value, *dval = default_value;
+			if (dump_default || dval == NULL || *val != *dval) {
+				str_printfa(ctx->value, "%llu",
+					    (unsigned long long)*val);
+			}
+			break;
+		}
 		case SET_UINT: {
 			const unsigned int *val = value, *dval = default_value;
 			if (dump_default || dval == NULL || *val != *dval)

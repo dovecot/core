@@ -151,7 +151,7 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_STR, mechanisms),
 	DEF(SET_STR, realms),
 	DEF(SET_STR, default_realm),
-	DEF(SET_UINT, cache_size),
+	DEF(SET_SIZE, cache_size),
 	DEF(SET_UINT, cache_ttl),
 	DEF(SET_UINT, cache_negative_ttl),
 	DEF(SET_STR, username_chars),

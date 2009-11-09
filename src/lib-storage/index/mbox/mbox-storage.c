@@ -329,7 +329,7 @@ static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 			return FALSE;
 		}
 	}
-	return st.st_size / 1024 < storage->set->mbox_min_index_size;
+	return (uoff_t)st.st_size < storage->set->mbox_min_index_size;
 }
 
 static struct mailbox *

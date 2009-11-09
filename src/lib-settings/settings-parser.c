@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -308,6 +309,61 @@ get_uint(struct setting_parser_context *ctx, const char *value,
 	return 0;
 }
 
+static int
+get_size(struct setting_parser_context *ctx, const char *value,
+	 uoff_t *result_r)
+{
+	unsigned long long num, multiply;
+	char *p;
+
+	num = strtoull(value, &p, 10);
+	switch (i_toupper(*p)) {
+	case '\0':
+		multiply = 1;
+		break;
+	case 'B':
+		multiply = 1;
+		p += 1;
+		break;
+	case 'K':
+		multiply = 1024;
+		p += 1;
+		break;
+	case 'M':
+		multiply = 1024*1024;
+		p += 1;
+		break;
+	case 'G':
+		multiply = 1024*1024*1024;
+		p += 1;
+		break;
+	case 'T':
+		multiply = 1024ULL*1024*1024*1024;
+		p += 1;
+		break;
+	}
+
+	if (multiply > 1) {
+		/* Allow: k, ki, kiB */
+		if (i_toupper(*p) == 'I')
+			p++;
+		if (i_toupper(*p) == 'B')
+			p++;
+	}
+	if (*p != '\0') {
+		ctx->error = p_strconcat(ctx->parser_pool, "Invalid size: ",
+					 value, NULL);
+		return -1;
+	}
+	if (num > -1ULL / multiply) {
+		ctx->error = p_strconcat(ctx->parser_pool,
+					 "Size is too large: ", value, NULL);
+		return -1;
+	}
+	*result_r = num * multiply;
+	return 0;
+}
+
 static int get_enum(struct setting_parser_context *ctx, const char *value,
 		    char **result_r, const char *allowed_values)
 {
@@ -446,6 +502,10 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 		break;
 	case SET_UINT:
 		if (get_uint(ctx, value, (unsigned int *)ptr) < 0)
+			return -1;
+		break;
+	case SET_SIZE:
+		if (get_size(ctx, value, (uoff_t *)ptr) < 0)
 			return -1;
 		break;
 	case SET_STR:
@@ -902,6 +962,7 @@ settings_var_expand_info(const struct setting_parser_info *info,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_SIZE:
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
@@ -971,6 +1032,7 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_SIZE:
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
@@ -1043,6 +1105,13 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 		unsigned int *dest_uint = dest;
 
 		*dest_uint = *src_uint;
+		break;
+	}
+	case SET_SIZE: {
+		const uoff_t *src_size = src;
+		uoff_t *dest_size = dest;
+
+		*dest_size = *src_size;
 		break;
 	}
 	case SET_STR_VARS:
@@ -1139,6 +1208,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_SIZE:
 		case SET_STR_VARS:
 		case SET_STR:
 		case SET_ENUM:

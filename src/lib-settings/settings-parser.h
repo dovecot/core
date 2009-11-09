@@ -19,6 +19,7 @@ struct var_expand_table;
 enum setting_type {
 	SET_BOOL,
 	SET_UINT,
+	SET_SIZE,
 	SET_STR,
 	SET_STR_VARS, /* string with %variables */
 	SET_ENUM,
@@ -46,6 +47,10 @@ struct setting_define {
 #define SETTING_DEFINE_STRUCT_UINT(name, struct_name) \
 	{ SET_UINT + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		((struct struct_name *)0)->name, unsigned int), \
+	  #name, offsetof(struct struct_name, name), NULL }
+#define SETTING_DEFINE_STRUCT_SIZE(name, struct_name) \
+	{ SET_SIZE + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		((struct struct_name *)0)->name, uoff_t), \
 	  #name, offsetof(struct struct_name, name), NULL }
 #define SETTING_DEFINE_STRUCT_STR(name, struct_name) \
 	{ SET_STR + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
@@ -185,5 +190,7 @@ int settings_parser_apply_changes(struct setting_parser_context *dest,
 
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
+/* Parse a size string to actual size. */
+int settings_parse_size(const char *str, uoff_t *size_r, const char **error_r);
 
 #endif

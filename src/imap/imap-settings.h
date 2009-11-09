@@ -16,7 +16,7 @@ struct imap_settings {
 	bool verbose_proctitle;
 
 	/* imap: */
-	unsigned int imap_max_line_length;
+	uoff_t imap_max_line_length;
 	unsigned int imap_idle_notify_interval;
 	const char *imap_capability;
 	const char *imap_client_workarounds;
