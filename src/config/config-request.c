@@ -39,10 +39,8 @@ static bool parsers_are_connected(const struct setting_parser_info *root,
 
 	if (root->dependencies != NULL) {
 		for (dep = root->dependencies; *dep != NULL; dep++) {
-			for (p = info; p != NULL; p = p->parent) {
-				if (p == *dep)
-					return TRUE;
-			}
+			if (parsers_are_connected(*dep, info))
+				return TRUE;
 		}
 	}
 	return FALSE;
