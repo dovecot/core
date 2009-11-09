@@ -112,7 +112,7 @@ void client_input_handle(struct client *client)
 	o_stream_unref(&output);
 }
 
-void client_input(struct client *client)
+static void client_input(struct client *client)
 {
 	if (client_input_read(client) < 0)
 		return;
@@ -188,6 +188,16 @@ static const char *client_remote_id(struct client *client)
 	return addr;
 }
 
+void client_io_reset(struct client *client)
+{
+	if (client->io != NULL)
+		io_remove(&client->io);
+	client->io = io_add(client->fd_in, IO_READ, client_input, client);
+        client->last_input = ioloop_time;
+	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
+				      client_idle_timeout, client);
+}
+
 struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn)
 {
@@ -210,10 +220,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client->input = i_stream_create_fd(fd_in, CLIENT_MAX_INPUT_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
 
-	client->io = io_add(fd_in, IO_READ, client_input, client);
-        client->last_input = ioloop_time;
-	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
-				      client_idle_timeout, client);
+	client_io_reset(client);
 	client->my_domain = my_hostname;
 	client->state_pool = pool_alloconly_create("client state", 4096);
 	client->state.mail_data_fd = -1;
@@ -245,7 +252,8 @@ void client_destroy(struct client *client, const char *prefix,
 		lmtp_proxy_deinit(&client->proxy);
 	if (client->io != NULL)
 		io_remove(&client->io);
-	timeout_remove(&client->to_idle);
+	if (client->to_idle != NULL)
+		timeout_remove(&client->to_idle);
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 

@@ -593,10 +593,7 @@ client_input_data_write_local(struct client *client, struct istream *input)
 
 static void client_input_data_finish(struct client *client)
 {
-	if (client->io != NULL)
-		io_remove(&client->io);
-	client->io = io_add(client->fd_in, IO_READ, client_input, client);
-
+	client_io_reset(client);
 	client_state_reset(client);
 	if (i_stream_have_bytes_left(client->input))
 		client_input_handle(client);
@@ -754,6 +751,7 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 
 	io_remove(&client->io);
 	if (array_count(&client->state.rcpt_to) == 0) {
+		timeout_remove(&client->to_idle);
 		lmtp_proxy_start(client->proxy, client->dot_input,
 				 client_proxy_finish, client);
 		i_stream_unref(&client->dot_input);

@@ -73,9 +73,9 @@ void client_destroy(struct client *client, const char *prefix,
 		    const char *reason);
 void client_disconnect(struct client *client, const char *prefix,
 		       const char *reason);
+void client_io_reset(struct client *client);
 void client_state_reset(struct client *client);
 
-void client_input(struct client *client);
 void client_input_handle(struct client *client);
 int client_input_read(struct client *client);
 
