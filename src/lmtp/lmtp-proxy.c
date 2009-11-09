@@ -330,6 +330,7 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 		else {
 			/* finished reading data input. now we'll just have to
 			   wait for replies. */
+			lmtp_proxy_wait_for_output(proxy);
 		}
 		return FALSE;
 	case 0:
