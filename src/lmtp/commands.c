@@ -197,9 +197,14 @@ static bool client_proxy_rcpt(struct client *client, const char *address)
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_settings set;
 	struct auth_user_info info;
+	struct mail_storage_service_input input;
 	const char *args, *const *fields, *orig_address = address;
 	pool_t pool;
 	int ret;
+
+	memset(&input, 0, sizeof(input));
+	input.module = input.service = "lmtp";
+	mail_storage_service_init_settings(storage_service, &input);
 
 	memset(&info, 0, sizeof(info));
 	info.service = master_service_get_name(master_service);
