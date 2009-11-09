@@ -23,10 +23,13 @@ unused_objects = \
 	../lib-mail/message-header-encode.o \
 	../lib-imap/imap-util.o
 endif
+lda_unused_objects = \
+	../lib-lda/smtp-client.o
 
 libs = \
 	../lib-lda/liblda.a \
 	$(LIBDOVECOT_STORAGE) \
+	$(lda_unused_objects) \
 	$(unused_objects)
 
 lmtp_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
