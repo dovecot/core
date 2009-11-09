@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "hostpid.h"
 #include "settings-parser.h"
 #include "mail-storage-settings.h"
 #include "lda-settings.h"
@@ -75,6 +76,10 @@ static bool lda_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	if (*set->postmaster_address == '\0') {
 		*error_r = "postmaster_address setting not given";
 		return FALSE;
+	}
+	if (*set->hostname == '\0') {
+		i_assert(my_hostname != NULL);
+		set->hostname = my_hostname;
 	}
 	return TRUE;
 }
