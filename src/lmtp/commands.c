@@ -37,7 +37,7 @@ int cmd_lhlo(struct client *client, const char *args)
 	struct rfc822_parser_context parser;
 	string_t *domain = t_str_new(128);
 	const char *p;
-	int ret;
+	int ret = 0;
 
 	if (*args == '\0') {
 		client_send_line(client, "501 Missing hostname");
