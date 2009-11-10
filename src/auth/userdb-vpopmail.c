@@ -160,8 +160,6 @@ vpopmail_preinit(struct auth_userdb *auth_userdb, const char *args)
 		} else
 			i_fatal("userdb vpopmail: Unknown setting: %s", *tmp);
 	}
-	if (vauth_open(0) != 0)
-		i_fatal("userdb vpopmail: vauth_open() failed");
 	return &module->module;
 }
 
