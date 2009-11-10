@@ -362,8 +362,8 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 	return NULL;
 }
 
-static void log_coredump(struct service *service ATTR_UNUSED,
-			 string_t *str, int status)
+static void
+log_coredump(struct service *service, string_t *str, int status)
 {
 #ifdef WCOREDUMP
 	int signum = WTERMSIG(status);
@@ -392,7 +392,8 @@ static void log_coredump(struct service *service ATTR_UNUSED,
 		return;
 	}
 #else
-	if (!service->set->login_dump_core) {
+	if (!service->set->login_dump_core &&
+	    service->type == SERVICE_TYPE_LOGIN) {
 		str_append(str, " (core not dumped - add -D parameter to service executable");
 		return;
 	}
