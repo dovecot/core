@@ -140,7 +140,7 @@ static void main_preinit(bool allow_core_dumps)
 		 ssl_initialized);
 
 	if (global_login_settings->mail_max_userip_connections > 0) {
-		anvil = anvil_client_init("anvil", anvil_reconnect_callback);
+		anvil = anvil_client_init("anvil", anvil_reconnect_callback, 0);
 		if (anvil_client_connect(anvil, TRUE) < 0)
 			i_fatal("Couldn't connect to anvil");
 	}

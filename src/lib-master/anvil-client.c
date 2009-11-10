@@ -25,6 +25,7 @@ struct anvil_client {
 	struct aqueue *queries;
 
 	bool (*reconnect_callback)(void);
+	enum anvil_client_flags flags;
 };
 
 #define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
@@ -33,13 +34,15 @@ struct anvil_client {
 static void anvil_client_disconnect(struct anvil_client *client);
 
 struct anvil_client *
-anvil_client_init(const char *path, bool (*reconnect_callback)(void))
+anvil_client_init(const char *path, bool (*reconnect_callback)(void),
+		  enum anvil_client_flags flags)
 {
 	struct anvil_client *client;
 
 	client = i_new(struct anvil_client, 1);
 	client->path = i_strdup(path);
 	client->reconnect_callback = reconnect_callback;
+	client->flags = flags;
 	client->fd = -1;
 	i_array_init(&client->queries_arr, 32);
 	client->queries = aqueue_init(&client->queries_arr.arr);
@@ -106,7 +109,11 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 	fd = retry ? net_connect_unix_with_retries(client->path, 5000) :
 		net_connect_unix(client->path);
 	if (fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m", client->path);
+		if (errno != ENOENT ||
+		    (client->flags & ANVIL_CLIENT_FLAG_HIDE_ENOENT) == 0) {
+			i_error("net_connect_unix(%s) failed: %m",
+				client->path);
+		}
 		return -1;
 	}
 
@@ -144,26 +151,39 @@ static void anvil_client_disconnect(struct anvil_client *client)
 	client->fd = -1;
 }
 
-void anvil_client_query(struct anvil_client *client, const char *query,
-			anvil_callback_t *callback, void *context)
+static int anvil_client_send(struct anvil_client *client, const char *cmd)
 {
 	struct const_iovec iov[2];
-	struct anvil_query anvil_query;
 
 	if (client->fd == -1) {
-		if (anvil_client_connect(client, FALSE) < 0) {
-			callback(NULL, context);
-			return;
-		}
+		if (anvil_client_connect(client, FALSE) < 0)
+			return -1;
 	}
 
-	iov[0].iov_base = query;
-	iov[0].iov_len = strlen(query);
+	iov[0].iov_base = cmd;
+	iov[0].iov_len = strlen(cmd);
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
 	o_stream_sendv(client->output, iov, 2);
+	return 0;
+}
+
+void anvil_client_query(struct anvil_client *client, const char *query,
+			anvil_callback_t *callback, void *context)
+{
+	struct anvil_query anvil_query;
+
+	if (anvil_client_send(client, query) < 0) {
+		callback(NULL, context);
+		return;
+	}
 
 	anvil_query.callback = callback;
 	anvil_query.context = context;
 	aqueue_append(client->queries, &anvil_query);
+}
+
+void anvil_client_cmd(struct anvil_client *client, const char *cmd)
+{
+	(void)anvil_client_send(client, cmd);
 }
