@@ -23,6 +23,24 @@ log_file_set_syscall_error(struct mail_transaction_log_file *file,
 						 file->filepath, function);
 }
 
+static void
+mail_transaction_log_mark_corrupted(struct mail_transaction_log_file *file)
+{
+	unsigned int offset =
+		offsetof(struct mail_transaction_log_header, indexid);
+
+	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ||
+	    file->log->index->readonly)
+		return;
+
+	/* indexid=0 marks the log file as corrupted */
+	if (pwrite_full(file->fd, &file->hdr.indexid,
+			sizeof(file->hdr.indexid), offset) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath, "pwrite()");
+	}
+}
+
 void
 mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 					const char *fmt, ...)
@@ -31,15 +49,7 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 
 	file->corrupted = TRUE;
 	file->hdr.indexid = 0;
-	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) &&
-	    !file->log->index->readonly) {
-		/* indexid=0 marks the log file as corrupted */
-		unsigned int offset =
-			offsetof(struct mail_transaction_log_header, indexid);
-		if (pwrite_full(file->fd, &file->hdr.indexid,
-				sizeof(file->hdr.indexid), offset) < 0)
-			log_file_set_syscall_error(file, "pwrite()");
-	}
+	mail_transaction_log_mark_corrupted(file);
 
 	va_start(va, fmt);
 	T_BEGIN {
@@ -460,10 +470,22 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		if (f->hdr.file_seq == file->hdr.file_seq) {
 			/* mark the old file corrupted. we can't safely remove
 			   it from the list however, so return failure. */
-			mail_transaction_log_file_set_corrupted(f,
+			f->corrupted = TRUE;
+			f->hdr.indexid = 0;
+			if (strcmp(f->filepath, f->log->head->filepath) != 0) {
+				/* only mark .2 corrupted, just to make sure
+				   we don't lose any changes from .log in case
+				   we're somehow wrong */
+				mail_transaction_log_mark_corrupted(f);
+				ret = 0;
+			} else {
+				ret = -1;
+			}
+			mail_index_set_error(f->log->index,
+				"Transaction log %s: "
 				"duplicate transaction log sequence (%u)",
-				f->hdr.file_seq);
-			return 0;
+				f->filepath, f->hdr.file_seq);
+			return ret;
 		}
 	}
 
