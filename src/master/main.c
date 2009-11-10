@@ -38,7 +38,6 @@
 struct master_service *master_service;
 uid_t master_uid;
 gid_t master_gid;
-bool auth_success_written;
 bool core_dumps_disabled;
 char ssl_manual_key_password[100];
 int null_fd;
@@ -199,19 +198,6 @@ static void fatal_log_check(const struct master_settings *set)
 	close(fd);
 	if (unlink(path) < 0)
 		i_error("unlink(%s) failed: %m", path);
-}
-
-static void auth_warning_print(const struct master_settings *set)
-{
-	struct stat st;
-
-	auth_success_written = stat(AUTH_SUCCESS_PATH, &st) == 0;
-	if (!auth_success_written && !set->auth_debug) {
-		fprintf(stderr,
-"If you have trouble with authentication failures,\n"
-"enable auth_debug setting. See http://wiki.dovecot.org/WhyDoesItNotWork\n"
-"This message goes away after the first successful login.\n");
-	}
 }
 
 static bool pid_file_read(const char *path, pid_t *pid_r)
@@ -729,7 +715,6 @@ int main(int argc, char *argv[])
 		pid_file_check_running(pidfile_path);
 		master_settings_do_fixes(set);
 		fatal_log_check(set);
-		auth_warning_print(set);
 	}
 
 	/* save TZ environment. AIX depends on it to get the timezone

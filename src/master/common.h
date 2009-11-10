@@ -5,11 +5,8 @@
 #include "master-interface.h"
 #include "master-settings.h"
 
-#define AUTH_SUCCESS_PATH PKG_STATEDIR"/auth-success"
-
 extern uid_t master_uid;
 extern gid_t master_gid;
-extern bool auth_success_written;
 extern bool core_dumps_disabled;
 extern char ssl_manual_key_password[];
 extern int null_fd;
