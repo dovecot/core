@@ -323,8 +323,8 @@ is_valid_utf8_seq(const unsigned char *input, unsigned int size)
 	return len;
 }
 
-bool uni_utf8_get_valid_data(const unsigned char *input, size_t size,
-			     buffer_t *buf)
+static int uni_utf8_find_invalid_pos(const unsigned char *input, size_t size,
+				     size_t *pos_r)
 {
 	size_t i, len;
 
@@ -334,13 +334,24 @@ bool uni_utf8_get_valid_data(const unsigned char *input, size_t size,
 			i++;
 		else {
 			len = is_valid_utf8_seq(input + i, size-i);
-			if (unlikely(len == 0))
-				goto broken;
+			if (unlikely(len == 0)) {
+				*pos_r = i;
+				return -1;
+			}
 			i += len;
 		}
 	}
-	return TRUE;
-broken:
+	return 0;
+}
+
+bool uni_utf8_get_valid_data(const unsigned char *input, size_t size,
+			     buffer_t *buf)
+{
+	size_t i, len;
+
+	if (uni_utf8_find_invalid_pos(input, size, &i) == 0)
+		return TRUE;
+
 	/* broken utf-8 input - skip the broken characters */
 	buffer_append(buf, input, i++);
 
@@ -361,4 +372,12 @@ broken:
 		i += len;
 	}
 	return FALSE;
+}
+
+bool uni_utf8_str_is_valid(const char *str)
+{
+	size_t i;
+
+	return uni_utf8_find_invalid_pos((const unsigned char *)str,
+					 strlen(str), &i) == 0;
 }
