@@ -17,9 +17,11 @@ anvil_SOURCES = \
 	main.c \
 	anvil-connection.c \
 	anvil-settings.c \
-	connect-limit.c
+	connect-limit.c \
+	penalty.c
 
 noinst_HEADERS = \
 	anvil-connection.h \
 	common.h \
-	connect-limit.h
+	connect-limit.h \
+	penalty.h

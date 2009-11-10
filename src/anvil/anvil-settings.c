@@ -9,10 +9,12 @@
 
 /* <settings checks> */
 static struct file_listener_settings anvil_unix_listeners_array[] = {
-	{ "anvil", 0600, "", "" }
+	{ "anvil", 0600, "", "" },
+	{ "anvil-auth-penalty", 0600, "", "" }
 };
 static struct file_listener_settings *anvil_unix_listeners[] = {
-	&anvil_unix_listeners_array[0]
+	&anvil_unix_listeners_array[0],
+	&anvil_unix_listeners_array[1]
 };
 static buffer_t anvil_unix_listeners_buf = {
 	anvil_unix_listeners, sizeof(anvil_unix_listeners), { 0, }

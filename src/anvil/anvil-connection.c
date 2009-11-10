@@ -7,6 +7,7 @@
 #include "master-service.h"
 #include "master-interface.h"
 #include "connect-limit.h"
+#include "penalty.h"
 #include "anvil-connection.h"
 
 #include <stdlib.h>
@@ -46,7 +47,8 @@ anvil_connection_request(struct anvil_connection *conn,
 			 const char *const *args, const char **error_r)
 {
 	const char *cmd = args[0];
-	unsigned int count;
+	unsigned int value;
+	time_t stamp;
 	pid_t pid;
 
 	args++;
@@ -57,7 +59,6 @@ anvil_connection_request(struct anvil_connection *conn,
 		}
 		pid = strtol(args[0], NULL, 10);
 		connect_limit_connect(connect_limit, pid, args[1]);
-		return 0;
 	} else if (strcmp(cmd, "DISCONNECT") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "DISCONNECT: Not enough parameters";
@@ -65,10 +66,8 @@ anvil_connection_request(struct anvil_connection *conn,
 		}
 		pid = strtol(args[0], NULL, 10);
 		connect_limit_disconnect(connect_limit, pid, args[1]);
-		return 0;
 	} else if (strcmp(cmd, "CONNECT-DUMP") == 0) {
 		connect_limit_dump(connect_limit, conn->output);
-		return 0;
 	} else if (strcmp(cmd, "KILL") == 0) {
 		if (args[0] == NULL) {
 			*error_r = "KILL: Not enough parameters";
@@ -80,7 +79,6 @@ anvil_connection_request(struct anvil_connection *conn,
 		}
 		pid = strtol(args[0], NULL, 10);
 		connect_limit_disconnect_pid(connect_limit, pid);
-		return 0;
 	} else if (strcmp(cmd, "LOOKUP") == 0) {
 		if (args[0] == NULL) {
 			*error_r = "LOOKUP: Not enough parameters";
@@ -90,14 +88,35 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "LOOKUP on a FIFO, can't send reply";
 			return -1;
 		}
-		count = connect_limit_lookup(connect_limit, args[0]);
+		value = connect_limit_lookup(connect_limit, args[0]);
 		(void)o_stream_send_str(conn->output,
-					t_strdup_printf("%u\n", count));
-		return 0;
+					t_strdup_printf("%u\n", value));
+	} else if (strcmp(cmd, "PENALTY-GET") == 0) {
+		if (args[0] == NULL) {
+			*error_r = "PENALTY-GET: Not enough parameters";
+			return -1;
+		}
+		value = penalty_get(penalty, args[0], &stamp);
+		(void)o_stream_send_str(conn->output,
+			t_strdup_printf("%u %s\n", value, dec2str(stamp)));
+	} else if (strcmp(cmd, "PENALTY-SET") == 0) {
+		if (args[0] == NULL || args[1] == NULL) {
+			*error_r = "PENALTY-SET: Not enough parameters";
+			return -1;
+		}
+		penalty_set(penalty, args[0], strtoul(args[1], NULL, 10));
+	} else if (strcmp(cmd, "PENALTY-SET-EXPIRE-SECS") == 0) {
+		if (args[0] == NULL) {
+			*error_r = "PENALTY-SET-EXPIRE-SECS: "
+				"Not enough parameters";
+			return -1;
+		}
+		penalty_set_expire_secs(penalty, atoi(args[0]));
 	} else {
 		*error_r = t_strconcat("Unknown command: ", cmd, NULL);
 		return -1;
 	}
+	return 0;
 }
 
 static void anvil_connection_input(void *context)

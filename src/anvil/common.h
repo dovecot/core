@@ -4,5 +4,6 @@
 #include "lib.h"
 
 extern struct connect_limit *connect_limit;
+extern struct penalty *penalty;
 
 #endif
