@@ -7,6 +7,7 @@
 #include "str-sanitize.h"
 #include "var-expand.h"
 #include "message-address.h"
+#include "imap-utf7.h"
 #include "lda-settings.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
@@ -137,6 +138,17 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	return box;
 }
 
+static const char *mailbox_name_get_printable(const char *mailbox_mutf7)
+{
+	string_t *str = t_str_new(128);
+
+	if (imap_utf7_to_utf8(mailbox_mutf7, str) < 0) {
+		str_truncate(str, 0);
+		str_append(str, mailbox_mutf7);
+	}
+	return str_sanitize(str_c(str), 80);
+}
+
 int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		      enum mail_flags flags, const char *const *keywords,
 		      struct mail_storage **storage_r)
@@ -158,7 +170,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	if (default_save)
 		ctx->tried_default_save = TRUE;
 
-	mailbox_name = str_sanitize(mailbox, 80);
+	mailbox_name = mailbox_name_get_printable(mailbox);
 	box = mailbox_open_or_create_synced(ctx, mailbox, &ns, &errstr);
 	if (box == NULL) {
 		if (ns == NULL) {
