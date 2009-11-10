@@ -313,7 +313,7 @@ static void rcpt_address_parse(struct client *client, const char *address,
 	if (*client->set->recipient_delimiter == '\0')
 		return;
 
-	p = strchr(address, *client->set->recipient_delimiter);
+	p = strstr(address, client->set->recipient_delimiter);
 	if (p != NULL) {
 		/* user+detail@domain */
 		*username_r = t_strdup_until(*username_r, p);
