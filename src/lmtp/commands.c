@@ -636,13 +636,10 @@ static bool client_input_data_write(struct client *client)
 
 	i_stream_destroy(&client->dot_input);
 
-	client->state.received_line =
-		p_strdup(client->state_pool, client_get_received_line(client));
-
 	input = client_get_input(client);
 	client_input_data_write_local(client, input);
 	if (client->proxy != NULL) {
-		lmtp_proxy_start(client->proxy, input,
+		lmtp_proxy_start(client->proxy, input, NULL,
 				 client_proxy_finish, client);
 		ret = FALSE;
 	}
@@ -742,6 +739,9 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 		return 0;
 	}
 
+	client->state.received_line =
+		p_strdup(client->state_pool, client_get_received_line(client));
+
 	i_assert(client->state.mail_data == NULL);
 	client->state.mail_data = buffer_create_dynamic(default_pool, 1024*64);
 
@@ -753,6 +753,7 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 	if (array_count(&client->state.rcpt_to) == 0) {
 		timeout_remove(&client->to_idle);
 		lmtp_proxy_start(client->proxy, client->dot_input,
+				 client->state.received_line,
 				 client_proxy_finish, client);
 		i_stream_unref(&client->dot_input);
 	} else {

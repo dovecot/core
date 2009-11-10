@@ -379,6 +379,7 @@ static void lmtp_proxy_data_input(struct lmtp_proxy *proxy)
 }
 
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
+		      const char *header,
 		      void (*finish_callback)(void *), void *context)
 {
 	struct lmtp_proxy_connection *const *conns;
@@ -395,6 +396,7 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 	for (i = 0; i < count; i++) {
 		conns[i]->data_input =
 			tee_i_stream_create_child(proxy->tee_data_input);
+		lmtp_client_set_data_header(conns[i]->client, header);
 		lmtp_client_send(conns[i]->client, conns[i]->data_input);
 	}
 
