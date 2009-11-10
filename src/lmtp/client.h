@@ -6,7 +6,8 @@
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
 struct mail_recipient {
-	const char *name;
+	const char *address;
+	const char *detail; /* +detail part is also in address */
 	struct mail_storage_service_user *service_user;
 };
 

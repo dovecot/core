@@ -114,12 +114,12 @@ int cmd_mail(struct client *client, const char *args)
 	return 0;
 }
 
-static bool rcpt_is_duplicate(struct client *client, const char *name)
+static bool rcpt_is_duplicate(struct client *client, const char *address)
 {
 	const struct mail_recipient *rcpt;
 
 	array_foreach(&client->state.rcpt_to, rcpt) {
-		if (strcmp(rcpt->name, name) == 0)
+		if (strcmp(rcpt->address, address) == 0)
 			return TRUE;
 	}
 	return FALSE;
@@ -192,13 +192,14 @@ client_proxy_is_ourself(const struct client *client,
 	return TRUE;
 }
 
-static bool client_proxy_rcpt(struct client *client, const char *address)
+static bool client_proxy_rcpt(struct client *client, const char *address,
+			      const char *username)
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_settings set;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
-	const char *args, *const *fields, *orig_address = address;
+	const char *args, *const *fields, *orig_username = username;
 	pool_t pool;
 	int ret;
 
@@ -215,7 +216,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address)
 
 	pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
-	ret = auth_master_pass_lookup(auth_conn, address, &info,
+	ret = auth_master_pass_lookup(auth_conn, username, &info,
 				      pool, &fields);
 	if (ret <= 0) {
 		pool_unref(&pool);
@@ -234,15 +235,16 @@ static bool client_proxy_rcpt(struct client *client, const char *address)
 	set.protocol = LMTP_CLIENT_PROTOCOL_LMTP;
 	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
 
-	if (!client_proxy_rcpt_parse_fields(&set, fields, &address)) {
+	if (!client_proxy_rcpt_parse_fields(&set, fields, &username)) {
 		/* not proxying this user */
 		pool_unref(&pool);
 		return FALSE;
 	}
-	if (strcmp(address, orig_address) == 0 &&
+	if (strcmp(username, orig_username) == 0 &&
 	    client_proxy_is_ourself(client, &set)) {
-		i_error("Proxying to <%s> loops to itself", address);
-		client_send_line(client, "554 5.4.6 Proxying loops to itself");
+		i_error("Proxying to <%s> loops to itself", username);
+		client_send_line(client, "554 5.4.6 <%s> "
+				 "Proxying loops to itself", address);
 		pool_unref(&pool);
 		return FALSE;
 	}
@@ -300,11 +302,37 @@ static const char *lmtp_unescape_address(const char *name)
 	return str_c(str);
 }
 
+static void rcpt_address_parse(struct client *client, const char *address,
+			       const char **username_r, const char **detail_r)
+{
+	const char *p, *p2;
+
+	*username_r = address;
+	*detail_r = "";
+
+	if (*client->set->recipient_delimiter == '\0')
+		return;
+
+	p = strchr(address, *client->set->recipient_delimiter);
+	if (p != NULL) {
+		/* user+detail@domain */
+		*username_r = t_strdup_until(*username_r, p);
+		p2 = strchr(p, '@');
+		if (p2 == NULL)
+			*detail_r = p+1;
+		else {
+			*detail_r = t_strdup_until(p+1, p2);
+			*username_r = t_strconcat(*username_r, p2, NULL);
+		}
+	}
+}
+
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
 	struct mail_storage_service_input input;
-	const char *name, *error = NULL, *addr, *const *argv;
+	const char *address, *username, *detail;
+	const char *error = NULL, *arg, *const *argv;
 	unsigned int len;
 	int ret = 0;
 
@@ -315,21 +343,21 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	argv = t_strsplit(args, " ");
 	if (argv == NULL)
-		addr = "";
+		arg = "";
 	else {
-		addr = argv[0];
+		arg = argv[0];
 		argv++;
 	}
-	len = strlen(addr);
-	if (strncasecmp(addr, "TO:<", 4) != 0 || addr[len-1] != '>') {
+	len = strlen(arg);
+	if (strncasecmp(arg, "TO:<", 4) != 0 || arg[len-1] != '>') {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
 		return 0;
 	}
 
 	memset(&rcpt, 0, sizeof(rcpt));
-	name = lmtp_unescape_address(t_strndup(addr + 4, len - 5));
+	address = lmtp_unescape_address(t_strndup(arg + 4, len - 5));
 
-	if (rcpt_is_duplicate(client, name)) {
+	if (rcpt_is_duplicate(client, address)) {
 		client_send_line(client, "250 2.1.5 OK, ignoring duplicate");
 		return 0;
 	}
@@ -338,16 +366,17 @@ int cmd_rcpt(struct client *client, const char *args)
 		client_send_line(client, "501 5.5.4 Unsupported options");
 		return 0;
 	}
+	rcpt_address_parse(client, address, &username, &detail);
 
 	if (client->lmtp_set->lmtp_proxy) {
-		if (client_proxy_rcpt(client, name))
+		if (client_proxy_rcpt(client, address, username))
 			return 0;
 	}
 
 	memset(&input, 0, sizeof(input));
 	input.service = "lmtp";
 	input.module = "lda";
-	input.username = name;
+	input.username = username;
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;
 
@@ -356,16 +385,18 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	if (ret < 0) {
 		i_error("User lookup failed: %s", error);
-		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL, name);
+		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL, username);
 		return 0;
 	}
 	if (ret == 0) {
 		client_send_line(client,
-				 "550 5.1.1 <%s> User doesn't exist", name);
+				 "550 5.1.1 <%s> User doesn't exist: %s",
+				 address, username);
 		return 0;
 	}
 
-	rcpt.name = p_strdup(client->state_pool, name);
+	rcpt.address = p_strdup(client->state_pool, address);
+	rcpt.detail = p_strdup(client->state_pool, detail);
 	array_append(&client->state.rcpt_to, &rcpt, 1);
 
 	client_send_line(client, "250 2.1.5 OK");
@@ -403,18 +434,23 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 {
 	struct mail_deliver_context dctx;
 	struct mail_storage *storage;
+	const struct mail_storage_service_input *input;
 	void **sets;
-	const char *error;
+	const char *error, *username;
 	enum mail_error mail_error;
 	int ret;
 
+	input = mail_storage_service_user_get_input(rcpt->service_user);
+	username = t_strdup(input->username);
+
 	i_set_failure_prefix(t_strdup_printf("lmtp(%s, %s): ",
-					     my_pid, rcpt->name));
+					     my_pid, username));
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
 				      &client->state.dest_user,
 				      &error) < 0) {
 		i_error("%s", error);
-		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL, rcpt->name);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 rcpt->address);
 		return -1;
 	}
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
@@ -426,8 +462,8 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
 	dctx.dest_user = client->state.dest_user;
-	dctx.dest_addr = rcpt->name;
-	dctx.dest_mailbox_name = "INBOX";
+	dctx.dest_addr = rcpt->address;
+	dctx.dest_mailbox_name = *rcpt->detail == '\0' ? "INBOX" : rcpt->detail;
 	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
 		client->state.first_saved_mail == NULL;
 
@@ -437,13 +473,13 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			client->state.first_saved_mail = dctx.dest_mail;
 		}
 		client_send_line(client, "250 2.0.0 <%s> %s Saved",
-				 rcpt->name, client->state.session_id);
+				 rcpt->address, client->state.session_id);
 		ret = 0;
 	} else if (storage == NULL) {
 		/* This shouldn't happen */
 		i_error("BUG: Saving failed to unknown storage");
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpt->name);
+				 rcpt->address);
 		ret = -1;
 	} else {
 		error = mail_storage_get_last_error(storage, &mail_error);
@@ -451,10 +487,10 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			client_send_line(client, "%s <%s> %s",
 					 dctx.set->quota_full_tempfail ?
 					 "452 4.2.2" : "552 5.2.2",
-					 rcpt->name, error);
+					 rcpt->address, error);
 		} else {
 			client_send_line(client, "451 4.2.0 <%s> %s",
-					 rcpt->name, error);
+					 rcpt->address, error);
 		}
 		ret = -1;
 	}
@@ -488,8 +524,10 @@ static void client_rcpt_fail_all(struct client *client)
 {
 	const struct mail_recipient *rcpt;
 
-	array_foreach(&client->state.rcpt_to, rcpt)
-		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL, rcpt->name);
+	array_foreach(&client->state.rcpt_to, rcpt) {
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 rcpt->address);
+	}
 }
 
 static struct istream *client_get_input(struct client *client)
@@ -623,7 +661,7 @@ static const char *client_get_received_line(struct client *client)
 		const struct mail_recipient *rcpt =
 			array_idx(&client->state.rcpt_to, 0);
 
-		str_printfa(str, "for <%s>", rcpt->name);
+		str_printfa(str, "for <%s>", rcpt->address);
 	}
 	str_printfa(str, "; %s\r\n", message_date_create(ioloop_time));
 	return str_c(str);

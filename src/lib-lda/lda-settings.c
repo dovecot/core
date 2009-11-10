@@ -24,6 +24,7 @@ static const struct setting_define lda_setting_defines[] = {
 	DEF(SET_STR, rejection_subject),
 	DEF(SET_STR, rejection_reason),
 	DEF(SET_STR, deliver_log_format),
+	DEF(SET_STR, recipient_delimiter),
 	DEF(SET_BOOL, quota_full_tempfail),
 	DEF(SET_BOOL, lda_mailbox_autocreate),
 	DEF(SET_BOOL, lda_mailbox_autosubscribe),
@@ -39,6 +40,7 @@ static const struct lda_settings lda_default_settings = {
 	MEMBER(rejection_reason)
 		"Your message to <%t> was automatically rejected:%n%r",
 	MEMBER(deliver_log_format) "msgid=%m: %$",
+	MEMBER(recipient_delimiter) "",
 	MEMBER(quota_full_tempfail) FALSE,
 	MEMBER(lda_mailbox_autocreate) FALSE,
 	MEMBER(lda_mailbox_autosubscribe) FALSE
@@ -80,6 +82,11 @@ static bool lda_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	if (*set->hostname == '\0') {
 		i_assert(my_hostname != NULL);
 		set->hostname = my_hostname;
+	}
+	if (*set->recipient_delimiter != '\0' &&
+	    set->recipient_delimiter[1] != '\0') {
+		*error_r = "recipient_delimiter must one character long";
+		return FALSE;
 	}
 	return TRUE;
 }
