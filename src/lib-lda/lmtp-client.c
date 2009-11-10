@@ -183,31 +183,21 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 {
 	struct lmtp_rcpt *rcpt;
 	unsigned int i, count;
-	bool last = TRUE;
 
-	switch (client->protocol) {
-	case LMTP_CLIENT_PROTOCOL_SMTP:
-		i_assert(client->rcpt_next_data_idx == 0);
-
-		rcpt = array_get_modifiable(&client->recipients, &count);
-		for (i = 0; i < count; i++) {
-			rcpt[i].failed = line[0] != '2';
-			rcpt[i].data_callback(!rcpt[i].failed, line,
-					      rcpt[i].context);
+	rcpt = array_get_modifiable(&client->recipients, &count);
+	for (i = client->rcpt_next_data_idx; i < count; i++) {
+		if (rcpt[i].failed) {
+			/* already called rcpt_to_callback with failure */
+			continue;
 		}
-		client->rcpt_next_data_idx = count;
-		break;
-	case LMTP_CLIENT_PROTOCOL_LMTP:
-		rcpt = array_idx_modifiable(&client->recipients,
-					    client->rcpt_next_data_idx);
-		rcpt->failed = line[0] != '2';
-		last = ++client->rcpt_next_data_idx ==
-			array_count(&client->recipients);
 
-		rcpt->data_callback(!rcpt->failed, line, rcpt->context);
-		break;
+		rcpt[i].failed = line[0] != '2';
+		rcpt[i].data_callback(!rcpt[i].failed, line,
+				      rcpt[i].context);
+		if (client->protocol == LMTP_CLIENT_PROTOCOL_LMTP)
+			break;
 	}
-	return !last;
+	return i < count;
 }
 
 static void lmtp_client_send_data(struct lmtp_client *client)
