@@ -57,6 +57,7 @@ struct lmtp_client {
 	unsigned char output_last;
 
 	unsigned int output_finished:1;
+	unsigned int rcpt_to_successes:1;
 };
 
 static void lmtp_client_send_rcpts(struct lmtp_client *client);
@@ -146,22 +147,35 @@ static void lmtp_client_fail(struct lmtp_client *client, const char *line)
 	lmtp_client_close(client);
 }
 
-static bool
+static void
 lmtp_client_rcpt_next(struct lmtp_client *client, const char *line)
 {
 	struct lmtp_rcpt *rcpt;
-	bool success, all_sent;
+	bool success;
 
 	success = line[0] == '2';
+	if (success)
+		client->rcpt_to_successes = TRUE;
 
 	rcpt = array_idx_modifiable(&client->recipients,
 				    client->rcpt_next_receive_idx);
+	client->rcpt_next_receive_idx++;
+
 	rcpt->failed = !success;
 	rcpt->rcpt_to_callback(success, line, rcpt->context);
+}
 
-	all_sent = ++client->rcpt_next_receive_idx ==
-		array_count(&client->recipients);
-	return all_sent && client->data_input != NULL;
+static void lmtp_client_send_data_cmd(struct lmtp_client *client)
+{
+	if (client->rcpt_next_receive_idx < array_count(&client->recipients))
+		return;
+
+	if (client->global_fail_string != NULL || !client->rcpt_to_successes)
+		lmtp_client_fail(client, client->global_fail_string);
+	else {
+		client->input_state++;
+		o_stream_send_str(client->output, "DATA\r\n");
+	}
 }
 
 static bool
@@ -331,10 +345,10 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 		lmtp_client_send_rcpts(client);
 		break;
 	case LMTP_INPUT_STATE_RCPT_TO:
-		if (!lmtp_client_rcpt_next(client, line))
+		lmtp_client_rcpt_next(client, line);
+		if (client->data_input == NULL)
 			break;
-		client->input_state++;
-		o_stream_send_str(client->output, "DATA\r\n");
+		lmtp_client_send_data_cmd(client);
 		break;
 	case LMTP_INPUT_STATE_DATA_CONTINUE:
 		/* Start sending DATA */
@@ -470,17 +484,10 @@ void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 
 void lmtp_client_send(struct lmtp_client *client, struct istream *data_input)
 {
-	unsigned int rcpt_count = array_count(&client->recipients);
-
 	i_stream_ref(data_input);
 	client->data_input = data_input;
 
-	if (client->global_fail_string != NULL) {
-		lmtp_client_fail(client, client->global_fail_string);
-	} else if (client->rcpt_next_receive_idx == rcpt_count) {
-		client->input_state++;
-		o_stream_send_str(client->output, "DATA\r\n");
-	}
+	lmtp_client_send_data_cmd(client);
 }
 
 void lmtp_client_send_more(struct lmtp_client *client)

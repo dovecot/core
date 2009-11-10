@@ -346,6 +346,8 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 			/* finished reading data input. now we'll just have to
 			   wait for replies. */
 			lmtp_proxy_wait_for_output(proxy);
+			/* if all RCPT TOs failed, we can finish now */
+			lmtp_proxy_try_finish(proxy);
 		}
 		return FALSE;
 	case 0:
