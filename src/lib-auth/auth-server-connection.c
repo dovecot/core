@@ -229,6 +229,7 @@ auth_server_connection_input_line(struct auth_server_connection *conn,
 
 static void auth_server_connection_input(struct auth_server_connection *conn)
 {
+	struct istream *input;
 	const char *line;
 	int ret;
 
@@ -264,7 +265,9 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 		conn->version_received = TRUE;
 	}
 
-	while ((line = i_stream_next_line(conn->input)) != NULL) {
+	input = conn->input;
+	i_stream_ref(input);
+	while ((line = i_stream_next_line(input)) != NULL && !input->closed) {
 		T_BEGIN {
 			ret = auth_server_connection_input_line(conn, line);
 		} T_END;
@@ -274,6 +277,7 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 			break;
 		}
 	}
+	i_stream_unref(&input);
 }
 
 struct auth_server_connection *
