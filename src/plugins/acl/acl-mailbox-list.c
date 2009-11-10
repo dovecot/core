@@ -57,11 +57,9 @@ int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	struct acl_backend *backend = alist->rights.backend;
 	const unsigned int *idx_arr = alist->rights.acl_storage_right_idx;
-	struct mail_namespace *ns;
 	struct acl_object *aclobj;
 	int ret, ret2;
 
-	ns = mailbox_list_get_namespace(list);
 	aclobj = !parent ?
 		acl_object_init_from_name(backend, name) :
 		acl_object_init_from_parent(backend, name);
@@ -401,6 +399,22 @@ acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
+static int acl_mailbox_have_any_rights(struct acl_mailbox_list *alist,
+				       const char *name)
+{
+	struct acl_object *aclobj;
+	const char *const *rights;
+	int ret;
+
+	aclobj = acl_object_init_from_name(alist->rights.backend, name);
+	ret = acl_object_get_my_rights(aclobj, pool_datastack_create(),
+				       &rights);
+	acl_object_deinit(&aclobj);
+
+	return ret < 0 ? -1 :
+		(*rights == NULL ? 0 : 1);
+}
+
 static int acl_get_mailbox_name_status(struct mailbox_list *list,
 				       const char *name,
 				       enum mailbox_name_status *status)
@@ -408,19 +422,11 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	int ret;
 
-	ret = acl_mailbox_list_have_right(list, name, FALSE,
-					  ACL_STORAGE_RIGHT_LOOKUP, NULL);
+	T_BEGIN {
+		ret = acl_mailbox_have_any_rights(alist, name);
+	} T_END;
 	if (ret < 0)
 		return -1;
-	if (ret == 0) {
-		/* If we have INSERT right for the mailbox, we'll need to
-		   reveal its existence so that APPEND and COPY works. */
-		ret = acl_mailbox_list_have_right(list, name, FALSE,
-						  ACL_STORAGE_RIGHT_INSERT,
-						  NULL);
-		if (ret < 0)
-			return -1;
-	}
 
 	if (alist->module_ctx.super.get_mailbox_name_status(list, name,
 							    status) < 0)
