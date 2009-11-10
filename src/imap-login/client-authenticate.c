@@ -101,7 +101,7 @@ bool imap_client_auth_handle_reply(struct client *client,
 	i_assert(reply->nologin);
 
 	if (!client->destroyed)
-		client_auth_failed(client, reply->nodelay);
+		client_auth_failed(client);
 	return TRUE;
 }
 

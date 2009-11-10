@@ -16,28 +16,11 @@
 /* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
-#define AUTH_FAILURE_DELAY_INCREASE_MSECS 5000
-
-#if CLIENT_LOGIN_IDLE_TIMEOUT_MSECS < AUTH_REQUEST_TIMEOUT*1000
-#  error client idle timeout must be larger than authentication timeout
-#endif
 
 #define CLIENT_AUTH_BUF_MAX_SIZE 8192
 
-static void client_authfail_delay_timeout(struct client *client)
+void client_auth_failed(struct client *client)
 {
-	timeout_remove(&client->to_authfail_delay);
-
-	/* get back to normal client input. */
-	i_assert(client->io == NULL);
-	client->io = io_add(client->fd, IO_READ, client_input, client);
-	client_input(client);
-}
-
-void client_auth_failed(struct client *client, bool nodelay)
-{
-	unsigned int delay_msecs;
-
 	i_free_and_null(client->master_data_prefix);
 
 	if (client->auth_initializing)
@@ -45,21 +28,9 @@ void client_auth_failed(struct client *client, bool nodelay)
 
 	if (client->io != NULL)
 		io_remove(&client->io);
-	if (nodelay) {
-		client->io = io_add(client->fd, IO_READ, client_input, client);
-		client_input(client);
-		return;
-	}
 
-	/* increase the timeout after each unsuccessful attempt, but don't
-	   increase it so high that the idle timeout would be triggered */
-	delay_msecs = client->auth_attempts * AUTH_FAILURE_DELAY_INCREASE_MSECS;
-	if (delay_msecs > CLIENT_LOGIN_IDLE_TIMEOUT_MSECS)
-		delay_msecs = CLIENT_LOGIN_IDLE_TIMEOUT_MSECS - 1000;
-
-	i_assert(client->to_authfail_delay == NULL);
-	client->to_authfail_delay =
-		timeout_add(delay_msecs, client_authfail_delay_timeout, client);
+	client->io = io_add(client->fd, IO_READ, client_input, client);
+	client_input(client);
 }
 
 static void client_auth_waiting_timeout(struct client *client)
@@ -98,8 +69,6 @@ static void client_auth_parse_args(struct client *client,
 		}
 		if (strcmp(key, "nologin") == 0)
 			reply_r->nologin = TRUE;
-		else if (strcmp(key, "nodelay") == 0)
-			reply_r->nodelay = TRUE;
 		else if (strcmp(key, "proxy") == 0)
 			reply_r->proxy = TRUE;
 		else if (strcmp(key, "temp") == 0)
@@ -201,7 +170,7 @@ void client_proxy_failed(struct client *client, bool send_line)
 	i_free_and_null(client->proxy_master_user);
 
 	/* call this last - it may destroy the client */
-	client_auth_failed(client, TRUE);
+	client_auth_failed(client);
 }
 
 static void proxy_input(struct client *client)
@@ -320,7 +289,7 @@ client_auth_handle_reply(struct client *client,
 		if (!success)
 			return FALSE;
 		if (proxy_start(client, reply) < 0)
-			client_auth_failed(client, TRUE);
+			client_auth_failed(client);
 		return TRUE;
 	}
 	return client->v.auth_handle_reply(client, reply);
@@ -446,7 +415,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		}
 
 		if (!client->destroyed)
-			client_auth_failed(client, reply.nodelay);
+			client_auth_failed(client);
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
 		if (data == NULL)

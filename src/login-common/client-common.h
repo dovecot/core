@@ -47,7 +47,6 @@ struct client_auth_reply {
 	unsigned int proxy:1;
 	unsigned int temp:1;
 	unsigned int nologin:1;
-	unsigned int nodelay:1;
 	unsigned int authz_failure:1;
 };
 
@@ -86,7 +85,7 @@ struct client {
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
-	struct timeout *to_authfail_delay, *to_auth_waiting;
+	struct timeout *to_auth_waiting;
 	struct timeout *to_idle_disconnect;
 
 	unsigned char *master_data_prefix;
@@ -146,7 +145,7 @@ void client_log(struct client *client, const char *msg);
 void client_log_err(struct client *client, const char *msg);
 const char *client_get_extra_disconnect_reason(struct client *client);
 bool client_is_trusted(struct client *client);
-void client_auth_failed(struct client *client, bool nodelay);
+void client_auth_failed(struct client *client);
 
 bool client_read(struct client *client);
 void client_input(struct client *client);

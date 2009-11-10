@@ -67,7 +67,7 @@ bool pop3_client_auth_handle_reply(struct client *client,
 	}
 
 	if (!client->destroyed)
-		client_auth_failed(client, reply->nodelay);
+		client_auth_failed(client);
 	return TRUE;
 }
 
