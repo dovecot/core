@@ -10,6 +10,7 @@
 #include "lmtp-proxy.h"
 
 #define LMTP_MAX_LINE_LEN 1024
+#define LMTP_PROXY_DATA_INPUT_TIMEOUT_MSECS (1000*60)
 
 struct lmtp_proxy_recipient {
 	struct lmtp_proxy_connection *conn;
@@ -40,7 +41,7 @@ struct lmtp_proxy {
 	ARRAY_DEFINE(rcpt_to, struct lmtp_proxy_recipient);
 	unsigned int rcpt_next_reply_idx;
 
-	struct timeout *to;
+	struct timeout *to, *to_data_idle;
 	struct io *io;
 	struct istream *data_input;
 	struct ostream *client_output;
@@ -97,6 +98,8 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 		i_stream_unref(&proxy->data_input);
 	if (proxy->client_output != NULL)
 		o_stream_unref(&proxy->client_output);
+	if (proxy->to_data_idle != NULL)
+		timeout_remove(&proxy->to_data_idle);
 	if (proxy->to != NULL)
 		timeout_remove(&proxy->to);
 	if (proxy->io != NULL)
@@ -194,7 +197,7 @@ static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 		lmtp_proxy_finish(proxy);
 }
 
-static void lmtp_proxy_data_disconnected(struct lmtp_proxy *proxy)
+static void lmtp_proxy_fail_all(struct lmtp_proxy *proxy, const char *line)
 {
 	struct lmtp_proxy_recipient *rcpt;
 	unsigned int i, count;
@@ -204,7 +207,7 @@ static void lmtp_proxy_data_disconnected(struct lmtp_proxy *proxy)
 	for (i = proxy->rcpt_next_reply_idx; i < count; i++) {
 		if (!rcpt[i].rcpt_to_failed) {
 			i_assert(!rcpt[i].data_reply_received);
-			rcpt[i].reply = "451 4.4.0 Client disconnected in DATA";
+			rcpt[i].reply = line;
 			rcpt[i].data_reply_received = TRUE;
 		}
 	}
@@ -212,6 +215,16 @@ static void lmtp_proxy_data_disconnected(struct lmtp_proxy *proxy)
 	i_assert(ret);
 
 	lmtp_proxy_finish(proxy);
+}
+
+static void lmtp_proxy_data_input_timeout(struct lmtp_proxy *proxy)
+{
+	lmtp_proxy_fail_all(proxy, "451 4.4.2 Input timeout in DATA");
+}
+
+static void lmtp_proxy_data_disconnected(struct lmtp_proxy *proxy)
+{
+	lmtp_proxy_fail_all(proxy, "451 4.4.2 Client disconnected in DATA");
 }
 
 static void
@@ -319,6 +332,8 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 {
 	size_t size;
 
+	timeout_reset(proxy->to_data_idle);
+
 	switch (i_stream_read(proxy->data_input)) {
 	case -2:
 		/* buffer full. someone's stalling. */
@@ -371,6 +386,8 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 	proxy->finish_context = context;
 	proxy->tee_data_input = tee_i_stream_create(data_input);
 	proxy->data_input = tee_i_stream_create_child(proxy->tee_data_input);
+	proxy->to_data_idle = timeout_add(LMTP_PROXY_DATA_INPUT_TIMEOUT_MSECS,
+					  lmtp_proxy_data_input_timeout, proxy);
 
 	conns = array_get(&proxy->connections, &count);
 	for (i = 0; i < count; i++) {
