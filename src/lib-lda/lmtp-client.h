@@ -22,6 +22,9 @@ int lmtp_client_connect_tcp(struct lmtp_client *client,
 			    enum lmtp_client_protocol protocol,
 			    const char *host, unsigned int port);
 
+/* Add headers from given string before the rest of the data. The string must
+   use CRLF line feeds and end with CRLF. */
+void lmtp_client_set_data_header(struct lmtp_client *client, const char *str);
 /* Add recipient to the session. rcpt_to_callback is called once LMTP server
    replies with RCPT TO. If RCPT TO was a succees, data_callback is called
    when DATA replies. */

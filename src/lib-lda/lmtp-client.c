@@ -49,6 +49,7 @@ struct lmtp_client {
 	struct io *io;
 	int fd;
 
+	const char *data_header;
 	ARRAY_DEFINE(recipients, struct lmtp_rcpt);
 	unsigned int rcpt_next_receive_idx;
 	unsigned int rcpt_next_data_idx;
@@ -348,6 +349,8 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 		}
 		client->input_state++;
 		o_stream_cork(client->output);
+		if (client->data_header != NULL)
+			o_stream_send_str(client->output, client->data_header);
 		lmtp_client_send_data(client);
 		o_stream_uncork(client->output);
 		break;
@@ -439,6 +442,11 @@ int lmtp_client_connect_tcp(struct lmtp_client *client,
 			    lmtp_client_wait_connect, client);
 	client->input_state = LMTP_INPUT_STATE_GREET;
 	return 0;
+}
+
+void lmtp_client_set_data_header(struct lmtp_client *client, const char *str)
+{
+	client->data_header = p_strdup(client->pool, str);
 }
 
 static void lmtp_client_send_rcpts(struct lmtp_client *client)
