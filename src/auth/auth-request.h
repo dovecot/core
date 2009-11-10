@@ -68,6 +68,11 @@ struct auth_request {
 	struct ip_addr local_ip, remote_ip;
 	unsigned int local_port, remote_port;
 
+	struct timeout *to_penalty;
+	unsigned int last_penalty;
+	unsigned int initial_response_len;
+	const unsigned char *initial_response;
+
 	union {
 		verify_plain_callback_t *verify_plain;
 		lookup_credentials_callback_t *lookup_credentials;
@@ -121,8 +126,7 @@ void auth_request_export(struct auth_request *request,
 bool auth_request_import(struct auth_request *request,
 			 const char *key, const char *value);
 
-void auth_request_initial(struct auth_request *request,
-			  const unsigned char *data, size_t data_size);
+void auth_request_initial(struct auth_request *request);
 void auth_request_continue(struct auth_request *request,
 			   const unsigned char *data, size_t data_size);
 

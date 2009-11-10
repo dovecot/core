@@ -56,6 +56,7 @@ auth_SOURCES = \
 	auth-master-connection.c \
 	mech-otp-skey-common.c \
 	mech-plain-common.c \
+	auth-penalty.c \
 	auth-request.c \
 	auth-request-handler.c \
 	auth-settings.c \
@@ -112,6 +113,7 @@ headers = \
 	auth-master-connection.h \
 	mech-otp-skey-common.h \
 	mech-plain-common.h \
+	auth-penalty.h \
 	auth-request.h \
 	auth-request-handler.h \
 	auth-settings.h \

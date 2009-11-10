@@ -3,7 +3,10 @@
 
 #include "auth-stream.h"
 
+struct auth;
 struct auth_request;
+struct auth_userdb;
+struct auth_userdb_settings;
 
 enum userdb_result {
 	USERDB_RESULT_INTERNAL_FAILURE = -1,

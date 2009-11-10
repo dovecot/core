@@ -5,6 +5,8 @@
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
 struct auth_request;
+struct auth_passdb;
+struct auth_passdb_settings;
 
 enum passdb_result {
 	PASSDB_RESULT_INTERNAL_FAILURE = -1,

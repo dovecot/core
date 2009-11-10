@@ -8,6 +8,7 @@
 #include "hash.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "auth-penalty.h"
 #include "auth-request.h"
 #include "auth-master-connection.h"
 #include "auth-request-handler.h"
@@ -15,11 +16,13 @@
 #include <stdlib.h>
 
 #define AUTH_FAILURE_DELAY_CHECK_MSECS 500
+#define AUTH_PENALTY_ANVIL_PATH "anvil-auth-penalty"
 
 struct auth_request_handler {
 	int refcount;
 	pool_t pool;
 	struct hash_table *requests;
+	struct auth_penalty *penalty;
 
         struct auth *auth;
         unsigned int connect_uid, client_pid;
@@ -55,6 +58,7 @@ auth_request_handler_create(struct auth *auth,
 	handler->callback = callback;
 	handler->context = context;
 	handler->master_callback = master_callback;
+	handler->penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 	return handler;
 }
 
@@ -80,6 +84,7 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 	/* notify parent that we're done with all requests */
 	handler->callback(NULL, handler->context);
 
+	auth_penalty_deinit(&handler->penalty);
 	hash_table_destroy(&handler->requests);
 	pool_unref(&handler->pool);
 }
@@ -188,6 +193,9 @@ auth_request_handle_failure(struct auth_request *request,
 	request->delayed_failure = TRUE;
 	handler->refcount++;
 
+	auth_penalty_update(handler->penalty, request,
+			    request->last_penalty + 1);
+
 	request->last_access = ioloop_time;
 	aqueue_append(auth_failures, &request);
 	if (to_auth_failures == NULL) {
@@ -220,6 +228,11 @@ static void auth_callback(struct auth_request *request,
 		break;
 	case AUTH_CLIENT_RESULT_SUCCESS:
 		auth_request_proxy_finish(request, TRUE);
+
+		if (request->last_penalty != 0) {
+			/* reset penalty */
+			auth_penalty_update(handler->penalty, request, 0);
+		}
 
 		auth_stream_reply_add(reply, "OK", NULL);
 		auth_stream_reply_add(reply, NULL, dec2str(request->id));
@@ -281,14 +294,36 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 	auth_request_handler_remove(handler, request);
 }
 
+static void auth_request_penalty_finish(struct auth_request *request)
+{
+	timeout_remove(&request->to_penalty);
+	auth_request_initial(request);
+}
+
+static void
+auth_penalty_callback(unsigned int penalty, struct auth_request *request)
+{
+	unsigned int secs;
+
+	request->last_penalty = penalty;
+
+	if (penalty == 0)
+		auth_request_initial(request);
+	else {
+		secs = auth_penalty_to_secs(penalty);
+		request->to_penalty = timeout_add(secs * 1000,
+						  auth_request_penalty_finish,
+						  request);
+	}
+}
+
 bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				     const char *args)
 {
 	const struct mech_module *mech;
 	struct auth_request *request;
 	const char *const *list, *name, *arg, *initial_resp;
-	const void *initial_resp_data;
-	size_t initial_resp_len;
+	void *initial_resp_data;
 	unsigned int id;
 	buffer_t *buf;
 
@@ -365,11 +400,9 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	/* Empty initial response is a "=" base64 string. Completely empty
 	   string shouldn't really be sent, but at least Exim does it,
 	   so just allow it for backwards compatibility.. */
-	if (initial_resp == NULL || *initial_resp == '\0') {
-		initial_resp_data = NULL;
-		initial_resp_len = 0;
-	} else {
+	if (initial_resp != NULL && *initial_resp != '\0') {
 		size_t len = strlen(initial_resp);
+
 		buf = buffer_create_dynamic(pool_datastack_create(),
 					    MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(initial_resp, len, NULL, buf) < 0) {
@@ -377,13 +410,18 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				"Invalid base64 data in initial response");
 			return TRUE;
 		}
-		initial_resp_data = buf->data;
-		initial_resp_len = buf->used;
+		initial_resp_data =
+			p_malloc(request->pool, I_MAX(buf->used, 1));
+		memcpy(initial_resp_data, buf->data, buf->used);
+		request->initial_response = initial_resp_data;
+		request->initial_response_len = buf->used;
 	}
 
 	/* handler is referenced until auth_callback is called. */
 	handler->refcount++;
-	auth_request_initial(request, initial_resp_data, initial_resp_len);
+
+	/* before we start authenticating, see if we need to wait first */
+	auth_penalty_lookup(handler->penalty, request, auth_penalty_callback);
 	return TRUE;
 }
 

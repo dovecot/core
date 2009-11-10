@@ -9,6 +9,7 @@ enum auth_client_result {
 	AUTH_CLIENT_RESULT_FAILURE
 };
 
+struct auth_settings;
 struct auth_request;
 
 typedef void mech_callback_t(struct auth_request *request,
