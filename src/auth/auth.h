@@ -39,6 +39,7 @@ struct auth {
 	struct auth_passdb *masterdbs;
 	struct auth_passdb *passdbs;
 	struct auth_userdb *userdbs;
+	struct auth_penalty *penalty;
 
 	const char *const *auth_realms;
 	char username_chars[256];

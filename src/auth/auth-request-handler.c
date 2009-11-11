@@ -16,13 +16,11 @@
 #include <stdlib.h>
 
 #define AUTH_FAILURE_DELAY_CHECK_MSECS 500
-#define AUTH_PENALTY_ANVIL_PATH "anvil-auth-penalty"
 
 struct auth_request_handler {
 	int refcount;
 	pool_t pool;
 	struct hash_table *requests;
-	struct auth_penalty *penalty;
 
         struct auth *auth;
         unsigned int connect_uid, client_pid;
@@ -58,7 +56,6 @@ auth_request_handler_create(struct auth *auth,
 	handler->callback = callback;
 	handler->context = context;
 	handler->master_callback = master_callback;
-	handler->penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 	return handler;
 }
 
@@ -84,7 +81,6 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 	/* notify parent that we're done with all requests */
 	handler->callback(NULL, handler->context);
 
-	auth_penalty_deinit(&handler->penalty);
 	hash_table_destroy(&handler->requests);
 	pool_unref(&handler->pool);
 }
@@ -193,7 +189,7 @@ auth_request_handle_failure(struct auth_request *request,
 	request->delayed_failure = TRUE;
 	handler->refcount++;
 
-	auth_penalty_update(handler->penalty, request,
+	auth_penalty_update(request->auth->penalty, request,
 			    request->last_penalty + 1);
 
 	request->last_access = ioloop_time;
@@ -231,7 +227,7 @@ static void auth_callback(struct auth_request *request,
 
 		if (request->last_penalty != 0) {
 			/* reset penalty */
-			auth_penalty_update(handler->penalty, request, 0);
+			auth_penalty_update(request->auth->penalty, request, 0);
 		}
 
 		auth_stream_reply_add(reply, "OK", NULL);
@@ -421,7 +417,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	handler->refcount++;
 
 	/* before we start authenticating, see if we need to wait first */
-	auth_penalty_lookup(handler->penalty, request, auth_penalty_callback);
+	auth_penalty_lookup(request->auth->penalty, request,
+			    auth_penalty_callback);
 	return TRUE;
 }
 
