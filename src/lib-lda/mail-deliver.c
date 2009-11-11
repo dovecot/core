@@ -138,15 +138,14 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	return box;
 }
 
-static const char *mailbox_name_get_printable(const char *mailbox_mutf7)
+static const char *mailbox_name_to_mutf7(const char *mailbox_utf8)
 {
 	string_t *str = t_str_new(128);
 
-	if (imap_utf7_to_utf8(mailbox_mutf7, str) < 0) {
-		str_truncate(str, 0);
-		str_append(str, mailbox_mutf7);
-	}
-	return str_sanitize(str_c(str), 80);
+	if (imap_utf8_to_utf7(mailbox_utf8, str) < 0)
+		return mailbox_utf8;
+	else
+		return str_c(str);
 }
 
 int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
@@ -170,7 +169,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	if (default_save)
 		ctx->tried_default_save = TRUE;
 
-	mailbox_name = mailbox_name_get_printable(mailbox);
+	mailbox_name = str_sanitize(mailbox, 80);
+	mailbox = mailbox_name_to_mutf7(mailbox);
 	box = mailbox_open_or_create_synced(ctx, mailbox, &ns, &errstr);
 	if (box == NULL) {
 		if (ns == NULL) {

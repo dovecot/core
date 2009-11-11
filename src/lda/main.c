@@ -13,6 +13,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "strescape.h"
+#include "unichar.h"
 #include "rfc822-parser.h"
 #include "message-address.h"
 #include "imap-utf7.h"
@@ -261,7 +262,6 @@ int main(int argc, char *argv[])
 	bool stderr_rejection = FALSE;
 	time_t mtime;
 	int ret, c;
-	string_t *str;
 	enum mail_error error;
 
 	if (getuid() != geteuid() && geteuid() == 0) {
@@ -319,13 +319,11 @@ int main(int argc, char *argv[])
 			   Ignore -m "". This allows doing -m ${extension}
 			   in Postfix to handle user+mailbox */
 			if (*optarg != '\0') T_BEGIN {
-				str = t_str_new(256);
-				if (imap_utf8_to_utf7(optarg, str) < 0) {
+				if (uni_utf8_str_is_valid(optarg) < 0) {
 					i_fatal("Mailbox name not UTF-8: %s",
 						optarg);
 				}
-				ctx.dest_mailbox_name =
-					p_strdup(ctx.pool, str_c(str));
+				ctx.dest_mailbox_name = optarg;
 			} T_END;
 			break;
 		case 'p':
