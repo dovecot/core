@@ -880,6 +880,12 @@ void **mail_storage_service_user_get_set(struct mail_storage_service_user *user)
 	return settings_parser_get_list(user->set_parser) + 1;
 }
 
+const struct mail_storage_service_input *
+mail_storage_service_user_get_input(struct mail_storage_service_user *user)
+{
+	return &user->input;
+}
+
 void *mail_storage_service_get_settings(struct master_service *service)
 {
 	void **sets, *set;

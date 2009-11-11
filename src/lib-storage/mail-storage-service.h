@@ -79,6 +79,8 @@ void mail_storage_service_deinit(struct mail_storage_service_ctx **ctx);
 /* Return the settings pointed to by set_root parameter in _init().
    The settings contain all the changes done by userdb lookups. */
 void **mail_storage_service_user_get_set(struct mail_storage_service_user *user);
+const struct mail_storage_service_input *
+mail_storage_service_user_get_input(struct mail_storage_service_user *user);
 
 /* Return the settings pointed to by set_root parameter in _init() */
 void *mail_storage_service_get_settings(struct master_service *service);
