@@ -763,6 +763,7 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 	struct mail_namespace *ns;
 	struct acl_object *_aclobj = &aclobj->aclobj;
 	struct acl_rights_update ru, ru2;
+	enum acl_modify_mode add_mode;
 	const struct acl_rights *rights;
 	unsigned int i, count;
 	bool owner_applied, first_global = TRUE;
@@ -795,10 +796,13 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 		/* If [neg_]rights is NULL it needs to be ignored.
 		   The easiest way to do that is to just mark it with
 		   REMOVE mode */
+		add_mode = i > 0 && rights[i-1].id_type == rights[i].id_type &&
+			rights[i-1].global == rights[i].global ?
+			ACL_MODIFY_MODE_ADD : ACL_MODIFY_MODE_REPLACE;
 		ru.modify_mode = rights[i].rights == NULL ?
-			ACL_MODIFY_MODE_REMOVE : ACL_MODIFY_MODE_REPLACE;
+			ACL_MODIFY_MODE_REMOVE : add_mode;
 		ru.neg_modify_mode = rights[i].neg_rights == NULL ?
-			ACL_MODIFY_MODE_REMOVE : ACL_MODIFY_MODE_REPLACE;
+			ACL_MODIFY_MODE_REMOVE : add_mode;
 		ru.rights = rights[i];
 		if (rights[i].global && first_global) {
 			/* first global: reset negative ACLs so local ACLs
