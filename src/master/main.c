@@ -35,7 +35,6 @@
 #define MASTER_PID_FILE_NAME "master.pid"
 #define SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS (60*3)
 
-struct master_service *master_service;
 uid_t master_uid;
 gid_t master_gid;
 bool core_dumps_disabled;
