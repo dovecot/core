@@ -10,6 +10,7 @@ void drop_capabilities(void)
 	/* the capabilities that we *need* in order to operate */
 	static cap_value_t suidcaps[] = {
 		CAP_CHOWN,
+		CAP_KILL,
 		CAP_SYS_CHROOT,
 		CAP_SETUID,
 		CAP_SETGID,
