@@ -78,6 +78,7 @@ struct auth *auth_preinit(struct auth_settings *set)
 		/* use a dummy userdb static. */
 		userdb_preinit(auth, &userdb_dummy_set);
 	}
+	auth->penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 	return auth;
 }
 
@@ -258,8 +259,6 @@ void auth_init(struct auth *auth)
 		for (; *p != '\0' && p[1] != '\0'; p += 2)
 			auth->username_translation[(int)(uint8_t)*p] = p[1];
 	}
-
-	auth->penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 }
 
 void auth_deinit(struct auth **_auth)
