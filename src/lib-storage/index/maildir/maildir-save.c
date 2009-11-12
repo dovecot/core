@@ -726,7 +726,7 @@ maildir_save_set_recent_flags(struct maildir_save_context *ctx)
 		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++)
 			index_mailbox_set_recent_uid(&mbox->ibox, uid);
 	}
-	return uids[count-1].seq2;
+	return uids[count-1].seq2 + 1;
 }
 
 static int
