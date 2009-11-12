@@ -257,7 +257,7 @@ static struct sql_db *driver_mysql_init_v(const char *connect_string)
 	struct mysql_db *db;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mysql driver", 512);
+	pool = pool_alloconly_create("mysql driver", 1024);
 	db = p_new(pool, struct mysql_db, 1);
 	db->pool = pool;
 	db->api = driver_mysql_db;
