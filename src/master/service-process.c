@@ -100,8 +100,18 @@ service_dup_fds(struct service *service)
 		dup2_append(&dups, service->login_notify_fd,
 			    MASTER_LOGIN_NOTIFY_FD);
 	}
-	dup2_append(&dups, service_anvil_global->blocking_fd[1],
-		    MASTER_ANVIL_FD);
+	switch (service->type) {
+	case SERVICE_TYPE_LOG:
+	case SERVICE_TYPE_ANVIL:
+	case SERVICE_TYPE_CONFIG:
+		dup2_append(&dups, null_fd, MASTER_ANVIL_FD);
+		break;
+	case SERVICE_TYPE_UNKNOWN:
+	case SERVICE_TYPE_LOGIN:
+		dup2_append(&dups, service_anvil_global->blocking_fd[1],
+			    MASTER_ANVIL_FD);
+		break;
+	}
 	dup2_append(&dups, service->status_fd[1], MASTER_STATUS_FD);
 
 	if (service->type != SERVICE_TYPE_LOG) {

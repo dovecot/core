@@ -25,7 +25,6 @@ int main(int argc, char *argv[])
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 
-	master_service_set_die_with_master(master_service, TRUE);
 	master_service_init_log(master_service, "anvil: ");
 	master_service_init_finish(master_service);
 	connect_limit = connect_limit_init();
