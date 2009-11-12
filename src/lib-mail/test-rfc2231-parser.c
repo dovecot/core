@@ -8,6 +8,7 @@
 static void test_rfc2231_parser(void)
 {
 	const char *input =
+		"; key4*=us-ascii''foo"
 		"; key*2=ba%"
 		"; key2*0=a"
 		"; key3*0*=us-ascii'en'xyz"
@@ -22,26 +23,21 @@ static void test_rfc2231_parser(void)
 		"''ab%25",
 		"key3*",
 		"us-ascii'en'xyzplop%25",
+		"key4*",
+		"us-ascii''foo",
 		NULL
 	};
 	struct rfc822_parser_context parser;
 	const char *const *result;
 	unsigned int i;
-	bool success;
 
+	test_begin("rfc2231 parser");
 	rfc822_parser_init(&parser, (const void *)input, strlen(input), NULL);
-	if (rfc2231_parse(&parser, &result) < 0)
-		success = FALSE;
-	else {
-		success = TRUE;
-		for (i = 0; output[i] != NULL && result[i] != NULL; i++) {
-			if (strcmp(output[i], result[i]) != 0)
-				break;
-		}
-		if (output[i] != NULL || result[i] != NULL)
-			success = FALSE;
-	}
-	test_out("rfc2231_parse()", success);
+	test_assert(rfc2231_parse(&parser, &result) == 0);
+	for (i = 0; output[i] != NULL && result[i] != NULL; i++)
+		test_assert(strcmp(output[i], result[i]) == 0);
+	test_assert(output[i] == NULL && result[i] == NULL);
+	test_end();
 }
 
 int main(void)

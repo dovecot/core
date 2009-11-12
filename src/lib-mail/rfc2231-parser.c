@@ -67,11 +67,14 @@ int rfc2231_parse(struct rfc822_parser_context *ctx,
 		}
 		p = strchr(key, '*');
 		if (p != NULL) {
-			p2 = p++;
-			rfc2231_param.idx = 0;
-			for (; *p >= '0' && *p <= '9'; p++) {
-				rfc2231_param.idx =
-					rfc2231_param.idx*10 + *p - '0';
+			p2 = p;
+			if (p[1] != '\0') {
+				p++;
+				rfc2231_param.idx = 0;
+				for (; *p >= '0' && *p <= '9'; p++) {
+					rfc2231_param.idx =
+						rfc2231_param.idx*10 + *p - '0';
+				}
 			}
 			if (*p != '*')
 				rfc2231_param.extended = FALSE;
