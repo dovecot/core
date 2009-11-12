@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "env-util.h"
+#include "restrict-access.h"
 #include "master-service.h"
 #include "config-connection.h"
 #include "config-parser.h"
@@ -20,8 +21,11 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("config", 0, &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
-
 	master_service_init_log(master_service, "config: ");
+
+	restrict_access_by_env(NULL, FALSE);
+	restrict_access_allow_coredumps(TRUE);
+
 	master_service_init_finish(master_service);
 	config_parse_load_modules();
 

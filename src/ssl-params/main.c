@@ -4,6 +4,7 @@
 #include "lib-signals.h"
 #include "array.h"
 #include "ostream.h"
+#include "restrict-access.h"
 #include "master-service.h"
 #include "ssl-params-settings.h"
 #include "ssl-params.h"
@@ -122,8 +123,11 @@ int main(int argc, char *argv[])
 
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
-
 	set = ssl_params_settings_read(master_service);
+
+	restrict_access_by_env(NULL, FALSE);
+	restrict_access_allow_coredumps(TRUE);
+
 	master_service_init_finish(master_service);
 
 #ifndef HAVE_SSL

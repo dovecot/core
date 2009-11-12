@@ -3,6 +3,7 @@
 #include "common.h"
 #include "array.h"
 #include "env-util.h"
+#include "restrict-access.h"
 #include "master-service.h"
 #include "master-interface.h"
 #include "connect-limit.h"
@@ -24,8 +25,11 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("anvil", 0, &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
-
 	master_service_init_log(master_service, "anvil: ");
+
+	restrict_access_by_env(NULL, FALSE);
+	restrict_access_allow_coredumps(TRUE);
+
 	master_service_init_finish(master_service);
 	connect_limit = connect_limit_init();
 	penalty = penalty_init();
