@@ -313,6 +313,7 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn)
 						 temp_failure_args);
 	}
 	hash_table_iterate_deinit(&iter);
+	hash_table_clear(conn->requests, FALSE);
 }
 
 static void auth_server_connection_close(struct auth_server_connection *conn)
