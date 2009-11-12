@@ -98,7 +98,6 @@ static void main_deinit(void)
 	auth_master_connections_deinit();
         auth_worker_server_deinit();
 
-	module_dir_unload(&modules);
 	userdbs_deinit();
 	passdbs_deinit();
 	mech_deinit(auth->set);
@@ -108,6 +107,7 @@ static void main_deinit(void)
 	sql_drivers_deinit();
 	random_deinit();
 
+	module_dir_unload(&modules);
 	array_free(&listen_fd_types);
 }
 
