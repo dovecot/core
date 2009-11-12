@@ -33,6 +33,8 @@ struct auth_worker_list_context {
 	bool sending, sent, done;
 };
 
+struct auth_worker_client *auth_worker_client;
+
 static void auth_worker_input(struct auth_worker_client *client);
 static int auth_worker_output(struct auth_worker_client *client);
 
@@ -599,6 +601,8 @@ auth_worker_client_create(struct auth *auth, int fd)
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	o_stream_set_flush_callback(client->output, auth_worker_output, client);
 	client->io = io_add(fd, IO_READ, auth_worker_input, client);
+
+	auth_worker_client = client;
 	return client;
 }
 
@@ -620,6 +624,7 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 	client->fd = -1;
 	auth_worker_client_unref(&client);
 
+	auth_worker_client = NULL;
 	master_service_client_connection_destroyed(master_service);
 }
 

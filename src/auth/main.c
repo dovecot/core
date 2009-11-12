@@ -35,7 +35,6 @@ time_t process_start_time;
 
 static struct module *modules = NULL;
 static struct auth *auth;
-static struct auth_worker_client *worker_client;
 static ARRAY_DEFINE(listen_fd_types, enum auth_socket_type);
 
 static void main_preinit(struct auth_settings *set)
@@ -89,8 +88,8 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	if (worker_client != NULL)
-		auth_worker_client_destroy(&worker_client);
+	if (auth_worker_client != NULL)
+		auth_worker_client_destroy(&auth_worker_client);
 	else
 		auth_request_handler_flush_failures(TRUE);
 
@@ -113,12 +112,12 @@ static void main_deinit(void)
 
 static void worker_connected(const struct master_service_connection *conn)
 {
-	if (worker_client != NULL) {
+	if (auth_worker_client != NULL) {
 		i_error("Auth workers can handle only a single client");
 		(void)close(conn->fd);
 		return;
 	}
-	worker_client = auth_worker_client_create(auth, conn->fd);
+	(void)auth_worker_client_create(auth, conn->fd);
 }
 
 static void client_connected(const struct master_service_connection *conn)
