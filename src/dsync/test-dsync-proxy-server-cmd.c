@@ -6,6 +6,7 @@
 #include "strescape.h"
 #include "istream.h"
 #include "ostream.h"
+#include "master-service.h"
 #include "test-common.h"
 #include "dsync-proxy-server.h"
 #include "test-dsync-worker.h"
@@ -13,11 +14,14 @@
 
 #define ALL_MAIL_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft \\Recent"
 
+struct master_service *master_service;
 static string_t *out;
 static struct dsync_proxy_server *server;
 static struct test_dsync_worker *test_worker;
 static struct dsync_proxy_server_command *cur_cmd;
 static const char *cur_cmd_args[20];
+
+void master_service_stop(struct master_service *service ATTR_UNUSED) {}
 
 static void out_clear(void)
 {

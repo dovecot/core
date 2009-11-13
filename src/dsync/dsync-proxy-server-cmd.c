@@ -9,6 +9,7 @@
 #include "istream-dot.h"
 #include "ostream.h"
 #include "imap-util.h"
+#include "master-service.h"
 #include "dsync-worker.h"
 #include "dsync-proxy.h"
 #include "dsync-proxy-server.h"
