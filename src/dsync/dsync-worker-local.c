@@ -419,7 +419,6 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 		mailbox_close(&box);
 		return -1;
 	}
-	(void)mailbox_enable(box, MAILBOX_FEATURE_CONDSTORE);
 
 	mailbox_get_status(box, STATUS_GUID, &status);
 	if (memcmp(status.mailbox_guid, guid->guid, sizeof(guid->guid)) != 0) {
@@ -868,6 +867,11 @@ local_worker_msg_update_metadata(struct dsync_worker *_worker,
 		(struct local_dsync_worker *)_worker;
 	struct mail_keywords *keywords;
 
+	if (msg->modseq > 1) {
+		(void)mailbox_enable(worker->mail->box,
+				     MAILBOX_FEATURE_CONDSTORE);
+	}
+
 	if (!mail_set_uid(worker->mail, msg->uid))
 		dsync_worker_set_failure(_worker);
 	else {
@@ -909,6 +913,9 @@ local_worker_msg_save_set_metadata(struct mailbox *box,
 				   const struct dsync_message *msg)
 {
 	struct mail_keywords *keywords;
+
+	if (msg->modseq > 1)
+		(void)mailbox_enable(box, MAILBOX_FEATURE_CONDSTORE);
 
 	keywords = str_array_length(msg->keywords) == 0 ? NULL :
 		mailbox_keywords_create_valid(box, msg->keywords);
