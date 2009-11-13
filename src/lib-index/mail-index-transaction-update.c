@@ -258,6 +258,11 @@ void mail_index_update_modseq(struct mail_index_transaction *t, uint32_t seq,
 {
 	struct mail_transaction_modseq_update *u;
 
+	/* modseq=1 is the minimum always and it's only for mails that were
+	   created/modified before modseqs were enabled. */
+	if (min_modseq <= 1)
+		return;
+
 	if (!array_is_created(&t->modseq_updates))
 		i_array_init(&t->modseq_updates, 32);
 
@@ -272,6 +277,11 @@ void mail_index_update_modseq(struct mail_index_transaction *t, uint32_t seq,
 void mail_index_update_highest_modseq(struct mail_index_transaction *t,
 				      uint64_t min_modseq)
 {
+	/* modseq=1 is the minimum always and it's only for mails that were
+	   created/modified before modseqs were enabled. */
+	if (min_modseq <= 1)
+		return;
+
 	if (t->min_highest_modseq < min_modseq)
 		t->min_highest_modseq = min_modseq;
 
