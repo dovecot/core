@@ -387,6 +387,16 @@ void dsync_brain_sync(struct dsync_brain *brain)
 	case DSYNC_STATE_SYNC_MSGS:
 		dsync_brain_sync_msgs(brain);
 		break;
+	case DSYNC_STATE_SYNC_MSGS_FLUSH:
+		/* wait until all saves are done, so we don't try to close
+		   the mailbox too early */
+		dsync_worker_finish(brain->src_worker,
+				    dsync_brain_worker_finished, brain);
+		dsync_worker_finish(brain->dest_worker,
+				    dsync_brain_worker_finished, brain);
+		break;
+	case DSYNC_STATE_SYNC_MSGS_FLUSH2:
+		break;
 	case DSYNC_STATE_SYNC_UPDATE_MAILBOX:
 		dsync_brain_msg_sync_update_mailbox(brain);
 		brain->state++;
