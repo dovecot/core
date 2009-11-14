@@ -101,7 +101,6 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 {
 	const struct mailbox_list *const *class_p;
 	struct mailbox_list *list;
-	const char *path;
 	unsigned int idx;
 
 	i_assert(ns->list == NULL);
@@ -167,14 +166,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 			list->set.inbox_path == NULL ?
 			"" : list->set.inbox_path);
 	}
-
 	mail_namespace_finish_list_init(ns, list);
-
-	path = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (path != NULL) {
-		path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
-		list->changelog = mailbox_log_alloc(path);
-	}
 
 	if (hook_mailbox_list_created != NULL)
 		hook_mailbox_list_created(list);
@@ -684,13 +676,33 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 					flags_r);
 }
 
+static bool mailbox_list_init_changelog(struct mailbox_list *list)
+{
+	const char *path;
+
+	if (list->changelog != NULL)
+		return TRUE;
+
+	/* don't do this in mailbox_list_create(), because _get_path() might be
+	   overridden by storage (mbox). */
+	path = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (path == NULL)
+		return FALSE;
+	else {
+		path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
+		list->changelog = mailbox_log_alloc(path);
+		return TRUE;
+	}
+}
+
 void mailbox_list_add_change(struct mailbox_list *list,
 			     enum mailbox_log_record_type type,
 			     const uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
 {
 	struct mailbox_log_record rec;
 
-	if (list->changelog == NULL || mail_guid_128_is_empty(mailbox_guid))
+	if (!mailbox_list_init_changelog(list) ||
+	    mail_guid_128_is_empty(mailbox_guid))
 		return;
 
 	memset(&rec, 0, sizeof(rec));
@@ -906,7 +918,7 @@ int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
 
 struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list)
 {
-	return list->changelog;
+	return !mailbox_list_init_changelog(list) ? NULL : list->changelog;
 }
 
 static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)
