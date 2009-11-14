@@ -274,6 +274,7 @@ void *array_bsearch_i(struct array *array, const void *key,
 		      int (*cmp)(const void *, const void *));
 #ifdef CONTEXT_TYPE_SAFETY
 #define array_bsearch(array, key, cmp) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 	({(void)(1 ? 0 : cmp(key, ARRAY_TYPE_CAST_CONST(array)NULL)); \
 	array_bsearch_i(&(array)->arr, (const void *)key, \
 		(int (*)(const void *, const void *))cmp); })
