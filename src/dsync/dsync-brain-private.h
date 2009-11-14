@@ -6,7 +6,9 @@
 
 enum dsync_state {
 	DSYNC_STATE_GET_MAILBOXES = 0,
+	DSYNC_STATE_GET_SUBSCRIPTIONS,
 	DSYNC_STATE_SYNC_MAILBOXES,
+	DSYNC_STATE_SYNC_SUBSCRIPTIONS,
 	DSYNC_STATE_SYNC_MSGS,
 	DSYNC_STATE_SYNC_MSGS_FLUSH,
 	DSYNC_STATE_SYNC_MSGS_FLUSH2,
@@ -23,6 +25,24 @@ struct dsync_brain_mailbox_list {
 	struct dsync_worker_mailbox_iter *iter;
 	ARRAY_TYPE(dsync_mailbox) mailboxes;
 	ARRAY_TYPE(dsync_mailbox) dirs;
+};
+
+struct dsync_brain_subscription {
+	const char *name;
+	time_t last_change;
+};
+struct dsync_brain_unsubscription {
+	mailbox_guid_t name_sha1;
+	time_t last_change;
+};
+
+struct dsync_brain_subs_list {
+	pool_t pool;
+	struct dsync_brain *brain;
+	struct dsync_worker *worker;
+	struct dsync_worker_subs_iter *iter;
+	ARRAY_DEFINE(subscriptions, struct dsync_brain_subscription);
+	ARRAY_DEFINE(unsubscriptions, struct dsync_brain_unsubscription);
 };
 
 struct dsync_brain_guid_instance {
@@ -102,6 +122,9 @@ struct dsync_brain {
 
 	struct dsync_brain_mailbox_list *src_mailbox_list;
 	struct dsync_brain_mailbox_list *dest_mailbox_list;
+
+	struct dsync_brain_subs_list *src_subs_list;
+	struct dsync_brain_subs_list *dest_subs_list;
 
 	struct dsync_brain_mailbox_sync *mailbox_sync;
 

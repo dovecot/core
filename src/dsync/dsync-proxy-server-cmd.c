@@ -62,6 +62,102 @@ cmd_box_list(struct dsync_proxy_server *server,
 	}
 }
 
+static bool cmd_subs_list_subscriptions(struct dsync_proxy_server *server)
+{
+	const char *name;
+	time_t last_change;
+	string_t *str;
+	int ret;
+
+	str = t_str_new(256);
+	while ((ret = dsync_worker_subs_iter_next(server->subs_iter,
+						  &name, &last_change)) > 0) {
+		str_truncate(str, 0);
+		str_tabescape_write(str, name);
+		str_printfa(str, "\t%ld\n", (long)last_change);
+		o_stream_send(server->output, str_data(str), str_len(str));
+		if (proxy_server_is_output_full(server))
+			break;
+	}
+	if (ret >= 0) {
+		/* continue later */
+		o_stream_set_flush_pending(server->output, TRUE);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool cmd_subs_list_unsubscriptions(struct dsync_proxy_server *server)
+{
+	mailbox_guid_t name_sha1;
+	time_t last_change;
+	string_t *str;
+	int ret;
+
+	str = t_str_new(256);
+	while ((ret = dsync_worker_subs_iter_next_un(server->subs_iter,
+						     &name_sha1,
+						     &last_change)) > 0) {
+		str_truncate(str, 0);
+		dsync_proxy_mailbox_guid_export(str, &name_sha1);
+		str_printfa(str, "\t%ld\n", (long)last_change);
+		o_stream_send(server->output, str_data(str), str_len(str));
+		if (proxy_server_is_output_full(server))
+			break;
+	}
+	if (ret >= 0) {
+		/* continue later */
+		o_stream_set_flush_pending(server->output, TRUE);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static int
+cmd_subs_list(struct dsync_proxy_server *server,
+	      const char *const *args ATTR_UNUSED)
+{
+	int ret = 1;
+
+	if (server->subs_iter == NULL) {
+		server->subs_iter =
+			dsync_worker_subs_iter_init(server->worker);
+	}
+
+	if (!server->subs_sending_unsubscriptions) {
+		if (!cmd_subs_list_subscriptions(server))
+			return 0;
+		o_stream_send(server->output, "\t0\n", 3);
+		server->subs_sending_unsubscriptions = TRUE;
+	}
+	if (ret > 0) {
+		if (!cmd_subs_list_unsubscriptions(server))
+			return 0;
+	}
+
+	server->subs_sending_unsubscriptions = FALSE;
+	if (dsync_worker_subs_iter_deinit(&server->subs_iter) < 0) {
+		o_stream_send(server->output, "\t-1\n", 4);
+		return -1;
+	} else {
+		o_stream_send(server->output, "\t0\n", 3);
+		return 1;
+	}
+}
+
+static int
+cmd_subs_set(struct dsync_proxy_server *server, const char *const *args)
+{
+	if (args[0] == NULL || args[1] == NULL) {
+		i_error("subs-set: Missing parameters");
+		return -1;
+	}
+
+	dsync_worker_set_subscribed(server->worker, args[0],
+				    strcmp(args[1], "1") == 0);
+	return 1;
+}
+
 static int
 cmd_msg_list_init(struct dsync_proxy_server *server, const char *const *args)
 {
@@ -412,6 +508,8 @@ cmd_finish(struct dsync_proxy_server *server,
 
 static struct dsync_proxy_server_command commands[] = {
 	{ "BOX-LIST", cmd_box_list },
+	{ "SUBS-LIST", cmd_subs_list },
+	{ "SUBS-SET", cmd_subs_set },
 	{ "MSG-LIST", cmd_msg_list },
 	{ "BOX-CREATE", cmd_box_create },
 	{ "BOX-DELETE", cmd_box_delete },

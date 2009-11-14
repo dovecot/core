@@ -69,8 +69,10 @@ bool dsync_keyword_list_equals(const char *const *k1, const char *const *k2);
 
 bool dsync_guid_equals(const mailbox_guid_t *guid1,
 		       const mailbox_guid_t *guid2);
+int dsync_guid_cmp(const mailbox_guid_t *guid1, const mailbox_guid_t *guid2);
 const char *dsync_guid_to_str(const mailbox_guid_t *guid);
 const char *dsync_get_guid_128_str(const char *guid, unsigned char *dest,
 				   unsigned int dest_len);
+void dsync_str_sha_to_guid(const char *str, mailbox_guid_t *guid);
 
 #endif

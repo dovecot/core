@@ -7,7 +7,9 @@ enum test_dsync_last_box_type {
 	LAST_BOX_TYPE_CREATE,
 	LAST_BOX_TYPE_DELETE,
 	LAST_BOX_TYPE_RENAME,
-	LAST_BOX_TYPE_UPDATE
+	LAST_BOX_TYPE_UPDATE,
+	LAST_BOX_TYPE_SUBSCRIBE,
+	LAST_BOX_TYPE_UNSUBSCRIBE
 };
 
 enum test_dsync_last_msg_type {
@@ -22,6 +24,14 @@ struct test_dsync_worker_mailbox_iter {
 	struct dsync_worker_mailbox_iter iter;
 	struct dsync_mailbox *next_box;
 	bool last;
+};
+
+struct test_dsync_worker_subs_iter {
+	struct dsync_worker_subs_iter iter;
+	const char *next_name;
+	mailbox_guid_t *next_unsubscription;
+	time_t next_last_change;
+	bool last_subs, last_unsubs;
 };
 
 struct test_dsync_worker_msg {
@@ -61,6 +71,7 @@ struct test_dsync_worker {
 	struct istream *body_stream;
 
 	struct test_dsync_worker_mailbox_iter box_iter;
+	struct test_dsync_worker_subs_iter subs_iter;
 	struct test_dsync_worker_msg_iter msg_iter;
 	ARRAY_DEFINE(results, struct test_dsync_worker_result);
 

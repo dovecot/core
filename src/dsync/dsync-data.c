@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "hex-binary.h"
+#include "sha1.h"
 #include "dsync-data.h"
 
 struct dsync_mailbox *
@@ -88,6 +89,11 @@ bool dsync_guid_equals(const mailbox_guid_t *guid1,
 	return memcmp(guid1->guid, guid2->guid, sizeof(guid1->guid)) == 0;
 }
 
+int dsync_guid_cmp(const mailbox_guid_t *guid1, const mailbox_guid_t *guid2)
+{
+	return memcmp(guid1->guid, guid2->guid, sizeof(guid1->guid));
+}
+
 const char *dsync_guid_to_str(const mailbox_guid_t *guid)
 {
 	return binary_to_hex(guid->guid, sizeof(guid->guid));
@@ -107,4 +113,12 @@ const char *dsync_get_guid_128_str(const char *guid, unsigned char *dest,
 	binary_to_hex_append(&guid_128_buf, guid_128, sizeof(guid_128));
 	buffer_append_c(&guid_128_buf, '\0');
 	return guid_128_buf.data;
+}
+
+void dsync_str_sha_to_guid(const char *str, mailbox_guid_t *guid)
+{
+	unsigned char sha[SHA1_RESULTLEN];
+
+	sha1_get_digest(str, strlen(str), sha);
+	memcpy(guid->guid, sha, I_MIN(sizeof(guid->guid), sizeof(sha)));
 }

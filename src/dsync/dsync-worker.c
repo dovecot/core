@@ -61,6 +61,40 @@ int dsync_worker_mailbox_iter_deinit(struct dsync_worker_mailbox_iter **_iter)
 	return iter->worker->v.mailbox_iter_deinit(iter);
 }
 
+struct dsync_worker_subs_iter *
+dsync_worker_subs_iter_init(struct dsync_worker *worker)
+{
+	return worker->v.subs_iter_init(worker);
+}
+
+int dsync_worker_subs_iter_next(struct dsync_worker_subs_iter *iter,
+				const char **name_r, time_t *last_change_r)
+{
+	return iter->worker->v.subs_iter_next(iter, name_r, last_change_r);
+}
+
+int dsync_worker_subs_iter_next_un(struct dsync_worker_subs_iter *iter,
+				   mailbox_guid_t *sha1_name_r,
+				   time_t *last_change_r)
+{
+	return iter->worker->v.subs_iter_next_un(iter, sha1_name_r,
+						 last_change_r);
+}
+
+int dsync_worker_subs_iter_deinit(struct dsync_worker_subs_iter **_iter)
+{
+	struct dsync_worker_subs_iter *iter = *_iter;
+
+	*_iter = NULL;
+	return iter->worker->v.subs_iter_deinit(iter);
+}
+
+void dsync_worker_set_subscribed(struct dsync_worker *worker,
+				 const char *name, bool set)
+{
+	worker->v.set_subscribed(worker, name, set);
+}
+
 struct dsync_worker_msg_iter *
 dsync_worker_msg_iter_init(struct dsync_worker *worker,
 			   const mailbox_guid_t mailboxes[],

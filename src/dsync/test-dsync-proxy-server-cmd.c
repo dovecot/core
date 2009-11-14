@@ -112,6 +112,44 @@ static void test_dsync_proxy_box_list(void)
 	test_end();
 }
 
+static void test_dsync_proxy_subs_list(void)
+{
+	const char *name;
+	mailbox_guid_t name_sha1;
+
+	test_begin("proxy server subs list");
+
+	test_assert(run_cmd("SUBS-LIST", NULL) == 0);
+
+	/* subscription */
+	name = "\t\001\r\nname\t\001\n\r";
+	test_worker->subs_iter.next_name = name;
+	test_worker->subs_iter.next_last_change = 1234567890;
+	test_assert(run_more() == 0);
+	test_assert(strcmp(str_c(out), t_strconcat(
+		str_tabescape(name), "\t1234567890\n", NULL)) == 0);
+	out_clear();
+
+	test_worker->subs_iter.last_subs = TRUE;
+	test_assert(run_more() == 0);
+	test_assert(strcmp(str_c(out), "\t0\n") == 0);
+	out_clear();
+
+	/* unsubscription */
+	memcpy(name_sha1.guid, test_mailbox_guid1, sizeof(name_sha1.guid));
+	test_worker->subs_iter.next_unsubscription = &name_sha1;
+	test_assert(run_more() == 0);
+	test_assert(strcmp(str_c(out), TEST_MAILBOX_GUID1"\t1234567890\n") == 0);
+	out_clear();
+
+	test_worker->subs_iter.last_unsubs = TRUE;
+	test_assert(run_more() == 1);
+	test_assert(strcmp(str_c(out), "\t0\n") == 0);
+	out_clear();
+
+	test_end();
+}
+
 static void test_dsync_proxy_msg_list(void)
 {
 	static const char *test_keywords[] = {
@@ -399,6 +437,7 @@ int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_dsync_proxy_box_list,
+		test_dsync_proxy_subs_list,
 		test_dsync_proxy_msg_list,
 		test_dsync_proxy_box_create,
 		test_dsync_proxy_box_delete,

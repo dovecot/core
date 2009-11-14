@@ -9,6 +9,8 @@
 
 static void
 dsync_brain_mailbox_list_deinit(struct dsync_brain_mailbox_list **list);
+static void
+dsync_brain_subs_list_deinit(struct dsync_brain_subs_list **list);
 
 struct dsync_brain *
 dsync_brain_init(struct dsync_worker *src_worker,
@@ -49,10 +51,16 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 
 	if (brain->mailbox_sync != NULL)
 		dsync_brain_msg_sync_deinit(&brain->mailbox_sync);
+
 	if (brain->src_mailbox_list != NULL)
 		dsync_brain_mailbox_list_deinit(&brain->src_mailbox_list);
 	if (brain->dest_mailbox_list != NULL)
 		dsync_brain_mailbox_list_deinit(&brain->dest_mailbox_list);
+
+	if (brain->src_subs_list != NULL)
+		dsync_brain_subs_list_deinit(&brain->src_subs_list);
+	if (brain->dest_subs_list != NULL)
+		dsync_brain_subs_list_deinit(&brain->dest_subs_list);
 
 	*_brain = NULL;
 	i_free(brain->mailbox);
@@ -131,6 +139,96 @@ dsync_brain_mailbox_list_deinit(struct dsync_brain_mailbox_list **_list)
 	pool_unref(&list->pool);
 }
 
+static void dsync_brain_subs_list_finished(struct dsync_brain *brain)
+{
+	if (brain->src_subs_list->iter != NULL ||
+	    brain->dest_subs_list->iter != NULL)
+		return;
+
+	/* both lists are finished */
+	brain->state++;
+	dsync_brain_sync(brain);
+}
+
+static int
+dsync_brain_subscription_cmp(const struct dsync_brain_subscription *s1,
+			     const struct dsync_brain_subscription *s2)
+{
+	return strcmp(s1->name, s2->name);
+}
+
+static int
+dsync_brain_unsubscription_cmp(const struct dsync_brain_unsubscription *u1,
+			       const struct dsync_brain_unsubscription *u2)
+{
+	return dsync_guid_cmp(&u1->name_sha1, &u2->name_sha1);
+}
+
+static void dsync_worker_subs_input(void *context)
+{
+	struct dsync_brain_subs_list *list = context;
+	struct dsync_brain_subscription subs;
+	struct dsync_brain_unsubscription unsubs;
+	int ret;
+
+	memset(&subs, 0, sizeof(subs));
+	while ((ret = dsync_worker_subs_iter_next(list->iter, &subs.name,
+						  &subs.last_change)) > 0) {
+		subs.name = p_strdup(list->pool, subs.name);
+		array_append(&list->subscriptions, &subs, 1);
+	}
+	if (ret == 0)
+		return;
+
+	memset(&unsubs, 0, sizeof(unsubs));
+	while ((ret = dsync_worker_subs_iter_next_un(list->iter,
+						     &unsubs.name_sha1,
+						     &unsubs.last_change)) > 0)
+		array_append(&list->unsubscriptions, &unsubs, 1);
+
+	if (ret < 0) {
+		/* finished listing subscriptions */
+		if (dsync_worker_subs_iter_deinit(&list->iter) < 0)
+			dsync_brain_fail(list->brain);
+		array_sort(&list->subscriptions,
+			   dsync_brain_subscription_cmp);
+		array_sort(&list->unsubscriptions,
+			   dsync_brain_unsubscription_cmp);
+		dsync_brain_subs_list_finished(list->brain);
+	}
+}
+
+static struct dsync_brain_subs_list *
+dsync_brain_subs_list_init(struct dsync_brain *brain,
+			      struct dsync_worker *worker)
+{
+	struct dsync_brain_subs_list *list;
+	pool_t pool;
+
+	pool = pool_alloconly_create("dsync brain subs list", 1024*4);
+	list = p_new(pool, struct dsync_brain_subs_list, 1);
+	list->pool = pool;
+	list->brain = brain;
+	list->worker = worker;
+	list->iter = dsync_worker_subs_iter_init(worker);
+	p_array_init(&list->subscriptions, pool, 128);
+	p_array_init(&list->unsubscriptions, pool, 64);
+	dsync_worker_set_input_callback(worker, dsync_worker_subs_input, list);
+	return list;
+}
+
+static void
+dsync_brain_subs_list_deinit(struct dsync_brain_subs_list **_list)
+{
+	struct dsync_brain_subs_list *list = *_list;
+
+	*_list = NULL;
+
+	if (list->iter != NULL)
+		(void)dsync_worker_subs_iter_deinit(&list->iter);
+	pool_unref(&list->pool);
+}
+
 static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 {
 	struct dsync_mailbox *const *src_boxes, *const *dest_boxes, new_box;
@@ -206,6 +304,77 @@ static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 		new_box.uid_next = 0;
 		new_box.highest_modseq = 0;
 		dsync_worker_create_mailbox(brain->src_worker, &new_box);
+	}
+}
+
+static bool
+dsync_brain_is_unsubscribed(struct dsync_brain_subs_list *list,
+			    const struct dsync_brain_subscription *subs)
+{
+	const struct dsync_brain_unsubscription *unsubs;
+	struct dsync_brain_unsubscription lookup;
+
+	/* FIXME: doesn't work with namespace prefixes */
+	dsync_str_sha_to_guid(subs->name, &lookup.name_sha1);
+	unsubs = array_bsearch(&list->unsubscriptions, &lookup,
+			       dsync_brain_unsubscription_cmp);
+	if (unsubs == NULL)
+		return FALSE;
+	else
+		return unsubs->last_change > subs->last_change;
+}
+
+static void dsync_brain_sync_subscriptions(struct dsync_brain *brain)
+{
+	const struct dsync_brain_subscription *src_subs, *dest_subs;
+	unsigned int src, dest, src_count, dest_count;
+	int ret;
+
+	/* subscriptions are sorted by name. */
+	src_subs = array_get(&brain->src_subs_list->subscriptions, &src_count);
+	dest_subs = array_get(&brain->dest_subs_list->subscriptions, &dest_count);
+	for (src = dest = 0;; ) {
+		if (src == src_count) {
+			if (dest == dest_count)
+				break;
+			ret = 1;
+		} else if (dest == dest_count) {
+			ret = -1;
+		} else {
+			ret = strcmp(src_subs[src].name, dest_subs[dest].name);
+			if (ret == 0) {
+				src++; dest++;
+				continue;
+			}
+		}
+
+		if (ret < 0) {
+			/* subscribed only in source */
+			if (dsync_brain_is_unsubscribed(brain->dest_subs_list,
+							&src_subs[src])) {
+				dsync_worker_set_subscribed(brain->src_worker,
+							    src_subs[src].name,
+							    FALSE);
+			} else {
+				dsync_worker_set_subscribed(brain->dest_worker,
+							    src_subs[src].name,
+							    TRUE);
+			}
+			src++;
+		} else {
+			/* subscribed only in dest */
+			if (dsync_brain_is_unsubscribed(brain->src_subs_list,
+							&dest_subs[dest])) {
+				dsync_worker_set_subscribed(brain->dest_worker,
+							    dest_subs[dest].name,
+							    FALSE);
+			} else {
+				dsync_worker_set_subscribed(brain->src_worker,
+							    dest_subs[dest].name,
+							    TRUE);
+			}
+			dest++;
+		}
 	}
 }
 
@@ -380,8 +549,21 @@ void dsync_brain_sync(struct dsync_brain *brain)
 		dsync_worker_mailbox_input(brain->src_mailbox_list);
 		dsync_worker_mailbox_input(brain->dest_mailbox_list);
 		break;
+	case DSYNC_STATE_GET_SUBSCRIPTIONS:
+		i_assert(brain->src_subs_list == NULL);
+		brain->src_subs_list =
+			dsync_brain_subs_list_init(brain, brain->src_worker);
+		brain->dest_subs_list =
+			dsync_brain_subs_list_init(brain, brain->dest_worker);
+		dsync_worker_subs_input(brain->src_subs_list);
+		dsync_worker_subs_input(brain->dest_subs_list);
+		break;
 	case DSYNC_STATE_SYNC_MAILBOXES:
 		dsync_brain_sync_mailboxes(brain);
+		brain->state++;
+		/* fall through */
+	case DSYNC_STATE_SYNC_SUBSCRIPTIONS:
+		dsync_brain_sync_subscriptions(brain);
 		brain->state++;
 		/* fall through */
 	case DSYNC_STATE_SYNC_MSGS:

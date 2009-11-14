@@ -17,6 +17,17 @@ struct dsync_worker_vfuncs {
 				 struct dsync_mailbox *dsync_box_r);
 	int (*mailbox_iter_deinit)(struct dsync_worker_mailbox_iter *iter);
 
+	struct dsync_worker_subs_iter *
+		(*subs_iter_init)(struct dsync_worker *worker);
+	int (*subs_iter_next)(struct dsync_worker_subs_iter *iter,
+			      const char **name_r, time_t *last_change_r);
+	int (*subs_iter_next_un)(struct dsync_worker_subs_iter *iter,
+				 mailbox_guid_t *name_sha1_r,
+				 time_t *last_change_r);
+	int (*subs_iter_deinit)(struct dsync_worker_subs_iter *iter);
+	void (*set_subscribed)(struct dsync_worker *worker,
+			       const char *name, bool set);
+
 	struct dsync_worker_msg_iter *
 		(*msg_iter_init)(struct dsync_worker *worker,
 				 const mailbox_guid_t mailboxes[],
@@ -68,6 +79,11 @@ struct dsync_worker {
 };
 
 struct dsync_worker_mailbox_iter {
+	struct dsync_worker *worker;
+	bool failed;
+};
+
+struct dsync_worker_subs_iter {
 	struct dsync_worker *worker;
 	bool failed;
 };

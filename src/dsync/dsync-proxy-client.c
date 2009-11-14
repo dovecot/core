@@ -40,6 +40,11 @@ struct proxy_client_dsync_worker_mailbox_iter {
 	pool_t pool;
 };
 
+struct proxy_client_dsync_worker_subs_iter {
+	struct dsync_worker_subs_iter iter;
+	pool_t pool;
+};
+
 struct proxy_client_dsync_worker {
 	struct dsync_worker worker;
 	int fd_in, fd_out;
@@ -395,6 +400,121 @@ proxy_client_worker_mailbox_iter_deinit(struct dsync_worker_mailbox_iter *_iter)
 	pool_unref(&iter->pool);
 	i_free(iter);
 	return ret;
+}
+
+static struct dsync_worker_subs_iter *
+proxy_client_worker_subs_iter_init(struct dsync_worker *_worker)
+{
+	struct proxy_client_dsync_worker *worker =
+		(struct proxy_client_dsync_worker *)_worker;
+	struct proxy_client_dsync_worker_subs_iter *iter;
+
+	iter = i_new(struct proxy_client_dsync_worker_subs_iter, 1);
+	iter->iter.worker = _worker;
+	iter->pool = pool_alloconly_create("proxy subscription iter", 1024);
+	o_stream_send_str(worker->output, "SUBS-LIST\n");
+	proxy_client_worker_output_flush(_worker);
+	return &iter->iter;
+}
+
+static int
+proxy_client_worker_subs_iter_next_line(struct proxy_client_dsync_worker_subs_iter *iter,
+					const char **name_r,
+					time_t *last_change_r)
+{
+	struct proxy_client_dsync_worker *worker =
+		(struct proxy_client_dsync_worker *)iter->iter.worker;
+	const char *line;
+	char **args;
+	int ret;
+
+	if ((ret = proxy_client_worker_read_line(worker, &line)) <= 0) {
+		if (ret < 0)
+			iter->iter.failed = TRUE;
+		return ret;
+	}
+
+	if (*line == '\t') {
+		/* end of subscribed subscriptions */
+		if (line[1] != '0')
+			iter->iter.failed = TRUE;
+		return -1;
+	}
+
+	p_clear(iter->pool);
+	args = p_strsplit(iter->pool, line, "\t");
+	if (args[0] == NULL || args[1] == NULL) {
+		i_error("Invalid subscription input from worker server");
+		iter->iter.failed = TRUE;
+		return -1;
+	}
+	*name_r = args[0];
+	*last_change_r = strtoul(args[1], NULL, 10);
+	return 1;
+}
+
+static int
+proxy_client_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
+				   const char **name_r, time_t *last_change_r)
+{
+	struct proxy_client_dsync_worker_subs_iter *iter =
+		(struct proxy_client_dsync_worker_subs_iter *)_iter;
+
+	return proxy_client_worker_subs_iter_next_line(iter, name_r,
+						       last_change_r);
+}
+
+static int
+proxy_client_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
+				      mailbox_guid_t *name_sha1_r,
+				      time_t *last_change_r)
+{
+	struct proxy_client_dsync_worker_subs_iter *iter =
+		(struct proxy_client_dsync_worker_subs_iter *)_iter;
+	const char *name;
+	int ret;
+
+	ret = proxy_client_worker_subs_iter_next_line(iter, &name,
+						      last_change_r);
+	if (ret <= 0)
+		return ret;
+
+	if (dsync_proxy_mailbox_guid_import(name, name_sha1_r) < 0) {
+		i_error("Invalid subscription input from worker server: "
+			"Invalid unsubscription mailbox GUID");
+		iter->iter.failed = TRUE;
+		return -1;
+	}
+	return 1;
+}
+
+static int
+proxy_client_worker_subs_iter_deinit(struct dsync_worker_subs_iter *_iter)
+{
+	struct proxy_client_dsync_worker_subs_iter *iter =
+		(struct proxy_client_dsync_worker_subs_iter *)_iter;
+	int ret = _iter->failed ? -1 : 0;
+
+	pool_unref(&iter->pool);
+	i_free(iter);
+	return ret;
+}
+
+static void
+proxy_client_worker_set_subscribed(struct dsync_worker *_worker,
+				   const char *name, bool set)
+{
+	struct proxy_client_dsync_worker *worker =
+		(struct proxy_client_dsync_worker *)_worker;
+
+	T_BEGIN {
+		string_t *str = t_str_new(128);
+
+		str_append(str, "SUBS-SET\t");
+		str_tabescape_write(str, name);
+		str_printfa(str, "\t%d\n", set ? 1 : 0);
+		o_stream_send(worker->output, str_data(str), str_len(str));
+	} T_END;
 }
 
 struct proxy_client_dsync_worker_msg_iter {
@@ -821,6 +941,12 @@ struct dsync_worker_vfuncs proxy_client_dsync_worker = {
 	proxy_client_worker_mailbox_iter_init,
 	proxy_client_worker_mailbox_iter_next,
 	proxy_client_worker_mailbox_iter_deinit,
+
+	proxy_client_worker_subs_iter_init,
+	proxy_client_worker_subs_iter_next,
+	proxy_client_worker_subs_iter_next_un,
+	proxy_client_worker_subs_iter_deinit,
+	proxy_client_worker_set_subscribed,
 
 	proxy_client_worker_msg_iter_init,
 	proxy_client_worker_msg_iter_next,

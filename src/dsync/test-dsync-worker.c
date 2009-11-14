@@ -80,6 +80,60 @@ test_worker_mailbox_iter_deinit(struct dsync_worker_mailbox_iter *iter)
 	return 0;
 }
 
+static struct dsync_worker_subs_iter *
+test_worker_subs_iter_init(struct dsync_worker *_worker)
+{
+	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
+
+	i_assert(worker->subs_iter.iter.worker == NULL);
+
+	worker->subs_iter.iter.worker = _worker;
+	return &worker->subs_iter.iter;
+}
+
+static int
+test_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
+			   const char **name_r, time_t *last_change_r)
+{
+	struct test_dsync_worker_subs_iter *iter =
+		(struct test_dsync_worker_subs_iter *)_iter;
+
+	if (iter->next_name == NULL)
+		return iter->last_subs ? -1 : 0;
+
+	*name_r = iter->next_name;
+	*last_change_r = iter->next_last_change;
+	iter->next_name = NULL;
+	return 1;
+}
+
+static int
+test_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
+			      mailbox_guid_t *name_sha1_r,
+			      time_t *last_change_r)
+{
+	struct test_dsync_worker_subs_iter *iter =
+		(struct test_dsync_worker_subs_iter *)_iter;
+
+	if (iter->next_unsubscription == NULL)
+		return iter->last_unsubs ? -1 : 0;
+
+	*name_sha1_r = *iter->next_unsubscription;
+	*last_change_r = iter->next_last_change;
+	iter->next_unsubscription = NULL;
+	return 1;
+}
+
+static int
+test_worker_subs_iter_deinit(struct dsync_worker_subs_iter *iter)
+{
+	struct test_dsync_worker *worker =
+		(struct test_dsync_worker *)iter->worker;
+
+	memset(&worker->subs_iter, 0, sizeof(worker->subs_iter));
+	return 0;
+}
+
 static struct dsync_worker_msg_iter *
 test_worker_msg_iter_init(struct dsync_worker *_worker,
 			  const mailbox_guid_t mailboxes[],
@@ -157,6 +211,19 @@ bool test_dsync_worker_next_box_event(struct test_dsync_worker *worker,
 	*event_r = events[0];
 	array_delete(&worker->box_events, 0, 1);
 	return TRUE;
+}
+
+static void
+test_worker_set_subscribed(struct dsync_worker *_worker,
+			   const char *name, bool set)
+{
+	struct dsync_mailbox dsync_box;
+
+	memset(&dsync_box, 0, sizeof(dsync_box));
+	dsync_box.name = name;
+	test_worker_set_last_box(_worker, &dsync_box,
+				 set ? LAST_BOX_TYPE_SUBSCRIBE :
+				 LAST_BOX_TYPE_UNSUBSCRIBE);
 }
 
 static void
@@ -367,6 +434,12 @@ struct dsync_worker_vfuncs test_dsync_worker = {
 	test_worker_mailbox_iter_init,
 	test_worker_mailbox_iter_next,
 	test_worker_mailbox_iter_deinit,
+
+	test_worker_subs_iter_init,
+	test_worker_subs_iter_next,
+	test_worker_subs_iter_next_un,
+	test_worker_subs_iter_deinit,
+	test_worker_set_subscribed,
 
 	test_worker_msg_iter_init,
 	test_worker_msg_iter_next,

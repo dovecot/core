@@ -67,6 +67,13 @@ static void mailboxes_send_to_worker(struct test_dsync_worker *test_worker,
 	test_worker->worker.input_callback(test_worker->worker.input_context);
 }
 
+static void subscriptions_send_to_worker(struct test_dsync_worker *test_worker)
+{
+	test_worker->subs_iter.last_subs = TRUE;
+	test_worker->subs_iter.last_unsubs = TRUE;
+	test_worker->worker.input_callback(test_worker->worker.input_context);
+}
+
 static bool
 test_dsync_mailbox_create_equals(const struct dsync_mailbox *cbox,
 				 const struct dsync_mailbox *obox)
@@ -160,6 +167,11 @@ static void test_dsync_brain(void)
 	mailboxes_send_to_worker(src_test_worker, src_boxes);
 	mailboxes_send_to_worker(dest_test_worker, dest_boxes);
 
+	subscriptions_send_to_worker(src_test_worker);
+	subscriptions_send_to_worker(dest_test_worker);
+
+	test_assert(brain->state == DSYNC_STATE_SYNC_MSGS);
+
 	/* check that it created/deleted missing mailboxes */
 	test_assert(test_dsync_worker_next_box_event(dest_test_worker, &box_event));
 	test_assert(box_event.type == LAST_BOX_TYPE_CREATE);
@@ -244,6 +256,11 @@ static void test_dsync_brain_full(void)
 	/* have brain read the mailboxes */
 	mailboxes_send_to_worker(src_test_worker, boxes);
 	mailboxes_send_to_worker(dest_test_worker, boxes);
+
+	subscriptions_send_to_worker(src_test_worker);
+	subscriptions_send_to_worker(dest_test_worker);
+
+	test_assert(brain->state == DSYNC_STATE_SYNC_MSGS);
 
 	test_assert(!test_dsync_worker_next_box_event(src_test_worker, &box_event));
 	test_assert(!test_dsync_worker_next_box_event(dest_test_worker, &box_event));

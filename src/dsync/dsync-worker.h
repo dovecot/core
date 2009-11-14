@@ -48,6 +48,23 @@ int dsync_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *iter,
 /* Finish mailbox iteration. Returns 0 if ok, -1 if iteration failed. */
 int dsync_worker_mailbox_iter_deinit(struct dsync_worker_mailbox_iter **iter);
 
+/* Iterate though all subscriptions */
+struct dsync_worker_subs_iter *
+dsync_worker_subs_iter_init(struct dsync_worker *worker);
+/* Get the next subscription. Returns 1 if ok, 0 if waiting for more data,
+   -1 if there are no more subscriptions. */
+int dsync_worker_subs_iter_next(struct dsync_worker_subs_iter *iter,
+				const char **name_r, time_t *last_change_r);
+/* Like _iter_next(), but list known recent unsubscriptions. */
+int dsync_worker_subs_iter_next_un(struct dsync_worker_subs_iter *iter,
+				   mailbox_guid_t *name_sha1_r,
+				   time_t *last_change_r);
+/* Finish subscription iteration. Returns 0 if ok, -1 if iteration failed. */
+int dsync_worker_subs_iter_deinit(struct dsync_worker_subs_iter **iter);
+/* Subscribe/unsubscribe mailbox */
+void dsync_worker_set_subscribed(struct dsync_worker *worker,
+				 const char *name, bool set);
+
 /* Iterate through all messages in given mailboxes. The mailboxes are iterated
    in the given order. */
 struct dsync_worker_msg_iter *

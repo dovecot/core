@@ -22,12 +22,14 @@ struct dsync_proxy_server {
 	const char *const *cur_args;
 
 	struct dsync_worker_mailbox_iter *mailbox_iter;
+	struct dsync_worker_subs_iter *subs_iter;
 	struct dsync_worker_msg_iter *msg_iter;
 
 	struct istream *get_input;
 	bool get_input_last_lf;
 	uint32_t get_uid;
 
+	unsigned int subs_sending_unsubscriptions:1;
 	unsigned int finished:1;
 };
 
