@@ -279,7 +279,7 @@ static unsigned int subscription_change_hash(const void *p)
 	const struct local_dsync_subscription_change *change = p;
 
 	return mailbox_log_record_hash(change->name_sha1.guid) ^
-		(unsigned int)change->list;
+		POINTER_CAST_TO(change->list, unsigned int);
 }
 
 static int subscription_change_cmp(const void *p1, const void *p2)
