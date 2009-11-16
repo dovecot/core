@@ -314,6 +314,7 @@ static void lmtp_proxy_output_timeout(struct lmtp_proxy *proxy)
 
 	lmtp_proxy_conn_deinit(max_conn, ERRSTR_TEMP_REMOTE_FAILURE
 			       " (timeout)");
+	lmtp_proxy_data_input(proxy);
 }
 
 static void lmtp_proxy_wait_for_output(struct lmtp_proxy *proxy)
