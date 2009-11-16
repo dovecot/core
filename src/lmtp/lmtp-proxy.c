@@ -193,7 +193,7 @@ static void lmtp_proxy_finish(struct lmtp_proxy *proxy)
 
 static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 {
-	if (lmtp_proxy_send_replies(proxy))
+	if (lmtp_proxy_send_replies(proxy) && proxy->data_input->eof)
 		lmtp_proxy_finish(proxy);
 }
 
