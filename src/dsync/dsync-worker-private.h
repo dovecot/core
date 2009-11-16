@@ -20,10 +20,9 @@ struct dsync_worker_vfuncs {
 	struct dsync_worker_subs_iter *
 		(*subs_iter_init)(struct dsync_worker *worker);
 	int (*subs_iter_next)(struct dsync_worker_subs_iter *iter,
-			      const char **name_r, time_t *last_change_r);
+			      struct dsync_worker_subscription *rec_r);
 	int (*subs_iter_next_un)(struct dsync_worker_subs_iter *iter,
-				 mailbox_guid_t *name_sha1_r,
-				 time_t *last_change_r);
+				 struct dsync_worker_unsubscription *rec_r);
 	int (*subs_iter_deinit)(struct dsync_worker_subs_iter *iter);
 	void (*set_subscribed)(struct dsync_worker *worker,
 			       const char *name, bool set);

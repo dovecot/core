@@ -431,8 +431,8 @@ proxy_client_worker_subs_iter_init(struct dsync_worker *_worker)
 
 static int
 proxy_client_worker_subs_iter_next_line(struct proxy_client_dsync_worker_subs_iter *iter,
-					const char **name_r,
-					time_t *last_change_r)
+					unsigned int wanted_arg_count,
+					char ***args_r)
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)iter->iter.worker;
@@ -455,48 +455,57 @@ proxy_client_worker_subs_iter_next_line(struct proxy_client_dsync_worker_subs_it
 
 	p_clear(iter->pool);
 	args = p_strsplit(iter->pool, line, "\t");
-	if (args[0] == NULL || args[1] == NULL) {
+	if (str_array_length((const char *const *)args) < wanted_arg_count) {
 		i_error("Invalid subscription input from worker server");
 		iter->iter.failed = TRUE;
 		return -1;
 	}
-	*name_r = args[0];
-	*last_change_r = strtoul(args[1], NULL, 10);
+	*args_r = args;
 	return 1;
 }
 
 static int
 proxy_client_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
-				   const char **name_r, time_t *last_change_r)
+				   struct dsync_worker_subscription *rec_r)
 {
 	struct proxy_client_dsync_worker_subs_iter *iter =
 		(struct proxy_client_dsync_worker_subs_iter *)_iter;
+	char **args;
+	int ret;
 
-	return proxy_client_worker_subs_iter_next_line(iter, name_r,
-						       last_change_r);
+	ret = proxy_client_worker_subs_iter_next_line(iter, 4, &args);
+	if (ret <= 0)
+		return ret;
+
+	rec_r->vname = str_tabunescape(args[0]);
+	rec_r->storage_name = str_tabunescape(args[1]);
+	rec_r->ns_prefix = str_tabunescape(args[2]);
+	rec_r->last_change = strtoul(args[3], NULL, 10);
+	return 1;
 }
 
 static int
 proxy_client_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
-				      mailbox_guid_t *name_sha1_r,
-				      time_t *last_change_r)
+				      struct dsync_worker_unsubscription *rec_r)
 {
 	struct proxy_client_dsync_worker_subs_iter *iter =
 		(struct proxy_client_dsync_worker_subs_iter *)_iter;
-	const char *name;
+	char **args;
 	int ret;
 
-	ret = proxy_client_worker_subs_iter_next_line(iter, &name,
-						      last_change_r);
+	ret = proxy_client_worker_subs_iter_next_line(iter, 3, &args);
 	if (ret <= 0)
 		return ret;
 
-	if (dsync_proxy_mailbox_guid_import(name, name_sha1_r) < 0) {
+	memset(rec_r, 0, sizeof(*rec_r));
+	if (dsync_proxy_mailbox_guid_import(args[0], &rec_r->name_sha1) < 0) {
 		i_error("Invalid subscription input from worker server: "
 			"Invalid unsubscription mailbox GUID");
 		iter->iter.failed = TRUE;
 		return -1;
 	}
+	rec_r->ns_prefix = str_tabunescape(args[1]);
+	rec_r->last_change = strtoul(args[2], NULL, 10);
 	return 1;
 }
 

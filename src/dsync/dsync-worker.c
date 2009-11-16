@@ -68,17 +68,15 @@ dsync_worker_subs_iter_init(struct dsync_worker *worker)
 }
 
 int dsync_worker_subs_iter_next(struct dsync_worker_subs_iter *iter,
-				const char **name_r, time_t *last_change_r)
+				struct dsync_worker_subscription *rec_r)
 {
-	return iter->worker->v.subs_iter_next(iter, name_r, last_change_r);
+	return iter->worker->v.subs_iter_next(iter, rec_r);
 }
 
 int dsync_worker_subs_iter_next_un(struct dsync_worker_subs_iter *iter,
-				   mailbox_guid_t *sha1_name_r,
-				   time_t *last_change_r)
+				   struct dsync_worker_unsubscription *rec_r)
 {
-	return iter->worker->v.subs_iter_next_un(iter, sha1_name_r,
-						 last_change_r);
+	return iter->worker->v.subs_iter_next_un(iter, rec_r);
 }
 
 int dsync_worker_subs_iter_deinit(struct dsync_worker_subs_iter **_iter)

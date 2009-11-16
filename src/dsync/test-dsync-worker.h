@@ -28,9 +28,8 @@ struct test_dsync_worker_mailbox_iter {
 
 struct test_dsync_worker_subs_iter {
 	struct dsync_worker_subs_iter iter;
-	const char *next_name;
-	mailbox_guid_t *next_unsubscription;
-	time_t next_last_change;
+	struct dsync_worker_subscription *next_subscription;
+	struct dsync_worker_unsubscription *next_unsubscription;
 	bool last_subs, last_unsubs;
 };
 

@@ -64,17 +64,20 @@ cmd_box_list(struct dsync_proxy_server *server,
 
 static bool cmd_subs_list_subscriptions(struct dsync_proxy_server *server)
 {
-	const char *name;
-	time_t last_change;
+	struct dsync_worker_subscription rec;
 	string_t *str;
 	int ret;
 
 	str = t_str_new(256);
 	while ((ret = dsync_worker_subs_iter_next(server->subs_iter,
-						  &name, &last_change)) > 0) {
+						  &rec)) > 0) {
 		str_truncate(str, 0);
-		str_tabescape_write(str, name);
-		str_printfa(str, "\t%ld\n", (long)last_change);
+		str_tabescape_write(str, rec.vname);
+		str_append_c(str, '\t');
+		str_tabescape_write(str, rec.storage_name);
+		str_append_c(str, '\t');
+		str_tabescape_write(str, rec.ns_prefix);
+		str_printfa(str, "\t%ld\n", (long)rec.last_change);
 		o_stream_send(server->output, str_data(str), str_len(str));
 		if (proxy_server_is_output_full(server))
 			break;
@@ -89,18 +92,18 @@ static bool cmd_subs_list_subscriptions(struct dsync_proxy_server *server)
 
 static bool cmd_subs_list_unsubscriptions(struct dsync_proxy_server *server)
 {
-	mailbox_guid_t name_sha1;
-	time_t last_change;
+	struct dsync_worker_unsubscription rec;
 	string_t *str;
 	int ret;
 
 	str = t_str_new(256);
 	while ((ret = dsync_worker_subs_iter_next_un(server->subs_iter,
-						     &name_sha1,
-						     &last_change)) > 0) {
+						     &rec)) > 0) {
 		str_truncate(str, 0);
-		dsync_proxy_mailbox_guid_export(str, &name_sha1);
-		str_printfa(str, "\t%ld\n", (long)last_change);
+		dsync_proxy_mailbox_guid_export(str, &rec.name_sha1);
+		str_append_c(str, '\t');
+		str_tabescape_write(str, rec.ns_prefix);
+		str_printfa(str, "\t%ld\n", (long)rec.last_change);
 		o_stream_send(server->output, str_data(str), str_len(str));
 		if (proxy_server_is_output_full(server))
 			break;

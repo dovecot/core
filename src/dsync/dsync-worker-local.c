@@ -506,7 +506,7 @@ local_worker_subs_iter_init(struct dsync_worker *_worker)
 
 static int
 local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
-			    const char **name_r, time_t *last_change_r)
+			    struct dsync_worker_subscription *rec_r)
 {
 	struct local_dsync_worker_subs_iter *iter =
 		(struct local_dsync_worker_subs_iter *)_iter;
@@ -515,6 +515,8 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 	struct local_dsync_subscription_change *change, change_lookup;
 	const struct mailbox_info *info;
 	const char *storage_name;
+
+	memset(rec_r, 0, sizeof(*rec_r));
 
 	info = mailbox_list_iter_next(iter->list_iter);
 	if (info == NULL)
@@ -530,18 +532,17 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 		/* it shouldn't be marked as unsubscribed, but drop it to
 		   be sure */
 		change->unsubscribed = FALSE;
-		*last_change_r = change->last_change;
-	} else {
-		*last_change_r = 0;
+		rec_r->last_change = change->last_change;
 	}
-	*name_r = info->name;
+	rec_r->ns_prefix = info->ns->prefix;
+	rec_r->vname = info->name;
+	rec_r->storage_name = storage_name;
 	return 1;
 }
 
 static int
 local_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
-			       mailbox_guid_t *name_sha1_r,
-			       time_t *last_change_r)
+			       struct dsync_worker_unsubscription *rec_r)
 {
 	struct local_dsync_worker_subs_iter *iter =
 		(struct local_dsync_worker_subs_iter *)_iter;
@@ -558,8 +559,12 @@ local_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
 
 		if (change->unsubscribed) {
 			/* the name doesn't matter */
-			*name_sha1_r = change->name_sha1;
-			*last_change_r = change->last_change;
+			struct mail_namespace *ns =
+				mailbox_list_get_namespace(change->list);
+			memset(rec_r, 0, sizeof(*rec_r));
+			rec_r->name_sha1 = change->name_sha1;
+			rec_r->ns_prefix = ns->prefix;
+			rec_r->last_change = change->last_change;
 			return 1;
 		}
 	}

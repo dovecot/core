@@ -10,6 +10,18 @@ enum dsync_msg_get_result {
 	DSYNC_MSG_GET_RESULT_FAILED
 };
 
+struct dsync_worker_subscription {
+	const char *vname, *storage_name, *ns_prefix;
+	time_t last_change;
+};
+struct dsync_worker_unsubscription {
+	/* SHA1 sum of the mailbox's storage name, i.e. without namespace
+	   prefix */
+	mailbox_guid_t name_sha1;
+	const char *ns_prefix;
+	time_t last_change;
+};
+
 typedef void dsync_worker_copy_callback_t(bool success, void *context);
 typedef void dsync_worker_msg_callback_t(enum dsync_msg_get_result result,
 					 const struct dsync_msg_static_data *data,
@@ -54,11 +66,10 @@ dsync_worker_subs_iter_init(struct dsync_worker *worker);
 /* Get the next subscription. Returns 1 if ok, 0 if waiting for more data,
    -1 if there are no more subscriptions. */
 int dsync_worker_subs_iter_next(struct dsync_worker_subs_iter *iter,
-				const char **name_r, time_t *last_change_r);
+				struct dsync_worker_subscription *rec_r);
 /* Like _iter_next(), but list known recent unsubscriptions. */
 int dsync_worker_subs_iter_next_un(struct dsync_worker_subs_iter *iter,
-				   mailbox_guid_t *name_sha1_r,
-				   time_t *last_change_r);
+				   struct dsync_worker_unsubscription *rec_r);
 /* Finish subscription iteration. Returns 0 if ok, -1 if iteration failed. */
 int dsync_worker_subs_iter_deinit(struct dsync_worker_subs_iter **iter);
 /* Subscribe/unsubscribe mailbox */

@@ -93,24 +93,22 @@ test_worker_subs_iter_init(struct dsync_worker *_worker)
 
 static int
 test_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
-			   const char **name_r, time_t *last_change_r)
+			   struct dsync_worker_subscription *rec_r)
 {
 	struct test_dsync_worker_subs_iter *iter =
 		(struct test_dsync_worker_subs_iter *)_iter;
 
-	if (iter->next_name == NULL)
+	if (iter->next_subscription == NULL)
 		return iter->last_subs ? -1 : 0;
 
-	*name_r = iter->next_name;
-	*last_change_r = iter->next_last_change;
-	iter->next_name = NULL;
+	*rec_r = *iter->next_subscription;
+	iter->next_subscription = NULL;
 	return 1;
 }
 
 static int
 test_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
-			      mailbox_guid_t *name_sha1_r,
-			      time_t *last_change_r)
+			      struct dsync_worker_unsubscription *rec_r)
 {
 	struct test_dsync_worker_subs_iter *iter =
 		(struct test_dsync_worker_subs_iter *)_iter;
@@ -118,8 +116,7 @@ test_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
 	if (iter->next_unsubscription == NULL)
 		return iter->last_unsubs ? -1 : 0;
 
-	*name_sha1_r = *iter->next_unsubscription;
-	*last_change_r = iter->next_last_change;
+	*rec_r = *iter->next_unsubscription;
 	iter->next_unsubscription = NULL;
 	return 1;
 }

@@ -115,7 +115,8 @@ static void test_dsync_proxy_box_list(void)
 static void test_dsync_proxy_subs_list(void)
 {
 	const char *name;
-	mailbox_guid_t name_sha1;
+	struct dsync_worker_subscription subs;
+	struct dsync_worker_unsubscription unsubs;
 
 	test_begin("proxy server subs list");
 
@@ -123,11 +124,17 @@ static void test_dsync_proxy_subs_list(void)
 
 	/* subscription */
 	name = "\t\001\r\nname\t\001\n\r";
-	test_worker->subs_iter.next_name = name;
-	test_worker->subs_iter.next_last_change = 1234567890;
+	subs.vname = name;
+	subs.storage_name = "\tstorage_name\n";
+	subs.last_change = 1234567890;
+	subs.ns_prefix = "\t\001\r\nprefix\t\001\n\r";
+	test_worker->subs_iter.next_subscription = &subs;
 	test_assert(run_more() == 0);
 	test_assert(strcmp(str_c(out), t_strconcat(
-		str_tabescape(name), "\t1234567890\n", NULL)) == 0);
+		str_tabescape(name), "\t",
+		str_tabescape(subs.storage_name), "\t",
+		str_tabescape(subs.ns_prefix),
+		"\t1234567890\n", NULL)) == 0);
 	out_clear();
 
 	test_worker->subs_iter.last_subs = TRUE;
@@ -136,10 +143,14 @@ static void test_dsync_proxy_subs_list(void)
 	out_clear();
 
 	/* unsubscription */
-	memcpy(name_sha1.guid, test_mailbox_guid1, sizeof(name_sha1.guid));
-	test_worker->subs_iter.next_unsubscription = &name_sha1;
+	memcpy(unsubs.name_sha1.guid, test_mailbox_guid1,
+	       sizeof(unsubs.name_sha1.guid));
+	unsubs.ns_prefix = "\t\001\r\nprefix2\t\001\n\r";
+	unsubs.last_change = 987654321;
+	test_worker->subs_iter.next_unsubscription = &unsubs;
 	test_assert(run_more() == 0);
-	test_assert(strcmp(str_c(out), TEST_MAILBOX_GUID1"\t1234567890\n") == 0);
+	test_assert(strcmp(str_c(out), t_strconcat(TEST_MAILBOX_GUID1, "\t",
+		str_tabescape(unsubs.ns_prefix), "\t987654321\n", NULL)) == 0);
 	out_clear();
 
 	test_worker->subs_iter.last_unsubs = TRUE;

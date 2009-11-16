@@ -151,30 +151,35 @@ static void dsync_brain_subs_list_finished(struct dsync_brain *brain)
 }
 
 static int
-dsync_brain_subscription_cmp(const struct dsync_brain_subscription *s1,
-			     const struct dsync_brain_subscription *s2)
+dsync_worker_subscription_cmp(const struct dsync_worker_subscription *s1,
+			      const struct dsync_worker_subscription *s2)
 {
-	return strcmp(s1->name, s2->name);
+	return strcmp(s1->vname, s2->vname);
 }
 
 static int
-dsync_brain_unsubscription_cmp(const struct dsync_brain_unsubscription *u1,
-			       const struct dsync_brain_unsubscription *u2)
+dsync_worker_unsubscription_cmp(const struct dsync_worker_unsubscription *u1,
+				const struct dsync_worker_unsubscription *u2)
 {
-	return dsync_guid_cmp(&u1->name_sha1, &u2->name_sha1);
+	int ret;
+
+	ret = strcmp(u1->ns_prefix, u2->ns_prefix);
+	return ret != 0 ? ret :
+		dsync_guid_cmp(&u1->name_sha1, &u2->name_sha1);
 }
 
 static void dsync_worker_subs_input(void *context)
 {
 	struct dsync_brain_subs_list *list = context;
-	struct dsync_brain_subscription subs;
-	struct dsync_brain_unsubscription unsubs;
+	struct dsync_worker_subscription subs;
+	struct dsync_worker_unsubscription unsubs;
 	int ret;
 
 	memset(&subs, 0, sizeof(subs));
-	while ((ret = dsync_worker_subs_iter_next(list->iter, &subs.name,
-						  &subs.last_change)) > 0) {
-		subs.name = p_strdup(list->pool, subs.name);
+	while ((ret = dsync_worker_subs_iter_next(list->iter, &subs)) > 0) {
+		subs.vname = p_strdup(list->pool, subs.vname);
+		subs.storage_name = p_strdup(list->pool, subs.storage_name);
+		subs.ns_prefix = p_strdup(list->pool, subs.ns_prefix);
 		array_append(&list->subscriptions, &subs, 1);
 	}
 	if (ret == 0)
@@ -182,18 +187,19 @@ static void dsync_worker_subs_input(void *context)
 
 	memset(&unsubs, 0, sizeof(unsubs));
 	while ((ret = dsync_worker_subs_iter_next_un(list->iter,
-						     &unsubs.name_sha1,
-						     &unsubs.last_change)) > 0)
+						     &unsubs)) > 0) {
+		unsubs.ns_prefix = p_strdup(list->pool, unsubs.ns_prefix);
 		array_append(&list->unsubscriptions, &unsubs, 1);
+	}
 
 	if (ret < 0) {
 		/* finished listing subscriptions */
 		if (dsync_worker_subs_iter_deinit(&list->iter) < 0)
 			dsync_brain_fail(list->brain);
 		array_sort(&list->subscriptions,
-			   dsync_brain_subscription_cmp);
+			   dsync_worker_subscription_cmp);
 		array_sort(&list->unsubscriptions,
-			   dsync_brain_unsubscription_cmp);
+			   dsync_worker_unsubscription_cmp);
 		dsync_brain_subs_list_finished(list->brain);
 	}
 }
@@ -309,15 +315,15 @@ static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 
 static bool
 dsync_brain_is_unsubscribed(struct dsync_brain_subs_list *list,
-			    const struct dsync_brain_subscription *subs)
+			    const struct dsync_worker_subscription *subs)
 {
-	const struct dsync_brain_unsubscription *unsubs;
-	struct dsync_brain_unsubscription lookup;
+	const struct dsync_worker_unsubscription *unsubs;
+	struct dsync_worker_unsubscription lookup;
 
-	/* FIXME: doesn't work with namespace prefixes */
-	dsync_str_sha_to_guid(subs->name, &lookup.name_sha1);
+	lookup.ns_prefix = subs->ns_prefix;
+	dsync_str_sha_to_guid(subs->storage_name, &lookup.name_sha1);
 	unsubs = array_bsearch(&list->unsubscriptions, &lookup,
-			       dsync_brain_unsubscription_cmp);
+			       dsync_worker_unsubscription_cmp);
 	if (unsubs == NULL)
 		return FALSE;
 	else
@@ -326,7 +332,7 @@ dsync_brain_is_unsubscribed(struct dsync_brain_subs_list *list,
 
 static void dsync_brain_sync_subscriptions(struct dsync_brain *brain)
 {
-	const struct dsync_brain_subscription *src_subs, *dest_subs;
+	const struct dsync_worker_subscription *src_subs, *dest_subs;
 	unsigned int src, dest, src_count, dest_count;
 	int ret;
 
@@ -341,7 +347,8 @@ static void dsync_brain_sync_subscriptions(struct dsync_brain *brain)
 		} else if (dest == dest_count) {
 			ret = -1;
 		} else {
-			ret = strcmp(src_subs[src].name, dest_subs[dest].name);
+			ret = strcmp(src_subs[src].vname,
+				     dest_subs[dest].vname);
 			if (ret == 0) {
 				src++; dest++;
 				continue;
@@ -353,11 +360,11 @@ static void dsync_brain_sync_subscriptions(struct dsync_brain *brain)
 			if (dsync_brain_is_unsubscribed(brain->dest_subs_list,
 							&src_subs[src])) {
 				dsync_worker_set_subscribed(brain->src_worker,
-							    src_subs[src].name,
+							    src_subs[src].vname,
 							    FALSE);
 			} else {
 				dsync_worker_set_subscribed(brain->dest_worker,
-							    src_subs[src].name,
+							    src_subs[src].vname,
 							    TRUE);
 			}
 			src++;
@@ -366,11 +373,11 @@ static void dsync_brain_sync_subscriptions(struct dsync_brain *brain)
 			if (dsync_brain_is_unsubscribed(brain->src_subs_list,
 							&dest_subs[dest])) {
 				dsync_worker_set_subscribed(brain->dest_worker,
-							    dest_subs[dest].name,
+							    dest_subs[dest].vname,
 							    FALSE);
 			} else {
 				dsync_worker_set_subscribed(brain->src_worker,
-							    dest_subs[dest].name,
+							    dest_subs[dest].vname,
 							    TRUE);
 			}
 			dest++;
