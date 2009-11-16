@@ -378,6 +378,11 @@ static void lmtp_client_input(struct lmtp_client *client)
 	if (client->input->stream_errno != 0) {
 		errno = client->input->stream_errno;
 		i_error("lmtp client: read() failed: %m");
+		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
+				 " (read failure)");
+	} else if (client->input->eof) {
+		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
+				 " (disconnected in input)");
 	}
 	lmtp_client_unref(&client);
 }
