@@ -51,6 +51,7 @@ struct proxy_client_dsync_worker {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct timeout *to;
 
 	mailbox_guid_t selected_box_guid;
 
@@ -226,6 +227,7 @@ static void proxy_client_worker_input(struct proxy_client_dsync_worker *worker)
 	const char *line;
 	int ret;
 
+	timeout_reset(worker->to);
 	if (worker->worker.input_callback != NULL) {
 		worker->worker.input_callback(worker->worker.input_context);
 		return;
@@ -245,6 +247,7 @@ static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
 {
 	int ret;
 
+	timeout_reset(worker->to);
 	if ((ret = o_stream_flush(worker->output)) < 0)
 		return 1;
 
@@ -261,6 +264,12 @@ static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
 	return ret;
 }
 
+static void proxy_client_worker_timeout(void *context ATTR_UNUSED)
+{
+	i_error("proxy client timed out");
+	master_service_stop(master_service);
+}
+
 struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
 {
 	struct proxy_client_dsync_worker *worker;
@@ -269,6 +278,8 @@ struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
 	worker->worker.v = proxy_client_dsync_worker;
 	worker->fd_in = fd_in;
 	worker->fd_out = fd_out;
+	worker->to = timeout_add(DSYNC_PROXY_TIMEOUT_MSECS,
+				 proxy_client_worker_timeout, NULL);
 	worker->io = io_add(fd_in, IO_READ, proxy_client_worker_input, worker);
 	worker->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
 	worker->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
@@ -291,6 +302,7 @@ static void proxy_client_worker_deinit(struct dsync_worker *_worker)
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
+	timeout_remove(&worker->to);
 	if (worker->io != NULL)
 		io_remove(&worker->io);
 	i_stream_destroy(&worker->input);

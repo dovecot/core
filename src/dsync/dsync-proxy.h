@@ -3,6 +3,8 @@
 
 #include "dsync-data.h"
 
+#define DSYNC_PROXY_TIMEOUT_MSECS (15*60*1000)
+
 struct dsync_message;
 struct dsync_mailbox;
 

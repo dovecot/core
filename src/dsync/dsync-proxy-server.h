@@ -14,6 +14,7 @@ struct dsync_proxy_server {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct timeout *to;
 
 	struct dsync_worker *worker;
 

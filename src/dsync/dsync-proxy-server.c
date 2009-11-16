@@ -94,6 +94,7 @@ static void proxy_server_input(struct dsync_proxy_server *server)
 		return;
 	}
 
+	timeout_reset(server->to);
 	o_stream_cork(server->output);
 	while (proxy_server_read_line(server, &line) > 0) {
 		T_BEGIN {
@@ -115,6 +116,7 @@ static int proxy_server_output(struct dsync_proxy_server *server)
 	struct ostream *output = server->output;
 	int ret;
 
+	timeout_reset(server->to);
 	if ((ret = o_stream_flush(output)) < 0)
 		ret = 1;
 	else if (server->cur_cmd != NULL) {
@@ -136,6 +138,12 @@ static int proxy_server_output(struct dsync_proxy_server *server)
 	return ret;
 }
 
+static void dsync_proxy_server_timeout(void *context ATTR_UNUSED)
+{
+	i_error("proxy server timed out");
+	master_service_stop(master_service);
+}
+
 struct dsync_proxy_server *
 dsync_proxy_server_init(int fd_in, int fd_out, struct dsync_worker *worker)
 {
@@ -150,6 +158,8 @@ dsync_proxy_server_init(int fd_in, int fd_out, struct dsync_worker *worker)
 	server->io = io_add(fd_in, IO_READ, proxy_server_input, server);
 	server->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
 	server->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
+	server->to = timeout_add(DSYNC_PROXY_TIMEOUT_MSECS,
+				 dsync_proxy_server_timeout, NULL);
 	o_stream_set_flush_callback(server->output, proxy_server_output,
 				    server);
 	fd_set_nonblock(fd_in, TRUE);
@@ -166,6 +176,7 @@ void dsync_proxy_server_deinit(struct dsync_proxy_server **_server)
 	if (server->get_input != NULL)
 		i_stream_unref(&server->get_input);
 	pool_unref(&server->cmd_pool);
+	timeout_remove(&server->to);
 	io_remove(&server->io);
 	i_stream_destroy(&server->input);
 	o_stream_destroy(&server->output);
