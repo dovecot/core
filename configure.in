@@ -2513,7 +2513,9 @@ dnl ** Settings
 dnl **
 
 dnl get a list of setting .[ch] files, but list .h files first
-SETTING_FILES=`find $srcdir/src -name '*settings.[[ch]]' ! -name all-settings.[[ch]] | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g' -e 's/^\(.*\)\(.\)$/\2 \1\2/' | sort -r | sed s/^..//|tr '\n' ' '`
+FILES1=`find $srcdir/src -name '*settings.[[ch]]'|grep "$srcdir/src/lib-" | sed 's/^\(.*\)\(.\)$/\2 \1\2/' | sort -r | sed s/^..//`
+FILES2=`find $srcdir/src -name '*settings.[[ch]]'|grep -v "$srcdir/src/lib-" | sed 's/^\(.*\)\(.\)$/\2 \1\2/' | grep -v all-settings | sort -r | sed s/^..//`
+SETTING_FILES=`echo $FILES1 $FILES2 | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g' | tr '\n' ' '`
 AC_SUBST(SETTING_FILES)
 
 dnl **

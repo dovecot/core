@@ -78,6 +78,8 @@ foreach my $file (@ARGV) {
 	}        
       }
       
+      s/^static const (struct master_settings master_default_settings)/$1/;
+
       $write = 1;
       if (/};/) {
 	$state = 0;
@@ -115,3 +117,4 @@ foreach my $name (keys %parsers) {
 print "\tNULL\n";
 print "};\n";
 print "const struct setting_parser_info *const *all_roots = all_default_roots;\n";
+print "ARRAY_TYPE(service_settings) *default_services = &master_default_settings.services;\n";

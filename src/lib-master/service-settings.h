@@ -53,5 +53,6 @@ struct service_settings {
 	enum service_type parsed_type;
 	unsigned int login_dump_core:1;
 };
+ARRAY_DEFINE_TYPE(service_settings, struct service_settings *);
 
 #endif
