@@ -19,16 +19,20 @@
 #  define RTLD_NOW 0
 #endif
 
+void *module_get_symbol_quiet(struct module *module, const char *symbol)
+{
+	/* clear out old errors */
+	(void)dlerror();
+
+	return dlsym(module->handle, symbol);
+}
+
 void *module_get_symbol(struct module *module, const char *symbol)
 {
 	const char *error;
 	void *ret;
 
-	/* clear out old errors */
-	(void)dlerror();
-
-	/* get our init func */
-	ret = dlsym(module->handle, symbol);
+	ret = module_get_symbol_quiet(module, symbol);
 	if (ret == NULL) {
 		error = dlerror();
 		if (error != NULL) {
@@ -37,7 +41,6 @@ void *module_get_symbol(struct module *module, const char *symbol)
 			ret = NULL;
 		}
 	}
-
 	return ret;
 }
 
@@ -66,7 +69,7 @@ const char *module_file_get_name(const char *fname)
 static void *get_symbol(struct module *module, const char *symbol, bool quiet)
 {
 	if (quiet)
-		return dlsym(module->handle, symbol);
+		return module_get_symbol_quiet(module, symbol);
 
 	return module_get_symbol(module, symbol);
 }
