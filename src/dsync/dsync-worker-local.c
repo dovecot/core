@@ -405,6 +405,8 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	struct mailbox *box;
 	struct mailbox_status status;
 	struct local_dsync_mailbox_change *change;
+	const char *const *fields;
+	unsigned int i, field_count;
 
 	memset(dsync_box_r, 0, sizeof(*dsync_box_r));
 
@@ -450,7 +452,8 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	}
 
 	mailbox_get_status(box, STATUS_UIDNEXT | STATUS_UIDVALIDITY |
-			   STATUS_HIGHESTMODSEQ | STATUS_GUID, &status);
+			   STATUS_HIGHESTMODSEQ | STATUS_GUID |
+			   STATUS_CACHE_FIELDS, &status);
 
 	change = hash_table_lookup(worker->mailbox_changes_hash,
 				   status.mailbox_guid);
@@ -464,6 +467,13 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	dsync_box_r->uid_validity = status.uidvalidity;
 	dsync_box_r->uid_next = status.uidnext;
 	dsync_box_r->highest_modseq = status.highest_modseq;
+
+	fields = array_get(status.cache_fields, &field_count);
+	t_array_init(&dsync_box_r->cache_fields, field_count);
+	for (i = 0; i < field_count; i++) {
+		const char *field_name = t_strdup(fields[i]);
+		array_append(&dsync_box_r->cache_fields, &field_name, 1);
+	}
 
 	local_dsync_worker_add_mailbox(worker, info->ns, storage_name,
 				       &dsync_box_r->mailbox_guid);
@@ -1043,34 +1053,57 @@ local_worker_update_mailbox(struct dsync_worker *_worker,
 	mailbox_close(&box);
 
 	if (selected)
-		dsync_worker_select_mailbox(_worker, &dsync_box->mailbox_guid);
+		dsync_worker_select_mailbox(_worker, dsync_box);
+}
+
+static void
+local_worker_set_cache_fields(struct local_dsync_worker *worker,
+			      const ARRAY_TYPE(const_string) *cache_fields)
+{
+	struct mailbox_update update;
+	const char *const *fields, **new_fields;
+	unsigned int count;
+
+	fields = array_get(cache_fields, &count);
+	new_fields = t_new(const char *, count + 1);
+	memcpy(new_fields, fields, sizeof(const char *) * count);
+
+	memset(&update, 0, sizeof(update));
+	update.cache_fields = new_fields;
+	mailbox_update(worker->selected_box, &update);
 }
 
 static void
 local_worker_select_mailbox(struct dsync_worker *_worker,
-			    const mailbox_guid_t *mailbox)
+			    const mailbox_guid_t *mailbox,
+			    const ARRAY_TYPE(const_string) *cache_fields)
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
 	struct mailbox_transaction_context *trans, *ext_trans;
 
 	if (worker->selected_box != NULL) {
-		if (dsync_guid_equals(&worker->selected_box_guid, mailbox))
+		if (dsync_guid_equals(&worker->selected_box_guid, mailbox)) {
+			/* already selected */
 			return;
+		}
 		local_worker_mailbox_close(worker);
 	}
 	worker->selected_box_guid = *mailbox;
 
-	if (local_mailbox_open(worker, mailbox, &worker->selected_box) < 0)
+	if (local_mailbox_open(worker, mailbox, &worker->selected_box) < 0) {
 		dsync_worker_set_failure(_worker);
-	else {
-		ext_trans = mailbox_transaction_begin(worker->selected_box,
+		return;
+	}
+	if (cache_fields != NULL && array_is_created(cache_fields))
+		local_worker_set_cache_fields(worker, cache_fields);
+
+	ext_trans = mailbox_transaction_begin(worker->selected_box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
-		trans = mailbox_transaction_begin(worker->selected_box, 0);
-		worker->mail = mail_alloc(trans, 0, NULL);
-		worker->ext_mail = mail_alloc(ext_trans, 0, NULL);
-	}
+	trans = mailbox_transaction_begin(worker->selected_box, 0);
+	worker->mail = mail_alloc(trans, 0, NULL);
+	worker->ext_mail = mail_alloc(ext_trans, 0, NULL);
 }
 
 static void

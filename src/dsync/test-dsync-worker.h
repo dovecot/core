@@ -82,6 +82,7 @@ struct test_dsync_worker {
 	mailbox_guid_t selected_mailbox;
 	mailbox_guid_t *msg_iter_mailboxes;
 	unsigned int msg_iter_mailbox_count;
+	const ARRAY_TYPE(const_string) *cache_fields;
 };
 
 struct dsync_worker *dsync_worker_init_test(void);

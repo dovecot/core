@@ -27,7 +27,6 @@ static void msg_get_callback(enum dsync_msg_get_result result,
 {
 	struct dsync_brain_msg_save_context *ctx = context;
 	const struct dsync_brain_mailbox *mailbox;
-	const mailbox_guid_t *mailbox_guid;
 	struct istream *input;
 
 	mailbox = array_idx(&ctx->iter->sync->mailboxes, ctx->mailbox_idx);
@@ -35,8 +34,7 @@ static void msg_get_callback(enum dsync_msg_get_result result,
 	case DSYNC_MSG_GET_RESULT_SUCCESS:
 		/* the mailbox may have changed, make sure we've the
 		   right one */
-		mailbox_guid = &mailbox->box.mailbox_guid;
-		dsync_worker_select_mailbox(ctx->iter->worker, mailbox_guid);
+		dsync_worker_select_mailbox(ctx->iter->worker, &mailbox->box);
 
 		input = data->input;
 		dsync_worker_msg_save(ctx->iter->worker, ctx->msg, data);
@@ -229,7 +227,7 @@ dsync_brain_msg_sync_add_new_msgs(struct dsync_brain_msg_iter *iter)
 	while (iter->mailbox_idx < array_count(&iter->sync->mailboxes)) {
 		mailbox = array_idx(&iter->sync->mailboxes, iter->mailbox_idx);
 		mailbox_guid = &mailbox->box.mailbox_guid;
-		dsync_worker_select_mailbox(iter->worker, mailbox_guid);
+		dsync_worker_select_mailbox(iter->worker, &mailbox->box);
 
 		if (dsync_brain_mailbox_add_new_msgs(iter, mailbox_guid)) {
 			/* continue later */
@@ -337,8 +335,7 @@ sync_iter_resolve_uid_conflicts(struct dsync_brain_msg_iter *iter)
 	conflicts = array_get(&iter->uid_conflicts, &count);
 	for (i = 0; i < count; i++) {
 		mailbox = &mailboxes[conflicts[i].mailbox_idx];
-		dsync_worker_select_mailbox(iter->worker,
-					    &mailbox->box.mailbox_guid);
+		dsync_worker_select_mailbox(iter->worker, &mailbox->box);
 		dsync_worker_msg_update_uid(iter->worker, conflicts[i].old_uid,
 					    conflicts[i].new_uid);
 	}

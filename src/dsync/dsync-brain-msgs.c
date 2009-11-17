@@ -284,9 +284,9 @@ void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync)
 			return;
 		}
 		dsync_worker_select_mailbox(sync->src_worker,
-			&mailboxes[mailbox_idx].box.mailbox_guid);
+			&mailboxes[mailbox_idx].box);
 		dsync_worker_select_mailbox(sync->dest_worker,
-			&mailboxes[mailbox_idx].box.mailbox_guid);
+			&mailboxes[mailbox_idx].box);
 	}
 }
 
@@ -321,8 +321,12 @@ dsync_brain_msg_iter_init(struct dsync_brain_mailbox_sync *sync,
 					dsync_worker_msg_callback, sync);
 	dsync_worker_set_output_callback(worker,
 					 dsync_worker_msg_callback, sync);
-	if (mailbox_count > 0)
-		dsync_worker_select_mailbox(worker, &mailboxes[0]);
+	if (mailbox_count > 0) {
+		const struct dsync_brain_mailbox *first;
+
+		first = array_idx(&sync->mailboxes, 0);
+		dsync_worker_select_mailbox(worker, &first->box);
+	}
 	return iter;
 }
 

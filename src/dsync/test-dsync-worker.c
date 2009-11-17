@@ -269,12 +269,14 @@ test_worker_update_mailbox(struct dsync_worker *_worker,
 
 static void
 test_worker_select_mailbox(struct dsync_worker *_worker,
-			   const mailbox_guid_t *mailbox)
+			   const mailbox_guid_t *mailbox,
+			   const ARRAY_TYPE(const_string) *cache_fields)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
 	struct dsync_mailbox box;
 
 	worker->selected_mailbox = *mailbox;
+	worker->cache_fields = cache_fields;
 
 	memset(&box, 0, sizeof(box));
 	memcpy(box.mailbox_guid.guid, mailbox, sizeof(box.mailbox_guid.guid));

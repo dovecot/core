@@ -8,6 +8,9 @@
 struct dsync_message;
 struct dsync_mailbox;
 
+void dsync_proxy_strings_export(string_t *str,
+				const ARRAY_TYPE(const_string) *strings);
+
 void dsync_proxy_msg_export(string_t *str, const struct dsync_message *msg);
 int dsync_proxy_msg_parse_flags(pool_t pool, const char *str,
 				struct dsync_message *msg_r);

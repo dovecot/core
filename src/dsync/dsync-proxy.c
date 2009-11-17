@@ -13,6 +13,22 @@
 
 #include <stdlib.h>
 
+void dsync_proxy_strings_export(string_t *str,
+				const ARRAY_TYPE(const_string) *strings)
+{
+	const char *const *fields;
+	unsigned int i, count;
+
+	if (!array_is_created(strings))
+		return;
+
+	fields = array_get(strings, &count);
+	for (i = 0; i < count; i++) {
+		str_append_c(str, '\t');
+		str_tabescape_write(str, fields[i]);
+	}
+}
+
 void dsync_proxy_msg_export(string_t *str,
 			    const struct dsync_message *msg)
 {
@@ -155,19 +171,20 @@ void dsync_proxy_mailbox_export(string_t *str,
 	str_printfa(str, "\t%u\t%u\t%llu",
 		    box->uid_validity, box->uid_next,
 		    (unsigned long long)box->highest_modseq);
+	dsync_proxy_strings_export(str, &box->cache_fields);
 }
 
 int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 					 struct dsync_mailbox *box_r,
 					 const char **error_r)
 {
-	unsigned int count;
+	unsigned int i, count;
 	char *p;
 
 	memset(box_r, 0, sizeof(*box_r));
 
 	count = str_array_length(args);
-	if (count != 4 && count != 8) {
+	if (count != 4 && count < 8) {
 		*error_r = "Mailbox missing parameters";
 		return -1;
 	}
@@ -216,6 +233,14 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 	if (*p != '\0') {
 		*error_r = "Invalid mailbox highest_modseq";
 		return -1;
+	}
+
+	args += 8;
+	count -= 8;
+	p_array_init(&box_r->cache_fields, pool, count + 1);
+	for (i = 0; i < count; i++) {
+		const char *field_name = p_strdup(pool, args[i]);
+		array_append(&box_r->cache_fields, &field_name, 1);
 	}
 	return 0;
 }

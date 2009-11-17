@@ -110,7 +110,7 @@ void dsync_worker_update_mailbox(struct dsync_worker *worker,
 
 /* The following message syncing functions access the this selected mailbox. */
 void dsync_worker_select_mailbox(struct dsync_worker *worker,
-				 const mailbox_guid_t *mailbox);
+				 const struct dsync_mailbox *box);
 /* Update message's metadata (flags, keywords, modseq). */
 void dsync_worker_msg_update_metadata(struct dsync_worker *worker,
 				      const struct dsync_message *msg);

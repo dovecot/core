@@ -1,6 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "sha1.h"
 #include "dsync-data.h"
 #include "test-dsync-common.h"
@@ -42,6 +43,9 @@ bool dsync_messages_equal(const struct dsync_message *m1,
 bool dsync_mailboxes_equal(const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2)
 {
+	const char *const *f1 = NULL, *const *f2 = NULL;
+	unsigned int i, f1_count = 0, f2_count = 0;
+
 	if (strcmp(box1->name, box2->name) != 0 ||
 	    memcmp(box1->dir_guid.guid, box2->dir_guid.guid,
 		   sizeof(box1->dir_guid.guid)) != 0 ||
@@ -51,6 +55,17 @@ bool dsync_mailboxes_equal(const struct dsync_mailbox *box1,
 	    box1->uid_next != box2->uid_next ||
 	    box1->highest_modseq != box2->highest_modseq)
 		return FALSE;
+
+	if (array_is_created(&box1->cache_fields))
+		f1 = array_get(&box1->cache_fields, &f1_count);
+	if (array_is_created(&box2->cache_fields))
+		f2 = array_get(&box2->cache_fields, &f2_count);
+	if (f1_count != f2_count)
+		return FALSE;
+	for (i = 0; i < f1_count; i++) {
+		if (strcmp(f1[i], f2[i]) != 0)
+			return FALSE;
+	}
 	return TRUE;
 }
 

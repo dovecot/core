@@ -155,9 +155,10 @@ void dsync_worker_update_mailbox(struct dsync_worker *worker,
 }
 
 void dsync_worker_select_mailbox(struct dsync_worker *worker,
-				 const mailbox_guid_t *mailbox)
+				 const struct dsync_mailbox *box)
 {
-	worker->v.select_mailbox(worker, mailbox);
+	worker->v.select_mailbox(worker, &box->mailbox_guid,
+				 &box->cache_fields);
 }
 
 void dsync_worker_msg_update_metadata(struct dsync_worker *worker,

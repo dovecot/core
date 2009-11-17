@@ -25,6 +25,7 @@ struct dsync_mailbox {
 	uint64_t highest_modseq;
 	time_t last_renamed;
 	enum dsync_mailbox_flags flags;
+	ARRAY_TYPE(const_string) cache_fields;
 };
 ARRAY_DEFINE_TYPE(dsync_mailbox, struct dsync_mailbox *);
 

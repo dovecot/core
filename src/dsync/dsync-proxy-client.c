@@ -716,7 +716,8 @@ proxy_client_worker_update_mailbox(struct dsync_worker *_worker,
 
 static void
 proxy_client_worker_select_mailbox(struct dsync_worker *_worker,
-				   const mailbox_guid_t *mailbox)
+				   const mailbox_guid_t *mailbox,
+				   const ARRAY_TYPE(const_string) *cache_fields)
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
@@ -732,6 +733,8 @@ proxy_client_worker_select_mailbox(struct dsync_worker *_worker,
 
 		str_append(str, "BOX-SELECT\t");
 		dsync_proxy_mailbox_guid_export(str, mailbox);
+		if (cache_fields != NULL)
+			dsync_proxy_strings_export(str, cache_fields);
 		str_append_c(str, '\n');
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;

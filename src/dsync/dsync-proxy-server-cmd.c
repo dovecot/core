@@ -290,15 +290,22 @@ cmd_box_update(struct dsync_proxy_server *server, const char *const *args)
 static int
 cmd_box_select(struct dsync_proxy_server *server, const char *const *args)
 {
-	mailbox_guid_t guid;
+	struct dsync_mailbox box;
+	unsigned int i, count;
 
+	memset(&box, 0, sizeof(box));
 	if (args[0] == NULL ||
-	    dsync_proxy_mailbox_guid_import(args[0], &guid) < 0) {
+	    dsync_proxy_mailbox_guid_import(args[0], &box.mailbox_guid) < 0) {
 		i_error("box-select: Invalid mailbox GUID '%s'", args[0]);
 		return -1;
 	}
+	args++;
 
-	dsync_worker_select_mailbox(server->worker, &guid);
+	count = str_array_length(args);
+	t_array_init(&box.cache_fields, count + 1);
+	for (i = 0; i < count; i++)
+		array_append(&box.cache_fields, &args[i], 1);
+	dsync_worker_select_mailbox(server->worker, &box);
 	return 1;
 }
 

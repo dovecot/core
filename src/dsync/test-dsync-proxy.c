@@ -1,6 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "str.h"
 #include "dsync-proxy.h"
 #include "test-dsync-common.h"
@@ -84,6 +85,8 @@ static void test_dsync_proxy_msg(void)
 
 static void test_dsync_proxy_mailbox(void)
 {
+	static const char *cache1 = "cache1";
+	static const char *cache2 = "cache2";
 	string_t *str;
 	struct dsync_mailbox box_in, box_out;
 	const char *error;
@@ -124,6 +127,17 @@ static void test_dsync_proxy_mailbox(void)
 	/* limits */
 	box_in.uid_next = (uint32_t)-1;
 	box_in.highest_modseq = (uint64_t)-1;
+
+	str_truncate(str, 0);
+	dsync_proxy_mailbox_export(str, &box_in);
+	test_assert(dsync_proxy_mailbox_import(pool, str_c(str),
+					       &box_out, &error) == 0);
+	test_assert(dsync_mailboxes_equal(&box_in, &box_out));
+
+	/* mailbox with cache fields */
+	t_array_init(&box_in.cache_fields, 10);
+	array_append(&box_in.cache_fields, &cache1, 1);
+	array_append(&box_in.cache_fields, &cache2, 1);
 
 	str_truncate(str, 0);
 	dsync_proxy_mailbox_export(str, &box_in);
