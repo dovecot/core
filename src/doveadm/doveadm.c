@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+bool doveadm_verbose = FALSE, doveadm_debug = FALSE;
+
 static ARRAY_DEFINE(doveadm_cmds, struct doveadm_cmd);
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd)
@@ -73,10 +75,13 @@ static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	const char *cmd_name;
+	int c;
 
+	/* "+" is GNU extension to stop at the first non-option.
+	   others just accept -+ option. */
 	master_service = master_service_init("doveadm",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "+");
+					     &argc, &argv, "+Dv");
 	i_array_init(&doveadm_cmds, 32);
 	doveadm_mail_init();
 	doveadm_register_cmd(&doveadm_cmd_help);
@@ -86,10 +91,19 @@ int main(int argc, char *argv[])
 	doveadm_register_cmd(&doveadm_cmd_pw);
 	doveadm_register_cmd(&doveadm_cmd_who);
 
-	/* "+" is GNU extension to stop at the first non-option.
-	   others just accept -+ option. */
-	if (master_getopt(master_service) > 0)
-		usage();
+	while ((c = master_getopt(master_service)) > 0) {
+		switch (c) {
+		case 'D':
+			doveadm_debug = TRUE;
+			doveadm_verbose = TRUE;
+			break;
+		case 'v':
+			doveadm_verbose = TRUE;
+			break;
+		default:
+			return FATAL_DEFAULT;
+		}
+	}
 	if (optind == argc)
 		usage();
 

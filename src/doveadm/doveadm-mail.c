@@ -181,7 +181,7 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 		} T_END;
 		if (ret < 0)
 			break;
-		if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0) {
+		if (doveadm_verbose) {
 			if (++user_idx % interval == 0) {
 				printf("\r%d / %d", user_idx, user_count);
 				fflush(stdout);
@@ -193,7 +193,7 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 			break;
 		}
 	}
-	if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
+	if (doveadm_verbose)
 		printf("\n");
 	i_set_failure_prefix("doveadm: ");
 	if (ret < 0)
@@ -209,13 +209,13 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	bool all_users = FALSE;
 	int c;
 
-	while ((c = getopt(argc, argv, "av")) > 0) {
+	if (doveadm_debug)
+		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
+
+	while ((c = getopt(argc, argv, "a")) > 0) {
 		switch (c) {
 		case 'a':
 			all_users = TRUE;
-			break;
-		case 'v':
-			service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 			break;
 		default:
 			doveadm_mail_help(cmd);

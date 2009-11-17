@@ -18,6 +18,8 @@ extern struct doveadm_cmd doveadm_cmd_dump;
 extern struct doveadm_cmd doveadm_cmd_pw;
 extern struct doveadm_cmd doveadm_cmd_who;
 
+extern bool doveadm_verbose, doveadm_debug;
+
 void doveadm_register_cmd(const struct doveadm_cmd *cmd);
 
 void usage(void);
