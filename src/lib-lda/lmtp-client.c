@@ -216,6 +216,7 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 		rcpt[i].failed = line[0] != '2';
 		rcpt[i].data_callback(!rcpt[i].failed, line,
 				      rcpt[i].context);
+		client->rcpt_next_data_idx = i + 1;
 		if (client->protocol == LMTP_CLIENT_PROTOCOL_LMTP)
 			break;
 	}
