@@ -539,6 +539,52 @@ void index_storage_mailbox_close(struct mailbox *box)
 	pool_unref(&box->pool);
 }
 
+static void
+index_storage_mailbox_update_cache_fields(struct index_mailbox *ibox,
+					  const struct mailbox_update *update)
+{
+	const char *const *field_names = update->cache_fields;
+	ARRAY_DEFINE(new_fields, struct mail_cache_field);
+	const struct mail_cache_field *old_fields;
+	struct mail_cache_field field;
+	unsigned int i, j, old_count;
+
+	old_fields = mail_cache_register_get_list(ibox->cache,
+						  pool_datastack_create(),
+						  &old_count);
+
+	/* There shouldn't be many fields, so don't worry about O(n^2). */
+	t_array_init(&new_fields, 32);
+	for (i = 0; field_names[i] != NULL; i++) {
+		/* see if it's an existing field */
+		for (j = 0; j < old_count; j++) {
+			if (strcmp(field_names[i], old_fields[j].name) == 0)
+				break;
+		}
+		if (j != old_count) {
+			field = old_fields[i];
+			if (field.decision == MAIL_CACHE_DECISION_NO)
+				field.decision = MAIL_CACHE_DECISION_TEMP;
+			array_append(&new_fields, &field, 1);
+		} else if (strncmp(field_names[i], "hdr.", 4) == 0) {
+			/* new header */
+			memset(&field, 0, sizeof(field));
+			field.name = field_names[i];
+			field.type = MAIL_CACHE_FIELD_HEADER;
+			field.decision = MAIL_CACHE_DECISION_TEMP;
+			array_append(&new_fields, &field, 1);
+		} else {
+			/* new unknown field. we can't do anything about
+			   this since we don't know its type */
+		}
+	}
+	if (array_count(&new_fields) > 0) {
+		mail_cache_register_fields(ibox->cache,
+					   array_idx_modifiable(&new_fields, 0),
+					   array_count(&new_fields));
+	}
+}
+
 int index_storage_mailbox_update(struct mailbox *box,
 				 const struct mailbox_update *update)
 {
@@ -552,6 +598,8 @@ int index_storage_mailbox_update(struct mailbox *box,
 		if (mailbox_open(box) < 0)
 			return -1;
 	}
+	if (update->cache_fields != NULL)
+		index_storage_mailbox_update_cache_fields(ibox, update);
 
 	/* make sure we get the latest index info */
 	(void)mail_index_refresh(ibox->index);

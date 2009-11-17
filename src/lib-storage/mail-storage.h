@@ -60,7 +60,8 @@ enum mailbox_status_items {
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
 	STATUS_KEYWORDS		= 0x40,
 	STATUS_HIGHESTMODSEQ	= 0x80,
-	STATUS_GUID		= 0x100
+	STATUS_GUID		= 0x100,
+	STATUS_CACHE_FIELDS	= 0x200
 };
 
 enum mailbox_search_result_flags {
@@ -185,6 +186,8 @@ struct mailbox_status {
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 
 	const ARRAY_TYPE(keywords) *keywords;
+	/* Fields that have "temp" or "yes" caching decision. */
+	const ARRAY_TYPE(const_string) *cache_fields;
 
 	/* There are expunges that haven't been synced yet */
 	unsigned int sync_delayed_expunges:1;
@@ -198,6 +201,8 @@ struct mailbox_update {
 	uint32_t uid_validity;
 	uint32_t min_next_uid;
 	uint64_t min_highest_modseq;
+	/* Add these fields to be temporarily cached, if they aren't already. */
+	const char *const *cache_fields;
 };
 
 struct mail_transaction_commit_changes {
