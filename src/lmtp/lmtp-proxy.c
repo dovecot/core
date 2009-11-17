@@ -197,34 +197,44 @@ static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 		lmtp_proxy_finish(proxy);
 }
 
-static void lmtp_proxy_fail_all(struct lmtp_proxy *proxy, const char *line)
+static void lmtp_proxy_fail_all(struct lmtp_proxy *proxy, const char *reason)
 {
-	struct lmtp_proxy_recipient *rcpt;
+	struct lmtp_proxy_connection *const *conns;
 	unsigned int i, count;
-	bool ret;
+	const char *line;
 
-	rcpt = array_get_modifiable(&proxy->rcpt_to, &count);
-	for (i = proxy->rcpt_next_reply_idx; i < count; i++) {
-		if (!rcpt[i].rcpt_to_failed) {
-			i_assert(!rcpt[i].data_reply_received);
-			rcpt[i].reply = line;
-			rcpt[i].data_reply_received = TRUE;
+	pool_ref(proxy->pool);
+	conns = array_get(&proxy->connections, &count);
+	for (i = 0; i < count; i++) {
+		line = t_strdup_printf(ERRSTR_TEMP_REMOTE_FAILURE
+				" (%s while waiting for reply to %s)", reason,
+				lmtp_client_state_to_string(conns[i]->client));
+		lmtp_client_fail(conns[i]->client, line);
+
+		if (!array_is_created(&proxy->connections)) {
+			pool_unref(&proxy->pool);
+			return;
 		}
 	}
-	ret = lmtp_proxy_send_replies(proxy);
-	i_assert(ret);
-
-	lmtp_proxy_finish(proxy);
+	i_unreached();
 }
 
 static void lmtp_proxy_data_input_timeout(struct lmtp_proxy *proxy)
 {
-	lmtp_proxy_fail_all(proxy, "451 4.4.2 Input timeout in DATA");
-}
+	struct lmtp_proxy_connection *const *conns;
+	unsigned int i, count;
 
-static void lmtp_proxy_data_disconnected(struct lmtp_proxy *proxy)
-{
-	lmtp_proxy_fail_all(proxy, "451 4.4.2 Client disconnected in DATA");
+	pool_ref(proxy->pool);
+	conns = array_get(&proxy->connections, &count);
+	for (i = 0; i < count; i++) {
+		lmtp_client_fail(conns[i]->client, ERRSTR_TEMP_REMOTE_FAILURE
+				 " (timeout in DATA input)");
+		if (!array_is_created(&proxy->connections)) {
+			pool_unref(&proxy->pool);
+			return;
+		}
+	}
+	i_unreached();
 }
 
 static void
@@ -332,18 +342,6 @@ static bool lmtp_proxy_disconnect_hanging_output(struct lmtp_proxy *proxy)
 	return TRUE;
 }
 
-static void lmtp_proxy_disconnect_unfinished(struct lmtp_proxy *proxy)
-{
-	struct lmtp_proxy_connection *const *conns;
-	unsigned int i, count;
-
-	conns = array_get(&proxy->connections, &count);
-	for (i = 0; i < count; i++) {
-		lmtp_client_fail(conns[i]->client, ERRSTR_TEMP_REMOTE_FAILURE
-				 " (DATA input timeout)");
-	}
-}
-
 static void lmtp_proxy_output_timeout(struct lmtp_proxy *proxy)
 {
 	timeout_remove(&proxy->to);
@@ -355,8 +353,7 @@ static void lmtp_proxy_output_timeout(struct lmtp_proxy *proxy)
 		/* no such connection, so we've already sent everything but
 		   some servers aren't replying to us. disconnect all of
 		   them. */
-		lmtp_proxy_disconnect_unfinished(proxy);
-		lmtp_proxy_try_finish(proxy);
+		lmtp_proxy_fail_all(proxy, "timeout");
 	}
 }
 
@@ -366,10 +363,8 @@ static void lmtp_proxy_wait_for_output(struct lmtp_proxy *proxy)
 
 	if (proxy->io != NULL)
 		io_remove(&proxy->io);
-	if (array_count(&proxy->connections) > 1) {
-		proxy->to = timeout_add(proxy->max_timeout_msecs,
-					lmtp_proxy_output_timeout, proxy);
-	}
+	proxy->to = timeout_add(proxy->max_timeout_msecs,
+				lmtp_proxy_output_timeout, proxy);
 }
 
 static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
@@ -385,7 +380,7 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 		return FALSE;
 	case -1:
 		if (proxy->data_input->stream_errno != 0)
-			lmtp_proxy_data_disconnected(proxy);
+			lmtp_proxy_fail_all(proxy, "disconnect");
 		else {
 			/* finished reading data input. now we'll just have to
 			   wait for replies. */

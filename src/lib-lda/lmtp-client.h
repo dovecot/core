@@ -36,5 +36,10 @@ void lmtp_client_send(struct lmtp_client *client, struct istream *data_input);
 /* Call this function whenever input stream can potentially be read forward.
    This is useful with non-blocking istreams and tee-istreams. */
 void lmtp_client_send_more(struct lmtp_client *client);
+/* Fail the connection with line as the reply to unfinished RCPT TO/DATA
+   replies. */
+void lmtp_client_fail(struct lmtp_client *client, const char *line);
+/* Return the state (command reply) the client is currently waiting for. */
+const char *lmtp_client_state_to_string(struct lmtp_client *client);
 
 #endif

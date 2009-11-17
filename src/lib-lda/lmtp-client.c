@@ -122,13 +122,33 @@ void lmtp_client_deinit(struct lmtp_client **_client)
 	lmtp_client_unref(&client);
 }
 
-static void lmtp_client_fail(struct lmtp_client *client, const char *line)
+const char *lmtp_client_state_to_string(struct lmtp_client *client)
+{
+	switch (client->input_state) {
+	case LMTP_INPUT_STATE_GREET:
+		return "greeting";
+	case LMTP_INPUT_STATE_LHLO:
+		return "LHLO";
+	case LMTP_INPUT_STATE_MAIL_FROM:
+		return "MAIL FROM";
+	case LMTP_INPUT_STATE_RCPT_TO:
+		return "RCPT TO";
+	case LMTP_INPUT_STATE_DATA_CONTINUE:
+		return "DATA";
+	case LMTP_INPUT_STATE_DATA:
+		return "end-of-DATA";
+	}
+	return "??";
+}
+
+void lmtp_client_fail(struct lmtp_client *client, const char *line)
 {
 	struct lmtp_rcpt *recipients;
 	unsigned int i, count;
 
 	client->global_fail_string = p_strdup(client->pool, line);
 
+	lmtp_client_ref(client);
 	recipients = array_get_modifiable(&client->recipients, &count);
 	for (i = client->rcpt_next_receive_idx; i < count; i++) {
 		recipients[i].rcpt_to_callback(FALSE, line,
@@ -146,6 +166,7 @@ static void lmtp_client_fail(struct lmtp_client *client, const char *line)
 	client->rcpt_next_data_idx = count;
 
 	lmtp_client_close(client);
+	lmtp_client_unref(&client);
 }
 
 static void
