@@ -178,7 +178,7 @@ bool cmd_store(struct client_command_context *cmd)
 	}
 
 	mail = mail_alloc(t, MAIL_FETCH_FLAGS, NULL);
-	while (mailbox_search_next(search_ctx, mail) > 0) {
+	while (mailbox_search_next(search_ctx, mail)) {
 		if (ctx.max_modseq < (uint64_t)-1) {
 			/* check early so there's less work for transaction
 			   commit if something has to be cancelled */

@@ -52,7 +52,7 @@ static int fetch_and_copy(struct client *client,
 	mail = mail_alloc(src_trans, MAIL_FETCH_STREAM_HEADER |
 			  MAIL_FETCH_STREAM_BODY, NULL);
 	ret = 1;
-	while (mailbox_search_next(search_ctx, mail) > 0 && ret > 0) {
+	while (mailbox_search_next(search_ctx, mail) && ret > 0) {
 		if (mail->expunged) {
 			ret = 0;
 			break;

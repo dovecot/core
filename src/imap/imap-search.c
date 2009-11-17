@@ -347,7 +347,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 		(opts & ~(SEARCH_RETURN_NORESULTS |
 			  SEARCH_RETURN_MIN | SEARCH_RETURN_MAX)) == 0;
 	while (mailbox_search_next_nonblock(ctx->search_ctx, ctx->mail,
-					    &tryagain) > 0) {
+					    &tryagain)) {
 		id = cmd->uid ? ctx->mail->uid : ctx->mail->seq;
 		ctx->result_count++;
 

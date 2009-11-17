@@ -817,30 +817,28 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 	return ret;
 }
 
-int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail)
+bool mailbox_search_next(struct mail_search_context *ctx, struct mail *mail)
 {
 	bool tryagain;
-	int ret;
 
-	while ((ret = mailbox_search_next_nonblock(ctx, mail,
-						   &tryagain)) == 0) {
+	while (!mailbox_search_next_nonblock(ctx, mail, &tryagain)) {
 		if (!tryagain)
-			break;
+			return FALSE;
 	}
-
-	return ret;
+	return TRUE;
 }
 
-int mailbox_search_next_nonblock(struct mail_search_context *ctx,
-				 struct mail *mail, bool *tryagain_r)
+bool mailbox_search_next_nonblock(struct mail_search_context *ctx,
+				  struct mail *mail, bool *tryagain_r)
 {
-	int ret;
+	struct mailbox *box = ctx->transaction->box;
 
-	ret = ctx->transaction->box->v.
-		search_next_nonblock(ctx, mail, tryagain_r);
-	if (ret > 0)
+	if (!box->v.search_next_nonblock(ctx, mail, tryagain_r))
+		return FALSE;
+	else {
 		mailbox_search_results_add(ctx, mail->uid);
-	return ret;
+		return TRUE;
+	}
 }
 
 bool mailbox_search_seen_lost_data(struct mail_search_context *ctx)
@@ -860,7 +858,7 @@ int mailbox_search_result_build(struct mailbox_transaction_context *t,
 	ctx = mailbox_search_init(t, args, NULL);
 	*result_r = mailbox_search_result_save(ctx, flags);
 	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(ctx, mail) > 0) ;
+	while (mailbox_search_next(ctx, mail)) ;
 	mail_free(&mail);
 
 	ret = mailbox_search_deinit(&ctx);

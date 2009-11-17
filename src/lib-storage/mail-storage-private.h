@@ -189,8 +189,8 @@ struct mailbox_vfuncs {
 		       struct mail_search_args *args,
 		       const enum mail_sort_type *sort_program);
 	int (*search_deinit)(struct mail_search_context *ctx);
-	int (*search_next_nonblock)(struct mail_search_context *ctx,
-				    struct mail *mail, bool *tryagain_r);
+	bool (*search_next_nonblock)(struct mail_search_context *ctx,
+				     struct mail *mail, bool *tryagain_r);
 	/* Internal search function which updates ctx->seq */
 	bool (*search_next_update_seq)(struct mail_search_context *ctx);
 

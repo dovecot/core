@@ -340,7 +340,7 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	mail = mail_alloc(ctx->t, 0, headers_ctx);
 	mailbox_header_lookup_unref(&headers_ctx);
 
-	while (mailbox_search_next(search_ctx, mail) > 0) {
+	while (mailbox_search_next(search_ctx, mail)) {
 		if (mail_thread_map_add_mail(ctx, mail) < 0) {
 			ret = -1;
 			break;
@@ -533,7 +533,7 @@ static void mail_thread_cache_sync_add(struct mail_thread_mailbox *tbox,
 	   count - kind of kludgy) */
 	i_assert(msgid_map[count].uid == 0);
 	i = 0;
-	while (i < count && mailbox_search_next(search_ctx, mail) > 0) {
+	while (i < count && mailbox_search_next(search_ctx, mail)) {
 		while (msgid_map[i].uid < mail->uid)
 			i++;
 		i_assert(i < count);

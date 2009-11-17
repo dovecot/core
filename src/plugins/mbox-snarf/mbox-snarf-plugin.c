@@ -56,9 +56,10 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	search_ctx = mailbox_search_init(src_trans, search_args, NULL);
 	mail_search_args_unref(&search_args);
 
+	ret = 0;
 	mail = mail_alloc(src_trans, MAIL_FETCH_STREAM_HEADER |
 			  MAIL_FETCH_STREAM_BODY, NULL);
-	while ((ret = mailbox_search_next(search_ctx, mail)) > 0) {
+	while (mailbox_search_next(search_ctx, mail)) {
 		if (mail->expunged)
 			continue;
 

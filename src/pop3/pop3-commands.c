@@ -213,7 +213,7 @@ bool client_update_mails(struct client *client)
 	mail_search_args_unref(&search_args);
 
 	mail = mail_alloc(client->trans, 0, NULL);
-	while (mailbox_search_next(ctx, mail) > 0) {
+	while (mailbox_search_next(ctx, mail)) {
 		idx = mail->seq - 1;
 		bit = 1 << (idx % CHAR_BIT);
 		if (client->deleted_bitmask != NULL &&
@@ -402,7 +402,7 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 	ctx->mail = mail_alloc(client->trans, MAIL_FETCH_STREAM_HEADER |
 			       MAIL_FETCH_STREAM_BODY, NULL);
 
-	if (mailbox_search_next(ctx->search_ctx, ctx->mail) <= 0 ||
+	if (!mailbox_search_next(ctx->search_ctx, ctx->mail) ||
 	    mail_get_stream(ctx->mail, NULL, NULL, &ctx->stream) < 0) {
 		ret = client_reply_msg_expunged(client, msgnum);
 		fetch_deinit(ctx);
@@ -476,7 +476,7 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 		mail_search_args_unref(&search_args);
 
 		mail = mail_alloc(client->trans, 0, NULL);
-		while (mailbox_search_next(search_ctx, mail) > 0)
+		while (mailbox_search_next(search_ctx, mail))
 			mail_update_flags(mail, MODIFY_REMOVE, MAIL_SEEN);
 		mail_free(&mail);
 		(void)mailbox_search_deinit(&search_ctx);
@@ -585,7 +585,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	tab[0].value = t_strdup_printf("%u", client->uid_validity);
 
 	str = t_str_new(128);
-	while (mailbox_search_next(ctx->search_ctx, ctx->mail) > 0) {
+	while (mailbox_search_next(ctx->search_ctx, ctx->mail)) {
 		if (client->deleted) {
 			uint32_t idx = ctx->mail->seq - 1;
 			if (client->deleted_bitmask[idx / CHAR_BIT] &

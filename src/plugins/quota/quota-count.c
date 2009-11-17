@@ -51,7 +51,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	ctx = mailbox_search_init(trans, search_args, NULL);
 	mail_search_args_unref(&search_args);
 
-	while (mailbox_search_next(ctx, mail) > 0) {
+	while (mailbox_search_next(ctx, mail)) {
 		if (mail_get_physical_size(mail, &size) == 0)
 			*bytes_r += size;
 		*count_r += 1;

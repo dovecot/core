@@ -59,7 +59,7 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 			  MAIL_FETCH_FLAGS | MAIL_FETCH_RECEIVED_DATE |
 			  MAIL_FETCH_STREAM_HEADER | MAIL_FETCH_STREAM_BODY |
 			  MAIL_FETCH_FROM_ENVELOPE, NULL);
-	while (mailbox_search_next(ctx, mail) > 0) {
+	while (mailbox_search_next(ctx, mail)) {
 		if ((mail->seq % 100) == 0) {
 			/* touch the lock file so that if there are tons of
 			   mails another process won't override our lock. */

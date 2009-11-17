@@ -529,7 +529,7 @@ static int fts_build_more(struct fts_storage_build_context *ctx)
 	    FTS_BUILD_NOTIFY_INTERVAL_SECS)
 		fts_build_notify(ctx);
 
-	while (mailbox_search_next(ctx->search_ctx, ctx->mail) > 0) {
+	while (mailbox_search_next(ctx->search_ctx, ctx->mail)) {
 		T_BEGIN {
 			ret = fts_build_mail(ctx, ctx->mail->uid);
 		} T_END;
@@ -615,8 +615,9 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	return ctx;
 }
 
-static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
-					    struct mail *mail, bool *tryagain_r)
+static bool
+fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
+				 struct mail *mail, bool *tryagain_r)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
@@ -627,7 +628,7 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		   to finish building the indexes */
 		if (!fts_try_build_init(ctx, fctx)) {
 			*tryagain_r = TRUE;
-			return 0;
+			return FALSE;
 		}
 	}
 
@@ -636,7 +637,7 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		ret = fts_build_more(fctx->build_ctx);
 		if (ret == 0) {
 			*tryagain_r = TRUE;
-			return 0;
+			return FALSE;
 		}
 
 		/* finished / error */

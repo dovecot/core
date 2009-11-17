@@ -87,7 +87,7 @@ static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
 			ret = trash_clean_mailbox_open(trash);
 		else
 			ret = mailbox_search_next(trash->search_ctx,
-						  trash->mail);
+						  trash->mail) ? 1 : 0;
 		if (ret <= 0) {
 			*received_time_r = 0;
 			return ret;

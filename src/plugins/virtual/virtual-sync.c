@@ -484,7 +484,7 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	/* add the found UIDs to uidmap. virtual_uid gets assigned later. */
 	memset(&uidmap, 0, sizeof(uidmap));
 	array_clear(&bbox->uids);
-	while (mailbox_search_next(search_ctx, mail) > 0) {
+	while (mailbox_search_next(search_ctx, mail)) {
 		uidmap.real_uid = mail->uid;
 		array_append(&bbox->uids, &uidmap, 1);
 	}

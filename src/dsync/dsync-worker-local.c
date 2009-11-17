@@ -793,8 +793,7 @@ local_worker_msg_iter_next(struct dsync_worker_msg_iter *_iter,
 		return -1;
 
 	prev_uid = iter->mail->uid;
-	switch (mailbox_search_next(iter->search_ctx, iter->mail)) {
-	case 0:
+	if (!mailbox_search_next(iter->search_ctx, iter->mail)) {
 		if (iter_local_mailbox_next_expunge(iter, prev_uid, msg_r)) {
 			*mailbox_idx_r = iter->mailbox_idx;
 			return 1;
@@ -804,10 +803,6 @@ local_worker_msg_iter_next(struct dsync_worker_msg_iter *_iter,
 		if (iter_local_mailbox_open(iter) < 0)
 			return -1;
 		return local_worker_msg_iter_next(_iter, mailbox_idx_r, msg_r);
-	case -1:
-		return -1;
-	default:
-		break;
 	}
 	*mailbox_idx_r = iter->mailbox_idx;
 

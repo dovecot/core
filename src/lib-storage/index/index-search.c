@@ -1257,8 +1257,8 @@ static bool search_would_block(struct index_search_context *ctx)
 	return ret;
 }
 
-int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
-				       struct mail *mail, bool *tryagain_r)
+bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
+					struct mail *mail, bool *tryagain_r)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	struct mailbox *box = _ctx->transaction->box;
@@ -1272,15 +1272,15 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 		/* everything searched at this point already. just returning
 		   matches from sort list */
 		if (!index_sort_list_next(ctx->mail_ctx.sort_program, mail))
-			return 0;
-		return 1;
+			return FALSE;
+		return TRUE;
 	}
 
 	if (search_would_block(ctx)) {
 		/* this lookup is useful when a large number of
 		   messages match */
 		*tryagain_r = TRUE;
-		return 0;
+		return FALSE;
 	}
 
 	ctx->mail = mail;
@@ -1343,8 +1343,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 		return index_storage_search_next_nonblock(_ctx, mail,
 							  tryagain_r);
 	}
-
-	return ctx->failed ? -1 : (match ? 1 : 0);
+	return !ctx->failed && match;
 }
 
 bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)

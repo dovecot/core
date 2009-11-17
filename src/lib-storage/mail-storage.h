@@ -491,12 +491,12 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    const enum mail_sort_type *sort_program);
 /* Deinitialize search request. */
 int mailbox_search_deinit(struct mail_search_context **ctx);
-/* Search the next message. Returns 1 if found, 0 if not, -1 if failure. */
-int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
+/* Search the next message. Returns TRUE if found, FALSE if not. */
+bool mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
 /* Like mailbox_search_next(), but don't spend too much time searching.
-   Returns 1 if found, -1 if failure or 0 with tryagain_r=FALSE if
-   finished, and TRUE if more results will by calling the function again. */
-int mailbox_search_next_nonblock(struct mail_search_context *ctx,
+   Returns FALSE with tryagain_r=FALSE if finished, and tryagain_r=TRUE if
+   more results will be returned by calling the function again. */
+bool mailbox_search_next_nonblock(struct mail_search_context *ctx,
 				 struct mail *mail, bool *tryagain_r);
 /* Returns TRUE if some messages were already expunged and we couldn't
    determine correctly if those messages should have been returned in this

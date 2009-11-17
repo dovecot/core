@@ -145,8 +145,8 @@ virtual_search_init(struct mailbox_transaction_context *t,
 		    struct mail_search_args *args,
 		    const enum mail_sort_type *sort_program);
 int virtual_search_deinit(struct mail_search_context *ctx);
-int virtual_search_next_nonblock(struct mail_search_context *ctx,
-				 struct mail *mail, bool *tryagain_r);
+bool virtual_search_next_nonblock(struct mail_search_context *ctx,
+				  struct mail *mail, bool *tryagain_r);
 bool virtual_search_next_update_seq(struct mail_search_context *ctx);
 
 struct mail *

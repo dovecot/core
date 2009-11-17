@@ -75,7 +75,7 @@ search_result_update_search(struct mail_search_result *result,
 	search_ctx->update_result = result;
 
 	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(search_ctx, mail) > 0) {
+	while (mailbox_search_next(search_ctx, mail)) {
 		i_assert(next_uid != 0);
 
 		if (next_uid != mail->uid) {
@@ -168,7 +168,7 @@ int index_search_result_update_appends(struct mail_search_result *result,
 	search_ctx = mailbox_search_init(t, result->search_args, NULL);
 
 	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(search_ctx, mail) > 0)
+	while (mailbox_search_next(search_ctx, mail))
 		mailbox_search_result_add(result, mail->uid);
 	mail_free(&mail);
 

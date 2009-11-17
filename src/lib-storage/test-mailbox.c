@@ -238,13 +238,13 @@ static int test_mailbox_search_deinit(struct mail_search_context *ctx)
 	return 0;
 }
 
-static int
+static bool
 test_mailbox_search_next_nonblock(struct mail_search_context *ctx ATTR_UNUSED,
 				  struct mail *mail ATTR_UNUSED,
 				  bool *tryagain_r)
 {
 	*tryagain_r = FALSE;
-	return 0;
+	return FALSE;
 }
 
 static bool

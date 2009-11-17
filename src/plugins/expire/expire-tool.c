@@ -133,8 +133,8 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 
 	mail = mail_alloc(t, 0, NULL);
 
-	now = time(NULL);
-	while ((ret = mailbox_search_next(search_ctx, mail)) > 0) {
+	now = time(NULL); ret = 0;
+	while (mailbox_search_next(search_ctx, mail)) {
 		if (mail_get_save_date(mail, &save_time) < 0) {
 			/* maybe just got expunged. anyway try again later. */
 			if (ctx->testrun) {
@@ -190,7 +190,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		ret = -1;
 
 	mailbox_close(&box);
-	return ret < 0 ? -1 : 0;
+	return ret;
 }
 
 static void expire_run(struct master_service *service, bool testrun)

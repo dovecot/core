@@ -199,7 +199,7 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 	search_ctx = mailbox_search_init(trans, search_args, NULL);
 	mail_search_args_unref(&search_args);
 
-	while (mailbox_search_next(search_ctx, mail) > 0) {
+	while (mailbox_search_next(search_ctx, mail)) {
 		if (mail->uid == next_uid) {
 			if (next_uid < uid_filter[i].seq2)
 				next_uid++;
@@ -442,8 +442,7 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx)
 			if (ctx->cmd->cancel)
 				return 1;
 
-			if (mailbox_search_next(ctx->search_ctx,
-						ctx->mail) <= 0)
+			if (!mailbox_search_next(ctx->search_ctx, ctx->mail))
 				break;
 			ctx->cur_mail = ctx->mail;
 

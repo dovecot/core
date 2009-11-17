@@ -100,7 +100,7 @@ static bool init_mailbox(struct client *client, const char **error_r)
 
 		failed = FALSE;
 		mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
-		while (mailbox_search_next(ctx, mail) > 0) {
+		while (mailbox_search_next(ctx, mail)) {
 			if (mail_get_virtual_size(mail, &size) < 0) {
 				expunged = mail->expunged;
 				failed = TRUE;
