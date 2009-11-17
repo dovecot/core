@@ -196,7 +196,8 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			return -1;
 
 		if (!mbox_mail_get_md5_header(mail, value_r)) {
-			i_error("mbox resyncing didn't save header MD5 values");
+			i_error("mbox %s resyncing didn't save header MD5 values",
+				_mail->box->name);
 			return -1;
 		}
 		return 0;
