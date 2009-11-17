@@ -293,28 +293,71 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 	return 0;
 }
 
-static void lmtp_proxy_output_timeout(struct lmtp_proxy *proxy)
+static size_t lmtp_proxy_find_max_data_input_size(struct lmtp_proxy *proxy)
 {
-	struct lmtp_proxy_connection *const *conns, *max_conn = NULL;
+	struct lmtp_proxy_connection *const *conns;
 	unsigned int i, count;
 	size_t size, max_size = 0;
 
-	timeout_remove(&proxy->to);
-
-	/* drop the connection with the most unread data */
 	conns = array_get(&proxy->connections, &count);
 	for (i = 0; i < count; i++) {
 		(void)i_stream_get_data(conns[i]->data_input, &size);
-		if (max_size < size) {
+		if (max_size < size)
 			max_size = size;
-			max_conn = conns[i];
+	}
+	return max_size;
+}
+
+static bool lmtp_proxy_disconnect_hanging_output(struct lmtp_proxy *proxy)
+{
+	struct lmtp_proxy_connection *const *conns;
+	unsigned int i, count;
+	size_t size, max_size;
+
+	max_size = lmtp_proxy_find_max_data_input_size(proxy);
+	if (max_size == 0)
+		return FALSE;
+
+	/* disconnect all connections that are keeping us from reading
+	   more input. */
+	conns = array_get(&proxy->connections, &count);
+	for (i = 0; i < count; i++) {
+		(void)i_stream_get_data(conns[i]->data_input, &size);
+		if (size == max_size) {
+			lmtp_proxy_conn_deinit(conns[i],
+					       ERRSTR_TEMP_REMOTE_FAILURE
+					       " (DATA output timeout)");
 		}
 	}
-	i_assert(max_conn != NULL);
+	return TRUE;
+}
 
-	lmtp_proxy_conn_deinit(max_conn, ERRSTR_TEMP_REMOTE_FAILURE
-			       " (timeout)");
-	lmtp_proxy_data_input(proxy);
+static void lmtp_proxy_disconnect_unfinished(struct lmtp_proxy *proxy)
+{
+	struct lmtp_proxy_connection *const *conns;
+	unsigned int i, count;
+
+	conns = array_get(&proxy->connections, &count);
+	for (i = 0; i < count; i++) {
+		lmtp_client_fail(conns[i]->client, ERRSTR_TEMP_REMOTE_FAILURE
+				 " (DATA input timeout)");
+	}
+}
+
+static void lmtp_proxy_output_timeout(struct lmtp_proxy *proxy)
+{
+	timeout_remove(&proxy->to);
+
+	/* drop the connection with the most unread data */
+	if (lmtp_proxy_disconnect_hanging_output(proxy))
+		lmtp_proxy_data_input(proxy);
+	else {
+		/* no such connection, so we've already sent everything but
+		   some servers aren't replying to us. disconnect all of
+		   them. */
+		lmtp_proxy_disconnect_unfinished(proxy);
+		lmtp_proxy_try_finish(proxy);
+	}
 }
 
 static void lmtp_proxy_wait_for_output(struct lmtp_proxy *proxy)
