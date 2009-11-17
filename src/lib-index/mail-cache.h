@@ -44,7 +44,9 @@ struct mail_cache *mail_cache_open_or_create(struct mail_index *index);
 struct mail_cache *mail_cache_create(struct mail_index *index);
 void mail_cache_free(struct mail_cache **cache);
 
-/* Register fields. fields[].idx is updated to contain field index. */
+/* Register fields. fields[].idx is updated to contain field index.
+   If field already exists and its caching decision is NO, the decision is
+   updated to the input field's decision. */
 void mail_cache_register_fields(struct mail_cache *cache,
 				struct mail_cache_field *fields,
 				unsigned int fields_count);
