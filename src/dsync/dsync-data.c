@@ -1,7 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "hex-binary.h"
 #include "sha1.h"
 #include "dsync-data.h"
@@ -10,10 +10,22 @@ struct dsync_mailbox *
 dsync_mailbox_dup(pool_t pool, const struct dsync_mailbox *box)
 {
 	struct dsync_mailbox *dest;
+	const char *const *cache_fields = NULL, *dup;
+	unsigned int i, count = 0;
 
 	dest = p_new(pool, struct dsync_mailbox, 1);
 	*dest = *box;
 	dest->name = p_strdup(pool, box->name);
+
+	if (array_is_created(&box->cache_fields))
+		cache_fields = array_get(&box->cache_fields, &count);
+	if (count > 0) {
+		p_array_init(&dest->cache_fields, pool, count);
+		for (i = 0; i < count; i++) {
+			dup = p_strdup(pool, cache_fields[i]);
+			array_append(&dest->cache_fields, &dup, 1);
+		}
+	}
 	return dest;
 }
 
