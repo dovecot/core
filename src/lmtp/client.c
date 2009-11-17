@@ -14,6 +14,7 @@
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "main.h"
+#include "lmtp-settings.h"
 #include "lmtp-proxy.h"
 #include "commands.h"
 #include "client.h"
@@ -148,7 +149,6 @@ static void client_read_settings(struct client *client)
 {
 	struct mail_storage_service_input input;
 	const char *error;
-	void **sets;
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "lmtp";
@@ -161,9 +161,7 @@ static void client_read_settings(struct client *client)
 					       &error) < 0)
 		i_fatal("%s", error);
 
-	sets = master_service_settings_get_others(master_service);
-	client->set = sets[1];
-	client->lmtp_set = sets[2];
+	lmtp_settings_dup(client->pool, &client->lmtp_set, &client->set);
 }
 
 static void client_generate_session_id(struct client *client)

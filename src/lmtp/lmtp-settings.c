@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "settings-parser.h"
 #include "service-settings.h"
+#include "master-service.h"
 #include "master-service-settings.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
@@ -81,3 +82,13 @@ const struct setting_parser_info lmtp_setting_parser_info = {
 	MEMBER(check_func) NULL,
 	MEMBER(dependencies) lmtp_setting_dependencies
 };
+
+void lmtp_settings_dup(pool_t pool, const struct lmtp_settings **lmtp_set_r,
+		       const struct lda_settings **lda_set_r)
+{
+	void **sets;
+
+	sets = master_service_settings_get_others(master_service);
+	*lda_set_r = settings_dup(&lda_setting_parser_info, sets[1], pool);
+	*lmtp_set_r = settings_dup(&lmtp_setting_parser_info, sets[2], pool);
+}
