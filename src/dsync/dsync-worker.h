@@ -28,7 +28,8 @@ typedef void dsync_worker_msg_callback_t(enum dsync_msg_get_result result,
 					 void *context);
 typedef void dsync_worker_finish_callback_t(bool success, void *context);
 
-struct dsync_worker *dsync_worker_init_local(struct mail_user *user);
+struct dsync_worker *
+dsync_worker_init_local(struct mail_user *user, char alt_hierarchy_char);
 struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out);
 void dsync_worker_deinit(struct dsync_worker **worker);
 

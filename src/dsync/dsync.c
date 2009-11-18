@@ -58,7 +58,7 @@ static void ATTR_NORETURN
 usage(void)
 {
 	fprintf(stderr,
-"usage: dsync [-b <mailbox>] [-r] [-u <user>] [-v]\n"
+"usage: dsync [-a <alt hierarchy sep>] [-b <mailbox>] [-r] [-u <user>] [-v]\n"
 "  mirror  <command to execute remote dsync>\n"
 "  convert <source mail_location>\n"
 );
@@ -84,18 +84,22 @@ int main(int argc, char *argv[])
 	const char *error, *username, *mailbox = NULL, *mirror_cmd = NULL;
 	const char *convert_location = NULL;
 	bool dsync_server = FALSE, readonly = FALSE;
+	char alt_hierarchy_char = '_';
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE |
 					     MASTER_SERVICE_FLAG_STD_CLIENT,
-					     &argc, &argv, "b:fru:v");
+					     &argc, &argv, "A:b:fru:v");
 
 	username = getenv("USER");
 	while ((c = master_getopt(master_service)) > 0) {
 		if (c == '-')
 			break;
 		switch (c) {
+		case 'A':
+			alt_hierarchy_char = optarg[0];
+			break;
 		case 'b':
 			mailbox = optarg;
 			break;
@@ -152,7 +156,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* create the first local worker */
-	worker1 = dsync_worker_init_local(mail_user);
+	worker1 = dsync_worker_init_local(mail_user, alt_hierarchy_char);
 	if (convert_location != NULL) {
 		/* update mail_location and create another user for the
 		   second location. */
@@ -168,7 +172,8 @@ int main(int argc, char *argv[])
 						     &error) <= 0)
 			i_fatal("%s", error);
 
-		worker2 = dsync_worker_init_local(mail_user2);
+		worker2 = dsync_worker_init_local(mail_user2,
+						  alt_hierarchy_char);
 
 		i_set_failure_prefix(t_strdup_printf("dsync(%s): ", username));
 		brain = dsync_brain_init(worker1, worker2,

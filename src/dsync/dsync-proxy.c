@@ -155,7 +155,12 @@ int dsync_proxy_msg_static_import(pool_t pool, const char *str,
 void dsync_proxy_mailbox_export(string_t *str,
 				const struct dsync_mailbox *box)
 {
+	char s[2];
+
 	str_tabescape_write(str, box->name);
+	str_append_c(str, '\t');
+	s[0] = box->name_sep; s[1] = '\0';
+	str_tabescape_write(str, s);
 	str_append_c(str, '\t');
 	dsync_proxy_mailbox_guid_export(str, &box->dir_guid);
 	str_printfa(str, "\t%lu\t%u", (unsigned long)box->last_renamed,
@@ -178,65 +183,72 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 					 struct dsync_mailbox *box_r,
 					 const char **error_r)
 {
-	unsigned int i, count;
+	unsigned int i = 0, count;
 	char *p;
 
 	memset(box_r, 0, sizeof(*box_r));
 
 	count = str_array_length(args);
-	if (count != 4 && count < 8) {
+	if (count != 5 && count < 9) {
 		*error_r = "Mailbox missing parameters";
 		return -1;
 	}
 
 	/* name dir_guid mailbox_guid uid_validity uid_next highest_modseq */
-	box_r->name = p_strdup(pool, args[0]);
+	box_r->name = p_strdup(pool, args[i++]);
 
-	if (dsync_proxy_mailbox_guid_import(args[1], &box_r->dir_guid) < 0) {
+	if (strlen(args[i]) != 1) {
+		*error_r = "Invalid mailbox name hierarchy separator";
+		return -1;
+	}
+	box_r->name_sep = args[i++][0];
+
+	if (dsync_proxy_mailbox_guid_import(args[i++], &box_r->dir_guid) < 0) {
 		*error_r = "Invalid dir GUID";
 		return -1;
 	}
-	box_r->last_renamed = strtoul(args[2], &p, 10);
+	box_r->last_renamed = strtoul(args[i++], &p, 10);
 	if (*p != '\0') {
 		*error_r = "Invalid mailbox last_renamed";
 		return -1;
 	}
-	box_r->flags = strtoul(args[3], &p, 10);
+	box_r->flags = strtoul(args[i++], &p, 10);
 	if (*p != '\0') {
 		*error_r = "Invalid mailbox flags";
 		return -1;
 	}
 
-	if (args[4] == NULL) {
+	if (args[i] == NULL) {
 		/* \noselect mailbox */
 		return 0;
 	}
 
-	if (dsync_proxy_mailbox_guid_import(args[4], &box_r->mailbox_guid) < 0) {
+	if (dsync_proxy_mailbox_guid_import(args[i++],
+					    &box_r->mailbox_guid) < 0) {
 		*error_r = "Invalid mailbox GUID";
 		return -1;
 	}
 
-	box_r->uid_validity = strtoul(args[5], &p, 10);
+	box_r->uid_validity = strtoul(args[i++], &p, 10);
 	if (box_r->uid_validity == 0 || *p != '\0') {
 		*error_r = "Invalid mailbox uid_validity";
 		return -1;
 	}
 
-	box_r->uid_next = strtoul(args[6], &p, 10);
+	box_r->uid_next = strtoul(args[i++], &p, 10);
 	if (box_r->uid_validity == 0 || *p != '\0') {
 		*error_r = "Invalid mailbox uid_next";
 		return -1;
 	}
 
-	box_r->highest_modseq = strtoull(args[7], &p, 10);
+	box_r->highest_modseq = strtoull(args[i++], &p, 10);
 	if (*p != '\0') {
 		*error_r = "Invalid mailbox highest_modseq";
 		return -1;
 	}
 
-	args += 8;
-	count -= 8;
+	args += i;
+	count -= i;
 	p_array_init(&box_r->cache_fields, pool, count + 1);
 	for (i = 0; i < count; i++) {
 		const char *field_name = p_strdup(pool, args[i]);

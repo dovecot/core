@@ -525,8 +525,6 @@ dsync_brain_msg_sync_update_mailbox(struct dsync_brain *brain)
 {
 	const struct dsync_brain_mailbox *mailbox;
 
-	/* FIXME: handle different hierarchy separators? */
-
 	array_foreach(&brain->mailbox_sync->mailboxes, mailbox) {
 		dsync_worker_update_mailbox(brain->src_worker, &mailbox->box);
 		dsync_worker_update_mailbox(brain->dest_worker, &mailbox->box);

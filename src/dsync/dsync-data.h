@@ -15,6 +15,7 @@ enum dsync_mailbox_flags {
 
 struct dsync_mailbox {
 	const char *name;
+	char name_sep;
 	/* Mailbox directory's GUID. Not necessarily set if mailbox is
 	   deleted. */
 	mailbox_guid_t dir_guid;

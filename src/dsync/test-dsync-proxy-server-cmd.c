@@ -74,18 +74,20 @@ static void test_dsync_proxy_box_list(void)
 	/* \noselect mailbox */
 	memset(&box, 0, sizeof(box));
 	box.name = "\t\001\r\nname\t\001\n\r";
+	box.name_sep = '/';
 	box.last_renamed = 992;
 	box.flags = 123;
 	memcpy(box.dir_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE);
 	test_worker->box_iter.next_box = &box;
 	test_assert(run_more() == 0);
 	test_assert(strcmp(str_c(out), t_strconcat(str_tabescape(box.name),
-		"\t"TEST_MAILBOX_GUID1"\t992\t123\n", NULL)) == 0);
+		"\t/\t"TEST_MAILBOX_GUID1"\t992\t123\n", NULL)) == 0);
 	out_clear();
 
 	/* selectable mailbox */
 	memset(&box, 0, sizeof(box));
 	box.name = "foo/bar";
+	box.name_sep = '/';
 	memcpy(box.dir_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE);
 	memcpy(box.mailbox_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE);
 	box.uid_validity = 4275878552;
@@ -95,7 +97,7 @@ static void test_dsync_proxy_box_list(void)
 
 	test_assert(run_more() == 0);
 
-	test_assert(strcmp(str_c(out), "foo/bar\t"
+	test_assert(strcmp(str_c(out), "foo/bar\t/\t"
 			   TEST_MAILBOX_GUID2"\t0\t0\t"
 			   TEST_MAILBOX_GUID1"\t"
 			   "4275878552\t"
@@ -218,22 +220,24 @@ static void test_dsync_proxy_box_create(void)
 
 	test_begin("proxy server box create");
 
-	test_assert(run_cmd("BOX-CREATE", "noselect",
+	test_assert(run_cmd("BOX-CREATE", "noselect", "/",
 			    TEST_MAILBOX_GUID2, "553", "99", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_CREATE);
 	test_assert(strcmp(event.box.name, "noselect") == 0);
+	test_assert(event.box.name_sep == '/');
 	test_assert(memcmp(event.box.dir_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE) == 0);
 	test_assert(event.box.last_renamed == 553);
 	test_assert(event.box.flags == 99);
 	test_assert(event.box.uid_validity == 0);
 
-	test_assert(run_cmd("BOX-CREATE", "selectable", TEST_MAILBOX_GUID1,
+	test_assert(run_cmd("BOX-CREATE", "selectable", "?", TEST_MAILBOX_GUID1,
 			    "61", "2", TEST_MAILBOX_GUID2, "1234567890", "9876",
 			    "28427847284728", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_CREATE);
 	test_assert(strcmp(event.box.name, "selectable") == 0);
+	test_assert(event.box.name_sep == '?');
 	test_assert(memcmp(event.box.dir_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE) == 0);
 	test_assert(memcmp(event.box.mailbox_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE) == 0);
 	test_assert(event.box.flags == 2);
@@ -291,12 +295,13 @@ static void test_dsync_proxy_box_update(void)
 
 	test_begin("proxy server box update");
 
-	test_assert(run_cmd("BOX-UPDATE", "updated", TEST_MAILBOX_GUID2,
+	test_assert(run_cmd("BOX-UPDATE", "updated", "/", TEST_MAILBOX_GUID2,
 			    "53", "9", TEST_MAILBOX_GUID1, "34343", "22",
 			    "2238427847284728", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_UPDATE);
 	test_assert(strcmp(event.box.name, "updated") == 0);
+	test_assert(event.box.name_sep == '/');
 	test_assert(memcmp(event.box.dir_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE) == 0);
 	test_assert(memcmp(event.box.mailbox_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE) == 0);
 	test_assert(event.box.flags == 9);

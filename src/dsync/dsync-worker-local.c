@@ -71,6 +71,8 @@ struct local_dsync_worker {
 	/* mailbox_guid_t -> struct local_dsync_subscription_change */
 	struct hash_table *subscription_changes_hash;
 
+	char alt_hierarchy_char;
+
 	mailbox_guid_t selected_box_guid;
 	struct mailbox *selected_box;
 	struct mail *mail, *ext_mail;
@@ -116,7 +118,8 @@ static unsigned int mailbox_guid_hash(const void *p)
 	return h;
 }
 
-struct dsync_worker *dsync_worker_init_local(struct mail_user *user)
+struct dsync_worker *
+dsync_worker_init_local(struct mail_user *user, char alt_hierarchy_char)
 {
 	struct local_dsync_worker *worker;
 	pool_t pool;
@@ -126,6 +129,7 @@ struct dsync_worker *dsync_worker_init_local(struct mail_user *user)
 	worker->worker.v = local_dsync_worker;
 	worker->user = user;
 	worker->pool = pool;
+	worker->alt_hierarchy_char = alt_hierarchy_char;
 	worker->mailbox_hash =
 		hash_table_create(default_pool, pool, 0,
 				  mailbox_guid_hash, mailbox_guid_cmp);
@@ -416,6 +420,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 
 	storage_name = mail_namespace_get_storage_name(info->ns, info->name);
 	dsync_box_r->name = info->name;
+	dsync_box_r->name_sep = info->ns->sep;
 	if (mailbox_list_get_guid(info->ns->list, storage_name,
 				  dsync_box_r->dir_guid.guid) < 0) {
 		i_error("Failed to get dir GUID for mailbox %s: %s", info->name,
@@ -856,6 +861,22 @@ local_worker_copy_mailbox_update(const struct dsync_mailbox *dsync_box,
 	update_r->min_highest_modseq = dsync_box->highest_modseq;
 }
 
+static const char *
+mailbox_name_convert(struct local_dsync_worker *worker,
+		     const char *name, char src_sep, char dest_sep)
+{
+	char *dest_name, *p;
+
+	dest_name = t_strdup_noconst(name);
+	for (p = dest_name; *p != '\0'; p++) {
+		if (*p == dest_sep && worker->alt_hierarchy_char != '\0')
+			*p = worker->alt_hierarchy_char;
+		else if (*p == src_sep)
+			*p = dest_sep;
+	}
+	return dest_name;
+}
+
 static struct mailbox *
 local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 			   const struct dsync_mailbox *dsync_box)
@@ -870,6 +891,11 @@ local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 		return NULL;
 	}
 
+	if (dsync_box->name_sep != ns->sep) {
+		/* mailbox names use different separators. convert them. */
+		name = mailbox_name_convert(worker, name,
+					    dsync_box->name_sep, ns->sep);
+	}
 	return mailbox_alloc(ns->list, name, NULL, 0);
 }
 

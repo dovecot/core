@@ -102,6 +102,7 @@ static void test_dsync_proxy_mailbox(void)
 
 	/* test \noselect mailbox */
 	box_in.name = "\t\001\r\nname\t\001\n\r";
+	box_in.name_sep = '/';
 	box_in.flags = 1234567890;
 	memcpy(box_in.dir_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE);
 	dsync_proxy_mailbox_export(str, &box_in);
