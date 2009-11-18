@@ -9,6 +9,7 @@
 #include "dsync-worker.h"
 #include "dsync-proxy-server.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -56,11 +57,12 @@ static void run_cmd(const char *cmd, int *fd_in_r, int *fd_out_r)
 static void ATTR_NORETURN
 usage(void)
 {
-	i_fatal(
+	fprintf(stderr,
 "usage: dsync [-b <mailbox>] [-r] [-u <user>] [-v]\n"
 "  mirror  <command to execute remote dsync>\n"
-"  convert <source mail_location>"
+"  convert <source mail_location>\n"
 );
+	exit(1);
 }
 
 static void
