@@ -890,12 +890,9 @@ local_worker_create_mailbox(struct dsync_worker *_worker,
 	}
 	local_worker_copy_mailbox_update(dsync_box, &update);
 
-	if (strcasecmp(dsync_box->name, "INBOX") == 0)
+	ret = mailbox_create(box, &update, dsync_box->uid_validity == 0);
+	if (ret < 0 && strcasecmp(dsync_box->name, "INBOX") == 0)
 		ret = mailbox_update(box, &update);
-	else {
-		ret = mailbox_create(box, &update,
-				     dsync_box->uid_validity == 0);
-	}
 	if (ret < 0) {
 		dsync_worker_set_failure(_worker);
 		i_error("Can't create mailbox %s: %s", dsync_box->name,
