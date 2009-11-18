@@ -4,6 +4,8 @@
 #include "dsync-data.h"
 
 #define DSYNC_PROXY_TIMEOUT_MSECS (15*60*1000)
+#define DSYNC_PROXY_CLIENT_GREETING_LINE "dsync-client\t1"
+#define DSYNC_PROXY_SERVER_GREETING_LINE "dsync-server\t1"
 
 struct dsync_message;
 struct dsync_mailbox;

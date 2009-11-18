@@ -64,6 +64,7 @@ struct proxy_client_dsync_worker {
 	ARRAY_DEFINE(request_array, struct proxy_client_request);
 	struct aqueue *request_queue;
 
+	unsigned int handshake_received:1;
 	unsigned int finished:1;
 };
 
@@ -101,7 +102,19 @@ proxy_client_worker_read_line(struct proxy_client_dsync_worker *worker,
 			return -1;
 		}
 	}
-	return *line_r != NULL ? 1 : 0;
+	if (*line_r == NULL)
+		return 0;
+
+	if (!worker->handshake_received) {
+		if (strcmp(*line_r, DSYNC_PROXY_SERVER_GREETING_LINE) != 0) {
+			i_error("Invalid server handshake: %s", *line_r);
+			dsync_worker_set_failure(&worker->worker);
+			return -1;
+		}
+		worker->handshake_received = TRUE;
+		return proxy_client_worker_read_line(worker, line_r);
+	}
+	return 1;
 }
 
 static void
@@ -283,6 +296,7 @@ struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
 	worker->io = io_add(fd_in, IO_READ, proxy_client_worker_input, worker);
 	worker->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
 	worker->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
+	o_stream_send_str(worker->output, DSYNC_PROXY_CLIENT_GREETING_LINE"\n");
 	/* we'll keep the output corked until flush is needed */
 	o_stream_cork(worker->output);
 	o_stream_set_flush_callback(worker->output, proxy_client_worker_output,

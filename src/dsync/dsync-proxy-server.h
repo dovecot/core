@@ -30,6 +30,7 @@ struct dsync_proxy_server {
 	bool get_input_last_lf;
 	uint32_t get_uid;
 
+	unsigned int handshake_received:1;
 	unsigned int subs_sending_unsubscriptions:1;
 	unsigned int finished:1;
 };

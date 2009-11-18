@@ -31,7 +31,19 @@ proxy_server_read_line(struct dsync_proxy_server *server,
 			return -1;
 		}
 	}
-	return *line_r != NULL ? 1 : 0;
+	if (*line_r == NULL)
+		return 0;
+
+	if (!server->handshake_received) {
+		if (strcmp(*line_r, DSYNC_PROXY_CLIENT_GREETING_LINE) != 0) {
+			i_error("Invalid client handshake: %s", *line_r);
+			master_service_stop(master_service);
+			return -1;
+		}
+		server->handshake_received = TRUE;
+		return proxy_server_read_line(server, line_r);
+	}
+	return 1;
 }
 
 static int proxy_server_run_cmd(struct dsync_proxy_server *server)
@@ -162,6 +174,7 @@ dsync_proxy_server_init(int fd_in, int fd_out, struct dsync_worker *worker)
 				 dsync_proxy_server_timeout, NULL);
 	o_stream_set_flush_callback(server->output, proxy_server_output,
 				    server);
+	o_stream_send_str(server->output, DSYNC_PROXY_SERVER_GREETING_LINE"\n");
 	fd_set_nonblock(fd_in, TRUE);
 	fd_set_nonblock(fd_out, TRUE);
 	return server;
