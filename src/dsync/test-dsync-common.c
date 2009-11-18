@@ -47,6 +47,7 @@ bool dsync_mailboxes_equal(const struct dsync_mailbox *box1,
 	unsigned int i, f1_count = 0, f2_count = 0;
 
 	if (strcmp(box1->name, box2->name) != 0 ||
+	    box1->name_sep != box2->name_sep ||
 	    memcmp(box1->dir_guid.guid, box2->dir_guid.guid,
 		   sizeof(box1->dir_guid.guid)) != 0 ||
 	    memcmp(box1->mailbox_guid.guid, box2->mailbox_guid.guid,
