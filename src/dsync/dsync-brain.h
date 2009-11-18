@@ -15,5 +15,6 @@ dsync_brain_init(struct dsync_worker *src_worker,
 int dsync_brain_deinit(struct dsync_brain **brain);
 
 void dsync_brain_sync(struct dsync_brain *brain);
+void dsync_brain_sync_all(struct dsync_brain *brain);
 
 #endif

@@ -605,3 +605,14 @@ void dsync_brain_sync(struct dsync_brain *brain)
 		i_unreached();
 	}
 }
+
+void dsync_brain_sync_all(struct dsync_brain *brain)
+{
+	enum dsync_state old_state;
+
+	while (brain->state != DSYNC_STATE_SYNC_END) {
+		old_state = brain->state;
+		dsync_brain_sync(brain);
+		i_assert(brain->state != old_state);
+	}
+}

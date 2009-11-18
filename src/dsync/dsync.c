@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "mail-storage-service.h"
 #include "mail-user.h"
 #include "dsync-brain.h"
@@ -55,7 +56,11 @@ static void run_cmd(const char *cmd, int *fd_in_r, int *fd_out_r)
 static void ATTR_NORETURN
 usage(void)
 {
-	i_fatal("usage: dsync [-v] [-u <user>] [-e <cmd>]");
+	i_fatal(
+"usage: dsync [-b <mailbox>] [-r] [-u <user>] [-v]\n"
+"  mirror  <command to execute remote dsync>\n"
+"  convert <source mail_location>"
+);
 }
 
 static void
@@ -70,18 +75,19 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR;
 	enum dsync_brain_flags brain_flags = 0;
 	struct mail_storage_service_ctx *storage_service;
-	struct mail_storage_service_user *service_user;
+	struct mail_storage_service_user *service_user, *service_user2 = NULL;
 	struct mail_storage_service_input input;
-	struct mail_user *mail_user;
+	struct mail_user *mail_user, *mail_user2 = NULL;
 	struct dsync_worker *worker1, *worker2;
-	const char *error, *username, *mailbox = NULL, *cmd = NULL;
+	const char *error, *username, *mailbox = NULL, *mirror_cmd = NULL;
+	const char *convert_location = NULL;
 	bool dsync_server = FALSE, readonly = FALSE;
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE |
 					     MASTER_SERVICE_FLAG_STD_CLIENT,
-					     &argc, &argv, "b:e:fru:v");
+					     &argc, &argv, "b:fru:v");
 
 	username = getenv("USER");
 	while ((c = master_getopt(master_service)) > 0) {
@@ -90,9 +96,6 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'b':
 			mailbox = optarg;
-			break;
-		case 'e':
-			cmd = optarg;
 			break;
 		case 'r':
 			readonly = TRUE;
@@ -111,9 +114,19 @@ int main(int argc, char *argv[])
 			usage();
 		}
 	}
-	if (optind != argc && strcmp(argv[optind], "server") == 0) {
+	if (optind == argc)
+		usage();
+
+	if (strcmp(argv[optind], "mirror") == 0 && optind+1 != argc) {
+		mirror_cmd = argv[optind+1];
+		optind += 2;
+	} else if (strcmp(argv[optind], "server") == 0) {
 		dsync_server = TRUE;
 		optind++;
+	} else if (strcmp(argv[optind], "convert") == 0 &&
+		   optind+1 != argc) {
+		convert_location = argv[optind+1];
+		optind += 2;
 	}
 	if (optind != argc)
 		usage();
@@ -129,33 +142,61 @@ int main(int argc, char *argv[])
 					     &error) <= 0)
 		i_fatal("%s", error);
 
-	if (cmd != NULL) {
+	if (mirror_cmd != NULL) {
 		/* user initialization may exec doveconf, so do our forking
 		   after that */
-		run_cmd(t_strconcat(cmd, " server", NULL), &fd_in, &fd_out);
-	} else if (!dsync_server) {
-		usage();
+		run_cmd(t_strconcat(mirror_cmd, " server", NULL),
+			&fd_in, &fd_out);
 	}
 
+	/* create the first local worker */
 	worker1 = dsync_worker_init_local(mail_user);
-	if (readonly)
-		dsync_worker_set_readonly(worker1);
-	if (dsync_server) {
+	if (convert_location != NULL) {
+		/* update mail_location and create another user for the
+		   second location. */
+		const char *set[2];
+
+		set[0] = t_strconcat("mail=", convert_location, NULL);
+		set[1] = NULL;
+
+		input.userdb_fields = set;
+		if (mail_storage_service_lookup_next(storage_service, &input,
+						     &service_user2,
+						     &mail_user2,
+						     &error) <= 0)
+			i_fatal("%s", error);
+
+		worker2 = dsync_worker_init_local(mail_user2);
+
+		i_set_failure_prefix(t_strdup_printf("dsync(%s): ", username));
+		brain = dsync_brain_init(worker1, worker2,
+					 mailbox, brain_flags);
+		server = NULL;
+		dsync_brain_sync_all(brain);
+	} else if (dsync_server) {
 		i_set_failure_prefix(t_strdup_printf("dsync-remote(%s): ",
 						     username));
+		if (readonly)
+			dsync_worker_set_readonly(worker1);
 		server = dsync_proxy_server_init(fd_in, fd_out, worker1);
 		worker2 = NULL;
+
+		master_service_run(master_service, dsync_connected);
 	} else {
+		i_assert(mirror_cmd != NULL);
 		i_set_failure_prefix(t_strdup_printf("dsync-local(%s): ",
 						     username));
+
+		if (readonly)
+			dsync_worker_set_readonly(worker1);
 		worker2 = dsync_worker_init_proxy_client(fd_in, fd_out);
 		brain = dsync_brain_init(worker1, worker2,
 					 mailbox, brain_flags);
 		server = NULL;
 		dsync_brain_sync(brain);
-	}
 
-	master_service_run(master_service, dsync_connected);
+		master_service_run(master_service, dsync_connected);
+	}
 
 	if (brain != NULL)
 		ret = dsync_brain_deinit(&brain);
@@ -170,6 +211,12 @@ int main(int argc, char *argv[])
 
 	mail_user_unref(&mail_user);
 	mail_storage_service_user_free(&service_user);
+
+	if (mail_user2 != NULL) {
+		mail_user_unref(&mail_user2);
+		mail_storage_service_user_free(&service_user2);
+	}
+
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
 	return ret < 0 ? 1 : 0;
