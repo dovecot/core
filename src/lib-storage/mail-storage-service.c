@@ -328,7 +328,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			dec2str(geteuid()), dec2str(getegid()), home);
 	}
 
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0) {
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
+	    (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) == 0) {
 		/* we don't want to write core files to any users' home
 		   directories since they could contain information about other
 		   users' mails as well. so do no chdiring to home. */
