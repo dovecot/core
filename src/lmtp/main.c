@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP |
 		MAIL_STORAGE_SERVICE_NO_LOG_INIT;
+	int c;
 
 	if (IS_STANDALONE()) {
 		service_flags |= MASTER_SERVICE_FLAG_STANDALONE |
@@ -67,9 +68,17 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("lmtp", service_flags,
-					     &argc, &argv, NULL);
-	if (master_getopt(master_service) > 0)
-		return FATAL_DEFAULT;
+					     &argc, &argv, "D");
+	while ((c = master_getopt(master_service)) > 0) {
+		switch (c) {
+		case 'D':
+			storage_service_flags |=
+				MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS;
+			break;
+		default:
+			return FATAL_DEFAULT;
+		}
+	}
 	master_service_init_finish(master_service);
 	master_service_init_log(master_service,
 				t_strdup_printf("lmtp(%s): ", my_pid));
