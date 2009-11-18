@@ -190,6 +190,8 @@ void client_io_reset(struct client *client)
 {
 	if (client->io != NULL)
 		io_remove(&client->io);
+	if (client->to_idle != NULL)
+		timeout_remove(&client->to_idle);
 	client->io = io_add(client->fd_in, IO_READ, client_input, client);
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
