@@ -1,6 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "mail-storage-service.h"
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR;
 	enum dsync_brain_flags brain_flags = 0;
 	struct mail_storage_service_ctx *storage_service;
-	struct mail_storage_service_user *service_user, *service_user2 = NULL;
+	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user, *mail_user2 = NULL;
 	struct dsync_worker *worker1, *worker2;
@@ -143,10 +144,12 @@ int main(int argc, char *argv[])
 
 	storage_service = mail_storage_service_init(master_service, NULL,
 						    ssflags);
-	if (mail_storage_service_lookup_next(storage_service, &input,
-					     &service_user, &mail_user,
-					     &error) <= 0)
-		i_fatal("%s", error);
+	if (mail_storage_service_lookup(storage_service, &input,
+					&service_user, &error) <= 0)
+		i_fatal("User lookup failed: %s", error);
+	if (mail_storage_service_next(storage_service, service_user,
+				      &mail_user, &error) < 0)
+		i_fatal("User init failed: %s", error);
 
 	if (mirror_cmd != NULL) {
 		/* user initialization may exec doveconf, so do our forking
@@ -160,17 +163,16 @@ int main(int argc, char *argv[])
 	if (convert_location != NULL) {
 		/* update mail_location and create another user for the
 		   second location. */
-		const char *set[2];
+		struct setting_parser_context *set_parser;
+		const char *set_line =
+			t_strconcat("mail_location=", convert_location, NULL);
 
-		set[0] = t_strconcat("mail=", convert_location, NULL);
-		set[1] = NULL;
-
-		input.userdb_fields = set;
-		if (mail_storage_service_lookup_next(storage_service, &input,
-						     &service_user2,
-						     &mail_user2,
-						     &error) <= 0)
-			i_fatal("%s", error);
+		set_parser = mail_storage_service_user_get_settings_parser(service_user);
+		if (settings_parse_line(set_parser, set_line) < 0)
+			i_unreached();
+		if (mail_storage_service_next(storage_service, service_user,
+					      &mail_user2, &error) < 0)
+			i_fatal("User init failed: %s", error);
 
 		worker2 = dsync_worker_init_local(mail_user2,
 						  alt_hierarchy_char);
@@ -217,12 +219,9 @@ int main(int argc, char *argv[])
 		dsync_worker_deinit(&worker2);
 
 	mail_user_unref(&mail_user);
-	mail_storage_service_user_free(&service_user);
-
-	if (mail_user2 != NULL) {
+	if (mail_user2 != NULL)
 		mail_user_unref(&mail_user2);
-		mail_storage_service_user_free(&service_user2);
-	}
+	mail_storage_service_user_free(&service_user);
 
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
