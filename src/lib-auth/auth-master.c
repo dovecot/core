@@ -165,12 +165,10 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	if (ctx->return_value > 0) {
 		len = str_array_length(args);
 		ctx->fields = p_new(ctx->pool, const char *, len + 1);
-		for (i = 0; i < len; i++) {
-			if (ctx->conn->debug)
-				i_debug("auth input: %s", *args);
-
+		for (i = 0; i < len; i++)
 			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
-		}
+		if (ctx->conn->debug)
+			i_debug("auth input: %s", t_strarray_join(args, " "));
 	}
 	return TRUE;
 }
