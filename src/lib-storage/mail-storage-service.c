@@ -744,7 +744,8 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			home, chroot,
 			(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0,
 			temp_priv_drop);
-		if (!temp_priv_drop)
+		if (!temp_priv_drop ||
+		    (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) != 0)
 			restrict_access_allow_coredumps(TRUE);
 	}
 	if (!ctx->modules_initialized) {

@@ -19,8 +19,10 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR		= 0x10,
 	/* Drop privileges only temporarily (keep running as setuid-root) */
 	MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP	= 0x20,
+	/* Enable core dumps even when dropping privileges temporarily */
+	MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS	= 0x40,
 	/* Don't initialize logging or change log prefixes */
-	MAIL_STORAGE_SERVICE_NO_LOG_INIT		= 0x40
+	MAIL_STORAGE_SERVICE_NO_LOG_INIT		= 0x80
 };
 
 struct mail_storage_service_input {
