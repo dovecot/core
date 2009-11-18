@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hostpid.h"
 #include "network.h"
+#include "home-expand.h"
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
@@ -310,12 +311,11 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 	if (mail_user_get_home(user, &home) < 0)
 		return -1;
 
-	if (path[0] == '~' && (path[1] == '/' || path[1] == '\0')) {
-		if (home == NULL)
-			return -1;
+	path = home_expand_tilde(path, home);
+	if (path == NULL)
+		return -1;
 
-		*pathp = t_strconcat(home, path + 1, NULL);
-	}
+	*pathp = path;
 	return 0;
 }
 
