@@ -886,6 +886,12 @@ mail_storage_service_user_get_input(struct mail_storage_service_user *user)
 	return &user->input;
 }
 
+struct setting_parser_context *
+mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *user)
+{
+	return user->set_parser;
+}
+
 void *mail_storage_service_get_settings(struct master_service *service)
 {
 	void **sets, *set;
