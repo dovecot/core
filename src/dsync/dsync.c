@@ -141,12 +141,12 @@ int main(int argc, char *argv[])
 	if (readonly)
 		dsync_worker_set_readonly(worker1);
 	if (dsync_server) {
-		i_set_failure_prefix(t_strdup_printf("dsync-dest(%s): ",
+		i_set_failure_prefix(t_strdup_printf("dsync-remote(%s): ",
 						     username));
 		server = dsync_proxy_server_init(fd_in, fd_out, worker1);
 		worker2 = NULL;
 	} else {
-		i_set_failure_prefix(t_strdup_printf("dsync-src(%s): ",
+		i_set_failure_prefix(t_strdup_printf("dsync-local(%s): ",
 						     username));
 		worker2 = dsync_worker_init_proxy_client(fd_in, fd_out);
 		brain = dsync_brain_init(worker1, worker2,
