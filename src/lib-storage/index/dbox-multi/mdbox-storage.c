@@ -207,9 +207,10 @@ static int mdbox_write_index_header(struct mailbox *box,
 	trans = mail_index_transaction_begin(mbox->ibox.view, 0);
 	mdbox_update_header(mbox, trans, update);
 
+	uid_validity = hdr->uid_validity;
 	if (update != NULL && update->uid_validity != 0)
 		uid_validity = update->uid_validity;
-	else if (hdr->uid_validity == 0) {
+	else if (uid_validity == 0) {
 		/* set uidvalidity */
 		uid_validity = dbox_get_uidvalidity_next(box->list);
 	}
