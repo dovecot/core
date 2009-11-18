@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	struct mail_user *mail_user;
 	struct dsync_worker *worker1, *worker2;
 	const char *error, *username, *mailbox = NULL, *cmd = NULL;
-	bool dest = TRUE, readonly = FALSE;
+	bool dsync_server = FALSE, readonly = FALSE;
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
@@ -111,6 +111,10 @@ int main(int argc, char *argv[])
 			usage();
 		}
 	}
+	if (optind != argc && strcmp(argv[optind], "server") == 0) {
+		dsync_server = TRUE;
+		optind++;
+	}
 	if (optind != argc)
 		usage();
 	master_service_init_finish(master_service);
@@ -128,14 +132,15 @@ int main(int argc, char *argv[])
 	if (cmd != NULL) {
 		/* user initialization may exec doveconf, so do our forking
 		   after that */
-		run_cmd(cmd, &fd_in, &fd_out);
-		dest = FALSE;
+		run_cmd(t_strconcat(cmd, " server", NULL), &fd_in, &fd_out);
+	} else if (!dsync_server) {
+		usage();
 	}
 
 	worker1 = dsync_worker_init_local(mail_user);
 	if (readonly)
 		dsync_worker_set_readonly(worker1);
-	if (dest) {
+	if (dsync_server) {
 		i_set_failure_prefix(t_strdup_printf("dsync-dest(%s): ",
 						     username));
 		server = dsync_proxy_server_init(fd_in, fd_out, worker1);
