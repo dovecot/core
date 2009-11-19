@@ -131,7 +131,8 @@ const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq);
 
 int maildir_transaction_save_commit_pre(struct mail_save_context *ctx);
-void maildir_transaction_save_commit_post(struct mail_save_context *ctx);
+void maildir_transaction_save_commit_post(struct mail_save_context *ctx,
+					  struct mail_index_transaction_commit_result *result);
 void maildir_transaction_save_rollback(struct mail_save_context *ctx);
 
 int maildir_copy(struct mail_save_context *ctx, struct mail *mail);

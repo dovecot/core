@@ -83,7 +83,8 @@ int mbox_save_finish(struct mail_save_context *ctx);
 void mbox_save_cancel(struct mail_save_context *ctx);
 
 int mbox_transaction_save_commit_pre(struct mail_save_context *ctx);
-void mbox_transaction_save_commit_post(struct mail_save_context *ctx);
+void mbox_transaction_save_commit_post(struct mail_save_context *ctx,
+				       struct mail_index_transaction_commit_result *result);
 void mbox_transaction_save_rollback(struct mail_save_context *ctx);
 
 #endif

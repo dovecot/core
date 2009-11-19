@@ -15,8 +15,7 @@ static void index_transaction_free(struct index_transaction_context *t)
 
 static int
 index_transaction_index_commit(struct mail_index_transaction *index_trans,
-			       uint32_t *log_file_seq_r,
-			       uoff_t *log_file_offset_r)
+			       struct mail_index_transaction_commit_result *result_r)
 {
 	struct index_transaction_context *it =
 		MAIL_STORAGE_CONTEXT(index_trans);
@@ -35,15 +34,14 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	if (ret < 0)
 		it->super.rollback(it->trans);
 	else {
-		if (it->super.commit(it->trans, log_file_seq_r,
-				     log_file_offset_r) < 0) {
+		if (it->super.commit(it->trans, result_r) < 0) {
 			mail_storage_set_index_error(ibox);
 			ret = -1;
 		}
 	}
 
 	if (t->save_ctx != NULL)
-		ibox->save_commit_post(t->save_ctx);
+		ibox->save_commit_post(t->save_ctx, result_r);
 
 	index_transaction_free(it);
 	return ret;
@@ -115,15 +113,19 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 		(struct index_transaction_context *)_t;
 	struct mail_index_transaction *itrans = t->trans;
 	struct index_mailbox *ibox = (struct index_mailbox *)_t->box;
+	struct mail_index_transaction_commit_result result;
 	int ret;
 
 	memset(changes_r, 0, sizeof(*changes_r));
 	changes_r->pool = pool_alloconly_create("transaction changes", 1024);
 	p_array_init(&changes_r->saved_uids, changes_r->pool, 32);
-	p_array_init(&changes_r->updated_uids, changes_r->pool, 32);
 	_t->changes = changes_r;
 
-	ret = mail_index_transaction_commit(&itrans);
+	ret = mail_index_transaction_commit_full(&itrans, &result);
+
+	changes_r->ignored_uid_changes = result.ignored_uid_changes;
+	changes_r->ignored_modseq_changes = result.ignored_modseq_changes;
+
 	i_assert(ibox->box.transaction_count > 0 ||
 		 ibox->view->transactions == 0);
 	return ret;

@@ -796,7 +796,8 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	return ret;
 }
 
-void mbox_transaction_save_commit_post(struct mail_save_context *_ctx)
+void mbox_transaction_save_commit_post(struct mail_save_context *_ctx,
+				       struct mail_index_transaction_commit_result *result ATTR_UNUSED)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 

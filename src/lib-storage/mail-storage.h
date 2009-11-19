@@ -213,9 +213,10 @@ struct mail_transaction_commit_changes {
 	uint32_t uid_validity;
 	/* UIDs assigned to saved messages. Not necessarily ascending. */
 	ARRAY_TYPE(seq_range) saved_uids;
-	/* UIDs assigned to updated UIDs. Not necessarily the same as the
-	   requested new UIDs. */
-	ARRAY_TYPE(seq_range) updated_uids;
+
+	/* number of uid/modseq changes that couldn't be changed as requested */
+	unsigned int ignored_uid_changes;
+	unsigned int ignored_modseq_changes;
 };
 
 struct mailbox_sync_rec {

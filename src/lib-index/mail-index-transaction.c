@@ -120,7 +120,9 @@ mail_transaction_log_file_refresh(struct mail_index_transaction *t,
 	return 1;
 }
 
-static int mail_index_transaction_commit_real(struct mail_index_transaction *t)
+static int
+mail_index_transaction_commit_real(struct mail_index_transaction *t,
+				   uoff_t *commit_size_r)
 {
 	struct mail_transaction_log *log = t->view->index->log;
 	bool external = (t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0;
@@ -144,6 +146,8 @@ static int mail_index_transaction_commit_real(struct mail_index_transaction *t)
 	mail_transaction_log_get_head(log, &log_seq2, &log_offset2);
 	i_assert(log_seq1 == log_seq2);
 
+	*commit_size_r = log_offset2 - log_offset1;
+
 	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_HIDE) != 0 &&
 	    log_offset1 != log_offset2) {
 		/* mark the area covered by this transaction hidden */
@@ -154,8 +158,7 @@ static int mail_index_transaction_commit_real(struct mail_index_transaction *t)
 }
 
 static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
-					   uint32_t *log_file_seq_r,
-					   uoff_t *log_file_offset_r)
+					   struct mail_index_transaction_commit_result *result_r)
 {
 	struct mail_index *index = t->view->index;
 	bool changed;
@@ -165,14 +168,10 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 		 mail_index_view_get_messages_count(t->view));
 
 	changed = MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) || t->reset;
-	if (!changed) {
-		/* nothing to append */
-		ret = 0;
-	} else {
-		ret = mail_index_transaction_commit_real(t);
-	}
-	mail_transaction_log_get_head(index->log, log_file_seq_r,
-				      log_file_offset_r);
+	ret = !changed ? 0 :
+		mail_index_transaction_commit_real(t, &result_r->commit_size);
+	mail_transaction_log_get_head(index->log, &result_r->log_file_seq,
+				      &result_r->log_file_offset);
 
 	if (ret == 0 && !index->syncing && changed) {
 		/* if we're committing a normal transaction, we want to
@@ -184,7 +183,9 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 		   be done later as MAIL_INDEX_SYNC_HANDLER_FILE so that
 		   expunge handlers get run for the newly expunged messages
 		   (and sync handlers that require HANDLER_FILE as well). */
+		index->sync_commit_result = result_r;
 		(void)mail_index_refresh(index);
+		index->sync_commit_result = NULL;
 	}
 
 	mail_index_transaction_unref(&t);
@@ -198,15 +199,13 @@ static void mail_index_transaction_rollback_v(struct mail_index_transaction *t)
 
 int mail_index_transaction_commit(struct mail_index_transaction **t)
 {
-	uint32_t log_seq;
-	uoff_t log_offset;
+	struct mail_index_transaction_commit_result result;
 
-	return mail_index_transaction_commit_get_pos(t, &log_seq, &log_offset);
+	return mail_index_transaction_commit_full(t, &result);
 }
 
-int mail_index_transaction_commit_get_pos(struct mail_index_transaction **_t,
-					  uint32_t *log_file_seq_r,
-					  uoff_t *log_file_offset_r)
+int mail_index_transaction_commit_full(struct mail_index_transaction **_t,
+				       struct mail_index_transaction_commit_result *result_r)
 {
 	struct mail_index_transaction *t = *_t;
 
@@ -216,7 +215,8 @@ int mail_index_transaction_commit_get_pos(struct mail_index_transaction **_t,
 	}
 
 	*_t = NULL;
-	return t->v.commit(t, log_file_seq_r, log_file_offset_r);
+	memset(result_r, 0, sizeof(*result_r));
+	return t->v.commit(t, result_r);
 }
 
 void mail_index_transaction_rollback(struct mail_index_transaction **_t)

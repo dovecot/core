@@ -21,7 +21,7 @@ struct mail_index_transaction_ext_hdr_update {
 struct mail_index_transaction_vfuncs {
 	void (*reset)(struct mail_index_transaction *t);
 	int (*commit)(struct mail_index_transaction *t,
-		      uint32_t *log_file_seq_r, uoff_t *log_file_offset_r);
+		      struct mail_index_transaction_commit_result *result_r);
 	void (*rollback)(struct mail_index_transaction *t);
 };
 

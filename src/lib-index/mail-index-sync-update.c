@@ -279,9 +279,32 @@ static void *sync_append_record(struct mail_index_map *map)
 	return ret;
 }
 
+static bool sync_update_ignored_change(struct mail_index_sync_map_ctx *ctx)
+{
+	struct mail_index_transaction_commit_result *result =
+		ctx->view->index->sync_commit_result;
+	uint32_t log_seq;
+	uoff_t log_offset, start_offset;
+
+	if (result == NULL)
+		return FALSE;
+
+	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
+					       &log_seq, &log_offset);
+	if (log_seq != result->log_file_seq)
+		return FALSE;
+
+	start_offset = result->log_file_offset - result->commit_size;
+	if (log_offset < start_offset || log_offset >= result->log_file_offset)
+		return FALSE;
+
+	return TRUE;
+}
+
 static void sync_uid_update(struct mail_index_sync_map_ctx *ctx,
 			    uint32_t old_uid, uint32_t new_uid)
 {
+	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map;
 	struct mail_index_record *rec;
 	uint32_t old_seq;
@@ -289,10 +312,12 @@ static void sync_uid_update(struct mail_index_sync_map_ctx *ctx,
 
 	if (new_uid < ctx->view->map->hdr.next_uid) {
 		/* uid update is no longer possible */
+		if (sync_update_ignored_change(ctx))
+			view->index->sync_commit_result->ignored_uid_changes++;
 		return;
 	}
 
-	if (!mail_index_lookup_seq(ctx->view, old_uid, &old_seq))
+	if (!mail_index_lookup_seq(view, old_uid, &old_seq))
 		return;
 
 	map = mail_index_sync_get_atomic_map(ctx);
@@ -320,6 +345,7 @@ sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 	const struct mail_transaction_modseq_update *end;
 	uint32_t seq;
 	uint64_t min_modseq, highest_modseq = 0;
+	int ret;
 
 	end = CONST_PTR_OFFSET(u, size);
 	for (; u < end; u++) {
@@ -332,12 +358,16 @@ sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 			u->modseq_low32;
 		if (highest_modseq < min_modseq)
 			highest_modseq = min_modseq;
-		if (seq != 0 &&
-		    mail_index_modseq_set(view, seq, min_modseq) < 0) {
+
+		ret = seq == 0 ? 1 :
+			mail_index_modseq_set(view, seq, min_modseq);
+		if (ret < 0) {
 			mail_index_sync_set_corrupted(ctx,
 				"modseqs updated before they were enabled");
 			return -1;
 		}
+		if (ret == 0 && sync_update_ignored_change(ctx))
+			view->index->sync_commit_result->ignored_modseq_changes++;
 	}
 
 	mail_index_modseq_update_highest(ctx->modseq_ctx, highest_modseq);

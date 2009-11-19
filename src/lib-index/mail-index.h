@@ -183,6 +183,18 @@ struct mail_index_view_sync_rec {
 	unsigned int hidden:1;
 };
 
+struct mail_index_transaction_commit_result {
+	/* seq/offset points to end of transaction */
+	uint32_t log_file_seq;
+	uoff_t log_file_offset;
+	/* number of bytes in the written transaction.
+	   all of it was written to the same file. */
+	uoff_t commit_size;
+
+	unsigned int ignored_uid_changes;
+	unsigned int ignored_modseq_changes;
+};
+
 struct mail_index;
 struct mail_index_map;
 struct mail_index_view;
@@ -245,9 +257,8 @@ struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
 			     enum mail_index_transaction_flags flags);
 int mail_index_transaction_commit(struct mail_index_transaction **t);
-int mail_index_transaction_commit_get_pos(struct mail_index_transaction **t,
-					  uint32_t *log_file_seq_r,
-					  uoff_t *log_file_offset_r);
+int mail_index_transaction_commit_full(struct mail_index_transaction **t,
+				       struct mail_index_transaction_commit_result *result_r);
 void mail_index_transaction_rollback(struct mail_index_transaction **t);
 /* Discard all changes in the transaction. */
 void mail_index_transaction_reset(struct mail_index_transaction *t);
@@ -326,6 +337,9 @@ bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
 /* Reset syncing to initial state after mail_index_sync_begin(), so you can
    go through all the sync records again with mail_index_sync_next(). */
 void mail_index_sync_reset(struct mail_index_sync_ctx *ctx);
+/* Update result when refreshing index at the end of sync. */
+void mail_index_sync_set_commit_result(struct mail_index_sync_ctx *ctx,
+				       struct mail_index_transaction_commit_result *result);
 /* Commit synchronization by writing all changes to mail index file. */
 int mail_index_sync_commit(struct mail_index_sync_ctx **ctx);
 /* Rollback synchronization - none of the changes listed by sync_next() are

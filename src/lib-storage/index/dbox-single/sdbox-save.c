@@ -246,7 +246,8 @@ int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	return 0;
 }
 
-void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx)
+void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
+					struct mail_index_transaction_commit_result *result)
 {
 	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
 
@@ -256,6 +257,9 @@ void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx)
 		sdbox_transaction_save_rollback(_ctx);
 		return;
 	}
+
+	mail_index_sync_set_commit_result(ctx->sync_ctx->index_sync_ctx,
+					  result);
 
 	if (sdbox_sync_finish(&ctx->sync_ctx, TRUE) < 0)
 		ctx->ctx.failed = TRUE;

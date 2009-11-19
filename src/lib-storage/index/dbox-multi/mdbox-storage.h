@@ -78,7 +78,8 @@ mdbox_save_file_get_file(struct mailbox_transaction_context *t,
 			 uint32_t seq, uoff_t *offset_r);
 
 int mdbox_transaction_save_commit_pre(struct mail_save_context *ctx);
-void mdbox_transaction_save_commit_post(struct mail_save_context *ctx);
+void mdbox_transaction_save_commit_post(struct mail_save_context *ctx,
+					struct mail_index_transaction_commit_result *result);
 void mdbox_transaction_save_rollback(struct mail_save_context *ctx);
 
 int mdbox_copy(struct mail_save_context *ctx, struct mail *mail);

@@ -68,14 +68,13 @@ static void mail_index_transaction_cache_reset(struct mail_index_transaction *t)
 
 static int
 mail_index_transaction_cache_commit(struct mail_index_transaction *t,
-				    uint32_t *log_file_seq_r,
-				    uoff_t *log_file_offset_r)
+				    struct mail_index_transaction_commit_result *result_r)
 {
 	struct mail_cache_transaction_ctx *ctx = CACHE_TRANS_CONTEXT(t);
 	struct mail_index_transaction_vfuncs super = ctx->super;
 
 	mail_cache_transaction_commit(&ctx);
-	return super.commit(t, log_file_seq_r, log_file_offset_r);
+	return super.commit(t, result_r);
 }
 
 static void

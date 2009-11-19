@@ -15,6 +15,7 @@ struct mail_index_sync_ctx {
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_index_transaction *sync_trans, *ext_trans;
+	struct mail_index_transaction_commit_result *sync_commit_result;
 	enum mail_index_sync_flags flags;
 
 	const struct mail_transaction_header *hdr;
@@ -688,6 +689,12 @@ bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 	return FALSE;
 }
 
+void mail_index_sync_set_commit_result(struct mail_index_sync_ctx *ctx,
+				       struct mail_index_transaction_commit_result *result)
+{
+	ctx->sync_commit_result = result;
+}
+
 void mail_index_sync_reset(struct mail_index_sync_ctx *ctx)
 {
 	struct mail_index_sync_list *sync_list;
@@ -787,8 +794,10 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	/* refresh the mapping with newly committed external transactions
 	   and the synced expunges. sync using file handler here so that the
 	   expunge handlers get called. */
+	index->sync_commit_result = ctx->sync_commit_result;
 	if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE) <= 0)
 		ret = -1;
+	index->sync_commit_result = NULL;
 
 	want_rotate = mail_transaction_log_want_rotate(index->log);
 	if (ret == 0 &&

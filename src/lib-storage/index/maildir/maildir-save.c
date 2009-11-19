@@ -971,7 +971,8 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	return 0;
 }
 
-void maildir_transaction_save_commit_post(struct mail_save_context *_ctx)
+void maildir_transaction_save_commit_post(struct mail_save_context *_ctx,
+					  struct mail_index_transaction_commit_result *result ATTR_UNUSED)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 

@@ -219,6 +219,7 @@ index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	struct mail_index_transaction *trans;
+	struct mail_index_transaction_commit_result result;
 	const void *data;
 	const uint32_t *counter_p;
 	uint32_t *ext_id_p;
@@ -254,8 +255,12 @@ index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 		return -1;
 	}
 
-	return mail_index_transaction_commit_get_pos(&trans, &ibox->log_seq,
-						     &ibox->log_offset);
+	if (mail_index_transaction_commit_full(&trans, &result) < 0)
+		return -1;
+
+	ibox->log_seq = result.log_file_seq;
+	ibox->log_offset = result.log_file_offset;
+	return 0;
 }
 
 static struct mailbox_sync_context *

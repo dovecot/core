@@ -201,6 +201,9 @@ struct mail_index {
 	uint32_t fsck_log_head_file_seq;
 	uoff_t fsck_log_head_file_offset;
 
+	/* syncing will update this if non-NULL */
+	struct mail_index_transaction_commit_result *sync_commit_result;
+
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id_counter;
 	enum file_lock_method lock_method;

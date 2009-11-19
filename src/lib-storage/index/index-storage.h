@@ -35,7 +35,8 @@ struct index_mailbox {
 	enum mail_index_open_flags index_flags;
 
 	int (*save_commit_pre)(struct mail_save_context *save_ctx);
-	void (*save_commit_post)(struct mail_save_context *save_ctx);
+	void (*save_commit_post)(struct mail_save_context *save_ctx,
+				 struct mail_index_transaction_commit_result *result_r);
 	void (*save_rollback)(struct mail_save_context *save_ctx);
 
 	struct mail_index *index;

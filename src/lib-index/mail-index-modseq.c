@@ -202,9 +202,12 @@ int mail_index_modseq_set(struct mail_index_view *view,
 
 	ext = array_idx(&view->map->extensions, ext_map_idx);
 	modseqp = PTR_OFFSET(rec, ext->record_offset);
-	if (*modseqp < min_modseq)
+	if (*modseqp > min_modseq)
+		return 0;
+	else {
 		*modseqp = min_modseq;
-	return 0;
+		return 1;
+	}
 }
 
 static uint64_t

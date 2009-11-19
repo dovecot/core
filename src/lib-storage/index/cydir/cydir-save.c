@@ -292,11 +292,15 @@ int cydir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	return 0;
 }
 
-void cydir_transaction_save_commit_post(struct mail_save_context *_ctx)
+void cydir_transaction_save_commit_post(struct mail_save_context *_ctx,
+					struct mail_index_transaction_commit_result *result)
 {
 	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
 
 	_ctx->transaction = NULL; /* transaction is already freed */
+
+	mail_index_sync_set_commit_result(ctx->sync_ctx->index_sync_ctx,
+					  result);
 
 	(void)cydir_sync_finish(&ctx->sync_ctx, TRUE);
 	cydir_transaction_save_rollback(_ctx);
