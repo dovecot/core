@@ -207,6 +207,12 @@ int i_my_vsnprintf(char *str, size_t size, const char *format, va_list ap);
 int i_my_clock_gettime(int clk_id, struct timespec *tp);
 #endif
 
+/* glibc wants _XOPEN_SOURCE defined for strptime(), but doing that breaks
+   other things. So we'll create this wrapper to work around the problems. */
+#define strptime my_strptime
+struct tm;
+char *my_strptime(const char *s, const char *format, struct tm *tm);
+
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
 #define i_toupper(x) ((char) toupper((int) (unsigned char) (x)))

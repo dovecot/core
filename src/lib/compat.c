@@ -17,6 +17,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <time.h>
 #include <sys/time.h>
 #ifdef HAVE_INTTYPES_H
 #  include <inttypes.h> /* for strtoimax() and strtoumax() */
@@ -307,3 +308,8 @@ int i_my_clock_gettime(int clk_id, struct timespec *tp)
 	return 0;
 }
 #endif
+
+char *my_strptime(const char *s, const char *format, struct tm *tm)
+{
+	return strptime(s, format, tm);
+}
