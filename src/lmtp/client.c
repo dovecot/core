@@ -14,6 +14,7 @@
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "main.h"
+#include "lda-settings.h"
 #include "lmtp-settings.h"
 #include "lmtp-proxy.h"
 #include "commands.h"
@@ -221,12 +222,12 @@ struct client *client_create(int fd_in, int fd_out,
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
 
 	client_io_reset(client);
-	client->my_domain = my_hostname;
 	client->state_pool = pool_alloconly_create("client state", 4096);
 	client->state.mail_data_fd = -1;
 	client_read_settings(client);
 	client_raw_user_create(client);
 	client_generate_session_id(client);
+	client->my_domain = client->set->hostname;
 	client->state.lhlo = "missing";
 
 	DLLIST_PREPEND(&clients, client);
