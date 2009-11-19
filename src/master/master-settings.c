@@ -233,7 +233,8 @@ const struct setting_parser_info master_setting_parser_info = {
 
 /* <settings checks> */
 static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
-				    pool_t pool, const char *base_dir)
+				    pool_t pool, const char *base_dir,
+				    ARRAY_TYPE(const_string) *all_listeners)
 {
 	struct file_listener_settings *const *sets;
 	unsigned int i, count;
@@ -247,6 +248,24 @@ static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 			sets[i]->path = p_strconcat(pool, base_dir, "/",
 						    sets[i]->path, NULL);
 		}
+		array_append(all_listeners, &sets[i]->path, 1);
+	}
+}
+
+static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
+			       ARRAY_TYPE(const_string) *all_listeners)
+{
+	struct inet_listener_settings *const *sets;
+	unsigned int i, count;
+	const char *str;
+
+	if (!array_is_created(l))
+		return;
+
+	sets = array_get(l, &count);
+	for (i = 0; i < count; i++) {
+		str = t_strdup_printf("%d:%s", sets[i]->port, sets[i]->address);
+		array_append(all_listeners, &str, 1);
 	}
 }
 
@@ -288,6 +307,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
 	struct master_settings *set = _set;
 	struct service_settings *const *services;
+	const char *const *strings;
+	ARRAY_TYPE(const_string) all_listeners;
 	unsigned int i, j, count;
 
 	if (set->last_valid_uid != 0 &&
@@ -329,6 +350,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		}
 		service_set_login_dump_core(service);
 	}
+
+	t_array_init(&all_listeners, 64);
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
 
@@ -356,10 +379,23 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			return FALSE;
 		}
 		fix_file_listener_paths(&service->unix_listeners,
-					pool, set->base_dir);
+					pool, set->base_dir, &all_listeners);
 		fix_file_listener_paths(&service->fifo_listeners,
-					pool, set->base_dir);
+					pool, set->base_dir, &all_listeners);
+		add_inet_listeners(&service->inet_listeners, &all_listeners);
 	}
+
+	/* check for duplicate listeners */
+	array_sort(&all_listeners, i_strcmp_p);
+	strings = array_get(&all_listeners, &count);
+	for (i = 1; i < count; i++) {
+		if (strcmp(strings[i-1], strings[i]) == 0) {
+			*error_r = t_strdup_printf("duplicate listener: %s",
+						   strings[i]);
+			return FALSE;
+		}
+	}
+
 	set->protocols_split = p_strsplit(pool, set->protocols, " ");
 	return TRUE;
 }
