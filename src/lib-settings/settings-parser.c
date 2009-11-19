@@ -313,15 +313,12 @@ static int
 get_time(struct setting_parser_context *ctx, const char *value,
 	 unsigned int *result_r)
 {
-	unsigned int num, multiply;
+	unsigned int num, multiply = 1;
 	char *p;
 
 	num = strtoull(value, &p, 10);
 	while (*p == ' ') p++;
 	switch (i_toupper(*p)) {
-	case '\0':
-		multiply = 1;
-		break;
 	case 'S':
 		multiply = 1;
 		if (strncasecmp(p, "secs", strlen(p)) == 0)
@@ -369,15 +366,12 @@ static int
 get_size(struct setting_parser_context *ctx, const char *value,
 	 uoff_t *result_r)
 {
-	unsigned long long num, multiply;
+	unsigned long long num, multiply = 1;
 	char *p;
 
 	num = strtoull(value, &p, 10);
 	while (*p == ' ') p++;
 	switch (i_toupper(*p)) {
-	case '\0':
-		multiply = 1;
-		break;
 	case 'B':
 		multiply = 1;
 		p += 1;
