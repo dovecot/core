@@ -88,6 +88,9 @@ static const char *log_record_type(unsigned int type)
 	case MAIL_TRANSACTION_EXT_HDR_UPDATE:
 		name = "ext-hdr";
 		break;
+	case MAIL_TRANSACTION_EXT_HDR_UPDATE32:
+		name = "ext-hdr32";
+		break;
 	case MAIL_TRANSACTION_EXT_REC_UPDATE:
 		name = "ext-rec";
 		break;
@@ -317,6 +320,14 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	}
 	case MAIL_TRANSACTION_EXT_HDR_UPDATE: {
 		const struct mail_transaction_ext_hdr_update *u = data;
+
+		printf(" - offset = %u, size = %u: ", u->offset, u->size);
+		print_data(u + 1, u->size);
+		printf("\n");
+		break;
+	}
+	case MAIL_TRANSACTION_EXT_HDR_UPDATE32: {
+		const struct mail_transaction_ext_hdr_update32 *u = data;
 
 		printf(" - offset = %u, size = %u: ", u->offset, u->size);
 		print_data(u + 1, u->size);

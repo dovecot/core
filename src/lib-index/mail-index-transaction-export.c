@@ -130,10 +130,12 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 	buffer_t *buf;
 	const unsigned char *data, *mask;
 	struct mail_transaction_ext_hdr_update u;
-	uint16_t offset;
-	bool started = FALSE;
+	struct mail_transaction_ext_hdr_update32 u32;
+	size_t offset;
+	bool started = FALSE, use_32 = hdr->alloc_size >= 65536;
 
 	memset(&u, 0, sizeof(u));
+	memset(&u32, 0, sizeof(u32));
 
 	data = hdr->data;
 	mask = hdr->mask;
@@ -142,21 +144,28 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 	for (offset = 0; offset <= hdr->alloc_size; offset++) {
 		if (offset < hdr->alloc_size && mask[offset] != 0) {
 			if (!started) {
-				u.offset = offset;
+				u32.offset = offset;
 				started = TRUE;
 			}
 		} else {
 			if (started) {
-				u.size = offset - u.offset;
-				buffer_append(buf, &u, sizeof(u));
-				buffer_append(buf, data + u.offset, u.size);
+				u32.size = offset - u32.offset;
+				if (use_32)
+					buffer_append(buf, &u32, sizeof(u32));
+				else {
+					u.offset = u32.offset;
+					u.size = u32.size;
+					buffer_append(buf, &u, sizeof(u));
+				}
+				buffer_append(buf, data + u32.offset, u32.size);
 				started = FALSE;
 			}
 		}
 	}
 	if (buf->used % 4 != 0)
 		buffer_append_zero(buf, 4 - buf->used % 4);
-	log_append_buffer(ctx, buf, MAIL_TRANSACTION_EXT_HDR_UPDATE);
+	log_append_buffer(ctx, buf, use_32 ? MAIL_TRANSACTION_EXT_HDR_UPDATE32 :
+			  MAIL_TRANSACTION_EXT_HDR_UPDATE);
 }
 
 static void

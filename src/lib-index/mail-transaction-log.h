@@ -41,6 +41,7 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_EXPUNGE_GUID		= 0x00002000,
 	MAIL_TRANSACTION_UID_UPDATE		= 0x00004000,
 	MAIL_TRANSACTION_MODSEQ_UPDATE		= 0x00008000,
+	MAIL_TRANSACTION_EXT_HDR_UPDATE32	= 0x00010000,
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
@@ -139,6 +140,14 @@ struct mail_transaction_ext_reset {
 struct mail_transaction_ext_hdr_update {
 	uint16_t offset;
 	uint16_t size;
+	/* unsigned char data[]; */
+};
+/* this _update32 version should have been the only ext_hdr_update,
+   but since 16bit integers were originally used for now we'll just use this
+   only when actually needed to be backwards compatible. */
+struct mail_transaction_ext_hdr_update32 {
+	uint32_t offset;
+	uint32_t size;
 	/* unsigned char data[]; */
 };
 

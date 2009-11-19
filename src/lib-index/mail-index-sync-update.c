@@ -687,7 +687,34 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 				break;
 			}
 
-			ret = mail_index_sync_ext_hdr_update(ctx, rec);
+			ret = mail_index_sync_ext_hdr_update(ctx, rec->offset,
+							     rec->size, rec + 1);
+			if (ret <= 0)
+				break;
+
+			i += sizeof(*rec) + rec->size;
+			if ((i % 4) != 0)
+				i += 4 - (i % 4);
+		}
+		break;
+	}
+	case MAIL_TRANSACTION_EXT_HDR_UPDATE32: {
+		const struct mail_transaction_ext_hdr_update32 *rec = data;
+		unsigned int i;
+
+		for (i = 0; i < hdr->size; ) {
+			rec = CONST_PTR_OFFSET(data, i);
+
+			if (i + sizeof(*rec) > hdr->size ||
+			    i + sizeof(*rec) + rec->size > hdr->size) {
+				mail_index_sync_set_corrupted(ctx,
+					"ext hdr update: invalid record size");
+				ret = -1;
+				break;
+			}
+
+			ret = mail_index_sync_ext_hdr_update(ctx, rec->offset,
+							     rec->size, rec + 1);
 			if (ret <= 0)
 				break;
 

@@ -76,9 +76,9 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u);
 int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_reset *u);
-int
-mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
-			       const struct mail_transaction_ext_hdr_update *u);
+int mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
+				   uint32_t offset, uint32_t size,
+				   const void *data);
 int
 mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 			       const struct mail_transaction_ext_rec_update *u);

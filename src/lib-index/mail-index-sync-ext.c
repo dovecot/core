@@ -603,9 +603,9 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	return 1;
 }
 
-int
-mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
-			       const struct mail_transaction_ext_hdr_update *u)
+int mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
+				   uint32_t offset, uint32_t size,
+				   const void *data)
 {
 	struct mail_index_map *map = ctx->view->map;
         const struct mail_index_ext *ext;
@@ -619,10 +619,9 @@ mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 
 	ext = array_idx(&map->extensions, ctx->cur_ext_map_idx);
-	i_assert(ext->hdr_offset + u->offset + u->size <= map->hdr.header_size);
+	i_assert(ext->hdr_offset + offset + size <= map->hdr.header_size);
 
-	buffer_write(map->hdr_copy_buf, ext->hdr_offset + u->offset,
-		     u + 1, u->size);
+	buffer_write(map->hdr_copy_buf, ext->hdr_offset + offset, data, size);
 	map->hdr_base = map->hdr_copy_buf->data;
 
 	if (ext->index_idx == ctx->view->index->modseq_ext_id)
