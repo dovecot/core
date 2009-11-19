@@ -416,6 +416,15 @@ static bool dsync_mailbox_has_changed_msgs(struct dsync_brain *brain,
 	return FALSE;
 }
 
+static bool dsync_mailbox_has_changes(struct dsync_brain *brain,
+				      const struct dsync_mailbox *box1,
+				      const struct dsync_mailbox *box2)
+{
+	if (strcmp(box1->name, box2->name) != 0)
+		return TRUE;
+	return dsync_mailbox_has_changed_msgs(brain, box1, box2);
+}
+
 static void
 dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 				  ARRAY_TYPE(dsync_brain_mailbox) *brain_boxes,
@@ -439,9 +448,8 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 		ret = dsync_mailbox_guid_cmp(src_boxes[src], dest_boxes[dest]);
 		if (ret == 0) {
 			if ((full_sync ||
-			     dsync_mailbox_has_changed_msgs(brain,
-							    src_boxes[src],
-							    dest_boxes[dest])) &&
+			     dsync_mailbox_has_changes(brain, src_boxes[src],
+						       dest_boxes[dest])) &&
 			    !src_deleted && !dest_deleted) {
 				brain_box = array_append_space(brain_boxes);
 				brain_box->box = *src_boxes[src];
@@ -521,11 +529,30 @@ static void dsync_brain_sync_msgs(struct dsync_brain *brain)
 }
 
 static void
-dsync_brain_msg_sync_update_mailbox(struct dsync_brain *brain)
+dsync_brain_sync_rename_mailbox(struct dsync_brain *brain,
+				const struct dsync_brain_mailbox *mailbox)
+{
+	if (mailbox->src->last_renamed > mailbox->dest->last_renamed) {
+		dsync_worker_rename_mailbox(brain->dest_worker,
+					    &mailbox->box.mailbox_guid,
+					    mailbox->src->name);
+	} else {
+		dsync_worker_rename_mailbox(brain->src_worker,
+					    &mailbox->box.mailbox_guid,
+					    mailbox->dest->name);
+	}
+}
+
+static void
+dsync_brain_sync_update_mailboxes(struct dsync_brain *brain)
 {
 	const struct dsync_brain_mailbox *mailbox;
 
 	array_foreach(&brain->mailbox_sync->mailboxes, mailbox) {
+		if (mailbox->src != NULL && mailbox->dest != NULL &&
+		    strcmp(mailbox->src->name, mailbox->dest->name) != 0)
+			dsync_brain_sync_rename_mailbox(brain, mailbox);
+
 		dsync_worker_update_mailbox(brain->src_worker, &mailbox->box);
 		dsync_worker_update_mailbox(brain->dest_worker, &mailbox->box);
 	}
@@ -584,8 +611,8 @@ void dsync_brain_sync(struct dsync_brain *brain)
 		break;
 	case DSYNC_STATE_SYNC_MSGS_FLUSH2:
 		break;
-	case DSYNC_STATE_SYNC_UPDATE_MAILBOX:
-		dsync_brain_msg_sync_update_mailbox(brain);
+	case DSYNC_STATE_SYNC_UPDATE_MAILBOXES:
+		dsync_brain_sync_update_mailboxes(brain);
 		brain->state++;
 		/* fall through */
 	case DSYNC_STATE_SYNC_FLUSH:
