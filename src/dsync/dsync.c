@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 	const char *error, *username, *mailbox = NULL, *mirror_cmd = NULL;
 	const char *convert_location = NULL;
 	bool dsync_server = FALSE, readonly = FALSE, unexpected_changes = FALSE;
-	char alt_hierarchy_char = '_';
+	char alt_char = '_';
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 			break;
 		switch (c) {
 		case 'A':
-			alt_hierarchy_char = optarg[0];
+			alt_char = optarg[0];
 			break;
 		case 'b':
 			mailbox = optarg;
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* create the first local worker */
-	worker1 = dsync_worker_init_local(mail_user, alt_hierarchy_char);
+	worker1 = dsync_worker_init_local(mail_user, alt_char);
 	if (convert_location != NULL) {
 		/* update mail_location and create another user for the
 		   second location. */
@@ -174,8 +174,7 @@ int main(int argc, char *argv[])
 					      &mail_user2, &error) < 0)
 			i_fatal("User init failed: %s", error);
 
-		worker2 = dsync_worker_init_local(mail_user2,
-						  alt_hierarchy_char);
+		worker2 = dsync_worker_init_local(mail_user2, alt_char);
 
 		i_set_failure_prefix(t_strdup_printf("dsync(%s): ", username));
 		brain = dsync_brain_init(worker1, worker2,

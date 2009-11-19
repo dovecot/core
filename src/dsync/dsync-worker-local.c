@@ -14,6 +14,8 @@
 #include "mail-search-build.h"
 #include "dsync-worker-private.h"
 
+#include <ctype.h>
+
 struct local_dsync_worker_mailbox_iter {
 	struct dsync_worker_mailbox_iter iter;
 	struct mailbox_list_iterate_context *list_iter;
@@ -71,7 +73,7 @@ struct local_dsync_worker {
 	/* mailbox_guid_t -> struct local_dsync_subscription_change */
 	struct hash_table *subscription_changes_hash;
 
-	char alt_hierarchy_char;
+	char alt_char;
 
 	mailbox_guid_t selected_box_guid;
 	struct mailbox *selected_box;
@@ -121,17 +123,24 @@ static unsigned int mailbox_guid_hash(const void *p)
 }
 
 struct dsync_worker *
-dsync_worker_init_local(struct mail_user *user, char alt_hierarchy_char)
+dsync_worker_init_local(struct mail_user *user, char alt_char)
 {
 	struct local_dsync_worker *worker;
+	struct mail_namespace *ns;
 	pool_t pool;
+
+	/* whatever we do, we do it because we're trying to sync,
+	   not because of a user action. don't log these mailbox list changes
+	   so we don't do wrong decisions on future syncs. */
+	for (ns = user->namespaces; ns != NULL; ns = ns->next)
+		mailbox_list_set_changelog_writable(ns->list, FALSE);
 
 	pool = pool_alloconly_create("local dsync worker", 10240);
 	worker = p_new(pool, struct local_dsync_worker, 1);
 	worker->worker.v = local_dsync_worker;
 	worker->user = user;
 	worker->pool = pool;
-	worker->alt_hierarchy_char = alt_hierarchy_char;
+	worker->alt_char = alt_char;
 	worker->mailbox_hash =
 		hash_table_create(default_pool, pool, 0,
 				  mailbox_guid_hash, mailbox_guid_cmp);
@@ -873,20 +882,83 @@ mailbox_name_convert(struct local_dsync_worker *worker,
 
 	dest_name = t_strdup_noconst(name);
 	for (p = dest_name; *p != '\0'; p++) {
-		if (*p == dest_sep && worker->alt_hierarchy_char != '\0')
-			*p = worker->alt_hierarchy_char;
+		if (*p == dest_sep && worker->alt_char != '\0')
+			*p = worker->alt_char;
 		else if (*p == src_sep)
 			*p = dest_sep;
 	}
 	return dest_name;
 }
 
+static const char *
+mailbox_name_cleanup(const char *input, char real_sep, char alt_char)
+{
+	char *output, *p;
+
+	output = t_strdup_noconst(input);
+	for (p = output; *p != '\0'; p++) {
+		if (*p == real_sep || (uint8_t)*input < 32 ||
+		    (uint8_t)*input >= 0x80)
+			*p = alt_char;
+	}
+	return output;
+}
+
+static const char *mailbox_name_force_cleanup(const char *input, char alt_char)
+{
+	char *output, *p;
+
+	output = t_strdup_noconst(input);
+	for (p = output; *p != '\0'; p++) {
+		if (!i_isalnum(*p))
+			*p = alt_char;
+	}
+	return output;
+}
+
+static const char *
+local_worker_convert_mailbox_name(struct local_dsync_worker *worker,
+				  const char *name, struct mail_namespace *ns,
+				  const struct dsync_mailbox *dsync_box,
+				  bool creating)
+{
+	if (dsync_box->name_sep != ns->sep) {
+		/* mailbox names use different separators. convert them. */
+		name = mailbox_name_convert(worker, name,
+					    dsync_box->name_sep, ns->sep);
+	}
+	if (creating) {
+		if (!mailbox_list_is_valid_create_name(ns->list, name)) {
+			/* change any real separators to alt separators,
+			   drop any potentially invalid characters */
+			name = mailbox_name_cleanup(name, ns->real_sep,
+						    worker->alt_char);
+		}
+		if (!mailbox_list_is_valid_create_name(ns->list, name)) {
+			/* still not working, apparently it's not valid mUTF-7.
+			   just drop all non-alphanumeric characters. */
+			name = mailbox_name_force_cleanup(name,
+							  worker->alt_char);
+		}
+	}
+	return name;
+}
+
 static struct mailbox *
 local_worker_mailbox_alloc(struct local_dsync_worker *worker,
-			   const struct dsync_mailbox *dsync_box)
+			   const struct dsync_mailbox *dsync_box, bool creating)
 {
 	struct mail_namespace *ns;
+	struct local_dsync_mailbox *lbox;
 	const char *name;
+
+	lbox = hash_table_lookup(worker->mailbox_hash,
+				 &dsync_box->mailbox_guid);
+	if (lbox != NULL) {
+		/* use the existing known mailbox name */
+		return mailbox_alloc(lbox->ns->list, lbox->storage_name,
+				     NULL, 0);
+	}
 
 	name = dsync_box->name;
 	ns = mail_namespace_find(worker->user->namespaces, &name);
@@ -895,11 +967,10 @@ local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 		return NULL;
 	}
 
-	if (dsync_box->name_sep != ns->sep) {
-		/* mailbox names use different separators. convert them. */
-		name = mailbox_name_convert(worker, name,
-					    dsync_box->name_sep, ns->sep);
-	}
+	name = local_worker_convert_mailbox_name(worker, name, ns,
+						 dsync_box, creating);
+	local_dsync_worker_add_mailbox(worker, ns, name,
+				       &dsync_box->mailbox_guid);
 	return mailbox_alloc(ns->list, name, NULL, 0);
 }
 
@@ -913,7 +984,7 @@ local_worker_create_mailbox(struct dsync_worker *_worker,
 	struct mailbox_update update;
 	int ret;
 
-	box = local_worker_mailbox_alloc(worker, dsync_box);
+	box = local_worker_mailbox_alloc(worker, dsync_box, TRUE);
 	if (box == NULL) {
 		dsync_worker_set_failure(_worker);
 		return;
@@ -989,12 +1060,14 @@ local_worker_rename_children(struct local_dsync_worker *worker,
 
 static void
 local_worker_rename_mailbox(struct dsync_worker *_worker,
-			    const mailbox_guid_t *mailbox, const char *name)
+			    const mailbox_guid_t *mailbox,
+			    const struct dsync_mailbox *dsync_box)
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
 	struct local_dsync_mailbox *lbox;
-	const char *oldname;
+	struct mailbox_list *list;
+	const char *oldname, *newname;
 
 	lbox = hash_table_lookup(worker->mailbox_hash, mailbox);
 	if (lbox == NULL) {
@@ -1004,15 +1077,24 @@ local_worker_rename_mailbox(struct dsync_worker *_worker,
 		return;
 	}
 
-	if (mailbox_list_rename_mailbox(lbox->ns->list, lbox->storage_name,
-					lbox->ns->list, name, TRUE) < 0) {
+	list = lbox->ns->list;
+	newname = local_worker_convert_mailbox_name(worker, dsync_box->name,
+						    lbox->ns, dsync_box, TRUE);
+	if (strcmp(lbox->storage_name, newname) == 0) {
+		/* nothing changed after all. probably because some characters
+		   in mailbox name weren't valid. */
+		return;
+	}
+
+	if (mailbox_list_rename_mailbox(list, lbox->storage_name,
+					list, newname, TRUE) < 0) {
 		i_error("Can't rename mailbox %s to %s: %s", lbox->storage_name,
-			name, mailbox_list_get_last_error(lbox->ns->list, NULL));
+			newname, mailbox_list_get_last_error(list, NULL));
 		dsync_worker_set_failure(_worker);
 	} else {
 		oldname = lbox->storage_name;
-		lbox->storage_name = p_strdup(worker->pool, name);
-		local_worker_rename_children(worker, oldname, name,
+		lbox->storage_name = p_strdup(worker->pool, newname);
+		local_worker_rename_children(worker, oldname, newname,
 					     lbox->ns->sep);
 	}
 }
@@ -1091,7 +1173,7 @@ local_worker_update_mailbox(struct dsync_worker *_worker,
 	if (selected)
 		local_worker_mailbox_close(worker);
 
-	box = local_worker_mailbox_alloc(worker, dsync_box);
+	box = local_worker_mailbox_alloc(worker, dsync_box, FALSE);
 	if (box == NULL) {
 		dsync_worker_set_failure(_worker);
 		return;

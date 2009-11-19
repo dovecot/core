@@ -247,7 +247,8 @@ test_worker_delete_mailbox(struct dsync_worker *_worker,
 
 static void
 test_worker_rename_mailbox(struct dsync_worker *_worker,
-			   const mailbox_guid_t *mailbox, const char *name)
+			   const mailbox_guid_t *mailbox,
+			   const struct dsync_mailbox *dsync_box)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
 	struct test_dsync_box_event event;
@@ -255,8 +256,8 @@ test_worker_rename_mailbox(struct dsync_worker *_worker,
 	memset(&event, 0, sizeof(event));
 	event.type = LAST_BOX_TYPE_RENAME;
 
+	event.box = *dsync_box;
 	event.box.mailbox_guid = *mailbox;
-	event.box.name = name;
 	array_append(&worker->box_events, &event, 1);
 }
 

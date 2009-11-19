@@ -535,11 +535,11 @@ dsync_brain_sync_rename_mailbox(struct dsync_brain *brain,
 	if (mailbox->src->last_renamed > mailbox->dest->last_renamed) {
 		dsync_worker_rename_mailbox(brain->dest_worker,
 					    &mailbox->box.mailbox_guid,
-					    mailbox->src->name);
+					    mailbox->src);
 	} else {
 		dsync_worker_rename_mailbox(brain->src_worker,
 					    &mailbox->box.mailbox_guid,
-					    mailbox->dest->name);
+					    mailbox->dest);
 	}
 }
 
@@ -549,12 +549,12 @@ dsync_brain_sync_update_mailboxes(struct dsync_brain *brain)
 	const struct dsync_brain_mailbox *mailbox;
 
 	array_foreach(&brain->mailbox_sync->mailboxes, mailbox) {
+		dsync_worker_update_mailbox(brain->src_worker, &mailbox->box);
+		dsync_worker_update_mailbox(brain->dest_worker, &mailbox->box);
+
 		if (mailbox->src != NULL && mailbox->dest != NULL &&
 		    strcmp(mailbox->src->name, mailbox->dest->name) != 0)
 			dsync_brain_sync_rename_mailbox(brain, mailbox);
-
-		dsync_worker_update_mailbox(brain->src_worker, &mailbox->box);
-		dsync_worker_update_mailbox(brain->dest_worker, &mailbox->box);
 	}
 }
 

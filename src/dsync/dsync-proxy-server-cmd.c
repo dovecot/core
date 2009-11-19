@@ -259,15 +259,19 @@ static int
 cmd_box_rename(struct dsync_proxy_server *server, const char *const *args)
 {
 	mailbox_guid_t guid;
+	struct dsync_mailbox dsync_box;
 
-	if (str_array_length(args) < 2)
+	if (str_array_length(args) < 3)
 		return -1;
 	if (dsync_proxy_mailbox_guid_import(args[0], &guid) < 0) {
 		i_error("box-delete: Invalid mailbox GUID '%s'", args[0]);
 		return -1;
 	}
 
-	dsync_worker_rename_mailbox(server->worker, &guid, args[1]);
+	memset(&dsync_box, 0, sizeof(dsync_box));
+	dsync_box.name = args[1];
+	dsync_box.name_sep = args[2][0];
+	dsync_worker_rename_mailbox(server->worker, &guid, &dsync_box);
 	return 1;
 }
 

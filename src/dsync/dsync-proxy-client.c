@@ -698,10 +698,11 @@ proxy_client_worker_delete_mailbox(struct dsync_worker *_worker,
 static void
 proxy_client_worker_rename_mailbox(struct dsync_worker *_worker,
 				   const mailbox_guid_t *mailbox,
-				   const char *name)
+				   const struct dsync_mailbox *dsync_box)
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
+	char sep[2];
 
 	i_assert(worker->save_input == NULL);
 
@@ -711,7 +712,10 @@ proxy_client_worker_rename_mailbox(struct dsync_worker *_worker,
 		str_append(str, "BOX-RENAME\t");
 		dsync_proxy_mailbox_guid_export(str, mailbox);
 		str_append_c(str, '\t');
-		str_tabescape_write(str, name);
+		str_tabescape_write(str, dsync_box->name);
+		str_append_c(str, '\t');
+		sep[0] = dsync_box->name_sep; sep[1] = '\0';
+		str_tabescape_write(str, sep);
 		str_append_c(str, '\n');
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;

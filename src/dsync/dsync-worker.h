@@ -29,7 +29,7 @@ typedef void dsync_worker_msg_callback_t(enum dsync_msg_get_result result,
 typedef void dsync_worker_finish_callback_t(bool success, void *context);
 
 struct dsync_worker *
-dsync_worker_init_local(struct mail_user *user, char alt_hierarchy_char);
+dsync_worker_init_local(struct mail_user *user, char alt_char);
 struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out);
 void dsync_worker_deinit(struct dsync_worker **worker);
 
@@ -100,10 +100,11 @@ void dsync_worker_create_mailbox(struct dsync_worker *worker,
 /* Delete mailbox/dir with given GUID. */
 void dsync_worker_delete_mailbox(struct dsync_worker *worker,
 				 const mailbox_guid_t *mailbox);
-/* Change a mailbox and its childrens' name */
+/* Change a mailbox and its childrens' name. The name is taken from the given
+   dsync_box (applying name_sep if necessary). */
 void dsync_worker_rename_mailbox(struct dsync_worker *worker,
 				 const mailbox_guid_t *mailbox,
-				 const char *name);
+				 const struct dsync_mailbox *dsync_box);
 /* Find mailbox with given GUID and make sure its uid_next and
    highest_modseq are up to date (but don't shrink them). */
 void dsync_worker_update_mailbox(struct dsync_worker *worker,

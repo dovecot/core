@@ -140,10 +140,10 @@ void dsync_worker_delete_mailbox(struct dsync_worker *worker,
 
 void dsync_worker_rename_mailbox(struct dsync_worker *worker,
 				 const mailbox_guid_t *mailbox,
-				 const char *name)
+				 const struct dsync_mailbox *dsync_box)
 {
 	if (!worker->readonly)
-		worker->v.rename_mailbox(worker, mailbox, name);
+		worker->v.rename_mailbox(worker, mailbox, dsync_box);
 }
 
 void dsync_worker_update_mailbox(struct dsync_worker *worker,

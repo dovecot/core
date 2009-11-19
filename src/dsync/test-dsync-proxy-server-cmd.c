@@ -274,17 +274,19 @@ static void test_dsync_proxy_box_rename(void)
 
 	test_begin("proxy server box rename");
 
-	test_assert(run_cmd("BOX-RENAME", TEST_MAILBOX_GUID1, "name\t1", NULL) == 1);
+	test_assert(run_cmd("BOX-RENAME", TEST_MAILBOX_GUID1, "name\t1", "/", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_RENAME);
 	test_assert(memcmp(event.box.mailbox_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE) == 0);
 	test_assert(strcmp(event.box.name, "name\t1") == 0);
+	test_assert(event.box.name_sep == '/');
 
-	test_assert(run_cmd("BOX-RENAME", TEST_MAILBOX_GUID2, "", NULL) == 1);
+	test_assert(run_cmd("BOX-RENAME", TEST_MAILBOX_GUID2, "", "?", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_RENAME);
 	test_assert(memcmp(event.box.mailbox_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE) == 0);
 	test_assert(strcmp(event.box.name, "") == 0);
+	test_assert(event.box.name_sep == '?');
 
 	test_end();
 }
