@@ -59,12 +59,14 @@ static int service_unix_listener_listen(struct service_listener *l)
 	i_assert(fd != -1);
 
 	/* see if we need to change its owner/group */
-	if ((service->uid != (uid_t)-1 && service->uid != master_uid) ||
-	    (service->gid != (gid_t)-1 && service->gid != master_gid)) {
-		if (chown(set->path, service->uid, service->gid) < 0) {
+	if ((l->set.fileset.uid != (uid_t)-1 &&
+	     l->set.fileset.uid != master_uid) ||
+	    (l->set.fileset.gid != (gid_t)-1 &&
+	     l->set.fileset.gid != master_gid)) {
+		if (chown(set->path, l->set.fileset.uid, l->set.fileset.gid) < 0) {
 			i_error("chown(%s, %lld, %lld) failed: %m", set->path,
-				(long long)service->uid,
-				(long long)service->gid);
+				(long long)l->set.fileset.uid,
+				(long long)l->set.fileset.gid);
 			(void)close(fd);
 			return -1;
 		}
