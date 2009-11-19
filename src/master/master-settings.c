@@ -471,7 +471,7 @@ bool master_settings_do_fixes(const struct master_settings *set)
 
 	/* since base dir is under /var/run by default, it may have been
 	   deleted. */
-	if (mkdir_parents(set->base_dir, 0777) < 0 && errno != EEXIST) {
+	if (mkdir_parents(set->base_dir, 0755) < 0 && errno != EEXIST) {
 		i_error("mkdir(%s) failed: %m", set->base_dir);
 		return FALSE;
 	}
@@ -483,6 +483,14 @@ bool master_settings_do_fixes(const struct master_settings *set)
 	if (!S_ISDIR(st.st_mode)) {
 		i_error("%s is not a directory", set->base_dir);
 		return FALSE;
+	}
+	if ((st.st_mode & 0777) == 0777) {
+		/* FIXME: backwards compatibility: v1.2 was creating
+		   base_dir with 0777 permissions.. */
+		i_warning("Fixing permissions of %s to be world-readable",
+			  set->base_dir);
+		if (chmod(set->base_dir, 0755) < 0)
+			i_error("chmod(%s) failed: %m", set->base_dir);
 	}
 
 	/* Make sure our permanent state directory exists */
