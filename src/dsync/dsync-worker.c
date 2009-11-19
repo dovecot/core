@@ -242,3 +242,8 @@ bool dsync_worker_has_failed(struct dsync_worker *worker)
 {
 	return worker->failed;
 }
+
+bool dsync_worker_has_unexpected_changes(struct dsync_worker *worker)
+{
+	return worker->unexpected_changes;
+}

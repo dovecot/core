@@ -196,10 +196,18 @@ proxy_client_worker_next_msg_get(struct proxy_client_dsync_worker *worker,
 }
 
 static void
-proxy_client_worker_next_finish(const struct proxy_client_request *request,
+proxy_client_worker_next_finish(struct proxy_client_dsync_worker *worker,
+				const struct proxy_client_request *request,
 				const char *line)
 {
-	request->callback.finish(line[0] == '1', request->context);
+	bool success = TRUE;
+
+	if (strcmp(line, "changes") == 0)
+		worker->worker.unexpected_changes = TRUE;
+	else if (strcmp(line, "ok") != 0)
+		success = FALSE;
+		
+	request->callback.finish(success, request->context);
 }
 
 static bool
@@ -229,7 +237,7 @@ proxy_client_worker_next_reply(struct proxy_client_dsync_worker *worker,
 		break;
 	case PROXY_CLIENT_REQUEST_TYPE_FINISH:
 		worker->finished = TRUE;
-		proxy_client_worker_next_finish(&request, line);
+		proxy_client_worker_next_finish(worker, &request, line);
 		break;
 	}
 	return ret;

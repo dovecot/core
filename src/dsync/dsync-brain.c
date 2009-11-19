@@ -614,3 +614,9 @@ void dsync_brain_sync_all(struct dsync_brain *brain)
 		i_assert(brain->state != old_state);
 	}
 }
+
+bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain)
+{
+	return dsync_worker_has_unexpected_changes(brain->src_worker) ||
+		dsync_worker_has_unexpected_changes(brain->dest_worker);
+}

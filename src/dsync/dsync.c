@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 	struct dsync_worker *worker1, *worker2;
 	const char *error, *username, *mailbox = NULL, *mirror_cmd = NULL;
 	const char *convert_location = NULL;
-	bool dsync_server = FALSE, readonly = FALSE;
+	bool dsync_server = FALSE, readonly = FALSE, unexpected_changes = FALSE;
 	char alt_hierarchy_char = '_';
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
@@ -207,10 +207,13 @@ int main(int argc, char *argv[])
 		master_service_run(master_service, dsync_connected);
 	}
 
-	if (brain != NULL)
-		ret = dsync_brain_deinit(&brain);
-	else
+	if (brain == NULL)
 		ret = 0;
+	else {
+		if (dsync_brain_has_unexpected_changes(brain))
+			unexpected_changes = TRUE;
+		ret = dsync_brain_deinit(&brain);
+	}
 	if (server != NULL)
 		dsync_proxy_server_deinit(&server);
 
@@ -223,7 +226,13 @@ int main(int argc, char *argv[])
 		mail_user_unref(&mail_user2);
 	mail_storage_service_user_free(&service_user);
 
+	if (unexpected_changes &&
+	    (brain_flags & DSYNC_BRAIN_FLAG_VERBOSE) != 0) {
+		i_info("Mailbox changes caused a desync. "
+		       "You might want to run dsync again.");
+	}
+
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
-	return ret < 0 ? 1 : 0;
+	return ret < 0 ? 1 : (unexpected_changes ? 2 : 0);
 }

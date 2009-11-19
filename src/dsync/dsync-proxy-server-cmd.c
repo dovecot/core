@@ -503,9 +503,17 @@ cmd_msg_get(struct dsync_proxy_server *server, const char *const *args)
 static void cmd_finish_callback(bool success, void *context)
 {
 	struct dsync_proxy_server *server = context;
+	const char *reply;
+
+	if (!success)
+		reply = "fail\n";
+	else if (dsync_worker_has_unexpected_changes(server->worker))
+		reply = "changes\n";
+	else
+		reply = "ok\n";
 
 	server->finished = TRUE;
-	o_stream_send_str(server->output, success ? "1\n" : "0\n");
+	o_stream_send_str(server->output, reply);
 }
 
 static int

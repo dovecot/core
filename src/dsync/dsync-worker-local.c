@@ -77,6 +77,8 @@ struct local_dsync_worker {
 	struct mailbox *selected_box;
 	struct mail *mail, *ext_mail;
 
+	ARRAY_TYPE(uint32_t) saved_uids;
+
 	mailbox_guid_t get_mailbox;
 	struct mail *get_mail;
 
@@ -133,6 +135,7 @@ dsync_worker_init_local(struct mail_user *user, char alt_hierarchy_char)
 	worker->mailbox_hash =
 		hash_table_create(default_pool, pool, 0,
 				  mailbox_guid_hash, mailbox_guid_cmp);
+	i_array_init(&worker->saved_uids, 128);
 	return &worker->worker;
 }
 
@@ -150,6 +153,7 @@ static void local_worker_deinit(struct dsync_worker *_worker)
 		hash_table_destroy(&worker->mailbox_changes_hash);
 	if (worker->subscription_changes_hash != NULL)
 		hash_table_destroy(&worker->subscription_changes_hash);
+	array_free(&worker->saved_uids);
 	pool_unref(&worker->pool);
 }
 
@@ -1013,28 +1017,60 @@ local_worker_rename_mailbox(struct dsync_worker *_worker,
 	}
 }
 
+static bool
+has_expected_save_uids(struct local_dsync_worker *worker,
+		       const struct mail_transaction_commit_changes *changes)
+{
+	struct seq_range_iter iter;
+	const uint32_t *expected_uids;
+	uint32_t uid;
+	unsigned int i, n, expected_count;
+
+	expected_uids = array_get(&worker->saved_uids, &expected_count);
+	seq_range_array_iter_init(&iter, &changes->saved_uids); i = n = 0;
+	while (seq_range_array_iter_nth(&iter, n++, &uid)) {
+		if (i == expected_count || uid != expected_uids[i++])
+			return FALSE;
+	}
+	return i == expected_count;
+}
+
 static void local_worker_mailbox_close(struct local_dsync_worker *worker)
 {
 	struct mailbox_transaction_context *trans, *ext_trans;
+	struct mail_transaction_commit_changes changes;
 
 	i_assert(worker->save_input == NULL);
 
-	if (worker->selected_box != NULL) {
-		trans = worker->mail->transaction;
-		ext_trans = worker->ext_mail->transaction;
-		mail_free(&worker->mail);
-		mail_free(&worker->ext_mail);
-		if (mailbox_transaction_commit(&ext_trans) < 0)
-			dsync_worker_set_failure(&worker->worker);
-		if (mailbox_transaction_commit(&trans) < 0 ||
-		    mailbox_sync(worker->selected_box,
-				 MAILBOX_SYNC_FLAG_FULL_WRITE, 0, NULL) < 0)
-			dsync_worker_set_failure(&worker->worker);
-
-		mailbox_close(&worker->selected_box);
-	}
 	memset(&worker->selected_box_guid, 0,
 	       sizeof(worker->selected_box_guid));
+
+	if (worker->selected_box == NULL)
+		return;
+
+	trans = worker->mail->transaction;
+	ext_trans = worker->ext_mail->transaction;
+	mail_free(&worker->mail);
+	mail_free(&worker->ext_mail);
+
+	/* all saves and copies go to ext_trans */
+	if (mailbox_transaction_commit_get_changes(&ext_trans, &changes) < 0)
+		dsync_worker_set_failure(&worker->worker);
+	else {
+		if (changes.ignored_uid_changes != 0 ||
+		    changes.ignored_modseq_changes != 0 ||
+		    !has_expected_save_uids(worker, &changes))
+			worker->worker.unexpected_changes = TRUE;
+		pool_unref(&changes.pool);
+	}
+	array_clear(&worker->saved_uids);
+
+	if (mailbox_transaction_commit(&trans) < 0 ||
+	    mailbox_sync(worker->selected_box,
+			 MAILBOX_SYNC_FLAG_FULL_WRITE, 0, NULL) < 0)
+		dsync_worker_set_failure(&worker->worker);
+
+	mailbox_close(&worker->selected_box);
 }
 
 static void
@@ -1173,11 +1209,14 @@ static void local_worker_msg_expunge(struct dsync_worker *_worker, uint32_t uid)
 }
 
 static void
-local_worker_msg_save_set_metadata(struct mailbox *box,
+local_worker_msg_save_set_metadata(struct local_dsync_worker *worker,
+				   struct mailbox *box,
 				   struct mail_save_context *save_ctx,
 				   const struct dsync_message *msg)
 {
 	struct mail_keywords *keywords;
+
+	i_assert(msg->uid != 0);
 
 	if (msg->modseq > 1)
 		(void)mailbox_enable(box, MAILBOX_FEATURE_CONDSTORE);
@@ -1190,6 +1229,8 @@ local_worker_msg_save_set_metadata(struct mailbox *box,
 	mailbox_save_set_uid(save_ctx, msg->uid);
 	mailbox_save_set_save_date(save_ctx, msg->save_date);
 	mailbox_save_set_min_modseq(save_ctx, msg->modseq);
+
+	array_append(&worker->saved_uids, &msg->uid, 1);
 }
 
 static void
@@ -1217,7 +1258,7 @@ local_worker_msg_copy(struct dsync_worker *_worker,
 		ret = -1;
 	else {
 		save_ctx = mailbox_save_alloc(worker->ext_mail->transaction);
-		local_worker_msg_save_set_metadata(worker->mail->box,
+		local_worker_msg_save_set_metadata(worker, worker->mail->box,
 						   save_ctx, dest_msg);
 		ret = mailbox_copy(&save_ctx, src_mail);
 	}
@@ -1290,7 +1331,8 @@ local_worker_msg_save(struct dsync_worker *_worker,
 
 	save_ctx = mailbox_save_alloc(worker->ext_mail->transaction);
 	mailbox_save_set_guid(save_ctx, msg->guid);
-	local_worker_msg_save_set_metadata(worker->mail->box, save_ctx, msg);
+	local_worker_msg_save_set_metadata(worker, worker->mail->box,
+					   save_ctx, msg);
 	mailbox_save_set_pop3_uidl(save_ctx, data->pop3_uidl);
 
 	mailbox_save_set_received_date(save_ctx, data->received_date, 0);

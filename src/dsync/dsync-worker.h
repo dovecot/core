@@ -147,5 +147,8 @@ void dsync_worker_finish(struct dsync_worker *worker,
 
 /* Returns TRUE if some commands have failed. */
 bool dsync_worker_has_failed(struct dsync_worker *worker);
+/* Returns TRUE if some UID or modseq changes didn't get assigned as
+   requested. */
+bool dsync_worker_has_unexpected_changes(struct dsync_worker *worker);
 
 #endif
