@@ -701,7 +701,7 @@ void mailbox_list_add_change(struct mailbox_list *list,
 {
 	struct mailbox_log_record rec;
 
-	if (!mailbox_list_init_changelog(list) ||
+	if (!mailbox_list_init_changelog(list) || list->changelog_disabled ||
 	    mail_guid_128_is_empty(mailbox_guid))
 		return;
 
@@ -919,6 +919,11 @@ int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
 struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list)
 {
 	return !mailbox_list_init_changelog(list) ? NULL : list->changelog;
+}
+
+void mailbox_list_set_changelog_writable(struct mailbox_list *list, bool set)
+{
+	list->changelog_disabled = !set;
 }
 
 static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)

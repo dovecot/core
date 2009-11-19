@@ -107,6 +107,8 @@ struct mailbox_list {
 	bool temporary_error;
 
 	ARRAY_DEFINE(module_contexts, union mailbox_list_module_context *);
+
+	unsigned int changelog_disabled:1;
 };
 
 struct mailbox_list_iterate_context {
