@@ -24,6 +24,7 @@ struct inet_listener_settings {
 	unsigned int port;
 	bool ssl;
 };
+ARRAY_DEFINE_TYPE(inet_listener_settings, struct inet_listener_settings *);
 
 struct service_settings {
 	const char *name;
@@ -46,7 +47,7 @@ struct service_settings {
 
 	ARRAY_TYPE(file_listener_settings) unix_listeners;
 	ARRAY_TYPE(file_listener_settings) fifo_listeners;
-	ARRAY_DEFINE(inet_listeners, struct inet_listener_settings *);
+	ARRAY_TYPE(inet_listener_settings) inet_listeners;
 
 	/* internal to master: */
 	struct master_settings *master_set;
