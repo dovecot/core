@@ -259,4 +259,11 @@ char *my_strptime(const char *s, const char *format, struct tm *tm);
 #define EDESTDIREXISTS(errno) \
 	((errno) == EEXIST || (errno) == ENOTEMPTY || (errno) == EBUSY)
 
+#if !defined(_POSIX_SYNCHRONIZED_IO) && \
+    defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \
+    (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1060)
+/* OS X Snow Leopard has fdatasync(), but no prototype for it. */
+int fdatasync(int);
+#endif
+
 #endif
