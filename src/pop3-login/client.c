@@ -100,7 +100,7 @@ static void pop3_client_input(struct client *client)
 		}
 	}
 
-	if (!auth_client_is_connected(auth_client))
+	if (auth_client != NULL && !auth_client_is_connected(auth_client))
 		client->input_blocked = TRUE;
 
 	if (client_unref(&client))
