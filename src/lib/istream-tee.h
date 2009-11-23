@@ -8,6 +8,9 @@
    If the stream's buffer gets full because some child isn't consuming the
    data, other streams get returned 0 by i_stream_read(). */
 struct tee_istream *tee_i_stream_create(struct istream *input);
+/* Returns TRUE if last read() operation returned 0, because it was waiting
+   for another tee stream to read more of its data. */
+bool tee_i_stream_child_is_waiting(struct istream *input);
 
 struct istream *tee_i_stream_create_child(struct tee_istream *tee);
 

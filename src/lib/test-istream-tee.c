@@ -30,7 +30,9 @@ static void test_istream_tee_tailing(const char *str)
 		test_istream_set_size(test_input, len);
 		for (i = 0; i < CHILD_COUNT; i++) {
 			test_assert(i_stream_read(child_input[i]) == 1);
+			test_assert(!tee_i_stream_child_is_waiting(child_input[i]));
 			test_assert(i_stream_read(child_input[i]) == 0);
+			test_assert(!tee_i_stream_child_is_waiting(child_input[i]));
 		}
 	}
 
@@ -38,27 +40,37 @@ static void test_istream_tee_tailing(const char *str)
 	for (i = 0; i < CHILD_COUNT; i++) {
 		test_assert(i_stream_read(child_input[i]) == 1);
 		test_assert(i_stream_read(child_input[i]) == -2);
+		test_assert(!tee_i_stream_child_is_waiting(child_input[i]));
 	}
 
 	for (len++; len <= TEST_STR_LEN; len++) {
 		test_istream_set_size(test_input, len);
-		for (i = 0; i < CHILD_COUNT; i++)
+		for (i = 0; i < CHILD_COUNT; i++) {
 			test_assert(i_stream_read(child_input[i]) == -2);
+			test_assert(!tee_i_stream_child_is_waiting(child_input[i]));
+		}
 		for (i = 0; i < CHILD_COUNT-1; i++) {
 			i_stream_skip(child_input[i], 1);
 			test_assert(i_stream_read(child_input[i]) == 0);
+			test_assert(tee_i_stream_child_is_waiting(child_input[i]));
 		}
 		i_stream_skip(child_input[i], 1);
 		for (i = 0; i < CHILD_COUNT; i++) {
 			test_assert(i_stream_read(child_input[i]) == 1);
 			test_assert(i_stream_read(child_input[i]) == -2);
+			test_assert(!tee_i_stream_child_is_waiting(child_input[i]));
 		}
 	}
 
-	for (i = 0; i < CHILD_COUNT; i++) {
+	for (i = 0; i < CHILD_COUNT-1; i++) {
 		i_stream_skip(child_input[i], 1);
 		test_assert(i_stream_read(child_input[i]) == 0);
+		test_assert(tee_i_stream_child_is_waiting(child_input[i]));
 	}
+	i_stream_skip(child_input[i], 1);
+	test_assert(i_stream_read(child_input[i]) == 0);
+	test_assert(!tee_i_stream_child_is_waiting(child_input[i]));
+
 	test_istream_set_allow_eof(test_input, TRUE);
 	for (i = 0; i < CHILD_COUNT; i++) {
 		test_assert(i_stream_read(child_input[i]) == -1);

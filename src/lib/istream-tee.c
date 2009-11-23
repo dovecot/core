@@ -16,6 +16,8 @@ struct tee_child_istream {
 
 	struct tee_istream *tee;
 	struct tee_child_istream *next;
+
+	unsigned int last_read_waiting:1;
 };
 
 static void tee_streams_update_buffer(struct tee_istream *tee)
@@ -112,6 +114,7 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 	uoff_t last_high_offset;
 	ssize_t ret;
 
+	tstream->last_read_waiting = FALSE;
 	if (stream->buffer == NULL) {
 		/* initial read */
 		tee_streams_update_buffer(tstream->tee);
@@ -133,6 +136,7 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 			if (ret == -2 && stream->skip != 0) {
 				/* someone else is holding the data,
 				   wait for it */
+				tstream->last_read_waiting = TRUE;
 				return 0;
 			}
 			stream->istream.stream_errno = input->stream_errno;
@@ -211,4 +215,12 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 
 	return i_stream_create(&tstream->istream, NULL,
 			       i_stream_get_fd(tee->input));
+}
+
+bool tee_i_stream_child_is_waiting(struct istream *input)
+{
+	struct tee_child_istream *tstream =
+		(struct tee_child_istream *)input->real_stream;
+
+	return tstream->last_read_waiting;
 }
