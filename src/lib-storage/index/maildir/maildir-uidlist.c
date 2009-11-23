@@ -1319,14 +1319,26 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 
 	i_array_init(&new_records, hdr->messages_count + 64);
 	recs = array_get(&uidlist->records, &count);
-	for (i = 0, seq = 1; i < count && seq <= hdr->messages_count; i++) {
+	for (i = 0, seq = 1; i < count && seq <= hdr->messages_count; ) {
 		rec = mail_index_lookup(view, seq);
-		if (recs[i]->uid != rec->uid)
-			i_assert(recs[i]->uid < rec->uid);
-		else {
-			array_append(&new_records, &recs[i], 1);
+		if (recs[i]->uid < rec->uid) {
+			/* expunged entry */
+			i++;
+		} else if (recs[i]->uid > rec->uid) {
+			i_error("%s: uid=%u exists in index, "
+				"but not in uidlist",
+				uidlist->path, rec->uid);
 			seq++;
+		} else {
+			array_append(&new_records, &recs[i], 1);
+			seq++; i++;
 		}
+	}
+
+	for (; seq <= hdr->messages_count; seq++) {
+		rec = mail_index_lookup(view, seq);
+		i_error("%s: uid=%u exists in index tail, but not in uidlist",
+			uidlist->path, rec->uid);
 	}
 
 	/* drop messages expunged at the end of index */
