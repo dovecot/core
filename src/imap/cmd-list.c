@@ -320,7 +320,7 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name)
 	const char *storage_name, *error;
 
 	storage_name = mail_namespace_get_storage_name(ctx->ns, name);
-	if (imap_status_get(ctx->cmd->client, ctx->ns, storage_name,
+	if (imap_status_get(ctx->cmd, ctx->ns, storage_name,
 			    ctx->status_items, &status, &error) < 0) {
 		client_send_line(ctx->cmd->client,
 				 t_strconcat("* ", error, NULL));

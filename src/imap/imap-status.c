@@ -49,10 +49,12 @@ int imap_status_parse_items(struct client_command_context *cmd,
 	return 0;
 }
 
-int imap_status_get(struct client *client, struct mail_namespace *ns,
+int imap_status_get(struct client_command_context *cmd,
+		    struct mail_namespace *ns,
 		    const char *mailbox, enum mailbox_status_items items,
 		    struct mailbox_status *status_r, const char **error_r)
 {
+	struct client *client = cmd->client;
 	struct mailbox *box;
 	enum mail_error error;
 	int ret;
@@ -77,7 +79,7 @@ int imap_status_get(struct client *client, struct mail_namespace *ns,
 	if (ret < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
 		*error_r = mail_storage_get_last_error(storage, &error);
-		*error_r = imap_get_error_string(*error_r, error);
+		*error_r = imap_get_error_string(cmd, *error_r, error);
 	}
 	mailbox_close(&box);
 	return ret;

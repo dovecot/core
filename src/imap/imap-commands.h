@@ -24,7 +24,12 @@ enum command_flags {
 					  COMMAND_FLAG_USES_SEQS,
 
 	/* Command requires mailbox syncing before it can do its job. */
-	COMMAND_FLAG_REQUIRES_SYNC	= 0x08
+	COMMAND_FLAG_REQUIRES_SYNC	= 0x08,
+	/* Command allows replying with [NONEXISTENT] imap resp code.
+	   Dovecot internally returns it for all kinds of commands,
+	   but unfortunately RFC 5530 specifies it only for "delete something"
+	   operations. */
+	COMMAND_FLAG_USE_NONEXISTENT	= 0x10
 };
 
 struct command {

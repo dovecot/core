@@ -33,7 +33,8 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox,
 bool client_verify_open_mailbox(struct client_command_context *cmd);
 
 const char *
-imap_get_error_string(const char *error_string, enum mail_error error);
+imap_get_error_string(struct client_command_context *cmd,
+		      const char *error_string, enum mail_error error);
 
 /* Send last mailbox list error message to client. */
 void client_send_list_error(struct client_command_context *cmd,

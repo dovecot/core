@@ -38,7 +38,7 @@ bool cmd_status(struct client_command_context *cmd)
 
 	selected_mailbox = client->mailbox != NULL &&
 		mailbox_equals(client->mailbox, ns, real_mailbox);
-	if (imap_status_get(client, ns, real_mailbox, items,
+	if (imap_status_get(cmd, ns, real_mailbox, items,
 			    &status, &error) < 0) {
 		client_send_tagline(cmd, error);
 		return TRUE;

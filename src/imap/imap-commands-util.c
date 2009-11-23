@@ -111,23 +111,26 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 		break;
 
 	case MAILBOX_NAME_VALID:
+		resp_code = "";
 		switch (mode) {
 		case CLIENT_VERIFY_MAILBOX_NAME:
 		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
 			return ns;
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
-			resp_code = IMAP_RESP_CODE_NONEXISTENT;
+			if ((cmd->cmd_flags & COMMAND_FLAG_USE_NONEXISTENT) != 0)
+				resp_code = IMAP_RESP_CODE_NONEXISTENT;
 			break;
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
 			resp_code = "TRYCREATE";
 			break;
 		default:
-			resp_code = NULL;
 			i_unreached();
 		}
 
+		if (*resp_code != '\0')
+			resp_code = t_strconcat("[", resp_code, "] ", NULL);
 		client_send_tagline(cmd, t_strconcat(
-			"NO [", resp_code, "] Mailbox doesn't exist: ",
+			"NO ", resp_code, "Mailbox doesn't exist: ",
 			str_sanitize(orig_mailbox, MAILBOX_MAX_NAME_LEN),
 			NULL));
 		break;
@@ -161,7 +164,8 @@ bool client_verify_open_mailbox(struct client_command_context *cmd)
 }
 
 const char *
-imap_get_error_string(const char *error_string, enum mail_error error)
+imap_get_error_string(struct client_command_context *cmd,
+		      const char *error_string, enum mail_error error)
 {
 	const char *resp_code = NULL;
 
@@ -182,7 +186,8 @@ imap_get_error_string(const char *error_string, enum mail_error error)
 		resp_code = IMAP_RESP_CODE_OVERQUOTA;
 		break;
 	case MAIL_ERROR_NOTFOUND:
-		resp_code = IMAP_RESP_CODE_NONEXISTENT;
+		if ((cmd->cmd_flags & COMMAND_FLAG_USE_NONEXISTENT) != 0)
+			resp_code = IMAP_RESP_CODE_NONEXISTENT;
 		break;
 	case MAIL_ERROR_EXISTS:
 		resp_code = IMAP_RESP_CODE_ALREADYEXISTS;
@@ -207,7 +212,8 @@ void client_send_list_error(struct client_command_context *cmd,
 	enum mail_error error;
 
 	error_string = mailbox_list_get_last_error(list, &error);
-	client_send_tagline(cmd, imap_get_error_string(error_string, error));
+	client_send_tagline(cmd, imap_get_error_string(cmd, error_string,
+						       error));
 }
 
 void client_send_storage_error(struct client_command_context *cmd,
@@ -225,7 +231,8 @@ void client_send_storage_error(struct client_command_context *cmd,
 	}
 
 	error_string = mail_storage_get_last_error(storage, &error);
-	client_send_tagline(cmd, imap_get_error_string(error_string, error));
+	client_send_tagline(cmd, imap_get_error_string(cmd, error_string,
+						       error));
 }
 
 void client_send_untagged_storage_error(struct client *client,
