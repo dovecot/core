@@ -338,7 +338,10 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		/* If possible chdir to home directory, so that core file
 		   could be written in case we crash. */
 		if (chdir(home) < 0) {
-			if (errno != ENOENT)
+			if (errno == EACCES) {
+				i_error("%s", eacces_error_get("chdir",
+						t_strconcat(home, "/", NULL)));
+			} if (errno != ENOENT)
 				i_error("chdir(%s) failed: %m", home);
 			else if (mail_set->mail_debug)
 				i_debug("Home dir not found: %s", home);
