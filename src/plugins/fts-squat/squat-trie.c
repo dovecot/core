@@ -1904,7 +1904,8 @@ squat_trie_lookup_partial(struct squat_trie_lookup_context *ctx,
 	unsigned int char_idx, max_chars, i, j, bytelen;
 	int ret;
 
-	max_chars = uni_utf8_strlen_n(data, size);
+	for (i = 0, max_chars = 0; i < size; max_chars++)
+		i += char_lengths[i];
 	i_assert(max_chars > 0);
 
 	i = 0; char_idx = 0;
@@ -1999,7 +2000,7 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 		   search it in parts. */
 		if (i != start) {
 			ret = squat_trie_lookup_partial(&ctx, data + start,
-							char_lengths,
+							char_lengths + start,
 							i - start);
 			searched = TRUE;
 		}
@@ -2025,7 +2026,7 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 			array_clear(maybe_uids);
 		} else {
 			ret = squat_trie_lookup_partial(&ctx, data + start,
-							char_lengths,
+							char_lengths + start,
 							i - start);
 		}
 	} else if (str_bytelen > 0) {
@@ -2033,7 +2034,7 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 		array_clear(definite_uids);
 		if (i != start && ret >= 0) {
 			ret = squat_trie_lookup_partial(&ctx, data + start,
-							char_lengths,
+							char_lengths + start,
 							i - start);
 		} else if (!searched) {
 			/* string has only nonindexed chars,
