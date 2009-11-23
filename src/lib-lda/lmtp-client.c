@@ -97,6 +97,7 @@ static void lmtp_client_close(struct lmtp_client *client)
 	}
 	if (client->data_input != NULL)
 		i_stream_unref(&client->data_input);
+	client->output_finished = TRUE;
 }
 
 static void lmtp_client_ref(struct lmtp_client *client)
