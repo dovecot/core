@@ -382,6 +382,7 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 			proxy->io = io_add(i_stream_get_fd(proxy->data_input),
 					   IO_READ,
 					   lmtp_proxy_data_input, proxy);
+			return FALSE;
 		}
 		/* fall through */
 	case -2:
