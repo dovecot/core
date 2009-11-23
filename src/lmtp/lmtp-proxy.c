@@ -374,6 +374,16 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 	timeout_reset(proxy->to_data_idle);
 
 	switch (i_stream_read(proxy->data_input)) {
+	case 0:
+		if (!tee_i_stream_child_is_waiting(proxy->data_input)) {
+			/* nothing new read */
+			if (proxy->io != NULL)
+				return FALSE;
+			proxy->io = io_add(i_stream_get_fd(proxy->data_input),
+					   IO_READ,
+					   lmtp_proxy_data_input, proxy);
+		}
+		/* fall through */
 	case -2:
 		/* buffer full. someone's stalling. */
 		lmtp_proxy_wait_for_output(proxy);
@@ -387,14 +397,6 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 			lmtp_proxy_wait_for_output(proxy);
 			/* if all RCPT TOs failed, we can finish now */
 			lmtp_proxy_try_finish(proxy);
-		}
-		return FALSE;
-	case 0:
-		/* nothing new read */
-		if (proxy->io == NULL) {
-			proxy->io = io_add(i_stream_get_fd(proxy->data_input),
-					   IO_READ,
-					   lmtp_proxy_data_input, proxy);
 		}
 		return FALSE;
 	default:
