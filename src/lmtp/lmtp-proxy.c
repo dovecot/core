@@ -55,8 +55,6 @@ struct lmtp_proxy {
 	unsigned int finished:1;
 };
 
-static void lmtp_proxy_conn_deinit(struct lmtp_proxy_connection *conn,
-				   const char *reason);
 static void lmtp_proxy_data_input(struct lmtp_proxy *proxy);
 
 struct lmtp_proxy *
@@ -84,7 +82,7 @@ static void lmtp_proxy_connections_deinit(struct lmtp_proxy *proxy)
 
 	conns = array_get(&proxy->connections, &count);
 	for (i = 0; i < count; i++)
-		lmtp_proxy_conn_deinit(conns[i], "451 4.3.0 Aborting");
+		lmtp_client_fail(conns[i]->client, "451 4.3.0 Aborting");
 }
 
 void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
@@ -146,22 +144,12 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	return conn;
 }
 
-static void lmtp_proxy_conn_deinit(struct lmtp_proxy_connection *conn,
-				   const char *reason)
+static void lmtp_proxy_conn_close(struct lmtp_proxy_connection *conn)
 {
-	struct lmtp_proxy_recipient *rcpt;
-
-	/* set failure replies to all recipients in this connection */
-	array_foreach_modifiable(&conn->proxy->rcpt_to, rcpt) {
-		if (rcpt->conn == conn && !rcpt->rcpt_to_failed)
-			rcpt->reply = reason;
-	}
-
 	if (conn->client != NULL)
 		lmtp_client_deinit(&conn->client);
 	if (conn->data_input != NULL)
 		i_stream_unref(&conn->data_input);
-	conn->failed = TRUE;
 }
 
 static bool lmtp_proxy_send_replies(struct lmtp_proxy *proxy)
@@ -256,6 +244,10 @@ lmtp_proxy_conn_rcpt_to(bool success, const char *reply, void *context)
 	}
 	i_assert(i != count);
 
+	if (!success && conn->rcpt_next_reply_low_idx == count &&
+	    lmtp_client_is_data_input_finished(conn->client))
+		lmtp_proxy_conn_close(conn);
+
 	/* send replies only if we've already sent DATA. */
 	if (conn->proxy->data_input != NULL)
 		lmtp_proxy_try_finish(conn->proxy);
@@ -281,6 +273,11 @@ lmtp_proxy_conn_data(bool success ATTR_UNUSED, const char *reply, void *context)
 		}
 	}
 	i_assert(i != count);
+
+	if (conn->data_next_reply_low_idx == count &&
+	    lmtp_client_is_data_input_finished(conn->client))
+		lmtp_proxy_conn_close(conn);
+
 	lmtp_proxy_try_finish(conn->proxy);
 }
 
@@ -334,9 +331,9 @@ static bool lmtp_proxy_disconnect_hanging_output(struct lmtp_proxy *proxy)
 	for (i = 0; i < count; i++) {
 		(void)i_stream_get_data(conns[i]->data_input, &size);
 		if (size == max_size) {
-			lmtp_proxy_conn_deinit(conns[i],
-					       ERRSTR_TEMP_REMOTE_FAILURE
-					       " (DATA output timeout)");
+			lmtp_client_fail(conns[i]->client,
+					 ERRSTR_TEMP_REMOTE_FAILURE
+					 " (DATA output timeout)");
 		}
 	}
 	return TRUE;

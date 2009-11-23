@@ -33,6 +33,8 @@ void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 			  lmtp_callback_t *data_callback, void *context);
 /* Start sending input stream as DATA. */
 void lmtp_client_send(struct lmtp_client *client, struct istream *data_input);
+/* Returns TRUE if data_input is no longer needed. */
+bool lmtp_client_is_data_input_finished(struct lmtp_client *client);
 /* Call this function whenever input stream can potentially be read forward.
    This is useful with non-blocking istreams and tee-istreams. */
 void lmtp_client_send_more(struct lmtp_client *client);

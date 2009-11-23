@@ -502,9 +502,14 @@ void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 	rcpt->data_callback = data_callback;
 	rcpt->context = context;
 
-	if (client->global_fail_string != NULL)
+	if (client->global_fail_string != NULL) {
+		client->rcpt_next_receive_idx++;
+		i_assert(client->rcpt_next_receive_idx ==
+			 array_count(&client->recipients));
+
+		rcpt->failed = TRUE;
 		rcpt_to_callback(FALSE, client->global_fail_string, context);
-	else if (client->input_state == LMTP_INPUT_STATE_RCPT_TO)
+	} else if (client->input_state == LMTP_INPUT_STATE_RCPT_TO)
 		lmtp_client_send_rcpts(client);
 }
 
@@ -514,6 +519,11 @@ void lmtp_client_send(struct lmtp_client *client, struct istream *data_input)
 	client->data_input = data_input;
 
 	lmtp_client_send_data_cmd(client);
+}
+
+bool lmtp_client_is_data_input_finished(struct lmtp_client *client)
+{
+	return client->data_input != NULL;
 }
 
 void lmtp_client_send_more(struct lmtp_client *client)
