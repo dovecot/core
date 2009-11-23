@@ -2,7 +2,7 @@ noinst_LTLIBRARIES = liblib.la
 
 BUILT_SOURCES = unicodemap.c
 
-EXTRA_DIST = unicodemap.c unicodemap.pl
+EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
 
 $(srcdir)/unicodemap.c: unicodemap.pl
 	test -f UnicodeData.txt || wget http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
