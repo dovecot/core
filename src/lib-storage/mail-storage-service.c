@@ -6,6 +6,7 @@
 #include "hostpid.h"
 #include "module-dir.h"
 #include "restrict-access.h"
+#include "eacces-error.h"
 #include "str.h"
 #include "var-expand.h"
 #include "dict.h"
