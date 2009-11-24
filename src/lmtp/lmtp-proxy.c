@@ -39,16 +39,17 @@ struct lmtp_proxy {
 
 	struct timeout *to, *to_data_idle;
 	struct io *io;
-	struct istream *data_input;
+	struct istream *data_input, *orig_data_input;
 	struct ostream *client_output;
 	struct tee_istream *tee_data_input;
 
 	unsigned int max_timeout_msecs;
 
-	void (*finish_callback)(void *);
+	lmtp_proxy_finish_callback_t *finish_callback;
 	void *finish_context;
 
 	unsigned int finished:1;
+	unsigned int input_timeout:1;
 };
 
 static void lmtp_conn_finish(void *context);
@@ -168,12 +169,13 @@ static void lmtp_proxy_finish(struct lmtp_proxy *proxy)
 	i_assert(!proxy->finished);
 
 	proxy->finished = TRUE;
-	proxy->finish_callback(proxy->finish_context);
+	proxy->finish_callback(proxy->input_timeout, proxy->finish_context);
 }
 
 static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 {
-	if (lmtp_proxy_send_data_replies(proxy) && proxy->data_input->eof)
+	if (lmtp_proxy_send_data_replies(proxy) &&
+	    (proxy->data_input->eof || proxy->data_input->stream_errno != 0))
 		lmtp_proxy_finish(proxy);
 }
 
@@ -200,18 +202,21 @@ static void lmtp_proxy_fail_all(struct lmtp_proxy *proxy, const char *reason)
 				lmtp_client_state_to_string(conns[i]->client));
 		lmtp_client_fail(conns[i]->client, line);
 
-		if (!array_is_created(&proxy->connections)) {
-			pool_unref(&proxy->pool);
-			return;
-		}
+		if (!array_is_created(&proxy->connections))
+			break;
 	}
-	i_unreached();
+	pool_unref(&proxy->pool);
+	/* either the whole proxy is destroyed now, or we still have some
+	   DATA input to read. */
 }
 
 static void lmtp_proxy_data_input_timeout(struct lmtp_proxy *proxy)
 {
 	struct lmtp_proxy_connection *const *conns;
 	unsigned int i, count;
+
+	proxy->input_timeout = TRUE;
+	i_stream_close(proxy->orig_data_input);
 
 	pool_ref(proxy->pool);
 	conns = array_get(&proxy->connections, &count);
@@ -223,6 +228,7 @@ static void lmtp_proxy_data_input_timeout(struct lmtp_proxy *proxy)
 			return;
 		}
 	}
+	/* last client failure should have caused the proxy to be destroyed */
 	i_unreached();
 }
 
@@ -389,13 +395,14 @@ static void lmtp_proxy_data_input(struct lmtp_proxy *proxy)
 
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 		      const char *header,
-		      void (*finish_callback)(void *), void *context)
+		      lmtp_proxy_finish_callback_t *callback, void *context)
 {
 	struct lmtp_proxy_connection *const *conns;
 	unsigned int i, count;
 
-	proxy->finish_callback = finish_callback;
+	proxy->finish_callback = callback;
 	proxy->finish_context = context;
+	proxy->orig_data_input = data_input;
 	proxy->tee_data_input = tee_i_stream_create(data_input);
 	proxy->data_input = tee_i_stream_create_child(proxy->tee_data_input);
 	proxy->to_data_idle = timeout_add(LMTP_PROXY_DATA_INPUT_TIMEOUT_MSECS,

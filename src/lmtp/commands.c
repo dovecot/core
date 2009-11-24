@@ -637,12 +637,18 @@ static void client_input_data_finish(struct client *client)
 		client_input_handle(client);
 }
 
-static void client_proxy_finish(void *context)
+static void client_proxy_finish(bool timeout, void *context)
 {
 	struct client *client = context;
 
 	lmtp_proxy_deinit(&client->proxy);
-	client_input_data_finish(client);
+	if (timeout) {
+		client_destroy(client,
+			t_strdup_printf("421 4.4.2 %s", client->my_domain),
+			"Disconnected for inactivity");
+	} else {
+		client_input_data_finish(client);
+	}
 }
 
 static const char *client_get_received_line(struct client *client)

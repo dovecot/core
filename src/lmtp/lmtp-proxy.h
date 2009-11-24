@@ -11,6 +11,8 @@ struct lmtp_proxy_settings {
 	enum lmtp_client_protocol protocol;
 };
 
+typedef void lmtp_proxy_finish_callback_t(bool timeout, void *context);
+
 struct lmtp_proxy *
 lmtp_proxy_init(const char *my_hostname, struct ostream *client_output);
 void lmtp_proxy_deinit(struct lmtp_proxy **proxy);
@@ -24,6 +26,6 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 /* Start proxying */
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 		      const char *header,
-		      void (*finish_callback)(void *), void *context);
+		      lmtp_proxy_finish_callback_t *callback, void *context);
 
 #endif
