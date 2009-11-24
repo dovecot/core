@@ -13,9 +13,13 @@ enum lmtp_client_protocol {
 /* reply contains the reply coming from remote server, or NULL
    if it's a connection error. */
 typedef void lmtp_callback_t(bool success, const char *reply, void *context);
+/* called when session is finished, either because all RCPT TOs failed or
+   because all DATA replies have been received. */
+typedef void lmtp_finish_callback_t(void *context);
 
 struct lmtp_client *
-lmtp_client_init(const char *mail_from, const char *my_hostname);
+lmtp_client_init(const char *mail_from, const char *my_hostname,
+		 lmtp_finish_callback_t *finish_callback, void *context);
 void lmtp_client_deinit(struct lmtp_client **client);
 
 int lmtp_client_connect_tcp(struct lmtp_client *client,
@@ -34,8 +38,6 @@ void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 			  lmtp_callback_t *data_callback, void *context);
 /* Start sending input stream as DATA. */
 void lmtp_client_send(struct lmtp_client *client, struct istream *data_input);
-/* Returns TRUE if data_input is no longer needed. */
-bool lmtp_client_is_data_input_finished(struct lmtp_client *client);
 /* Call this function whenever input stream can potentially be read forward.
    This is useful with non-blocking istreams and tee-istreams. */
 void lmtp_client_send_more(struct lmtp_client *client);

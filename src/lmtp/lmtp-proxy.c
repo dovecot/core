@@ -25,10 +25,6 @@ struct lmtp_proxy_connection {
 	struct lmtp_proxy *proxy;
 	struct lmtp_proxy_settings set;
 
-	/* points to proxy->rcpt_to array. */
-	unsigned int rcpt_next_reply_low_idx;
-	unsigned int data_next_reply_low_idx;
-
 	struct lmtp_client *client;
 	struct istream *data_input;
 	unsigned int failed:1;
@@ -39,7 +35,7 @@ struct lmtp_proxy {
 	const char *mail_from, *my_hostname;
 	ARRAY_DEFINE(connections, struct lmtp_proxy_connection *);
 	ARRAY_DEFINE(rcpt_to, struct lmtp_proxy_recipient);
-	unsigned int rcpt_next_reply_idx;
+	unsigned int next_data_reply_idx;
 
 	struct timeout *to, *to_data_idle;
 	struct io *io;
@@ -55,6 +51,7 @@ struct lmtp_proxy {
 	unsigned int finished:1;
 };
 
+static void lmtp_conn_finish(void *context);
 static void lmtp_proxy_data_input(struct lmtp_proxy *proxy);
 
 struct lmtp_proxy *
@@ -136,7 +133,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.port = set->port;
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
-	conn->client = lmtp_client_init(proxy->mail_from, proxy->my_hostname);
+	conn->client = lmtp_client_init(proxy->mail_from, proxy->my_hostname,
+					lmtp_conn_finish, conn);
 	if (lmtp_client_connect_tcp(conn->client, set->protocol,
 				    conn->set.host, conn->set.port) < 0)
 		conn->failed = TRUE;
@@ -146,28 +144,21 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	return conn;
 }
 
-static void lmtp_proxy_conn_close(struct lmtp_proxy_connection *conn)
-{
-	lmtp_client_close(conn->client);
-	if (conn->data_input != NULL)
-		i_stream_unref(&conn->data_input);
-}
-
-static bool lmtp_proxy_send_replies(struct lmtp_proxy *proxy)
+static bool lmtp_proxy_send_data_replies(struct lmtp_proxy *proxy)
 {
 	const struct lmtp_proxy_recipient *rcpt;
 	unsigned int i, count;
 
 	o_stream_cork(proxy->client_output);
 	rcpt = array_get(&proxy->rcpt_to, &count);
-	for (i = proxy->rcpt_next_reply_idx; i < count; i++) {
+	for (i = proxy->next_data_reply_idx; i < count; i++) {
 		if (!(rcpt[i].rcpt_to_failed || rcpt[i].data_reply_received))
 			break;
 		o_stream_send_str(proxy->client_output,
 				  t_strconcat(rcpt[i].reply, "\r\n", NULL));
 	}
 	o_stream_uncork(proxy->client_output);
-	proxy->rcpt_next_reply_idx = i;
+	proxy->next_data_reply_idx = i;
 
 	return i == count;
 }
@@ -182,8 +173,16 @@ static void lmtp_proxy_finish(struct lmtp_proxy *proxy)
 
 static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 {
-	if (lmtp_proxy_send_replies(proxy) && proxy->data_input->eof)
+	if (lmtp_proxy_send_data_replies(proxy) && proxy->data_input->eof)
 		lmtp_proxy_finish(proxy);
+}
+
+static void lmtp_conn_finish(void *context)
+{
+	struct lmtp_proxy_connection *conn = context;
+
+	i_stream_unref(&conn->data_input);
+	lmtp_proxy_try_finish(conn->proxy);
 }
 
 static void lmtp_proxy_fail_all(struct lmtp_proxy *proxy, const char *reason)
@@ -229,57 +228,26 @@ static void lmtp_proxy_data_input_timeout(struct lmtp_proxy *proxy)
 static void
 lmtp_proxy_conn_rcpt_to(bool success, const char *reply, void *context)
 {
-	struct lmtp_proxy_connection *conn = context;
-	struct lmtp_proxy_recipient *rcpt;
-	unsigned int i, count;
+	struct lmtp_proxy_recipient *rcpt = context;
+	struct lmtp_proxy_connection *conn = rcpt->conn;
 
-	rcpt = array_get_modifiable(&conn->proxy->rcpt_to, &count);
-	for (i = conn->rcpt_next_reply_low_idx; i < count; i++) {
-		if (rcpt[i].conn == conn) {
-			i_assert(rcpt[i].reply == NULL);
-			rcpt[i].reply = p_strdup(conn->proxy->pool, reply);
-			rcpt[i].rcpt_to_failed = !success;
-			conn->rcpt_next_reply_low_idx = i + 1;
-			break;
-		}
-	}
-	i_assert(i != count);
+	i_assert(rcpt->reply == NULL);
 
-	if (!success && conn->rcpt_next_reply_low_idx == count &&
-	    lmtp_client_is_data_input_finished(conn->client))
-		lmtp_proxy_conn_close(conn);
-
-	/* send replies only if we've already sent DATA. */
-	if (conn->proxy->data_input != NULL)
-		lmtp_proxy_try_finish(conn->proxy);
+	rcpt->reply = p_strdup(conn->proxy->pool, reply);
+	rcpt->rcpt_to_failed = !success;
 }
 
 static void
 lmtp_proxy_conn_data(bool success ATTR_UNUSED, const char *reply, void *context)
 {
-	struct lmtp_proxy_connection *conn = context;
-	struct lmtp_proxy_recipient *rcpt;
-	unsigned int i, count;
+	struct lmtp_proxy_recipient *rcpt = context;
+	struct lmtp_proxy_connection *conn = rcpt->conn;
 
-	i_assert(conn->proxy->data_input != NULL);
+	i_assert(!rcpt->rcpt_to_failed);
+	i_assert(rcpt->reply != NULL);
 
-	rcpt = array_get_modifiable(&conn->proxy->rcpt_to, &count);
-	for (i = conn->data_next_reply_low_idx; i < count; i++) {
-		if (rcpt[i].conn == conn && !rcpt[i].rcpt_to_failed) {
-			i_assert(rcpt[i].reply != NULL);
-			rcpt[i].reply = p_strdup(conn->proxy->pool, reply);
-			rcpt[i].data_reply_received = TRUE;
-			conn->data_next_reply_low_idx = i + 1;
-			break;
-		}
-	}
-	i_assert(i != count);
-
-	if (conn->data_next_reply_low_idx == count &&
-	    lmtp_client_is_data_input_finished(conn->client))
-		lmtp_proxy_conn_close(conn);
-
-	lmtp_proxy_try_finish(conn->proxy);
+	rcpt->reply = p_strdup(conn->proxy->pool, reply);
+	rcpt->data_reply_received = TRUE;
 }
 
 int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
@@ -297,7 +265,7 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 	rcpt->address = p_strdup(proxy->pool, address);
 
 	lmtp_client_add_rcpt(conn->client, address, lmtp_proxy_conn_rcpt_to,
-			     lmtp_proxy_conn_data, conn);
+			     lmtp_proxy_conn_data, rcpt);
 	return 0;
 }
 

@@ -49,6 +49,9 @@ struct lmtp_client {
 	struct io *io;
 	int fd;
 
+	lmtp_finish_callback_t *finish_callback;
+	void *finish_context;
+
 	const char *data_header;
 	ARRAY_DEFINE(recipients, struct lmtp_rcpt);
 	unsigned int rcpt_next_receive_idx;
@@ -57,14 +60,16 @@ struct lmtp_client {
 	struct istream *data_input;
 	unsigned char output_last;
 
-	unsigned int output_finished:1;
 	unsigned int rcpt_to_successes:1;
+	unsigned int output_finished:1;
+	unsigned int finish_called:1;
 };
 
 static void lmtp_client_send_rcpts(struct lmtp_client *client);
 
 struct lmtp_client *
-lmtp_client_init(const char *mail_from, const char *my_hostname)
+lmtp_client_init(const char *mail_from, const char *my_hostname,
+		 lmtp_finish_callback_t *finish_callback, void *context)
 {
 	struct lmtp_client *client;
 	pool_t pool;
@@ -78,6 +83,8 @@ lmtp_client_init(const char *mail_from, const char *my_hostname)
 	client->pool = pool;
 	client->mail_from = p_strdup(pool, mail_from);
 	client->my_hostname = p_strdup(pool, my_hostname);
+	client->finish_callback = finish_callback;
+	client->finish_context = context;
 	client->fd = -1;
 	p_array_init(&client->recipients, pool, 16);
 	return client;
@@ -98,6 +105,11 @@ void lmtp_client_close(struct lmtp_client *client)
 	if (client->data_input != NULL)
 		i_stream_unref(&client->data_input);
 	client->output_finished = TRUE;
+
+	if (!client->finish_called) {
+		client->finish_called = TRUE;
+		client->finish_callback(client->finish_context);
+	}
 }
 
 static void lmtp_client_ref(struct lmtp_client *client)
@@ -201,7 +213,7 @@ static void lmtp_client_send_data_cmd(struct lmtp_client *client)
 	}
 }
 
-static bool
+static int
 lmtp_client_data_next(struct lmtp_client *client, const char *line)
 {
 	struct lmtp_rcpt *rcpt;
@@ -214,14 +226,18 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 			continue;
 		}
 
+		client->rcpt_next_data_idx = i + 1;
 		rcpt[i].failed = line[0] != '2';
 		rcpt[i].data_callback(!rcpt[i].failed, line,
 				      rcpt[i].context);
-		client->rcpt_next_data_idx = i + 1;
 		if (client->protocol == LMTP_CLIENT_PROTOCOL_LMTP)
 			break;
 	}
-	return i < count;
+	if (i < count)
+		return 0;
+
+	lmtp_client_close(client);
+	return -1;
 }
 
 static void lmtp_client_send_data(struct lmtp_client *client)
@@ -379,7 +395,7 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 		break;
 	case LMTP_INPUT_STATE_DATA:
 		/* DATA replies */
-		if (!lmtp_client_data_next(client, line))
+		if (lmtp_client_data_next(client, line) < 0)
 			return -1;
 		break;
 	}
@@ -519,11 +535,6 @@ void lmtp_client_send(struct lmtp_client *client, struct istream *data_input)
 	client->data_input = data_input;
 
 	lmtp_client_send_data_cmd(client);
-}
-
-bool lmtp_client_is_data_input_finished(struct lmtp_client *client)
-{
-	return client->data_input != NULL;
 }
 
 void lmtp_client_send_more(struct lmtp_client *client)
