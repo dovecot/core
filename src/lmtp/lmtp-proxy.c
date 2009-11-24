@@ -285,6 +285,8 @@ static size_t lmtp_proxy_find_max_data_input_size(struct lmtp_proxy *proxy)
 
 	conns = array_get(&proxy->connections, &count);
 	for (i = 0; i < count; i++) {
+		if (conns[i]->data_input == NULL)
+			continue;
 		(void)i_stream_get_data(conns[i]->data_input, &size);
 		if (max_size < size)
 			max_size = size;
@@ -306,6 +308,8 @@ static bool lmtp_proxy_disconnect_hanging_output(struct lmtp_proxy *proxy)
 	   more input. */
 	conns = array_get(&proxy->connections, &count);
 	for (i = 0; i < count; i++) {
+		if (conns[i]->data_input == NULL)
+			continue;
 		(void)i_stream_get_data(conns[i]->data_input, &size);
 		if (size == max_size) {
 			lmtp_client_fail(conns[i]->client,
