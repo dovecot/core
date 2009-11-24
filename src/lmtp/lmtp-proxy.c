@@ -181,7 +181,8 @@ static void lmtp_conn_finish(void *context)
 {
 	struct lmtp_proxy_connection *conn = context;
 
-	i_stream_unref(&conn->data_input);
+	if (conn->data_input != NULL)
+		i_stream_unref(&conn->data_input);
 	lmtp_proxy_try_finish(conn->proxy);
 }
 
