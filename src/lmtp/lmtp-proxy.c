@@ -81,8 +81,10 @@ static void lmtp_proxy_connections_deinit(struct lmtp_proxy *proxy)
 	unsigned int i, count;
 
 	conns = array_get(&proxy->connections, &count);
-	for (i = 0; i < count; i++)
+	for (i = 0; i < count; i++) {
 		lmtp_client_fail(conns[i]->client, "451 4.3.0 Aborting");
+		lmtp_client_deinit(&conns[i]->client);
+	}
 }
 
 void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
@@ -146,8 +148,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 static void lmtp_proxy_conn_close(struct lmtp_proxy_connection *conn)
 {
-	if (conn->client != NULL)
-		lmtp_client_deinit(&conn->client);
+	lmtp_client_close(conn->client);
 	if (conn->data_input != NULL)
 		i_stream_unref(&conn->data_input);
 }

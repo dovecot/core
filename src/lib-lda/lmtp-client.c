@@ -83,7 +83,7 @@ lmtp_client_init(const char *mail_from, const char *my_hostname)
 	return client;
 }
 
-static void lmtp_client_close(struct lmtp_client *client)
+void lmtp_client_close(struct lmtp_client *client)
 {
 	if (client->io != NULL)
 		io_remove(&client->io);

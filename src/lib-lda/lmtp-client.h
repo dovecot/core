@@ -21,6 +21,7 @@ void lmtp_client_deinit(struct lmtp_client **client);
 int lmtp_client_connect_tcp(struct lmtp_client *client,
 			    enum lmtp_client_protocol protocol,
 			    const char *host, unsigned int port);
+void lmtp_client_close(struct lmtp_client *client);
 
 /* Add headers from given string before the rest of the data. The string must
    use CRLF line feeds and end with CRLF. */
