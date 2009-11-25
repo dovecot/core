@@ -270,8 +270,10 @@ service_drop_privileges(const struct mail_user_settings *set,
 		}
 	}
 	if (*set->mail_privileged_group != '\0') {
-		if (!parse_uid(set->mail_privileged_group, &rset.privileged_gid))
-			i_fatal("Unknown mail_gid group: %s", set->mail_gid);
+		if (!parse_gid(set->mail_privileged_group, &rset.privileged_gid)) {
+			i_fatal("Unknown mail_privileged_group: %s",
+				set->mail_gid);
+		}
 	}
 	if (*set->mail_access_groups != '\0')
 		rset.extra_groups = set->mail_access_groups;
