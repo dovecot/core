@@ -76,16 +76,17 @@ static void keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 				  uint32_t ext_map_idx, uint32_t reset_id,
 				  uint32_t hdr_size, uint32_t keywords_count)
 {
-	buffer_t *ext_intro_buf;
+	buffer_t ext_intro_buf;
 	struct mail_transaction_ext_intro *u;
+	unsigned char ext_intro_data[sizeof(*u) +
+				     sizeof(MAIL_INDEX_EXT_KEYWORDS)-1];
 
 	i_assert(keywords_count > 0);
 
-	ext_intro_buf =
-		buffer_create_static_hard(pool_datastack_create(), sizeof(*u) +
-					  sizeof(MAIL_INDEX_EXT_KEYWORDS)-1);
+	buffer_create_data(&ext_intro_buf, ext_intro_data,
+			   sizeof(ext_intro_data));
 
-	u = buffer_append_space_unsafe(ext_intro_buf, sizeof(*u));
+	u = buffer_append_space_unsafe(&ext_intro_buf, sizeof(*u));
 	u->ext_id = ext_map_idx;
 	u->reset_id = reset_id;
 	u->hdr_size = hdr_size;
@@ -99,7 +100,7 @@ static void keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 
 	if (ext_map_idx == (uint32_t)-1) {
 		u->name_size = strlen(MAIL_INDEX_EXT_KEYWORDS);
-		buffer_append(ext_intro_buf, MAIL_INDEX_EXT_KEYWORDS,
+		buffer_append(&ext_intro_buf, MAIL_INDEX_EXT_KEYWORDS,
 			      u->name_size);
 	}
 

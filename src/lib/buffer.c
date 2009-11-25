@@ -69,16 +69,6 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	i_assert(buf->used <= buf->alloc);
 }
 
-buffer_t *buffer_create_static_hard(pool_t pool, size_t size)
-{
-	struct real_buffer *buf;
-
-	buf = p_new(pool, struct real_buffer, 1);
-	buf->pool = pool;
-	buffer_alloc(buf, size);
-	return (buffer_t *)buf;
-}
-
 void buffer_create_data(buffer_t *buffer, void *data, size_t size)
 {
 	struct real_buffer *buf;

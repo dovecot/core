@@ -133,8 +133,9 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 	struct mail_transaction_log_file *file = ctx->log->head;
 	struct mail_transaction_header_update *u;
 	struct mail_transaction_header *hdr;
-	buffer_t *buf;
 	uint32_t offset;
+	buffer_t buf;
+	unsigned char update_data[sizeof(*u) + sizeof(offset)];
 
 	if (file->max_tail_offset == file->sync_offset) {
 		/* FIXME: when we remove exclusive log locking, we
@@ -151,15 +152,14 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 		return;
 	i_assert(offset > file->saved_tail_offset);
 
-	buf = buffer_create_static_hard(pool_datastack_create(),
-					sizeof(*u) + sizeof(offset));
-	u = buffer_append_space_unsafe(buf, sizeof(*u));
+	buffer_create_data(&buf, update_data, sizeof(update_data));
+	u = buffer_append_space_unsafe(&buf, sizeof(*u));
 	u->offset = offsetof(struct mail_index_header, log_file_tail_offset);
 	u->size = sizeof(offset);
-	buffer_append(buf, &offset, sizeof(offset));
+	buffer_append(&buf, &offset, sizeof(offset));
 
 	mail_transaction_log_append_add(ctx, MAIL_TRANSACTION_HEADER_UPDATE,
-					buf->data, buf->used);
+					buf.data, buf.used);
 }
 
 static int

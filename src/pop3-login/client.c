@@ -131,22 +131,22 @@ static void pop3_client_destroy(struct client *client)
 static char *get_apop_challenge(struct pop3_client *client)
 {
 	unsigned char buffer[16];
-	buffer_t *buf;
+	unsigned char buffer_base64[MAX_BASE64_ENCODED_SIZE(sizeof(buffer)) + 1];
+	buffer_t buf;
 
 	auth_client_get_connect_id(auth_client, &client->apop_server_pid,
 				   &client->apop_connect_uid);
 
 	random_fill(buffer, sizeof(buffer));
-	buf = buffer_create_static_hard(pool_datastack_create(),
-			MAX_BASE64_ENCODED_SIZE(sizeof(buffer)) + 1);
-	base64_encode(buffer, sizeof(buffer), buf);
-	buffer_append_c(buf, '\0');
+	buffer_create_data(&buf, buffer_base64, sizeof(buffer_base64));
+	base64_encode(buffer, sizeof(buffer), &buf);
+	buffer_append_c(&buf, '\0');
 
 	return i_strdup_printf("<%x.%x.%lx.%s@%s>",
 			       client->apop_server_pid,
 			       client->apop_connect_uid,
 			       (unsigned long)ioloop_time,
-			       (const char *)buf->data, my_hostname);
+			       (const char *)buf.data, my_hostname);
 }
 
 static void pop3_client_send_greeting(struct client *client)

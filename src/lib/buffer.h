@@ -12,9 +12,8 @@ struct buffer {
    realloc()ed. You shouldn't rely on it being valid if you have modified
    buffer in any way. */
 
-/* Create a static sized buffer. Writes past this size will kill the program. */
-buffer_t *buffer_create_static_hard(pool_t pool, size_t size);
-/* Create a modifiable buffer from given data. */
+/* Create a modifiable buffer from given data. Writes past this size will
+   i_panic(). */
 void buffer_create_data(buffer_t *buffer, void *data, size_t size);
 /* Create a non-modifiable buffer from given data. */
 void buffer_create_const_data(buffer_t *buffer, const void *data, size_t size);

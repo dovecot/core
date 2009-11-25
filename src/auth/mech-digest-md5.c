@@ -57,10 +57,11 @@ struct digest_auth_request {
 static string_t *get_digest_challenge(struct digest_auth_request *request)
 {
 	struct auth *auth = request->auth_request.auth;
-	buffer_t *buf;
+	buffer_t buf;
 	string_t *str;
 	const char *const *tmp;
 	unsigned char nonce[16];
+	unsigned char nonce_base64[MAX_BASE64_ENCODED_SIZE(sizeof(nonce))+1];
 	int i;
 	bool first_qop;
 
@@ -77,12 +78,10 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	/* get 128bit of random data as nonce */
 	random_fill(nonce, sizeof(nonce));
 
-	buf = buffer_create_static_hard(pool_datastack_create(),
-				MAX_BASE64_ENCODED_SIZE(sizeof(nonce))+1);
-
-	base64_encode(nonce, sizeof(nonce), buf);
-	buffer_append_c(buf, '\0');
-	request->nonce = p_strdup(request->pool, buffer_get_data(buf, NULL));
+	buffer_create_data(&buf, nonce_base64, sizeof(nonce_base64));
+	base64_encode(nonce, sizeof(nonce), &buf);
+	buffer_append_c(&buf, '\0');
+	request->nonce = p_strdup(request->pool, buf.data);
 
 	str = t_str_new(256);
 	if (*auth->auth_realms == NULL) {
