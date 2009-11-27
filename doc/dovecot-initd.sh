@@ -1,9 +1,10 @@
 #!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          dovecot
-# Required-Start:    $local_fs $syslog
-# Required-Stop:     $local_fs $syslog
-# Should-Start:      $time
+# Required-Start:    $local_fs $remote_fs $network $syslog $time
+# Required-Stop:     $local_fs $remote_fs $network $syslog
+# Should-Start:      postgresql mysql slapd winbind
+# Should-Stop:       postgresql mysql slapd winbind
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Dovecot init script
