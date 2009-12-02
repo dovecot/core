@@ -236,13 +236,12 @@ static void file_dict_apply_changes(struct file_dict_transaction_context *ctx)
 	const char *tmp;
 	char *key, *value, *old_value;
 	void *orig_key, *orig_value;
-	const struct file_dict_change *changes;
-	unsigned int i, count, new_len;
+	const struct file_dict_change *change;
+	unsigned int new_len;
 	long long diff;
 
-	changes = array_get(&ctx->changes, &count);
-	for (i = 0; i < count; i++) {
-		if (hash_table_lookup_full(dict->hash, changes[i].key,
+	array_foreach(&ctx->changes, change) {
+		if (hash_table_lookup_full(dict->hash, change->key,
 					   &orig_key, &orig_value)) {
 			key = orig_key;
 			old_value = orig_value;
@@ -252,14 +251,14 @@ static void file_dict_apply_changes(struct file_dict_transaction_context *ctx)
 		}
 		value = NULL;
 
-		switch (changes[i].type) {
+		switch (change->type) {
 		case FILE_DICT_CHANGE_TYPE_INC:
 			if (old_value == NULL) {
 				ctx->atomic_inc_not_found = TRUE;
 				break;
 			}
 			diff = strtoll(old_value, NULL, 10) +
-				changes[i].value.diff;
+				change->value.diff;
 			tmp = t_strdup_printf("%lld", diff);
 			new_len = strlen(tmp);
 			if (old_value == NULL || new_len > strlen(old_value))
@@ -271,10 +270,10 @@ static void file_dict_apply_changes(struct file_dict_transaction_context *ctx)
 			/* fall through */
 		case FILE_DICT_CHANGE_TYPE_SET:
 			if (key == NULL)
-				key = p_strdup(dict->hash_pool, changes[i].key);
+				key = p_strdup(dict->hash_pool, change->key);
 			if (value == NULL) {
 				value = p_strdup(dict->hash_pool,
-						 changes[i].value.str);
+						 change->value.str);
 			}
 			hash_table_update(dict->hash, key, value);
 			break;

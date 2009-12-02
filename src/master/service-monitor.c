@@ -238,7 +238,6 @@ static void service_monitor_start_extra_avail(struct service *service)
 void service_monitor_listen_start(struct service *service)
 {
 	struct service_listener *const *listeners;
-	unsigned int i, count;
 
 	if (service->process_avail > 0 ||
 	    (service->process_count == service->process_limit &&
@@ -248,23 +247,20 @@ void service_monitor_listen_start(struct service *service)
 	service->listening = TRUE;
 	service->listen_pending = FALSE;
 
-	listeners = array_get(&service->listeners, &count);
-	for (i = 0; i < count; i++) {
-		if (listeners[i]->io == NULL && listeners[i]->fd != -1) {
-			listeners[i]->io = io_add(listeners[i]->fd, IO_READ,
-						  service_accept, service);
-		}
+	array_foreach(&service->listeners, listeners) {
+		struct service_listener *l = *listeners;
+
+		if (l->io == NULL && l->fd != -1)
+			l->io = io_add(l->fd, IO_READ, service_accept, service);
 	}
 }
 
 void service_monitor_listen_stop(struct service *service)
 {
 	struct service_listener *const *listeners;
-	unsigned int i, count;
 
-	listeners = array_get(&service->listeners, &count);
-	for (i = 0; i < count; i++) {
-		struct service_listener *l = listeners[i];
+	array_foreach(&service->listeners, listeners) {
+		struct service_listener *l = *listeners;
 
 		if (l->io != NULL)
 			io_remove(&l->io);
@@ -307,36 +303,36 @@ static int service_login_create_notify_fd(struct service *service)
 void services_monitor_start(struct service_list *service_list)
 {
 	struct service *const *services;
-	unsigned int i, count;
 
 	services_log_init(service_list);
 	service_anvil_monitor_start(service_list);
 
-	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++) {
-		if (services[i]->type == SERVICE_TYPE_LOGIN) {
-			if (service_login_create_notify_fd(services[i]) < 0)
+	array_foreach(&service_list->services, services) {
+		struct service *service = *services;
+
+		if (service->type == SERVICE_TYPE_LOGIN) {
+			if (service_login_create_notify_fd(service) < 0)
 				continue;
 		}
-		if (services[i]->status_fd[0] == -1) {
+		if (service->status_fd[0] == -1) {
 			/* we haven't yet created status pipe */
-			if (pipe(services[i]->status_fd) < 0) {
-				service_error(services[i], "pipe() failed: %m");
+			if (pipe(service->status_fd) < 0) {
+				service_error(service, "pipe() failed: %m");
 				continue;
 			}
 
-			net_set_nonblock(services[i]->status_fd[0], TRUE);
-			fd_close_on_exec(services[i]->status_fd[0], TRUE);
-			net_set_nonblock(services[i]->status_fd[1], TRUE);
-			fd_close_on_exec(services[i]->status_fd[1], TRUE);
+			net_set_nonblock(service->status_fd[0], TRUE);
+			fd_close_on_exec(service->status_fd[0], TRUE);
+			net_set_nonblock(service->status_fd[1], TRUE);
+			fd_close_on_exec(service->status_fd[1], TRUE);
 		}
-		if (services[i]->io_status == NULL) {
-			services[i]->io_status =
-				io_add(services[i]->status_fd[0], IO_READ,
-				       service_status_input, services[i]);
+		if (service->io_status == NULL) {
+			service->io_status =
+				io_add(service->status_fd[0], IO_READ,
+				       service_status_input, service);
 		}
-		service_monitor_start_extra_avail(services[i]);
-		service_monitor_listen_start(services[i]);
+		service_monitor_start_extra_avail(service);
+		service_monitor_listen_start(service);
 	}
 
 	if (service_process_create(service_list->log) != NULL)
@@ -378,11 +374,9 @@ void service_monitor_stop(struct service *service)
 void services_monitor_stop(struct service_list *service_list)
 {
 	struct service *const *services;
-	unsigned int i, count;
 
-	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++)
-		service_monitor_stop(services[i]);
+	array_foreach(&service_list->services, services)
+		service_monitor_stop(*services);
 
 	services_log_deinit(service_list);
 }

@@ -14,12 +14,12 @@ static ARRAY_DEFINE(userdb_interfaces, struct userdb_module_interface *);
 static struct userdb_module_interface *userdb_interface_find(const char *name)
 {
 	struct userdb_module_interface *const *ifaces;
-	unsigned int i, count;
 
-	ifaces = array_get(&userdb_interfaces, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(ifaces[i]->name, name) == 0)
-			return ifaces[i];
+	array_foreach(&userdb_interfaces, ifaces) {
+		struct userdb_module_interface *iface = *ifaces;
+
+		if (strcmp(iface->name, name) == 0)
+			return iface;
 	}
 	return NULL;
 }
@@ -42,12 +42,12 @@ void userdb_register_module(struct userdb_module_interface *iface)
 void userdb_unregister_module(struct userdb_module_interface *iface)
 {
 	struct userdb_module_interface *const *ifaces;
-	unsigned int i, count;
+	unsigned int idx;
 
-	ifaces = array_get(&userdb_interfaces, &count);
-	for (i = 0; i < count; i++) {
-		if (ifaces[i] == iface) {
-			array_delete(&userdb_interfaces, i, 1);
+	array_foreach(&userdb_interfaces, ifaces) {
+		if (*ifaces == iface) {
+			idx = array_foreach_idx(&userdb_interfaces, ifaces);
+			array_delete(&userdb_interfaces, idx, 1);
 			return;
 		}
 	}

@@ -143,42 +143,39 @@ static int service_inet_listener_listen(struct service_listener *l)
 static int service_listen(struct service *service)
 {
 	struct service_listener *const *listeners;
-	unsigned int i, count;
 	int ret = 1, ret2 = 0;
 
-	listeners = array_get(&service->listeners, &count);
-	for (i = 0; i < count; i++) {
-		if (listeners[i]->fd != -1)
+	array_foreach(&service->listeners, listeners) {
+		struct service_listener *l = *listeners;
+
+		if (l->fd != -1)
 			continue;
 
-		switch (listeners[i]->type) {
+		switch (l->type) {
 		case SERVICE_LISTENER_UNIX:
-			ret2 = service_unix_listener_listen(listeners[i]);
+			ret2 = service_unix_listener_listen(l);
 			break;
 		case SERVICE_LISTENER_FIFO:
-			ret2 = service_fifo_listener_listen(listeners[i]);
+			ret2 = service_fifo_listener_listen(l);
 			break;
 		case SERVICE_LISTENER_INET:
-			ret2 = service_inet_listener_listen(listeners[i]);
+			ret2 = service_inet_listener_listen(l);
 			break;
 		}
 
 		if (ret2 < ret)
 			ret = ret2;
 	}
-
 	return ret;
 }
 
 int services_listen(struct service_list *service_list)
 {
 	struct service *const *services;
-	unsigned int i, count;
 	int ret = 1, ret2;
 
-	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++) {
-		ret2 = service_listen(services[i]);
+	array_foreach(&service_list->services, services) {
+		ret2 = service_listen(*services);
 		if (ret2 < ret)
 			ret = ret2;
 	}

@@ -69,7 +69,6 @@ static void client_connected(const struct master_service_connection *conn)
 static void ssl_params_callback(const unsigned char *data, size_t size)
 {
 	const int *fds;
-	unsigned int i, count;
 
 	buffer_set_used_size(ssl_params, 0);
 	buffer_append(ssl_params, data, size);
@@ -77,9 +76,8 @@ static void ssl_params_callback(const unsigned char *data, size_t size)
 	if (!array_is_created(&delayed_fds))
 		return;
 
-	fds = array_get(&delayed_fds, &count);
-	for (i = 0; i < count; i++)
-		client_handle(fds[i]);
+	array_foreach(&delayed_fds, fds)
+		client_handle(*fds);
 	array_free(&delayed_fds);
 }
 

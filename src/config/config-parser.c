@@ -201,12 +201,12 @@ config_filter_parser_find(struct parser_context *ctx,
 			  const struct config_filter *filter)
 {
 	struct config_filter_parser *const *parsers;
-	unsigned int i, count;
 
-	parsers = array_get(&ctx->all_parsers, &count);
-	for (i = 0; i < count; i++) {
-		if (config_filters_equal(&parsers[i]->filter, filter))
-			return parsers[i];
+	array_foreach(&ctx->all_parsers, parsers) {
+		struct config_filter_parser *parser = *parsers;
+
+		if (config_filters_equal(&parser->filter, filter))
+			return parser;
 	}
 	return NULL;
 }

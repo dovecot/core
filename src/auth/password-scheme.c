@@ -25,12 +25,12 @@ static const struct password_scheme *
 password_scheme_lookup_name(const char *name)
 {
 	const struct password_scheme *const *schemes;
-	unsigned int i, count;
 
-	schemes = array_get(&password_schemes, &count);
-	for (i = 0; i < count; i++) {
-		if (strcasecmp(schemes[i]->name, name) == 0)
-			return schemes[i];
+	array_foreach(&password_schemes, schemes) {
+		const struct password_scheme *scheme = *schemes;
+
+		if (strcasecmp(scheme->name, name) == 0)
+			return scheme;
 	}
 	return NULL;
 }
@@ -230,7 +230,6 @@ bool password_generate_encoded(const char *plaintext, const char *user,
 bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 {
 	const struct password_scheme *const *schemes, *s1 = NULL, *s2 = NULL;
-	unsigned int i, count;
 
 	scheme1 = t_strcut(scheme1, '.');
 	scheme2 = t_strcut(scheme2, '.');
@@ -238,12 +237,13 @@ bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 	if (strcasecmp(scheme1, scheme2) == 0)
 		return TRUE;
 
-	schemes = array_get(&password_schemes, &count);
-	for (i = 0; i < count; i++) {
-		if (strcasecmp(schemes[i]->name, scheme1) == 0)
-			s1 = schemes[i];
-		else if (strcasecmp(schemes[i]->name, scheme2) == 0)
-			s2 = schemes[i];
+	array_foreach(&password_schemes, schemes) {
+		const struct password_scheme *scheme = *schemes;
+
+		if (strcasecmp(scheme->name, scheme1) == 0)
+			s1 = scheme;
+		else if (strcasecmp(scheme->name, scheme2) == 0)
+			s2 = scheme;
 	}
 
 	/* if they've the same generate function, they're equivalent */
@@ -686,12 +686,12 @@ void password_scheme_register(const struct password_scheme *scheme)
 void password_scheme_unregister(const struct password_scheme *scheme)
 {
 	const struct password_scheme *const *schemes;
-	unsigned int i, count;
+	unsigned int idx;
 
-	schemes = array_get(&password_schemes, &count);
-	for (i = 0; i < count; i++) {
-		if (strcasecmp(schemes[i]->name, scheme->name) == 0) {
-			array_delete(&password_schemes, i, 1);
+	array_foreach(&password_schemes, schemes) {
+		if (strcasecmp((*schemes)->name, scheme->name) == 0) {
+			idx = array_foreach_idx(&password_schemes, schemes);
+			array_delete(&password_schemes, idx, 1);
 			return;
 		}
 	}

@@ -47,18 +47,16 @@ static void uids_to_seqs(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
 	T_BEGIN {
 		ARRAY_TYPE(seq_range) seqs;
 		const struct seq_range *range;
-		unsigned int i, count;
 		uint32_t seq1, seq2;
 
-		range = array_get(uids, &count);
-		t_array_init(&seqs, count);
-		for (i = 0; i < count; i++) {
-			mailbox_get_seq_range(box, range[i].seq1, range[i].seq2,
+		t_array_init(&seqs, array_count(uids));
+		array_foreach(uids, range) {
+			mailbox_get_seq_range(box, range->seq1, range->seq2,
 					      &seq1, &seq2);
 			/* since we have to notify about expunged messages,
 			   we expect that all the referenced UIDs exist */
 			i_assert(seq1 != 0);
-			i_assert(seq2 - seq1 == range[i].seq2 - range[i].seq1);
+			i_assert(seq2 - seq1 == range->seq2 - range->seq1);
 
 			seq_range_array_add_range(&seqs, seq1, seq2);
 		}
@@ -109,8 +107,7 @@ imap_sync_send_search_update(struct imap_sync_context *ctx,
 
 static void imap_sync_send_search_updates(struct imap_sync_context *ctx)
 {
-	const struct imap_search_update *updates;
-	unsigned int i, count;
+	const struct imap_search_update *update;
 
 	if (!array_is_created(&ctx->client->search_updates))
 		return;
@@ -120,9 +117,8 @@ static void imap_sync_send_search_updates(struct imap_sync_context *ctx)
 		i_array_init(&ctx->search_adds, 128);
 	}
 
-	updates = array_get(&ctx->client->search_updates, &count);
-	for (i = 0; i < count; i++) T_BEGIN {
-		imap_sync_send_search_update(ctx, &updates[i]);
+	array_foreach(&ctx->client->search_updates, update) T_BEGIN {
+		imap_sync_send_search_update(ctx, update);
 	} T_END;
 }
 

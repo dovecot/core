@@ -163,15 +163,13 @@ static void imap_search_result_save(struct imap_search_context *ctx)
 static void imap_search_send_result_standard(struct imap_search_context *ctx)
 {
 	const struct seq_range *range;
-	unsigned int i, count;
 	string_t *str;
 	uint32_t seq;
 
 	str = t_str_new(1024);
-	range = array_get(&ctx->result, &count);
 	str_append(str, ctx->sorting ? "* SORT" : "* SEARCH");
-	for (i = 0; i < count; i++) {
-		for (seq = range[i].seq1; seq <= range[i].seq2; seq++)
+	array_foreach(&ctx->result, range) {
+		for (seq = range->seq1; seq <= range->seq2; seq++)
 			str_printfa(str, " %u", seq);
 		if (str_len(str) >= 1024-32) {
 			o_stream_send(ctx->cmd->client->output,

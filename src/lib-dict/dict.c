@@ -10,12 +10,12 @@ static ARRAY_DEFINE(dict_drivers, struct dict *);
 static struct dict *dict_driver_lookup(const char *name)
 {
 	struct dict *const *dicts;
-	unsigned int i, count;
 
-	dicts = array_get(&dict_drivers, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(dicts[i]->name, name) == 0)
-			return dicts[i];
+	array_foreach(&dict_drivers, dicts) {
+		struct dict *dict = *dicts;
+
+		if (strcmp(dict->name, name) == 0)
+			return dict;
 	}
 	return NULL;
 }
@@ -35,17 +35,16 @@ void dict_driver_register(struct dict *driver)
 void dict_driver_unregister(struct dict *driver)
 {
 	struct dict *const *dicts;
-	unsigned int i, count;
+	unsigned int idx = -1U;
 
-	dicts = array_get(&dict_drivers, &count);
-	for (i = 0; i < count; i++) {
-		if (dicts[i] == driver) {
-			array_delete(&dict_drivers, i, 1);
+	array_foreach(&dict_drivers, dicts) {
+		if (*dicts == driver) {
+			idx = array_foreach_idx(&dict_drivers, dicts);
 			break;
 		}
 	}
-
-	i_assert(i < count);
+	i_assert(idx != -1U);
+	array_delete(&dict_drivers, idx, 1);
 
 	if (array_count(&dict_drivers) == 0)
 		array_free(&dict_drivers);

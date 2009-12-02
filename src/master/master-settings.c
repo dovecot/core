@@ -237,18 +237,18 @@ static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 				    ARRAY_TYPE(const_string) *all_listeners)
 {
 	struct file_listener_settings *const *sets;
-	unsigned int i, count;
 
 	if (!array_is_created(l))
 		return;
 
-	sets = array_get(l, &count);
-	for (i = 0; i < count; i++) {
-		if (*sets[i]->path != '/') {
-			sets[i]->path = p_strconcat(pool, base_dir, "/",
-						    sets[i]->path, NULL);
+	array_foreach(l, sets) {
+		struct file_listener_settings *set = *sets;
+
+		if (*set->path != '/') {
+			set->path = p_strconcat(pool, base_dir, "/",
+						set->path, NULL);
 		}
-		array_append(all_listeners, &sets[i]->path, 1);
+		array_append(all_listeners, &set->path, 1);
 	}
 }
 
@@ -256,15 +256,15 @@ static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
 			       ARRAY_TYPE(const_string) *all_listeners)
 {
 	struct inet_listener_settings *const *sets;
-	unsigned int i, count;
 	const char *str;
 
 	if (!array_is_created(l))
 		return;
 
-	sets = array_get(l, &count);
-	for (i = 0; i < count; i++) {
-		str = t_strdup_printf("%d:%s", sets[i]->port, sets[i]->address);
+	array_foreach(l, sets) {
+		struct inet_listener_settings *set = *sets;
+
+		str = t_strdup_printf("%d:%s", set->port, set->address);
 		array_append(all_listeners, &str, 1);
 	}
 }
@@ -405,21 +405,21 @@ static bool
 login_want_core_dumps(const struct master_settings *set, gid_t *gid_r)
 {
 	struct service_settings *const *services;
-	unsigned int i, count;
 	const char *error;
 	bool cores = FALSE;
 	uid_t uid;
 
 	*gid_r = (gid_t)-1;
 
-	services = array_get(&set->services, &count);
-	for (i = 0; i < count; i++) {
-		if (services[i]->parsed_type == SERVICE_TYPE_LOGIN) {
-			if (services[i]->login_dump_core)
+	array_foreach(&set->services, services) {
+		struct service_settings *service = *services;
+
+		if (service->parsed_type == SERVICE_TYPE_LOGIN) {
+			if (service->login_dump_core)
 				cores = TRUE;
-			(void)get_uidgid(services[i]->user, &uid, gid_r, &error);
-			if (*services[i]->group != '\0')
-				(void)get_gid(services[i]->group, gid_r, &error);
+			(void)get_uidgid(service->user, &uid, gid_r, &error);
+			if (*service->group != '\0')
+				(void)get_gid(service->group, gid_r, &error);
 		}
 	}
 	return cores;
@@ -430,15 +430,16 @@ settings_have_auth_unix_listeners_in(const struct master_settings *set,
 				     const char *dir)
 {
 	struct service_settings *const *services;
-	struct file_listener_settings *const *u;
-	unsigned int i, j, count, count2;
+	struct file_listener_settings *const *uls;
 
-	services = array_get(&set->services, &count);
-	for (i = 0; i < count; i++) {
-		if (array_is_created(&services[i]->unix_listeners)) {
-			u = array_get(&services[i]->unix_listeners, &count2);
-			for (j = 0; j < count2; j++) {
-				if (strncmp(u[j]->path, dir, strlen(dir)) == 0)
+	array_foreach(&set->services, services) {
+		struct service_settings *service = *services;
+
+		if (array_is_created(&service->unix_listeners)) {
+			array_foreach(&service->unix_listeners, uls) {
+				struct file_listener_settings *u = *uls;
+
+				if (strncmp(u->path, dir, strlen(dir)) == 0)
 					return TRUE;
 			}
 		}

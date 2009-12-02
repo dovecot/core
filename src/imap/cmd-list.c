@@ -247,7 +247,7 @@ static void
 list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 {
 	struct mail_namespace *const *listed;
-	unsigned int i, count, len;
+	unsigned int len;
 	enum mailbox_info_flags flags;
 	const char *name;
 	string_t *str;
@@ -256,9 +256,8 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 
 	/* see if we already listed this as a valid mailbox in another
 	   namespace */
-	listed = array_get(&ctx->ns_prefixes_listed, &count);
-	for (i = 0; i < count; i++) {
-		if (listed[i] == ctx->ns)
+	array_foreach(&ctx->ns_prefixes_listed, listed) {
+		if (*listed == ctx->ns)
 			return;
 	}
 

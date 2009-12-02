@@ -307,13 +307,13 @@ static const char *get_keywords_string(const ARRAY_TYPE(keywords) *keywords)
 {
 	string_t *str;
 	const char *const *names;
-	unsigned int i, count;
 
 	str = t_str_new(256);
-	names = array_get(keywords, &count);
-	for (i = 0; i < count; i++) {
+	array_foreach(keywords, names) {
+		const char *name = *names;
+
 		str_append_c(str, ' ');
-		str_append(str, names[i]);
+		str_append(str, name);
 	}
 	return str_c(str);
 }
@@ -361,18 +361,18 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 {
 	const unsigned int *kw_indexes;
 	const char *const *all_names;
-	unsigned int i, kw_count, all_count;
+	unsigned int all_count;
 
 	client_send_mailbox_flags(client, FALSE);
 
-	all_names = array_get(client->keywords.names, &all_count);
-	kw_indexes = array_get(src, &kw_count);
-
 	/* convert indexes to names */
+	all_names = array_get(client->keywords.names, &all_count);
 	array_clear(dest);
-	for (i = 0; i < kw_count; i++) {
-		i_assert(kw_indexes[i] < all_count);
-		array_append(dest, &all_names[kw_indexes[i]], 1);
+	array_foreach(src, kw_indexes) {
+		unsigned int kw_index = *kw_indexes;
+
+		i_assert(kw_index < all_count);
+		array_append(dest, &all_names[kw_index], 1);
 	}
 
 	(void)array_append_space(dest);

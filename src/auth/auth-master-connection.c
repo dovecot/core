@@ -501,17 +501,18 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 {
         struct auth_master_connection *conn = *_conn;
         struct auth_master_connection *const *masters;
-	unsigned int i, count;
+	unsigned int idx;
 
 	*_conn = NULL;
 	if (conn->destroyed)
 		return;
 	conn->destroyed = TRUE;
 
-	masters = array_get(&auth_master_connections, &count);
-	for (i = 0; i < count; i++) {
-		if (masters[i] == conn) {
-			array_delete(&auth_master_connections, i, 1);
+	array_foreach(&auth_master_connections, masters) {
+		if (*masters == conn) {
+			idx = array_foreach_idx(&auth_master_connections,
+						masters);
+			array_delete(&auth_master_connections, idx, 1);
 			break;
 		}
 	}

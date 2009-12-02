@@ -43,17 +43,18 @@ void mail_index_map_init_extbufs(struct mail_index_map *map,
 bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
 			       uint32_t *idx_r)
 {
-	const struct mail_index_ext *extensions;
-	unsigned int i, size;
+	const struct mail_index_ext *ext;
 
-	if (array_is_created(&map->extensions)) {
-		extensions = array_get(&map->extensions, &size);
-		for (i = 0; i < size; i++) {
-			if (strcmp(extensions[i].name, name) == 0) {
-				if (idx_r != NULL)
-					*idx_r = i;
-				return TRUE;
+	if (!array_is_created(&map->extensions))
+		return FALSE;
+
+	array_foreach(&map->extensions, ext) {
+		if (strcmp(ext->name, name) == 0) {
+			if (idx_r != NULL) {
+				*idx_r = array_foreach_idx(&map->extensions,
+							   ext);
 			}
+			return TRUE;
 		}
 	}
 	return FALSE;
@@ -259,20 +260,21 @@ static void mail_index_record_map_free(struct mail_index_map *map,
 static void mail_index_record_map_unlink(struct mail_index_map *map)
 {
 	struct mail_index_map *const *maps;
-	unsigned int i, count;
+	unsigned int idx = -1U;
 
-	maps = array_get(&map->rec_map->maps, &count);
-	for (i = 0; i < count; i++) {
-		if (maps[i] == map) {
-			array_delete(&map->rec_map->maps, i, 1);
-			if (i == 0 && count == 1) {
-				mail_index_record_map_free(map, map->rec_map);
-				map->rec_map = NULL;
-			}
-			return;
+	array_foreach(&map->rec_map->maps, maps) {
+		if (*maps == map) {
+			idx = array_foreach_idx(&map->rec_map->maps, maps);
+			break;
 		}
 	}
-	i_unreached();
+	i_assert(idx != -1U);
+
+	array_delete(&map->rec_map->maps, idx, 1);
+	if (array_count(&map->rec_map->maps) == 0) {
+		mail_index_record_map_free(map, map->rec_map);
+		map->rec_map = NULL;
+	}
 }
 
 void mail_index_unmap(struct mail_index_map **_map)

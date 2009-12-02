@@ -150,19 +150,20 @@ void services_log_dup2(ARRAY_TYPE(dup2) *dups,
 		       unsigned int first_fd, unsigned int *fd_count)
 {
 	struct service *const *services;
-	unsigned int i, n = 0, count;
+	unsigned int n = 0;
 
 	/* master log fd is always the first one */
 	dup2_append(dups, service_list->master_log_fd[0], first_fd);
 	n++; *fd_count += 1;
 
-	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++) {
-		if (services[i]->log_fd[1] == -1)
+	array_foreach(&service_list->services, services) {
+		struct service *service = *services;
+
+		if (service->log_fd[1] == -1)
 			continue;
 
-		i_assert((int)(first_fd + n) == services[i]->log_process_internal_fd);
-		dup2_append(dups, services[i]->log_fd[0], first_fd + n);
+		i_assert((int)(first_fd + n) == service->log_process_internal_fd);
+		dup2_append(dups, service->log_fd[0], first_fd + n);
 		n++; *fd_count += 1;
 	}
 }

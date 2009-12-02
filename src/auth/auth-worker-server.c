@@ -155,15 +155,15 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 {
 	struct auth_worker_connection *conn = *_conn;
 	struct auth *auth = conn->auth;
-	struct auth_worker_connection **connp;
-	unsigned int i, count;
+	struct auth_worker_connection *const *conns;
+	unsigned int idx;
 
 	*_conn = NULL;
 
-	connp = array_get_modifiable(&connections, &count);
-	for (i = 0; i < count; i++) {
-		if (connp[i] == conn) {
-			array_delete(&connections, i, 1);
+	array_foreach(&connections, conns) {
+		if (*conns == conn) {
+			idx = array_foreach_idx(&connections, conns);
+			array_delete(&connections, idx, 1);
 			break;
 		}
 	}
@@ -196,15 +196,15 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 static struct auth_worker_connection *auth_worker_find_free(void)
 {
 	struct auth_worker_connection **conns;
-	unsigned int i, count;
 
 	if (idle_count == 0)
 		return NULL;
 
-	conns = array_get_modifiable(&connections, &count);
-	for (i = 0; i < count; i++) {
-		if (conns[i]->request == NULL)
-			return conns[i];
+	array_foreach_modifiable(&connections, conns) {
+		struct auth_worker_connection *conn = *conns;
+
+		if (conn->request == NULL)
+			return conn;
 	}
 	i_unreached();
 	return NULL;

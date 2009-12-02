@@ -304,16 +304,17 @@ void auth_client_connection_destroy(struct auth_client_connection **_conn)
 {
         struct auth_client_connection *conn = *_conn;
 	struct auth_client_connection *const *clients;
-	unsigned int i, count;
+	unsigned int idx;
 
 	*_conn = NULL;
 	if (conn->fd == -1)
 		return;
 
-	clients = array_get(&auth_client_connections, &count);
-	for (i = 0; i < count; i++) {
-		if (clients[i] == conn) {
-			array_delete(&auth_client_connections, i, 1);
+	array_foreach(&auth_client_connections, clients) {
+		if (*clients == conn) {
+			idx = array_foreach_idx(&auth_client_connections,
+						clients);
+			array_delete(&auth_client_connections, idx, 1);
 			break;
 		}
 	}
@@ -351,12 +352,12 @@ struct auth_client_connection *
 auth_client_connection_lookup(unsigned int pid)
 {
 	struct auth_client_connection *const *clients;
-	unsigned int i, count;
 
-	clients = array_get(&auth_client_connections, &count);
-	for (i = 0; i < count; i++) {
-		if (clients[i]->pid == pid)
-			return clients[i];
+	array_foreach(&auth_client_connections, clients) {
+		struct auth_client_connection *client = *clients;
+
+		if (client->pid == pid)
+			return client;
 	}
 
 	return NULL;
@@ -365,13 +366,13 @@ auth_client_connection_lookup(unsigned int pid)
 static void request_timeout(void *context ATTR_UNUSED)
 {
 	struct auth_client_connection *const *clients;
-	unsigned int i, count;
 
-	clients = array_get(&auth_client_connections, &count);
-	for (i = 0; i < count; i++) {
-		if (clients[i]->request_handler != NULL) {
+	array_foreach(&auth_client_connections, clients) {
+		struct auth_client_connection *client = *clients;
+
+		if (client->request_handler != NULL) {
 			auth_request_handler_check_timeouts(
-				clients[i]->request_handler);
+				client->request_handler);
 		}
 	}
 }

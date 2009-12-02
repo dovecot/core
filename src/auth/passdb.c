@@ -13,12 +13,12 @@ static ARRAY_DEFINE(passdb_interfaces, struct passdb_module_interface *);
 static struct passdb_module_interface *passdb_interface_find(const char *name)
 {
 	struct passdb_module_interface *const *ifaces;
-	unsigned int i, count;
 
-	ifaces = array_get(&passdb_interfaces, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(ifaces[i]->name, name) == 0)
-			return ifaces[i];
+	array_foreach(&passdb_interfaces, ifaces) {
+		struct passdb_module_interface *iface = *ifaces;
+
+		if (strcmp(iface->name, name) == 0)
+			return iface;
 	}
 	return NULL;
 }
@@ -41,12 +41,12 @@ void passdb_register_module(struct passdb_module_interface *iface)
 void passdb_unregister_module(struct passdb_module_interface *iface)
 {
 	struct passdb_module_interface *const *ifaces;
-	unsigned int i, count;
+	unsigned int idx;
 
-	ifaces = array_get(&passdb_interfaces, &count);
-	for (i = 0; i < count; i++) {
-		if (ifaces[i] == iface) {
-			array_delete(&passdb_interfaces, i, 1);
+	array_foreach(&passdb_interfaces, ifaces) {
+		if (*ifaces == iface) {
+			idx = array_foreach_idx(&passdb_interfaces, ifaces);
+			array_delete(&passdb_interfaces, idx, 1);
 			return;
 		}
 	}

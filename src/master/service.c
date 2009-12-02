@@ -320,12 +320,12 @@ struct service *
 service_lookup(struct service_list *service_list, const char *name)
 {
 	struct service *const *services;
-	unsigned int i, count;
 
-	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(services[i]->set->name, name) == 0)
-			return services[i];
+	array_foreach(&service_list->services, services) {
+		struct service *service = *services;
+
+		if (strcmp(service->set->name, name) == 0)
+			return service;
 	}
 	return NULL;
 }
@@ -334,12 +334,12 @@ struct service *
 service_lookup_type(struct service_list *service_list, enum service_type type)
 {
 	struct service *const *services;
-	unsigned int i, count;
 
-	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++) {
-		if (services[i]->type == type)
-			return services[i];
+	array_foreach(&service_list->services, services) {
+		struct service *service = *services;
+
+		if (service->type == type)
+			return service;
 	}
 	return NULL;
 }
@@ -498,7 +498,6 @@ void service_login_notify(struct service *service, bool all_processes_full)
 static void services_kill_timeout(struct service_list *service_list)
 {
 	struct service *const *services, *log_service;
-	unsigned int i, count;
 	bool sigterm_log;
 	int sig;
 
@@ -513,12 +512,13 @@ static void services_kill_timeout(struct service_list *service_list)
 		  sig == SIGTERM ? "SIGTERM" : "SIGKILL");
 
 	log_service = NULL;
-	services = array_get(&service_list->services, &count);
-	for (i = 0; i < count; i++) {
-		if (services[i]->type == SERVICE_TYPE_LOG)
-			log_service = services[i];
+	array_foreach(&service_list->services, services) {
+		struct service *service = *services;
+
+		if (service->type == SERVICE_TYPE_LOG)
+			log_service = service;
 		else
-			service_signal(services[i], sig);
+			service_signal(service, sig);
 	}
 	/* kill log service later so it could still have a chance of logging
 	   something */
@@ -594,12 +594,12 @@ void services_throttle_time_sensitives(struct service_list *list,
 				       unsigned int secs)
 {
 	struct service *const *services;
-	unsigned int i, count;
 
-	services = array_get(&list->services, &count);
-	for (i = 0; i < count; i++) {
-		if (services[i]->type == SERVICE_TYPE_UNKNOWN)
-			service_throttle(services[i], secs);
+	array_foreach(&list->services, services) {
+		struct service *service = *services;
+
+		if (service->type == SERVICE_TYPE_UNKNOWN)
+			service_throttle(service, secs);
 	}
 }
 
