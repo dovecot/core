@@ -3,6 +3,33 @@
 #include "test-lib.h"
 #include "array.h"
 
+struct foo {
+	unsigned int a, b, c;
+};
+
+static void test_array_foreach(void)
+{
+	ARRAY_DEFINE(foos, struct foo);
+	const struct foo *foo;
+	struct foo nfoo;
+	unsigned int i;
+
+	test_begin("array foreach");
+	t_array_init(&foos, 32);
+	for (i = 0; i < 10; i++) {
+		nfoo.a = nfoo.b = nfoo.c = i;
+		array_append(&foos, &nfoo, 1);
+	}
+
+	array_foreach(&foos, foo) {
+		i = array_foreach_idx(&foos, foo);
+		test_assert(foo->a == i);
+		test_assert(foo->b == i);
+		test_assert(foo->c == i);
+	}
+	test_end();
+}
+
 static void test_array_reverse(void)
 {
 	ARRAY_DEFINE(intarr, int);
@@ -26,5 +53,6 @@ static void test_array_reverse(void)
 
 void test_array(void)
 {
+	test_array_foreach();
 	test_array_reverse();
 }
