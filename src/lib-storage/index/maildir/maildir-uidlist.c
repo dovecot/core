@@ -1334,12 +1334,6 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 		}
 	}
 
-	for (; seq <= hdr->messages_count; seq++) {
-		rec = mail_index_lookup(view, seq);
-		i_error("%s: uid=%u exists in index tail, but not in uidlist",
-			uidlist->path, rec->uid);
-	}
-
 	/* drop messages expunged at the end of index */
 	while (i < count && recs[i]->uid < hdr->next_uid)
 		i++;
