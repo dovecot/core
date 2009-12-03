@@ -124,6 +124,34 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 	return 1;
 }
 
+static const char *
+maildir_copy_get_preserved_fname(struct maildir_mailbox *src_mbox,
+				 struct maildir_mailbox *dest_mbox,
+				 uint32_t uid)
+{
+	enum maildir_uidlist_rec_flag flags;
+	const char *fname;
+
+	/* see if the filename exists in destination maildir's
+	   uidlist. if it doesn't, we can use it. otherwise generate
+	   a new filename. FIXME: There's a race condition here if
+	   another process is just doing the same copy. */
+	if (maildir_uidlist_lookup(src_mbox->uidlist, uid, &flags,
+				   &fname) <= 0)
+		return NULL;
+
+	if (maildir_uidlist_refresh(dest_mbox->uidlist) <= 0)
+		return NULL;
+	if (maildir_uidlist_get_full_filename(dest_mbox->uidlist,
+					      fname) != NULL) {
+		/* already exists in destination */
+		return NULL;
+	}
+	/* fname may be freed by a later uidlist sync. make sure it gets
+	   strduped. */
+	return t_strcut(t_strdup(fname), ':');
+}
+
 static int
 maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 {
@@ -148,20 +176,8 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 
 	if (dest_mbox->storage->set->maildir_copy_preserve_filename &&
 	    src_mbox != NULL) {
-		enum maildir_uidlist_rec_flag src_flags;
-		const char *src_fname;
-
-		/* see if the filename exists in destination maildir's
-		   uidlist. if it doesn't, we can use it. otherwise generate
-		   a new filename. FIXME: There's a race condition here if
-		   another process is just doing the same copy. */
-		if (maildir_uidlist_lookup(src_mbox->uidlist,
-					   mail->uid, &src_flags,
-					   &src_fname) > 0 &&
-		    maildir_uidlist_refresh(dest_mbox->uidlist) >= 0 &&
-		    maildir_uidlist_get_full_filename(dest_mbox->uidlist,
-						      src_fname) == NULL)
-			filename = t_strcut(src_fname, ':');
+		filename = maildir_copy_get_preserved_fname(src_mbox, dest_mbox,
+							    mail->uid);
 	}
 	if (filename == NULL) {
 		/* the generated filename is _always_ unique, so we don't
