@@ -1325,9 +1325,8 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 			/* expunged entry */
 			i++;
 		} else if (recs[i]->uid > rec->uid) {
-			i_error("%s: uid=%u exists in index, "
-				"but not in uidlist",
-				uidlist->path, rec->uid);
+			/* index isn't up to date. we're probably just
+			   syncing it here. ignore this entry. */
 			seq++;
 		} else {
 			array_append(&new_records, &recs[i], 1);
