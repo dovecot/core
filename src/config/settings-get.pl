@@ -60,7 +60,7 @@ foreach my $file (@ARGV) {
     
     if ($state == 1 || $state == 3) {
       if ($state == 1) {
-	if (/MEMBER\(module_name\) "(.*)"/) {
+	if (/\.module_name = "(.*)"/) {
 	  $parsers{$cur_name} = $1;
 	}
 	if (/DEFLIST.*".*",(.*)$/) {
