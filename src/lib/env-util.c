@@ -25,7 +25,8 @@ void env_put(const char *env)
 void env_remove(const char *name)
 {
 #ifdef HAVE_UNSETENV
-	unsetenv(name);
+	if (unsetenv(name) < 0)
+		i_fatal("unsetenv(%s) failed: %m", name);
 #else
 	extern char **environ;
 	unsigned int len;
