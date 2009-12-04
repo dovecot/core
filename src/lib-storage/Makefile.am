@@ -23,6 +23,7 @@ libstorage_la_SOURCES = \
 	mail-search.c \
 	mail-search-build.c \
 	mail-storage.c \
+	mail-storage-hooks.c \
 	mail-storage-settings.c \
 	mail-thread.c \
 	mail-user.c \
@@ -43,6 +44,7 @@ headers = \
 	mail-thread.h \
 	mail-storage.h \
 	mail-storage-private.h \
+	mail-storage-hooks.h \
 	mail-storage-service.h \
 	mail-storage-settings.h \
 	mail-user.h \

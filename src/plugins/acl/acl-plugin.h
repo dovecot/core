@@ -34,9 +34,6 @@ struct acl_mailbox_list {
 	struct acl_storage_rights_context rights;
 };
 
-extern void (*acl_next_hook_mail_storage_created)(struct mail_storage *storage);
-extern void (*acl_next_hook_mailbox_list_created)(struct mailbox_list *list);
-extern void (*acl_next_hook_mail_user_created)(struct mail_user *user);
 extern MODULE_CONTEXT_DEFINE(acl_storage_module, &mail_storage_module_register);
 extern MODULE_CONTEXT_DEFINE(acl_user_module, &mail_user_module_register);
 extern MODULE_CONTEXT_DEFINE(acl_mailbox_list_module,
@@ -56,7 +53,7 @@ int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 				bool parent, unsigned int acl_storage_right_idx,
 				bool *can_see_r);
 
-void acl_plugin_init(void);
+void acl_plugin_init(struct module *module);
 void acl_plugin_deinit(void);
 
 #endif

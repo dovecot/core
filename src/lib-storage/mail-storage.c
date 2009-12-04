@@ -23,15 +23,12 @@ struct mail_module_register mail_module_register = { 0 };
 struct mail_storage_mail_index_module mail_storage_mail_index_module =
 	MODULE_CONTEXT_INIT(&mail_index_module_register);
 
-void (*hook_mail_storage_created)(struct mail_storage *storage);
-void (*hook_mailbox_allocated)(struct mailbox *box) = NULL;
-void (*hook_mailbox_index_opened)(struct mailbox *box) = NULL;
-
 ARRAY_TYPE(mail_storage) mail_storage_classes;
 
 void mail_storage_init(void)
 {
 	mailbox_lists_init();
+	mail_storage_hooks_init();
 	i_array_init(&mail_storage_classes, 8);
 }
 
@@ -39,6 +36,7 @@ void mail_storage_deinit(void)
 {
 	if (array_is_created(&mail_storage_classes))
 		array_free(&mail_storage_classes);
+	mail_storage_hooks_deinit();
 	mailbox_lists_deinit();
 }
 
@@ -298,7 +296,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		return -1;
 	}
 
-	if (hook_mail_storage_created != NULL) T_BEGIN {
+	T_BEGIN {
 		hook_mail_storage_created(storage);
 	} T_END;
 
@@ -466,8 +464,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
 	T_BEGIN {
 		box = storage->v.mailbox_alloc(storage, new_list,
 					       name, input, flags);
-		if (hook_mailbox_allocated != NULL)
-			hook_mailbox_allocated(box);
+		hook_mailbox_allocated(box);
 	} T_END;
 	return box;
 }

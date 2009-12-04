@@ -10,8 +10,6 @@
 
 #include <stdlib.h>
 
-void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
-
 void mail_namespace_add_storage(struct mail_namespace *ns,
 				struct mail_storage *storage)
 {
@@ -260,11 +258,9 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		}
 		mail_user_add_namespace(user, &namespaces);
 
-		if (hook_mail_namespaces_created != NULL) {
-			T_BEGIN {
-				hook_mail_namespaces_created(namespaces);
-			} T_END;
-		}
+		T_BEGIN {
+			hook_mail_namespaces_created(namespaces);
+		} T_END;
 		return 0;
 	}
 

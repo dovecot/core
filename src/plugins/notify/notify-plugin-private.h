@@ -24,7 +24,7 @@ void notify_contexts_mailbox_rename(struct mailbox_list *oldlist,
 				    struct mailbox_list *newlist,
 				    const char *newname, bool rename_children);
 
-void notify_plugin_init_storage(void);
+void notify_plugin_init_storage(struct module *module);
 void notify_plugin_deinit_storage(void);
 
 #endif

@@ -2,15 +2,13 @@
 
 #include "lib.h"
 #include "mail-storage.h"
+#include "mail-storage-hooks.h"
 #include "mail-namespace.h"
 #include "autocreate-plugin.h"
 
 #include <stdlib.h>
 
 const char *autocreate_plugin_version = PACKAGE_VERSION;
-
-static void (*autocreate_next_hook_mail_namespaces_created)
-	(struct mail_namespace *ns);
 
 static void
 autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
@@ -102,20 +100,18 @@ autocreate_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	autocreate_mailboxes(namespaces);
 	autosubscribe_mailboxes(namespaces);
-
-	if (autocreate_next_hook_mail_namespaces_created != NULL)
-		autocreate_next_hook_mail_namespaces_created(namespaces);
 }
 
-void autocreate_plugin_init(void)
+static struct mail_storage_hooks autocreate_mail_storage_hooks = {
+	.mail_namespaces_created = autocreate_mail_namespaces_created
+};
+
+void autocreate_plugin_init(struct module *module)
 {
-	autocreate_next_hook_mail_namespaces_created =
-		hook_mail_namespaces_created;
-	hook_mail_namespaces_created = autocreate_mail_namespaces_created;
+	mail_storage_hooks_add(module, &autocreate_mail_storage_hooks);
 }
 
 void autocreate_plugin_deinit(void)
 {
-	hook_mail_namespaces_created =
-		autocreate_next_hook_mail_namespaces_created;
+	mail_storage_hooks_remove(&autocreate_mail_storage_hooks);
 }

@@ -621,7 +621,7 @@ static void imap_acl_client_created(struct client **client)
 		next_hook_client_created(client);
 }
 
-void imap_acl_plugin_init(void)
+void imap_acl_plugin_init(struct module *module ATTR_UNUSED)
 {
 	command_register("LISTRIGHTS", cmd_listrights, 0);
 	command_register("GETACL", cmd_getacl, 0);

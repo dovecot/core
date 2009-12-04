@@ -23,11 +23,6 @@ static MODULE_CONTEXT_DEFINE_INIT(notify_mail_module,
 static MODULE_CONTEXT_DEFINE_INIT(notify_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static void (*notify_next_hook_mail_storage_created)
-	(struct mail_storage *storage);
-static void (*notify_next_hook_mailbox_list_created)
-	(struct mailbox_list *list);
-
 static void
 notify_mail_expunge(struct mail *_mail)
 {
@@ -269,9 +264,6 @@ static void notify_mail_storage_created(struct mail_storage *storage)
 	storage->v.mailbox_alloc = notify_mailbox_alloc;
 
 	MODULE_CONTEXT_SET_SELF(storage, notify_storage_module, lstorage);
-
-	if (notify_next_hook_mail_storage_created != NULL)
-		notify_next_hook_mail_storage_created(storage);
 }
 
 static void notify_mailbox_list_created(struct mailbox_list *list)
@@ -284,22 +276,19 @@ static void notify_mailbox_list_created(struct mailbox_list *list)
 	list->v.rename_mailbox = notify_mailbox_list_rename;
 
 	MODULE_CONTEXT_SET_SELF(list, notify_mailbox_list_module, llist);
-
-	if (notify_next_hook_mailbox_list_created != NULL)
-		notify_next_hook_mailbox_list_created(list);
 }
 
-void notify_plugin_init_storage(void)
-{
-	notify_next_hook_mail_storage_created = hook_mail_storage_created;
-	hook_mail_storage_created = notify_mail_storage_created;
+static struct mail_storage_hooks notify_mail_storage_hooks = {
+	.mail_storage_created = notify_mail_storage_created,
+	.mailbox_list_created = notify_mailbox_list_created
+};
 
-	notify_next_hook_mailbox_list_created = hook_mailbox_list_created;
-	hook_mailbox_list_created = notify_mailbox_list_created;
+void notify_plugin_init_storage(struct module *module)
+{
+	mail_storage_hooks_add(module, &notify_mail_storage_hooks);
 }
 
 void notify_plugin_deinit_storage(void)
 {
-	hook_mail_storage_created = notify_next_hook_mail_storage_created;
-	hook_mailbox_list_created = notify_next_hook_mailbox_list_created;
+	mail_storage_hooks_remove(&notify_mail_storage_hooks);
 }

@@ -420,7 +420,7 @@ static const struct notify_vfuncs mail_log_vfuncs = {
 
 static struct notify_context *mail_log_ctx;
 
-void mail_log_plugin_init(void)
+void mail_log_plugin_init(struct module *module ATTR_UNUSED)
 {
 	mail_log_read_settings(&mail_log_set);
 	mail_log_ctx = notify_register(&mail_log_vfuncs);

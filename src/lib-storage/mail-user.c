@@ -22,8 +22,6 @@
 struct mail_user_module_register mail_user_module_register = { 0 };
 struct auth_master_connection *mail_user_auth_master_conn;
 
-void (*hook_mail_user_created)(struct mail_user *user) = NULL;
-
 static void mail_user_deinit_base(struct mail_user *user)
 {
 	mail_namespaces_deinit(&user->namespaces);
@@ -107,8 +105,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	user->mail_debug = mail_set->mail_debug;
 
 	user->initialized = TRUE;
-	if (hook_mail_user_created != NULL)
-		hook_mail_user_created(user);
+	hook_mail_user_created(user);
 	return 0;
 }
 

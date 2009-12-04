@@ -42,8 +42,6 @@ static struct index_list_map index_list_map[] = {
 	{ NULL, 0, 0 }
 };
 
-static void (*index_list_next_hook_mailbox_created)(struct mailbox *box);
-
 static MODULE_CONTEXT_DEFINE_INIT(index_list_storage_module,
 				  &mail_storage_module_register);
 
@@ -363,9 +361,6 @@ static void index_list_mail_mailbox_allocated(struct mailbox *box)
 		INDEX_LIST_CONTEXT(box->list);
 	struct index_list_mailbox *ibox;
 
-	if (index_list_next_hook_mailbox_created != NULL)
-		index_list_next_hook_mailbox_created(box);
-
 	if (ilist == NULL)
 		return;
 
@@ -394,8 +389,11 @@ void index_mailbox_list_sync_init_list(struct mailbox_list *list)
 	}
 }
 
+static struct mail_storage_hooks index_mailbox_list_sync_hooks = {
+	.mailbox_allocated = index_list_mail_mailbox_allocated
+};
+
 void index_mailbox_list_sync_init(void)
 {
-	index_list_next_hook_mailbox_created = hook_mailbox_allocated;
-	hook_mailbox_allocated = index_list_mail_mailbox_allocated;
+	mail_storage_hooks_add_internal(&index_mailbox_list_sync_hooks);
 }

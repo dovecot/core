@@ -3,13 +3,13 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-user.h"
+#include "mail-storage-hooks.h"
 #include "fts-solr-plugin.h"
 
 #include <stdlib.h>
 
 const char *fts_solr_plugin_version = PACKAGE_VERSION;
 
-static void (*fts_solr_next_hook_mail_user_created)(struct mail_user *user);
 struct fts_solr_user_module fts_solr_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
 
@@ -65,23 +65,22 @@ static void fts_solr_mail_user_created(struct mail_user *user)
 	env = mail_user_plugin_getenv(user, "fts_solr");
 	if (env != NULL)
 		fts_solr_mail_user_create(user, env);
-
-	if (fts_solr_next_hook_mail_user_created != NULL)
-		fts_solr_next_hook_mail_user_created(user);
 }
 
-void fts_solr_plugin_init(void)
+static struct mail_storage_hooks fts_solr_mail_storage_hooks = {
+	.mail_user_created = fts_solr_mail_user_created
+};
+
+void fts_solr_plugin_init(struct module *module)
 {
 	fts_backend_register(&fts_backend_solr);
-
-	fts_solr_next_hook_mail_user_created = hook_mail_user_created;
-	hook_mail_user_created = fts_solr_mail_user_created;
+	mail_storage_hooks_add(module, &fts_solr_mail_storage_hooks);
 }
 
 void fts_solr_plugin_deinit(void)
 {
 	fts_backend_unregister(fts_backend_solr.name);
-	hook_mail_user_created = fts_solr_next_hook_mail_user_created;
+	mail_storage_hooks_remove(&fts_solr_mail_storage_hooks);
 }
 
 const char *fts_solr_plugin_dependencies[] = { "fts", NULL };

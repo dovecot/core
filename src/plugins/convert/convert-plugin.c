@@ -2,15 +2,13 @@
 
 #include "lib.h"
 #include "mail-namespace.h"
+#include "mail-storage-hooks.h"
 #include "convert-storage.h"
 #include "convert-plugin.h"
 
 #include <stdlib.h>
 
 const char *convert_plugin_version = PACKAGE_VERSION;
-
-static void (*convert_next_hook_mail_namespaces_created)
-	(struct mail_namespace *namespaces);
 
 static void convert_mail_storage(struct mail_namespace *namespaces,
 				 const char *convert_mail)
@@ -38,7 +36,7 @@ static void convert_mail_storage(struct mail_namespace *namespaces,
 }
 
 static void
-convert_hook_mail_namespaces_created(struct mail_namespace *namespaces)
+convert_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	const char *convert_mail;
 
@@ -48,20 +46,18 @@ convert_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 		convert_mail_storage(namespaces, convert_mail);
 	else if (namespaces->user->mail_debug)
 		i_debug("convert: No convert_mail setting - plugin disabled");
-
-	if (convert_next_hook_mail_namespaces_created != NULL)
-		convert_next_hook_mail_namespaces_created(namespaces);
 }
 
-void convert_plugin_init(void)
+static struct mail_storage_hooks convert_mail_storage_hooks = {
+	.mail_namespaces_created = convert_mail_namespaces_created
+};
+
+void convert_plugin_init(struct module *module)
 {
-	convert_next_hook_mail_namespaces_created =
-		hook_mail_namespaces_created;
-	hook_mail_namespaces_created = convert_hook_mail_namespaces_created;
+	mail_storage_hooks_add(module, &convert_mail_storage_hooks);
 }
 
 void convert_plugin_deinit(void)
 {
-	hook_mail_namespaces_created =
-		convert_next_hook_mail_namespaces_created;
+	mail_storage_hooks_remove(&convert_mail_storage_hooks);
 }

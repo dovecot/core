@@ -23,17 +23,14 @@ void acl_mail_storage_created(struct mail_storage *storage)
 
 	if (auser == NULL) {
 		/* ACLs disabled for this user */
-	} else {
-		astorage = p_new(storage->pool,
-				 union mail_storage_module_context, 1);
-		astorage->super = storage->v;
-		storage->v.mailbox_alloc = acl_mailbox_alloc;
-
-		MODULE_CONTEXT_SET_SELF(storage, acl_storage_module, astorage);
+		return;
 	}
 
-	if (acl_next_hook_mail_storage_created != NULL)
-		acl_next_hook_mail_storage_created(storage);
+	astorage = p_new(storage->pool, union mail_storage_module_context, 1);
+	astorage->super = storage->v;
+	storage->v.mailbox_alloc = acl_mailbox_alloc;
+
+	MODULE_CONTEXT_SET_SELF(storage, acl_storage_module, astorage);
 }
 
 static void acl_user_deinit(struct mail_user *user)
@@ -76,7 +73,4 @@ void acl_mail_user_created(struct mail_user *user)
 		if (user->mail_debug)
 			i_debug("acl: No acl setting - ACLs are disabled");
 	}
-
-	if (acl_next_hook_mail_user_created != NULL)
-		acl_next_hook_mail_user_created(user);
 }

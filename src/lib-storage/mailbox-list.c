@@ -43,8 +43,6 @@ struct ns_list_iterate_context {
 
 struct mailbox_list_module_register mailbox_list_module_register = { 0 };
 
-void (*hook_mailbox_list_created)(struct mailbox_list *list);
-
 static ARRAY_DEFINE(mailbox_list_drivers, const struct mailbox_list *);
 
 void mailbox_lists_init(void)
@@ -168,8 +166,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	}
 	mail_namespace_finish_list_init(ns, list);
 
-	if (hook_mailbox_list_created != NULL)
-		hook_mailbox_list_created(list);
+	hook_mailbox_list_created(list);
 	return 0;
 }
 

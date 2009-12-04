@@ -3,7 +3,7 @@
 
 extern const char *imap_acl_plugin_dependencies[];
 
-void imap_acl_plugin_init(void);
+void imap_acl_plugin_init(struct module *module);
 void imap_acl_plugin_deinit(void);
 
 #endif

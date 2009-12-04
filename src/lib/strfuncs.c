@@ -541,6 +541,15 @@ bool str_array_remove(const char **arr, const char *value)
 	return FALSE;
 }
 
+bool str_array_find(const char *const *arr, const char *value)
+{
+	for (; *arr != NULL; arr++) {
+		if (strcmp(*arr, value) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 bool str_array_icase_find(const char *const *arr, const char *value)
 {
 	for (; *arr != NULL; arr++) {

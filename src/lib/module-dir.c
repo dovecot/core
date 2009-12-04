@@ -146,7 +146,7 @@ module_load(const char *path, const char *name, bool require_init_funcs,
 	}
 
 	/* get our init func */
-	module->init = (void (*)(void))
+	module->init = (void (*)(struct module *))
 		get_symbol(module, t_strconcat(name, "_init", NULL),
 			   !require_init_funcs);
 	module->deinit = module->init == NULL ? NULL : (void (*)(void))
@@ -346,7 +346,7 @@ void module_dir_init(struct module *modules)
 	for (module = modules; module != NULL; module = module->next) {
 		if (module->init != NULL) {
 			T_BEGIN {
-				module->init();
+				module->init(module);
 			} T_END;
 		}
 	}

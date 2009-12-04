@@ -28,9 +28,6 @@ struct mbox_snarf_mailbox {
 
 const char *mbox_snarf_plugin_version = PACKAGE_VERSION;
 
-static void (*mbox_snarf_next_hook_mail_storage_created)
-	(struct mail_storage *storage);
-
 static MODULE_CONTEXT_DEFINE_INIT(mbox_snarf_storage_module,
 				  &mail_storage_module_register);
 
@@ -190,18 +187,18 @@ static void mbox_snarf_mail_storage_created(struct mail_storage *storage)
 	path = mail_user_plugin_getenv(storage->user, "mbox_snarf");
 	if (path != NULL)
 		mbox_snarf_mail_storage_create(storage, path);
-
-	if (mbox_snarf_next_hook_mail_storage_created != NULL)
-		mbox_snarf_next_hook_mail_storage_created(storage);
 }
 
-void mbox_snarf_plugin_init(void)
+static struct mail_storage_hooks mbox_snarf_mail_storage_hooks = {
+	.mail_storage_created = mbox_snarf_mail_storage_created
+};
+
+void mbox_snarf_plugin_init(struct module *module)
 {
-	mbox_snarf_next_hook_mail_storage_created = hook_mail_storage_created;
-	hook_mail_storage_created = mbox_snarf_mail_storage_created;
+	mail_storage_hooks_add(module, &mbox_snarf_mail_storage_hooks);
 }
 
 void mbox_snarf_plugin_deinit(void)
 {
-	hook_mail_storage_created = mbox_snarf_next_hook_mail_storage_created;
+	mail_storage_hooks_remove(&mbox_snarf_mail_storage_hooks);
 }

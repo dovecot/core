@@ -5,7 +5,7 @@
 
 const char *fts_squat_plugin_version = PACKAGE_VERSION;
 
-void fts_squat_plugin_init(void)
+void fts_squat_plugin_init(struct module *module ATTR_UNUSED)
 {
 	fts_backend_register(&fts_backend_squat);
 }

@@ -37,9 +37,6 @@ struct zlib_transaction_context {
 
 const char *zlib_plugin_version = PACKAGE_VERSION;
 
-static void (*zlib_next_hook_mail_storage_created)
-	(struct mail_storage *storage);
-
 static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
@@ -333,18 +330,18 @@ static void zlib_mail_storage_created(struct mail_storage *storage)
 	storage->v.mailbox_alloc = zlib_mailbox_alloc;
 
 	MODULE_CONTEXT_SET_SELF(storage, zlib_storage_module, qstorage);
-
-	if (zlib_next_hook_mail_storage_created != NULL)
-		zlib_next_hook_mail_storage_created(storage);
 }
 
-void zlib_plugin_init(void)
+static struct mail_storage_hooks zlib_mail_storage_hooks = {
+	.mail_storage_created = zlib_mail_storage_created
+};
+
+void zlib_plugin_init(struct module *module)
 {
-	zlib_next_hook_mail_storage_created = hook_mail_storage_created;
-	hook_mail_storage_created = zlib_mail_storage_created;
+	mail_storage_hooks_add(module, &zlib_mail_storage_hooks);
 }
 
 void zlib_plugin_deinit(void)
 {
-	hook_mail_storage_created = zlib_next_hook_mail_storage_created;
+	mail_storage_hooks_remove(&zlib_mail_storage_hooks);
 }

@@ -7,7 +7,7 @@
 
 const char *virtual_plugin_version = PACKAGE_VERSION;
 
-void virtual_plugin_init(void)
+void virtual_plugin_init(struct module *module ATTR_UNUSED)
 {
 	mail_storage_class_register(&virtual_storage);
 }

@@ -32,11 +32,6 @@ struct listescape_mailbox_list {
 
 const char *listescape_plugin_version = PACKAGE_VERSION;
 
-static void (*listescape_next_hook_mail_storage_created)
-	(struct mail_storage *storage);
-static void (*listescape_next_hook_mailbox_list_created)
-	(struct mailbox_list *list);
-
 static MODULE_CONTEXT_DEFINE_INIT(listescape_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(listescape_list_module,
@@ -299,9 +294,6 @@ static void listescape_mail_storage_created(struct mail_storage *storage)
 {
 	struct listescape_mail_storage *mstorage;
 
-	if (listescape_next_hook_mail_storage_created != NULL)
-		listescape_next_hook_mail_storage_created(storage);
-
 	mstorage = p_new(storage->pool, struct listescape_mail_storage, 1);
 	mstorage->module_ctx.super = storage->v;
 	storage->v.mailbox_alloc = listescape_mailbox_alloc;
@@ -313,9 +305,6 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 {
 	struct listescape_mailbox_list *mlist;
 	const char *env;
-
-	if (listescape_next_hook_mailbox_list_created != NULL)
-		listescape_next_hook_mailbox_list_created(list);
 
 	if (list->hierarchy_sep == list->ns->sep)
 		return;
@@ -342,17 +331,17 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 	MODULE_CONTEXT_SET(list, listescape_list_module, mlist);
 }
 
-void listescape_plugin_init(void)
-{
-	listescape_next_hook_mail_storage_created = hook_mail_storage_created;
-	hook_mail_storage_created = listescape_mail_storage_created;
+static struct mail_storage_hooks listescape_mail_storage_hooks = {
+	.mail_storage_created = listescape_mail_storage_created,
+	.mailbox_list_created = listescape_mailbox_list_created
+};
 
-	listescape_next_hook_mailbox_list_created = hook_mailbox_list_created;
-	hook_mailbox_list_created = listescape_mailbox_list_created;
+void listescape_plugin_init(struct module *module)
+{
+	mail_storage_hooks_add(module, &listescape_mail_storage_hooks);
 }
 
 void listescape_plugin_deinit(void)
 {
-	hook_mail_storage_created = listescape_next_hook_mail_storage_created;
-	hook_mailbox_list_created = listescape_next_hook_mailbox_list_created;
+	mail_storage_hooks_remove(&listescape_mail_storage_hooks);
 }

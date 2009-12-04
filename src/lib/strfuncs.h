@@ -80,8 +80,9 @@ const char *t_strarray_join(const char *const *arr, const char *separator)
 	ATTR_MALLOC;
 /* Removes a value from NULL-terminated string array. Returns TRUE if found. */
 bool str_array_remove(const char **arr, const char *value);
-/* Returns TRUE if value exists in NULL-terminated string array.
-   Strings are compared case-insensitively. */
+/* Returns TRUE if value exists in NULL-terminated string array. */
+bool str_array_find(const char *const *arr, const char *value);
+/* Like str_array_find(), but use strcasecmp(). */
 bool str_array_icase_find(const char *const *arr, const char *value);
 
 /* INTERNAL */

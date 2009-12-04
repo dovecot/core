@@ -59,13 +59,6 @@ struct lazy_expunge_transaction {
 
 const char *lazy_expunge_plugin_version = PACKAGE_VERSION;
 
-static void (*lazy_expunge_next_hook_mail_namespaces_created)
-	(struct mail_namespace *namespaces);
-static void (*lazy_expunge_next_hook_mailbox_allocated)(struct mailbox *box);
-static void (*lazy_expunge_next_hook_mailbox_list_created)
-	(struct mailbox_list *list);
-static void (*lazy_expunge_next_hook_mail_user_created)(struct mail_user *user);
-
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_module,
@@ -254,9 +247,6 @@ static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 		MODULE_CONTEXT_SET_SELF(box, lazy_expunge_mail_storage_module,
 					mbox);
 	}
-
-	if (lazy_expunge_next_hook_mailbox_allocated != NULL)
-		lazy_expunge_next_hook_mailbox_allocated(box);
 }
 
 static int
@@ -377,13 +367,10 @@ static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 		MODULE_CONTEXT_SET(list, lazy_expunge_mailbox_list_module,
 				   llist);
 	}
-
-	if (lazy_expunge_next_hook_mailbox_list_created != NULL)
-		lazy_expunge_next_hook_mailbox_list_created(list);
 }
 
 static void
-lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
+lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT(namespaces->user);
@@ -411,9 +398,6 @@ lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 		llist = LAZY_EXPUNGE_LIST_CONTEXT(luser->lazy_ns[i]->list);
 		llist->internal_namespace = TRUE;
 	}
-
-	if (lazy_expunge_next_hook_mail_namespaces_created != NULL)
-		lazy_expunge_next_hook_mail_namespaces_created(namespaces);
 }
 
 static void lazy_expunge_mail_user_created(struct mail_user *user)
@@ -432,33 +416,21 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 		i_debug("lazy_expunge: No lazy_expunge setting - "
 			"plugin disabled");
 	}
-
-	if (lazy_expunge_next_hook_mail_user_created != NULL)
-		lazy_expunge_next_hook_mail_user_created(user);
 }
 
-void lazy_expunge_plugin_init(void)
+static struct mail_storage_hooks lazy_expunge_mail_storage_hooks = {
+	.mail_user_created = lazy_expunge_mail_user_created,
+	.mail_namespaces_created = lazy_expunge_mail_namespaces_created,
+	.mailbox_list_created = lazy_expunge_mailbox_list_created,
+	.mailbox_allocated = lazy_expunge_mailbox_allocated
+};
+
+void lazy_expunge_plugin_init(struct module *module)
 {
-	lazy_expunge_next_hook_mail_namespaces_created =
-		hook_mail_namespaces_created;
-	hook_mail_namespaces_created =
-		lazy_expunge_hook_mail_namespaces_created;
-
-	lazy_expunge_next_hook_mailbox_allocated = hook_mailbox_allocated;
-	hook_mailbox_allocated = lazy_expunge_mailbox_allocated;
-
-	lazy_expunge_next_hook_mailbox_list_created = hook_mailbox_list_created;
-	hook_mailbox_list_created = lazy_expunge_mailbox_list_created;
-
-	lazy_expunge_next_hook_mail_user_created = hook_mail_user_created;
-	hook_mail_user_created = lazy_expunge_mail_user_created;
+	mail_storage_hooks_add(module, &lazy_expunge_mail_storage_hooks);
 }
 
 void lazy_expunge_plugin_deinit(void)
 {
-	hook_mail_namespaces_created =
-		lazy_expunge_hook_mail_namespaces_created;
-	hook_mailbox_allocated = lazy_expunge_next_hook_mailbox_allocated;
-	hook_mailbox_list_created = lazy_expunge_next_hook_mailbox_list_created;
-	hook_mail_user_created = lazy_expunge_next_hook_mail_user_created;
+	mail_storage_hooks_remove(&lazy_expunge_mail_storage_hooks);
 }

@@ -43,9 +43,6 @@ struct expire_transaction_context {
 
 const char *expire_plugin_version = PACKAGE_VERSION;
 
-static void (*next_hook_mailbox_allocated)(struct mailbox *box);
-static void (*next_hook_mail_namespaces_created)(struct mail_namespace *ns);
-
 static MODULE_CONTEXT_DEFINE_INIT(expire_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(expire_mail_module, &mail_module_register);
@@ -280,9 +277,6 @@ static void expire_mailbox_allocated(struct mailbox *box)
 
 	if (euser != NULL)
 		expire_mailbox_allocate_init(box, euser);
-
-	if (next_hook_mailbox_allocated != NULL)
-		next_hook_mailbox_allocated(box);
 }
 
 static void expire_mail_user_deinit(struct mail_user *user)
@@ -329,22 +323,19 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 		else
 			MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);
 	}
-
-	if (next_hook_mail_namespaces_created != NULL)
-		next_hook_mail_namespaces_created(ns);
 }
 
-void expire_plugin_init(void)
-{
-	next_hook_mailbox_allocated = hook_mailbox_allocated;
-	hook_mailbox_allocated = expire_mailbox_allocated;
+static struct mail_storage_hooks expire_mail_storage_hooks = {
+	.mail_namespaces_created = expire_mail_namespaces_created,
+	.mailbox_allocated = expire_mailbox_allocated
+};
 
-	next_hook_mail_namespaces_created = hook_mail_namespaces_created;
-	hook_mail_namespaces_created = expire_mail_namespaces_created;
+void expire_plugin_init(struct module *module)
+{
+	mail_storage_hooks_add(module, &expire_mail_storage_hooks);
 }
 
 void expire_plugin_deinit(void)
 {
-	hook_mailbox_allocated = next_hook_mailbox_allocated;
-	hook_mail_namespaces_created = next_hook_mail_namespaces_created;
+	mail_storage_hooks_remove(&expire_mail_storage_hooks);
 }

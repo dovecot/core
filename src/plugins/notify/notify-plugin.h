@@ -8,6 +8,7 @@ struct mail_storage;
 struct mailbox_transaction_context;
 struct mailbox_list;
 struct notify_context;
+struct module;
 
 struct notify_vfuncs {
 	void *(*mail_transaction_begin)(struct mailbox_transaction_context *t);
@@ -57,7 +58,7 @@ struct notify_context *
 notify_register(const struct notify_vfuncs *vfuncs);
 void notify_unregister(struct notify_context *ctx);
 
-void notify_plugin_init(void);
+void notify_plugin_init(struct module *module);
 void notify_plugin_deinit(void);
 
 #endif

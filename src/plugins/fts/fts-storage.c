@@ -1050,7 +1050,4 @@ void fts_mailbox_allocated(struct mailbox *box)
 	env = mail_user_plugin_getenv(box->storage->user, "fts");
 	if (env != NULL)
 		fts_mailbox_init(box, env);
-
-	if (fts_next_hook_mailbox_allocated != NULL)
-		fts_next_hook_mailbox_allocated(box);
 }

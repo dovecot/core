@@ -199,9 +199,9 @@ void notify_unregister(struct notify_context *ctx)
 	i_free(ctx);
 }
 
-void notify_plugin_init(void)
+void notify_plugin_init(struct module *module)
 {
-	notify_plugin_init_storage();
+	notify_plugin_init_storage(module);
 }
 
 void notify_plugin_deinit(void)

@@ -132,8 +132,6 @@ struct mailbox_list_iter_update_context {
    use objects' module_contexts[id] for their own purposes. */
 extern struct mailbox_list_module_register mailbox_list_module_register;
 
-extern void (*hook_mailbox_list_created)(struct mailbox_list *list);
-
 void mailbox_lists_init(void);
 void mailbox_lists_deinit(void);
 

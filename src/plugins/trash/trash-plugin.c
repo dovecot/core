@@ -45,8 +45,6 @@ const char *trash_plugin_version = PACKAGE_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(trash_user_module,
 				  &mail_user_module_register);
-static void (*trash_next_hook_mail_namespaces_created)
-	(struct mail_namespace *namespaces);
 static int (*trash_next_quota_test_alloc)(struct quota_transaction_context *,
 					  uoff_t, bool *);
 
@@ -294,7 +292,7 @@ static int read_configuration(struct mail_user *user, const char *path)
 }
 
 static void
-trash_hook_mail_namespaces_created(struct mail_namespace *namespaces)
+trash_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	struct mail_user *user = namespaces->user;
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
@@ -318,20 +316,20 @@ trash_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 			quser->quota->set->test_alloc = trash_quota_test_alloc;
 		}
 	}
-
-	if (trash_next_hook_mail_namespaces_created != NULL)
-		trash_next_hook_mail_namespaces_created(namespaces);
 }
 
-void trash_plugin_init(void)
+static struct mail_storage_hooks trash_mail_storage_hooks = {
+	.mail_namespaces_created = trash_mail_namespaces_created
+};
+
+void trash_plugin_init(struct module *module)
 {
-	trash_next_hook_mail_namespaces_created = hook_mail_namespaces_created;
-	hook_mail_namespaces_created = trash_hook_mail_namespaces_created;
+	mail_storage_hooks_add(module, &trash_mail_storage_hooks);
 }
 
 void trash_plugin_deinit(void)
 {
-	hook_mail_namespaces_created = trash_hook_mail_namespaces_created;
+	mail_storage_hooks_remove(&trash_mail_storage_hooks);
 }
 
 const char *trash_plugin_dependencies[] = { "quota", NULL };

@@ -5,7 +5,7 @@ struct module {
 	char *path, *name;
 
 	void *handle;
-	void (*init)(void);
+	void (*init)(struct module *module);
 	void (*deinit)(void);
 
         struct module *next;

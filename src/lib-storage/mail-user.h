@@ -30,6 +30,7 @@ struct mail_user {
 	struct mail_user_settings *set;
 	struct mail_namespace *namespaces;
 	struct mail_storage *storages;
+	ARRAY_DEFINE(hooks, const struct mail_storage_hooks *);
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mail_user_module_context *);
@@ -55,9 +56,6 @@ union mail_user_module_context {
 };
 extern struct mail_user_module_register mail_user_module_register;
 extern struct auth_master_connection *mail_user_auth_master_conn;
-
-/* Called after user has been created */
-extern void (*hook_mail_user_created)(struct mail_user *user);
 
 struct mail_user *mail_user_alloc(const char *username,
 				  const struct setting_parser_info *set_info,

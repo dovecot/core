@@ -487,9 +487,6 @@ void quota_mail_user_created(struct mail_user *user)
 	} else if (user->mail_debug) {
 		i_debug("quota: No quota setting - plugin disabled");
 	}
-
-	if (quota_next_hook_mail_user_created != NULL)
-		quota_next_hook_mail_user_created(user);
 }
 
 static void quota_maildir_storage_set(struct mail_storage *storage)
@@ -514,9 +511,6 @@ void quota_mail_storage_created(struct mail_storage *storage)
 
 	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
 	quota_maildir_storage_set(storage);
-
-	if (quota_next_hook_mail_storage_created != NULL)
-		quota_next_hook_mail_storage_created(storage);
 }
 
 static struct quota_root *
@@ -568,8 +562,6 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 			quota_get_mail_user_quota(list->ns->user);
 		quota_add_user_namespace(quota, list->ns);
 	}
-	if (quota_next_hook_mailbox_list_created != NULL)
-		quota_next_hook_mailbox_list_created(list);
 }
 
 static void quota_root_set_namespace(struct quota_root *root,

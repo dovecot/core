@@ -620,7 +620,4 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	} else {
 		acl_mailbox_list_init_default(list);
 	}
-
-	if (acl_next_hook_mailbox_list_created != NULL)
-		acl_next_hook_mailbox_list_created(list);
 }

@@ -205,7 +205,7 @@ static void imap_quota_client_created(struct client **client)
 		next_hook_client_created(client);
 }
 
-void imap_quota_plugin_init(void)
+void imap_quota_plugin_init(struct module *module ATTR_UNUSED)
 {
 	command_register("GETQUOTAROOT", cmd_getquotaroot, 0);
 	command_register("GETQUOTA", cmd_getquota, 0);

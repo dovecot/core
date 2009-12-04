@@ -7,6 +7,7 @@
 #include "imap-match.h"
 #include "mail-index.h"
 #include "mail-storage.h"
+#include "mail-storage-hooks.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
 #include "mailbox-list-index.h"
@@ -21,7 +22,6 @@
 
 struct index_mailbox_list_module index_mailbox_list_module =
 	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
-static void (*index_next_hook_mailbox_list_created)(struct mailbox_list *list);
 
 static enum mailbox_info_flags
 index_mailbox_list_index_flags_translate(enum mailbox_list_index_flags flags)
@@ -533,12 +533,14 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	}
 }
 
+static struct mail_storage_hooks index_mailbox_list_hooks = {
+	.mailbox_list_created = index_mailbox_list_created
+};
+
 void index_mailbox_list_init(void); /* called in mailbox-list-register.c */
 
 void index_mailbox_list_init(void)
 {
-	index_next_hook_mailbox_list_created = hook_mailbox_list_created;
-	hook_mailbox_list_created = index_mailbox_list_created;
-
+	mail_storage_hooks_add_internal(&index_mailbox_list_hooks);
 	index_mailbox_list_sync_init();
 }

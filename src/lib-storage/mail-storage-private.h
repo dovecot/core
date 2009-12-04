@@ -4,6 +4,7 @@
 #include "module-context.h"
 #include "file-lock.h"
 #include "mail-storage.h"
+#include "mail-storage-hooks.h"
 #include "mail-storage-settings.h"
 #include "mail-index-private.h"
 
@@ -11,13 +12,6 @@
 #define MAIL_READ_HDR_BLOCK_SIZE (1024*4)
 /* Block size when read()ing message (header and) body. */
 #define MAIL_READ_FULL_BLOCK_SIZE (1024*8)
-
-/* Called after mail storage has been created */
-extern void (*hook_mail_storage_created)(struct mail_storage *storage);
-/* Called after mailbox has been allocated */
-extern void (*hook_mailbox_allocated)(struct mailbox *box);
-/* Called after mailbox index has been opened */
-extern void (*hook_mailbox_index_opened)(struct mailbox *box);
 
 struct mail_storage_module_register {
 	unsigned int id;
