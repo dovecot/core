@@ -37,8 +37,8 @@ static struct auth_request *mech_anonymous_auth_new(void)
 const struct mech_module mech_anonymous = {
 	"ANONYMOUS",
 
-	MEMBER(flags) MECH_SEC_ANONYMOUS,
-	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
+	.flags = MECH_SEC_ANONYMOUS,
+	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	mech_anonymous_auth_new,
 	mech_generic_auth_initial,

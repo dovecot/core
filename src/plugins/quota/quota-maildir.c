@@ -49,11 +49,8 @@ struct maildir_list_context {
 extern struct quota_backend quota_backend_maildir;
 
 static struct dotlock_settings dotlock_settings = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 0,
-	MEMBER(stale_timeout) 30
+	.timeout = 0,
+	.stale_timeout = 30
 };
 
 static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,

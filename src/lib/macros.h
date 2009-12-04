@@ -138,14 +138,6 @@
 #  define ATTR_COLD
 #endif
 
-/* C99-style struct member definitions */
-#if (defined(__STDC__) && __STDC_VERSION__ >= 199901L && \
-	!defined(_HPUX_SOURCE)) || __GNUC__ > 2
-#  define MEMBER(name) .name =
-#else
-#  define MEMBER(name)
-#endif
-
 /* Macros to provide type safety for callback functions' context parameters */
 #ifdef __GNUC__
 #  define CONTEXT_TYPE_SAFETY

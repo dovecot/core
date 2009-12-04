@@ -332,10 +332,10 @@ static void cydir_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 }
 
 struct mail_storage cydir_storage = {
-	MEMBER(name) CYDIR_STORAGE_NAME,
-	MEMBER(class_flags) 0,
+	.name = CYDIR_STORAGE_NAME,
+	.class_flags = 0,
 
-	{
+	.v = {
 		NULL,
 		cydir_storage_alloc,
 		NULL,
@@ -349,11 +349,7 @@ struct mail_storage cydir_storage = {
 };
 
 struct mailbox cydir_mailbox = {
-	MEMBER(name) NULL, 
-	MEMBER(storage) NULL, 
-	MEMBER(list) NULL,
-
-	{
+	.v = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,

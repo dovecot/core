@@ -60,11 +60,8 @@ static const struct acl_letter_map acl_letter_map[] = {
 };
 
 static struct dotlock_settings dotlock_set = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 30,
-	MEMBER(stale_timeout) 120
+	.timeout = 30,
+	.stale_timeout = 120
 };
 
 static struct acl_backend *acl_backend_vfile_alloc(void)

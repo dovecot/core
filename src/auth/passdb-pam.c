@@ -385,6 +385,6 @@ struct passdb_module_interface passdb_pam = {
 };
 #else
 struct passdb_module_interface passdb_pam = {
-	MEMBER(name) "pam"
+	.name = "pam"
 };
 #endif

@@ -55,6 +55,6 @@ struct userdb_module_interface userdb_prefetch = {
 };
 #else
 struct userdb_module_interface userdb_prefetch = {
-	MEMBER(name) "prefetch"
+	.name = "prefetch"
 };
 #endif

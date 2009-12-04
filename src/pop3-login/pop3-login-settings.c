@@ -9,27 +9,27 @@
 #include <stddef.h>
 
 struct service_settings pop3_login_service_settings = {
-	MEMBER(name) "pop3-login",
-	MEMBER(protocol) "pop3",
-	MEMBER(type) "login",
-	MEMBER(executable) "pop3-login",
-	MEMBER(user) "dovecot",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "login",
+	.name = "pop3-login",
+	.protocol = "pop3",
+	.type = "login",
+	.executable = "pop3-login",
+	.user = "dovecot",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "login",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 0,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 1,
-	MEMBER(vsz_limit) 64,
+	.process_min_avail = 0,
+	.process_limit = 0,
+	.client_limit = 0,
+	.service_count = 1,
+	.vsz_limit = 64,
 
-	MEMBER(unix_listeners) ARRAY_INIT,
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = ARRAY_INIT,
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 static const struct setting_define pop3_login_setting_defines[] = {
@@ -42,18 +42,13 @@ static const struct setting_parser_info *pop3_login_setting_dependencies[] = {
 };
 
 const struct setting_parser_info pop3_login_setting_parser_info = {
-	MEMBER(module_name) "pop3-login",
-	MEMBER(defines) pop3_login_setting_defines,
-	MEMBER(defaults) NULL,
+	.module_name = "pop3-login",
+	.defines = pop3_login_setting_defines,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) 0,
+	.type_offset = (size_t)-1,
+	.parent_offset = (size_t)-1,
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
-
-	MEMBER(check_func) NULL,
-	MEMBER(dependencies) pop3_login_setting_dependencies
+	.dependencies = pop3_login_setting_dependencies
 };
 
 const struct setting_parser_info *pop3_login_setting_roots[] = {

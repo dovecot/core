@@ -168,6 +168,6 @@ struct userdb_module_interface userdb_passwd = {
 };
 #else
 struct userdb_module_interface userdb_passwd = {
-	MEMBER(name) "passwd"
+	.name = "passwd"
 };
 #endif

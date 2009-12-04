@@ -1066,7 +1066,7 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query,
 struct sql_db driver_pgsql_db = {
 	"pgsql",
 
-	MEMBER(v) {
+	.v = {
 		driver_pgsql_init_v,
 		driver_pgsql_deinit_v,
 		driver_pgsql_get_flags,
@@ -1086,7 +1086,7 @@ struct sql_db driver_pgsql_db = {
 };
 
 struct sql_result driver_pgsql_result = {
-	MEMBER(v) {
+	.v = {
 		driver_pgsql_result_free,
 		driver_pgsql_result_next_row,
 		driver_pgsql_result_get_fields_count,

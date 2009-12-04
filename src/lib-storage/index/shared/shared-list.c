@@ -302,10 +302,10 @@ shared_list_rename_mailbox_pre(struct mailbox_list *oldlist,
 }
 
 struct mailbox_list shared_mailbox_list = {
-	MEMBER(name) "shared",
-	MEMBER(hierarchy_sep) '/',
-	MEMBER(props) 0,
-	MEMBER(mailbox_name_max_length) PATH_MAX,
+	.name = "shared",
+	.hierarchy_sep = '/',
+	.props = 0,
+	.mailbox_name_max_length = PATH_MAX,
 
 	{
 		shared_list_alloc,

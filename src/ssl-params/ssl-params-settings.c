@@ -24,28 +24,28 @@ static buffer_t ssl_params_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings ssl_params_service_settings = {
-	MEMBER(name) "ssl-params",
-	MEMBER(protocol) "",
-	MEMBER(type) "",
-	MEMBER(executable) "ssl-params",
-	MEMBER(user) "",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "ssl-params",
+	.protocol = "",
+	.type = "",
+	.executable = "ssl-params",
+	.user = "",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 0,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) -1U,
+	.process_min_avail = 0,
+	.process_limit = 0,
+	.client_limit = 0,
+	.service_count = 0,
+	.vsz_limit = -1U,
 
-	MEMBER(unix_listeners) { { &ssl_params_unix_listeners_buf,
-				   sizeof(ssl_params_unix_listeners[0]) } },
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = { { &ssl_params_unix_listeners_buf,
+			      sizeof(ssl_params_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 #undef DEF
@@ -59,18 +59,18 @@ static const struct setting_define ssl_params_setting_defines[] = {
 };
 
 static const struct ssl_params_settings ssl_params_default_settings = {
-	MEMBER(ssl_parameters_regenerate) 24*7
+	.ssl_parameters_regenerate = 24*7
 };
 
 const struct setting_parser_info ssl_params_setting_parser_info = {
-	MEMBER(module_name) "ssl-params",
-	MEMBER(defines) ssl_params_setting_defines,
-	MEMBER(defaults) &ssl_params_default_settings,
+	.module_name = "ssl-params",
+	.defines = ssl_params_setting_defines,
+	.defaults = &ssl_params_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct ssl_params_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct ssl_params_settings),
 
-	MEMBER(parent_offset) (size_t)-1
+	.parent_offset = (size_t)-1
 };
 
 struct ssl_params_settings *

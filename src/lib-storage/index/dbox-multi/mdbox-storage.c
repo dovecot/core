@@ -429,10 +429,10 @@ static void dbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 }
 
 struct mail_storage mdbox_storage = {
-	MEMBER(name) MDBOX_STORAGE_NAME,
-	MEMBER(class_flags) MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT,
+	.name = MDBOX_STORAGE_NAME,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT,
 
-	{
+	.v = {
                 mdbox_get_setting_parser_info,
 		mdbox_storage_alloc,
 		mdbox_storage_create,
@@ -446,11 +446,7 @@ struct mail_storage mdbox_storage = {
 };
 
 struct mailbox mdbox_mailbox = {
-	MEMBER(name) NULL,
-	MEMBER(storage) NULL,
-	MEMBER(list) NULL,
-
-	{
+	.v = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,

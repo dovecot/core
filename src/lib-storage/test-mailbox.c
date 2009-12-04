@@ -300,11 +300,7 @@ static bool test_mailbox_is_inconsistent(struct mailbox *box ATTR_UNUSED)
 }
 
 struct mailbox test_mailbox = {
-	MEMBER(name) NULL,
-	MEMBER(storage) NULL,
-	MEMBER(list) NULL,
-
-	{
+	.v = {
 		test_mailbox_is_readonly,
 		test_mailbox_allow_new_keywords,
 		test_mailbox_enable,

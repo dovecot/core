@@ -58,10 +58,10 @@ static struct pool_vfuncs static_system_clean_pool_vfuncs = {
 };
 
 static struct pool static_system_clean_pool = {
-	MEMBER(v) &static_system_clean_pool_vfuncs,
+	.v = &static_system_clean_pool_vfuncs,
 
-	MEMBER(alloconly_pool) FALSE,
-	MEMBER(datastack_pool) FALSE
+	.alloconly_pool = FALSE,
+	.datastack_pool = FALSE
 };
 
 pool_t system_clean_pool = &static_system_clean_pool;

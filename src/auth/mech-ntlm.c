@@ -250,8 +250,8 @@ static struct auth_request *mech_ntlm_auth_new(void)
 const struct mech_module mech_ntlm = {
 	"NTLM",
 
-	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
-	MEMBER(passdb_need) MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
+	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	mech_ntlm_auth_new,
 	mech_generic_auth_initial,

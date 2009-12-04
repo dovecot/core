@@ -414,10 +414,10 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 }
 
 struct mailbox_list fs_mailbox_list = {
-	MEMBER(name) MAILBOX_LIST_NAME_FS,
-	MEMBER(hierarchy_sep) '/',
-	MEMBER(props) 0,
-	MEMBER(mailbox_name_max_length) PATH_MAX,
+	.name = MAILBOX_LIST_NAME_FS,
+	.hierarchy_sep = '/',
+	.props = 0,
+	.mailbox_name_max_length = PATH_MAX,
 
 	{
 		fs_list_alloc,

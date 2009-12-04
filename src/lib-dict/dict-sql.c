@@ -850,7 +850,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 }
 
 static struct dict sql_dict = {
-	MEMBER(name) "sql",
+	.name = "sql",
 
 	{
 		sql_dict_init,

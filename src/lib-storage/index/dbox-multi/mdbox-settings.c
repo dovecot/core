@@ -25,25 +25,25 @@ static const struct setting_define mdbox_setting_defines[] = {
 };
 
 static const struct mdbox_settings mdbox_default_settings = {
-	MEMBER(mdbox_rotate_size) 2*1024*1024,
-	MEMBER(mdbox_rotate_min_size) 16*1024,
-	MEMBER(mdbox_rotate_days) 0,
-	MEMBER(mdbox_max_open_files) 64,
-	MEMBER(mdbox_purge_min_percentage) 0
+	.mdbox_rotate_size = 2*1024*1024,
+	.mdbox_rotate_min_size = 16*1024,
+	.mdbox_rotate_days = 0,
+	.mdbox_max_open_files = 64,
+	.mdbox_purge_min_percentage = 0
 };
 
 static const struct setting_parser_info mdbox_setting_parser_info = {
-	MEMBER(module_name) "mdbox",
-	MEMBER(defines) mdbox_setting_defines,
-	MEMBER(defaults) &mdbox_default_settings,
+	.module_name = "mdbox",
+	.defines = mdbox_setting_defines,
+	.defaults = &mdbox_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct mdbox_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct mdbox_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) &mail_user_setting_parser_info,
+	.parent_offset = (size_t)-1,
+	.parent = &mail_user_setting_parser_info,
 
-	MEMBER(check_func) mdbox_settings_verify
+	.check_func = mdbox_settings_verify
 };
 
 /* <settings checks> */

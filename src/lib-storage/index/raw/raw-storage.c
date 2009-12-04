@@ -171,10 +171,10 @@ static void raw_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 }
 
 struct mail_storage raw_storage = {
-	MEMBER(name) RAW_STORAGE_NAME,
-	MEMBER(class_flags) MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
+	.name = RAW_STORAGE_NAME,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
 
-	{
+	.v = {
 		NULL,
 		raw_storage_alloc,
 		NULL,
@@ -188,11 +188,7 @@ struct mail_storage raw_storage = {
 };
 
 struct mailbox raw_mailbox = {
-	MEMBER(name) NULL, 
-	MEMBER(storage) NULL, 
-	MEMBER(list) NULL,
-
-	{
+	.v = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,

@@ -275,6 +275,6 @@ struct passdb_module_interface passdb_sql = {
 };
 #else
 struct passdb_module_interface passdb_sql = {
-	MEMBER(name) "sql"
+	.name = "sql"
 };
 #endif

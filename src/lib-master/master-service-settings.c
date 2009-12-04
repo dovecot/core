@@ -37,24 +37,24 @@ static const struct setting_define master_service_setting_defines[] = {
 };
 
 static const struct master_service_settings master_service_default_settings = {
-	MEMBER(log_path) "",
-	MEMBER(info_log_path) "",
-	MEMBER(debug_log_path) "",
-	MEMBER(log_timestamp) DEFAULT_FAILURE_STAMP_FORMAT,
-	MEMBER(syslog_facility) "mail",
-	MEMBER(version_ignore) FALSE,
-	MEMBER(shutdown_clients) TRUE
+	.log_path = "",
+	.info_log_path = "",
+	.debug_log_path = "",
+	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
+	.syslog_facility = "mail",
+	.version_ignore = FALSE,
+	.shutdown_clients = TRUE
 };
 
 const struct setting_parser_info master_service_setting_parser_info = {
-	MEMBER(module_name) "master",
-	MEMBER(defines) master_service_setting_defines,
-	MEMBER(defaults) &master_service_default_settings,
+	.module_name = "master",
+	.defines = master_service_setting_defines,
+	.defaults = &master_service_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct master_service_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct master_service_settings),
 
-	MEMBER(parent_offset) (size_t)-1
+	.parent_offset = (size_t)-1
 };
 
 static void ATTR_NORETURN

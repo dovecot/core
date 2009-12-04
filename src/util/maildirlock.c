@@ -13,13 +13,8 @@
 #include <signal.h>
 
 static struct dotlock_settings dotlock_settings = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-	MEMBER(timeout) 0,
-	MEMBER(stale_timeout) MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT,
-	MEMBER(use_excl_lock) FALSE,
-	MEMBER(nfs_flush) FALSE,
-	MEMBER(use_io_notify) TRUE
+	.stale_timeout = MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT,
+	.use_io_notify = TRUE
 };
 
 static struct ioloop *ioloop;

@@ -155,6 +155,6 @@ struct userdb_module_interface userdb_nss = {
 };
 #else
 struct userdb_module_interface userdb_nss = {
-	MEMBER(name) "nss"
+	.name = "nss"
 };
 #endif

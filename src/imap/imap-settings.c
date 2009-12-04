@@ -27,28 +27,28 @@ static buffer_t imap_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings imap_service_settings = {
-	MEMBER(name) "imap",
-	MEMBER(protocol) "imap",
-	MEMBER(type) "",
-	MEMBER(executable) "imap",
-	MEMBER(user) "",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "imap",
+	.protocol = "imap",
+	.type = "",
+	.executable = "imap",
+	.user = "",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 0,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 1,
-	MEMBER(vsz_limit) -1U,
+	.process_min_avail = 0,
+	.process_limit = 0,
+	.client_limit = 0,
+	.service_count = 1,
+	.vsz_limit = -1U,
 
-	MEMBER(unix_listeners) { { &imap_unix_listeners_buf,
-				   sizeof(imap_unix_listeners[0]) } },
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = { { &imap_unix_listeners_buf,
+			      sizeof(imap_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 #undef DEF
@@ -74,19 +74,19 @@ static const struct setting_define imap_setting_defines[] = {
 };
 
 static const struct imap_settings imap_default_settings = {
-	MEMBER(mail_debug) FALSE,
-	MEMBER(verbose_proctitle) FALSE,
+	.mail_debug = FALSE,
+	.verbose_proctitle = FALSE,
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
 	   break large message sets to multiple commands, so we're pretty
 	   liberal by default. */
-	MEMBER(imap_max_line_length) 64*1024,
-	MEMBER(imap_idle_notify_interval) 2*60,
-	MEMBER(imap_capability) "",
-	MEMBER(imap_client_workarounds) "outlook-idle",
-	MEMBER(imap_logout_format) "bytes=%i/%o",
-	MEMBER(imap_id_send) "",
-	MEMBER(imap_id_log) ""
+	.imap_max_line_length = 64*1024,
+	.imap_idle_notify_interval = 2*60,
+	.imap_capability = "",
+	.imap_client_workarounds = "outlook-idle",
+	.imap_logout_format = "bytes=%i/%o",
+	.imap_id_send = "",
+	.imap_id_log = ""
 };
 
 static const struct setting_parser_info *imap_setting_dependencies[] = {
@@ -95,18 +95,17 @@ static const struct setting_parser_info *imap_setting_dependencies[] = {
 };
 
 const struct setting_parser_info imap_setting_parser_info = {
-	MEMBER(module_name) "imap",
-	MEMBER(defines) imap_setting_defines,
-	MEMBER(defaults) &imap_default_settings,
+	.module_name = "imap",
+	.defines = imap_setting_defines,
+	.defaults = &imap_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct imap_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct imap_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
+	.parent_offset = (size_t)-1,
 
-	MEMBER(check_func) imap_settings_verify,
-	MEMBER(dependencies) imap_setting_dependencies
+	.check_func = imap_settings_verify,
+	.dependencies = imap_setting_dependencies
 };
 
 /* <settings checks> */

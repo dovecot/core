@@ -268,6 +268,6 @@ struct userdb_module_interface userdb_checkpassword = {
 };
 #else
 struct userdb_module_interface userdb_checkpassword = {
-	MEMBER(name) "checkpassword"
+	.name = "checkpassword"
 };
 #endif

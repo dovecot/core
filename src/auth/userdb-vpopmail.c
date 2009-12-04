@@ -178,6 +178,6 @@ struct userdb_module_interface userdb_vpopmail = {
 };
 #else
 struct userdb_module_interface userdb_vpopmail = {
-	MEMBER(name) "vpopmail"
+	.name = "vpopmail"
 };
 #endif

@@ -244,6 +244,6 @@ struct userdb_module_interface userdb_static = {
 };
 #else
 struct userdb_module_interface userdb_static = {
-	MEMBER(name) "static"
+	.name = "static"
 };
 #endif

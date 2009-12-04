@@ -27,28 +27,28 @@ static buffer_t pop3_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings pop3_service_settings = {
-	MEMBER(name) "pop3",
-	MEMBER(protocol) "pop3",
-	MEMBER(type) "",
-	MEMBER(executable) "pop3",
-	MEMBER(user) "",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "pop3",
+	.protocol = "pop3",
+	.type = "",
+	.executable = "pop3",
+	.user = "",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 0,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 1,
-	MEMBER(vsz_limit) -1U,
+	.process_min_avail = 0,
+	.process_limit = 0,
+	.client_limit = 0,
+	.service_count = 1,
+	.vsz_limit = -1U,
 
-	MEMBER(unix_listeners) { { &pop3_unix_listeners_buf,
-				   sizeof(pop3_unix_listeners[0]) } },
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = { { &pop3_unix_listeners_buf,
+			      sizeof(pop3_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 #undef DEF
@@ -74,16 +74,16 @@ static const struct setting_define pop3_setting_defines[] = {
 };
 
 static const struct pop3_settings pop3_default_settings = {
-	MEMBER(mail_debug) FALSE,
-	MEMBER(verbose_proctitle) FALSE,
+	.mail_debug = FALSE,
+	.verbose_proctitle = FALSE,
 
-	MEMBER(pop3_no_flag_updates) FALSE,
-	MEMBER(pop3_enable_last) FALSE,
-	MEMBER(pop3_reuse_xuidl) FALSE,
-	MEMBER(pop3_save_uidl) FALSE,
-	MEMBER(pop3_lock_session) FALSE,
-	MEMBER(pop3_client_workarounds) "",
-	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s"
+	.pop3_no_flag_updates = FALSE,
+	.pop3_enable_last = FALSE,
+	.pop3_reuse_xuidl = FALSE,
+	.pop3_save_uidl = FALSE,
+	.pop3_lock_session = FALSE,
+	.pop3_client_workarounds = "",
+	.pop3_logout_format = "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s"
 };
 
 static const struct setting_parser_info *pop3_setting_dependencies[] = {
@@ -92,18 +92,17 @@ static const struct setting_parser_info *pop3_setting_dependencies[] = {
 };
 
 const struct setting_parser_info pop3_setting_parser_info = {
-	MEMBER(module_name) "pop3",
-	MEMBER(defines) pop3_setting_defines,
-	MEMBER(defaults) &pop3_default_settings,
+	.module_name = "pop3",
+	.defines = pop3_setting_defines,
+	.defaults = &pop3_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct pop3_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct pop3_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
+	.parent_offset = (size_t)-1,
 
-	MEMBER(check_func) pop3_settings_verify,
-	MEMBER(dependencies) pop3_setting_dependencies
+	.check_func = pop3_settings_verify,
+	.dependencies = pop3_setting_dependencies
 };
 
 /* <settings checks> */

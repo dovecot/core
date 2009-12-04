@@ -224,6 +224,6 @@ struct userdb_module_interface userdb_passwd_file = {
 };
 #else
 struct userdb_module_interface userdb_passwd_file = {
-	MEMBER(name) "passwd-file"
+	.name = "passwd-file"
 };
 #endif

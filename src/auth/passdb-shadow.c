@@ -86,6 +86,6 @@ struct passdb_module_interface passdb_shadow = {
 };
 #else
 struct passdb_module_interface passdb_shadow = {
-	MEMBER(name) "shadow"
+	.name = "shadow"
 };
 #endif

@@ -276,6 +276,6 @@ struct userdb_module_interface userdb_sql = {
 };
 #else
 struct userdb_module_interface userdb_sql = {
-	MEMBER(name) "sql"
+	.name = "sql"
 };
 #endif

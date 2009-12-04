@@ -691,7 +691,7 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 }
 
 struct dict dict_driver_client = {
-	MEMBER(name) "proxy",
+	.name = "proxy",
 
 	{
 		client_dict_init,

@@ -59,11 +59,8 @@ struct file_dict_transaction_context {
 };
 
 static struct dotlock_settings file_dict_dotlock_settings = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 30,
-	MEMBER(stale_timeout) 5
+	.timeout = 30,
+	.stale_timeout = 5
 };
 
 static struct dict *file_dict_init(struct dict *driver, const char *uri,
@@ -440,7 +437,7 @@ file_dict_atomic_inc(struct dict_transaction_context *_ctx,
 }
 
 struct dict dict_driver_file = {
-	MEMBER(name) "file",
+	.name = "file",
 	{
 		file_dict_init,
 		file_dict_deinit,

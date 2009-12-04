@@ -439,10 +439,10 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 }
 
 struct mailbox_list maildir_mailbox_list = {
-	MEMBER(name) MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
-	MEMBER(hierarchy_sep) '.',
-	MEMBER(props) MAILBOX_LIST_PROP_NO_MAILDIR_NAME,
-	MEMBER(mailbox_name_max_length) PATH_MAX,
+	.name = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
+	.hierarchy_sep = '.',
+	.props = MAILBOX_LIST_PROP_NO_MAILDIR_NAME,
+	.mailbox_name_max_length = PATH_MAX,
 
 	{
 		maildir_list_alloc,
@@ -468,10 +468,10 @@ struct mailbox_list maildir_mailbox_list = {
 };
 
 struct mailbox_list imapdir_mailbox_list = {
-	MEMBER(name) MAILBOX_LIST_NAME_IMAPDIR,
-	MEMBER(hierarchy_sep) '.',
-	MEMBER(props) MAILBOX_LIST_PROP_NO_MAILDIR_NAME,
-	MEMBER(mailbox_name_max_length) PATH_MAX,
+	.name = MAILBOX_LIST_NAME_IMAPDIR,
+	.hierarchy_sep = '.',
+	.props = MAILBOX_LIST_PROP_NO_MAILDIR_NAME,
+	.mailbox_name_max_length = PATH_MAX,
 
 	{
 		imapdir_list_alloc,

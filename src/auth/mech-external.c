@@ -42,8 +42,8 @@ static struct auth_request *mech_external_auth_new(void)
 const struct mech_module mech_external = {
 	"EXTERNAL",
 
-	MEMBER(flags) 0,
-	MEMBER(passdb_need) MECH_PASSDB_NEED_VERIFY_PLAIN,
+	.flags = 0,
+	.passdb_need = MECH_PASSDB_NEED_VERIFY_PLAIN,
 
 	mech_external_auth_new,
 	mech_generic_auth_initial,

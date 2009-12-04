@@ -675,7 +675,7 @@ driver_mysql_update(struct sql_transaction_context *_ctx, const char *query,
 struct sql_db driver_mysql_db = {
 	"mysql",
 
-	MEMBER(v) {
+	.v = {
 		driver_mysql_init_v,
 		driver_mysql_deinit_v,
 		driver_mysql_get_flags,
@@ -695,7 +695,7 @@ struct sql_db driver_mysql_db = {
 };
 
 struct sql_result driver_mysql_result = {
-	MEMBER(v) {
+	.v = {
 		driver_mysql_result_free,
 		driver_mysql_result_next_row,
 		driver_mysql_result_get_fields_count,
@@ -716,7 +716,7 @@ driver_mysql_result_error_next_row(struct sql_result *result ATTR_UNUSED)
 }
 
 struct sql_result driver_mysql_error_result = {
-	MEMBER(v) {
+	.v = {
 		driver_mysql_result_free,
 		driver_mysql_result_error_next_row,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL,

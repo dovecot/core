@@ -46,10 +46,10 @@ static struct pool_vfuncs static_system_pool_vfuncs = {
 };
 
 struct pool static_system_pool = {
-	MEMBER(v) &static_system_pool_vfuncs,
+	.v = &static_system_pool_vfuncs,
 
-	MEMBER(alloconly_pool) FALSE,
-	MEMBER(datastack_pool) FALSE
+	.alloconly_pool = FALSE,
+	.datastack_pool = FALSE
 };
 
 pool_t system_pool = &static_system_pool;

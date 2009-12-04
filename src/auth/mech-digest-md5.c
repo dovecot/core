@@ -591,9 +591,9 @@ static struct auth_request *mech_digest_md5_auth_new(void)
 const struct mech_module mech_digest_md5 = {
 	"DIGEST-MD5",
 
-	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
+	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
 		MECH_SEC_MUTUAL_AUTH,
-	MEMBER(passdb_need) MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	mech_digest_md5_auth_new,
 	mech_digest_md5_auth_initial,

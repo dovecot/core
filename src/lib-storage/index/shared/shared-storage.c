@@ -289,10 +289,10 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 }
 
 struct mail_storage shared_storage = {
-	MEMBER(name) SHARED_STORAGE_NAME,
-	MEMBER(class_flags) 0, /* unknown at this point */
+	.name = SHARED_STORAGE_NAME,
+	.class_flags = 0, /* unknown at this point */
 
-	{
+	.v = {
 		NULL,
 		shared_storage_alloc,
 		shared_storage_create,

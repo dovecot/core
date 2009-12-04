@@ -335,7 +335,7 @@ void sql_update_get_rows(struct sql_transaction_context *ctx, const char *query,
 }
 
 struct sql_result sql_not_connected_result = {
-	MEMBER(v) {
+	.v = {
 		sql_result_not_connected_free,
 		sql_result_not_connected_next_row,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL,

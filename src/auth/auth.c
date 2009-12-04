@@ -19,8 +19,8 @@
 #define AUTH_PENALTY_ANVIL_PATH "anvil-auth-penalty"
 
 struct auth_userdb_settings userdb_dummy_set = {
-	MEMBER(driver) "static",
-	MEMBER(args) ""
+	.driver = "static",
+	.args = ""
 };
 
 struct auth *auth_preinit(struct auth_settings *set)

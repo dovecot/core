@@ -7,26 +7,26 @@
 #include <stddef.h>
 
 struct service_settings log_service_settings = {
-	MEMBER(name) "log",
-	MEMBER(protocol) "",
-	MEMBER(type) "log",
-	MEMBER(executable) "log",
-	MEMBER(user) "",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "log",
+	.protocol = "",
+	.type = "log",
+	.executable = "log",
+	.user = "",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 1,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) -1U,
+	.process_min_avail = 0,
+	.process_limit = 1,
+	.client_limit = 0,
+	.service_count = 0,
+	.vsz_limit = -1U,
 
-	MEMBER(unix_listeners) ARRAY_INIT,
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = ARRAY_INIT,
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 

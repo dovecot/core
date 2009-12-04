@@ -21,22 +21,22 @@ static const struct setting_define maildir_setting_defines[] = {
 };
 
 static const struct maildir_settings maildir_default_settings = {
-	MEMBER(maildir_stat_dirs) FALSE,
-	MEMBER(maildir_copy_with_hardlinks) TRUE,
-	MEMBER(maildir_copy_preserve_filename) FALSE,
-	MEMBER(maildir_very_dirty_syncs) FALSE
+	.maildir_stat_dirs = FALSE,
+	.maildir_copy_with_hardlinks = TRUE,
+	.maildir_copy_preserve_filename = FALSE,
+	.maildir_very_dirty_syncs = FALSE
 };
 
 static const struct setting_parser_info maildir_setting_parser_info = {
-	MEMBER(module_name) "maildir",
-	MEMBER(defines) maildir_setting_defines,
-	MEMBER(defaults) &maildir_default_settings,
+	.module_name = "maildir",
+	.defines = maildir_setting_defines,
+	.defaults = &maildir_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct maildir_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct maildir_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) &mail_user_setting_parser_info
+	.parent_offset = (size_t)-1,
+	.parent = &mail_user_setting_parser_info
 };
 
 const struct setting_parser_info *maildir_get_setting_parser_info(void)

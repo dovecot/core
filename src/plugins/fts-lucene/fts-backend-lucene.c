@@ -203,8 +203,8 @@ fts_backend_lucene_lookup(struct fts_backend *_backend,
 }
 
 struct fts_backend fts_backend_lucene = {
-	MEMBER(name) "lucene",
-	MEMBER(flags) 0,
+	.name = "lucene",
+	.flags = 0,
 
 	{
 		fts_backend_lucene_init,

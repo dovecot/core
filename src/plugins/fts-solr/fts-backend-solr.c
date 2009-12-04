@@ -797,8 +797,8 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 }
 
 struct fts_backend fts_backend_solr = {
-	MEMBER(name) "solr",
-	MEMBER(flags) FTS_BACKEND_FLAG_VIRTUAL_LOOKUPS,
+	.name = "solr",
+	.flags = FTS_BACKEND_FLAG_VIRTUAL_LOOKUPS,
 
 	{
 		fts_backend_solr_init,

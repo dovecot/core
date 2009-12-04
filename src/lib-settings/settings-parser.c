@@ -54,14 +54,14 @@ struct setting_parser_context {
 };
 
 static const struct setting_parser_info strlist_info = {
-	MEMBER(module_name) NULL,
-	MEMBER(defines) NULL,
-	MEMBER(defaults) NULL,
+	.module_name = NULL,
+	.defines = NULL,
+	.defaults = NULL,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) 0,
+	.type_offset = (size_t)-1,
+	.struct_size = 0,
 
-	MEMBER(parent_offset) (size_t)-1
+	.parent_offset = (size_t)-1
 };
 
 static void

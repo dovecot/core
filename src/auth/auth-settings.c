@@ -31,28 +31,28 @@ static buffer_t auth_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings auth_service_settings = {
-	MEMBER(name) "auth",
-	MEMBER(protocol) "",
-	MEMBER(type) "",
-	MEMBER(executable) "auth",
-	MEMBER(user) "",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "auth",
+	.protocol = "",
+	.type = "",
+	.executable = "auth",
+	.user = "",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 1,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) -1U,
+	.process_min_avail = 0,
+	.process_limit = 1,
+	.client_limit = 0,
+	.service_count = 0,
+	.vsz_limit = -1U,
 
-	MEMBER(unix_listeners) { { &auth_unix_listeners_buf,
-				   sizeof(auth_unix_listeners[0]) } },
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = { { &auth_unix_listeners_buf,
+			      sizeof(auth_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 /* <settings checks> */
@@ -68,28 +68,28 @@ static buffer_t auth_worker_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings auth_worker_service_settings = {
-	MEMBER(name) "auth-worker",
-	MEMBER(protocol) "",
-	MEMBER(type) "",
-	MEMBER(executable) "auth -w",
-	MEMBER(user) "",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "auth-worker",
+	.protocol = "",
+	.type = "",
+	.executable = "auth -w",
+	.user = "",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 0,
-	MEMBER(client_limit) 1,
-	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) -1U,
+	.process_min_avail = 0,
+	.process_limit = 0,
+	.client_limit = 1,
+	.service_count = 0,
+	.vsz_limit = -1U,
 
-	MEMBER(unix_listeners) { { &auth_worker_unix_listeners_buf,
-				   sizeof(auth_worker_unix_listeners[0]) } },
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = { { &auth_worker_unix_listeners_buf,
+			      sizeof(auth_worker_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 #undef DEF
@@ -105,15 +105,13 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 };
 
 const struct setting_parser_info auth_passdb_setting_parser_info = {
-	MEMBER(module_name) NULL,
-	MEMBER(defines) auth_passdb_setting_defines,
-	MEMBER(defaults) NULL,
+	.defines = auth_passdb_setting_defines,
 
-	MEMBER(type_offset) offsetof(struct auth_passdb_settings, driver),
-	MEMBER(struct_size) sizeof(struct auth_passdb_settings),
+	.type_offset = offsetof(struct auth_passdb_settings, driver),
+	.struct_size = sizeof(struct auth_passdb_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) &auth_setting_parser_info
+	.parent_offset = (size_t)-1,
+	.parent = &auth_setting_parser_info
 };
 
 #undef DEF
@@ -128,15 +126,13 @@ static const struct setting_define auth_userdb_setting_defines[] = {
 };
 
 const struct setting_parser_info auth_userdb_setting_parser_info = {
-	MEMBER(module_name) NULL,
-	MEMBER(defines) auth_userdb_setting_defines,
-	MEMBER(defaults) NULL,
+	.defines = auth_userdb_setting_defines,
 
-	MEMBER(type_offset) offsetof(struct auth_userdb_settings, driver),
-	MEMBER(struct_size) sizeof(struct auth_userdb_settings),
+	.type_offset = offsetof(struct auth_userdb_settings, driver),
+	.struct_size = sizeof(struct auth_userdb_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) &auth_setting_parser_info
+	.parent_offset = (size_t)-1,
+	.parent = &auth_setting_parser_info
 };
 
 /* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
@@ -180,47 +176,46 @@ static const struct setting_define auth_setting_defines[] = {
 };
 
 static const struct auth_settings auth_default_settings = {
-	MEMBER(mechanisms) "plain",
-	MEMBER(realms) "",
-	MEMBER(default_realm) "",
-	MEMBER(cache_size) 0,
-	MEMBER(cache_ttl) 60*60,
-	MEMBER(cache_negative_ttl) 0,
-	MEMBER(username_chars) "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-_@",
-	MEMBER(username_translation) "",
-	MEMBER(username_format) "",
-	MEMBER(master_user_separator) "",
-	MEMBER(anonymous_username) "anonymous",
-	MEMBER(krb5_keytab) "",
-	MEMBER(gssapi_hostname) "",
-	MEMBER(winbind_helper_path) "/usr/bin/ntlm_auth",
-	MEMBER(failure_delay) 2,
+	.mechanisms = "plain",
+	.realms = "",
+	.default_realm = "",
+	.cache_size = 0,
+	.cache_ttl = 60*60,
+	.cache_negative_ttl = 0,
+	.username_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-_@",
+	.username_translation = "",
+	.username_format = "",
+	.master_user_separator = "",
+	.anonymous_username = "anonymous",
+	.krb5_keytab = "",
+	.gssapi_hostname = "",
+	.winbind_helper_path = "/usr/bin/ntlm_auth",
+	.failure_delay = 2,
 
-	MEMBER(verbose) FALSE,
-	MEMBER(debug) FALSE,
-	MEMBER(debug_passwords) FALSE,
-	MEMBER(ssl_require_client_cert) FALSE,
-	MEMBER(ssl_username_from_cert) FALSE,
-	MEMBER(use_winbind) FALSE,
+	.verbose = FALSE,
+	.debug = FALSE,
+	.debug_passwords = FALSE,
+	.ssl_require_client_cert = FALSE,
+	.ssl_username_from_cert = FALSE,
+	.use_winbind = FALSE,
 
-	MEMBER(worker_max_count) 30,
+	.worker_max_count = 30,
 
-	MEMBER(passdbs) ARRAY_INIT,
-	MEMBER(userdbs) ARRAY_INIT
+	.passdbs = ARRAY_INIT,
+	.userdbs = ARRAY_INIT
 };
 
 const struct setting_parser_info auth_setting_parser_info = {
-	MEMBER(module_name) "auth",
-	MEMBER(defines) auth_setting_defines,
-	MEMBER(defaults) &auth_default_settings,
+	.module_name = "auth",
+	.defines = auth_setting_defines,
+	.defaults = &auth_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct auth_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct auth_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
+	.parent_offset = (size_t)-1,
 
-	MEMBER(check_func) auth_settings_check
+	.check_func = auth_settings_check
 };
 
 /* <settings checks> */

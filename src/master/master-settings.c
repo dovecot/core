@@ -36,22 +36,21 @@ static const struct setting_define file_listener_setting_defines[] = {
 };
 
 static const struct file_listener_settings file_listener_default_settings = {
-	MEMBER(path) "",
-	MEMBER(mode) 0600,
-	MEMBER(user) "",
-	MEMBER(group) "",
+	.path = "",
+	.mode = 0600,
+	.user = "",
+	.group = "",
 };
 
 static const struct setting_parser_info file_listener_setting_parser_info = {
-	MEMBER(module_name) NULL,
-	MEMBER(defines) file_listener_setting_defines,
-	MEMBER(defaults) &file_listener_default_settings,
+	.defines = file_listener_setting_defines,
+	.defaults = &file_listener_default_settings,
 
-	MEMBER(type_offset) offsetof(struct file_listener_settings, path),
-	MEMBER(struct_size) sizeof(struct file_listener_settings),
+	.type_offset = offsetof(struct file_listener_settings, path),
+	.struct_size = sizeof(struct file_listener_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) &service_setting_parser_info
+	.parent_offset = (size_t)-1,
+	.parent = &service_setting_parser_info
 };
 
 #undef DEF
@@ -67,21 +66,20 @@ static const struct setting_define inet_listener_setting_defines[] = {
 };
 
 static const struct inet_listener_settings inet_listener_default_settings = {
-	MEMBER(address) "",
-	MEMBER(port) 0,
-	MEMBER(ssl) FALSE
+	.address = "",
+	.port = 0,
+	.ssl = FALSE
 };
 
 static const struct setting_parser_info inet_listener_setting_parser_info = {
-	MEMBER(module_name) NULL,
-	MEMBER(defines) inet_listener_setting_defines,
-	MEMBER(defaults) &inet_listener_default_settings,
+	.defines = inet_listener_setting_defines,
+	.defaults = &inet_listener_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct inet_listener_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct inet_listener_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) &service_setting_parser_info
+	.parent_offset = (size_t)-1,
+	.parent = &service_setting_parser_info
 };
 
 #undef DEF
@@ -124,39 +122,38 @@ static const struct setting_define service_setting_defines[] = {
 };
 
 static const struct service_settings service_default_settings = {
-	MEMBER(name) "",
-	MEMBER(protocol) "",
-	MEMBER(type) "",
-	MEMBER(executable) "",
-	MEMBER(user) "",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "",
+	.protocol = "",
+	.type = "",
+	.executable = "",
+	.user = "",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) -1U,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) (uoff_t)-1,
+	.process_min_avail = 0,
+	.process_limit = -1U,
+	.client_limit = 0,
+	.service_count = 0,
+	.vsz_limit = (uoff_t)-1,
 
-	MEMBER(unix_listeners) ARRAY_INIT,
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = ARRAY_INIT,
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 const struct setting_parser_info service_setting_parser_info = {
-	MEMBER(module_name) NULL,
-	MEMBER(defines) service_setting_defines,
-	MEMBER(defaults) &service_default_settings,
+	.defines = service_setting_defines,
+	.defaults = &service_default_settings,
 
-	MEMBER(type_offset) offsetof(struct service_settings, name),
-	MEMBER(struct_size) sizeof(struct service_settings),
+	.type_offset = offsetof(struct service_settings, name),
+	.struct_size = sizeof(struct service_settings),
 
-	MEMBER(parent_offset) offsetof(struct service_settings, master_set),
-	MEMBER(parent) &master_setting_parser_info
+	.parent_offset = offsetof(struct service_settings, master_set),
+	.parent = &master_setting_parser_info
 };
 
 #undef DEF
@@ -191,44 +188,43 @@ static const struct setting_define master_setting_defines[] = {
 };
 
 static const struct master_settings master_default_settings = {
-	MEMBER(base_dir) PKG_RUNDIR,
-	MEMBER(libexec_dir) PKG_LIBEXECDIR,
-	MEMBER(protocols) "imap pop3 lmtp",
-	MEMBER(listen) "*, ::",
-	MEMBER(ssl) "yes:no:required",
-	MEMBER(default_process_limit) 100,
-	MEMBER(default_client_limit) 1000,
-	MEMBER(default_vsz_limit) 256*1024*1024,
+	.base_dir = PKG_RUNDIR,
+	.libexec_dir = PKG_LIBEXECDIR,
+	.protocols = "imap pop3 lmtp",
+	.listen = "*, ::",
+	.ssl = "yes:no:required",
+	.default_process_limit = 100,
+	.default_client_limit = 1000,
+	.default_vsz_limit = 256*1024*1024,
 
-	MEMBER(version_ignore) FALSE,
-	MEMBER(mail_debug) FALSE,
-	MEMBER(auth_debug) FALSE,
+	.version_ignore = FALSE,
+	.mail_debug = FALSE,
+	.auth_debug = FALSE,
 
-	MEMBER(first_valid_uid) 500,
-	MEMBER(last_valid_uid) 0,
-	MEMBER(first_valid_gid) 1,
-	MEMBER(last_valid_gid) 0,
+	.first_valid_uid = 500,
+	.last_valid_uid = 0,
+	.first_valid_gid = 1,
+	.last_valid_gid = 0,
 
 #ifndef CONFIG_BINARY
-	MEMBER(services) ARRAY_INIT
+	.services = ARRAY_INIT
 #else
-	MEMBER(services) { { &config_all_services_buf,
+	.services = { { &config_all_services_buf,
 			     sizeof(struct service_settings *) } },
 #endif
 };
 
 const struct setting_parser_info master_setting_parser_info = {
-	MEMBER(module_name) "master",
-	MEMBER(defines) master_setting_defines,
-	MEMBER(defaults) &master_default_settings,
+	.module_name = "master",
+	.defines = master_setting_defines,
+	.defaults = &master_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct master_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct master_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
+	.parent_offset = (size_t)-1,
 
-	MEMBER(check_func) master_settings_verify
+	.check_func = master_settings_verify
 };
 
 /* <settings checks> */

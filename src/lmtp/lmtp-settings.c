@@ -25,28 +25,28 @@ static buffer_t lmtp_login_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings lmtp_login_service_settings = {
-	MEMBER(name) "lmtp",
-	MEMBER(protocol) "lmtp",
-	MEMBER(type) "",
-	MEMBER(executable) "lmtp",
-	MEMBER(user) "",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "lmtp",
+	.protocol = "lmtp",
+	.type = "",
+	.executable = "lmtp",
+	.user = "",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 0,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) 0,
+	.process_min_avail = 0,
+	.process_limit = 0,
+	.client_limit = 0,
+	.service_count = 0,
+	.vsz_limit = 0,
 
-	MEMBER(unix_listeners) { { &lmtp_login_unix_listeners_buf,
-				   sizeof(lmtp_login_unix_listeners[0]) } },
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = { { &lmtp_login_unix_listeners_buf,
+			      sizeof(lmtp_login_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 #undef DEF
@@ -60,7 +60,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 };
 
 static const struct lmtp_settings lmtp_default_settings = {
-	MEMBER(lmtp_proxy) FALSE
+	.lmtp_proxy = FALSE
 };
 
 static const struct setting_parser_info *lmtp_setting_dependencies[] = {
@@ -69,18 +69,16 @@ static const struct setting_parser_info *lmtp_setting_dependencies[] = {
 };
 
 const struct setting_parser_info lmtp_setting_parser_info = {
-	MEMBER(module_name) "lmtp",
-	MEMBER(defines) lmtp_setting_defines,
-	MEMBER(defaults) &lmtp_default_settings,
+	.module_name = "lmtp",
+	.defines = lmtp_setting_defines,
+	.defaults = &lmtp_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct lmtp_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct lmtp_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
+	.parent_offset = (size_t)-1,
 
-	MEMBER(check_func) NULL,
-	MEMBER(dependencies) lmtp_setting_dependencies
+	.dependencies = lmtp_setting_dependencies
 };
 
 void lmtp_settings_dup(pool_t pool, const struct lmtp_settings **lmtp_set_r,

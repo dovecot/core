@@ -31,10 +31,10 @@ static struct pool_vfuncs static_data_stack_pool_vfuncs = {
 };
 
 static const struct pool static_data_stack_pool = {
-	MEMBER(v) &static_data_stack_pool_vfuncs,
+	.v = &static_data_stack_pool_vfuncs,
 
-	MEMBER(alloconly_pool) TRUE,
-	MEMBER(datastack_pool) TRUE
+	.alloconly_pool = TRUE,
+	.datastack_pool = TRUE
 };
 
 struct datastack_pool {

@@ -28,13 +28,13 @@ static struct setting_def setting_defs[] = {
 };
 
 static struct sql_settings default_sql_settings = {
-	MEMBER(driver) NULL,
-	MEMBER(connect) NULL,
-	MEMBER(password_query) "SELECT username, domain, password FROM users WHERE username = '%n' AND domain = '%d'",
-	MEMBER(user_query) "SELECT home, uid, gid FROM users WHERE username = '%n' AND domain = '%d'",
-	MEMBER(update_query) "UPDATE users SET password = '%w' WHERE username = '%n' AND domain = '%d'",
-	MEMBER(iterate_query) "SELECT username, domain FROM users",
-	MEMBER(default_pass_scheme) "MD5"
+	.driver = NULL,
+	.connect = NULL,
+	.password_query = "SELECT username, domain, password FROM users WHERE username = '%n' AND domain = '%d'",
+	.user_query = "SELECT home, uid, gid FROM users WHERE username = '%n' AND domain = '%d'",
+	.update_query = "UPDATE users SET password = '%w' WHERE username = '%n' AND domain = '%d'",
+	.iterate_query = "SELECT username, domain FROM users",
+	.default_pass_scheme = "MD5"
 };
 
 static struct sql_connection *connections = NULL;

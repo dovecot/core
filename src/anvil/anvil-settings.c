@@ -22,26 +22,26 @@ static buffer_t anvil_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings anvil_service_settings = {
-	MEMBER(name) "anvil",
-	MEMBER(protocol) "",
-	MEMBER(type) "anvil",
-	MEMBER(executable) "anvil",
-	MEMBER(user) "dovecot",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "empty",
+	.name = "anvil",
+	.protocol = "",
+	.type = "anvil",
+	.executable = "anvil",
+	.user = "dovecot",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "empty",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 1,
-	MEMBER(process_limit) 1,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) -1U,
+	.process_min_avail = 1,
+	.process_limit = 1,
+	.client_limit = 0,
+	.service_count = 0,
+	.vsz_limit = -1U,
 
-	MEMBER(unix_listeners) { { &anvil_unix_listeners_buf,
-				   sizeof(anvil_unix_listeners[0]) } },
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = { { &anvil_unix_listeners_buf,
+			      sizeof(anvil_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };

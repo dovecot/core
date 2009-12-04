@@ -55,16 +55,8 @@ struct duplicate_context {
 };
 
 static const struct dotlock_settings default_duplicate_dotlock_set = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 20,
-	MEMBER(stale_timeout) 10,
-
-	MEMBER(callback) NULL,
-	MEMBER(context) NULL,
-
-	MEMBER(use_excl_lock) FALSE
+	.timeout = 20,
+	.stale_timeout = 10,
 };
 
 static int duplicate_cmp(const void *p1, const void *p2)

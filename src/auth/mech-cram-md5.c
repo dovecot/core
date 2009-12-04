@@ -181,8 +181,8 @@ static struct auth_request *mech_cram_md5_auth_new(void)
 const struct mech_module mech_cram_md5 = {
 	"CRAM-MD5",
 
-	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
-	MEMBER(passdb_need) MECH_PASSDB_NEED_VERIFY_RESPONSE,
+	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
+	.passdb_need = MECH_PASSDB_NEED_VERIFY_RESPONSE,
 
 	mech_cram_md5_auth_new,
 	mech_cram_md5_auth_initial,

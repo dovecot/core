@@ -87,6 +87,6 @@ struct passdb_module_interface passdb_passwd = {
 
 #else
 struct passdb_module_interface passdb_passwd = {
-	MEMBER(name) "passwd"
+	.name = "passwd"
 };
 #endif

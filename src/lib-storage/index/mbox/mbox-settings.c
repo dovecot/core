@@ -25,26 +25,26 @@ static const struct setting_define mbox_setting_defines[] = {
 };
 
 static const struct mbox_settings mbox_default_settings = {
-	MEMBER(mbox_read_locks) "fcntl",
-	MEMBER(mbox_write_locks) "dotlock fcntl",
-	MEMBER(mbox_lock_timeout) 5*60,
-	MEMBER(mbox_dotlock_change_timeout) 2*60,
-	MEMBER(mbox_min_index_size) 0,
-	MEMBER(mbox_dirty_syncs) TRUE,
-	MEMBER(mbox_very_dirty_syncs) FALSE,
-	MEMBER(mbox_lazy_writes) TRUE
+	.mbox_read_locks = "fcntl",
+	.mbox_write_locks = "dotlock fcntl",
+	.mbox_lock_timeout = 5*60,
+	.mbox_dotlock_change_timeout = 2*60,
+	.mbox_min_index_size = 0,
+	.mbox_dirty_syncs = TRUE,
+	.mbox_very_dirty_syncs = FALSE,
+	.mbox_lazy_writes = TRUE
 };
 
 static const struct setting_parser_info mbox_setting_parser_info = {
-	MEMBER(module_name) "mbox",
-	MEMBER(defines) mbox_setting_defines,
-	MEMBER(defaults) &mbox_default_settings,
+	.module_name = "mbox",
+	.defines = mbox_setting_defines,
+	.defaults = &mbox_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct mbox_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct mbox_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) &mail_user_setting_parser_info
+	.parent_offset = (size_t)-1,
+	.parent = &mail_user_setting_parser_info
 };
 
 const struct setting_parser_info *mbox_get_setting_parser_info(void)

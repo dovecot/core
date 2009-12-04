@@ -80,10 +80,10 @@ static const struct pool_vfuncs static_alloconly_pool_vfuncs = {
 };
 
 static const struct pool static_alloconly_pool = {
-	MEMBER(v) &static_alloconly_pool_vfuncs,
+	.v = &static_alloconly_pool_vfuncs,
 
-	MEMBER(alloconly_pool) TRUE,
-	MEMBER(datastack_pool) FALSE
+	.alloconly_pool = TRUE,
+	.datastack_pool = FALSE
 };
 
 #ifdef DEBUG

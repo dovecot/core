@@ -1111,10 +1111,10 @@ static void maildir_storage_add_list(struct mail_storage *storage,
 }
 
 struct mail_storage maildir_storage = {
-	MEMBER(name) MAILDIR_STORAGE_NAME,
-	MEMBER(class_flags) 0,
+	.name = MAILDIR_STORAGE_NAME,
+	.class_flags = 0,
 
-	{
+	.v = {
                 maildir_get_setting_parser_info,
 		maildir_storage_alloc,
 		maildir_storage_create,
@@ -1128,11 +1128,7 @@ struct mail_storage maildir_storage = {
 };
 
 struct mailbox maildir_mailbox = {
-	MEMBER(name) NULL, 
-	MEMBER(storage) NULL, 
-	MEMBER(list) NULL,
-
-	{
+	.v = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,

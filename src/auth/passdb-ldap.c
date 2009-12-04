@@ -454,6 +454,6 @@ struct passdb_module_interface passdb_ldap_plugin =
 };
 #else
 struct passdb_module_interface passdb_ldap = {
-	MEMBER(name) "ldap"
+	.name = "ldap"
 };
 #endif

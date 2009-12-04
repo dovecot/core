@@ -31,10 +31,10 @@ static struct pool_vfuncs static_unsafe_data_stack_pool_vfuncs = {
 };
 
 static struct pool static_unsafe_data_stack_pool = {
-	MEMBER(v) &static_unsafe_data_stack_pool_vfuncs,
+	.v = &static_unsafe_data_stack_pool_vfuncs,
 
-	MEMBER(alloconly_pool) TRUE,
-	MEMBER(datastack_pool) TRUE
+	.alloconly_pool = TRUE,
+	.datastack_pool = TRUE
 };
 
 pool_t unsafe_data_stack_pool = &static_unsafe_data_stack_pool;

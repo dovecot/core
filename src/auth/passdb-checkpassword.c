@@ -283,6 +283,6 @@ struct passdb_module_interface passdb_checkpassword = {
 };
 #else
 struct passdb_module_interface passdb_checkpassword = {
-	MEMBER(name) "checkpassword"
+	.name = "checkpassword"
 };
 #endif

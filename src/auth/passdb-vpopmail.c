@@ -202,6 +202,6 @@ struct passdb_module_interface passdb_vpopmail = {
 };
 #else
 struct passdb_module_interface passdb_vpopmail = {
-	MEMBER(name) "vpopmail"
+	.name = "vpopmail"
 };
 #endif

@@ -46,44 +46,43 @@ static const struct setting_define login_setting_defines[] = {
 };
 
 static const struct login_settings login_default_settings = {
-	MEMBER(login_trusted_networks) "",
-	MEMBER(login_greeting) PACKAGE_NAME" ready.",
-	MEMBER(login_log_format_elements) "user=<%u> method=%m rip=%r lip=%l %c",
-	MEMBER(login_log_format) "%$: %s",
+	.login_trusted_networks = "",
+	.login_greeting = PACKAGE_NAME" ready.",
+	.login_log_format_elements = "user=<%u> method=%m rip=%r lip=%l %c",
+	.login_log_format = "%$: %s",
 
-	MEMBER(ssl) "yes:no:required",
-	MEMBER(ssl_ca_file) "",
-	MEMBER(ssl_cert) "",
-	MEMBER(ssl_key) "",
-	MEMBER(ssl_key_password) "",
-	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
-	MEMBER(ssl_cipher_list) "ALL:!LOW:!SSLv2:!EXP:!aNULL",
-	MEMBER(ssl_cert_username_field) "commonName",
-	MEMBER(ssl_verify_client_cert) FALSE,
-	MEMBER(ssl_require_client_cert) FALSE,
-	MEMBER(ssl_username_from_cert) FALSE,
-	MEMBER(verbose_ssl) FALSE,
+	.ssl = "yes:no:required",
+	.ssl_ca_file = "",
+	.ssl_cert = "",
+	.ssl_key = "",
+	.ssl_key_password = "",
+	.ssl_parameters_file = "ssl-parameters.dat",
+	.ssl_cipher_list = "ALL:!LOW:!SSLv2:!EXP:!aNULL",
+	.ssl_cert_username_field = "commonName",
+	.ssl_verify_client_cert = FALSE,
+	.ssl_require_client_cert = FALSE,
+	.ssl_username_from_cert = FALSE,
+	.verbose_ssl = FALSE,
 
-	MEMBER(disable_plaintext_auth) TRUE,
-	MEMBER(verbose_auth) FALSE,
-	MEMBER(auth_debug) FALSE,
-	MEMBER(verbose_proctitle) FALSE,
+	.disable_plaintext_auth = TRUE,
+	.verbose_auth = FALSE,
+	.auth_debug = FALSE,
+	.verbose_proctitle = FALSE,
 
-	MEMBER(mail_max_userip_connections) 10
+	.mail_max_userip_connections = 10
 };
 
 const struct setting_parser_info login_setting_parser_info = {
-	MEMBER(module_name) "login",
-	MEMBER(defines) login_setting_defines,
-	MEMBER(defaults) &login_default_settings,
+	.module_name = "login",
+	.defines = login_setting_defines,
+	.defaults = &login_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct login_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct login_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
+	.parent_offset = (size_t)-1,
 
-	MEMBER(check_func) login_settings_check
+	.check_func = login_settings_check
 };
 
 static const struct setting_parser_info *default_login_set_roots[] = {

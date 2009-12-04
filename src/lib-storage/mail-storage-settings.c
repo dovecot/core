@@ -43,37 +43,37 @@ static const struct setting_define mail_storage_setting_defines[] = {
 };
 
 const struct mail_storage_settings mail_storage_default_settings = {
-	MEMBER(mail_location) "",
-	MEMBER(mail_cache_fields) "flags",
-	MEMBER(mail_never_cache_fields) "imap.envelope",
-	MEMBER(mail_cache_min_mail_count) 0,
-	MEMBER(mailbox_idle_check_interval) 30,
-	MEMBER(mail_max_keyword_length) 50,
-	MEMBER(mail_save_crlf) FALSE,
-	MEMBER(fsync_disable) FALSE,
-	MEMBER(mmap_disable) FALSE,
-	MEMBER(dotlock_use_excl) FALSE,
-	MEMBER(mail_nfs_storage) FALSE,
-	MEMBER(mail_nfs_index) FALSE,
-	MEMBER(mailbox_list_index_disable) FALSE,
-	MEMBER(mail_debug) FALSE,
-	MEMBER(mail_full_filesystem_access) FALSE,
-	MEMBER(lock_method) "fcntl:flock:dotlock",
-	MEMBER(pop3_uidl_format) "%08Xu%08Xv"
+	.mail_location = "",
+	.mail_cache_fields = "flags",
+	.mail_never_cache_fields = "imap.envelope",
+	.mail_cache_min_mail_count = 0,
+	.mailbox_idle_check_interval = 30,
+	.mail_max_keyword_length = 50,
+	.mail_save_crlf = FALSE,
+	.fsync_disable = FALSE,
+	.mmap_disable = FALSE,
+	.dotlock_use_excl = FALSE,
+	.mail_nfs_storage = FALSE,
+	.mail_nfs_index = FALSE,
+	.mailbox_list_index_disable = FALSE,
+	.mail_debug = FALSE,
+	.mail_full_filesystem_access = FALSE,
+	.lock_method = "fcntl:flock:dotlock",
+	.pop3_uidl_format = "%08Xu%08Xv"
 };
 
 const struct setting_parser_info mail_storage_setting_parser_info = {
-	MEMBER(module_name) "mail",
-	MEMBER(defines) mail_storage_setting_defines,
-	MEMBER(defaults) &mail_storage_default_settings,
+	.module_name = "mail",
+	.defines = mail_storage_setting_defines,
+	.defaults = &mail_storage_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct mail_storage_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct mail_storage_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) &mail_user_setting_parser_info,
+	.parent_offset = (size_t)-1,
+	.parent = &mail_user_setting_parser_info,
 
-	MEMBER(check_func) mail_storage_settings_check
+	.check_func = mail_storage_settings_check
 };
 
 #undef DEF
@@ -96,30 +96,29 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 };
 
 const struct mail_namespace_settings mail_namespace_default_settings = {
-	MEMBER(type) "private:shared:public",
-	MEMBER(separator) "",
-	MEMBER(prefix) "",
-	MEMBER(location) "",
-	MEMBER(alias_for) NULL,
+	.type = "private:shared:public",
+	.separator = "",
+	.prefix = "",
+	.location = "",
+	.alias_for = NULL,
 
-	MEMBER(inbox) FALSE,
-	MEMBER(hidden) FALSE,
-	MEMBER(list) "yes:no:children",
-	MEMBER(subscriptions) TRUE
+	.inbox = FALSE,
+	.hidden = FALSE,
+	.list = "yes:no:children",
+	.subscriptions = TRUE
 };
 
 const struct setting_parser_info mail_namespace_setting_parser_info = {
-	MEMBER(module_name) NULL,
-	MEMBER(defines) mail_namespace_setting_defines,
-	MEMBER(defaults) &mail_namespace_default_settings,
+	.defines = mail_namespace_setting_defines,
+	.defaults = &mail_namespace_default_settings,
 
-	MEMBER(type_offset) offsetof(struct mail_namespace_settings, prefix),
-	MEMBER(struct_size) sizeof(struct mail_namespace_settings),
+	.type_offset = offsetof(struct mail_namespace_settings, prefix),
+	.struct_size = sizeof(struct mail_namespace_settings),
 
-	MEMBER(parent_offset) offsetof(struct mail_namespace_settings, user_set),
-	MEMBER(parent) &mail_user_setting_parser_info,
+	.parent_offset = offsetof(struct mail_namespace_settings, user_set),
+	.parent = &mail_user_setting_parser_info,
 
-	MEMBER(check_func) namespace_settings_check
+	.check_func = namespace_settings_check
 };
 
 #undef DEF
@@ -159,43 +158,42 @@ static const struct setting_define mail_user_setting_defines[] = {
 };
 
 static const struct mail_user_settings mail_user_default_settings = {
-	MEMBER(base_dir) PKG_RUNDIR,
-	MEMBER(auth_socket_path) "auth-userdb",
+	.base_dir = PKG_RUNDIR,
+	.auth_socket_path = "auth-userdb",
 
-	MEMBER(mail_uid) "",
-	MEMBER(mail_gid) "",
-	MEMBER(mail_home) "",
-	MEMBER(mail_chroot) "",
-	MEMBER(mail_access_groups) "",
-	MEMBER(mail_privileged_group) "",
-	MEMBER(valid_chroot_dirs) "",
+	.mail_uid = "",
+	.mail_gid = "",
+	.mail_home = "",
+	.mail_chroot = "",
+	.mail_access_groups = "",
+	.mail_privileged_group = "",
+	.valid_chroot_dirs = "",
 
-	MEMBER(first_valid_uid) 500,
-	MEMBER(last_valid_uid) 0,
-	MEMBER(first_valid_gid) 1,
-	MEMBER(last_valid_gid) 0,
+	.first_valid_uid = 500,
+	.last_valid_uid = 0,
+	.first_valid_gid = 1,
+	.last_valid_gid = 0,
 
-	MEMBER(mail_plugins) "",
-	MEMBER(mail_plugin_dir) MODULEDIR,
+	.mail_plugins = "",
+	.mail_plugin_dir = MODULEDIR,
 
-	MEMBER(mail_log_prefix) "%s(%u): ",
+	.mail_log_prefix = "%s(%u): ",
 
-	MEMBER(namespaces) ARRAY_INIT,
-	MEMBER(plugin_envs) ARRAY_INIT
+	.namespaces = ARRAY_INIT,
+	.plugin_envs = ARRAY_INIT
 };
 
 const struct setting_parser_info mail_user_setting_parser_info = {
-	MEMBER(module_name) "mail",
-	MEMBER(defines) mail_user_setting_defines,
-	MEMBER(defaults) &mail_user_default_settings,
+	.module_name = "mail",
+	.defines = mail_user_setting_defines,
+	.defaults = &mail_user_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct mail_user_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct mail_user_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
+	.parent_offset = (size_t)-1,
 
-	MEMBER(check_func) mail_user_settings_check
+	.check_func = mail_user_settings_check
 };
 
 const void *

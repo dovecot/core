@@ -913,10 +913,10 @@ mbox_transaction_rollback(struct mailbox_transaction_context *t)
 }
 
 struct mail_storage mbox_storage = {
-	MEMBER(name) MBOX_STORAGE_NAME,
-	MEMBER(class_flags) MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
+	.name = MBOX_STORAGE_NAME,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
 
-	{
+	.v = {
                 mbox_get_setting_parser_info,
 		mbox_storage_alloc,
 		mbox_storage_create,
@@ -930,11 +930,7 @@ struct mail_storage mbox_storage = {
 };
 
 struct mailbox mbox_mailbox = {
-	MEMBER(name) NULL, 
-	MEMBER(storage) NULL, 
-	MEMBER(list) NULL,
-
-	{
+	.v = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,

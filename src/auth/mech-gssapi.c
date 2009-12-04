@@ -633,8 +633,8 @@ mech_gssapi_auth_free(struct auth_request *request)
 const struct mech_module mech_gssapi = {
 	"GSSAPI",
 
-	MEMBER(flags) 0,
-	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
+	.flags = 0,
+	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	mech_gssapi_auth_new,
 	mech_gssapi_auth_initial,
@@ -648,8 +648,8 @@ const struct mech_module mech_gssapi = {
 const struct mech_module mech_gssapi_spnego = {
 	"GSS-SPNEGO",
 
-	MEMBER(flags) 0,
-	MEMBER(passdb_need) MECH_PASSDB_NEED_NOTHING,
+	.flags = 0,
+	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	mech_gssapi_auth_new,
         mech_gssapi_auth_initial,

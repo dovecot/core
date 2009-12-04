@@ -389,7 +389,7 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query,
 struct sql_db driver_sqlite_db = {
 	"sqlite",
 
-	MEMBER(v) {
+	.v = {
 		driver_sqlite_init_v,
 		driver_sqlite_deinit_v,
 		driver_sqlite_get_flags,
@@ -408,7 +408,7 @@ struct sql_db driver_sqlite_db = {
 };
 
 struct sql_result driver_sqlite_result = {
-	MEMBER(v) {
+	.v = {
 		driver_sqlite_result_free,
 		driver_sqlite_result_next_row,
 		driver_sqlite_result_get_fields_count,
@@ -429,7 +429,7 @@ driver_sqlite_result_error_next_row(struct sql_result *result ATTR_UNUSED)
 }
 
 struct sql_result driver_sqlite_error_result = {
-	MEMBER(v) {
+	.v = {
 		driver_sqlite_result_free,
 		driver_sqlite_result_error_next_row,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL,

@@ -241,8 +241,8 @@ fts_backend_squat_lookup(struct fts_backend *_backend, const char *key,
 }
 
 struct fts_backend fts_backend_squat = {
-	MEMBER(name) "squat",
-	MEMBER(flags) FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS,
+	.name = "squat",
+	.flags = FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS,
 
 	{
 		fts_backend_squat_init,

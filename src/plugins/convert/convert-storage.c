@@ -15,11 +15,8 @@
 #define CONVERT_LOCK_FILENAME ".dovecot.convert"
 
 static struct dotlock_settings dotlock_settings = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 60*5,
-	MEMBER(stale_timeout) 60*5
+	.timeout = 60*5,
+	.stale_timeout = 60*5
 };
 
 static const char *storage_error(struct mail_storage *storage)

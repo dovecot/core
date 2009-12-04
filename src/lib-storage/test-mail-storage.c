@@ -31,10 +31,10 @@ test_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 }
 
 struct mail_storage test_storage = {
-	MEMBER(name) "test",
-	MEMBER(class_flags) 0,
+	.name = "test",
+	.class_flags = 0,
 
-	{
+	.v = {
 		NULL,
 		test_storage_alloc,
 		NULL,

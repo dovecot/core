@@ -449,7 +449,7 @@ db_dict_atomic_inc(struct dict_transaction_context *_ctx ATTR_UNUSED,
 }
 
 struct dict dict_driver_db = {
-	MEMBER(name) "db",
+	.name = "db",
 	{
 		db_dict_init,
 		db_dict_deinit,

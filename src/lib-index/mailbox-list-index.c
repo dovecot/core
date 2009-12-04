@@ -42,11 +42,8 @@ struct mailbox_list_iter_ctx {
 };
 
 static const struct dotlock_settings default_dotlock_set = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 60,
-	MEMBER(stale_timeout) 30
+	.timeout = 60,
+	.stale_timeout = 30
 };
 
 int mailbox_list_index_set_syscall_error(struct mailbox_list_index *index,

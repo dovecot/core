@@ -297,6 +297,6 @@ struct userdb_module_interface userdb_ldap_plugin =
 };
 #else
 struct userdb_module_interface userdb_ldap = {
-	MEMBER(name) "ldap"
+	.name = "ldap"
 };
 #endif

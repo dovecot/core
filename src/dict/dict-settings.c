@@ -19,28 +19,28 @@ static buffer_t dict_unix_listeners_buf = {
 /* </settings checks> */
 
 struct service_settings dict_service_settings = {
-	MEMBER(name) "dict",
-	MEMBER(protocol) "",
-	MEMBER(type) "",
-	MEMBER(executable) "dict",
-	MEMBER(user) "dovecot",
-	MEMBER(group) "",
-	MEMBER(privileged_group) "",
-	MEMBER(extra_groups) "",
-	MEMBER(chroot) "",
+	.name = "dict",
+	.protocol = "",
+	.type = "",
+	.executable = "dict",
+	.user = "dovecot",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
 
-	MEMBER(drop_priv_before_exec) FALSE,
+	.drop_priv_before_exec = FALSE,
 
-	MEMBER(process_min_avail) 0,
-	MEMBER(process_limit) 0,
-	MEMBER(client_limit) 0,
-	MEMBER(service_count) 0,
-	MEMBER(vsz_limit) -1U,
+	.process_min_avail = 0,
+	.process_limit = 0,
+	.client_limit = 0,
+	.service_count = 0,
+	.vsz_limit = -1U,
 
-	MEMBER(unix_listeners) { { &dict_unix_listeners_buf,
-				   sizeof(dict_unix_listeners[0]) } },
-	MEMBER(fifo_listeners) ARRAY_INIT,
-	MEMBER(inet_listeners) ARRAY_INIT
+	.unix_listeners = { { &dict_unix_listeners_buf,
+			      sizeof(dict_unix_listeners[0]) } },
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
 };
 
 #undef DEF
@@ -56,20 +56,20 @@ static const struct setting_define dict_setting_defines[] = {
 };
 
 const struct dict_settings dict_default_settings = {
-	MEMBER(base_dir) PKG_RUNDIR,
-	MEMBER(dict_db_config) "",
-	MEMBER(dicts) ARRAY_INIT
+	.base_dir = PKG_RUNDIR,
+	.dict_db_config = "",
+	.dicts = ARRAY_INIT
 };
 
 const struct setting_parser_info dict_setting_parser_info = {
-	MEMBER(module_name) "dict",
-	MEMBER(defines) dict_setting_defines,
-	MEMBER(defaults) &dict_default_settings,
+	.module_name = "dict",
+	.defines = dict_setting_defines,
+	.defaults = &dict_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct dict_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct dict_settings),
 
-	MEMBER(parent_offset) (size_t)-1
+	.parent_offset = (size_t)-1
 };
 
 const struct dict_settings *dict_settings;

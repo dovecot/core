@@ -33,17 +33,17 @@ static const struct setting_define lda_setting_defines[] = {
 };
 
 static const struct lda_settings lda_default_settings = {
-	MEMBER(postmaster_address) "",
-	MEMBER(hostname) "",
-	MEMBER(sendmail_path) "/usr/lib/sendmail",
-	MEMBER(rejection_subject) "Rejected: %s",
-	MEMBER(rejection_reason)
+	.postmaster_address = "",
+	.hostname = "",
+	.sendmail_path = "/usr/lib/sendmail",
+	.rejection_subject = "Rejected: %s",
+	.rejection_reason =
 		"Your message to <%t> was automatically rejected:%n%r",
-	MEMBER(deliver_log_format) "msgid=%m: %$",
-	MEMBER(recipient_delimiter) "",
-	MEMBER(quota_full_tempfail) FALSE,
-	MEMBER(lda_mailbox_autocreate) FALSE,
-	MEMBER(lda_mailbox_autosubscribe) FALSE
+	.deliver_log_format = "msgid=%m: %$",
+	.recipient_delimiter = "",
+	.quota_full_tempfail = FALSE,
+	.lda_mailbox_autocreate = FALSE,
+	.lda_mailbox_autosubscribe = FALSE
 };
 
 static const struct setting_parser_info *lda_setting_dependencies[] = {
@@ -52,22 +52,19 @@ static const struct setting_parser_info *lda_setting_dependencies[] = {
 };
 
 const struct setting_parser_info lda_setting_parser_info = {
-	MEMBER(module_name) "lda",
-	MEMBER(defines) lda_setting_defines,
-	MEMBER(defaults) &lda_default_settings,
+	.module_name = "lda",
+	.defines = lda_setting_defines,
+	.defaults = &lda_default_settings,
 
-	MEMBER(type_offset) (size_t)-1,
-	MEMBER(struct_size) sizeof(struct lda_settings),
+	.type_offset = (size_t)-1,
+	.struct_size = sizeof(struct lda_settings),
 
-	MEMBER(parent_offset) (size_t)-1,
-	MEMBER(parent) NULL,
+	.parent_offset = (size_t)-1,
 
-#ifdef CONFIG_BINARY
-	MEMBER(check_func) NULL,
-#else
-	MEMBER(check_func) lda_settings_check,
+#ifndef CONFIG_BINARY
+	.check_func = lda_settings_check,
 #endif
-	MEMBER(dependencies) lda_setting_dependencies
+	.dependencies = lda_setting_dependencies
 };
 
 static bool lda_settings_check(void *_set, pool_t pool ATTR_UNUSED,
