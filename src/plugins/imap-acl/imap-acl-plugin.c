@@ -49,6 +49,7 @@ static const struct imap_acl_letter_map imap_acl_letter_map[] = {
 
 const char *imap_acl_plugin_version = PACKAGE_VERSION;
 
+static struct module *imap_acl_module;
 static void (*next_hook_client_created)(struct client **client);
 
 static struct mailbox *
@@ -615,13 +616,14 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 
 static void imap_acl_client_created(struct client **client)
 {
-	str_append((*client)->capability_string, " ACL RIGHTS=texk");
+	if (mail_user_is_plugin_loaded((*client)->user, imap_acl_module))
+		str_append((*client)->capability_string, " ACL RIGHTS=texk");
 
 	if (next_hook_client_created != NULL)
 		next_hook_client_created(client);
 }
 
-void imap_acl_plugin_init(struct module *module ATTR_UNUSED)
+void imap_acl_plugin_init(struct module *module)
 {
 	command_register("LISTRIGHTS", cmd_listrights, 0);
 	command_register("GETACL", cmd_getacl, 0);
@@ -629,6 +631,7 @@ void imap_acl_plugin_init(struct module *module ATTR_UNUSED)
 	command_register("SETACL", cmd_setacl, 0);
 	command_register("DELETEACL", cmd_deleteacl, 0);
 
+	imap_acl_module = module;
 	next_hook_client_created = hook_client_created;
 	hook_client_created = imap_acl_client_created;
 }

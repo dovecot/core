@@ -14,6 +14,8 @@
 #define QUOTA_USER_SEPARATOR ':'
 
 const char *imap_quota_plugin_version = PACKAGE_VERSION;
+
+static struct module *imap_quota_module;
 static void (*next_hook_client_created)(struct client **client);
 
 static const char *
@@ -199,18 +201,20 @@ static bool cmd_setquota(struct client_command_context *cmd)
 
 static void imap_quota_client_created(struct client **client)
 {
-	str_append((*client)->capability_string, " QUOTA");
+	if (mail_user_is_plugin_loaded((*client)->user, imap_quota_module))
+		str_append((*client)->capability_string, " QUOTA");
 
 	if (next_hook_client_created != NULL)
 		next_hook_client_created(client);
 }
 
-void imap_quota_plugin_init(struct module *module ATTR_UNUSED)
+void imap_quota_plugin_init(struct module *module)
 {
 	command_register("GETQUOTAROOT", cmd_getquotaroot, 0);
 	command_register("GETQUOTA", cmd_getquota, 0);
 	command_register("SETQUOTA", cmd_setquota, 0);
 
+	imap_quota_module = module;
 	next_hook_client_created = hook_client_created;
 	hook_client_created = imap_quota_client_created;
 }
