@@ -19,6 +19,8 @@
 #  define RTLD_NOW 0
 #endif
 
+static const char *module_name_drop_suffix(const char *name);
+
 void *module_get_symbol_quiet(struct module *module, const char *symbol)
 {
 	/* clear out old errors */
@@ -42,28 +44,6 @@ void *module_get_symbol(struct module *module, const char *symbol)
 		}
 	}
 	return ret;
-}
-
-const char *module_file_get_name(const char *fname)
-{
-	const char *p;
-
-	/* [lib][nn_]name(.so) */
-	if (strncmp(fname, "lib", 3) == 0)
-		fname += 3;
-
-	for (p = fname; *p != '\0'; p++) {
-		if (*p < '0' || *p > '9')
-			break;
-	}
-	if (*p == '_')
-		fname = p + 1;
-
-	p = strstr(fname, MODULE_SUFFIX);
-	if (p == NULL)
-		return fname;
-
-	return t_strdup_until(fname, p);
 }
 
 static void *get_symbol(struct module *module, const char *symbol, bool quiet)
@@ -184,21 +164,6 @@ static int module_name_cmp(const char *const *n1, const char *const *n2)
 		s2 += 3;
 
 	return strcmp(s1, s2);
-}
-
-static const char *module_name_drop_suffix(const char *name)
-{
-	unsigned int len;
-
-	len = strlen(name);
-	if (len > 7 && strcmp(name + len - 7, "_plugin") == 0)
-		name = t_strndup(name, len - 7);
-	return name;
-}
-
-const char *module_get_plugin_name(struct module *module)
-{
-	return module_name_drop_suffix(module->name);
 }
 
 static bool module_want_load(const char **names, const char *name)
@@ -346,12 +311,6 @@ module_dir_load_real(struct module *old_modules,
 	return modules;
 }
 
-struct module *module_dir_load(const char *dir, const char *module_names,
-			       const struct module_dir_load_settings *set)
-{
-	return module_dir_load_missing(NULL, dir, module_names, set);
-}
-
 struct module *
 module_dir_load_missing(struct module *old_modules,
 			const char *dir, const char *module_names,
@@ -428,13 +387,24 @@ void module_dir_unload(struct module **modules)
 
 #else
 
-struct module *module_dir_load(const char *dir ATTR_UNUSED,
-			       const char *module_names ATTR_UNUSED,
-			       bool require_init_funcs ATTR_UNUSED,
-			       const char *version ATTR_UNUSED)
+struct module *
+module_dir_load_missing(struct module *old_modules ATTR_UNUSED,
+			const char *dir ATTR_UNUSED,
+			const char *module_names,
+			const struct module_dir_load_settings *set ATTR_UNUSED)
 {
-	i_error("Dynamically loadable module support not built in");
+#define NO_SUPPORT_ERRSTR "Dynamically loadable module support not built in"
+	if (module_names == NULL)
+		i_error(NO_SUPPORT_ERRSTR);
+	else {
+		i_fatal(NO_SUPPORT_ERRSTR", can't load plugins: %s",
+			module_names);
+	}
 	return NULL;
+}
+
+void module_dir_init(struct module *modules ATTR_UNUSED)
+{
 }
 
 void module_dir_deinit(struct module *modules ATTR_UNUSED)
@@ -445,4 +415,59 @@ void module_dir_unload(struct module **modules ATTR_UNUSED)
 {
 }
 
+void *module_get_symbol(struct module *module ATTR_UNUSED,
+			const char *symbol ATTR_UNUSED)
+{
+	return NULL;
+}
+
+void *module_get_symbol_quiet(struct module *module ATTR_UNUSED,
+			      const char *symbol ATTR_UNUSED)
+{
+	return NULL;
+}
+
 #endif
+
+struct module *module_dir_load(const char *dir, const char *module_names,
+			       const struct module_dir_load_settings *set)
+{
+	return module_dir_load_missing(NULL, dir, module_names, set);
+}
+
+const char *module_file_get_name(const char *fname)
+{
+	const char *p;
+
+	/* [lib][nn_]name(.so) */
+	if (strncmp(fname, "lib", 3) == 0)
+		fname += 3;
+
+	for (p = fname; *p != '\0'; p++) {
+		if (*p < '0' || *p > '9')
+			break;
+	}
+	if (*p == '_')
+		fname = p + 1;
+
+	p = strstr(fname, MODULE_SUFFIX);
+	if (p == NULL)
+		return fname;
+
+	return t_strdup_until(fname, p);
+}
+
+static const char *module_name_drop_suffix(const char *name)
+{
+	unsigned int len;
+
+	len = strlen(name);
+	if (len > 7 && strcmp(name + len - 7, "_plugin") == 0)
+		name = t_strndup(name, len - 7);
+	return name;
+}
+
+const char *module_get_plugin_name(struct module *module)
+{
+	return module_name_drop_suffix(module->name);
+}
