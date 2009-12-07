@@ -296,7 +296,7 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 	return 0;
 }
 
-static size_t lmtp_proxy_find_lowest_offset(struct lmtp_proxy *proxy)
+static uoff_t lmtp_proxy_find_lowest_offset(struct lmtp_proxy *proxy)
 {
 	struct lmtp_proxy_connection *const *conns;
 	uoff_t min_offset = (uoff_t)-1;
@@ -305,7 +305,8 @@ static size_t lmtp_proxy_find_lowest_offset(struct lmtp_proxy *proxy)
 		struct lmtp_proxy_connection *conn = *conns;
 
 		if (conn->data_input != NULL &&
-		    min_offset > conn->data_input->v_offset)
+		    min_offset > conn->data_input->v_offset &&
+		    i_stream_have_bytes_left(conn->data_input))
 			min_offset = conn->data_input->v_offset;
 	}
 	return min_offset;
