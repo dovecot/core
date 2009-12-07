@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hostpid.h"
 #include "network.h"
+#include "module-dir.h"
 #include "home-expand.h"
 #include "str.h"
 #include "strescape.h"
@@ -276,6 +277,18 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 		*home_r = user->_home;
 	}
 	pool_unref(&userdb_pool);
+	return ret;
+}
+
+bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module)
+{
+	const char *const *plugins;
+	bool ret;
+
+	T_BEGIN {
+		plugins = t_strsplit_spaces(user->set->mail_plugins, ", ");
+		ret = str_array_find(plugins, module_get_plugin_name(module));
+	} T_END;
 	return ret;
 }
 

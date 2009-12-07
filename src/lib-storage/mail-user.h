@@ -3,6 +3,7 @@
 
 #include "mail-storage-settings.h"
 
+struct module;
 struct mail_user;
 
 struct mail_user_vfuncs {
@@ -88,6 +89,9 @@ int mail_user_get_home(struct mail_user *user, const char **home_r);
 /* Returns path + file prefix for creating a temporary file. Uses home
    directory if possible, fallbacks to mail directory. */
 const char *mail_user_get_temp_prefix(struct mail_user *user);
+
+/* Returns TRUE if plugin is loaded for the user. */
+bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module);
 /* If name exists in plugin_envs, return its value. */
 const char *mail_user_plugin_getenv(struct mail_user *user, const char *name);
 const char *mail_user_set_plugin_getenv(const struct mail_user_settings *set,
