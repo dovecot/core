@@ -49,6 +49,9 @@ struct lmtp_client {
 	struct io *io;
 	int fd;
 
+	void (*data_output_callback)(void *);
+	void *data_output_context;
+
 	lmtp_finish_callback_t *finish_callback;
 	void *finish_context;
 
@@ -228,8 +231,7 @@ lmtp_client_data_next(struct lmtp_client *client, const char *line)
 
 		client->rcpt_next_data_idx = i + 1;
 		rcpt[i].failed = line[0] != '2';
-		rcpt[i].data_callback(!rcpt[i].failed, line,
-				      rcpt[i].context);
+		rcpt[i].data_callback(!rcpt[i].failed, line, rcpt[i].context);
 		if (client->protocol == LMTP_CLIENT_PROTOCOL_LMTP)
 			break;
 	}
@@ -245,6 +247,7 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 	const unsigned char *data;
 	unsigned char add;
 	size_t i, size;
+	bool sent_bytes;
 	int ret;
 
 	if (client->output_finished)
@@ -275,6 +278,7 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 				break;
 			client->output_last = data[i-1];
 			i_stream_skip(client->data_input, i);
+			sent_bytes = TRUE;
 		}
 
 		if (o_stream_get_buffer_used_size(client->output) >= 4096) {
@@ -293,6 +297,9 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 			client->output_last = add;
 		}
 	}
+	if (sent_bytes && client->data_output_callback != NULL)
+		client->data_output_callback(client->data_output_context);
+
 	if (ret == 0 || ret == -2) {
 		/* -2 can happen with tee istreams */
 		return;
@@ -541,4 +548,12 @@ void lmtp_client_send_more(struct lmtp_client *client)
 {
 	if (client->input_state == LMTP_INPUT_STATE_DATA)
 		lmtp_client_send_data(client);
+}
+
+void lmtp_client_set_data_output_callback(struct lmtp_client *client,
+					  void (*callback)(void *),
+					  void *context)
+{
+	client->data_output_callback = callback;
+	client->data_output_context = context;
 }

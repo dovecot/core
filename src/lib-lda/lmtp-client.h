@@ -46,5 +46,10 @@ void lmtp_client_send_more(struct lmtp_client *client);
 void lmtp_client_fail(struct lmtp_client *client, const char *line);
 /* Return the state (command reply) the client is currently waiting for. */
 const char *lmtp_client_state_to_string(struct lmtp_client *client);
+/* Call the given callback whenever client manages to send some more DATA
+   output to client. */
+void lmtp_client_set_data_output_callback(struct lmtp_client *client,
+					  void (*callback)(void *),
+					  void *context);
 
 #endif
