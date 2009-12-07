@@ -754,6 +754,7 @@ prevfile:
 
 void config_parse_load_modules(void)
 {
+	struct module_dir_load_settings mod_set;
 	struct module *modules, *m;
 	const struct setting_parser_info **roots;
 	ARRAY_DEFINE(new_roots, const struct setting_parser_info *);
@@ -761,7 +762,8 @@ void config_parse_load_modules(void)
 	struct service_settings *const *services, *service_set;
 	unsigned int i, count;
 
-	modules = module_dir_load(CONFIG_MODULE_DIR, NULL, FALSE, NULL);
+	memset(&mod_set, 0, sizeof(mod_set));
+	modules = module_dir_load(CONFIG_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
 	i_array_init(&new_roots, 64);

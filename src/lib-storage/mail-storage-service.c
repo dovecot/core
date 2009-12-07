@@ -643,17 +643,25 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 
 static void
 mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
+				  const struct setting_parser_info *user_info,
 				  const struct mail_user_settings *user_set)
 {
-	const char *version;
+	const struct mail_storage_settings *mail_set;
+	struct module_dir_load_settings mod_set;
 
 	if (*user_set->mail_plugins == '\0')
 		return;
 
-	version = master_service_get_version_string(ctx->service);
+	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
+						MAIL_STORAGE_SET_DRIVER_NAME);
+
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.version = master_service_get_version_string(ctx->service);
+	mod_set.require_init_funcs = TRUE;
+	mod_set.debug = mail_set->mail_debug;
+
 	modules = module_dir_load_missing(modules, user_set->mail_plugin_dir,
-					  user_set->mail_plugins, TRUE,
-					  version);
+					  user_set->mail_plugins, &mod_set);
 }
 
 int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
@@ -684,7 +692,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	if (ctx->conn == NULL)
 		mail_storage_service_first_init(ctx, user_info, user_set);
 	/* load global plugins */
-	mail_storage_service_load_modules(ctx, user_set);
+	mail_storage_service_load_modules(ctx, user_info, user_set);
 
 	temp_pool = pool_alloconly_create("userdb lookup", 1024);
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
@@ -727,7 +735,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	pool_unref(&temp_pool);
 
 	/* load per-user plugins */
-	mail_storage_service_load_modules(ctx, user->user_set);
+	mail_storage_service_load_modules(ctx, user_info, user->user_set);
 
 	*user_r = user;
 	return ret;

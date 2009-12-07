@@ -39,6 +39,8 @@ static ARRAY_DEFINE(listen_fd_types, enum auth_socket_type);
 
 static void main_preinit(struct auth_settings *set)
 {
+	struct module_dir_load_settings mod_set;
+
 	/* Open /dev/urandom before chrooting */
 	random_init();
 
@@ -50,9 +52,15 @@ static void main_preinit(struct auth_settings *set)
 	   only by root. Also load all modules here. */
 	passdbs_init();
 	userdbs_init();
-	modules = module_dir_load(AUTH_MODULE_DIR, NULL, TRUE,
-			master_service_get_version_string(master_service));
+
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.require_init_funcs = TRUE;
+	mod_set.debug = set->debug;
+
+	modules = module_dir_load(AUTH_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
+
 	auth = auth_preinit(set);
 
 	/* Password lookups etc. may require roots, allow it. */

@@ -1,6 +1,17 @@
 #ifndef MODULE_DIR_H
 #define MODULE_DIR_H
 
+struct module_dir_load_settings {
+	/* If version is non-NULL and the module contains a version symbol,
+	   fail the load if they're different. */
+	const char *version;
+
+	/* Require all plugins to have <plugin_name>_init() function */
+	unsigned int require_init_funcs:1;
+	/* Enable debug logging */
+	unsigned int debug:1;
+};
+
 struct module {
 	char *path, *name;
 
@@ -14,15 +25,14 @@ struct module {
 };
 
 /* Load modules in given directory. module_names is a space separated list of
-   module names to load, or NULL to load everything. If version is non-NULL and
-   the module contains a version symbol, fail the load if they're different. */
+   module names to load, or NULL to load everything. */
 struct module *module_dir_load(const char *dir, const char *module_names,
-			       bool require_init_funcs, const char *version);
+			       const struct module_dir_load_settings *set);
 /* Load modules that aren't already loaded. */
 struct module *
 module_dir_load_missing(struct module *old_modules,
 			const char *dir, const char *module_names,
-			bool require_init_funcs, const char *version);
+			const struct module_dir_load_settings *set);
 /* Call init() in all modules */
 void module_dir_init(struct module *modules);
 /* Call deinit() in all modules and mark them NULL so module_dir_unload()

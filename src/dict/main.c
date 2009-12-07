@@ -41,6 +41,7 @@ static void main_preinit(void)
 
 static void main_init(void)
 {
+	struct module_dir_load_settings mod_set;
 	void **sets;
 
 	sets = master_service_settings_get_others(master_service);
@@ -52,8 +53,11 @@ static void main_init(void)
 				    NULL));
 	}
 
-	modules = module_dir_load(DICT_MODULE_DIR, NULL, TRUE,
-			master_service_get_version_string(master_service));
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.require_init_funcs = TRUE;
+
+	modules = module_dir_load(DICT_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
 	/* Register only after loading modules. They may contain SQL drivers,

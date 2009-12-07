@@ -117,8 +117,9 @@ module_check_missing_dependencies(struct module *module,
 }
 
 static struct module *
-module_load(const char *path, const char *name, bool require_init_funcs,
-	    const char *version, struct module *all_modules)
+module_load(const char *path, const char *name,
+	    const struct module_dir_load_settings *set,
+	    struct module *all_modules)
 {
 	void *handle;
 	struct module *module;
@@ -135,10 +136,10 @@ module_load(const char *path, const char *name, bool require_init_funcs,
 	module->name = i_strdup(name);
 	module->handle = handle;
 
-	module_version = version == NULL ? NULL :
+	module_version = set->version == NULL ? NULL :
 		get_symbol(module, t_strconcat(name, "_version", NULL), TRUE);
 	if (module_version != NULL &&
-	    strcmp(*module_version, version) != 0) {
+	    strcmp(*module_version, set->version) != 0) {
 		i_error("Module is for different version %s: %s",
 			*module_version, path);
 		module_free(module);
@@ -148,13 +149,13 @@ module_load(const char *path, const char *name, bool require_init_funcs,
 	/* get our init func */
 	module->init = (void (*)(struct module *))
 		get_symbol(module, t_strconcat(name, "_init", NULL),
-			   !require_init_funcs);
+			   !set->require_init_funcs);
 	module->deinit = module->init == NULL ? NULL : (void (*)(void))
 		get_symbol(module, t_strconcat(name, "_deinit", NULL),
-			   !require_init_funcs);
+			   !set->require_init_funcs);
 
 	if ((module->init == NULL || module->deinit == NULL) &&
-	    require_init_funcs) {
+	    set->require_init_funcs) {
 		i_error("Module doesn't have %s function: %s",
 			module->init == NULL ? "init" : "deinit", path);
 		module->deinit = NULL;
@@ -168,8 +169,8 @@ module_load(const char *path, const char *name, bool require_init_funcs,
 		return NULL;
 	}
 
-	if (getenv("DEBUG") != NULL)
-		i_info("Module loaded: %s", path);
+	if (set->debug)
+		i_debug("Module loaded: %s", path);
 	return module;
 }
 
@@ -246,7 +247,7 @@ static bool module_is_loaded(struct module *modules, const char *name)
 static struct module *
 module_dir_load_real(struct module *old_modules,
 		     const char *dir, const char **module_names,
-		     bool require_init_funcs, const char *version)
+		     const struct module_dir_load_settings *set)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -256,8 +257,8 @@ module_dir_load_real(struct module *old_modules,
 	ARRAY_TYPE(const_string) names;
 	pool_t pool;
 
-	if (getenv("DEBUG") != NULL)
-		i_info("Loading modules from directory: %s", dir);
+	if (set->debug)
+		i_debug("Loading modules from directory: %s", dir);
 
 	dirp = opendir(dir);
 	if (dirp == NULL) {
@@ -317,9 +318,7 @@ module_dir_load_real(struct module *old_modules,
 			module = NULL;
 		else {
 			path = t_strconcat(dir, "/", name, NULL);
-			module = module_load(path, stripped_name,
-					     require_init_funcs, version,
-					     modules);
+			module = module_load(path, stripped_name, set, modules);
 			if (module == NULL && module_names != NULL)
 				i_fatal("Couldn't load required plugins");
 		}
@@ -348,16 +347,15 @@ module_dir_load_real(struct module *old_modules,
 }
 
 struct module *module_dir_load(const char *dir, const char *module_names,
-			       bool require_init_funcs, const char *version)
+			       const struct module_dir_load_settings *set)
 {
-	return module_dir_load_missing(NULL, dir, module_names,
-				       require_init_funcs, version);
+	return module_dir_load_missing(NULL, dir, module_names, set);
 }
 
 struct module *
 module_dir_load_missing(struct module *old_modules,
 			const char *dir, const char *module_names,
-			bool require_init_funcs, const char *version)
+			const struct module_dir_load_settings *set)
 {
 	struct module *modules;
 
@@ -365,8 +363,7 @@ module_dir_load_missing(struct module *old_modules,
 		const char **arr = module_names == NULL ? NULL :
 			t_strsplit_spaces(module_names, ", ");
 
-		modules = module_dir_load_real(old_modules, dir, arr,
-					       require_init_funcs, version);
+		modules = module_dir_load_real(old_modules, dir, arr, set);
 	} T_END;
 	return modules;
 }
