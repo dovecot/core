@@ -8,6 +8,8 @@ struct module {
 	void (*init)(struct module *module);
 	void (*deinit)(void);
 
+	unsigned int initialized:1;
+
         struct module *next;
 };
 
@@ -16,6 +18,11 @@ struct module {
    the module contains a version symbol, fail the load if they're different. */
 struct module *module_dir_load(const char *dir, const char *module_names,
 			       bool require_init_funcs, const char *version);
+/* Load modules that aren't already loaded. */
+struct module *
+module_dir_load_missing(struct module *old_modules,
+			const char *dir, const char *module_names,
+			bool require_init_funcs, const char *version);
 /* Call init() in all modules */
 void module_dir_init(struct module *modules);
 /* Call deinit() in all modules and mark them NULL so module_dir_unload()
@@ -29,5 +36,7 @@ void *module_get_symbol_quiet(struct module *module, const char *symbol);
 
 /* Returns module's base name from the filename. */
 const char *module_file_get_name(const char *fname);
+/* Returns module's name without "_plugin" suffix. */
+const char *module_get_plugin_name(struct module *module);
 
 #endif

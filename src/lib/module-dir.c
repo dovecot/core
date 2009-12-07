@@ -185,17 +185,27 @@ static int module_name_cmp(const char *const *n1, const char *const *n2)
 	return strcmp(s1, s2);
 }
 
-static bool module_want_load(const char **names, const char *name)
+static const char *module_name_drop_suffix(const char *name)
 {
-	size_t len;
-
-	if (names == NULL)
-		return TRUE;
+	unsigned int len;
 
 	len = strlen(name);
 	if (len > 7 && strcmp(name + len - 7, "_plugin") == 0)
 		name = t_strndup(name, len - 7);
+	return name;
+}
 
+const char *module_get_plugin_name(struct module *module)
+{
+	return module_name_drop_suffix(module->name);
+}
+
+static bool module_want_load(const char **names, const char *name)
+{
+	if (names == NULL)
+		return TRUE;
+
+	name = module_name_drop_suffix(name);
 	for (; *names != NULL; names++) {
 		if (strcmp(*names, name) == 0) {
 			*names = "";
@@ -222,14 +232,25 @@ static void check_duplicates(ARRAY_TYPE(const_string) *names,
 	}
 }
 
+static bool module_is_loaded(struct module *modules, const char *name)
+{
+	struct module *module;
+
+	for (module = modules; module != NULL; module = module->next) {
+		if (strcmp(module->name, name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static struct module *
-module_dir_load_real(const char *dir, const char *module_names,
+module_dir_load_real(struct module *old_modules,
+		     const char *dir, const char **module_names,
 		     bool require_init_funcs, const char *version)
 {
 	DIR *dirp;
 	struct dirent *d;
 	const char *name, *p, *const *names_p;
-	const char **module_names_arr;
 	struct module *modules, *module, **module_pos;
 	unsigned int i, count;
 	ARRAY_TYPE(const_string) names;
@@ -275,32 +296,31 @@ module_dir_load_real(const char *dir, const char *module_names,
 	array_sort(&names, module_name_cmp);
 	names_p = array_get(&names, &count);
 
-	if (module_names == NULL)
-		module_names_arr = NULL;
-	else {
-		module_names_arr = t_strsplit_spaces(module_names, ", ");
+	if (module_names != NULL) {
 		/* allow giving the module names also in non-base form.
 		   convert them in here. */
-		for (i = 0; module_names_arr[i] != NULL; i++) {
-			module_names_arr[i] =
-				module_file_get_name(module_names_arr[i]);
-		}
+		for (i = 0; module_names[i] != NULL; i++)
+			module_names[i] = module_file_get_name(module_names[i]);
 	}
 
+	modules = old_modules;
 	module_pos = &modules;
+	while (*module_pos != NULL)
+		module_pos = &(*module_pos)->next;
 	for (i = 0; i < count; i++) T_BEGIN {
 		const char *path, *stripped_name;
 
 		name = names_p[i];
 		stripped_name = module_file_get_name(name);
-		if (!module_want_load(module_names_arr, stripped_name))
+		if (!module_want_load(module_names, stripped_name) ||
+		    module_is_loaded(old_modules, stripped_name))
 			module = NULL;
 		else {
 			path = t_strconcat(dir, "/", name, NULL);
 			module = module_load(path, stripped_name,
 					     require_init_funcs, version,
 					     modules);
-			if (module == NULL && module_names_arr != NULL)
+			if (module == NULL && module_names != NULL)
 				i_fatal("Couldn't load required plugins");
 		}
 
@@ -310,12 +330,12 @@ module_dir_load_real(const char *dir, const char *module_names,
 		}
 	} T_END;
 
-	if (module_names_arr != NULL) {
+	if (module_names != NULL) {
 		/* make sure all modules were found */
-		for (; *module_names_arr != NULL; module_names_arr++) {
-			if (**module_names_arr != '\0') {
+		for (; *module_names != NULL; module_names++) {
+			if (**module_names != '\0') {
 				i_fatal("Plugin %s not found from directory %s",
-					*module_names_arr, dir);
+					*module_names, dir);
 			}
 		}
 	}
@@ -330,10 +350,22 @@ module_dir_load_real(const char *dir, const char *module_names,
 struct module *module_dir_load(const char *dir, const char *module_names,
 			       bool require_init_funcs, const char *version)
 {
+	return module_dir_load_missing(NULL, dir, module_names,
+				       require_init_funcs, version);
+}
+
+struct module *
+module_dir_load_missing(struct module *old_modules,
+			const char *dir, const char *module_names,
+			bool require_init_funcs, const char *version)
+{
 	struct module *modules;
 
 	T_BEGIN {
-		modules = module_dir_load_real(dir, module_names,
+		const char **arr = module_names == NULL ? NULL :
+			t_strsplit_spaces(module_names, ", ");
+
+		modules = module_dir_load_real(old_modules, dir, arr,
 					       require_init_funcs, version);
 	} T_END;
 	return modules;
@@ -344,11 +376,10 @@ void module_dir_init(struct module *modules)
 	struct module *module;
 
 	for (module = modules; module != NULL; module = module->next) {
-		if (module->init != NULL) {
-			T_BEGIN {
-				module->init(module);
-			} T_END;
-		}
+		if (module->init != NULL && !module->initialized) T_BEGIN {
+			module->initialized = TRUE;
+			module->init(module);
+		} T_END;
 	}
 }
 
