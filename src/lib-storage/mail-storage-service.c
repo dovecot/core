@@ -42,7 +42,6 @@ struct mail_storage_service_ctx {
 	const struct setting_parser_info **set_roots;
 	enum mail_storage_service_flags flags;
 
-	unsigned int modules_initialized:1;
 	unsigned int debug:1;
 };
 
@@ -635,16 +634,26 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 						MAIL_STORAGE_SET_DRIVER_NAME);
 	ctx->debug = mail_set->mail_debug;
 
-	modules = *user_set->mail_plugins == '\0' ? NULL :
-		module_dir_load(user_set->mail_plugin_dir,
-				user_set->mail_plugins, TRUE,
-				master_service_get_version_string(ctx->service));
-
 	ctx->conn = auth_master_init(user_set->auth_socket_path,
 				     ctx->debug);
 
 	i_assert(mail_user_auth_master_conn == NULL);
 	mail_user_auth_master_conn = ctx->conn;
+}
+
+static void
+mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
+				  const struct mail_user_settings *user_set)
+{
+	const char *version;
+
+	if (*user_set->mail_plugins == '\0')
+		return;
+
+	version = master_service_get_version_string(ctx->service);
+	modules = module_dir_load_missing(modules, user_set->mail_plugin_dir,
+					  user_set->mail_plugins, TRUE,
+					  version);
 }
 
 int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
@@ -674,6 +683,8 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	if (ctx->conn == NULL)
 		mail_storage_service_first_init(ctx, user_info, user_set);
+	/* load global plugins */
+	mail_storage_service_load_modules(ctx, user_set);
 
 	temp_pool = pool_alloconly_create("userdb lookup", 1024);
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
@@ -715,6 +726,9 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	}
 	pool_unref(&temp_pool);
 
+	/* load per-user plugins */
+	mail_storage_service_load_modules(ctx, user->user_set);
+
 	*user_r = user;
 	return ret;
 }
@@ -755,12 +769,10 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		    (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) != 0)
 			restrict_access_allow_coredumps(TRUE);
 	}
-	if (!ctx->modules_initialized) {
-		/* privileges dropped for the first time. initialize the
-		   modules now to avoid code running as root. */
-		module_dir_init(modules);
-		ctx->modules_initialized = TRUE;
-	}
+
+	/* privileges are dropped. initialize plugins that haven't been
+	   initialized yet. */
+	module_dir_init(modules);
 
 	/* we couldn't do chrooting, so if chrooting was enabled fix
 	   the home directory */
