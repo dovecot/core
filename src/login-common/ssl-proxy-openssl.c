@@ -82,7 +82,7 @@ struct ssl_server_context {
 
 	const char *cert;
 	const char *key;
-	const char *ca_file;
+	const char *ca;
 	const char *cipher_list;
 	bool verify_client_cert;
 };
@@ -598,7 +598,7 @@ ssl_server_context_get(const struct login_settings *set)
 	memset(&lookup_ctx, 0, sizeof(lookup_ctx));
 	lookup_ctx.cert = set->ssl_cert;
 	lookup_ctx.key = set->ssl_key;
-	lookup_ctx.ca_file = set->ssl_ca_file;
+	lookup_ctx.ca = set->ssl_ca;
 	lookup_ctx.cipher_list = set->ssl_cipher_list;
 	lookup_ctx.verify_client_cert = set->ssl_verify_client_cert;
 
@@ -869,26 +869,65 @@ static bool is_pem_key(const char *cert)
 	return strstr(cert, "PRIVATE KEY---") != NULL;
 }
 
-static void
+static STACK_OF(X509_NAME) *load_ca(X509_STORE *store, const char *ca)
+{
+	/* mostly just copy&pasted from X509_load_cert_crl_file() */
+	STACK_OF(X509_INFO) *inf;
+	STACK_OF(X509_NAME) *xnames;
+	X509_INFO *itmp;
+	X509_NAME *xname;
+	BIO *bio;
+	int i;
+
+	bio = BIO_new_mem_buf(t_strdup_noconst(ca), strlen(ca));
+	if (bio == NULL)
+		i_fatal("BIO_new_mem_buf() failed");
+	inf = PEM_X509_INFO_read_bio(bio, NULL, NULL, NULL);
+	if (inf == NULL)
+		i_fatal("Couldn't parse ssl_ca: %s", ssl_last_error());
+	BIO_free(bio);
+
+	xnames = sk_X509_NAME_new_null();
+	if (xnames == NULL)
+		i_fatal("sk_X509_NAME_new_null() failed");
+	for(i = 0; i < sk_X509_INFO_num(inf); i++) {
+		itmp = sk_X509_INFO_value(inf, i);
+		if(itmp->x509) {
+			X509_STORE_add_cert(store, itmp->x509);
+			xname = X509_get_subject_name(itmp->x509);
+			if (xname != NULL)
+				xname = X509_NAME_dup(xname);
+			if (xname != NULL)
+				sk_X509_NAME_push(xnames, xname);
+		}
+		if(itmp->crl)
+			X509_STORE_add_crl(store, itmp->crl);
+	}
+	sk_X509_INFO_pop_free(inf, X509_INFO_free);
+	return xnames;
+}
+
+static STACK_OF(X509_NAME) *
 ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set)
 {
-	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+	X509_STORE *store;
+	STACK_OF(X509_NAME) *xnames = NULL;
 
-	if (*set->ssl_ca_file != '\0') {
-		if (SSL_CTX_load_verify_locations(ssl_ctx, set->ssl_ca_file,
-						  NULL) != 1) {
-			i_fatal("Can't load CA file %s: %s",
-				set->ssl_ca_file, ssl_last_error());
-		}
+	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+	if (*set->ssl_ca != '\0') {
+		/* set trusted CA certs */
+		store = SSL_CTX_get_cert_store(ssl_ctx);
+		xnames = load_ca(store, set->ssl_ca);
 	}
 	SSL_CTX_set_info_callback(ssl_ctx, ssl_info_callback);
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
+	return xnames;
 }
 
 static void
-ssl_proxy_ctx_verify_client(SSL_CTX *ssl_ctx, const char *ca_file)
+ssl_proxy_ctx_verify_client(SSL_CTX *ssl_ctx, STACK_OF(X509_NAME) *ca_names)
 {
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
 	X509_STORE *store;
@@ -899,7 +938,8 @@ ssl_proxy_ctx_verify_client(SSL_CTX *ssl_ctx, const char *ca_file)
 #endif
 	SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE,
 			   ssl_verify_client_cert);
-	SSL_CTX_set_client_CA_list(ssl_ctx, SSL_load_client_CA_file(ca_file));
+	/* set list of CA names that are sent to client */
+	SSL_CTX_set_client_CA_list(ssl_ctx, ca_names);
 }
 
 static const char *ssl_proxy_get_use_certificate_error(const char *cert)
@@ -1043,20 +1083,21 @@ ssl_server_context_init(const struct login_settings *set)
 	struct ssl_server_context *ctx;
 	SSL_CTX *ssl_ctx;
 	pool_t pool;
+	STACK_OF(X509_NAME) *xnames;
 
 	pool = pool_alloconly_create("ssl server context", 2048);
 	ctx = i_new(struct ssl_server_context, 1);
 	ctx->pool = pool;
 	ctx->cert = p_strdup(pool, set->ssl_cert);
 	ctx->key = p_strdup(pool, set->ssl_key);
-	ctx->ca_file = p_strdup(pool, set->ssl_ca_file);
+	ctx->ca = p_strdup(pool, set->ssl_ca);
 	ctx->cipher_list = p_strdup(pool, set->ssl_cipher_list);
 	ctx->verify_client_cert = set->ssl_verify_client_cert;
 
 	ctx->ctx = ssl_ctx = SSL_CTX_new(SSLv23_server_method());
 	if (ssl_ctx == NULL)
 		i_fatal("SSL_CTX_new() failed");
-	ssl_proxy_ctx_init(ssl_ctx, set);
+	xnames = ssl_proxy_ctx_init(ssl_ctx, set);
 
 	if (SSL_CTX_set_cipher_list(ssl_ctx, ctx->cipher_list) != 1) {
 		i_fatal("Can't set cipher list to '%s': %s",
@@ -1080,7 +1121,7 @@ ssl_server_context_init(const struct login_settings *set)
 	SSL_CTX_set_info_callback(ctx->ctx, ssl_info_callback);
 
 	if (ctx->verify_client_cert)
-		ssl_proxy_ctx_verify_client(ctx->ctx, ctx->ca_file);
+		ssl_proxy_ctx_verify_client(ctx->ctx, xnames);
 
 	hash_table_insert(ssl_servers, ctx, ctx);
 	return ctx;
@@ -1096,10 +1137,12 @@ static void ssl_server_context_deinit(struct ssl_server_context **_ctx)
 
 static void ssl_proxy_init_client(const struct login_settings *set)
 {
+	STACK_OF(X509_NAME) *xnames;
+
 	if ((ssl_client_ctx = SSL_CTX_new(SSLv23_client_method())) == NULL)
 		i_fatal("SSL_CTX_new() failed");
-	ssl_proxy_ctx_init(ssl_client_ctx, set);
-	ssl_proxy_ctx_verify_client(ssl_client_ctx, set->ssl_ca_file);
+	xnames = ssl_proxy_ctx_init(ssl_client_ctx, set);
+	ssl_proxy_ctx_verify_client(ssl_client_ctx, xnames);
 }
 
 void ssl_proxy_init(void)

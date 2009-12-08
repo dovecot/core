@@ -23,7 +23,7 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(SET_STR, login_log_format),
 
 	DEF(SET_ENUM, ssl),
-	DEF(SET_STR, ssl_ca_file),
+	DEF(SET_STR, ssl_ca),
 	DEF(SET_STR, ssl_cert),
 	DEF(SET_STR, ssl_key),
 	DEF(SET_STR, ssl_key_password),
@@ -52,7 +52,7 @@ static const struct login_settings login_default_settings = {
 	.login_log_format = "%$: %s",
 
 	.ssl = "yes:no:required",
-	.ssl_ca_file = "",
+	.ssl_ca = "",
 	.ssl_cert = "",
 	.ssl_key = "",
 	.ssl_key_password = "",
@@ -110,18 +110,10 @@ static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 		*error_r = "ssl enabled, but ssl_key not set";
 		return FALSE;
 	}
-	if (set->ssl_verify_client_cert && *set->ssl_ca_file == '\0') {
-		*error_r = "ssl_verify_client_cert set, but ssl_ca_file not";
+	if (set->ssl_verify_client_cert && *set->ssl_ca == '\0') {
+		*error_r = "ssl_verify_client_cert set, but ssl_ca not";
 		return FALSE;
 	}
-
-#ifndef CONFIG_BINARY
-	if (*set->ssl_ca_file != '\0' && access(set->ssl_ca_file, R_OK) < 0) {
-		*error_r = t_strdup_printf("ssl_ca_file: access(%s) failed: %m",
-					   set->ssl_ca_file);
-		return FALSE;
-	}
-#endif
 	return TRUE;
 #endif
 }
