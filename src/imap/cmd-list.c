@@ -251,6 +251,7 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	enum mailbox_info_flags flags;
 	const char *name;
 	string_t *str;
+	bool same_ns, ends_with_sep;
 
 	ctx->cur_ns_send_prefix = FALSE;
 
@@ -261,9 +262,16 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 			return;
 	}
 
+	name = ns_get_listed_prefix(ctx);
 	len = strlen(ctx->ns->prefix);
+	ends_with_sep = ctx->ns->prefix[len-1] == ctx->ns->sep;
+
+	/* we may be listing namespace's parent. in such case we always want to
+	   set the name as nonexistent. */
+	same_ns = strcmp(name, ctx->ns->prefix) == 0 ||
+		(strncmp(name, ctx->ns->prefix, len - 1) == 0 && ends_with_sep);
 	if (len == 6 && strncasecmp(ctx->ns->prefix, "INBOX", len-1) == 0 &&
-	    ctx->ns->prefix[len-1] == ctx->ns->sep) {
+	    ends_with_sep) {
 		/* INBOX namespace needs to be handled specially. */
 		if (ctx->inbox_found) {
 			/* we're just now going to send it */
@@ -272,13 +280,12 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 
 		ctx->inbox_found = TRUE;
 		flags = list_get_inbox_flags(ctx);
-	} else if (mailbox_list_mailbox(ctx->ns->list, "", &flags) > 0) {
+	} else if (same_ns &&
+		   mailbox_list_mailbox(ctx->ns->list, "", &flags) > 0) {
 		/* mailbox with namespace prefix exists */
 	} else {
 		flags = MAILBOX_NONEXISTENT;
 	}
-
-	name = ns_get_listed_prefix(ctx);
 
 	if ((flags & MAILBOX_CHILDREN) == 0) {
 		if (have_children || list_namespace_has_children(ctx)) {
