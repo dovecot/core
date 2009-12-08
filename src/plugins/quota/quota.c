@@ -325,13 +325,10 @@ static void
 quota_rule_recalculate_relative_rules(struct quota_rule *rule,
 				      int64_t bytes_limit, int64_t count_limit)
 {
-	if (rule->bytes_percent > 0) {
+	if (rule->bytes_percent > 0)
 		rule->bytes_limit = bytes_limit * rule->bytes_percent / 100;
-	}
-	if (rule->count_percent > 0) {
-		rule->count_limit = count_limit *
-			rule->count_percent / 100;
-	}
+	if (rule->count_percent > 0)
+		rule->count_limit = count_limit * rule->count_percent / 100;
 }
 
 void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
