@@ -503,8 +503,11 @@ config_parse_line(struct parser_context *ctx, char *line, string_t *full_line,
 
 	if (len > 0 && line[len-1] == '\\') {
 		/* continues in next line */
-		line[len-1] = '\0';
-		str_append(full_line, line);
+		len--;
+		while (IS_WHITE(line[len-1]))
+			len--;
+		str_append_n(full_line, line, len);
+		str_append_c(full_line, ' ');
 		return CONFIG_LINE_TYPE_SKIP;
 	}
 	if (str_len(full_line) > 0) {
