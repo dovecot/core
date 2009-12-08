@@ -146,7 +146,9 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 struct quota_rule *
 quota_root_rule_find(struct quota_root_settings *root_set, const char *name);
 
-void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set);
+void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
+					   int64_t bytes_limit,
+					   int64_t count_limit);
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r);
 
 #endif

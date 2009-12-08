@@ -323,31 +323,32 @@ quota_rule_parse_percentage(struct quota_root_settings *root_set,
 
 static void
 quota_rule_recalculate_relative_rules(struct quota_rule *rule,
-				      const struct quota_rule *default_rule)
+				      int64_t bytes_limit, int64_t count_limit)
 {
 	if (rule->bytes_percent > 0) {
-		rule->bytes_limit = default_rule->bytes_limit *
-			rule->bytes_percent / 100;
+		rule->bytes_limit = bytes_limit * rule->bytes_percent / 100;
 	}
 	if (rule->count_percent > 0) {
-		rule->count_limit = default_rule->count_limit *
+		rule->count_limit = count_limit *
 			rule->count_percent / 100;
 	}
 }
 
-void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set)
+void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
+					   int64_t bytes_limit,
+					   int64_t count_limit)
 {
 	struct quota_rule *rule;
 	struct quota_warning_rule *warning_rule;
 
 	array_foreach_modifiable(&root_set->rules, rule) {
-		quota_rule_recalculate_relative_rules(rule,
-						      &root_set->default_rule);
+		quota_rule_recalculate_relative_rules(rule, bytes_limit,
+						      count_limit);
 	}
 
 	array_foreach_modifiable(&root_set->warning_rules, warning_rule) {
 		quota_rule_recalculate_relative_rules(&warning_rule->rule,
-						      &root_set->default_rule);
+						      bytes_limit, count_limit);
 	}
 }
 
@@ -477,7 +478,9 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 			ret = -1;
 	}
 
-	quota_root_recalculate_relative_rules(root_set);
+	quota_root_recalculate_relative_rules(root_set,
+					      root_set->default_rule.bytes_limit,
+					      root_set->default_rule.count_limit);
 	if (root_set->set->debug) {
 		i_debug("Quota rule: root=%s mailbox=%s "
 			"bytes=%lld%s messages=%lld%s", root_set->name,
@@ -623,7 +626,9 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	warning->command = i_strdup(p+1);
 	warning->rule = rule;
 
-	quota_root_recalculate_relative_rules(root_set);
+	quota_root_recalculate_relative_rules(root_set,
+					      root_set->default_rule.bytes_limit,
+					      root_set->default_rule.count_limit);
 	if (root_set->set->debug) {
 		i_debug("Quota warning: bytes=%llu%s "
 			"messages=%llu%s command=%s",
