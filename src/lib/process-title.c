@@ -18,6 +18,7 @@ static char *process_name = NULL;
 
 static char *process_title;
 static size_t process_title_len, process_title_clean_pos;
+static void *argv_memblock, *environ_memblock;
 
 static void proctitle_hack_init(char *argv[], char *env[])
 {
@@ -52,21 +53,34 @@ static void proctitle_hack_init(char *argv[], char *env[])
 	}
 }
 
-static char **argv_dup(char *old_argv[])
+static char **argv_dup(char *old_argv[], void **memblock_r)
 {
+	/* @UNSAFE */
+	void *memblock, *memblock_end;
 	char **new_argv;
 	unsigned int i, count;
+	size_t len, memblock_len = 0;
 
-	for (count = 0; old_argv[count] != NULL; count++) ;
+	for (count = 0; old_argv[count] != NULL; count++)
+		memblock_len += strlen(old_argv[count]) + 1;
+	memblock_len += sizeof(char *) * (count + 1);
 
-	new_argv = malloc(sizeof(char *) * (count + 1));
-	if (new_argv == NULL)
+	memblock = malloc(memblock_len);
+	if (memblock == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "malloc() failed: %m");
+	*memblock_r = memblock;
+	memblock_end = PTR_OFFSET(memblock, memblock_len);
+
+	new_argv = memblock;
+	memblock = PTR_OFFSET(memblock, sizeof(char *) * (count + 1));
+
 	for (i = 0; i < count; i++) {
-		new_argv[i] = strdup(old_argv[i]);
-		if (new_argv[i] == NULL)
-			i_fatal_status(FATAL_OUTOFMEM, "strdup() failed: %m");
+		new_argv[i] = memblock;
+		len = strlen(old_argv[i]) + 1;
+		memcpy(memblock, old_argv[i], len);
+		memblock = PTR_OFFSET(memblock, len);
 	}
+	i_assert(memblock == memblock_end);
 	new_argv[i] = NULL;
 	return new_argv;
 }
@@ -99,8 +113,8 @@ void process_title_init(char **argv[])
 	char **orig_argv = *argv;
 	char **orig_environ = environ;
 
-	*argv = argv_dup(orig_argv);
-	environ = argv_dup(orig_environ);
+	*argv = argv_dup(orig_argv, &argv_memblock);
+	environ = argv_dup(orig_environ, &environ_memblock);
 	proctitle_hack_init(orig_argv, orig_environ);
 #endif
 	process_name = (*argv)[0];
@@ -118,4 +132,10 @@ void process_title_set(const char *title ATTR_UNUSED)
 #elif defined(PROCTITLE_HACK)
 	proctitle_hack_set(t_strconcat(process_name, " ", title, NULL));
 #endif
+}
+
+void process_title_deinit(void)
+{
+	free(argv_memblock);
+	free(environ_memblock);
 }

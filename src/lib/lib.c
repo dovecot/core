@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "env-util.h"
 #include "hostpid.h"
+#include "process-title.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -31,4 +32,5 @@ void lib_deinit(void)
 	data_stack_deinit();
 	env_deinit();
 	failures_deinit();
+	process_title_deinit();
 }
