@@ -136,6 +136,8 @@ void process_title_set(const char *title ATTR_UNUSED)
 
 void process_title_deinit(void)
 {
+#ifdef PROCTITLE_HACK
 	free(argv_memblock);
 	free(environ_memblock);
+#endif
 }
