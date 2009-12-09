@@ -89,8 +89,7 @@ int main(int argc, char *argv[])
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
-					     MASTER_SERVICE_FLAG_STANDALONE |
-					     MASTER_SERVICE_FLAG_STD_CLIENT,
+					     MASTER_SERVICE_FLAG_STANDALONE,
 					     &argc, &argv, "A:b:fru:v");
 
 	username = getenv("USER");
