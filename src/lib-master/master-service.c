@@ -49,14 +49,21 @@ static void sig_die(const siginfo_t *si, void *context)
 {
 	struct master_service *service = context;
 
-	/* warn about being killed because of some signal, except SIGINT (^C)
-	   which is too common at least while testing :) */
+	/* SIGINT comes either from master process or from keyboard. we don't
+	   want to log it in either case.*/
 	if (si->si_signo != SIGINT) {
 		i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
 			  si->si_signo, dec2str(si->si_pid),
 			  dec2str(si->si_uid),
 			  lib_signal_code_to_str(si->si_signo, si->si_code));
+	} else if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
+		/* SIGINT came from master. die only if we're not handling
+		   any clients currently. */
+		if (service->master_status.available_count !=
+		    service->total_available_count)
+			return;
 	}
+
 	io_loop_stop(service->ioloop);
 }
 
