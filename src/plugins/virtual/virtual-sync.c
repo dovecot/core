@@ -688,9 +688,9 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 		MAILBOX_SEARCH_RESULT_FLAG_QUEUE_SYNC;
 	struct index_mailbox *ibox = (struct index_mailbox *)bbox->box;
 	struct mail_search_result *result;
-	ARRAY_TYPE(seq_range) removed_uids, added_uids, flag_updates;
+	ARRAY_TYPE(seq_range) removed_uids, added_uids, flag_update_uids;
 	uint64_t modseq;
-	uint32_t seq, old_msg_count;
+	uint32_t seq, uid, old_msg_count;
 
 	/* initialize the search result from all the existing messages in
 	   virtual index. */
@@ -699,23 +699,25 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 	mailbox_search_result_initial_done(result);
 	virtual_sync_backend_handle_old_vmsgs(ctx, bbox, result);
 
-	/* get list of changed old messages, based on modseq changes.
-	   (we'll assume all modseq changes are due to flag changes, which
-	   may not be true in future.) */
+	/* get list of changed old messages (messages already once seen by
+	   virtual index), based on modseq changes. (we'll assume all modseq
+	   changes are due to flag changes, which may not be true in future) */
 	if (bbox->sync_next_uid <= 1 ||
 	    !mail_index_lookup_seq_range(ibox->view, 1, bbox->sync_next_uid-1,
 					 &seq, &old_msg_count))
 		old_msg_count = 0;
-	t_array_init(&flag_updates, I_MIN(128, old_msg_count));
+	t_array_init(&flag_update_uids, I_MIN(128, old_msg_count));
 	for (seq = 1; seq <= old_msg_count; seq++) {
 		modseq = mail_index_modseq_lookup(ibox->view, seq);
-		if (modseq > bbox->sync_highest_modseq)
-			seq_range_array_add(&flag_updates, 0, seq);
+		if (modseq > bbox->sync_highest_modseq) {
+			mail_index_lookup_uid(ibox->view, seq, &uid);
+			seq_range_array_add(&flag_update_uids, 0, uid);
+		}
 	}
 
 	/* update the search result based on the flag changes and
 	   new messages */
-	if (index_search_result_update_flags(result, &flag_updates) < 0 ||
+	if (index_search_result_update_flags(result, &flag_update_uids) < 0 ||
 	    index_search_result_update_appends(result, old_msg_count) < 0) {
 		mailbox_search_result_free(&result);
 		return -1;
