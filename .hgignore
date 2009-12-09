@@ -49,6 +49,7 @@ Makefile.in
 **/Info.plist
 **/.libs
 
+doc/example-config/README
 doc/wiki/*.txt
 doc/wiki/Makefile.am
 src/anvil/anvil

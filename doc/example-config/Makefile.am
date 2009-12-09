@@ -1,5 +1,11 @@
 SUBDIRS = conf.d
 
+dovecotconfdir = $(sysconfdir)/dovecot
+dovecotconf_DATA = README
+
+README: README.in Makefile
+	cat README.in | sed "s|@exampledir@|$(exampledir)|" > README
+
 exampledir = $(docdir)/example-config
 example_DATA = \
 	dovecot.conf \
