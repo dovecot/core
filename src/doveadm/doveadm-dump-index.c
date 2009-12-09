@@ -37,6 +37,19 @@ struct dbox_mail_index_record {
 	uint32_t save_date;
 };
 
+struct virtual_mail_index_header {
+	uint32_t change_counter;
+	uint32_t mailbox_count;
+	uint32_t highest_mailbox_id;
+	uint32_t search_args_crc32;
+};
+struct virtual_mail_index_mailbox_record {
+	uint32_t id;
+	uint32_t name_len;
+	uint32_t uid_validity;
+	uint32_t next_uid;
+	uint64_t highest_modseq;
+};
 struct virtual_mail_index_record {
 	uint32_t mailbox_id;
 	uint32_t real_uid;
@@ -143,6 +156,30 @@ static void dump_extension_header(struct mail_index *index,
 		       (unsigned long long)hdr->highest_modseq);
 		printf(" - log_seq ...... = %u\n", hdr->log_seq);
 		printf(" - log_offset ... = %u\n", hdr->log_offset);
+	} else if (strcmp(ext->name, "virtual") == 0) {
+		const struct virtual_mail_index_header *hdr = data;
+		const struct virtual_mail_index_mailbox_record *rec;
+		const unsigned char *name;
+		unsigned int i;
+
+		printf("header\n");
+		printf(" - change_counter ... = %u\n", hdr->change_counter);
+		printf(" - mailbox_count .... = %u\n", hdr->mailbox_count);
+		printf(" - highest_mailbox_id = %u\n", hdr->highest_mailbox_id);
+		printf(" - search_args_crc32  = %u\n", hdr->search_args_crc32);
+
+		rec = CONST_PTR_OFFSET(hdr, sizeof(*hdr));
+		name = CONST_PTR_OFFSET(rec, sizeof(*rec) * hdr->mailbox_count);
+		for (i = 0; i < hdr->mailbox_count; i++, rec++) {
+			printf("mailbox %s:\n", t_strndup(name, rec->name_len));
+			printf(" - id ........... = %u\n", rec->id);
+			printf(" - uid_validity . = %u\n", rec->uid_validity);
+			printf(" - next_uid ..... = %u\n", rec->next_uid);
+			printf(" - highest_modseq = %llu\n",
+			       (unsigned long long)rec->highest_modseq);
+
+			name += rec->name_len;
+		}
 	} else {
 		printf("header ........ = %s\n",
 		       binary_to_hex(data, ext->hdr_size));
