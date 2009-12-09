@@ -689,7 +689,7 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 	struct index_mailbox *ibox = (struct index_mailbox *)bbox->box;
 	struct mail_search_result *result;
 	ARRAY_TYPE(seq_range) removed_uids, added_uids, flag_update_uids;
-	uint64_t modseq;
+	uint64_t modseq, old_highest_modseq;
 	uint32_t seq, uid, old_msg_count;
 
 	/* initialize the search result from all the existing messages in
@@ -706,12 +706,16 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 	    !mail_index_lookup_seq_range(ibox->view, 1, bbox->sync_next_uid-1,
 					 &seq, &old_msg_count))
 		old_msg_count = 0;
+	old_highest_modseq = mail_index_modseq_get_highest(ibox->view);
+
 	t_array_init(&flag_update_uids, I_MIN(128, old_msg_count));
-	for (seq = 1; seq <= old_msg_count; seq++) {
-		modseq = mail_index_modseq_lookup(ibox->view, seq);
-		if (modseq > bbox->sync_highest_modseq) {
-			mail_index_lookup_uid(ibox->view, seq, &uid);
-			seq_range_array_add(&flag_update_uids, 0, uid);
+	if (bbox->sync_highest_modseq < old_highest_modseq) {
+		for (seq = 1; seq <= old_msg_count; seq++) {
+			modseq = mail_index_modseq_lookup(ibox->view, seq);
+			if (modseq > bbox->sync_highest_modseq) {
+				mail_index_lookup_uid(ibox->view, seq, &uid);
+				seq_range_array_add(&flag_update_uids, 0, uid);
+			}
 		}
 	}
 
