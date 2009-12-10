@@ -134,6 +134,11 @@ auth_client_request_get_server_pid(struct auth_client_request *request)
 	return request->conn->server_pid;
 }
 
+const char *auth_client_request_get_cookie(struct auth_client_request *request)
+{
+	return request->conn->cookie;
+}
+
 bool auth_client_request_is_aborted(struct auth_client_request *request)
 {
 	return request->callback == NULL;

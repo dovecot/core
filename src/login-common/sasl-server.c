@@ -26,6 +26,7 @@
 struct anvil_request {
 	struct client *client;
 	unsigned int auth_pid, auth_id;
+	unsigned char cookie[MASTER_AUTH_COOKIE_SIZE];
 };
 
 const struct auth_mech_desc *
@@ -109,11 +110,8 @@ static void master_send_request(struct anvil_request *anvil_request)
 	struct client *client = anvil_request->client;
 	struct master_auth_request req;
 	const unsigned char *data;
-	const char *cookie;
 	size_t size;
 	buffer_t *buf;
-
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	memset(&req, 0, sizeof(req));
 	req.auth_pid = anvil_request->auth_pid;
@@ -121,12 +119,9 @@ static void master_send_request(struct anvil_request *anvil_request)
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
 	req.client_pid = getpid();
+	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
-	cookie = auth_client_get_cookie(auth_client);
-	if (hex_to_binary(cookie, buf) == 0 && buf->used == sizeof(req.cookie))
-		memcpy(req.cookie, buf->data, sizeof(req.cookie));
-
-	buffer_set_used_size(buf, 0);
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 	buffer_append(buf, client->master_data_prefix,
 		      client->master_data_prefix_len);
 
@@ -159,12 +154,18 @@ anvil_check_too_many_connections(struct client *client,
 				 struct auth_client_request *request)
 {
 	struct anvil_request *req;
-	const char *query;
+	const char *query, *cookie;
+	buffer_t buf;
 
 	req = i_new(struct anvil_request, 1);
 	req->client = client;
 	req->auth_pid = auth_client_request_get_server_pid(request);
 	req->auth_id = auth_client_request_get_id(request);
+
+	buffer_create_data(&buf, req->cookie, sizeof(req->cookie));
+	cookie = auth_client_request_get_cookie(request);
+	if (strlen(cookie) == MASTER_AUTH_COOKIE_SIZE*2)
+		(void)hex_to_binary(cookie, &buf);
 
 	if (client->virtual_user == NULL ||
 	    client->set->mail_max_userip_connections == 0) {

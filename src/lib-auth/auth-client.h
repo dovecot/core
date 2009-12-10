@@ -68,7 +68,6 @@ auth_client_find_mech(struct auth_client *client, const char *name);
 void auth_client_get_connect_id(struct auth_client *client,
 				unsigned int *server_pid_r,
 				unsigned int *connect_uid_r);
-const char *auth_client_get_cookie(struct auth_client *client);
 
 /* Create a new authentication request. callback is called whenever something
    happens for the request. */
@@ -87,5 +86,7 @@ unsigned int auth_client_request_get_id(struct auth_client_request *request);
 /* Return the PID of the server that handled this request. */
 unsigned int
 auth_client_request_get_server_pid(struct auth_client_request *request);
+/* Return cookie of the server that handled this request. */
+const char *auth_client_request_get_cookie(struct auth_client_request *request);
 
 #endif
