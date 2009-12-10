@@ -48,6 +48,7 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib-mail/libmail.la \
 	../lib-imap/libimap.la \
+	../lib-charset/libcharset.la \
 	../lib/liblib.la \
 	$(LIBICONV)
 
