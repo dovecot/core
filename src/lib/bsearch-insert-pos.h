@@ -36,7 +36,7 @@ bool array_bsearch_insert_pos_i(const struct array *array, const void *key,
 	array_bsearch_insert_pos_i(&(array)->arr, (const void *)key, \
 		(int (*)(const void *, const void *))cmp, idx_r); })
 #else
-#define array_bsearch(array, key, cmp) \
+#define array_bsearch_insert_pos(array, key, cmp, idx_r) \
 	array_bsearch_insert_pos_i(&(array)->arr, (const void *)key, \
 		(int (*)(const void *, const void *))cmp, idx_r)
 #endif
