@@ -255,6 +255,11 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 			return i_stream_raw_mbox_read(stream);
 		}
 		if (mbox_read_from_line(rstream) < 0) {
+			if (stream->istream.v_offset != 0) {
+				i_error("Next message unexpectedly corrupted in mbox file "
+					"%s at %"PRIuUOFF_T, rstream->path,
+					stream->istream.v_offset);
+			}
 			stream->pos = 0;
 			rstream->eof = TRUE;
 			rstream->corrupted = TRUE;
