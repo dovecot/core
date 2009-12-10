@@ -150,6 +150,9 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	i_assert(sync_ctx->input->v_offset != mail_ctx->mail.from_offset ||
 		 sync_ctx->input->eof);
 
+	if (istream_raw_mbox_is_corrupted(sync_ctx->input))
+		return -1;
+
 	mail_ctx->mail.body_size =
 		istream_raw_mbox_get_body_size(sync_ctx->input,
 					       mail_ctx->content_length);
@@ -1167,13 +1170,12 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			ret = mbox_sync_partial_seek_next(sync_ctx, uid + 1,
 							  &partial,
 							  &skipped_mails);
-			if (ret <= 0) {
-				if (ret < 0)
-					return -1;
+			if (ret <= 0)
 				break;
-			}
 		}
 	}
+	if (ret < 0)
+		return -1;
 
 	if (istream_raw_mbox_is_eof(sync_ctx->input)) {
 		/* rest of the messages in index don't exist -> expunge them */
