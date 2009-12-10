@@ -27,6 +27,7 @@ struct anvil_client *anvil;
 const struct login_settings *global_login_settings;
 void **global_other_settings;
 
+static bool shutting_down = FALSE;
 static bool ssl_connections = FALSE;
 
 void login_refresh_proctitle(void)
@@ -52,7 +53,13 @@ void login_refresh_proctitle(void)
 
 static void login_die(void)
 {
+	shutting_down = TRUE;
 	login_proxy_kill_idle();
+
+	if (auth_client == NULL || !auth_client_is_connected(auth_client)) {
+		/* we don't have auth client, and we might never get one */
+		clients_destroy_all();
+	}
 }
 
 static void client_connected(const struct master_service_connection *conn)
@@ -102,7 +109,9 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 				bool connected, void *context ATTR_UNUSED)
 {
 	if (connected)
-                clients_notify_auth_connected();
+		clients_notify_auth_connected();
+	else if (shutting_down)
+		clients_destroy_all();
 }
 
 static bool anvil_reconnect_callback(void)
