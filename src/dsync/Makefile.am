@@ -48,7 +48,8 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib-mail/libmail.la \
 	../lib-imap/libimap.la \
-	../lib/liblib.la
+	../lib/liblib.la \
+	$(LIBICONV)
 
 test_dsync_brain_SOURCES = test-dsync-brain.c test-dsync-worker.c test-dsync-common.c
 test_dsync_brain_LDADD = dsync-data.o dsync-brain.o dsync-worker.o $(test_libs)
