@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
+#include "strescape.h"
 #include "imap-match.h"
 #include "mail-namespace.h"
 #include "expire-env.h"
@@ -26,6 +28,34 @@ struct expire_env {
 	ARRAY_DEFINE(expire_boxes, struct expire_box);
 };
 
+static const char *quoted_string_get(char *const **namesp)
+{
+	string_t *str = t_str_new(128);
+	char *const *names = *namesp;
+	const char *name;
+	unsigned int i;
+
+	name = (*names) + 1;
+	for (;;) {
+		for (i = 0; name[i] != '\0'; i++) {
+			if (name[i] == '\\' &&
+			    name[i+1] != '\0')
+				i++;
+			else if (name[i] == '"')
+				break;
+		}
+		str_append_unescaped(str, name, i);
+		names++;
+		if (name[i] == '"' || *names == NULL)
+			break;
+
+		str_append_c(str, ' ');
+		name = *names;
+	}
+	*namesp = names;
+	return str_c(str);
+}
+
 static void
 expire_env_parse(struct expire_env *env, struct mail_namespace *namespaces,
 		 const char *str, enum expire_type type)
@@ -43,14 +73,20 @@ expire_env_parse(struct expire_env *env, struct mail_namespace *namespaces,
 	len = str_array_length((const char *const *)names);
 
 	p_array_init(&env->expire_boxes, env->pool, len / 2);
-	for (; *names != NULL; names += 2) {
-		if (names[1] == NULL) {
+	for (; *names != NULL; names++) {
+		if (**names == '"') {
+			/* quoted string. */
+			box.pattern = quoted_string_get(&names);
+		} else {
+			box.pattern = *names;
+			names++;
+		}
+		if (*names == NULL) {
 			i_fatal("expire: Missing expire days for mailbox '%s'",
-				*names);
+				box.pattern);
 		}
 
-		box.pattern = *names;
-		ns_name = *names;
+		ns_name = box.pattern;
 		ns = mail_namespace_find(namespaces, &ns_name);
 		if (ns == NULL && *box.pattern != '*') {
 			i_warning("expire: No namespace found for mailbox: %s",
@@ -60,7 +96,7 @@ expire_env_parse(struct expire_env *env, struct mail_namespace *namespaces,
 		box.glob = imap_match_init(env->pool, box.pattern, TRUE,
 					   ns == NULL ? '/' : ns->sep);
 		box.type = type;
-		box.expire_secs = strtoul(names[1], NULL, 10) * 3600 * 24;
+		box.expire_secs = strtoul(*names, NULL, 10) * 3600 * 24;
 
 		if (namespaces->user->mail_debug) {
 			i_debug("expire: pattern=%s type=%s secs=%u",
