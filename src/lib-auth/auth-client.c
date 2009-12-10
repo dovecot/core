@@ -48,6 +48,8 @@ const struct auth_mech_desc *
 auth_client_get_available_mechs(struct auth_client *client,
 				unsigned int *mech_count)
 {
+	i_assert(auth_client_is_connected(client));
+
 	return array_get(&client->conn->available_auth_mechs, mech_count);
 }
 
@@ -67,11 +69,15 @@ void auth_client_get_connect_id(struct auth_client *client,
 				unsigned int *server_pid_r,
 				unsigned int *connect_uid_r)
 {
+	i_assert(auth_client_is_connected(client));
+
 	*server_pid_r = client->conn->server_pid;
 	*connect_uid_r = client->conn->connect_uid;
 }
 
 const char *auth_client_get_cookie(struct auth_client *client)
 {
+	i_assert(auth_client_is_connected(client));
+
 	return client->conn->cookie;
 }
