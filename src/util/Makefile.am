@@ -2,6 +2,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = \
 	rawlog \
+	script \
 	gdbhelper \
 	imap-utf7 \
 	listview \
@@ -17,12 +18,18 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/auth \
+	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
 rawlog_LDADD = $(LIBDOVECOT)
 rawlog_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 rawlog_SOURCES = \
 	rawlog.c
+
+script_LDADD = $(LIBDOVECOT)
+script_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+script_SOURCES = \
+	script.c
 
 gdbhelper_LDADD = $(LIBDOVECOT)
 gdbhelper_DEPENDENCIES = $(LIBDOVECOT_DEPS)

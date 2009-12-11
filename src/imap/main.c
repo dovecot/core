@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "abspath.h"
 #include "str.h"
 #include "base64.h"
 #include "process-title.h"
@@ -252,6 +253,7 @@ int main(int argc, char *argv[])
 	};
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags = 0;
+	const char *postlogin_socket_path;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
@@ -273,6 +275,8 @@ int main(int argc, char *argv[])
 					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
+	postlogin_socket_path = t_abspath(argv[1]);
+
 	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, imap_die);
 
@@ -294,6 +298,7 @@ int main(int argc, char *argv[])
 		} T_END;
 	} else {
 		master_login = master_login_init(master_service, "auth-master",
+						 postlogin_socket_path,
 						 login_client_connected);
 		io_loop_set_running(current_ioloop);
 	}
