@@ -232,6 +232,7 @@ test_lib_SOURCES = \
 	test-priorityq.c \
 	test-seq-range-array.c \
 	test-strescape.c \
+	test-strfuncs.c \
 	test-str-find.c \
 	test-str-sanitize.c \
 	test-time-util.c \

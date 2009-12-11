@@ -22,6 +22,7 @@ int main(void)
 		test_priorityq,
 		test_seq_range_array,
 		test_strescape,
+		test_strfuncs,
 		test_str_find,
 		test_str_sanitize,
 		test_time_util,

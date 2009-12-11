@@ -84,6 +84,9 @@ bool str_array_remove(const char **arr, const char *value);
 bool str_array_find(const char *const *arr, const char *value);
 /* Like str_array_find(), but use strcasecmp(). */
 bool str_array_icase_find(const char *const *arr, const char *value);
+/* Duplicate array of strings. The memory can be freed by freeing the
+   return value. */
+const char **p_strarray_dup(pool_t pool, const char *const *arr);
 
 /* INTERNAL */
 char *t_noalloc_strdup_vprintf(const char *format, va_list args,

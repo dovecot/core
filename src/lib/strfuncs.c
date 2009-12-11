@@ -559,6 +559,28 @@ bool str_array_icase_find(const char *const *arr, const char *value)
 	return FALSE;
 }
 
+const char **p_strarray_dup(pool_t pool, const char *const *arr)
+{
+	unsigned int i;
+	const char **ret;
+	char *p;
+	size_t len, size = sizeof(const char *);
+
+	for (i = 0; arr[i] != NULL; i++)
+		size += sizeof(const char *) + strlen(arr[i]) + 1;
+
+	ret = p_malloc(pool, size);
+	p = PTR_OFFSET(ret, sizeof(const char *) * (i + 1));
+	for (i = 0; arr[i] != NULL; i++) {
+		len = strlen(arr[i]) + 1;
+		memcpy(p, arr[i], len);
+		ret[i] = p;
+		p += len;
+	}
+	i_assert(PTR_OFFSET(ret, size) == (void *)p);
+	return ret;
+}
+
 const char *dec2str(uintmax_t number)
 {
 	char *buffer;
