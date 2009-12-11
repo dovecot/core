@@ -142,7 +142,9 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 	reply.mail_pid = getpid();
 	o_stream_send(conn->output, &reply, sizeof(reply));
 
-	if (auth_args == NULL) {
+	if (auth_args == NULL || auth_args[0] == NULL) {
+		if (auth_args != NULL)
+			i_error("login client: Username missing from auth reply");
 		if (close(client->fd) < 0)
 			i_error("close(fd_read client) failed: %m");
 		i_free(client);

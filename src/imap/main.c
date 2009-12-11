@@ -224,12 +224,6 @@ login_client_connected(const struct master_login_client *client,
 	input.username = username;
 	input.userdb_fields = extra_fields;
 
-	if (input.username == NULL) {
-		i_error("login client: Username missing from auth reply");
-		(void)close(client->fd);
-		return;
-	}
-
 	buffer_create_const_data(&input_buf, client->data,
 				 client->auth_req.data_size);
 	if (client_create_from_input(&input, client->fd, client->fd,
