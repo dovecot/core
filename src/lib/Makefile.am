@@ -9,6 +9,7 @@ $(srcdir)/unicodemap.c: unicodemap.pl
 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
 
 liblib_la_SOURCES = \
+	abspath.c \
 	array.c \
 	aqueue.c \
 	askpass.c \
@@ -113,6 +114,7 @@ liblib_la_SOURCES = \
 	write-full.c
 
 headers = \
+	abspath.h \
 	aqueue.h \
 	array.h \
 	array-decl.h \
