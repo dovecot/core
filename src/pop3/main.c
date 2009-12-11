@@ -156,6 +156,7 @@ login_client_connected(const struct master_login_client *client,
 				     &input_buf, &error) < 0) {
 		i_error("%s", error);
 		(void)close(client->fd);
+		master_service_client_connection_destroyed(master_service);
 	}
 }
 
