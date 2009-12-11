@@ -115,7 +115,7 @@ master_login_conn_read_request(struct master_login_connection *conn,
 	}
 
 	if (fstat(*client_fd_r, &st) < 0) {
-		i_error("fstat(fd_recv client) failed: %m");
+		i_error("fstat(fd_read client) failed: %m");
 		return -1;
 	}
 	if (st.st_ino != req_r->ino) {
@@ -144,7 +144,7 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 
 	if (auth_args == NULL) {
 		if (close(client->fd) < 0)
-			i_error("close(fd_recv client) failed: %m");
+			i_error("close(fd_read client) failed: %m");
 		i_free(client);
 		return;
 	}
@@ -180,7 +180,7 @@ static void master_login_conn_input(struct master_login_connection *conn)
 			master_login_conn_deinit(&conn);
 		if (client_fd != -1) {
 			if (close(client_fd) < 0)
-				i_error("close(fd_recv client) failed: %m");
+				i_error("close(fd_read client) failed: %m");
 		}
 		return;
 	}
