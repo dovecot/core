@@ -3,6 +3,8 @@
 #include "common.h"
 #include "array.h"
 #include "env-util.h"
+#include "fdpass.h"
+#include "ioloop.h"
 #include "restrict-access.h"
 #include "master-service.h"
 #include "master-interface.h"
@@ -10,14 +12,38 @@
 #include "penalty.h"
 #include "anvil-connection.h"
 
+#include <unistd.h>
+
 struct connect_limit *connect_limit;
 struct penalty *penalty;
+static struct io *log_fdpass_io;
 
 static void client_connected(const struct master_service_connection *conn)
 {
 	bool master = conn->listen_fd == MASTER_LISTEN_FD_FIRST;
 
 	anvil_connection_create(conn->fd, master, conn->fifo);
+}
+
+static void log_fdpass_input(void *context ATTR_UNUSED)
+{
+	int fd;
+	char c;
+	ssize_t ret;
+
+	/* master wants us to replace the log fd */
+	ret = fd_read(MASTER_ANVIL_LOG_FDPASS_FD, &c, 1, &fd);
+	if (ret < 0)
+		i_error("fd_read(log fd) failed: %m");
+	else if (ret == 0) {
+		/* master died. lib-master should notice it soon. */
+		io_remove(&log_fdpass_io);
+	} else {
+		if (dup2(fd, STDERR_FILENO) < 0)
+			i_fatal("dup2(fd_read  log fd, stderr) failed: %m");
+		if (close(fd) < 0)
+			i_error("close(fd_read log fd) failed: %m");
+	}
 }
 
 int main(int argc, char *argv[])
@@ -33,9 +59,13 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	connect_limit = connect_limit_init();
 	penalty = penalty_init();
+	log_fdpass_io = io_add(MASTER_ANVIL_LOG_FDPASS_FD, IO_READ,
+			       log_fdpass_input, NULL);
 
 	master_service_run(master_service, client_connected);
 
+	if (log_fdpass_io != NULL)
+		io_remove(&log_fdpass_io);
 	penalty_deinit(&penalty);
 	connect_limit_deinit(&connect_limit);
 	anvil_connections_destroy_all();

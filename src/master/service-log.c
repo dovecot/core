@@ -10,6 +10,7 @@
 #include "service.h"
 #include "service-process.h"
 #include "service-process-notify.h"
+#include "service-anvil.h"
 #include "service-log.h"
 
 #include <unistd.h>
@@ -68,14 +69,12 @@ service_process_write_log_bye(int fd, struct service_process *process)
 int services_log_init(struct service_list *service_list)
 {
 	struct service *const *services;
-	unsigned int i, count, n;
 	const char *log_prefix;
 	buffer_t *handshake_buf;
 	ssize_t ret = 0;
+	int fd;
 
 	handshake_buf = buffer_create_dynamic(default_pool, 256);
-	services = array_get(&service_list->services, &count);
-
 	if (service_log_fds_init(MASTER_LOG_PREFIX_NAME,
 				 service_list->master_log_fd,
 				 handshake_buf) < 0)
@@ -88,20 +87,20 @@ int services_log_init(struct service_list *service_list)
 		service_process_notify_init(service_list->master_log_fd[1],
 					    service_process_write_log_bye);
 
-	n = 1;
-	for (i = 0; i < count; i++) {
-		if (services[i]->type == SERVICE_TYPE_LOG)
+	fd = MASTER_LISTEN_FD_FIRST + 1;
+	array_foreach(&service_list->services, services) {
+		struct service *service = *services;
+
+		if (service->type == SERVICE_TYPE_LOG)
 			continue;
 
-		log_prefix = t_strconcat(services[i]->set->name, ": ", NULL);
-		if (service_log_fds_init(log_prefix,
-					 services[i]->log_fd,
+		log_prefix = t_strconcat(service->set->name, ": ", NULL);
+		if (service_log_fds_init(log_prefix, service->log_fd,
 					 handshake_buf) < 0) {
 			ret = -1;
 			break;
 		}
-		services[i]->log_process_internal_fd =
-			MASTER_LISTEN_FD_FIRST + n++;
+		service->log_process_internal_fd = fd++;
 	}
 
 	buffer_free(&handshake_buf);
@@ -109,6 +108,8 @@ int services_log_init(struct service_list *service_list)
 		services_log_deinit(service_list);
 		return -1;
 	}
+
+	service_anvil_send_log_fd();
 	return 0;
 }
 

@@ -409,6 +409,13 @@ int services_create(const struct master_settings *set,
 			}
 			service_list->config = service;
 			break;
+		case SERVICE_TYPE_ANVIL:
+			if (service_list->anvil != NULL) {
+				*error_r = "Multiple anvil services specified";
+				return -1;
+			}
+			service_list->anvil = service;
+			break;
 		default:
 			break;
 		}

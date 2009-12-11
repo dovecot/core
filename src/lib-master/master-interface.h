@@ -56,6 +56,8 @@ enum master_login_state {
 
 /* Write pipe to anvil. */
 #define MASTER_ANVIL_FD 3
+/* Anvil reads new log fds from this fd */
+#define MASTER_ANVIL_LOG_FDPASS_FD 4
 /* Master's "all processes full" notification fd for login processes */
 #define MASTER_LOGIN_NOTIFY_FD 4
 

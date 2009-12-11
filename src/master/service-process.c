@@ -61,6 +61,8 @@ service_dup_fds(struct service *service)
 		n += socket_listener_count;
 		break;
 	case SERVICE_TYPE_ANVIL:
+		dup2_append(&dups, service_anvil_global->log_fdpass_fd[0],
+			    MASTER_ANVIL_LOG_FDPASS_FD);
 		/* nonblocking anvil fd must be the first one. anvil treats it
 		   as the master's fd */
 		dup2_append(&dups, service_anvil_global->nonblocking_fd[0],

@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "fd-close-on-exec.h"
 #include "fd-set-nonblock.h"
+#include "fdpass.h"
 #include "service.h"
 #include "service-process.h"
 #include "service-process-notify.h"
@@ -126,6 +127,22 @@ void service_anvil_process_destroyed(struct service_process *process)
 		service_anvil_global->pid = 0;
 }
 
+void service_anvil_send_log_fd(void)
+{
+	ssize_t ret;
+	char b;
+
+	if (service_anvil_global->process_count == 0)
+		return;
+
+	ret = fd_send(service_anvil_global->log_fdpass_fd[1],
+		      services->anvil->log_fd[1], &b, 1);
+	if (ret < 0)
+		i_error("fd_send(anvil log fd) failed: %m");
+	else if (ret == 0)
+		i_error("fd_send(anvil log fd) failed: disconnected");
+}
+
 void service_anvil_global_init(void)
 {
 	struct service_anvil_global *anvil;
@@ -137,6 +154,8 @@ void service_anvil_global_init(void)
 		i_fatal("pipe() failed: %m");
 	if (pipe(anvil->nonblocking_fd) < 0)
 		i_fatal("pipe() failed: %m");
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, anvil->log_fdpass_fd) < 0)
+		i_fatal("socketpair() failed: %m");
 	fd_set_nonblock(anvil->status_fd[0], TRUE);
 	fd_set_nonblock(anvil->status_fd[1], TRUE);
 	fd_set_nonblock(anvil->nonblocking_fd[1], TRUE);
@@ -147,6 +166,8 @@ void service_anvil_global_init(void)
 	fd_close_on_exec(anvil->blocking_fd[1], TRUE);
 	fd_close_on_exec(anvil->nonblocking_fd[0], TRUE);
 	fd_close_on_exec(anvil->nonblocking_fd[1], TRUE);
+	fd_close_on_exec(anvil->log_fdpass_fd[0], TRUE);
+	fd_close_on_exec(anvil->log_fdpass_fd[1], TRUE);
 
 	anvil->kills =
 		service_process_notify_init(anvil->nonblocking_fd[1],
@@ -160,6 +181,10 @@ void service_anvil_global_deinit(void)
 
 	service_list_anvil_discard_input_stop(anvil);
 	service_process_notify_deinit(&anvil->kills);
+	if (close(anvil->log_fdpass_fd[0]) < 0)
+		i_error("close(anvil) failed: %m");
+	if (close(anvil->log_fdpass_fd[1]) < 0)
+		i_error("close(anvil) failed: %m");
 	if (close(anvil->blocking_fd[0]) < 0)
 		i_error("close(anvil) failed: %m");
 	if (close(anvil->blocking_fd[1]) < 0)

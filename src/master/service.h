@@ -110,6 +110,7 @@ struct service_list {
 
 	struct service *config;
 	struct service *log;
+	struct service *anvil;
 	const char *const *child_process_env;
 
 	/* nonblocking log fds usd by master */
