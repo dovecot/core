@@ -12,6 +12,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
@@ -26,8 +27,8 @@ rawlog_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 rawlog_SOURCES = \
 	rawlog.c
 
-script_LDADD = $(LIBDOVECOT)
-script_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+script_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT) $(MODULE_LIBS)
+script_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_DEPS)
 script_SOURCES = \
 	script.c
 
