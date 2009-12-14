@@ -232,6 +232,8 @@ settings_export(struct settings_export_context *ctx,
 			count = 0;
 			break;
 		}
+		case SET_ALIAS:
+			break;
 		}
 		if (str_len(ctx->value) > 0 || dump) {
 			key = p_strconcat(ctx->pool, str_c(ctx->prefix),
