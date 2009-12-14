@@ -45,8 +45,6 @@ struct lazy_expunge_mail_user {
 struct lazy_expunge_mailbox_list {
 	union mailbox_list_module_context module_ctx;
 
-	struct mailbox_list *expunge_list;
-
 	unsigned int internal_namespace:1;
 	unsigned int deleting:1;
 };
@@ -423,7 +421,7 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 		return -1;
 	}
 
-	if (expunge_ns == dest_ns) {
+	if (expunge_ns == dest_ns && strcmp(destname, name) != 0) {
 		llist->deleting = TRUE;
 		(void)mailbox_move_all_mails(dest_ns->list, destname, name);
 		llist->deleting = FALSE;
