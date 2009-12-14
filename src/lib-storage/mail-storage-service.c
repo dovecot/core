@@ -140,10 +140,7 @@ user_reply_handle(struct mail_storage_service_user *user,
 			}
 #endif
 		} else T_BEGIN {
-			if (strncmp(line, "mail=", 5) == 0) {
-				line = t_strconcat("mail_location=",
-						   line + 5, NULL);
-			} else if ((p = strchr(str[i], '=')) == NULL)
+			if ((p = strchr(str[i], '=')) == NULL)
 				line = t_strconcat(str[i], "=yes", NULL);
 			else
 				line = str[i];

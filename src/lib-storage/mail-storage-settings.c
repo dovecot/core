@@ -22,6 +22,7 @@ static bool mail_user_settings_check(void *_set, pool_t pool, const char **error
 
 static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_STR_VARS, mail_location),
+	{ SET_ALIAS, "mail", 0, NULL },
 	DEF(SET_STR, mail_cache_fields),
 	DEF(SET_STR, mail_never_cache_fields),
 	DEF(SET_UINT, mail_cache_min_mail_count),
@@ -85,6 +86,8 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(SET_STR, separator),
 	DEF(SET_STR_VARS, prefix),
 	DEF(SET_STR_VARS, location),
+	{ SET_ALIAS, "mail", 0, NULL },
+	{ SET_ALIAS, "mail_location", 0, NULL },
 	DEF(SET_STR_VARS, alias_for),
 
 	DEF(SET_BOOL, inbox),
