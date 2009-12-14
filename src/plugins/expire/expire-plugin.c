@@ -256,7 +256,7 @@ static void expire_mailbox_allocate_init(struct mailbox *box,
 	unsigned int secs;
 	bool altmove;
 
-	secs = expire_box_find_min_secs(euser->env, box->vname, &altmove);
+	secs = expire_rule_find_min_secs(euser->env, box->vname, &altmove);
 	if (box->storage->user->mail_debug) {
 		if (secs == 0) {
 			i_debug("expire: No expiring in mailbox: %s",
@@ -293,19 +293,15 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 {
 	struct mail_user *user = ns->user;
 	struct expire_mail_user *euser;
-	const char *expunge_env, *altmove_env, *dict_uri, *service_name;
+	const char *dict_uri, *service_name;
 
 	service_name = master_service_get_name(master_service);
-	expunge_env = mail_user_plugin_getenv(user, "expire");
-	altmove_env = mail_user_plugin_getenv(user, "expire_altmove");
 	dict_uri = mail_user_plugin_getenv(user, "expire_dict");
 	if (strcmp(service_name, "expire-tool") == 0) {
 		/* expire-tool handles all of this internally */
-	} else if (expunge_env == NULL && altmove_env == NULL) {
-		if (user->mail_debug) {
-			i_debug("expire: No expire or expire_altmove settings - "
-				"plugin disabled");
-		}
+	} else if (mail_user_plugin_getenv(user, "expire") == NULL) {
+		if (user->mail_debug)
+			i_debug("expire: No expire setting - plugin disabled");
 	} else if (dict_uri == NULL) {
 		i_error("expire plugin: expire_dict setting missing");
 	} else {
@@ -313,7 +309,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 		euser->module_ctx.super = user->v;
 		user->v.deinit = expire_mail_user_deinit;
 
-		euser->env = expire_env_init(ns, expunge_env, altmove_env);
+		euser->env = expire_env_init(ns);
 		/* we're using only shared dictionary, the username
 		   doesn't matter. */
 		euser->db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",

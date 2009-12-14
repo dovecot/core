@@ -28,7 +28,7 @@ struct expire_context {
 static int expire_init_user(struct expire_context *ctx, const char *user)
 {
 	struct mail_storage_service_input input;
-	const char *expire, *expire_altmove, *errstr;
+	const char *errstr;
 	int ret;
 
 	i_set_failure_prefix(t_strdup_printf("expire-tool(%s): ", user));
@@ -46,14 +46,10 @@ static int expire_init_user(struct expire_context *ctx, const char *user)
 		return ret;
 	}
 
-	expire = mail_user_set_plugin_getenv(ctx->mail_user->set, "expire");
-	expire_altmove = mail_user_set_plugin_getenv(ctx->mail_user->set, 
-						     "expire_altmove");
-	if (expire == NULL && expire_altmove == NULL)
-		i_fatal("expire and expire_altmove settings not set");
+	if (mail_user_set_plugin_getenv(ctx->mail_user->set, "expire") == NULL)
+		i_fatal("expire settings not set");
 
-	ctx->env = expire_env_init(ctx->mail_user->namespaces,
-				   expire, expire_altmove);
+	ctx->env = expire_env_init(ctx->mail_user->namespaces);
 	return 1;
 }
 
@@ -91,7 +87,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			return ret;
 	}
 
-	if (!expire_box_find(ctx->env, mailbox, &expunge_secs, &altmove_secs)) {
+	if (!expire_rule_find(ctx->env, mailbox, &expunge_secs, &altmove_secs)) {
 		/* we're no longer expunging old messages from here */
 		if (ctx->testrun) {
 			i_info("%s: mailbox '%s' removed from config",

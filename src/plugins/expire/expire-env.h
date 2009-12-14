@@ -6,15 +6,14 @@
 struct expire_env;
 struct mail_namespace;
 
-struct expire_env *expire_env_init(struct mail_namespace *namespaces,
-				   const char *expunges, const char *altmoves);
+struct expire_env *expire_env_init(struct mail_namespace *namespaces);
 void expire_env_deinit(struct expire_env **env);
 
-bool expire_box_find(struct expire_env *env, const char *name,
-		     unsigned int *expunge_secs_r,
-		     unsigned int *altmove_secs_r);
+bool expire_rule_find(struct expire_env *env, const char *name,
+		      unsigned int *expunge_secs_r,
+		      unsigned int *altmove_secs_r);
 
-unsigned int expire_box_find_min_secs(struct expire_env *env, const char *name,
-				      bool *altmove_r);
+unsigned int expire_rule_find_min_secs(struct expire_env *env, const char *name,
+				       bool *altmove_r);
 
 #endif
