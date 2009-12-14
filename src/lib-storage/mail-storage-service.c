@@ -239,7 +239,8 @@ static void
 service_drop_privileges(const struct mail_user_settings *set,
 			const char *system_groups_user,
 			const char *home, const char *chroot,
-			bool disallow_root, bool keep_setuid_root)
+			bool disallow_root, bool keep_setuid_root,
+			bool setenv_only)
 {
 	struct restrict_access_settings rset;
 	uid_t current_euid, setuid_uid = 0;
@@ -301,8 +302,13 @@ service_drop_privileges(const struct mail_user_settings *set,
 		rset.uid = (uid_t)-1;
 		disallow_root = FALSE;
 	}
-	restrict_access(&rset, *home == '\0' ? NULL : home, disallow_root);
-	if (setuid_uid != 0) {
+	if (!setenv_only) {
+		restrict_access(&rset, *home == '\0' ? NULL : home,
+				disallow_root);
+	} else {
+		restrict_access_set_env(&rset);
+	}
+	if (setuid_uid != 0 && !setenv_only) {
 		if (seteuid(setuid_uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(setuid_uid));
 	}
@@ -774,7 +780,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		service_drop_privileges(user_set, user->system_groups_user,
 			home, chroot,
 			(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0,
-			temp_priv_drop);
+			temp_priv_drop, FALSE);
 		if (!temp_priv_drop ||
 		    (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) != 0)
 			restrict_access_allow_coredumps(TRUE);
@@ -806,6 +812,21 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 					   mail_user_r, error_r) < 0)
 		return -1;
 	return 0;
+}
+
+void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
+					  struct mail_storage_service_user *user)
+{
+	const struct mail_user_settings *user_set = user->user_set;
+	const char *home, *chroot;
+
+	home = user_expand_varstr(ctx->service, &user->input,
+				  user_set->mail_home);
+	chroot = user_expand_varstr(ctx->service, &user->input,
+				    user_set->mail_chroot);
+
+	service_drop_privileges(user_set, user->system_groups_user,
+				home, chroot, FALSE, FALSE, TRUE);
 }
 
 int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
