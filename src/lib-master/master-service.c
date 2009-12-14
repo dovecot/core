@@ -38,6 +38,7 @@
 
 struct master_service *master_service;
 
+static void master_service_io_listeners_close(struct master_service *service);
 static void master_service_refresh_login_state(struct master_service *service);
 
 const char *master_service_getopt_string(void)
@@ -481,8 +482,12 @@ void master_service_stop_new_connections(struct master_service *service)
 {
 	unsigned int current_count;
 
+	if (service->stopping)
+		return;
+
 	service->stopping = TRUE;
 	master_service_io_listeners_remove(service);
+	master_service_io_listeners_close(service);
 
 	/* make sure we stop after servicing current connections */
 	current_count = service->total_available_count -
@@ -745,6 +750,31 @@ void master_service_io_listeners_remove(struct master_service *service)
 		for (i = 0; i < service->socket_count; i++) {
 			if (service->listeners[i].io != NULL)
 				io_remove(&service->listeners[i].io);
+		}
+	}
+}
+
+static void master_service_io_listeners_close(struct master_service *service)
+{
+	unsigned int i;
+
+	if (service->listeners != NULL) {
+		/* close via listeners. some fds might be pipes that are
+		   currently handled as clients. we don't want to close them. */
+		for (i = 0; i < service->socket_count; i++) {
+			if (service->listeners[i].fd != -1) {
+				if (close(service->listeners[i].fd) < 0) {
+					i_error("close(listener %d) failed: %m",
+						service->listeners[i].fd);
+				}
+			}
+		}
+	} else {
+		for (i = 0; i < service->socket_count; i++) {
+			int fd = MASTER_LISTEN_FD_FIRST + i;
+
+			if (close(fd) < 0)
+				i_error("close(listener %d) failed: %m", fd);
 		}
 	}
 }
