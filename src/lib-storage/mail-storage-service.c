@@ -651,6 +651,8 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 
 	if (*user_set->mail_plugins == '\0')
 		return;
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_NO_PLUGINS) != 0)
+		return;
 
 	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
 						MAIL_STORAGE_SET_DRIVER_NAME);
