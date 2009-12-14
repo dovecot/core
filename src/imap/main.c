@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
 					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
-	postlogin_socket_path = t_abspath(argv[1]);
+	postlogin_socket_path = argv[1] == NULL ? NULL : t_abspath(argv[1]);
 
 	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, imap_die);
