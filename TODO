@@ -1,44 +1,54 @@
- - change the plugin hooks into some better API that allows adding/removing
-   them and maybe allows also calling them per-user basis to get per-user
-   plugins when multiple users are handled by same process
- - shutdown_clients
-    - yes should probably also stop proxying
-    - no causes master now to kill the children after 10 secs
- - verbose_proctitle=yes is now completely useless with imap/pop3 processes
+ - imap: maildir_copy_with_hardlinks=no COPY to same mailbox crashes
+ - create something similar to dovecot-2.0-sieve/src/lib-sieve-tool/mail-raw.c
+   so sieve and deliver can share the code
+ - standalone imap, etc: try connecting to config socket first, only then
+   fallback to exec
+ - master users: see how it works with anvil / max connection limits / doveadm who
+ - mbox: FETCH (X-GUID BODY.PEEK[]) and similar crashes..
+   in x-guid do a read-only sync that updates the MD5 values and doesn't unlock
+   mbox
+ - mdbox
+    - can't delete \noselect mailboxes
+    - CREATE INBOX/dbox-Mails -> OK
+    - mdbox_rotate_min_size isn't actually used anywhere. is rotate days also
+      seeing the right create date (from header)?
+    - Add some kind of checksum about data+metadata and use it when checking
+      consistency
+    - single-dbox is still buggy?
+    - dbox: we get back to dbox_sync_file() over and over again when expunging..
+      especially with a broken guid expunge, it doesn't go away.
+    - mailbox deletion: another process could have the mailbox open and append
+      new mails while we're deleting it..
+ - see if settings.[ch] can be merged with config/ code.
+ - protocol smtp { passdb sql { .. } }
+ - maildir: out-of-disk-space failures apparently cause all kinds of
+   problems, e.g. "Expunged message reappeared", "Duplicate file entry"?
+ - quota_warn: add $QUOTA_LIMIT environment or %variable parameter
  - deliver -r <address> used as autoreplies' From-address?
- - auth: add increasing per-ip failure delay using anvil?
  - add fd limit checks/warnings
  - config: ssl=no, ssl_cert=</not-exists fails everything
- - anvil seems to be getting more useful, maybe never disable it
+ - fix dovecot-config file. if shared libs are used, install it with
+   -ldovecot* values
+ - mbox zlib: mbox-sync.c: line 1404 (mbox_sync_update_index_header): assertion failed: (sync_ctx->base_uid_validity != 0 || st->st_size <= 0)
+    ^ empty mbox?..
+    ^ at least with dsync mailbox_update()
+ - expire plugin could support also "archive" operation = move to another mailbox
 
  - config process is handling requests too slowly. maybe add some caching.
- - delete convert plugin, replace with dsync
- - running from inetd?
  - dsync:
+   - subscriptions syncing doesn't handle mixed hierarchy separators
+   - mailbox list GUID isn't replicated, but does it need to be?
    - handle INBOX GUID conflicts.
-   - mailbox GUID conflicts: if one mailbox is empty, drop it.
-   - subscriptions
-   - invalid mailbox names give all kinds of failures
-   - cache
-   - use transaction_commit_get_changes(), retry sync if uids are not what we
-     wanted.
-   - resync if uid changes or modseq changes don't go exactly as we wanted
-   - other side crashes -> worker server disconnected unexpectedly -> hang
-   - add some timeout
-   - sieve scripts
- - single-dbox is still buggy?
+   - copying: does it work correctly with non-full syncs?
 
-
+ - lda: add some -h 'Header: value' parameter that adds/replaces header
  - ldap: fix multiple-gid support somehow
  - PERMANENTFLAGS returns () with readonly mailboxes, even when private flag
    changes are allowed (because index is stored elsewhere)
  - config protocol should tell after lookups if there's something more specific
    also available so login process wouldn't have to do config lookup for
    each connection if there's no per-IP config.
- - dbox: we get back to dbox_sync_file() over and over again when expunging..
-   especially with a broken guid expunge, it doesn't go away.
  - Add mailbox_list_create_dir() and remove bool directory from mailbox_create()
- - protocol lda { recipient_delimiter=+ }
  - search: use mail_get_parts() only when it's already cached. if it's not,
    add it to cache afterwards.
  - check v.copy() failure handling. now they leak memory?
@@ -62,8 +72,6 @@
  - use backup index in mail_index_fsck()
  - dbox: mail_index_fsck() should perhaps cause dbox to be resynced?
 
- - convert plugin: convert_pop3_uidl_format setting? so old %f uidls could be
-   converted to dbox..
  - proxying: support fallbacking to local (or other?) server if the first
    one is down
  - i_panic("Message count decreased") happens - why?
@@ -118,13 +126,6 @@
    filesystem block size instead of hardcoded DEV_BSIZE? not with AIX..
  - mailbox list fs: Listing subscriptions with children return options doesn't
    work unless iter_is_mailbox() returns the children flags
- - sieve-cmu.c crash: i_assert(buf->used - 1 == part->body_size.physical_size);
- - convert plugin: Create a r/w lock for a file. It's read-locked if
-   conversion isn't wanted and released when process dies. If conversion is
-   wanted and write-lock succeeds, conversion is done, if write-lock doesn't
-   succeed it fallbacks to using the old storage. When process is exiting it
-   again tries to write-lock and do the conversion. Add a parameter that
-   specifies if conversion should be done.
  - lucene: handle replacement chars?
  - squat:
    - wrong indexid
@@ -134,11 +135,6 @@
    - expunges are delayed until more mails are added
  - test replacement chars (SEARCH / SORT / Squat)
 
- - dbox:
-    - "File unexpectedly lost" doesn't get fixed by itself
-    - Fix support for multi-message files
-    - Delete dovecot-keywords and dovecot-uidlist after all maildir files
-      have been converted to native dbox
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
  - cache: compress when we can drop temporary fields.
