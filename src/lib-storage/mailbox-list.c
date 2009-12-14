@@ -676,6 +676,9 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 static bool mailbox_list_init_changelog(struct mailbox_list *list)
 {
 	const char *path;
+	mode_t mode;
+	gid_t gid;
+	const char *gid_origin;
 
 	if (list->changelog != NULL)
 		return TRUE;
@@ -685,11 +688,13 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 	path = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
 	if (path == NULL)
 		return FALSE;
-	else {
-		path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
-		list->changelog = mailbox_log_alloc(path);
-		return TRUE;
-	}
+
+	path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
+	list->changelog = mailbox_log_alloc(path);
+
+	mailbox_list_get_permissions(list, NULL, &mode, &gid, &gid_origin);
+	mailbox_log_set_permissions(list->changelog, mode, gid, gid_origin);
+	return TRUE;
 }
 
 void mailbox_list_add_change(struct mailbox_list *list,
