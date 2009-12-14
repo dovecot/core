@@ -513,6 +513,11 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
         void *ptr, *ptr2, *change_ptr;
 	const char *error;
 
+	while (def->type == SET_ALIAS) {
+		i_assert(def != link->info->defines);
+		def--;
+	}
+
 	ctx->prev_info = link->info;
 
 	if (link->set_struct == NULL) {
@@ -592,6 +597,9 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	}
+	case SET_ALIAS:
+		i_unreached();
+		break;
 	}
 
 	if (change_ptr != NULL)
@@ -1020,6 +1028,7 @@ settings_var_expand_info(const struct setting_parser_info *info,
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
+		case SET_ALIAS:
 			break;
 		case SET_STR_VARS: {
 			const char **val = value;
@@ -1091,6 +1100,7 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
+		case SET_ALIAS:
 			break;
 		case SET_STR_VARS: {
 			const char *const *val = value;
@@ -1200,6 +1210,8 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 		}
 		break;
 	}
+	case SET_ALIAS:
+		break;
 	}
 	return TRUE;
 }
@@ -1291,6 +1303,8 @@ settings_changes_dup(const struct setting_parser_info *info,
 			}
 			break;
 		}
+		case SET_ALIAS:
+			break;
 		}
 	}
 	return dest_set;
@@ -1667,6 +1681,9 @@ settings_apply(struct setting_link *dest_link,
 			/* merge sections */
 		} else if (*((const char *)csrc) == 0) {
 			/* unchanged */
+			continue;
+		} else if (def->type == SET_ALIAS) {
+			/* ignore aliases */
 			continue;
 		} else if (*((const char *)cdest) != 0) {
 			/* conflict */

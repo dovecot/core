@@ -26,7 +26,8 @@ enum setting_type {
 	SET_ENUM,
 	SET_DEFLIST, /* of type array_t */
 	SET_DEFLIST_UNIQUE,
-	SET_STRLIST /* of type ARRAY_TYPE(const_string) */
+	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
+	SET_ALIAS /* alias name for above setting definition */
 };
 #define SETTING_TYPE_IS_DEFLIST(type) \
 	((type) == SET_DEFLIST || (type) == SET_DEFLIST_UNIQUE)
