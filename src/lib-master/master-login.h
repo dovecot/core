@@ -22,5 +22,6 @@ master_login_init(struct master_service *service, const char *auth_socket_path,
 void master_login_deinit(struct master_login **login);
 
 void master_login_add(struct master_login *login, int fd);
+void master_login_stop(struct master_login *login);
 
 #endif

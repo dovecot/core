@@ -41,6 +41,8 @@ struct master_service {
 	void (*avail_overflow_callback)(void);
 	struct timeout *to_overflow_state;
 
+	struct master_login *login;
+
 	master_service_connection_callback_t *callback;
 
 	pool_t set_pool;
@@ -54,9 +56,6 @@ struct master_service {
 	unsigned int die_with_master:1;
 	unsigned int call_avail_overflow:1;
 	unsigned int delay_status_updates:1;
-	/* incoming connections are going to master-login and they're not
-	   counted as real connections */
-	unsigned int login_connections:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);

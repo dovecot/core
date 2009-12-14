@@ -41,6 +41,8 @@ struct master_login {
 	struct master_login_connection *conns;
 	struct master_login_auth *auth;
 	char *postlogin_socket_path;
+
+	unsigned int stopping:1;
 };
 
 static void master_login_conn_deinit(struct master_login_connection **_conn);
@@ -57,7 +59,9 @@ master_login_init(struct master_service *service, const char *auth_socket_path,
 	login->callback = callback;
 	login->auth = master_login_auth_init(auth_socket_path);
 	login->postlogin_socket_path = i_strdup(postlogin_socket_path);
-	service->login_connections = TRUE;
+
+	i_assert(service->login == NULL);
+	service->login = login;
 	return login;
 }
 
@@ -66,6 +70,9 @@ void master_login_deinit(struct master_login **_login)
 	struct master_login *login = *_login;
 
 	*_login = NULL;
+
+	i_assert(login->service->login == login);
+	login->service->login = NULL;
 
 	master_login_auth_deinit(&login->auth);
 	while (login->conns != NULL) {
@@ -147,19 +154,26 @@ static void master_login_auth_finish(struct master_login_client *client,
 				     const char *const *auth_args)
 {
 	struct master_login_connection *conn = client->conn;
-	struct master_service *service = conn->login->service;
-	bool close_config;
+	struct master_login *login = conn->login;
+	struct master_service *service = login->service;
+	bool close_sockets;
 
-	close_config = service->master_status.available_count == 0 &&
+	close_sockets = service->master_status.available_count == 0 &&
 		service->service_count_left == 1;
 
-	conn->login->callback(client, auth_args[0], auth_args+1);
+	login->callback(client, auth_args[0], auth_args+1);
 	i_free(client);
 
-	if (close_config) {
+	if (close_sockets) {
 		/* we're dying as soon as this connection closes. */
+		i_assert(master_login_auth_request_count(login->auth) == 0);
+		master_login_auth_disconnect(login->auth);
+
 		master_service_close_config_fd(service);
 		master_login_conn_deinit(&conn);
+	} else if (login->stopping) {
+		/* try stopping again */
+		master_login_stop(login);
 	}
 }
 
@@ -392,4 +406,13 @@ static void master_login_conn_deinit(struct master_login_connection **_conn)
 		i_error("close(master login) failed: %m");
 	master_service_io_listeners_add(conn->login->service);
 	i_free(conn);
+}
+
+void master_login_stop(struct master_login *login)
+{
+	login->stopping = TRUE;
+	if (master_login_auth_request_count(login->auth) == 0) {
+		master_login_auth_disconnect(login->auth);
+		master_service_close_config_fd(login->service);
+	}
 }

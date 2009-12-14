@@ -9,6 +9,7 @@ master_login_auth_request_callback_t(const char *const *auth_args,
 
 struct master_login_auth *master_login_auth_init(const char *auth_socket_path);
 void master_login_auth_deinit(struct master_login_auth **auth);
+void master_login_auth_disconnect(struct master_login_auth *auth);
 
 void master_login_auth_request(struct master_login_auth *auth,
 			       const struct master_auth_request *req,

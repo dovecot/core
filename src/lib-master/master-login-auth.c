@@ -51,7 +51,7 @@ struct master_login_auth *master_login_auth_init(const char *auth_socket_path)
 	return auth;
 }
 
-static void master_login_auth_disconnect(struct master_login_auth *auth)
+void master_login_auth_disconnect(struct master_login_auth *auth)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;

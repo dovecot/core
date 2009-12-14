@@ -11,6 +11,7 @@
 #include "fd-close-on-exec.h"
 #include "settings-parser.h"
 #include "syslog-util.h"
+#include "master-login.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
 
@@ -503,6 +504,8 @@ void master_service_stop_new_connections(struct master_service *service)
 		service->master_status.available_count = 0;
 		master_status_update(service);
 	}
+	if (service->login != NULL)
+		master_login_stop(service->login);
 }
 
 void master_service_anvil_send(struct master_service *service, const char *cmd)
@@ -693,7 +696,10 @@ static void master_service_listen(struct master_service_listener *l)
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
 
-	if (!service->login_connections) {
+	if (service->login != NULL) {
+		/* incoming connections are going to master-login and they're
+		   not counted as real connections */
+	} else {
 		i_assert(service->master_status.available_count > 0);
 		service->master_status.available_count--;
 		master_status_update(service);
