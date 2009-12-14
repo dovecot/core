@@ -36,7 +36,7 @@ uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 	path = mailbox_list_get_path(list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(path, "/"DBOX_UIDVALIDITY_FILE_NAME, NULL);
-	return mailbox_uidvalidity_next(path);
+	return mailbox_uidvalidity_next(list, path);
 }
 
 void dbox_notify_changes(struct mailbox *box)

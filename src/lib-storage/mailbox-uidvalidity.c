@@ -5,6 +5,8 @@
 #include "str.h"
 #include "read-full.h"
 #include "write-full.h"
+#include "eacces-error.h"
+#include "mailbox-list.h"
 #include "mailbox-uidvalidity.h"
 
 #include <stdio.h>
@@ -12,6 +14,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 #define RETRY_COUNT 10
 
@@ -29,16 +32,34 @@ static uint32_t mailbox_uidvalidity_next_fallback(void)
 	return uid_validity;
 }
 
-static void mailbox_uidvalidity_write(const char *path, uint32_t uid_validity)
+static void mailbox_uidvalidity_write(struct mailbox_list *list,
+				      const char *path, uint32_t uid_validity)
 {
 	char buf[8+1];
 	int fd;
+	mode_t mode, old_mask;
+	gid_t gid;
+	const char *gid_origin;
 
+	mailbox_list_get_permissions(list, NULL, &mode, &gid, &gid_origin);
+
+	old_mask = umask(0666 & ~mode);
 	fd = open(path, O_RDWR | O_CREAT, 0666);
+	umask(old_mask);
 	if (fd == -1) {
 		i_error("open(%s) failed: %m", path);
 		return;
 	}
+	if (gid != (gid_t)-1 && fchown(fd, (uid_t)-1, gid) < 0) {
+		if (errno == EPERM) {
+			i_error("%s", eperm_error_get_chgrp("fchown", path,
+							    gid, gid_origin));
+		} else {
+			i_error("fchown(%s, -1, %ld) failed: %m",
+				path, (long)gid);
+		}
+	}
+
 	i_snprintf(buf, sizeof(buf), "%08x", uid_validity);
 	if (pwrite_full(fd, buf, strlen(buf), 0) < 0)
 		i_error("write(%s) failed: %m", path);
@@ -76,7 +97,8 @@ static int mailbox_uidvalidity_rename(const char *path, uint32_t *uid_validity)
 	return ret;
 }
 
-static uint32_t mailbox_uidvalidity_next_rescan(const char *path)
+static uint32_t
+mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 {
 	DIR *d;
 	struct dirent *dp;
@@ -84,6 +106,7 @@ static uint32_t mailbox_uidvalidity_next_rescan(const char *path)
 	char *endp;
 	unsigned int i, prefix_len;
 	uint32_t cur_value, min_value, max_value;
+	mode_t old_mask;
 	int fd;
 
 	fname = strrchr(path, '/');
@@ -126,7 +149,10 @@ static uint32_t mailbox_uidvalidity_next_rescan(const char *path)
 		for (i = 0; i < RETRY_COUNT; i++) {
 			cur_value = mailbox_uidvalidity_next_fallback();
 			tmp = t_strdup_printf("%s.%08x", path, cur_value);
-			fd = open(tmp, O_RDWR | O_CREAT | O_EXCL, 0666);
+			/* the file is empty, don't bother with permissions */
+			old_mask = umask(0);
+			fd = open(tmp, O_RDWR | O_CREAT | O_EXCL, 0444);
+			umask(old_mask);
 			if (fd != -1 || errno != EEXIST)
 				break;
 			/* already exists. although it's quite unlikely we'll
@@ -138,7 +164,7 @@ static uint32_t mailbox_uidvalidity_next_rescan(const char *path)
 			return cur_value;
 		}
 		(void)close(fd);
-		mailbox_uidvalidity_write(path, cur_value);
+		mailbox_uidvalidity_write(list, path, cur_value);
 		return cur_value;
 	}
 	if (min_value != max_value) {
@@ -151,11 +177,11 @@ static uint32_t mailbox_uidvalidity_next_rescan(const char *path)
 	cur_value = max_value;
 	if (mailbox_uidvalidity_rename(path, &cur_value) < 0)
 		return mailbox_uidvalidity_next_fallback();
-	mailbox_uidvalidity_write(path, cur_value);
+	mailbox_uidvalidity_write(list, path, cur_value);
 	return cur_value;
 }
 
-uint32_t mailbox_uidvalidity_next(const char *path)
+uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 {
 	char buf[8+1], *endp;
 	uint32_t cur_value;
@@ -165,25 +191,25 @@ uint32_t mailbox_uidvalidity_next(const char *path)
 	if (fd == -1) {
 		if (errno != ENOENT)
 			i_error("open(%s) failed: %m", path);
-		return mailbox_uidvalidity_next_rescan(path);
+		return mailbox_uidvalidity_next_rescan(list, path);
 	}
 	ret = read_full(fd, buf, sizeof(buf)-1);
 	if (ret < 0) {
 		i_error("read(%s) failed: %m", path);
 		(void)close(fd);
-		return mailbox_uidvalidity_next_rescan(path);
+		return mailbox_uidvalidity_next_rescan(list, path);
 	}
 	buf[sizeof(buf)-1] = 0;
 	cur_value = strtoul(buf, &endp, 16);
 	if (ret == 0 || endp != buf+sizeof(buf)-1) {
 		/* broken value */
 		(void)close(fd);
-		return mailbox_uidvalidity_next_rescan(path);
+		return mailbox_uidvalidity_next_rescan(list, path);
 	}
 
 	/* we now have the current uidvalidity value that's hopefully correct */
 	if (mailbox_uidvalidity_rename(path, &cur_value) < 0)
-		return mailbox_uidvalidity_next_rescan(path);
+		return mailbox_uidvalidity_next_rescan(list, path);
 
 	/* fast path succeeded. write the current value to the main
 	   uidvalidity file. */

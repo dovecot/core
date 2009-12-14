@@ -1,6 +1,8 @@
 #ifndef MAILBOX_UIDVALIDITY_H
 #define MAILBOX_UIDVALIDITY_H
 
-uint32_t mailbox_uidvalidity_next(const char *path);
+struct mailbox_list;
+
+uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path);
 
 #endif

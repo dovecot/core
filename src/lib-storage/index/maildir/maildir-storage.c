@@ -1084,7 +1084,7 @@ uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
 	path = mailbox_list_get_path(list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_CONTROL);
 	path = t_strconcat(path, "/"MAILDIR_UIDVALIDITY_FNAME, NULL);
-	return mailbox_uidvalidity_next(path);
+	return mailbox_uidvalidity_next(list, path);
 }
 
 static void maildir_storage_add_list(struct mail_storage *storage,
