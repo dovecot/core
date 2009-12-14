@@ -607,17 +607,17 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }
 
-void acl_mailbox_list_created(struct mailbox_list *list)
+void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 {
-	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
+	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
 
 	if (auser == NULL) {
 		/* ACLs disabled for this user */
-	} else if ((list->ns->flags & NAMESPACE_FLAG_NOACL) != 0) {
+	} else if ((ns->flags & NAMESPACE_FLAG_NOACL) != 0) {
 		/* no ACL checks for internal namespaces (lda, shared) */
-		if (list->ns->type == NAMESPACE_SHARED)
-			acl_mailbox_list_init_shared(list);
+		if (ns->type == NAMESPACE_SHARED)
+			acl_mailbox_list_init_shared(ns->list);
 	} else {
-		acl_mailbox_list_init_default(list);
+		acl_mailbox_list_init_default(ns->list);
 	}
 }

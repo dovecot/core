@@ -301,15 +301,16 @@ static void listescape_mail_storage_created(struct mail_storage *storage)
 	MODULE_CONTEXT_SET(storage, listescape_storage_module, mstorage);
 }
 
-static void listescape_mailbox_list_created(struct mailbox_list *list)
+static void listescape_mail_namespace_storage_added(struct mail_namespace *ns)
 {
+	struct mailbox_list *list = ns->list;
 	struct listescape_mailbox_list *mlist;
 	const char *env;
 
-	if (list->hierarchy_sep == list->ns->sep)
+	if (list->hierarchy_sep == ns->sep)
 		return;
 
-	list->ns->real_sep = list->ns->sep;
+	ns->real_sep = ns->sep;
 
 	mlist = p_new(list->pool, struct listescape_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
@@ -333,7 +334,7 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 
 static struct mail_storage_hooks listescape_mail_storage_hooks = {
 	.mail_storage_created = listescape_mail_storage_created,
-	.mailbox_list_created = listescape_mailbox_list_created
+	.mail_namespace_storage_added = listescape_mail_namespace_storage_added
 };
 
 void listescape_plugin_init(struct module *module)

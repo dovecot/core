@@ -341,10 +341,11 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	return 0;
 }
 
-static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
+static void lazy_expunge_mail_namespace_storage_added(struct mail_namespace *ns)
 {
+	struct mailbox_list *list = ns->list;
 	struct lazy_expunge_mail_user *luser =
-		LAZY_EXPUNGE_USER_CONTEXT(list->ns->user);
+		LAZY_EXPUNGE_USER_CONTEXT(ns->user);
 	struct lazy_expunge_mailbox_list *llist;
 	const char *const *p;
 	unsigned int i;
@@ -353,13 +354,13 @@ static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 	   quota plugin sees it */
 	p = t_strsplit_spaces(luser->env, " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
-		if (strcmp(list->ns->prefix, *p) == 0) {
-			list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
+		if (strcmp(ns->prefix, *p) == 0) {
+			ns->flags |= NAMESPACE_FLAG_NOQUOTA;
 			break;
 		}
 	}
 
-	if (luser != NULL && list->ns->type == NAMESPACE_PRIVATE) {
+	if (luser != NULL && ns->type == NAMESPACE_PRIVATE) {
 		llist = p_new(list->pool, struct lazy_expunge_mailbox_list, 1);
 		llist->module_ctx.super = list->v;
 		list->v.delete_mailbox = lazy_expunge_mailbox_list_delete;
@@ -421,7 +422,7 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 static struct mail_storage_hooks lazy_expunge_mail_storage_hooks = {
 	.mail_user_created = lazy_expunge_mail_user_created,
 	.mail_namespaces_created = lazy_expunge_mail_namespaces_created,
-	.mailbox_list_created = lazy_expunge_mailbox_list_created,
+	.mail_namespace_storage_added = lazy_expunge_mail_namespace_storage_added,
 	.mailbox_allocated = lazy_expunge_mailbox_allocated
 };
 

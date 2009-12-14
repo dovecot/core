@@ -266,8 +266,9 @@ static void notify_mail_storage_created(struct mail_storage *storage)
 	MODULE_CONTEXT_SET_SELF(storage, notify_storage_module, lstorage);
 }
 
-static void notify_mailbox_list_created(struct mailbox_list *list)
+static void notify_mail_namespace_storage_added(struct mail_namespace *ns)
 {
+	struct mailbox_list *list = ns->list;
 	union mailbox_list_module_context *llist;
 
 	llist = p_new(list->pool, union mailbox_list_module_context, 1);
@@ -280,7 +281,7 @@ static void notify_mailbox_list_created(struct mailbox_list *list)
 
 static struct mail_storage_hooks notify_mail_storage_hooks = {
 	.mail_storage_created = notify_mail_storage_created,
-	.mailbox_list_created = notify_mailbox_list_created
+	.mail_namespace_storage_added = notify_mail_namespace_storage_added
 };
 
 void notify_plugin_init_storage(struct module *module)

@@ -12,7 +12,7 @@ const char *acl_plugin_version = PACKAGE_VERSION;
 static struct mail_storage_hooks acl_mail_storage_hooks = {
 	.mail_user_created = acl_mail_user_created,
 	.mail_storage_created = acl_mail_storage_created,
-	.mailbox_list_created = acl_mailbox_list_created
+	.mail_namespace_storage_added = acl_mail_namespace_storage_added
 };
 
 void acl_plugin_init(struct module *module)

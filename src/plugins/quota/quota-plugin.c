@@ -13,7 +13,7 @@ static struct mail_storage_hooks quota_mail_storage_hooks = {
 	.mail_user_created = quota_mail_user_created,
 	.mail_namespaces_created = quota_mail_namespaces_created,
 	.mail_storage_created = quota_mail_storage_created,
-	.mailbox_list_created = quota_mailbox_list_created
+	.mail_namespace_storage_added = quota_mail_namespace_storage_added
 };
 
 void quota_plugin_init(struct module *module)
