@@ -500,7 +500,10 @@ static void test_mail_index_modseq_update(void)
 	mail_index_update_modseq(t, 4, 0x8234fefa02747429ULL);
 	mail_index_update_modseq(t, 6, 0x1234567890abcdefULL);
 	mail_index_update_modseq(t, 2, 0xfeed);
-	mail_index_update_modseq(t, 4, 1);
+	mail_index_update_modseq(t, 4, 2);
+	/* modseq=1 updates are ignored: */
+	mail_index_update_modseq(t, 5, 1);
+	mail_index_update_modseq(t, 6, 1);
 
 	ups = array_get(&t->modseq_updates, &count);
 	test_assert(count == 4);
@@ -515,7 +518,7 @@ static void test_mail_index_modseq_update(void)
 		    ups[2].modseq_low32 == 0xfeed);
 	test_assert(ups[3].uid == 4 &&
 		    ups[3].modseq_high32 == 0 &&
-		    ups[3].modseq_low32 == 1);
+		    ups[3].modseq_low32 == 2);
 	test_end();
 }
 
