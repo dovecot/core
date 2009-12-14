@@ -23,6 +23,7 @@ static bool drop_privileges = FALSE;
 
 static void client_connected(const struct master_service_connection *conn)
 {
+	enum mail_storage_service_flags flags = MAIL_STORAGE_SERVICE_NO_PLUGINS;
 	string_t *instr, *keys;
 	const char **args, *key, *value, *error;
 	struct mail_storage_service_ctx *service_ctx;
@@ -89,7 +90,7 @@ static void client_connected(const struct master_service_connection *conn)
 	master_service_init_log(master_service,
 		t_strdup_printf("script(%s): ", input.username));
 
-	service_ctx = mail_storage_service_init(master_service, NULL, 0);
+	service_ctx = mail_storage_service_init(master_service, NULL, flags);
 	if (mail_storage_service_lookup(service_ctx, &input, &user, &error) < 0)
 		i_fatal("%s", error);
 	mail_storage_service_restrict_setenv(service_ctx, user);
