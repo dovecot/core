@@ -30,7 +30,7 @@ static void client_connected(const struct master_service_connection *conn)
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *user;
 	char buf[1024];
-	unsigned int i;
+	unsigned int i, socket_count;
 	int fd = -1;
 	ssize_t ret;
 
@@ -106,6 +106,15 @@ static void client_connected(const struct master_service_connection *conn)
 		if (dup2(conn->fd, SCRIPT_COMM_FD) < 0)
 			i_fatal("dup2() failed: %m");
 	}
+
+	/* close all listener sockets */
+	socket_count = master_service_get_socket_count(master_service);
+	for (i = 0; i < socket_count; i++) {
+		if (close(MASTER_LISTEN_FD_FIRST + i) < 0)
+			i_error("close(listener) failed: %m");
+	}
+	if (close(MASTER_STATUS_FD) < 0)
+		i_error("close(status) failed: %m");
 
 	(void)execvp(exec_args[0], exec_args);
 	i_fatal("execvp(%s) failed: %m", exec_args[0]);
