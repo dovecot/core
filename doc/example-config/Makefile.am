@@ -15,7 +15,8 @@ example_DATA = \
 	dovecot-sql.conf.ext
 
 EXTRA_DIST = \
-	$(example_DATA)
+	$(example_DATA) \
+	README.in
 
 install-data-local:
 	$(mkdir_p) $(DESTDIR)/$(sysconfdir)/dovecot
