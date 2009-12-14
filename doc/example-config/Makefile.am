@@ -20,3 +20,5 @@ EXTRA_DIST = \
 
 install-data-local:
 	$(mkdir_p) $(DESTDIR)/$(sysconfdir)/dovecot
+
+CLEANFILES = README
