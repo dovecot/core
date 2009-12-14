@@ -10,6 +10,7 @@ struct mailbox;
 
 struct mail_storage_hooks {
 	void (*mail_user_created)(struct mail_user *user);
+	void (*mail_namespace_storage_added)(struct mail_namespace *ns);
 	void (*mail_namespaces_created)(struct mail_namespace *namespaces);
 	void (*mail_storage_created)(struct mail_storage *storage);
 	void (*mailbox_list_created)(struct mailbox_list *list);
@@ -28,6 +29,7 @@ void mail_storage_hooks_add_internal(const struct mail_storage_hooks *hooks);
 void mail_storage_hooks_remove_internal(const struct mail_storage_hooks *hooks);
 
 void hook_mail_user_created(struct mail_user *user);
+void hook_mail_namespace_storage_added(struct mail_namespace *ns);
 void hook_mail_namespaces_created(struct mail_namespace *namespaces);
 void hook_mail_storage_created(struct mail_storage *storage);
 void hook_mailbox_list_created(struct mailbox_list *list);

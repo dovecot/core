@@ -131,6 +131,16 @@ void hook_mail_user_created(struct mail_user *user)
 	}
 }
 
+void hook_mail_namespace_storage_added(struct mail_namespace *ns)
+{
+	const struct mail_storage_hooks *const *hooks;
+
+	array_foreach(&ns->user->hooks, hooks) {
+		if ((*hooks)->mail_namespace_storage_added != NULL)
+			(*hooks)->mail_namespace_storage_added(ns);
+	}
+}
+
 void hook_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	const struct mail_storage_hooks *const *hooks;

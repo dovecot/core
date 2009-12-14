@@ -19,6 +19,7 @@ void mail_namespace_add_storage(struct mail_namespace *ns,
 
 	if (storage->v.add_list != NULL)
 		storage->v.add_list(storage, ns->list);
+	hook_mail_namespace_storage_added(ns);
 }
 
 void mail_namespace_finish_list_init(struct mail_namespace *ns,
