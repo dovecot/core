@@ -14,7 +14,6 @@ SUBDIRS = \
 	acl \
 	imap-acl \
 	autocreate \
-	convert \
 	expire \
 	fts \
 	fts-squat \

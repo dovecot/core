@@ -2593,7 +2593,6 @@ src/plugins/Makefile
 src/plugins/acl/Makefile
 src/plugins/imap-acl/Makefile
 src/plugins/autocreate/Makefile
-src/plugins/convert/Makefile
 src/plugins/expire/Makefile
 src/plugins/fts/Makefile
 src/plugins/fts-lucene/Makefile

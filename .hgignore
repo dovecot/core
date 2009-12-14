@@ -74,7 +74,6 @@ src/log/log
 src/lmtp/lmtp
 src/master/dovecot
 src/ssl-params/ssl-params
-src/plugins/convert/convert-tool
 src/plugins/expire/expire-tool
 src/plugins/fts-squat/squat-test
 src/pop3-login/pop3-login
@@ -84,6 +83,7 @@ src/util/imap-utf7
 src/util/listview
 src/util/maildirlock
 src/util/rawlog
+src/util/script
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
 
