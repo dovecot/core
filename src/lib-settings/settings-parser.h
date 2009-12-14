@@ -195,5 +195,11 @@ int settings_parser_apply_changes(struct setting_parser_context *dest,
 
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
+/* Parse time interval string, return as seconds. */
+int settings_get_time(const char *str, unsigned int *secs_r,
+		      const char **error_r);
+/* Parse size string, return as bytes. */
+int settings_get_size(const char *str, uoff_t *bytes_r,
+		      const char **error_r);
 
 #endif

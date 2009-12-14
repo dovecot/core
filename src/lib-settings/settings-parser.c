@@ -309,14 +309,13 @@ get_uint(struct setting_parser_context *ctx, const char *value,
 	return 0;
 }
 
-static int
-get_time(struct setting_parser_context *ctx, const char *value,
-	 unsigned int *result_r)
+int settings_get_time(const char *str, unsigned int *secs_r,
+		      const char **error_r)
 {
 	unsigned int num, multiply = 1;
 	char *p;
 
-	num = strtoull(value, &p, 10);
+	num = strtoull(str, &p, 10);
 	while (*p == ' ') p++;
 	switch (i_toupper(*p)) {
 	case 'S':
@@ -347,29 +346,25 @@ get_time(struct setting_parser_context *ctx, const char *value,
 	}
 
 	if (*p != '\0') {
-		ctx->error = p_strconcat(ctx->parser_pool,
-					 "Invalid time interval: ",
-					 value, NULL);
+		*error_r = t_strconcat("Invalid time interval: ", str, NULL);
 		return -1;
 	}
 	if (num > -1U / multiply) {
-		ctx->error = p_strconcat(ctx->parser_pool,
-					 "Time interval is too large: ",
-					 value, NULL);
+		*error_r = t_strconcat("Time interval is too large: ",
+				       str, NULL);
 		return -1;
 	}
-	*result_r = num * multiply;
+	*secs_r = num * multiply;
 	return 0;
 }
 
-static int
-get_size(struct setting_parser_context *ctx, const char *value,
-	 uoff_t *result_r)
+int settings_get_size(const char *str, uoff_t *bytes_r,
+		      const char **error_r)
 {
 	unsigned long long num, multiply = 1;
 	char *p;
 
-	num = strtoull(value, &p, 10);
+	num = strtoull(str, &p, 10);
 	while (*p == ' ') p++;
 	switch (i_toupper(*p)) {
 	case 'B':
@@ -402,16 +397,14 @@ get_size(struct setting_parser_context *ctx, const char *value,
 			p++;
 	}
 	if (*p != '\0') {
-		ctx->error = p_strconcat(ctx->parser_pool, "Invalid size: ",
-					 value, NULL);
+		*error_r = t_strconcat("Invalid size: ", str, NULL);
 		return -1;
 	}
 	if (num > -1ULL / multiply) {
-		ctx->error = p_strconcat(ctx->parser_pool,
-					 "Size is too large: ", value, NULL);
+		*error_r = t_strconcat("Size is too large: ", str, NULL);
 		return -1;
 	}
-	*result_r = num * multiply;
+	*bytes_r = num * multiply;
 	return 0;
 }
 
@@ -518,6 +511,7 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	       const char *key, const char *value)
 {
         void *ptr, *ptr2, *change_ptr;
+	const char *error;
 
 	ctx->prev_info = link->info;
 
@@ -556,12 +550,16 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	case SET_TIME:
-		if (get_time(ctx, value, (unsigned int *)ptr) < 0)
+		if (settings_get_time(value, (unsigned int *)ptr, &error) < 0) {
+			ctx->error = p_strdup(ctx->parser_pool, error);
 			return -1;
+		}
 		break;
 	case SET_SIZE:
-		if (get_size(ctx, value, (uoff_t *)ptr) < 0)
+		if (settings_get_size(value, (uoff_t *)ptr, &error) < 0) {
+			ctx->error = p_strdup(ctx->parser_pool, error);
 			return -1;
+		}
 		break;
 	case SET_STR:
 		*((char **)ptr) = p_strdup(ctx->set_pool, value);
