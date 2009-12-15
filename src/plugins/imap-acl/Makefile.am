@@ -14,8 +14,10 @@ lib02_imap_acl_plugin_la_LDFLAGS = -module -avoid-version
 imap_module_LTLIBRARIES = \
 	lib02_imap_acl_plugin.la
 
+if PLUGIN_DEPS
 lib02_imap_acl_plugin_la_LIBADD = \
 	../acl/lib01_acl_plugin.la
+endif
 
 lib02_imap_acl_plugin_la_SOURCES = \
 	imap-acl-plugin.c

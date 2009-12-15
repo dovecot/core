@@ -11,8 +11,12 @@ lib21_fts_solr_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib21_fts_solr_plugin.la
 
+if PLUGIN_DEPS
+fts_plugin_dep = ../fts/lib20_fts_plugin.la
+endif
+
 lib21_fts_solr_plugin_la_LIBADD = \
-	../fts/lib20_fts_plugin.la \
+	$(fts_plugin_dep) \
 	$(CURL_LIBS) -lexpat
 
 lib21_fts_solr_plugin_la_SOURCES = \
