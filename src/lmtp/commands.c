@@ -694,12 +694,14 @@ static bool client_input_data_write(struct client *client)
 static int client_input_add_file(struct client *client,
 				 const unsigned char *data, size_t size)
 {
+	struct client_state *state = &client->state;
 	string_t *path;
+	ssize_t ret;
 	int fd;
 
-	if (client->state.mail_data_output != NULL) {
+	if (state->mail_data_output != NULL) {
 		/* continue writing to file */
-		if (o_stream_send(client->state.mail_data_output,
+		if (o_stream_send(state->mail_data_output,
 				  data, size) != (ssize_t)size)
 			return -1;
 		return 0;
@@ -721,9 +723,14 @@ static int client_input_add_file(struct client *client,
 		return -1;
 	}
 
-	client->state.mail_data_fd = fd;
-	client->state.mail_data_output = o_stream_create_fd_file(fd, 0, FALSE);
-	o_stream_cork(client->state.mail_data_output);
+	state->mail_data_fd = fd;
+	state->mail_data_output = o_stream_create_fd_file(fd, 0, FALSE);
+	o_stream_cork(state->mail_data_output);
+
+	ret = o_stream_send(state->mail_data_output,
+			    state->mail_data->data, state->mail_data->used);
+	if (ret != (ssize_t)state->mail_data->used)
+		return -1;
 	if (o_stream_send(client->state.mail_data_output,
 			  data, size) != (ssize_t)size)
 		return -1;
@@ -734,7 +741,8 @@ static int
 client_input_add(struct client *client, const unsigned char *data, size_t size)
 {
 	if (client->state.mail_data->used + size <=
-	    CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE) {
+	    CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE &&
+	    client->state.mail_data_output == NULL) {
 		buffer_append(client->state.mail_data, data, size);
 		return 0;
 	} else {
