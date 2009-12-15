@@ -209,7 +209,7 @@ struct client *client_create(int fd_in, int fd_out,
 	net_set_nonblock(fd_in, TRUE);
 	net_set_nonblock(fd_out, TRUE);
 
-	pool = pool_alloconly_create("lmtp client", 1024);
+	pool = pool_alloconly_create("lmtp client", 2048);
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
 	client->fd_in = fd_in;
