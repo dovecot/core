@@ -1301,6 +1301,21 @@ AC_CHECK_LIB(sendfile, sendfile, [
   fi
 ])
 
+AC_CACHE_CHECK([if unsetenv returns int],i_cv_unsetenv_ret_int,[
+  AC_TRY_COMPILE([
+    #include <stdlib.h>
+  ], [
+    if (unsetenv("env") < 0) ;
+  ], [
+    i_cv_unsetenv_ret_int=yes
+  ], [
+    i_cv_unsetenv_ret_int=no
+  ])
+])
+if test $i_cv_unsetenv_ret_int = yes; then
+  AC_DEFINE(UNSETENV_RET_INT,, Define if unsetenv() returns int)
+fi
+
 dnl * Check for crypt() if unistd.h compiles with _XOPEN_SOURCE + _XPG6
 dnl * Add other macros there too "just in case".
 AC_CACHE_CHECK([if we should use _XPG6 macro for crypt()],i_cv_use_xpg6_crypt,[
