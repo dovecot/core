@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "fd-close-on-exec.h"
+#include "fd-set-nonblock.h"
 #include "lib-signals.h"
 
 #include <signal.h>
@@ -197,6 +198,8 @@ void lib_signals_set_handler(int signo, bool delayed,
 		/* first delayed handler */
 		if (pipe(sig_pipe_fd) < 0)
 			i_fatal("pipe() failed: %m");
+		fd_set_nonblock(sig_pipe_fd[0], TRUE);
+		fd_set_nonblock(sig_pipe_fd[1], TRUE);
 		fd_close_on_exec(sig_pipe_fd[0], TRUE);
 		fd_close_on_exec(sig_pipe_fd[1], TRUE);
 		if (signals_initialized) {
