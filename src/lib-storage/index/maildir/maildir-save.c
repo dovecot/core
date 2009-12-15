@@ -227,8 +227,7 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 {
 	const char *basename = mf->basename;
 
-	if (ctx->mbox->storage->save_size_in_filename &&
-	    mf->size != (uoff_t)-1 && !mf->preserve_filename) {
+	if (mf->size != (uoff_t)-1 && !mf->preserve_filename) {
 		basename = t_strdup_printf("%s,%c=%"PRIuUOFF_T, basename,
 					   MAILDIR_EXTRA_FILE_SIZE, mf->size);
 	}

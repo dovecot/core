@@ -72,8 +72,6 @@ struct maildir_storage {
 	const char *temp_prefix;
 
 	uint32_t maildir_list_ext_id;
-
-	unsigned int save_size_in_filename:1;
 };
 
 struct maildir_mailbox {

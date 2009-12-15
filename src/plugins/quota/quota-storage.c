@@ -489,18 +489,6 @@ void quota_mail_user_created(struct mail_user *user)
 	}
 }
 
-static void quota_maildir_storage_set(struct mail_storage *storage)
-{
-	/* FIXME: a bit ugly location for this code. */
-	if (strcmp(storage->name, "maildir") == 0) {
-		/* For newly generated filenames add ,S=size. */
-		struct maildir_storage *mstorage =
-			(struct maildir_storage *)storage;
-
-		mstorage->save_size_in_filename = TRUE;
-	}
-}
-
 void quota_mail_storage_created(struct mail_storage *storage)
 {
 	union mail_storage_module_context *qstorage;
@@ -510,7 +498,6 @@ void quota_mail_storage_created(struct mail_storage *storage)
 	storage->v.mailbox_alloc = quota_mailbox_alloc;
 
 	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
-	quota_maildir_storage_set(storage);
 }
 
 static struct quota_root *
