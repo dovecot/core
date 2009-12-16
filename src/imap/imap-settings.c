@@ -40,7 +40,7 @@ struct service_settings imap_service_settings = {
 	.drop_priv_before_exec = FALSE,
 
 	.process_min_avail = 0,
-	.process_limit = 0,
+	.process_limit = 1024,
 	.client_limit = 0,
 	.service_count = 1,
 	.vsz_limit = -1U,
