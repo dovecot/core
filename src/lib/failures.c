@@ -410,13 +410,12 @@ void i_set_failure_syslog(const char *ident, int options, int facility)
 
 static void open_log_file(int *fd, const char *path)
 {
-	char buf[PATH_MAX];
+	const char *str;
 
 	if (*fd != STDERR_FILENO) {
 		if (close(*fd) < 0) {
-			i_snprintf(buf, sizeof(buf),
-				   "close(%d) failed: %m", *fd);
-			(void)write_full(STDERR_FILENO, buf, strlen(buf));
+			str = t_strdup_printf("close(%d) failed: %m", *fd);
+			(void)write_full(STDERR_FILENO, str, strlen(str));
 		}
 	}
 
@@ -426,13 +425,13 @@ static void open_log_file(int *fd, const char *path)
 		*fd = open(path, O_CREAT | O_APPEND | O_WRONLY, 0600);
 		if (*fd == -1) {
 			*fd = STDERR_FILENO;
-			i_snprintf(buf, sizeof(buf),
-				   "Can't open log file %s: %m\n", path);
-			(void)write_full(STDERR_FILENO, buf, strlen(buf));
+			str = t_strdup_printf("Can't open log file %s: %m\n",
+					      path);
+			(void)write_full(STDERR_FILENO, str, strlen(str));
 			if (fd == &log_fd)
 				failure_exit(FATAL_LOGOPEN);
 			else
-				i_fatal_status(FATAL_LOGOPEN, "%s", buf);
+				i_fatal_status(FATAL_LOGOPEN, "%s", str);
 		}
 		fd_close_on_exec(*fd, TRUE);
 	}
