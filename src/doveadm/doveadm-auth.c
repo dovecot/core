@@ -34,7 +34,7 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 
 	pool = pool_alloconly_create("auth master lookup", 1024);
 
-	conn = auth_master_init(auth_socket_path, FALSE);
+	conn = auth_master_init(auth_socket_path, 0);
 	ret = auth_master_user_lookup(conn, input->username, &input->info,
 				      pool, &username, &fields);
 	if (ret < 0)

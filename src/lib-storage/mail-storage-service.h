@@ -24,7 +24,9 @@ enum mail_storage_service_flags {
 	/* Don't initialize logging or change log prefixes */
 	MAIL_STORAGE_SERVICE_NO_LOG_INIT		= 0x80,
 	/* Don't load plugins in _service_lookup() */
-	MAIL_STORAGE_SERVICE_NO_PLUGINS			= 0x100
+	MAIL_STORAGE_SERVICE_NO_PLUGINS			= 0x100,
+	/* Don't close auth connections because of idling. */
+	MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT	= 0x200
 };
 
 struct mail_storage_service_input {

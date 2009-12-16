@@ -630,6 +630,7 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 				const struct mail_user_settings *user_set)
 {
 	const struct mail_storage_settings *mail_set;
+	enum auth_master_flags flags = 0;
 
 	i_assert(ctx->conn == NULL);
 
@@ -637,8 +638,11 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 						MAIL_STORAGE_SET_DRIVER_NAME);
 	ctx->debug = mail_set->mail_debug;
 
-	ctx->conn = auth_master_init(user_set->auth_socket_path,
-				     ctx->debug);
+	if (ctx->debug)
+		flags |= AUTH_MASTER_FLAG_DEBUG;
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT) != 0)
+		flags |= AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT;
+	ctx->conn = auth_master_init(user_set->auth_socket_path, flags);
 
 	i_assert(mail_user_auth_master_conn == NULL);
 	mail_user_auth_master_conn = ctx->conn;

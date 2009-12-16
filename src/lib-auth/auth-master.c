@@ -27,6 +27,7 @@
 
 struct auth_master_connection {
 	char *auth_socket_path;
+	enum auth_master_flags flags;
 
 	int fd;
 	struct ioloop *ioloop;
@@ -42,7 +43,6 @@ struct auth_master_connection {
 			       void *context);
 	void *reply_context;
 
-	unsigned int debug:1;
 	unsigned int sent_handshake:1;
 	unsigned int handshaked:1;
 	unsigned int aborted:1;
@@ -69,14 +69,14 @@ struct auth_master_user_list_ctx {
 static void auth_input(struct auth_master_connection *conn);
 
 struct auth_master_connection *
-auth_master_init(const char *auth_socket_path, bool debug)
+auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 {
 	struct auth_master_connection *conn;
 
 	conn = i_new(struct auth_master_connection, 1);
 	conn->auth_socket_path = i_strdup(auth_socket_path);
 	conn->fd = -1;
-	conn->debug = debug;
+	conn->flags = flags;
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 	return conn;
 }
@@ -167,7 +167,7 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 		ctx->fields = p_new(ctx->pool, const char *, len + 1);
 		for (i = 0; i < len; i++)
 			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
-		if (ctx->conn->debug)
+		if ((ctx->conn->flags & AUTH_MASTER_FLAG_DEBUG) != 0)
 			i_debug("auth input: %s", t_strarray_join(args, " "));
 	}
 	return TRUE;
@@ -302,8 +302,10 @@ static void auth_master_unset_io(struct auth_master_connection *conn,
 	o_stream_unref(&conn->output);
 	io_loop_destroy(&conn->ioloop);
 
-	conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
-			       auth_idle_timeout, conn);
+	if ((conn->flags & AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT) == 0) {
+		conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
+				       auth_idle_timeout, conn);
+	}
 }
 
 static bool is_valid_string(const char *str)

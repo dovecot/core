@@ -3,6 +3,13 @@
 
 #include "network.h"
 
+enum auth_master_flags {
+	/* Enable logging debug information */
+	AUTH_MASTER_FLAG_DEBUG			= 0x01,
+	/* Don't disconnect from auth socket when idling */
+	AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT	= 0x02
+};
+
 struct auth_user_info {
 	const char *service;
 	struct ip_addr local_ip, remote_ip;
@@ -17,7 +24,7 @@ struct auth_user_reply {
 };
 
 struct auth_master_connection *
-auth_master_init(const char *auth_socket_path, bool debug);
+auth_master_init(const char *auth_socket_path, enum auth_master_flags flags);
 void auth_master_deinit(struct auth_master_connection **conn);
 
 /* Do a USER lookup. Returns -1 = error, 0 = user not found, 1 = ok */
