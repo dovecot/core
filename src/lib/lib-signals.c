@@ -11,6 +11,12 @@
 
 #define MAX_SIGNAL_VALUE 31
 
+#if !defined(SA_SIGINFO) && !defined(SI_NOINFO)
+/* without SA_SIGINFO we don't know what the real code is. we need SI_NOINFO
+   to make sure lib_signal_code_to_str() returns "". */
+#  define SI_NOINFO -1
+#endif
+
 struct signal_handler {
 	signal_handler_t *handler;
 	void *context;
@@ -75,12 +81,19 @@ const char *lib_signal_code_to_str(int signo, int sicode)
 	return t_strdup_printf("unknown %d", sicode);
 }
 
+#ifdef SA_SIGINFO
 static void sig_handler(int signo, siginfo_t *si, void *context ATTR_UNUSED)
+#else
+static void sig_handler(int signo)
+#endif
 {
 	struct signal_handler *h;
 	char c = 0;
 
-#ifdef SI_NOINFO
+#if defined(SI_NOINFO) || !defined(SA_SIGINFO)
+#ifndef SA_SIGINFO
+	siginfo_t *si = NULL;
+#endif
 	siginfo_t tmp_si;
 
 	if (si == NULL) {
@@ -115,8 +128,12 @@ static void sig_handler(int signo, siginfo_t *si, void *context ATTR_UNUSED)
 	}
 }
 
+#ifdef SA_SIGINFO
 static void sig_ignore(int signo ATTR_UNUSED, siginfo_t *si ATTR_UNUSED,
 		       void *context ATTR_UNUSED)
+#else
+static void sig_ignore(int signo ATTR_UNUSED)
+#endif
 {
 	/* if we used SIG_IGN instead of this function,
 	   the system call might be restarted */
@@ -173,8 +190,13 @@ static void lib_signals_set(int signo, bool ignore)
 
 	if (sigemptyset(&act.sa_mask) < 0)
 		i_fatal("sigemptyset(): %m");
+#ifdef SA_SIGINFO
 	act.sa_flags = SA_SIGINFO;
 	act.sa_sigaction = ignore ? sig_ignore : sig_handler;
+#else
+	act.sa_flags = 0;
+	act.sa_handler = ignore ? sig_ignore : sig_handler;
+#endif
 	if (sigaction(signo, &act, NULL) < 0)
 		i_fatal("sigaction(%d): %m", signo);
 }
@@ -235,8 +257,13 @@ void lib_signals_ignore(int signo, bool restart_syscalls)
 		act.sa_flags = SA_RESTART;
 		act.sa_handler = SIG_IGN;
 	} else {
+#ifdef SA_SIGINFO
 		act.sa_flags = SA_SIGINFO;
 		act.sa_sigaction = sig_ignore;
+#else
+		act.sa_flags = 0;
+		act.sa_handler = sig_ignore;
+#endif
 	}
 
 	if (sigaction(signo, &act, NULL) < 0)
