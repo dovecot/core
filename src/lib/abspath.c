@@ -36,6 +36,7 @@ int t_get_current_dir(const char **dir_r)
 		if (errno != ERANGE)
 			return -1;
 		size = nearest_power(size+1);
+		dir = t_buffer_get(size);
 	}
 	t_buffer_alloc(strlen(dir) + 1);
 	*dir_r = dir;
