@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "abspath.h"
 #include "istream.h"
 #include "write-full.h"
 #include "str.h"
@@ -61,16 +62,13 @@ static void ATTR_NORETURN
 master_service_exec_config(struct master_service *service, bool preserve_home)
 {
 	const char **conf_argv, *path, *const *paths, *binary_path;
-	char full_path[PATH_MAX];
 
 	binary_path = service->argv[0];
 	if (*service->argv[0] == '/') {
 		/* already have the path */
 	} else if (strchr(service->argv[0], '/') != NULL) {
 		/* relative to current directory */
-		if (realpath(service->argv[0], full_path) == NULL)
-			i_fatal("realpath(%s) failed: %m", service->argv[0]);
-		binary_path = full_path;
+		binary_path = t_abspath(service->argv[0]);
 	} else if ((path = getenv("PATH")) != NULL) {
 		/* we have to find our executable from path */
 		paths = t_strsplit(path, ":");
