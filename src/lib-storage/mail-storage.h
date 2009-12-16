@@ -146,8 +146,6 @@ enum mailbox_sync_flags {
 
 	/* Don't sync expunges from our view */
 	MAILBOX_SYNC_FLAG_NO_EXPUNGES		= 0x08,
-	/* Stop auto syncing */
-	MAILBOX_SYNC_AUTO_STOP			= 0x20,
 	/* If mailbox is currently inconsistent, fix it instead of failing. */
 	MAILBOX_SYNC_FLAG_FIX_INCONSISTENT	= 0x40,
 	/* Syncing after an EXPUNGE command. This is just an informational

@@ -559,8 +559,7 @@ static void get_common_sync_flags(struct client *client,
 	if (fast_count != count)
 		*flags_r &= ~MAILBOX_SYNC_FLAG_FAST;
 
-	i_assert((*flags_r & (MAILBOX_SYNC_AUTO_STOP |
-			      MAILBOX_SYNC_FLAG_FIX_INCONSISTENT)) == 0);
+	i_assert((*flags_r & MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) == 0);
 }
 
 static bool cmd_sync_client(struct client_command_context *sync_cmd)
