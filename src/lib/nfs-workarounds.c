@@ -28,6 +28,7 @@
 */
 
 #include "lib.h"
+#include "abspath.h"
 #include "nfs-workarounds.h"
 
 #include <fcntl.h>
@@ -313,7 +314,7 @@ nfs_flush_file_handle_cache_dir(const char *path, bool try_parent ATTR_UNUSED)
 		/* Solaris gives this if we're trying to rmdir() the current
 		   directory. Work around this by temporarily changing the
 		   current directory to the parent directory. */
-		char cur_path[PATH_MAX], *p;
+		const char *cur_path, *p;
 		int cur_dir_fd;
 		bool ret;
 
@@ -323,19 +324,17 @@ nfs_flush_file_handle_cache_dir(const char *path, bool try_parent ATTR_UNUSED)
 			return TRUE;
 		}
 
-		if (getcwd(cur_path, sizeof(cur_path)) == NULL) {
+		if (t_get_current_dir(&cur_path) < 0) {
 			i_error("nfs_flush_file_handle_cache_dir: "
 				"getcwd() failed");
 			(void)close(cur_dir_fd);
 			return TRUE;
 		}
 		p = strrchr(cur_path, '/');
-		if (p != NULL)
-			*p = '\0';
-		else {
-			p[0] = '/';
-			p[1] = '\0';
-		}
+		if (p == NULL)
+			cur_path = "/";
+		else
+			cur_path = t_strdup_until(cur_path, p);
 		if (chdir(cur_path) < 0) {
 			i_error("nfs_flush_file_handle_cache_dir: "
 				"chdir() failed");
@@ -358,10 +357,12 @@ static void nfs_flush_file_handle_cache_parent_dir(const char *path)
 	const char *p;
 
 	p = strrchr(path, '/');
-	if (p == NULL)
-		nfs_flush_file_handle_cache_dir(".", TRUE);
-	else T_BEGIN {
-		nfs_flush_file_handle_cache_dir(t_strdup_until(path, p), TRUE);
+	T_BEGIN {
+		if (p == NULL)
+			nfs_flush_file_handle_cache_dir(".", TRUE);
+		else
+			nfs_flush_file_handle_cache_dir(t_strdup_until(path, p),
+							TRUE);
 	} T_END;
 }
 

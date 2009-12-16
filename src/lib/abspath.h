@@ -7,4 +7,7 @@ const char *t_abspath(const char *path);
 /* Like t_abspath(), but path is relative to given root. */
 const char *t_abspath_to(const char *path, const char *root);
 
+/* Returns current directory, allocated from data stack. */
+int t_get_current_dir(const char **dir_r);
+
 #endif

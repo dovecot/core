@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "abspath.h"
 #include "restrict-access.h"
 #include "eacces-error.h"
 
@@ -88,15 +89,13 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	const struct group *group;
 	string_t *errmsg;
 	struct stat st, dir_st;
-	char cwd[PATH_MAX];
 	int orig_errno, ret = -1;
 
 	orig_errno = errno;
 	errmsg = t_str_new(256);
 	str_printfa(errmsg, "%s(%s)", func, path);
 	if (*path != '/') {
-		dir = getcwd(cwd, sizeof(cwd));
-		if (dir != NULL)
+		if (t_get_current_dir(&dir) == 0)
 			str_printfa(errmsg, " in directory %s", dir);
 	}
 	str_printfa(errmsg, " failed: Permission denied (euid=%s",

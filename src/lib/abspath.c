@@ -7,12 +7,12 @@
 
 const char *t_abspath(const char *path)
 {
-	char dir[PATH_MAX];
+	const char *dir;
 
 	if (*path == '/')
 		return path;
 
-	if (getcwd(dir, sizeof(dir)) == NULL)
+	if (t_get_current_dir(&dir) < 0)
 		i_fatal("getcwd() failed: %m");
 	return t_strconcat(dir, "/", path, NULL);
 }
@@ -23,4 +23,21 @@ const char *t_abspath_to(const char *path, const char *root)
 		return path;
 
 	return t_strconcat(root, "/", path, NULL);
+}
+
+int t_get_current_dir(const char **dir_r)
+{
+	/* @UNSAFE */
+	char *dir;
+	size_t size = 128;
+
+	dir = t_buffer_get(size);
+	while (getcwd(dir, size) == NULL) {
+		if (errno != ERANGE)
+			return -1;
+		size = nearest_power(size+1);
+	}
+	t_buffer_alloc(strlen(dir) + 1);
+	*dir_r = dir;
+	return 0;
 }
