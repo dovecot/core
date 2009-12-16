@@ -496,7 +496,7 @@ mail_storage_service_init(struct master_service *service,
 
 	/* do all the global initialization. delay initializing plugins until
 	   we drop privileges the first time. */
-	if ((flags & MAIL_STORAGE_SERVICE_NO_LOG_INIT) == 0) {
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0) {
 		master_service_init_log(service,
 					t_strconcat(service->name, ": ", NULL));
 	}
@@ -658,7 +658,7 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 
 	if (*user_set->mail_plugins == '\0')
 		return;
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_NO_PLUGINS) != 0)
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0)
 		return;
 
 	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
@@ -774,7 +774,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		return -1;
 	}
 
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_NO_LOG_INIT) == 0)
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
 		mail_storage_service_init_log(ctx->service, user);
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {

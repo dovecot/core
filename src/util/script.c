@@ -23,7 +23,8 @@ static bool drop_privileges = FALSE;
 
 static void client_connected(const struct master_service_connection *conn)
 {
-	enum mail_storage_service_flags flags = MAIL_STORAGE_SERVICE_NO_PLUGINS;
+	enum mail_storage_service_flags flags =
+		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS;
 	string_t *instr, *keys;
 	const char **args, *key, *value, *error;
 	struct mail_storage_service_ctx *service_ctx;
