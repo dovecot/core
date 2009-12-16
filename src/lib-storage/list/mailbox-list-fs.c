@@ -417,7 +417,7 @@ struct mailbox_list fs_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_FS,
 	.hierarchy_sep = '/',
 	.props = 0,
-	.mailbox_name_max_length = PATH_MAX,
+	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	{
 		fs_list_alloc,

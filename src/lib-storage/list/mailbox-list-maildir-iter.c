@@ -196,7 +196,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		strcmp(ctx->ctx.list->name, MAILBOX_LIST_NAME_IMAPDIR) != 0 ?
 		ctx->ctx.list->hierarchy_sep : '\0';
 
-	mailbox = t_str_new(PATH_MAX);
+	mailbox = t_str_new(MAILBOX_LIST_NAME_MAX_LENGTH);
 	while ((d = readdir(dirp)) != NULL) {
 		const char *fname = d->d_name;
 

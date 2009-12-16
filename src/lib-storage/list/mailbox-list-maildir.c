@@ -442,7 +442,7 @@ struct mailbox_list maildir_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
 	.hierarchy_sep = '.',
 	.props = MAILBOX_LIST_PROP_NO_MAILDIR_NAME,
-	.mailbox_name_max_length = PATH_MAX,
+	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	{
 		maildir_list_alloc,
@@ -471,7 +471,7 @@ struct mailbox_list imapdir_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_IMAPDIR,
 	.hierarchy_sep = '.',
 	.props = MAILBOX_LIST_PROP_NO_MAILDIR_NAME,
-	.mailbox_name_max_length = PATH_MAX,
+	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	{
 		imapdir_list_alloc,

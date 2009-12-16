@@ -305,7 +305,7 @@ struct mailbox_list shared_mailbox_list = {
 	.name = "shared",
 	.hierarchy_sep = '/',
 	.props = 0,
-	.mailbox_name_max_length = PATH_MAX,
+	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	{
 		shared_list_alloc,

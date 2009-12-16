@@ -4,6 +4,12 @@
 #include "mail-types.h"
 #include "mail-error.h"
 
+#ifdef PATH_MAX
+#  define MAILBOX_LIST_NAME_MAX_LENGTH PATH_MAX
+#else
+#  define MAILBOX_LIST_NAME_MAX_LENGTH 4096
+#endif
+
 struct mail_namespace;
 struct mail_storage;
 struct mailbox_list;
