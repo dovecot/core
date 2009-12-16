@@ -305,7 +305,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	struct service_settings *const *services;
 	const char *const *strings;
 	ARRAY_TYPE(const_string) all_listeners;
-	unsigned int i, j, count;
+	unsigned int i, j, count, process_limit;
 
 	if (set->last_valid_uid != 0 &&
 	    set->first_valid_uid > set->last_valid_uid) {
@@ -368,7 +368,10 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				"used with chroot", service->name);
 			return FALSE;
 		}
-		if (service->process_min_avail > service->process_limit) {
+		process_limit = service->process_limit;
+		if (process_limit == 0)
+			process_limit = set->default_process_limit;
+		if (service->process_min_avail > process_limit) {
 			*error_r = t_strdup_printf("service(%s): "
 				"process_min_avail is higher than process_limit",
 				service->name);
