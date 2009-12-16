@@ -247,7 +247,7 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 	const unsigned char *data;
 	unsigned char add;
 	size_t i, size;
-	bool sent_bytes;
+	bool sent_bytes = FALSE;
 	int ret;
 
 	if (client->output_finished)
