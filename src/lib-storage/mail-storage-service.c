@@ -727,6 +727,9 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	user->set_parser =
 		settings_parser_dup(ctx->service->set_parser, user_pool);
+	if (!settings_parser_check(user->set_parser, user_pool, error_r))
+		i_unreached();
+
 	sets = settings_parser_get_list(user->set_parser);
 	user->user_set = sets[1];
 
