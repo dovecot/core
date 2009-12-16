@@ -7,6 +7,7 @@
 #include "close-keep-errno.h"
 #include "istream.h"
 #include "istream-seekable.h"
+#include "abspath.h"
 #include "safe-mkstemp.h"
 #include "eacces-error.h"
 #include "mkdir-parents.h"
@@ -256,7 +257,6 @@ int main(int argc, char *argv[])
 	struct istream *input;
 	struct mailbox_transaction_context *t;
 	struct mailbox_header_lookup_ctx *headers_ctx;
-	char cwd[PATH_MAX];
 	void **sets;
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
@@ -328,13 +328,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'p':
 			/* input path */
-			path = optarg;
-			if (*path != '/') {
-				/* expand relative paths before we chdir */
-				if (getcwd(cwd, sizeof(cwd)) == NULL)
-					i_fatal("getcwd() failed: %m");
-				path = t_strconcat(cwd, "/", path, NULL);
-			}
+			path = t_abspath(optarg);
 			break;
 		default:
 			print_help();

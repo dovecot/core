@@ -8,6 +8,7 @@
 #include "write-full.h"
 #include "env-util.h"
 #include "hostpid.h"
+#include "abspath.h"
 #include "restrict-process-size.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -420,15 +421,12 @@ static void main_deinit(void)
 static const char *get_full_config_path(struct service_list *list)
 {
 	const char *path;
-	char cwd[PATH_MAX];
 
 	path = master_service_get_config_path(master_service);
 	if (*path == '/')
 		return path;
 
-	if (getcwd(cwd, sizeof(cwd)) == NULL)
-		i_fatal("getcwd() failed: %m");
-	return p_strconcat(list->pool, cwd, "/", path, NULL);
+	return p_strdup(list->pool, t_abspath(path));
 }
 
 static void master_time_moved(time_t old_time, time_t new_time)
