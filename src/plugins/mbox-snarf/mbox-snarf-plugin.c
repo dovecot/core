@@ -41,7 +41,7 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	enum mail_error error;
 	int ret;
 
-	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
+	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
 
 	src_trans = mailbox_transaction_begin(srcbox, 0);
@@ -92,7 +92,7 @@ static int mbox_snarf(struct mailbox *srcbox, struct mailbox *destbox)
 			ret = -1;
 	}
 	if (ret == 0) {
-		if (mailbox_sync(srcbox, 0, 0, NULL) < 0)
+		if (mailbox_sync(srcbox, 0) < 0)
 			ret = -1;
 	}
 	return ret;

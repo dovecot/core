@@ -38,7 +38,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		return 0;
 	}
 
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0) {
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		mailbox_close(&box);
 		return -1;
 	}

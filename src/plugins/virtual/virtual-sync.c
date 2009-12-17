@@ -935,6 +935,7 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 	struct mailbox_sync_context *sync_ctx;
 	const struct virtual_backend_uidmap *uidmap;
 	struct mailbox_sync_rec sync_rec;
+	struct mailbox_sync_status sync_status;
 	unsigned int idx1, idx2;
 	uint32_t vseq, vuid;
 
@@ -971,7 +972,7 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 			break;
 		}
 	}
-	return mailbox_sync_deinit(&sync_ctx, 0, NULL);
+	return mailbox_sync_deinit(&sync_ctx, &sync_status);
 }
 
 static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
@@ -1043,10 +1044,10 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		/* first sync in this process */
 		i_assert(ctx->expunge_removed);
 
-		if (mailbox_sync(bbox->box, sync_flags, STATUS_UIDVALIDITY,
-				 &status) < 0)
+		if (mailbox_sync(bbox->box, sync_flags) < 0)
 			return -1;
 
+		mailbox_get_status(bbox->box, STATUS_UIDVALIDITY, &status);
 		virtual_backend_box_sync_mail_set(bbox);
 		if (status.uidvalidity != bbox->sync_uid_validity) {
 			/* UID validity changed since last sync (or this is

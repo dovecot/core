@@ -59,7 +59,7 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 		return 0;
 	}
 
-	if (mailbox_sync(trash->box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
+	if (mailbox_sync(trash->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
 
 	trash->trans = mailbox_transaction_begin(trash->box, 0);

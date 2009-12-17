@@ -116,8 +116,7 @@ struct mailbox_vfuncs {
 	bool (*sync_next)(struct mailbox_sync_context *ctx,
 			  struct mailbox_sync_rec *sync_rec_r);
 	int (*sync_deinit)(struct mailbox_sync_context *ctx,
-			   enum mailbox_status_items status_items,
-			   struct mailbox_status *status_r);
+			   struct mailbox_sync_status *status_r);
 
 	/* Called once for each expunge. Called one or more times for
 	   flag/keyword changes. Once the sync is finished, called with

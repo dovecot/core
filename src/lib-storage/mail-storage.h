@@ -187,8 +187,6 @@ struct mailbox_status {
 	/* Fields that have "temp" or "yes" caching decision. */
 	const ARRAY_TYPE(const_string) *cache_fields;
 
-	/* There are expunges that haven't been synced yet */
-	unsigned int sync_delayed_expunges:1;
 	/* Modseqs aren't permanent (index is in memory) */
 	unsigned int nonpermanent_modseqs:1;
 };
@@ -220,6 +218,10 @@ struct mail_transaction_commit_changes {
 struct mailbox_sync_rec {
 	uint32_t seq1, seq2;
 	enum mailbox_sync_type type;
+};
+struct mailbox_sync_status {
+	/* There are expunges that haven't been synced yet */
+	unsigned int sync_delayed_expunges:1;
 };
 
 struct mailbox_expunge_rec {
@@ -381,13 +383,10 @@ mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 bool mailbox_sync_next(struct mailbox_sync_context *ctx,
 		       struct mailbox_sync_rec *sync_rec_r);
 int mailbox_sync_deinit(struct mailbox_sync_context **ctx,
-			enum mailbox_status_items status_items,
-			struct mailbox_status *status_r);
+			struct mailbox_sync_status *status_r);
 /* One-step mailbox synchronization. Use this if you don't care about
    changes. */
-int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags,
-		 enum mailbox_status_items status_items,
-		 struct mailbox_status *status_r);
+int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 
 /* Call given callback function when something changes in the mailbox. */
 void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,

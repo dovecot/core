@@ -616,20 +616,20 @@ bool mailbox_sync_next(struct mailbox_sync_context *ctx,
 }
 
 int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
-			enum mailbox_status_items status_items,
-			struct mailbox_status *status_r)
+			struct mailbox_sync_status *status_r)
 {
 	struct mailbox_sync_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	return ctx->box->v.sync_deinit(ctx, status_items, status_r);
+
+	memset(status_r, 0, sizeof(*status_r));
+	return ctx->box->v.sync_deinit(ctx, status_r);
 }
 
-int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags,
-		 enum mailbox_status_items status_items,
-		 struct mailbox_status *status_r)
+int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct mailbox_sync_context *ctx;
+	struct mailbox_sync_status status;
 
 	if (array_count(&box->search_results) == 0) {
 		/* we don't care about mailbox's current state, so we might
@@ -638,7 +638,7 @@ int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags,
 	}
 
 	ctx = mailbox_sync_init(box, flags);
-	return mailbox_sync_deinit(&ctx, status_items, status_r);
+	return mailbox_sync_deinit(&ctx, &status);
 }
 
 #undef mailbox_notify_changes

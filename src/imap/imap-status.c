@@ -75,9 +75,12 @@ int imap_status_get(struct client_command_context *cmd,
 	if (client->enabled_features != 0)
 		mailbox_enable(box, client->enabled_features);
 
-	ret = mailbox_sync(box, 0, items, status_r);
-	if (ret < 0) {
+	ret = mailbox_sync(box, 0);
+	if (ret == 0)
+		mailbox_get_status(box, items, status_r);
+	else {
 		struct mail_storage *storage = mailbox_get_storage(box);
+
 		*error_r = mail_storage_get_last_error(storage, &error);
 		*error_r = imap_get_error_string(cmd, *error_r, error);
 	}

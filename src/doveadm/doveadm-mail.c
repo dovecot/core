@@ -68,7 +68,7 @@ static void cmd_force_resync(struct mail_user *user, const char *args[])
 	box = mailbox_find_and_open(user, mailbox);
 	storage = mailbox_get_storage(box);
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
-			 MAILBOX_SYNC_FLAG_FIX_INCONSISTENT, 0, NULL) < 0) {
+			 MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
 		i_fatal("Forcing a resync on mailbox %s failed: %s", mailbox,
 			mail_storage_get_last_error(storage, NULL));
 	}

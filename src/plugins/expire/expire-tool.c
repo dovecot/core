@@ -182,7 +182,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		mailbox_transaction_rollback(&t);
 	}
 
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST, 0, NULL) < 0)
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
 		ret = -1;
 
 	mailbox_close(&box);

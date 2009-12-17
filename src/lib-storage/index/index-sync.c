@@ -298,8 +298,7 @@ index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 }
 
 int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
-			      enum mailbox_status_items status_items,
-			      struct mailbox_status *status_r)
+			      struct mailbox_sync_status *status_r)
 {
 	struct index_mailbox_sync_context *ctx =
 		(struct index_mailbox_sync_context *)_ctx;
@@ -342,10 +341,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		}
 	}
 
-	if (ret == 0 && status_items != 0) {
-		mailbox_get_status(_ctx->box, status_items, status_r);
+	if (status_r != NULL)
 		status_r->sync_delayed_expunges = delayed_expunges;
-	}
 
 	index_sync_search_results_update(ctx);
 

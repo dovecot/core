@@ -277,15 +277,15 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 
 	if (client->enabled_features != 0)
 		mailbox_enable(ctx->box, client->enabled_features);
-	if (mailbox_sync(ctx->box, MAILBOX_SYNC_FLAG_FULL_READ,
-			 STATUS_MESSAGES | STATUS_RECENT |
-			 STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
-			 STATUS_UIDNEXT | STATUS_KEYWORDS |
-			 STATUS_HIGHESTMODSEQ, &status) < 0) {
+	if (mailbox_sync(ctx->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		client_send_storage_error(ctx->cmd,
 					  mailbox_get_storage(ctx->box));
 		return -1;
 	}
+	mailbox_get_status(ctx->box, STATUS_MESSAGES | STATUS_RECENT |
+			   STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
+			   STATUS_UIDNEXT | STATUS_KEYWORDS |
+			   STATUS_HIGHESTMODSEQ, &status);
 
 	client->mailbox = ctx->box;
 	client->select_counter++;

@@ -459,7 +459,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	}
 
 	box = mailbox_alloc(info->ns->list, storage_name, NULL, flags);
-	if (mailbox_sync(box, 0, 0, NULL) < 0) {
+	if (mailbox_sync(box, 0) < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
 
 		i_error("Failed to sync mailbox %s: %s", info->name,
@@ -653,7 +653,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 	}
 
 	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, NULL, flags);
-	if (mailbox_sync(box, 0, 0, NULL) < 0) {
+	if (mailbox_sync(box, 0) < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
 
 		i_error("Failed to sync mailbox %s: %s", lbox->storage_name,
@@ -1148,8 +1148,7 @@ static void local_worker_mailbox_close(struct local_dsync_worker *worker)
 	array_clear(&worker->saved_uids);
 
 	if (mailbox_transaction_commit(&trans) < 0 ||
-	    mailbox_sync(worker->selected_box,
-			 MAILBOX_SYNC_FLAG_FULL_WRITE, 0, NULL) < 0)
+	    mailbox_sync(worker->selected_box, MAILBOX_SYNC_FLAG_FULL_WRITE) < 0)
 		dsync_worker_set_failure(&worker->worker);
 
 	mailbox_close(&worker->selected_box);

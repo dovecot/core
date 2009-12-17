@@ -416,7 +416,7 @@ int main(int argc, char *argv[])
 		i_fatal("Can't open delivery mail as raw: %s",
 			mail_storage_get_last_error(box->storage, &error));
 	}
-	if (mailbox_sync(box, 0, 0, NULL) < 0) {
+	if (mailbox_sync(box, 0) < 0) {
 		i_fatal("Can't sync delivery mail: %s",
 			mail_storage_get_last_error(box->storage, &error));
 	}

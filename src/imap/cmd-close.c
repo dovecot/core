@@ -20,7 +20,7 @@ bool cmd_close(struct client_command_context *cmd)
 	storage = mailbox_get_storage(mailbox);
 	if ((ret = imap_expunge(mailbox, NULL)) < 0)
 		client_send_untagged_storage_error(client, storage);
-	if (mailbox_sync(mailbox, 0, 0, NULL) < 0)
+	if (mailbox_sync(mailbox, 0) < 0)
 		client_send_untagged_storage_error(client, storage);
 
 	mailbox_close(&mailbox);

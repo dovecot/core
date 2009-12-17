@@ -318,13 +318,12 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 }
 
 static int quota_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
-				     enum mailbox_status_items status_items,
-				     struct mailbox_status *status_r)
+				     struct mailbox_sync_status *status_r)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	int ret;
 
-	ret = qbox->module_ctx.super.sync_deinit(ctx, status_items, status_r);
+	ret = qbox->module_ctx.super.sync_deinit(ctx, status_r);
 	/* update quota only after syncing is finished. the quota commit may
 	   recalculate the quota and cause all mailboxes to be synced,
 	   including the one we're already syncing. */
@@ -386,7 +385,7 @@ quota_mailbox_delete_shrink_quota(struct mailbox *box)
 	struct mail_search_args *search_args;
 	int ret;
 
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ, 0, NULL) < 0)
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
 
 	t = mailbox_transaction_begin(box, 0);

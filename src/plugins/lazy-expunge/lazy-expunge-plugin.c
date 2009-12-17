@@ -133,7 +133,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 			lt->failed = TRUE;
 			return;
 		}
-		if (mailbox_sync(lt->dest_box, 0, 0, NULL) < 0) {
+		if (mailbox_sync(lt->dest_box, 0) < 0) {
 			mail_storage_set_critical(_mail->box->storage,
 				"lazy_expunge: Couldn't sync expunge mailbox");
 			mailbox_close(&lt->dest_box);

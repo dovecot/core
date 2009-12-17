@@ -122,8 +122,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 bool index_mailbox_sync_next(struct mailbox_sync_context *ctx,
 			     struct mailbox_sync_rec *sync_rec_r);
 int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
-			      enum mailbox_status_items status_items,
-			      struct mailbox_status *status_r);
+			      struct mailbox_sync_status *status_r);
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 enum mailbox_sync_type index_sync_type_convert(enum mail_index_sync_type type);

@@ -129,8 +129,7 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	}
 
 	/* and try opening again */
-	if (mailbox_open(box) < 0 ||
-	    mailbox_sync(box, 0, 0, NULL) < 0) {
+	if (mailbox_sync(box, 0) < 0) {
 		*error_r = mail_storage_get_last_error(storage, &error);
 		mailbox_close(&box);
 		return NULL;
@@ -212,7 +211,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		ctx->saved_mail = TRUE;
 		mail_deliver_log(ctx, "saved mail to %s", mailbox_name);
 
-		if (ctx->save_dest_mail && mailbox_sync(box, 0, 0, NULL) == 0) {
+		if (ctx->save_dest_mail && mailbox_sync(box, 0) == 0) {
 			range = array_idx(&changes.saved_uids, 0);
 			i_assert(range[0].seq1 == range[0].seq2);
 

@@ -84,11 +84,12 @@ static bool init_mailbox(struct client *client, const char **error_r)
 
 	for (i = 0; i < 2; i++) {
 		expunged = FALSE;
-		if (mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FULL_READ,
-				 STATUS_UIDVALIDITY, &status) < 0) {
+		if (mailbox_sync(client->mailbox,
+				 MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 			client_send_storage_error(client);
 			break;
 		}
+		mailbox_get_status(client->mailbox, STATUS_UIDVALIDITY, &status);
 		client->uid_validity = status.uidvalidity;
 
 		t = mailbox_transaction_begin(client->mailbox, 0);

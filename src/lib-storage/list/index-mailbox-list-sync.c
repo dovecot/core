@@ -306,22 +306,18 @@ static bool index_list_sync_next(struct mailbox_sync_context *ctx,
 }
 
 static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
-				  enum mailbox_status_items status_items,
-				  struct mailbox_status *status_r)
+				  struct mailbox_sync_status *status_r)
 {
 	struct mailbox *box = ctx->box;
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	struct index_mailbox_list *ilist;
 	struct mail_index_view *view;
-	struct mailbox_status tmp_status, *status;
+	struct mailbox_status status;
 	uint32_t uid, seq;
 
 	if (!box->opened) {
 		/* nothing synced. just return the status. */
 		i_free(ctx);
-
-		if (status_items != 0)
-			index_list_get_status(box, status_items, status_r);
 		return 0;
 	}
 
@@ -329,16 +325,10 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 
 	if (ilist == NULL) {
 		/* indexing disabled */
-		return ibox->module_ctx.super.
-			sync_deinit(ctx, status_items, status_r);
+		return ibox->module_ctx.super.sync_deinit(ctx, status_r);
 	}
 
-	/* if status_items == 0, the status_r may be NULL. we really want to
-	   know the status anyway, so save it elsewhere then */
-	status = status_items == 0 ? &tmp_status : status_r;
-	status_items |= CACHED_STATUS_ITEMS;
-
-	if (ibox->module_ctx.super.sync_deinit(ctx, status_items, status) < 0)
+	if (ibox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
 		return -1;
 	ctx = NULL;
 
@@ -349,8 +339,10 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	}
 
 	view = mail_index_view_open(ilist->mail_index);
-	if (mail_index_lookup_seq(view, uid, &seq))
-		(void)index_list_update(ilist, box, view, seq, status);
+	if (mail_index_lookup_seq(view, uid, &seq)) {
+		mailbox_get_status(box, CACHED_STATUS_ITEMS, &status);
+		(void)index_list_update(ilist, box, view, seq, &status);
+	}
 	mail_index_view_close(&view);
 	return 0;
 }

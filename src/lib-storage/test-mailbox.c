@@ -81,10 +81,10 @@ test_mailbox_sync_next(struct mailbox_sync_context *ctx ATTR_UNUSED,
 
 static int
 test_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
-			 enum mailbox_status_items status_items,
-			 struct mailbox_status *status_r)
+			 struct mailbox_sync_status *status_r)
 {
-	test_mailbox_get_status(ctx->box, status_items, status_r);
+	if (status_r != NULL)
+		memset(status_r, 0, sizeof(*status_r));
 	i_free(ctx);
 	return 0;
 }
