@@ -806,8 +806,12 @@ static void ssl_info_callback(const SSL *ssl, int where, int ret)
 			  where, ret, SSL_alert_type_string_long(ret),
 			  SSL_alert_desc_string_long(ret),
 			  net_ip2addr(&proxy->ip));
+	} else if (ret == 0) {
+		i_warning("SSL failed: where=0x%x: %s [%s]",
+			  where, SSL_state_string_long(ssl),
+			  net_ip2addr(&proxy->ip));
 	} else {
-		i_warning("SSL BIO failed: where=0x%x, ret=%d: %s [%s]",
+		i_warning("SSL: where=0x%x, ret=%d: %s [%s]",
 			  where, ret, SSL_state_string_long(ssl),
 			  net_ip2addr(&proxy->ip));
 	}
