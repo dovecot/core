@@ -129,8 +129,7 @@ enum mailbox_transaction_flags {
 	   but nothing else. */
 	MAILBOX_TRANSACTION_FLAG_EXTERNAL	= 0x02,
 	/* Always assign UIDs to messages when saving/copying. Normally this
-	   is done only if the mailbox is synced, or if dest_mail parameter
-	   was non-NULL to mailbox_save_init() or mailbox_copy() */
+	   is done only if it can be done easily. */
 	MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS	= 0x04,
 	/* Refresh the index so lookups return latest flags/modseqs */
 	MAILBOX_TRANSACTION_FLAG_REFRESH	= 0x08
@@ -372,6 +371,12 @@ bool mailbox_allow_new_keywords(struct mailbox *box);
 /* Returns TRUE if two mailboxes point to the same physical mailbox. */
 bool mailbox_backends_equal(const struct mailbox *box1,
 			    const struct mailbox *box2);
+/* Returns TRUE if mailbox is now in inconsistent state, meaning that
+   the message IDs etc. may have changed - only way to recover this
+   would be to fully close the mailbox and reopen it. With IMAP
+   connection this would mean a forced disconnection since we can't
+   do forced CLOSE. */
+bool mailbox_is_inconsistent(struct mailbox *box);
 
 /* Gets the mailbox status information. */
 void mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
@@ -424,24 +429,6 @@ struct mailbox *
 mailbox_transaction_get_mailbox(const struct mailbox_transaction_context *t)
 	ATTR_PURE;
 
-/* Build mail_keywords from NULL-terminated keywords list.
-   Returns 0 if successful, -1 if there are invalid keywords (error is set). */
-int mailbox_keywords_create(struct mailbox *box, const char *const keywords[],
-			    struct mail_keywords **keywords_r);
-/* Like mailbox_keywords_create(), except ignore invalid keywords. */
-struct mail_keywords *
-mailbox_keywords_create_valid(struct mailbox *box,
-			      const char *const keywords[]);
-struct mail_keywords *
-mailbox_keywords_create_from_indexes(struct mailbox *box,
-				     const ARRAY_TYPE(keyword_indexes) *idx);
-void mailbox_keywords_ref(struct mailbox *box, struct mail_keywords *keywords);
-void mailbox_keywords_unref(struct mailbox *box,
-			    struct mail_keywords **keywords);
-/* Returns TRUE if keyword is valid, FALSE and error if not. */
-bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,
-			      const char **error_r);
-
 /* Convert uid range to sequence range. */
 void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			   uint32_t *seq1_r, uint32_t *seq2_r);
@@ -473,12 +460,6 @@ void mailbox_get_virtual_backend_boxes(struct mailbox *box,
 void mailbox_get_virtual_box_patterns(struct mailbox *box,
 				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
 				ARRAY_TYPE(mailbox_virtual_patterns) *excludes);
-
-/* Initialize header lookup for given headers. */
-struct mailbox_header_lookup_ctx *
-mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
-void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx);
-void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **ctx);
 
 /* Initialize new search request. charset specifies the character set used in
    the search argument strings. If sort_program is non-NULL, the messages are
@@ -522,6 +503,24 @@ mailbox_search_result_get(struct mail_search_result *result);
 void mailbox_search_result_sync(struct mail_search_result *result,
 				ARRAY_TYPE(seq_range) *removed_uids,
 				ARRAY_TYPE(seq_range) *added_uids);
+
+/* Build mail_keywords from NULL-terminated keywords list.
+   Returns 0 if successful, -1 if there are invalid keywords (error is set). */
+int mailbox_keywords_create(struct mailbox *box, const char *const keywords[],
+			    struct mail_keywords **keywords_r);
+/* Like mailbox_keywords_create(), except ignore invalid keywords. */
+struct mail_keywords *
+mailbox_keywords_create_valid(struct mailbox *box,
+			      const char *const keywords[]);
+struct mail_keywords *
+mailbox_keywords_create_from_indexes(struct mailbox *box,
+				     const ARRAY_TYPE(keyword_indexes) *idx);
+void mailbox_keywords_ref(struct mailbox *box, struct mail_keywords *keywords);
+void mailbox_keywords_unref(struct mailbox *box,
+			    struct mail_keywords **keywords);
+/* Returns TRUE if keyword is valid, FALSE and error if not. */
+bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,
+			      const char **error_r);
 
 /* Initialize saving a new mail. You must not try to save more than one mail
    at a time. */
@@ -579,12 +578,11 @@ void mailbox_save_cancel(struct mail_save_context **ctx);
    mailbox_save_*() functions. */
 int mailbox_copy(struct mail_save_context **ctx, struct mail *mail);
 
-/* Returns TRUE if mailbox is now in inconsistent state, meaning that
-   the message IDs etc. may have changed - only way to recover this
-   would be to fully close the mailbox and reopen it. With IMAP
-   connection this would mean a forced disconnection since we can't
-   do forced CLOSE. */
-bool mailbox_is_inconsistent(struct mailbox *box);
+/* Initialize header lookup for given headers. */
+struct mailbox_header_lookup_ctx *
+mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
+void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx);
+void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **ctx);
 
 struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
