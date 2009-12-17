@@ -393,8 +393,6 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 
 int mail_storage_purge(struct mail_storage *storage)
 {
-	mail_storage_clear_error(storage);
-
 	return storage->v.purge == NULL ? 0 :
 		storage->v.purge(storage);
 }
@@ -473,8 +471,6 @@ int mailbox_open(struct mailbox *box)
 {
 	int ret;
 
-	mail_storage_clear_error(box->storage);
-
 	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
@@ -518,8 +514,6 @@ void mailbox_close(struct mailbox **_box)
 int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
-	mail_storage_clear_error(box->storage);
-
 	if (!mailbox_list_is_valid_create_name(box->list, box->name)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
@@ -531,8 +525,6 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
-	mail_storage_clear_error(box->storage);
-
 	return box->v.update(box, update);
 }
 

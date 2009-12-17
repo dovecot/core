@@ -493,8 +493,6 @@ bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
 const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 				  enum mailbox_list_path_type type)
 {
-	mailbox_list_clear_error(list);
-
 	return list->v.get_path(list, name, type);
 }
 
@@ -526,8 +524,6 @@ int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 					 const char *name,
 					 enum mailbox_name_status *status)
 {
-	mailbox_list_clear_error(list);
-
 	if (!mailbox_list_is_valid_existing_name(list, name)) {
 		*status = MAILBOX_NAME_INVALID;
 		return 0;
@@ -553,7 +549,6 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 {
 	i_assert(*patterns != NULL);
 
-	mailbox_list_clear_error(list);
 	return list->v.iter_init(list, patterns, flags);
 }
 
@@ -719,8 +714,6 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 {
 	uint8_t guid[MAIL_GUID_128_SIZE];
 	unsigned char sha[SHA1_RESULTLEN];
-
-	mailbox_list_clear_error(list);
 
 	if (list->v.set_subscribed(list, name, set) < 0)
 		return -1;
