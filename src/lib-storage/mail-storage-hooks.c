@@ -181,12 +181,12 @@ void hook_mailbox_allocated(struct mailbox *box)
 	}
 }
 
-void hook_mailbox_index_opened(struct mailbox *box)
+void hook_mailbox_opened(struct mailbox *box)
 {
 	const struct mail_storage_hooks *const *hooks;
 
 	array_foreach(&box->storage->user->hooks, hooks) {
-		if ((*hooks)->mailbox_index_opened != NULL)
-			(*hooks)->mailbox_index_opened(box);
+		if ((*hooks)->mailbox_opened != NULL)
+			(*hooks)->mailbox_opened(box);
 	}
 }

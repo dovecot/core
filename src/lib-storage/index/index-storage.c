@@ -438,9 +438,9 @@ int index_storage_mailbox_open(struct mailbox *box)
 
 	box->opened = TRUE;
 
-	index_thread_mailbox_index_opened(ibox);
-	if (hook_mailbox_index_opened != NULL)
-		hook_mailbox_index_opened(box);
+	index_thread_mailbox_opened(ibox);
+	if (hook_mailbox_opened != NULL)
+		hook_mailbox_opened(box);
 	return 0;
 }
 

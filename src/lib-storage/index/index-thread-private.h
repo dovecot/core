@@ -79,6 +79,6 @@ mail_thread_iterate_init_full(struct mail_thread_cache *cache,
 			      enum mail_thread_type thread_type,
 			      bool return_seqs);
 
-void index_thread_mailbox_index_opened(struct index_mailbox *ibox);
+void index_thread_mailbox_opened(struct index_mailbox *ibox);
 
 #endif

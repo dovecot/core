@@ -15,7 +15,7 @@ struct mail_storage_hooks {
 	void (*mail_storage_created)(struct mail_storage *storage);
 	void (*mailbox_list_created)(struct mailbox_list *list);
 	void (*mailbox_allocated)(struct mailbox *box);
-	void (*mailbox_index_opened)(struct mailbox *box);
+	void (*mailbox_opened)(struct mailbox *box);
 };
 
 void mail_storage_hooks_init(void);
@@ -34,6 +34,6 @@ void hook_mail_namespaces_created(struct mail_namespace *namespaces);
 void hook_mail_storage_created(struct mail_storage *storage);
 void hook_mailbox_list_created(struct mailbox_list *list);
 void hook_mailbox_allocated(struct mailbox *box);
-void hook_mailbox_index_opened(struct mailbox *box);
+void hook_mailbox_opened(struct mailbox *box);
 
 #endif
