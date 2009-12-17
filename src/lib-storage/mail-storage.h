@@ -644,7 +644,7 @@ int mail_get_header_stream(struct mail *mail,
 int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r);
 
-/* Get any of the "special" fields. */
+/* Get any of the "special" fields. Unhandled specials are returned as "". */
 int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 		     const char **value_r);
 
