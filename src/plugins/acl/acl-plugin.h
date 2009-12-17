@@ -39,14 +39,10 @@ extern MODULE_CONTEXT_DEFINE(acl_user_module, &mail_user_module_register);
 extern MODULE_CONTEXT_DEFINE(acl_mailbox_list_module,
 			     &mailbox_list_module_register);
 
-void acl_mail_storage_created(struct mail_storage *storage);
 void acl_mail_namespace_storage_added(struct mail_namespace *ns);
 void acl_mail_user_created(struct mail_user *list);
 
-struct mailbox *
-acl_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		  const char *name, struct istream *input,
-		  enum mailbox_flags flags);
+void acl_mailbox_allocated(struct mailbox *box);
 
 struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list);
 int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,

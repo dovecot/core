@@ -16,23 +16,6 @@ struct acl_storage_module acl_storage_module =
 struct acl_user_module acl_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
 
-void acl_mail_storage_created(struct mail_storage *storage)
-{
-	struct acl_user *auser = ACL_USER_CONTEXT(storage->user);
-	union mail_storage_module_context *astorage;
-
-	if (auser == NULL) {
-		/* ACLs disabled for this user */
-		return;
-	}
-
-	astorage = p_new(storage->pool, union mail_storage_module_context, 1);
-	astorage->super = storage->v;
-	storage->v.mailbox_alloc = acl_mailbox_alloc;
-
-	MODULE_CONTEXT_SET_SELF(storage, acl_storage_module, astorage);
-}
-
 static void acl_user_deinit(struct mail_user *user)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(user);

@@ -444,17 +444,15 @@ static int acl_mailbox_open(struct mailbox *box)
 	return abox->module_ctx.super.open(box);
 }
 
-struct mailbox *
-acl_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		  const char *name, struct istream *input,
-		  enum mailbox_flags flags)
+void acl_mailbox_allocated(struct mailbox *box)
 {
-	union mail_storage_module_context *astorage = ACL_CONTEXT(storage);
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
 	struct acl_mailbox *abox;
-	struct mailbox *box;
 
-	box = astorage->super.mailbox_alloc(storage, list, name, input, flags);
+	if (alist == NULL) {
+		/* ACLs disabled */
+		return;
+	}
 
 	abox = p_new(box->pool, struct acl_mailbox, 1);
 	abox->module_ctx.super = box->v;
@@ -475,5 +473,4 @@ acl_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		box->v.transaction_commit = acl_transaction_commit;
 	}
 	MODULE_CONTEXT_SET(box, acl_storage_module, abox);
-	return box;
 }

@@ -345,18 +345,12 @@ static void quota_mailbox_close(struct mailbox *box)
 	qbox->module_ctx.super.close(box);
 }
 
-static struct mailbox *
-quota_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, struct istream *input,
-		    enum mailbox_flags flags)
+void quota_mailbox_allocated(struct mailbox *box)
 {
-	union mail_storage_module_context *qstorage = QUOTA_CONTEXT(storage);
-	struct mailbox *box;
 	struct quota_mailbox *qbox;
 
-	box = qstorage->super.mailbox_alloc(storage, list, name, input, flags);
-	if (box == NULL || QUOTA_LIST_CONTEXT(list) == NULL)
-		return box;
+	if (QUOTA_LIST_CONTEXT(box->list) == NULL)
+		return;
 
 	qbox = p_new(box->pool, struct quota_mailbox, 1);
 	qbox->module_ctx.super = box->v;
@@ -372,7 +366,6 @@ quota_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	box->v.sync_deinit = quota_mailbox_sync_deinit;
 	box->v.close = quota_mailbox_close;
 	MODULE_CONTEXT_SET(box, quota_storage_module, qbox);
-	return box;
 }
 
 static int
@@ -486,17 +479,6 @@ void quota_mail_user_created(struct mail_user *user)
 	} else if (user->mail_debug) {
 		i_debug("quota: No quota setting - plugin disabled");
 	}
-}
-
-void quota_mail_storage_created(struct mail_storage *storage)
-{
-	union mail_storage_module_context *qstorage;
-
-	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
-	qstorage->super = storage->v;
-	storage->v.mailbox_alloc = quota_mailbox_alloc;
-
-	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
 }
 
 static struct quota_root *

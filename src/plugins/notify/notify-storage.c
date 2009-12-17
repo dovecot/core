@@ -199,16 +199,9 @@ notify_transaction_rollback(struct mailbox_transaction_context *t)
 	lbox->super.transaction_rollback(t);
 }
 
-static struct mailbox *
-notify_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		     const char *name, struct istream *input,
-		     enum mailbox_flags flags)
+static void notify_mailbox_allocated(struct mailbox *box)
 {
-	union mail_storage_module_context *lstorage = NOTIFY_CONTEXT(storage);
-	struct mailbox *box;
 	union mailbox_module_context *lbox;
-
-	box = lstorage->super.mailbox_alloc(storage, list, name, input, flags);
 
 	lbox = p_new(box->pool, union mailbox_module_context, 1);
 	lbox->super = box->v;
@@ -221,7 +214,6 @@ notify_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	box->v.transaction_commit = notify_transaction_commit;
 	box->v.transaction_rollback = notify_transaction_rollback;
 	MODULE_CONTEXT_SET_SELF(box, notify_storage_module, lbox);
-	return box;
 }
 
 static int
@@ -255,17 +247,6 @@ notify_mailbox_list_rename(struct mailbox_list *oldlist, const char *oldname,
 	return 0;
 }
 
-static void notify_mail_storage_created(struct mail_storage *storage)
-{
-	union mail_storage_module_context *lstorage;
-
-	lstorage = p_new(storage->pool, union mail_storage_module_context, 1);
-	lstorage->super = storage->v;
-	storage->v.mailbox_alloc = notify_mailbox_alloc;
-
-	MODULE_CONTEXT_SET_SELF(storage, notify_storage_module, lstorage);
-}
-
 static void notify_mail_namespace_storage_added(struct mail_namespace *ns)
 {
 	struct mailbox_list *list = ns->list;
@@ -280,7 +261,7 @@ static void notify_mail_namespace_storage_added(struct mail_namespace *ns)
 }
 
 static struct mail_storage_hooks notify_mail_storage_hooks = {
-	.mail_storage_created = notify_mail_storage_created,
+	.mailbox_allocated = notify_mailbox_allocated,
 	.mail_namespace_storage_added = notify_mail_namespace_storage_added
 };
 
