@@ -340,7 +340,8 @@ int imap_fetch_begin(struct imap_fetch_context *ctx)
 		ctx->fetch_data |= MAIL_FETCH_NUL_STATE;
 
 	ctx->trans = mailbox_transaction_begin(ctx->box,
-		MAILBOX_TRANSACTION_FLAG_HIDE);
+		MAILBOX_TRANSACTION_FLAG_HIDE |
+		MAILBOX_TRANSACTION_FLAG_REFRESH);
 	ctx->select_counter = ctx->client->select_counter;
 	ctx->mail = mail_alloc(ctx->trans, ctx->fetch_data,
 			       ctx->all_headers_ctx);
