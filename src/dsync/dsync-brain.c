@@ -279,13 +279,13 @@ static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 			/* delete from dest too */
 			if (!dest_deleted) {
 				dsync_worker_delete_mailbox(brain->dest_worker,
-					&dest_boxes[dest]->mailbox_guid);
+							    src_boxes[src]);
 			}
 			src++; dest++;
 		} else if (dest_deleted) {
 			/* delete from src too */
 			dsync_worker_delete_mailbox(brain->src_worker,
-				&src_boxes[src]->mailbox_guid);
+						    dest_boxes[dest]);
 			src++; dest++;
 		} else {
 			src++; dest++;
@@ -315,7 +315,8 @@ static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 
 static bool
 dsync_brain_is_unsubscribed(struct dsync_brain_subs_list *list,
-			    const struct dsync_worker_subscription *subs)
+			    const struct dsync_worker_subscription *subs,
+			    time_t *last_change_r)
 {
 	const struct dsync_worker_unsubscription *unsubs;
 	struct dsync_worker_unsubscription lookup;
@@ -324,16 +325,23 @@ dsync_brain_is_unsubscribed(struct dsync_brain_subs_list *list,
 	dsync_str_sha_to_guid(subs->storage_name, &lookup.name_sha1);
 	unsubs = array_bsearch(&list->unsubscriptions, &lookup,
 			       dsync_worker_unsubscription_cmp);
-	if (unsubs == NULL)
+	if (unsubs == NULL) {
+		*last_change_r = 0;
 		return FALSE;
-	else
-		return unsubs->last_change > subs->last_change;
+	} else if (unsubs->last_change <= subs->last_change) {
+		*last_change_r = subs->last_change;
+		return FALSE;
+	} else {
+		*last_change_r = unsubs->last_change;
+		return TRUE;
+	}
 }
 
 static void dsync_brain_sync_subscriptions(struct dsync_brain *brain)
 {
 	const struct dsync_worker_subscription *src_subs, *dest_subs;
 	unsigned int src, dest, src_count, dest_count;
+	time_t last_change;
 	int ret;
 
 	/* subscriptions are sorted by name. */
@@ -358,27 +366,29 @@ static void dsync_brain_sync_subscriptions(struct dsync_brain *brain)
 		if (ret < 0) {
 			/* subscribed only in source */
 			if (dsync_brain_is_unsubscribed(brain->dest_subs_list,
-							&src_subs[src])) {
+							&src_subs[src],
+							&last_change)) {
 				dsync_worker_set_subscribed(brain->src_worker,
 							    src_subs[src].vname,
-							    FALSE);
+							    last_change, FALSE);
 			} else {
 				dsync_worker_set_subscribed(brain->dest_worker,
 							    src_subs[src].vname,
-							    TRUE);
+							    last_change, TRUE);
 			}
 			src++;
 		} else {
 			/* subscribed only in dest */
 			if (dsync_brain_is_unsubscribed(brain->src_subs_list,
-							&dest_subs[dest])) {
+							&dest_subs[dest],
+							&last_change)) {
 				dsync_worker_set_subscribed(brain->dest_worker,
 							    dest_subs[dest].vname,
-							    FALSE);
+							    last_change, FALSE);
 			} else {
 				dsync_worker_set_subscribed(brain->src_worker,
 							    dest_subs[dest].vname,
-							    TRUE);
+							    last_change, TRUE);
 			}
 			dest++;
 		}
@@ -532,7 +542,7 @@ static void
 dsync_brain_sync_rename_mailbox(struct dsync_brain *brain,
 				const struct dsync_brain_mailbox *mailbox)
 {
-	if (mailbox->src->last_renamed > mailbox->dest->last_renamed) {
+	if (mailbox->src->last_changed > mailbox->dest->last_changed) {
 		dsync_worker_rename_mailbox(brain->dest_worker,
 					    &mailbox->box.mailbox_guid,
 					    mailbox->src);

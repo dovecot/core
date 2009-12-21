@@ -24,7 +24,7 @@ struct dsync_mailbox {
 
 	uint32_t uid_validity, uid_next;
 	uint64_t highest_modseq;
-	time_t last_renamed;
+	time_t last_changed;
 	enum dsync_mailbox_flags flags;
 	ARRAY_TYPE(const_string) cache_fields;
 };

@@ -88,9 +88,9 @@ int dsync_worker_subs_iter_deinit(struct dsync_worker_subs_iter **_iter)
 }
 
 void dsync_worker_set_subscribed(struct dsync_worker *worker,
-				 const char *name, bool set)
+				 const char *name, time_t last_change, bool set)
 {
-	worker->v.set_subscribed(worker, name, set);
+	worker->v.set_subscribed(worker, name, last_change, set);
 }
 
 struct dsync_worker_msg_iter *
@@ -132,10 +132,10 @@ void dsync_worker_create_mailbox(struct dsync_worker *worker,
 }
 
 void dsync_worker_delete_mailbox(struct dsync_worker *worker,
-				 const mailbox_guid_t *mailbox)
+				 const struct dsync_mailbox *dsync_box)
 {
 	if (!worker->readonly)
-		worker->v.delete_mailbox(worker, mailbox);
+		worker->v.delete_mailbox(worker, dsync_box);
 }
 
 void dsync_worker_rename_mailbox(struct dsync_worker *worker,

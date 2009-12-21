@@ -92,7 +92,8 @@ test_dsync_mailbox_delete_equals(const struct dsync_mailbox *dbox,
 				 const struct dsync_mailbox *obox)
 {
 	return memcmp(dbox->mailbox_guid.guid, obox->mailbox_guid.guid,
-		      sizeof(dbox->mailbox_guid.guid)) == 0;
+		      sizeof(dbox->mailbox_guid.guid)) == 0 &&
+		dbox->last_changed == obox->last_changed;
 }
 
 static void

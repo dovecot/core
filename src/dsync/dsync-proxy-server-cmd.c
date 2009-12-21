@@ -151,13 +151,14 @@ cmd_subs_list(struct dsync_proxy_server *server,
 static int
 cmd_subs_set(struct dsync_proxy_server *server, const char *const *args)
 {
-	if (args[0] == NULL || args[1] == NULL) {
+	if (str_array_length(args) < 3) {
 		i_error("subs-set: Missing parameters");
 		return -1;
 	}
 
 	dsync_worker_set_subscribed(server->worker, args[0],
-				    strcmp(args[1], "1") == 0);
+				    strtoul(args[1], NULL, 10),
+				    strcmp(args[2], "1") == 0);
 	return 1;
 }
 
@@ -244,14 +245,19 @@ static int
 cmd_box_delete(struct dsync_proxy_server *server, const char *const *args)
 {
 	mailbox_guid_t guid;
+	struct dsync_mailbox dsync_box;
 
-	if (args[0] == NULL ||
-	    dsync_proxy_mailbox_guid_import(args[0], &guid) < 0) {
+	if (str_array_length(args) < 2)
+		return -1;
+	if (dsync_proxy_mailbox_guid_import(args[0], &guid) < 0) {
 		i_error("box-delete: Invalid mailbox GUID '%s'", args[0]);
 		return -1;
 	}
 
-	dsync_worker_delete_mailbox(server->worker, &guid);
+	memset(&dsync_box, 0, sizeof(dsync_box));
+	dsync_box.mailbox_guid = guid;
+	dsync_box.last_changed = strtoul(args[1], NULL, 10);
+	dsync_worker_delete_mailbox(server->worker, &dsync_box);
 	return 1;
 }
 

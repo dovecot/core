@@ -212,12 +212,13 @@ bool test_dsync_worker_next_box_event(struct test_dsync_worker *worker,
 
 static void
 test_worker_set_subscribed(struct dsync_worker *_worker,
-			   const char *name, bool set)
+			   const char *name, time_t last_change, bool set)
 {
 	struct dsync_mailbox dsync_box;
 
 	memset(&dsync_box, 0, sizeof(dsync_box));
 	dsync_box.name = name;
+	dsync_box.last_changed = last_change;
 	test_worker_set_last_box(_worker, &dsync_box,
 				 set ? LAST_BOX_TYPE_SUBSCRIBE :
 				 LAST_BOX_TYPE_UNSUBSCRIBE);
@@ -232,7 +233,7 @@ test_worker_create_mailbox(struct dsync_worker *_worker,
 
 static void
 test_worker_delete_mailbox(struct dsync_worker *_worker,
-			   const mailbox_guid_t *mailbox)
+			   const struct dsync_mailbox *dsync_box)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
 	struct test_dsync_box_event event;
@@ -240,8 +241,7 @@ test_worker_delete_mailbox(struct dsync_worker *_worker,
 	memset(&event, 0, sizeof(event));
 	event.type = LAST_BOX_TYPE_DELETE;
 
-	event.box.mailbox_guid = *mailbox;
-	event.box.name = "";
+	event.box = *dsync_box;
 	array_append(&worker->box_events, &event, 1);
 }
 

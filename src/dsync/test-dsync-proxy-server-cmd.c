@@ -75,7 +75,7 @@ static void test_dsync_proxy_box_list(void)
 	memset(&box, 0, sizeof(box));
 	box.name = "\t\001\r\nname\t\001\n\r";
 	box.name_sep = '/';
-	box.last_renamed = 992;
+	box.last_changed = 992;
 	box.flags = 123;
 	memcpy(box.dir_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE);
 	test_worker->box_iter.next_box = &box;
@@ -227,7 +227,7 @@ static void test_dsync_proxy_box_create(void)
 	test_assert(strcmp(event.box.name, "noselect") == 0);
 	test_assert(event.box.name_sep == '/');
 	test_assert(memcmp(event.box.dir_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE) == 0);
-	test_assert(event.box.last_renamed == 553);
+	test_assert(event.box.last_changed == 553);
 	test_assert(event.box.flags == 99);
 	test_assert(event.box.uid_validity == 0);
 
@@ -244,7 +244,7 @@ static void test_dsync_proxy_box_create(void)
 	test_assert(event.box.uid_validity == 1234567890);
 	test_assert(event.box.uid_next == 9876);
 	test_assert(event.box.highest_modseq == 28427847284728);
-	test_assert(event.box.last_renamed == 61);
+	test_assert(event.box.last_changed == 61);
 
 	test_end();
 }
@@ -255,15 +255,17 @@ static void test_dsync_proxy_box_delete(void)
 
 	test_begin("proxy server box delete");
 
-	test_assert(run_cmd("BOX-DELETE", TEST_MAILBOX_GUID1, NULL) == 1);
+	test_assert(run_cmd("BOX-DELETE", TEST_MAILBOX_GUID1, "4351", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_DELETE);
 	test_assert(memcmp(event.box.mailbox_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE) == 0);
+	test_assert(event.box.last_changed == 4351);
 
-	test_assert(run_cmd("BOX-DELETE", TEST_MAILBOX_GUID2, NULL) == 1);
+	test_assert(run_cmd("BOX-DELETE", TEST_MAILBOX_GUID2, "653", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_DELETE);
 	test_assert(memcmp(event.box.mailbox_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE) == 0);
+	test_assert(event.box.last_changed == 653);
 
 	test_end();
 }
@@ -310,7 +312,7 @@ static void test_dsync_proxy_box_update(void)
 	test_assert(event.box.uid_validity == 34343);
 	test_assert(event.box.uid_next == 22);
 	test_assert(event.box.highest_modseq == 2238427847284728);
-	test_assert(event.box.last_renamed == 53);
+	test_assert(event.box.last_changed == 53);
 
 	test_end();
 }

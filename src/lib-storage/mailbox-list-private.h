@@ -101,14 +101,13 @@ struct mailbox_list {
 	const char *file_create_gid_origin;
 
 	struct mailbox_log *changelog;
+	time_t changelog_timestamp;
 
 	char *error_string;
 	enum mail_error error;
 	bool temporary_error;
 
 	ARRAY_DEFINE(module_contexts, union mailbox_list_module_context *);
-
-	unsigned int changelog_disabled:1;
 };
 
 struct mailbox_list_iterate_context {

@@ -163,7 +163,7 @@ void dsync_proxy_mailbox_export(string_t *str,
 	str_tabescape_write(str, s);
 	str_append_c(str, '\t');
 	dsync_proxy_mailbox_guid_export(str, &box->dir_guid);
-	str_printfa(str, "\t%lu\t%u", (unsigned long)box->last_renamed,
+	str_printfa(str, "\t%lu\t%u", (unsigned long)box->last_changed,
 		    box->flags);
 
 	if (mail_guid_128_is_empty(box->mailbox_guid.guid)) {
@@ -207,7 +207,7 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 		*error_r = "Invalid dir GUID";
 		return -1;
 	}
-	box_r->last_renamed = strtoul(args[i++], &p, 10);
+	box_r->last_changed = strtoul(args[i++], &p, 10);
 	if (*p != '\0') {
 		*error_r = "Invalid mailbox last_renamed";
 		return -1;

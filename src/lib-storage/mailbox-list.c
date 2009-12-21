@@ -123,6 +123,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->file_create_mode = (mode_t)-1;
 	list->dir_create_mode = (mode_t)-1;
 	list->file_create_gid = (gid_t)-1;
+	list->changelog_timestamp = (time_t)-1;
 
 	/* copy settings */
 	list->set.root_dir = p_strdup(list->pool, set->root_dir);
@@ -697,15 +698,19 @@ void mailbox_list_add_change(struct mailbox_list *list,
 			     const uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
 {
 	struct mailbox_log_record rec;
+	time_t stamp;
 
-	if (!mailbox_list_init_changelog(list) || list->changelog_disabled ||
+	if (!mailbox_list_init_changelog(list) ||
 	    mail_guid_128_is_empty(mailbox_guid))
 		return;
+
+	stamp = list->changelog_timestamp != (time_t)-1 ?
+		list->changelog_timestamp : ioloop_time;
 
 	memset(&rec, 0, sizeof(rec));
 	rec.type = type;
 	memcpy(rec.mailbox_guid, mailbox_guid, sizeof(rec.mailbox_guid));
-	mailbox_log_record_set_timestamp(&rec, ioloop_time);
+	mailbox_log_record_set_timestamp(&rec, stamp);
 	(void)mailbox_log_append(list->changelog, &rec);
 }
 
@@ -916,9 +921,10 @@ struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list)
 	return !mailbox_list_init_changelog(list) ? NULL : list->changelog;
 }
 
-void mailbox_list_set_changelog_writable(struct mailbox_list *list, bool set)
+void mailbox_list_set_changelog_timestamp(struct mailbox_list *list,
+					  time_t stamp)
 {
-	list->changelog_disabled = !set;
+	list->changelog_timestamp = stamp;
 }
 
 static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)

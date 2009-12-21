@@ -25,7 +25,7 @@ struct dsync_worker_vfuncs {
 				 struct dsync_worker_unsubscription *rec_r);
 	int (*subs_iter_deinit)(struct dsync_worker_subs_iter *iter);
 	void (*set_subscribed)(struct dsync_worker *worker,
-			       const char *name, bool set);
+			       const char *name, time_t last_change, bool set);
 
 	struct dsync_worker_msg_iter *
 		(*msg_iter_init)(struct dsync_worker *worker,
@@ -39,7 +39,7 @@ struct dsync_worker_vfuncs {
 	void (*create_mailbox)(struct dsync_worker *worker,
 			       const struct dsync_mailbox *dsync_box);
 	void (*delete_mailbox)(struct dsync_worker *worker,
-			       const mailbox_guid_t *mailbox);
+			       const struct dsync_mailbox *dsync_box);
 	void (*rename_mailbox)(struct dsync_worker *worker,
 			       const mailbox_guid_t *mailbox,
 			       const struct dsync_mailbox *dsync_box);

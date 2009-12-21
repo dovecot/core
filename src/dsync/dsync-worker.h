@@ -75,7 +75,8 @@ int dsync_worker_subs_iter_next_un(struct dsync_worker_subs_iter *iter,
 int dsync_worker_subs_iter_deinit(struct dsync_worker_subs_iter **iter);
 /* Subscribe/unsubscribe mailbox */
 void dsync_worker_set_subscribed(struct dsync_worker *worker,
-				 const char *name, bool set);
+				 const char *name, time_t last_change,
+				 bool set);
 
 /* Iterate through all messages in given mailboxes. The mailboxes are iterated
    in the given order. */
@@ -99,7 +100,7 @@ void dsync_worker_create_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *dsync_box);
 /* Delete mailbox/dir with given GUID. */
 void dsync_worker_delete_mailbox(struct dsync_worker *worker,
-				 const mailbox_guid_t *mailbox);
+				 const struct dsync_mailbox *dsync_box);
 /* Change a mailbox and its childrens' name. The name is taken from the given
    dsync_box (applying name_sep if necessary). */
 void dsync_worker_rename_mailbox(struct dsync_worker *worker,

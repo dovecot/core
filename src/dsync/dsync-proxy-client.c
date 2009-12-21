@@ -545,7 +545,8 @@ proxy_client_worker_subs_iter_deinit(struct dsync_worker_subs_iter *_iter)
 
 static void
 proxy_client_worker_set_subscribed(struct dsync_worker *_worker,
-				   const char *name, bool set)
+				   const char *name, time_t last_change,
+				   bool set)
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
@@ -555,7 +556,8 @@ proxy_client_worker_set_subscribed(struct dsync_worker *_worker,
 
 		str_append(str, "SUBS-SET\t");
 		str_tabescape_write(str, name);
-		str_printfa(str, "\t%d\n", set ? 1 : 0);
+		str_printfa(str, "\t%s\t%d\n", dec2str(last_change),
+			    set ? 1 : 0);
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;
 }
@@ -678,7 +680,7 @@ proxy_client_worker_create_mailbox(struct dsync_worker *_worker,
 
 static void
 proxy_client_worker_delete_mailbox(struct dsync_worker *_worker,
-				   const mailbox_guid_t *mailbox)
+				   const struct dsync_mailbox *dsync_box)
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
@@ -689,8 +691,8 @@ proxy_client_worker_delete_mailbox(struct dsync_worker *_worker,
 		string_t *str = t_str_new(128);
 
 		str_append(str, "BOX-DELETE\t");
-		dsync_proxy_mailbox_guid_export(str, mailbox);
-		str_append_c(str, '\n');
+		dsync_proxy_mailbox_guid_export(str, &dsync_box->mailbox_guid);
+		str_printfa(str, "\t%s\n", dec2str(dsync_box->last_changed));
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;
 }

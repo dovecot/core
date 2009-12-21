@@ -194,8 +194,11 @@ int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
 			  uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
 /* Returns mailbox's change log, or NULL if it doesn't have one. */
 struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list);
-/* Enable/disable writing mailbox changes to changelog. */
-void mailbox_list_set_changelog_writable(struct mailbox_list *list, bool set);
+/* Specify timestamp to use when writing mailbox changes to changelog.
+   The same timestamp is used until stamp is set to (time_t)-1, after which
+   current time is used */
+void mailbox_list_set_changelog_timestamp(struct mailbox_list *list,
+					  time_t stamp);
 
 /* Returns a prefix that temporary files should use without conflicting
    with the namespace. */
