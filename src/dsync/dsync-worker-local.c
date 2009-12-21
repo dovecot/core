@@ -984,6 +984,43 @@ local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 	return mailbox_alloc(ns->list, name, NULL, 0);
 }
 
+static int
+local_worker_create_allocated_mailbox(struct local_dsync_worker *worker,
+				      struct mailbox *box,
+				      const struct dsync_mailbox *dsync_box)
+{
+	struct mailbox_update update;
+	const char *errstr;
+	enum mail_error error;
+	int ret;
+
+	local_worker_copy_mailbox_update(dsync_box, &update);
+
+	ret = mailbox_create(box, &update, dsync_box->uid_validity == 0);
+	if (ret < 0 && strcasecmp(mailbox_get_name(box), "INBOX") == 0)
+		ret = mailbox_update(box, &update);
+	errstr = mail_storage_get_last_error(mailbox_get_storage(box), &error);
+	if (ret < 0 && error == MAIL_ERROR_EXISTS) {
+		/* mailbox already exists */
+		if (dsync_box->uid_validity != 0)
+			return 0;
+		else {
+			/* just a directory - no one cares */
+			return 1;
+		}
+	}
+	if (ret < 0) {
+		dsync_worker_set_failure(&worker->worker);
+		i_error("Can't create mailbox %s: %s", dsync_box->name, errstr);
+	} else {
+		local_dsync_worker_add_mailbox(worker,
+					       mailbox_get_namespace(box),
+					       mailbox_get_name(box),
+					       &dsync_box->mailbox_guid);
+	}
+	return ret < 0 ? -1 : 1;
+}
+
 static void
 local_worker_create_mailbox(struct dsync_worker *_worker,
 			    const struct dsync_mailbox *dsync_box)
@@ -991,7 +1028,8 @@ local_worker_create_mailbox(struct dsync_worker *_worker,
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
 	struct mailbox *box;
-	struct mailbox_update update;
+	struct mail_namespace *ns;
+	const char *new_name;
 	int ret;
 
 	box = local_worker_mailbox_alloc(worker, dsync_box, TRUE);
@@ -999,22 +1037,25 @@ local_worker_create_mailbox(struct dsync_worker *_worker,
 		dsync_worker_set_failure(_worker);
 		return;
 	}
-	local_worker_copy_mailbox_update(dsync_box, &update);
 
-	ret = mailbox_create(box, &update, dsync_box->uid_validity == 0);
-	if (ret < 0 && strcasecmp(dsync_box->name, "INBOX") == 0)
-		ret = mailbox_update(box, &update);
-	if (ret < 0) {
-		dsync_worker_set_failure(_worker);
-		i_error("Can't create mailbox %s: %s", dsync_box->name,
-			mail_storage_get_last_error(mailbox_get_storage(box),
-						    NULL));
-	} else {
-		local_dsync_worker_add_mailbox(worker,
-					       mailbox_get_namespace(box),
-					       mailbox_get_name(box),
-					       &dsync_box->mailbox_guid);
+	ret = local_worker_create_allocated_mailbox(worker, box, dsync_box);
+	if (ret != 0) {
+		mailbox_close(&box);
+		return;
 	}
+
+	/* mailbox name already exists. add mailbox guid to the name,
+	   that shouldn't exist. */
+	new_name = t_strconcat(mailbox_get_name(box), "_",
+			       dsync_guid_to_str(&dsync_box->mailbox_guid),
+			       NULL);
+	ns = mailbox_get_namespace(box);
+	mailbox_close(&box);
+
+	local_dsync_worker_add_mailbox(worker, ns, new_name,
+				       &dsync_box->mailbox_guid);
+	box = mailbox_alloc(ns->list, new_name, NULL, 0);
+	(void)local_worker_create_allocated_mailbox(worker, box, dsync_box);
 	mailbox_close(&box);
 }
 
