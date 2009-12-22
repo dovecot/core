@@ -3,6 +3,7 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
+#include "safe-memset.h"
 #include "mempool.h"
 
 #include <stdlib.h>
@@ -19,6 +20,8 @@
 #elif defined (HAVE_GC_H)
 #  include <gc.h>
 #endif
+
+#define CLEAR_CHR 0xde
 
 static const char *pool_system_get_name(pool_t pool);
 static void pool_system_ref(pool_t pool);
@@ -89,6 +92,9 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 static void pool_system_free(pool_t pool ATTR_UNUSED,
 			     void *mem ATTR_UNUSED)
 {
+#if !defined(USE_GC) && defined(HAVE_MALLOC_USABLE_SIZE) && defined(DEBUG)
+	safe_memset(mem, CLEAR_CHR, malloc_usable_size(mem));
+#endif
 #ifndef USE_GC
 	free(mem);
 #endif
