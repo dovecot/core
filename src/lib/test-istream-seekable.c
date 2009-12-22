@@ -121,6 +121,37 @@ static void test_istream_seekable_random(void)
 	i_stream_unref(&input);
 }
 
+static void test_istream_seekable_eof(void)
+{
+	static const char *in_str = "foo";
+	unsigned int in_str_len = strlen(in_str);
+	struct istream *streams[2], *input;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("istream seekable eof");
+
+	streams[0] = i_stream_create_from_data(in_str, in_str_len);
+	streams[0]->seekable = FALSE;
+	streams[1] = NULL;
+
+	input = i_stream_create_seekable(streams, in_str_len, fd_callback, NULL);
+	i_stream_unref(&streams[0]);
+
+	test_assert(i_stream_read(input) == (ssize_t)in_str_len);
+	data = i_stream_get_data(input, &size);
+	test_assert(size == in_str_len);
+	test_assert(memcmp(data, in_str, in_str_len) == 0);
+
+	test_assert(i_stream_read(input) == -1);
+	data = i_stream_get_data(input, &size);
+	test_assert(size == in_str_len);
+	test_assert(memcmp(data, in_str, in_str_len) == 0);
+
+	i_stream_unref(&input);
+	test_end();
+}
+
 void test_istream_seekable(void)
 {
 	unsigned int i;
@@ -135,4 +166,6 @@ void test_istream_seekable(void)
 		test_istream_seekable_random();
 	} T_END;
 	test_end();
+
+	test_istream_seekable_eof();
 }

@@ -72,7 +72,10 @@ i_stream_seekable_set_max_buffer_size(struct iostream_private *stream,
 
 static int copy_to_temp_file(struct seekable_istream *sstream)
 {
+	struct istream_private *stream = &sstream->istream;
 	const char *path;
+	const unsigned char *buffer;
+	size_t size;
 	int fd;
 
 	fd = sstream->fd_callback(&path, sstream->context);
@@ -89,11 +92,27 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	sstream->temp_path = i_strdup(path);
 	sstream->write_peak = sstream->buffer->used;
 
-	buffer_free(&sstream->buffer);
-
 	sstream->fd = fd;
 	sstream->fd_input =
 		i_stream_create_fd(fd, sstream->istream.max_buffer_size, TRUE);
+
+	/* read back the data we just had in our buffer */
+	i_stream_seek(sstream->fd_input, stream->istream.v_offset);
+	for (;;) {
+		buffer = i_stream_get_data(sstream->fd_input, &size);
+		if (size >= stream->pos)
+			break;
+
+		if (i_stream_read(sstream->fd_input) <= 0) {
+			i_error("istream-seekable: Couldn't read back "
+				"in-memory input");
+			i_stream_destroy(&sstream->fd_input);
+			return -1;
+		}
+	}
+	stream->buffer = buffer;
+	stream->pos = size;
+	buffer_free(&sstream->buffer);
 	return 0;
 }
 
@@ -341,6 +360,7 @@ i_stream_create_seekable(struct istream *input[],
 	sstream->context = context;
 	sstream->buffer = buffer_create_dynamic(default_pool, BUF_INITIAL_SIZE);
         sstream->istream.max_buffer_size = max_buffer_size;
+	sstream->fd = -1;
 
 	sstream->input = i_new(struct istream *, count + 1);
 	memcpy(sstream->input, input, sizeof(*input) * count);
