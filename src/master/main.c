@@ -159,7 +159,8 @@ startup_fatal_handler(enum log_type type, int status,
 	va_list args2;
 
 	VA_COPY(args2, args);
-	fprintf(stderr, "Fatal: %s\n", t_strdup_vprintf(fmt, args2));
+	fprintf(stderr, "%s%s\n", failure_log_type_prefixes[type],
+		t_strdup_vprintf(fmt, args2));
 	orig_fatal_callback(type, status, fmt, args);
 	abort();
 }
@@ -170,7 +171,8 @@ startup_error_handler(enum log_type type, const char *fmt, va_list args)
 	va_list args2;
 
 	VA_COPY(args2, args);
-	fprintf(stderr, "Error: %s\n", t_strdup_vprintf(fmt, args2));
+	fprintf(stderr, "%s%s\n", failure_log_type_prefixes[type],
+		t_strdup_vprintf(fmt, args2));
 	orig_error_callback(type, fmt, args);
 }
 
