@@ -128,41 +128,17 @@ static int mdbox_rebuild_msg_uid_cmp(struct mdbox_rebuild_msg *const *m1,
 	return 0;
 }
 
-static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
-			    const char *path)
+static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
+			      struct dbox_file *file)
 {
-	struct dbox_file *file;
-	const char *fname, *guid;
+	const char *guid;
 	struct mdbox_rebuild_msg *rec;
-	uint32_t file_id;
 	uoff_t offset, prev_offset, size;
 	bool last, first, fixed = FALSE;
-	unsigned int len;
-	int ret = 0;
+	int ret;
 
-	fname = strrchr(path, '/');
-	i_assert(fname != NULL);
-	fname += strlen(MDBOX_MAIL_FILE_PREFIX) + 1;
-
-	file_id = strtoul(fname, NULL, 10);
-	if (!is_numeric(fname, '\0') || file_id == 0) {
-		len = strlen(fname);
-		if (len > 7 && strcmp(fname + len - 7, ".broken") != 0) {
-			i_warning("dbox rebuild: File name is missing ID: %s",
-				  path);
-		}
-		return 0;
-	}
-
-	/* small optimization: typically files are returned sorted. in that
-	   case we don't need to sort them ourself. */
-	if (file_id < ctx->prev_file_id)
-		ctx->msgs_unsorted = TRUE;
-	ctx->prev_file_id = file_id;
-
-	file = mdbox_file_init(ctx->storage, file_id);
-	prev_offset = 0;
 	dbox_file_seek_rewind(file);
+	prev_offset = 0;
 	while ((ret = dbox_file_seek_next(file, &offset, &last)) >= 0) {
 		if (ret > 0) {
 			if ((ret = dbox_file_metadata_read(file)) < 0)
@@ -203,7 +179,7 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 		}
 
 		rec = p_new(ctx->pool, struct mdbox_rebuild_msg, 1);
-		rec->file_id = file_id;
+		rec->file_id = ctx->prev_file_id;
 		rec->offset = offset;
 		rec->size = file->input->v_offset - offset;
 		mail_generate_guid_128_hash(guid, rec->guid_128);
@@ -217,7 +193,48 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 			hash_table_insert(ctx->guid_hash, rec->guid_128, rec);
 		}
 	}
-	if (ret == 0 && !last)
+	if (ret < 0)
+		return -1;
+	else if (ret == 0 && !last)
+		return 0;
+	else
+		return 1;
+}
+
+static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
+			    const char *path)
+{
+	struct dbox_file *file;
+	uint32_t file_id;
+	const char *fname;
+	unsigned int len;
+	bool deleted;
+	int ret = 0;
+
+	fname = strrchr(path, '/');
+	i_assert(fname != NULL);
+	fname += strlen(MDBOX_MAIL_FILE_PREFIX) + 1;
+
+	file_id = strtoul(fname, NULL, 10);
+	if (!is_numeric(fname, '\0') || file_id == 0) {
+		len = strlen(fname);
+		if (len > 7 && strcmp(fname + len - 7, ".broken") != 0) {
+			i_warning("dbox rebuild: File name is missing ID: %s",
+				  path);
+		}
+		return 0;
+	}
+
+	/* small optimization: typically files are returned sorted. in that
+	   case we don't need to sort them ourself. */
+	if (file_id < ctx->prev_file_id)
+		ctx->msgs_unsorted = TRUE;
+	ctx->prev_file_id = file_id;
+
+	file = mdbox_file_init(ctx->storage, file_id);
+	if ((ret = dbox_file_open(file, &deleted)) > 0 && !deleted)
+		ret = rebuild_file_mails(ctx, file);
+	if (ret == 0)
 		i_error("dbox rebuild: Failed to fix file %s", path);
 	dbox_file_unref(&file);
 	return ret < 0 ? -1 : 0;
