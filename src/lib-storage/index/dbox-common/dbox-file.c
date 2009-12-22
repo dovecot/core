@@ -358,6 +358,8 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 	uoff_t offset, size;
 	int ret;
 
+	i_assert(file->input != NULL);
+
 	if (file->cur_offset == (uoff_t)-1) {
 		/* first mail. we may not have read the file at all yet,
 		   so set the offset afterwards. */
@@ -372,7 +374,7 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 	}
 	*offset_r = offset;
 
-	if (file->input != NULL && i_stream_is_eof(file->input)) {
+	if (i_stream_is_eof(file->input)) {
 		*last_r = TRUE;
 		return 0;
 	}
