@@ -5,6 +5,7 @@
 #include "md5.h"
 #include "hash.h"
 #include "hex-binary.h"
+#include "hostpid.h"
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
@@ -136,6 +137,41 @@ static const struct var_expand_modifier modifiers[] = {
 	{ '\0', NULL }
 };
 
+static const char *
+var_expand_long(const struct var_expand_table *table,
+		const void *key_start, unsigned int key_len)
+{
+        const struct var_expand_table *t;
+	const char *value = NULL;
+
+	for (t = table; !TABLE_LAST(t); t++) {
+		if (t->long_key != NULL &&
+		    strncmp(t->long_key, key_start, key_len) == 0 &&
+		    t->long_key[key_len] == '\0') {
+			return t->value != NULL ? t->value : "";
+		}
+	}
+
+	/* built-in variables: */
+	T_BEGIN {
+		const char *key = t_strndup(key_start, key_len);
+
+		switch (key_len) {
+		case 3:
+			if (strcmp(key, "pid") == 0)
+				value = my_pid;
+			break;
+		case 8:
+			if (strcmp(key, "hostname") == 0)
+				value = my_hostname;
+			break;
+		}
+		if (strncmp(key, "env:", 4) == 0)
+			value = getenv(key + 4);
+	} T_END;
+	return value;
+}
+
 void var_expand(string_t *dest, const char *str,
 		const struct var_expand_table *table)
 {
@@ -216,17 +252,9 @@ void var_expand(string_t *dest, const char *str,
 			if (*str == '{' && (end = strchr(str, '}')) != NULL) {
 				/* %{long_key} */
 				len = end - (str + 1);
-				for (t = table; !TABLE_LAST(t); t++) {
-					if (t->long_key != NULL &&
-					    strncmp(t->long_key, str+1,
-						    len) == 0 &&
-					    t->long_key[len] == '\0') {
-						var = t->value != NULL ?
-							t->value : "";
-						str = end;
-						break;
-					}
-				}
+				var = var_expand_long(table, str+1, len);
+				if (var != NULL)
+					str = end;
 			} else {
 				for (t = table; !TABLE_LAST(t); t++) {
 					if (t->key == *str) {

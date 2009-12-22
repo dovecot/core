@@ -27,6 +27,7 @@ int main(void)
 		test_str_sanitize,
 		test_time_util,
 		test_utc_mktime,
+		test_var_expand,
 		NULL
 	};
 	return test_run(test_functions);
