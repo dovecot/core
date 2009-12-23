@@ -400,13 +400,20 @@ maildir_uidlist_records_array_delete(struct maildir_uidlist *uidlist,
 				     struct maildir_uidlist_rec *rec)
 {
 	struct maildir_uidlist_rec *const *recs, *const *pos;
-	unsigned int idx;
+	unsigned int idx, count;
 
-	pos = array_bsearch(&uidlist->records, &rec, maildir_uid_cmp);
-	i_assert(pos != NULL);
-
-	recs = array_idx(&uidlist->records, 0);
-	idx = pos - recs;
+	recs = array_get(&uidlist->records, &count);
+	if (!uidlist->unsorted) {
+		pos = array_bsearch(&uidlist->records, &rec, maildir_uid_cmp);
+		i_assert(pos != NULL);
+		idx = pos - recs;
+	} else {
+		for (idx = 0; idx < count; idx++) {
+			if (recs[idx]->uid == rec->uid)
+				break;
+		}
+		i_assert(idx != count);
+	}
 	array_delete(&uidlist->records, idx, 1);
 	return idx;
 }
