@@ -233,6 +233,7 @@ static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 				    ARRAY_TYPE(const_string) *all_listeners)
 {
 	struct file_listener_settings *const *sets;
+	unsigned int base_dir_len = strlen(base_dir);
 
 	if (!array_is_created(l))
 		return;
@@ -243,6 +244,10 @@ static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 		if (*set->path != '/') {
 			set->path = p_strconcat(pool, base_dir, "/",
 						set->path, NULL);
+		} else if (strncmp(set->path, base_dir, base_dir_len) == 0 &&
+			   set->path[base_dir_len] == '/') {
+			i_warning("You should remove base_dir prefix from "
+				  "unix_listener: %s", set->path);
 		}
 		array_append(all_listeners, &set->path, 1);
 	}
