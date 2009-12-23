@@ -562,7 +562,7 @@ index_storage_mailbox_update_cache_fields(struct index_mailbox *ibox,
 				break;
 		}
 		if (j != old_count) {
-			field = old_fields[i];
+			field = old_fields[j];
 			if (field.decision == MAIL_CACHE_DECISION_NO)
 				field.decision = MAIL_CACHE_DECISION_TEMP;
 			array_append(&new_fields, &field, 1);
