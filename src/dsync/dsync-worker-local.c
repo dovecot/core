@@ -7,6 +7,7 @@
 #include "hex-binary.h"
 #include "network.h"
 #include "istream.h"
+#include "settings-parser.h"
 #include "mailbox-log.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -123,11 +124,46 @@ static unsigned int mailbox_guid_hash(const void *p)
 	return h;
 }
 
+static void dsync_drop_extra_namespaces(struct mail_user *user)
+{
+	struct mail_namespace_settings *const *ns_unset, *const *ns_set;
+	struct mail_namespace *ns;
+	unsigned int i, count, count2;
+
+	if (!array_is_created(&user->unexpanded_set->namespaces))
+		return;
+
+	/* drop all namespaces that have a location defined internally */
+	ns_unset = array_get(&user->unexpanded_set->namespaces, &count);
+	ns_set = array_get(&user->set->namespaces, &count2);
+	i_assert(count == count2);
+	for (i = 0; i < count; i++) {
+		if (strcmp(ns_unset[i]->location,
+			   SETTING_STRVAR_UNEXPANDED) == 0)
+			continue;
+
+		for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+			if (strcmp(ns->prefix, ns_set[i]->prefix) == 0) {
+				mail_namespace_destroy(ns);
+				break;
+			}
+		}
+		i_assert(ns != NULL);
+	}
+	if (user->namespaces == NULL) {
+		i_fatal("All your namespaces have a location setting. "
+			"It should be empty (default mail_location) in the "
+			"namespace to be converted.");
+	}
+}
+
 struct dsync_worker *
 dsync_worker_init_local(struct mail_user *user, char alt_char)
 {
 	struct local_dsync_worker *worker;
 	pool_t pool;
+
+	dsync_drop_extra_namespaces(user);
 
 	pool = pool_alloconly_create("local dsync worker", 10240);
 	worker = p_new(pool, struct local_dsync_worker, 1);
