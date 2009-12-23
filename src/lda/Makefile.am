@@ -33,3 +33,7 @@ dovecot_lda_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 
 dovecot_lda_SOURCES = \
 	main.c
+
+install-exec-local:
+	rm -f $(DESTDIR)$(pkglibexecdir)/deliver
+	$(LN_S) dovecot-lda $(DESTDIR)$(pkglibexecdir)/deliver
