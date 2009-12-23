@@ -223,9 +223,13 @@ static const char *ns_get_listed_prefix(struct cmd_list_context *ctx)
 	struct imap_match_glob *glob;
 	enum imap_match_result match;
 	const char *ns_prefix, *p;
+	bool inboxcase;
 
+	inboxcase = strncasecmp(ctx->ns->prefix, "INBOX", 5) == 0 &&
+		ctx->ns->prefix[5] == ctx->ns->sep;
 	glob = imap_match_init_multiple(pool_datastack_create(),
-					ctx->patterns, FALSE, ctx->ns->sep);
+					ctx->patterns, inboxcase,
+					ctx->ns->sep);
 	ns_prefix = ctx->ns->prefix;
 	match = imap_match(glob, ns_prefix);
 	if (match == IMAP_MATCH_YES) {
