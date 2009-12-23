@@ -115,7 +115,8 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	storage->set = mail_storage_get_driver_settings(_storage);
 
 	storage->maildir_list_ext_id = (uint32_t)-1;
-	storage->temp_prefix = mailbox_list_get_temp_prefix(list);
+	storage->temp_prefix = p_strdup(_storage->pool,
+					mailbox_list_get_temp_prefix(list));
 
 	if (list->set.control_dir == NULL && list->set.inbox_path == NULL &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
