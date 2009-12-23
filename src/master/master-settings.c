@@ -299,6 +299,21 @@ static void service_set_login_dump_core(struct service_settings *set)
 }
 
 static bool
+services_have_protocol(struct master_settings *set, const char *name)
+{
+	struct service_settings *const *services;
+
+	array_foreach(&set->services, services) {
+		struct service_settings *service = *services;
+
+		if (service->protocol != NULL &&
+		    strcmp(service->protocol, name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
 	struct master_settings *set = _set;
@@ -396,6 +411,14 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	}
 
 	set->protocols_split = p_strsplit(pool, set->protocols, " ");
+	for (i = 0; set->protocols_split[i] != NULL; i++) {
+		if (!services_have_protocol(set, set->protocols_split[i])) {
+			*error_r = t_strdup_printf("protocols: "
+						   "Unknown protocol: %s",
+						   set->protocols_split[i]);
+			return FALSE;
+		}
+	}
 	return TRUE;
 }
 /* </settings checks> */
