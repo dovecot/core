@@ -311,6 +311,7 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		case 'u':
 		case 'm':
 		case 'f':
+		case 'g':
 			uidl_format_ok = TRUE;
 			break;
 		case '%':

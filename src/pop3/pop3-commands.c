@@ -560,6 +560,14 @@ static bool pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 			i_fatal("UIDL: File name not found");
 		}
 	}
+	if ((client->uidl_keymask & UIDL_GUID) != 0) {
+		if (mail_get_special(ctx->mail, MAIL_FETCH_GUID,
+				     &tab[4].value) < 0 ||
+		    *tab[4].value == '\0') {
+			/* broken */
+			i_fatal("UIDL: Message GUID not found");
+		}
+	}
 	var_expand(str, client->mail_set->pop3_uidl_format, tab);
 	return FALSE;
 }
@@ -571,6 +579,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		{ 'u', NULL, "uid" },
 		{ 'm', NULL, "md5" },
 		{ 'f', NULL, "filename" },
+		{ 'g', NULL, "guid" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;

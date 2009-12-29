@@ -178,6 +178,9 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 			case 'f':
 				mask |= UIDL_FILE_NAME;
 				break;
+			case 'g':
+				mask |= UIDL_GUID;
+				break;
 			}
 		}
 	}
