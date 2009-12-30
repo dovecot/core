@@ -71,10 +71,17 @@ static bool lda_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			       const char **error_r)
 {
 	struct lda_settings *set = _set;
+	const char *fqdn = NULL;
 
 	if (*set->postmaster_address == '\0') {
-		*error_r = "postmaster_address setting not given";
-		return FALSE;
+		fqdn = my_hostdomain();
+		/* check for valid looking fqdn */
+		if (strchr(fqdn, '.') == NULL) {
+			*error_r = "postmaster_address setting not given";
+			return FALSE;
+		}
+		set->postmaster_address = p_strconcat(pool, "postmaster@",
+						      fqdn, NULL);
 	}
 	if (*set->hostname == '\0') {
 		i_assert(my_hostname != NULL);
