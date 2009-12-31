@@ -1,3 +1,21 @@
+#224 0x080cd0ed in mail_cache_transaction_reset (ctx=0x87c03a8) at mail-cache-transaction.c:123
+#225 0x080cd58b in mail_cache_transaction_lock (ctx=0x87c03a8) at mail-cache-transaction.c:275
+#226 0x080cde03 in mail_cache_transaction_free_reservations (ctx=0x87c03a8) at mail-cache-transaction.c:509
+#227 0x080cd0ed in mail_cache_transaction_reset (ctx=0x87c03a8) at mail-cache-transaction.c:123
+
+ - dsync: dovecot ml mbox -> mdbox(es) created by TB imap login -> crashes
+ - dsync: subscriptions listing probably should use DROP_ALIASES flag
+ - dsync: handle mailbox name conflicts. local-worker's create() probably
+   should fallback to creating name-<guid>
+ - only maildir writes mailbox/dir deletions to changelog
+ - default inet_listeners?
+ - auth penalty tracking shouldn't penalize if same user+pass combo keeps
+   doing it. or penalize only when client disconnects before having finished
+   waiting?
+ - multiple connections in one process -> mbox fcntl locking problems!
+ - lmtp: if auth-userdb connection dies, we should switch to running as root
+   before reconnection to it is attempted. probably in general it should try
+   to run as root while idling, so it's clearer to admins
  - imap: maildir_copy_with_hardlinks=no COPY to same mailbox crashes
  - create something similar to dovecot-2.0-sieve/src/lib-sieve-tool/mail-raw.c
    so sieve and deliver can share the code
@@ -33,13 +51,21 @@
     ^ empty mbox?..
     ^ at least with dsync mailbox_update()
  - expire plugin could support also "archive" operation = move to another mailbox
+ - istream-seekable is inefficient. it shouldn't be reading the temp file
+   immediately after writing to it
 
  - config process is handling requests too slowly. maybe add some caching.
  - dsync:
    - subscriptions syncing doesn't handle mixed hierarchy separators
    - mailbox list GUID isn't replicated, but does it need to be?
+     - the whole dir GUIDs are probably unnecessary. just handle them similarly
+       to subscriptions? mailbox changelog would track dir create/delete/rename
    - handle INBOX GUID conflicts.
    - copying: does it work correctly with non-full syncs?
+    - "backup mode" where one side is read-only and other side gets forced
+      everything exactly as they're in read-only side, even if backup side had
+      done some changes of its own
+   - superfast mode
 
  - lda: add some -h 'Header: value' parameter that adds/replaces header
  - ldap: fix multiple-gid support somehow
