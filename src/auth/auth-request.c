@@ -1275,6 +1275,33 @@ void auth_request_proxy_finish(struct auth_request *request, bool success)
 	auth_stream_reply_remove(request->extra_fields, "destuser");
 }
 
+static void log_password_failure(struct auth_request *request,
+				 const char *plain_password,
+				 const char *crypted_password,
+				 const char *scheme, const char *user,
+				 const char *subsystem)
+{
+	static bool scheme_ok = FALSE;
+	string_t *str = t_str_new(256);
+	const char *working_scheme;
+
+	str_printfa(str, "%s(%s) != '%s'", scheme,
+		    plain_password, crypted_password);
+
+	if (!scheme_ok) {
+		/* perhaps the scheme is wrong - see if we can find
+		   a working one */
+		working_scheme = password_scheme_detect(plain_password,
+							crypted_password, user);
+		if (working_scheme != NULL) {
+			str_printfa(str, ", try %s scheme instead",
+				    working_scheme);
+		}
+	}
+
+	auth_request_log_debug(request, subsystem, "%s", str_c(str));
+}
+
 int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,
@@ -1323,12 +1350,12 @@ int auth_request_password_verify(struct auth_request *request,
 	if (ret == 0) {
 		auth_request_log_info(request, subsystem,
 				      "Password mismatch");
-		if (request->auth->set->debug_passwords) {
-			auth_request_log_debug(request, subsystem,
-					       "%s(%s) != '%s'", scheme,
-					       plain_password,
-					       crypted_password);
-		}
+		if (request->auth->set->debug_passwords) T_BEGIN {
+			log_password_failure(request, plain_password,
+					     crypted_password, scheme,
+					     request->original_username,
+					     subsystem);
+		} T_END;
 	}
 	return ret;
 }

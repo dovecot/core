@@ -53,6 +53,12 @@ bool password_generate_encoded(const char *plaintext, const char *user,
 /* Returns TRUE if schemes are equivalent. */
 bool password_scheme_is_alias(const char *scheme1, const char *scheme2);
 
+/* Try to detect in which scheme crypted password is. Returns the scheme name
+   or NULL if nothing was found. */
+const char *
+password_scheme_detect(const char *plain_password, const char *crypted_password,
+		       const char *user);
+
 void password_scheme_register(const struct password_scheme *scheme);
 void password_scheme_unregister(const struct password_scheme *scheme);
 

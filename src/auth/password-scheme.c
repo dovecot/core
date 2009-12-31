@@ -251,6 +251,31 @@ bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 		s1->password_generate == s2->password_generate;
 }
 
+const char *
+password_scheme_detect(const char *plain_password, const char *crypted_password,
+		       const char *user)
+{
+	const struct password_scheme *const *schemes;
+	unsigned int i, count;
+	const unsigned char *raw_password;
+	size_t raw_password_size;
+
+	if (strncmp(crypted_password, "$1$", 3) == 0)
+		return "MD5-CRYPT";
+
+	schemes = array_get(&password_schemes, &count);
+	for (i = 0; i < count; i++) {
+		if (password_decode(crypted_password, schemes[i]->name,
+				    &raw_password, &raw_password_size) <= 0)
+			continue;
+
+		if (password_verify(plain_password, user, schemes[i]->name,
+				    raw_password, raw_password_size) > 0)
+			return schemes[i]->name;
+	}
+	return NULL;
+}
+
 static bool
 crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	     const unsigned char *raw_password, size_t size)
