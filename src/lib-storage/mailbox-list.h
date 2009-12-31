@@ -243,6 +243,8 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 
 /* Delete the given mailbox. If it has children, they aren't deleted. */
 int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name);
+/* Delete a non-selectable mailbox. Fail if the mailbox is selectable. */
+int mailbox_list_delete_dir(struct mailbox_list *list, const char *name);
 /* Rename mailbox. Renaming across different mailbox lists is possible only
    between private namespaces and storages of the same type. If the rename
    fails, the error is set to oldlist. */

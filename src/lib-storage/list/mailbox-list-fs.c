@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "hostpid.h"
 #include "mkdir-parents.h"
+#include "mailbox-log.h"
 #include "subscription-file.h"
 #include "mail-storage.h"
 #include "mailbox-list-fs.h"
@@ -280,6 +281,31 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return mailbox_list_delete_index_control(list, name);
 }
 
+static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
+{
+	const char *path;
+	uint8_t dir_sha128[MAIL_GUID_128_SIZE];
+
+	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (rmdir(path) == 0) {
+		mailbox_name_get_sha128(name, dir_sha128);
+		mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_DIR,
+					dir_sha128);
+		return 0;
+	}
+
+	if (errno == ENOENT) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+	} else if (errno == ENOTEMPTY) {
+		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
+				       "Mailbox exists");
+	} else {
+		mailbox_list_set_critical(list, "rmdir(%s) failed: %m", path);
+	}
+	return -1;
+}
+
 static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 		      struct mailbox_list *newlist, const char *newname,
 		      enum mailbox_list_path_type type, bool rmdir_parent)
@@ -436,6 +462,7 @@ struct mailbox_list fs_mailbox_list = {
 		NULL,
 		fs_list_set_subscribed,
 		fs_list_delete_mailbox,
+		fs_list_delete_dir,
 		fs_list_rename_mailbox,
 		NULL
 	}

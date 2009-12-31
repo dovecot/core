@@ -387,6 +387,26 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return mailbox_list_delete_index_control(list, name);
 }
 
+static int maildir_list_delete_dir(struct mailbox_list *list, const char *name)
+{
+	const char *path;
+	struct stat st;
+
+	/* with maildir++ there aren't any non-selectable mailboxes.
+	   we'll always fail. */
+	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (stat(path, &st) == 0) {
+		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
+				       "Mailbox exists");
+	} else if (errno == ENOENT) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+	} else {
+		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
+	}
+	return -1;
+}
+
 static int
 maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			    struct mailbox_list *newlist, const char *newname,
@@ -461,6 +481,7 @@ struct mailbox_list maildir_mailbox_list = {
 		NULL,
 		maildir_list_set_subscribed,
 		maildir_list_delete_mailbox,
+		maildir_list_delete_dir,
 		maildir_list_rename_mailbox,
 		NULL
 	}
@@ -489,6 +510,7 @@ struct mailbox_list imapdir_mailbox_list = {
 		NULL,
 		maildir_list_set_subscribed,
 		maildir_list_delete_mailbox,
+		maildir_list_delete_dir,
 		maildir_list_rename_mailbox,
 		NULL
 	}

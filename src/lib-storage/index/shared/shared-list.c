@@ -244,6 +244,20 @@ shared_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return ret;
 }
 
+static int
+shared_list_delete_dir(struct mailbox_list *list, const char *name)
+{
+	struct mail_namespace *ns = list->ns;
+	int ret;
+
+	if (shared_storage_get_namespace(&ns, &name) < 0)
+		return -1;
+	ret = mailbox_list_delete_dir(ns->list, name);
+	if (ret < 0)
+		shared_list_copy_error(list, ns);
+	return ret;
+}
+
 static int shared_list_rename_get_ns(struct mailbox_list *oldlist,
 				     const char **oldname,
 				     struct mailbox_list *newlist,
@@ -324,6 +338,7 @@ struct mailbox_list shared_mailbox_list = {
 		NULL,
 		shared_list_set_subscribed,
 		shared_list_delete_mailbox,
+		shared_list_delete_dir,
 		shared_list_rename_mailbox,
 		shared_list_rename_mailbox_pre
 	}
