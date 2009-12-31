@@ -240,8 +240,6 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		mails = array_get(&ctx->mails, &count);
 		for (i = 0; i < count; i++) {
 			rec.map_uid = next_map_uid++;
-			i_assert(i == 0 ||
-				 mails[i-1].append_offset != mails[i].append_offset);
 			mail_index_update_ext(ctx->ctx.trans, mails[i].seq,
 					      mbox->ext_id, &rec, NULL);
 		}
