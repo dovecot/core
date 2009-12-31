@@ -9,26 +9,30 @@ typedef struct {
 ARRAY_DEFINE_TYPE(mailbox_guid, mailbox_guid_t);
 
 enum dsync_mailbox_flags {
-	DSYNC_MAILBOX_FLAG_DELETED_MAILBOX	= 0x01,
-	DSYNC_MAILBOX_FLAG_DELETED_DIR		= 0x02
+	DSYNC_MAILBOX_FLAG_NOSELECT		= 0x01,
+	DSYNC_MAILBOX_FLAG_DELETED_MAILBOX	= 0x02,
+	DSYNC_MAILBOX_FLAG_DELETED_DIR		= 0x04
 };
 
 struct dsync_mailbox {
 	const char *name;
 	char name_sep;
-	/* Mailbox directory's GUID. Not necessarily set if mailbox is
-	   deleted. */
-	mailbox_guid_t dir_guid;
+	/* 128bit SHA1 sum of mailbox name */
+	mailbox_guid_t name_sha1;
 	/* Mailbox's GUID. Full of zero with \Noselect mailboxes. */
 	mailbox_guid_t mailbox_guid;
 
 	uint32_t uid_validity, uid_next;
 	uint64_t highest_modseq;
-	time_t last_changed;
+	/* if mailbox is deleted, this is the deletion timestamp.
+	   otherwise it's the last rename timestamp. */
+	time_t last_change;
 	enum dsync_mailbox_flags flags;
 	ARRAY_TYPE(const_string) cache_fields;
 };
 ARRAY_DEFINE_TYPE(dsync_mailbox, struct dsync_mailbox *);
+#define dsync_mailbox_is_noselect(dsync_box) \
+	(((dsync_box)->flags & DSYNC_MAILBOX_FLAG_NOSELECT) != 0)
 
 /* dsync_worker_msg_iter_next() returns also all expunged messages from
    the end of mailbox with this flag set. The GUIDs are 128 bit GUIDs saved
@@ -62,10 +66,10 @@ int dsync_mailbox_guid_cmp(const struct dsync_mailbox *box1,
 int dsync_mailbox_p_guid_cmp(struct dsync_mailbox *const *box1,
 			     struct dsync_mailbox *const *box2);
 
-int dsync_mailbox_dir_guid_cmp(const struct dsync_mailbox *box1,
-			       const struct dsync_mailbox *box2);
-int dsync_mailbox_p_dir_guid_cmp(struct dsync_mailbox *const *box1,
-				 struct dsync_mailbox *const *box2);
+int dsync_mailbox_name_cmp(const struct dsync_mailbox *box1,
+			   const struct dsync_mailbox *box2);
+int dsync_mailbox_p_name_cmp(struct dsync_mailbox *const *box1,
+			     struct dsync_mailbox *const *box2);
 
 bool dsync_keyword_list_equals(const char *const *k1, const char *const *k2);
 

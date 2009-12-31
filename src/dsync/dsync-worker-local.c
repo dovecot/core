@@ -21,6 +21,7 @@ struct local_dsync_worker_mailbox_iter {
 	struct dsync_worker_mailbox_iter iter;
 	struct mailbox_list_iterate_context *list_iter;
 	struct hash_iterate_context *deleted_iter;
+	struct hash_iterate_context *deleted_dir_iter;
 };
 
 struct local_dsync_worker_subs_iter {
@@ -51,16 +52,20 @@ struct local_dsync_mailbox {
 
 struct local_dsync_mailbox_change {
 	mailbox_guid_t guid;
-	time_t last_renamed;
-	time_t last_deleted;
+	time_t last_delete;
+
 	unsigned int deleted_mailbox:1;
-	unsigned int deleted_dir:1;
 };
-struct local_dsync_subscription_change {
+struct local_dsync_dir_change {
 	mailbox_guid_t name_sha1;
 	struct mailbox_list *list;
-	time_t last_change;
+
+	time_t last_rename;
+	time_t last_delete;
+	time_t last_subs_change;
+
 	unsigned int unsubscribed:1;
+	unsigned int deleted_dir:1;
 };
 
 struct local_dsync_worker {
@@ -72,8 +77,8 @@ struct local_dsync_worker {
 	struct hash_table *mailbox_hash;
 	/* mailbox_guid_t -> struct local_dsync_mailbox_change* */
 	struct hash_table *mailbox_changes_hash;
-	/* mailbox_guid_t -> struct local_dsync_subscription_change */
-	struct hash_table *subscription_changes_hash;
+	/* <-> struct local_dsync_dir_change */
+	struct hash_table *dir_changes_hash;
 
 	char alt_char;
 
@@ -190,8 +195,8 @@ static void local_worker_deinit(struct dsync_worker *_worker)
 	hash_table_destroy(&worker->mailbox_hash);
 	if (worker->mailbox_changes_hash != NULL)
 		hash_table_destroy(&worker->mailbox_changes_hash);
-	if (worker->subscription_changes_hash != NULL)
-		hash_table_destroy(&worker->subscription_changes_hash);
+	if (worker->dir_changes_hash != NULL)
+		hash_table_destroy(&worker->dir_changes_hash);
 	array_free(&worker->saved_uids);
 	pool_unref(&worker->pool);
 }
@@ -227,34 +232,23 @@ dsync_worker_save_mailbox_change(struct local_dsync_worker *worker,
 	switch (rec->type) {
 	case MAILBOX_LOG_RECORD_DELETE_MAILBOX:
 		change->deleted_mailbox = TRUE;
-		if (change->last_deleted < stamp)
-			change->last_deleted = stamp;
+		if (change->last_delete < stamp)
+			change->last_delete = stamp;
 		break;
 	case MAILBOX_LOG_RECORD_DELETE_DIR:
-		change->deleted_dir = TRUE;
-		break;
 	case MAILBOX_LOG_RECORD_RENAME:
-		if (change->last_renamed < stamp)
-			change->last_renamed = stamp;
-		break;
 	case MAILBOX_LOG_RECORD_SUBSCRIBE:
 	case MAILBOX_LOG_RECORD_UNSUBSCRIBE:
 		i_unreached();
 	}
-	if (change->deleted_dir && change->deleted_mailbox) {
-		/* same GUID shouldn't be both. something's already
-		   broken, but change this so we don't get into more
-		   problems later. */
-		change->deleted_dir = FALSE;
-	}
 }
 
 static void
-dsync_worker_save_subscription_change(struct local_dsync_worker *worker,
-				      struct mailbox_list *list,
-				      const struct mailbox_log_record *rec)
+dsync_worker_save_dir_change(struct local_dsync_worker *worker,
+			     struct mailbox_list *list,
+			     const struct mailbox_log_record *rec)
 {
-	struct local_dsync_subscription_change *change, new_change;
+	struct local_dsync_dir_change *change, new_change;
 	time_t stamp;
 
 	memset(&new_change, 0, sizeof(new_change));
@@ -263,30 +257,35 @@ dsync_worker_save_subscription_change(struct local_dsync_worker *worker,
 	       sizeof(new_change.name_sha1.guid));
 
 	stamp = mailbox_log_record_get_timestamp(rec);
-	change = hash_table_lookup(worker->subscription_changes_hash,
-				   &new_change);
+	change = hash_table_lookup(worker->dir_changes_hash, &new_change);
 	if (change == NULL) {
-		change = i_new(struct local_dsync_subscription_change, 1);
+		change = i_new(struct local_dsync_dir_change, 1);
 		*change = new_change;
-		hash_table_insert(worker->subscription_changes_hash,
-				  change, change);
-	} else if (change->last_change > stamp) {
-		/* we've already seen a newer subscriptions state. this is
-		   probably a stale record created by dsync */
-		return;
+		hash_table_insert(worker->dir_changes_hash, change, change);
 	}
-	change->last_change = stamp;
 
 	switch (rec->type) {
 	case MAILBOX_LOG_RECORD_DELETE_MAILBOX:
-	case MAILBOX_LOG_RECORD_DELETE_DIR:
-	case MAILBOX_LOG_RECORD_RENAME:
 		i_unreached();
-	case MAILBOX_LOG_RECORD_SUBSCRIBE:
-		change->unsubscribed = FALSE;
+	case MAILBOX_LOG_RECORD_DELETE_DIR:
+		change->deleted_dir = TRUE;
+		if (change->last_delete < stamp)
+			change->last_delete = stamp;
 		break;
+	case MAILBOX_LOG_RECORD_RENAME:
+		if (change->last_rename < stamp)
+			change->last_rename = stamp;
+		break;
+	case MAILBOX_LOG_RECORD_SUBSCRIBE:
 	case MAILBOX_LOG_RECORD_UNSUBSCRIBE:
-		change->unsubscribed = TRUE;
+		if (change->last_subs_change > stamp) {
+			/* we've already seen a newer subscriptions state. this
+			   is probably a stale record created by dsync */
+		} else {
+			change->last_subs_change = stamp;
+			change->unsubscribed =
+				rec->type == MAILBOX_LOG_RECORD_UNSUBSCRIBE;
+		}
 		break;
 	}
 }
@@ -304,14 +303,13 @@ dsync_worker_get_list_mailbox_log(struct local_dsync_worker *worker,
 	while ((rec = mailbox_log_iter_next(iter)) != NULL) {
 		switch (rec->type) {
 		case MAILBOX_LOG_RECORD_DELETE_MAILBOX:
-		case MAILBOX_LOG_RECORD_DELETE_DIR:
-		case MAILBOX_LOG_RECORD_RENAME:
 			dsync_worker_save_mailbox_change(worker, rec);
 			break;
+		case MAILBOX_LOG_RECORD_DELETE_DIR:
+		case MAILBOX_LOG_RECORD_RENAME:
 		case MAILBOX_LOG_RECORD_SUBSCRIBE:
 		case MAILBOX_LOG_RECORD_UNSUBSCRIBE:
-			dsync_worker_save_subscription_change(worker,
-							      list, rec);
+			dsync_worker_save_dir_change(worker, list, rec);
 			break;
 		}
 	}
@@ -333,17 +331,17 @@ static int mailbox_log_record_cmp(const void *p1, const void *p2)
 	return memcmp(p1, p2, MAIL_GUID_128_SIZE);
 }
 
-static unsigned int subscription_change_hash(const void *p)
+static unsigned int dir_change_hash(const void *p)
 {
-	const struct local_dsync_subscription_change *change = p;
+	const struct local_dsync_dir_change *change = p;
 
 	return mailbox_log_record_hash(change->name_sha1.guid) ^
 		POINTER_CAST_TO(change->list, unsigned int);
 }
 
-static int subscription_change_cmp(const void *p1, const void *p2)
+static int dir_change_cmp(const void *p1, const void *p2)
 {
-	const struct local_dsync_subscription_change *c1 = p1, *c2 = p2;
+	const struct local_dsync_dir_change *c1 = p1, *c2 = p2;
 
 	if (c1->list != c2->list)
 		return 1;
@@ -364,10 +362,9 @@ static int dsync_worker_get_mailbox_log(struct local_dsync_worker *worker)
 		hash_table_create(default_pool, worker->pool, 0,
 				  mailbox_log_record_hash,
 				  mailbox_log_record_cmp);
-	worker->subscription_changes_hash =
+	worker->dir_changes_hash =
 		hash_table_create(default_pool, worker->pool, 0,
-				  subscription_change_hash,
-				  subscription_change_cmp);
+				  dir_change_hash, dir_change_cmp);
 	for (ns = worker->user->namespaces; ns != NULL; ns = ns->next) {
 		if (ns->alias_for != NULL)
 			continue;
@@ -420,7 +417,6 @@ iter_next_deleted(struct local_dsync_worker_mailbox_iter *iter,
 		  struct local_dsync_worker *worker,
 		  struct dsync_mailbox *dsync_box_r)
 {
-	const struct local_dsync_mailbox_change *change;
 	void *key, *value;
 
 	if (iter->deleted_iter == NULL) {
@@ -428,21 +424,31 @@ iter_next_deleted(struct local_dsync_worker_mailbox_iter *iter,
 			hash_table_iterate_init(worker->mailbox_changes_hash);
 	}
 	while (hash_table_iterate(iter->deleted_iter, &key, &value)) {
-		change = value;
+		const struct local_dsync_mailbox_change *change = value;
+
 		if (change->deleted_mailbox) {
 			/* the name doesn't matter */
 			dsync_box_r->name = "";
 			dsync_box_r->mailbox_guid = change->guid;
-			dsync_box_r->last_changed = change->last_deleted;
+			dsync_box_r->last_change = change->last_delete;
 			dsync_box_r->flags |=
 				DSYNC_MAILBOX_FLAG_DELETED_MAILBOX;
 			return 1;
 		}
+	}
+
+	if (iter->deleted_dir_iter == NULL) {
+		iter->deleted_dir_iter =
+			hash_table_iterate_init(worker->dir_changes_hash);
+	}
+	while (hash_table_iterate(iter->deleted_dir_iter, &key, &value)) {
+		const struct local_dsync_dir_change *change = value;
+
 		if (change->deleted_dir) {
 			/* the name doesn't matter */
 			dsync_box_r->name = "";
-			dsync_box_r->dir_guid = change->guid;
-			dsync_box_r->last_changed = change->last_deleted;
+			dsync_box_r->name_sha1 = change->name_sha1;
+			dsync_box_r->last_change = change->last_delete;
 			dsync_box_r->flags |= DSYNC_MAILBOX_FLAG_DELETED_DIR;
 			return 1;
 		}
@@ -466,6 +472,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	struct mailbox *box;
 	struct mailbox_status status;
 	struct local_dsync_mailbox_change *change;
+	struct local_dsync_dir_change *dir_change;
 	const char *const *fields;
 	unsigned int i, field_count;
 
@@ -478,27 +485,22 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	storage_name = mail_namespace_get_storage_name(info->ns, info->name);
 	dsync_box_r->name = info->name;
 	dsync_box_r->name_sep = info->ns->sep;
-	if (mailbox_list_get_guid(info->ns->list, storage_name,
-				  dsync_box_r->dir_guid.guid) < 0) {
-		i_error("Failed to get dir GUID for mailbox %s: %s", info->name,
-			mailbox_list_get_last_error(info->ns->list, NULL));
-		_iter->failed = TRUE;
-		return -1;
-	}
 
 	/* get last change timestamp */
-	change = hash_table_lookup(worker->mailbox_changes_hash,
-				   dsync_box_r->dir_guid.guid);
-	if (change != NULL) {
+	dsync_str_sha_to_guid(info->name, &dsync_box_r->name_sha1);
+	dir_change = hash_table_lookup(worker->mailbox_changes_hash,
+				       dsync_box_r->name_sha1.guid);
+	if (dir_change != NULL) {
 		/* it shouldn't be marked as deleted, but drop it to be sure */
-		change->deleted_dir = FALSE;
-		dsync_box_r->last_changed = change->last_renamed;
+		dir_change->deleted_dir = FALSE;
+		dsync_box_r->last_change = dir_change->last_rename;
 	}
 
 	storage_name = mail_namespace_get_storage_name(info->ns, info->name);
 	if ((info->flags & MAILBOX_NOSELECT) != 0) {
+		dsync_box_r->flags |= DSYNC_MAILBOX_FLAG_NOSELECT;
 		local_dsync_worker_add_mailbox(worker, info->ns, storage_name,
-					       &dsync_box_r->dir_guid);
+					       &dsync_box_r->name_sha1);
 		return 1;
 	}
 
@@ -584,7 +586,7 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 		(struct local_dsync_worker_subs_iter *)_iter;
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_iter->worker;
-	struct local_dsync_subscription_change *change, change_lookup;
+	struct local_dsync_dir_change *change, change_lookup;
 	const struct mailbox_info *info;
 	const char *storage_name;
 
@@ -598,13 +600,13 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 	dsync_str_sha_to_guid(storage_name, &change_lookup.name_sha1);
 	change_lookup.list = info->ns->list;
 
-	change = hash_table_lookup(worker->subscription_changes_hash,
+	change = hash_table_lookup(worker->dir_changes_hash,
 				   &change_lookup);
 	if (change != NULL) {
 		/* it shouldn't be marked as unsubscribed, but drop it to
 		   be sure */
 		change->unsubscribed = FALSE;
-		rec_r->last_change = change->last_change;
+		rec_r->last_change = change->last_subs_change;
 	}
 	rec_r->ns_prefix = info->ns->prefix;
 	rec_r->vname = info->name;
@@ -624,10 +626,10 @@ local_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
 
 	if (iter->deleted_iter == NULL) {
 		iter->deleted_iter =
-			hash_table_iterate_init(worker->subscription_changes_hash);
+			hash_table_iterate_init(worker->dir_changes_hash);
 	}
 	while (hash_table_iterate(iter->deleted_iter, &key, &value)) {
-		const struct local_dsync_subscription_change *change = value;
+		const struct local_dsync_dir_change *change = value;
 
 		if (change->unsubscribed) {
 			/* the name doesn't matter */
@@ -636,7 +638,7 @@ local_worker_subs_iter_next_un(struct dsync_worker_subs_iter *_iter,
 			memset(rec_r, 0, sizeof(*rec_r));
 			rec_r->name_sha1 = change->name_sha1;
 			rec_r->ns_prefix = ns->prefix;
-			rec_r->last_change = change->last_change;
+			rec_r->last_change = change->last_subs_change;
 			return 1;
 		}
 	}
@@ -1113,7 +1115,7 @@ local_worker_delete_mailbox(struct dsync_worker *_worker,
 	}
 
 	mailbox_list_set_changelog_timestamp(lbox->ns->list,
-					     dsync_box->last_changed);
+					     dsync_box->last_change);
 	if (mailbox_list_delete_mailbox(lbox->ns->list,
 					lbox->storage_name) < 0) {
 		i_error("Can't delete mailbox %s: %s", lbox->storage_name,
@@ -1121,32 +1123,6 @@ local_worker_delete_mailbox(struct dsync_worker *_worker,
 		dsync_worker_set_failure(_worker);
 	}
 	mailbox_list_set_changelog_timestamp(lbox->ns->list, (time_t)-1);
-}
-
-static void
-local_worker_rename_children(struct local_dsync_worker *worker,
-			     const char *oldname, const char *newname, char sep)
-{
-	struct hash_iterate_context *iter;
-	const char *oldprefix;
-	void *key, *value;
-	unsigned int oldprefix_len;
-
-	oldprefix = t_strdup_printf("%s%c", oldname, sep);
-	oldprefix_len = strlen(oldprefix);
-
-	iter = hash_table_iterate_init(worker->mailbox_hash);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct local_dsync_mailbox *lbox = value;
-
-		if (strncmp(lbox->storage_name, oldprefix, oldprefix_len) != 0)
-			continue;
-
-		lbox->storage_name =
-			p_strdup_printf(worker->pool, "%s%c%s", newname, sep,
-					lbox->storage_name + oldprefix_len);
-	}
-	hash_table_iterate_deinit(&iter);
 }
 
 static void
@@ -1158,7 +1134,7 @@ local_worker_rename_mailbox(struct dsync_worker *_worker,
 		(struct local_dsync_worker *)_worker;
 	struct local_dsync_mailbox *lbox;
 	struct mailbox_list *list;
-	const char *oldname, *newname;
+	const char *newname;
 
 	lbox = hash_table_lookup(worker->mailbox_hash, mailbox);
 	if (lbox == NULL) {
@@ -1177,17 +1153,14 @@ local_worker_rename_mailbox(struct dsync_worker *_worker,
 		return;
 	}
 
-	mailbox_list_set_changelog_timestamp(list, dsync_box->last_changed);
+	mailbox_list_set_changelog_timestamp(list, dsync_box->last_change);
 	if (mailbox_list_rename_mailbox(list, lbox->storage_name,
-					list, newname, TRUE) < 0) {
+					list, newname, FALSE) < 0) {
 		i_error("Can't rename mailbox %s to %s: %s", lbox->storage_name,
 			newname, mailbox_list_get_last_error(list, NULL));
 		dsync_worker_set_failure(_worker);
 	} else {
-		oldname = lbox->storage_name;
 		lbox->storage_name = p_strdup(worker->pool, newname);
-		local_worker_rename_children(worker, oldname, newname,
-					     lbox->ns->sep);
 	}
 	mailbox_list_set_changelog_timestamp(list, (time_t)-1);
 }

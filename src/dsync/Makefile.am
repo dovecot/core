@@ -64,12 +64,12 @@ test_dsync_brain_msgs_LDADD = dsync-data.o dsync-brain-msgs.o dsync-worker.o $(t
 test_dsync_brain_msgs_DEPENDENCIES = dsync-data.o dsync-brain-msgs.o dsync-worker.o $(test_libs)
 
 test_dsync_proxy_SOURCES = test-dsync-proxy.c test-dsync-common.c
-test_dsync_proxy_LDADD = dsync-proxy.o $(test_ldadd)
-test_dsync_proxy_DEPENDENCIES = dsync-proxy.o $(test_libs)
+test_dsync_proxy_LDADD = dsync-proxy.o dsync-data.o $(test_ldadd)
+test_dsync_proxy_DEPENDENCIES = dsync-proxy.o dsync-data.o $(test_libs)
 
 test_dsync_proxy_server_cmd_SOURCES = test-dsync-proxy-server-cmd.c test-dsync-worker.c test-dsync-common.c
-test_dsync_proxy_server_cmd_LDADD = dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o $(test_ldadd)
-test_dsync_proxy_server_cmd_DEPENDENCIES = dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o $(test_libs)
+test_dsync_proxy_server_cmd_LDADD = dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o dsync-data.o $(test_ldadd)
+test_dsync_proxy_server_cmd_DEPENDENCIES = dsync-worker.o dsync-proxy.o dsync-proxy-server-cmd.o dsync-data.o $(test_libs)
 
 check: check-am check-test
 check-test: all-am

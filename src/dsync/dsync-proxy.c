@@ -161,15 +161,14 @@ void dsync_proxy_mailbox_export(string_t *str,
 	str_append_c(str, '\t');
 	s[0] = box->name_sep; s[1] = '\0';
 	str_tabescape_write(str, s);
-	str_append_c(str, '\t');
-	dsync_proxy_mailbox_guid_export(str, &box->dir_guid);
-	str_printfa(str, "\t%lu\t%u", (unsigned long)box->last_changed,
+	str_printfa(str, "\t%lu\t%u", (unsigned long)box->last_change,
 		    box->flags);
 
-	if (mail_guid_128_is_empty(box->mailbox_guid.guid)) {
-		/* \noselect mailbox */
+	if (dsync_mailbox_is_noselect(box)) {
+		i_assert(box->uid_validity == 0);
 		return;
 	}
+	i_assert(box->uid_validity != 0);
 
 	str_append_c(str, '\t');
 	dsync_proxy_mailbox_guid_export(str, &box->mailbox_guid);
@@ -189,13 +188,14 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 	memset(box_r, 0, sizeof(*box_r));
 
 	count = str_array_length(args);
-	if (count != 5 && count < 9) {
+	if (count != 4 && count < 8) {
 		*error_r = "Mailbox missing parameters";
 		return -1;
 	}
 
 	/* name dir_guid mailbox_guid uid_validity uid_next highest_modseq */
 	box_r->name = p_strdup(pool, args[i++]);
+	dsync_str_sha_to_guid(box_r->name, &box_r->name_sha1);
 
 	if (strlen(args[i]) != 1) {
 		*error_r = "Invalid mailbox name hierarchy separator";
@@ -203,17 +203,14 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 	}
 	box_r->name_sep = args[i++][0];
 
-	if (dsync_proxy_mailbox_guid_import(args[i++], &box_r->dir_guid) < 0) {
-		*error_r = "Invalid dir GUID";
-		return -1;
-	}
-	box_r->last_changed = strtoul(args[i++], &p, 10);
+	box_r->last_change = strtoul(args[i++], &p, 10);
 	if (*p != '\0') {
-		*error_r = "Invalid mailbox last_renamed";
+		*error_r = "Invalid mailbox last_change";
 		return -1;
 	}
 	box_r->flags = strtoul(args[i++], &p, 10);
-	if (*p != '\0') {
+	if (*p != '\0' ||
+	    (dsync_mailbox_is_noselect(box_r) != (args[i] == NULL))) {
 		*error_r = "Invalid mailbox flags";
 		return -1;
 	}

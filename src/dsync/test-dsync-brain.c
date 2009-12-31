@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "sha1.h"
 #include "master-service.h"
 #include "dsync-brain-private.h"
 #include "test-dsync-worker.h"
@@ -39,18 +38,10 @@ void dsync_brain_msg_sync_resolve_uid_conflicts(struct dsync_brain_mailbox_sync 
 
 static void mailboxes_set_guids(struct dsync_mailbox *boxes)
 {
-	unsigned char sha[SHA1_RESULTLEN];
-	const char *dir_name;
-
 	for (; boxes->name != NULL; boxes++) {
-		sha1_get_digest(boxes->name, strlen(boxes->name), sha);
-		memcpy(boxes->mailbox_guid.guid, sha,
-		       sizeof(boxes->mailbox_guid.guid));
-
-		dir_name = t_strconcat("dir-", boxes->name, NULL);
-		sha1_get_digest(dir_name, strlen(dir_name), sha);
-		memcpy(boxes->dir_guid.guid, sha,
-		       sizeof(boxes->dir_guid.guid));
+		dsync_str_sha_to_guid(t_strconcat("box-", boxes->name, NULL),
+				      &boxes->mailbox_guid);
+		dsync_str_sha_to_guid(boxes->name, &boxes->name_sha1);
 	}
 }
 
@@ -81,8 +72,8 @@ test_dsync_mailbox_create_equals(const struct dsync_mailbox *cbox,
 	return strcmp(cbox->name, obox->name) == 0 &&
 		memcmp(cbox->mailbox_guid.guid, obox->mailbox_guid.guid,
 		       sizeof(cbox->mailbox_guid.guid)) == 0 &&
-		memcmp(cbox->dir_guid.guid, obox->dir_guid.guid,
-		       sizeof(cbox->dir_guid.guid)) == 0 &&
+		memcmp(cbox->name_sha1.guid, obox->name_sha1.guid,
+		       sizeof(cbox->name_sha1.guid)) == 0 &&
 		cbox->uid_validity == obox->uid_validity &&
 		cbox->uid_next == 0 && cbox->highest_modseq == 0;
 }
@@ -93,7 +84,7 @@ test_dsync_mailbox_delete_equals(const struct dsync_mailbox *dbox,
 {
 	return memcmp(dbox->mailbox_guid.guid, obox->mailbox_guid.guid,
 		      sizeof(dbox->mailbox_guid.guid)) == 0 &&
-		dbox->last_changed == obox->last_changed;
+		dbox->last_change == obox->last_change;
 }
 
 static void
@@ -175,16 +166,16 @@ static void test_dsync_brain(void)
 
 	/* check that it created/deleted missing mailboxes */
 	test_assert(test_dsync_worker_next_box_event(dest_test_worker, &box_event));
-	test_assert(box_event.type == LAST_BOX_TYPE_CREATE);
-	test_assert(test_dsync_mailbox_create_equals(&box_event.box, &src_boxes[6]));
-
-	test_assert(test_dsync_worker_next_box_event(dest_test_worker, &box_event));
 	test_assert(box_event.type == LAST_BOX_TYPE_DELETE);
 	test_assert(test_dsync_mailbox_delete_equals(&box_event.box, &dest_boxes[8]));
 
 	test_assert(test_dsync_worker_next_box_event(src_test_worker, &box_event));
 	test_assert(box_event.type == LAST_BOX_TYPE_DELETE);
 	test_assert(test_dsync_mailbox_delete_equals(&box_event.box, &src_boxes[7]));
+
+	test_assert(test_dsync_worker_next_box_event(dest_test_worker, &box_event));
+	test_assert(box_event.type == LAST_BOX_TYPE_CREATE);
+	test_assert(test_dsync_mailbox_create_equals(&box_event.box, &src_boxes[6]));
 
 	test_assert(test_dsync_worker_next_box_event(src_test_worker, &box_event));
 	test_assert(box_event.type == LAST_BOX_TYPE_CREATE);

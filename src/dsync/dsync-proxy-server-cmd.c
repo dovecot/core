@@ -256,7 +256,7 @@ cmd_box_delete(struct dsync_proxy_server *server, const char *const *args)
 
 	memset(&dsync_box, 0, sizeof(dsync_box));
 	dsync_box.mailbox_guid = guid;
-	dsync_box.last_changed = strtoul(args[1], NULL, 10);
+	dsync_box.last_change = strtoul(args[1], NULL, 10);
 	dsync_worker_delete_mailbox(server->worker, &dsync_box);
 	return 1;
 }

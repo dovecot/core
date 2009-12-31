@@ -125,7 +125,7 @@ void dsync_worker_create_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *dsync_box)
 {
 	i_assert(dsync_box->uid_validity != 0 ||
-		 mail_guid_128_is_empty(dsync_box->mailbox_guid.guid));
+		 dsync_mailbox_is_noselect(dsync_box));
 
 	if (!worker->readonly)
 		worker->v.create_mailbox(worker, dsync_box);

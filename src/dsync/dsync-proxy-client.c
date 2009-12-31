@@ -692,7 +692,7 @@ proxy_client_worker_delete_mailbox(struct dsync_worker *_worker,
 
 		str_append(str, "BOX-DELETE\t");
 		dsync_proxy_mailbox_guid_export(str, &dsync_box->mailbox_guid);
-		str_printfa(str, "\t%s\n", dec2str(dsync_box->last_changed));
+		str_printfa(str, "\t%s\n", dec2str(dsync_box->last_change));
 		o_stream_send(worker->output, str_data(str), str_len(str));
 	} T_END;
 }

@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "sha1.h"
 #include "crc32.h"
 #include "dsync-brain-private.h"
 #include "test-dsync-worker.h"
@@ -54,10 +53,8 @@ test_box_has_guid(const char *name, const mailbox_guid_t *guid)
 static struct test_dsync_mailbox *
 test_box_add(enum test_box_add_type type, const char *name)
 {
-	unsigned char sha[SHA1_RESULTLEN];
 	struct test_dsync_mailbox *tbox;
 	struct dsync_mailbox *box;
-	const char *dir_name;
 
 	tbox = test_box_find(name);
 	if (tbox == NULL) {
@@ -69,12 +66,9 @@ test_box_add(enum test_box_add_type type, const char *name)
 	box = i_new(struct dsync_mailbox, 1);
 	box->name = i_strdup(name);
 
-	sha1_get_digest(name, strlen(name), sha);
-	memcpy(box->mailbox_guid.guid, sha, sizeof(box->mailbox_guid.guid));
-
-	dir_name = t_strconcat("dir-", name, NULL);
-	sha1_get_digest(dir_name, strlen(dir_name), sha);
-	memcpy(box->dir_guid.guid, sha, sizeof(box->dir_guid.guid));
+	dsync_str_sha_to_guid(t_strconcat("box-", name, NULL),
+			      &box->mailbox_guid);
+	dsync_str_sha_to_guid(name, &box->name_sha1);
 
 	box->uid_validity = crc32_str(name);
 	box->highest_modseq = 1;
@@ -93,7 +87,7 @@ test_box_add(enum test_box_add_type type, const char *name)
 	}
 	tbox->box.box.name = box->name;
 	tbox->box.box.mailbox_guid = box->mailbox_guid;
-	tbox->box.box.dir_guid = box->dir_guid;
+	tbox->box.box.name_sha1 = box->name_sha1;
 	tbox->box.box.uid_validity = box->uid_validity;
 	return tbox;
 }

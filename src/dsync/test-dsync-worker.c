@@ -218,7 +218,7 @@ test_worker_set_subscribed(struct dsync_worker *_worker,
 
 	memset(&dsync_box, 0, sizeof(dsync_box));
 	dsync_box.name = name;
-	dsync_box.last_changed = last_change;
+	dsync_box.last_change = last_change;
 	test_worker_set_last_box(_worker, &dsync_box,
 				 set ? LAST_BOX_TYPE_SUBSCRIBE :
 				 LAST_BOX_TYPE_UNSUBSCRIBE);

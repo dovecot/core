@@ -92,7 +92,7 @@ static void dsync_worker_mailbox_input(void *context)
 			continue;
 
 		dup_box = dsync_mailbox_dup(list->pool, &dsync_box);
-		if (!mail_guid_128_is_empty(dup_box->mailbox_guid.guid))
+		if (!dsync_mailbox_is_noselect(dup_box))
 			array_append(&list->mailboxes, &dup_box, 1);
 		else
 			array_append(&list->dirs, &dup_box, 1);
@@ -102,7 +102,7 @@ static void dsync_worker_mailbox_input(void *context)
 		if (dsync_worker_mailbox_iter_deinit(&list->iter) < 0)
 			dsync_brain_fail(list->brain);
 		array_sort(&list->mailboxes, dsync_mailbox_p_guid_cmp);
-		array_sort(&list->dirs, dsync_mailbox_p_dir_guid_cmp);
+		array_sort(&list->dirs, dsync_mailbox_p_name_cmp);
 		dsync_brain_mailbox_list_finished(list->brain);
 	}
 }
@@ -542,7 +542,7 @@ static void
 dsync_brain_sync_rename_mailbox(struct dsync_brain *brain,
 				const struct dsync_brain_mailbox *mailbox)
 {
-	if (mailbox->src->last_changed > mailbox->dest->last_changed) {
+	if (mailbox->src->last_change > mailbox->dest->last_change) {
 		dsync_worker_rename_mailbox(brain->dest_worker,
 					    &mailbox->box.mailbox_guid,
 					    mailbox->src);

@@ -62,17 +62,16 @@ int dsync_mailbox_p_guid_cmp(struct dsync_mailbox *const *box1,
 	return dsync_mailbox_guid_cmp(*box1, *box2);
 }
 
-int dsync_mailbox_dir_guid_cmp(const struct dsync_mailbox *box1,
-			       const struct dsync_mailbox *box2)
+int dsync_mailbox_name_cmp(const struct dsync_mailbox *box1,
+			   const struct dsync_mailbox *box2)
 {
-	return memcmp(box1->dir_guid.guid, box2->dir_guid.guid,
-		      sizeof(box1->dir_guid.guid));
+	return strcmp(box1->name, box2->name);
 }
 
-int dsync_mailbox_p_dir_guid_cmp(struct dsync_mailbox *const *box1,
-				 struct dsync_mailbox *const *box2)
+int dsync_mailbox_p_name_cmp(struct dsync_mailbox *const *box1,
+			     struct dsync_mailbox *const *box2)
 {
-	return dsync_mailbox_dir_guid_cmp(*box1, *box2);
+	return dsync_mailbox_name_cmp(*box1, *box2);
 }
 
 bool dsync_keyword_list_equals(const char *const *k1, const char *const *k2)

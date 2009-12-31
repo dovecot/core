@@ -103,8 +103,7 @@ static void test_dsync_proxy_mailbox(void)
 	/* test \noselect mailbox */
 	box_in.name = "\t\001\r\nname\t\001\n\r";
 	box_in.name_sep = '/';
-	box_in.flags = 1234567890;
-	memcpy(box_in.dir_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE);
+	box_in.flags = DSYNC_MAILBOX_FLAG_NOSELECT;
 	dsync_proxy_mailbox_export(str, &box_in);
 	test_assert(dsync_proxy_mailbox_import(pool, str_c(str),
 					       &box_out, &error) == 0);
@@ -113,8 +112,7 @@ static void test_dsync_proxy_mailbox(void)
 	/* real mailbox */
 	i_assert(sizeof(box_in.mailbox_guid.guid) == sizeof(test_mailbox_guid1));
 	memcpy(box_in.mailbox_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE);
-	memcpy(box_in.dir_guid.guid, test_mailbox_guid1, MAIL_GUID_128_SIZE);
-	box_in.flags = 24242;
+	box_in.flags = 24242 & ~DSYNC_MAILBOX_FLAG_NOSELECT;
 	box_in.uid_validity = 0xf74d921b;
 	box_in.uid_next = 73529472;
 	box_in.highest_modseq = 0x123456789abcdef0ULL;
