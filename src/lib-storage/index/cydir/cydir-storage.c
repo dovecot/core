@@ -46,8 +46,6 @@ cydir_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 		set->layout = MAILBOX_LIST_NAME_FS;
 	if (set->subscription_fname == NULL)
 		set->subscription_fname = CYDIR_SUBSCRIPTION_FILE_NAME;
-	if (set->dir_guid_fname == NULL)
-		set->dir_guid_fname = CYDIR_DIR_GUID_FILE_NAME;
 }
 
 static int create_cydir(struct mail_storage *storage, struct mailbox_list *list,

@@ -7,7 +7,6 @@
 #define CYDIR_STORAGE_NAME "cydir"
 #define CYDIR_SUBSCRIPTION_FILE_NAME "subscriptions."
 #define CYDIR_INDEX_PREFIX "dovecot.index"
-#define CYDIR_DIR_GUID_FILE_NAME "dovecot.dir.guid."
 
 struct cydir_storage {
 	struct mail_storage storage;

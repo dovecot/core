@@ -9,7 +9,6 @@ struct dbox_mail;
 #define DBOX_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define DBOX_UIDVALIDITY_FILE_NAME "dovecot-uidvalidity"
 #define DBOX_INDEX_PREFIX "dovecot.index"
-#define DBOX_DIR_GUID_FILE_NAME "dbox-GUID"
 
 #define DBOX_MAILBOX_DIR_NAME "mailboxes"
 #define DBOX_TRASH_DIR_NAME "trash"

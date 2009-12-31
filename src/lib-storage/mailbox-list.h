@@ -101,7 +101,6 @@ struct mailbox_list_settings {
 
 	const char *inbox_path;
 	const char *subscription_fname;
-	const char *dir_guid_fname;
 	/* If non-empty, it means that mails exist in a maildir_name
 	   subdirectory. eg. if you have a directory containing directories:
 
@@ -189,9 +188,6 @@ const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 					 const char *name,
 					 enum mailbox_name_status *status);
-/* Get 128bit mailbox directory GUID, creating it if necessary. */
-int mailbox_list_get_guid(struct mailbox_list *list, const char *name,
-			  uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
 /* Returns mailbox's change log, or NULL if it doesn't have one. */
 struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list);
 /* Specify timestamp to use when writing mailbox changes to changelog.

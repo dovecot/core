@@ -66,8 +66,6 @@ struct mailbox_list_vfuncs {
 				  const char *oldname,
 				  struct mailbox_list *newlist,
 				  const char *newname);
-	int (*get_guid)(struct mailbox_list *list, const char *name,
-			uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
 };
 
 struct mailbox_list_module_register {
@@ -155,6 +153,8 @@ void mailbox_list_add_change(struct mailbox_list *list,
 			     const uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
 int mailbox_list_get_guid_path(struct mailbox_list *list, const char *path,
 			       uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
+void mailbox_name_get_sha128(const char *name,
+			     uint8_t guid[MAIL_GUID_128_SIZE]);
 
 void mailbox_list_clear_error(struct mailbox_list *list);
 void mailbox_list_set_error(struct mailbox_list *list,

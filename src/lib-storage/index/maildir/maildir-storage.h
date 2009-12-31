@@ -8,7 +8,6 @@
 #define MAILDIR_INDEX_PREFIX "dovecot.index"
 #define MAILDIR_UNLINK_DIRNAME "DOVECOT-TRASHED"
 #define MAILDIR_UIDVALIDITY_FNAME "dovecot-uidvalidity"
-#define MAILDIR_DIR_GUID_FILE_NAME "dovecot-dir-guid"
 
 /* "base,S=123:2," means:
    <base> [<extra sep> <extra data> [..]] <info sep> 2 <flags sep> */

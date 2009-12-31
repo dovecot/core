@@ -142,8 +142,6 @@ static void maildir_storage_get_list_settings(const struct mail_namespace *ns,
 		set->layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
 	if (set->subscription_fname == NULL)
 		set->subscription_fname = MAILDIR_SUBSCRIPTION_FILE_NAME;
-	if (set->dir_guid_fname == NULL)
-		set->dir_guid_fname = MAILDIR_DIR_GUID_FILE_NAME;
 
 	if (set->inbox_path == NULL &&
 	    (strcmp(set->layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
@@ -783,13 +781,12 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	union mailbox_list_module_context *mlist = MAILDIR_LIST_CONTEXT(list);
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
-	uint8_t dir_guid[MAIL_GUID_128_SIZE];
+	uint8_t dir_sha128[MAIL_GUID_128_SIZE];
 	struct stat st;
 	const char *src, *dest, *base;
 	int ret;
 
 	mailbox_get_guid(list, name, mailbox_guid);
-	(void)mailbox_list_get_guid(list, name, dir_guid);
 
 	/* Make sure the indexes are closed before trying to delete the
 	   directory that contains them. It can still fail with some NFS
@@ -844,8 +841,9 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	if (ret == 0) {
 		mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_MAILBOX,
 					mailbox_guid);
+		mailbox_name_get_sha128(name, dir_sha128);
 		mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_DIR,
-					dir_guid);
+					dir_sha128);
 	}
 	return 0;
 }
