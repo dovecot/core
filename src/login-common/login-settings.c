@@ -1,6 +1,6 @@
 /* Copyright (c) 2005-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "login-common.h"
 #include "hostpid.h"
 #include "var-expand.h"
 #include "settings-parser.h"

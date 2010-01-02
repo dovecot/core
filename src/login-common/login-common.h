@@ -1,5 +1,5 @@
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef LOGIN_COMMON_H
+#define LOGIN_COMMON_H
 
 #include "lib.h"
 #include "login-settings.h"

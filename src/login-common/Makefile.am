@@ -24,10 +24,10 @@ liblogin_la_LIBADD = \
 
 noinst_HEADERS = \
 	client-common.h \
+	login-common.h \
 	login-proxy.h \
 	login-proxy-state.h \
 	login-settings.h \
-	common.h \
 	sasl-server.h \
 	ssl-proxy.h
 

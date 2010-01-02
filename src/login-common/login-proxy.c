@@ -1,6 +1,6 @@
 /* Copyright (c) 2004-2009 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "login-common.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
