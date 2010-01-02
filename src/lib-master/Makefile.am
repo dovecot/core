@@ -17,7 +17,7 @@ libmaster_la_SOURCES = \
 	master-service-settings.c \
 	syslog-util.c
 
-noinst_HEADERS = \
+headers = \
 	anvil-client.h \
 	master-auth.h \
 	master-interface.h \
@@ -28,3 +28,10 @@ noinst_HEADERS = \
 	master-service-settings.h \
 	service-settings.h \
 	syslog-util.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif
