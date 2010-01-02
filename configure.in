@@ -1966,7 +1966,12 @@ if test $want_ldap != no; then
 			AC_CHECK_LIB(ldap, ldap_start_tls_s, [
 				AC_DEFINE(LDAP_HAVE_START_TLS_S,, Define if you have ldap_start_tls_s)
 			])
-			LDAP_LIBS="-lldap -llber"
+			LDAP_LIBS="-lldap"
+			AC_CHECK_LIB(ldap, ber_free,, [
+			  AC_CHECK_LIB(lber, ber_free, [
+			    LDAP_LIBS="$LDAP_LIBS -llber"
+			  ])
+			])
 			AC_SUBST(LDAP_LIBS)
 			if test $want_ldap != plugin; then
 				AUTH_LIBS="$AUTH_LIBS $LDAP_LIBS"
