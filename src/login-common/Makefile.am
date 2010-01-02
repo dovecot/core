@@ -22,7 +22,7 @@ liblogin_la_SOURCES = \
 liblogin_la_LIBADD = \
 	$(SSL_LIBS)
 
-noinst_HEADERS = \
+headers = \
 	client-common.h \
 	login-common.h \
 	login-proxy.h \
@@ -30,6 +30,13 @@ noinst_HEADERS = \
 	login-settings.h \
 	sasl-server.h \
 	ssl-proxy.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif
 
 pkglib_LTLIBRARIES = libdovecot-login.la
 libdovecot_login_la_SOURCES = 
