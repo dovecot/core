@@ -194,6 +194,7 @@ static void expire_run(struct master_service *service, bool testrun)
 	struct expire_context ctx;
 	struct dict *dict = NULL;
 	const struct mail_user_settings *user_set;
+	struct mail_storage_service_input input;
 	void **sets;
 	struct dict_transaction_context *trans;
 	struct dict_iterate_context *iter;
@@ -205,6 +206,10 @@ static void expire_run(struct master_service *service, bool testrun)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.storage_service = mail_storage_service_init(service, NULL,
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
+
+	memset(&input, 0, sizeof(input));
+	input.module = input.service = "expire-tool";
+	mail_storage_service_init_settings(ctx.storage_service, &input);
 
 	sets = master_service_settings_get_others(service);
 	user_set = sets[0];
