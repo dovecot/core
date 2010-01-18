@@ -85,6 +85,7 @@ static const char *
 eacces_error_get_full(const char *func, const char *path, bool creating)
 {
 	const char *prev_path = path, *dir, *p;
+	const char *pw_name = NULL, *gr_name = NULL;
 	const struct passwd *pw;
 	const struct group *group;
 	string_t *errmsg;
@@ -102,15 +103,19 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 		    dec2str(geteuid()));
 
 	pw = getpwuid(geteuid());
-	if (pw != NULL)
-		str_printfa(errmsg, "(%s)", pw->pw_name);
+	if (pw != NULL) {
+		pw_name = t_strdup(pw->pw_name);
+		str_printfa(errmsg, "(%s)", pw_name);
+	}
 
 	str_printfa(errmsg, " egid=%s", dec2str(getegid()));
 	group = getgrgid(getegid());
-	if (group != NULL)
-		str_printfa(errmsg, "(%s)", group->gr_name);
+	if (group != NULL) {
+		gr_name = t_strdup(group->gr_name);
+		str_printfa(errmsg, "(%s)", gr_name);
+	}
 
-	dir = "/";
+	dir = "/"; memset(&dir_st, 0, sizeof(dir_st));
 	while ((p = strrchr(prev_path, '/')) != NULL) {
 		dir = t_strdup_until(prev_path, p);
 		ret = stat(dir, &st);
@@ -152,6 +157,21 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 		} else
 			str_printfa(errmsg, " UNIX perms appear ok, "
 				    "some security policy wrong?");
+	}
+	/* check and warn if another uid has the same name */
+	if (pw_name != NULL && dir_st.st_uid != geteuid()) {
+		pw = getpwuid(dir_st.st_uid);
+		if (pw != NULL && strcmp(pw->pw_name, pw_name) == 0) {
+			str_printfa(errmsg, ", dir uid=%s(%s)",
+				    dec2str(dir_st.st_uid), pw_name);
+		}
+	}
+	if (gr_name != NULL && dir_st.st_gid != getegid()) {
+		group = getgrgid(dir_st.st_gid);
+		if (group != NULL && strcmp(group->gr_name, gr_name) == 0) {
+			str_printfa(errmsg, ", dir gid=%s(%s)",
+				    dec2str(dir_st.st_gid), gr_name);
+		}
 	}
 	str_append_c(errmsg, ')');
 	errno = orig_errno;
