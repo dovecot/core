@@ -145,6 +145,9 @@ settings_export(struct settings_export_context *ctx,
 				case SET_UINT_OCT:
 					str_printfa(ctx->value, "0%o", *val);
 					break;
+				case SET_TIME:
+					str_printfa(ctx->value, "%u s", *val);
+					break;
 				default:
 					str_printfa(ctx->value, "%u", *val);
 					break;
