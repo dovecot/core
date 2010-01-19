@@ -458,8 +458,7 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 	if (name != NULL) {
 		box->name = p_strdup(box->pool, name);
 		vname = t_str_new(128);
-		mail_namespace_get_vname(box->storage->user->namespaces,
-					 vname, name);
+		mail_namespace_get_vname(box->list->ns, vname, name);
 		box->vname = p_strdup(box->pool, str_c(vname));
 	} else {
 		i_assert(input != NULL);
