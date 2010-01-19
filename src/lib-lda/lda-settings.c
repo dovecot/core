@@ -40,7 +40,7 @@ static const struct lda_settings lda_default_settings = {
 	.rejection_reason =
 		"Your message to <%t> was automatically rejected:%n%r",
 	.deliver_log_format = "msgid=%m: %$",
-	.recipient_delimiter = "",
+	.recipient_delimiter = "+",
 	.quota_full_tempfail = FALSE,
 	.lda_mailbox_autocreate = FALSE,
 	.lda_mailbox_autosubscribe = FALSE
