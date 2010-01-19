@@ -181,7 +181,8 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 			inbox_ns = ns;
 		}
 		if (*ns->prefix != '\0' &&
-		    (ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 &&
+		    (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0 &&
 		    ns->prefix[strlen(ns->prefix)-1] != ns->sep) {
 			*error_r = t_strdup_printf(
 				"namespace configuration error: "
