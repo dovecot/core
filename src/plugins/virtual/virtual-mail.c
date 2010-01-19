@@ -138,14 +138,13 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 
 static bool virtual_mail_set_uid(struct mail *mail, uint32_t uid)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)mail->box;
 	uint32_t seq;
 
 	if (!mail_index_lookup_seq(mbox->ibox.view, uid, &seq))
 		return FALSE;
 
-	virtual_mail_set_seq(vmail->backend_mail, seq);
+	virtual_mail_set_seq(mail, seq);
 	return TRUE;
 }
 
