@@ -137,10 +137,19 @@ settings_export(struct settings_export_context *ctx,
 			break;
 		}
 		case SET_UINT:
+		case SET_UINT_OCT:
 		case SET_TIME: {
 			const unsigned int *val = value, *dval = default_value;
-			if (dump_default || dval == NULL || *val != *dval)
-				str_printfa(ctx->value, "%u", *val);
+			if (dump_default || dval == NULL || *val != *dval) {
+				switch (def->type) {
+				case SET_UINT_OCT:
+					str_printfa(ctx->value, "0%o", *val);
+					break;
+				default:
+					str_printfa(ctx->value, "%u", *val);
+					break;
+				}
+			}
 			break;
 		}
 		case SET_STR_VARS: {

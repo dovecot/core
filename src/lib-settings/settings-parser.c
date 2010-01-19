@@ -551,6 +551,7 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	case SET_UINT:
+	case SET_UINT_OCT:
 		if (get_uint(ctx, value, (unsigned int *)ptr) < 0)
 			return -1;
 		break;
@@ -1023,6 +1024,7 @@ settings_var_expand_info(const struct setting_parser_info *info,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_UINT_OCT:
 		case SET_TIME:
 		case SET_SIZE:
 		case SET_STR:
@@ -1095,6 +1097,7 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_UINT_OCT:
 		case SET_TIME:
 		case SET_SIZE:
 		case SET_STR:
@@ -1166,6 +1169,7 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 		break;
 	}
 	case SET_UINT:
+	case SET_UINT_OCT:
 	case SET_TIME: {
 		const unsigned int *src_uint = src;
 		unsigned int *dest_uint = dest;
@@ -1276,6 +1280,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		switch (def->type) {
 		case SET_BOOL:
 		case SET_UINT:
+		case SET_UINT_OCT:
 		case SET_TIME:
 		case SET_SIZE:
 		case SET_STR_VARS:

@@ -19,6 +19,7 @@ struct var_expand_table;
 enum setting_type {
 	SET_BOOL,
 	SET_UINT,
+	SET_UINT_OCT,
 	SET_TIME,
 	SET_SIZE,
 	SET_STR,
