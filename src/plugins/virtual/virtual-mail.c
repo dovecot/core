@@ -333,12 +333,6 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 
 	if (virtual_mail_handle_lost(vmail) < 0)
 		return -1;
-	if (field == MAIL_FETCH_MAILBOX_NAME) {
-		*value_r = p_strconcat(vmail->imail.data_pool,
-				       box->list->ns->prefix,
-				       box->name, NULL);
-		return 0;
-	}
 	if (mail_get_special(vmail->backend_mail, field, value_r) < 0) {
 		virtual_box_copy_error(mail->box, box);
 		return -1;
