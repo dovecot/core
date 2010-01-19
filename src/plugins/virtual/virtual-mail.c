@@ -45,7 +45,11 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 	vmail->imail.trans = (struct index_transaction_context *)t;
 
 	vmail->wanted_fields = wanted_fields;
-	vmail->wanted_headers = wanted_headers;
+	if (wanted_headers != NULL) {
+		vmail->wanted_headers = wanted_headers;
+		mailbox_header_lookup_ref(wanted_headers);
+	}
+
 	i_array_init(&vmail->backend_mails, array_count(&mbox->backend_boxes));
 	return &vmail->imail.mail.mail;
 }
@@ -60,6 +64,9 @@ static void virtual_mail_free(struct mail *mail)
 	for (i = 0; i < count; i++)
 		mail_free(&mails[i]);
 	array_free(&vmail->backend_mails);
+
+	if (vmail->wanted_headers != NULL)
+		mailbox_header_lookup_unref(&vmail->wanted_headers);
 
 	pool_unref(&vmail->imail.data_pool);
 	pool_unref(&vmail->imail.mail.pool);
