@@ -1051,7 +1051,7 @@ int index_mail_get_special(struct mail *_mail,
 		*value_r = "";
 		return 0;
 	case MAIL_FETCH_MAILBOX_NAME:
-		*value_r = _mail->box->name;
+		*value_r = _mail->box->vname;
 		return 0;
 	default:
 		i_unreached();
