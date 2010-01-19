@@ -28,7 +28,7 @@ extern const struct setting_parser_info service_setting_parser_info;
 
 static const struct setting_define file_listener_setting_defines[] = {
 	DEF(SET_STR, path),
-	DEF(SET_UINT, mode),
+	DEF(SET_UINT_OCT, mode),
 	DEF(SET_STR, user),
 	DEF(SET_STR, group),
 
