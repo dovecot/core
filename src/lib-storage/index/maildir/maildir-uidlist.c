@@ -1335,6 +1335,7 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 		rec = mail_index_lookup(view, seq);
 		if (recs[i]->uid < rec->uid) {
 			/* expunged entry */
+			hash_table_remove(uidlist->files, recs[i]->filename);
 			i++;
 		} else if (recs[i]->uid > rec->uid) {
 			/* index isn't up to date. we're probably just
@@ -1347,8 +1348,10 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 	}
 
 	/* drop messages expunged at the end of index */
-	while (i < count && recs[i]->uid < hdr->next_uid)
+	while (i < count && recs[i]->uid < hdr->next_uid) {
+		hash_table_remove(uidlist->files, recs[i]->filename);
 		i++;
+	}
 	/* view might not be completely up-to-date, so preserve any
 	   messages left */
 	for (; i < count; i++)
