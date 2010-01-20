@@ -1314,6 +1314,11 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 	unsigned int i, count;
 	uint32_t seq;
 
+	/* we could get here when opening and locking mailbox,
+	   before index files have been opened. */
+	if (!uidlist->mbox->ibox.box.opened)
+		return;
+
 	mail_index_refresh(uidlist->mbox->ibox.index);
 	view = mail_index_view_open(uidlist->mbox->ibox.index);
 	count = array_count(&uidlist->records);
