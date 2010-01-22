@@ -25,6 +25,7 @@ ARRAY_DEFINE_TYPE(prefix_stack, struct prefix_stack);
 struct config_request_get_string_ctx {
 	pool_t pool;
 	ARRAY_TYPE(const_string) strings;
+	ARRAY_TYPE(const_string) errors;
 };
 
 #define LIST_KEY_PREFIX "\001"
@@ -51,6 +52,10 @@ config_request_get_strings(const char *key, const char *value,
 		value = p_strdup_printf(ctx->pool, "%s/"UNIQUE_KEY_SUFFIX"%s=%s",
 					t_strdup_until(key, p), p + 1, value);
 		break;
+	case CONFIG_KEY_ERROR:
+		value = p_strdup(ctx->pool, value);
+		array_append(&ctx->errors, &value, 1);
+		return;
 	}
 	array_append(&ctx->strings, &value, 1);
 }
@@ -100,10 +105,10 @@ static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
 		s->str_pos = -1U;
 }
 
-static void config_connection_request_human(struct ostream *output,
-					    const struct config_filter *filter,
-					    const char *module,
-					    enum config_dump_scope scope)
+static int config_connection_request_human(struct ostream *output,
+					   const struct config_filter *filter,
+					   const char *module,
+					   enum config_dump_scope scope)
 {
 	static const char *indent_str = "               ";
 	ARRAY_TYPE(const_string) prefixes_arr;
@@ -116,14 +121,17 @@ static void config_connection_request_human(struct ostream *output,
 	unsigned int indent = 0, prefix_idx = -1U;
 	string_t *list_prefix;
 	bool unique_key;
+	int ret = 0;
 
 	ctx.pool = pool_alloconly_create("config human strings", 10240);
 	i_array_init(&ctx.strings, 256);
+	i_array_init(&ctx.errors, 256);
 	if (config_request_handle(filter, module, scope,
 				  CONFIG_DUMP_FLAG_CHECK_SETTINGS |
-				  CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
+				  CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS |
+				  CONFIG_DUMP_FLAG_CALLBACK_ERRORS,
 				  config_request_get_strings, &ctx) < 0)
-		return;
+		return -1;
 
 	array_sort(&ctx.strings, config_string_cmp);
 	strings = array_get(&ctx.strings, &count);
@@ -231,21 +239,32 @@ static void config_connection_request_human(struct ostream *output,
 		o_stream_send_str(output, "}\n");
 	}
 
+	/* flush output before writing errors */
+	o_stream_uncork(output);
+	array_foreach(&ctx.errors, strings) {
+		i_error("%s", *strings);
+		ret = -1;
+	}
+
 	array_free(&ctx.strings);
+	array_free(&ctx.errors);
 	pool_unref(&ctx.pool);
+	return ret;
 }
 
-static void config_dump_human(const struct config_filter *filter,
-			      const char *module,
-			      enum config_dump_scope scope)
+static int config_dump_human(const struct config_filter *filter,
+			     const char *module,
+			     enum config_dump_scope scope)
 {
 	struct ostream *output;
+	int ret;
 
 	output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
 	o_stream_cork(output);
-	config_connection_request_human(output, filter, module, scope);
+	ret = config_connection_request_human(output, filter, module, scope);
 	o_stream_uncork(output);
 	o_stream_unref(&output);
+	return ret;
 }
 
 static void config_request_putenv(const char *key, const char *value,
@@ -309,7 +328,7 @@ int main(int argc, char *argv[])
 	struct config_filter filter;
 	const char *error;
 	char **exec_args = NULL;
-	int c, ret;
+	int c, ret, ret2;
 
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
@@ -358,7 +377,8 @@ int main(int argc, char *argv[])
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
 			error);
 	}
-	if (ret <= 0)
+
+	if (ret <= 0 && (exec_args != NULL || ret == -2))
 		i_fatal("%s", error);
 
 	if (exec_args == NULL) {
@@ -368,7 +388,14 @@ int main(int argc, char *argv[])
 		if (*info != '\0')
 			printf("# %s\n", info);
 		fflush(stdout);
-		config_dump_human(&filter, module, scope);
+		ret2 = config_dump_human(&filter, module, scope);
+
+		if (ret < 0) {
+			/* delayed error */
+			i_fatal("%s", error);
+		}
+		if (ret2 < 0)
+			i_fatal("Errors in configuration");
 	} else {
 		env_put("DOVECONF_ENV=1");
 		if (config_request_handle(&filter, module,

@@ -589,22 +589,22 @@ static int config_parse_finish(struct parser_context *ctx, const char **error_r)
 {
 	struct config_filter_context *new_filter;
 	const char *error;
+	int ret;
 
 	new_filter = config_filter_init(ctx->pool);
 	(void)array_append_space(&ctx->all_parsers);
 	config_filter_add_all(new_filter, array_idx(&ctx->all_parsers, 0));
 
-	if (config_all_parsers_check(ctx, new_filter, &error) < 0) {
+	if ((ret = config_all_parsers_check(ctx, new_filter, &error)) < 0) {
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
-		return -1;
 	}
 
 	if (config_filter != NULL)
 		config_filter_deinit(&config_filter);
 	config_module_parsers = ctx->root_parsers;
 	config_filter = new_filter;
-	return 0;
+	return ret;
 }
 
 int config_parse_file(const char *path, bool expand_files,
@@ -735,7 +735,7 @@ prevfile:
 				"Error in configuration file %s line %d: %s",
 				ctx.cur_input->path, ctx.cur_input->linenum,
 				errormsg);
-			ret = -1;
+			ret = -2;
 			break;
 		}
 		str_truncate(full_line, 0);
@@ -748,11 +748,7 @@ prevfile:
 
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, error_r);
-	if (ret < 0) {
-		pool_unref(&ctx.pool);
-		return -1;
-	}
-	return 1;
+	return ret;
 }
 
 void config_parse_load_modules(void)

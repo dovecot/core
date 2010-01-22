@@ -325,9 +325,14 @@ int config_request_handle(const struct config_filter *filter,
 			settings_parse_var_skip(parser->parser);
 			if (!settings_parser_check(parser->parser, ctx.pool,
 						   &error)) {
-				i_error("%s", error);
-				ret = -1;
-				break;
+				if ((flags & CONFIG_DUMP_FLAG_CALLBACK_ERRORS) != 0) {
+					callback(NULL, error, CONFIG_KEY_ERROR,
+						 context);
+				} else {
+					i_error("%s", error);
+					ret = -1;
+					break;
+				}
 			}
 		}
 	}
