@@ -371,6 +371,11 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
 
+		if (*service->executable == '\0') {
+			*error_r = t_strdup_printf("service(%s): "
+				"executable is empty", service->name);
+			return FALSE;
+		}
 		if (*service->executable != '/') {
 			service->executable =
 				p_strconcat(pool, set->libexec_dir, "/",
