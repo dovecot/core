@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#define SOCKET_CONNECT_RETRY_MSECS 500
+
 struct master_auth_connection {
 	struct master_auth *auth;
 	unsigned int tag;
@@ -172,12 +174,15 @@ void master_auth_request(struct master_auth *auth, int fd,
 	buffer_append(buf, &req, sizeof(req));
 	buffer_append(buf, data, req.data_size);
 
-	conn->fd = net_connect_unix(auth->path);
-	if (conn->fd == -1)
+	conn->fd = net_connect_unix_with_retries(auth->path,
+						 SOCKET_CONNECT_RETRY_MSECS);
+	if (conn->fd == -1) {
 		i_error("net_connect_unix(%s) failed: %m", auth->path);
+		master_auth_connection_deinit(&conn);
+		return;
+	}
 
-	ret = conn->fd == -1 ? -1 :
-		fd_send(conn->fd, fd, buf->data, buf->used);
+	ret = fd_send(conn->fd, fd, buf->data, buf->used);
 	if (ret < 0)
 		i_error("fd_send(%d) failed: %m", fd);
 	else if ((size_t)ret != buf->used) {
