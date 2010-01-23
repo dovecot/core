@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "abspath.h"
 #include "env-util.h"
 #include "ostream.h"
 #include "str.h"
@@ -252,9 +253,9 @@ static int config_connection_request_human(struct ostream *output,
 	return ret;
 }
 
-static int config_dump_human(const struct config_filter *filter,
-			     const char *module,
-			     enum config_dump_scope scope)
+static int
+config_dump_human(const struct config_filter *filter, const char *module,
+		  enum config_dump_scope scope)
 {
 	struct ostream *output;
 	int ret;
@@ -321,19 +322,35 @@ static void filter_parse_arg(struct config_filter *filter, const char *arg)
 	}
 }
 
+static void check_wrong_config(const char *config_path)
+{
+	const char *prev_path;
+
+	if (t_readlink(PKG_RUNDIR"/"PACKAGE".conf", &prev_path) < 0)
+		return;
+
+	if (strcmp(prev_path, config_path) != 0) {
+		i_warning("Dovecot was last started using %s, "
+			  "but this config is %s", prev_path, config_path);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
-	const char *config_path, *module = "";
+	const char *orig_config_path, *config_path, *module = "";
 	struct config_filter filter;
 	const char *error;
 	char **exec_args = NULL;
 	int c, ret, ret2;
+	bool config_path_specified;
 
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     &argc, &argv, "af:m:nNe");
+	orig_config_path = master_service_get_config_path(master_service);
+
 	i_set_failure_prefix("doveconf: ");
 	while ((c = master_getopt(master_service)) > 0) {
 		if (c == 'e')
@@ -358,6 +375,9 @@ int main(int argc, char *argv[])
 		}
 	}
 	config_path = master_service_get_config_path(master_service);
+	/* use strcmp() instead of !=, because dovecot -n always gives us
+	   -c parameter */
+	config_path_specified = strcmp(config_path, orig_config_path) != 0;
 
 	if (argv[optind] != NULL) {
 		if (c != 'e')
@@ -387,6 +407,8 @@ int main(int argc, char *argv[])
 		info = sysinfo_get(get_mail_location());
 		if (*info != '\0')
 			printf("# %s\n", info);
+		if (!config_path_specified)
+			check_wrong_config(config_path);
 		fflush(stdout);
 		ret2 = config_dump_human(&filter, module, scope);
 

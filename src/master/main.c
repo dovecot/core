@@ -276,6 +276,20 @@ static void create_pid_file(const char *path)
 	(void)close(fd);
 }
 
+static void create_config_symlink(const struct master_settings *set)
+{
+	const char *base_config_path;
+
+	base_config_path = t_strconcat(set->base_dir, "/"PACKAGE".conf", NULL);
+	if (unlink(base_config_path) < 0 && errno != ENOENT)
+		i_error("unlink(%s) failed: %m", base_config_path);
+
+	if (symlink(services->config->config_file_path, base_config_path) < 0) {
+		i_error("symlink(%s, %s) failed: %m",
+			services->config->config_file_path, base_config_path);
+	}
+}
+
 static void
 sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		    void *context ATTR_UNUSED)
@@ -378,7 +392,7 @@ static void main_log_startup(void)
 		i_info(STARTUP_STRING);
 }
 
-static void main_init(bool log_error)
+static void main_init(const struct master_settings *set, bool log_error)
 {
 	drop_capabilities();
 
@@ -405,6 +419,7 @@ static void main_init(bool log_error)
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
 
 	create_pid_file(pidfile_path);
+	create_config_symlink(set);
 
 	services_monitor_start(services);
 }
@@ -757,7 +772,7 @@ int main(int argc, char *argv[])
 	i_set_fatal_handler(master_fatal_callback);
 	i_set_error_handler(orig_error_callback);
 
-	main_init(log_error);
+	main_init(set, log_error);
 	master_service_run(master_service, NULL);
 	main_deinit();
 	master_service_deinit(&master_service);
