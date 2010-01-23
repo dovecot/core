@@ -42,3 +42,24 @@ int t_get_current_dir(const char **dir_r)
 	*dir_r = dir;
 	return 0;
 }
+
+int t_readlink(const char *path, const char **dest_r)
+{
+	/* @UNSAFE */
+	ssize_t ret;
+	char *dest;
+	size_t size = 128;
+
+	dest = t_buffer_get(size);
+	while ((ret = readlink(path, dest, size)) >= (ssize_t)size) {
+		size = nearest_power(size+1);
+		dest = t_buffer_get(size);
+	}
+	if (ret < 0)
+		return -1;
+
+	dest[ret] = '\0';
+	t_buffer_alloc(ret + 1);
+	*dest_r = dest;
+	return 0;
+}
