@@ -100,6 +100,8 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(SET_STR, driver),
 	DEF(SET_STR, args),
 	DEF(SET_BOOL, deny),
+	DEF(SET_BOOL, pass),
+	DEF(SET_BOOL, master),
 
 	SETTING_DEFINE_LIST_END
 };
