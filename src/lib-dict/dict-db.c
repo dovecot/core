@@ -1,5 +1,7 @@
 /* Copyright (c) 2006-2009 Dovecot authors, see the included COPYING file */
 
+/* FIXME: BDB isn't being used correctly/safely. */
+
 #include "lib.h"
 #include "dict-private.h"
 

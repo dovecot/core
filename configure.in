@@ -114,10 +114,11 @@ AC_ARG_WITH(vpopmail,
 		vpopmail_home="`echo ~vpopmail`"
 	])
 
-AC_ARG_WITH(db,
-[  --with-db               Build with Berkeley DB support],
-  TEST_WITH(db, $withval),
-  want_db=no)
+# Berkeley DB support is more or less broken. Disabled for now.
+#AC_ARG_WITH(db,
+#[  --with-db               Build with Berkeley DB support],
+#  TEST_WITH(db, $withval),
+#  want_db=no)
 
 dnl The --with-sql is useful only if Dovecot is being built with all the SQL
 dnl drivers as modules. If any SQL driver is built-in, this option is ignored.
