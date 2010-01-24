@@ -174,6 +174,9 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 		}
 	}
 
+	if (*args == '\0')
+		i_fatal("userdb passwd-file: Missing args");
+
 	module = p_new(auth_userdb->auth->pool,
 		       struct passwd_file_userdb_module, 1);
 	module->auth = auth_userdb->auth;

@@ -143,6 +143,9 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 			i_fatal("passdb passwd-file: Unknown setting: %s", key);
 	}
 
+	if (*args == '\0')
+		i_fatal("passdb passwd-file: Missing args");
+
 	module = p_new(auth_passdb->auth->pool,
 		       struct passwd_file_passdb_module, 1);
 	module->auth = auth_passdb->auth;
