@@ -8,7 +8,6 @@
 #ifdef PREAD_WRAPPERS
 #  define _XOPEN_SOURCE 500 /* Linux */
 #endif
-#include <time.h> /* strptime() is giving trouble if this is moved below.. */
 
 #define IN_COMPAT_C
 #include "lib.h"
@@ -309,9 +308,3 @@ int i_my_clock_gettime(int clk_id, struct timespec *tp)
 	return 0;
 }
 #endif
-
-#undef strptime
-char *my_strptime(const char *s, const char *format, struct tm *tm)
-{
-	return strptime(s, format, tm);
-}
