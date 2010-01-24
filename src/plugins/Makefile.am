@@ -7,7 +7,7 @@ FTS_LUCENE = fts-lucene
 endif
 
 if BUILD_SOLR
-FTS_LUCENE = fts-solr
+FTS_SOLR = fts-solr
 endif
 
 SUBDIRS = \
