@@ -748,7 +748,7 @@ prevfile:
 
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, error_r);
-	return ret < 0 ? -1 : 1;
+	return ret < 0 ? ret : 1;
 }
 
 void config_parse_load_modules(void)
