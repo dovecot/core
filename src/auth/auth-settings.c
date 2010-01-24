@@ -13,6 +13,8 @@ extern const struct setting_parser_info auth_setting_parser_info;
 extern const struct setting_parser_info auth_root_setting_parser_info;
 
 static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool auth_passdb_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **error_r);
 
 /* <settings checks> */
 static struct file_listener_settings auth_unix_listeners_array[] = {
@@ -109,11 +111,13 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 const struct setting_parser_info auth_passdb_setting_parser_info = {
 	.defines = auth_passdb_setting_defines,
 
-	.type_offset = offsetof(struct auth_passdb_settings, driver),
+	.type_offset = (size_t)-1,
 	.struct_size = sizeof(struct auth_passdb_settings),
 
 	.parent_offset = (size_t)-1,
-	.parent = &auth_setting_parser_info
+	.parent = &auth_setting_parser_info,
+
+	.check_func = auth_passdb_settings_check
 };
 
 #undef DEF
@@ -130,11 +134,13 @@ static const struct setting_define auth_userdb_setting_defines[] = {
 const struct setting_parser_info auth_userdb_setting_parser_info = {
 	.defines = auth_userdb_setting_defines,
 
-	.type_offset = offsetof(struct auth_userdb_settings, driver),
+	.type_offset = (size_t)-1,
 	.struct_size = sizeof(struct auth_userdb_settings),
 
 	.parent_offset = (size_t)-1,
-	.parent = &auth_setting_parser_info
+	.parent = &auth_setting_parser_info,
+
+	.check_func = auth_userdb_settings_check
 };
 
 /* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
@@ -230,6 +236,32 @@ static bool auth_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		set->debug = TRUE;
 	if (set->debug)
 		set->verbose = TRUE;
+	return TRUE;
+}
+
+static bool
+auth_passdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			   const char **error_r)
+{
+	struct auth_passdb_settings *set = _set;
+
+	if (set->driver == NULL || *set->driver == '\0') {
+		*error_r = "passdb is missing driver";
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool
+auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			   const char **error_r)
+{
+	struct auth_userdb_settings *set = _set;
+
+	if (set->driver == NULL || *set->driver == '\0') {
+		*error_r = "passdb is missing driver";
+		return FALSE;
+	}
 	return TRUE;
 }
 /* </settings checks> */
