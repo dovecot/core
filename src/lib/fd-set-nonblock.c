@@ -1,4 +1,4 @@
-/* Copyright (c) 1999-2009 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 1999-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "fd-set-nonblock.h"

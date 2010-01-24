@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2009 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2002-2010 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
 #include "userdb.h"

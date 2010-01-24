@@ -1,4 +1,4 @@
-/* Copyright (c) 2003-2009 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2003-2010 Dovecot authors, see the included COPYING file */
 
 /*
    Version 1 format has been used for most versions of Dovecot up to v1.0.x.

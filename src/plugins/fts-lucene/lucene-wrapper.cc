@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 Timo Sirainen */
+/* Copyright (c) 2006-2010 Dovecot authors, see the included COPYING file */
 
 extern "C" {
 #include "lib.h"

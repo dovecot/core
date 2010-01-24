@@ -1,4 +1,4 @@
-/* Copyright (c) 2001-2009 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2001-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "env-util.h"
