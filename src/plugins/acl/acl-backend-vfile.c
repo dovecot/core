@@ -756,10 +756,9 @@ static void apply_owner_rights(struct acl_object *_aclobj)
 
 static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 {
-	static const char *const admin_rights[] = { MAIL_ACL_ADMIN, NULL };
 	struct mail_namespace *ns;
 	struct acl_object *_aclobj = &aclobj->aclobj;
-	struct acl_rights_update ru, ru2;
+	struct acl_rights_update ru;
 	enum acl_modify_mode add_mode;
 	const struct acl_rights *rights;
 	unsigned int i, count;
@@ -771,11 +770,6 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 		return;
 
 	ns = mailbox_list_get_namespace(_aclobj->backend->list);
-	memset(&ru2, 0, sizeof(ru2));
-	ru2.modify_mode = ACL_MODIFY_MODE_ADD;
-	ru2.rights.id_type = ACL_ID_OWNER;
-	ru2.rights.rights = admin_rights;
-
 	owner_applied = ns->type != NAMESPACE_PRIVATE;
 
 	memset(&ru, 0, sizeof(ru));
@@ -806,20 +800,11 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 			   can't mess things up via them */
 			first_global = FALSE;
 			ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
-
-			if (ns->type == NAMESPACE_PRIVATE) {
-				/* make sure owner has admin rights
-				   (at least before global ACLs are applied) */
-				acl_cache_update(_aclobj->backend->cache,
-						 _aclobj->name, &ru2);
-			}
 		}
 		acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru);
 	}
 	if (!owner_applied && count > 0)
 		apply_owner_rights(_aclobj);
-	else if (first_global && ns->type == NAMESPACE_PRIVATE)
-		acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru2);
 }
 
 static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
