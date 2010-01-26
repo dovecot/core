@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "buffer.h"
 #include "hash.h"
+#include "sha1.h"
 #include "hex-binary.h"
 #include "str.h"
 #include "safe-memset.h"
@@ -22,6 +23,9 @@
 
 #include <stdlib.h>
 #include <sys/stat.h>
+
+static void get_log_prefix(string_t *str, struct auth_request *auth_request,
+			   const char *subsystem);
 
 struct auth_request *
 auth_request_new(struct auth *auth, const struct mech_module *mech,
@@ -1302,6 +1306,38 @@ static void log_password_failure(struct auth_request *request,
 	auth_request_log_debug(request, subsystem, "%s", str_c(str));
 }
 
+void auth_request_log_password_mismatch(struct auth_request *request,
+					const char *subsystem)
+{
+	string_t *str;
+	const char *log_type = request->auth->set->verbose_passwords;
+
+	if (strcmp(log_type, "no") == 0) {
+		auth_request_log_info(request, subsystem, "Password mismatch");
+		return;
+	}
+
+	str = t_str_new(128);
+	get_log_prefix(str, request, subsystem);
+	str_append(str, "Password mismatch ");
+
+	if (strcmp(log_type, "plain") == 0) {
+		str_printfa(str, "(given password: %s)",
+			    request->mech_password);
+	} else if (strcmp(log_type, "sha1") == 0) {
+		unsigned char sha1[SHA1_RESULTLEN];
+
+		sha1_get_digest(request->mech_password,
+				strlen(request->mech_password), sha1);
+		str_printfa(str, "(SHA1 of given password: %s)",
+			    binary_to_hex(sha1, sizeof(sha1)));
+	} else {
+		i_unreached();
+	}
+
+	i_info("%s", str_c(str));
+}
+
 int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,
@@ -1348,8 +1384,7 @@ int auth_request_password_verify(struct auth_request *request,
 			      scheme, raw_password, raw_password_size);
 	i_assert(ret >= 0);
 	if (ret == 0) {
-		auth_request_log_info(request, subsystem,
-				      "Password mismatch");
+		auth_request_log_password_mismatch(request, subsystem);
 		if (request->auth->set->debug_passwords) T_BEGIN {
 			log_password_failure(request, plain_password,
 					     crypted_password, scheme,
@@ -1437,15 +1472,12 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	return tab;
 }
 
-static const char * ATTR_FORMAT(3, 0)
-get_log_str(struct auth_request *auth_request, const char *subsystem,
-	    const char *format, va_list va)
+static void get_log_prefix(string_t *str, struct auth_request *auth_request,
+			   const char *subsystem)
 {
 #define MAX_LOG_USERNAME_LEN 64
 	const char *ip;
-	string_t *str;
 
-	str = t_str_new(128);
 	str_append(str, subsystem);
 	str_append_c(str, '(');
 
@@ -1464,6 +1496,16 @@ get_log_str(struct auth_request *auth_request, const char *subsystem,
 	if (auth_request->requested_login_user != NULL)
 		str_append(str, ",master");
 	str_append(str, "): ");
+}
+
+static const char * ATTR_FORMAT(3, 0)
+get_log_str(struct auth_request *auth_request, const char *subsystem,
+	    const char *format, va_list va)
+{
+	string_t *str;
+
+	str = t_str_new(128);
+	get_log_prefix(str, auth_request, subsystem);
 	str_vprintfa(str, format, va);
 	return str_c(str);
 }

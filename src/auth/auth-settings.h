@@ -34,6 +34,7 @@ struct auth_settings {
 	unsigned int failure_delay;
 
 	bool verbose, debug, debug_passwords;
+	const char *verbose_passwords;
 	bool ssl_require_client_cert;
 	bool ssl_username_from_cert;
 	bool use_winbind;

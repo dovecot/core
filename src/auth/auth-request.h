@@ -160,6 +160,8 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 					  const char *const *values);
 void auth_request_proxy_finish(struct auth_request *request, bool success);
 
+void auth_request_log_password_mismatch(struct auth_request *request,
+					const char *subsystem);
 int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,

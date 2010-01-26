@@ -41,7 +41,7 @@ local_sia_verify_plain(struct auth_request *request, const char *password,
 	if (sia_validate_user(checkpw_collect, 1, &argutility, NULL,
 			      (char *)request->user, NULL, NULL, NULL,
 			      (char *)password) != SIASUCCESS) {
-		auth_request_log_info(request, "sia", "password mismatch");
+		auth_request_log_password_mismatch(request, "sia");
                 callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 	} else {
 		callback(PASSDB_RESULT_OK, request);
