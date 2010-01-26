@@ -67,25 +67,20 @@ const struct setting_parser_info lda_setting_parser_info = {
 	.dependencies = lda_setting_dependencies
 };
 
-static bool lda_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-			       const char **error_r)
+static bool lda_settings_check(void *_set, pool_t pool, const char **error_r)
 {
 	struct lda_settings *set = _set;
-	const char *fqdn = NULL;
 
+	if (*set->hostname == '\0')
+		set->hostname = p_strdup(pool, my_hostdomain());
 	if (*set->postmaster_address == '\0') {
-		fqdn = my_hostdomain();
-		/* check for valid looking fqdn */
-		if (strchr(fqdn, '.') == NULL) {
+		/* check for valid looking fqdn in hostname */
+		if (strchr(set->hostname, '.') == NULL) {
 			*error_r = "postmaster_address setting not given";
 			return FALSE;
 		}
 		set->postmaster_address = p_strconcat(pool, "postmaster@",
-						      fqdn, NULL);
-	}
-	if (*set->hostname == '\0') {
-		i_assert(my_hostname != NULL);
-		set->hostname = my_hostname;
+						      set->hostname, NULL);
 	}
 	return TRUE;
 }
