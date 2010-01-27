@@ -261,7 +261,7 @@ auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	struct auth_userdb_settings *set = _set;
 
 	if (set->driver == NULL || *set->driver == '\0') {
-		*error_r = "passdb is missing driver";
+		*error_r = "userdb is missing driver";
 		return FALSE;
 	}
 	return TRUE;
