@@ -1,12 +1,27 @@
 /* Copyright (c) 2005-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "settings-parser.h"
 #include "service-settings.h"
 #include "login-settings.h"
 #include "imap-login-settings.h"
 
 #include <stddef.h>
+
+/* <settings checks> */
+static struct inet_listener_settings imap_login_inet_listeners_array[] = {
+	{ "imap", "", 143, FALSE },
+	{ "imaps", "", 993, TRUE }
+};
+static struct inet_listener_settings *imap_login_inet_listeners[] = {
+	&imap_login_inet_listeners_array[0],
+	&imap_login_inet_listeners_array[1]
+};
+static buffer_t imap_login_inet_listeners_buf = {
+	imap_login_inet_listeners, sizeof(imap_login_inet_listeners), { 0, }
+};
+/* </settings checks> */
 
 struct service_settings imap_login_service_settings = {
 	.name = "imap-login",
@@ -29,7 +44,8 @@ struct service_settings imap_login_service_settings = {
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
-	.inet_listeners = ARRAY_INIT
+	.inet_listeners = { { &imap_login_inet_listeners_buf,
+			      sizeof(imap_login_inet_listeners[0]) } }
 };
 
 #undef DEF

@@ -58,6 +58,7 @@ static const struct setting_parser_info file_listener_setting_parser_info = {
 	{ type, #name, offsetof(struct inet_listener_settings, name), NULL }
 
 static const struct setting_define inet_listener_setting_defines[] = {
+	DEF(SET_STR, name),
 	DEF(SET_STR, address),
 	DEF(SET_UINT, port),
 	DEF(SET_BOOL, ssl),
@@ -66,6 +67,7 @@ static const struct setting_define inet_listener_setting_defines[] = {
 };
 
 static const struct inet_listener_settings inet_listener_default_settings = {
+	.name = "",
 	.address = "",
 	.port = 0,
 	.ssl = FALSE
@@ -75,7 +77,7 @@ static const struct setting_parser_info inet_listener_setting_parser_info = {
 	.defines = inet_listener_setting_defines,
 	.defaults = &inet_listener_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = offsetof(struct inet_listener_settings, name),
 	.struct_size = sizeof(struct inet_listener_settings),
 
 	.parent_offset = (size_t)-1,
@@ -115,8 +117,8 @@ static const struct setting_define service_setting_defines[] = {
 		       &file_listener_setting_parser_info),
 	DEFLIST_UNIQUE(fifo_listeners, "fifo_listener",
 		       &file_listener_setting_parser_info),
-	DEFLIST(inet_listeners, "inet_listener",
-		&inet_listener_setting_parser_info),
+	DEFLIST_UNIQUE(inet_listeners, "inet_listener",
+		       &inet_listener_setting_parser_info),
 
 	SETTING_DEFINE_LIST_END
 };

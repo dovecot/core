@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "settings-parser.h"
 #include "service-settings.h"
 #include "login-settings.h"
@@ -8,6 +9,20 @@
 
 #include <stddef.h>
 
+/* <settings checks> */
+static struct inet_listener_settings pop3_login_inet_listeners_array[] = {
+	{ "pop3", "", 110, FALSE },
+	{ "pop3s", "", 995, TRUE }
+};
+static struct inet_listener_settings *pop3_login_inet_listeners[] = {
+	&pop3_login_inet_listeners_array[0],
+	&pop3_login_inet_listeners_array[1]
+};
+static buffer_t pop3_login_inet_listeners_buf = {
+	pop3_login_inet_listeners, sizeof(pop3_login_inet_listeners), { 0, }
+};
+
+/* </settings checks> */
 struct service_settings pop3_login_service_settings = {
 	.name = "pop3-login",
 	.protocol = "pop3",
@@ -29,7 +44,8 @@ struct service_settings pop3_login_service_settings = {
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
-	.inet_listeners = ARRAY_INIT
+	.inet_listeners = { { &pop3_login_inet_listeners_buf,
+			      sizeof(pop3_login_inet_listeners[0]) } }
 };
 
 static const struct setting_define pop3_login_setting_defines[] = {
