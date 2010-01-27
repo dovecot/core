@@ -436,6 +436,29 @@ static int get_enum(struct setting_parser_context *ctx, const char *value,
 	return 0;
 }
 
+static void
+setting_link_init_set_struct(struct setting_parser_context *ctx,
+			     struct setting_link *link)
+{
+        void *ptr;
+
+	link->set_struct = p_malloc(ctx->set_pool, link->info->struct_size);
+	if ((ctx->flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
+		link->change_struct =
+			p_malloc(ctx->set_pool, link->info->struct_size);
+		array_append(link->change_array, &link->change_struct, 1);
+	}
+
+	setting_parser_copy_defaults(ctx, link->info, link);
+	array_append(link->array, &link->set_struct, 1);
+
+	if (link->info->parent_offset != (size_t)-1 && link->parent != NULL) {
+		ptr = STRUCT_MEMBER_P(link->set_struct,
+				      link->info->parent_offset);
+		*((void **)ptr) = link->parent->set_struct;
+	}
+}
+
 static int setting_link_add(struct setting_parser_context *ctx,
 			    const struct setting_define *def,
 			    const struct setting_link *link_copy, char *key)
@@ -457,6 +480,9 @@ static int setting_link_add(struct setting_parser_context *ctx,
 	*link = *link_copy;
 	link->full_key = key;
 	hash_table_insert(ctx->links, key, link);
+
+	if (link->info->struct_size != 0)
+		setting_link_init_set_struct(ctx, link);
 	return 0;
 }
 
@@ -520,26 +546,8 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 
 	ctx->prev_info = link->info;
 
-	if (link->set_struct == NULL) {
-		link->set_struct =
-			p_malloc(ctx->set_pool, link->info->struct_size);
-		if ((ctx->flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
-			link->change_struct = p_malloc(ctx->set_pool,
-						       link->info->struct_size);
-			array_append(link->change_array,
-				     &link->change_struct, 1);
-		}
-
-		setting_parser_copy_defaults(ctx, link->info, link);
-		array_append(link->array, &link->set_struct, 1);
-
-		if (link->info->parent_offset != (size_t)-1 &&
-		    link->parent != NULL) {
-			ptr = STRUCT_MEMBER_P(link->set_struct,
-					      link->info->parent_offset);
-			*((void **)ptr) = link->parent->set_struct;
-		}
-	}
+	if (link->set_struct == NULL)
+		setting_link_init_set_struct(ctx, link);
 
 	change_ptr = link->change_struct == NULL ? NULL :
 		STRUCT_MEMBER_P(link->change_struct, def->offset);
