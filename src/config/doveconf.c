@@ -203,7 +203,7 @@ static int config_connection_request_human(struct ostream *output,
 					str_append_n(list_prefix, key2, p - key2);
 				else
 					str_append(list_prefix, key2);
-				if (unique_key)
+				if (unique_key && *value != '\0')
 					str_printfa(list_prefix, " %s", value);
 				str_append(list_prefix, " {\n");
 				indent++;
