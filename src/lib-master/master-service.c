@@ -134,8 +134,10 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->config_fd = -1;
 
 	service->config_path = getenv(MASTER_CONFIG_FILE_ENV);
-	if (service->config_path == NULL)
+	if (service->config_path == NULL) {
 		service->config_path = DEFAULT_CONFIG_FILE_PATH;
+		service->config_path_is_default = TRUE;
+	}
 
 	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		service->version_string = getenv(MASTER_DOVECOT_VERSION_ENV);
@@ -245,6 +247,7 @@ bool master_service_parse_option(struct master_service *service,
 	switch (opt) {
 	case 'c':
 		service->config_path = arg;
+		service->config_path_is_default = FALSE;
 		break;
 	case 'k':
 		service->keep_environment = TRUE;

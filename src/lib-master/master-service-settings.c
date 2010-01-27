@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
+#define DOVECOT_CONFIG_SOCKET_PATH PKG_RUNDIR"/config"
 
 #define CONFIG_READ_TIMEOUT_SECS 10
 #define CONFIG_HANDSHAKE "VERSION\tconfig\t1\t0\n"
@@ -100,32 +101,65 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 }
 
 static int
-master_service_read_config(struct master_service *service, const char *path,
+master_service_open_config(struct master_service *service,
 			   const struct master_service_settings_input *input,
-			   const char **error_r)
+			   const char **path_r, const char **error_r)
 {
+	const char *path;
 	struct stat st;
-	int fd, ret;
+	int fd;
 
-	if (service->config_fd != -1) {
+	*path_r = path = input->config_path != NULL ? input->config_path :
+		master_service_get_config_path(service);
+
+	if (service->config_fd != -1 && input->config_path == NULL) {
+		/* use the already opened config socket */
 		fd = service->config_fd;
 		service->config_fd = -1;
-	} else {
-		fd = net_connect_unix_with_retries(path, 1000);
-		if (fd < 0) {
-			*error_r = t_strdup_printf(
-				"net_connect_unix(%s) failed: %m", path);
-
-			if (stat(path, &st) == 0 && 
-			    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
-				/* it's a file, not a socket/pipe */
-				master_service_exec_config(service,
-							   input->preserve_home);
-			}
-			return -1;
-		}
-		net_set_nonblock(fd, FALSE);
+		return fd;
 	}
+
+	if (service->config_path_is_default && input->config_path == NULL) {
+		/* first try to connect to the default config socket.
+		   configuration may contain secrets, so in default config
+		   this fails because the socket is 0600. it's useful for
+		   developers though. :) */
+		fd = net_connect_unix(DOVECOT_CONFIG_SOCKET_PATH);
+		if (fd >= 0) {
+			*path_r = DOVECOT_CONFIG_SOCKET_PATH;
+			net_set_nonblock(fd, FALSE);
+			return fd;
+		}
+		/* fallback to executing doveconf */
+	}
+
+	fd = net_connect_unix_with_retries(path, 1000);
+	if (fd < 0) {
+		*error_r = t_strdup_printf("net_connect_unix(%s) failed: %m",
+					   path);
+
+		if (stat(path, &st) == 0 &&
+		    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
+			/* it's a file, not a socket/pipe */
+			master_service_exec_config(service,
+						   input->preserve_home);
+		}
+		return -1;
+	}
+	net_set_nonblock(fd, FALSE);
+	return fd;
+}
+
+static int
+master_service_read_config(struct master_service *service,
+			   const struct master_service_settings_input *input,
+			   const char **path_r, const char **error_r)
+{
+	int fd, ret;
+
+	fd = master_service_open_config(service, input, path_r, error_r);
+	if (fd == -1)
+		return -1;
 
 	T_BEGIN {
 		string_t *str;
@@ -154,7 +188,8 @@ master_service_read_config(struct master_service *service, const char *path,
 		ret = write_full(fd, str_data(str), str_len(str));
 	} T_END;
 	if (ret < 0) {
-		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
+		*error_r = t_strdup_printf("write_full(%s) failed: %m",
+					   *path_r);
 		return -1;
 	}
 	return fd;
@@ -198,9 +233,7 @@ int master_service_settings_read(struct master_service *service,
 
 	if (getenv("DOVECONF_ENV") == NULL &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
-		path = input->config_path != NULL ? input->config_path :
-			master_service_get_config_path(service);
-		fd = master_service_read_config(service, path, input, error_r);
+		fd = master_service_read_config(service, input, &path, error_r);
 		if (fd == -1)
 			return -1;
 	}
@@ -259,7 +292,8 @@ int master_service_settings_read(struct master_service *service,
 		}
 	}
 
-	if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) != 0)
+	if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) != 0 &&
+	    service->config_fd == -1 && input->config_path == NULL)
 		service->config_fd = fd;
 	else if (fd != -1)
 		(void)close(fd);

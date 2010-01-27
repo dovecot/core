@@ -5,6 +5,7 @@ noinst_LTLIBRARIES = libmaster.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
+	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DSYSCONFDIR=\""$(pkgsysconfdir)"\" \
 	-DBINDIR=\""$(bindir)"\"
 
