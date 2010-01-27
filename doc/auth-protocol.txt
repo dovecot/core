@@ -176,13 +176,11 @@ request.
 ID is a connection-specific unique request identifier. It must be a 32bit
 number, so typically you'd just increment it by one.
 
-NOTFOUND reply means that the request or user wasn't found. Master
-shouldn't even try to send REQUEST commands for nonexisting requests, so if
-it happens it means either a timeout caused by very high load, or client
-lying to master about the request.
+NOTFOUND reply means that the user wasn't found.
 
 FAIL reply means an internal error occurred. Usually either a configuration
 mistake or temporary error caused by lost resource (eg. database down).
+Also unknown request IDs are reported as FAILs.
 
 USER reply is sent if request succeeded. It can return parameters:
 

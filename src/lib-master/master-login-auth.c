@@ -151,7 +151,7 @@ master_login_auth_input_notfound(struct master_login_auth *auth,
 	id = (unsigned int)strtoul(args, NULL, 10);
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
-		i_error("Auth request not found (timed out?): %u", id);
+		i_error("Authenticated user not found from userdb");
 		request->callback(NULL, request->context);
 		i_free(request);
 	}
@@ -172,6 +172,7 @@ master_login_auth_input_fail(struct master_login_auth *auth, const char *args)
 	id = (unsigned int)strtoul(args, NULL, 10);
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
+		i_error("Internal auth failure");
 		request->callback(NULL, request->context);
 		i_free(request);
 	}

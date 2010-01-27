@@ -531,7 +531,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 	if (request == NULL) {
 		i_error("Master request %u.%u not found",
 			handler->client_pid, client_id);
-		auth_stream_reply_add(reply, "NOTFOUND", NULL);
+		auth_stream_reply_add(reply, "FAIL", NULL);
 		auth_stream_reply_add(reply, NULL, dec2str(id));
 		handler->master_callback(reply, master);
 		return;
@@ -544,7 +544,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 	    !request->successful) {
 		i_error("Master requested unfinished authentication request "
 			"%u.%u", handler->client_pid, client_id);
-		auth_stream_reply_add(reply, "NOTFOUND", NULL);
+		auth_stream_reply_add(reply, "FAIL", NULL);
 		auth_stream_reply_add(reply, NULL, dec2str(id));
 		handler->master_callback(reply, master);
 		auth_request_unref(&request);
