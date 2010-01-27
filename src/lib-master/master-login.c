@@ -345,7 +345,6 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	struct master_login_client *client;
 	struct master_login *login = conn->login;
 	unsigned char data[MASTER_AUTH_MAX_DATA_SIZE];
-	unsigned int request_count;
 	int ret, client_fd;
 
 	ret = master_login_conn_read_request(conn, &req, data, &client_fd);
@@ -369,9 +368,6 @@ static void master_login_conn_input(struct master_login_connection *conn)
 
 	master_login_auth_request(login->auth, &req,
 				  master_login_auth_callback, client);
-	request_count = master_login_auth_request_count(login->auth);
-	if (login->service->master_status.available_count <= request_count)
-		io_remove(&conn->io);
 }
 
 void master_login_add(struct master_login *login, int fd)
@@ -386,8 +382,10 @@ void master_login_add(struct master_login *login, int fd)
 
 	DLLIST_PREPEND(&login->conns, conn);
 
-	/* don't accept more connections. this is mainly a temporary
-	   workaround.. */
+	/* FIXME: currently there's a separate connection for each request.
+	   and currently we don't try to accept more connections until this
+	   request's authentication is finished, because updating
+	   available_count gets tricky. */
 	master_service_io_listeners_remove(login->service);
 }
 
