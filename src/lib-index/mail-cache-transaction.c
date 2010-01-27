@@ -120,8 +120,6 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 
 void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
 {
-	mail_cache_transaction_free_reservations(ctx);
-
 	ctx->cache_file_seq = MAIL_CACHE_IS_UNUSABLE(ctx->cache) ? 0 :
 		ctx->cache->hdr->file_seq;
 	mail_index_ext_set_reset_id(ctx->trans, ctx->cache->ext_id,
