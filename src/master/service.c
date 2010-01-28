@@ -132,6 +132,11 @@ service_create_inet_listeners(struct service *service,
 	const char *const *tmp, *addresses;
 	bool ssl_disabled = strcmp(service->set->master_set->ssl, "no") == 0;
 
+	if (set->port == 0) {
+		/* disabled */
+		return 0;
+	}
+
 	if (*set->address != '\0')
 		addresses = set->address;
 	else {
@@ -278,6 +283,11 @@ service_create(pool_t pool, const struct service_settings *set,
 		     unix_count + fifo_count + inet_count);
 		     
 	for (i = 0; i < unix_count; i++) {
+		if (unix_listeners[i]->mode == 0) {
+			/* disabled */
+			continue;
+		}
+
 		l = service_create_file_listener(service, SERVICE_LISTENER_UNIX,
 						 unix_listeners[i], error_r);
 		if (l == NULL)
@@ -285,6 +295,11 @@ service_create(pool_t pool, const struct service_settings *set,
 		array_append(&service->listeners, &l, 1);
 	}
 	for (i = 0; i < fifo_count; i++) {
+		if (unix_listeners[i]->mode == 0) {
+			/* disabled */
+			continue;
+		}
+
 		l = service_create_file_listener(service, SERVICE_LISTENER_UNIX,
 						 fifo_listeners[i], error_r);
 		if (l == NULL)
