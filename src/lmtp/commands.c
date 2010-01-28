@@ -436,9 +436,12 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
 	void **sets;
+	uid_t old_uid;
 	const char *error, *username;
 	enum mail_error mail_error;
 	int ret;
+
+	old_uid = geteuid();
 
 	input = mail_storage_service_user_get_input(rcpt->service_user);
 	username = t_strdup(input->username);
@@ -493,6 +496,13 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 					 rcpt->address, error);
 		}
 		ret = -1;
+	}
+	if (old_uid == 0) {
+		/* switch back to running as root, since that's what we're
+		   practically doing anyway. it's also important in case we
+		   lose e.g. config connection and need to reconnect to it. */
+		if (seteuid(0) < 0)
+			i_fatal("seteuid(0) failed: %m");
 	}
 	pool_unref(&dctx.pool);
 	return ret;
