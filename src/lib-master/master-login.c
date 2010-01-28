@@ -21,6 +21,7 @@ struct master_login_connection {
 	struct master_login_connection *prev, *next;
 
 	struct master_login *login;
+	int refcount;
 	int fd;
 	struct io *io;
 	struct ostream *output;
@@ -46,6 +47,7 @@ struct master_login {
 };
 
 static void master_login_conn_deinit(struct master_login_connection **_conn);
+static void master_login_conn_unref(struct master_login_connection **_conn);
 
 struct master_login *
 master_login_init(struct master_service *service, const char *auth_socket_path,
@@ -150,6 +152,20 @@ master_login_conn_read_request(struct master_login_connection *conn,
 	return 1;
 }
 
+static void master_login_client_free(struct master_login_client **_client)
+{
+	struct master_login_client *client = *_client;
+
+	*_client = NULL;
+	if (client->fd != -1) {
+		if (close(client->fd) < 0)
+			i_error("close(fd_read client) failed: %m");
+	}
+
+	master_login_conn_unref(&client->conn);
+	i_free(client);
+}
+
 static void master_login_auth_finish(struct master_login_client *client,
 				     const char *const *auth_args)
 {
@@ -162,7 +178,9 @@ static void master_login_auth_finish(struct master_login_client *client,
 		service->service_count_left == 1;
 
 	login->callback(client, auth_args[0], auth_args+1);
-	i_free(client);
+
+	client->fd = -1;
+	master_login_client_free(&client);
 
 	if (close_sockets) {
 		/* we're dying as soon as this connection closes. */
@@ -175,13 +193,6 @@ static void master_login_auth_finish(struct master_login_client *client,
 		/* try stopping again */
 		master_login_stop(login);
 	}
-}
-
-static void master_login_client_free(struct master_login_client *client)
-{
-	if (close(client->fd) < 0)
-		i_error("close(fd_read client) failed: %m");
-	i_free(client);
 }
 
 static void master_login_postlogin_free(struct master_login_postlogin *pl)
@@ -228,7 +239,7 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 			i_error("fd_read(%s) failed: disconnected",
 				login->postlogin_socket_path);
 		}
-		master_login_client_free(pl->client);
+		master_login_client_free(&pl->client);
 		master_login_postlogin_free(pl);
 		master_service_client_connection_destroyed(login->service);
 		return;
@@ -249,7 +260,7 @@ static void master_login_postlogin_timeout(struct master_login_postlogin *pl)
 	i_error("%s: Timeout waiting for post-login script to finish, aborting",
 		login->postlogin_socket_path);
 
-	master_login_client_free(pl->client);
+	master_login_client_free(&pl->client);
 	master_login_postlogin_free(pl);
 	master_service_client_connection_destroyed(login->service);
 }
@@ -320,7 +331,7 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 	if (auth_args == NULL || auth_args[0] == NULL) {
 		if (auth_args != NULL)
 			i_error("login client: Username missing from auth reply");
-		master_login_client_free(client);
+		master_login_client_free(&client);
 		return;
 	}
 
@@ -333,7 +344,7 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 	else {
 		/* execute post-login scripts before finishing auth */
 		if (master_login_postlogin(client, auth_args) < 0) {
-			master_login_client_free(client);
+			master_login_client_free(&client);
 			master_service_client_connection_destroyed(service);
 		}
 	}
@@ -365,6 +376,7 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	client->fd = client_fd;
 	client->auth_req = req;
 	memcpy(client->data, data, req.data_size);
+	conn->refcount++;
 
 	master_login_auth_request(login->auth, &req,
 				  master_login_auth_callback, client);
@@ -375,6 +387,7 @@ void master_login_add(struct master_login *login, int fd)
 	struct master_login_connection *conn;
 
 	conn = i_new(struct master_login_connection, 1);
+	conn->refcount = 1;
 	conn->login = login;
 	conn->fd = fd;
 	conn->io = io_add(conn->fd, IO_READ, master_login_conn_input, conn);
@@ -403,7 +416,19 @@ static void master_login_conn_deinit(struct master_login_connection **_conn)
 	if (close(conn->fd) < 0)
 		i_error("close(master login) failed: %m");
 	master_service_io_listeners_add(conn->login->service);
-	i_free(conn);
+	master_login_conn_unref(&conn);
+}
+
+static void master_login_conn_unref(struct master_login_connection **_conn)
+{
+	struct master_login_connection *conn = *_conn;
+
+	i_assert(conn->refcount > 0);
+
+	if (--conn->refcount == 0) {
+		*_conn = NULL;
+		i_free(conn);
+	}
 }
 
 void master_login_stop(struct master_login *login)
