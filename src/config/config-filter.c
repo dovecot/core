@@ -17,8 +17,14 @@ bool config_filter_match(const struct config_filter *mask,
 	if (mask->service != NULL) {
 		if (filter->service == NULL)
 			return FALSE;
-		if (strcmp(filter->service, mask->service) != 0)
-			return FALSE;
+		if (mask->service[0] == '!') {
+			/* not service */
+			if (strcmp(filter->service, mask->service + 1) == 0)
+				return FALSE;
+		} else {
+			if (strcmp(filter->service, mask->service) != 0)
+				return FALSE;
+		}
 	}
 	if (mask->local_host != NULL) {
 		if (filter->local_host == NULL)
