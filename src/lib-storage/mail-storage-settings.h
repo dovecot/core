@@ -31,6 +31,7 @@ struct mail_storage_settings {
 };
 
 struct mail_namespace_settings {
+	const char *name;
 	const char *type;
 	const char *separator;
 	const char *prefix;

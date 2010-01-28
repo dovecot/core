@@ -82,6 +82,7 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 	{ type, #name, offsetof(struct mail_namespace_settings, name), NULL }
 
 static const struct setting_define mail_namespace_setting_defines[] = {
+	DEF(SET_STR, name),
 	DEF(SET_ENUM, type),
 	DEF(SET_STR, separator),
 	DEF(SET_STR_VARS, prefix),
@@ -99,6 +100,7 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 };
 
 const struct mail_namespace_settings mail_namespace_default_settings = {
+	.name = "",
 	.type = "private:shared:public",
 	.separator = "",
 	.prefix = "",
@@ -115,7 +117,7 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.defines = mail_namespace_setting_defines,
 	.defaults = &mail_namespace_default_settings,
 
-	.type_offset = offsetof(struct mail_namespace_settings, prefix),
+	.type_offset = offsetof(struct mail_namespace_settings, name),
 	.struct_size = sizeof(struct mail_namespace_settings),
 
 	.parent_offset = offsetof(struct mail_namespace_settings, user_set),
