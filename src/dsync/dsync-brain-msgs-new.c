@@ -133,6 +133,7 @@ dsync_brain_mailbox_add_new_msgs(struct dsync_brain_msg_iter *iter,
 	msgs = array_get(&iter->new_msgs, &msg_count);
 	for (i = iter->next_new_msg; i < msg_count; i++) {
 		if (msgs[i].mailbox_idx != iter->mailbox_idx) {
+			i_assert(msgs[i].mailbox_idx > iter->mailbox_idx);
 			ret = FALSE;
 			break;
 		}
@@ -278,7 +279,7 @@ static int dsync_brain_new_msg_cmp(const struct dsync_brain_new_msg *m1,
 {
 	if (m1->mailbox_idx < m2->mailbox_idx)
 		return -1;
-	if (m1->mailbox_idx < m2->mailbox_idx)
+	if (m1->mailbox_idx > m2->mailbox_idx)
 		return 1;
 
 	if (m1->msg->uid < m2->msg->uid)
