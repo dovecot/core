@@ -228,6 +228,14 @@ dsync_brain_msg_sync_add_new_msgs(struct dsync_brain_msg_iter *iter)
 	while (iter->mailbox_idx < array_count(&iter->sync->mailboxes)) {
 		mailbox = array_idx(&iter->sync->mailboxes, iter->mailbox_idx);
 		mailbox_guid = &mailbox->box.mailbox_guid;
+
+		if (array_count(&iter->new_msgs) == 0) {
+			/* optimization: don't even bother selecting the
+			   mailbox */
+			iter->mailbox_idx++;
+			continue;
+		}
+
 		dsync_worker_select_mailbox(iter->worker, &mailbox->box);
 
 		if (dsync_brain_mailbox_add_new_msgs(iter, mailbox_guid)) {
