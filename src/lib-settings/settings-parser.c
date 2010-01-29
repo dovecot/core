@@ -1649,7 +1649,7 @@ settings_copy_deflist_unique(const struct setting_define *def,
 				break;
 		}
 
-		if (j < dest_count) {
+		if (j < dest_count && **src_namep != '\0') {
 			/* merge */
 			child_src_link.set_struct = src_children[i];
 			child_src_link.change_struct = src_cchildren[i];
