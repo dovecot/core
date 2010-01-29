@@ -103,7 +103,8 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 static int
 master_service_open_config(struct master_service *service,
 			   const struct master_service_settings_input *input,
-			   const char **path_r, const char **error_r)
+			   const char **path_r, const char **error_r,
+			   bool *standalone_config_from_socket_r)
 {
 	const char *path;
 	struct stat st;
@@ -111,6 +112,7 @@ master_service_open_config(struct master_service *service,
 
 	*path_r = path = input->config_path != NULL ? input->config_path :
 		master_service_get_config_path(service);
+	*standalone_config_from_socket_r = FALSE;
 
 	if (service->config_fd != -1 && input->config_path == NULL) {
 		/* use the already opened config socket */
@@ -127,6 +129,7 @@ master_service_open_config(struct master_service *service,
 		fd = net_connect_unix(DOVECOT_CONFIG_SOCKET_PATH);
 		if (fd >= 0) {
 			*path_r = DOVECOT_CONFIG_SOCKET_PATH;
+			*standalone_config_from_socket_r = TRUE;
 			net_set_nonblock(fd, FALSE);
 			return fd;
 		}
@@ -153,11 +156,13 @@ master_service_open_config(struct master_service *service,
 static int
 master_service_read_config(struct master_service *service,
 			   const struct master_service_settings_input *input,
-			   const char **path_r, const char **error_r)
+			   const char **path_r, const char **error_r,
+			   bool *standalone_config_from_socket_r)
 {
 	int fd, ret;
 
-	fd = master_service_open_config(service, input, path_r, error_r);
+	fd = master_service_open_config(service, input, path_r, error_r,
+					standalone_config_from_socket_r);
 	if (fd == -1)
 		return -1;
 
@@ -230,10 +235,12 @@ int master_service_settings_read(struct master_service *service,
 	unsigned int i;
 	int ret, fd = -1;
 	time_t now, timeout;
+	bool standalone_config_from_socket = FALSE;
 
 	if (getenv("DOVECONF_ENV") == NULL &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
-		fd = master_service_read_config(service, input, &path, error_r);
+		fd = master_service_read_config(service, input, &path, error_r,
+						&standalone_config_from_socket);
 		if (fd == -1)
 			return -1;
 	}
@@ -298,7 +305,8 @@ int master_service_settings_read(struct master_service *service,
 	else if (fd != -1)
 		(void)close(fd);
 
-	if ((service->flags & MASTER_SERVICE_FLAG_NO_ENV_SETTINGS) == 0) {
+	if ((service->flags & MASTER_SERVICE_FLAG_NO_ENV_SETTINGS) == 0 &&
+	    !standalone_config_from_socket) {
 		/* let environment override settings. especially useful for the
 		   settings from userdb. */
 		if (settings_parse_environ(parser) < 0) {
