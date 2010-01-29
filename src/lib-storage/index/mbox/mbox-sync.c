@@ -1245,6 +1245,7 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 			mbox_set_syscall_error(sync_ctx->mbox, "ftruncate()");
 	}
 
+	sync_ctx->base_uid_validity = uid_validity;
 	sync_ctx->base_uid_last_offset = 0; /* don't bother calculating */
 	sync_ctx->base_uid_last = sync_ctx->next_uid-1;
 	return 0;
