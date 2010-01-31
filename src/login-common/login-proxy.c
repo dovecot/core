@@ -8,6 +8,7 @@
 #include "str-sanitize.h"
 #include "time-util.h"
 #include "master-service.h"
+#include "dns-lookup.h"
 #include "client-common.h"
 #include "ssl-proxy.h"
 #include "login-proxy-state.h"
@@ -16,6 +17,7 @@
 #define MAX_PROXY_INPUT_SIZE 4096
 #define OUTBUF_THRESHOLD 1024
 #define LOGIN_PROXY_DIE_IDLE_SECS 2
+#define LOGIN_PROXY_DNS_WARN_MSECS 500
 
 struct login_proxy {
 	struct login_proxy *prev, *next;
@@ -32,8 +34,10 @@ struct login_proxy {
 	struct timeout *to;
 	struct login_proxy_record *state_rec;
 
-	char *host, *user;
+	struct ip_addr ip;
+	char *host;
 	unsigned int port;
+	unsigned int connect_timeout_msecs;
 	enum login_proxy_ssl_flags ssl_flags;
 
 	proxy_callback_t *callback;
@@ -189,63 +193,97 @@ static void proxy_connect_timeout(struct login_proxy *proxy)
 	login_proxy_free(&proxy);
 }
 
+static int login_proxy_connect(struct login_proxy *proxy)
+{
+	struct login_proxy_record *rec;
+
+	rec = login_proxy_state_get(proxy_state, &proxy->ip, proxy->port);
+	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
+	    rec->num_waiting_connections != 0) {
+		/* the server is down. fail immediately */
+		login_proxy_free(&proxy);
+		return -1;
+	}
+
+	proxy->server_fd = net_connect_ip(&proxy->ip, proxy->port, NULL);
+	if (proxy->server_fd == -1) {
+		i_error("proxy(%s): connect(%s, %u) failed: %m",
+			proxy->client->virtual_user, proxy->host, proxy->port);
+		login_proxy_free(&proxy);
+		return -1;
+	}
+	proxy->server_io = io_add(proxy->server_fd, IO_WRITE,
+				  proxy_wait_connect, proxy);
+	if (proxy->connect_timeout_msecs != 0) {
+		proxy->to = timeout_add(proxy->connect_timeout_msecs,
+					proxy_connect_timeout, proxy);
+	}
+
+	proxy->state_rec = rec;
+	proxy->state_rec->num_waiting_connections++;
+	return 0;
+}
+
+static void login_proxy_dns_done(const struct dns_lookup_result *result,
+				 struct login_proxy *proxy)
+{
+	if (result->ret != 0) {
+		i_error("proxy(%s): DNS lookup of %s failed: %s",
+			proxy->client->virtual_user, proxy->host,
+			result->error);
+		login_proxy_free(&proxy);
+	} else {
+		if (result->msecs > LOGIN_PROXY_DNS_WARN_MSECS) {
+			i_warning("proxy(%s): DNS lookup for %s took %u.%03u s",
+				  proxy->client->virtual_user, proxy->host,
+				  result->msecs/1000, result->msecs % 1000);
+		}
+
+		proxy->ip = result->ips[0];
+		(void)login_proxy_connect(proxy);
+	}
+}
+
 int login_proxy_new(struct client *client,
 		    const struct login_proxy_settings *set,
-		    proxy_callback_t *callback, struct login_proxy **proxy_r)
+		    proxy_callback_t *callback)
 {
 	struct login_proxy *proxy;
-	struct login_proxy_record *rec;
-	struct ip_addr ip;
-	int fd;
+	struct dns_lookup_settings dns_lookup_set;
 
-	if (set->host == NULL) {
+	i_assert(client->login_proxy == NULL);
+
+	if (set->host == NULL || *set->host == '\0') {
 		i_error("proxy(%s): host not given", client->virtual_user);
 		return -1;
 	}
 
-	if (net_addr2ip(set->host, &ip) < 0) {
-		i_error("proxy(%s): %s is not a valid IP",
-			client->virtual_user, set->host);
-		return -1;
-	}
-
-	rec = login_proxy_state_get(proxy_state, &ip, set->port);
-	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
-	    rec->num_waiting_connections != 0) {
-		/* the server is down. fail immediately */
-	       return -1;
-	}
-
-	fd = net_connect_ip(&ip, set->port, NULL);
-	if (fd < 0) {
-		i_error("proxy(%s): connect(%s, %u) failed: %m",
-			client->virtual_user, set->host, set->port);
-		return -1;
-	}
-
 	proxy = i_new(struct login_proxy, 1);
+	proxy->client = client;
+	proxy->client_fd = -1;
+	proxy->server_fd = -1;
 	proxy->created = ioloop_timeval;
 	proxy->host = i_strdup(set->host);
-	proxy->user = i_strdup(client->virtual_user);
 	proxy->port = set->port;
+	proxy->connect_timeout_msecs = set->connect_timeout_msecs;
 	proxy->ssl_flags = set->ssl_flags;
-	proxy->client = client;
 	client_ref(client);
 
-	proxy->server_fd = fd;
-	proxy->server_io = io_add(fd, IO_WRITE, proxy_wait_connect, proxy);
-	if (set->connect_timeout_msecs != 0) {
-		proxy->to = timeout_add(set->connect_timeout_msecs,
-					proxy_connect_timeout, proxy);
+	memset(&dns_lookup_set, 0, sizeof(dns_lookup_set));
+	dns_lookup_set.dns_client_socket_path = set->dns_client_socket_path;
+	dns_lookup_set.timeout_msecs = set->connect_timeout_msecs;
+
+	if (net_addr2ip(set->host, &proxy->ip) < 0) {
+		if (dns_lookup(set->host, &dns_lookup_set,
+			       login_proxy_dns_done, proxy) < 0)
+			return -1;
+	} else {
+		if (login_proxy_connect(proxy) < 0)
+			return -1;
 	}
+
 	proxy->callback = callback;
-
-	proxy->client_fd = -1;
-
-	proxy->state_rec = rec;
-	rec->num_waiting_connections++;
-
-	*proxy_r = proxy;
+	client->login_proxy = proxy;
 	return 0;
 }
 
@@ -282,7 +320,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 
 		ipstr = net_ip2addr(&proxy->client->ip);
 		i_info("proxy(%s): disconnecting %s",
-		       str_sanitize(proxy->user, 80),
+		       proxy->client->virtual_user,
 		       ipstr != NULL ? ipstr : "");
 
 		if (proxy->client_io != NULL)
@@ -294,15 +332,16 @@ void login_proxy_free(struct login_proxy **_proxy)
 		i_assert(proxy->client_io == NULL);
 		i_assert(proxy->client_output == NULL);
 
-		proxy->callback(proxy->client);
+		if (proxy->callback != NULL)
+			proxy->callback(proxy->client);
 	}
 
-	net_disconnect(proxy->server_fd);
+	if (proxy->server_fd != -1)
+		net_disconnect(proxy->server_fd);
 
 	if (proxy->ssl_server_proxy != NULL)
 		ssl_proxy_free(&proxy->ssl_server_proxy);
 	i_free(proxy->host);
-	i_free(proxy->user);
 	i_free(proxy);
 
 	client->login_proxy = NULL;

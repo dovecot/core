@@ -4,6 +4,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-master \
 	-DPKG_STATEDIR=\""$(statedir)"\"
 

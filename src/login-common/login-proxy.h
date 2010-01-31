@@ -15,6 +15,7 @@ enum login_proxy_ssl_flags {
 
 struct login_proxy_settings {
 	const char *host;
+	const char *dns_client_socket_path;
 	unsigned int port;
 	unsigned int connect_timeout_msecs;
 	enum login_proxy_ssl_flags ssl_flags;
@@ -27,7 +28,7 @@ typedef void proxy_callback_t(struct client *client);
    called when new input is available from proxy. */
 int login_proxy_new(struct client *client,
 		    const struct login_proxy_settings *set,
-		    proxy_callback_t *callback, struct login_proxy **proxy_r);
+		    proxy_callback_t *callback);
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy **proxy);
 

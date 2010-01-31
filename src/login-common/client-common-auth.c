@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #define PROXY_FAILURE_MSG "Account is temporarily unavailable."
+#define LOGIN_DNS_CLIENT_SOCKET_PATH "dns-client"
 
 /* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
@@ -255,11 +256,11 @@ static int proxy_start(struct client *client,
 	memset(&proxy_set, 0, sizeof(proxy_set));
 	proxy_set.host = reply->host;
 	proxy_set.port = reply->port;
+	proxy_set.dns_client_socket_path = LOGIN_DNS_CLIENT_SOCKET_PATH;
 	proxy_set.connect_timeout_msecs = reply->proxy_timeout_msecs;
 	proxy_set.ssl_flags = reply->ssl_flags;
 
-	if (login_proxy_new(client, &proxy_set, proxy_input,
-			    &client->login_proxy) < 0) {
+	if (login_proxy_new(client, &proxy_set, proxy_input) < 0) {
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
 				 PROXY_FAILURE_MSG);
 		return -1;
