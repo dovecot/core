@@ -2,6 +2,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib \
 	lib-auth \
 	lib-charset \
+	lib-dns \
 	lib-mail \
 	lib-imap \
 	lib-master \
@@ -21,6 +22,7 @@ SUBDIRS = \
 	anvil \
 	auth \
 	dict \
+	dns \
 	master \
 	login-common \
 	imap-login \

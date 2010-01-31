@@ -4,6 +4,7 @@ libs = \
 	../lib-imap/libimap.la \
 	../lib-mail/libmail.la \
 	../lib-auth/libauth.la \
+	../lib-dns/libdns.la \
 	../lib-charset/libcharset.la \
 	../lib-master/libmaster.la \
 	../lib/liblib.la
