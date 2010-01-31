@@ -37,7 +37,6 @@ struct login_proxy {
 	enum login_proxy_ssl_flags ssl_flags;
 
 	proxy_callback_t *callback;
-	void *context;
 
 	unsigned int destroying:1;
 	unsigned int disconnecting:1;
@@ -124,7 +123,7 @@ static int proxy_client_output(struct login_proxy *proxy)
 
 static void proxy_prelogin_input(struct login_proxy *proxy)
 {
-	proxy->callback(proxy->context);
+	proxy->callback(proxy->client);
 }
 
 static void proxy_plain_connected(struct login_proxy *proxy)
@@ -190,10 +189,9 @@ static void proxy_connect_timeout(struct login_proxy *proxy)
 	login_proxy_free(&proxy);
 }
 
-#undef login_proxy_new
-struct login_proxy *
-login_proxy_new(struct client *client, const struct login_proxy_settings *set,
-		proxy_callback_t *callback, void *context)
+int login_proxy_new(struct client *client,
+		    const struct login_proxy_settings *set,
+		    proxy_callback_t *callback, struct login_proxy **proxy_r)
 {
 	struct login_proxy *proxy;
 	struct login_proxy_record *rec;
@@ -202,27 +200,27 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 
 	if (set->host == NULL) {
 		i_error("proxy(%s): host not given", client->virtual_user);
-		return NULL;
+		return -1;
 	}
 
 	if (net_addr2ip(set->host, &ip) < 0) {
 		i_error("proxy(%s): %s is not a valid IP",
 			client->virtual_user, set->host);
-		return NULL;
+		return -1;
 	}
 
 	rec = login_proxy_state_get(proxy_state, &ip, set->port);
 	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
 	    rec->num_waiting_connections != 0) {
 		/* the server is down. fail immediately */
-	       return NULL;
+	       return -1;
 	}
 
 	fd = net_connect_ip(&ip, set->port, NULL);
 	if (fd < 0) {
 		i_error("proxy(%s): connect(%s, %u) failed: %m",
 			client->virtual_user, set->host, set->port);
-		return NULL;
+		return -1;
 	}
 
 	proxy = i_new(struct login_proxy, 1);
@@ -240,15 +238,15 @@ login_proxy_new(struct client *client, const struct login_proxy_settings *set,
 		proxy->to = timeout_add(set->connect_timeout_msecs,
 					proxy_connect_timeout, proxy);
 	}
-
 	proxy->callback = callback;
-	proxy->context = context;
 
 	proxy->client_fd = -1;
 
 	proxy->state_rec = rec;
 	rec->num_waiting_connections++;
-	return proxy;
+
+	*proxy_r = proxy;
+	return 0;
 }
 
 void login_proxy_free(struct login_proxy **_proxy)
@@ -296,7 +294,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 		i_assert(proxy->client_io == NULL);
 		i_assert(proxy->client_output == NULL);
 
-		proxy->callback(proxy->context);
+		proxy->callback(proxy->client);
 	}
 
 	net_disconnect(proxy->server_fd);
@@ -384,7 +382,6 @@ void login_proxy_detach(struct login_proxy *proxy)
 	i_stream_destroy(&proxy->server_input);
 
 	proxy->callback = NULL;
-	proxy->context = NULL;
 
 	DLLIST_PREPEND(&login_proxies, proxy);
 

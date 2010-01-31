@@ -258,9 +258,8 @@ static int proxy_start(struct client *client,
 	proxy_set.connect_timeout_msecs = reply->proxy_timeout_msecs;
 	proxy_set.ssl_flags = reply->ssl_flags;
 
-	client->login_proxy =
-		login_proxy_new(client, &proxy_set, proxy_input, client);
-	if (client->login_proxy == NULL) {
+	if (login_proxy_new(client, &proxy_set, proxy_input,
+			    &client->login_proxy) < 0) {
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
 				 PROXY_FAILURE_MSG);
 		return -1;

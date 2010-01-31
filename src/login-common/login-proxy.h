@@ -21,22 +21,13 @@ struct login_proxy_settings {
 };
 
 /* Called when new input comes from proxy. */
-typedef void proxy_callback_t(void *context);
+typedef void proxy_callback_t(struct client *client);
 
 /* Create a proxy to given host. Returns NULL if failed. Given callback is
    called when new input is available from proxy. */
-struct login_proxy *
-login_proxy_new(struct client *client, const struct login_proxy_settings *set,
-		proxy_callback_t *callback, void *context);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define login_proxy_new(client, set, callback, context) \
-	({(void)(1 ? 0 : callback(context)); \
-	  login_proxy_new(client, set, \
-		(proxy_callback_t *)callback, context); })
-#else
-#  define login_proxy_new(client, set, callback, context) \
-	  login_proxy_new(client, set, (proxy_callback_t *)callback, context)
-#endif
+int login_proxy_new(struct client *client,
+		    const struct login_proxy_settings *set,
+		    proxy_callback_t *callback, struct login_proxy **proxy_r);
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy **proxy);
 
