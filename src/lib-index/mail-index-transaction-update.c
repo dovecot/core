@@ -522,8 +522,8 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 
 	/* merge everything */
 	idx = first_idx == 0 ? 0 : first_idx - 1;
-	max = I_MIN(t->last_update_idx + 1, count);
-	for (; idx+1 < max; ) {
+	max = count == 0 ? 0 : I_MIN(t->last_update_idx + 1, count-1);
+	for (; idx < max; ) {
 		if (updates[idx].uid2 + 1 == updates[idx+1].uid1 &&
 		    updates[idx].add_flags == updates[idx+1].add_flags &&
 		    updates[idx].remove_flags == updates[idx+1].remove_flags) {
