@@ -1098,7 +1098,7 @@ ssl_server_context_init(const struct login_settings *set)
 	ctx->cipher_list = p_strdup(pool, set->ssl_cipher_list);
 	ctx->verify_client_cert = set->ssl_verify_client_cert;
 
-	ctx->ctx = ssl_ctx = SSL_CTX_new(SSLv23_server_method());
+	ctx->ctx = ssl_ctx = SSL_CTX_new(SSLv3_server_method());
 	if (ssl_ctx == NULL)
 		i_fatal("SSL_CTX_new() failed");
 	xnames = ssl_proxy_ctx_init(ssl_ctx, set);
