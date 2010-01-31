@@ -146,8 +146,13 @@
 #  define CONTEXT_CALLBACK(name, callback_type, callback, context, ...) \
 	({(void)(1 ? 0 : callback(context)); \
 	name(__VA_ARGS__, (callback_type *)callback, context); })
+#  define CONTEXT_CALLBACK2(name, callback_type, callback, arg1_type, context, ...) \
+	({(void)(1 ? 0 : callback((arg1_type)0, context)); \
+	name(__VA_ARGS__, (callback_type *)callback, context); })
 #else
 #  define CONTEXT_CALLBACK(name, callback_type, callback, context, ...) \
+	name(__VA_ARGS__, (callback_type *)callback, context)
+#  define CONTEXT_CALLBACK2(name, callback_type, callback, arg1_type, context, ...) \
 	name(__VA_ARGS__, (callback_type *)callback, context)
 #endif
 
