@@ -44,7 +44,7 @@ dovecot-config: dovecot-config.in Makefile
 if INSTALL_HEADERS
 install-exec-hook:
 	rm $(DESTDIR)$(pkglibdir)/dovecot-config && \
-	grep -v '^LIBDOVECOT.*_INCLUDE' dovecot-config | \
+	grep -v '^LIBDOVECOT_.*_INCLUDE' dovecot-config | \
 	grep -v '^LIBDOVECOT.*_DEPS' | sed \
 	-e "s|^\(LIBDOVECOT\)=.*$$|\1='-L$(pkglibdir) -ldovecot'|" \
 	-e "s|^\(LIBDOVECOT_LOGIN\)=.*$$|\1=-ldovecot-login|" \
