@@ -1,27 +1,23 @@
-#224 0x080cd0ed in mail_cache_transaction_reset (ctx=0x87c03a8) at mail-cache-transaction.c:123
-#225 0x080cd58b in mail_cache_transaction_lock (ctx=0x87c03a8) at mail-cache-transaction.c:275
-#226 0x080cde03 in mail_cache_transaction_free_reservations (ctx=0x87c03a8) at mail-cache-transaction.c:509
-#227 0x080cd0ed in mail_cache_transaction_reset (ctx=0x87c03a8) at mail-cache-transaction.c:123
+ - update wiki/Namespaces
+ - protocol lda { userdb { ..} }
+ - auth penalty tracking shouldn't penalize if same user+pass combo keeps
+   doing it. or penalize only when client disconnects before having finished
+   waiting?
+ - imap: maildir_copy_with_hardlinks=no COPY to same mailbox crashes
+ - master users: see how it works with anvil / max connection limits / doveadm who
+ - imap-login: Panic: file auth-server-connection.c: line 395 (auth_server_connection_connect): assertion failed: (conn->fd == -1)
 
+ - mail_full_filesystem_access=yes + mbox + :INDEX=../%u -> indexes don't go there
+ - virtual: removed messages don't get expunged unless EXPUNGE is issued in
+   same session. otherwise they get forgotten and never removed.
  - dsync: dovecot ml mbox -> mdbox(es) created by TB imap login -> crashes
  - dsync: subscriptions listing probably should use DROP_ALIASES flag
  - dsync: handle mailbox name conflicts. local-worker's create() probably
    should fallback to creating name-<guid>
  - only maildir writes mailbox/dir deletions to changelog
- - default inet_listeners?
- - auth penalty tracking shouldn't penalize if same user+pass combo keeps
-   doing it. or penalize only when client disconnects before having finished
-   waiting?
  - multiple connections in one process -> mbox fcntl locking problems!
- - lmtp: if auth-userdb connection dies, we should switch to running as root
-   before reconnection to it is attempted. probably in general it should try
-   to run as root while idling, so it's clearer to admins
- - imap: maildir_copy_with_hardlinks=no COPY to same mailbox crashes
  - create something similar to dovecot-2.0-sieve/src/lib-sieve-tool/mail-raw.c
    so sieve and deliver can share the code
- - standalone imap, etc: try connecting to config socket first, only then
-   fallback to exec
- - master users: see how it works with anvil / max connection limits / doveadm who
  - mbox: FETCH (X-GUID BODY.PEEK[]) and similar crashes..
    in x-guid do a read-only sync that updates the MD5 values and doesn't unlock
    mbox
@@ -37,19 +33,15 @@
       especially with a broken guid expunge, it doesn't go away.
     - mailbox deletion: another process could have the mailbox open and append
       new mails while we're deleting it..
+    - save: if we know mail's size, don't write it to files if file would
+      grow too large
  - see if settings.[ch] can be merged with config/ code.
- - protocol smtp { passdb sql { .. } }
  - maildir: out-of-disk-space failures apparently cause all kinds of
    problems, e.g. "Expunged message reappeared", "Duplicate file entry"?
  - quota_warn: add $QUOTA_LIMIT environment or %variable parameter
  - deliver -r <address> used as autoreplies' From-address?
  - add fd limit checks/warnings
  - config: ssl=no, ssl_cert=</not-exists fails everything
- - fix dovecot-config file. if shared libs are used, install it with
-   -ldovecot* values
- - mbox zlib: mbox-sync.c: line 1404 (mbox_sync_update_index_header): assertion failed: (sync_ctx->base_uid_validity != 0 || st->st_size <= 0)
-    ^ empty mbox?..
-    ^ at least with dsync mailbox_update()
  - expire plugin could support also "archive" operation = move to another mailbox
  - istream-seekable is inefficient. it shouldn't be reading the temp file
    immediately after writing to it
