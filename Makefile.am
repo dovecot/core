@@ -37,7 +37,7 @@ dovecot-config: dovecot-config.in Makefile
 	-e "s|^moduledir=|moduledir=$(moduledir)|" \
 	-e "s|^dovecot_pkgincludedir=|dovecot_pkgincludedir=$(pkgincludedir)|" \
 	-e "s|^dovecot_pkglibdir=|dovecot_pkglibdir=$(pkglibdir)|" \
-	-e "s|^dovecot_pkglibexecdir=|dovecot_pkglibexecdir=$(pkglibexecdir)|" \
+	-e "s|^dovecot_pkglibexecdir=|dovecot_pkglibexecdir=$(libexecdir)/dovecot|" \
 	-e "s|^dovecot_docdir=|dovecot_docdir=$(docdir)|" \
 	> dovecot-config
 
