@@ -17,6 +17,13 @@ lib15_notify_plugin_la_SOURCES = \
 	notify-noop.c \
 	notify-storage.c
 
-noinst_HEADERS = \
+headers = \
 	notify-plugin.h \
 	notify-plugin-private.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif
