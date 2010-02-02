@@ -208,7 +208,8 @@ static void expire_run(struct master_service *service, bool testrun)
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
 
 	memset(&input, 0, sizeof(input));
-	input.module = input.service = "expire-tool";
+	input.service = "expire-tool";
+	input.module = "mail";
 	mail_storage_service_init_settings(ctx.storage_service, &input);
 
 	sets = master_service_settings_get_others(service);
