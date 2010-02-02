@@ -7,6 +7,10 @@ struct dbox_map_append_context;
 struct dbox_file_append_context;
 struct mdbox_storage;
 
+enum dbox_map_append_flags {
+	DBOX_MAP_APPEND_FLAG_ALT	= 0x01
+};
+
 struct dbox_map_mail_index_header {
 	uint32_t highest_file_id;
 };
@@ -56,10 +60,11 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id);
 
 /* Return all files containing messages with zero refcount. */
-const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map);
+int dbox_map_get_zero_ref_files(struct dbox_map *map,
+				ARRAY_TYPE(seq_range) *file_ids_r);
 
 struct dbox_map_append_context *
-dbox_map_append_begin(struct dbox_map *map);
+dbox_map_append_begin(struct dbox_map *map, enum dbox_map_append_flags flags);
 /* Request file for saving a new message with given size (if available). If an
    existing file can be used, the record is locked and updated in index.
    Returns 0 if ok, -1 if error. */

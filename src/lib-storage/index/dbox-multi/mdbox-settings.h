@@ -4,6 +4,7 @@
 struct mdbox_settings {
 	uoff_t mdbox_rotate_size;
 	unsigned int mdbox_rotate_interval;
+	unsigned int mdbox_altmove;
 	unsigned int mdbox_max_open_files;
 };
 

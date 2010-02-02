@@ -95,6 +95,7 @@ int mdbox_file_purge(struct dbox_file *file)
 	ARRAY_TYPE(uint32_t) copied_map_uids;
 	unsigned int i, count;
 	uoff_t offset, physical_size, msg_size;
+	enum dbox_map_append_flags append_flags = 0;
 	int ret;
 
 	if ((ret = dbox_file_try_lock(file)) <= 0)
@@ -112,6 +113,11 @@ int mdbox_file_purge(struct dbox_file *file)
 		return -1;
 	}
 
+	if (dstorage->set->mdbox_altmove > 0 &&
+	    st.st_mtime + dstorage->set->mdbox_altmove < ioloop_time &&
+	    dstorage->alt_storage_dir != NULL)
+		append_flags |= DBOX_MAP_APPEND_FLAG_ALT;
+
 	i_array_init(&msgs_arr, 128);
 	if (dbox_map_get_file_msgs(dstorage->map,
 				   ((struct mdbox_file *)file)->file_id,
@@ -124,7 +130,7 @@ int mdbox_file_purge(struct dbox_file *file)
 	array_sort(&msgs_arr, mdbox_map_file_msg_offset_cmp);
 
 	msgs = array_get(&msgs_arr, &count);
-	append_ctx = dbox_map_append_begin(dstorage->map);
+	append_ctx = dbox_map_append_begin(dstorage->map, append_flags);
 	i_array_init(&copied_map_uids, I_MIN(count, 1));
 	i_array_init(&expunged_map_uids, I_MIN(count, 1));
 	offset = file->file_header_size;

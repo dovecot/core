@@ -85,7 +85,7 @@ mdbox_save_alloc(struct mailbox_transaction_context *t)
 	ctx->ctx.ctx.transaction = t;
 	ctx->ctx.trans = it->trans;
 	ctx->mbox = mbox;
-	ctx->append_ctx = dbox_map_append_begin(mbox->storage->map);
+	ctx->append_ctx = dbox_map_append_begin(mbox->storage->map, 0);
 	i_array_init(&ctx->mails, 32);
 	t->save_ctx = &ctx->ctx.ctx;
 	return t->save_ctx;

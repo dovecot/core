@@ -103,10 +103,12 @@ static void mdbox_file_init_paths(struct mdbox_file *file, const char *fname)
 
 static int mdbox_file_create(struct dbox_file *file)
 {
+	bool create_parents;
 	int ret;
 
+	create_parents = dbox_file_is_in_alt(file);
 	file->fd = file->storage->v.
-		file_create_fd(file, file->primary_path, FALSE);
+		file_create_fd(file, file->cur_path, create_parents);
 
 	/* even though we don't need it locked while writing to it, by the
 	   time we rename() it it needs to be locked. so we might as well do
@@ -122,8 +124,9 @@ static int mdbox_file_create(struct dbox_file *file)
 	return 0;
 }
 
-struct dbox_file *
-mdbox_file_init(struct mdbox_storage *storage, uint32_t file_id)
+static struct dbox_file *
+mdbox_file_init_full(struct mdbox_storage *storage,
+		     uint32_t file_id, bool alt_dir)
 {
 	struct mdbox_file *file;
 	const char *fname;
@@ -150,6 +153,8 @@ mdbox_file_init(struct mdbox_storage *storage, uint32_t file_id)
 		t_strdup_printf(MDBOX_MAIL_FILE_FORMAT, file_id);
 	mdbox_file_init_paths(file, fname);
 	dbox_file_init(&file->file);
+	if (alt_dir)
+		file->file.cur_path = file->file.alt_path;
 
 	if (file_id != 0)
 		array_append(&storage->open_files, &file, 1);
@@ -158,18 +163,31 @@ mdbox_file_init(struct mdbox_storage *storage, uint32_t file_id)
 	return &file->file;
 }
 
+struct dbox_file *
+mdbox_file_init(struct mdbox_storage *storage, uint32_t file_id)
+{
+	return mdbox_file_init_full(storage, file_id, FALSE);
+}
+
+struct dbox_file *
+mdbox_file_init_new_alt(struct mdbox_storage *storage)
+{
+	return mdbox_file_init_full(storage, 0, TRUE);
+}
+
 int mdbox_file_assign_file_id(struct mdbox_file *file, uint32_t file_id)
 {
 	const char *old_path;
-	const char *new_fname, *new_path;
+	const char *new_dir, *new_fname, *new_path;
 
 	i_assert(file->file_id == 0);
 	i_assert(file_id != 0);
 
 	old_path = file->file.cur_path;
 	new_fname = t_strdup_printf(MDBOX_MAIL_FILE_FORMAT, file_id);
-	new_path = t_strdup_printf("%s/%s", file->storage->storage_dir,
-				   new_fname);
+	new_dir = !dbox_file_is_in_alt(&file->file) ?
+		file->storage->storage_dir : file->storage->alt_storage_dir;
+	new_path = t_strdup_printf("%s/%s", new_dir, new_fname);
 	if (rename(old_path, new_path) < 0) {
 		mail_storage_set_critical(&file->storage->storage.storage,
 					  "rename(%s, %s) failed: %m",

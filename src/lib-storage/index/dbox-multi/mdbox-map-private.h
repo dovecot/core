@@ -19,7 +19,6 @@ struct dbox_map {
 	uint32_t created_uid_validity;
 
 	uint32_t map_ext_id, ref_ext_id;
-	ARRAY_TYPE(seq_range) ref0_file_ids;
 
 	mode_t create_mode, create_dir_mode;
 	gid_t create_gid;
@@ -33,6 +32,7 @@ struct dbox_map_append {
 
 struct dbox_map_append_context {
 	struct dbox_map *map;
+	enum dbox_map_append_flags flags;
 
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *sync_view;
@@ -43,7 +43,6 @@ struct dbox_map_append_context {
 	ARRAY_DEFINE(appends, struct dbox_map_append);
 
 	uint32_t first_new_file_id;
-	uint32_t orig_next_uid;
 
 	unsigned int files_nonappendable_count;
 

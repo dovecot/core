@@ -125,6 +125,8 @@ void dbox_file_unref(struct dbox_file **file);
 /* Open the file. Returns 1 if ok, 0 if file header is corrupted, -1 if error.
    If file is deleted, deleted_r=TRUE and 1 is returned. */
 int dbox_file_open(struct dbox_file *file, bool *deleted_r);
+/* Try to open file only from primary path. */
+int dbox_file_open_primary(struct dbox_file *file, bool *notfound_r);
 /* Close the file handle from the file, but don't free it. */
 void dbox_file_close(struct dbox_file *file);
 
