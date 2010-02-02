@@ -917,7 +917,7 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set)
 	X509_STORE *store;
 	STACK_OF(X509_NAME) *xnames = NULL;
 
-	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2);
 	if (*set->ssl_ca != '\0') {
 		/* set trusted CA certs */
 		store = SSL_CTX_get_cert_store(ssl_ctx);
