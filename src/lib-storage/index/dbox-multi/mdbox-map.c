@@ -269,72 +269,6 @@ struct dbox_file_size {
 	uoff_t ref0_size;
 };
 
-static void dbox_map_filter_zero_refs(struct dbox_map *map)
-{
-	ARRAY_TYPE(seq_range) new_ref0_file_ids;
-	struct hash_table *hash;
-	struct dbox_file_size *size;
-	struct seq_range_iter iter;
-	const struct mail_index_header *hdr;
-	const struct dbox_map_mail_index_record *rec;
-	const uint16_t *ref16_p;
-	const void *data;
-	uint32_t seq, file_id;
-	unsigned int i;
-	bool expunged;
-	pool_t pool;
-
-	pool = pool_alloconly_create("dbox zero ref count", 8*1024);
-	hash = hash_table_create(default_pool, pool, 0, NULL, NULL);
-
-	/* count file sizes */
-	hdr = mail_index_get_header(map->view);
-	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
-				      &data, &expunged);
-		if (data == NULL || expunged)
-			continue;
-		rec = data;
-
-		if (!seq_range_exists(&map->ref0_file_ids, rec->file_id))
-			continue;
-
-		/* this file has at least some zero references. count how many
-		   bytes it has in total and how much of it has refcount=0. */
-		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
-				      &data, &expunged);
-		if (data == NULL || expunged)
-			continue;
-		ref16_p = data;
-
-		size = hash_table_lookup(hash, POINTER_CAST(rec->file_id));
-		if (size == NULL) {
-			size = p_new(pool, struct dbox_file_size, 1);
-			hash_table_insert(hash, POINTER_CAST(rec->file_id),
-					  size);
-		}
-		if (*ref16_p == 0)
-			size->ref0_size += rec->size;
-		if (size->file_size < rec->offset + rec->size)
-			size->file_size = rec->offset + rec->size;
-	}
-
-	/* now drop the files that don't have enough deleted space */
-	seq_range_array_iter_init(&iter, &map->ref0_file_ids); i = 0;
-	p_array_init(&new_ref0_file_ids, pool, 
-		     array_count(&map->ref0_file_ids));
-	while (seq_range_array_iter_nth(&iter, i++, &file_id)) {
-		size = hash_table_lookup(hash, POINTER_CAST(file_id));
-		if (size->ref0_size*100 / size->file_size >=
-		    map->set->mdbox_purge_min_percentage)
-			seq_range_array_add(&new_ref0_file_ids, 0, file_id);
-	}
-	seq_range_array_intersect(&map->ref0_file_ids, &new_ref0_file_ids);
-
-	hash_table_destroy(&hash);
-	pool_unref(&pool);
-}
-
 const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 {
 	const struct mail_index_header *hdr;
@@ -348,11 +282,6 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 		array_clear(&map->ref0_file_ids);
 	else
 		i_array_init(&map->ref0_file_ids, 64);
-
-	if (map->set->mdbox_purge_min_percentage >= 100) {
-		/* we're never purging anything */
-		return &map->ref0_file_ids;
-	}
 
 	if (dbox_map_open(map, FALSE) < 0) {
 		/* some internal error */
@@ -378,9 +307,6 @@ const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 					    rec->file_id);
 		}
 	}
-	if (map->set->mdbox_purge_min_percentage > 0 &&
-	    array_count(&map->ref0_file_ids) > 0)
-		dbox_map_filter_zero_refs(map);
 	return &map->ref0_file_ids;
 }
 
