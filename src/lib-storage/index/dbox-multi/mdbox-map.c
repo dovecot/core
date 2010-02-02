@@ -618,24 +618,35 @@ dbox_map_append_begin(struct dbox_map *map)
 	return ctx;
 }
 
-static time_t day_begin_stamp(unsigned int days)
+static time_t day_begin_stamp(unsigned int interval)
 {
 	struct tm tm;
 	time_t stamp;
+	unsigned int unit = 1;
 
-	if (days == 0)
+	if (interval == 0)
 		return 0;
 
-	/* get beginning of today */
+	/* get the beginning of day/hour/minute depending on how large
+	   the interval is */
 	tm = *localtime(&ioloop_time);
-	tm.tm_hour = 0;
-	tm.tm_min = 0;
-	tm.tm_sec = 0;
+	if (interval >= 60) {
+		tm.tm_sec = 0;
+		unit = 60;
+		if (interval >= 3600) {
+			tm.tm_min = 0;
+			unit = 3600;
+			if (interval >= 3600*24) {
+				tm.tm_hour = 0;
+				unit = 3600*24;
+			}
+		}
+	}
 	stamp = mktime(&tm);
 	if (stamp == (time_t)-1)
 		i_panic("mktime(today) failed");
 
-	return stamp - (3600*24 * (days-1));
+	return stamp - (interval - unit);
 }
 
 static bool
@@ -753,7 +764,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 	ctx->files_nonappendable_count = count;
 
 	/* try to find an existing appendable file */
-	stamp = day_begin_stamp(map->set->mdbox_rotate_days);
+	stamp = day_begin_stamp(map->set->mdbox_rotate_interval);
 	hdr = mail_index_get_header(map->view);
 
 	ctx->orig_next_uid = hdr->next_uid;

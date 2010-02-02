@@ -4,7 +4,7 @@
 struct mdbox_settings {
 	uoff_t mdbox_rotate_size;
 	uoff_t mdbox_rotate_min_size;
-	unsigned int mdbox_rotate_days;
+	unsigned int mdbox_rotate_interval;
 	unsigned int mdbox_max_open_files;
 	unsigned int mdbox_purge_min_percentage;
 };

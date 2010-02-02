@@ -17,7 +17,7 @@ static bool mdbox_settings_verify(void *_set, pool_t pool ATTR_UNUSED,
 static const struct setting_define mdbox_setting_defines[] = {
 	DEF(SET_SIZE, mdbox_rotate_size),
 	DEF(SET_SIZE, mdbox_rotate_min_size),
-	DEF(SET_UINT, mdbox_rotate_days),
+	DEF(SET_TIME, mdbox_rotate_interval),
 	DEF(SET_UINT, mdbox_max_open_files),
 	DEF(SET_UINT, mdbox_purge_min_percentage),
 
@@ -27,7 +27,7 @@ static const struct setting_define mdbox_setting_defines[] = {
 static const struct mdbox_settings mdbox_default_settings = {
 	.mdbox_rotate_size = 2*1024*1024,
 	.mdbox_rotate_min_size = 16*1024,
-	.mdbox_rotate_days = 0,
+	.mdbox_rotate_interval = 0,
 	.mdbox_max_open_files = 64,
 	.mdbox_purge_min_percentage = 0
 };
