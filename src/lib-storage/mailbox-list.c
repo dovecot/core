@@ -142,6 +142,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		p_strdup(list->pool, set->maildir_name);
 	list->set.mailbox_dir_name =
 		p_strdup(list->pool, set->mailbox_dir_name);
+	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
 
 	if (set->mailbox_dir_name == NULL || *set->mailbox_dir_name == '\0')
 		list->set.mailbox_dir_name = "";
