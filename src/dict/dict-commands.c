@@ -70,7 +70,12 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 		/* finished iterating */
 		o_stream_unset_flush_callback(conn->output);
 		dict_iterate_deinit(&conn->iter_ctx);
-		o_stream_send(conn->output, "\n", 1);
+
+		str_truncate(str, 0);
+		if (ret < 0)
+			str_append_c(str, DICT_PROTOCOL_REPLY_FAIL);
+		str_append_c(str, '\n');
+		o_stream_send(conn->output, str_data(str), str_len(str));
 	}
 	o_stream_uncork(conn->output);
 	return ret <= 0 ? 1 : 0;

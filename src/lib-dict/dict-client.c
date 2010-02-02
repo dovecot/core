@@ -517,10 +517,16 @@ static int client_dict_iterate(struct dict_iterate_context *_ctx,
 	/* line contains key \t value */
 	p_clear(ctx->pool);
 
-	if (*line != DICT_PROTOCOL_REPLY_OK)
-		value = NULL;
-	else
+	switch (*line) {
+	case DICT_PROTOCOL_REPLY_OK:
 		value = strchr(++line, '\t');
+		break;
+	case DICT_PROTOCOL_REPLY_FAIL:
+		return -1;
+	default:
+		value = NULL;
+		break;
+	}
 	if (value == NULL) {
 		/* broken protocol */
 		i_error("dict client (%s) sent broken reply", dict->path);
