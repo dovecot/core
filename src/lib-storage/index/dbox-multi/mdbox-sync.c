@@ -106,15 +106,6 @@ static int mdbox_sync_index_finish_expunges(struct mdbox_sync_context *ctx)
 	struct dbox_map_transaction_context *map_trans;
 	int ret;
 
-	/* prevent a user from saving + expunging messages all the time and
-	   using lots of disk space. but avoid doing this in situations where
-	   a user simply expunges a lot of mail for the first time. that's why
-	   we do this calculation before sync, not after: the purging is
-	   triggered only after the second expunge. */
-	if ((ctx->flags & MDBOX_SYNC_FLAG_NO_PURGE) == 0 &&
-	    dbox_map_want_purge(ctx->mbox->storage->map))
-		ctx->purge = TRUE;
-
 	map_trans = dbox_map_transaction_begin(ctx->mbox->storage->map, FALSE);
 	ret = dbox_map_update_refcounts(map_trans, &ctx->expunged_map_uids, -1);
 	if (ret == 0) {
@@ -282,8 +273,6 @@ int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
 
-	if (ctx->purge)
-		(void)mdbox_sync_purge(&ctx->mbox->storage->storage.storage);
 	i_free(ctx);
 	return ret;
 }

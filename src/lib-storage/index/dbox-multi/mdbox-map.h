@@ -55,8 +55,6 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 			      const ARRAY_TYPE(uint32_t) *map_uids, int diff);
 int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id);
 
-/* Returns TRUE if there's enough pressure to purge immediately. */
-bool dbox_map_want_purge(struct dbox_map *map);
 /* Return all files containing messages with zero refcount. */
 const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map);
 

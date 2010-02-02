@@ -335,48 +335,6 @@ static void dbox_map_filter_zero_refs(struct dbox_map *map)
 	pool_unref(&pool);
 }
 
-bool dbox_map_want_purge(struct dbox_map *map)
-{
-	const struct mail_index_header *hdr;
-	const struct dbox_map_mail_index_record *rec;
-	const uint16_t *ref16_p;
-	const void *data;
-	uoff_t ref0_size, total_size;
-	bool expunged;
-	uint32_t seq;
-
-	if (map->set->mdbox_purge_min_percentage >= 100) {
-		/* we never purge anything */
-		return FALSE;
-	}
-
-	ref0_size = total_size = 0;
-	hdr = mail_index_get_header(map->view);
-	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		mail_index_lookup_ext(map->view, seq, map->map_ext_id,
-				      &data, &expunged);
-		if (data == NULL || expunged)
-			continue;
-		rec = data;
-
-		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
-				      &data, &expunged);
-		if (data == NULL || expunged)
-			continue;
-		ref16_p = data;
-
-		if (*ref16_p == 0)
-			ref0_size += rec->size;
-		total_size += rec->size;
-	}
-
-	if (ref0_size < DBOX_FORCE_PURGE_MIN_BYTES)
-		return FALSE;
-	if ((float)ref0_size / (float)total_size < DBOX_FORCE_PURGE_MIN_RATIO)
-		return FALSE;
-	return TRUE;
-}
-
 const ARRAY_TYPE(seq_range) *dbox_map_get_zero_ref_files(struct dbox_map *map)
 {
 	const struct mail_index_header *hdr;

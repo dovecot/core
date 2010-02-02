@@ -22,8 +22,6 @@ struct mdbox_sync_context {
 	/* list of expunged map_uids. the same map_uid may be listed more than
 	   once in case message has been copied multiple times to mailbox. */
 	ARRAY_TYPE(uint32_t) expunged_map_uids;
-
-	unsigned int purge:1;
 };
 
 int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
