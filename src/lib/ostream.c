@@ -212,6 +212,11 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 	if (unlikely(stream->closed))
 		return -1;
 
+	if (stream->real_stream->write_at == NULL) {
+		/* stream doesn't support seeking */
+		stream->stream_errno = EPIPE;
+		return -1;
+	}
 	ret = stream->real_stream->write_at(stream->real_stream,
 					    data, size, offset);
 	if (unlikely(ret < 0)) {
