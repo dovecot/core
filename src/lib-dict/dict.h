@@ -81,4 +81,9 @@ void dict_unset(struct dict_transaction_context *ctx,
 void dict_atomic_inc(struct dict_transaction_context *ctx,
 		     const char *key, long long diff);
 
+/* Escape/unescape '/' characters in a string, so that it can be safely added
+   into path components in dict keys. */
+const char *dict_escape_string(const char *str);
+const char *dict_unescape_string(const char *str);
+
 #endif

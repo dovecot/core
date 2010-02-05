@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "dict-sql.h"
 #include "dict-private.h"
 
@@ -193,4 +194,73 @@ void dict_atomic_inc(struct dict_transaction_context *ctx,
 		ctx->dict->v.atomic_inc(ctx, key, diff);
 		ctx->changed = TRUE;
 	}
+}
+
+const char *dict_escape_string(const char *str)
+{
+	const char *p;
+	string_t *ret;
+
+	/* see if we need to escape it */
+	for (p = str; *p != '\0'; p++) {
+		if (*p == '/' || *p == '\\')
+			break;
+	}
+
+	if (*p == '\0')
+		return str;
+
+	/* escape */
+	ret = t_str_new((size_t) (p - str) + 128);
+	str_append_n(ret, str, (size_t) (p - str));
+
+	for (; *p != '\0'; p++) {
+		switch (*p) {
+		case '/':
+			str_append_c(ret, '\\');
+			str_append_c(ret, '|');
+			break;
+		case '\\':
+			str_append_c(ret, '\\');
+			str_append_c(ret, '\\');
+			break;
+		default:
+			str_append_c(ret, *p);
+			break;
+		}
+	}
+	return str_c(ret);
+}
+
+const char *dict_unescape_string(const char *str)
+{
+	const char *p;
+	string_t *ret;
+
+	/* see if we need to unescape it */
+	for (p = str; *p != '\0'; p++) {
+		if (*p == '\\')
+			break;
+	}
+
+	if (*p == '\0')
+		return str;
+
+	/* unescape */
+	ret = t_str_new((size_t) (p - str) + strlen(p) + 1);
+	str_append_n(ret, str, (size_t) (p - str));
+
+	for (; *p != '\0'; p++) {
+		if (*p != '\\')
+			str_append_c(ret, *p);
+		else {
+			if (*++p == '|')
+				str_append_c(ret, '/');
+			else if (*p == '\0')
+				break;
+			else
+				str_append_c(ret, *p);
+		}
+	}
+	return str_c(ret);
 }

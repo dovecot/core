@@ -5,6 +5,7 @@ dict_drivers = @dict_drivers@
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	$(SQL_CFLAGS)
@@ -72,3 +73,22 @@ DISTFILES = $(DIST_COMMON) $(base_sources) $(backend_sources) $(HEADERS) $(TEXIN
 
 distclean-generic:
 	rm -f Makefile dict-drivers-register.c
+
+test_programs = \
+	test-dict
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_dict_SOURCES = test-dict.c
+test_dict_LDADD = dict.lo $(test_libs)
+test_dict_DEPENDENCIES = dict.lo $(test_libs)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! ./$$bin; then exit 1; fi; \
+	done
