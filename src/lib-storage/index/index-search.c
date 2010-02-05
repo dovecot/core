@@ -79,7 +79,7 @@ struct search_body_context {
 static const enum message_header_parser_flags hdr_parser_flags =
 	MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
 
-static void search_parse_msgset_args(const struct mail_index_header *hdr,
+static void search_parse_msgset_args(unsigned int messages_count,
 				     struct mail_search_arg *args,
 				     uint32_t *seq1_r, uint32_t *seq2_r);
 
@@ -664,13 +664,13 @@ static int search_arg_match_text(struct mail_search_arg *args,
 	return ret;
 }
 
-static bool search_msgset_fix_limits(const struct mail_index_header *hdr,
+static bool search_msgset_fix_limits(unsigned int messages_count,
 				     ARRAY_TYPE(seq_range) *seqset, bool not)
 {
 	struct seq_range *range;
 	unsigned int count;
 
-	i_assert(hdr->messages_count > 0);
+	i_assert(messages_count > 0);
 
 	range = array_get_modifiable(seqset, &count);
 	if (count > 0) {
@@ -678,10 +678,10 @@ static bool search_msgset_fix_limits(const struct mail_index_header *hdr,
 		if (range[count-1].seq2 == (uint32_t)-1) {
 			/* "*" used, make sure the last message is in the range
 			   (e.g. with count+1:* we still want to include it) */
-			seq_range_array_add(seqset, 0, hdr->messages_count);
+			seq_range_array_add(seqset, 0, messages_count);
 		}
 		/* remove all non-existing messages */
-		seq_range_array_remove_range(seqset, hdr->messages_count + 1,
+		seq_range_array_remove_range(seqset, messages_count + 1,
 					     (uint32_t)-1);
 	}
 	if (!not)
@@ -690,11 +690,11 @@ static bool search_msgset_fix_limits(const struct mail_index_header *hdr,
 		/* if all messages are in the range, it can't match */
 		range = array_get_modifiable(seqset, &count);
 		return range[0].seq1 != 1 ||
-			range[count-1].seq2 != hdr->messages_count;
+			range[count-1].seq2 != messages_count;
 	}
 }
 
-static void search_msgset_fix(const struct mail_index_header *hdr,
+static void search_msgset_fix(unsigned int messages_count,
 			      ARRAY_TYPE(seq_range) *seqset,
 			      uint32_t *seq1_r, uint32_t *seq2_r, bool not)
 {
@@ -702,7 +702,7 @@ static void search_msgset_fix(const struct mail_index_header *hdr,
 	unsigned int count;
 	uint32_t min_seq, max_seq;
 
-	if (!search_msgset_fix_limits(hdr, seqset, not)) {
+	if (!search_msgset_fix_limits(messages_count, seqset, not)) {
 		*seq1_r = (uint32_t)-1;
 		*seq2_r = 0;
 		return;
@@ -714,8 +714,8 @@ static void search_msgset_fix(const struct mail_index_header *hdr,
 		max_seq = range[count-1].seq2;
 	} else {
 		min_seq = range[0].seq1 > 1 ? 1 : range[0].seq2 + 1;
-		max_seq = range[count-1].seq2 < hdr->messages_count ?
-			hdr->messages_count : range[count-1].seq1 - 1;
+		max_seq = range[count-1].seq2 < messages_count ?
+			messages_count : range[count-1].seq1 - 1;
 		if (min_seq > max_seq) {
 			*seq1_r = (uint32_t)-1;
 			*seq2_r = 0;
@@ -729,28 +729,30 @@ static void search_msgset_fix(const struct mail_index_header *hdr,
 		*seq2_r = max_seq;
 }
 
-static void search_or_parse_msgset_args(const struct mail_index_header *hdr,
+static void search_or_parse_msgset_args(unsigned int messages_count,
 					struct mail_search_arg *args,
 					uint32_t *seq1_r, uint32_t *seq2_r)
 {
 	uint32_t seq1, seq2, min_seq1 = 0, max_seq2 = 0;
 
 	for (; args != NULL; args = args->next) {
-		seq1 = 1; seq2 = hdr->messages_count;
+		seq1 = 1; seq2 = messages_count;
 
 		switch (args->type) {
 		case SEARCH_SUB:
 			i_assert(!args->not);
-			search_parse_msgset_args(hdr, args->value.subargs,
+			search_parse_msgset_args(messages_count,
+						 args->value.subargs,
 						 &seq1, &seq2);
 			break;
 		case SEARCH_OR:
 			i_assert(!args->not);
-			search_or_parse_msgset_args(hdr, args->value.subargs,
+			search_or_parse_msgset_args(messages_count,
+						    args->value.subargs,
 						    &seq1, &seq2);
 			break;
 		case SEARCH_SEQSET:
-			search_msgset_fix(hdr, &args->value.seqset,
+			search_msgset_fix(messages_count, &args->value.seqset,
 					  &seq1, &seq2, args->not);
 			break;
 		default:
@@ -775,7 +777,7 @@ static void search_or_parse_msgset_args(const struct mail_index_header *hdr,
 		*seq2_r = max_seq2;
 }
 
-static void search_parse_msgset_args(const struct mail_index_header *hdr,
+static void search_parse_msgset_args(unsigned int messages_count,
 				     struct mail_search_arg *args,
 				     uint32_t *seq1_r, uint32_t *seq2_r)
 {
@@ -783,18 +785,20 @@ static void search_parse_msgset_args(const struct mail_index_header *hdr,
 		switch (args->type) {
 		case SEARCH_SUB:
 			i_assert(!args->not);
-			search_parse_msgset_args(hdr, args->value.subargs,
+			search_parse_msgset_args(messages_count,
+						 args->value.subargs,
 						 seq1_r, seq2_r);
 			break;
 		case SEARCH_OR:
 			/* go through our children and use the widest seqset
 			   range */
 			i_assert(!args->not);
-			search_or_parse_msgset_args(hdr, args->value.subargs,
+			search_or_parse_msgset_args(messages_count,
+						    args->value.subargs,
 						    seq1_r, seq2_r);
 			break;
 		case SEARCH_SEQSET:
-			search_msgset_fix(hdr, &args->value.seqset,
+			search_msgset_fix(messages_count, &args->value.seqset,
 					  seq1_r, seq2_r, args->not);
 			break;
 		default:
@@ -818,10 +822,12 @@ static void search_limit_lowwater(struct index_search_context *ctx,
 }
 
 static bool search_limit_by_flags(struct index_search_context *ctx,
-				  const struct mail_index_header *hdr,
 				  struct mail_search_arg *args,
 				  uint32_t *seq1, uint32_t *seq2)
 {
+	const struct mail_index_header *hdr;
+
+	hdr = mail_index_get_header(ctx->view);
 	for (; args != NULL; args = args->next) {
 		if (args->type != SEARCH_FLAGS) {
 			if (args->type == SEARCH_ALL) {
@@ -873,12 +879,10 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 }
 
 static void search_get_seqset(struct index_search_context *ctx,
+			      unsigned int messages_count,
 			      struct mail_search_arg *args)
 {
-        const struct mail_index_header *hdr;
-
-	hdr = mail_index_get_header(ctx->view);
-	if (hdr->messages_count == 0) {
+	if (messages_count == 0) {
 		/* no messages, don't check sequence ranges. although we could
 		   give error message then for FETCH, we shouldn't do it for
 		   UID FETCH. */
@@ -888,12 +892,12 @@ static void search_get_seqset(struct index_search_context *ctx,
 	}
 
 	ctx->seq1 = 1;
-	ctx->seq2 = hdr->messages_count;
+	ctx->seq2 = messages_count;
 
-	search_parse_msgset_args(hdr, args, &ctx->seq1, &ctx->seq2);
+	search_parse_msgset_args(messages_count, args, &ctx->seq1, &ctx->seq2);
 	if (ctx->seq1 == 0) {
 		ctx->seq1 = 1;
-		ctx->seq2 = hdr->messages_count;
+		ctx->seq2 = messages_count;
 	}
 	if (ctx->seq1 > ctx->seq2) {
 		/* no matches */
@@ -901,7 +905,7 @@ static void search_get_seqset(struct index_search_context *ctx,
 	}
 
 	/* UNSEEN and DELETED in root search level may limit the range */
-	if (!search_limit_by_flags(ctx, hdr, args, &ctx->seq1, &ctx->seq2)) {
+	if (!search_limit_by_flags(ctx, args, &ctx->seq1, &ctx->seq2)) {
 		/* no matches */
 		ctx->seq1 = 1;
 		ctx->seq2 = 0;
@@ -1009,7 +1013,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct index_search_context *ctx;
-	const struct mail_index_header *hdr;
+	struct mailbox_status status;
 
 	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.transaction = _t;
@@ -1021,8 +1025,8 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	if (gettimeofday(&ctx->last_nonblock_timeval, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
 
-	hdr = mail_index_get_header(ctx->ibox->view);
-	ctx->mail_ctx.progress_max = hdr->messages_count;
+	mailbox_get_status(_t->box, STATUS_MESSAGES, &status);
+	ctx->mail_ctx.progress_max = status.messages;
 
 	i_array_init(&ctx->mail_ctx.results, 5);
 	array_create(&ctx->mail_ctx.module_contexts, default_pool,
@@ -1036,7 +1040,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 			ctx->failed = TRUE;
 	}
 
-	search_get_seqset(ctx, args->args);
+	search_get_seqset(ctx, status.messages, args->args);
 	(void)mail_search_args_foreach(args->args, search_init_arg, ctx);
 
 	/* Need to reset results for match_always cases */
