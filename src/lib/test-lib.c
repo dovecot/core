@@ -10,6 +10,7 @@ int main(void)
 		test_base64,
 		test_bsearch_insert_pos,
 		test_buffer,
+		test_crc32,
 		test_hex_binary,
 		test_istream_concat,
 		test_istream_crlf,

@@ -9,6 +9,7 @@ void test_array(void);
 void test_base64(void);
 void test_bsearch_insert_pos(void);
 void test_buffer(void);
+void test_crc32(void);
 void test_hex_binary(void);
 void test_istream_concat(void);
 void test_istream_crlf(void);

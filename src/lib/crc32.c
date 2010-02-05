@@ -60,28 +60,32 @@ static uint32_t crc32tab[256] = {
 
 uint32_t crc32_data(const void *data, size_t size)
 {
-	return crc32_data_more((uint32_t)-1, data, size);
+	return crc32_data_more(0, data, size);
 }
 
 uint32_t crc32_data_more(uint32_t crc, const void *data, size_t size)
 {
 	const uint8_t *p = data, *end = p + size;
 
+	crc ^= 0xffffffff;
 	for (; p != end; p++)
 		crc = (crc >> 8) ^ crc32tab[((crc ^ *p) & 0xff)];
+	crc ^= 0xffffffff;
 	return crc;
 }
 
 uint32_t crc32_str(const char *str)
 {
-	return crc32_str_more((uint32_t)-1, str);
+	return crc32_str_more(0, str);
 }
 
 uint32_t crc32_str_more(uint32_t crc, const char *str)
 {
 	const uint8_t *p = (const uint8_t *)str;
 
+	crc ^= 0xffffffff;
 	for (; *p != '\0'; p++)
 		crc = (crc >> 8) ^ crc32tab[((crc ^ *p) & 0xff)];
+	crc ^= 0xffffffff;
 	return crc;
 }
