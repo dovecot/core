@@ -122,7 +122,7 @@ imap_search_get_uidset_arg(struct client_command_context *cmd,
 	args = mail_search_build_init();
 	args->args = p_new(args->pool, struct mail_search_arg, 1);
 	args->args->type = SEARCH_UIDSET;
-	p_array_init(&args->args->value.seqset, cmd->pool, 16);
+	p_array_init(&args->args->value.seqset, args->pool, 16);
 	if (imap_seq_set_parse(uidset, &args->args->value.seqset) < 0) {
 		*error_r = "Invalid uidset";
 		return -1;
