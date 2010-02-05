@@ -23,8 +23,11 @@ lib20_zlib_plugin_la_LIBADD = \
 lib20_zlib_plugin_la_SOURCES = \
 	istream-bzlib.c \
 	istream-zlib.c \
+	ostream-zlib.c \
+	ostream-bzlib.c \
 	zlib-plugin.c
 
 noinst_HEADERS = \
 	istream-zlib.h \
+	ostream-zlib.h \
 	zlib-plugin.h

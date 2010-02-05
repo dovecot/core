@@ -2,31 +2,42 @@
 
 #include "lib.h"
 #include "array.h"
-#include "istream-zlib.h"
 #include "istream.h"
+#include "ostream.h"
 #include "maildir/maildir-storage.h"
 #include "maildir/maildir-uidlist.h"
 #include "index-mail.h"
+#include "istream-zlib.h"
+#include "ostream-zlib.h"
 #include "zlib-plugin.h"
 
+#include <stdlib.h>
 #include <fcntl.h>
+
+#define ZLIB_PLUGIN_DEFAULT_LEVEL 6
 
 #define ZLIB_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, zlib_storage_module)
 #define ZLIB_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, zlib_mail_module)
+#define ZLIB_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, zlib_user_module)
 
 #ifndef HAVE_ZLIB
 #  define i_stream_create_zlib NULL
+#  define o_stream_create_zlib NULL
 #endif
 #ifndef HAVE_BZLIB
 #  define i_stream_create_bzlib NULL
+#  define o_stream_create_bzlib NULL
 #endif
 
 struct zlib_handler {
+	const char *name;
 	const char *ext;
 	bool (*is_compressed)(struct istream *input);
 	struct istream *(*create_istream)(int fd);
+	struct ostream *(*create_ostream)(struct ostream *output, int level);
 };
 
 struct zlib_transaction_context {
@@ -35,8 +46,17 @@ struct zlib_transaction_context {
 	struct mail *tmp_mail;
 };
 
+struct zlib_user {
+	union mail_user_module_context module_ctx;
+
+	struct zlib_handler *save_handler;
+	int save_level;
+};
+
 const char *zlib_plugin_version = PACKAGE_VERSION;
 
+static MODULE_CONTEXT_DEFINE_INIT(zlib_user_module,
+				  &mail_user_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
@@ -74,9 +94,22 @@ static bool is_compressed_bzlib(struct istream *input)
 }
 
 static struct zlib_handler zlib_handlers[] = {
-	{ ".gz", is_compressed_zlib, i_stream_create_zlib },
-	{ ".bz2", is_compressed_bzlib, i_stream_create_bzlib }
+	{ "gz", ".gz", is_compressed_zlib,
+	  i_stream_create_zlib, o_stream_create_gz },
+	{ "bz2", ".bz2", is_compressed_bzlib,
+	  i_stream_create_bzlib, o_stream_create_bz2 }
 };
+
+static struct zlib_handler *zlib_find_zlib_handler(const char *name)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
+		if (strcmp(name, zlib_handlers[i].name) == 0)
+			return &zlib_handlers[i];
+	}
+	return NULL;
+}
 
 static struct zlib_handler *zlib_get_zlib_handler(struct istream *input)
 {
@@ -257,8 +290,29 @@ static int zlib_mail_save_finish(struct mail_save_context *ctx)
 	return 0;
 }
 
+static int
+zlib_mail_save_compress_begin(struct mail_save_context *ctx,
+			      struct istream *input)
+{
+	struct mailbox *box = ctx->transaction->box;
+	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+	struct ostream *output;
+
+	if (zbox->super.save_begin(ctx, input) < 0)
+		return -1;
+
+	output = zuser->save_handler->create_ostream(ctx->output,
+						     zuser->save_level);
+	o_stream_unref(&ctx->output);
+	ctx->output = output;
+	o_stream_cork(ctx->output);
+	return 0;
+}
+
 static void zlib_maildir_open_init(struct mailbox *box)
 {
+	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
 	union mailbox_module_context *zbox;
 
 	zbox = p_new(box->pool, union mailbox_module_context, 1);
@@ -267,8 +321,12 @@ static void zlib_maildir_open_init(struct mailbox *box)
 	box->v.transaction_begin = zlib_mailbox_transaction_begin;
 	box->v.transaction_rollback = zlib_mailbox_transaction_rollback;
 	box->v.transaction_commit = zlib_mailbox_transaction_commit;
-	box->v.save_begin = zlib_mail_save_begin;
-	box->v.save_finish = zlib_mail_save_finish;
+	if (zuser->save_handler == NULL) {
+		box->v.save_begin = zlib_mail_save_begin;
+		box->v.save_finish = zlib_mail_save_finish;
+	} else {
+		box->v.save_begin = zlib_mail_save_compress_begin;
+	}
 
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 }
@@ -332,7 +390,35 @@ static void zlib_mail_storage_created(struct mail_storage *storage)
 	MODULE_CONTEXT_SET_SELF(storage, zlib_storage_module, qstorage);
 }
 
+static void zlib_mail_user_created(struct mail_user *user)
+{
+	struct zlib_user *zuser;
+	const char *name;
+
+	zuser = p_new(user->pool, struct zlib_user, 1);
+	zuser->module_ctx.super = user->v;
+
+	name = mail_user_plugin_getenv(user, "zlib_save");
+	if (name != NULL && *name != '\0') {
+		zuser->save_handler = zlib_find_zlib_handler(name);
+		if (zuser->save_handler == NULL)
+			i_error("zlib_save: Unknown handler: %s", name);
+	}
+	name = mail_user_plugin_getenv(user, "zlib_save_level");
+	if (name != NULL) {
+		zuser->save_level = atoi(name);
+		if (zuser->save_level < 1 || zuser->save_level > 9) {
+			i_error("zlib_save_level: Level must be between 1..9");
+			zuser->save_level = 0;
+		}
+	}
+	if (zuser->save_level == 0)
+		zuser->save_level = ZLIB_PLUGIN_DEFAULT_LEVEL;
+	MODULE_CONTEXT_SET(user, zlib_user_module, zuser);
+}
+
 static struct mail_storage_hooks zlib_mail_storage_hooks = {
+	.mail_user_created = zlib_mail_user_created,
 	.mail_storage_created = zlib_mail_storage_created
 };
 
