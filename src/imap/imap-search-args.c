@@ -113,8 +113,7 @@ static int imap_search_get_msgset_arg(struct client_command_context *cmd,
 }
 
 static int
-imap_search_get_uidset_arg(struct client_command_context *cmd,
-			   const char *uidset, struct mail_search_args **args_r,
+imap_search_get_uidset_arg(const char *uidset, struct mail_search_args **args_r,
 			   const char **error_r)
 {
 	struct mail_search_args *args;
@@ -189,8 +188,7 @@ int imap_search_get_anyset(struct client_command_context *cmd,
 		ret = imap_search_get_msgset_arg(cmd, set, search_args_r,
 						 &error);
 	} else {
-		ret = imap_search_get_uidset_arg(cmd, set, search_args_r,
-						 &error);
+		ret = imap_search_get_uidset_arg(set, search_args_r, &error);
 	}
 	if (ret < 0) {
 		client_send_command_error(cmd, error);
