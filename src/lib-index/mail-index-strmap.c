@@ -742,7 +742,10 @@ mail_index_strmap_view_sync_init(struct mail_index_strmap_view *view,
 
 static inline uint32_t crc32_str_nonzero(const char *str)
 {
-	uint32_t value = crc32_str(str);
+	/* we'll flip the bits because of a bug in our old crc32 code.
+	   this keeps the index format backwards compatible with the new fixed
+	   crc32 code. */
+	uint32_t value = crc32_str(str) ^ 0xffffffffU;
 	return value == 0 ? 1 : value;
 }
 
