@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 
-const char *fts_plugin_version = PACKAGE_VERSION;
+const char *fts_plugin_version = DOVECOT_VERSION;
 
 static struct mail_storage_hooks fts_mail_storage_hooks = {
 	.mailbox_allocated = fts_mailbox_allocated

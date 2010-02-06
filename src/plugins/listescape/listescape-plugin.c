@@ -30,7 +30,7 @@ struct listescape_mailbox_list {
 	bool name_escaped;
 };
 
-const char *listescape_plugin_version = PACKAGE_VERSION;
+const char *listescape_plugin_version = DOVECOT_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(listescape_storage_module,
 				  &mail_storage_module_register);

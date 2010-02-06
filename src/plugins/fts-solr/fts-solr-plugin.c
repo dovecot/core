@@ -8,7 +8,7 @@
 
 #include <stdlib.h>
 
-const char *fts_solr_plugin_version = PACKAGE_VERSION;
+const char *fts_solr_plugin_version = DOVECOT_VERSION;
 
 struct fts_solr_user_module fts_solr_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);

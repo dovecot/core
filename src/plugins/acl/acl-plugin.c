@@ -7,7 +7,7 @@
 
 #include <stdlib.h>
 
-const char *acl_plugin_version = PACKAGE_VERSION;
+const char *acl_plugin_version = DOVECOT_VERSION;
 
 static struct mail_storage_hooks acl_mail_storage_hooks = {
 	.mail_user_created = acl_mail_user_created,

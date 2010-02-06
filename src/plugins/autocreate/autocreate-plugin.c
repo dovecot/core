@@ -8,7 +8,7 @@
 
 #include <stdlib.h>
 
-const char *autocreate_plugin_version = PACKAGE_VERSION;
+const char *autocreate_plugin_version = DOVECOT_VERSION;
 
 static void
 autocreate_mailbox(struct mail_namespace *namespaces, const char *name)

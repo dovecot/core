@@ -41,7 +41,7 @@ struct expire_transaction_context {
 	unsigned int first_expunged:1;
 };
 
-const char *expire_plugin_version = PACKAGE_VERSION;
+const char *expire_plugin_version = DOVECOT_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(expire_storage_module,
 				  &mail_storage_module_register);

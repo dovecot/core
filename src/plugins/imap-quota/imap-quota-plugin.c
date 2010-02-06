@@ -13,7 +13,7 @@
 
 #define QUOTA_USER_SEPARATOR ':'
 
-const char *imap_quota_plugin_version = PACKAGE_VERSION;
+const char *imap_quota_plugin_version = DOVECOT_VERSION;
 
 static struct module *imap_quota_module;
 static void (*next_hook_client_created)(struct client **client);

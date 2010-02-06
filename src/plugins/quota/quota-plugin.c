@@ -7,7 +7,7 @@
 
 #include <stdlib.h>
 
-const char *quota_plugin_version = PACKAGE_VERSION;
+const char *quota_plugin_version = DOVECOT_VERSION;
 
 static struct mail_storage_hooks quota_mail_storage_hooks = {
 	.mail_user_created = quota_mail_user_created,

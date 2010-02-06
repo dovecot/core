@@ -41,7 +41,7 @@ struct trash_user {
 	ARRAY_DEFINE(trash_boxes, struct trash_mailbox);
 };
 
-const char *trash_plugin_version = PACKAGE_VERSION;
+const char *trash_plugin_version = DOVECOT_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(trash_user_module,
 				  &mail_user_module_register);

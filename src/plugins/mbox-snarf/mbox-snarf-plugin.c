@@ -26,7 +26,7 @@ struct mbox_snarf_mailbox {
 	union mailbox_module_context module_ctx;
 };
 
-const char *mbox_snarf_plugin_version = PACKAGE_VERSION;
+const char *mbox_snarf_plugin_version = DOVECOT_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(mbox_snarf_storage_module,
 				  &mail_storage_module_register);
