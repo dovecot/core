@@ -78,8 +78,8 @@ fs_list_is_valid_common_nonfs(struct mailbox_list *list, const char *name)
 			if (maildir_len > 0 &&
 			    strncmp(p, list->set.maildir_name,
 				    maildir_len) == 0 &&
-			    (p[maildir_len-1] == '\0' ||
-			     p[maildir_len-1] == '/')) {
+			    (p[maildir_len] == '\0' ||
+			     p[maildir_len] == '/')) {
 				/* don't allow maildir_name to be used as part
 				   of the mailbox name */
 				return FALSE;
