@@ -245,29 +245,12 @@ static int mdbox_mailbox_create_indexes(struct mailbox *box,
 					const struct mailbox_update *update)
 {
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
-	const char *origin;
-	mode_t mode;
-	gid_t gid;
 	int ret;
 
-	mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid, &origin);
-	if (mkdir_parents_chgrp(box->path, mode, gid, origin) == 0) {
-		/* create indexes immediately with the dbox header */
-		if (index_storage_mailbox_open(box) < 0)
-			return -1;
-		mbox->creating = TRUE;
-		ret = mdbox_write_index_header(box, update);
-		mbox->creating = FALSE;
-		if (ret < 0)
-			return -1;
-	} else if (errno != EEXIST) {
-		if (!mail_storage_set_error_from_errno(box->storage)) {
-			mail_storage_set_critical(box->storage,
-				"mkdir(%s) failed: %m", box->path);
-		}
-		return -1;
-	}
-	return 0;
+	mbox->creating = TRUE;
+	ret = mdbox_write_index_header(box, update);
+	mbox->creating = FALSE;
+	return ret;
 }
 
 static void mdbox_storage_get_status_guid(struct mailbox *box,

@@ -75,10 +75,33 @@ dbox_cleanup_if_exists(struct mailbox_list *list, const char *path)
 	return TRUE;
 }
 
-int dbox_mailbox_open(struct mailbox *box)
+static int dbox_mailbox_create_indexes(struct mailbox *box,
+				       const struct mailbox_update *update)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
+	const char *origin;
+	mode_t mode;
+	gid_t gid;
 
+	mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid, &origin);
+	if (mkdir_parents_chgrp(box->path, mode, gid, origin) == 0) {
+		/* create indexes immediately with the dbox header */
+		if (index_storage_mailbox_open(box) < 0)
+			return -1;
+		if (storage->v.mailbox_create_indexes(box, update) < 0)
+			return -1;
+	} else if (errno != EEXIST) {
+		if (!mail_storage_set_error_from_errno(box->storage)) {
+			mail_storage_set_critical(box->storage,
+				"mkdir(%s) failed: %m", box->path);
+		}
+		return -1;
+	}
+	return 0;
+}
+
+int dbox_mailbox_open(struct mailbox *box)
+{
 	if (box->input != NULL) {
 		mail_storage_set_critical(box->storage,
 			"dbox doesn't support streamed mailboxes");
@@ -91,7 +114,7 @@ int dbox_mailbox_open(struct mailbox *box)
 		if (strcmp(box->name, "INBOX") == 0 &&
 		    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 			/* INBOX always exists, create it */
-			if (storage->v.mailbox_create_indexes(box, NULL) < 0)
+			if (dbox_mailbox_create_indexes(box, NULL) < 0)
 				return -1;
 			return box->opened ? 0 :
 				index_storage_mailbox_open(box);
@@ -134,7 +157,6 @@ dbox_get_alt_path(struct mailbox_list *list, const char *path)
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
 	const char *path, *alt_path, *origin;
 	struct stat st;
 
@@ -176,7 +198,7 @@ int dbox_mailbox_create(struct mailbox *box,
 		return -1;
 	}
 
-	return storage->v.mailbox_create_indexes(box, update);
+	return dbox_mailbox_create_indexes(box, update);
 }
 
 int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx ATTR_UNUSED,
