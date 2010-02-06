@@ -10,6 +10,7 @@
 #include "master-service.h"
 #include "master-interface.h"
 #include "client-common.h"
+#include "access-lookup.h"
 #include "anvil-client.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"
@@ -18,6 +19,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
+
+struct login_access_lookup {
+	struct master_service_connection conn;
+	struct io *io;
+
+	char **sockets, **next_socket;
+	struct access_lookup *access;
+};
 
 struct auth_client *auth_client;
 struct master_auth *master_auth;
@@ -29,6 +38,8 @@ void **global_other_settings;
 
 static bool shutting_down = FALSE;
 static bool ssl_connections = FALSE;
+
+static void login_access_lookup_next(struct login_access_lookup *lookup);
 
 void login_refresh_proctitle(void)
 {
@@ -62,7 +73,8 @@ static void login_die(void)
 	}
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void
+client_connected_finish(const struct master_service_connection *conn)
 {
 	struct client *client;
 	struct ssl_proxy *proxy;
@@ -91,6 +103,7 @@ static void client_connected(const struct master_service_connection *conn)
 		if (fd_ssl == -1) {
 			net_disconnect(conn->fd);
 			pool_unref(&pool);
+			master_service_client_connection_destroyed(master_service);
 			return;
 		}
 
@@ -103,6 +116,91 @@ static void client_connected(const struct master_service_connection *conn)
 
 	client->remote_port = conn->remote_port;
 	client->local_port = local_port;
+}
+
+static void login_access_lookup_free(struct login_access_lookup *lookup)
+{
+	if (lookup->io != NULL)
+		io_remove(&lookup->io);
+	if (lookup->access != NULL)
+		access_lookup_destroy(&lookup->access);
+	if (lookup->conn.fd != -1) {
+		if (close(lookup->conn.fd) < 0)
+			i_error("close(client) failed: %m");
+		master_service_client_connection_destroyed(master_service);
+	}
+
+	p_strsplit_free(default_pool, lookup->sockets);
+	i_free(lookup);
+}
+
+static void login_access_callback(bool success, void *context)
+{
+	struct login_access_lookup *lookup = context;
+
+	if (!success) {
+		i_info("access(%s): Client refused (rip=%s)",
+		       *lookup->next_socket,
+		       net_ip2addr(&lookup->conn.remote_ip));
+		login_access_lookup_free(lookup);
+	} else {
+		lookup->next_socket++;
+		login_access_lookup_next(lookup);
+	}
+}
+
+static void login_access_lookup_next(struct login_access_lookup *lookup)
+{
+	if (*lookup->next_socket == NULL) {
+		/* last one */
+		client_connected_finish(&lookup->conn);
+		lookup->conn.fd = -1;
+		login_access_lookup_free(lookup);
+		return;
+	}
+	lookup->access = access_lookup(*lookup->next_socket, lookup->conn.fd,
+				       login_protocol, login_access_callback,
+				       lookup);
+	if (lookup->access == NULL)
+		login_access_lookup_free(lookup);
+}
+
+static void client_input_error(struct login_access_lookup *lookup)
+{
+	char c;
+	int ret;
+
+	ret = recv(lookup->conn.fd, &c, 1, MSG_PEEK);
+	if (ret <= 0) {
+		i_info("access(%s): Client disconnected during lookup (rip=%s)",
+		       *lookup->next_socket,
+		       net_ip2addr(&lookup->conn.remote_ip));
+		login_access_lookup_free(lookup);
+	} else {
+		/* actual input. stop listening until lookup is done. */
+		io_remove(&lookup->io);
+	}
+}
+
+static void client_connected(const struct master_service_connection *conn)
+{
+	const char *access_sockets =
+		global_login_settings->login_access_sockets;
+	struct login_access_lookup *lookup;
+
+	if (*access_sockets == '\0') {
+		/* no access checks */
+		client_connected_finish(conn);
+		return;
+	}
+
+	lookup = i_new(struct login_access_lookup, 1);
+	lookup->conn = *conn;
+	lookup->io = io_add(conn->fd, IO_READ, client_input_error, lookup);
+	lookup->sockets = p_strsplit_spaces(default_pool, access_sockets, " ");
+	lookup->next_socket = lookup->sockets;
+
+	login_access_lookup_next(lookup);
 }
 
 static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,

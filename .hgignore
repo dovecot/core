@@ -60,6 +60,7 @@ src/config/config
 src/config/doveconf
 src/lda/dovecot-lda
 src/dict/dict
+src/dns/dns-client
 src/doveadm/doveadm
 src/dsync/dsync
 src/imap-login/imap-login
@@ -84,6 +85,7 @@ src/util/listview
 src/util/maildirlock
 src/util/rawlog
 src/util/script
+src/util/tcpwrap
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
 

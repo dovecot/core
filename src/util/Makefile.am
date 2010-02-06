@@ -3,6 +3,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 pkglibexec_PROGRAMS = \
 	rawlog \
 	script \
+	$(TCPWRAP_BIN) \
 	gdbhelper \
 	imap-utf7 \
 	listview \
@@ -31,6 +32,15 @@ script_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT) $(MODULE_LIBS)
 script_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_DEPS)
 script_SOURCES = \
 	script.c
+
+if TCPWRAPPERS
+TCPWRAP_BIN = tcpwrap
+tcpwrap_LDADD = $(LIBDOVECOT) $(MODULE_LIBS) $(LIBWRAP_LIBS)
+tcpwrap_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+tcpwrap_SOURCES = \
+	tcpwrap.c \
+	tcpwrap-settings.c
+endif
 
 gdbhelper_LDADD = $(LIBDOVECOT)
 gdbhelper_DEPENDENCIES = $(LIBDOVECOT_DEPS)

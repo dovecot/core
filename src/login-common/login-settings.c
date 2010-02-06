@@ -21,6 +21,7 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(SET_STR_VARS, login_greeting),
 	DEF(SET_STR, login_log_format_elements),
 	DEF(SET_STR, login_log_format),
+	DEF(SET_STR, login_access_sockets),
 
 	DEF(SET_ENUM, ssl),
 	DEF(SET_STR, ssl_ca),
@@ -50,6 +51,7 @@ static const struct login_settings login_default_settings = {
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_log_format_elements = "user=<%u> method=%m rip=%r lip=%l %c",
 	.login_log_format = "%$: %s",
+	.login_access_sockets = "",
 
 	.ssl = "yes:no:required",
 	.ssl_ca = "",

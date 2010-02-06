@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-DPKG_STATEDIR=\""$(statedir)"\"
 
 liblogin_la_SOURCES = \
+	access-lookup.c \
 	client-common.c \
 	client-common-auth.c \
 	login-proxy.c \
@@ -24,6 +25,7 @@ liblogin_la_LIBADD = \
 	$(SSL_LIBS)
 
 headers = \
+	access-lookup.h \
 	client-common.h \
 	login-common.h \
 	login-proxy.h \

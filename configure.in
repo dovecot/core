@@ -169,6 +169,11 @@ AC_ARG_WITH(libcap,
   TEST_WITH(libcap, $withval),
   want_libcap=auto)
 
+AC_ARG_WITH(libwrap,
+[  --with-libwrap          Build with libwrap, ie. TCP-wrappers (auto)],
+  TEST_WITH(libwrap, $withval),
+  want_libwrap=auto)
+
 AC_ARG_WITH(ssl,
 [  --with-ssl=gnutls|openssl Build with GNUTLS or OpenSSL (default)],
 	if test x$withval = xno; then
@@ -328,6 +333,28 @@ if test $want_libcap != no; then
     fi
   ])
 fi
+
+have_libwrap=no
+if test $want_libwrap != no; then
+  AC_CHECK_HEADER(tcpd.h, [
+    AC_CHECK_LIB(wrap, request_init, [
+      AC_DEFINE(HAVE_LIBWRAP,, Define if you have libwrap)
+      LIBWRAP_LIBS=-lwrap
+      AC_SUBST(LIBWRAP_LIBS)
+      have_libwrap=yes
+    ], [
+      if test "$want_libwrap" = "yes"; then
+	AC_ERROR([Can't build with libwrap support: libwrap not found])
+      fi
+    ])
+    LIBS=$old_LIBS
+  ], [
+    if test "$want_libwrap" = "yes"; then
+      AC_ERROR([Can't build with libwrap support: tcpd.h not found])
+    fi
+  ])
+fi
+AM_CONDITIONAL(TCPWRAPPERS, test "$have_libwrap" = "yes")
 
 AC_DEFINE(PACKAGE_WEBPAGE, "http://www.dovecot.org/", Support URL)
 
