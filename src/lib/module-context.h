@@ -1,6 +1,8 @@
 #ifndef MODULE_CONTEXT_H
 #define MODULE_CONTEXT_H
 
+#include "array.h"
+
 /*
    This is a bit complex to use, but it prevents using wrong module IDs
    in module_contexts arrays.
