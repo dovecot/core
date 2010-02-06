@@ -129,6 +129,7 @@ struct maildir_uidlist_iter_ctx {
 	uint32_t prev_uid;
 };
 
+static int maildir_uidlist_open_latest(struct maildir_uidlist *uidlist);
 static bool maildir_uidlist_iter_next_rec(struct maildir_uidlist_iter_ctx *ctx,
 					  struct maildir_uidlist_rec **rec_r);
 
@@ -380,15 +381,11 @@ static void maildir_uidlist_update_hdr(struct maildir_uidlist *uidlist,
 	}
 
 	mhdr = &uidlist->mbox->maildir_hdr;
-	if (mhdr->uidlist_mtime == 0) {
-		if (!uidlist->initial_read)
-			(void)maildir_uidlist_refresh(uidlist);
-		if (uidlist->version != UIDLIST_VERSION) {
-			/* upgrading from older verson. don't update the
-			   uidlist times until it uses the new format */
-			uidlist->recreate = TRUE;
-			return;
-		}
+	if (mhdr->uidlist_mtime == 0 && uidlist->version != UIDLIST_VERSION) {
+		/* upgrading from older verson. don't update the
+		   uidlist times until it uses the new format */
+		uidlist->recreate = TRUE;
+		return;
 	}
 	mhdr->uidlist_mtime = st->st_mtime;
 	mhdr->uidlist_mtime_nsecs = ST_MTIME_NSEC(*st);
@@ -904,11 +901,10 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 	}
 }
 
-int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
+static int maildir_uidlist_open_latest(struct maildir_uidlist *uidlist)
 {
-        unsigned int i;
-        bool retry, recreated;
-        int ret;
+	bool recreated;
+	int ret;
 
 	if (uidlist->fd != -1) {
 		ret = maildir_uidlist_has_changed(uidlist, &recreated);
@@ -918,9 +914,28 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 			return ret < 0 ? -1 : 1;
 		}
 
-		if (recreated)
-			maildir_uidlist_close(uidlist);
+		if (!recreated)
+			return 0;
+		maildir_uidlist_close(uidlist);
 	}
+
+	uidlist->fd = nfs_safe_open(uidlist->path, O_RDWR);
+	if (uidlist->fd == -1 && errno != ENOENT) {
+		mail_storage_set_critical(uidlist->ibox->box.storage,
+			"open(%s) failed: %m", uidlist->path);
+		return -1;
+	}
+	return 0;
+}
+
+int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
+{
+        unsigned int i;
+        bool retry;
+        int ret;
+
+	if (maildir_uidlist_open_latest(uidlist) < 0)
+		return -1;
 
         for (i = 0; ; i++) {
 		ret = maildir_uidlist_update_read(uidlist, &retry,
@@ -1512,18 +1527,12 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	if (maildir_uidlist_want_recreate(ctx))
 		return maildir_uidlist_recreate(uidlist);
 
-	if (uidlist->fd == -1) {
-		/* NOREFRESH flag used. we're just appending some messages. */
+	if (!uidlist->locked_refresh || uidlist->fd == -1) {
+		/* make sure we have the latest file (e.g. NOREFRESH used) */
 		i_assert(uidlist->initial_hdr_read);
-
-		uidlist->fd = nfs_safe_open(uidlist->path, O_RDWR);
-		if (uidlist->fd == -1) {
-			mail_storage_set_critical(storage,
-				"open(%s) failed: %m", uidlist->path);
+		if (maildir_uidlist_open_latest(uidlist) < 0)
 			return -1;
-		}
 	}
-
 	i_assert(ctx->first_unwritten_pos != (unsigned int)-1);
 
 	if (lseek(uidlist->fd, 0, SEEK_END) < 0) {
