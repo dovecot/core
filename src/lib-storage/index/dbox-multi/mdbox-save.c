@@ -98,8 +98,16 @@ int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	uoff_t mail_size, append_offset;
 
 	/* get the size of the mail to be saved, if possible */
-	if (i_stream_get_size(input, TRUE, &mail_size) <= 0)
-		mail_size = 0;
+	if (i_stream_get_size(input, TRUE, &mail_size) <= 0) {
+		const struct stat *st;
+
+		/* we couldn't find out the exact size. fallback to non-exact,
+		   maybe it'll give something useful. the mail size is used
+		   only to figure out if it's causing mdbox file to grow
+		   too large. */
+		st = i_stream_stat(input, FALSE);
+		mail_size = st->st_size > 0 ? st->st_size : 0;
+	}
 	if (dbox_map_append_next(ctx->append_ctx, mail_size,
 				 &ctx->cur_file_append,
 				 &ctx->ctx.cur_output) < 0) {
