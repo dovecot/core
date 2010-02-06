@@ -157,48 +157,17 @@ dbox_get_alt_path(struct mailbox_list *list, const char *path)
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory)
 {
-	const char *path, *alt_path, *origin;
-	struct stat st;
+	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
 
-	path = mailbox_list_get_path(box->list, box->name,
-				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
+	if (directory &&
+	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
+		return 0;
+
+	if (index_storage_mailbox_open(box) < 0)
 		return -1;
-	}
-
-	if (directory) {
-		mode_t mode;
-		gid_t gid;
-
-		mailbox_list_get_dir_permissions(box->list, NULL, &mode,
-						 &gid, &origin);
-		if (mkdir_parents_chgrp(path, mode, gid, origin) == 0)
-			return 0;
-		else if (errno == EEXIST) {
-			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
-					       "Mailbox already exists");
-		} else if (!mail_storage_set_error_from_errno(box->storage)) {
-			mail_storage_set_critical(box->storage,
-						  "mkdir(%s) failed: %m", path);
-		}
+	if (storage->v.mailbox_create_indexes(box, update) < 0)
 		return -1;
-	}
-
-	/* make sure the alt path doesn't exist yet. it shouldn't (except with
-	   race conditions with RENAME/DELETE), but if something crashed and
-	   left it lying around we don't want to start overwriting files in
-	   it. */
-	alt_path = dbox_get_alt_path(box->list, path);
-	if (alt_path != NULL && stat(alt_path, &st) == 0) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-		return -1;
-	}
-
-	return dbox_mailbox_create_indexes(box, update);
+	return 0;
 }
 
 int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx ATTR_UNUSED,

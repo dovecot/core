@@ -451,8 +451,6 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 {
 	struct mailbox *box = &ibox->box;
 	const char *path;
-	gid_t dir_gid;
-	const char *origin, *dir_origin;
 	string_t *vname;
 
 	if (name != NULL) {
@@ -487,18 +485,11 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->index = index_storage_alloc(box->list, name, flags, index_prefix);
 
-	if (box->file_create_mode == 0) {
-		mailbox_list_get_permissions(box->list, name,
-					     &box->file_create_mode,
-					     &box->file_create_gid, &origin);
-		box->file_create_gid_origin = p_strdup(box->pool, origin);
-		mailbox_list_get_dir_permissions(box->list, name,
-						 &box->dir_create_mode,
-						 &dir_gid, &dir_origin);
-		mail_index_set_permissions(ibox->index,
-					   box->file_create_mode,
-					   box->file_create_gid, origin);
-	}
+	if (box->file_create_mode == 0)
+		mailbox_refresh_permissions(box);
+	mail_index_set_permissions(ibox->index, box->file_create_mode,
+				   box->file_create_gid,
+				   box->file_create_gid_origin);
 }
 
 int index_storage_mailbox_enable(struct mailbox *box,

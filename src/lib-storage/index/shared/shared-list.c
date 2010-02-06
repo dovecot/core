@@ -95,7 +95,9 @@ shared_list_get_path(struct mailbox_list *list, const char *name,
 	    shared_storage_get_namespace(&ns, &name) < 0) {
 		switch (type) {
 		case MAILBOX_LIST_PATH_TYPE_DIR:
+		case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
 		case MAILBOX_LIST_PATH_TYPE_MAILBOX:
+		case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
 		case MAILBOX_LIST_PATH_TYPE_CONTROL:
 			break;
 		case MAILBOX_LIST_PATH_TYPE_INDEX:
@@ -231,6 +233,21 @@ static int shared_list_set_subscribed(struct mailbox_list *list,
 }
 
 static int
+shared_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
+			       bool directory)
+{
+	struct mail_namespace *ns = list->ns;
+	int ret;
+
+	if (shared_storage_get_namespace(&ns, &name) < 0)
+		return -1;
+	ret = ns->list->v.create_mailbox_dir(ns->list, name, directory);
+	if (ret < 0)
+		shared_list_copy_error(list, ns);
+	return ret;
+}
+
+static int
 shared_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct mail_namespace *ns = list->ns;
@@ -337,6 +354,7 @@ struct mailbox_list shared_mailbox_list = {
 		shared_list_iter_deinit,
 		NULL,
 		shared_list_set_subscribed,
+		shared_list_create_mailbox_dir,
 		shared_list_delete_mailbox,
 		shared_list_delete_dir,
 		shared_list_rename_mailbox,

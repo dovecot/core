@@ -463,6 +463,30 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 }
 
 static int
+acl_mailbox_list_create_dir(struct mailbox_list *list, const char *name,
+			    bool directory)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+	int ret;
+
+	/* we're looking up CREATE permission from our parent's rights */
+	ret = acl_mailbox_list_have_right(list, name, TRUE,
+					  ACL_STORAGE_RIGHT_CREATE, NULL);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		/* Note that if user didn't have LOOKUP permission to parent
+		   mailbox, this may reveal the mailbox's existence to user.
+		   Can't help it. */
+		mailbox_list_set_error(list, MAIL_ERROR_PERM,
+				       MAIL_ERRSTR_NO_PERMISSION);
+		return -1;
+	}
+	return alist->module_ctx.super.
+		create_mailbox_dir(list, name, directory);
+}
+
+static int
 acl_mailbox_list_delete(struct mailbox_list *list, const char *name)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
@@ -600,6 +624,7 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	list->v.iter_next = acl_mailbox_list_iter_next;
 	list->v.iter_deinit = acl_mailbox_list_iter_deinit;
 	list->v.get_mailbox_name_status = acl_get_mailbox_name_status;
+	list->v.create_mailbox_dir = acl_mailbox_list_create_dir;
 	list->v.delete_mailbox = acl_mailbox_list_delete;
 	list->v.rename_mailbox = acl_mailbox_list_rename;
 

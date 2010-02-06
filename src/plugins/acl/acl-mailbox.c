@@ -124,26 +124,14 @@ static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 	acl_object_list_deinit(&iter);
 	acl_object_deinit(&parent_aclobj);
 }
+
 static int
 acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
-	int ret;
 
-	/* we're looking up CREATE permission from our parent's rights */
-	ret = acl_mailbox_list_have_right(box->list, box->name, TRUE,
-					  ACL_STORAGE_RIGHT_CREATE, NULL);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		/* Note that if user didn't have LOOKUP permission to parent
-		   mailbox, this may reveal the mailbox's existence to user.
-		   Can't help it. */
-		mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
-				       MAIL_ERRSTR_NO_PERMISSION);
-		return -1;
-	}
+	/* we already checked permissions in list.mailbox_create_dir(). */
 	if (abox->module_ctx.super.create(box, update, directory) < 0)
 		return -1;
 

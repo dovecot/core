@@ -23,8 +23,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
-
 #define MAILDIR_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, maildir_mailbox_list_module)
 
@@ -293,19 +291,16 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 }
 
 /* create or fix maildir, ignore if it already exists */
-static int
-create_maildir(struct mail_storage *storage, struct mail_namespace *ns,
-	       const char *dir, mode_t mode, gid_t gid, const char *gid_origin,
-	       bool verify)
+static int create_maildir(struct mailbox *box, bool verify)
 {
 	const char *path;
 	unsigned int i;
 	int ret;
 
 	if (!verify) {
-		ret = maildir_check_tmp(storage, dir);
+		ret = maildir_check_tmp(box->storage, box->path);
 		if (ret > 0) {
-			mail_storage_set_error(storage,
+			mail_storage_set_error(box->storage,
 				MAIL_ERROR_EXISTS, "Mailbox already exists");
 			return -1;
 		}
@@ -314,9 +309,10 @@ create_maildir(struct mail_storage *storage, struct mail_namespace *ns,
 	}
 
 	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
-		path = t_strconcat(dir, "/", maildir_subdirs[i], NULL);
-		if (mkdir_verify(storage, ns, path, mode, gid,
-				 gid_origin, verify) < 0)
+		path = t_strconcat(box->path, "/", maildir_subdirs[i], NULL);
+		if (mkdir_verify(box->storage, box->list->ns, path,
+				 box->dir_create_mode, box->file_create_gid,
+				 box->file_create_gid_origin, verify) < 0)
 			return -1;
 	}
 	return 0;
@@ -325,15 +321,6 @@ create_maildir(struct mail_storage *storage, struct mail_namespace *ns,
 static void maildir_lock_touch_timeout(struct maildir_mailbox *mbox)
 {
 	(void)maildir_uidlist_lock_touch(mbox->uidlist);
-}
-
-static mode_t get_dir_mode(mode_t mode)
-{
-	/* add the execute bit if either read or write bit is set */
-	if ((mode & 0600) != 0) mode |= 0100;
-	if ((mode & 0060) != 0) mode |= 0010;
-	if ((mode & 0006) != 0) mode |= 0001;
-	return mode;
 }
 
 static struct mailbox *
@@ -374,26 +361,9 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 	struct stat st;
 	const char *shared_path;
 
-	/* for shared mailboxes get the create mode from the
-	   permissions of dovecot-shared file. */
 	shared_path = t_strconcat(box->path, "/dovecot-shared", NULL);
-	if (stat(shared_path, &st) == 0) {
-		if ((st.st_mode & S_ISGID) != 0 ||
-		    (st.st_mode & 0060) == 0) {
-			/* Ignore GID */
-			st.st_gid = (gid_t)-1;
-		}
-		mail_index_set_permissions(mbox->ibox.index,
-					   st.st_mode & 0666, st.st_gid,
-					   shared_path);
-
-		box->file_create_mode = st.st_mode & 0666;
-		box->dir_create_mode = get_dir_mode(st.st_mode & 0666);
-		box->file_create_gid = st.st_gid;
-		mbox->ibox.box.file_create_gid_origin =
-			p_strdup(box->pool, shared_path);
+	if (stat(shared_path, &st) == 0)
 		box->private_flags_mask = MAIL_SEEN;
-	}
 
 	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {
 		if (maildir_uidlist_lock(mbox->uidlist) <= 0)
@@ -412,9 +382,6 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 static int maildir_mailbox_open(struct mailbox *box)
 {
 	struct stat st;
-	const char *gid_origin;
-	mode_t mode;
-	gid_t gid;
 	int ret;
 	bool inbox;
 
@@ -440,10 +407,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 	/* tmp/ directory doesn't exist. does the maildir? */
 	if (inbox || (*box->name != '\0' && stat(box->path, &st) == 0)) {
 		/* yes, we'll need to create the missing dirs */
-		mailbox_list_get_dir_permissions(box->list, box->name,
-						 &mode, &gid, &gid_origin);
-		if (create_maildir(box->storage, box->list->ns, box->path,
-				   mode, gid, gid_origin, TRUE) < 0)
+		if (create_maildir(box, TRUE) < 0)
 			return -1;
 
 		return maildir_mailbox_open_existing(box);
@@ -458,40 +422,31 @@ static int maildir_mailbox_open(struct mailbox *box)
 	}
 }
 
-static int
-maildir_create_shared(struct mail_storage *storage, struct mail_namespace *ns,
-		      const char *dir, mode_t mode, gid_t gid,
-		      const char *gid_origin)
+static int maildir_create_shared(struct mailbox *box)
 {
 	const char *path;
 	mode_t old_mask;
 	int fd;
 
-	/* add the execute bit if either read or write bit is set */
-	if ((mode & 0600) != 0) mode |= 0100;
-	if ((mode & 0060) != 0) mode |= 0010;
-	if ((mode & 0006) != 0) mode |= 0001;
-
-	if (create_maildir(storage, ns, dir, mode, gid, gid_origin, FALSE) < 0)
-		return -1;
-
-	old_mask = umask(0777 ^ mode);
-	path = t_strconcat(dir, "/dovecot-shared", NULL);
-	fd = open(path, O_WRONLY | O_CREAT, mode & 0666);
+	old_mask = umask(0);
+	path = t_strconcat(box->path, "/dovecot-shared", NULL);
+	fd = open(path, O_WRONLY | O_CREAT, box->file_create_mode);
 	umask(old_mask);
 
 	if (fd == -1) {
-		mail_storage_set_critical(storage, "open(%s) failed: %m", path);
+		mail_storage_set_critical(box->storage, "open(%s) failed: %m",
+					  path);
 		return -1;
 	}
 
-	if (fchown(fd, (uid_t)-1, gid) < 0) {
+	if (fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
 		if (errno == EPERM) {
-			mail_storage_set_critical(storage, "%s",
+			mail_storage_set_critical(box->storage, "%s",
 				eperm_error_get_chgrp("fchown", path,
-						      gid, gid_origin));
+					box->file_create_gid,
+					box->file_create_gid_origin));
 		} else {
-			mail_storage_set_critical(storage,
+			mail_storage_set_critical(box->storage,
 				"fchown(%s) failed: %m", path);
 		}
 	}
@@ -533,65 +488,27 @@ static int
 maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		       bool directory)
 {
+	const char *root_dir, *shared_path;
 	struct stat st;
-	const char *path, *root_dir, *shared_path, *gid_origin;
-	mode_t old_mask;
-	int fd;
 
-	path = mailbox_list_get_path(box->list, box->name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (directory &&
+	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
+		return 0;
+
+	if (create_maildir(box, FALSE) < 0)
+		return -1;
+
+	/* if dovecot-shared exists in the root dir, copy it to newly
+	   created mailboxes */
 	root_dir = mailbox_list_get_path(box->list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-
-	/* if dovecot-shared exists in the root dir, create the mailbox using
-	   its permissions and gid, and copy the dovecot-shared inside it. */
 	shared_path = t_strconcat(root_dir, "/dovecot-shared", NULL);
 	if (stat(shared_path, &st) == 0) {
-		gid_origin = shared_path;
-		if (maildir_create_shared(box->storage, box->list->ns, path,
-					  st.st_mode & 0666, st.st_gid,
-					  gid_origin) < 0)
-			return -1;
-	} else {
-		mailbox_list_get_dir_permissions(box->list, NULL, &st.st_mode,
-						 &st.st_gid, &gid_origin);
-		if (create_maildir(box->storage, box->list->ns, path,
-				   st.st_mode, st.st_gid, gid_origin,
-				   FALSE) < 0)
+		if (maildir_create_shared(box) < 0)
 			return -1;
 	}
 
-	/* Maildir++ spec wants that maildirfolder named file is created for
-	   all subfolders. */
-	path = t_strconcat(path, "/" MAILDIR_SUBFOLDER_FILENAME, NULL);
-	old_mask = umask(0777 ^ (st.st_mode & 0666));
-	fd = open(path, O_CREAT | O_WRONLY, 0666);
-	umask(old_mask);
-	if (fd != -1) {
-		/* if dovecot-shared exists, use the same group */
-		if (st.st_gid == (gid_t)-1) {
-			/* doesn't exist */
-		} else if (fchown(fd, (uid_t)-1, st.st_gid) == 0) {
-			/* ok */
-		} else if (errno == EPERM) {
-			mail_storage_set_critical(box->storage, "%s",
-				eperm_error_get_chgrp("fchown", path,
-						     st.st_gid, gid_origin));
-		} else {
-			mail_storage_set_critical(box->storage,
-				"fchown(%s) failed: %m", path);
-		}
-		(void)close(fd);
-	} else if (errno == ENOENT) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
-			"Mailbox was deleted while it was being created");
-		return -1;
-	} else {
-		mail_storage_set_critical(box->storage,
-			"open(%s, O_CREAT) failed: %m", path);
-	}
-	return directory || update == NULL ? 0 :
-		maildir_mailbox_update(box, update);
+	return update == NULL ? 0 : maildir_mailbox_update(box, update);
 }
 
 static void

@@ -17,7 +17,9 @@ struct mailbox_list_iterate_context;
 
 enum mailbox_list_properties {
 	/* maildir_name must always be empty */
-	MAILBOX_LIST_PROP_NO_MAILDIR_NAME       = 0x01
+	MAILBOX_LIST_PROP_NO_MAILDIR_NAME	= 0x01,
+	/* no support for \noselect directories, only mailboxes */
+	MAILBOX_LIST_PROP_NO_NOSELECT		= 0x02
 };
 
 enum mailbox_list_flags {
@@ -76,8 +78,10 @@ enum mailbox_list_iter_flags {
 enum mailbox_list_path_type {
 	/* Return directory's path (eg. ~/dbox/INBOX) */
 	MAILBOX_LIST_PATH_TYPE_DIR,
+	MAILBOX_LIST_PATH_TYPE_ALT_DIR,
 	/* Return mailbox path (eg. ~/dbox/INBOX/dbox-Mails) */
 	MAILBOX_LIST_PATH_TYPE_MAILBOX,
+	MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX,
 	/* Return control directory */
 	MAILBOX_LIST_PATH_TYPE_CONTROL,
 	/* Return index file directory */

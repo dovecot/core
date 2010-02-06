@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "llist.h"
+#include "eacces-error.h"
 #include "mkdir-parents.h"
 #include "var-expand.h"
 #include "mail-index-private.h"
@@ -519,6 +520,17 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 				       "Invalid mailbox name");
 		return -1;
 	}
+
+	if (box->list->v.create_mailbox_dir(box->list, box->name,
+					    directory) < 0) {
+		const char *str;
+		enum mail_error error;
+
+		str = mailbox_list_get_last_error(box->list, &error);
+		mail_storage_set_error(box->storage, error, str);
+		return -1;
+	}
+	mailbox_refresh_permissions(box);
 
 	return box->v.create(box, update, directory);
 }
@@ -1078,4 +1090,75 @@ void mailbox_set_deleted(struct mailbox *box)
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			       "Mailbox was deleted under us");
 	box->mailbox_deleted = TRUE;
+}
+
+void mailbox_refresh_permissions(struct mailbox *box)
+{
+	const char *origin, *dir_origin;
+	gid_t dir_gid;
+
+	if (box->input != NULL) {
+		box->file_create_mode = 0600;
+		box->dir_create_mode = 0700;
+		box->file_create_gid = (gid_t)-1;
+		box->file_create_gid_origin = "defaults";
+		return;
+	}
+
+	mailbox_list_get_permissions(box->list, box->name,
+				     &box->file_create_mode,
+				     &box->file_create_gid, &origin);
+
+	box->file_create_gid_origin = p_strdup(box->pool, origin);
+	mailbox_list_get_dir_permissions(box->list, box->name,
+					 &box->dir_create_mode,
+					 &dir_gid, &dir_origin);
+}
+
+int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
+		      int *fd_r)
+{
+	mode_t old_mask;
+	int fd;
+
+	i_assert(box->file_create_mode != 0);
+	i_assert((flags & O_CREAT) != 0);
+
+	*fd_r = -1;
+
+	old_mask = umask(0);
+	fd = open(path, flags, box->file_create_mode);
+	umask(old_mask);
+
+	if (fd != -1) {
+		/* ok */
+	} else if (errno == EEXIST) {
+		/* O_EXCL used, caller will handle this error */
+		return 0;
+	} else if (errno == ENOENT) {
+		mailbox_set_deleted(box);
+		return -1;
+	} else if (mail_storage_set_error_from_errno(box->storage)) {
+		return -1;
+	} else {
+		mail_storage_set_critical(box->storage,
+			"open(%s, O_CREAT) failed: %m", path);
+		return -1;
+	}
+
+	if (box->file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, box->file_create_gid) == 0) {
+			/* ok */
+		} else if (errno == EPERM) {
+			mail_storage_set_critical(box->storage, "%s",
+				eperm_error_get_chgrp("fchown", path,
+					box->file_create_gid,
+					box->file_create_gid_origin));
+		} else {
+			mail_storage_set_critical(box->storage,
+				"fchown(%s) failed: %m", path);
+		}
+	}
+	*fd_r = fd;
+	return 1;
 }

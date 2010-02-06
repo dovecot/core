@@ -57,6 +57,8 @@ struct mailbox_list_vfuncs {
 
 	int (*set_subscribed)(struct mailbox_list *list,
 			      const char *name, bool set);
+	int (*create_mailbox_dir)(struct mailbox_list *list, const char *name,
+				  bool directory);
 	int (*delete_mailbox)(struct mailbox_list *list, const char *name);
 	int (*delete_dir)(struct mailbox_list *list, const char *name);
 	int (*rename_mailbox)(struct mailbox_list *oldlist, const char *oldname,

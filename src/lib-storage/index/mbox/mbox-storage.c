@@ -515,70 +515,23 @@ static int
 mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		    bool directory)
 {
-	struct mail_storage *storage = box->storage;
-	const char *path, *p, *origin;
-	struct stat st;
-	mode_t mode;
-	gid_t gid;
-	int fd;
+	int fd, ret;
 
-	/* make sure it doesn't exist already */
-	path = mailbox_list_get_path(box->list, box->name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0) {
-		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-		return -1;
-	}
+	if (directory &&
+	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
+		return 0;
 
-	if (errno != ENOENT) {
-		if (errno == ENOTDIR) {
-			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
-				"Mailbox doesn't allow inferior mailboxes");
-		} else if (!mail_storage_set_error_from_errno(storage)) {
-			mail_storage_set_critical(storage,
-				"stat() failed for mbox file %s: %m", path);
+	/* create the mbox file */
+	ret = mailbox_create_fd(box, box->path, O_RDWR | O_CREAT | O_EXCL, &fd);
+	if (ret <= 0) {
+		if (ret == 0) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+					       "Mailbox already exists");
 		}
 		return -1;
 	}
-
-	/* create the hierarchy if needed */
-	p = directory ? path + strlen(path) : strrchr(path, '/');
-	if (p != NULL) {
-		p = t_strdup_until(path, p);
-		mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid,
-						 &origin);
-		if (mkdir_parents_chgrp(p, mode, gid, origin) < 0 &&
-		    errno != EEXIST) {
-			if (!mail_storage_set_error_from_errno(storage)) {
-				mail_storage_set_critical(storage,
-					"mkdir_parents(%s) failed: %m", p);
-			}
-			return -1;
-		}
-
-		if (directory) {
-			/* wanted to create only the directory */
-			return 0;
-		}
-	}
-
-	/* create the mailbox file */
-	fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0660);
-	if (fd != -1) {
-		(void)close(fd);
-		return update == NULL ? 0 : mbox_mailbox_update(box, update);
-	}
-
-	if (errno == EEXIST) {
-		/* mailbox was just created between stat() and open() call.. */
-		mail_storage_set_error(storage, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-	} else if (!mail_storage_set_error_from_errno(storage)) {
-		mail_storage_set_critical(storage,
-			"Can't create mailbox %s: %m", box->name);
-	}
-	return -1;
+	(void)close(fd);
+	return update == NULL ? 0 : mbox_mailbox_update(box, update);
 }
 
 static void mbox_mailbox_close(struct mailbox *box)

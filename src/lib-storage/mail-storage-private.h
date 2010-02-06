@@ -430,5 +430,10 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
+void mailbox_refresh_permissions(struct mailbox *box);
+
+/* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */
+int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
+		      int *fd_r);
 
 #endif

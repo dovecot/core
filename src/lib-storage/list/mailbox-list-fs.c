@@ -142,15 +142,21 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		 enum mailbox_list_path_type type)
 {
 	const struct mailbox_list_settings *set = &_list->set;
-	const char *path;
+	const char *path, *root_dir;
 
 	if (name == NULL) {
 		/* return root directories */
 		switch (type) {
 		case MAILBOX_LIST_PATH_TYPE_DIR:
 			return set->root_dir;
+		case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
+			return _list->set.alt_dir;
 		case MAILBOX_LIST_PATH_TYPE_MAILBOX:
 			path = t_strconcat(set->root_dir, "/",
+					   set->mailbox_dir_name, NULL);
+			return t_strndup(path, strlen(path)-1);
+		case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
+			path = t_strconcat(set->alt_dir, "/",
 					   set->mailbox_dir_name, NULL);
 			return t_strndup(path, strlen(path)-1);
 		case MAILBOX_LIST_PATH_TYPE_CONTROL:
@@ -168,13 +174,24 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	if (mailbox_list_try_get_absolute_path(_list, &name))
 		return name;
 
+	root_dir = set->root_dir;
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_DIR:
 		if (*set->maildir_name != '\0')
 			return t_strdup_printf("%s/%s%s", set->root_dir,
 					       set->mailbox_dir_name, name);
 		break;
+	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
+		if (*set->maildir_name != '\0')
+			return t_strdup_printf("%s/%s%s", set->alt_dir,
+					       set->mailbox_dir_name, name);
+		break;
 	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
+		break;
+	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
+		if (set->alt_dir == NULL)
+			return NULL;
+		root_dir = set->alt_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 		if (set->control_dir != NULL)
@@ -191,19 +208,23 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		break;
 	}
 
-	/* If INBOX is a file, index and control directories are located
-	   in root directory. */
-	if (strcmp(name, "INBOX") == 0 && set->inbox_path != NULL &&
-	    ((_list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0 ||
-	     type == MAILBOX_LIST_PATH_TYPE_MAILBOX ||
-	     type == MAILBOX_LIST_PATH_TYPE_DIR))
-		return set->inbox_path;
+	if (type == MAILBOX_LIST_PATH_TYPE_ALT_DIR ||
+	    type == MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX) {
+		/* don't use inbox_path */
+	} else if (strcmp(name, "INBOX") == 0 && set->inbox_path != NULL) {
+		/* If INBOX is a file, index and control directories are
+		   located in root directory. */
+		if ((_list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0 ||
+		    type == MAILBOX_LIST_PATH_TYPE_MAILBOX ||
+		    type == MAILBOX_LIST_PATH_TYPE_DIR)
+			return set->inbox_path;
+	}
 
 	if (*set->maildir_name == '\0') {
-		return t_strdup_printf("%s/%s%s", set->root_dir,
+		return t_strdup_printf("%s/%s%s", root_dir,
 				       set->mailbox_dir_name, name);
 	} else {
-		return t_strdup_printf("%s/%s%s/%s", set->root_dir,
+		return t_strdup_printf("%s/%s%s/%s", root_dir,
 				       set->mailbox_dir_name, name,
 				       set->maildir_name);
 	}
@@ -273,6 +294,61 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 			   "/", _list->set.subscription_fname, NULL);
 	return subsfile_set_subscribed(_list, path, list->temp_prefix,
 				       name, set);
+}
+
+static int
+fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
+			   bool directory)
+{
+	const char *path, *alt_path, *gid_origin, *p;
+	struct stat st;
+	mode_t mode;
+	gid_t gid;
+	bool create_parent_dir;
+
+	/* make sure the alt path doesn't exist yet. it shouldn't (except with
+	   race conditions with RENAME/DELETE), but if something crashed and
+	   left it lying around we don't want to start overwriting files in
+	   it. */
+	if (!directory) {
+		alt_path = mailbox_list_get_path(list, name,
+					MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+		if (alt_path != NULL && stat(alt_path, &st) == 0) {
+			mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
+					       "Mailbox already exists");
+			return -1;
+		}
+	}
+
+	path = mailbox_list_get_path(list, name,
+				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	create_parent_dir = !directory &&
+		(list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0;
+	if (create_parent_dir) {
+		/* we only need to make sure that the parent directory exists */
+		p = strrchr(path, '/');
+		if (p == NULL)
+			return 0;
+		path = t_strdup_until(path, p);
+	}
+
+	mailbox_list_get_dir_permissions(list, NULL, &mode,
+					 &gid, &gid_origin);
+	if (mkdir_parents_chgrp(path, mode, gid, gid_origin) == 0)
+		return 0;
+	else if (errno == EEXIST) {
+		if (create_parent_dir)
+			return 0;
+		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
+				       "Mailbox already exists");
+	} else if (errno == ENOTDIR) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			"Mailbox doesn't allow inferior mailboxes");
+	} else if (!mailbox_list_set_error_from_errno(list)) {
+		mailbox_list_set_critical(list, "mkdir(%s) failed: %m", path);
+	}
+	return -1;
 }
 
 static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
@@ -461,6 +537,7 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_iter_deinit,
 		NULL,
 		fs_list_set_subscribed,
+		fs_list_create_mailbox_dir,
 		fs_list_delete_mailbox,
 		fs_list_delete_dir,
 		fs_list_rename_mailbox,

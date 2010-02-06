@@ -48,25 +48,6 @@ cydir_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 		set->subscription_fname = CYDIR_SUBSCRIPTION_FILE_NAME;
 }
 
-static int create_cydir(struct mail_storage *storage, struct mailbox_list *list,
-			const char *path)
-{
-	const char *origin;
-	mode_t mode;
-	gid_t gid;
-
-	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid, &origin);
-	if (mkdir_parents_chgrp(path, mode, gid, origin) < 0 &&
-	    errno != EEXIST) {
-		if (!mail_storage_set_error_from_errno(storage)) {
-			mail_storage_set_critical(storage,
-				"mkdir(%s) failed: %m", path);
-		}
-		return -1;
-	}
-	return 0;
-}
-
 static struct mailbox *
 cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    const char *name, struct istream *input,
@@ -114,7 +95,8 @@ static int cydir_mailbox_open(struct mailbox *box)
 		/* exists, open it */
 	} else if (errno == ENOENT && strcmp(box->name, "INBOX") == 0) {
 		/* INBOX always exists, create it */
-		if (create_cydir(box->storage, box->list, box->path) < 0)
+		if (box->list->v.create_mailbox_dir(box->list,
+						    box->name, FALSE) < 0)
 			return -1;
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
@@ -136,21 +118,11 @@ static int
 cydir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		     bool directory)
 {
-	const char *path;
-	struct stat st;
+	if (directory &&
+	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
+		return 0;
 
-	path = mailbox_list_get_path(box->list, box->name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-		return -1;
-	}
-
-	if (create_cydir(box->storage, box->list, path) < 0)
-		return -1;
-
-	return directory || update == NULL ? 0 :
+	return update == NULL ? 0 :
 		index_storage_mailbox_update(box, update);
 }
 
