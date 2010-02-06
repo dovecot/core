@@ -22,9 +22,8 @@ quota_dist_sources = \
         quota-plugin.c \
 	quota-storage.c
 
-lib10_quota_plugin_la_SOURCES = \
-	$(quota_dist_sources) \
-	$(RQUOTA_XDR)
+lib10_quota_plugin_la_SOURCES = $(quota_dist_sources)
+nodist_lib10_quota_plugin_la_SOURCES = $(RQUOTA_XDR)
 
 if HAVE_RQUOTA
 RQUOTA_XDR = rquota_xdr.c
@@ -56,8 +55,6 @@ noinst_HEADERS = \
 	quota-private.h
 
 EXTRA_DIST = rquota.x
-
-DISTFILES = $(DIST_COMMON) $(quota_dist_sources) $(TEXINFOS) $(EXTRA_DIST)
 
 clean-generic:
 	if [ "$(top_srcdir)" != "$(top_builddir)" ]; then \

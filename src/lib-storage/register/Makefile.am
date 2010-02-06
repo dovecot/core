@@ -1,6 +1,5 @@
 noinst_LTLIBRARIES = libstorage_register.la
 
-BUILT_SOURCES = mail-storage-register.c
 mail_storages = @mail_storages@
 
 mailbox_list_drivers = maildir imapdir fs shared
@@ -40,11 +39,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage
 
-libstorage_register_la_SOURCES = \
+nodist_libstorage_register_la_SOURCES = \
 	mail-storage-register.c \
 	mailbox-list-register.c
-
-DISTFILES = $(DIST_COMMON) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 distclean-generic:
 	rm -f Makefile mail-storage-register.c mailbox-list-register.c

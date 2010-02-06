@@ -43,8 +43,8 @@ endif
 
 libsql_la_SOURCES = \
 	$(dist_sources) \
-	$(driver_sources) \
-	sql-drivers-register.c
+	$(driver_sources)
+nodist_libsql_la_SOURCES = sql-drivers-register.c
 
 if SQL_PLUGINS
 libdriver_mysql_la_LDFLAGS = -module -avoid-version

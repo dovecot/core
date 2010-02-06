@@ -15,16 +15,15 @@ base_sources = \
 	dict-client.c \
 	dict-file.c
 
-backend_sources = \
-	dict-db.c \
-	dict-sql.c \
-	dict-sql-settings.c
-
 libdict_la_SOURCES = \
 	$(base_sources)
 
 libdict_backend_a_SOURCES = \
-	$(backend_sources) \
+	dict-db.c \
+	dict-sql.c \
+	dict-sql-settings.c
+
+nodist_libdict_backend_a_SOURCES = \
 	dict-drivers-register.c
 
 headers = \
@@ -68,8 +67,6 @@ dict-drivers-register.c: Makefile $(top_builddir)/config.h
 	  fi; \
 	done
 	echo '}' >>$@
-
-DISTFILES = $(DIST_COMMON) $(base_sources) $(backend_sources) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 distclean-generic:
 	rm -f Makefile dict-drivers-register.c
