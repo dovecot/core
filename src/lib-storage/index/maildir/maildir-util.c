@@ -43,7 +43,7 @@ maildir_filename_guess(struct maildir_mailbox *mbox, uint32_t uid,
 	} else {
 		*have_flags_r = TRUE;
 		kw_ctx = maildir_keywords_sync_init_readonly(mbox->keywords,
-							     mbox->ibox.index);
+							     mbox->ibox.box.index);
 		fname = maildir_filename_set_flags(kw_ctx, fname,
 						   flags, &keywords);
 		maildir_keywords_sync_deinit(&kw_ctx);

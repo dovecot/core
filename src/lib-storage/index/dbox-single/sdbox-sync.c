@@ -148,14 +148,14 @@ static int sdbox_refresh_header(struct sdbox_mailbox *mbox, bool retry)
 	struct sdbox_index_header hdr;
 	int ret;
 
-	view = mail_index_view_open(mbox->ibox.index);
+	view = mail_index_view_open(mbox->ibox.box.index);
 	ret = sdbox_read_header(mbox, &hdr);
 	mail_index_view_close(&view);
 
 	if (ret == 0) {
 		ret = mbox->sync_rebuild ? -1 : 0;
 	} else if (retry) {
-		(void)mail_index_refresh(mbox->ibox.index);
+		(void)mail_index_refresh(mbox->ibox.box.index);
 		return sdbox_refresh_header(mbox, FALSE);
 	}
 	return ret;
@@ -188,13 +188,13 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
 
 	for (i = 0;; i++) {
-		ret = mail_index_sync_begin(mbox->ibox.index,
+		ret = mail_index_sync_begin(mbox->ibox.box.index,
 					    &ctx->index_sync_ctx,
 					    &ctx->sync_view, &ctx->trans,
 					    sync_flags);
 		if (ret <= 0) {
 			if (ret < 0)
-				mail_storage_set_index_error(&mbox->ibox);
+				mail_storage_set_index_error(&mbox->ibox.box);
 			i_free(ctx);
 			*ctx_r = NULL;
 			return ret;
@@ -243,7 +243,7 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox);
+			mail_storage_set_index_error(&ctx->mbox->ibox.box);
 			ret = -1;
 		}
 	} else {

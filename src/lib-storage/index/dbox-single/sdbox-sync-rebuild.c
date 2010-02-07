@@ -162,7 +162,7 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox)
 	struct mail_index_transaction *trans;
 	int ret;
 
-	view = mail_index_view_open(mbox->ibox.index);
+	view = mail_index_view_open(mbox->ibox.box.index);
 	trans = mail_index_transaction_begin(view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 

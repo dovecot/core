@@ -39,11 +39,6 @@ struct index_mailbox {
 				 struct mail_index_transaction_commit_result *result_r);
 	void (*save_rollback)(struct mail_save_context *save_ctx);
 
-	struct mail_index *index;
-	struct mail_index_view *view;
-	struct mail_cache *cache;
-	struct mail_vfuncs *mail_vfuncs;
-
 	struct timeout *notify_to, *notify_delay_to;
 	struct index_notify_file *notify_files;
         struct index_notify_io *notify_ios;
@@ -65,8 +60,6 @@ struct index_mailbox {
 	unsigned int backend_readonly:1;
 	unsigned int move_to_memory:1;
 };
-
-void mail_storage_set_index_error(struct index_mailbox *ibox);
 
 void index_storage_lock_notify(struct index_mailbox *ibox,
 			       enum mailbox_lock_notify_type notify_type,

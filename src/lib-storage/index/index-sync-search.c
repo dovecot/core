@@ -27,7 +27,7 @@ static void index_sync_uidify_array(struct index_mailbox_sync_context *ctx,
 
 	array_foreach(changes, range) {
 		for (seq = range->seq1; seq <= range->seq2; seq++) {
-			mail_index_lookup_uid(ctx->ibox->view, seq, &uid);
+			mail_index_lookup_uid(ctx->ibox->box.view, seq, &uid);
 			seq_range_array_add(&ctx->all_flag_update_uids, 0, uid);
 		}
 	}

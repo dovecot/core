@@ -95,11 +95,11 @@ static void test_index_storage_get_expunges(void)
 	uint64_t modseq;
 
 	ibox = t_new(struct index_mailbox, 1);
-	ibox->index = t_new(struct mail_index, 1);
-	ibox->view = t_new(struct mail_index_view, 1);
+	ibox->box.index = t_new(struct mail_index, 1);
+	ibox->box.view = t_new(struct mail_index_view, 1);
 
-	ibox->view->log_file_head_seq = 101;
-	ibox->view->log_file_head_offset = 1024;
+	ibox->box.view->log_file_head_seq = 101;
+	ibox->box.view->log_file_head_offset = 1024;
 
 	test_begin("index storage get expunges");
 

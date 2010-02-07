@@ -177,8 +177,8 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 	/* one reason this could happen is if we delayed opening
 	   dovecot-uidlist and we're trying to open a mail that got recently
 	   expunged. Let's test this theory first: */
-	(void)mail_index_refresh(mbox->ibox.index);
-	view = mail_index_view_open(mbox->ibox.index);
+	(void)mail_index_refresh(mbox->ibox.box.index);
+	view = mail_index_view_open(mbox->ibox.box.index);
 	exists = mail_index_lookup_seq(view, mail->uid, &seq);
 	mail_index_view_close(&view);
 
@@ -216,13 +216,13 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 	psize_idx = mail->ibox->cache_fields[MAIL_CACHE_PHYSICAL_FULL_SIZE].idx;
 	vsize_idx = mail->ibox->cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx;
 	if (not_pop3_only) {
-		vsize_dec = mail_cache_field_get_decision(mail->ibox->cache,
+		vsize_dec = mail_cache_field_get_decision(mail->ibox->box.cache,
 							  vsize_idx);
 		vsize_dec &= ~MAIL_CACHE_DECISION_FORCED;
 	} else {
 		/* also check if there are any non-[pv]size cached fields */
 		vsize_dec = MAIL_CACHE_DECISION_NO;
-		fields = mail_cache_register_get_list(mail->ibox->cache,
+		fields = mail_cache_register_get_list(mail->ibox->box.cache,
 						      pool_datastack_create(),
 						      &count);
 		for (i = 0; i < count; i++) {
@@ -313,14 +313,14 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 		   including to the uidlist if it's already in filename.
 		   do some extra checks here to catch potential cache bugs. */
 		if (vsize && mail->data.virtual_size != size) {
-			mail_cache_set_corrupted(mail->ibox->cache,
+			mail_cache_set_corrupted(mail->ibox->box.cache,
 				"Corrupted virtual size for uid=%u: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
 				mail->mail.mail.uid,
 				mail->data.virtual_size, size);
 			mail->data.virtual_size = size;
 		} else if (!vsize && mail->data.physical_size != size) {
-			mail_cache_set_corrupted(mail->ibox->cache,
+			mail_cache_set_corrupted(mail->ibox->box.cache,
 				"Corrupted physical size for uid=%u: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
 				mail->mail.mail.uid,

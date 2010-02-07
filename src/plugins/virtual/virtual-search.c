@@ -82,7 +82,7 @@ static void virtual_search_get_records(struct mail_search_context *ctx,
 			seq_range_array_add(&vctx->result, 0, ctx->seq);
 		} else {
 			/* possible match, save and check later */
-			mail_index_lookup_ext(mbox->ibox.view, ctx->seq,
+			mail_index_lookup_ext(mbox->ibox.box.view, ctx->seq,
 					      mbox->virtual_ext_id,
 					      &data, &expunged);
 			vrec = data;

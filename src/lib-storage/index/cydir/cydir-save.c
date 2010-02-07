@@ -85,7 +85,7 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	enum mail_flags save_flags;
 	struct istream *crlf_input;
 
-	if (mail_index_is_deleted(ctx->mbox->ibox.index)) {
+	if (mail_index_is_deleted(trans->box->index)) {
 		mailbox_set_deleted(trans->box);
 		return -1;
 	}

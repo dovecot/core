@@ -420,11 +420,11 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	}
 	mbox = (struct mdbox_mailbox *)box;
 
-	ret = mail_index_sync_begin(mbox->ibox.index, &sync_ctx, &view, &trans,
+	ret = mail_index_sync_begin(box->index, &sync_ctx, &view, &trans,
 				    MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES);
 	if (ret <= 0) {
 		i_assert(ret != 0);
-		mail_storage_set_index_error(&mbox->ibox);
+		mail_storage_set_index_error(box);
 		mailbox_close(&box);
 		return -1;
 	}
@@ -434,7 +434,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	dbox_sync_index_rebuild_deinit(&rebuild_ctx);
 
 	if (mail_index_sync_commit(&sync_ctx) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
+		mail_storage_set_index_error(box);
 		ret = -1;
 	}
 
@@ -580,13 +580,13 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 			return -1;
 	}
 	if (ctx->prev_msg.box == NULL) {
-		ret = mail_index_sync_begin(mbox->ibox.index,
+		ret = mail_index_sync_begin(box->index,
 					    &ctx->prev_msg.sync_ctx,
 					    &ctx->prev_msg.view,
 					    &ctx->prev_msg.trans, 0);
 		if (ret <= 0) {
 			i_assert(ret != 0);
-			mail_storage_set_index_error(&mbox->ibox);
+			mail_storage_set_index_error(box);
 			mailbox_close(&box);
 			return -1;
 		}

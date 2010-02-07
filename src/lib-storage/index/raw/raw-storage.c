@@ -50,7 +50,7 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = storage;
 	mbox->ibox.box.list = list;
-	mbox->ibox.mail_vfuncs = &raw_mail_vfuncs;
+	mbox->ibox.box.mail_vfuncs = &raw_mail_vfuncs;
 
 	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags, NULL);
 

@@ -381,6 +381,15 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	}
 }
 
+void mail_storage_set_index_error(struct mailbox *box)
+{
+	if (mail_index_is_deleted(box->index))
+		mailbox_set_deleted(box);
+	else
+		mail_storage_set_internal_error(box->storage);
+	mail_index_reset_error(box->index);
+}
+
 const struct mail_storage_settings *
 mail_storage_get_settings(struct mail_storage *storage)
 {

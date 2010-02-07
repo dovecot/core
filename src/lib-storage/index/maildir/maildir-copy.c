@@ -170,7 +170,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 		return 0;
 	}
 
-	if (mail_index_is_deleted(dest_mbox->ibox.index)) {
+	if (mail_index_is_deleted(dest_mbox->ibox.box.index)) {
 		mailbox_set_deleted(&dest_mbox->ibox.box);
 		return -1;
 	}

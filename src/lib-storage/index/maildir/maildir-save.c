@@ -305,7 +305,7 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	string_t *path;
 	int fd;
 
-	if (mail_index_is_deleted(mbox->ibox.index)) {
+	if (mail_index_is_deleted(mbox->ibox.box.index)) {
 		mailbox_set_deleted(box);
 		return -1;
 	}
@@ -957,7 +957,7 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	if (ret < 0) {
 		ctx->keywords_sync_ctx = !ctx->have_keywords ? NULL :
 			maildir_keywords_sync_init(ctx->mbox->keywords,
-						   ctx->mbox->ibox.index);
+						   ctx->mbox->ibox.box.index);
 
 		/* unlink the files we just moved in an attempt to rollback
 		   the transaction. uidlist is still locked, so at least other

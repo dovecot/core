@@ -116,7 +116,7 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = storage;
 	mbox->ibox.box.list = list;
-	mbox->ibox.mail_vfuncs = &mdbox_mail_vfuncs;
+	mbox->ibox.box.mail_vfuncs = &mdbox_mail_vfuncs;
 
 	mbox->ibox.save_commit_pre = mdbox_transaction_save_commit_pre;
 	mbox->ibox.save_commit_post = mdbox_transaction_save_commit_post;
@@ -124,7 +124,7 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
 				    DBOX_INDEX_PREFIX);
-	mail_index_set_fsync_types(mbox->ibox.index,
+	mail_index_set_fsync_types(mbox->ibox.box.index,
 				   MAIL_INDEX_SYNC_TYPE_APPEND |
 				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
@@ -133,14 +133,14 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	mbox->storage = (struct mdbox_storage *)storage;
 	mbox->ext_id =
-		mail_index_ext_register(mbox->ibox.index, "mdbox", 0,
+		mail_index_ext_register(mbox->ibox.box.index, "mdbox", 0,
 					sizeof(struct mdbox_mail_index_record),
 					sizeof(uint32_t));
 	mbox->hdr_ext_id =
-		mail_index_ext_register(mbox->ibox.index, "mdbox-hdr",
+		mail_index_ext_register(mbox->ibox.box.index, "mdbox-hdr",
 					sizeof(struct mdbox_index_header), 0, 0);
 	mbox->guid_ext_id =
-		mail_index_ext_register(mbox->ibox.index, "guid",
+		mail_index_ext_register(mbox->ibox.box.index, "guid",
 					0, MAIL_GUID_128_SIZE, 1);
 	return &mbox->ibox.box;
 }
@@ -151,7 +151,7 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 	const void *data;
 	size_t data_size;
 
-	mail_index_get_header_ext(mbox->ibox.view, mbox->hdr_ext_id,
+	mail_index_get_header_ext(mbox->ibox.box.view, mbox->hdr_ext_id,
 				  &data, &data_size);
 	if (data_size < MDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
@@ -202,8 +202,8 @@ static int mdbox_write_index_header(struct mailbox *box,
 	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
 		return -1;
 
-	hdr = mail_index_get_header(mbox->ibox.view);
-	trans = mail_index_transaction_begin(mbox->ibox.view, 0);
+	hdr = mail_index_get_header(box->view);
+	trans = mail_index_transaction_begin(box->view, 0);
 	mdbox_update_header(mbox, trans, update);
 
 	uid_validity = hdr->uid_validity;
@@ -226,7 +226,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 			&uid_next, sizeof(uid_next), TRUE);
 	}
 	if (update != NULL && update->min_highest_modseq != 0 &&
-	    mail_index_modseq_get_highest(mbox->ibox.view) <
+	    mail_index_modseq_get_highest(box->view) <
 	    					update->min_highest_modseq) {
 		mail_index_update_highest_modseq(trans,
 						 update->min_highest_modseq);
@@ -234,7 +234,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 
 	if (mail_index_transaction_commit(&trans) < 0) {
 		mail_storage_set_internal_error(box->storage);
-		mail_index_reset_error(mbox->ibox.index);
+		mail_index_reset_error(box->index);
 		return -1;
 	}
 	return 0;
@@ -326,9 +326,9 @@ mdbox_mailbox_unref_mails(struct mailbox_list *list, const char *path)
 
 	/* get a list of all map_uids in this mailbox */
 	i_array_init(&map_uids, 128);
-	hdr = mail_index_get_header(mbox->ibox.view);
+	hdr = mail_index_get_header(box->view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		mail_index_lookup_ext(mbox->ibox.view, seq, mbox->ext_id,
+		mail_index_lookup_ext(box->view, seq, mbox->ext_id,
 				      &data, &expunged);
 		dbox_rec = data;
 		if (dbox_rec == NULL) {

@@ -108,7 +108,7 @@ static void index_cache_register_defaults(struct index_mailbox *ibox)
 {
 	const struct mail_storage_settings *set = ibox->box.storage->set;
 	static bool initialized = FALSE;
-	struct mail_cache *cache = ibox->cache;
+	struct mail_cache *cache = ibox->box.cache;
 
 	if (!initialized) {
 		initialized = TRUE;
@@ -198,7 +198,7 @@ int index_storage_mailbox_open(struct mailbox *box)
 		ibox->index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
 
 	if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
-		if (mail_index_is_in_memory(ibox->index)) {
+		if (mail_index_is_in_memory(box->index)) {
 			mail_storage_set_critical(box->storage,
 				"Couldn't create index file");
 			return -1;
@@ -210,30 +210,30 @@ int index_storage_mailbox_open(struct mailbox *box)
 		return -1;
 	}
 
-	ret = mail_index_open(ibox->index, index_flags, lock_method);
+	ret = mail_index_open(box->index, index_flags, lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {
 		if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
-			mail_storage_set_index_error(ibox);
+			mail_storage_set_index_error(box);
 			return -1;
 		}
 
-		if (mail_index_move_to_memory(ibox->index) < 0) {
+		if (mail_index_move_to_memory(box->index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
-			if (mail_index_open_or_create(ibox->index,
+			if (mail_index_open_or_create(box->index,
 						      index_flags,
 						      lock_method) < 0)
 				i_panic("in-memory index creation failed");
 		}
 	}
 
-	ibox->cache = mail_index_get_cache(ibox->index);
+	box->cache = mail_index_get_cache(box->index);
 	index_cache_register_defaults(ibox);
-	ibox->view = mail_index_view_open(ibox->index);
-	ibox->keyword_names = mail_index_get_keywords(ibox->index);
+	box->view = mail_index_view_open(box->index);
+	ibox->keyword_names = mail_index_get_keywords(box->index);
 
-	MODULE_CONTEXT_SET_FULL(ibox->view, mail_storage_mail_index_module,
-				ibox, &ibox->view_module_ctx);
+	MODULE_CONTEXT_SET_FULL(box->view, mail_storage_mail_index_module,
+				box, &ibox->view_module_ctx);
 
 	box->opened = TRUE;
 
@@ -241,7 +241,7 @@ int index_storage_mailbox_open(struct mailbox *box)
 	if (hook_mailbox_opened != NULL)
 		hook_mailbox_opened(box);
 
-	if (mail_index_is_deleted(ibox->index)) {
+	if (mail_index_is_deleted(box->index)) {
 		mailbox_set_deleted(box);
 		return -1;
 	}
@@ -287,11 +287,11 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 		mail_storage_settings_to_index_flags(box->storage->set);
 
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
-	ibox->index = index_storage_alloc(box->list, name, flags, index_prefix);
+	box->index = index_storage_alloc(box->list, name, flags, index_prefix);
 
 	if (box->file_create_mode == 0)
 		mailbox_refresh_permissions(box);
-	mail_index_set_permissions(ibox->index, box->file_create_mode,
+	mail_index_set_permissions(box->index, box->file_create_mode,
 				   box->file_create_gid,
 				   box->file_create_gid_origin);
 }
@@ -299,8 +299,6 @@ void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 int index_storage_mailbox_enable(struct mailbox *box,
 				 enum mailbox_feature feature)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
-
 	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0) {
 		box->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
 		if (!box->opened) {
@@ -308,7 +306,7 @@ int index_storage_mailbox_enable(struct mailbox *box,
 				return -1;
 		}
 		T_BEGIN {
-			mail_index_modseq_enable(ibox->index);
+			mail_index_modseq_enable(box->index);
 		} T_END;
 	}
 	return 0;
@@ -318,14 +316,14 @@ void index_storage_mailbox_close(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	if (ibox->view != NULL)
-		mail_index_view_close(&ibox->view);
+	if (box->view != NULL)
+		mail_index_view_close(&box->view);
 
 	index_mailbox_check_remove_all(ibox);
 	if (ibox->box.input != NULL)
 		i_stream_unref(&ibox->box.input);
-	if (ibox->index != NULL)
-		mail_index_alloc_cache_unref(ibox->index);
+	if (box->index != NULL)
+		mail_index_alloc_cache_unref(box->index);
 	if (array_is_created(&ibox->recent_flags))
 		array_free(&ibox->recent_flags);
 	i_free(ibox->cache_fields);
@@ -343,7 +341,7 @@ index_storage_mailbox_update_cache_fields(struct index_mailbox *ibox,
 	struct mail_cache_field field;
 	unsigned int i, j, old_count;
 
-	old_fields = mail_cache_register_get_list(ibox->cache,
+	old_fields = mail_cache_register_get_list(ibox->box.cache,
 						  pool_datastack_create(),
 						  &old_count);
 
@@ -373,7 +371,7 @@ index_storage_mailbox_update_cache_fields(struct index_mailbox *ibox,
 		}
 	}
 	if (array_count(&new_fields) > 0) {
-		mail_cache_register_fields(ibox->cache,
+		mail_cache_register_fields(ibox->box.cache,
 					   array_idx_modifiable(&new_fields, 0),
 					   array_count(&new_fields));
 	}
@@ -396,8 +394,8 @@ int index_storage_mailbox_update(struct mailbox *box,
 		index_storage_mailbox_update_cache_fields(ibox, update);
 
 	/* make sure we get the latest index info */
-	(void)mail_index_refresh(ibox->index);
-	view = mail_index_view_open(ibox->index);
+	(void)mail_index_refresh(ibox->box.index);
+	view = mail_index_view_open(ibox->box.index);
 	hdr = mail_index_get_header(view);
 
 	trans = mail_index_transaction_begin(view,
@@ -446,18 +444,7 @@ bool index_storage_allow_new_keywords(struct mailbox *box)
 
 bool index_storage_is_inconsistent(struct mailbox *box)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *) box;
-
-	return mail_index_view_is_inconsistent(ibox->view);
-}
-
-void mail_storage_set_index_error(struct index_mailbox *ibox)
-{
-	if (mail_index_is_deleted(ibox->index))
-		mailbox_set_deleted(&ibox->box);
-	else
-		mail_storage_set_internal_error(ibox->box.storage);
-	mail_index_reset_error(ibox->index);
+	return mail_index_view_is_inconsistent(box->view);
 }
 
 bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
@@ -467,7 +454,7 @@ bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
 	unsigned int i, idx;
 
 	/* if it already exists, skip validity checks */
-	if (mail_index_keyword_lookup(ibox->index, keyword, &idx))
+	if (mail_index_keyword_lookup(box->index, keyword, &idx))
 		return TRUE;
 
 	if (*keyword == '\0') {
@@ -507,7 +494,7 @@ index_keywords_create_skip(struct index_mailbox *ibox,
 			array_append(&valid_keywords, keywords, 1);
 	}
 	(void)array_append_space(&valid_keywords); /* NULL-terminate */
-	return mail_index_keywords_create(ibox->index, keywords);
+	return mail_index_keywords_create(ibox->box.index, keywords);
 }
 
 int index_keywords_create(struct mailbox *_box, const char *const keywords[],
@@ -535,7 +522,7 @@ int index_keywords_create(struct mailbox *_box, const char *const keywords[],
 		return 0;
 	}
 
-	*keywords_r = mail_index_keywords_create(ibox->index, keywords);
+	*keywords_r = mail_index_keywords_create(ibox->box.index, keywords);
 	return 0;
 }
 
@@ -543,9 +530,7 @@ struct mail_keywords *
 index_keywords_create_from_indexes(struct mailbox *_box,
 				   const ARRAY_TYPE(keyword_indexes) *idx)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)_box;
-
-	return mail_index_keywords_create_from_indexes(ibox->index, idx);
+	return mail_index_keywords_create_from_indexes(_box->index, idx);
 }
 
 void index_keywords_ref(struct mail_keywords *keywords)

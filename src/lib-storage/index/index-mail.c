@@ -69,7 +69,7 @@ static struct message_part *get_unserialized_parts(struct index_mail *mail)
 	parts = message_part_deserialize(mail->data_pool, part_buf->data,
 					 part_buf->used, &error);
 	if (parts == NULL) {
-		mail_cache_set_corrupted(mail->ibox->cache,
+		mail_cache_set_corrupted(mail->ibox->box.cache,
 			"Corrupted cached message_part data (%s)", error);
 	}
 	return parts;
@@ -147,7 +147,7 @@ uint64_t index_mail_get_modseq(struct mail *_mail)
 	if (mail->data.modseq != 0)
 		return mail->data.modseq;
 
-	mail_index_modseq_enable(mail->ibox->index);
+	mail_index_modseq_enable(_mail->box->index);
 	mail->data.modseq =
 		mail_index_modseq_lookup(mail->trans->trans_view, _mail->seq);
 	return mail->data.modseq;
@@ -429,7 +429,7 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 	if (set->mail_cache_min_mail_count > 0) {
 		/* First check if we've configured caching not to be used with
 		   low enough message count. */
-		hdr = mail_index_get_header(mail->ibox->view);
+		hdr = mail_index_get_header(mail->ibox->box.view);
 		if (hdr->messages_count < set->mail_cache_min_mail_count)
 			return;
 	}
@@ -527,7 +527,7 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 		return;
 	}
 
-	decision = mail_cache_field_get_decision(mail->ibox->cache,
+	decision = mail_cache_field_get_decision(mail->ibox->box.cache,
 						 cache_field);
 	if (decision == (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED)) {
 		/* we never want it cached */
@@ -611,7 +611,7 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 
 	/* normally don't cache both BODY and BODYSTRUCTURE, but do it
 	   if BODY is forced to be cached */
-	dec = mail_cache_field_get_decision(mail->ibox->cache,
+	dec = mail_cache_field_get_decision(mail->ibox->box.cache,
 					    cache_field_body);
 	if (plain_bodystructure ||
 	    (bodystructure_cached &&
@@ -1090,13 +1090,13 @@ void index_mail_init(struct index_mail *mail,
 	array_create(&mail->mail.module_contexts, mail->mail.pool,
 		     sizeof(void *), 5);
 
-	mail->mail.v = *ibox->mail_vfuncs;
+	mail->mail.v = *ibox->box.mail_vfuncs;
 	mail->mail.mail.box = &ibox->box;
 	mail->mail.mail.transaction = &t->mailbox_ctx;
 	mail->mail.wanted_fields = wanted_fields;
 	mail->mail.wanted_headers = _wanted_headers;
 
-	hdr = mail_index_get_header(ibox->view);
+	hdr = mail_index_get_header(ibox->box.view);
 	mail->uid_validity = hdr->uid_validity;
 
 	t->mail_ref_count++;
@@ -1183,7 +1183,7 @@ static void check_envelope(struct index_mail *mail)
 	/* don't waste time doing full checks for all required
 	   headers. assume that if we have "hdr.message-id" cached,
 	   we don't need to parse the header. */
-	cache_field_hdr = mail_cache_register_lookup(mail->ibox->cache,
+	cache_field_hdr = mail_cache_register_lookup(mail->ibox->box.cache,
 						     "hdr.message-id");
 	if (cache_field_hdr == (unsigned int)-1 ||
 	    mail_cache_field_exists(mail->trans->cache_view,
@@ -1307,7 +1307,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 
 		/* open the stream only if we didn't get here from
 		   mailbox_save_init() */
-		hdr = mail_index_get_header(mail->ibox->view);
+		hdr = mail_index_get_header(mail->ibox->box.view);
 		if (_mail->uid != 0 && _mail->uid < hdr->next_uid)
 			(void)mail_get_stream(_mail, NULL, NULL, &input);
 	}
@@ -1318,7 +1318,7 @@ bool index_mail_set_uid(struct mail *_mail, uint32_t uid)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	uint32_t seq;
 
-	if (mail_index_lookup_seq(mail->ibox->view, uid, &seq)) {
+	if (mail_index_lookup_seq(_mail->box->view, uid, &seq)) {
 		index_mail_set_seq(_mail, seq);
 		return TRUE;
 	} else {
@@ -1528,7 +1528,7 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	mail_cache_transaction_reset(imail->trans->cache_trans);
 	imail->data.no_caching = TRUE;
 	imail->data.forced_no_caching = TRUE;
-	mail_cache_set_corrupted(imail->ibox->cache,
+	mail_cache_set_corrupted(mail->box->cache,
 				 "Broken %s for mail UID %u",
 				 field_name, mail->uid);
 }

@@ -99,7 +99,7 @@ dbox_sync_index_rebuild_init(struct index_mailbox *ibox,
 	ctx->trans = trans;
 	mail_index_reset(ctx->trans);
 	index_mailbox_reset_uidvalidity(ibox);
-	mail_index_ext_lookup(ibox->index, "cache", &ctx->cache_ext_id);
+	mail_index_ext_lookup(box->index, "cache", &ctx->cache_ext_id);
 
 	/* if backup index file exists, try to use it */
 	index_dir = mailbox_list_get_path(box->list, box->name,

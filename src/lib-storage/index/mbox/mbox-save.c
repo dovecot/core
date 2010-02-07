@@ -179,8 +179,8 @@ static void mbox_save_init_sync(struct mailbox_transaction_context *t)
 
 	/* open a new view to get the header. this is required if we just
 	   synced the mailbox so we can get updated next_uid. */
-	(void)mail_index_refresh(mbox->ibox.index);
-	view = mail_index_view_open(mbox->ibox.index);
+	(void)mail_index_refresh(mbox->ibox.box.index);
+	view = mail_index_view_open(mbox->ibox.box.index);
 	hdr = mail_index_get_header(view);
 
 	ctx->next_uid = hdr->next_uid;
@@ -227,7 +227,7 @@ mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 	const char *const *keyword_names;
 	unsigned int i, count, keyword_names_count;
 
-	keyword_names_list = mail_index_get_keywords(ctx->mbox->ibox.index);
+	keyword_names_list = mail_index_get_keywords(ctx->mbox->ibox.box.index);
 	keyword_names = array_get(keyword_names_list, &keyword_names_count);
 
 	str_append(ctx->headers, "X-Keywords:");
@@ -261,7 +261,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		return -1;
 	}
 
-	if (mail_index_is_deleted(mbox->ibox.index)) {
+	if (mail_index_is_deleted(mbox->ibox.box.index)) {
 		mailbox_set_deleted(&mbox->ibox.box);
 		return -1;
 	}

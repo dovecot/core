@@ -78,7 +78,7 @@ int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	struct dbox_file *file;
 	int ret;
 
-	if (mail_index_is_deleted(ctx->mbox->ibox.index)) {
+	if (mail_index_is_deleted(_ctx->transaction->box->index)) {
 		mailbox_set_deleted(_ctx->transaction->box);
 		return -1;
 	}

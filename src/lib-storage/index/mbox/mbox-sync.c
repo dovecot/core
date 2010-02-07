@@ -295,13 +295,14 @@ mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
 static void
 mbox_sync_update_index_keywords(struct mbox_sync_mail_context *mail_ctx)
 {
-        struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
+	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
+	struct mail_index *index = sync_ctx->mbox->ibox.box.index;
 	struct mail_keywords *keywords;
 
 	keywords = !array_is_created(&mail_ctx->mail.keywords) ?
-		mail_index_keywords_create(sync_ctx->mbox->ibox.index, NULL) :
-		mail_index_keywords_create_from_indexes(
-			sync_ctx->mbox->ibox.index, &mail_ctx->mail.keywords);
+		mail_index_keywords_create(index, NULL) :
+		mail_index_keywords_create_from_indexes(index,
+			&mail_ctx->mail.keywords);
 	mail_index_update_keywords(sync_ctx->t, sync_ctx->idx_seq,
 				   MODIFY_REPLACE, keywords);
 	mail_index_keywords_unref(&keywords);
@@ -1389,7 +1390,7 @@ mbox_sync_index_update_ext_header(struct mbox_sync_context *sync_ctx)
 		mail_generate_guid_128(mbox->mbox_hdr.mailbox_guid);
 	}
 
-	mail_index_get_header_ext(mbox->ibox.view, mbox->mbox_ext_idx,
+	mail_index_get_header_ext(mbox->ibox.box.view, mbox->mbox_ext_idx,
 				  &data, &data_size);
 	if (data_size != sizeof(mbox->mbox_hdr) ||
 	    memcmp(data, &mbox->mbox_hdr, data_size) != 0) {
@@ -1630,16 +1631,16 @@ int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
 	const void *data;
 	size_t data_size;
 
-	if (mail_index_refresh(mbox->ibox.index) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
+	if (mail_index_refresh(mbox->ibox.box.index) < 0) {
+		mail_storage_set_index_error(&mbox->ibox.box);
 		return -1;
 	}
 
-	mail_index_get_header_ext(mbox->ibox.view, mbox->mbox_ext_idx,
+	mail_index_get_header_ext(mbox->ibox.box.view, mbox->mbox_ext_idx,
 				  &data, &data_size);
 	if (data_size == 0) {
 		/* doesn't exist. FIXME: backwards compatibility copying */
-		hdr = mail_index_get_header(mbox->ibox.view);
+		hdr = mail_index_get_header(mbox->ibox.box.view);
 		mbox->mbox_hdr.sync_mtime = hdr->sync_stamp;
 		mbox->mbox_hdr.sync_size = hdr->sync_size;
 		return 0;
@@ -1797,11 +1798,11 @@ again:
 	if ((flags & MBOX_SYNC_REWRITE) != 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
 
-	ret = mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
+	ret = mail_index_sync_begin(mbox->ibox.box.index, &index_sync_ctx,
 				    &sync_view, &trans, sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox);
+			mail_storage_set_index_error(&mbox->ibox.box);
 		return ret;
 	}
 
@@ -1818,7 +1819,7 @@ again:
 		/* index may need to do internal syncing though, so commit
 		   instead of rollbacking. */
 		if (mail_index_sync_commit(&index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
+			mail_storage_set_index_error(&mbox->ibox.box);
 			return -1;
 		}
 		return 0;
@@ -1842,7 +1843,7 @@ again:
 		pool_alloconly_create("mbox saved keywords", 4096);
 
 	/* make sure we've read the latest keywords in index */
-	(void)mail_index_get_keywords(mbox->ibox.index);
+	(void)mail_index_get_keywords(mbox->ibox.box.index);
 
 	i_array_init(&sync_ctx.mails, 64);
 
@@ -1894,7 +1895,7 @@ again:
 	if (ret < 0)
 		mail_index_sync_rollback(&index_sync_ctx);
 	else if (mail_index_sync_commit(&index_sync_ctx) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
+		mail_storage_set_index_error(&mbox->ibox.box);
 		ret = -1;
 	}
 	sync_ctx.t = NULL;

@@ -337,7 +337,7 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = storage;
 	mbox->ibox.box.list = list;
-	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
+	mbox->ibox.box.mail_vfuncs = &maildir_mail_vfuncs;
 
 	mbox->ibox.save_commit_pre = maildir_transaction_save_commit_pre;
 	mbox->ibox.save_commit_post = maildir_transaction_save_commit_post;
@@ -348,7 +348,7 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	mbox->storage = (struct maildir_storage *)storage;
 	mbox->maildir_ext_id =
-		mail_index_ext_register(mbox->ibox.index, "maildir",
+		mail_index_ext_register(mbox->ibox.box.index, "maildir",
 					sizeof(mbox->maildir_hdr), 0, 0);
 	mbox->uidlist = maildir_uidlist_init(mbox);
 	mbox->keywords = maildir_keywords_init(mbox);

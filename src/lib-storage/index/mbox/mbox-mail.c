@@ -65,8 +65,8 @@ static int mbox_mail_seek(struct index_mail *mail)
 
 			/* refresh index file after mbox has been locked to
 			   make sure we get only up-to-date mbox offsets. */
-			if (mail_index_refresh(mbox->ibox.index) < 0) {
-				mail_storage_set_index_error(&mbox->ibox);
+			if (mail_index_refresh(mbox->ibox.box.index) < 0) {
+				mail_storage_set_index_error(&mbox->ibox.box);
 				return -1;
 			}
 
@@ -232,7 +232,7 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	if (mbox_sync_header_refresh(mbox) < 0)
 		return -1;
 
-	view = mail_index_view_open(mail->ibox->index);
+	view = mail_index_view_open(mail->ibox->box.index);
 	hdr = mail_index_get_header(view);
 	if (!mail_index_lookup_seq(view, mail->mail.mail.uid, &seq))
 		i_panic("Message unexpectedly expunged from index");

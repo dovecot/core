@@ -201,7 +201,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = _storage;
 	mbox->ibox.box.list = list;
-	mbox->ibox.mail_vfuncs = &virtual_mail_vfuncs;
+	mbox->ibox.box.mail_vfuncs = &virtual_mail_vfuncs;
 
 	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
 				    VIRTUAL_INDEX_PREFIX);
@@ -210,7 +210,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	mbox->vseq_lookup_prev_mailbox = i_strdup("");
 
 	mbox->virtual_ext_id =
-		mail_index_ext_register(mbox->ibox.index, "virtual", 0,
+		mail_index_ext_register(mbox->ibox.box.index, "virtual", 0,
 			sizeof(struct virtual_mail_index_record),
 			sizeof(uint32_t));
 	return &mbox->ibox.box;

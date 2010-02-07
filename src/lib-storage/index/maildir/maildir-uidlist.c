@@ -961,7 +961,7 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 {
 	const struct maildir_index_header *mhdr = &uidlist->mbox->maildir_hdr;
-	struct mail_index *index = uidlist->mbox->ibox.index;
+	struct mail_index *index = uidlist->mbox->ibox.box.index;
 	struct mail_index_view *view;
 	const struct mail_index_header *hdr;
 	struct stat st;
@@ -1224,7 +1224,7 @@ maildir_uidlist_generate_uid_validity(struct maildir_uidlist *uidlist)
 	const struct mail_index_header *hdr;
 
 	if (uidlist->ibox->box.opened) {
-		hdr = mail_index_get_header(uidlist->ibox->view);
+		hdr = mail_index_get_header(uidlist->ibox->box.view);
 		if (hdr->uid_validity != 0) {
 			uidlist->uid_validity = hdr->uid_validity;
 			return;
@@ -1334,8 +1334,8 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 	if (!uidlist->mbox->ibox.box.opened)
 		return;
 
-	mail_index_refresh(uidlist->mbox->ibox.index);
-	view = mail_index_view_open(uidlist->mbox->ibox.index);
+	mail_index_refresh(uidlist->mbox->ibox.box.index);
+	view = mail_index_view_open(uidlist->mbox->ibox.box.index);
 	count = array_count(&uidlist->records);
 	hdr = mail_index_get_header(view);
 	if (count * UIDLIST_COMPRESS_PERCENTAGE / 100 <= hdr->messages_count) {
@@ -1486,7 +1486,7 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 
 static bool maildir_uidlist_want_compress(struct maildir_uidlist_sync_ctx *ctx)
 {
-	struct mail_index_view *view = ctx->uidlist->mbox->ibox.view;
+	struct mail_index_view *view = ctx->uidlist->mbox->ibox.box.view;
 	unsigned int min_rewrite_count, messages_count;
 
 	if (!ctx->uidlist->locked_refresh)

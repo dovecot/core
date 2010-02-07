@@ -54,7 +54,6 @@ static void index_sort_node_add(struct sort_string_context *ctx,
 
 void index_sort_list_init_string(struct mail_search_sort_program *program)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)program->t->box;
 	struct sort_string_context *ctx;
 	const char *name;
 
@@ -85,7 +84,7 @@ void index_sort_list_init_string(struct mail_search_sort_program *program)
 	ctx->reverse = (program->sort_program[0] & MAIL_SORT_FLAG_REVERSE) != 0;
 	ctx->program = program;
 	ctx->primary_sort_name = name;
-	ctx->ext_id = mail_index_ext_register(ibox->index, name, 0,
+	ctx->ext_id = mail_index_ext_register(program->t->box->index, name, 0,
 					      sizeof(uint32_t),
 					      sizeof(uint32_t));
 	i_array_init(&ctx->zero_nodes, 128);

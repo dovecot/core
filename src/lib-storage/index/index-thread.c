@@ -307,10 +307,9 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 
 	if (tbox->strmap_view == NULL) {
 		/* first time we're threading this mailbox */
-		struct index_mailbox *ibox = (struct index_mailbox *)ctx->box;
-
 		tbox->strmap_view =
-			mail_index_strmap_view_open(tbox->strmap, ibox->view,
+			mail_index_strmap_view_open(tbox->strmap,
+						    ctx->box->view,
 						    mail_thread_hash_key_cmp,
 						    mail_thread_hash_rec_cmp,
 						    mail_thread_strmap_remap,
@@ -642,7 +641,7 @@ void index_thread_mailbox_opened(struct index_mailbox *ibox)
 	tbox->module_ctx.super = box->v;
 	box->v.close = mail_thread_mailbox_close;
 
-	tbox->strmap = mail_index_strmap_init(ibox->index,
+	tbox->strmap = mail_index_strmap_init(box->index,
 					      MAIL_THREAD_INDEX_SUFFIX);
 	tbox->next_msgid_idx = 1;
 

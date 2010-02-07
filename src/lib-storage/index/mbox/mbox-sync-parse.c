@@ -113,6 +113,7 @@ static void
 parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
                          struct message_header_line *hdr, size_t pos)
 {
+	struct mailbox *box = &ctx->sync_ctx->mbox->ibox.box;
 	const char *keyword, *error;
 	size_t keyword_start;
 	unsigned int idx, count;
@@ -136,8 +137,8 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 				    pos - keyword_start);
 		if (mailbox_keyword_is_valid(&ctx->sync_ctx->mbox->ibox.box,
 					     keyword, &error)) {
-			mail_index_keyword_lookup_or_create(
-				ctx->sync_ctx->mbox->ibox.index, keyword, &idx);
+			mail_index_keyword_lookup_or_create(box->index,
+							    keyword, &idx);
 		}
 		count++;
 	}
@@ -246,6 +247,7 @@ static bool parse_x_imap(struct mbox_sync_mail_context *ctx,
 static bool parse_x_keywords_real(struct mbox_sync_mail_context *ctx,
 				  struct message_header_line *hdr)
 {
+	struct mailbox *box = &ctx->sync_ctx->mbox->ibox.box;
 	ARRAY_TYPE(keyword_indexes) keyword_list;
 	const unsigned int *list;
 	string_t *keyword;
@@ -276,8 +278,8 @@ static bool parse_x_keywords_real(struct mbox_sync_mail_context *ctx,
 		str_truncate(keyword, 0);
 		str_append_n(keyword, hdr->full_value + keyword_start,
 			     pos - keyword_start);
-		if (!mail_index_keyword_lookup(ctx->sync_ctx->mbox->ibox.index,
-					       str_c(keyword), &idx)) {
+		if (!mail_index_keyword_lookup(box->index, str_c(keyword),
+					       &idx)) {
 			/* keyword wasn't found. that means the sent mail
 			   originally contained X-Keywords header. Delete it. */
 			return FALSE;

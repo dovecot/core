@@ -537,12 +537,12 @@ int maildir_sync_header_refresh(struct maildir_mailbox *mbox)
 	const void *data;
 	size_t data_size;
 
-	if (mail_index_refresh(mbox->ibox.index) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
+	if (mail_index_refresh(mbox->ibox.box.index) < 0) {
+		mail_storage_set_index_error(&mbox->ibox.box);
 		return -1;
 	}
 
-	mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
+	mail_index_get_header_ext(mbox->ibox.box.view, mbox->maildir_ext_id,
 				  &data, &data_size);
 	if (data_size == 0) {
 		/* doesn't exist */
@@ -636,7 +636,7 @@ static void maildir_sync_update_next_uid(struct maildir_mailbox *mbox)
 	const struct mail_index_header *hdr;
 	uint32_t uid_validity, next_uid;
 
-	hdr = mail_index_get_header(mbox->ibox.view);
+	hdr = mail_index_get_header(mbox->ibox.box.view);
 	if (hdr->uid_validity == 0)
 		return;
 
@@ -662,7 +662,7 @@ static bool have_recent_messages(struct maildir_sync_context *ctx)
 
 	/* if there are files in new/, we'll need to move them. we'll check
 	   this by checking if we have any recent messages */
-	hdr = mail_index_get_header(ctx->mbox->ibox.view);
+	hdr = mail_index_get_header(ctx->mbox->ibox.box.view);
 	return hdr->first_recent_uid <
 		maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 }
@@ -696,7 +696,7 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
-	return mail_index_sync_have_any(mbox->ibox.index, flags) ? 1 : 0;
+	return mail_index_sync_have_any(mbox->ibox.box.index, flags) ? 1 : 0;
 }
 
 static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
@@ -947,12 +947,12 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 		if (mbox->flags_view == NULL) {
 			mbox->flags_view =
-				mail_index_view_open(mbox->ibox.index);
+				mail_index_view_open(mbox->ibox.box.index);
 		}
 		sync_ctx = mail_index_view_sync_begin(mbox->flags_view,
 				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
 		if (mail_index_view_sync_commit(&sync_ctx, &b) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
+			mail_storage_set_index_error(&mbox->ibox.box);
 			ret = -1;
 		}
 		/* make sure the map stays in private memory */

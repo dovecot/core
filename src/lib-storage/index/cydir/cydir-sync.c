@@ -122,12 +122,12 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 	if (!force)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
-	ret = mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
+	ret = mail_index_sync_begin(mbox->ibox.box.index, &ctx->index_sync_ctx,
 				    &ctx->sync_view, &ctx->trans,
 				    sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox);
+			mail_storage_set_index_error(&mbox->ibox.box);
 		i_free(ctx);
 		*ctx_r = NULL;
 		return ret;
@@ -146,7 +146,7 @@ int cydir_sync_finish(struct cydir_sync_context **_ctx, bool success)
 	*_ctx = NULL;
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox);
+			mail_storage_set_index_error(&ctx->mbox->ibox.box);
 			ret = -1;
 		}
 	} else {

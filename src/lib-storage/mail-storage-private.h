@@ -212,6 +212,13 @@ struct mailbox {
 /* private: */
 	pool_t pool;
 
+	struct mail_index *index;
+	struct mail_index_view *view;
+	struct mail_cache *cache;
+
+	/* default vfuncs for new struct mails. */
+	const struct mail_vfuncs *mail_vfuncs;
+
 	/* mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX */
 	const char *path;
 	/* mailbox's virtual name (from mail_namespace_get_vname()) */
@@ -425,6 +432,7 @@ void mail_storage_set_error(struct mail_storage *storage,
 void mail_storage_set_critical(struct mail_storage *storage,
 			       const char *fmt, ...) ATTR_FORMAT(2, 3);
 void mail_storage_set_internal_error(struct mail_storage *storage);
+void mail_storage_set_index_error(struct mailbox *box);
 bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 
 int mail_set_aborted(struct mail *mail);

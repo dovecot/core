@@ -346,7 +346,7 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.box.storage = storage;
 	mbox->ibox.box.list = list;
-	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
+	mbox->ibox.box.mail_vfuncs = &mbox_mail_vfuncs;
 
 	mbox->ibox.save_commit_pre = mbox_transaction_save_commit_pre;
 	mbox->ibox.save_commit_post = mbox_transaction_save_commit_post;
@@ -359,11 +359,11 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->mbox_fd = -1;
 	mbox->mbox_lock_type = F_UNLCK;
 	mbox->mbox_ext_idx =
-		mail_index_ext_register(mbox->ibox.index, "mbox",
+		mail_index_ext_register(mbox->ibox.box.index, "mbox",
 					sizeof(mbox->mbox_hdr),
 					sizeof(uint64_t), sizeof(uint64_t));
 	mbox->md5hdr_ext_idx =
-		mail_index_ext_register(mbox->ibox.index, "header-md5",
+		mail_index_ext_register(mbox->ibox.box.index, "header-md5",
 					0, 16, 1);
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
@@ -546,8 +546,8 @@ static void mbox_mailbox_close(struct mailbox *box)
 		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
 	}
 
-	if (mbox->ibox.view != NULL) {
-		hdr = mail_index_get_header(mbox->ibox.view);
+	if (box->view != NULL) {
+		hdr = mail_index_get_header(box->view);
 		if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
 		    !mbox->ibox.backend_readonly) {
 			/* we've done changes to mbox which haven't been

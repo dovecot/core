@@ -35,7 +35,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		it->super.rollback(it->trans);
 	else {
 		if (it->super.commit(it->trans, result_r) < 0) {
-			mail_storage_set_index_error(ibox);
+			mail_storage_set_index_error(t->box);
 			ret = -1;
 		}
 	}
@@ -64,7 +64,6 @@ void index_transaction_init(struct index_transaction_context *it,
 			    struct mailbox *box,
 			    enum mailbox_transaction_flags flags)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	enum mail_index_transaction_flags trans_flags;
 
 	i_assert(box->opened);
@@ -75,16 +74,16 @@ void index_transaction_init(struct index_transaction_context *it,
 	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
 	if ((flags & MAILBOX_TRANSACTION_FLAG_REFRESH) != 0)
-		(void)mail_index_refresh(ibox->index);
+		(void)mail_index_refresh(box->index);
 
-	it->trans = mail_index_transaction_begin(ibox->view, trans_flags);
-	it->mailbox_ctx.box = &ibox->box;
+	it->trans = mail_index_transaction_begin(box->view, trans_flags);
+	it->mailbox_ctx.box = box;
 
 	array_create(&it->mailbox_ctx.module_contexts, default_pool,
 		     sizeof(void *), 5);
 
 	it->trans_view = mail_index_transaction_open_updated_view(it->trans);
-	it->cache_view = mail_cache_view_open(ibox->cache, it->trans_view);
+	it->cache_view = mail_cache_view_open(box->cache, it->trans_view);
 	it->cache_trans = mail_cache_get_transaction(it->cache_view, it->trans);
 
 	/* set up after mail_cache_get_transaction(), so that we'll still
@@ -111,8 +110,8 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
+	struct mailbox *box = _t->box;
 	struct mail_index_transaction *itrans = t->trans;
-	struct index_mailbox *ibox = (struct index_mailbox *)_t->box;
 	struct mail_index_transaction_commit_result result;
 	int ret;
 
@@ -122,14 +121,14 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	_t->changes = changes_r;
 
 	ret = mail_index_transaction_commit_full(&itrans, &result);
-	if (ret < 0 && mail_index_is_deleted(ibox->index))
-		mailbox_set_deleted(&ibox->box);
+	if (ret < 0 && mail_index_is_deleted(_t->box->index))
+		mailbox_set_deleted(_t->box);
 
 	changes_r->ignored_uid_changes = result.ignored_uid_changes;
 	changes_r->ignored_modseq_changes = result.ignored_modseq_changes;
 
-	i_assert(ibox->box.transaction_count > 0 ||
-		 ibox->view->transactions == 0);
+	i_assert(box->transaction_count > 0 ||
+		 box->view->transactions == 0);
 	return ret;
 }
 
@@ -137,13 +136,13 @@ void index_transaction_rollback(struct mailbox_transaction_context *_t)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
+	struct mailbox *box = _t->box;
 	struct mail_index_transaction *itrans = t->trans;
-	struct index_mailbox *ibox = (struct index_mailbox *)_t->box;
 
 	mail_index_transaction_rollback(&itrans);
 
-	i_assert(ibox->box.transaction_count > 0 ||
-		 ibox->view->transactions == 0);
+	i_assert(box->transaction_count > 0 ||
+		 box->view->transactions == 0);
 }
 
 void index_transaction_set_max_modseq(struct mailbox_transaction_context *_t,

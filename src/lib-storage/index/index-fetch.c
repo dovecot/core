@@ -10,16 +10,13 @@ void index_storage_get_seq_range(struct mailbox *box,
 				 uint32_t uid1, uint32_t uid2,
 				 uint32_t *seq1_r, uint32_t *seq2_r)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
-
-	mail_index_lookup_seq_range(ibox->view, uid1, uid2, seq1_r, seq2_r);
+	mail_index_lookup_seq_range(box->view, uid1, uid2, seq1_r, seq2_r);
 }
 
 void index_storage_get_uid_range(struct mailbox *box,
 				 const ARRAY_TYPE(seq_range) *seqs,
 				 ARRAY_TYPE(seq_range) *uids)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	const struct seq_range *range;
 	unsigned int i, count;
 	uint32_t seq, uid;
@@ -28,12 +25,12 @@ void index_storage_get_uid_range(struct mailbox *box,
 	for (i = 0; i < count; i++) {
 		if (range[i].seq2 == (uint32_t)-1) {
 			i_assert(count == i-1);
-			mail_index_lookup_uid(ibox->view, range[i].seq1, &uid);
+			mail_index_lookup_uid(box->view, range[i].seq1, &uid);
 			seq_range_array_add_range(uids, uid, (uint32_t)-1);
 			break;
 		}
 		for (seq = range[i].seq1; seq <= range[i].seq2; seq++) {
-			mail_index_lookup_uid(ibox->view, seq, &uid);
+			mail_index_lookup_uid(box->view, seq, &uid);
 			seq_range_array_add(uids, 0, uid);
 		}
 	}
@@ -82,7 +79,6 @@ bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 				const ARRAY_TYPE(seq_range) *uids_filter,
 				ARRAY_TYPE(mailbox_expunge_rec) *expunges)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct mail_transaction_log_view *log_view;
 	const struct mail_transaction_header *thdr;
 	const void *tdata;
@@ -91,27 +87,27 @@ bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 	bool reset;
 	int ret;
 
-	if (!mail_index_modseq_get_next_log_offset(ibox->view, prev_modseq,
+	if (!mail_index_modseq_get_next_log_offset(box->view, prev_modseq,
 						   &log_seq, &log_offset))
 		return FALSE;
-	if (log_seq > ibox->view->log_file_head_seq ||
-	    (log_seq == ibox->view->log_file_head_seq &&
-	     log_offset >= ibox->view->log_file_head_offset)) {
+	if (log_seq > box->view->log_file_head_seq ||
+	    (log_seq == box->view->log_file_head_seq &&
+	     log_offset >= box->view->log_file_head_offset)) {
 		/* we haven't seen this high expunges at all */
 		return TRUE;
 	}
 
-	log_view = mail_transaction_log_view_open(ibox->index->log);
+	log_view = mail_transaction_log_view_open(box->index->log);
 	ret = mail_transaction_log_view_set(log_view, log_seq, log_offset,
-					    ibox->view->log_file_head_seq,
-					    ibox->view->log_file_head_offset,
+					    box->view->log_file_head_seq,
+					    box->view->log_file_head_offset,
 					    &reset);
 	if (ret == 0) {
-		mail_transaction_log_get_tail(ibox->index->log, &tail_seq);
+		mail_transaction_log_get_tail(box->index->log, &tail_seq);
 		i_assert(tail_seq > log_seq);
 		ret = mail_transaction_log_view_set(log_view, tail_seq, 0,
-					ibox->view->log_file_head_seq,
-					ibox->view->log_file_head_offset,
+					box->view->log_file_head_seq,
+					box->view->log_file_head_offset,
 					&reset);
 		i_assert(ret != 0);
 	}

@@ -212,6 +212,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 			     struct maildir_sync_context *maildir_sync_ctx,
 			     struct maildir_index_sync_context **ctx_r)
 {
+	struct mailbox *_box = &mbox->ibox.box;
 	struct maildir_index_sync_context *ctx;
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
@@ -220,13 +221,13 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 
 	sync_flags = 0;
 	/* don't drop recent messages if we're saving messages */
-	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0 &&
+	if ((_box->flags & MAILBOX_FLAG_KEEP_RECENT) == 0 &&
 	    maildir_sync_ctx != NULL)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
-	if (mail_index_sync_begin(mbox->ibox.index, &sync_ctx, &view, &trans,
-				  sync_flags) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
+	if (mail_index_sync_begin(_box->index, &sync_ctx, &view,
+				  &trans, sync_flags) < 0) {
+		mail_storage_set_index_error(_box);
 		return -1;
 	}
 
@@ -237,7 +238,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	ctx->view = view;
 	ctx->trans = trans;
 	ctx->keywords_sync_ctx =
-		maildir_keywords_sync_init(mbox->keywords, mbox->ibox.index);
+		maildir_keywords_sync_init(mbox->keywords, _box->index);
 	ctx->sync_changes =
 		index_sync_changes_init(&mbox->ibox, ctx->sync_ctx,
 					ctx->view, ctx->trans,
@@ -286,7 +287,7 @@ maildir_sync_index_update_ext_header(struct maildir_index_sync_context *ctx)
 		mbox->maildir_hdr.cur_mtime_nsecs = ST_MTIME_NSEC(st);
 	}
 
-	mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
+	mail_index_get_header_ext(mbox->ibox.box.view, mbox->maildir_ext_id,
 				  &data, &data_size);
 	if (data_size != sizeof(mbox->maildir_hdr) ||
 	    maildir_index_header_has_changed(data, &mbox->maildir_hdr)) {
@@ -313,7 +314,7 @@ static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
 		   start a second index sync and crash. */
 		mbox->syncing_commit = TRUE;
 		if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
+			mail_storage_set_index_error(&mbox->ibox.box);
 			ret = -1;
 		}
 		mbox->syncing_commit = FALSE;
@@ -356,7 +357,7 @@ static int uint_cmp(const void *p1, const void *p2)
 static void
 maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 {
-	struct maildir_mailbox *mbox = ctx->mbox;
+	struct mailbox *box = &ctx->mbox->ibox.box;
 	struct mail_keywords *kw;
 	unsigned int i, j, old_count, new_count;
 	const unsigned int *old_indexes, *new_indexes;
@@ -386,7 +387,7 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 	if (!have_indexonly_keywords) {
 		/* no index-only keywords found, so something changed.
 		   just replace them all. */
-		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
+		kw = mail_index_keywords_create_from_indexes(box->index,
 							     &ctx->keywords);
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE, kw);
 		mail_index_keywords_unref(&kw);
@@ -417,14 +418,14 @@ maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 	}
 
 	if (array_count(&ctx->idx_keywords) > 0) {
-		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
+		kw = mail_index_keywords_create_from_indexes(box->index,
 							     &ctx->idx_keywords);
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_REMOVE, kw);
 		mail_index_keywords_unref(&kw);
 	}
 
 	if (array_count(&ctx->keywords) > 0) {
-		kw = mail_index_keywords_create_from_indexes(mbox->ibox.index,
+		kw = mail_index_keywords_create_from_indexes(box->index,
 							     &ctx->keywords);
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_ADD, kw);
 		mail_index_keywords_unref(&kw);
@@ -523,7 +524,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 				struct mail_keywords *kw;
 
 				kw = mail_index_keywords_create_from_indexes(
-					mbox->ibox.index, &ctx->keywords);
+					mbox->ibox.box.index, &ctx->keywords);
 				mail_index_update_keywords(trans, seq,
 							   MODIFY_REPLACE, kw);
 				mail_index_keywords_unref(&kw);

@@ -96,7 +96,7 @@ static void search_init_arg(struct mail_search_arg *arg,
 	case SEARCH_KEYWORDS:
 	case SEARCH_MODSEQ:
 		if (arg->type == SEARCH_MODSEQ)
-			mail_index_modseq_enable(ctx->ibox->index);
+			mail_index_modseq_enable(ctx->ibox->box.index);
 		ctx->have_index_args = TRUE;
 		break;
 	case SEARCH_ALL:
