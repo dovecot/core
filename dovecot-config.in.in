@@ -1,6 +1,6 @@
-CFLAGS="@CFLAGS@"
-LIBS="@LIBS@"
-SSL_LIBS="@SSL_LIBS@"
+DOVECOT_CFLAGS="@CFLAGS@"
+DOVECOT_LIBS="@LIBS@"
+DOVECOT_SSL_LIBS="@SSL_LIBS@"
 
 LIBDOVECOT="@LIBDOVECOT@ @MODULE_LIBS@"
 LIBDOVECOT_LOGIN="@LIBDOVECOT_LOGIN@"
@@ -19,8 +19,8 @@ LIBDOVECOT_STORAGE_INCLUDE="-I$(incdir)/src/lib-index -I$(incdir)/src/lib-storag
 LIBDOVECOT_LOGIN_INCLUDE="-I$(incdir)/src/lib-auth -I$(incdir)/src/login-common"
 LIBDOVECOT_IMAP_INCLUDE="-I$(incdir)/src/imap"
 
-dovecot_pkgincludedir=
-dovecot_pkglibdir=
-dovecot_pkglibexecdir=
-dovecot_docdir=
-moduledir=
+DOVECOT_PKGINCLUDEDIR=
+DOVECOT_PKGLIBDIR=
+DOVECOT_PKGLIBEXECDIR=
+DOVECOT_DOCDIR=
+DOVECOT_MODULEDIR=
