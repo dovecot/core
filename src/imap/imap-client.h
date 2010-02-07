@@ -164,10 +164,13 @@ void client_disconnect_with_error(struct client *client, const char *msg);
 /* Send a line of data to client. Returns 1 if ok, 0 if buffer is getting full,
    -1 if error */
 int client_send_line(struct client *client, const char *data);
-/* Send line of data to client, prefixed with client->tag */
+/* Send line of data to client, prefixed with client->tag. You need to prefix
+   the data with "OK ", "NO " or "BAD ". */
 void client_send_tagline(struct client_command_context *cmd, const char *data);
 
-/* Send BAD command error to client. msg can be NULL. */
+/* Send a BAD command reply to client via client_send_tagline(). If there have
+   been too many command errors, the client is disconnected. msg may be NULL,
+   in which case the error is looked up from imap_parser. */
 void client_send_command_error(struct client_command_context *cmd,
 			       const char *msg);
 
