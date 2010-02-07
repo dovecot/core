@@ -309,7 +309,7 @@ void client_state_reset(struct client *client)
 	if (client->state.raw_trans != NULL)
 		mailbox_transaction_rollback(&client->state.raw_trans);
 	if (client->state.raw_box != NULL)
-		mailbox_close(&client->state.raw_box);
+		mailbox_free(&client->state.raw_box);
 
 	if (client->state.mail_data != NULL)
 		buffer_free(&client->state.mail_data);

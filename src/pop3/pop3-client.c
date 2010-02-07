@@ -352,7 +352,7 @@ void client_destroy(struct client *client, const char *reason)
 		(void)mailbox_transaction_commit(&client->trans);
 	}
 	if (client->mailbox != NULL)
-		mailbox_close(&client->mailbox);
+		mailbox_free(&client->mailbox);
 	if (client->anvil_sent) {
 		master_service_anvil_send(master_service, t_strconcat(
 			"DISCONNECT\t", my_pid, "\tpop3/",

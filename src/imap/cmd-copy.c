@@ -124,7 +124,7 @@ bool cmd_copy(struct client_command_context *cmd)
 		if (mailbox_open(destbox) < 0) {
 			client_send_storage_error(cmd,
 				mailbox_get_storage(destbox));
-			mailbox_close(&destbox);
+			mailbox_free(&destbox);
 			return TRUE;
 		}
 		if (client->enabled_features != 0)
@@ -163,7 +163,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (destbox != client->mailbox) {
 		sync_flags |= MAILBOX_SYNC_FLAG_FAST;
 		imap_flags |= IMAP_SYNC_FLAG_SAFE;
-		mailbox_close(&destbox);
+		mailbox_free(&destbox);
 	}
 
 	if (ret > 0)

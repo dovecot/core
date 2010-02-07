@@ -510,7 +510,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 
 		i_error("Failed to sync mailbox %s: %s", info->name,
 			mail_storage_get_last_error(storage, NULL));
-		mailbox_close(&box);
+		mailbox_free(&box);
 		_iter->failed = TRUE;
 		return -1;
 	}
@@ -541,7 +541,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 
 	local_dsync_worker_add_mailbox(worker, info->ns, storage_name,
 				       &dsync_box_r->mailbox_guid);
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return 1;
 }
 
@@ -706,7 +706,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 
 		i_error("Failed to sync mailbox %s: %s", lbox->storage_name,
 			mail_storage_get_last_error(storage, NULL));
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return -1;
 	}
 
@@ -716,7 +716,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 			lbox->storage_name, dsync_guid_to_str(guid),
 			binary_to_hex(status.mailbox_guid,
 				      sizeof(status.mailbox_guid)));
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return -1;
 	}
 	*box_r = box;
@@ -771,7 +771,7 @@ iter_local_mailbox_close(struct local_dsync_worker_msg_iter *iter)
 		iter->iter.failed = TRUE;
 	}
 	(void)mailbox_transaction_commit(&trans);
-	mailbox_close(&box);
+	mailbox_free(&box);
 }
 
 static struct dsync_worker_msg_iter *
@@ -1078,7 +1078,7 @@ local_worker_create_mailbox(struct dsync_worker *_worker,
 
 	ret = local_worker_create_allocated_mailbox(worker, box, dsync_box);
 	if (ret != 0) {
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return;
 	}
 
@@ -1088,13 +1088,13 @@ local_worker_create_mailbox(struct dsync_worker *_worker,
 			       dsync_guid_to_str(&dsync_box->mailbox_guid),
 			       NULL);
 	ns = mailbox_get_namespace(box);
-	mailbox_close(&box);
+	mailbox_free(&box);
 
 	local_dsync_worker_add_mailbox(worker, ns, new_name,
 				       &dsync_box->mailbox_guid);
 	box = mailbox_alloc(ns->list, new_name, NULL, 0);
 	(void)local_worker_create_allocated_mailbox(worker, box, dsync_box);
-	mailbox_close(&box);
+	mailbox_free(&box);
 }
 
 static void
@@ -1217,7 +1217,7 @@ static void local_worker_mailbox_close(struct local_dsync_worker *worker)
 	    mailbox_sync(worker->selected_box, MAILBOX_SYNC_FLAG_FULL_WRITE) < 0)
 		dsync_worker_set_failure(&worker->worker);
 
-	mailbox_close(&worker->selected_box);
+	mailbox_free(&worker->selected_box);
 }
 
 static void
@@ -1251,7 +1251,7 @@ local_worker_update_mailbox(struct dsync_worker *_worker,
 			mail_storage_get_last_error(mailbox_get_storage(box),
 						    NULL));
 	}
-	mailbox_close(&box);
+	mailbox_free(&box);
 
 	if (selected)
 		dsync_worker_select_mailbox(_worker, dsync_box);
@@ -1412,7 +1412,7 @@ local_worker_msg_copy(struct dsync_worker *_worker,
 
 	mail_free(&src_mail);
 	(void)mailbox_transaction_commit(&src_trans);
-	mailbox_close(&src_box);
+	mailbox_free(&src_box);
 
 	callback(ret == 0, context);
 }
@@ -1528,7 +1528,7 @@ static void local_worker_msg_box_close(struct local_dsync_worker *worker)
 
 	mail_free(&worker->get_mail);
 	(void)mailbox_transaction_commit(&trans);
-	mailbox_close(&box);
+	mailbox_free(&box);
 	memset(&worker->get_mailbox, 0, sizeof(worker->get_mailbox));
 }
 

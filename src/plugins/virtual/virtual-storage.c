@@ -136,7 +136,7 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	if (mailbox_open(bbox->box) < 0) {
 		storage = mailbox_get_storage(bbox->box);
 		str = mail_storage_get_last_error(storage, &error);
-		mailbox_close(&bbox->box);
+		mailbox_free(&bbox->box);
 		if (bbox->wildcard && (error == MAIL_ERROR_PERM ||
 				       error == MAIL_ERROR_NOTFOUND)) {
 			/* this mailbox wasn't explicitly specified.
@@ -179,7 +179,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 	else {
 		/* failed */
 		for (; i > 0; i--) {
-			mailbox_close(&bboxes[i-1]->box);
+			mailbox_free(&bboxes[i-1]->box);
 			array_free(&bboxes[i-1]->uids);
 		}
 		return -1;
@@ -274,7 +274,7 @@ static void virtual_mailbox_close(struct mailbox *box)
 		if (bboxes[i]->box == NULL)
 			continue;
 
-		mailbox_close(&bboxes[i]->box);
+		mailbox_free(&bboxes[i]->box);
 		if (array_is_created(&bboxes[i]->sync_outside_expunges))
 			array_free(&bboxes[i]->sync_outside_expunges);
 		array_free(&bboxes[i]->sync_pending_removes);

@@ -148,7 +148,7 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 	if (ctx->t != NULL)
 		mailbox_transaction_rollback(&ctx->t);
 	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL)
-		mailbox_close(&ctx->box);
+		mailbox_free(&ctx->box);
 }
 
 static bool cmd_append_continue_cancel(struct client_command_context *cmd)
@@ -468,7 +468,7 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 			    MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(box) < 0) {
 		client_send_storage_error(cmd, mailbox_get_storage(box));
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return NULL;
 	}
 	if (cmd->client->enabled_features != 0)

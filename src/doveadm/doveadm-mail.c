@@ -72,7 +72,7 @@ static void cmd_force_resync(struct mail_user *user, const char *args[])
 		i_fatal("Forcing a resync on mailbox %s failed: %s", mailbox,
 			mail_storage_get_last_error(storage, NULL));
 	}
-	mailbox_close(&box);
+	mailbox_free(&box);
 }
 
 static void

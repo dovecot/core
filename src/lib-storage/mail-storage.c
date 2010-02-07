@@ -511,17 +511,32 @@ enum mailbox_feature mailbox_get_enabled_features(struct mailbox *box)
 	return box->enabled_features;
 }
 
-void mailbox_close(struct mailbox **_box)
+void mailbox_close(struct mailbox *box)
 {
-	struct mailbox *box = *_box;
+	if (!box->opened)
+		return;
 
 	if (box->transaction_count != 0) {
 		i_panic("Trying to close mailbox %s with open transactions",
 			box->name);
 	}
+	box->v.close(box);
+
+	box->opened = FALSE;
+	box->mailbox_deleted = FALSE;
+	box->backend_readonly = FALSE;
+	array_clear(&box->search_results);
+}
+
+void mailbox_free(struct mailbox **_box)
+{
+	struct mailbox *box = *_box;
 
 	*_box = NULL;
-	box->v.close(box);
+
+	mailbox_close(box);
+	mail_index_alloc_cache_unref(&box->index);
+	pool_unref(&box->pool);
 }
 
 int mailbox_create(struct mailbox *box, const struct mailbox_update *update,

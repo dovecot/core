@@ -320,19 +320,23 @@ void index_storage_mailbox_close(struct mailbox *box)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 
-	if (box->view != NULL)
-		mail_index_view_close(&box->view);
-
 	index_mailbox_check_remove_all(box);
 	if (box->input != NULL)
 		i_stream_unref(&box->input);
-	if (box->index != NULL)
-		mail_index_alloc_cache_unref(box->index);
+
+	mail_index_view_close(&box->view);
+	mail_index_close(box->index);
+	box->cache = NULL;
+
+	ibox->keyword_names = NULL;
+	i_free_and_null(ibox->cache_fields);
+
 	if (array_is_created(&ibox->recent_flags))
 		array_free(&ibox->recent_flags);
-	i_free(ibox->cache_fields);
+	ibox->recent_flags_prev_uid = 0;
+	ibox->recent_flags_count = 0;
 
-	pool_unref(&box->pool);
+	ibox->sync_last_check = 0;
 }
 
 static void

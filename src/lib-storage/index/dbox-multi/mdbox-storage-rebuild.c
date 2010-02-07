@@ -412,7 +412,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 				  MAILBOX_FLAG_IGNORE_ACLS);
 	if (dbox_mailbox_open(box) < 0) {
 		(void)mail_storage_get_last_error(box->storage, &error);
-		mailbox_close(&box);
+		mailbox_free(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
 		/* non-temporary error, ignore */
@@ -425,7 +425,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	if (ret <= 0) {
 		i_assert(ret != 0);
 		mail_storage_set_index_error(box);
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return -1;
 	}
 
@@ -438,7 +438,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 		ret = -1;
 	}
 
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return ret < 0 ? -1 : 0;
 }
 
@@ -492,7 +492,7 @@ static int rebuild_msg_mailbox_commit(struct rebuild_msg_mailbox *msg)
 {
 	if (mail_index_sync_commit(&msg->sync_ctx) < 0)
 		return -1;
-	mailbox_close(&msg->box);
+	mailbox_free(&msg->box);
 	memset(msg, 0, sizeof(*msg));
 	return 0;
 }
@@ -556,11 +556,11 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 			   it helps. */
 			created = TRUE;
 			(void)mailbox_create(box, NULL, FALSE);
-			mailbox_close(&box);
+			mailbox_free(&box);
 			continue;
 		}
 
-		mailbox_close(&box);
+		mailbox_free(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
 
@@ -587,7 +587,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 		if (ret <= 0) {
 			i_assert(ret != 0);
 			mail_storage_set_index_error(box);
-			mailbox_close(&box);
+			mailbox_free(&box);
 			return -1;
 		}
 		ctx->prev_msg.box = box;

@@ -84,7 +84,7 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 	} else {
 		client_send_tagline(cmd, "NO "ERROR_NOT_ADMIN);
 	}
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return NULL;
 }
 
@@ -273,7 +273,7 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	} else {
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
 	}
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return TRUE;
 }
 
@@ -304,7 +304,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
 				     pool_datastack_create(), &rights) < 0) {
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return TRUE;
 	}
 	/* Post right alone doesn't give permissions to see if the mailbox
@@ -314,7 +314,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 		client_send_tagline(cmd, t_strdup_printf(
 			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
 			MAIL_ERRSTR_MAILBOX_NOT_FOUND, real_mailbox));
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return TRUE;
 	}
 
@@ -326,7 +326,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 
 	client_send_line(cmd->client, str_c(str));
 	client_send_tagline(cmd, "OK Myrights completed.");
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return TRUE;
 }
 
@@ -353,7 +353,7 @@ static bool cmd_listrights(struct client_command_context *cmd)
 
 	client_send_line(cmd->client, str_c(str));
 	client_send_tagline(cmd, "OK Listrights completed.");
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return TRUE;
 }
 
@@ -547,7 +547,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	backend = acl_mailbox_list_get_backend(ns->list);
 	if (ns->type == NAMESPACE_PUBLIC && r->id_type == ACL_ID_OWNER) {
 		client_send_tagline(cmd, "NO Public namespaces have no owner");
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return TRUE;
 	}
 
@@ -571,7 +571,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
 	else
 		client_send_tagline(cmd, "OK Setacl complete.");
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return TRUE;
 }
 
@@ -610,7 +610,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
 	else
 		client_send_tagline(cmd, "OK Deleteacl complete.");
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return TRUE;
 }
 

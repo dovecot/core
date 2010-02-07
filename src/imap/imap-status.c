@@ -84,7 +84,7 @@ int imap_status_get(struct client_command_context *cmd,
 		*error_r = mail_storage_get_last_error(storage, &error);
 		*error_r = imap_get_error_string(cmd, *error_r, error);
 	}
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return ret;
 }
 

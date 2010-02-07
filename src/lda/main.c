@@ -476,7 +476,7 @@ int main(int argc, char *argv[])
 
 	mail_free(&ctx.src_mail);
 	mailbox_transaction_rollback(&t);
-	mailbox_close(&box);
+	mailbox_free(&box);
 
 	mail_user_unref(&ctx.dest_user);
 	mail_user_unref(&raw_mail_user);

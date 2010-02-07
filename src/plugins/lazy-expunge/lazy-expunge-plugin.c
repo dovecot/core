@@ -87,7 +87,7 @@ mailbox_open_or_create(struct mailbox_list *list, const char *name,
 	*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
 					       &error);
 	if (error != MAIL_ERROR_NOTFOUND) {
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return NULL;
 	}
 
@@ -97,7 +97,7 @@ mailbox_open_or_create(struct mailbox_list *list, const char *name,
 	    mailbox_open(box) < 0) {
 		*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
 						       NULL);
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return NULL;
 	}
 	return box;
@@ -136,7 +136,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		if (mailbox_sync(lt->dest_box, 0) < 0) {
 			mail_storage_set_critical(_mail->box->storage,
 				"lazy_expunge: Couldn't sync expunge mailbox");
-			mailbox_close(&lt->dest_box);
+			mailbox_free(&lt->dest_box);
 			lt->failed = TRUE;
 			return;
 		}
@@ -173,7 +173,7 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 	if (lt->dest_trans != NULL)
 		mailbox_transaction_rollback(&lt->dest_trans);
 	if (lt->dest_box != NULL)
-		mailbox_close(&lt->dest_box);
+		mailbox_free(&lt->dest_box);
 	i_free(lt);
 }
 
@@ -309,15 +309,15 @@ mailbox_move_all_mails(struct mailbox_list *list,
 		errstr = mail_storage_get_last_error(dest_box->storage, &error);
 		i_error("lazy_expunge: Couldn't open DELETE dest mailbox "
 			"%s: %s", dest_name, errstr);
-		mailbox_close(&dest_box);
+		mailbox_free(&dest_box);
 		return -1;
 	}
 
 	src_box = mailbox_alloc(list, src_name, NULL, MAILBOX_FLAG_KEEP_LOCKED);
 	if (mailbox_open(src_box) < 0) {
 		errstr = mail_storage_get_last_error(src_box->storage, &error);
-		mailbox_close(&src_box);
-		mailbox_close(&dest_box);
+		mailbox_free(&src_box);
+		mailbox_free(&dest_box);
 
 		if (error == MAIL_ERROR_NOTFOUND)
 			return 0;
@@ -357,8 +357,8 @@ mailbox_move_all_mails(struct mailbox_list *list,
 	else
 		mailbox_transaction_rollback(&dest_trans);
 
-	mailbox_close(&src_box);
-	mailbox_close(&dest_box);
+	mailbox_free(&src_box);
+	mailbox_free(&dest_box);
 
 	if (ret == 0)
 		ret = mailbox_list_delete_mailbox(list, src_name);

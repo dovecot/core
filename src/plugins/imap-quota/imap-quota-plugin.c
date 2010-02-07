@@ -118,7 +118,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	while ((root = quota_root_iter_next(iter)) != NULL)
 		quota_send(cmd, ns->owner, root);
 	quota_root_iter_deinit(&iter);
-	mailbox_close(&box);
+	mailbox_free(&box);
 
 	client_send_tagline(cmd, "OK Getquotaroot completed.");
 	return TRUE;

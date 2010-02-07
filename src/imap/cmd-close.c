@@ -23,7 +23,7 @@ bool cmd_close(struct client_command_context *cmd)
 	if (mailbox_sync(mailbox, 0) < 0)
 		client_send_untagged_storage_error(client, storage);
 
-	mailbox_close(&mailbox);
+	mailbox_free(&mailbox);
 	client_update_mailbox_flags(client, NULL);
 
 	client_send_tagline(cmd, "OK Close completed.");

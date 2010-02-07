@@ -18,7 +18,7 @@ bool cmd_unselect(struct client_command_context *cmd)
 	client->mailbox = NULL;
 
 	storage = mailbox_get_storage(mailbox);
-	mailbox_close(&mailbox);
+	mailbox_free(&mailbox);
 	client_update_mailbox_flags(client, NULL);
 
 	client_send_tagline(cmd, "OK Unselect completed.");

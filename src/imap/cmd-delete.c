@@ -30,9 +30,9 @@ bool cmd_delete(struct client_command_context *cmd)
 	    mailbox_backends_equal(mailbox, client->mailbox)) {
 		/* deleting selected mailbox. close it first */
 		client_search_updates_free(client);
-		mailbox_close(&client->mailbox);
+		mailbox_free(&client->mailbox);
 	}
-	mailbox_close(&mailbox);
+	mailbox_free(&mailbox);
 
 	if (mailbox_list_delete_mailbox(ns->list, name) < 0)
 		client_send_list_error(cmd, ns->list);

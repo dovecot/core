@@ -692,7 +692,7 @@ static void mailbox_get_guid(struct mailbox_list *list, const char *name,
 		mailbox_get_status(box, STATUS_GUID, &status);
 		memcpy(mailbox_guid, status.mailbox_guid, MAIL_GUID_128_SIZE);
 	}
-	mailbox_close(&box);
+	mailbox_free(&box);
 }
 
 static int

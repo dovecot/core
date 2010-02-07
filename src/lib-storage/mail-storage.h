@@ -329,8 +329,10 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
 /* Open the mailbox. If this function isn't called explicitly, it's also called
    internally by lib-storage when necessary. */
 int mailbox_open(struct mailbox *box);
-/* Close the box. */
-void mailbox_close(struct mailbox **box);
+/* Close mailbox. Same as if mailbox was freed and re-allocated. */
+void mailbox_close(struct mailbox *box);
+/* Close and free the mailbox. */
+void mailbox_free(struct mailbox **box);
 
 /* Create a mailbox. Returns failure if it already exists. Mailbox name is
    allowed to contain multiple new non-existing hierarchy levels. If directory

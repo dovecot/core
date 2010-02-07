@@ -49,6 +49,6 @@ bool cmd_create(struct client_command_context *cmd)
 		client_send_storage_error(cmd, mailbox_get_storage(box));
 	else
 		client_send_tagline(cmd, "OK Create completed.");
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return TRUE;
 }

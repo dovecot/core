@@ -320,7 +320,7 @@ mdbox_mailbox_unref_mails(struct mailbox_list *list, const char *path)
 	ret = mailbox_open(box);
 	list->mail_set = old_set;
 	if (ret < 0) {
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return -1;
 	}
 	mbox = (struct mdbox_mailbox *)box;
@@ -347,7 +347,7 @@ mdbox_mailbox_unref_mails(struct mailbox_list *list, const char *path)
 		ret = dbox_map_transaction_commit(map_trans);
 	dbox_map_transaction_free(&map_trans);
 	array_free(&map_uids);
-	mailbox_close(&box);
+	mailbox_free(&box);
 	return ret;
 }
 

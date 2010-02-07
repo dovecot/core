@@ -187,7 +187,7 @@ static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 {
 	if (ret < 0) {
 		if (ctx->box != NULL)
-			mailbox_close(&ctx->box);
+			mailbox_free(&ctx->box);
 		ctx->cmd->client->mailbox = NULL;
 	} else {
 		client_send_tagline(ctx->cmd, mailbox_is_readonly(ctx->box) ?
@@ -271,7 +271,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	if (mailbox_open(ctx->box) < 0) {
 		client_send_storage_error(ctx->cmd,
 					  mailbox_get_storage(ctx->box));
-		mailbox_close(&ctx->box);
+		mailbox_free(&ctx->box);
 		return -1;
 	}
 
@@ -377,7 +377,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		box = client->mailbox;
 		client->mailbox = NULL;
 
-		mailbox_close(&box);
+		mailbox_free(&box);
 		/* CLOSED response is required by QRESYNC */
 		client_send_line(client,
 				 "* OK [CLOSED] Previous mailbox closed.");

@@ -161,10 +161,12 @@ static void index_removal_timeout(void *context ATTR_UNUSED)
 	destroy_unrefed(FALSE);
 }
 
-void mail_index_alloc_cache_unref(struct mail_index *index)
+void mail_index_alloc_cache_unref(struct mail_index **_index)
 {
+	struct mail_index *index = *_index;
 	struct mail_index_alloc_cache_list *list;
 
+	*_index = NULL;
 	for (list = indexes; list != NULL; list = list->next) {
 		if (list->index == index)
 			break;

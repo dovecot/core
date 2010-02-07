@@ -186,7 +186,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (client->mailbox != NULL) {
 		client_search_updates_free(client);
-		mailbox_close(&client->mailbox);
+		mailbox_free(&client->mailbox);
 	}
 	if (client->anvil_sent) {
 		master_service_anvil_send(master_service, t_strconcat(

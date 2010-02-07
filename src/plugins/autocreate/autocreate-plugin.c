@@ -34,7 +34,7 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 				name, str);
 		}
 	}
-	mailbox_close(&box);
+	mailbox_free(&box);
 }
 
 static void autocreate_mailboxes(struct mail_namespace *namespaces)

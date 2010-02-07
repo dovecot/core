@@ -441,7 +441,7 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 		}
 	}
 	if (box != NULL)
-		mailbox_close(&box);
+		mailbox_free(&box);
 
 	/* FIXME: here's an unfortunate race condition */
 	return ret < 0 ? -1 :

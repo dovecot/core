@@ -55,7 +55,7 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 	trash->box = mailbox_alloc(trash->ns->list, trash->name, NULL,
 				   MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(trash->box) < 0) {
-		mailbox_close(&trash->box);
+		mailbox_free(&trash->box);
 		return 0;
 	}
 
@@ -168,7 +168,7 @@ err:
                         mailbox_transaction_rollback(&trash->trans);
 		}
 
-		mailbox_close(&trash->box);
+		mailbox_free(&trash->box);
 	}
 
 	if (size_expunged < size_needed) {

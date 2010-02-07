@@ -113,14 +113,14 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	storage = mailbox_get_storage(box);
 	*error_r = mail_storage_get_last_error(storage, &error);
 	if (!ctx->set->lda_mailbox_autocreate || error != MAIL_ERROR_NOTFOUND) {
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return NULL;
 	}
 
 	/* try creating it. */
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		*error_r = mail_storage_get_last_error(storage, &error);
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return NULL;
 	}
 	if (ctx->set->lda_mailbox_autosubscribe) {
@@ -131,7 +131,7 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	/* and try opening again */
 	if (mailbox_sync(box, 0) < 0) {
 		*error_r = mail_storage_get_last_error(storage, &error);
-		mailbox_close(&box);
+		mailbox_free(&box);
 		return NULL;
 	}
 	return box;
@@ -230,7 +230,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	}
 
 	if (ctx->dest_mail == NULL)
-		mailbox_close(&box);
+		mailbox_free(&box);
 	return ret;
 }
 

@@ -116,7 +116,7 @@ mbox_snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	(void)mbox_snarf(spool_mbox, box);
 
 	ctx = mbox->module_ctx.super.sync_init(box, flags);
-	mailbox_close(&spool_mbox);
+	mailbox_free(&spool_mbox);
 	return ctx;
 }
 
