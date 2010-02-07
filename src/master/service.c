@@ -236,12 +236,6 @@ service_create(pool_t pool, const struct service_settings *set,
 			p_strconcat(pool, set->master_set->libexec_dir, "/",
 				    set->executable, NULL);
 	}
-	if (access(t_strcut(service->executable, ' '), X_OK) < 0) {
-		*error_r = t_strdup_printf("access(%s) failed: %m",
-					   t_strcut(service->executable, ' '));
-		return NULL;
-	}
-
 	/* set these later, so if something fails we don't have to worry about
 	   closing them */
 	service->log_fd[0] = -1;
@@ -313,6 +307,13 @@ service_create(pool_t pool, const struct service_settings *set,
 			return NULL;
 	}
 
+	if (array_count(&service->listeners) > 0) {
+		if (access(t_strcut(service->executable, ' '), X_OK) < 0) {
+			*error_r = t_strdup_printf("access(%s) failed: %m",
+				t_strcut(service->executable, ' '));
+			return NULL;
+		}
+	}
 	return service;
 }
 
