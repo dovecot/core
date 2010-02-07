@@ -8,6 +8,7 @@
 #include "mkdir-parents.h"
 #include "var-expand.h"
 #include "mail-index-private.h"
+#include "mail-index-alloc-cache.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
 #include "mail-storage-settings.h"
@@ -328,6 +329,8 @@ void mail_storage_unref(struct mail_storage **_storage)
 		storage->v.destroy(storage);
 	i_free(storage->error_string);
 	pool_unref(&storage->pool);
+
+	mail_index_alloc_cache_destroy_unrefed();
 }
 
 void mail_storage_clear_error(struct mail_storage *storage)

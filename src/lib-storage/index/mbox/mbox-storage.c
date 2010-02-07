@@ -757,7 +757,6 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 	}
 
 	/* delete index / control files first */
-	index_storage_destroy_unrefed();
 	if (mlist->module_ctx.super.delete_mailbox(list, name) < 0)
 		return -1;
 
@@ -858,7 +857,7 @@ struct mail_storage mbox_storage = {
                 mbox_get_setting_parser_info,
 		mbox_storage_alloc,
 		mbox_storage_create,
-		index_storage_destroy,
+		NULL,
 		mbox_storage_add_list,
 		mbox_storage_get_list_settings,
 		mbox_storage_autodetect,

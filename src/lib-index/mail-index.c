@@ -11,6 +11,7 @@
 #include "nfs-workarounds.h"
 #include "read-full.h"
 #include "write-full.h"
+#include "mail-index-alloc-cache.h"
 #include "mail-index-private.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
@@ -527,6 +528,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 
 	i_assert(index->map != NULL);
 	index->opened = TRUE;
+	mail_index_alloc_cache_index_opened(index);
 	return 1;
 }
 

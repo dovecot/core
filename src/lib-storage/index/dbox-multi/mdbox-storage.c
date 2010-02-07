@@ -97,7 +97,6 @@ static void mdbox_storage_destroy(struct mail_storage *_storage)
 	mdbox_files_free(storage);
 	dbox_map_deinit(&storage->map);
 	array_free(&storage->open_files);
-	index_storage_destroy(_storage);
 }
 
 struct mailbox *
@@ -357,12 +356,6 @@ mdbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	struct mdbox_mailbox_list *mlist = MDBOX_LIST_CONTEXT(list);
 	const char *trash_dest;
 	int ret;
-
-	/* Make sure the indexes are closed before trying to delete the
-	   directory that contains them. It can still fail with some NFS
-	   implementations if indexes are opened by another session, but
-	   that can't really be helped. */
-	index_storage_destroy_unrefed();
 
 	/* delete the index and control directories */
 	if (mlist->module_ctx.super.delete_mailbox(list, name) < 0)

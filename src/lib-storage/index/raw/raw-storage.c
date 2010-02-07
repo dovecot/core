@@ -178,7 +178,7 @@ struct mail_storage raw_storage = {
 		NULL,
 		raw_storage_alloc,
 		NULL,
-		index_storage_destroy,
+		NULL,
 		raw_storage_add_list,
 		raw_storage_get_list_settings,
 		NULL,

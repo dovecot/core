@@ -15,6 +15,7 @@
 #include "unlink-directory.h"
 #include "imap-match.h"
 #include "imap-utf7.h"
+#include "mail-index-alloc-cache.h"
 #include "mailbox-log.h"
 #include "mailbox-tree.h"
 #include "mail-storage-private.h"
@@ -744,6 +745,13 @@ int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 				       "INBOX can't be deleted.");
 		return -1;
 	}
+
+	/* Make sure the indexes are closed before trying to delete the
+	   directory that contains them. It can still fail with some NFS
+	   implementations if indexes are opened by another session, but
+	   that can't really be helped. */
+	mail_index_alloc_cache_destroy_unrefed();
+
 	return list->v.delete_mailbox(list, name);
 }
 

@@ -7,6 +7,7 @@
 #include "str.h"
 #include "imap-parser.h"
 #include "mkdir-parents.h"
+#include "mail-index-alloc-cache.h"
 #include "mail-index-private.h"
 #include "mail-index-modseq.h"
 #include "mailbox-list-private.h"
@@ -19,57 +20,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-/* How many seconds to keep index opened for reuse after it's been closed */
-#define INDEX_CACHE_TIMEOUT 10
-/* How many closed indexes to keep */
-#define INDEX_CACHE_MAX 3
-
 #define LOCK_NOTIFY_INTERVAL 30
-
-struct index_list {
-	union mail_index_module_context module_ctx;
-	struct index_list *next;
-
-	struct mail_index *index;
-	char *mailbox_path;
-	int refcount;
-
-	dev_t index_dir_dev;
-	ino_t index_dir_ino;
-
-	time_t destroy_time;
-};
-
-static struct index_list *indexes = NULL;
-static struct timeout *to_index = NULL;
-
-static struct index_list *
-index_storage_add(struct mail_index *index,
-		  const char *mailbox_path, struct stat *st)
-{
-	struct index_list *list;
-
-	list = i_new(struct index_list, 1);
-	list->refcount = 1;
-	list->index = index;
-
-	list->mailbox_path = i_strdup(mailbox_path);
-	list->index_dir_dev = st->st_dev;
-	list->index_dir_ino = st->st_ino;
-
-	list->next = indexes;
-	indexes = list;
-
-	MODULE_CONTEXT_SET(index, mail_storage_mail_index_module, list);
-	return list;
-}
-
-static void index_list_free(struct index_list *list)
-{
-	mail_index_free(&list->index);
-	i_free(list->mailbox_path);
-	i_free(list);
-}
 
 int index_list_create_missing_index_dir(struct mailbox_list *list,
 					const char *name)
@@ -113,159 +64,20 @@ int index_list_create_missing_index_dir(struct mailbox_list *list,
 	return 0;
 }
 
-static const char *
-get_index_dir(struct mailbox_list *list, const char *name,
-	      enum mailbox_flags flags, struct stat *st_r)
-{
-	const char *index_dir;
-
-	index_dir = (flags & MAILBOX_FLAG_NO_INDEX_FILES) != 0 ? "" :
-		mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*index_dir == '\0') {
-		/* disabled */
-		return NULL;
-	}
-
-	if (stat(index_dir, st_r) < 0) {
-		if (errno == ENOENT) {
-			/* it'll be created later */
-			memset(st_r, 0, sizeof(*st_r));
-			return index_dir;
-		}
-		if (errno == EACCES) {
-			mailbox_list_set_critical(list, "%s",
-				mail_error_eacces_msg("stat", index_dir));
-			return NULL;
-		}
-
-		mailbox_list_set_critical(list, "stat(%s) failed: %m",
-					  index_dir);
-		return NULL;
-	}
-	return index_dir;
-}
-
 static struct mail_index *
 index_storage_alloc(struct mailbox_list *list, const char *name,
 		    enum mailbox_flags flags, const char *prefix)
 {
-	struct index_list **indexp, *rec, *match;
-	struct stat st, st2;
 	const char *index_dir, *mailbox_path;
-	int destroy_count;
 
 	mailbox_path = mailbox_list_get_path(list, name,
 					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = get_index_dir(list, name, flags, &st);
+	index_dir = (flags & MAILBOX_FLAG_NO_INDEX_FILES) != 0 ? "" :
+		mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*index_dir == '\0')
+		index_dir = NULL;
 
-	if (index_dir == NULL)
-		memset(&st, 0, sizeof(st));
-
-	/* compare index_dir inodes so we don't break even with symlinks.
-	   if index_dir doesn't exist yet or if using in-memory indexes, just
-	   compare mailbox paths */
-	destroy_count = 0; match = NULL;
-	for (indexp = &indexes; *indexp != NULL;) {
-		rec = *indexp;
-
-		if (match != NULL) {
-			/* already found the index. we're just going through
-			   the rest of them to drop 0 refcounts */
-		} else if (index_dir != NULL && rec->index_dir_ino != 0) {
-			if (st.st_ino == rec->index_dir_ino &&
-			    CMP_DEV_T(st.st_dev, rec->index_dir_dev)) {
-				/* make sure the directory still exists.
-				   it might have been renamed and we're trying
-				   to access it via its new path now. */
-				if (stat(rec->index->dir, &st2) < 0 ||
-				    st2.st_ino != st.st_ino ||
-				    !CMP_DEV_T(st2.st_dev, st.st_dev))
-					rec->destroy_time = 0;
-				else
-					match = rec;
-			}
-		} else {
-			if (strcmp(mailbox_path, rec->mailbox_path) == 0)
-				match = rec;
-		}
-
-		if (rec->refcount == 0 && rec != match) {
-			if (rec->destroy_time <= ioloop_time ||
-			    destroy_count >= INDEX_CACHE_MAX) {
-				*indexp = rec->next;
-				index_list_free(rec);
-				continue;
-			} else {
-				destroy_count++;
-			}
-		}
-
-                indexp = &(*indexp)->next;
-	}
-
-	if (match == NULL) {
-		match = index_storage_add(mail_index_alloc(index_dir, prefix),
-					  mailbox_path, &st);
-	} else {
-		match->refcount++;
-	}
-	i_assert(match->index != NULL);
-	return match->index;
-}
-
-static void destroy_unrefed(bool all)
-{
-	struct index_list **list, *rec;
-
-	for (list = &indexes; *list != NULL;) {
-		rec = *list;
-
-		if (rec->refcount == 0 &&
-		    (all || rec->destroy_time <= ioloop_time)) {
-			*list = rec->next;
-			index_list_free(rec);
-		} else {
-			list = &(*list)->next;
-		}
-	}
-
-	if (indexes == NULL && to_index != NULL)
-		timeout_remove(&to_index);
-}
-
-static void index_removal_timeout(void *context ATTR_UNUSED)
-{
-	destroy_unrefed(FALSE);
-}
-
-void index_storage_unref(struct mail_index *index)
-{
-	struct index_list *list;
-
-	for (list = indexes; list != NULL; list = list->next) {
-		if (list->index == index)
-			break;
-	}
-
-	i_assert(list != NULL);
-	i_assert(list->refcount > 0);
-
-	list->refcount--;
-	list->destroy_time = ioloop_time + INDEX_CACHE_TIMEOUT;
-	if (to_index == NULL) {
-		to_index = timeout_add(INDEX_CACHE_TIMEOUT*1000/2,
-				       index_removal_timeout, NULL);
-	}
-}
-
-void index_storage_destroy_unrefed(void)
-{
-	destroy_unrefed(TRUE);
-}
-
-void index_storage_destroy(struct mail_storage *storage ATTR_UNUSED)
-{
-	index_storage_destroy_unrefed();
+	return mail_index_alloc_cache_get(mailbox_path, index_dir, prefix);
 }
 
 static void set_cache_decisions(const char *set, const char *fields,
@@ -374,12 +186,9 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 int index_storage_mailbox_open(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
-	struct index_list *list = MAIL_STORAGE_CONTEXT(ibox->index);
 	enum file_lock_method lock_method =
 		box->storage->set->parsed_lock_method;
 	enum mail_index_open_flags index_flags;
-	const char *index_dir;
-	struct stat st;
 	int ret;
 
 	i_assert(!box->opened);
@@ -399,16 +208,6 @@ int index_storage_mailbox_open(struct mailbox *box)
 	if (index_list_create_missing_index_dir(box->list, box->name) < 0) {
 		mail_storage_set_internal_error(box->storage);
 		return -1;
-	}
-
-	index_dir = mailbox_list_get_path(box->list, box->name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (list->index_dir_ino == 0 && *index_dir != '\0') {
-		/* newly created index directory. update its stat. */
-		if (stat(index_dir, &st) == 0) {
-			list->index_dir_ino = st.st_ino;
-			list->index_dir_dev = st.st_dev;
-		}
 	}
 
 	ret = mail_index_open(ibox->index, index_flags, lock_method);
@@ -526,7 +325,7 @@ void index_storage_mailbox_close(struct mailbox *box)
 	if (ibox->box.input != NULL)
 		i_stream_unref(&ibox->box.input);
 	if (ibox->index != NULL)
-		index_storage_unref(ibox->index);
+		mail_index_alloc_cache_unref(ibox->index);
 	if (array_is_created(&ibox->recent_flags))
 		array_free(&ibox->recent_flags);
 	i_free(ibox->cache_fields);

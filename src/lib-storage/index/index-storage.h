@@ -73,10 +73,6 @@ void index_storage_lock_notify(struct index_mailbox *ibox,
 			       unsigned int secs_left);
 void index_storage_lock_notify_reset(struct index_mailbox *ibox);
 
-void index_storage_unref(struct mail_index *index);
-void index_storage_destroy_unrefed(void);
-void index_storage_destroy(struct mail_storage *storage ATTR_UNUSED);
-
 void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
 				 struct istream *input,
 				 enum mailbox_flags flags,
