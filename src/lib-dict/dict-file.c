@@ -181,8 +181,8 @@ file_dict_iterate_init(struct dict *_dict, const char *path,
 	return &ctx->ctx;
 }
 
-static int file_dict_iterate(struct dict_iterate_context *_ctx,
-			     const char **key_r, const char **value_r)
+static bool file_dict_iterate(struct dict_iterate_context *_ctx,
+			      const char **key_r, const char **value_r)
 {
 	struct file_dict_iterate_context *ctx =
 		(struct file_dict_iterate_context *)_ctx;
@@ -198,19 +198,21 @@ static int file_dict_iterate(struct dict_iterate_context *_ctx,
 
 		*key_r = key;
 		*value_r = value;
-		return 1;
+		return TRUE;
 	}
-	return ctx->failed ? -1 : 0;
+	return FALSE;
 }
 
-static void file_dict_iterate_deinit(struct dict_iterate_context *_ctx)
+static int file_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 {
 	struct file_dict_iterate_context *ctx =
 		(struct file_dict_iterate_context *)_ctx;
+	int ret = ctx->failed ? -1 : 0;
 
 	hash_table_iterate_deinit(&ctx->iter);
 	i_free(ctx->path);
 	i_free(ctx);
+	return ret;
 }
 
 static struct dict_transaction_context *

@@ -52,7 +52,7 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 
 	str = t_str_new(256);
 	o_stream_cork(conn->output);
-	while ((ret = dict_iterate(conn->iter_ctx, &key, &value)) > 0) {
+	while (dict_iterate(conn->iter_ctx, &key, &value)) {
 		str_truncate(str, 0);
 		str_printfa(str, "%c%s\t%s\n", DICT_PROTOCOL_REPLY_OK,
 			    key, value);
@@ -60,25 +60,25 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 
 		if (o_stream_get_buffer_used_size(conn->output) >
 		    DICT_OUTPUT_OPTIMAL_SIZE) {
-			if (o_stream_flush(conn->output) <= 0)
-				break;
+			if (o_stream_flush(conn->output) <= 0) {
+				/* continue later */
+				o_stream_uncork(conn->output);
+				return 0;
+			}
 			/* flushed everything, continue */
 		}
 	}
 
-	if (ret <= 0) {
-		/* finished iterating */
-		o_stream_unset_flush_callback(conn->output);
-		dict_iterate_deinit(&conn->iter_ctx);
+	/* finished iterating */
+	o_stream_unset_flush_callback(conn->output);
 
-		str_truncate(str, 0);
-		if (ret < 0)
-			str_append_c(str, DICT_PROTOCOL_REPLY_FAIL);
-		str_append_c(str, '\n');
-		o_stream_send(conn->output, str_data(str), str_len(str));
-	}
+	str_truncate(str, 0);
+	if ((ret = dict_iterate_deinit(&conn->iter_ctx)) < 0)
+		str_append_c(str, DICT_PROTOCOL_REPLY_FAIL);
+	str_append_c(str, '\n');
+	o_stream_send(conn->output, str_data(str), str_len(str));
 	o_stream_uncork(conn->output);
-	return ret <= 0 ? 1 : 0;
+	return 1;
 }
 
 static int cmd_iterate(struct dict_connection *conn, const char *line)

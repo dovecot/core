@@ -231,7 +231,7 @@ static void expire_run(struct master_service *service, bool testrun)
 				 DICT_ITERATE_FLAG_SORT_BY_VALUE);
 
 	/* We'll get the oldest values (timestamps) first */
-	while ((ret = dict_iterate(iter, &key, &value)) > 0) {
+	while (dict_iterate(iter, &key, &value)) {
 		/* key = DICT_EXPIRE_PREFIX<user>/<mailbox> */
 		userp = key + strlen(DICT_EXPIRE_PREFIX);
 
@@ -264,7 +264,6 @@ static void expire_run(struct master_service *service, bool testrun)
 
 		if (ret < 0) {
 			/* failed to update */
-			ret = 0;
 		} else if (next_expire == 0) {
 			/* no more messages or mailbox deleted */
 			if (!testrun)
@@ -289,12 +288,11 @@ static void expire_run(struct master_service *service, bool testrun)
 			} T_END;
 		}
 	}
-	if (ret < 0)
+	if (dict_iterate_deinit(&iter) < 0)
 		i_error("Dictionary iteration failed");
 	if (testrun && userp == NULL)
 		i_info("No entries in dictionary");
 
-	dict_iterate_deinit(&iter);
 	if (!testrun)
 		dict_transaction_commit(&trans);
 	else

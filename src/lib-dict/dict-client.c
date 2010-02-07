@@ -493,8 +493,8 @@ client_dict_iterate_init(struct dict *_dict, const char *path,
 	return &ctx->ctx;
 }
 
-static int client_dict_iterate(struct dict_iterate_context *_ctx,
-			       const char **key_r, const char **value_r)
+static bool client_dict_iterate(struct dict_iterate_context *_ctx,
+				const char **key_r, const char **value_r)
 {
 	struct client_dict_iterate_context *ctx =
 		(struct client_dict_iterate_context *)_ctx;
@@ -502,16 +502,18 @@ static int client_dict_iterate(struct dict_iterate_context *_ctx,
 	char *line, *value;
 
 	if (ctx->failed)
-		return -1;
+		return FALSE;
 
 	/* read next reply */
 	line = client_dict_read_line(dict);
-	if (line == NULL)
-		return -1;
+	if (line == NULL) {
+		ctx->failed = TRUE;
+		return FALSE;
+	}
 
 	if (*line == '\0') {
 		/* end of iteration */
-		return 0;
+		return FALSE;
 	}
 
 	/* line contains key \t value */
@@ -522,7 +524,8 @@ static int client_dict_iterate(struct dict_iterate_context *_ctx,
 		value = strchr(++line, '\t');
 		break;
 	case DICT_PROTOCOL_REPLY_FAIL:
-		return -1;
+		ctx->failed = TRUE;
+		return FALSE;
 	default:
 		value = NULL;
 		break;
@@ -530,24 +533,27 @@ static int client_dict_iterate(struct dict_iterate_context *_ctx,
 	if (value == NULL) {
 		/* broken protocol */
 		i_error("dict client (%s) sent broken reply", dict->path);
-		return -1;
+		ctx->failed = TRUE;
+		return FALSE;
 	}
 	*value++ = '\0';
 
 	*key_r = p_strdup(ctx->pool, dict_client_unescape(line));
 	*value_r = p_strdup(ctx->pool, dict_client_unescape(value));
-	return 1;
+	return TRUE;
 }
 
-static void client_dict_iterate_deinit(struct dict_iterate_context *_ctx)
+static int client_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 {
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
 	struct client_dict_iterate_context *ctx =
 		(struct client_dict_iterate_context *)_ctx;
+	int ret = ctx->failed ? -1 : 0;
 
 	pool_unref(&ctx->pool);
 	i_free(ctx);
 	dict->in_iteration = FALSE;
+	return ret;
 }
 
 static struct dict_transaction_context *

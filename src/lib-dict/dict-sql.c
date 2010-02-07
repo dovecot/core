@@ -42,6 +42,7 @@ struct sql_dict_iterate_context {
 	string_t *key;
 	const struct dict_sql_map *map;
 	unsigned int key_prefix_len, pattern_prefix_len, next_map_idx;
+	bool failed;
 };
 
 struct sql_dict_inc_row {
@@ -397,8 +398,8 @@ sql_dict_iterate_init(struct dict *_dict, const char *path,
 	return &ctx->ctx;
 }
 
-static int sql_dict_iterate(struct dict_iterate_context *_ctx,
-			    const char **key_r, const char **value_r)
+static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
+			     const char **key_r, const char **value_r)
 {
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
@@ -406,18 +407,21 @@ static int sql_dict_iterate(struct dict_iterate_context *_ctx,
 	unsigned int i, count;
 	int ret;
 
-	if (ctx->result == NULL)
-		return -1;
+	if (ctx->result == NULL) {
+		ctx->failed = TRUE;
+		return FALSE;
+	}
 
 	while ((ret = sql_result_next_row(ctx->result)) == 0) {
 		/* see if there are more results in the next map */
 		if (!sql_dict_iterate_next_query(ctx))
-			return 0;
+			return FALSE;
 	}
 	if (ret < 0) {
+		ctx->failed = TRUE;
 		i_error("dict sql iterate failed: %s",
 			sql_result_get_error(ctx->result));
-		return ret;
+		return FALSE;
 	}
 
 	/* convert fetched row to dict key */
@@ -442,19 +446,21 @@ static int sql_dict_iterate(struct dict_iterate_context *_ctx,
 
 	*key_r = str_c(ctx->key);
 	*value_r = sql_result_get_field_value(ctx->result, 0);
-	return 1;
+	return TRUE;
 }
 
-static void sql_dict_iterate_deinit(struct dict_iterate_context *_ctx)
+static int sql_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 {
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
+	int ret = ctx->failed ? -1 : 0;
 
 	if (ctx->result != NULL)
 		sql_result_unref(ctx->result);
 	str_free(&ctx->key);
 	i_free(ctx->path);
 	i_free(ctx);
+	return ret;
 }
 
 static struct dict_transaction_context *

@@ -122,18 +122,18 @@ dict_iterate_init(struct dict *dict, const char *path,
 	return dict->v.iterate_init(dict, path, flags);
 }
 
-int dict_iterate(struct dict_iterate_context *ctx,
-		 const char **key_r, const char **value_r)
+bool dict_iterate(struct dict_iterate_context *ctx,
+		  const char **key_r, const char **value_r)
 {
 	return ctx->dict->v.iterate(ctx, key_r, value_r);
 }
 
-void dict_iterate_deinit(struct dict_iterate_context **_ctx)
+int dict_iterate_deinit(struct dict_iterate_context **_ctx)
 {
 	struct dict_iterate_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	ctx->dict->v.iterate_deinit(ctx);
+	return ctx->dict->v.iterate_deinit(ctx);
 }
 
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict)

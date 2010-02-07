@@ -34,6 +34,7 @@ struct db_dict_iterate_context {
 			    const char **key_r, const char **value_r);
 
 	enum dict_iterate_flags flags;
+	bool failed;
 };
 
 struct db_dict_transaction_context {
@@ -341,24 +342,30 @@ db_dict_iterate_init(struct dict *_dict, const char *path,
 	return &ctx->ctx;
 }
 
-static int db_dict_iterate(struct dict_iterate_context *_ctx,
-			   const char **key_r, const char **value_r)
+static bool db_dict_iterate(struct dict_iterate_context *_ctx,
+			    const char **key_r, const char **value_r)
 {
 	struct db_dict_iterate_context *ctx =
 		(struct db_dict_iterate_context *)_ctx;
+	int ret;
 
-	return ctx->iterate_next(ctx, key_r, value_r);
+	ret = ctx->iterate_next(ctx, key_r, value_r);
+	if (ret < 0)
+		ctx->failed = TRUE;
+	return ret > 0;
 }
 
-static void db_dict_iterate_deinit(struct dict_iterate_context *_ctx)
+static int db_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 {
 	struct db_dict_iterate_context *ctx =
 		(struct db_dict_iterate_context *)_ctx;
+	int ret = ctx->failed ? -1 : 0;
 
 	ctx->cursor->c_close(ctx->cursor);
 	pool_unref(&ctx->pool);
 	i_free(ctx->path);
 	i_free(ctx);
+	return ret;
 }
 
 static struct dict_transaction_context *

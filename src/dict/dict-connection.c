@@ -166,7 +166,7 @@ void dict_connection_destroy(struct dict_connection *conn)
 	}
 
 	if (conn->iter_ctx != NULL)
-		dict_iterate_deinit(&conn->iter_ctx);
+		(void)dict_iterate_deinit(&conn->iter_ctx);
 
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);

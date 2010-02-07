@@ -48,10 +48,10 @@ int dict_lookup(struct dict *dict, pool_t pool,
 struct dict_iterate_context *
 dict_iterate_init(struct dict *dict, const char *path, 
 		  enum dict_iterate_flags flags);
-/* Returns -1 = error, 0 = finished, 1 = key/value set */
-int dict_iterate(struct dict_iterate_context *ctx,
-		 const char **key_r, const char **value_r);
-void dict_iterate_deinit(struct dict_iterate_context **ctx);
+bool dict_iterate(struct dict_iterate_context *ctx,
+		  const char **key_r, const char **value_r);
+/* Returns 0 = ok, -1 = iteration failed */
+int dict_iterate_deinit(struct dict_iterate_context **ctx);
 
 /* Start a new dictionary transaction. */
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict);

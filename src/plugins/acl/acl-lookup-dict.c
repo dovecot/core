@@ -154,7 +154,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
 	prefix_len = strlen(prefix);
 	iter = dict_iterate_init(dict->dict, prefix, DICT_ITERATE_FLAG_RECURSE);
-	while ((ret = dict_iterate(iter, &key, &value)) > 0) {
+	while (dict_iterate(iter, &key, &value)) {
 		/* prefix/$dest/$source */
 		key += prefix_len;
 		p = strchr(key, '/');
@@ -163,8 +163,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			array_append(&old_ids_arr, &key, 1);
 		}
 	}
-	dict_iterate_deinit(&iter);
-	if (ret < 0) {
+	if (dict_iterate_deinit(&iter) < 0) {
 		i_error("acl: dict iteration failed, can't update dict");
 		return -1;
 	}
@@ -300,19 +299,16 @@ const char *
 acl_lookup_dict_iterate_visible_next(struct acl_lookup_dict_iter *iter)
 {
 	const char *key, *value;
-	int ret;
 
 	if (iter->dict_iter == NULL)
 		return 0;
 
-	ret = dict_iterate(iter->dict_iter, &key, &value);
-	if (ret > 0) {
+	if (dict_iterate(iter->dict_iter, &key, &value)) {
 		i_assert(iter->prefix_len < strlen(key));
 		return key + iter->prefix_len;
 	}
-	if (ret < 0)
+	if (dict_iterate_deinit(&iter->dict_iter) < 0)
 		iter->failed = TRUE;
-	dict_iterate_deinit(&iter->dict_iter);
 
 	if (iter->iter_idx < array_count(&iter->iter_ids)) {
 		/* get to the next iterator */
@@ -328,8 +324,10 @@ int acl_lookup_dict_iterate_visible_deinit(struct acl_lookup_dict_iter **_iter)
 	int ret = iter->failed ? -1 : 0;
 
 	*_iter = NULL;
-	if (iter->dict_iter != NULL)
-		dict_iterate_deinit(&iter->dict_iter);
+	if (iter->dict_iter != NULL) {
+		if (dict_iterate_deinit(&iter->dict_iter) < 0)
+			ret = -1;
+	}
 	pool_unref(&iter->pool);
 	return ret;
 }
