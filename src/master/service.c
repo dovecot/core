@@ -154,6 +154,7 @@ service_create_inet_listeners(struct service *service,
 		if (l == NULL)
 			return -1;
 		array_append(&service->listeners, &l, 1);
+		service->have_inet_listeners = TRUE;
 	}
 	return 0;
 }
@@ -310,7 +311,6 @@ service_create(pool_t pool, const struct service_settings *set,
 		if (service_create_inet_listeners(service, inet_listeners[i],
 						  error_r) < 0)
 			return NULL;
-		service->have_inet_listeners = TRUE;
 	}
 
 	return service;
