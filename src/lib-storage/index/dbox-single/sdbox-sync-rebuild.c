@@ -12,13 +12,12 @@
 
 static void sdbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
 {
-	struct mailbox *box = &ctx->ibox->box;
 	uint32_t uid_validity;
 
 	/* if uidvalidity is set in the old index, use it */
 	uid_validity = mail_index_get_header(ctx->view)->uid_validity;
 	if (uid_validity == 0)
-		uid_validity = dbox_get_uidvalidity_next(box->list);
+		uid_validity = dbox_get_uidvalidity_next(ctx->box->list);
 
 	mail_index_update_header(ctx->trans,
 		offsetof(struct mail_index_header, uid_validity),
@@ -58,7 +57,7 @@ static int
 sdbox_sync_add_file(struct dbox_sync_rebuild_context *ctx,
 		    const char *fname, bool primary)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->ibox;
+	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->box;
 	struct dbox_file *file;
 	unsigned long uid;
 	char *p;
@@ -72,7 +71,7 @@ sdbox_sync_add_file(struct dbox_sync_rebuild_context *ctx,
 	uid = strtoul(fname, &p, 10);
 	if (*p != '\0' || uid == 0 || uid >= (uint32_t)-1) {
 		i_warning("dbox %s: Ignoring invalid filename %s",
-			  ctx->ibox->box.path, fname);
+			  ctx->box->path, fname);
 		return 0;
 	}
 
@@ -87,7 +86,7 @@ sdbox_sync_add_file(struct dbox_sync_rebuild_context *ctx,
 static int sdbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 					const char *path, bool primary)
 {
-	struct mail_storage *storage = ctx->ibox->box.storage;
+	struct mail_storage *storage = ctx->box->storage;
 	DIR *dir;
 	struct dirent *d;
 	int ret = 0;
@@ -99,7 +98,7 @@ static int sdbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 				/* alt directory doesn't exist, ignore */
 				return 0;
 			}
-			mailbox_set_deleted(&ctx->ibox->box);
+			mailbox_set_deleted(ctx->box);
 			return -1;
 		}
 		mail_storage_set_critical(storage,
@@ -129,7 +128,7 @@ static int sdbox_sync_index_rebuild_dir(struct dbox_sync_rebuild_context *ctx,
 
 static void sdbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->ibox;
+	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->box;
 	struct sdbox_index_header hdr;
 
 	if (sdbox_read_header(mbox, &hdr) < 0)
@@ -143,11 +142,11 @@ static void sdbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 static int
 sdbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->ibox;
+	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->box;
 	int ret = 0;
 
 	sdbox_sync_set_uidvalidity(ctx);
-	if (sdbox_sync_index_rebuild_dir(ctx, ctx->ibox->box.path, TRUE) < 0)
+	if (sdbox_sync_index_rebuild_dir(ctx, ctx->box->path, TRUE) < 0)
 		ret = -1;
 	else if (mbox->alt_path != NULL)
 		ret = sdbox_sync_index_rebuild_dir(ctx, mbox->alt_path, FALSE);
@@ -162,11 +161,11 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox)
 	struct mail_index_transaction *trans;
 	int ret;
 
-	view = mail_index_view_open(mbox->ibox.box.index);
+	view = mail_index_view_open(mbox->box.index);
 	trans = mail_index_transaction_begin(view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 
-	ctx = dbox_sync_index_rebuild_init(&mbox->ibox, view, trans);
+	ctx = dbox_sync_index_rebuild_init(&mbox->box, view, trans);
 	ret = sdbox_sync_index_rebuild_singles(ctx);
 	dbox_sync_index_rebuild_deinit(&ctx);
 

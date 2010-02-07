@@ -6,7 +6,6 @@
 #include "index-sync-changes.h"
 
 struct index_sync_changes_context {
-	struct index_mailbox *ibox;
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *sync_trans;
@@ -17,8 +16,7 @@ struct index_sync_changes_context {
 };
 
 struct index_sync_changes_context *
-index_sync_changes_init(struct index_mailbox *ibox,
-			struct mail_index_sync_ctx *index_sync_ctx,
+index_sync_changes_init(struct mail_index_sync_ctx *index_sync_ctx,
 			struct mail_index_view *sync_view,
 			struct mail_index_transaction *sync_trans,
 			bool dirty_flag_updates)
@@ -26,7 +24,6 @@ index_sync_changes_init(struct index_mailbox *ibox,
 	struct index_sync_changes_context *ctx;
 
 	ctx = i_new(struct index_sync_changes_context, 1);
-	ctx->ibox = ibox;
 	ctx->index_sync_ctx = index_sync_ctx;
 	ctx->sync_view = sync_view;
 	ctx->sync_trans = sync_trans;

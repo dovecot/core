@@ -5,7 +5,6 @@
 
 struct index_mailbox_sync_context {
 	struct mailbox_sync_context ctx;
-	struct index_mailbox *ibox;
 	struct mail_index_view_sync_ctx *sync_ctx;
 	uint32_t messages_count;
 

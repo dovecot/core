@@ -43,7 +43,7 @@ maildir_filename_guess(struct maildir_mailbox *mbox, uint32_t uid,
 	} else {
 		*have_flags_r = TRUE;
 		kw_ctx = maildir_keywords_sync_init_readonly(mbox->keywords,
-							     mbox->ibox.box.index);
+							     mbox->box.index);
 		fname = maildir_filename_set_flags(kw_ctx, fname,
 						   flags, &keywords);
 		maildir_keywords_sync_deinit(&kw_ctx);
@@ -74,13 +74,13 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
-		path = t_strconcat(mbox->ibox.box.path, "/new/", fname, NULL);
+		path = t_strconcat(mbox->box.path, "/new/", fname, NULL);
 		ret = callback(mbox, path, context);
 		if (ret != 0)
 			return ret;
 	}
 
-	path = t_strconcat(mbox->ibox.box.path, "/cur/", fname, NULL);
+	path = t_strconcat(mbox->box.path, "/cur/", fname, NULL);
 	ret = callback(mbox, path, context);
 	return ret;
 }

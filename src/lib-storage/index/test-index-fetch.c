@@ -87,19 +87,19 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view ATTR_U
 
 static void test_index_storage_get_expunges(void)
 {
-	struct index_mailbox *ibox;
+	struct mailbox *box;
 	ARRAY_TYPE(seq_range) uids_filter;
 	ARRAY_TYPE(mailbox_expunge_rec) expunges;
 	const struct mailbox_expunge_rec *exp;
 	unsigned int i, count;
 	uint64_t modseq;
 
-	ibox = t_new(struct index_mailbox, 1);
-	ibox->box.index = t_new(struct mail_index, 1);
-	ibox->box.view = t_new(struct mail_index_view, 1);
+	box = t_new(struct mailbox, 1);
+	box->index = t_new(struct mail_index, 1);
+	box->view = t_new(struct mail_index_view, 1);
 
-	ibox->box.view->log_file_head_seq = 101;
-	ibox->box.view->log_file_head_offset = 1024;
+	box->view->log_file_head_seq = 101;
+	box->view->log_file_head_offset = 1024;
 
 	test_begin("index storage get expunges");
 
@@ -114,7 +114,7 @@ static void test_index_storage_get_expunges(void)
 	t_array_init(&expunges, 32);
 	modseq = 98ULL << 32;
 	for (i = 0; i < 2; i++) {
-		test_assert(index_storage_get_expunges(&ibox->box, modseq, &uids_filter,
+		test_assert(index_storage_get_expunges(box, modseq, &uids_filter,
 						       &expunges) == i);
 
 		exp = array_get(&expunges, &count);

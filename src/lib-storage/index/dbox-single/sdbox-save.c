@@ -270,9 +270,9 @@ void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 		ctx->ctx.failed = TRUE;
 
 	if (!ctx->mbox->storage->storage.storage.set->fsync_disable) {
-		if (fdatasync_path(ctx->mbox->ibox.box.path) < 0) {
+		if (fdatasync_path(ctx->mbox->box.path) < 0) {
 			i_error("fdatasync_path(%s) failed: %m",
-				ctx->mbox->ibox.box.path);
+				ctx->mbox->box.path);
 		}
 	}
 	sdbox_transaction_save_rollback(_ctx);

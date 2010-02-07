@@ -14,8 +14,8 @@
 
 static void sdbox_mail_set_expunged(struct dbox_mail *mail)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)mail->imail.ibox;
 	struct mail *_mail = &mail->imail.mail.mail;
+	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)_mail->box;
 
 	(void)mail_index_refresh(_mail->box->index);
 	if (mail_index_is_expunged(_mail->box->view, _mail->seq)) {

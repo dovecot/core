@@ -79,7 +79,7 @@ maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
 
 	mail_storage_set_critical(&ctx->mbox->storage->storage,
 		"Mailbox %s: Expunged GUID mismatch for UID %u: %s vs %s",
-		ctx->mbox->ibox.box.vname, ctx->uid,
+		ctx->mbox->box.vname, ctx->uid,
 		binary_to_hex(guid_128, sizeof(guid_128)),
 		binary_to_hex(expunged_guid_128, MAIL_GUID_128_SIZE));
 	return FALSE;
@@ -88,7 +88,7 @@ maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
 static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 			   struct maildir_index_sync_context *ctx)
 {
-	struct mailbox *box = &mbox->ibox.box;
+	struct mailbox *box = &mbox->box;
 
 	if (unlink(path) == 0) {
 		if (box->v.sync_notify != NULL) {
@@ -108,7 +108,7 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			      struct maildir_index_sync_context *ctx)
 {
-	struct mailbox *box = &mbox->ibox.box;
+	struct mailbox *box = &mbox->box;
 	struct stat st;
 	const char *dir, *fname, *newfname, *newpath;
 	enum mail_index_sync_type sync_type;
@@ -203,7 +203,7 @@ static int maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 
 	i_warning("Maildir %s: Expunged message reappeared, giving a new UID "
-		  "(old uid=%u, file=%s)", ctx->mbox->ibox.box.path,
+		  "(old uid=%u, file=%s)", ctx->mbox->box.path,
 		  uid, filename);
 	return 0;
 }
@@ -212,7 +212,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 			     struct maildir_sync_context *maildir_sync_ctx,
 			     struct maildir_index_sync_context **ctx_r)
 {
-	struct mailbox *_box = &mbox->ibox.box;
+	struct mailbox *_box = &mbox->box;
 	struct maildir_index_sync_context *ctx;
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
@@ -240,9 +240,8 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	ctx->keywords_sync_ctx =
 		maildir_keywords_sync_init(mbox->keywords, _box->index);
 	ctx->sync_changes =
-		index_sync_changes_init(&mbox->ibox, ctx->sync_ctx,
-					ctx->view, ctx->trans,
-					mbox->ibox.backend_readonly);
+		index_sync_changes_init(ctx->sync_ctx, ctx->view, ctx->trans,
+					mbox->box.backend_readonly);
 
 	*ctx_r = ctx;
 	return 0;
@@ -280,14 +279,14 @@ maildir_sync_index_update_ext_header(struct maildir_index_sync_context *ctx)
 	struct stat st;
 
 	if (ctx->update_maildir_hdr_cur &&
-	    stat(t_strconcat(mbox->ibox.box.path, "/cur", NULL), &st) == 0) {
+	    stat(t_strconcat(mbox->box.path, "/cur", NULL), &st) == 0) {
 		if ((time_t)mbox->maildir_hdr.cur_check_time < st.st_mtime)
 			mbox->maildir_hdr.cur_check_time = st.st_mtime;
 		mbox->maildir_hdr.cur_mtime = st.st_mtime;
 		mbox->maildir_hdr.cur_mtime_nsecs = ST_MTIME_NSEC(st);
 	}
 
-	mail_index_get_header_ext(mbox->ibox.box.view, mbox->maildir_ext_id,
+	mail_index_get_header_ext(mbox->box.view, mbox->maildir_ext_id,
 				  &data, &data_size);
 	if (data_size != sizeof(mbox->maildir_hdr) ||
 	    maildir_index_header_has_changed(data, &mbox->maildir_hdr)) {
@@ -314,7 +313,7 @@ static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
 		   start a second index sync and crash. */
 		mbox->syncing_commit = TRUE;
 		if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
-			mail_storage_set_index_error(&mbox->ibox.box);
+			mail_storage_set_index_error(&mbox->box);
 			ret = -1;
 		}
 		mbox->syncing_commit = FALSE;
@@ -357,7 +356,7 @@ static int uint_cmp(const void *p1, const void *p2)
 static void
 maildir_sync_mail_keywords(struct maildir_index_sync_context *ctx, uint32_t seq)
 {
-	struct mailbox *box = &ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->mbox->box;
 	struct mail_keywords *kw;
 	unsigned int i, j, old_count, new_count;
 	const unsigned int *old_indexes, *new_indexes;
@@ -465,9 +464,9 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		   first time, reset the index so we can add all messages as
 		   new */
 		i_warning("Maildir %s: UIDVALIDITY changed (%u -> %u)",
-			  mbox->ibox.box.path, hdr->uid_validity, uid_validity);
+			  mbox->box.path, hdr->uid_validity, uid_validity);
 		mail_index_reset(trans);
-		index_mailbox_reset_uidvalidity(&mbox->ibox);
+		index_mailbox_reset_uidvalidity(&mbox->box);
 
 		first_uid = hdr->messages_count + 1;
 		memset(&empty_hdr, 0, sizeof(empty_hdr));
@@ -491,7 +490,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		/* the private flags are kept only in indexes. don't use them
 		   at all even for newly seen mails */
-		ctx->flags &= ~mbox->ibox.box.private_flags_mask;
+		ctx->flags &= ~mbox->box.private_flags_mask;
 
 	again:
 		seq++;
@@ -524,7 +523,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 				struct mail_keywords *kw;
 
 				kw = mail_index_keywords_create_from_indexes(
-					mbox->ibox.box.index, &ctx->keywords);
+					mbox->box.index, &ctx->keywords);
 				mail_index_update_keywords(trans, seq,
 							   MODIFY_REPLACE, kw);
 				mail_index_keywords_unref(&kw);
@@ -564,7 +563,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		}
 
 		/* the private flags are stored only in indexes, keep them */
-		ctx->flags |= rec->flags & mbox->ibox.box.private_flags_mask;
+		ctx->flags |= rec->flags & mbox->box.private_flags_mask;
 
 		if (index_sync_changes_have(ctx->sync_changes)) {
 			/* apply flag changes to maildir */
@@ -619,7 +618,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			/* UIDVALIDITY changed, skip over the old messages */
 			seq = first_uid;
 		}
-		index_mailbox_set_recent_seq(&mbox->ibox, view2, seq, seq2);
+		index_mailbox_set_recent_seq(&mbox->box, view2, seq, seq2);
 	}
 	mail_index_view_close(&view2);
 
@@ -629,8 +628,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			ret = -1;
 	}
 
-	if (mbox->ibox.box.v.sync_notify != NULL)
-		mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);
+	if (mbox->box.v.sync_notify != NULL)
+		mbox->box.v.sync_notify(&mbox->box, 0, 0);
 
 	/* check cur/ mtime later. if we came here from saving messages they
 	   could still be moved to cur/ directory. */
@@ -639,7 +638,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 	if (uid_validity == 0) {
 		uid_validity = hdr->uid_validity != 0 ? hdr->uid_validity :
-			maildir_get_uidvalidity_next(mbox->ibox.box.list);
+			maildir_get_uidvalidity_next(mbox->box.list);
 		maildir_uidlist_set_uid_validity(mbox->uidlist, uid_validity);
 	}
 	maildir_uidlist_set_next_uid(mbox->uidlist, hdr_next_uid, FALSE);

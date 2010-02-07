@@ -13,7 +13,7 @@ static void sdbox_file_init_paths(struct sdbox_file *file, const char *fname)
 	i_free(file->file.primary_path);
 	i_free(file->file.alt_path);
 	file->file.primary_path =
-		i_strdup_printf("%s/%s", file->mbox->ibox.box.path, fname);
+		i_strdup_printf("%s/%s", file->mbox->box.path, fname);
 	if (file->mbox->alt_path != NULL) {
 		file->file.alt_path =
 			i_strdup_printf("%s/%s", file->mbox->alt_path, fname);
@@ -36,7 +36,7 @@ struct dbox_file *sdbox_file_init(struct sdbox_mailbox *mbox, uint32_t uid)
 		} else {
 			file->file.primary_path =
 				i_strdup_printf("%s/%s",
-						file->mbox->ibox.box.path,
+						file->mbox->box.path,
 						dbox_generate_tmp_filename());
 		}
 	} T_END;
@@ -59,7 +59,7 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 
 	old_path = file->file.cur_path;
 	new_fname = t_strdup_printf(SDBOX_MAIL_FILE_FORMAT, uid);
-	new_path = t_strdup_printf("%s/%s", file->mbox->ibox.box.path,
+	new_path = t_strdup_printf("%s/%s", file->mbox->box.path,
 				   new_fname);
 	if (rename(old_path, new_path) < 0) {
 		mail_storage_set_critical(&file->file.storage->storage,
@@ -75,7 +75,7 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 {
 	struct sdbox_file *sfile = (struct sdbox_file *)file;
-	struct mailbox *box = &sfile->mbox->ibox.box;
+	struct mailbox *box = &sfile->mbox->box;
 	const char *p, *dir;
 	mode_t old_mask;
 	int fd;

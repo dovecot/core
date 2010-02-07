@@ -40,7 +40,7 @@
 struct index_search_context {
         struct mail_search_context mail_ctx;
 	struct mail_index_view *view;
-	struct index_mailbox *ibox;
+	struct mailbox *box;
 
 	uint32_t seq1, seq2;
 	struct mail *mail;
@@ -96,7 +96,7 @@ static void search_init_arg(struct mail_search_arg *arg,
 	case SEARCH_KEYWORDS:
 	case SEARCH_MODSEQ:
 		if (arg->type == SEARCH_MODSEQ)
-			mail_index_modseq_enable(ctx->ibox->box.index);
+			mail_index_modseq_enable(ctx->box->index);
 		ctx->have_index_args = TRUE;
 		break;
 	case SEARCH_ALL:
@@ -162,7 +162,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 		   may contain it. */
 		flags = rec->flags & ~MAIL_RECENT;
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
-		    index_mailbox_is_recent(ctx->ibox, rec->uid))
+		    index_mailbox_is_recent(ctx->box, rec->uid))
 			flags |= MAIL_RECENT;
 		return (flags & arg->value.flags) == arg->value.flags;
 	case SEARCH_KEYWORDS:
@@ -605,8 +605,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			/* FIXME: do this once in init */
 			i_assert(*headers != NULL);
 			headers_ctx =
-				mailbox_header_lookup_init(&ctx->ibox->box,
-							   headers);
+				mailbox_header_lookup_init(ctx->box, headers);
 			if (mail_get_header_stream(ctx->mail, headers_ctx,
 						   &input) < 0) {
 				mailbox_header_lookup_unref(&headers_ctx);
@@ -1017,7 +1016,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 
 	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.transaction = _t;
-	ctx->ibox = (struct index_mailbox *)_t->box;
+	ctx->box = _t->box;
 	ctx->view = t->trans_view;
 	ctx->mail_ctx.args = args;
 	ctx->mail_ctx.sort_program = index_sort_program_init(_t, sort_program);
@@ -1067,7 +1066,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	ret = ctx->failed || ctx->error != NULL ? -1 : 0;
 
 	if (ctx->error != NULL) {
-		mail_storage_set_error(ctx->ibox->box.storage,
+		mail_storage_set_error(ctx->box->storage,
 				       MAIL_ERROR_PARAMS, ctx->error);
 	}
 

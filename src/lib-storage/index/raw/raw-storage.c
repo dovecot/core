@@ -46,13 +46,13 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	pool = pool_alloconly_create("raw mailbox", 1024+512);
 	mbox = p_new(pool, struct raw_mailbox, 1);
-	mbox->ibox.box = raw_mailbox;
-	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = storage;
-	mbox->ibox.box.list = list;
-	mbox->ibox.box.mail_vfuncs = &raw_mail_vfuncs;
+	mbox->box = raw_mailbox;
+	mbox->box.pool = pool;
+	mbox->box.storage = storage;
+	mbox->box.list = list;
+	mbox->box.mail_vfuncs = &raw_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags, NULL);
+	index_storage_mailbox_alloc(&mbox->box, name, input, flags, NULL);
 
 	mbox->storage = (struct raw_storage *)storage;
 
@@ -63,7 +63,7 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		mbox->have_filename = TRUE;
 	}
 	mbox->size = (uoff_t)-1;
-	return &mbox->ibox.box;
+	return &mbox->box;
 }
 
 static int raw_mailbox_open(struct mailbox *box)
@@ -71,7 +71,7 @@ static int raw_mailbox_open(struct mailbox *box)
 	int fd;
 
 	if (box->input != NULL)
-		return index_storage_mailbox_open(box);
+		return index_storage_mailbox_open(box, FALSE);
 
 	fd = open(box->path, O_RDONLY);
 	if (fd == -1) {
@@ -87,7 +87,7 @@ static int raw_mailbox_open(struct mailbox *box)
 	}
 	box->input = i_stream_create_fd(fd, MAIL_READ_FULL_BLOCK_SIZE, TRUE);
 	i_stream_set_init_buffer_size(box->input, MAIL_READ_FULL_BLOCK_SIZE);
-	return index_storage_mailbox_open(box);
+	return index_storage_mailbox_open(box, FALSE);
 }
 
 static int

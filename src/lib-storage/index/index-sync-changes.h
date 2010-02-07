@@ -2,8 +2,7 @@
 #define INDEX_SYNC_CHANGES_H
 
 struct index_sync_changes_context *
-index_sync_changes_init(struct index_mailbox *ibox,
-			struct mail_index_sync_ctx *index_sync_ctx,
+index_sync_changes_init(struct mail_index_sync_ctx *index_sync_ctx,
 			struct mail_index_view *sync_view,
 			struct mail_index_transaction *sync_trans,
 			bool dirty_flag_updates);

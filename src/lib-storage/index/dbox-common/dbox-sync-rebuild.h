@@ -2,7 +2,7 @@
 #define DBOX_SYNC_REBUILD_H
 
 struct dbox_sync_rebuild_context {
-	struct index_mailbox *ibox;
+	struct mailbox *box;
 
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
@@ -16,7 +16,7 @@ struct dbox_sync_rebuild_context {
 };
 
 struct dbox_sync_rebuild_context *
-dbox_sync_index_rebuild_init(struct index_mailbox *mbox,
+dbox_sync_index_rebuild_init(struct mailbox *box,
 			     struct mail_index_view *view,
 			     struct mail_index_transaction *trans);
 void dbox_sync_index_rebuild_deinit(struct dbox_sync_rebuild_context **ctx);

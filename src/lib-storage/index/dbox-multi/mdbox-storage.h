@@ -38,7 +38,7 @@ struct mdbox_mail_index_record {
 };
 
 struct mdbox_mailbox {
-	struct index_mailbox ibox;
+	struct mailbox box;
 	struct mdbox_storage *storage;
 
 	uint32_t map_uid_validity;

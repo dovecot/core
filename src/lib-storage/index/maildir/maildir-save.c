@@ -127,9 +127,9 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 	ctx->files_tail = &ctx->files;
 	ctx->fd = -1;
 
-	ctx->tmpdir = p_strconcat(pool, mbox->ibox.box.path, "/tmp", NULL);
-	ctx->newdir = p_strconcat(pool, mbox->ibox.box.path, "/new", NULL);
-	ctx->curdir = p_strconcat(pool, mbox->ibox.box.path, "/cur", NULL);
+	ctx->tmpdir = p_strconcat(pool, mbox->box.path, "/tmp", NULL);
+	ctx->newdir = p_strconcat(pool, mbox->box.path, "/new", NULL);
+	ctx->curdir = p_strconcat(pool, mbox->box.path, "/cur", NULL);
 
 	buffer_create_const_data(&ctx->keywords_buffer, NULL, 0);
 	array_create_from_buffer(&ctx->keywords_array, &ctx->keywords_buffer,
@@ -298,14 +298,14 @@ const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			      const char **fname)
 {
-	struct mailbox *box = &mbox->ibox.box;
+	struct mailbox *box = &mbox->box;
 	struct stat st;
 	unsigned int prefix_len;
 	const char *tmp_fname = *fname;
 	string_t *path;
 	int fd;
 
-	if (mail_index_is_deleted(mbox->ibox.box.index)) {
+	if (mail_index_is_deleted(mbox->box.index)) {
 		mailbox_set_deleted(box);
 		return -1;
 	}
@@ -637,14 +637,14 @@ static void maildir_sync_conflict(struct maildir_save_context *ctx,
 	if (maildir_uidlist_lookup(ctx->mbox->uidlist, conflict->old_uid,
 				   &flags, &filename) <= 0) {
 		i_error("maildir %s: uid %u update failed: lost filename",
-			ctx->mbox->ibox.box.path, conflict->old_uid);
+			ctx->mbox->box.path, conflict->old_uid);
 		return;
 	}
 	maildir_uidlist_sync_remove(ctx->uidlist_sync_ctx, filename);
 	if (maildir_uidlist_sync_next_uid(ctx->uidlist_sync_ctx, filename,
 					  conflict->new_uid, 0) < 0) {
 		i_error("maildir %s: uid %u update failed: sync failed",
-			ctx->mbox->ibox.box.path, conflict->old_uid);
+			ctx->mbox->box.path, conflict->old_uid);
 	}
 }
 
@@ -728,7 +728,7 @@ maildir_save_set_recent_flags(struct maildir_save_context *ctx)
 	uids = array_get(&saved_sorted_uids, &count);
 	for (i = 0; i < count; i++) {
 		for (uid = uids[i].seq1; uid <= uids[i].seq2; uid++)
-			index_mailbox_set_recent_uid(&mbox->ibox, uid);
+			index_mailbox_set_recent_uid(&mbox->box, uid);
 	}
 	return uids[count-1].seq2 + 1;
 }
@@ -780,7 +780,7 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 		next_uid = maildir_save_set_recent_flags(ctx);
 	} T_END;
 
-	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		first_recent_uid = next_uid;
 	else if (ctx->last_nonrecent_uid != 0)
 		first_recent_uid = ctx->last_nonrecent_uid + 1;
@@ -957,7 +957,7 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	if (ret < 0) {
 		ctx->keywords_sync_ctx = !ctx->have_keywords ? NULL :
 			maildir_keywords_sync_init(ctx->mbox->keywords,
-						   ctx->mbox->ibox.box.index);
+						   ctx->mbox->box.index);
 
 		/* unlink the files we just moved in an attempt to rollback
 		   the transaction. uidlist is still locked, so at least other

@@ -144,7 +144,7 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 			return 0;
 		}
 		/* copy the error */
-		mail_storage_set_error(mbox->ibox.box.storage, error,
+		mail_storage_set_error(mbox->box.storage, error,
 			t_strdup_printf("%s (%s)", str, mailbox));
 		return -1;
 	}
@@ -197,23 +197,23 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 
 	pool = pool_alloconly_create("virtual mailbox", 1024+512);
 	mbox = p_new(pool, struct virtual_mailbox, 1);
-	mbox->ibox.box = virtual_mailbox;
-	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = _storage;
-	mbox->ibox.box.list = list;
-	mbox->ibox.box.mail_vfuncs = &virtual_mail_vfuncs;
+	mbox->box = virtual_mailbox;
+	mbox->box.pool = pool;
+	mbox->box.storage = _storage;
+	mbox->box.list = list;
+	mbox->box.mail_vfuncs = &virtual_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
 				    VIRTUAL_INDEX_PREFIX);
 
 	mbox->storage = storage;
 	mbox->vseq_lookup_prev_mailbox = i_strdup("");
 
 	mbox->virtual_ext_id =
-		mail_index_ext_register(mbox->ibox.box.index, "virtual", 0,
+		mail_index_ext_register(mbox->box.index, "virtual", 0,
 			sizeof(struct virtual_mail_index_record),
 			sizeof(uint32_t));
-	return &mbox->ibox.box;
+	return &mbox->box;
 }
 
 static int virtual_mailbox_open(struct mailbox *box)
@@ -255,7 +255,7 @@ static int virtual_mailbox_open(struct mailbox *box)
 		virtual_mailboxes_open(mbox, box->flags) < 0;
 	array_delete(&mbox->storage->open_stack,
 		     array_count(&mbox->storage->open_stack)-1, 1);
-	return failed ? -1 : index_storage_mailbox_open(box);
+	return failed ? -1 : index_storage_mailbox_open(box, FALSE);
 }
 
 static void virtual_mailbox_close(struct mailbox *box)

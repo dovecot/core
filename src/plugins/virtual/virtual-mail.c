@@ -41,7 +41,7 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 
 	vmail->imail.data_pool =
 		pool_alloconly_create("virtual index_mail", 512);
-	vmail->imail.ibox = &mbox->ibox;
+	vmail->imail.ibox = INDEX_STORAGE_CONTEXT(t->box);
 	vmail->imail.trans = (struct index_transaction_context *)t;
 
 	vmail->wanted_fields = wanted_fields;

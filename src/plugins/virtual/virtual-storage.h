@@ -99,7 +99,7 @@ struct virtual_backend_box {
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
 struct virtual_mailbox {
-	struct index_mailbox ibox;
+	struct mailbox box;
 	struct virtual_storage *storage;
 
 	uint32_t virtual_ext_id;

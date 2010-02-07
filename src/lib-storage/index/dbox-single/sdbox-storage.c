@@ -54,6 +54,7 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    enum mailbox_flags flags)
 {
 	struct sdbox_mailbox *mbox;
+	struct index_mailbox_context *ibox;
 	pool_t pool;
 
 	/* dbox can't work without index files */
@@ -61,23 +62,23 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	pool = pool_alloconly_create("dbox mailbox", 1024+512);
 	mbox = p_new(pool, struct sdbox_mailbox, 1);
-	mbox->ibox.box = sdbox_mailbox;
-	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = storage;
-	mbox->ibox.box.list = list;
-	mbox->ibox.box.mail_vfuncs = &sdbox_mail_vfuncs;
+	mbox->box = sdbox_mailbox;
+	mbox->box.pool = pool;
+	mbox->box.storage = storage;
+	mbox->box.list = list;
+	mbox->box.mail_vfuncs = &sdbox_mail_vfuncs;
 
-	mbox->ibox.save_commit_pre = sdbox_transaction_save_commit_pre;
-	mbox->ibox.save_commit_post = sdbox_transaction_save_commit_post;
-	mbox->ibox.save_rollback = sdbox_transaction_save_rollback;
-
-	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
 				    DBOX_INDEX_PREFIX);
-	mail_index_set_fsync_types(mbox->ibox.box.index,
+	mail_index_set_fsync_types(mbox->box.index,
 				   MAIL_INDEX_SYNC_TYPE_APPEND |
 				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
-	mbox->ibox.index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS |
+	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
+	ibox->save_commit_pre = sdbox_transaction_save_commit_pre;
+	ibox->save_commit_post = sdbox_transaction_save_commit_post;
+	ibox->save_rollback = sdbox_transaction_save_rollback;
+	ibox->index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS |
 		MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
 	mbox->storage = (struct sdbox_storage *)storage;
@@ -85,9 +86,9 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		p_strconcat(pool, list->set.alt_dir, "/",
 			    list->set.maildir_name, NULL);
 	mbox->hdr_ext_id =
-		mail_index_ext_register(mbox->ibox.box.index, "dbox-hdr",
+		mail_index_ext_register(mbox->box.index, "dbox-hdr",
 					sizeof(struct sdbox_index_header), 0, 0);
-	return &mbox->ibox.box;
+	return &mbox->box;
 }
 
 int sdbox_read_header(struct sdbox_mailbox *mbox,
@@ -96,13 +97,13 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 	const void *data;
 	size_t data_size;
 
-	mail_index_get_header_ext(mbox->ibox.box.view, mbox->hdr_ext_id,
+	mail_index_get_header_ext(mbox->box.view, mbox->hdr_ext_id,
 				  &data, &data_size);
 	if (data_size < SDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
 		mail_storage_set_critical(&mbox->storage->storage.storage,
 			"dbox %s: Invalid dbox header size",
-			mbox->ibox.box.path);
+			mbox->box.path);
 		return -1;
 	}
 	memset(hdr, 0, sizeof(*hdr));
@@ -224,7 +225,7 @@ static int
 dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
 	if (!box->opened) {
-		if (index_storage_mailbox_open(box) < 0)
+		if (index_storage_mailbox_open(box, FALSE) < 0)
 			return -1;
 	}
 	return sdbox_write_index_header(box, update);

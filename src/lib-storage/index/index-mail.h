@@ -116,9 +116,9 @@ struct index_mail_data {
 struct index_mail {
         struct mail_private mail;
 	struct index_mail_data data;
+	struct index_mailbox_context *ibox;
 
 	pool_t data_pool;
-	struct index_mailbox *ibox;
 	struct index_transaction_context *trans;
 	uint32_t uid_validity;
 

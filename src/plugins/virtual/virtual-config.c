@@ -323,16 +323,16 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	i_array_init(&mbox->backend_boxes, 8);
 	mbox->search_args_crc32 = (uint32_t)-1;
 
-	path = t_strconcat(mbox->ibox.box.path, "/"VIRTUAL_CONFIG_FNAME, NULL);
+	path = t_strconcat(mbox->box.path, "/"VIRTUAL_CONFIG_FNAME, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT) {
-			mailbox_list_set_error(mbox->ibox.box.list,
+			mailbox_list_set_error(mbox->box.list,
 				MAIL_ERROR_NOTPOSSIBLE,
 				"Virtual mailbox missing configuration file");
 			return -1;
 		}
-		mailbox_list_set_critical(mbox->ibox.box.list,
+		mailbox_list_set_critical(mbox->box.list,
 					  "open(%s) failed: %m", path);
 		return -1;
 	}
@@ -340,7 +340,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.sep = mail_namespaces_get_root_sep(user->namespaces);
 	ctx.mbox = mbox;
-	ctx.pool = mbox->ibox.box.pool;
+	ctx.pool = mbox->box.pool;
 	ctx.rule = t_str_new(256);
 	ctx.input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	i_stream_set_return_partial_line(ctx.input, TRUE);
@@ -353,7 +353,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 		else
 			ret = virtual_config_parse_line(&ctx, line, &error);
 		if (ret < 0) {
-			mailbox_list_set_critical(mbox->ibox.box.list,
+			mailbox_list_set_critical(mbox->box.list,
 						  "%s: Error at line %u: %s",
 						  path, linenum, error);
 			break;
@@ -362,7 +362,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	if (ret == 0) {
 		ret = virtual_config_add_rule(&ctx, &error);
 		if (ret < 0) {
-			mailbox_list_set_critical(mbox->ibox.box.list,
+			mailbox_list_set_critical(mbox->box.list,
 						  "%s: Error at line %u: %s",
 						  path, linenum, error);
 		}
@@ -373,7 +373,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 		ret = virtual_config_expand_wildcards(&ctx);
 
 	if (ret == 0 && array_count(&mbox->backend_boxes) == 0) {
-		mailbox_list_set_critical(mbox->ibox.box.list,
+		mailbox_list_set_critical(mbox->box.list,
 					  "%s: No mailboxes defined", path);
 		ret = -1;
 	}

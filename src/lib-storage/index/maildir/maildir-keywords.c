@@ -55,7 +55,7 @@ struct maildir_keywords *maildir_keywords_init(struct maildir_mailbox *mbox)
 {
 	struct maildir_keywords *mk;
 
-	mk = maildir_keywords_init_readonly(&mbox->ibox.box);
+	mk = maildir_keywords_init_readonly(&mbox->box);
 	mk->mbox = mbox;
 	return mk;
 }
@@ -286,7 +286,7 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 				     const char *path, int fd)
 {
 	struct maildir_mailbox *mbox = mk->mbox;
-	struct mailbox *box = &mbox->ibox.box;
+	struct mailbox *box = &mbox->box;
 	const char *const *keywords;
 	unsigned int i, count;
 	string_t *str;
@@ -367,7 +367,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 		/* we could just create the temp file directly, but doing it
 		   this ways avoids potential problems with overwriting
 		   contents in malicious symlinks */
-		old_mask = umask(0777 & ~mk->mbox->ibox.box.file_create_mode);
+		old_mask = umask(0777 & ~mk->mbox->box.file_create_mode);
 		fd = file_dotlock_open(&mk->dotlock_settings, mk->path,
 				       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
 		umask(old_mask);
@@ -381,7 +381,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 		}
 		/* the control dir doesn't exist. create it unless the whole
 		   mailbox was just deleted. */
-		if (!maildir_set_deleted(&mk->mbox->ibox.box))
+		if (!maildir_set_deleted(&mk->mbox->box))
 			return -1;
 	}
 

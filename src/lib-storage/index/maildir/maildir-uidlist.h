@@ -7,7 +7,6 @@
 /* how many seconds to wait before overriding uidlist.lock */
 #define MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT (60*2)
 
-struct index_mailbox;
 struct maildir_mailbox;
 struct maildir_uidlist;
 struct maildir_uidlist_sync_ctx;
@@ -55,8 +54,6 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
 bool maildir_uidlist_is_locked(struct maildir_uidlist *uidlist);
 
 struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox);
-struct maildir_uidlist *
-maildir_uidlist_init_readonly(struct index_mailbox *ibox);
 void maildir_uidlist_deinit(struct maildir_uidlist **uidlist);
 
 /* Returns -1 if error, 0 if file is broken or lost, 1 if ok. If nfs_flush=TRUE

@@ -32,7 +32,7 @@ struct mbox_storage {
 };
 
 struct mbox_mailbox {
-	struct index_mailbox ibox;
+	struct mailbox box;
 	struct mbox_storage *storage;
 
 	int mbox_fd;

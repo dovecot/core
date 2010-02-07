@@ -74,7 +74,7 @@ struct maildir_storage {
 };
 
 struct maildir_mailbox {
-	struct index_mailbox ibox;
+	struct mailbox box;
 	struct maildir_storage *storage;
 	struct mail_index_view *flags_view;
 

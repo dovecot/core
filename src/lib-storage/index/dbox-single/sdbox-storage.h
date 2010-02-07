@@ -24,7 +24,7 @@ struct sdbox_storage {
 };
 
 struct sdbox_mailbox {
-	struct index_mailbox ibox;
+	struct mailbox box;
 	struct sdbox_storage *storage;
 
 	uint32_t hdr_ext_id;

@@ -13,7 +13,7 @@ struct raw_storage {
 };
 
 struct raw_mailbox {
-	struct index_mailbox ibox;
+	struct mailbox box;
 	struct raw_storage *storage;
 
 	time_t mtime, ctime;

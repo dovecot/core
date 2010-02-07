@@ -113,7 +113,8 @@ static void
 parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
                          struct message_header_line *hdr, size_t pos)
 {
-	struct mailbox *box = &ctx->sync_ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->sync_ctx->mbox->box;
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	const char *keyword, *error;
 	size_t keyword_start;
 	unsigned int idx, count;
@@ -135,7 +136,7 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 		/* add it to index's keyword list if it's not there already */
 		keyword = t_strndup(hdr->full_value + keyword_start,
 				    pos - keyword_start);
-		if (mailbox_keyword_is_valid(&ctx->sync_ctx->mbox->ibox.box,
+		if (mailbox_keyword_is_valid(&ctx->sync_ctx->mbox->box,
 					     keyword, &error)) {
 			mail_index_keyword_lookup_or_create(box->index,
 							    keyword, &idx);
@@ -143,7 +144,7 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 		count++;
 	}
 
-	if (count != array_count(ctx->sync_ctx->mbox->ibox.keyword_names)) {
+	if (count != array_count(ibox->keyword_names)) {
 		/* need to update this list */
 		ctx->imapbase_rewrite = TRUE;
 		ctx->need_rewrite = TRUE;
@@ -247,7 +248,7 @@ static bool parse_x_imap(struct mbox_sync_mail_context *ctx,
 static bool parse_x_keywords_real(struct mbox_sync_mail_context *ctx,
 				  struct message_header_line *hdr)
 {
-	struct mailbox *box = &ctx->sync_ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->sync_ctx->mbox->box;
 	ARRAY_TYPE(keyword_indexes) keyword_list;
 	const unsigned int *list;
 	string_t *keyword;

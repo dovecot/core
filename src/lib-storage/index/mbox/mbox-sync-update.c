@@ -124,12 +124,14 @@ static void
 keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
 		const ARRAY_TYPE(keyword_indexes) *keyword_indexes_arr)
 {
+	struct index_mailbox_context *ibox =
+		INDEX_STORAGE_CONTEXT(&sync_ctx->mbox->box);
 	const char *const *keyword_names;
 	const unsigned int *keyword_indexes;
 	unsigned int i, idx_count, keywords_count;
 	size_t last_break;
 
-	keyword_names = array_get(sync_ctx->mbox->ibox.keyword_names,
+	keyword_names = array_get(ibox->keyword_names,
 				  &keywords_count);
 	keyword_indexes = array_get(keyword_indexes_arr, &idx_count);
 
@@ -152,6 +154,8 @@ static void
 keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest,
 		    size_t startpos)
 {
+	struct index_mailbox_context *ibox =
+		INDEX_STORAGE_CONTEXT(&ctx->sync_ctx->mbox->box);
 	const char *const *names;
 	const unsigned char *p;
 	unsigned int i, count;
@@ -168,7 +172,7 @@ keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest,
 		}
 	}
 
-	names = array_get(ctx->sync_ctx->mbox->ibox.keyword_names, &count);
+	names = array_get(ibox->keyword_names, &count);
 	for (i = 0; i < count; i++) {
 		/* wrap the line whenever it gets too long */
 		if (str_len(dest) - last_break < KEYWORD_WRAP_LINE_LENGTH)

@@ -54,6 +54,7 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    enum mailbox_flags flags)
 {
 	struct cydir_mailbox *mbox;
+	struct index_mailbox_context *ibox;
 	pool_t pool;
 
 	/* cydir can't work without index files */
@@ -61,24 +62,25 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	pool = pool_alloconly_create("cydir mailbox", 1024+512);
 	mbox = p_new(pool, struct cydir_mailbox, 1);
-	mbox->ibox.box = cydir_mailbox;
-	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = storage;
-	mbox->ibox.box.list = list;
-	mbox->ibox.box.mail_vfuncs = &cydir_mail_vfuncs;
+	mbox->box = cydir_mailbox;
+	mbox->box.pool = pool;
+	mbox->box.storage = storage;
+	mbox->box.list = list;
+	mbox->box.mail_vfuncs = &cydir_mail_vfuncs;
 
-	mbox->ibox.save_commit_pre = cydir_transaction_save_commit_pre;
-	mbox->ibox.save_commit_post = cydir_transaction_save_commit_post;
-	mbox->ibox.save_rollback = cydir_transaction_save_rollback;
-
-	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
 				    CYDIR_INDEX_PREFIX);
-	mail_index_set_fsync_types(mbox->ibox.box.index,
+	mail_index_set_fsync_types(mbox->box.index,
 				   MAIL_INDEX_SYNC_TYPE_APPEND |
 				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
+	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
+	ibox->save_commit_pre = cydir_transaction_save_commit_pre;
+	ibox->save_commit_post = cydir_transaction_save_commit_post;
+	ibox->save_rollback = cydir_transaction_save_rollback;
+
 	mbox->storage = (struct cydir_storage *)storage;
-	return &mbox->ibox.box;
+	return &mbox->box;
 }
 
 static int cydir_mailbox_open(struct mailbox *box)
@@ -111,7 +113,7 @@ static int cydir_mailbox_open(struct mailbox *box)
 					  box->path);
 		return -1;
 	}
-	return index_storage_mailbox_open(box);
+	return index_storage_mailbox_open(box, FALSE);
 }
 
 static int
@@ -222,9 +224,9 @@ static void cydir_notify_changes(struct mailbox *box)
 	struct cydir_mailbox *mbox = (struct cydir_mailbox *)box;
 
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(&mbox->ibox);
+		index_mailbox_check_remove_all(&mbox->box);
 	else
-		index_mailbox_check_add(&mbox->ibox, mbox->ibox.box.path);
+		index_mailbox_check_add(&mbox->box, mbox->box.path);
 }
 
 static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx

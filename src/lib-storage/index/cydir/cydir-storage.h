@@ -14,7 +14,7 @@ struct cydir_storage {
 };
 
 struct cydir_mailbox {
-	struct index_mailbox ibox;
+	struct mailbox box;
 	struct cydir_storage *storage;
 };
 

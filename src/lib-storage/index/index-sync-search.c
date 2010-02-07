@@ -27,7 +27,7 @@ static void index_sync_uidify_array(struct index_mailbox_sync_context *ctx,
 
 	array_foreach(changes, range) {
 		for (seq = range->seq1; seq <= range->seq2; seq++) {
-			mail_index_lookup_uid(ctx->ibox->box.view, seq, &uid);
+			mail_index_lookup_uid(ctx->ctx.box->view, seq, &uid);
 			seq_range_array_add(&ctx->all_flag_update_uids, 0, uid);
 		}
 	}
@@ -52,7 +52,7 @@ void index_sync_search_results_uidify(struct index_mailbox_sync_context *ctx)
 
 	i_assert(!array_is_created(&ctx->all_flag_update_uids));
 
-	results = array_get(&ctx->ibox->box.search_results, &count);
+	results = array_get(&ctx->ctx.box->search_results, &count);
 	for (i = 0; i < count; i++) {
 		if ((results[i]->flags & MAILBOX_SEARCH_RESULT_FLAG_UPDATE) != 0 &&
 		    search_result_want_flag_updates(results[i])) {
@@ -83,7 +83,7 @@ void index_sync_search_results_update(struct index_mailbox_sync_context *ctx)
 	struct mail_search_result *const *results;
 	unsigned int i, count;
 
-	results = array_get(&ctx->ibox->box.search_results, &count);
+	results = array_get(&ctx->ctx.box->search_results, &count);
 	for (i = 0; i < count; i++)
 		search_result_update(ctx, results[i]);
 }
@@ -91,7 +91,7 @@ void index_sync_search_results_update(struct index_mailbox_sync_context *ctx)
 void index_sync_search_results_expunge(struct index_mailbox_sync_context *ctx)
 {
 	if (ctx->expunges != NULL) {
-		index_search_results_update_expunges(&ctx->ibox->box,
+		index_search_results_update_expunges(ctx->ctx.box,
 						     ctx->expunges);
 	}
 }

@@ -23,15 +23,18 @@ struct index_notify_io {
 	struct io *io;
 };
 
-static void notify_delay_callback(struct index_mailbox *ibox)
+static void notify_delay_callback(struct mailbox *box)
 {
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+
 	if (ibox->notify_delay_to != NULL)
 		timeout_remove(&ibox->notify_delay_to);
-	ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
+	box->notify_callback(box, box->notify_context);
 }
 
-static void check_timeout(struct index_mailbox *ibox)
+static void check_timeout(struct mailbox *box)
 {
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	struct index_notify_file *file;
 	struct stat st;
 	bool notify = FALSE;
@@ -45,29 +48,31 @@ static void check_timeout(struct index_mailbox *ibox)
 	}
 
 	if (notify)
-		notify_delay_callback(ibox);
+		notify_delay_callback(box);
 }
 
-static void notify_callback(struct index_mailbox *ibox)
+static void notify_callback(struct mailbox *box)
 {
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+
 	timeout_reset(ibox->notify_to);
 
 	if (ibox->notify_delay_to == NULL) {
 		ibox->notify_delay_to =
 			timeout_add(NOTIFY_DELAY_MSECS,
-				    notify_delay_callback, ibox);
+				    notify_delay_callback, box);
 	}
 }
 
-void index_mailbox_check_add(struct index_mailbox *ibox,
-			     const char *path)
+void index_mailbox_check_add(struct mailbox *box, const char *path)
 {
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	struct index_notify_file *file;
 	struct stat st;
 	struct io *io = NULL;
 	struct index_notify_io *aio;
 
-	(void)io_add_notify(path, notify_callback, ibox, &io);
+	(void)io_add_notify(path, notify_callback, box, &io);
 	if (io != NULL) {
 		aio = i_new(struct index_notify_io, 1);
 		aio->io = io;
@@ -87,13 +92,14 @@ void index_mailbox_check_add(struct index_mailbox *ibox,
 	 * when the filesystem is remote (NFS, ...) */
 	if (ibox->notify_to == NULL) {
 		ibox->notify_to =
-			timeout_add(ibox->box.notify_min_interval * 1000,
-				    check_timeout, ibox);
+			timeout_add(box->notify_min_interval * 1000,
+				    check_timeout, box);
 	}
 }
 
-void index_mailbox_check_remove_all(struct index_mailbox *ibox)
+void index_mailbox_check_remove_all(struct mailbox *box)
 {
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 	struct index_notify_file *file;
 	struct index_notify_io *aio;
 

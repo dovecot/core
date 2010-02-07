@@ -429,7 +429,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 		return -1;
 	}
 
-	rebuild_ctx = dbox_sync_index_rebuild_init(&mbox->ibox, view, trans);
+	rebuild_ctx = dbox_sync_index_rebuild_init(&mbox->box, view, trans);
 	rebuild_mailbox_multi(ctx, rebuild_ctx, mbox, view, trans);
 	dbox_sync_index_rebuild_deinit(&rebuild_ctx);
 

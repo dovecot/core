@@ -20,7 +20,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	struct index_transaction_context *it =
 		MAIL_STORAGE_CONTEXT(index_trans);
 	struct mailbox_transaction_context *t = &it->mailbox_ctx;
-	struct index_mailbox *ibox = (struct index_mailbox *)t->box;
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(t->box);
 	int ret = 0;
 
 	if (t->save_ctx != NULL) {
@@ -50,8 +50,8 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 static void index_transaction_index_rollback(struct mail_index_transaction *t)
 {
 	struct index_transaction_context *it = MAIL_STORAGE_CONTEXT(t);
-	struct index_mailbox *ibox =
-		(struct index_mailbox *)it->mailbox_ctx.box;
+	struct index_mailbox_context *ibox =
+		INDEX_STORAGE_CONTEXT(it->mailbox_ctx.box);
 
 	if (it->mailbox_ctx.save_ctx != NULL)
 		ibox->save_rollback(it->mailbox_ctx.save_ctx);

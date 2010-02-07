@@ -180,7 +180,7 @@ static void index_mail_parse_header_register_all_wanted(struct index_mail *mail)
 	unsigned int i, count;
 
 	all_cache_fields =
-		mail_cache_register_get_list(mail->ibox->box.cache,
+		mail_cache_register_get_list(mail->mail.mail.box->cache,
 					     pool_datastack_create(), &count);
 	for (i = 0; i < count; i++) {
 		if (strncasecmp(all_cache_fields[i].name, "hdr.", 4) != 0)
@@ -248,7 +248,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	   Date: header. if we have Date field's index set at this point we
 	   know that we want it. otherwise add it and remember that we don't
 	   want it cached. */
-	field_idx = get_header_field_idx(&mail->ibox->box, "Date",
+	field_idx = get_header_field_idx(mail->mail.mail.box, "Date",
 					 MAIL_CACHE_DECISION_NO);
 	match = array_get(&mail->header_match, &match_count);
 	if (field_idx < match_count &&
@@ -284,6 +284,7 @@ void index_mail_parse_header(struct message_part *part,
 			     struct message_header_line *hdr,
 			     struct index_mail *mail)
 {
+	struct mail *_mail = &mail->mail.mail;
 	struct index_mail_data *data = &mail->data;
 	unsigned int field_idx, count;
 	uint8_t *match;
@@ -319,7 +320,7 @@ void index_mail_parse_header(struct message_part *part,
 			const char *cache_field_name =
 				t_strconcat("hdr.", hdr->name, NULL);
 			data->parse_line.field_idx =
-				mail_cache_register_lookup(mail->ibox->box.cache,
+				mail_cache_register_lookup(_mail->box->cache,
 							   cache_field_name);
 		} T_END;
 	}
@@ -481,7 +482,7 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 		mail->data.stream->v_offset;
 
 	mail->data.save_envelope = TRUE;
-	header_ctx = mailbox_header_lookup_init(&mail->ibox->box,
+	header_ctx = mailbox_header_lookup_init(mail->mail.mail.box,
 						imap_envelope_headers);
 	if (mail_get_header_stream(&mail->mail.mail, header_ctx, &stream) < 0) {
 		mailbox_header_lookup_unref(&header_ctx);
@@ -606,7 +607,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 
 	i_assert(field != NULL);
 
-	field_idx = get_header_field_idx(&mail->ibox->box, field,
+	field_idx = get_header_field_idx(mail->mail.mail.box, field,
 					 MAIL_CACHE_DECISION_TEMP);
 
 	dest = str_new(mail->data_pool, 128);
@@ -620,7 +621,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 			/* parse */
 			headers[0] = field; headers[1] = NULL;
 			headers_ctx = mailbox_header_lookup_init(
-						&mail->ibox->box, headers);
+						mail->mail.mail.box, headers);
 			ret = index_mail_parse_headers(mail, headers_ctx);
 			mailbox_header_lookup_unref(&headers_ctx);
 			if (ret < 0)

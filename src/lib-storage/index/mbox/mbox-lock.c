@@ -174,9 +174,9 @@ static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
 		   be sure that the file is latest, but mbox files get rarely
 		   deleted and the flushing might cause errors (e.g. EBUSY for
 		   trying to flush a /var/mail mountpoint) */
-		if (nfs_safe_stat(mbox->ibox.box.path, &st) < 0) {
+		if (nfs_safe_stat(mbox->box.path, &st) < 0) {
 			if (errno == ENOENT)
-				mailbox_set_deleted(&mbox->ibox.box);
+				mailbox_set_deleted(&mbox->box);
 			else
 				mbox_set_syscall_error(mbox, "stat()");
 			return -1;
@@ -233,7 +233,7 @@ static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 	}
 	ctx->dotlock_last_stale = stale;
 
-	index_storage_lock_notify(&ctx->mbox->ibox, stale ?
+	index_storage_lock_notify(&ctx->mbox->box, stale ?
 				  MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE :
 				  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 				  secs_left);
@@ -268,12 +268,12 @@ static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 	      privileged group
 	    - DoS other users by dotlocking their mailboxes infinitely
 	*/
-	fname = strrchr(mbox->ibox.box.path, '/');
+	fname = strrchr(mbox->box.path, '/');
 	if (fname == NULL) {
 		/* already relative */
-		fname = mbox->ibox.box.path;
+		fname = mbox->box.path;
 	} else {
-		dir = t_strdup_until(mbox->ibox.box.path, fname);
+		dir = t_strdup_until(mbox->box.path, fname);
 		if (chdir(dir) < 0) {
 			mail_storage_set_critical(&mbox->storage->storage,
 				"chdir(%s) failed: %m", dir);
@@ -285,7 +285,7 @@ static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 	if (op == MBOX_DOTLOCK_OP_LOCK) {
 		if (access(fname, R_OK) < 0) {
 			mail_storage_set_critical(&mbox->storage->storage,
-				"access(%s) failed: %m", mbox->ibox.box.path);
+				"access(%s) failed: %m", mbox->box.path);
 			return -1;
 		}
 	}
@@ -348,11 +348,11 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 	errmsg = eacces_error_get_creating("file_dotlock_create", path);
 	dir = strrchr(path, '/');
 	dir = dir == NULL ? "." : t_strdup_until(path, dir);
-	if (strcmp(mbox->ibox.box.name, "INBOX") != 0) {
+	if (strcmp(mbox->box.name, "INBOX") != 0) {
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (not INBOX -> no privileged locking)", errmsg);
 	} else if (!mbox->mbox_privileged_locking) {
-		dir = mailbox_list_get_path(mbox->ibox.box.list, NULL,
+		dir = mailbox_list_get_path(mbox->box.list, NULL,
 					    MAILBOX_LIST_PATH_TYPE_DIR);
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (under root dir %s -> no privileged locking)",
@@ -410,7 +410,7 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 	set.callback = dotlock_callback;
 	set.context = ctx;
 
-	ret = file_dotlock_create(&set, mbox->ibox.box.path, 0,
+	ret = file_dotlock_create(&set, mbox->box.path, 0,
 				  &mbox->mbox_dotlock);
 	if (ret >= 0) {
 		/* success / timeout */
@@ -420,7 +420,7 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 		ret = mbox_dotlock_privileged_op(mbox, &set,
 						 MBOX_DOTLOCK_OP_LOCK);
 	} else if (errno == EACCES)
-		mbox_dotlock_log_eacces_error(mbox, mbox->ibox.box.path);
+		mbox_dotlock_log_eacces_error(mbox, mbox->box.path);
 	else
 		mbox_set_syscall_error(mbox, "file_dotlock_create()");
 
@@ -510,7 +510,7 @@ static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 			next_alarm = 5;
 		alarm(next_alarm);
 
-		index_storage_lock_notify(&ctx->mbox->ibox,
+		index_storage_lock_notify(&ctx->mbox->box,
 					  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 					  max_wait_time - now);
 	}
@@ -574,7 +574,7 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 			next_alarm = 5;
 		alarm(next_alarm);
 
-		index_storage_lock_notify(&ctx->mbox->ibox,
+		index_storage_lock_notify(&ctx->mbox->box,
 					  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 					  max_wait_time - now);
 	}
@@ -632,7 +632,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"fcntl() failed with mbox file %s: "
 				"File is locked by another process (EACCES)",
-				ctx->mbox->ibox.box.path);
+				ctx->mbox->box.path);
 			return -1;
 		}
 
@@ -649,7 +649,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 			next_alarm = 5;
 		alarm(next_alarm);
 
-		index_storage_lock_notify(&ctx->mbox->ibox,
+		index_storage_lock_notify(&ctx->mbox->box,
 					  MAILBOX_LOCK_NOTIFY_MAILBOX_ABORT,
 					  max_wait_time - now);
 	}
@@ -697,14 +697,14 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 
 	*fcntl_locked_r = FALSE;
 
-        index_storage_lock_notify_reset(&mbox->ibox);
+        index_storage_lock_notify_reset(&mbox->box);
 
 	if (!mbox->storage->lock_settings_initialized)
                 mbox_init_lock_settings(mbox->storage);
 
 	if (mbox->mbox_fd == -1 && mbox->mbox_file_stream != NULL) {
 		/* read-only mbox stream. no need to lock. */
-		i_assert(mbox->ibox.backend_readonly);
+		i_assert(mbox->box.backend_readonly);
 		mbox->mbox_lock_type = lock_type;
 		return 1;
 	}
@@ -767,7 +767,7 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	      unsigned int *lock_id_r)
 {
-	const char *path = mbox->ibox.box.path;
+	const char *path = mbox->box.path;
 	int mbox_fd = mbox->mbox_fd;
 	bool fcntl_locked;
 	int ret;
@@ -777,7 +777,7 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	i_assert(lock_type == F_RDLCK || mbox->mbox_lock_type != F_RDLCK);
 
 	/* mbox must be locked before index */
-	i_assert(mbox->ibox.box.index->lock_type != F_WRLCK);
+	i_assert(mbox->box.index->lock_type != F_WRLCK);
 
 	if (mbox->mbox_lock_type == F_UNLCK) {
 		ret = mbox_update_locking(mbox, lock_type, &fcntl_locked);

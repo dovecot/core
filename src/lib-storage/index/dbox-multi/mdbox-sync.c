@@ -32,7 +32,7 @@ dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
 
 	mail_storage_set_critical(&ctx->mbox->storage->storage.storage,
 		"Mailbox %s: Expunged GUID mismatch for UID %u: %s vs %s",
-		ctx->mbox->ibox.box.vname, uid,
+		ctx->mbox->box.vname, uid,
 		binary_to_hex(data, MAIL_GUID_128_SIZE),
 		binary_to_hex(guid_128, MAIL_GUID_128_SIZE));
 	ctx->mbox->storage->storage.files_corrupted = TRUE;
@@ -86,7 +86,7 @@ static int mdbox_sync_add(struct mdbox_sync_context *ctx,
 
 static void dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
 {
-	struct mailbox *box = &ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->mbox->box;
 	struct seq_range_iter iter;
 	unsigned int n;
 	const void *data;
@@ -123,7 +123,7 @@ static int mdbox_sync_index_finish_expunges(struct mdbox_sync_context *ctx)
 
 static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 {
-	struct mailbox *box = &ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->mbox->box;
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq1, seq2;
@@ -138,7 +138,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(ctx->sync_view, hdr->first_recent_uid,
 					hdr->next_uid, &seq1, &seq2)) {
-		index_mailbox_set_recent_seq(&ctx->mbox->ibox, ctx->sync_view,
+		index_mailbox_set_recent_seq(&ctx->mbox->box, ctx->sync_view,
 					     seq1, seq2);
 	}
 
@@ -167,14 +167,14 @@ static int mdbox_refresh_header(struct mdbox_mailbox *mbox, bool retry)
 	struct mdbox_index_header hdr;
 	int ret;
 
-	view = mail_index_view_open(mbox->ibox.box.index);
+	view = mail_index_view_open(mbox->box.index);
 	ret = mdbox_read_header(mbox, &hdr);
 	mail_index_view_close(&view);
 
 	if (ret == 0) {
 		ret = mbox->storage->storage.files_corrupted ? -1 : 0;
 	} else if (retry) {
-		(void)mail_index_refresh(mbox->ibox.box.index);
+		(void)mail_index_refresh(mbox->box.index);
 		return mdbox_refresh_header(mbox, FALSE);
 	}
 	return ret;
@@ -183,7 +183,7 @@ static int mdbox_refresh_header(struct mdbox_mailbox *mbox, bool retry)
 int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		     struct mdbox_sync_context **ctx_r)
 {
-	struct mail_storage *storage = mbox->ibox.box.storage;
+	struct mail_storage *storage = mbox->box.storage;
 	struct mdbox_sync_context *ctx;
 	enum mail_index_sync_flags sync_flags = 0;
 	unsigned int i;
@@ -195,7 +195,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	if (rebuild) {
 		if (mdbox_storage_rebuild(mbox->storage) < 0)
 			return -1;
-		index_mailbox_reset_uidvalidity(&mbox->ibox);
+		index_mailbox_reset_uidvalidity(&mbox->box);
 		storage_rebuilt = TRUE;
 	}
 
@@ -203,7 +203,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	ctx->mbox = mbox;
 	ctx->flags = flags;
 
-	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 	if (!rebuild && (flags & MDBOX_SYNC_FLAG_FORCE) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
@@ -213,13 +213,13 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
 
 	for (i = 0;; i++) {
-		ret = mail_index_sync_begin(mbox->ibox.box.index,
+		ret = mail_index_sync_begin(mbox->box.index,
 					    &ctx->index_sync_ctx,
 					    &ctx->sync_view, &ctx->trans,
 					    sync_flags);
 		if (ret <= 0) {
 			if (ret < 0)
-				mail_storage_set_index_error(&mbox->ibox.box);
+				mail_storage_set_index_error(&mbox->box);
 			i_free(ctx);
 			*ctx_r = NULL;
 			return ret;
@@ -246,7 +246,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 			}
 			mail_storage_set_critical(storage,
 				"dbox %s: Storage keeps breaking",
-				ctx->mbox->ibox.box.path);
+				ctx->mbox->box.path);
 			ret = -1;
 		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
@@ -269,7 +269,7 @@ int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox.box);
+			mail_storage_set_index_error(&ctx->mbox->box);
 			ret = -1;
 		}
 	} else {
@@ -304,7 +304,7 @@ mdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
-	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->ibox, flags) ||
+	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->box, flags) ||
 			 mbox->storage->storage.files_corrupted)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
 			mdbox_sync_flags |= MDBOX_SYNC_FLAG_FORCE_REBUILD;

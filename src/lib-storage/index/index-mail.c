@@ -69,7 +69,7 @@ static struct message_part *get_unserialized_parts(struct index_mail *mail)
 	parts = message_part_deserialize(mail->data_pool, part_buf->data,
 					 part_buf->used, &error);
 	if (parts == NULL) {
-		mail_cache_set_corrupted(mail->ibox->box.cache,
+		mail_cache_set_corrupted(mail->mail.mail.box->cache,
 			"Corrupted cached message_part data (%s)", error);
 	}
 	return parts;
@@ -134,7 +134,7 @@ enum mail_flags index_mail_get_flags(struct mail *_mail)
 	flags = rec->flags & (MAIL_FLAGS_NONRECENT |
 			      MAIL_INDEX_MAIL_FLAG_BACKEND);
 
-	if (index_mailbox_is_recent(mail->ibox, _mail->uid))
+	if (index_mailbox_is_recent(_mail->box, _mail->uid))
 		flags |= MAIL_RECENT;
 
 	return flags;
@@ -423,13 +423,14 @@ void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
 void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 			      const void *data, size_t data_size)
 {
-	const struct mail_storage_settings *set = mail->ibox->box.storage->set;
+	const struct mail_storage_settings *set =
+		mail->mail.mail.box->storage->set;
 	const struct mail_index_header *hdr;
 
 	if (set->mail_cache_min_mail_count > 0) {
 		/* First check if we've configured caching not to be used with
 		   low enough message count. */
-		hdr = mail_index_get_header(mail->ibox->box.view);
+		hdr = mail_index_get_header(mail->mail.mail.box->view);
 		if (hdr->messages_count < set->mail_cache_min_mail_count)
 			return;
 	}
@@ -527,7 +528,7 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 		return;
 	}
 
-	decision = mail_cache_field_get_decision(mail->ibox->box.cache,
+	decision = mail_cache_field_get_decision(mail->mail.mail.box->cache,
 						 cache_field);
 	if (decision == (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED)) {
 		/* we never want it cached */
@@ -611,7 +612,7 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 
 	/* normally don't cache both BODY and BODYSTRUCTURE, but do it
 	   if BODY is forced to be cached */
-	dec = mail_cache_field_get_decision(mail->ibox->box.cache,
+	dec = mail_cache_field_get_decision(mail->mail.mail.box->cache,
 					    cache_field_body);
 	if (plain_bodystructure ||
 	    (bodystructure_cached &&
@@ -1080,7 +1081,6 @@ void index_mail_init(struct index_mail *mail,
 		     enum mail_fetch_field wanted_fields,
 		     struct mailbox_header_lookup_ctx *_wanted_headers)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)_t->box;
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct index_header_lookup_ctx *wanted_headers =
@@ -1090,18 +1090,18 @@ void index_mail_init(struct index_mail *mail,
 	array_create(&mail->mail.module_contexts, mail->mail.pool,
 		     sizeof(void *), 5);
 
-	mail->mail.v = *ibox->box.mail_vfuncs;
-	mail->mail.mail.box = &ibox->box;
+	mail->mail.v = *_t->box->mail_vfuncs;
+	mail->mail.mail.box = _t->box;
 	mail->mail.mail.transaction = &t->mailbox_ctx;
 	mail->mail.wanted_fields = wanted_fields;
 	mail->mail.wanted_headers = _wanted_headers;
 
-	hdr = mail_index_get_header(ibox->box.view);
+	hdr = mail_index_get_header(_t->box->view);
 	mail->uid_validity = hdr->uid_validity;
 
 	t->mail_ref_count++;
 	mail->data_pool = pool_alloconly_create("index_mail", 16384);
-	mail->ibox = ibox;
+	mail->ibox = INDEX_STORAGE_CONTEXT(_t->box);
 	mail->trans = t;
 	mail->wanted_fields = wanted_fields;
 	if (wanted_headers != NULL) {
@@ -1183,7 +1183,7 @@ static void check_envelope(struct index_mail *mail)
 	/* don't waste time doing full checks for all required
 	   headers. assume that if we have "hdr.message-id" cached,
 	   we don't need to parse the header. */
-	cache_field_hdr = mail_cache_register_lookup(mail->ibox->box.cache,
+	cache_field_hdr = mail_cache_register_lookup(mail->mail.mail.box->cache,
 						     "hdr.message-id");
 	if (cache_field_hdr == (unsigned int)-1 ||
 	    mail_cache_field_exists(mail->trans->cache_view,
@@ -1307,7 +1307,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 
 		/* open the stream only if we didn't get here from
 		   mailbox_save_init() */
-		hdr = mail_index_get_header(mail->ibox->box.view);
+		hdr = mail_index_get_header(_mail->box->view);
 		if (_mail->uid != 0 && _mail->uid < hdr->next_uid)
 			(void)mail_get_stream(_mail, NULL, NULL, &input);
 	}
@@ -1432,7 +1432,7 @@ void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 	struct index_mail *imail = (struct index_mail *)mail;
 
 	if ((flags & MAIL_RECENT) == 0 &&
-	    index_mailbox_is_recent(imail->ibox, mail->uid))
+	    index_mailbox_is_recent(mail->box, mail->uid))
 		index_mail_drop_recent_flag(imail);
 
 	flags &= MAIL_FLAGS_NONRECENT | MAIL_INDEX_MAIL_FLAG_BACKEND;

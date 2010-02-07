@@ -329,30 +329,32 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		      enum mailbox_flags flags)
 {
 	struct maildir_mailbox *mbox;
+	struct index_mailbox_context *ibox;
 	pool_t pool;
 
 	pool = pool_alloconly_create("maildir mailbox", 1024+512);
 	mbox = p_new(pool, struct maildir_mailbox, 1);
-	mbox->ibox.box = maildir_mailbox;
-	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = storage;
-	mbox->ibox.box.list = list;
-	mbox->ibox.box.mail_vfuncs = &maildir_mail_vfuncs;
+	mbox->box = maildir_mailbox;
+	mbox->box.pool = pool;
+	mbox->box.storage = storage;
+	mbox->box.list = list;
+	mbox->box.mail_vfuncs = &maildir_mail_vfuncs;
 
-	mbox->ibox.save_commit_pre = maildir_transaction_save_commit_pre;
-	mbox->ibox.save_commit_post = maildir_transaction_save_commit_post;
-	mbox->ibox.save_rollback = maildir_transaction_save_rollback;
-
-	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
 				    MAILDIR_INDEX_PREFIX);
+
+	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
+	ibox->save_commit_pre = maildir_transaction_save_commit_pre;
+	ibox->save_commit_post = maildir_transaction_save_commit_post;
+	ibox->save_rollback = maildir_transaction_save_rollback;
 
 	mbox->storage = (struct maildir_storage *)storage;
 	mbox->maildir_ext_id =
-		mail_index_ext_register(mbox->ibox.box.index, "maildir",
+		mail_index_ext_register(mbox->box.index, "maildir",
 					sizeof(mbox->maildir_hdr), 0, 0);
 	mbox->uidlist = maildir_uidlist_init(mbox);
 	mbox->keywords = maildir_keywords_init(mbox);
-	return &mbox->ibox.box;
+	return &mbox->box;
 }
 
 static int maildir_mailbox_open_existing(struct mailbox *box)
@@ -375,8 +377,8 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 
 	if (access(t_strconcat(box->path, "/cur", NULL), W_OK) < 0 &&
 	    errno == EACCES)
-		mbox->ibox.backend_readonly = TRUE;
-	return index_storage_mailbox_open(box);
+		mbox->box.backend_readonly = TRUE;
+	return index_storage_mailbox_open(box, FALSE);
 }
 
 static int maildir_mailbox_open(struct mailbox *box)
@@ -808,12 +810,12 @@ static void maildir_notify_changes(struct mailbox *box)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(&mbox->ibox);
+		index_mailbox_check_remove_all(&mbox->box);
 	else {
-		index_mailbox_check_add(&mbox->ibox,
-			t_strconcat(mbox->ibox.box.path, "/new", NULL));
-		index_mailbox_check_add(&mbox->ibox,
-			t_strconcat(mbox->ibox.box.path, "/cur", NULL));
+		index_mailbox_check_add(&mbox->box,
+			t_strconcat(mbox->box.path, "/new", NULL));
+		index_mailbox_check_add(&mbox->box,
+			t_strconcat(mbox->box.path, "/cur", NULL));
 	}
 }
 

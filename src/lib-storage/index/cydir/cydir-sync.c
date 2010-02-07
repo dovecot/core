@@ -21,7 +21,7 @@ static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
 	string_t *path = str_new(default_pool, 256);
 	const char *dir;
 
-	dir = mailbox_list_get_path(mbox->ibox.box.list, mbox->ibox.box.name,
+	dir = mailbox_list_get_path(mbox->box.list, mbox->box.name,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	str_append(path, dir);
 	str_append_c(path, '/');
@@ -31,7 +31,7 @@ static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
 static void
 cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 {
-	struct mailbox *box = &ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->mbox->box;
 	uint32_t uid;
 
 	if (ctx->path == NULL) {
@@ -60,7 +60,7 @@ cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 
 static void cydir_sync_index(struct cydir_sync_context *ctx)
 {
-	struct mailbox *box = &ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->mbox->box;
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq1, seq2;
@@ -74,7 +74,7 @@ static void cydir_sync_index(struct cydir_sync_context *ctx)
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(ctx->sync_view, hdr->first_recent_uid,
 					hdr->next_uid, &seq1, &seq2)) {
-		index_mailbox_set_recent_seq(&ctx->mbox->ibox, ctx->sync_view,
+		index_mailbox_set_recent_seq(&ctx->mbox->box, ctx->sync_view,
 					     seq1, seq2);
 	}
 
@@ -117,17 +117,17 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 	ctx->mbox = mbox;
 
 	sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
-	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 	if (!force)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
-	ret = mail_index_sync_begin(mbox->ibox.box.index, &ctx->index_sync_ctx,
+	ret = mail_index_sync_begin(mbox->box.index, &ctx->index_sync_ctx,
 				    &ctx->sync_view, &ctx->trans,
 				    sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox.box);
+			mail_storage_set_index_error(&mbox->box);
 		i_free(ctx);
 		*ctx_r = NULL;
 		return ret;
@@ -146,7 +146,7 @@ int cydir_sync_finish(struct cydir_sync_context **_ctx, bool success)
 	*_ctx = NULL;
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox.box);
+			mail_storage_set_index_error(&ctx->mbox->box);
 			ret = -1;
 		}
 	} else {
@@ -180,7 +180,7 @@ cydir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
-	if (index_mailbox_want_full_sync(&mbox->ibox, flags) && ret == 0)
+	if (index_mailbox_want_full_sync(&mbox->box, flags) && ret == 0)
 		ret = cydir_sync(mbox);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);

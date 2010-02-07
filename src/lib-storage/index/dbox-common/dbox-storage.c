@@ -39,16 +39,15 @@ uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)
 
 void dbox_notify_changes(struct mailbox *box)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	const char *dir, *path;
 
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(ibox);
+		index_mailbox_check_remove_all(box);
 	else {
 		dir = mailbox_list_get_path(box->list, box->name,
 					    MAILBOX_LIST_PATH_TYPE_INDEX);
 		path = t_strdup_printf("%s/"DBOX_INDEX_PREFIX".log", dir);
-		index_mailbox_check_add(ibox, path);
+		index_mailbox_check_add(box, path);
 	}
 }
 
@@ -86,7 +85,7 @@ static int dbox_mailbox_create_indexes(struct mailbox *box,
 	mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid, &origin);
 	if (mkdir_parents_chgrp(box->path, mode, gid, origin) == 0) {
 		/* create indexes immediately with the dbox header */
-		if (index_storage_mailbox_open(box) < 0)
+		if (index_storage_mailbox_open(box, FALSE) < 0)
 			return -1;
 		if (storage->v.mailbox_create_indexes(box, update) < 0)
 			return -1;
@@ -109,7 +108,7 @@ int dbox_mailbox_open(struct mailbox *box)
 	}
 
 	if (dbox_cleanup_if_exists(box->list, box->path)) {
-		return index_storage_mailbox_open(box);
+		return index_storage_mailbox_open(box, FALSE);
 	} else if (errno == ENOENT) {
 		if (strcmp(box->name, "INBOX") == 0 &&
 		    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
@@ -117,7 +116,7 @@ int dbox_mailbox_open(struct mailbox *box)
 			if (dbox_mailbox_create_indexes(box, NULL) < 0)
 				return -1;
 			return box->opened ? 0 :
-				index_storage_mailbox_open(box);
+				index_storage_mailbox_open(box, FALSE);
 		}
 
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
@@ -163,7 +162,7 @@ int dbox_mailbox_create(struct mailbox *box,
 	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
 		return 0;
 
-	if (index_storage_mailbox_open(box) < 0)
+	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
 	if (storage->v.mailbox_create_indexes(box, update) < 0)
 		return -1;

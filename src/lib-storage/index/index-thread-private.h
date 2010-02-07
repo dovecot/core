@@ -1,8 +1,6 @@
 #ifndef INDEX_THREAD_PRIVATE_H
 #define INDEX_THREAD_PRIVATE_H
 
-struct index_mailbox;
-
 #include "crc32.h"
 #include "mail-thread.h"
 #include "mail-index-strmap.h"
@@ -79,6 +77,6 @@ mail_thread_iterate_init_full(struct mail_thread_cache *cache,
 			      enum mail_thread_type thread_type,
 			      bool return_seqs);
 
-void index_thread_mailbox_opened(struct index_mailbox *ibox);
+void index_thread_mailbox_opened(struct mailbox *box);
 
 #endif

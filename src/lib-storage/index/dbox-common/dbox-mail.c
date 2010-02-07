@@ -148,7 +148,8 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 			 const char **value_r)
 {
 	struct index_mail *imail = &mail->imail;
-	const struct mail_cache_field *cache_fields = imail->ibox->cache_fields;
+	struct index_mailbox_context *ibox =
+		INDEX_STORAGE_CONTEXT(imail->mail.mail.box);
 	struct dbox_file *file;
 	const char *value;
 	string_t *str;
@@ -156,7 +157,7 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 	str = str_new(imail->data_pool, 64);
 	if (mail_cache_lookup_field(imail->trans->cache_view, str,
 				    imail->mail.mail.seq,
-				    cache_fields[cache_field].idx) > 0) {
+				    ibox->cache_fields[cache_field].idx) > 0) {
 		*value_r = str_c(str);
 		return 0;
 	}
@@ -167,7 +168,7 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 	value = dbox_file_metadata_get(file, key);
 	if (value == NULL)
 		value = "";
-	index_mail_cache_add_idx(imail, cache_fields[cache_field].idx,
+	index_mail_cache_add_idx(imail, ibox->cache_fields[cache_field].idx,
 				 value, strlen(value)+1);
 	*value_r = value;
 	return 0;

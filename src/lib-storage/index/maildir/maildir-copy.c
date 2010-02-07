@@ -170,8 +170,8 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 		return 0;
 	}
 
-	if (mail_index_is_deleted(dest_mbox->ibox.box.index)) {
-		mailbox_set_deleted(&dest_mbox->ibox.box);
+	if (mail_index_is_deleted(dest_mbox->box.index)) {
+		mailbox_set_deleted(&dest_mbox->box);
 		return -1;
 	}
 
@@ -195,7 +195,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	/* hard link to tmp/ with basename and later when we
 	   have uidlist locked, move it to new/cur. */
 	str_printfa(do_ctx.dest_path, "%s/tmp/%s",
-		    dest_mbox->ibox.box.path, do_ctx.dest_fname);
+		    dest_mbox->box.path, do_ctx.dest_fname);
 	do_ctx.base_end_pos = str_len(do_ctx.dest_path);
 	if (src_mbox != NULL) {
 		/* maildir */
@@ -237,7 +237,7 @@ int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (mbox->storage->set->maildir_copy_with_hardlinks &&
-	    maildir_compatible_file_modes(&mbox->ibox.box, mail->box)) {
+	    maildir_compatible_file_modes(&mbox->box, mail->box)) {
 		T_BEGIN {
 			ret = maildir_copy_hardlink(ctx, mail);
 		} T_END;

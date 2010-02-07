@@ -28,7 +28,7 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 		mail_index_lookup_uid(view, seq, &uid);
 		mail_storage_set_critical(&mbox->storage->storage.storage,
 			"dbox %s: map uid lost for uid %u",
-			mbox->ibox.box.path, uid);
+			mbox->box.path, uid);
 		mbox->storage->storage.files_corrupted = TRUE;
 		return -1;
 	}
@@ -47,7 +47,7 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 	if (cur_map_uid_validity != mbox->map_uid_validity) {
 		mail_storage_set_critical(&mbox->storage->storage.storage,
 			"dbox %s: map uidvalidity mismatch (%u vs %u)",
-			mbox->ibox.box.path, mbox->map_uid_validity,
+			mbox->box.path, mbox->map_uid_validity,
 			cur_map_uid_validity);
 		mbox->storage->storage.files_corrupted = TRUE;
 		return -1;
@@ -58,8 +58,8 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 
 static void dbox_mail_set_expunged(struct dbox_mail *mail, uint32_t map_uid)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)mail->imail.ibox;
 	struct mail *_mail = &mail->imail.mail.mail;
+	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)_mail->box;
 
 	(void)mail_index_refresh(_mail->box->index);
 	if (mail_index_is_expunged(_mail->box->view, _mail->seq)) {
@@ -75,7 +75,8 @@ static void dbox_mail_set_expunged(struct dbox_mail *mail, uint32_t map_uid)
 
 static int dbox_mail_open_init(struct dbox_mail *mail, uint32_t map_uid)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)mail->imail.ibox;
+	struct mdbox_mailbox *mbox =
+		(struct mdbox_mailbox *)mail->imail.mail.mail.box;
 	uint32_t file_id;
 	int ret;
 
@@ -98,8 +99,8 @@ static int dbox_mail_open_init(struct dbox_mail *mail, uint32_t map_uid)
 int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)mail->imail.ibox;
 	struct mail *_mail = &mail->imail.mail.mail;
+	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)_mail->box;
 	uint32_t prev_file_id = 0, map_uid = 0;
 	bool deleted;
 

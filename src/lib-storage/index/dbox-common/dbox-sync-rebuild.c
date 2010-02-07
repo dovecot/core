@@ -84,21 +84,20 @@ void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
 }
 
 struct dbox_sync_rebuild_context *
-dbox_sync_index_rebuild_init(struct index_mailbox *ibox,
+dbox_sync_index_rebuild_init(struct mailbox *box,
 			     struct mail_index_view *view,
 			     struct mail_index_transaction *trans)
 {
-	struct mailbox *box = &ibox->box;
 	struct dbox_sync_rebuild_context *ctx;
 	const char *index_dir;
 	enum mail_index_open_flags open_flags = MAIL_INDEX_OPEN_FLAG_READONLY;
 
 	ctx = i_new(struct dbox_sync_rebuild_context, 1);
-	ctx->ibox = ibox;
+	ctx->box = box;
 	ctx->view = view;
 	ctx->trans = trans;
 	mail_index_reset(ctx->trans);
-	index_mailbox_reset_uidvalidity(ibox);
+	index_mailbox_reset_uidvalidity(box);
 	mail_index_ext_lookup(box->index, "cache", &ctx->cache_ext_id);
 
 	/* if backup index file exists, try to use it */

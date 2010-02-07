@@ -83,7 +83,7 @@ int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 	} else {
 		mail_storage_set_critical(&mbox->storage->storage,
 					  "%s failed with mbox file %s: %m",
-					  function, mbox->ibox.box.path);
+					  function, mbox->box.path);
 	}
 	return -1;
 }
@@ -338,37 +338,39 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		   enum mailbox_flags flags)
 {
 	struct mbox_mailbox *mbox;
+	struct index_mailbox_context *ibox;
 	pool_t pool;
 
 	pool = pool_alloconly_create("mbox mailbox", 1024+512);
 	mbox = p_new(pool, struct mbox_mailbox, 1);
-	mbox->ibox.box = mbox_mailbox;
-	mbox->ibox.box.pool = pool;
-	mbox->ibox.box.storage = storage;
-	mbox->ibox.box.list = list;
-	mbox->ibox.box.mail_vfuncs = &mbox_mail_vfuncs;
+	mbox->box = mbox_mailbox;
+	mbox->box.pool = pool;
+	mbox->box.storage = storage;
+	mbox->box.list = list;
+	mbox->box.mail_vfuncs = &mbox_mail_vfuncs;
 
-	mbox->ibox.save_commit_pre = mbox_transaction_save_commit_pre;
-	mbox->ibox.save_commit_post = mbox_transaction_save_commit_post;
-	mbox->ibox.save_rollback = mbox_transaction_save_rollback;
-
-	index_storage_mailbox_alloc(&mbox->ibox, name, input, flags,
+	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
 				    MBOX_INDEX_PREFIX);
+
+	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
+	ibox->save_commit_pre = mbox_transaction_save_commit_pre;
+	ibox->save_commit_post = mbox_transaction_save_commit_post;
+	ibox->save_rollback = mbox_transaction_save_rollback;
 
 	mbox->storage = (struct mbox_storage *)storage;
 	mbox->mbox_fd = -1;
 	mbox->mbox_lock_type = F_UNLCK;
 	mbox->mbox_ext_idx =
-		mail_index_ext_register(mbox->ibox.box.index, "mbox",
+		mail_index_ext_register(mbox->box.index, "mbox",
 					sizeof(mbox->mbox_hdr),
 					sizeof(uint64_t), sizeof(uint64_t));
 	mbox->md5hdr_ext_idx =
-		mail_index_ext_register(mbox->ibox.box.index, "header-md5",
+		mail_index_ext_register(mbox->box.index, "header-md5",
 					0, 16, 1);
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
 		mbox->mbox_save_md5 = TRUE;
-	return &mbox->ibox.box;
+	return &mbox->box;
 }
 
 static int verify_inbox(struct mailbox_list *list)
@@ -418,18 +420,18 @@ static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
 
 static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 {
-	struct mailbox *box = &mbox->ibox.box;
+	struct mailbox *box = &mbox->box;
 	const char *rootdir;
+	bool move_to_memory;
 
 	if (access(box->path, R_OK|W_OK) < 0) {
 		if (errno != EACCES) {
 			mbox_set_syscall_error(mbox, "access()");
 			return -1;
 		}
-		mbox->ibox.backend_readonly = TRUE;
+		mbox->box.backend_readonly = TRUE;
 	}
-	mbox->ibox.move_to_memory =
-		want_memory_indexes(mbox->storage, box->path);
+	move_to_memory = want_memory_indexes(mbox->storage, box->path);
 
 	if (strcmp(box->name, "INBOX") == 0) {
 		/* if INBOX isn't under the root directory, it's probably in
@@ -449,7 +451,7 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 					    mbox_lock_touch_timeout, mbox);
 		}
 	}
-	return index_storage_mailbox_open(box);
+	return index_storage_mailbox_open(box, move_to_memory);
 }
 
 static int mbox_mailbox_open(struct mailbox *box)
@@ -460,7 +462,7 @@ static int mbox_mailbox_open(struct mailbox *box)
 
 	if (box->input != NULL) {
 		mbox->mbox_file_stream = box->input;
-		mbox->ibox.backend_readonly = TRUE;
+		mbox->box.backend_readonly = TRUE;
 		mbox->no_mbox_file = TRUE;
 		return 0;
 	}
@@ -549,7 +551,7 @@ static void mbox_mailbox_close(struct mailbox *box)
 	if (box->view != NULL) {
 		hdr = mail_index_get_header(box->view);
 		if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
-		    !mbox->ibox.backend_readonly) {
+		    !mbox->box.backend_readonly) {
 			/* we've done changes to mbox which haven't been
 			   written yet. do it now. */
 			sync_flags |= MBOX_SYNC_REWRITE;
@@ -588,9 +590,9 @@ static void mbox_notify_changes(struct mailbox *box)
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(&mbox->ibox);
+		index_mailbox_check_remove_all(&mbox->box);
 	else if (!mbox->no_mbox_file)
-		index_mailbox_check_add(&mbox->ibox, mbox->ibox.box.path);
+		index_mailbox_check_add(&mbox->box, mbox->box.path);
 }
 
 static bool
@@ -814,7 +816,7 @@ static void mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id)
 	if (lock_id != 0)
 		(void)mbox_unlock(mbox, lock_id);
 	if (mbox->mbox_global_lock_id == 0) {
-		i_assert(mbox->ibox.box.transaction_count > 0 ||
+		i_assert(mbox->box.transaction_count > 0 ||
 			 mbox->mbox_lock_type == F_UNLCK);
 	} else {
 		/* mailbox opened with MAILBOX_FLAG_KEEP_LOCKED */

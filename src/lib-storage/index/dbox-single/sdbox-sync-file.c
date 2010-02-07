@@ -32,7 +32,7 @@ static void
 dbox_sync_mark_single_file_expunged(struct sdbox_sync_context *ctx,
 				    const struct sdbox_sync_file_entry *entry)
 {
-	struct mailbox *box = &ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->mbox->box;
 	uint32_t seq;
 
 	mail_index_lookup_seq(ctx->sync_view, entry->uid, &seq);

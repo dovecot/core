@@ -29,8 +29,8 @@ struct index_transaction_context {
 	struct mail_cache_transaction_ctx *cache_trans;
 };
 
-struct index_mailbox {
-	struct mailbox box;
+struct index_mailbox_context {
+	union mailbox_module_context module_ctx;
 	enum mail_index_open_flags index_flags;
 
 	int (*save_commit_pre)(struct mail_save_context *save_ctx);
@@ -54,22 +54,23 @@ struct index_mailbox {
 	uint32_t recent_flags_count;
 
 	time_t sync_last_check;
-
-	/* we've discovered there aren't enough permissions to modify mailbox */
-	unsigned int backend_readonly:1;
-	unsigned int move_to_memory:1;
 };
 
-void index_storage_lock_notify(struct index_mailbox *ibox,
+#define INDEX_STORAGE_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, index_storage_module)
+extern MODULE_CONTEXT_DEFINE(index_storage_module,
+			     &mail_storage_module_register);
+
+void index_storage_lock_notify(struct mailbox *box,
 			       enum mailbox_lock_notify_type notify_type,
 			       unsigned int secs_left);
-void index_storage_lock_notify_reset(struct index_mailbox *ibox);
+void index_storage_lock_notify_reset(struct mailbox *box);
 
-void index_storage_mailbox_alloc(struct index_mailbox *ibox, const char *name,
+void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 				 struct istream *input,
 				 enum mailbox_flags flags,
 				 const char *index_prefix);
-int index_storage_mailbox_open(struct mailbox *box);
+int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory);
 int index_storage_mailbox_enable(struct mailbox *box,
 				 enum mailbox_feature feature);
 void index_storage_mailbox_close(struct mailbox *box);
@@ -90,19 +91,18 @@ void index_keywords_unref(struct mail_keywords *keywords);
 bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
 			    const char **error_r);
 
-void index_mailbox_set_recent_uid(struct index_mailbox *ibox, uint32_t uid);
-void index_mailbox_set_recent_seq(struct index_mailbox *ibox,
+void index_mailbox_set_recent_uid(struct mailbox *box, uint32_t uid);
+void index_mailbox_set_recent_seq(struct mailbox *box,
 				  struct mail_index_view *view,
 				  uint32_t seq1, uint32_t seq2);
-bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t uid);
-unsigned int index_mailbox_get_recent_count(struct index_mailbox *ibox);
-void index_mailbox_reset_uidvalidity(struct index_mailbox *ibox);
+bool index_mailbox_is_recent(struct mailbox *box, uint32_t uid);
+unsigned int index_mailbox_get_recent_count(struct mailbox *box);
+void index_mailbox_reset_uidvalidity(struct mailbox *box);
 
-void index_mailbox_check_add(struct index_mailbox *ibox,
-			     const char *path);
-void index_mailbox_check_remove_all(struct index_mailbox *ibox);
+void index_mailbox_check_add(struct mailbox *box, const char *path);
+void index_mailbox_check_remove_all(struct mailbox *box);
 
-bool index_mailbox_want_full_sync(struct index_mailbox *ibox,
+bool index_mailbox_want_full_sync(struct mailbox *box,
 				  enum mailbox_sync_flags flags);
 struct mailbox_sync_context *
 index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,

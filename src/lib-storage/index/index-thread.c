@@ -632,9 +632,8 @@ static void mail_thread_mailbox_close(struct mailbox *box)
 	i_free(tbox);
 }
 
-void index_thread_mailbox_opened(struct index_mailbox *ibox)
+void index_thread_mailbox_opened(struct mailbox *box)
 {
-	struct mailbox *box = &ibox->box;
 	struct mail_thread_mailbox *tbox;
 
 	tbox = i_new(struct mail_thread_mailbox, 1);

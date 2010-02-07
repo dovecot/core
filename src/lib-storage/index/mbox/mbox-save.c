@@ -179,8 +179,8 @@ static void mbox_save_init_sync(struct mailbox_transaction_context *t)
 
 	/* open a new view to get the header. this is required if we just
 	   synced the mailbox so we can get updated next_uid. */
-	(void)mail_index_refresh(mbox->ibox.box.index);
-	view = mail_index_view_open(mbox->ibox.box.index);
+	(void)mail_index_refresh(mbox->box.index);
+	view = mail_index_view_open(mbox->box.index);
 	hdr = mail_index_get_header(view);
 
 	ctx->next_uid = hdr->next_uid;
@@ -227,7 +227,7 @@ mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 	const char *const *keyword_names;
 	unsigned int i, count, keyword_names_count;
 
-	keyword_names_list = mail_index_get_keywords(ctx->mbox->ibox.box.index);
+	keyword_names_list = mail_index_get_keywords(ctx->mbox->box.index);
 	keyword_names = array_get(keyword_names_list, &keyword_names_count);
 
 	str_append(ctx->headers, "X-Keywords:");
@@ -255,14 +255,14 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	bool empty = FALSE;
 	int ret;
 
-	if (ctx->mbox->ibox.backend_readonly) {
+	if (ctx->mbox->box.backend_readonly) {
 		mail_storage_set_error(storage, MAIL_ERROR_PERM,
 				       "Read-only mbox");
 		return -1;
 	}
 
-	if (mail_index_is_deleted(mbox->ibox.box.index)) {
-		mailbox_set_deleted(&mbox->ibox.box);
+	if (mail_index_is_deleted(mbox->box.index)) {
+		mailbox_set_deleted(&mbox->box);
 		return -1;
 	}
 
@@ -778,7 +778,7 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 		buf.modtime = st.st_mtime;
 		buf.actime = ctx->orig_atime;
-		if (utime(mbox->ibox.box.path, &buf) < 0)
+		if (utime(mbox->box.path, &buf) < 0)
 			mbox_set_syscall_error(mbox, "utime()");
 	}
 

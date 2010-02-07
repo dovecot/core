@@ -140,7 +140,7 @@ virtual_sync_get_backend_box(struct virtual_sync_context *ctx, const char *name,
 	/* another process just added a new mailbox.
 	   we can't handle this currently. */
 	ctx->mbox->inconsistent = TRUE;
-	mail_storage_set_error(ctx->mbox->ibox.box.storage, MAIL_ERROR_TEMP,
+	mail_storage_set_error(ctx->mbox->box.storage, MAIL_ERROR_TEMP,
 		"Backend mailbox added by another session. "
 		"Reopen the virtual mailbox.");
 	return -1;
@@ -184,7 +184,7 @@ static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		if (ext_name_offset >= ext_size ||
 		    ext_hdr->mailbox_count > INT_MAX/sizeof(*mailboxes)) {
 			i_error("virtual index %s: Broken mailbox_count header",
-				ctx->mbox->ibox.box.path);
+				ctx->mbox->box.path);
 			ctx->index_broken = TRUE;
 			ext_mailbox_count = 0;
 			ret = 0;
@@ -199,18 +199,18 @@ static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		if (mailboxes[i].id > ext_hdr->highest_mailbox_id ||
 		    mailboxes[i].id <= prev_mailbox_id) {
 			i_error("virtual index %s: Broken mailbox id",
-				ctx->mbox->ibox.box.path);
+				ctx->mbox->box.path);
 			break;
 		}
 		if (mailboxes[i].name_len == 0 ||
 		    mailboxes[i].name_len > ext_size) {
 			i_error("virtual index %s: Broken mailbox name_len",
-				ctx->mbox->ibox.box.path);
+				ctx->mbox->box.path);
 			break;
 		}
 		if (ext_name_offset + mailboxes[i].name_len > ext_size) {
 			i_error("virtual index %s: Broken mailbox list",
-				ctx->mbox->ibox.box.path);
+				ctx->mbox->box.path);
 			break;
 		}
 		T_BEGIN {
@@ -433,7 +433,7 @@ static void virtual_sync_index_changes(struct virtual_sync_context *ctx)
 
 static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
 {
-	struct mailbox *box = &ctx->mbox->ibox.box;
+	struct mailbox *box = &ctx->mbox->box;
 	const struct mail_index_header *hdr;
 	uint32_t seq1, seq2;
 
@@ -446,7 +446,7 @@ static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(ctx->sync_view, hdr->first_recent_uid,
 					hdr->next_uid, &seq1, &seq2)) {
-		index_mailbox_set_recent_seq(&ctx->mbox->ibox, ctx->sync_view,
+		index_mailbox_set_recent_seq(&ctx->mbox->box, ctx->sync_view,
 					     seq1, seq2);
 	}
 	if (ctx->ext_header_rewrite) {
@@ -1319,7 +1319,7 @@ virtual_sync_apply_existing_appends(struct virtual_sync_context *ctx)
 							  vrec->mailbox_id);
 			if (bbox == NULL) {
 				mail_storage_set_critical(
-					ctx->mbox->ibox.box.storage,
+					ctx->mbox->box.storage,
 					"Mailbox ID %u unexpectedly lost",
 					vrec->mailbox_id);
 				return -1;
@@ -1352,7 +1352,7 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 
 	seq_range_array_iter_init(&iter, isync_ctx->expunges);
 	while (seq_range_array_iter_nth(&iter, n++, &seq)) {
-		mail_index_lookup_ext(mbox->ibox.box.view, seq,
+		mail_index_lookup_ext(mbox->box.view, seq,
 				      mbox->virtual_ext_id, &data, &expunged);
 		vrec = data;
 
@@ -1380,7 +1380,7 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 	for (i = 0; i < count; i++) {
 		if (virtual_sync_backend_box(ctx, bboxes[i]) < 0) {
 			/* backend failed, copy the error */
-			virtual_box_copy_error(&ctx->mbox->ibox.box,
+			virtual_box_copy_error(&ctx->mbox->box,
 					       bboxes[i]->box);
 			return -1;
 		}
@@ -1414,7 +1414,7 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 	virtual_sync_backend_boxes_finish(ctx);
 	if (success) {
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox.box);
+			mail_storage_set_index_error(&ctx->mbox->box);
 			ret = -1;
 		}
 	} else {
@@ -1424,7 +1424,7 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 			if (mail_index_unlink(ctx->index) < 0) {
 				i_error("virtual index %s: Failed to unlink() "
 					"broken indexes: %m",
-					ctx->mbox->ibox.box.path);
+					ctx->mbox->box.path);
 			}
 		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
@@ -1443,7 +1443,7 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 	ctx = i_new(struct virtual_sync_context, 1);
 	ctx->mbox = mbox;
 	ctx->flags = flags;
-	ctx->index = mbox->ibox.box.index;
+	ctx->index = mbox->box.index;
 	/* Removed messages are expunged when
 	   a) EXPUNGE is used
 	   b) Mailbox is being opened (FIX_INCONSISTENT is set) */
@@ -1453,7 +1453,7 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 
 	index_sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
 		MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
-	if ((mbox->ibox.box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		index_sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
 	ret = mail_index_sync_begin(ctx->index, &ctx->index_sync_ctx,
@@ -1461,7 +1461,7 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 				    index_sync_flags);
 	if (ret <= 0) {
 		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox.box);
+			mail_storage_set_index_error(&mbox->box);
 		i_free(ctx);
 		return ret;
 	}
@@ -1493,7 +1493,7 @@ virtual_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
-	if (index_mailbox_want_full_sync(&mbox->ibox, flags) && ret == 0)
+	if (index_mailbox_want_full_sync(&mbox->box, flags) && ret == 0)
 		ret = virtual_sync(mbox, flags);
 
 	sync_ctx = index_mailbox_sync_init(box, flags, ret < 0);

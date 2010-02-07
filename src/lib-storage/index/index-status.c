@@ -34,7 +34,6 @@ void index_storage_get_status(struct mailbox *box,
 			      enum mailbox_status_items items,
 			      struct mailbox_status *status_r)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	const struct mail_index_header *hdr;
 
 	i_assert(box->opened);
@@ -45,7 +44,7 @@ void index_storage_get_status(struct mailbox *box,
 	hdr = mail_index_get_header(box->view);
 	status_r->messages = hdr->messages_count;
 	if ((items & STATUS_RECENT) != 0) {
-		status_r->recent = index_mailbox_get_recent_count(ibox);
+		status_r->recent = index_mailbox_get_recent_count(box);
 		i_assert(status_r->recent <= status_r->messages);
 	}
 	status_r->unseen = hdr->messages_count - hdr->seen_messages_count;

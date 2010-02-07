@@ -146,7 +146,7 @@ static int mdbox_save_mail_write_metadata(struct mdbox_save_context *ctx,
 		mail->append_offset - mail->file_append->file->msg_header_size;
 
 	dbox_save_write_metadata(&ctx->ctx.ctx, ctx->ctx.cur_output,
-				 ctx->mbox->ibox.box.name, guid_128);
+				 ctx->mbox->box.name, guid_128);
 	/* save the 128bit GUID to index so if the map index gets corrupted
 	   we can still find the message */
 	mail_index_update_ext(ctx->ctx.trans, ctx->ctx.seq,
@@ -298,9 +298,9 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 	dbox_map_append_free(&ctx->append_ctx);
 
 	if (!ctx->mbox->storage->storage.storage.set->fsync_disable) {
-		if (fdatasync_path(ctx->mbox->ibox.box.path) < 0) {
+		if (fdatasync_path(ctx->mbox->box.path) < 0) {
 			i_error("fdatasync_path(%s) failed: %m",
-				ctx->mbox->ibox.box.path);
+				ctx->mbox->box.path);
 		}
 	}
 	mdbox_transaction_save_rollback(_ctx);
