@@ -36,7 +36,7 @@ unused_objects = \
 endif
 
 libs = \
-	expire-env.o \
+	expire-env.lo \
 	$(LIBDOVECOT_STORAGE) \
 	$(unused_objects)
 
