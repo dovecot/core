@@ -441,6 +441,11 @@ int index_storage_mailbox_open(struct mailbox *box)
 	index_thread_mailbox_opened(ibox);
 	if (hook_mailbox_opened != NULL)
 		hook_mailbox_opened(box);
+
+	if (mail_index_is_deleted(ibox->index)) {
+		mailbox_set_deleted(box);
+		return -1;
+	}
 	return 0;
 }
 
@@ -649,7 +654,10 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 
 void mail_storage_set_index_error(struct index_mailbox *ibox)
 {
-	mail_storage_set_internal_error(ibox->box.storage);
+	if (mail_index_is_deleted(ibox->index))
+		mailbox_set_deleted(&ibox->box);
+	else
+		mail_storage_set_internal_error(ibox->box.storage);
 	mail_index_reset_error(ibox->index);
 }
 

@@ -305,6 +305,11 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	string_t *path;
 	int fd;
 
+	if (mail_index_is_deleted(mbox->ibox.index)) {
+		mailbox_set_deleted(box);
+		return -1;
+	}
+
 	path = t_str_new(256);
 	str_append(path, dir);
 	str_append_c(path, '/');

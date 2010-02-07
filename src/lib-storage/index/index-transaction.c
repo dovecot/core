@@ -122,6 +122,8 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	_t->changes = changes_r;
 
 	ret = mail_index_transaction_commit_full(&itrans, &result);
+	if (ret < 0 && mail_index_is_deleted(ibox->index))
+		mailbox_set_deleted(&ibox->box);
 
 	changes_r->ignored_uid_changes = result.ignored_uid_changes;
 	changes_r->ignored_modseq_changes = result.ignored_modseq_changes;

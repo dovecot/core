@@ -261,6 +261,11 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		return -1;
 	}
 
+	if (mail_index_is_deleted(mbox->ibox.index)) {
+		mailbox_set_deleted(&mbox->ibox.box);
+		return -1;
+	}
+
 	if ((_t->flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0 ||
 	    ctx->ctx.uid != 0)
 		want_mail = TRUE;

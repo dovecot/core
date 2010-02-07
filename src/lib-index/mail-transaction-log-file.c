@@ -72,6 +72,7 @@ mail_transaction_log_file_alloc(struct mail_transaction_log *log,
 	file->log = log;
 	file->filepath = i_strdup(path);
 	file->fd = -1;
+	file->index_deleted_offset = (uoff_t)-1;
 	return file;
 }
 
@@ -1101,14 +1102,19 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 		return 0;
 
 	/* external transactions: */
-	if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
-	    MAIL_TRANSACTION_HEADER_UPDATE) {
+	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+	case MAIL_TRANSACTION_HEADER_UPDATE:
 		/* see if this updates mailbox_sync_offset */
 		ret = log_file_track_mailbox_sync_offset_hdr(file, data,
 							     trans_size -
 							     sizeof(*hdr));
 		if (ret != 0)
 			return ret < 0 ? -1 : 0;
+		break;
+	case MAIL_TRANSACTION_INDEX_DELETED:
+		file->log->index->index_deleted = TRUE;
+		file->index_deleted_offset = file->sync_offset + trans_size;
+		break;
 	}
 
 	if (file->max_tail_offset == file->sync_offset) {
@@ -1133,6 +1139,10 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 
 	data = buffer_get_data(file->buffer, &size);
 	while (file->sync_offset - file->buffer_offset + sizeof(*hdr) <= size) {
+		if (unlikely(file->index_deleted_offset == file->sync_offset)) {
+			/* ignore everything that comes after _INDEX_DELETED */
+			break;
+		}
 		hdr = CONST_PTR_OFFSET(data, file->sync_offset -
 				       file->buffer_offset);
 		trans_size = mail_index_offset_to_uint32(hdr->size);

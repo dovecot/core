@@ -109,6 +109,9 @@ static const char *log_record_type(unsigned int type)
 	case MAIL_TRANSACTION_MODSEQ_UPDATE:
 		name = "modseq-update";
 		break;
+	case MAIL_TRANSACTION_INDEX_DELETED:
+		name = "index-deleted";
+		break;
 	default:
 		name = t_strdup_printf("unknown: %x", type);
 		break;
@@ -411,6 +414,8 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		}
 		break;
 	}
+	case MAIL_TRANSACTION_INDEX_DELETED:
+		break;
 	default:
 		break;
 	}

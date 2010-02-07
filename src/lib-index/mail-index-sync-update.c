@@ -814,6 +814,12 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		ret = sync_modseq_update(ctx, rec, hdr->size);
 		break;
 	}
+	case MAIL_TRANSACTION_INDEX_DELETED:
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
+			break;
+		/* transaction log syncing should have already set this */
+		i_assert(ctx->view->index->index_deleted);
+		break;
 	default:
 		mail_index_sync_set_corrupted(ctx,
 			"Unknown transaction record type 0x%x",

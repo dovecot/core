@@ -455,6 +455,13 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 				  MAIL_TRANSACTION_HEADER_UPDATE);
 	}
 
+	if (t->index_deleted) {
+		static uint8_t null4[4] = { 0, 0, 0, 0 };
+		mail_transaction_log_append_add(ctx.append_ctx,
+						MAIL_TRANSACTION_INDEX_DELETED,
+						&null4, 4);
+	}
+
 	/* Update the tail offsets only when committing the sync transaction.
 	   Other transactions may not know the latest tail offset and might
 	   end up shrinking it. (Alternatively the shrinking tail offsets could

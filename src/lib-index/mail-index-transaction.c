@@ -213,6 +213,11 @@ int mail_index_transaction_commit_full(struct mail_index_transaction **_t,
 		mail_index_transaction_rollback(_t);
 		return -1;
 	}
+	if (t->view->index->index_deleted) {
+		/* no further changes allowed */
+		mail_index_transaction_rollback(_t);
+		return -1;
+	}
 
 	*_t = NULL;
 	memset(result_r, 0, sizeof(*result_r));
