@@ -396,6 +396,11 @@ mail_storage_get_settings(struct mail_storage *storage)
 	return storage->set;
 }
 
+struct mail_user *mail_storage_get_user(struct mail_storage *storage)
+{
+	return storage->user;
+}
+
 void mail_storage_set_callbacks(struct mail_storage *storage,
 				struct mail_storage_callbacks *callbacks,
 				void *context)

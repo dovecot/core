@@ -301,6 +301,7 @@ void mail_storage_unref(struct mail_storage **storage);
 /* Returns the mail storage settings. */
 const struct mail_storage_settings *
 mail_storage_get_settings(struct mail_storage *storage) ATTR_PURE;
+struct mail_user *mail_storage_get_user(struct mail_storage *storage) ATTR_PURE;
 
 /* Set storage callback functions to use. */
 void mail_storage_set_callbacks(struct mail_storage *storage,
