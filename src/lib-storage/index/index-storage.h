@@ -31,7 +31,6 @@ struct index_transaction_context {
 
 struct index_mailbox {
 	struct mailbox box;
-	union mail_index_view_module_context view_module_ctx;
 	enum mail_index_open_flags index_flags;
 
 	int (*save_commit_pre)(struct mail_save_context *save_ctx);

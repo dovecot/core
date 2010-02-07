@@ -232,9 +232,6 @@ int index_storage_mailbox_open(struct mailbox *box)
 	box->view = mail_index_view_open(box->index);
 	ibox->keyword_names = mail_index_get_keywords(box->index);
 
-	MODULE_CONTEXT_SET_FULL(box->view, mail_storage_mail_index_module,
-				box, &ibox->view_module_ctx);
-
 	box->opened = TRUE;
 
 	index_thread_mailbox_opened(ibox);
