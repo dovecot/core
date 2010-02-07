@@ -17,6 +17,7 @@ LIBDOVECOT_LDA_INCLUDE="-I$(incdir)/src/lib-lda -I$(incdir)/src/lda"
 LIBDOVECOT_SERVICE_INCLUDE="-I$(incdir)/src/lib-master -I$(incdir)/src/lib-settings"
 LIBDOVECOT_STORAGE_INCLUDE="-I$(incdir)/src/lib-index -I$(incdir)/src/lib-storage/index -I$(incdir)/src/lib-storage/index/raw"
 LIBDOVECOT_LOGIN_INCLUDE="-I$(incdir)/src/lib-auth -I$(incdir)/src/login-common"
+LIBDOVECOT_IMAP_INCLUDE="-I$(incdir)/src/imap"
 
 dovecot_pkgincludedir=
 dovecot_pkglibdir=
