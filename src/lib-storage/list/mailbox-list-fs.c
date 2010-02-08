@@ -235,14 +235,24 @@ fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 				enum mailbox_name_status *status)
 {
 	struct stat st;
-	const char *path;
+	const char *path, *dir_path;
 
 	path = mailbox_list_get_path(_list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	if (strcmp(name, "INBOX") == 0 || stat(path, &st) == 0) {
-		*status = MAILBOX_NAME_EXISTS;
+		*status = MAILBOX_NAME_EXISTS_MAILBOX;
 		return 0;
+	}
+	if (errno == ENOENT) {
+		/* see if the directory exists */
+		dir_path = mailbox_list_get_path(_list, name,
+						 MAILBOX_LIST_PATH_TYPE_DIR);
+		if (strcmp(path, dir_path) != 0 && stat(dir_path, &st) == 0) {
+			*status = MAILBOX_NAME_EXISTS_DIR;
+			return 0;
+		}
+		errno = ENOENT;
 	}
 
 	if (!mailbox_list_is_valid_create_name(_list, name)) {

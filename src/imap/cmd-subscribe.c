@@ -75,7 +75,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		/* subscribing to a listable namespace prefix, allow it. */
 	} else if (subscribe) {
 		if (client_find_namespace(cmd, &verify_name,
-				CLIENT_VERIFY_MAILBOX_SHOULD_EXIST) == NULL)
+				CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST) == NULL)
 			return TRUE;
 	} else {
 		if (client_find_namespace(cmd, &verify_name,

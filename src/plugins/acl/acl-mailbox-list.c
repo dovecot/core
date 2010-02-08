@@ -436,7 +436,8 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 
 	/* we shouldn't reveal this mailbox's existance */
 	switch (*status) {
-	case MAILBOX_NAME_EXISTS:
+	case MAILBOX_NAME_EXISTS_MAILBOX:
+	case MAILBOX_NAME_EXISTS_DIR:
 		*status = MAILBOX_NAME_VALID;
 		break;
 	case MAILBOX_NAME_VALID:

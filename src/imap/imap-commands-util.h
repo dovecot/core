@@ -8,6 +8,8 @@ enum client_verify_mailbox_mode {
 	CLIENT_VERIFY_MAILBOX_NAME,
 	/* If mailbox doesn't exist, fail with [NONEXISTENT] resp code */
 	CLIENT_VERIFY_MAILBOX_SHOULD_EXIST,
+	/* Like above, but allow also non-selectable mailboxes */
+	CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST,
 	/* If mailbox doesn't exist, fail with [TRYCREATE] resp code */
 	CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE,
 	/* If mailbox exists, fail with [ALREADYEXISTS] resp code */

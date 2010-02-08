@@ -90,20 +90,17 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 	}
 
 	switch (mailbox_status) {
-	case MAILBOX_NAME_EXISTS:
+	case MAILBOX_NAME_EXISTS_MAILBOX:
 		switch (mode) {
 		case CLIENT_VERIFY_MAILBOX_NONE:
 		case CLIENT_VERIFY_MAILBOX_NAME:
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
+		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST:
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
 			return ns;
 		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
 			break;
 		}
-
-		if (mode == CLIENT_VERIFY_MAILBOX_NAME ||
-		    mode == CLIENT_VERIFY_MAILBOX_SHOULD_EXIST)
-			return ns;
 
 		client_send_tagline(cmd, t_strconcat(
 			"NO [", IMAP_RESP_CODE_ALREADYEXISTS,
@@ -111,10 +108,12 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 		break;
 
 	case MAILBOX_NAME_VALID:
+	case MAILBOX_NAME_EXISTS_DIR:
 		resp_code = "";
 		switch (mode) {
 		case CLIENT_VERIFY_MAILBOX_NAME:
 		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
+		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST:
 			return ns;
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
 			if ((cmd->cmd_flags & COMMAND_FLAG_USE_NONEXISTENT) != 0)

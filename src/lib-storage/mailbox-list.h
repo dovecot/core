@@ -43,7 +43,10 @@ enum mailbox_info_flags {
 };
 
 enum mailbox_name_status {
-	MAILBOX_NAME_EXISTS,
+	/* name points to a selectable mailbox */
+	MAILBOX_NAME_EXISTS_MAILBOX,
+	/* name points to non-selectable mailbox */
+	MAILBOX_NAME_EXISTS_DIR,
 	MAILBOX_NAME_VALID,
 	MAILBOX_NAME_INVALID,
 	MAILBOX_NAME_NOINFERIORS
