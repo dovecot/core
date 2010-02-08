@@ -826,7 +826,7 @@ void mailbox_name_get_sha128(const char *name, uint8_t guid[MAIL_GUID_128_SIZE])
 	unsigned char sha[SHA1_RESULTLEN];
 
 	sha1_get_digest(name, strlen(name), sha);
-	memcpy(guid, sha, I_MIN(sizeof(guid), sizeof(sha)));
+	memcpy(guid, sha, I_MIN(MAIL_GUID_128_SIZE, sizeof(sha)));
 }
 
 struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list)
