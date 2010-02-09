@@ -264,7 +264,7 @@ int dbox_file_try_lock(struct dbox_file *file)
 
 void dbox_file_unlock(struct dbox_file *file)
 {
-	i_assert(!file->appending);
+	i_assert(!file->appending || file->lock == NULL);
 
 	if (file->lock != NULL)
 		file_unlock(&file->lock);

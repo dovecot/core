@@ -638,7 +638,8 @@ dbox_map_find_existing_append(struct dbox_map_append_context *ctx,
 			      uoff_t mail_size, struct ostream **output_r)
 {
 	struct dbox_map *map = ctx->map;
-	struct dbox_file_append_context *const *file_appends;
+	struct dbox_file_append_context *const *file_appends, *append;
+	struct mdbox_file *mfile;
 	unsigned int i, count;
 	uoff_t append_offset;
 
@@ -648,13 +649,19 @@ dbox_map_find_existing_append(struct dbox_map_append_context *ctx,
 	/* first try to use files already used in this append */
 	file_appends = array_get(&ctx->file_appends, &count);
 	for (i = count; i > ctx->files_nonappendable_count; i--) {
-		append_offset = file_appends[i-1]->output->offset;
-		if (append_offset + mail_size <= map->set->mdbox_rotate_size &&
-		    dbox_file_get_append_stream(file_appends[i-1], output_r) > 0)
-			return file_appends[i-1];
+		append = file_appends[i-1];
 
-		/* can't append to this file anymore. we could close it
-		   otherwise, except that would also lose our lock too early. */
+		append_offset = append->output->offset;
+		if (append_offset + mail_size <= map->set->mdbox_rotate_size &&
+		    dbox_file_get_append_stream(append, output_r) > 0)
+			return append;
+
+		/* can't append to this file anymore. if we created this file,
+		   close it so we don't waste fds. if we didn't, we can't close
+		   it without also losing our lock too early. */
+		mfile = (struct mdbox_file *)append->file;
+		if (mfile->file_id == 0 && dbox_file_append_flush(append) == 0)
+			dbox_file_close(append->file);
 	}
 	ctx->files_nonappendable_count = count;
 	return NULL;

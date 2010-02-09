@@ -104,24 +104,11 @@ static void mdbox_file_init_paths(struct mdbox_file *file, const char *fname)
 static int mdbox_file_create(struct dbox_file *file)
 {
 	bool create_parents;
-	int ret;
 
 	create_parents = dbox_file_is_in_alt(file);
 	file->fd = file->storage->v.
 		file_create_fd(file, file->cur_path, create_parents);
-
-	/* even though we don't need it locked while writing to it, by the
-	   time we rename() it it needs to be locked. so we might as well do
-	   it here. */
-	if ((ret = dbox_file_try_lock(file)) <= 0) {
-		if (ret < 0)
-			return -1;
-		mail_storage_set_critical(&file->storage->storage,
-			"dbox: Couldn't lock created file: %s",
-			file->cur_path);
-		return -1;
-	}
-	return 0;
+	return file->fd == -1 ? -1 : 0;
 }
 
 static struct dbox_file *
