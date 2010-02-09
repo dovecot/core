@@ -221,6 +221,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	ret = mail_index_open(box->index, index_flags, lock_method);
 	if (ret <= 0 || move_to_memory) {
 		if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
+			i_assert(ret <= 0);
 			mail_storage_set_index_error(box);
 			return -1;
 		}

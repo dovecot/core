@@ -63,7 +63,8 @@ void mail_index_free(struct mail_index **_index)
 	struct mail_index *index = *_index;
 
 	*_index = NULL;
-	mail_index_close(index);
+
+	i_assert(index->open_count == 0);
 
 	mail_transaction_log_free(&index->log);
 	hash_table_destroy(&index->keywords_hash);
@@ -484,16 +485,10 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 {
 	int ret;
 
-	if (index->opened) {
-		if (index->map != NULL &&
-		    (index->map->hdr.flags &
-		     MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
-			/* corrupted, reopen files */
-                        mail_index_close(index);
-		} else {
-			i_assert(index->map != NULL);
-			return 1;
-		}
+	if (index->open_count > 0) {
+		i_assert(index->map != NULL);
+		index->open_count++;
+		return 1;
 	}
 
 	index->filepath = MAIL_INDEX_IS_IN_MEMORY(index) ?
@@ -520,6 +515,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	    (flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0)
 		i_fatal("nfs flush requires mmap_disable=yes");
 
+	index->open_count++;
 	if ((ret = mail_index_open_files(index, flags)) <= 0) {
 		/* doesn't exist and create flag not used */
 		mail_index_close(index);
@@ -527,7 +523,6 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	}
 
 	i_assert(index->map != NULL);
-	index->opened = TRUE;
 	mail_index_alloc_cache_index_opened(index);
 	return 1;
 }
@@ -563,6 +558,10 @@ void mail_index_close_file(struct mail_index *index)
 
 void mail_index_close(struct mail_index *index)
 {
+	i_assert(index->open_count > 0);
+	if (--index->open_count > 0)
+		return;
+
 	if (index->map != NULL)
 		mail_index_unmap(&index->map);
 
@@ -574,7 +573,6 @@ void mail_index_close(struct mail_index *index)
 	i_free_and_null(index->filepath);
 
 	index->indexid = 0;
-	index->opened = FALSE;
 }
 
 int mail_index_unlink(struct mail_index *index)

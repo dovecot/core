@@ -170,6 +170,7 @@ struct mail_index {
 	struct mail_cache *cache;
 	struct mail_transaction_log *log;
 
+	unsigned int open_count;
 	enum mail_index_open_flags flags;
 	enum mail_index_sync_type fsync_mask;
 	mode_t mode;
@@ -225,7 +226,6 @@ struct mail_index {
 	unsigned int nodiskspace:1;
 	unsigned int index_lock_timeout:1;
 
-	unsigned int opened:1;
 	unsigned int index_delete_requested:1; /* next sync sets it deleted */
 	unsigned int index_deleted:1; /* no changes allowed anymore */
 	unsigned int log_locked:1;

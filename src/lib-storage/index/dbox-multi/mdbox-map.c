@@ -78,8 +78,10 @@ void dbox_map_deinit(struct dbox_map **_map)
 
 	*_map = NULL;
 
-	if (map->view != NULL)
+	if (map->view != NULL) {
 		mail_index_view_close(&map->view);
+		mail_index_close(map->index);
+	}
 	mail_index_free(&map->index);
 	i_free(map->path);
 	i_free(map);

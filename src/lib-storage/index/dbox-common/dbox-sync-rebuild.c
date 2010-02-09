@@ -125,6 +125,7 @@ void dbox_sync_index_rebuild_deinit(struct dbox_sync_rebuild_context **_ctx)
 	*_ctx = NULL;
 	if (ctx->backup_index != NULL) {
 		mail_index_view_close(&ctx->backup_view);
+		mail_index_close(ctx->backup_index);
 		mail_index_free(&ctx->backup_index);
 	}
 	i_free(ctx);
