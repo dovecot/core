@@ -562,6 +562,7 @@ static bool test_dump_index(const char *path)
 
 	ret = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
 			      FILE_LOCK_METHOD_FCNTL) > 0;
+	mail_index_close(index);
 	mail_index_free(&index);
 	return ret;
 }
