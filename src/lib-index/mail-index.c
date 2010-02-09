@@ -413,8 +413,10 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
 	old_mask = umask(0);
 	fd = open(path, O_RDWR|O_CREAT|O_TRUNC, index->mode);
 	umask(old_mask);
-	if (fd == -1)
-		return mail_index_file_set_syscall_error(index, path, "open()");
+	if (fd == -1) {
+		mail_index_file_set_syscall_error(index, path, "creat()");
+		return -1;
+	}
 
 	mail_index_fchown(index, fd, path);
 	return fd;
@@ -800,6 +802,8 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 				      const char *filepath,
 				      const char *function)
 {
+	const char *errstr;
+
 	i_assert(filepath != NULL);
 	i_assert(function != NULL);
 
@@ -810,8 +814,13 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 	}
 
 	if (errno == EACCES) {
-		return mail_index_set_error(index, "%s",
-			eacces_error_get(t_strcut(function, '('), filepath));
+		function = t_strcut(function, '(');
+		if (strcmp(function, "creat") == 0 ||
+		    strncmp(function, "file_dotlock_", 13) == 0)
+			errstr = eacces_error_get_creating(function, filepath);
+		else
+			errstr = eacces_error_get(function, filepath);
+		return mail_index_set_error(index, "%s", errstr);
 	} else {
 		return mail_index_set_error(index, "%s failed with file %s: %m",
 					    function, filepath);

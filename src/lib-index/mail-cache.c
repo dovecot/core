@@ -15,18 +15,8 @@
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function)
 {
-	i_assert(function != NULL);
-
-	if (ENOSPACE(errno)) {
-		cache->index->nodiskspace = TRUE;
-		if ((cache->index->flags &
-		     MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
-			return;
-	}
-
-	mail_index_set_error(cache->index,
-			     "%s failed with index cache file %s: %m",
-			     function, cache->filepath);
+	mail_index_file_set_syscall_error(cache->index, cache->filepath,
+					  function);
 }
 
 static void mail_cache_unlink(struct mail_cache *cache)
