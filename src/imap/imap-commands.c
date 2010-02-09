@@ -15,7 +15,8 @@ static const struct command imap4rev1_commands[] = {
 	{ "APPEND",		cmd_append,      COMMAND_FLAG_BREAKS_SEQS },
 	{ "EXAMINE",		cmd_examine,     COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "CREATE",		cmd_create,      0 },
-	{ "DELETE",		cmd_delete,      COMMAND_FLAG_USE_NONEXISTENT },
+	{ "DELETE",		cmd_delete,      COMMAND_FLAG_BREAKS_MAILBOX |
+						 COMMAND_FLAG_USE_NONEXISTENT },
 	{ "RENAME",		cmd_rename,      COMMAND_FLAG_USE_NONEXISTENT },
 	{ "LIST",		cmd_list,        0 },
 	{ "LSUB",		cmd_lsub,        0 },
