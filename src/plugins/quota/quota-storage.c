@@ -331,6 +331,48 @@ static int quota_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 	return ret;
 }
 
+static int
+quota_mailbox_delete_shrink_quota(struct mailbox *box)
+{
+	struct mail_search_context *ctx;
+        struct mailbox_transaction_context *t;
+	struct quota_transaction_context *qt;
+	struct mail *mail;
+	struct mail_search_args *search_args;
+
+	t = mailbox_transaction_begin(box, 0);
+	qt = quota_transaction_begin(box);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	ctx = mailbox_search_init(t, search_args, NULL);
+	mail_search_args_unref(&search_args);
+
+	mail = mail_alloc(t, 0, NULL);
+	while (mailbox_search_next(ctx, mail))
+		quota_free(qt, mail);
+	mail_free(&mail);
+
+	if (mailbox_search_deinit(&ctx) < 0) {
+		/* maybe we missed some mails. */
+		quota_recalculate(qt);
+	}
+	(void)quota_transaction_commit(&qt);
+	mailbox_transaction_rollback(&t);
+	return 0;
+}
+
+static int quota_mailbox_delete(struct mailbox *box)
+{
+	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
+
+	if (box->opened) {
+		if (quota_mailbox_delete_shrink_quota(box) < 0)
+			return -1;
+	}
+	return qbox->module_ctx.super.delete(box);
+}
+
 static void quota_mailbox_close(struct mailbox *box)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
@@ -364,42 +406,9 @@ void quota_mailbox_allocated(struct mailbox *box)
 	box->v.copy = quota_copy;
 	box->v.sync_notify = quota_mailbox_sync_notify;
 	box->v.sync_deinit = quota_mailbox_sync_deinit;
+	box->v.delete = quota_mailbox_delete;
 	box->v.close = quota_mailbox_close;
 	MODULE_CONTEXT_SET(box, quota_storage_module, qbox);
-}
-
-static int
-quota_mailbox_delete_shrink_quota(struct mailbox *box)
-{
-	struct mail_search_context *ctx;
-        struct mailbox_transaction_context *t;
-	struct quota_transaction_context *qt;
-	struct mail *mail;
-	struct mail_search_args *search_args;
-	int ret;
-
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
-		return -1;
-
-	t = mailbox_transaction_begin(box, 0);
-	qt = QUOTA_CONTEXT(t);
-
-	search_args = mail_search_build_init();
-	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(t, search_args, NULL);
-	mail_search_args_unref(&search_args);
-
-	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(ctx, mail))
-		quota_free(qt, mail);
-	mail_free(&mail);
-
-	ret = mailbox_search_deinit(&ctx);
-	if (ret < 0)
-		mailbox_transaction_rollback(&t);
-	else
-		ret = mailbox_transaction_commit(&t);
-	return ret;
 }
 
 static void quota_mailbox_list_deinit(struct mailbox_list *list)
@@ -408,44 +417,6 @@ static void quota_mailbox_list_deinit(struct mailbox_list *list)
 
 	quota_remove_user_namespace(list->ns);
 	qlist->module_ctx.super.deinit(list);
-}
-
-static int
-quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
-{
-	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(list);
-	struct mailbox *box;
-	enum mail_error error;
-	const char *str;
-	int ret;
-
-	/* This is a bit annoying to handle. We'll have to open the mailbox
-	   and free the quota for all the messages existing in it. Open the
-	   mailbox locked so that other processes can't mess up the quota
-	   calculations by adding/removing mails while we're doing this. */
-	box = mailbox_alloc(list, name, NULL, MAILBOX_FLAG_KEEP_RECENT |
-			    MAILBOX_FLAG_KEEP_LOCKED);
-	if (mailbox_open(box) < 0) {
-		str = mail_storage_get_last_error(mailbox_get_storage(box),
-						  &error);
-		if (error != MAIL_ERROR_NOTPOSSIBLE) {
-			ret = -1;
-		} else {
-			/* mailbox isn't selectable */
-			ret = 0;
-		}
-	} else {
-		if ((ret = quota_mailbox_delete_shrink_quota(box)) < 0) {
-			str = mail_storage_get_last_error(box->storage, &error);
-			mailbox_list_set_error(list, error, str);
-		}
-	}
-	if (box != NULL)
-		mailbox_free(&box);
-
-	/* FIXME: here's an unfortunate race condition */
-	return ret < 0 ? -1 :
-		qlist->module_ctx.super.delete_mailbox(list, name);
 }
 
 struct quota *quota_get_mail_user_quota(struct mail_user *user)
@@ -522,7 +493,6 @@ void quota_mail_namespace_storage_added(struct mail_namespace *ns)
 		qlist = p_new(list->pool, struct quota_mailbox_list, 1);
 		qlist->module_ctx.super = list->v;
 		list->v.deinit = quota_mailbox_list_deinit;
-		list->v.delete_mailbox = quota_mailbox_list_delete;
 		MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
 
 		/* register to owner's quota roots */

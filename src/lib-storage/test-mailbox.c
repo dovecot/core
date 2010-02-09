@@ -52,6 +52,13 @@ test_mailbox_update(struct mailbox *box,
 	return -1;
 }
 
+static int test_mailbox_delete(struct mailbox *box)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			       "Test mailbox delete isn't supported");
+	return -1;
+}
+
 static void test_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
 				    enum mailbox_status_items items ATTR_UNUSED,
 				    struct mailbox_status *status_r)
@@ -308,6 +315,7 @@ struct mailbox test_mailbox = {
 		test_mailbox_close,
 		test_mailbox_create,
 		test_mailbox_update,
+		test_mailbox_delete,
 		test_mailbox_get_status,
 		NULL,
 		NULL,

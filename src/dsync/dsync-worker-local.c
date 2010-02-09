@@ -1105,6 +1105,7 @@ local_worker_delete_mailbox(struct dsync_worker *_worker,
 		(struct local_dsync_worker *)_worker;
 	struct local_dsync_mailbox *lbox;
 	const mailbox_guid_t *mailbox = &dsync_box->mailbox_guid;
+	struct mailbox *box;
 
 	lbox = hash_table_lookup(worker->mailbox_hash, mailbox);
 	if (lbox == NULL) {
@@ -1116,12 +1117,15 @@ local_worker_delete_mailbox(struct dsync_worker *_worker,
 
 	mailbox_list_set_changelog_timestamp(lbox->ns->list,
 					     dsync_box->last_change);
-	if (mailbox_list_delete_mailbox(lbox->ns->list,
-					lbox->storage_name) < 0) {
+	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, NULL, 0);
+	if (mailbox_delete(box) < 0) {
+		struct mail_storage *storage = mailbox_get_storage(box);
+
 		i_error("Can't delete mailbox %s: %s", lbox->storage_name,
-			mailbox_list_get_last_error(lbox->ns->list, NULL));
+			mail_storage_get_last_error(storage, NULL));
 		dsync_worker_set_failure(_worker);
 	}
+	mailbox_free(&box);
 	mailbox_list_set_changelog_timestamp(lbox->ns->list, (time_t)-1);
 }
 

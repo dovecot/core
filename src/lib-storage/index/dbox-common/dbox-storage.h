@@ -62,9 +62,4 @@ int dbox_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			     struct mailbox_list *newlist, const char *newname,
 			     bool rename_children);
 
-int dbox_list_delete_mailbox1(struct mailbox_list *list, const char *name,
-			      const char **trash_dest_r);
-int dbox_list_delete_mailbox2(struct mailbox_list *list, const char *name,
-			      int ret, const char *trash_dest);
-
 #endif

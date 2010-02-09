@@ -53,6 +53,7 @@ dbox_map_transaction_begin(struct dbox_map *map, bool external);
 /* Write transaction to map and leave it locked. Call _free() to update tail
    offset and unlock. */
 int dbox_map_transaction_commit(struct dbox_map_transaction_context *ctx);
+void dbox_map_transaction_set_failed(struct dbox_map_transaction_context *ctx);
 void dbox_map_transaction_free(struct dbox_map_transaction_context **ctx);
 
 int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,

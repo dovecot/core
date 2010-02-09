@@ -255,7 +255,7 @@ shared_list_delete_mailbox(struct mailbox_list *list, const char *name)
 
 	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return -1;
-	ret = mailbox_list_delete_mailbox(ns->list, name);
+	ret = ns->list->v.delete_mailbox(ns->list, name);
 	if (ret < 0)
 		shared_list_copy_error(list, ns);
 	return ret;
@@ -352,6 +352,7 @@ struct mailbox_list shared_mailbox_list = {
 		shared_list_iter_init,
 		shared_list_iter_next,
 		shared_list_iter_deinit,
+		NULL,
 		NULL,
 		shared_list_set_subscribed,
 		shared_list_create_mailbox_dir,

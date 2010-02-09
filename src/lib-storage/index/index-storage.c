@@ -10,6 +10,7 @@
 #include "mail-index-alloc-cache.h"
 #include "mail-index-private.h"
 #include "mail-index-modseq.h"
+#include "mailbox-log.h"
 #include "mailbox-list-private.h"
 #include "index-storage.h"
 #include "index-mail.h"
@@ -245,9 +246,11 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	if (hook_mailbox_opened != NULL)
 		hook_mailbox_opened(box);
 
-	if (mail_index_is_deleted(box->index)) {
-		mailbox_set_deleted(box);
-		return -1;
+	if ((box->flags & MAILBOX_FLAG_OPEN_DELETED) == 0) {
+		if (mail_index_is_deleted(box->index)) {
+			mailbox_set_deleted(box);
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -305,10 +308,8 @@ int index_storage_mailbox_enable(struct mailbox *box,
 {
 	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0) {
 		box->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
-		if (!box->opened) {
-			if (mailbox_open(box) < 0)
-				return -1;
-		}
+		if (mailbox_open(box) < 0)
+			return -1;
 		T_BEGIN {
 			mail_index_modseq_enable(box->index);
 		} T_END;
@@ -393,10 +394,8 @@ int index_storage_mailbox_update(struct mailbox *box,
 	struct mail_index_transaction *trans;
 	int ret;
 
-	if (!box->opened) {
-		if (mailbox_open(box) < 0)
-			return -1;
-	}
+	if (mailbox_open(box) < 0)
+		return -1;
 	if (update->cache_fields != NULL)
 		index_storage_mailbox_update_cache_fields(box, update);
 
@@ -433,6 +432,56 @@ int index_storage_mailbox_update(struct mailbox *box,
 		mail_storage_set_internal_error(box->storage);
 	mail_index_view_close(&view);
 	return ret;
+}
+
+int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted)
+{
+	uint8_t dir_sha128[MAIL_GUID_128_SIZE];
+	enum mail_error error;
+
+	if (mailbox_list_delete_dir(box->list, box->name) == 0)
+		return 0;
+
+	(void)mailbox_list_get_last_error(box->list, &error);
+	if (error != MAIL_ERROR_NOTFOUND || !mailbox_deleted) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		return -1;
+	}
+	/* failed directory deletion, but mailbox deletion succeeded.
+	   this was probably maildir++, which internally deleted the
+	   directory as well. add changelog record about that too. */
+	mailbox_name_get_sha128(box->name, dir_sha128);
+	mailbox_list_add_change(box->list, MAILBOX_LOG_RECORD_DELETE_DIR,
+				dir_sha128);
+	return 0;
+}
+
+int index_storage_mailbox_delete(struct mailbox *box)
+{
+	struct mailbox_status status;
+
+	if (!box->opened) {
+		/* \noselect mailbox, try deleting only the directory */
+		return index_storage_mailbox_delete_dir(box, FALSE);
+	}
+
+	mailbox_get_status(box, STATUS_GUID, &status);
+
+	/* Make sure the indexes are closed before trying to delete the
+	   directory that contains them. It can still fail with some NFS
+	   implementations if indexes are opened by another session, but
+	   that can't really be helped. */
+	mailbox_close(box);
+	mail_index_alloc_cache_destroy_unrefed();
+
+	if (box->list->v.delete_mailbox(box->list, box->name) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		return -1;
+	} 
+
+	mailbox_list_add_change(box->list, MAILBOX_LOG_RECORD_DELETE_MAILBOX,
+				status.mailbox_guid);
+	return index_storage_mailbox_delete_dir(box, TRUE);
 }
 
 bool index_storage_is_readonly(struct mailbox *box)

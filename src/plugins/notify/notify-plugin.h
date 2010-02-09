@@ -7,6 +7,7 @@ struct mail_transaction_commit_changes;
 struct mail_storage;
 struct mailbox_transaction_context;
 struct mailbox_list;
+struct mailbox;
 struct notify_context;
 struct module;
 
@@ -22,10 +23,8 @@ struct notify_vfuncs {
 	void (*mail_transaction_commit)(void *txn,
 			struct mail_transaction_commit_changes *changes);
 	void (*mail_transaction_rollback)(void *txn);
-	void *(*mailbox_delete_begin)(struct mailbox_list *list, 
-				      const char *name);
-	void (*mailbox_delete_commit)(void *txn, struct mailbox_list *list,
-				      const char *name);
+	void *(*mailbox_delete_begin)(struct mailbox *box);
+	void (*mailbox_delete_commit)(void *txn, struct mailbox *box);
 	void (*mailbox_delete_rollback)(void *txn);
 	void (*mailbox_rename)(struct mailbox_list *oldlist,
 			       const char *oldname,
@@ -44,10 +43,8 @@ void notify_noop_mail_update_keywords(void *txn, struct mail *mail,
 void notify_noop_mail_transaction_commit(void *txn,
 					 struct mail_transaction_commit_changes *changes);
 void notify_noop_mail_transaction_rollback(void *txn);
-void *notify_noop_mailbox_delete_begin(struct mailbox_list *list,
-				       const char *name);
-void notify_noop_mailbox_delete_commit(void *txn, struct mailbox_list *list,
-				       const char *name);
+void *notify_noop_mailbox_delete_begin(struct mailbox *box);
+void notify_noop_mailbox_delete_commit(void *txn, struct mailbox *box);
 void notify_noop_mailbox_delete_rollback(void *txn);
 void notify_noop_mailbox_rename(struct mailbox_list *oldlist,
 				const char *oldname,

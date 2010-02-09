@@ -14,10 +14,8 @@ void notify_contexts_mail_update_keywords(struct mail *mail,
 void notify_contexts_mail_transaction_commit(struct mailbox_transaction_context *t,
 					     struct mail_transaction_commit_changes *changes);
 void notify_contexts_mail_transaction_rollback(struct mailbox_transaction_context *t);
-void notify_contexts_mailbox_delete_begin(struct mailbox_list *list,
-					  const char *name);
-void notify_contexts_mailbox_delete_commit(struct mailbox_list *list,
-					   const char *name);
+void notify_contexts_mailbox_delete_begin(struct mailbox *box);
+void notify_contexts_mailbox_delete_commit(struct mailbox *box);
 void notify_contexts_mailbox_delete_rollback(void);
 void notify_contexts_mailbox_rename(struct mailbox_list *oldlist,
 				    const char *oldname,

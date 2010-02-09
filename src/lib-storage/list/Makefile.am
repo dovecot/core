@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
 libstorage_list_la_SOURCES = \
 	index-mailbox-list.c \
 	index-mailbox-list-sync.c \
+	mailbox-list-delete.c \
 	mailbox-list-fs.c \
 	mailbox-list-fs-iter.c \
 	mailbox-list-maildir.c \
@@ -20,6 +21,7 @@ libstorage_list_la_SOURCES = \
 
 headers = \
 	index-mailbox-list.h \
+	mailbox-list-delete.h \
 	mailbox-list-fs.h \
 	mailbox-list-maildir.h \
 	mailbox-list-subscriptions.h \

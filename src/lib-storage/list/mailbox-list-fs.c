@@ -6,6 +6,7 @@
 #include "mailbox-log.h"
 #include "subscription-file.h"
 #include "mail-storage.h"
+#include "mailbox-list-delete.h"
 #include "mailbox-list-fs.h"
 
 #include <stdio.h>
@@ -361,10 +362,54 @@ fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 	return -1;
 }
 
+static const char *mailbox_list_fs_get_trash_dir(struct mailbox_list *list)
+{
+	const char *root_dir;
+
+	root_dir = mailbox_list_get_path(list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_DIR);
+	return t_strdup_printf("%s/"MAILBOX_LIST_FS_TRASH_DIR_NAME, root_dir);
+}
+
 static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
-	/* let the backend handle the rest */
-	return mailbox_list_delete_index_control(list, name);
+	const char *path, *trash_dir;
+	int ret = 0;
+
+	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
+		if (mailbox_list_delete_mailbox_file(list, name) < 0)
+			return -1;
+		ret = 1;
+	}
+
+	if (*list->set.maildir_name != '\0' &&
+	    *list->set.mailbox_dir_name != '\0' && ret == 0) {
+		trash_dir = mailbox_list_fs_get_trash_dir(list);
+		ret = mailbox_list_delete_maildir_via_trash(list, name,
+							    trash_dir);
+		if (ret < 0)
+			return -1;
+
+		/* try to delete the parent directory */
+		path = mailbox_list_get_path(list, name,
+					     MAILBOX_LIST_PATH_TYPE_DIR);
+		if (rmdir(path) < 0 && errno != ENOENT && errno != ENOTEMPTY) {
+			mailbox_list_set_critical(list, "rmdir(%s) failed: %m",
+						  path);
+		}
+	}
+
+	if (ret == 0) {
+		bool rmdir_path = *list->set.maildir_name != '\0';
+
+		path = mailbox_list_get_path(list, name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (mailbox_list_delete_mailbox_nonrecursive(list, name, path,
+							     rmdir_path) < 0)
+			return -1;
+	}
+	mailbox_list_delete_finish(list, name);
+	return 0;
 }
 
 static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
@@ -385,7 +430,7 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 	} else if (errno == ENOTEMPTY) {
 		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
-				       "Mailbox exists");
+			"Mailbox has children, delete them first");
 	} else {
 		mailbox_list_set_critical(list, "rmdir(%s) failed: %m", path);
 	}
@@ -545,6 +590,7 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_iter_init,
 		fs_list_iter_next,
 		fs_list_iter_deinit,
+		NULL,
 		NULL,
 		fs_list_set_subscribed,
 		fs_list_create_mailbox_dir,

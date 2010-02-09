@@ -6,6 +6,7 @@
 #include "eacces-error.h"
 #include "mkdir-parents.h"
 #include "subscription-file.h"
+#include "mailbox-list-delete.h"
 #include "mailbox-list-maildir.h"
 
 #include <stdio.h>
@@ -484,11 +485,46 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		maildir_list_create_maildirfolder_file(list, path);
 }
 
+static const char *mailbox_list_maildir_get_trash_dir(struct mailbox_list *list)
+{
+	const char *root_dir;
+
+	root_dir = mailbox_list_get_path(list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_DIR);
+	return t_strdup_printf("%s/%c%c"MAILBOX_LIST_MAILDIR_TRASH_DIR_NAME,
+			       root_dir, list->hierarchy_sep,
+			       list->hierarchy_sep);
+}
+
 static int
 maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
-	/* let the backend handle the rest */
-	return mailbox_list_delete_index_control(list, name);
+	const char *path, *trash_dir;
+	int ret = 0;
+
+	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
+		if (mailbox_list_delete_mailbox_file(list, name) < 0)
+			return -1;
+		ret = 1;
+	}
+
+	trash_dir = mailbox_list_maildir_get_trash_dir(list);
+	ret = mailbox_list_delete_maildir_via_trash(list, name, trash_dir);
+	if (ret < 0)
+		return -1;
+
+	if (ret == 0) {
+		/* we could actually use just unlink_directory()
+		   but error handling is easier this way :) */
+		path = mailbox_list_get_path(list, name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (mailbox_list_delete_mailbox_nonrecursive(list, name,
+							     path, TRUE) < 0)
+			return -1;
+	}
+
+	mailbox_list_delete_finish(list, name);
+	return 0;
 }
 
 static int maildir_list_delete_dir(struct mailbox_list *list, const char *name)
@@ -584,6 +620,7 @@ struct mailbox_list maildir_mailbox_list = {
 		maildir_list_iter_next,
 		maildir_list_iter_deinit,
 		NULL,
+		NULL,
 		maildir_list_set_subscribed,
 		maildir_list_create_mailbox_dir,
 		maildir_list_delete_mailbox,
@@ -614,6 +651,7 @@ struct mailbox_list imapdir_mailbox_list = {
 		maildir_list_iter_init,
 		maildir_list_iter_next,
 		maildir_list_iter_deinit,
+		NULL,
 		NULL,
 		maildir_list_set_subscribed,
 		maildir_list_create_mailbox_dir,

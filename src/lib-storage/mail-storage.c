@@ -381,6 +381,16 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	}
 }
 
+void mail_storage_copy_list_error(struct mail_storage *storage,
+				  struct mailbox_list *list)
+{
+	const char *str;
+	enum mail_error error;
+
+	str = mailbox_list_get_last_error(list, &error);
+	mail_storage_set_error(storage, error, str);
+}
+
 void mail_storage_set_index_error(struct mailbox *box)
 {
 	if (mail_index_is_deleted(box->index))
@@ -489,6 +499,9 @@ int mailbox_open(struct mailbox *box)
 {
 	int ret;
 
+	if (box->opened)
+		return 0;
+
 	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
@@ -555,11 +568,7 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 	if (box->list->v.create_mailbox_dir(box->list, box->name,
 					    directory) < 0) {
-		const char *str;
-		enum mail_error error;
-
-		str = mailbox_list_get_last_error(box->list, &error);
-		mail_storage_set_error(box->storage, error, str);
+		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
 	}
 	mailbox_refresh_permissions(box);
@@ -570,6 +579,54 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
 	return box->v.update(box, update);
+}
+
+static int mailbox_mark_index_deleted(struct mailbox *box)
+{
+	struct mail_index_transaction *trans;
+
+	trans = mail_index_transaction_begin(box->view, 0);
+	mail_index_set_deleted(trans);
+	if (mail_index_transaction_commit(&trans) < 0) {
+		mail_storage_set_index_error(box);
+		return -1;
+	}
+
+	/* sync the mailbox. this finishes the index deletion and it can
+	   succeed only for a single session. we do it here, so the rest of
+	   the deletion code doesn't have to worry about race conditions. */
+	return mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
+}
+
+int mailbox_delete(struct mailbox *box)
+{
+	enum mail_error error;
+	int ret;
+
+	if (*box->name == '\0') {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Storage root can't be deleted");
+		return -1;
+	}
+	if (strcmp(box->name, "INBOX") == 0 &&
+	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "INBOX can't be deleted.");
+		return -1;
+	}
+
+	if (mailbox_open(box) < 0) {
+		(void)mail_storage_get_last_error(box->storage, &error);
+		if (error != MAIL_ERROR_NOTFOUND)
+			return -1;
+		/* \noselect mailbox */
+	} else {
+		if (mailbox_mark_index_deleted(box) < 0)
+			return -1;
+	}
+	ret = box->v.delete(box);
+	mailbox_close(box);
+	return ret;
 }
 
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)

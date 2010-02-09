@@ -216,20 +216,6 @@ listescape_mailbox_alloc(struct mail_storage *storage,
 }
 
 static int
-listescape_delete_mailbox(struct mailbox_list *list, const char *name)
-{
-	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
-	int ret;
-
-	/* at least quota plugin opens the mailbox when deleting it */
-	name = list_escape(list->ns, name, FALSE);
-	mlist->name_escaped = TRUE;
-	ret = mlist->module_ctx.super.delete_mailbox(list, name);
-	mlist->name_escaped = FALSE;
-	return ret;
-}
-
-static int
 listescape_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			  struct mailbox_list *newlist, const char *newname,
 			  bool rename_children)
@@ -318,7 +304,6 @@ static void listescape_mail_namespace_storage_added(struct mail_namespace *ns)
 	list->v.iter_init = listescape_mailbox_list_iter_init;
 	list->v.iter_next = listescape_mailbox_list_iter_next;
 	list->v.iter_deinit = listescape_mailbox_list_iter_deinit;
-	list->v.delete_mailbox = listescape_delete_mailbox;
 	list->v.rename_mailbox = listescape_rename_mailbox;
 	list->v.set_subscribed = listescape_set_subscribed;
 	list->v.get_mailbox_name_status = listescape_get_mailbox_name_status;

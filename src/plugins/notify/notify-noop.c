@@ -19,11 +19,9 @@ void notify_noop_mail_update_keywords(void *txn ATTR_UNUSED,
 void notify_noop_mail_transaction_commit(void *txn ATTR_UNUSED,
 					 struct mail_transaction_commit_changes *changes ATTR_UNUSED) {}
 void notify_noop_mail_transaction_rollback(void *txn ATTR_UNUSED) {}
-void *notify_noop_mailbox_delete_begin(struct mailbox_list *list ATTR_UNUSED,
-				       const char *name ATTR_UNUSED) { return NULL; }
+void *notify_noop_mailbox_delete_begin(struct mailbox *box ATTR_UNUSED) { return NULL; }
 void notify_noop_mailbox_delete_commit(void *txn ATTR_UNUSED,
-				       struct mailbox_list *list ATTR_UNUSED,
-				       const char *name ATTR_UNUSED) {}
+				       struct mailbox *box ATTR_UNUSED) {}
 void notify_noop_mailbox_delete_rollback(void *txn ATTR_UNUSED) {}
 void notify_noop_mailbox_rename(struct mailbox_list *oldlist ATTR_UNUSED,
 				const char *oldname ATTR_UNUSED,

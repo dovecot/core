@@ -54,6 +54,10 @@ struct mailbox_list_vfuncs {
 			       const char *mailbox_name,
 			       enum mailbox_list_file_type type,
 			       enum mailbox_info_flags *flags_r);
+	/* Returns TRUE if dir/name points to mailbox's internal directory.
+	   If it does, mailbox deletion assumes it can safely delete it. */
+	bool (*is_mailbox_dir)(struct mailbox_list *list, const char *dir,
+			       const char *name);
 
 	int (*set_subscribed)(struct mailbox_list *list,
 			      const char *name, bool set);

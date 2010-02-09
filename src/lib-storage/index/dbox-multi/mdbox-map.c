@@ -371,6 +371,11 @@ int dbox_map_transaction_commit(struct dbox_map_transaction_context *ctx)
 	return 0;
 }
 
+void dbox_map_transaction_set_failed(struct dbox_map_transaction_context *ctx)
+{
+	ctx->success = FALSE;
+}
+
 void dbox_map_transaction_free(struct dbox_map_transaction_context **_ctx)
 {
 	struct dbox_map_transaction_context *ctx = *_ctx;

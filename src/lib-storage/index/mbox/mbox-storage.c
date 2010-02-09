@@ -2,11 +2,8 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "array.h"
 #include "istream.h"
 #include "restrict-access.h"
-#include "mkdir-parents.h"
-#include "unlink-directory.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
 #include "mbox-file.h"
@@ -15,10 +12,6 @@
 #include "mail-copy.h"
 #include "index-mail.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 
 /* How often to touch the dotlock file when using KEEP_LOCKED flag */
@@ -478,9 +471,8 @@ static int mbox_mailbox_open(struct mailbox *box)
 	if ((ret = stat(box->path, &st)) == 0 && !S_ISDIR(st.st_mode))
 		return mbox_mailbox_open_existing(mbox);
 	else if (ret == 0) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			t_strdup_printf("Mailbox isn't selectable: %s",
-					box->name));
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+				       "Mailbox isn't selectable");
 		return -1;
 	} else if (ENOTFOUND(errno)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
@@ -703,79 +695,6 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	}
 }
 
-static int mbox_list_delete_mailbox(struct mailbox_list *list,
-				    const char *name)
-{
-	struct mbox_mailbox_list *mlist = MBOX_LIST_CONTEXT(list);
-	struct stat st;
-	const char *path, *index_dir;
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (lstat(path, &st) < 0) {
-		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		} else if (!mailbox_list_set_error_from_errno(list)) {
-			mailbox_list_set_critical(list,
-				"lstat() failed for %s: %m", path);
-		}
-		return -1;
-	}
-
-	if (S_ISDIR(st.st_mode)) {
-		/* deleting a directory. allow it only if it doesn't contain
-		   anything. Delete the ".imap" directory first in case there
-		   have been indexes. */
-		index_dir = mailbox_list_get_path(list, name,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		index_dir = *index_dir == '\0' ? "" :
-			t_strconcat(index_dir, "/"MBOX_INDEX_DIR_NAME, NULL);
-
-		if (*index_dir != '\0' && rmdir(index_dir) < 0 &&
-		    !ENOTFOUND(errno) && errno != ENOTEMPTY) {
-			if (!mailbox_list_set_error_from_errno(list)) {
-				mailbox_list_set_critical(list,
-					"rmdir() failed for %s: %m", index_dir);
-			}
-			return -1;
-		}
-
-		if (rmdir(path) == 0)
-			return 0;
-
-		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		} else if (errno == ENOTEMPTY) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				t_strdup_printf("Directory %s isn't empty, "
-						"can't delete it.", name));
-		} else if (!mailbox_list_set_error_from_errno(list)) {
-			mailbox_list_set_critical(list,
-				"rmdir() failed for %s: %m", path);
-		}
-		return -1;
-	}
-
-	/* delete index / control files first */
-	if (mlist->module_ctx.super.delete_mailbox(list, name) < 0)
-		return -1;
-
-	if (unlink(path) < 0) {
-		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		} else if (!mailbox_list_set_error_from_errno(list)) {
-			mailbox_list_set_critical(list,
-				"unlink() failed for %s: %m", path);
-		}
-		return -1;
-	}
-
-	return 0;
-}
-
 static void mbox_storage_add_list(struct mail_storage *storage,
 				  struct mailbox_list *list)
 {
@@ -791,7 +710,6 @@ static void mbox_storage_add_list(struct mail_storage *storage,
 		list->v.get_path = mbox_list_get_path;
 	}
 	list->v.iter_is_mailbox = mbox_list_iter_is_mailbox;
-	list->v.delete_mailbox = mbox_list_delete_mailbox;
 	list->v.is_valid_existing_name = mbox_is_valid_existing_name;
 	list->v.is_valid_create_name = mbox_is_valid_create_name;
 
@@ -877,6 +795,7 @@ struct mailbox mbox_mailbox = {
 		mbox_mailbox_close,
 		mbox_mailbox_create,
 		mbox_mailbox_update,
+		index_storage_mailbox_delete,
 		mbox_storage_get_status,
 		NULL,
 		NULL,

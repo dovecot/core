@@ -2,31 +2,24 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "array.h"
-#include "hostpid.h"
-#include "str.h"
 #include "mkdir-parents.h"
 #include "eacces-error.h"
 #include "unlink-directory.h"
 #include "unlink-old-files.h"
-#include "mailbox-log.h"
 #include "mailbox-uidvalidity.h"
+#include "list/mailbox-list-maildir.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
 #include "maildir-sync.h"
 #include "index-mail.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <dirent.h>
-#include <unistd.h>
 #include <sys/stat.h>
 
 #define MAILDIR_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, maildir_mailbox_list_module)
 
-struct maildir_mailbox_list {
+struct maildir_mailbox_list_context {
 	union mailbox_list_module_context module_ctx;
 	const struct maildir_settings *set;
 };
@@ -54,7 +47,7 @@ static bool maildir_is_internal_name(const char *name)
 static bool maildir_storage_is_valid_existing_name(struct mailbox_list *list,
 						   const char *name)
 {
-	struct maildir_mailbox_list *mlist = MAILDIR_LIST_CONTEXT(list);
+	struct maildir_mailbox_list_context *mlist = MAILDIR_LIST_CONTEXT(list);
 	const char *p;
 
 	if (!mlist->module_ctx.super.is_valid_existing_name(list, name))
@@ -70,7 +63,7 @@ static bool maildir_storage_is_valid_existing_name(struct mailbox_list *list,
 static bool maildir_storage_is_valid_create_name(struct mailbox_list *list,
 						 const char *name)
 {
-	struct maildir_mailbox_list *mlist = MAILDIR_LIST_CONTEXT(list);
+	struct maildir_mailbox_list_context *mlist = MAILDIR_LIST_CONTEXT(list);
 	bool ret = TRUE;
 
 	if (!mlist->module_ctx.super.is_valid_create_name(list, name))
@@ -526,247 +519,13 @@ maildir_storage_get_status(struct mailbox *box, enum mailbox_status_items items,
 	}
 }
 
-static const char *
-maildir_get_unlink_dest(struct mailbox_list *list, const char *name)
-{
-	const char *root_dir;
-	char sep;
-
-	if (list->mail_set->mail_full_filesystem_access &&
-	    (*name == '/' || *name == '~'))
-		return NULL;
-
-	if (strcmp(mailbox_list_get_driver_name(list),
-		   MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) != 0) {
-		/* Not maildir++ driver. Don't use this trick. */
-		return NULL;
-	}
-
-	root_dir = mailbox_list_get_path(list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_DIR);
-	sep = mailbox_list_get_hierarchy_sep(list);
-	return t_strdup_printf("%s/%c%c"MAILDIR_UNLINK_DIRNAME, root_dir,
-			       sep, sep);
-}
-
-static int
-maildir_delete_nonrecursive(struct mailbox_list *list, const char *path,
-			    const char *name)
-{
-	DIR *dir;
-	struct dirent *d;
-	string_t *full_path;
-	unsigned int dir_len;
-	bool unlinked_something = FALSE;
-
-	dir = opendir(path);
-	if (dir == NULL) {
-		if (errno == ENOENT) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		} else {
-			mailbox_list_set_critical(list,
-				"opendir(%s) failed: %m", path);
-		}
-		return -1;
-	}
-
-	full_path = t_str_new(256);
-	str_append(full_path, path);
-	str_append_c(full_path, '/');
-	dir_len = str_len(full_path);
-
-	errno = 0;
-	while ((d = readdir(dir)) != NULL) {
-		if (d->d_name[0] == '.') {
-			/* skip . and .. */
-			if (d->d_name[1] == '\0')
-				continue;
-			if (d->d_name[1] == '.' && d->d_name[2] == '\0')
-				continue;
-		}
-
-		str_truncate(full_path, dir_len);
-		str_append(full_path, d->d_name);
-
-		if (maildir_is_internal_name(d->d_name)) {
-			if (unlink_directory(str_c(full_path), TRUE) < 0) {
-				mailbox_list_set_critical(list,
-					"unlink_directory(%s) failed: %m",
-					str_c(full_path));
-			} else {
-				unlinked_something = TRUE;
-			}
-			continue;
-		}
-
-		/* trying to unlink() a directory gives either EPERM or EISDIR
-		   (non-POSIX). it doesn't really work anywhere in practise,
-		   so don't bother stat()ing the file first */
-		if (unlink(str_c(full_path)) == 0)
-			unlinked_something = TRUE;
-		else if (errno != ENOENT && errno != EISDIR && errno != EPERM) {
-			mailbox_list_set_critical(list,
-				"unlink_directory(%s) failed: %m",
-				str_c(full_path));
-		}
-	}
-
-	if (closedir(dir) < 0) {
-		mailbox_list_set_critical(list, "closedir(%s) failed: %m",
-					  path);
-	}
-
-	if (rmdir(path) == 0)
-		unlinked_something = TRUE;
-	else if (errno != ENOENT && errno != ENOTEMPTY) {
-		mailbox_list_set_critical(list, "rmdir(%s) failed: %m", path);
-		return -1;
-	}
-
-	if (!unlinked_something) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			t_strdup_printf("Directory %s isn't empty, "
-					"can't delete it.", name));
-		return -1;
-	}
-	return 0;
-}
-
-static int
-maildir_delete_with_trash(struct mailbox_list *list, const char *src,
-			  const char *dest, const char *name)
-{
-	unsigned int count;
-
-	/* rename the .maildir into ..DOVECOT-TRASH which atomically
-	   marks it as being deleted. If we die before deleting the
-	   ..DOVECOT-TRASH directory, it gets deleted the next time
-	   mailbox listing sees it. */
-	count = 0;
-	while (rename(src, dest) < 0) {
-		if (errno == ENOENT) {
-			/* it was just deleted under us by
-			   another process */
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-			return -1;
-		}
-		if (!EDESTDIREXISTS(errno)) {
-			mailbox_list_set_critical(list,
-				"rename(%s, %s) failed: %m", src, dest);
-			return -1;
-		}
-
-		/* already existed, delete it and try again */
-		if (unlink_directory(dest, TRUE) < 0 &&
-		    (errno != ENOTEMPTY || count >= 5)) {
-			mailbox_list_set_critical(list,
-				"unlink_directory(%s) failed: %m", dest);
-			return -1;
-		}
-		count++;
-	}
-
-	if (unlink_directory(dest, TRUE) < 0 && errno != ENOTEMPTY) {
-		mailbox_list_set_critical(list,
-			"unlink_directory(%s) failed: %m", dest);
-
-		/* it's already renamed to ..dir, which means it's
-		   deleted as far as the client is concerned. Report
-		   success. */
-	}
-	return 0;
-}
-
-static void mailbox_get_guid(struct mailbox_list *list, const char *name,
-			     uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
-{
-	struct mailbox *box;
-	struct mailbox_status status;
-
-	box = mailbox_alloc(list, name, NULL, MAILBOX_FLAG_KEEP_RECENT);
-	if (mailbox_open(box) < 0)
-		memset(mailbox_guid, 0, MAIL_GUID_128_SIZE);
-	else {
-		mailbox_get_status(box, STATUS_GUID, &status);
-		memcpy(mailbox_guid, status.mailbox_guid, MAIL_GUID_128_SIZE);
-	}
-	mailbox_free(&box);
-}
-
-static int
-maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
-{
-	union mailbox_list_module_context *mlist = MAILDIR_LIST_CONTEXT(list);
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
-	uint8_t dir_sha128[MAIL_GUID_128_SIZE];
-	struct stat st;
-	const char *src, *dest, *base;
-	int ret;
-
-	mailbox_get_guid(list, name, mailbox_guid);
-
-	/* delete the index and control directories */
-	if (mlist->super.delete_mailbox(list, name) < 0)
-		return -1;
-
-	/* check if the mailbox actually exists */
-	src = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (lstat(src, &st) != 0 && errno == ENOENT) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		return -1;
-	}
-
-	if (!S_ISDIR(st.st_mode)) {
-		/* a symlink most likely */
-		if (unlink(src) < 0 && errno != ENOENT) {
-			mailbox_list_set_critical(list,
-				"unlink(%s) failed: %m", src);
-			return -1;
-		}
-		return 0;
-	}
-
-	if (strcmp(name, "INBOX") == 0) {
-		/* we shouldn't get this far if this is the actual INBOX.
-		   more likely we're just deleting a namespace/INBOX.
-		   be anyway sure that we don't accidentally delete the entire
-		   maildir (INBOX explicitly configured to maildir root). */
-		base = mailbox_list_get_path(list, NULL,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		if (strcmp(base, src) == 0) {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
-					       "INBOX can't be deleted.");
-			return -1;
-		}
-	}
-
-	dest = maildir_get_unlink_dest(list, name);
-	if (dest == NULL) {
-		/* delete the directory directly without any renaming */
-		ret = maildir_delete_nonrecursive(list, src, name);
-	} else {
-		ret = maildir_delete_with_trash(list, src, dest, name);
-	}
-
-	if (ret == 0) {
-		mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_MAILBOX,
-					mailbox_guid);
-		mailbox_name_get_sha128(name, dir_sha128);
-		mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_DIR,
-					dir_sha128);
-	}
-	return 0;
-}
-
 static int
 maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			    struct mailbox_list *newlist, const char *newname,
 			    bool rename_children)
 {
-	struct maildir_mailbox_list *oldmlist = MAILDIR_LIST_CONTEXT(oldlist);
+	struct maildir_mailbox_list_context *oldmlist =
+		MAILDIR_LIST_CONTEXT(oldlist);
 	const char *path1, *path2;
 
 	if (strcmp(oldname, "INBOX") == 0) {
@@ -817,6 +576,13 @@ static void maildir_notify_changes(struct mailbox *box)
 		index_mailbox_check_add(&mbox->box,
 			t_strconcat(mbox->box.path, "/cur", NULL));
 	}
+}
+
+static bool
+maildir_is_mailbox_dir(struct mailbox_list *list ATTR_UNUSED,
+		       const char *dir ATTR_UNUSED, const char *name)
+{
+	return maildir_is_internal_name(name);
 }
 
 static int
@@ -917,11 +683,12 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				enum mailbox_list_file_type type,
 				enum mailbox_info_flags *flags)
 {
-	struct maildir_mailbox_list *mlist = MAILDIR_LIST_CONTEXT(ctx->list);
+	struct maildir_mailbox_list_context *mlist =
+		MAILDIR_LIST_CONTEXT(ctx->list);
 	int ret;
 
 	if (fname[1] == mailbox_list_get_hierarchy_sep(ctx->list) &&
-	    strcmp(fname+2, MAILDIR_UNLINK_DIRNAME) == 0) {
+	    strcmp(fname+2, MAILBOX_LIST_MAILDIR_TRASH_DIR_NAME) == 0) {
 		const char *path;
 		struct stat st;
 
@@ -1002,12 +769,13 @@ uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
 static void maildir_storage_add_list(struct mail_storage *storage,
 				     struct mailbox_list *list)
 {
-	struct maildir_mailbox_list *mlist;
+	struct maildir_mailbox_list_context *mlist;
 
-	mlist = p_new(list->pool, struct maildir_mailbox_list, 1);
+	mlist = p_new(list->pool, struct maildir_mailbox_list_context, 1);
 	mlist->module_ctx.super = list->v;
 	mlist->set = mail_storage_get_driver_settings(storage);
 
+	list->v.is_mailbox_dir = maildir_is_mailbox_dir;
 	if (strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0) {
 		list->v.iter_is_mailbox = maildirplusplus_iter_is_mailbox;
 	} else {
@@ -1017,7 +785,6 @@ static void maildir_storage_add_list(struct mail_storage *storage,
 			maildir_storage_is_valid_create_name;
 		list->v.iter_is_mailbox = maildir_list_iter_is_mailbox;
 	}
-	list->v.delete_mailbox = maildir_list_delete_mailbox;
 	list->v.rename_mailbox = maildir_list_rename_mailbox;
 	MODULE_CONTEXT_SET(list, maildir_mailbox_list_module, mlist);
 }
@@ -1048,6 +815,7 @@ struct mailbox maildir_mailbox = {
 		maildir_mailbox_close,
 		maildir_mailbox_create,
 		maildir_mailbox_update,
+		index_storage_mailbox_delete,
 		maildir_storage_get_status,
 		maildir_list_index_has_changed,
 		maildir_list_index_update_sync,

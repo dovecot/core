@@ -379,14 +379,13 @@ static void mail_log_mail_transaction_rollback(void *txn)
 }
 
 static void
-mail_log_mailbox_delete_commit(void *txn ATTR_UNUSED, 
-			       struct mailbox_list *list ATTR_UNUSED,
-			       const char *name)
+mail_log_mailbox_delete_commit(void *txn ATTR_UNUSED, struct mailbox *box)
 {
 	if ((mail_log_set.events & MAIL_LOG_EVENT_MAILBOX_DELETE) == 0)
 		return;
 
-	i_info("Mailbox deleted: %s", str_sanitize(name, MAILBOX_NAME_LOG_LEN));
+	i_info("Mailbox deleted: %s",
+	       str_sanitize(box->name, MAILBOX_NAME_LOG_LEN));
 }
 
 static void

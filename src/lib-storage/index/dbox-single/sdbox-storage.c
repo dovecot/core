@@ -1,25 +1,12 @@
 /* Copyright (c) 2007-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
-#include "ioloop.h"
-#include "hex-binary.h"
-#include "randgen.h"
-#include "mkdir-parents.h"
-#include "unlink-directory.h"
-#include "unlink-old-files.h"
-#include "index-mail.h"
 #include "mail-index-modseq.h"
-#include "mailbox-uidvalidity.h"
 #include "dbox-mail.h"
 #include "dbox-save.h"
 #include "sdbox-file.h"
 #include "sdbox-sync.h"
 #include "sdbox-storage.h"
-
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/stat.h>
 
 #define SDBOX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, sdbox_mailbox_list_module)
@@ -232,22 +219,6 @@ dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 }
 
 static int
-sdbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
-{
-	struct sdbox_mailbox_list *mlist = SDBOX_LIST_CONTEXT(list);
-	const char *trash_dest;
-	int ret;
-
-	/* delete the index and control directories */
-	if (mlist->module_ctx.super.delete_mailbox(list, name) < 0)
-		return -1;
-
-	if ((ret = dbox_list_delete_mailbox1(list, name, &trash_dest)) < 0)
-		return -1;
-	return dbox_list_delete_mailbox2(list, name, ret, trash_dest);
-}
-
-static int
 sdbox_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			  struct mailbox_list *newlist, const char *newname,
 			  bool rename_children)
@@ -271,7 +242,6 @@ static void sdbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 	mlist->module_ctx.super = list->v;
 
 	list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
-	list->v.delete_mailbox = sdbox_list_delete_mailbox;
 	list->v.rename_mailbox = sdbox_list_rename_mailbox;
 	list->v.rename_mailbox_pre = dbox_list_rename_mailbox_pre;
 
@@ -304,6 +274,7 @@ struct mailbox sdbox_mailbox = {
 		index_storage_mailbox_close,
 		dbox_mailbox_create,
 		dbox_mailbox_update,
+		index_storage_mailbox_delete,
 		dbox_storage_get_status,
 		NULL,
 		NULL,

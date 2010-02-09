@@ -1,6 +1,8 @@
 #ifndef DBOX_MAIL_H
 #define DBOX_MAIL_H
 
+#include "index-mail.h"
+
 struct dbox_mail {
 	struct index_mail imail;
 

@@ -488,31 +488,6 @@ acl_mailbox_list_create_dir(struct mailbox_list *list, const char *name,
 }
 
 static int
-acl_mailbox_list_delete(struct mailbox_list *list, const char *name)
-{
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
-	bool can_see;
-	int ret;
-
-	ret = acl_mailbox_list_have_right(list, name, FALSE,
-					  ACL_STORAGE_RIGHT_DELETE, &can_see);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		if (can_see) {
-			mailbox_list_set_error(list, MAIL_ERROR_PERM,
-					       MAIL_ERRSTR_NO_PERMISSION);
-		} else {
-			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		}
-		return -1;
-	}
-
-	return alist->module_ctx.super.delete_mailbox(list, name);
-}
-
-static int
 acl_mailbox_list_rename(struct mailbox_list *oldlist, const char *oldname,
 			struct mailbox_list *newlist, const char *newname,
 			bool rename_children)
@@ -626,7 +601,6 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	list->v.iter_deinit = acl_mailbox_list_iter_deinit;
 	list->v.get_mailbox_name_status = acl_get_mailbox_name_status;
 	list->v.create_mailbox_dir = acl_mailbox_list_create_dir;
-	list->v.delete_mailbox = acl_mailbox_list_delete;
 	list->v.rename_mailbox = acl_mailbox_list_rename;
 
 	acl_storage_rights_ctx_init(&alist->rights, backend);

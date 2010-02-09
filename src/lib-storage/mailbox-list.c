@@ -15,7 +15,6 @@
 #include "unlink-directory.h"
 #include "imap-match.h"
 #include "imap-utf7.h"
-#include "mail-index-alloc-cache.h"
 #include "mailbox-log.h"
 #include "mailbox-tree.h"
 #include "mail-storage-private.h"
@@ -732,29 +731,6 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 	return 0;
 }
 
-int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
-{
-	if (!mailbox_list_is_valid_existing_name(list, name) || *name == '\0') {
-		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return -1;
-	}
-	if (strcmp(name, "INBOX") == 0 &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
-				       "INBOX can't be deleted.");
-		return -1;
-	}
-
-	/* Make sure the indexes are closed before trying to delete the
-	   directory that contains them. It can still fail with some NFS
-	   implementations if indexes are opened by another session, but
-	   that can't really be helped. */
-	mail_index_alloc_cache_destroy_unrefed();
-
-	return list->v.delete_mailbox(list, name);
-}
-
 int mailbox_list_delete_dir(struct mailbox_list *list, const char *name)
 {
 	if (!mailbox_list_is_valid_existing_name(list, name) || *name == '\0') {
@@ -838,51 +814,6 @@ void mailbox_list_set_changelog_timestamp(struct mailbox_list *list,
 					  time_t stamp)
 {
 	list->changelog_timestamp = stamp;
-}
-
-static int mailbox_list_try_delete(struct mailbox_list *list, const char *dir)
-{
-	if (unlink_directory(dir, TRUE) == 0 || errno == ENOENT)
-		return 0;
-
-	if (errno == ENOTEMPTY) {
-		/* We're most likely using NFS and we can't delete
-		   .nfs* files. */
-		mailbox_list_set_error(list, MAIL_ERROR_INUSE,
-			"Mailbox is still open in another session, "
-			"can't delete it.");
-	} else {
-		mailbox_list_set_critical(list,
-			"unlink_directory(%s) failed: %m", dir);
-	}
-	return -1;
-}
-
-int mailbox_list_delete_index_control(struct mailbox_list *list,
-				      const char *name)
-{
-	const char *path, *index_dir, *dir;
-
-	path = mailbox_list_get_path(list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-
-	/* delete the index directory first, so that if we crash we don't
-	   leave indexes for deleted mailboxes lying around */
-	index_dir = mailbox_list_get_path(list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*index_dir != '\0' && strcmp(index_dir, path) != 0) {
-		if (mailbox_list_try_delete(list, index_dir) < 0)
-			return -1;
-	}
-
-	/* control directory next */
-	dir = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_CONTROL);
-	if (*dir != '\0' && strcmp(dir, path) != 0 &&
-	    strcmp(dir, index_dir) != 0) {
-		if (mailbox_list_try_delete(list, dir) < 0)
-			return -1;
-	}
-	return 0;
 }
 
 static void node_fix_parents(struct mailbox_node *node)

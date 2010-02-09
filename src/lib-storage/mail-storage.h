@@ -41,7 +41,9 @@ enum mailbox_flags {
 	   This causes ACL plugin to use POST right rather than INSERT. */
 	MAILBOX_FLAG_POST_SESSION	= 0x80,
 	/* Force opening mailbox and ignoring any ACLs */
-	MAILBOX_FLAG_IGNORE_ACLS	= 0x100
+	MAILBOX_FLAG_IGNORE_ACLS	= 0x100,
+	/* Open mailbox even if it's already marked as deleted */
+	MAILBOX_FLAG_OPEN_DELETED	= 0x200
 };
 
 enum mailbox_feature {
@@ -345,6 +347,8 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory);
 /* Update existing mailbox's metadata. */
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update);
+/* Delete mailbox (and its parent directory, if it has no siblings) */
+int mailbox_delete(struct mailbox *box);
 
 /* Enable the given feature for the mailbox. */
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features);

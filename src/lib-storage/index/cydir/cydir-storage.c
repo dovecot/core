@@ -1,30 +1,15 @@
 /* Copyright (c) 2007-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
-#include "str.h"
-#include "mkdir-parents.h"
-#include "index-mail.h"
 #include "mail-copy.h"
+#include "index-mail.h"
 #include "cydir-sync.h"
 #include "cydir-storage.h"
 
-#include <unistd.h>
-#include <dirent.h>
 #include <sys/stat.h>
-
-#define CYDIR_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, cydir_mailbox_list_module)
-
-struct cydir_mailbox_list {
-	union mailbox_list_module_context module_ctx;
-};
 
 extern struct mail_storage cydir_storage;
 extern struct mailbox cydir_mailbox;
-
-static MODULE_CONTEXT_DEFINE_INIT(cydir_mailbox_list_module,
-				  &mailbox_list_module_register);
 
 static struct mail_storage *cydir_storage_alloc(void)
 {
@@ -128,97 +113,6 @@ cydir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		index_storage_mailbox_update(box, update);
 }
 
-static int
-cydir_delete_nonrecursive(struct mailbox_list *list, const char *path,
-			  const char *name)
-{
-	DIR *dir;
-	struct dirent *d;
-	string_t *full_path;
-	unsigned int dir_len;
-	bool unlinked_something = FALSE;
-
-	dir = opendir(path);
-	if (dir == NULL) {
-		if (!mailbox_list_set_error_from_errno(list)) {
-			mailbox_list_set_critical(list,
-				"opendir(%s) failed: %m", path);
-		}
-		return -1;
-	}
-
-	full_path = t_str_new(256);
-	str_append(full_path, path);
-	str_append_c(full_path, '/');
-	dir_len = str_len(full_path);
-
-	errno = 0;
-	while ((d = readdir(dir)) != NULL) {
-		if (d->d_name[0] == '.') {
-			/* skip . and .. */
-			if (d->d_name[1] == '\0')
-				continue;
-			if (d->d_name[1] == '.' && d->d_name[2] == '\0')
-				continue;
-		}
-
-		str_truncate(full_path, dir_len);
-		str_append(full_path, d->d_name);
-
-		/* trying to unlink() a directory gives either EPERM or EISDIR
-		   (non-POSIX). it doesn't really work anywhere in practise,
-		   so don't bother stat()ing the file first */
-		if (unlink(str_c(full_path)) == 0)
-			unlinked_something = TRUE;
-		else if (errno != ENOENT && errno != EISDIR && errno != EPERM) {
-			mailbox_list_set_critical(list, "unlink(%s) failed: %m",
-						  str_c(full_path));
-		}
-	}
-
-	if (closedir(dir) < 0) {
-		mailbox_list_set_critical(list, "closedir(%s) failed: %m",
-					  path);
-	}
-
-	if (rmdir(path) == 0)
-		unlinked_something = TRUE;
-	else if (errno != ENOENT && errno != ENOTEMPTY) {
-		mailbox_list_set_critical(list, "rmdir(%s) failed: %m", path);
-		return -1;
-	}
-
-	if (!unlinked_something) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			t_strdup_printf("Directory %s isn't empty, "
-					"can't delete it.", name));
-		return -1;
-	}
-	return 0;
-}
-
-static int
-cydir_list_delete_mailbox(struct mailbox_list *list, const char *name)
-{
-	struct cydir_mailbox_list *mlist = CYDIR_LIST_CONTEXT(list);
-	struct stat st;
-	const char *src;
-
-	/* delete the index and control directories */
-	if (mlist->module_ctx.super.delete_mailbox(list, name) < 0)
-		return -1;
-
-	/* check if the mailbox actually exists */
-	src = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(src, &st) != 0 && errno == ENOENT) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-		return -1;
-	}
-
-	return cydir_delete_nonrecursive(list, src, name);
-}
-
 static void cydir_notify_changes(struct mailbox *box)
 {
 	struct cydir_mailbox *mbox = (struct cydir_mailbox *)box;
@@ -286,15 +180,7 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
 static void cydir_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 				   struct mailbox_list *list)
 {
-	struct cydir_mailbox_list *mlist;
-
-	mlist = p_new(list->pool, struct cydir_mailbox_list, 1);
-	mlist->module_ctx.super = list->v;
-
 	list->v.iter_is_mailbox = cydir_list_iter_is_mailbox;
-	list->v.delete_mailbox = cydir_list_delete_mailbox;
-
-	MODULE_CONTEXT_SET(list, cydir_mailbox_list_module, mlist);
 }
 
 struct mail_storage cydir_storage = {
@@ -323,6 +209,7 @@ struct mailbox cydir_mailbox = {
 		index_storage_mailbox_close,
 		cydir_mailbox_create,
 		index_storage_mailbox_update,
+		index_storage_mailbox_delete,
 		index_storage_get_status,
 		NULL,
 		NULL,

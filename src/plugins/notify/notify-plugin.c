@@ -132,25 +132,20 @@ void notify_contexts_mail_transaction_rollback(struct mailbox_transaction_contex
 	}
 }
 
-void notify_contexts_mailbox_delete_begin(struct mailbox_list *list,
-					  const char *name)
+void notify_contexts_mailbox_delete_begin(struct mailbox *box)
 {
 	struct notify_context *ctx;
 
-	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
-		ctx->mailbox_delete_txn =
-			ctx->v.mailbox_delete_begin(list, name);
-	}
+	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next)
+		ctx->mailbox_delete_txn = ctx->v.mailbox_delete_begin(box);
 }
 
-void notify_contexts_mailbox_delete_commit(struct mailbox_list *list,
-					   const char *name)
+void notify_contexts_mailbox_delete_commit(struct mailbox *box)
 {
 	struct notify_context *ctx;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
-		ctx->v.mailbox_delete_commit(ctx->mailbox_delete_txn,
-					     list, name);
+		ctx->v.mailbox_delete_commit(ctx->mailbox_delete_txn, box);
 		ctx->mailbox_delete_txn = NULL;
 	}
 }

@@ -7,7 +7,7 @@ bool cmd_delete(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mail_namespace *ns;
-	struct mailbox *mailbox;
+	struct mailbox *box;
 	const char *name;
 
 	/* <mailbox> */
@@ -25,19 +25,18 @@ bool cmd_delete(struct client_command_context *cmd)
 	if (ns == NULL)
 		return TRUE;
 
-	mailbox = mailbox_alloc(ns->list, name, NULL, 0);
+	box = mailbox_alloc(ns->list, name, NULL, 0);
 	if (client->mailbox != NULL &&
-	    mailbox_backends_equal(mailbox, client->mailbox)) {
+	    mailbox_backends_equal(box, client->mailbox)) {
 		/* deleting selected mailbox. close it first */
 		client_search_updates_free(client);
 		mailbox_free(&client->mailbox);
 	}
-	mailbox_free(&mailbox);
 
-	if (mailbox_list_delete_mailbox(ns->list, name) < 0)
-		client_send_list_error(cmd, ns->list);
-	else {
+	if (mailbox_delete(box) < 0)
+		client_send_storage_error(cmd, mailbox_get_storage(box));
+	else
 		client_send_tagline(cmd, "OK Delete completed.");
-	}
+	mailbox_free(&box);
 	return TRUE;
 }

@@ -6,7 +6,6 @@
 #define MAILDIR_STORAGE_NAME "maildir"
 #define MAILDIR_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define MAILDIR_INDEX_PREFIX "dovecot.index"
-#define MAILDIR_UNLINK_DIRNAME "DOVECOT-TRASHED"
 #define MAILDIR_UIDVALIDITY_FNAME "dovecot-uidvalidity"
 
 /* "base,S=123:2," means:

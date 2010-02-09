@@ -2,17 +2,10 @@
 
 #include "lib.h"
 #include "array.h"
-#include "ioloop.h"
-#include "str.h"
-#include "hex-binary.h"
-#include "randgen.h"
 #include "mkdir-parents.h"
-#include "unlink-directory.h"
-#include "unlink-old-files.h"
-#include "index-mail.h"
-#include "mail-copy.h"
 #include "mail-index-modseq.h"
-#include "mailbox-uidvalidity.h"
+#include "mail-index-alloc-cache.h"
+#include "mailbox-log.h"
 #include "dbox-mail.h"
 #include "dbox-save.h"
 #include "mdbox-map.h"
@@ -20,12 +13,6 @@
 #include "mdbox-sync.h"
 #include "mdbox-storage-rebuild.h"
 #include "mdbox-storage.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/stat.h>
 
 #define MDBOX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mdbox_mailbox_list_module)
@@ -234,8 +221,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 	}
 
 	if (mail_index_transaction_commit(&trans) < 0) {
-		mail_storage_set_internal_error(box->storage);
-		mail_index_reset_error(box->index);
+		mail_storage_set_index_error(box);
 		return -1;
 	}
 	return 0;
@@ -292,44 +278,22 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return mdbox_write_index_header(box, update);
 }
 
-static int
-mdbox_mailbox_unref_mails(struct mailbox_list *list, const char *path)
+static int mdbox_mailbox_unref_mails(struct mdbox_mailbox *mbox)
 {
-	struct mdbox_storage *storage =
-		(struct mdbox_storage *)list->ns->storage;
-	const struct mail_storage_settings *old_set;
-	struct mail_storage_settings tmp_set;
-	struct mailbox *box;
-	struct mdbox_mailbox *mbox;
+	struct dbox_map_transaction_context *map_trans;
 	const struct mail_index_header *hdr;
 	const struct mdbox_mail_index_record *dbox_rec;
-	struct dbox_map_transaction_context *map_trans;
 	ARRAY_TYPE(uint32_t) map_uids;
 	const void *data;
 	bool expunged;
 	uint32_t seq;
 	int ret;
 
-	old_set = list->mail_set;
-	tmp_set = *list->mail_set;
-	tmp_set.mail_full_filesystem_access = TRUE;
-	list->mail_set = &tmp_set;
-	box = mdbox_mailbox_alloc(&storage->storage.storage, list, path, NULL,
-				  MAILBOX_FLAG_IGNORE_ACLS |
-				  MAILBOX_FLAG_KEEP_RECENT);
-	ret = mailbox_open(box);
-	list->mail_set = old_set;
-	if (ret < 0) {
-		mailbox_free(&box);
-		return -1;
-	}
-	mbox = (struct mdbox_mailbox *)box;
-
 	/* get a list of all map_uids in this mailbox */
 	i_array_init(&map_uids, 128);
-	hdr = mail_index_get_header(box->view);
+	hdr = mail_index_get_header(mbox->box.view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		mail_index_lookup_ext(box->view, seq, mbox->ext_id,
+		mail_index_lookup_ext(mbox->box.view, seq, mbox->ext_id,
 				      &data, &expunged);
 		dbox_rec = data;
 		if (dbox_rec == NULL) {
@@ -341,37 +305,24 @@ mdbox_mailbox_unref_mails(struct mailbox_list *list, const char *path)
 	}
 
 	/* unreference the map_uids */
-	map_trans = dbox_map_transaction_begin(storage->map, FALSE);
+	map_trans = dbox_map_transaction_begin(mbox->storage->map, FALSE);
 	ret = dbox_map_update_refcounts(map_trans, &map_uids, -1);
 	if (ret == 0)
 		ret = dbox_map_transaction_commit(map_trans);
 	dbox_map_transaction_free(&map_trans);
 	array_free(&map_uids);
-	mailbox_free(&box);
 	return ret;
 }
 
-static int
-mdbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
+static int mdbox_mailbox_delete(struct mailbox *box)
 {
-	struct mdbox_mailbox_list *mlist = MDBOX_LIST_CONTEXT(list);
-	const char *trash_dest;
-	int ret;
+	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
 
-	/* delete the index and control directories */
-	if (mlist->module_ctx.super.delete_mailbox(list, name) < 0)
-		return -1;
-
-	if ((ret = dbox_list_delete_mailbox1(list, name, &trash_dest)) < 0)
-		return -1;
-	if (ret > 0) {
-		if (mdbox_mailbox_unref_mails(list, trash_dest) < 0) {
-			/* we've already renamed it. there's no going back. */
-			mailbox_list_set_internal_error(list);
-			ret = -1;
-		}
+	if (box->opened) {
+		if (mdbox_mailbox_unref_mails(mbox) < 0)
+			return -1;
 	}
-	return dbox_list_delete_mailbox2(list, name, ret, trash_dest);
+	return index_storage_mailbox_delete(box);
 }
 
 static int
@@ -398,7 +349,6 @@ static void dbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 	mlist->module_ctx.super = list->v;
 
 	list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
-	list->v.delete_mailbox = mdbox_list_delete_mailbox;
 	list->v.rename_mailbox = mdbox_list_rename_mailbox;
 	list->v.rename_mailbox_pre = dbox_list_rename_mailbox_pre;
 
@@ -431,6 +381,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_mailbox_close,
 		dbox_mailbox_create,
 		mdbox_mailbox_update,
+		mdbox_mailbox_delete,
 		mdbox_storage_get_status,
 		NULL,
 		NULL,

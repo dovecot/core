@@ -96,6 +96,7 @@ struct mailbox_vfuncs {
 	int (*create)(struct mailbox *box, const struct mailbox_update *update,
 		      bool directory);
 	int (*update)(struct mailbox *box, const struct mailbox_update *update);
+	int (*delete)(struct mailbox *box);
 
 	void (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			   struct mailbox_status *status_r);
@@ -436,6 +437,8 @@ void mail_storage_set_critical(struct mail_storage *storage,
 void mail_storage_set_internal_error(struct mail_storage *storage);
 void mail_storage_set_index_error(struct mailbox *box);
 bool mail_storage_set_error_from_errno(struct mail_storage *storage);
+void mail_storage_copy_list_error(struct mail_storage *storage,
+				  struct mailbox_list *list);
 
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);

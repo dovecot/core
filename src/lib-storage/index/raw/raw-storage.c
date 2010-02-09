@@ -1,7 +1,6 @@
 /* Copyright (c) 2007-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "index-mail.h"
@@ -109,14 +108,6 @@ raw_mailbox_update(struct mailbox *box,
 	return -1;
 }
 
-static int raw_list_delete_mailbox(struct mailbox_list *list,
-				   const char *name ATTR_UNUSED)
-{
-	mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
-			       "Raw mailbox deletion isn't supported");
-	return -1;
-}
-
 static void raw_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
 }
@@ -167,7 +158,6 @@ static void raw_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 				 struct mailbox_list *list)
 {
 	list->v.iter_is_mailbox = raw_list_iter_is_mailbox;
-	list->v.delete_mailbox = raw_list_delete_mailbox;
 }
 
 struct mail_storage raw_storage = {
@@ -196,6 +186,7 @@ struct mailbox raw_mailbox = {
 		index_storage_mailbox_close,
 		raw_mailbox_create,
 		raw_mailbox_update,
+		index_storage_mailbox_delete,
 		index_storage_get_status,
 		NULL,
 		NULL,

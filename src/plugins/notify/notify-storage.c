@@ -199,6 +199,20 @@ notify_transaction_rollback(struct mailbox_transaction_context *t)
 	lbox->super.transaction_rollback(t);
 }
 
+static int
+notify_mailbox_delete(struct mailbox *box)
+{
+	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
+
+	notify_contexts_mailbox_delete_begin(box);
+	if (lbox->super.delete(box) < 0) {
+		notify_contexts_mailbox_delete_rollback();
+		return -1;
+	}
+	notify_contexts_mailbox_delete_commit(box);
+	return 0;
+}
+
 static void notify_mailbox_allocated(struct mailbox *box)
 {
 	union mailbox_module_context *lbox;
@@ -213,21 +227,8 @@ static void notify_mailbox_allocated(struct mailbox *box)
 	box->v.transaction_begin = notify_transaction_begin;
 	box->v.transaction_commit = notify_transaction_commit;
 	box->v.transaction_rollback = notify_transaction_rollback;
+	box->v.delete = notify_mailbox_delete;
 	MODULE_CONTEXT_SET_SELF(box, notify_storage_module, lbox);
-}
-
-static int
-notify_mailbox_list_delete(struct mailbox_list *list, const char *name)
-{
-	union mailbox_list_module_context *llist = NOTIFY_LIST_CONTEXT(list);
-
-	notify_contexts_mailbox_delete_begin(list, name);
-	if (llist->super.delete_mailbox(list, name) < 0) {
-		notify_contexts_mailbox_delete_rollback();
-		return -1;
-	}
-	notify_contexts_mailbox_delete_commit(list, name);
-	return 0;
 }
 
 static int
@@ -254,7 +255,6 @@ static void notify_mail_namespace_storage_added(struct mail_namespace *ns)
 
 	llist = p_new(list->pool, union mailbox_list_module_context, 1);
 	llist->super = list->v;
-	list->v.delete_mailbox = notify_mailbox_list_delete;
 	list->v.rename_mailbox = notify_mailbox_list_rename;
 
 	MODULE_CONTEXT_SET_SELF(list, notify_mailbox_list_module, llist);
