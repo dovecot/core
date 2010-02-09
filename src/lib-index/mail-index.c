@@ -748,7 +748,7 @@ void mail_index_mark_corrupted(struct mail_index *index)
 
 bool mail_index_is_deleted(struct mail_index *index)
 {
-	return index->index_deleted;
+	return index->index_delete_requested || index->index_deleted;
 }
 
 void mail_index_fchown(struct mail_index *index, int fd, const char *path)

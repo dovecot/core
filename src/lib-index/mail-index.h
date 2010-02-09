@@ -449,6 +449,8 @@ void mail_index_reset(struct mail_index_transaction *t);
 /* Mark index deleted. No further changes will be possible after the
    transaction has been committed. */
 void mail_index_set_deleted(struct mail_index_transaction *t);
+/* Mark a deleted index as undeleted. Afterwards index can be changed again. */
+void mail_index_set_undeleted(struct mail_index_transaction *t);
 /* Returns TRUE if index has been set deleted. This gets set only after
    index has been opened/refreshed and the transaction has been seen. */
 bool mail_index_is_deleted(struct mail_index *index);

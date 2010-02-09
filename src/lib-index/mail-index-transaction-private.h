@@ -86,6 +86,7 @@ struct mail_index_transaction {
 	unsigned int post_hdr_changed:1;
 	unsigned int reset:1;
 	unsigned int index_deleted:1;
+	unsigned int index_undeleted:1;
 	/* non-extension updates. flag updates don't change this because
 	   they may be added and removed, so be sure to check that the updates
 	   array is non-empty also. */
@@ -96,7 +97,8 @@ struct mail_index_transaction {
 
 #define MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) \
 	((t)->log_updates || (t)->log_ext_updates || \
-	 (array_is_created(&(t)->updates) && array_count(&(t)->updates) > 0))
+	 (array_is_created(&(t)->updates) && array_count(&(t)->updates) > 0) || \
+	 (t)->index_deleted || (t)->index_undeleted)
 
 extern void (*hook_mail_index_transaction_created)
 		(struct mail_index_transaction *t);

@@ -112,6 +112,9 @@ static const char *log_record_type(unsigned int type)
 	case MAIL_TRANSACTION_INDEX_DELETED:
 		name = "index-deleted";
 		break;
+	case MAIL_TRANSACTION_INDEX_UNDELETED:
+		name = "index-undeleted";
+		break;
 	default:
 		name = t_strdup_printf("unknown: %x", type);
 		break;
@@ -415,6 +418,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		break;
 	}
 	case MAIL_TRANSACTION_INDEX_DELETED:
+	case MAIL_TRANSACTION_INDEX_UNDELETED:
 		break;
 	default:
 		break;

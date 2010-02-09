@@ -208,20 +208,33 @@ int mail_index_transaction_commit_full(struct mail_index_transaction **_t,
 				       struct mail_index_transaction_commit_result *result_r)
 {
 	struct mail_index_transaction *t = *_t;
+	struct mail_index *index = t->view->index;
+	bool index_undeleted = t->index_undeleted;
 
 	if (mail_index_view_is_inconsistent(t->view)) {
 		mail_index_transaction_rollback(_t);
 		return -1;
 	}
-	if (t->view->index->index_deleted) {
-		/* no further changes allowed */
-		mail_index_transaction_rollback(_t);
-		return -1;
+	if (!index_undeleted) {
+		if (t->view->index->index_deleted ||
+		    (t->view->index->index_delete_requested &&
+		     !t->view->index->syncing)) {
+			/* no further changes allowed */
+			mail_index_transaction_rollback(_t);
+			return -1;
+		}
 	}
 
 	*_t = NULL;
 	memset(result_r, 0, sizeof(*result_r));
-	return t->v.commit(t, result_r);
+	if (t->v.commit(t, result_r) < 0)
+		return -1;
+
+	if (index_undeleted) {
+		index->index_deleted = FALSE;
+		index->index_delete_requested = FALSE;
+	}
+	return 0;
 }
 
 void mail_index_transaction_rollback(struct mail_index_transaction **_t)

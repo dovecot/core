@@ -819,10 +819,11 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			/* next sync finishes the deletion */
 			ctx->view->index->index_delete_requested = TRUE;
 		} else {
-			/* transaction log syncing should have already
-			   set this */
-			i_assert(ctx->view->index->index_deleted);
+			/* transaction log reading handles this */
 		}
+		break;
+	case MAIL_TRANSACTION_INDEX_UNDELETED:
+		ctx->view->index->index_delete_requested = FALSE;
 		break;
 	default:
 		mail_index_sync_set_corrupted(ctx,

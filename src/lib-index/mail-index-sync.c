@@ -389,6 +389,13 @@ mail_index_sync_begin_init(struct mail_index *index,
 		return 0;
 	}
 
+	if (index->index_deleted) {
+		/* index is already deleted. we can't sync. */
+		if (locked)
+			mail_transaction_log_sync_unlock(index->log);
+		return -1;
+	}
+
 	if (!locked) {
 		/* it looks like we have something to sync. lock the file and
 		   check again. */
@@ -482,11 +489,6 @@ int mail_index_sync_begin_to(struct mail_index *index,
 
 	index->syncing = TRUE;
 
-	if (index->index_delete_requested) {
-		/* finish this sync by marking the index deleted */
-		mail_index_set_deleted(ctx->ext_trans);
-	}
-
 	*ctx_r = ctx;
 	*view_r = ctx->view;
 	*trans_r = ctx->ext_trans;
@@ -536,6 +538,8 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 		case MAIL_TRANSACTION_FLAG_UPDATE:
 		case MAIL_TRANSACTION_KEYWORD_UPDATE:
 		case MAIL_TRANSACTION_KEYWORD_RESET:
+		case MAIL_TRANSACTION_INDEX_DELETED:
+		case MAIL_TRANSACTION_INDEX_UNDELETED:
 			return TRUE;
 		default:
 			break;
@@ -770,8 +774,14 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
 	uint32_t next_uid;
-	bool want_rotate;
+	bool want_rotate, index_undeleted;
 	int ret = 0;
+
+	index_undeleted = ctx->ext_trans->index_undeleted;
+	if (index->index_delete_requested && !index_undeleted) {
+		/* finish this sync by marking the index deleted */
+		mail_index_set_deleted(ctx->ext_trans);
+	}
 
 	mail_index_sync_update_mailbox_offset(ctx);
 	if (mail_cache_need_compress(index->cache)) {
@@ -795,6 +805,13 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		mail_index_sync_end(&ctx);
 		return -1;
 	}
+
+	if (index_undeleted) {
+		index->index_deleted = FALSE;
+		index->index_delete_requested = FALSE;
+	}
+	if (index->index_delete_requested)
+		index->index_deleted = TRUE;
 
 	/* refresh the mapping with newly committed external transactions
 	   and the synced expunges. sync using file handler here so that the

@@ -98,6 +98,7 @@ void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 	t->post_hdr_changed = FALSE;
 	t->reset = FALSE;
 	t->index_deleted = FALSE;
+	t->index_undeleted = FALSE;
 	t->log_updates = FALSE;
 	t->log_ext_updates = FALSE;
 }
@@ -1172,7 +1173,16 @@ void mail_index_reset(struct mail_index_transaction *t)
 
 void mail_index_set_deleted(struct mail_index_transaction *t)
 {
+	i_assert(!t->index_undeleted);
+
 	t->index_deleted = TRUE;
+}
+
+void mail_index_set_undeleted(struct mail_index_transaction *t)
+{
+	i_assert(!t->index_deleted);
+
+	t->index_undeleted = TRUE;
 }
 
 void mail_index_transaction_set_max_modseq(struct mail_index_transaction *t,

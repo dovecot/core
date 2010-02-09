@@ -394,12 +394,19 @@ mail_index_transaction_export_new_uids(struct mail_index_export_context *ctx,
 void mail_index_transaction_export(struct mail_index_transaction *t,
 				   struct mail_transaction_log_append_ctx *append_ctx)
 {
+	static uint8_t null4[4] = { 0, 0, 0, 0 };
 	enum mail_index_sync_type change_mask = 0;
 	struct mail_index_export_context ctx;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.trans = t;
 	ctx.append_ctx = append_ctx;
+
+	if (t->index_undeleted) {
+		i_assert(!t->index_deleted);
+		mail_transaction_log_append_add(ctx.append_ctx,
+			MAIL_TRANSACTION_INDEX_UNDELETED, &null4, 4);
+	}
 
 	/* send all extension introductions and resizes before appends
 	   to avoid resize overhead as much as possible */
@@ -456,7 +463,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 	}
 
 	if (t->index_deleted) {
-		static uint8_t null4[4] = { 0, 0, 0, 0 };
+		i_assert(!t->index_undeleted);
 		mail_transaction_log_append_add(ctx.append_ctx,
 						MAIL_TRANSACTION_INDEX_DELETED,
 						&null4, 4);
