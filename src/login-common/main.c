@@ -153,6 +153,8 @@ static void login_access_lookup_next(struct login_access_lookup *lookup)
 {
 	if (*lookup->next_socket == NULL) {
 		/* last one */
+		if (lookup->io != NULL)
+			io_remove(&lookup->io);
 		client_connected_finish(&lookup->conn);
 		lookup->conn.fd = -1;
 		login_access_lookup_free(lookup);
