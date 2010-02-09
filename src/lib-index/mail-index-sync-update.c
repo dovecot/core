@@ -815,10 +815,14 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		break;
 	}
 	case MAIL_TRANSACTION_INDEX_DELETED:
-		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
-			break;
-		/* transaction log syncing should have already set this */
-		i_assert(ctx->view->index->index_deleted);
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* next sync finishes the deletion */
+			ctx->view->index->index_delete_requested = TRUE;
+		} else {
+			/* transaction log syncing should have already
+			   set this */
+			i_assert(ctx->view->index->index_deleted);
+		}
 		break;
 	default:
 		mail_index_sync_set_corrupted(ctx,

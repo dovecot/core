@@ -226,6 +226,7 @@ struct mail_index {
 	unsigned int index_lock_timeout:1;
 
 	unsigned int opened:1;
+	unsigned int index_delete_requested:1; /* next sync sets it deleted */
 	unsigned int index_deleted:1; /* no changes allowed anymore */
 	unsigned int log_locked:1;
 	unsigned int readonly:1;

@@ -1172,8 +1172,6 @@ void mail_index_reset(struct mail_index_transaction *t)
 
 void mail_index_set_deleted(struct mail_index_transaction *t)
 {
-	i_assert((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
-
 	t->index_deleted = TRUE;
 }
 

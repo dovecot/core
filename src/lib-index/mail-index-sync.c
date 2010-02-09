@@ -482,6 +482,11 @@ int mail_index_sync_begin_to(struct mail_index *index,
 
 	index->syncing = TRUE;
 
+	if (index->index_delete_requested) {
+		/* finish this sync by marking the index deleted */
+		mail_index_set_deleted(ctx->ext_trans);
+	}
+
 	*ctx_r = ctx;
 	*view_r = ctx->view;
 	*trans_r = ctx->ext_trans;
