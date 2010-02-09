@@ -22,7 +22,7 @@ static struct mailbox_list *fs_list_alloc(void)
 	struct fs_mailbox_list *list;
 	pool_t pool;
 
-	pool = pool_alloconly_create("fs list", 1024);
+	pool = pool_alloconly_create("fs list", 2048);
 
 	list = p_new(pool, struct fs_mailbox_list, 1);
 	list->list = fs_mailbox_list;

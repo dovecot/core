@@ -19,7 +19,7 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 	struct dbox_mail *mail;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mail", 1024);
+	pool = pool_alloconly_create("mail", 2048);
 	mail = p_new(pool, struct dbox_mail, 1);
 	mail->imail.mail.pool = pool;
 

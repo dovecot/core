@@ -33,7 +33,7 @@ static struct mail_storage *mdbox_storage_alloc(void)
 	struct mdbox_storage *storage;
 	pool_t pool;
 
-	pool = pool_alloconly_create("dbox storage", 512+256);
+	pool = pool_alloconly_create("mdbox storage", 2048);
 	storage = p_new(pool, struct mdbox_storage, 1);
 	storage->storage.v = mdbox_dbox_storage_vfuncs;
 	storage->storage.storage = mdbox_storage;
@@ -98,7 +98,7 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	/* dbox can't work without index files */
 	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
 
-	pool = pool_alloconly_create("mdbox mailbox", 1024+512);
+	pool = pool_alloconly_create("mdbox mailbox", 2048);
 	mbox = p_new(pool, struct mdbox_mailbox, 1);
 	mbox->box = mdbox_mailbox;
 	mbox->box.pool = pool;
