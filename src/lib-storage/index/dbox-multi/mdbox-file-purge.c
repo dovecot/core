@@ -210,10 +210,6 @@ int mdbox_file_purge(struct dbox_file *file)
 		dbox_map_append_free(&append_ctx);
 		dbox_file_unlock(file);
 		ret = -1;
-	} else if (array_count(&copied_map_uids) == 0) {
-		/* everything expunged in this file, unlink it */
-		ret = dbox_file_unlink(file);
-		dbox_map_append_free(&append_ctx);
 	} else {
 		/* assign new file_id + offset to moved messages */
 		if (dbox_map_append_move(append_ctx, &copied_map_uids,
