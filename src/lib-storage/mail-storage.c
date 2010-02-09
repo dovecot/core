@@ -615,6 +615,7 @@ int mailbox_delete(struct mailbox *box)
 		return -1;
 	}
 
+	box->deleting = TRUE;
 	if (mailbox_open(box) < 0) {
 		(void)mail_storage_get_last_error(box->storage, &error);
 		if (error != MAIL_ERROR_NOTFOUND)
@@ -625,6 +626,8 @@ int mailbox_delete(struct mailbox *box)
 			return -1;
 	}
 	ret = box->v.delete(box);
+
+	box->deleting = FALSE;
 	mailbox_close(box);
 	return ret;
 }

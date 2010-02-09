@@ -143,7 +143,9 @@ enum mail_index_sync_flags {
 	   return 0 in mail_index_sync_begin() */
 	MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES	= 0x08,
 	/* Create the transaction with FSYNC flag */
-	MAIL_INDEX_SYNC_FLAG_FSYNC		= 0x10
+	MAIL_INDEX_SYNC_FLAG_FSYNC		= 0x10,
+	/* If we see "delete index" request transaction, finish it */
+	MAIL_INDEX_SYNC_FLAG_DELETING_INDEX	= 0x20
 };
 
 enum mail_index_view_sync_flags {

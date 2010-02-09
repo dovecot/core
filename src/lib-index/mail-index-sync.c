@@ -774,11 +774,13 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
 	uint32_t next_uid;
-	bool want_rotate, index_undeleted;
+	bool want_rotate, index_undeleted, delete_index;
 	int ret = 0;
 
 	index_undeleted = ctx->ext_trans->index_undeleted;
-	if (index->index_delete_requested && !index_undeleted) {
+	delete_index = index->index_delete_requested && !index_undeleted &&
+		(ctx->flags & MAIL_INDEX_SYNC_FLAG_DELETING_INDEX) != 0;
+	if (delete_index) {
 		/* finish this sync by marking the index deleted */
 		mail_index_set_deleted(ctx->ext_trans);
 	}
@@ -806,12 +808,12 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		return -1;
 	}
 
-	if (index_undeleted) {
+	if (delete_index)
+		index->index_deleted = TRUE;
+	else if (index_undeleted) {
 		index->index_deleted = FALSE;
 		index->index_delete_requested = FALSE;
 	}
-	if (index->index_delete_requested)
-		index->index_deleted = TRUE;
 
 	/* refresh the mapping with newly committed external transactions
 	   and the synced expunges. sync using file handler here so that the

@@ -256,6 +256,8 @@ struct mailbox {
 	unsigned int mailbox_deleted:1;
 	/* we've discovered there aren't enough permissions to modify mailbox */
 	unsigned int backend_readonly:1;
+	/* Mailbox is being deleted */
+	unsigned int deleting:1;
 };
 
 struct mail_vfuncs {

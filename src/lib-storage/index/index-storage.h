@@ -104,6 +104,7 @@ void index_mailbox_reset_uidvalidity(struct mailbox *box);
 void index_mailbox_check_add(struct mailbox *box, const char *path);
 void index_mailbox_check_remove_all(struct mailbox *box);
 
+enum mail_index_sync_flags index_storage_get_sync_flags(struct mailbox *box);
 bool index_mailbox_want_full_sync(struct mailbox *box,
 				  enum mailbox_sync_flags flags);
 struct mailbox_sync_context *

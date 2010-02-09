@@ -185,7 +185,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 {
 	struct mail_storage *storage = mbox->box.storage;
 	struct mdbox_sync_context *ctx;
-	enum mail_index_sync_flags sync_flags = 0;
+	enum mail_index_sync_flags sync_flags;
 	unsigned int i;
 	int ret;
 	bool rebuild, storage_rebuilt = FALSE;
@@ -203,8 +203,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	ctx->mbox = mbox;
 	ctx->flags = flags;
 
-	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
-		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	if (!rebuild && (flags & MDBOX_SYNC_FLAG_FORCE) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 	if ((flags & MDBOX_SYNC_FLAG_FSYNC) != 0)

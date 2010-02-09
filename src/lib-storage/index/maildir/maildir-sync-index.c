@@ -219,11 +219,10 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	struct mail_index_transaction *trans;
 	enum mail_index_sync_flags sync_flags;
 
-	sync_flags = 0;
+	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	/* don't drop recent messages if we're saving messages */
-	if ((_box->flags & MAILBOX_FLAG_KEEP_RECENT) == 0 &&
-	    maildir_sync_ctx != NULL)
-		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+	if (maildir_sync_ctx == NULL)
+		sync_flags &= ~MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
 	if (mail_index_sync_begin(_box->index, &sync_ctx, &view,
 				  &trans, sync_flags) < 0) {

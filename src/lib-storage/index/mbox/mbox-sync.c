@@ -1792,9 +1792,7 @@ again:
 		}
 	}
 
-	sync_flags = 0;
-	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
-		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	if ((flags & MBOX_SYNC_REWRITE) != 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
 

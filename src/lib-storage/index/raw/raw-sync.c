@@ -16,10 +16,9 @@ static int raw_sync(struct raw_mailbox *mbox)
 
 	i_assert(!mbox->synced);
 
-	sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
+	sync_flags = index_storage_get_sync_flags(&mbox->box) |
+		MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
 		MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
-	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
-		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
 	ret = mail_index_sync_begin(mbox->box.index, &index_sync_ctx,
 				    &sync_view, &trans, sync_flags);

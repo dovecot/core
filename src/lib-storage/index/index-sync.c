@@ -6,6 +6,17 @@
 #include "array.h"
 #include "index-sync-private.h"
 
+enum mail_index_sync_flags index_storage_get_sync_flags(struct mailbox *box)
+{
+	enum mail_index_sync_flags sync_flags = 0;
+
+	if ((box->flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+	if (box->deleting)
+		sync_flags |= MAIL_INDEX_SYNC_FLAG_DELETING_INDEX;
+	return sync_flags;
+}
+
 bool index_mailbox_want_full_sync(struct mailbox *box,
 				  enum mailbox_sync_flags flags)
 {
