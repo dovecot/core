@@ -15,7 +15,7 @@ struct cmd_list_context {
 	const char *ref;
 	const char *const *patterns;
 	enum mailbox_list_iter_flags list_flags;
-	enum mailbox_status_items status_items;
+	struct imap_status_items status_items;
 
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *list_iter;
@@ -30,6 +30,7 @@ struct cmd_list_context {
 	unsigned int cur_ns_send_prefix:1;
 	unsigned int cur_ns_skip_trailing_sep:1;
 	unsigned int used_listext:1;
+	unsigned int used_status:1;
 };
 
 static void
@@ -151,11 +152,11 @@ parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 			list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
 		else if (strcasecmp(atom, "STATUS") == 0 &&
 			 args[1].type == IMAP_ARG_LIST) {
-			/* FIXME: this should probably be a plugin.. */
 			if (imap_status_parse_items(ctx->cmd,
 						IMAP_ARG_LIST_ARGS(&args[1]),
 						&ctx->status_items) < 0)
 				return FALSE;
+			ctx->used_status = TRUE;
 			args++;
 		} else {
 			/* skip also optional list value */
@@ -326,18 +327,18 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 
 static void list_send_status(struct cmd_list_context *ctx, const char *name)
 {
-	struct mailbox_status status;
+	struct imap_status_result result;
 	const char *storage_name, *error;
 
 	storage_name = mail_namespace_get_storage_name(ctx->ns, name);
 	if (imap_status_get(ctx->cmd, ctx->ns, storage_name,
-			    ctx->status_items, &status, &error) < 0) {
+			    &ctx->status_items, &result, &error) < 0) {
 		client_send_line(ctx->cmd->client,
 				 t_strconcat("* ", error, NULL));
 		return;
 	}
 
-	imap_status_send(ctx->cmd->client, name, ctx->status_items, &status);
+	imap_status_send(ctx->cmd->client, name, &ctx->status_items, &result);
 }
 
 static int
@@ -399,7 +400,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		mailbox_childinfo2str(ctx, str, flags);
 
 		ret = client_send_line(ctx->cmd->client, str_c(str));
-		if (ctx->status_items != 0 &&
+		if (ctx->used_status &&
 		    (flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) == 0) {
 			T_BEGIN {
 				list_send_status(ctx, name);

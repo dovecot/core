@@ -62,8 +62,7 @@ enum mailbox_status_items {
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
 	STATUS_KEYWORDS		= 0x40,
 	STATUS_HIGHESTMODSEQ	= 0x80,
-	STATUS_GUID		= 0x100,
-	STATUS_CACHE_FIELDS	= 0x200
+	STATUS_CACHE_FIELDS	= 0x100
 };
 
 enum mailbox_search_result_flags {
@@ -182,7 +181,6 @@ struct mailbox_status {
 
 	uint32_t first_unseen_seq;
 	uint64_t highest_modseq;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 
 	const ARRAY_TYPE(keywords) *keywords;
 	/* Fields that have "temp" or "yes" caching decision. */
@@ -388,6 +386,8 @@ bool mailbox_is_inconsistent(struct mailbox *box);
 /* Gets the mailbox status information. */
 void mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 			struct mailbox_status *status_r);
+/* Get mailbox GUID, creating it if necessary. */
+int mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE]);
 
 /* Synchronize the mailbox. */
 struct mailbox_sync_context *

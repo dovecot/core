@@ -179,8 +179,8 @@ static int sdbox_mailbox_create_indexes(struct mailbox *box,
 	return ret;
 }
 
-static void sdbox_storage_get_status_guid(struct mailbox *box,
-					  struct mailbox_status *status_r)
+static int
+sdbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 	struct sdbox_index_header hdr;
@@ -192,20 +192,10 @@ static void sdbox_storage_get_status_guid(struct mailbox *box,
 		/* regenerate it */
 		if (sdbox_write_index_header(box, NULL) < 0 ||
 		    sdbox_read_header(mbox, &hdr) < 0)
-			return;
+			return -1;
 	}
-	memcpy(status_r->mailbox_guid, hdr.mailbox_guid,
-	       sizeof(status_r->mailbox_guid));
-}
-
-static void
-dbox_storage_get_status(struct mailbox *box, enum mailbox_status_items items,
-			struct mailbox_status *status_r)
-{
-	index_storage_get_status(box, items, status_r);
-
-	if ((items & STATUS_GUID) != 0)
-		sdbox_storage_get_status_guid(box, status_r);
+	memcpy(guid, hdr.mailbox_guid, MAIL_GUID_128_SIZE);
+	return 0;
 }
 
 static int
@@ -275,7 +265,8 @@ struct mailbox sdbox_mailbox = {
 		dbox_mailbox_create,
 		dbox_mailbox_update,
 		index_storage_mailbox_delete,
-		dbox_storage_get_status,
+		index_storage_get_status,
+		sdbox_mailbox_get_guid,
 		NULL,
 		NULL,
 		sdbox_storage_sync_init,

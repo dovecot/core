@@ -319,6 +319,7 @@ struct mailbox test_mailbox = {
 		test_mailbox_get_status,
 		NULL,
 		NULL,
+		NULL,
 		test_mailbox_sync_init,
 		test_mailbox_sync_next,
 		test_mailbox_sync_deinit,

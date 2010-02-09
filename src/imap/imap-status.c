@@ -8,11 +8,12 @@
 
 int imap_status_parse_items(struct client_command_context *cmd,
 			    const struct imap_arg *args,
-			    enum mailbox_status_items *items_r)
+			    struct imap_status_items *items_r)
 {
 	const char *item;
 	enum mailbox_status_items items;
 
+	memset(items_r, 0, sizeof(*items_r));
 	items = 0;
 	for (; args->type != IMAP_ARG_EOL; args++) {
 		if (args->type != IMAP_ARG_ATOM) {
@@ -37,7 +38,7 @@ int imap_status_parse_items(struct client_command_context *cmd,
 		else if (strcmp(item, "HIGHESTMODSEQ") == 0)
 			items |= STATUS_HIGHESTMODSEQ;
 		else if (strcmp(item, "X-GUID") == 0)
-			items |= STATUS_GUID;
+			items_r->guid = TRUE;
 		else {
 			client_send_tagline(cmd, t_strconcat(
 				"BAD Invalid status item ", item, NULL));
@@ -45,14 +46,14 @@ int imap_status_parse_items(struct client_command_context *cmd,
 		}
 	}
 
-	*items_r = items;
+	items_r->mailbox_items = items;
 	return 0;
 }
 
 int imap_status_get(struct client_command_context *cmd,
 		    struct mail_namespace *ns,
-		    const char *mailbox, enum mailbox_status_items items,
-		    struct mailbox_status *status_r, const char **error_r)
+		    const char *mailbox, const struct imap_status_items *items,
+		    struct imap_status_result *result_r, const char **error_r)
 {
 	struct client *client = cmd->client;
 	struct mailbox *box;
@@ -62,36 +63,43 @@ int imap_status_get(struct client_command_context *cmd,
 	if (client->mailbox != NULL &&
 	    mailbox_equals(client->mailbox, ns, mailbox)) {
 		/* this mailbox is selected */
-		mailbox_get_status(client->mailbox, items, status_r);
-		return TRUE;
+		box = client->mailbox;
+	} else {
+		/* open the mailbox */
+		box = mailbox_alloc(ns->list, mailbox, NULL,
+				    MAILBOX_FLAG_READONLY |
+				    MAILBOX_FLAG_KEEP_RECENT);
+		if (client->enabled_features != 0)
+			mailbox_enable(box, client->enabled_features);
 	}
 
-	/* open the mailbox */
-	box = mailbox_alloc(ns->list, mailbox, NULL, MAILBOX_FLAG_READONLY |
-			    MAILBOX_FLAG_KEEP_RECENT);
-
-	if ((items & STATUS_HIGHESTMODSEQ) != 0)
+	if ((items->mailbox_items & STATUS_HIGHESTMODSEQ) != 0)
 		client_enable(client, MAILBOX_FEATURE_CONDSTORE);
-	if (client->enabled_features != 0)
-		mailbox_enable(box, client->enabled_features);
 
-	ret = mailbox_sync(box, 0);
-	if (ret == 0)
-		mailbox_get_status(box, items, status_r);
-	else {
+	ret = box == client->mailbox ? 0 : mailbox_sync(box, 0);
+	if (ret == 0) {
+		mailbox_get_status(box, items->mailbox_items,
+				   &result_r->status);
+		if (items->guid)
+			ret = mailbox_get_guid(box, result_r->mailbox_guid);
+	}
+
+	if (ret < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
 
 		*error_r = mail_storage_get_last_error(storage, &error);
 		*error_r = imap_get_error_string(cmd, *error_r, error);
 	}
-	mailbox_free(&box);
+	if (box != client->mailbox)
+		mailbox_free(&box);
 	return ret;
 }
 
 void imap_status_send(struct client *client, const char *mailbox,
-		      enum mailbox_status_items items,
-		      const struct mailbox_status *status)
+		      const struct imap_status_items *items,
+		      const struct imap_status_result *result)
 {
+	const struct mailbox_status *status = &result->status;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -99,24 +107,24 @@ void imap_status_send(struct client *client, const char *mailbox,
         imap_quote_append_string(str, mailbox, FALSE);
 	str_append(str, " (");
 
-	if (items & STATUS_MESSAGES)
+	if ((items->mailbox_items & STATUS_MESSAGES) != 0)
 		str_printfa(str, "MESSAGES %u ", status->messages);
-	if (items & STATUS_RECENT)
+	if ((items->mailbox_items & STATUS_RECENT) != 0)
 		str_printfa(str, "RECENT %u ", status->recent);
-	if (items & STATUS_UIDNEXT)
+	if ((items->mailbox_items & STATUS_UIDNEXT) != 0)
 		str_printfa(str, "UIDNEXT %u ", status->uidnext);
-	if (items & STATUS_UIDVALIDITY)
+	if ((items->mailbox_items & STATUS_UIDVALIDITY) != 0)
 		str_printfa(str, "UIDVALIDITY %u ", status->uidvalidity);
-	if (items & STATUS_UNSEEN)
+	if ((items->mailbox_items & STATUS_UNSEEN) != 0)
 		str_printfa(str, "UNSEEN %u ", status->unseen);
-	if (items & STATUS_HIGHESTMODSEQ) {
+	if ((items->mailbox_items & STATUS_HIGHESTMODSEQ) != 0) {
 		str_printfa(str, "HIGHESTMODSEQ %llu ",
 			    (unsigned long long)status->highest_modseq);
 	}
-	if (items & STATUS_GUID) {
+	if (items->guid) {
 		str_printfa(str, "X-GUID %s ",
-			    binary_to_hex(status->mailbox_guid,
-					  sizeof(status->mailbox_guid)));
+			    binary_to_hex(result->mailbox_guid,
+					  sizeof(result->mailbox_guid)));
 	}
 
 	if (items != 0)

@@ -690,6 +690,19 @@ void mailbox_get_status(struct mailbox *box,
 	box->v.get_status(box, items, status_r);
 }
 
+int mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
+{
+	if (box->v.get_guid == NULL) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Storage doesn't support mailbox GUIDs");
+	}
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			return -1;
+	}
+	return box->v.get_guid(box, guid);
+}
+
 struct mailbox_sync_context *
 mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {

@@ -213,6 +213,7 @@ struct mailbox cydir_mailbox = {
 		index_storage_get_status,
 		NULL,
 		NULL,
+		NULL,
 		cydir_storage_sync_init,
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,

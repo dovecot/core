@@ -506,17 +506,12 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	return update == NULL ? 0 : maildir_mailbox_update(box, update);
 }
 
-static void
-maildir_storage_get_status(struct mailbox *box, enum mailbox_status_items items,
-			   struct mailbox_status *status_r)
+static int
+maildir_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 
-	index_storage_get_status(box, items, status_r);
-	if ((items & STATUS_GUID) != 0) {
-		(void)maildir_uidlist_get_mailbox_guid(mbox->uidlist,
-						       status_r->mailbox_guid);
-	}
+	return maildir_uidlist_get_mailbox_guid(mbox->uidlist, guid);
 }
 
 static int
@@ -816,7 +811,8 @@ struct mailbox maildir_mailbox = {
 		maildir_mailbox_create,
 		maildir_mailbox_update,
 		index_storage_mailbox_delete,
-		maildir_storage_get_status,
+		index_storage_get_status,
+		maildir_mailbox_get_guid,
 		maildir_list_index_has_changed,
 		maildir_list_index_update_sync,
 		maildir_storage_sync_init,

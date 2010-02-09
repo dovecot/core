@@ -100,6 +100,7 @@ struct mailbox_vfuncs {
 
 	void (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			   struct mailbox_status *status_r);
+	int (*get_guid)(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE]);
 
 	/* Lookup sync extension record and figure out if it mailbox has
 	   changed since. Returns 1 = yes, 0 = no, -1 = error. */
