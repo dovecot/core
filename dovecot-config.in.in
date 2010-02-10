@@ -19,8 +19,8 @@ LIBDOVECOT_STORAGE_INCLUDE="-I$(incdir)/src/lib-index -I$(incdir)/src/lib-storag
 LIBDOVECOT_LOGIN_INCLUDE="-I$(incdir)/src/lib-auth -I$(incdir)/src/login-common"
 LIBDOVECOT_IMAP_INCLUDE="-I$(incdir)/src/imap"
 
-DOVECOT_PKGINCLUDEDIR=
-DOVECOT_PKGLIBDIR=
-DOVECOT_PKGLIBEXECDIR=
-DOVECOT_DOCDIR=
-DOVECOT_MODULEDIR=
+dovecot_pkgincludedir=
+dovecot_pkglibdir=
+dovecot_pkglibexecdir=
+dovecot_docdir=
+dovecot_moduledir=

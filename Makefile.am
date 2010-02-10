@@ -34,11 +34,11 @@ dovecot-config: dovecot-config.in Makefile
 	-e "s|\$$(top_builddir)|$$abs_builddir|g" \
 	-e "s|\$$(incdir)|$$abs_srcdir|g" \
 	-e "s|\$$(LIBICONV)|$(LIBICONV)|g" \
-	-e "s|^\(DOVECOT_MODULEDIR\)=|\1=$(moduledir)|" \
-	-e "s|^\(DOVECOT_PKGINCLUDEDIR\)=|\1=$(pkgincludedir)|" \
-	-e "s|^\(DOVECOT_PKGLIBDIR\)=|\1=$(pkglibdir)|" \
-	-e "s|^\(DOVECOT_PKGLIBEXECDIR\)=|\1=$(libexecdir)/dovecot|" \
-	-e "s|^\(DOVECOT_DOCDIR\)=|\1=$(docdir)|" \
+	-e "s|^\(dovecot_pkgincludedir\)=|\1=$(pkgincludedir)|" \
+	-e "s|^\(dovecot_pkglibdir\)=|\1=$(pkglibdir)|" \
+	-e "s|^\(dovecot_pkglibexecdir\)=|\1=$(libexecdir)/dovecot|" \
+	-e "s|^\(dovecot_docdir\)=|\1=$(docdir)|" \
+	-e "s|^\(dovecot_moduledir\)=|\1=$(moduledir)|" \
 	> dovecot-config
 
 if INSTALL_HEADERS
