@@ -114,7 +114,7 @@ int mdbox_file_purge(struct dbox_file *file)
 	}
 
 	if (dstorage->set->mdbox_altmove > 0 &&
-	    st.st_mtime + dstorage->set->mdbox_altmove < ioloop_time &&
+	    st.st_mtime + (time_t)dstorage->set->mdbox_altmove < ioloop_time &&
 	    dstorage->alt_storage_dir != NULL)
 		append_flags |= DBOX_MAP_APPEND_FLAG_ALT;
 
