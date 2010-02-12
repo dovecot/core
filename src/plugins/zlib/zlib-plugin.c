@@ -32,11 +32,13 @@
 #  define o_stream_create_bzlib NULL
 #endif
 
+#define MAX_INBUF_SIZE (1024*1024)
+
 struct zlib_handler {
 	const char *name;
 	const char *ext;
 	bool (*is_compressed)(struct istream *input);
-	struct istream *(*create_istream)(int fd);
+	struct istream *(*create_istream)(struct istream *input);
 	struct ostream *(*create_ostream)(struct ostream *output, int level);
 };
 
@@ -95,9 +97,9 @@ static bool is_compressed_bzlib(struct istream *input)
 
 static struct zlib_handler zlib_handlers[] = {
 	{ "gz", ".gz", is_compressed_zlib,
-	  i_stream_create_zlib, o_stream_create_gz },
+	  i_stream_create_gz, o_stream_create_gz },
 	{ "bz2", ".bz2", is_compressed_bzlib,
-	  i_stream_create_bzlib, o_stream_create_bz2 }
+	  i_stream_create_bz2, o_stream_create_bz2 }
 };
 
 static struct zlib_handler *zlib_find_zlib_handler(const char *name)
@@ -145,7 +147,6 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
 	struct zlib_handler *handler;
-	int fd;
 
 	if (imail->data.stream != NULL) {
 		return zmail->super.get_stream(_mail, hdr_size, body_size,
@@ -162,22 +163,12 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 			mail_storage_set_critical(_mail->box->storage,
 				"zlib plugin: Detected %s compression "
 				"but support not compiled in", handler->ext);
-			fd = -1;
-		} else {
-			fd = dup(i_stream_get_fd(imail->data.stream));
-			if (fd == -1) {
-				mail_storage_set_critical(_mail->box->storage,
-					"zlib plugin: dup() failed: %m");
-			}
+			return -1;
 		}
 
-		imail->data.destroying_stream = TRUE;
-		i_stream_unref(&imail->data.stream);
-		i_assert(!imail->data.destroying_stream);
-
-		if (fd == -1)
-			return -1;
-		imail->data.stream = handler->create_istream(fd);
+		input = imail->data.stream;
+		imail->data.stream = handler->create_istream(input);
+		i_stream_unref(&input);
 	}
 	return index_mail_init_stream(imail, hdr_size, body_size, stream_r);
 }
@@ -329,6 +320,7 @@ static void zlib_maildir_alloc_init(struct mailbox *box)
 static int zlib_mailbox_open_input(struct mailbox *box)
 {
 	struct zlib_handler *handler;
+	struct istream *input;
 	int fd;
 
 	handler = zlib_get_zlib_handler_ext(box->name);
@@ -344,7 +336,9 @@ static int zlib_mailbox_open_input(struct mailbox *box)
 				"open(%s) failed: %m", box->path);
 			return -1;
 		}
-		box->input = handler->create_istream(fd);
+		input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+		box->input = handler->create_istream(input);
+		i_stream_unref(&input);
 		box->flags |= MAILBOX_FLAG_READONLY;
 	}
 	return 0;
