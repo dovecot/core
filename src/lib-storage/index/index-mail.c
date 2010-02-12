@@ -831,8 +831,13 @@ int index_mail_init_stream(struct index_mail *mail,
 		data->initialized_wrapper_stream = TRUE;
 	}
 
-	i_stream_set_destroy_callback(data->stream,
-				      index_mail_stream_destroy_callback, mail);
+	if (!data->destroy_callback_set) {
+		/* do this only once in case a plugin changes the stream.
+		   otherwise the check would break. */
+		data->destroy_callback_set = TRUE;
+		i_stream_set_destroy_callback(data->stream,
+			index_mail_stream_destroy_callback, mail);
+	}
 
 	if (hdr_size != NULL || body_size != NULL)
 		(void)get_cached_msgpart_sizes(mail);

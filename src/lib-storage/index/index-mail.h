@@ -111,6 +111,7 @@ struct index_mail_data {
 	unsigned int forced_no_caching:1;
 	unsigned int destroying_stream:1;
 	unsigned int initialized_wrapper_stream:1;
+	unsigned int destroy_callback_set:1;
 };
 
 struct index_mail {
