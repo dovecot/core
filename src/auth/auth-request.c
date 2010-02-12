@@ -24,6 +24,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+#define CACHED_PASSWORD_SCHEME "SHA1"
+
 static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 			   const char *subsystem);
 
@@ -227,7 +229,7 @@ static void auth_request_save_cache(struct auth_request *request,
 				    enum passdb_result result)
 {
 	struct passdb_module *passdb = request->passdb->passdb;
-	const char *extra_fields;
+	const char *extra_fields, *encoded_password;
 	string_t *str;
 
 	switch (result) {
@@ -273,9 +275,14 @@ static void auth_request_save_cache(struct auth_request *request,
 		/* we can still cache valid password lookups though.
 		   strdup() it so that mech_password doesn't get
 		   cleared too early. */
+		if (!password_generate_encoded(request->mech_password,
+					       request->user,
+					       CACHED_PASSWORD_SCHEME,
+					       &encoded_password))
+			i_unreached();
 		request->passdb_password =
-			p_strconcat(request->pool, "{plain}",
-				    request->mech_password, NULL);
+			p_strconcat(request->pool, "{"CACHED_PASSWORD_SCHEME"}",
+				    encoded_password, NULL);
 	}
 
 	/* save all except the currently given password in cache */
