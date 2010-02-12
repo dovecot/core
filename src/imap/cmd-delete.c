@@ -25,7 +25,7 @@ bool cmd_delete(struct client_command_context *cmd)
 	if (ns == NULL)
 		return TRUE;
 
-	box = mailbox_alloc(ns->list, name, NULL, 0);
+	box = mailbox_alloc(ns->list, name, 0);
 	if (client->mailbox != NULL &&
 	    mailbox_backends_equal(box, client->mailbox)) {
 		/* deleting selected mailbox. close it first */

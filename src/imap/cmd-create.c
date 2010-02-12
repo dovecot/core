@@ -44,7 +44,7 @@ bool cmd_create(struct client_command_context *cmd)
 	if (ns == NULL)
 		return TRUE;
 
-	box = mailbox_alloc(ns->list, mailbox, NULL, 0);
+	box = mailbox_alloc(ns->list, mailbox, 0);
 	if (mailbox_create(box, NULL, directory) < 0)
 		client_send_storage_error(cmd, mailbox_get_storage(box));
 	else

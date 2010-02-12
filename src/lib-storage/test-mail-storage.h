@@ -5,8 +5,7 @@ struct mail_storage *test_mail_storage_create(void);
 
 struct mailbox *
 test_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, struct istream *input,
-		   enum mailbox_flags flags);
+		   const char *name, enum mailbox_flags flags);
 
 struct mail *
 test_mailbox_mail_alloc(struct mailbox_transaction_context *t,

@@ -203,8 +203,7 @@ listescape_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 static struct mailbox *
 listescape_mailbox_alloc(struct mail_storage *storage,
 			 struct mailbox_list *list,
-			 const char *name, struct istream *input,
-			 enum mailbox_flags flags)
+			 const char *name, enum mailbox_flags flags)
 {
 	struct listescape_mail_storage *mstorage = LIST_ESCAPE_CONTEXT(storage);
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
@@ -212,7 +211,7 @@ listescape_mailbox_alloc(struct mail_storage *storage,
 	if (!mlist->name_escaped && list->hierarchy_sep != list->ns->sep)
 		name = list_escape(list->ns, name, FALSE);
 	return mstorage->module_ctx.super.
-		mailbox_alloc(storage, list, name, input, flags);
+		mailbox_alloc(storage, list, name, flags);
 }
 
 static int

@@ -267,7 +267,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 
 	if (readonly)
 		flags |= MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT;
-	ctx->box = mailbox_alloc(ctx->ns->list, mailbox, NULL, flags);
+	ctx->box = mailbox_alloc(ctx->ns->list, mailbox, flags);
 	if (mailbox_open(ctx->box) < 0) {
 		client_send_storage_error(ctx->cmd,
 					  mailbox_get_storage(ctx->box));

@@ -46,7 +46,7 @@ mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 	if (ns == NULL)
 		i_fatal("Can't find namespace for mailbox %s", mailbox);
 
-	box = mailbox_alloc(ns->list, mailbox, NULL, MAILBOX_FLAG_KEEP_RECENT |
+	box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
 		i_fatal("Opening mailbox %s failed: %s", orig_mailbox,

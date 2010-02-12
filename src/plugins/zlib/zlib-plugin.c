@@ -4,8 +4,8 @@
 #include "array.h"
 #include "istream.h"
 #include "ostream.h"
-#include "maildir/maildir-storage.h"
-#include "maildir/maildir-uidlist.h"
+#include "mail-user.h"
+#include "index-storage.h"
 #include "index-mail.h"
 #include "istream-zlib.h"
 #include "ostream-zlib.h"
@@ -310,13 +310,10 @@ zlib_mail_save_compress_begin(struct mail_save_context *ctx,
 	return 0;
 }
 
-static void zlib_maildir_open_init(struct mailbox *box)
+static void zlib_maildir_alloc_init(struct mailbox *box)
 {
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
-	union mailbox_module_context *zbox;
 
-	zbox = p_new(box->pool, union mailbox_module_context, 1);
-	zbox->super = box->v;
 	box->v.mail_alloc = zlib_maildir_mail_alloc;
 	box->v.transaction_begin = zlib_mailbox_transaction_begin;
 	box->v.transaction_rollback = zlib_mailbox_transaction_rollback;
@@ -327,67 +324,58 @@ static void zlib_maildir_open_init(struct mailbox *box)
 	} else {
 		box->v.save_begin = zlib_mail_save_compress_begin;
 	}
-
-	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 }
 
-static struct istream *
-zlib_mailbox_open_input(struct mail_storage *storage, struct mailbox_list *list,
-			const char *name)
+static int zlib_mailbox_open_input(struct mailbox *box)
 {
 	struct zlib_handler *handler;
-	const char *path;
 	int fd;
 
-	handler = zlib_get_zlib_handler_ext(name);
+	handler = zlib_get_zlib_handler_ext(box->name);
 	if (handler == NULL || handler->create_istream == NULL)
-		return NULL;
+		return 0;
 
-	if (mail_storage_is_mailbox_file(storage)) {
+	if (mail_storage_is_mailbox_file(box->storage)) {
 		/* looks like a compressed single file mailbox. we should be
 		   able to handle this. */
-		path = mailbox_list_get_path(list, name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		fd = open(path, O_RDONLY);
-		if (fd != -1)
-			return handler->create_istream(fd);
+		fd = open(box->path, O_RDONLY);
+		if (fd == -1) {
+			mail_storage_set_critical(box->storage,
+				"open(%s) failed: %m", box->path);
+			return -1;
+		}
+		box->input = handler->create_istream(fd);
+		box->flags |= MAILBOX_FLAG_READONLY;
 	}
-	return NULL;
+	return 0;
 }
 
-static struct mailbox *
-zlib_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, struct istream *input,
-		   enum mailbox_flags flags)
+static int zlib_mailbox_open(struct mailbox *box)
 {
-	union mail_storage_module_context *qstorage = ZLIB_CONTEXT(storage);
-	struct mailbox *box;
-	struct istream *zlib_input = NULL;
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
 
-	if (input == NULL && strcmp(storage->name, "mbox") == 0) {
-		input = zlib_input =
-			zlib_mailbox_open_input(storage, list, name);
+	if (box->input == NULL &&
+	    (box->storage->class_flags &
+	     MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) != 0) {
+		if (zlib_mailbox_open_input(box) < 0)
+			return -1;
 	}
 
-	box = qstorage->super.mailbox_alloc(storage, list, name, input, flags);
+	return zbox->super.open(box);
+}
 
-	if (zlib_input != NULL)
-		i_stream_unref(&zlib_input);
+static void zlib_mailbox_allocated(struct mailbox *box)
+{
+	union mailbox_module_context *zbox;
+
+	zbox = p_new(box->pool, union mailbox_module_context, 1);
+	zbox->super = box->v;
+	box->v.open = zlib_mailbox_open;
+
+	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 
 	if (strcmp(box->storage->name, "maildir") == 0)
-		zlib_maildir_open_init(box);
-	return box;
-}
-
-static void zlib_mail_storage_created(struct mail_storage *storage)
-{
-	union mail_storage_module_context *qstorage;
-
-	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
-	qstorage->super = storage->v;
-	storage->v.mailbox_alloc = zlib_mailbox_alloc;
-
-	MODULE_CONTEXT_SET_SELF(storage, zlib_storage_module, qstorage);
+		zlib_maildir_alloc_init(box);
 }
 
 static void zlib_mail_user_created(struct mail_user *user)
@@ -419,7 +407,7 @@ static void zlib_mail_user_created(struct mail_user *user)
 
 static struct mail_storage_hooks zlib_mail_storage_hooks = {
 	.mail_user_created = zlib_mail_user_created,
-	.mail_storage_created = zlib_mail_storage_created
+	.mailbox_allocated = zlib_mailbox_allocated
 };
 
 void zlib_plugin_init(struct module *module)

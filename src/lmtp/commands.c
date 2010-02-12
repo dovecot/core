@@ -580,9 +580,10 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 
 	client->state.raw_box = box =
 		mailbox_alloc(client->raw_mail_user->namespaces->list,
-			      "Dovecot Delivery Mail", input,
+			      "Dovecot Delivery Mail",
 			      MAILBOX_FLAG_NO_INDEX_FILES);
-	if (mailbox_sync(box, 0) < 0) {
+	if (mailbox_open_stream(box, input) < 0 ||
+	    mailbox_sync(box, 0) < 0) {
 		i_error("Can't open delivery mail as raw: %s",
 			mail_storage_get_last_error(box->storage, &error));
 		mailbox_free(&box);

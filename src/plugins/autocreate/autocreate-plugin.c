@@ -25,7 +25,7 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 		return;
 	}
 
-	box = mailbox_alloc(ns->list, name, NULL, 0);
+	box = mailbox_alloc(ns->list, name, 0);
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		str = mail_storage_get_last_error(mailbox_get_storage(box),
 						  &error);

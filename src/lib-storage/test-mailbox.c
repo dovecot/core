@@ -359,8 +359,7 @@ struct mailbox test_mailbox = {
 
 struct mailbox *
 test_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, struct istream *input ATTR_UNUSED,
-		   enum mailbox_flags flags)
+		   const char *name, enum mailbox_flags flags)
 {
 	struct mailbox *box;
 	pool_t pool;

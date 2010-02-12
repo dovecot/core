@@ -67,7 +67,6 @@ void index_storage_lock_notify(struct mailbox *box,
 void index_storage_lock_notify_reset(struct mailbox *box);
 
 void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
-				 struct istream *input,
 				 enum mailbox_flags flags,
 				 const char *index_prefix);
 int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory);

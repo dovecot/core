@@ -35,8 +35,7 @@ cydir_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 
 static struct mailbox *
 cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, struct istream *input,
-		    enum mailbox_flags flags)
+		    const char *name, enum mailbox_flags flags)
 {
 	struct cydir_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -53,7 +52,7 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &cydir_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
+	index_storage_mailbox_alloc(&mbox->box, name, flags,
 				    CYDIR_INDEX_PREFIX);
 	mail_index_set_fsync_types(mbox->box.index,
 				   MAIL_INDEX_SYNC_TYPE_APPEND |
@@ -71,12 +70,6 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 static int cydir_mailbox_open(struct mailbox *box)
 {
 	struct stat st;
-
-	if (box->input != NULL) {
-		mail_storage_set_critical(box->storage,
-			"cydir doesn't support streamed mailboxes");
-		return -1;
-	}
 
 	if (stat(box->path, &st) == 0) {
 		/* exists, open it */

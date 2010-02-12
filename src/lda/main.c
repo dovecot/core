@@ -405,16 +405,20 @@ int main(int argc, char *argv[])
 	if (path == NULL) {
 		input = create_raw_stream(&ctx, 0, &mtime);
 		box = mailbox_alloc(raw_ns->list, "Dovecot Delivery Mail",
-				    input, MAILBOX_FLAG_NO_INDEX_FILES);
+				    MAILBOX_FLAG_NO_INDEX_FILES);
+		if (mailbox_open_stream(box, input) < 0) {
+			i_fatal("Can't open delivery mail as raw: %s",
+				mail_storage_get_last_error(box->storage, &error));
+		}
 		i_stream_unref(&input);
 	} else {
 		mtime = (time_t)-1;
-		box = mailbox_alloc(raw_ns->list, path, NULL,
+		box = mailbox_alloc(raw_ns->list, path,
 				    MAILBOX_FLAG_NO_INDEX_FILES);
-	}
-	if (mailbox_open(box) < 0) {
-		i_fatal("Can't open delivery mail as raw: %s",
-			mail_storage_get_last_error(box->storage, &error));
+		if (mailbox_open(box) < 0) {
+			i_fatal("Can't open delivery mail as raw: %s",
+				mail_storage_get_last_error(box->storage, &error));
+		}
 	}
 	if (mailbox_sync(box, 0) < 0) {
 		i_fatal("Can't sync delivery mail: %s",

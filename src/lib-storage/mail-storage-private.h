@@ -39,7 +39,6 @@ struct mail_storage_vfuncs {
 	struct mailbox *(*mailbox_alloc)(struct mail_storage *storage,
 					 struct mailbox_list *list,
 					 const char *name,
-					 struct istream *input,
 					 enum mailbox_flags flags);
 	int (*purge)(struct mail_storage *storage);
 };
@@ -53,7 +52,9 @@ enum mail_storage_class_flags {
 	/* mailboxes are files, not directories */
 	MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE	= 0x01,
 	/* root_dir points to a unique directory */
-	MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT	= 0x02
+	MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT	= 0x02,
+	/* mailbox_open_stream() is supported */
+	MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS	= 0x04
 };
 
 struct mail_storage {

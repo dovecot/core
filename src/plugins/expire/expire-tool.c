@@ -105,7 +105,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 		return 0;
 	}
 
-	box = mailbox_alloc(ns->list, ns_mailbox, NULL, 0);
+	box = mailbox_alloc(ns->list, ns_mailbox, 0);
 	if (mailbox_open(box) < 0) {
 		errstr = mail_storage_get_last_error(mailbox_get_storage(box),
 						     &error);

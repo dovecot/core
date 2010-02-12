@@ -109,7 +109,7 @@ mbox_snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	/* try to open the spool mbox */
 	mstorage->open_spool_inbox = TRUE;
-	spool_mbox = mailbox_alloc(box->list, "INBOX", NULL,
+	spool_mbox = mailbox_alloc(box->list, "INBOX",
 				   MAILBOX_FLAG_KEEP_RECENT |
 				   MAILBOX_FLAG_NO_INDEX_FILES);
 	mstorage->open_spool_inbox = FALSE;
@@ -123,8 +123,7 @@ mbox_snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 static struct mailbox *
 mbox_snarf_mailbox_alloc(struct mail_storage *storage,
 			 struct mailbox_list *list,
-			 const char *name, struct istream *input,
-			 enum mailbox_flags flags)
+			 const char *name, enum mailbox_flags flags)
 {
 	struct mbox_snarf_mail_storage *mstorage =
 		MBOX_SNARF_CONTEXT(storage);
@@ -151,7 +150,7 @@ mbox_snarf_mailbox_alloc(struct mail_storage *storage,
 	}
 
 	box = mstorage->module_ctx.super.
-		mailbox_alloc(storage, list, name, input, flags);
+		mailbox_alloc(storage, list, name, flags);
 	storage->flags = old_flags;
 	list->flags = old_list_flags;
 

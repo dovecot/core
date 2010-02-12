@@ -27,7 +27,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		return 0;
 	}
 
-	box = mailbox_alloc(ns->list, name, NULL,
+	box = mailbox_alloc(ns->list, name,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(box) < 0) {
 		mail_storage_get_last_error(mailbox_get_storage(box), &error);

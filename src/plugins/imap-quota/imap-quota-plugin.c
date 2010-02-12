@@ -96,7 +96,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	box = mailbox_alloc(ns->list, mailbox, NULL, MAILBOX_FLAG_READONLY |
+	box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_KEEP_RECENT);
 
 	/* send QUOTAROOT reply */

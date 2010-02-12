@@ -98,12 +98,6 @@ static int dbox_mailbox_create_indexes(struct mailbox *box,
 
 int dbox_mailbox_open(struct mailbox *box)
 {
-	if (box->input != NULL) {
-		mail_storage_set_critical(box->storage,
-			"dbox doesn't support streamed mailboxes");
-		return -1;
-	}
-
 	if (dbox_cleanup_if_exists(box->list, box->path)) {
 		return index_storage_mailbox_open(box, FALSE);
 	} else if (errno == ENOENT) {

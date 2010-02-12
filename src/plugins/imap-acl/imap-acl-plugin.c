@@ -70,7 +70,7 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 
 	/* Force opening the mailbox so that we can give a nicer error message
 	   if mailbox isn't selectable but is listable. */
-	box = mailbox_alloc(ns->list, name, NULL, ACL_MAILBOX_FLAGS |
+	box = mailbox_alloc(ns->list, name, ACL_MAILBOX_FLAGS |
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_ADMIN);
 	if (ret > 0)
@@ -299,7 +299,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	if (ns == NULL)
 		return TRUE;
 
-	box = mailbox_alloc(ns->list, real_mailbox, NULL,
+	box = mailbox_alloc(ns->list, real_mailbox, 
 			    ACL_MAILBOX_FLAGS | MAILBOX_FLAG_IGNORE_ACLS);
 	if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
 				     pool_datastack_create(), &rights) < 0) {

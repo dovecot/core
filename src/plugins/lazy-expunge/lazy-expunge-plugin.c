@@ -76,7 +76,7 @@ mailbox_open_or_create(struct mailbox_list *list, const char *name,
 	struct mail_storage *storage;
 	enum mail_error error;
 
-	box = mailbox_alloc(list, name, NULL, MAILBOX_FLAG_KEEP_RECENT |
+	box = mailbox_alloc(list, name, MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_NO_INDEX_FILES);
 	if (mailbox_open(box) == 0) {
 		*error_r = NULL;
@@ -283,7 +283,7 @@ mailbox_move_all_mails(struct mailbox *src_box, const char *dest_name)
 	enum mail_error error;
 	int ret;
 
-	dest_box = mailbox_alloc(src_box->list, dest_name, NULL, 0);
+	dest_box = mailbox_alloc(src_box->list, dest_name, 0);
 	if (mailbox_open(dest_box) < 0) {
 		errstr = mail_storage_get_last_error(dest_box->storage, &error);
 		i_error("lazy_expunge: Couldn't open DELETE dest mailbox "
@@ -389,7 +389,7 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 	/* other sessions now see the mailbox completely deleted.
 	   since it's not really deleted in the lazy-expunge namespace,
 	   we might want to change it again. so mark the index undeleted. */
-	expunge_box = mailbox_alloc(dest_ns->list, destname, NULL,
+	expunge_box = mailbox_alloc(dest_ns->list, destname,
 				    MAILBOX_FLAG_OPEN_DELETED);
 	if (mailbox_open(expunge_box) < 0) {
 		str = mail_storage_get_last_error(expunge_box->storage, &error);

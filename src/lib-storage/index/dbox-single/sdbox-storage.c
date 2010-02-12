@@ -35,10 +35,9 @@ static struct mail_storage *sdbox_storage_alloc(void)
 	return &storage->storage.storage;
 }
 
-struct mailbox *
+static struct mailbox *
 sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, struct istream *input,
-		    enum mailbox_flags flags)
+		    const char *name, enum mailbox_flags flags)
 {
 	struct sdbox_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -55,8 +54,7 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &sdbox_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
-				    DBOX_INDEX_PREFIX);
+	index_storage_mailbox_alloc(&mbox->box, name, flags, DBOX_INDEX_PREFIX);
 	mail_index_set_fsync_types(mbox->box.index,
 				   MAIL_INDEX_SYNC_TYPE_APPEND |
 				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);

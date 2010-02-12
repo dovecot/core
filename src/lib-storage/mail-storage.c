@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "llist.h"
+#include "istream.h"
 #include "eacces-error.h"
 #include "mkdir-parents.h"
 #include "var-expand.h"
@@ -475,7 +476,6 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 }
 
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
-			      struct istream *input,
 			      enum mailbox_flags flags)
 {
 	struct mailbox_list *new_list = list;
@@ -488,14 +488,13 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
 	}
 
 	T_BEGIN {
-		box = storage->v.mailbox_alloc(storage, new_list,
-					       name, input, flags);
+		box = storage->v.mailbox_alloc(storage, new_list, name, flags);
 		hook_mailbox_allocated(box);
 	} T_END;
 	return box;
 }
 
-int mailbox_open(struct mailbox *box)
+static int mailbox_open_full(struct mailbox *box, struct istream *input)
 {
 	int ret;
 
@@ -508,15 +507,39 @@ int mailbox_open(struct mailbox *box)
 		return -1;
 	}
 
+	if (input != NULL) {
+		if ((box->storage->class_flags &
+		     MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) == 0) {
+			mail_storage_set_critical(box->storage,
+				"Storage doesn't support streamed mailboxes");
+			return -1;
+		}
+		box->input = input;
+		box->flags |= MAILBOX_FLAG_READONLY;
+		i_stream_ref(box->input);
+	}
+
 	T_BEGIN {
 		ret = box->v.open(box);
 	} T_END;
 
-	if (ret < 0)
+	if (ret < 0) {
+		i_stream_unref(&box->input);
 		return -1;
+	}
 
 	box->list->ns->flags |= NAMESPACE_FLAG_USABLE;
 	return 0;
+}
+
+int mailbox_open(struct mailbox *box)
+{
+	return mailbox_open_full(box, NULL);
+}
+
+int mailbox_open_stream(struct mailbox *box, struct istream *input)
+{
+	return mailbox_open_full(box, input);
 }
 
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features)

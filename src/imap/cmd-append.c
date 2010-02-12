@@ -464,7 +464,7 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 	    mailbox_equals(cmd->client->mailbox, ns, name))
 		return cmd->client->mailbox;
 
-	box = mailbox_alloc(ns->list, name, NULL, MAILBOX_FLAG_SAVEONLY |
+	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY |
 			    MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(box) < 0) {
 		client_send_storage_error(cmd, mailbox_get_storage(box));

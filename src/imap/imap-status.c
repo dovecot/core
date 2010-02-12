@@ -66,7 +66,7 @@ int imap_status_get(struct client_command_context *cmd,
 		box = client->mailbox;
 	} else {
 		/* open the mailbox */
-		box = mailbox_alloc(ns->list, mailbox, NULL,
+		box = mailbox_alloc(ns->list, mailbox,
 				    MAILBOX_FLAG_READONLY |
 				    MAILBOX_FLAG_KEEP_RECENT);
 		if (client->enabled_features != 0)

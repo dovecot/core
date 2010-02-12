@@ -35,8 +35,7 @@ raw_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 
 static struct mailbox *
 raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		  const char *name, struct istream *input,
-		  enum mailbox_flags flags)
+		  const char *name, enum mailbox_flags flags)
 {
 	struct raw_mailbox *mbox;
 	pool_t pool;
@@ -51,27 +50,25 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &raw_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, input, flags, NULL);
+	index_storage_mailbox_alloc(&mbox->box, name, flags, NULL);
 
+	mbox->mtime = mbox->ctime = (time_t)-1;
 	mbox->storage = (struct raw_storage *)storage;
-
-	if (input != NULL)
-		mbox->mtime = mbox->ctime = ioloop_time;
-	else {
-		mbox->mtime = mbox->ctime = (time_t)-1;
-		mbox->have_filename = TRUE;
-	}
 	mbox->size = (uoff_t)-1;
 	return &mbox->box;
 }
 
 static int raw_mailbox_open(struct mailbox *box)
 {
+	struct raw_mailbox *mbox = (struct raw_mailbox *)box;
 	int fd;
 
-	if (box->input != NULL)
+	if (box->input != NULL) {
+		mbox->mtime = mbox->ctime = ioloop_time;
 		return index_storage_mailbox_open(box, FALSE);
+	}
 
+	mbox->have_filename = TRUE;
 	fd = open(box->path, O_RDONLY);
 	if (fd == -1) {
 		if (ENOTFOUND(errno)) {
@@ -162,7 +159,8 @@ static void raw_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 
 struct mail_storage raw_storage = {
 	.name = RAW_STORAGE_NAME,
-	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
+		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS,
 
 	.v = {
 		NULL,

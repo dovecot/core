@@ -106,7 +106,7 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 		return NULL;
 	}
 
-	box = mailbox_alloc(ns->list, name, NULL, flags);
+	box = mailbox_alloc(ns->list, name, flags);
 	if (mailbox_open(box) == 0)
 		return box;
 

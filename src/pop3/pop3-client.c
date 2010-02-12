@@ -237,7 +237,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		flags |= MAILBOX_FLAG_KEEP_RECENT;
 	if (set->pop3_lock_session)
 		flags |= MAILBOX_FLAG_KEEP_LOCKED;
-	client->mailbox = mailbox_alloc(ns->list, "INBOX", NULL, flags);
+	client->mailbox = mailbox_alloc(ns->list, "INBOX", flags);
 	storage = mailbox_get_storage(client->mailbox);
 	if (mailbox_open(client->mailbox) < 0) {
 		errmsg = t_strdup_printf("Couldn't open INBOX: %s",

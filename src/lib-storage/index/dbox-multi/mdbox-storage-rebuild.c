@@ -406,8 +406,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	int ret;
 
 	box = mdbox_mailbox_alloc(&ctx->storage->storage.storage,
-				  ns->list, name, NULL,
-				  MAILBOX_FLAG_READONLY |
+				  ns->list, name, MAILBOX_FLAG_READONLY |
 				  MAILBOX_FLAG_KEEP_RECENT |
 				  MAILBOX_FLAG_IGNORE_ACLS);
 	if (dbox_mailbox_open(box) < 0) {
@@ -543,8 +542,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 		ctx->prev_msg.box : NULL;
 	while (box == NULL) {
 		box = mdbox_mailbox_alloc(storage, ctx->default_list,
-					  mailbox, NULL,
-					  MAILBOX_FLAG_READONLY |
+					  mailbox, MAILBOX_FLAG_READONLY |
 					  MAILBOX_FLAG_KEEP_RECENT |
 					  MAILBOX_FLAG_IGNORE_ACLS);
 		if (dbox_mailbox_open(box) == 0)

@@ -327,8 +327,7 @@ static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 
 static struct mailbox *
 mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, struct istream *input,
-		   enum mailbox_flags flags)
+		   const char *name, enum mailbox_flags flags)
 {
 	struct mbox_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -342,8 +341,7 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &mbox_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
-				    MBOX_INDEX_PREFIX);
+	index_storage_mailbox_alloc(&mbox->box, name, flags, MBOX_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = mbox_transaction_save_commit_pre;
@@ -454,10 +452,11 @@ static int mbox_mailbox_open(struct mailbox *box)
 	int ret;
 
 	if (box->input != NULL) {
+		i_stream_ref(box->input);
 		mbox->mbox_file_stream = box->input;
 		mbox->box.backend_readonly = TRUE;
 		mbox->no_mbox_file = TRUE;
-		return 0;
+		return index_storage_mailbox_open(box, FALSE);
 	}
 
 	if (strcmp(box->name, "INBOX") == 0 &&
@@ -767,7 +766,8 @@ mbox_transaction_rollback(struct mailbox_transaction_context *t)
 
 struct mail_storage mbox_storage = {
 	.name = MBOX_STORAGE_NAME,
-	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
+		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS,
 
 	.v = {
                 mbox_get_setting_parser_info,

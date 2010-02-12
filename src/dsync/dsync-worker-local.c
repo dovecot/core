@@ -505,7 +505,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		return 1;
 	}
 
-	box = mailbox_alloc(info->ns->list, storage_name, NULL, flags);
+	box = mailbox_alloc(info->ns->list, storage_name, flags);
 	if (mailbox_sync(box, 0) < 0 ||
 	    mailbox_get_guid(box, mailbox_guid) < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
@@ -700,7 +700,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 		return -1;
 	}
 
-	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, NULL, flags);
+	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, flags);
 	if (mailbox_sync(box, 0) < 0 ||
 	    mailbox_get_guid(box, mailbox_guid) < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
@@ -1003,8 +1003,7 @@ local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 				 &dsync_box->mailbox_guid);
 	if (lbox != NULL) {
 		/* use the existing known mailbox name */
-		return mailbox_alloc(lbox->ns->list, lbox->storage_name,
-				     NULL, 0);
+		return mailbox_alloc(lbox->ns->list, lbox->storage_name, 0);
 	}
 
 	name = dsync_box->name;
@@ -1018,7 +1017,7 @@ local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 						 dsync_box, creating);
 	local_dsync_worker_add_mailbox(worker, ns, name,
 				       &dsync_box->mailbox_guid);
-	return mailbox_alloc(ns->list, name, NULL, 0);
+	return mailbox_alloc(ns->list, name, 0);
 }
 
 static int
@@ -1091,7 +1090,7 @@ local_worker_create_mailbox(struct dsync_worker *_worker,
 
 	local_dsync_worker_add_mailbox(worker, ns, new_name,
 				       &dsync_box->mailbox_guid);
-	box = mailbox_alloc(ns->list, new_name, NULL, 0);
+	box = mailbox_alloc(ns->list, new_name, 0);
 	(void)local_worker_create_allocated_mailbox(worker, box, dsync_box);
 	mailbox_free(&box);
 }
@@ -1116,7 +1115,7 @@ local_worker_delete_mailbox(struct dsync_worker *_worker,
 
 	mailbox_list_set_changelog_timestamp(lbox->ns->list,
 					     dsync_box->last_change);
-	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, NULL, 0);
+	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, 0);
 	if (mailbox_delete(box) < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
 

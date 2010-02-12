@@ -257,7 +257,6 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 }
 
 void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
-				 struct istream *input,
 				 enum mailbox_flags flags,
 				 const char *index_prefix)
 {
@@ -265,22 +264,12 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 	const char *path;
 	string_t *vname;
 
-	if (name != NULL) {
-		box->name = p_strdup(box->pool, name);
-		vname = t_str_new(128);
-		mail_namespace_get_vname(box->list->ns, vname, name);
-		box->vname = p_strdup(box->pool, str_c(vname));
-	} else {
-		i_assert(input != NULL);
-		box->name = "(read-only input stream)";
-		box->vname = box->name;
-	}
+	i_assert(name != NULL);
 
-	if (input != NULL) {
-		flags |= MAILBOX_FLAG_READONLY;
-		box->input = input;
-		i_stream_ref(input);
-	}
+	box->name = p_strdup(box->pool, name);
+	vname = t_str_new(128);
+	mail_namespace_get_vname(box->list->ns, vname, name);
+	box->vname = p_strdup(box->pool, str_c(vname));
 	box->flags = flags;
 
 	p_array_init(&box->search_results, box->pool, 16);

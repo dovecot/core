@@ -320,16 +320,15 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 bool mail_storage_is_mailbox_file(struct mail_storage *storage) ATTR_PURE;
 
 /* Initialize mailbox without actually opening any files or verifying that
-   it exists. If input stream is given, mailbox is opened read-only
-   using it as a backend.
-
-   Note that append and copy may open the selected mailbox again
+   it exists. Note that append and copy may open the selected mailbox again
    with possibly different readonly-state. */
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
-			      struct istream *input, enum mailbox_flags flags);
+			      enum mailbox_flags flags);
 /* Open the mailbox. If this function isn't called explicitly, it's also called
    internally by lib-storage when necessary. */
 int mailbox_open(struct mailbox *box);
+/* Open mailbox as read-only using the given stream as input. */
+int mailbox_open_stream(struct mailbox *box, struct istream *input);
 /* Close mailbox. Same as if mailbox was freed and re-allocated. */
 void mailbox_close(struct mailbox *box);
 /* Close and free the mailbox. */

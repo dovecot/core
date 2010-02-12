@@ -36,11 +36,6 @@ struct sdbox_mailbox {
 
 extern struct mail_vfuncs sdbox_mail_vfuncs;
 
-struct mailbox *
-sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, struct istream *input,
-		    enum mailbox_flags flags);
-
 int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r);
 

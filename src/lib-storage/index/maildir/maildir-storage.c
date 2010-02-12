@@ -318,8 +318,7 @@ static void maildir_lock_touch_timeout(struct maildir_mailbox *mbox)
 
 static struct mailbox *
 maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		      const char *name, struct istream *input,
-		      enum mailbox_flags flags)
+		      const char *name, enum mailbox_flags flags)
 {
 	struct maildir_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -333,7 +332,7 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &maildir_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
+	index_storage_mailbox_alloc(&mbox->box, name, flags,
 				    MAILDIR_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
@@ -379,12 +378,6 @@ static int maildir_mailbox_open(struct mailbox *box)
 	struct stat st;
 	int ret;
 	bool inbox;
-
-	if (box->input != NULL) {
-		mail_storage_set_critical(box->storage,
-			"Maildir doesn't support streamed mailboxes");
-		return -1;
-	}
 
 	inbox = strcmp(box->name, "INBOX") == 0 &&
 		(box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0;

@@ -131,7 +131,7 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 
 	mailbox = bbox->name;
 	ns = mail_namespace_find(user->namespaces, &mailbox);
-	bbox->box = mailbox_alloc(ns->list, mailbox, NULL, flags);
+	bbox->box = mailbox_alloc(ns->list, mailbox, flags);
 
 	if (mailbox_open(bbox->box) < 0) {
 		storage = mailbox_get_storage(bbox->box);
@@ -188,8 +188,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 
 static struct mailbox *
 virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
-		      const char *name, struct istream *input,
-		      enum mailbox_flags flags)
+		      const char *name, enum mailbox_flags flags)
 {
 	struct virtual_storage *storage = (struct virtual_storage *)_storage;
 	struct virtual_mailbox *mbox;
@@ -203,7 +202,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &virtual_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, input, flags,
+	index_storage_mailbox_alloc(&mbox->box, name, flags,
 				    VIRTUAL_INDEX_PREFIX);
 
 	mbox->storage = storage;
@@ -225,12 +224,6 @@ static int virtual_mailbox_open(struct mailbox *box)
 	if (virtual_mailbox_is_in_open_stack(mbox->storage, box->name)) {
 		mail_storage_set_critical(box->storage,
 			"Virtual mailbox loops: %s", box->name);
-		return -1;
-	}
-
-	if (box->input != NULL) {
-		mail_storage_set_critical(box->storage,
-			"virtual doesn't support streamed mailboxes");
 		return -1;
 	}
 
