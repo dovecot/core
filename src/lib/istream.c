@@ -432,8 +432,13 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 	    stream->buffer_size > stream->max_buffer_size)
 		stream->buffer_size = stream->max_buffer_size;
 
-	stream->buffer = stream->w_buffer =
-		i_realloc(stream->w_buffer, old_size, stream->buffer_size);
+	if (stream->buffer_size <= old_size)
+		stream->buffer_size = old_size;
+	else {
+		stream->w_buffer = i_realloc(stream->w_buffer, old_size,
+					     stream->buffer_size);
+		stream->buffer = stream->w_buffer;
+	}
 }
 
 bool i_stream_get_buffer_space(struct istream_private *stream,
