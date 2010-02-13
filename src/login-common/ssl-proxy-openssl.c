@@ -720,7 +720,7 @@ const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
 			       bits, alg_bits, comp_str);
 }
 
-const char *ssl_proxy_get_compression(struct ssl_proxy *proxy)
+const char *ssl_proxy_get_compression(struct ssl_proxy *proxy ATTR_UNUSED)
 {
 #ifdef HAVE_SSL_COMPRESSION
 	const COMP_METHOD *comp;
