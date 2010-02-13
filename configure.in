@@ -337,6 +337,7 @@ fi
 have_libwrap=no
 if test $want_libwrap != no; then
   AC_CHECK_HEADER(tcpd.h, [
+    old_LIBS=$LIBS
     AC_CHECK_LIB(wrap, request_init, [
       AC_DEFINE(HAVE_LIBWRAP,, Define if you have libwrap)
       LIBWRAP_LIBS=-lwrap
