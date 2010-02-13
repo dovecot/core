@@ -692,6 +692,22 @@ bool settings_parse_is_valid_key(struct setting_parser_context *ctx,
 	return settings_find_key(ctx, key, &def, &link);
 }
 
+const void *
+settings_parse_get_value(struct setting_parser_context *ctx,
+			 const char *key, enum setting_type *type_r)
+{
+	const struct setting_define *def;
+	struct setting_link *link;
+
+	if (!settings_find_key(ctx, key, &def, &link))
+		return NULL;
+	if (link->set_struct == NULL)
+		return NULL;
+
+	*type_r = def->type;
+	return STRUCT_MEMBER_P(link->set_struct, def->offset);
+}
+
 int settings_parse_line(struct setting_parser_context *ctx, const char *line)
 {
 	const char *key, *value;

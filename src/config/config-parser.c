@@ -11,6 +11,7 @@
 #include "service-settings.h"
 #include "all-settings.h"
 #include "config-filter.h"
+#include "config-request.h"
 #include "config-parser.h"
 
 #include <stdlib.h>
@@ -53,6 +54,7 @@ struct parser_context {
 	struct input_stack *cur_input;
 
 	struct config_filter_context *filter;
+	unsigned int expand_values:1;
 };
 
 static const enum settings_parser_flags settings_parser_flags =
@@ -445,6 +447,7 @@ enum config_line_type {
 	CONFIG_LINE_TYPE_ERROR,
 	CONFIG_LINE_TYPE_KEYVALUE,
 	CONFIG_LINE_TYPE_KEYFILE,
+	CONFIG_LINE_TYPE_KEYVARIABLE,
 	CONFIG_LINE_TYPE_SECTION_BEGIN,
 	CONFIG_LINE_TYPE_SECTION_END,
 	CONFIG_LINE_TYPE_INCLUDE,
@@ -542,6 +545,10 @@ config_parse_line(struct parser_context *ctx, char *line, string_t *full_line,
 			*value_r = line + 1;
 			return CONFIG_LINE_TYPE_KEYFILE;
 		}
+		if (*line == '$') {
+			*value_r = line + 1;
+			return CONFIG_LINE_TYPE_KEYVARIABLE;
+		}
 
 		len = strlen(line);
 		if (len > 0 &&
@@ -607,7 +614,71 @@ static int config_parse_finish(struct parser_context *ctx, const char **error_r)
 	return ret;
 }
 
-int config_parse_file(const char *path, bool expand_files,
+static const void *
+config_get_value(struct parser_context *ctx, const char *key,
+		 enum setting_type *type_r)
+{
+	struct config_module_parser *l;
+	const void *value;
+
+	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
+		value = settings_parse_get_value(l->parser, key, type_r);
+		if (value != NULL)
+			return value;
+	}
+	return NULL;
+}
+
+static int config_write_value(struct parser_context *ctx,
+			      string_t *str, enum config_line_type type,
+			      const char *key, const char *value,
+			      const char **errormsg_r)
+{
+	const void *var_value;
+	enum setting_type var_type;
+	bool dump;
+
+	switch (type) {
+	case CONFIG_LINE_TYPE_KEYVALUE:
+		str_append(str, value);
+		break;
+	case CONFIG_LINE_TYPE_KEYFILE:
+		if (!ctx->expand_values) {
+			str_append_c(str, '<');
+			str_append(str, value);
+		} else {
+			if (str_append_file(str, key, value, errormsg_r) < 0) {
+				/* file reading failed */
+				return -1;
+			}
+		}
+		break;
+	case CONFIG_LINE_TYPE_KEYVARIABLE:
+		if (!ctx->expand_values) {
+			str_append_c(str, '$');
+			str_append(str, value);
+		} else {
+			var_value = config_get_value(ctx, value, &var_type);
+			if (var_value == NULL) {
+				*errormsg_r = t_strconcat("Unknown variable: $",
+							  value, NULL);
+				return -1;
+			}
+			if (!config_export_type(str, var_value, NULL,
+						var_type, TRUE, &dump)) {
+				*errormsg_r = t_strconcat("Invalid variable: $",
+							  value, NULL);
+				return -1;
+			}
+		}
+		break;
+	default:
+		i_unreached();
+	}
+	return 0;
+}
+
+int config_parse_file(const char *path, bool expand_values,
 		      const char **error_r)
 {
 	struct input_stack root;
@@ -643,6 +714,7 @@ int config_parse_file(const char *path, bool expand_files,
 	memset(&root, 0, sizeof(root));
 	root.path = path;
 	ctx.cur_input = &root;
+	ctx.expand_values = expand_values;
 
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
@@ -666,19 +738,13 @@ prevfile:
 			break;
 		case CONFIG_LINE_TYPE_KEYVALUE:
 		case CONFIG_LINE_TYPE_KEYFILE:
+		case CONFIG_LINE_TYPE_KEYVARIABLE:
 			str_truncate(str, pathlen);
 			str_append(str, key);
 			str_append_c(str, '=');
 
-			if (type != CONFIG_LINE_TYPE_KEYFILE)
-				str_append(str, value);
-			else if (!expand_files) {
-				str_append_c(str, '<');
-				str_append(str, value);
-			} else if (str_append_file(str, key, value, &errormsg) < 0) {
-				/* file reading failed */
+			if (config_write_value(&ctx, str, type, key, value, &errormsg) < 0)
 				break;
-			}
 			(void)config_apply_line(&ctx, key, str_c(str), NULL, &errormsg);
 			break;
 		case CONFIG_LINE_TYPE_SECTION_BEGIN:

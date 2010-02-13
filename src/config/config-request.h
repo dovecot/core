@@ -3,6 +3,8 @@
 
 #include "config-filter.h"
 
+enum setting_type;
+
 enum config_dump_scope {
 	/* Dump all settings */
 	CONFIG_DUMP_SCOPE_ALL,
@@ -30,6 +32,10 @@ enum config_key_type {
 typedef void config_request_callback_t(const char *key, const char *value,
 				       enum config_key_type type, void *context);
 
+bool config_export_type(string_t *str, const void *value,
+			const void *default_value,
+			enum setting_type type, bool dump_default,
+			bool *dump_r);
 int config_request_handle(const struct config_filter *filter,
 			  const char *module, enum config_dump_scope scope,
 			  enum config_dump_flags flags,

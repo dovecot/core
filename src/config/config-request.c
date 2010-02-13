@@ -71,6 +71,91 @@ config_module_parser_is_in_service(const struct config_module_parser *list,
 	return FALSE;
 }
 
+bool config_export_type(string_t *str, const void *value,
+			const void *default_value,
+			enum setting_type type, bool dump_default,
+			bool *dump_r)
+{
+	switch (type) {
+	case SET_BOOL: {
+		const bool *val = value, *dval = default_value;
+
+		if (dump_default || dval == NULL || *val != *dval)
+			str_append(str, *val ? "yes" : "no");
+		break;
+	}
+	case SET_SIZE: {
+		const uoff_t *val = value, *dval = default_value;
+
+		if (dump_default || dval == NULL || *val != *dval)
+			str_printfa(str, "%llu", (unsigned long long)*val);
+		break;
+	}
+	case SET_UINT:
+	case SET_UINT_OCT:
+	case SET_TIME: {
+		const unsigned int *val = value, *dval = default_value;
+
+		if (dump_default || dval == NULL || *val != *dval) {
+			switch (type) {
+			case SET_UINT_OCT:
+				str_printfa(str, "0%o", *val);
+				break;
+			case SET_TIME:
+				str_printfa(str, "%u s", *val);
+				break;
+			default:
+				str_printfa(str, "%u", *val);
+				break;
+			}
+		}
+		break;
+	}
+	case SET_STR_VARS: {
+		const char *const *val = value, *sval;
+		const char *const *_dval = default_value;
+		const char *dval = _dval == NULL ? NULL : *_dval;
+
+		i_assert(*val == NULL ||
+			 **val == SETTING_STRVAR_UNEXPANDED[0]);
+
+		sval = *val == NULL ? NULL : (*val + 1);
+		if ((dump_default || null_strcmp(sval, dval) != 0) &&
+		    sval != NULL) {
+			str_append(str, sval);
+			*dump_r = TRUE;
+		}
+		break;
+	}
+	case SET_STR: {
+		const char *const *val = value;
+		const char *const *_dval = default_value;
+		const char *dval = _dval == NULL ? NULL : *_dval;
+
+		if ((dump_default || null_strcmp(*val, dval) != 0) &&
+		    *val != NULL) {
+			str_append(str, *val);
+			*dump_r = TRUE;
+		}
+		break;
+	}
+	case SET_ENUM: {
+		const char *const *val = value;
+		const char *const *_dval = default_value;
+		const char *dval = _dval == NULL ? NULL : *_dval;
+		unsigned int len = strlen(*val);
+
+		if (dump_default || strncmp(*val, dval, len) != 0 ||
+		    ((*val)[len] != ':' && (*val)[len] != '\0'))
+			str_append(str, *val);
+		break;
+	}
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void
 settings_export(struct settings_export_context *ctx,
 		const struct setting_parser_info *info,
@@ -120,80 +205,19 @@ settings_export(struct settings_export_context *ctx,
 		count = 0;
 		str_truncate(ctx->value, 0);
 		switch (def->type) {
-		case SET_BOOL: {
-			const bool *val = value, *dval = default_value;
-			if (dump_default || dval == NULL || *val != *dval) {
-				str_append(ctx->value,
-					   *val ? "yes" : "no");
-			}
-			break;
-		}
-		case SET_SIZE: {
-			const uoff_t *val = value, *dval = default_value;
-			if (dump_default || dval == NULL || *val != *dval) {
-				str_printfa(ctx->value, "%llu",
-					    (unsigned long long)*val);
-			}
-			break;
-		}
+		case SET_BOOL:
+		case SET_SIZE:
 		case SET_UINT:
 		case SET_UINT_OCT:
-		case SET_TIME: {
-			const unsigned int *val = value, *dval = default_value;
-			if (dump_default || dval == NULL || *val != *dval) {
-				switch (def->type) {
-				case SET_UINT_OCT:
-					str_printfa(ctx->value, "0%o", *val);
-					break;
-				case SET_TIME:
-					str_printfa(ctx->value, "%u s", *val);
-					break;
-				default:
-					str_printfa(ctx->value, "%u", *val);
-					break;
-				}
-			}
+		case SET_TIME:
+		case SET_STR_VARS:
+		case SET_STR:
+		case SET_ENUM:
+			if (!config_export_type(ctx->value, value,
+						default_value, def->type,
+						dump_default, &dump))
+				i_unreached();
 			break;
-		}
-		case SET_STR_VARS: {
-			const char *const *val = value, *sval;
-			const char *const *_dval = default_value;
-			const char *dval = _dval == NULL ? NULL : *_dval;
-
-			i_assert(*val == NULL ||
-				 **val == SETTING_STRVAR_UNEXPANDED[0]);
-
-			sval = *val == NULL ? NULL : (*val + 1);
-			if ((dump_default || null_strcmp(sval, dval) != 0) &&
-			    sval != NULL) {
-				str_append(ctx->value, sval);
-				dump = TRUE;
-			}
-			break;
-		}
-		case SET_STR: {
-			const char *const *val = value;
-			const char *const *_dval = default_value;
-			const char *dval = _dval == NULL ? NULL : *_dval;
-
-			if ((dump_default || null_strcmp(*val, dval) != 0) &&
-			    *val != NULL) {
-				str_append(ctx->value, *val);
-				dump = TRUE;
-			}
-			break;
-		}
-		case SET_ENUM: {
-			const char *const *val = value;
-			const char *const *_dval = default_value;
-			const char *dval = _dval == NULL ? NULL : *_dval;
-			unsigned int len = strlen(*val);
-
-			if (dump_default || strncmp(*val, dval, len) != 0 ||
-			    ((*val)[len] != ':' && (*val)[len] != '\0'))
-				str_append(ctx->value, *val);
-			break;
-		}
 		case SET_DEFLIST:
 		case SET_DEFLIST_UNIQUE: {
 			const ARRAY_TYPE(void_array) *val = value;
