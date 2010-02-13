@@ -107,6 +107,10 @@ void imap_parser_destroy(struct imap_parser **parser);
 /* Reset the parser to initial state. */
 void imap_parser_reset(struct imap_parser *parser);
 
+/* Change parser's input and output streams */
+void imap_parser_set_streams(struct imap_parser *parser, struct istream *input,
+			     struct ostream *output);
+
 /* Return the last error in parser. fatal is set to TRUE if there's no way to
    continue parsing, currently only if too large non-sync literal size was
    given. */

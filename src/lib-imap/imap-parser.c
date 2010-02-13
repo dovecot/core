@@ -97,6 +97,13 @@ void imap_parser_reset(struct imap_parser *parser)
 	parser->literal_size_return = FALSE;
 }
 
+void imap_parser_set_streams(struct imap_parser *parser, struct istream *input,
+			     struct ostream *output)
+{
+	parser->input = input;
+	parser->output = output;
+}
+
 const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal)
 {
         *fatal = parser->fatal_error;
