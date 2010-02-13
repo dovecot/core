@@ -159,6 +159,7 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
+			 const struct master_login_client *login_client,
 			 int fd_in, int fd_out, const buffer_t *input_buf,
 			 const char **error_r)
 {
@@ -166,6 +167,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_user *mail_user;
 	struct client *client;
 	const struct imap_settings *set;
+	enum mail_auth_request_flags flags;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
 					     &user, &mail_user, error_r) <= 0)
@@ -180,6 +182,10 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	T_BEGIN {
 		client_add_input(client, input_buf);
 	} T_END;
+
+	flags = login_client == NULL ? 0 : login_client->auth_req.flags;
+	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
+		client->tls_compression = TRUE;
 	return 0;
 }
 
@@ -205,7 +211,7 @@ static void main_stdio_run(void)
 	input_buf = input_base64 == NULL ? NULL :
 		t_base64_decode_str(input_base64);
 
-	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
+	if (client_create_from_input(&input, NULL, STDIN_FILENO, STDOUT_FILENO,
 				     input_buf, &error) < 0)
 		i_fatal("%s", error);
 }
@@ -227,7 +233,7 @@ login_client_connected(const struct master_login_client *client,
 
 	buffer_create_const_data(&input_buf, client->data,
 				 client->auth_req.data_size);
-	if (client_create_from_input(&input, client->fd, client->fd,
+	if (client_create_from_input(&input, client, client->fd, client->fd,
 				     &input_buf, &error) < 0) {
 		i_error("%s", error);
 		(void)close(client->fd);

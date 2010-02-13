@@ -66,6 +66,11 @@ const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy ATTR_UNUSED)
 	return "";
 }
 
+const char *ssl_proxy_get_compression(struct ssl_proxy *proxy ATTR_UNUSED)
+{
+	return NULL;
+}
+
 void ssl_proxy_free(struct ssl_proxy **proxy ATTR_UNUSED) {}
 
 unsigned int ssl_proxy_get_count(void)

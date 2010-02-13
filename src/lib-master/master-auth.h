@@ -17,6 +17,11 @@ struct master_service;
    to make sure there's space to transfer the command tag  */
 #define MASTER_AUTH_MAX_DATA_SIZE (1024*2)
 
+enum mail_auth_request_flags {
+	/* Connection has TLS compression enabled */
+	MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION	= 0x01
+};
+
 /* Authentication request. File descriptor may be sent along with the
    request. */
 struct master_auth_request {
@@ -32,6 +37,8 @@ struct master_auth_request {
 	/* Local and remote IPs of the connection. The file descriptor
 	   itself may be a local socketpair. */
 	struct ip_addr local_ip, remote_ip;
+
+	uint32_t flags;
 
 	/* request follows this many bytes of client input */
 	uint32_t data_size;

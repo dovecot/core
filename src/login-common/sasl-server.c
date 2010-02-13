@@ -119,6 +119,9 @@ static void master_send_request(struct anvil_request *anvil_request)
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
 	req.client_pid = getpid();
+	if (client->ssl_proxy != NULL &&
+	    ssl_proxy_get_compression(client->ssl_proxy))
+		req.flags |= MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION;
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
