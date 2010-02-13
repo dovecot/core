@@ -307,12 +307,10 @@ service_create(pool_t pool, const struct service_settings *set,
 			return NULL;
 	}
 
-	if (array_count(&service->listeners) > 0) {
-		if (access(t_strcut(service->executable, ' '), X_OK) < 0) {
-			*error_r = t_strdup_printf("access(%s) failed: %m",
-				t_strcut(service->executable, ' '));
-			return NULL;
-		}
+	if (access(t_strcut(service->executable, ' '), X_OK) < 0) {
+		*error_r = t_strdup_printf("access(%s) failed: %m",
+					   t_strcut(service->executable, ' '));
+		return NULL;
 	}
 	return service;
 }
