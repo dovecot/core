@@ -1,5 +1,5 @@
 if BUILD_ZLIB_PLUGIN
-ZLIB = zlib
+ZLIB = zlib imap-zlib
 endif
 
 if BUILD_LUCENE

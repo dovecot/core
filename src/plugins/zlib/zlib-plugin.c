@@ -34,14 +34,6 @@
 
 #define MAX_INBUF_SIZE (1024*1024)
 
-struct zlib_handler {
-	const char *name;
-	const char *ext;
-	bool (*is_compressed)(struct istream *input);
-	struct istream *(*create_istream)(struct istream *input);
-	struct ostream *(*create_ostream)(struct ostream *output, int level);
-};
-
 struct zlib_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 
@@ -51,7 +43,7 @@ struct zlib_transaction_context {
 struct zlib_user {
 	union mail_user_module_context module_ctx;
 
-	struct zlib_handler *save_handler;
+	const struct zlib_handler *save_handler;
 	int save_level;
 };
 
@@ -95,40 +87,37 @@ static bool is_compressed_bzlib(struct istream *input)
 	return memcmp(data + 4, "\x31\x41\x59\x26\x53\x59", 6) == 0;
 }
 
-static struct zlib_handler zlib_handlers[] = {
-	{ "gz", ".gz", is_compressed_zlib,
-	  i_stream_create_gz, o_stream_create_gz },
-	{ "bz2", ".bz2", is_compressed_bzlib,
-	  i_stream_create_bz2, o_stream_create_bz2 }
-};
-
-static struct zlib_handler *zlib_find_zlib_handler(const char *name)
+const struct zlib_handler *zlib_find_zlib_handler(const char *name)
 {
 	unsigned int i;
 
-	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
+	for (i = 0; zlib_handlers[i].name != NULL; i++) {
 		if (strcmp(name, zlib_handlers[i].name) == 0)
 			return &zlib_handlers[i];
 	}
 	return NULL;
 }
 
-static struct zlib_handler *zlib_get_zlib_handler(struct istream *input)
+static const struct zlib_handler *zlib_get_zlib_handler(struct istream *input)
 {
 	unsigned int i;
 
-	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
-		if (zlib_handlers[i].is_compressed(input))
+	for (i = 0; zlib_handlers[i].name != NULL; i++) {
+		if (zlib_handlers[i].is_compressed != NULL &&
+		    zlib_handlers[i].is_compressed(input))
 			return &zlib_handlers[i];
 	}
 	return NULL;
 }
 
-static struct zlib_handler *zlib_get_zlib_handler_ext(const char *name)
+static const struct zlib_handler *zlib_get_zlib_handler_ext(const char *name)
 {
 	unsigned int i, len, name_len = strlen(name);
 
-	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
+	for (i = 0; zlib_handlers[i].name != NULL; i++) {
+		if (zlib_handlers[i].ext == NULL)
+			continue;
+
 		len = strlen(zlib_handlers[i].ext);
 		if (name_len > len &&
 		    strcmp(name + name_len - len, zlib_handlers[i].ext) == 0)
@@ -146,7 +135,7 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 	struct index_mail *imail = (struct index_mail *)mail;
 	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
-	struct zlib_handler *handler;
+	const struct zlib_handler *handler;
 
 	if (imail->data.stream != NULL) {
 		return zmail->super.get_stream(_mail, hdr_size, body_size,
@@ -262,7 +251,6 @@ static int zlib_mail_save_finish(struct mail_save_context *ctx)
 	struct mailbox *box = ctx->transaction->box;
 	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
 	struct istream *input;
-	unsigned int i;
 
 	if (zbox->super.save_finish(ctx) < 0)
 		return -1;
@@ -270,13 +258,10 @@ static int zlib_mail_save_finish(struct mail_save_context *ctx)
 	if (mail_get_stream(ctx->dest_mail, NULL, NULL, &input) < 0)
 		return -1;
 
-	for (i = 0; i < N_ELEMENTS(zlib_handlers); i++) {
-		if (zlib_handlers[i].is_compressed(input)) {
-			mail_storage_set_error(box->storage,
-				MAIL_ERROR_NOTPOSSIBLE,
-				"Saving mails compressed by client isn't supported");
-			return -1;
-		}
+	if (zlib_get_zlib_handler(input) != NULL) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			"Saving mails compressed by client isn't supported");
+		return -1;
 	}
 	return 0;
 }
@@ -319,7 +304,7 @@ static void zlib_maildir_alloc_init(struct mailbox *box)
 
 static int zlib_mailbox_open_input(struct mailbox *box)
 {
-	struct zlib_handler *handler;
+	const struct zlib_handler *handler;
 	struct istream *input;
 	int fd;
 
@@ -413,3 +398,13 @@ void zlib_plugin_deinit(void)
 {
 	mail_storage_hooks_remove(&zlib_mail_storage_hooks);
 }
+
+const struct zlib_handler zlib_handlers[] = {
+	{ "gz", ".gz", is_compressed_zlib,
+	  i_stream_create_gz, o_stream_create_gz },
+	{ "bz2", ".bz2", is_compressed_bzlib,
+	  i_stream_create_bz2, o_stream_create_bz2 },
+	{ "deflate", NULL, NULL,
+	  i_stream_create_deflate, o_stream_create_deflate },
+	{ NULL, NULL, NULL, NULL, NULL }
+};
