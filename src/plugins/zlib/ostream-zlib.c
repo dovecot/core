@@ -246,8 +246,7 @@ o_stream_create_zlib(struct ostream *output, int level, bool gz)
 	o_stream_ref(output);
 
 	o_stream_zlib_init_gz_header(zstream, level, strategy);
-	ret = deflateInit2(&zstream->zs, level, Z_DEFLATED,
-			   gz ? -15 : 15, 8, strategy);
+	ret = deflateInit2(&zstream->zs, level, Z_DEFLATED, -15, 8, strategy);
 	switch (ret) {
 	case Z_OK:
 		break;
