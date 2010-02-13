@@ -524,7 +524,8 @@ static int mailbox_open_full(struct mailbox *box, struct istream *input)
 	} T_END;
 
 	if (ret < 0) {
-		i_stream_unref(&box->input);
+		if (box->input != NULL)
+			i_stream_unref(&box->input);
 		return -1;
 	}
 
