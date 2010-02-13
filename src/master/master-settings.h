@@ -9,6 +9,8 @@ struct master_settings {
 	const char *protocols;
 	const char *listen;
 	const char *ssl;
+	const char *default_internal_user;
+	const char *default_login_user;
 	unsigned int default_process_limit;
 	unsigned int default_client_limit;
 	uoff_t default_vsz_limit;

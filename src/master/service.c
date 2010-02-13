@@ -168,7 +168,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	struct inet_listener_settings *const *inet_listeners;
 	struct service *service;
         struct service_listener *l;
-	const char *const *tmp;
+	const char *user, *const *tmp;
 	string_t *str;
 	unsigned int i, unix_count, fifo_count, inet_count;
 
@@ -202,8 +202,17 @@ service_create(pool_t pool, const struct service_settings *set,
 		return NULL;
 	}
 
+	/* $variable expansion is typically done by doveconf, but these
+	   variables can come from built-in settings, so we need to expand
+	   them here */
+	user = set->user;
+	if (strcmp(user, "$default_internal_user") == 0)
+		user = set->master_set->default_internal_user;
+	else if (strcmp(user, "$default_login_user") == 0)
+		user = set->master_set->default_login_user;
+
 	/* default gid to user's primary group */
-	if (get_uidgid(set->user, &service->uid, &service->gid, error_r) < 0)
+	if (get_uidgid(user, &service->uid, &service->gid, error_r) < 0)
 		return NULL;
 	if (*set->group != '\0') {
 		if (get_gid(set->group, &service->gid, error_r) < 0)
