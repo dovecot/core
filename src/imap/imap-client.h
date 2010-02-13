@@ -94,6 +94,7 @@ struct client {
 	struct ostream *output;
 	struct timeout *to_idle, *to_idle_output;
 
+	pool_t pool;
 	struct mail_storage_service_user *service_user;
         const struct imap_settings *set;
 	string_t *capability_string;
@@ -130,6 +131,9 @@ struct client {
 	struct client_command_context *output_lock;
 	/* command changing the mailbox */
 	struct client_command_context *mailbox_change_lock;
+
+	/* Module-specific contexts. */
+	ARRAY_DEFINE(module_contexts, union imap_module_context *);
 
 	/* syncing marks this TRUE when it sees \Deleted flags. this is by
 	   EXPUNGE for Outlook-workaround. */

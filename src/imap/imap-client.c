@@ -38,12 +38,15 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 {
 	struct client *client;
 	const char *ident;
+	pool_t pool;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
 	net_set_nonblock(fd_out, TRUE);
 
-	client = i_new(struct client, 1);
+	pool = pool_alloconly_create("imap client", 512);
+	client = p_new(pool, struct client, 1);
+	client->pool = pool;
 	client->set = set;
 	client->service_user = service_user;
 	client->fd_in = fd_in;
@@ -54,6 +57,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 
 	o_stream_set_flush_callback(client->output, client_output, client);
 
+	p_array_init(&client->module_contexts, client->pool, 5);
 	client->io = io_add(fd_in, IO_READ, client_input, client);
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
@@ -67,7 +71,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 					      &mail_storage_callbacks, client);
 
 	client->capability_string =
-		str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
+		str_new(client->pool, sizeof(CAPABILITY_STRING)+64);
 	str_append(client->capability_string, *set->imap_capability != '\0' ?
 		   set->imap_capability : CAPABILITY_STRING);
 
@@ -218,10 +222,9 @@ void client_destroy(struct client *client, const char *reason)
 		array_free(&client->search_saved_uidset);
 	if (array_is_created(&client->search_updates))
 		array_free(&client->search_updates);
-	str_free(&client->capability_string);
 	pool_unref(&client->command_pool);
 	mail_storage_service_user_free(&client->service_user);
-	i_free(client);
+	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
 	imap_refresh_proctitle();
