@@ -96,6 +96,10 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 {
 	z_stream *zs = &zstream->zs;
 	ssize_t ret;
+	int flush;
+
+	flush = zstream->ostream.corked || zstream->gz ?
+		Z_NO_FLUSH : Z_SYNC_FLUSH;
 
 	if (!zstream->header_sent)
 		o_stream_zlib_send_gz_header(zstream);
@@ -115,7 +119,7 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 			}
 		}
 
-		switch (deflate(zs, Z_NO_FLUSH)) {
+		switch (deflate(zs, flush)) {
 		case Z_OK:
 		case Z_BUF_ERROR:
 			break;
