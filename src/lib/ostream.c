@@ -65,6 +65,8 @@ void o_stream_cork(struct ostream *stream)
 
 	if (_stream->cork != NULL)
 		_stream->cork(_stream, TRUE);
+	else
+		_stream->corked = TRUE;
 }
 
 void o_stream_uncork(struct ostream *stream)
@@ -76,8 +78,10 @@ void o_stream_uncork(struct ostream *stream)
 
 	if (_stream->cork != NULL)
 		_stream->cork(_stream, FALSE);
-	else
+	else {
+		_stream->corked = FALSE;
 		(void)o_stream_flush(stream);
+	}
 }
 
 int o_stream_flush(struct ostream *stream)

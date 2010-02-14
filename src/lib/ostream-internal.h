@@ -28,6 +28,8 @@ struct ostream_private {
 
 	stream_flush_callback_t *callback;
 	void *context;
+
+	unsigned int corked:1;
 };
 
 struct ostream *o_stream_create(struct ostream_private *_stream);

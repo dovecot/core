@@ -42,7 +42,6 @@ struct file_ostream {
 
 	unsigned int full:1; /* if head == tail, is buffer empty or full? */
 	unsigned int file:1;
-	unsigned int corked:1;
 	unsigned int flush_pending:1;
 	unsigned int socket_cork_set:1;
 	unsigned int no_socket_cork:1;
@@ -132,7 +131,7 @@ static void update_buffer(struct file_ostream *fstream, size_t size)
 
 static void o_stream_socket_cork(struct file_ostream *fstream)
 {
-	if (fstream->corked && !fstream->socket_cork_set) {
+	if (fstream->ostream.corked && !fstream->socket_cork_set) {
 		if (!fstream->no_socket_cork) {
 			if (net_set_cork(fstream->fd, TRUE) < 0)
 				fstream->no_socket_cork = TRUE;
@@ -324,7 +323,7 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 	int ret;
 
-	if (fstream->corked != set && !stream->ostream.closed) {
+	if (stream->corked != set && !stream->ostream.closed) {
 		if (set && fstream->io != NULL)
 			io_remove(&fstream->io);
 		else if (!set) {
@@ -344,7 +343,7 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 				fstream->no_socket_cork = TRUE;
 			fstream->socket_cork_set = FALSE;
 		}
-		fstream->corked = set;
+		stream->corked = set;
 	}
 }
 
@@ -361,7 +360,7 @@ o_stream_file_flush_pending(struct ostream_private *stream, bool set)
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	fstream->flush_pending = set;
-	if (set && !fstream->corked && fstream->io == NULL) {
+	if (set && !stream->corked && fstream->io == NULL) {
 		fstream->io = io_add(fstream->fd, IO_WRITE,
 				     stream_send_io, fstream);
 	}
@@ -414,7 +413,7 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 	if (size > fstream->ostream.max_buffer_size) {
 		/* limit the size */
 		size = fstream->ostream.max_buffer_size;
-	} else if (fstream->corked) {
+	} else if (fstream->ostream.corked) {
 		/* try to use optimal buffer size with corking */
 		new_size = I_MIN(fstream->optimal_block_size,
 				 fstream->ostream.max_buffer_size);
@@ -509,7 +508,7 @@ static size_t o_stream_add(struct file_ostream *fstream,
 	}
 
 	if (sent != 0 && fstream->io == NULL &&
-	    !fstream->corked && !fstream->file) {
+	    !fstream->ostream.corked && !fstream->file) {
 		fstream->io = io_add(fstream->fd, IO_WRITE, stream_send_io,
 				     fstream);
 	}
@@ -538,7 +537,7 @@ static ssize_t o_stream_file_sendv(struct ostream_private *stream,
 	optimal_size = I_MIN(fstream->optimal_block_size,
 			     fstream->ostream.max_buffer_size);
 	if (IS_STREAM_EMPTY(fstream) &&
-	    (!fstream->corked || size >= optimal_size)) {
+	    (!stream->corked || size >= optimal_size)) {
 		/* send immediately */
 		ret = o_stream_writev(fstream, iov, iov_count);
 		if (ret < 0)
