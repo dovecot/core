@@ -28,7 +28,6 @@ struct sdbox_mailbox {
 	struct sdbox_storage *storage;
 
 	uint32_t hdr_ext_id;
-	const char *alt_path;
 
 	unsigned int creating:1;
 	unsigned int sync_rebuild:1;

@@ -67,9 +67,6 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
 	mbox->storage = (struct sdbox_storage *)storage;
-	mbox->alt_path =
-		p_strconcat(pool, list->set.alt_dir, "/",
-			    list->set.maildir_name, NULL);
 	mbox->hdr_ext_id =
 		mail_index_ext_register(mbox->box.index, "dbox-hdr",
 					sizeof(struct sdbox_index_header), 0, 0);
