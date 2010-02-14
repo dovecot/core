@@ -27,7 +27,6 @@ struct listescape_mailbox_list {
 	struct mailbox_info info;
 	string_t *list_name;
 	char escape_char;
-	bool name_escaped;
 };
 
 const char *listescape_plugin_version = DOVECOT_VERSION;
@@ -206,9 +205,8 @@ listescape_mailbox_alloc(struct mail_storage *storage,
 			 const char *name, enum mailbox_flags flags)
 {
 	struct listescape_mail_storage *mstorage = LIST_ESCAPE_CONTEXT(storage);
-	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	if (!mlist->name_escaped && list->hierarchy_sep != list->ns->sep)
+	if (list->hierarchy_sep != list->ns->sep)
 		name = list_escape(list->ns, name, FALSE);
 	return mstorage->module_ctx.super.
 		mailbox_alloc(storage, list, name, flags);
