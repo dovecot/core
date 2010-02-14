@@ -26,10 +26,8 @@ struct notify_vfuncs {
 	void *(*mailbox_delete_begin)(struct mailbox *box);
 	void (*mailbox_delete_commit)(void *txn, struct mailbox *box);
 	void (*mailbox_delete_rollback)(void *txn);
-	void (*mailbox_rename)(struct mailbox_list *oldlist,
-			       const char *oldname,
-			       struct mailbox_list *newlist,
-			       const char *newname, bool rename_children);
+	void (*mailbox_rename)(struct mailbox *src, struct mailbox *dest,
+			       bool rename_children);
 };
 
 void notify_noop_mail_transaction_begin(struct mailbox_transaction_context *t);
@@ -46,10 +44,8 @@ void notify_noop_mail_transaction_rollback(void *txn);
 void *notify_noop_mailbox_delete_begin(struct mailbox *box);
 void notify_noop_mailbox_delete_commit(void *txn, struct mailbox *box);
 void notify_noop_mailbox_delete_rollback(void *txn);
-void notify_noop_mailbox_rename(struct mailbox_list *oldlist,
-				const char *oldname,
-				struct mailbox_list *newlist,
-				const char *newname, bool rename_children);
+void notify_noop_mailbox_rename(struct mailbox *src, struct mailbox *dest,
+				bool rename_children);
 
 struct notify_context *
 notify_register(const struct notify_vfuncs *vfuncs);

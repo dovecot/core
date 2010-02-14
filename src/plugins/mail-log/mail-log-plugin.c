@@ -389,17 +389,15 @@ mail_log_mailbox_delete_commit(void *txn ATTR_UNUSED, struct mailbox *box)
 }
 
 static void
-mail_log_mailbox_rename(struct mailbox_list *oldlist ATTR_UNUSED,
-			const char *oldname,
-			struct mailbox_list *newlist ATTR_UNUSED,
-			const char *newname, bool rename_children ATTR_UNUSED)
+mail_log_mailbox_rename(struct mailbox *src,
+			struct mailbox *dest, bool rename_children ATTR_UNUSED)
 {
 	if ((mail_log_set.events & MAIL_LOG_EVENT_MAILBOX_RENAME) == 0)
 		return;
 
 	i_info("Mailbox renamed: %s -> %s",
-	       str_sanitize(oldname, MAILBOX_NAME_LOG_LEN),
-	       str_sanitize(newname, MAILBOX_NAME_LOG_LEN));
+	       str_sanitize(src->name, MAILBOX_NAME_LOG_LEN),
+	       str_sanitize(dest->name, MAILBOX_NAME_LOG_LEN));
 }
 
 static const struct notify_vfuncs mail_log_vfuncs = {

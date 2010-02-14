@@ -17,10 +17,8 @@ void notify_contexts_mail_transaction_rollback(struct mailbox_transaction_contex
 void notify_contexts_mailbox_delete_begin(struct mailbox *box);
 void notify_contexts_mailbox_delete_commit(struct mailbox *box);
 void notify_contexts_mailbox_delete_rollback(void);
-void notify_contexts_mailbox_rename(struct mailbox_list *oldlist,
-				    const char *oldname,
-				    struct mailbox_list *newlist,
-				    const char *newname, bool rename_children);
+void notify_contexts_mailbox_rename(struct mailbox *src, struct mailbox *dest,
+				    bool rename_children);
 
 void notify_plugin_init_storage(struct module *module);
 void notify_plugin_deinit_storage(void);

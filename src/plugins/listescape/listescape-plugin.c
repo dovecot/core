@@ -214,21 +214,6 @@ listescape_mailbox_alloc(struct mail_storage *storage,
 		mailbox_alloc(storage, list, name, flags);
 }
 
-static int
-listescape_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
-			  struct mailbox_list *newlist, const char *newname,
-			  bool rename_children)
-{
-	struct listescape_mailbox_list *old_mlist =
-		LIST_ESCAPE_LIST_CONTEXT(oldlist);
-
-	oldname = list_escape(oldlist->ns, oldname, FALSE);
-	newname = list_escape(newlist->ns, newname, FALSE);
-	return old_mlist->module_ctx.super.
-		rename_mailbox(oldlist, oldname, newlist, newname,
-			       rename_children);
-}
-
 static int listescape_set_subscribed(struct mailbox_list *list, 
 				     const char *name, bool set)
 {
@@ -303,7 +288,6 @@ static void listescape_mail_namespace_storage_added(struct mail_namespace *ns)
 	list->v.iter_init = listescape_mailbox_list_iter_init;
 	list->v.iter_next = listescape_mailbox_list_iter_next;
 	list->v.iter_deinit = listescape_mailbox_list_iter_deinit;
-	list->v.rename_mailbox = listescape_rename_mailbox;
 	list->v.set_subscribed = listescape_set_subscribed;
 	list->v.get_mailbox_name_status = listescape_get_mailbox_name_status;
 	list->v.is_valid_existing_name = listescape_is_valid_existing_name;

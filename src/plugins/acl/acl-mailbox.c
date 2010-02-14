@@ -191,6 +191,43 @@ acl_mailbox_delete(struct mailbox *box)
 }
 
 static int
+acl_mailbox_rename(struct mailbox *src, struct mailbox *dest,
+		   bool rename_children)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(src);
+	int ret;
+
+	/* renaming requires rights to delete the old mailbox */
+	ret = acl_mailbox_right_lookup(src, ACL_STORAGE_RIGHT_DELETE);
+	if (ret <= 0) {
+		if (ret == 0)
+			acl_mailbox_fail_not_found(src);
+		return -1;
+	}
+
+	/* and create the new one under the parent mailbox */
+	T_BEGIN {
+		ret = acl_mailbox_list_have_right(dest->list, dest->name, TRUE,
+						ACL_STORAGE_RIGHT_CREATE, NULL);
+	} T_END;
+
+	if (ret <= 0) {
+		if (ret == 0) {
+			/* Note that if the mailbox didn't have LOOKUP
+			   permission, this now reveals to user the mailbox's
+			   existence. Can't help it. */
+			mail_storage_set_error(src->storage, MAIL_ERROR_PERM,
+					       MAIL_ERRSTR_NO_PERMISSION);
+		} else {
+			mail_storage_set_internal_error(src->storage);
+		}
+		return -1;
+	}
+
+	return abox->module_ctx.super.rename(src, dest, rename_children);
+}
+
+static int
 acl_get_write_rights(struct mailbox *box,
 		     bool *flags_r, bool *flag_seen_r, bool *flag_del_r)
 {
@@ -485,6 +522,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 		box->v.create = acl_mailbox_create;
 		box->v.update = acl_mailbox_update;
 		box->v.delete = acl_mailbox_delete;
+		box->v.rename = acl_mailbox_rename;
 		box->v.mail_alloc = acl_mail_alloc;
 		box->v.save_begin = acl_save_begin;
 		box->v.keywords_create = acl_keywords_create;

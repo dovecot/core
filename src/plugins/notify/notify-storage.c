@@ -8,8 +8,6 @@
 	MODULE_CONTEXT(obj, notify_storage_module)
 #define NOTIFY_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, notify_mail_module)
-#define NOTIFY_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, notify_mailbox_list_module)
 
 struct notify_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
@@ -20,8 +18,6 @@ static MODULE_CONTEXT_DEFINE_INIT(notify_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(notify_mail_module,
 				  &mail_module_register);
-static MODULE_CONTEXT_DEFINE_INIT(notify_mailbox_list_module,
-				  &mailbox_list_module_register);
 
 static void
 notify_mail_expunge(struct mail *_mail)
@@ -213,6 +209,19 @@ notify_mailbox_delete(struct mailbox *box)
 	return 0;
 }
 
+static int
+notify_mailbox_rename(struct mailbox *src, struct mailbox *dest,
+		      bool rename_children)
+{
+	union mailbox_module_context *lbox = NOTIFY_CONTEXT(src);
+
+	if (lbox->super.rename(src, dest, rename_children) < 0)
+		return -1;
+
+	notify_contexts_mailbox_rename(src, dest, rename_children);
+	return 0;
+}
+
 static void notify_mailbox_allocated(struct mailbox *box)
 {
 	union mailbox_module_context *lbox;
@@ -228,41 +237,12 @@ static void notify_mailbox_allocated(struct mailbox *box)
 	box->v.transaction_commit = notify_transaction_commit;
 	box->v.transaction_rollback = notify_transaction_rollback;
 	box->v.delete = notify_mailbox_delete;
+	box->v.rename = notify_mailbox_rename;
 	MODULE_CONTEXT_SET_SELF(box, notify_storage_module, lbox);
 }
 
-static int
-notify_mailbox_list_rename(struct mailbox_list *oldlist, const char *oldname,
-			   struct mailbox_list *newlist, const char *newname,
-			   bool rename_children)
-{
-	union mailbox_list_module_context *oldllist =
-		NOTIFY_LIST_CONTEXT(oldlist);
-
-	if (oldllist->super.rename_mailbox(oldlist, oldname, newlist, newname,
-					   rename_children) < 0)
-		return -1;
-
-	notify_contexts_mailbox_rename(oldlist, oldname, newlist, newname,
-				       rename_children);
-	return 0;
-}
-
-static void notify_mail_namespace_storage_added(struct mail_namespace *ns)
-{
-	struct mailbox_list *list = ns->list;
-	union mailbox_list_module_context *llist;
-
-	llist = p_new(list->pool, union mailbox_list_module_context, 1);
-	llist->super = list->v;
-	list->v.rename_mailbox = notify_mailbox_list_rename;
-
-	MODULE_CONTEXT_SET_SELF(list, notify_mailbox_list_module, llist);
-}
-
 static struct mail_storage_hooks notify_mail_storage_hooks = {
-	.mailbox_allocated = notify_mailbox_allocated,
-	.mail_namespace_storage_added = notify_mail_namespace_storage_added
+	.mailbox_allocated = notify_mailbox_allocated
 };
 
 void notify_plugin_init_storage(struct module *module)
