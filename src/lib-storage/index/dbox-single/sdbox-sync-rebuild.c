@@ -142,7 +142,6 @@ static void sdbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 static int
 sdbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->box;
 	const char *alt_path;
 	int ret = 0;
 
