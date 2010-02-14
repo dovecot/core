@@ -108,12 +108,22 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		 *set->subscription_fname != '\0');
 
 	if (!mailbox_list_driver_find(driver, &idx)) {
-		*error_r = t_strdup_printf("Unknown mailbox list driver: %s",
-					   driver);
+		*error_r = "Unknown driver name";
 		return -1;
 	}
 
 	class_p = array_idx(&mailbox_list_drivers, idx);
+	if (((*class_p)->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 &&
+	    set->maildir_name != NULL) {
+		*error_r = "maildir_name not supported by this driver";
+		return -1;
+	}
+	if (((*class_p)->props & MAILBOX_LIST_PROP_NO_ALT_DIR) != 0 &&
+	    set->alt_dir != NULL) {
+		*error_r = "alt_dir not supported by this driver";
+		return -1;
+	}
+
 	list = (*class_p)->v.alloc();
 	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
 
@@ -137,8 +147,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.subscription_fname =
 		p_strdup(list->pool, set->subscription_fname);
-	list->set.maildir_name = set->maildir_name == NULL ||
-		(list->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 ? "" :
+	list->set.maildir_name = set->maildir_name == NULL ? "" :
 		p_strdup(list->pool, set->maildir_name);
 	list->set.mailbox_dir_name =
 		p_strdup(list->pool, set->mailbox_dir_name);
@@ -739,62 +748,6 @@ int mailbox_list_delete_dir(struct mailbox_list *list, const char *name)
 		return -1;
 	}
 	return list->v.delete_dir(list, name);
-}
-
-static bool nullequals(const void *p1, const void *p2)
-{
-	return (p1 == NULL && p2 == NULL) || (p1 != NULL && p2 != NULL);
-}
-
-int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
-				const char *oldname,
-				struct mailbox_list *newlist,
-				const char *newname, bool rename_children)
-{
-	struct mail_storage *oldstorage;
-	struct mail_storage *newstorage;
-	uint8_t guid[MAIL_GUID_128_SIZE];
-
-	if (mailbox_list_get_storage(&oldlist, &oldname, &oldstorage) < 0)
-		return -1;
-
-	newstorage = oldstorage;
-	mailbox_list_get_closest_storage(newlist, &newstorage);
-
-	if (!mailbox_list_is_valid_existing_name(oldlist, oldname) ||
-	    *oldname == '\0' ||
-	    !mailbox_list_is_valid_create_name(newlist, newname)) {
-		mailbox_list_set_error(oldlist, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return -1;
-	}
-	if (strcmp(oldstorage->name, newstorage->name) != 0) {
-		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
-			"Can't rename mailbox to another storage type.");
-		return -1;
-	}
-	if (!nullequals(oldlist->set.index_dir, newlist->set.index_dir) ||
-	    !nullequals(oldlist->set.control_dir, newlist->set.control_dir)) {
-		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
-			"Can't rename mailboxes across specified storages.");
-		return -1;
-	}
-	if (oldlist->ns->type != NAMESPACE_PRIVATE ||
-	    newlist->ns->type != NAMESPACE_PRIVATE) {
-		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
-			"Renaming not supported across non-private namespaces.");
-		return -1;
-	}
-
-	if (oldlist->v.rename_mailbox(oldlist, oldname, newlist, newname,
-				      rename_children) < 0)
-		return -1;
-
-	/* we'll track mailbox names, instead of GUIDs. We may be renaming a
-	   non-selectable mailbox (directory), which doesn't even have a GUID */
-	mailbox_name_get_sha128(newname, guid);
-	mailbox_list_add_change(oldlist, MAILBOX_LOG_RECORD_RENAME, guid);
-	return 0;
 }
 
 void mailbox_name_get_sha128(const char *name, uint8_t guid[MAIL_GUID_128_SIZE])

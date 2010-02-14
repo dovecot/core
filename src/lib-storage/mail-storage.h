@@ -346,6 +346,11 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update);
 /* Delete mailbox (and its parent directory, if it has no siblings) */
 int mailbox_delete(struct mailbox *box);
+/* Rename mailbox. Renaming across different mailbox lists is possible only
+   between private namespaces and storages of the same type. If the rename
+   fails, the error is set to src's storage. */
+int mailbox_rename(struct mailbox *src, struct mailbox *dest,
+		   bool rename_children);
 
 /* Enable the given feature for the mailbox. */
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features);

@@ -68,11 +68,6 @@ struct mailbox_list_vfuncs {
 	int (*rename_mailbox)(struct mailbox_list *oldlist, const char *oldname,
 			      struct mailbox_list *newlist, const char *newname,
 			      bool rename_children);
-	/* called by rename_mailbox() just before running the actual rename() */
-	int (*rename_mailbox_pre)(struct mailbox_list *oldlist,
-				  const char *oldname,
-				  struct mailbox_list *newlist,
-				  const char *newname);
 };
 
 struct mailbox_list_module_register {

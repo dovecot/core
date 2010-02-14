@@ -59,6 +59,15 @@ static int test_mailbox_delete(struct mailbox *box)
 	return -1;
 }
 
+static int test_mailbox_rename(struct mailbox *src,
+			       struct mailbox *dest ATTR_UNUSED,
+			       bool rename_children ATTR_UNUSED)
+{
+	mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
+			       "Test mailbox rename isn't supported");
+	return -1;
+}
+
 static void test_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
 				    enum mailbox_status_items items ATTR_UNUSED,
 				    struct mailbox_status *status_r)
@@ -316,6 +325,7 @@ struct mailbox test_mailbox = {
 		test_mailbox_create,
 		test_mailbox_update,
 		test_mailbox_delete,
+		test_mailbox_rename,
 		test_mailbox_get_status,
 		NULL,
 		NULL,

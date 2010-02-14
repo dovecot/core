@@ -54,12 +54,5 @@ int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 			      const char *mailbox_name,
 			      enum mailbox_list_file_type type,
 			      enum mailbox_info_flags *flags);
-int dbox_list_rename_mailbox_pre(struct mailbox_list *oldlist,
-				 const char *oldname,
-				 struct mailbox_list *newlist,
-				 const char *newname);
-int dbox_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
-			     struct mailbox_list *newlist, const char *newname,
-			     bool rename_children);
 
 #endif

@@ -24,12 +24,6 @@ struct maildir_mailbox_list_context {
 	const struct maildir_settings *set;
 };
 
-struct rename_context {
-	bool found;
-	size_t oldnamelen;
-	const char *newname;
-};
-
 extern struct mail_storage maildir_storage;
 extern struct mailbox maildir_mailbox;
 
@@ -507,34 +501,6 @@ maildir_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 	return maildir_uidlist_get_mailbox_guid(mbox->uidlist, guid);
 }
 
-static int
-maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
-			    struct mailbox_list *newlist, const char *newname,
-			    bool rename_children)
-{
-	struct maildir_mailbox_list_context *oldmlist =
-		MAILDIR_LIST_CONTEXT(oldlist);
-	const char *path1, *path2;
-
-	if (strcmp(oldname, "INBOX") == 0) {
-		/* INBOX often exists as the root ~/Maildir.
-		   We can't rename it then. */
-		path1 = mailbox_list_get_path(oldlist, oldname,
-					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		path2 = mailbox_list_get_path(oldlist, NULL,
-					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		if (strcmp(path1, path2) == 0) {
-			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
-				"Renaming INBOX isn't supported.");
-			return -1;
-		}
-	}
-
-	return oldmlist->module_ctx.super.
-		rename_mailbox(oldlist, oldname, newlist, newname,
-			       rename_children);
-}
-
 static void maildir_mailbox_close(struct mailbox *box)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
@@ -773,7 +739,6 @@ static void maildir_storage_add_list(struct mail_storage *storage,
 			maildir_storage_is_valid_create_name;
 		list->v.iter_is_mailbox = maildir_list_iter_is_mailbox;
 	}
-	list->v.rename_mailbox = maildir_list_rename_mailbox;
 	MODULE_CONTEXT_SET(list, maildir_mailbox_list_module, mlist);
 }
 
@@ -804,6 +769,7 @@ struct mailbox maildir_mailbox = {
 		maildir_mailbox_create,
 		maildir_mailbox_update,
 		index_storage_mailbox_delete,
+		index_storage_mailbox_rename,
 		index_storage_get_status,
 		maildir_mailbox_get_guid,
 		maildir_list_index_has_changed,

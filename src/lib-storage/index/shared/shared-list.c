@@ -306,27 +306,9 @@ shared_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 	if (shared_list_rename_get_ns(oldlist, &oldname,
 				      newlist, &newname, &ns) < 0)
 		return -1;
-	ret = mailbox_list_rename_mailbox(ns->list, oldname, ns->list, newname,
-					  rename_children);
-	if (ret < 0)
-		shared_list_copy_error(oldlist, ns);
-	return ret;
-}
 
-static int
-shared_list_rename_mailbox_pre(struct mailbox_list *oldlist,
-			       const char *oldname,
-			       struct mailbox_list *newlist,
-			       const char *newname)
-{
-	struct mail_namespace *ns;
-	int ret;
-
-	if (shared_list_rename_get_ns(oldlist, &oldname,
-				      newlist, &newname, &ns) < 0)
-		return -1;
-	ret = ns->list->v.rename_mailbox_pre(ns->list, oldname,
-					     ns->list, newname);
+	ret = ns->list->v.rename_mailbox(ns->list, oldname, ns->list, newname,
+					 rename_children);
 	if (ret < 0)
 		shared_list_copy_error(oldlist, ns);
 	return ret;
@@ -358,7 +340,6 @@ struct mailbox_list shared_mailbox_list = {
 		shared_list_create_mailbox_dir,
 		shared_list_delete_mailbox,
 		shared_list_delete_dir,
-		shared_list_rename_mailbox,
-		shared_list_rename_mailbox_pre
+		shared_list_rename_mailbox
 	}
 };

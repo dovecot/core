@@ -18,8 +18,10 @@ struct mailbox_list_iterate_context;
 enum mailbox_list_properties {
 	/* maildir_name must always be empty */
 	MAILBOX_LIST_PROP_NO_MAILDIR_NAME	= 0x01,
+	/* alt directories not supported */
+	MAILBOX_LIST_PROP_NO_ALT_DIR		= 0x02,
 	/* no support for \noselect directories, only mailboxes */
-	MAILBOX_LIST_PROP_NO_NOSELECT		= 0x02
+	MAILBOX_LIST_PROP_NO_NOSELECT		= 0x04
 };
 
 enum mailbox_list_flags {
@@ -250,13 +252,6 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 
 /* Delete a non-selectable mailbox. Fail if the mailbox is selectable. */
 int mailbox_list_delete_dir(struct mailbox_list *list, const char *name);
-/* Rename mailbox. Renaming across different mailbox lists is possible only
-   between private namespaces and storages of the same type. If the rename
-   fails, the error is set to oldlist. */
-int mailbox_list_rename_mailbox(struct mailbox_list *oldlist,
-				const char *oldname,
-				struct mailbox_list *newlist,
-				const char *newname, bool rename_children);
 
 /* Returns the error message of last occurred error. */
 const char *mailbox_list_get_last_error(struct mailbox_list *list,

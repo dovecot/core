@@ -270,8 +270,11 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		if (mail_storage_is_mailbox_file(storage_class))
 			list_flags |= MAILBOX_LIST_FLAG_MAILBOX_FILES;
 		if (mailbox_list_create(list_set.layout, ns, &list_set,
-					list_flags, error_r) < 0)
+					list_flags, error_r) < 0) {
+			*error_r = t_strdup_printf("Mailbox list driver %s: %s",
+						   list_set.layout, *error_r);
 			return -1;
+		}
 		if (mail_storage_create_root(ns->list, flags, error_r) < 0)
 			return -1;
 	}
@@ -654,6 +657,42 @@ int mailbox_delete(struct mailbox *box)
 	box->deleting = FALSE;
 	mailbox_close(box);
 	return ret;
+}
+
+static bool nullequals(const void *p1, const void *p2)
+{
+	return (p1 == NULL && p2 == NULL) || (p1 != NULL && p2 != NULL);
+}
+
+int mailbox_rename(struct mailbox *src, struct mailbox *dest,
+		   bool rename_children)
+{
+	if (!mailbox_list_is_valid_existing_name(src->list, src->name) ||
+	    *src->name == '\0' ||
+	    !mailbox_list_is_valid_create_name(dest->list, dest->name)) {
+		mailbox_list_set_error(src->list, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
+		return -1;
+	}
+	if (strcmp(src->storage->name, dest->storage->name) != 0) {
+		mailbox_list_set_error(src->list, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename mailbox to another storage type.");
+		return -1;
+	}
+	if (!nullequals(src->list->set.index_dir, dest->list->set.index_dir) ||
+	    !nullequals(src->list->set.control_dir, dest->list->set.control_dir)) {
+		mailbox_list_set_error(src->list, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename mailboxes across specified storages.");
+		return -1;
+	}
+	if (src->list->ns->type != NAMESPACE_PRIVATE ||
+	    dest->list->ns->type != NAMESPACE_PRIVATE) {
+		mailbox_list_set_error(src->list, MAIL_ERROR_NOTPOSSIBLE,
+			"Renaming not supported across non-private namespaces.");
+		return -1;
+	}
+
+	return src->v.rename(src, dest, rename_children);
 }
 
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)

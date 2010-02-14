@@ -1136,6 +1136,7 @@ local_worker_rename_mailbox(struct dsync_worker *_worker,
 		(struct local_dsync_worker *)_worker;
 	struct local_dsync_mailbox *lbox;
 	struct mailbox_list *list;
+	struct mailbox *old_box, *new_box;
 	const char *newname;
 
 	lbox = hash_table_lookup(worker->mailbox_hash, mailbox);
@@ -1156,14 +1157,19 @@ local_worker_rename_mailbox(struct dsync_worker *_worker,
 	}
 
 	mailbox_list_set_changelog_timestamp(list, dsync_box->last_change);
-	if (mailbox_list_rename_mailbox(list, lbox->storage_name,
-					list, newname, FALSE) < 0) {
+	old_box = mailbox_alloc(list, lbox->storage_name, 0);
+	new_box = mailbox_alloc(list, newname, 0);
+	if (mailbox_rename(old_box, new_box, FALSE) < 0) {
+		struct mail_storage *storage = mailbox_get_storage(old_box);
+
 		i_error("Can't rename mailbox %s to %s: %s", lbox->storage_name,
-			newname, mailbox_list_get_last_error(list, NULL));
+			newname, mail_storage_get_last_error(storage, NULL));
 		dsync_worker_set_failure(_worker);
 	} else {
 		lbox->storage_name = p_strdup(worker->pool, newname);
 	}
+	mailbox_free(&old_box);
+	mailbox_free(&new_box);
 	mailbox_list_set_changelog_timestamp(list, (time_t)-1);
 }
 

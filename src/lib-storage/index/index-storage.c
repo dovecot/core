@@ -475,6 +475,23 @@ int index_storage_mailbox_delete(struct mailbox *box)
 	return index_storage_mailbox_delete_dir(box, TRUE);
 }
 
+int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest,
+				 bool rename_children)
+{
+	uint8_t guid[MAIL_GUID_128_SIZE];
+
+	if (src->list->v.rename_mailbox(src->list, src->name,
+					dest->list, dest->name,
+					rename_children) < 0)
+		return -1;
+
+	/* we'll track mailbox names, instead of GUIDs. We may be renaming a
+	   non-selectable mailbox (directory), which doesn't even have a GUID */
+	mailbox_name_get_sha128(dest->name, guid);
+	mailbox_list_add_change(src->list, MAILBOX_LOG_RECORD_RENAME, guid);
+	return 0;
+}
+
 bool index_storage_is_readonly(struct mailbox *box)
 {
 	return (box->flags & MAILBOX_FLAG_READONLY) != 0 ||

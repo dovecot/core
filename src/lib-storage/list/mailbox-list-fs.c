@@ -471,8 +471,9 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 				  const char *newname, bool rename_children)
 {
 	struct mail_storage *oldstorage;
-	const char *oldpath, *newpath, *p, *origin;
-	enum mailbox_list_path_type path_type;
+	const char *oldpath, *newpath, *alt_oldpath, *alt_newpath, *root_path;
+	const char *p, *origin;
+	enum mailbox_list_path_type path_type, alt_path_type;
 	struct stat st;
 	mode_t mode;
 	gid_t gid;
@@ -481,12 +482,14 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	if (mailbox_list_get_storage(&oldlist, &oldname, &oldstorage) < 0)
 		return -1;
 
-	if (rename_children)
+	if (rename_children) {
 		path_type = MAILBOX_LIST_PATH_TYPE_DIR;
-	else if (mail_storage_is_mailbox_file(oldstorage) ||
-		 *oldlist->set.maildir_name != '\0')
+		alt_path_type = MAILBOX_LIST_PATH_TYPE_ALT_DIR;
+	} else if (mail_storage_is_mailbox_file(oldstorage) ||
+		   *oldlist->set.maildir_name != '\0') {
 		path_type = MAILBOX_LIST_PATH_TYPE_MAILBOX;
-	else {
+		alt_path_type = MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX;
+	} else {
 		/* we can't do this, our children would get renamed with us */
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
 			"Can't rename mailbox without its children.");
@@ -495,6 +498,18 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 
 	oldpath = mailbox_list_get_path(oldlist, oldname, path_type);
 	newpath = mailbox_list_get_path(newlist, newname, path_type);
+	alt_oldpath = mailbox_list_get_path(oldlist, oldname, alt_path_type);
+	alt_newpath = mailbox_list_get_path(newlist, newname, alt_path_type);
+
+	root_path = mailbox_list_get_path(oldlist, NULL,
+					  MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (strcmp(oldpath, root_path) == 0) {
+		/* most likely INBOX */
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			t_strdup_printf("Renaming %s isn't supported.",
+					oldname));
+		return -1;
+	}
 
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
@@ -531,14 +546,30 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 		return -1;
 	}
 
-	if (oldlist->v.rename_mailbox_pre != NULL) {
-		if (oldlist->v.rename_mailbox_pre(oldlist, oldname,
-						  newlist, newname) < 0)
-			return -1;
+	if ((alt_newpath != NULL && alt_oldpath == NULL) ||
+	    (alt_newpath == NULL && alt_oldpath != NULL)) {
+		/* both or neither source/dest must to have alt path defined.
+		   otherwise we'd have to do the merging ourself, which would
+		   be possible but a bit too much trouble for now */
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename mailboxes across specified storages.");
+		return -1;
 	}
 
-	/* NOTE: renaming INBOX works just fine with us, it's simply recreated
-	   the next time it's needed. */
+	if (alt_newpath != NULL) {
+		if (stat(alt_newpath, &st) == 0) {
+			/* race condition or a directory left there lying around?
+			   safest to just report error. */
+			mailbox_list_set_error(oldlist, MAIL_ERROR_EXISTS,
+					       "Target mailbox already exists");
+			return -1;
+		} else if (errno != ENOENT) {
+			mailbox_list_set_critical(oldlist, "stat(%s) failed: %m",
+						  alt_newpath);
+			return -1;
+		}
+	}
+
 	if (rename(oldpath, newpath) < 0) {
 		if (ENOTFOUND(errno)) {
 			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTFOUND,
@@ -563,6 +594,10 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 		}
 	}
 
+	if (alt_newpath != NULL) {
+		(void)rename_dir(oldlist, oldname, newlist, newname,
+				 alt_path_type, rmdir_parent);
+	}
 	(void)rename_dir(oldlist, oldname, newlist, newname,
 			 MAILBOX_LIST_PATH_TYPE_CONTROL, rmdir_parent);
 	(void)rename_dir(oldlist, oldname, newlist, newname,
@@ -596,7 +631,6 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_create_mailbox_dir,
 		fs_list_delete_mailbox,
 		fs_list_delete_dir,
-		fs_list_rename_mailbox,
-		NULL
+		fs_list_rename_mailbox
 	}
 };

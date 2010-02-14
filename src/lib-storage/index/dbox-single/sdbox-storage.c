@@ -203,21 +203,6 @@ dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return sdbox_write_index_header(box, update);
 }
 
-static int
-sdbox_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
-			  struct mailbox_list *newlist, const char *newname,
-			  bool rename_children)
-{
-	struct sdbox_mailbox_list *oldmlist = SDBOX_LIST_CONTEXT(oldlist);
-
-	if (oldmlist->module_ctx.super.
-	    		rename_mailbox(oldlist, oldname, newlist, newname,
-				       rename_children) < 0)
-		return -1;
-	return dbox_list_rename_mailbox(oldlist, oldname, newlist, newname,
-					rename_children);
-}
-
 static void sdbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 				   struct mailbox_list *list)
 {
@@ -225,10 +210,7 @@ static void sdbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 
 	mlist = p_new(list->pool, struct sdbox_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
-
 	list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
-	list->v.rename_mailbox = sdbox_list_rename_mailbox;
-	list->v.rename_mailbox_pre = dbox_list_rename_mailbox_pre;
 
 	MODULE_CONTEXT_SET(list, sdbox_mailbox_list_module, mlist);
 }
@@ -260,6 +242,7 @@ struct mailbox sdbox_mailbox = {
 		dbox_mailbox_create,
 		dbox_mailbox_update,
 		index_storage_mailbox_delete,
+		index_storage_mailbox_rename,
 		index_storage_get_status,
 		sdbox_mailbox_get_guid,
 		NULL,

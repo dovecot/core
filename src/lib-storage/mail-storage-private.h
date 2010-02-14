@@ -98,6 +98,8 @@ struct mailbox_vfuncs {
 		      bool directory);
 	int (*update)(struct mailbox *box, const struct mailbox_update *update);
 	int (*delete)(struct mailbox *box);
+	int (*rename)(struct mailbox *src, struct mailbox *dest,
+		      bool rename_children);
 
 	void (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			   struct mailbox_status *status_r);

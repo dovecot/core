@@ -231,10 +231,12 @@ lazy_expunge_mail_alloc(struct mailbox_transaction_context *t,
 }
 
 static int
-mailbox_move(struct mailbox_list *src_list, const char *src_name,
-	     struct mailbox_list *dest_list, const char **_dest_name)
+mailbox_move(struct mailbox *src_box, struct mailbox_list *dest_list,
+	     const char *wanted_destname, struct mailbox **dest_box_r)
 {
-	const char *dir, *origin, *dest_name = *_dest_name;
+	const char *dest_name = wanted_destname;
+	struct mailbox *dest_box;
+	const char *dir, *origin;
 	enum mail_error error;
 	mode_t mode;
 	gid_t gid;
@@ -244,14 +246,19 @@ mailbox_move(struct mailbox_list *src_list, const char *src_name,
 	dir = mailbox_list_get_path(dest_list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (mkdir_parents_chgrp(dir, mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
-		mailbox_list_set_critical(src_list,
+		mail_storage_set_critical(src_box->storage,
 			"mkdir_parents(%s) failed: %m", dir);
 		return -1;
 	}
 
-	while (mailbox_list_rename_mailbox(src_list, src_name,
-					   dest_list, dest_name, FALSE) < 0) {
-		mailbox_list_get_last_error(src_list, &error);
+	for (;;) {
+		dest_box = mailbox_alloc(dest_list, dest_name,
+					 MAILBOX_FLAG_OPEN_DELETED);
+		if (mailbox_rename(src_box, dest_box, FALSE) == 0)
+			break;
+		mailbox_free(&dest_box);
+
+		mail_storage_get_last_error(src_box->storage, &error);
 		switch (error) {
 		case MAIL_ERROR_EXISTS:
 			break;
@@ -261,12 +268,12 @@ mailbox_move(struct mailbox_list *src_list, const char *src_name,
 			return -1;
 		}
 
-		/* mailbox is being deleted multiple times per second.
-		   update the filename. */
-		dest_name = t_strdup_printf("%s-%04u", *_dest_name,
+		/* destination already exists. generate a different name. */
+		dest_name = t_strdup_printf("%s-%04u", wanted_destname,
 					    (uint32_t)random());
 	}
-	*_dest_name = dest_name;
+
+	*dest_box_r = dest_box;
 	return 1;
 }
 
@@ -378,10 +385,11 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 	}
 
 	/* first move the actual mailbox */
-	if ((ret = mailbox_move(list, box->name, dest_ns->list, &destname)) < 0)
+	if ((ret = mailbox_move(box, dest_ns->list, destname,
+				&expunge_box)) < 0)
 		return -1;
 	if (ret == 0) {
-		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;
 	}
@@ -389,12 +397,10 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 	/* other sessions now see the mailbox completely deleted.
 	   since it's not really deleted in the lazy-expunge namespace,
 	   we might want to change it again. so mark the index undeleted. */
-	expunge_box = mailbox_alloc(dest_ns->list, destname,
-				    MAILBOX_FLAG_OPEN_DELETED);
 	if (mailbox_open(expunge_box) < 0) {
 		str = mail_storage_get_last_error(expunge_box->storage, &error);
 		i_error("lazy_expunge: Couldn't open DELETEd mailbox "
-			"%s: %s", destname, str);
+			"%s: %s", expunge_box->name, str);
 		mailbox_free(&expunge_box);
 		return -1;
 	}
@@ -403,7 +409,7 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 		return -1;
 	}
 
-	if (expunge_ns == dest_ns && strcmp(destname, box->name) != 0)
+	if (expunge_ns == dest_ns && strcmp(expunge_box->name, box->name) != 0)
 		ret = mailbox_move_all_mails(expunge_box, box->name);
 	else
 		ret = 0;
@@ -412,11 +418,16 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 	/* next move the expunged messages mailbox, if it exists */
 	dest_ns = get_lazy_ns(list->ns->user, LAZY_NAMESPACE_DELETE_EXPUNGE);
 	if (expunge_ns != dest_ns) {
-		if (mailbox_move(expunge_ns->list, box->name,
-				 dest_ns->list, &destname) < 0)
-			ret = -1;
+		struct mailbox *ret_box;
+
+		expunge_box = mailbox_alloc(expunge_ns->list, box->name, 0);
+		ret = mailbox_move(expunge_box, dest_ns->list,
+				   destname, &ret_box);
+		if (ret > 0)
+			mailbox_free(&ret_box);
+		mailbox_free(&expunge_box);
 	}
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
 static void lazy_expunge_mailbox_allocated(struct mailbox *box)

@@ -792,6 +792,7 @@ struct mailbox mbox_mailbox = {
 		mbox_mailbox_create,
 		mbox_mailbox_update,
 		index_storage_mailbox_delete,
+		index_storage_mailbox_rename,
 		index_storage_get_status,
 		mbox_mailbox_get_guid,
 		NULL,

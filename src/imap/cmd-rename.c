@@ -7,6 +7,7 @@
 bool cmd_rename(struct client_command_context *cmd)
 {
 	struct mail_namespace *old_ns, *new_ns;
+	struct mailbox *old_box, *new_box;
 	const char *oldname, *newname;
 	unsigned int oldlen;
 
@@ -37,10 +38,13 @@ bool cmd_rename(struct client_command_context *cmd)
 		}
 	}
 
-	if (mailbox_list_rename_mailbox(old_ns->list, oldname,
-					new_ns->list, newname, TRUE) < 0)
-		client_send_list_error(cmd, old_ns->list);
+	old_box = mailbox_alloc(old_ns->list, oldname, 0);
+	new_box = mailbox_alloc(new_ns->list, newname, 0);
+	if (mailbox_rename(old_box, new_box, TRUE) < 0)
+		client_send_storage_error(cmd, mailbox_get_storage(old_box));
 	else
 		client_send_tagline(cmd, "OK Rename completed.");
+	mailbox_free(&old_box);
+	mailbox_free(&new_box);
 	return TRUE;
 }

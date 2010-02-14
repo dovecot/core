@@ -203,6 +203,7 @@ struct mailbox cydir_mailbox = {
 		cydir_mailbox_create,
 		index_storage_mailbox_update,
 		index_storage_mailbox_delete,
+		index_storage_mailbox_rename,
 		index_storage_get_status,
 		NULL,
 		NULL,
