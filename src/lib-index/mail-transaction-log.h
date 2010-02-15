@@ -280,5 +280,9 @@ bool mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
 /* Move currently opened log head file to memory (called by
    mail_index_move_to_memory()) */
 void mail_transaction_log_move_to_memory(struct mail_transaction_log *log);
+/* Returns mtime of the transaction log head file.
+   If it doesn't exist, mtime_r is set to 0. */
+int mail_transaction_log_get_mtime(struct mail_transaction_log *log,
+				   time_t *mtime_r);
 
 #endif

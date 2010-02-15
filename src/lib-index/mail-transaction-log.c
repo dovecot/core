@@ -509,3 +509,21 @@ bool mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
 	return log->head->hdr.prev_file_seq == file_seq &&
 		log->head->hdr.prev_file_offset == file_offset;
 }
+
+int mail_transaction_log_get_mtime(struct mail_transaction_log *log,
+				   time_t *mtime_r)
+{
+	struct stat st;
+
+	*mtime_r = 0;
+	if (stat(log->filepath, &st) < 0) {
+		if (errno == ENOENT)
+			return 0;
+
+		mail_index_file_set_syscall_error(log->index, log->filepath,
+						  "stat()");
+		return -1;
+	}
+	*mtime_r = st.st_mtime;
+	return 0;
+}

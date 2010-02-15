@@ -751,6 +751,23 @@ bool mail_index_is_deleted(struct mail_index *index)
 	return index->index_delete_requested || index->index_deleted;
 }
 
+int mail_index_get_modification_time(struct mail_index *index, time_t *mtime_r)
+{
+	struct stat st;
+
+	if (mail_transaction_log_get_mtime(index->log, mtime_r) < 0)
+		return -1;
+
+	if (*mtime_r == 0) {
+		if (stat(index->filepath, &st) < 0) {
+			mail_index_set_syscall_error(index, "stat()");
+			return -1;
+		}
+		*mtime_r = st.st_mtime;
+	}
+	return 0;
+}
+
 void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 {
 	mode_t mode;
