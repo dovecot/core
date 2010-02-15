@@ -571,16 +571,6 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 		return -1;
 	}
 
-	if ((alt_newpath != NULL && alt_oldpath == NULL) ||
-	    (alt_newpath == NULL && alt_oldpath != NULL)) {
-		/* both or neither source/dest must to have alt path defined.
-		   otherwise we'd have to do the merging ourself, which would
-		   be possible but a bit too much trouble for now */
-		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
-			"Can't rename mailboxes across specified storages.");
-		return -1;
-	}
-
 	if (alt_newpath != NULL) {
 		if (stat(alt_newpath, &st) == 0) {
 			/* race condition or a directory left there lying around?

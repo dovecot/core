@@ -490,8 +490,10 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 
 	if (src->list->v.rename_mailbox(src->list, src->name,
 					dest->list, dest->name,
-					rename_children) < 0)
+					rename_children) < 0) {
+		mail_storage_copy_list_error(src->storage, src->list);
 		return -1;
+	}
 
 	/* we'll track mailbox names, instead of GUIDs. We may be renaming a
 	   non-selectable mailbox (directory), which doesn't even have a GUID */

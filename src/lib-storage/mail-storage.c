@@ -666,9 +666,32 @@ int mailbox_delete(struct mailbox *box)
 	return ret;
 }
 
+static bool
+mail_storages_rename_compatible(struct mail_storage *storage1,
+				struct mail_storage *storage2)
+{
+	if (storage1 == storage2)
+		return TRUE;
+
+	if (strcmp(storage1->name, storage2->name) != 0)
+		return FALSE;
+	if ((storage1->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) != 0)
+		return FALSE;
+	return TRUE;
+}
+
 static bool nullequals(const void *p1, const void *p2)
 {
 	return (p1 == NULL && p2 == NULL) || (p1 != NULL && p2 != NULL);
+}
+
+static bool
+mailbox_lists_rename_compatible(struct mailbox_list *list1,
+				struct mailbox_list *list2)
+{
+	return nullequals(list1->set.alt_dir, list2->set.alt_dir) &&
+		nullequals(list1->set.index_dir, list2->set.index_dir) &&
+		nullequals(list1->set.control_dir, list2->set.control_dir);
 }
 
 int mailbox_rename(struct mailbox *src, struct mailbox *dest,
@@ -677,24 +700,19 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 	if (!mailbox_list_is_valid_existing_name(src->list, src->name) ||
 	    *src->name == '\0' ||
 	    !mailbox_list_is_valid_create_name(dest->list, dest->name)) {
-		mailbox_list_set_error(src->list, MAIL_ERROR_PARAMS,
+		mail_storage_set_error(src->storage, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
 	}
-	if (strcmp(src->storage->name, dest->storage->name) != 0) {
-		mailbox_list_set_error(src->list, MAIL_ERROR_NOTPOSSIBLE,
-			"Can't rename mailbox to another storage type.");
-		return -1;
-	}
-	if (!nullequals(src->list->set.index_dir, dest->list->set.index_dir) ||
-	    !nullequals(src->list->set.control_dir, dest->list->set.control_dir)) {
-		mailbox_list_set_error(src->list, MAIL_ERROR_NOTPOSSIBLE,
+	if (!mail_storages_rename_compatible(src->storage, dest->storage) ||
+	    !mailbox_lists_rename_compatible(src->list, dest->list)) {
+		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Can't rename mailboxes across specified storages.");
 		return -1;
 	}
 	if (src->list->ns->type != NAMESPACE_PRIVATE ||
 	    dest->list->ns->type != NAMESPACE_PRIVATE) {
-		mailbox_list_set_error(src->list, MAIL_ERROR_NOTPOSSIBLE,
+		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Renaming not supported across non-private namespaces.");
 		return -1;
 	}
