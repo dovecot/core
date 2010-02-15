@@ -569,8 +569,8 @@ uoff_t istream_raw_mbox_get_body_size(struct istream *stream,
 
 	i_assert(rstream->seeked);
 	i_assert(rstream->hdr_offset != (uoff_t)-1);
-	i_assert(rstream->body_offset != (uoff_t)-1);
 
+	(void)istream_raw_mbox_get_body_offset(stream);
 	body_size = rstream->mail_size == (uoff_t)-1 ? (uoff_t)-1 :
 		rstream->mail_size - (rstream->body_offset -
 				      rstream->hdr_offset);
