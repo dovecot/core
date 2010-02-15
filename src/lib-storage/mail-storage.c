@@ -1188,6 +1188,11 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 	struct mailbox *box = (*ctx)->transaction->box;
 	int ret;
 
+	if (mail_index_is_deleted(box->index)) {
+		mailbox_set_deleted(box);
+		return -1;
+	}
+
 	if (box->v.save_begin == NULL) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Saving messages not supported");
@@ -1242,6 +1247,13 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	int ret;
 
 	*_ctx = NULL;
+
+	if (mail_index_is_deleted(box->index)) {
+		mailbox_set_deleted(box);
+		mailbox_save_cancel(_ctx);
+		return -1;
+	}
+
 	ret = ctx->transaction->box->v.copy(ctx, mail);
 	if (keywords != NULL)
 		mailbox_keywords_unref(box, &keywords);

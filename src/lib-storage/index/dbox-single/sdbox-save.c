@@ -78,11 +78,6 @@ int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	struct dbox_file *file;
 	int ret;
 
-	if (mail_index_is_deleted(_ctx->transaction->box->index)) {
-		mailbox_set_deleted(_ctx->transaction->box);
-		return -1;
-	}
-
 	file = sdbox_file_init(ctx->mbox, 0);
 	ctx->append_ctx = dbox_file_append_init(file);
 	ret = dbox_file_get_append_stream(ctx->append_ctx,

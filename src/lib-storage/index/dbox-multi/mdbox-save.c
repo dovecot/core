@@ -97,11 +97,6 @@ int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	struct dbox_save_mail *save_mail;
 	uoff_t mail_size, append_offset;
 
-	if (mail_index_is_deleted(_ctx->transaction->box->index)) {
-		mailbox_set_deleted(_ctx->transaction->box);
-		return -1;
-	}
-
 	/* get the size of the mail to be saved, if possible */
 	if (i_stream_get_size(input, TRUE, &mail_size) <= 0) {
 		const struct stat *st;

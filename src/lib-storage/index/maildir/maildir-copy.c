@@ -170,11 +170,6 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 		return 0;
 	}
 
-	if (mail_index_is_deleted(dest_mbox->box.index)) {
-		mailbox_set_deleted(&dest_mbox->box);
-		return -1;
-	}
-
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path = str_new(default_pool, 512);
 
