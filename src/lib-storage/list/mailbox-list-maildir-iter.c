@@ -2,18 +2,22 @@
 
 #include "lib.h"
 #include "str.h"
+#include "ioloop.h"
+#include "unlink-directory.h"
 #include "imap-match.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
 #include "mailbox-list-maildir.h"
 
 #include <dirent.h>
+#include <sys/stat.h>
 
 struct maildir_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	pool_t pool;
 
 	const char *dir;
+	char prefix_char;
 
         struct mailbox_tree_context *tree_ctx;
 	struct mailbox_tree_iterate_context *tree_iter;
@@ -117,7 +121,7 @@ static void maildir_set_children(struct maildir_list_iterate_context *ctx,
 
 static int
 maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
-		   const char *mailbox_name, struct imap_match_glob *glob,
+		   struct imap_match_glob *glob,
 		   bool update_only)
 {
 	const struct mailbox_list_settings *set = &ctx->ctx.list->set;
@@ -136,9 +140,7 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 	} else {
 		/* INBOX is in Maildir root. show it only if it has already
 		   been created */
-		ret = ctx->ctx.list->v.
-			iter_is_mailbox(&ctx->ctx, ctx->dir, "", mailbox_name,
-					MAILBOX_LIST_FILE_TYPE_UNKNOWN, &flags);
+		ret = mailbox_list_mailbox(ctx->ctx.list, "INBOX", &flags);
 		if (ret < 0)
 			return -1;
 		if (ret == 0)
@@ -147,14 +149,14 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 
 	created = FALSE;
 	node = update_only ?
-		mailbox_tree_lookup(ctx->tree_ctx, mailbox_name) :
-		mailbox_tree_get(ctx->tree_ctx, mailbox_name, &created);
+		mailbox_tree_lookup(ctx->tree_ctx, "INBOX") :
+		mailbox_tree_get(ctx->tree_ctx, "INBO", &created);
 	if (created)
 		node->flags = MAILBOX_NOCHILDREN;
 	else if (node != NULL)
 		node->flags &= ~MAILBOX_NONEXISTENT;
 
-	match = imap_match(glob, mailbox_name);
+	match = imap_match(glob, "INBOX");
 	if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0) {
 		if (!update_only)
 			node->flags |= MAILBOX_MATCHED;
@@ -162,11 +164,120 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 	return 0;
 }
 
+static bool
+maildir_get_type(const char *dir, const char *fname,
+		 enum mailbox_list_file_type *type_r,
+		 struct stat *st_r,
+		 enum mailbox_info_flags *flags)
+{
+	const char *path;
+	struct stat st;
+
+	path = t_strdup_printf("%s/%s", dir, fname);
+	if (stat(path, &st) < 0) {
+		if (errno == ENOENT) {
+			/* just deleted? */
+			*flags |= MAILBOX_NONEXISTENT;
+		} else {
+			*flags |= MAILBOX_NOSELECT;
+		}
+		return FALSE;
+	}
+
+	*st_r = st;
+	if (S_ISDIR(st.st_mode)) {
+		*type_r = MAILBOX_LIST_FILE_TYPE_DIR;
+		return TRUE;
+	} else {
+		if (strncmp(fname, ".nfs", 4) == 0)
+			*flags |= MAILBOX_NONEXISTENT;
+		else
+			*flags |= MAILBOX_NOSELECT;
+		return FALSE;
+	}
+}
+
+int maildir_list_get_mailbox_flags(struct mailbox_list *list,
+				   const char *dir, const char *fname,
+				   enum mailbox_list_file_type type,
+				   struct stat *st_r,
+				   enum mailbox_info_flags *flags_r)
+{
+	memset(st_r, 0, sizeof(*st_r));
+	*flags_r = 0;
+
+	switch (type) {
+	case MAILBOX_LIST_FILE_TYPE_DIR:
+	case MAILBOX_LIST_FILE_TYPE_FILE:
+	case MAILBOX_LIST_FILE_TYPE_OTHER:
+		break;
+	case MAILBOX_LIST_FILE_TYPE_UNKNOWN:
+	case MAILBOX_LIST_FILE_TYPE_SYMLINK:
+		/* need to check with stat() to be sure */
+		if (!list->mail_set->maildir_stat_dirs &&
+		    strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 &&
+		    strncmp(fname, ".nfs", 4) != 0) {
+			/* just assume it's a valid mailbox */
+			return 1;
+		}
+
+		if (!maildir_get_type(dir, fname, &type, st_r, flags_r))
+			return 0;
+		break;
+	}
+
+	switch (type) {
+	case MAILBOX_LIST_FILE_TYPE_DIR:
+		if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
+			*flags_r |= MAILBOX_NOSELECT;
+			return 0;
+		}
+		break;
+	case MAILBOX_LIST_FILE_TYPE_FILE:
+		if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
+			*flags_r |= MAILBOX_NOSELECT;
+			return 0;
+		}
+		break;
+	case MAILBOX_LIST_FILE_TYPE_OTHER:
+		*flags_r |= MAILBOX_NOSELECT;
+		return 0;
+
+	case MAILBOX_LIST_FILE_TYPE_UNKNOWN:
+	case MAILBOX_LIST_FILE_TYPE_SYMLINK:
+		i_unreached();
+	}
+	*flags_r |= MAILBOX_SELECT;
+	return 1;
+}
+
+static bool maildir_delete_trash_dir(struct maildir_list_iterate_context *ctx,
+				     const char *fname)
+{
+	const char *path;
+	struct stat st;
+
+	if (fname[1] != ctx->prefix_char || ctx->prefix_char == '\0' ||
+	    strcmp(fname+2, MAILBOX_LIST_MAILDIR_TRASH_DIR_NAME) != 0)
+		return FALSE;
+
+	/* this directory is in the middle of being deleted, or the process
+	   trying to delete it had died. delete it ourself if it's been there
+	   longer than one hour. */
+	path = t_strdup_printf("%s/%s", ctx->dir, fname);
+	if (stat(path, &st) == 0 &&
+	    st.st_mtime < ioloop_time - 3600)
+		(void)unlink_directory(path, TRUE);
+
+	return TRUE;
+}
+
 static int
 maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		     struct imap_match_glob *glob, bool update_only)
 {
-	struct mail_namespace *ns = ctx->ctx.list->ns;
+	struct mailbox_list *list = ctx->ctx.list;
+	struct mail_namespace *ns = list->ns;
 	DIR *dirp;
 	struct dirent *d;
 	const char *mailbox_name;
@@ -175,16 +286,16 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 	enum imap_match_result match;
 	struct mailbox_node *node;
 	bool created, virtual_names;
-	char prefix_char;
+	struct stat st;
 	int ret;
 
 	dirp = opendir(ctx->dir);
 	if (dirp == NULL) {
 		if (errno == EACCES) {
-			mailbox_list_set_critical(ctx->ctx.list, "%s",
+			mailbox_list_set_critical(list, "%s",
 				mail_error_eacces_msg("opendir", ctx->dir));
 		} else if (errno != ENOENT) {
-			mailbox_list_set_critical(ctx->ctx.list,
+			mailbox_list_set_critical(list,
 				"opendir(%s) failed: %m", ctx->dir);
 			return -1;
 		}
@@ -192,18 +303,15 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 	}
 
 	virtual_names = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0;
-	prefix_char =
-		strcmp(ctx->ctx.list->name, MAILBOX_LIST_NAME_IMAPDIR) != 0 ?
-		ctx->ctx.list->hierarchy_sep : '\0';
 
 	mailbox = t_str_new(MAILBOX_LIST_NAME_MAX_LENGTH);
 	while ((d = readdir(dirp)) != NULL) {
 		const char *fname = d->d_name;
 
-		if (fname[0] == prefix_char)
+		if (fname[0] == ctx->prefix_char)
 			mailbox_name = fname + 1;
 		else {
-			if (prefix_char != '\0' || fname[0] == '.')
+			if (ctx->prefix_char != '\0' || fname[0] == '.')
 				continue;
 			mailbox_name = fname;
 		}
@@ -228,12 +336,12 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 			continue;
 
 		/* check if this is an actual mailbox */
-		flags = 0;
+		if (maildir_delete_trash_dir(ctx, fname))
+			continue;
+
 		T_BEGIN {
-			ret = ctx->ctx.list->v.
-				iter_is_mailbox(&ctx->ctx, ctx->dir, fname,
-					mailbox_name,
-					mailbox_list_get_file_type(d), &flags);
+			ret = list->v.get_mailbox_flags(list, ctx->dir, fname,
+				mailbox_list_get_file_type(d), &st, &flags);
 		} T_END;
 		if (ret <= 0) {
 			if (ret < 0)
@@ -276,8 +384,8 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 	}
 
 	if (closedir(dirp) < 0) {
-		mailbox_list_set_critical(ctx->ctx.list,
-					  "readdir(%s) failed: %m", ctx->dir);
+		mailbox_list_set_critical(list, "readdir(%s) failed: %m",
+					  ctx->dir);
 		return -1;
 	}
 
@@ -285,9 +393,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		return 0;
 	else {
 		/* make sure INBOX is listed */
-		mailbox_name = !virtual_names ? "INBOX" :
-			mail_namespace_get_vname(ns, mailbox, "INBOX");
-		return maildir_fill_inbox(ctx, mailbox_name, glob, update_only);
+		return maildir_fill_inbox(ctx, glob, update_only);
 	}
 }
 
@@ -311,6 +417,8 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->pool = pool;
 	ctx->tree_ctx = mailbox_tree_init(sep);
 	ctx->info.ns = _list->ns;
+	ctx->prefix_char = strcmp(_list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0 ?
+		'\0' : _list->hierarchy_sep;
 
 	glob = imap_match_init_multiple(pool, patterns, TRUE, sep);
 

@@ -150,10 +150,10 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 				continue;
 		}
 
+		mailbox_dir = list->v.is_internal_name != NULL &&
+			list->v.is_internal_name(list, d->d_name);
+
 		str_truncate(full_path, dir_len);
-		mailbox_dir = list->v.is_mailbox_dir != NULL &&
-			list->v.is_mailbox_dir(list, str_c(full_path),
-					       d->d_name);
 		str_append(full_path, d->d_name);
 
 		if (mailbox_dir) {

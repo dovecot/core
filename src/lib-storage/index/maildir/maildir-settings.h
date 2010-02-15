@@ -2,7 +2,6 @@
 #define MAILDIR_SETTINGS_H
 
 struct maildir_settings {
-	bool maildir_stat_dirs;
 	bool maildir_copy_with_hardlinks;
 	bool maildir_copy_preserve_filename;
 	bool maildir_very_dirty_syncs;

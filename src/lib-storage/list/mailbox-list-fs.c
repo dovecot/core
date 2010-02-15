@@ -52,9 +52,7 @@ static bool fs_list_is_valid_common(const char *name, size_t *len_r)
 static bool
 fs_list_is_valid_common_nonfs(struct mailbox_list *list, const char *name)
 {
-	const char *p;
-	bool newdir;
-	size_t maildir_len;
+	bool ret, allow_internal_dirs;
 
 	/* make sure it's not absolute path */
 	if (*name == '/' || *name == '~')
@@ -63,38 +61,37 @@ fs_list_is_valid_common_nonfs(struct mailbox_list *list, const char *name)
 	/* make sure the mailbox name doesn't contain any foolishness:
 	   "../" could give access outside the mailbox directory.
 	   "./" and "//" could fool ACL checks. */
-	newdir = TRUE;
-	maildir_len = strlen(list->set.maildir_name);
-	for (p = name; *p != '\0'; p++) {
-		if (newdir) {
-			if (p[0] == '/')
-				return FALSE; /* // */
-			if (p[0] == '.') {
-				if (p[1] == '/' || p[1] == '\0')
-					return FALSE; /* ./ */
-				if (p[1] == '.' &&
-				    (p[2] == '/' || p[2] == '\0'))
-					return FALSE; /* ../ */
+	allow_internal_dirs = list->v.is_internal_name == NULL ||
+		*list->set.maildir_name != '\0';
+	T_BEGIN {
+		const char *const *names;
+
+		names = t_strsplit(name, "/");
+		for (; *names != NULL; names++) {
+			const char *n = *names;
+
+			if (*n == '\0')
+				break; /* // */
+			if (*n == '.') {
+				if (n[1] == '\0')
+					break; /* ./ */
+				if (n[1] == '.' && n[2] == '\0')
+					break; /* ../ */
 			}
-			if (maildir_len > 0 &&
-			    strncmp(p, list->set.maildir_name,
-				    maildir_len) == 0 &&
-			    (p[maildir_len] == '\0' ||
-			     p[maildir_len] == '/')) {
+			if (*list->set.maildir_name != '\0' &&
+			    strcmp(list->set.maildir_name, n) == 0) {
 				/* don't allow maildir_name to be used as part
 				   of the mailbox name */
-				return FALSE;
+				break;
 			}
-		} 
-		newdir = p[0] == '/';
-	}
-	if (name[0] == '.' && (name[1] == '\0' ||
-			       (name[1] == '.' && name[2] == '\0'))) {
-		/* "." and ".." aren't allowed. */
-		return FALSE;
-	}
+			if (!allow_internal_dirs &&
+			    list->v.is_internal_name(list, n))
+				break;
+		}
+		ret = *names == NULL;
+	} T_END;
 
-	return TRUE;
+	return ret;
 }
 
 static bool
@@ -237,12 +234,25 @@ fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 {
 	struct stat st;
 	const char *path, *dir_path;
+	enum mailbox_info_flags flags;
 
 	path = mailbox_list_get_path(_list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	if (strcmp(name, "INBOX") == 0 || stat(path, &st) == 0) {
-		*status = MAILBOX_NAME_EXISTS_MAILBOX;
+		if (*_list->set.maildir_name != '\0' ||
+		    _list->v.is_internal_name == NULL || !S_ISDIR(st.st_mode)) {
+			*status = MAILBOX_NAME_EXISTS_MAILBOX;
+			return 0;
+		}
+
+		/* check if mailbox is selectable */
+		if (mailbox_list_mailbox(_list, name, &flags) < 0)
+			return -1;
+		if ((flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0)
+			*status = MAILBOX_NAME_EXISTS_MAILBOX;
+		else
+			*status = MAILBOX_NAME_EXISTS_DIR;
 		return 0;
 	}
 	if (errno == ENOENT) {
@@ -625,7 +635,7 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_iter_init,
 		fs_list_iter_next,
 		fs_list_iter_deinit,
-		NULL,
+		fs_list_get_mailbox_flags,
 		NULL,
 		fs_list_set_subscribed,
 		fs_list_create_mailbox_dir,

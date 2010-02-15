@@ -663,18 +663,21 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r)
 {
-	struct mailbox_list_iterate_context ctx;
-	const char *path;
+	const char *path, *fname;
+	struct stat st;
 
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.list = list;
-
-	*flags_r = 0;
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
-	return list->v.iter_is_mailbox == NULL ? 0 :
-		list->v.iter_is_mailbox(&ctx, path, "", "",
-					MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-					flags_r);
+	fname = strrchr(path, '/');
+	if (fname == NULL) {
+		fname = path;
+		path = "/";
+	} else {
+		path = t_strdup_until(path, fname);
+		fname++;
+	}
+	return list->v.get_mailbox_flags(list, path, fname,
+					 MAILBOX_LIST_FILE_TYPE_UNKNOWN,
+					 &st, flags_r);
 }
 
 static bool mailbox_list_init_changelog(struct mailbox_list *list)

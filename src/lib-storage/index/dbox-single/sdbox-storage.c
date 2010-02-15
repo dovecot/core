@@ -8,19 +8,9 @@
 #include "sdbox-sync.h"
 #include "sdbox-storage.h"
 
-#define SDBOX_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, sdbox_mailbox_list_module)
-
-struct sdbox_mailbox_list {
-	union mailbox_list_module_context module_ctx;
-};
-
 extern struct mail_storage dbox_storage;
 extern struct mailbox sdbox_mailbox;
 extern struct dbox_storage_vfuncs sdbox_dbox_storage_vfuncs;
-
-static MODULE_CONTEXT_DEFINE_INIT(sdbox_mailbox_list_module,
-				  &mailbox_list_module_register);
 
 static struct mail_storage *sdbox_storage_alloc(void)
 {
@@ -203,18 +193,6 @@ dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return sdbox_write_index_header(box, update);
 }
 
-static void sdbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
-				   struct mailbox_list *list)
-{
-	struct sdbox_mailbox_list *mlist;
-
-	mlist = p_new(list->pool, struct sdbox_mailbox_list, 1);
-	mlist->module_ctx.super = list->v;
-	list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
-
-	MODULE_CONTEXT_SET(list, sdbox_mailbox_list_module, mlist);
-}
-
 struct mail_storage dbox_storage = {
 	.name = SDBOX_STORAGE_NAME,
 	.class_flags = 0,
@@ -224,7 +202,7 @@ struct mail_storage dbox_storage = {
 		sdbox_storage_alloc,
 		NULL,
 		NULL,
-		sdbox_storage_add_list,
+		NULL,
 		dbox_storage_get_list_settings,
 		NULL,
 		sdbox_mailbox_alloc,

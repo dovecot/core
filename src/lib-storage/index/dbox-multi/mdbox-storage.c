@@ -14,19 +14,9 @@
 #include "mdbox-storage-rebuild.h"
 #include "mdbox-storage.h"
 
-#define MDBOX_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mdbox_mailbox_list_module)
-
-struct mdbox_mailbox_list {
-	union mailbox_list_module_context module_ctx;
-};
-
 extern struct mail_storage mdbox_storage;
 extern struct mailbox mdbox_mailbox;
 extern struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs;
-
-static MODULE_CONTEXT_DEFINE_INIT(mdbox_mailbox_list_module,
-				  &mailbox_list_module_register);
 
 static struct mail_storage *mdbox_storage_alloc(void)
 {
@@ -313,18 +303,6 @@ static int mdbox_mailbox_delete(struct mailbox *box)
 	return index_storage_mailbox_delete(box);
 }
 
-static void dbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
-				  struct mailbox_list *list)
-{
-	struct mdbox_mailbox_list *mlist;
-
-	mlist = p_new(list->pool, struct mdbox_mailbox_list, 1);
-	mlist->module_ctx.super = list->v;
-	list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
-
-	MODULE_CONTEXT_SET(list, mdbox_mailbox_list_module, mlist);
-}
-
 struct mail_storage mdbox_storage = {
 	.name = MDBOX_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT,
@@ -334,7 +312,7 @@ struct mail_storage mdbox_storage = {
 		mdbox_storage_alloc,
 		mdbox_storage_create,
 		mdbox_storage_destroy,
-		dbox_storage_add_list,
+		NULL,
 		dbox_storage_get_list_settings,
 		NULL,
 		mdbox_mailbox_alloc,

@@ -12,7 +12,6 @@
 	{ type, #name, offsetof(struct maildir_settings, name), NULL }
 
 static const struct setting_define maildir_setting_defines[] = {
-	DEF(SET_BOOL, maildir_stat_dirs),
 	DEF(SET_BOOL, maildir_copy_with_hardlinks),
 	DEF(SET_BOOL, maildir_copy_preserve_filename),
 	DEF(SET_BOOL, maildir_very_dirty_syncs),
@@ -21,7 +20,6 @@ static const struct setting_define maildir_setting_defines[] = {
 };
 
 static const struct maildir_settings maildir_default_settings = {
-	.maildir_stat_dirs = FALSE,
 	.maildir_copy_with_hardlinks = TRUE,
 	.maildir_copy_preserve_filename = FALSE,
 	.maildir_very_dirty_syncs = FALSE

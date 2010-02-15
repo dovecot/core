@@ -41,6 +41,7 @@ enum mailbox_info_flags {
 	MAILBOX_CHILD_SUBSCRIBED	= 0x100,
 
 	/* Internally used by lib-storage */
+	MAILBOX_SELECT			= 0x20000000,
 	MAILBOX_MATCHED			= 0x40000000
 };
 

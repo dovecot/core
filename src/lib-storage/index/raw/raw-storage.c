@@ -109,54 +109,6 @@ static void raw_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
 }
 
-static int raw_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
-				    const char *dir, const char *fname,
-				    const char *mailbox_name ATTR_UNUSED,
-				    enum mailbox_list_file_type type,
-				    enum mailbox_info_flags *flags_r)
-{
-	const char *path;
-	struct stat st;
-
-	/* try to avoid stat() with these checks */
-	if (type == MAILBOX_LIST_FILE_TYPE_DIR) {
-		*flags_r = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
-		return 1;
-	}
-	if (type != MAILBOX_LIST_FILE_TYPE_SYMLINK &&
-	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN &&
-	    (ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
-		*flags_r = MAILBOX_NOINFERIORS;
-		return 1;
-	}
-
-	/* need to stat() then */
-	path = t_strconcat(dir, "/", fname, NULL);
-	if (stat(path, &st) == 0) {
-		if (S_ISDIR(st.st_mode))
-			*flags_r = MAILBOX_NOSELECT | MAILBOX_CHILDREN;
-		else
-			*flags_r = MAILBOX_NOINFERIORS;
-		return 1;
-	} else if (errno == EACCES || errno == ELOOP) {
-		*flags_r = MAILBOX_NOSELECT;
-		return 1;
-	} else if (ENOTFOUND(errno)) {
-		*flags_r = MAILBOX_NONEXISTENT;
-		return 0;
-	} else {
-		mailbox_list_set_critical(ctx->list, "stat(%s) failed: %m",
-					  path);
-		return -1;
-	}
-}
-
-static void raw_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
-				 struct mailbox_list *list)
-{
-	list->v.iter_is_mailbox = raw_list_iter_is_mailbox;
-}
-
 struct mail_storage raw_storage = {
 	.name = RAW_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
@@ -167,7 +119,7 @@ struct mail_storage raw_storage = {
 		raw_storage_alloc,
 		NULL,
 		NULL,
-		raw_storage_add_list,
+		NULL,
 		raw_storage_get_list_settings,
 		NULL,
 		raw_mailbox_alloc,

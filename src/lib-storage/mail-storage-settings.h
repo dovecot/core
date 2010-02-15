@@ -24,6 +24,7 @@ struct mail_storage_settings {
 	bool mailbox_list_index_disable;
 	bool mail_debug;
 	bool mail_full_filesystem_access;
+	bool maildir_stat_dirs;
 	const char *lock_method;
 	const char *pop3_uidl_format;
 

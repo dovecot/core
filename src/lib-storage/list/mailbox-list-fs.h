@@ -24,4 +24,10 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *ctx);
 const struct mailbox_info *
 fs_list_iter_next(struct mailbox_list_iterate_context *ctx);
 
+int fs_list_get_mailbox_flags(struct mailbox_list *list,
+			      const char *dir, const char *fname,
+			      enum mailbox_list_file_type type,
+			      struct stat *st_r,
+			      enum mailbox_info_flags *flags);
+
 #endif

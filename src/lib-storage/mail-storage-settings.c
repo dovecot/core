@@ -37,6 +37,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_BOOL, mailbox_list_index_disable),
 	DEF(SET_BOOL, mail_debug),
 	DEF(SET_BOOL, mail_full_filesystem_access),
+	DEF(SET_BOOL, maildir_stat_dirs),
 	DEF(SET_ENUM, lock_method),
 	DEF(SET_STR, pop3_uidl_format),
 
@@ -59,6 +60,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_list_index_disable = FALSE,
 	.mail_debug = FALSE,
 	.mail_full_filesystem_access = FALSE,
+	.maildir_stat_dirs = FALSE,
 	.lock_method = "fcntl:flock:dotlock",
 	.pop3_uidl_format = "%08Xu%08Xv"
 };

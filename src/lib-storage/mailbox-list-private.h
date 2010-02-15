@@ -12,9 +12,15 @@
 #define MAILBOX_LOG_FILE_NAME "dovecot.mailbox.log"
 
 enum mailbox_log_record_type;
+struct stat;
 struct dirent;
 struct imap_match_glob;
 struct mailbox_tree_context;
+
+#define MAILBOX_INFO_FLAGS_FINISHED(flags) \
+	(((flags) & (MAILBOX_SELECT | MAILBOX_NOSELECT | \
+		     MAILBOX_NONEXISTENT)) != 0)
+
 
 struct mailbox_list_vfuncs {
 	struct mailbox_list *(*alloc)(void);
@@ -47,17 +53,14 @@ struct mailbox_list_vfuncs {
 		(*iter_next)(struct mailbox_list_iterate_context *ctx);
 	int (*iter_deinit)(struct mailbox_list_iterate_context *ctx);
 
-	/* Returns -1 if error, 0 if it's not a valid mailbox, 1 if it is.
-	   flags may be updated (especially the children flags). */
-	int (*iter_is_mailbox)(struct mailbox_list_iterate_context *ctx,
-			       const char *dir, const char *fname,
-			       const char *mailbox_name,
-			       enum mailbox_list_file_type type,
-			       enum mailbox_info_flags *flags_r);
-	/* Returns TRUE if dir/name points to mailbox's internal directory.
+	int (*get_mailbox_flags)(struct mailbox_list *list,
+				 const char *dir, const char *fname,
+				 enum mailbox_list_file_type type,
+				 struct stat *st_r,
+				 enum mailbox_info_flags *flags_r);
+	/* Returns TRUE if name is mailbox's internal file/directory.
 	   If it does, mailbox deletion assumes it can safely delete it. */
-	bool (*is_mailbox_dir)(struct mailbox_list *list, const char *dir,
-			       const char *name);
+	bool (*is_internal_name)(struct mailbox_list *list, const char *name);
 
 	int (*set_subscribed)(struct mailbox_list *list,
 			      const char *name, bool set);

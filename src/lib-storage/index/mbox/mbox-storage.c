@@ -583,111 +583,17 @@ static void mbox_notify_changes(struct mailbox *box)
 }
 
 static bool
-is_inbox_file(struct mailbox_list *list, const char *path, const char *fname)
+mbox_is_internal_name(struct mailbox_list *list ATTR_UNUSED,
+		      const char *name)
 {
-	const char *inbox_path;
+	unsigned int len;
 
-	if (strcasecmp(fname, "INBOX") != 0)
-		return FALSE;
+	/* don't allow *.lock files/dirs */
+	len = strlen(name);
+	if (len > 5 && strcmp(name+len-5, ".lock") == 0)
+		return TRUE;
 
-	inbox_path = mailbox_list_get_path(list, "INBOX",
-					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	return strcmp(inbox_path, path) == 0;
-}
-
-static bool mbox_name_is_dotlock(const char *name)
-{
-	unsigned int len = strlen(name);
-
-	return len >= 5 && strcmp(name + len - 5, ".lock") == 0;
-}
-
-static bool
-mbox_is_valid_existing_name(struct mailbox_list *list, const char *name)
-{
-	struct mbox_mailbox_list *mlist = MBOX_LIST_CONTEXT(list);
-
-	return mlist->module_ctx.super.is_valid_existing_name(list, name) &&
-		!mbox_name_is_dotlock(name);
-}
-
-static bool
-mbox_is_valid_create_name(struct mailbox_list *list, const char *name)
-{
-	struct mbox_mailbox_list *mlist = MBOX_LIST_CONTEXT(list);
-
-	return mlist->module_ctx.super.is_valid_create_name(list, name) &&
-		!mbox_name_is_dotlock(name);
-}
-
-static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
-				     const char *dir, const char *fname,
-				     const char *mailbox_name ATTR_UNUSED,
-				     enum mailbox_list_file_type type,
-				     enum mailbox_info_flags *flags)
-{
-	const char *path, *root_dir;
-	size_t len;
-	struct stat st;
-
-	if (strcmp(fname, MBOX_INDEX_DIR_NAME) == 0) {
-		*flags |= MAILBOX_NOSELECT;
-		return 0;
-	}
-	if (strcmp(fname, ctx->list->set.subscription_fname) == 0) {
-		root_dir = mailbox_list_get_path(ctx->list, NULL,
-						 MAILBOX_LIST_PATH_TYPE_DIR);
-		if (strcmp(root_dir, dir) == 0) {
-			*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
-			return 0;
-		}
-	}
-
-	/* skip all .lock files */
-	len = strlen(fname);
-	if (len > 5 && strcmp(fname+len-5, ".lock") == 0) {
-		*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
-		return 0;
-	}
-
-	/* try to avoid stat() with these checks */
-	if (type == MAILBOX_LIST_FILE_TYPE_DIR) {
-		*flags |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
-		return 1;
-	}
-	if (type != MAILBOX_LIST_FILE_TYPE_SYMLINK &&
-	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN &&
-	    (ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
-		*flags |= MAILBOX_NOINFERIORS;
-		return 1;
-	}
-
-	/* need to stat() then */
-	path = t_strconcat(dir, "/", fname, NULL);
-	if (stat(path, &st) == 0) {
-		if (S_ISDIR(st.st_mode))
-			*flags |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
-		else {
-			*flags |= MAILBOX_NOINFERIORS | STAT_GET_MARKED(st);
-			if (is_inbox_file(ctx->list, path, fname) &&
-			    strcmp(fname, "INBOX") != 0) {
-				/* it's possible for INBOX to have child
-				   mailboxes as long as the inbox file itself
-				   isn't in <mail root>/INBOX */
-				*flags &= ~MAILBOX_NOINFERIORS;
-			}
-		}
-		return 1;
-	} else if (errno == ENOENT) {
-		/* doesn't exist - probably a non-existing subscribed mailbox */
-		*flags |= MAILBOX_NONEXISTENT;
-		return 1;
-	} else {
-		/* non-selectable. probably either access denied, or symlink
-		   destination not found. don't bother logging errors. */
-		*flags |= MAILBOX_NOSELECT;
-		return 0;
-	}
+	return strcmp(name, MBOX_INDEX_DIR_NAME) == 0;
 }
 
 static void mbox_storage_add_list(struct mail_storage *storage,
@@ -704,9 +610,7 @@ static void mbox_storage_add_list(struct mail_storage *storage,
 		/* have to use .imap/ directories */
 		list->v.get_path = mbox_list_get_path;
 	}
-	list->v.iter_is_mailbox = mbox_list_iter_is_mailbox;
-	list->v.is_valid_existing_name = mbox_is_valid_existing_name;
-	list->v.is_valid_create_name = mbox_is_valid_create_name;
+	list->v.is_internal_name = mbox_is_internal_name;
 
 	MODULE_CONTEXT_SET(list, mbox_mailbox_list_module, mlist);
 }

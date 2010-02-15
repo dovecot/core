@@ -49,10 +49,5 @@ void dbox_notify_changes(struct mailbox *box);
 int dbox_mailbox_open(struct mailbox *box);
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory);
-int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
-			      const char *dir, const char *fname,
-			      const char *mailbox_name,
-			      enum mailbox_list_file_type type,
-			      enum mailbox_info_flags *flags);
 
 #endif

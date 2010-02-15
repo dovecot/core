@@ -4,10 +4,8 @@
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "eacces-error.h"
-#include "unlink-directory.h"
 #include "unlink-old-files.h"
 #include "mailbox-uidvalidity.h"
-#include "list/mailbox-list-maildir.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
@@ -30,52 +28,6 @@ extern struct mailbox maildir_mailbox;
 static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
 				  &mailbox_list_module_register);
 static const char *maildir_subdirs[] = { "cur", "new", "tmp" };
-
-static bool maildir_is_internal_name(const char *name)
-{
-	return strcmp(name, "cur") == 0 ||
-		strcmp(name, "new") == 0 ||
-		strcmp(name, "tmp") == 0;
-}
-
-static bool maildir_storage_is_valid_existing_name(struct mailbox_list *list,
-						   const char *name)
-{
-	struct maildir_mailbox_list_context *mlist = MAILDIR_LIST_CONTEXT(list);
-	const char *p;
-
-	if (!mlist->module_ctx.super.is_valid_existing_name(list, name))
-		return FALSE;
-
-	/* Don't allow the mailbox name to end in cur/new/tmp */
-	p = strrchr(name, '/');
-	if (p != NULL)
-		name = p + 1;
-	return !maildir_is_internal_name(name);
-}
-
-static bool maildir_storage_is_valid_create_name(struct mailbox_list *list,
-						 const char *name)
-{
-	struct maildir_mailbox_list_context *mlist = MAILDIR_LIST_CONTEXT(list);
-	bool ret = TRUE;
-
-	if (!mlist->module_ctx.super.is_valid_create_name(list, name))
-		return FALSE;
-
-	/* Don't allow creating mailboxes under cur/new/tmp */
-	T_BEGIN {
-		const char *const *tmp;
-
-		for (tmp = t_strsplit(name, "/"); *tmp != NULL; tmp++) {
-			if (maildir_is_internal_name(*tmp)) {
-				ret = FALSE;
-				break;
-			}
-		}
-	} T_END;
-	return ret;
-}
 
 static struct mail_storage *maildir_storage_alloc(void)
 {
@@ -128,7 +80,7 @@ static void maildir_storage_get_list_settings(const struct mail_namespace *ns,
 	if (set->subscription_fname == NULL)
 		set->subscription_fname = MAILDIR_SUBSCRIPTION_FILE_NAME;
 
-	if (set->inbox_path == NULL &&
+	if (set->inbox_path == NULL && set->maildir_name == NULL &&
 	    (strcmp(set->layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
 	     strcmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
@@ -533,191 +485,49 @@ static void maildir_notify_changes(struct mailbox *box)
 }
 
 static bool
-maildir_is_mailbox_dir(struct mailbox_list *list ATTR_UNUSED,
-		       const char *dir ATTR_UNUSED, const char *name)
+maildir_is_internal_name(struct mailbox_list *list ATTR_UNUSED,
+			 const char *name)
 {
-	return maildir_is_internal_name(name);
+	return strcmp(name, "cur") == 0 ||
+		strcmp(name, "new") == 0 ||
+		strcmp(name, "tmp") == 0;
 }
 
 static int
-maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
-			     	ATTR_UNUSED,
-			     const char *dir, const char *fname,
-			     const char *mailbox_name ATTR_UNUSED,
-			     enum mailbox_list_file_type type,
-			     enum mailbox_info_flags *flags)
+maildir_list_get_mailbox_flags(struct mailbox_list *list,
+			       const char *dir, const char *fname,
+			       enum mailbox_list_file_type type,
+			       struct stat *st_r,
+			       enum mailbox_info_flags *flags)
 {
-	struct stat st, st2;
-	const char *path, *cur_path;
+	struct maildir_mailbox_list_context *mlist = MAILDIR_LIST_CONTEXT(list);
+	struct stat st2;
+	const char *cur_path;
 	int ret;
 
-	if (maildir_is_internal_name(fname)) {
-		*flags |= MAILBOX_NONEXISTENT;
-		return 0;
-	}
+	ret = mlist->module_ctx.super.
+		get_mailbox_flags(list, dir, fname, type, st_r, flags);
+	if (ret <= 0 || MAILBOX_INFO_FLAGS_FINISHED(*flags))
+		return ret;
 
-	switch (type) {
-	case MAILBOX_LIST_FILE_TYPE_FILE:
-	case MAILBOX_LIST_FILE_TYPE_OTHER:
-		/* non-directories are not */
+	/* see if it's a selectable mailbox. after that we can figure out based
+	   on the link count if we have child mailboxes or not. for a
+	   selectable mailbox we have 3 more links (cur/, new/ and tmp/)
+	   than non-selectable. */
+	cur_path = t_strconcat(dir, "/", fname, "/cur", NULL);
+	if (stat(cur_path, &st2) < 0 || !S_ISDIR(st2.st_mode)) {
 		*flags |= MAILBOX_NOSELECT;
-		return 0;
-
-	case MAILBOX_LIST_FILE_TYPE_DIR:
-	case MAILBOX_LIST_FILE_TYPE_UNKNOWN:
-	case MAILBOX_LIST_FILE_TYPE_SYMLINK:
-		break;
-	}
-
-	path = t_strdup_printf("%s/%s", dir, fname);
-	if (stat(path, &st) == 0) {
-		if (!S_ISDIR(st.st_mode)) {
-			if (strncmp(fname, ".nfs", 4) == 0) {
-				/* temporary NFS file */
-				*flags |= MAILBOX_NONEXISTENT;
-			} else {
-				*flags |= MAILBOX_NOSELECT |
-					MAILBOX_NOINFERIORS;
-			}
-			return 0;
-		}
-		ret = 1;
-	} else if (errno == ENOENT) {
-		/* doesn't exist - probably a non-existing subscribed mailbox */
-		*flags |= MAILBOX_NONEXISTENT;
-		ret = 0;
+		if (st_r->st_nlink > 2)
+			*flags |= MAILBOX_CHILDREN;
+		else
+			*flags |= MAILBOX_NOCHILDREN;
 	} else {
-		/* non-selectable. probably either access denied, or symlink
-		   destination not found. don't bother logging errors. */
-		*flags |= MAILBOX_NOSELECT;
-		ret = 1;
+		if (st_r->st_nlink > 5)
+			*flags |= MAILBOX_CHILDREN;
+		else
+			*flags |= MAILBOX_NOCHILDREN;
 	}
-	if ((*flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0) {
-		/* make sure it's a selectable mailbox */
-		cur_path = t_strconcat(path, "/cur", NULL);
-		if (stat(cur_path, &st2) < 0 || !S_ISDIR(st2.st_mode))
-			*flags |= MAILBOX_NOSELECT;
-
-		if (*ctx->list->set.maildir_name == '\0') {
-			/* now we can figure out based on the link count if we
-			   have child mailboxes or not. for a selectable
-			   mailbox we have 3 more links (cur/, new/ and tmp/)
-			   than non-selectable. */
-			if ((*flags & MAILBOX_NOSELECT) == 0) {
-				if (st.st_nlink > 5)
-					*flags |= MAILBOX_CHILDREN;
-				else
-					*flags |= MAILBOX_NOCHILDREN;
-			} else {
-				if (st.st_nlink > 2)
-					*flags |= MAILBOX_CHILDREN;
-				else
-					*flags |= MAILBOX_NOCHILDREN;
-			}
-		} else {
-			/* link count 3 may mean either a selectable mailbox
-			   or a non-selectable mailbox with 1 child. */
-			if (st.st_nlink > 3)
-				*flags |= MAILBOX_CHILDREN;
-			else if (st.st_nlink == 3) {
-				if ((*flags & MAILBOX_NOSELECT) != 0)
-					*flags |= MAILBOX_CHILDREN;
-				else
-					*flags |= MAILBOX_NOCHILDREN;
-			}
-		}
-	}
-	return ret;
-}
-
-static int
-maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
-				const char *dir, const char *fname,
-				const char *mailbox_name ATTR_UNUSED,
-				enum mailbox_list_file_type type,
-				enum mailbox_info_flags *flags)
-{
-	struct maildir_mailbox_list_context *mlist =
-		MAILDIR_LIST_CONTEXT(ctx->list);
-	int ret;
-
-	if (fname[1] == mailbox_list_get_hierarchy_sep(ctx->list) &&
-	    strcmp(fname+2, MAILBOX_LIST_MAILDIR_TRASH_DIR_NAME) == 0) {
-		const char *path;
-		struct stat st;
-
-		/* this directory is in the middle of being deleted,
-		   or the process trying to delete it had died.
-		   delete it ourself if it's been there longer than
-		   one hour. */
-		path = t_strdup_printf("%s/%s", dir, fname);
-		if (stat(path, &st) == 0 &&
-		    st.st_mtime < ioloop_time - 3600)
-			(void)unlink_directory(path, TRUE);
-
-		*flags |= MAILBOX_NONEXISTENT;
-		return 0;
-	}
-
-	switch (type) {
-	case MAILBOX_LIST_FILE_TYPE_DIR:
-		/* all directories are valid maildirs */
-		return 1;
-
-	case MAILBOX_LIST_FILE_TYPE_FILE:
-	case MAILBOX_LIST_FILE_TYPE_OTHER:
-		/* non-directories are not */
-		*flags |= MAILBOX_NOSELECT;
-		return 0;
-
-	case MAILBOX_LIST_FILE_TYPE_UNKNOWN:
-	case MAILBOX_LIST_FILE_TYPE_SYMLINK:
-		/* need to check with stat() to be sure */
-		break;
-	}
-
-	/* Check files beginning with .nfs always because they may be
-	   temporary files created by the kernel */
-	if (mlist->set->maildir_stat_dirs || *fname == '\0' ||
-	    strncmp(fname, ".nfs", 4) == 0) {
-		const char *path;
-		struct stat st;
-
-		/* if fname="", we're checking if a base maildir has INBOX */
-		path = *fname == '\0' ? t_strdup_printf("%s/cur", dir) :
-			t_strdup_printf("%s/%s", dir, fname);
-		if (stat(path, &st) == 0) {
-			if (S_ISDIR(st.st_mode))
-				ret = 1;
-			else {
-				if (strncmp(fname, ".nfs", 4) == 0)
-					*flags |= MAILBOX_NONEXISTENT;
-				else
-					*flags |= MAILBOX_NOSELECT;
-				ret = 0;
-			}
-		} else if (errno == ENOENT) {
-			/* just deleted? */
-			*flags |= MAILBOX_NONEXISTENT;
-			ret = 0;
-		} else {
-			*flags |= MAILBOX_NOSELECT;
-			ret = 0;
-		}
-	} else {
-		ret = 1;
-	}
-	return ret;
-}
-
-uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
-{
-	const char *path;
-
-	path = mailbox_list_get_path(list, NULL,
-				     MAILBOX_LIST_PATH_TYPE_CONTROL);
-	path = t_strconcat(path, "/"MAILDIR_UIDVALIDITY_FNAME, NULL);
-	return mailbox_uidvalidity_next(list, path);
+	return 1;
 }
 
 static void maildir_storage_add_list(struct mail_storage *storage,
@@ -729,17 +539,19 @@ static void maildir_storage_add_list(struct mail_storage *storage,
 	mlist->module_ctx.super = list->v;
 	mlist->set = mail_storage_get_driver_settings(storage);
 
-	list->v.is_mailbox_dir = maildir_is_mailbox_dir;
-	if (strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0) {
-		list->v.iter_is_mailbox = maildirplusplus_iter_is_mailbox;
-	} else {
-		list->v.is_valid_existing_name =
-			maildir_storage_is_valid_existing_name;
-		list->v.is_valid_create_name =
-			maildir_storage_is_valid_create_name;
-		list->v.iter_is_mailbox = maildir_list_iter_is_mailbox;
-	}
+	list->v.is_internal_name = maildir_is_internal_name;
+	list->v.get_mailbox_flags = maildir_list_get_mailbox_flags;
 	MODULE_CONTEXT_SET(list, maildir_mailbox_list_module, mlist);
+}
+
+uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
+{
+	const char *path;
+
+	path = mailbox_list_get_path(list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_CONTROL);
+	path = t_strconcat(path, "/"MAILDIR_UIDVALIDITY_FNAME, NULL);
+	return mailbox_uidvalidity_next(list, path);
 }
 
 struct mail_storage maildir_storage = {

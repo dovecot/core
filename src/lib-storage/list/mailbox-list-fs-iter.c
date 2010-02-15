@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "unlink-directory.h"
 #include "imap-match.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
@@ -408,17 +407,10 @@ static void inbox_flags_set(struct fs_list_iterate_context *ctx)
 
 static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 {
-	const char *inbox_path, *dir, *fname;
-
 	ctx->info.flags = 0;
 	ctx->info.name = "INBOX";
 
-	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
-					   MAILBOX_LIST_PATH_TYPE_DIR);
-	path_split(inbox_path, &dir, &fname);
-	if (ctx->ctx.list->v.iter_is_mailbox(&ctx->ctx, dir, fname, "INBOX",
-					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-					     &ctx->info.flags) < 0)
+	if (mailbox_list_mailbox(ctx->ctx.list, "INBOX", &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
 
 	ctx->info.flags |= fs_list_get_subscription_flags(ctx, "INBOX");
@@ -544,8 +536,9 @@ list_file(struct fs_list_iterate_context *ctx,
 {
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	const char *fname = entry->fname;
-	const char *list_path;
+	const char *list_path, *root_dir;
 	enum imap_match_result match;
+	struct stat st;
 	int ret;
 
 	/* skip . and .. */
@@ -566,11 +559,19 @@ list_file(struct fs_list_iterate_context *ctx,
 		return 0;
 	}
 
+	if (strcmp(fname, ctx->ctx.list->set.subscription_fname) == 0) {
+		/* skip subscriptions file */
+		root_dir = mailbox_list_get_path(ctx->ctx.list, NULL,
+						 MAILBOX_LIST_PATH_TYPE_DIR);
+		if (strcmp(root_dir, ctx->dir->real_path) == 0)
+			return 0;
+	}
+
+
 	/* get the info.flags using callback */
-	ctx->info.flags = 0;
 	ret = ctx->ctx.list->v.
-		iter_is_mailbox(&ctx->ctx, ctx->dir->real_path, fname,
-				list_path, entry->type, &ctx->info.flags);
+		get_mailbox_flags(ctx->ctx.list, ctx->dir->real_path, fname,
+				  entry->type, &st, &ctx->info.flags);
 	if (ret <= 0)
 		return ret;
 
@@ -618,6 +619,7 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 	struct mailbox_node *node;
 	enum mailbox_info_flags flags;
 	const char *path, *dir, *fname;
+	struct stat st;
 
 	node = mailbox_tree_iterate_next(ctx->tree_iter, &ctx->info.name);
 	if (node == NULL)
@@ -635,11 +637,9 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 	path = mailbox_list_get_path(ctx->ctx.list, ctx->info.name,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(path, &dir, &fname);
-	ctx->info.flags = 0;
-	if (ctx->ctx.list->v.iter_is_mailbox(&ctx->ctx, dir, fname,
-					     ctx->info.name,
-					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-					     &ctx->info.flags) < 0)
+	if (ctx->ctx.list->v.get_mailbox_flags(ctx->ctx.list, dir, fname,
+					       MAILBOX_LIST_FILE_TYPE_UNKNOWN,
+					       &st, &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
 
 	ctx->info.flags |= flags;

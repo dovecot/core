@@ -304,61 +304,42 @@ static void virtual_notify_changes(struct mailbox *box ATTR_UNUSED)
 }
 
 static int
-virtual_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
-			     	ATTR_UNUSED,
-			     const char *dir, const char *fname,
-			     const char *mailbox_name ATTR_UNUSED,
-			     enum mailbox_list_file_type type,
-			     enum mailbox_info_flags *flags)
+virtual_list_get_mailbox_flags(struct mailbox_list *list,
+			       const char *dir, const char *fname,
+			       enum mailbox_list_file_type type,
+			       struct stat *st_r,
+			       enum mailbox_info_flags *flags)
 {
-	const char *path, *maildir_path;
-	struct stat st;
-	int ret = 1;
+	struct virtual_mailbox_list *mlist = VIRTUAL_LIST_CONTEXT(list);
+	struct stat st2;
+	const char *virtual_path;
+	int ret;
 
-	/* try to avoid stat() with these checks */
-	if (type != MAILBOX_LIST_FILE_TYPE_DIR &&
-	    type != MAILBOX_LIST_FILE_TYPE_SYMLINK &&
-	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN) {
-		/* it's a file */
-		*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
-		return 0;
-	}
+	ret = mlist->module_ctx.super.
+		get_mailbox_flags(list, dir, fname, type, st_r, flags);
+	if (ret <= 0 || MAILBOX_INFO_FLAGS_FINISHED(*flags))
+		return ret;
 
-	/* need to stat() then */
-	path = t_strconcat(dir, "/", fname, NULL);
-	if (stat(path, &st) == 0) {
-		if (!S_ISDIR(st.st_mode)) {
-			/* non-directory */
-			*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
-			ret = 0;
-		} else if (st.st_nlink == 2) {
-			/* no subdirectories */
-			*flags |= MAILBOX_NOCHILDREN;
-		} else if (*ctx->list->set.maildir_name != '\0') {
-			/* non-default configuration: we have one directory
-			   containing the mailboxes. if there are 3 links,
-			   either this is a selectable mailbox without children
-			   or non-selectable mailbox with children */
-			if (st.st_nlink > 3)
-				*flags |= MAILBOX_CHILDREN;
-		} else {
-			/* default configuration: all subdirectories are
-			   child mailboxes. */
-			if (st.st_nlink > 2)
-				*flags |= MAILBOX_CHILDREN;
-		}
-	} else {
-		/* non-selectable. probably either access denied, or symlink
-		   destination not found. don't bother logging errors. */
+	/* see if it's a selectable mailbox */
+	virtual_path = t_strconcat(dir, "/", fname, "/"VIRTUAL_CONFIG_FNAME,
+				   NULL);
+	if (stat(virtual_path, &st2) < 0)
 		*flags |= MAILBOX_NOSELECT;
-	}
-	if ((*flags & MAILBOX_NOSELECT) == 0) {
-		/* make sure it's a selectable mailbox */
-		maildir_path = t_strconcat(path, "/"VIRTUAL_CONFIG_FNAME, NULL);
-		if (stat(maildir_path, &st) < 0)
-			*flags |= MAILBOX_NOSELECT;
-	}
 	return ret;
+}
+
+static void virtual_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
+				     struct mailbox_list *list)
+{
+	struct virtual_mailbox_list *mlist;
+
+	mlist = p_new(list->pool, struct virtual_mailbox_list, 1);
+	mlist->module_ctx.super = list->v;
+
+	list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
+	list->v.get_mailbox_flags = virtual_list_get_mailbox_flags;
+
+	MODULE_CONTEXT_SET(list, virtual_mailbox_list_module, mlist);
 }
 
 static int virtual_backend_uidmap_cmp(const uint32_t *uid,
@@ -438,20 +419,6 @@ static bool virtual_is_inconsistent(struct mailbox *box)
 		return TRUE;
 
 	return index_storage_is_inconsistent(box);
-}
-
-static void virtual_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
-				     struct mailbox_list *list)
-{
-	struct virtual_mailbox_list *mlist;
-
-	mlist = p_new(list->pool, struct virtual_mailbox_list, 1);
-	mlist->module_ctx.super = list->v;
-
-	list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
-	list->v.iter_is_mailbox = virtual_list_iter_is_mailbox;
-
-	MODULE_CONTEXT_SET(list, virtual_mailbox_list_module, mlist);
 }
 
 struct mail_storage virtual_storage = {

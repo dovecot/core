@@ -116,66 +116,6 @@ static void cydir_notify_changes(struct mailbox *box)
 		index_mailbox_check_add(&mbox->box, mbox->box.path);
 }
 
-static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
-				      			ATTR_UNUSED,
-				      const char *dir, const char *fname,
-				      const char *mailbox_name ATTR_UNUSED,
-				      enum mailbox_list_file_type type,
-				      enum mailbox_info_flags *flags)
-{
-	const char *mail_path;
-	struct stat st;
-	int ret = 1;
-
-	/* try to avoid stat() with these checks */
-	if (type != MAILBOX_LIST_FILE_TYPE_DIR &&
-	    type != MAILBOX_LIST_FILE_TYPE_SYMLINK &&
-	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN) {
-		/* it's a file */
-		*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
-		return 0;
-	}
-
-	/* need to stat() then */
-	mail_path = t_strconcat(dir, "/", fname, NULL);
-	if (stat(mail_path, &st) == 0) {
-		if (!S_ISDIR(st.st_mode)) {
-			/* non-directory */
-			*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
-			ret = 0;
-		} else if (st.st_nlink == 2) {
-			/* no subdirectories */
-			*flags |= MAILBOX_NOCHILDREN;
-		} else if (*ctx->list->set.maildir_name != '\0') {
-			/* non-default configuration: we have one directory
-			   containing the mailboxes. if there are 3 links,
-			   either this is a selectable mailbox without children
-			   or non-selectable mailbox with children */
-			if (st.st_nlink > 3)
-				*flags |= MAILBOX_CHILDREN;
-		} else {
-			/* default configuration: all subdirectories are
-			   child mailboxes. */
-			if (st.st_nlink > 2)
-				*flags |= MAILBOX_CHILDREN;
-		}
-	} else if (errno == ENOENT) {
-		/* doesn't exist - probably a non-existing subscribed mailbox */
-		*flags |= MAILBOX_NONEXISTENT;
-	} else {
-		/* non-selectable. probably either access denied, or symlink
-		   destination not found. don't bother logging errors. */
-		*flags |= MAILBOX_NOSELECT;
-	}
-	return ret;
-}
-
-static void cydir_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
-				   struct mailbox_list *list)
-{
-	list->v.iter_is_mailbox = cydir_list_iter_is_mailbox;
-}
-
 struct mail_storage cydir_storage = {
 	.name = CYDIR_STORAGE_NAME,
 	.class_flags = 0,
@@ -185,7 +125,7 @@ struct mail_storage cydir_storage = {
 		cydir_storage_alloc,
 		NULL,
 		NULL,
-		cydir_storage_add_list,
+		NULL,
 		cydir_storage_get_list_settings,
 		NULL,
 		cydir_mailbox_alloc,
