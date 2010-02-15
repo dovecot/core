@@ -579,7 +579,7 @@ struct mailbox maildir_mailbox = {
 		index_storage_mailbox_enable,
 		maildir_mailbox_open,
 		maildir_mailbox_close,
-		NULL,
+		index_storage_mailbox_free,
 		maildir_mailbox_create,
 		maildir_mailbox_update,
 		index_storage_mailbox_delete,

@@ -580,10 +580,7 @@ void mailbox_free(struct mailbox **_box)
 	*_box = NULL;
 
 	mailbox_close(box);
-
-	if (box->v.free != NULL)
-		box->v.free(box);
-	mail_index_alloc_cache_unref(&box->index);
+	box->v.free(box);
 	pool_unref(&box->pool);
 }
 

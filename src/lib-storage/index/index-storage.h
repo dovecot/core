@@ -73,6 +73,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory);
 int index_storage_mailbox_enable(struct mailbox *box,
 				 enum mailbox_feature feature);
 void index_storage_mailbox_close(struct mailbox *box);
+void index_storage_mailbox_free(struct mailbox *box);
 int index_storage_mailbox_update(struct mailbox *box,
 				 const struct mailbox_update *update);
 int index_storage_mailbox_delete(struct mailbox *box);

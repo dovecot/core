@@ -331,6 +331,11 @@ void index_storage_mailbox_close(struct mailbox *box)
 	ibox->sync_last_check = 0;
 }
 
+void index_storage_mailbox_free(struct mailbox *box)
+{
+	mail_index_alloc_cache_unref(&box->index);
+}
+
 static void
 index_storage_mailbox_update_cache_fields(struct mailbox *box,
 					  const struct mailbox_update *update)

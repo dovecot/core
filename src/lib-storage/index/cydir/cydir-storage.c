@@ -140,7 +140,7 @@ struct mailbox cydir_mailbox = {
 		index_storage_mailbox_enable,
 		cydir_mailbox_open,
 		index_storage_mailbox_close,
-		NULL,
+		index_storage_mailbox_free,
 		cydir_mailbox_create,
 		index_storage_mailbox_update,
 		index_storage_mailbox_delete,

@@ -693,7 +693,7 @@ struct mailbox mbox_mailbox = {
 		index_storage_mailbox_enable,
 		mbox_mailbox_open,
 		mbox_mailbox_close,
-		NULL,
+		index_storage_mailbox_free,
 		mbox_mailbox_create,
 		mbox_mailbox_update,
 		index_storage_mailbox_delete,
