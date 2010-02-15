@@ -298,6 +298,15 @@ virtual_mailbox_update(struct mailbox *box,
 	return -1;
 }
 
+static int
+virtual_mailbox_get_guid(struct mailbox *box,
+			 uint8_t guid[MAIL_GUID_128_SIZE] ATTR_UNUSED)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			       "Virtual mailboxes have no GUIDs");
+	return -1;
+}
+
 static void virtual_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
 	/* FIXME: maybe some day */
@@ -445,13 +454,13 @@ struct mailbox virtual_mailbox = {
 		index_storage_mailbox_enable,
 		virtual_mailbox_open,
 		virtual_mailbox_close,
-		NULL,
+		index_storage_mailbox_free,
 		virtual_mailbox_create,
 		virtual_mailbox_update,
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		NULL,
+		virtual_mailbox_get_guid,
 		NULL,
 		NULL,
 		virtual_storage_sync_init,
