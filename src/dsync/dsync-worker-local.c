@@ -571,6 +571,7 @@ local_worker_subs_iter_init(struct dsync_worker *_worker)
 	struct local_dsync_worker_subs_iter *iter;
 	enum mailbox_list_iter_flags list_flags =
 		MAILBOX_LIST_ITER_VIRTUAL_NAMES |
+		MAILBOX_LIST_ITER_SKIP_ALIASES |
 		MAILBOX_LIST_ITER_SELECT_SUBSCRIBED;
 	static const char *patterns[] = { "*", NULL };
 
