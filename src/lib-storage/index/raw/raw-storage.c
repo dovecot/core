@@ -42,7 +42,7 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	flags |= MAILBOX_FLAG_READONLY | MAILBOX_FLAG_NO_INDEX_FILES;
 
-	pool = pool_alloconly_create("raw mailbox", 1024+512);
+	pool = pool_alloconly_create("raw mailbox", 1024*3);
 	mbox = p_new(pool, struct raw_mailbox, 1);
 	mbox->box = raw_mailbox;
 	mbox->box.pool = pool;

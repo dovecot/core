@@ -270,7 +270,7 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	struct index_mailbox_context *ibox;
 	pool_t pool;
 
-	pool = pool_alloconly_create("maildir mailbox", 1024+512);
+	pool = pool_alloconly_create("maildir mailbox", 1024*3);
 	mbox = p_new(pool, struct maildir_mailbox, 1);
 	mbox->box = maildir_mailbox;
 	mbox->box.pool = pool;

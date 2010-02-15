@@ -36,7 +36,7 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	/* dbox can't work without index files */
 	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
 
-	pool = pool_alloconly_create("dbox mailbox", 1024+512);
+	pool = pool_alloconly_create("dbox mailbox", 1024*3);
 	mbox = p_new(pool, struct sdbox_mailbox, 1);
 	mbox->box = sdbox_mailbox;
 	mbox->box.pool = pool;
