@@ -824,7 +824,11 @@ int mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 		if (mailbox_open(box) < 0)
 			return -1;
 	}
-	return box->v.get_guid(box, guid);
+	if (box->v.get_guid(box, guid) < 0)
+		return -1;
+
+	i_assert(!mail_guid_128_is_empty(guid));
+	return 0;
 }
 
 struct mailbox_sync_context *

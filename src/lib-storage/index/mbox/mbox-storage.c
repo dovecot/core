@@ -573,6 +573,10 @@ mbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 			"Mailbox GUIDs are not permanent without index files");
 		return -1;
 	}
+	if (mail_guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
+		if (mailbox_sync(&mbox->box, 0) < 0)
+			return -1;
+	}
 	memcpy(guid, mbox->mbox_hdr.mailbox_guid, MAIL_GUID_128_SIZE);
 	return 0;
 }
