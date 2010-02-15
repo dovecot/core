@@ -150,7 +150,7 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 	created = FALSE;
 	node = update_only ?
 		mailbox_tree_lookup(ctx->tree_ctx, "INBOX") :
-		mailbox_tree_get(ctx->tree_ctx, "INBO", &created);
+		mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
 	if (created)
 		node->flags = MAILBOX_NOCHILDREN;
 	else if (node != NULL)
