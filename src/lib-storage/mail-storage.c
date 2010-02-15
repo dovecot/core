@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#define MAILBOX_DELETE_RETRY_SECS (60*5)
+
 struct mail_storage_module_register mail_storage_module_register = { 0 };
 struct mail_module_register mail_module_register = { 0 };
 
@@ -616,12 +618,17 @@ int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return box->v.update(box, update);
 }
 
-static int mailbox_mark_index_deleted(struct mailbox *box)
+static int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 {
+	enum mail_index_transaction_flags trans_flags = 0;
 	struct mail_index_transaction *trans;
 
-	trans = mail_index_transaction_begin(box->view, 0);
-	mail_index_set_deleted(trans);
+	trans_flags = del ? 0 : MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
+	trans = mail_index_transaction_begin(box->view, trans_flags);
+	if (del)
+		mail_index_set_deleted(trans);
+	else
+		mail_index_set_undeleted(trans);
 	if (mail_index_transaction_commit(&trans) < 0) {
 		mail_storage_set_index_error(box);
 		return -1;
@@ -631,6 +638,21 @@ static int mailbox_mark_index_deleted(struct mailbox *box)
 	   succeed only for a single session. we do it here, so the rest of
 	   the deletion code doesn't have to worry about race conditions. */
 	return mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
+}
+
+static bool mailbox_try_undelete(struct mailbox *box)
+{
+	time_t mtime;
+
+	if (mail_index_get_modification_time(box->index, &mtime) < 0)
+		return FALSE;
+	if (mtime + MAILBOX_DELETE_RETRY_SECS > time(NULL))
+		return FALSE;
+
+	if (mailbox_mark_index_deleted(box, FALSE) < 0)
+		return FALSE;
+	box->mailbox_deleted = FALSE;
+	return TRUE;
 }
 
 int mailbox_delete(struct mailbox *box)
@@ -654,9 +676,23 @@ int mailbox_delete(struct mailbox *box)
 		(void)mail_storage_get_last_error(box->storage, &error);
 		if (error != MAIL_ERROR_NOTFOUND)
 			return -1;
-		/* \noselect mailbox */
-	} else {
-		if (mailbox_mark_index_deleted(box) < 0)
+		if (!box->mailbox_deleted) {
+			/* \noselect mailbox */
+		} else {
+			/* if deletion happened a long time ago, it means it
+			   crashed while doing it. undelete the mailbox in
+			   that case. */
+			if (!mailbox_try_undelete(box))
+				return -1;
+
+			/* retry */
+			if (mailbox_open(box) < 0)
+				return -1;
+		}
+	}
+
+	if (box->opened) {
+		if (mailbox_mark_index_deleted(box, TRUE) < 0)
 			return -1;
 	}
 	ret = box->v.delete(box);
