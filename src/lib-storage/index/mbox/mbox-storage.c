@@ -364,44 +364,6 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	return &mbox->box;
 }
 
-static int create_inbox(struct mailbox *box)
-{
-	const char *inbox_path, *rootdir;
-	int fd;
-
-	inbox_path = mailbox_list_get_path(box->list, "INBOX",
-					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	rootdir = mailbox_list_get_path(box->list, NULL,
-					MAILBOX_LIST_PATH_TYPE_DIR);
-
-	fd = open(inbox_path, O_RDWR | O_CREAT, 0660);
-	if (fd == -1 && errno == EACCES) {
-		/* try again with increased privileges */
-		(void)restrict_access_use_priv_gid();
-		fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
-		restrict_access_drop_priv_gid();
-	}
-	if (fd != -1) {
-		(void)close(fd);
-		return 0;
-	} else if (errno == ENOTDIR &&
-		 strncmp(inbox_path, rootdir, strlen(rootdir)) == 0) {
-		mail_storage_set_critical(box->storage,
-			"mbox root directory can't be a file: %s "
-			"(http://wiki.dovecot.org/MailLocation/Mbox)",
-			rootdir);
-		return -1;
-	} else if (errno == EACCES) {
-		mail_storage_set_critical(box->storage,"%s",
-			mail_error_create_eacces_msg("open", inbox_path));
-		return -1;
-	} else {
-		mail_storage_set_critical(box->storage,
-			"open(%s, O_CREAT) failed: %m", inbox_path);
-		return -1;
-	}
-}
-
 static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
 {
 	mbox_dotlock_touch(mbox);
@@ -492,6 +454,48 @@ mbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 			MBOX_SYNC_REWRITE);
 	mbox->sync_hdr_update = NULL;
 	return ret;
+}
+
+static int create_inbox(struct mailbox *box)
+{
+	const char *inbox_path, *rootdir;
+	int fd;
+
+	inbox_path = mailbox_list_get_path(box->list, "INBOX",
+					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	rootdir = mailbox_list_get_path(box->list, NULL,
+					MAILBOX_LIST_PATH_TYPE_DIR);
+
+	fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+	if (fd == -1 && errno == EACCES) {
+		/* try again with increased privileges */
+		(void)restrict_access_use_priv_gid();
+		fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+		restrict_access_drop_priv_gid();
+	}
+	if (fd != -1) {
+		(void)close(fd);
+		return 0;
+	} else if (errno == ENOTDIR &&
+		 strncmp(inbox_path, rootdir, strlen(rootdir)) == 0) {
+		mail_storage_set_critical(box->storage,
+			"mbox root directory can't be a file: %s "
+			"(http://wiki.dovecot.org/MailLocation/Mbox)",
+			rootdir);
+		return -1;
+	} else if (errno == EACCES) {
+		mail_storage_set_critical(box->storage, "%s",
+			mail_error_create_eacces_msg("open", inbox_path));
+		return -1;
+	} else if (errno == EEXIST) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+				       "Mailbox already exists");
+		return -1;
+	} else {
+		mail_storage_set_critical(box->storage,
+			"open(%s, O_CREAT) failed: %m", inbox_path);
+		return -1;
+	}
 }
 
 static int
