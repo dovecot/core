@@ -224,6 +224,8 @@ void dsync_worker_msg_get(struct dsync_worker *worker,
 
 	if (!worker->failed)
 		worker->v.msg_get(worker, mailbox, uid, callback, context);
+	else
+		callback(DSYNC_MSG_GET_RESULT_FAILED, NULL, context);
 }
 
 void dsync_worker_finish(struct dsync_worker *worker,

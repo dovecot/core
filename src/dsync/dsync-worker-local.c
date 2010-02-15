@@ -738,7 +738,8 @@ static int iter_local_mailbox_open(struct local_dsync_worker_msg_iter *iter)
 
 	guid = &iter->mailboxes[iter->mailbox_idx];
 	if (local_mailbox_open(worker, guid, &box) < 0) {
-		i_error("msg iteration failed: Couldn't open mailbox");
+		i_error("msg iteration failed: Couldn't open mailbox %s",
+			dsync_guid_to_str(guid));
 		iter->iter.failed = TRUE;
 		return -1;
 	}
