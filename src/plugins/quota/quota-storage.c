@@ -373,7 +373,7 @@ static int quota_mailbox_delete(struct mailbox *box)
 	return qbox->module_ctx.super.delete(box);
 }
 
-static void quota_mailbox_close(struct mailbox *box)
+static void quota_mailbox_free(struct mailbox *box)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
 
@@ -384,7 +384,7 @@ static void quota_mailbox_close(struct mailbox *box)
 	i_assert(qbox->expunge_qt == NULL ||
 		 qbox->expunge_qt->tmp_mail == NULL);
 
-	qbox->module_ctx.super.close(box);
+	qbox->module_ctx.super.free(box);
 }
 
 void quota_mailbox_allocated(struct mailbox *box)
@@ -407,7 +407,7 @@ void quota_mailbox_allocated(struct mailbox *box)
 	box->v.sync_notify = quota_mailbox_sync_notify;
 	box->v.sync_deinit = quota_mailbox_sync_deinit;
 	box->v.delete = quota_mailbox_delete;
-	box->v.close = quota_mailbox_close;
+	box->v.free = quota_mailbox_free;
 	MODULE_CONTEXT_SET(box, quota_storage_module, qbox);
 }
 

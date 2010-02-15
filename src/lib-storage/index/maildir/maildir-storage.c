@@ -290,8 +290,6 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->maildir_ext_id =
 		mail_index_ext_register(mbox->box.index, "maildir",
 					sizeof(mbox->maildir_hdr), 0, 0);
-	mbox->uidlist = maildir_uidlist_init(mbox);
-	mbox->keywords = maildir_keywords_init(mbox);
 	return &mbox->box;
 }
 
@@ -300,6 +298,9 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	struct stat st;
 	const char *shared_path;
+
+	mbox->uidlist = maildir_uidlist_init(mbox);
+	mbox->keywords = maildir_keywords_init(mbox);
 
 	shared_path = t_strconcat(box->path, "/dovecot-shared", NULL);
 	if (stat(shared_path, &st) == 0)
@@ -578,6 +579,7 @@ struct mailbox maildir_mailbox = {
 		index_storage_mailbox_enable,
 		maildir_mailbox_open,
 		maildir_mailbox_close,
+		NULL,
 		maildir_mailbox_create,
 		maildir_mailbox_update,
 		index_storage_mailbox_delete,

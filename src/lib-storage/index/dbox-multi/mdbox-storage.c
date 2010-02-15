@@ -327,6 +327,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_mailbox_enable,
 		dbox_mailbox_open,
 		index_storage_mailbox_close,
+		NULL,
 		dbox_mailbox_create,
 		mdbox_mailbox_update,
 		mdbox_mailbox_delete,

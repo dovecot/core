@@ -134,6 +134,7 @@ struct mailbox raw_mailbox = {
 		index_storage_mailbox_enable,
 		raw_mailbox_open,
 		index_storage_mailbox_close,
+		NULL,
 		raw_mailbox_create,
 		raw_mailbox_update,
 		index_storage_mailbox_delete,

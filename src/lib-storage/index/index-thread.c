@@ -622,23 +622,31 @@ static void mail_thread_mailbox_close(struct mailbox *box)
 
 	if (tbox->strmap_view != NULL)
 		mail_index_strmap_view_close(&tbox->strmap_view);
-	mail_index_strmap_deinit(&tbox->strmap);
 	if (tbox->cache->search_result != NULL)
 		mailbox_search_result_free(&tbox->cache->search_result);
+	tbox->module_ctx.super.close(box);
+}
+
+static void mail_thread_mailbox_free(struct mailbox *box)
+{
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(box);
+
+	mail_index_strmap_deinit(&tbox->strmap);
+	tbox->module_ctx.super.free(box);
+
 	array_free(&tbox->cache->thread_nodes);
 	i_free(tbox->cache);
-
-	tbox->module_ctx.super.close(box);
 	i_free(tbox);
 }
 
-void index_thread_mailbox_opened(struct mailbox *box)
+void index_thread_mailbox_allocated(struct mailbox *box)
 {
 	struct mail_thread_mailbox *tbox;
 
 	tbox = i_new(struct mail_thread_mailbox, 1);
 	tbox->module_ctx.super = box->v;
 	box->v.close = mail_thread_mailbox_close;
+	box->v.free = mail_thread_mailbox_free;
 
 	tbox->strmap = mail_index_strmap_init(box->index,
 					      MAIL_THREAD_INDEX_SUFFIX);

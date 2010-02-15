@@ -59,7 +59,7 @@ static MODULE_CONTEXT_DEFINE_INIT(fts_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(fts_mail_module, &mail_module_register);
 
-static void fts_mailbox_close(struct mailbox *box)
+static void fts_mailbox_free(struct mailbox *box)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 
@@ -68,7 +68,7 @@ static void fts_mailbox_close(struct mailbox *box)
 	if (fbox->backend_fast != NULL)
 		fts_backend_deinit(&fbox->backend_fast);
 
-	fbox->module_ctx.super.close(box);
+	fbox->module_ctx.super.free(box);
 	i_free(fbox);
 }
 
@@ -1028,7 +1028,7 @@ static void fts_mailbox_init(struct mailbox *box, const char *env)
 	fbox->virtual = strcmp(box->storage->name, "virtual") == 0;
 	fbox->env = env;
 	fbox->module_ctx.super = box->v;
-	box->v.close = fts_mailbox_close;
+	box->v.free = fts_mailbox_free;
 	box->v.search_init = fts_mailbox_search_init;
 	box->v.search_next_nonblock = fts_mailbox_search_next_nonblock;
 	box->v.search_next_update_seq = fbox->virtual ?

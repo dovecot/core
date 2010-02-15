@@ -97,12 +97,12 @@ static bool acl_allow_new_keywords(struct mailbox *box)
 	return acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0;
 }
 
-static void acl_mailbox_close(struct mailbox *box)
+static void acl_mailbox_free(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 
 	acl_object_deinit(&abox->aclobj);
-	abox->module_ctx.super.close(box);
+	abox->module_ctx.super.free(box);
 }
 
 static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
@@ -518,7 +518,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 		box->v.is_readonly = acl_is_readonly;
 		box->v.allow_new_keywords = acl_allow_new_keywords;
 		box->v.open = acl_mailbox_open;
-		box->v.close = acl_mailbox_close;
+		box->v.free = acl_mailbox_free;
 		box->v.create = acl_mailbox_create;
 		box->v.update = acl_mailbox_update;
 		box->v.delete = acl_mailbox_delete;

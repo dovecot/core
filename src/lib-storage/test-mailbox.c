@@ -322,6 +322,7 @@ struct mailbox test_mailbox = {
 		test_mailbox_enable,
 		test_mailbox_open,
 		test_mailbox_close,
+		NULL,
 		test_mailbox_create,
 		test_mailbox_update,
 		test_mailbox_delete,

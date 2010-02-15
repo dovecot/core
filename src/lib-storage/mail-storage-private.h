@@ -93,6 +93,7 @@ struct mailbox_vfuncs {
 	int (*enable)(struct mailbox *box, enum mailbox_feature features);
 	int (*open)(struct mailbox *box);
 	void (*close)(struct mailbox *box);
+	void (*free)(struct mailbox *box);
 
 	int (*create)(struct mailbox *box, const struct mailbox_update *update,
 		      bool directory);

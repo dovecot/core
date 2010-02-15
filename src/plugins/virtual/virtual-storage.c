@@ -445,6 +445,7 @@ struct mailbox virtual_mailbox = {
 		index_storage_mailbox_enable,
 		virtual_mailbox_open,
 		virtual_mailbox_close,
+		NULL,
 		virtual_mailbox_create,
 		virtual_mailbox_update,
 		index_storage_mailbox_delete,
