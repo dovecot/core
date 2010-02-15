@@ -408,6 +408,10 @@ int index_storage_mailbox_update(struct mailbox *box,
 	    hdr->uid_validity != update->uid_validity) {
 		uint32_t uid_validity = update->uid_validity;
 
+		if (hdr->uid_validity != 0) {
+			/* UIDVALIDITY change requires index to be reset */
+			mail_index_reset(trans);
+		}
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);

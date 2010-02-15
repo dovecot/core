@@ -180,7 +180,6 @@ static int mdbox_write_index_header(struct mailbox *box,
 
 	hdr = mail_index_get_header(box->view);
 	trans = mail_index_transaction_begin(box->view, 0);
-	mdbox_update_header(mbox, trans, update);
 
 	uid_validity = hdr->uid_validity;
 	if (update != NULL && update->uid_validity != 0)
@@ -191,6 +190,10 @@ static int mdbox_write_index_header(struct mailbox *box,
 	}
 
 	if (hdr->uid_validity != uid_validity) {
+		if (hdr->uid_validity != 0) {
+			/* UIDVALIDITY change requires index to be reset */
+			mail_index_reset(trans);
+		}
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
@@ -208,6 +211,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 						 update->min_highest_modseq);
 	}
 
+	mdbox_update_header(mbox, trans, update);
 	if (mail_index_transaction_commit(&trans) < 0) {
 		mail_storage_set_index_error(box);
 		return -1;
