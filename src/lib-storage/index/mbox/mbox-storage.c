@@ -364,44 +364,42 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	return &mbox->box;
 }
 
-static int verify_inbox(struct mailbox_list *list)
+static int create_inbox(struct mailbox *box)
 {
 	const char *inbox_path, *rootdir;
 	int fd;
 
-	inbox_path = mailbox_list_get_path(list, "INBOX",
+	inbox_path = mailbox_list_get_path(box->list, "INBOX",
 					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	rootdir = mailbox_list_get_path(list, NULL,
+	rootdir = mailbox_list_get_path(box->list, NULL,
 					MAILBOX_LIST_PATH_TYPE_DIR);
 
-	/* make sure inbox file itself exists */
-	fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
+	fd = open(inbox_path, O_RDWR | O_CREAT, 0660);
 	if (fd == -1 && errno == EACCES) {
 		/* try again with increased privileges */
 		(void)restrict_access_use_priv_gid();
 		fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
 		restrict_access_drop_priv_gid();
 	}
-	if (fd != -1)
+	if (fd != -1) {
 		(void)close(fd);
-	else if (errno == ENOTDIR &&
+		return 0;
+	} else if (errno == ENOTDIR &&
 		 strncmp(inbox_path, rootdir, strlen(rootdir)) == 0) {
-		mailbox_list_set_critical(list,
+		mail_storage_set_critical(box->storage,
 			"mbox root directory can't be a file: %s "
 			"(http://wiki.dovecot.org/MailLocation/Mbox)",
 			rootdir);
 		return -1;
 	} else if (errno == EACCES) {
-		mailbox_list_set_critical(list, "%s",
+		mail_storage_set_critical(box->storage,"%s",
 			mail_error_create_eacces_msg("open", inbox_path));
 		return -1;
-	} else if (errno != EEXIST) {
-		mailbox_list_set_critical(list,
+	} else {
+		mail_storage_set_critical(box->storage,
 			"open(%s, O_CREAT) failed: %m", inbox_path);
 		return -1;
 	}
-
-	return 0;
 }
 
 static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
@@ -424,7 +422,7 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 	}
 	move_to_memory = want_memory_indexes(mbox->storage, box->path);
 
-	if (strcmp(box->name, "INBOX") == 0) {
+	if (box->inbox) {
 		/* if INBOX isn't under the root directory, it's probably in
 		   /var/mail and we want to allow privileged dotlocking */
 		rootdir = mailbox_list_get_path(box->list, NULL,
@@ -457,14 +455,6 @@ static int mbox_mailbox_open(struct mailbox *box)
 		mbox->box.backend_readonly = TRUE;
 		mbox->no_mbox_file = TRUE;
 		return index_storage_mailbox_open(box, FALSE);
-	}
-
-	if (strcmp(box->name, "INBOX") == 0 &&
-	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
-		/* make sure INBOX exists */
-		if (verify_inbox(box->list) < 0)
-			return -1;
-		return mbox_mailbox_open_existing(mbox);
 	}
 
 	if ((ret = stat(box->path, &st)) == 0 && !S_ISDIR(st.st_mode))
@@ -514,16 +504,22 @@ mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
 		return 0;
 
-	/* create the mbox file */
-	ret = mailbox_create_fd(box, box->path, O_RDWR | O_CREAT | O_EXCL, &fd);
-	if (ret <= 0) {
+	if (box->inbox) {
+		if (create_inbox(box) < 0)
+			return -1;
+	} else {
+		/* create the mbox file */
+		ret = mailbox_create_fd(box, box->path,
+					O_RDWR | O_CREAT | O_EXCL, &fd);
+		if (ret < 0)
+			return -1;
 		if (ret == 0) {
 			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
 					       "Mailbox already exists");
+			return -1;
 		}
-		return -1;
+		(void)close(fd);
 	}
-	(void)close(fd);
 	return update == NULL ? 0 : mbox_mailbox_update(box, update);
 }
 

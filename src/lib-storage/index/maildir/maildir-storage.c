@@ -322,12 +322,9 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 
 static int maildir_mailbox_open(struct mailbox *box)
 {
+	const char *root_dir;
 	struct stat st;
 	int ret;
-	bool inbox;
-
-	inbox = strcmp(box->name, "INBOX") == 0 &&
-		(box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0;
 
 	/* begin by checking if tmp/ directory exists and if it should be
 	   cleaned up. */
@@ -340,13 +337,20 @@ static int maildir_mailbox_open(struct mailbox *box)
 		return -1;
 
 	/* tmp/ directory doesn't exist. does the maildir? */
-	if (inbox || (*box->name != '\0' && stat(box->path, &st) == 0)) {
+	root_dir = mailbox_list_get_path(box->list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (strcmp(box->path, root_dir) == 0) {
+		/* root directory. either INBOX or some other namespace root */
+		errno = ENOENT;
+	} else if (stat(box->path, &st) == 0) {
 		/* yes, we'll need to create the missing dirs */
 		if (create_maildir(box, TRUE) < 0)
 			return -1;
 
 		return maildir_mailbox_open_existing(box);
-	} else if (*box->name == '\0' || errno == ENOENT) {
+	}
+
+	if (errno == ENOENT) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;

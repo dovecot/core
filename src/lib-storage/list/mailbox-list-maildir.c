@@ -338,7 +338,7 @@ static int
 maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 				bool directory ATTR_UNUSED)
 {
-	const char *path, *gid_origin, *p;
+	const char *path, *root_dir, *gid_origin, *p;
 	mode_t mode;
 	gid_t gid;
 	bool create_parent_dir;
@@ -355,23 +355,33 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		path = t_strdup_until(path, p);
 	}
 
+	root_dir = mailbox_list_get_path(list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	mailbox_list_get_dir_permissions(list, NULL, &mode,
 					 &gid, &gid_origin);
 	if (mkdir_parents_chgrp(path, mode, gid, gid_origin) == 0) {
 		/* ok */
 	} else if (errno == EEXIST) {
-		if (!create_parent_dir) {
-			mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
-					       "Mailbox already exists");
-			return -1;
+		if (create_parent_dir)
+			return 0;
+		if (!directory) {
+			if (strcmp(path, root_dir) == 0) {
+				/* even though the root directory exists,
+				   the mailbox might not */
+				return 0;
+			}
 		}
+
+		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
+				       "Mailbox already exists");
+		return -1;
 	} else if (mailbox_list_set_error_from_errno(list)) {
 		return -1;
 	} else {
 		mailbox_list_set_critical(list, "mkdir(%s) failed: %m", path);
 		return -1;
 	}
-	return create_parent_dir ? 0 :
+	return create_parent_dir || strcmp(path, root_dir) == 0 ? 0 :
 		maildir_list_create_maildirfolder_file(list, path);
 }
 

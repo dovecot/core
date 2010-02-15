@@ -263,6 +263,8 @@ struct mailbox {
 	unsigned int backend_readonly:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
+	/* TRUE if this is the INBOX */
+	unsigned int inbox:1;
 };
 
 struct mail_vfuncs {

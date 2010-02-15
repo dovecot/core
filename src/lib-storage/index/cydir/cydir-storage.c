@@ -73,11 +73,6 @@ static int cydir_mailbox_open(struct mailbox *box)
 
 	if (stat(box->path, &st) == 0) {
 		/* exists, open it */
-	} else if (errno == ENOENT && strcmp(box->name, "INBOX") == 0) {
-		/* INBOX always exists, create it */
-		if (box->list->v.create_mailbox_dir(box->list,
-						    box->name, FALSE) < 0)
-			return -1;
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));

@@ -285,6 +285,8 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	box->path = p_strdup(box->pool, path);
 	box->index = index_storage_alloc(box->list, name, flags, index_prefix);
+	box->inbox = strcmp(name, "INBOX") == 0 &&
+		(box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0;
 	if (box->file_create_mode == 0)
 		mailbox_refresh_permissions(box);
 	mail_index_set_permissions(box->index, box->file_create_mode,

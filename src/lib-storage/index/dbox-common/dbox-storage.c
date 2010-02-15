@@ -71,45 +71,11 @@ dbox_cleanup_if_exists(struct mailbox_list *list, const char *path)
 	return TRUE;
 }
 
-static int dbox_mailbox_create_indexes(struct mailbox *box,
-				       const struct mailbox_update *update)
-{
-	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
-	const char *origin;
-	mode_t mode;
-	gid_t gid;
-
-	mailbox_list_get_dir_permissions(box->list, NULL, &mode, &gid, &origin);
-	if (mkdir_parents_chgrp(box->path, mode, gid, origin) == 0) {
-		/* create indexes immediately with the dbox header */
-		if (index_storage_mailbox_open(box, FALSE) < 0)
-			return -1;
-		if (storage->v.mailbox_create_indexes(box, update) < 0)
-			return -1;
-	} else if (errno != EEXIST) {
-		if (!mail_storage_set_error_from_errno(box->storage)) {
-			mail_storage_set_critical(box->storage,
-				"mkdir(%s) failed: %m", box->path);
-		}
-		return -1;
-	}
-	return 0;
-}
-
 int dbox_mailbox_open(struct mailbox *box)
 {
 	if (dbox_cleanup_if_exists(box->list, box->path)) {
 		return index_storage_mailbox_open(box, FALSE);
 	} else if (errno == ENOENT) {
-		if (strcmp(box->name, "INBOX") == 0 &&
-		    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
-			/* INBOX always exists, create it */
-			if (dbox_mailbox_create_indexes(box, NULL) < 0)
-				return -1;
-			return box->opened ? 0 :
-				index_storage_mailbox_open(box, FALSE);
-		}
-
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;

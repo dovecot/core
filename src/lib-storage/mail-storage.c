@@ -526,6 +526,14 @@ static int mailbox_open_full(struct mailbox *box, struct istream *input)
 		ret = box->v.open(box);
 	} T_END;
 
+	if (ret < 0 && box->storage->error == MAIL_ERROR_NOTFOUND &&
+	    box->input == NULL && box->inbox) T_BEGIN {
+		/* INBOX should always exist. try to create it and retry. */
+		(void)mailbox_create(box, NULL, FALSE);
+		mailbox_close(box);
+		ret = box->v.open(box);
+	} T_END;
+
 	if (ret < 0) {
 		if (box->input != NULL)
 			i_stream_unref(&box->input);
@@ -635,8 +643,7 @@ int mailbox_delete(struct mailbox *box)
 				       "Storage root can't be deleted");
 		return -1;
 	}
-	if (strcmp(box->name, "INBOX") == 0 &&
-	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	if (box->inbox) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "INBOX can't be deleted.");
 		return -1;
