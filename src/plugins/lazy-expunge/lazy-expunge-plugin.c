@@ -45,6 +45,7 @@ struct lazy_expunge_mail_user {
 struct lazy_expunge_mailbox_list {
 	union mailbox_list_module_context module_ctx;
 
+	unsigned int allow_rename:1;
 	unsigned int internal_namespace:1;
 };
 
@@ -234,12 +235,15 @@ static int
 mailbox_move(struct mailbox *src_box, struct mailbox_list *dest_list,
 	     const char *wanted_destname, struct mailbox **dest_box_r)
 {
+	struct lazy_expunge_mailbox_list *src_llist =
+		LAZY_EXPUNGE_LIST_CONTEXT(src_box->list);
 	const char *dest_name = wanted_destname;
 	struct mailbox *dest_box;
 	const char *dir, *origin;
 	enum mail_error error;
 	mode_t mode;
 	gid_t gid;
+	int ret;
 
 	/* make sure the destination root directory exists */
 	mailbox_list_get_dir_permissions(dest_list, NULL, &mode, &gid, &origin);
@@ -254,7 +258,12 @@ mailbox_move(struct mailbox *src_box, struct mailbox_list *dest_list,
 	for (;;) {
 		dest_box = mailbox_alloc(dest_list, dest_name,
 					 MAILBOX_FLAG_OPEN_DELETED);
-		if (mailbox_rename(src_box, dest_box, FALSE) == 0)
+
+		src_llist->allow_rename = TRUE;
+		ret = mailbox_rename(src_box, dest_box, FALSE);
+		src_llist->allow_rename = FALSE;
+
+		if (ret == 0)
 			break;
 		mailbox_free(&dest_box);
 
@@ -353,9 +362,11 @@ static int mailbox_mark_index_undeleted(struct mailbox *box)
 
 static int lazy_expunge_mailbox_delete(struct mailbox *box)
 {
-	struct mailbox_list *list = box->list;
+	union mailbox_module_context *lbox =
+		LAZY_EXPUNGE_CONTEXT(box);
 	struct lazy_expunge_mailbox_list *llist =
-		LAZY_EXPUNGE_LIST_CONTEXT(list);
+		LAZY_EXPUNGE_LIST_CONTEXT(box->list);
+	struct mailbox_list *list = box->list;
 	struct mail_namespace *expunge_ns, *dest_ns;
 	struct mailbox *expunge_box;
 	const char *destname, *str;
@@ -365,7 +376,7 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 	int ret;
 
 	if (llist->internal_namespace)
-		return llist->module_ctx.super.delete_mailbox(list, box->name);
+		return lbox->super.delete(box);
 
 	expunge_ns = get_lazy_ns(list->ns->user, LAZY_NAMESPACE_EXPUNGE);
 	dest_ns = get_lazy_ns(list->ns->user, LAZY_NAMESPACE_DELETE);
@@ -385,8 +396,8 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 	}
 
 	/* first move the actual mailbox */
-	if ((ret = mailbox_move(box, dest_ns->list, destname,
-				&expunge_box)) < 0)
+	ret = mailbox_move(box, dest_ns->list, destname, &expunge_box);
+	if (ret < 0)
 		return -1;
 	if (ret == 0) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
@@ -430,23 +441,48 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 	return ret < 0 ? -1 : 0;
 }
 
+static int
+lazy_expunge_mailbox_rename(struct mailbox *src, struct mailbox *dest,
+			    bool rename_children)
+{
+	union mailbox_module_context *lbox = LAZY_EXPUNGE_CONTEXT(src);
+	struct lazy_expunge_mailbox_list *src_llist =
+		LAZY_EXPUNGE_LIST_CONTEXT(src->list);
+	struct lazy_expunge_mailbox_list *dest_llist =
+		LAZY_EXPUNGE_LIST_CONTEXT(dest->list);
+
+	if (!src_llist->allow_rename &&
+	    (src_llist->internal_namespace ||
+	     dest_llist->internal_namespace)) {
+		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
+			"Can't rename mailboxes to/from expunge namespace.");
+		return -1;
+	}
+	return lbox->super.rename(src, dest, rename_children);
+}
+
 static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 {
 	struct lazy_expunge_mailbox_list *llist =
 		LAZY_EXPUNGE_LIST_CONTEXT(box->list);
 	union mailbox_module_context *mbox;
 
-	if (llist != NULL && !llist->internal_namespace) {
-		mbox = p_new(box->pool, union mailbox_module_context, 1);
-		mbox->super = box->v;
+	if (llist == NULL)
+		return;
 
+	mbox = p_new(box->pool, union mailbox_module_context, 1);
+	mbox->super = box->v;
+	MODULE_CONTEXT_SET_SELF(box, lazy_expunge_mail_storage_module, mbox);
+
+	if (!llist->internal_namespace) {
 		box->v.transaction_begin = lazy_expunge_transaction_begin;
 		box->v.transaction_commit = lazy_expunge_transaction_commit;
 		box->v.transaction_rollback = lazy_expunge_transaction_rollback;
 		box->v.mail_alloc = lazy_expunge_mail_alloc;
 		box->v.delete = lazy_expunge_mailbox_delete;
-		MODULE_CONTEXT_SET_SELF(box, lazy_expunge_mail_storage_module,
-					mbox);
+		box->v.rename = lazy_expunge_mailbox_rename;
+	} else {
+		box->v.rename = lazy_expunge_mailbox_rename;
 	}
 }
 
