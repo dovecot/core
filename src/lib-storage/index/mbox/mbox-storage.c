@@ -564,6 +564,11 @@ mbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
+	if (mail_index_is_in_memory(box->index)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			"Mailbox GUIDs are not permanent without index files");
+		return -1;
+	}
 	memcpy(guid, mbox->mbox_hdr.mailbox_guid, MAIL_GUID_128_SIZE);
 	return 0;
 }
