@@ -50,7 +50,12 @@ dsync_worker_mailbox_iter_init(struct dsync_worker *worker)
 int dsync_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *iter,
 				   struct dsync_mailbox *dsync_box_r)
 {
-	return iter->worker->v.mailbox_iter_next(iter, dsync_box_r);
+	int ret;
+
+	T_BEGIN {
+		ret = iter->worker->v.mailbox_iter_next(iter, dsync_box_r);
+	} T_END;
+	return ret;
 }
 
 int dsync_worker_mailbox_iter_deinit(struct dsync_worker_mailbox_iter **_iter)
@@ -127,23 +132,26 @@ void dsync_worker_create_mailbox(struct dsync_worker *worker,
 	i_assert(dsync_box->uid_validity != 0 ||
 		 dsync_mailbox_is_noselect(dsync_box));
 
-	if (!worker->readonly)
+	if (!worker->readonly) T_BEGIN {
 		worker->v.create_mailbox(worker, dsync_box);
+	} T_END;
 }
 
 void dsync_worker_delete_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *dsync_box)
 {
-	if (!worker->readonly)
+	if (!worker->readonly) T_BEGIN {
 		worker->v.delete_mailbox(worker, dsync_box);
+	} T_END;
 }
 
 void dsync_worker_rename_mailbox(struct dsync_worker *worker,
 				 const mailbox_guid_t *mailbox,
 				 const struct dsync_mailbox *dsync_box)
 {
-	if (!worker->readonly)
+	if (!worker->readonly) T_BEGIN {
 		worker->v.rename_mailbox(worker, mailbox, dsync_box);
+	} T_END;
 }
 
 void dsync_worker_update_mailbox(struct dsync_worker *worker,
@@ -157,8 +165,10 @@ void dsync_worker_update_mailbox(struct dsync_worker *worker,
 void dsync_worker_select_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *box)
 {
-	worker->v.select_mailbox(worker, &box->mailbox_guid,
-				 &box->cache_fields);
+	T_BEGIN {
+		worker->v.select_mailbox(worker, &box->mailbox_guid,
+					 &box->cache_fields);
+	} T_END;
 }
 
 void dsync_worker_msg_update_metadata(struct dsync_worker *worker,
@@ -188,8 +198,10 @@ void dsync_worker_msg_copy(struct dsync_worker *worker,
 			   void *context)
 {
 	if (!worker->failed && !worker->readonly) {
-		worker->v.msg_copy(worker, src_mailbox, src_uid, dest_msg,
-				   callback, context);
+		T_BEGIN {
+			worker->v.msg_copy(worker, src_mailbox, src_uid,
+					   dest_msg, callback, context);
+		} T_END;
 	} else {
 		callback(FALSE, context);
 	}
@@ -200,8 +212,9 @@ void dsync_worker_msg_save(struct dsync_worker *worker,
 			   const struct dsync_msg_static_data *data)
 {
 	if (!worker->readonly) {
-		if (!worker->failed)
+		if (!worker->failed) T_BEGIN {
 			worker->v.msg_save(worker, msg, data);
+		} T_END;
 	} else {
 		const unsigned char *d;
 		size_t size;
@@ -222,10 +235,11 @@ void dsync_worker_msg_get(struct dsync_worker *worker,
 {
 	i_assert(uid != 0);
 
-	if (!worker->failed)
-		worker->v.msg_get(worker, mailbox, uid, callback, context);
-	else
+	if (worker->failed)
 		callback(DSYNC_MSG_GET_RESULT_FAILED, NULL, context);
+	else T_BEGIN {
+		worker->v.msg_get(worker, mailbox, uid, callback, context);
+	} T_END;
 }
 
 void dsync_worker_finish(struct dsync_worker *worker,

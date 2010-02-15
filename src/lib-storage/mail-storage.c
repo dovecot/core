@@ -1126,11 +1126,15 @@ int mailbox_transaction_commit_get_changes(
 	struct mail_transaction_commit_changes *changes_r)
 {
 	struct mailbox_transaction_context *t = *_t;
+	int ret;
 
 	t->box->transaction_count--;
 
 	*_t = NULL;
-	return t->box->v.transaction_commit(t, changes_r);
+	T_BEGIN {
+		ret = t->box->v.transaction_commit(t, changes_r);
+	} T_END;
+	return ret;
 }
 
 void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)

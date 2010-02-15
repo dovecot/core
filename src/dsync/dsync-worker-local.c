@@ -19,6 +19,7 @@
 
 struct local_dsync_worker_mailbox_iter {
 	struct dsync_worker_mailbox_iter iter;
+	pool_t ret_pool;
 	struct mailbox_list_iterate_context *list_iter;
 	struct hash_iterate_context *deleted_iter;
 	struct hash_iterate_context *deleted_dir_iter;
@@ -389,6 +390,7 @@ local_worker_mailbox_iter_init(struct dsync_worker *_worker)
 
 	iter = i_new(struct local_dsync_worker_mailbox_iter, 1);
 	iter->iter.worker = _worker;
+	iter->ret_pool = pool_alloconly_create("local mailbox iter", 1024);
 	iter->list_iter =
 		mailbox_list_iter_init_namespaces(worker->user->namespaces,
 						  patterns, list_flags);
@@ -532,10 +534,12 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	dsync_box_r->uid_next = status.uidnext;
 	dsync_box_r->highest_modseq = status.highest_modseq;
 
+	p_clear(iter->ret_pool);
 	fields = array_get(status.cache_fields, &field_count);
-	t_array_init(&dsync_box_r->cache_fields, field_count);
+	p_array_init(&dsync_box_r->cache_fields, iter->ret_pool, field_count);
 	for (i = 0; i < field_count; i++) {
-		const char *field_name = t_strdup(fields[i]);
+		const char *field_name = p_strdup(iter->ret_pool, fields[i]);
+
 		array_append(&dsync_box_r->cache_fields, &field_name, 1);
 	}
 
@@ -554,6 +558,7 @@ local_worker_mailbox_iter_deinit(struct dsync_worker_mailbox_iter *_iter)
 
 	if (mailbox_list_iter_deinit(&iter->list_iter) < 0)
 		ret = -1;
+	pool_unref(&iter->ret_pool);
 	i_free(iter);
 	return ret;
 }

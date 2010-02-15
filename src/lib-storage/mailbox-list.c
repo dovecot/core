@@ -464,19 +464,29 @@ void mailbox_list_get_dir_permissions(struct mailbox_list *list,
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
 				   const char *pattern)
 {
-	return list->v.is_valid_pattern(list, pattern);
+	bool ret;
+
+	T_BEGIN {
+		ret = list->v.is_valid_pattern(list, pattern);
+	} T_END;
+	return ret;
 }
 
 bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 					 const char *name)
 {
+	bool ret;
+
 	if (*name == '\0' && *list->ns->prefix != '\0') {
 		/* an ugly way to get to mailbox root (e.g. Maildir/ when
 		   it's not the INBOX) */
 		return TRUE;
 	}
 
-	return list->v.is_valid_existing_name(list, name);
+	T_BEGIN {
+		ret = list->v.is_valid_existing_name(list, name);
+	} T_END;
+	return ret;
 }
 
 bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
@@ -619,7 +629,7 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 
 	i_assert(namespaces != NULL);
 
-	pool = pool_alloconly_create("mailbox list namespaces", 512);
+	pool = pool_alloconly_create("mailbox list namespaces", 1024);
 	ctx = p_new(pool, struct ns_list_iterate_context, 1);
 	ctx->pool = pool;
 	ctx->ctx.flags = flags;
