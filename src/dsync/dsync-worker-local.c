@@ -1035,33 +1035,31 @@ local_worker_create_allocated_mailbox(struct local_dsync_worker *worker,
 	struct mailbox_update update;
 	const char *errstr;
 	enum mail_error error;
-	int ret;
 
 	local_worker_copy_mailbox_update(dsync_box, &update);
 
-	ret = mailbox_create(box, &update, dsync_box->uid_validity == 0);
-	if (ret < 0 && strcasecmp(mailbox_get_name(box), "INBOX") == 0)
-		ret = mailbox_update(box, &update);
-	errstr = mail_storage_get_last_error(mailbox_get_storage(box), &error);
-	if (ret < 0 && error == MAIL_ERROR_EXISTS) {
-		/* mailbox already exists */
-		if (dsync_box->uid_validity != 0)
+	if (mailbox_create(box, &update, dsync_box->uid_validity == 0) < 0) {
+		errstr = mail_storage_get_last_error(mailbox_get_storage(box),
+						     &error);
+		if (error == MAIL_ERROR_EXISTS) {
+			/* mailbox already exists */
+			if (dsync_box->uid_validity == 0) {
+				/* just a directory - no one cares */
+				return 1;
+			}
 			return 0;
-		else {
-			/* just a directory - no one cares */
-			return 1;
 		}
-	}
-	if (ret < 0) {
+
 		dsync_worker_set_failure(&worker->worker);
 		i_error("Can't create mailbox %s: %s", dsync_box->name, errstr);
-	} else {
-		local_dsync_worker_add_mailbox(worker,
-					       mailbox_get_namespace(box),
-					       mailbox_get_name(box),
-					       &dsync_box->mailbox_guid);
+		return -1;
 	}
-	return ret < 0 ? -1 : 1;
+
+	local_dsync_worker_add_mailbox(worker,
+				       mailbox_get_namespace(box),
+				       mailbox_get_name(box),
+				       &dsync_box->mailbox_guid);
+	return 1;
 }
 
 static void
@@ -1115,7 +1113,7 @@ local_worker_delete_mailbox(struct dsync_worker *_worker,
 	lbox = hash_table_lookup(worker->mailbox_hash, mailbox);
 	if (lbox == NULL) {
 		i_error("Trying to delete a non-listed mailbox with guid=%s",
-			binary_to_hex(mailbox->guid, sizeof(mailbox->guid)));
+			dsync_guid_to_str(mailbox));
 		dsync_worker_set_failure(_worker);
 		return;
 	}
@@ -1149,7 +1147,7 @@ local_worker_rename_mailbox(struct dsync_worker *_worker,
 	lbox = hash_table_lookup(worker->mailbox_hash, mailbox);
 	if (lbox == NULL) {
 		i_error("Trying to rename a non-listed mailbox with guid=%s",
-			binary_to_hex(mailbox->guid, sizeof(mailbox->guid)));
+			dsync_guid_to_str(mailbox));
 		dsync_worker_set_failure(_worker);
 		return;
 	}
