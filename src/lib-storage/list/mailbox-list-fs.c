@@ -317,6 +317,16 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 				       name, set);
 }
 
+static int mailbox_is_selectable(struct mailbox_list *list, const char *name)
+{
+	enum mailbox_info_flags flags;
+
+	if (mailbox_list_mailbox(list, name, &flags) < 0)
+		return -1;
+
+	return (flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0 ? 1 : 0;
+}
+
 static int
 fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 			   bool directory)
@@ -326,6 +336,7 @@ fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 	mode_t mode;
 	gid_t gid;
 	bool create_parent_dir;
+	int ret;
 
 	/* make sure the alt path doesn't exist yet. it shouldn't (except with
 	   race conditions with RENAME/DELETE), but if something crashed and
@@ -361,6 +372,10 @@ fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 	else if (errno == EEXIST) {
 		if (create_parent_dir)
 			return 0;
+		if (!directory && *list->set.mailbox_dir_name == '\0') {
+			if ((ret = mailbox_is_selectable(list, name)) <= 0)
+				return ret;
+		}
 		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 	} else if (errno == ENOTDIR) {

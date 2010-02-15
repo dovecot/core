@@ -21,7 +21,7 @@ bool cmd_rename(struct client_command_context *cmd)
 		return TRUE;
 
 	new_ns = client_find_namespace(cmd, &newname,
-				       CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST);
+				CLIENT_VERIFY_MAILBOX_DIR_SHOULD_NOT_EXIST);
 	if (new_ns == NULL)
 		return TRUE;
 

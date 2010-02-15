@@ -13,7 +13,9 @@ enum client_verify_mailbox_mode {
 	/* If mailbox doesn't exist, fail with [TRYCREATE] resp code */
 	CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE,
 	/* If mailbox exists, fail with [ALREADYEXISTS] resp code */
-	CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST
+	CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST,
+	/* If dir/mailbox exists, fail with [ALREADYEXISTS] resp code */
+	CLIENT_VERIFY_MAILBOX_DIR_SHOULD_NOT_EXIST
 };
 
 struct msgset_generator_context {

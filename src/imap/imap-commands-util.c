@@ -91,14 +91,22 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 
 	switch (mailbox_status) {
 	case MAILBOX_NAME_EXISTS_MAILBOX:
+	case MAILBOX_NAME_EXISTS_DIR:
 		switch (mode) {
+		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
+		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
+			if (mailbox_status == MAILBOX_NAME_EXISTS_DIR)
+				break;
+			return ns;
 		case CLIENT_VERIFY_MAILBOX_NONE:
 		case CLIENT_VERIFY_MAILBOX_NAME:
-		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
 		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST:
-		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
 			return ns;
 		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
+			if (mailbox_status == MAILBOX_NAME_EXISTS_DIR)
+				return ns;
+			break;
+		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_NOT_EXIST:
 			break;
 		}
 
@@ -108,11 +116,11 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 		break;
 
 	case MAILBOX_NAME_VALID:
-	case MAILBOX_NAME_EXISTS_DIR:
 		resp_code = "";
 		switch (mode) {
 		case CLIENT_VERIFY_MAILBOX_NAME:
 		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
+		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_NOT_EXIST:
 		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST:
 			return ns;
 		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
