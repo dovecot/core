@@ -395,6 +395,19 @@ sha256_generate(const char *plaintext, const char *user ATTR_UNUSED,
 }
 
 static void
+sha512_generate(const char *plaintext, const char *user ATTR_UNUSED,
+		const unsigned char **raw_password_r, size_t *size_r)
+{
+	unsigned char *digest;
+
+	digest = t_malloc(SHA512_RESULTLEN);
+	sha512_get_digest(plaintext, strlen(plaintext), digest);
+
+	*raw_password_r = digest;
+	*size_r = SHA512_RESULTLEN;
+}
+
+static void
 ssha_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	      const unsigned char **raw_password_r, size_t *size_r)
 {
@@ -473,6 +486,47 @@ static bool ssha256_verify(const char *plaintext, const char *user,
 		    size - SHA256_RESULTLEN);
 	sha256_result(&ctx, sha256_digest);
 	return memcmp(sha256_digest, raw_password, SHA256_RESULTLEN) == 0;
+}
+
+static void
+ssha512_generate(const char *plaintext, const char *user ATTR_UNUSED,
+		 const unsigned char **raw_password_r, size_t *size_r)
+{
+#define SSHA512_SALT_LEN 4
+	unsigned char *digest, *salt;
+	struct sha512_ctx ctx;
+
+	digest = t_malloc(SHA512_RESULTLEN + SSHA512_SALT_LEN);
+	salt = digest + SHA512_RESULTLEN;
+	random_fill(salt, SSHA512_SALT_LEN);
+
+	sha512_init(&ctx);
+	sha512_loop(&ctx, plaintext, strlen(plaintext));
+	sha512_loop(&ctx, salt, SSHA512_SALT_LEN);
+	sha512_result(&ctx, digest);
+
+	*raw_password_r = digest;
+	*size_r = SHA512_RESULTLEN + SSHA512_SALT_LEN;
+}
+
+static bool ssha512_verify(const char *plaintext, const char *user,
+			   const unsigned char *raw_password, size_t size)
+{
+	unsigned char sha512_digest[SHA512_RESULTLEN];
+	struct sha512_ctx ctx;
+
+	/* format: <SHA512 hash><salt> */
+	if (size <= SHA512_RESULTLEN) {
+		i_error("ssha512_verify(%s): SSHA512 password too short", user);
+		return FALSE;
+	}
+
+	sha512_init(&ctx);
+	sha512_loop(&ctx, plaintext, strlen(plaintext));
+	sha512_loop(&ctx, raw_password + SHA512_RESULTLEN,
+		    size - SHA512_RESULTLEN);
+	sha512_result(&ctx, sha512_digest);
+	return memcmp(sha512_digest, raw_password, SHA512_RESULTLEN) == 0;
 }
 
 static void
@@ -675,9 +729,12 @@ static const struct password_scheme builtin_schemes[] = {
  	{ "SHA1", PW_ENCODING_BASE64, SHA1_RESULTLEN, NULL, sha1_generate },
  	{ "SHA256", PW_ENCODING_BASE64, SHA256_RESULTLEN,
 	  NULL, sha256_generate },
+ 	{ "SHA512", PW_ENCODING_BASE64, SHA512_RESULTLEN,
+	  NULL, sha512_generate },
 	{ "SMD5", PW_ENCODING_BASE64, 0, smd5_verify, smd5_generate },
 	{ "SSHA", PW_ENCODING_BASE64, 0, ssha_verify, ssha_generate },
 	{ "SSHA256", PW_ENCODING_BASE64, 0, ssha256_verify, ssha256_generate },
+	{ "SSHA512", PW_ENCODING_BASE64, 0, ssha512_verify, ssha512_generate },
 	{ "PLAIN", PW_ENCODING_NONE, 0, NULL, plain_generate },
 	{ "CLEARTEXT", PW_ENCODING_NONE, 0, NULL, plain_generate },
 	{ "CRAM-MD5", PW_ENCODING_HEX, CRAM_MD5_CONTEXTLEN,
