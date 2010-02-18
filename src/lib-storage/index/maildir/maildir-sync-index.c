@@ -45,8 +45,10 @@ maildir_index_expunge(struct maildir_index_sync_context *ctx, uint32_t seq)
 	enum maildir_uidlist_rec_flag flags;
 	uint8_t guid_128[MAIL_GUID_128_SIZE];
 	const char *fname;
+	uint32_t uid;
 
-	if (maildir_uidlist_lookup(ctx->mbox->uidlist, ctx->uid,
+	mail_index_lookup_uid(ctx->view, seq, &uid);
+	if (maildir_uidlist_lookup(ctx->mbox->uidlist, uid,
 				   &flags, &fname) <= 0)
 		memset(guid_128, 0, sizeof(guid_128));
 	else T_BEGIN {
@@ -602,10 +604,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 	if (!partial) {
 		/* expunge the rest */
-		for (seq++; seq <= hdr->messages_count; seq++) {
-			mail_index_lookup_uid(ctx->view, seq, &ctx->uid);
+		for (seq++; seq <= hdr->messages_count; seq++)
 			maildir_index_expunge(ctx, seq);
-		}
 	}
 
 	/* add \Recent flags. use updated view so it contains newly
