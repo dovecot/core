@@ -5,7 +5,8 @@
 #include "mail-storage-private.h"
 #include "mail-copy.h"
 
-int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
+static int
+mail_storage_try_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mail_private *pmail = (struct mail_private *)mail;
 	struct istream *input;
@@ -48,18 +49,26 @@ int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
 			break;
 	} while (i_stream_read(input) != -1);
 
-	if (ctx->keywords != NULL) {
-		/* keywords gets unreferenced twice, because we call
-		   mailbox_save_cancel/finish */
-		mailbox_keywords_ref(ctx->transaction->box, ctx->keywords);
-	}
-
 	if (input->stream_errno != 0) {
 		mail_storage_set_critical(ctx->transaction->box->storage,
 					  "copy: i_stream_read() failed: %m");
+		return -1;
+	}
+	return 0;
+}
+
+int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
+{
+	if (ctx->keywords != NULL) {
+		/* keywords gets unreferenced twice: first in
+		   mailbox_save_cancel()/_finish() and second time in
+		   mailbox_copy(). */
+		mailbox_keywords_ref(ctx->transaction->box, ctx->keywords);
+	}
+
+	if (mail_storage_try_copy(ctx, mail) < 0) {
 		mailbox_save_cancel(&ctx);
 		return -1;
 	}
-
 	return mailbox_save_finish(&ctx);
 }
