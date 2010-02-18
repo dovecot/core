@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "restrict-access.h"
+#include "master-service.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
 #include "mbox-file.h"
@@ -118,10 +119,16 @@ static struct mail_storage *mbox_storage_alloc(void)
 
 static int
 mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
-		    const char **error_r ATTR_UNUSED)
+		    const char **error_r)
 {
 	struct mbox_storage *storage = (struct mbox_storage *)_storage;
 	const char *dir;
+
+	if (master_service_get_client_limit(master_service) > 1) {
+		/* we can't handle locking related problems. */
+		*error_r = "mbox requires client_limit=1 for service";
+		return -1;
+	}
 
 	storage->set = mail_storage_get_driver_settings(_storage);
 
