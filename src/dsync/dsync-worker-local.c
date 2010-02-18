@@ -702,7 +702,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 	lbox = hash_table_lookup(worker->mailbox_hash, guid);
 	if (lbox == NULL) {
 		i_error("Trying to open a non-listed mailbox with guid=%s",
-			binary_to_hex(guid->guid, sizeof(guid->guid)));
+			dsync_guid_to_str(guid));
 		return -1;
 	}
 
@@ -720,7 +720,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 	if (memcmp(mailbox_guid, guid->guid, sizeof(guid->guid)) != 0) {
 		i_error("Mailbox %s changed its GUID (%s -> %s)",
 			lbox->storage_name, dsync_guid_to_str(guid),
-			binary_to_hex(mailbox_guid, sizeof(mailbox_guid)));
+			mail_guid_128_to_string(mailbox_guid));
 		mailbox_free(&box);
 		return -1;
 	}

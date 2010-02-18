@@ -107,7 +107,7 @@ int dsync_guid_cmp(const mailbox_guid_t *guid1, const mailbox_guid_t *guid2)
 
 const char *dsync_guid_to_str(const mailbox_guid_t *guid)
 {
-	return binary_to_hex(guid->guid, sizeof(guid->guid));
+	return mail_guid_128_to_string(guid->guid);
 }
 
 const char *dsync_get_guid_128_str(const char *guid, unsigned char *dest,

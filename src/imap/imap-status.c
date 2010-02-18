@@ -123,8 +123,7 @@ void imap_status_send(struct client *client, const char *mailbox,
 	}
 	if (items->guid) {
 		str_printfa(str, "X-GUID %s ",
-			    binary_to_hex(result->mailbox_guid,
-					  sizeof(result->mailbox_guid)));
+			    mail_guid_128_to_string(result->mailbox_guid));
 	}
 
 	if (items != 0)

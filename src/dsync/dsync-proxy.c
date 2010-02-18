@@ -275,7 +275,7 @@ int dsync_proxy_mailbox_import(pool_t pool, const char *str,
 void dsync_proxy_mailbox_guid_export(string_t *str,
 				     const mailbox_guid_t *mailbox)
 {
-	str_append(str, binary_to_hex(mailbox->guid, sizeof(mailbox->guid)));
+	str_append(str, dsync_guid_to_str(mailbox));
 }
 
 int dsync_proxy_mailbox_guid_import(const char *str, mailbox_guid_t *guid_r)

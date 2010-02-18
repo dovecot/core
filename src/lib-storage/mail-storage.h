@@ -689,5 +689,7 @@ void mail_generate_guid_128_hash(const char *guid,
 				 uint8_t guid_128[MAIL_GUID_128_SIZE]);
 /* Returns TRUE if GUID is empty (not set / unknown). */
 bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
+/* Returns GUID as a hex string. */
+const char *mail_guid_128_to_string(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
 
 #endif

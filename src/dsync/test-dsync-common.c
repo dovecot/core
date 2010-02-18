@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hex-binary.h"
 #include "sha1.h"
 #include "dsync-data.h"
 #include "test-dsync-common.h"
@@ -82,4 +83,9 @@ bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE])
 	static uint8_t empty_guid[MAIL_GUID_128_SIZE] = { 0, };
 
 	return memcmp(empty_guid, guid_128, sizeof(empty_guid)) == 0;
+}
+
+const char *mail_guid_128_to_string(const uint8_t guid_128[MAIL_GUID_128_SIZE])
+{
+	return binary_to_hex(guid_128, MAIL_GUID_128_SIZE);
 }

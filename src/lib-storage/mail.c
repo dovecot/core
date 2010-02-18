@@ -334,3 +334,8 @@ bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE])
 	}
 	return TRUE;
 }
+
+const char *mail_guid_128_to_string(const uint8_t guid_128[MAIL_GUID_128_SIZE])
+{
+	return binary_to_hex(guid_128, MAIL_GUID_128_SIZE);
+}
