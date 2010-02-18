@@ -13,7 +13,6 @@
 
 static const struct setting_define maildir_setting_defines[] = {
 	DEF(SET_BOOL, maildir_copy_with_hardlinks),
-	DEF(SET_BOOL, maildir_copy_preserve_filename),
 	DEF(SET_BOOL, maildir_very_dirty_syncs),
 
 	SETTING_DEFINE_LIST_END
@@ -21,7 +20,6 @@ static const struct setting_define maildir_setting_defines[] = {
 
 static const struct maildir_settings maildir_default_settings = {
 	.maildir_copy_with_hardlinks = TRUE,
-	.maildir_copy_preserve_filename = FALSE,
 	.maildir_very_dirty_syncs = FALSE
 };
 

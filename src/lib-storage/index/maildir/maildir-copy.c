@@ -123,22 +123,6 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 	return 1;
 }
 
-static const char *
-maildir_copy_get_preserved_fname(struct maildir_mailbox *src_mbox,
-				 uint32_t uid)
-{
-	enum maildir_uidlist_rec_flag flags;
-	const char *fname;
-
-	if (maildir_uidlist_lookup(src_mbox->uidlist, uid, &flags,
-				   &fname) <= 0)
-		return NULL;
-
-	/* fname may be freed by a later uidlist sync. make sure it gets
-	   strduped. */
-	return t_strcut(t_strdup(fname), ':');
-}
-
 static int
 maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 {
@@ -146,7 +130,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 		(struct maildir_mailbox *)ctx->transaction->box;
 	struct maildir_mailbox *src_mbox;
 	struct hardlink_ctx do_ctx;
-	const char *path, *filename = NULL;
+	const char *path, *guid;
 
 	if (strcmp(mail->box->storage->name, MAILDIR_STORAGE_NAME) == 0)
 		src_mbox = (struct maildir_mailbox *)mail->box;
@@ -161,17 +145,14 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path = str_new(default_pool, 512);
 
-	if (dest_mbox->storage->set->maildir_copy_preserve_filename &&
-	    src_mbox != NULL) {
-		filename = maildir_copy_get_preserved_fname(src_mbox,
-							    mail->uid);
-	}
-	if (filename == NULL) {
+	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) < 0)
+		guid = "";
+	if (*guid == '\0') {
 		/* the generated filename is _always_ unique, so we don't
 		   bother trying to check if it already exists */
 		do_ctx.dest_fname = maildir_filename_generate();
 	} else {
-		do_ctx.dest_fname = filename;
+		do_ctx.dest_fname = guid;
 		do_ctx.preserve_filename = TRUE;
 	}
 
