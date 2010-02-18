@@ -236,10 +236,15 @@ fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 	const char *path, *dir_path;
 	enum mailbox_info_flags flags;
 
+	if (strcmp(name, "INBOX") == 0 &&
+	    (_list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		*status = MAILBOX_NAME_EXISTS_MAILBOX;
+		return 0;
+	}
+
 	path = mailbox_list_get_path(_list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-
-	if (strcmp(name, "INBOX") == 0 || stat(path, &st) == 0) {
+	if (stat(path, &st) == 0) {
 		if (*_list->set.maildir_name != '\0' ||
 		    _list->v.is_internal_name == NULL || !S_ISDIR(st.st_mode)) {
 			*status = MAILBOX_NAME_EXISTS_MAILBOX;
