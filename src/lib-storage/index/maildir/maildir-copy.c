@@ -125,27 +125,15 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 
 static const char *
 maildir_copy_get_preserved_fname(struct maildir_mailbox *src_mbox,
-				 struct maildir_mailbox *dest_mbox,
 				 uint32_t uid)
 {
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname;
 
-	/* see if the filename exists in destination maildir's
-	   uidlist. if it doesn't, we can use it. otherwise generate
-	   a new filename. FIXME: There's a race condition here if
-	   another process is just doing the same copy. */
 	if (maildir_uidlist_lookup(src_mbox->uidlist, uid, &flags,
 				   &fname) <= 0)
 		return NULL;
 
-	if (maildir_uidlist_refresh(dest_mbox->uidlist) <= 0)
-		return NULL;
-	if (maildir_uidlist_get_full_filename(dest_mbox->uidlist,
-					      fname) != NULL) {
-		/* already exists in destination */
-		return NULL;
-	}
 	/* fname may be freed by a later uidlist sync. make sure it gets
 	   strduped. */
 	return t_strcut(t_strdup(fname), ':');
@@ -175,7 +163,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 
 	if (dest_mbox->storage->set->maildir_copy_preserve_filename &&
 	    src_mbox != NULL) {
-		filename = maildir_copy_get_preserved_fname(src_mbox, dest_mbox,
+		filename = maildir_copy_get_preserved_fname(src_mbox,
 							    mail->uid);
 	}
 	if (filename == NULL) {
@@ -212,7 +200,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	}
 
 	/* hardlinked to tmp/, treat as normal copied mail */
-	maildir_save_add(ctx, do_ctx.dest_fname);
+	maildir_save_add(ctx, do_ctx.dest_fname, do_ctx.preserve_filename);
 	return 1;
 }
 

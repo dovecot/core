@@ -122,7 +122,8 @@ void maildir_save_add_conflict(struct mailbox_transaction_context *t,
 			       uint32_t old_uid, uint32_t new_uid);
 
 struct maildir_filename *
-maildir_save_add(struct mail_save_context *_ctx, const char *base_fname);
+maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
+		 bool preserve_filename);
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq);
 

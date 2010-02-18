@@ -66,6 +66,7 @@ struct maildir_save_context {
 	uint32_t first_seq, seq, last_nonrecent_uid;
 
 	unsigned int have_keywords:1;
+	unsigned int have_preserved_filenames:1;
 	unsigned int locked:1;
 	unsigned int failed:1;
 	unsigned int last_save_finished:1;
@@ -140,7 +141,8 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 }
 
 struct maildir_filename *
-maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
+maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
+		 bool preserve_filename)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct maildir_filename *mf;
@@ -155,7 +157,6 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 		 ctx->last_nonrecent_uid < _ctx->uid)
 		ctx->last_nonrecent_uid = _ctx->uid;
 
-
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
 	   into new/ or cur/. */
@@ -167,6 +168,9 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 	mf->flags = _ctx->flags;
 	mf->size = (uoff_t)-1;
 	mf->vsize = (uoff_t)-1;
+	mf->preserve_filename = preserve_filename;
+	if (preserve_filename)
+		ctx->have_preserved_filenames = TRUE;
 
 	ctx->file_last = mf;
 	i_assert(*ctx->files_tail == NULL);
@@ -394,9 +398,7 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 				ctx->input = i_stream_create_crlf(input);
 			else
 				ctx->input = i_stream_create_lf(input);
-			mf = maildir_save_add(_ctx, fname);
-			if (fname == _ctx->guid)
-				mf->preserve_filename = TRUE;
+			mf = maildir_save_add(_ctx, fname, fname == _ctx->guid);
 		}
 	} T_END;
 
@@ -912,6 +914,10 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		/* we want to assign UIDs, we must lock uidlist */
 	} else if (ctx->have_keywords) {
 		/* keywords file updating relies on uidlist lock. */
+	} else if (ctx->have_preserved_filenames) {
+		/* we're trying to use some potentially existing filenames.
+		   we must lock to avoid race conditions where two sessions
+		   try to save the same filename. */
 	} else {
 		/* no requirement to lock uidlist. if we happen to get a lock,
 		   assign uids. */
