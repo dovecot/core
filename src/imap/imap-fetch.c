@@ -779,6 +779,7 @@ static int fetch_guid(struct imap_fetch_context *ctx, struct mail *mail,
 
 	str_append(ctx->cur_str, "X-GUID ");
 	imap_quote_append_string(ctx->cur_str, value, FALSE);
+	str_append_c(ctx->cur_str, ' ');
 	return 1;
 }
 
@@ -799,6 +800,7 @@ static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
 		i_panic("mailbox name not returned");
 	str_append(ctx->cur_str, "X-MAILBOX ");
 	imap_quote_append_string(ctx->cur_str, str, FALSE);
+	str_append_c(ctx->cur_str, ' ');
 	return 1;
 }
 
