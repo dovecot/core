@@ -6,6 +6,9 @@ AM_INIT_AUTOMAKE([foreign])
 
 AM_MAINTAINER_MODE
 
+ACLOCAL_AMFLAGS='-I $(top_srcdir)'
+AC_SUBST(ACLOCAL_AMFLAGS)
+
 dnl TEST_WITH(name, value, [plugin])
 AC_DEFUN([TEST_WITH], [
   want=want_`echo $1|sed s/-/_/g`
