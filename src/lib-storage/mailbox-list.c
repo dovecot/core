@@ -912,29 +912,58 @@ mailbox_list_get_file_type(const struct dirent *d ATTR_UNUSED)
 	return type;
 }
 
+static bool
+mailbox_list_try_get_home_path(struct mailbox_list *list, const char **name)
+{
+	if ((*name)[1] == '/') {
+		/* ~/dir - use the configured home directory */
+		if (mail_user_try_home_expand(list->ns->user, name) < 0)
+			return FALSE;
+	} else {
+		/* ~otheruser/dir - assume we're using system users */
+		if (home_try_expand(name) < 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name)
 {
+	const char *root_dir, *path, *mailbox_name;
+	unsigned int len;
+
 	if (!list->mail_set->mail_full_filesystem_access)
 		return FALSE;
 
-	if (**name == '/')
-		return TRUE;
-	if (**name != '~')
-		return FALSE;
-
-	/* try to expand home directory */
-	if ((*name)[1] == '/') {
-		/* ~/dir - use the configured home directory */
-		if (mail_user_try_home_expand(list->ns->user, name) == 0)
-			return TRUE;
+	if (**name == '~') {
+		/* try to expand home directory */
+		if (!mailbox_list_try_get_home_path(list, name)) {
+			/* fallback to using actual "~name" mailbox */
+			return FALSE;
+		}
 	} else {
-		/* ~otheruser/dir - assume we're using system users */
-		if (home_try_expand(name) == 0)
-			return TRUE;
+		if (**name != '/')
+			return FALSE;
 	}
-	/* fallback to using ~dir */
-	return FALSE;
+
+	/* okay, we have an absolute path now. but check first if it points to
+	   same directory as one of our regular mailboxes. */
+	root_dir = mailbox_list_get_path(list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	len = strlen(root_dir);
+	if (strncmp(root_dir, *name, len) == 0 && (*name)[len] == '/') {
+		mailbox_name = *name + len + 1;
+		path = mailbox_list_get_path(list, mailbox_name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (strcmp(path, *name) == 0) {
+			/* yeah, we can replace the full path with mailbox
+			   name. this way we can use indexes. */
+			*name = mailbox_name;
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 int mailbox_list_create_parent_dir(struct mailbox_list *list,
