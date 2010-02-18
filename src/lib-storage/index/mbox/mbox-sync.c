@@ -181,7 +181,7 @@ static void mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 
 	index_sync_changes_read(sync_ctx->sync_changes, uid, sync_expunge_r,
 				expunged_guid_128);
-	if (sync_ctx->mbox->box.backend_readonly) {
+	if (sync_ctx->readonly) {
 		/* we can't expunge anything from read-only mboxes */
 		*sync_expunge_r = FALSE;
 	}
@@ -1590,7 +1590,6 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		   b) we ran out of UIDs
 		   c) syncing had errors */
 		if (sync_ctx->delay_writes &&
-		    !sync_ctx->mbox->box.backend_readonly &&
 		    (sync_ctx->errors || sync_ctx->renumber_uids)) {
 			/* fixing a broken mbox state, be sure to write
 			   the changes. */
@@ -1730,9 +1729,11 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags,
 	struct mbox_sync_context sync_ctx;
 	enum mail_index_sync_flags sync_flags;
 	int ret, changed;
-	bool delay_writes;
+	bool delay_writes, readonly;
 
-	delay_writes = mbox->box.backend_readonly ||
+	readonly = mbox->box.backend_readonly ||
+		(flags & MBOX_SYNC_READONLY) != 0;
+	delay_writes = readonly ||
 		((flags & MBOX_SYNC_REWRITE) == 0 &&
 		 mbox->storage->set->mbox_lazy_writes);
 
@@ -1779,7 +1780,7 @@ again:
 		   lock it for writing immediately. the mbox must be locked
 		   before index syncing is started to avoid deadlocks, so we
 		   don't have much choice either (well, easy ones anyway). */
-		int lock_type = mbox->box.backend_readonly ? F_RDLCK : F_WRLCK;
+		int lock_type = readonly ? F_RDLCK : F_WRLCK;
 
 		if ((ret = mbox_lock(mbox, lock_type, lock_id)) <= 0) {
 			if (ret == 0 || lock_type == F_RDLCK)
@@ -1788,7 +1789,7 @@ again:
 			/* try as read-only */
 			if (mbox_lock(mbox, F_RDLCK, lock_id) <= 0)
 				return -1;
-			mbox->box.backend_readonly = TRUE;
+			mbox->box.backend_readonly = readonly = TRUE;
 		}
 	}
 
@@ -1846,8 +1847,8 @@ again:
 	i_array_init(&sync_ctx.mails, 64);
 
 	sync_ctx.flags = flags;
-	sync_ctx.delay_writes = delay_writes ||
-		sync_ctx.mbox->box.backend_readonly;
+	sync_ctx.readonly = readonly;
+	sync_ctx.delay_writes = delay_writes;
 
 	sync_ctx.sync_changes =
 		index_sync_changes_init(index_sync_ctx, sync_view, trans,
@@ -1899,7 +1900,7 @@ again:
 	sync_ctx.index_sync_ctx = NULL;
 
 	if (ret == 0 && mbox->mbox_fd != -1 && sync_ctx.keep_recent &&
-	    !sync_ctx.mbox->box.backend_readonly) {
+	    !readonly) {
 		/* try to set atime back to its original value */
 		struct utimbuf buf;
 		struct stat st;
@@ -1933,7 +1934,8 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	unsigned int lock_id = 0;
 	int ret;
 
-	i_assert(mbox->mbox_lock_type != F_RDLCK);
+	i_assert(mbox->mbox_lock_type != F_RDLCK ||
+		 (flags & MBOX_SYNC_READONLY) != 0);
 
 	mbox->syncing = TRUE;
 	ret = mbox_sync_int(mbox, flags, &lock_id);

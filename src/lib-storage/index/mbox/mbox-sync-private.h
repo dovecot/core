@@ -11,7 +11,8 @@ enum mbox_sync_flags {
 	MBOX_SYNC_LOCK_READING	= 0x04,
 	MBOX_SYNC_UNDIRTY	= 0x08,
 	MBOX_SYNC_REWRITE	= 0x10,
-	MBOX_SYNC_FORCE_SYNC	= 0x20
+	MBOX_SYNC_FORCE_SYNC	= 0x20,
+	MBOX_SYNC_READONLY	= 0x40
 };
 
 struct mbox_flag_type {
@@ -138,6 +139,7 @@ struct mbox_sync_context {
 
 	/* global flags: */
 	unsigned int keep_recent:1;
+	unsigned int readonly:1;
 	unsigned int delay_writes:1;
 	unsigned int renumber_uids:1;
 	unsigned int moved_offsets:1;
