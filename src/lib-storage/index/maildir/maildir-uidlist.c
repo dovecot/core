@@ -1644,7 +1644,7 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 	return 1;
 }
 
-static void
+static int
 maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 				  const char *filename, uint32_t uid,
 				  enum maildir_uidlist_rec_flag flags)
@@ -1658,7 +1658,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		/* doesn't exist in uidlist */
 		if (!ctx->locked) {
 			/* we can't add it, so just ignore it */
-			return;
+			return 1;
 		}
 		if (ctx->first_new_pos == (unsigned int)-1)
 			ctx->first_new_pos = array_count(&uidlist->records);
@@ -1679,6 +1679,12 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		uidlist->change_counter++;
 	}
 	if (uid != 0) {
+		if (rec->uid != uid && rec->uid != (uint32_t)-1) {
+			mail_storage_set_critical(uidlist->mbox->box.storage,
+				"Maildir: %s changed UID %u -> %u",
+				filename, rec->uid, uid);
+			return -1;
+		}
 		rec->uid = uid;
 		if (uidlist->next_uid <= uid)
 			uidlist->next_uid = uid + 1;
@@ -1689,6 +1695,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	hash_table_insert(uidlist->files, rec->filename, rec);
 
 	ctx->finished = FALSE;
+	return 1;
 }
 
 static unsigned char *ext_dup(pool_t pool, const unsigned char *extensions)
@@ -1740,8 +1747,8 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 	}
 
 	if (ctx->partial) {
-		maildir_uidlist_sync_next_partial(ctx, filename, uid, flags);
-		return 1;
+		return maildir_uidlist_sync_next_partial(ctx, filename,
+							 uid, flags);
 	}
 
 	rec = hash_table_lookup(ctx->files, filename);
