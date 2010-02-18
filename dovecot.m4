@@ -28,7 +28,11 @@ AC_DEFUN([AX_SUBST_L],[
 AC_DEFUN([DC_DOVECOT],[
 	AC_ARG_WITH(dovecot,
 		AS_HELP_STRING([--with-dovecot=DIR],[Dovecot base directory [LIBDIR/dovecot]]),
-			[ dovecotdir="$withval" ], [ dovecotdir="${libdir}"/dovecot ]
+			[ dovecotdir="$withval" ], [
+			  dc_prefix=$prefix
+			  test "x$dc_prefix" = xNONE && dc_prefix=$ac_default_prefix
+			  dovecotdir="$dc_prefix/lib/dovecot"
+			]
 	)
 
 	AC_MSG_CHECKING([for dovecot-config in "$dovecotdir"])
