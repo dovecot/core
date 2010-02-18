@@ -91,13 +91,14 @@ static int cmd_iterate(struct dict_connection *conn, const char *line)
 	}
 
 	args = t_strsplit(line, "\t");
-	if (str_array_length(args) != 2) {
+	if (str_array_length(args) < 2) {
 		i_error("dict client: ITERATE: broken input");
 		return -1;
 	}
 
 	/* <flags> <path> */
-	conn->iter_ctx = dict_iterate_init(conn->dict, args[1], atoi(args[0]));
+	conn->iter_ctx = dict_iterate_init_multiple(conn->dict, args+1,
+						    atoi(args[0]));
 
 	o_stream_set_flush_callback(conn->output, cmd_iterate_flush, conn);
 	cmd_iterate_flush(conn);

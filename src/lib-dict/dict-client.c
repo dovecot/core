@@ -468,7 +468,7 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool,
 }
 
 static struct dict_iterate_context *
-client_dict_iterate_init(struct dict *_dict, const char *path, 
+client_dict_iterate_init(struct dict *_dict, const char *const *paths,
 			 enum dict_iterate_flags flags)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
@@ -483,11 +483,16 @@ client_dict_iterate_init(struct dict *_dict, const char *path,
 	ctx->pool = pool_alloconly_create("client dict iteration", 512);
 
 	T_BEGIN {
-		const char *query;
+		string_t *query = t_str_new(256);
+		unsigned int i;
 
-		query = t_strdup_printf("%c%d\t%s\n", DICT_PROTOCOL_CMD_ITERATE,
-					flags, dict_client_escape(path));
-		if (client_dict_send_query(dict, query) < 0)
+		str_printfa(query, "%c%d", DICT_PROTOCOL_CMD_ITERATE, flags);
+		for (i = 0; paths[i] != NULL; i++) {
+			str_append_c(query, '\t');
+			str_append(query, dict_client_escape(paths[i]));
+		}
+		str_append_c(query, '\n');
+		if (client_dict_send_query(dict, str_c(query)) < 0)
 			ctx->failed = TRUE;
 	} T_END;
 	return &ctx->ctx;

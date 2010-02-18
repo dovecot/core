@@ -35,13 +35,16 @@ struct sql_dict {
 
 struct sql_dict_iterate_context {
 	struct dict_iterate_context ctx;
+	pool_t pool;
+
 	enum dict_iterate_flags flags;
-	char *path;
+	const char **paths;
 
 	struct sql_result *result;
 	string_t *key;
 	const struct dict_sql_map *map;
 	unsigned int key_prefix_len, pattern_prefix_len, next_map_idx;
+	unsigned int path_idx;
 	bool failed;
 };
 
@@ -313,16 +316,24 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 	t_array_init(values, dict->set->max_field_count);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = ctx->next_map_idx; i < count; i++) {
-		if (dict_sql_map_match(&maps[i], ctx->path,
+		if (dict_sql_map_match(&maps[i], ctx->paths[ctx->path_idx],
 				       values, &pat_len, &path_len, TRUE) &&
 		    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 ||
 		     array_count(values)+1 >= array_count(&maps[i].sql_fields))) {
 			ctx->key_prefix_len = path_len;
 			ctx->pattern_prefix_len = pat_len;
 			ctx->next_map_idx = i + 1;
+
+			str_truncate(ctx->key, 0);
+			str_append(ctx->key, ctx->paths[ctx->path_idx]);
 			return &maps[i];
 		}
 	}
+
+	/* try the next path, if there is any */
+	ctx->path_idx++;
+	if (ctx->paths[ctx->path_idx] != NULL)
+		return sql_dict_iterate_find_next_map(ctx, values);
 	return NULL;
 }
 
@@ -358,7 +369,8 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 
 		recurse_type = (ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 ?
 			SQL_DICT_RECURSE_ONE : SQL_DICT_RECURSE_FULL;
-		sql_dict_where_build(dict, map, &values, ctx->path[0],
+		sql_dict_where_build(dict, map, &values,
+				     ctx->paths[ctx->path_idx][0],
 				     recurse_type, query);
 
 		if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0) {
@@ -378,20 +390,28 @@ static bool sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 }
 
 static struct dict_iterate_context *
-sql_dict_iterate_init(struct dict *_dict, const char *path, 
+sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
 		      enum dict_iterate_flags flags)
 {
 	struct sql_dict_iterate_context *ctx;
+	unsigned int i, path_count;
+	pool_t pool;
 
-	ctx = i_new(struct sql_dict_iterate_context, 1);
+	pool = pool_alloconly_create("sql dict iterate", 512);
+	ctx = p_new(pool, struct sql_dict_iterate_context, 1);
 	ctx->ctx.dict = _dict;
-	ctx->path = i_strdup(path);
+	ctx->pool = pool;
 	ctx->flags = flags;
-	ctx->key = str_new(default_pool, 256);
-	str_append(ctx->key, ctx->path);
 
+	for (path_count = 0; paths[path_count] != NULL; path_count++) ;
+	ctx->paths = p_new(pool, const char *, path_count + 1);
+	for (i = 0; i < path_count; i++)
+		ctx->paths[i] = p_strdup(pool, paths[i]);
+
+	ctx->key = str_new(pool, 256);
 	if (!sql_dict_iterate_next_query(ctx)) {
-		i_error("sql dict iterate: Invalid/unmapped path: %s", path);
+		i_error("sql dict iterate: Invalid/unmapped path: %s",
+			paths[0]);
 		ctx->result = NULL;
 		return &ctx->ctx;
 	}
@@ -457,9 +477,7 @@ static int sql_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 
 	if (ctx->result != NULL)
 		sql_result_unref(ctx->result);
-	str_free(&ctx->key);
-	i_free(ctx->path);
-	i_free(ctx);
+	pool_unref(&ctx->pool);
 	return ret;
 }
 

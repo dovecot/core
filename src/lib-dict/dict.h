@@ -48,6 +48,9 @@ int dict_lookup(struct dict *dict, pool_t pool,
 struct dict_iterate_context *
 dict_iterate_init(struct dict *dict, const char *path, 
 		  enum dict_iterate_flags flags);
+struct dict_iterate_context *
+dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
+			   enum dict_iterate_flags flags);
 bool dict_iterate(struct dict_iterate_context *ctx,
 		  const char **key_r, const char **value_r);
 /* Returns 0 = ok, -1 = iteration failed */

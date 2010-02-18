@@ -118,8 +118,23 @@ struct dict_iterate_context *
 dict_iterate_init(struct dict *dict, const char *path, 
 		  enum dict_iterate_flags flags)
 {
-	i_assert(dict_key_prefix_is_valid(path));
-	return dict->v.iterate_init(dict, path, flags);
+	const char *paths[2];
+
+	paths[0] = path;
+	paths[1] = NULL;
+	return dict_iterate_init_multiple(dict, paths, flags);
+}
+
+struct dict_iterate_context *
+dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
+			   enum dict_iterate_flags flags)
+{
+	unsigned int i;
+
+	i_assert(paths[0] != NULL);
+	for (i = 0; paths[i] != NULL; i++)
+		i_assert(dict_key_prefix_is_valid(paths[i]));
+	return dict->v.iterate_init(dict, paths, flags);
 }
 
 bool dict_iterate(struct dict_iterate_context *ctx,
