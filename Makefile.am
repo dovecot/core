@@ -1,3 +1,5 @@
+aclocaldir = $(datadir)/aclocal
+
 if BUILD_DOCS
 DOCS = doc
 endif
@@ -26,6 +28,8 @@ if MAINTAINER_MODE
 ChangeLog: .hg/dirstate
 	hg log --style=changelog > ChangeLog
 endif
+
+aclocal_DATA = dovecot.m4
 
 dovecot-config: dovecot-config.in Makefile
 	old=`pwd` && cd $(top_builddir) && abs_builddir=`pwd` && cd $$old && \

@@ -11,7 +11,7 @@ lib21_fts_solr_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib21_fts_solr_plugin.la
 
-if PLUGIN_DEPS
+if DOVECOT_PLUGIN_DEPS
 fts_plugin_dep = ../fts/lib20_fts_plugin.la
 endif
 

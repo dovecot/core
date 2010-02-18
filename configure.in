@@ -614,7 +614,7 @@ if test $i_cv_posix_fallocate_works = yes; then
 fi
 
 dnl * OS specific options
-have_plugin_deps=yes
+DC_PLUGIN_DEPS
 case "$host_os" in
 	hpux*)
 		CFLAGS="$CFLAGS -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED"
@@ -626,14 +626,9 @@ case "$host_os" in
 	linux*)
 		AC_DEFINE(PROCTITLE_HACK,, Define if process title can be changed by modifying argv)
 		;;
-	darwin*)
-		# OSX loads the plugins twice, which breaks stuff
-		have_plugin_deps=no
-		;;
 	*)
 		;;
 esac
-AM_CONDITIONAL(PLUGIN_DEPS, test "$have_plugin_deps" = "yes")
 
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)

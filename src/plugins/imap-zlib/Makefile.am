@@ -14,7 +14,7 @@ lib30_imap_zlib_plugin_la_LDFLAGS = -module -avoid-version
 imap_module_LTLIBRARIES = \
 	lib30_imap_zlib_plugin.la
 
-if PLUGIN_DEPS
+if DOVECOT_PLUGIN_DEPS
 lib30_imap_zlib_plugin_la_LIBADD = \
 	../zlib/lib20_zlib_plugin.la
 endif

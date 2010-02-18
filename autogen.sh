@@ -4,10 +4,11 @@
 #ACLOCAL_DIR=
 #GETTEXT_DIR=
 
+ACLOCAL="aclocal -I ."
 if test "$ACLOCAL_DIR" != ""; then
-  ACLOCAL="aclocal -I $ACLOCAL_DIR"
-  export ACLOCAL
+  ACLOCAL="$ACLOCAL -I $ACLOCAL_DIR"
 fi
+export ACLOCAL
 
 for dir in $GETTEXT_DIR /usr/share/gettext /usr/local/share/gettext; do
   if test -f $dir/config.rpath; then
