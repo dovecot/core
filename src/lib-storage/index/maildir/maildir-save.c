@@ -28,7 +28,7 @@
 
 struct maildir_filename {
 	struct maildir_filename *next;
-	const char *basename;
+	const char *tmp_name, *dest_basename;
 
 	uoff_t size, vsize;
 	enum mail_flags flags;
@@ -69,6 +69,7 @@ struct maildir_save_context {
 	unsigned int locked:1;
 	unsigned int failed:1;
 	unsigned int last_save_finished:1;
+	unsigned int locked_uidlist_refresh:1;
 };
 
 static int maildir_file_move(struct maildir_save_context *ctx,
@@ -82,7 +83,7 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 	   new/ directory can't have flags. alternative would be to write it
 	   in new/ and set the flags dirty in index file, but in that case
 	   external MUAs would see wrong flags. */
-	tmp_path = t_strconcat(ctx->tmpdir, "/", mf->basename, NULL);
+	tmp_path = t_strconcat(ctx->tmpdir, "/", mf->tmp_name, NULL);
 	new_path = newdir ?
 		t_strconcat(ctx->newdir, "/", destname, NULL) :
 		t_strconcat(ctx->curdir, "/", destname, NULL);
@@ -162,7 +163,7 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 	keyword_count = _ctx->keywords == NULL ? 0 : _ctx->keywords->count;
 	mf = p_malloc(ctx->pool, sizeof(*mf) +
 		      sizeof(unsigned int) * keyword_count);
-	mf->basename = p_strdup(ctx->pool, base_fname);
+	mf->tmp_name = mf->dest_basename = p_strdup(ctx->pool, base_fname);
 	mf->flags = _ctx->flags;
 	mf->size = (uoff_t)-1;
 	mf->vsize = (uoff_t)-1;
@@ -221,11 +222,11 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname)
 }
 
 static bool
-maildir_get_updated_filename(struct maildir_save_context *ctx,
-			     struct maildir_filename *mf,
-			     const char **fname_r)
+maildir_get_dest_filename(struct maildir_save_context *ctx,
+			  struct maildir_filename *mf,
+			  const char **fname_r)
 {
-	const char *basename = mf->basename;
+	const char *basename = mf->dest_basename;
 
 	if (mf->size != (uoff_t)-1 && !mf->preserve_filename) {
 		basename = t_strdup_printf("%s,%c=%"PRIuUOFF_T, basename,
@@ -261,18 +262,17 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 static const char *maildir_mf_get_path(struct maildir_save_context *ctx,
 				       struct maildir_filename *mf)
 {
-	const char *fname;
+	const char *fname, *dir;
 
 	if ((mf->flags & MAILDIR_FILENAME_FLAG_MOVED) == 0) {
 		/* file is still in tmp/ */
-		return t_strdup_printf("%s/%s", ctx->tmpdir, mf->basename);
+		return t_strdup_printf("%s/%s", ctx->tmpdir, mf->tmp_name);
 	}
 
 	/* already moved to new/ or cur/ */
-	if (maildir_get_updated_filename(ctx, mf, &fname))
-		return t_strdup_printf("%s/%s", ctx->newdir, mf->basename);
-	else
-		return t_strdup_printf("%s/%s", ctx->curdir, fname);
+	dir = maildir_get_dest_filename(ctx, mf, &fname) ?
+		ctx->newdir : ctx->curdir;
+	return t_strdup_printf("%s/%s", dir, fname);
 }
 
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
@@ -422,7 +422,7 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 				mail_storage_set_critical(storage,
 					"o_stream_send_istream(%s/%s) "
 					"failed: %m",
-					ctx->tmpdir, ctx->file_last->basename);
+					ctx->tmpdir, ctx->file_last->tmp_name);
 			}
 			ctx->failed = TRUE;
 			return -1;
@@ -509,7 +509,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		return -1;
 	}
 
-	path = t_strconcat(ctx->tmpdir, "/", ctx->file_last->basename, NULL);
+	path = t_strconcat(ctx->tmpdir, "/", ctx->file_last->tmp_name, NULL);
 	if (o_stream_flush(_ctx->output) < 0) {
 		if (!mail_storage_set_error_from_errno(storage)) {
 			mail_storage_set_critical(storage,
@@ -811,6 +811,23 @@ maildir_save_rollback_index_changes(struct maildir_save_context *ctx)
 	mail_cache_transaction_reset(t->cache_trans);
 }
 
+static void
+maildir_filename_check_conflicts(struct maildir_save_context *ctx,
+				 struct maildir_filename *mf)
+{
+	if (!ctx->locked_uidlist_refresh) {
+		(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
+		ctx->locked_uidlist_refresh = TRUE;
+	}
+
+	if (maildir_uidlist_get_full_filename(ctx->mbox->uidlist,
+					      mf->dest_basename) != NULL) {
+		/* file already exists. give it another name. */
+		mf->dest_basename = p_strdup(ctx->pool,
+					     maildir_filename_generate());
+	}
+}
+
 static int
 maildir_save_move_files_to_newcur(struct maildir_save_context *ctx,
 				  struct maildir_filename **last_mf_r)
@@ -827,7 +844,10 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx,
 		T_BEGIN {
 			const char *dest;
 
-			newdir = maildir_get_updated_filename(ctx, mf, &dest);
+			if (mf->preserve_filename)
+				maildir_filename_check_conflicts(ctx, mf);
+
+			newdir = maildir_get_dest_filename(ctx, mf, &dest);
 			if (newdir)
 				new_changed = TRUE;
 			else
@@ -860,7 +880,7 @@ static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
 		bret = seq_range_array_iter_nth(&iter, n++, &uid);
 		i_assert(bret);
 
-		newdir = maildir_get_updated_filename(ctx, mf, &dest);
+		newdir = maildir_get_dest_filename(ctx, mf, &dest);
 		flags = MAILDIR_UIDLIST_REC_FLAG_RECENT;
 		if (newdir)
 			flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
