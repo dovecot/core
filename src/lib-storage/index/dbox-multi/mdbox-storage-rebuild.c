@@ -133,7 +133,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 {
 	const char *guid;
 	struct mdbox_rebuild_msg *rec;
-	uoff_t offset, prev_offset, size;
+	uoff_t offset, prev_offset;
 	bool last, first, fixed = FALSE;
 	int ret;
 
@@ -162,7 +162,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 			if (!first) {
 				/* seek to the offset where we last left off */
 				ret = dbox_file_get_mail_stream(file,
-					prev_offset, &size, NULL);
+					prev_offset, NULL);
 				if (ret <= 0)
 					break;
 			}
@@ -508,7 +508,6 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	struct mdbox_mailbox *mbox;
 	enum mail_error error;
 	bool deleted, created;
-	uoff_t size;
 	int ret;
 	uint32_t seq;
 
@@ -517,7 +516,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	file = mdbox_file_init(ctx->storage, msg->file_id);
 	ret = dbox_file_open(file, &deleted);
 	if (ret > 0)
-		ret = dbox_file_get_mail_stream(file, msg->offset, &size, NULL);
+		ret = dbox_file_get_mail_stream(file, msg->offset, NULL);
 	if (ret > 0 && !deleted && dbox_file_metadata_read(file) > 0) {
 		mailbox = dbox_file_metadata_get(file,
 						 DBOX_METADATA_ORIG_MAILBOX);

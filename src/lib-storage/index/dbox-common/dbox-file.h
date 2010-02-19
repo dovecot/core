@@ -41,6 +41,10 @@ enum dbox_metadata_key {
 	DBOX_METADATA_RECEIVED_TIME	= 'R',
 	/* Saved UNIX timestamp in hex */
 	DBOX_METADATA_SAVE_TIME		= 'S',
+	/* Physical message size in hex. Necessary only if it differs from
+	   the dbox_message_header.message_size_hex, for example because the
+	   message is compressed. */
+	DBOX_METADATA_PHYSICAL_SIZE	= 'Z',
 	/* Virtual message size in hex (line feeds counted as CRLF) */
 	DBOX_METADATA_VIRTUAL_SIZE	= 'V',
 	/* Pointer to external message data. Format is:
@@ -135,11 +139,9 @@ void dbox_file_close(struct dbox_file *file);
 int dbox_file_try_lock(struct dbox_file *file);
 void dbox_file_unlock(struct dbox_file *file);
 
-/* Seek to given offset in file and return the message's input stream
-   and physical size. Returns 1 if ok/expunged, 0 if file/offset is corrupted,
-   -1 if I/O error. */
+/* Seek to given offset in file and return the message's input stream.
+   Returns 1 if ok/expunged, 0 if file/offset is corrupted, -1 if I/O error. */
 int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
-			      uoff_t *physical_size_r,
 			      struct istream **input_r);
 /* Start seeking at the beginning of the file. */
 void dbox_file_seek_rewind(struct dbox_file *file);

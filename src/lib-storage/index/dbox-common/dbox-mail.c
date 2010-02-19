@@ -40,31 +40,59 @@ int dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 {
 	struct dbox_storage *storage =
 		(struct dbox_storage *)mail->imail.mail.mail.box->storage;
-	uoff_t offset, size;
+	uoff_t offset;
 
 	if (storage->v.mail_open(mail, &offset, file_r) < 0)
 		return -1;
 
-	if (dbox_file_get_mail_stream(*file_r, offset, &size, NULL) <= 0)
+	if (dbox_file_get_mail_stream(*file_r, offset, NULL) <= 0)
 		return -1;
 	if (dbox_file_metadata_read(*file_r) <= 0)
 		return -1;
+
+	if (mail->imail.data.stream != NULL) {
+		/* we just messed up mail's input stream by reading metadata */
+		i_stream_seek((*file_r)->input, offset);
+		i_stream_sync(mail->imail.data.stream);
+	}
+	return 0;
+}
+
+static int
+dbox_mail_metadata_get(struct dbox_mail *mail, enum dbox_metadata_key key,
+		       const char **value_r)
+{
+	struct dbox_file *file;
+
+	if (dbox_mail_metadata_read(mail, &file) < 0)
+		return -1;
+
+	*value_r = dbox_file_metadata_get(file, key);
 	return 0;
 }
 
 int dbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
-	struct index_mail_data *data = &mail->data;
+	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct index_mail_data *data = &mail->imail.data;
 	struct istream *input;
+	const char *value;
 
 	if (index_mail_get_physical_size(_mail, size_r) == 0)
 		return 0;
 
-	if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
+	/* see if we have it in metadata */
+	if (dbox_mail_metadata_get(mail, DBOX_METADATA_PHYSICAL_SIZE,
+				   &value) < 0)
 		return -1;
 
-	i_assert(data->physical_size != (uoff_t)-1);
+	if (value != NULL)
+		data->physical_size = strtoul(value, NULL, 16);
+	else {
+		if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
+			return -1;
+		i_assert(data->physical_size != (uoff_t)-1);
+	}
 	*size_r = data->physical_size;
 	return 0;
 }
@@ -73,16 +101,14 @@ int dbox_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 	struct index_mail_data *data = &mail->imail.data;
-	struct dbox_file *file;
 	const char *value;
 
 	if (index_mail_get_cached_virtual_size(&mail->imail, size_r))
 		return 0;
 
-	if (dbox_mail_metadata_read(mail, &file) < 0)
+	if (dbox_mail_metadata_get(mail, DBOX_METADATA_VIRTUAL_SIZE,
+				   &value) < 0)
 		return -1;
-
-	value = dbox_file_metadata_get(file, DBOX_METADATA_VIRTUAL_SIZE);
 	if (value == NULL)
 		return index_mail_get_virtual_size(_mail, size_r);
 
@@ -95,16 +121,15 @@ int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 	struct index_mail_data *data = &mail->imail.data;
-	struct dbox_file *file;
 	const char *value;
 
 	if (index_mail_get_received_date(_mail, date_r) == 0)
 		return 0;
 
-	if (dbox_mail_metadata_read(mail, &file) < 0)
+	if (dbox_mail_metadata_get(mail, DBOX_METADATA_RECEIVED_TIME,
+				   &value) < 0)
 		return -1;
 
-	value = dbox_file_metadata_get(file, DBOX_METADATA_RECEIVED_TIME);
 	data->received_date = value == NULL ? 0 : strtoul(value, NULL, 16);
 	*date_r = data->received_date;
 	return 0;
@@ -150,7 +175,6 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 	struct index_mail *imail = &mail->imail;
 	struct index_mailbox_context *ibox =
 		INDEX_STORAGE_CONTEXT(imail->mail.mail.box);
-	struct dbox_file *file;
 	const char *value;
 	string_t *str;
 
@@ -162,10 +186,9 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 		return 0;
 	}
 
-	if (dbox_mail_metadata_read(mail, &file) < 0)
+	if (dbox_mail_metadata_get(mail, key, &value) < 0)
 		return -1;
 
-	value = dbox_file_metadata_get(file, key);
 	if (value == NULL)
 		value = "";
 	index_mail_cache_add_idx(imail, ibox->cache_fields[cache_field].idx,
@@ -205,7 +228,7 @@ int dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 	struct index_mail_data *data = &mail->imail.data;
 	struct istream *input;
-	uoff_t offset, size;
+	uoff_t offset;
 	int ret;
 
 	if (data->stream == NULL) {
@@ -213,7 +236,7 @@ int dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			return -1;
 
 		ret = dbox_file_get_mail_stream(mail->open_file, offset,
-						&size, &input);
+						&input);
 		if (ret <= 0) {
 			if (ret < 0)
 				return -1;
@@ -222,7 +245,6 @@ int dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 				"%"PRIuUOFF_T, _mail->uid, offset);
 			return -1;
 		}
-		data->physical_size = size;
 		data->stream = input;
 	}
 

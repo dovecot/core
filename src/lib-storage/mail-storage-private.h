@@ -410,6 +410,11 @@ struct mail_save_context {
 	char *guid, *pop3_uidl, *from_envelope;
 	struct ostream *output;
 
+	/* if non-zero, overrides the physical size that should be saved.
+	   for example when using zlib plugin, this would contain the mail's
+	   uncompressed size. */
+	uoff_t saved_physical_size;
+
 	/* we came here from mailbox_copy() */
 	unsigned int copying:1;
 };

@@ -135,10 +135,9 @@ int mdbox_file_purge(struct dbox_file *file)
 	i_array_init(&expunged_map_uids, I_MIN(count, 1));
 	offset = file->file_header_size;
 	for (i = 0; i < count; i++) {
-		if ((ret = dbox_file_get_mail_stream(file, offset,
-						     &physical_size,
-						     NULL)) <= 0)
+		if ((ret = dbox_file_get_mail_stream(file, offset, NULL)) <= 0)
 			break;
+		physical_size = file->cur_physical_size;
 		msg_size = file->msg_header_size + physical_size;
 
 		if (msgs[i].offset != offset) {

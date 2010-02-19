@@ -94,12 +94,13 @@ void dbox_save_end(struct dbox_save_context *ctx)
 {
 	struct ostream *dbox_output = ctx->dbox_output;
 
-	if (ctx->ctx.output != dbox_output) {
-		/* e.g. zlib plugin had changed this */
-		o_stream_ref(dbox_output);
-		o_stream_destroy(&ctx->ctx.output);
-		ctx->ctx.output = dbox_output;
-	}
+	if (ctx->ctx.output == dbox_output)
+		return;
+
+	/* e.g. zlib plugin had changed this */
+	o_stream_ref(dbox_output);
+	o_stream_destroy(&ctx->ctx.output);
+	ctx->ctx.output = dbox_output;
 }
 
 void dbox_save_write_metadata(struct mail_save_context *ctx,
@@ -118,6 +119,10 @@ void dbox_save_write_metadata(struct mail_save_context *ctx,
 	o_stream_send(output, &metadata_hdr, sizeof(metadata_hdr));
 
 	str = t_str_new(256);
+	if (ctx->saved_physical_size != 0) {
+		str_printfa(str, "%c%llx\n", DBOX_METADATA_PHYSICAL_SIZE,
+			    (unsigned long long)ctx->saved_physical_size);
+	}
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_RECEIVED_TIME,
 		    (unsigned long)ctx->received_date);
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_SAVE_TIME,
