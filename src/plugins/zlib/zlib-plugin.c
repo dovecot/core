@@ -131,13 +131,19 @@ static int zlib_permail_get_stream(struct mail *_mail,
 				   struct message_size *body_size,
 				   struct istream **stream_r)
 {
+	struct zlib_user *zuser = ZLIB_USER_CONTEXT(_mail->box->storage->user);
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct index_mail *imail = (struct index_mail *)mail;
 	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
 	const struct zlib_handler *handler;
 
-	if (imail->data.stream != NULL) {
+	/* don't uncompress input when we are reading a mail that we're just
+	   in the middle of saving, and we didn't do the compression ourself.
+	   in such situation we're probably checking if the user-given input
+	   looks compressed */
+	if (imail->data.stream != NULL ||
+	    (_mail->uid == 0 && zuser->save_handler == NULL)) {
 		return zmail->super.get_stream(_mail, hdr_size, body_size,
 					       stream_r);
 	}
