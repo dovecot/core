@@ -110,12 +110,12 @@ int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	}
 	if (dbox_map_append_next(ctx->append_ctx, mail_size,
 				 &ctx->cur_file_append,
-				 &ctx->ctx.cur_output) < 0) {
+				 &ctx->ctx.dbox_output) < 0) {
 		ctx->ctx.failed = TRUE;
 		return -1;
 	}
-	i_assert(ctx->ctx.cur_output->offset <= (uint32_t)-1);
-	append_offset = ctx->ctx.cur_output->offset;
+	i_assert(ctx->ctx.dbox_output->offset <= (uint32_t)-1);
+	append_offset = ctx->ctx.dbox_output->offset;
 
 	ctx->ctx.cur_file = ctx->cur_file_append->file;
 	dbox_save_begin(&ctx->ctx, input);
@@ -137,10 +137,10 @@ static int mdbox_save_mail_write_metadata(struct mdbox_save_context *ctx,
 
 	i_assert(file->msg_header_size == sizeof(dbox_msg_hdr));
 
-	message_size = ctx->ctx.cur_output->offset -
+	message_size = ctx->ctx.dbox_output->offset -
 		mail->append_offset - mail->file_append->file->msg_header_size;
 
-	dbox_save_write_metadata(&ctx->ctx.ctx, ctx->ctx.cur_output,
+	dbox_save_write_metadata(&ctx->ctx.ctx, ctx->ctx.dbox_output,
 				 ctx->mbox->box.name, guid_128);
 	/* save the 128bit GUID to index so if the map index gets corrupted
 	   we can still find the message */
@@ -148,7 +148,7 @@ static int mdbox_save_mail_write_metadata(struct mdbox_save_context *ctx,
 			      ctx->mbox->guid_ext_id, guid_128, NULL);
 
 	dbox_msg_header_fill(&dbox_msg_hdr, message_size);
-	if (o_stream_pwrite(ctx->ctx.cur_output, &dbox_msg_hdr,
+	if (o_stream_pwrite(ctx->ctx.dbox_output, &dbox_msg_hdr,
 			    sizeof(dbox_msg_hdr), mail->append_offset) < 0) {
 		dbox_file_set_syscall_error(file, "pwrite()");
 		return -1;
@@ -162,9 +162,10 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 	struct dbox_save_mail *mails;
 
 	ctx->ctx.finished = TRUE;
-	if (ctx->ctx.cur_output == NULL)
+	if (ctx->ctx.dbox_output == NULL)
 		return -1;
 
+	dbox_save_end(&ctx->ctx);
 	index_mail_cache_parse_deinit(_ctx->dest_mail,
 				      _ctx->received_date, !ctx->ctx.failed);
 

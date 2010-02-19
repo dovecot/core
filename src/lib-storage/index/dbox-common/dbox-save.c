@@ -49,14 +49,15 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 
 	/* write a dummy header. it'll get rewritten when we're finished */
 	memset(&dbox_msg_hdr, 0, sizeof(dbox_msg_hdr));
-	o_stream_cork(ctx->cur_output);
-	if (o_stream_send(ctx->cur_output, &dbox_msg_hdr,
+	o_stream_cork(ctx->dbox_output);
+	if (o_stream_send(ctx->dbox_output, &dbox_msg_hdr,
 			  sizeof(dbox_msg_hdr)) < 0) {
 		mail_storage_set_critical(_ctx->transaction->box->storage,
 			"o_stream_send(%s) failed: %m", 
 			ctx->cur_file->cur_path);
 		ctx->failed = TRUE;
 	}
+	_ctx->output = ctx->dbox_output;
 
 	if (_ctx->received_date == (time_t)-1)
 		_ctx->received_date = ioloop_time;
@@ -71,7 +72,7 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 		return -1;
 
 	do {
-		if (o_stream_send_istream(ctx->cur_output, ctx->input) < 0) {
+		if (o_stream_send_istream(_ctx->output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
 					"o_stream_send_istream(%s) failed: %m",
@@ -87,6 +88,18 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 		   one of the streams still having data in them. */
 	} while (i_stream_read(ctx->input) > 0);
 	return 0;
+}
+
+void dbox_save_end(struct dbox_save_context *ctx)
+{
+	struct ostream *dbox_output = ctx->dbox_output;
+
+	if (ctx->ctx.output != dbox_output) {
+		/* e.g. zlib plugin had changed this */
+		o_stream_ref(dbox_output);
+		o_stream_destroy(&ctx->ctx.output);
+		ctx->ctx.output = dbox_output;
+	}
 }
 
 void dbox_save_write_metadata(struct mail_save_context *ctx,
