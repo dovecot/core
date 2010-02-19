@@ -30,8 +30,6 @@ void auth_request_handler_set(struct auth_request_handler *handler,
 			      unsigned int connect_uid,
 			      unsigned int client_pid);
 
-void auth_request_handler_check_timeouts(struct auth_request_handler *handler);
-
 bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				     const char *args);
 bool auth_request_handler_auth_continue(struct auth_request_handler *handler,

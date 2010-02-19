@@ -24,7 +24,6 @@
 #define OUTBUF_THROTTLE_SIZE (1024*50)
 
 static ARRAY_DEFINE(auth_client_connections, struct auth_client_connection *);
-static struct timeout *to_clients;
 
 static void auth_client_connection_unref(struct auth_client_connection **_conn);
 static void auth_client_input(struct auth_client_connection *conn);
@@ -363,33 +362,15 @@ auth_client_connection_lookup(unsigned int pid)
 	return NULL;
 }
 
-static void request_timeout(void *context ATTR_UNUSED)
-{
-	struct auth_client_connection *const *clients;
-
-	array_foreach(&auth_client_connections, clients) {
-		struct auth_client_connection *client = *clients;
-
-		if (client->request_handler != NULL) {
-			auth_request_handler_check_timeouts(
-				client->request_handler);
-		}
-	}
-}
-
 void auth_client_connections_init(void)
 {
 	i_array_init(&auth_client_connections, 16);
-	to_clients = timeout_add(5000, request_timeout, NULL);
 }
 
 void auth_client_connections_deinit(void)
 {
 	struct auth_client_connection **clients;
 	unsigned int i, count;
-
-	if (to_clients != NULL)
-		timeout_remove(&to_clients);
 
 	clients = array_get_modifiable(&auth_client_connections, &count);
 	for (i = count; i > 0; i--)

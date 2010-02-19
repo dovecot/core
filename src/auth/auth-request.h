@@ -55,6 +55,7 @@ struct auth_request {
 	struct auth_stream_reply *userdb_reply;
 
 	const struct mech_module *mech;
+	struct auth_request_handler *handler;
 	struct auth *auth;
         struct auth_passdb *passdb;
         struct auth_userdb *userdb;
@@ -68,7 +69,7 @@ struct auth_request {
 	struct ip_addr local_ip, remote_ip;
 	unsigned int local_port, remote_port;
 
-	struct timeout *to_penalty;
+	struct timeout *to_abort, *to_penalty;
 	unsigned int last_penalty;
 	unsigned int initial_response_len;
 	const unsigned char *initial_response;
@@ -194,5 +195,7 @@ void auth_request_set_credentials(struct auth_request *request,
 				  set_credentials_callback_t *callback);
 void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request);
+
+void auth_request_refresh_last_access(struct auth_request *request);
 
 #endif

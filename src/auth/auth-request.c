@@ -62,6 +62,7 @@ struct auth_request *auth_request_new_dummy(struct auth *auth)
 
 	auth_request->refcount = 1;
 	auth_request->last_access = ioloop_time;
+
 	auth_request->auth = auth;
 	auth_request->passdb = auth->passdbs;
 	auth_request->userdb = auth->userdbs;
@@ -82,7 +83,7 @@ void auth_request_success(struct auth_request *request,
 
 	request->state = AUTH_REQUEST_STATE_FINISHED;
 	request->successful = TRUE;
-	request->last_access = ioloop_time;
+	auth_request_refresh_last_access(request);
 	request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
 			  data, data_size);
 }
@@ -92,7 +93,7 @@ void auth_request_fail(struct auth_request *request)
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	request->state = AUTH_REQUEST_STATE_FINISHED;
-	request->last_access = ioloop_time;
+	auth_request_refresh_last_access(request);
 	request->callback(request, AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
 }
 
@@ -116,6 +117,8 @@ void auth_request_unref(struct auth_request **_request)
 	if (--request->refcount > 0)
 		return;
 
+	if (request->to_abort != NULL)
+		timeout_remove(&request->to_abort);
 	if (request->to_penalty != NULL)
 		timeout_remove(&request->to_penalty);
 
@@ -221,7 +224,7 @@ void auth_request_continue(struct auth_request *request,
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	request->last_access = ioloop_time;
+	auth_request_refresh_last_access(request);
 	request->mech->auth_continue(request, data, data_size);
 }
 
@@ -1560,4 +1563,11 @@ void auth_request_log_error(struct auth_request *auth_request,
 		i_error("%s", get_log_str(auth_request, subsystem, format, va));
 	} T_END;
 	va_end(va);
+}
+
+void auth_request_refresh_last_access(struct auth_request *request)
+{
+	request->last_access = ioloop_time;
+	if (request->to_abort != NULL)
+		timeout_reset(request->to_abort);
 }

@@ -96,23 +96,10 @@ void auth_request_handler_set(struct auth_request_handler *handler,
 static void auth_request_handler_remove(struct auth_request_handler *handler,
 					struct auth_request *request)
 {
+	i_assert(request->handler == handler);
+
 	hash_table_remove(handler->requests, POINTER_CAST(request->id));
 	auth_request_unref(&request);
-}
-
-void auth_request_handler_check_timeouts(struct auth_request_handler *handler)
-{
-	struct hash_iterate_context *iter;
-	void *key, *value;
-
-	iter = hash_table_iterate_init(handler->requests);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct auth_request *request = value;
-
-		if (request->last_access + AUTH_REQUEST_TIMEOUT < ioloop_time)
-			auth_request_handler_remove(handler, request);
-	}
-	hash_table_iterate_deinit(&iter);
 }
 
 static void get_client_extra_fields(struct auth_request *request,
@@ -192,7 +179,7 @@ auth_request_handle_failure(struct auth_request *request,
 	auth_penalty_update(request->auth->penalty, request,
 			    request->last_penalty + 1);
 
-	request->last_access = ioloop_time;
+	auth_request_refresh_last_access(request);
 	aqueue_append(auth_failures, &request);
 	if (to_auth_failures == NULL) {
 		to_auth_failures =
@@ -290,6 +277,11 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 	auth_request_handler_remove(handler, request);
 }
 
+static void auth_request_timeout(struct auth_request *request)
+{
+	auth_request_handler_remove(request->handler, request);
+}
+
 static void auth_request_penalty_finish(struct auth_request *request)
 {
 	timeout_remove(&request->to_penalty);
@@ -343,6 +335,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	}
 
 	request = auth_request_new(handler->auth, mech, auth_callback, handler);
+	request->handler = handler;
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;
 	request->id = id;
@@ -383,6 +376,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return FALSE;
 	}
 
+	request->to_abort = timeout_add(AUTH_REQUEST_TIMEOUT * 1000,
+					auth_request_timeout, request);
 	hash_table_insert(handler->requests, POINTER_CAST(id), request);
 
 	if (request->auth->set->ssl_require_client_cert &&
