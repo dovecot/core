@@ -75,23 +75,22 @@ int dbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 	struct index_mail_data *data = &mail->imail.data;
-	struct istream *input;
+	struct dbox_file *file;
 	const char *value;
 
 	if (index_mail_get_physical_size(_mail, size_r) == 0)
 		return 0;
 
 	/* see if we have it in metadata */
-	if (dbox_mail_metadata_get(mail, DBOX_METADATA_PHYSICAL_SIZE,
-				   &value) < 0)
+	if (dbox_mail_metadata_read(mail, &file) < 0)
 		return -1;
 
+	value = dbox_file_metadata_get(file, DBOX_METADATA_PHYSICAL_SIZE);
 	if (value != NULL)
 		data->physical_size = strtoul(value, NULL, 16);
 	else {
-		if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
-			return -1;
-		i_assert(data->physical_size != (uoff_t)-1);
+		/* no. that means we can use the size in the header */
+		data->physical_size = file->cur_physical_size;
 	}
 	*size_r = data->physical_size;
 	return 0;
