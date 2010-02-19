@@ -56,6 +56,8 @@ install-exec-hook:
 	-e "s|^\(LIBDOVECOT_STORAGE\)=.*$$|\1=-ldovecot-storage|" \
 	-e "s|^\(LIBDOVECOT_INCLUDE\)=.*$$|\1=-I$(pkgincludedir)|" \
 	> $(DESTDIR)$(pkglibdir)/dovecot-config
+else
+install-exec-hook:
 endif
 
 CLEANFILES = $(datafiles)
