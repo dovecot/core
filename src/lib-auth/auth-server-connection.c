@@ -20,7 +20,7 @@
 #define AUTH_SERVER_RECONNECT_TIMEOUT_SECS 5
 
 static void
-auth_server_connection_disconnect(struct auth_server_connection *conn);
+auth_server_connection_reconnect(struct auth_server_connection *conn);
 
 static int
 auth_server_input_mech(struct auth_server_connection *conn,
@@ -238,7 +238,7 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		auth_server_connection_disconnect(conn);
+		auth_server_connection_reconnect(conn);
 		return;
 	case -2:
 		/* buffer full - can't happen unless auth is buggy */
@@ -316,7 +316,7 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn)
 	hash_table_clear(conn->requests, FALSE);
 }
 
-static void auth_server_connection_close(struct auth_server_connection *conn)
+void auth_server_connection_disconnect(struct auth_server_connection *conn)
 {
 	conn->handshake_received = FALSE;
 	conn->version_received = FALSE;
@@ -354,11 +354,11 @@ static void auth_server_reconnect_timeout(struct auth_server_connection *conn)
 }
 
 static void
-auth_server_connection_disconnect(struct auth_server_connection *conn)
+auth_server_connection_reconnect(struct auth_server_connection *conn)
 {
 	time_t next_connect;
 
-	auth_server_connection_close(conn);
+	auth_server_connection_disconnect(conn);
 
 	next_connect = conn->last_connect + AUTH_SERVER_RECONNECT_TIMEOUT_SECS;
 	conn->to = timeout_add(ioloop_time >= next_connect ? 0 :
@@ -372,8 +372,7 @@ void auth_server_connection_deinit(struct auth_server_connection **_conn)
 
 	*_conn = NULL;
 
-	auth_server_connection_close(conn);
-
+	auth_server_connection_disconnect(conn);
 	hash_table_destroy(&conn->requests);
 	array_free(&conn->available_auth_mechs);
 	pool_unref(&conn->pool);
@@ -384,7 +383,7 @@ static void auth_client_handshake_timeout(struct auth_server_connection *conn)
 	i_error("Timeout waiting for handshake from auth server. "
 		"my pid=%u, input bytes=%"PRIuUOFF_T,
 		conn->client->client_pid, conn->input->v_offset);
-	auth_server_connection_disconnect(conn);
+	auth_server_connection_reconnect(conn);
 }
 
 int auth_server_connection_connect(struct auth_server_connection *conn)

@@ -31,6 +31,11 @@ void auth_client_deinit(struct auth_client **_client)
 	i_free(client);
 }
 
+void auth_client_disconnect(struct auth_client *client)
+{
+	auth_server_connection_disconnect(client->conn);
+}
+
 bool auth_client_is_connected(struct auth_client *client)
 {
 	return client->conn->handshake_received;
