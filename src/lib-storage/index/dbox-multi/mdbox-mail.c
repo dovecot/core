@@ -125,7 +125,6 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 							 _mail->seq,
 							 &mail->offset);
 			mail->open_file->refcount++;
-			break;
 		}
 
 		if (!dbox_file_is_open(mail->open_file))
