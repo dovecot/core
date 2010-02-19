@@ -366,6 +366,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		i_error("BUG: Authentication client %u "
 			"sent AUTH parameters after 'resp'",
 			handler->client_pid);
+		auth_request_unref(&request);
 		return FALSE;
 	}
 
@@ -373,6 +374,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		i_error("BUG: Authentication client %u "
 			"didn't specify service in request",
 			handler->client_pid);
+		auth_request_unref(&request);
 		return FALSE;
 	}
 
