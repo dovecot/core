@@ -349,7 +349,6 @@ void auth_server_connection_disconnect(struct auth_server_connection *conn)
 
 static void auth_server_reconnect_timeout(struct auth_server_connection *conn)
 {
-	timeout_remove(&conn->to);
 	(void)auth_server_connection_connect(conn);
 }
 
@@ -394,6 +393,8 @@ int auth_server_connection_connect(struct auth_server_connection *conn)
 	i_assert(conn->fd == -1);
 
 	conn->last_connect = ioloop_time;
+	if (conn->to != NULL)
+		timeout_remove(&conn->to);
 
 	/* max. 1 second wait here. */
 	fd = net_connect_unix_with_retries(conn->client->auth_socket_path,
