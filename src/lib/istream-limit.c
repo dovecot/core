@@ -37,12 +37,8 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 		return -1;
 	}
 
-	if (stream->parent->v_offset !=
-	    lstream->istream.parent_start_offset + stream->istream.v_offset) {
-		i_stream_seek(stream->parent,
-			      lstream->istream.parent_start_offset +
-			      stream->istream.v_offset);
-	}
+	i_stream_seek(stream->parent, lstream->istream.parent_start_offset +
+		      stream->istream.v_offset);
 
 	stream->pos -= stream->skip;
 	stream->skip = 0;
