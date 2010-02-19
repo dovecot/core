@@ -211,6 +211,9 @@ static void client_connected(const struct master_service_connection *conn)
 		global_login_settings->login_access_sockets;
 	struct login_access_lookup *lookup;
 
+	/* make sure we're connected (or attempting to connect) to auth */
+	auth_client_connect(auth_client);
+
 	if (*access_sockets == '\0') {
 		/* no access checks */
 		client_connected_finish(conn);
