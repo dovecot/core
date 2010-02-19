@@ -126,7 +126,7 @@ static const struct zlib_handler *zlib_get_zlib_handler_ext(const char *name)
 	return NULL;
 }
 
-static int zlib_maildir_get_stream(struct mail *_mail,
+static int zlib_permail_get_stream(struct mail *_mail,
 				   struct message_size *hdr_size,
 				   struct message_size *body_size,
 				   struct istream **stream_r)
@@ -163,7 +163,7 @@ static int zlib_maildir_get_stream(struct mail *_mail,
 }
 
 static struct mail *
-zlib_maildir_mail_alloc(struct mailbox_transaction_context *t,
+zlib_permail_mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
 			struct mailbox_header_lookup_ctx *wanted_headers)
 {
@@ -178,7 +178,7 @@ zlib_maildir_mail_alloc(struct mailbox_transaction_context *t,
 	zmail = p_new(mail->pool, union mail_module_context, 1);
 	zmail->super = mail->v;
 
-	mail->v.get_stream = zlib_maildir_get_stream;
+	mail->v.get_stream = zlib_permail_get_stream;
 	MODULE_CONTEXT_SET_SELF(mail, zlib_mail_module, zmail);
 	return _mail;
 }
@@ -286,11 +286,22 @@ zlib_mail_save_compress_begin(struct mail_save_context *ctx,
 	return 0;
 }
 
-static void zlib_maildir_alloc_init(struct mailbox *box)
+static int zlib_mail_save_compress_finish(struct mail_save_context *ctx)
+{
+	struct mailbox *box = ctx->transaction->box;
+	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+
+	/* a bit kludgy: zlib ostreams' offset is actually the
+	   uncompressed offset */
+	ctx->saved_physical_size = ctx->output->offset;
+	return zbox->super.save_finish(ctx);
+}
+
+static void zlib_permail_alloc_init(struct mailbox *box)
 {
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
 
-	box->v.mail_alloc = zlib_maildir_mail_alloc;
+	box->v.mail_alloc = zlib_permail_mail_alloc;
 	box->v.transaction_begin = zlib_mailbox_transaction_begin;
 	box->v.transaction_rollback = zlib_mailbox_transaction_rollback;
 	box->v.transaction_commit = zlib_mailbox_transaction_commit;
@@ -299,6 +310,7 @@ static void zlib_maildir_alloc_init(struct mailbox *box)
 		box->v.save_finish = zlib_mail_save_finish;
 	} else {
 		box->v.save_begin = zlib_mail_save_compress_begin;
+		box->v.save_finish = zlib_mail_save_compress_finish;
 	}
 }
 
@@ -353,8 +365,10 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 
-	if (strcmp(box->storage->name, "maildir") == 0)
-		zlib_maildir_alloc_init(box);
+	if (strcmp(box->storage->name, "maildir") == 0 ||
+	    strcmp(box->storage->name, "mdbox") == 0 ||
+	    strcmp(box->storage->name, "dbox") == 0)
+		zlib_permail_alloc_init(box);
 }
 
 static void zlib_mail_user_created(struct mail_user *user)
