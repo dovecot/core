@@ -156,9 +156,9 @@ void client_destroy(struct client *client, const char *reason)
 		/* as soon as this connection is done with proxying
 		   (or whatever), the process will die. there's no need for
 		   authentication anymore, so close the connection. */
-		if (auth_client != NULL)
-			auth_client_deinit(&auth_client);
+		auth_client_disconnect(auth_client);
 	}
+	login_client_destroyed();
 	login_refresh_proctitle();
 }
 

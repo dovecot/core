@@ -20,6 +20,8 @@
 #include <unistd.h>
 #include <syslog.h>
 
+#define AUTH_CLIENT_IDLE_TIMEOUT_MSECS (1000*60)
+
 struct login_access_lookup {
 	struct master_service_connection conn;
 	struct io *io;
@@ -36,6 +38,7 @@ struct anvil_client *anvil;
 const struct login_settings *global_login_settings;
 void **global_other_settings;
 
+static struct timeout *auth_client_to;
 static bool shutting_down = FALSE;
 static bool ssl_connections = FALSE;
 
@@ -62,12 +65,27 @@ void login_refresh_proctitle(void)
 	}
 }
 
+static void auth_client_idle_timeout(struct auth_client *auth_client)
+{
+	auth_client_disconnect(auth_client);
+	timeout_remove(&auth_client_to);
+}
+
+void login_client_destroyed(void)
+{
+	if (clients == NULL && auth_client_to == NULL) {
+		auth_client_to = timeout_add(AUTH_CLIENT_IDLE_TIMEOUT_MSECS,
+					     auth_client_idle_timeout,
+					     auth_client);
+	}
+}
+
 static void login_die(void)
 {
 	shutting_down = TRUE;
 	login_proxy_kill_idle();
 
-	if (auth_client == NULL || !auth_client_is_connected(auth_client)) {
+	if (!auth_client_is_connected(auth_client)) {
 		/* we don't have auth client, and we might never get one */
 		clients_destroy_all();
 	}
@@ -116,6 +134,9 @@ client_connected_finish(const struct master_service_connection *conn)
 
 	client->remote_port = conn->remote_port;
 	client->local_port = local_port;
+
+	if (auth_client_to != NULL)
+		timeout_remove(&auth_client_to);
 }
 
 static void login_access_lookup_free(struct login_access_lookup *lookup)
@@ -286,13 +307,14 @@ static void main_deinit(void)
 	ssl_proxy_deinit();
 	login_proxy_deinit();
 
-	if (auth_client != NULL)
-		auth_client_deinit(&auth_client);
+	auth_client_deinit(&auth_client);
 	clients_deinit();
 	master_auth_deinit(&master_auth);
 
 	if (anvil != NULL)
 		anvil_client_deinit(&anvil);
+	if (auth_client_to != NULL)
+		timeout_remove(&auth_client_to);
 }
 
 int main(int argc, char *argv[])
