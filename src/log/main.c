@@ -1,6 +1,6 @@
 /* Copyright (c) 2005-2010 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "lib.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
 #include "master-interface.h"
@@ -9,8 +9,6 @@
 #include "log-connection.h"
 
 #include <unistd.h>
-
-pid_t master_pid;
 
 static void
 sig_reopen_logs(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
@@ -22,7 +20,6 @@ static void main_init(void)
 {
 	lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
 
-	master_pid = getppid();
 	log_connections_init();
 }
 

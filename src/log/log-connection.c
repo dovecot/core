@@ -1,6 +1,6 @@
 /* Copyright (c) 2005-2010 Dovecot authors, see the included COPYING file */
 
-#include "common.h"
+#include "lib.h"
 #include "array.h"
 #include "ioloop.h"
 #include "istream.h"

@@ -16,5 +16,4 @@ log_SOURCES = \
 	main.c
 
 noinst_HEADERS = \
-	common.h \
 	log-connection.h
