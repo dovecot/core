@@ -28,6 +28,7 @@ headers = \
 	master-service.h \
 	master-service-private.h \
 	master-service-settings.h \
+	master-service-settings-cache.h \
 	service-settings.h \
 	syslog-util.h
 
