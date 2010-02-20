@@ -374,8 +374,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	}
 
 	memset(&input, 0, sizeof(input));
-	input.service = "lmtp";
-	input.module = "lda";
+	input.module = input.service = "lmtp";
 	input.username = username;
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;
