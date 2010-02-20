@@ -243,6 +243,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 
 	box->opened = TRUE;
 
+	index_thread_mailbox_opened(box);
 	if (hook_mailbox_opened != NULL)
 		hook_mailbox_opened(box);
 
@@ -292,8 +293,6 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 	mail_index_set_permissions(box->index, box->file_create_mode,
 				   box->file_create_gid,
 				   box->file_create_gid_origin);
-
-	index_thread_mailbox_allocated(box);
 }
 
 int index_storage_mailbox_enable(struct mailbox *box,

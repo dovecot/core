@@ -99,6 +99,8 @@ mail_index_strmap_init(struct mail_index *index, const char *suffix)
 {
 	struct mail_index_strmap *strmap;
 
+	i_assert(index->open_count > 0);
+
 	strmap = i_new(struct mail_index_strmap, 1);
 	strmap->index = index;
 	strmap->path = i_strconcat(index->filepath, suffix, NULL);

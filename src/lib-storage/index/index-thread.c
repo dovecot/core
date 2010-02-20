@@ -639,7 +639,7 @@ static void mail_thread_mailbox_free(struct mailbox *box)
 	i_free(tbox);
 }
 
-void index_thread_mailbox_allocated(struct mailbox *box)
+void index_thread_mailbox_opened(struct mailbox *box)
 {
 	struct mail_thread_mailbox *tbox;
 
