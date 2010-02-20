@@ -106,4 +106,11 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 #define p_get_max_easy_alloc_size(pool) \
 	(pool)->v->get_max_easy_alloc_size(pool)
 
+/* These functions are only for pools created with pool_alloconly_create(): */
+
+/* Returns how much memory has been allocated from this pool. */
+size_t pool_alloconly_get_total_used_size(pool_t pool);
+/* Returns how much system memory has been allocated for this pool. */
+size_t pool_alloconly_get_total_alloc_size(pool_t pool);
+
 #endif

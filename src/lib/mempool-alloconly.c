@@ -410,3 +410,29 @@ static size_t pool_alloconly_get_max_easy_alloc_size(pool_t pool)
 
 	return apool->block->left;
 }
+
+size_t pool_alloconly_get_total_used_size(pool_t pool)
+{
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct pool_block *block;
+	size_t size = 0;
+
+	i_assert(pool->v == &static_alloconly_pool_vfuncs);
+
+	for (block = apool->block; block != NULL; block = block->prev)
+		size += block->size - block->left;
+	return size;
+}
+
+size_t pool_alloconly_get_total_alloc_size(pool_t pool)
+{
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
+	struct pool_block *block;
+	size_t size = 0;
+
+	i_assert(pool->v == &static_alloconly_pool_vfuncs);
+
+	for (block = apool->block; block != NULL; block = block->prev)
+		size += block->size + SIZEOF_POOLBLOCK;
+	return size;
+}
