@@ -30,17 +30,20 @@ union sockaddr_union {
 
 bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
 {
+	return net_ip_cmp(ip1, ip2) == 0;
+}
+
+int net_ip_cmp(const struct ip_addr *ip1, const struct ip_addr *ip2)
+{
 	if (ip1->family != ip2->family)
-		return 0;
+		return ip1->family - ip2->family;
 
 #ifdef HAVE_IPV6
-	if (ip1->family == AF_INET6) {
-		return memcmp(&ip1->u.ip6, &ip2->u.ip6,
-			      sizeof(ip1->u.ip6)) == 0;
-	}
+	if (ip1->family == AF_INET6)
+		return memcmp(&ip1->u.ip6, &ip2->u.ip6, sizeof(ip1->u.ip6));
 #endif
 
-	return memcmp(&ip1->u.ip4, &ip2->u.ip4, sizeof(ip1->u.ip4)) == 0;
+	return memcmp(&ip1->u.ip4, &ip2->u.ip4, sizeof(ip1->u.ip4));
 }
 
 unsigned int net_ip_hash(const struct ip_addr *ip)

@@ -40,8 +40,10 @@ struct ip_addr {
 #define IPADDR_IS_V4(ip) ((ip)->family == AF_INET)
 #define IPADDR_IS_V6(ip) ((ip)->family == AF_INET6)
 
-/* returns 1 if IPADDRs are the same */
+/* Returns TRUE if IPs are the same */
 bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2);
+/* Returns 0 if IPs are the same, -1 or 1 otherwise. */
+int net_ip_cmp(const struct ip_addr *ip1, const struct ip_addr *ip2);
 unsigned int net_ip_hash(const struct ip_addr *ip);
 
 /* Connect to socket with ip address */
