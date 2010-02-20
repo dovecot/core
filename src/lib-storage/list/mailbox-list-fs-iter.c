@@ -693,7 +693,8 @@ fs_list_dir_next(struct fs_list_iterate_context *ctx)
 		/* lstat() it to make sure it exists */
 		path = t_strdup_printf("%s/%s", dir->real_path, fname);
 		if (lstat(path, &st) < 0) {
-			if (!ENOTFOUND(errno) && errno != EACCES)
+			if (!ENOTFOUND(errno) && errno != EACCES &&
+			    errno != ENAMETOOLONG)
 				i_error("fs list: lstat(%s) failed: %m", path);
 			continue;
 		}
