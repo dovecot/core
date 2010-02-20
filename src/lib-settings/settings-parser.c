@@ -794,14 +794,14 @@ int settings_parse_stream_read(struct setting_parser_context *ctx,
 {
 	int ret;
 
-	while ((ret = i_stream_read(input)) > 0) {
+	do {
 		if ((ret = settings_parse_stream(ctx, input)) < 0)
 			return -1;
 		if (ret == 0) {
 			/* empty line read */
 			return 0;
 		}
-	}
+	} while ((ret = i_stream_read(input)) > 0);
 
 	switch (ret) {
 	case -1:
