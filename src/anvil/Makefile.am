@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = anvil
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master
 
@@ -25,3 +26,22 @@ noinst_HEADERS = \
 	common.h \
 	connect-limit.h \
 	penalty.h
+
+test_programs = \
+	test-penalty
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_penalty_SOURCES = test-penalty.c
+test_penalty_LDADD = penalty.lo $(test_libs)
+test_penalty_DEPENDENCIES = penalty.lo $(test_libs)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! ./$$bin; then exit 1; fi; \
+	done

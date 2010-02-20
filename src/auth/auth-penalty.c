@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "network.h"
+#include "crc32.h"
 #include "anvil-client.h"
 #include "auth-request.h"
 #include "auth-penalty.h"
@@ -58,24 +59,24 @@ static void auth_penalty_anvil_callback(const char *reply, void *context)
 {
 	struct auth_penalty_request *request = context;
 	unsigned int penalty = 0;
-	unsigned long last_update = 0;
+	unsigned long last_penalty = 0;
 	unsigned int secs, drop_penalty;
 
 	if (reply == NULL) {
 		/* internal failure */
-	} else if (sscanf(reply, "%u %lu", &penalty, &last_update) != 2) {
+	} else if (sscanf(reply, "%u %lu", &penalty, &last_penalty) != 2) {
 		i_error("Invalid PENALTY-GET reply: %s", reply);
 	} else {
-		if ((time_t)last_update > ioloop_time) {
+		if ((time_t)last_penalty > ioloop_time) {
 			/* time moved backwards? */
-			last_update = ioloop_time;
+			last_penalty = ioloop_time;
 		}
 
 		/* update penalty. */
 		drop_penalty = AUTH_PENALTY_MAX_PENALTY;
 		while (penalty > 0) {
 			secs = auth_penalty_to_secs(drop_penalty);
-			if (ioloop_time - last_update < secs)
+			if (ioloop_time - last_penalty < secs)
 				break;
 			drop_penalty--;
 			penalty--;
@@ -109,6 +110,14 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 	} T_END;
 }
 
+static unsigned int
+get_userpass_checksum(struct auth_request *auth_request)
+{
+	return auth_request->mech_password == NULL ? 0 :
+		crc32_str_more(crc32_str(auth_request->mech_password),
+			       auth_request->user);
+}
+
 void auth_penalty_update(struct auth_penalty *penalty,
 			 struct auth_request *auth_request, unsigned int value)
 {
@@ -124,8 +133,12 @@ void auth_penalty_update(struct auth_penalty *penalty,
 		value = AUTH_PENALTY_MAX_PENALTY;
 	}
 	T_BEGIN {
-		const char *cmd =
-			t_strdup_printf("PENALTY-SET\t%s\t%u", ident, value);
+		const char *cmd;
+		unsigned int checksum;
+
+		checksum = value == 0 ? 0 : get_userpass_checksum(auth_request);
+		cmd = t_strdup_printf("PENALTY-INC\t%s\t%u\t%u",
+				      ident, checksum, value);
 		anvil_client_cmd(penalty->client, cmd);
 	} T_END;
 }

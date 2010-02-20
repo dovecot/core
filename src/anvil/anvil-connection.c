@@ -47,7 +47,7 @@ anvil_connection_request(struct anvil_connection *conn,
 			 const char *const *args, const char **error_r)
 {
 	const char *cmd = args[0];
-	unsigned int value;
+	unsigned int value, checksum;
 	time_t stamp;
 	pid_t pid;
 
@@ -99,12 +99,19 @@ anvil_connection_request(struct anvil_connection *conn,
 		value = penalty_get(penalty, args[0], &stamp);
 		(void)o_stream_send_str(conn->output,
 			t_strdup_printf("%u %s\n", value, dec2str(stamp)));
-	} else if (strcmp(cmd, "PENALTY-SET") == 0) {
-		if (args[0] == NULL || args[1] == NULL) {
-			*error_r = "PENALTY-SET: Not enough parameters";
+	} else if (strcmp(cmd, "PENALTY-INC") == 0) {
+		if (args[0] == NULL || args[1] == NULL || args[2] == NULL) {
+			*error_r = "PENALTY-INC: Not enough parameters";
 			return -1;
 		}
-		penalty_set(penalty, args[0], strtoul(args[1], NULL, 10));
+		checksum = strtoul(args[1], NULL, 10);
+		value = strtoul(args[2], NULL, 10);
+		if (value > PENALTY_MAX_VALUE ||
+		    (value == 0 && checksum != 0)) {
+			*error_r = "PENALTY-INC: Invalid parameters";
+			return -1;
+		}
+		penalty_inc(penalty, args[0], checksum, value);
 	} else if (strcmp(cmd, "PENALTY-SET-EXPIRE-SECS") == 0) {
 		if (args[0] == NULL) {
 			*error_r = "PENALTY-SET-EXPIRE-SECS: "
