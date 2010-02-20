@@ -221,8 +221,9 @@ master_service_apply_config_overrides(struct master_service *service,
 }
 
 static int
-config_read_reply_header(struct istream *input,
-			 struct master_service_settings_output *output_r)
+config_read_reply_header(struct istream *input, const char *path,
+			 struct master_service_settings_output *output_r,
+			 const char **error_r)
 {
 	const char *line;
 	ssize_t ret;
@@ -232,8 +233,14 @@ config_read_reply_header(struct istream *input,
 		if (line != NULL)
 			break;
 	}
-	if (ret <= 0)
-		return ret;
+	if (ret <= 0) {
+		if (ret == 0)
+			return 1;
+		*error_r = input->stream_errno != 0 ?
+			t_strdup_printf("read(%s) failed: %m", path) :
+			t_strdup_printf("read(%s) failed: EOF", path);
+		return -1;
+	}
 
 	T_BEGIN {
 		const char *const *arg = t_strsplit(line, "\t");
@@ -249,7 +256,7 @@ config_read_reply_header(struct istream *input,
 				output_r->used_remote = TRUE;
 		}
 	} T_END;
-	return 1;
+	return 0;
 }
 
 int master_service_settings_read(struct master_service *service,
@@ -317,11 +324,14 @@ int master_service_settings_read(struct master_service *service,
 		timeout = now + CONFIG_READ_TIMEOUT_SECS;
 		do {
 			alarm(timeout - now);
-			ret = !config_socket ? 1 :
-				config_read_reply_header(istream, output_r);
-			if (ret > 0) {
+			ret = !config_socket ? 0 :
+				config_read_reply_header(istream, path,
+							 output_r, error_r);
+			if (ret == 0) {
 				ret = settings_parse_stream_read(parser,
 								 istream);
+				if (ret < 0)
+					*error_r = settings_parser_get_error(parser);
 			}
 			alarm(0);
 			if (ret <= 0)
@@ -335,9 +345,10 @@ int master_service_settings_read(struct master_service *service,
 		i_stream_unref(&istream);
 
 		if (ret != 0) {
-			*error_r = ret > 0 ? t_strdup_printf(
-				"Timeout reading config from %s", path) :
-				settings_parser_get_error(parser);
+			if (ret > 0) {
+				*error_r = t_strdup_printf(
+					"Timeout reading config from %s", path);
+			}
 			(void)close(fd);
 			return -1;
 		}
