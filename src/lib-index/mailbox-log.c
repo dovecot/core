@@ -121,7 +121,7 @@ static int mailbox_log_rotate_if_needed(struct mailbox_log *log)
 	if (st.st_size < MAILBOX_LOG_ROTATE_SIZE)
 		return 0;
 
-	if (rename(log->filepath, log->filepath2) < 0) {
+	if (rename(log->filepath, log->filepath2) < 0 && errno != ENOENT) {
 		i_error("rename(%s, %s) failed: %m",
 			log->filepath, log->filepath2);
 		return -1;
