@@ -115,6 +115,10 @@ master_service_init(const char *name, enum master_service_flags flags,
 	   is properly initialized */
 	i_set_failure_prefix(t_strdup_printf("%s(init): ", name));
 
+	/* ignore these signals as early as possible */
+        lib_signals_ignore(SIGPIPE, TRUE);
+        lib_signals_ignore(SIGALRM, FALSE);
+
 	if (getenv(MASTER_UID_ENV) == NULL)
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
@@ -318,8 +322,6 @@ void master_service_init_finish(struct master_service *service)
 
 	/* set default signal handlers */
 	lib_signals_init();
-        lib_signals_ignore(SIGPIPE, TRUE);
-        lib_signals_ignore(SIGALRM, FALSE);
         lib_signals_set_handler(SIGINT, TRUE, sig_die, service);
 	lib_signals_set_handler(SIGTERM, TRUE, sig_die, service);
 	if ((service->flags & MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE) != 0) {
