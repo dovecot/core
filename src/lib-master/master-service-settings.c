@@ -153,51 +153,47 @@ master_service_open_config(struct master_service *service,
 	return fd;
 }
 
-static int
-master_service_read_config(struct master_service *service,
-			   const struct master_service_settings_input *input,
-			   const char **path_r, const char **error_r,
-			   bool *standalone_config_from_socket_r)
+static void
+config_build_request(string_t *str,
+		     const struct master_service_settings_input *input)
 {
-	int fd, ret;
+	str_append(str, "REQ");
+	if (input->module != NULL)
+		str_printfa(str, "\tmodule=%s", input->module);
+	if (input->service != NULL)
+		str_printfa(str, "\tservice=%s", input->service);
+	if (input->username != NULL)
+		str_printfa(str, "\tuser=%s", input->username);
+	if (input->local_ip.family != 0)
+		str_printfa(str, "\tlip=%s", net_ip2addr(&input->local_ip));
+	if (input->remote_ip.family != 0)
+		str_printfa(str, "\trip=%s", net_ip2addr(&input->remote_ip));
+	if (input->local_host != NULL)
+		str_printfa(str, "\tlhost=%s", input->local_host);
+	if (input->remote_host != NULL)
+		str_printfa(str, "\tlhost=%s", input->remote_host);
+	str_append_c(str, '\n');
+}
 
-	fd = master_service_open_config(service, input, path_r, error_r,
-					standalone_config_from_socket_r);
-	if (fd == -1)
-		return -1;
+static int
+config_send_request(const struct master_service_settings_input *input,
+		    int fd, const char *path, const char **error_r)
+{
+	int ret;
 
 	T_BEGIN {
 		string_t *str;
 
 		str = t_str_new(128);
-		str_append(str, CONFIG_HANDSHAKE"REQ");
-		if (input->module != NULL)
-			str_printfa(str, "\tmodule=%s", input->module);
-		if (input->service != NULL)
-			str_printfa(str, "\tservice=%s", input->service);
-		if (input->username != NULL)
-			str_printfa(str, "\tuser=%s", input->username);
-		if (input->local_ip.family != 0) {
-			str_printfa(str, "\tlip=%s",
-				    net_ip2addr(&input->local_ip));
-		}
-		if (input->remote_ip.family != 0) {
-			str_printfa(str, "\trip=%s",
-				    net_ip2addr(&input->remote_ip));
-		}
-		if (input->local_host != NULL)
-			str_printfa(str, "\tlhost=%s", input->local_host);
-		if (input->remote_host != NULL)
-			str_printfa(str, "\tlhost=%s", input->remote_host);
-		str_append_c(str, '\n');
+		str_append(str, CONFIG_HANDSHAKE);
+		config_build_request(str, input);
 		ret = write_full(fd, str_data(str), str_len(str));
 	} T_END;
 	if (ret < 0) {
-		*error_r = t_strdup_printf("write_full(%s) failed: %m",
-					   *path_r);
+		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
 		return -1;
 	}
-	return fd;
+	return 0;
 }
 
 static int
@@ -239,10 +235,15 @@ int master_service_settings_read(struct master_service *service,
 
 	if (getenv("DOVECONF_ENV") == NULL &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
-		fd = master_service_read_config(service, input, &path, error_r,
+		fd = master_service_open_config(service, input, &path, error_r,
 						&standalone_config_from_socket);
 		if (fd == -1)
 			return -1;
+
+		if (config_send_request(input, fd, path, error_r) < 0) {
+			(void)close(fd);
+			return -1;
+		}
 	}
 
 	if (service->set_pool != NULL) {
