@@ -94,6 +94,9 @@ mail_index_alloc_cache_get(const char *mailbox_path,
 		if (match != NULL) {
 			/* already found the index. we're just going through
 			   the rest of them to drop 0 refcounts */
+		} else if (rec->refcount == 0 && rec->index->open_count == 0) {
+			/* index is already closed. don't even try to
+			   reuse it. */
 		} else if (index_dir != NULL && rec->index_dir_ino != 0) {
 			if (st.st_ino == rec->index_dir_ino &&
 			    CMP_DEV_T(st.st_dev, rec->index_dir_dev)) {
@@ -164,12 +167,15 @@ static void index_removal_timeout(void *context ATTR_UNUSED)
 void mail_index_alloc_cache_unref(struct mail_index **_index)
 {
 	struct mail_index *index = *_index;
-	struct mail_index_alloc_cache_list *list;
+	struct mail_index_alloc_cache_list *list, **listp;
 
 	*_index = NULL;
-	for (list = indexes; list != NULL; list = list->next) {
-		if (list->index == index)
+	list = NULL;
+	for (listp = &indexes; *listp != NULL; listp = &(*listp)->next) {
+		if ((*listp)->index == index) {
+			list = *listp;
 			break;
+		}
 	}
 
 	i_assert(list != NULL);
@@ -177,7 +183,12 @@ void mail_index_alloc_cache_unref(struct mail_index **_index)
 
 	list->refcount--;
 	list->destroy_time = ioloop_time + INDEX_CACHE_TIMEOUT;
-	if (to_index == NULL) {
+
+	if (list->refcount == 0 && index->open_count == 0) {
+		/* index was already closed. don't even try to cache it. */
+		*listp = list->next;
+		mail_index_alloc_cache_list_free(list);
+	} else if (to_index == NULL) {
 		to_index = timeout_add(INDEX_CACHE_TIMEOUT*1000/2,
 				       index_removal_timeout, NULL);
 	}
