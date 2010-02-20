@@ -399,6 +399,7 @@ void master_login_add(struct master_login *login, int fd)
 	   and currently we don't try to accept more connections until this
 	   request's authentication is finished, because updating
 	   available_count gets tricky. */
+	login->service->login_authenticating = TRUE;
 	master_service_io_listeners_remove(login->service);
 }
 
@@ -415,6 +416,8 @@ static void master_login_conn_deinit(struct master_login_connection **_conn)
 	o_stream_unref(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(master login) failed: %m");
+
+	conn->login->service->login_authenticating = FALSE;
 	master_service_io_listeners_add(conn->login->service);
 	master_login_conn_unref(&conn);
 }

@@ -735,7 +735,7 @@ void master_service_io_listeners_add(struct master_service *service)
 {
 	unsigned int i;
 
-	if (service->stopping)
+	if (service->stopping || service->login_authenticating)
 		return;
 
 	if (service->listeners == NULL)
