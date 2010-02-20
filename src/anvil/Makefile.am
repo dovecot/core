@@ -37,8 +37,8 @@ test_libs = \
 	../lib/liblib.la
 
 test_penalty_SOURCES = test-penalty.c
-test_penalty_LDADD = penalty.lo $(test_libs)
-test_penalty_DEPENDENCIES = penalty.lo $(test_libs)
+test_penalty_LDADD = penalty.o $(test_libs)
+test_penalty_DEPENDENCIES = penalty.o $(test_libs)
 
 check: check-am check-test
 check-test: all-am
