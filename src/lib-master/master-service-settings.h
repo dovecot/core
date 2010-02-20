@@ -13,6 +13,7 @@ struct master_service_settings {
 	const char *debug_log_path;
 	const char *log_timestamp;
 	const char *syslog_facility;
+	uoff_t config_cache_size;
 	bool version_ignore;
 	bool shutdown_clients;
 };
@@ -31,10 +32,22 @@ struct master_service_settings_input {
 	const char *local_host, *remote_host;
 };
 
+struct master_service_settings_output {
+	/* some settings for this service contain local/remote ip/host
+	   specific settings. */
+	unsigned int service_uses_local:1;
+	unsigned int service_uses_remote:1;
+	/* returned settings contain settings specific to given
+	   local/remote ip/host */
+	unsigned int used_local:1;
+	unsigned int used_remote:1;
+};
+
 extern const struct setting_parser_info master_service_setting_parser_info;
 
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
+				 struct master_service_settings_output *output_r,
 				 const char **error_r);
 int master_service_settings_read_simple(struct master_service *service,
 					const struct setting_parser_info **roots,

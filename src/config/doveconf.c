@@ -114,6 +114,7 @@ static int config_connection_request_human(struct ostream *output,
 	static const char *indent_str = "               ";
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
+	struct config_export_context *export_ctx;
 	struct prefix_stack prefix;
 	struct config_request_get_string_ctx ctx;
 	const char *const *strings, *const *args, *p, *str, *const *prefixes;
@@ -127,11 +128,12 @@ static int config_connection_request_human(struct ostream *output,
 	ctx.pool = pool_alloconly_create("config human strings", 10240);
 	i_array_init(&ctx.strings, 256);
 	i_array_init(&ctx.errors, 256);
-	if (config_request_handle(filter, module, scope,
-				  CONFIG_DUMP_FLAG_CHECK_SETTINGS |
-				  CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS |
-				  CONFIG_DUMP_FLAG_CALLBACK_ERRORS,
-				  config_request_get_strings, &ctx) < 0)
+	export_ctx = config_export_init(filter, module, scope,
+					CONFIG_DUMP_FLAG_CHECK_SETTINGS |
+					CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS |
+					CONFIG_DUMP_FLAG_CALLBACK_ERRORS,
+					config_request_get_strings, &ctx);
+	if (config_export_finish(&export_ctx) < 0)
 		return -1;
 
 	array_sort(&ctx.strings, config_string_cmp);
@@ -419,11 +421,14 @@ int main(int argc, char *argv[])
 		if (ret2 < 0)
 			i_fatal("Errors in configuration");
 	} else {
+		struct config_export_context *ctx;
+
 		env_put("DOVECONF_ENV=1");
-		if (config_request_handle(&filter, module,
-					  CONFIG_DUMP_SCOPE_SET,
-					  CONFIG_DUMP_FLAG_CHECK_SETTINGS,
-					  config_request_putenv, NULL) < 0)
+		ctx = config_export_init(&filter, module,
+					 CONFIG_DUMP_SCOPE_SET,
+					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
+					 config_request_putenv, NULL);
+		if (config_export_finish(&ctx) < 0)
 			i_fatal("Invalid configuration");
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);

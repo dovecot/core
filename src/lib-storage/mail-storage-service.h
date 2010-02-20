@@ -5,6 +5,7 @@
 
 struct master_service;
 struct mail_user;
+struct setting_parser_context;
 
 enum mail_storage_service_flags {
 	/* Fail if we don't drop root privileges */
@@ -51,6 +52,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
 				       pool_t pool,
 				       const struct setting_parser_info **user_info_r,
+				       const struct setting_parser_context **parser_r,
 				       const char **error_r);
 /* Read settings and initialize context to use them. Do nothing if service is
    already initialized. This is mainly necessary when calling _get_auth_conn()

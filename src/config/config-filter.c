@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "config-parser.h"
 #include "config-filter.h"
 
@@ -11,8 +12,8 @@ struct config_filter_context {
 	struct config_filter_parser *const *parsers;
 };
 
-bool config_filter_match(const struct config_filter *mask,
-			 const struct config_filter *filter)
+static bool config_filter_match_service(const struct config_filter *mask,
+					const struct config_filter *filter)
 {
 	if (mask->service != NULL) {
 		if (filter->service == NULL)
@@ -26,6 +27,12 @@ bool config_filter_match(const struct config_filter *mask,
 				return FALSE;
 		}
 	}
+	return TRUE;
+}
+
+static bool config_filter_match_rest(const struct config_filter *mask,
+				     const struct config_filter *filter)
+{
 	if (mask->local_host != NULL) {
 		if (filter->local_host == NULL)
 			return FALSE;
@@ -54,6 +61,15 @@ bool config_filter_match(const struct config_filter *mask,
 			return FALSE;
 	}
 	return TRUE;
+}
+
+bool config_filter_match(const struct config_filter *mask,
+			 const struct config_filter *filter)
+{
+	if (!config_filter_match_service(mask, filter))
+		return FALSE;
+
+	return config_filter_match_rest(mask, filter);
 }
 
 bool config_filters_equal(const struct config_filter *f1,
@@ -134,15 +150,32 @@ config_filter_parser_cmp(struct config_filter_parser *const *p1,
 
 static struct config_filter_parser *const *
 config_filter_find_all(struct config_filter_context *ctx,
-		       const struct config_filter *filter)
+		       const struct config_filter *filter,
+		       struct master_service_settings_output *output_r)
 {
 	ARRAY_TYPE(config_filter_parsers) matches;
 	unsigned int i;
 
+	memset(output_r, 0, sizeof(*output_r));
+
 	t_array_init(&matches, 8);
 	for (i = 0; ctx->parsers[i] != NULL; i++) {
-		if (config_filter_match(&ctx->parsers[i]->filter, filter))
+		const struct config_filter *mask = &ctx->parsers[i]->filter;
+
+		if (!config_filter_match_service(mask, filter))
+			continue;
+
+		if (mask->local_bits > 0)
+			output_r->service_uses_local = TRUE;
+		if (mask->remote_bits > 0)
+			output_r->service_uses_remote = TRUE;
+		if (config_filter_match_rest(mask, filter)) {
+			if (mask->local_bits > 0)
+				output_r->used_local = TRUE;
+			if (mask->remote_bits > 0)
+				output_r->used_remote = TRUE;
 			array_append(&matches, &ctx->parsers[i], 1);
+		}
 	}
 	array_sort(&matches, config_filter_parser_cmp);
 	(void)array_append_space(&matches);
@@ -187,6 +220,7 @@ config_module_parser_apply_changes(struct config_module_parser *dest,
 int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 			      const struct config_filter *filter,
 			      struct config_module_parser **parsers_r,
+			      struct master_service_settings_output *output_r,
 			      const char **error_r)
 {
 	struct config_filter_parser *const *src;
@@ -194,7 +228,7 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 	const char *error, **error_p;
 	unsigned int i, count;
 
-	src = config_filter_find_all(ctx, filter);
+	src = config_filter_find_all(ctx, filter, output_r);
 
 	/* all of them should have the same number of parsers.
 	   duplicate our initial parsers from the first match */

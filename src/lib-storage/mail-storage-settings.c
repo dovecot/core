@@ -250,14 +250,15 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 	return index_flags;
 }
 
-const struct dynamic_settings_parser *mail_storage_get_dynamic_parsers(void)
+const struct dynamic_settings_parser *
+mail_storage_get_dynamic_parsers(pool_t pool)
 {
 	struct dynamic_settings_parser *parsers;
 	struct mail_storage *const *storages;
 	unsigned int i, j, count;
 
 	storages = array_get(&mail_storage_classes, &count);
-	parsers = t_new(struct dynamic_settings_parser, count + 1);
+	parsers = p_new(pool, struct dynamic_settings_parser, count + 1);
 	parsers[0].name = MAIL_STORAGE_SET_DRIVER_NAME;
 	parsers[0].info = &mail_storage_setting_parser_info;
 

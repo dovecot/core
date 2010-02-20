@@ -149,6 +149,7 @@ static void client_raw_user_create(struct client *client)
 static void client_read_settings(struct client *client)
 {
 	struct mail_storage_service_input input;
+	const struct setting_parser_context *set_parser;
 	const char *error;
 
 	memset(&input, 0, sizeof(input));
@@ -159,10 +160,11 @@ static void client_read_settings(struct client *client)
 	if (mail_storage_service_read_settings(storage_service, &input,
 					       client->pool,
 					       &client->user_set_info,
-					       &error) < 0)
+					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
 
-	lmtp_settings_dup(client->pool, &client->lmtp_set, &client->set);
+	lmtp_settings_dup(set_parser, client->pool,
+			  &client->lmtp_set, &client->set);
 }
 
 static void client_generate_session_id(struct client *client)

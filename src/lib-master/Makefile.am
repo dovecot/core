@@ -16,6 +16,7 @@ libmaster_la_SOURCES = \
 	master-login-auth.c \
 	master-service.c \
 	master-service-settings.c \
+	master-service-settings-cache.c \
 	syslog-util.c
 
 headers = \

@@ -4,7 +4,9 @@
 #include "hostpid.h"
 #include "var-expand.h"
 #include "settings-parser.h"
+#include "master-service.h"
 #include "master-service-settings.h"
+#include "master-service-settings-cache.h"
 #include "login-settings.h"
 
 #include <stddef.h>
@@ -94,6 +96,8 @@ static const struct setting_parser_info *default_login_set_roots[] = {
 
 const struct setting_parser_info **login_set_roots = default_login_set_roots;
 
+static struct master_service_settings_cache *set_cache;
+
 /* <settings checks> */
 static int ssl_settings_check(void *_set ATTR_UNUSED, const char **error_r)
 {
@@ -173,7 +177,7 @@ login_set_var_expand_table(const struct master_service_settings_input *input)
 }
 
 struct login_settings *
-login_settings_read(struct master_service *service, pool_t pool,
+login_settings_read(pool_t pool,
 		    const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
 		    const char *local_host,
@@ -181,8 +185,10 @@ login_settings_read(struct master_service *service, pool_t pool,
 {
 	struct master_service_settings_input input;
 	const char *error;
+	const struct setting_parser_context *parser;
+	void *const *cache_sets;
 	void **sets;
-	unsigned int i;
+	unsigned int i, count;
 
 	memset(&input, 0, sizeof(input));
 	input.roots = login_set_roots;
@@ -195,15 +201,22 @@ login_settings_read(struct master_service *service, pool_t pool,
 	if (remote_ip != NULL)
 		input.remote_ip = *remote_ip;
 
-	/* this function always clears the previous settings pool. since we're
-	   doing per-connection lookups, we always need to duplicate the
-	   settings using another pool. */
-	if (master_service_settings_read(service, &input, &error) < 0)
+	if (set_cache == NULL) {
+		set_cache = master_service_settings_cache_init(master_service,
+							       input.module,
+							       input.service);
+	}
+
+	if (master_service_settings_cache_read(set_cache, &input,
+					       &parser, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	sets = master_service_settings_get_others(service);
-	for (i = 0; sets[i] != NULL; i++) {
-		sets[i] = settings_dup(input.roots[i], sets[i], pool);
+	cache_sets = settings_parser_get_list(parser) + 1;
+	for (count = 0; cache_sets[count] != NULL; count++) ;
+	i_assert(input.roots[count] == NULL);
+	sets = p_new(pool, void *, count + 1);
+	for (i = 0; i < count; i++) {
+		sets[i] = settings_dup(input.roots[i], cache_sets[i], pool);
 		if (!settings_check(input.roots[i], pool, sets[i], &error)) {
 			const char *name = input.roots[i]->module_name;
 			i_fatal("settings_check(%s) failed: %s",
@@ -216,4 +229,10 @@ login_settings_read(struct master_service *service, pool_t pool,
 
 	*other_settings_r = sets + 1;
 	return sets[0];
+}
+
+void login_settings_deinit(void)
+{
+	if (set_cache != NULL)
+		master_service_settings_cache_deinit(&set_cache);
 }

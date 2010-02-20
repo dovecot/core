@@ -9,7 +9,6 @@
 #include "safe-memset.h"
 #include "hash.h"
 #include "llist.h"
-#include "master-service.h"
 #include "master-interface.h"
 #include "client-common.h"
 #include "ssl-proxy.h"
@@ -1077,7 +1076,7 @@ static void ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 
 	client = proxy->client;
-	client->set = login_settings_read(master_service, client->pool,
+	client->set = login_settings_read(client->pool,
 					  &client->local_ip, &client->ip, host,
 					  &other_sets);
 	ctx = ssl_server_context_get(client->set);

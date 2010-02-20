@@ -9,6 +9,7 @@
 #include "module-dir.h"
 #include "settings-parser.h"
 #include "service-settings.h"
+#include "master-service-settings.h"
 #include "all-settings.h"
 #include "config-filter.h"
 #include "config-request.h"
@@ -321,6 +322,7 @@ config_all_parsers_check(struct parser_context *ctx,
 {
 	struct config_filter_parser *const *parsers;
 	struct config_module_parser *tmp_parsers;
+	struct master_service_settings_output output;
 	unsigned int i, count;
 	pool_t tmp_pool;
 	int ret = 0;
@@ -332,7 +334,8 @@ config_all_parsers_check(struct parser_context *ctx,
 	for (i = 0; i < count && ret == 0; i++) {
 		if (config_filter_parsers_get(new_filter, tmp_pool,
 					      &parsers[i]->filter,
-					      &tmp_parsers, error_r) < 0) {
+					      &tmp_parsers, &output,
+					      error_r) < 0) {
 			ret = -1;
 			break;
 		}

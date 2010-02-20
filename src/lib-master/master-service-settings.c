@@ -20,7 +20,7 @@
 #define DOVECOT_CONFIG_SOCKET_PATH PKG_RUNDIR"/config"
 
 #define CONFIG_READ_TIMEOUT_SECS 10
-#define CONFIG_HANDSHAKE "VERSION\tconfig\t1\t0\n"
+#define CONFIG_HANDSHAKE "VERSION\tconfig\t2\t0\n"
 
 #undef DEF
 #define DEF(type, name) \
@@ -32,6 +32,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, debug_log_path),
 	DEF(SET_STR, log_timestamp),
 	DEF(SET_STR, syslog_facility),
+	DEF(SET_SIZE, config_cache_size),
 	DEF(SET_BOOL, version_ignore),
 	DEF(SET_BOOL, shutdown_clients),
 
@@ -44,6 +45,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.debug_log_path = "",
 	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
 	.syslog_facility = "mail",
+	.config_cache_size = 1024*1024,
 	.version_ignore = FALSE,
 	.shutdown_clients = TRUE
 };
@@ -218,8 +220,41 @@ master_service_apply_config_overrides(struct master_service *service,
 	return 0;
 }
 
+static int
+config_read_reply_header(struct istream *input,
+			 struct master_service_settings_output *output_r)
+{
+	const char *line;
+	ssize_t ret;
+
+	while ((ret = i_stream_read(input)) > 0) {
+		line = i_stream_next_line(input);
+		if (line != NULL)
+			break;
+	}
+	if (ret <= 0)
+		return ret;
+
+	T_BEGIN {
+		const char *const *arg = t_strsplit(line, "\t");
+
+		for (; *arg != NULL; arg++) {
+			if (strcmp(*arg, "service-uses-local") == 0)
+				output_r->service_uses_local = TRUE;
+			else if (strcmp(*arg, "service-uses-remote") == 0)
+				output_r->service_uses_remote = TRUE;
+			if (strcmp(*arg, "used-local") == 0)
+				output_r->used_local = TRUE;
+			else if (strcmp(*arg, "used-remote") == 0)
+				output_r->used_remote = TRUE;
+		}
+	} T_END;
+	return 1;
+}
+
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
+				 struct master_service_settings_output *output_r,
 				 const char **error_r)
 {
 	ARRAY_DEFINE(all_roots, const struct setting_parser_info *);
@@ -231,7 +266,9 @@ int master_service_settings_read(struct master_service *service,
 	unsigned int i;
 	int ret, fd = -1;
 	time_t now, timeout;
-	bool standalone_config_from_socket = FALSE;
+	bool config_socket = FALSE, standalone_config_from_socket = FALSE;
+
+	memset(output_r, 0, sizeof(*output_r));
 
 	if (getenv("DOVECONF_ENV") == NULL &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
@@ -244,6 +281,7 @@ int master_service_settings_read(struct master_service *service,
 			(void)close(fd);
 			return -1;
 		}
+		config_socket = TRUE;
 	}
 
 	if (service->set_pool != NULL) {
@@ -279,7 +317,12 @@ int master_service_settings_read(struct master_service *service,
 		timeout = now + CONFIG_READ_TIMEOUT_SECS;
 		do {
 			alarm(timeout - now);
-			ret = settings_parse_stream_read(parser, istream);
+			ret = !config_socket ? 1 :
+				config_read_reply_header(istream, output_r);
+			if (ret > 0) {
+				ret = settings_parse_stream_read(parser,
+								 istream);
+			}
 			alarm(0);
 			if (ret <= 0)
 				break;
@@ -358,11 +401,12 @@ int master_service_settings_read_simple(struct master_service *service,
 					const char **error_r)
 {
 	struct master_service_settings_input input;
+	struct master_service_settings_output output;
 
 	memset(&input, 0, sizeof(input));
 	input.roots = roots;
 	input.module = service->name;
-	return master_service_settings_read(service, &input, error_r);
+	return master_service_settings_read(service, &input, &output, error_r);
 }
 
 pool_t master_service_settings_detach(struct master_service *service)

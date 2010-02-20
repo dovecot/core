@@ -3,6 +3,8 @@
 
 #include "network.h"
 
+struct master_service_settings_output;
+
 struct config_filter {
 	const char *service;
 	const char *local_host, *remote_host;
@@ -29,6 +31,7 @@ void config_filter_add_all(struct config_filter_context *ctx,
 int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 			      const struct config_filter *filter,
 			      struct config_module_parser **parsers_r,
+			      struct master_service_settings_output *output_r,
 			      const char **error_r);
 void config_filter_parsers_free(struct config_module_parser *parsers);
 

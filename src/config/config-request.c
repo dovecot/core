@@ -11,7 +11,7 @@
 #include "config-parser.h"
 #include "config-request.h"
 
-struct settings_export_context {
+struct config_export_context {
 	pool_t pool;
 	string_t *value;
 	string_t *prefix;
@@ -21,7 +21,12 @@ struct settings_export_context {
 	config_request_callback_t *callback;
 	void *context;
 
+	const char *module;
 	enum config_dump_flags flags;
+	struct config_module_parser *parsers;
+	struct master_service_settings_output output;
+
+	bool failed;
 };
 
 static bool parsers_are_connected(const struct setting_parser_info *root,
@@ -157,7 +162,7 @@ bool config_export_type(string_t *str, const void *value,
 }
 
 static void
-settings_export(struct settings_export_context *ctx,
+settings_export(struct config_export_context *ctx,
 		const struct setting_parser_info *info,
 		bool parent_unique_deflist,
 		const void *set, const void *change_set)
@@ -305,53 +310,85 @@ settings_export(struct settings_export_context *ctx,
 	}
 }
 
-int config_request_handle(const struct config_filter *filter,
-			  const char *module, enum config_dump_scope scope,
-			  enum config_dump_flags flags,
-			  config_request_callback_t *callback, void *context)
+struct config_export_context *
+config_export_init(const struct config_filter *filter,
+		   const char *module, enum config_dump_scope scope,
+		   enum config_dump_flags flags,
+		   config_request_callback_t *callback, void *context)
 {
-	struct config_module_parser *parsers, *parser;
-	struct settings_export_context ctx;
+	struct config_export_context *ctx;
+	const char *error;
+	pool_t pool;
+
+	pool = pool_alloconly_create("config export", 1024*64);
+	ctx = p_new(pool, struct config_export_context, 1);
+	ctx->pool = pool;
+
+	ctx->module = p_strdup(pool, module);
+	ctx->flags = flags;
+	ctx->callback = callback;
+	ctx->context = context;
+	ctx->scope = scope;
+	ctx->value = t_str_new(256);
+	ctx->prefix = t_str_new(64);
+	ctx->keys = hash_table_create(default_pool, ctx->pool, 0,
+				      str_hash, (hash_cmp_callback_t *)strcmp);
+
+	if (config_filter_parsers_get(config_filter, ctx->pool, filter,
+				      &ctx->parsers, &ctx->output,
+				      &error) < 0) {
+		i_error("%s", error);
+		ctx->failed = TRUE;
+	}
+	return ctx;
+}
+
+void config_export_get_output(struct config_export_context *ctx,
+			      struct master_service_settings_output *output_r)
+{
+	*output_r = ctx->output;
+}
+
+static void config_export_free(struct config_export_context *ctx)
+{
+	if (ctx->parsers != NULL)
+		config_filter_parsers_free(ctx->parsers);
+	hash_table_destroy(&ctx->keys);
+	pool_unref(&ctx->pool);
+}
+
+int config_export_finish(struct config_export_context **_ctx)
+{
+	struct config_export_context *ctx = *_ctx;
+	struct config_module_parser *parser;
 	const char *error;
 	unsigned int i;
 	int ret = 0;
 
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.pool = pool_alloconly_create("config request", 1024*64);
+	*_ctx = NULL;
 
-	if (config_filter_parsers_get(config_filter, ctx.pool, filter,
-				      &parsers, &error) < 0) {
-		i_error("%s", error);
-		pool_unref(&ctx.pool);
+	if (ctx->failed) {
+		config_export_free(ctx);
 		return -1;
 	}
 
-	ctx.flags = flags;
-	ctx.callback = callback;
-	ctx.context = context;
-	ctx.scope = scope;
-	ctx.value = t_str_new(256);
-	ctx.prefix = t_str_new(64);
-	ctx.keys = hash_table_create(default_pool, ctx.pool, 0,
-				     str_hash, (hash_cmp_callback_t *)strcmp);
-
-	for (i = 0; parsers[i].root != NULL; i++) {
-		parser = &parsers[i];
-		if (*module != '\0' &&
-		    !config_module_parser_is_in_service(parser, module))
+	for (i = 0; ctx->parsers[i].root != NULL; i++) {
+		parser = &ctx->parsers[i];
+		if (*ctx->module != '\0' &&
+		    !config_module_parser_is_in_service(parser, ctx->module))
 			continue;
 
-		settings_export(&ctx, parser->root, FALSE,
+		settings_export(ctx, parser->root, FALSE,
 				settings_parser_get(parser->parser),
 				settings_parser_get_changes(parser->parser));
 
-		if ((flags & CONFIG_DUMP_FLAG_CHECK_SETTINGS) != 0) {
+		if ((ctx->flags & CONFIG_DUMP_FLAG_CHECK_SETTINGS) != 0) {
 			settings_parse_var_skip(parser->parser);
-			if (!settings_parser_check(parser->parser, ctx.pool,
+			if (!settings_parser_check(parser->parser, ctx->pool,
 						   &error)) {
-				if ((flags & CONFIG_DUMP_FLAG_CALLBACK_ERRORS) != 0) {
-					callback(NULL, error, CONFIG_KEY_ERROR,
-						 context);
+				if ((ctx->flags & CONFIG_DUMP_FLAG_CALLBACK_ERRORS) != 0) {
+					ctx->callback(NULL, error, CONFIG_KEY_ERROR,
+						      ctx->context);
 				} else {
 					i_error("%s", error);
 					ret = -1;
@@ -360,8 +397,6 @@ int config_request_handle(const struct config_filter *filter,
 			}
 		}
 	}
-	config_filter_parsers_free(parsers);
-	hash_table_destroy(&ctx.keys);
-	pool_unref(&ctx.pool);
+	config_export_free(ctx);
 	return ret;
 }

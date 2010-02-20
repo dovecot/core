@@ -87,6 +87,7 @@ const void *mail_storage_get_driver_settings(struct mail_storage *storage);
 enum mail_index_open_flags
 mail_storage_settings_to_index_flags(const struct mail_storage_settings *set);
 
-const struct dynamic_settings_parser *mail_storage_get_dynamic_parsers(void);
+const struct dynamic_settings_parser *
+mail_storage_get_dynamic_parsers(pool_t pool);
 
 #endif

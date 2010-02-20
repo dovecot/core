@@ -109,7 +109,7 @@ client_connected_finish(const struct master_service_connection *conn)
 	}
 
 	pool = pool_alloconly_create("login client", 5*1024);
-	set = login_settings_read(master_service, pool, &local_ip,
+	set = login_settings_read(pool, &local_ip,
 				  &conn->remote_ip, NULL, &other_sets);
 
 	if (!ssl_connections && !conn->ssl) {
@@ -318,6 +318,7 @@ static void main_deinit(void)
 		anvil_client_deinit(&anvil);
 	if (auth_client_to != NULL)
 		timeout_remove(&auth_client_to);
+	login_settings_deinit();
 }
 
 int main(int argc, char *argv[])
@@ -351,7 +352,7 @@ int main(int argc, char *argv[])
 
 	set_pool = pool_alloconly_create("global login settings", 4096);
 	global_login_settings =
-		login_settings_read(master_service, set_pool, NULL, NULL, NULL,
+		login_settings_read(set_pool, NULL, NULL, NULL,
 				    &global_other_settings);
 
 	/* main_preinit() needs to know the client limit, which is set by

@@ -295,6 +295,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		    void *context ATTR_UNUSED)
 {
 	struct master_service_settings_input input;
+	struct master_service_settings_output output;
 	const struct master_settings *set;
 	void **sets;
 	struct service_list *new_services;
@@ -319,7 +320,8 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	input.roots = set_roots;
 	input.module = MASTER_SERVICE_NAME;
 	input.config_path = services_get_config_socket_path(services);
-	if (master_service_settings_read(master_service, &input, &error) < 0) {
+	if (master_service_settings_read(master_service, &input,
+					 &output, &error) < 0) {
 		i_error("Error reading configuration: %s", error);
 		return;
 	}

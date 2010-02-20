@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "settings-parser.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "config-request.h"
 #include "config-parser.h"
 #include "config-connection.h"
@@ -15,7 +16,7 @@
 
 #define MAX_INBUF_SIZE 1024
 
-#define CONFIG_CLIENT_PROTOCOL_MAJOR_VERSION 1
+#define CONFIG_CLIENT_PROTOCOL_MAJOR_VERSION 2
 #define CONFIG_CLIENT_PROTOCOL_MINOR_VERSION 0
 
 struct config_connection {
@@ -65,6 +66,8 @@ config_request_output(const char *key, const char *value,
 static int config_connection_request(struct config_connection *conn,
 				     const char *const *args)
 {
+	struct config_export_context *ctx;
+	struct master_service_settings_output output;
 	struct config_filter filter;
 	const char *path, *error, *module = "";
 
@@ -106,8 +109,22 @@ static int config_connection_request(struct config_connection *conn,
 	}
 
 	o_stream_cork(conn->output);
-	if (config_request_handle(&filter, module, CONFIG_DUMP_SCOPE_SET, 0,
-				  config_request_output, conn->output) < 0) {
+
+	ctx = config_export_init(&filter, module, CONFIG_DUMP_SCOPE_SET, 0,
+				 config_request_output, conn->output);
+	config_export_get_output(ctx, &output);
+
+	if (output.service_uses_local)
+		o_stream_send_str(conn->output, "service-uses-local\t");
+	if (output.service_uses_remote)
+		o_stream_send_str(conn->output, "service-uses-remote\t");
+	if (output.used_local)
+		o_stream_send_str(conn->output, "used-local\t");
+	if (output.used_remote)
+		o_stream_send_str(conn->output, "used-remote\t");
+	o_stream_send_str(conn->output, "\n");
+
+	if (config_export_finish(&ctx) < 0) {
 		config_connection_destroy(conn);
 		return -1;
 	}
