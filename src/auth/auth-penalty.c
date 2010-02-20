@@ -10,6 +10,10 @@
 
 #include <stdio.h>
 
+/* We don't want IPv6 hosts being able to flood our penalty
+   tracking with tons of different IPs. */
+#define PENALTY_IPV6_MASK_BITS 48
+
 struct auth_penalty_request {
 	struct auth_request *auth_request;
 	auth_penalty_callback_t *callback;
@@ -86,6 +90,22 @@ static void auth_penalty_anvil_callback(const char *reply, void *context)
 	request->callback(penalty, request->auth_request);
 }
 
+static const char *
+auth_penalty_get_ident(struct auth_request *auth_request)
+{
+	struct ip_addr ip;
+
+	ip = auth_request->remote_ip;
+#ifdef HAVE_IPV6
+	if (IPADDR_IS_V6(&ip)) {
+		memset(ip.u.ip6.s6_addr + PENALTY_IPV6_MASK_BITS/CHAR_BIT, 0,
+		       sizeof(ip.u.ip6.s6_addr) -
+		       PENALTY_IPV6_MASK_BITS/CHAR_BIT);
+	}
+#endif
+	return net_ip2addr(&ip);
+}
+
 void auth_penalty_lookup(struct auth_penalty *penalty,
 			 struct auth_request *auth_request,
 			 auth_penalty_callback_t *callback)
@@ -93,7 +113,7 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 	struct auth_penalty_request *request;
 	const char *ident;
 
-	ident = net_ip2addr(&auth_request->remote_ip);
+	ident = auth_penalty_get_ident(auth_request);
 	if (penalty->disabled || ident == NULL) {
 		callback(0, auth_request);
 		return;
@@ -123,7 +143,7 @@ void auth_penalty_update(struct auth_penalty *penalty,
 {
 	const char *ident;
 
-	ident = net_ip2addr(&auth_request->remote_ip);
+	ident = auth_penalty_get_ident(auth_request);
 	if (penalty->disabled || ident == NULL)
 		return;
 
