@@ -215,6 +215,8 @@ void penalty_inc(struct penalty *penalty, const char *ident,
 	if (diff >= (1 << LAST_UPDATE_BITS)) {
 		rec->last_update = (1 << LAST_UPDATE_BITS) - 1;
 		rec->last_penalty = ioloop_time - rec->last_update;
+	} else {
+		rec->last_update = diff;
 	}
 
 	DLLIST2_APPEND(&penalty->oldest, &penalty->newest, rec);
