@@ -3,7 +3,10 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "hash.h"
+#include "str.h"
+#include "strescape.h"
 #include "llist.h"
+#include "ostream.h"
 #include "penalty.h"
 
 #include <time.h>
@@ -251,4 +254,21 @@ bool penalty_has_checksum(struct penalty *penalty, const char *ident,
 			return TRUE;
 	}
 	return FALSE;
+}
+
+void penalty_dump(struct penalty *penalty, struct ostream *output)
+{
+	const struct penalty_rec *rec;
+	string_t *str = t_str_new(256);
+
+	for (rec = penalty->oldest; rec != NULL; rec = rec->next) {
+		str_truncate(str, 0);
+		str_tabescape_write(str, rec->ident);
+		str_printfa(str, "\t%u\t%u\t%u\n",
+			    rec->penalty, rec->last_penalty,
+			    rec->last_penalty + rec->last_update);
+		if (o_stream_send(output, str_data(str), str_len(str)) < 0)
+			break;
+	}
+	(void)o_stream_send(output, "\n", 1);
 }

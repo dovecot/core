@@ -17,5 +17,6 @@ void penalty_inc(struct penalty *penalty, const char *ident,
 
 bool penalty_has_checksum(struct penalty *penalty, const char *ident,
 			  unsigned int checksum);
+void penalty_dump(struct penalty *penalty, struct ostream *output);
 
 #endif

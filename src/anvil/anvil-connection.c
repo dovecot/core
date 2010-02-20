@@ -119,6 +119,8 @@ anvil_connection_request(struct anvil_connection *conn,
 			return -1;
 		}
 		penalty_set_expire_secs(penalty, atoi(args[0]));
+	} else if (strcmp(cmd, "PENALTY-DUMP") == 0) {
+		penalty_dump(penalty, conn->output);
 	} else {
 		*error_r = t_strconcat("Unknown command: ", cmd, NULL);
 		return -1;
