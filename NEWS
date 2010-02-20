@@ -4,6 +4,8 @@ v2.0.UNSTABLE  Timo Sirainen <tss@iki.fi>
 	  if you previously had INBOX. namespace prefix and a global ACL for
 	  "INBOX.Sent", it's now looked up from "INBOX.Sent" file instead of
 	  "Sent" as before.
+	* Maildir: File permissions are no longer based on dovecot-shared file,
+	  but the mailbox directory.
 
 	+ Redesigned master process. It's now more modular and there is less
 	  code running as root.
@@ -15,6 +17,7 @@ v2.0.UNSTABLE  Timo Sirainen <tss@iki.fi>
 	  functions. Old dovecotpw and *view utilities now exist in its
 	  subcommands.
 	+ imap and pop3 processes can now handle multiple connections.
+	+ IMAP: COMPRESS=DEFLATE is supported by imap_zlib plugin
 
 v1.2.6 2009-10-05  Timo Sirainen <tss@iki.fi>
 

@@ -1,77 +1,55 @@
- - update wiki/Namespaces
+ - config process is handling requests too slowly. maybe add some caching.
+ - config: ssl=no, ssl_cert=</not-exists fails everything
  - protocol lda { userdb { ..} }
- - auth penalty tracking shouldn't penalize if same user+pass combo keeps
-   doing it. or penalize only when client disconnects before having finished
-   waiting?
- - imap: maildir_copy_with_hardlinks=no COPY to same mailbox crashes
  - master users: see how it works with anvil / max connection limits / doveadm who
- - imap-login: Panic: file auth-server-connection.c: line 395 (auth_server_connection_connect): assertion failed: (conn->fd == -1)
 
- - mail_full_filesystem_access=yes + mbox + :INDEX=../%u -> indexes don't go there
  - virtual: removed messages don't get expunged unless EXPUNGE is issued in
    same session. otherwise they get forgotten and never removed.
- - dsync: dovecot ml mbox -> mdbox(es) created by TB imap login -> crashes
- - dsync: subscriptions listing probably should use DROP_ALIASES flag
- - dsync: handle mailbox name conflicts. local-worker's create() probably
-   should fallback to creating name-<guid>
- - only maildir writes mailbox/dir deletions to changelog
- - multiple connections in one process -> mbox fcntl locking problems!
- - create something similar to dovecot-2.0-sieve/src/lib-sieve-tool/mail-raw.c
-   so sieve and deliver can share the code
- - mbox: FETCH (X-GUID BODY.PEEK[]) and similar crashes..
-   in x-guid do a read-only sync that updates the MD5 values and doesn't unlock
-   mbox
  - mdbox
-    - can't delete \noselect mailboxes
-    - CREATE INBOX/dbox-Mails -> OK
-    - mdbox_rotate_min_size isn't actually used anywhere. is rotate days also
-      seeing the right create date (from header)?
+    - storage rebuild can't be done in destroy(), namespaces are gone by then
+        - use mailbox_close(). check that no transactions are open. maybe
+	  something like only when mailbox_count == 1?
     - Add some kind of checksum about data+metadata and use it when checking
       consistency
     - single-dbox is still buggy?
     - dbox: we get back to dbox_sync_file() over and over again when expunging..
       especially with a broken guid expunge, it doesn't go away.
-    - mailbox deletion: another process could have the mailbox open and append
-      new mails while we're deleting it..
-    - save: if we know mail's size, don't write it to files if file would
-      grow too large
- - see if settings.[ch] can be merged with config/ code.
+    - figure out a way to efficiently trigger purging when user has too much
+      mail expunged (e.g. keep track of total storage size, trigger purging
+      when it's 2*quota limit)
+    - keep track of total bytes in dbox storage in map header. also if
+      possible keep track of refcount=0 bytes. use these to optimize checks.
+    - save some stuff to map index header so we don't need to keep retrying
+      it. like when saving the lowest file_id which to bother checking.
+    - test crash-fixing
+    - mail_index_fsck() should perhaps cause dbox to be resynced?
  - maildir: out-of-disk-space failures apparently cause all kinds of
    problems, e.g. "Expunged message reappeared", "Duplicate file entry"?
  - quota_warn: add $QUOTA_LIMIT environment or %variable parameter
  - deliver -r <address> used as autoreplies' From-address?
  - add fd limit checks/warnings
- - config: ssl=no, ssl_cert=</not-exists fails everything
  - expire plugin could support also "archive" operation = move to another mailbox
  - istream-seekable is inefficient. it shouldn't be reading the temp file
    immediately after writing to it
 
- - config process is handling requests too slowly. maybe add some caching.
  - dsync:
    - subscriptions syncing doesn't handle mixed hierarchy separators
-   - mailbox list GUID isn't replicated, but does it need to be?
-     - the whole dir GUIDs are probably unnecessary. just handle them similarly
-       to subscriptions? mailbox changelog would track dir create/delete/rename
-   - handle INBOX GUID conflicts.
+   - are \noselect mailboxes replicated correctly?
+   - Can't rename mailbox INBOX_019acf2169c5784b307f000074ccac23 to INBOX: Target mailbox already exists
    - copying: does it work correctly with non-full syncs?
-    - "backup mode" where one side is read-only and other side gets forced
-      everything exactly as they're in read-only side, even if backup side had
-      done some changes of its own
+   - "backup mode" where one side is read-only and other side gets forced
+     everything exactly as they're in read-only side, even if backup side had
+     done some changes of its own
    - superfast mode
 
  - lda: add some -h 'Header: value' parameter that adds/replaces header
  - ldap: fix multiple-gid support somehow
  - PERMANENTFLAGS returns () with readonly mailboxes, even when private flag
    changes are allowed (because index is stored elsewhere)
- - config protocol should tell after lookups if there's something more specific
-   also available so login process wouldn't have to do config lookup for
-   each connection if there's no per-IP config.
- - Add mailbox_list_create_dir() and remove bool directory from mailbox_create()
  - search: use mail_get_parts() only when it's already cached. if it's not,
    add it to cache afterwards.
- - check v.copy() failure handling. now they leak memory?
- - COPY: Don't do time() for every 100 msgs, do it dynamically. dbox is fast!
  - move ssl proxying code to lib-master
+ - proxy: verify ssl cert's cname
  - o_stream_set_file_path()
  - dict pooling
 
@@ -80,15 +58,9 @@
 	//FIXME:i_assert((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
   ^ appears to work now though, probably because of the added syncing stuff..
 
- - dbox: keep track of total bytes in dbox storage in map header. also if
-   possible keep track of refcount=0 bytes. use these to optimize checks.
- - dbox: save some stuff to map index header so we don't need to keep retrying
-   it. like when saving the lowest file_id which to bother checking.
  - transaction log corruption should make sure dovecot.index is rewritten
    and perhaps not delete the file.
- - dbox: test crash-fixing
  - use backup index in mail_index_fsck()
- - dbox: mail_index_fsck() should perhaps cause dbox to be resynced?
 
  - proxying: support fallbacking to local (or other?) server if the first
    one is down
@@ -112,7 +84,7 @@
     - read the entire file to memory only once and keep it there, stat() later
       to see if it has changed. if not, perhaps don't even bother stat()ing
       dovecot-acl files? at least not that often..
- - add anonymous environment for anon logins
+ - add anonymous environment for anon logins (for managesieve mainly)
  - fs quota: getquotaroot inbox vs. other-box should return different quotas
    if two quotas are defined
  - lda: log mailbox name using utf8, not mutf7
@@ -133,8 +105,6 @@
  - expire plugin: log more with mail_debug=yes
   - expire-tool -v could log UID and expire timestamps and what messages got
     expunged
- - dict quota: syncing may cause quota recalculation, which in turn syncs
-   all mailboxes and then we'll assert-crash to avoid infinite looping
  - fts-squat: support ORs
  - UIDVALIDITY changed while saving -> sync errors
    - mbox: copy to Trash, manually delete copied msg, change uidvalidity,
@@ -188,14 +158,7 @@
    - physical separator could be configurable
    - lda+maildir: if new mails are in new/ or cur/ they're not added to
      dovecot-uidlist but newly saved mails are, so UIDs will be in wrong order
-   - maildir_copy_with_hardlinks: We're currently first hardlinking to tmp/ and
-     then rename()ing. This wouldn't be necessary if uidlist syncing noticed
-     that someone else already had added them to uidlist, and the existing UIDs
-     could be assigned to them in the index.
-       - copying should copy already-cached data
-   - maildir_copy_preserve_filename=yes has a race condition causing "Append with
-     UID n, but next_uid = y" errors when quota plugin is loaded. Practically
-     won't happen except in stress testing.
+   - maildir_copy_with_hardlinks: copy already-cached data
 
  - mbox
    - UID renumbering doesn't really work after all?
