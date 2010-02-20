@@ -58,6 +58,8 @@ mail_index_alloc_cache_add(struct mail_index *index,
 static void
 mail_index_alloc_cache_list_free(struct mail_index_alloc_cache_list *list)
 {
+	if (list->index->open_count > 0)
+		mail_index_close(list->index);
 	mail_index_free(&list->index);
 	i_free(list->mailbox_path);
 	i_free(list);
@@ -212,5 +214,7 @@ void mail_index_alloc_cache_index_opened(struct mail_index *index)
 			list->index_dir_ino = st.st_ino;
 			list->index_dir_dev = st.st_dev;
 		}
+		/* keep it referenced for ourself */
+		index->open_count++;
 	}
 }
