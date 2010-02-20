@@ -34,6 +34,7 @@ unsigned int login_default_port = 143;
 
 void login_process_preinit(void)
 {
+	login_set_roots = imap_login_setting_roots;
 }
 
 /* Skip incoming data until newline is found,
@@ -425,7 +426,6 @@ imap_client_send_line(struct client *client, enum client_cmd_reply reply,
 
 void clients_init(void)
 {
-	login_set_roots = imap_login_setting_roots;
 }
 
 void clients_deinit(void)

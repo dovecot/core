@@ -28,6 +28,7 @@ unsigned int login_default_port = 110;
 
 void login_process_preinit(void)
 {
+	login_set_roots = pop3_login_setting_roots;
 }
 
 static bool cmd_stls(struct pop3_client *client)
@@ -217,7 +218,6 @@ static void pop3_login_die(void)
 
 void clients_init(void)
 {
-	login_set_roots = pop3_login_setting_roots;
 	/* override the default login_die() */
 	master_service_set_die_callback(master_service, pop3_login_die);
 }
