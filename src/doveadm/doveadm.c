@@ -101,6 +101,7 @@ int main(int argc, char *argv[])
 	doveadm_register_cmd(&doveadm_cmd_dump);
 	doveadm_register_cmd(&doveadm_cmd_pw);
 	doveadm_register_cmd(&doveadm_cmd_who);
+	doveadm_register_cmd(&doveadm_cmd_penalty);
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {

@@ -17,6 +17,7 @@ extern struct doveadm_cmd doveadm_cmd_user;
 extern struct doveadm_cmd doveadm_cmd_dump;
 extern struct doveadm_cmd doveadm_cmd_pw;
 extern struct doveadm_cmd doveadm_cmd_who;
+extern struct doveadm_cmd doveadm_cmd_penalty;
 
 extern bool doveadm_verbose, doveadm_debug;
 

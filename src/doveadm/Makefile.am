@@ -36,6 +36,7 @@ doveadm_SOURCES = \
 	doveadm-dump-mailboxlog.c \
 	doveadm-dump-thread.c \
 	doveadm-mail.c \
+	doveadm-penalty.c \
 	doveadm-pw.c \
 	doveadm-who.c
 
