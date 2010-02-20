@@ -44,7 +44,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	net_set_nonblock(fd_in, TRUE);
 	net_set_nonblock(fd_out, TRUE);
 
-	pool = pool_alloconly_create("imap client", 512);
+	pool = pool_alloconly_create("imap client", 1024);
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
 	client->set = set;
