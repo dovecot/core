@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 
 bool doveadm_verbose = FALSE, doveadm_debug = FALSE;
 
@@ -39,6 +40,16 @@ void help(const struct doveadm_cmd *cmd)
 	if (cmd->long_usage != NULL)
 		fprintf(stderr, "%s", cmd->long_usage);
 	exit(0);
+}
+
+const char *unixdate2str(time_t timestamp)
+{
+	static char buf[64];
+	struct tm *tm;
+
+	tm = localtime(&timestamp);
+	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
+	return buf;
 }
 
 static void cmd_help(int argc ATTR_UNUSED, char *argv[])

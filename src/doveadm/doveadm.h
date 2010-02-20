@@ -25,4 +25,6 @@ void doveadm_register_cmd(const struct doveadm_cmd *cmd);
 void usage(void);
 void help(const struct doveadm_cmd *cmd);
 
+const char *unixdate2str(time_t timestamp);
+
 #endif

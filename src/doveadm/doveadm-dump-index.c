@@ -61,16 +61,6 @@ struct dbox_mail_index_map_record {
 	uint32_t size;
 };
 
-static const char *unixdate2str(time_t timestamp)
-{
-	static char buf[64];
-	struct tm *tm;
-
-	tm = localtime(&timestamp);
-	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
-	return buf;
-}
-
 static void dump_hdr(struct mail_index *index)
 {
 	const struct mail_index_header *hdr = &index->map->hdr;

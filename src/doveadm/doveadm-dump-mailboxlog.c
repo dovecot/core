@@ -10,16 +10,6 @@
 #include <fcntl.h>
 #include <time.h>
 
-static const char *unixdate2str(time_t timestamp)
-{
-	static char buf[64];
-	struct tm *tm;
-
-	tm = localtime(&timestamp);
-	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
-	return buf;
-}
-
 static int dump_record(int fd)
 {
 	off_t offset;
