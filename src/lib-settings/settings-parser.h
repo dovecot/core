@@ -111,7 +111,7 @@ void settings_parser_deinit(struct setting_parser_context **ctx);
 void *settings_parser_get(struct setting_parser_context *ctx);
 /* If there are multiple roots, return a NULL-terminated list to all of
    their settings. */
-void **settings_parser_get_list(struct setting_parser_context *ctx);
+void **settings_parser_get_list(const struct setting_parser_context *ctx);
 /* Like settings_parser_get(), but return change struct. */
 void *settings_parser_get_changes(struct setting_parser_context *ctx);
 
@@ -178,7 +178,8 @@ void *settings_dup(const struct setting_parser_info *info,
 		   const void *set, pool_t pool);
 /* Duplicate the entire setting parser. */
 struct setting_parser_context *
-settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool);
+settings_parser_dup(const struct setting_parser_context *old_ctx,
+		    pool_t new_pool);
 
 /* parsers is a name=NULL -terminated list. The parsers are appended as
    dynamic_settings_list structures to their parent. All must have the same

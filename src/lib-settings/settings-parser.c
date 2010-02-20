@@ -240,7 +240,7 @@ void *settings_parser_get(struct setting_parser_context *ctx)
 	return ctx->roots[0].set_struct;
 }
 
-void **settings_parser_get_list(struct setting_parser_context *ctx)
+void **settings_parser_get_list(const struct setting_parser_context *ctx)
 {
 	unsigned int i;
 	void **sets;
@@ -1483,7 +1483,8 @@ settings_link_get_new(struct setting_parser_context *new_ctx,
 }
 
 struct setting_parser_context *
-settings_parser_dup(struct setting_parser_context *old_ctx, pool_t new_pool)
+settings_parser_dup(const struct setting_parser_context *old_ctx,
+		    pool_t new_pool)
 {
 	struct setting_parser_context *new_ctx;
 	struct hash_iterate_context *iter;
