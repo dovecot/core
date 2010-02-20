@@ -159,8 +159,11 @@ static void anvil_connection_input(void *context)
 
 	while ((args = anvil_connection_next_line(conn)) != NULL) {
 		if (args[0] != NULL) {
-			if (anvil_connection_request(conn, args, &error) < 0)
+			if (anvil_connection_request(conn, args, &error) < 0) {
 				i_error("Anvil client input error: %s", error);
+				anvil_connection_destroy(conn);
+				break;
+			}
 		}
 	}
 }
