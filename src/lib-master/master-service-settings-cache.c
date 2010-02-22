@@ -252,8 +252,8 @@ int master_service_settings_cache_read(struct master_service_settings_cache *cac
 	struct master_service_settings_output output;
 	const struct master_service_settings *set;
 
-	i_assert(strcmp(input->module, cache->module) == 0);
-	i_assert(strcmp(input->service, cache->service_name) == 0);
+	i_assert(null_strcmp(input->module, cache->module) == 0);
+	i_assert(null_strcmp(input->service, cache->service_name) == 0);
 
 	if (cache_find(cache, input, parser_r))
 		return 0;

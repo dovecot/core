@@ -631,8 +631,8 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 						  &ctx->set_cache_dyn_parsers);
 	}
 
-	if (strcmp(input->module, ctx->set_cache_module) == 0 &&
-	    strcmp(input->service, ctx->set_cache_service) == 0) {
+	if (null_strcmp(input->module, ctx->set_cache_module) == 0 &&
+	    null_strcmp(input->service, ctx->set_cache_service) == 0) {
 		set_input.roots = ctx->set_cache_roots;
 		set_input.dyn_parsers = ctx->set_cache_dyn_parsers;
 		set_input.dyn_parsers_parent =
