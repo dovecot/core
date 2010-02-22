@@ -212,8 +212,8 @@ login_settings_read(pool_t pool,
 		i_fatal("Error reading configuration: %s", error);
 
 	cache_sets = settings_parser_get_list(parser) + 1;
-	for (count = 0; cache_sets[count] != NULL; count++) ;
-	i_assert(input.roots[count] == NULL);
+	for (count = 0; input.roots[count] != NULL; count++) ;
+	i_assert(cache_sets[count] == NULL);
 	sets = p_new(pool, void *, count + 1);
 	for (i = 0; i < count; i++) {
 		sets[i] = settings_dup(input.roots[i], cache_sets[i], pool);
