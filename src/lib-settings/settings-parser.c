@@ -655,6 +655,32 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 	}
 }
 
+static void
+settings_parse_strlist(struct setting_parser_context *ctx,
+		       struct setting_link *link,
+		       const char *key, const char *value)
+{
+	void *const *items;
+	void *vkey, *vvalue;
+	unsigned int i, count;
+
+	key = strrchr(key, SETTINGS_SEPARATOR) + 1;
+	vvalue = p_strdup(ctx->set_pool, value);
+
+	/* replace if it already exists */
+	items = array_get(link->array, &count);
+	for (i = 0; i < count; i += 2) {
+		if (strcmp(items[i], key) == 0) {
+			array_idx_set(link->array, i + 1, &vvalue);
+			return;
+		}
+	}
+
+	vkey = p_strdup(ctx->set_pool, key);
+	array_append(link->array, &vkey, 1);
+	array_append(link->array, &vvalue, 1);
+}
+
 static int settings_parse_keyvalue(struct setting_parser_context *ctx,
 				   const char *key, const char *value)
 {
@@ -663,13 +689,7 @@ static int settings_parse_keyvalue(struct setting_parser_context *ctx,
 
 	if (settings_find_key(ctx, key, &def, &link)) {
 		if (link->info == &strlist_info) {
-			void *vkey, *vvalue;
-
-			vkey = p_strdup(ctx->set_pool,
-					strrchr(key, SETTINGS_SEPARATOR) + 1);
-			vvalue = p_strdup(ctx->set_pool, value);
-			array_append(link->array, &vkey, 1);
-			array_append(link->array, &vvalue, 1);
+			settings_parse_strlist(ctx, link, key, value);
 			return 1;
 		}
 
