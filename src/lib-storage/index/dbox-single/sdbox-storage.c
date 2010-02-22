@@ -194,6 +194,8 @@ dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		if (index_storage_mailbox_open(box, FALSE) < 0)
 			return -1;
 	}
+	if (update->cache_fields != NULL)
+		index_storage_mailbox_update_cache_fields(box, update);
 	return sdbox_write_index_header(box, update);
 }
 
