@@ -337,9 +337,8 @@ void index_storage_mailbox_free(struct mailbox *box)
 	mail_index_alloc_cache_unref(&box->index);
 }
 
-static void
-index_storage_mailbox_update_cache_fields(struct mailbox *box,
-					  const struct mailbox_update *update)
+void index_storage_mailbox_update_cache_fields(struct mailbox *box,
+					       const struct mailbox_update *update)
 {
 	const char *const *field_names = update->cache_fields;
 	ARRAY_DEFINE(new_fields, struct mail_cache_field);
