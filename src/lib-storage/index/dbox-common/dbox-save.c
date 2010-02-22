@@ -131,6 +131,10 @@ void dbox_save_write_metadata(struct mail_save_context *ctx,
 		i_unreached();
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
 		    (unsigned long long)vsize);
+	if (ctx->pop3_uidl != NULL) {
+		str_printfa(str, "%c%s\n", DBOX_METADATA_POP3_UIDL,
+			    ctx->pop3_uidl);
+	}
 
 	guid = ctx->guid;
 	if (guid != NULL)
