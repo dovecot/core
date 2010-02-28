@@ -277,6 +277,7 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
+	uoff_t v_offset;
 	ssize_t ret;
 
 	if (!mstream->header_read ||
@@ -291,24 +292,59 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 		return -1;
 	}
 
-	i_stream_seek(stream->parent, mstream->istream.parent_start_offset +
-		      stream->istream.v_offset -
-		      mstream->header_size.virtual_size +
-		      mstream->header_size.physical_size);
+	v_offset = stream->parent_start_offset + stream->istream.v_offset -
+		mstream->header_size.virtual_size +
+		mstream->header_size.physical_size;
+	i_stream_seek(stream->parent, v_offset);
 	return i_stream_read_copy_from_parent(&stream->istream);
 }
 
-static void parse_header(struct header_filter_istream *mstream)
+static void
+i_stream_header_filter_seek_to_header(struct header_filter_istream *mstream,
+				      uoff_t v_offset)
+{
+	i_stream_seek(mstream->istream.parent,
+		      mstream->istream.parent_start_offset);
+	mstream->istream.parent_expected_offset =
+		mstream->istream.parent_start_offset;
+	mstream->istream.access_counter =
+		mstream->istream.parent->real_stream->access_counter;
+
+	if (mstream->hdr_ctx != NULL)
+		message_parse_header_deinit(&mstream->hdr_ctx);
+	mstream->skip_count = v_offset;
+	mstream->cur_line = 0;
+	mstream->header_read = FALSE;
+	mstream->seen_eoh = FALSE;
+}
+
+static void skip_header(struct header_filter_istream *mstream)
 {
 	size_t pos;
 
-	while (!mstream->header_read) {
-		if (i_stream_header_filter_read(&mstream->istream) == -1)
-			break;
+	if (mstream->header_read)
+		return;
 
+	if (mstream->istream.access_counter !=
+	    mstream->istream.parent->real_stream->access_counter) {
+		/* need to re-parse headers */
+		i_stream_header_filter_seek_to_header(mstream, 0);
+	}
+
+	while (!mstream->header_read &&
+	       i_stream_read(&mstream->istream.istream) != -1) {
 		(void)i_stream_get_data(&mstream->istream.istream, &pos);
 		i_stream_skip(&mstream->istream.istream, pos);
 	}
+}
+
+static void
+stream_reset_to(struct header_filter_istream *mstream, uoff_t v_offset)
+{
+	mstream->istream.istream.v_offset = v_offset;
+	mstream->istream.skip = mstream->istream.pos = 0;
+	mstream->istream.buffer = NULL;
+	buffer_set_used_size(mstream->hdr_buf, 0);
 }
 
 static void i_stream_header_filter_seek(struct istream_private *stream,
@@ -317,25 +353,23 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
 
-	parse_header(mstream);
-	stream->istream.v_offset = v_offset;
-	stream->skip = stream->pos = 0;
-	stream->buffer = NULL;
-	buffer_set_used_size(mstream->hdr_buf, 0);
-
-	if (mstream->hdr_ctx != NULL) {
-		message_parse_header_deinit(&mstream->hdr_ctx);
-		mstream->hdr_ctx = NULL;
+	if (v_offset == 0) {
+		/* seeking to beginning of headers. */
+		stream_reset_to(mstream, 0);
+		i_stream_header_filter_seek_to_header(mstream, 0);
+		return;
 	}
+
+	/* if we haven't parsed the whole header yet, we don't know if we
+	   want to seek inside header or body. so make sure we've parsed the
+	   header. */
+	skip_header(mstream);
+	stream_reset_to(mstream, v_offset);
 
 	if (v_offset < mstream->header_size.virtual_size) {
 		/* seek into headers. we'll have to re-parse them, use
 		   skip_count to set the wanted position */
-		i_stream_seek(stream->parent, stream->parent_start_offset);
-		mstream->skip_count = v_offset;
-		mstream->cur_line = 0;
-		mstream->header_read = FALSE;
-		mstream->seen_eoh = FALSE;
+		i_stream_header_filter_seek_to_header(mstream, v_offset);
 	} else {
 		/* body */
 		v_offset += mstream->header_size.physical_size -
@@ -357,17 +391,20 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
 	const struct stat *st;
+	uoff_t old_offset;
 
 	st = i_stream_stat(stream->parent, exact);
 	if (st == NULL || st->st_size == -1 || !exact)
 		return st;
 
-	parse_header(mstream);
+	old_offset = stream->istream.v_offset;
+	skip_header(mstream);
 
 	stream->statbuf = *st;
 	stream->statbuf.st_size -=
 		(off_t)mstream->header_size.physical_size -
 		(off_t)mstream->header_size.virtual_size;
+	i_stream_seek(&stream->istream, old_offset);
 	return &stream->statbuf;
 }
 

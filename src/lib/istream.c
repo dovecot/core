@@ -69,6 +69,17 @@ void i_stream_set_return_partial_line(struct istream *stream, bool set)
 	stream->real_stream->return_nolf_line = set;
 }
 
+static void i_stream_update(struct istream_private *stream)
+{
+	if (stream->parent == NULL)
+		stream->access_counter++;
+	else {
+		stream->access_counter =
+			stream->parent->real_stream->access_counter;
+		stream->parent_expected_offset = stream->parent->v_offset;
+	}
+}
+
 ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
@@ -80,6 +91,9 @@ ssize_t i_stream_read(struct istream *stream)
 
 	stream->eof = FALSE;
 	stream->stream_errno = 0;
+
+	if (_stream->parent != NULL)
+		i_stream_seek(_stream->parent, _stream->parent_expected_offset);
 
 	old_size = _stream->pos - _stream->skip;
 	ret = _stream->read(_stream);
@@ -104,6 +118,8 @@ ssize_t i_stream_read(struct istream *stream)
 		i_assert((size_t)ret+old_size == _stream->pos - _stream->skip);
 		break;
 	}
+
+	i_stream_update(_stream);
 	return ret;
 }
 
@@ -164,21 +180,17 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	_stream->seek(_stream, stream->v_offset + count, FALSE);
 }
 
-static bool i_stream_can_optimize_seek(struct istream *stream)
+static bool i_stream_can_optimize_seek(struct istream_private *stream)
 {
-	uoff_t expected_offset;
-
-	if (stream->real_stream->parent == NULL)
+	if (stream->parent == NULL)
 		return TRUE;
 
-	/* use the fast route only if the parent stream is at the
-	   expected offset */
-	expected_offset = stream->real_stream->parent_start_offset +
-		stream->v_offset - stream->real_stream->skip;
-	if (stream->real_stream->parent->v_offset != expected_offset)
+	/* use the fast route only if the parent stream hasn't been changed */
+	if (stream->access_counter !=
+	    stream->parent->real_stream->access_counter)
 		return FALSE;
 
-	return i_stream_can_optimize_seek(stream->real_stream->parent);
+	return i_stream_can_optimize_seek(stream->parent->real_stream);
 }
 
 void i_stream_seek(struct istream *stream, uoff_t v_offset)
@@ -186,16 +198,16 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 	struct istream_private *_stream = stream->real_stream;
 
 	if (v_offset >= stream->v_offset &&
-	    i_stream_can_optimize_seek(stream)) {
+	    i_stream_can_optimize_seek(_stream))
 		i_stream_skip(stream, v_offset - stream->v_offset);
-		return;
+	else {
+		if (unlikely(stream->closed))
+			return;
+
+		stream->eof = FALSE;
+		_stream->seek(_stream, v_offset, FALSE);
 	}
-
-	if (unlikely(stream->closed))
-		return;
-
-	stream->eof = FALSE;
-	_stream->seek(_stream, v_offset, FALSE);
+	i_stream_update(_stream);
 }
 
 void i_stream_seek_mark(struct istream *stream, uoff_t v_offset)
@@ -207,6 +219,7 @@ void i_stream_seek_mark(struct istream *stream, uoff_t v_offset)
 
 	stream->eof = FALSE;
 	_stream->seek(_stream, v_offset, TRUE);
+	i_stream_update(_stream);
 }
 
 void i_stream_sync(struct istream *stream)
@@ -216,8 +229,10 @@ void i_stream_sync(struct istream *stream)
 	if (unlikely(stream->closed))
 		return;
 
-	if (_stream->sync != NULL)
+	if (_stream->sync != NULL) {
 		_stream->sync(_stream);
+		i_stream_update(_stream);
+	}
 }
 
 const struct stat *i_stream_stat(struct istream *stream, bool exact)
@@ -549,8 +564,10 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 {
 	_stream->fd = fd;
 	if (parent != NULL) {
+		_stream->access_counter = parent->real_stream->access_counter;
 		_stream->parent = parent;
 		_stream->parent_start_offset = parent->v_offset;
+		_stream->parent_expected_offset = parent->v_offset;
 		_stream->abs_start_offset = parent->v_offset +
 			parent->real_stream->abs_start_offset;
 		i_stream_ref(parent);

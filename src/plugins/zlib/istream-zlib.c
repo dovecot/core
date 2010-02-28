@@ -327,7 +327,7 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 			}
 
 			i_stream_skip(&stream->istream, avail);
-		} while (i_stream_zlib_read(stream) >= 0);
+		} while (i_stream_read(&stream->istream) >= 0);
 
 		if (stream->istream.v_offset != v_offset) {
 			/* some failure, we've broken it */
@@ -370,7 +370,7 @@ i_stream_zlib_stat(struct istream_private *stream, bool exact)
 		do {
 			(void)i_stream_get_data(&stream->istream, &size);
 			i_stream_skip(&stream->istream, size);
-		} while (i_stream_zlib_read(stream) > 0);
+		} while (i_stream_read(&stream->istream) > 0);
 
 		i_stream_seek(&stream->istream, old_offset);
 		if (zstream->eof_offset == (uoff_t)-1)

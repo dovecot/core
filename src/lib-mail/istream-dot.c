@@ -7,8 +7,6 @@
 struct dot_istream {
 	struct istream_private istream;
 
-	uoff_t prev_parent_offset;
-
 	char pending[3]; /* max. \r\n */
 
 	/* how far in string "\r\n.\r" are we */
@@ -130,8 +128,6 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 
 	/* we have to update stream->pos before reading more data */
 	ret1 = i_stream_dot_return(stream, dest, 0);
-
-	i_assert(dstream->prev_parent_offset == stream->parent->v_offset);
 	if ((ret = i_stream_dot_read_some(dstream)) <= 0) {
 		if (ret1 != 0)
 			return ret1;
@@ -207,7 +203,6 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 	}
 end:
 	i_stream_skip(stream->parent, i);
-	dstream->prev_parent_offset = stream->parent->v_offset;
 
 	ret = i_stream_dot_return(stream, dest, 0) + ret1;
 	if (ret == 0)
@@ -239,7 +234,6 @@ struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
 	dstream->state = 2;
 	dstream->state_no_cr = TRUE;
 	dstream->state_no_lf = TRUE;
-	dstream->prev_parent_offset = input->v_offset;
 	return i_stream_create(&dstream->istream, input,
 			       i_stream_get_fd(input));
 }

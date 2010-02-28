@@ -34,6 +34,15 @@ struct istream_private {
 	struct istream *parent; /* for filter streams */
 	uoff_t parent_start_offset;
 
+	/* parent stream's expected offset is kept here. i_stream_read()
+	   always seeks parent stream to here before calling read(). */
+	uoff_t parent_expected_offset;
+
+	/* increased every time the stream is changed (e.g. seek, read).
+	   this way streams can check if their parent streams have been
+	   accessed behind them. */
+	unsigned int access_counter;
+
 	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
 	unsigned int return_nolf_line:1;
 };

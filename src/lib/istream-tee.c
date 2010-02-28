@@ -39,6 +39,11 @@ static void tee_streams_update_buffer(struct tee_istream *tee)
 			tee->input->v_offset;
 		i_assert(tstream->istream.skip + old_used <= size);
 		tstream->istream.pos = tstream->istream.skip + old_used;
+
+		tstream->istream.parent_expected_offset =
+			tee->input->v_offset;
+		tstream->istream.access_counter =
+			tee->input->real_stream->access_counter;
 	}
 }
 
@@ -84,6 +89,7 @@ static void i_stream_tee_destroy(struct iostream_private *stream)
 	}
 
 	if (tee->children == NULL) {
+		/* last child. the tee is now destroyed */
 		i_assert(tee->input->v_offset <= tee->max_read_offset);
 		i_stream_skip(tee->input,
 			      tee->max_read_offset - tee->input->v_offset);
@@ -195,12 +201,12 @@ struct tee_istream *tee_i_stream_create(struct istream *input)
 struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 {
 	struct tee_child_istream *tstream;
+	struct istream *ret, *input = tee->input;
 
 	tstream = i_new(struct tee_child_istream, 1);
 	tstream->tee = tee;
 
-	tstream->istream.max_buffer_size =
-		tee->input->real_stream->max_buffer_size;
+	tstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	tstream->istream.iostream.close = i_stream_tee_close;
 	tstream->istream.iostream.destroy = i_stream_tee_destroy;
 	tstream->istream.iostream.set_max_buffer_size =
@@ -213,8 +219,10 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 	tstream->next = tee->children;
 	tee->children = tstream;
 
-	return i_stream_create(&tstream->istream, NULL,
-			       i_stream_get_fd(tee->input));
+	ret = i_stream_create(&tstream->istream, input, i_stream_get_fd(input));
+	/* we keep the reference in tee stream, no need for extra references */
+	i_stream_unref(&input);
+	return ret;
 }
 
 bool tee_i_stream_child_is_waiting(struct istream *input)
