@@ -103,10 +103,8 @@ static void i_stream_file_seek(struct istream_private *stream, uoff_t v_offset,
 	struct file_istream *fstream = (struct file_istream *) stream;
 
 	if (!stream->istream.seekable) {
-		if (v_offset < stream->istream.v_offset) {
-			stream->istream.stream_errno = ESPIPE;
-			return;
-		}
+		if (v_offset < stream->istream.v_offset)
+			i_panic("stream doesn't support seeking backwards");
 		fstream->skip_left += v_offset - stream->istream.v_offset;
 	}
 
