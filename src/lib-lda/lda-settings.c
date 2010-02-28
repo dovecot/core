@@ -35,7 +35,7 @@ static const struct setting_define lda_setting_defines[] = {
 static const struct lda_settings lda_default_settings = {
 	.postmaster_address = "",
 	.hostname = "",
-	.sendmail_path = "/usr/lib/sendmail",
+	.sendmail_path = "/usr/sbin/sendmail",
 	.rejection_subject = "Rejected: %s",
 	.rejection_reason =
 		"Your message to <%t> was automatically rejected:%n%r",
