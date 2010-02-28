@@ -179,9 +179,6 @@ static void master_login_auth_finish(struct master_login_client *client,
 
 	login->callback(client, auth_args[0], auth_args+1);
 
-	client->fd = -1;
-	master_login_client_free(&client);
-
 	if (close_sockets) {
 		/* we're dying as soon as this connection closes. */
 		i_assert(master_login_auth_request_count(login->auth) == 0);
@@ -193,6 +190,9 @@ static void master_login_auth_finish(struct master_login_client *client,
 		/* try stopping again */
 		master_login_stop(login);
 	}
+
+	client->fd = -1;
+	master_login_client_free(&client);
 }
 
 static void master_login_postlogin_free(struct master_login_postlogin *pl)
@@ -409,6 +409,11 @@ static void master_login_conn_deinit(struct master_login_connection **_conn)
 
 	*_conn = NULL;
 
+	if (conn->output == NULL) {
+		/* already deinitialized */
+		return;
+	}
+
 	DLLIST_REMOVE(&conn->login->conns, conn);
 
 	if (conn->io != NULL)
@@ -416,6 +421,7 @@ static void master_login_conn_deinit(struct master_login_connection **_conn)
 	o_stream_unref(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(master login) failed: %m");
+	conn->fd = -1;
 
 	conn->login->service->login_authenticating = FALSE;
 	master_service_io_listeners_add(conn->login->service);
