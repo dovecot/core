@@ -187,7 +187,9 @@ unichar_t uni_ucs4_to_titlecase(unichar_t chr)
 {
 	unsigned int idx;
 
-	if (chr <= 0xffff) {
+	if (chr <= 0xff)
+		return titlecase8_map[chr];
+	else if (chr <= 0xffff) {
 		if (!uint16_find(titlecase16_keys, N_ELEMENTS(titlecase16_keys),
 				 chr, &idx))
 			return chr;
@@ -206,16 +208,21 @@ static bool uni_ucs4_decompose_uni(unichar_t *chr)
 {
 	unsigned int idx;
 
-	if (*chr <= 0xffff) {
+	if (*chr <= 0xff) {
+		if (uni8_decomp_map[*chr] == *chr)
+			return FALSE;
+		*chr = uni8_decomp_map[*chr];
+	} else if (*chr <= 0xffff) {
+		if (*chr < uni16_decomp_keys[0])
+			return FALSE;
+
 		if (!uint16_find(uni16_decomp_keys,
-				 N_ELEMENTS(uni16_decomp_keys),
-				 *chr, &idx))
+				 N_ELEMENTS(uni16_decomp_keys), *chr, &idx))
 			return FALSE;
 		*chr = uni16_decomp_values[idx];
 	} else {
 		if (!uint32_find(uni32_decomp_keys,
-				 N_ELEMENTS(uni32_decomp_keys),
-				 *chr, &idx))
+				 N_ELEMENTS(uni32_decomp_keys), *chr, &idx))
 			return FALSE;
 		*chr = uni32_decomp_values[idx];
 	}
@@ -247,7 +254,7 @@ static bool uni_ucs4_decompose_multi_utf8(unichar_t chr, buffer_t *output)
 	const uint16_t *value;
 	unsigned int idx;
 
-	if (chr > 0xffff)
+	if (chr < multidecomp_keys[0] || chr > 0xffff)
 		return FALSE;
 
 	if (!uint32_find(multidecomp_keys, N_ELEMENTS(multidecomp_keys),
