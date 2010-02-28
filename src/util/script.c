@@ -35,6 +35,7 @@ static void client_connected(const struct master_service_connection *conn)
 	int fd = -1;
 	ssize_t ret;
 
+	net_set_nonblock(conn->fd, FALSE);
 	instr = t_str_new(1024);
 	ret = fd_read(conn->fd, buf, sizeof(buf), &fd);
 	while (ret > 0) {
