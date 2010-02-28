@@ -100,9 +100,10 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	if (*ns_r == NULL)
 		return NULL;
 
-	if (*name == '\0') {
+	if (*name == '\0' && (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* delivering to a namespace prefix means we actually want to
 		   deliver to the INBOX instead */
+		*error_r = "Trying to deliver to namespace prefix";
 		return NULL;
 	}
 
