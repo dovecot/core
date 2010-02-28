@@ -74,18 +74,23 @@ void master_service_settings_cache_deinit(struct master_service_settings_cache *
 	struct master_service_settings_cache *cache = *_cache;
 	struct settings_entry *entry, *next;
 
+	/* parsers need to be deinitialized, because they reference the pool */
 	for (entry = cache->oldest_global; entry != NULL; entry = next) {
 		next = entry->next;
+		settings_parser_deinit(&entry->parser);
 		pool_unref(&entry->pool);
 	}
 	for (entry = cache->oldest; entry != NULL; entry = next) {
 		next = entry->next;
+		settings_parser_deinit(&entry->parser);
 		pool_unref(&entry->pool);
 	}
 	if (cache->local_host_hash != NULL)
 		hash_table_destroy(&cache->local_host_hash);
 	if (cache->local_ip_hash != NULL)
 		hash_table_destroy(&cache->local_ip_hash);
+	if (cache->global_parser != NULL)
+		settings_parser_deinit(&cache->global_parser);
 	pool_unref(&cache->pool);
 }
 
@@ -148,7 +153,6 @@ static void
 setting_entry_detach(struct master_service_settings_cache *cache,
 		     struct settings_entry *entry)
 {
-		
 	DLLIST2_REMOVE(&cache->oldest, &cache->newest, entry);
 	cache->cache_malloc_size -=
 		pool_alloconly_get_total_alloc_size(entry->pool);
@@ -157,6 +161,7 @@ setting_entry_detach(struct master_service_settings_cache *cache,
 		hash_table_remove(cache->local_host_hash, entry->local_host);
 	if (entry->local_ip.family != 0)
 		hash_table_remove(cache->local_ip_hash, &entry->local_ip);
+	settings_parser_deinit(&entry->parser);
 }
 
 static void cache_add(struct master_service_settings_cache *cache,

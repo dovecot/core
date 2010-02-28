@@ -498,7 +498,8 @@ mail_storage_service_init(struct master_service *service,
 		count = 0;
 	else
 		for (count = 0; set_roots[count] != NULL; count++) ;
-	ctx->set_roots = i_new(const struct setting_parser_info *, count + 2);
+	ctx->set_roots =
+		p_new(pool, const struct setting_parser_info *, count + 2);
 	ctx->set_roots[0] = &mail_user_setting_parser_info;
 	memcpy(ctx->set_roots + 1, set_roots, sizeof(*ctx->set_roots) * count);
 
