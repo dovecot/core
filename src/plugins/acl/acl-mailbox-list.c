@@ -223,15 +223,27 @@ acl_mailbox_list_iter_get_name(struct mailbox_list_iterate_context *ctx,
 			       const char *name)
 {
 	struct mail_namespace *ns = ctx->list->ns;
+	unsigned int len;
+	char sep;
 
 	if ((ctx->flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0)
-		return name;
+		sep = ns->sep;
+	else {
+		/* Mailbox names contain namespace prefix,
+		   except when listing INBOX. */
+		if (strncmp(name, ns->prefix, ns->prefix_len) == 0)
+			name += ns->prefix_len;
+		name = mail_namespace_fix_sep(ns, name);
+		sep = ns->real_sep;
+	}
 
-	/* Mailbox names contain namespace prefix,
-	   except when listing INBOX. */
-	if (strncmp(name, ns->prefix, ns->prefix_len) == 0)
-		name += ns->prefix_len;
-	return mail_namespace_fix_sep(ns, name);
+	len = strlen(name);
+	if (name[len-1] == sep) {
+		/* name ends with separator. this can happen if doing e.g.
+		   LIST "" foo/% and it lists "foo/". */
+		name = t_strndup(name, len-1);
+	}
+	return name;
 }
 
 static bool
