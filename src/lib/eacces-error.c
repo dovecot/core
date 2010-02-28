@@ -158,18 +158,22 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 			str_printfa(errmsg, " UNIX perms appear ok, "
 				    "some security policy wrong?");
 	}
-	/* check and warn if another uid has the same name */
-	if (pw_name != NULL && dir_st.st_uid != geteuid()) {
-		pw = getpwuid(dir_st.st_uid);
-		if (pw != NULL && strcmp(pw->pw_name, pw_name) == 0) {
-			str_printfa(errmsg, ", dir uid=%s(%s)",
+	if (dir_st.st_uid != geteuid()) {
+		if (pw_name != NULL &&
+		    (pw = getpwuid(dir_st.st_uid)) != NULL &&
+		    strcmp(pw->pw_name, pw_name) == 0) {
+			str_printfa(errmsg, ", conflicting dir uid=%s(%s)",
 				    dec2str(dir_st.st_uid), pw_name);
+		} else {
+			str_append(errmsg, ", euid is not dir owner");
 		}
+	} else {
+		str_append(errmsg, ", euid is dir owner");
 	}
 	if (gr_name != NULL && dir_st.st_gid != getegid()) {
 		group = getgrgid(dir_st.st_gid);
 		if (group != NULL && strcmp(group->gr_name, gr_name) == 0) {
-			str_printfa(errmsg, ", dir gid=%s(%s)",
+			str_printfa(errmsg, ", conflicting dir gid=%s(%s)",
 				    dec2str(dir_st.st_gid), gr_name);
 		}
 	}
