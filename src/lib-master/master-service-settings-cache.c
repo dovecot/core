@@ -77,7 +77,7 @@ void master_service_settings_cache_deinit(struct master_service_settings_cache *
 	/* parsers need to be deinitialized, because they reference the pool */
 	for (entry = cache->oldest_global; entry != NULL; entry = next) {
 		next = entry->next;
-		settings_parser_deinit(&entry->parser);
+		i_assert(entry->parser == cache->global_parser);
 		pool_unref(&entry->pool);
 	}
 	for (entry = cache->oldest; entry != NULL; entry = next) {
