@@ -637,7 +637,7 @@ static int config_write_value(struct parser_context *ctx,
 			      const char *key, const char *value,
 			      const char **errormsg_r)
 {
-	const void *var_value;
+	const void *var_name, *var_value, *p;
 	enum setting_type var_type;
 	bool dump;
 
@@ -661,18 +661,26 @@ static int config_write_value(struct parser_context *ctx,
 			str_append_c(str, '$');
 			str_append(str, value);
 		} else {
-			var_value = config_get_value(ctx, value, &var_type);
+			p = strchr(value, ' ');
+			if (p == NULL)
+				var_name = value;
+			else
+				var_name = t_strdup_until(value, p);
+
+			var_value = config_get_value(ctx, var_name, &var_type);
 			if (var_value == NULL) {
 				*errormsg_r = t_strconcat("Unknown variable: $",
-							  value, NULL);
+							  var_name, NULL);
 				return -1;
 			}
 			if (!config_export_type(str, var_value, NULL,
 						var_type, TRUE, &dump)) {
 				*errormsg_r = t_strconcat("Invalid variable: $",
-							  value, NULL);
+							  var_name, NULL);
 				return -1;
 			}
+			if (p != NULL)
+				str_append(str, p);
 		}
 		break;
 	default:
