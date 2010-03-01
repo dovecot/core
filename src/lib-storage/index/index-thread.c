@@ -641,7 +641,12 @@ static void mail_thread_mailbox_free(struct mailbox *box)
 
 void index_thread_mailbox_opened(struct mailbox *box)
 {
-	struct mail_thread_mailbox *tbox;
+	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(box);
+
+	if (tbox != NULL) {
+		/* mailbox was already opened+closed once. */
+		return;
+	}
 
 	tbox = i_new(struct mail_thread_mailbox, 1);
 	tbox->module_ctx.super = box->v;
