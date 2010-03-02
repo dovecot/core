@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "mail-index-modseq.h"
 #include "index-storage.h"
 #include "dbox-storage.h"
 #include "dbox-sync-rebuild.h"
@@ -50,6 +51,7 @@ dbox_sync_index_copy_from_old(struct dbox_sync_rebuild_context *ctx,
 	const struct mail_index_record *rec;
 	ARRAY_TYPE(keyword_indexes) old_keywords;
 	struct mail_keywords *kw;
+	uint64_t modseq;
 
 	/* copy flags */
 	rec = mail_index_lookup(view, old_seq);
@@ -62,6 +64,10 @@ dbox_sync_index_copy_from_old(struct dbox_sync_rebuild_context *ctx,
 	kw = mail_index_keywords_create_from_indexes(index, &old_keywords);
 	mail_index_update_keywords(ctx->trans, new_seq, MODIFY_REPLACE, kw);
 	mail_index_keywords_unref(&kw);
+
+	/* copy modseq */
+	modseq = mail_index_modseq_lookup(view, old_seq);
+	mail_index_update_modseq(ctx->trans, new_seq, modseq);
 
 	dbox_sync_index_copy_cache(ctx, view, old_seq, new_seq);
 }
@@ -80,6 +86,47 @@ void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
 		/* copy the metadata from backup index. */
 		dbox_sync_index_copy_from_old(ctx, ctx->backup_view,
 					      old_seq, new_seq);
+	}
+}
+
+static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
+{
+	const struct mail_index_header *hdr, *backup_hdr;
+	uint32_t uid_validity, next_uid;
+
+	hdr = mail_index_get_header(ctx->view);
+	backup_hdr = ctx->backup_view == NULL ? NULL :
+		mail_index_get_header(ctx->backup_view);
+
+	/* set uidvalidity */
+	if (hdr->uid_validity != 0)
+		uid_validity = hdr->uid_validity;
+	else if (backup_hdr != NULL && backup_hdr->uid_validity != 0)
+		uid_validity = backup_hdr->uid_validity;
+	else
+		uid_validity = dbox_get_uidvalidity_next(ctx->box->list);
+	mail_index_update_header(ctx->trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+
+	/* set next-uid */
+	if (hdr->next_uid != 0)
+		next_uid = hdr->next_uid;
+	else if (backup_hdr != NULL && backup_hdr->next_uid != 0)
+		next_uid = backup_hdr->next_uid;
+	else
+		next_uid = dbox_get_uidvalidity_next(ctx->box->list);
+	mail_index_update_header(ctx->trans,
+				 offsetof(struct mail_index_header, next_uid),
+				 &next_uid, sizeof(next_uid), TRUE);
+
+	/* set highest-modseq */
+	mail_index_update_highest_modseq(ctx->trans,
+		mail_index_modseq_get_highest(ctx->view));
+	if (ctx->backup_view != NULL) {
+		mail_index_update_highest_modseq(ctx->trans,
+			mail_index_modseq_get_highest(ctx->backup_view));
+
 	}
 }
 
@@ -123,6 +170,7 @@ void dbox_sync_index_rebuild_deinit(struct dbox_sync_rebuild_context **_ctx)
 	struct dbox_sync_rebuild_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	dbox_sync_rebuild_header(ctx);
 	if (ctx->backup_index != NULL) {
 		mail_index_view_close(&ctx->backup_view);
 		mail_index_close(ctx->backup_index);

@@ -392,6 +392,49 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 	}
 }
 
+static void
+mdbox_rebuild_get_header(struct mail_index_view *view, uint32_t hdr_ext_id,
+			 struct mdbox_index_header *hdr_r)
+{
+	const void *data;
+	size_t data_size;
+
+	mail_index_get_header_ext(view, hdr_ext_id, &data, &data_size);
+	memset(hdr_r, 0, sizeof(*hdr_r));
+	memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
+}
+
+static void mdbox_header_update(struct dbox_sync_rebuild_context *rebuild_ctx,
+				struct mdbox_mailbox *mbox)
+{
+	struct mdbox_index_header hdr, backup_hdr;
+
+	mdbox_rebuild_get_header(rebuild_ctx->view, mbox->hdr_ext_id, &hdr);
+	if (rebuild_ctx->backup_view == NULL)
+		memset(&backup_hdr, 0, sizeof(backup_hdr));
+	else {
+		mdbox_rebuild_get_header(rebuild_ctx->backup_view,
+					 mbox->hdr_ext_id, &backup_hdr);
+	}
+
+	/* make sure we have valid mailbox guid */
+	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
+		if (!mail_guid_128_is_empty(backup_hdr.mailbox_guid)) {
+			memcpy(hdr.mailbox_guid, backup_hdr.mailbox_guid,
+			       sizeof(hdr.mailbox_guid));
+		} else {
+			mail_generate_guid_128(hdr.mailbox_guid);
+		}
+	}
+
+	/* update map's uid-validity */
+	hdr.map_uid_validity = dbox_map_get_uid_validity(mbox->storage->map);
+
+	/* and write changes */
+	mail_index_update_header_ext(rebuild_ctx->trans, mbox->hdr_ext_id, 0,
+				     &hdr, sizeof(hdr));
+}
+
 static int
 rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 		struct mail_namespace *ns, const char *name)
@@ -429,6 +472,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	}
 
 	rebuild_ctx = dbox_sync_index_rebuild_init(&mbox->box, view, trans);
+	mdbox_header_update(rebuild_ctx, mbox);
 	rebuild_mailbox_multi(ctx, rebuild_ctx, mbox, view, trans);
 	dbox_sync_index_rebuild_deinit(&rebuild_ctx);
 
