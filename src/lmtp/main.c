@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "hostpid.h"
+#include "abspath.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "master-service.h"
@@ -18,11 +19,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#define DNS_CLIENT_SOCKET_PATH "dns-client"
 #define LMTP_MASTER_FIRST_LISTEN_FD 3
 
 #define IS_STANDALONE() \
         (getenv(MASTER_UID_ENV) == NULL)
 
+const char *dns_client_socket_path;
 struct mail_storage_service_ctx *storage_service;
 
 static void client_connected(const struct master_service_connection *conn)
@@ -38,6 +41,7 @@ static void main_init(void)
 		memset(&conn, 0, sizeof(conn));
 		(void)client_create(STDIN_FILENO, STDOUT_FILENO, &conn);
 	}
+	dns_client_socket_path = t_abspath(DNS_CLIENT_SOCKET_PATH);
 }
 
 static void main_deinit(void)

@@ -10,6 +10,12 @@ enum lmtp_client_protocol {
 	LMTP_CLIENT_PROTOCOL_SMTP
 };
 
+struct lmtp_client_settings {
+	const char *my_hostname;
+	const char *mail_from;
+	const char *dns_client_socket_path;
+};
+
 /* reply contains the reply coming from remote server, or NULL
    if it's a connection error. */
 typedef void lmtp_callback_t(bool success, const char *reply, void *context);
@@ -18,7 +24,7 @@ typedef void lmtp_callback_t(bool success, const char *reply, void *context);
 typedef void lmtp_finish_callback_t(void *context);
 
 struct lmtp_client *
-lmtp_client_init(const char *mail_from, const char *my_hostname,
+lmtp_client_init(const struct lmtp_client_settings *set,
 		 lmtp_finish_callback_t *finish_callback, void *context);
 void lmtp_client_deinit(struct lmtp_client **client);
 

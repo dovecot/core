@@ -35,6 +35,8 @@ struct lmtp_proxy_connection {
 struct lmtp_proxy {
 	pool_t pool;
 	const char *mail_from, *my_hostname;
+	const char *dns_client_socket_path;
+
 	ARRAY_DEFINE(connections, struct lmtp_proxy_connection *);
 	ARRAY_DEFINE(rcpt_to, struct lmtp_proxy_recipient *);
 	unsigned int next_data_reply_idx;
@@ -59,7 +61,8 @@ static void lmtp_conn_finish(void *context);
 static void lmtp_proxy_data_input(struct lmtp_proxy *proxy);
 
 struct lmtp_proxy *
-lmtp_proxy_init(const char *my_hostname, struct ostream *client_output)
+lmtp_proxy_init(const char *my_hostname, const char *dns_client_socket_path,
+		struct ostream *client_output)
 {
 	struct lmtp_proxy *proxy;
 	pool_t pool;
@@ -71,6 +74,7 @@ lmtp_proxy_init(const char *my_hostname, struct ostream *client_output)
 	proxy->pool = pool;
 	proxy->my_hostname = p_strdup(pool, my_hostname);
 	proxy->client_output = client_output;
+	proxy->dns_client_socket_path = p_strdup(pool, dns_client_socket_path);
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
 	return proxy;
@@ -121,6 +125,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  const struct lmtp_proxy_settings *set)
 {
 	struct lmtp_proxy_connection *const *conns, *conn;
+	struct lmtp_client_settings client_set;
 
 	i_assert(set->timeout_msecs > 0);
 
@@ -132,14 +137,19 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			return conn;
 	}
 
+	memset(&client_set, 0, sizeof(client_set));
+	client_set.mail_from = proxy->mail_from;
+	client_set.my_hostname = proxy->my_hostname;
+	client_set.dns_client_socket_path = proxy->dns_client_socket_path;
+
 	conn = p_new(proxy->pool, struct lmtp_proxy_connection, 1);
 	conn->proxy = proxy;
 	conn->set.host = p_strdup(proxy->pool, set->host);
 	conn->set.port = set->port;
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
-	conn->client = lmtp_client_init(proxy->mail_from, proxy->my_hostname,
-					lmtp_conn_finish, conn);
+
+	conn->client = lmtp_client_init(&client_set, lmtp_conn_finish, conn);
 	if (lmtp_client_connect_tcp(conn->client, set->protocol,
 				    conn->set.host, conn->set.port) < 0)
 		conn->failed = TRUE;

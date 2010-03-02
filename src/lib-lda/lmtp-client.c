@@ -6,11 +6,13 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "dns-lookup.h"
 #include "lmtp-client.h"
 
 #include <ctype.h>
 
 #define LMTP_MAX_LINE_LEN 1024
+#define LMTP_CLIENT_DNS_LOOKUP_TIMEOUT_MSECS (60*1000)
 
 enum lmtp_input_state {
 	LMTP_INPUT_STATE_GREET,
@@ -33,10 +35,9 @@ struct lmtp_rcpt {
 
 struct lmtp_client {
 	pool_t pool;
-	const char *mail_from;
 	int refcount;
 
-	const char *my_hostname;
+	struct lmtp_client_settings set;
 	const char *host;
 	struct ip_addr ip;
 	unsigned int port;
@@ -71,21 +72,23 @@ struct lmtp_client {
 static void lmtp_client_send_rcpts(struct lmtp_client *client);
 
 struct lmtp_client *
-lmtp_client_init(const char *mail_from, const char *my_hostname,
+lmtp_client_init(const struct lmtp_client_settings *set,
 		 lmtp_finish_callback_t *finish_callback, void *context)
 {
 	struct lmtp_client *client;
 	pool_t pool;
 
-	i_assert(*mail_from == '<');
-	i_assert(*my_hostname != '\0');
+	i_assert(*set->mail_from == '<');
+	i_assert(*set->my_hostname != '\0');
 
 	pool = pool_alloconly_create("lmtp client", 512);
 	client = p_new(pool, struct lmtp_client, 1);
 	client->refcount = 1;
 	client->pool = pool;
-	client->mail_from = p_strdup(pool, mail_from);
-	client->my_hostname = p_strdup(pool, my_hostname);
+	client->set.mail_from = p_strdup(pool, set->mail_from);
+	client->set.my_hostname = p_strdup(pool, set->my_hostname);
+	client->set.dns_client_socket_path =
+		p_strdup(pool, set->dns_client_socket_path);
 	client->finish_callback = finish_callback;
 	client->finish_context = context;
 	client->fd = -1;
@@ -319,15 +322,17 @@ static void lmtp_client_send_handshake(struct lmtp_client *client)
 	switch (client->protocol) {
 	case LMTP_CLIENT_PROTOCOL_LMTP:
 		o_stream_send_str(client->output,
-			t_strdup_printf("LHLO %s\r\n", client->my_hostname));
+			t_strdup_printf("LHLO %s\r\n",
+					client->set.my_hostname));
 		break;
 	case LMTP_CLIENT_PROTOCOL_SMTP:
 		o_stream_send_str(client->output,
-			t_strdup_printf("EHLO %s\r\n", client->my_hostname));
+			t_strdup_printf("EHLO %s\r\n",
+					client->set.my_hostname));
 		break;
 	}
 	o_stream_send_str(client->output,
-		t_strdup_printf("MAIL FROM:%s\r\n", client->mail_from));
+		t_strdup_printf("MAIL FROM:%s\r\n", client->set.mail_from));
 	o_stream_uncork(client->output);
 }
 
@@ -466,22 +471,12 @@ static int lmtp_client_output(struct lmtp_client *client)
 	return ret;
 }
 
-int lmtp_client_connect_tcp(struct lmtp_client *client,
-			    enum lmtp_client_protocol protocol,
-			    const char *host, unsigned int port)
+static int lmtp_client_connect(struct lmtp_client *client)
 {
-	client->host = p_strdup(client->pool, host);
-	client->port = port;
-	client->protocol = protocol;
-
-	if (net_addr2ip(host, &client->ip) < 0) {
-		i_error("lmtp client: %s is not a valid IP", host);
-		return -1;
-	}
-
-	client->fd = net_connect_ip(&client->ip, port, NULL);
+	client->fd = net_connect_ip(&client->ip, client->port, NULL);
 	if (client->fd == -1) {
-		i_error("lmtp client: connect(%s, %u) failed: %m", host, port);
+		i_error("lmtp client: connect(%s, %u) failed: %m",
+			client->host, client->port);
 		return -1;
 	}
 	client->input =
@@ -491,7 +486,55 @@ int lmtp_client_connect_tcp(struct lmtp_client *client,
 	/* we're already sending data in ostream, so can't use IO_WRITE here */
 	client->io = io_add(client->fd, IO_READ,
 			    lmtp_client_wait_connect, client);
+	return 0;
+}
+
+static void lmtp_client_dns_done(const struct dns_lookup_result *result,
+				 struct lmtp_client *client)
+{
+	if (result->ret != 0) {
+		i_error("lmtp client: DNS lookup of %s failed: %s",
+			client->host, result->error);
+		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
+				 " (DNS lookup)");
+	} else {
+		client->ip = result->ips[0];
+		if (lmtp_client_connect(client) < 0) {
+			lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
+					 " (connect)");
+		}
+	}
+}
+
+int lmtp_client_connect_tcp(struct lmtp_client *client,
+			    enum lmtp_client_protocol protocol,
+			    const char *host, unsigned int port)
+{
+	struct dns_lookup_settings dns_lookup_set;
+
 	client->input_state = LMTP_INPUT_STATE_GREET;
+	client->host = p_strdup(client->pool, host);
+	client->port = port;
+	client->protocol = protocol;
+
+	if (*host == '\0') {
+		i_error("lmtp client: host not given");
+		return -1;
+	}
+
+	memset(&dns_lookup_set, 0, sizeof(dns_lookup_set));
+	dns_lookup_set.dns_client_socket_path =
+		client->set.dns_client_socket_path;
+	dns_lookup_set.timeout_msecs = LMTP_CLIENT_DNS_LOOKUP_TIMEOUT_MSECS;
+
+	if (net_addr2ip(host, &client->ip) < 0) {
+		if (dns_lookup(host, &dns_lookup_set,
+			       lmtp_client_dns_done, client) < 0)
+			return -1;
+	} else {
+		if (lmtp_client_connect(client) < 0)
+			return -1;
+	}
 	return 0;
 }
 

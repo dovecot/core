@@ -251,6 +251,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 
 	if (client->proxy == NULL) {
 		client->proxy = lmtp_proxy_init(client->set->hostname,
+						dns_client_socket_path,
 						client->output);
 		if (client->mail_body_8bitmime)
 			args = " BODY=8BITMIME";

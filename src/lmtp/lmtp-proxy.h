@@ -14,7 +14,8 @@ struct lmtp_proxy_settings {
 typedef void lmtp_proxy_finish_callback_t(bool timeout, void *context);
 
 struct lmtp_proxy *
-lmtp_proxy_init(const char *my_hostname, struct ostream *client_output);
+lmtp_proxy_init(const char *my_hostname, const char *dns_client_socket_path,
+		struct ostream *client_output);
 void lmtp_proxy_deinit(struct lmtp_proxy **proxy);
 
 /* Set the "MAIL FROM:" line, including <> and options */
