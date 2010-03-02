@@ -9,7 +9,8 @@ static void test_penalty_checksum(void)
 {
 	struct penalty *penalty;
 	struct ioloop *ioloop;
-	time_t t, i, j;
+	time_t t;
+	unsigned int i, j;
 
 	test_begin("penalty");
 
@@ -23,11 +24,11 @@ static void test_penalty_checksum(void)
 
 		for (j = I_MIN(1, i-1); j <= i; j++) {
 			test_assert(penalty_get(penalty, "foo", &t) == 5+i);
-			test_assert(t == 12345678 + i);
+			test_assert(t == (time_t)(12345678 + i));
 			test_assert(penalty_has_checksum(penalty, "foo", i));
 		}
 		test_assert(penalty_get(penalty, "foo", &t) == 5+i);
-		test_assert(t == 12345678 + i);
+		test_assert(t == (time_t)(12345678 + i));
 		test_assert(!penalty_has_checksum(penalty, "foo", j));
 	}
 	test_assert(penalty_get(penalty, "foo2", &t) == 0);
@@ -39,12 +40,12 @@ static void test_penalty_checksum(void)
 	penalty_inc(penalty, "foo", 0, 5 + i);
 
 	test_assert(penalty_get(penalty, "foo", &t) == 5+i);
-	test_assert(t == 12345678 + i);
+	test_assert(t == (time_t)(12345678 + i));
 	test_assert(!penalty_has_checksum(penalty, "foo", 1));
 
 	for (j = 2; j <= i; j++) {
 		test_assert(penalty_get(penalty, "foo", &t) == 5+i);
-		test_assert(t == 12345678 + i);
+		test_assert(t == (time_t)(12345678 + i));
 		test_assert(penalty_has_checksum(penalty, "foo", i));
 	}
 
