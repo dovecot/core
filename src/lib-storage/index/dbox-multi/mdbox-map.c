@@ -427,7 +427,11 @@ int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 		ctx->changed = TRUE;
 		cur_diff += mail_index_atomic_inc_ext(ctx->trans, seq,
 						      map->ref_ext_id, diff);
-		i_assert(cur_diff >= 0);
+		if (cur_diff < 0) {
+			dbox_map_set_corrupted(map,
+				"map_uid=%u refcount too low", *uidp);
+			return -1;
+		}
 		if (cur_diff >= 32768) {
 			/* we're getting close to the 64k limit. fail early
 			   to make it less likely that two processes increase
