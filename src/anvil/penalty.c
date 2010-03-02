@@ -160,27 +160,24 @@ unsigned int penalty_get(struct penalty *penalty, const char *ident,
 static void penalty_timeout(struct penalty *penalty)
 {
 	struct penalty_rec *rec;
-	time_t expire_time;
+	time_t rec_last_update, expire_time;
+	unsigned int diff;
 
 	expire_time = ioloop_time - penalty->expire_secs;
 	while (penalty->oldest != NULL) {
 		rec = penalty->oldest;
 
-		if (rec->last_penalty + (time_t)rec->last_update > expire_time)
+		rec_last_update = rec->last_penalty + rec->last_update;
+		if (rec_last_update > expire_time) {
+			diff = rec_last_update - expire_time;
+			penalty->to = timeout_add(diff * 1000,
+						  penalty_timeout, penalty);
 			break;
+		}
 		hash_table_remove(penalty->hash, rec->ident);
 		penalty_rec_free(penalty, rec);
 	}
-
 	timeout_remove(&penalty->to);
-	rec = penalty->oldest;
-	if (rec != NULL) {
-		unsigned int diff;
-
-		diff = rec->last_penalty + rec->last_update - expire_time;
-		penalty->to = timeout_add(diff * 1000,
-					  penalty_timeout, penalty);
-	}
 }
 
 void penalty_inc(struct penalty *penalty, const char *ident,
