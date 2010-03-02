@@ -21,7 +21,7 @@
 
 #define ERR_TOO_MANY_USERIP_CONNECTIONS \
 	"Maximum number of connections from user+IP exceeded " \
-	"(mail_max_userip_connections)"
+	"(mail_max_userip_connections=%u)"
 
 struct anvil_request {
 	struct client *client;
@@ -140,14 +140,18 @@ static void anvil_lookup_callback(const char *reply, void *context)
 {
 	struct anvil_request *req = context;
 	struct client *client = req->client;
+	const struct login_settings *set = client->set;
+	const char *errmsg;
 
 	if (reply == NULL ||
-	    strtoul(reply, NULL, 10) < client->set->mail_max_userip_connections)
+	    strtoul(reply, NULL, 10) < set->mail_max_userip_connections)
 		master_send_request(req);
 	else {
 		client->authenticating = FALSE;
+		errmsg = t_strdup_printf(ERR_TOO_MANY_USERIP_CONNECTIONS,
+					 set->mail_max_userip_connections);
 		call_client_callback(client, SASL_SERVER_REPLY_MASTER_FAILED,
-				     ERR_TOO_MANY_USERIP_CONNECTIONS, NULL);
+				     errmsg, NULL);
 	}
 	i_free(req);
 }
