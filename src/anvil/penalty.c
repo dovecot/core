@@ -166,7 +166,7 @@ static void penalty_timeout(struct penalty *penalty)
 	while (penalty->oldest != NULL) {
 		rec = penalty->oldest;
 
-		if (rec->last_penalty + rec->last_update > expire_time)
+		if (rec->last_penalty + (time_t)rec->last_update > expire_time)
 			break;
 		hash_table_remove(penalty->hash, rec->ident);
 		penalty_rec_free(penalty, rec);

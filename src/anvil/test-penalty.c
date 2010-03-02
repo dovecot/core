@@ -9,8 +9,7 @@ static void test_penalty_checksum(void)
 {
 	struct penalty *penalty;
 	struct ioloop *ioloop;
-	time_t t;
-	unsigned int i, j;
+	time_t t, i, j;
 
 	test_begin("penalty");
 
