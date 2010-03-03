@@ -303,6 +303,7 @@ static void maildir_uidlist_reset(struct maildir_uidlist *uidlist)
 	maildir_uidlist_close(uidlist);
 	uidlist->last_seen_uid = 0;
 	uidlist->initial_hdr_read = FALSE;
+	uidlist->read_records_count = 0;
 
 	hash_table_clear(uidlist->files, FALSE);
 	array_clear(&uidlist->records);
@@ -752,7 +753,6 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 	if (ret > 0) {
 		uidlist->prev_read_uid = 0;
 		uidlist->change_counter++;
-		uidlist->read_records_count = 0;
 		uidlist->retry_rewind = last_read_offset != 0 && try_retry;
 
 		ret = 1;
