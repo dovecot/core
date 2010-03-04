@@ -185,11 +185,12 @@ static void master_login_auth_finish(struct master_login_client *client,
 		master_login_auth_disconnect(login->auth);
 
 		master_service_close_config_fd(service);
-		master_login_conn_deinit(&conn);
 	} else if (login->stopping) {
 		/* try stopping again */
 		master_login_stop(login);
 	}
+	/* FIXME: currently we create a separate connection for each request */
+	master_login_conn_deinit(&conn);
 
 	client->fd = -1;
 	master_login_client_free(&client);
