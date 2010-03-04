@@ -634,6 +634,8 @@ void master_service_deinit(struct master_service **_service)
 		timeout_remove(&service->to_die);
 	if (service->to_overflow_state != NULL)
 		timeout_remove(&service->to_overflow_state);
+	if (service->to_status != NULL)
+		timeout_remove(&service->to_status);
 	if (service->io_status_error != NULL)
 		io_remove(&service->io_status_error);
 	if (service->io_status_write != NULL)
@@ -802,9 +804,32 @@ static bool master_status_update_is_important(struct master_service *service)
 void master_status_update(struct master_service *service)
 {
 	ssize_t ret;
+	bool important_update;
 
-	if (service->master_status.pid == 0 || service->delay_status_updates)
-		return; /* closed */
+	important_update = master_status_update_is_important(service);
+	if (service->master_status.pid == 0 || service->delay_status_updates ||
+	    service->master_status.available_count ==
+	    service->last_sent_status_avail_count) {
+		/* a) closed, b) updating to same state */
+		if (service->to_status != NULL)
+			timeout_remove(&service->to_status);
+		return;
+	}
+	if (ioloop_time == service->last_sent_status_time &&
+	    !important_update) {
+		/* don't spam master */
+		if (service->to_status != NULL)
+			timeout_reset(service->to_status);
+		else {
+			service->to_status =
+				timeout_add(1000, master_status_update,
+					    service);
+		}
+		return;
+	}
+
+	if (service->to_status != NULL)
+		timeout_remove(&service->to_status);
 
 	ret = write(MASTER_STATUS_FD, &service->master_status,
 		    sizeof(service->master_status));
@@ -814,6 +839,9 @@ void master_status_update(struct master_service *service)
 			/* delayed important update sent successfully */
 			io_remove(&service->io_status_write);
 		}
+		service->last_sent_status_time = ioloop_time;
+		service->last_sent_status_avail_count =
+			service->master_status.available_count;
 		service->initial_status_sent = TRUE;
 	} else if (ret == 0) {
 		/* shouldn't happen? */
@@ -824,7 +852,7 @@ void master_status_update(struct master_service *service)
 		if (errno != EPIPE)
 			i_error("write(master_status_fd) failed: %m");
 		service->master_status.pid = 0;
-	} else if (master_status_update_is_important(service)) {
+	} else if (important_update) {
 		/* reader is busy, but it's important to get this notification
 		   through. send it when possible. */
 		if (service->io_status_write == NULL) {
