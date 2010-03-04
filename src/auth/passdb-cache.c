@@ -30,13 +30,14 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	const char *value, *cached_pw, *scheme, *const *list;
 	struct auth_cache_node *node;
 	int ret;
-	bool expired;
+	bool expired, neg_expired;
 
 	if (passdb_cache == NULL || key == NULL)
 		return FALSE;
 
 	/* value = password \t ... */
-	value = auth_cache_lookup(passdb_cache, request, key, &node, &expired);
+	value = auth_cache_lookup(passdb_cache, request, key, &node,
+				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired)) {
 		auth_request_log_debug(request, "cache",
 				       value == NULL ? "miss" : "expired");
@@ -65,9 +66,11 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		ret = auth_request_password_verify(request, password, cached_pw,
 						   scheme, "cache");
 
-		if (ret == 0 && node->last_success) {
-			/* the last authentication was successful. assume that
-			   the password was changed and cache is expired. */
+		if (ret == 0 && (node->last_success || neg_expired)) {
+			/* a) the last authentication was successful. assume
+			   that the password was changed and cache is expired.
+			   b) negative TTL reached, use it for password
+			   mismatches too. */
 			node->last_success = FALSE;
 			return FALSE;
 		}
@@ -91,12 +94,13 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 {
 	const char *value, *const *list;
 	struct auth_cache_node *node;
-	bool expired;
+	bool expired, neg_expired;
 
 	if (passdb_cache == NULL)
 		return FALSE;
 
-	value = auth_cache_lookup(passdb_cache, request, key, &node, &expired);
+	value = auth_cache_lookup(passdb_cache, request, key, &node,
+				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired)) {
 		auth_request_log_debug(request, "cache",
 				       value == NULL ? "miss" : "expired");

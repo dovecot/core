@@ -162,14 +162,16 @@ void auth_cache_clear(struct auth_cache *cache)
 const char *
 auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 		  const char *key, struct auth_cache_node **node_r,
-		  bool *expired_r)
+		  bool *expired_r, bool *neg_expired_r)
 {
 	string_t *str;
 	struct auth_cache_node *node;
 	const char *value;
 	unsigned int ttl_secs;
+	time_t now;
 
 	*expired_r = FALSE;
+	*neg_expired_r = FALSE;
 
 	/* %! is prepended automatically. it contains the passdb ID number. */
 	str = t_str_new(256);
@@ -187,7 +189,8 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 	value = node->data + strlen(node->data) + 1;
 	ttl_secs = *value == '\0' ? cache->neg_ttl_secs : cache->ttl_secs;
 
-	if (node->created < time(NULL) - (time_t)ttl_secs) {
+	now = time(NULL);
+	if (node->created < now - (time_t)ttl_secs) {
 		/* TTL expired */
 		*expired_r = TRUE;
 	} else {
@@ -197,6 +200,8 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 			auth_cache_node_link_head(cache, node);
 		}
 	}
+	if (node->created < now - (time_t)cache->neg_ttl_secs)
+		*neg_expired_r = TRUE;
 
 	if (node_r != NULL)
 		*node_r = node;

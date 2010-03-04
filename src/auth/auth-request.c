@@ -675,10 +675,10 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 {
 	const char *value;
 	struct auth_cache_node *node;
-	bool expired;
+	bool expired, neg_expired;
 
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
-				  &expired);
+				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired))
 		return FALSE;
 
