@@ -88,7 +88,9 @@ static void anvil_input(struct anvil_client *client)
 		}
 
 		query = &queries[aqueue_idx(client->queries, 0)];
-		query->callback(line, query->context);
+		T_BEGIN {
+			query->callback(line, query->context);
+		} T_END;
 		aqueue_delete_tail(client->queries);
 	}
 	if (client->input->stream_errno != 0) {
