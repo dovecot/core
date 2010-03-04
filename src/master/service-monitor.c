@@ -100,39 +100,19 @@ static void service_status_less(struct service_process *process,
 		service_login_notify(service, FALSE);
 }
 
-static void service_status_input(struct service *service)
+static void
+service_status_input_one(struct service *service,
+			 const struct master_status *status)
 {
-        struct master_status status;
         struct service_process *process;
-	ssize_t ret;
 
-	status.pid = 0;
-	ret = read(service->status_fd[0], &status, sizeof(status));
-	switch (ret) {
-	case 0:
-		service_error(service, "read(status) failed: EOF");
-		service_monitor_stop(service);
-		return;
-	case -1:
-		service_error(service, "read(status) failed: %m");
-		service_monitor_stop(service);
-		return;
-	default:
-		service_error(service, "child %s sent partial status update "
-			      "(%d bytes)", dec2str(status.pid), (int)ret);
-		return;
-
-	case sizeof(status):
-		break;
-	}
-
-	process = hash_table_lookup(service_pids, &status.pid);
+	process = hash_table_lookup(service_pids, &status->pid);
 	if (process == NULL) {
 		/* we've probably wait()ed it away already. ignore */
 		return;
 	}
 
-	if (process->uid != status.uid || process->service != service) {
+	if (process->uid != status->uid || process->service != service) {
 		/* a) Process was closed and another process was created with
 		   the same PID, but we're still receiving status update from
 		   the old process.
@@ -143,7 +123,7 @@ static void service_status_input(struct service *service)
 		   are already more serious problems if someone is able to do
 		   this.. */
 		service_error(service, "Ignoring invalid update from child %s "
-			      "(UID=%u)", dec2str(status.pid), status.uid);
+			      "(UID=%u)", dec2str(status->pid), status->uid);
 		return;
 	}
 
@@ -152,17 +132,44 @@ static void service_status_input(struct service *service)
 		timeout_remove(&process->to_status);
 	}
 
-	if (process->available_count == status.available_count)
+	if (process->available_count == status->available_count)
 		return;
 
-	if (process->available_count > status.available_count) {
+	if (process->available_count > status->available_count) {
 		/* process started servicing some more clients */
-		service_status_more(process, &status);
+		service_status_more(process, status);
 	} else {
 		/* process finished servicing some clients */
-		service_status_less(process, &status);
+		service_status_less(process, status);
 	}
-	process->available_count = status.available_count;
+	process->available_count = status->available_count;
+}
+
+static void service_status_input(struct service *service)
+{
+	struct master_status status[1024/sizeof(struct master_status)];
+	unsigned int i, count;
+	ssize_t ret;
+
+	ret = read(service->status_fd[0], &status, sizeof(status));
+	if (ret <= 0) {
+		if (ret == 0)
+			service_error(service, "read(status) failed: EOF");
+		else
+			service_error(service, "read(status) failed: %m");
+		service_monitor_stop(service);
+		return;
+	}
+
+	if ((ret % sizeof(struct master_status)) != 0) {
+		service_error(service, "service sent partial status update "
+			      "(%d bytes)", (int)ret);
+		return;
+	}
+
+	count = ret / sizeof(struct master_status);
+	for (i = 0; i < count; i++)
+		service_status_input_one(service, &status[i]);
 }
 
 static void service_monitor_throttle(struct service *service)
