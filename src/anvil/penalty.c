@@ -163,6 +163,8 @@ static void penalty_timeout(struct penalty *penalty)
 	time_t rec_last_update, expire_time;
 	unsigned int diff;
 
+	timeout_remove(&penalty->to);
+
 	expire_time = ioloop_time - penalty->expire_secs;
 	while (penalty->oldest != NULL) {
 		rec = penalty->oldest;
@@ -177,7 +179,6 @@ static void penalty_timeout(struct penalty *penalty)
 		hash_table_remove(penalty->hash, rec->ident);
 		penalty_rec_free(penalty, rec);
 	}
-	timeout_remove(&penalty->to);
 }
 
 void penalty_inc(struct penalty *penalty, const char *ident,
