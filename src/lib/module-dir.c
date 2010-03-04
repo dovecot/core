@@ -56,7 +56,7 @@ static void *get_symbol(struct module *module, const char *symbol, bool quiet)
 
 static void module_free(struct module *module)
 {
-	if (module->deinit != NULL)
+	if (module->deinit != NULL && module->initialized)
 		module->deinit();
 	if (dlclose(module->handle) != 0)
 		i_error("dlclose(%s) failed: %m", module->path);
@@ -361,9 +361,9 @@ void module_dir_deinit(struct module *modules)
 		for (i = 0; i < count; i++) {
 			module = rev[i];
 
-			if (module->deinit != NULL) {
+			if (module->deinit != NULL && module->initialized) {
 				module->deinit();
-				module->deinit = NULL;
+				module->initialized = FALSE;
 			}
 		}
 	} T_END;
