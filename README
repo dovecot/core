@@ -27,6 +27,7 @@ RFCs conformed
  2831       - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)
  2245       - Anonymous SASL Mechanism.
 
+ 2087       - IMAP4 QUOTA extension
  2088       - IMAP4 non-synchronizing literals (LITERAL+)
  2177       - IMAP4 IDLE command
  2221       - IMAP4 Login Referrals
@@ -35,16 +36,22 @@ RFCs conformed
  3348       - IMAP4 Child Mailbox Extension
  3502       - IMAP4 MULTIAPPEND Extension
  3691       - IMAP4 UNSELECT command
+ 4314       - IMAP4 Access Control List (ACL) Extension
  4315       - IMAP UIDPLUS extension
  4551       - IMAP Extension for Conditional STORE Operation
               or Quick Flag Changes Resynchronization
  4731       - IMAP4 Extension to SEARCH Command for Controlling
               What Kind of Information Is Returned
+ 4959       - IMAP Extension for Simple Authentication and Security Layer (SASL)
+              Initial Client Response
+ 4978       - The IMAP COMPRESS Extension
  5032       - WITHIN Search Extension to the IMAP Protocol
  5162       - IMAP4 Extensions for Quick Mailbox Resynchronization
  5182       - IMAP Extension for Referencing the Last SEARCH Result
+ 5255       - IMAP Internationalization
  5256       - IMAP SORT and THREAD Extensions
  5258       - IMAP4 - LIST Command Extensions 
+ 5267       - Contexts for IMAP4
  5530       - IMAP Response Codes
 
 Contact info
