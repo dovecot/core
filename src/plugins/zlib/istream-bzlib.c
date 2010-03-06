@@ -32,6 +32,14 @@ static void i_stream_bzlib_close(struct iostream_private *stream)
 	}
 }
 
+static void bzlib_read_error(struct bzlib_istream *zstream, const char *error)
+{
+	i_error("bzlib.read(%s): %s at %"PRIuUOFF_T,
+		i_stream_get_name(&zstream->istream.istream), error,
+		zstream->istream.abs_start_offset +
+		zstream->istream.istream.v_offset);
+}
+
 static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 {
 	struct bzlib_istream *zstream = (struct bzlib_istream *)stream;
@@ -78,8 +86,10 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 					stream->parent->stream_errno;
 			} else {
 				i_assert(stream->parent->eof);
-				if (zstream->log_errors)
-					i_error("bzlib: unexpected EOF");
+				if (zstream->log_errors) {
+					bzlib_read_error(zstream,
+							 "unexpected EOF");
+				}
 				stream->istream.stream_errno = EINVAL;
 			}
 			return -1;
@@ -110,16 +120,19 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 		i_unreached();
 	case BZ_DATA_ERROR:
 		if (zstream->log_errors)
-			i_error("bzlib: corrupted data");
+			bzlib_read_error(zstream, "corrupted data");
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	case BZ_DATA_ERROR_MAGIC:
-		if (zstream->log_errors)
-			i_error("bzlib: wrong magic in header (not bz2 file?)");
+		if (zstream->log_errors) {
+			bzlib_read_error(zstream,
+				"wrong magic in header (not bz2 file?)");
+		}
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	case BZ_MEM_ERROR:
-		i_fatal_status(FATAL_OUTOFMEM, "bzlib: Out of memory");
+		i_fatal_status(FATAL_OUTOFMEM, "bzlib.read(%s): Out of memory",
+			       i_stream_get_name(&stream->istream));
 	case BZ_STREAM_END:
 		zstream->eof_offset = stream->istream.v_offset + stream->pos;
 		if (size == 0) {
@@ -206,7 +219,8 @@ i_stream_bzlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		if (stream->istream.v_offset != v_offset) {
 			/* some failure, we've broken it */
 			if (stream->istream.stream_errno != 0) {
-				i_error("bzlib_istream.seek() failed: %s",
+				i_error("bzlib_istream.seek(%s) failed: %s",
+					i_stream_get_name(&stream->istream),
 					strerror(stream->istream.stream_errno));
 				i_stream_close(&stream->istream);
 			} else {
