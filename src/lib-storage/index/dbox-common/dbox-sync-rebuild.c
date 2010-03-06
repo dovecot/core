@@ -92,7 +92,10 @@ void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
 static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
 {
 	const struct mail_index_header *hdr, *backup_hdr;
+	struct mail_index *index = mail_index_view_get_index(ctx->view);
+	struct mail_index_modseq_header modseq_hdr;
 	uint32_t uid_validity, next_uid;
+	uint64_t modseq;
 
 	hdr = mail_index_get_header(ctx->view);
 	backup_hdr = ctx->backup_view == NULL ? NULL :
@@ -118,16 +121,18 @@ static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
 		next_uid = dbox_get_uidvalidity_next(ctx->box->list);
 	mail_index_update_header(ctx->trans,
 				 offsetof(struct mail_index_header, next_uid),
-				 &next_uid, sizeof(next_uid), TRUE);
+				 &next_uid, sizeof(next_uid), FALSE);
 
 	/* set highest-modseq */
-	mail_index_update_highest_modseq(ctx->trans,
-		mail_index_modseq_get_highest(ctx->view));
+	memset(&modseq_hdr, 0, sizeof(modseq_hdr));
+	modseq_hdr.highest_modseq = mail_index_modseq_get_highest(ctx->view);
 	if (ctx->backup_view != NULL) {
-		mail_index_update_highest_modseq(ctx->trans,
-			mail_index_modseq_get_highest(ctx->backup_view));
-
+		modseq = mail_index_modseq_get_highest(ctx->backup_view);
+		if (modseq_hdr.highest_modseq < modseq)
+			modseq_hdr.highest_modseq = modseq;
 	}
+	mail_index_update_header_ext(ctx->trans, index->modseq_ext_id,
+				     0, &modseq_hdr, sizeof(modseq_hdr));
 }
 
 struct dbox_sync_rebuild_context *
