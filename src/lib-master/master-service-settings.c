@@ -102,6 +102,22 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 	i_fatal("execv(%s) failed: %m", conf_argv[0]);
 }
 
+static void
+config_exec_fallback(struct master_service *service,
+		     const struct master_service_settings_input *input)
+{
+	const char *path;
+	struct stat st;
+
+	path = input->config_path != NULL ? input->config_path :
+		master_service_get_config_path(service);
+	if (stat(path, &st) == 0 &&
+	    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
+		/* it's a file, not a socket/pipe */
+		master_service_exec_config(service, input->preserve_home);
+	}
+}
+
 static int
 master_service_open_config(struct master_service *service,
 			   const struct master_service_settings_input *input,
@@ -109,7 +125,6 @@ master_service_open_config(struct master_service *service,
 			   bool *standalone_config_from_socket_r)
 {
 	const char *path;
-	struct stat st;
 	int fd;
 
 	*path_r = path = input->config_path != NULL ? input->config_path :
@@ -142,13 +157,7 @@ master_service_open_config(struct master_service *service,
 	if (fd < 0) {
 		*error_r = t_strdup_printf("net_connect_unix(%s) failed: %m",
 					   path);
-
-		if (stat(path, &st) == 0 &&
-		    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
-			/* it's a file, not a socket/pipe */
-			master_service_exec_config(service,
-						   input->preserve_home);
-		}
+		config_exec_fallback(service, input);
 		return -1;
 	}
 	net_set_nonblock(fd, FALSE);
@@ -286,6 +295,7 @@ int master_service_settings_read(struct master_service *service,
 
 		if (config_send_request(input, fd, path, error_r) < 0) {
 			(void)close(fd);
+			config_exec_fallback(service, input);
 			return -1;
 		}
 		config_socket = TRUE;
@@ -350,6 +360,7 @@ int master_service_settings_read(struct master_service *service,
 					"Timeout reading config from %s", path);
 			}
 			(void)close(fd);
+			config_exec_fallback(service, input);
 			return -1;
 		}
 	}
