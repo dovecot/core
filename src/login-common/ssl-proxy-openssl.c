@@ -1092,7 +1092,7 @@ ssl_server_context_init(const struct login_settings *set)
 	pool_t pool;
 	STACK_OF(X509_NAME) *xnames;
 
-	pool = pool_alloconly_create("ssl server context", 2048);
+	pool = pool_alloconly_create("ssl server context", 4096);
 	ctx = p_new(pool, struct ssl_server_context, 1);
 	ctx->pool = pool;
 	ctx->cert = p_strdup(pool, set->ssl_cert);
