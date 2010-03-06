@@ -501,7 +501,7 @@ static bool test_dump_log(const char *path)
 
 	p = strrchr(path, '/');
 	if (p == NULL)
-		return FALSE;
+		p = path;
 	p = strstr(p, ".log");
 	if (p == NULL || !(p[4] == '\0' || p[4] == '.'))
 		return FALSE;
