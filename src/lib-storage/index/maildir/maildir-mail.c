@@ -13,12 +13,20 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+struct maildir_open_context {
+	int fd;
+	char *path;
+};
+
 static int
-do_open(struct maildir_mailbox *mbox, const char *path, int *fd)
+do_open(struct maildir_mailbox *mbox, const char *path,
+	struct maildir_open_context *ctx)
 {
-	*fd = open(path, O_RDONLY);
-	if (*fd != -1)
+	ctx->fd = open(path, O_RDONLY);
+	if (ctx->fd != -1) {
+		ctx->path = i_strdup(path);
 		return 1;
+	}
 	if (errno == ENOENT)
 		return 0;
 
@@ -57,27 +65,32 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 	struct mail_private *p = (struct mail_private *)mail;
 	struct istream *input;
 	const char *path;
-	int fd = -1;
+	struct maildir_open_context ctx;
 
 	*deleted_r = FALSE;
 
+	ctx.fd = -1;
+	ctx.path = NULL;
+
 	p->stats_open_lookup_count++;
 	if (mail->uid != 0) {
-		if (maildir_file_do(mbox, mail->uid, do_open, &fd) < 0)
+		if (maildir_file_do(mbox, mail->uid, do_open, &ctx) < 0)
 			return NULL;
 	} else {
 		path = maildir_save_file_get_path(mail->transaction, mail->seq);
-		if (do_open(mbox, path, &fd) <= 0)
+		if (do_open(mbox, path, &ctx) <= 0)
 			return NULL;
 	}
 
-	if (fd == -1) {
+	if (ctx.fd == -1) {
 		*deleted_r = TRUE;
 		return NULL;
 	}
 
-	input = i_stream_create_fd(fd, 0, TRUE);
+	input = i_stream_create_fd(ctx.fd, 0, TRUE);
+	i_stream_set_name(input, ctx.path);
 	index_mail_set_read_buffer_size(mail, input);
+	i_free(ctx.path);
 	return input;
 }
 

@@ -4,8 +4,7 @@
 /* Create a mbox stream for parsing mbox. Reading stops before From-line,
    you'll have to call istream_raw_mbox_next() to get to next message.
    path is used only for logging purposes. */
-struct istream *i_stream_create_raw_mbox(struct istream *input,
-					 const char *path);
+struct istream *i_stream_create_raw_mbox(struct istream *input);
 
 /* Return offset to beginning of the "\nFrom"-line. */
 uoff_t istream_raw_mbox_get_start_offset(struct istream *stream);

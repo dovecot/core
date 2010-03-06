@@ -204,6 +204,7 @@ static int dbox_file_open_full(struct dbox_file *file, bool try_altpath,
 	}
 
 	file->input = i_stream_create_fd(file->fd, 0, FALSE);
+	i_stream_set_name(file->input, file->cur_path);
 	i_stream_set_init_buffer_size(file->input, DBOX_READ_BLOCK_SIZE);
 	return dbox_file_read_header(file);
 }

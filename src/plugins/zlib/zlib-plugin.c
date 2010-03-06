@@ -340,6 +340,7 @@ static int zlib_mailbox_open_input(struct mailbox *box)
 			return -1;
 		}
 		input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+		i_stream_set_name(input, box->path);
 		box->input = handler->create_istream(input, TRUE);
 		i_stream_unref(&input);
 		box->flags |= MAILBOX_FLAG_READONLY;

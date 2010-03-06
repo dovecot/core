@@ -86,10 +86,10 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 			i_stream_set_init_buffer_size(mbox->mbox_file_stream,
 						      MBOX_READ_BLOCK_SIZE);
 		}
+		i_stream_set_name(mbox->mbox_file_stream, mbox->box.path);
 	}
 
-	mbox->mbox_stream = i_stream_create_raw_mbox(mbox->mbox_file_stream,
-						     mbox->box.path);
+	mbox->mbox_stream = i_stream_create_raw_mbox(mbox->mbox_file_stream);
 	if (mbox->mbox_lock_type != F_UNLCK)
 		istream_raw_mbox_set_locked(mbox->mbox_stream);
 	return 0;

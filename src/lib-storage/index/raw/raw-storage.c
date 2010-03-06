@@ -82,6 +82,7 @@ static int raw_mailbox_open(struct mailbox *box)
 		return -1;
 	}
 	box->input = i_stream_create_fd(fd, MAIL_READ_FULL_BLOCK_SIZE, TRUE);
+	i_stream_set_name(box->input, box->path);
 	i_stream_set_init_buffer_size(box->input, MAIL_READ_FULL_BLOCK_SIZE);
 	return index_storage_mailbox_open(box, FALSE);
 }
