@@ -171,7 +171,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		prev_offset = offset;
 
 		guid = dbox_file_metadata_get(file, DBOX_METADATA_GUID);
-		if (guid == NULL) {
+		if (guid == NULL || *guid == '\0') {
 			dbox_file_set_corrupted(file,
 						"Message is missing GUID");
 			ret = 0;
@@ -183,6 +183,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		rec->offset = offset;
 		rec->size = file->input->v_offset - offset;
 		mail_generate_guid_128_hash(guid, rec->guid_128);
+		i_assert(!mail_guid_128_is_empty(rec->guid_128));
 		array_append(&ctx->msgs, &rec, 1);
 
 		if (hash_table_lookup(ctx->guid_hash, rec->guid_128) != NULL) {
@@ -389,6 +390,8 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 			new_dbox_rec.map_uid = rec->map_uid;
 			mail_index_update_ext(trans, new_seq, mbox->ext_id,
 					      &new_dbox_rec, NULL);
+			mail_index_update_ext(trans, new_seq, mbox->guid_ext_id,
+					      rec->guid_128, NULL);
 		} T_END;
 	}
 }
