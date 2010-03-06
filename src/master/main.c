@@ -249,6 +249,7 @@ static void pid_file_check_running(const char *path)
 
 static void send_master_signal(int signo)
 {
+	unsigned int i;
 	pid_t pid;
 
 	if (!pid_file_read(pidfile_path, &pid)) {
@@ -258,6 +259,19 @@ static void send_master_signal(int signo)
 
 	if (kill(pid, signo) < 0)
 		i_fatal("kill(%s, %d) failed: %m", dec2str(pid), signo);
+
+	if (signo == SIGTERM) {
+		/* wait for a while for the process to die */
+		usleep(1000);
+		for (i = 0; i < 30; i++) {
+			if (kill(pid, 0) < 0) {
+				if (errno != ESRCH)
+					i_error("kill() failed: %m");
+				break;
+			}
+			usleep(100000);
+		}
+	}
 	exit(0);
 }
 
