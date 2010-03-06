@@ -5,6 +5,22 @@
 #include "str.h"
 #include "istream-internal.h"
 
+void i_stream_set_name(struct istream *stream, const char *name)
+{
+	i_free(stream->real_stream->iostream.name);
+	stream->real_stream->iostream.name = i_strdup(name);
+}
+
+const char *i_stream_get_name(struct istream *stream)
+{
+	while (stream->real_stream->iostream.name == NULL) {
+		stream = stream->real_stream->parent;
+		if (stream == NULL)
+			return "";
+	}
+	return stream->real_stream->iostream.name;
+}
+
 void i_stream_destroy(struct istream **stream)
 {
 	i_stream_close(*stream);
@@ -324,7 +340,8 @@ char *i_stream_next_line(struct istream *stream)
 	}
 
 	if (unlikely(_stream->w_buffer == NULL)) {
-		i_error("i_stream_next_line() called for unmodifiable stream");
+		i_error("i_stream_next_line(%s) called for unmodifiable stream",
+			i_stream_get_name(stream));
 		return NULL;
 	}
 

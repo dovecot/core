@@ -27,8 +27,10 @@ static void i_stream_mmap_close(struct iostream_private *stream)
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
 	if (mstream->autoclose_fd && mstream->istream.fd != -1) {
-		if (close(mstream->istream.fd) < 0)
-			i_error("mmap_istream.close() failed: %m");
+		if (close(mstream->istream.fd) < 0) {
+			i_error("mmap_istream.close(%s) failed: %m",
+				i_stream_get_name(&mstream->istream.istream));
+		}
 	}
 	mstream->istream.fd = -1;
 }
@@ -38,8 +40,10 @@ static void i_stream_munmap(struct mmap_istream *mstream)
 	struct istream_private *_stream = &mstream->istream;
 
 	if (_stream->buffer != NULL) {
-		if (munmap(mstream->mmap_base, _stream->buffer_size) < 0)
-			i_error("mmap_istream.munmap() failed: %m");
+		if (munmap(mstream->mmap_base, _stream->buffer_size) < 0) {
+			i_error("mmap_istream.munmap(%s) failed: %m",
+				i_stream_get_name(&_stream->istream));
+		}
 		mstream->mmap_base = NULL;
 		_stream->buffer = NULL;
 		_stream->buffer_size = 0;
@@ -87,8 +91,10 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 	mstream->mmap_offset += aligned_skip;
 
 	if (mstream->mmap_base != NULL) {
-		if (munmap(mstream->mmap_base, stream->buffer_size) < 0)
-			i_error("io_stream_read_mmaped(): munmap() failed: %m");
+		if (munmap(mstream->mmap_base, stream->buffer_size) < 0) {
+			i_error("mmap_istream.munmap(%s) failed: %m",
+				i_stream_get_name(&stream->istream));
+		}
 	}
 
 	top = mstream->v_size - mstream->mmap_offset;
@@ -112,7 +118,8 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 			stream->buffer = NULL;
 			stream->buffer_size = 0;
 			stream->skip = stream->pos = 0;
-			i_error("mmap_istream.mmap() failed: %m");
+			i_error("mmap_istream.mmap(%s) failed: %m",
+				i_stream_get_name(&stream->istream));
 			return -1;
 		}
 		stream->buffer = mstream->mmap_base;
@@ -120,8 +127,10 @@ static ssize_t i_stream_mmap_read(struct istream_private *stream)
 
 	if (stream->buffer_size > mmap_get_page_size()) {
 		if (madvise(mstream->mmap_base, stream->buffer_size,
-			    MADV_SEQUENTIAL) < 0)
-			i_error("mmap_istream.madvise(): %m");
+			    MADV_SEQUENTIAL) < 0) {
+			i_error("mmap_istream.madvise(%s): %m",
+				i_stream_get_name(&stream->istream));
+		}
 	}
 
 	stream->pos = stream->buffer_size;
@@ -165,7 +174,8 @@ static int fstat_cached(struct mmap_istream *mstream)
 		return 0;
 
 	if (fstat(mstream->istream.fd, &mstream->istream.statbuf) < 0) {
-		i_error("mmap_istream.fstat() failed: %m");
+		i_error("mmap_istream.fstat(%s) failed: %m",
+			i_stream_get_name(&mstream->istream.istream));
 		return -1;
 	}
 

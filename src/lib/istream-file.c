@@ -27,8 +27,10 @@ static void i_stream_file_close(struct iostream_private *stream)
 	struct istream_private *_stream = (struct istream_private *)stream;
 
 	if (fstream->autoclose_fd && _stream->fd != -1) {
-		if (close(_stream->fd) < 0)
-			i_error("file_istream.close() failed: %m");
+		if (close(_stream->fd) < 0) {
+			i_error("file_istream.close(%s) failed: %m",
+				i_stream_get_name(&_stream->istream));
+		}
 	}
 	_stream->fd = -1;
 }
@@ -130,7 +132,8 @@ i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 
 	if (fstream->file) {
 		if (fstat(fstream->istream.fd, &fstream->istream.statbuf) < 0) {
-			i_error("file_istream.fstat() failed: %m");
+			i_error("file_istream.fstat(%s) failed: %m",
+				i_stream_get_name(&stream->istream));
 			return NULL;
 		}
 	}

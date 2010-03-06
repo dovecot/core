@@ -30,6 +30,13 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 struct istream *i_stream_create_from_data(const void *data, size_t size);
 struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size);
 
+/* Set name (e.g. path) for input stream. */
+void i_stream_set_name(struct istream *stream, const char *name);
+/* Get input stream's name. If stream itself doesn't have a name,
+   it looks up further into stream's parents until one of them has a name.
+   Returns "" if stream has no name. */
+const char *i_stream_get_name(struct istream *stream);
+
 /* i_stream_close() + i_stream_unref() */
 void i_stream_destroy(struct istream **stream);
 

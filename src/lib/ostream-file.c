@@ -57,8 +57,10 @@ static void stream_closed(struct file_ostream *fstream)
 		io_remove(&fstream->io);
 
 	if (fstream->autoclose_fd && fstream->fd != -1) {
-		if (close(fstream->fd) < 0)
-			i_error("file_ostream.close() failed: %m");
+		if (close(fstream->fd) < 0) {
+			i_error("file_ostream.close(%s) failed: %m",
+				o_stream_get_name(&fstream->ostream.ostream));
+		}
 	}
 	fstream->fd = -1;
 

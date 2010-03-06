@@ -37,6 +37,11 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd);
 /* Create an output stream to a buffer. */
 struct ostream *o_stream_create_buffer(buffer_t *buf);
 
+/* Set name (e.g. path) for output stream. */
+void o_stream_set_name(struct ostream *stream, const char *name);
+/* Get output stream's name. Returns "" if stream has no name. */
+const char *o_stream_get_name(struct ostream *stream);
+
 /* o_stream_close() + o_stream_unref() */
 void o_stream_destroy(struct ostream **stream);
 /* Reference counting. References start from 1, so calling o_stream_unref()

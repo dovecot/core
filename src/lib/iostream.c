@@ -34,6 +34,7 @@ void io_stream_unref(struct iostream_private *stream)
 		stream->destroy_callback(stream->destroy_context);
 	stream->destroy(stream);
 
+        i_free(stream->name);
         i_free(stream);
 }
 

@@ -5,6 +5,7 @@
 
 struct iostream_private {
 	int refcount;
+	char *name;
 
 	void (*close)(struct iostream_private *stream);
 	void (*destroy)(struct iostream_private *stream);

@@ -4,6 +4,18 @@
 #include "istream.h"
 #include "ostream-internal.h"
 
+void o_stream_set_name(struct ostream *stream, const char *name)
+{
+	i_free(stream->real_stream->iostream.name);
+	stream->real_stream->iostream.name = i_strdup(name);
+}
+
+const char *o_stream_get_name(struct ostream *stream)
+{
+	return stream->real_stream->iostream.name == NULL ? "" :
+		stream->real_stream->iostream.name;
+}
+
 void o_stream_destroy(struct ostream **stream)
 {
 	o_stream_close(*stream);
