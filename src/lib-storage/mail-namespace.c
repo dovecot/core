@@ -340,14 +340,17 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
 
 void mail_namespaces_deinit(struct mail_namespace **_namespaces)
 {
-	struct mail_namespace *ns, *namespaces = *_namespaces;
+	struct mail_namespace *ns, *next;
 
-	*_namespaces = NULL;
-	while (namespaces != NULL) {
-		ns = namespaces;
-		namespaces = namespaces->next;
+	/* update *_namespaces as needed, instead of immediately setting it
+	   to NULL. for example mdbox_storage.destroy() wants to go through
+	   user's namespaces. */
+	while (*_namespaces != NULL) {
+		ns = *_namespaces;
+		next = ns->next;
 
 		mail_namespace_free(ns);
+		*_namespaces = next;
 	}
 }
 

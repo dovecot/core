@@ -723,6 +723,8 @@ static void rebuild_update_refcounts(struct mdbox_storage_rebuild_context *ctx)
 
 static int rebuild_finish(struct mdbox_storage_rebuild_context *ctx)
 {
+	i_assert(ctx->default_list != NULL);
+
 	if (rebuild_handle_zero_refs(ctx) < 0)
 		return -1;
 	rebuild_update_refcounts(ctx);

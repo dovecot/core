@@ -324,16 +324,20 @@ void mail_storage_unref(struct mail_storage **_storage)
 
 	i_assert(storage->refcount > 0);
 
-	*_storage = NULL;
-
-	if (--storage->refcount > 0)
+	/* set *_storage=NULL only after calling destroy() callback.
+	   for example mdbox wants to access ns->storage */
+	if (--storage->refcount > 0) {
+		*_storage = NULL;
 		return;
+	}
 
 	DLLIST_REMOVE(&storage->user->storages, storage);
 
 	if (storage->v.destroy != NULL)
 		storage->v.destroy(storage);
 	i_free(storage->error_string);
+
+	*_storage = NULL;
 	pool_unref(&storage->pool);
 
 	mail_index_alloc_cache_destroy_unrefed();
