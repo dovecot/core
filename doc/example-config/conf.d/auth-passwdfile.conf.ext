@@ -1,0 +1,14 @@
+# Authentication for passwd-file users. Included from auth.conf.
+#
+# passwd-like file with specified location.
+# <doc/wiki/AuthDatabase.PasswdFile.txt>
+
+passdb {
+  driver = passwd-file
+  args = scheme=CRYPT username_format=%u /etc/dovecot/users
+}
+
+userdb {
+  driver = passwd-file
+  args = username_format=%u /etc/dovecot/users
+}

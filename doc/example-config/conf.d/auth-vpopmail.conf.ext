@@ -1,0 +1,15 @@
+# Authentication for vpopmail users. Included from auth.conf.
+#
+# <doc/wiki/AuthDatabase.VPopMail.txt>
+
+passdb {
+  driver = vpopmail
+
+  # [cache_key=<key>]
+  # [quota_template=<template>] - %q expands to Maildir++ quota
+  args = quota_template=quota_rule=*:backend=%q
+}
+
+userdb {
+  driver = vpopmail
+}
