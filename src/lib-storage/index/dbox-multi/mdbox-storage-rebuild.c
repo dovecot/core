@@ -292,8 +292,9 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 		search_msg.offset = rec.rec.offset;
 		pos = bsearch(&search_msgp, msgs, count, sizeof(*msgs),
 			      mdbox_rebuild_msg_offset_cmp);
-		if (pos == NULL) {
-			/* map record points to non-existing message. */
+		if (pos == NULL || (*pos)->map_uid != 0) {
+			/* map record points to non-existing or
+			   a duplicate message. */
 			mail_index_expunge(ctx->trans, seq);
 		} else {
 			(*pos)->map_uid = rec.map_uid;
