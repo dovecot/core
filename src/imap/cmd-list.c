@@ -325,10 +325,21 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	client_send_line(ctx->cmd->client, str_c(str));
 }
 
-static void list_send_status(struct cmd_list_context *ctx, const char *name)
+static void list_send_status(struct cmd_list_context *ctx, const char *name,
+			     enum mailbox_info_flags flags)
 {
 	struct imap_status_result result;
 	const char *storage_name, *error;
+
+	if ((flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
+		/* doesn't exist, don't even try to get STATUS */
+		return;
+	}
+	if ((flags & MAILBOX_SUBSCRIBED) == 0 &&
+	    (flags & MAILBOX_CHILD_SUBSCRIBED) != 0) {
+		/* listing subscriptions, but only child is subscribed */
+		return;
+	}
 
 	storage_name = mail_namespace_get_storage_name(ctx->ns, name);
 	if (imap_status_get(ctx->cmd, ctx->ns, storage_name,
@@ -400,12 +411,9 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		mailbox_childinfo2str(ctx, str, flags);
 
 		ret = client_send_line(ctx->cmd->client, str_c(str));
-		if (ctx->used_status &&
-		    (flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) == 0) {
-			T_BEGIN {
-				list_send_status(ctx, name);
-			} T_END;
-		}
+		if (ctx->used_status) T_BEGIN {
+			list_send_status(ctx, name, flags);
+		} T_END;
 		if (ret == 0) {
 			/* buffer is full, continue later */
 			return 0;
