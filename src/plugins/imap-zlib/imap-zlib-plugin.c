@@ -111,7 +111,7 @@ static bool cmd_compress(struct client_command_context *cmd)
 
 	old_input = client->input;
 	old_output = client->output;
-	client->input = handler->create_istream(old_input);
+	client->input = handler->create_istream(old_input, FALSE);
 	client->output = handler->create_ostream(old_output, level);
 	i_stream_unref(&old_input);
 	o_stream_unref(&old_output);

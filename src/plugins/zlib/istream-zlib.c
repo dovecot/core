@@ -30,6 +30,7 @@ struct zlib_istream {
 	uint32_t crc32;
 
 	unsigned int gz:1;
+	unsigned int log_errors:1;
 	unsigned int marked:1;
 	unsigned int header_read:1;
 	unsigned int trailer_read:1;
@@ -57,8 +58,11 @@ static int i_stream_zlib_read_header(struct istream_private *stream)
 	ret = i_stream_read_data(stream->parent, &data, &size,
 				 zstream->prev_size);
 	if (size == zstream->prev_size) {
-		if (ret == -1)
+		if (ret == -1) {
+			if (zstream->log_errors)
+				i_error("zlib: missing gz header");
 			stream->istream.stream_errno = EINVAL;
+		}
 		return ret;
 	}
 	zstream->prev_size = size;
@@ -69,6 +73,8 @@ static int i_stream_zlib_read_header(struct istream_private *stream)
 
 	if (data[0] != GZ_MAGIC1 || data[1] != GZ_MAGIC2) {
 		/* missing gzip magic header */
+		if (zstream->log_errors)
+			i_error("zlib: wrong magic in header (not gz file?)");
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	}
@@ -119,8 +125,11 @@ static int i_stream_zlib_read_trailer(struct zlib_istream *zstream)
 	ret = i_stream_read_data(stream->parent, &data, &size,
 				 GZ_TRAILER_SIZE-1);
 	if (size == zstream->prev_size) {
-		if (ret == -1)
+		if (ret == -1) {
+			if (zstream->log_errors)
+				i_error("zlib: missing gz trailer");
 			stream->istream.stream_errno = EINVAL;
+		}
 		return ret;
 	}
 	zstream->prev_size = size;
@@ -129,6 +138,8 @@ static int i_stream_zlib_read_trailer(struct zlib_istream *zstream)
 		return 0;
 
 	if (data_get_uint32(data) != zstream->crc32) {
+		if (zstream->log_errors)
+			i_error("zlib: gz trailer has wrong CRC value");
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	}
@@ -199,8 +210,9 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 				stream->istream.stream_errno =
 					stream->parent->stream_errno;
 			} else {
-				/* unexpected eof */
 				i_assert(stream->parent->eof);
+				if (zstream->log_errors)
+					i_error("zlib: unexpected EOF");
 				stream->istream.stream_errno = EINVAL;
 			}
 			return -1;
@@ -230,7 +242,13 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	case Z_OK:
 		break;
 	case Z_NEED_DICT:
+		if (zstream->log_errors)
+			i_error("zlib: can't read file without dict");
+		stream->istream.stream_errno = EINVAL;
+		return -1;
 	case Z_DATA_ERROR:
+		if (zstream->log_errors)
+			i_error("zlib: corrupted data");
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	case Z_MEM_ERROR:
@@ -387,13 +405,15 @@ static void i_stream_zlib_sync(struct istream_private *stream)
 	i_stream_zlib_reset(zstream);
 }
 
-static struct istream *i_stream_create_zlib(struct istream *input, bool gz)
+static struct istream *
+i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 {
 	struct zlib_istream *zstream;
 
 	zstream = i_new(struct zlib_istream, 1);
 	zstream->eof_offset = (uoff_t)-1;
 	zstream->gz = gz;
+	zstream->log_errors = log_errors;
 
 	i_stream_zlib_init(zstream);
 
@@ -412,13 +432,13 @@ static struct istream *i_stream_create_zlib(struct istream *input, bool gz)
 			       i_stream_get_fd(input));
 }
 
-struct istream *i_stream_create_gz(struct istream *input)
+struct istream *i_stream_create_gz(struct istream *input, bool log_errors)
 {
-	return i_stream_create_zlib(input, TRUE);
+	return i_stream_create_zlib(input, TRUE, log_errors);
 }
 
-struct istream *i_stream_create_deflate(struct istream *input)
+struct istream *i_stream_create_deflate(struct istream *input, bool log_errors)
 {
-	return i_stream_create_zlib(input, FALSE);
+	return i_stream_create_zlib(input, FALSE, log_errors);
 }
 #endif

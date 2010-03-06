@@ -162,7 +162,7 @@ static int zlib_permail_get_stream(struct mail *_mail,
 		}
 
 		input = imail->data.stream;
-		imail->data.stream = handler->create_istream(input);
+		imail->data.stream = handler->create_istream(input, TRUE);
 		i_stream_unref(&input);
 	}
 	return index_mail_init_stream(imail, hdr_size, body_size, stream_r);
@@ -340,7 +340,7 @@ static int zlib_mailbox_open_input(struct mailbox *box)
 			return -1;
 		}
 		input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-		box->input = handler->create_istream(input);
+		box->input = handler->create_istream(input, TRUE);
 		i_stream_unref(&input);
 		box->flags |= MAILBOX_FLAG_READONLY;
 	}

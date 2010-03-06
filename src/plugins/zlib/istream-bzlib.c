@@ -17,6 +17,7 @@ struct bzlib_istream {
 	uoff_t eof_offset;
 	size_t prev_size;
 
+	unsigned int log_errors:1;
 	unsigned int marked:1;
 	unsigned int zs_closed:1;
 };
@@ -76,8 +77,9 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 				stream->istream.stream_errno =
 					stream->parent->stream_errno;
 			} else {
-				/* unexpected eof */
 				i_assert(stream->parent->eof);
+				if (zstream->log_errors)
+					i_error("bzlib: unexpected EOF");
 				stream->istream.stream_errno = EINVAL;
 			}
 			return -1;
@@ -107,7 +109,13 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 	case BZ_PARAM_ERROR:
 		i_unreached();
 	case BZ_DATA_ERROR:
+		if (zstream->log_errors)
+			i_error("bzlib: corrupted data");
+		stream->istream.stream_errno = EINVAL;
+		return -1;
 	case BZ_DATA_ERROR_MAGIC:
+		if (zstream->log_errors)
+			i_error("bzlib: wrong magic in header (not bz2 file?)");
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	case BZ_MEM_ERROR:
@@ -253,12 +261,13 @@ static void i_stream_bzlib_sync(struct istream_private *stream)
 	i_stream_bzlib_reset(zstream);
 }
 
-struct istream *i_stream_create_bz2(struct istream *input)
+struct istream *i_stream_create_bz2(struct istream *input, bool log_errors)
 {
 	struct bzlib_istream *zstream;
 
 	zstream = i_new(struct bzlib_istream, 1);
 	zstream->eof_offset = (uoff_t)-1;
+	zstream->log_errors = log_errors;
 
 	i_stream_bzlib_init(zstream);
 
