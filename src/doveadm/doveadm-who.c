@@ -93,11 +93,21 @@ static void who_parse_line(const char *line, struct who_line *line_r)
 	(void)net_addr2ip(ip_str, &line_r->ip);
 }
 
+static bool who_user_has_pid(struct who_user *user, pid_t pid)
+{
+	const pid_t *ex_pid;
+
+	array_foreach(&user->pids, ex_pid) {
+		if (*ex_pid == pid)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void who_aggregate_line(struct who_context *ctx,
 			       const struct who_line *line)
 {
 	struct who_user *user, lookup_user;
-	const pid_t *ex_pid;
 
 	lookup_user.username = line->username;
 	lookup_user.service = line->service;
@@ -116,11 +126,7 @@ static void who_aggregate_line(struct who_context *ctx,
 	if (line->ip.family != 0 && !who_user_has_ip(user, &line->ip))
 		array_append(&user->ips, &line->ip, 1);
 
-	array_foreach(&user->pids, ex_pid) {
-		if (*ex_pid == line->pid)
-			break;
-	}
-	if (*ex_pid != line->pid)
+	if (!who_user_has_pid(user, line->pid))
 		array_append(&user->pids, &line->pid, 1);
 }
 
