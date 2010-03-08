@@ -107,7 +107,8 @@ module_load(const char *path, const char *name,
 
 	handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
 	if (handle == NULL) {
-		i_error("dlopen(%s) failed: %s", path, dlerror());
+		if (!set->ignore_dlopen_errors)
+			i_error("dlopen(%s) failed: %s", path, dlerror());
 		return NULL;
 	}
 

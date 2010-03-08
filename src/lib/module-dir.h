@@ -10,6 +10,8 @@ struct module_dir_load_settings {
 	unsigned int require_init_funcs:1;
 	/* Enable debug logging */
 	unsigned int debug:1;
+	/* If dlopen() fails for some modules, silently skip it. */
+	unsigned int ignore_dlopen_errors:1;
 };
 
 struct module {
