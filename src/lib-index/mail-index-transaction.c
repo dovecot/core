@@ -146,6 +146,13 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	mail_transaction_log_get_head(log, &log_seq2, &log_offset2);
 	i_assert(log_seq1 == log_seq2);
 
+	if (t->reset) {
+		/* get rid of the old index. it might just confuse readers,
+		   especially if it's broken. */
+		if (unlink(log->index->filepath) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", log->index->filepath);
+	}
+
 	*commit_size_r = log_offset2 - log_offset1;
 
 	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_HIDE) != 0 &&
