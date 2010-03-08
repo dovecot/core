@@ -71,8 +71,8 @@ client_create(int fd, bool ssl, pool_t pool,
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
-	client->to_idle_disconnect =
-		timeout_add(CLIENT_LOGIN_IDLE_TIMEOUT_MSECS,
+	client->to_disconnect =
+		timeout_add(CLIENT_LOGIN_TIMEOUT_MSECS,
 			    client_idle_disconnect_timeout, client);
 	client_open_streams(client);
 
@@ -125,8 +125,8 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (client->io != NULL)
 		io_remove(&client->io);
-	if (client->to_idle_disconnect != NULL)
-		timeout_remove(&client->to_idle_disconnect);
+	if (client->to_disconnect != NULL)
+		timeout_remove(&client->to_disconnect);
 	if (client->to_auth_waiting != NULL)
 		timeout_remove(&client->to_auth_waiting);
 	if (client->auth_response != NULL)
@@ -563,7 +563,6 @@ bool client_read(struct client *client)
 		return TRUE;
 	default:
 		/* something was read */
-		timeout_reset(client->to_idle_disconnect);
 		return TRUE;
 	}
 }

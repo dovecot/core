@@ -15,8 +15,9 @@
    SASL authentication gives the largest output. */
 #define LOGIN_MAX_OUTBUF_SIZE 4096
 
-/* Disconnect client after idling this many milliseconds */
-#define CLIENT_LOGIN_IDLE_TIMEOUT_MSECS (3*60*1000)
+/* Disconnect client after this many milliseconds if it hasn't managed
+   to log in yet. */
+#define CLIENT_LOGIN_TIMEOUT_MSECS (3*60*1000)
 
 #define AUTH_SERVER_WAITING_MSG \
 	"Waiting for authentication process to respond.."
@@ -86,7 +87,7 @@ struct client {
 	struct ostream *output;
 	struct io *io;
 	struct timeout *to_auth_waiting;
-	struct timeout *to_idle_disconnect;
+	struct timeout *to_disconnect;
 
 	unsigned char *master_data_prefix;
 	unsigned int master_data_prefix_len;
