@@ -244,8 +244,8 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 			   stack, so make sure everything is allocated before
 			   calling it. */
 			t_buffer_alloc_last_full();
-			/*i_warning("Growing pool '%s' with: %"PRIuSIZE_T,
-				  apool->name, size);*/
+			i_warning("Growing pool '%s' with: %"PRIuSIZE_T,
+				  apool->name, size);
 		}
 #endif
 	}
