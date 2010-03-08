@@ -619,10 +619,10 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		set_input.remote_ip = input->remote_ip;
 	}
 	if (ctx->set_cache == NULL) {
-		ctx->set_cache_module = p_strdup(ctx->pool, input->module);
-		ctx->set_cache_service = p_strdup(ctx->pool, input->service);
+		ctx->set_cache_module = p_strdup(ctx->pool, set_input.module);
+		ctx->set_cache_service = p_strdup(ctx->pool, set_input.service);
 		ctx->set_cache = master_service_settings_cache_init(
-			ctx->service, input->module, input->service);
+			ctx->service, set_input.module, set_input.service);
 		ctx->set_cache_roots = ctx->set_roots;
 		ctx->set_cache_dyn_parsers =
 			mail_storage_get_dynamic_parsers(ctx->pool);
@@ -632,8 +632,8 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 						  &ctx->set_cache_dyn_parsers);
 	}
 
-	if (null_strcmp(input->module, ctx->set_cache_module) == 0 &&
-	    null_strcmp(input->service, ctx->set_cache_service) == 0) {
+	if (null_strcmp(set_input.module, ctx->set_cache_module) == 0 &&
+	    null_strcmp(set_input.service, ctx->set_cache_service) == 0) {
 		set_input.roots = ctx->set_cache_roots;
 		set_input.dyn_parsers = ctx->set_cache_dyn_parsers;
 		set_input.dyn_parsers_parent =
