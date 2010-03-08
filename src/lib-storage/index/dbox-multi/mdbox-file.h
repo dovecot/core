@@ -8,6 +8,7 @@ struct mdbox_file {
 	struct mdbox_storage *storage;
 
 	uint32_t file_id;
+	time_t close_time;
 };
 
 struct dbox_file *

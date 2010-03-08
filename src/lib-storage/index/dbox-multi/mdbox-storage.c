@@ -39,7 +39,6 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	const char *dir;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
-	i_assert(storage->set->mdbox_max_open_files >= 2);
 
 	if (*ns->list->set.mailbox_dir_name == '\0') {
 		*error_r = "dbox: MAILBOXDIR must not be empty";
@@ -55,8 +54,7 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	storage->alt_storage_dir = p_strconcat(_storage->pool,
 					       ns->list->set.alt_dir,
 					       "/"MDBOX_GLOBAL_DIR_NAME, NULL);
-	i_array_init(&storage->open_files,
-		     I_MIN(storage->set->mdbox_max_open_files, 128));
+	i_array_init(&storage->open_files, 64);
 
 	storage->map = dbox_map_init(storage, ns->list, storage->storage_dir);
 	return 0;
@@ -73,6 +71,8 @@ static void mdbox_storage_destroy(struct mail_storage *_storage)
 
 	mdbox_files_free(storage);
 	dbox_map_deinit(&storage->map);
+	if (storage->to_close_unused_files != NULL)
+		timeout_remove(&storage->to_close_unused_files);
 	array_free(&storage->open_files);
 }
 

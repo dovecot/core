@@ -26,18 +26,13 @@
 static struct mdbox_file *
 mdbox_find_and_move_open_file(struct mdbox_storage *storage, uint32_t file_id)
 {
-	struct mdbox_file *const *files, *file;
+	struct mdbox_file *const *files;
 	unsigned int i, count;
 
 	files = array_get(&storage->open_files, &count);
 	for (i = 0; i < count; i++) {
-		if (files[i]->file_id == file_id) {
-			/* move to last in the array */
-			file = files[i];
-			array_delete(&storage->open_files, i, 1);
-			array_append(&storage->open_files, &file, 1);
-			return file;
-		}
+		if (files[i]->file_id == file_id)
+			return files[i];
 	}
 	return NULL;
 }
@@ -127,9 +122,9 @@ mdbox_file_init_full(struct mdbox_storage *storage,
 	}
 
 	count = array_count(&storage->open_files);
-	if (count > storage->set->mdbox_max_open_files) {
-		mdbox_close_open_files(storage, count -
-				       storage->set->mdbox_max_open_files);
+	if (count > MDBOX_MAX_OPEN_UNUSED_FILES) {
+		mdbox_close_open_files(storage,
+				       count - MDBOX_MAX_OPEN_UNUSED_FILES);
 	}
 
 	file = i_new(struct mdbox_file, 1);
@@ -187,6 +182,53 @@ int mdbox_file_assign_file_id(struct mdbox_file *file, uint32_t file_id)
 	return 0;
 }
 
+static struct mdbox_file *
+mdbox_find_oldest_unused_file(struct mdbox_storage *storage,
+			      unsigned int *idx_r)
+{
+	struct mdbox_file *const *files, *oldest_file = NULL;
+	unsigned int i, count;
+
+	files = array_get(&storage->open_files, &count);
+	*idx_r = count;
+	for (i = 0; i < count; i++) {
+		if (files[i]->file.refcount == 0) {
+			if (oldest_file == NULL ||
+			    files[i]->close_time < oldest_file->close_time) {
+				oldest_file = files[i];
+				*idx_r = i;
+			}
+		}
+	}
+	return oldest_file;
+}
+
+static void mdbox_file_close_timeout(struct mdbox_storage *storage)
+{
+	struct mdbox_file *oldest;
+	unsigned int i;
+	time_t close_time = ioloop_time - MDBOX_CLOSE_UNUSED_FILES_TIMEOUT_SECS;
+
+	while ((oldest = mdbox_find_oldest_unused_file(storage, &i)) != NULL) {
+		if (oldest->close_time > close_time)
+			break;
+		array_delete(&storage->open_files, i, 1);
+		dbox_file_free(&oldest->file);
+	}
+
+	if (oldest == NULL)
+		timeout_remove(&storage->to_close_unused_files);
+}
+
+static void mdbox_file_close_later(struct mdbox_file *mfile)
+{
+	if (mfile->storage->to_close_unused_files == NULL) {
+		mfile->storage->to_close_unused_files =
+			timeout_add(MDBOX_CLOSE_UNUSED_FILES_TIMEOUT_SECS*1000,
+				    mdbox_file_close_timeout, mfile->storage);
+	}
+}
+
 void mdbox_file_unrefed(struct dbox_file *file)
 {
 	struct mdbox_file *mfile = (struct mdbox_file *)file;
@@ -195,24 +237,23 @@ void mdbox_file_unrefed(struct dbox_file *file)
 
 	/* don't cache metadata seeks while file isn't being referenced */
 	file->metadata_read_offset = (uoff_t)-1;
+	mfile->close_time = ioloop_time;
 
 	if (mfile->file_id != 0) {
 		files = array_get(&mfile->storage->open_files, &count);
-		if (!file->deleted &&
-		    count <= mfile->storage->set->mdbox_max_open_files) {
+		if (!file->deleted && count <= MDBOX_MAX_OPEN_UNUSED_FILES) {
 			/* we can leave this file open for now */
+			mdbox_file_close_later(mfile);
 			return;
 		}
 
 		/* close the oldest file with refcount=0 */
-		for (i = 0; i < count; i++) {
-			if (files[i]->file.refcount == 0)
-				break;
-		}
-		oldest_file = files[i];
+		oldest_file = mdbox_find_oldest_unused_file(mfile->storage, &i);
+		i_assert(oldest_file != NULL);
 		array_delete(&mfile->storage->open_files, i, 1);
 		if (oldest_file != mfile) {
 			dbox_file_free(&oldest_file->file);
+			mdbox_file_close_later(mfile);
 			return;
 		}
 		/* have to close ourself */

@@ -11,6 +11,8 @@
 #define MDBOX_GLOBAL_DIR_NAME "storage"
 #define MDBOX_MAIL_FILE_PREFIX "m."
 #define MDBOX_MAIL_FILE_FORMAT MDBOX_MAIL_FILE_PREFIX"%u"
+#define MDBOX_MAX_OPEN_UNUSED_FILES 2
+#define MDBOX_CLOSE_UNUSED_FILES_TIMEOUT_SECS 30
 
 #define MDBOX_INDEX_HEADER_MIN_SIZE (sizeof(uint32_t))
 struct mdbox_index_header {
@@ -28,6 +30,7 @@ struct mdbox_storage {
 	struct dbox_map *map;
 
 	ARRAY_DEFINE(open_files, struct mdbox_file *);
+	struct timeout *to_close_unused_files;
 };
 
 struct mdbox_mail_index_record {
