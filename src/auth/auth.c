@@ -55,7 +55,7 @@ struct auth *auth_preinit(struct auth_settings *set)
 	if (passdb_count != 0 && passdbs[last_passdb]->pass)
 		i_fatal("Last passdb can't have pass=yes");
 
-	for (passdb_count = 0, i = 0; i < db_count; i++) {
+	for (i = 0; i < db_count; i++) {
 		if (!passdbs[i]->master)
 			continue;
 
