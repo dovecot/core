@@ -195,6 +195,7 @@ static void i_stream_bzlib_reset(struct bzlib_istream *zstream)
 	zstream->zs.next_in = NULL;
 	zstream->zs.avail_in = 0;
 
+	stream->parent_expected_offset = stream->parent_start_offset;
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
 	zstream->high_pos = 0;
