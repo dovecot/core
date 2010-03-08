@@ -6,6 +6,8 @@
 struct master_service;
 struct mail_user;
 struct setting_parser_context;
+struct setting_parser_info;
+struct mail_storage_service_user;
 
 enum mail_storage_service_flags {
 	/* Fail if we don't drop root privileges */
@@ -39,8 +41,7 @@ struct mail_storage_service_input {
 	const char *const *userdb_fields;
 };
 
-struct setting_parser_info;
-struct mail_storage_service_user;
+extern struct module *mail_storage_service_modules;
 
 struct mail_storage_service_ctx *
 mail_storage_service_init(struct master_service *service,

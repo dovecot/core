@@ -63,7 +63,7 @@ struct mail_storage_service_user {
 	struct setting_parser_context *set_parser;
 };
 
-static struct module *modules = NULL;
+struct module *mail_storage_service_modules = NULL;
 
 static void set_keyval(struct setting_parser_context *set_parser,
 		       const char *key, const char *value)
@@ -712,8 +712,10 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = mail_set->mail_debug;
 
-	modules = module_dir_load_missing(modules, user_set->mail_plugin_dir,
-					  user_set->mail_plugins, &mod_set);
+	mail_storage_service_modules =
+		module_dir_load_missing(mail_storage_service_modules,
+					user_set->mail_plugin_dir,
+					user_set->mail_plugins, &mod_set);
 }
 
 int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
@@ -833,7 +835,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 
 	/* privileges are dropped. initialize plugins that haven't been
 	   initialized yet. */
-	module_dir_init(modules);
+	module_dir_init(mail_storage_service_modules);
 
 	/* we couldn't do chrooting, so if chrooting was enabled fix
 	   the home directory */
@@ -968,7 +970,7 @@ void mail_storage_service_deinit(struct mail_storage_service_ctx **_ctx)
 		master_service_settings_cache_deinit(&ctx->set_cache);
 	pool_unref(&ctx->pool);
 
-	module_dir_unload(&modules);
+	module_dir_unload(&mail_storage_service_modules);
 	mail_storage_deinit();
 	dict_drivers_unregister_builtin();
 }
