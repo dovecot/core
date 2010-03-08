@@ -20,3 +20,11 @@ userdb {
   driver = ldap
   args = /etc/dovecot/dovecot-ldap.conf.ext
 }
+
+# If you don't have any user-specific settings, you can avoid the userdb LDAP
+# lookup by using userdb static instead of userdb ldap, for example:
+# <doc/wiki/UserDatabase.Static.txt>
+#userdb {
+  #driver = static
+  #args = uid=vmail gid=vmail home=/var/vmail/%u
+#}
