@@ -1,7 +1,10 @@
+doveadm_moduledir = $(moduledir)/doveadm
+
 bin_PROGRAMS = doveadm
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-master \
@@ -10,21 +13,32 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/auth \
+	-DMODULEDIR=\""$(moduledir)"\" \
+	-DDOVEADM_MODULEDIR=\""$(doveadm_moduledir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\"
+
+if !BUILD_SHARED_LIBS
+unused_objects = \
+	../lib/mountpoint.o \
+	../lib-imap/imap-util.o
+endif
 
 cmd_pw_libs = \
 	../auth/libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a
 
-doveadm_LDADD = \
-	$(cmd_pw_libs) $(AUTH_LIBS) \
+libs = \
 	$(LIBDOVECOT_STORAGE) \
+	$(cmd_pw_libs) \
+	$(unused_objects)
+
+doveadm_LDADD = \
+	$(libs) $(AUTH_LIBS) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
 doveadm_DEPENDENCIES = \
-	$(cmd_pw_libs) \
-	$(LIBDOVECOT_STORAGE) \
+	$(libs) \
 	$(LIBDOVECOT_DEPS)
 
 doveadm_SOURCES = \
@@ -38,9 +52,11 @@ doveadm_SOURCES = \
 	doveadm-mail.c \
 	doveadm-penalty.c \
 	doveadm-pw.c \
+	doveadm-settings.c \
 	doveadm-who.c
 
 noinst_HEADERS = \
 	doveadm.h \
 	doveadm-dump.h \
-	doveadm-mail.h
+	doveadm-mail.h \
+	doveadm-settings.h

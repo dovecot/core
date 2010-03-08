@@ -4,6 +4,7 @@
 #include "array.h"
 #include "lib-signals.h"
 #include "ioloop.h"
+#include "module-dir.h"
 #include "master-service.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -11,6 +12,7 @@
 #include "mail-storage-settings.h"
 #include "mail-storage-service.h"
 #include "doveadm.h"
+#include "doveadm-settings.h"
 #include "doveadm-mail.h"
 
 #include <stdio.h>
@@ -75,40 +77,11 @@ static void cmd_force_resync(struct mail_user *user, const char *args[])
 	mailbox_free(&box);
 }
 
-static void
-doveadm_mail_single_user(doveadm_mail_command_t *cmd, const char *username,
-			 enum mail_storage_service_flags service_flags,
-			 const char *args[])
-{
-	struct mail_storage_service_ctx *storage_service;
-	struct mail_storage_service_user *service_user;
-	struct mail_storage_service_input input;
-	struct mail_user *mail_user;
-	const char *error;
-
-	if (username == NULL)
-		i_fatal("USER environment is missing and -u option not used");
-
-	memset(&input, 0, sizeof(input));
-	input.username = username;
-
-	storage_service = mail_storage_service_init(master_service, NULL,
-						    service_flags);
-	if (mail_storage_service_lookup_next(storage_service, &input,
-					     &service_user, &mail_user,
-					     &error) <= 0)
-		i_fatal("%s", error);
-	cmd(mail_user, args);
-	mail_user_unref(&mail_user);
-	mail_storage_service_user_free(&service_user);
-	mail_storage_service_deinit(&storage_service);
-}
-
 static int
 doveadm_mail_next_user(doveadm_mail_command_t *cmd,
 		       struct mail_storage_service_ctx *storage_service,
 		       const struct mail_storage_service_input *input,
-		       const char *args[])
+		       const char *args[], const char **error_r)
 {
 	struct mail_storage_service_user *service_user;
 	struct mail_user *mail_user;
@@ -119,24 +92,51 @@ doveadm_mail_next_user(doveadm_mail_command_t *cmd,
 	ret = mail_storage_service_lookup(storage_service, input,
 					  &service_user, &error);
 	if (ret <= 0) {
-		if (ret == 0) {
-			i_info("User no longer exists, skipping");
-			return 0;
-		} else {
-			i_error("User lookup failed: %s", error);
-			return -1;
+		if (ret < 0) {
+			*error_r = t_strdup_printf("User lookup failed: %s",
+						   error);
 		}
+		return ret;
 	}
+
 	if (mail_storage_service_next(storage_service, service_user,
 				      &mail_user, &error) < 0) {
-		i_error("User init failed: %s", error);
+		*error_r = t_strdup_printf("User init failed: %s", error);
 		mail_storage_service_user_free(&service_user);
 		return -1;
 	}
+
 	cmd(mail_user, args);
 	mail_storage_service_user_free(&service_user);
 	mail_user_unref(&mail_user);
-	return 0;
+	return 1;
+}
+
+static void
+doveadm_mail_single_user(doveadm_mail_command_t *cmd, const char *username,
+			 enum mail_storage_service_flags service_flags,
+			 const char *args[])
+{
+	struct mail_storage_service_ctx *storage_service;
+	struct mail_storage_service_input input;
+	const char *error;
+	int ret;
+
+	if (username == NULL)
+		i_fatal("USER environment is missing and -u option not used");
+
+	memset(&input, 0, sizeof(input));
+	input.username = username;
+
+	storage_service = mail_storage_service_init(master_service, NULL,
+						    service_flags);
+	ret = doveadm_mail_next_user(cmd, storage_service, &input,
+				     args, &error);
+	if (ret < 0)
+		i_fatal("%s", error);
+	else if (ret == 0)
+		i_fatal("User no longer exists");
+	mail_storage_service_deinit(&storage_service);
 }
 
 static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
@@ -152,7 +152,7 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 	struct mail_storage_service_input input;
 	struct mail_storage_service_ctx *storage_service;
 	unsigned int user_idx, user_count, interval, n;
-	const char *user;
+	const char *user, *error;
 	int ret;
 
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
@@ -177,7 +177,11 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 		input.username = user;
 		T_BEGIN {
 			ret = doveadm_mail_next_user(cmd, storage_service,
-						     &input, args);
+						     &input, args, &error);
+			if (ret < 0)
+				i_error("%s", error);
+			else if (ret == 0)
+				i_info("User no longer exists, skipping");
 		} T_END;
 		if (ret < 0)
 			break;
@@ -204,7 +208,8 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 static void
 doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 {
-	enum mail_storage_service_flags service_flags = 0;
+	enum mail_storage_service_flags service_flags =
+		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
 	const char *username;
 	bool all_users = FALSE;
 	int c;
@@ -268,7 +273,7 @@ void doveadm_mail_usage(void)
 
 void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
 {
-	fprintf(stderr, "doveadm %s %s\n", cmd->name,
+	fprintf(stderr, "doveadm %s <user>|-a %s\n", cmd->name,
 		cmd->usage_args == NULL ? "" : cmd->usage_args);
 	exit(0);
 }
@@ -290,11 +295,24 @@ static struct doveadm_mail_cmd mail_commands[] = {
 
 void doveadm_mail_init(void)
 {
+	struct module_dir_load_settings mod_set;
 	unsigned int i;
 
 	i_array_init(&doveadm_mail_cmds, 32);
 	for (i = 0; i < N_ELEMENTS(mail_commands); i++)
 		doveadm_mail_register_cmd(&mail_commands[i]);
+
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.require_init_funcs = TRUE;
+	mod_set.debug = doveadm_debug;
+
+	/* load all configured mail plugins */
+	mail_storage_service_modules =
+		module_dir_load_missing(mail_storage_service_modules,
+					doveadm_settings->mail_plugin_dir,
+					doveadm_settings->mail_plugins,
+					&mod_set);
 }
 
 void doveadm_mail_deinit(void)

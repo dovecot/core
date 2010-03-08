@@ -2,8 +2,11 @@
 
 #include "lib.h"
 #include "array.h"
+#include "module-dir.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "doveadm-mail.h"
+#include "doveadm-settings.h"
 #include "doveadm.h"
 
 #include <stdio.h>
@@ -13,6 +16,7 @@
 
 bool doveadm_verbose = FALSE, doveadm_debug = FALSE;
 
+static struct module *modules = NULL;
 static ARRAY_DEFINE(doveadm_cmds, struct doveadm_cmd);
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd)
@@ -83,9 +87,31 @@ static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
 	return FALSE;
 }
 
+static void doveadm_load_modules(void)
+{
+	struct module_dir_load_settings mod_set;
+
+	/* some doveadm plugins have dependencies to mail plugins. we can load
+	   only those whose dependencies have been loaded earlier, the rest are
+	   ignored. */
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.require_init_funcs = TRUE;
+	mod_set.debug = doveadm_debug;
+	mod_set.ignore_dlopen_errors = TRUE;
+
+	modules = module_dir_load_missing(modules, DOVEADM_MODULEDIR,
+					  NULL, &mod_set);
+	module_dir_init(modules);
+}
+
 int main(int argc, char *argv[])
 {
-	const char *cmd_name;
+	const struct setting_parser_info *set_roots[] = {
+		&doveadm_setting_parser_info,
+		NULL
+	};
+	const char *cmd_name, *error;
 	int c;
 
 	/* "+" is GNU extension to stop at the first non-option.
@@ -93,16 +119,6 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("doveadm",
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     &argc, &argv, "+Dv");
-	i_array_init(&doveadm_cmds, 32);
-	doveadm_mail_init();
-	doveadm_register_cmd(&doveadm_cmd_help);
-	doveadm_register_cmd(&doveadm_cmd_auth);
-	doveadm_register_cmd(&doveadm_cmd_user);
-	doveadm_register_cmd(&doveadm_cmd_dump);
-	doveadm_register_cmd(&doveadm_cmd_pw);
-	doveadm_register_cmd(&doveadm_cmd_who);
-	doveadm_register_cmd(&doveadm_cmd_penalty);
-
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
@@ -116,6 +132,23 @@ int main(int argc, char *argv[])
 			return FATAL_DEFAULT;
 		}
 	}
+
+	if (master_service_settings_read_simple(master_service, set_roots,
+						&error) < 0)
+		i_fatal("Error reading configuration: %s", error);
+	doveadm_settings = master_service_settings_get_others(master_service)[0];
+
+	i_array_init(&doveadm_cmds, 32);
+	doveadm_register_cmd(&doveadm_cmd_help);
+	doveadm_register_cmd(&doveadm_cmd_auth);
+	doveadm_register_cmd(&doveadm_cmd_user);
+	doveadm_register_cmd(&doveadm_cmd_dump);
+	doveadm_register_cmd(&doveadm_cmd_pw);
+	doveadm_register_cmd(&doveadm_cmd_who);
+	doveadm_register_cmd(&doveadm_cmd_penalty);
+	doveadm_mail_init();
+	doveadm_load_modules();
+
 	if (optind == argc)
 		usage();
 
@@ -129,8 +162,9 @@ int main(int argc, char *argv[])
 	    !doveadm_mail_try_run(cmd_name, argc, argv))
 		usage();
 
-	master_service_deinit(&master_service);
 	doveadm_mail_deinit();
+	module_dir_unload(&modules);
 	array_free(&doveadm_cmds);
+	master_service_deinit(&master_service);
 	return 0;
 }
