@@ -2,8 +2,10 @@
 #define QUOTA_PLUGIN_H
 
 #include "module-context.h"
+#include "mail-user.h"
 
 struct module;
+struct mailbox;
 
 #define QUOTA_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, quota_user_module)

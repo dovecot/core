@@ -1,3 +1,5 @@
+doveadm_moduledir = $(moduledir)/doveadm
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-dict \
@@ -5,7 +7,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
-	-I$(top_srcdir)/src/lib-storage/index/maildir
+	-I$(top_srcdir)/src/lib-storage/index/maildir \
+	-I$(top_srcdir)/src/doveadm
 
 lib10_quota_plugin_la_LDFLAGS = -module -avoid-version
 
@@ -24,6 +27,12 @@ quota_dist_sources = \
 
 lib10_quota_plugin_la_SOURCES = $(quota_dist_sources)
 nodist_lib10_quota_plugin_la_SOURCES = $(RQUOTA_XDR)
+
+doveadm_module_LTLIBRARIES = \
+	lib10_doveadm_quota_plugin.la
+
+lib10_doveadm_quota_plugin_la_SOURCES = \
+	doveadm-quota.c
 
 if HAVE_RQUOTA
 RQUOTA_XDR = rquota_xdr.c
