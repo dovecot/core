@@ -677,6 +677,10 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 	struct stat st;
 
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (path == NULL) {
+		/* shouldn't happen with anything except shared mailboxes */
+		return 0;
+	}
 	fname = strrchr(path, '/');
 	if (fname == NULL) {
 		fname = path;
