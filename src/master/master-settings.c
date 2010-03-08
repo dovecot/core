@@ -271,8 +271,10 @@ static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
 	array_foreach(l, sets) {
 		struct inet_listener_settings *set = *sets;
 
-		str = t_strdup_printf("%d:%s", set->port, set->address);
-		array_append(all_listeners, &str, 1);
+		if (set->port != 0) {
+			str = t_strdup_printf("%d:%s", set->port, set->address);
+			array_append(all_listeners, &str, 1);
+		}
 	}
 }
 

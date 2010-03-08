@@ -101,6 +101,8 @@ service_create_one_inet_listener(struct service *service,
 {
 	struct service_listener *l;
 
+	i_assert(set->port != 0);
+
 	l = p_new(service->list->pool, struct service_listener, 1);
 	l->service = service;
 	l->type = SERVICE_LISTENER_INET;
@@ -111,10 +113,6 @@ service_create_one_inet_listener(struct service *service,
 	if (resolve_ip(address, &l->set.inetset.ip, error_r) < 0)
 		return NULL;
 
-	if (set->port == 0) {
-		*error_r = "Port not given";
-		return NULL;
-	}
 	if (set->port > 65535) {
 		*error_r = t_strdup_printf("Invalid port: %u", set->port);
 		return NULL;
