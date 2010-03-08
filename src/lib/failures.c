@@ -160,6 +160,7 @@ default_fatal_finish(enum log_type type, int status)
 			i_error("Raw backtrace: %s", backtrace);
 	}
 
+	sleep(3600*24);
 	if (type == LOG_TYPE_PANIC)
 		abort();
 	else
@@ -597,6 +598,8 @@ i_internal_error_handler(enum log_type type, const char *fmt, va_list args)
 {
 	if (internal_handler(type, fmt, args) < 0)
 		failure_exit(FATAL_LOGERROR);
+	if (type == LOG_TYPE_ERROR)
+		sleep(3600*24);
 }
 
 void i_set_failure_internal(void)

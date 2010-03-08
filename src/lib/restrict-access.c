@@ -70,10 +70,13 @@ static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
 		}
 
 		if (setgid(primary_gid) != 0) {
-			i_fatal("setgid(%s) failed with euid=%s, "
-				"gid=%s, egid=%s: %m",
+			i_fatal("setgid(%s) failed with "
+				"euid=%s, gid=%s, egid=%s: %m "
+				"(This binary should probably be called with "
+				"process group set to %s instead of %s)",
 				get_gid_str(primary_gid), get_uid_str(geteuid()),
-				get_gid_str(getgid()), get_gid_str(getegid()));
+				get_gid_str(getgid()), get_gid_str(getegid()),
+				get_gid_str(primary_gid), get_uid_str(geteuid()));
 		}
 		return;
 	}
@@ -291,7 +294,10 @@ void restrict_access(const struct restrict_access_settings *set,
 	/* uid last */
 	if (set->uid != (uid_t)-1) {
 		if (setuid(set->uid) != 0) {
-			i_fatal("setuid(%s) failed with euid=%s: %m",
+			i_fatal("setuid(%s) failed with euid=%s: %m "
+				"(This binary should probably be called with "
+				"process user set to %s instead of %s)",
+				get_uid_str(set->uid), get_uid_str(geteuid()),
 				get_uid_str(set->uid), get_uid_str(geteuid()));
 		}
 	}
