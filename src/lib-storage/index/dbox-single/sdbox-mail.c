@@ -32,6 +32,8 @@ static bool sdbox_mail_file_set(struct dbox_mail *mail)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)_mail->box;
+	bool deleted;
+	int ret;
 
 	if (mail->open_file != NULL) {
 		/* already set */
@@ -45,6 +47,10 @@ static bool sdbox_mail_file_set(struct dbox_mail *mail)
 			sdbox_save_file_get_file(_mail->transaction,
 						 _mail->seq);
 		mail->open_file->refcount++;
+
+		/* it doesn't have input stream yet */
+		ret = dbox_file_open(mail->open_file, &deleted);
+		i_assert(ret > 0);
 		return TRUE;
 	}
 }
