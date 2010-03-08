@@ -32,6 +32,7 @@ common = \
 	config-filter.c \
 	config-parser.c \
 	config-request.c \
+	old-set-parser.c \
 	sysinfo-get.c
 
 config_SOURCES = \
@@ -47,7 +48,9 @@ noinst_HEADERS = \
 	config-connection.h \
 	config-filter.h \
 	config-parser.h \
+	config-parser-private.h \
 	config-request.h \
+	old-set-parser.h \
 	sysinfo-get.h
 
 all-settings.c: $(SETTING_FILES) $(top_srcdir)/src/config/settings-get.pl
