@@ -26,7 +26,7 @@ struct zlib_istream {
 
 	z_stream zs;
 	uoff_t eof_offset;
-	size_t prev_size;
+	size_t prev_size, high_pos;
 	uint32_t crc32;
 
 	unsigned int gz:1;
@@ -170,6 +170,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	if (zstream->eof_offset == high_offset) {
+		i_assert(zstream->high_pos == 0);
 		if (!zstream->trailer_read) {
 			do {
 				ret = i_stream_zlib_read_trailer(zstream);
@@ -182,6 +183,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	}
 
 	if (!zstream->header_read) {
+		i_assert(zstream->high_pos == 0);
 		do {
 			ret = i_stream_zlib_read_header(stream);
 		} while (ret == 0 && stream->istream.blocking);
@@ -190,6 +192,21 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		zstream->header_read = TRUE;
 		zstream->prev_size = 0;
 	}
+
+	if (stream->pos < zstream->high_pos) {
+		/* we're here because we seeked back within the read buffer. */
+		ret = zstream->high_pos - stream->pos;
+		stream->pos = zstream->high_pos;
+		zstream->high_pos = 0;
+		if (zstream->trailer_read) {
+			high_offset = stream->istream.v_offset +
+				(stream->pos - stream->skip);
+			i_assert(zstream->eof_offset == high_offset);
+			stream->istream.eof = TRUE;
+		}
+		return ret;
+	}
+	zstream->high_pos = 0;
 
 	if (stream->pos + CHUNK_SIZE > stream->buffer_size) {
 		/* try to keep at least CHUNK_SIZE available */
@@ -317,7 +334,7 @@ static void i_stream_zlib_reset(struct zlib_istream *zstream)
 {
 	struct istream_private *stream = &zstream->istream;
 
-	i_stream_seek(stream->parent, 0);
+	i_stream_seek(stream->parent, stream->parent_start_offset);
 	zstream->eof_offset = (uoff_t)-1;
 	zstream->crc32 = 0;
 
@@ -326,6 +343,8 @@ static void i_stream_zlib_reset(struct zlib_istream *zstream)
 
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
+	zstream->high_pos = 0;
+	zstream->prev_size = 0;
 
 	(void)inflateEnd(&zstream->zs);
 	i_stream_zlib_init(zstream);
@@ -341,12 +360,17 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		/* have to seek backwards */
 		i_stream_zlib_reset(zstream);
 		start_offset = 0;
+	} else if (zstream->high_pos != 0) {
+		stream->pos = zstream->high_pos;
+		zstream->high_pos = 0;
 	}
 
 	if (v_offset <= start_offset + stream->pos) {
 		/* seeking backwards within what's already cached */
 		stream->skip = v_offset - start_offset;
 		stream->istream.v_offset = v_offset;
+		zstream->high_pos = stream->pos;
+		stream->pos = stream->skip;
 	} else {
 		/* read and cache forward */
 		do {

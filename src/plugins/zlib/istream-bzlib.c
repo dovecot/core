@@ -15,7 +15,7 @@ struct bzlib_istream {
 
 	bz_stream zs;
 	uoff_t eof_offset;
-	size_t prev_size;
+	size_t prev_size, high_pos;
 
 	unsigned int log_errors:1;
 	unsigned int marked:1;
@@ -50,9 +50,26 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	if (zstream->eof_offset == high_offset) {
+		i_assert(zstream->high_pos == 0);
 		stream->istream.eof = TRUE;
 		return -1;
 	}
+
+	if (stream->pos < zstream->high_pos) {
+		/* we're here because we seeked back within the read buffer. */
+		ret = zstream->high_pos - stream->pos;
+		stream->pos = zstream->high_pos;
+		zstream->high_pos = 0;
+
+		if (zstream->eof_offset != (uoff_t)-1) {
+			high_offset = stream->istream.v_offset +
+				(stream->pos - stream->skip);
+			i_assert(zstream->eof_offset == high_offset);
+			stream->istream.eof = TRUE;
+		}
+		return ret;
+	}
+	zstream->high_pos = 0;
 
 	if (stream->pos + CHUNK_SIZE > stream->buffer_size) {
 		/* try to keep at least CHUNK_SIZE available */
@@ -110,7 +127,7 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 	zstream->zs.avail_out = size;
 	ret = BZ2_bzDecompress(&zstream->zs);
 
-	size -= zstream->zs.avail_in;
+	size -= zstream->zs.avail_out;
 	stream->pos += size;
 
 	switch (ret) {
@@ -173,13 +190,15 @@ static void i_stream_bzlib_reset(struct bzlib_istream *zstream)
 {
 	struct istream_private *stream = &zstream->istream;
 
-	i_stream_seek(stream->parent, 0);
+	i_stream_seek(stream->parent, stream->parent_start_offset);
 	zstream->eof_offset = (uoff_t)-1;
 	zstream->zs.next_in = NULL;
 	zstream->zs.avail_in = 0;
 
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
+	zstream->high_pos = 0;
+	zstream->prev_size = 0;
 
 	(void)BZ2_bzDecompressEnd(&zstream->zs);
 	i_stream_bzlib_init(zstream);
@@ -195,12 +214,17 @@ i_stream_bzlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		/* have to seek backwards */
 		i_stream_bzlib_reset(zstream);
 		start_offset = 0;
+	} else if (zstream->high_pos != 0) {
+		stream->pos = zstream->high_pos;
+		zstream->high_pos = 0;
 	}
 
 	if (v_offset <= start_offset + stream->pos) {
 		/* seeking backwards within what's already cached */
 		stream->skip = v_offset - start_offset;
 		stream->istream.v_offset = v_offset;
+		zstream->high_pos = stream->pos;
+		stream->pos = stream->skip;
 	} else {
 		/* read and cache forward */
 		do {
