@@ -68,7 +68,8 @@ static void dbox_mail_set_expunged(struct dbox_mail *mail, uint32_t map_uid)
 	}
 
 	dbox_map_set_corrupted(mbox->storage->map,
-			       "Unexpectedly lost uid=%u map_uid=%u",
+			       "Unexpectedly lost %s uid=%u map_uid=%u",
+			       mailbox_get_vname(_mail->box),
 			       _mail->uid, map_uid);
 	mbox->storage->storage.files_corrupted = TRUE;
 }
