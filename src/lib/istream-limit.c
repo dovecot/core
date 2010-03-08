@@ -29,25 +29,45 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	uoff_t left;
 	ssize_t ret;
+	size_t pos;
 
-	i_assert(stream->istream.v_offset +
-		 (stream->pos - stream->skip) <= lstream->v_size);
-	left = lstream->v_size -
-		(stream->istream.v_offset + (stream->pos - stream->skip));
-	if (left == 0) {
+	if (stream->istream.v_offset +
+	    (stream->pos - stream->skip) >= lstream->v_size) {
 		stream->istream.eof = TRUE;
 		return -1;
 	}
 
-	i_stream_skip(stream->parent, stream->skip);
-	ret = i_stream_read_copy_from_parent(&stream->istream);
-	i_assert(stream->skip == 0);
-	if (ret >= (off_t)left) {
-		stream->pos -= ret - left;
-		ret = left;
-		stream->istream.eof = TRUE;
+	i_stream_seek(stream->parent, lstream->istream.parent_start_offset +
+		      stream->istream.v_offset);
+
+	stream->pos -= stream->skip;
+	stream->skip = 0;
+
+	stream->buffer = i_stream_get_data(stream->parent, &pos);
+	if (pos > stream->pos)
+		ret = 0;
+	else do {
+		if ((ret = i_stream_read(stream->parent)) == -2)
+			return -2;
+
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		stream->istream.eof = stream->parent->eof;
+		stream->buffer = i_stream_get_data(stream->parent, &pos);
+	} while (pos <= stream->pos && ret > 0);
+
+	if (lstream->v_size != (uoff_t)-1) {
+		left = lstream->v_size - stream->istream.v_offset;
+		if (pos >= left) {
+			pos = left;
+			stream->istream.eof = TRUE;
+		}
 	}
-	i_assert(stream->istream.v_offset + stream->pos <= lstream->v_size);
+
+	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
+		(ret == 0 ? 0 : -1);
+	stream->pos = pos;
+	i_assert(ret != -1 || stream->istream.eof ||
+		 stream->istream.stream_errno != 0);
 	return ret;
 }
 
@@ -58,7 +78,6 @@ static void i_stream_limit_seek(struct istream_private *stream, uoff_t v_offset,
 
 	i_assert(v_offset <= lstream->v_size);
 
-	i_stream_seek(stream->parent, stream->parent_start_offset + v_offset);
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 }
