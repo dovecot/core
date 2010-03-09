@@ -186,7 +186,7 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 	if (strcmp(cmd, "ENABLE") == 0)
 		return cmd_enable(client);
 
-	return -1;
+	return -2;
 }
 
 static bool client_handle_input(struct imap_client *client)
@@ -258,7 +258,12 @@ static bool client_handle_input(struct imap_client *client)
 		ret = client_command_execute(client, client->cmd_name, args);
 
 	client->cmd_finished = TRUE;
-	if (ret < 0) {
+	if (ret == -2 && strcasecmp(client->cmd_tag, "LOGIN") == 0) {
+		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+			"First parameter in line is IMAP's command tag, "
+			"not the command name. Add that before the command, "
+			"like: a login user pass");
+	} else if (ret < 0) {
 		if (*client->cmd_tag == '\0')
 			client->cmd_tag = "*";
 		if (++client->common.bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
@@ -267,7 +272,7 @@ static bool client_handle_input(struct imap_client *client)
 			client_destroy(&client->common,
 				"Disconnected: Too many invalid commands");
 			return FALSE;
-		}  
+		}
 		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
 			"Error in IMAP command received by server.");
 	}
