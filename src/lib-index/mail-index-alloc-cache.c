@@ -144,6 +144,7 @@ mail_index_alloc_cache_get(const char *mailbox_path,
 static void destroy_unrefed(bool all)
 {
 	struct mail_index_alloc_cache_list **list, *rec;
+	bool seen_ref0 = FALSE;
 
 	for (list = &indexes; *list != NULL;) {
 		rec = *list;
@@ -153,11 +154,13 @@ static void destroy_unrefed(bool all)
 			*list = rec->next;
 			mail_index_alloc_cache_list_free(rec);
 		} else {
+			if (rec->refcount == 0)
+				seen_ref0 = TRUE;
 			list = &(*list)->next;
 		}
 	}
 
-	if (indexes == NULL && to_index != NULL)
+	if (!seen_ref0 && to_index != NULL)
 		timeout_remove(&to_index);
 }
 
@@ -214,6 +217,8 @@ void mail_index_alloc_cache_index_opened(struct mail_index *index)
 			list->index_dir_ino = st.st_ino;
 			list->index_dir_dev = st.st_dev;
 		}
+	}
+	if (list != NULL) {
 		/* keep it referenced for ourself */
 		index->open_count++;
 	}
