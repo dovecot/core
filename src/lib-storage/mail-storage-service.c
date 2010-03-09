@@ -133,7 +133,7 @@ user_reply_handle(struct mail_storage_service_user *user,
 	}
 
 	str = array_get(&reply->extra_fields, &count);
-	for (i = 0; i < count && ret == 0; i++) {
+	for (i = 0; i < count && ret >= 0; i++) {
 		line = str[i];
 		if (strncmp(line, "system_groups_user=", 19) == 0) {
 			user->system_groups_user =
