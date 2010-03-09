@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "ioloop.h"
 #include "mkdir-parents.h"
 #include "mail-index-modseq.h"
 #include "mail-index-alloc-cache.h"
