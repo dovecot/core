@@ -98,6 +98,17 @@ static bool validate_chroot(const struct mail_user_settings *user_set,
 	return FALSE;
 }
 
+static bool
+mail_user_set_get_mail_debug(const struct setting_parser_info *user_info,
+			     const struct mail_user_settings *user_set)
+{
+	const struct mail_storage_settings *mail_set;
+
+	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
+						MAIL_STORAGE_SET_DRIVER_NAME);
+	return mail_set->mail_debug;
+}
+
 static int
 user_reply_handle(struct mail_storage_service_user *user,
 		  const struct auth_user_reply *reply,
@@ -106,8 +117,11 @@ user_reply_handle(struct mail_storage_service_user *user,
 	struct setting_parser_context *set_parser = user->set_parser;
 	const char *const *str, *p, *line, *key;
 	unsigned int i, count;
+	bool mail_debug;
 	int ret = 0;
 
+	mail_debug = mail_user_set_get_mail_debug(user->user_info,
+						  user->user_set);
 	if (reply->uid != (uid_t)-1) {
 		if (reply->uid == 0) {
 			*error_r = "userdb returned 0 as uid";
@@ -160,6 +174,11 @@ user_reply_handle(struct mail_storage_service_user *user,
 			}
 
 			ret = settings_parse_line(set_parser, line);
+			if (mail_debug && ret >= 0) {
+				i_debug(ret == 0 ?
+					"Unknown userdb setting: %s" :
+					"Added userdb setting: %s", line);
+			}
 		} T_END;
 	}
 
@@ -672,15 +691,11 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 				const struct setting_parser_info *user_info,
 				const struct mail_user_settings *user_set)
 {
-	const struct mail_storage_settings *mail_set;
 	enum auth_master_flags flags = 0;
 
 	i_assert(ctx->conn == NULL);
 
-	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
-						MAIL_STORAGE_SET_DRIVER_NAME);
-	ctx->debug = mail_set->mail_debug;
-
+	ctx->debug = mail_user_set_get_mail_debug(user_info, user_set);
 	if (ctx->debug)
 		flags |= AUTH_MASTER_FLAG_DEBUG;
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT) != 0)
@@ -696,7 +711,6 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 				  const struct setting_parser_info *user_info,
 				  const struct mail_user_settings *user_set)
 {
-	const struct mail_storage_settings *mail_set;
 	struct module_dir_load_settings mod_set;
 
 	if (*user_set->mail_plugins == '\0')
@@ -704,13 +718,10 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0)
 		return;
 
-	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
-						MAIL_STORAGE_SET_DRIVER_NAME);
-
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.version = master_service_get_version_string(ctx->service);
 	mod_set.require_init_funcs = TRUE;
-	mod_set.debug = mail_set->mail_debug;
+	mod_set.debug = mail_user_set_get_mail_debug(user_info, user_set);
 
 	mail_storage_service_modules =
 		module_dir_load_missing(mail_storage_service_modules,
