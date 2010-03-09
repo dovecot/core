@@ -195,6 +195,16 @@ config_apply_auth_set(struct config_parser_context *ctx,
 		t_strdup_printf("service/auth/%s=%s", key,value), NULL);
 }
 
+static bool listen_has_port(const char *str)
+{
+	const char *p;
+
+	if ((p = strchr(str, ':')) == NULL)
+		return FALSE;
+
+	return !is_ipv6_address(str);
+}
+
 static bool
 old_settings_handle_proto(struct config_parser_context *ctx,
 			  const char *key, const char *value)
@@ -210,14 +220,14 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 
 	if (strcmp(key, "ssl_listen") == 0 ||
 	    (strcmp(key, "listen") == 0 &&
-	     (strstr(value, ":") != NULL || !root))) {
+	     (listen_has_port(value) || !root))) {
 		const char *ssl = strcmp(key, "ssl_listen") == 0 ? "s" : "";
 
 		if (*value == '\0') {
 			/* default */
 			return TRUE;
 		}
-		p = strstr(value, ":");
+		p = strchr(value, ':');
 		if (p != NULL) {
 			obsolete(ctx, "%s=..:port has been replaced by service { inet_listener { port } }", key);
 			value = t_strdup_until(value, p++);
