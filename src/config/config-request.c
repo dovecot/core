@@ -162,6 +162,30 @@ bool config_export_type(string_t *str, const void *value,
 }
 
 static void
+setting_export_section_name(string_t *str, const struct setting_define *def,
+			    const void *set, unsigned int idx)
+{
+	const char *const *name;
+	size_t name_offset;
+
+	if (def->type != SET_DEFLIST_UNIQUE) {
+		/* not unique, use the index */
+		str_printfa(str, "%u", idx);
+		return;
+	}
+	name_offset = def->list_info->type_offset;
+	i_assert(name_offset != (size_t)-1);
+
+	name = CONST_PTR_OFFSET(set, name_offset);
+	if (*name == NULL || **name == '\0') {
+		/* no name, this one isn't unique. use the index. */
+		str_printfa(str, "%u", idx);
+	} else {
+		str_append(str, settings_section_escape(*name));
+	}
+}
+
+static void
 settings_export(struct config_export_context *ctx,
 		const struct setting_parser_info *info,
 		bool parent_unique_deflist,
@@ -235,7 +259,7 @@ settings_export(struct config_export_context *ctx,
 			for (i = 0; i < count; i++) {
 				if (i > 0)
 					str_append_c(ctx->value, ' ');
-				str_printfa(ctx->value, "%u", i);
+				setting_export_section_name(ctx->value, def, children[i], i);
 			}
 			change_children = array_get(change_val, &count2);
 			i_assert(count == count2);
@@ -299,7 +323,7 @@ settings_export(struct config_export_context *ctx,
 		for (i = 0; i < count; i++) {
 			str_append(ctx->prefix, def->key);
 			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
-			str_printfa(ctx->prefix, "%u", i);
+			setting_export_section_name(ctx->prefix, def, children[i], i);
 			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
 			settings_export(ctx, def->list_info,
 					def->type == SET_DEFLIST_UNIQUE,
