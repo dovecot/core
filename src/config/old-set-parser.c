@@ -197,12 +197,17 @@ config_apply_auth_set(struct config_parser_context *ctx,
 
 static bool listen_has_port(const char *str)
 {
-	const char *p;
+	const char *p, *const *addrs;
 
 	if ((p = strchr(str, ':')) == NULL)
 		return FALSE;
 
-	return !is_ipv6_address(str);
+	addrs = t_strsplit_spaces(str, ", ");
+	for (; *addrs != NULL; addrs++) {
+		if (!is_ipv6_address(str))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 static bool
