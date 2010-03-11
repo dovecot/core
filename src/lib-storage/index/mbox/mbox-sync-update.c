@@ -96,7 +96,7 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 
 		/* see if this is unknown flag for us */
 		for (i = 0; flags_list[i].chr != 0; i++) {
-			if (flags_list[i].chr == data[pos])
+			if (flags_list[i].chr == (char)data[pos])
 				break;
 		}
 

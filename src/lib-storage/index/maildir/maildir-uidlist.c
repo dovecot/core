@@ -1080,7 +1080,7 @@ maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 	p = rec->extensions;
 	while (*p != '\0') {
 		/* <key><value>\0 */
-		if (*p == (char)key)
+		if (*p == (unsigned char)key)
 			return (const char *)p + 1;
 
 		p += strlen((const char *)p) + 1;
@@ -1176,7 +1176,7 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 		while (*p != '\0') {
 			/* <key><value>\0 */
 			len = strlen((const char *)p) + 1;
-			if (*p != (char)key)
+			if (*p != (unsigned char)key)
 				buffer_append(buf, p, len);
 			p += len;
 		}

@@ -39,7 +39,7 @@ static void test_istream_concat_one(unsigned int buffer_size)
 			test_assert(size == buffer_size);
 		}
 		for (j = 0; j < size; j++) {
-			test_assert(data[j] == input_string[(input->v_offset + j) % STREAM_BYTES]);
+			test_assert((char)data[j] == input_string[(input->v_offset + j) % STREAM_BYTES]);
 		}
 	}
 	i_stream_unref(&input);

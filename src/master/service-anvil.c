@@ -72,7 +72,7 @@ static int anvil_send_handshake(int fd, const char **error_r)
 		return -1;
 	}
 	/* this is a pipe, it either wrote all of it or nothing */
-	i_assert(ret == strlen(ANVIL_HANDSHAKE));
+	i_assert((size_t)ret == strlen(ANVIL_HANDSHAKE));
 	return 0;
 }
 
