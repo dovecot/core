@@ -426,9 +426,6 @@ list_file_is_inbox(struct fs_list_iterate_context *ctx, const char *fname)
 {
 	const char *real_path, *inbox_path;
 
-	if ((ctx->ctx.list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0)
-		return FALSE;
-
 	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
 	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
 					   MAILBOX_LIST_PATH_TYPE_DIR);
