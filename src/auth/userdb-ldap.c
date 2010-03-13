@@ -193,7 +193,7 @@ userdb_ldap_iterate_init(struct userdb_module *userdb,
 	request = &ctx->request;
 	request->ctx = ctx;
 
-	request->request.request.auth_request = auth_request_new_dummy(NULL);
+	request->request.request.auth_request = auth_request_new_dummy();
 	request->request.base = conn->set.base;
 	request->request.filter = conn->set.iterate_filter;
 	request->request.attributes = conn->iterate_attr_names;

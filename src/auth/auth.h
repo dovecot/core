@@ -21,6 +21,7 @@ struct auth_userdb {
 
 struct auth {
 	pool_t pool;
+	const char *service;
 	const struct auth_settings *set;
 
 	const struct mechanisms_register *reg;
@@ -29,9 +30,19 @@ struct auth {
 	struct auth_userdb *userdbs;
 };
 
+extern struct auth_penalty *auth_penalty;
+
 struct auth *
-auth_preinit(struct auth_settings *set, const struct mechanisms_register *reg);
+auth_preinit(const struct auth_settings *set, const char *service,
+	     const struct mechanisms_register *mech_reg);
 void auth_init(struct auth *auth);
 void auth_deinit(struct auth **auth);
+
+struct auth *auth_find_service(const char *name);
+
+void auths_preinit(const struct auth_settings *set,
+		   const struct mechanisms_register *reg);
+void auths_init(void);
+void auths_deinit(void);
 
 #endif

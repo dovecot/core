@@ -302,8 +302,7 @@ auth_penalty_callback(unsigned int penalty, struct auth_request *request)
 	}
 }
 
-bool auth_request_handler_auth_begin(struct auth *auth,
-				     struct auth_request_handler *handler,
+bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				     const char *args)
 {
 	const struct mech_module *mech;
@@ -332,7 +331,7 @@ bool auth_request_handler_auth_begin(struct auth *auth,
 		return FALSE;
 	}
 
-	request = auth_request_new(auth, mech, auth_callback, handler);
+	request = auth_request_new(mech, auth_callback, handler);
 	request->handler = handler;
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;
@@ -375,12 +374,13 @@ bool auth_request_handler_auth_begin(struct auth *auth,
 		auth_request_unref(&request);
 		return FALSE;
 	}
+	auth_request_init(request);
 
 	request->to_abort = timeout_add(AUTH_REQUEST_TIMEOUT * 1000,
 					auth_request_timeout, request);
 	hash_table_insert(handler->requests, POINTER_CAST(id), request);
 
-	if (request->auth->set->ssl_require_client_cert &&
+	if (request->set->ssl_require_client_cert &&
 	    !request->valid_client_cert) {
 		/* we fail without valid certificate */
                 auth_request_handler_auth_fail(handler, request,
@@ -579,7 +579,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 
 		/* FIXME: assumess that failure_delay is always the same. */
 		diff = ioloop_time - auth_request->last_access;
-		if (diff < (time_t)auth_request->auth->set->failure_delay &&
+		if (diff < (time_t)auth_request->set->failure_delay &&
 		    !flush_all)
 			break;
 

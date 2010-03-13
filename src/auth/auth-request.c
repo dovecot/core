@@ -30,20 +30,18 @@ static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 			   const char *subsystem);
 
 struct auth_request *
-auth_request_new(struct auth *auth, const struct mech_module *mech,
+auth_request_new(const struct mech_module *mech,
 		 mech_callback_t *callback, void *context)
 {
 	struct auth_request *request;
 
 	request = mech->auth_new();
 	request->state = AUTH_REQUEST_STATE_NEW;
-	request->passdb = auth->passdbs;
-	request->userdb = auth->userdbs;
 
 	request->refcount = 1;
 	request->last_access = ioloop_time;
 
-	request->auth = auth;
+	request->set = global_auth_settings;
 	request->mech = mech;
 	request->mech_name = mech == NULL ? NULL : mech->mech_name;
 	request->callback = callback;
@@ -51,7 +49,7 @@ auth_request_new(struct auth *auth, const struct mech_module *mech,
 	return request;
 }
 
-struct auth_request *auth_request_new_dummy(struct auth *auth)
+struct auth_request *auth_request_new_dummy(void)
 {
 	struct auth_request *auth_request;
 	pool_t pool;
@@ -62,16 +60,24 @@ struct auth_request *auth_request_new_dummy(struct auth *auth)
 
 	auth_request->refcount = 1;
 	auth_request->last_access = ioloop_time;
-
-	if (auth == NULL) {
-		auth = p_new(pool, struct auth, 1);
-		auth->set = global_auth_settings;
-	}
-	auth_request->auth = auth;
-	auth_request->passdb = auth->passdbs;
-	auth_request->userdb = auth->userdbs;
+	auth_request->set = global_auth_settings;
 
 	return auth_request;
+}
+
+void auth_request_init(struct auth_request *request)
+{
+	struct auth *auth;
+
+	auth = auth_request_get_auth(request);
+	request->set = auth->set;
+	request->passdb = auth->passdbs;
+	request->userdb = auth->userdbs;
+}
+
+struct auth *auth_request_get_auth(struct auth_request *request)
+{
+	return auth_find_service(request->service);
 }
 
 void auth_request_success(struct auth_request *request,
@@ -181,7 +187,7 @@ bool auth_request_import(struct auth_request *request,
 	else if (strcmp(key, "original_username") == 0)
 		request->original_username = p_strdup(request->pool, value);
 	else if (strcmp(key, "cert_username") == 0) {
-		if (request->auth->set->ssl_username_from_cert) {
+		if (request->set->ssl_username_from_cert) {
 			/* get username from SSL certificate. it overrides
 			   the username given by the auth mechanism. */
 			request->user = p_strdup(request->pool, value);
@@ -347,7 +353,7 @@ static bool auth_request_master_lookup_finish(struct auth_request *request)
 
 	/* the authentication continues with passdb lookup for the
 	   requested_login_user. */
-	request->passdb = request->auth->passdbs;
+	request->passdb = auth_request_get_auth(request)->passdbs;
 	return FALSE;
 }
 
@@ -543,7 +549,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 			request->credentials_scheme,
                 	request->private_callback.lookup_credentials);
 	} else {
-		if (request->auth->set->debug_passwords &&
+		if (request->set->debug_passwords &&
 		    result == PASSDB_RESULT_OK) {
 			auth_request_log_debug(request, "password",
 				"Credentials: %s",
@@ -724,10 +730,10 @@ void auth_request_userdb_callback(enum userdb_result result,
 		   request->client_pid != 0) {
 		/* this was an actual login attempt, the user should
 		   have been found. */
-		if (request->auth->userdbs->next == NULL) {
+		if (auth_request_get_auth(request)->userdbs->next == NULL) {
 			auth_request_log_error(request, "userdb",
 				"user not found from userdb %s",
-				request->auth->userdbs->userdb->iface->name);
+				request->userdb->userdb->iface->name);
 		} else {
 			auth_request_log_error(request, "userdb",
 				"user not found from any userdbs");
@@ -787,7 +793,7 @@ static char *
 auth_request_fix_username(struct auth_request *request, const char *username,
                           const char **error_r)
 {
-	const struct auth_settings *set = request->auth->set;
+	const struct auth_settings *set = request->set;
 	unsigned char *p;
 	char *user;
 
@@ -835,7 +841,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r)
 {
-	const struct auth_settings *set = request->auth->set;
+	const struct auth_settings *set = request->set;
 	const char *p, *login_username = NULL;
 
 	if (*set->master_user_separator != '\0' && !request->userdb_lookup) {
@@ -905,7 +911,7 @@ bool auth_request_set_login_username(struct auth_request *request,
 	}
 
         /* lookup request->user from masterdb first */
-        request->passdb = request->auth->masterdbs;
+        request->passdb = auth_request_get_auth(request)->masterdbs;
 
         request->requested_login_user =
                 auth_request_fix_username(request, username, error_r);
@@ -1326,7 +1332,7 @@ void auth_request_log_password_mismatch(struct auth_request *request,
 					const char *subsystem)
 {
 	string_t *str;
-	const char *log_type = request->auth->set->verbose_passwords;
+	const char *log_type = request->set->verbose_passwords;
 
 	if (strcmp(log_type, "no") == 0) {
 		auth_request_log_info(request, subsystem, "Password mismatch");
@@ -1401,7 +1407,7 @@ int auth_request_password_verify(struct auth_request *request,
 	i_assert(ret >= 0);
 	if (ret == 0) {
 		auth_request_log_password_mismatch(request, subsystem);
-		if (request->auth->set->debug_passwords) T_BEGIN {
+		if (request->set->debug_passwords) T_BEGIN {
 			log_password_failure(request, plain_password,
 					     crypted_password, scheme,
 					     request->original_username,
@@ -1532,7 +1538,7 @@ void auth_request_log_debug(struct auth_request *auth_request,
 {
 	va_list va;
 
-	if (!auth_request->auth->set->debug)
+	if (!auth_request->set->debug)
 		return;
 
 	va_start(va, format);
@@ -1548,7 +1554,7 @@ void auth_request_log_info(struct auth_request *auth_request,
 {
 	va_list va;
 
-	if (!auth_request->auth->set->verbose)
+	if (!auth_request->set->verbose)
 		return;
 
 	va_start(va, format);

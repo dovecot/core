@@ -122,7 +122,7 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 		return -1;
 	}
 
-	auth_request = auth_request_new_dummy(conn->auth);
+	auth_request = auth_request_new_dummy();
 	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
 	auth_request->context = conn;
 	auth_master_connection_ref(conn);
@@ -151,6 +151,8 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 		auth_request_unref(&auth_request);
 		return -1;
 	}
+
+	auth_request_init(auth_request);
 	*request_r = auth_request;
 	return 1;
 }

@@ -14,7 +14,7 @@ passdb_cache_log_hit(struct auth_request *request, const char *value)
 {
 	const char *p;
 
-	if (!request->auth->set->debug_passwords &&
+	if (!request->set->debug_passwords &&
 	    *value != '\0' && *value != '\t') {
 		/* hide the password */
 		p = strchr(value, '\t');

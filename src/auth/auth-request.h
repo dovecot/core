@@ -56,7 +56,7 @@ struct auth_request {
 
 	const struct mech_module *mech;
 	struct auth_request_handler *handler;
-	struct auth *auth;
+	const struct auth_settings *set;
         struct auth_passdb *passdb;
         struct auth_userdb *userdb;
 
@@ -111,9 +111,12 @@ struct auth_request {
 };
 
 struct auth_request *
-auth_request_new(struct auth *auth, const struct mech_module *mech,
+auth_request_new(const struct mech_module *mech,
 		 mech_callback_t *callback, void *context);
-struct auth_request *auth_request_new_dummy(struct auth *auth);
+struct auth_request *auth_request_new_dummy(void);
+void auth_request_init(struct auth_request *request);
+struct auth *auth_request_get_auth(struct auth_request *request);
+
 void auth_request_ref(struct auth_request *request);
 void auth_request_unref(struct auth_request **request);
 

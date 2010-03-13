@@ -174,8 +174,7 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 				conn->auth->set->debug_passwords ? line :
 				auth_line_hide_pass(line));
 		}
-		return auth_request_handler_auth_begin(conn->auth,
-						       conn->request_handler,
+		return auth_request_handler_auth_begin(conn->request_handler,
 						       line + 5);
 	}
 	if (strncmp(line, "CONT\t", 5) == 0) {

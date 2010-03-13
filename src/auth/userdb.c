@@ -10,6 +10,7 @@
 #include <grp.h>
 
 static ARRAY_DEFINE(userdb_interfaces, struct userdb_module_interface *);
+static ARRAY_DEFINE(userdb_modules, struct userdb_module *);
 
 static struct userdb_module_interface *userdb_interface_find(const char *name)
 {
@@ -106,12 +107,30 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	return gr->gr_gid;
 }
 
+static struct userdb_module *
+userdb_find(const char *driver, const char *args, unsigned int *idx_r)
+{
+	struct userdb_module *const *userdbs;
+	unsigned int i, count;
+
+	userdbs = array_get(&userdb_modules, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(userdbs[i]->iface->name, driver) == 0 &&
+		    strcmp(userdbs[i]->args, args) == 0) {
+			*idx_r = i;
+			return userdbs[i];
+		}
+	}
+	return NULL;
+}
+
 struct userdb_module *
 userdb_preinit(pool_t pool, const char *driver, const char *args)
 {
 	static unsigned int auth_userdb_id = 0;
 	struct userdb_module_interface *iface;
 	struct userdb_module *userdb;
+	unsigned int idx;
 
 	iface = userdb_interface_find(driver);
 	if (iface == NULL)
@@ -120,9 +139,12 @@ userdb_preinit(pool_t pool, const char *driver, const char *args)
 		i_fatal("Support not compiled in for userdb driver '%s'",
 			driver);
 	}
-
 	if (iface->preinit == NULL && iface->init == NULL && *args != '\0')
 		i_fatal("userdb %s: No args are supported: %s", driver, args);
+
+	userdb = userdb_find(driver, args, &idx);
+	if (userdb != NULL)
+		return userdb;
 
 	if (iface->preinit == NULL)
 		userdb = p_new(pool, struct userdb_module, 1);
@@ -131,20 +153,30 @@ userdb_preinit(pool_t pool, const char *driver, const char *args)
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
 	userdb->args = p_strdup(pool, args);
+	array_append(&userdb_modules, &userdb, 1);
 	return userdb;
 }
 
 void userdb_init(struct userdb_module *userdb)
 {
-	if (userdb->iface->init != NULL && !userdb->initialized) {
-		userdb->initialized = TRUE;
+	if (userdb->iface->init != NULL && userdb->init_refcount == 0)
 		userdb->iface->init(userdb);
-	}
+	userdb->init_refcount++;
 }
 
 void userdb_deinit(struct userdb_module *userdb)
 {
-	i_assert(userdb->initialized);
+	unsigned int idx;
+
+	i_assert(userdb->init_refcount > 0);
+
+	if (--userdb->init_refcount > 0)
+		return;
+
+	if (userdb_find(userdb->iface->name, userdb->args, &idx) == NULL)
+		i_unreached();
+	array_delete(&userdb_modules, idx, 1);
+
 	if (userdb->iface->deinit != NULL)
 		userdb->iface->deinit(userdb);
 }
@@ -162,6 +194,7 @@ extern struct userdb_module_interface userdb_checkpassword;
 void userdbs_init(void)
 {
 	i_array_init(&userdb_interfaces, 16);
+	i_array_init(&userdb_modules, 16);
 	userdb_register_module(&userdb_passwd);
 	userdb_register_module(&userdb_passwd_file);
 	userdb_register_module(&userdb_prefetch);
@@ -175,5 +208,6 @@ void userdbs_init(void)
 
 void userdbs_deinit(void)
 {
+	array_free(&userdb_modules);
 	array_free(&userdb_interfaces);
 }

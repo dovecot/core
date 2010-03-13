@@ -62,10 +62,10 @@ struct passdb_module {
         /* id is used by blocking passdb to identify the passdb */
 	unsigned int id;
 
-	struct passdb_module_interface iface;
+	/* number of time init() has been called */
+	int init_refcount;
 
-	/* init() has been called */
-	unsigned int initialized:1;
+	struct passdb_module_interface iface;
 };
 
 /* Try to get credentials in wanted scheme (request->credentials_scheme) from

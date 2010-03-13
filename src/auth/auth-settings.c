@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "settings-parser.h"
+#include "master-service.h"
 #include "master-service-settings.h"
 #include "service-settings.h"
 #include "auth-settings.h"
@@ -305,19 +306,25 @@ auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 struct auth_settings *global_auth_settings;
 
-struct auth_settings *
-auth_settings_read(struct master_service *service)
+struct auth_settings *auth_settings_read(const char *service)
 {
 	static const struct setting_parser_info *set_roots[] = {
 		&auth_setting_parser_info,
 		NULL
 	};
+ 	struct master_service_settings_input input;
+	struct master_service_settings_output output;
 	const char *error;
 	void **sets;
 
-	if (master_service_settings_read_simple(service, set_roots, &error) < 0)
+	memset(&input, 0, sizeof(input));
+	input.roots = set_roots;
+	input.module = "auth";
+	input.service = service;
+	if (master_service_settings_read(master_service, &input,
+					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	sets = master_service_settings_get_others(service);
+	sets = master_service_settings_get_others(master_service);
 	return sets[0];
 }

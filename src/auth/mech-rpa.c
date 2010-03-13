@@ -329,7 +329,7 @@ rpa_add_realm(string_t *realms, const char *realm, const char *service)
 static const unsigned char *
 mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 {
-	struct auth *auth = request->auth_request.auth;
+	const struct auth_settings *set = request->auth_request.set;
 	unsigned int realms_len, length;
 	string_t *realms;
 	buffer_t *buf;
@@ -337,13 +337,13 @@ mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 	const char *const *tmp;
 
 	realms = t_str_new(64);
-	for (tmp = auth->set->realms_arr; *tmp != NULL; tmp++) {
+	for (tmp = set->realms_arr; *tmp != NULL; tmp++) {
 		rpa_add_realm(realms, *tmp, request->auth_request.service);
 	}
 
 	if (str_len(realms) == 0) {
-		rpa_add_realm(realms, *auth->set->default_realm != '\0' ?
-			      auth->set->default_realm : my_hostname,
+		rpa_add_realm(realms, *set->default_realm != '\0' ?
+			      set->default_realm : my_hostname,
 			      request->auth_request.service);
 	}
 

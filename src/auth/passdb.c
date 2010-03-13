@@ -9,6 +9,7 @@
 #include <stdlib.h>
 
 static ARRAY_DEFINE(passdb_interfaces, struct passdb_module_interface *);
+static ARRAY_DEFINE(passdb_modules, struct passdb_module *);
 
 static struct passdb_module_interface *passdb_interface_find(const char *name)
 {
@@ -94,7 +95,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			const char *error = t_strdup_printf(
 				"Requested %s scheme, but we have only %s",
 				wanted_scheme, input_scheme);
-			if (auth_request->auth->set->debug_passwords) {
+			if (auth_request->set->debug_passwords) {
 				error = t_strdup_printf("%s (input: %s)",
 							error, input);
 			}
@@ -112,7 +113,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			username = t_strconcat(username, "@",
 					       auth_request->realm, NULL);
 		}
-		if (auth_request->auth->set->debug_passwords) {
+		if (auth_request->set->debug_passwords) {
 			auth_request_log_debug(auth_request, "password",
 				"Generating %s from user '%s', password '%s'",
 				wanted_scheme, username, plaintext);
@@ -154,12 +155,30 @@ void passdb_handle_credentials(enum passdb_result result,
 	callback(result, credentials, size, auth_request);
 }
 
+static struct passdb_module *
+passdb_find(const char *driver, const char *args, unsigned int *idx_r)
+{
+	struct passdb_module *const *passdbs;
+	unsigned int i, count;
+
+	passdbs = array_get(&passdb_modules, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(passdbs[i]->iface.name, driver) == 0 &&
+		    strcmp(passdbs[i]->args, args) == 0) {
+			*idx_r = i;
+			return passdbs[i];
+		}
+	}
+	return NULL;
+}
+
 struct passdb_module *
 passdb_preinit(pool_t pool, const char *driver, const char *args)
 {
 	static unsigned int auth_passdb_id = 0;
 	struct passdb_module_interface *iface;
 	struct passdb_module *passdb;
+	unsigned int idx;
 
 	iface = passdb_interface_find(driver);
 	if (iface == NULL)
@@ -168,9 +187,12 @@ passdb_preinit(pool_t pool, const char *driver, const char *args)
 		i_fatal("Support not compiled in for passdb driver '%s'",
 			driver);
 	}
-
 	if (iface->preinit == NULL && iface->init == NULL && *args != '\0')
 		i_fatal("passdb %s: No args are supported: %s", driver, args);
+
+	passdb = passdb_find(driver, args, &idx);
+	if (passdb != NULL)
+		return passdb;
 
 	if (iface->preinit == NULL)
 		passdb = p_new(pool, struct passdb_module, 1);
@@ -179,15 +201,15 @@ passdb_preinit(pool_t pool, const char *driver, const char *args)
 	passdb->id = ++auth_passdb_id;
 	passdb->iface = *iface;
 	passdb->args = p_strdup(pool, args);
+	array_append(&passdb_modules, &passdb, 1);
 	return passdb;
 }
 
 void passdb_init(struct passdb_module *passdb)
 {
-	if (passdb->iface.init != NULL && !passdb->initialized) {
-		passdb->initialized = TRUE;
+	if (passdb->iface.init != NULL && passdb->init_refcount == 0)
 		passdb->iface.init(passdb);
-	}
+	passdb->init_refcount++;
 
 	i_assert(passdb->default_pass_scheme != NULL ||
 		 passdb->cache_key == NULL);
@@ -195,7 +217,16 @@ void passdb_init(struct passdb_module *passdb)
 
 void passdb_deinit(struct passdb_module *passdb)
 {
-	i_assert(passdb->initialized);
+	unsigned int idx;
+
+	i_assert(passdb->init_refcount > 0);
+
+	if (--passdb->init_refcount > 0)
+		return;
+
+	if (passdb_find(passdb->iface.name, passdb->args, &idx) == NULL)
+		i_unreached();
+	array_delete(&passdb_modules, idx, 1);
 
 	if (passdb->iface.deinit != NULL)
 		passdb->iface.deinit(passdb);
@@ -215,6 +246,7 @@ extern struct passdb_module_interface passdb_sia;
 void passdbs_init(void)
 {
 	i_array_init(&passdb_interfaces, 16);
+	i_array_init(&passdb_modules, 16);
 	passdb_register_module(&passdb_passwd);
 	passdb_register_module(&passdb_bsdauth);
 	passdb_register_module(&passdb_passwd_file);
@@ -229,5 +261,6 @@ void passdbs_init(void)
 
 void passdbs_deinit(void)
 {
+	array_free(&passdb_modules);
 	array_free(&passdb_interfaces);
 }

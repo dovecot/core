@@ -143,7 +143,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 		mech_gssapi_initialize(request->auth);
 	}
 
-	if (strcmp(request->auth->set->gssapi_hostname, "$ALL") == 0) {
+	if (strcmp(request->set->gssapi_hostname, "$ALL") == 0) {
 		auth_request_log_debug(request, "gssapi",
 				       "Using all keytab entries");
 		*ret_r = GSS_C_NO_CREDENTIAL;
@@ -161,7 +161,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 	principal_name = t_str_new(128);
 	str_append(principal_name, service_name);
 	str_append_c(principal_name, '@');
-	str_append(principal_name, request->auth->set->gssapi_hostname);
+	str_append(principal_name, request->set->gssapi_hostname);
 
 	auth_request_log_debug(request, "gssapi",
 		"Obtaining credentials for %s", str_c(principal_name));

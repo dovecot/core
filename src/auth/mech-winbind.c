@@ -96,7 +96,8 @@ static void sigchld_handler(const siginfo_t *si ATTR_UNUSED,
 }
 
 static void
-winbind_helper_connect(struct auth *auth, struct winbind_helper *winbind)
+winbind_helper_connect(const struct auth_settings *set,
+		       struct winbind_helper *winbind)
 {
 	int infd[2], outfd[2];
 	pid_t pid;
@@ -132,7 +133,7 @@ winbind_helper_connect(struct auth *auth, struct winbind_helper *winbind)
 		    dup2(infd[1], STDOUT_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
-		args[0] = auth->set->winbind_helper_path;
+		args[0] = set->winbind_helper_path;
 		args[1] = winbind->param;
 		args[2] = NULL;
 		execv(args[0], (void *)args);
@@ -284,7 +285,7 @@ mech_winbind_auth_initial(struct auth_request *auth_request,
 	struct winbind_auth_request *request =
 		(struct winbind_auth_request *)auth_request;
 
-	winbind_helper_connect(auth_request->auth, request->winbind);
+	winbind_helper_connect(auth_request->set, request->winbind);
 	mech_generic_auth_initial(auth_request, data, data_size);
 }
 

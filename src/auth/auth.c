@@ -20,6 +20,8 @@ struct auth_userdb_settings userdb_dummy_set = {
 	.args = ""
 };
 
+static ARRAY_DEFINE(auths, struct auth *);
+
 static void
 auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set)
 {
@@ -51,7 +53,8 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 }
 
 struct auth *
-auth_preinit(struct auth_settings *set, const struct mechanisms_register *reg)
+auth_preinit(const struct auth_settings *set, const char *service,
+	     const struct mechanisms_register *reg)
 {
 	struct auth_passdb_settings *const *passdbs;
 	struct auth_userdb_settings *const *userdbs;
@@ -62,6 +65,7 @@ auth_preinit(struct auth_settings *set, const struct mechanisms_register *reg)
 	pool = pool_alloconly_create("auth", 2048);
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
+	auth->service = p_strdup(pool, service);
 	auth->set = set;
 	auth->reg = reg;
 
@@ -226,4 +230,64 @@ void auth_deinit(struct auth **_auth)
 	passdb_cache_deinit();
 
 	pool_unref(&auth->pool);
+}
+
+struct auth *auth_find_service(const char *name)
+{
+	struct auth *const *a;
+	unsigned int i, count;
+
+	a = array_get(&auths, &count);
+	if (name != NULL) {
+		for (i = 1; i < count; i++) {
+			if (strcmp(a[i]->service, name) == 0)
+				return a[i];
+		}
+	}
+	return a[0];
+}
+
+void auths_preinit(const struct auth_settings *set,
+		   const struct mechanisms_register *reg)
+{
+	static const char *services[] = {
+		"imap", "pop3", "lda", "lmtp", "managesieve"
+	};
+	const struct auth_settings *service_set;
+	struct auth *auth;
+	unsigned int i;
+
+	i_array_init(&auths, 8);
+
+	auth = auth_preinit(set, NULL, reg);
+	array_append(&auths, &auth, 1);
+
+	/* FIXME: this is ugly.. the service names should be coming from
+	   the first config lookup */
+	for (i = 0; i < N_ELEMENTS(services); i++) {
+		service_set = auth_settings_read(services[i]);
+		auth = auth_preinit(service_set, services[i], reg);
+		array_append(&auths, &auth, 1);
+	}
+}
+
+void auths_init(void)
+{
+	struct auth *const *auth;
+
+	array_foreach(&auths, auth)
+		auth_init(*auth);
+}
+
+void auths_deinit(void)
+{
+	struct auth **auth;
+	unsigned int i, count;
+
+	/* deinit in reverse order, because modules have been allocated by
+	   the first auth pool that used them */
+	auth = array_get_modifiable(&auths, &count);
+	for (i = count; i > 0; i--)
+		auth_deinit(&auth[i-1]);
+	array_free(&auths);
 }

@@ -38,7 +38,6 @@ time_t process_start_time;
 struct auth_penalty *auth_penalty;
 
 static struct module *modules = NULL;
-static struct auth *auth;
 static struct mechanisms_register *mech_reg;
 static ARRAY_DEFINE(listen_fd_types, enum auth_socket_type);
 
@@ -66,10 +65,10 @@ static void main_preinit(void)
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
+	auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
-	auth = auth_preinit(global_auth_settings, mech_reg);
-	auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
+	auths_preinit(global_auth_settings, mech_reg);
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);
@@ -89,7 +88,7 @@ static void main_init(void)
 	child_wait_init();
 	password_schemes_init();
 	auth_worker_server_init();
-	auth_init(auth);
+	auths_init();
 	auth_request_handler_init();
 	auth_master_connections_init();
 	auth_client_connections_init();
@@ -112,8 +111,8 @@ static void main_deinit(void)
 	auth_master_connections_deinit();
         auth_worker_server_deinit();
 
-	mech_deinit(auth->set);
-	auth_deinit(&auth);
+	mech_deinit(global_auth_settings);
+	auths_deinit();
 	mech_register_deinit(&mech_reg);
 	auth_penalty_deinit(&auth_penalty);
 
@@ -137,13 +136,15 @@ static void worker_connected(const struct master_service_connection *conn)
 		(void)close(conn->fd);
 		return;
 	}
-	(void)auth_worker_client_create(auth, conn->fd);
+
+	(void)auth_worker_client_create(auth_find_service(NULL), conn->fd);
 }
 
 static void client_connected(const struct master_service_connection *conn)
 {
 	enum auth_socket_type *type;
 	const char *name, *suffix;
+	struct auth *auth;
 
 	type = array_idx_modifiable(&listen_fd_types, conn->listen_fd);
 	if (*type == AUTH_SOCKET_UNKNOWN) {
@@ -166,6 +167,7 @@ static void client_connected(const struct master_service_connection *conn)
 		}
 	}
 
+	auth = auth_find_service(NULL);
 	switch (*type) {
 	case AUTH_SOCKET_MASTER:
 		(void)auth_master_connection_create(auth, conn->fd, FALSE);
@@ -198,7 +200,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	global_auth_settings = auth_settings_read(master_service);
+	global_auth_settings = auth_settings_read(NULL);
 	main_preinit();
 
 	master_service_init_finish(master_service);

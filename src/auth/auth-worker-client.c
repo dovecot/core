@@ -57,7 +57,7 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 	struct auth_request *auth_request;
 	const char *key, *value, *const *tmp;
 
-	auth_request = auth_request_new_dummy(client->auth);
+	auth_request = auth_request_new_dummy();
 
 	client->refcount++;
 	auth_request->context = client;
@@ -76,6 +76,7 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 		}
 	}
 
+	auth_request_init(auth_request);
 	return auth_request;
 }
 
@@ -170,7 +171,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 
 	if (passdb == NULL) {
 		/* could be a masterdb */
-		passdb = auth_request->auth->masterdbs;
+		passdb = auth_request_get_auth(auth_request)->masterdbs;
 		while (passdb != NULL && passdb->passdb->id != passdb_id)
 			passdb = passdb->next;
 

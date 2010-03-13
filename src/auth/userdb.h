@@ -29,10 +29,10 @@ struct userdb_module {
         /* id is used by blocking userdb to identify the userdb */
 	unsigned int id;
 
-	const struct userdb_module_interface *iface;
+	/* number of time init() has been called */
+	int init_refcount;
 
-	/* init() has been called */
-	unsigned int initialized:1;
+	const struct userdb_module_interface *iface;
 };
 
 struct userdb_iterate_context {
