@@ -132,9 +132,11 @@ static bool driver_mysql_connect(struct mysql_connection *conn)
 	}
 
 	alarm(MYSQL_CONNECT_FAILURE_TIMEOUT);
+	/* CLIENT_MULTI_RESULTS allows the use of stored procedures */
 	failed = mysql_real_connect(conn->mysql, host, db->user, db->password,
 				    db->dbname, db->port, unix_socket,
-				    db->client_flags) == NULL;
+				    db->client_flags |
+				    CLIENT_MULTI_RESULTS) == NULL;
 	alarm(0);
 	if (failed) {
 		if (conn->connect_failure_count > 0) {
@@ -425,6 +427,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
 	struct mysql_result *result;
+	int ret;
 
 	result = i_new(struct mysql_result, 1);
 	result->api = driver_mysql_result;
@@ -438,9 +441,20 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 	case 1:
 		/* query ok */
 		result->result = mysql_store_result(conn->mysql);
-		if (result->result != NULL || mysql_errno(conn->mysql) == 0)
+
+		/* Because we've enabled CLIENT_MULTI_RESULTS, we need to read
+		   (ignore) extra results - there should not be any.
+		   ret is: -1 = done, >0 = error, 0 = more results. */
+		while ((ret = mysql_next_result(conn->mysql)) == 0) ;
+
+		if (ret < 0 &&
+		    (result->result != NULL || mysql_errno(conn->mysql) == 0))
 			break;
-		/* fallback */
+
+		/* failed */
+		if (result->result != NULL)
+			mysql_free_result(result->result);
+		/* fall through */
 	case -1:
 		/* error */
 		result->api = driver_mysql_error_result;
