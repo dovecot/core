@@ -191,8 +191,7 @@ passwd_file_preinit(pool_t pool, const char *args)
 	return &module->module;
 }
 
-static void passwd_file_init(struct userdb_module *_module,
-			     const char *args ATTR_UNUSED)
+static void passwd_file_init(struct userdb_module *_module)
 {
 	struct passwd_file_userdb_module *module =
 		(struct passwd_file_userdb_module *)_module;

@@ -414,8 +414,7 @@ passdb_ldap_preinit(pool_t pool, const char *args)
 	return &module->module;
 }
 
-static void passdb_ldap_init(struct passdb_module *_module,
-			     const char *args ATTR_UNUSED)
+static void passdb_ldap_init(struct passdb_module *_module)
 {
 	struct ldap_passdb_module *module =
 		(struct ldap_passdb_module *)_module;

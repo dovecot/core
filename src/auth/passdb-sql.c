@@ -239,8 +239,7 @@ passdb_sql_preinit(pool_t pool, const char *args)
 	return &module->module;
 }
 
-static void passdb_sql_init(struct passdb_module *_module,
-			    const char *args ATTR_UNUSED)
+static void passdb_sql_init(struct passdb_module *_module)
 {
 	struct sql_passdb_module *module =
 		(struct sql_passdb_module *)_module;

@@ -178,14 +178,15 @@ passdb_preinit(pool_t pool, const char *driver, const char *args)
 		passdb = iface->preinit(pool, args);
 	passdb->id = ++auth_passdb_id;
 	passdb->iface = *iface;
+	passdb->args = p_strdup(pool, args);
 	return passdb;
 }
 
-void passdb_init(struct passdb_module *passdb, const char *args)
+void passdb_init(struct passdb_module *passdb)
 {
 	if (passdb->iface.init != NULL && !passdb->initialized) {
 		passdb->initialized = TRUE;
-		passdb->iface.init(passdb, args);
+		passdb->iface.init(passdb);
 	}
 
 	i_assert(passdb->default_pass_scheme != NULL ||

@@ -19,6 +19,7 @@ typedef void userdb_callback_t(enum userdb_result result,
 typedef void userdb_iter_callback_t(const char *user, void *context);
 
 struct userdb_module {
+	const char *args;
 	/* The caching key for this module, or NULL if caching isn't wanted. */
 	const char *cache_key;
 
@@ -45,7 +46,7 @@ struct userdb_module_interface {
 	const char *name;
 
 	struct userdb_module *(*preinit)(pool_t pool, const char *args);
-	void (*init)(struct userdb_module *module, const char *args);
+	void (*init)(struct userdb_module *module);
 	void (*deinit)(struct userdb_module *module);
 
 	void (*lookup)(struct auth_request *auth_request,
@@ -64,7 +65,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str);
 
 struct userdb_module *
 userdb_preinit(pool_t pool, const char *driver, const char *args);
-void userdb_init(struct userdb_module *userdb, const char *args);
+void userdb_init(struct userdb_module *userdb);
 void userdb_deinit(struct userdb_module *userdb);
 
 void userdb_register_module(struct userdb_module_interface *iface);

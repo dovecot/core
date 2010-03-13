@@ -258,8 +258,7 @@ userdb_ldap_preinit(pool_t pool, const char *args)
 	return &module->module;
 }
 
-static void userdb_ldap_init(struct userdb_module *_module,
-			     const char *args ATTR_UNUSED)
+static void userdb_ldap_init(struct userdb_module *_module)
 {
 	struct ldap_userdb_module *module =
 		(struct ldap_userdb_module *)_module;

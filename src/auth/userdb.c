@@ -130,14 +130,15 @@ userdb_preinit(pool_t pool, const char *driver, const char *args)
 		userdb = iface->preinit(pool, args);
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
+	userdb->args = p_strdup(pool, args);
 	return userdb;
 }
 
-void userdb_init(struct userdb_module *userdb, const char *args)
+void userdb_init(struct userdb_module *userdb)
 {
 	if (userdb->iface->init != NULL && !userdb->initialized) {
 		userdb->initialized = TRUE;
-		userdb->iface->init(userdb, args);
+		userdb->iface->init(userdb);
 	}
 }
 

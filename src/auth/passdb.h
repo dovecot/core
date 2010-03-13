@@ -31,7 +31,7 @@ struct passdb_module_interface {
 	const char *name;
 
 	struct passdb_module *(*preinit)(pool_t pool, const char *args);
-	void (*init)(struct passdb_module *module, const char *args);
+	void (*init)(struct passdb_module *module);
 	void (*deinit)(struct passdb_module *module);
 
 	/* Check if plaintext password matches */
@@ -50,6 +50,7 @@ struct passdb_module_interface {
 };
 
 struct passdb_module {
+	const char *args;
 	/* The caching key for this module, or NULL if caching isn't wanted. */
 	const char *cache_key;
 	/* Default password scheme for this module.
@@ -86,7 +87,7 @@ void passdb_handle_credentials(enum passdb_result result,
 
 struct passdb_module *
 passdb_preinit(pool_t pool, const char *driver, const char *args);
-void passdb_init(struct passdb_module *passdb, const char *args);
+void passdb_init(struct passdb_module *passdb);
 void passdb_deinit(struct passdb_module *passdb);
 
 void passdb_register_module(struct passdb_module_interface *iface);
