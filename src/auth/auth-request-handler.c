@@ -173,7 +173,7 @@ auth_request_handle_failure(struct auth_request *request,
 	request->delayed_failure = TRUE;
 	handler->refcount++;
 
-	auth_penalty_update(request->auth->penalty, request,
+	auth_penalty_update(auth_penalty, request,
 			    request->last_penalty + 1);
 
 	auth_request_refresh_last_access(request);
@@ -211,7 +211,7 @@ static void auth_callback(struct auth_request *request,
 
 		if (request->last_penalty != 0) {
 			/* reset penalty */
-			auth_penalty_update(request->auth->penalty, request, 0);
+			auth_penalty_update(auth_penalty, request, 0);
 		}
 
 		auth_stream_reply_add(reply, "OK", NULL);
@@ -412,7 +412,7 @@ bool auth_request_handler_auth_begin(struct auth *auth,
 	handler->refcount++;
 
 	/* before we start authenticating, see if we need to wait first */
-	auth_penalty_lookup(request->auth->penalty, request,
+	auth_penalty_lookup(auth_penalty, request,
 			    auth_penalty_callback);
 	return TRUE;
 }

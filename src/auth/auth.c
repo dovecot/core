@@ -10,13 +10,10 @@
 #include "passdb.h"
 #include "passdb-cache.h"
 #include "auth.h"
-#include "auth-penalty.h"
 #include "auth-request-handler.h"
 
 #include <stdlib.h>
 #include <unistd.h>
-
-#define AUTH_PENALTY_ANVIL_PATH "anvil-auth-penalty"
 
 struct auth_userdb_settings userdb_dummy_set = {
 	.driver = "static",
@@ -78,7 +75,6 @@ struct auth *auth_preinit(struct auth_settings *set)
 		/* use a dummy userdb static. */
 		userdb_preinit(auth, &userdb_dummy_set);
 	}
-	auth->penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 	return auth;
 }
 
@@ -261,6 +257,5 @@ void auth_deinit(struct auth **_auth)
 	auth_request_handler_deinit();
 	passdb_cache_deinit();
 
-	auth_penalty_deinit(&auth->penalty);
 	pool_unref(&auth->pool);
 }

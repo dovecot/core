@@ -6,5 +6,6 @@
 
 extern bool worker, shutdown_request;
 extern time_t process_start_time;
+extern struct auth_penalty *auth_penalty;
 
 #endif

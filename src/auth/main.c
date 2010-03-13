@@ -15,6 +15,7 @@
 #include "password-scheme.h"
 #include "mech.h"
 #include "auth.h"
+#include "auth-penalty.h"
 #include "auth-request-handler.h"
 #include "auth-worker-server.h"
 #include "auth-worker-client.h"
@@ -22,6 +23,8 @@
 #include "auth-client-connection.h"
 
 #include <unistd.h>
+
+#define AUTH_PENALTY_ANVIL_PATH "anvil-auth-penalty"
 
 enum auth_socket_type {
 	AUTH_SOCKET_UNKNOWN = 0,
@@ -32,6 +35,7 @@ enum auth_socket_type {
 
 bool worker = FALSE, shutdown_request = FALSE;
 time_t process_start_time;
+struct auth_penalty *auth_penalty;
 
 static struct module *modules = NULL;
 static struct auth *auth;
@@ -62,6 +66,7 @@ static void main_preinit(void)
 	module_dir_init(modules);
 
 	auth = auth_preinit(global_auth_settings);
+	auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);
@@ -107,6 +112,7 @@ static void main_deinit(void)
 
 	mech_deinit(auth->set);
 	auth_deinit(&auth);
+	auth_penalty_deinit(&auth_penalty);
 
 	/* allow modules to unregister their dbs/drivers/etc. before freeing
 	   the whole data structures containing them. */

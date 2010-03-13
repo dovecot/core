@@ -39,7 +39,6 @@ struct auth {
 	struct auth_passdb *masterdbs;
 	struct auth_passdb *passdbs;
 	struct auth_userdb *userdbs;
-	struct auth_penalty *penalty;
 };
 
 const string_t *auth_mechanisms_get_list(struct auth *auth);
