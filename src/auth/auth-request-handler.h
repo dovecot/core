@@ -9,18 +9,17 @@ typedef void
 auth_request_callback_t(struct auth_stream_reply *reply, void *context);
 
 struct auth_request_handler *
-auth_request_handler_create(struct auth *auth,
-			    auth_request_callback_t *callback, void *context,
+auth_request_handler_create(auth_request_callback_t *callback, void *context,
 			    auth_request_callback_t *master_callback);
 #ifdef CONTEXT_TYPE_SAFETY
-#  define auth_request_handler_create(auth, callback, context, master_callback)\
+#  define auth_request_handler_create(callback, context, master_callback)\
 	({(void)(1 ? 0 : callback((struct auth_stream_reply *)NULL, context)); \
-	  auth_request_handler_create(auth, \
+	  auth_request_handler_create( \
 		(auth_request_callback_t *)callback, context, \
 		master_callback); })
 #else
-#  define auth_request_handler_create(auth, callback, context, master_callback)\
-	  auth_request_handler_create(auth, \
+#  define auth_request_handler_create(callback, context, master_callback)\
+	  auth_request_handler_create( \
 		(auth_request_callback_t *)callback, context, \
 		master_callback)
 #endif
@@ -30,7 +29,8 @@ void auth_request_handler_set(struct auth_request_handler *handler,
 			      unsigned int connect_uid,
 			      unsigned int client_pid);
 
-bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
+bool auth_request_handler_auth_begin(struct auth *auth,
+				     struct auth_request_handler *handler,
 				     const char *args);
 bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 					const char *args);

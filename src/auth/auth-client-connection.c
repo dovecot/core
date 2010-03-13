@@ -114,8 +114,8 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	/* handshake complete, we can now actually start serving requests */
         conn->refcount++;
 	conn->request_handler =
-		auth_request_handler_create(conn->auth,
-			auth_callback, conn, auth_master_request_callback);
+		auth_request_handler_create(auth_callback, conn,
+					    auth_master_request_callback);
 	auth_request_handler_set(conn->request_handler, conn->connect_uid, pid);
 
 	conn->pid = pid;
@@ -173,7 +173,8 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 				conn->auth->set->debug_passwords ? line :
 				auth_line_hide_pass(line));
 		}
-		return auth_request_handler_auth_begin(conn->request_handler,
+		return auth_request_handler_auth_begin(conn->auth,
+						       conn->request_handler,
 						       line + 5);
 	}
 	if (strncmp(line, "CONT\t", 5) == 0) {

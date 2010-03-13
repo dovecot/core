@@ -22,7 +22,6 @@ struct auth_request_handler {
 	pool_t pool;
 	struct hash_table *requests;
 
-        struct auth *auth;
         unsigned int connect_uid, client_pid;
 
 	auth_request_callback_t *callback;
@@ -39,8 +38,7 @@ static void auth_failure_timeout(void *context);
 
 #undef auth_request_handler_create
 struct auth_request_handler *
-auth_request_handler_create(struct auth *auth,
-			    auth_request_callback_t *callback, void *context,
+auth_request_handler_create(auth_request_callback_t *callback, void *context,
 			    auth_request_callback_t *master_callback)
 {
 	struct auth_request_handler *handler;
@@ -52,7 +50,6 @@ auth_request_handler_create(struct auth *auth,
 	handler->refcount = 1;
 	handler->pool = pool;
 	handler->requests = hash_table_create(default_pool, pool, 0, NULL, NULL);
-	handler->auth = auth;
 	handler->callback = callback;
 	handler->context = context;
 	handler->master_callback = master_callback;
@@ -305,7 +302,8 @@ auth_penalty_callback(unsigned int penalty, struct auth_request *request)
 	}
 }
 
-bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
+bool auth_request_handler_auth_begin(struct auth *auth,
+				     struct auth_request_handler *handler,
 				     const char *args)
 {
 	const struct mech_module *mech;
@@ -334,7 +332,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return FALSE;
 	}
 
-	request = auth_request_new(handler->auth, mech, auth_callback, handler);
+	request = auth_request_new(auth, mech, auth_callback, handler);
 	request->handler = handler;
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;
