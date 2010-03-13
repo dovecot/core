@@ -80,7 +80,7 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 	auth_stream_reply_add(reply, "PASSV", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->id));
+	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->passdb->id));
 	auth_stream_reply_add(reply, NULL, request->mech_password);
 	auth_request_export(request, reply);
 
@@ -122,7 +122,7 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 	auth_stream_reply_add(reply, "PASSL", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->id));
+	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->passdb->id));
 	auth_stream_reply_add(reply, NULL, request->credentials_scheme);
 	auth_request_export(request, reply);
 
@@ -150,7 +150,7 @@ void passdb_blocking_set_credentials(struct auth_request *request,
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 	auth_stream_reply_add(reply, "SETCRED", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->id));
+	auth_stream_reply_add(reply, NULL, dec2str(request->passdb->passdb->id));
 	auth_stream_reply_add(reply, NULL, new_credentials);
 	auth_request_export(request, reply);
 

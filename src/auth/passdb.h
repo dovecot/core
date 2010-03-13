@@ -61,6 +61,8 @@ struct passdb_module {
 	/* If blocking is set to TRUE, use child processes to access
 	   this passdb. */
 	bool blocking;
+        /* id is used by blocking passdb to identify the passdb */
+	unsigned int id;
 
 	struct passdb_module_interface iface;
 };

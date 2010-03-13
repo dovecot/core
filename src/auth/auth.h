@@ -9,23 +9,15 @@ struct auth_passdb {
 	pool_t pool;
 	struct auth_passdb *next;
 
-        /* id is used by blocking passdb to identify the passdb */
-	unsigned int id;
-	const char *args;
+	const struct auth_passdb_settings *set;
 	struct passdb_module *passdb;
-
-        /* if user is found from this passdb, deny authentication immediately */
-	unsigned int deny:1;
-	/* after a successful lookup, continue to next passdb */
-	unsigned int pass:1;
 };
 
 struct auth_userdb {
 	pool_t pool;
 	struct auth_userdb *next;
 
-	unsigned int num;
-	const char *args;
+	const struct auth_userdb_settings *set;
 	struct userdb_module *userdb;
 };
 

@@ -157,17 +157,15 @@ void passdb_handle_credentials(enum passdb_result result,
 struct auth_passdb *
 passdb_preinit(struct auth *auth, struct auth_passdb_settings *set)
 {
+	static unsigned int auth_passdb_id = 0;
 	struct passdb_module_interface *iface;
-        struct auth_passdb *auth_passdb, **dest;
+	struct auth_passdb *auth_passdb, **dest;
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
 	auth_passdb->pool = auth->pool;
-	auth_passdb->args = set->args == NULL ? "" :
-		p_strdup(auth->pool, set->args);
-	auth_passdb->deny = set->deny;
+	auth_passdb->set = set;
 
-	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next)
-		auth_passdb->id++;
+	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_passdb;
 
 	iface = passdb_interface_find(set->driver);
@@ -179,9 +177,9 @@ passdb_preinit(struct auth *auth, struct auth_passdb_settings *set)
 	}
 
 	if (iface->preinit == NULL && iface->init == NULL &&
-	    *auth_passdb->args != '\0') {
+	    *set->args != '\0') {
 		i_fatal("passdb %s: No args are supported: %s",
-			set->driver, auth_passdb->args);
+			set->driver, set->args);
 	}
 
 	if (iface->preinit == NULL) {
@@ -189,8 +187,9 @@ passdb_preinit(struct auth *auth, struct auth_passdb_settings *set)
 			p_new(auth->pool, struct passdb_module, 1);
 	} else {
 		auth_passdb->passdb =
-			iface->preinit(auth_passdb, auth_passdb->args);
+			iface->preinit(auth_passdb, set->args);
 	}
+	auth_passdb->passdb->id = ++auth_passdb_id;
 	auth_passdb->passdb->iface = *iface;
 	return auth_passdb;
 }
@@ -198,7 +197,7 @@ passdb_preinit(struct auth *auth, struct auth_passdb_settings *set)
 void passdb_init(struct auth_passdb *passdb)
 {
 	if (passdb->passdb->iface.init != NULL)
-		passdb->passdb->iface.init(passdb->passdb, passdb->args);
+		passdb->passdb->iface.init(passdb->passdb, passdb->set->args);
 
 	i_assert(passdb->passdb->default_pass_scheme != NULL ||
 		 passdb->passdb->cache_key == NULL);

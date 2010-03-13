@@ -108,16 +108,15 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 
 void userdb_preinit(struct auth *auth, struct auth_userdb_settings *set)
 {
+	static unsigned int auth_userdb_id = 0;
 	struct userdb_module_interface *iface;
         struct auth_userdb *auth_userdb, **dest;
 
 	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
 	auth_userdb->pool = auth->pool;
-	auth_userdb->args = set->args == NULL ? "" :
-		p_strdup(auth->pool, set->args);
+	auth_userdb->set = set;
 
-	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next)
-		auth_userdb->num++;
+	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_userdb;
 
 	iface = userdb_interface_find(set->driver);
@@ -129,9 +128,9 @@ void userdb_preinit(struct auth *auth, struct auth_userdb_settings *set)
 	}
 
 	if (iface->preinit == NULL && iface->init == NULL &&
-	    *auth_userdb->args != '\0') {
+	    *auth_userdb->set->args != '\0') {
 		i_fatal("userdb %s: No args are supported: %s",
-			set->driver, auth_userdb->args);
+			set->driver, auth_userdb->set->args);
 	}
 
 	if (iface->preinit == NULL) {
@@ -139,15 +138,16 @@ void userdb_preinit(struct auth *auth, struct auth_userdb_settings *set)
 			p_new(auth->pool, struct userdb_module, 1);
 	} else {
 		auth_userdb->userdb =
-			iface->preinit(auth_userdb, auth_userdb->args);
+			iface->preinit(auth_userdb, auth_userdb->set->args);
 	}
+	auth_userdb->userdb->id = ++auth_userdb_id;
 	auth_userdb->userdb->iface = iface;
 }
 
 void userdb_init(struct auth_userdb *userdb)
 {
 	if (userdb->userdb->iface->init != NULL)
-		userdb->userdb->iface->init(userdb->userdb, userdb->args);
+		userdb->userdb->iface->init(userdb->userdb, userdb->set->args);
 }
 
 void userdb_deinit(struct auth_userdb *userdb)

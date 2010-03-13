@@ -27,6 +27,8 @@ struct userdb_module {
 	/* If blocking is set to TRUE, use child processes to access
 	   this userdb. */
 	bool blocking;
+        /* id is used by blocking userdb to identify the userdb */
+	unsigned int id;
 
 	const struct userdb_module_interface *iface;
 };

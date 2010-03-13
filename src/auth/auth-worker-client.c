@@ -165,13 +165,13 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	}
 
 	passdb = auth_request->passdb;
-	while (passdb != NULL && passdb->id != passdb_id)
+	while (passdb != NULL && passdb->passdb->id != passdb_id)
 		passdb = passdb->next;
 
 	if (passdb == NULL) {
 		/* could be a masterdb */
 		passdb = auth_request->auth->masterdbs;
-		while (passdb != NULL && passdb->id != passdb_id)
+		while (passdb != NULL && passdb->passdb->id != passdb_id)
 			passdb = passdb->next;
 
 		if (passdb == NULL) {
@@ -264,7 +264,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 		return;
 	}
 
-	while (auth_request->passdb->id != passdb_id) {
+	while (auth_request->passdb->passdb->id != passdb_id) {
 		auth_request->passdb = auth_request->passdb->next;
 		if (auth_request->passdb == NULL) {
 			i_error("BUG: PASSL had invalid passdb ID");
@@ -328,7 +328,7 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 		return;
 	}
 
-	while (auth_request->passdb->id != passdb_id) {
+	while (auth_request->passdb->passdb->id != passdb_id) {
 		auth_request->passdb = auth_request->passdb->next;
 		if (auth_request->passdb == NULL) {
 			i_error("BUG: SETCRED had invalid passdb ID");

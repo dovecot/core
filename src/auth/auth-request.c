@@ -340,7 +340,7 @@ static bool auth_request_master_lookup_finish(struct auth_request *request)
 	request->skip_password_check = TRUE;
 	request->passdb_password = NULL;
 
-	if (!request->passdb->pass) {
+	if (!request->passdb->set->pass) {
 		/* skip the passdb lookup, we're authenticated now. */
 		return TRUE;
 	}
@@ -360,7 +360,8 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			    strlen(request->passdb_password));
 	}
 
-	if (request->passdb->deny && *result != PASSDB_RESULT_USER_UNKNOWN) {
+	if (request->passdb->set->deny &&
+	    *result != PASSDB_RESULT_USER_UNKNOWN) {
 		/* deny passdb. we can get through this step only if the
 		   lookup returned that user doesn't exist in it. internal
 		   errors are fatal here. */
@@ -376,7 +377,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			if (!auth_request_master_lookup_finish(request))
 				return FALSE;
 		} else {
-			if (request->passdb->pass) {
+			if (request->passdb->set->pass) {
 				/* this wasn't the final passdb lookup,
 				   continue to next passdb */
 				request->passdb = request->passdb->next;
@@ -1368,7 +1369,7 @@ int auth_request_password_verify(struct auth_request *request,
 		return 1;
 	}
 
-	if (request->passdb->deny) {
+	if (request->passdb->set->deny) {
 		/* this is a deny database, we don't care about the password */
 		return 0;
 	}
@@ -1473,10 +1474,10 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	}
 	if (auth_request->userdb_lookup) {
 		tab[9].value = auth_request->userdb == NULL ? "" :
-			dec2str(auth_request->userdb->num);
+			dec2str(auth_request->userdb->userdb->id);
 	} else {
 		tab[9].value = auth_request->passdb == NULL ? "" :
-			dec2str(auth_request->passdb->id);
+			dec2str(auth_request->passdb->passdb->id);
 	}
 	tab[10].value = auth_request->mech_name == NULL ? "" :
 		auth_request->mech_name;

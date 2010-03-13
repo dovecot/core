@@ -44,7 +44,7 @@ void userdb_blocking_lookup(struct auth_request *request)
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 	auth_stream_reply_add(reply, "USER", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(request->userdb->num));
+	auth_stream_reply_add(reply, NULL, dec2str(request->userdb->userdb->id));
 	auth_request_export(request, reply);
 
 	auth_request_ref(request);
@@ -79,7 +79,7 @@ userdb_blocking_iter_init(struct auth_userdb *userdb,
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 	auth_stream_reply_add(reply, "LIST", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(userdb->num));
+	auth_stream_reply_add(reply, NULL, dec2str(userdb->userdb->id));
 
 	pool = pool_alloconly_create("userdb iter", 512);
 	ctx = p_new(pool, struct blocking_userdb_iterate_context, 1);
