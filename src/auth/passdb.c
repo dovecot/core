@@ -161,7 +161,6 @@ void passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set)
 	struct auth_passdb *auth_passdb, **dest;
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
-	auth_passdb->pool = auth->pool;
 	auth_passdb->set = set;
 
 	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next) ;

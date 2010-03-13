@@ -113,7 +113,6 @@ void userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
         struct auth_userdb *auth_userdb, **dest;
 
 	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
-	auth_userdb->pool = auth->pool;
 	auth_userdb->set = set;
 
 	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next) ;

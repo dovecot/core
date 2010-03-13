@@ -6,7 +6,6 @@
 #define PASSWORD_HIDDEN_STR "<hidden>"
 
 struct auth_passdb {
-	pool_t pool;
 	struct auth_passdb *next;
 
 	const struct auth_passdb_settings *set;
@@ -14,7 +13,6 @@ struct auth_passdb {
 };
 
 struct auth_userdb {
-	pool_t pool;
 	struct auth_userdb *next;
 
 	const struct auth_userdb_settings *set;
