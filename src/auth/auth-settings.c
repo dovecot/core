@@ -247,7 +247,7 @@ static bool auth_settings_check(void *_set, pool_t pool,
 		memset(set->username_chars_map, 1,
 		       sizeof(set->username_chars_map));
 	} else {
-		for (p = set->username_chars_map; *p != '\0'; p++)
+		for (p = set->username_chars; *p != '\0'; p++)
 			set->username_chars_map[(int)(uint8_t)*p] = 1;
 	}
 
