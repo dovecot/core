@@ -106,52 +106,44 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	return gr->gr_gid;
 }
 
-void userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
+struct userdb_module *
+userdb_preinit(pool_t pool, const char *driver, const char *args)
 {
 	static unsigned int auth_userdb_id = 0;
 	struct userdb_module_interface *iface;
-        struct auth_userdb *auth_userdb, **dest;
+	struct userdb_module *userdb;
 
-	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
-	auth_userdb->set = set;
-
-	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next) ;
-	*dest = auth_userdb;
-
-	iface = userdb_interface_find(set->driver);
+	iface = userdb_interface_find(driver);
 	if (iface == NULL)
-		i_fatal("Unknown userdb driver '%s'", set->driver);
+		i_fatal("Unknown userdb driver '%s'", driver);
 	if (iface->lookup == NULL) {
 		i_fatal("Support not compiled in for userdb driver '%s'",
-			set->driver);
+			driver);
 	}
 
-	if (iface->preinit == NULL && iface->init == NULL &&
-	    *auth_userdb->set->args != '\0') {
-		i_fatal("userdb %s: No args are supported: %s",
-			set->driver, auth_userdb->set->args);
-	}
+	if (iface->preinit == NULL && iface->init == NULL && *args != '\0')
+		i_fatal("userdb %s: No args are supported: %s", driver, args);
 
-	if (iface->preinit == NULL) {
-		auth_userdb->userdb =
-			p_new(auth->pool, struct userdb_module, 1);
-	} else {
-		auth_userdb->userdb =
-			iface->preinit(auth->pool, auth_userdb->set->args);
-	}
-	auth_userdb->userdb->id = ++auth_userdb_id;
-	auth_userdb->userdb->iface = iface;
+	if (iface->preinit == NULL)
+		userdb = p_new(pool, struct userdb_module, 1);
+	else
+		userdb = iface->preinit(pool, args);
+	userdb->id = ++auth_userdb_id;
+	userdb->iface = iface;
+	return userdb;
 }
 
-void userdb_init(struct userdb_module *userdb,
-		 const struct auth_userdb_settings *set)
+void userdb_init(struct userdb_module *userdb, const char *args)
 {
-	if (userdb->iface->init != NULL)
-		userdb->iface->init(userdb, set->args);
+	if (userdb->iface->init != NULL && !userdb->initialized) {
+		userdb->initialized = TRUE;
+		userdb->iface->init(userdb, args);
+	}
 }
 
 void userdb_deinit(struct userdb_module *userdb)
 {
+	i_assert(userdb->initialized);
 	if (userdb->iface->deinit != NULL)
 		userdb->iface->deinit(userdb);
 }

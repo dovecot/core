@@ -154,48 +154,39 @@ void passdb_handle_credentials(enum passdb_result result,
 	callback(result, credentials, size, auth_request);
 }
 
-void passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set)
+struct passdb_module *
+passdb_preinit(pool_t pool, const char *driver, const char *args)
 {
 	static unsigned int auth_passdb_id = 0;
 	struct passdb_module_interface *iface;
-	struct auth_passdb *auth_passdb, **dest;
+	struct passdb_module *passdb;
 
-	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
-	auth_passdb->set = set;
-
-	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next) ;
-	*dest = auth_passdb;
-
-	iface = passdb_interface_find(set->driver);
+	iface = passdb_interface_find(driver);
 	if (iface == NULL)
-		i_fatal("Unknown passdb driver '%s'", set->driver);
+		i_fatal("Unknown passdb driver '%s'", driver);
 	if (iface->verify_plain == NULL) {
 		i_fatal("Support not compiled in for passdb driver '%s'",
-			set->driver);
+			driver);
 	}
 
-	if (iface->preinit == NULL && iface->init == NULL &&
-	    *set->args != '\0') {
-		i_fatal("passdb %s: No args are supported: %s",
-			set->driver, set->args);
-	}
+	if (iface->preinit == NULL && iface->init == NULL && *args != '\0')
+		i_fatal("passdb %s: No args are supported: %s", driver, args);
 
-	if (iface->preinit == NULL) {
-		auth_passdb->passdb =
-			p_new(auth->pool, struct passdb_module, 1);
-	} else {
-		auth_passdb->passdb =
-			iface->preinit(auth->pool, set->args);
-	}
-	auth_passdb->passdb->id = ++auth_passdb_id;
-	auth_passdb->passdb->iface = *iface;
+	if (iface->preinit == NULL)
+		passdb = p_new(pool, struct passdb_module, 1);
+	else
+		passdb = iface->preinit(pool, args);
+	passdb->id = ++auth_passdb_id;
+	passdb->iface = *iface;
+	return passdb;
 }
 
-void passdb_init(struct passdb_module *passdb,
-		 const struct auth_passdb_settings *set)
+void passdb_init(struct passdb_module *passdb, const char *args)
 {
-	if (passdb->iface.init != NULL)
-		passdb->iface.init(passdb, set->args);
+	if (passdb->iface.init != NULL && !passdb->initialized) {
+		passdb->initialized = TRUE;
+		passdb->iface.init(passdb, args);
+	}
 
 	i_assert(passdb->default_pass_scheme != NULL ||
 		 passdb->cache_key == NULL);
@@ -203,6 +194,8 @@ void passdb_init(struct passdb_module *passdb,
 
 void passdb_deinit(struct passdb_module *passdb)
 {
+	i_assert(passdb->initialized);
+
 	if (passdb->iface.deinit != NULL)
 		passdb->iface.deinit(passdb);
 }

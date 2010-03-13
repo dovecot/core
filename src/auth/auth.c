@@ -20,6 +20,36 @@ struct auth_userdb_settings userdb_dummy_set = {
 	.args = ""
 };
 
+static void
+auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set)
+{
+	struct auth_passdb *auth_passdb, **dest;
+
+	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
+	auth_passdb->set = set;
+
+	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next) ;
+	*dest = auth_passdb;
+
+	auth_passdb->passdb =
+		passdb_preinit(auth->pool, set->driver, set->args);
+}
+
+static void
+auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
+{
+        struct auth_userdb *auth_userdb, **dest;
+
+	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
+	auth_userdb->set = set;
+
+	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next) ;
+	*dest = auth_userdb;
+
+	auth_userdb->userdb =
+		userdb_preinit(auth->pool, set->driver, set->args);
+}
+
 struct auth *auth_preinit(struct auth_settings *set)
 {
 	struct auth_passdb_settings *const *passdbs;
@@ -45,7 +75,7 @@ struct auth *auth_preinit(struct auth_settings *set)
 		if (passdbs[i]->master)
 			continue;
 
-		passdb_preinit(auth, passdbs[i]);
+		auth_passdb_preinit(auth, passdbs[i]);
 		passdb_count++;
 		last_passdb = i;
 	}
@@ -62,18 +92,18 @@ struct auth *auth_preinit(struct auth_settings *set)
 			i_fatal("Master passdb can't have pass=yes "
 				"if there are no passdbs");
 		}
-		passdb_preinit(auth, passdbs[i]);
+		auth_passdb_preinit(auth, passdbs[i]);
 	}
 
 	if (array_is_created(&set->userdbs)) {
 		userdbs = array_get(&set->userdbs, &count);
 		for (i = 0; i < count; i++)
-			userdb_preinit(auth, userdbs[i]);
+			auth_userdb_preinit(auth, userdbs[i]);
 	}
 
 	if (auth->userdbs == NULL) {
 		/* use a dummy userdb static. */
-		userdb_preinit(auth, &userdb_dummy_set);
+		auth_userdb_preinit(auth, &userdb_dummy_set);
 	}
 	return auth;
 }
@@ -204,11 +234,12 @@ void auth_init(struct auth *auth)
 	const char *const *mechanisms;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
-		passdb_init(passdb->passdb, passdb->set);
+		passdb_init(passdb->passdb, passdb->set->args);
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
-		passdb_init(passdb->passdb, passdb->set);
+		passdb_init(passdb->passdb, passdb->set->args);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
-		userdb_init(userdb->userdb, userdb->set);
+		userdb_init(userdb->userdb, userdb->set->args);
+
 	/* caching is handled only by the main auth process */
 	if (!worker)
 		passdb_cache_init(auth->set);

@@ -5,7 +5,6 @@
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
 struct auth_request;
-struct auth_passdb_settings;
 
 enum passdb_result {
 	PASSDB_RESULT_INTERNAL_FAILURE = -1,
@@ -63,6 +62,9 @@ struct passdb_module {
 	unsigned int id;
 
 	struct passdb_module_interface iface;
+
+	/* init() has been called */
+	unsigned int initialized:1;
 };
 
 /* Try to get credentials in wanted scheme (request->credentials_scheme) from
@@ -82,9 +84,9 @@ void passdb_handle_credentials(enum passdb_result result,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);
 
-void passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set);
-void passdb_init(struct passdb_module *passdb,
-		 const struct auth_passdb_settings *set);
+struct passdb_module *
+passdb_preinit(pool_t pool, const char *driver, const char *args);
+void passdb_init(struct passdb_module *passdb, const char *args);
 void passdb_deinit(struct passdb_module *passdb);
 
 void passdb_register_module(struct passdb_module_interface *iface);
