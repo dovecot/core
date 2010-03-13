@@ -110,8 +110,9 @@ static int config_connection_request(struct config_connection *conn,
 
 	o_stream_cork(conn->output);
 
-	ctx = config_export_init(&filter, module, CONFIG_DUMP_SCOPE_SET, 0,
+	ctx = config_export_init(module, CONFIG_DUMP_SCOPE_SET, 0,
 				 config_request_output, conn->output);
+	config_export_by_filter(ctx, &filter);
 	config_export_get_output(ctx, &output);
 
 	if (output.service_uses_local)

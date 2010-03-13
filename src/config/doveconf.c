@@ -23,20 +23,26 @@ struct prefix_stack {
 };
 ARRAY_DEFINE_TYPE(prefix_stack, struct prefix_stack);
 
-struct config_request_get_string_ctx {
+struct config_dump_human_context {
 	pool_t pool;
+	string_t *list_prefix;
 	ARRAY_TYPE(const_string) strings;
 	ARRAY_TYPE(const_string) errors;
+	struct config_export_context *export_ctx;
+
+	unsigned int list_prefix_sent:1;
 };
 
 #define LIST_KEY_PREFIX "\001"
 #define UNIQUE_KEY_SUFFIX "\xff"
 
+static const char *indent_str = "                              !!!!";
+
 static void
 config_request_get_strings(const char *key, const char *value,
 			   enum config_key_type type, void *context)
 {
-	struct config_request_get_string_ctx *ctx = context;
+	struct config_dump_human_context *ctx = context;
 	const char *p;
 
 	switch (type) {
@@ -106,45 +112,64 @@ static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
 		s->str_pos = -1U;
 }
 
-static int config_connection_request_human(struct ostream *output,
-					   const struct config_filter *filter,
-					   const char *module,
-					   enum config_dump_scope scope)
+static struct config_dump_human_context *
+config_dump_human_init(const char *module, enum config_dump_scope scope,
+		       bool check_settings)
 {
-	static const char *indent_str = "               ";
+	struct config_dump_human_context *ctx;
+	enum config_dump_flags flags;
+	pool_t pool;
+
+	pool = pool_alloconly_create("config human strings", 10240);
+	ctx = p_new(pool, struct config_dump_human_context, 1);
+	ctx->pool = pool;
+	ctx->list_prefix = str_new(ctx->pool, 128);
+	i_array_init(&ctx->strings, 256);
+	i_array_init(&ctx->errors, 256);
+
+	flags = CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS |
+		CONFIG_DUMP_FLAG_CALLBACK_ERRORS;
+	if (check_settings)
+		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
+
+	ctx->export_ctx = config_export_init(module, scope, flags,
+					     config_request_get_strings, ctx);
+	return ctx;
+}
+
+static void config_dump_human_deinit(struct config_dump_human_context *ctx)
+{
+	array_free(&ctx->strings);
+	array_free(&ctx->errors);
+	pool_unref(&ctx->pool);
+}
+
+static int
+config_dump_human_output(struct config_dump_human_context *ctx,
+			 struct ostream *output, unsigned int indent)
+{
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
-	struct config_export_context *export_ctx;
 	struct prefix_stack prefix;
-	struct config_request_get_string_ctx ctx;
 	const char *const *strings, *const *args, *p, *str, *const *prefixes;
 	const char *key, *key2, *value;
 	unsigned int i, j, count, len, prefix_count, skip_len;
-	unsigned int indent = 0, prefix_idx = -1U;
-	string_t *list_prefix;
+	unsigned int prefix_idx = -1U;
 	bool unique_key;
 	int ret = 0;
 
-	ctx.pool = pool_alloconly_create("config human strings", 10240);
-	i_array_init(&ctx.strings, 256);
-	i_array_init(&ctx.errors, 256);
-	export_ctx = config_export_init(filter, module, scope,
-					CONFIG_DUMP_FLAG_CHECK_SETTINGS |
-					CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS |
-					CONFIG_DUMP_FLAG_CALLBACK_ERRORS,
-					config_request_get_strings, &ctx);
-	if (config_export_finish(&export_ctx) < 0)
+	if (config_export_finish(&ctx->export_ctx) < 0)
 		return -1;
 
-	array_sort(&ctx.strings, config_string_cmp);
-	strings = array_get(&ctx.strings, &count);
+	array_sort(&ctx->strings, config_string_cmp);
+	strings = array_get(&ctx->strings, &count);
 
-	p_array_init(&prefixes_arr, ctx.pool, 32);
+	p_array_init(&prefixes_arr, ctx->pool, 32);
 	for (i = 0; i < count && strings[i][0] == LIST_KEY_PREFIX[0]; i++) T_BEGIN {
 		p = strchr(strings[i], '=');
 		i_assert(p != NULL);
 		for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
-			str = p_strdup_printf(ctx.pool, "%s/%s/",
+			str = p_strdup_printf(ctx->pool, "%s/%s/",
 					      t_strcut(strings[i]+1, '='),
 					      *args);
 			array_append(&prefixes_arr, &str, 1);
@@ -152,8 +177,7 @@ static int config_connection_request_human(struct ostream *output,
 	} T_END;
 	prefixes = array_get(&prefixes_arr, &prefix_count);
 
-	list_prefix = str_new(ctx.pool, 128);
-	p_array_init(&prefix_stack, ctx.pool, 8);
+	p_array_init(&prefix_stack, ctx->pool, 8);
 	for (; i < count; i++) T_BEGIN {
 		value = strchr(strings[i], '=');
 		i_assert(value != NULL);
@@ -176,7 +200,7 @@ static int config_connection_request_human(struct ostream *output,
 				prefix = prefix_stack_pop(&prefix_stack);
 				indent--;
 				if (prefix.str_pos != -1U)
-					str_truncate(list_prefix, prefix.str_pos);
+					str_truncate(ctx->list_prefix, prefix.str_pos);
 				else {
 					o_stream_send(output, indent_str, indent*2);
 					o_stream_send_str(output, "}\n");
@@ -194,20 +218,20 @@ static int config_connection_request_human(struct ostream *output,
 				key2 = key + (prefix_idx == -1U ? 0 :
 					      strlen(prefixes[prefix_idx]));
 				prefix.str_pos = !unique_key ? -1U :
-					str_len(list_prefix);
+					str_len(ctx->list_prefix);
 				prefix_idx = j;
 				prefix.prefix_idx = prefix_idx;
 				array_append(&prefix_stack, &prefix, 1);
 
-				str_append_n(list_prefix, indent_str, indent*2);
+				str_append_n(ctx->list_prefix, indent_str, indent*2);
 				p = strchr(key2, '/');
 				if (p != NULL)
-					str_append_n(list_prefix, key2, p - key2);
+					str_append_n(ctx->list_prefix, key2, p - key2);
 				else
-					str_append(list_prefix, key2);
+					str_append(ctx->list_prefix, key2);
 				if (unique_key && *value != '\0')
-					str_printfa(list_prefix, " %s", value);
-				str_append(list_prefix, " {\n");
+					str_printfa(ctx->list_prefix, " %s", value);
+				str_append(ctx->list_prefix, " {\n");
 				indent++;
 
 				if (unique_key)
@@ -216,9 +240,10 @@ static int config_connection_request_human(struct ostream *output,
 					goto again;
 			}
 		}
-		o_stream_send(output, str_data(list_prefix), str_len(list_prefix));
-		str_truncate(list_prefix, 0);
+		o_stream_send(output, str_data(ctx->list_prefix), str_len(ctx->list_prefix));
+		str_truncate(ctx->list_prefix, 0);
 		prefix_stack_reset_str(&prefix_stack);
+		ctx->list_prefix_sent = TRUE;
 
 		skip_len = prefix_idx == -1U ? 0 : strlen(prefixes[prefix_idx]);
 		i_assert(skip_len == 0 ||
@@ -236,6 +261,8 @@ static int config_connection_request_human(struct ostream *output,
 
 	while (prefix_idx != -1U) {
 		prefix = prefix_stack_pop(&prefix_stack);
+		if (prefix.str_pos != -1U)
+			break;
 		prefix_idx = prefix.prefix_idx;
 		indent--;
 		o_stream_send(output, indent_str, indent*2);
@@ -244,14 +271,98 @@ static int config_connection_request_human(struct ostream *output,
 
 	/* flush output before writing errors */
 	o_stream_uncork(output);
-	array_foreach(&ctx.errors, strings) {
+	array_foreach(&ctx->errors, strings) {
 		i_error("%s", *strings);
 		ret = -1;
 	}
+	return ret;
+}
 
-	array_free(&ctx.strings);
-	array_free(&ctx.errors);
-	pool_unref(&ctx.pool);
+static unsigned int
+config_dump_filter_begin(string_t *str,
+			 const struct config_filter *filter)
+{
+	unsigned int indent = 0;
+
+	if (filter->local_bits > 0) {
+		str_append_n(str, indent_str, indent*2);
+		str_printfa(str, "local %s",
+			    filter->local_host != NULL ? filter->local_host :
+			    net_ip2addr(&filter->local_net));
+
+		if (IPADDR_IS_V4(&filter->local_net)) {
+			if (filter->local_bits != 32)
+				str_printfa(str, "/%u", filter->local_bits);
+		} else {
+			if (filter->local_bits != 128)
+				str_printfa(str, "/%u", filter->local_bits);
+		}
+		str_append(str, " {\n");
+		indent++;
+	}
+
+	if (filter->remote_bits > 0) {
+		str_append_n(str, indent_str, indent*2);
+		str_printfa(str, "remote %s",
+			    filter->remote_host != NULL ? filter->remote_host :
+			    net_ip2addr(&filter->remote_net));
+
+		if (IPADDR_IS_V4(&filter->remote_net)) {
+			if (filter->remote_bits != 32)
+				str_printfa(str, "/%u", filter->remote_bits);
+		} else {
+			if (filter->remote_bits != 128)
+				str_printfa(str, "/%u", filter->remote_bits);
+		}
+		str_append(str, " {\n");
+		indent++;
+	}
+	if (filter->service != NULL) {
+		str_append_n(str, indent_str, indent*2);
+		str_printfa(str, "protocol %s {\n", filter->service);
+		indent++;
+	}
+	return indent;
+}
+
+static void
+config_dump_filter_end(struct ostream *output, unsigned int indent)
+{
+	while (indent > 0) {
+		indent--;
+		o_stream_send(output, indent_str, indent*2);
+		o_stream_send(output, "}\n", 2);
+	}
+}
+
+static int
+config_dump_human_sections(struct ostream *output,
+			   const struct config_filter *filter,
+			   const char *module)
+{
+	struct config_filter_parser *const *filters;
+	static struct config_dump_human_context *ctx;
+	unsigned int indent;
+	int ret = 0;
+
+	filters = config_filter_find_subset(config_filter, filter);
+
+	/* first filter should be the global one */
+	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
+	filters++;
+
+	for (; *filters != NULL; filters++) {
+		ctx = config_dump_human_init(module, CONFIG_DUMP_SCOPE_SET,
+					     FALSE);
+		indent = config_dump_filter_begin(ctx->list_prefix,
+						  &(*filters)->filter);
+		config_export_parsers(ctx->export_ctx, (*filters)->parsers);
+		if (config_dump_human_output(ctx, output, indent) < 0)
+			ret = -1;
+		if (ctx->list_prefix_sent)
+			config_dump_filter_end(output, indent);
+		config_dump_human_deinit(ctx);
+	}
 	return ret;
 }
 
@@ -259,12 +370,21 @@ static int
 config_dump_human(const struct config_filter *filter, const char *module,
 		  enum config_dump_scope scope)
 {
+	static struct config_dump_human_context *ctx;
 	struct ostream *output;
 	int ret;
 
 	output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
 	o_stream_cork(output);
-	ret = config_connection_request_human(output, filter, module, scope);
+
+	ctx = config_dump_human_init(module, scope, TRUE);
+	config_export_by_filter(ctx->export_ctx, filter);
+	ret = config_dump_human_output(ctx, output, 0);
+	config_dump_human_deinit(ctx);
+
+	if (ret == 0)
+		ret = config_dump_human_sections(output, filter, module);
+
 	o_stream_uncork(output);
 	o_stream_unref(&output);
 	return ret;
@@ -424,10 +544,10 @@ int main(int argc, char *argv[])
 		struct config_export_context *ctx;
 
 		env_put("DOVECONF_ENV=1");
-		ctx = config_export_init(&filter, module,
-					 CONFIG_DUMP_SCOPE_SET,
+		ctx = config_export_init(module, CONFIG_DUMP_SCOPE_SET,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_putenv, NULL);
+		config_export_by_filter(ctx, &filter);
 		if (config_export_finish(&ctx) < 0)
 			i_fatal("Invalid configuration");
 		execvp(exec_args[0], exec_args);

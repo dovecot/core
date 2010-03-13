@@ -35,6 +35,11 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 			      const char **error_r);
 void config_filter_parsers_free(struct config_module_parser *parsers);
 
+/* Return a list of filters that are a subset of the given filter. */
+struct config_filter_parser *const *
+config_filter_find_subset(struct config_filter_context *ctx,
+			  const struct config_filter *filter);
+
 /* Returns TRUE if filter matches mask. */
 bool config_filter_match(const struct config_filter *mask,
 			 const struct config_filter *filter);

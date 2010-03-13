@@ -23,7 +23,8 @@ struct config_export_context {
 
 	const char *module;
 	enum config_dump_flags flags;
-	struct config_module_parser *parsers;
+	const struct config_module_parser *parsers;
+	struct config_module_parser *dup_parsers;
 	struct master_service_settings_output output;
 
 	bool failed;
@@ -335,13 +336,11 @@ settings_export(struct config_export_context *ctx,
 }
 
 struct config_export_context *
-config_export_init(const struct config_filter *filter,
-		   const char *module, enum config_dump_scope scope,
+config_export_init(const char *module, enum config_dump_scope scope,
 		   enum config_dump_flags flags,
 		   config_request_callback_t *callback, void *context)
 {
 	struct config_export_context *ctx;
-	const char *error;
 	pool_t pool;
 
 	pool = pool_alloconly_create("config export", 1024*64);
@@ -357,14 +356,27 @@ config_export_init(const struct config_filter *filter,
 	ctx->prefix = t_str_new(64);
 	ctx->keys = hash_table_create(default_pool, ctx->pool, 0,
 				      str_hash, (hash_cmp_callback_t *)strcmp);
+	return ctx;
+}
+
+void config_export_by_filter(struct config_export_context *ctx,
+			     const struct config_filter *filter)
+{
+	const char *error;
 
 	if (config_filter_parsers_get(config_filter, ctx->pool, filter,
-				      &ctx->parsers, &ctx->output,
+				      &ctx->dup_parsers, &ctx->output,
 				      &error) < 0) {
 		i_error("%s", error);
 		ctx->failed = TRUE;
 	}
-	return ctx;
+	ctx->parsers = ctx->dup_parsers;
+}
+
+void config_export_parsers(struct config_export_context *ctx,
+			   const struct config_module_parser *parsers)
+{
+	ctx->parsers = parsers;
 }
 
 void config_export_get_output(struct config_export_context *ctx,
@@ -375,8 +387,8 @@ void config_export_get_output(struct config_export_context *ctx,
 
 static void config_export_free(struct config_export_context *ctx)
 {
-	if (ctx->parsers != NULL)
-		config_filter_parsers_free(ctx->parsers);
+	if (ctx->dup_parsers != NULL)
+		config_filter_parsers_free(ctx->dup_parsers);
 	hash_table_destroy(&ctx->keys);
 	pool_unref(&ctx->pool);
 }
@@ -384,7 +396,7 @@ static void config_export_free(struct config_export_context *ctx)
 int config_export_finish(struct config_export_context **_ctx)
 {
 	struct config_export_context *ctx = *_ctx;
-	struct config_module_parser *parser;
+	const struct config_module_parser *parser;
 	const char *error;
 	unsigned int i;
 	int ret = 0;

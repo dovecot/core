@@ -38,10 +38,13 @@ bool config_export_type(string_t *str, const void *value,
 			enum setting_type type, bool dump_default,
 			bool *dump_r);
 struct config_export_context *
-config_export_init(const struct config_filter *filter,
-		   const char *module, enum config_dump_scope scope,
+config_export_init(const char *module, enum config_dump_scope scope,
 		   enum config_dump_flags flags,
 		   config_request_callback_t *callback, void *context);
+void config_export_by_filter(struct config_export_context *ctx,
+			     const struct config_filter *filter);
+void config_export_parsers(struct config_export_context *ctx,
+			   const struct config_module_parser *parsers);
 void config_export_get_output(struct config_export_context *ctx,
 			      struct master_service_settings_output *output_r);
 int config_export_finish(struct config_export_context **ctx);

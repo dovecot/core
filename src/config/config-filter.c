@@ -148,6 +148,13 @@ config_filter_parser_cmp(struct config_filter_parser *const *p1,
 	return 0;
 }
 
+static int
+config_filter_parser_cmp_rev(struct config_filter_parser *const *p1,
+			     struct config_filter_parser *const *p2)
+{
+	return -config_filter_parser_cmp(p1, p2);
+}
+
 static struct config_filter_parser *const *
 config_filter_find_all(struct config_filter_context *ctx,
 		       const struct config_filter *filter,
@@ -178,6 +185,41 @@ config_filter_find_all(struct config_filter_context *ctx,
 		}
 	}
 	array_sort(&matches, config_filter_parser_cmp);
+	(void)array_append_space(&matches);
+	return array_idx(&matches, 0);
+}
+
+struct config_filter_parser *const *
+config_filter_find_subset(struct config_filter_context *ctx,
+			  const struct config_filter *filter)
+{
+	ARRAY_TYPE(config_filter_parsers) matches;
+	struct config_filter tmp_mask;
+	unsigned int i;
+
+	t_array_init(&matches, 8);
+	for (i = 0; ctx->parsers[i] != NULL; i++) {
+		const struct config_filter *mask = &ctx->parsers[i]->filter;
+
+		if (filter->service != NULL) {
+			if (!config_filter_match_service(mask, filter))
+				continue;
+		}
+
+		tmp_mask = *mask;
+		if (filter->local_host == NULL)
+			tmp_mask.local_host = NULL;
+		if (filter->remote_host == NULL)
+			tmp_mask.remote_host = NULL;
+		if (filter->local_bits == 0)
+			tmp_mask.local_bits = 0;
+		if (filter->remote_bits == 0)
+			tmp_mask.remote_bits = 0;
+
+		if (config_filter_match_rest(&tmp_mask, filter))
+			array_append(&matches, &ctx->parsers[i], 1);
+	}
+	array_sort(&matches, config_filter_parser_cmp_rev);
 	(void)array_append_space(&matches);
 	return array_idx(&matches, 0);
 }
