@@ -154,8 +154,7 @@ void passdb_handle_credentials(enum passdb_result result,
 	callback(result, credentials, size, auth_request);
 }
 
-struct auth_passdb *
-passdb_preinit(struct auth *auth, struct auth_passdb_settings *set)
+void passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set)
 {
 	static unsigned int auth_passdb_id = 0;
 	struct passdb_module_interface *iface;
@@ -187,26 +186,26 @@ passdb_preinit(struct auth *auth, struct auth_passdb_settings *set)
 			p_new(auth->pool, struct passdb_module, 1);
 	} else {
 		auth_passdb->passdb =
-			iface->preinit(auth_passdb, set->args);
+			iface->preinit(auth->pool, set->args);
 	}
 	auth_passdb->passdb->id = ++auth_passdb_id;
 	auth_passdb->passdb->iface = *iface;
-	return auth_passdb;
 }
 
-void passdb_init(struct auth_passdb *passdb)
+void passdb_init(struct passdb_module *passdb,
+		 const struct auth_passdb_settings *set)
 {
-	if (passdb->passdb->iface.init != NULL)
-		passdb->passdb->iface.init(passdb->passdb, passdb->set->args);
+	if (passdb->iface.init != NULL)
+		passdb->iface.init(passdb, set->args);
 
-	i_assert(passdb->passdb->default_pass_scheme != NULL ||
-		 passdb->passdb->cache_key == NULL);
+	i_assert(passdb->default_pass_scheme != NULL ||
+		 passdb->cache_key == NULL);
 }
 
-void passdb_deinit(struct auth_passdb *passdb)
+void passdb_deinit(struct passdb_module *passdb)
 {
-	if (passdb->passdb->iface.deinit != NULL)
-		passdb->passdb->iface.deinit(passdb->passdb);
+	if (passdb->iface.deinit != NULL)
+		passdb->iface.deinit(passdb);
 }
 
 extern struct passdb_module_interface passdb_passwd;

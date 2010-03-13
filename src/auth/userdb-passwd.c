@@ -69,13 +69,13 @@ static void passwd_lookup(struct auth_request *auth_request,
 }
 
 static struct userdb_iterate_context *
-passwd_iterate_init(struct auth_userdb *userdb,
+passwd_iterate_init(struct userdb_module *userdb,
 		    userdb_iter_callback_t *callback, void *context)
 {
 	struct passwd_userdb_iterate_context *ctx;
 
 	ctx = i_new(struct passwd_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb->userdb;
+	ctx->ctx.userdb = userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
 	setpwent();
@@ -135,15 +135,14 @@ static int passwd_iterate_deinit(struct userdb_iterate_context *_ctx)
 }
 
 static struct userdb_module *
-passwd_passwd_preinit(struct auth_userdb *auth_userdb, const char *args)
+passwd_passwd_preinit(pool_t pool, const char *args)
 {
 	struct passwd_userdb_module *module;
 	const char *value;
 
-	module = p_new(auth_userdb->pool, struct passwd_userdb_module, 1);
+	module = p_new(pool, struct passwd_userdb_module, 1);
 	module->module.cache_key = USER_CACHE_KEY;
-	module->tmpl = userdb_static_template_build(auth_userdb->pool,
-						    "passwd", args);
+	module->tmpl = userdb_static_template_build(pool, "passwd", args);
 
 	if (userdb_static_template_remove(module->tmpl, "blocking",
 					  &value)) {

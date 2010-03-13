@@ -204,11 +204,11 @@ void auth_init(struct auth *auth)
 	const char *const *mechanisms;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
-		passdb_init(passdb);
+		passdb_init(passdb->passdb, passdb->set);
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
-		passdb_init(passdb);
+		passdb_init(passdb->passdb, passdb->set);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
-		userdb_init(userdb);
+		userdb_init(userdb->userdb, userdb->set);
 	/* caching is handled only by the main auth process */
 	if (!worker)
 		passdb_cache_init(auth->set);
@@ -248,11 +248,11 @@ void auth_deinit(struct auth **_auth)
 	*_auth = NULL;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
-		passdb_deinit(passdb);
+		passdb_deinit(passdb->passdb);
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
-		passdb_deinit(passdb);
+		passdb_deinit(passdb->passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
-		userdb_deinit(userdb);
+		userdb_deinit(userdb->userdb);
 
 	auth_request_handler_deinit();
 	passdb_cache_deinit();

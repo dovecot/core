@@ -49,17 +49,16 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 }
 
 static struct passdb_module *
-bsdauth_preinit(struct auth_passdb *auth_passdb, const char *args)
+bsdauth_preinit(pool_t pool, const char *args)
 {
 	struct passdb_module *module;
 
-	module = p_new(auth_passdb->pool, struct passdb_module, 1);
+	module = p_new(pool, struct passdb_module, 1);
 	module->default_pass_scheme = "PLAIN"; /* same reason as PAM */
 
-	if (strncmp(args, "cache_key=", 10) == 0) {
-		module->cache_key =
-			auth_cache_parse_key(auth_passdb->pool, args + 10);
-	} else if (*args != '\0')
+	if (strncmp(args, "cache_key=", 10) == 0)
+		module->cache_key = auth_cache_parse_key(pool, args + 10);
+	else if (*args != '\0')
 		i_fatal("passdb bsdauth: Unknown setting: %s", args);
 	return module;
 }

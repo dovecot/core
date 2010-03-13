@@ -225,17 +225,16 @@ static int sql_set_credentials(struct auth_request *request,
 }
 
 static struct passdb_module *
-passdb_sql_preinit(struct auth_passdb *auth_passdb, const char *args)
+passdb_sql_preinit(pool_t pool, const char *args)
 {
 	struct sql_passdb_module *module;
 	struct sql_connection *conn;
 
-	module = p_new(auth_passdb->pool, struct sql_passdb_module, 1);
+	module = p_new(pool, struct sql_passdb_module, 1);
 	module->conn = conn = db_sql_init(args);
 
 	module->module.cache_key =
-		auth_cache_parse_key(auth_passdb->pool,
-				     conn->set.password_query);
+		auth_cache_parse_key(pool, conn->set.password_query);
 	module->module.default_pass_scheme = conn->set.default_pass_scheme;
 	return &module->module;
 }

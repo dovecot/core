@@ -327,13 +327,13 @@ pam_verify_plain(struct auth_request *request, const char *password,
 }
 
 static struct passdb_module *
-pam_preinit(struct auth_passdb *auth_passdb, const char *args)
+pam_preinit(pool_t pool, const char *args)
 {
 	struct pam_passdb_module *module;
 	const char *const *t_args;
 	int i;
 
-	module = p_new(auth_passdb->pool, struct pam_passdb_module, 1);
+	module = p_new(pool, struct pam_passdb_module, 1);
 	module->service_name = "dovecot";
 	/* we're caching the password by using directly the plaintext password
 	   given by the auth mechanism */
@@ -351,8 +351,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 			module->pam_setcred = TRUE;
 		else if (strncmp(t_args[i], "cache_key=", 10) == 0) {
 			module->module.cache_key =
-				auth_cache_parse_key(auth_passdb->pool,
-						     t_args[i] + 10);
+				auth_cache_parse_key(pool, t_args[i] + 10);
 		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
 			/* ignore, for backwards compatibility */
 		} else if (strcmp(t_args[i], "failure_show_msg=yes") == 0) {
@@ -363,8 +362,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 		} else if (strncmp(t_args[i], "max_requests=", 13) == 0) {
 			module->requests_left = atoi(t_args[i] + 13);
 		} else if (t_args[i+1] == NULL) {
-			module->service_name =
-				p_strdup(auth_passdb->pool, t_args[i]);
+			module->service_name = p_strdup(pool, t_args[i]);
 		} else {
 			i_fatal("passdb pam: Unknown setting: %s", t_args[i]);
 		}

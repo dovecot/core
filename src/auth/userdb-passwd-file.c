@@ -83,16 +83,16 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 }
 
 static struct userdb_iterate_context *
-passwd_file_iterate_init(struct auth_userdb *userdb,
+passwd_file_iterate_init(struct userdb_module *userdb,
 			 userdb_iter_callback_t *callback, void *context)
 {
 	struct passwd_file_userdb_module *module =
-		(struct passwd_file_userdb_module *)userdb->userdb;
+		(struct passwd_file_userdb_module *)userdb;
 	struct passwd_file_userdb_iterate_context *ctx;
 	int fd;
 
 	ctx = i_new(struct passwd_file_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb->userdb;
+	ctx->ctx.userdb = userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
 	if (module->pwf->default_file == NULL) {
@@ -154,7 +154,7 @@ static int passwd_file_iterate_deinit(struct userdb_iterate_context *_ctx)
 }
 
 static struct userdb_module *
-passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
+passwd_file_preinit(pool_t pool, const char *args)
 {
 	struct passwd_file_userdb_module *module;
 	const char *format = PASSWD_FILE_DEFAULT_USERNAME_FORMAT;
@@ -167,7 +167,7 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 			format = args;
 			args = "";
 		} else {
-			format = p_strdup_until(auth_userdb->pool, args, p);
+			format = p_strdup_until(pool, args, p);
 			args = p + 1;
 		}
 	}
@@ -175,7 +175,7 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 	if (*args == '\0')
 		i_fatal("userdb passwd-file: Missing args");
 
-	module = p_new(auth_userdb->pool, struct passwd_file_userdb_module, 1);
+	module = p_new(pool, struct passwd_file_userdb_module, 1);
 	module->pwf = db_passwd_file_init(args, format, TRUE,
 					  global_auth_settings->debug);
 
@@ -183,7 +183,7 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 		module->module.cache_key = PASSWD_FILE_CACHE_KEY;
 	else {
 		module->module.cache_key =
-			auth_cache_parse_key(auth_userdb->pool,
+			auth_cache_parse_key(pool,
 					     t_strconcat(PASSWD_FILE_CACHE_KEY,
 						         module->pwf->path,
 							 NULL));

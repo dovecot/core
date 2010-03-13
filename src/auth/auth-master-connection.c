@@ -319,7 +319,7 @@ static void master_input_list_callback(const char *user, void *context)
 		}
 
 		/* continue iterating next userdb */
-		ctx->iter = userdb_blocking_iter_init(ctx->userdb,
+		ctx->iter = userdb_blocking_iter_init(ctx->userdb->userdb,
 					master_input_list_callback, ctx);
 		userdb_blocking_iter_next(ctx->iter);
 		return;
@@ -372,7 +372,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 
 	io_remove(&conn->io);
 	o_stream_set_flush_callback(conn->output, master_output_list, ctx);
-	ctx->iter = userdb_blocking_iter_init(ctx->userdb,
+	ctx->iter = userdb_blocking_iter_init(ctx->userdb->userdb,
 					      master_input_list_callback, ctx);
 	return TRUE;
 }

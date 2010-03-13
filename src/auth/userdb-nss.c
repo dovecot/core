@@ -101,11 +101,10 @@ userdb_nss_load_module(struct nss_userdb_module *module, pool_t pool)
 }
 
 static struct userdb_module *
-userdb_nss_preinit(struct auth_userdb *auth_userdb, const char *args)
+userdb_nss_preinit(pool_t pool, const char *args)
 {
 	struct nss_userdb_module *module;
 	const char *const *tmp;
-	pool_t pool = auth_userdb->pool;
 
 	module = p_new(pool, struct nss_userdb_module, 1);
 	module->bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);

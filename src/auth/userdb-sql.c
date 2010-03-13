@@ -129,15 +129,15 @@ static void sql_iter_query_callback(struct sql_result *sql_result,
 }
 
 static struct userdb_iterate_context *
-userdb_sql_iterate_init(struct auth_userdb *userdb,
+userdb_sql_iterate_init(struct userdb_module *userdb,
 			userdb_iter_callback_t *callback, void *context)
 {
 	struct sql_userdb_module *module =
-		(struct sql_userdb_module *)userdb->userdb;
+		(struct sql_userdb_module *)userdb;
 	struct sql_userdb_iterate_context *ctx;
 
 	ctx = i_new(struct sql_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb->userdb;
+	ctx->ctx.userdb = userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
 
@@ -226,16 +226,15 @@ static int userdb_sql_iterate_deinit(struct userdb_iterate_context *_ctx)
 }
 
 static struct userdb_module *
-userdb_sql_preinit(struct auth_userdb *auth_userdb, const char *args)
+userdb_sql_preinit(pool_t pool, const char *args)
 {
 	struct sql_userdb_module *module;
 
-	module = p_new(auth_userdb->pool, struct sql_userdb_module, 1);
+	module = p_new(pool, struct sql_userdb_module, 1);
 	module->conn = db_sql_init(args);
 
 	module->module.cache_key =
-		auth_cache_parse_key(auth_userdb->pool,
-				     module->conn->set.user_query);
+		auth_cache_parse_key(pool, module->conn->set.user_query);
 	return &module->module;
 }
 

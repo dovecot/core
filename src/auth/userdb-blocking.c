@@ -70,7 +70,7 @@ static bool iter_callback(const char *reply, void *context)
 }
 
 struct userdb_iterate_context *
-userdb_blocking_iter_init(struct auth_userdb *userdb,
+userdb_blocking_iter_init(struct userdb_module *userdb,
 			  userdb_iter_callback_t *callback, void *context)
 {
 	struct blocking_userdb_iterate_context *ctx;
@@ -79,11 +79,11 @@ userdb_blocking_iter_init(struct auth_userdb *userdb,
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 	auth_stream_reply_add(reply, "LIST", NULL);
-	auth_stream_reply_add(reply, NULL, dec2str(userdb->userdb->id));
+	auth_stream_reply_add(reply, NULL, dec2str(userdb->id));
 
 	pool = pool_alloconly_create("userdb iter", 512);
 	ctx = p_new(pool, struct blocking_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb->userdb;
+	ctx->ctx.userdb = userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
 	ctx->pool = pool;

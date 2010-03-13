@@ -212,14 +212,13 @@ static void static_lookup(struct auth_request *auth_request,
 }
 
 static struct userdb_module *
-static_preinit(struct auth_userdb *auth_userdb, const char *args)
+static_preinit(pool_t pool, const char *args)
 {
 	struct static_userdb_module *module;
 	const char *value;
 
-	module = p_new(auth_userdb->pool, struct static_userdb_module, 1);
-	module->tmpl = userdb_static_template_build(auth_userdb->pool,
-						    "static", args);
+	module = p_new(pool, struct static_userdb_module, 1);
+	module->tmpl = userdb_static_template_build(pool, "static", args);
 
 	if (userdb_static_template_remove(module->tmpl, "allow_all_users",
 					  &value)) {

@@ -235,13 +235,12 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 }
 
 static struct passdb_module *
-checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
+checkpassword_preinit(pool_t pool, const char *args)
 {
 	struct checkpassword_passdb_module *module;
 
-	module = p_new(auth_passdb->pool,
-		       struct checkpassword_passdb_module, 1);
-	module->checkpassword_path = p_strdup(auth_passdb->pool, args);
+	module = p_new(pool, struct checkpassword_passdb_module, 1);
+	module->checkpassword_path = p_strdup(pool, args);
 	module->checkpassword_reply_path =
 		PKG_LIBEXECDIR"/checkpassword-reply";
 

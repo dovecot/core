@@ -504,7 +504,7 @@ auth_worker_handle_list(struct auth_worker_client *client,
 				    auth_worker_list_output, ctx);
 	client->refcount++;
 	ctx->iter = ctx->userdb->iface->
-		iterate_init(userdb, list_iter_callback, ctx);
+		iterate_init(userdb->userdb, list_iter_callback, ctx);
 	ctx->userdb->iface->iterate_next(ctx->iter);
 }
 

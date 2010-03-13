@@ -5,7 +5,6 @@
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
 struct auth_request;
-struct auth_passdb;
 struct auth_passdb_settings;
 
 enum passdb_result {
@@ -32,8 +31,7 @@ typedef void set_credentials_callback_t(bool success,
 struct passdb_module_interface {
 	const char *name;
 
-	struct passdb_module *
-		(*preinit)(struct auth_passdb *auth_passdb, const char *args);
+	struct passdb_module *(*preinit)(pool_t pool, const char *args);
 	void (*init)(struct passdb_module *module, const char *args);
 	void (*deinit)(struct passdb_module *module);
 
@@ -84,11 +82,10 @@ void passdb_handle_credentials(enum passdb_result result,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);
 
-struct auth_passdb *
-passdb_preinit(struct auth *auth, struct auth_passdb_settings *set);
-
-void passdb_init(struct auth_passdb *passdb);
-void passdb_deinit(struct auth_passdb *passdb);
+void passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set);
+void passdb_init(struct passdb_module *passdb,
+		 const struct auth_passdb_settings *set);
+void passdb_deinit(struct passdb_module *passdb);
 
 void passdb_register_module(struct passdb_module_interface *iface);
 void passdb_unregister_module(struct passdb_module_interface *iface);

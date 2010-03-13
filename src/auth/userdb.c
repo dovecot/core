@@ -106,7 +106,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	return gr->gr_gid;
 }
 
-void userdb_preinit(struct auth *auth, struct auth_userdb_settings *set)
+void userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 {
 	static unsigned int auth_userdb_id = 0;
 	struct userdb_module_interface *iface;
@@ -138,22 +138,23 @@ void userdb_preinit(struct auth *auth, struct auth_userdb_settings *set)
 			p_new(auth->pool, struct userdb_module, 1);
 	} else {
 		auth_userdb->userdb =
-			iface->preinit(auth_userdb, auth_userdb->set->args);
+			iface->preinit(auth->pool, auth_userdb->set->args);
 	}
 	auth_userdb->userdb->id = ++auth_userdb_id;
 	auth_userdb->userdb->iface = iface;
 }
 
-void userdb_init(struct auth_userdb *userdb)
+void userdb_init(struct userdb_module *userdb,
+		 const struct auth_userdb_settings *set)
 {
-	if (userdb->userdb->iface->init != NULL)
-		userdb->userdb->iface->init(userdb->userdb, userdb->set->args);
+	if (userdb->iface->init != NULL)
+		userdb->iface->init(userdb, set->args);
 }
 
-void userdb_deinit(struct auth_userdb *userdb)
+void userdb_deinit(struct userdb_module *userdb)
 {
-	if (userdb->userdb->iface->deinit != NULL)
-		userdb->userdb->iface->deinit(userdb->userdb);
+	if (userdb->iface->deinit != NULL)
+		userdb->iface->deinit(userdb);
 }
 
 extern struct userdb_module_interface userdb_prefetch;

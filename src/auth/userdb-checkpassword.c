@@ -218,13 +218,12 @@ checkpassword_lookup(struct auth_request *request, userdb_callback_t *callback)
 }
 
 static struct userdb_module *
-checkpassword_preinit(struct auth_userdb *auth_userdb, const char *args)
+checkpassword_preinit(pool_t pool, const char *args)
 {
 	struct checkpassword_userdb_module *module;
 
-	module = p_new(auth_userdb->pool,
-		       struct checkpassword_userdb_module, 1);
-	module->checkpassword_path = p_strdup(auth_userdb->pool, args);
+	module = p_new(pool, struct checkpassword_userdb_module, 1);
+	module->checkpassword_path = p_strdup(pool, args);
 	module->checkpassword_reply_path =
 		PKG_LIBEXECDIR"/checkpassword-reply";
 

@@ -175,18 +175,18 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 }
 
 static struct userdb_iterate_context *
-userdb_ldap_iterate_init(struct auth_userdb *userdb,
+userdb_ldap_iterate_init(struct userdb_module *userdb,
 			 userdb_iter_callback_t *callback, void *context)
 {
 	struct ldap_userdb_module *module =
-		(struct ldap_userdb_module *)userdb->userdb;
+		(struct ldap_userdb_module *)userdb;
 	struct ldap_connection *conn = module->conn;
 	struct ldap_userdb_iterate_context *ctx;
 	struct userdb_iter_ldap_request *request;
 	const char **attr_names = (const char **)conn->iterate_attr_names;
 
 	ctx = i_new(struct ldap_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb->userdb;
+	ctx->ctx.userdb = userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
 	ctx->conn = conn;
@@ -232,12 +232,12 @@ static int userdb_ldap_iterate_deinit(struct userdb_iterate_context *_ctx)
 }
 
 static struct userdb_module *
-userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
+userdb_ldap_preinit(pool_t pool, const char *args)
 {
 	struct ldap_userdb_module *module;
 	struct ldap_connection *conn;
 
-	module = p_new(auth_userdb->pool, struct ldap_userdb_module, 1);
+	module = p_new(pool, struct ldap_userdb_module, 1);
 	module->conn = conn = db_ldap_init(args);
 	conn->user_attr_map =
 		hash_table_create(default_pool, conn->pool, 0, str_hash,
@@ -252,7 +252,7 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 			  &conn->iterate_attr_names,
 			  conn->iterate_attr_map, NULL);
 	module->module.cache_key =
-		auth_cache_parse_key(auth_userdb->pool,
+		auth_cache_parse_key(pool,
 				     t_strconcat(conn->set.base,
 						 conn->set.user_filter, NULL));
 	return &module->module;

@@ -5,7 +5,6 @@
 
 struct auth;
 struct auth_request;
-struct auth_userdb;
 struct auth_userdb_settings;
 
 enum userdb_result {
@@ -43,8 +42,7 @@ struct userdb_iterate_context {
 struct userdb_module_interface {
 	const char *name;
 
-	struct userdb_module *
-		(*preinit)(struct auth_userdb *auth_userdb, const char *args);
+	struct userdb_module *(*preinit)(pool_t pool, const char *args);
 	void (*init)(struct userdb_module *module, const char *args);
 	void (*deinit)(struct userdb_module *module);
 
@@ -52,7 +50,7 @@ struct userdb_module_interface {
 		       userdb_callback_t *callback);
 
 	struct userdb_iterate_context *
-		(*iterate_init)(struct auth_userdb *userdb,
+		(*iterate_init)(struct userdb_module *userdb,
 				userdb_iter_callback_t *callback,
 				void *context);
 	void (*iterate_next)(struct userdb_iterate_context *ctx);
@@ -62,9 +60,10 @@ struct userdb_module_interface {
 uid_t userdb_parse_uid(struct auth_request *request, const char *str);
 gid_t userdb_parse_gid(struct auth_request *request, const char *str);
 
-void userdb_preinit(struct auth *auth, struct auth_userdb_settings *set);
-void userdb_init(struct auth_userdb *userdb);
-void userdb_deinit(struct auth_userdb *userdb);
+void userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set);
+void userdb_init(struct userdb_module *userdb,
+		 const struct auth_userdb_settings *set);
+void userdb_deinit(struct userdb_module *userdb);
 
 void userdb_register_module(struct userdb_module_interface *iface);
 void userdb_unregister_module(struct userdb_module_interface *iface);
