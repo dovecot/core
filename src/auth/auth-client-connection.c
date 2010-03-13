@@ -13,6 +13,7 @@
 #include "randgen.h"
 #include "safe-memset.h"
 #include "master-service.h"
+#include "mech.h"
 #include "auth-stream.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
@@ -289,8 +290,7 @@ auth_client_connection_create(struct auth *auth, int fd)
 	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
                     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
-		    str_c(conn->auth->mech_handshake),
-		    my_pid, conn->connect_uid);
+		    str_c(auth->reg->handshake), my_pid, conn->connect_uid);
 	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
 	str_append(str, "\nDONE\n");
 

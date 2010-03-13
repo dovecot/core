@@ -50,7 +50,8 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 		userdb_preinit(auth->pool, set->driver, set->args);
 }
 
-struct auth *auth_preinit(struct auth_settings *set)
+struct auth *
+auth_preinit(struct auth_settings *set, const struct mechanisms_register *reg)
 {
 	struct auth_passdb_settings *const *passdbs;
 	struct auth_userdb_settings *const *userdbs;
@@ -62,6 +63,7 @@ struct auth *auth_preinit(struct auth_settings *set)
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
 	auth->set = set;
+	auth->reg = reg;
 
 	if (array_is_created(&set->passdbs))
 		passdbs = array_get(&set->passdbs, &db_count);
@@ -106,46 +108,6 @@ struct auth *auth_preinit(struct auth_settings *set)
 		auth_userdb_preinit(auth, &userdb_dummy_set);
 	}
 	return auth;
-}
-
-const string_t *auth_mechanisms_get_list(struct auth *auth)
-{
-	struct mech_module_list *list;
-	string_t *str;
-
-	str = t_str_new(128);
-	for (list = auth->mech_modules; list != NULL; list = list->next)
-		str_append(str, list->module.mech_name);
-
-	return str;
-}
-
-static void auth_mech_register(struct auth *auth, const struct mech_module *mech)
-{
-	struct mech_module_list *list;
-
-	list = p_new(auth->pool, struct mech_module_list, 1);
-	list->module = *mech;
-
-	str_printfa(auth->mech_handshake, "MECH\t%s", mech->mech_name);
-	if ((mech->flags & MECH_SEC_PRIVATE) != 0)
-		str_append(auth->mech_handshake, "\tprivate");
-	if ((mech->flags & MECH_SEC_ANONYMOUS) != 0)
-		str_append(auth->mech_handshake, "\tanonymous");
-	if ((mech->flags & MECH_SEC_PLAINTEXT) != 0)
-		str_append(auth->mech_handshake, "\tplaintext");
-	if ((mech->flags & MECH_SEC_DICTIONARY) != 0)
-		str_append(auth->mech_handshake, "\tdictionary");
-	if ((mech->flags & MECH_SEC_ACTIVE) != 0)
-		str_append(auth->mech_handshake, "\tactive");
-	if ((mech->flags & MECH_SEC_FORWARD_SECRECY) != 0)
-		str_append(auth->mech_handshake, "\tforward-secrecy");
-	if ((mech->flags & MECH_SEC_MUTUAL_AUTH) != 0)
-		str_append(auth->mech_handshake, "\tmutual-auth");
-	str_append_c(auth->mech_handshake, '\n');
-
-	list->next = auth->mech_modules;
-	auth->mech_modules = list;
 }
 
 static bool auth_passdb_list_have_verify_plain(struct auth *auth)
@@ -210,7 +172,7 @@ static void auth_mech_list_verify_passdb(struct auth *auth)
 {
 	struct mech_module_list *list;
 
-	for (list = auth->mech_modules; list != NULL; list = list->next) {
+	for (list = auth->reg->modules; list != NULL; list = list->next) {
 		if (!auth_mech_verify_passdb(auth, list))
 			break;
 	}
@@ -230,8 +192,6 @@ void auth_init(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
-	const struct mech_module *mech;
-	const char *const *mechanisms;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		passdb_init(passdb->passdb);
@@ -244,29 +204,6 @@ void auth_init(struct auth *auth)
 	if (!worker)
 		passdb_cache_init(auth->set);
 
-	auth->mech_handshake = str_new(auth->pool, 512);
-
-	/* register wanted mechanisms */
-	mechanisms = t_strsplit_spaces(auth->set->mechanisms, " ");
-	while (*mechanisms != NULL) {
-		if (strcasecmp(*mechanisms, "ANONYMOUS") == 0) {
-			if (*auth->set->anonymous_username == '\0') {
-				i_fatal("ANONYMOUS listed in mechanisms, "
-					"but anonymous_username not set");
-			}
-		}
-		mech = mech_module_find(*mechanisms);
-		if (mech == NULL) {
-			i_fatal("Unknown authentication mechanism '%s'",
-				*mechanisms);
-		}
-		auth_mech_register(auth, mech);
-
-		mechanisms++;
-	}
-
-	if (auth->mech_modules == NULL)
-		i_fatal("No authentication mechanisms configured");
 	auth_mech_list_verify_passdb(auth);
 }
 

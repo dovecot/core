@@ -39,6 +39,7 @@ struct auth_penalty *auth_penalty;
 
 static struct module *modules = NULL;
 static struct auth *auth;
+static struct mechanisms_register *mech_reg;
 static ARRAY_DEFINE(listen_fd_types, enum auth_socket_type);
 
 static void main_preinit(void)
@@ -65,7 +66,9 @@ static void main_preinit(void)
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
-	auth = auth_preinit(global_auth_settings);
+	mech_init(global_auth_settings);
+	mech_reg = mech_register_init(global_auth_settings);
+	auth = auth_preinit(global_auth_settings, mech_reg);
 	auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 
 	/* Password lookups etc. may require roots, allow it. */
@@ -84,7 +87,6 @@ static void main_init(void)
 	lib_signals_ignore(SIGUSR2, TRUE);
 
 	child_wait_init();
-	mech_init(auth->set);
 	password_schemes_init();
 	auth_worker_server_init();
 	auth_init(auth);
@@ -112,6 +114,7 @@ static void main_deinit(void)
 
 	mech_deinit(auth->set);
 	auth_deinit(&auth);
+	mech_register_deinit(&mech_reg);
 	auth_penalty_deinit(&auth_penalty);
 
 	/* allow modules to unregister their dbs/drivers/etc. before freeing

@@ -56,6 +56,14 @@ struct mech_module_list {
 	struct mech_module module;
 };
 
+struct mechanisms_register {
+	pool_t pool;
+	const struct auth_settings *set;
+
+	struct mech_module_list *modules;
+	buffer_t *handshake;
+};
+
 void mech_register_module(const struct mech_module *module);
 void mech_unregister_module(const struct mech_module *module);
 const struct mech_module *mech_module_find(const char *name);
@@ -63,6 +71,10 @@ const struct mech_module *mech_module_find(const char *name);
 void mech_generic_auth_initial(struct auth_request *request,
 			       const unsigned char *data, size_t data_size);
 void mech_generic_auth_free(struct auth_request *request);
+
+struct mechanisms_register *
+mech_register_init(const struct auth_settings *set);
+void mech_register_deinit(struct mechanisms_register **reg);
 
 void mech_init(const struct auth_settings *set);
 void mech_deinit(const struct auth_settings *set);
