@@ -65,9 +65,9 @@ void io_loop_handle_add(struct io_file *io)
 	if (fd >= FD_SETSIZE)
 		i_fatal("fd %d too large for select()", fd);
 
-        if (condition & IO_READ)
+        if ((condition & (IO_READ | IO_ERROR)) != 0)
 		FD_SET(fd, &ctx->read_fds);
-        if (condition & IO_WRITE)
+        if ((condition & IO_WRITE) != 0)
 		FD_SET(fd, &ctx->write_fds);
 	FD_SET(fd, &ctx->except_fds);
 
@@ -83,9 +83,9 @@ void io_loop_handle_remove(struct io_file *io, bool closed ATTR_UNUSED)
 
 	i_assert(fd >= 0 && fd < FD_SETSIZE);
 
-        if (condition & IO_READ)
+	if ((condition & (IO_READ | IO_ERROR)) != 0)
 		FD_CLR(fd, &ctx->read_fds);
-        if (condition & IO_WRITE)
+        if ((condition & IO_WRITE) != 0)
 		FD_CLR(fd, &ctx->write_fds);
 
 	if (!FD_ISSET(fd, &ctx->read_fds) && !FD_ISSET(fd, &ctx->write_fds)) {
@@ -99,7 +99,7 @@ void io_loop_handle_remove(struct io_file *io, bool closed ATTR_UNUSED)
 }
 
 #define io_check_condition(ctx, fd, cond) \
-	((FD_ISSET((fd), &(ctx)->tmp_read_fds) && ((cond) & IO_READ)) || \
+	((FD_ISSET((fd), &(ctx)->tmp_read_fds) && ((cond) & (IO_READ|IO_ERROR))) || \
 	 (FD_ISSET((fd), &(ctx)->tmp_write_fds) && ((cond) & IO_WRITE)) || \
 	 (FD_ISSET((fd), &(ctx)->tmp_except_fds)))
 
