@@ -782,21 +782,22 @@ static char *
 auth_request_fix_username(struct auth_request *request, const char *username,
                           const char **error_r)
 {
+	const struct auth_settings *set = request->auth->set;
 	unsigned char *p;
-        char *user;
+	char *user;
 
-	if (*request->auth->set->default_realm != '\0' &&
+	if (*set->default_realm != '\0' &&
 	    strchr(username, '@') == NULL) {
 		user = p_strconcat(request->pool, username, "@",
-                                   request->auth->set->default_realm, NULL);
+                                   set->default_realm, NULL);
 	} else {
 		user = p_strdup(request->pool, username);
 	}
 
         for (p = (unsigned char *)user; *p != '\0'; p++) {
-		if (request->auth->username_translation[*p & 0xff] != 0)
-			*p = request->auth->username_translation[*p & 0xff];
-		if (request->auth->username_chars[*p & 0xff] == 0) {
+		if (set->username_translation_map[*p & 0xff] != 0)
+			*p = set->username_translation_map[*p & 0xff];
+		if (set->username_chars_map[*p & 0xff] == 0) {
 			*error_r = t_strdup_printf(
 				"Username contains disallowed character: "
 				"0x%02x", *p);
@@ -804,7 +805,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		}
 	}
 
-	if (*request->auth->set->username_format != '\0') {
+	if (*set->username_format != '\0') {
 		/* username format given, put it through variable expansion.
 		   we'll have to temporarily replace request->user to get
 		   %u to be the wanted username */
@@ -817,7 +818,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 
 		dest = t_str_new(256);
 		table = auth_request_get_var_expand_table(request, NULL);
-		var_expand(dest, request->auth->set->username_format, table);
+		var_expand(dest, set->username_format, table);
 		user = p_strdup(request->pool, str_c(dest));
 
 		request->user = old_username;

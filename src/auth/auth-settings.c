@@ -231,15 +231,33 @@ const struct setting_parser_info auth_setting_parser_info = {
 };
 
 /* <settings checks> */
-static bool auth_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+static bool auth_settings_check(void *_set, pool_t pool,
 				const char **error_r ATTR_UNUSED)
 {
 	struct auth_settings *set = _set;
+	const char *p;
 
 	if (set->debug_passwords)
 		set->debug = TRUE;
 	if (set->debug)
 		set->verbose = TRUE;
+
+	if (*set->username_chars == '\0') {
+		/* all chars are allowed */
+		memset(set->username_chars_map, 1,
+		       sizeof(set->username_chars_map));
+	} else {
+		for (p = set->username_chars_map; *p != '\0'; p++)
+			set->username_chars_map[(int)(uint8_t)*p] = 1;
+	}
+
+	if (*set->username_translation != '\0') {
+		p = set->username_translation;
+		for (; *p != '\0' && p[1] != '\0'; p += 2)
+			set->username_translation_map[(int)(uint8_t)*p] = p[1];
+	}
+	set->realms_arr =
+		(const char *const *)p_strsplit_spaces(pool, set->realms, " ");
 	return TRUE;
 }
 

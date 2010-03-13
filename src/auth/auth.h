@@ -40,10 +40,6 @@ struct auth {
 	struct auth_passdb *passdbs;
 	struct auth_userdb *userdbs;
 	struct auth_penalty *penalty;
-
-	const char *const *auth_realms;
-	char username_chars[256];
-	char username_translation[256];
 };
 
 const string_t *auth_mechanisms_get_list(struct auth *auth);

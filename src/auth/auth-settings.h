@@ -43,6 +43,11 @@ struct auth_settings {
 
 	ARRAY_DEFINE(passdbs, struct auth_passdb_settings *);
 	ARRAY_DEFINE(userdbs, struct auth_userdb_settings *);
+
+	/* generated: */
+	char username_chars_map[256];
+	char username_translation_map[256];
+	const char *const *realms_arr;
 };
 
 struct auth_settings *auth_settings_read(struct master_service *service);

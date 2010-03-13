@@ -206,7 +206,6 @@ void auth_init(struct auth *auth)
 	struct auth_userdb *userdb;
 	const struct mech_module *mech;
 	const char *const *mechanisms;
-	const char *p;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		passdb_init(passdb);
@@ -242,23 +241,6 @@ void auth_init(struct auth *auth)
 	if (auth->mech_modules == NULL)
 		i_fatal("No authentication mechanisms configured");
 	auth_mech_list_verify_passdb(auth);
-
-	auth->auth_realms = (const char *const *)
-		p_strsplit_spaces(auth->pool, auth->set->realms, " ");
-
-	if (*auth->set->username_chars == '\0') {
-		/* all chars are allowed */
-		memset(auth->username_chars, 1, sizeof(auth->username_chars));
-	} else {
-		for (p = auth->set->username_chars; *p != '\0'; p++)
-			auth->username_chars[(int)(uint8_t)*p] = 1;
-	}
-
-	if (*auth->set->username_translation != '\0') {
-		p = auth->set->username_translation;
-		for (; *p != '\0' && p[1] != '\0'; p += 2)
-			auth->username_translation[(int)(uint8_t)*p] = p[1];
-	}
 }
 
 void auth_deinit(struct auth **_auth)

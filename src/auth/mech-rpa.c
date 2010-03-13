@@ -337,7 +337,7 @@ mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 	const char *const *tmp;
 
 	realms = t_str_new(64);
-	for (tmp = auth->auth_realms; *tmp != NULL; tmp++) {
+	for (tmp = auth->set->realms_arr; *tmp != NULL; tmp++) {
 		rpa_add_realm(realms, *tmp, request->auth_request.service);
 	}
 

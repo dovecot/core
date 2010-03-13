@@ -84,12 +84,12 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	request->nonce = p_strdup(request->pool, buf.data);
 
 	str = t_str_new(256);
-	if (*auth->auth_realms == NULL) {
+	if (*auth->set->realms_arr == NULL) {
 		/* If no realms are given, at least Cyrus SASL client defaults
 		   to destination host name */
 		str_append(str, "realm=\"\",");
 	} else {
-		for (tmp = auth->auth_realms; *tmp != NULL; tmp++)
+		for (tmp = auth->set->realms_arr; *tmp != NULL; tmp++)
 			str_printfa(str, "realm=\"%s\",", *tmp);
 	}
 
