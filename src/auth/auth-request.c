@@ -63,6 +63,10 @@ struct auth_request *auth_request_new_dummy(struct auth *auth)
 	auth_request->refcount = 1;
 	auth_request->last_access = ioloop_time;
 
+	if (auth == NULL) {
+		auth = p_new(pool, struct auth, 1);
+		auth->set = global_auth_settings;
+	}
 	auth_request->auth = auth;
 	auth_request->passdb = auth->passdbs;
 	auth_request->userdb = auth->userdbs;

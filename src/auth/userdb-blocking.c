@@ -48,8 +48,7 @@ void userdb_blocking_lookup(struct auth_request *request)
 	auth_request_export(request, reply);
 
 	auth_request_ref(request);
-	auth_worker_call(request->auth, request->pool, reply,
-			 user_callback, request);
+	auth_worker_call(request->pool, reply, user_callback, request);
 }
 
 static bool iter_callback(const char *reply, void *context)
@@ -89,8 +88,7 @@ userdb_blocking_iter_init(struct auth_userdb *userdb,
 	ctx->ctx.context = context;
 	ctx->pool = pool;
 
-	ctx->conn = auth_worker_call(userdb->auth, pool, reply,
-				     iter_callback, ctx);
+	ctx->conn = auth_worker_call(pool, reply, iter_callback, ctx);
 	return &ctx->ctx;
 }
 

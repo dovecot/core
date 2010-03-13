@@ -140,9 +140,9 @@ passwd_passwd_preinit(struct auth_userdb *auth_userdb, const char *args)
 	struct passwd_userdb_module *module;
 	const char *value;
 
-	module = p_new(auth_userdb->auth->pool, struct passwd_userdb_module, 1);
+	module = p_new(auth_userdb->pool, struct passwd_userdb_module, 1);
 	module->module.cache_key = USER_CACHE_KEY;
-	module->tmpl = userdb_static_template_build(auth_userdb->auth->pool,
+	module->tmpl = userdb_static_template_build(auth_userdb->pool,
 						    "passwd", args);
 
 	if (userdb_static_template_remove(module->tmpl, "blocking",

@@ -50,6 +50,8 @@ struct auth_settings {
 	const char *const *realms_arr;
 };
 
+extern struct auth_settings *global_auth_settings;
+
 struct auth_settings *auth_settings_read(struct master_service *service);
 
 #endif

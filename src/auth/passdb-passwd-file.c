@@ -14,7 +14,6 @@
 struct passwd_file_passdb_module {
 	struct passdb_module module;
 
-	struct auth *auth;
 	struct db_passwd_file *pwf;
 };
 
@@ -136,9 +135,9 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 			args++;
 
 		if (strcmp(key, "scheme") == 0)
-			scheme = p_strdup(auth_passdb->auth->pool, value);
+			scheme = p_strdup(auth_passdb->pool, value);
 		else if (strcmp(key, "username_format") == 0)
-			format = p_strdup(auth_passdb->auth->pool, value);
+			format = p_strdup(auth_passdb->pool, value);
 		else
 			i_fatal("passdb passwd-file: Unknown setting: %s", key);
 	}
@@ -146,17 +145,15 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 	if (*args == '\0')
 		i_fatal("passdb passwd-file: Missing args");
 
-	module = p_new(auth_passdb->auth->pool,
-		       struct passwd_file_passdb_module, 1);
-	module->auth = auth_passdb->auth;
+	module = p_new(auth_passdb->pool, struct passwd_file_passdb_module, 1);
 	module->pwf = db_passwd_file_init(args, format, FALSE,
-					  module->auth->set->debug);
+					  global_auth_settings->debug);
 
 	if (!module->pwf->vars)
 		module->module.cache_key = format;
 	else {
 		module->module.cache_key =
-			auth_cache_parse_key(auth_passdb->auth->pool,
+			auth_cache_parse_key(auth_passdb->pool,
 				t_strconcat(format, module->pwf->path, NULL));
 	}
 

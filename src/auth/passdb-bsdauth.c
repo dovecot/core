@@ -53,13 +53,12 @@ bsdauth_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
 	struct passdb_module *module;
 
-	module = p_new(auth_passdb->auth->pool, struct passdb_module, 1);
+	module = p_new(auth_passdb->pool, struct passdb_module, 1);
 	module->default_pass_scheme = "PLAIN"; /* same reason as PAM */
 
 	if (strncmp(args, "cache_key=", 10) == 0) {
 		module->cache_key =
-			auth_cache_parse_key(auth_passdb->auth->pool,
-					     args + 10);
+			auth_cache_parse_key(auth_passdb->pool, args + 10);
 	} else if (*args != '\0')
 		i_fatal("passdb bsdauth: Unknown setting: %s", args);
 	return module;

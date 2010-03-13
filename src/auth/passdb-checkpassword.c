@@ -239,9 +239,9 @@ checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
 	struct checkpassword_passdb_module *module;
 
-	module = p_new(auth_passdb->auth->pool,
+	module = p_new(auth_passdb->pool,
 		       struct checkpassword_passdb_module, 1);
-	module->checkpassword_path = p_strdup(auth_passdb->auth->pool, args);
+	module->checkpassword_path = p_strdup(auth_passdb->pool, args);
 	module->checkpassword_reply_path =
 		PKG_LIBEXECDIR"/checkpassword-reply";
 

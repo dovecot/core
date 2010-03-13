@@ -7,8 +7,7 @@ struct auth_stream_reply;
 typedef bool auth_worker_callback_t(const char *reply, void *context);
 
 struct auth_worker_connection *
-auth_worker_call(struct auth *auth, pool_t pool,
-		 struct auth_stream_reply *data,
+auth_worker_call(pool_t pool, struct auth_stream_reply *data,
 		 auth_worker_callback_t *callback, void *context);
 void auth_worker_server_resume_input(struct auth_worker_connection *conn);
 

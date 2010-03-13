@@ -37,7 +37,7 @@ static struct module *modules = NULL;
 static struct auth *auth;
 static ARRAY_DEFINE(listen_fd_types, enum auth_socket_type);
 
-static void main_preinit(struct auth_settings *set)
+static void main_preinit(void)
 {
 	struct module_dir_load_settings mod_set;
 
@@ -56,12 +56,12 @@ static void main_preinit(struct auth_settings *set)
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.version = master_service_get_version_string(master_service);
 	mod_set.require_init_funcs = TRUE;
-	mod_set.debug = set->debug;
+	mod_set.debug = global_auth_settings->debug;
 
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
-	auth = auth_preinit(set);
+	auth = auth_preinit(global_auth_settings);
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);
@@ -189,7 +189,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	main_preinit(auth_settings_read(master_service));
+	global_auth_settings = auth_settings_read(master_service);
+	main_preinit();
 
 	master_service_init_finish(master_service);
 	main_init();

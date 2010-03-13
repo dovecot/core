@@ -397,7 +397,7 @@ passdb_ldap_preinit(struct auth_passdb *auth_passdb, const char *args)
 	struct ldap_passdb_module *module;
 	struct ldap_connection *conn;
 
-	module = p_new(auth_passdb->auth->pool, struct ldap_passdb_module, 1);
+	module = p_new(auth_passdb->pool, struct ldap_passdb_module, 1);
 	module->conn = conn = db_ldap_init(args);
 	conn->pass_attr_map =
 		hash_table_create(default_pool, conn->pool, 0, str_hash,
@@ -407,7 +407,7 @@ passdb_ldap_preinit(struct auth_passdb *auth_passdb, const char *args)
 			  conn->pass_attr_map,
 			  conn->set.auth_bind ? "password" : NULL);
 	module->module.cache_key =
-		auth_cache_parse_key(auth_passdb->auth->pool,
+		auth_cache_parse_key(auth_passdb->pool,
 				     t_strconcat(conn->set.base,
 						 conn->set.pass_filter, NULL));
 	module->module.default_pass_scheme = conn->set.default_pass_scheme;

@@ -288,6 +288,8 @@ auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
+struct auth_settings *global_auth_settings;
+
 struct auth_settings *
 auth_settings_read(struct master_service *service)
 {

@@ -35,7 +35,7 @@ struct userdb_iter_ldap_request {
 struct ldap_userdb_iterate_context {
 	struct userdb_iterate_context ctx;
 	struct userdb_iter_ldap_request request;
-	struct auth *auth;
+	pool_t pool;
 	struct ldap_connection *conn;
 	bool continued, in_callback;
 };
@@ -189,18 +189,16 @@ userdb_ldap_iterate_init(struct auth_userdb *userdb,
 	ctx->ctx.userdb = userdb->userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
-	ctx->auth = userdb->auth;
 	ctx->conn = conn;
 	request = &ctx->request;
 	request->ctx = ctx;
 
-	request->request.request.auth_request =
-		auth_request_new_dummy(userdb->auth);
+	request->request.request.auth_request = auth_request_new_dummy(NULL);
 	request->request.base = conn->set.base;
 	request->request.filter = conn->set.iterate_filter;
 	request->request.attributes = conn->iterate_attr_names;
 
-	if (userdb->auth->set->debug) {
+	if (global_auth_settings->debug) {
 		i_debug("ldap: iterate: base=%s scope=%s filter=%s fields=%s",
 			conn->set.base, conn->set.scope,
 			request->request.filter, attr_names == NULL ? "(all)" :
@@ -239,7 +237,7 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 	struct ldap_userdb_module *module;
 	struct ldap_connection *conn;
 
-	module = p_new(auth_userdb->auth->pool, struct ldap_userdb_module, 1);
+	module = p_new(auth_userdb->pool, struct ldap_userdb_module, 1);
 	module->conn = conn = db_ldap_init(args);
 	conn->user_attr_map =
 		hash_table_create(default_pool, conn->pool, 0, str_hash,
@@ -254,7 +252,7 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 			  &conn->iterate_attr_names,
 			  conn->iterate_attr_map, NULL);
 	module->module.cache_key =
-		auth_cache_parse_key(auth_userdb->auth->pool,
+		auth_cache_parse_key(auth_userdb->pool,
 				     t_strconcat(conn->set.base,
 						 conn->set.user_filter, NULL));
 	return &module->module;

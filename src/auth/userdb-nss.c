@@ -105,7 +105,7 @@ userdb_nss_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
 	struct nss_userdb_module *module;
 	const char *const *tmp;
-	pool_t pool = auth_userdb->auth->pool;
+	pool_t pool = auth_userdb->pool;
 
 	module = p_new(pool, struct nss_userdb_module, 1);
 	module->bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);

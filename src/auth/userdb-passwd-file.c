@@ -25,7 +25,6 @@ struct passwd_file_userdb_iterate_context {
 struct passwd_file_userdb_module {
         struct userdb_module module;
 
-	struct auth *auth;
 	struct db_passwd_file *pwf;
 };
 
@@ -168,8 +167,7 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 			format = args;
 			args = "";
 		} else {
-			format = p_strdup_until(auth_userdb->auth->pool,
-						args, p);
+			format = p_strdup_until(auth_userdb->pool, args, p);
 			args = p + 1;
 		}
 	}
@@ -177,17 +175,15 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 	if (*args == '\0')
 		i_fatal("userdb passwd-file: Missing args");
 
-	module = p_new(auth_userdb->auth->pool,
-		       struct passwd_file_userdb_module, 1);
-	module->auth = auth_userdb->auth;
+	module = p_new(auth_userdb->pool, struct passwd_file_userdb_module, 1);
 	module->pwf = db_passwd_file_init(args, format, TRUE,
-					  module->auth->set->debug);
+					  global_auth_settings->debug);
 
 	if (!module->pwf->vars)
 		module->module.cache_key = PASSWD_FILE_CACHE_KEY;
 	else {
 		module->module.cache_key =
-			auth_cache_parse_key(auth_userdb->auth->pool,
+			auth_cache_parse_key(auth_userdb->pool,
 					     t_strconcat(PASSWD_FILE_CACHE_KEY,
 						         module->pwf->path,
 							 NULL));

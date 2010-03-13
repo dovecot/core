@@ -28,7 +28,6 @@ struct auth_worker_request {
 };
 
 struct auth_worker_connection {
-	struct auth *auth;
 	int fd;
 
 	struct io *io;
@@ -120,12 +119,12 @@ static void auth_worker_request_send_next(struct auth_worker_connection *conn)
 	auth_worker_request_send(conn, request);
 }
 
-static struct auth_worker_connection *auth_worker_create(struct auth *auth)
+static struct auth_worker_connection *auth_worker_create(void)
 {
 	struct auth_worker_connection *conn;
 	int fd;
 
-	if (array_count(&connections) >= auth->set->worker_max_count)
+	if (array_count(&connections) >= global_auth_settings->worker_max_count)
 		return NULL;
 
 	fd = net_connect_unix_with_retries(worker_socket_path, 5000);
@@ -135,7 +134,6 @@ static struct auth_worker_connection *auth_worker_create(struct auth *auth)
 	}
 
 	conn = i_new(struct auth_worker_connection, 1);
-	conn->auth = auth;
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, AUTH_WORKER_MAX_LINE_LENGTH,
 					 FALSE);
@@ -154,7 +152,6 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 				const char *reason, bool restart)
 {
 	struct auth_worker_connection *conn = *_conn;
-	struct auth *auth = conn->auth;
 	struct auth_worker_connection *const *conns;
 	unsigned int idx;
 
@@ -188,7 +185,7 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 	i_free(conn);
 
 	if (idle_count == 0 && restart) {
-		conn = auth_worker_create(auth);
+		conn = auth_worker_create();
 		auth_worker_request_send_next(conn);
 	}
 }
@@ -286,8 +283,7 @@ static void worker_input(struct auth_worker_connection *conn)
 }
 
 struct auth_worker_connection *
-auth_worker_call(struct auth *auth, pool_t pool,
-		 struct auth_stream_reply *data,
+auth_worker_call(pool_t pool, struct auth_stream_reply *data,
 		 auth_worker_callback_t *callback, void *context)
 {
 	struct auth_worker_connection *conn;
@@ -307,7 +303,7 @@ auth_worker_call(struct auth *auth, pool_t pool,
 		conn = auth_worker_find_free();
 		if (conn == NULL) {
 			/* no free connections, create a new one */
-			conn = auth_worker_create(auth);
+			conn = auth_worker_create();
 		}
 	}
 	if (conn != NULL)

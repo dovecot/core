@@ -161,7 +161,7 @@ passdb_preinit(struct auth *auth, struct auth_passdb_settings *set)
         struct auth_passdb *auth_passdb, **dest;
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
-	auth_passdb->auth = auth;
+	auth_passdb->pool = auth->pool;
 	auth_passdb->args = set->args == NULL ? "" :
 		p_strdup(auth->pool, set->args);
 	auth_passdb->deny = set->deny;

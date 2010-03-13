@@ -230,11 +230,11 @@ userdb_sql_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
 	struct sql_userdb_module *module;
 
-	module = p_new(auth_userdb->auth->pool, struct sql_userdb_module, 1);
+	module = p_new(auth_userdb->pool, struct sql_userdb_module, 1);
 	module->conn = db_sql_init(args);
 
 	module->module.cache_key =
-		auth_cache_parse_key(auth_userdb->auth->pool,
+		auth_cache_parse_key(auth_userdb->pool,
 				     module->conn->set.user_query);
 	return &module->module;
 }

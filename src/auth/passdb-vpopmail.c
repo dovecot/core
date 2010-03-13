@@ -164,15 +164,14 @@ vpopmail_preinit(struct auth_passdb *auth_passdb, const char *args)
 	struct vpopmail_passdb_module *module;
 	const char *const *tmp;
 
-	module = p_new(auth_passdb->auth->pool,
-		       struct vpopmail_passdb_module, 1);
+	module = p_new(auth_passdb->pool, struct vpopmail_passdb_module, 1);
 	module->module.default_pass_scheme = VPOPMAIL_DEFAULT_PASS_SCHEME;
 
 	tmp = t_strsplit_spaces(args, " ");
 	for (; *tmp != NULL; tmp++) {
 		if (strncmp(*tmp, "cache_key=", 10) == 0) {
 			module->module.cache_key =
-				auth_cache_parse_key(auth_passdb->auth->pool,
+				auth_cache_parse_key(auth_passdb->pool,
 						     *tmp + 10);
 		} else if (strncmp(*tmp, "webmail=", 8) == 0) {
 			if (net_addr2ip(*tmp + 8, &module->webmail_ip) < 0)

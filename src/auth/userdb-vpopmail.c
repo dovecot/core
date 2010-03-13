@@ -141,7 +141,7 @@ vpopmail_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
 	struct vpopmail_userdb_module *module;
 	const char *const *tmp, *p;
-	pool_t pool = auth_userdb->auth->pool;
+	pool_t pool = auth_userdb->pool;
 
 	module = p_new(pool, struct vpopmail_userdb_module, 1);
 

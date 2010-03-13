@@ -6,7 +6,7 @@
 #define PASSWORD_HIDDEN_STR "<hidden>"
 
 struct auth_passdb {
-	struct auth *auth;
+	pool_t pool;
 	struct auth_passdb *next;
 
         /* id is used by blocking passdb to identify the passdb */
@@ -21,7 +21,7 @@ struct auth_passdb {
 };
 
 struct auth_userdb {
-	struct auth *auth;
+	pool_t pool;
 	struct auth_userdb *next;
 
 	unsigned int num;

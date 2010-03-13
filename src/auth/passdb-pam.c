@@ -333,7 +333,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 	const char *const *t_args;
 	int i;
 
-	module = p_new(auth_passdb->auth->pool, struct pam_passdb_module, 1);
+	module = p_new(auth_passdb->pool, struct pam_passdb_module, 1);
 	module->service_name = "dovecot";
 	/* we're caching the password by using directly the plaintext password
 	   given by the auth mechanism */
@@ -351,7 +351,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 			module->pam_setcred = TRUE;
 		else if (strncmp(t_args[i], "cache_key=", 10) == 0) {
 			module->module.cache_key =
-				auth_cache_parse_key(auth_passdb->auth->pool,
+				auth_cache_parse_key(auth_passdb->pool,
 						     t_args[i] + 10);
 		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
 			/* ignore, for backwards compatibility */
@@ -364,7 +364,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 			module->requests_left = atoi(t_args[i] + 13);
 		} else if (t_args[i+1] == NULL) {
 			module->service_name =
-				p_strdup(auth_passdb->auth->pool, t_args[i]);
+				p_strdup(auth_passdb->pool, t_args[i]);
 		} else {
 			i_fatal("passdb pam: Unknown setting: %s", t_args[i]);
 		}
