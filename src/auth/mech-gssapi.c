@@ -99,9 +99,9 @@ static void mech_gssapi_log_error(struct auth_request *request,
 	} while (message_context != 0);
 }
 
-static void mech_gssapi_initialize(struct auth *auth)
+static void mech_gssapi_initialize(const struct auth_settings *set)
 {
-	const char *path = auth->set->krb5_keytab;
+	const char *path = set->krb5_keytab;
 
 	if (*path != '\0') {
 		/* environment may be used by Kerberos 5 library directly */
@@ -140,7 +140,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 
 	if (!gssapi_initialized) {
 		gssapi_initialized = TRUE;
-		mech_gssapi_initialize(request->auth);
+		mech_gssapi_initialize(request->set);
 	}
 
 	if (strcmp(request->set->gssapi_hostname, "$ALL") == 0) {
