@@ -31,6 +31,20 @@ void service_error(struct service *service, const char *format, ...)
 	va_end(args);
 }
 
+static int
+get_uidgid_expanded(const char *user, const struct master_settings *set,
+		    uid_t *uid_r, gid_t *gid_r, const char **error_r)
+{
+	/* $variable expansion is typically done by doveconf, but these
+	   variables can come from built-in settings, so we need to expand
+	   them here */
+	if (strcmp(user, "$default_internal_user") == 0)
+		user = set->default_internal_user;
+	else if (strcmp(user, "$default_login_user") == 0)
+		user = set->default_login_user;
+	return get_uidgid(user, uid_r, gid_r, error_r);
+}
+
 static struct service_listener *
 service_create_file_listener(struct service *service,
 			     enum service_listener_type type,
@@ -46,7 +60,8 @@ service_create_file_listener(struct service *service,
 	l->fd = -1;
 	l->set.fileset.set = set;
 
-	if (get_uidgid(set->user, &l->set.fileset.uid, &gid, error_r) < 0)
+	if (get_uidgid_expanded(set->user, service->set->master_set,
+				&l->set.fileset.uid, &gid, error_r) < 0)
 		return NULL;
 	if (get_gid(set->group, &l->set.fileset.gid, error_r) < 0)
 		return NULL;
@@ -166,7 +181,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	struct inet_listener_settings *const *inet_listeners;
 	struct service *service;
         struct service_listener *l;
-	const char *user, *const *tmp;
+	const char *const *tmp;
 	string_t *str;
 	unsigned int i, unix_count, fifo_count, inet_count;
 
@@ -200,17 +215,9 @@ service_create(pool_t pool, const struct service_settings *set,
 		return NULL;
 	}
 
-	/* $variable expansion is typically done by doveconf, but these
-	   variables can come from built-in settings, so we need to expand
-	   them here */
-	user = set->user;
-	if (strcmp(user, "$default_internal_user") == 0)
-		user = set->master_set->default_internal_user;
-	else if (strcmp(user, "$default_login_user") == 0)
-		user = set->master_set->default_login_user;
-
 	/* default gid to user's primary group */
-	if (get_uidgid(user, &service->uid, &service->gid, error_r) < 0)
+	if (get_uidgid_expanded(set->user, set->master_set, &service->uid,
+				&service->gid, error_r) < 0)
 		return NULL;
 	if (*set->group != '\0') {
 		if (get_gid(set->group, &service->gid, error_r) < 0)
