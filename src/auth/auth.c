@@ -1,19 +1,11 @@
 /* Copyright (c) 2005-2010 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "network.h"
 #include "array.h"
-#include "str.h"
-#include "env-util.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
-#include "passdb-cache.h"
 #include "auth.h"
-#include "auth-request-handler.h"
-
-#include <stdlib.h>
-#include <unistd.h>
 
 struct auth_userdb_settings userdb_dummy_set = {
 	.driver = "static",
@@ -204,10 +196,6 @@ void auth_init(struct auth *auth)
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_init(userdb->userdb);
 
-	/* caching is handled only by the main auth process */
-	if (!worker)
-		passdb_cache_init(auth->set);
-
 	auth_mech_list_verify_passdb(auth);
 }
 
@@ -225,9 +213,6 @@ void auth_deinit(struct auth **_auth)
 		passdb_deinit(passdb->passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_deinit(userdb->userdb);
-
-	auth_request_handler_deinit();
-	passdb_cache_deinit();
 
 	pool_unref(&auth->pool);
 }
