@@ -111,7 +111,7 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct auth_passdb_settings auth_passdb_settings = {
+static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.driver = "",
 	.args = "",
 	.deny = FALSE,
@@ -121,7 +121,7 @@ static const struct auth_passdb_settings auth_passdb_settings = {
 
 const struct setting_parser_info auth_passdb_setting_parser_info = {
 	.defines = auth_passdb_setting_defines,
-	.defaults = &auth_passdb_settings,
+	.defaults = &auth_passdb_default_settings,
 
 	.type_offset = (size_t)-1,
 	.struct_size = sizeof(struct auth_passdb_settings),
@@ -143,14 +143,14 @@ static const struct setting_define auth_userdb_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct auth_userdb_settings auth_userdb_settings = {
+static const struct auth_userdb_settings auth_userdb_default_settings = {
 	.driver = "",
 	.args = ""
 };
 
 const struct setting_parser_info auth_userdb_setting_parser_info = {
 	.defines = auth_userdb_setting_defines,
-	.defaults = &auth_userdb_settings,
+	.defaults = &auth_userdb_default_settings,
 
 	.type_offset = (size_t)-1,
 	.struct_size = sizeof(struct auth_userdb_settings),
