@@ -40,7 +40,7 @@ struct service_settings auth_service_settings = {
 	.protocol = "",
 	.type = "",
 	.executable = "auth",
-	.user = "",
+	.user = "$default_internal_user",
 	.group = "",
 	.privileged_group = "",
 	.extra_groups = "",
@@ -62,7 +62,7 @@ struct service_settings auth_service_settings = {
 
 /* <settings checks> */
 static struct file_listener_settings auth_worker_unix_listeners_array[] = {
-	{ "auth-worker", 0600, "", "" }
+	{ "auth-worker", 0600, "$default_internal_user", "" }
 };
 static struct file_listener_settings *auth_worker_unix_listeners[] = {
 	&auth_worker_unix_listeners_array[0]
