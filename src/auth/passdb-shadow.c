@@ -59,8 +59,9 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 
 static void shadow_init(struct passdb_module *module)
 {
-	if (strcmp(module->args, "blocking=yes") == 0)
-		module->blocking = TRUE;
+	module->blocking = TRUE;
+	if (strcmp(module->args, "blocking=no") == 0)
+		module->blocking = FALSE;
 	else if (*module->args != '\0')
 		i_fatal("passdb shadow: Unknown setting: %s", module->args);
 

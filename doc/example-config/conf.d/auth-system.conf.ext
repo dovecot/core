@@ -19,7 +19,7 @@ passdb {
 # configured in /etc/nsswitch.conf. <doc/wiki/AuthDatabase.Passwd.txt>
 #passdb {
   #driver = passwd
-  # [blocking=yes]
+  # [blocking=no]
   #args = 
 #}
 
@@ -28,7 +28,7 @@ passdb {
 # <doc/wiki/PasswordDatabase.Shadow.txt>
 #passdb {
   #driver = shadow
-  # [blocking=yes]
+  # [blocking=no]
   #args = 
 #}
 
@@ -36,7 +36,7 @@ passdb {
 # <doc/wiki/PasswordDatabase.BSDAuth.txt>
 #passdb {
   #driver = bsdauth
-  # [cache_key=<key>]
+  # [blocking=no] [cache_key=<key>]
   #args =
 #}
 
