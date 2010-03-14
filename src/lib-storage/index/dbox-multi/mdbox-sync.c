@@ -84,24 +84,39 @@ static int mdbox_sync_add(struct mdbox_sync_context *ctx,
 	return 0;
 }
 
-static void dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
+static int dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
 {
+	enum mail_index_transaction_flags flags =
+		MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
 	struct mailbox *box = &ctx->mbox->box;
+	struct mail_index_transaction *trans;
 	struct seq_range_iter iter;
 	unsigned int n;
 	const void *data;
 	uint32_t seq, uid;
 
+	/* use a separate transaction here so that we can commit the changes
+	   during map transaction */
+	trans = mail_index_transaction_begin(ctx->sync_view, flags);
 	seq_range_array_iter_init(&iter, &ctx->expunged_seqs); n = 0;
 	while (seq_range_array_iter_nth(&iter, n++, &seq)) {
 		mail_index_lookup_uid(ctx->sync_view, seq, &uid);
 		mail_index_lookup_ext(ctx->sync_view, seq,
 				      ctx->mbox->guid_ext_id, &data, NULL);
-		mail_index_expunge_guid(ctx->trans, seq, data);
-
-		if (box->v.sync_notify != NULL)
-			box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
+		mail_index_expunge_guid(trans, seq, data);
 	}
+	if (mail_index_transaction_commit(&trans) < 0)
+		return -1;
+
+	if (box->v.sync_notify != NULL) {
+		/* do notifications after commit finished successfully */
+		seq_range_array_iter_init(&iter, &ctx->expunged_seqs); n = 0;
+		while (seq_range_array_iter_nth(&iter, n++, &seq)) {
+			mail_index_lookup_uid(ctx->sync_view, seq, &uid);
+			box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
+		}
+	}
+	return 0;
 }
 
 static int mdbox_sync_index_finish_expunges(struct mdbox_sync_context *ctx)
@@ -112,11 +127,18 @@ static int mdbox_sync_index_finish_expunges(struct mdbox_sync_context *ctx)
 	map_trans = dbox_map_transaction_begin(ctx->mbox->storage->map, FALSE);
 	ret = dbox_map_update_refcounts(map_trans, &ctx->expunged_map_uids, -1);
 	if (ret == 0) {
+		/* write refcount changes to map index */
 		ret = dbox_map_transaction_commit(map_trans);
-		if (ret == 0)
-			dbox_sync_mark_expunges(ctx);
+		if (ret == 0) {
+			/* write changes to mailbox index */
+			ret = dbox_sync_mark_expunges(ctx);
+		}
 	}
 
+	/* this finally finishes the map sync and makes it clear that the
+	   map transaction was successfully finished. */
+	if (ret < 0)
+		dbox_map_transaction_set_failed(map_trans);
 	dbox_map_transaction_free(&map_trans);
 	return ret;
 }
