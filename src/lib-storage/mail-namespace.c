@@ -107,7 +107,7 @@ namespace_add(struct mail_user *user,
 			ns_set->separator == NULL ? "" : ns_set->separator,
 			ns_set->inbox ? "yes" : "no",
 			ns_set->hidden ? "yes" : "no",
-			ns_set->list ? "yes" : "no",
+			ns_set->list,
 			ns_set->subscriptions ? "yes" : "no");
 	}
 
