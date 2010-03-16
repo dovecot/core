@@ -88,7 +88,7 @@ struct service_settings auth_worker_service_settings = {
 	.process_min_avail = 0,
 	.process_limit = 0,
 	.client_limit = 1,
-	.service_count = 0,
+	.service_count = 1,
 	.vsz_limit = -1U,
 
 	.unix_listeners = { { &auth_worker_unix_listeners_buf,
