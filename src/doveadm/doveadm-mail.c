@@ -103,7 +103,7 @@ doveadm_mail_next_user(doveadm_mail_command_t *cmd,
 				      &mail_user, &error) < 0) {
 		*error_r = t_strdup_printf("User init failed: %s", error);
 		mail_storage_service_user_free(&service_user);
-		return -1;
+		return -2;
 	}
 
 	cmd(mail_user, args);
