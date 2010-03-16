@@ -66,13 +66,15 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				const struct mail_storage_service_input *input,
 				struct mail_storage_service_user **user_r,
 				const char **error_r);
+/* Returns 0 if ok, -1 if user had invalid settings. */
 int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
 			      struct mail_user **mail_user_r,
 			      const char **error_r);
 void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
 					  struct mail_storage_service_user *user);
-/* Combine lookup() and next() into one call. */
+/* Combine lookup() and next() into one call. If either one fails with
+   "invalid settings", this function returns -2. */
 int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     const struct mail_storage_service_input *input,
 				     struct mail_storage_service_user **user_r,

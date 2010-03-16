@@ -932,7 +932,7 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 	if (mail_storage_service_next(ctx, user, mail_user_r, &error) < 0) {
 		mail_storage_service_user_free(&user);
 		*error_r = t_strdup_printf("User init failed: %s", error);
-		return -1;
+		return -2;
 	}
 	*user_r = user;
 	return 1;
