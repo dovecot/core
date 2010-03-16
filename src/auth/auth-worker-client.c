@@ -379,15 +379,27 @@ lookup_user_callback(enum userdb_result result,
 	auth_worker_client_unref(&client);
 }
 
+static struct auth_userdb *
+auth_userdb_find_by_id(struct auth_userdb *userdbs, unsigned int id)
+{
+	struct auth_userdb *db;
+
+	for (db = userdbs; db != NULL; db = db->next) {
+		if (db->userdb->id == id)
+			return db;
+	}
+	return NULL;
+}
+
 static bool
 auth_worker_handle_user(struct auth_worker_client *client,
 			unsigned int id, const char *args)
 {
 	/* lookup user */
 	struct auth_request *auth_request;
-	unsigned int num;
+	unsigned int userdb_id;
 
-	num = atoi(t_strcut(args, '\t'));
+	userdb_id = atoi(t_strcut(args, '\t'));
 	args = strchr(args, '\t');
 	if (args != NULL) args++;
 
@@ -399,13 +411,12 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		return FALSE;
 	}
 
-	for (; num > 0; num--) {
-		auth_request->userdb = auth_request->userdb->next;
-		if (auth_request->userdb == NULL) {
-			i_error("BUG: USER had invalid userdb num");
-			auth_request_unref(&auth_request);
-			return FALSE;
-		}
+	auth_request->userdb =
+		auth_userdb_find_by_id(auth_request->userdb, userdb_id);
+	if (auth_request->userdb == NULL) {
+		i_error("BUG: USER had invalid userdb ID");
+		auth_request_unref(&auth_request);
+		return FALSE;
 	}
 
 	auth_request->userdb->userdb->iface->
@@ -488,15 +499,11 @@ auth_worker_handle_list(struct auth_worker_client *client,
 {
 	struct auth_worker_list_context *ctx;
 	struct auth_userdb *userdb;
-	unsigned int num;
 
-	userdb = client->auth->userdbs;
-	for (num = atoi(args); num > 0; num--) {
-		userdb = userdb->next;
-		if (userdb == NULL) {
-			i_error("BUG: LIST had invalid userdb num");
-			return FALSE;
-		}
+	userdb = auth_userdb_find_by_id(client->auth->userdbs, atoi(args));
+	if (userdb == NULL) {
+		i_error("BUG: LIST had invalid userdb ID");
+		return FALSE;
 	}
 
 	ctx = i_new(struct auth_worker_list_context, 1);
