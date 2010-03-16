@@ -234,12 +234,25 @@ const struct setting_parser_info master_setting_parser_info = {
 };
 
 /* <settings checks> */
-static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
-				    pool_t pool, const char *base_dir,
-				    ARRAY_TYPE(const_string) *all_listeners)
+static void
+expand_user(const char **user, const struct master_settings *set)
+{
+	/* $variable expansion is typically done by doveconf, but these
+	   variables can come from built-in settings, so we need to expand
+	   them here */
+	if (strcmp(*user, "$default_internal_user") == 0)
+		*user = set->default_internal_user;
+	else if (strcmp(*user, "$default_login_user") == 0)
+		*user = set->default_login_user;
+}
+
+static void
+fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
+			pool_t pool, const struct master_settings *master_set,
+			ARRAY_TYPE(const_string) *all_listeners)
 {
 	struct file_listener_settings *const *sets;
-	unsigned int base_dir_len = strlen(base_dir);
+	unsigned int base_dir_len = strlen(master_set->base_dir);
 
 	if (!array_is_created(l))
 		return;
@@ -247,10 +260,12 @@ static void fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 	array_foreach(l, sets) {
 		struct file_listener_settings *set = *sets;
 
+		expand_user(&set->user, master_set);
 		if (*set->path != '/') {
-			set->path = p_strconcat(pool, base_dir, "/",
+			set->path = p_strconcat(pool, master_set->base_dir, "/",
 						set->path, NULL);
-		} else if (strncmp(set->path, base_dir, base_dir_len) == 0 &&
+		} else if (strncmp(set->path, master_set->base_dir,
+				   base_dir_len) == 0 &&
 			   set->path[base_dir_len] == '/') {
 			i_warning("You should remove base_dir prefix from "
 				  "unix_listener: %s", set->path);
@@ -372,6 +387,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				return FALSE;
 			}
 		}
+		expand_user(&service->user, set);
 		service_set_login_dump_core(service);
 	}
 
@@ -411,9 +427,9 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			return FALSE;
 		}
 		fix_file_listener_paths(&service->unix_listeners,
-					pool, set->base_dir, &all_listeners);
+					pool, set, &all_listeners);
 		fix_file_listener_paths(&service->fifo_listeners,
-					pool, set->base_dir, &all_listeners);
+					pool, set, &all_listeners);
 		add_inet_listeners(&service->inet_listeners, &all_listeners);
 	}
 
