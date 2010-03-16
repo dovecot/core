@@ -1,6 +1,8 @@
 #ifndef PASSDB_H
 #define PASSDB_H
 
+#include "md5.h"
+
 #define IS_VALID_PASSWD(pass) \
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
@@ -92,6 +94,8 @@ void passdb_deinit(struct passdb_module *passdb);
 
 void passdb_register_module(struct passdb_module_interface *iface);
 void passdb_unregister_module(struct passdb_module_interface *iface);
+
+void passdbs_generate_md5(unsigned char md5[MD5_RESULTLEN]);
 
 void passdbs_init(void);
 void passdbs_deinit(void);

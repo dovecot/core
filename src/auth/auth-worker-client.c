@@ -6,6 +6,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "master-service.h"
 #include "auth-request.h"
@@ -23,6 +24,9 @@ struct auth_worker_client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+
+	unsigned int version_received:1;
+	unsigned int dbhash_received:1;
 };
 
 struct auth_worker_list_context {
@@ -550,6 +554,24 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
         return ret;
 }
 
+static bool auth_worker_verify_db_hash(const char *line)
+{
+	string_t *str;
+	unsigned char passdb_md5[MD5_RESULTLEN];
+	unsigned char userdb_md5[MD5_RESULTLEN];
+
+	passdbs_generate_md5(passdb_md5);
+	userdbs_generate_md5(userdb_md5);
+
+	str = t_str_new(128);
+	str_append(str, "DBHASH\t");
+	binary_to_hex_append(str, passdb_md5, sizeof(passdb_md5));
+	str_append_c(str, '\t');
+	binary_to_hex_append(str, userdb_md5, sizeof(userdb_md5));
+
+	return strcmp(line, str_c(str)) == 0;
+}
+
 static void auth_worker_input(struct auth_worker_client *client)
 {
 	char *line;
@@ -568,6 +590,36 @@ static void auth_worker_input(struct auth_worker_client *client)
 			(int)AUTH_WORKER_MAX_LINE_LENGTH);
 		auth_worker_client_destroy(&client);
 		return;
+	}
+
+	if (!client->version_received) {
+		line = i_stream_next_line(client->input);
+		if (line == NULL)
+			return;
+
+		if (strncmp(line, "VERSION\tauth-worker\t", 20) != 0 ||
+		    atoi(t_strcut(line + 20, '\t')) !=
+		    AUTH_WORKER_PROTOCOL_MAJOR_VERSION) {
+			i_error("Auth worker not compatible with this server "
+				"(mixed old and new binaries?)");
+			auth_worker_client_destroy(&client);
+			return;
+		}
+		client->version_received = TRUE;
+	}
+	if (!client->dbhash_received) {
+		line = i_stream_next_line(client->input);
+		if (line == NULL)
+			return;
+
+		if (!auth_worker_verify_db_hash(line)) {
+			i_error("Auth worker sees different passdbs/userdbs "
+				"than auth server. Maybe config just changed "
+				"and this goes away automatically?");
+			auth_worker_client_destroy(&client);
+			return;
+		}
+		client->dbhash_received = TRUE;
 	}
 
         client->refcount++;

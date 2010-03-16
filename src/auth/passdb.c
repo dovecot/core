@@ -232,6 +232,23 @@ void passdb_deinit(struct passdb_module *passdb)
 		passdb->iface.deinit(passdb);
 }
 
+void passdbs_generate_md5(unsigned char md5[MD5_RESULTLEN])
+{
+	struct md5_context ctx;
+	struct passdb_module *const *passdbs;
+	unsigned int i, count;
+
+	md5_init(&ctx);
+	passdbs = array_get(&passdb_modules, &count);
+	for (i = 0; i < count; i++) {
+		md5_update(&ctx, &passdbs[i]->id, sizeof(passdbs[i]->id));
+		md5_update(&ctx, passdbs[i]->iface.name,
+			   strlen(passdbs[i]->iface.name));
+		md5_update(&ctx, passdbs[i]->args, strlen(passdbs[i]->args));
+	}
+	md5_final(&ctx, md5);
+}
+
 extern struct passdb_module_interface passdb_passwd;
 extern struct passdb_module_interface passdb_bsdauth;
 extern struct passdb_module_interface passdb_shadow;

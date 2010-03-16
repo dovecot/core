@@ -119,6 +119,28 @@ static void auth_worker_request_send_next(struct auth_worker_connection *conn)
 	auth_worker_request_send(conn, request);
 }
 
+static void auth_worker_send_handshake(struct auth_worker_connection *conn)
+{
+	string_t *str;
+	unsigned char passdb_md5[MD5_RESULTLEN];
+	unsigned char userdb_md5[MD5_RESULTLEN];
+
+	str = t_str_new(128);
+	str_printfa(str, "VERSION\tauth-worker\t%u\t%u\n",
+		    AUTH_WORKER_PROTOCOL_MAJOR_VERSION,
+		    AUTH_WORKER_PROTOCOL_MINOR_VERSION);
+
+	passdbs_generate_md5(passdb_md5);
+	userdbs_generate_md5(userdb_md5);
+	str_append(str, "DBHASH\t");
+	binary_to_hex_append(str, passdb_md5, sizeof(passdb_md5));
+	str_append_c(str, '\t');
+	binary_to_hex_append(str, userdb_md5, sizeof(userdb_md5));
+	str_append_c(str, '\n');
+
+	o_stream_send(conn->output, str_data(str), str_len(str));
+}
+
 static struct auth_worker_connection *auth_worker_create(void)
 {
 	struct auth_worker_connection *conn;
@@ -141,9 +163,9 @@ static struct auth_worker_connection *auth_worker_create(void)
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
 	conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
 			       auth_worker_idle_timeout, conn);
+	auth_worker_send_handshake(conn);
 
 	idle_count++;
-
 	array_append(&connections, &conn, 1);
 	return conn;
 }

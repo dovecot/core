@@ -1,6 +1,8 @@
 #ifndef AUTH_WORKER_CLIENT_H
 #define AUTH_WORKER_CLIENT_H
 
+#define AUTH_WORKER_PROTOCOL_MAJOR_VERSION 1
+#define AUTH_WORKER_PROTOCOL_MINOR_VERSION 0
 #define AUTH_WORKER_MAX_LINE_LENGTH 8192
 
 extern struct auth_worker_client *auth_worker_client;
