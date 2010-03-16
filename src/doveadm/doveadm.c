@@ -111,13 +111,15 @@ int main(int argc, char *argv[])
 		&doveadm_setting_parser_info,
 		NULL
 	};
+	enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_STANDALONE |
+		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 	const char *cmd_name, *error;
 	int c;
 
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */
-	master_service = master_service_init("doveadm",
-					     MASTER_SERVICE_FLAG_STANDALONE,
+	master_service = master_service_init("doveadm", service_flags,
 					     &argc, &argv, "+Dv");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
