@@ -454,17 +454,31 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
+	enum mailbox_name_status status;
+	const char *storage_name;
 
-	ns = client_find_namespace(cmd, &name,
-				   CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE);
+	ns = client_find_namespace(cmd, name, &storage_name, &status);
 	if (ns == NULL)
 		return NULL;
 
+	switch (status) {
+	case MAILBOX_NAME_EXISTS_MAILBOX:
+		break;
+	case MAILBOX_NAME_EXISTS_DIR:
+		status = MAILBOX_NAME_VALID;
+		/* fall through */
+	case MAILBOX_NAME_VALID:
+	case MAILBOX_NAME_INVALID:
+	case MAILBOX_NAME_NOINFERIORS:
+		client_fail_mailbox_name_status(cmd, name, "TRYCREATE", status);
+		return NULL;
+	}
+
 	if (cmd->client->mailbox != NULL &&
-	    mailbox_equals(cmd->client->mailbox, ns, name))
+	    mailbox_equals(cmd->client->mailbox, ns, storage_name))
 		return cmd->client->mailbox;
 
-	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY |
+	box = mailbox_alloc(ns->list, storage_name, MAILBOX_FLAG_SAVEONLY |
 			    MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(box) < 0) {
 		client_send_storage_error(cmd, mailbox_get_storage(box));

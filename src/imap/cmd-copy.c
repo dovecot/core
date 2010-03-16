@@ -90,7 +90,8 @@ bool cmd_copy(struct client_command_context *cmd)
 	struct mailbox *destbox;
 	struct mailbox_transaction_context *t;
         struct mail_search_args *search_args;
-	const char *messageset, *mailbox, *src_uidset;
+	const char *messageset, *mailbox, *storage_name, *src_uidset;
+	enum mailbox_name_status status;
 	enum mailbox_sync_flags sync_flags = 0;
 	enum imap_sync_flags imap_flags = 0;
 	struct mail_transaction_commit_changes changes;
@@ -110,15 +111,28 @@ bool cmd_copy(struct client_command_context *cmd)
 		return ret < 0;
 
 	/* open the destination mailbox */
-	dest_ns = client_find_namespace(cmd, &mailbox,
-				CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE);
+	dest_ns = client_find_namespace(cmd, mailbox, &storage_name, &status);
 	if (dest_ns == NULL)
 		return TRUE;
 
-	if (mailbox_equals(client->mailbox, dest_ns, mailbox))
+	switch (status) {
+	case MAILBOX_NAME_EXISTS_MAILBOX:
+		break;
+	case MAILBOX_NAME_EXISTS_DIR:
+		status = MAILBOX_NAME_VALID;
+		/* fall through */
+	case MAILBOX_NAME_VALID:
+	case MAILBOX_NAME_INVALID:
+	case MAILBOX_NAME_NOINFERIORS:
+		client_fail_mailbox_name_status(cmd, mailbox,
+						"TRYCREATE", status);
+		return NULL;
+	}
+
+	if (mailbox_equals(client->mailbox, dest_ns, storage_name))
 		destbox = client->mailbox;
 	else {
-		destbox = mailbox_alloc(dest_ns->list, mailbox,
+		destbox = mailbox_alloc(dest_ns->list, storage_name,
 					MAILBOX_FLAG_SAVEONLY |
 					MAILBOX_FLAG_KEEP_RECENT);
 		if (mailbox_open(destbox) < 0) {

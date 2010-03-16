@@ -1,23 +1,6 @@
 #ifndef IMAP_COMMANDS_UTIL_H
 #define IMAP_COMMANDS_UTIL_H
 
-enum client_verify_mailbox_mode {
-	/* Don't verify mailbox name validity */
-	CLIENT_VERIFY_MAILBOX_NONE,
-	/* Verify only that the mailbox name is valid */
-	CLIENT_VERIFY_MAILBOX_NAME,
-	/* If mailbox doesn't exist, fail with [NONEXISTENT] resp code */
-	CLIENT_VERIFY_MAILBOX_SHOULD_EXIST,
-	/* Like above, but allow also non-selectable mailboxes */
-	CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST,
-	/* If mailbox doesn't exist, fail with [TRYCREATE] resp code */
-	CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE,
-	/* If mailbox exists, fail with [ALREADYEXISTS] resp code */
-	CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST,
-	/* If dir/mailbox exists, fail with [ALREADYEXISTS] resp code */
-	CLIENT_VERIFY_MAILBOX_DIR_SHOULD_NOT_EXIST
-};
-
 struct msgset_generator_context {
 	string_t *str;
 	uint32_t first_uid, last_uid;
@@ -29,8 +12,15 @@ struct mailbox_keywords;
 /* Finds namespace for given mailbox from namespaces. If namespace isn't found
    or mailbox name is invalid, sends a tagged NO reply to client. */
 struct mail_namespace *
-client_find_namespace(struct client_command_context *cmd, const char **mailbox,
-		      enum client_verify_mailbox_mode mode);
+client_find_namespace(struct client_command_context *cmd, const char *mailbox,
+		      const char **storage_name_r,
+		      enum mailbox_name_status *mailbox_status_r);
+
+/* Send tagged NO reply based on mailbox name status. */
+void client_fail_mailbox_name_status(struct client_command_context *cmd,
+				     const char *mailbox_name,
+				     const char *resp_code,
+				     enum mailbox_name_status status);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */

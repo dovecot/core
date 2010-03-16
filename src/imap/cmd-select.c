@@ -342,7 +342,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	struct mailbox *box;
 	struct imap_select_context *ctx;
 	const struct imap_arg *args;
-	const char *mailbox;
+	enum mailbox_name_status status;
+	const char *mailbox, *storage_name;
 	int ret;
 
 	/* <mailbox> [(optional parameters)] */
@@ -357,10 +358,21 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client_find_namespace(cmd, &mailbox,
-					CLIENT_VERIFY_MAILBOX_SHOULD_EXIST);
+	ctx->ns = client_find_namespace(cmd, mailbox, &storage_name, &status);
 	if (ctx->ns == NULL)
 		return TRUE;
+	switch (status) {
+	case MAILBOX_NAME_EXISTS_MAILBOX:
+		break;
+	case MAILBOX_NAME_EXISTS_DIR:
+		status = MAILBOX_NAME_VALID;
+		/* fall through */
+	case MAILBOX_NAME_VALID:
+	case MAILBOX_NAME_INVALID:
+	case MAILBOX_NAME_NOINFERIORS:
+		client_fail_mailbox_name_status(cmd, mailbox, NULL, status);
+		return TRUE;
+	}
 
 	if (args[1].type == IMAP_ARG_LIST) {
 		if (!select_parse_options(ctx, IMAP_ARG_LIST_ARGS(&args[1]))) {
@@ -389,7 +401,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		client_enable(client, MAILBOX_FEATURE_CONDSTORE);
 	}
 
-	ret = select_open(ctx, mailbox, readonly);
+	ret = select_open(ctx, storage_name, readonly);
 	cmd_select_finish(ctx, ret);
 	return TRUE;
 }

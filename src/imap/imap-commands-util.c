@@ -20,45 +20,47 @@
 #define MAILBOX_MAX_NAME_LEN 512
 
 struct mail_namespace *
-client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
-		      enum client_verify_mailbox_mode mode)
+client_find_namespace(struct client_command_context *cmd, const char *mailbox,
+		      const char **storage_name_r,
+		      enum mailbox_name_status *mailbox_status_r)
 {
 	struct mail_namespace *ns;
-	enum mailbox_name_status mailbox_status;
-	const char *orig_mailbox, *mailbox, *p, *resp_code = NULL;
-	unsigned int mailbox_len;
+	const char *storage_name, *p;
+	unsigned int storage_name_len;
+	char sep;
 
-	orig_mailbox = *mailboxp;
-	ns = mail_namespace_find(cmd->client->user->namespaces, mailboxp);
+	storage_name = mailbox;
+	ns = mail_namespace_find(cmd->client->user->namespaces, &storage_name);
 	if (ns == NULL) {
 		client_send_tagline(cmd, "NO Unknown namespace.");
 		return NULL;
 	}
-	mailbox = *mailboxp;
 
-	if (mode == CLIENT_VERIFY_MAILBOX_NONE)
+	if (mailbox_status_r == NULL) {
+		*storage_name_r = storage_name;
 		return ns;
+	}
 
 	/* make sure it even looks valid */
-	if (*mailbox == '\0' && !(*orig_mailbox != '\0' && ns->list)) {
+	if (*storage_name == '\0' && !(*mailbox != '\0' && ns->list)) {
 		client_send_tagline(cmd, "NO Empty mailbox name.");
 		return NULL;
 	}
 
-	mailbox_len = strlen(mailbox);
+	sep = mailbox_list_get_hierarchy_sep(ns->list);
+	storage_name_len = strlen(storage_name);
 	if ((cmd->client->set->parsed_workarounds &
 	     		WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
-	    mailbox[mailbox_len-1] == mailbox_list_get_hierarchy_sep(ns->list)) {
+	    storage_name[storage_name_len-1] == sep) {
 		/* drop the extra trailing hierarchy separator */
-		mailbox = t_strndup(mailbox, mailbox_len-1);
-		*mailboxp = mailbox;
+		storage_name = t_strndup(storage_name, storage_name_len-1);
 	}
 
-	if (ns->real_sep != ns->sep && ns->prefix_len < strlen(orig_mailbox)) {
+	if (ns->real_sep != ns->sep && ns->prefix_len < strlen(mailbox)) {
 		/* make sure there are no real separators used in the mailbox
 		   name. */
-		orig_mailbox += ns->prefix_len;
-		for (p = orig_mailbox; *p != '\0'; p++) {
+		mailbox += ns->prefix_len;
+		for (p = mailbox; *p != '\0'; p++) {
 			if (*p == ns->real_sep) {
 				client_send_tagline(cmd, t_strdup_printf(
 					"NO Character not allowed "
@@ -70,94 +72,63 @@ client_find_namespace(struct client_command_context *cmd, const char **mailboxp,
 	}
 
 	/* make sure two hierarchy separators aren't next to each others */
-	for (p = mailbox+1; *p != '\0'; p++) {
+	for (p = storage_name+1; *p != '\0'; p++) {
 		if (p[0] == ns->real_sep && p[-1] == ns->real_sep) {
 			client_send_tagline(cmd, "NO Invalid mailbox name.");
 			return NULL;
 		}
 	}
 
-	if (mailbox_len > MAILBOX_MAX_NAME_LEN) {
+	if (storage_name_len > MAILBOX_MAX_NAME_LEN) {
 		client_send_tagline(cmd, "NO Mailbox name too long.");
 		return NULL;
 	}
 
 	/* check what our storage thinks of it */
-	if (mailbox_list_get_mailbox_name_status(ns->list, mailbox,
-						 &mailbox_status) < 0) {
+	if (mailbox_list_get_mailbox_name_status(ns->list, storage_name,
+						 mailbox_status_r) < 0) {
 		client_send_list_error(cmd, ns->list);
 		return NULL;
 	}
+	*storage_name_r = storage_name;
+	return ns;
+}
 
-	switch (mailbox_status) {
+void client_fail_mailbox_name_status(struct client_command_context *cmd,
+				     const char *mailbox_name,
+				     const char *resp_code,
+				     enum mailbox_name_status status)
+{
+	switch (status) {
 	case MAILBOX_NAME_EXISTS_MAILBOX:
 	case MAILBOX_NAME_EXISTS_DIR:
-		switch (mode) {
-		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
-		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
-			if (mailbox_status == MAILBOX_NAME_EXISTS_DIR)
-				break;
-			return ns;
-		case CLIENT_VERIFY_MAILBOX_NONE:
-		case CLIENT_VERIFY_MAILBOX_NAME:
-		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST:
-			return ns;
-		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
-			if (mailbox_status == MAILBOX_NAME_EXISTS_DIR)
-				return ns;
-			break;
-		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_NOT_EXIST:
-			break;
-		}
-
 		client_send_tagline(cmd, t_strconcat(
 			"NO [", IMAP_RESP_CODE_ALREADYEXISTS,
-			"] Mailbox exists.", NULL));
+			"] Mailbox already exists: ",
+			str_sanitize(mailbox_name, MAILBOX_MAX_NAME_LEN),
+			NULL));
 		break;
-
 	case MAILBOX_NAME_VALID:
-		resp_code = "";
-		switch (mode) {
-		case CLIENT_VERIFY_MAILBOX_NAME:
-		case CLIENT_VERIFY_MAILBOX_SHOULD_NOT_EXIST:
-		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_NOT_EXIST:
-		case CLIENT_VERIFY_MAILBOX_DIR_SHOULD_EXIST:
-			return ns;
-		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST:
-			if ((cmd->cmd_flags & COMMAND_FLAG_USE_NONEXISTENT) != 0)
-				resp_code = IMAP_RESP_CODE_NONEXISTENT;
-			break;
-		case CLIENT_VERIFY_MAILBOX_SHOULD_EXIST_TRYCREATE:
-			resp_code = "TRYCREATE";
-			break;
-		default:
-			i_unreached();
-		}
-
-		if (*resp_code != '\0')
+		if (resp_code == NULL)
+			resp_code = "";
+		else
 			resp_code = t_strconcat("[", resp_code, "] ", NULL);
 		client_send_tagline(cmd, t_strconcat(
 			"NO ", resp_code, "Mailbox doesn't exist: ",
-			str_sanitize(orig_mailbox, MAILBOX_MAX_NAME_LEN),
+			str_sanitize(mailbox_name, MAILBOX_MAX_NAME_LEN),
 			NULL));
 		break;
-
 	case MAILBOX_NAME_INVALID:
 		client_send_tagline(cmd, t_strconcat(
 			"NO Invalid mailbox name: ",
-			str_sanitize(orig_mailbox, MAILBOX_MAX_NAME_LEN),
+			str_sanitize(mailbox_name, MAILBOX_MAX_NAME_LEN),
 			NULL));
 		break;
-
 	case MAILBOX_NAME_NOINFERIORS:
 		client_send_tagline(cmd,
-			"NO Mailbox parent doesn't allow inferior mailboxes.");
+			"NO Parent mailbox doesn't allow child mailboxes.");
 		break;
-
-	default:
-                i_unreached();
 	}
-	return NULL;
 }
 
 bool client_verify_open_mailbox(struct client_command_context *cmd)

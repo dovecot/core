@@ -9,18 +9,19 @@
 bool cmd_status(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
+	enum mailbox_name_status status;
 	const struct imap_arg *args;
 	struct imap_status_items items;
 	struct imap_status_result result;
 	struct mail_namespace *ns;
-	const char *mailbox, *real_mailbox, *error;
+	const char *mailbox, *storage_name, *error;
 	bool selected_mailbox;
 
 	/* <mailbox> <status items> */
 	if (!client_read_args(cmd, 2, 0, &args))
 		return FALSE;
 
-	mailbox = real_mailbox = imap_arg_string(&args[0]);
+	mailbox = imap_arg_string(&args[0]);
 	if (mailbox == NULL || args[1].type != IMAP_ARG_LIST) {
 		client_send_command_error(cmd, "Status items must be list.");
 		return TRUE;
@@ -31,14 +32,25 @@ bool cmd_status(struct client_command_context *cmd)
 				    &items) < 0)
 		return TRUE;
 
-	ns = client_find_namespace(cmd, &real_mailbox,
-				   CLIENT_VERIFY_MAILBOX_SHOULD_EXIST);
+	ns = client_find_namespace(cmd, mailbox, &storage_name, &status);
 	if (ns == NULL)
 		return TRUE;
+	switch (status) {
+	case MAILBOX_NAME_EXISTS_MAILBOX:
+		break;
+	case MAILBOX_NAME_EXISTS_DIR:
+		status = MAILBOX_NAME_VALID;
+		/* fall through */
+	case MAILBOX_NAME_VALID:
+	case MAILBOX_NAME_INVALID:
+	case MAILBOX_NAME_NOINFERIORS:
+		client_fail_mailbox_name_status(cmd, mailbox, NULL, status);
+		return TRUE;
+	}
 
 	selected_mailbox = client->mailbox != NULL &&
-		mailbox_equals(client->mailbox, ns, real_mailbox);
-	if (imap_status_get(cmd, ns, real_mailbox, &items,
+		mailbox_equals(client->mailbox, ns, storage_name);
+	if (imap_status_get(cmd, ns, storage_name, &items,
 			    &result, &error) < 0) {
 		client_send_tagline(cmd, error);
 		return TRUE;
