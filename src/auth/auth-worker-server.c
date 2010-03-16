@@ -7,6 +7,8 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "hex-binary.h"
+#include "str.h"
 #include "auth-request.h"
 #include "auth-worker-client.h"
 #include "auth-worker-server.h"
