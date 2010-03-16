@@ -124,15 +124,13 @@ config_exec_fallback(struct master_service *service,
 static int
 master_service_open_config(struct master_service *service,
 			   const struct master_service_settings_input *input,
-			   const char **path_r, const char **error_r,
-			   bool *standalone_config_from_socket_r)
+			   const char **path_r, const char **error_r)
 {
 	const char *path;
 	int fd;
 
 	*path_r = path = input->config_path != NULL ? input->config_path :
 		master_service_get_config_path(service);
-	*standalone_config_from_socket_r = FALSE;
 
 	if (service->config_fd != -1 && input->config_path == NULL) {
 		/* use the already opened config socket */
@@ -149,7 +147,6 @@ master_service_open_config(struct master_service *service,
 		fd = net_connect_unix(DOVECOT_CONFIG_SOCKET_PATH);
 		if (fd >= 0) {
 			*path_r = DOVECOT_CONFIG_SOCKET_PATH;
-			*standalone_config_from_socket_r = TRUE;
 			net_set_nonblock(fd, FALSE);
 			return fd;
 		}
@@ -280,19 +277,17 @@ int master_service_settings_read(struct master_service *service,
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
 	struct istream *istream;
-	const char *path = NULL, *error, *env, *const *keys;
+	const char *path = NULL, *error;
 	void **sets;
 	unsigned int i;
 	int ret, fd = -1;
 	time_t now, timeout;
-	bool config_socket = FALSE, standalone_config_from_socket = FALSE;
 
 	memset(output_r, 0, sizeof(*output_r));
 
 	if (getenv("DOVECONF_ENV") == NULL &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
-		fd = master_service_open_config(service, input, &path, error_r,
-						&standalone_config_from_socket);
+		fd = master_service_open_config(service, input, &path, error_r);
 		if (fd == -1)
 			return -1;
 
@@ -301,7 +296,6 @@ int master_service_settings_read(struct master_service *service,
 			config_exec_fallback(service, input);
 			return -1;
 		}
-		config_socket = TRUE;
 	}
 
 	if (service->set_pool != NULL) {
@@ -337,9 +331,8 @@ int master_service_settings_read(struct master_service *service,
 		timeout = now + CONFIG_READ_TIMEOUT_SECS;
 		do {
 			alarm(timeout - now);
-			ret = !config_socket ? 0 :
-				config_read_reply_header(istream, path,
-							 output_r, error_r);
+			ret = config_read_reply_header(istream, path,
+						       output_r, error_r);
 			if (ret == 0) {
 				ret = settings_parse_stream_read(parser,
 								 istream);
@@ -366,29 +359,17 @@ int master_service_settings_read(struct master_service *service,
 			config_exec_fallback(service, input);
 			return -1;
 		}
-	}
 
-	if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) != 0 &&
-	    service->config_fd == -1 && input->config_path == NULL)
-		service->config_fd = fd;
-	else if (fd != -1)
-		(void)close(fd);
-
-	if ((service->flags & MASTER_SERVICE_FLAG_NO_ENV_SETTINGS) == 0 &&
-	    !standalone_config_from_socket) {
-		/* let environment override settings. especially useful for the
-		   settings from userdb. */
+		if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) != 0 &&
+		    service->config_fd == -1 && input->config_path == NULL)
+			service->config_fd = fd;
+		else
+			(void)close(fd);
+	} else {
 		if (settings_parse_environ(parser) < 0) {
 			*error_r = settings_parser_get_error(parser);
 			return -1;
 		}
-		env = getenv("VARS_EXPANDED");
-		if (env != NULL) T_BEGIN {
-			keys = t_strsplit(env, " ");
-			settings_parse_set_keys_expandeded(parser,
-							   service->set_pool,
-							   keys);
-		} T_END;
 	}
 
 	if (array_is_created(&service->config_overrides)) {
