@@ -847,8 +847,9 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 				    user_set->mail_chroot);
 
 	if (*home != '/' && *home != '\0') {
-		i_error("user %s: Relative home directory paths not supported: "
-			"%s", user->input.username, home);
+		*error_r = t_strdup_printf("user %s: "
+			"Relative home directory paths not supported: %s",
+			user->input.username, home);
 		return -1;
 	}
 
@@ -859,7 +860,8 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		if (service_drop_privileges(user_set, user->system_groups_user,
 					    home, chroot, disallow_root,
 					    temp_priv_drop, FALSE, &error) < 0) {
-			i_error("Couldn't drop privileges: %s", error);
+			*error_r = t_strdup_printf(
+				"Couldn't drop privileges: %s", error);
 			return -1;
 		}
 		if (!temp_priv_drop ||
