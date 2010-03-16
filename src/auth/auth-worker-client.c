@@ -133,7 +133,7 @@ static void verify_plain_callback(enum passdb_result result,
 	auth_worker_client_unref(&client);
 }
 
-static void
+static bool
 auth_worker_handle_passv(struct auth_worker_client *client,
 			 unsigned int id, const char *args)
 {
@@ -147,7 +147,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	args = strchr(args, '\t');
 	if (args == NULL) {
 		i_error("BUG: Auth worker server sent us invalid PASSV");
-		return;
+		return FALSE;
 	}
 	args++;
 
@@ -162,7 +162,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	if (auth_request->user == NULL || auth_request->service == NULL) {
 		i_error("BUG: PASSV had missing parameters");
 		auth_request_unref(&auth_request);
-		return;
+		return FALSE;
 	}
 
 	passdb = auth_request->passdb;
@@ -178,13 +178,14 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 		if (passdb == NULL) {
 			i_error("BUG: PASSV had invalid passdb ID");
 			auth_request_unref(&auth_request);
-			return;
+			return FALSE;
 		}
 	}
 
 	auth_request->passdb = passdb;
 	passdb->passdb->iface.
 		verify_plain(auth_request, password, verify_plain_callback);
+	return TRUE;
 }
 
 static void
@@ -235,7 +236,7 @@ lookup_credentials_callback(enum passdb_result result,
 	auth_worker_client_unref(&client);
 }
 
-static void
+static bool
 auth_worker_handle_passl(struct auth_worker_client *client,
 			 unsigned int id, const char *args)
 {
@@ -248,7 +249,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	args = strchr(args, '\t');
 	if (args == NULL) {
 		i_error("BUG: Auth worker server sent us invalid PASSL");
-		return;
+		return FALSE;
 	}
 	args++;
 
@@ -262,7 +263,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	if (auth_request->user == NULL || auth_request->service == NULL) {
 		i_error("BUG: PASSL had missing parameters");
 		auth_request_unref(&auth_request);
-		return;
+		return FALSE;
 	}
 
 	while (auth_request->passdb->passdb->id != passdb_id) {
@@ -270,19 +271,20 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 		if (auth_request->passdb == NULL) {
 			i_error("BUG: PASSL had invalid passdb ID");
 			auth_request_unref(&auth_request);
-			return;
+			return FALSE;
 		}
 	}
 
 	if (auth_request->passdb->passdb->iface.lookup_credentials == NULL) {
 		i_error("BUG: PASSL lookup not supported by given passdb");
 		auth_request_unref(&auth_request);
-		return;
+		return FALSE;
 	}
 
 	auth_request->prefer_plain_credentials = TRUE;
 	auth_request->passdb->passdb->iface.
 		lookup_credentials(auth_request, lookup_credentials_callback);
+	return TRUE;
 }
 
 static void
@@ -301,7 +303,7 @@ set_credentials_callback(bool success, struct auth_request *request)
 	auth_worker_client_unref(&client);
 }
 
-static void
+static bool
 auth_worker_handle_setcred(struct auth_worker_client *client,
 			   unsigned int id, const char *args)
 {
@@ -313,7 +315,7 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 	args = strchr(args, '\t');
 	if (args == NULL) {
 		i_error("BUG: Auth worker server sent us invalid SETCRED");
-		return;
+		return FALSE;
 	}
 	args++;
 
@@ -326,7 +328,7 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 	if (auth_request->user == NULL || auth_request->service == NULL) {
 		i_error("BUG: SETCRED had missing parameters");
 		auth_request_unref(&auth_request);
-		return;
+		return FALSE;
 	}
 
 	while (auth_request->passdb->passdb->id != passdb_id) {
@@ -334,12 +336,13 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 		if (auth_request->passdb == NULL) {
 			i_error("BUG: SETCRED had invalid passdb ID");
 			auth_request_unref(&auth_request);
-			return;
+			return FALSE;
 		}
 	}
 
 	auth_request->passdb->passdb->iface.
 		set_credentials(auth_request, data, set_credentials_callback);
+	return TRUE;
 }
 
 static void
@@ -376,7 +379,7 @@ lookup_user_callback(enum userdb_result result,
 	auth_worker_client_unref(&client);
 }
 
-static void
+static bool
 auth_worker_handle_user(struct auth_worker_client *client,
 			unsigned int id, const char *args)
 {
@@ -393,7 +396,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 	if (auth_request->user == NULL || auth_request->service == NULL) {
 		i_error("BUG: USER had missing parameters");
 		auth_request_unref(&auth_request);
-		return;
+		return FALSE;
 	}
 
 	for (; num > 0; num--) {
@@ -401,12 +404,13 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		if (auth_request->userdb == NULL) {
 			i_error("BUG: USER had invalid userdb num");
 			auth_request_unref(&auth_request);
-			return;
+			return FALSE;
 		}
 	}
 
 	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);
+	return TRUE;
 }
 
 static void list_iter_deinit(struct auth_worker_list_context *ctx)
@@ -478,7 +482,7 @@ static int auth_worker_list_output(struct auth_worker_list_context *ctx)
 	return 1;
 }
 
-static void
+static bool
 auth_worker_handle_list(struct auth_worker_client *client,
 			unsigned int id, const char *args)
 {
@@ -491,7 +495,7 @@ auth_worker_handle_list(struct auth_worker_client *client,
 		userdb = userdb->next;
 		if (userdb == NULL) {
 			i_error("BUG: LIST had invalid userdb num");
-			return;
+			return FALSE;
 		}
 	}
 
@@ -507,6 +511,7 @@ auth_worker_handle_list(struct auth_worker_client *client,
 	ctx->iter = ctx->userdb->iface->
 		iterate_init(userdb->userdb, list_iter_callback, ctx);
 	ctx->userdb->iface->iterate_next(ctx->iter);
+	return TRUE;
 }
 
 static bool
@@ -514,6 +519,7 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 {
 	const char *p;
 	unsigned int id;
+	bool ret;
 
 	p = strchr(line, '\t');
 	if (p == NULL)
@@ -523,18 +529,18 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 	line = p + 1;
 
 	if (strncmp(line, "PASSV\t", 6) == 0)
-		auth_worker_handle_passv(client, id, line + 6);
+		ret = auth_worker_handle_passv(client, id, line + 6);
 	else if (strncmp(line, "PASSL\t", 6) == 0)
-		auth_worker_handle_passl(client, id, line + 6);
+		ret = auth_worker_handle_passl(client, id, line + 6);
 	else if (strncmp(line, "SETCRED\t", 8) == 0)
-		auth_worker_handle_setcred(client, id, line + 8);
+		ret = auth_worker_handle_setcred(client, id, line + 8);
 	else if (strncmp(line, "USER\t", 5) == 0)
-		auth_worker_handle_user(client, id, line + 5);
+		ret = auth_worker_handle_user(client, id, line + 5);
 	else if (strncmp(line, "LIST\t", 5) == 0)
-		auth_worker_handle_list(client, id, line + 5);
+		ret = auth_worker_handle_list(client, id, line + 5);
 	else
 		i_error("BUG: Auth-worker received unknown command: %s", line);
-        return TRUE;
+        return ret;
 }
 
 static void auth_worker_input(struct auth_worker_client *client)
@@ -564,7 +570,8 @@ static void auth_worker_input(struct auth_worker_client *client)
 		} T_END;
 
 		if (!ret) {
-			auth_worker_client_destroy(&client);
+			struct auth_worker_client *client2 = client;
+			auth_worker_client_destroy(&client2);
 			break;
 		}
 	}
