@@ -259,12 +259,12 @@ static bool parse_gid(const char *str, gid_t *gid_r)
 	return TRUE;
 }
 
-static void
+static int
 service_drop_privileges(const struct mail_user_settings *set,
 			const char *system_groups_user,
 			const char *home, const char *chroot,
 			bool disallow_root, bool keep_setuid_root,
-			bool setenv_only)
+			bool setenv_only, const char **error_r)
 {
 	struct restrict_access_settings rset;
 	uid_t current_euid, setuid_uid = 0;
@@ -272,31 +272,43 @@ service_drop_privileges(const struct mail_user_settings *set,
 	current_euid = geteuid();
 	restrict_access_init(&rset);
 	if (*set->mail_uid != '\0') {
-		if (!parse_uid(set->mail_uid, &rset.uid))
-			i_fatal("Unknown mail_uid user: %s", set->mail_uid);
+		if (!parse_uid(set->mail_uid, &rset.uid)) {
+			*error_r = t_strdup_printf("Unknown mail_uid user: %s",
+						   set->mail_uid);
+			return -1;
+		}
 		if (rset.uid < (uid_t)set->first_valid_uid ||
 		    (set->last_valid_uid != 0 &&
 		     rset.uid > (uid_t)set->last_valid_uid)) {
-			i_fatal("Mail access for users with UID %s "
+			*error_r = t_strdup_printf(
+				"Mail access for users with UID %s "
 				"not permitted (see first_valid_uid in config file).",
 				dec2str(rset.uid));
+			return -1;
 		}
 	}
 	if (*set->mail_gid != '\0') {
-		if (!parse_gid(set->mail_gid, &rset.gid))
-			i_fatal("Unknown mail_gid group: %s", set->mail_gid);
+		if (!parse_gid(set->mail_gid, &rset.gid)) {
+			*error_r = t_strdup_printf("Unknown mail_gid group: %s",
+						   set->mail_gid);
+			return -1;
+		}
 		if (rset.gid < (gid_t)set->first_valid_gid ||
 		    (set->last_valid_gid != 0 &&
 		     rset.gid > (gid_t)set->last_valid_gid)) {
-			i_fatal("Mail access for users with GID %s "
+			*error_r = t_strdup_printf(
+				"Mail access for users with GID %s "
 				"not permitted (see first_valid_gid in config file).",
 				dec2str(rset.gid));
+			return -1;
 		}
 	}
 	if (*set->mail_privileged_group != '\0') {
 		if (!parse_gid(set->mail_privileged_group, &rset.privileged_gid)) {
-			i_fatal("Unknown mail_privileged_group: %s",
+			*error_r = t_strdup_printf(
+				"Unknown mail_privileged_group: %s",
 				set->mail_gid);
+			return -1;
 		}
 	}
 	if (*set->mail_access_groups != '\0')
@@ -310,8 +322,10 @@ service_drop_privileges(const struct mail_user_settings *set,
 	rset.system_groups_user = system_groups_user;
 
 	if (disallow_root &&
-	    (rset.uid == 0 || (rset.uid == (uid_t)-1 && current_euid == 0)))
-		i_fatal("Mail access not allowed for root");
+	    (rset.uid == 0 || (rset.uid == (uid_t)-1 && current_euid == 0))) {
+		*error_r = "Mail access not allowed for root";
+		return -1;
+	}
 
 	if (keep_setuid_root) {
 		if (current_euid != rset.uid) {
@@ -336,6 +350,7 @@ service_drop_privileges(const struct mail_user_settings *set,
 		if (seteuid(setuid_uid) < 0)
 			i_fatal("seteuid(%s) failed: %m", dec2str(setuid_uid));
 	}
+	return 0;
 }
 
 static int
@@ -814,10 +829,12 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			      const char **error_r)
 {
 	const struct mail_user_settings *user_set = user->user_set;
-	const char *home, *chroot;
+	const char *home, *chroot, *error;
 	unsigned int len;
+	bool disallow_root =
+		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0;
 	bool temp_priv_drop =
-		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP);
+		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home and chroot sooner so do them separately here. */
@@ -836,10 +853,12 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_init_log(ctx->service, user);
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
-		service_drop_privileges(user_set, user->system_groups_user,
-			home, chroot,
-			(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0,
-			temp_priv_drop, FALSE);
+		if (service_drop_privileges(user_set, user->system_groups_user,
+					    home, chroot, disallow_root,
+					    temp_priv_drop, FALSE, &error) < 0) {
+			i_error("Couldn't drop privileges: %s", error);
+			return -1;
+		}
 		if (!temp_priv_drop ||
 		    (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) != 0)
 			restrict_access_allow_coredumps(TRUE);
@@ -877,15 +896,17 @@ void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
 					  struct mail_storage_service_user *user)
 {
 	const struct mail_user_settings *user_set = user->user_set;
-	const char *home, *chroot;
+	const char *home, *chroot, *error;
 
 	home = user_expand_varstr(ctx->service, &user->input,
 				  user_set->mail_home);
 	chroot = user_expand_varstr(ctx->service, &user->input,
 				    user_set->mail_chroot);
 
-	service_drop_privileges(user_set, user->system_groups_user,
-				home, chroot, FALSE, FALSE, TRUE);
+	if (service_drop_privileges(user_set, user->system_groups_user,
+				    home, chroot, FALSE, FALSE, TRUE,
+				    &error) < 0)
+		i_fatal("%s", error);
 }
 
 int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
