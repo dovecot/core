@@ -735,13 +735,60 @@ static int rebuild_finish(struct mdbox_storage_rebuild_context *ctx)
 	return 0;
 }
 
-static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
+static int
+mdbox_storage_rebuild_scan_dir(struct mdbox_storage_rebuild_context *ctx,
+			       const char *storage_dir, bool alt)
 {
-	const struct mail_index_header *hdr;
 	DIR *dir;
 	struct dirent *d;
 	string_t *path;
 	unsigned int dir_len;
+	int ret = 0;
+
+	dir = opendir(storage_dir);
+	if (dir == NULL) {
+		if (alt && errno == ENOENT)
+			return 0;
+
+		mail_storage_set_critical(&ctx->storage->storage.storage,
+			"opendir(%s) failed: %m", storage_dir);
+		return -1;
+	}
+	path = t_str_new(256);
+	str_append(path, storage_dir);
+	str_append_c(path, '/');
+	dir_len = str_len(path);
+
+	for (errno = 0; (d = readdir(dir)) != NULL; errno = 0) {
+		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX,
+			    strlen(MDBOX_MAIL_FILE_PREFIX)) == 0) {
+			str_truncate(path, dir_len);
+			str_append(path, d->d_name);
+			T_BEGIN {
+				ret = rebuild_add_file(ctx, str_c(path));
+			} T_END;
+			if (ret < 0) {
+				ret = -1;
+				break;
+			}
+		}
+	}
+	if (ret == 0 && errno != 0) {
+		mail_storage_set_critical(&ctx->storage->storage.storage,
+			"readdir(%s) failed: %m", storage_dir);
+		ret = -1;
+	}
+	if (closedir(dir) < 0) {
+		mail_storage_set_critical(&ctx->storage->storage.storage,
+			"closedir(%s) failed: %m", storage_dir);
+		ret = -1;
+	}
+	return ret;
+}
+
+static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
+{
+	const struct mail_index_header *hdr;
 	uint32_t uid_validity;
 	int ret = 0;
 
@@ -767,41 +814,12 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 
-	dir = opendir(ctx->storage->storage_dir);
-	if (dir == NULL) {
-		mail_storage_set_critical(&ctx->storage->storage.storage,
-			"opendir(%s) failed: %m", ctx->storage->storage_dir);
+	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->storage_dir,
+					   FALSE) < 0)
 		return -1;
-	}
-	path = t_str_new(256);
-	str_append(path, ctx->storage->storage_dir);
-	str_append_c(path, '/');
-	dir_len = str_len(path);
-
-	for (errno = 0; (d = readdir(dir)) != NULL; errno = 0) {
-		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX,
-			    strlen(MDBOX_MAIL_FILE_PREFIX)) == 0) {
-			str_truncate(path, dir_len);
-			str_append(path, d->d_name);
-			T_BEGIN {
-				ret = rebuild_add_file(ctx, str_c(path));
-			} T_END;
-			if (ret < 0) {
-				ret = -1;
-				break;
-			}
-		}
-	}
-	if (ret == 0 && errno != 0) {
-		mail_storage_set_critical(&ctx->storage->storage.storage,
-			"readdir(%s) failed: %m", ctx->storage->storage_dir);
-		ret = -1;
-	}
-	if (closedir(dir) < 0) {
-		mail_storage_set_critical(&ctx->storage->storage.storage,
-			"closedir(%s) failed: %m", ctx->storage->storage_dir);
-		ret = -1;
-	}
+	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->alt_storage_dir,
+					   TRUE) < 0)
+		return -1;
 
 	if (ret < 0 ||
 	    rebuild_apply_map(ctx) < 0 ||
