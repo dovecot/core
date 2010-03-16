@@ -584,8 +584,7 @@ bool master_settings_do_fixes(const struct master_settings *set)
 		   existing sockets or break the permissions required by the
 		   auth server. */
 		mode_t mode = login_want_core_dumps(set, &gid) ? 0770 : 0750;
-		if (gid != (gid_t)-1 &&
-		    safe_mkdir(login_dir, mode, master_uid, gid) == 0) {
+		if (safe_mkdir(login_dir, mode, master_uid, gid) == 0) {
 			i_warning("Corrected permissions for login directory "
 				  "%s", login_dir);
 		}
