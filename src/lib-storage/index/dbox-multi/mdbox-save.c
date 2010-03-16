@@ -41,6 +41,30 @@ struct mdbox_save_context {
 	ARRAY_DEFINE(mails, struct dbox_save_mail);
 };
 
+static struct dbox_file *
+mdbox_copy_file_get_file(struct mailbox_transaction_context *t,
+			 uint32_t seq, uoff_t *offset_r)
+{
+	struct index_transaction_context *it =
+		(struct index_transaction_context *)t;
+	struct mdbox_save_context *ctx =
+		(struct mdbox_save_context *)t->save_ctx;
+	const struct mdbox_mail_index_record *rec;
+	const void *data;
+	bool expunged;
+	uint32_t file_id;
+
+	mail_index_lookup_ext(it->trans_view, seq, ctx->mbox->ext_id,
+			      &data, &expunged);
+	rec = data;
+
+	if (dbox_map_lookup(ctx->mbox->storage->map, rec->map_uid,
+			    &file_id, offset_r) <= 0)
+		i_unreached();
+
+	return mdbox_file_init(ctx->mbox->storage, file_id);
+}
+
 struct dbox_file *
 mdbox_save_file_get_file(struct mailbox_transaction_context *t,
 			 uint32_t seq, uoff_t *offset_r)
@@ -57,9 +81,16 @@ mdbox_save_file_get_file(struct mailbox_transaction_context *t,
 	mail = &mails[seq - mails[0].seq];
 	i_assert(mail->seq == seq);
 
+	if (mail->file_append == NULL) {
+		/* copied mail */
+		return mdbox_copy_file_get_file(t, seq, offset_r);
+	}
+
+	/* saved mail */
 	if (dbox_file_append_flush(mail->file_append) < 0)
 		ctx->ctx.failed = TRUE;
 
+	mail->file_append->file->refcount++;
 	*offset_r = mail->append_offset;
 	return mail->file_append->file;
 }
@@ -327,6 +358,7 @@ void mdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 {
 	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
+	struct dbox_save_mail *save_mail;
 	struct mdbox_mailbox *src_mbox;
 	struct mdbox_mail_index_record rec;
 	const void *data;
@@ -360,5 +392,11 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 		mail_index_update_ext(ctx->ctx.trans, ctx->ctx.seq,
 				      ctx->mbox->guid_ext_id, data, NULL);
 	}
+
+	save_mail = array_append_space(&ctx->mails);
+	save_mail->seq = ctx->ctx.seq;
+
+	if (_ctx->dest_mail != NULL)
+		mail_set_seq(_ctx->dest_mail, ctx->ctx.seq);
 	return 0;
 }
