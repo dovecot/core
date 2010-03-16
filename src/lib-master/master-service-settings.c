@@ -109,6 +109,9 @@ config_exec_fallback(struct master_service *service,
 	const char *path;
 	struct stat st;
 
+	if (input->never_exec)
+		return;
+
 	path = input->config_path != NULL ? input->config_path :
 		master_service_get_config_path(service);
 	if (stat(path, &st) == 0 &&

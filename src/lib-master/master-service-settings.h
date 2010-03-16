@@ -24,6 +24,7 @@ struct master_service_settings_input {
 	struct setting_parser_info *dyn_parsers_parent;
 	const char *config_path;
 	bool preserve_home;
+	bool never_exec;
 
 	const char *module;
 	const char *service;
