@@ -160,6 +160,11 @@ int main(int argc, char *argv[])
 	optind = 1;
 
 	master_service_init_finish(master_service);
+	if (!doveadm_debug) {
+		/* disable debugging unless -D is given */
+		i_set_debug_file("/dev/null");
+	}
+
 	if (!doveadm_try_run(cmd_name, argc, argv) &&
 	    !doveadm_mail_try_run(cmd_name, argc, argv))
 		usage();
