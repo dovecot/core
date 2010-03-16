@@ -456,14 +456,19 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, bool global,
 	return 0;
 }
 
-static void acl_backend_remove_all_access(struct acl_object *aclobj)
+static void acl_backend_remove_all_access(struct acl_object_vfile *aclobj)
 {
-	struct acl_rights_update rights;
+	static const char *null = NULL;
+	struct acl_rights rights;
 
 	memset(&rights, 0, sizeof(rights));
-	rights.rights.id_type = ACL_ID_ANYONE;
-	rights.modify_mode = ACL_MODIFY_MODE_REPLACE;
-	acl_cache_update(aclobj->backend->cache, aclobj->name, &rights);
+	rights.id_type = ACL_ID_ANYONE;
+	rights.rights = &null;
+	array_append(&aclobj->rights, &rights, 1);
+
+	rights.id_type = ACL_ID_OWNER;
+	rights.rights = &null;
+	array_append(&aclobj->rights, &rights, 1);
 }
 
 static int
@@ -491,7 +496,7 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj,
 				i_debug("acl vfile: no access to file %s",
 					path);
 
-			acl_backend_remove_all_access(&aclobj->aclobj);
+			acl_backend_remove_all_access(aclobj);
 			validity->last_mtime = VALIDITY_MTIME_NOACCESS;
 		} else {
 			i_error("open(%s) failed: %m", path);
