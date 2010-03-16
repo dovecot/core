@@ -39,7 +39,8 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 
 	/* change the file owner first, since it's the only user one who
 	   can mess up with the file mode. */
-	if (st.st_uid != uid || st.st_gid != gid) {
+	if ((st.st_uid != uid && uid != (uid_t)-1) ||
+	    (st.st_gid != gid && gid != (gid_t)-1)) {
 		if (fchown(fd, uid, gid) < 0)
 			i_fatal("fchown() failed for %s: %m", dir);
 		ret = changed_ret;
@@ -65,7 +66,8 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 		i_fatal("safe_mkdir() failed: %s (%o) is still not mode %o",
 			dir, (int)st.st_mode, (int)mode);
 	}
-	if (st.st_uid != uid || st.st_gid != gid) {
+	if ((st.st_uid != uid && uid != (uid_t)-1) ||
+	    (st.st_gid != gid && gid != (gid_t)-1)) {
 		i_fatal("safe_mkdir() failed: %s (%s, %s) "
 			"is still not owned by %s.%s",
 			dir, dec2str(st.st_uid), dec2str(st.st_gid),
