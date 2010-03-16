@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <tcpd.h>
 
 struct tcpwrap_client {
@@ -18,6 +19,10 @@ struct tcpwrap_client {
 };
 
 #define INPUT_TIMEOUT_MSECS (1000*10)
+
+/* for tcpwrap library */
+int allow_severity = LOG_INFO;
+int deny_severity = LOG_WARNING;
 
 static struct tcpwrap_client *tcpwrap_client = NULL;
 
