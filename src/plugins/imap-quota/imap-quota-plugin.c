@@ -74,15 +74,14 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	struct mailbox *box;
 	struct quota_root_iter *iter;
         struct quota_root *root;
-	const char *orig_mailbox, *mailbox, *name;
+	const char *mailbox, *storage_name, *name;
 	string_t *str;
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
-	orig_mailbox = mailbox;
-	ns = client_find_namespace(cmd, &mailbox, CLIENT_VERIFY_MAILBOX_NONE);
+	ns = client_find_namespace(cmd, mailbox, &storage_name, NULL);
 	if (ns == NULL)
 		return TRUE;
 
@@ -96,13 +95,13 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY |
+	box = mailbox_alloc(ns->list, storage_name, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_KEEP_RECENT);
 
 	/* send QUOTAROOT reply */
 	str = t_str_new(128);
 	str_append(str, "* QUOTAROOT ");
-	imap_quote_append_string(str, orig_mailbox, FALSE);
+	imap_quote_append_string(str, mailbox, FALSE);
 
 	iter = quota_root_iter_init(box);
 	while ((root = quota_root_iter_next(iter)) != NULL) {
