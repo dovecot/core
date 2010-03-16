@@ -93,7 +93,7 @@ static void client_connected(const struct master_service_connection *conn)
 		t_strdup_printf("script(%s): ", input.username));
 
 	service_ctx = mail_storage_service_init(master_service, NULL, flags);
-	if (mail_storage_service_lookup(service_ctx, &input, &user, &error) < 0)
+	if (mail_storage_service_lookup(service_ctx, &input, &user, &error) <= 0)
 		i_fatal("%s", error);
 	mail_storage_service_restrict_setenv(service_ctx, user);
 

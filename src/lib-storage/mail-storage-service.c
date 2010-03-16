@@ -812,12 +812,15 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	if (userdb_fields != NULL) {
 		auth_user_fields_parse(userdb_fields, temp_pool, &reply);
 		if (user_reply_handle(user, &reply, error_r) < 0)
-			ret = -1;
+			ret = -2;
 	}
 	pool_unref(&temp_pool);
 
 	/* load per-user plugins */
-	mail_storage_service_load_modules(ctx, user_info, user->user_set);
+	if (ret > 0) {
+		mail_storage_service_load_modules(ctx, user_info,
+						  user->user_set);
+	}
 
 	*user_r = user;
 	return ret;

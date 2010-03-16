@@ -183,7 +183,7 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 			else if (ret == 0)
 				i_info("User no longer exists, skipping");
 		} T_END;
-		if (ret < 0)
+		if (ret == -1)
 			break;
 		if (doveadm_verbose) {
 			if (++user_idx % interval == 0) {

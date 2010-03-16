@@ -23,6 +23,7 @@ struct expire_context {
 	struct mail_user *mail_user;
 	struct expire_env *env;
 	bool testrun;
+	bool userdb_lookup_failed;
 };
 
 static int expire_init_user(struct expire_context *ctx, const char *user)
@@ -43,7 +44,12 @@ static int expire_init_user(struct expire_context *ctx, const char *user)
 	if (ret <= 0) {
 		if (ret < 0 || ctx->testrun)
 			i_error("%s", errstr);
-		return ret;
+		if (ret == -1) {
+			/* the next userdb lookup is most likely
+			   going to fail too */
+			ctx->userdb_lookup_failed = TRUE;
+		}
+		return ret < 0 ? -1 : 0;
 	}
 
 	if (mail_user_set_plugin_getenv(ctx->mail_user->set, "expire") == NULL)
@@ -263,6 +269,8 @@ static void expire_run(struct master_service *service, bool testrun)
 		} T_END;
 
 		if (ret < 0) {
+			if (ctx.userdb_lookup_failed)
+				break;
 			/* failed to update */
 		} else if (next_expire == 0) {
 			/* no more messages or mailbox deleted */
