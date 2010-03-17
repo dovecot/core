@@ -644,7 +644,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	   use $HOME */
 	set_input.preserve_home = 
 		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
-	set_input.never_exec = TRUE;
 
 	if (input != NULL) {
 		set_input.module = input->module;
@@ -665,6 +664,10 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 			dyn_parsers_update_parent(ctx->pool,
 						  &ctx->set_cache_roots,
 						  &ctx->set_cache_dyn_parsers);
+	} else {
+		/* already looked up settings at least once.
+		   we really shouldn't be execing anymore. */
+		set_input.never_exec = TRUE;
 	}
 
 	if (null_strcmp(set_input.module, ctx->set_cache_module) == 0 &&
