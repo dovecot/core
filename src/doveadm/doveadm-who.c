@@ -4,6 +4,7 @@
 #include "array.h"
 #include "network.h"
 #include "istream.h"
+#include "wildcard-match.h"
 #include "hash.h"
 #include "doveadm.h"
 
@@ -166,7 +167,7 @@ static bool who_user_filter_match(const struct who_user *user,
 				  const struct who_filter *filter)
 {
 	if (filter->username != NULL) {
-		if (strstr(user->username, filter->username) == NULL)
+		if (!wildcard_match_icase(user->username, filter->username))
 			return FALSE;
 	}
 	if (filter->net_bits > 0) {
@@ -232,7 +233,7 @@ static bool who_line_filter_match(const struct who_line *line,
 				  const struct who_filter *filter)
 {
 	if (filter->username != NULL) {
-		if (strstr(line->username, filter->username) == NULL)
+		if (!wildcard_match_icase(line->username, filter->username))
 			return FALSE;
 	}
 	if (filter->net_bits > 0) {
