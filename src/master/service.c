@@ -177,7 +177,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	service->client_limit = set->client_limit != 0 ? set->client_limit :
 		set->master_set->default_client_limit;
 	if (set->service_count > 0 &&
-	    service->client_limit < set->service_count)
+	    service->client_limit > set->service_count)
 		service->client_limit = set->service_count;
 
 	service->vsz_limit = set->vsz_limit != (uoff_t)-1 ? set->vsz_limit :
