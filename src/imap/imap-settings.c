@@ -41,7 +41,7 @@ struct service_settings imap_service_settings = {
 
 	.process_min_avail = 0,
 	.process_limit = 1024,
-	.client_limit = 0,
+	.client_limit = 1,
 	.service_count = 1,
 	.vsz_limit = -1U,
 
