@@ -111,6 +111,7 @@ liblib_la_SOURCES = \
 	utc-offset.c \
 	utc-mktime.c \
 	var-expand.c \
+	wildcard-match.c \
 	write-full.c
 
 headers = \
@@ -203,6 +204,7 @@ headers = \
 	utc-offset.h \
 	utc-mktime.h \
 	var-expand.h \
+	wildcard-match.h \
 	write-full.h
 
 test_programs = test-lib
