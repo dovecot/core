@@ -541,33 +541,34 @@ void master_service_client_connection_destroyed(struct master_service *service)
 	master_service_io_listeners_add(service);
 
 	i_assert(service->total_available_count > 0);
+	i_assert(service->service_count_left > 0);
 
-	if (service->service_count_left != service->total_available_count) {
-		i_assert(service->service_count_left == (unsigned int)-1);
+	if (service->service_count_left == service->total_available_count) {
+		service->total_available_count--;
+                service->service_count_left--;
+	} else {
+		if (service->service_count_left != (unsigned int)-1)
+			service->service_count_left--;
+
 		i_assert(service->master_status.available_count <
 			 service->total_available_count);
 		service->master_status.available_count++;
-		master_status_update(service);
-	} else {
-		/* we have only limited amount of service requests left */
-		i_assert(service->service_count_left > 0);
-                service->service_count_left--;
-		service->total_available_count--;
-
-		if (service->service_count_left == 0) {
-			i_assert(service->master_status.available_count ==
-				 service->total_available_count);
-			master_service_stop(service);
-		}
 	}
 
-	if ((service->io_status_error == NULL || service->listeners == NULL) &&
-	    service->master_status.available_count ==
-	    service->total_available_count) {
+	if (service->service_count_left == 0) {
+		i_assert(service->master_status.available_count ==
+			 service->total_available_count);
+		master_service_stop(service);
+	} else if ((service->io_status_error == NULL ||
+		    service->listeners == NULL) &&
+		   service->master_status.available_count ==
+		   service->total_available_count) {
 		/* we've finished handling all clients, and
 		   a) master has closed the connection
 		   b) there are no listeners (std-client?) */
 		master_service_stop(service);
+	} else {
+		master_status_update(service);
 	}
 }
 
