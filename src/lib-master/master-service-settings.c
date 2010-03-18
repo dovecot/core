@@ -365,7 +365,9 @@ int master_service_settings_read(struct master_service *service,
 			service->config_fd = fd;
 		else
 			(void)close(fd);
-	} else {
+	}
+
+	if (fd == -1 || service->keep_environment) {
 		if (settings_parse_environ(parser) < 0) {
 			*error_r = settings_parser_get_error(parser);
 			return -1;
