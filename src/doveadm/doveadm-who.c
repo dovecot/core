@@ -7,18 +7,11 @@
 #include "wildcard-match.h"
 #include "hash.h"
 #include "doveadm.h"
+#include "doveadm-who.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-struct who_line {
-	const char *username;
-	const char *service;
-	struct ip_addr ip;
-	pid_t pid;
-	unsigned int refcount;
-};
 
 struct who_user {
 	const char *username;
@@ -27,23 +20,6 @@ struct who_user {
 	ARRAY_DEFINE(pids, pid_t);
 	unsigned int connection_count;
 };
-
-struct who_filter {
-	const char *username;
-	struct ip_addr net_ip;
-	unsigned int net_bits;
-};
-
-struct who_context {
-	const char *anvil_path;
-	struct who_filter filter;
-
-	pool_t pool;
-	struct hash_table *users; /* username -> who_user */
-};
-
-typedef void who_callback_t(struct who_context *ctx,
-			    const struct who_line *line);
 
 static unsigned int who_user_hash(const void *p)
 {
@@ -131,7 +107,27 @@ static void who_aggregate_line(struct who_context *ctx,
 		array_append(&user->pids, &line->pid, 1);
 }
 
-static void who_lookup(struct who_context *ctx, who_callback_t *callback)
+void who_parse_args(struct who_context *ctx, char **args)
+{
+	struct ip_addr net_ip;
+	unsigned int net_bits;
+
+	while (args[1] != NULL) {
+		if (net_parse_range(args[1], &net_ip, &net_bits) == 0) {
+			if (ctx->filter.net_bits != 0)
+				usage();
+			ctx->filter.net_ip = net_ip;
+			ctx->filter.net_bits = net_bits;
+		} else {
+			if (ctx->filter.username != NULL)
+				usage();
+			ctx->filter.username = args[1];
+		}
+		args++;
+	}
+}
+
+void who_lookup(struct who_context *ctx, who_callback_t *callback)
 {
 #define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
 #define ANVIL_CMD ANVIL_HANDSHAKE"CONNECT-DUMP\n"
@@ -229,8 +225,8 @@ static void who_print(struct who_context *ctx)
 	hash_table_iterate_deinit(&iter);
 }
 
-static bool who_line_filter_match(const struct who_line *line,
-				  const struct who_filter *filter)
+bool who_line_filter_match(const struct who_line *line,
+			   const struct who_filter *filter)
 {
 	if (filter->username != NULL) {
 		if (!wildcard_match_icase(line->username, filter->username))
@@ -261,8 +257,6 @@ static void who_print_line(struct who_context *ctx,
 static void cmd_who(int argc, char *argv[])
 {
 	struct who_context ctx;
-	struct ip_addr net_ip;
-	unsigned int net_bits;
 	bool separate_connections = FALSE;
 	int c;
 
@@ -286,19 +280,7 @@ static void cmd_who(int argc, char *argv[])
 	}
 
 	argv += optind - 1;
-	while (argv[1] != NULL) {
-		if (net_parse_range(argv[1], &net_ip, &net_bits) == 0) {
-			if (ctx.filter.net_bits != 0)
-				usage();
-			ctx.filter.net_ip = net_ip;
-			ctx.filter.net_bits = net_bits;
-		} else {
-			if (ctx.filter.username != NULL)
-				usage();
-			ctx.filter.username = argv[1];
-		}
-		argv++;
-	}
+	who_parse_args(&ctx, argv);
 
 	if (!separate_connections) {
 		who_lookup(&ctx, who_aggregate_line);

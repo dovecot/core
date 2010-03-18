@@ -49,6 +49,7 @@ doveadm_SOURCES = \
 	doveadm-dump-log.c \
 	doveadm-dump-mailboxlog.c \
 	doveadm-dump-thread.c \
+	doveadm-kick.c \
 	doveadm-mail.c \
 	doveadm-penalty.c \
 	doveadm-pw.c \
@@ -59,4 +60,5 @@ noinst_HEADERS = \
 	doveadm.h \
 	doveadm-dump.h \
 	doveadm-mail.h \
-	doveadm-settings.h
+	doveadm-settings.h \
+	doveadm-who.h
