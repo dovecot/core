@@ -62,7 +62,7 @@ static void dbox_mail_set_expunged(struct dbox_mail *mail, uint32_t map_uid)
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)_mail->box;
 
 	(void)mail_index_refresh(_mail->box->index);
-	if (mail_index_is_expunged(_mail->box->view, _mail->seq)) {
+	if (mail_index_is_expunged(_mail->transaction->view, _mail->seq)) {
 		mail_set_expunged(_mail);
 		return;
 	}
@@ -114,7 +114,7 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		if (mail->open_file != NULL) {
 			/* already open */
 		} else if (_mail->uid != 0) {
-			if (mdbox_mail_lookup(mbox, _mail->box->view,
+			if (mdbox_mail_lookup(mbox, _mail->transaction->view,
 					      _mail->seq, &map_uid) < 0)
 				return -1;
 			if (dbox_mail_open_init(mail, map_uid) < 0)
@@ -160,7 +160,7 @@ static int mdbox_mail_get_save_date(struct mail *mail, time_t *date_r)
 	const void *data;
 	bool expunged;
 
-	mail_index_lookup_ext(mail->box->view, mail->seq,
+	mail_index_lookup_ext(mail->transaction->view, mail->seq,
 			      mbox->ext_id, &data, &expunged);
 	dbox_rec = data;
 	if (dbox_rec == NULL || dbox_rec->map_uid == 0) {
