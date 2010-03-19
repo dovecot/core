@@ -137,6 +137,29 @@ namespace_add(struct mail_user *user,
 	return 0;
 }
 
+static bool namespace_is_valid_alias_storage(struct mail_namespace *ns,
+					     const char **error_r)
+{
+	if (strcmp(ns->storage->name, ns->alias_for->storage->name) != 0) {
+		*error_r = t_strdup_printf(
+			"Namespace %s can't have alias_for=%s "
+			"to a different storage type (%s vs %s)",
+			ns->prefix, ns->alias_for->prefix,
+			ns->storage->name, ns->alias_for->storage->name);
+		return FALSE;
+	}
+
+	if ((ns->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) != 0 &&
+	    ns->storage != ns->alias_for->storage) {
+		*error_r = t_strdup_printf(
+			"Namespace %s can't have alias_for=%s "
+			"to a different storage (different root dirs)",
+			ns->prefix, ns->alias_for->prefix);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static int
 namespace_set_alias_for(struct mail_namespace *ns,
 			struct mail_namespace *all_namespaces,
@@ -155,6 +178,9 @@ namespace_set_alias_for(struct mail_namespace *ns,
 						   ns->set->alias_for);
 			return -1;
 		}
+		if (!namespace_is_valid_alias_storage(ns, error_r))
+			return -1;
+
 		ns->alias_chain_next = ns->alias_for->alias_chain_next;
 		ns->alias_for->alias_chain_next = ns;
 	}
