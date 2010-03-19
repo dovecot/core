@@ -1005,26 +1005,24 @@ static int search_build_inthreads(struct index_search_context *ctx,
 }
 
 struct mail_search_context *
-index_storage_search_init(struct mailbox_transaction_context *_t,
+index_storage_search_init(struct mailbox_transaction_context *t,
 			  struct mail_search_args *args,
 			  const enum mail_sort_type *sort_program)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)_t;
 	struct index_search_context *ctx;
 	struct mailbox_status status;
 
 	ctx = i_new(struct index_search_context, 1);
-	ctx->mail_ctx.transaction = _t;
-	ctx->box = _t->box;
-	ctx->view = t->trans_view;
+	ctx->mail_ctx.transaction = t;
+	ctx->box = t->box;
+	ctx->view = t->view;
 	ctx->mail_ctx.args = args;
-	ctx->mail_ctx.sort_program = index_sort_program_init(_t, sort_program);
+	ctx->mail_ctx.sort_program = index_sort_program_init(t, sort_program);
 	ctx->next_time_check_cost = SEARCH_INITIAL_MAX_COST;
 	if (gettimeofday(&ctx->last_nonblock_timeval, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
 
-	mailbox_get_status(_t->box, STATUS_MESSAGES, &status);
+	mailbox_get_status(t->box, STATUS_MESSAGES, &status);
 	ctx->mail_ctx.progress_max = status.messages;
 
 	i_array_init(&ctx->mail_ctx.results, 5);
@@ -1033,7 +1031,7 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 
 	mail_search_args_reset(ctx->mail_ctx.args->args, TRUE);
 	if (args->have_inthreads) {
-		if (mail_thread_init(_t->box, NULL, &ctx->thread_ctx) < 0)
+		if (mail_thread_init(t->box, NULL, &ctx->thread_ctx) < 0)
 			ctx->failed = TRUE;
 		if (search_build_inthreads(ctx, args->args) < 0)
 			ctx->failed = TRUE;

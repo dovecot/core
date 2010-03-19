@@ -125,7 +125,7 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 	ctx->ctx.transaction = t;
 	ctx->pool = pool;
 	ctx->mbox = mbox;
-	ctx->trans = ((struct index_transaction_context *)t)->trans;
+	ctx->trans = t->itrans;
 	ctx->files_tail = &ctx->files;
 	ctx->fd = -1;
 

@@ -64,17 +64,15 @@ expire_mailbox_transaction_begin(struct mailbox *box,
 	return t;
 }
 
-static void first_nonexpunged_timestamp(struct mailbox_transaction_context *_t,
+static void first_nonexpunged_timestamp(struct mailbox_transaction_context *t,
 					time_t *stamp_r)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)_t;
-	struct mail_index_view *view = t->trans_view;
+	struct mail_index_view *view = t->view;
 	const struct mail_index_header *hdr;
 	struct mail *mail;
 	uint32_t seq;
 
-	mail = mail_alloc(_t, 0, NULL);
+	mail = mail_alloc(t, 0, NULL);
 
 	/* find the first non-expunged mail. we're here because the first
 	   mail was expunged, so don't bother checking it. */

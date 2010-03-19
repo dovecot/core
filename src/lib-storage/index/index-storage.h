@@ -23,8 +23,6 @@ struct index_transaction_context {
 	struct mail_index_transaction_vfuncs super;
 	int mail_ref_count;
 
-	struct mail_index_transaction *trans;
-	struct mail_index_view *trans_view;
 	struct mail_cache_view *cache_view;
 	struct mail_cache_transaction_ctx *cache_trans;
 };

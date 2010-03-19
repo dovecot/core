@@ -361,6 +361,10 @@ struct mailbox_transaction_context {
 	struct mailbox *box;
 	enum mailbox_transaction_flags flags;
 
+	struct mail_index_transaction *itrans;
+	/* view contains all changes done within this transaction */
+	struct mail_index_view *view;
+
 	struct mail_transaction_commit_changes *changes;
 	ARRAY_DEFINE(module_contexts,
 		     union mailbox_transaction_module_context *);

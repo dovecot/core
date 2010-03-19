@@ -124,17 +124,16 @@ bool index_mail_get_cached_uoff_t(struct index_mail *mail,
 					  size_r, sizeof(*size_r));
 }
 
-enum mail_flags index_mail_get_flags(struct mail *_mail)
+enum mail_flags index_mail_get_flags(struct mail *mail)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
 	const struct mail_index_record *rec;
 	enum mail_flags flags;
 
-	rec = mail_index_lookup(mail->trans->trans_view, _mail->seq);
+	rec = mail_index_lookup(mail->transaction->view, mail->seq);
 	flags = rec->flags & (MAIL_FLAGS_NONRECENT |
 			      MAIL_INDEX_MAIL_FLAG_BACKEND);
 
-	if (index_mailbox_is_recent(_mail->box, _mail->uid))
+	if (index_mailbox_is_recent(mail->box, mail->uid))
 		flags |= MAIL_RECENT;
 
 	return flags;
@@ -149,7 +148,7 @@ uint64_t index_mail_get_modseq(struct mail *_mail)
 
 	mail_index_modseq_enable(_mail->box->index);
 	mail->data.modseq =
-		mail_index_modseq_lookup(mail->trans->trans_view, _mail->seq);
+		mail_index_modseq_lookup(_mail->transaction->view, _mail->seq);
 	return mail->data.modseq;
 }
 
@@ -190,7 +189,7 @@ index_mail_get_keyword_indexes(struct mail *_mail)
 
 	if (!array_is_created(&data->keyword_indexes)) {
 		p_array_init(&data->keyword_indexes, mail->data_pool, 32);
-		mail_index_lookup_keywords(mail->trans->trans_view,
+		mail_index_lookup_keywords(_mail->transaction->view,
 					   mail->data.seq,
 					   &data->keyword_indexes);
 	}
@@ -1215,10 +1214,10 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	data->seq = seq;
 
 	mail->mail.mail.seq = seq;
-	mail_index_lookup_uid(mail->trans->trans_view, seq,
+	mail_index_lookup_uid(_mail->transaction->view, seq,
 			      &mail->mail.mail.uid);
 
-	if (mail_index_view_is_inconsistent(mail->trans->trans_view)) {
+	if (mail_index_view_is_inconsistent(_mail->transaction->view)) {
 		mail_set_expunged(&mail->mail.mail);
 		return;
 	}
@@ -1418,14 +1417,14 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 	(void)index_mail_parse_body_finish(mail, 0);
 }
 
-static void index_mail_drop_recent_flag(struct index_mail *imail)
+static void index_mail_drop_recent_flag(struct mail *mail)
 {
 	const struct mail_index_header *hdr;
-	uint32_t first_recent_uid = imail->mail.mail.uid + 1;
+	uint32_t first_recent_uid = mail->uid + 1;
 
-	hdr = mail_index_get_header(imail->trans->trans_view);
+	hdr = mail_index_get_header(mail->transaction->view);
 	if (hdr->first_recent_uid < first_recent_uid) {
-		mail_index_update_header(imail->trans->trans,
+		mail_index_update_header(mail->transaction->itrans,
 			offsetof(struct mail_index_header, first_recent_uid),
 			&first_recent_uid, sizeof(first_recent_uid), FALSE);
 	}
@@ -1434,15 +1433,13 @@ static void index_mail_drop_recent_flag(struct index_mail *imail)
 void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 			     enum mail_flags flags)
 {
-	struct index_mail *imail = (struct index_mail *)mail;
-
 	if ((flags & MAIL_RECENT) == 0 &&
 	    index_mailbox_is_recent(mail->box, mail->uid))
-		index_mail_drop_recent_flag(imail);
+		index_mail_drop_recent_flag(mail);
 
 	flags &= MAIL_FLAGS_NONRECENT | MAIL_INDEX_MAIL_FLAG_BACKEND;
-	mail_index_update_flags(imail->trans->trans, mail->seq, modify_type,
-				flags);
+	mail_index_update_flags(mail->transaction->itrans, mail->seq,
+				modify_type, flags);
 }
 
 void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
@@ -1462,35 +1459,31 @@ void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 		       sizeof(imail->data.keywords));
 	}
 
-	mail_index_update_keywords(imail->trans->trans, mail->seq, modify_type,
-				   keywords);
+	mail_index_update_keywords(mail->transaction->itrans, mail->seq,
+				   modify_type, keywords);
 }
 
 void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq)
 {
-	struct index_mail *imail = (struct index_mail *)mail;
-
-	mail_index_update_modseq(imail->trans->trans, mail->seq, min_modseq);
+	mail_index_update_modseq(mail->transaction->itrans, mail->seq,
+				 min_modseq);
 }
 
 void index_mail_update_uid(struct mail *mail, uint32_t new_uid)
 {
-	struct index_mail *imail = (struct index_mail *)mail;
-
-	mail_index_update_uid(imail->trans->trans, mail->seq, new_uid);
+	mail_index_update_uid(mail->transaction->itrans, mail->seq, new_uid);
 }
 
 void index_mail_expunge(struct mail *mail)
 {
-	struct index_mail *imail = (struct index_mail *)mail;
 	const char *value;
 	uint8_t guid_128[MAIL_GUID_128_SIZE];
 
 	if (mail_get_special(mail, MAIL_FETCH_GUID, &value) < 0)
-		mail_index_expunge(imail->trans->trans, mail->seq);
+		mail_index_expunge(mail->transaction->itrans, mail->seq);
 	else {
 		mail_generate_guid_128_hash(value, guid_128);
-		mail_index_expunge_guid(imail->trans->trans,
+		mail_index_expunge_guid(mail->transaction->itrans,
 					mail->seq, guid_128);
 	}
 }

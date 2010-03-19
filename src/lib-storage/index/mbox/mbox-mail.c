@@ -84,7 +84,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 		if (mbox_file_open_stream(mbox) < 0)
 			return -1;
 
-		ret = mbox_file_seek(mbox, mail->trans->trans_view,
+		ret = mbox_file_seek(mbox, _mail->transaction->view,
 				     _mail->seq, &deleted);
 		if (ret > 0) {
 			/* success */
@@ -157,8 +157,9 @@ mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
 	if (mail->data.guid != NULL)
 		return mail->data.guid;
 
-	mail_index_lookup_ext(mail->trans->trans_view, mail->mail.mail.seq,
-			      mbox->md5hdr_ext_idx, &ext_data, NULL);
+	mail_index_lookup_ext(mail->mail.mail.transaction->view,
+			      mail->mail.mail.seq, mbox->md5hdr_ext_idx,
+			      &ext_data, NULL);
 	if (ext_data != NULL && memcmp(ext_data, empty_md5, 16) != 0) {
 		mail->data.guid = p_strdup(mail->data_pool,
 					   binary_to_hex(ext_data, 16));
@@ -230,7 +231,7 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	int trailer_size;
 	int ret = 1;
 
-	hdr = mail_index_get_header(mail->trans->trans_view);
+	hdr = mail_index_get_header(mail->mail.mail.transaction->view);
 	if (mail->mail.mail.seq > hdr->messages_count) {
 		/* we're appending a new message */
 		return 0;

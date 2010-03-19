@@ -411,8 +411,6 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 struct mail_save_context *
 mbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct mbox_transaction_context *mt =
-		(struct mbox_transaction_context *)t;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->box;
 	struct mbox_save_context *ctx;
 
@@ -422,7 +420,7 @@ mbox_save_alloc(struct mailbox_transaction_context *t)
 		ctx = i_new(struct mbox_save_context, 1);
 		ctx->ctx.transaction = t;
 		ctx->mbox = mbox;
-		ctx->trans = mt->ictx.trans;
+		ctx->trans = t->itrans;
 		ctx->append_offset = (uoff_t)-1;
 		ctx->headers = str_new(default_pool, 512);
 		ctx->mail_offset = (uoff_t)-1;

@@ -49,8 +49,6 @@ sdbox_save_file_get_file(struct mailbox_transaction_context *t, uint32_t seq)
 struct mail_save_context *
 sdbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct index_transaction_context *it =
-		(struct index_transaction_context *)t;
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)t->box;
 	struct sdbox_save_context *ctx =
 		(struct sdbox_save_context *)t->save_ctx;
@@ -65,7 +63,7 @@ sdbox_save_alloc(struct mailbox_transaction_context *t)
 
 	ctx = i_new(struct sdbox_save_context, 1);
 	ctx->ctx.ctx.transaction = t;
-	ctx->ctx.trans = it->trans;
+	ctx->ctx.trans = t->itrans;
 	ctx->mbox = mbox;
 	i_array_init(&ctx->files, 32);
 	t->save_ctx = &ctx->ctx.ctx;

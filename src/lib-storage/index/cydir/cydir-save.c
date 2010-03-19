@@ -58,8 +58,6 @@ cydir_get_save_path(struct cydir_save_context *ctx, unsigned int num)
 struct mail_save_context *
 cydir_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct index_transaction_context *it =
-		(struct index_transaction_context *)t;
 	struct cydir_mailbox *mbox = (struct cydir_mailbox *)t->box;
 	struct cydir_save_context *ctx =
 		(struct cydir_save_context *)t->save_ctx;
@@ -70,7 +68,7 @@ cydir_save_alloc(struct mailbox_transaction_context *t)
 		ctx = i_new(struct cydir_save_context, 1);
 		ctx->ctx.transaction = t;
 		ctx->mbox = mbox;
-		ctx->trans = it->trans;
+		ctx->trans = t->itrans;
 		ctx->tmp_basename = cydir_generate_tmp_filename();
 		t->save_ctx = &ctx->ctx;
 	}

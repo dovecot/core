@@ -159,14 +159,12 @@ static void index_sort_reget_sort_ids(struct sort_string_context *ctx)
 static void index_sort_node_add(struct sort_string_context *ctx,
 				struct mail_sort_node *node)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)ctx->program->t;
 	struct mail_index_map *map;
 	const void *data;
 	uint32_t reset_id;
 	bool expunged;
 
-	mail_index_lookup_ext_full(t->trans_view, node->seq,
+	mail_index_lookup_ext_full(ctx->program->t->view, node->seq,
 				   ctx->ext_id, &map, &data, &expunged);
 	if (expunged) {
 		/* we don't want to update expunged messages' sort IDs */
@@ -196,7 +194,7 @@ static void index_sort_node_add(struct sort_string_context *ctx,
 	if (node->sort_id != 0) {
 		/* if reset ID increases, lookup all existing messages' sort
 		   IDs again. if it decreases, ignore the sort ID. */
-		if (!mail_index_ext_get_reset_id(t->trans_view, map,
+		if (!mail_index_ext_get_reset_id(ctx->program->t->view, map,
 						 ctx->ext_id, &reset_id))
 			reset_id = 0;
 		if (reset_id != ctx->highest_reset_id) {
@@ -686,8 +684,7 @@ index_sort_add_sort_ids(struct sort_string_context *ctx)
 
 static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)ctx->program->t;
+	struct mail_index_transaction *itrans = ctx->program->t->itrans;
 	uint32_t ext_id = ctx->ext_id;
 	const struct mail_sort_node *nodes;
 	unsigned int i, count;
@@ -698,7 +695,8 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 		return;
 	}
 
-	mail_index_ext_reset_inc(t->trans, ext_id, ctx->highest_reset_id, FALSE);
+	mail_index_ext_reset_inc(itrans, ext_id,
+				 ctx->highest_reset_id, FALSE);
 
 	/* add the missing sort IDs to index */
 	nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
@@ -707,7 +705,7 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 		if (!nodes[i].sort_id_changed || nodes[i].no_update)
 			continue;
 
-		mail_index_update_ext(t->trans, nodes[i].seq, ext_id,
+		mail_index_update_ext(itrans, nodes[i].seq, ext_id,
 				      &nodes[i].sort_id, NULL);
 	}
 }

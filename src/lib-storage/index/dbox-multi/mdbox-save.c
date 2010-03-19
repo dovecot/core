@@ -45,8 +45,6 @@ static struct dbox_file *
 mdbox_copy_file_get_file(struct mailbox_transaction_context *t,
 			 uint32_t seq, uoff_t *offset_r)
 {
-	struct index_transaction_context *it =
-		(struct index_transaction_context *)t;
 	struct mdbox_save_context *ctx =
 		(struct mdbox_save_context *)t->save_ctx;
 	const struct mdbox_mail_index_record *rec;
@@ -54,7 +52,7 @@ mdbox_copy_file_get_file(struct mailbox_transaction_context *t,
 	bool expunged;
 	uint32_t file_id;
 
-	mail_index_lookup_ext(it->trans_view, seq, ctx->mbox->ext_id,
+	mail_index_lookup_ext(t->view, seq, ctx->mbox->ext_id,
 			      &data, &expunged);
 	rec = data;
 
@@ -98,8 +96,6 @@ mdbox_save_file_get_file(struct mailbox_transaction_context *t,
 struct mail_save_context *
 mdbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct index_transaction_context *it =
-		(struct index_transaction_context *)t;
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)t->box;
 	struct mdbox_save_context *ctx =
 		(struct mdbox_save_context *)t->save_ctx;
@@ -114,7 +110,7 @@ mdbox_save_alloc(struct mailbox_transaction_context *t)
 
 	ctx = i_new(struct mdbox_save_context, 1);
 	ctx->ctx.ctx.transaction = t;
-	ctx->ctx.trans = it->trans;
+	ctx->ctx.trans = t->itrans;
 	ctx->mbox = mbox;
 	ctx->append_ctx = dbox_map_append_begin(mbox->storage->map, 0);
 	i_array_init(&ctx->mails, 32);
