@@ -230,22 +230,23 @@ master_service_apply_config_overrides(struct master_service *service,
 }
 
 static int
-config_read_reply_header(struct istream *input, const char *path,
+config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
+			 const struct master_service_settings_input *input,
 			 struct master_service_settings_output *output_r,
 			 const char **error_r)
 {
 	const char *line;
 	ssize_t ret;
 
-	while ((ret = i_stream_read(input)) > 0) {
-		line = i_stream_next_line(input);
+	while ((ret = i_stream_read(istream)) > 0) {
+		line = i_stream_next_line(istream);
 		if (line != NULL)
 			break;
 	}
 	if (ret <= 0) {
 		if (ret == 0)
 			return 1;
-		*error_r = input->stream_errno != 0 ?
+		*error_r = istream->stream_errno != 0 ?
 			t_strdup_printf("read(%s) failed: %m", path) :
 			t_strdup_printf("read(%s) failed: EOF", path);
 		return -1;
@@ -253,7 +254,9 @@ config_read_reply_header(struct istream *input, const char *path,
 
 	T_BEGIN {
 		const char *const *arg = t_strsplit(line, "\t");
+		ARRAY_TYPE(const_string) services;
 
+		p_array_init(&services, pool, 8);
 		for (; *arg != NULL; arg++) {
 			if (strcmp(*arg, "service-uses-local") == 0)
 				output_r->service_uses_local = TRUE;
@@ -263,6 +266,14 @@ config_read_reply_header(struct istream *input, const char *path,
 				output_r->used_local = TRUE;
 			else if (strcmp(*arg, "used-remote") == 0)
 				output_r->used_remote = TRUE;
+			else if (strncmp(*arg, "service=", 8) == 0) {
+				const char *name = p_strdup(pool, *arg + 8);
+				array_append(&services, &name, 1);
+			 }
+		}
+		if (input->service == NULL) {
+			(void)array_append_space(&services);
+			output_r->specific_services = array_idx(&services, 0);
 		}
 	} T_END;
 	return 0;
@@ -332,6 +343,7 @@ int master_service_settings_read(struct master_service *service,
 		do {
 			alarm(timeout - now);
 			ret = config_read_reply_header(istream, path,
+						       service->set_pool, input,
 						       output_r, error_r);
 			if (ret == 0) {
 				ret = settings_parse_stream_read(parser,

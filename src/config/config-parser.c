@@ -300,7 +300,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
 	for (i = 0; i < count && ret == 0; i++) {
-		if (config_filter_parsers_get(new_filter, tmp_pool,
+		if (config_filter_parsers_get(new_filter, tmp_pool, "",
 					      &parsers[i]->filter,
 					      &tmp_parsers, &output,
 					      error_r) < 0) {
@@ -849,4 +849,50 @@ void config_parse_load_modules(void)
 			array_append(&new_services, &services[i], 1);
 		*default_services = new_services;
 	}
+}
+
+static bool parsers_are_connected(const struct setting_parser_info *root,
+				  const struct setting_parser_info *info)
+{
+	const struct setting_parser_info *p;
+	const struct setting_parser_info *const *dep;
+
+	/* we're trying to find info or its parents from root's dependencies. */
+
+	for (p = info; p != NULL; p = p->parent) {
+		if (p == root)
+			return TRUE;
+	}
+
+	if (root->dependencies != NULL) {
+		for (dep = root->dependencies; *dep != NULL; dep++) {
+			if (parsers_are_connected(*dep, info))
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+bool config_module_want_parser(const char *module,
+			       const struct setting_parser_info *root)
+{
+	struct config_module_parser *l;
+
+	if (strcmp(root->module_name, module) == 0)
+		return TRUE;
+	if (root == &master_service_setting_parser_info) {
+		/* everyone wants master service settings */
+		return TRUE;
+	}
+
+	for (l = config_module_parsers; l->root != NULL; l++) {
+		if (strcmp(l->root->module_name, module) != 0)
+			continue;
+
+		/* see if we can find a way to get from the original parser
+		   to this parser */
+		if (parsers_are_connected(l->root, root))
+			return TRUE;
+	}
+	return FALSE;
 }

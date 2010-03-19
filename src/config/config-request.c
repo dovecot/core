@@ -30,53 +30,6 @@ struct config_export_context {
 	bool failed;
 };
 
-static bool parsers_are_connected(const struct setting_parser_info *root,
-				  const struct setting_parser_info *info)
-{
-	const struct setting_parser_info *p;
-	const struct setting_parser_info *const *dep;
-
-	/* we're trying to find info or its parents from root's dependencies. */
-
-	for (p = info; p != NULL; p = p->parent) {
-		if (p == root)
-			return TRUE;
-	}
-
-	if (root->dependencies != NULL) {
-		for (dep = root->dependencies; *dep != NULL; dep++) {
-			if (parsers_are_connected(*dep, info))
-				return TRUE;
-		}
-	}
-	return FALSE;
-}
-
-static bool
-config_module_parser_is_in_service(const struct config_module_parser *list,
-				   const char *module)
-{
-	struct config_module_parser *l;
-
-	if (strcmp(list->root->module_name, module) == 0)
-		return TRUE;
-	if (list->root == &master_service_setting_parser_info) {
-		/* everyone wants master service settings */
-		return TRUE;
-	}
-
-	for (l = config_module_parsers; l->root != NULL; l++) {
-		if (strcmp(l->root->module_name, module) != 0)
-			continue;
-
-		/* see if we can find a way to get from the original parser
-		   to this parser */
-		if (parsers_are_connected(l->root, list->root))
-			return TRUE;
-	}
-	return FALSE;
-}
-
 bool config_export_type(string_t *str, const void *value,
 			const void *default_value,
 			enum setting_type type, bool dump_default,
@@ -343,6 +296,8 @@ config_export_init(const char *module, enum config_dump_scope scope,
 	struct config_export_context *ctx;
 	pool_t pool;
 
+	i_assert(module != NULL);
+
 	pool = pool_alloconly_create("config export", 1024*64);
 	ctx = p_new(pool, struct config_export_context, 1);
 	ctx->pool = pool;
@@ -364,7 +319,8 @@ void config_export_by_filter(struct config_export_context *ctx,
 {
 	const char *error;
 
-	if (config_filter_parsers_get(config_filter, ctx->pool, filter,
+	if (config_filter_parsers_get(config_filter, ctx->pool,
+				      ctx->module, filter,
 				      &ctx->dup_parsers, &ctx->output,
 				      &error) < 0) {
 		i_error("%s", error);
@@ -411,7 +367,7 @@ int config_export_finish(struct config_export_context **_ctx)
 	for (i = 0; ctx->parsers[i].root != NULL; i++) {
 		parser = &ctx->parsers[i];
 		if (*ctx->module != '\0' &&
-		    !config_module_parser_is_in_service(parser, ctx->module))
+		    !config_module_want_parser(ctx->module, parser->root))
 			continue;
 
 		settings_export(ctx, parser->root, FALSE,

@@ -18,4 +18,7 @@ int config_parse_file(const char *path, bool expand_values,
 
 void config_parse_load_modules(void);
 
+bool config_module_want_parser(const char *module,
+			       const struct setting_parser_info *root);
+
 #endif

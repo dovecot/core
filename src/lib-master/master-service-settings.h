@@ -34,8 +34,13 @@ struct master_service_settings_input {
 };
 
 struct master_service_settings_output {
-	/* some settings for this service contain local/remote ip/host
-	   specific settings. */
+	/* if service was not given for lookup, this contains names of services
+	   that have more specific settings */
+	const char *const *specific_services;
+
+	/* some settings for this service (or if service was not given,
+	   all services) contain local/remote ip/host specific settings
+	   (but this lookup didn't necessarily return any of them). */
 	unsigned int service_uses_local:1;
 	unsigned int service_uses_remote:1;
 	/* returned settings contain settings specific to given

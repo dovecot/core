@@ -115,6 +115,14 @@ static int config_connection_request(struct config_connection *conn,
 	config_export_by_filter(ctx, &filter);
 	config_export_get_output(ctx, &output);
 
+	if (output.specific_services != NULL) {
+		const char *const *s;
+
+		for (s = output.specific_services; *s != NULL; s++) {
+			o_stream_send_str(conn->output,
+				t_strdup_printf("service=%s\t", *s));
+		}
+	}
 	if (output.service_uses_local)
 		o_stream_send_str(conn->output, "service-uses-local\t");
 	if (output.service_uses_remote)
