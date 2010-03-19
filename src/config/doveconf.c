@@ -465,12 +465,12 @@ int main(int argc, char *argv[])
 	const char *error;
 	char **exec_args = NULL;
 	int c, ret, ret2;
-	bool config_path_specified;
+	bool config_path_specified, expand_vars = FALSE;
 
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "af:m:nNe");
+					     &argc, &argv, "af:m:nNex");
 	orig_config_path = master_service_get_config_path(master_service);
 
 	i_set_failure_prefix("doveconf: ");
@@ -491,6 +491,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'N':
 			scope = CONFIG_DUMP_SCOPE_SET;
+			break;
+		case 'x':
+			expand_vars = TRUE;
 			break;
 		default:
 			return FATAL_DEFAULT;
@@ -514,7 +517,7 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	config_parse_load_modules();
 
-	if ((ret = config_parse_file(config_path, FALSE, &error)) == 0 &&
+	if ((ret = config_parse_file(config_path, expand_vars, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
 			error);
