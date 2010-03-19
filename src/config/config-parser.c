@@ -582,23 +582,23 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 }
 
 static const void *
-config_get_value(struct config_parser_context *ctx, const char *key,
+config_get_value(struct config_section_stack *section, const char *key,
 		 bool expand_parent, enum setting_type *type_r)
 {
-	struct config_section_stack *section;
 	struct config_module_parser *l;
 	const void *value;
 
-	section = ctx->cur_section;
-	if (expand_parent && ctx->cur_section->prev != NULL) {
-		/* for: key = $key stuff */
-		section = section->prev;
-	}
-
 	for (l = section->parsers; l->root != NULL; l++) {
 		value = settings_parse_get_value(l->parser, key, type_r);
-		if (value != NULL)
-			return value;
+		if (value != NULL) {
+			if (!expand_parent || section->prev == NULL ||
+			    settings_parse_is_changed(l->parser, key))
+				return value;
+
+			/* not changed by this parser. maybe parent has. */
+			return config_get_value(section->prev,
+						key, TRUE, type_r);
+		}
 	}
 	return NULL;
 }
@@ -640,8 +640,9 @@ static int config_write_value(struct config_parser_context *ctx,
 			else
 				var_name = t_strdup_until(value, p);
 
+			/* expand_parent=TRUE for "key = $key stuff" */
 			expand_parent = strcmp(key, var_name) == 0;
-			var_value = config_get_value(ctx, var_name,
+			var_value = config_get_value(ctx->cur_section, var_name,
 						     expand_parent, &var_type);
 			if (var_value == NULL) {
 				ctx->error = p_strconcat(ctx->pool,
