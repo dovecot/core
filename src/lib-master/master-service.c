@@ -107,6 +107,14 @@ master_service_init(const char *name, enum master_service_flags flags,
 		fd_debug_verify_leaks(MASTER_LISTEN_FD_FIRST + count, 1024);
 	}
 #endif
+	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
+		/* make sure we can dump core, at least until
+		   privileges are dropped. (i'm not really sure why this
+		   is needed, because doing the same just before exec
+		   doesn't help, and exec shouldn't affect this with
+		   non-setuid/gid binaries..) */
+		restrict_access_allow_coredumps(TRUE);
+	}
 
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
