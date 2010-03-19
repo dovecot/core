@@ -728,6 +728,22 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 	return STRUCT_MEMBER_P(link->set_struct, def->offset);
 }
 
+bool settings_parse_is_changed(struct setting_parser_context *ctx,
+			       const char *key)
+{
+	const struct setting_define *def;
+	struct setting_link *link;
+	const unsigned char *p;
+
+	if (!settings_find_key(ctx, key, &def, &link))
+		return NULL;
+	if (link->change_struct == NULL)
+		return FALSE;
+
+	p = STRUCT_MEMBER_P(link->change_struct, def->offset);
+	return *p;
+}
+
 int settings_parse_line(struct setting_parser_context *ctx, const char *line)
 {
 	const char *key, *value;

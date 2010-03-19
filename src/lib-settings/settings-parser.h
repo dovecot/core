@@ -128,6 +128,9 @@ bool settings_parse_is_valid_key(struct setting_parser_context *ctx,
 const void *
 settings_parse_get_value(struct setting_parser_context *ctx,
 			 const char *key, enum setting_type *type_r);
+/* Returns TRUE if setting has been changed by this parser. */
+bool settings_parse_is_changed(struct setting_parser_context *ctx,
+			       const char *key);
 /* Parse a single line. Returns 1 if OK, 0 if key is unknown, -1 if error. */
 int settings_parse_line(struct setting_parser_context *ctx, const char *line);
 /* Parse data already read in input stream. */
