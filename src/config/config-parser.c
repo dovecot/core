@@ -583,12 +583,19 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 
 static const void *
 config_get_value(struct config_parser_context *ctx, const char *key,
-		 enum setting_type *type_r)
+		 bool expand_parent, enum setting_type *type_r)
 {
+	struct config_section_stack *section;
 	struct config_module_parser *l;
 	const void *value;
 
-	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
+	section = ctx->cur_section;
+	if (expand_parent && ctx->cur_section->prev != NULL) {
+		/* for: key = $key stuff */
+		section = section->prev;
+	}
+
+	for (l = section->parsers; l->root != NULL; l++) {
 		value = settings_parse_get_value(l->parser, key, type_r);
 		if (value != NULL)
 			return value;
@@ -604,7 +611,7 @@ static int config_write_value(struct config_parser_context *ctx,
 	const void *var_name, *var_value, *p;
 	enum setting_type var_type;
 	const char *error;
-	bool dump;
+	bool dump, expand_parent;
 
 	switch (type) {
 	case CONFIG_LINE_TYPE_KEYVALUE:
@@ -633,7 +640,9 @@ static int config_write_value(struct config_parser_context *ctx,
 			else
 				var_name = t_strdup_until(value, p);
 
-			var_value = config_get_value(ctx, var_name, &var_type);
+			expand_parent = strcmp(key, var_name) == 0;
+			var_value = config_get_value(ctx, var_name,
+						     expand_parent, &var_type);
 			if (var_value == NULL) {
 				ctx->error = p_strconcat(ctx->pool,
 							 "Unknown variable: $",
