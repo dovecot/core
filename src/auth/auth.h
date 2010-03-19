@@ -33,15 +33,16 @@ struct auth {
 extern struct auth_penalty *auth_penalty;
 
 struct auth *
-auth_preinit(const struct auth_settings *set, const char *service,
+auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 	     const struct mechanisms_register *mech_reg);
 void auth_init(struct auth *auth);
 void auth_deinit(struct auth **auth);
 
 struct auth *auth_find_service(const char *name);
 
-void auths_preinit(const struct auth_settings *set,
-		   const struct mechanisms_register *reg);
+void auths_preinit(const struct auth_settings *set, pool_t pool,
+		   const struct mechanisms_register *reg,
+		   const char *const *services);
 void auths_init(void);
 void auths_deinit(void);
 

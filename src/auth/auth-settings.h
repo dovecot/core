@@ -2,6 +2,7 @@
 #define AUTH_SETTINGS_H
 
 struct master_service;
+struct master_service_settings_output;
 
 struct auth_passdb_settings {
 	const char *driver;
@@ -50,8 +51,11 @@ struct auth_settings {
 	const char *const *realms_arr;
 };
 
+extern const struct setting_parser_info auth_setting_parser_info;
 extern struct auth_settings *global_auth_settings;
 
-struct auth_settings *auth_settings_read(const char *service);
+struct auth_settings *
+auth_settings_read(const char *service, pool_t pool,
+		   struct master_service_settings_output *output_r);
 
 #endif

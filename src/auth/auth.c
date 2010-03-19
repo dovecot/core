@@ -2,6 +2,8 @@
 
 #include "auth-common.h"
 #include "array.h"
+#include "settings-parser.h"
+#include "master-service-settings.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
@@ -45,16 +47,14 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 }
 
 struct auth *
-auth_preinit(const struct auth_settings *set, const char *service,
+auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 	     const struct mechanisms_register *reg)
 {
 	struct auth_passdb_settings *const *passdbs;
 	struct auth_userdb_settings *const *userdbs;
 	struct auth *auth;
-	pool_t pool;
 	unsigned int i, count, db_count, passdb_count, last_passdb = 0;
 
-	pool = pool_alloconly_create("auth", 2048);
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
 	auth->service = p_strdup(pool, service);
@@ -228,30 +228,43 @@ struct auth *auth_find_service(const char *name)
 			if (strcmp(a[i]->service, name) == 0)
 				return a[i];
 		}
+		/* not found. maybe we can instead find a !service */
+		for (i = 1; i < count; i++) {
+			if (a[i]->service[0] == '!' &&
+			    strcmp(a[i]->service + 1, name) != 0)
+				return a[i];
+		}
 	}
 	return a[0];
 }
 
-void auths_preinit(const struct auth_settings *set,
-		   const struct mechanisms_register *reg)
+void auths_preinit(const struct auth_settings *set, pool_t pool,
+		   const struct mechanisms_register *reg,
+		   const char *const *services)
 {
-	static const char *services[] = {
-		"imap", "pop3", "lda", "lmtp", "managesieve"
-	};
+	struct master_service_settings_output set_output;
 	const struct auth_settings *service_set;
 	struct auth *auth;
 	unsigned int i;
+	const char *not_service = NULL;
 
 	i_array_init(&auths, 8);
 
-	auth = auth_preinit(set, NULL, reg);
+	auth = auth_preinit(set, NULL, pool, reg);
 	array_append(&auths, &auth, 1);
 
-	/* FIXME: this is ugly.. the service names should be coming from
-	   the first config lookup */
-	for (i = 0; i < N_ELEMENTS(services); i++) {
-		service_set = auth_settings_read(services[i]);
-		auth = auth_preinit(service_set, services[i], reg);
+	for (i = 0; services[i] != NULL; i++) {
+		if (services[i][0] == '!') {
+			if (not_service != NULL) {
+				i_fatal("Can't have multiple protocol "
+					"!services (seen %s and %s)",
+					not_service, services[i]);
+			}
+			not_service = services[i];
+		}
+		service_set = auth_settings_read(services[i], pool,
+						 &set_output);
+		auth = auth_preinit(service_set, services[i], pool, reg);
 		array_append(&auths, &auth, 1);
 	}
 }

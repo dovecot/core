@@ -3,15 +3,12 @@
 #include "lib.h"
 #include "array.h"
 #include "settings-parser.h"
-#include "master-service.h"
+#include "master-service-private.h"
 #include "master-service-settings.h"
 #include "service-settings.h"
 #include "auth-settings.h"
 
 #include <stddef.h>
-
-extern const struct setting_parser_info auth_setting_parser_info;
-extern const struct setting_parser_info auth_root_setting_parser_info;
 
 static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool auth_passdb_settings_check(void *_set, pool_t pool, const char **error_r);
@@ -306,25 +303,29 @@ auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 struct auth_settings *global_auth_settings;
 
-struct auth_settings *auth_settings_read(const char *service)
+struct auth_settings *
+auth_settings_read(const char *service, pool_t pool,
+		   struct master_service_settings_output *output_r)
 {
 	static const struct setting_parser_info *set_roots[] = {
 		&auth_setting_parser_info,
 		NULL
 	};
  	struct master_service_settings_input input;
-	struct master_service_settings_output output;
+	struct setting_parser_context *set_parser;
 	const char *error;
-	void **sets;
 
 	memset(&input, 0, sizeof(input));
 	input.roots = set_roots;
 	input.module = "auth";
 	input.service = service;
 	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0)
+					 output_r, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	sets = master_service_settings_get_others(master_service);
-	return sets[0];
+	set_parser = settings_parser_dup(master_service->set_parser, pool);
+	if (!settings_parser_check(set_parser, pool, &error))
+		i_unreached();
+
+	return settings_parser_get_list(set_parser)[1];
 }

@@ -10,7 +10,9 @@
 #include "sql-api.h"
 #include "module-dir.h"
 #include "randgen.h"
+#include "settings-parser.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-interface.h"
 #include "password-scheme.h"
 #include "passdb-cache.h"
@@ -38,13 +40,36 @@ bool worker = FALSE, shutdown_request = FALSE;
 time_t process_start_time;
 struct auth_penalty *auth_penalty;
 
+static pool_t auth_set_pool;
 static struct module *modules = NULL;
 static struct mechanisms_register *mech_reg;
 static ARRAY_DEFINE(listen_fd_types, enum auth_socket_type);
 
+static const char *const *read_global_settings(void)
+{
+	struct master_service_settings_output set_output;
+	const char **services;
+	unsigned int i, count;
+
+	auth_set_pool = pool_alloconly_create("auth settings", 8192);
+	global_auth_settings =
+		auth_settings_read(NULL, auth_set_pool, &set_output);
+
+	/* strdup() the service names, because they're allocated from
+	   set parser pool, and we'll later clear it. */
+	count = str_array_length(set_output.specific_services);
+	services = p_new(auth_set_pool, const char *, count + 1);
+	for (i = 0; i < count; i++) {
+		services[i] = p_strdup(auth_set_pool,
+				       set_output.specific_services[i]);
+	}
+	return services;
+}
+
 static void main_preinit(void)
 {
 	struct module_dir_load_settings mod_set;
+	const char *const *services;
 
 	/* Open /dev/urandom before chrooting */
 	random_init();
@@ -58,6 +83,8 @@ static void main_preinit(void)
 	passdbs_init();
 	userdbs_init();
 
+	services = read_global_settings();
+
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.version = master_service_get_version_string(master_service);
 	mod_set.require_init_funcs = TRUE;
@@ -69,7 +96,8 @@ static void main_preinit(void)
 	auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
-	auths_preinit(global_auth_settings, mech_reg);
+	auths_preinit(global_auth_settings, auth_set_pool,
+		      mech_reg, services);
 
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);
@@ -134,6 +162,7 @@ static void main_deinit(void)
 	random_deinit();
 
 	array_free(&listen_fd_types);
+	pool_unref(&auth_set_pool);
 }
 
 static void worker_connected(const struct master_service_connection *conn)
@@ -190,6 +219,7 @@ static void client_connected(const struct master_service_connection *conn)
 	}
 }
 
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -207,9 +237,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	global_auth_settings = auth_settings_read(NULL);
 	main_preinit();
-
 	master_service_init_finish(master_service);
 	main_init();
 	master_service_run(master_service, worker ? worker_connected :
