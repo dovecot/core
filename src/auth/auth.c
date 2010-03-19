@@ -17,14 +17,15 @@ struct auth_userdb_settings userdb_dummy_set = {
 static ARRAY_DEFINE(auths, struct auth *);
 
 static void
-auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set)
+auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
+		    struct auth_passdb **passdbs)
 {
 	struct auth_passdb *auth_passdb, **dest;
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
 	auth_passdb->set = set;
 
-	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next) ;
+	for (dest = passdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_passdb;
 
 	auth_passdb->passdb =
@@ -73,7 +74,7 @@ auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 		if (passdbs[i]->master)
 			continue;
 
-		auth_passdb_preinit(auth, passdbs[i]);
+		auth_passdb_preinit(auth, passdbs[i], &auth->passdbs);
 		passdb_count++;
 		last_passdb = i;
 	}
@@ -90,7 +91,7 @@ auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 			i_fatal("Master passdb can't have pass=yes "
 				"if there are no passdbs");
 		}
-		auth_passdb_preinit(auth, passdbs[i]);
+		auth_passdb_preinit(auth, passdbs[i], &auth->masterdbs);
 	}
 
 	if (array_is_created(&set->userdbs)) {

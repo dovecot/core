@@ -71,7 +71,8 @@ void auth_request_init(struct auth_request *request)
 
 	auth = auth_request_get_auth(request);
 	request->set = auth->set;
-	request->passdb = auth->passdbs;
+	request->passdb = auth->masterdbs != NULL ?
+		auth->masterdbs : auth->passdbs;
 	request->userdb = auth->userdbs;
 }
 
