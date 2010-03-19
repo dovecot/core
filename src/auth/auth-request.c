@@ -868,8 +868,9 @@ bool auth_request_set_username(struct auth_request *request,
 	}
 	if (request->cert_username) {
 		/* cert_username overrides the username given by
-		   authentication mechanism. */
-		return TRUE;
+		   authentication mechanism. but still do checks and
+		   translations to it. */
+		username = request->user;
 	}
 
 	if (*username == '\0') {
