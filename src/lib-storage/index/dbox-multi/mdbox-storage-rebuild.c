@@ -522,16 +522,17 @@ rebuild_namespace_mailboxes(struct mdbox_storage_rebuild_context *ctx,
 
 static int rebuild_mailboxes(struct mdbox_storage_rebuild_context *ctx)
 {
-	struct mail_user *user = ctx->storage->storage.storage.user;
+	struct mail_storage *storage = &ctx->storage->storage.storage;
 	struct mail_namespace *ns;
 
-	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->storage == &ctx->storage->storage.storage &&
-		    ns->alias_for == NULL) {
+	for (ns = storage->user->namespaces; ns != NULL; ns = ns->next) {
+		if (ns->storage == storage && ns->alias_for == NULL) {
 			if (rebuild_namespace_mailboxes(ctx, ns) < 0)
 				return -1;
 		}
 	}
+	if (ctx->default_list == NULL)
+		i_panic("No namespace found for storage=%s", storage->name);
 	return 0;
 }
 
