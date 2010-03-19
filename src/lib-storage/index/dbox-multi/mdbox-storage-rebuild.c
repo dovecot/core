@@ -817,12 +817,13 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->storage_dir,
 					   FALSE) < 0)
 		return -1;
-	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->alt_storage_dir,
-					   TRUE) < 0)
-		return -1;
+	if (ctx->storage->alt_storage_dir != NULL) {
+		if (mdbox_storage_rebuild_scan_dir(ctx,
+				ctx->storage->alt_storage_dir, TRUE) < 0)
+			return -1;
+	}
 
-	if (ret < 0 ||
-	    rebuild_apply_map(ctx) < 0 ||
+	if (rebuild_apply_map(ctx) < 0 ||
 	    rebuild_mailboxes(ctx) < 0 ||
 	    rebuild_finish(ctx) < 0 ||
 	    mail_index_sync_commit(&ctx->sync_ctx) < 0)
