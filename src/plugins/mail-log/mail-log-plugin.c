@@ -277,7 +277,7 @@ mail_log_mail_transaction_begin(struct mailbox_transaction_context *t ATTR_UNUSE
 	pool_t pool;
 	struct mail_log_mail_txn_context *ctx;
 
-	pool = pool_alloconly_create("mail-log", 1024);
+	pool = pool_alloconly_create("mail-log", 2048);
 	ctx = p_new(pool, struct mail_log_mail_txn_context, 1);
 	ctx->pool = pool;
 	return ctx;
