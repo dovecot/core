@@ -219,6 +219,42 @@ int dbox_file_open_primary(struct dbox_file *file, bool *notfound_r)
 	return dbox_file_open_full(file, FALSE, notfound_r);
 }
 
+int dbox_file_stat(struct dbox_file *file, struct stat *st_r)
+{
+	const char *path;
+	bool alt = FALSE;
+
+	if (dbox_file_is_open(file)) {
+		if (fstat(file->fd, st_r) < 0) {
+			mail_storage_set_critical(&file->storage->storage,
+				"fstat(%s) failed: %m", file->cur_path);
+			return -1;
+		}
+		return 0;
+	}
+
+	/* try the primary path first */
+	path = file->primary_path;
+	while (stat(path, st_r) < 0) {
+		if (errno != ENOENT) {
+			mail_storage_set_critical(&file->storage->storage,
+						  "stat(%s) failed: %m", path);
+			return -1;
+		}
+
+		if (file->alt_path == NULL || alt) {
+			/* not found */
+			return -1;
+		}
+
+		/* try the alternative path */
+		path = file->alt_path;
+		alt = TRUE;
+	}
+	file->cur_path = path;
+	return 0;
+}
+
 int dbox_file_header_write(struct dbox_file *file, struct ostream *output)
 {
 	string_t *hdr;

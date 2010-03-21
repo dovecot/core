@@ -140,29 +140,17 @@ int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail_data *data = &mail->imail.data;
 	struct dbox_file *file;
 	struct stat st;
-	const char *value;
 
  	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
 
-	if (dbox_mail_metadata_read(mail, &file) < 0)
+	mail->imail.mail.stats_fstat_lookup_count++;
+	if (dbox_file_stat(file, &st) < 0) {
+		if (errno == ENOENT)
+			mail_set_expunged(_mail);
 		return -1;
-
-	value = dbox_file_metadata_get(file, DBOX_METADATA_SAVE_TIME);
-	data->save_date = value == NULL ? 0 : strtoul(value, NULL, 16);
-
-	if (data->save_date == 0) {
-		/* missing / corrupted save time - use the file's ctime */
-		i_assert(dbox_file_is_open(file));
-		mail->imail.mail.stats_fstat_lookup_count++;
-		if (fstat(file->fd, &st) < 0) {
-			mail_storage_set_critical(_mail->box->storage,
-				"fstat(%s) failed: %m", file->cur_path);
-			return -1;
-		}
-		data->save_date = st.st_ctime;
 	}
-	*date_r = data->save_date;
+	*date_r = data->save_date = st.st_ctime;
 	return 0;
 }
 

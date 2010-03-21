@@ -39,8 +39,6 @@ enum dbox_metadata_key {
 	DBOX_METADATA_POP3_UIDL		= 'P',
 	/* Received UNIX timestamp in hex */
 	DBOX_METADATA_RECEIVED_TIME	= 'R',
-	/* Saved UNIX timestamp in hex */
-	DBOX_METADATA_SAVE_TIME		= 'S',
 	/* Physical message size in hex. Necessary only if it differs from
 	   the dbox_message_header.message_size_hex, for example because the
 	   message is compressed. */
@@ -59,6 +57,7 @@ enum dbox_metadata_key {
 	DBOX_METADATA_OLDV1_EXPUNGED	= 'E',
 	DBOX_METADATA_OLDV1_FLAGS	= 'F',
 	DBOX_METADATA_OLDV1_KEYWORDS	= 'K',
+	DBOX_METADATA_OLDV1_SAVE_TIME	= 'S',
 	DBOX_METADATA_OLDV1_SPACE	= ' '
 };
 
@@ -133,6 +132,10 @@ int dbox_file_open(struct dbox_file *file, bool *deleted_r);
 int dbox_file_open_primary(struct dbox_file *file, bool *notfound_r);
 /* Close the file handle from the file, but don't free it. */
 void dbox_file_close(struct dbox_file *file);
+
+/* fstat() or stat() the file. If file is already deleted, fails with
+   errno=ENOENT. */
+int dbox_file_stat(struct dbox_file *file, struct stat *st_r);
 
 /* Try to lock the dbox file. Returns 1 if ok, 0 if already locked by someone
    else, -1 if error. */

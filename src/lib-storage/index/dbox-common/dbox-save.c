@@ -125,8 +125,6 @@ void dbox_save_write_metadata(struct mail_save_context *ctx,
 	}
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_RECEIVED_TIME,
 		    (unsigned long)ctx->received_date);
-	str_printfa(str, "%c%lx\n", DBOX_METADATA_SAVE_TIME,
-		    (unsigned long)ioloop_time);
 	if (mail_get_virtual_size(ctx->dest_mail, &vsize) < 0)
 		i_unreached();
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
