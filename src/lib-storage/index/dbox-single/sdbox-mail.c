@@ -15,17 +15,11 @@
 static void sdbox_mail_set_expunged(struct dbox_mail *mail)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)_mail->box;
 
-	(void)mail_index_refresh(_mail->box->index);
-	if (mail_index_is_expunged(_mail->transaction->view, _mail->seq)) {
-		mail_set_expunged(_mail);
-		return;
-	}
-
-	mail_storage_set_critical(_mail->box->storage,
-				  "Unexpectedly lost uid=%u", _mail->uid);
-	mbox->sync_rebuild = TRUE;
+	/* syncing code first unlinks the file, and index is updated later.
+	   so at this point we don't know if the file was unexpectedly lost
+	   or if it's just being expunged. just assume the latter. */
+	mail_set_expunged(_mail);
 }
 
 static bool sdbox_mail_file_set(struct dbox_mail *mail)
