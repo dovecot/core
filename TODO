@@ -1,19 +1,27 @@
- - config process is handling requests too slowly. maybe add some caching.
- - config: ssl=no, ssl_cert=</not-exists fails everything
- - protocol lda { userdb { ..} }
- - master users: see how it works with anvil / max connection limits / doveadm who
+19295): Error: dbox map /home/tss/mdbox/storage/dovecot.map.index corrupted: Unexpectedly lost INBOX uid=1083397 map_uid=2001404
+ ^ fixed, but it should continue breaking like:
+19295): Warning: dbox /home/tss/mdbox/storage: rebuilding indexes
+19295): Error: fcntl(write-lock) locking failed for file /home/tss/mdbox/mailboxes/INBOX/dbox-Mails/dovecot.index.log: Resource deadlock avoided
+19295): Error: mail_index_wait_lock_fd() failed with file /home/tss/mdbox/mailboxes/INBOX/dbox-Mails/dovecot.index.log: Resource deadlock avoided
+19295): Warning: dbox /home/tss/mdbox/storage: rebuilding indexes
+20162): Panic: file index-sync.c: line 40 (index_mailbox_set_recent_uid): assertion failed: (seq_range_exists(&ibox->recent_flags, uid))
+
+ - single-dbox:
+    - we get back to sdbox_sync_file() over and over again when expunging..
+      especially with a broken guid expunge, it doesn't go away.
+ - fts-solr: handle DELETE, RENAME. use mailbox GUIDs (optionally)
 
  - virtual: removed messages don't get expunged unless EXPUNGE is issued in
    same session. otherwise they get forgotten and never removed.
  - mdbox
-    - storage rebuild can't be done in destroy(), namespaces are gone by then
-        - use mailbox_close(). check that no transactions are open. maybe
-	  something like only when mailbox_count == 1?
+    - purging seems to be inefficient. run imaptest for a while, get >500
+      files, start purging, it's slow until there are about 100 files left,
+      then the rest is suddenly fast.
+    - make sure that when reading mdbox mails sequentially the data is being
+      read from disk in n kB blocks and reads cross mail boundaries and when
+      reading the next mail it uses the previously read data in buffer
     - Add some kind of checksum about data+metadata and use it when checking
       consistency
-    - single-dbox is still buggy?
-    - dbox: we get back to dbox_sync_file() over and over again when expunging..
-      especially with a broken guid expunge, it doesn't go away.
     - figure out a way to efficiently trigger purging when user has too much
       mail expunged (e.g. keep track of total storage size, trigger purging
       when it's 2*quota limit)
@@ -23,6 +31,7 @@
       it. like when saving the lowest file_id which to bother checking.
     - test crash-fixing
     - mail_index_fsck() should perhaps cause dbox to be resynced?
+    - optimize away reading file header?
  - maildir: out-of-disk-space failures apparently cause all kinds of
    problems, e.g. "Expunged message reappeared", "Duplicate file entry"?
  - quota_warn: add $QUOTA_LIMIT environment or %variable parameter
@@ -31,8 +40,15 @@
  - expire plugin could support also "archive" operation = move to another mailbox
  - istream-seekable is inefficient. it shouldn't be reading the temp file
    immediately after writing to it
+ - config process is handling requests too slowly. maybe add some caching.
+    - maybe config should return all of the protocol/local/remote overrides
+      when requested? then the caller could do a single lookup at start and
+      merge them later internally. this would really help login processes.
+ - ipv6: auth penalty should begin from /64 and gradually grow to /48 if
+   necessary. and the same could be done for ipv4 as well..
 
  - dsync:
+   - DSYNC_MAILBOX_FLAG_DELETED_DIR isn't handled at all
    - subscriptions syncing doesn't handle mixed hierarchy separators
    - are \noselect mailboxes replicated correctly?
    - Can't rename mailbox INBOX_019acf2169c5784b307f000074ccac23 to INBOX: Target mailbox already exists
@@ -50,7 +66,6 @@
    add it to cache afterwards.
  - move ssl proxying code to lib-master
  - proxy: verify ssl cert's cname
- - o_stream_set_file_path()
  - dict pooling
 
 	/* currently non-external transactions can be applied multiple times,
@@ -67,7 +82,6 @@
  - i_panic("Message count decreased") happens - why?
      - at least one backtrace shows client_destroy -> client_command_cancel ->
        imap_sync_deinit
- - fts-solr: handle DELETE, RENAME
  - fsck -> log_file_tail_offset 2273345664 -> 996 ->
    mail-transaction-log.c: line 341 (mail_transaction_log_set_mailbox_sync_pos):
    assertion failed: (file_offset >= log->head->saved_tail_offset)
@@ -206,6 +220,8 @@
  - index
     - read-only support for mailboxes where we don't have write-access
     - index file format changes:
+        - split to "old" and "new" indexes and try to avoid loading "old" into
+	  memory until needed
 	- pack UIDs to beginning of file with UID ranges
 	- use squat-like compressed uid ranges everywhere
         - write first extension intros in dovecot.index.log always with names
