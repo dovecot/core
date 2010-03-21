@@ -168,16 +168,6 @@
 #  define COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(_a, _b) 0
 #endif
 
-/* Wrap the gcc __PRETTY_FUNCTION__ and __FUNCTION__ variables with
-   macros, so we can refer to them as strings unconditionally. */
-#ifdef __GNUC__
-#  define GNUC_FUNCTION __FUNCTION__
-#  define GNUC_PRETTY_FUNCTION __PRETTY_FUNCTION__
-#else
-#  define GNUC_FUNCTION ""
-#  define GNUC_PRETTY_FUNCTION ""
-#endif
-
 #if __GNUC__ > 2
 #  define unlikely(expr) __builtin_expect(!!(expr), 0)
 #  define likely(expr) __builtin_expect(!!(expr), 1)
