@@ -186,7 +186,7 @@
        i_panic("file %s: line %d (%s): assertion failed: (%s)",		\
 		__FILE__,						\
 		__LINE__,						\
-		__PRETTY_FUNCTION__,					\
+		__FUNCTION__,					\
 		#expr);			}STMT_END
 
 #else /* !__GNUC__ */
