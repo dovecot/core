@@ -12,6 +12,7 @@ struct sdbox_file {
 };
 
 struct dbox_file *sdbox_file_init(struct sdbox_mailbox *mbox, uint32_t uid);
+struct dbox_file *sdbox_file_create(struct sdbox_mailbox *mbox);
 
 /* Assign UID for a newly created file (by renaming it) */
 int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid);

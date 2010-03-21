@@ -70,13 +70,20 @@ sdbox_save_alloc(struct mailbox_transaction_context *t)
 	return t->save_ctx;
 }
 
+void sdbox_save_add_file(struct mail_save_context *_ctx, struct dbox_file *file)
+{
+	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
+
+	array_append(&ctx->files, &file, 1);
+}
+
 int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
 	struct dbox_file *file;
 	int ret;
 
-	file = sdbox_file_init(ctx->mbox, 0);
+	file = sdbox_file_create(ctx->mbox);
 	ctx->append_ctx = dbox_file_append_init(file);
 	ret = dbox_file_get_append_stream(ctx->append_ctx,
 					  &ctx->ctx.dbox_output);
@@ -93,7 +100,7 @@ int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	if (ctx->first_saved_seq == 0)
 		ctx->first_saved_seq = ctx->ctx.seq;
 
-	array_append(&ctx->files, &file, 1);
+	sdbox_save_add_file(_ctx, file);
 	return ctx->ctx.failed ? -1 : 0;
 }
 
@@ -294,14 +301,4 @@ void sdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 	if (ctx->ctx.mail != NULL)
 		mail_free(&ctx->ctx.mail);
 	i_free(ctx);
-}
-
-int sdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
-{
-	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
-
-	/* FIXME: use hard linking */
-
-	ctx->finished = TRUE;
-	return mail_storage_copy(_ctx, mail);
 }

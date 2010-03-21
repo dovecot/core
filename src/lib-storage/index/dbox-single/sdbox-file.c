@@ -45,13 +45,17 @@ struct dbox_file *sdbox_file_init(struct sdbox_mailbox *mbox, uint32_t uid)
 		}
 	} T_END;
 	dbox_file_init(&file->file);
-
-	if (uid == 0) {
-		file->file.fd = file->file.storage->v.
-			file_create_fd(&file->file, file->file.primary_path,
-				       FALSE);
-	}
 	return &file->file;
+}
+
+struct dbox_file *sdbox_file_create(struct sdbox_mailbox *mbox)
+{
+	struct dbox_file *file;
+
+	file = sdbox_file_init(mbox, 0);
+	file->fd = file->storage->v.
+		file_create_fd(file, file->primary_path, FALSE);
+	return file;
 }
 
 int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)

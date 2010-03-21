@@ -53,6 +53,7 @@ void sdbox_save_cancel(struct mail_save_context *ctx);
 
 struct dbox_file *
 sdbox_save_file_get_file(struct mailbox_transaction_context *t, uint32_t seq);
+void sdbox_save_add_file(struct mail_save_context *ctx, struct dbox_file *file);
 
 int sdbox_transaction_save_commit_pre(struct mail_save_context *ctx);
 void sdbox_transaction_save_commit_post(struct mail_save_context *ctx,

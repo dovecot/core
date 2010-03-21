@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index/dbox-common
 
 libstorage_dbox_single_la_SOURCES = \
+	sdbox-copy.c \
 	sdbox-file.c \
 	sdbox-mail.c \
 	sdbox-save.c \

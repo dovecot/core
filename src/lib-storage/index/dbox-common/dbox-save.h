@@ -1,6 +1,8 @@
 #ifndef DBOX_SAVE_H
 #define DBOX_SAVE_H
 
+#include "dbox-storage.h"
+
 struct dbox_save_context {
 	struct mail_save_context ctx;
 	struct mail_index_transaction *trans;
