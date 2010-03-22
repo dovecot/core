@@ -167,7 +167,7 @@ static int maildir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 		return -1;
 
 	*date_r = data->save_date = st.st_ctime;
-	return data->save_date;
+	return 0;
 }
 
 static int
