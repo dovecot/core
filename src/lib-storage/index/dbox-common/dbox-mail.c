@@ -136,13 +136,19 @@ int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
+	struct dbox_storage *storage =
+		(struct dbox_storage *)_mail->box->storage;
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 	struct index_mail_data *data = &mail->imail.data;
 	struct dbox_file *file;
 	struct stat st;
+	uoff_t offset;
 
  	if (index_mail_get_save_date(_mail, date_r) == 0)
 		return 0;
+
+	if (storage->v.mail_open(mail, &offset, &file) < 0)
+		return -1;
 
 	mail->imail.mail.stats_fstat_lookup_count++;
 	if (dbox_file_stat(file, &st) < 0) {
