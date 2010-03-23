@@ -68,7 +68,8 @@ static void client_connected(const struct master_service_connection *conn)
 
 	i = 0;
 	memset(&input, 0, sizeof(input));
-	input.module = input.service = "script";
+	input.module = "mail"; /* need to get mail_uid, mail_gid */
+	input.service = "script";
 	(void)net_addr2ip(args[i++], &input.local_ip);
 	(void)net_addr2ip(args[i++], &input.remote_ip);
 	input.username = args[i++];
