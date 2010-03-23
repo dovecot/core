@@ -81,18 +81,25 @@ mdbox_storage_rebuild_init(struct mdbox_storage *storage)
 {
 	struct mdbox_storage_rebuild_context *ctx;
 
+	i_assert(!storage->rebuilding_storage);
+
 	ctx = i_new(struct mdbox_storage_rebuild_context, 1);
 	ctx->storage = storage;
 	ctx->pool = pool_alloconly_create("dbox map rebuild", 1024*256);
 	ctx->guid_hash = hash_table_create(default_pool, ctx->pool, 0,
 					   guid_hash, guid_cmp);
 	i_array_init(&ctx->msgs, 512);
+
+	ctx->storage->rebuilding_storage = TRUE;
 	return ctx;
 }
 
 static void
 mdbox_storage_rebuild_deinit(struct mdbox_storage_rebuild_context *ctx)
 {
+	i_assert(ctx->storage->rebuilding_storage);
+
+	ctx->storage->rebuilding_storage = FALSE;
 	if (ctx->sync_ctx != NULL)
 		mail_index_sync_rollback(&ctx->sync_ctx);
 

@@ -65,11 +65,6 @@ static void mdbox_storage_destroy(struct mail_storage *_storage)
 {
 	struct mdbox_storage *storage = (struct mdbox_storage *)_storage;
 
-	if (storage->storage.files_corrupted) {
-		if (mdbox_storage_rebuild(storage) < 0)
-			return;
-	}
-
 	mdbox_files_free(storage);
 	dbox_map_deinit(&storage->map);
 	if (storage->to_close_unused_files != NULL)
@@ -120,6 +115,17 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		mail_index_ext_register(mbox->box.index, "guid",
 					0, MAIL_GUID_128_SIZE, 1);
 	return &mbox->box;
+}
+
+static void mdbox_mailbox_close(struct mailbox *box)
+{
+	struct mdbox_storage *mstorage = (struct mdbox_storage *)box->storage;
+
+	if (mstorage->storage.files_corrupted &&
+	    !mstorage->rebuilding_storage)
+		(void)mdbox_storage_rebuild(mstorage);
+
+	index_storage_mailbox_close(box);
 }
 
 int mdbox_read_header(struct mdbox_mailbox *mbox,
@@ -333,7 +339,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		dbox_mailbox_open,
-		index_storage_mailbox_close,
+		mdbox_mailbox_close,
 		index_storage_mailbox_free,
 		dbox_mailbox_create,
 		mdbox_mailbox_update,

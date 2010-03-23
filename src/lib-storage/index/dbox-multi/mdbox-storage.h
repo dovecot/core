@@ -31,6 +31,8 @@ struct mdbox_storage {
 
 	ARRAY_DEFINE(open_files, struct mdbox_file *);
 	struct timeout *to_close_unused_files;
+
+	unsigned int rebuilding_storage:1;
 };
 
 struct mdbox_mail_index_record {
