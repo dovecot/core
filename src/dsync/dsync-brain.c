@@ -572,6 +572,16 @@ static void dsync_brain_worker_finished(bool success, void *context)
 {
 	struct dsync_brain *brain = context;
 
+	switch (brain->state) {
+	case DSYNC_STATE_SYNC_MSGS_FLUSH:
+	case DSYNC_STATE_SYNC_MSGS_FLUSH2:
+	case DSYNC_STATE_SYNC_FLUSH:
+	case DSYNC_STATE_SYNC_FLUSH2:
+		break;
+	default:
+		i_panic("dsync brain state=%d", brain->state);
+	}
+
 	if (!success)
 		dsync_brain_fail(brain);
 
