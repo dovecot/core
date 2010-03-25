@@ -13,6 +13,7 @@ print '#define CONFIG_BINARY'."\n";
 print 'extern buffer_t config_all_services_buf;';
 
 my @services = ();
+my @service_ifdefs = ();
 my %parsers = {};
 
 foreach my $file (@ARGV) {
@@ -25,6 +26,8 @@ foreach my $file (@ARGV) {
   my $code = "";
   my %funcs;
   my $cur_name = "";
+  my $ifdef = "";
+  my $state_ifdef = 0;
   
   while (<$f>) {
     my $write = 0;
@@ -35,7 +38,14 @@ foreach my $file (@ARGV) {
 	$state++;
       } elsif (/^struct service_settings (.*) = {/) {
 	$state++;
+	if ($ifdef eq "") {
+	  $state_ifdef = 0;
+	} else {
+	  $_ = $ifdef."\n".$_;
+	  $state_ifdef = 1;
+	}
 	push @services, $1;
+	push @service_ifdefs, $ifdef;
       } elsif (/^(static )?const struct setting_parser_info (.*) = {/) {
 	$cur_name = $2;
 	$state++ if ($cur_name !~ /^\*default_/);
@@ -45,7 +55,13 @@ foreach my $file (@ARGV) {
 	$state = 4;
 	$code .= $_;
       }
-
+      
+      if (/(^#ifdef .*)$/ || /^(#if .*)$/) {
+	$ifdef = $1;
+      } else {
+	$ifdef = "";
+      }
+      
       if (/#define.*DEF/ || /^#undef.*DEF/ || /ARRAY_DEFINE_TYPE.*_settings/) {
 	$write = 1;
 	$state = 2 if (/\\$/);
@@ -83,6 +99,10 @@ foreach my $file (@ARGV) {
       $write = 1;
       if (/};/) {
 	$state = 0;
+	if ($state_ifdef) {
+	  $_ .= "#endif\n";
+	  $state_ifdef = 0;
+	}
       }
     }
   
@@ -99,8 +119,13 @@ foreach my $file (@ARGV) {
 
 print "static struct service_settings *config_all_services[] = {\n";
 
-foreach my $name (@services) {
-  print "\t&$name,\n";
+for (my $i = 0; $i < scalar(@services); $i++) {
+  my $ifdef = $service_ifdefs[$i];
+  print "$ifdef\n" if ($ifdef ne "");
+  print "\t";
+  print "," if ($i > 0);
+  print "&".$services[$i]."\n";
+  print "#endif\n" if ($ifdef ne "");
 }
 print "};\n";
 print "buffer_t config_all_services_buf = {\n";
