@@ -367,7 +367,8 @@ int config_export_finish(struct config_export_context **_ctx)
 	for (i = 0; ctx->parsers[i].root != NULL; i++) {
 		parser = &ctx->parsers[i];
 		if (*ctx->module != '\0' &&
-		    !config_module_want_parser(ctx->module, parser->root))
+		    !config_module_want_parser(config_module_parsers,
+					       ctx->module, parser->root))
 			continue;
 
 		settings_export(ctx, parser->root, FALSE,

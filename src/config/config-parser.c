@@ -275,6 +275,11 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			   const struct config_module_parser *p,
 			   const char **error_r)
 {
+	/* skip checking settings we don't care about */
+	if (*ctx->module != '\0' &&
+	    !config_module_want_parser(ctx->root_parsers, ctx->module, p->root))
+		return 0;
+
 	for (; p->root != NULL; p++) {
 		settings_parse_var_skip(p->parser);
 		if (!settings_parser_check(p->parser, ctx->pool, error_r))
@@ -603,6 +608,23 @@ config_get_value(struct config_section_stack *section, const char *key,
 	return NULL;
 }
 
+static bool
+config_require_key(struct config_parser_context *ctx, const char *key)
+{
+	struct config_module_parser *l;
+
+	if (*ctx->module == '\0')
+		return TRUE;
+
+	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
+		if (config_module_want_parser(ctx->root_parsers,
+					      ctx->module, l->root) &&
+		    settings_parse_is_valid_key(l->parser, key))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int config_write_value(struct config_parser_context *ctx,
 			      enum config_line_type type,
 			      const char *key, const char *value)
@@ -622,7 +644,8 @@ static int config_write_value(struct config_parser_context *ctx,
 			str_append_c(str, '<');
 			str_append(str, value);
 		} else {
-			if (str_append_file(str, key, value, &error) < 0) {
+			if (str_append_file(str, key, value, &error) < 0 &&
+			    config_require_key(ctx, key)) {
 				/* file reading failed */
 				ctx->error = p_strdup(ctx->pool, error);
 				return -1;
@@ -737,7 +760,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	}
 }
 
-int config_parse_file(const char *path, bool expand_values,
+int config_parse_file(const char *path, bool expand_values, const char *module,
 		      const char **error_r)
 {
 	struct input_stack root;
@@ -773,6 +796,7 @@ int config_parse_file(const char *path, bool expand_values,
 	root.path = path;
 	ctx.cur_input = &root;
 	ctx.expand_values = expand_values;
+	ctx.module = module;
 
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
@@ -883,7 +907,8 @@ static bool parsers_are_connected(const struct setting_parser_info *root,
 	return FALSE;
 }
 
-bool config_module_want_parser(const char *module,
+bool config_module_want_parser(struct config_module_parser *parsers,
+			       const char *module,
 			       const struct setting_parser_info *root)
 {
 	struct config_module_parser *l;
@@ -895,7 +920,7 @@ bool config_module_want_parser(const char *module,
 		return TRUE;
 	}
 
-	for (l = config_module_parsers; l->root != NULL; l++) {
+	for (l = parsers; l->root != NULL; l++) {
 		if (strcmp(l->root->module_name, module) != 0)
 			continue;
 

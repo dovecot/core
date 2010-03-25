@@ -517,7 +517,8 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	config_parse_load_modules();
 
-	if ((ret = config_parse_file(config_path, expand_vars, &error)) == 0 &&
+	if ((ret = config_parse_file(config_path, expand_vars,
+				     module, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
 			error);

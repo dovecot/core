@@ -174,7 +174,8 @@ static bool have_changed_settings(const struct config_filter_parser *parser,
 
 	for (i = 0; parser->parsers[i].root != NULL; i++) {
 		if (*module != '\0' &&
-		    !config_module_want_parser(module, parser->parsers[i].root))
+		    !config_module_want_parser(config_module_parsers,
+					       module, parser->parsers[i].root))
 			continue;
 
 		changes = settings_parser_get_changes(parser->parsers[i].parser);

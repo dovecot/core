@@ -100,7 +100,7 @@ static int config_connection_request(struct config_connection *conn,
 	if (strcmp(module, "master") == 0) {
 		/* master reads configuration only when reloading settings */
 		path = master_service_get_config_path(master_service);
-		if (config_parse_file(path, TRUE, &error) <= 0) {
+		if (config_parse_file(path, TRUE, "", &error) <= 0) {
 			o_stream_send_str(conn->output,
 				t_strconcat("ERROR ", error, "\n", NULL));
 			config_connection_destroy(conn);
