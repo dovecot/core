@@ -59,9 +59,14 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			 const char *key, const char *value)
 {
 	const char *p;
+	unsigned int len;
 
-	if (strcmp(key, "base_dir") == 0)
+	if (strcmp(key, "base_dir") == 0) {
+		len = strlen(value);
+		if (len > 0 && value[len-1] == '/')
+			value = t_strndup(value, len-1);
 		ctx->old->base_dir = p_strdup(ctx->pool, value);
+	}
 	if (strcmp(key, "protocols") == 0) {
 		char **protos, **s;
 		bool have_imap = FALSE, have_imaps = FALSE;

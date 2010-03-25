@@ -348,8 +348,14 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	struct service_settings *const *services;
 	const char *const *strings;
 	ARRAY_TYPE(const_string) all_listeners;
-	unsigned int i, j, count, process_limit;
+	unsigned int i, j, count, len, process_limit;
 	unsigned int auth_client_limit, max_auth_client_processes;
+
+	len = strlen(set->base_dir);
+	if (len > 0 && set->base_dir[len-1] == '/') {
+		/* drop trailing '/' */
+		set->base_dir = p_strndup(pool, set->base_dir, len - 1);
+	}
 
 	if (set->last_valid_uid != 0 &&
 	    set->first_valid_uid > set->last_valid_uid) {
