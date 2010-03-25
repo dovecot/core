@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+#ifdef HAVE_LIBWRAP
 struct service_settings tcpwrap_service_settings = {
 	.name = "tcpwrap",
 	.protocol = "",
@@ -30,3 +31,4 @@ struct service_settings tcpwrap_service_settings = {
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
 };
+#endif
