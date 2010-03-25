@@ -189,7 +189,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	return 0;
 }
 
-static void main_stdio_run(void)
+static void main_stdio_run(const char *username)
 {
 	struct mail_storage_service_input input;
 	const char *value, *error, *input_base64;
@@ -197,7 +197,7 @@ static void main_stdio_run(void)
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "imap";
-	input.username = getenv("USER");
+	input.username = username != NULL ? username : getenv("USER");
 	if (input.username == NULL && IS_STANDALONE())
 		input.username = getlogin();
 	if (input.username == NULL)
@@ -259,7 +259,8 @@ int main(int argc, char *argv[])
 	};
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags = 0;
-	const char *postlogin_socket_path;
+	const char *postlogin_socket_path, *username = NULL;
+	int c;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
@@ -278,9 +279,18 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("imap", service_flags,
-					     &argc, &argv, NULL);
-	if (master_getopt(master_service) > 0)
-		return FATAL_DEFAULT;
+					     &argc, &argv, "u:");
+	while ((c = master_getopt(master_service)) > 0) {
+		switch (c) {
+		case 'u':
+			storage_service_flags |=
+				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			username = optarg;
+			break;
+		default:
+			return FATAL_DEFAULT;
+		}
+	}
 	postlogin_socket_path = argv[1] == NULL ? NULL : t_abspath(argv[1]);
 
 	master_service_init_finish(master_service);
@@ -300,7 +310,7 @@ int main(int argc, char *argv[])
 
 	if (IS_STANDALONE()) {
 		T_BEGIN {
-			main_stdio_run();
+			main_stdio_run(username);
 		} T_END;
 	} else {
 		master_login = master_login_init(master_service, "auth-master",
