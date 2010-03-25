@@ -62,7 +62,8 @@ const struct setting_parser_info master_service_setting_parser_info = {
 };
 
 static void ATTR_NORETURN
-master_service_exec_config(struct master_service *service, bool preserve_home)
+master_service_exec_config(struct master_service *service,
+			   const struct master_service_settings_input *input)
 {
 	const char **conf_argv, *path, *const *paths, *binary_path;
 
@@ -85,18 +86,20 @@ master_service_exec_config(struct master_service *service, bool preserve_home)
 	}
 
 	if (!service->keep_environment)
-		master_service_env_clean(preserve_home);
+		master_service_env_clean(input->preserve_home);
 
 	/* @UNSAFE */
-	conf_argv = t_new(const char *, 6 + (service->argc + 1) + 1);
+	conf_argv = t_new(const char *, 8 + (service->argc + 1) + 1);
 	conf_argv[0] = DOVECOT_CONFIG_BIN_PATH;
 	conf_argv[1] = "-f";
 	conf_argv[2] = t_strconcat("service=", service->name, NULL);
-	conf_argv[3] = "-c";
-	conf_argv[4] = service->config_path;
-	conf_argv[5] = "-e";
-	conf_argv[6] = binary_path;
-	memcpy(conf_argv+7, service->argv + 1,
+	conf_argv[3] = "-m";
+	conf_argv[4] = input->module == NULL ? "" : input->module;
+	conf_argv[5] = "-c";
+	conf_argv[6] = service->config_path;
+	conf_argv[7] = "-e";
+	conf_argv[8] = binary_path;
+	memcpy(conf_argv+9, service->argv + 1,
 	       (service->argc) * sizeof(conf_argv[0]));
 	execv(conf_argv[0], (char **)conf_argv);
 	i_fatal("execv(%s) failed: %m", conf_argv[0]);
@@ -117,7 +120,7 @@ config_exec_fallback(struct master_service *service,
 	if (stat(path, &st) == 0 &&
 	    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
 		/* it's a file, not a socket/pipe */
-		master_service_exec_config(service, input->preserve_home);
+		master_service_exec_config(service, input);
 	}
 }
 
