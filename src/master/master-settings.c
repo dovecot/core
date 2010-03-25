@@ -334,8 +334,7 @@ services_have_protocol(struct master_settings *set, const char *name)
 	array_foreach(&set->services, services) {
 		struct service_settings *service = *services;
 
-		if (service->protocol != NULL &&
-		    strcmp(service->protocol, name) == 0)
+		if (strcmp(service->protocol, name) == 0)
 			return TRUE;
 	}
 	return FALSE;
@@ -344,11 +343,13 @@ services_have_protocol(struct master_settings *set, const char *name)
 static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
+	static int warned_auth = FALSE;
 	struct master_settings *set = _set;
 	struct service_settings *const *services;
 	const char *const *strings;
 	ARRAY_TYPE(const_string) all_listeners;
 	unsigned int i, j, count, process_limit;
+	unsigned int auth_client_limit, max_auth_client_processes;
 
 	if (set->last_valid_uid != 0 &&
 	    set->first_valid_uid > set->last_valid_uid) {
@@ -390,8 +391,18 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		expand_user(&service->user, set);
 		service_set_login_dump_core(service);
 	}
+	set->protocols_split = p_strsplit(pool, set->protocols, " ");
+	for (i = 0; set->protocols_split[i] != NULL; i++) {
+		if (!services_have_protocol(set, set->protocols_split[i])) {
+			*error_r = t_strdup_printf("protocols: "
+						   "Unknown protocol: %s",
+						   set->protocols_split[i]);
+			return FALSE;
+		}
+	}
 
 	t_array_init(&all_listeners, 64);
+	auth_client_limit = max_auth_client_processes = 0;
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
 
@@ -426,11 +437,31 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				service->name);
 			return FALSE;
 		}
+
+		if (strcmp(service->name, "auth") == 0) {
+			auth_client_limit = service->client_limit != 0 ?
+				service->client_limit :
+				set->default_client_limit;
+		} else if (*service->protocol != '\0' &&
+			   str_array_find((const char **)set->protocols_split,
+					  service->protocol)) {
+			/* each imap/pop3/lmtp process can use up a connection,
+			   although if service_count=1 it's only temporary */
+			max_auth_client_processes += process_limit;
+		}
+
 		fix_file_listener_paths(&service->unix_listeners,
 					pool, set, &all_listeners);
 		fix_file_listener_paths(&service->fifo_listeners,
 					pool, set, &all_listeners);
 		add_inet_listeners(&service->inet_listeners, &all_listeners);
+	}
+
+	if (auth_client_limit < max_auth_client_processes && !warned_auth) {
+		warned_auth = TRUE;
+		i_warning("service auth { client_limit=%u } is lower than "
+			  "required under max. load (%u)",
+			  auth_client_limit, max_auth_client_processes);
 	}
 
 	/* check for duplicate listeners */
@@ -440,16 +471,6 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		if (strcmp(strings[i-1], strings[i]) == 0) {
 			*error_r = t_strdup_printf("duplicate listener: %s",
 						   strings[i]);
-			return FALSE;
-		}
-	}
-
-	set->protocols_split = p_strsplit(pool, set->protocols, " ");
-	for (i = 0; set->protocols_split[i] != NULL; i++) {
-		if (!services_have_protocol(set, set->protocols_split[i])) {
-			*error_r = t_strdup_printf("protocols: "
-						   "Unknown protocol: %s",
-						   set->protocols_split[i]);
 			return FALSE;
 		}
 	}
