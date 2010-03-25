@@ -475,8 +475,10 @@ int main(int argc, char *argv[])
 
 	i_set_failure_prefix("doveconf: ");
 	while ((c = master_getopt(master_service)) > 0) {
-		if (c == 'e')
+		if (c == 'e') {
+			expand_vars = TRUE;
 			break;
+		}
 		switch (c) {
 		case 'a':
 			break;
