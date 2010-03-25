@@ -395,6 +395,20 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 	master_service_stop(master_service);
 }
 
+static struct master_settings *master_settings_read(void)
+{
+	struct master_service_settings_input input;
+	struct master_service_settings_output output;
+	const char *error;
+
+	memset(&input, 0, sizeof(input));
+	input.roots = set_roots;
+	if (master_service_settings_read(master_service, &input, &output,
+					 &error) < 0)
+		i_fatal("Error reading configuration: %s", error);
+	return master_service_settings_get_others(master_service)[0];
+}
+
 static void main_log_startup(void)
 {
 #define STARTUP_STRING PACKAGE_NAME" v"VERSION" starting up"
@@ -621,7 +635,6 @@ int main(int argc, char *argv[])
 	unsigned int child_process_env_idx = 0;
 	const char *error, *env_tz, *doveconf_arg = NULL;
 	failure_callback_t *orig_info_callback, *orig_debug_callback;
-	void **sets;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
 	int c, send_signal = 0;
 
@@ -713,12 +726,7 @@ int main(int argc, char *argv[])
 		fd_close_on_exec(null_fd, TRUE);
 	} while (null_fd <= STDERR_FILENO);
 
-	if (master_service_settings_read_simple(master_service, set_roots,
-						&error) < 0)
-		i_fatal("Error reading configuration: %s", error);
-	sets = master_service_settings_get_others(master_service);
-	set = sets[0];
-
+	set = master_settings_read();
 	if (ask_key_pass) {
 		askpass("Give the password for SSL keys: ",
 			ssl_manual_key_password,
