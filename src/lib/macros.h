@@ -67,8 +67,8 @@
  */
 #define STRUCT_MEMBER_P(struct_p, struct_offset) \
 	((void *) ((char *) (struct_p) + (long) (struct_offset)))
-#define STRUCT_MEMBER(member_type, struct_p, struct_offset) \
-	(*(member_type *) G_STRUCT_MEMBER_P((struct_p), (struct_offset)))
+#define CONST_STRUCT_MEMBER_P(struct_p, struct_offset) \
+	((const void *) ((const char *) (struct_p) + (long) (struct_offset)))
 
 /* Provide simple macro statement wrappers (adapted from Perl):
    STMT_START { statements; } STMT_END;
