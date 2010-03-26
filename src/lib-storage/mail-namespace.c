@@ -101,9 +101,9 @@ namespace_add(struct mail_user *user,
 		ns->flags |= NAMESPACE_FLAG_SUBSCRIPTIONS;
 
 	if (mail_set->mail_debug) {
-		i_debug("Namespace: type=%s, prefix=%s, sep=%s, "
+		i_debug("Namespace %s: type=%s, prefix=%s, sep=%s, "
 			"inbox=%s, hidden=%s, list=%s, subscriptions=%s",
-			ns_set->type, ns_set->prefix,
+			ns_set->name, ns_set->type, ns_set->prefix,
 			ns_set->separator == NULL ? "" : ns_set->separator,
 			ns_set->inbox ? "yes" : "no",
 			ns_set->hidden ? "yes" : "no",
