@@ -285,7 +285,7 @@ mail_index_modseq_update(struct mail_index_modseq_sync *ctx,
 			 uint32_t seq1, uint32_t seq2)
 {
 	const struct mail_index_ext *ext;
-	const struct mail_index_record *rec;
+	struct mail_index_record *rec;
 	uint32_t ext_map_idx;
 	uint64_t *modseqp;
 

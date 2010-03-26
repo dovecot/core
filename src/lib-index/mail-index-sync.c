@@ -251,13 +251,14 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	for (i = 0; i < keyword_count; i++) {
 		if (array_is_created(&keyword_updates[i].add_seq)) {
 			synclist = array_append_space(&ctx->sync_list);
-			synclist->array = (void *)&keyword_updates[i].add_seq;
+			synclist->array =
+				(const void *)&keyword_updates[i].add_seq;
 			synclist->keyword_idx = i;
 		}
 		if (array_is_created(&keyword_updates[i].remove_seq)) {
 			synclist = array_append_space(&ctx->sync_list);
 			synclist->array =
-				(void *)&keyword_updates[i].remove_seq;
+				(const void *)&keyword_updates[i].remove_seq;
 			synclist->keyword_idx = i;
 			synclist->keyword_remove = TRUE;
 		}

@@ -97,7 +97,7 @@
 ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 {
         struct msghdr msg;
-        struct iovec iov;
+        struct const_iovec iov;
         struct cmsghdr *cmsg;
 	char buf[CMSG_SPACE(sizeof(int))];
 
@@ -106,10 +106,10 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 
 	memset(&msg, 0, sizeof(struct msghdr));
 
-        iov.iov_base = (void *) data;
+        iov.iov_base = data;
         iov.iov_len = size;
 
-        msg.msg_iov = &iov;
+        msg.msg_iov = (void *)&iov;
 	msg.msg_iovlen = 1;
 
 	if (send_fd != -1) {

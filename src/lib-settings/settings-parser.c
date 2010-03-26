@@ -537,7 +537,8 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	       const struct setting_define *def,
 	       const char *key, const char *value)
 {
-        void *ptr, *ptr2, *change_ptr;
+	void *ptr, *change_ptr;
+	const void *ptr2;
 	const char *error;
 
 	while (def->type == SET_ALIAS) {
@@ -589,9 +590,9 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	case SET_ENUM:
 		/* get the available values from default string */
 		i_assert(link->info->defaults != NULL);
-		ptr2 = STRUCT_MEMBER_P(link->info->defaults, def->offset);
+		ptr2 = CONST_STRUCT_MEMBER_P(link->info->defaults, def->offset);
 		if (get_enum(ctx, value, (char **)ptr,
-			     *(const char **)ptr2) < 0)
+			     *(const char *const *)ptr2) < 0)
 			return -1;
 		break;
 	case SET_DEFLIST:
@@ -1346,7 +1347,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
-			*((char *)dest) = *((char *)src);
+			*((char *)dest) = *((const char *)src);
 			break;
 		case SET_DEFLIST:
 		case SET_DEFLIST_UNIQUE: {

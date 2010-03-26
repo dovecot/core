@@ -150,6 +150,7 @@ int otp_read_new_params(const char *data, const char **endptr,
 			struct otp_state *state)
 {
 	const char *p, *s;
+	char *end;
 	unsigned int i = 0;
 	int algo;
 
@@ -165,7 +166,7 @@ int otp_read_new_params(const char *data, const char **endptr,
 	state->algo = algo;
 
 	s = p;
-	state->seq = strtol(s, (char **) &p, 10);
+	state->seq = strtol(s, &end, 10); p = end;
 	if ((p == s) || !IS_LWS(*p))
 		return -3;
 	p++;
