@@ -59,6 +59,7 @@ static void test_message_decoder(void)
 
 	ctx = message_decoder_init(0);
 
+	memset(&hdr, 0, sizeof(hdr));
 	hdr.name = "Content-Transfer-Encoding";
 	hdr.name_len = strlen(hdr.name);
 	hdr.full_value = (const void *)"quoted-printable";
