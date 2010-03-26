@@ -60,7 +60,7 @@ test_index_fetch_DEPENDENCIES = index-fetch.lo $(test_libs)
 check: check-am check-test
 check-test: all-am
 	for bin in $(test_programs); do \
-	  if ! ./$$bin; then exit 1; fi; \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
 
 if INSTALL_HEADERS

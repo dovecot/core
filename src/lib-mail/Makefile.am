@@ -129,5 +129,5 @@ test_rfc2231_parser_DEPENDENCIES = rfc2231-parser.lo rfc822-parser.lo $(test_lib
 check: check-am check-test
 check-test: all-am
 	for bin in $(test_programs); do \
-	  if ! ./$$bin; then exit 1; fi; \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
