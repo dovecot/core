@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "write-full.h"
 #include "str.h"
+#include "execv-const.h"
 #include "settings-parser.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
@@ -101,8 +102,7 @@ master_service_exec_config(struct master_service *service,
 	conf_argv[8] = binary_path;
 	memcpy(conf_argv+9, service->argv + 1,
 	       (service->argc) * sizeof(conf_argv[0]));
-	execv(conf_argv[0], (char **)conf_argv);
-	i_fatal("execv(%s) failed: %m", conf_argv[0]);
+	execv_const(conf_argv[0], conf_argv);
 }
 
 static void

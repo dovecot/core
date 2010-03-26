@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "network.h"
 #include "istream.h"
+#include "execv-const.h"
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
@@ -960,9 +961,7 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 		if (dup2(fd[1], STDOUT_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
-		execv(argv[0], (void *)argv);
-		i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", bin_path);
-		return -1;
+		execv_const(argv[0], argv);
 	}
 	(void)close(fd[1]);
 

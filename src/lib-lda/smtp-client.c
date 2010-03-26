@@ -1,6 +1,7 @@
 /* Copyright (c) 2006-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "execv-const.h"
 #include "master-service.h"
 #include "lda-settings.h"
 #include "mail-deliver.h"
@@ -52,8 +53,7 @@ smtp_client_run_sendmail(const struct lda_settings *set,
 
 	master_service_env_clean(TRUE);
 
-	(void)execv(sendmail_path, (void *)argv);
-	i_fatal("execv(%s) failed: %m", sendmail_path);
+	execv_const(sendmail_path, argv);
 }
 
 struct smtp_client *

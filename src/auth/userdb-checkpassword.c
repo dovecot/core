@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2010 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
+#include "execv-const.h"
 #include "userdb.h"
 
 #ifdef USERDB_CHECKPASSWORD
@@ -127,9 +128,7 @@ checkpassword_lookup_child(struct auth_request *request,
 				       "execute: %s", cmd);
 
 		args = t_strsplit(cmd, " ");
-		execv(args[0], (char **)args);
-		auth_request_log_error(request, "userdb-checkpassword",
-				       "execv(%s) failed: %m", args[0]);
+		execv_const(args[0], args);
 	}
 	exit(2);
 }

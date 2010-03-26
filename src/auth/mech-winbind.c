@@ -13,6 +13,7 @@
 #include "str.h"
 #include "buffer.h"
 #include "base64.h"
+#include "execv-const.h"
 #include "istream.h"
 #include "ostream.h"
 
@@ -136,8 +137,7 @@ winbind_helper_connect(const struct auth_settings *set,
 		args[0] = set->winbind_helper_path;
 		args[1] = winbind->param;
 		args[2] = NULL;
-		execv(args[0], (void *)args);
-		i_fatal("execv(%s) failed: %m", args[0]);
+		execv_const(args[0], args);
 	}
 
 	/* parent */

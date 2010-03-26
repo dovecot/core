@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "env-util.h"
+#include "execv-const.h"
 #include "fdpass.h"
 #include "restrict-access.h"
 #include "str.h"
@@ -18,7 +19,7 @@
 #define ENV_USERDB_KEYS "USERDB_KEYS"
 #define SCRIPT_COMM_FD 3
 
-static char **exec_args;
+static const char **exec_args;
 static bool drop_privileges = FALSE;
 
 static void client_connected(const struct master_service_connection *conn)
@@ -119,8 +120,7 @@ static void client_connected(const struct master_service_connection *conn)
 	if (close(MASTER_STATUS_FD) < 0)
 		i_error("close(status) failed: %m");
 
-	(void)execvp(exec_args[0], exec_args);
-	i_fatal("execvp(%s) failed: %m", exec_args[0]);
+	execvp_const(exec_args[0], exec_args);
 }
 
 static void script_execute_finish(void)
@@ -160,7 +160,6 @@ static void script_execute_finish(void)
 int main(int argc, char *argv[])
 {
 	enum master_service_flags flags = 0;
-	const char *path;
 	int i, c;
 
 	if (getenv(MASTER_UID_ENV) == NULL)
@@ -189,16 +188,15 @@ int main(int argc, char *argv[])
 	else {
 		if (argv[0] == NULL)
 			i_fatal("Missing script path");
-		exec_args = i_new(char *, argc + 2);
+		exec_args = i_new(const char *, argc + 2);
 		for (i = 0; i < argc; i++)
 			exec_args[i] = argv[i];
 		exec_args[i] = PKG_LIBEXECDIR"/script";
 		exec_args[i+1] = NULL;
 
 		if (exec_args[0][0] != '/') {
-			path = t_strconcat(PKG_LIBEXECDIR"/",
-					   exec_args[0], NULL);
-			exec_args[0] = t_strdup_noconst(path);
+			exec_args[0] = t_strconcat(PKG_LIBEXECDIR"/",
+						   exec_args[0], NULL);
 		}
 
 		master_service_run(master_service, client_connected);

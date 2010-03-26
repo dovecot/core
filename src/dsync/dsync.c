@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "execv-const.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -19,7 +20,7 @@ static struct dsync_proxy_server *server;
 
 static void run_cmd(const char *cmd, int *fd_in_r, int *fd_out_r)
 {
-	char **args;
+	const char *const *args;
 	int fd_in[2], fd_out[2];
 
 	if (pipe(fd_in) < 0 || pipe(fd_out) < 0)
@@ -41,9 +42,8 @@ static void run_cmd(const char *cmd, int *fd_in_r, int *fd_out_r)
 		(void)close(fd_out[0]);
 		(void)close(fd_out[1]);
 
-		args = p_strsplit(pool_datastack_create(), cmd, " ");
-		(void)execvp(args[0], args);
-		i_fatal("execve(%s) failed: %m", args[0]);
+		args = t_strsplit(cmd, " ");
+		execvp_const(args[0], args);
 		break;
 	default:
 		/* parent */

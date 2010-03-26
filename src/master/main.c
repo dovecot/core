@@ -9,6 +9,7 @@
 #include "env-util.h"
 #include "hostpid.h"
 #include "abspath.h"
+#include "execv-const.h"
 #include "restrict-process-size.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -80,10 +81,7 @@ void process_exec(const char *cmd, const char *extra_args[])
 
 	/* prefix with dovecot/ */
 	argv[0] = t_strconcat(PACKAGE"/", argv[0], NULL);
-
-	(void)execv(executable, (char **)argv);
-	i_fatal_status(errno == ENOMEM ? FATAL_OUTOFMEM : FATAL_EXEC,
-		       "execv(%s) failed: %m", executable);
+	(void)execv_const(executable, argv);
 }
 
 int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
@@ -691,8 +689,7 @@ int main(int argc, char *argv[])
 		args[2] = "-c";
 		args[3] = master_service_get_config_path(master_service);
 		args[4] = NULL;
-		execv(args[0], (char **)args);
-		i_fatal("execv(%s) failed: %m", args[0]);
+		execv_const(args[0], args);
 	}
 
 	while (optind < argc) {
