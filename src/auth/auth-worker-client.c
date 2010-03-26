@@ -530,7 +530,7 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 {
 	const char *p;
 	unsigned int id;
-	bool ret;
+	bool ret = FALSE;
 
 	p = strchr(line, '\t');
 	if (p == NULL)
