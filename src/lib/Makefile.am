@@ -24,6 +24,7 @@ liblib_la_SOURCES = \
 	data-stack.c \
 	eacces-error.c \
 	env-util.c \
+	execv-const.c \
 	failures.c \
 	fd-close-on-exec.c \
 	fd-set-nonblock.c \
@@ -131,6 +132,7 @@ headers = \
 	data-stack.h \
 	eacces-error.h \
 	env-util.h \
+	execv-const.h \
 	failures.h \
 	fd-close-on-exec.h \
 	fd-set-nonblock.h \
