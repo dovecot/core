@@ -114,7 +114,7 @@ cache_find(struct master_service_settings_cache *cache,
 	   const struct master_service_settings_input *input,
 	   const struct setting_parser_context **parser_r)
 {
-	struct settings_entry *entry;
+	struct settings_entry *entry = NULL;
 
 	if (!cache->done_initial_lookup)
 		return FALSE;
@@ -130,16 +130,18 @@ cache_find(struct master_service_settings_cache *cache,
 	if (cache->service_uses_remote)
 		return FALSE;
 
-	if (cache->local_host_hash != NULL && input->local_host != NULL) {
-		/* see if we have it already in cache */
-		entry = hash_table_lookup(cache->local_host_hash,
-					  input->local_host);
+	/* see if we have it already in cache. if local_host is specified,
+	   don't even try to use local_ip (even though we have it), because
+	   there may be different settings specifically for local_host */
+	if (input->local_host != NULL) {
+		if (cache->local_host_hash != NULL) {
+			entry = hash_table_lookup(cache->local_host_hash,
+						  input->local_host);
+		}
 	} else if (cache->local_ip_hash != NULL &&
 		   input->local_ip.family != 0) {
 		entry = hash_table_lookup(cache->local_ip_hash,
 					  &input->local_ip);
-	} else {
-		entry = NULL;
 	}
 
 	if (entry != NULL) {
