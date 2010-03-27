@@ -249,13 +249,17 @@ driver_pgsql_get_flags(struct sql_db *db ATTR_UNUSED)
 
 static void consume_results(struct pgsql_db *db)
 {
-	do {
-		if (!PQconsumeInput(db->pg))
-			break;
+	PGresult *pgres;
 
+	while (PQconsumeInput(db->pg)) {
 		if (PQisBusy(db->pg))
 			return;
-	} while (PQgetResult(db->pg) != NULL);
+
+		pgres = PQgetResult(db->pg);
+		if (pgres == NULL)
+			break;
+		PQclear(pgres);
+	}
 
 	if (PQstatus(db->pg) == CONNECTION_BAD)
 		io_remove_closed(&db->io);
@@ -280,6 +284,7 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 
 	if (result->pgres != NULL) {
 		PQclear(result->pgres);
+		result->pgres = NULL;
 
 		/* we'll have to read the rest of the results as well */
 		i_assert(db->io == NULL);
