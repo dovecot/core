@@ -305,12 +305,6 @@ int master_service_settings_read(struct master_service *service,
 			pool_alloconly_create("master service settings", 8192);
 	}
 
-	if (input->dyn_parsers != NULL) {
-		settings_parser_info_update(service->set_pool,
-					    input->dyn_parsers_parent,
-					    input->dyn_parsers);
-	}
-
 	p_array_init(&all_roots, service->set_pool, 8);
 	tmp_root = &master_service_setting_parser_info;
 	array_append(&all_roots, &tmp_root, 1);

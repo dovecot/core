@@ -4,7 +4,6 @@
 #include "network.h"
 
 struct setting_parser_info;
-struct dynamic_settings_parser;
 struct master_service;
 
 struct master_service_settings {
@@ -20,8 +19,6 @@ struct master_service_settings {
 
 struct master_service_settings_input {
 	const struct setting_parser_info **roots;
-	const struct dynamic_settings_parser *dyn_parsers;
-	struct setting_parser_info *dyn_parsers_parent;
 	const char *config_path;
 	bool preserve_home;
 	bool never_exec;

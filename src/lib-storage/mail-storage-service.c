@@ -46,8 +46,6 @@ struct mail_storage_service_ctx {
 
 	const char *set_cache_module, *set_cache_service;
 	struct master_service_settings_cache *set_cache;
-	const struct dynamic_settings_parser *set_cache_dyn_parsers;
-	struct setting_parser_info *set_cache_dyn_parsers_parent;
 	const struct setting_parser_info **set_cache_roots;
 
 	unsigned int debug:1;
@@ -580,12 +578,11 @@ settings_parser_update_children_parent(struct setting_parser_info *parent,
 	}
 }
 
-static struct setting_parser_info *
+static void
 dyn_parsers_update_parent(pool_t pool,
 			  const struct setting_parser_info ***_roots,
-			  const struct dynamic_settings_parser **_dyn_parsers)
+			  const struct dynamic_settings_parser *dyn_parsers)
 {
-	const struct dynamic_settings_parser *dyn_parsers = *_dyn_parsers;
 	const const struct setting_parser_info **roots = *_roots;
 	const struct setting_parser_info *old_parent, **new_roots;
 	struct setting_parser_info *new_parent, *new_info;
@@ -622,8 +619,8 @@ dyn_parsers_update_parent(pool_t pool,
 		new_info->parent = new_parent;
 		new_dyn_parsers[i].info = new_info;
 	}
-	*_dyn_parsers = new_dyn_parsers;
-	return new_parent;
+
+	settings_parser_info_update(pool, new_parent, new_dyn_parsers);
 }
 
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
@@ -635,6 +632,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 {
 	struct master_service_settings_input set_input;
 	struct master_service_settings_output set_output;
+	const struct dynamic_settings_parser *dyn_parsers;
 	unsigned int i;
 
 	memset(&set_input, 0, sizeof(set_input));
@@ -658,33 +656,23 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		ctx->set_cache = master_service_settings_cache_init(
 			ctx->service, set_input.module, set_input.service);
 		ctx->set_cache_roots = ctx->set_roots;
-		ctx->set_cache_dyn_parsers =
-			mail_storage_get_dynamic_parsers(ctx->pool);
-		ctx->set_cache_dyn_parsers_parent =
-			dyn_parsers_update_parent(ctx->pool,
-						  &ctx->set_cache_roots,
-						  &ctx->set_cache_dyn_parsers);
 	} else {
 		/* already looked up settings at least once.
 		   we really shouldn't be execing anymore. */
 		set_input.never_exec = TRUE;
 	}
 
+	dyn_parsers = mail_storage_get_dynamic_parsers(pool);
 	if (null_strcmp(set_input.module, ctx->set_cache_module) == 0 &&
 	    null_strcmp(set_input.service, ctx->set_cache_service) == 0) {
 		set_input.roots = ctx->set_cache_roots;
-		set_input.dyn_parsers = ctx->set_cache_dyn_parsers;
-		set_input.dyn_parsers_parent =
-			ctx->set_cache_dyn_parsers_parent;
+		dyn_parsers_update_parent(pool, &set_input.roots, dyn_parsers);
 		if (master_service_settings_cache_read(ctx->set_cache,
 						       &set_input,
 						       parser_r, error_r) < 0)
 			return -1;
 	} else {
-		set_input.dyn_parsers = mail_storage_get_dynamic_parsers(pool);
-		set_input.dyn_parsers_parent =
-			dyn_parsers_update_parent(pool, &set_input.roots,
-						  &set_input.dyn_parsers);
+		dyn_parsers_update_parent(pool, &set_input.roots, dyn_parsers);
 		if (master_service_settings_read(ctx->service, &set_input,
 						 &set_output, error_r) < 0) {
 			*error_r = t_strdup_printf(
