@@ -12,16 +12,22 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#define MAX_BACKLOG 128
+
 static int service_unix_listener_listen(struct service_listener *l)
 {
         struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
 	mode_t old_umask;
+	unsigned int backlog;
 	int fd, i;
 
 	old_umask = umask((set->mode ^ 0777) & 0777);
 	for (i = 0;; i++) {
-		fd = net_listen_unix(set->path, service->process_limit);
+		backlog = service->process_limit * service->client_limit;
+		if (backlog > MAX_BACKLOG)
+			backlog = MAX_BACKLOG;
+		fd = net_listen_unix(set->path, backlog);
 		if (fd != -1)
 			break;
 
