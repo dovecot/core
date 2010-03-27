@@ -21,6 +21,7 @@
 #include "service-monitor.h"
 #include "service-process.h"
 #include "service-log.h"
+#include "dovecot-version.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -694,7 +695,7 @@ int main(int argc, char *argv[])
 
 	while (optind < argc) {
 		if (strcmp(argv[optind], "--version") == 0) {
-			printf("%s\n", VERSION);
+			printf("%s\n", DOVECOT_VERSION_FULL);
 			return 0;
 		} else if (strcmp(argv[optind], "--build-options") == 0) {
 			print_build_options();

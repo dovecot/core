@@ -5,13 +5,19 @@ DOCS = doc
 endif
 
 SUBDIRS = \
+	. \
 	src \
 	$(DOCS)
+
+dist_pkginclude_HEADERS = \
+	dovecot-version.h
 
 EXTRA_DIST = \
 	COPYING.LGPL \
 	COPYING.MIT \
 	ChangeLog \
+	is-tagged.py \
+	update-version.sh \
 	$(conf_DATA)
 
 datafiles = \
@@ -30,6 +36,11 @@ ChangeLog: .hg/dirstate
 endif
 
 aclocal_DATA = dovecot.m4
+
+dovecot-version.h: noop
+	$(SHELL) $(top_srcdir)/update-version.sh $(top_srcdir) $(top_builddir)
+
+noop:
 
 dovecot-config: dovecot-config.in Makefile
 	old=`pwd` && cd $(top_builddir) && abs_builddir=`pwd` && cd $$old && \
@@ -61,3 +72,5 @@ install-exec-hook:
 endif
 
 CLEANFILES = $(datafiles)
+
+DISTCLEANFILES = $(top_builddir)/dovecot-version.h

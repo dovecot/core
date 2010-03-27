@@ -13,6 +13,7 @@ config.sub
 config.rpath
 configure
 configure.scan
+dovecot-version.h
 libtool
 libtool-shared
 ltconfig

@@ -13,6 +13,7 @@
 #include "config-connection.h"
 #include "config-parser.h"
 #include "config-request.h"
+#include "dovecot-version.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -513,7 +514,7 @@ int main(int argc, char *argv[])
 	} else {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
-		printf("# "VERSION": %s\n", config_path);
+		printf("# "DOVECOT_VERSION_FULL": %s\n", config_path);
 		fflush(stdout);
 	}
 	master_service_init_finish(master_service);
