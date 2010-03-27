@@ -103,7 +103,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		verbose_proctitle = TRUE;
 
 	client = client_create(fd_in, fd_out, mail_user, user, set);
-	T_BEGIN {
+	if (client != NULL) T_BEGIN {
 		client_add_input(client, input_buf);
 	} T_END;
 	return 0;
