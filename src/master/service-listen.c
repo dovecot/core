@@ -12,22 +12,35 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#define MIN_BACKLOG 4
 #define MAX_BACKLOG 128
+
+static unsigned int service_get_backlog(struct service *service)
+{
+	unsigned int backlog;
+
+	/* as unlikely as it is, avoid overflows */
+	if (service->process_limit > MAX_BACKLOG ||
+	    service->client_limit > MAX_BACKLOG)
+		backlog = MAX_BACKLOG;
+	else {
+		backlog = service->process_limit * service->client_limit;
+		if (backlog > MAX_BACKLOG)
+			backlog = MAX_BACKLOG;
+	}
+	return I_MAX(backlog, MIN_BACKLOG);
+}
 
 static int service_unix_listener_listen(struct service_listener *l)
 {
         struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
 	mode_t old_umask;
-	unsigned int backlog;
 	int fd, i;
 
 	old_umask = umask((set->mode ^ 0777) & 0777);
 	for (i = 0;; i++) {
-		backlog = service->process_limit * service->client_limit;
-		if (backlog > MAX_BACKLOG)
-			backlog = MAX_BACKLOG;
-		fd = net_listen_unix(set->path, backlog);
+		fd = net_listen_unix(set->path, service_get_backlog(service));
 		if (fd != -1)
 			break;
 
@@ -133,7 +146,8 @@ static int service_inet_listener_listen(struct service_listener *l)
 	unsigned int port = set->port;
 	int fd;
 
-	fd = net_listen(&l->set.inetset.ip, &port, 128);
+	fd = net_listen(&l->set.inetset.ip, &port,
+			service_get_backlog(service));
 	if (fd < 0) {
 		service_error(service, "listen(%s, %u) failed: %m",
 			      l->inet_address, set->port);
