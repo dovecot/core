@@ -24,12 +24,12 @@
 	MODULE_CONTEXT(obj, zlib_user_module)
 
 #ifndef HAVE_ZLIB
-#  define i_stream_create_zlib NULL
-#  define o_stream_create_zlib NULL
+#  define i_stream_create_gz NULL
+#  define o_stream_create_gz NULL
 #endif
 #ifndef HAVE_BZLIB
-#  define i_stream_create_bzlib NULL
-#  define o_stream_create_bzlib NULL
+#  define i_stream_create_bz2 NULL
+#  define o_stream_create_bz2 NULL
 #endif
 
 #define MAX_INBUF_SIZE (1024*1024)
