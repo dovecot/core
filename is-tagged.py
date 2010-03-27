@@ -17,8 +17,10 @@
 """
 import re
 import sys
-
-from mercurial import hg, ui
+try:
+    from mercurial import hg, ui
+except ImportError:  # no Mercurial at all
+    sys.exit(0)
 try:
     from mercurial.error import Abort, RepoError
 except ImportError:
