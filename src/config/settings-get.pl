@@ -122,9 +122,7 @@ print "static struct service_settings *config_all_services[] = {\n";
 for (my $i = 0; $i < scalar(@services); $i++) {
   my $ifdef = $service_ifdefs[$i];
   print "$ifdef\n" if ($ifdef ne "");
-  print "\t";
-  print "," if ($i > 0);
-  print "&".$services[$i]."\n";
+  print "\t&".$services[$i].",\n";
   print "#endif\n" if ($ifdef ne "");
 }
 print "};\n";
