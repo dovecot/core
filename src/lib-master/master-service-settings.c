@@ -66,25 +66,9 @@ static void ATTR_NORETURN
 master_service_exec_config(struct master_service *service,
 			   const struct master_service_settings_input *input)
 {
-	const char **conf_argv, *path, *const *paths, *binary_path;
+	const char **conf_argv, *binary_path = service->argv[0];
 
-	binary_path = service->argv[0];
-	if (*service->argv[0] == '/') {
-		/* already have the path */
-	} else if (strchr(service->argv[0], '/') != NULL) {
-		/* relative to current directory */
-		binary_path = t_abspath(service->argv[0]);
-	} else if ((path = getenv("PATH")) != NULL) {
-		/* we have to find our executable from path */
-		paths = t_strsplit(path, ":");
-		for (; *paths != NULL; paths++) {
-			path = t_strconcat(*paths, "/", binary_path, NULL);
-			if (access(path, X_OK) == 0) {
-				binary_path = path;
-				break;
-			}
-		}
-	}
+	(void)t_binary_abspath(&binary_path);
 
 	if (!service->keep_environment)
 		master_service_env_clean(input->preserve_home);

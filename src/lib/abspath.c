@@ -1,8 +1,10 @@
 /* Copyright (c) 2009-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "abspath.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 
 const char *t_abspath(const char *path)
@@ -62,4 +64,34 @@ int t_readlink(const char *path, const char **dest_r)
 	t_buffer_alloc(ret + 1);
 	*dest_r = dest;
 	return 0;
+}
+
+bool t_binary_abspath(const char **binpath)
+{
+	const char *path_env, *const *paths;
+	string_t *path;
+
+	if (**binpath == '/') {
+		/* already have absolute path */
+		return TRUE;
+	} else if (strchr(*binpath, '/') != NULL) {
+		/* relative to current directory */
+		*binpath = t_abspath(*binpath);
+		return TRUE;
+	} else if ((path_env = getenv("PATH")) != NULL) {
+		/* we have to find our executable from path */
+		path = t_str_new(256);
+		paths = t_strsplit(path_env, ":");
+		for (; *paths != NULL; paths++) {
+			str_append(path, *paths);
+			str_append_c(path, '/');
+			str_append(path, *binpath);
+			if (access(str_c(path), X_OK) == 0) {
+				*binpath = str_c(path);
+				return TRUE;
+			}
+			str_truncate(path, 0);
+		}
+	}
+	return FALSE;
 }
