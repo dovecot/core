@@ -45,6 +45,8 @@ struct mail_user {
 	unsigned int initialized:1;
 	/* Shortcut to mail_storage_settings.mail_debug */
 	unsigned int mail_debug:1;
+	/* If INBOX can't be opened, log an error, but only once. */
+	unsigned int inbox_open_error_logged:1;
 };
 
 struct mail_user_module_register {

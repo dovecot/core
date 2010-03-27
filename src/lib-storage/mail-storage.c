@@ -538,6 +538,11 @@ static int mailbox_open_full(struct mailbox *box, struct istream *input)
 		(void)mailbox_create(box, NULL, FALSE);
 		mailbox_close(box);
 		ret = box->v.open(box);
+		if (ret < 0 && !box->storage->user->inbox_open_error_logged) {
+			box->storage->user->inbox_open_error_logged = TRUE;
+			i_error("Opening INBOX failed: %s",
+				mail_storage_get_last_error(box->storage, NULL));
+		}
 	} T_END;
 
 	if (ret < 0) {
@@ -860,11 +865,24 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 			struct mailbox_sync_status *status_r)
 {
 	struct mailbox_sync_context *ctx = *_ctx;
+	struct mail_storage *storage = ctx->box->storage;
+	const char *errormsg;
+	enum mail_error error;
+	int ret;
 
 	*_ctx = NULL;
 
 	memset(status_r, 0, sizeof(*status_r));
-	return ctx->box->v.sync_deinit(ctx, status_r);
+	ret = ctx->box->v.sync_deinit(ctx, status_r);
+	if (ret < 0 && ctx->box->inbox &&
+	    !storage->user->inbox_open_error_logged) {
+		errormsg = mail_storage_get_last_error(storage, &error);
+		if (error == MAIL_ERROR_NOTPOSSIBLE) {
+			storage->user->inbox_open_error_logged = TRUE;
+			i_error("Syncing INBOX failed: %s", errormsg);
+		}
+	}
+	return ret;
 }
 
 int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags)
