@@ -2590,9 +2590,6 @@ dnl **
 dnl get a list of setting .[ch] files, but list .h files first
 FILES1=`find $srcdir/src -name '*settings.[[ch]]'|grep "$srcdir/src/lib-" | sed 's/^\(.*\)\(.\)$/\2 \1\2/' | sort -r | sed s/^..//`
 FILES2=`find $srcdir/src -name '*settings.[[ch]]'|grep -v "$srcdir/src/lib-" | sed 's/^\(.*\)\(.\)$/\2 \1\2/' | grep -v all-settings | sort -r | sed s/^..//`
-if test "$have_libwrap" != "yes"; then
-  FILES2=`echo $FILES2 | tr ' ' '\n' | grep -v tcpwrap-settings | tr '\n' ' '`
-fi
 SETTING_FILES=`echo $FILES1 $FILES2 | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
 AC_SUBST(SETTING_FILES)
 
