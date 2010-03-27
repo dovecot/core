@@ -176,9 +176,9 @@ AC_ARG_WITH(libcap,
   want_libcap=auto)
 
 AC_ARG_WITH(libwrap,
-[  --with-libwrap          Build with libwrap, ie. TCP-wrappers (auto)],
+[  --with-libwrap          Build with libwrap, ie. TCP-wrappers (no)],
   TEST_WITH(libwrap, $withval),
-  want_libwrap=auto)
+  want_libwrap=no)
 
 AC_ARG_WITH(ssl,
 [  --with-ssl=gnutls|openssl Build with GNUTLS or OpenSSL (default)],
