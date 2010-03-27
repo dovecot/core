@@ -865,7 +865,7 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 			struct mailbox_sync_status *status_r)
 {
 	struct mailbox_sync_context *ctx = *_ctx;
-	struct mail_storage *storage = ctx->box->storage;
+	struct mailbox *box = ctx->box;
 	const char *errormsg;
 	enum mail_error error;
 	int ret;
@@ -873,12 +873,12 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 	*_ctx = NULL;
 
 	memset(status_r, 0, sizeof(*status_r));
-	ret = ctx->box->v.sync_deinit(ctx, status_r);
-	if (ret < 0 && ctx->box->inbox &&
-	    !storage->user->inbox_open_error_logged) {
-		errormsg = mail_storage_get_last_error(storage, &error);
+	ret = box->v.sync_deinit(ctx, status_r);
+	if (ret < 0 && box->inbox &&
+	    !box->storage->user->inbox_open_error_logged) {
+		errormsg = mail_storage_get_last_error(box->storage, &error);
 		if (error == MAIL_ERROR_NOTPOSSIBLE) {
-			storage->user->inbox_open_error_logged = TRUE;
+			box->storage->user->inbox_open_error_logged = TRUE;
 			i_error("Syncing INBOX failed: %s", errormsg);
 		}
 	}
