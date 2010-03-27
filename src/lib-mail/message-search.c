@@ -209,7 +209,7 @@ void message_search_reset(struct message_search_context *ctx)
 
 static int
 message_search_msg_real(struct message_search_context *ctx,
-			struct istream *input, const struct message_part *parts)
+			struct istream *input, struct message_part *parts)
 {
 	const enum message_header_parser_flags hdr_parser_flags =
 		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
@@ -221,8 +221,7 @@ message_search_msg_real(struct message_search_context *ctx,
 	message_search_reset(ctx);
 
 	if (parts != NULL) {
-		parser_ctx = message_parser_init_from_parts(
-						(struct message_part *)parts,
+		parser_ctx = message_parser_init_from_parts(parts,
 						input, hdr_parser_flags, 0);
 	} else {
 		parser_ctx = message_parser_init(pool_datastack_create(),
@@ -250,7 +249,7 @@ message_search_msg_real(struct message_search_context *ctx,
 }
 
 int message_search_msg(struct message_search_context *ctx,
-		       struct istream *input, const struct message_part *parts)
+		       struct istream *input, struct message_part *parts)
 {
 	int ret;
 

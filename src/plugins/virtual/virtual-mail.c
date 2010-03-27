@@ -172,7 +172,7 @@ static int virtual_mail_handle_lost(struct virtual_mail *vmail)
 }
 
 static int
-virtual_mail_get_parts(struct mail *mail, const struct message_part **parts_r)
+virtual_mail_get_parts(struct mail *mail, struct message_part **parts_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 

@@ -614,7 +614,7 @@ const ARRAY_TYPE(keyword_indexes) *mail_get_keyword_indexes(struct mail *mail);
 uint64_t mail_get_modseq(struct mail *mail);
 
 /* Returns message's MIME parts */
-int mail_get_parts(struct mail *mail, const struct message_part **parts_r);
+int mail_get_parts(struct mail *mail, struct message_part **parts_r);
 
 /* Get the Date-header of the mail. Timezone is in minutes. date=0 if it
    wasn't found or it was invalid. */

@@ -281,7 +281,7 @@ struct mail_vfuncs {
 	uint64_t (*get_modseq)(struct mail *mail);
 
 	int (*get_parts)(struct mail *mail,
-			 const struct message_part **parts_r);
+			 struct message_part **parts_r);
 	int (*get_date)(struct mail *mail, time_t *date_r, int *timezone_r);
 	int (*get_received_date)(struct mail *mail, time_t *date_r);
 	int (*get_save_date)(struct mail *mail, time_t *date_r);

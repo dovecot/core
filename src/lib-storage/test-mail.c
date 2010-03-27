@@ -82,7 +82,7 @@ static uint64_t test_mail_get_modseq(struct mail *mail ATTR_UNUSED)
 
 static int
 test_mail_get_parts(struct mail *mail ATTR_UNUSED,
-		    const struct message_part **parts_r ATTR_UNUSED)
+		    struct message_part **parts_r ATTR_UNUSED)
 {
 	return -1;
 }

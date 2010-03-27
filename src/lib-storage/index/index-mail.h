@@ -182,8 +182,7 @@ uint64_t index_mail_get_modseq(struct mail *_mail);
 const char *const *index_mail_get_keywords(struct mail *_mail);
 const ARRAY_TYPE(keyword_indexes) *
 index_mail_get_keyword_indexes(struct mail *_mail);
-int index_mail_get_parts(struct mail *_mail,
-			 const struct message_part **parts_r);
+int index_mail_get_parts(struct mail *_mail, struct message_part **parts_r);
 int index_mail_get_received_date(struct mail *_mail, time_t *date_r);
 int index_mail_get_save_date(struct mail *_mail, time_t *date_r);
 int index_mail_get_date(struct mail *_mail, time_t *date_r, int *timezone_r);

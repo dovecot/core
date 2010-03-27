@@ -73,7 +73,7 @@ struct search_header_context {
 struct search_body_context {
         struct index_search_context *index_ctx;
 	struct istream *input;
-	const struct message_part *part;
+	struct message_part *part;
 };
 
 static const enum message_header_parser_flags hdr_parser_flags =

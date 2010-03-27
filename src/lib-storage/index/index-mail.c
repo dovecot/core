@@ -196,8 +196,7 @@ index_mail_get_keyword_indexes(struct mail *_mail)
 	return &data->keyword_indexes;
 }
 
-int index_mail_get_parts(struct mail *_mail,
-			 const struct message_part **parts_r)
+int index_mail_get_parts(struct mail *_mail, struct message_part **parts_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;

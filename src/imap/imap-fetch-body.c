@@ -496,7 +496,7 @@ fetch_body_header_fields(struct imap_fetch_context *ctx, struct mail *mail,
 static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 		     const struct message_part **part_r, const char **section_r)
 {
-	const struct message_part *part;
+	struct message_part *part;
 	const char *path;
 	unsigned int num;
 
