@@ -176,7 +176,7 @@ AC_ARG_WITH(libcap,
   want_libcap=auto)
 
 AC_ARG_WITH(libwrap,
-[  --with-libwrap          Build with libwrap, ie. TCP-wrappers (no)],
+[  --with-libwrap          Build with libwrap, ie. TCP-wrappers],
   TEST_WITH(libwrap, $withval),
   want_libwrap=no)
 
