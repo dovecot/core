@@ -666,7 +666,8 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	if (null_strcmp(set_input.module, ctx->set_cache_module) == 0 &&
 	    null_strcmp(set_input.service, ctx->set_cache_service) == 0) {
 		set_input.roots = ctx->set_cache_roots;
-		dyn_parsers_update_parent(pool, &set_input.roots, dyn_parsers);
+		dyn_parsers_update_parent(ctx->pool, &set_input.roots,
+					  dyn_parsers);
 		if (master_service_settings_cache_read(ctx->set_cache,
 						       &set_input,
 						       parser_r, error_r) < 0)
