@@ -441,8 +441,11 @@ list_file_inbox(struct fs_list_iterate_context *ctx, const char *fname)
 	}
 	inbox_flags_set(ctx);
 
-	if (list_file_is_inbox(ctx, fname)) {
-		/* delay listing in case there's a INBOX/ directory */
+	if (list_file_is_inbox(ctx, fname) &&
+	    (ctx->ctx.list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
+		/* delay listing in case there's a INBOX/ directory.
+		   do this only when INBOX is a file! otherwise we won't list
+		   INBOX children. */
 		ctx->inbox_found = TRUE;
 		ctx->inbox_flags = ctx->info.flags;
 		return FALSE;
