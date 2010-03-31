@@ -164,6 +164,7 @@ user_callback(enum userdb_result result,
 	struct auth_master_connection *conn = auth_request->context;
 	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
+	const char *value;
 
 	if (auth_request->userdb_lookup_failed)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -172,6 +173,11 @@ user_callback(enum userdb_result result,
 	switch (result) {
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", auth_request->id);
+		if (auth_request->userdb_lookup_failed) {
+			value = auth_stream_reply_find(reply, "reason");
+			if (value != NULL)
+				str_printfa(str, "\treason=%s", value);
+		}
 		break;
 	case USERDB_RESULT_USER_UNKNOWN:
 		str_printfa(str, "NOTFOUND\t%u", auth_request->id);

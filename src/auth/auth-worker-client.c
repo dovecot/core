@@ -98,6 +98,7 @@ static void verify_plain_callback(enum passdb_result result,
 	struct auth_worker_client *client = request->context;
 	struct auth_stream_reply *reply;
 	string_t *str;
+	const char *value;
 
 	if (request->passdb_failure && result == PASSDB_RESULT_OK)
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
@@ -126,6 +127,13 @@ static void verify_plain_callback(enum passdb_result result,
 			const char *fields =
 				auth_stream_reply_export(request->extra_cache_fields);
 			auth_stream_reply_import(reply, fields);
+		}
+	} else if (request->userdb_lookup_failed) {
+		value = auth_stream_reply_find(request->extra_fields, "reason");
+		if (value != NULL) {
+			auth_stream_reply_add(reply, NULL, "");
+			auth_stream_reply_add(reply, NULL, "");
+			auth_stream_reply_add(reply, "reason", value);
 		}
 	}
 	str = auth_stream_reply_get_str(reply);
@@ -200,6 +208,7 @@ lookup_credentials_callback(enum passdb_result result,
 	struct auth_worker_client *client = request->context;
 	struct auth_stream_reply *reply;
 	string_t *str;
+	const char *value;
 
 	if (request->passdb_failure && result == PASSDB_RESULT_OK)
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
@@ -211,6 +220,12 @@ lookup_credentials_callback(enum passdb_result result,
 		auth_stream_reply_add(reply, "FAIL", NULL);
 		auth_stream_reply_add(reply, NULL,
 				      t_strdup_printf("%d", result));
+		value = auth_stream_reply_find(request->extra_fields, "reason");
+		if (request->userdb_lookup_failed && value != NULL) {
+			auth_stream_reply_add(reply, NULL, "");
+			auth_stream_reply_add(reply, NULL, "");
+			auth_stream_reply_add(reply, "reason", value);
+		}
 	} else {
 		auth_stream_reply_add(reply, "OK", NULL);
 		auth_stream_reply_add(reply, NULL, request->user);
@@ -356,6 +371,7 @@ lookup_user_callback(enum userdb_result result,
 	struct auth_worker_client *client = auth_request->context;
 	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
+	const char *value;
 
 	if (auth_request->userdb_lookup_failed)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -365,6 +381,11 @@ lookup_user_callback(enum userdb_result result,
 	switch (result) {
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_append(str, "FAIL\t");
+		if (auth_request->userdb_lookup_failed) {
+			value = auth_stream_reply_find(reply, "reason");
+			if (value != NULL)
+				str_printfa(str, "reason=%s", value);
+		}
 		break;
 	case USERDB_RESULT_USER_UNKNOWN:
 		str_append(str, "NOTFOUND\t");

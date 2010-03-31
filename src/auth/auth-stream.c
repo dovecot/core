@@ -40,7 +40,9 @@ void auth_stream_reply_add(struct auth_stream_reply *reply,
 	}
 }
 
-void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key)
+static bool
+auth_stream_reply_find_area(struct auth_stream_reply *reply, const char *key,
+			    unsigned int *idx_r, unsigned int *len_r)
 {
 	const char *str = str_c(reply->str);
 	unsigned int i, start, key_len = strlen(key);
@@ -49,21 +51,56 @@ void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key)
 	while (str[i] != '\0') {
 		start = i;
 		for (; str[i] != '\0'; i++) {
-			if (str[i] == '\t') {
-				i++;
+			if (str[i] == '\t')
 				break;
-			}
 		}
 
 		if (strncmp(str+start, key, key_len) == 0 &&
 		    (str[start+key_len] == '=' ||
 		     str[start+key_len] == '\t' ||
 		     str[start+key_len] == '\0')) {
-			str_delete(reply->str, start, i-start);
-			if (str_len(reply->str) == start && start > 0)
-				str_delete(reply->str, start - 1, 1);
-			break;
+			*idx_r = start;
+			*len_r = i - start;
+			return TRUE;
 		}
+		if (str[i] == '\t')
+			i++;
+	}
+	return FALSE;
+}
+
+void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key)
+{
+	unsigned int idx, len;
+
+	if (!auth_stream_reply_find_area(reply, key, &idx, &len))
+		return;
+
+	if (str_len(reply->str) < idx + len) {
+		/* remove also trailing tab */
+		len++;
+	} else if (str_len(reply->str) == idx + len && idx > 0) {
+		/* removing last item, remove preceding tab */
+		len++;
+		idx--;
+	}
+
+	str_delete(reply->str, idx, len);
+}
+
+const char *auth_stream_reply_find(struct auth_stream_reply *reply,
+				   const char *key)
+{
+	unsigned int idx, len, keylen;
+
+	if (!auth_stream_reply_find_area(reply, key, &idx, &len))
+		return NULL;
+	else {
+		keylen = strlen(key);
+		i_assert(len > keylen);
+		idx += keylen + 1;
+		len -= keylen + 1;
+		return t_strndup(str_c(reply->str) + idx, len);
 	}
 }
 

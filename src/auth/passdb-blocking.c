@@ -48,7 +48,10 @@ auth_worker_reply_parse(struct auth_request *request, const char *reply)
 			/* internal failure most likely */
 			return ret;
 		} else if (args[3] != NULL) {
-			auth_request_set_field(request, "user", args[2], NULL);
+			if (*args[2] != '\0') {
+				auth_request_set_field(request, "user",
+						       args[2], NULL);
+			}
 			auth_worker_reply_parse_args(request, args + 3);
 			return ret;
 		}

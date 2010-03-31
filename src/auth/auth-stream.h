@@ -9,6 +9,9 @@ void auth_stream_reply_add(struct auth_stream_reply *reply,
 void auth_stream_reply_reset(struct auth_stream_reply *reply);
 void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key);
 
+const char *auth_stream_reply_find(struct auth_stream_reply *reply,
+				   const char *key);
+
 void auth_stream_reply_import(struct auth_stream_reply *reply, const char *str);
 const char *auth_stream_reply_export(struct auth_stream_reply *reply);
 bool auth_stream_is_empty(struct auth_stream_reply *reply);

@@ -475,6 +475,7 @@ static void userdb_callback(enum userdb_result result,
 {
         struct auth_request_handler *handler = request->context;
 	struct auth_stream_reply *reply;
+	const char *value;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_USERDB);
 
@@ -488,6 +489,12 @@ static void userdb_callback(enum userdb_result result,
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		auth_stream_reply_add(reply, "FAIL", NULL);
 		auth_stream_reply_add(reply, NULL, dec2str(request->id));
+		if (request->userdb_lookup_failed) {
+			value = auth_stream_reply_find(request->userdb_reply,
+						       "reason");
+			if (value != NULL)
+				auth_stream_reply_add(reply, "reason", value);
+		}
 		break;
 	case USERDB_RESULT_USER_UNKNOWN:
 		auth_stream_reply_add(reply, "NOTFOUND", NULL);
