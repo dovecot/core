@@ -37,9 +37,14 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 	conn = auth_master_init(auth_socket_path, 0);
 	ret = auth_master_user_lookup(conn, input->username, &input->info,
 				      pool, &username, &fields);
-	if (ret < 0)
-		i_fatal("userdb lookup failed");
-	else if (ret == 0) {
+	if (ret < 0) {
+		if (fields[0] == NULL)
+			i_fatal("userdb lookup failed for %s", input->username);
+		else {
+			i_fatal("userdb lookup failed for %s: %s",
+				input->username, fields[0]);
+		}
+	} else if (ret == 0) {
 		printf("userdb lookup: user %s doesn't exist\n",
 		       input->username);
 	} else {

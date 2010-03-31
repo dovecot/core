@@ -94,12 +94,15 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 
 	client->master_tag = 0;
 	client->authenticating = FALSE;
-	switch (reply->status) {
-	case MASTER_AUTH_STATUS_OK:
-		sasl_reply = SASL_SERVER_REPLY_SUCCESS;
-		break;
-	case MASTER_AUTH_STATUS_INTERNAL_ERROR:
-		break;
+	if (reply != NULL) {
+		switch (reply->status) {
+		case MASTER_AUTH_STATUS_OK:
+			sasl_reply = SASL_SERVER_REPLY_SUCCESS;
+			break;
+		case MASTER_AUTH_STATUS_INTERNAL_ERROR:
+			sasl_reply = SASL_SERVER_REPLY_MASTER_ABORTED;
+			break;
+		}
 	}
 	client->mail_pid = reply->mail_pid;
 	call_client_callback(client, sasl_reply, data, NULL);

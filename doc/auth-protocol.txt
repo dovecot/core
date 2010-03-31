@@ -164,7 +164,7 @@ Master Requests
  M: "USER" TAB <id> TAB <userid> TAB service=<service> [TAB <parameters>]
 
  S: "NOTFOUND" TAB <id>
- S: "FAIL" TAB <id> TAB <error message>
+ S: "FAIL" TAB <id> [TAB <parameters>]
  S: "USER" TAB <id> TAB <userid> [TAB <parameters>]
 
 Master commands can request information about existing authentication
@@ -180,7 +180,10 @@ NOTFOUND reply means that the user wasn't found.
 
 FAIL reply means an internal error occurred. Usually either a configuration
 mistake or temporary error caused by lost resource (eg. database down).
-Also unknown request IDs are reported as FAILs.
+Also unknown request IDs are reported as FAILs. Currently the only
+specified parameter is "reason", which is used when user is wanted to be
+put into "temporarily disabled" state and the reason string will be shown
+to user on login or to LMTP RCPT TO reply.
 
 USER reply is sent if request succeeded. It can return parameters:
 

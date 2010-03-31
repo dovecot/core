@@ -59,7 +59,8 @@ void master_login_auth_disconnect(struct master_login_auth *auth)
 	iter = hash_table_iterate_init(auth->requests);
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct master_login_auth_request *request = value;
-		request->callback(NULL, request->context);
+		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+				  request->context);
 		i_free(request);
 	}
 	hash_table_iterate_deinit(&iter);
@@ -135,7 +136,7 @@ master_login_auth_input_user(struct master_login_auth *auth, const char *args)
 
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
-		request->callback(list + 1, request->context);
+		request->callback(list + 1, NULL, request->context);
 		i_free(request);
 	}
 	return TRUE;
@@ -152,28 +153,39 @@ master_login_auth_input_notfound(struct master_login_auth *auth,
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
 		i_error("Authenticated user not found from userdb");
-		request->callback(NULL, request->context);
+		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+				  request->context);
 		i_free(request);
 	}
 	return TRUE;
 }
 
 static bool
-master_login_auth_input_fail(struct master_login_auth *auth, const char *args)
+master_login_auth_input_fail(struct master_login_auth *auth,
+			     const char *args_line)
 {
 	struct master_login_auth_request *request;
- 	const char *error;
-	unsigned int id;
+ 	const char *const *args, *error = NULL;
+	unsigned int i, id;
 
-	error = strchr(args, '\t');
-	if (error != NULL)
-		error++;
+	args = t_strsplit(args_line, "\t");
+	if (args[0] == NULL) {
+		i_error("Auth server sent broken FAIL line");
+		return FALSE;
+	}
+	for (i = 1; args[i] != NULL; i++) {
+		if (strncmp(args[i], "reason=", 7) == 0)
+			error = args[i] + 7;
+	}
 
-	id = (unsigned int)strtoul(args, NULL, 10);
+	id = (unsigned int)strtoul(args[0], NULL, 10);
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
-		i_error("Internal auth failure");
-		request->callback(NULL, request->context);
+		if (error != NULL)
+			i_error("Internal auth failure");
+		request->callback(NULL, error != NULL ? error :
+				  MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+				  request->context);
 		i_free(request);
 	}
 	return TRUE;
@@ -266,7 +278,8 @@ void master_login_auth_request(struct master_login_auth *auth,
 	str = t_str_new(128);
 	if (auth->fd == -1) {
 		if (master_login_auth_connect(auth) < 0) {
-			callback(NULL, context);
+			callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+				 context);
 			return;
 		}
 		str_printfa(str, "VERSION\t%u\t%u\n",

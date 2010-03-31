@@ -17,6 +17,9 @@ struct master_service;
    to make sure there's space to transfer the command tag  */
 #define MASTER_AUTH_MAX_DATA_SIZE (1024*2)
 
+#define MASTER_AUTH_ERRMSG_INTERNAL_FAILURE \
+	"Internal error occurred. Refer to server log for more information."
+
 enum mail_auth_request_flags {
 	/* Connection has TLS compression enabled */
 	MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION	= 0x01
@@ -60,6 +63,7 @@ struct master_auth_reply {
 	pid_t mail_pid;
 };
 
+/* reply=NULL if the auth lookup was cancelled due to some error */
 typedef void master_auth_callback_t(const struct master_auth_reply *reply,
 				    void *context);
 

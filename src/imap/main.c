@@ -15,6 +15,7 @@
 #include "master-login.h"
 #include "mail-user.h"
 #include "mail-storage-service.h"
+#include "imap-resp-code.h"
 #include "imap-commands.h"
 #include "imap-fetch.h"
 
@@ -104,52 +105,72 @@ static void imap_die(void)
 	}
 }
 
+struct client_input {
+	const char *tag;
+
+	const unsigned char *input;
+	unsigned int input_size;
+	bool send_untagged_capability;
+};
+
+static void
+client_parse_input(const unsigned char *data, unsigned int len,
+		   struct client_input *input_r)
+{
+	unsigned int taglen;
+
+	i_assert(len > 0);
+
+	memset(input_r, 0, sizeof(*input_r));
+
+	if (data[0] == '1')
+		input_r->send_untagged_capability = TRUE;
+	data++; len--;
+
+	input_r->tag = t_strndup(data, len);
+	taglen = strlen(input_r->tag) + 1;
+
+	if (len > taglen) {
+		input_r->input = data + taglen;
+		input_r->input_size = len - taglen;
+	}
+}
+
 static void client_add_input(struct client *client, const buffer_t *buf)
 {
 	struct ostream *output;
-	const char *tag;
-	unsigned int data_pos;
-	bool send_untagged_capability = FALSE;
+	struct client_input input;
 
 	if (buf != NULL && buf->used > 0) {
-		tag = t_strndup(buf->data, buf->used);
-		switch (*tag) {
-		case '0':
-			tag++;
-			break;
-		case '1':
-			send_untagged_capability = TRUE;
-			tag++;
-			break;
-		}
-		data_pos = strlen(tag) + 1;
-		if (data_pos > buf->used &&
-		    !i_stream_add_data(client->input,
-				       CONST_PTR_OFFSET(buf->data, data_pos),
-				       buf->used - data_pos))
+		client_parse_input(buf->data, buf->used, &input);
+		if (input.input_size > 0 &&
+		    !i_stream_add_data(client->input, input.input,
+				       input.input_size))
 			i_panic("Couldn't add client input to stream");
 	} else {
 		/* IMAPLOGINTAG environment is compatible with mailfront */
-		tag = getenv("IMAPLOGINTAG");
+		memset(&input, 0, sizeof(input));
+		input.tag = getenv("IMAPLOGINTAG");
 	}
 
 	output = client->output;
 	o_stream_ref(output);
 	o_stream_cork(output);
-	if (tag == NULL) {
+	if (input.tag == NULL) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY ",
 			str_c(client->capability_string), "] "
 			"Logged in as ", client->user->username, NULL));
-	} else if (send_untagged_capability) {
+	} else if (input.send_untagged_capability) {
 		/* client doesn't seem to understand tagged capabilities. send
 		   untagged instead and hope that it works. */
 		client_send_line(client, t_strconcat("* CAPABILITY ",
 			str_c(client->capability_string), NULL));
-		client_send_line(client, t_strconcat(tag, " OK Logged in", NULL));
+		client_send_line(client,
+				 t_strconcat(input.tag, " OK Logged in", NULL));
 	} else {
 		client_send_line(client, t_strconcat(
-			tag, " OK [CAPABILITY ",
+			input.tag, " OK [CAPABILITY ",
 			str_c(client->capability_string), "] Logged in", NULL));
 	}
 	(void)client_handle_input(client);
@@ -241,6 +262,18 @@ login_client_connected(const struct master_login_client *client,
 	}
 }
 
+static void login_client_failed(const struct master_login_client *client,
+				const char *errormsg)
+{
+	struct client_input input;
+	const char *msg;
+
+	client_parse_input(client->data, client->auth_req.data_size, &input);
+	msg = t_strdup_printf("%s NO ["IMAP_RESP_CODE_UNAVAILABLE"] %s\r\n",
+			      input.tag, errormsg);
+	(void)write(client->fd, msg, strlen(msg));
+}
+
 static void client_connected(const struct master_service_connection *conn)
 {
 	if (master_login == NULL) {
@@ -315,7 +348,8 @@ int main(int argc, char *argv[])
 	} else {
 		master_login = master_login_init(master_service, "auth-master",
 						 postlogin_socket_path,
-						 login_client_connected);
+						 login_client_connected,
+						 login_client_failed);
 		io_loop_set_running(current_ioloop);
 	}
 

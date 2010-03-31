@@ -147,8 +147,8 @@ int main(int argc, char *argv[])
 					&service_user, &error) <= 0)
 		i_fatal("User lookup failed: %s", error);
 	if (mail_storage_service_next(storage_service, service_user,
-				      &mail_user, &error) < 0)
-		i_fatal("User init failed: %s", error);
+				      &mail_user) < 0)
+		i_fatal("User init failed");
 
 	if (mirror_cmd != NULL) {
 		/* user initialization may exec doveconf, so do our forking
@@ -170,8 +170,8 @@ int main(int argc, char *argv[])
 		if (settings_parse_line(set_parser, set_line) < 0)
 			i_unreached();
 		if (mail_storage_service_next(storage_service, service_user,
-					      &mail_user2, &error) < 0)
-			i_fatal("User init failed: %s", error);
+					      &mail_user2) < 0)
+			i_fatal("User init failed");
 
 		worker2 = dsync_worker_init_local(mail_user2, alt_char);
 

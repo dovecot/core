@@ -58,7 +58,6 @@ static void
 master_auth_connection_deinit(struct master_auth_connection **_conn)
 {
 	struct master_auth_connection *conn = *_conn;
-	struct master_auth_reply reply;
 
 	*_conn = NULL;
 
@@ -67,11 +66,8 @@ master_auth_connection_deinit(struct master_auth_connection **_conn)
 				  POINTER_CAST(conn->tag));
 	}
 
-	if (conn->callback != NULL) {
-		memset(&reply, 0, sizeof(reply));
-		reply.status = MASTER_AUTH_STATUS_INTERNAL_ERROR;
-		conn->callback(&reply, conn->context);
-	}
+	if (conn->callback != NULL)
+		conn->callback(NULL, conn->context);
 
 	if (conn->io != NULL)
 		io_remove(&conn->io);

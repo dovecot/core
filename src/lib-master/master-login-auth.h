@@ -5,7 +5,7 @@ struct master_auth_request;
 
 typedef void
 master_login_auth_request_callback_t(const char *const *auth_args,
-				     void *context);
+				     const char *errormsg, void *context);
 
 struct master_login_auth *master_login_auth_init(const char *auth_socket_path);
 void master_login_auth_deinit(struct master_login_auth **auth);

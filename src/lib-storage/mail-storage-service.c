@@ -36,6 +36,9 @@
 #define MAX_TIME_BACKWARDS_SLEEP 5
 #define MAX_NOWARN_FORWARD_SECS 10
 
+#define ERRSTR_INVALID_USER_SETTINGS \
+	"Invalid user settings. Refer to server log for more information."
+
 struct mail_storage_service_ctx {
 	pool_t pool;
 	struct master_service *service;
@@ -213,9 +216,13 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 		}
 		*user = new_username;
 	} else if (ret == 0)
-		*error_r = "unknown user";
-	else
-		*error_r = "userdb lookup failed";
+		*error_r = "Unknown user";
+	else if (**fields_r != NULL) {
+		*error_r = t_strdup(**fields_r);
+		ret = -2;
+	} else {
+		*error_r = MAIL_ERRSTR_CRITICAL_MSG;
+	}
 	return ret;
 }
 
@@ -670,8 +677,11 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 					  dyn_parsers);
 		if (master_service_settings_cache_read(ctx->set_cache,
 						       &set_input,
-						       parser_r, error_r) < 0)
+						       parser_r, error_r) < 0) {
+			*error_r = t_strdup_printf(
+				"Error reading configuration: %s", *error_r);
 			return -1;
+		}
 	} else {
 		dyn_parsers_update_parent(pool, &set_input.roots, dyn_parsers);
 		if (master_service_settings_read(ctx->service, &set_input,
@@ -746,7 +756,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	const char *username = input->username;
 	const struct setting_parser_info *user_info;
 	const struct mail_user_settings *user_set;
-	const char *const *userdb_fields;
+	const char *const *userdb_fields, *error;
 	struct auth_user_reply reply;
 	const struct setting_parser_context *set_parser;
 	pool_t user_pool, temp_pool;
@@ -756,8 +766,10 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	if (mail_storage_service_read_settings(ctx, input, user_pool,
 					       &user_info, &set_parser,
-					       error_r) < 0) {
+					       &error) < 0) {
+		i_error("user %s: %s", username, error);
 		pool_unref(&user_pool);
+		*error_r = MAIL_ERRSTR_CRITICAL_MSG;
 		return -1;
 	}
 	user_set = settings_parser_get_list(set_parser)[1];
@@ -790,7 +802,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	user->user_info = user_info;
 
 	user->set_parser = settings_parser_dup(set_parser, user_pool);
-	if (!settings_parser_check(user->set_parser, user_pool, error_r))
+	if (!settings_parser_check(user->set_parser, user_pool, &error))
 		i_unreached();
 
 	user->user_set = settings_parser_get_list(user->set_parser)[1];
@@ -803,8 +815,12 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	if (userdb_fields != NULL) {
 		auth_user_fields_parse(userdb_fields, temp_pool, &reply);
-		if (user_reply_handle(user, &reply, error_r) < 0)
+		if (user_reply_handle(user, &reply, &error) < 0) {
+			i_error("user %s: Invalid settings in userdb: %s",
+				username, error);
+			*error_r = ERRSTR_INVALID_USER_SETTINGS;
 			ret = -2;
+		}
 	}
 	pool_unref(&temp_pool);
 
@@ -820,8 +836,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
-			      struct mail_user **mail_user_r,
-			      const char **error_r)
+			      struct mail_user **mail_user_r)
 {
 	const struct mail_user_settings *user_set = user->user_set;
 	const char *home, *chroot, *error;
@@ -839,10 +854,10 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 				    user_set->mail_chroot);
 
 	if (*home != '/' && *home != '\0') {
-		*error_r = t_strdup_printf("user %s: "
+		i_error("user %s: "
 			"Relative home directory paths not supported: %s",
 			user->input.username, home);
-		return -1;
+		return -2;
 	}
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
@@ -852,8 +867,8 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		if (service_drop_privileges(user_set, user->system_groups_user,
 					    home, chroot, disallow_root,
 					    temp_priv_drop, FALSE, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Couldn't drop privileges: %s", error);
+			i_error("user %s: Couldn't drop privileges: %s",
+				user->input.username, error);
 			return -1;
 		}
 		if (!temp_priv_drop ||
@@ -884,8 +899,11 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			t_strconcat(chroot, "/", home, NULL));
 	}
 	if (mail_storage_service_init_post(ctx, user, home,
-					   mail_user_r, error_r) < 0)
-		return -1;
+					   mail_user_r, &error) < 0) {
+		i_error("user %s: Initialization failed: %s",
+			user->input.username, error);
+		return -2;
+	}
 	return 0;
 }
 
@@ -913,18 +931,18 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     const char **error_r)
 {
 	struct mail_storage_service_user *user;
-	const char *error;
 	int ret;
 
-	ret = mail_storage_service_lookup(ctx, input, &user, &error);
-	if (ret <= 0) {
-		*error_r = t_strdup_printf("User lookup failed: %s", error);
+	ret = mail_storage_service_lookup(ctx, input, &user, error_r);
+	if (ret <= 0)
 		return ret;
-	}
-	if (mail_storage_service_next(ctx, user, mail_user_r, &error) < 0) {
+
+	ret = mail_storage_service_next(ctx, user, mail_user_r);
+	if (ret < 0) {
 		mail_storage_service_user_free(&user);
-		*error_r = t_strdup_printf("User init failed: %s", error);
-		return -2;
+		*error_r = ret == -2 ? ERRSTR_INVALID_USER_SETTINGS :
+			MAIL_ERRSTR_CRITICAL_MSG;
+		return ret;
 	}
 	*user_r = user;
 	return 1;

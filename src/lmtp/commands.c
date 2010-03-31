@@ -28,7 +28,9 @@
 #include <stdlib.h>
 
 #define ERRSTR_TEMP_MAILBOX_FAIL "451 4.3.0 <%s> Temporary internal error"
-#define ERRSTR_TEMP_USERDB_FAIL "451 4.3.0 <%s> Temporary user lookup failure"
+#define ERRSTR_TEMP_USERDB_FAIL_PREFIX "451 4.3.0 <%s> "
+#define ERRSTR_TEMP_USERDB_FAIL \
+	ERRSTR_TEMP_USERDB_FAIL_PREFIX "Temporary user lookup failure"
 
 #define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*30)
 
@@ -199,7 +201,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 	struct lmtp_proxy_settings set;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
-	const char *args, *const *fields, *orig_username = username;
+	const char *args, *const *fields, *errstr, *orig_username = username;
 	pool_t pool;
 	int ret;
 
@@ -219,10 +221,11 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 	ret = auth_master_pass_lookup(auth_conn, username, &info,
 				      pool, &fields);
 	if (ret <= 0) {
+		errstr = ret < 0 && fields[0] != NULL ? t_strdup(fields[0]) :
+			t_strdup_printf(ERRSTR_TEMP_USERDB_FAIL, address);
 		pool_unref(&pool);
 		if (ret < 0) {
-			client_send_line(client, ERRSTR_TEMP_USERDB_FAIL,
-					 address);
+			client_send_line(client, "%s", errstr);
 			return TRUE;
 		} else {
 			/* user not found from passdb. try userdb also. */
@@ -332,7 +335,7 @@ int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient rcpt;
 	struct mail_storage_service_input input;
-	const char *address, *username, *detail;
+	const char *address, *username, *detail, *prefix;
 	const char *error = NULL, *arg, *const *argv;
 	unsigned int len;
 	int ret = 0;
@@ -384,8 +387,9 @@ int cmd_rcpt(struct client *client, const char *args)
 					  &rcpt.service_user, &error);
 
 	if (ret < 0) {
-		i_error("User lookup failed: %s", error);
-		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL, username);
+		prefix = t_strdup_printf(ERRSTR_TEMP_USERDB_FAIL_PREFIX,
+					 username);
+		client_send_line(client, "%s%s", prefix, error);
 		return 0;
 	}
 	if (ret == 0) {
@@ -449,9 +453,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	i_set_failure_prefix(t_strdup_printf("lmtp(%s, %s): ",
 					     my_pid, username));
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
-				      &client->state.dest_user,
-				      &error) < 0) {
-		i_error("%s", error);
+				      &client->state.dest_user) < 0) {
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->address);
 		return -1;

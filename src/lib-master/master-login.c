@@ -39,6 +39,7 @@ struct master_login_postlogin {
 struct master_login {
 	struct master_service *service;
 	master_login_callback_t *callback;
+	master_login_failure_callback_t *failure_callback;
 	struct master_login_connection *conns;
 	struct master_login_auth *auth;
 	char *postlogin_socket_path;
@@ -52,13 +53,15 @@ static void master_login_conn_unref(struct master_login_connection **_conn);
 struct master_login *
 master_login_init(struct master_service *service, const char *auth_socket_path,
 		  const char *postlogin_socket_path,
-		  master_login_callback_t *callback)
+		  master_login_callback_t *callback,
+		  master_login_failure_callback_t *failure_callback)
 {
 	struct master_login *login;
 
 	login = i_new(struct master_login, 1);
 	login->service = service;
 	login->callback = callback;
+	login->failure_callback = failure_callback;
 	login->auth = master_login_auth_init(auth_socket_path);
 	login->postlogin_socket_path = i_strdup(postlogin_socket_path);
 
@@ -316,7 +319,8 @@ static int master_login_postlogin(struct master_login_client *client,
 }
 
 static void
-master_login_auth_callback(const char *const *auth_args, void *context)
+master_login_auth_callback(const char *const *auth_args, const char *errormsg,
+			   void *context)
 {
 	struct master_login_client *client = context;
 	struct master_auth_reply reply;
@@ -324,14 +328,17 @@ master_login_auth_callback(const char *const *auth_args, void *context)
 
 	memset(&reply, 0, sizeof(reply));
 	reply.tag = client->auth_req.tag;
-	reply.status = auth_args != NULL ? MASTER_AUTH_STATUS_OK :
+	reply.status = errormsg == NULL ? MASTER_AUTH_STATUS_OK :
 		MASTER_AUTH_STATUS_INTERNAL_ERROR;
 	reply.mail_pid = getpid();
 	o_stream_send(client->conn->output, &reply, sizeof(reply));
 
-	if (auth_args == NULL || auth_args[0] == NULL) {
-		if (auth_args != NULL)
+	if (errormsg != NULL || auth_args[0] == NULL) {
+		if (auth_args != NULL) {
 			i_error("login client: Username missing from auth reply");
+			errormsg = MASTER_AUTH_ERRMSG_INTERNAL_FAILURE;
+		}
+		client->conn->login->failure_callback(client, errormsg);
 		master_login_client_free(&client);
 		return;
 	}

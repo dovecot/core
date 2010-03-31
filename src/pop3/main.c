@@ -161,6 +161,15 @@ login_client_connected(const struct master_login_client *client,
 	}
 }
 
+static void login_client_failed(const struct master_login_client *client,
+				const char *errormsg)
+{
+	const char *msg;
+
+	msg = t_strdup_printf("-ERR [IN-USE] %s\r\n", errormsg);
+	(void)write(client->fd, msg, strlen(msg));
+}
+
 static void client_connected(const struct master_service_connection *conn)
 {
 	if (master_login == NULL) {
@@ -231,7 +240,8 @@ int main(int argc, char *argv[])
 	} else {
 		master_login = master_login_init(master_service, "auth-master",
 						 postlogin_socket_path,
-						 login_client_connected);
+						 login_client_connected,
+						 login_client_failed);
 		io_loop_set_running(current_ioloop);
 	}
 

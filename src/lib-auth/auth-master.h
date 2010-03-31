@@ -27,7 +27,9 @@ struct auth_master_connection *
 auth_master_init(const char *auth_socket_path, enum auth_master_flags flags);
 void auth_master_deinit(struct auth_master_connection **conn);
 
-/* Do a USER lookup. Returns -1 = error, 0 = user not found, 1 = ok */
+/* Do a USER lookup. Returns -1 = error, 0 = user not found, 1 = ok.
+   When returning -1 and fields[0] isn't NULL, it contains an error message
+   that should be shown to user. */
 int auth_master_user_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char **username_r,

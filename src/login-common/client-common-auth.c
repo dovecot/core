@@ -378,6 +378,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 	i_assert(!client->destroyed ||
 		 sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED ||
+		 sasl_reply == SASL_SERVER_REPLY_MASTER_ABORTED ||
 		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED);
 
 	switch (sasl_reply) {
@@ -427,6 +428,10 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			   internal failure. */
 			client_destroy_success(client, data);
 		}
+		break;
+	case SASL_SERVER_REPLY_MASTER_ABORTED:
+		/* mail process already sent the error message to client */
+		client_destroy_success(client, data);
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
 		client->v.auth_send_challenge(client, data);

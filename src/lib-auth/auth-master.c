@@ -50,6 +50,7 @@ struct auth_master_connection {
 
 struct auth_master_lookup_ctx {
 	struct auth_master_connection *conn;
+	const char *user;
 	const char *expected_reply;
 	int return_value;
 
@@ -135,19 +136,21 @@ static int auth_input_handshake(struct auth_master_connection *conn)
 	return 0;
 }
 
-static int parse_reply(struct auth_master_connection *conn,
-		       const char *cmd, const char *const *args,
-		       const char *expected_reply)
+static int parse_reply(const char *cmd, const char *const *args,
+		       const char *expected_reply, const char *user, bool debug)
 {
-	io_loop_stop(conn->ioloop);
-
 	if (strcmp(cmd, expected_reply) == 0)
 		return 1;
 	if (strcmp(cmd, "NOTFOUND") == 0)
 		return 0;
 	if (strcmp(cmd, "FAIL") == 0) {
-		i_error("Lookup failed: %s",
-			*args != NULL ? *args : "Internal failure");
+		if (*args == NULL) {
+			i_error("user %s: Auth %s lookup failed",
+				user, expected_reply);
+		} else if (debug) {
+			i_debug("user %s: Auth %s lookup returned temporary failure: %s",
+				user, expected_reply, *args);
+		}
 		return -1;
 	}
 	i_error("Unknown reply: %s", cmd);
@@ -159,17 +162,31 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 {
 	struct auth_master_lookup_ctx *ctx = context;
 	unsigned int i, len;
+	bool debug = (ctx->conn->flags & AUTH_MASTER_FLAG_DEBUG) != 0;
+
+	io_loop_stop(ctx->conn->ioloop);
 
 	ctx->return_value =
-		parse_reply(ctx->conn, cmd, args, ctx->expected_reply);
-	if (ctx->return_value > 0) {
-		len = str_array_length(args);
+		parse_reply(cmd, args, ctx->expected_reply, ctx->user, debug);
+
+	len = str_array_length(args);
+	if (ctx->return_value >= 0) {
 		ctx->fields = p_new(ctx->pool, const char *, len + 1);
 		for (i = 0; i < len; i++)
 			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
-		if ((ctx->conn->flags & AUTH_MASTER_FLAG_DEBUG) != 0)
-			i_debug("auth input: %s", t_strarray_join(args, " "));
+	} else {
+		/* put the reason string into first field */
+		ctx->fields = p_new(ctx->pool, const char *, 2);
+		for (i = 0; i < len; i++) {
+			if (strncmp(args[i], "reason=", 7) == 0) {
+				ctx->fields[0] =
+					p_strdup(ctx->pool, args[i] + 7);
+				break;
+			}
+		}
 	}
+	if (debug)
+		i_debug("auth input: %s", t_strarray_join(args, " "));
 	return TRUE;
 }
 
@@ -398,6 +415,8 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 
 	if (!is_valid_string(user) || !is_valid_string(info->service)) {
 		/* non-allowed characters, the user can't exist */
+		*username_r = NULL;
+		*fields_r = NULL;
 		return 0;
 	}
 
@@ -406,6 +425,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	ctx.return_value = -1;
 	ctx.pool = pool;
 	ctx.expected_reply = "USER";
+	ctx.user = user;
 
 	conn->reply_callback = auth_lookup_reply_callback;
 	conn->reply_context = &ctx;
@@ -422,7 +442,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 
 	if (ctx.return_value <= 0 || ctx.fields[0] == NULL) {
 		*username_r = NULL;
-		*fields_r = NULL;
+		*fields_r = ctx.fields;
 		if (ctx.return_value > 0) {
 			i_error("Userdb lookup didn't return username");
 			ctx.return_value = -1;
@@ -467,6 +487,7 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 
 	if (!is_valid_string(user) || !is_valid_string(info->service)) {
 		/* non-allowed characters, the user can't exist */
+		*fields_r = NULL;
 		return 0;
 	}
 
@@ -475,6 +496,7 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	ctx.return_value = -1;
 	ctx.pool = pool;
 	ctx.expected_reply = "PASS";
+	ctx.user = user;
 
 	conn->reply_callback = auth_lookup_reply_callback;
 	conn->reply_context = &ctx;
