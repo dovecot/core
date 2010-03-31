@@ -59,7 +59,7 @@ static void ATTR_NORETURN
 usage(void)
 {
 	fprintf(stderr,
-"usage: dsync [-A <alt char>] [-b <mailbox>] [-u <user>] [-frv]\n"
+"usage: dsync [-A <alt char>] [-m <mailbox>] [-u <user>] [-frv]\n"
 "  mirror  <command to execute remote dsync>\n"
 "  convert <source mail_location>\n"
 );
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "A:b:fru:v");
+					     &argc, &argv, "A:fm:ru:v");
 
 	username = getenv("USER");
 	while ((c = master_getopt(master_service)) > 0) {
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 		case 'A':
 			alt_char = optarg[0];
 			break;
-		case 'b':
+		case 'm':
 			mailbox = optarg;
 			break;
 		case 'r':
