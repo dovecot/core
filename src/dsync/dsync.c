@@ -59,7 +59,7 @@ static void ATTR_NORETURN
 usage(void)
 {
 	fprintf(stderr,
-"usage: dsync [-a <alt char>] [-b <mailbox>] [-u <user>] [-frv]\n"
+"usage: dsync [-A <alt char>] [-b <mailbox>] [-u <user>] [-frv]\n"
 "  mirror  <command to execute remote dsync>\n"
 "  convert <source mail_location>\n"
 );
