@@ -161,6 +161,7 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 static struct passdb_module *
 vpopmail_preinit(pool_t pool, const char *args)
 {
+	static bool vauth_load_initialized = FALSE;
 	struct vpopmail_passdb_module *module;
 	const char *const *tmp;
 
@@ -178,6 +179,11 @@ vpopmail_preinit(pool_t pool, const char *args)
 		} else {
 			i_fatal("passdb vpopmail: Unknown setting: %s", *tmp);
 		}
+	}
+	if (!vauth_load_initialized) {
+		vauth_load_initialized = TRUE;
+		if (!vauth_load_module(NULL))
+			i_fatal("vpopmail: vauth_load_module() failed");
 	}
 	return &module->module;
 }
