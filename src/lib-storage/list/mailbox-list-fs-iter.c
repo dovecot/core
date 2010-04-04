@@ -413,6 +413,10 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 	if (mailbox_list_mailbox(ctx->ctx.list, "INBOX", &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
 
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_INBOX) != 0 &&
+	    (ctx->info.flags & MAILBOX_NONEXISTENT) != 0)
+		return NULL;
+
 	ctx->info.flags |= fs_list_get_subscription_flags(ctx, "INBOX");
 	inbox_flags_set(ctx);
 	/* we got here because we didn't see INBOX among other mailboxes,
@@ -762,7 +766,6 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 	}
 
 	if (!ctx->inbox_found &&
-	    (ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_INBOX) == 0 &&
 	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
 	    ((ctx->glob != NULL &&
 	      imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES) ||

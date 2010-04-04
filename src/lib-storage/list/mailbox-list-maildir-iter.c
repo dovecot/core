@@ -124,7 +124,6 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 		   struct imap_match_glob *glob,
 		   bool update_only)
 {
-	const struct mailbox_list_settings *set = &ctx->ctx.list->set;
 	struct mailbox_node *node;
 	enum mailbox_info_flags flags;
 	enum imap_match_result match;
@@ -133,17 +132,13 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_INBOX) == 0) {
 		/* always show INBOX */
-	} else if (set->inbox_path != NULL &&
-		   strcmp(set->inbox_path, set->root_dir) != 0) {
-		/* INBOX doesn't exist, since it wasn't listed */
-		update_only = TRUE;
 	} else {
-		/* INBOX is in Maildir root. show it only if it has already
-		   been created */
+		/* INBOX may be Maildir root or completely elsewhere.
+		   show it only if it has already been created */
 		ret = mailbox_list_mailbox(ctx->ctx.list, "INBOX", &flags);
 		if (ret < 0)
 			return -1;
-		if (ret == 0)
+		if ((flags & MAILBOX_NONEXISTENT) != 0)
 			update_only = TRUE;
 	}
 
