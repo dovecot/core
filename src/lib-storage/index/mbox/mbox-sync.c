@@ -1616,12 +1616,13 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		/* Rewrite uid_last in X-IMAPbase header if we've seen it
 		   (ie. the file isn't empty) */
                 ret = mbox_rewrite_base_uid_last(sync_ctx);
+	} else {
+		ret = 0;
 	}
 
 	if (mbox_sync_update_index_header(sync_ctx) < 0)
 		return -1;
-
-	return 0;
+	return ret;
 }
 
 int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
