@@ -147,18 +147,19 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 			update_only = TRUE;
 	}
 
-	created = FALSE;
-	node = update_only ?
-		mailbox_tree_lookup(ctx->tree_ctx, "INBOX") :
-		mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
-	if (created)
-		node->flags = MAILBOX_NOCHILDREN;
-	else if (node != NULL)
-		node->flags &= ~MAILBOX_NONEXISTENT;
+	if (update_only) {
+		node = mailbox_tree_lookup(ctx->tree_ctx, "INBOX");
+		if (node != NULL)
+			node->flags &= ~MAILBOX_NONEXISTENT;
+	} else {
+		node = mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
+		if (created)
+			node->flags = MAILBOX_NOCHILDREN;
+		else
+			node->flags &= ~MAILBOX_NONEXISTENT;
 
-	match = imap_match(glob, "INBOX");
-	if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0) {
-		if (!update_only)
+		match = imap_match(glob, "INBOX");
+		if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0)
 			node->flags |= MAILBOX_MATCHED;
 	}
 	return 0;
