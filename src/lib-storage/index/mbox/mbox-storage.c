@@ -122,6 +122,7 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		    const char **error_r)
 {
 	struct mbox_storage *storage = (struct mbox_storage *)_storage;
+	struct stat st;
 	const char *dir;
 
 	if (master_service_get_client_limit(master_service) > 1) {
@@ -137,6 +138,13 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	if (*dir != '\0') {
 		_storage->temp_path_prefix = p_strconcat(_storage->pool, dir,
 			"/", mailbox_list_get_temp_prefix(ns->list), NULL);
+	}
+	if (stat(ns->list->set.root_dir, &st) == 0 && !S_ISDIR(st.st_mode)) {
+		*error_r = t_strdup_printf(
+			"mbox root directory can't be a file: %s "
+			"(http://wiki.dovecot.org/MailLocation/Mbox)",
+			ns->list->set.root_dir);
+		return -1;
 	}
 	return 0;
 }
@@ -483,13 +491,6 @@ static int create_inbox(struct mailbox *box)
 	if (fd != -1) {
 		(void)close(fd);
 		return 0;
-	} else if (errno == ENOTDIR &&
-		 strncmp(inbox_path, rootdir, strlen(rootdir)) == 0) {
-		mail_storage_set_critical(box->storage,
-			"mbox root directory can't be a file: %s "
-			"(http://wiki.dovecot.org/MailLocation/Mbox)",
-			rootdir);
-		return -1;
 	} else if (errno == EACCES) {
 		mail_storage_set_critical(box->storage, "%s",
 			mail_error_create_eacces_msg("open", inbox_path));
