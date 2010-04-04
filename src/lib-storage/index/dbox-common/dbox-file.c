@@ -462,7 +462,7 @@ int dbox_file_append_commit(struct dbox_file_append_context **_ctx)
 	o_stream_unref(&ctx->output);
 	ctx->file->appending = FALSE;
 	i_free(ctx);
-	return 0;
+	return ret;
 }
 
 void dbox_file_append_rollback(struct dbox_file_append_context **_ctx)
