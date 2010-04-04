@@ -286,7 +286,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 			return -1;
 		}
 	}
-	return 0;
+	return ret;
 }
 
 int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
