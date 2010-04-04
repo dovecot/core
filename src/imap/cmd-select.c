@@ -199,6 +199,7 @@ static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 static bool cmd_select_continue(struct client_command_context *cmd)
 {
         struct imap_select_context *ctx = cmd->context;
+	int ret;
 
 	if (imap_fetch_more(ctx->fetch_ctx) == 0) {
 		/* unfinished */
