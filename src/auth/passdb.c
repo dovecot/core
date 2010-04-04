@@ -134,7 +134,7 @@ void passdb_handle_credentials(enum passdb_result result,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request)
 {
-	const unsigned char *credentials;
+	const unsigned char *credentials = NULL;
 	size_t size = 0;
 
 	if (result != PASSDB_RESULT_OK) {
