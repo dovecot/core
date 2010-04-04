@@ -485,7 +485,6 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	if (info == NULL)
 		return iter_next_deleted(iter, worker, dsync_box_r);
 
-	storage_name = mail_namespace_get_storage_name(info->ns, info->name);
 	dsync_box_r->name = info->name;
 	dsync_box_r->name_sep = info->ns->sep;
 

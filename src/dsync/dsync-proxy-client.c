@@ -27,6 +27,7 @@ enum proxy_client_request_type {
 
 struct proxy_client_request {
 	enum proxy_client_request_type type;
+	uint32_t uid;
 	union {
 		dsync_worker_msg_callback_t *get;
 		dsync_worker_copy_callback_t *copy;
@@ -137,10 +138,31 @@ proxy_client_worker_msg_get_done(struct proxy_client_dsync_worker *worker)
 }
 
 static bool
-proxy_client_worker_next_copy(const struct proxy_client_request *request,
+proxy_client_worker_next_copy(struct proxy_client_dsync_worker *worker,
+			      const struct proxy_client_request *request,
 			      const char *line)
 {
-	request->callback.copy(*line == '1', request->context);
+	uint32_t uid;
+	bool success;
+
+	if (line[0] == '1' && line[1] == '\t')
+		success = TRUE;
+	else if (line[0] == '0' && line[1] == '\t')
+		success = FALSE;
+	else {
+		i_error("msg-copy returned invalid input: %s", line);
+		proxy_client_fail(worker);
+		return FALSE;
+	}
+	uid = strtoul(line + 2, NULL, 10);
+	if (uid != request->uid) {
+		i_error("msg-copy returned invalid uid: %u != %u",
+			uid, request->uid);
+		proxy_client_fail(worker);
+		return FALSE;
+	}
+
+	request->callback.copy(success, request->context);
 	return TRUE;
 }
 
@@ -166,6 +188,13 @@ proxy_client_worker_next_msg_get(struct proxy_client_dsync_worker *worker,
 			break;
 		uid = strtoul(t_strcut(line, '\t'), NULL, 10);
 		line = p + 1;
+
+		if (uid != request->uid) {
+			i_error("msg-get returned invalid uid: %u != %u",
+				uid, request->uid);
+			proxy_client_fail(worker);
+			return FALSE;
+		}
 
 		if (dsync_proxy_msg_static_import(worker->msg_get_pool,
 						  line, &worker->msg_get_data,
@@ -230,7 +259,7 @@ proxy_client_worker_next_reply(struct proxy_client_dsync_worker *worker,
 
 	switch (request.type) {
 	case PROXY_CLIENT_REQUEST_TYPE_COPY:
-		ret = proxy_client_worker_next_copy(&request, line);
+		ret = proxy_client_worker_next_copy(worker, &request, line);
 		break;
 	case PROXY_CLIENT_REQUEST_TYPE_GET:
 		ret = proxy_client_worker_next_msg_get(worker, &request, line);
@@ -847,6 +876,7 @@ proxy_client_worker_msg_copy(struct dsync_worker *_worker,
 	request.type = PROXY_CLIENT_REQUEST_TYPE_COPY;
 	request.callback.copy = callback;
 	request.context = context;
+	request.uid = src_uid;
 	aqueue_append(worker->request_queue, &request);
 }
 
@@ -960,6 +990,7 @@ proxy_client_worker_msg_get(struct dsync_worker *_worker,
 	request.type = PROXY_CLIENT_REQUEST_TYPE_GET;
 	request.callback.get = callback;
 	request.context = context;
+	request.uid = uid;
 	aqueue_append(worker->request_queue, &request);
 }
 

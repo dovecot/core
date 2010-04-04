@@ -28,7 +28,7 @@ struct dsync_proxy_server {
 
 	struct istream *get_input;
 	bool get_input_last_lf;
-	uint32_t get_uid;
+	uint32_t get_uid, copy_uid;
 
 	unsigned int handshake_received:1;
 	unsigned int subs_sending_unsubscriptions:1;

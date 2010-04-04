@@ -364,8 +364,12 @@ cmd_msg_expunge(struct dsync_proxy_server *server, const char *const *args)
 static void copy_callback(bool success, void *context)
 {
 	struct dsync_proxy_server *server = context;
+	const char *reply;
 
-	o_stream_send(server->output, success ? "1\n" : "0\n", 2);
+	i_assert(server->copy_uid != 0);
+
+	reply = t_strdup_printf("%d\t%u\n", success ? 1 : 0, server->copy_uid);
+	o_stream_send_str(server->output, reply);
 }
 
 static int
@@ -390,8 +394,10 @@ cmd_msg_copy(struct dsync_proxy_server *server, const char *const *args)
 					     args + 2, &msg, &error) < 0)
 		i_error("Invalid message input: %s", error);
 
+	server->copy_uid = src_uid;
 	dsync_worker_msg_copy(server->worker, &src_mailbox_guid, src_uid, &msg,
 			      copy_callback, server);
+	server->copy_uid = 0;
 	return 1;
 }
 
@@ -459,6 +465,8 @@ cmd_msg_get_callback(enum dsync_msg_get_result result,
 	struct dsync_proxy_server *server = context;
 	string_t *str;
 
+	i_assert(server->get_uid != 0);
+
 	switch (result) {
 	case DSYNC_MSG_GET_RESULT_SUCCESS:
 		break;
@@ -507,7 +515,10 @@ cmd_msg_get(struct dsync_proxy_server *server, const char *const *args)
 		dsync_worker_msg_get(server->worker, &mailbox_guid, uid,
 				     cmd_msg_get_callback, server);
 	}
-	return server->get_input == NULL ? 1 : 0;
+	if (server->get_input != NULL)
+		return 0;
+	server->get_uid = 0;
+	return 1;
 }
 
 static void cmd_finish_callback(bool success, void *context)
