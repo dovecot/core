@@ -288,7 +288,7 @@ service_create(pool_t pool, const struct service_settings *set,
 		array_append(&service->listeners, &l, 1);
 	}
 	for (i = 0; i < fifo_count; i++) {
-		if (unix_listeners[i]->mode == 0) {
+		if (fifo_listeners[i]->mode == 0) {
 			/* disabled */
 			continue;
 		}
