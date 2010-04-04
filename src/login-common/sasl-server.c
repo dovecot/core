@@ -103,8 +103,8 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 			sasl_reply = SASL_SERVER_REPLY_MASTER_ABORTED;
 			break;
 		}
+		client->mail_pid = reply->mail_pid;
 	}
-	client->mail_pid = reply->mail_pid;
 	call_client_callback(client, sasl_reply, data, NULL);
 }
 
