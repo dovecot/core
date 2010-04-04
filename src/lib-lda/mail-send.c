@@ -64,6 +64,9 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     size_t size;
     int ret;
 
+    if (mail_get_first_header(mail, "Message-ID", &orig_msgid) < 0)
+	    orig_msgid = NULL;
+
     if (mail_get_first_header(mail, "Auto-Submitted", &value) > 0 &&
 	strcasecmp(value, "no") != 0) {
 	    i_info("msgid=%s: Auto-submitted message discarded: %s",
@@ -72,8 +75,6 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	    return 0;
     }
 
-    if (mail_get_first_header(mail, "Message-ID", &orig_msgid) < 0)
-	    orig_msgid = NULL;
     return_addr = mail_deliver_get_return_address(ctx);
     if (return_addr == NULL) {
 	    i_info("msgid=%s: Return-Path missing, rejection reason: %s",
