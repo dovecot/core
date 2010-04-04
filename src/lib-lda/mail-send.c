@@ -181,7 +181,6 @@ int mail_send_forward(struct mail_deliver_context *ctx, const char *forwardto)
     const unsigned char *data;
     const char *return_path;
     size_t size;
-    int ret;
 
     if (mail_get_stream(ctx->src_mail, NULL, NULL, &input) < 0)
 	    return -1;
@@ -199,7 +198,7 @@ int mail_send_forward(struct mail_deliver_context *ctx, const char *forwardto)
                                           N_ELEMENTS(hide_headers),
 					  null_header_filter_callback, NULL);
 
-    while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
+    while (i_stream_read_data(input, &data, &size, 0) > 0) {
 	    if (fwrite(data, size, 1, f) == 0)
 		    break;
 	    i_stream_skip(input, size);

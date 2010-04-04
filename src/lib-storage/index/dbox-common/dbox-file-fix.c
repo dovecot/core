@@ -36,7 +36,6 @@ dbox_file_find_next_magic(struct dbox_file *file, uoff_t *offset_r, bool *pre_r)
 	orig_offset = input->v_offset;
 	while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
 		pre_offset = (uoff_t)-1;
-		post_offset = (uoff_t)-1;
 		if (str_find_more(pre_ctx, data, size)) {
 			pre_offset = input->v_offset +
 				str_find_get_match_end_pos(pre_ctx) -
@@ -292,16 +291,15 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 {
 	struct ostream *output;
-	const char *dir, *fname, *temp_path, *broken_path;
+	const char *dir, *p, *temp_path, *broken_path;
 	bool deleted;
 	int fd, ret;
 
 	i_assert(dbox_file_is_open(file));
 
-	fname = strrchr(file->cur_path, '/');
-	i_assert(fname != NULL);
-	dir = t_strdup_until(file->cur_path, fname);
-	fname++;
+	p = strrchr(file->cur_path, '/');
+	i_assert(p != NULL);
+	dir = t_strdup_until(file->cur_path, p);
 
 	temp_path = t_strdup_printf("%s/%s", dir, dbox_generate_tmp_filename());
 	fd = file->storage->v.file_create_fd(file, temp_path, FALSE);

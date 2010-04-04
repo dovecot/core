@@ -57,7 +57,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 {
         struct message_header_line *line = &ctx->line;
 	const unsigned char *msg;
-	size_t i, size, startpos, colon_pos, parse_size, value_pos;
+	size_t i, size, startpos, colon_pos, parse_size;
 	int ret;
 	bool continued, continues, last_no_newline, last_crlf;
 	bool no_newline, crlf_newline;
@@ -342,7 +342,6 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				buffer_append_c(ctx->value_buf, '\r');
 			buffer_append_c(ctx->value_buf, '\n');
 		}
-		value_pos = ctx->value_buf->used;
 		if ((ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) &&
 		    line->value_len > 0 && line->value[0] != ' ' &&
 		    IS_LWSP(line->value[0])) {

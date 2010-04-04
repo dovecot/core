@@ -358,12 +358,11 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 	const struct mailbox_info *info;
 	struct mail_namespace *ns;
 	enum mailbox_info_flags flags;
-	string_t *str, *name_str;
+	string_t *str;
 	const char *name;
 	int ret = 0;
 
 	str = t_str_new(256);
-	name_str = t_str_new(256);
 	while ((info = mailbox_list_iter_next(ctx->list_iter)) != NULL) {
 		name = info->name;
 		flags = info->flags;

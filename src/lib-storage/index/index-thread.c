@@ -208,7 +208,6 @@ static void mail_thread_strmap_remap(const uint32_t *idx_map,
 	   pointers though. */
 	new_first_invalid = new_count + 1 +
 		THREAD_INVALID_MSGID_STR_IDX_SKIP_COUNT;
-	i = cache->first_invalid_msgid_str_idx;
 	for (i = 0; i < invalid_count; i++) {
 		node = array_idx_modifiable(&new_nodes, new_first_invalid + i);
 		*node = old_nodes[cache->first_invalid_msgid_str_idx + i];

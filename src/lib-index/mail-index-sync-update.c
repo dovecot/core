@@ -237,7 +237,7 @@ sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
 static void
 sync_expunge(struct mail_index_sync_map_ctx *ctx, uint32_t uid1, uint32_t uid2)
 {
-	struct mail_index_map *map = ctx->view->map;
+	struct mail_index_map *map;
 	struct mail_index_record *rec;
 	uint32_t seq_count, seq, seq1, seq2;
 
@@ -673,7 +673,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_HDR_UPDATE: {
-		const struct mail_transaction_ext_hdr_update *rec = data;
+		const struct mail_transaction_ext_hdr_update *rec;
 		unsigned int i;
 
 		for (i = 0; i < hdr->size; ) {
@@ -699,7 +699,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_HDR_UPDATE32: {
-		const struct mail_transaction_ext_hdr_update32 *rec = data;
+		const struct mail_transaction_ext_hdr_update32 *rec;
 		unsigned int i;
 
 		for (i = 0; i < hdr->size; ) {
@@ -779,7 +779,6 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			break;
 		}
 
-		rec = data;
 		end = CONST_PTR_OFFSET(data, hdr->size);
 		for (rec = data; rec < end; rec++) {
 			ret = mail_index_sync_ext_atomic_inc(ctx, rec);
@@ -801,7 +800,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		break;
 	}
 	case MAIL_TRANSACTION_UID_UPDATE: {
-		const struct mail_transaction_uid_update *rec = data, *end;
+		const struct mail_transaction_uid_update *rec, *end;
 
 		end = CONST_PTR_OFFSET(data, hdr->size);
 		for (rec = data; rec < end; rec++)

@@ -202,9 +202,9 @@ config_apply_auth_set(struct config_parser_context *ctx,
 
 static bool listen_has_port(const char *str)
 {
-	const char *p, *const *addrs;
+	const char *const *addrs;
 
-	if ((p = strchr(str, ':')) == NULL)
+	if (strchr(str, ':') == NULL)
 		return FALSE;
 
 	addrs = t_strsplit_spaces(str, ", ");

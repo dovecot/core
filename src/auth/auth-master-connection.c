@@ -464,9 +464,7 @@ static void master_input(struct auth_master_connection *conn)
 
 static int master_output(struct auth_master_connection *conn)
 {
-	int ret;
-
-	if ((ret = o_stream_flush(conn->output)) < 0) {
+	if (o_stream_flush(conn->output) < 0) {
 		/* transmit error, probably master died */
 		auth_master_connection_destroy(&conn);
 		return 1;

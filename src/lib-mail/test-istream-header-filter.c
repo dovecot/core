@@ -25,7 +25,6 @@ static void test_istream_filter(void)
 	unsigned int output_len = strlen(output);
 	const unsigned char *data;
 	size_t size;
-	ssize_t ret;
 
 	test_begin("i_stream_create_header_filter()");
 	istream = test_istream_create(input);
@@ -55,7 +54,7 @@ static void test_istream_filter(void)
 
 	i_stream_skip(filter, size);
 	i_stream_seek(filter, 0);
-	while ((ret = i_stream_read(filter)) > 0) ;
+	while (i_stream_read(filter) > 0) ;
 	data = i_stream_get_data(filter, &size);
 	test_assert(size == output_len && memcmp(data, output, size) == 0);
 

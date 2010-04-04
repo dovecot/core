@@ -389,7 +389,6 @@ node_add_child(struct squat_trie *trie, struct squat_node *node,
 		/* first child */
 		node->children.data = i_malloc(new_size);
 		trie->node_alloc_size += new_size;
-		children = NODE_CHILDREN_NODES(node);
 	} else {
 		old_size = NODE_CHILDREN_ALLOC_SIZE(old_child_count);
 		if (old_size != new_size) {

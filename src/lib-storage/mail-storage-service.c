@@ -116,7 +116,7 @@ user_reply_handle(struct mail_storage_service_user *user,
 		  const char **error_r)
 {
 	struct setting_parser_context *set_parser = user->set_parser;
-	const char *const *str, *p, *line, *key;
+	const char *const *str, *line, *key;
 	unsigned int i, count;
 	bool mail_debug;
 	int ret = 0;
@@ -163,7 +163,7 @@ user_reply_handle(struct mail_storage_service_user *user,
 			}
 #endif
 		} else T_BEGIN {
-			if ((p = strchr(str[i], '=')) == NULL)
+			if (strchr(str[i], '=') == NULL)
 				line = t_strconcat(str[i], "=yes", NULL);
 			else
 				line = str[i];
@@ -464,9 +464,6 @@ static void
 mail_storage_service_init_log(struct master_service *service,
 			      struct mail_storage_service_user *user)
 {
-	const struct mail_user_settings *user_set;
-
-	user_set = master_service_settings_get_others(service)[0];
 	T_BEGIN {
 		string_t *str;
 

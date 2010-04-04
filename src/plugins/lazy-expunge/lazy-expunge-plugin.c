@@ -74,7 +74,6 @@ mailbox_open_or_create(struct mailbox_list *list, const char *name,
 		       const char **error_r)
 {
 	struct mailbox *box;
-	struct mail_storage *storage;
 	enum mail_error error;
 
 	box = mailbox_alloc(list, name, MAILBOX_FLAG_KEEP_RECENT |
@@ -92,7 +91,6 @@ mailbox_open_or_create(struct mailbox_list *list, const char *name,
 	}
 
 	/* try creating and re-opening it. */
-	storage = mail_namespace_get_default_storage(list->ns);
 	if (mailbox_create(box, NULL, FALSE) < 0 ||
 	    mailbox_open(box) < 0) {
 		*error_r = mail_storage_get_last_error(mailbox_get_storage(box),

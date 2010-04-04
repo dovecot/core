@@ -362,12 +362,12 @@ static const char *ssl_err2str(unsigned long err, const char *data, int flags)
 
 static const char *ssl_last_error(void)
 {
-	unsigned long err, err2;
+	unsigned long err;
 	const char *data;
 	int flags;
 
 	err = ERR_get_error_line_data(NULL, NULL, &data, &flags);
-	while (err != 0 && (err2 = ERR_peek_error()) != 0) {
+	while (err != 0 && ERR_peek_error() != 0) {
 		i_error("SSL: Stacked error: %s",
 			ssl_err2str(err, data, flags));
 		err = ERR_get_error();

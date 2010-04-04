@@ -9,13 +9,13 @@
 int home_try_expand(const char **_path)
 {
 	const char *path = *_path;
-	const char *home, *p, *orig_path;
+	const char *home, *p;
 	struct passwd *pw;
 
 	if (path == NULL || *path != '~')
 		return 0;
 
-	orig_path = path++;
+	path++;
 	if (*path == '/' || *path == '\0') {
 		home = getenv("HOME");
 		if (*path != '\0') path++;

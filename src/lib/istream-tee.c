@@ -138,7 +138,7 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 		tee_streams_skip(tstream->tee);
 		ret = i_stream_read(input);
 		if (ret <= 0) {
-			data = i_stream_get_data(input, &size);
+			(void)i_stream_get_data(input, &size);
 			if (ret == -2 && stream->skip != 0) {
 				/* someone else is holding the data,
 				   wait for it */

@@ -306,7 +306,7 @@ int i_strocpy(char *dest, const char *src, size_t dstsize)
 		dstsize--;
 	}
 
-	*dest++ = '\0';
+	*dest = '\0';
 	return *src == '\0' ? 0 : -1;
 }
 

@@ -511,7 +511,7 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 			   enum mail_index_view_sync_flags flags)
 {
 	struct mail_index_view_sync_ctx *ctx;
-	struct mail_index_map *map;
+	struct mail_index_map *tmp_map;
 	unsigned int expunge_count = 0;
 	bool reset, sync_expunges, have_expunges;
 	int ret;
@@ -613,11 +613,9 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		ctx->sync_map_update = TRUE;
 
 		if (view->map->refcount > 1) {
-			map = mail_index_map_clone(view->map);
+			tmp_map = mail_index_map_clone(view->map);
 			mail_index_unmap(&view->map);
-			view->map = map;
-		} else {
-			map = view->map;
+			view->map = tmp_map;
 		}
 
 		if (sync_expunges) {

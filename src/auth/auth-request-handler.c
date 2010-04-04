@@ -103,7 +103,7 @@ static void get_client_extra_fields(struct auth_request *request,
 				    struct auth_stream_reply *reply)
 {
 	const char **fields, *extra_fields;
-	unsigned int src, dest;
+	unsigned int src;
 	bool seen_pass = FALSE;
 
 	if (auth_stream_is_empty(request->extra_fields))
@@ -120,7 +120,7 @@ static void get_client_extra_fields(struct auth_request *request,
 	}
 
 	fields = t_strsplit(extra_fields, "\t");
-	for (src = dest = 0; fields[src] != NULL; src++) {
+	for (src = 0; fields[src] != NULL; src++) {
 		if (strncmp(fields[src], "userdb_", 7) != 0) {
 			if (!seen_pass && strncmp(fields[src], "pass=", 5) == 0)
 				seen_pass = TRUE;

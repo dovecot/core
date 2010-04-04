@@ -36,7 +36,6 @@ void str_append_unescaped(string_t *dest, const void *src, size_t src_size)
 	size_t start = 0, i = 0;
 
 	while (i < src_size) {
-		start = i;
 		for (; i < src_size; i++) {
 			if (src_c[i] == '\\')
 				break;
@@ -127,7 +126,6 @@ void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size)
 	size_t start = 0, i = 0;
 
 	while (i < src_size) {
-		start = i;
 		for (; i < src_size; i++) {
 			if (src_c[i] == '\001')
 				break;

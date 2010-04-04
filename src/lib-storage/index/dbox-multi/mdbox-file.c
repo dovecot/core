@@ -232,7 +232,7 @@ static void mdbox_file_close_later(struct mdbox_file *mfile)
 void mdbox_file_unrefed(struct dbox_file *file)
 {
 	struct mdbox_file *mfile = (struct mdbox_file *)file;
-	struct mdbox_file *const *files, *oldest_file;
+	struct mdbox_file *oldest_file;
 	unsigned int i, count;
 
 	/* don't cache metadata seeks while file isn't being referenced */
@@ -240,7 +240,7 @@ void mdbox_file_unrefed(struct dbox_file *file)
 	mfile->close_time = ioloop_time;
 
 	if (mfile->file_id != 0) {
-		files = array_get(&mfile->storage->open_files, &count);
+		count = array_count(&mfile->storage->open_files);
 		if (!file->deleted && count <= MDBOX_MAX_OPEN_UNUSED_FILES) {
 			/* we can leave this file open for now */
 			mdbox_file_close_later(mfile);

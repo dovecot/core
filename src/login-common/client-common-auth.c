@@ -342,9 +342,7 @@ int client_auth_parse_response(struct client *client)
 
 static void client_auth_input(struct client *client)
 {
-	int ret;
-
-	if ((ret = client->v.auth_parse_response(client)) <= 0)
+	if (client->v.auth_parse_response(client) <= 0)
 		return;
 
 	client_set_auth_waiting(client);

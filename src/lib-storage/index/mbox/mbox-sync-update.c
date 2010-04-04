@@ -112,7 +112,7 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 
 	/* @UNSAFE */
 	data = buffer_get_space_unsafe(ctx->header, pos, need);
-	for (i = 0, need = 0; flags_list[i].chr != 0; i++) {
+	for (i = 0; flags_list[i].chr != 0; i++) {
 		if ((ctx->mail.flags & flags_list[i].flag) != 0)
 			*data++ = flags_list[i].chr;
 	}
@@ -187,11 +187,9 @@ keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest,
 
 static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 {
-	size_t old_hdr_size, new_hdr_size, startpos;
+	size_t new_hdr_size, startpos;
 
-	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
-
 	if (new_hdr_size > 0 &&
 	    str_data(ctx->header)[new_hdr_size-1] != '\n') {
 		/* broken header - doesn't end with \n. fix it. */

@@ -1369,10 +1369,9 @@ void index_mail_cache_parse_continue(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct message_block block;
-	int ret;
 
-	while ((ret = message_parser_parse_next_block(mail->data.parser_ctx,
-						      &block)) > 0) {
+	while (message_parser_parse_next_block(mail->data.parser_ctx,
+					       &block) > 0) {
 		if (block.size != 0)
 			continue;
 

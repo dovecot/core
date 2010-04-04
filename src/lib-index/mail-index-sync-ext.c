@@ -338,7 +338,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 		sync_ext_reorder(map, ext_map_idx, old_record_size);
 	} else if (modified) {
 		/* header size changed. recreate index file. */
-		map = mail_index_sync_get_atomic_map(ctx);
+		(void)mail_index_sync_get_atomic_map(ctx);
 	}
 }
 
@@ -372,7 +372,7 @@ mail_index_sync_ext_init_new(struct mail_index_sync_map_ctx *ctx,
 			     const struct mail_index_ext_header *ext_hdr,
 			     uint32_t *ext_map_idx_r)
 {
-	struct mail_index_map *map = ctx->view->map;
+	struct mail_index_map *map;
 	const struct mail_index_ext *ext;
 	buffer_t *hdr_buf;
 	uint32_t ext_map_idx;
@@ -573,7 +573,7 @@ static void mail_index_sync_ext_clear(struct mail_index_view *view,
 int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_reset *u)
 {
-	struct mail_index_map *map = ctx->view->map;
+	struct mail_index_map *map;
 	struct mail_index_ext_header *ext_hdr;
         struct mail_index_ext *ext;
 

@@ -140,9 +140,8 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 	return &ctx->ctx;
 }
 
-struct maildir_filename *
-maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
-		 bool preserve_filename)
+void maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
+		      bool preserve_filename)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct maildir_filename *mf;
@@ -222,7 +221,6 @@ maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
 		ctx->input = input;
 		ctx->cur_dest_mail = _ctx->dest_mail;
 	}
-	return mf;
 }
 
 static bool
@@ -384,7 +382,6 @@ maildir_save_alloc(struct mailbox_transaction_context *t)
 int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
-	struct maildir_filename *mf;
 
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
@@ -398,7 +395,7 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 				ctx->input = i_stream_create_crlf(input);
 			else
 				ctx->input = i_stream_create_lf(input);
-			mf = maildir_save_add(_ctx, fname, fname == _ctx->guid);
+			maildir_save_add(_ctx, fname, fname == _ctx->guid);
 		}
 	} T_END;
 
@@ -836,11 +833,10 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx,
 {
 	struct maildir_filename *mf;
 	bool newdir, new_changed, cur_changed;
-	int ret = 0;
+	int ret;
 
 	*last_mf_r = NULL;
 
-	ret = 0;
 	new_changed = cur_changed = FALSE;
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
 		T_BEGIN {

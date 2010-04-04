@@ -200,7 +200,6 @@ static void status_flags_append(string_t *str, enum mail_flags flags,
 		if ((flags & flags_list[i].flag) != 0)
 			str_append_c(str, flags_list[i].chr);
 	}
-	flags ^= MBOX_NONRECENT_KLUDGE;
 }
 
 static void mbox_save_append_flag_headers(string_t *str, enum mail_flags flags)

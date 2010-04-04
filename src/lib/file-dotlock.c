@@ -507,7 +507,6 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 				lock_info.wait_usecs += lock_info.wait_usecs/2;
 			}
 			dotlock_wait(&lock_info);
-			do_wait = FALSE;
 		}
 
 		ret = check_lock(now, &lock_info);
@@ -526,7 +525,6 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 				break;
 		}
 
-		do_wait = TRUE;
 		if (last_notify != now && set->callback != NULL) {
 			last_notify = now;
 			change_secs = now - lock_info.last_change;
@@ -548,6 +546,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 			}
 		}
 
+		do_wait = TRUE;
 		now = time(NULL);
 	} while (now < max_wait_time);
 

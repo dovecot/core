@@ -12,7 +12,6 @@ void askpass(const char *prompt, char *buf, size_t buf_size)
 {
         struct termios old_tio, tio;
 	bool restore_tio = FALSE;
-	ssize_t ret;
 	size_t pos;
 	char ch;
 	int fd;
@@ -37,7 +36,7 @@ void askpass(const char *prompt, char *buf, size_t buf_size)
 
 	/* read the password */
 	pos = 0;
-	while ((ret = read(fd, &ch, 1)) > 0) {
+	while (read(fd, &ch, 1) > 0) {
 		if (pos >= buf_size-1)
 			break;
 		if (ch == '\n' || ch == '\r')

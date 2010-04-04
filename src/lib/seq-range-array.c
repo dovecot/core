@@ -188,7 +188,7 @@ bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 
 	/* somewhere in the middle, array is sorted so find it with
 	   binary search */
-	idx = 0; left_idx = 0; right_idx = count;
+	left_idx = 0; right_idx = count;
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
 

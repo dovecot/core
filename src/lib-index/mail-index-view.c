@@ -278,7 +278,7 @@ mail_index_data_lookup_keywords(struct mail_index_map *map,
 		return;
 
 	keyword_idx_map = array_get(&map->keyword_idx_map, &keyword_count);
-	for (i = 0, idx = 0; i < record_size; i++) {
+	for (i = 0; i < record_size; i++) {
 		/* first do the quick check to see if there's keywords at all */
 		if (data[i] == 0)
 			continue;

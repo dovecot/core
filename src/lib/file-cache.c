@@ -310,7 +310,6 @@ void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 
 	/* set the last byte */
 	if (size > 0) {
-		mask = 0;
 		for (i = 0, mask = 0; i < size; i++)
 			mask |= 1 << i;
 		*bits &= ~mask;

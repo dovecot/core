@@ -501,7 +501,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 				  const char *newname, bool rename_children)
 {
 	struct mail_storage *oldstorage;
-	const char *oldpath, *newpath, *alt_oldpath, *alt_newpath, *root_path;
+	const char *oldpath, *newpath, *alt_newpath, *root_path;
 	const char *p, *origin;
 	enum mailbox_list_path_type path_type, alt_path_type;
 	struct stat st;
@@ -528,7 +528,6 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 
 	oldpath = mailbox_list_get_path(oldlist, oldname, path_type);
 	newpath = mailbox_list_get_path(newlist, newname, path_type);
-	alt_oldpath = mailbox_list_get_path(oldlist, oldname, alt_path_type);
 	alt_newpath = mailbox_list_get_path(newlist, newname, alt_path_type);
 
 	root_path = mailbox_list_get_path(oldlist, NULL,

@@ -78,7 +78,7 @@ get_sort_program(struct client_command_context *cmd,
 		client_send_command_error(cmd, "Sort list ends with REVERSE.");
 		return -1;
 	}
-	program[pos++] = MAIL_SORT_END;
+	program[pos] = MAIL_SORT_END;
 
 	if (args->type != IMAP_ARG_EOL) {
 		client_send_command_error(cmd,

@@ -768,7 +768,7 @@ int main(int argc, char *argv[])
 	}
 	i_assert(child_process_env_idx <
 		 sizeof(child_process_env) / sizeof(child_process_env[0]));
-	child_process_env[child_process_env_idx++] = NULL;
+	child_process_env[child_process_env_idx] = NULL;
 
 	/* create service structures from settings. if there are any errors in
 	   service configuration we'll catch it here. */

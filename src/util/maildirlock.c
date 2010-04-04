@@ -39,7 +39,7 @@ int main(int argc, const char *argv[])
 {
 	struct dotlock *dotlock;
 	unsigned int timeout;
-	pid_t pid, parent_pid;
+	pid_t pid;
 	int fd[2], ret;
 	char c;
 
@@ -48,7 +48,6 @@ int main(int argc, const char *argv[])
 			" - SIGTERM will release the lock.\n");
 		return 1;
 	}
-	parent_pid = getpid();
 	if (pipe(fd) != 0) {
 		fprintf(stderr, "pipe() failed: %s", strerror(errno));
 		return 1;

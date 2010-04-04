@@ -884,7 +884,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	struct mail_cache *cache = ctx->cache;
 	int ret;
 
-	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
+	if (mail_cache_transaction_lock(ctx) <= 0) {
 		if (MAIL_CACHE_IS_UNUSABLE(cache))
 			return -1;
 
@@ -895,7 +895,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 			return 0;
 
 		/* need to add it */
-		if ((ret = mail_cache_transaction_lock(ctx)) <= 0)
+		if (mail_cache_transaction_lock(ctx) <= 0)
 			return -1;
 	}
 

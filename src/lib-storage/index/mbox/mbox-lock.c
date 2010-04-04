@@ -457,7 +457,7 @@ static int mbox_lock_dotlock_try(struct mbox_lock_context *ctx, int lock_type,
 static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)
 {
-	time_t now, last_notify;
+	time_t now;
 	unsigned int next_alarm;
 
 	if (mbox_file_open_latest(ctx, lock_type) < 0)
@@ -485,7 +485,6 @@ static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 			alarm(I_MIN(max_wait_time - now, 5));
 	}
 
-        last_notify = 0;
 	while (flock(ctx->mbox->mbox_fd, lock_type) < 0) {
 		if (errno != EINTR) {
 			if (errno == EWOULDBLOCK && max_wait_time == 0) {
@@ -524,7 +523,7 @@ static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)
 {
-	time_t now, last_notify;
+	time_t now;
 	unsigned int next_alarm;
 
 	if (mbox_file_open_latest(ctx, lock_type) < 0)
@@ -548,7 +547,6 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 		lock_type = F_LOCK;
 	}
 
-        last_notify = 0;
 	while (lockf(ctx->mbox->mbox_fd, lock_type, 0) < 0) {
 		if (errno != EINTR) {
 			if ((errno == EACCES || errno == EAGAIN) &&

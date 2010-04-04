@@ -184,7 +184,6 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	stream->skip = 0;
 	stream->buffer = NULL;
 
-	ret = 0;
 	do {
 		buf = i_stream_get_data(stream->parent, &pos);
 		if (pos > 1 && stream->istream.v_offset + pos >

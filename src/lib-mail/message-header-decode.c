@@ -77,7 +77,7 @@ void message_header_decode(const unsigned char *data, size_t size,
 	size_t pos, start_pos, ret;
 
 	/* =?charset?Q|B?text?= */
-	start_pos = pos = 0;
+	start_pos = 0;
 	for (pos = 0; pos + 1 < size; ) {
 		if (data[pos] != '=' || data[pos+1] != '?') {
 			pos++;

@@ -9,7 +9,6 @@ bool cmd_close(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct mailbox *mailbox = client->mailbox;
 	struct mail_storage *storage;
-	int ret;
 
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
@@ -18,7 +17,7 @@ bool cmd_close(struct client_command_context *cmd)
 	client->mailbox = NULL;
 
 	storage = mailbox_get_storage(mailbox);
-	if ((ret = imap_expunge(mailbox, NULL)) < 0)
+	if (imap_expunge(mailbox, NULL) < 0)
 		client_send_untagged_storage_error(client, storage);
 	if (mailbox_sync(mailbox, 0) < 0)
 		client_send_untagged_storage_error(client, storage);

@@ -845,7 +845,7 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 		*cur_modseq += 1;
 		break;
 	case MAIL_TRANSACTION_MODSEQ_UPDATE: {
-		const struct mail_transaction_modseq_update *rec = data, *end;
+		const struct mail_transaction_modseq_update *rec, *end;
 
 		end = CONST_PTR_OFFSET(data, trans_size - sizeof(*hdr));
 		for (rec = data; rec < end; rec++) {

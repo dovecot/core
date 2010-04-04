@@ -30,13 +30,12 @@ static int select_qresync_get_uids(struct imap_select_context *ctx,
 				   const ARRAY_TYPE(seq_range) *seqset,
 				   const ARRAY_TYPE(seq_range) *uidset)
 {
-	const struct seq_range *seq_range, *uid_range;
+	const struct seq_range *uid_range;
 	struct seq_range_iter seq_iter;
-	unsigned int i, seq_count, uid_count, diff, n = 0;
+	unsigned int i, uid_count, diff, n = 0;
 	uint32_t seq;
 
 	/* change all n:m ranges to n,m and store the results */
-	seq_range = array_get(seqset, &seq_count);
 	uid_range = array_get(uidset, &uid_count);
 
 	seq_range_array_iter_init(&seq_iter, seqset);
@@ -200,9 +199,8 @@ static void cmd_select_finish(struct imap_select_context *ctx, int ret)
 static bool cmd_select_continue(struct client_command_context *cmd)
 {
         struct imap_select_context *ctx = cmd->context;
-	int ret;
 
-	if ((ret = imap_fetch_more(ctx->fetch_ctx)) == 0) {
+	if (imap_fetch_more(ctx->fetch_ctx) == 0) {
 		/* unfinished */
 		return FALSE;
 	}

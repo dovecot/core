@@ -7,7 +7,6 @@ bool cmd_unselect(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mailbox *mailbox = client->mailbox;
-	struct mail_storage *storage;
 
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
@@ -17,7 +16,6 @@ bool cmd_unselect(struct client_command_context *cmd)
 	i_assert(client->mailbox_change_lock == NULL);
 	client->mailbox = NULL;
 
-	storage = mailbox_get_storage(mailbox);
 	mailbox_free(&mailbox);
 	client_update_mailbox_flags(client, NULL);
 

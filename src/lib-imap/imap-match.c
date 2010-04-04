@@ -69,7 +69,7 @@ static const char *pattern_compress(const char *pattern)
 			*dest++ = *pattern++;
 		}
 	}
-	*dest++ = '\0';
+	*dest = '\0';
 	return ret;
 }
 

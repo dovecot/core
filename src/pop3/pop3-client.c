@@ -535,9 +535,7 @@ static void client_input(struct client *client)
 
 static int client_output(struct client *client)
 {
-	int ret;
-
-	if ((ret = o_stream_flush(client->output)) < 0) {
+	if (o_stream_flush(client->output) < 0) {
 		client_destroy(client, NULL);
 		return 1;
 	}
