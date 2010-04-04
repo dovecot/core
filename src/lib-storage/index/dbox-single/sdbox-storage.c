@@ -64,7 +64,7 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 }
 
 int sdbox_read_header(struct sdbox_mailbox *mbox,
-		      struct sdbox_index_header *hdr)
+		      struct sdbox_index_header *hdr, bool log_error)
 {
 	const void *data;
 	size_t data_size;
@@ -73,9 +73,12 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 				  &data, &data_size);
 	if (data_size < SDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
-		mail_storage_set_critical(&mbox->storage->storage.storage,
-			"dbox %s: Invalid dbox header size",
-			mbox->box.path);
+		if (log_error) {
+			mail_storage_set_critical(
+				&mbox->storage->storage.storage,
+				"dbox %s: Invalid dbox header size",
+				mbox->box.path);
+		}
 		return -1;
 	}
 	memset(hdr, 0, sizeof(*hdr));
@@ -89,7 +92,7 @@ void sdbox_update_header(struct sdbox_mailbox *mbox,
 {
 	struct sdbox_index_header hdr, new_hdr;
 
-	if (sdbox_read_header(mbox, &hdr) < 0)
+	if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 
 	new_hdr = hdr;
@@ -176,13 +179,13 @@ sdbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 	struct sdbox_index_header hdr;
 
-	if (sdbox_read_header(mbox, &hdr) < 0)
+	if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 
 	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
 		if (sdbox_write_index_header(box, NULL) < 0 ||
-		    sdbox_read_header(mbox, &hdr) < 0)
+		    sdbox_read_header(mbox, &hdr, TRUE) < 0)
 			return -1;
 	}
 	memcpy(guid, hdr.mailbox_guid, MAIL_GUID_128_SIZE);

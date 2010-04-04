@@ -142,21 +142,22 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 	return ret;
 }
 
-static int sdbox_refresh_header(struct sdbox_mailbox *mbox, bool retry)
+static int
+sdbox_refresh_header(struct sdbox_mailbox *mbox, bool retry, bool log_error)
 {
 	struct mail_index_view *view;
 	struct sdbox_index_header hdr;
 	int ret;
 
 	view = mail_index_view_open(mbox->box.index);
-	ret = sdbox_read_header(mbox, &hdr);
+	ret = sdbox_read_header(mbox, &hdr, log_error);
 	mail_index_view_close(&view);
 
 	if (ret == 0) {
 		ret = mbox->sync_rebuild ? -1 : 0;
 	} else if (retry) {
 		(void)mail_index_refresh(mbox->box.index);
-		return sdbox_refresh_header(mbox, FALSE);
+		return sdbox_refresh_header(mbox, FALSE, log_error);
 	}
 	return ret;
 }
@@ -171,7 +172,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 	int ret;
 	bool rebuild;
 
-	rebuild = sdbox_refresh_header(mbox, TRUE) < 0 ||
+	rebuild = sdbox_refresh_header(mbox, TRUE, FALSE) < 0 ||
 		(flags & SDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
 
 	ctx = i_new(struct sdbox_sync_context, 1);
@@ -199,8 +200,8 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 			return ret;
 		}
 
-		/* now that we're locked, check again if we want to rebuild */
-		if (sdbox_refresh_header(mbox, FALSE) < 0)
+		/* now that we're locked, check again if we want to rebuild. */
+		if (sdbox_refresh_header(mbox, FALSE, TRUE) < 0)
 			ret = 0;
 		else {
 			if ((ret = sdbox_sync_index(ctx)) > 0)
