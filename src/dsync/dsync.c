@@ -139,6 +139,8 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 
 	memset(&input, 0, sizeof(input));
+	input.module = "mail";
+	input.service = "dsync";
 	input.username = username;
 
 	storage_service = mail_storage_service_init(master_service, NULL,
