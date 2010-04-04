@@ -1295,13 +1295,13 @@ local_worker_select_mailbox(struct dsync_worker *_worker,
 		(struct local_dsync_worker *)_worker;
 	struct mailbox_transaction_context *trans, *ext_trans;
 
-	if (worker->selected_box != NULL) {
-		if (dsync_guid_equals(&worker->selected_box_guid, mailbox)) {
-			/* already selected */
-			return;
-		}
-		local_worker_mailbox_close(worker);
+	if (dsync_guid_equals(&worker->selected_box_guid, mailbox)) {
+		/* already selected or previous select failed */
+		i_assert(worker->selected_box != NULL || _worker->failed);
+		return;
 	}
+	if (worker->selected_box != NULL)
+		local_worker_mailbox_close(worker);
 	worker->selected_box_guid = *mailbox;
 
 	if (local_mailbox_open(worker, mailbox, &worker->selected_box) < 0) {
