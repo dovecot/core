@@ -261,7 +261,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
                    problems in here. */
 		if (fstat(log->head->fd, &st) < 0) {
 			mail_index_file_set_syscall_error(log->index,
-				file->filepath, "fstat()");
+				log->head->filepath, "fstat()");
 			return -1;
 		}
 
