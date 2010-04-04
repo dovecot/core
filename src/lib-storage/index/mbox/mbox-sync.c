@@ -397,7 +397,7 @@ static void mbox_sync_update_flags(struct mbox_sync_mail_context *mail_ctx,
 			MAIL_INDEX_MAIL_FLAG_DIRTY;
 	}
 	if (sync_type != 0 && box->v.sync_notify != NULL) {
-		box->v.sync_notify(box, rec->uid,
+		box->v.sync_notify(box, mail_ctx->mail.uid,
 				   index_sync_type_convert(sync_type));
 	}
 }
