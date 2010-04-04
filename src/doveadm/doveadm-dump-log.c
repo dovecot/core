@@ -251,9 +251,9 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT: {
 		const struct mail_transaction_expunge *exp = data;
 
-		printf(" -");
+		printf(" - uids=");
 		for (; size > 0; size -= sizeof(*exp), exp++) {
-			printf(" %u-%u", exp->uid1, exp->uid2);
+			printf("%u-%u,", exp->uid1, exp->uid2);
 		}
 		printf("\n");
 		break;
@@ -262,7 +262,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		const struct mail_transaction_expunge_guid *exp = data;
 
 		for (; size > 0; size -= sizeof(*exp), exp++) {
-			printf(" - %u (guid ", exp->uid);
+			printf(" - uid=%u (guid ", exp->uid);
 			print_data(exp->guid_128, sizeof(exp->guid_128));
 			printf(")\n");
 		}
@@ -271,7 +271,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_APPEND: {
 		const struct mail_index_record *rec = data;
 
-		printf(" - ");
+		printf(" - uids=");
 		for (; size > 0; size -= sizeof(*rec), rec++) {
 			printf("%u", rec->uid);
 			if (rec->flags != 0)
@@ -285,8 +285,8 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		const struct mail_transaction_flag_update *u = data;
 
 		for (; size > 0; size -= sizeof(*u), u++) {
-			printf(" - %u-%u (flags +%x-%x)\n", u->uid1, u->uid2,
-			       u->add_flags, u->remove_flags);
+			printf(" - uids=%u-%u (flags +%x-%x)\n",
+			       u->uid1, u->uid2, u->add_flags, u->remove_flags);
 		}
 		break;
 	}
@@ -347,7 +347,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		end = CONST_PTR_OFFSET(data, size);
 		record_size = (sizeof(*rec) + prev_intro.record_size + 3) & ~3;
 		while (rec < end) {
-			printf(" - %u: ", rec->uid);
+			printf(" - uid=%u: ", rec->uid);
 			print_data(rec + 1, prev_intro.record_size);
 			printf("\n");
 			rec = CONST_PTR_OFFSET(rec, record_size);
@@ -359,7 +359,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 
 		end = CONST_PTR_OFFSET(data, size);
 		for (; rec < end; rec++) {
-			printf(" - %u: ", rec->uid);
+			printf(" - uid=%u: ", rec->uid);
 			if (rec->diff > 0)
 				printf("+%d\n", rec->diff);
 			else
@@ -372,7 +372,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		const uint32_t *uid;
 		unsigned int uid_offset;
 
-		printf(" - modify=%d, name=%.*s, ",
+		printf(" - modify=%d, name=%.*s, uids=",
 		       u->modify_type, u->name_size, (const char *)(u+1));
 
 		uid_offset = sizeof(*u) + u->name_size +
@@ -389,7 +389,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_KEYWORD_RESET: {
 		const struct mail_transaction_keyword_reset *u = data;
 
-		printf(" - ");
+		printf(" - uids=");
 		for (; size > 0; size -= sizeof(*u), u++) {
 			printf("%u-%u, ", u->uid1, u->uid2);
 		}
