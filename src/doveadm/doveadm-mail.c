@@ -287,6 +287,7 @@ void doveadm_mail_help_name(const char *cmd_name)
 		if (strcmp(cmd->name, cmd_name) == 0)
 			doveadm_mail_help(cmd);
 	}
+	i_fatal("Missing help for command %s", cmd_name);
 }
 
 static struct doveadm_mail_cmd mail_commands[] = {
