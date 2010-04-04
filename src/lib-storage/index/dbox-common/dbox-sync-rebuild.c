@@ -91,15 +91,18 @@ void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
 
 static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
 {
-	const struct mail_index_header *hdr, *backup_hdr;
+	const struct mail_index_header *hdr, *backup_hdr, *trans_hdr;
 	struct mail_index *index = mail_index_view_get_index(ctx->view);
 	struct mail_index_modseq_header modseq_hdr;
+	struct mail_index_view *trans_view;
 	uint32_t uid_validity, next_uid;
 	uint64_t modseq;
 
 	hdr = mail_index_get_header(ctx->view);
 	backup_hdr = ctx->backup_view == NULL ? NULL :
 		mail_index_get_header(ctx->backup_view);
+	trans_view = mail_index_transaction_open_updated_view(ctx->trans);
+	trans_hdr = mail_index_get_header(trans_view);
 
 	/* set uidvalidity */
 	if (hdr->uid_validity != 0)
@@ -119,9 +122,11 @@ static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
 		next_uid = backup_hdr->next_uid;
 	else
 		next_uid = dbox_get_uidvalidity_next(ctx->box->list);
-	mail_index_update_header(ctx->trans,
-				 offsetof(struct mail_index_header, next_uid),
-				 &next_uid, sizeof(next_uid), FALSE);
+	if (next_uid > trans_hdr->next_uid) {
+		mail_index_update_header(ctx->trans,
+			offsetof(struct mail_index_header, next_uid),
+			&next_uid, sizeof(next_uid), FALSE);
+	}
 
 	/* set highest-modseq */
 	memset(&modseq_hdr, 0, sizeof(modseq_hdr));
@@ -133,6 +138,7 @@ static void dbox_sync_rebuild_header(struct dbox_sync_rebuild_context *ctx)
 	}
 	mail_index_update_header_ext(ctx->trans, index->modseq_ext_id,
 				     0, &modseq_hdr, sizeof(modseq_hdr));
+	mail_index_view_close(&trans_view);
 }
 
 struct dbox_sync_rebuild_context *
