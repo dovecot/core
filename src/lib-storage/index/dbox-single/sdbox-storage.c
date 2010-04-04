@@ -120,7 +120,9 @@ static int sdbox_write_index_header(struct mailbox *box,
 
 	if (update != NULL && update->uid_validity != 0)
 		uid_validity = update->uid_validity;
-	else if (hdr->uid_validity == 0) {
+	else if (hdr->uid_validity != 0)
+		uid_validity = hdr->uid_validity;
+	else {
 		/* set uidvalidity */
 		uid_validity = dbox_get_uidvalidity_next(box->list);
 	}
