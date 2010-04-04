@@ -521,8 +521,11 @@ maildir_list_get_mailbox_flags(struct mailbox_list *list,
 	   selectable mailbox we have 3 more links (cur/, new/ and tmp/)
 	   than non-selectable. */
 	cur_path = t_strconcat(dir, "/", fname, "/cur", NULL);
-	if (stat(cur_path, &st2) < 0 || !S_ISDIR(st2.st_mode)) {
-		*flags |= MAILBOX_NOSELECT;
+	if ((ret = stat(cur_path, &st2)) < 0 || !S_ISDIR(st2.st_mode)) {
+		if (ret < 0 && errno == ENOENT)
+			*flags |= MAILBOX_NONEXISTENT;
+		else
+			*flags |= MAILBOX_NOSELECT;
 		if (st_r->st_nlink > 2)
 			*flags |= MAILBOX_CHILDREN;
 		else

@@ -174,7 +174,8 @@ maildir_get_type(const char *dir, const char *fname,
 	const char *path;
 	struct stat st;
 
-	path = t_strdup_printf("%s/%s", dir, fname);
+	path = *fname == '\0' ? dir :
+		t_strdup_printf("%s/%s", dir, fname);
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
 			/* just deleted? */
@@ -215,7 +216,7 @@ int maildir_list_get_mailbox_flags(struct mailbox_list *list,
 	case MAILBOX_LIST_FILE_TYPE_UNKNOWN:
 	case MAILBOX_LIST_FILE_TYPE_SYMLINK:
 		/* need to check with stat() to be sure */
-		if (!list->mail_set->maildir_stat_dirs &&
+		if (!list->mail_set->maildir_stat_dirs && *fname != '\0' &&
 		    strcmp(list->name, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 &&
 		    strncmp(fname, ".nfs", 4) != 0) {
 			/* just assume it's a valid mailbox */
@@ -248,7 +249,12 @@ int maildir_list_get_mailbox_flags(struct mailbox_list *list,
 	case MAILBOX_LIST_FILE_TYPE_SYMLINK:
 		i_unreached();
 	}
-	*flags_r |= MAILBOX_SELECT;
+	if (*fname != '\0') {
+		/* this tells maildir storage code that it doesn't need to
+		   see if cur/ exists, because just the existence of .dir/
+		   assumes that the mailbox exists. */
+		*flags_r |= MAILBOX_SELECT;
+	}
 	return 1;
 }
 

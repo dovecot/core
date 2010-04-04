@@ -673,21 +673,32 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r)
 {
-	const char *path, *fname;
+	const char *path, *fname, *rootdir;
 	struct stat st;
+	unsigned int len;
 
+	rootdir = mailbox_list_get_path(list, NULL,
+					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (path == NULL) {
 		/* shouldn't happen with anything except shared mailboxes */
 		return 0;
 	}
-	fname = strrchr(path, '/');
-	if (fname == NULL) {
-		fname = path;
-		path = "/";
+
+	len = strlen(rootdir);
+	if (strncmp(path, rootdir, len) == 0 && path[len] == '/') {
+		fname = strrchr(path, '/');
+		if (fname == NULL) {
+			fname = path;
+			path = "/";
+		} else {
+			path = t_strdup_until(path, fname);
+			fname++;
+		}
 	} else {
-		path = t_strdup_until(path, fname);
-		fname++;
+		/* a) looking up INBOX that's elsewhere
+		   b) looking up the root dir itself (as INBOX or "") */
+		fname = "";
 	}
 	return list->v.get_mailbox_flags(list, path, fname,
 					 MAILBOX_LIST_FILE_TYPE_UNKNOWN,
