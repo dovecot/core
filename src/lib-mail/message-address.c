@@ -245,11 +245,13 @@ static int parse_group(struct message_address_parser_context *ctx)
 			}
 		}
 	}
-	if (*ctx->parser.data != ';')
-		ret = -1;
-	else {
-		ctx->parser.data++;
-		ret = rfc822_skip_lwsp(&ctx->parser);
+	if (ret >= 0) {
+		if (*ctx->parser.data != ';')
+			ret = -1;
+		else {
+			ctx->parser.data++;
+			ret = rfc822_skip_lwsp(&ctx->parser);
+		}
 	}
 	if (ret < 0)
 		ctx->addr.invalid_syntax = TRUE;
