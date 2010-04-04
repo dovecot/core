@@ -229,7 +229,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 
 	/* figure out what permissions we should use for maildirsize.
 	   use the inbox namespace's permissions if possible. */
-	mode = 0600; dir_mode = 0700; gid_origin = "default";
+	mode = 0600; dir_mode = 0700; dir_gid_origin = gid_origin = "default";
 	gid = dir_gid = (gid_t)-1;
 	namespaces = array_get(&root->root.quota->namespaces, &count);
 	i_assert(count > 0);
