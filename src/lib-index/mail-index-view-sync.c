@@ -179,7 +179,7 @@ view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 	mail_transaction_log_view_rewind(view->log_view);
 
 	*expunge_count_r = view_sync_expunges2seqs(ctx);
-	return 0;
+	return ret;
 }
 
 static bool have_existing_expunges(struct mail_index_view *view,
