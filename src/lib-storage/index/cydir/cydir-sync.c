@@ -154,7 +154,7 @@ int cydir_sync_finish(struct cydir_sync_context **_ctx, bool success)
 	if (ctx->path != NULL)
 		str_free(&ctx->path);
 	i_free(ctx);
-	return 0;
+	return ret;
 }
 
 static int cydir_sync(struct cydir_mailbox *mbox)
