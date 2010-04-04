@@ -23,9 +23,15 @@ static void cmd_quota_get_root(struct mail_user *user, struct quota_root *root)
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
 		ret = quota_get_resource(root, "", *res, &value, &limit);
-		printf("%s %llu/%llu", *res,
-		       (unsigned long long)value,
-		       (unsigned long long)limit);
+		printf("%s ", *res);
+		if (ret > 0) {
+			printf("%llu/%llu",
+			       (unsigned long long)value,
+			       (unsigned long long)limit);
+		} else if (ret == 0)
+			printf("none");
+		else
+			printf("error");
 		if (res[1] != NULL)
 			printf(", ");
 	}
