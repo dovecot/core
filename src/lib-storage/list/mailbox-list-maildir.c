@@ -397,16 +397,10 @@ static const char *mailbox_list_maildir_get_trash_dir(struct mailbox_list *list)
 }
 
 static int
-maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
+maildir_list_delete_maildir(struct mailbox_list *list, const char *name)
 {
 	const char *path, *trash_dir;
 	int ret = 0;
-
-	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
-		if (mailbox_list_delete_mailbox_file(list, name) < 0)
-			return -1;
-		ret = 1;
-	}
 
 	trash_dir = mailbox_list_maildir_get_trash_dir(list);
 	ret = mailbox_list_delete_maildir_via_trash(list, name, trash_dir);
@@ -420,6 +414,19 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (mailbox_list_delete_mailbox_nonrecursive(list, name,
 							     path, TRUE) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int
+maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
+{
+	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
+		if (mailbox_list_delete_mailbox_file(list, name) < 0)
+			return -1;
+	} else {
+		if (maildir_list_delete_maildir(list, name) < 0)
 			return -1;
 	}
 
