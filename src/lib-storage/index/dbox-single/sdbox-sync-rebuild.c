@@ -176,8 +176,5 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox)
 	else
 		ret = mail_index_transaction_commit(&trans);
 	mail_index_view_close(&view);
-
-	if (ret == 0)
-		mbox->sync_rebuild = FALSE;
 	return ret;
 }

@@ -30,7 +30,6 @@ struct sdbox_mailbox {
 	uint32_t hdr_ext_id;
 
 	unsigned int creating:1;
-	unsigned int sync_rebuild:1;
 };
 
 extern struct mail_vfuncs sdbox_mail_vfuncs;

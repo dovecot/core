@@ -153,9 +153,7 @@ sdbox_refresh_header(struct sdbox_mailbox *mbox, bool retry, bool log_error)
 	ret = sdbox_read_header(mbox, &hdr, log_error);
 	mail_index_view_close(&view);
 
-	if (ret == 0) {
-		ret = mbox->sync_rebuild ? -1 : 0;
-	} else if (retry) {
+	if (ret < 0 && retry) {
 		(void)mail_index_refresh(mbox->box.index);
 		return sdbox_refresh_header(mbox, FALSE, log_error);
 	}
@@ -280,8 +278,7 @@ sdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
-	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->box, flags) ||
-			 mbox->sync_rebuild)) {
+	if (ret == 0 && index_mailbox_want_full_sync(&mbox->box, flags)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
 			sdbox_sync_flags |= SDBOX_SYNC_FLAG_FORCE_REBUILD;
 		ret = sdbox_sync(mbox, sdbox_sync_flags);
