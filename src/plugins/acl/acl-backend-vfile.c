@@ -899,7 +899,7 @@ static bool modify_right_list(pool_t pool,
 			      enum acl_modify_mode modify_mode)
 {
 	const char *const *old_rights = *rightsp;
-	const char *const *new_rights;
+	const char *const *new_rights = NULL;
 	const char *null = NULL;
 	ARRAY_TYPE(const_string) rights;
 	unsigned int i, j;
@@ -945,10 +945,11 @@ static bool modify_right_list(pool_t pool,
 		*rightsp = NULL;
 		return TRUE;
 	}
+	i_assert(new_rights != NULL);
 	*rightsp = new_rights;
 
 	if (old_rights == NULL)
-		return new_rights != NULL;
+		return new_rights[0] != NULL;
 
 	/* see if anything changed */
 	for (i = 0; old_rights[i] != NULL && new_rights[i] != NULL; i++) {
