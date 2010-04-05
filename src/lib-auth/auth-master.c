@@ -442,7 +442,8 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 
 	if (ctx.return_value <= 0 || ctx.fields[0] == NULL) {
 		*username_r = NULL;
-		*fields_r = ctx.fields;
+		*fields_r = ctx.fields != NULL ? ctx.fields :
+			p_new(pool, const char *, 1);
 		if (ctx.return_value > 0) {
 			i_error("Userdb lookup didn't return username");
 			ctx.return_value = -1;
@@ -511,7 +512,8 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	(void)auth_master_run_cmd(conn, str_c(str));
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;
 
-	*fields_r = ctx.fields;
+	*fields_r = ctx.fields != NULL ? ctx.fields :
+		p_new(pool, const char *, 1);
 	return ctx.return_value;
 }
 
