@@ -494,10 +494,13 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		if (!mail_index_map_lookup_ext(map, name, &ext_map_idx))
 			ext_map_idx = (uint32_t)-1;
 	}
-	ext = ext_map_idx == (uint32_t)-1 ? NULL :
-		array_idx(&map->extensions, ext_map_idx);
-	if (ext != NULL)
+	if (ext_map_idx == (uint32_t)-1)
+		ext = NULL;
+	else {
+		ext = array_idx(&map->extensions, ext_map_idx);
 		name = ext->name;
+	}
+	i_assert(name != NULL);
 
 	if (!ctx->internal_update &&
 	    strcmp(name, MAIL_INDEX_EXT_KEYWORDS) == 0) {
@@ -525,7 +528,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		return -1;
 	}
 
-	if (ext_map_idx != (uint32_t)-1) {
+	if (ext != NULL) {
 		/* exists already */
 		if (u->reset_id == ext->reset_id) {
 			/* check if we need to resize anything */

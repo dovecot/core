@@ -189,6 +189,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		view->head = file;
 		file = file->next;
 	}
+	i_assert(view->tail != NULL);
 
 	if (min_file_offset == 0) {
 		/* beginning of the file */

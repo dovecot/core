@@ -252,7 +252,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				struct message_block *output)
 {
 	const unsigned char *data = NULL;
-	size_t pos, size = 0;
+	size_t pos = 0, size = 0;
 	int ret;
 
 	if (ctx->encoding_buf->used != 0) {

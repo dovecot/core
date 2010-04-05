@@ -651,6 +651,8 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 		}
 		nodes[i].sort_id_changed = TRUE;
 	}
+	i_assert(str != NULL);
+
 	return right_str == NULL || strcmp(str, right_str) < 0 ||
 		(strcmp(str, right_str) == 0 &&
 		 nodes[i-1].sort_id == right_sort_id) ? 0 : -1;

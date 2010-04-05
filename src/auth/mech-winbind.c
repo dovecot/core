@@ -197,7 +197,7 @@ do_auth_continue(struct auth_request *auth_request,
 	token = t_strsplit_spaces(answer, " ");
 	if (token[0] == NULL ||
 	    (token[1] == NULL && strcmp(token[0], "BH") != 0) ||
-	    (token[2] == NULL && gss_spnego)) {
+	    (gss_spnego && (token[1] == NULL || token[2] == NULL))) {
 		auth_request_log_error(auth_request, "winbind",
 				       "Invalid input from helper: %s", answer);
 		return HR_RESTART;
@@ -241,6 +241,7 @@ do_auth_continue(struct auth_request *auth_request,
 		const char *user, *p, *error;
 
 		user = gss_spnego ? token[2] : token[1];
+		i_assert(user != NULL);
 
 		p = strchr(user, '\\');
 		if (p != NULL) {

@@ -83,6 +83,7 @@ static void test_istream_seekable_random(void)
 		test_istream_set_allow_eof(streams[i], TRUE);
 	}
 	streams[i] = NULL;
+	i_assert(offset > 0);
 
 	buffer_size = (rand() % 100) + 1; size = 0;
 	input = i_stream_create_seekable(streams, buffer_size, fd_callback, NULL);

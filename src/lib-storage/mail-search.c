@@ -560,8 +560,10 @@ mail_search_args_simplify_sub(struct mailbox *box,
 				SEARCH_OR : SEARCH_SUB;
 			args->not = FALSE;
 			sub = args->value.subargs;
-			for (; sub != NULL; sub = sub->next)
+			do {
 				sub->not = !sub->not;
+				sub = sub->next;
+			} while (sub != NULL);
 		}
 
 		if ((args->type == SEARCH_SUB && parent_and) ||

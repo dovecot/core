@@ -101,7 +101,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
 	struct mailbox *box = t->box;
-	time_t new_stamp;
+	time_t new_stamp = 0;
 	bool update_dict = FALSE;
 	int ret;
 

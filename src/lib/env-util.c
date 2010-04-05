@@ -77,6 +77,8 @@ struct env_backup *env_backup_save(void)
 	unsigned int i, count;
 	pool_t pool;
 
+	i_assert(environ != NULL);
+
 	for (count = 0; environ[count] != NULL; count++) ;
 
 	pool = pool_alloconly_create("saved environment", 4096);

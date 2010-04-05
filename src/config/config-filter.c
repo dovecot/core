@@ -312,7 +312,7 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 {
 	struct config_filter_parser *const *src;
 	struct config_module_parser *dest;
-	const char *error, **error_p;
+	const char *error = NULL, **error_p;
 	unsigned int i, count;
 
 	src = config_filter_find_all(ctx, module, filter, output_r);
@@ -337,6 +337,7 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 
 		if (config_module_parser_apply_changes(dest, src[i], pool,
 						       error_p) < 0) {
+			i_assert(error != NULL);
 			config_filter_parsers_free(dest);
 			*error_r = error;
 			return -1;

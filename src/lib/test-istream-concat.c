@@ -65,6 +65,7 @@ static void test_istream_concat_random(void)
 		test_istream_set_allow_eof(streams[i], TRUE);
 	}
 	streams[i] = NULL;
+	i_assert(offset > 0);
 
 	input = i_stream_create_concat(streams);
 	for (i = 0; i < 100; i++) {
