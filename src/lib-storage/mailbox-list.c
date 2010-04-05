@@ -701,7 +701,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 	rootdir = mailbox_list_get_path(list, NULL,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
-	if (path == NULL) {
+	if (rootdir == NULL) {
 		/* shouldn't happen with anything except shared mailboxes */
 		return 0;
 	}
