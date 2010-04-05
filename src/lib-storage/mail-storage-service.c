@@ -49,7 +49,6 @@ struct mail_storage_service_ctx {
 
 	const char *set_cache_module, *set_cache_service;
 	struct master_service_settings_cache *set_cache;
-	const struct setting_parser_info **set_cache_roots;
 
 	unsigned int debug:1;
 };
@@ -591,77 +590,6 @@ mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx)
 	return ctx->conn;
 }
 
-static void
-settings_parser_update_children_parent(struct setting_parser_info *parent,
-				       pool_t pool)
-{
-	struct setting_define *new_defs;
-	struct setting_parser_info *new_info;
-	unsigned int i, count;
-
-	for (count = 0; parent->defines[count].key != NULL; count++) ;
-
-	new_defs = p_new(pool, struct setting_define, count + 1);
-	memcpy(new_defs, parent->defines, sizeof(*new_defs) * count);
-	parent->defines = new_defs;
-
-	for (i = 0; i < count; i++) {
-		if (new_defs[i].list_info == NULL ||
-		    new_defs[i].list_info->parent == NULL)
-			continue;
-
-		new_info = p_new(pool, struct setting_parser_info, 1);
-		*new_info = *new_defs[i].list_info;
-		new_info->parent = parent;
-		new_defs[i].list_info = new_info;
-	}
-}
-
-static void
-dyn_parsers_update_parent(pool_t pool,
-			  const struct setting_parser_info ***_roots,
-			  const struct dynamic_settings_parser *dyn_parsers)
-{
-	const const struct setting_parser_info **roots = *_roots;
-	const struct setting_parser_info *old_parent, **new_roots;
-	struct setting_parser_info *new_parent, *new_info;
-	struct dynamic_settings_parser *new_dyn_parsers;
-	unsigned int i, count;
-
-	/* settings_parser_info_update() modifies the parent structure.
-	   since we may be using the same structure later, we want it to be
-	   in its original state, so we'll have to copy all structures. */
-	old_parent = dyn_parsers[0].info->parent;
-	new_parent = p_new(pool, struct setting_parser_info, 1);
-	*new_parent = *old_parent;
-	settings_parser_update_children_parent(new_parent, pool);
-
-	/* update root */
-	for (count = 0; roots[count] != NULL; count++) ;
-	new_roots = p_new(pool, const struct setting_parser_info *, count + 1);
-	for (i = 0; i < count; i++) {
-		if (roots[i] == old_parent)
-			new_roots[i] = new_parent;
-		else
-			new_roots[i] = roots[i];
-	}
-	*_roots = new_roots;
-
-	/* update parent in dyn_parsers */
-	for (count = 0; dyn_parsers[count].name != NULL; count++) ;
-	new_dyn_parsers = p_new(pool, struct dynamic_settings_parser, count + 1);
-	for (i = 0; i < count; i++) {
-		new_dyn_parsers[i] = dyn_parsers[i];
-
-		new_info = p_new(pool, struct setting_parser_info, 1);
-		*new_info = *dyn_parsers[i].info;
-		new_info->parent = new_parent;
-		new_dyn_parsers[i].info = new_info;
-	}
-
-	settings_parser_info_update(pool, new_parent, new_dyn_parsers);
-}
-
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
 				       pool_t pool,
@@ -670,6 +598,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const char **error_r)
 {
 	struct master_service_settings_input set_input;
+	const struct setting_parser_info *const *roots;
 	struct master_service_settings_output set_output;
 	const struct dynamic_settings_parser *dyn_parsers;
 	unsigned int i;
@@ -694,7 +623,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		ctx->set_cache_service = p_strdup(ctx->pool, set_input.service);
 		ctx->set_cache = master_service_settings_cache_init(
 			ctx->service, set_input.module, set_input.service);
-		ctx->set_cache_roots = ctx->set_roots;
 	} else {
 		/* already looked up settings at least once.
 		   we really shouldn't be execing anymore. */
@@ -704,18 +632,15 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	dyn_parsers = mail_storage_get_dynamic_parsers(pool);
 	if (null_strcmp(set_input.module, ctx->set_cache_module) == 0 &&
 	    null_strcmp(set_input.service, ctx->set_cache_service) == 0) {
-		set_input.roots = ctx->set_cache_roots;
-		dyn_parsers_update_parent(ctx->pool, &set_input.roots,
-					  dyn_parsers);
 		if (master_service_settings_cache_read(ctx->set_cache,
-						       &set_input,
+						       &set_input, dyn_parsers,
 						       parser_r, error_r) < 0) {
 			*error_r = t_strdup_printf(
 				"Error reading configuration: %s", *error_r);
 			return -1;
 		}
 	} else {
-		dyn_parsers_update_parent(pool, &set_input.roots, dyn_parsers);
+		settings_parser_dyn_update(pool, &set_input.roots, dyn_parsers);
 		if (master_service_settings_read(ctx->service, &set_input,
 						 &set_output, error_r) < 0) {
 			*error_r = t_strdup_printf(
@@ -725,10 +650,11 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		*parser_r = ctx->service->set_parser;
 	}
 
-	for (i = 0; ctx->set_roots[i] != NULL; i++) {
-		if (strcmp(ctx->set_roots[i]->module_name,
+	roots = settings_parser_get_roots(*parser_r);
+	for (i = 0; roots[i] != NULL; i++) {
+		if (strcmp(roots[i]->module_name,
 			   mail_user_setting_parser_info.module_name) == 0) {
-			*user_info_r = set_input.roots[i];
+			*user_info_r = roots[i];
 			return 0;
 		}
 	}

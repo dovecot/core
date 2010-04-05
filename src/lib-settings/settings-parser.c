@@ -259,6 +259,18 @@ void *settings_parser_get_changes(struct setting_parser_context *ctx)
 	return ctx->roots[0].change_struct;
 }
 
+const struct setting_parser_info *const *
+settings_parser_get_roots(const struct setting_parser_context *ctx)
+{
+	const struct setting_parser_info **infos;
+	unsigned int i;
+
+	infos = t_new(const struct setting_parser_info *, ctx->root_count + 1);
+	for (i = 0; i < ctx->root_count; i++)
+		infos[i] = ctx->roots[i].info;
+	return infos;
+}
+
 const char *settings_parser_get_error(struct setting_parser_context *ctx)
 {
 	return ctx->error;
@@ -1471,6 +1483,76 @@ void settings_parser_info_update(pool_t pool,
 	if (parsers[0].name != NULL) T_BEGIN {
 		info_update_real(pool, parent, parsers);
 	} T_END;
+}
+
+static void
+settings_parser_update_children_parent(struct setting_parser_info *parent,
+				       pool_t pool)
+{
+	struct setting_define *new_defs;
+	struct setting_parser_info *new_info;
+	unsigned int i, count;
+
+	for (count = 0; parent->defines[count].key != NULL; count++) ;
+
+	new_defs = p_new(pool, struct setting_define, count + 1);
+	memcpy(new_defs, parent->defines, sizeof(*new_defs) * count);
+	parent->defines = new_defs;
+
+	for (i = 0; i < count; i++) {
+		if (new_defs[i].list_info == NULL ||
+		    new_defs[i].list_info->parent == NULL)
+			continue;
+
+		new_info = p_new(pool, struct setting_parser_info, 1);
+		*new_info = *new_defs[i].list_info;
+		new_info->parent = parent;
+		new_defs[i].list_info = new_info;
+	}
+}
+
+void settings_parser_dyn_update(pool_t pool,
+				const struct setting_parser_info *const **_roots,
+				const struct dynamic_settings_parser *dyn_parsers)
+{
+	const struct setting_parser_info *const *roots = *_roots;
+	const struct setting_parser_info *old_parent, **new_roots;
+	struct setting_parser_info *new_parent, *new_info;
+	struct dynamic_settings_parser *new_dyn_parsers;
+	unsigned int i, count;
+
+	/* settings_parser_info_update() modifies the parent structure.
+	   since we may be using the same structure later, we want it to be
+	   in its original state, so we'll have to copy all structures. */
+	old_parent = dyn_parsers[0].info->parent;
+	new_parent = p_new(pool, struct setting_parser_info, 1);
+	*new_parent = *old_parent;
+	settings_parser_update_children_parent(new_parent, pool);
+
+	/* update root */
+	for (count = 0; roots[count] != NULL; count++) ;
+	new_roots = p_new(pool, const struct setting_parser_info *, count + 1);
+	for (i = 0; i < count; i++) {
+		if (roots[i] == old_parent)
+			new_roots[i] = new_parent;
+		else
+			new_roots[i] = roots[i];
+	}
+	*_roots = new_roots;
+
+	/* update parent in dyn_parsers */
+	for (count = 0; dyn_parsers[count].name != NULL; count++) ;
+	new_dyn_parsers = p_new(pool, struct dynamic_settings_parser, count + 1);
+	for (i = 0; i < count; i++) {
+		new_dyn_parsers[i] = dyn_parsers[i];
+
+		new_info = p_new(pool, struct setting_parser_info, 1);
+		*new_info = *dyn_parsers[i].info;
+		new_info->parent = new_parent;
+		new_dyn_parsers[i].info = new_info;
+	}
+
+	settings_parser_info_update(pool, new_parent, new_dyn_parsers);
 }
 
 const void *settings_find_dynamic(const struct setting_parser_info *info,

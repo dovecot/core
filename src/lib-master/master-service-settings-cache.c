@@ -253,10 +253,12 @@ static void cache_add(struct master_service_settings_cache *cache,
 
 int master_service_settings_cache_read(struct master_service_settings_cache *cache,
 				       const struct master_service_settings_input *input,
+				       const struct dynamic_settings_parser *dyn_parsers,
 				       const struct setting_parser_context **parser_r,
 				       const char **error_r)
 {
 	struct master_service_settings_output output;
+	struct master_service_settings_input new_input;
 	const struct master_service_settings *set;
 
 	i_assert(null_strcmp(input->module, cache->module) == 0);
@@ -265,7 +267,12 @@ int master_service_settings_cache_read(struct master_service_settings_cache *cac
 	if (cache_find(cache, input, parser_r))
 		return 0;
 
-	if (master_service_settings_read(cache->service, input,
+	new_input = *input;
+	if (dyn_parsers != NULL) {
+		settings_parser_dyn_update(cache->pool, &new_input.roots,
+					   dyn_parsers);
+	}
+	if (master_service_settings_read(cache->service, &new_input,
 					 &output, error_r) < 0)
 		return -1;
 
@@ -287,7 +294,7 @@ int master_service_settings_cache_read(struct master_service_settings_cache *cac
 		return -1;
 	}
 
-	cache_add(cache, input, &output, cache->service->set_parser);
+	cache_add(cache, &new_input, &output, cache->service->set_parser);
 	*parser_r = cache->service->set_parser;
 	return 0;
 }

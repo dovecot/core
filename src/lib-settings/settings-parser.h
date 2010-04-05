@@ -114,6 +114,9 @@ void *settings_parser_get(struct setting_parser_context *ctx);
 void **settings_parser_get_list(const struct setting_parser_context *ctx);
 /* Like settings_parser_get(), but return change struct. */
 void *settings_parser_get_changes(struct setting_parser_context *ctx);
+/* Returns the setting parser's roots (same as given to init()). */
+const struct setting_parser_info *const *
+settings_parser_get_roots(const struct setting_parser_context *ctx);
 
 /* Return the last error. */
 const char *settings_parser_get_error(struct setting_parser_context *ctx);
@@ -194,6 +197,9 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 void settings_parser_info_update(pool_t pool,
 				 struct setting_parser_info *parent,
 				 const struct dynamic_settings_parser *parsers);
+void settings_parser_dyn_update(pool_t pool,
+				const struct setting_parser_info *const **roots,
+				const struct dynamic_settings_parser *dyn_parsers);
 
 /* Return pointer to beginning of settings for given name, or NULL if there is
    no such registered name. */

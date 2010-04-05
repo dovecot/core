@@ -18,7 +18,7 @@ struct master_service_settings {
 };
 
 struct master_service_settings_input {
-	const struct setting_parser_info **roots;
+	const struct setting_parser_info *const *roots;
 	const char *config_path;
 	bool preserve_home;
 	bool never_exec;
