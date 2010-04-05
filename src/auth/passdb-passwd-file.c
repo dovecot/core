@@ -15,6 +15,7 @@ struct passwd_file_passdb_module {
 	struct passdb_module module;
 
 	struct db_passwd_file *pwf;
+	const char *username_format;
 };
 
 static void passwd_file_save_results(struct auth_request *request,
@@ -69,7 +70,8 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 	const char *scheme, *crypted_pass;
         int ret;
 
-	pu = db_passwd_file_lookup(module->pwf, request);
+	pu = db_passwd_file_lookup(module->pwf, request,
+				   module->username_format);
 	if (pu == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
@@ -94,7 +96,8 @@ passwd_file_lookup_credentials(struct auth_request *request,
 	struct passwd_user *pu;
 	const char *crypted_pass, *scheme;
 
-	pu = db_passwd_file_lookup(module->pwf, request);
+	pu = db_passwd_file_lookup(module->pwf, request,
+				   module->username_format);
 	if (pu == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, 0, request);
 		return;
@@ -146,8 +149,9 @@ passwd_file_preinit(pool_t pool, const char *args)
 		i_fatal("passdb passwd-file: Missing args");
 
 	module = p_new(pool, struct passwd_file_passdb_module, 1);
-	module->pwf = db_passwd_file_init(args, format, FALSE,
+	module->pwf = db_passwd_file_init(args, FALSE,
 					  global_auth_settings->debug);
+	module->username_format = format;
 
 	if (!module->pwf->vars)
 		module->module.cache_key = format;

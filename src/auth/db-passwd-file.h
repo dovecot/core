@@ -34,7 +34,6 @@ struct db_passwd_file {
 	char *path;
 	struct hash_table *files;
         struct passwd_file *default_file;
-	const char *username_format;
 
 	unsigned int vars:1;
 	unsigned int userdb:1;
@@ -42,11 +41,11 @@ struct db_passwd_file {
 };
 
 struct passwd_user *
-db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request);
+db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request,
+		      const char *username_format);
 
 struct db_passwd_file *
-db_passwd_file_init(const char *path, const char *username_format,
-		    bool userdb, bool debug);
+db_passwd_file_init(const char *path, bool userdb, bool debug);
 void db_passwd_file_parse(struct db_passwd_file *db);
 void db_passwd_file_unref(struct db_passwd_file **db);
 

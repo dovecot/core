@@ -267,8 +267,7 @@ static struct db_passwd_file *db_passwd_file_find(const char *path)
 }
 
 struct db_passwd_file *
-db_passwd_file_init(const char *path, const char *username_format,
-		    bool userdb, bool debug)
+db_passwd_file_init(const char *path, bool userdb, bool debug)
 {
 	struct db_passwd_file *db;
 	const char *p;
@@ -285,7 +284,6 @@ db_passwd_file_init(const char *path, const char *username_format,
 	db->refcount = 1;
 	db->userdb = userdb;
 	db->debug = debug;
-	db->username_format = username_format;
 
 	for (p = path; *p != '\0'; p++) {
 		if (*p == '%' && p[1] != '\0') {
@@ -381,7 +379,8 @@ path_fix(const char *path,
 }
 
 struct passwd_user *
-db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
+db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request,
+		      const char *username_format)
 {
 	struct passwd_file *pw;
 	struct passwd_user *pu;
@@ -414,7 +413,7 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 	username = t_str_new(256);
 	table = auth_request_get_var_expand_table(request,
 						  auth_request_str_escape);
-	var_expand(username, db->username_format, table);
+	var_expand(username, username_format, table);
 
 	auth_request_log_debug(request, "passwd-file",
 			       "lookup: user=%s file=%s",

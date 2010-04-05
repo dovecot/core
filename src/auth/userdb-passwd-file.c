@@ -26,6 +26,7 @@ struct passwd_file_userdb_module {
         struct userdb_module module;
 
 	struct db_passwd_file *pwf;
+	const char *username_format;
 };
 
 static void passwd_file_lookup(struct auth_request *auth_request,
@@ -40,7 +41,8 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	const char *key, *value;
 	char **p;
 
-	pu = db_passwd_file_lookup(module->pwf, auth_request);
+	pu = db_passwd_file_lookup(module->pwf, auth_request,
+				   module->username_format);
 	if (pu == NULL) {
 		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
@@ -164,7 +166,7 @@ passwd_file_preinit(pool_t pool, const char *args)
 		args += 16;
 		p = strchr(args, ' ');
 		if (p == NULL) {
-			format = args;
+			format = p_strdup(pool, args);
 			args = "";
 		} else {
 			format = p_strdup_until(pool, args, p);
@@ -176,8 +178,9 @@ passwd_file_preinit(pool_t pool, const char *args)
 		i_fatal("userdb passwd-file: Missing args");
 
 	module = p_new(pool, struct passwd_file_userdb_module, 1);
-	module->pwf = db_passwd_file_init(args, format, TRUE,
+	module->pwf = db_passwd_file_init(args, TRUE,
 					  global_auth_settings->debug);
+	module->username_format = format;
 
 	if (!module->pwf->vars)
 		module->module.cache_key = PASSWD_FILE_CACHE_KEY;
