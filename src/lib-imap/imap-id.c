@@ -55,34 +55,32 @@ imap_id_reply_generate_from_imap_args(const struct imap_arg *args)
 	string_t *str;
 	const char *key, *value;
 
-	if (args->type == IMAP_ARG_EOL)
+	if (IMAP_ARG_IS_EOL(args))
 		return "NIL";
 
 	str = t_str_new(256);
 	str_append_c(str, '(');
-	for (; args->type != IMAP_ARG_EOL; args++) {
-		if (!IMAP_ARG_TYPE_IS_STRING(args->type)) {
+	for (; !IMAP_ARG_IS_EOL(args); args++) {
+		if (!imap_arg_get_astring(args, &key)) {
 			/* broken input */
-			if (args[1].type == IMAP_ARG_EOL)
+			if (IMAP_ARG_IS_EOL(&args[1]))
 				break;
 			args++;
 		} else {
 			/* key */
 			if (str_len(str) > 1)
 				str_append_c(str, ' ');
-			key = IMAP_ARG_STR_NONULL(args);
 			imap_dquote_append(str, key);
 			str_append_c(str, ' ');
 			/* value */
-			if (args[1].type == IMAP_ARG_EOL) {
+			if (IMAP_ARG_IS_EOL(&args[1])) {
 				str_append(str, "NIL");
 				break;
 			}
 			args++;
-			if (!IMAP_ARG_TYPE_IS_STRING(args->type))
+			if (!imap_arg_get_astring(args, &value))
 				value = NULL;
 			else {
-				value = IMAP_ARG_STR_NONULL(args);
 				if (strcmp(value, "*") == 0)
 					value = imap_id_get_default(key);
 			}
@@ -132,22 +130,21 @@ const char *imap_id_args_get_log_reply(const struct imap_arg *args,
 	string_t *reply;
 	bool log_all;
 
-	if (settings == NULL || *settings == '\0' ||
-	    args->type != IMAP_ARG_LIST)
+	if (settings == NULL || *settings == '\0')
 		return NULL;
-
-	args = IMAP_ARG_LIST_ARGS(args);
+	if (!imap_arg_get_list(args, &args))
+		return NULL;
 
 	log_all = strcmp(settings, "*") == 0;
 	reply = t_str_new(256);
 	keys = t_strsplit_spaces(settings, " ");
-	while (args->type != IMAP_ARG_EOL && args[1].type != IMAP_ARG_EOL) {
-		if (args->type != IMAP_ARG_STRING) {
+	while (!IMAP_ARG_IS_EOL(&args[0]) &&
+	       !IMAP_ARG_IS_EOL(&args[1])) {
+		if (!imap_arg_get_string(args, &key)) {
 			/* broken input */
 			args += 2;
 			continue;
 		}
-		key = IMAP_ARG_STR_NONULL(args);
 		args++;
 		if (strlen(key) > 30) {
 			/* broken: ID spec requires fields to be max. 30
@@ -157,12 +154,10 @@ const char *imap_id_args_get_log_reply(const struct imap_arg *args,
 		}
 
 		if (log_all || str_array_icase_find(keys, key)) {
-			if (IMAP_ARG_TYPE_IS_STRING(args->type))
-				value = IMAP_ARG_STR_NONULL(args);
-			else if (args->type == IMAP_ARG_NIL)
-				value = "NIL";
-			else
+			if (!imap_arg_get_nstring(args, &value))
 				value = "";
+			else if (value == NULL)
+				value = "NIL";
 			if (str_len(reply) > 0)
 				str_append(reply, ", ");
 			str_append(reply, str_sanitize(key, 30));

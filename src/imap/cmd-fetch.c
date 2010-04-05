@@ -30,8 +30,8 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
 		if (!imap_fetch_init_handler(ctx, "UID", &arg))
 			return FALSE;
 	}
-	if (arg->type == IMAP_ARG_ATOM) {
-		str = t_str_ucase(IMAP_ARG_STR(arg));
+	if (imap_arg_get_atom(arg, &str)) {
+		str = t_str_ucase(str);
 		arg++;
 
 		/* handle macros first */
@@ -56,14 +56,14 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
 		*next_arg_r = arg;
 	} else {
 		*next_arg_r = arg + 1;
-		arg = IMAP_ARG_LIST_ARGS(arg);
-		while (arg->type == IMAP_ARG_ATOM) {
-			str = t_str_ucase(IMAP_ARG_STR(arg));
+		arg = imap_arg_as_list(arg);
+		while (imap_arg_get_atom(arg, &str)) {
+			str = t_str_ucase(str);
 			arg++;
 			if (!imap_fetch_init_handler(ctx, str, &arg))
 				return FALSE;
 		}
-		if (arg->type != IMAP_ARG_EOL) {
+		if (!IMAP_ARG_IS_EOL(arg)) {
 			client_send_command_error(ctx->cmd,
 				"FETCH list contains non-atoms.");
 			return FALSE;
@@ -76,15 +76,16 @@ static bool
 fetch_parse_modifier(struct imap_fetch_context *ctx,
 		     const char *name, const struct imap_arg **args)
 {
+	const char *str;
 	unsigned long long num;
 
 	if (strcmp(name, "CHANGEDSINCE") == 0) {
-		if ((*args)->type != IMAP_ARG_ATOM) {
+		if (!imap_arg_get_atom(*args, &str)) {
 			client_send_command_error(ctx->cmd,
 				"Invalid CHANGEDSINCE modseq.");
 			return FALSE;
 		}
-		num = strtoull(imap_arg_string(*args), NULL, 10);
+		num = strtoull(str, NULL, 10);
 		*args += 1;
 		return imap_fetch_add_changed_since(ctx, num);
 	}
@@ -109,15 +110,14 @@ fetch_parse_modifiers(struct imap_fetch_context *ctx,
 {
 	const char *name;
 
-	while (args->type != IMAP_ARG_EOL) {
-		if (args->type != IMAP_ARG_ATOM) {
+	while (!IMAP_ARG_IS_EOL(args)) {
+		if (!imap_arg_get_atom(args, &name)) {
 			client_send_command_error(ctx->cmd,
 				"FETCH modifiers contain non-atoms.");
 			return FALSE;
 		}
-		name = t_str_ucase(IMAP_ARG_STR(args));
 		args++;
-		if (!fetch_parse_modifier(ctx, name, &args))
+		if (!fetch_parse_modifier(ctx, t_str_ucase(name), &args))
 			return FALSE;
 	}
 	if (ctx->send_vanished &&
@@ -184,7 +184,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct imap_fetch_context *ctx;
-	const struct imap_arg *args, *next_arg;
+	const struct imap_arg *args, *next_arg, *list_arg;
 	struct mail_search_args *search_args;
 	const char *messageset;
 	int ret;
@@ -196,10 +196,9 @@ bool cmd_fetch(struct client_command_context *cmd)
 		return TRUE;
 
 	/* <messageset> <field(s)> [(modifiers)] */
-	messageset = imap_arg_string(&args[0]);
-	if (messageset == NULL ||
+	if (!imap_arg_get_atom(&args[0], &messageset) ||
 	    (args[1].type != IMAP_ARG_LIST && args[1].type != IMAP_ARG_ATOM) ||
-	    (args[2].type != IMAP_ARG_EOL && args[2].type != IMAP_ARG_LIST)) {
+	    (!IMAP_ARG_IS_EOL(&args[2]) && args[2].type != IMAP_ARG_LIST)) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
@@ -218,8 +217,8 @@ bool cmd_fetch(struct client_command_context *cmd)
 	ctx->search_args = search_args;
 
 	if (!fetch_parse_args(ctx, &args[1], &next_arg) ||
-	    (next_arg->type == IMAP_ARG_LIST &&
-	     !fetch_parse_modifiers(ctx, IMAP_ARG_LIST_ARGS(next_arg)))) {
+	    (imap_arg_get_list(next_arg, &list_arg) &&
+	     !fetch_parse_modifiers(ctx, list_arg))) {
 		imap_fetch_deinit(ctx);
 		return TRUE;
 	}

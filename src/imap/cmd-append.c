@@ -103,29 +103,25 @@ static int validate_args(const struct imap_arg *args,
 			 bool *nonsync_r)
 {
 	/* [<flags>] */
-	if (args->type != IMAP_ARG_LIST)
+	if (!imap_arg_get_list(args, flags_r))
 		*flags_r = NULL;
-	else {
-		*flags_r = IMAP_ARG_LIST_ARGS(args);
+	else
 		args++;
-	}
 
 	/* [<internal date>] */
 	if (args->type != IMAP_ARG_STRING)
 		*internal_date_r = NULL;
 	else {
-		*internal_date_r = IMAP_ARG_STR(args);
+		*internal_date_r = imap_arg_as_astring(args);
 		args++;
 	}
 
-	if (args->type != IMAP_ARG_LITERAL_SIZE &&
-	    args->type != IMAP_ARG_LITERAL_SIZE_NONSYNC) {
+	if (!imap_arg_get_literal_size(args, msg_size_r)) {
 		*nonsync_r = FALSE;
 		return FALSE;
 	}
 
 	*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
-	*msg_size_r = IMAP_ARG_LITERAL_SIZE(args);
 	return TRUE;
 }
 
@@ -241,7 +237,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		return FALSE;
 	}
 
-	if (args->type == IMAP_ARG_EOL) {
+	if (IMAP_ARG_IS_EOL(args)) {
 		/* last message */
 		enum mailbox_sync_flags sync_flags;
 		enum imap_sync_flags imap_flags;

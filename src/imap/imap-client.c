@@ -383,13 +383,12 @@ bool client_read_string_args(struct client_command_context *cmd,
 	for (i = 0; i < count; i++) {
 		const char **ret = va_arg(va, const char **);
 
-		if (imap_args[i].type == IMAP_ARG_EOL) {
+		if (IMAP_ARG_IS_EOL(&imap_args[i])) {
 			client_send_command_error(cmd, "Missing arguments.");
 			break;
 		}
 
-		str = imap_arg_string(&imap_args[i]);
-		if (str == NULL) {
+		if (!imap_arg_get_astring(&imap_args[i], &str)) {
 			client_send_command_error(cmd, "Invalid arguments.");
 			break;
 		}

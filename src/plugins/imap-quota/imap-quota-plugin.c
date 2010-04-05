@@ -158,16 +158,16 @@ static bool cmd_getquota(struct client_command_context *cmd)
 static bool cmd_setquota(struct client_command_context *cmd)
 {
 	struct quota_root *root;
-        const struct imap_arg *args, *arg;
-	const char *root_name, *name, *error;
+        const struct imap_arg *args, *list_args;
+	const char *root_name, *name, *value_str, *error;
 	uint64_t value;
 
 	/* <quota root> <resource limits> */
 	if (!client_read_args(cmd, 2, 0, &args))
 		return FALSE;
 
-	root_name = imap_arg_string(&args[0]);
-	if (args[1].type != IMAP_ARG_LIST || root_name == NULL) {
+	if (!imap_arg_get_astring(&args[0], &root_name) ||
+	    !imap_arg_get_list(&args[1], &list_args)) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
@@ -178,16 +178,15 @@ static bool cmd_setquota(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-        arg = IMAP_ARG_LIST_ARGS(&args[1]);
-	for (; arg->type != IMAP_ARG_EOL; arg += 2) {
-		name = imap_arg_string(arg);
-		if (name == NULL || arg[1].type != IMAP_ARG_ATOM ||
-		    !is_numeric(IMAP_ARG_STR(&arg[1]), '\0')) {
+	for (; !IMAP_ARG_IS_EOL(list_args); list_args += 2) {
+		if (!imap_arg_get_atom(&list_args[0], &name) ||
+		    !imap_arg_get_atom(&list_args[1], &value_str) ||
+		    !is_numeric(value_str, '\0')) {
 			client_send_command_error(cmd, "Invalid arguments.");
 			return TRUE;
 		}
 
-                value = strtoull(IMAP_ARG_STR_NONULL(&arg[1]), NULL, 10);
+                value = strtoull(value_str, NULL, 10);
 		if (quota_set_resource(root, name, value, &error) < 0) {
 			client_send_command_error(cmd, error);
 			return TRUE;

@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "imap-date.h"
-#include "imap-parser.h"
+#include "imap-arg.h"
 #include "imap-seqset.h"
 #include "mail-search-build.h"
 #include "mail-storage.h"
@@ -30,17 +30,15 @@ static bool
 arg_get_next(struct search_build_data *data, const struct imap_arg **args,
 	     const char **value_r)
 {
-	if ((*args)->type == IMAP_ARG_EOL) {
+	if (IMAP_ARG_IS_EOL(*args)) {
 		data->error = "Missing parameter for argument";
 		return FALSE;
 	}
-	if ((*args)->type != IMAP_ARG_ATOM &&
-	    (*args)->type != IMAP_ARG_STRING) {
+	if (!imap_arg_get_astring(*args, value_r)) {
 		data->error = "Invalid parameter for argument";
 		return FALSE;
 	}
 
-	*value_r = IMAP_ARG_STR(*args);
 	*args += 1;
 	return TRUE;
 }
@@ -266,33 +264,30 @@ static bool search_arg_build(struct search_build_data *data,
 			     struct mail_search_arg **next_sarg)
 {
 	struct mail_search_arg **subargs, *sarg;
-	const struct imap_arg *arg;
-	const char *str;
+	const struct imap_arg *arg, *listargs;
+	const char *key, *value;
 
-	if ((*args)->type == IMAP_ARG_EOL) {
+	if (IMAP_ARG_IS_EOL(*args)) {
 		data->error = "Missing argument";
 		return FALSE;
 	}
 
 	arg = *args;
-
 	if (arg->type == IMAP_ARG_NIL) {
 		/* NIL not allowed */
 		data->error = "NIL not allowed";
 		return FALSE;
 	}
 
-	if (arg->type == IMAP_ARG_LIST) {
-		const struct imap_arg *listargs = IMAP_ARG_LIST_ARGS(arg);
-
-		if (listargs->type == IMAP_ARG_EOL) {
+	if (imap_arg_get_list(arg, &listargs)) {
+		if (IMAP_ARG_IS_EOL(listargs)) {
 			data->error = "Empty list not allowed";
 			return FALSE;
 		}
 
 		*next_sarg = search_arg_new(data->pool, SEARCH_SUB);
 		subargs = &(*next_sarg)->value.subargs;
-		while (listargs->type != IMAP_ARG_EOL) {
+		while (IMAP_ARG_IS_EOL(listargs)) {
 			if (!search_arg_build(data, &listargs, subargs))
 				return FALSE;
 			subargs = &(*subargs)->next;
@@ -302,91 +297,84 @@ static bool search_arg_build(struct search_build_data *data,
 		return TRUE;
 	}
 
-	i_assert(arg->type == IMAP_ARG_ATOM ||
-		 arg->type == IMAP_ARG_STRING);
-
 	/* string argument - get the name and jump to next */
-	str = IMAP_ARG_STR(arg);
+	key = imap_arg_as_astring(arg);
 	*args += 1;
-	str = t_str_ucase(str);
+	key = t_str_ucase(key);
 
-	switch (*str) {
+	switch (*key) {
 	case 'A':
-		if (strcmp(str, "ANSWERED") == 0)
+		if (strcmp(key, "ANSWERED") == 0)
 			return ARG_NEW_FLAGS(MAIL_ANSWERED);
-		else if (strcmp(str, "ALL") == 0)
+		else if (strcmp(key, "ALL") == 0)
 			return ARG_NEW_SINGLE(SEARCH_ALL);
 		break;
 	case 'B':
-		if (strcmp(str, "BODY") == 0) {
+		if (strcmp(key, "BODY") == 0) {
 			/* <string> */
-			if (IMAP_ARG_TYPE_IS_STRING((*args)->type) &&
-			    *IMAP_ARG_STR(*args) == '\0') {
+			if (imap_arg_get_astring(*args, &value) &&
+			    *value == '\0') {
+				/* optimization: BODY "" matches everything */
 				*args += 1;
 				return ARG_NEW_SINGLE(SEARCH_ALL);
 			}
 			return ARG_NEW_STR(SEARCH_BODY);
-		} else if (strcmp(str, "BEFORE") == 0) {
+		} else if (strcmp(key, "BEFORE") == 0) {
 			/* <date> */
 			return ARG_NEW_DATE(SEARCH_BEFORE);
-		} else if (strcmp(str, "BCC") == 0) {
+		} else if (strcmp(key, "BCC") == 0) {
 			/* <string> */
-			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, str);
+			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, key);
 		}
 		break;
 	case 'C':
-		if (strcmp(str, "CC") == 0) {
+		if (strcmp(key, "CC") == 0) {
 			/* <string> */
-			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, str);
+			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, key);
 		}
 		break;
 	case 'D':
-		if (strcmp(str, "DELETED") == 0)
+		if (strcmp(key, "DELETED") == 0)
 			return ARG_NEW_FLAGS(MAIL_DELETED);
-		else if (strcmp(str, "DRAFT") == 0)
+		else if (strcmp(key, "DRAFT") == 0)
 			return ARG_NEW_FLAGS(MAIL_DRAFT);
 		break;
 	case 'F':
-		if (strcmp(str, "FLAGGED") == 0)
+		if (strcmp(key, "FLAGGED") == 0)
 			return ARG_NEW_FLAGS(MAIL_FLAGGED);
-		else if (strcmp(str, "FROM") == 0) {
+		else if (strcmp(key, "FROM") == 0) {
 			/* <string> */
-			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, str);
+			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, key);
 		}
 		break;
 	case 'H':
-		if (strcmp(str, "HEADER") == 0) {
+		if (strcmp(key, "HEADER") == 0) {
 			/* <field-name> <string> */
-			const char *key;
-
-			if ((*args)->type == IMAP_ARG_EOL) {
+			if (IMAP_ARG_IS_EOL(*args)) {
 				data->error = "Missing parameter for HEADER";
 				return FALSE;
 			}
-			if ((*args)->type != IMAP_ARG_ATOM &&
-			    (*args)->type != IMAP_ARG_STRING) {
+			if (!imap_arg_get_astring(*args, &value)) {
 				data->error = "Invalid parameter for HEADER";
 				return FALSE;
 			}
 
-			key = t_str_ucase(IMAP_ARG_STR(*args));
 			*args += 1;
-			return ARG_NEW_HEADER(SEARCH_HEADER, key);
+			return ARG_NEW_HEADER(SEARCH_HEADER,
+					      t_str_ucase(value));
 		}
 		break;
 	case 'I':
-		if (strcmp(str, "INTHREAD") == 0) {
+		if (strcmp(key, "INTHREAD") == 0) {
 			/* <algorithm> <search key> */
 			enum mail_thread_type thread_type;
-			const char *str;
 
-			if ((*args)->type != IMAP_ARG_ATOM) {
+			if (!imap_arg_get_atom(*args, &value)) {
 				data->error = "Invalid parameter for INTHREAD";
 				return FALSE;
 			}
 
-			str = IMAP_ARG_STR_NONULL(*args);
-			if (!mail_thread_type_parse(str, &thread_type)) {
+			if (!mail_thread_type_parse(value, &thread_type)) {
 				data->error = "Unknown thread algorithm";
 				return FALSE;
 			}
@@ -400,29 +388,29 @@ static bool search_arg_build(struct search_build_data *data,
 		}
 		break;
 	case 'K':
-		if (strcmp(str, "KEYWORD") == 0) {
+		if (strcmp(key, "KEYWORD") == 0) {
 			return ARG_NEW_STR(SEARCH_KEYWORDS);
 		}
 		break;
 	case 'L':
-		if (strcmp(str, "LARGER") == 0) {
+		if (strcmp(key, "LARGER") == 0) {
 			/* <n> */
 			return ARG_NEW_SIZE(SEARCH_LARGER);
 		}
 		break;
 	case 'M':
-		if (strcmp(str, "MODSEQ") == 0) {
+		if (strcmp(key, "MODSEQ") == 0) {
 			/* [<name> <type>] <n> */
 			return ARG_NEW_MODSEQ();
 		}
   		break;
 	case 'N':
-		if (strcmp(str, "NOT") == 0) {
+		if (strcmp(key, "NOT") == 0) {
 			if (!search_arg_build(data, args, next_sarg))
 				return FALSE;
 			(*next_sarg)->not = !(*next_sarg)->not;
 			return TRUE;
-		} else if (strcmp(str, "NEW") == 0) {
+		} else if (strcmp(key, "NEW") == 0) {
 			/* NEW == (RECENT UNSEEN) */
 			*next_sarg = search_arg_new(data->pool, SEARCH_SUB);
 
@@ -437,7 +425,7 @@ static bool search_arg_build(struct search_build_data *data,
 		}
 		break;
 	case 'O':
-		if (strcmp(str, "OR") == 0) {
+		if (strcmp(key, "OR") == 0) {
 			/* <search-key1> <search-key2> */
 			*next_sarg = search_arg_new(data->pool, SEARCH_OR);
 
@@ -450,12 +438,8 @@ static bool search_arg_build(struct search_build_data *data,
 
 				/* <key> OR <key> OR ... <key> - put them all
 				   under one SEARCH_OR list. */
-				if ((*args)->type == IMAP_ARG_EOL)
-					break;
-
-				if ((*args)->type != IMAP_ARG_ATOM ||
-				    strcasecmp(IMAP_ARG_STR_NONULL(*args),
-					       "OR") != 0)
+				if (!imap_arg_get_atom(*args, &value) ||
+				    strcasecmp(value, "OR") != 0)
 					break;
 
 				*args += 1;
@@ -464,17 +448,17 @@ static bool search_arg_build(struct search_build_data *data,
 			if (!search_arg_build(data, args, subargs))
 				return FALSE;
 			return TRUE;
-		} if (strcmp(str, "ON") == 0) {
+		} if (strcmp(key, "ON") == 0) {
 			/* <date> */
 			return ARG_NEW_DATE(SEARCH_ON);
-		} if (strcmp(str, "OLD") == 0) {
+		} if (strcmp(key, "OLD") == 0) {
 			/* OLD == NOT RECENT */
 			if (!ARG_NEW_FLAGS(MAIL_RECENT))
 				return FALSE;
 
 			(*next_sarg)->not = TRUE;
 			return TRUE;
-		} if (strcmp(str, "OLDER") == 0) {
+		} if (strcmp(key, "OLDER") == 0) {
 			/* <interval> - WITHIN extension */
 			if (!ARG_NEW_INTERVAL(SEARCH_BEFORE))
 				return FALSE;
@@ -486,48 +470,49 @@ static bool search_arg_build(struct search_build_data *data,
 		}
 		break;
 	case 'R':
-		if (strcmp(str, "RECENT") == 0)
+		if (strcmp(key, "RECENT") == 0)
 			return ARG_NEW_FLAGS(MAIL_RECENT);
 		break;
 	case 'S':
-		if (strcmp(str, "SEEN") == 0)
+		if (strcmp(key, "SEEN") == 0)
 			return ARG_NEW_FLAGS(MAIL_SEEN);
-		else if (strcmp(str, "SUBJECT") == 0) {
+		else if (strcmp(key, "SUBJECT") == 0) {
 			/* <string> */
-			return ARG_NEW_HEADER(SEARCH_HEADER_COMPRESS_LWSP, str);
-		} else if (strcmp(str, "SENTBEFORE") == 0) {
+			return ARG_NEW_HEADER(SEARCH_HEADER_COMPRESS_LWSP, key);
+		} else if (strcmp(key, "SENTBEFORE") == 0) {
 			/* <date> */
 			return ARG_NEW_DATE(SEARCH_SENTBEFORE);
-		} else if (strcmp(str, "SENTON") == 0) {
+		} else if (strcmp(key, "SENTON") == 0) {
 			/* <date> */
 			return ARG_NEW_DATE(SEARCH_SENTON);
-		} else if (strcmp(str, "SENTSINCE") == 0) {
+		} else if (strcmp(key, "SENTSINCE") == 0) {
 			/* <date> */
 			return ARG_NEW_DATE(SEARCH_SENTSINCE);
-		} else if (strcmp(str, "SINCE") == 0) {
+		} else if (strcmp(key, "SINCE") == 0) {
 			/* <date> */
 			return ARG_NEW_DATE(SEARCH_SINCE);
-		} else if (strcmp(str, "SMALLER") == 0) {
+		} else if (strcmp(key, "SMALLER") == 0) {
 			/* <n> */
 			return ARG_NEW_SIZE(SEARCH_SMALLER);
 		}
 		break;
 	case 'T':
-		if (strcmp(str, "TEXT") == 0) {
+		if (strcmp(key, "TEXT") == 0) {
 			/* <string> */
-			if (IMAP_ARG_TYPE_IS_STRING((*args)->type) &&
-			    *IMAP_ARG_STR(*args) == '\0') {
+			if (imap_arg_get_astring(*args, &value) &&
+			    *value == '\0') {
+				/* optimization: TEXT "" matches everything */
 				*args += 1;
 				return ARG_NEW_SINGLE(SEARCH_ALL);
 			}
 			return ARG_NEW_STR(SEARCH_TEXT);
-		} else if (strcmp(str, "TO") == 0) {
+		} else if (strcmp(key, "TO") == 0) {
 			/* <string> */
-			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, str);
+			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, key);
 		}
 		break;
 	case 'U':
-		if (strcmp(str, "UID") == 0) {
+		if (strcmp(key, "UID") == 0) {
 			/* <message set> */
 			if (!ARG_NEW_STR(SEARCH_UIDSET))
 				return FALSE;
@@ -544,32 +529,32 @@ static bool search_arg_build(struct search_build_data *data,
 				return FALSE;
 			}
 			return TRUE;
-		} else if (strcmp(str, "UNANSWERED") == 0) {
+		} else if (strcmp(key, "UNANSWERED") == 0) {
 			if (!ARG_NEW_FLAGS(MAIL_ANSWERED))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
-		} else if (strcmp(str, "UNDELETED") == 0) {
+		} else if (strcmp(key, "UNDELETED") == 0) {
 			if (!ARG_NEW_FLAGS(MAIL_DELETED))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
-		} else if (strcmp(str, "UNDRAFT") == 0) {
+		} else if (strcmp(key, "UNDRAFT") == 0) {
 			if (!ARG_NEW_FLAGS(MAIL_DRAFT))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
-		} else if (strcmp(str, "UNFLAGGED") == 0) {
+		} else if (strcmp(key, "UNFLAGGED") == 0) {
 			if (!ARG_NEW_FLAGS(MAIL_FLAGGED))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
-		} else if (strcmp(str, "UNKEYWORD") == 0) {
+		} else if (strcmp(key, "UNKEYWORD") == 0) {
 			if (!ARG_NEW_STR(SEARCH_KEYWORDS))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
 			return TRUE;
-		} else if (strcmp(str, "UNSEEN") == 0) {
+		} else if (strcmp(key, "UNSEEN") == 0) {
 			if (!ARG_NEW_FLAGS(MAIL_SEEN))
 				return FALSE;
 			(*next_sarg)->not = TRUE;
@@ -577,50 +562,54 @@ static bool search_arg_build(struct search_build_data *data,
 		}
 		break;
 	case 'Y':
-		if (strcmp(str, "YOUNGER") == 0) {
+		if (strcmp(key, "YOUNGER") == 0) {
 			/* <interval> - WITHIN extension */
 			return ARG_NEW_INTERVAL(SEARCH_SINCE);
 		}
 		break;
 	case 'X':
-		if (strcmp(str, "X-BODY-FAST") == 0) {
+		if (strcmp(key, "X-BODY-FAST") == 0) {
 			/* <string> */
-			if (IMAP_ARG_TYPE_IS_STRING((*args)->type) &&
-			    *IMAP_ARG_STR(*args) == '\0') {
+			if (imap_arg_get_astring(*args, &value) &&
+			    *value == '\0') {
+				/* optimization: X-BODY-FAST "" matches
+				   everything */
 				*args += 1;
 				return ARG_NEW_SINGLE(SEARCH_ALL);
 			}
 			return ARG_NEW_STR(SEARCH_BODY_FAST);
-		} else if (strcmp(str, "X-TEXT-FAST") == 0) {
+		} else if (strcmp(key, "X-TEXT-FAST") == 0) {
 			/* <string> */
-			if (IMAP_ARG_TYPE_IS_STRING((*args)->type) &&
-			    *IMAP_ARG_STR(*args) == '\0') {
+			if (imap_arg_get_astring(*args, &value) &&
+			    *value == '\0') {
+				/* optimization: X-TEXT-FAST "" matches
+				   everything */
 				*args += 1;
 				return ARG_NEW_SINGLE(SEARCH_ALL);
 			}
 			return ARG_NEW_STR(SEARCH_TEXT_FAST);
-		} else if (strcmp(str, "X-GUID") == 0) {
+		} else if (strcmp(key, "X-GUID") == 0) {
 			/* <string> */
 			return ARG_NEW_STR(SEARCH_GUID);
-		} else if (strcmp(str, "X-MAILBOX") == 0) {
+		} else if (strcmp(key, "X-MAILBOX") == 0) {
 			/* <string> */
 			return ARG_NEW_STR(SEARCH_MAILBOX);
 		}
 		break;
 	default:
-		if (*str == '*' || (*str >= '0' && *str <= '9')) {
+		if (*key == '*' || (*key >= '0' && *key <= '9')) {
 			/* <message-set> */
 			if (!ARG_NEW_SINGLE(SEARCH_SEQSET))
 				return FALSE;
 
 			p_array_init(&(*next_sarg)->value.seqset,
 				     data->pool, 16);
-			if (imap_seq_set_parse(str, &(*next_sarg)->value.seqset) < 0) {
+			if (imap_seq_set_parse(key, &(*next_sarg)->value.seqset) < 0) {
 				data->error = "Invalid messageset";
 				return FALSE;
 			}
 			return TRUE;
-		} else if (strcmp(str, "$") == 0) {
+		} else if (strcmp(key, "$") == 0) {
 			/* SEARCHRES: delay initialization */
 			if (!ARG_NEW_SINGLE(SEARCH_UIDSET))
 				return FALSE;
@@ -633,7 +622,7 @@ static bool search_arg_build(struct search_build_data *data,
 		break;
 	}
 
-	data->error = t_strconcat("Unknown argument ", str, NULL);
+	data->error = t_strconcat("Unknown argument ", key, NULL);
 	return FALSE;
 }
 
@@ -656,7 +645,7 @@ int mail_search_build_from_imap_args(const struct imap_arg *imap_args,
 	data.error = NULL;
 
 	sargs = &args->args;
-	while (imap_args->type != IMAP_ARG_EOL) {
+	while (!IMAP_ARG_IS_EOL(imap_args)) {
 		if (!search_arg_build(&data, &imap_args, sargs)) {
 			pool_unref(&args->pool);
 			*error_r = data.error;

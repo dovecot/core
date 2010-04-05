@@ -97,14 +97,11 @@ client_update_info(struct imap_client *client, const struct imap_arg *args)
 {
 	const char *key, *value;
 
-	if (args->type != IMAP_ARG_LIST)
+	if (!imap_arg_get_list(args, &args))
 		return;
-	args = IMAP_ARG_LIST_ARGS(args);
 
-	while (args->type == IMAP_ARG_STRING &&
-	       args[1].type == IMAP_ARG_STRING) {
-		key = IMAP_ARG_STR_NONULL(&args[0]);
-		value = IMAP_ARG_STR_NONULL(&args[1]);
+	while (imap_arg_get_string(&args[0], &key) &&
+	       imap_arg_get_nstring(&args[1], &value)) {
 		if (strcasecmp(key, "x-originating-ip") == 0)
 			(void)net_addr2ip(value, &client->common.ip);
 		else if (strcasecmp(key, "x-originating-port") == 0)

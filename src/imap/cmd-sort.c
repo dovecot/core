@@ -32,20 +32,18 @@ get_sort_program(struct client_command_context *cmd,
 		 enum mail_sort_type program[MAX_SORT_PROGRAM_SIZE])
 {
 	enum mail_sort_type mask = 0;
+	const char *arg;
 	unsigned int i, pos;
 	bool reverse, last_reverse;
 
-	if (args->type == IMAP_ARG_EOL) {
+	if (IMAP_ARG_IS_EOL(args)) {
 		/* empyty list */
 		client_send_command_error(cmd, "Empty sort program.");
 		return -1;
 	}
 
 	pos = 0; reverse = last_reverse = FALSE;
-	for (; args->type == IMAP_ARG_ATOM || args->type == IMAP_ARG_STRING;
-	     args++) {
-		const char *arg = IMAP_ARG_STR(args);
-
+	for (; imap_arg_get_astring(args, &arg); args++) {
 		last_reverse = strcasecmp(arg, "reverse") == 0;
 		if (last_reverse) {
 			reverse = !reverse;
@@ -80,7 +78,7 @@ get_sort_program(struct client_command_context *cmd,
 	}
 	program[pos] = MAIL_SORT_END;
 
-	if (args->type != IMAP_ARG_EOL) {
+	if (!IMAP_ARG_IS_EOL(args)) {
 		client_send_command_error(cmd,
 					  "Invalid sort list argument.");
 		return -1;
@@ -94,7 +92,7 @@ bool cmd_sort(struct client_command_context *cmd)
 	struct imap_search_context *ctx;
 	struct mail_search_args *sargs;
 	enum mail_sort_type sort_program[MAX_SORT_PROGRAM_SIZE];
-	const struct imap_arg *args;
+	const struct imap_arg *args, *list_args;
 	const char *charset;
 	int ret;
 
@@ -113,22 +111,20 @@ bool cmd_sort(struct client_command_context *cmd)
 	}
 
 	/* sort program */
-	if (args->type != IMAP_ARG_LIST) {
+	if (!imap_arg_get_list(args, &list_args)) {
 		client_send_command_error(cmd, "Invalid sort argument.");
 		return TRUE;
 	}
 
-	if (get_sort_program(cmd, IMAP_ARG_LIST_ARGS(args), sort_program) < 0)
+	if (get_sort_program(cmd, list_args, sort_program) < 0)
 		return TRUE;
 	args++;
 
 	/* charset */
-	if (args->type != IMAP_ARG_ATOM && args->type != IMAP_ARG_STRING) {
-		client_send_command_error(cmd,
-					  "Invalid charset argument.");
+	if (!imap_arg_get_astring(args, &charset)) {
+		client_send_command_error(cmd, "Invalid charset argument.");
 		return TRUE;
 	}
-	charset = IMAP_ARG_STR(args);
 	args++;
 
 	ret = imap_search_args_build(cmd, args, charset, &sargs);

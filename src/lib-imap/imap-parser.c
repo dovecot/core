@@ -652,8 +652,7 @@ bool imap_parser_get_literal_size(struct imap_parser *parser, uoff_t *size_r)
 	if (last_arg == NULL)
 		return FALSE;
 
-	*size_r = IMAP_ARG_LITERAL_SIZE(last_arg);
-	return TRUE;
+	return imap_arg_get_literal_size(last_arg, size_r);
 }
 
 void imap_parser_read_last_literal(struct imap_parser *parser)
@@ -714,22 +713,6 @@ const char *imap_parser_read_word(struct imap_parser *parser)
 		i_stream_skip(parser->input, data_size);
 		return p_strndup(parser->pool, data, i);
 	} else {
-		return NULL;
-	}
-}
-
-const char *imap_arg_string(const struct imap_arg *arg)
-{
-	switch (arg->type) {
-	case IMAP_ARG_NIL:
-		return "";
-
-	case IMAP_ARG_ATOM:
-	case IMAP_ARG_STRING:
-	case IMAP_ARG_LITERAL:
-		return arg->_data.str;
-
-	default:
 		return NULL;
 	}
 }

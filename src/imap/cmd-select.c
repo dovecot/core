@@ -65,10 +65,48 @@ static int select_qresync_get_uids(struct imap_select_context *ctx,
 }
 
 static bool
+select_parse_qresync_known_set(struct imap_select_context *ctx,
+			       const struct imap_arg *args)
+{
+	ARRAY_TYPE(seq_range) seqset, uidset;
+	const char *str;
+
+	t_array_init(&seqset, 32);
+	if (!imap_arg_get_atom(args, &str) ||
+	    imap_seq_set_parse(str, &seqset) < 0) {
+		client_send_command_error(ctx->cmd,
+			"Invalid QRESYNC known-sequence-set");
+		return FALSE;
+	}
+	args++;
+
+	t_array_init(&uidset, 32);
+	if (!imap_arg_get_atom(args, &str) ||
+	    imap_seq_set_parse(str, &uidset) < 0) {
+		client_send_command_error(ctx->cmd,
+			"Invalid QRESYNC known-uid-set");
+		return FALSE;
+	}
+	args++;
+
+	if (select_qresync_get_uids(ctx, &seqset, &uidset) < 0) {
+		client_send_command_error(ctx->cmd, "Invalid QRESYNC sets");
+		return FALSE;
+	}
+	if (!IMAP_ARG_IS_EOL(args)) {
+		client_send_command_error(ctx->cmd,
+			"Too many parameters to QRESYNC known set");
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool
 select_parse_qresync(struct imap_select_context *ctx,
 		     const struct imap_arg *args)
 {
-	ARRAY_TYPE(seq_range) seqset, uidset;
+	const struct imap_arg *list_args;
+	const char *arg1, *arg2;
 	unsigned int count;
 
 	if ((ctx->cmd->client->enabled_features &
@@ -76,68 +114,44 @@ select_parse_qresync(struct imap_select_context *ctx,
 		client_send_command_error(ctx->cmd, "QRESYNC not enabled");
 		return FALSE;
 	}
-	if (args->type != IMAP_ARG_LIST) {
+	if (!imap_arg_get_list_full(args, &args, &count)) {
 		client_send_command_error(ctx->cmd,
 					  "QRESYNC parameters missing");
 		return FALSE;
 	}
-	args = IMAP_ARG_LIST_ARGS(args);
-	for (count = 0; args[count].type != IMAP_ARG_EOL; count++) ;
 
-	if (count < 2 || count > 4 ||
-	    args[0].type != IMAP_ARG_ATOM ||
-	    args[1].type != IMAP_ARG_ATOM ||
-	    (count > 2 && args[2].type != IMAP_ARG_ATOM) ||
-	    (count > 3 && args[3].type != IMAP_ARG_LIST)) {
+	if (!imap_arg_get_atom(&args[0], &arg1) ||
+	    !imap_arg_get_atom(&args[1], &arg2)) {
 		client_send_command_error(ctx->cmd,
 					  "Invalid QRESYNC parameters");
 		return FALSE;
 	}
-	ctx->qresync_uid_validity =
-		strtoul(IMAP_ARG_STR_NONULL(&args[0]), NULL, 10);
-	ctx->qresync_modseq =
-		strtoull(IMAP_ARG_STR_NONULL(&args[1]), NULL, 10);
-	if (count > 2) {
+	args += 2;
+	ctx->qresync_uid_validity = strtoul(arg1, NULL, 10);
+	ctx->qresync_modseq = strtoull(arg2, NULL, 10);
+
+	if (!imap_arg_get_atom(args, &arg1)) {
 		i_array_init(&ctx->qresync_known_uids, 64);
-		if (imap_seq_set_parse(IMAP_ARG_STR_NONULL(&args[2]),
-				       &ctx->qresync_known_uids) < 0) {
+		seq_range_array_add_range(&ctx->qresync_known_uids,
+					  1, (uint32_t)-1);
+	} else {
+		i_array_init(&ctx->qresync_known_uids, 64);
+		if (imap_seq_set_parse(arg1, &ctx->qresync_known_uids) < 0) {
 			client_send_command_error(ctx->cmd,
 						  "Invalid QRESYNC known-uids");
 			return FALSE;
 		}
-	} else {
-		i_array_init(&ctx->qresync_known_uids, 64);
-		seq_range_array_add_range(&ctx->qresync_known_uids,
-					  1, (uint32_t)-1);
+		args++;
+		if (imap_arg_get_list(args, &list_args)) {
+			if (!select_parse_qresync_known_set(ctx, list_args))
+				return FALSE;
+			args++;
+		}
 	}
-	if (count > 3) {
-		args = IMAP_ARG_LIST_ARGS(&args[3]);
-		if (args[0].type != IMAP_ARG_ATOM ||
-		    args[1].type != IMAP_ARG_ATOM ||
-		    args[2].type != IMAP_ARG_EOL) {
-			client_send_command_error(ctx->cmd,
-				"Invalid QRESYNC known set parameters");
-			return FALSE;
-		}
-		t_array_init(&seqset, 32);
-		if (imap_seq_set_parse(IMAP_ARG_STR_NONULL(&args[0]),
-				       &seqset) < 0) {
-			client_send_command_error(ctx->cmd,
-				"Invalid QRESYNC known-sequence-set");
-			return FALSE;
-		}
-		t_array_init(&uidset, 32);
-		if (imap_seq_set_parse(IMAP_ARG_STR_NONULL(&args[1]),
-				       &uidset) < 0) {
-			client_send_command_error(ctx->cmd,
-				"Invalid QRESYNC known-uid-set");
-			return FALSE;
-		}
-		if (select_qresync_get_uids(ctx, &seqset, &uidset) < 0) {
-			client_send_command_error(ctx->cmd,
-				"Invalid QRESYNC sets");
-			return FALSE;
-		}
+	if (!IMAP_ARG_IS_EOL(args)) {
+		client_send_command_error(ctx->cmd,
+					  "Invalid QRESYNC parameters");
+		return FALSE;
 	}
 	return TRUE;
 }
@@ -148,13 +162,13 @@ select_parse_options(struct imap_select_context *ctx,
 {
 	const char *name;
 
-	while (args->type != IMAP_ARG_EOL) {
-		if (args->type != IMAP_ARG_ATOM) {
+	while (!IMAP_ARG_IS_EOL(args)) {
+		if (!imap_arg_get_atom(args, &name)) {
 			client_send_command_error(ctx->cmd,
 				"SELECT options contain non-atoms.");
 			return FALSE;
 		}
-		name = t_str_ucase(IMAP_ARG_STR(args));
+		name = t_str_ucase(name);
 		args++;
 
 		if (strcmp(name, "CONDSTORE") == 0)
@@ -340,7 +354,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	struct client *client = cmd->client;
 	struct mailbox *box;
 	struct imap_select_context *ctx;
-	const struct imap_arg *args;
+	const struct imap_arg *args, *list_args;
 	enum mailbox_name_status status;
 	const char *mailbox, *storage_name;
 	int ret;
@@ -349,11 +363,10 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
 
-	if (!IMAP_ARG_TYPE_IS_STRING(args[0].type)) {
+	if (!imap_arg_get_astring(args, &mailbox)) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return FALSE;
 	}
-	mailbox = IMAP_ARG_STR(&args[0]);
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
@@ -373,8 +386,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		return TRUE;
 	}
 
-	if (args[1].type == IMAP_ARG_LIST) {
-		if (!select_parse_options(ctx, IMAP_ARG_LIST_ARGS(&args[1]))) {
+	if (imap_arg_get_list(&args[1], &list_args)) {
+		if (!select_parse_options(ctx, list_args)) {
 			select_context_free(ctx);
 			return TRUE;
 		}

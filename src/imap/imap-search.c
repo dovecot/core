@@ -47,13 +47,13 @@ search_parse_return_options(struct imap_search_context *ctx,
 	const char *name, *str;
 	unsigned int idx;
 
-	while (args->type != IMAP_ARG_EOL) {
-		if (args->type != IMAP_ARG_ATOM) {
+	while (!IMAP_ARG_IS_EOL(args)) {
+		if (!imap_arg_get_atom(args, &name)) {
 			client_send_command_error(cmd,
 				"SEARCH return options contain non-atoms.");
 			return FALSE;
 		}
-		name = t_str_ucase(IMAP_ARG_STR_NONULL(args));
+		name = t_str_ucase(name);
 		args++;
 		if (strcmp(name, "MIN") == 0)
 			ctx->return_options |= SEARCH_RETURN_MIN;
@@ -74,12 +74,11 @@ search_parse_return_options(struct imap_search_context *ctx,
 				return FALSE;
 			}
 			ctx->return_options |= SEARCH_RETURN_PARTIAL;
-			if (args->type != IMAP_ARG_ATOM) {
+			if (!imap_arg_get_atom(args, &str)) {
 				client_send_command_error(cmd,
 					"PARTIAL range missing.");
 				return FALSE;
 			}
-			str = IMAP_ARG_STR_NONULL(args);
 			if (imap_partial_range_parse(ctx, str) < 0) {
 				client_send_command_error(cmd,
 					"PARTIAL range broken.");
@@ -445,19 +444,17 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 int cmd_search_parse_return_if_found(struct imap_search_context *ctx,
 				     const struct imap_arg **_args)
 {
-	const struct imap_arg *args = *_args;
+	const struct imap_arg *list_args, *args = *_args;
 	struct client_command_context *cmd = ctx->cmd;
 
-	if (!(args->type == IMAP_ARG_ATOM && args[1].type == IMAP_ARG_LIST &&
-	      strcasecmp(IMAP_ARG_STR_NONULL(args), "RETURN") == 0)) {
+	if (!imap_arg_atom_equals(&args[0], "RETURN") ||
+	    !imap_arg_get_list(&args[1], &list_args)) {
 		ctx->return_options = SEARCH_RETURN_ALL;
 		return 1;
 	}
 
-	args++;
-	if (!search_parse_return_options(ctx, IMAP_ARG_LIST_ARGS(args)))
+	if (!search_parse_return_options(ctx, list_args))
 		return -1;
-	args++;
 
 	if ((ctx->return_options & SEARCH_RETURN_SAVE) != 0) {
 		/* wait if there is another SEARCH SAVE command running. */
@@ -472,7 +469,7 @@ int cmd_search_parse_return_if_found(struct imap_search_context *ctx,
 			i_array_init(&cmd->client->search_saved_uidset, 128);
 	}
 
-	*_args = args;
+	*_args = args + 2;
 	return 1;
 }
 

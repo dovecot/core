@@ -14,12 +14,12 @@ bool cmd_enable(struct client_command_context *cmd)
 
 	reply = t_str_new(64);
 	str_append(reply, "* ENABLED");
-	for (; args->type != IMAP_ARG_EOL; args++) {
-		if (args->type != IMAP_ARG_ATOM) {
+	for (; !IMAP_ARG_IS_EOL(args); args++) {
+		if (!imap_arg_get_atom(args, &str)) {
 			client_send_command_error(cmd, "Invalid arguments.");
 			return TRUE;
 		}
-		str = t_str_ucase(IMAP_ARG_STR(args));
+		str = t_str_ucase(str);
 		if (strcmp(str, "CONDSTORE") == 0) {
 			client_enable(cmd->client, MAILBOX_FEATURE_CONDSTORE);
 			str_append(reply, " CONDSTORE");

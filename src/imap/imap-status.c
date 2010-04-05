@@ -15,16 +15,15 @@ int imap_status_parse_items(struct client_command_context *cmd,
 
 	memset(items_r, 0, sizeof(*items_r));
 	items = 0;
-	for (; args->type != IMAP_ARG_EOL; args++) {
-		if (args->type != IMAP_ARG_ATOM) {
+	for (; !IMAP_ARG_IS_EOL(args); args++) {
+		if (!imap_arg_get_atom(args, &item)) {
 			/* list may contain only atoms */
 			client_send_command_error(cmd,
 				"Status list contains non-atoms.");
 			return -1;
 		}
 
-		item = t_str_ucase(IMAP_ARG_STR(args));
-
+		item = t_str_ucase(item);
 		if (strcmp(item, "MESSAGES") == 0)
 			items |= STATUS_MESSAGES;
 		else if (strcmp(item, "RECENT") == 0)

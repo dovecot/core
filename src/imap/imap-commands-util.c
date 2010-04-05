@@ -244,14 +244,13 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 	*keywords_r = NULL;
 	p_array_init(&keywords, cmd->pool, 16);
 
-	while (args->type != IMAP_ARG_EOL) {
-		if (args->type != IMAP_ARG_ATOM) {
+	while (!IMAP_ARG_IS_EOL(args)) {
+		if (!imap_arg_get_atom(args, &atom)) {
 			client_send_command_error(cmd,
 				"Flags list contains non-atoms.");
 			return FALSE;
 		}
 
-		atom = IMAP_ARG_STR(args);
 		if (*atom == '\\') {
 			/* system flag */
 			atom = t_str_ucase(atom);

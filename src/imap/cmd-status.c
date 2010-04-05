@@ -10,7 +10,7 @@ bool cmd_status(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	enum mailbox_name_status status;
-	const struct imap_arg *args;
+	const struct imap_arg *args, *list_args;
 	struct imap_status_items items;
 	struct imap_status_result result;
 	struct mail_namespace *ns;
@@ -21,15 +21,14 @@ bool cmd_status(struct client_command_context *cmd)
 	if (!client_read_args(cmd, 2, 0, &args))
 		return FALSE;
 
-	mailbox = imap_arg_string(&args[0]);
-	if (mailbox == NULL || args[1].type != IMAP_ARG_LIST) {
-		client_send_command_error(cmd, "Status items must be list.");
+	if (!imap_arg_get_astring(&args[0], &mailbox) ||
+	    !imap_arg_get_list(&args[1], &list_args)) {
+		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
 
 	/* get the items client wants */
-	if (imap_status_parse_items(cmd, IMAP_ARG_LIST_ARGS(&args[1]),
-				    &items) < 0)
+	if (imap_status_parse_items(cmd, list_args, &items) < 0)
 		return TRUE;
 
 	ns = client_find_namespace(cmd, mailbox, &storage_name, &status);

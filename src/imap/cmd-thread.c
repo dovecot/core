@@ -117,26 +117,17 @@ bool cmd_thread(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	if (args->type != IMAP_ARG_ATOM && args->type != IMAP_ARG_STRING) {
-		client_send_command_error(cmd,
-					  "Invalid thread algorithm argument.");
+	if (!imap_arg_get_astring(&args[0], &str) ||
+	    !imap_arg_get_astring(&args[1], &charset)) {
+		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
+	args += 2;
 
-	str = IMAP_ARG_STR(args);
 	if (!mail_thread_type_parse(str, &thread_type)) {
 		client_send_command_error(cmd, "Unknown thread algorithm.");
 		return TRUE;
 	}
-	args++;
-
-	/* charset */
-	if (args->type != IMAP_ARG_ATOM && args->type != IMAP_ARG_STRING) {
-		client_send_command_error(cmd, "Invalid charset argument.");
-		return TRUE;
-	}
-	charset = IMAP_ARG_STR(args);
-	args++;
 
 	ret = imap_search_args_build(cmd, args, charset, &sargs);
 	if (ret <= 0)
@@ -146,7 +137,7 @@ bool cmd_thread(struct client_command_context *cmd)
 	mail_search_args_unref(&sargs);
 	if (ret < 0) {
 		client_send_storage_error(cmd,
-					  mailbox_get_storage(client->mailbox));
+			mailbox_get_storage(client->mailbox));
 		return TRUE;
 	}
 

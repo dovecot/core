@@ -221,22 +221,15 @@ static bool imap_address_arg_append(const struct imap_arg *arg, string_t *str,
 	const char *args[4];
 	int i;
 
-	if (arg->type != IMAP_ARG_LIST)
+	if (!imap_arg_get_list_full(arg, &list_args, &list_count))
 		return FALSE;
-	list_args = IMAP_ARG_LIST_ARGS(arg);
-	list_count = IMAP_ARG_LIST_COUNT(arg);
 
 	/* we require 4 arguments, strings or NILs */
 	if (list_count < 4)
 		return FALSE;
 
 	for (i = 0; i < 4; i++) {
-		if (list_args[i].type == IMAP_ARG_NIL)
-			args[i] = NULL;
-		else if (list_args[i].type == IMAP_ARG_STRING ||
-			 list_args[i].type == IMAP_ARG_ATOM)
-			args[i] = IMAP_ARG_STR(&list_args[i]);
-		else
+		if (!imap_arg_get_nstring(&list_args[i], &args[i]))
 			return FALSE;
 	}
 
@@ -298,14 +291,13 @@ static const char *imap_envelope_parse_address(const struct imap_arg *arg)
 	string_t *str;
 	bool in_group;
 
-	if (arg->type != IMAP_ARG_LIST)
+	if (!imap_arg_get_list(arg, &list_args))
 		return NULL;
 
 	in_group = FALSE;
 	str = t_str_new(128);
 
-	list_args = IMAP_ARG_LIST_ARGS(arg);
-	for (; list_args->type != IMAP_ARG_EOL; list_args++) {
+	for (; !IMAP_ARG_IS_EOL(list_args); list_args++) {
 		if (!imap_address_arg_append(list_args, str, &in_group))
 			return NULL;
 	}
@@ -316,21 +308,22 @@ static const char *imap_envelope_parse_address(const struct imap_arg *arg)
 static const char *imap_envelope_parse_first_mailbox(const struct imap_arg *arg)
 {
 	const struct imap_arg *list_args;
+	const char *str;
+	unsigned int list_count;
 
 	/* ((...)(...) ...) */
-	if (arg->type != IMAP_ARG_LIST)
+	if (!imap_arg_get_list(arg, &list_args))
 		return NULL;
-
-	list_args = IMAP_ARG_LIST_ARGS(arg);
-	if (list_args->type == IMAP_ARG_EOL)
+	if (IMAP_ARG_IS_EOL(list_args))
 		return "";
 
 	/* (name route mailbox domain) */
-	if (IMAP_ARG_LIST_COUNT(list_args) != 4)
+	if (!imap_arg_get_list_full(arg, &list_args, &list_count) ||
+	    list_count != 4)
 		return NULL;
-
-	list_args = IMAP_ARG_LIST_ARGS(list_args);
-	return t_strdup(imap_arg_string(&list_args[2]));
+	if (!imap_arg_get_nstring(&list_args[2], &str))
+		return NULL;
+	return t_strdup(str);
 }
 
 static bool
@@ -351,8 +344,10 @@ imap_envelope_parse_arg(const struct imap_arg *arg,
 	case IMAP_ENVELOPE_RESULT_TYPE_STRING:
 		if (field >= IMAP_ENVELOPE_FROM && field <= IMAP_ENVELOPE_BCC)
 			value = imap_envelope_parse_address(arg);
-		else
-			value = t_strdup(imap_arg_string(arg));
+		else {
+			if (imap_arg_get_nstring(arg, &value))
+				value = t_strdup(value);
+		}
 		break;
 	case IMAP_ENVELOPE_RESULT_TYPE_FIRST_MAILBOX:
 		i_assert(field >= IMAP_ENVELOPE_FROM &&

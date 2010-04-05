@@ -758,7 +758,7 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 			       unsigned int args_count)
 {
 	string_t *str;
-	const char **arr;
+	const char **arr, *value;
 	size_t i;
 
 	str = str_new(ctx->cmd->pool, 128);
@@ -769,8 +769,7 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 	arr = p_new(ctx->cmd->pool, const char *, args_count + 1);
 
 	for (i = 0; i < args_count; i++) {
-		if (args[i].type != IMAP_ARG_ATOM &&
-		    args[i].type != IMAP_ARG_STRING) {
+		if (!imap_arg_get_astring(&args[i], &value)) {
 			client_send_command_error(ctx->cmd,
 				"Invalid BODY[..] parameter: "
 				"Header list contains non-strings");
@@ -779,7 +778,7 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 
 		if (i != 0)
 			str_append_c(str, ' ');
-		arr[i] = t_str_ucase(IMAP_ARG_STR(&args[i]));
+		arr[i] = t_str_ucase(value);
 
 		if (args[i].type == IMAP_ARG_ATOM)
 			str_append(str, arr[i]);
@@ -802,7 +801,9 @@ bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 			     const struct imap_arg **args)
 {
 	struct imap_fetch_body_data *body;
-	const char *partial;
+	const struct imap_arg *list_args;
+	unsigned int list_count;
+	const char *partial, *str;
 	const char *p = name + 4;
 
 	body = p_new(ctx->cmd->pool, struct imap_fetch_body_data, 1);
@@ -821,19 +822,17 @@ bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 		return FALSE;
 	}
 
-	if ((*args)[0].type == IMAP_ARG_LIST) {
+	if (imap_arg_get_list_full(&(*args)[0], &list_args, &list_count)) {
 		/* BODY[HEADER.FIELDS.. (headers list)] */
-		if ((*args)[1].type != IMAP_ARG_ATOM ||
-		    IMAP_ARG_STR(&(*args)[1])[0] != ']') {
+		if (!imap_arg_get_atom(&(*args)[1], &str) ||
+		    str[0] != ']') {
 			client_send_command_error(ctx->cmd,
 				"Invalid BODY[..] parameter: Missing ']'");
 			return FALSE;
 		}
-		if (!body_section_build(ctx, body, p+1,
-					IMAP_ARG_LIST_ARGS(&(*args)[0]),
-					IMAP_ARG_LIST_COUNT(&(*args)[0])))
+		if (!body_section_build(ctx, body, p+1, list_args, list_count))
 			return FALSE;
-		p = IMAP_ARG_STR(&(*args)[1]);
+		p = str;
 		*args += 2;
 	} else {
 		/* no headers list */

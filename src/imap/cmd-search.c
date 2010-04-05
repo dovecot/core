@@ -26,19 +26,14 @@ bool cmd_search(struct client_command_context *cmd)
 		return ret < 0;
 	}
 
-	if (args->type == IMAP_ARG_ATOM &&
-	    strcasecmp(IMAP_ARG_STR_NONULL(args), "CHARSET") == 0) {
+	if (imap_arg_atom_equals(args, "CHARSET")) {
 		/* CHARSET specified */
-		args++;
-		if (args->type != IMAP_ARG_ATOM &&
-		    args->type != IMAP_ARG_STRING) {
+		if (!imap_arg_get_astring(&args[1], &charset)) {
 			client_send_command_error(cmd,
-						  "Invalid charset argument.");
+				"Invalid charset argument.");
 			return TRUE;
 		}
-
-		charset = IMAP_ARG_STR(args);
-		args++;
+		args += 2;
 	} else {
 		charset = "UTF-8";
 	}

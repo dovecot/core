@@ -58,8 +58,7 @@ bool cmd_uid_expunge(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	uidset = imap_arg_string(&args[0]);
-	if (uidset == NULL) {
+	if (!imap_arg_get_astring(&args[0], &uidset)) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}

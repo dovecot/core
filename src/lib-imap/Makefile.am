@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail
 
 libimap_la_SOURCES = \
+	imap-arg.c \
 	imap-base-subject.c \
 	imap-bodystructure.c \
 	imap-date.c \
@@ -20,6 +21,7 @@ libimap_la_SOURCES = \
 	imap-util.c
 
 headers = \
+	imap-arg.h \
 	imap-base-subject.h \
 	imap-bodystructure.h \
 	imap-date.h \
@@ -57,16 +59,16 @@ test_imap_match_LDADD = imap-match.lo $(test_libs)
 test_imap_match_DEPENDENCIES = imap-match.lo $(test_libs)
 
 test_imap_parser_SOURCES = test-imap-parser.c
-test_imap_parser_LDADD = imap-parser.lo $(test_libs)
-test_imap_parser_DEPENDENCIES = imap-parser.lo $(test_libs)
+test_imap_parser_LDADD = imap-parser.lo imap-arg.lo $(test_libs)
+test_imap_parser_DEPENDENCIES = imap-parser.lo imap-arg.lo $(test_libs)
 
 test_imap_utf7_SOURCES = test-imap-utf7.c
 test_imap_utf7_LDADD = imap-utf7.lo $(test_libs)
 test_imap_utf7_DEPENDENCIES = imap-utf7.lo $(test_libs)
 
 test_imap_util_SOURCES = test-imap-util.c
-test_imap_util_LDADD = imap-util.lo $(test_libs)
-test_imap_util_DEPENDENCIES = imap-util.lo $(test_libs)
+test_imap_util_LDADD = imap-util.lo imap-arg.lo $(test_libs)
+test_imap_util_DEPENDENCIES = imap-util.lo imap-arg.lo $(test_libs)
 
 check: check-am check-test
 check-test: all-am

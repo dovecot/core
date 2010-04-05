@@ -125,22 +125,18 @@ imap_client_auth_begin(struct imap_client *imap_client, const char *mech_name,
 int cmd_authenticate(struct imap_client *imap_client,
 		     const struct imap_arg *args)
 {
-	const char *mech_name, *init_resp = NULL;
+	const char *mech_name, *init_resp;
 
-	/* we want only one argument: authentication mechanism name */
-	if (args[0].type != IMAP_ARG_ATOM && args[0].type != IMAP_ARG_STRING)
+	/* <auth mechanism name> [<initial SASL response>] */
+	if (!imap_arg_get_atom(&args[0], &mech_name) || *mech_name == '\0')
 		return -1;
-	if (args[1].type != IMAP_ARG_EOL) {
-		/* optional SASL initial response */
-		if (args[1].type != IMAP_ARG_ATOM ||
-		    args[2].type != IMAP_ARG_EOL)
-			return -1;
-		init_resp = IMAP_ARG_STR(&args[1]);
-	}
+	if (imap_arg_get_atom(&args[1], &init_resp))
+		args++;
+	else
+		init_resp = NULL;
+	if (!IMAP_ARG_IS_EOL(&args[1]))
+		return -1;
 
-	mech_name = IMAP_ARG_STR(&args[0]);
-	if (*mech_name == '\0')
-		return -1;
 	return imap_client_auth_begin(imap_client, mech_name, init_resp);
 }
 
@@ -151,15 +147,10 @@ int cmd_login(struct imap_client *imap_client, const struct imap_arg *args)
 	string_t *plain_login, *base64;
 
 	/* two arguments: username and password */
-	if (args[0].type != IMAP_ARG_ATOM && args[0].type != IMAP_ARG_STRING)
+	if (!imap_arg_get_astring(&args[0], &user) ||
+	    !imap_arg_get_astring(&args[1], &pass) ||
+	    !IMAP_ARG_IS_EOL(&args[2]))
 		return -1;
-	if (args[1].type != IMAP_ARG_ATOM && args[1].type != IMAP_ARG_STRING)
-		return -1;
-	if (args[2].type != IMAP_ARG_EOL)
-		return -1;
-
-	user = IMAP_ARG_STR(&args[0]);
-	pass = IMAP_ARG_STR(&args[1]);
 
 	if (!client_check_plaintext_auth(client, TRUE))
 		return 1;

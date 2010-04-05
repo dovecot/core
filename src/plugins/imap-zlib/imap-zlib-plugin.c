@@ -76,8 +76,8 @@ static bool cmd_compress(struct client_command_context *cmd)
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
 
-	mechanism = imap_arg_string(&args[0]);
-	if (mechanism == NULL || args[1].type != IMAP_ARG_EOL) {
+	if (!imap_arg_get_atom(args, &mechanism) ||
+	    !IMAP_ARG_IS_EOL(&args[1])) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
@@ -92,7 +92,6 @@ static bool cmd_compress(struct client_command_context *cmd)
 			"NO [COMPRESSIONACTIVE] TLS compression already enabled.");
 		return TRUE;
 	}
-
 
 	handler = zlib_find_zlib_handler(t_str_lcase(mechanism));
 	if (handler == NULL || handler->create_istream == NULL) {

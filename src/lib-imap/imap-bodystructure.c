@@ -534,47 +534,54 @@ void imap_bodystructure_write(const struct message_part *part,
 
 static bool str_append_imap_arg(string_t *str, const struct imap_arg *arg)
 {
+	const char *cstr;
+
+	if (!imap_arg_get_nstring(arg, &cstr))
+		return FALSE;
+
 	switch (arg->type) {
 	case IMAP_ARG_NIL:
 		str_append(str, "NIL");
 		break;
 	case IMAP_ARG_ATOM:
-		str_append(str, IMAP_ARG_STR(arg));
+		str_append(str, cstr);
 		break;
 	case IMAP_ARG_STRING:
 		str_append_c(str, '"');
-		str_append(str, IMAP_ARG_STR(arg));
+		/* NOTE: we're parsing with no-unescape flag,
+		   so don't double-escape it here */
+		str_append(str, cstr);
 		str_append_c(str, '"');
 		break;
 	case IMAP_ARG_LITERAL: {
-		const char *argstr = IMAP_ARG_STR(arg);
-
-		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", strlen(argstr));
-		str_append(str, argstr);
+		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", strlen(cstr));
+		str_append(str, cstr);
 		break;
 	}
 	default:
+		i_unreached();
 		return FALSE;
 	}
-
 	return TRUE;
 }
 
 static bool imap_write_list(const struct imap_arg *args, string_t *str)
 {
+	const struct imap_arg *children;
+
 	/* don't do any typechecking, just write it out */
 	str_append_c(str, '(');
-	while (args->type != IMAP_ARG_EOL) {
+	while (!IMAP_ARG_IS_EOL(args)) {
 		if (!str_append_imap_arg(str, args)) {
-			if (args->type != IMAP_ARG_LIST)
+			if (!imap_arg_get_list(args, &children))
 				return FALSE;
 
-			if (!imap_write_list(IMAP_ARG_LIST_ARGS(args), str))
+			if (!imap_write_list(children, str))
 				return FALSE;
 		}
 		args++;
 
-		if (args->type != IMAP_ARG_EOL)
+		if (!IMAP_ARG_IS_EOL(args))
 			str_append_c(str, ' ');
 	}
 	str_append_c(str, ')');
@@ -586,13 +593,14 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 {
 	const struct imap_arg *subargs;
 	const struct imap_arg *list_args;
+	const char *value, *content_type, *subtype;
 	bool multipart, text, message_rfc822;
 	int i;
 
 	multipart = FALSE;
 	while (args->type == IMAP_ARG_LIST) {
 		str_append_c(str, '(');
-		list_args = IMAP_ARG_LIST_ARGS(args);
+		list_args = imap_arg_as_list(args);
 		if (!imap_parse_bodystructure_args(list_args, str))
 			return FALSE;
 		str_append_c(str, ')');
@@ -608,7 +616,8 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 	}
 
 	/* "content type" "subtype" */
-	if (args[0].type == IMAP_ARG_NIL || args[1].type == IMAP_ARG_NIL)
+	if (!imap_arg_get_astring(&args[0], &content_type) ||
+	    !imap_arg_get_astring(&args[1], &subtype))
 		return FALSE;
 
 	if (!str_append_imap_arg(str, &args[0]))
@@ -617,18 +626,16 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 	if (!str_append_imap_arg(str, &args[1]))
 		return FALSE;
 
-	text = strcasecmp(IMAP_ARG_STR_NONULL(&args[0]), "text") == 0;
-	message_rfc822 =
-		strcasecmp(IMAP_ARG_STR_NONULL(&args[0]), "message") == 0 &&
-		strcasecmp(IMAP_ARG_STR_NONULL(&args[1]), "rfc822") == 0;
+	text = strcasecmp(content_type, "text") == 0;
+	message_rfc822 = strcasecmp(content_type, "message") == 0 &&
+		strcasecmp(subtype, "rfc822") == 0;
 
 	args += 2;
 
 	/* ("content type param key" "value" ...) | NIL */
-	if (args->type == IMAP_ARG_LIST) {
+	if (imap_arg_get_list(args, &subargs)) {
 		str_append(str, " (");
-                subargs = IMAP_ARG_LIST_ARGS(args);
-		for (; subargs->type != IMAP_ARG_EOL; ) {
+		while (!IMAP_ARG_IS_EOL(subargs)) {
 			if (!str_append_imap_arg(str, &subargs[0]))
 				return FALSE;
 			str_append_c(str, ' ');
@@ -636,7 +643,7 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 				return FALSE;
 
 			subargs += 2;
-			if (subargs->type == IMAP_ARG_EOL)
+			if (IMAP_ARG_IS_EOL(subargs))
 				break;
 			str_append_c(str, ' ');
 		}
@@ -658,32 +665,31 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 
 	if (text) {
 		/* text/xxx - text lines */
-		if (args->type != IMAP_ARG_ATOM)
+		if (!imap_arg_get_atom(args, &value))
 			return FALSE;
 
 		str_append_c(str, ' ');
-		str_append(str, IMAP_ARG_STR(args));
+		str_append(str, value);
 	} else if (message_rfc822) {
 		/* message/rfc822 - envelope + bodystructure + text lines */
-		if (args[0].type != IMAP_ARG_LIST ||
-		    args[1].type != IMAP_ARG_LIST ||
-		    args[2].type != IMAP_ARG_ATOM)
-			return FALSE;
-
 		str_append_c(str, ' ');
 
-		list_args = IMAP_ARG_LIST_ARGS(&args[0]);
+		if (!imap_arg_get_list(&args[0], &list_args))
+			return FALSE;
 		if (!imap_write_list(list_args, str))
 			return FALSE;
 
 		str_append(str, " (");
 
-		list_args = IMAP_ARG_LIST_ARGS(&args[1]);
+		if (!imap_arg_get_list(&args[1], &list_args))
+			return FALSE;
 		if (!imap_parse_bodystructure_args(list_args, str))
 			return FALSE;
 
 		str_append(str, ") ");
-		str_append(str, IMAP_ARG_STR(&args[2]));
+		if (!imap_arg_get_atom(&args[2], &value))
+			return FALSE;
+		str_append(str, value);
 	}
 
 	return TRUE;
