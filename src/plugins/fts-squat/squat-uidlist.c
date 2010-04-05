@@ -474,7 +474,6 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 static int squat_uidlist_read_to_memory(struct squat_uidlist *uidlist)
 {
 	size_t i, page_size = mmap_get_page_size();
-	char x;
 
 	if (uidlist->file_cache != NULL) {
 		return uidlist_file_cache_read(uidlist, 0,
@@ -488,7 +487,7 @@ static int squat_uidlist_read_to_memory(struct squat_uidlist *uidlist)
 	   without this code. Compiler can quite easily optimize away this
 	   entire for loop, but volatile seems to help with gcc 4.2. */
 	for (i = 0; i < uidlist->mmap_size; i += page_size)
-		x = ((const volatile char *)uidlist->data)[i];
+		((const volatile char *)uidlist->data)[i];
 	return 0;
 }
 
