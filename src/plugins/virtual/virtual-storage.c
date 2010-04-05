@@ -34,18 +34,32 @@ struct virtual_storage_module virtual_storage_module =
 static MODULE_CONTEXT_DEFINE_INIT(virtual_mailbox_list_module,
 				  &mailbox_list_module_register);
 
+static bool ns_is_visible(struct mail_namespace *ns)
+{
+	return (ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 ||
+		(ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0 ||
+		(ns->flags & NAMESPACE_FLAG_HIDDEN) == 0;
+}
+
+static const char *get_user_visible_mailbox_name(struct mailbox *box)
+{
+	if (ns_is_visible(box->list->ns))
+		return box->vname;
+	else {
+		return t_strdup_printf("<hidden>%c%s",
+				       box->list->hierarchy_sep, box->name);
+	}
+}
+
 void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src)
 {
-	const char *str;
+	const char *name, *str;
 	enum mail_error error;
 
+	name = get_user_visible_mailbox_name(src);
 	str = mail_storage_get_last_error(src->storage, &error);
-	if ((src->list->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0)
-		str = t_strdup_printf("%s (mailbox %s)", str, src->name);
-	else {
-		str = t_strdup_printf("%s (mailbox %s%s)", str,
-				      src->list->ns->prefix, src->name);
-	}
+
+	str = t_strdup_printf("%s (for backend mailbox %s)", str, name);
 	mail_storage_set_error(dest->storage, error, str);
 }
 
@@ -117,15 +131,36 @@ static bool virtual_mailbox_is_in_open_stack(struct virtual_storage *storage,
 	return FALSE;
 }
 
+static int virtual_backend_box_open_failed(struct virtual_mailbox *mbox,
+					   struct virtual_backend_box *bbox)
+{
+	enum mail_error error;
+	const char *str, *name;
+
+	str = mail_storage_get_last_error(mailbox_get_storage(bbox->box),
+					  &error);
+	name = t_strdup(get_user_visible_mailbox_name(bbox->box));
+	mailbox_free(&bbox->box);
+	if (bbox->wildcard &&
+	    (error == MAIL_ERROR_PERM || error == MAIL_ERROR_NOTFOUND)) {
+		/* this mailbox wasn't explicitly specified. just skip it. */
+		return 0;
+	}
+
+	str = t_strdup_printf(
+		"Virtual mailbox open failed because of mailbox %s: %s",
+		name, str);
+	mail_storage_set_error(mbox->box.storage, error, str);
+	return -1;
+}
+
 static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 				    struct virtual_backend_box *bbox,
 				    enum mailbox_flags flags)
 {
 	struct mail_user *user = mbox->storage->storage.user;
-	struct mail_storage *storage;
 	struct mail_namespace *ns;
-	enum mail_error error;
-	const char *str, *mailbox;
+	const char *mailbox;
 
 	flags |= MAILBOX_FLAG_KEEP_RECENT;
 
@@ -133,21 +168,8 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	ns = mail_namespace_find(user->namespaces, &mailbox);
 	bbox->box = mailbox_alloc(ns->list, mailbox, flags);
 
-	if (mailbox_open(bbox->box) < 0) {
-		storage = mailbox_get_storage(bbox->box);
-		str = mail_storage_get_last_error(storage, &error);
-		mailbox_free(&bbox->box);
-		if (bbox->wildcard && (error == MAIL_ERROR_PERM ||
-				       error == MAIL_ERROR_NOTFOUND)) {
-			/* this mailbox wasn't explicitly specified.
-			   just skip it. */
-			return 0;
-		}
-		/* copy the error */
-		mail_storage_set_error(mbox->box.storage, error,
-			t_strdup_printf("%s (%s)", str, mailbox));
-		return -1;
-	}
+	if (mailbox_open(bbox->box) < 0)
+		return virtual_backend_box_open_failed(mbox, bbox);
 	i_array_init(&bbox->uids, 64);
 	i_array_init(&bbox->sync_pending_removes, 64);
 	mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);
