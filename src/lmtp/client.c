@@ -137,7 +137,7 @@ static void client_raw_user_create(struct client *client)
 		i_fatal("Raw user initialization failed: %s", error);
 
 	memset(&raw_ns_set, 0, sizeof(raw_ns_set));
-	raw_ns_set.location = "/tmp";
+	raw_ns_set.location = ":LAYOUT=none";
 
 	raw_ns = mail_namespaces_init_empty(client->raw_mail_user);
 	raw_ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
