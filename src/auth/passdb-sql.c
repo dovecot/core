@@ -57,11 +57,10 @@ static void sql_query_callback(struct sql_result *result,
 {
 	struct auth_request *auth_request = sql_request->auth_request;
 	enum passdb_result passdb_result;
-	const char *user, *password, *scheme;
+	const char *password, *scheme;
 	int ret;
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-	user = auth_request->user;
 	password = NULL;
 
 	ret = sql_result_next_row(result);

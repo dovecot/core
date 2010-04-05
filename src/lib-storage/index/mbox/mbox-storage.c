@@ -473,13 +473,11 @@ mbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 
 static int create_inbox(struct mailbox *box)
 {
-	const char *inbox_path, *rootdir;
+	const char *inbox_path;
 	int fd;
 
 	inbox_path = mailbox_list_get_path(box->list, "INBOX",
 					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	rootdir = mailbox_list_get_path(box->list, NULL,
-					MAILBOX_LIST_PATH_TYPE_DIR);
 
 	fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd == -1 && errno == EACCES) {

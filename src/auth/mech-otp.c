@@ -99,12 +99,11 @@ mech_otp_auth_phase1(struct auth_request *auth_request,
 {
 	struct otp_auth_request *request =
 		(struct otp_auth_request *)auth_request;
-	const char *authzid, *authenid, *error;
+	const char *authenid, *error;
 	size_t i, count;
 
 	/* authorization ID \0 authentication ID
 	   FIXME: we'll ignore authorization ID for now. */
-	authzid = (const char *) data;
 	authenid = NULL;
 
 	count = 0;
