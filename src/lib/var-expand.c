@@ -332,9 +332,27 @@ char var_get_key(const char *str)
 	return *str;
 }
 
+static bool var_has_long_key(const char **str, const char *long_key)
+{
+	const char *start, *end;
+
+	start = strchr(*str, '{');
+	i_assert(start != NULL);
+
+	end = strchr(++start, '}');
+	if (end == NULL)
+		return FALSE;
+
+	if (strncmp(start, long_key, end-start) == 0 &&
+	    long_key[end-start] == '\0')
+		return TRUE;
+
+	*str = end;
+	return FALSE;
+}
+
 bool var_has_key(const char *str, char key, const char *long_key)
 {
-	const char *end;
 	char c;
 
 	for (; *str != '\0'; str++) {
@@ -344,13 +362,9 @@ bool var_has_key(const char *str, char key, const char *long_key)
 			if (c == key)
 				return TRUE;
 
-			if (c == '{' && long_key != NULL &&
-			    (str = strchr(str, '{')) != NULL &&
-			    (end = strchr(++str, '}')) != NULL) {
-				if (strncmp(str, long_key, end-str) == 0 &&
-				    long_key[end-str] == '\0')
+			if (c == '{' && long_key != NULL) {
+				if (var_has_long_key(&str, long_key))
 					return TRUE;
-				str = end;
 			}
 		}
 	}
