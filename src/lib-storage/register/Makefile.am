@@ -2,7 +2,7 @@ noinst_LTLIBRARIES = libstorage_register.la
 
 mail_storages = @mail_storages@
 
-mailbox_list_drivers = maildir imapdir fs shared
+mailbox_list_drivers = maildir imapdir none fs shared
 
 mail-storage-register.c: Makefile
 	rm -f $@

@@ -118,9 +118,9 @@ mail_storage_set_autodetection(const char **data, const char **driver)
 static struct mail_storage *
 mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		       struct mailbox_list_settings *list_set,
-		       const char **error_r)
+		       enum mail_storage_flags flags, const char **error_r)
 {
-	struct mail_storage *storage_class;
+	struct mail_storage *storage_class = NULL;
 	const char *home;
 
 	if (driver != NULL) {
@@ -130,7 +130,27 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 				"Unknown mail storage driver %s", driver);
 			return NULL;
 		}
+	}
 
+	if (list_set->root_dir == NULL || *list_set->root_dir == '\0') {
+		/* no root directory given. is this allowed? */
+		const struct mailbox_list *list;
+
+		list = list_set->layout == NULL ? NULL :
+			mailbox_list_find_class(list_set->layout);
+		if (storage_class == NULL &&
+		    (flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0) {
+			/* autodetection should take care of this */
+		} else if (list != NULL &&
+			   (list->props & MAILBOX_LIST_PROP_NO_ROOT) != 0) {
+			/* root not required for this layout */
+		} else {
+			*error_r = "Root mail directory not given";
+			return NULL;
+		}
+	}
+
+	if (storage_class != NULL) {
 		storage_class->v.get_list_settings(ns, list_set);
 		return storage_class;
 	}
@@ -255,14 +275,8 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			return -1;
 	}
 
-	if ((list_set.root_dir == NULL || *list_set.root_dir == '\0') &&
-	    (driver != NULL ||
-	     (flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0)) {
-		*error_r = "Root mail directory not given";
-		return -1;
-	}
-
-	storage_class = mail_storage_get_class(ns, driver, &list_set, error_r);
+	storage_class = mail_storage_get_class(ns, driver, &list_set, flags,
+					       error_r);
 	if (storage_class == NULL)
 		return -1;
 	i_assert(list_set.layout != NULL);

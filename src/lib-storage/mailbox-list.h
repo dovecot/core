@@ -21,7 +21,9 @@ enum mailbox_list_properties {
 	/* alt directories not supported */
 	MAILBOX_LIST_PROP_NO_ALT_DIR		= 0x02,
 	/* no support for \noselect directories, only mailboxes */
-	MAILBOX_LIST_PROP_NO_NOSELECT		= 0x04
+	MAILBOX_LIST_PROP_NO_NOSELECT		= 0x04,
+	/* mail root directory isn't required */
+	MAILBOX_LIST_PROP_NO_ROOT		= 0x08
 };
 
 enum mailbox_list_flags {
@@ -140,6 +142,9 @@ void mailbox_list_register_all(void);
 
 void mailbox_list_register(const struct mailbox_list *list);
 void mailbox_list_unregister(const struct mailbox_list *list);
+
+const struct mailbox_list *
+mailbox_list_find_class(const char *driver);
 
 /* Returns 0 if ok, -1 if driver was unknown. */
 int mailbox_list_create(const char *driver, struct mail_namespace *ns,

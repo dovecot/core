@@ -93,6 +93,19 @@ void mailbox_list_unregister(const struct mailbox_list *list)
 	array_delete(&mailbox_list_drivers, idx, 1);
 }
 
+const struct mailbox_list *
+mailbox_list_find_class(const char *driver)
+{
+	const struct mailbox_list *const *class_p;
+	unsigned int idx;
+
+	if (!mailbox_list_driver_find(driver, &idx))
+		return NULL;
+
+	class_p = array_idx(&mailbox_list_drivers, idx);
+	return *class_p;
+}
+
 int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
 			enum mailbox_list_flags flags, const char **error_r)
@@ -103,7 +116,6 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 
 	i_assert(ns->list == NULL);
 
-	i_assert(set->root_dir == NULL || *set->root_dir != '\0');
 	i_assert(set->subscription_fname == NULL ||
 		 *set->subscription_fname != '\0');
 
@@ -123,6 +135,9 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		*error_r = "alt_dir not supported by this driver";
 		return -1;
 	}
+
+	i_assert(set->root_dir == NULL || *set->root_dir != '\0' ||
+		 ((*class_p)->props & MAILBOX_LIST_PROP_NO_ROOT) != 0);
 
 	list = (*class_p)->v.alloc();
 	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
@@ -359,8 +374,16 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 	const char *path;
 	struct stat st;
 
+	/* use safe defaults */
+	*file_mode_r = 0600;
+	*dir_mode_r = 0700;
+	*gid_r = (gid_t)-1;
+	*gid_origin_r = "defaults";
+
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
-	if (stat(path, &st) < 0) {
+	if (path == NULL) {
+		/* no filesystem support in storage */
+	} else if (stat(path, &st) < 0) {
 		if (!ENOTFOUND(errno)) {
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
 						  path);
@@ -376,11 +399,6 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 							  gid_origin_r);
 			return;
 		}
-		/* return safe defaults */
-		*file_mode_r = 0600;
-		*dir_mode_r = 0700;
-		*gid_r = (gid_t)-1;
-		*gid_origin_r = "defaults";
 	} else {
 		*file_mode_r = st.st_mode & 0666;
 		*dir_mode_r = st.st_mode & 0777;
@@ -418,7 +436,8 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 
 	if (list->mail_set->mail_debug && name == NULL) {
 		i_debug("Namespace %s: Using permissions from %s: "
-			"mode=0%o gid=%ld", list->ns->prefix, path,
+			"mode=0%o gid=%ld", list->ns->prefix,
+			path != NULL ? path : "",
 			(int)list->dir_create_mode,
 			list->file_create_gid == (gid_t)-1 ? -1L :
 			(long)list->file_create_gid);

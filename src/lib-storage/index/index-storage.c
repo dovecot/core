@@ -39,7 +39,7 @@ int index_list_create_missing_index_dir(struct mailbox_list *list,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	index_dir = mailbox_list_get_path(list, name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (strcmp(index_dir, root_dir) == 0 || *index_dir == '\0')
+	if (*index_dir == '\0' || strcmp(index_dir, root_dir) == 0)
 		return 0;
 
 	mailbox_list_get_dir_permissions(list, name, &mode, &gid, &origin);
