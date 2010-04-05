@@ -262,8 +262,9 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 			return 0;
 		}
 	}
+	i_assert(!MAIL_CACHE_IS_UNUSABLE(cache));
 
-	if (!MAIL_CACHE_IS_UNUSABLE(cache) && ctx->cache_file_seq == 0) {
+	if (ctx->cache_file_seq == 0) {
 		i_assert(ctx->cache_data == NULL ||
 			 ctx->cache_data->used == 0);
 		ctx->cache_file_seq = cache->hdr->file_seq;
