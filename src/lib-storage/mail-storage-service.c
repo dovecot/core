@@ -66,16 +66,78 @@ struct mail_storage_service_user {
 
 struct module *mail_storage_service_modules = NULL;
 
-static void set_keyval(struct setting_parser_context *set_parser,
+static bool
+mail_user_set_get_mail_debug(const struct setting_parser_info *user_info,
+			     const struct mail_user_settings *user_set)
+{
+	const struct mail_storage_settings *mail_set;
+
+	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
+						MAIL_STORAGE_SET_DRIVER_NAME);
+	return mail_set->mail_debug;
+}
+
+static void set_keyval(struct mail_storage_service_ctx *ctx,
+		       struct mail_storage_service_user *user,
 		       const char *key, const char *value)
 {
+	struct setting_parser_context *set_parser = user->set_parser;
 	const char *str;
+
+	if (master_service_set_has_config_override(ctx->service, key)) {
+		/* this setting was already overridden with -o parameter */
+		if (mail_user_set_get_mail_debug(user->user_info,
+						 user->user_set)) {
+			i_debug("Ignoring overridden (-o) userdb setting: %s",
+				key);
+		}
+		return;
+	}
 
 	str = t_strconcat(key, "=", value, NULL);
 	if (settings_parse_line(set_parser, str) < 0) {
 		i_fatal("Invalid userdb input '%s': %s", str,
 			settings_parser_get_error(set_parser));
 	}
+}
+
+static int set_line(struct mail_storage_service_ctx *ctx,
+		    struct mail_storage_service_user *user,
+		    const char *line)
+{
+	struct setting_parser_context *set_parser = user->set_parser;
+	bool mail_debug;
+	const char *key;
+	int ret;
+
+	mail_debug = mail_user_set_get_mail_debug(user->user_info,
+						  user->user_set);
+	if (strchr(line, '=') == NULL)
+		line = t_strconcat(line, "=yes", NULL);
+	key = t_strcut(line, '=');
+
+	if (!settings_parse_is_valid_key(set_parser, key)) {
+		/* assume it's a plugin setting */
+		key = t_strconcat("plugin/", key, NULL);
+		line = t_strconcat("plugin/", line, NULL);
+	}
+
+	if (master_service_set_has_config_override(ctx->service, key)) {
+		/* this setting was already overridden with -o parameter */
+		if (mail_debug) {
+			i_debug("Ignoring overridden (-o) userdb setting: %s",
+				key);
+		}
+		return 1;
+	}
+
+	ret = settings_parse_line(set_parser, line);
+	if (mail_debug && ret >= 0) {
+		i_debug(ret == 0 ?
+			"Unknown userdb setting: %s" :
+			"Added userdb setting: %s", line);
+	}
+	return ret;
 }
 
 static bool validate_chroot(const struct mail_user_settings *user_set,
@@ -99,42 +161,28 @@ static bool validate_chroot(const struct mail_user_settings *user_set,
 	return FALSE;
 }
 
-static bool
-mail_user_set_get_mail_debug(const struct setting_parser_info *user_info,
-			     const struct mail_user_settings *user_set)
-{
-	const struct mail_storage_settings *mail_set;
-
-	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
-						MAIL_STORAGE_SET_DRIVER_NAME);
-	return mail_set->mail_debug;
-}
-
 static int
-user_reply_handle(struct mail_storage_service_user *user,
+user_reply_handle(struct mail_storage_service_ctx *ctx,
+		  struct mail_storage_service_user *user,
 		  const struct auth_user_reply *reply,
 		  const char **error_r)
 {
-	struct setting_parser_context *set_parser = user->set_parser;
-	const char *const *str, *line, *key;
+	const char *const *str, *line;
 	unsigned int i, count;
-	bool mail_debug;
 	int ret = 0;
 
-	mail_debug = mail_user_set_get_mail_debug(user->user_info,
-						  user->user_set);
 	if (reply->uid != (uid_t)-1) {
 		if (reply->uid == 0) {
 			*error_r = "userdb returned 0 as uid";
 			return -1;
 		}
-		set_keyval(set_parser, "mail_uid", dec2str(reply->uid));
+		set_keyval(ctx, user, "mail_uid", dec2str(reply->uid));
 	}
 	if (reply->gid != (uid_t)-1)
-		set_keyval(set_parser, "mail_gid", dec2str(reply->gid));
+		set_keyval(ctx, user, "mail_gid", dec2str(reply->gid));
 
 	if (reply->home != NULL)
-		set_keyval(set_parser, "mail_home", reply->home);
+		set_keyval(ctx, user, "mail_home", reply->home);
 
 	if (reply->chroot != NULL) {
 		if (!validate_chroot(user->user_set, reply->chroot)) {
@@ -144,7 +192,7 @@ user_reply_handle(struct mail_storage_service_user *user,
 				reply->chroot);
 			return -1;
 		}
-		set_keyval(set_parser, "mail_chroot", reply->chroot);
+		set_keyval(ctx, user, "mail_chroot", reply->chroot);
 	}
 
 	str = array_get(&reply->extra_fields, &count);
@@ -163,29 +211,13 @@ user_reply_handle(struct mail_storage_service_user *user,
 			}
 #endif
 		} else T_BEGIN {
-			if (strchr(str[i], '=') == NULL)
-				line = t_strconcat(str[i], "=yes", NULL);
-			else
-				line = str[i];
-
-			key = t_strcut(line, '=');
-			if (!settings_parse_is_valid_key(set_parser, key)) {
-				/* assume it's a plugin setting */
-				line = t_strconcat("plugin/", line, NULL);
-			}
-
-			ret = settings_parse_line(set_parser, line);
-			if (mail_debug && ret >= 0) {
-				i_debug(ret == 0 ?
-					"Unknown userdb setting: %s" :
-					"Added userdb setting: %s", line);
-			}
+			ret = set_line(ctx, user, line);
 		} T_END;
 	}
 
 	if (ret < 0) {
 		*error_r = t_strdup_printf("Invalid userdb input '%s': %s",
-			str[i], settings_parser_get_error(set_parser));
+			str[i], settings_parser_get_error(user->set_parser));
 	}
 	return ret;
 }
@@ -807,12 +839,12 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0) {
 		const char *home = getenv("HOME");
 		if (home != NULL)
-			set_keyval(user->set_parser, "mail_home", home);
+			set_keyval(ctx, user, "mail_home", home);
 	}
 
 	if (userdb_fields != NULL) {
 		auth_user_fields_parse(userdb_fields, temp_pool, &reply);
-		if (user_reply_handle(user, &reply, &error) < 0) {
+		if (user_reply_handle(ctx, user, &reply, &error) < 0) {
 			i_error("user %s: Invalid settings in userdb: %s",
 				username, error);
 			*error_r = ERRSTR_INVALID_USER_SETTINGS;
@@ -888,12 +920,12 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			if (*home == '\0')
 				home = "/";
 
-			set_keyval(user->set_parser, "mail_home", home);
+			set_keyval(ctx, user, "mail_home", home);
 			chroot = t_strndup(chroot, len - 2);
 		}
 	} else if (len > 0 && temp_priv_drop) {
-		set_keyval(user->set_parser, "mail_home",
-			t_strconcat(chroot, "/", home, NULL));
+		set_keyval(ctx, user, "mail_home",
+			   t_strconcat(chroot, "/", home, NULL));
 	}
 	if (mail_storage_service_init_post(ctx, user, home,
 					   mail_user_r, &error) < 0) {
