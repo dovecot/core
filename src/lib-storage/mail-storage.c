@@ -130,7 +130,7 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 				"Unknown mail storage driver %s", driver);
 			return NULL;
 		}
-		i_assert(list_set->root_dir != NULL);
+
 		storage_class->v.get_list_settings(ns, list_set);
 		return storage_class;
 	}
@@ -154,7 +154,6 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	}
 	return NULL;
 }
-
 static int
 mail_storage_create_root(struct mailbox_list *list,
 			 enum mail_storage_flags flags, const char **error_r)
@@ -256,8 +255,9 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			return -1;
 	}
 
-	if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0 &&
-	    list_set.root_dir == NULL) {
+	if ((list_set.root_dir == NULL || *list_set.root_dir == '\0') &&
+	    (driver != NULL ||
+	     (flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0)) {
 		*error_r = "Root mail directory not given";
 		return -1;
 	}
