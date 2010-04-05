@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
 		if (wait(&status) < 0)
 			i_fatal("wait() failed: %m");
-		if (status != 0) {
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 			char buf[1024];
 			ssize_t ret;
 
