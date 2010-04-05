@@ -152,12 +152,44 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 	return 0;
 }
 
+static int
+mail_index_map_ext_hdr_check_record(const struct mail_index_header *hdr,
+				    const struct mail_index_ext_header *ext_hdr,
+				    const char **error_r)
+{
+	if (ext_hdr->record_align == 0) {
+		*error_r = "Record field alignment is zero";
+		return -1;
+	}
+
+	if (ext_hdr->record_offset + ext_hdr->record_size > hdr->record_size) {
+		*error_r = t_strdup_printf("Record field points "
+					   "outside record size (%u+%u > %u)",
+					   ext_hdr->record_offset,
+					   ext_hdr->record_size,
+					   hdr->record_size);
+		return -1;
+	}
+
+	if ((ext_hdr->record_offset % ext_hdr->record_align) != 0) {
+		*error_r = t_strdup_printf("Record field alignment %u "
+					   "not used", ext_hdr->record_align);
+		return -1;
+	}
+	if ((hdr->record_size % ext_hdr->record_align) != 0) {
+		*error_r = t_strdup_printf("Record size not aligned by %u "
+					   "as required by extension",
+					   ext_hdr->record_align);
+		return -1;
+	}
+	return 0;
+}
+
 int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 				 const struct mail_index_ext_header *ext_hdr,
 				 const char *name, const char **error_r)
 {
-	if ((ext_hdr->record_size == 0 && ext_hdr->hdr_size == 0) ||
-	    (ext_hdr->record_align == 0 && ext_hdr->record_size != 0)) {
+	if (ext_hdr->record_size == 0 && ext_hdr->hdr_size == 0) {
 		*error_r = "Invalid field values";
 		return -1;
 	}
@@ -168,28 +200,10 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 
 	/* if we get here from extension introduction, record_offset=0 and
 	   hdr->record_size hasn't been updated yet */
-	if (ext_hdr->record_offset != 0 &&
-	    ext_hdr->record_offset + ext_hdr->record_size > hdr->record_size) {
-		*error_r = t_strdup_printf("Record field points "
-					   "outside record size (%u+%u > %u)",
-					   ext_hdr->record_offset,
-					   ext_hdr->record_size,
-					   hdr->record_size);
-		return -1;
-	}
-
-	if (ext_hdr->record_size > 0 &&
-	    (ext_hdr->record_offset % ext_hdr->record_align) != 0) {
-		*error_r = t_strdup_printf("Record field alignment %u "
-					   "not used", ext_hdr->record_align);
-		return -1;
-	}
-	if (ext_hdr->record_offset != 0 &&
-	    (hdr->record_size % ext_hdr->record_align) != 0) {
-		*error_r = t_strdup_printf("Record size not aligned by %u "
-					   "as required by extension",
-					   ext_hdr->record_align);
-		return -1;
+	if (ext_hdr->record_offset != 0 && ext_hdr->record_size != 0) {
+		if (mail_index_map_ext_hdr_check_record(hdr, ext_hdr,
+							error_r) < 0)
+			return -1;
 	}
 	if (ext_hdr->hdr_size > MAIL_INDEX_EXT_HEADER_MAX_SIZE) {
 		*error_r = t_strdup_printf("Headersize too large (%u)",
