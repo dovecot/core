@@ -694,7 +694,7 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r)
 {
-	const char *path, *fname, *rootdir;
+	const char *path, *fname, *rootdir, *inbox;
 	struct stat st;
 	unsigned int len;
 
@@ -720,6 +720,17 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		/* a) looking up INBOX that's elsewhere
 		   b) looking up the root dir itself (as INBOX or "") */
 		fname = "";
+	}
+	if (*fname == '\0' && *name == '\0' &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		/* if INBOX is in e.g. ~/Maildir, it shouldn't be possible to
+		   access it also via namespace prefix. */
+		inbox = mailbox_list_get_path(list, "INBOX",
+					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (strcmp(inbox, path) == 0) {
+			*flags_r |= MAILBOX_NONEXISTENT;
+			return 0;
+		}
 	}
 	return list->v.get_mailbox_flags(list, path, fname,
 					 MAILBOX_LIST_FILE_TYPE_UNKNOWN,
