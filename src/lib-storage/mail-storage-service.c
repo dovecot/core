@@ -569,7 +569,10 @@ mail_storage_service_init(struct master_service *service,
 	ctx->set_roots =
 		p_new(pool, const struct setting_parser_info *, count + 2);
 	ctx->set_roots[0] = &mail_user_setting_parser_info;
-	memcpy(ctx->set_roots + 1, set_roots, sizeof(*ctx->set_roots) * count);
+	if (set_roots != NULL) {
+		memcpy(ctx->set_roots + 1, set_roots,
+		       sizeof(*ctx->set_roots) * count);
+	}
 
 	/* do all the global initialization. delay initializing plugins until
 	   we drop privileges the first time. */

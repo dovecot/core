@@ -100,13 +100,19 @@ bool config_export_type(string_t *str, const void *value,
 	}
 	case SET_ENUM: {
 		const char *const *val = value;
-		const char *const *_dval = default_value;
-		const char *dval = _dval == NULL ? NULL : *_dval;
 		unsigned int len = strlen(*val);
 
-		if (dump_default || strncmp(*val, dval, len) != 0 ||
-		    ((*val)[len] != ':' && (*val)[len] != '\0'))
+		if (dump_default)
 			str_append(str, *val);
+		else {
+			const char *const *_dval = default_value;
+			const char *dval = _dval == NULL ? NULL : *_dval;
+
+			i_assert(dval != NULL);
+			if (strncmp(*val, dval, len) != 0 ||
+			    ((*val)[len] != ':' && (*val)[len] != '\0'))
+				str_append(str, *val);
+		}
 		break;
 	}
 	default:

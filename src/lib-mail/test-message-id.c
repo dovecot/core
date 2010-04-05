@@ -22,9 +22,12 @@ static void test_message_id_get_next(void)
 	test_begin("message id parser");
 	for (i = 0, j = 0; i < N_ELEMENTS(input); i++) {
 		msgid = input[i];
-		while ((next_msgid = message_id_get_next(&msgid)) != NULL)
+		while ((next_msgid = message_id_get_next(&msgid)) != NULL) {
+			if (output[j] == NULL)
+				break;
 			test_assert(strcmp(output[j++], next_msgid) == 0);
-		test_assert(output[j++] == NULL);
+		}
+		test_assert(output[j++] == NULL && next_msgid == NULL);
 	}
 	test_assert(j == N_ELEMENTS(output));
 	test_end();

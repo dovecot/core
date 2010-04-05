@@ -9,7 +9,7 @@ static void test_istream_crlf_input(const char *input)
 {
 	string_t *output;
 	const unsigned char *data;
-	size_t size;
+	size_t size = 0;
 	ssize_t ret1, ret2;
 	unsigned int i, j, pos, input_len = strlen(input);
 	struct istream *istream, *crlf_istream;

@@ -615,6 +615,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 			name_pos += size;
 		} else {
 			/* existing record. need to find its name_offset */
+			i_assert(dir != NULL);
 			for (orig = 0; orig < dir->count; orig++) {
 				if (recs[orig].uid == sync_recs[src].uid)
 					break;

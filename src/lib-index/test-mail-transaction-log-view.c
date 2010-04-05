@@ -139,7 +139,8 @@ static void test_mail_transaction_log_view(void)
 		add_append_record(log->head, &append_rec);
 
 	view = mail_transaction_log_view_open(log);
-	test_assert(view != NULL && log->views == view &&
+	i_assert(view != NULL);
+	test_assert(log->views == view &&
 		    !view_is_file_refed(1) && !view_is_file_refed(2) &&
 		    view_is_file_refed(3));
 	test_end();

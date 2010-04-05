@@ -131,6 +131,7 @@ mail_cache_compress_get_fields(struct mail_cache_copy_context *ctx,
 		idx = cache->field_file_map[i];
 		if (idx != (uint32_t)-1) {
 			i_assert(idx < used_fields_count &&
+				 cache->file_field_map != NULL &&
 				 cache->file_field_map[idx] == 0);
 			cache->file_field_map[idx] = i;
 			j++;
@@ -182,7 +183,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	ctx.buffer = buffer_create_dynamic(default_pool, 4096);
 	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
 	ctx.field_seen_value = 0;
-	ctx.field_file_map = t_new(uint32_t, cache->fields_count);
+	ctx.field_file_map = t_new(uint32_t, cache->fields_count + 1);
 	t_array_init(&ctx.bitmask_pos, 32);
 
 	/* @UNSAFE: drop unused fields and create a field mapping for
