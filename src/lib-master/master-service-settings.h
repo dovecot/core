@@ -66,4 +66,8 @@ void **master_service_settings_get_others(struct master_service *service);
 
 int master_service_set(struct master_service *service, const char *line);
 
+/* Returns TRUE if -o key=value parameter was used. Setting keys in overrides
+   and parameter are unaliased before comparing. */
+bool master_service_set_has_config_override(struct master_service *service,
+					    const char *key);
 #endif

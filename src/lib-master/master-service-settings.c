@@ -437,3 +437,34 @@ int master_service_set(struct master_service *service, const char *line)
 {
 	return settings_parse_line(service->set_parser, line);
 }
+
+bool master_service_set_has_config_override(struct master_service *service,
+					    const char *key)
+{
+	const char *const *override, *key_root;
+	bool ret;
+
+	if (!array_is_created(&service->config_overrides))
+		return FALSE;
+
+	key_root = settings_parse_unalias(service->set_parser, key);
+	if (key_root == NULL)
+		key_root = key;
+
+	array_foreach(&service->config_overrides, override) {
+		T_BEGIN {
+			const char *okey, *okey_root;
+
+			okey = t_strcut(*override, '=');
+			okey_root = settings_parse_unalias(service->set_parser,
+							   okey);
+			if (okey_root == NULL)
+				okey_root = okey;
+			ret = strcmp(okey_root, key_root) == 0;
+		} T_END;
+
+		if (ret)
+			return TRUE;
+	}
+	return FALSE;
+}
