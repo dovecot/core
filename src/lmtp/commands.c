@@ -85,19 +85,14 @@ int cmd_mail(struct client *client, const char *args)
 	}
 
 	argv = t_strsplit(args, " ");
-	if (argv == NULL)
-		addr = "";
-	else {
-		addr = argv[0];
-		argv++;
-	}
+	addr = argv[0] == NULL ? "" : argv[0];
 	len = strlen(addr);
 	if (strncasecmp(addr, "FROM:<", 6) != 0 || addr[len-1] != '>') {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
 		return 0;
 	}
 
-	for (; *argv != NULL; argv++) {
+	for (argv++; *argv != NULL; argv++) {
 		if (strcasecmp(*argv, "BODY=7BIT") == 0)
 			client->mail_body_7bit = TRUE;
 		else if (strcasecmp(*argv, "BODY=8BITMIME") == 0)
@@ -346,17 +341,13 @@ int cmd_rcpt(struct client *client, const char *args)
 	}
 
 	argv = t_strsplit(args, " ");
-	if (argv == NULL)
-		arg = "";
-	else {
-		arg = argv[0];
-		argv++;
-	}
+	arg = argv[0] == NULL ? "" : argv[0];
 	len = strlen(arg);
 	if (strncasecmp(arg, "TO:<", 4) != 0 || arg[len-1] != '>') {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
 		return 0;
 	}
+	argv++;
 
 	memset(&rcpt, 0, sizeof(rcpt));
 	address = lmtp_unescape_address(t_strndup(arg + 4, len - 5));
