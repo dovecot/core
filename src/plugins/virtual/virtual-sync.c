@@ -1071,21 +1071,22 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 {
 	uint32_t virtual_ext_id = ctx->mbox->virtual_ext_id;
 	struct virtual_sync_mail *vmails;
-	struct virtual_backend_box *bbox, *const *bboxes;
+	struct virtual_backend_box *bbox;
 	struct virtual_backend_uidmap *uidmap = NULL;
 	struct virtual_add_record add_rec;
 	const struct virtual_mail_index_record *vrec;
 	const void *data;
 	bool expunged;
-	uint32_t i, vseq, vuid, messages, count;
+	uint32_t i, vseq, vuid, messages;
 	unsigned int j = 0, uidmap_count = 0;
 
 	messages = mail_index_view_get_messages_count(ctx->sync_view);
+	if (messages == 0)
+		return;
 
 	/* sort the messages in current view by their backend mailbox and
 	   real UID */
-	vmails = messages == 0 ? NULL :
-		i_new(struct virtual_sync_mail, messages);
+	vmails = i_new(struct virtual_sync_mail, messages);
 	for (vseq = 1; vseq <= messages; vseq++) {
 		mail_index_lookup_ext(ctx->sync_view, vseq, virtual_ext_id,
 				      &data, &expunged);
@@ -1149,9 +1150,18 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 		add_rec.rec.real_uid = uidmap[j].real_uid;
 		array_append(&ctx->all_adds, &add_rec, 1);
 	}
+}
+
+static void virtual_sync_new_backend_boxes(struct virtual_sync_context *ctx)
+{
+	struct virtual_backend_box *const *bboxes;
+	struct virtual_add_record add_rec;
+	struct virtual_backend_uidmap *uidmap;
+	unsigned int i, j, count, uidmap_count;
 
 	/* if there are any mailboxes we didn't yet sync, add new messages in
 	   them */
+	memset(&add_rec, 0, sizeof(add_rec));
 	bboxes = array_get(&ctx->mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
 		if (bboxes[i]->sync_seen)
@@ -1391,6 +1401,7 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 		   sync all flags */
 		ctx->mbox->uids_mapped = TRUE;
 		virtual_sync_backend_map_uids(ctx);
+		virtual_sync_new_backend_boxes(ctx);
 	}
 	virtual_sync_backend_add_new(ctx);
 	array_free(&ctx->all_adds);
