@@ -394,6 +394,41 @@ mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view)
 }
 
 static bool
+log_view_is_uid_range_valid(struct mail_transaction_log_file *file,
+			    enum mail_transaction_type rec_type,
+			    const ARRAY_TYPE(seq_range) *uids)
+{
+	const struct seq_range *rec, *prev = NULL;
+	unsigned int i, count = array_count(uids);
+
+	if ((uids->arr.buffer->used % uids->arr.element_size) != 0) {
+		mail_transaction_log_file_set_corrupted(file,
+			"Invalid record size (type=0x%x)", rec_type);
+		return FALSE;
+	} else if (count == 0) {
+		mail_transaction_log_file_set_corrupted(file,
+			"No UID ranges (type=0x%x)", rec_type);
+		return FALSE;
+	}
+
+	for (i = 0; i < count; i++, prev = rec) {
+		rec = array_idx(uids, i);
+		if (rec->seq1 > rec->seq2 || rec->seq1 == 0) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Invalid UID range (%u .. %u, type=0x%x)",
+				rec->seq1, rec->seq2, rec_type);
+			return FALSE;
+		}
+		if (prev != NULL && rec->seq1 <= prev->seq2) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Non-sorted UID ranges (type=0x%x)", rec_type);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+static bool
 log_view_is_record_valid(struct mail_transaction_log_file *file,
 			 const struct mail_transaction_header *hdr,
 			 const void *data)
@@ -402,7 +437,6 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
 	buffer_t uid_buf;
 	uint32_t rec_size;
-	bool ret = TRUE;
 
 	rec_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
 	rec_size = mail_index_offset_to_uint32(hdr->size) - sizeof(*hdr);
@@ -442,7 +476,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		if ((rec_size % sizeof(struct mail_index_record)) != 0) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid append record size");
-			ret = FALSE;
+			return FALSE;
 		}
 		break;
 	case MAIL_TRANSACTION_EXPUNGE:
@@ -454,7 +488,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		if ((rec_size % sizeof(struct mail_transaction_expunge_guid)) != 0) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid expunge guid record size");
-			ret = FALSE;
+			return FALSE;
 		}
 		break;
 	case MAIL_TRANSACTION_FLAG_UPDATE:
@@ -473,8 +507,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		if (seqset_offset > rec_size) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid keyword update record size");
-			ret = FALSE;
-			break;
+			return FALSE;
 		}
 
 		buffer_create_const_data(&uid_buf,
@@ -494,40 +527,10 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 	}
 
 	if (array_is_created(&uids)) {
-		const struct seq_range *rec, *prev = NULL;
-		unsigned int i, count = array_count(&uids);
-
-		if ((uid_buf.used % uids.arr.element_size) != 0) {
-			mail_transaction_log_file_set_corrupted(file,
-				"Invalid record size (type=0x%x)", rec_type);
-			ret = FALSE;
-			count = 0;
-		} else if (count == 0) {
-			mail_transaction_log_file_set_corrupted(file,
-				"No UID ranges (type=0x%x)", rec_type);
-			ret = FALSE;
-		}
-
-		for (i = 0; i < count; i++, prev = rec) {
-			rec = array_idx(&uids, i);
-			if (rec->seq1 > rec->seq2 || rec->seq1 == 0) {
-				mail_transaction_log_file_set_corrupted(file,
-					"Invalid UID range "
-					"(%u .. %u, type=0x%x)",
-					rec->seq1, rec->seq2, rec_type);
-				ret = FALSE;
-				break;
-			}
-			if (prev != NULL && rec->seq1 <= prev->seq2) {
-				mail_transaction_log_file_set_corrupted(file,
-					"Non-sorted UID ranges (type=0x%x)",
-					rec_type);
-				ret = FALSE;
-				break;
-			}
-		}
+		if (!log_view_is_uid_range_valid(file, rec_type, &uids))
+			return FALSE;
 	}
-	return ret;
+	return TRUE;
 }
 
 static int
