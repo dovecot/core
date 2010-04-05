@@ -151,13 +151,15 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->changelog_timestamp = (time_t)-1;
 
 	/* copy settings */
-	list->set.root_dir = p_strdup(list->pool, set->root_dir);
-	list->set.index_dir = set->index_dir == NULL ||
-		strcmp(set->index_dir, set->root_dir) == 0 ? NULL :
-		p_strdup(list->pool, set->index_dir);
-	list->set.control_dir = set->control_dir == NULL ||
-		strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
-		p_strdup(list->pool, set->control_dir);
+	if (set->root_dir != NULL) {
+		list->set.root_dir = p_strdup(list->pool, set->root_dir);
+		list->set.index_dir = set->index_dir == NULL ||
+			strcmp(set->index_dir, set->root_dir) == 0 ? NULL :
+			p_strdup(list->pool, set->index_dir);
+		list->set.control_dir = set->control_dir == NULL ||
+			strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
+			p_strdup(list->pool, set->control_dir);
+	}
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.subscription_fname =
