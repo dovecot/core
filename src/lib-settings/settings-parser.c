@@ -714,6 +714,22 @@ bool settings_parse_is_valid_key(struct setting_parser_context *ctx,
 	return settings_find_key(ctx, key, &def, &link);
 }
 
+const char *settings_parse_unalias(struct setting_parser_context *ctx,
+				   const char *key)
+{
+	const struct setting_define *def;
+	struct setting_link *link;
+
+	if (!settings_find_key(ctx, key, &def, &link))
+		return NULL;
+
+	while (def->type == SET_ALIAS) {
+		i_assert(def != link->info->defines);
+		def--;
+	}
+	return def->key;
+}
+
 const void *
 settings_parse_get_value(struct setting_parser_context *ctx,
 			 const char *key, enum setting_type *type_r)
