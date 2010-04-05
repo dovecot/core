@@ -405,7 +405,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	curl_easy_getinfo(conn->curl, CURLINFO_RESPONSE_CODE, &httpret);
 	if (httpret != 200) {
 		i_error("fts_solr: Lookup failed: %s", conn->http_failure);
-		ret = -1;
+		return -1;
 	}
 	return solr_xml_parse(conn, NULL, 0, TRUE);
 }
