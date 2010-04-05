@@ -65,29 +65,13 @@ mail_index_alloc_cache_list_free(struct mail_index_alloc_cache_list *list)
 	i_free(list);
 }
 
-struct mail_index *
-mail_index_alloc_cache_get(const char *mailbox_path,
-			   const char *index_dir, const char *prefix)
+static struct mail_index_alloc_cache_list *
+mail_index_alloc_cache_find(const char *mailbox_path, const char *index_dir,
+			    const struct stat *index_st)
 {
 	struct mail_index_alloc_cache_list **indexp, *rec, *match;
-	struct stat st, st2;
 	unsigned int destroy_count;
-
-	/* compare index_dir inodes so we don't break even with symlinks.
-	   if index_dir doesn't exist yet or if using in-memory indexes, just
-	   compare mailbox paths */
-	memset(&st, 0, sizeof(st));
-	if (index_dir == NULL) {
-		/* in-memory indexes */
-	} else if (stat(index_dir, &st) < 0) {
-		if (errno == ENOENT) {
-			/* it'll be created later */
-		} else if (errno == EACCES) {
-			i_error("%s", eacces_error_get("stat", index_dir));
-		} else {
-			i_error("stat(%s) failed: %m", index_dir);
-		}
-	}
+	struct stat st;
 
 	destroy_count = 0; match = NULL;
 	for (indexp = &indexes; *indexp != NULL;) {
@@ -100,19 +84,19 @@ mail_index_alloc_cache_get(const char *mailbox_path,
 			/* index is already closed. don't even try to
 			   reuse it. */
 		} else if (index_dir != NULL && rec->index_dir_ino != 0) {
-			if (st.st_ino == rec->index_dir_ino &&
-			    CMP_DEV_T(st.st_dev, rec->index_dir_dev)) {
+			if (index_st->st_ino == rec->index_dir_ino &&
+			    CMP_DEV_T(index_st->st_dev, rec->index_dir_dev)) {
 				/* make sure the directory still exists.
 				   it might have been renamed and we're trying
 				   to access it via its new path now. */
-				if (stat(rec->index->dir, &st2) < 0 ||
-				    st2.st_ino != st.st_ino ||
-				    !CMP_DEV_T(st2.st_dev, st.st_dev))
+				if (stat(rec->index->dir, &st) < 0 ||
+				    st.st_ino != index_st->st_ino ||
+				    !CMP_DEV_T(st.st_dev, index_st->st_dev))
 					rec->destroy_time = 0;
 				else
 					match = rec;
 			}
-		} else {
+		} else if (mailbox_path != NULL && rec->mailbox_path != NULL) {
 			if (strcmp(mailbox_path, rec->mailbox_path) == 0)
 				match = rec;
 		}
@@ -130,7 +114,33 @@ mail_index_alloc_cache_get(const char *mailbox_path,
 
                 indexp = &(*indexp)->next;
 	}
+	return match;
+}
 
+struct mail_index *
+mail_index_alloc_cache_get(const char *mailbox_path,
+			   const char *index_dir, const char *prefix)
+{
+	struct mail_index_alloc_cache_list *match;
+	struct stat st;
+
+	/* compare index_dir inodes so we don't break even with symlinks.
+	   if index_dir doesn't exist yet or if using in-memory indexes, just
+	   compare mailbox paths */
+	memset(&st, 0, sizeof(st));
+	if (index_dir == NULL) {
+		/* in-memory indexes */
+	} else if (stat(index_dir, &st) < 0) {
+		if (errno == ENOENT) {
+			/* it'll be created later */
+		} else if (errno == EACCES) {
+			i_error("%s", eacces_error_get("stat", index_dir));
+		} else {
+			i_error("stat(%s) failed: %m", index_dir);
+		}
+	}
+
+	match = mail_index_alloc_cache_find(mailbox_path, index_dir, &st);
 	if (match == NULL) {
 		struct mail_index *index = mail_index_alloc(index_dir, prefix);
 		match = mail_index_alloc_cache_add(index, mailbox_path, &st);
