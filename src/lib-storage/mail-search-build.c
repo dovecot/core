@@ -93,14 +93,12 @@ arg_new_size(struct search_build_data *data,
 {
 	struct mail_search_arg *sarg;
 	const char *value;
-	char *p;
 
 	*next_sarg = sarg = search_arg_new(data->pool, type);
 	if (!arg_get_next(data, args, &value))
 		return FALSE;
 
-	sarg->value.size = strtoull(value, &p, 10);
-	if (*p != '\0') {
+	if (str_to_uoff(value, &sarg->value.size) < 0) {
 		data->error = "Invalid search size parameter";
 		return FALSE;
 	}
@@ -137,15 +135,13 @@ arg_new_interval(struct search_build_data *data,
 {
 	struct mail_search_arg *sarg;
 	const char *value;
-	unsigned long interval;
-	char *p;
+	uint32_t interval;
 
 	*next_sarg = sarg = search_arg_new(data->pool, type);
 	if (!arg_get_next(data, args, &value))
 		return FALSE;
 
-	interval = strtoul(value, &p, 10);
-	if (interval == 0 || *p != '\0') {
+	if (str_to_uint32(value, &interval) < 0 || interval == 0) {
 		data->error = "Invalid search interval parameter";
 		return FALSE;
 	}
@@ -251,11 +247,10 @@ arg_new_modseq(struct search_build_data *data,
 		if (!arg_get_next(data, args, &value))
 			return FALSE;
 	}
-	if (!is_numeric(value, '\0')) {
+	if (str_to_uint64(value, &sarg->value.modseq->modseq) < 0) {
 		data->error = "Invalid MODSEQ value";
 		return FALSE;
 	}
-	sarg->value.modseq->modseq = strtoull(value, NULL, 10);
 	return TRUE;
 }
 

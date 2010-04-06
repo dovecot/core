@@ -189,7 +189,7 @@ config_parse_net(struct config_parser_context *ctx, const char *value,
 {
 	struct ip_addr *ips;
 	const char *p;
-	unsigned int ip_count;
+	unsigned int ip_count, bits, max_bits;
 	int ret;
 
 	if (net_parse_range(value, ip_r, bits_r) == 0)
@@ -209,10 +209,12 @@ config_parse_net(struct config_parser_context *ctx, const char *value,
 	}
 	*host_r = p_strdup(ctx->pool, value);
 	*ip_r = ips[0];
-	if (p != NULL && is_numeric(p, '\0'))
-		*bits_r = atoi(p);
+
+	max_bits = IPADDR_IS_V4(&ips[0]) ? 32 : 128;
+	if (p == NULL || str_to_uint(p, &bits) < 0 || bits > max_bits)
+		*bits_r = max_bits;
 	else
-		*bits_r = IPADDR_IS_V4(&ips[0]) ? 32 : 128;
+		*bits_r = bits;
 	return 0;
 }
 

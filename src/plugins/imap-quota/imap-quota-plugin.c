@@ -181,12 +181,11 @@ static bool cmd_setquota(struct client_command_context *cmd)
 	for (; !IMAP_ARG_IS_EOL(list_args); list_args += 2) {
 		if (!imap_arg_get_atom(&list_args[0], &name) ||
 		    !imap_arg_get_atom(&list_args[1], &value_str) ||
-		    !is_numeric(value_str, '\0')) {
+		    str_to_uint64(value_str, &value) < 0) {
 			client_send_command_error(cmd, "Invalid arguments.");
 			return TRUE;
 		}
 
-                value = strtoull(value_str, NULL, 10);
 		if (quota_set_resource(root, name, value, &error) < 0) {
 			client_send_command_error(cmd, error);
 			return TRUE;

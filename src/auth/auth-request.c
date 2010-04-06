@@ -1272,7 +1272,7 @@ static bool auth_request_proxy_is_self(struct auth_request *request)
 	if (!net_ip_compare(&ip, &request->local_ip))
 		return FALSE;
 
-	if (port != NULL && (unsigned int)atoi(port) != request->local_port)
+	if (port != NULL && !str_uint_equals(port, request->local_port))
 		return FALSE;
 	return destuser == NULL ||
 		strcmp(destuser, request->original_username) == 0;

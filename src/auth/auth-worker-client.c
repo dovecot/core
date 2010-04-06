@@ -151,11 +151,10 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	unsigned int passdb_id;
 
 	/* <passdb id> <password> [<args>] */
-	if (args[1] == NULL) {
+	if (str_to_uint(args[0], &passdb_id) < 0 || args[1] == NULL) {
 		i_error("BUG: Auth worker server sent us invalid PASSV");
 		return FALSE;
 	}
-	passdb_id = atoi(args[0]);
 	password = args[1];
 
 	auth_request = worker_auth_request_new(client, id, args + 2);
@@ -256,11 +255,10 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	unsigned int passdb_id;
 
 	/* <passdb id> <scheme> [<args>] */
-	if (args[1] == NULL) {
+	if (str_to_uint(args[0], &passdb_id) < 0 || args[1] == NULL) {
 		i_error("BUG: Auth worker server sent us invalid PASSL");
 		return FALSE;
 	}
-	passdb_id = atoi(args[0]);
 	scheme = args[1];
 
 	auth_request = worker_auth_request_new(client, id, args + 2);
@@ -318,11 +316,10 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 	const char *creds;
 
 	/* <passdb id> <credentials> [<args>] */
-	if (args[1] == NULL) {
+	if (str_to_uint(args[0], &passdb_id) < 0 || args[1] == NULL) {
 		i_error("BUG: Auth worker server sent us invalid SETCRED");
 		return FALSE;
 	}
-	passdb_id = atoi(args[0]);
 	creds = args[1];
 
 	auth_request = worker_auth_request_new(client, id, args + 2);
@@ -407,7 +404,10 @@ auth_worker_handle_user(struct auth_worker_client *client,
 	unsigned int userdb_id;
 
 	/* <userdb id> [<args>] */
-	userdb_id = atoi(args[0]);
+	if (str_to_uint(args[0], &userdb_id) < 0) {
+		i_error("BUG: Auth worker server sent us invalid USER");
+		return FALSE;
+	}
 
 	auth_request = worker_auth_request_new(client, id, args + 1);
 	if (auth_request->user == NULL || auth_request->service == NULL) {
@@ -504,8 +504,14 @@ auth_worker_handle_list(struct auth_worker_client *client,
 {
 	struct auth_worker_list_context *ctx;
 	struct auth_userdb *userdb;
+	unsigned int userdb_id;
 
-	userdb = auth_userdb_find_by_id(client->auth->userdbs, atoi(args[0]));
+	if (str_to_uint(args[0], &userdb_id) < 0) {
+		i_error("BUG: Auth worker server sent us invalid LIST");
+		return FALSE;
+	}
+
+	userdb = auth_userdb_find_by_id(client->auth->userdbs, userdb_id);
 	if (userdb == NULL) {
 		i_error("BUG: LIST had invalid userdb ID");
 		return FALSE;
@@ -534,12 +540,12 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 	bool ret = FALSE;
 
 	args = t_strsplit(line, "\t");
-	if (args[0] == NULL || args[1] == NULL || args[2] == NULL) {
+	if (args[0] == NULL || args[1] == NULL || args[2] == NULL ||
+	    str_to_uint(args[0], &id) < 0) {
 		i_error("BUG: Invalid input: %s", line);
 		return FALSE;
 	}
 
-	id = (unsigned int)strtoul(args[0], NULL, 10);
 	if (strcmp(args[1], "PASSV") == 0)
 		ret = auth_worker_handle_passv(client, id, args + 2);
 	else if (strcmp(args[1], "PASSL") == 0)
@@ -601,8 +607,8 @@ static void auth_worker_input(struct auth_worker_client *client)
 			return;
 
 		if (strncmp(line, "VERSION\tauth-worker\t", 20) != 0 ||
-		    atoi(t_strcut(line + 20, '\t')) !=
-		    AUTH_WORKER_PROTOCOL_MAJOR_VERSION) {
+		    !str_uint_equals(t_strcut(line + 20, '\t'),
+				     AUTH_WORKER_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Auth worker not compatible with this server "
 				"(mixed old and new binaries?)");
 			auth_worker_client_destroy(&client);

@@ -360,11 +360,15 @@ pam_preinit(pool_t pool, const char *args)
 			/* for backwards compatibility */
 			module->service_name = "%Ls";
 		} else if (strncmp(t_args[i], "max_requests=", 13) == 0) {
-			module->requests_left = atoi(t_args[i] + 13);
+			if (str_to_uint(t_args[i] + 13,
+					&module->requests_left) < 0) {
+				i_error("pam: Invalid requests_left value: %s",
+					t_args[i] + 13);
+			}
 		} else if (t_args[i+1] == NULL) {
 			module->service_name = p_strdup(pool, t_args[i]);
 		} else {
-			i_fatal("passdb pam: Unknown setting: %s", t_args[i]);
+			i_fatal("pam: Unknown setting: %s", t_args[i]);
 		}
 	}
 	return &module->module;

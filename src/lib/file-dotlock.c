@@ -120,9 +120,8 @@ static pid_t read_local_pid(const char *lock_path)
 	if (strcmp(host, my_hostname) != 0)
 		return -1;
 
-	if (!is_numeric(buf, '\0'))
+	if (str_to_pid(buf, &pid) < 0)
 		return -1;
-	pid = (pid_t)strtoul(buf, NULL, 0);
 	if (pid <= 0)
 		return -1;
 	return pid;

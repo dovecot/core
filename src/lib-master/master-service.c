@@ -254,8 +254,6 @@ void master_service_set_die_callback(struct master_service *service,
 bool master_service_parse_option(struct master_service *service,
 				 int opt, const char *arg)
 {
-	int i;
-
 	switch (opt) {
 	case 'c':
 		service->config_path = arg;
@@ -273,9 +271,8 @@ bool master_service_parse_option(struct master_service *service,
 		service->flags |= MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS;
 		break;
 	case 's':
-		if ((i = atoi(arg)) < 0)
+		if (str_to_uint(arg, &service->socket_count) < 0)
 			i_fatal("Invalid socket count: %s", arg);
-                service->socket_count = i;
 		break;
 	case 'L':
 		service->log_directly = TRUE;
@@ -343,25 +340,22 @@ void master_service_init_finish(struct master_service *service)
 
 		/* initialize master_status structure */
 		value = getenv(MASTER_UID_ENV);
-		if (value == NULL)
-			i_fatal(MASTER_UID_ENV" not set");
+		if (value == NULL ||
+		    str_to_uint(value, &service->master_status.uid) < 0)
+			i_fatal(MASTER_UID_ENV" missing");
 		service->master_status.pid = getpid();
-		service->master_status.uid =
-			(unsigned int)strtoul(value, NULL, 10);
 
 		/* set the default limit */
 		value = getenv(MASTER_CLIENT_LIMIT_ENV);
-		count = value == NULL ? 0 :
-			(unsigned int)strtoul(value, NULL, 10);
-		if (count == 0)
-			i_fatal(MASTER_CLIENT_LIMIT_ENV" not set");
+		if (value == NULL || str_to_uint(value, &count) < 0 ||
+		    count == 0)
+			i_fatal(MASTER_CLIENT_LIMIT_ENV" missing");
 		master_service_set_client_limit(service, count);
 
 		/* set the default service count */
 		value = getenv(MASTER_SERVICE_COUNT_ENV);
-		count = value == NULL ? 0 :
-			(unsigned int)strtoul(value, NULL, 10);
-		if (count > 0)
+		if (value != NULL && str_to_uint(value, &count) == 0 &&
+		    count > 0)
 			master_service_set_service_count(service, count);
 
 		/* start listening errors for status fd, it means master died */

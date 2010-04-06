@@ -277,11 +277,10 @@ static void worker_input(struct auth_worker_connection *conn)
 		}
 		id_str = line;
 		line = strchr(line, '\t');
-		if (line == NULL)
+		if (line == NULL ||
+		    str_to_uint(t_strdup_until(id_str, line), &id) < 0)
 			continue;
 
-		id = (unsigned int)strtoul(t_strcut(id_str, '\t'),
-					   NULL, 10);
 		if (conn->request != NULL && id == conn->request->id) {
 			auth_worker_request_handle(conn, conn->request,
 						   line + 1);

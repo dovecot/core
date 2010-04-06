@@ -104,21 +104,21 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "PENALTY-INC: Not enough parameters";
 			return -1;
 		}
-		checksum = strtoul(args[1], NULL, 10);
-		value = strtoul(args[2], NULL, 10);
-		if (value > PENALTY_MAX_VALUE ||
+		if (str_to_uint(args[1], &checksum) < 0 ||
+		    str_to_uint(args[2], &value) < 0 ||
+		    value > PENALTY_MAX_VALUE ||
 		    (value == 0 && checksum != 0)) {
 			*error_r = "PENALTY-INC: Invalid parameters";
 			return -1;
 		}
 		penalty_inc(penalty, args[0], checksum, value);
 	} else if (strcmp(cmd, "PENALTY-SET-EXPIRE-SECS") == 0) {
-		if (args[0] == NULL) {
+		if (args[0] == NULL || str_to_uint(args[0], &value) < 0) {
 			*error_r = "PENALTY-SET-EXPIRE-SECS: "
-				"Not enough parameters";
+				"Invalid parameters";
 			return -1;
 		}
-		penalty_set_expire_secs(penalty, atoi(args[0]));
+		penalty_set_expire_secs(penalty, value);
 	} else if (strcmp(cmd, "PENALTY-DUMP") == 0) {
 		penalty_dump(penalty, conn->output);
 	} else {
@@ -150,7 +150,7 @@ static void anvil_connection_input(void *context)
 		if (str_array_length(args) < 4 ||
 		    strcmp(args[0], "VERSION") != 0 ||
 		    strcmp(args[1], "anvil") != 0 ||
-		    atoi(args[2]) != ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION) {
+		    !str_uint_equals(args[2], ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Anvil client not compatible with this server "
 				"(mixed old and new binaries?)");
 			anvil_connection_destroy(conn);

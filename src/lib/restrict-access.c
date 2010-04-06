@@ -151,9 +151,10 @@ static void drop_restricted_groups(const struct restrict_access_settings *set,
 static gid_t get_group_id(const char *name)
 {
 	struct group *group;
+	gid_t gid;
 
-	if (is_numeric(name, '\0'))
-		return (gid_t)strtoul(name, NULL, 10);
+	if (str_to_gid(name, &gid) == 0)
+		return gid;
 
 	group = getgrnam(name);
 	if (group == NULL)
@@ -382,16 +383,26 @@ void restrict_access_by_env(const char *home, bool disallow_root)
 
 	restrict_access_init(&set);
 
-	if ((value = getenv("RESTRICT_SETUID")) != NULL)
-		set.uid = (uid_t)strtol(value, NULL, 10);
-	if ((value = getenv("RESTRICT_SETGID")) != NULL)
-		set.gid = (gid_t)strtol(value, NULL, 10);
-	if ((value = getenv("RESTRICT_SETGID_PRIV")) != NULL)
-		set.privileged_gid = (gid_t)strtol(value, NULL, 10);
-	if ((value = getenv("RESTRICT_GID_FIRST")) != NULL)
-		set.first_valid_gid = (gid_t)strtol(value, NULL, 10);
-	if ((value = getenv("RESTRICT_GID_LAST")) != NULL)
-		set.last_valid_gid = (gid_t)strtol(value, NULL, 10);
+	if ((value = getenv("RESTRICT_SETUID")) != NULL) {
+		if (str_to_uid(value, &set.uid) < 0)
+			i_fatal("Invalid uid: %s", value);
+	}
+	if ((value = getenv("RESTRICT_SETGID")) != NULL) {
+		if (str_to_gid(value, &set.gid) < 0)
+			i_fatal("Invalid gid: %s", value);
+	}
+	if ((value = getenv("RESTRICT_SETGID_PRIV")) != NULL) {
+		if (str_to_gid(value, &set.privileged_gid) < 0)
+			i_fatal("Invalid privileged_gid: %s", value);
+	}
+	if ((value = getenv("RESTRICT_GID_FIRST")) != NULL) {
+		if (str_to_gid(value, &set.first_valid_gid) < 0)
+			i_fatal("Invalid first_valid_gid: %s", value);
+	}
+	if ((value = getenv("RESTRICT_GID_LAST")) != NULL) {
+		if (str_to_gid(value, &set.last_valid_gid) < 0)
+			i_fatal("Invalid last_value_gid: %s", value);
+	}
 
 	set.extra_groups = null_if_empty(getenv("RESTRICT_SETEXTRAGROUPS"));
 	set.system_groups_user = null_if_empty(getenv("RESTRICT_USER"));

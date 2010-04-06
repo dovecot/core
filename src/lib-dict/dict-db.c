@@ -423,8 +423,12 @@ static void db_dict_set(struct dict_transaction_context *_ctx,
 	dkey.size = strlen(key);
 
 	if (dict->value_type == DICT_DATA_TYPE_UINT32) {
-		uint32_t ivalue = (uint32_t)strtoul(value, NULL, 10);
+		uint32_t ivalue;
 
+		if (str_to_uint32(value, &ivalue) < 0) {
+			i_error("db: Value not uint32: %s", value);
+			ivalue = 0;
+		}
 		ddata.data = &ivalue;
 		ddata.size = sizeof(ivalue);
 	} else {

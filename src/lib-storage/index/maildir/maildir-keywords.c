@@ -113,7 +113,8 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 	struct stat st;
 	char *line, *p, *new_name;
 	const char **strp;
-	int fd, idx;
+	unsigned int idx;
+	int fd;
 
         /* Remember that we rely on uidlist file locking in here. That's why
            we rely on stat()'s timestamp and don't bother handling ESTALE
@@ -166,8 +167,8 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 		}
 		*p++ = '\0';
 
-		idx = atoi(line);
-		if (idx < 0 || idx >= MAILDIR_MAX_KEYWORDS || *p == '\0') {
+		if (str_to_uint(line, &idx) < 0 ||
+		    idx >= MAILDIR_MAX_KEYWORDS || *p == '\0') {
 			/* shouldn't happen */
 			continue;
 		}

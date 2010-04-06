@@ -271,7 +271,12 @@ static int read_configuration(struct mail_user *user, const char *path)
 
 		trash = array_append_space(&tuser->trash_boxes);
 		trash->name = p_strdup(user->pool, name+1);
-		trash->priority = atoi(t_strdup_until(line, name));
+		if (str_to_int(t_strdup_until(line, name),
+			       &trash->priority) < 0) {
+			i_error("trash: Invalid priority for mailbox '%s'",
+				trash->name);
+			ret = -1;
+		}
 
 		if (!trash_find_storage(user, trash)) {
 			i_error("trash: Namespace not found for mailbox '%s'",

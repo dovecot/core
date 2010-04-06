@@ -77,17 +77,17 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 		     const char *name, const struct imap_arg **args)
 {
 	const char *str;
-	unsigned long long num;
+	uint64_t modseq;
 
 	if (strcmp(name, "CHANGEDSINCE") == 0) {
-		if (!imap_arg_get_atom(*args, &str)) {
+		if (!imap_arg_get_atom(*args, &str) ||
+		    str_to_uint64(str, &modseq) < 0) {
 			client_send_command_error(ctx->cmd,
 				"Invalid CHANGEDSINCE modseq.");
 			return FALSE;
 		}
-		num = strtoull(str, NULL, 10);
 		*args += 1;
-		return imap_fetch_add_changed_since(ctx, num);
+		return imap_fetch_add_changed_since(ctx, modseq);
 	}
 	if (strcmp(name, "VANISHED") == 0 && ctx->cmd->uid) {
 		if ((ctx->client->enabled_features &

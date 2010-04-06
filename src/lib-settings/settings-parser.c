@@ -310,15 +310,31 @@ static int
 get_uint(struct setting_parser_context *ctx, const char *value,
 	 unsigned int *result_r)
 {
-	int num;
-
-	/* use %i so we can handle eg. 0600 as octal value with umasks */
-	if (!sscanf(value, "%i", &num) || num < 0) {
-		ctx->error = p_strconcat(ctx->parser_pool, "Invalid number: ",
-					 value, NULL);
+	if (str_to_uint(value, result_r) < 0) {
+		ctx->error = p_strdup_printf(ctx->parser_pool,
+			"Invalid number %s: %s", value,
+			str_num_error(value));
 		return -1;
 	}
-	*result_r = num;
+	return 0;
+}
+
+static int
+get_octal(struct setting_parser_context *ctx, const char *value,
+	  unsigned int *result_r)
+{
+	unsigned long long octal;
+	char *p;
+
+	if (*value != '0')
+		return get_uint(ctx, value, result_r);
+
+	octal = strtoull(value + 1, &p, 4);
+	if (*p != '\0' || octal > UINT_MAX) {
+		ctx->error = p_strconcat(ctx->parser_pool, "Invalid number: ",
+					 value, NULL);
+	}
+	*result_r = (unsigned int)octal;
 	return 0;
 }
 
@@ -573,8 +589,11 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	case SET_UINT:
-	case SET_UINT_OCT:
 		if (get_uint(ctx, value, (unsigned int *)ptr) < 0)
+			return -1;
+		break;
+	case SET_UINT_OCT:
+		if (get_octal(ctx, value, (unsigned int *)ptr) < 0)
 			return -1;
 		break;
 	case SET_TIME:

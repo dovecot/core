@@ -72,7 +72,10 @@ auth_server_input_spid(struct auth_server_connection *conn,
 		return -1;
 	}
 
-	conn->server_pid = (unsigned int)strtoul(args[0], NULL, 10);
+	if (str_to_uint(args[0], &conn->server_pid) < 0) {
+		i_error("BUG: Authentication server sent invalid PID");
+		return -1;
+	}
 	return 0;
 }
 
@@ -84,12 +87,11 @@ auth_server_input_cuid(struct auth_server_connection *conn,
 		i_error("BUG: Authentication server already sent handshake");
 		return -1;
 	}
-	if (args[0] == NULL) {
+	if (args[0] == NULL ||
+	    str_to_uint(args[0], &conn->connect_uid) < 0) {
 		i_error("BUG: Authentication server sent broken CUID line");
 		return -1;
 	}
-
-	conn->connect_uid = (unsigned int)strtoul(args[0], NULL, 10);
 	return 0;
 }
 
@@ -135,11 +137,10 @@ auth_server_lookup_request(struct auth_server_connection *conn,
 	struct auth_client_request *request;
 	unsigned int id;
 
-	if (id_arg == NULL) {
+	if (id_arg == NULL || str_to_uint(id_arg, &id) < 0) {
 		i_error("BUG: Authentication server input missing ID");
 		return -1;
 	}
-	id = (unsigned int)strtoul(id_arg, NULL, 10);
 
 	request = hash_table_lookup(conn->requests, POINTER_CAST(id));
 	if (request == NULL) {
@@ -255,8 +256,8 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 
 		/* make sure the major version matches */
 		if (strncmp(line, "VERSION\t", 8) != 0 ||
-		    atoi(t_strcut(line + 8, '\t')) !=
-		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
+		    !str_uint_equals(t_strcut(line + 8, '\t'),
+				     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Authentication server not compatible with "
 				"this client (mixed old and new binaries?)");
 			auth_server_connection_disconnect(conn);

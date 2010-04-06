@@ -104,8 +104,8 @@ static bool cmd_compress(struct client_command_context *cmd)
 
 	value = mail_user_plugin_getenv(client->user,
 					"imap_zlib_compress_level");
-	level = value == NULL ? 0 : atoi(value);
-	if (level <= 0 || level > 9)
+	if (str_to_uint(value, &level) < 0 ||
+	    level <= 0 || level > 9)
 		level = IMAP_COMPRESS_DEFAULT_LEVEL;
 
 	old_input = client->input;

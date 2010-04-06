@@ -373,12 +373,12 @@ static int mdbox_sync_altmove_add_files(struct mdbox_storage *dstorage,
 		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX,
 			    strlen(MDBOX_MAIL_FILE_PREFIX)) != 0)
 			continue;
+		if (str_to_uint32(d->d_name + strlen(MDBOX_MAIL_FILE_PREFIX),
+				  &file_id) < 0)
+			continue;
 
 		str_truncate(path, dir_len);
 		str_append(path, d->d_name);
-
-		file_id = strtoul(d->d_name + strlen(MDBOX_MAIL_FILE_PREFIX),
-				  NULL, 10);
 
 		if (stat(str_c(path), &st) < 0) {
 			mail_storage_set_critical(storage,

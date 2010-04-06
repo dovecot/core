@@ -223,8 +223,7 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 	i_assert(fname != NULL);
 	fname += strlen(MDBOX_MAIL_FILE_PREFIX) + 1;
 
-	file_id = strtoul(fname, NULL, 10);
-	if (!is_numeric(fname, '\0') || file_id == 0) {
+	if (str_to_uint32(fname, &file_id) < 0 || file_id == 0) {
 		len = strlen(fname);
 		if (len > 7 && strcmp(fname + len - 7, ".broken") != 0) {
 			i_warning("dbox rebuild: File name is missing ID: %s",

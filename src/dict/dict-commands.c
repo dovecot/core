@@ -83,6 +83,7 @@ static int cmd_iterate_flush(struct dict_connection *conn)
 static int cmd_iterate(struct dict_connection *conn, const char *line)
 {
 	const char *const *args;
+	unsigned int flags;
 
 	if (conn->iter_ctx != NULL) {
 		i_error("dict client: ITERATE: Already iterating");
@@ -90,14 +91,14 @@ static int cmd_iterate(struct dict_connection *conn, const char *line)
 	}
 
 	args = t_strsplit(line, "\t");
-	if (str_array_length(args) < 2) {
+	if (str_array_length(args) < 2 ||
+	    str_to_uint(args[0], &flags) < 0) {
 		i_error("dict client: ITERATE: broken input");
 		return -1;
 	}
 
 	/* <flags> <path> */
-	conn->iter_ctx = dict_iterate_init_multiple(conn->dict, args+1,
-						    atoi(args[0]));
+	conn->iter_ctx = dict_iterate_init_multiple(conn->dict, args+1, flags);
 
 	o_stream_set_flush_callback(conn->output, cmd_iterate_flush, conn);
 	cmd_iterate_flush(conn);
@@ -141,12 +142,10 @@ static int cmd_begin(struct dict_connection *conn, const char *line)
 	struct dict_connection_transaction *trans;
 	unsigned int id;
 
-	if (!is_numeric(line, '\0')) {
+	if (str_to_uint(line, &id) < 0) {
 		i_error("dict client: Invalid transaction ID %s", line);
 		return -1;
 	}
-
-	id = (unsigned int)strtoul(line, NULL, 10);
 	if (dict_connection_transaction_lookup(conn, id) != NULL) {
 		i_error("dict client: Transaction ID %u already exists", id);
 		return -1;
@@ -170,12 +169,10 @@ dict_connection_transaction_lookup_parse(struct dict_connection *conn,
 {
 	unsigned int id;
 
-	if (!is_numeric(line, '\0')) {
+	if (str_to_uint(line, &id) < 0) {
 		i_error("dict client: Invalid transaction ID %s", line);
 		return -1;
 	}
-
-	id = (unsigned int)strtoul(line, NULL, 10);
 	*trans_r = dict_connection_transaction_lookup(conn, id);
 	if (*trans_r == NULL) {
 		i_error("dict client: Transaction ID %u doesn't exist", id);
@@ -311,11 +308,12 @@ static int cmd_atomic_inc(struct dict_connection *conn, const char *line)
 {
 	struct dict_connection_transaction *trans;
 	const char *const *args;
-	long long arg;
+	long long diff;
 
 	/* <id> <key> <diff> */
 	args = t_strsplit(line, "\t");
-	if (str_array_length(args) != 3) {
+	if (str_array_length(args) != 3 ||
+	    str_to_llong(args[2], &diff) < 0) {
 		i_error("dict client: ATOMIC_INC: broken input");
 		return -1;
 	}
@@ -323,11 +321,7 @@ static int cmd_atomic_inc(struct dict_connection *conn, const char *line)
 	if (dict_connection_transaction_lookup_parse(conn, args[0], &trans) < 0)
 		return -1;
 
-	if (*args[2] != '-')
-		arg = (long long)strtoull(args[2], NULL, 10);
-	else
-		arg = -(long long)strtoull(args[2]+1, NULL, 10);
-        dict_atomic_inc(trans->ctx, args[1], arg);
+        dict_atomic_inc(trans->ctx, args[1], diff);
 	return 0;
 }
 

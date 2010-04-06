@@ -260,13 +260,9 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 static bool parse_uid(const char *str, uid_t *uid_r)
 {
 	struct passwd *pw;
-	char *p;
 
-	if (*str >= '0' && *str <= '9') {
-		*uid_r = (uid_t)strtoul(str, &p, 10);
-		if (*p == '\0')
-			return TRUE;
-	}
+	if (str_to_uid(str, uid_r) == 0)
+		return TRUE;
 
 	pw = getpwnam(str);
 	if (pw == NULL)
@@ -279,13 +275,9 @@ static bool parse_uid(const char *str, uid_t *uid_r)
 static bool parse_gid(const char *str, gid_t *gid_r)
 {
 	struct group *gr;
-	char *p;
 
-	if (*str >= '0' && *str <= '9') {
-		*gid_r = (gid_t)strtoul(str, &p, 10);
-		if (*p == '\0')
-			return TRUE;
-	}
+	if (str_to_gid(str, gid_r) == 0)
+		return TRUE;
 
 	gr = getgrnam(str);
 	if (gr == NULL)

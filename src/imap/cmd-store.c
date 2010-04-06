@@ -57,7 +57,11 @@ store_parse_modifiers(struct imap_store_context *ctx,
 		}
 
 		if (strcasecmp(name, "UNCHANGEDSINCE") == 0) {
-			ctx->max_modseq = strtoull(value, NULL, 10);
+			if (str_to_uint64(value, &ctx->max_modseq) < 0) {
+				client_send_command_error(ctx->cmd,
+							  "Invalid modseq");
+				return FALSE;
+			}
 			client_enable(ctx->cmd->client,
 				      MAILBOX_FEATURE_CONDSTORE);
 		} else {

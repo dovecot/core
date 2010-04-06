@@ -106,7 +106,7 @@ select_parse_qresync(struct imap_select_context *ctx,
 		     const struct imap_arg *args)
 {
 	const struct imap_arg *list_args;
-	const char *arg1, *arg2;
+	const char *str;
 	unsigned int count;
 
 	if ((ctx->cmd->client->enabled_features &
@@ -120,23 +120,23 @@ select_parse_qresync(struct imap_select_context *ctx,
 		return FALSE;
 	}
 
-	if (!imap_arg_get_atom(&args[0], &arg1) ||
-	    !imap_arg_get_atom(&args[1], &arg2)) {
+	if (!imap_arg_get_atom(&args[0], &str) ||
+	    str_to_uint32(str, &ctx->qresync_uid_validity) < 0 ||
+	    !imap_arg_get_atom(&args[1], &str) ||
+	    str_to_uint64(str, &ctx->qresync_modseq) < 0) {
 		client_send_command_error(ctx->cmd,
 					  "Invalid QRESYNC parameters");
 		return FALSE;
 	}
 	args += 2;
-	ctx->qresync_uid_validity = strtoul(arg1, NULL, 10);
-	ctx->qresync_modseq = strtoull(arg2, NULL, 10);
 
-	if (!imap_arg_get_atom(args, &arg1)) {
+	if (!imap_arg_get_atom(args, &str)) {
 		i_array_init(&ctx->qresync_known_uids, 64);
 		seq_range_array_add_range(&ctx->qresync_known_uids,
 					  1, (uint32_t)-1);
 	} else {
 		i_array_init(&ctx->qresync_known_uids, 64);
-		if (imap_seq_set_parse(arg1, &ctx->qresync_known_uids) < 0) {
+		if (imap_seq_set_parse(str, &ctx->qresync_known_uids) < 0) {
 			client_send_command_error(ctx->cmd,
 						  "Invalid QRESYNC known-uids");
 			return FALSE;

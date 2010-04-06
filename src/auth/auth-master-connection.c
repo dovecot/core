@@ -75,14 +75,14 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 
 	/* <id> <client-pid> <client-id> <cookie> */
 	list = t_strsplit(args, "\t");
-	if (str_array_length(list) < 4) {
+	if (str_array_length(list) < 4 ||
+	    str_to_uint(list[0], &id) < 0 ||
+	    str_to_uint(list[1], &client_pid) < 0 ||
+	    str_to_uint(list[2], &client_id) < 0) {
 		i_error("BUG: Master sent broken REQUEST");
 		return FALSE;
 	}
 
-	id = (unsigned int)strtoul(list[0], NULL, 10);
-	client_pid = (unsigned int)strtoul(list[1], NULL, 10);
-	client_id = (unsigned int)strtoul(list[2], NULL, 10);
 	buffer_create_data(&buf, cookie, sizeof(cookie));
 	if (hex_to_binary(list[3], &buf) < 0) {
 		i_error("BUG: Master sent broken REQUEST cookie");
@@ -114,16 +114,18 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 {
 	struct auth_request *auth_request;
 	const char *const *list, *name, *arg;
+	unsigned int id;
 
 	/* <id> <userid> [<parameters>] */
 	list = t_strsplit(args, "\t");
-	if (list[0] == NULL || list[1] == NULL) {
+	if (list[0] == NULL || list[1] == NULL ||
+	    str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Master sent broken %s", cmd);
 		return -1;
 	}
 
 	auth_request = auth_request_new_dummy();
-	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
+	auth_request->id = id;
 	auth_request->context = conn;
 	auth_master_connection_ref(conn);
 
@@ -358,11 +360,10 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	unsigned int id;
 
 	/* <id> */
-	if (*args == '\0') {
+	if (str_to_uint(args, &id) < 0) {
 		i_error("BUG: Master sent broken LIST");
 		return FALSE;
 	}
-	id = strtoul(args, NULL, 10);
 
 	while (userdb != NULL && userdb->userdb->iface->iterate_init == NULL)
 		userdb = userdb->next;
@@ -441,8 +442,8 @@ static void master_input(struct auth_master_connection *conn)
 
 		/* make sure the major version matches */
 		if (strncmp(line, "VERSION\t", 8) != 0 ||
-		    atoi(t_strcut(line + 8, '\t')) !=
-		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
+		    !str_uint_equals(t_strcut(line + 8, '\t'),
+				     AUTH_MASTER_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Master not compatible with this server "
 				"(mixed old and new binaries?)");
 			auth_master_connection_destroy(&conn);

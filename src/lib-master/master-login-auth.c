@@ -128,11 +128,11 @@ master_login_auth_input_user(struct master_login_auth *auth, const char *args)
 	/* <id> <userid> [..] */
 
 	list = t_strsplit(args, "\t");
-	if (list[0] == NULL || list[1] == NULL) {
+	if (list[0] == NULL || list[1] == NULL ||
+	    str_to_uint(list[0], &id) < 0) {
 		i_error("Auth server sent corrupted USER line");
 		return FALSE;
 	}
-	id = (unsigned int)strtoul(list[0], NULL, 10);
 
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
@@ -149,7 +149,11 @@ master_login_auth_input_notfound(struct master_login_auth *auth,
 	struct master_login_auth_request *request;
 	unsigned int id;
 
-	id = (unsigned int)strtoul(args, NULL, 10);
+	if (str_to_uint(args, &id) < 0) {
+		i_error("Auth server sent corrupted NOTFOUND line");
+		return FALSE;
+	}
+
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
 		i_error("Authenticated user not found from userdb");
@@ -169,7 +173,7 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 	unsigned int i, id;
 
 	args = t_strsplit(args_line, "\t");
-	if (args[0] == NULL) {
+	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
 		i_error("Auth server sent broken FAIL line");
 		return FALSE;
 	}
@@ -178,7 +182,6 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 			error = args[i] + 7;
 	}
 
-	id = (unsigned int)strtoul(args[0], NULL, 10);
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
 		if (error != NULL)
@@ -217,8 +220,8 @@ static void master_login_auth_input(struct master_login_auth *auth)
 
 		/* make sure the major version matches */
 		if (strncmp(line, "VERSION\t", 8) != 0 ||
-		    atoi(t_strcut(line + 8, '\t')) !=
-		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
+		    !str_uint_equals(t_strcut(line + 8, '\t'),
+				     AUTH_MASTER_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Authentication server not compatible with "
 				"master process (mixed old and new binaries?)");
 			master_login_auth_disconnect(auth);

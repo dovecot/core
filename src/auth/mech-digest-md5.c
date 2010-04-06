@@ -384,8 +384,8 @@ static bool auth_handle_response(struct digest_auth_request *request,
 			return FALSE;
 		}
 
-		request->maxbuf = strtoul(value, NULL, 10);
-		if (request->maxbuf == 0) {
+		if (str_to_ulong(value, &request->maxbuf) < 0 ||
+		    request->maxbuf == 0) {
 			*error = "Invalid maxbuf value";
 			return FALSE;
 		}

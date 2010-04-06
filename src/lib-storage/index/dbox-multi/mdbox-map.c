@@ -699,9 +699,10 @@ dbox_map_find_first_alt(struct dbox_map_append_context *ctx,
 		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX,
 			    strlen(MDBOX_MAIL_FILE_PREFIX)) != 0)
 			continue;
+		if (str_to_uint32(d->d_name + strlen(MDBOX_MAIL_FILE_PREFIX),
+				  &file_id) < 0)
+			continue;
 
-		file_id = strtoul(d->d_name + strlen(MDBOX_MAIL_FILE_PREFIX),
-				  NULL, 10);
 		if (min_file_id > file_id)
 			min_file_id = file_id;
 	}

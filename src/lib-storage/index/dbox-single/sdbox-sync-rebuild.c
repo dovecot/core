@@ -58,8 +58,7 @@ sdbox_sync_add_file(struct dbox_sync_rebuild_context *ctx,
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->box;
 	struct dbox_file *file;
-	unsigned long uid;
-	char *p;
+	uint32_t uid;
 	int ret;
 
 	if (strncmp(fname, SDBOX_MAIL_FILE_PREFIX,
@@ -67,8 +66,7 @@ sdbox_sync_add_file(struct dbox_sync_rebuild_context *ctx,
 		return 0;
 	fname += strlen(SDBOX_MAIL_FILE_PREFIX);
 
-	uid = strtoul(fname, &p, 10);
-	if (*p != '\0' || uid == 0 || uid >= (uint32_t)-1) {
+	if (str_to_uint32(fname, &uid) < 0 || uid == 0) {
 		i_warning("dbox %s: Ignoring invalid filename %s",
 			  ctx->box->path, fname);
 		return 0;

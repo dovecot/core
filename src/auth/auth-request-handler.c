@@ -314,13 +314,12 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	/* <id> <mechanism> [...] */
 	list = t_strsplit(args, "\t");
-	if (list[0] == NULL || list[1] == NULL) {
+	if (list[0] == NULL || list[1] == NULL ||
+	    str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
 		return FALSE;
 	}
-
-	id = (unsigned int)strtoul(list[0], NULL, 10);
 
 	mech = mech_module_find(list[1]);
 	if (mech == NULL) {
@@ -427,13 +426,11 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	unsigned int id;
 
 	data = strchr(args, '\t');
-	if (data == NULL) {
+	if (data == NULL || str_to_uint(args, &id) < 0) {
 		i_error("BUG: Authentication client sent broken CONT request");
 		return FALSE;
 	}
 	data++;
-
-	id = (unsigned int)strtoul(args, NULL, 10);
 
 	request = hash_table_lookup(handler->requests, POINTER_CAST(id));
 	if (request == NULL) {

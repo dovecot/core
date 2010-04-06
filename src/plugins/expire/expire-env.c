@@ -72,7 +72,7 @@ expire_env_parse(struct expire_env *env, struct mail_namespace *namespaces,
 		i_fatal("expire: Missing expire time for mailbox '%s'",
 			rule.pattern);
 	}
-	if (is_numeric(args[0], '\0')) {
+	if (str_is_numeric(args[0], '\0')) {
 		i_fatal("expire: Missing expire time specifier for mailbox "
 			"'%s': %s (add e.g. 'days')", rule.pattern, args[0]);
 	}

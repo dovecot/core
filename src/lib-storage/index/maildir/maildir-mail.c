@@ -273,8 +273,6 @@ static int maildir_quick_size_lookup(struct index_mail *mail, bool vsize,
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
 	enum maildir_uidlist_rec_ext_key key;
 	const char *path, *fname, *value;
-	uoff_t size;
-	char *p;
 
 	if (_mail->uid != 0) {
 		if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
@@ -299,13 +297,8 @@ static int maildir_quick_size_lookup(struct index_mail *mail, bool vsize,
 			MAILDIR_UIDLIST_REC_EXT_PSIZE;
 		value = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 						   key);
-		if (value != NULL) {
-			size = strtoull(value, &p, 10);
-			if (*p == '\0') {
-				*size_r = size;
-				return 1;
-			}
-		}
+		if (value != NULL && str_to_uoff(value, size_r) == 0)
+			return 1;
 	}
 	return 0;
 }

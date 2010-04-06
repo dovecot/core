@@ -776,7 +776,7 @@ int net_parse_range(const char *network, struct ip_addr *ip_r,
 		    unsigned int *bits_r)
 {
 	const char *p;
-	int bits, max_bits;
+	unsigned int bits, max_bits;
 
 	p = strchr(network, '/');
 	if (p != NULL)
@@ -791,8 +791,7 @@ int net_parse_range(const char *network, struct ip_addr *ip_r,
 		bits = max_bits;
 	} else {
 		/* get the network mask */
-		bits = atoi(p);
-		if (bits < 0 || bits > max_bits)
+		if (str_to_uint(p, &bits) < 0 || bits > max_bits)
 			return -1;
 	}
 	*bits_r = bits;

@@ -464,11 +464,13 @@ void auth_user_fields_parse(const char *const *fields, pool_t pool,
 	p_array_init(&reply_r->extra_fields, pool, 64);
 
 	for (; *fields != NULL; fields++) {
-		if (strncmp(*fields, "uid=", 4) == 0)
-			reply_r->uid = strtoul(*fields + 4, NULL, 10);
-		else if (strncmp(*fields, "gid=", 4) == 0)
-			reply_r->gid = strtoul(*fields + 4, NULL, 10);
-		else if (strncmp(*fields, "home=", 5) == 0)
+		if (strncmp(*fields, "uid=", 4) == 0) {
+			if (str_to_uid(*fields + 4, &reply_r->uid) < 0)
+				i_error("Invalid uid in reply");
+		} else if (strncmp(*fields, "gid=", 4) == 0) {
+			if (str_to_gid(*fields + 4, &reply_r->gid) < 0)
+				i_error("Invalid gid in reply");
+		} else if (strncmp(*fields, "home=", 5) == 0)
 			reply_r->home = p_strdup(pool, *fields + 5);
 		else if (strncmp(*fields, "chroot=", 7) == 0)
 			reply_r->chroot = p_strdup(pool, *fields + 7);

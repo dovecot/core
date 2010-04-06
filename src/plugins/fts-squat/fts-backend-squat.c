@@ -27,19 +27,17 @@ static void
 fts_backend_squat_set(struct squat_fts_backend *backend, const char *str)
 {
 	const char *const *tmp;
-	int len;
+	unsigned int len;
 
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
 		if (strncmp(*tmp, "partial=", 8) == 0) {
-			len = atoi(*tmp + 8);
-			if (len <= 0) {
+			if (str_to_uint(*tmp + 8, &len) < 0 || len == 0) {
 				i_fatal("fts_squat: Invalid partial len: %s",
 					*tmp + 8);
 			}
 			squat_trie_set_partial_len(backend->trie, len);
 		} else if (strncmp(*tmp, "full=", 5) == 0) {
-			len = atoi(*tmp + 5);
-			if (len <= 0) {
+			if (str_to_uint(*tmp + 5, &len) < 0 || len == 0) {
 				i_fatal("fts_squat: Invalid full len: %s",
 					*tmp + 5);
 			}

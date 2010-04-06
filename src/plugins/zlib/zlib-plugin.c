@@ -44,7 +44,7 @@ struct zlib_user {
 	union mail_user_module_context module_ctx;
 
 	const struct zlib_handler *save_handler;
-	int save_level;
+	unsigned int save_level;
 };
 
 const char *zlib_plugin_version = DOVECOT_VERSION;
@@ -394,8 +394,8 @@ static void zlib_mail_user_created(struct mail_user *user)
 	}
 	name = mail_user_plugin_getenv(user, "zlib_save_level");
 	if (name != NULL) {
-		zuser->save_level = atoi(name);
-		if (zuser->save_level < 1 || zuser->save_level > 9) {
+		if (str_to_uint(name, &zuser->save_level) < 0 ||
+		    zuser->save_level < 1 || zuser->save_level > 9) {
 			i_error("zlib_save_level: Level must be between 1..9");
 			zuser->save_level = 0;
 		}

@@ -300,7 +300,10 @@ static int client_dict_read_one_line(struct client_dict *dict, char **line_r)
 				line);
 			return 0;
 		}
-		id = strtoul(line+2, NULL, 10);
+		if (str_to_uint(line+2, &id) < 0) {
+			i_error("dict-client: Invalid ID");
+			return 0;
+		}
 		client_dict_finish_transaction(dict, id, ret);
 		return 0;
 	}
