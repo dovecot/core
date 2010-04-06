@@ -97,7 +97,7 @@ int str_to_uintmax(const char *str, uintmax_t *num_r)
 		}
 		n = next + (*str - '0');
 	}
-	if (str != '\0')
+	if (*str != '\0')
 		return -1;
 	*num_r = n;
 	return 0;
