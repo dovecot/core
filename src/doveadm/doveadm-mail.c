@@ -22,7 +22,8 @@ ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 
 static int killed_signo = 0;
 
-static void cmd_purge(struct mail_user *user, const char *args[] ATTR_UNUSED)
+static void
+cmd_purge(struct mail_user *user, const char *const args[] ATTR_UNUSED)
 {
 	struct mail_namespace *ns;
 
@@ -58,7 +59,7 @@ mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 	return box;
 }
 
-static void cmd_force_resync(struct mail_user *user, const char *args[])
+static void cmd_force_resync(struct mail_user *user, const char *const args[])
 {
 	const char *mailbox = args[0];
 	struct mail_storage *storage;
@@ -81,7 +82,7 @@ static int
 doveadm_mail_next_user(doveadm_mail_command_t *cmd,
 		       struct mail_storage_service_ctx *storage_service,
 		       const struct mail_storage_service_input *input,
-		       const char *args[], const char **error_r)
+		       const char *const args[], const char **error_r)
 {
 	struct mail_storage_service_user *service_user;
 	struct mail_user *mail_user;
@@ -116,7 +117,7 @@ doveadm_mail_next_user(doveadm_mail_command_t *cmd,
 static void
 doveadm_mail_single_user(doveadm_mail_command_t *cmd, const char *username,
 			 enum mail_storage_service_flags service_flags,
-			 const char *args[])
+			 const char *const args[])
 {
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_input input;
@@ -148,7 +149,7 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 static void
 doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 		       enum mail_storage_service_flags service_flags,
-		       const char *args[])
+		       const char *const args[])
 {
 	struct mail_storage_service_input input;
 	struct mail_storage_service_ctx *storage_service;
@@ -237,11 +238,11 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	if (!all_users) {
 		doveadm_mail_single_user(cmd->cmd, username, service_flags,
-					 (const char **)argv);
+					 (const void *)argv);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(cmd->cmd, service_flags,
-				       (const char **)argv);
+				       (const void *)argv);
 	}
 }
 

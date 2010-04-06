@@ -4,7 +4,7 @@
 struct mail_user;
 
 typedef void doveadm_mail_command_t(struct mail_user *mail_user,
-				    const char *args[]);
+				    const char *const args[]);
 
 struct doveadm_mail_cmd {
 	doveadm_mail_command_t *cmd;
