@@ -19,6 +19,9 @@ static unsigned int service_get_backlog(struct service *service)
 {
 	unsigned int backlog;
 
+	i_assert(service->process_limit > 0);
+	i_assert(service->client_limit > 0);
+
 	/* as unlikely as it is, avoid overflows */
 	if (service->process_limit > MAX_BACKLOG ||
 	    service->client_limit > MAX_BACKLOG)
