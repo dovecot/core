@@ -218,26 +218,30 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	if (doveadm_debug)
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
-	while ((c = getopt(argc, argv, "a")) > 0) {
+	username = getenv("USER");
+	while ((c = getopt(argc, argv, "Au:")) > 0) {
 		switch (c) {
-		case 'a':
+		case 'A':
 			all_users = TRUE;
+			break;
+		case 'u':
+			service_flags |=
+				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			username = optarg;
 			break;
 		default:
 			doveadm_mail_help(cmd);
 		}
 	}
+	argv += optind;
+
 	if (!all_users) {
-		if (optind == argc)
-			doveadm_mail_help(cmd);
-		service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-		username = argv[optind++];
 		doveadm_mail_single_user(cmd->cmd, username, service_flags,
-					 (const char **)argv + optind);
+					 (const char **)argv);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(cmd->cmd, service_flags,
-				       (const char **)argv + optind);
+				       (const char **)argv);
 	}
 }
 
@@ -265,7 +269,7 @@ void doveadm_mail_usage(void)
 	const struct doveadm_mail_cmd *cmd;
 
 	array_foreach(&doveadm_mail_cmds, cmd) {
-		fprintf(stderr, USAGE_CMDNAME_FMT" <user>|-a", cmd->name);
+		fprintf(stderr, USAGE_CMDNAME_FMT" [-u <user>|-A]", cmd->name);
 		if (cmd->usage_args != NULL)
 			fprintf(stderr, " %s", cmd->usage_args);
 		fputc('\n', stderr);
@@ -274,7 +278,7 @@ void doveadm_mail_usage(void)
 
 void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
 {
-	fprintf(stderr, "doveadm %s <user>|-a %s\n", cmd->name,
+	fprintf(stderr, "doveadm %s [-u <user>|-A] %s\n", cmd->name,
 		cmd->usage_args == NULL ? "" : cmd->usage_args);
 	exit(0);
 }
