@@ -153,8 +153,11 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			if (!ctx->testrun)
 				mail_expunge(mail);
 			else {
-				i_info("%s/%s: seq=%u uid=%u: Expunge",
-				       user, mailbox, mail->seq, mail->uid);
+				i_info("%s/%s: seq=%u uid=%u: Expunge "
+				       "(saved=%lu + expire=%u <= now=%lu)",
+				       user, mailbox, mail->seq, mail->uid,
+				       (unsigned long)save_time, expunge_secs,
+				       (unsigned long)now);
 			}
 		} else if (save_time + (time_t)altmove_secs <= now &&
 			   altmove_secs != 0) {
@@ -166,8 +169,11 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 				mail_update_flags(mail, MODIFY_ADD,
 						  MAIL_INDEX_MAIL_FLAG_BACKEND);
 			} else {
-				i_info("%s/%s: seq=%u uid=%u: Move to alt dir",
-				       user, mailbox, mail->seq, mail->uid);
+				i_info("%s/%s: seq=%u uid=%u: Move to alt dir"
+				       "(saved=%lu + altmove=%u <= now=%lu)",
+				       user, mailbox, mail->seq, mail->uid,
+				       (unsigned long)save_time, altmove_secs,
+				       (unsigned long)now);
 			}
 		} else {
 			/* first non-expired one. */
