@@ -149,7 +149,9 @@ static void dsync_drop_extra_namespaces(struct mail_user *user)
 			continue;
 
 		for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-			if (strcmp(ns->prefix, ns_set[i]->prefix) == 0) {
+			/* compare settings pointers so that it'll work
+			   for shared namespaces */
+			if (ns->set == ns_set[i]) {
 				mail_namespace_destroy(ns);
 				break;
 			}
