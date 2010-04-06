@@ -37,6 +37,7 @@ struct ostream;
 
 #include "array-decl.h" /* ARRAY_DEFINE()s may exist in any header */
 #include "strfuncs.h"
+#include "strnum.h"
 
 size_t nearest_power(size_t num) ATTR_CONST;
 
