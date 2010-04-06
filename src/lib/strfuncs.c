@@ -282,20 +282,6 @@ const char *t_strcut(const char *str, char cutchar)
         return str;
 }
 
-bool is_numeric(const char *str, char end_char)
-{
-	if (*str == '\0' || *str == end_char)
-		return FALSE;
-
-	while (*str != '\0' && *str != end_char) {
-		if (!i_isdigit(*str))
-			return FALSE;
-		str++;
-	}
-
-	return TRUE;
-}
-
 int i_strocpy(char *dest, const char *src, size_t dstsize)
 {
 	if (dstsize == 0)

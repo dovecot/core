@@ -39,10 +39,6 @@ const char *t_strconcat(const char *str1, ...)
 /* Like t_strdup(), but stop at cutchar. */
 const char *t_strcut(const char *str, char cutchar);
 
-/* Return TRUE if all characters in string are numbers.
-   Stop when `end_char' is found from string. */
-bool is_numeric(const char *str, char end_char) ATTR_PURE;
-
 /* Like strlcpy(), but return -1 if buffer was overflown, 0 if not. */
 int i_strocpy(char *dest, const char *src, size_t dstsize);
 
