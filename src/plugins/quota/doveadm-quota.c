@@ -59,7 +59,7 @@ static void cmd_quota_recalc(struct quota *quota)
 		(void)(*root)->backend.v.update(*root, &trans);
 }
 
-static void cmd_quota(struct mail_user *user, const char *args[])
+static void cmd_quota(struct mail_user *user, const char *const args[])
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct quota *quota;
