@@ -61,7 +61,6 @@ struct master_service {
 	unsigned int call_avail_overflow:1;
 	unsigned int delay_status_updates:1;
 	unsigned int config_path_is_default:1;
-	unsigned int login_authenticating:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);

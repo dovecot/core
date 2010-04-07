@@ -706,14 +706,10 @@ static void master_service_listen(struct master_service_listener *l)
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
 
-	if (service->login != NULL) {
-		/* incoming connections are going to master-login and they're
-		   not counted as real connections */
-	} else {
-		i_assert(service->master_status.available_count > 0);
-		service->master_status.available_count--;
-		master_status_update(service);
-	}
+	i_assert(service->master_status.available_count > 0);
+	service->master_status.available_count--;
+	master_status_update(service);
+
 	service->callback(&conn);
 }
 
@@ -742,7 +738,7 @@ void master_service_io_listeners_add(struct master_service *service)
 {
 	unsigned int i;
 
-	if (service->stopping || service->login_authenticating)
+	if (service->stopping)
 		return;
 
 	if (service->listeners == NULL)
