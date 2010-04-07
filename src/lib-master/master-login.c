@@ -19,6 +19,8 @@
 
 #define master_login_conn_is_closed(conn) \
 	((conn)->fd == -1)
+#define master_login_conn_has_clients(conn) \
+	((conn)->refcount > 1)
 
 struct master_login_connection {
 	struct master_login_connection *prev, *next;
@@ -110,6 +112,8 @@ master_login_conn_read_request(struct master_login_connection *conn,
 	if (ret != sizeof(*req_r)) {
 		if (ret == 0) {
 			/* disconnected */
+			if (master_login_conn_has_clients(conn))
+				i_error("Login client disconnected too early");
 		} else if (ret > 0) {
 			/* request wasn't fully read */
 			i_error("fd_read() partial input (%d/%d)",
@@ -133,6 +137,10 @@ master_login_conn_read_request(struct master_login_connection *conn,
 		if (ret != (ssize_t)req_r->data_size) {
 			if (ret == 0) {
 				/* disconnected */
+				if (master_login_conn_has_clients(conn)) {
+					i_error("Login client disconnected too early "
+						"(while reading data)");
+				}
 			} else if (ret > 0) {
 				/* request wasn't fully read */
 				i_error("Data read partially %d/%u",
