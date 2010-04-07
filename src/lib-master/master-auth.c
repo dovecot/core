@@ -129,7 +129,9 @@ static void master_auth_connection_input(struct master_auth_connection *conn)
 
 	if (conn->tag != reply->tag)
 		i_error("Master sent reply with unknown tag %u", reply->tag);
-	else {
+	else if (conn->callback == NULL) {
+		/* request aborted */
+	} else {
 		conn->callback(reply, conn->context);
 		conn->callback = NULL;
 	}
