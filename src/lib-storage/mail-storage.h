@@ -295,7 +295,6 @@ struct mail_storage *mail_storage_find_class(const char *name);
    exists. The storage is put into ns->storage. */
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			enum mail_storage_flags flags, const char **error_r);
-void mail_storage_ref(struct mail_storage *storage);
 void mail_storage_unref(struct mail_storage **storage);
 
 /* Returns the mail storage settings. */

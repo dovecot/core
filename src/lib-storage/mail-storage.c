@@ -327,11 +327,6 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 	return 0;
 }
 
-void mail_storage_ref(struct mail_storage *storage)
-{
-	storage->refcount++;
-}
-
 void mail_storage_unref(struct mail_storage **_storage)
 {
 	struct mail_storage *storage = *_storage;
@@ -345,6 +340,9 @@ void mail_storage_unref(struct mail_storage **_storage)
 		return;
 	}
 
+	if (storage->obj_refcount != 0)
+		i_panic("Trying to deinit storage before freeing its objects");
+
 	DLLIST_REMOVE(&storage->user->storages, storage);
 
 	if (storage->v.destroy != NULL)
@@ -355,6 +353,21 @@ void mail_storage_unref(struct mail_storage **_storage)
 	pool_unref(&storage->pool);
 
 	mail_index_alloc_cache_destroy_unrefed();
+}
+
+void mail_storage_obj_ref(struct mail_storage *storage)
+{
+	i_assert(storage->refcount > 0);
+
+	storage->obj_refcount++;
+}
+
+void mail_storage_obj_unref(struct mail_storage *storage)
+{
+	i_assert(storage->refcount > 0);
+	i_assert(storage->obj_refcount > 0);
+
+	storage->obj_refcount--;
 }
 
 void mail_storage_clear_error(struct mail_storage *storage)
@@ -514,6 +527,8 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
 		box = storage->v.mailbox_alloc(storage, new_list, name, flags);
 		hook_mailbox_allocated(box);
 	} T_END;
+
+	mail_storage_obj_ref(box->storage);
 	return box;
 }
 
@@ -614,6 +629,7 @@ void mailbox_free(struct mailbox **_box)
 
 	mailbox_close(box);
 	box->v.free(box);
+	mail_storage_obj_unref(box->storage);
 	pool_unref(&box->pool);
 }
 

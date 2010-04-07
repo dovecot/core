@@ -66,7 +66,12 @@ struct mail_storage {
 /* private: */
 	pool_t pool;
 	struct mail_storage *prev, *next;
+	/* counting number of times mail_storage_create() has returned this
+	   same storage. */
 	int refcount;
+	/* counting number of objects (e.g. mailbox) that have a pointer
+	   to this storage. */
+	int obj_refcount;
 	const char *unique_root_dir;
 
 	char *error_string;
@@ -444,6 +449,9 @@ extern struct mail_module_register mail_module_register;
 	MODULE_CONTEXT(obj, mail_storage_mail_index_module)
 extern MODULE_CONTEXT_DEFINE(mail_storage_mail_index_module,
 			     &mail_index_module_register);
+
+void mail_storage_obj_ref(struct mail_storage *storage);
+void mail_storage_obj_unref(struct mail_storage *storage);
 
 /* Set error message in storage. Critical errors are logged with i_error(),
    but user sees only "internal error" message. */
