@@ -147,6 +147,11 @@ static int virtual_backend_box_open_failed(struct virtual_mailbox *mbox,
 		return 0;
 	}
 
+	if (error == MAIL_ERROR_NOTFOUND) {
+		/* the virtual mailbox exists, we just can't open it.
+		   change the error type. */
+		error = MAIL_ERROR_NOTPOSSIBLE;
+	}
 	str = t_strdup_printf(
 		"Virtual mailbox open failed because of mailbox %s: %s",
 		name, str);
