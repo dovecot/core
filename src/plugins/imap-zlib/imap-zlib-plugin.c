@@ -70,7 +70,7 @@ static bool cmd_compress(struct client_command_context *cmd)
 	struct istream *old_input;
 	struct ostream *old_output;
 	const char *mechanism, *value;
-	int level;
+	unsigned int level;
 
 	/* <mechanism> */
 	if (!client_read_args(cmd, 0, 0, &args))
