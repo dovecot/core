@@ -128,21 +128,14 @@ int index_transaction_commit(struct mailbox_transaction_context *t,
 
 	changes_r->ignored_uid_changes = result.ignored_uid_changes;
 	changes_r->ignored_modseq_changes = result.ignored_modseq_changes;
-
-	i_assert(box->transaction_count > 0 ||
-		 box->view->transactions == 0);
 	return ret;
 }
 
 void index_transaction_rollback(struct mailbox_transaction_context *t)
 {
-	struct mailbox *box = t->box;
 	struct mail_index_transaction *itrans = t->itrans;
 
 	mail_index_transaction_rollback(&itrans);
-
-	i_assert(box->transaction_count > 0 ||
-		 box->view->transactions == 0);
 }
 
 void index_transaction_set_max_modseq(struct mailbox_transaction_context *t,
