@@ -68,7 +68,7 @@ static struct mail_storage *virtual_storage_alloc(void)
 	struct virtual_storage *storage;
 	pool_t pool;
 
-	pool = pool_alloconly_create("virtual storage", 512+256);
+	pool = pool_alloconly_create("virtual storage", 1024);
 	storage = p_new(pool, struct virtual_storage, 1);
 	storage->storage = virtual_storage;
 	storage->storage.pool = pool;
