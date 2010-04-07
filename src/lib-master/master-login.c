@@ -18,7 +18,7 @@
 #define MASTER_LOGIN_POSTLOGIN_TIMEOUT_MSECS (60*1000)
 
 #define master_login_conn_is_closed(conn) \
-	((conn)->output == NULL)
+	((conn)->fd == -1)
 
 struct master_login_connection {
 	struct master_login_connection *prev, *next;
@@ -409,10 +409,8 @@ void master_login_add(struct master_login *login, int fd)
 
 static void master_login_conn_close(struct master_login_connection *conn)
 {
-	if (master_login_conn_is_closed(conn)) {
-		/* already closed */
+	if (master_login_conn_is_closed(conn))
 		return;
-	}
 
 	DLLIST_REMOVE(&conn->login->conns, conn);
 
