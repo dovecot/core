@@ -394,4 +394,5 @@ void virtual_config_free(struct virtual_mailbox *mbox)
 		if (bboxes[i]->search_args != NULL)
 			mail_search_args_unref(&bboxes[i]->search_args);
 	}
+	array_free(&mbox->backend_boxes);
 }

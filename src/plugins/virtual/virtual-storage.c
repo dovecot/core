@@ -237,11 +237,34 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	return &mbox->box;
 }
 
+static void virtual_mailbox_close_internal(struct virtual_mailbox *mbox)
+{
+	struct virtual_backend_box **bboxes;
+	unsigned int i, count;
+
+	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
+	for (i = 0; i < count; i++) {
+		if (bboxes[i]->search_result != NULL)
+			mailbox_search_result_free(&bboxes[i]->search_result);
+
+		if (bboxes[i]->box == NULL)
+			continue;
+
+		mail_search_args_deinit(bboxes[i]->search_args);
+		mailbox_free(&bboxes[i]->box);
+		if (array_is_created(&bboxes[i]->sync_outside_expunges))
+			array_free(&bboxes[i]->sync_outside_expunges);
+		array_free(&bboxes[i]->sync_pending_removes);
+		array_free(&bboxes[i]->uids);
+	}
+	i_free_and_null(mbox->vseq_lookup_prev_mailbox);
+}
+
 static int virtual_mailbox_open(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
 	struct stat st;
-	bool failed;
+	int ret = 0;
 
 	if (virtual_mailbox_is_in_open_stack(mbox->storage, box->name)) {
 		mail_storage_set_critical(box->storage,
@@ -265,40 +288,36 @@ static int virtual_mailbox_open(struct mailbox *box)
 		return -1;
 	}
 
-	array_append(&mbox->storage->open_stack, &box->name, 1);
-	failed = virtual_config_read(mbox) < 0 ||
-		virtual_mailboxes_open(mbox, box->flags) < 0;
-	array_delete(&mbox->storage->open_stack,
-		     array_count(&mbox->storage->open_stack)-1, 1);
-	return failed ? -1 : index_storage_mailbox_open(box, FALSE);
+	if (!array_is_created(&mbox->backend_boxes))
+		ret = virtual_config_read(mbox);
+	if (ret == 0) {
+		array_append(&mbox->storage->open_stack, &box->name, 1);
+		ret = virtual_mailboxes_open(mbox, box->flags);
+		array_delete(&mbox->storage->open_stack,
+			     array_count(&mbox->storage->open_stack)-1, 1);
+	}
+
+	if (ret < 0) {
+		virtual_mailbox_close_internal(mbox);
+		return -1;
+	}
+	return index_storage_mailbox_open(box, FALSE);
 }
 
 static void virtual_mailbox_close(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
-	struct virtual_backend_box **bboxes;
-	unsigned int i, count;
+
+	virtual_mailbox_close_internal(mbox);
+	index_storage_mailbox_close(box);
+}
+
+static void virtual_mailbox_free(struct mailbox *box)
+{
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
 
 	virtual_config_free(mbox);
-
-	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
-	for (i = 0; i < count; i++) {
-		if (bboxes[i]->search_result != NULL)
-			mailbox_search_result_free(&bboxes[i]->search_result);
-
-		if (bboxes[i]->box == NULL)
-			continue;
-
-		mailbox_free(&bboxes[i]->box);
-		if (array_is_created(&bboxes[i]->sync_outside_expunges))
-			array_free(&bboxes[i]->sync_outside_expunges);
-		array_free(&bboxes[i]->sync_pending_removes);
-		array_free(&bboxes[i]->uids);
-	}
-	array_free(&mbox->backend_boxes);
-	i_free(mbox->vseq_lookup_prev_mailbox);
-
-	index_storage_mailbox_close(box);
+	index_storage_mailbox_free(box);
 }
 
 static int
@@ -476,7 +495,7 @@ struct mailbox virtual_mailbox = {
 		index_storage_mailbox_enable,
 		virtual_mailbox_open,
 		virtual_mailbox_close,
-		index_storage_mailbox_free,
+		virtual_mailbox_free,
 		virtual_mailbox_create,
 		virtual_mailbox_update,
 		index_storage_mailbox_delete,
