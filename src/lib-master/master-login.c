@@ -17,6 +17,9 @@
 
 #define MASTER_LOGIN_POSTLOGIN_TIMEOUT_MSECS (60*1000)
 
+#define master_login_conn_is_closed(conn) \
+	((conn)->output == NULL)
+
 struct master_login_connection {
 	struct master_login_connection *prev, *next;
 
@@ -47,7 +50,7 @@ struct master_login {
 	unsigned int stopping:1;
 };
 
-static void master_login_conn_deinit(struct master_login_connection **_conn);
+static void master_login_conn_close(struct master_login_connection *conn);
 static void master_login_conn_unref(struct master_login_connection **_conn);
 
 struct master_login *
@@ -83,7 +86,8 @@ void master_login_deinit(struct master_login **_login)
 	while (login->conns != NULL) {
 		struct master_login_connection *conn = login->conns;
 
-		master_login_conn_deinit(&conn);
+		master_login_conn_close(conn);
+		master_login_conn_unref(&conn);
 	}
 	i_free(login->postlogin_socket_path);
 	i_free(login);
@@ -165,6 +169,10 @@ static void master_login_client_free(struct master_login_client **_client)
 			i_error("close(fd_read client) failed: %m");
 	}
 
+	/* FIXME: currently we create a separate connection for each request,
+	   so close the connection after we're done with this client */
+	if (!master_login_conn_is_closed(client->conn))
+		master_login_conn_unref(&client->conn);
 	master_login_conn_unref(&client->conn);
 	i_free(client);
 }
@@ -172,8 +180,7 @@ static void master_login_client_free(struct master_login_client **_client)
 static void master_login_auth_finish(struct master_login_client *client,
 				     const char *const *auth_args)
 {
-	struct master_login_connection *conn = client->conn;
-	struct master_login *login = conn->login;
+	struct master_login *login = client->conn->login;
 	struct master_service *service = login->service;
 	bool close_sockets;
 
@@ -192,8 +199,6 @@ static void master_login_auth_finish(struct master_login_client *client,
 		/* try stopping again */
 		master_login_stop(login);
 	}
-	/* FIXME: currently we create a separate connection for each request */
-	master_login_conn_deinit(&conn);
 
 	client->fd = -1;
 	master_login_client_free(&client);
@@ -368,8 +373,10 @@ static void master_login_conn_input(struct master_login_connection *conn)
 
 	ret = master_login_conn_read_request(conn, &req, data, &client_fd);
 	if (ret <= 0) {
-		if (ret < 0)
-			master_login_conn_deinit(&conn);
+		if (ret < 0) {
+			master_login_conn_close(conn);
+			master_login_conn_unref(&conn);
+		}
 		if (client_fd != -1) {
 			if (close(client_fd) < 0)
 				i_error("close(fd_read client) failed: %m");
@@ -411,14 +418,10 @@ void master_login_add(struct master_login *login, int fd)
 	master_service_io_listeners_remove(login->service);
 }
 
-static void master_login_conn_deinit(struct master_login_connection **_conn)
+static void master_login_conn_close(struct master_login_connection *conn)
 {
-	struct master_login_connection *conn = *_conn;
-
-	*_conn = NULL;
-
-	if (conn->output == NULL) {
-		/* already deinitialized */
+	if (master_login_conn_is_closed(conn)) {
+		/* already closed */
 		return;
 	}
 
@@ -433,7 +436,6 @@ static void master_login_conn_deinit(struct master_login_connection **_conn)
 
 	conn->login->service->login_authenticating = FALSE;
 	master_service_io_listeners_add(conn->login->service);
-	master_login_conn_unref(&conn);
 }
 
 static void master_login_conn_unref(struct master_login_connection **_conn)
@@ -446,6 +448,7 @@ static void master_login_conn_unref(struct master_login_connection **_conn)
 		return;
 
 	*_conn = NULL;
+	master_login_conn_close(conn);
 	o_stream_unref(&conn->output);
 	i_free(conn);
 }
