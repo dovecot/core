@@ -329,7 +329,7 @@ get_octal(struct setting_parser_context *ctx, const char *value,
 	if (*value != '0')
 		return get_uint(ctx, value, result_r);
 
-	octal = strtoull(value + 1, &p, 4);
+	octal = strtoull(value + 1, &p, 8);
 	if (*p != '\0' || octal > UINT_MAX) {
 		ctx->error = p_strconcat(ctx->parser_pool, "Invalid number: ",
 					 value, NULL);
