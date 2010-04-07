@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "llist.h"
 #include "hex-binary.h"
 #include "hash.h"
 #include "str.h"
@@ -14,8 +15,12 @@
 #include <stdlib.h>
 
 #define AUTH_MAX_INBUF_SIZE 8192
+#define AUTH_REQUEST_TIMEOUT_SECS (2*60)
 
 struct master_login_auth_request {
+	struct master_login_auth_request *prev, *next;
+
+	time_t create_stamp;
 	master_login_auth_request_callback_t *callback;
 	void *context;
 };
@@ -29,12 +34,17 @@ struct master_login_auth {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct timeout *to;
 
 	unsigned int id_counter;
 	struct hash_table *requests;
+	/* linked list of requests, ordered by create_stamp */
+	struct master_login_auth_request *request_head, *request_tail;
 
 	unsigned int version_received:1;
 };
+
+static void master_login_auth_set_timeout(struct master_login_auth *auth);
 
 struct master_login_auth *master_login_auth_init(const char *auth_socket_path)
 {
@@ -53,19 +63,21 @@ struct master_login_auth *master_login_auth_init(const char *auth_socket_path)
 
 void master_login_auth_disconnect(struct master_login_auth *auth)
 {
-	struct hash_iterate_context *iter;
-	void *key, *value;
+	struct master_login_auth_request *request;
 
-	iter = hash_table_iterate_init(auth->requests);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct master_login_auth_request *request = value;
+	while (auth->request_head != NULL) {
+		request = auth->request_head;
+		DLLIST2_REMOVE(&auth->request_head,
+			       &auth->request_tail, request);
+
 		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
 				  request->context);
 		i_free(request);
 	}
-	hash_table_iterate_deinit(&iter);
 	hash_table_clear(auth->requests, FALSE);
 
+	if (auth->to != NULL)
+		timeout_remove(&auth->to);
 	if (auth->io != NULL)
 		io_remove(&auth->io);
 	if (auth->fd != -1) {
@@ -102,19 +114,65 @@ void master_login_auth_deinit(struct master_login_auth **_auth)
 	master_login_auth_unref(&auth);
 }
 
+static unsigned int auth_get_next_timeout_secs(struct master_login_auth *auth)
+{
+	time_t expires;
+
+	expires = auth->request_head->create_stamp + AUTH_REQUEST_TIMEOUT_SECS;
+	return expires <= ioloop_time ? 0 : expires - ioloop_time;
+}
+
+static void master_login_auth_timeout(struct master_login_auth *auth)
+{
+	struct master_login_auth_request *request;
+
+	while (auth->request_head != NULL &&
+	       auth_get_next_timeout_secs(auth) == 0) {
+		request = auth->request_head;
+		DLLIST2_REMOVE(&auth->request_head,
+			       &auth->request_tail, request);
+
+		i_error("Auth server request timed out after %u secs",
+			(unsigned int)(ioloop_time - request->create_stamp));
+		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+				  request->context);
+		i_free(request);
+	}
+	timeout_remove(&auth->to);
+	master_login_auth_set_timeout(auth);
+}
+
+static void master_login_auth_set_timeout(struct master_login_auth *auth)
+{
+	i_assert(auth->to == NULL);
+
+	if (auth->request_head != NULL) {
+		auth->to = timeout_add(auth_get_next_timeout_secs(auth) * 1000,
+				       master_login_auth_timeout, auth);
+	}
+}
+
 static struct master_login_auth_request *
 master_login_auth_lookup_request(struct master_login_auth *auth,
 				 unsigned int id)
 {
 	struct master_login_auth_request *request;
+	bool update_timeout;
 
 	request = hash_table_lookup(auth->requests, POINTER_CAST(id));
 	if (request == NULL) {
 		i_error("Auth server sent reply with unknown ID %u", id);
 		return NULL;
 	}
+	update_timeout = request->prev == NULL;
 
 	hash_table_remove(auth->requests, POINTER_CAST(id));
+	DLLIST2_REMOVE(&auth->request_head, &auth->request_tail, request);
+
+	if (update_timeout) {
+		timeout_remove(&auth->to);
+		master_login_auth_set_timeout(auth);
+	}
 	return request;
 }
 
@@ -301,9 +359,14 @@ void master_login_auth_request(struct master_login_auth *auth,
 	o_stream_send(auth->output, str_data(str), str_len(str));
 
 	login_req = i_new(struct master_login_auth_request, 1);
+	login_req->create_stamp = ioloop_time;
 	login_req->callback = callback;
 	login_req->context = context;
 	hash_table_insert(auth->requests, POINTER_CAST(id), login_req);
+	DLLIST2_APPEND(&auth->request_head, &auth->request_tail, login_req);
+
+	if (auth->to == NULL)
+		master_login_auth_set_timeout(auth);
 }
 
 unsigned int master_login_auth_request_count(struct master_login_auth *auth)
