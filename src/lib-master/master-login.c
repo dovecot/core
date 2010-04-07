@@ -426,7 +426,7 @@ static void master_login_conn_deinit(struct master_login_connection **_conn)
 
 	if (conn->io != NULL)
 		io_remove(&conn->io);
-	o_stream_unref(&conn->output);
+	o_stream_close(conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(master login) failed: %m");
 	conn->fd = -1;
@@ -442,10 +442,12 @@ static void master_login_conn_unref(struct master_login_connection **_conn)
 
 	i_assert(conn->refcount > 0);
 
-	if (--conn->refcount == 0) {
-		*_conn = NULL;
-		i_free(conn);
-	}
+	if (--conn->refcount > 0)
+		return;
+
+	*_conn = NULL;
+	o_stream_unref(&conn->output);
+	i_free(conn);
 }
 
 void master_login_stop(struct master_login *login)
