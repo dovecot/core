@@ -75,7 +75,8 @@ dsync_connected(const struct master_service_connection *conn ATTR_UNUSED)
 int main(int argc, char *argv[])
 {
 	enum mail_storage_service_flags ssflags =
-		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR;
+		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
+		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
 	enum dsync_brain_flags brain_flags = 0;
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_user *service_user;
@@ -85,12 +86,13 @@ int main(int argc, char *argv[])
 	const char *error, *username, *mailbox = NULL, *mirror_cmd = NULL;
 	const char *convert_location = NULL;
 	bool dsync_server = FALSE, readonly = FALSE, unexpected_changes = FALSE;
+	bool dsync_debug = FALSE;
 	char alt_char = '_';
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "C:fm:ru:v");
+					     &argc, &argv, "C:Dfm:ru:v");
 
 	username = getenv("USER");
 	while ((c = master_getopt(master_service)) > 0) {
@@ -99,6 +101,11 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'C':
 			alt_char = optarg[0];
+			break;
+		case 'D':
+			dsync_debug = TRUE;
+			brain_flags |= DSYNC_BRAIN_FLAG_VERBOSE;
+			ssflags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 			break;
 		case 'm':
 			mailbox = optarg;
@@ -137,6 +144,11 @@ int main(int argc, char *argv[])
 	if (optind != argc)
 		usage();
 	master_service_init_finish(master_service);
+
+	if (!dsync_debug) {
+		/* disable debugging unless -D is given */
+		i_set_debug_file("/dev/null");
+	}
 
 	memset(&input, 0, sizeof(input));
 	input.module = "mail";
