@@ -337,6 +337,7 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 			   void *context)
 {
 	struct master_login_client *client = context;
+	struct master_login_connection *conn = client->conn;
 	struct master_auth_reply reply;
 
 	memset(&reply, 0, sizeof(reply));
@@ -344,21 +345,27 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 	reply.status = errormsg == NULL ? MASTER_AUTH_STATUS_OK :
 		MASTER_AUTH_STATUS_INTERNAL_ERROR;
 	reply.mail_pid = getpid();
-	o_stream_send(client->conn->output, &reply, sizeof(reply));
+	o_stream_send(conn->output, &reply, sizeof(reply));
 
 	if (errormsg != NULL || auth_args[0] == NULL) {
 		if (auth_args != NULL) {
 			i_error("login client: Username missing from auth reply");
 			errormsg = MASTER_AUTH_ERRMSG_INTERNAL_FAILURE;
 		}
-		client->conn->login->failure_callback(client, errormsg);
+		conn->login->failure_callback(client, errormsg);
 		master_login_client_free(&client);
 		return;
 	}
 
-	if (client->conn->login->postlogin_socket_path == NULL)
+	if (conn->login->postlogin_socket_path == NULL)
 		master_login_auth_finish(client, auth_args);
 	else {
+		/* we've sent the reply. the connection is no longer needed,
+		   so disconnect it (before login process disconnects us and
+		   logs an error) */
+		master_login_conn_close(conn);
+		master_login_conn_unref(&conn);
+
 		/* execute post-login scripts before finishing auth */
 		if (master_login_postlogin(client, auth_args) < 0)
 			master_login_client_free(&client);
