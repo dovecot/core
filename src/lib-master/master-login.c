@@ -420,9 +420,6 @@ static void master_login_conn_close(struct master_login_connection *conn)
 	if (close(conn->fd) < 0)
 		i_error("close(master login) failed: %m");
 	conn->fd = -1;
-
-	if (!conn->login_success)
-		master_service_client_connection_destroyed(conn->login->service);
 }
 
 static void master_login_conn_unref(struct master_login_connection **_conn)
@@ -437,6 +434,9 @@ static void master_login_conn_unref(struct master_login_connection **_conn)
 	*_conn = NULL;
 	master_login_conn_close(conn);
 	o_stream_unref(&conn->output);
+
+	if (!conn->login_success)
+		master_service_client_connection_destroyed(conn->login->service);
 	i_free(conn);
 }
 
