@@ -50,6 +50,8 @@ struct imap_arg {
 	 (type) == IMAP_ARG_LITERAL)
 #define IMAP_ARG_IS_ASTRING(arg) \
 	IMAP_ARG_TYPE_IS_ASTRING((arg)->type)
+#define IMAP_ARG_IS_NSTRING(arg) \
+	(IMAP_ARG_IS_ASTRING(arg) || (arg)->type == IMAP_ARG_NIL)
 #define IMAP_ARG_IS_EOL(arg) \
 	((arg)->type == IMAP_ARG_EOL)
 
