@@ -426,7 +426,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	unsigned int id;
 
 	data = strchr(args, '\t');
-	if (data == NULL || str_to_uint(args, &id) < 0) {
+	if (data == NULL || str_to_uint(t_strdup_until(args, data), &id) < 0) {
 		i_error("BUG: Authentication client sent broken CONT request");
 		return FALSE;
 	}
