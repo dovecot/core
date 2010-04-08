@@ -47,9 +47,11 @@ AC_DEFUN([DC_DOVECOT],[
 
 	eval `grep \
 		-e ^dovecot_[[a-z]]*= \
+		-e ^DOVECOT_[[A-Z_]]*= \
 		-e ^LIBDOVECOT[[A-Z_]]*= \
 		"$dovecotdir"/dovecot-config`
 	AX_SUBST_L([dovecot_moduledir], [dovecot_pkgincludedir], [dovecot_pkglibexecdir], [dovecot_pkglibdir], [dovecot_docdir])
+	AX_SUBST_L([DOVECOT_CFLAGS], [DOVECOT_LIBS], [DOVECOT_SSL_LIBS])
 	AX_SUBST_L([LIBDOVECOT], [LIBDOVECOT_LOGIN], [LIBDOVECOT_SQL], [LIBDOVECOT_STORAGE])
 	AX_SUBST_L([LIBDOVECOT_DEPS], [LIBDOVECOT_LOGIN_DEPS], [LIBDOVECOT_SQL_DEPS], [LIBDOVECOT_STORAGE_DEPS])
 	AX_SUBST_L([LIBDOVECOT_INCLUDE], [LIBDOVECOT_LDA_INCLUDE], [LIBDOVECOT_SERVICE_INCLUDE], [LIBDOVECOT_STORAGE_INCLUDE], [LIBDOVECOT_LOGIN_INCLUDE])
