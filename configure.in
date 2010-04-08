@@ -2008,6 +2008,7 @@ if test $want_ldap != no; then
 			LDAP_LIBS="-lldap"
 			AC_CHECK_LIB(ldap, ber_free, [
 			  # do nothing, default is to add -lldap to LIBS
+			  :
 			], [
 			  AC_CHECK_LIB(lber, ber_free, [
 			    LDAP_LIBS="$LDAP_LIBS -llber"
