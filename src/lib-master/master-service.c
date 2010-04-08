@@ -84,7 +84,7 @@ static void master_service_verify_version(struct master_service *service)
 		i_fatal("Dovecot version mismatch: "
 			"Master is v%s, %s is v"PACKAGE_VERSION" "
 			"(if you don't care, set version_ignore=yes)",
-			service->name, service->version_string);
+			service->version_string, service->name);
 	}
 }
 
