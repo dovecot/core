@@ -254,16 +254,6 @@ AC_ARG_WITH(docs,
 	want_docs=yes)
 AM_CONDITIONAL(BUILD_DOCS, test "$want_docs" = "yes")
 
-AC_ARG_ENABLE(header-install,
-[  --enable-header-install Install development headers],
-	if test x$enableval = xno; then
-		want_headers=no
-	else
-		want_headers=yes
-	fi,
-	want_headers=no)
-AM_CONDITIONAL(INSTALL_HEADERS, test "$want_headers" = "yes")
-
 dnl always enable all of the passbs and userdbs that don't require extra libs
 want_passwd=yes
 want_passwd_file=yes
@@ -2016,7 +2006,9 @@ if test $want_ldap != no; then
 				AC_DEFINE(LDAP_HAVE_START_TLS_S,, Define if you have ldap_start_tls_s)
 			])
 			LDAP_LIBS="-lldap"
-			AC_CHECK_LIB(ldap, ber_free,, [
+			AC_CHECK_LIB(ldap, ber_free, [
+			  # do nothing, default is to add -lldap to LIBS
+			], [
 			  AC_CHECK_LIB(lber, ber_free, [
 			    LDAP_LIBS="$LDAP_LIBS -llber"
 			  ])

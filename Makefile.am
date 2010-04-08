@@ -23,12 +23,8 @@ EXTRA_DIST = \
 datafiles = \
 	dovecot-config
 
-if INSTALL_HEADERS
-  nodist_pkginclude_HEADERS = config.h
-  pkglib_DATA = $(datafiles)
-else
-  noinst_DATA = $(datafiles)
-endif
+nodist_pkginclude_HEADERS = config.h
+pkglib_DATA = $(datafiles)
 
 if MAINTAINER_MODE
 ChangeLog: .hg/dirstate
@@ -56,7 +52,6 @@ dovecot-config: dovecot-config.in Makefile
 	-e "s|^\(dovecot_moduledir\)=|\1=$(moduledir)|" \
 	> dovecot-config
 
-if INSTALL_HEADERS
 install-exec-hook:
 	rm $(DESTDIR)$(pkglibdir)/dovecot-config && \
 	grep -v '^LIBDOVECOT_.*_INCLUDE' dovecot-config | \
@@ -67,9 +62,6 @@ install-exec-hook:
 	-e "s|^\(LIBDOVECOT_STORAGE\)=.*$$|\1=-ldovecot-storage|" \
 	-e "s|^\(LIBDOVECOT_INCLUDE\)=.*$$|\1=-I$(pkgincludedir)|" \
 	> $(DESTDIR)$(pkglibdir)/dovecot-config
-else
-install-exec-hook:
-endif
 
 CLEANFILES = $(datafiles)
 

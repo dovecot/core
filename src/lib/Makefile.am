@@ -260,10 +260,6 @@ check-test: all-am
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
 
-if INSTALL_HEADERS
-  pkginc_libdir=$(pkgincludedir)
-  pkginc_lib_HEADERS = $(headers)
-  noinst_HEADERS = $(test_headers)
-else
-  noinst_HEADERS = $(headers) $(test_headers)
-endif
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)
+noinst_HEADERS = $(test_headers)

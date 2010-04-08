@@ -33,12 +33,8 @@ headers = \
 	dict-sql.h \
 	dict-sql-settings.h
 
-if INSTALL_HEADERS
-  pkginc_libdir=$(pkgincludedir)
-  pkginc_lib_HEADERS = $(headers)
-else
-  noinst_HEADERS = $(headers)
-endif
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)
 
 dict-drivers-register.c: Makefile $(top_builddir)/config.h
 	rm -f $@

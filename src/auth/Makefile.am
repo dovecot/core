@@ -149,12 +149,8 @@ libauthdb_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_ldap_la_SOURCES = $(ldap_sources)
 endif
 
-if INSTALL_HEADERS
-  pkginc_libdir=$(pkgincludedir)
-  pkginc_lib_HEADERS = $(headers)
-else
-  noinst_HEADERS = $(headers)
-endif
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = $(headers)
 
 checkpassword_reply_LDADD = $(LIBDOVECOT)
 checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT_DEPS)
