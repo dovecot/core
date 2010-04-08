@@ -167,6 +167,8 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	struct mail_namespace *ns;
 	const char *mailbox;
 
+	i_assert(bbox->box == NULL);
+
 	flags |= MAILBOX_FLAG_KEEP_RECENT;
 
 	mailbox = bbox->name;
