@@ -458,10 +458,10 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	enum mail_error error;
 	int ret;
 
-	box = mdbox_mailbox_alloc(&ctx->storage->storage.storage,
-				  ns->list, name, MAILBOX_FLAG_READONLY |
-				  MAILBOX_FLAG_KEEP_RECENT |
-				  MAILBOX_FLAG_IGNORE_ACLS);
+	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_READONLY |
+			    MAILBOX_FLAG_KEEP_RECENT |
+			    MAILBOX_FLAG_IGNORE_ACLS);
+	i_assert(box->storage == &ctx->storage->storage.storage);
 	if (dbox_mailbox_open(box) < 0) {
 		(void)mail_storage_get_last_error(box->storage, &error);
 		mailbox_free(&box);
@@ -595,10 +595,11 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 		strcmp(mailbox, ctx->prev_msg.box->name) == 0 ?
 		ctx->prev_msg.box : NULL;
 	while (box == NULL) {
-		box = mdbox_mailbox_alloc(storage, ctx->default_list,
-					  mailbox, MAILBOX_FLAG_READONLY |
-					  MAILBOX_FLAG_KEEP_RECENT |
-					  MAILBOX_FLAG_IGNORE_ACLS);
+		box = mailbox_alloc(ctx->default_list, mailbox,
+				    MAILBOX_FLAG_READONLY |
+				    MAILBOX_FLAG_KEEP_RECENT |
+				    MAILBOX_FLAG_IGNORE_ACLS);
+		i_assert(box->storage == storage);
 		if (dbox_mailbox_open(box) == 0)
 			break;
 
