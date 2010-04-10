@@ -409,8 +409,8 @@ settings_include(struct config_parser_context *ctx, const char *pattern,
 	}
 
 	/* iterate throuth the different files matching the globbing */
-	for (i = 0; i < globbers.gl_pathc; i++) {
-		if (settings_add_include(ctx, globbers.gl_pathv[i],
+	for (i = globbers.gl_pathc; i > 0; i--) {
+		if (settings_add_include(ctx, globbers.gl_pathv[i-1],
 					 ignore_errors, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
