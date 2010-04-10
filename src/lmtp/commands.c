@@ -606,13 +606,18 @@ client_input_data_write_local(struct client *client, struct istream *input)
 
 	/* save the message to the first recipient's mailbox */
 	src_mail = client->state.raw_mail;
-	if (!client_deliver_next(client, src_mail))
+	if (!client_deliver_next(client, src_mail)) {
+		/* nothing got saved */
+		i_assert(client->state.first_saved_mail == NULL);
 		return;
+	}
 
 	if (client->state.first_saved_mail == NULL)
 		mail_user_unref(&client->state.dest_user);
-	else
+	else {
+		client->state.dest_user = NULL;
 		src_mail = client->state.first_saved_mail;
+	}
 
 	/* use the first saved message to save it elsewhere too.
 	   this might allow hard linking the files. */
