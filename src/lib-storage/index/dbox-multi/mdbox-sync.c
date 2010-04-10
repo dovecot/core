@@ -359,6 +359,10 @@ static int mdbox_sync_altmove_add_files(struct mdbox_storage *dstorage,
 	   hopefully one of n-[1..m] is appendable in alt storage. */
 	dir = opendir(dstorage->storage_dir);
 	if (dir == NULL) {
+		if (errno == ENOENT) {
+			/* no storage directory at all yet */
+			return 0;
+		}
 		mail_storage_set_critical(storage,
 			"opendir(%s) failed: %m", dstorage->storage_dir);
 		return -1;
