@@ -431,5 +431,11 @@ int mdbox_sync_purge(struct mail_storage *_storage)
 		dbox_file_unref(&file);
 	} T_END;
 	array_free(&ref0_file_ids);
+
+	if (storage->storage.files_corrupted) {
+		/* purging found corrupted files */
+		(void)mdbox_storage_rebuild(storage);
+		ret = -1;
+	}
 	return ret;
 }
