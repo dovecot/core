@@ -182,7 +182,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 	const struct mail_index_header *hdr;
 	uint32_t uid_validity, uid_next;
 
-	if (dbox_map_open(mbox->storage->map, TRUE) < 0)
+	if (dbox_map_open_or_create(mbox->storage->map) < 0)
 		return -1;
 
 	hdr = mail_index_get_header(box->view);

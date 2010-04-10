@@ -33,9 +33,11 @@ dbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list,
 	      const char *path);
 void dbox_map_deinit(struct dbox_map **map);
 
-/* Open the map. This is done automatically for most operations.
+/* Open the map. Returns 1 if ok, 0 if map doesn't exist, -1 if error. */
+int dbox_map_open(struct dbox_map *map);
+/* Open or create the map. This is done automatically for most operations.
    Returns 0 if ok, -1 if error. */
-int dbox_map_open(struct dbox_map *map, bool create_missing);
+int dbox_map_open_or_create(struct dbox_map *map);
 /* Refresh the map. Returns 0 if ok, -1 if error. */
 int dbox_map_refresh(struct dbox_map *map);
 

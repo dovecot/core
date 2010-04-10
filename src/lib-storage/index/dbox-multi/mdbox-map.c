@@ -99,14 +99,14 @@ static int dbox_map_mkdir_storage(struct dbox_map *map)
 	return 0;
 }
 
-int dbox_map_open(struct dbox_map *map, bool create_missing)
+static int dbox_map_open_internal(struct dbox_map *map, bool create_missing)
 {
 	enum mail_index_open_flags open_flags;
 	int ret;
 
 	if (map->view != NULL) {
 		/* already opened */
-		return 0;
+		return 1;
 	}
 
 	open_flags = MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY |
@@ -125,11 +125,22 @@ int dbox_map_open(struct dbox_map *map, bool create_missing)
 	}
 	if (ret == 0) {
 		/* index not found - for now just return failure */
-		return -1;
+		i_assert(!create_missing);
+		return 0;
 	}
 
 	map->view = mail_index_view_open(map->index);
-	return 0;
+	return 1;
+}
+
+int dbox_map_open(struct dbox_map *map)
+{
+	return dbox_map_open_internal(map, FALSE);
+}
+
+int dbox_map_open_or_create(struct dbox_map *map)
+{
+	return dbox_map_open_internal(map, TRUE) <= 0 ? -1 : 0;
 }
 
 int dbox_map_refresh(struct dbox_map *map)
@@ -202,7 +213,7 @@ int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 	uoff_t size;
 	int ret;
 
-	if (dbox_map_open(map, TRUE) < 0)
+	if (dbox_map_open_or_create(map) < 0)
 		return -1;
 
 	if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0)
@@ -276,10 +287,11 @@ int dbox_map_get_zero_ref_files(struct dbox_map *map,
 	const void *data;
 	uint32_t seq;
 	bool expunged;
+	int ret;
 
-	if (dbox_map_open(map, FALSE) < 0) {
-		/* some internal error */
-		return -1;
+	if ((ret = dbox_map_open(map)) <= 0) {
+		/* no map / internal error */
+		return ret;
 	}
 	if (dbox_map_refresh(map) < 0)
 		return -1;
@@ -316,7 +328,7 @@ dbox_map_transaction_begin(struct dbox_map *map, bool external)
 
 	ctx = i_new(struct dbox_map_transaction_context, 1);
 	ctx->map = map;
-	if (dbox_map_open(map, FALSE) == 0 &&
+	if (dbox_map_open(map) > 0 &&
 	    dbox_map_refresh(map) == 0)
 		ctx->trans = mail_index_transaction_begin(map->view, flags);
 	return ctx;
@@ -496,7 +508,7 @@ dbox_map_append_begin(struct dbox_map *map, enum dbox_map_append_flags flags)
 	i_array_init(&ctx->files, 64);
 	i_array_init(&ctx->appends, 128);
 
-	if (dbox_map_open(ctx->map, TRUE) < 0)
+	if (dbox_map_open_or_create(map) < 0)
 		ctx->failed = TRUE;
 	else {
 		/* refresh the map so we can try appending to the
