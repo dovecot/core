@@ -165,6 +165,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	bool default_save;
 	int ret = 0;
 
+	i_assert(ctx->dest_mail == NULL);
+
 	default_save = strcmp(mailbox, ctx->dest_mailbox_name) == 0;
 	if (default_save)
 		ctx->tried_default_save = TRUE;
