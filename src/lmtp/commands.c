@@ -604,25 +604,18 @@ client_input_data_write_local(struct client *client, struct istream *input)
 	if (client_open_raw_mail(client, input) < 0)
 		return;
 
-	/* save the message to the first recipient's mailbox */
 	src_mail = client->state.raw_mail;
-	if (!client_deliver_next(client, src_mail)) {
-		/* nothing got saved */
-		i_assert(client->state.first_saved_mail == NULL);
-		return;
+	while (client_deliver_next(client, src_mail)) {
+		if (client->state.first_saved_mail == NULL ||
+		    client->state.first_saved_mail == src_mail)
+			mail_user_unref(&client->state.dest_user);
+		else {
+			/* use the first saved message to save it elsewhere too.
+			   this might allow hard linking the files. */
+			client->state.dest_user = NULL;
+			src_mail = client->state.first_saved_mail;
+		}
 	}
-
-	if (client->state.first_saved_mail == NULL)
-		mail_user_unref(&client->state.dest_user);
-	else {
-		client->state.dest_user = NULL;
-		src_mail = client->state.first_saved_mail;
-	}
-
-	/* use the first saved message to save it elsewhere too.
-	   this might allow hard linking the files. */
-	while (client_deliver_next(client, src_mail))
-		mail_user_unref(&client->state.dest_user);
 
 	if (client->state.first_saved_mail != NULL) {
 		struct mail *mail = client->state.first_saved_mail;
