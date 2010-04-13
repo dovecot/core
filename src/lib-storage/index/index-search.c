@@ -215,20 +215,38 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	struct tm *tm;
 	uoff_t virtual_size;
 	time_t date;
-	int timezone_offset;
+	int tz_offset;
+	bool have_tz_offset;
 
 	switch (arg->type) {
 	/* internal dates */
 	case SEARCH_BEFORE:
 	case SEARCH_ON:
 	case SEARCH_SINCE:
-		if (mail_get_received_date(ctx->mail, &date) < 0)
-			return -1;
+		have_tz_offset = FALSE; tz_offset = 0; date = (time_t)-1;
+		switch (arg->value.date_type) {
+		case MAIL_SEARCH_DATE_TYPE_SENT:
+			if (mail_get_date(ctx->mail, &date, &tz_offset) < 0)
+				return -1;
+			have_tz_offset = TRUE;
+			break;
+		case MAIL_SEARCH_DATE_TYPE_RECEIVED:
+			if (mail_get_received_date(ctx->mail, &date) < 0)
+				return -1;
+			break;
+		case MAIL_SEARCH_DATE_TYPE_SAVED:
+			if (mail_get_save_date(ctx->mail, &date) < 0)
+				return -1;
+			break;
+		}
 
 		if ((arg->value.search_flags &
 		     MAIL_SEARCH_ARG_FLAG_USE_TZ) == 0) {
-			tm = localtime(&date);
-			date += utc_offset(tm, date)*60;
+			if (!have_tz_offset) {
+				tm = localtime(&date);
+				tz_offset = utc_offset(tm, date);
+			}
+			date += tz_offset * 60;
 		}
 
 		switch (arg->type) {
@@ -238,32 +256,6 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 			return date >= arg->value.time &&
 				date < arg->value.time + 3600*24;
 		case SEARCH_SINCE:
-			return date >= arg->value.time;
-		default:
-			/* unreachable */
-			break;
-		}
-
-	/* sent dates */
-	case SEARCH_SENTBEFORE:
-	case SEARCH_SENTON:
-	case SEARCH_SENTSINCE:
-		/* NOTE: RFC-3501 specifies that timezone is ignored
-		   in searches. date is returned as UTC, so change it. */
-		if (mail_get_date(ctx->mail, &date, &timezone_offset) < 0)
-			return -1;
-
-		if ((arg->value.search_flags &
-		     MAIL_SEARCH_ARG_FLAG_USE_TZ) == 0)
-			date += timezone_offset * 60;
-
-		switch (arg->type) {
-		case SEARCH_SENTBEFORE:
-			return date < arg->value.time;
-		case SEARCH_SENTON:
-			return date >= arg->value.time &&
-				date < arg->value.time + 3600*24;
-		case SEARCH_SENTSINCE:
 			return date >= arg->value.time;
 		default:
 			/* unreachable */
@@ -331,12 +323,12 @@ static int search_sent(enum mail_search_arg_type type, time_t search_time,
 	sent_time += timezone_offset * 60;
 
 	switch (type) {
-	case SEARCH_SENTBEFORE:
+	case SEARCH_BEFORE:
 		return sent_time < search_time;
-	case SEARCH_SENTON:
+	case SEARCH_ON:
 		return sent_time >= search_time &&
 			sent_time < search_time + 3600*24;
-	case SEARCH_SENTSINCE:
+	case SEARCH_SINCE:
 		return sent_time >= search_time;
 	default:
                 i_unreached();
@@ -400,9 +392,12 @@ static void search_header_arg(struct mail_search_arg *arg,
 
 	/* first check that the field name matches to argument. */
 	switch (arg->type) {
-	case SEARCH_SENTBEFORE:
-	case SEARCH_SENTON:
-	case SEARCH_SENTSINCE:
+	case SEARCH_BEFORE:
+	case SEARCH_ON:
+	case SEARCH_SINCE:
+		if (arg->value.date_type != MAIL_SEARCH_DATE_TYPE_SENT)
+			return;
+
 		/* date is handled differently than others */
 		if (strcasecmp(ctx->hdr->name, "Date") == 0) {
 			if (ctx->hdr->continues) {
@@ -491,9 +486,12 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 				  void *context ATTR_UNUSED)
 {
 	switch (arg->type) {
-	case SEARCH_SENTBEFORE:
-	case SEARCH_SENTON:
-	case SEARCH_SENTSINCE:
+	case SEARCH_BEFORE:
+	case SEARCH_ON:
+	case SEARCH_SINCE:
+		if (arg->value.date_type != MAIL_SEARCH_DATE_TYPE_SENT)
+			break;
+
 		if (arg->not) {
 			/* date header not found, so we match only for
 			   NOT searches */
@@ -1167,9 +1165,6 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_BEFORE:
 	case SEARCH_ON:
 	case SEARCH_SINCE:
-	case SEARCH_SENTBEFORE:
-	case SEARCH_SENTON:
-	case SEARCH_SENTSINCE:
 	case SEARCH_SMALLER:
 	case SEARCH_LARGER:
 	case SEARCH_HEADER:

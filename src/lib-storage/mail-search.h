@@ -18,13 +18,10 @@ enum mail_search_arg_type {
 	SEARCH_FLAGS,
 	SEARCH_KEYWORDS,
 
-	/* dates */
+	/* dates (date_type required) */
 	SEARCH_BEFORE,
 	SEARCH_ON, /* time must point to beginning of the day */
 	SEARCH_SINCE,
-	SEARCH_SENTBEFORE,
-	SEARCH_SENTON, /* time must point to beginning of the day */
-	SEARCH_SENTSINCE,
 
 	/* sizes */
 	SEARCH_SMALLER,
@@ -48,8 +45,14 @@ enum mail_search_arg_type {
 	SEARCH_MAILBOX
 };
 
+enum mail_search_date_type {
+	MAIL_SEARCH_DATE_TYPE_SENT = 1,
+	MAIL_SEARCH_DATE_TYPE_RECEIVED,
+	MAIL_SEARCH_DATE_TYPE_SAVED
+};
+
 enum mail_search_arg_flag {
-	/* For (SENT)BEFORE/SINCE/ON searches: Don't drop timezone from
+	/* For BEFORE/SINCE/ON searches: Don't drop timezone from
 	   comparisons */
 	MAIL_SEARCH_ARG_FLAG_USE_TZ	= 0x01,
 };
@@ -77,6 +80,7 @@ struct mail_search_arg {
 		uoff_t size;
 		enum mail_flags flags;
 		enum mail_search_arg_flag search_flags;
+		enum mail_search_date_type date_type;
 		enum mail_thread_type thread_type;
 		struct mail_keywords *keywords;
 		struct mail_search_modseq *modseq;

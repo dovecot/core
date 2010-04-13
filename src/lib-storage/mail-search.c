@@ -277,10 +277,8 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 	case SEARCH_BEFORE:
 	case SEARCH_ON:
 	case SEARCH_SINCE:
-	case SEARCH_SENTBEFORE:
-	case SEARCH_SENTON:
-	case SEARCH_SENTSINCE:
 		new_arg->value.time = arg->value.time;
+		new_arg->value.date_type = arg->value.date_type;
 		break;
 	case SEARCH_SMALLER:
 	case SEARCH_LARGER:
@@ -461,10 +459,11 @@ search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
 			subarg = subarg->next;
 		}
 		break;
-	case SEARCH_SENTBEFORE:
-	case SEARCH_SENTON:
-	case SEARCH_SENTSINCE:
-		buffer_append(headers, &date_hdr, sizeof(const char *));
+	case SEARCH_BEFORE:
+	case SEARCH_ON:
+	case SEARCH_SINCE:
+		if (arg->value.date_type == MAIL_SEARCH_DATE_TYPE_SENT)
+			buffer_append(headers, &date_hdr, sizeof(const char *));
 		break;
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
@@ -752,10 +751,8 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 	case SEARCH_BEFORE:
 	case SEARCH_ON:
 	case SEARCH_SINCE:
-	case SEARCH_SENTBEFORE:
-	case SEARCH_SENTON:
-	case SEARCH_SENTSINCE:
-		return arg1->value.time == arg2->value.time;
+		return arg1->value.time == arg2->value.time &&
+			arg1->value.date_type == arg2->value.date_type;
 
 	case SEARCH_SMALLER:
 	case SEARCH_LARGER:

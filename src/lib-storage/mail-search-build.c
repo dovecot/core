@@ -105,12 +105,13 @@ arg_new_size(struct search_build_data *data,
 	return TRUE;
 }
 
-#define ARG_NEW_DATE(type) \
-	arg_new_date(data, args, next_sarg, type)
+#define ARG_NEW_DATE(type, date_type) \
+	arg_new_date(data, args, next_sarg, type, date_type)
 static bool
 arg_new_date(struct search_build_data *data,
 	     const struct imap_arg **args, struct mail_search_arg **next_sarg,
-	     enum mail_search_arg_type type)
+	     enum mail_search_arg_type type,
+	     enum mail_search_date_type date_type)
 {
 	struct mail_search_arg *sarg;
 	const char *value;
@@ -122,6 +123,7 @@ arg_new_date(struct search_build_data *data,
 		data->error = "Invalid search date parameter";
 		return FALSE;
 	}
+	sarg->value.date_type = date_type;
 	return TRUE;
 }
 
@@ -316,7 +318,8 @@ static bool search_arg_build(struct search_build_data *data,
 			return ARG_NEW_STR(SEARCH_BODY);
 		} else if (strcmp(key, "BEFORE") == 0) {
 			/* <date> */
-			return ARG_NEW_DATE(SEARCH_BEFORE);
+			return ARG_NEW_DATE(SEARCH_BEFORE,
+					    MAIL_SEARCH_DATE_TYPE_RECEIVED);
 		} else if (strcmp(key, "BCC") == 0) {
 			/* <string> */
 			return ARG_NEW_HEADER(SEARCH_HEADER_ADDRESS, key);
@@ -445,7 +448,8 @@ static bool search_arg_build(struct search_build_data *data,
 			return TRUE;
 		} if (strcmp(key, "ON") == 0) {
 			/* <date> */
-			return ARG_NEW_DATE(SEARCH_ON);
+			return ARG_NEW_DATE(SEARCH_ON,
+					    MAIL_SEARCH_DATE_TYPE_RECEIVED);
 		} if (strcmp(key, "OLD") == 0) {
 			/* OLD == NOT RECENT */
 			if (!ARG_NEW_FLAGS(MAIL_RECENT))
@@ -476,16 +480,20 @@ static bool search_arg_build(struct search_build_data *data,
 			return ARG_NEW_HEADER(SEARCH_HEADER_COMPRESS_LWSP, key);
 		} else if (strcmp(key, "SENTBEFORE") == 0) {
 			/* <date> */
-			return ARG_NEW_DATE(SEARCH_SENTBEFORE);
+			return ARG_NEW_DATE(SEARCH_BEFORE,
+					    MAIL_SEARCH_DATE_TYPE_SENT);
 		} else if (strcmp(key, "SENTON") == 0) {
 			/* <date> */
-			return ARG_NEW_DATE(SEARCH_SENTON);
+			return ARG_NEW_DATE(SEARCH_ON,
+					    MAIL_SEARCH_DATE_TYPE_SENT);
 		} else if (strcmp(key, "SENTSINCE") == 0) {
 			/* <date> */
-			return ARG_NEW_DATE(SEARCH_SENTSINCE);
+			return ARG_NEW_DATE(SEARCH_SINCE,
+					    MAIL_SEARCH_DATE_TYPE_SENT);
 		} else if (strcmp(key, "SINCE") == 0) {
 			/* <date> */
-			return ARG_NEW_DATE(SEARCH_SINCE);
+			return ARG_NEW_DATE(SEARCH_SINCE,
+					    MAIL_SEARCH_DATE_TYPE_RECEIVED);
 		} else if (strcmp(key, "SMALLER") == 0) {
 			/* <n> */
 			return ARG_NEW_SIZE(SEARCH_SMALLER);
@@ -589,6 +597,18 @@ static bool search_arg_build(struct search_build_data *data,
 		} else if (strcmp(key, "X-MAILBOX") == 0) {
 			/* <string> */
 			return ARG_NEW_STR(SEARCH_MAILBOX);
+		} else if (strcmp(key, "X-SAVEDBEFORE") == 0) {
+			/* <date> */
+			return ARG_NEW_DATE(SEARCH_BEFORE,
+					    MAIL_SEARCH_DATE_TYPE_SAVED);
+		} else if (strcmp(key, "X-SAVEDON") == 0) {
+			/* <date> */
+			return ARG_NEW_DATE(SEARCH_ON,
+					    MAIL_SEARCH_DATE_TYPE_SAVED);
+		} else if (strcmp(key, "X-SAVEDSINCE") == 0) {
+			/* <date> */
+			return ARG_NEW_DATE(SEARCH_SINCE,
+					    MAIL_SEARCH_DATE_TYPE_SAVED);
 		}
 		break;
 	default:
