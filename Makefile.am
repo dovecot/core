@@ -67,3 +67,15 @@ install-exec-hook:
 CLEANFILES = $(datafiles)
 
 DISTCLEANFILES = $(top_builddir)/dovecot-version.h
+
+distcheck-hook:
+	if which scan-build > /dev/null; then \
+	  cd $(distdir)/_build; \
+	  scan-build -o scan-reports ../configure --with-ldap=auto --with-pgsql=auto --with-mysql=auto --with-sqlite=auto --with-solr=auto --with-gssapi=auto --with-libwrap=auto; \
+	  rm -rf scan-reports; \
+	  scan-build -o scan-reports make 2>&1 || exit 1; \
+	  if ! rmdir scan-reports 2>/dev/null; then \
+	    exit 1; \
+	  fi; \
+	  cd ../..; rm -rf $(distdir)/_build/*; \
+	fi
