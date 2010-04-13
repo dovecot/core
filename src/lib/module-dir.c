@@ -172,7 +172,6 @@ static bool module_want_load(const char **names, const char *name)
 	if (names == NULL)
 		return TRUE;
 
-	name = module_name_drop_suffix(name);
 	for (; *names != NULL; names++) {
 		if (strcmp(*names, name) == 0) {
 			*names = "";
@@ -202,12 +201,38 @@ static void check_duplicates(ARRAY_TYPE(const_string) *names,
 static bool module_is_loaded(struct module *modules, const char *name)
 {
 	struct module *module;
+	unsigned int len = strlen(name);
 
 	for (module = modules; module != NULL; module = module->next) {
-		if (strcmp(module->name, name) == 0)
-			return TRUE;
+		if (strncmp(module->name, name, len) == 0) {
+			if (module->name[len] == '\0' ||
+			    strcmp(module->name + len, "_plugin") == 0)
+				return TRUE;
+		}
 	}
 	return FALSE;
+}
+
+static void module_names_fix(const char **module_names)
+{
+	unsigned int i;
+
+	/* allow giving the module names also in non-base form.
+	   convert them in here. */
+	for (i = 0; module_names[i] != NULL; i++)
+		module_names[i] = module_file_get_name(module_names[i]);
+}
+
+static bool
+module_dir_is_all_loaded(struct module *old_modules, const char **module_names)
+{
+	unsigned int i;
+
+	for (i = 0; module_names[i] != NULL; i++) {
+		if (!module_is_loaded(old_modules, module_names[i]))
+			return FALSE;
+	}
+	return TRUE;
 }
 
 static struct module *
@@ -222,6 +247,11 @@ module_dir_load_real(struct module *old_modules,
 	unsigned int i, count;
 	ARRAY_TYPE(const_string) names;
 	pool_t pool;
+
+	if (module_names != NULL) {
+		if (module_dir_is_all_loaded(old_modules, module_names))
+			return old_modules;
+	}
 
 	if (set->debug)
 		i_debug("Loading modules from directory: %s", dir);
@@ -259,28 +289,24 @@ module_dir_load_real(struct module *old_modules,
 		name = p_strdup(pool, d->d_name);
 		array_append(&names, &name, 1);
 	}
+	if (closedir(dirp) < 0)
+		i_error("closedir(%s) failed: %m", dir);
 
 	array_sort(&names, module_name_cmp);
 	names_p = array_get(&names, &count);
-
-	if (module_names != NULL) {
-		/* allow giving the module names also in non-base form.
-		   convert them in here. */
-		for (i = 0; module_names[i] != NULL; i++)
-			module_names[i] = module_file_get_name(module_names[i]);
-	}
 
 	modules = old_modules;
 	module_pos = &modules;
 	while (*module_pos != NULL)
 		module_pos = &(*module_pos)->next;
 	for (i = 0; i < count; i++) T_BEGIN {
-		const char *path, *stripped_name;
+		const char *path, *stripped_name, *suffixless_name;
 
 		name = names_p[i];
 		stripped_name = module_file_get_name(name);
-		if (!module_want_load(module_names, stripped_name) ||
-		    module_is_loaded(old_modules, stripped_name))
+		suffixless_name = module_name_drop_suffix(stripped_name);
+		if (!module_want_load(module_names, suffixless_name) ||
+		    module_is_loaded(old_modules, suffixless_name))
 			module = NULL;
 		else {
 			path = t_strconcat(dir, "/", name, NULL);
@@ -305,10 +331,6 @@ module_dir_load_real(struct module *old_modules,
 		}
 	}
 	pool_unref(&pool);
-
-	if (closedir(dirp) < 0)
-		i_error("closedir(%s) failed: %m", dir);
-
 	return modules;
 }
 
@@ -320,8 +342,12 @@ module_dir_load_missing(struct module *old_modules,
 	struct module *modules;
 
 	T_BEGIN {
-		const char **arr = module_names == NULL ? NULL :
-			t_strsplit_spaces(module_names, ", ");
+		const char **arr = NULL;
+
+		if (module_names != NULL) {
+			arr = t_strsplit_spaces(module_names, ", ");
+			module_names_fix(arr);
+		}
 
 		modules = module_dir_load_real(old_modules, dir, arr, set);
 	} T_END;
