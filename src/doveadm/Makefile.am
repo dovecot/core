@@ -51,6 +51,7 @@ doveadm_SOURCES = \
 	doveadm-dump-thread.c \
 	doveadm-kick.c \
 	doveadm-mail.c \
+	doveadm-mail-fetch.c \
 	doveadm-penalty.c \
 	doveadm-pw.c \
 	doveadm-settings.c \

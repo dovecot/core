@@ -59,6 +59,20 @@ mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 	return box;
 }
 
+struct mailbox *
+doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox)
+{
+	struct mailbox *box;
+
+	box = mailbox_find_and_open(user, mailbox);
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
+		i_fatal("Syncing mailbox %s failed: %s", mailbox,
+			mail_storage_get_last_error(mailbox_get_storage(box),
+						    NULL));
+	}
+	return box;
+}
+
 static void cmd_force_resync(struct mail_user *user, const char *const args[])
 {
 	const char *mailbox = args[0];
@@ -297,7 +311,8 @@ void doveadm_mail_help_name(const char *cmd_name)
 
 static struct doveadm_mail_cmd mail_commands[] = {
 	{ cmd_purge, "purge", NULL },
-	{ cmd_force_resync, "force-resync", "<mailbox>" }
+	{ cmd_force_resync, "force-resync", "<mailbox>" },
+	{ cmd_fetch, "fetch", "<mailbox> <search query>" }
 };
 
 void doveadm_mail_init(void)

@@ -25,4 +25,9 @@ void doveadm_mail_help_name(const char *cmd_name) ATTR_NORETURN;
 void doveadm_mail_init(void);
 void doveadm_mail_deinit(void);
 
+struct mailbox *
+doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox);
+
+void cmd_fetch(struct mail_user *user, const char *const args[]);
+
 #endif
