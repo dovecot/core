@@ -296,6 +296,7 @@ service_drop_privileges(const struct mail_user_settings *set,
 {
 	struct restrict_access_settings rset;
 	uid_t current_euid, setuid_uid = 0;
+	const char *cur_chroot;
 
 	current_euid = geteuid();
 	restrict_access_init(&rset);
@@ -348,6 +349,23 @@ service_drop_privileges(const struct mail_user_settings *set,
 	   much point either (from security point of view) */
 	rset.chroot_dir = *chroot == '\0' || keep_setuid_root ? NULL : chroot;
 	rset.system_groups_user = system_groups_user;
+
+	cur_chroot = restrict_access_get_current_chroot();
+	if (cur_chroot != NULL) {
+		if (rset.chroot_dir == NULL) {
+			*error_r = "Process is already chrooted, "
+				"can't un-chroot for this user";
+			return -1;
+		}
+		if (strcmp(rset.chroot_dir, cur_chroot) != 0) {
+			*error_r = t_strdup_printf(
+				"Process is already chrooted to %s, "
+				"can't chroot to %s", cur_chroot, chroot);
+			return -1;
+		}
+		/* chrooting to same directory where we're already chrooted */
+		rset.chroot_dir = NULL;
+	}
 
 	if (disallow_root &&
 	    (rset.uid == 0 || (rset.uid == (uid_t)-1 && current_euid == 0))) {
@@ -753,7 +771,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	user->set_parser = settings_parser_dup(set_parser, user_pool);
 	if (!settings_parser_check(user->set_parser, user_pool, &error))
-		i_unreached();
+		i_panic("settings_parser_check() failed: %s", error);
 
 	user->user_set = settings_parser_get_list(user->set_parser)[1];
 
@@ -810,6 +828,27 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		return -2;
 	}
 
+	len = strlen(chroot);
+	if (len > 2 && strcmp(chroot + len - 2, "/.") == 0 &&
+	    strncmp(home, chroot, len - 2) == 0) {
+		/* mail_chroot = /chroot/. means that the home dir already
+		   contains the chroot dir. remove it from home. */
+		if (!temp_priv_drop) {
+			home += len - 2;
+			if (*home == '\0')
+				home = "/";
+			chroot = t_strndup(chroot, len - 2);
+
+			set_keyval(ctx, user, "mail_home", home);
+			set_keyval(ctx, user, "mail_chroot", chroot);
+		}
+	} else if (len > 0 && temp_priv_drop) {
+		/* we're dropping privileges only temporarily, so we can't
+		   chroot. fix home directory so we can access it. */
+		set_keyval(ctx, user, "mail_home",
+			   t_strconcat(chroot, "/", home, NULL));
+	}
+
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
 		mail_storage_service_init_log(ctx->service, user);
 
@@ -830,24 +869,6 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 	   initialized yet. */
 	module_dir_init(mail_storage_service_modules);
 
-	/* we couldn't do chrooting, so if chrooting was enabled fix
-	   the home directory */
-	len = strlen(chroot);
-	if (len > 2 && strcmp(chroot + len - 2, "/.") == 0 &&
-	    strncmp(home, chroot, len - 2) == 0) {
-		/* home dir already contains the chroot dir */
-		if (!temp_priv_drop) {
-			home += len - 2;
-			if (*home == '\0')
-				home = "/";
-
-			set_keyval(ctx, user, "mail_home", home);
-			chroot = t_strndup(chroot, len - 2);
-		}
-	} else if (len > 0 && temp_priv_drop) {
-		set_keyval(ctx, user, "mail_home",
-			   t_strconcat(chroot, "/", home, NULL));
-	}
 	if (mail_storage_service_init_post(ctx, user, home,
 					   mail_user_r, &error) < 0) {
 		i_error("user %s: Initialization failed: %s",
