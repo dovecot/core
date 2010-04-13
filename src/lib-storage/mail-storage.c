@@ -15,6 +15,7 @@
 #include "mail-storage-settings.h"
 #include "mail-namespace.h"
 #include "mail-search.h"
+#include "mail-search-register.h"
 #include "mailbox-search-result-private.h"
 
 #include <stdlib.h>
@@ -24,6 +25,7 @@
 
 struct mail_storage_module_register mail_storage_module_register = { 0 };
 struct mail_module_register mail_module_register = { 0 };
+struct mail_search_register *mail_search_register_imap;
 
 struct mail_storage_mail_index_module mail_storage_mail_index_module =
 	MODULE_CONTEXT_INIT(&mail_index_module_register);
@@ -35,10 +37,12 @@ void mail_storage_init(void)
 	mailbox_lists_init();
 	mail_storage_hooks_init();
 	i_array_init(&mail_storage_classes, 8);
+	mail_search_register_imap = mail_search_register_init_imap();
 }
 
 void mail_storage_deinit(void)
 {
+	mail_search_register_deinit(&mail_search_register_imap);
 	if (array_is_created(&mail_storage_classes))
 		array_free(&mail_storage_classes);
 	mail_storage_hooks_deinit();

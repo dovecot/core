@@ -22,6 +22,8 @@ libstorage_la_SOURCES = \
 	mail-namespace.c \
 	mail-search.c \
 	mail-search-build.c \
+	mail-search-register.c \
+	mail-search-register-imap.c \
 	mail-storage.c \
 	mail-storage-hooks.c \
 	mail-storage-settings.c \
@@ -41,6 +43,7 @@ headers = \
 	mail-namespace.h \
 	mail-search.h \
 	mail-search-build.h \
+	mail-search-register.h \
 	mail-thread.h \
 	mail-storage.h \
 	mail-storage-private.h \

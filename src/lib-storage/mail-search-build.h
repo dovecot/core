@@ -6,6 +6,12 @@
 struct imap_arg;
 struct mailbox;
 
+struct mail_search_build_context {
+	pool_t pool;
+	struct mail_search_register *reg;
+	const char *error;
+};
+
 /* Start building a new search query. Use mail_search_args_unref() to
    free it. */
 struct mail_search_args *mail_search_build_init(void);
@@ -21,5 +27,9 @@ void mail_search_build_add_all(struct mail_search_args *args);
 /* Add a sequence set to search args. */
 void mail_search_build_add_seqset(struct mail_search_args *args,
 				  uint32_t seq1, uint32_t seq2);
+
+struct mail_search_arg *
+mail_search_build_next(struct mail_search_build_context *ctx,
+		       const struct imap_arg **imap_args);
 
 #endif
