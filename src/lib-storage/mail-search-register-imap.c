@@ -11,32 +11,7 @@
 
 #include <stdlib.h>
 
-static struct mail_search_arg *
-search_arg_new(pool_t pool, enum mail_search_arg_type type)
-{
-	struct mail_search_arg *arg;
-
-	arg = p_new(pool, struct mail_search_arg, 1);
-	arg->type = type;
-	return arg;
-}
-
-static int
-arg_get_next(struct mail_search_build_context *ctx,
-	     const struct imap_arg **imap_args, const char **value_r)
-{
-	if (IMAP_ARG_IS_EOL(*imap_args)) {
-		ctx->error = "Missing parameter for argument";
-		return -1;
-	}
-	if (!imap_arg_get_astring(*imap_args, value_r)) {
-		ctx->error = "Invalid parameter for argument";
-		return -1;
-	}
-
-	*imap_args += 1;
-	return 0;
-}
+struct mail_search_register *mail_search_register_imap;
 
 static struct mail_search_arg *
 imap_search_fallback(struct mail_search_build_context *ctx,
@@ -47,7 +22,7 @@ imap_search_fallback(struct mail_search_build_context *ctx,
 
 	if (*key == '*' || (*key >= '0' && *key <= '9')) {
 		/* <message-set> */
-		sarg = search_arg_new(ctx->pool, SEARCH_SEQSET);
+		sarg = mail_search_build_new(ctx, SEARCH_SEQSET);
 		p_array_init(&sarg->value.seqset, ctx->pool, 16);
 		if (imap_seq_set_parse(key, &sarg->value.seqset) < 0) {
 			ctx->error = "Invalid messageset";
@@ -65,7 +40,7 @@ imap_search_not(struct mail_search_build_context *ctx,
 {
 	struct mail_search_arg *sarg;
 
-	sarg = mail_search_build_next(ctx, imap_args);
+	sarg = mail_search_build_next(ctx, ctx->parent, imap_args);
 	if (sarg != NULL)
 		sarg->not = !sarg->not;
 	return sarg;
@@ -78,11 +53,11 @@ imap_search_or(struct mail_search_build_context *ctx,
 	struct mail_search_arg *sarg, **subargs;
 
 	/* <search-key1> <search-key2> */
-	sarg = search_arg_new(ctx->pool, SEARCH_OR);
+	sarg = mail_search_build_new(ctx, SEARCH_OR);
 
 	subargs = &sarg->value.subargs;
 	for (;;) {
-		*subargs = mail_search_build_next(ctx, imap_args);
+		*subargs = mail_search_build_next(ctx, sarg, imap_args);
 		if (*subargs == NULL)
 			return NULL;
 		subargs = &(*subargs)->next;
@@ -95,24 +70,9 @@ imap_search_or(struct mail_search_build_context *ctx,
 		*imap_args += 1;
 	}
 
-	*subargs = mail_search_build_next(ctx, imap_args);
+	*subargs = mail_search_build_next(ctx, sarg, imap_args);
 	if (*subargs == NULL)
 		return NULL;
-	return sarg;
-}
-
-static struct mail_search_arg *
-arg_new_str(struct mail_search_build_context *ctx,
-	    const struct imap_arg **imap_args,
-	    enum mail_search_arg_type type)
-{
-	struct mail_search_arg *sarg;
-	const char *value;
-
-	sarg = search_arg_new(ctx->pool, type);
-	if (arg_get_next(ctx, imap_args, &value) < 0)
-		return NULL;
-	sarg->value.str = p_strdup(ctx->pool, value);
 	return sarg;
 }
 
@@ -121,13 +81,13 @@ static struct mail_search_arg *\
 imap_search_##_func(struct mail_search_build_context *ctx, \
                     const struct imap_arg **imap_args) \
 { \
-	return arg_new_str(ctx, imap_args, _type); \
+	return mail_search_build_str(ctx, imap_args, _type); \
 }
 static struct mail_search_arg *
 imap_search_all(struct mail_search_build_context *ctx,
 		const struct imap_arg **imap_args ATTR_UNUSED)
 { 
-	return search_arg_new(ctx->pool, SEARCH_ALL);
+	return mail_search_build_new(ctx, SEARCH_ALL);
 }
 
 static struct mail_search_arg *
@@ -137,7 +97,8 @@ imap_search_uid(struct mail_search_build_context *ctx,
 	struct mail_search_arg *sarg;
 
 	/* <message set> */
-	if ((sarg = arg_new_str(ctx, imap_args, SEARCH_UIDSET)) == NULL)
+	sarg = mail_search_build_str(ctx, imap_args, SEARCH_UIDSET);
+	if (sarg == NULL)
 		return NULL;
 
 	p_array_init(&sarg->value.seqset, ctx->pool, 16);
@@ -159,7 +120,7 @@ imap_search_##_func(struct mail_search_build_context *ctx, \
                     const struct imap_arg **imap_args ATTR_UNUSED) \
 { \
 	struct mail_search_arg *sarg; \
-	sarg = search_arg_new(ctx->pool, SEARCH_FLAGS); \
+	sarg = mail_search_build_new(ctx, SEARCH_FLAGS); \
 	sarg->value.flags = _flag; \
 	sarg->not = _not; \
 	return sarg; \
@@ -184,7 +145,7 @@ imap_search_new(struct mail_search_build_context *ctx,
 	struct mail_search_arg *sarg;
 
 	/* NEW == (RECENT UNSEEN) */
-	sarg = search_arg_new(ctx->pool, SEARCH_SUB);
+	sarg = mail_search_build_new(ctx, SEARCH_SUB);
 	sarg->value.subargs = imap_search_recent(ctx, NULL);
 	sarg->value.subargs->next = imap_search_unseen(ctx, NULL);
 	return sarg;
@@ -213,8 +174,8 @@ arg_new_date(struct mail_search_build_context *ctx,
 	struct mail_search_arg *sarg;
 	const char *value;
 
-	sarg = search_arg_new(ctx->pool, type);
-	if (arg_get_next(ctx, imap_args, &value) < 0)
+	sarg = mail_search_build_new(ctx, type);
+	if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
 		return NULL;
 	if (!imap_parse_date(value, &sarg->value.time)) {
 		ctx->error = "Invalid search date parameter";
@@ -251,8 +212,8 @@ arg_new_size(struct mail_search_build_context *ctx,
 	struct mail_search_arg *sarg;
 	const char *value;
 
-	sarg = search_arg_new(ctx->pool, type);
-	if (arg_get_next(ctx, imap_args, &value) < 0)
+	sarg = mail_search_build_new(ctx, type);
+	if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
 		return NULL;
 
 	if (str_to_uoff(value, &sarg->value.size) < 0) {
@@ -284,8 +245,8 @@ arg_new_header(struct mail_search_build_context *ctx,
 	struct mail_search_arg *sarg;
 	const char *value;
 
-	sarg = search_arg_new(ctx->pool, type);
-	if (arg_get_next(ctx, imap_args, &value) < 0)
+	sarg = mail_search_build_new(ctx, type);
+	if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
 		return NULL;
 
 	sarg->hdr_field_name = p_strdup(ctx->pool, hdr_name);
@@ -336,9 +297,9 @@ imap_search_##_func(struct mail_search_build_context *ctx, \
 	if (imap_arg_get_astring(*imap_args, &value) && *value == '\0') { \
 		/* optimization: BODY "" matches everything */ \
 		*imap_args += 1; \
-		return search_arg_new(ctx->pool, SEARCH_ALL); \
+		return mail_search_build_new(ctx, SEARCH_ALL); \
 	} \
-	return arg_new_str(ctx, imap_args, _type); \
+	return mail_search_build_str(ctx, imap_args, _type); \
 }
 CALLBACK_BODY(body, SEARCH_BODY);
 CALLBACK_BODY(text, SEARCH_TEXT);
@@ -354,8 +315,8 @@ arg_new_interval(struct mail_search_build_context *ctx,
 	const char *value;
 	uint32_t interval;
 
-	sarg = search_arg_new(ctx->pool, type);
-	if (arg_get_next(ctx, imap_args, &value) < 0)
+	sarg = mail_search_build_new(ctx, type);
+	if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
 		return NULL;
 
 	if (str_to_uint32(value, &interval) < 0 || interval == 0) {
@@ -436,8 +397,8 @@ imap_search_modseq(struct mail_search_build_context *ctx,
 	const char *value;
 
 	/* [<name> <type>] <modseq> */
-	sarg = search_arg_new(ctx->pool, SEARCH_MODSEQ);
-	if (arg_get_next(ctx, imap_args, &value) < 0)
+	sarg = mail_search_build_new(ctx, SEARCH_MODSEQ);
+	if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
 		return NULL;
 
 	sarg->value.modseq = p_new(ctx->pool, struct mail_search_modseq, 1);
@@ -446,12 +407,12 @@ imap_search_modseq(struct mail_search_build_context *ctx,
 		if (arg_modseq_set_name(ctx, sarg, value) < 0)
 			return NULL;
 
-		if (arg_get_next(ctx, imap_args, &value) < 0)
+		if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
 			return NULL;
 		if (arg_modseq_set_type(ctx, sarg->value.modseq, value) < 0)
 			return NULL;
 
-		if (arg_get_next(ctx, imap_args, &value) < 0)
+		if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
 			return NULL;
 	}
 	if (str_to_uint64(value, &sarg->value.modseq->modseq) < 0) {
@@ -468,7 +429,7 @@ imap_search_last_result(struct mail_search_build_context *ctx,
 	struct mail_search_arg *sarg;
 
 	/* SEARCHRES: delay initialization */
-	sarg = search_arg_new(ctx->pool, SEARCH_UIDSET);
+	sarg = mail_search_build_new(ctx, SEARCH_UIDSET);
 	sarg->value.str = "$";
 	p_array_init(&sarg->value.seqset, ctx->pool, 16);
 	return sarg;
@@ -495,9 +456,9 @@ imap_search_inthread(struct mail_search_build_context *ctx,
 	}
 	*imap_args += 1;
 
-	sarg = search_arg_new(ctx->pool, SEARCH_INTHREAD);
+	sarg = mail_search_build_new(ctx, SEARCH_INTHREAD);
 	sarg->value.thread_type = thread_type;
-	sarg->value.subargs = mail_search_build_next(ctx, imap_args);
+	sarg->value.subargs = mail_search_build_next(ctx, sarg, imap_args);
 	if (sarg->value.subargs == NULL)
 		return NULL;
 	return sarg;
@@ -506,7 +467,7 @@ imap_search_inthread(struct mail_search_build_context *ctx,
 CALLBACK_STR(x_guid, SEARCH_GUID);
 CALLBACK_STR(x_mailbox, SEARCH_MAILBOX);
 
-const struct mail_search_register_arg mail_search_register_imap[] = {
+const struct mail_search_register_arg imap_register_args[] = {
 	/* argument set operations */
 	{ "NOT", imap_search_not },
 	{ "OR", imap_search_or },
@@ -584,8 +545,8 @@ struct mail_search_register *mail_search_register_init_imap(void)
 	struct mail_search_register *reg;
 
 	reg = mail_search_register_init();
-	mail_search_register_add(reg, mail_search_register_imap,
-				 N_ELEMENTS(mail_search_register_imap));
+	mail_search_register_add(reg, imap_register_args,
+				 N_ELEMENTS(imap_register_args));
 	mail_search_register_fallback(reg, imap_search_fallback);
 	return reg;
 }

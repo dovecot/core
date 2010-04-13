@@ -47,7 +47,8 @@ int imap_search_args_build(struct client_command_context *cmd,
 		return -1;
 	}
 
-	if (mail_search_build_from_imap_args(args, charset,
+	if (mail_search_build_from_imap_args(mail_search_register_imap,
+					     args, charset,
 					     &sargs, &error) < 0) {
 		client_send_command_error(cmd, error);
 		return -1;

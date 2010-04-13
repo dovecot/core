@@ -31,13 +31,6 @@ void mail_search_register_deinit(struct mail_search_register **_reg)
 	i_free(reg);
 }
 
-static int
-mail_search_register_arg_cmp(const struct mail_search_register_arg *arg1,
-			     const struct mail_search_register_arg *arg2)
-{
-	return strcmp(arg1->key, arg2->key);
-}
-
 void mail_search_register_add(struct mail_search_register *reg,
 			      const struct mail_search_register_arg *arg,
 			      unsigned int count)
@@ -50,6 +43,25 @@ void mail_search_register_fallback(struct mail_search_register *reg,
 				   mail_search_register_fallback_t *fallback)
 {
 	reg->fallback = fallback;
+}
+
+static int
+mail_search_register_arg_cmp(const struct mail_search_register_arg *arg1,
+			     const struct mail_search_register_arg *arg2)
+{
+	return strcmp(arg1->key, arg2->key);
+}
+
+const struct mail_search_register_arg *
+mail_search_register_get(struct mail_search_register *reg,
+			 unsigned int *count_r)
+{
+	if (!reg->args_sorted) {
+		array_sort(&reg->args, mail_search_register_arg_cmp);
+		reg->args_sorted = TRUE;
+	}
+
+	return array_get(&reg->args, count_r);
 }
 
 const struct mail_search_register_arg *

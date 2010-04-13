@@ -50,7 +50,8 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 	if (ret < 0) {
 		sargs = NULL;
 		*error_r = t_strdup(imap_parser_get_error(parser, &fatal));
-	} else if (mail_search_build_from_imap_args(args, "UTF-8", &sargs,
+	} else if (mail_search_build_from_imap_args(mail_search_register_imap,
+						    args, "UTF-8", &sargs,
 						    error_r) < 0)
 		sargs = NULL;
 

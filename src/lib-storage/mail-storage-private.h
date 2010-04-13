@@ -445,8 +445,6 @@ extern struct mail_storage_module_register mail_storage_module_register;
 /* Storage's module_id for mail_index. */
 extern struct mail_module_register mail_module_register;
 
-extern struct mail_search_register *mail_search_register_imap;
-
 #define MAIL_STORAGE_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_storage_mail_index_module)
 extern MODULE_CONTEXT_DEFINE(mail_storage_mail_index_module,
