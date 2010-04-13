@@ -167,6 +167,8 @@ static void dict_quota_update_callback(int ret, void *context)
 	if (ret == 0) {
 		/* row doesn't exist, need to recalculate it */
 		(void)dict_quota_count(root, TRUE, &value);
+	} else if (ret < 0) {
+		i_error("dict quota: Quota update failed, it's now desynced");
 	}
 }
 
