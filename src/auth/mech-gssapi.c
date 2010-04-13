@@ -552,7 +552,7 @@ mech_gssapi_auth_continue(struct auth_request *request,
 	struct gssapi_auth_request *gssapi_request = 
 		(struct gssapi_auth_request *)request;
 	gss_buffer_desc inbuf;
-	int ret;
+	int ret = -1;
 
 	inbuf.value = (void *)data;
 	inbuf.length = data_size;
@@ -568,7 +568,6 @@ mech_gssapi_auth_continue(struct auth_request *request,
 		ret = mech_gssapi_unwrap(gssapi_request, inbuf);
 		break;
 	default:
-		ret = -1;
 		i_unreached();
 	}
 	if (ret < 0)
