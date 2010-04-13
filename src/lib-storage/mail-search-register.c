@@ -8,6 +8,8 @@
 struct mail_search_register {
 	ARRAY_DEFINE(args, struct mail_search_register_arg);
 	mail_search_register_fallback_t *fallback;
+
+	unsigned int args_sorted:1;
 };
 
 struct mail_search_register *mail_search_register_init(void)
@@ -41,7 +43,7 @@ void mail_search_register_add(struct mail_search_register *reg,
 			      unsigned int count)
 {
 	array_append(&reg->args, arg, count);
-	array_sort(&reg->args, mail_search_register_arg_cmp);
+	reg->args_sorted = FALSE;
 }
 
 void mail_search_register_fallback(struct mail_search_register *reg,
@@ -54,6 +56,11 @@ const struct mail_search_register_arg *
 mail_search_register_find(struct mail_search_register *reg, const char *key)
 {
 	struct mail_search_register_arg arg;
+
+	if (!reg->args_sorted) {
+		array_sort(&reg->args, mail_search_register_arg_cmp);
+		reg->args_sorted = TRUE;
+	}
 
 	arg.key = key;
 	return array_bsearch(&reg->args, &arg, mail_search_register_arg_cmp);
@@ -68,4 +75,3 @@ bool mail_search_register_get_fallback(struct mail_search_register *reg,
 	*fallback_r = reg->fallback;
 	return TRUE;
 }
-
