@@ -382,14 +382,13 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 
 static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				     const char **error_r)
+				     const char **error_r ATTR_UNUSED)
 {
 	struct mail_user_settings *set = _set;
 
 #ifndef CONFIG_BINARY
 	fix_base_path(set, pool, &set->auth_socket_path);
-#endif
-
+#else
 	if (*set->mail_plugins != '\0' &&
 	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
 		*error_r = t_strdup_printf(
@@ -397,6 +396,7 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			set->mail_plugin_dir);
 		return FALSE;
 	}
+#endif
 	return TRUE;
 }
 /* </settings checks> */
