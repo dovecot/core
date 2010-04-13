@@ -24,6 +24,14 @@
 
 #define DBOX_READ_BLOCK_SIZE 4096
 
+/* prefer flock(). fcntl() locking currently breaks if trying to access the
+   same file from multiple mail_storages within same process. */
+#ifdef HAVE_FLOCK
+#  define DBOX_FILE_LOCK_METHOD FILE_LOCK_METHOD_FLOCK
+#else
+#  define DBOX_FILE_LOCK_METHOD FILE_LOCK_METHOD_FCNTL
+#endif
+
 const char *dbox_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
@@ -291,7 +299,7 @@ int dbox_file_try_lock(struct dbox_file *file)
 	i_assert(file->fd != -1);
 
 	ret = file_try_lock(file->fd, file->cur_path, F_WRLCK,
-			    FILE_LOCK_METHOD_FCNTL, &file->lock);
+			    DBOX_FILE_LOCK_METHOD, &file->lock);
 	if (ret < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"file_try_lock(%s) failed: %m", file->cur_path);

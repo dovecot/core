@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "master-service.h"
 #include "mail-index-modseq.h"
 #include "dbox-mail.h"
 #include "dbox-save.h"
@@ -23,6 +24,21 @@ static struct mail_storage *sdbox_storage_alloc(void)
 	storage->storage.storage = dbox_storage;
 	storage->storage.storage.pool = pool;
 	return &storage->storage.storage;
+}
+
+static int
+sdbox_storage_create(struct mail_storage *storage ATTR_UNUSED,
+		     struct mail_namespace *ns ATTR_UNUSED,
+		     const char **error_r ATTR_UNUSED)
+{
+#ifndef HAVE_FLOCK
+	if (master_service_get_client_limit(master_service) > 1) {
+		*error_r = "dbox requires client_limit=1 for service "
+			"since your OS doesn't support flock()";
+		return -1;
+	}
+#endif
+	return 0;
 }
 
 static struct mailbox *
@@ -211,7 +227,7 @@ struct mail_storage dbox_storage = {
 	.v = {
                 NULL,
 		sdbox_storage_alloc,
-		NULL,
+		sdbox_storage_create,
 		NULL,
 		NULL,
 		dbox_storage_get_list_settings,
