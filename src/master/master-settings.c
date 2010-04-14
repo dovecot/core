@@ -397,7 +397,16 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		expand_user(&service->user, set);
 		service_set_login_dump_core(service);
 	}
-	set->protocols_split = p_strsplit(pool, set->protocols, " ");
+	set->protocols_split = p_strsplit_spaces(pool, set->protocols, " ");
+	if (set->protocols_split[0] == NULL) {
+		*error_r = "No protocols defined, "
+			"if you don't want any use protocols=none";
+		return FALSE;
+	}
+	if (strcmp(set->protocols_split[0], "none") == 0 &&
+	    set->protocols_split[1] == NULL)
+		set->protocols_split[0] = NULL;
+
 	for (i = 0; set->protocols_split[i] != NULL; i++) {
 		if (!services_have_protocol(set, set->protocols_split[i])) {
 			*error_r = t_strdup_printf("protocols: "
@@ -406,7 +415,6 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			return FALSE;
 		}
 	}
-
 	t_array_init(&all_listeners, 64);
 	auth_client_limit = max_auth_client_processes = 0;
 	for (i = 0; i < count; i++) {
