@@ -13,7 +13,7 @@
 	"Plaintext authentication disallowed on non-secure (SSL/TLS) connections."
 
 extern const char *login_protocol, *login_process_name;
-extern unsigned int login_default_port;
+extern unsigned int login_default_port, login_default_ssl_port;
 
 extern struct auth_client *auth_client;
 extern struct master_auth *master_auth;

@@ -30,7 +30,7 @@
 
 const char *login_protocol = "imap";
 const char *login_process_name = "imap-login";
-unsigned int login_default_port = 143;
+unsigned int login_default_port = 143, login_default_ssl_port = 993;
 
 void login_process_preinit(void)
 {

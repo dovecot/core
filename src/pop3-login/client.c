@@ -24,7 +24,7 @@
 
 const char *login_protocol = "pop3";
 const char *login_process_name = "pop3-login";
-unsigned int login_default_port = 110;
+unsigned int login_default_port = 110, login_default_ssl_port = 995;
 
 void login_process_preinit(void)
 {

@@ -57,7 +57,6 @@ static void client_auth_parse_args(struct client *client,
 	const char *key, *value, *p;
 
 	memset(reply_r, 0, sizeof(*reply_r));
-	reply_r->port = login_default_port;
 
 	for (; *args != NULL; args++) {
 		p = strchr(*args, '=');
@@ -91,9 +90,11 @@ static void client_auth_parse_args(struct client *client,
 		else if (strcmp(key, "master") == 0)
 			reply_r->master_user = value;
 		else if (strcmp(key, "ssl") == 0) {
-			if (strcmp(value, "yes") == 0)
+			if (strcmp(value, "yes") == 0) {
 				reply_r->ssl_flags |= PROXY_SSL_FLAG_YES;
-			else if (strcmp(value, "any-cert") == 0) {
+				if (reply_r->port == 0)
+					reply_r->port = login_default_ssl_port;
+			} else if (strcmp(value, "any-cert") == 0) {
 				reply_r->ssl_flags |= PROXY_SSL_FLAG_YES |
 					PROXY_SSL_FLAG_ANY_CERT;
 			}
@@ -104,6 +105,8 @@ static void client_auth_parse_args(struct client *client,
 		} else if (client->set->auth_debug)
 			i_debug("Ignoring unknown passdb extra field: %s", key);
 	}
+	if (reply_r->port == 0)
+		reply_r->port = login_default_port;
 
 	if (reply_r->destuser == NULL)
 		reply_r->destuser = client->virtual_user;
