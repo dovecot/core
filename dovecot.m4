@@ -6,6 +6,8 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
+# serial 1
+
 AC_DEFUN([DC_PLUGIN_DEPS],[
 	_plugin_deps=yes
 	AC_MSG_CHECKING([whether OS supports plugin dependencies])
