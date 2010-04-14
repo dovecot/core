@@ -22,9 +22,12 @@
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
 
-const char *login_protocol = "pop3";
-const char *login_process_name = "pop3-login";
-unsigned int login_default_port = 110, login_default_ssl_port = 995;
+const struct login_binary login_binary = {
+	.protocol = "pop3",
+	.process_name = "pop3-login",
+	.default_port = 110,
+	.default_ssl_port = 995
+};
 
 void login_process_preinit(void)
 {

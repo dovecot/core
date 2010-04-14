@@ -369,7 +369,7 @@ get_var_expand_table(struct client *client)
 		for (i = 0; i < 3; i++)
 			tab[i].value = str_sanitize(tab[i].value, 80);
 	}
-	tab[3].value = login_protocol;
+	tab[3].value = login_binary.protocol;
 	tab[4].value = getenv("HOME");
 	tab[5].value = net_ip2addr(&client->local_ip);
 	tab[6].value = net_ip2addr(&client->ip);

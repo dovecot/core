@@ -12,9 +12,19 @@
 #define AUTH_PLAINTEXT_DISABLED_MSG \
 	"Plaintext authentication disallowed on non-secure (SSL/TLS) connections."
 
-extern const char *login_protocol, *login_process_name;
-extern unsigned int login_default_port, login_default_ssl_port;
+struct login_binary {
+	/* e.g. imap, pop3 */
+	const char *protocol;
+	/* e.g. imap-login, pop3-login */
+	const char *process_name;
 
+	/* e.g. 143, 110 */
+	unsigned int default_port;
+	/* e.g. 993, 995. if there is no ssl port, use 0. */
+	unsigned int default_ssl_port;
+};
+
+extern const struct login_binary login_binary;
 extern struct auth_client *auth_client;
 extern struct master_auth *master_auth;
 extern bool closing_down;

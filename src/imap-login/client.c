@@ -28,9 +28,12 @@
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
 
-const char *login_protocol = "imap";
-const char *login_process_name = "imap-login";
-unsigned int login_default_port = 143, login_default_ssl_port = 993;
+const struct login_binary login_binary = {
+	.protocol = "imap",
+	.process_name = "imap-login",
+	.default_port = 143,
+	.default_ssl_port = 993
+};
 
 void login_process_preinit(void)
 {

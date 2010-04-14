@@ -192,8 +192,8 @@ login_settings_read(pool_t pool,
 
 	memset(&input, 0, sizeof(input));
 	input.roots = login_set_roots;
-	input.module = login_process_name;
-	input.service = login_protocol;
+	input.module = login_binary.process_name;
+	input.service = login_binary.protocol;
 	input.local_host = local_host;
 
 	if (local_ip != NULL)

@@ -182,8 +182,8 @@ static void login_access_lookup_next(struct login_access_lookup *lookup)
 		return;
 	}
 	lookup->access = access_lookup(*lookup->next_socket, lookup->conn.fd,
-				       login_protocol, login_access_callback,
-				       lookup);
+				       login_binary.protocol,
+				       login_access_callback, lookup);
 	if (lookup->access == NULL)
 		login_access_lookup_free(lookup);
 }
@@ -299,7 +299,7 @@ static void main_init(void)
 
 	auth_client = auth_client_init("auth", (unsigned int)getpid(), FALSE);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
-	master_auth = master_auth_init(master_service, login_protocol);
+	master_auth = master_auth_init(master_service, login_binary.protocol);
 
 	clients_init();
 	login_proxy_init();
@@ -330,10 +330,10 @@ int main(int argc, char *argv[])
 	bool allow_core_dumps = FALSE;
 	int c;
 
-	master_service = master_service_init(login_process_name, service_flags,
-					     &argc, &argv, "DS");
+	master_service = master_service_init(login_binary.process_name,
+					     service_flags, &argc, &argv, "DS");
 	master_service_init_log(master_service, t_strconcat(
-		login_process_name, ": ", NULL));
+		login_binary.process_name, ": ", NULL));
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
