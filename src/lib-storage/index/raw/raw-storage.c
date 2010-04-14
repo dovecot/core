@@ -68,6 +68,7 @@ static int raw_mailbox_open(struct mailbox *box)
 		return index_storage_mailbox_open(box, FALSE);
 	}
 
+	box->path = box->name;
 	mbox->have_filename = TRUE;
 	fd = open(box->path, O_RDONLY);
 	if (fd == -1) {
