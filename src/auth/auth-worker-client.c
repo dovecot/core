@@ -335,21 +335,12 @@ lookup_user_callback(enum userdb_result result,
 	struct auth_worker_client *client = auth_request->context;
 	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
-	const char *value;
-
-	if (auth_request->userdb_lookup_failed)
-		result = USERDB_RESULT_INTERNAL_FAILURE;
 
 	str = t_str_new(128);
 	str_printfa(str, "%u\t", auth_request->id);
 	switch (result) {
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_append(str, "FAIL\t");
-		if (auth_request->userdb_lookup_failed) {
-			value = auth_stream_reply_find(reply, "reason");
-			if (value != NULL)
-				str_printfa(str, "reason=%s", value);
-		}
 		break;
 	case USERDB_RESULT_USER_UNKNOWN:
 		str_append(str, "NOTFOUND\t");
@@ -357,6 +348,8 @@ lookup_user_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_append(str, "OK\t");
 		str_append(str, auth_stream_reply_export(reply));
+		if (auth_request->userdb_lookup_failed)
+			str_append(str, "\ttempfail");
 		break;
 	}
 	str_append_c(str, '\n');

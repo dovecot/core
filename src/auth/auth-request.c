@@ -1198,6 +1198,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		value = dec2str(gid);
 	} else if (strcmp(name, "tempfail") == 0) {
 		request->userdb_lookup_failed = TRUE;
+		return;
 	} else if (strcmp(name, "user") == 0) {
 		auth_request_change_userdb_user(request, value);
 		return;

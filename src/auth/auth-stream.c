@@ -97,6 +97,10 @@ const char *auth_stream_reply_find(struct auth_stream_reply *reply,
 		return NULL;
 	else {
 		keylen = strlen(key);
+		if (len == keylen) {
+			/* key without =value */
+			return "";
+		}
 		i_assert(len > keylen);
 		idx += keylen + 1;
 		len -= keylen + 1;
