@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "crc32.h"
 #include "var-expand.h"
 #include "message-size.h"
 #include "mail-storage.h"
@@ -438,6 +439,8 @@ static int cmd_retr(struct client *client, const char *args)
 	if (get_msgnum(client, args, &msgnum) == NULL)
 		return -1;
 
+	if (client->lowest_retr > msgnum+1 || client->lowest_retr == 0)
+		client->lowest_retr = msgnum+1;
 	if (client->last_seen <= msgnum)
 		client->last_seen = msgnum+1;
 
@@ -586,16 +589,23 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	string_t *str;
 	int ret;
 	unsigned int uidl_pos;
-	bool found = FALSE;
+	bool save_hashes, found = FALSE;
 
 	tab = t_malloc(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 	tab[0].value = t_strdup_printf("%u", client->uid_validity);
 
+	save_hashes = client->message_uidl_hashes_save && ctx->message == 0;
+	if (save_hashes && client->message_uidl_hashes == NULL) {
+		client->message_uidl_hashes =
+			i_new(uint32_t, client->messages_count);
+	}
+
 	str = t_str_new(128);
 	while (mailbox_search_next(ctx->search_ctx, ctx->mail)) {
+		uint32_t idx = ctx->mail->seq - 1;
+
 		if (client->deleted) {
-			uint32_t idx = ctx->mail->seq - 1;
 			if (client->deleted_bitmask[idx / CHAR_BIT] &
 			    (1 << (idx % CHAR_BIT)))
 				continue;
@@ -609,6 +619,11 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		if (!pop3_get_uid(client, ctx, tab, str) &&
 		    client->set->pop3_save_uidl)
 			mail_update_pop3_uidl(ctx->mail, str_c(str) + uidl_pos);
+
+		if (save_hashes) {
+			client->message_uidl_hashes[idx] =
+				crc32_str(str_c(str) + uidl_pos);
+		}
 
 		ret = client_send_line(client, "%s", str_c(str));
 		if (ret < 0)
@@ -626,6 +641,8 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 
 	client->cmd = NULL;
 
+	if (save_hashes)
+		client->message_uidl_hashes_save = FALSE;
 	if (ctx->message == 0)
 		client_send_line(client, ".");
 	i_free(ctx);

@@ -34,10 +34,11 @@ struct client {
 	unsigned int uid_validity;
 	unsigned int messages_count;
 	unsigned int deleted_count, expunged_count, seen_change_count;
+	uint32_t *message_uidl_hashes;
 	uoff_t *message_sizes;
 	uoff_t total_size;
 	uoff_t deleted_size;
-	uint32_t last_seen;
+	uint32_t last_seen, lowest_retr;
 
 	uoff_t top_bytes;
 	uoff_t retr_bytes;
@@ -59,6 +60,7 @@ struct client {
 	unsigned int deleted:1;
 	unsigned int waiting_input:1;
 	unsigned int anvil_sent:1;
+	unsigned int message_uidl_hashes_save:1;
 };
 
 extern struct client *pop3_clients;

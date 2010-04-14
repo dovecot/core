@@ -258,6 +258,10 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		return NULL;
 	}
 
+	if (var_has_key(set->pop3_logout_format, 'u', "uidl_change") &&
+	    client->messages_count > 0)
+		client->message_uidl_hashes_save = TRUE;
+
 	client->uidl_keymask =
 		parse_uidl_keymask(client->mail_set->pop3_uidl_format);
 	if (client->uidl_keymask == 0)
@@ -281,6 +285,49 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	return client;
 }
 
+static const char *client_build_uidl_change_string(struct client *client)
+{
+	uint32_t i, old_hash, new_hash;
+	unsigned int old_msg_count, new_msg_count;
+
+	if (client->message_uidl_hashes == NULL) {
+		/* UIDL command not given or %u not actually used in format */
+		return "";
+	}
+	if (client->message_uidl_hashes_save) {
+		/* UIDL command not finished */
+		return "";
+	}
+
+	/* 1..new-1 were probably left to mailbox by previous POP3 session */
+	old_msg_count = client->lowest_retr > 0 ?
+		client->lowest_retr - 1 : client->messages_count;
+	for (i = 0, old_hash = 0; i < old_msg_count; i++)
+		old_hash ^= client->message_uidl_hashes[i];
+
+	/* assume all except deleted messages were sent to POP3 client */
+	if (!client->deleted) {
+		for (i = 0, new_hash = 0; i < client->messages_count; i++)
+			new_hash ^= client->message_uidl_hashes[i];
+	} else {
+		for (i = 0, new_hash = 0; i < client->messages_count; i++) {
+			if (client->deleted_bitmask[i / CHAR_BIT] &
+			    (1 << (i % CHAR_BIT)))
+				continue;
+			new_hash ^= client->message_uidl_hashes[i];
+		}
+	}
+
+	new_msg_count = client->messages_count - client->deleted_count;
+	if (old_hash == new_hash && old_msg_count == new_msg_count)
+		return t_strdup_printf("%u/%08x", old_msg_count, old_hash);
+	else {
+		return t_strdup_printf("%u/%08x -> %u/%08x",
+				       old_msg_count, old_hash,
+				       new_msg_count, new_hash);
+	}
+}
+
 static const char *client_stats(struct client *client)
 {
 	static struct var_expand_table static_tab[] = {
@@ -293,6 +340,7 @@ static const char *client_stats(struct client *client)
 		{ 's', NULL, "message_bytes" },
 		{ 'i', NULL, "input" },
 		{ 'o', NULL, "output" },
+		{ 'u', NULL, "uidl_change" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -310,6 +358,7 @@ static const char *client_stats(struct client *client)
 	tab[6].value = dec2str(client->total_size);
 	tab[7].value = dec2str(client->input->v_offset);
 	tab[8].value = dec2str(client->output->offset);
+	tab[9].value = client_build_uidl_change_string(client);
 
 	str = t_str_new(128);
 	var_expand(str, client->set->pop3_logout_format, tab);
@@ -363,6 +412,7 @@ void client_destroy(struct client *client, const char *reason)
 	mail_user_unref(&client->user);
 
 	i_free(client->message_sizes);
+	i_free(client->message_uidl_hashes);
 	i_free(client->deleted_bitmask);
 	i_free(client->seen_bitmask);
 
