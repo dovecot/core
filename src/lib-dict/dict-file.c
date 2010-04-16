@@ -312,36 +312,68 @@ static void file_dict_apply_changes(struct file_dict_transaction_context *ctx)
 	}
 }
 
-static int fd_copy_permissions(int src_fd, const char *src_path,
-			       int dest_fd, const char *dest_path)
+static int
+fd_copy_stat_permissions(const struct stat *src_st,
+			 int dest_fd, const char *dest_path)
 {
-	struct stat src_st, dest_st;
+	struct stat dest_st;
 
-	if (fstat(src_fd, &src_st) < 0) {
-		i_error("fstat(%s) failed: %m", src_path);
-		return -1;
-	}
 	if (fstat(dest_fd, &dest_st) < 0) {
 		i_error("fstat(%s) failed: %m", dest_path);
 		return -1;
 	}
 
-	if (src_st.st_gid != dest_st.st_gid) {
-		if (fchown(dest_fd, (uid_t)-1, src_st.st_gid) < 0) {
+	if (src_st->st_gid != dest_st.st_gid &&
+	    ((src_st->st_mode & 0070) >> 3 != (src_st->st_mode & 0007))) {
+		/* group has different permissions from world.
+		   preserve the group. */
+		if (fchown(dest_fd, (uid_t)-1, src_st->st_gid) < 0) {
 			i_error("fchown(%s, -1, %s) failed: %m",
-				dest_path, dec2str(src_st.st_gid));
+				dest_path, dec2str(src_st->st_gid));
 			return -1;
 		}
 	}
 
-	if ((src_st.st_mode & 07777) != (dest_st.st_mode & 07777)) {
-		if (fchmod(dest_fd, src_st.st_mode & 07777) < 0) {
+	if ((src_st->st_mode & 07777) != (dest_st.st_mode & 07777)) {
+		if (fchmod(dest_fd, src_st->st_mode & 07777) < 0) {
 			i_error("fchmod(%s, %o) failed: %m",
-				dest_path, (int)(src_st.st_mode & 0777));
+				dest_path, (int)(src_st->st_mode & 0777));
 			return -1;
 		}
 	}
 	return 0;
+}
+
+static int fd_copy_permissions(int src_fd, const char *src_path,
+			       int dest_fd, const char *dest_path)
+{
+	struct stat src_st;
+
+	if (fstat(src_fd, &src_st) < 0) {
+		i_error("fstat(%s) failed: %m", src_path);
+		return -1;
+	}
+	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path);
+}
+
+static int
+fd_copy_parent_dir_permissions(const char *src_path, int dest_fd,
+			       const char *dest_path)
+{
+	struct stat src_st;
+	const char *src_dir, *p;
+
+	p = strrchr(src_path, '/');
+	if (p == NULL)
+		src_dir = ".";
+	else
+		src_dir = t_strdup_until(src_path, p);
+	if (stat(src_dir, &src_st) < 0) {
+		i_error("stat(%s) failed: %m", src_dir);
+		return -1;
+	}
+	src_st.st_mode &= 0666;
+	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path);
 }
 
 static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
@@ -369,6 +401,10 @@ static int file_dict_write_changes(struct file_dict_transaction_context *ctx)
 		/* preserve the permissions */
 		(void)fd_copy_permissions(dict->fd, dict->path, fd,
 					  file_dotlock_get_lock_path(dotlock));
+	} else {
+		/* get initial permissions from parent directory */
+		(void)fd_copy_parent_dir_permissions(dict->path, fd,
+					file_dotlock_get_lock_path(dotlock));
 	}
 	file_dict_apply_changes(ctx);
 
