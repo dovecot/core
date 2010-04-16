@@ -2,6 +2,9 @@
 
 #include "lib.h"
 #include "str.h"
+#include "hex-binary.h"
+#include "hostpid.h"
+#include "randgen.h"
 #include "unlink-directory.h"
 #include "mailbox-list-private.h"
 #include "mailbox-list-delete.h"
@@ -32,11 +35,21 @@ mailbox_list_check_root_delete(struct mailbox_list *list, const char *name,
 	return -1;
 }
 
+static const char *unique_fname(void)
+{
+	unsigned char randbuf[8];
+
+	random_fill_weak(randbuf, sizeof(randbuf));
+	return t_strdup_printf("%s.%s.%s", my_hostname, my_pid,
+			       binary_to_hex(randbuf, sizeof(randbuf)));
+
+}
+
 int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 					  const char *name,
 					  const char *trash_dir)
 {
-	const char *src;
+	const char *src, *trash_dest;
 	unsigned int count;
 
 	src = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -45,9 +58,15 @@ int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 
 	/* rename the mailbox dir to trash dir, which atomically
 	   marks it as being deleted. */
-	count = 0;
-	while (rename(src, trash_dir) < 0) {
+	count = 0; trash_dest = trash_dir;
+	for (; rename(src, trash_dest) < 0; count++) {
 		if (ENOTFOUND(errno)) {
+			if (trash_dest != trash_dir && count < 5) {
+				/* either the source was just deleted or
+				   the trash dir was deleted. */
+				trash_dest = trash_dir;
+				continue;
+			}
 			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 			return -1;
@@ -60,18 +79,30 @@ int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 			if (mailbox_list_set_error_from_errno(list))
 				return -1;
 			mailbox_list_set_critical(list,
-				"rename(%s, %s) failed: %m", src, trash_dir);
+				"rename(%s, %s) failed: %m", src, trash_dest);
 			return -1;
 		}
 
-		/* already existed, delete it and try again */
-		if (unlink_directory(trash_dir, TRUE) < 0 &&
-		    (errno != ENOTEMPTY || count >= 5)) {
+		/* trash dir already exists. the reasons for this are:
+
+		   a) another process is in the middle of deleting it
+		   b) previous process crashed and didn't delete it
+		   c) NFS: mailbox was recently deleted, but some connection
+		      still has that mailbox open. the directory contains .nfs*
+		      files that can't be deleted until the mailbox is closed.
+
+		   Because of c) we'll first try to rename the mailbox under
+		   the trash directory and only later try to delete the entire
+		   trash directory. */
+		if (trash_dir == trash_dest) {
+			trash_dest = t_strconcat(trash_dir, "/",
+						 unique_fname(), NULL);
+		} else if (unlink_directory(trash_dest, TRUE) < 0 &&
+			   (errno != ENOTEMPTY || count >= 5)) {
 			mailbox_list_set_critical(list,
-				"unlink_directory(%s) failed: %m", trash_dir);
+				"unlink_directory(%s) failed: %m", trash_dest);
 			return -1;
 		}
-		count++;
 	}
 
 	if (unlink_directory(trash_dir, TRUE) < 0 && errno != ENOTEMPTY) {
