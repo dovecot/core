@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
+#include "master-service.h"
 #include "dict-client.h"
 #include "dict-settings.h"
 #include "dict-commands.h"
@@ -179,6 +180,8 @@ void dict_connection_destroy(struct dict_connection *conn)
 	i_free(conn->name);
 	i_free(conn->username);
 	i_free(conn);
+
+	master_service_client_connection_destroyed(master_service);
 }
 
 void dict_connections_destroy_all(void)
