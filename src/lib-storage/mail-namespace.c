@@ -545,10 +545,31 @@ mail_namespace_find_mask(struct mail_namespace *namespaces,
 	return best;
 }
 
+static struct mail_namespace *
+mail_namespace_find_shared(struct mail_namespace *ns, const char **mailbox)
+{
+	struct mailbox_list *list = ns->list;
+	struct mail_storage *storage;
+
+	if (mailbox_list_get_storage(&list, mailbox, &storage) < 0)
+		return ns;
+
+	return mailbox_list_get_namespace(list);
+}
+
 struct mail_namespace *
 mail_namespace_find(struct mail_namespace *namespaces, const char **mailbox)
 {
-	return mail_namespace_find_mask(namespaces, mailbox, 0, 0);
+	struct mail_namespace *ns;
+
+	ns = mail_namespace_find_mask(namespaces, mailbox, 0, 0);
+	if (ns != NULL && ns->type == NAMESPACE_SHARED &&
+	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+		/* see if we need to autocreate a namespace for shared user */
+		if (strchr(*mailbox, ns->sep) != NULL)
+			return mail_namespace_find_shared(ns, mailbox);
+	}
+	return ns;
 }
 
 struct mail_namespace *
