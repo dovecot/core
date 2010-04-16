@@ -19,6 +19,11 @@
    timeout increases number of idling dict processes. */
 #define DICT_CLIENT_TIMEOUT_MSECS 1000
 
+/* Abort dict lookup after this many seconds. */
+#define DICT_CLIENT_READ_TIMEOUT_SECS 30
+/* Log a warning if dict lookup takes longer than this many seconds. */
+#define DICT_CLIENT_READ_WARN_TIMEOUT_SECS 5
+
 struct client_dict {
 	struct dict dict;
 
@@ -265,15 +270,46 @@ client_dict_finish_transaction(struct client_dict *dict,
 		io_remove(&dict->io);
 }
 
+static ssize_t client_dict_read_timeout(struct client_dict *dict)
+{
+	time_t now, timeout;
+	unsigned int diff;
+	ssize_t ret;
+
+	now = time(NULL);
+	timeout = now + DICT_CLIENT_READ_TIMEOUT_SECS;
+
+	do {
+		alarm(timeout - now);
+		ret = i_stream_read(dict->input);
+		alarm(0);
+		if (ret != 0)
+			break;
+
+		/* interrupted most likely because of timeout,
+		   but check anyway. */
+		now = time(NULL);
+	} while (now < timeout);
+
+	if (ret > 0) {
+		diff = time(NULL) - now;
+		if (diff >= DICT_CLIENT_READ_WARN_TIMEOUT_SECS) {
+			i_warning("read(%s): dict lookup took %u seconds",
+				  dict->path, diff);
+		}
+	}
+	return ret;
+}
+
 static int client_dict_read_one_line(struct client_dict *dict, char **line_r)
 {
 	unsigned int id;
 	char *line;
-	int ret;
+	ssize_t ret;
 
 	*line_r = NULL;
 	while ((line = i_stream_next_line(dict->input)) == NULL) {
-		ret = i_stream_read(dict->input);
+		ret = client_dict_read_timeout(dict);
 		switch (ret) {
 		case -1:
 			if (dict->input->stream_errno != 0)
@@ -285,6 +321,10 @@ static int client_dict_read_one_line(struct client_dict *dict, char **line_r)
 			return -1;
 		case -2:
 			i_error("read(%s) returned too much data", dict->path);
+			return -1;
+		case 0:
+			i_error("read(%s) failed: Timeout after %u seconds",
+				dict->path, DICT_CLIENT_READ_TIMEOUT_SECS);
 			return -1;
 		default:
 			i_assert(ret > 0);
@@ -373,7 +413,6 @@ static int client_dict_connect(struct client_dict *dict)
 	net_set_nonblock(dict->fd, FALSE);
 
 	dict->input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
-	dict->input->blocking = TRUE;
 	dict->output = o_stream_create_fd(dict->fd, 4096, FALSE);
 	dict->transaction_id_counter = 0;
 	dict->async_commits = 0;
