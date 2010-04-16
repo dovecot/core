@@ -13,6 +13,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+/* Disconnect from dict server after this many milliseconds of idling after
+   sending a command. This timeout is short, because dict server does blocking
+   dict accesses, so it can handle only one client at a time. increasing the
+   timeout increases number of idling dict processes. */
+#define DICT_CLIENT_TIMEOUT_MSECS 1000
+
 struct client_dict {
 	struct dict dict;
 
@@ -27,6 +33,7 @@ struct client_dict {
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
+	struct timeout *to_idle;
 
 	struct client_dict_transaction_context *transactions;
 
@@ -311,12 +318,36 @@ static int client_dict_read_one_line(struct client_dict *dict, char **line_r)
 	return 1;
 }
 
+static bool client_dict_is_finished(struct client_dict *dict)
+{
+	return dict->transactions == NULL && !dict->in_iteration &&
+		dict->async_commits == 0;
+}
+
+static void client_dict_timeout(struct client_dict *dict)
+{
+	if (client_dict_is_finished(dict))
+		client_dict_disconnect(dict);
+}
+
+static void client_dict_add_timeout(struct client_dict *dict)
+{
+	if (dict->to_idle != NULL)
+		timeout_reset(dict->to_idle);
+	else if (client_dict_is_finished(dict)) {
+		dict->to_idle = timeout_add(DICT_CLIENT_TIMEOUT_MSECS,
+					    client_dict_timeout, dict);
+	}
+}
+
 static char *client_dict_read_line(struct client_dict *dict)
 {
 	char *line;
 
 	while (client_dict_read_one_line(dict, &line) == 0)
 		;
+
+	client_dict_add_timeout(dict);
 	return line;
 }
 
@@ -366,6 +397,8 @@ static void client_dict_disconnect(struct client_dict *dict)
 	dict->connect_counter++;
 	dict->handshaked = FALSE;
 
+	if (dict->to_idle != NULL)
+		timeout_remove(&dict->to_idle);
 	if (dict->io != NULL)
 		io_remove(&dict->io);
 	if (dict->input != NULL)
@@ -561,6 +594,8 @@ static int client_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 	pool_unref(&ctx->pool);
 	i_free(ctx);
 	dict->in_iteration = FALSE;
+
+	client_dict_add_timeout(dict);
 	return ret;
 }
 
@@ -639,6 +674,8 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	if (ret < 0 || !async) {
 		DLLIST_REMOVE(&dict->transactions, ctx);
 		i_free(ctx);
+
+		client_dict_add_timeout(dict);
 	}
 	return ret;
 }
@@ -660,6 +697,8 @@ client_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 
 	DLLIST_REMOVE(&dict->transactions, ctx);
 	i_free(ctx);
+
+	client_dict_add_timeout(dict);
 }
 
 static void client_dict_set(struct dict_transaction_context *_ctx,
