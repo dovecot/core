@@ -33,7 +33,7 @@ struct service_settings dict_service_settings = {
 
 	.process_min_avail = 0,
 	.process_limit = 0,
-	.client_limit = 0,
+	.client_limit = 1,
 	.service_count = 0,
 	.vsz_limit = -1U,
 
