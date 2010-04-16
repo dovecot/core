@@ -80,6 +80,7 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	/* truncate prefix after the above checks are done, so they can log
 	   the full prefix in error conditions */
 	*wildcardp = '\0';
+	ns->prefix_len = strlen(ns->prefix);
 	return 0;
 }
 
