@@ -260,9 +260,6 @@ password_scheme_detect(const char *plain_password, const char *crypted_password,
 	const unsigned char *raw_password;
 	size_t raw_password_size;
 
-	if (strncmp(crypted_password, "$1$", 3) == 0)
-		return "MD5-CRYPT";
-
 	schemes = array_get(&password_schemes, &count);
 	for (i = 0; i < count; i++) {
 		if (password_decode(crypted_password, schemes[i]->name,
