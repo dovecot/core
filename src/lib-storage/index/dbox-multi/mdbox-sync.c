@@ -1,5 +1,17 @@
 /* Copyright (c) 2007-2010 Dovecot authors, see the included COPYING file */
 
+/*
+   Expunging works like:
+
+   1. Lock map index by beginning a map sync.
+   2. Write map UID refcount changes to map index.
+   3. Expunge messages from mailbox index.
+   4. Finish map sync, which updates head=tail and unlocks map index.
+
+   If something crashes after 2 but before 4 is finished, head != tail and
+   reader can do a full resync to figure out what got broken.
+*/
+
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
