@@ -26,8 +26,6 @@
 #include <stdlib.h>
 #include <dirent.h>
 
-#define DBOX_REBUILD_COUNT 3
-
 static int
 dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
 			      const uint8_t guid_128[MAIL_GUID_128_SIZE])
@@ -56,20 +54,17 @@ static int mdbox_sync_expunge(struct mdbox_sync_context *ctx, uint32_t seq,
 {
 	uint32_t map_uid;
 
-	if (seq_range_exists(&ctx->expunged_seqs, seq)) {
+	if (seq_range_array_add(&ctx->expunged_seqs, 0, seq)) {
 		/* already marked as expunged in this sync */
 		return 0;
 	}
 
 	if (dbox_sync_verify_expunge_guid(ctx, seq, guid_128) < 0)
 		return -1;
-
 	if (mdbox_mail_lookup(ctx->mbox, ctx->sync_view, seq, &map_uid) < 0)
 		return -1;
-
 	if (dbox_map_update_refcount(ctx->map_trans, map_uid, -1) < 0)
 		return -1;
-	seq_range_array_add(&ctx->expunged_seqs, 0, seq);
 	return 0;
 }
 
