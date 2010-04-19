@@ -33,7 +33,7 @@ static bool seq_range_lookup(const ARRAY_TYPE(seq_range) *array,
 	return FALSE;
 }
 
-void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
+bool seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 			 unsigned int init_count, uint32_t seq)
 {
 	struct seq_range *data, value;
@@ -47,33 +47,33 @@ void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 	data = array_get_modifiable(array, &count);
 	if (count == 0) {
 		array_append(array, &value, 1);
-		return;
+		return FALSE;
 	}
 
 	/* quick checks */
 	if (data[count-1].seq2 == seq-1) {
 		/* grow last range */
 		data[count-1].seq2 = seq;
-		return;
+		return FALSE;
 	}
 	if (data[count-1].seq2 < seq) {
 		array_append(array, &value, 1);
-		return;
+		return FALSE;
 	}
 	if (data[0].seq1 == seq+1) {
 		/* grow down first range */
 		data[0].seq1 = seq;
-		return;
+		return FALSE;
 	}
 	if (data[0].seq1 > seq) {
 		array_insert(array, 0, &value, 1);
-		return;
+		return FALSE;
 	}
 
 	/* somewhere in the middle, array is sorted so find it with
 	   binary search */
 	if (seq_range_lookup(array, seq, &idx))
-		return;
+		return TRUE;
 
 	/* idx == count couldn't happen because we already handle it above */
 	i_assert(idx < count && data[idx].seq1 >= seq);
@@ -97,6 +97,7 @@ void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 	} else {
 		array_insert(array, idx, &value, 1);
 	}
+	return FALSE;
 }
 
 void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,

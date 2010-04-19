@@ -12,8 +12,8 @@ struct seq_range_iter {
 };
 
 /* Add sequrence to range. If the array isn't created yet, create it with
-   initial size of init_count. */
-void seq_range_array_add(ARRAY_TYPE(seq_range) *array, unsigned int init_count,
+   initial size of init_count. Returns TRUE if seq was already in the array. */
+bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, unsigned int init_count,
 			 uint32_t seq);
 void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
 			       uint32_t seq1, uint32_t seq2);
