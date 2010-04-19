@@ -409,50 +409,61 @@ void dbox_map_transaction_free(struct dbox_map_transaction_context **_ctx)
 	i_free(ctx);
 }
 
-int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
-			      const ARRAY_TYPE(uint32_t) *map_uids, int diff)
+int dbox_map_update_refcount(struct dbox_map_transaction_context *ctx,
+			     uint32_t map_uid, int diff)
 {
 	struct dbox_map *map = ctx->map;
-	const uint32_t *uidp;
-	unsigned int i, count;
 	const void *data;
 	uint32_t seq;
 	bool expunged;
 	int cur_diff;
 
-	if (ctx->trans == NULL)
+	if (unlikely(ctx->trans == NULL))
+		return -1;
+
+	if (!mail_index_lookup_seq(map->view, map_uid, &seq)) {
+		/* we can't refresh map here since view has a
+		   transaction open. */
+		dbox_map_set_corrupted(map, "refcount update lost map_uid=%u",
+				       map_uid);
+		return -1;
+	}
+	mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
+			      &data, &expunged);
+	cur_diff = data == NULL ? 0 : *((const uint16_t *)data);
+	ctx->changed = TRUE;
+	cur_diff += mail_index_atomic_inc_ext(ctx->trans, seq,
+					      map->ref_ext_id, diff);
+	if (cur_diff < 0) {
+		dbox_map_set_corrupted(map, "map_uid=%u refcount too low",
+				       map_uid);
+		return -1;
+	}
+	if (cur_diff >= 32768) {
+		/* we're getting close to the 64k limit. fail early
+		   to make it less likely that two processes increase
+		   the refcount enough times to cross the limit */
+		mail_storage_set_error(MAP_STORAGE(map), MAIL_ERROR_NOTPOSSIBLE,
+			"Message has been copied too many times");
+		return -1;
+	}
+	return 0;
+}
+
+int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
+			      const ARRAY_TYPE(uint32_t) *map_uids, int diff)
+{
+	const uint32_t *uidp;
+	unsigned int i, count;
+
+	if (unlikely(ctx->trans == NULL))
 		return -1;
 
 	count = array_count(map_uids);
 	for (i = 0; i < count; i++) {
 		uidp = array_idx(map_uids, i);
-		if (!mail_index_lookup_seq(map->view, *uidp, &seq)) {
-			/* we can't refresh map here since view has a
-			   transaction open. */
-			dbox_map_set_corrupted(map,
-				"refcount update lost map_uid=%u", *uidp);
+		if (dbox_map_update_refcount(ctx, *uidp, diff) < 0)
 			return -1;
-		}
-		mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
-				      &data, &expunged);
-		cur_diff = data == NULL ? 0 : *((const uint16_t *)data);
-		ctx->changed = TRUE;
-		cur_diff += mail_index_atomic_inc_ext(ctx->trans, seq,
-						      map->ref_ext_id, diff);
-		if (cur_diff < 0) {
-			dbox_map_set_corrupted(map,
-				"map_uid=%u refcount too low", *uidp);
-			return -1;
-		}
-		if (cur_diff >= 32768) {
-			/* we're getting close to the 64k limit. fail early
-			   to make it less likely that two processes increase
-			   the refcount enough times to cross the limit */
-			mail_storage_set_error(MAP_STORAGE(map),
-				MAIL_ERROR_NOTPOSSIBLE,
-				"Message has been copied too many times");
-			return -1;
-		}
 	}
 	return 0;
 }

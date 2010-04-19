@@ -58,6 +58,8 @@ int dbox_map_transaction_commit(struct dbox_map_transaction_context *ctx);
 void dbox_map_transaction_set_failed(struct dbox_map_transaction_context *ctx);
 void dbox_map_transaction_free(struct dbox_map_transaction_context **ctx);
 
+int dbox_map_update_refcount(struct dbox_map_transaction_context *ctx,
+			     uint32_t map_uid, int diff);
 int dbox_map_update_refcounts(struct dbox_map_transaction_context *ctx,
 			      const ARRAY_TYPE(uint32_t) *map_uids, int diff);
 int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id);

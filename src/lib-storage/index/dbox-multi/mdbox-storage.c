@@ -282,35 +282,27 @@ static int mdbox_mailbox_unref_mails(struct mdbox_mailbox *mbox)
 {
 	struct dbox_map_transaction_context *map_trans;
 	const struct mail_index_header *hdr;
-	const struct mdbox_mail_index_record *dbox_rec;
-	ARRAY_TYPE(uint32_t) map_uids;
-	const void *data;
-	bool expunged;
-	uint32_t seq;
-	int ret;
+	uint32_t seq, map_uid;
+	int ret = 0;
 
-	/* get a list of all map_uids in this mailbox */
-	i_array_init(&map_uids, 128);
+	map_trans = dbox_map_transaction_begin(mbox->storage->map, FALSE);
 	hdr = mail_index_get_header(mbox->box.view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		mail_index_lookup_ext(mbox->box.view, seq, mbox->ext_id,
-				      &data, &expunged);
-		dbox_rec = data;
-		if (dbox_rec == NULL) {
-			/* no multi-mails */
+		if (mdbox_mail_lookup(mbox, mbox->box.view, seq,
+				      &map_uid) < 0) {
+			ret = -1;
 			break;
 		}
-		if (dbox_rec->map_uid != 0)
-			array_append(&map_uids, &dbox_rec->map_uid, 1);
+
+		if (dbox_map_update_refcount(map_trans, map_uid, -1) < 0) {
+			ret = -1;
+			break;
+		}
 	}
 
-	/* unreference the map_uids */
-	map_trans = dbox_map_transaction_begin(mbox->storage->map, FALSE);
-	ret = dbox_map_update_refcounts(map_trans, &map_uids, -1);
 	if (ret == 0)
 		ret = dbox_map_transaction_commit(map_trans);
 	dbox_map_transaction_free(&map_trans);
-	array_free(&map_uids);
 	return ret;
 }
 

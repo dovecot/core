@@ -16,12 +16,10 @@ struct mdbox_sync_context {
         struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
+	struct dbox_map_transaction_context *map_trans;
 	enum mdbox_sync_flags flags;
 
 	ARRAY_TYPE(seq_range) expunged_seqs;
-	/* list of expunged map_uids. the same map_uid may be listed more than
-	   once in case message has been copied multiple times to mailbox. */
-	ARRAY_TYPE(uint32_t) expunged_map_uids;
 };
 
 int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,

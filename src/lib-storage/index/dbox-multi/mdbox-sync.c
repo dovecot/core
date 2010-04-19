@@ -55,12 +55,13 @@ static int mdbox_sync_expunge(struct mdbox_sync_context *ctx, uint32_t seq,
 	if (mdbox_mail_lookup(ctx->mbox, ctx->sync_view, seq, &map_uid) < 0)
 		return -1;
 
+	if (dbox_map_update_refcount(ctx->map_trans, map_uid, -1) < 0)
+		return -1;
 	seq_range_array_add(&ctx->expunged_seqs, 0, seq);
-	array_append(&ctx->expunged_map_uids, &map_uid, 1);
 	return 0;
 }
 
-static int mdbox_sync_add(struct mdbox_sync_context *ctx,
+static int mdbox_sync_rec(struct mdbox_sync_context *ctx,
 			  const struct mail_index_sync_rec *sync_rec)
 {
 	uint32_t seq, seq1, seq2;
@@ -119,30 +120,6 @@ static int dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
 	return 0;
 }
 
-static int mdbox_sync_index_finish_expunges(struct mdbox_sync_context *ctx)
-{
-	struct dbox_map_transaction_context *map_trans;
-	int ret;
-
-	map_trans = dbox_map_transaction_begin(ctx->mbox->storage->map, FALSE);
-	ret = dbox_map_update_refcounts(map_trans, &ctx->expunged_map_uids, -1);
-	if (ret == 0) {
-		/* write refcount changes to map index */
-		ret = dbox_map_transaction_commit(map_trans);
-		if (ret == 0) {
-			/* write changes to mailbox index */
-			ret = dbox_sync_mark_expunges(ctx);
-		}
-	}
-
-	/* this finally finishes the map sync and makes it clear that the
-	   map transaction was successfully finished. */
-	if (ret < 0)
-		dbox_map_transaction_set_failed(map_trans);
-	dbox_map_transaction_free(&map_trans);
-	return ret;
-}
-
 static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 {
 	struct mailbox *box = &ctx->mbox->box;
@@ -164,21 +141,33 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 					     seq1, seq2);
 	}
 
-	/* read all changes and group changes to same file_id together */
+	ctx->map_trans =
+		dbox_map_transaction_begin(ctx->mbox->storage->map, FALSE);
 	i_array_init(&ctx->expunged_seqs, 64);
-	i_array_init(&ctx->expunged_map_uids, 64);
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
-		if ((ret = mdbox_sync_add(ctx, &sync_rec)) < 0)
+		if ((ret = mdbox_sync_rec(ctx, &sync_rec)) < 0)
 			break;
 	}
-	if (ret == 0 && array_count(&ctx->expunged_seqs) > 0)
-		ret = mdbox_sync_index_finish_expunges(ctx);
+
+	if (ret == 0) {
+		/* write refcount changes to map index */
+		ret = dbox_map_transaction_commit(ctx->map_trans);
+	}
+	if (ret == 0) {
+		/* write changes to mailbox index */
+		ret = dbox_sync_mark_expunges(ctx);
+	}
+
+	/* this finally finishes the map sync and marks the map transaction
+	   to be successfully finished. */
+	if (ret < 0)
+		dbox_map_transaction_set_failed(ctx->map_trans);
+	dbox_map_transaction_free(&ctx->map_trans);
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
 
 	array_free(&ctx->expunged_seqs);
-	array_free(&ctx->expunged_map_uids);
 	return ret == 0 ? 1 :
 		(ctx->mbox->storage->storage.files_corrupted ? 0 : -1);
 }
