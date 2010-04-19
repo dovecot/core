@@ -248,8 +248,8 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		return -1;
 	}
 
-	/* get map UIDs for messages saved to multi-files. they're written
-	   to transaction log immediately within this function, but the map
+	/* assign map UIDs for newly saved messages. they're written to
+	   transaction log immediately within this function, but the map
 	   is left locked. */
 	if (dbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
 					    &last_map_uid) < 0) {
@@ -262,7 +262,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,
 				      &_t->changes->saved_uids);
 
-	/* add map_uids for all messages saved to multi-files */
+	/* save map UIDs to mailbox index */
 	if (first_map_uid != 0) {
 		struct mdbox_mail_index_record rec;
 		const struct dbox_save_mail *mails;
