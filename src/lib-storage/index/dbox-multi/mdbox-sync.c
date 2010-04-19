@@ -4,11 +4,11 @@
    Expunging works like:
 
    1. Lock map index by beginning a map sync.
-   2. Write map UID refcount changes to map index.
+   2. Write map UID refcount changes to map index (=> tail != head).
    3. Expunge messages from mailbox index.
-   4. Finish map sync, which updates head=tail and unlocks map index.
+   4. Finish map sync, which updates tail=head and unlocks map index.
 
-   If something crashes after 2 but before 4 is finished, head != tail and
+   If something crashes after 2 but before 4 is finished, tail != head and
    reader can do a full resync to figure out what got broken.
 */
 
@@ -148,6 +148,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 					     seq1, seq2);
 	}
 
+	/* handle syncing records without map being locked. */
 	ctx->map_trans =
 		dbox_map_transaction_begin(ctx->mbox->storage->map, FALSE);
 	i_array_init(&ctx->expunged_seqs, 64);
@@ -156,17 +157,16 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 			break;
 	}
 
-	if (ret == 0) {
-		/* write refcount changes to map index */
+	/* write refcount changes to map index. map index is locked by
+	   the commit() and log head is updated, while tail is left behind. */
+	if (ret == 0)
 		ret = dbox_map_transaction_commit(ctx->map_trans);
-	}
-	if (ret == 0) {
-		/* write changes to mailbox index */
+	/* write changes to mailbox index */
+	if (ret == 0)
 		ret = dbox_sync_mark_expunges(ctx);
-	}
 
-	/* this finally finishes the map sync and marks the map transaction
-	   to be successfully finished. */
+	/* finish the map changes and unlock the map. this also updates
+	   map's tail -> head. */
 	if (ret < 0)
 		dbox_map_transaction_set_failed(ctx->map_trans);
 	dbox_map_transaction_free(&ctx->map_trans);
