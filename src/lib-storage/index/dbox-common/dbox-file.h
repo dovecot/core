@@ -19,6 +19,15 @@
 #define DBOX_MAGIC_PRE "\001\002"
 #define DBOX_MAGIC_POST "\n\001\003\n"
 
+/* prefer flock(). fcntl() locking currently breaks if trying to access the
+   same file from multiple mail_storages within same process. that's why we
+   fallback to dotlocks. */
+#ifdef HAVE_FLOCK
+#  define DBOX_FILE_LOCK_METHOD FILE_LOCK_METHOD_FLOCK
+#else
+#  define DBOX_FILE_LOCK_METHOD FILE_LOCK_METHOD_DOTLOCK
+#endif
+
 struct dbox_file;
 
 enum dbox_header_key {
@@ -97,7 +106,11 @@ struct dbox_file {
 	char *primary_path, *alt_path;
 	int fd;
 	struct istream *input;
+#if DBOX_FILE_LOCK_METHOD == FILE_LOCK_METHOD_DOTLOCK
+	struct dotlock *lock;
+#else
 	struct file_lock *lock;
+#endif
 
 	uoff_t cur_offset;
 	uoff_t cur_physical_size;

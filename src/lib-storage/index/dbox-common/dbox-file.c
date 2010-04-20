@@ -9,6 +9,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "file-lock.h"
+#include "file-dotlock.h"
 #include "mkdir-parents.h"
 #include "fdatasync-path.h"
 #include "eacces-error.h"
@@ -24,12 +25,11 @@
 
 #define DBOX_READ_BLOCK_SIZE 4096
 
-/* prefer flock(). fcntl() locking currently breaks if trying to access the
-   same file from multiple mail_storages within same process. */
-#ifdef HAVE_FLOCK
-#  define DBOX_FILE_LOCK_METHOD FILE_LOCK_METHOD_FLOCK
-#else
-#  define DBOX_FILE_LOCK_METHOD FILE_LOCK_METHOD_FCNTL
+#if DBOX_FILE_LOCK_METHOD == FILE_LOCK_METHOD_DOTLOCK
+static const struct dotlock_settings dotlock_set = {
+	.stale_timeout = 60*10,
+	.use_excl_lock = TRUE
+};
 #endif
 
 const char *dbox_generate_tmp_filename(void)
@@ -298,12 +298,21 @@ int dbox_file_try_lock(struct dbox_file *file)
 
 	i_assert(file->fd != -1);
 
+#if DBOX_FILE_LOCK_METHOD == FILE_LOCK_METHOD_DOTLOCK
+	ret = file_dotlock_create(&dotlock_set, file->cur_path,
+				  DOTLOCK_CREATE_FLAG_NONBLOCK, &file->lock);
+	if (ret < 0) {
+		mail_storage_set_critical(&file->storage->storage,
+			"file_dotlock_create(%s) failed: %m", file->cur_path);
+	}
+#else
 	ret = file_try_lock(file->fd, file->cur_path, F_WRLCK,
 			    DBOX_FILE_LOCK_METHOD, &file->lock);
 	if (ret < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"file_try_lock(%s) failed: %m", file->cur_path);
 	}
+#endif
 	return ret;
 }
 
@@ -311,8 +320,13 @@ void dbox_file_unlock(struct dbox_file *file)
 {
 	i_assert(!file->appending || file->lock == NULL);
 
-	if (file->lock != NULL)
+	if (file->lock != NULL) {
+#if DBOX_FILE_LOCK_METHOD == FILE_LOCK_METHOD_DOTLOCK
+		(void)file_dotlock_delete(&file->lock);
+#else
 		file_unlock(&file->lock);
+#endif
+	}
 	if (file->input != NULL)
 		i_stream_sync(file->input);
 }
