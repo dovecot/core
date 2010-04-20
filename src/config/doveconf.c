@@ -192,7 +192,6 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					  p + 2, NULL);
 			unique_key = TRUE;
 		}
-
 	again:
 		j = 0;
 		while (prefix_idx != -1U) {
@@ -369,7 +368,7 @@ config_dump_human_sections(struct ostream *output,
 
 static int
 config_dump_human(const struct config_filter *filter, const char *module,
-		  enum config_dump_scope scope)
+		  enum config_dump_scope scope, const char *setting_name_filter)
 {
 	static struct config_dump_human_context *ctx;
 	struct ostream *output;
@@ -383,12 +382,37 @@ config_dump_human(const struct config_filter *filter, const char *module,
 	ret = config_dump_human_output(ctx, output, 0);
 	config_dump_human_deinit(ctx);
 
-	if (ret == 0)
+	if (ret == 0 && setting_name_filter == NULL)
 		ret = config_dump_human_sections(output, filter, module);
 
 	o_stream_uncork(output);
 	o_stream_unref(&output);
 	return ret;
+}
+
+static int
+config_dump_one(const struct config_filter *filter,
+		enum config_dump_scope scope, const char *setting_name_filter)
+{
+	static struct config_dump_human_context *ctx;
+	const char *const *str;
+	unsigned int len;
+
+	ctx = config_dump_human_init("", scope, TRUE);
+	config_export_by_filter(ctx->export_ctx, filter);
+	if (config_export_finish(&ctx->export_ctx) < 0)
+		return -1;
+
+	len = strlen(setting_name_filter);
+	array_foreach(&ctx->strings, str) {
+		if (strncmp(*str, setting_name_filter, len) == 0 &&
+		    (*str)[len] == '=') {
+			printf("%s = %s\n", setting_name_filter, *str + len+1);
+			break;
+		}
+	}
+	config_dump_human_deinit(ctx);
+	return 0;
 }
 
 static void config_request_putenv(const char *key, const char *value,
@@ -463,7 +487,7 @@ int main(int argc, char *argv[])
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
 	const char *orig_config_path, *config_path, *module = "";
 	struct config_filter filter;
-	const char *error;
+	const char *error, *setting_name_filter = NULL;
 	char **exec_args = NULL;
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE;
@@ -507,10 +531,13 @@ int main(int argc, char *argv[])
 	   -c parameter */
 	config_path_specified = strcmp(config_path, orig_config_path) != 0;
 
-	if (argv[optind] != NULL) {
-		if (c != 'e')
-			i_fatal("Unknown argument: %s", argv[optind]);
+	if (c == 'e') {
+		if (argv[optind] == NULL)
+			i_fatal("Missing command for -e");
 		exec_args = &argv[optind];
+	} else if (argv[optind] != NULL) {
+		/* print only a single config setting */
+		setting_name_filter = argv[optind];
 	} else {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
@@ -530,7 +557,9 @@ int main(int argc, char *argv[])
 	if (ret <= 0 && (exec_args != NULL || ret == -2))
 		i_fatal("%s", error);
 
-	if (exec_args == NULL) {
+	if (setting_name_filter != NULL) {
+		ret2 = config_dump_one(&filter, scope, setting_name_filter);
+	} else if (exec_args == NULL) {
 		const char *info;
 
 		info = sysinfo_get(get_mail_location());
@@ -539,14 +568,8 @@ int main(int argc, char *argv[])
 		if (!config_path_specified)
 			check_wrong_config(config_path);
 		fflush(stdout);
-		ret2 = config_dump_human(&filter, module, scope);
-
-		if (ret < 0) {
-			/* delayed error */
-			i_fatal("%s", error);
-		}
-		if (ret2 < 0)
-			i_fatal("Errors in configuration");
+		ret2 = config_dump_human(&filter, module, scope,
+					 setting_name_filter);
 	} else {
 		struct config_export_context *ctx;
 
@@ -560,6 +583,14 @@ int main(int argc, char *argv[])
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);
 	}
+
+	if (ret < 0) {
+		/* delayed error */
+		i_fatal("%s", error);
+	}
+	if (ret2 < 0)
+		i_fatal("Errors in configuration");
+
 	config_filter_deinit(&config_filter);
 	master_service_deinit(&master_service);
         return 0;
