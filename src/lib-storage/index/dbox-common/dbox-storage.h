@@ -19,6 +19,9 @@ struct dbox_mail;
 /* Delete temp files having ctime older than this. */
 #define DBOX_TMP_DELETE_SECS (36*60*60)
 
+/* Flag specifies if the message should be in primary or alternative storage */
+#define DBOX_INDEX_FLAG_ALT MAIL_INDEX_MAIL_FLAG_BACKEND
+
 struct dbox_storage_vfuncs {
 	/* dbox file has zero references now. it should be either freed or
 	   left open in case it's accessed again soon */

@@ -9,9 +9,6 @@
 #define SDBOX_MAIL_FILE_PREFIX "u."
 #define SDBOX_MAIL_FILE_FORMAT SDBOX_MAIL_FILE_PREFIX"%u"
 
-/* Flag specifies if the message should be in primary or alternative storage */
-#define SDBOX_INDEX_FLAG_ALT MAIL_INDEX_MAIL_FLAG_BACKEND
-
 #define SDBOX_INDEX_HEADER_MIN_SIZE (sizeof(uint32_t))
 struct sdbox_index_header {
 	uint32_t oldv1_highest_maildir_uid;

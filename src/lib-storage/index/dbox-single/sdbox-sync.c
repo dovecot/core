@@ -49,7 +49,7 @@ static int sdbox_sync_add_seq(struct sdbox_sync_context *ctx,
 
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE)
 		entry->type = SDBOX_SYNC_ENTRY_TYPE_EXPUNGE;
-	else if ((sync_rec->add_flags & SDBOX_INDEX_FLAG_ALT) != 0)
+	else if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) != 0)
 		entry->type = SDBOX_SYNC_ENTRY_TYPE_MOVE_TO_ALT;
 	else
 		entry->type = SDBOX_SYNC_ENTRY_TYPE_MOVE_FROM_ALT;
@@ -66,8 +66,8 @@ static int sdbox_sync_add(struct sdbox_sync_context *ctx,
 		/* we're interested */
 	} else if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS) {
 		/* we care only about alt flag changes */
-		if ((sync_rec->add_flags & SDBOX_INDEX_FLAG_ALT) == 0 &&
-		    (sync_rec->remove_flags & SDBOX_INDEX_FLAG_ALT) == 0)
+		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) == 0 &&
+		    (sync_rec->remove_flags & DBOX_INDEX_FLAG_ALT) == 0)
 			return 1;
 	} else {
 		/* not interested */
