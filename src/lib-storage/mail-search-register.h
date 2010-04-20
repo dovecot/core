@@ -1,18 +1,15 @@
 #ifndef MAIL_SEARCH_REGISTER_H
 #define MAIL_SEARCH_REGISTER_H
 
-struct imap_arg;
 struct mail_search_arg;
 struct mail_search_build_context;
 
 struct mail_search_register_arg {
 	const char *key;
 
-	/* read wanted parameters from imap_arg, returns parsed arg or NULL if
-	   error. error message is set to ctx. */
+	/* returns parsed arg or NULL if error. error message is set to ctx. */
 	struct mail_search_arg *
-		(*build)(struct mail_search_build_context *ctx,
-			 const struct imap_arg **imap_args);
+		(*build)(struct mail_search_build_context *ctx);
 };
 
 extern struct mail_search_register *mail_search_register_imap;
@@ -20,8 +17,7 @@ extern struct mail_search_register *mail_search_register_human;
 
 typedef struct mail_search_arg *
 mail_search_register_fallback_t(struct mail_search_build_context *ctx,
-				const char *key,
-				const struct imap_arg **imap_args);
+				const char *key);
 
 struct mail_search_register *mail_search_register_init(void);
 void mail_search_register_deinit(struct mail_search_register **reg);

@@ -8,6 +8,7 @@
 #include "imap-parser.h"
 #include "imap-match.h"
 #include "mail-search-build.h"
+#include "mail-search-parser.h"
 #include "virtual-storage.h"
 #include "virtual-plugin.h"
 
@@ -30,8 +31,9 @@ static struct mail_search_args *
 virtual_search_args_parse(const string_t *rule, const char **error_r)
 {
 	struct istream *input;
-	struct imap_parser *parser;
+	struct imap_parser *imap_parser;
 	const struct imap_arg *args;
+	struct mail_search_parser *parser;
 	struct mail_search_args *sargs;
 	bool fatal;
 	int ret;
@@ -45,17 +47,20 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 	input = i_stream_create_from_data(str_data(rule), str_len(rule));
 	(void)i_stream_read(input);
 
-	parser = imap_parser_create(input, NULL, (size_t)-1);
-	ret = imap_parser_finish_line(parser, 0,  0, &args);
+	imap_parser = imap_parser_create(input, NULL, (size_t)-1);
+	ret = imap_parser_finish_line(imap_parser, 0,  0, &args);
 	if (ret < 0) {
 		sargs = NULL;
-		*error_r = t_strdup(imap_parser_get_error(parser, &fatal));
-	} else if (mail_search_build_from_imap_args(mail_search_register_imap,
-						    args, "UTF-8", &sargs,
-						    error_r) < 0)
-		sargs = NULL;
+		*error_r = t_strdup(imap_parser_get_error(imap_parser, &fatal));
+	} else {
+		parser = mail_search_parser_init_imap(args);
+		if (mail_search_build(mail_search_register_imap, parser, "UTF-8",
+				      &sargs, error_r) < 0)
+			sargs = NULL;
+		mail_search_parser_deinit(&parser);
+	}
 
-	imap_parser_destroy(&parser);
+	imap_parser_destroy(&imap_parser);
 	i_stream_destroy(&input);
 	return sargs;
 }

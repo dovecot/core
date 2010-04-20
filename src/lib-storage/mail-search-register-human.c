@@ -6,6 +6,7 @@
 #include "settings-parser.h"
 #include "imap-date.h"
 #include "mail-search-register.h"
+#include "mail-search-parser.h"
 #include "mail-search-build.h"
 
 #include <time.h>
@@ -14,17 +15,19 @@
 struct mail_search_register *mail_search_register_human;
 
 static struct mail_search_arg *
-human_search_or(struct mail_search_build_context *ctx,
-		const struct imap_arg **imap_args)
+human_search_or(struct mail_search_build_context *ctx)
 {
+	struct mail_search_arg *sarg;
+
 	/* this changes the parent arg to be an OR block instead of AND block */
 	ctx->parent->type = SEARCH_OR;
-	return mail_search_build_next(ctx, ctx->parent, imap_args);
+	if (mail_search_build_key(ctx, ctx->parent, &sarg) < 0)
+		return NULL;
+	return sarg;
 }
 
 static struct mail_search_arg *
 arg_new_human_date(struct mail_search_build_context *ctx,
-		   const struct imap_arg **imap_args,
 		   enum mail_search_arg_type type,
 		   enum mail_search_date_type date_type)
 {
@@ -35,7 +38,7 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 	int tz;
 
 	sarg = mail_search_build_new(ctx, type);
-	if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
+	if (mail_search_parse_string(ctx->parser, &value) < 0)
 		return NULL;
 
 	/* a) yyyy-mm-dd
@@ -61,7 +64,7 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 	sarg->value.search_flags = MAIL_SEARCH_ARG_FLAG_USE_TZ;
 
 	if (sarg->value.time == (time_t)-1) {
-		ctx->error = p_strconcat(ctx->pool,
+		ctx->_error = p_strconcat(ctx->pool,
 			"Invalid search date parameter: ", value, NULL);
 		return NULL;
 	}
@@ -71,10 +74,9 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 
 #define CALLBACK_DATE(_func, _type, _date_type) \
 static struct mail_search_arg *\
-human_search_##_func(struct mail_search_build_context *ctx, \
-                     const struct imap_arg **imap_args) \
+human_search_##_func(struct mail_search_build_context *ctx) \
 { \
-	return arg_new_human_date(ctx, imap_args, _type, _date_type); \
+	return arg_new_human_date(ctx, _type, _date_type); \
 }
 CALLBACK_DATE(before, SEARCH_BEFORE, MAIL_SEARCH_DATE_TYPE_RECEIVED);
 CALLBACK_DATE(on, SEARCH_ON, MAIL_SEARCH_DATE_TYPE_RECEIVED);
@@ -90,49 +92,44 @@ CALLBACK_DATE(savedsince, SEARCH_SINCE, MAIL_SEARCH_DATE_TYPE_SAVED);
 
 static struct mail_search_arg *
 arg_new_human_size(struct mail_search_build_context *ctx,
-		   const struct imap_arg **imap_args,
 		   enum mail_search_arg_type type)
 {
 	struct mail_search_arg *sarg;
 	const char *value, *error;
 
 	sarg = mail_search_build_new(ctx, type);
-	if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
+	if (mail_search_parse_string(ctx->parser, &value) < 0)
 		return NULL;
 
 	if (settings_get_size(value, &sarg->value.size, &error) < 0) {
-		ctx->error = p_strdup(ctx->pool, error);
+		ctx->_error = p_strdup(ctx->pool, error);
 		return NULL;
 	}
 	return sarg;
 }
 
 static struct mail_search_arg *
-human_search_larger(struct mail_search_build_context *ctx,
-		    const struct imap_arg **imap_args)
+human_search_larger(struct mail_search_build_context *ctx)
 { 
-	return arg_new_human_size(ctx, imap_args, SEARCH_LARGER);
+	return arg_new_human_size(ctx, SEARCH_LARGER);
 }
 
 static struct mail_search_arg *
-human_search_smaller(struct mail_search_build_context *ctx,
-		     const struct imap_arg **imap_args)
+human_search_smaller(struct mail_search_build_context *ctx)
 { 
-	return arg_new_human_size(ctx, imap_args, SEARCH_SMALLER);
+	return arg_new_human_size(ctx, SEARCH_SMALLER);
 }
 
 static struct mail_search_arg *
-human_search_guid(struct mail_search_build_context *ctx,
-		  const struct imap_arg **imap_args)
+human_search_guid(struct mail_search_build_context *ctx)
 {
-	return mail_search_build_str(ctx, imap_args, SEARCH_GUID);
+	return mail_search_build_str(ctx, SEARCH_GUID);
 }
 
 static struct mail_search_arg *
-human_search_mailbox(struct mail_search_build_context *ctx,
-		     const struct imap_arg **imap_args)
+human_search_mailbox(struct mail_search_build_context *ctx)
 {
-	return mail_search_build_str(ctx, imap_args, SEARCH_MAILBOX);
+	return mail_search_build_str(ctx, SEARCH_MAILBOX);
 }
 
 static const struct mail_search_register_arg human_register_args[] = {

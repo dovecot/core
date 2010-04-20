@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "mail-storage.h"
+#include "mail-search-parser.h"
 #include "mail-search-build.h"
 #include "imap-search-args.h"
 #include "imap-parser.h"
@@ -39,17 +40,21 @@ int imap_search_args_build(struct client_command_context *cmd,
 			   const struct imap_arg *args, const char *charset,
 			   struct mail_search_args **search_args_r)
 {
+	struct mail_search_parser *parser;
 	struct mail_search_args *sargs;
 	const char *error;
+	int ret;
 
 	if (IMAP_ARG_IS_EOL(args)) {
 		client_send_command_error(cmd, "Missing search parameters");
 		return -1;
 	}
 
-	if (mail_search_build_from_imap_args(mail_search_register_imap,
-					     args, charset,
-					     &sargs, &error) < 0) {
+	parser = mail_search_parser_init_imap(args);
+	ret = mail_search_build(mail_search_register_imap, parser, charset,
+				&sargs, &error);
+	mail_search_parser_deinit(&parser);
+	if (ret < 0) {
 		client_send_command_error(cmd, error);
 		return -1;
 	}

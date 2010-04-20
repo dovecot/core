@@ -1,29 +1,15 @@
 /* Copyright (c) 2002-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "imap-arg.h"
 #include "mail-storage-private.h"
 #include "mail-search-register.h"
+#include "mail-search-parser.h"
 #include "mail-search-build.h"
 
 #include <stdlib.h>
 
-int mail_search_build_next_astring(struct mail_search_build_context *ctx,
-				   const struct imap_arg **imap_args,
-				   const char **value_r)
-{
-	if (IMAP_ARG_IS_EOL(*imap_args)) {
-		ctx->error = "Missing parameter for argument";
-		return -1;
-	}
-	if (!imap_arg_get_astring(*imap_args, value_r)) {
-		ctx->error = "Invalid parameter for argument";
-		return -1;
-	}
-
-	*imap_args += 1;
-	return 0;
-}
+static int mail_search_build_list(struct mail_search_build_context *ctx,
+				  struct mail_search_arg **arg_r);
 
 struct mail_search_arg *
 mail_search_build_new(struct mail_search_build_context *ctx,
@@ -38,93 +24,88 @@ mail_search_build_new(struct mail_search_build_context *ctx,
 
 struct mail_search_arg *
 mail_search_build_str(struct mail_search_build_context *ctx,
-		      const struct imap_arg **imap_args,
 		      enum mail_search_arg_type type)
 {
 	struct mail_search_arg *sarg;
 	const char *value;
 
 	sarg = mail_search_build_new(ctx, type);
-	if (mail_search_build_next_astring(ctx, imap_args, &value) < 0)
+	if (mail_search_parse_string(ctx->parser, &value) < 0)
 		return NULL;
 	sarg->value.str = p_strdup(ctx->pool, value);
 	return sarg;
 }
 
-struct mail_search_arg *
-mail_search_build_next(struct mail_search_build_context *ctx,
-		       struct mail_search_arg *parent,
-		       const struct imap_arg **imap_args)
+static int
+mail_search_build_key_int(struct mail_search_build_context *ctx,
+			  struct mail_search_arg *parent,
+			  struct mail_search_arg **arg_r)
 {
 	struct mail_search_arg *sarg;
 	struct mail_search_arg *old_parent = ctx->parent;
-	const struct imap_arg *listargs;
 	const char *key;
 	const struct mail_search_register_arg *reg_arg;
 	mail_search_register_fallback_t *fallback;
+	int ret;
 
 	ctx->parent = parent;
 
-	if (IMAP_ARG_IS_EOL(*imap_args)) {
-		ctx->error = "Missing argument";
-		return NULL;
-	}
+	if ((ret = mail_search_parse_key(ctx->parser, &key)) <= 0)
+		return ret;
 
-	if ((*imap_args)->type == IMAP_ARG_NIL) {
-		/* NIL not allowed */
-		ctx->error = "NIL not allowed";
-		return NULL;
-	}
-
-	if (imap_arg_get_list(*imap_args, &listargs)) {
-		if (IMAP_ARG_IS_EOL(listargs)) {
-			ctx->error = "Empty list not allowed";
-			return NULL;
-		}
-
-		sarg = mail_search_build_list(ctx, listargs);
-		*imap_args += 1;
+	if (strcmp(key, MAIL_SEARCH_PARSER_KEY_LIST) == 0) {
+		if (mail_search_build_list(ctx, &sarg) < 0)
+			return -1;
+		i_assert(sarg->value.subargs != NULL);
 		ctx->parent = old_parent;
-		return sarg;
+		*arg_r = sarg;
+		return 1;
 	}
-
-	/* string argument - get the name and jump to next */
-	key = imap_arg_as_astring(*imap_args);
-	*imap_args += 1;
 	key = t_str_ucase(key);
 
 	reg_arg = mail_search_register_find(ctx->reg, key);
 	if (reg_arg != NULL)
-		sarg = reg_arg->build(ctx, imap_args);
+		sarg = reg_arg->build(ctx);
 	else if (mail_search_register_get_fallback(ctx->reg, &fallback))
-		sarg = fallback(ctx, key, imap_args);
+		sarg = fallback(ctx, key);
 	else {
 		sarg = NULL;
-		ctx->error = p_strconcat(ctx->pool, "Unknown argument ",
-					 key, NULL);
+		ctx->_error = p_strconcat(ctx->pool, "Unknown argument ",
+					  key, NULL);
 	}
 
 	ctx->parent = old_parent;
-	return sarg;
+	*arg_r = sarg;
+	return sarg == NULL ? -1 : 1;
 }
 
-struct mail_search_arg *
-mail_search_build_list(struct mail_search_build_context *ctx,
-		       const struct imap_arg *imap_args)
+int mail_search_build_key(struct mail_search_build_context *ctx,
+			  struct mail_search_arg *parent,
+			  struct mail_search_arg **arg_r)
+{
+	int ret;
+
+	ret = mail_search_build_key_int(ctx, parent, arg_r);
+	if (ret <= 0) {
+		if (ret == 0)
+			ctx->_error = "Missing argument";
+		return -1;
+	}
+	return 0;
+}
+
+static int mail_search_build_list(struct mail_search_build_context *ctx,
+				  struct mail_search_arg **arg_r)
 {
 	struct mail_search_arg *sarg, **subargs;
 	enum mail_search_arg_type cur_type = SEARCH_SUB;
+	int ret;
 
 	sarg = p_new(ctx->pool, struct mail_search_arg, 1);
 	sarg->type = cur_type;
 
 	subargs = &sarg->value.subargs;
-	while (!IMAP_ARG_IS_EOL(imap_args)) {
-		sarg->type = SEARCH_SUB;
-		*subargs = mail_search_build_next(ctx, sarg, &imap_args);
-		if (*subargs == NULL)
-			return NULL;
-
+	while ((ret = mail_search_build_key_int(ctx, sarg, subargs)) > 0) {
 		if (cur_type == sarg->type) {
 			/* expected type */
 		} else if (cur_type == SEARCH_SUB) {
@@ -132,21 +113,24 @@ mail_search_build_list(struct mail_search_build_context *ctx,
 			   belong to this type. */
 			cur_type = sarg->type;
 		} else {
-			ctx->error = cur_type == SEARCH_OR ?
+			ctx->_error = cur_type == SEARCH_OR ?
 				"Use parenthesis when using ORs" :
 				"Use parenthesis when mixing subtypes";
-			return NULL;
+			return -1;
 		}
 		subargs = &(*subargs)->next;
+		sarg->type = SEARCH_SUB;
 	}
-	return sarg;
+	if (ret < 0)
+		return -1;
+	sarg->type = cur_type;
+	*arg_r = sarg;
+	return 0;
 }
 
-int mail_search_build_from_imap_args(struct mail_search_register *reg,
-				     const struct imap_arg *imap_args,
-				     const char *charset,
-				     struct mail_search_args **args_r,
-				     const char **error_r)
+int mail_search_build(struct mail_search_register *reg,
+		      struct mail_search_parser *parser, const char *charset,
+		      struct mail_search_args **args_r, const char **error_r)
 {
         struct mail_search_build_context ctx;
 	struct mail_search_args *args;
@@ -161,10 +145,11 @@ int mail_search_build_from_imap_args(struct mail_search_register *reg,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = args->pool;
 	ctx.reg = reg;
+	ctx.parser = parser;
 
-	root = mail_search_build_list(&ctx, imap_args);
-	if (root == NULL) {
-		*error_r = t_strdup(ctx.error);
+	if (mail_search_build_list(&ctx, &root) < 0) {
+		*error_r = ctx._error != NULL ? t_strdup(ctx._error) :
+			t_strdup(mail_search_parser_get_error(parser));
 		pool_unref(&args->pool);
 		return -1;
 	}

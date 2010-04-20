@@ -6,58 +6,23 @@
 #include "base64.h"
 #include "randgen.h"
 #include "str.h"
-#include "imap-quote.h"
-#include "imap-parser.h"
 #include "mail-storage.h"
 #include "mail-search-build.h"
+#include "mail-search-parser.h"
 #include "doveadm-mail.h"
 
-static struct mail_search_args *search_args_from_str(const char *str)
+static struct mail_search_args *build_search_args(const char *const args[])
 {
-	struct istream *input;
-	struct imap_parser *parser;
-	const struct imap_arg *args;
+	struct mail_search_parser *parser;
 	struct mail_search_args *sargs;
 	const char *error;
-	bool fatal;
-	int ret;
 
-	input = i_stream_create_from_data(str, strlen(str));
-	(void)i_stream_read(input);
-
-	parser = imap_parser_create(input, NULL, (size_t)-1);
-	ret = imap_parser_finish_line(parser, 0,  0, &args);
-	if (ret < 0)
-		i_fatal("%s", imap_parser_get_error(parser, &fatal));
-	if (mail_search_build_from_imap_args(mail_search_register_human,
-					     args, "UTF-8", &sargs, &error) < 0)
+	parser = mail_search_parser_init_cmdline(args);
+	if (mail_search_build(mail_search_register_human, parser, "UTF-8",
+			      &sargs, &error) < 0)
 		i_fatal("%s", error);
-
-	imap_parser_destroy(&parser);
-	i_stream_destroy(&input);
+	mail_search_parser_deinit(&parser);
 	return sargs;
-}
-
-static const char *params_to_imap_args_string(const char *const args[])
-{
-	string_t *str;
-	const char *p;
-
-	str = t_str_new(256);
-	for (; *args != NULL; args++) {
-		for (p = *args; *p != '\0'; p++) {
-			if (IS_ATOM_SPECIAL_INPUT(*p))
-				break;
-		}
-		if (*p == '\0' ||
-		    strcmp(*args, "(") == 0 ||
-		    strcmp(*args, ")") == 0)
-			str_append(str, *args);
-		else
-			imap_dquote_append(str, *args);
-		str_append_c(str, ' ');
-	}
-	return str_c(str);
 }
 
 void cmd_fetch(struct mail_user *user, const char *const args[])
@@ -77,7 +42,7 @@ void cmd_fetch(struct mail_user *user, const char *const args[])
 
 	if (mailbox == NULL || args[1] == NULL)
 		doveadm_mail_help_name("fetch");
-	search_args = search_args_from_str(params_to_imap_args_string(args+1));
+	search_args = build_search_args(args+1);
 
 	random_fill_weak(prefix_buf, sizeof(prefix_buf));
 	prefix = t_str_new(32);
