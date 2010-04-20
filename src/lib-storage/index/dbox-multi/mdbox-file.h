@@ -25,6 +25,5 @@ int mdbox_file_create_fd(struct dbox_file *file, const char *path,
 
 void mdbox_files_free(struct mdbox_storage *storage);
 void mdbox_files_sync_input(struct mdbox_storage *storage);
-int mdbox_file_purge(struct dbox_file *file);
 
 #endif

@@ -169,8 +169,7 @@ int dbox_map_refresh(struct dbox_map *map)
 }
 
 static int dbox_map_lookup_seq(struct dbox_map *map, uint32_t seq,
-			       uint32_t *file_id_r, uoff_t *offset_r,
-			       uoff_t *size_r)
+			       const struct dbox_map_mail_index_record **rec_r)
 {
 	const struct dbox_map_mail_index_record *rec;
 	const void *data;
@@ -186,10 +185,7 @@ static int dbox_map_lookup_seq(struct dbox_map *map, uint32_t seq,
 		dbox_map_set_corrupted(map, "file_id=0 for map_uid=%u", uid);
 		return -1;
 	}
-
-	*file_id_r = rec->file_id;
-	*offset_r = rec->offset;
-	*size_r = rec->size;
+	*rec_r = rec;
 	return 0;
 }
 
@@ -209,8 +205,8 @@ dbox_map_get_seq(struct dbox_map *map, uint32_t map_uid, uint32_t *seq_r)
 int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 		    uint32_t *file_id_r, uoff_t *offset_r)
 {
+	const struct dbox_map_mail_index_record *rec;
 	uint32_t seq;
-	uoff_t size;
 	int ret;
 
 	if (dbox_map_open_or_create(map) < 0)
@@ -219,8 +215,42 @@ int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 	if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0)
 		return ret;
 
-	if (dbox_map_lookup_seq(map, seq, file_id_r, offset_r, &size) < 0)
+	if (dbox_map_lookup_seq(map, seq, &rec) < 0)
 		return -1;
+	*file_id_r = rec->file_id;
+	*offset_r = rec->offset;
+	return 1;
+}
+
+int dbox_map_lookup_full(struct dbox_map *map, uint32_t map_uid,
+			 struct dbox_map_mail_index_record *rec_r,
+			 uint16_t *refcount_r)
+{
+	const struct dbox_map_mail_index_record *rec;
+	const uint16_t *ref16_p;
+	const void *data;
+	uint32_t seq;
+	bool expunged;
+	int ret;
+
+	if (dbox_map_open_or_create(map) < 0)
+		return -1;
+
+	if ((ret = dbox_map_get_seq(map, map_uid, &seq)) <= 0)
+		return ret;
+
+	if (dbox_map_lookup_seq(map, seq, &rec) < 0)
+		return -1;
+	*rec_r = *rec;
+
+	mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
+			      &data, &expunged);
+	if (data == NULL) {
+		dbox_map_set_corrupted(map, "missing ref extension");
+		return -1;
+	}
+	ref16_p = data;
+	*refcount_r = *ref16_p;
 	return 1;
 }
 
@@ -507,13 +537,12 @@ int dbox_map_remove_file_id(struct dbox_map *map, uint32_t file_id)
 }
 
 struct dbox_map_append_context *
-dbox_map_append_begin(struct dbox_map *map, enum dbox_map_append_flags flags)
+dbox_map_append_begin(struct dbox_map *map)
 {
 	struct dbox_map_append_context *ctx;
 
 	ctx = i_new(struct dbox_map_append_context, 1);
 	ctx->map = map;
-	ctx->flags = flags;
 	ctx->first_new_file_id = (uint32_t)-1;
 	i_array_init(&ctx->file_appends, 64);
 	i_array_init(&ctx->files, 64);
@@ -560,12 +589,10 @@ static time_t day_begin_stamp(unsigned int interval)
 	return stamp - (interval - unit);
 }
 
-static bool dbox_try_open(struct dbox_map_append_context *ctx,
-			  struct dbox_file *file)
+static bool dbox_try_open(struct dbox_file *file, bool want_altpath)
 {
-	bool want_altpath, notfound;
+	bool notfound;
 
-	want_altpath = (ctx->flags & DBOX_MAP_APPEND_FLAG_ALT) != 0;
 	if (want_altpath) {
 		if (dbox_file_open(file, &notfound) <= 0)
 			return FALSE;
@@ -589,7 +616,7 @@ static bool dbox_try_open(struct dbox_map_append_context *ctx,
 }
 
 static bool
-dbox_map_file_try_append(struct dbox_map_append_context *ctx,
+dbox_map_file_try_append(struct dbox_map_append_context *ctx, bool want_altpath,
 			 uint32_t file_id, time_t stamp, uoff_t mail_size,
 			 struct dbox_file_append_context **file_append_r,
 			 struct ostream **output_r, bool *retry_later_r)
@@ -607,7 +634,7 @@ dbox_map_file_try_append(struct dbox_map_append_context *ctx,
 	*retry_later_r = FALSE;
 
 	file = mdbox_file_init(storage, file_id);
-	if (!dbox_try_open(ctx, file)) {
+	if (!dbox_try_open(file, want_altpath)) {
 		dbox_file_unref(&file);
 		return TRUE;
 	}
@@ -662,7 +689,8 @@ dbox_map_is_appending(struct dbox_map_append_context *ctx, uint32_t file_id)
 
 static struct dbox_file_append_context *
 dbox_map_find_existing_append(struct dbox_map_append_context *ctx,
-			      uoff_t mail_size, struct ostream **output_r)
+			      uoff_t mail_size, bool want_altpath,
+			      struct ostream **output_r)
 {
 	struct dbox_map *map = ctx->map;
 	struct dbox_file_append_context *const *file_appends, *append;
@@ -677,6 +705,9 @@ dbox_map_find_existing_append(struct dbox_map_append_context *ctx,
 	file_appends = array_get(&ctx->file_appends, &count);
 	for (i = count; i > ctx->files_nonappendable_count; i--) {
 		append = file_appends[i-1];
+
+		if (dbox_file_is_in_alt(append->file) != want_altpath)
+			continue;
 
 		append_offset = append->output->offset;
 		if (append_offset + mail_size <= map->set->mdbox_rotate_size &&
@@ -703,8 +734,8 @@ dbox_map_find_first_alt(struct dbox_map_append_context *ctx,
 	DIR *dir;
 	struct dirent *d;
 	const struct mail_index_header *hdr;
+	const struct dbox_map_mail_index_record *rec;
 	uint32_t seq, file_id, min_file_id = -1U;
-	uoff_t offset, size;
 	int ret = 0;
 
 	/* we want to quickly find the latest alt file, but we also want to
@@ -745,11 +776,10 @@ dbox_map_find_first_alt(struct dbox_map_append_context *ctx,
 	/* find the newest message in alt storage from map view */
 	hdr = mail_index_get_header(ctx->map->view);
 	for (seq = hdr->messages_count; seq > 0; seq--) {
-		if (dbox_map_lookup_seq(ctx->map, seq, &file_id,
-					&offset, &size) < 0)
+		if (dbox_map_lookup_seq(ctx->map, seq, &rec) < 0)
 			return -1;
 
-		if (file_id < min_file_id)
+		if (rec->file_id < min_file_id)
 			break;
 	}
 
@@ -760,16 +790,16 @@ dbox_map_find_first_alt(struct dbox_map_append_context *ctx,
 
 static int
 dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
-			      uoff_t mail_size,
+			      uoff_t mail_size, bool want_altpath,
 			      struct dbox_file_append_context **file_append_r,
 			      struct ostream **output_r)
 {
 	struct dbox_map *map = ctx->map;
 	ARRAY_TYPE(seq_range) checked_file_ids;
 	const struct mail_index_header *hdr;
+	const struct dbox_map_mail_index_record *rec;
 	unsigned int backwards_lookup_count;
-	uint32_t seq, seq1, uid, file_id, min_file_id;
-	uoff_t offset, size;
+	uint32_t seq, seq1, uid, min_file_id;
 	time_t stamp;
 	bool retry_later;
 
@@ -783,7 +813,7 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 	backwards_lookup_count = 0;
 	t_array_init(&checked_file_ids, 16);
 
-	if ((ctx->flags & DBOX_MAP_APPEND_FLAG_ALT) == 0)
+	if (!want_altpath)
 		seq = hdr->messages_count;
 	else {
 		/* we want to save to alt storage. */
@@ -794,12 +824,12 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 	}
 
 	for (; seq > 0; seq--) {
-		if (dbox_map_lookup_seq(map, seq, &file_id, &offset, &size) < 0)
+		if (dbox_map_lookup_seq(map, seq, &rec) < 0)
 			return -1;
 
-		if (seq_range_exists(&checked_file_ids, file_id))
+		if (seq_range_exists(&checked_file_ids, rec->file_id))
 			continue;
-		seq_range_array_add(&checked_file_ids, 0, file_id);
+		seq_range_array_add(&checked_file_ids, 0, rec->file_id);
 
 		if (++backwards_lookup_count > MAX_BACKWARDS_LOOKUPS) {
 			/* we've wasted enough time here */
@@ -809,18 +839,19 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 		/* first lookup: this should be enough usually, but we can't
 		   be sure until after locking. also if messages were recently
 		   moved, this message might not be the last one in the file. */
-		if (offset + size + mail_size >= map->set->mdbox_rotate_size)
+		if (rec->offset + rec->size + mail_size >=
+		    			map->set->mdbox_rotate_size)
 			continue;
 
-		if (dbox_map_is_appending(ctx, file_id)) {
+		if (dbox_map_is_appending(ctx, rec->file_id)) {
 			/* already checked this */
 			continue;
 		}
 
 		mail_index_lookup_uid(map->view, seq, &uid);
-		if (!dbox_map_file_try_append(ctx, file_id, stamp, mail_size,
-					      file_append_r, output_r,
-					      &retry_later)) {
+		if (!dbox_map_file_try_append(ctx, want_altpath, rec->file_id,
+					      stamp, mail_size, file_append_r,
+					      output_r, &retry_later)) {
 			/* file is too old. the rest of the files are too. */
 			break;
 		}
@@ -839,24 +870,27 @@ dbox_map_find_appendable_file(struct dbox_map_append_context *ctx,
 }
 
 int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
+			 enum dbox_map_append_flags flags,
 			 struct dbox_file_append_context **file_append_ctx_r,
 			 struct ostream **output_r)
 {
 	struct dbox_file *file;
 	struct dbox_map_append *append;
 	struct dbox_file_append_context *file_append;
-	bool existing;
+	bool existing, want_altpath;
 	int ret;
 
 	if (ctx->failed)
 		return -1;
 
-	file_append = dbox_map_find_existing_append(ctx, mail_size, output_r);
+	want_altpath = (flags & DBOX_MAP_APPEND_FLAG_ALT) != 0;
+	file_append = dbox_map_find_existing_append(ctx, mail_size,
+						    want_altpath, output_r);
 	if (file_append != NULL) {
 		ret = 1;
 		existing = TRUE;
 	} else {
-		ret = dbox_map_find_appendable_file(ctx, mail_size,
+		ret = dbox_map_find_appendable_file(ctx, mail_size, flags,
 						    &file_append, output_r);
 		existing = FALSE;
 	}
@@ -866,7 +900,7 @@ int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
 		return -1;
 	else {
 		/* create a new file */
-		file = (ctx->flags & DBOX_MAP_APPEND_FLAG_ALT) == 0 ?
+		file = (flags & DBOX_MAP_APPEND_FLAG_ALT) == 0 ?
 			mdbox_file_init(ctx->map->storage, 0) :
 			mdbox_file_init_new_alt(ctx->map->storage);
 		file_append = dbox_file_append_init(file);

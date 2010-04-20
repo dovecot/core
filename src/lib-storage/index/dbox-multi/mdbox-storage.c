@@ -78,6 +78,11 @@ static void mdbox_storage_destroy(struct mail_storage *_storage)
 	dbox_map_deinit(&storage->map);
 	if (storage->to_close_unused_files != NULL)
 		timeout_remove(&storage->to_close_unused_files);
+
+	if (array_is_created(&storage->move_from_alt_map_uids))
+		array_free(&storage->move_from_alt_map_uids);
+	if (array_is_created(&storage->move_to_alt_map_uids))
+		array_free(&storage->move_to_alt_map_uids);
 	array_free(&storage->open_files);
 }
 
@@ -330,7 +335,7 @@ struct mail_storage mdbox_storage = {
 		dbox_storage_get_list_settings,
 		NULL,
 		mdbox_mailbox_alloc,
-		mdbox_sync_purge
+		mdbox_purge
 	}
 };
 

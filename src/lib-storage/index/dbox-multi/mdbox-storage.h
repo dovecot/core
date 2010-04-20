@@ -32,6 +32,9 @@ struct mdbox_storage {
 	ARRAY_DEFINE(open_files, struct mdbox_file *);
 	struct timeout *to_close_unused_files;
 
+	ARRAY_TYPE(uint32_t) move_to_alt_map_uids;
+	ARRAY_TYPE(uint32_t) move_from_alt_map_uids;
+
 	unsigned int rebuilding_storage:1;
 };
 
@@ -87,5 +90,8 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *ctx,
 void mdbox_transaction_save_rollback(struct mail_save_context *ctx);
 
 int mdbox_copy(struct mail_save_context *ctx, struct mail *mail);
+
+void mdbox_purge_alt_flag_change(struct mail *mail, bool move_to_alt);
+int mdbox_purge(struct mail_storage *storage);
 
 #endif

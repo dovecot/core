@@ -13,9 +13,9 @@ AM_CPPFLAGS = \
 
 libstorage_dbox_multi_la_SOURCES = \
 	mdbox-file.c \
-	mdbox-file-purge.c \
 	mdbox-mail.c \
 	mdbox-map.c \
+	mdbox-purge.c \
 	mdbox-save.c \
 	mdbox-settings.c \
 	mdbox-sync.c \

@@ -27,8 +27,6 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 int mdbox_sync_finish(struct mdbox_sync_context **ctx, bool success);
 int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags);
 
-int mdbox_sync_purge(struct mail_storage *storage);
-
 struct mailbox_sync_context *
 mdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 

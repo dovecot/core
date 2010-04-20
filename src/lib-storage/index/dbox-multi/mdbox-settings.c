@@ -14,15 +14,13 @@
 static const struct setting_define mdbox_setting_defines[] = {
 	DEF(SET_SIZE, mdbox_rotate_size),
 	DEF(SET_TIME, mdbox_rotate_interval),
-	DEF(SET_TIME, mdbox_altmove),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct mdbox_settings mdbox_default_settings = {
 	.mdbox_rotate_size = 2*1024*1024,
-	.mdbox_rotate_interval = 0,
-	.mdbox_altmove = 3600*24*7
+	.mdbox_rotate_interval = 0
 };
 
 static const struct setting_parser_info mdbox_setting_parser_info = {

@@ -32,7 +32,6 @@ struct dbox_map_append {
 
 struct dbox_map_append_context {
 	struct dbox_map *map;
-	enum dbox_map_append_flags flags;
 
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *sync_view;

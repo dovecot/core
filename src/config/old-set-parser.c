@@ -134,14 +134,10 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		set_rename(ctx, key, "mdbox_rotate_size", value);
 		return TRUE;
 	}
-	if (strcmp(key, "dbox_rotate_days") == 0) {
-		set_rename(ctx, key, "mdbox_rotate_interval",
-			   t_strconcat(value, "d", NULL));
-		return TRUE;
-	}
 
 	if (strcmp(key, "login_dir") == 0 ||
 	    strcmp(key, "dbox_rotate_min_size") == 0 ||
+	    strcmp(key, "dbox_rotate_days") == 0 ||
 	    strcmp(key, "mail_log_max_lines_per_sec") == 0 ||
 	    strcmp(key, "maildir_copy_preserve_filename") == 0) {
 		obsolete(ctx, "%s has been removed", key);

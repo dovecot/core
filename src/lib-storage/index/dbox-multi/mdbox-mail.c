@@ -7,6 +7,7 @@
 #include "index-mail.h"
 #include "dbox-mail.h"
 #include "mdbox-storage.h"
+#include "mdbox-sync.h"
 #include "mdbox-map.h"
 #include "mdbox-file.h"
 
@@ -172,6 +173,20 @@ static int mdbox_mail_get_save_date(struct mail *mail, time_t *date_r)
 	return TRUE;
 }
 
+static void
+mdbox_mail_update_flags(struct mail *mail, enum modify_type modify_type,
+			enum mail_flags flags)
+{
+	if ((flags & DBOX_INDEX_FLAG_ALT) != 0) {
+		mdbox_purge_alt_flag_change(mail, modify_type != MODIFY_REMOVE);
+		flags &= ~DBOX_INDEX_FLAG_ALT;
+		if (flags == 0 && modify_type != MODIFY_REPLACE)
+			return;
+	}
+
+	index_mail_update_flags(mail, modify_type, flags);
+}
+
 struct mail_vfuncs mdbox_mail_vfuncs = {
 	dbox_mail_close,
 	index_mail_free,
@@ -194,7 +209,7 @@ struct mail_vfuncs mdbox_mail_vfuncs = {
 	index_mail_get_header_stream,
 	dbox_mail_get_stream,
 	dbox_mail_get_special,
-	index_mail_update_flags,
+	mdbox_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_update_modseq,
 	index_mail_update_uid,

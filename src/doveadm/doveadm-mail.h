@@ -1,6 +1,8 @@
 #ifndef DOVEADM_MAIL_H
 #define DOVEADM_MAIL_H
 
+#include "doveadm.h"
+
 struct mail_user;
 
 typedef void doveadm_mail_command_t(struct mail_user *mail_user,
@@ -29,5 +31,6 @@ struct mailbox *
 doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox);
 
 void cmd_fetch(struct mail_user *user, const char *const args[]);
+void cmd_altmove(struct mail_user *user, const char *const args[]);
 
 #endif

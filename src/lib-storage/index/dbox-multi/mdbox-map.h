@@ -45,6 +45,10 @@ int dbox_map_refresh(struct dbox_map *map);
    is already expunged, -1 if error. */
 int dbox_map_lookup(struct dbox_map *map, uint32_t map_uid,
 		    uint32_t *file_id_r, uoff_t *offset_r);
+/* Like dbox_map_lookup(), but look up everything. */
+int dbox_map_lookup_full(struct dbox_map *map, uint32_t map_uid,
+			 struct dbox_map_mail_index_record *rec_r,
+			 uint16_t *refcount_r);
 
 /* Get all messages from file */
 int dbox_map_get_file_msgs(struct dbox_map *map, uint32_t file_id,
@@ -69,11 +73,12 @@ int dbox_map_get_zero_ref_files(struct dbox_map *map,
 				ARRAY_TYPE(seq_range) *file_ids_r);
 
 struct dbox_map_append_context *
-dbox_map_append_begin(struct dbox_map *map, enum dbox_map_append_flags flags);
+dbox_map_append_begin(struct dbox_map *map);
 /* Request file for saving a new message with given size (if available). If an
    existing file can be used, the record is locked and updated in index.
    Returns 0 if ok, -1 if error. */
 int dbox_map_append_next(struct dbox_map_append_context *ctx, uoff_t mail_size,
+			 enum dbox_map_append_flags flags,
 			 struct dbox_file_append_context **file_append_ctx_r,
 			 struct ostream **output_r);
 /* Finished saving the last mail. Saves the message size. */
