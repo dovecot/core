@@ -271,18 +271,22 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 
 	if (ret <= 0)
 		ret = -1;
-	else {
+	else if (ctx->append_ctx == NULL) {
+		/* everything purged from this file */
+		ret = 1;
+	} else {
 		/* assign new file_id + offset to moved messages */
 		if (dbox_map_append_move(ctx->append_ctx, &copied_map_uids,
 					 &expunged_map_uids) < 0 ||
 		    dbox_map_append_commit(ctx->append_ctx) < 0)
 			ret = -1;
-		else {
+		else
 			ret = 1;
-			(void)dbox_file_unlink(file);
-		}
 	}
-	dbox_map_append_free(&ctx->append_ctx);
+	if (ret > 0)
+		(void)dbox_file_unlink(file);
+	if (ctx->append_ctx != NULL)
+		dbox_map_append_free(&ctx->append_ctx);
 	if (ret < 0)
 		dbox_file_unlock(file);
 	array_free(&copied_map_uids);

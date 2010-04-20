@@ -47,14 +47,6 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		return -1;
 	}
 
-#ifndef HAVE_FLOCK
-	if (master_service_get_client_limit(master_service) > 1) {
-		*error_r = "mdbox requires client_limit=1 for service "
-			"since your OS doesn't support flock()";
-		return -1;
-	}
-#endif
-
 	_storage->unique_root_dir =
 		p_strdup(_storage->pool, ns->list->set.root_dir);
 
