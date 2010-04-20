@@ -35,14 +35,13 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 	const char *value, *error;
 	struct tm tm;
 	unsigned int secs;
-	int tz;
 
 	sarg = mail_search_build_new(ctx, type);
 	if (mail_search_parse_string(ctx->parser, &value) < 0)
 		return NULL;
 
 	/* a) yyyy-mm-dd
-	   b) imap date-time
+	   b) imap date
 	   c) interval (e.g. n days) */
 	if (i_isdigit(value[0]) && i_isdigit(value[1]) &&
 	    i_isdigit(value[2]) && i_isdigit(value[3]) && value[4] == '-' &&
@@ -50,11 +49,11 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 	    i_isdigit(value[8]) && i_isdigit(value[9]) && value[10] == '\0') {
 		memset(&tm, 0, sizeof(tm));
 		tm.tm_year = (value[0]-'0') * 1000 + (value[1]-'0') * 100 +
-			(value[2]-'0') * 10 + (value[3]-'0');
+			(value[2]-'0') * 10 + (value[3]-'0') - 1900;
 		tm.tm_mon = (value[5]-'0') * 10 + (value[6]-'0') - 1;
 		tm.tm_mday = (value[8]-'0') * 10 + (value[9]-'0');
 		sarg->value.time = mktime(&tm);
-	} else if (imap_parse_datetime(value, &sarg->value.time, &tz)) {
+	} else if (imap_parse_date(value, &sarg->value.time)) {
 		/* imap date */
 	} else if (settings_get_time(value, &secs, &error) == 0) {
 		sarg->value.time = ioloop_time - secs;
