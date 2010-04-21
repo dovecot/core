@@ -40,9 +40,12 @@ get_log_var_expand_table(struct mail_deliver_context *ctx, const char *message)
 		{ 'm', NULL, "msgid" },
 		{ 's', NULL, "subject" },
 		{ 'f', NULL, "from" },
+		{ 'p', NULL, "size" },
+		{ 'w', NULL, "vsize" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
+	uoff_t size;
 	unsigned int i;
 
 	tab = t_malloc(sizeof(static_tab));
@@ -52,6 +55,10 @@ get_log_var_expand_table(struct mail_deliver_context *ctx, const char *message)
 	(void)mail_get_first_header(ctx->src_mail, "Message-ID", &tab[1].value);
 	(void)mail_get_first_header_utf8(ctx->src_mail, "Subject", &tab[2].value);
 	tab[3].value = mail_deliver_get_address(ctx, "From");
+	if (mail_get_physical_size(ctx->src_mail, &size) == 0)
+		tab[4].value = dec2str(size);
+	if (mail_get_virtual_size(ctx->src_mail, &size) == 0)
+		tab[5].value = dec2str(size);
 	for (i = 1; tab[i].key != '\0'; i++)
 		tab[i].value = str_sanitize(tab[i].value, 80);
 	return tab;
