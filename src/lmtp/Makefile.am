@@ -21,7 +21,8 @@ if !BUILD_SHARED_LIBS
 unused_objects = \
 	../lib/mountpoint.o \
 	../lib-mail/message-header-encode.o \
-	../lib-imap/imap-util.o
+	../lib-imap/imap-util.o \
+	../lib-storage/mail-search-parser-imap.o
 endif
 lda_unused_objects = \
 	../lib-lda/smtp-client.o
