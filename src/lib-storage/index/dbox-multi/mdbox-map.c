@@ -446,7 +446,7 @@ int dbox_map_update_refcount(struct dbox_map_transaction_context *ctx,
 	const void *data;
 	uint32_t seq;
 	bool expunged;
-	int cur_diff;
+	int old_diff, new_diff;
 
 	if (unlikely(ctx->trans == NULL))
 		return -1;
@@ -460,21 +460,22 @@ int dbox_map_update_refcount(struct dbox_map_transaction_context *ctx,
 	}
 	mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
 			      &data, &expunged);
-	cur_diff = data == NULL ? 0 : *((const uint16_t *)data);
+	old_diff = data == NULL ? 0 : *((const uint16_t *)data);
 	ctx->changed = TRUE;
-	cur_diff += mail_index_atomic_inc_ext(ctx->trans, seq,
-					      map->ref_ext_id, diff);
-	if (cur_diff < 0) {
+	new_diff = mail_index_atomic_inc_ext(ctx->trans, seq,
+					     map->ref_ext_id, diff);
+	if (old_diff + new_diff < 0) {
 		dbox_map_set_corrupted(map, "map_uid=%u refcount too low",
 				       map_uid);
 		return -1;
 	}
-	if (cur_diff >= 32768) {
+	if (old_diff + new_diff >= 32768) {
 		/* we're getting close to the 64k limit. fail early
 		   to make it less likely that two processes increase
 		   the refcount enough times to cross the limit */
 		mail_storage_set_error(MAP_STORAGE(map), MAIL_ERROR_NOTPOSSIBLE,
-			"Message has been copied too many times");
+			t_strdup_printf("Message has been copied too many times (%d + %d)",
+					old_diff, new_diff));
 		return -1;
 	}
 	return 0;
