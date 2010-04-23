@@ -437,7 +437,8 @@ int main(int argc, char *argv[])
 	mail_set_seq(ctx.src_mail, 1);
 
 	if (ctx.dest_addr == NULL) {
-		ctx.dest_addr = mail_deliver_get_address(&ctx, "Envelope-To");
+		ctx.dest_addr = mail_deliver_get_address(ctx.src_mail,
+							 "Envelope-To");
 		if (ctx.dest_addr == NULL) {
 			ctx.dest_addr = strchr(user, '@') != NULL ? user :
 				t_strconcat(user, "@", ctx.set->hostname, NULL);

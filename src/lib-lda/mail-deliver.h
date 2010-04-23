@@ -40,11 +40,12 @@ typedef int deliver_mail_func_t(struct mail_deliver_context *ctx,
 
 extern deliver_mail_func_t *deliver_mail;
 
+const struct var_expand_table *
+mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message);
 void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
 
-const char *mail_deliver_get_address(struct mail_deliver_context *ctx,
-				     const char *header);
+const char *mail_deliver_get_address(struct mail *mail, const char *header);
 const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx);
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx);
 

@@ -16,13 +16,12 @@
 
 deliver_mail_func_t *deliver_mail = NULL;
 
-const char *mail_deliver_get_address(struct mail_deliver_context *ctx,
-				     const char *header)
+const char *mail_deliver_get_address(struct mail *mail, const char *header)
 {
 	struct message_address *addr;
 	const char *str;
 
-	if (mail_get_first_header(ctx->src_mail, header, &str) <= 0)
+	if (mail_get_first_header(mail, header, &str) <= 0)
 		return NULL;
 	addr = message_address_parse(pool_datastack_create(),
 				     (const unsigned char *)str,
@@ -32,8 +31,8 @@ const char *mail_deliver_get_address(struct mail_deliver_context *ctx,
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
 }
 
-static const struct var_expand_table *
-get_log_var_expand_table(struct mail_deliver_context *ctx, const char *message)
+const struct var_expand_table *
+mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
 {
 	static struct var_expand_table static_tab[] = {
 		{ '$', NULL, NULL },
@@ -51,17 +50,17 @@ get_log_var_expand_table(struct mail_deliver_context *ctx, const char *message)
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = message;
-	(void)mail_get_first_header(ctx->src_mail, "Message-ID", &tab[1].value);
-	tab[1].value = str_sanitize(tab[1].value, 200);
+	(void)mail_get_first_header(mail, "Message-ID", &tab[1].value);
+	tab[1].value = tab[1].value == NULL ? "unspecified" :
+		str_sanitize(tab[1].value, 200);
 
-	(void)mail_get_first_header_utf8(ctx->src_mail, "Subject", &tab[2].value);
+	(void)mail_get_first_header_utf8(mail, "Subject", &tab[2].value);
 	tab[2].value = str_sanitize(tab[2].value, 80);
+	tab[3].value = str_sanitize(mail_deliver_get_address(mail, "From"), 80);
 
-	tab[3].value = str_sanitize(mail_deliver_get_address(ctx, "From"), 80);
-
-	if (mail_get_physical_size(ctx->src_mail, &size) == 0)
+	if (mail_get_physical_size(mail, &size) == 0)
 		tab[4].value = dec2str(size);
-	if (mail_get_virtual_size(ctx->src_mail, &size) == 0)
+	if (mail_get_virtual_size(mail, &size) == 0)
 		tab[5].value = dec2str(size);
 	return tab;
 }
@@ -79,7 +78,7 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	if (ctx->session_id != NULL)
 		str_printfa(str, "%s: ", ctx->session_id);
 	var_expand(str, ctx->set->deliver_log_format,
-		   get_log_var_expand_table(ctx, msg));
+		   mail_deliver_get_log_var_expand_table(ctx->src_mail, msg));
 	i_info("%s", str_c(str));
 	va_end(args);
 }
@@ -251,7 +250,7 @@ const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 	if (ctx->src_envelope_sender != NULL)
 		return ctx->src_envelope_sender;
 
-	return mail_deliver_get_address(ctx, "Return-Path");
+	return mail_deliver_get_address(ctx->src_mail, "Return-Path");
 }
 
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx)
