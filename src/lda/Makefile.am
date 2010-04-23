@@ -24,13 +24,10 @@ unused_objects = \
 	../lib-storage/mail-search-parser-imap.o
 endif
 
-libs = \
-	../lib-lda/liblda.a \
-	$(LIBDOVECOT_STORAGE) \
-	$(unused_objects)
+libs = $(unused_objects)
 
-dovecot_lda_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
-dovecot_lda_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
+dovecot_lda_LDADD = $(libs) $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_LDA) $(LIBDOVECOT) $(MODULE_LIBS)
+dovecot_lda_DEPENDENCIES = $(libs) $(LIBDOVECOT_STORAGE_DEPS) $(LIBDOVECOT_LDA_DEPS) $(LIBDOVECOT_DEPS)
 
 dovecot_lda_SOURCES = \
 	main.c

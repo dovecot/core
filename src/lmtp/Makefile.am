@@ -22,19 +22,14 @@ unused_objects = \
 	../lib/mountpoint.o \
 	../lib-mail/message-header-encode.o \
 	../lib-imap/imap-util.o \
-	../lib-storage/mail-search-parser-imap.o
-endif
-lda_unused_objects = \
+	../lib-storage/mail-search-parser-imap.o \
 	../lib-lda/smtp-client.o
+endif
 
-libs = \
-	../lib-lda/liblda.a \
-	$(LIBDOVECOT_STORAGE) \
-	$(lda_unused_objects) \
-	$(unused_objects)
+libs = $(unused_objects)
 
-lmtp_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
-lmtp_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
+lmtp_LDADD = $(libs) $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_LDA) $(LIBDOVECOT) $(MODULE_LIBS)
+lmtp_DEPENDENCIES = $(libs) $(LIBDOVECOT_STORAGE_DEPS) $(LIBDOVECOT_LDA_DEPS) $(LIBDOVECOT_DEPS)
 
 lmtp_SOURCES = \
 	main.c \

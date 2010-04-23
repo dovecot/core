@@ -2455,11 +2455,13 @@ else
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
 fi
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
+LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
 AC_SUBST(LIBDOVECOT)
 AC_SUBST(LIBDOVECOT_DEPS)
 AC_SUBST(LIBDOVECOT_STORAGE)
 AC_SUBST(LIBDOVECOT_LOGIN)
 AC_SUBST(LIBDOVECOT_SQL)
+AC_SUBST(LIBDOVECOT_LDA)
 
 dnl **
 dnl ** SQL drivers

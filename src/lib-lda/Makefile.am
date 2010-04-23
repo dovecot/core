@@ -1,4 +1,4 @@
-noinst_LIBRARIES = liblda.a
+noinst_LTLIBRARIES = liblda.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,7 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage
 
-liblda_a_SOURCES = \
+liblda_la_SOURCES = \
 	duplicate.c \
 	lda-settings.c \
 	lmtp-client.c \
@@ -27,3 +27,9 @@ headers = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+pkglib_LTLIBRARIES = libdovecot-lda.la
+libdovecot_lda_la_SOURCES = 
+libdovecot_lda_la_LIBADD = liblda.la
+libdovecot_lda_la_DEPENDENCIES = liblda.la
+libdovecot_lda_la_LDFLAGS = -export-dynamic
