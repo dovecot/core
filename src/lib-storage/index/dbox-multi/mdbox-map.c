@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "ostream.h"
 #include "mkdir-parents.h"
+#include "unlink-old-files.h"
 #include "mdbox-storage.h"
 #include "mdbox-file.h"
 #include "mdbox-map-private.h"
@@ -99,6 +100,24 @@ static int dbox_map_mkdir_storage(struct dbox_map *map)
 	return 0;
 }
 
+static void dbox_map_cleanup(struct dbox_map *map)
+{
+	struct stat st;
+
+	if (stat(map->path, &st) < 0)
+		return;
+
+	/* check once in a while if there are temp files to clean up */
+	if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
+		/* there haven't been any changes to this directory since we
+		   last checked it. */
+	} else if (st.st_atime < ioloop_time - DBOX_TMP_SCAN_SECS) {
+		/* time to scan */
+		(void)unlink_old_files(map->path, DBOX_TEMP_FILE_PREFIX,
+				       ioloop_time - DBOX_TMP_DELETE_SECS);
+	}
+}
+
 static int dbox_map_open_internal(struct dbox_map *map, bool create_missing)
 {
 	enum mail_index_open_flags open_flags;
@@ -130,6 +149,7 @@ static int dbox_map_open_internal(struct dbox_map *map, bool create_missing)
 	}
 
 	map->view = mail_index_view_open(map->index);
+	dbox_map_cleanup(map);
 	return 1;
 }
 

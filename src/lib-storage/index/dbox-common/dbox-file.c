@@ -36,7 +36,7 @@ const char *dbox_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
 
-	return t_strdup_printf("temp.%lu.P%sQ%uM%u.%s",
+	return t_strdup_printf(DBOX_TEMP_FILE_PREFIX"%lu.P%sQ%uM%u.%s",
 			       (unsigned long)ioloop_timeval.tv_sec, my_pid,
 			       create_count++,
 			       (unsigned int)ioloop_timeval.tv_usec,
