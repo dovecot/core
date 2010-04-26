@@ -111,17 +111,6 @@ int cmd_mail(struct client *client, const char *args)
 	return 0;
 }
 
-static bool rcpt_is_duplicate(struct client *client, const char *address)
-{
-	const struct mail_recipient *rcpt;
-
-	array_foreach(&client->state.rcpt_to, rcpt) {
-		if (strcmp(rcpt->address, address) == 0)
-			return TRUE;
-	}
-	return FALSE;
-}
-
 static bool
 client_proxy_rcpt_parse_fields(struct lmtp_proxy_settings *set,
 			       const char *const *args, const char **address)
@@ -351,11 +340,6 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	memset(&rcpt, 0, sizeof(rcpt));
 	address = lmtp_unescape_address(t_strndup(arg + 4, len - 5));
-
-	if (rcpt_is_duplicate(client, address)) {
-		client_send_line(client, "250 2.1.5 OK, ignoring duplicate");
-		return 0;
-	}
 
 	if (*argv != NULL) {
 		client_send_line(client, "501 5.5.4 Unsupported options");
