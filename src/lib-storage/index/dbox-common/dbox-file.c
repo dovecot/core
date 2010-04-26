@@ -25,7 +25,7 @@
 
 #define DBOX_READ_BLOCK_SIZE 4096
 
-#if DBOX_FILE_LOCK_METHOD == FILE_LOCK_METHOD_DOTLOCK
+#ifndef DBOX_FILE_LOCK_METHOD_FLOCK
 static const struct dotlock_settings dotlock_set = {
 	.stale_timeout = 60*10,
 	.use_excl_lock = TRUE
@@ -298,19 +298,19 @@ int dbox_file_try_lock(struct dbox_file *file)
 
 	i_assert(file->fd != -1);
 
-#if DBOX_FILE_LOCK_METHOD == FILE_LOCK_METHOD_DOTLOCK
+#ifdef DBOX_FILE_LOCK_METHOD_FLOCK
+	ret = file_try_lock(file->fd, file->cur_path, F_WRLCK,
+			    FILE_LOCK_METHOD_FLOCK, &file->lock);
+	if (ret < 0) {
+		mail_storage_set_critical(&file->storage->storage,
+			"file_try_lock(%s) failed: %m", file->cur_path);
+	}
+#else
 	ret = file_dotlock_create(&dotlock_set, file->cur_path,
 				  DOTLOCK_CREATE_FLAG_NONBLOCK, &file->lock);
 	if (ret < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"file_dotlock_create(%s) failed: %m", file->cur_path);
-	}
-#else
-	ret = file_try_lock(file->fd, file->cur_path, F_WRLCK,
-			    DBOX_FILE_LOCK_METHOD, &file->lock);
-	if (ret < 0) {
-		mail_storage_set_critical(&file->storage->storage,
-			"file_try_lock(%s) failed: %m", file->cur_path);
 	}
 #endif
 	return ret;
@@ -321,10 +321,10 @@ void dbox_file_unlock(struct dbox_file *file)
 	i_assert(!file->appending || file->lock == NULL);
 
 	if (file->lock != NULL) {
-#if DBOX_FILE_LOCK_METHOD == FILE_LOCK_METHOD_DOTLOCK
-		(void)file_dotlock_delete(&file->lock);
-#else
+#ifdef DBOX_FILE_LOCK_METHOD_FLOCK
 		file_unlock(&file->lock);
+#else
+		(void)file_dotlock_delete(&file->lock);
 #endif
 	}
 	if (file->input != NULL)
