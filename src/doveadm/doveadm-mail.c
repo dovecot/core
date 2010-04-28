@@ -329,6 +329,7 @@ void doveadm_mail_help_name(const char *cmd_name)
 static struct doveadm_mail_cmd mail_commands[] = {
 	{ cmd_purge, "purge", NULL },
 	{ cmd_force_resync, "force-resync", "<mailbox>" },
+	{ cmd_expunge, "expunge", "<search query>" },
 	{ cmd_fetch, "fetch", "<fields> <search query>" },
 	{ cmd_altmove, "altmove", "<search query>" },
 	{ cmd_list, "list", "[<mailbox> [...]]" }

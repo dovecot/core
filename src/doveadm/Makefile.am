@@ -53,6 +53,7 @@ doveadm_SOURCES = \
 	doveadm-kick.c \
 	doveadm-mail.c \
 	doveadm-mail-altmove.c \
+	doveadm-mail-expunge.c \
 	doveadm-mail-fetch.c \
 	doveadm-mail-iter.c \
 	doveadm-mail-list.c \
