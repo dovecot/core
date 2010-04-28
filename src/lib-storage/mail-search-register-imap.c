@@ -426,7 +426,7 @@ imap_search_inthread(struct mail_search_build_context *ctx)
 }
 
 CALLBACK_STR(x_guid, SEARCH_GUID);
-CALLBACK_STR(x_mailbox, SEARCH_MAILBOX);
+CALLBACK_STR(x_mailbox, SEARCH_MAILBOX_GLOB);
 
 const struct mail_search_register_arg imap_register_args[] = {
 	/* argument set operations */

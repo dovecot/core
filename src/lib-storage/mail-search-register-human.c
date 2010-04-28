@@ -128,7 +128,7 @@ human_search_guid(struct mail_search_build_context *ctx)
 static struct mail_search_arg *
 human_search_mailbox(struct mail_search_build_context *ctx)
 {
-	return mail_search_build_str(ctx, SEARCH_MAILBOX);
+	return mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
 }
 
 static const struct mail_search_register_arg human_register_args[] = {

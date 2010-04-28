@@ -7,6 +7,7 @@
 #include "utc-offset.h"
 #include "str.h"
 #include "time-util.h"
+#include "imap-match.h"
 #include "message-address.h"
 #include "message-date.h"
 #include "message-search.h"
@@ -285,6 +286,11 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		if (strcasecmp(str, "INBOX") == 0)
 			return strcasecmp(arg->value.str, "INBOX") == 0;
 		return strcmp(str, arg->value.str) == 0;
+	case SEARCH_MAILBOX_GLOB:
+		if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME,
+				     &str) < 0)
+			return -1;
+		return imap_match(arg->value.mailbox_glob, str) == IMAP_MATCH_YES;
 	default:
 		return -1;
 	}
@@ -1176,6 +1182,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
+	case SEARCH_MAILBOX_GLOB:
 		return TRUE;
 	}
 	return FALSE;

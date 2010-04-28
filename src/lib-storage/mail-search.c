@@ -2,9 +2,10 @@
 
 #include "lib.h"
 #include "array.h"
-#include "buffer.h"
+#include "imap-match.h"
 #include "mail-index.h"
 #include "mail-storage.h"
+#include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-search.h"
 
@@ -92,6 +93,15 @@ mail_search_args_init_sub(struct mail_search_args *args,
 							      keywords);
 			break;
 
+		case SEARCH_MAILBOX_GLOB: {
+			struct mail_namespace *ns =
+				mailbox_get_namespace(args->box);
+
+			arg->value.mailbox_glob =
+				imap_match_init(default_pool, arg->value.str,
+						TRUE, ns->sep);
+			break;
+		}
 		case SEARCH_INTHREAD:
 			thread_args = arg->value.search_args;
 			if (thread_args == NULL) {
@@ -149,6 +159,12 @@ static void mail_search_args_deinit_sub(struct mail_search_args *args,
 			if (arg->value.keywords == NULL)
 				break;
 			mailbox_keywords_unref(args->box, &arg->value.keywords);
+			break;
+		case SEARCH_MAILBOX_GLOB:
+			if (arg->value.mailbox_glob == NULL)
+				break;
+
+			imap_match_deinit(&arg->value.mailbox_glob);
 			break;
 		case SEARCH_INTHREAD:
 			i_assert(arg->value.search_args->refcount > 0);
@@ -296,9 +312,9 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
+	case SEARCH_MAILBOX_GLOB:
 		new_arg->value.str = p_strdup(pool, arg->value.str);
 		break;
-
 	case SEARCH_MODSEQ:
 		new_arg->value.modseq =
 			p_new(pool, struct mail_search_modseq, 1);
@@ -770,6 +786,7 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
+	case SEARCH_MAILBOX_GLOB:
 		/* don't bother doing case-insensitive comparison. it must not
 		   be done for guid/mailbox, and for others we should support
 		   full i18n case-insensitivity (or the active comparator

@@ -42,7 +42,8 @@ enum mail_search_arg_type {
 	SEARCH_MODSEQ,
 	SEARCH_INTHREAD,
 	SEARCH_GUID,
-	SEARCH_MAILBOX
+	SEARCH_MAILBOX,
+	SEARCH_MAILBOX_GLOB
 };
 
 enum mail_search_date_type {
@@ -86,6 +87,7 @@ struct mail_search_arg {
 		struct mail_search_modseq *modseq;
 		struct mail_search_args *search_args;
 		struct mail_search_result *search_result;
+		struct imap_match_glob *mailbox_glob;
 	} value;
 
         void *context;
@@ -166,7 +168,8 @@ const char *const *
 mail_search_args_analyze(struct mail_search_arg *args,
 			 bool *have_headers, bool *have_body);
 
-/* Simplify/optimize search arguments */
+/* Simplify/optimize search arguments. Afterwards all OR/SUB args are
+   guaranteed to have not=FALSE. */
 void mail_search_args_simplify(struct mail_search_args *args);
 
 #endif
