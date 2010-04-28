@@ -167,7 +167,9 @@ static void login_client_failed(const struct master_login_client *client,
 	const char *msg;
 
 	msg = t_strdup_printf("-ERR [IN-USE] %s\r\n", errormsg);
-	(void)write(client->fd, msg, strlen(msg));
+	if (write(client->fd, msg, strlen(msg)) < 0) {
+		/* ignored */
+	}
 }
 
 static void client_connected(const struct master_service_connection *conn)

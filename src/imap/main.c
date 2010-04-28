@@ -271,7 +271,9 @@ static void login_client_failed(const struct master_login_client *client,
 	client_parse_input(client->data, client->auth_req.data_size, &input);
 	msg = t_strdup_printf("%s NO ["IMAP_RESP_CODE_UNAVAILABLE"] %s\r\n",
 			      input.tag, errormsg);
-	(void)write(client->fd, msg, strlen(msg));
+	if (write(client->fd, msg, strlen(msg)) < 0) {
+		/* ignored */
+	}
 }
 
 static void client_connected(const struct master_service_connection *conn)
