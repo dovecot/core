@@ -395,7 +395,8 @@ local_worker_mailbox_iter_init(struct dsync_worker *_worker)
 	iter->ret_pool = pool_alloconly_create("local mailbox iter", 1024);
 	iter->list_iter =
 		mailbox_list_iter_init_namespaces(worker->user->namespaces,
-						  patterns, list_flags);
+						  patterns, NAMESPACE_PRIVATE,
+						  list_flags);
 	(void)dsync_worker_get_mailbox_log(worker);
 	return &iter->iter;
 }
@@ -580,7 +581,8 @@ local_worker_subs_iter_init(struct dsync_worker *_worker)
 	iter->iter.worker = _worker;
 	iter->list_iter =
 		mailbox_list_iter_init_namespaces(worker->user->namespaces,
-						  patterns, list_flags);
+						  patterns, NAMESPACE_PRIVATE,
+						  list_flags);
 	(void)dsync_worker_get_mailbox_log(worker);
 	return &iter->iter;
 }

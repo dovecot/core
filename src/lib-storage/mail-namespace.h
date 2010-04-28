@@ -6,9 +6,9 @@
 struct mail_storage_callbacks;
 
 enum namespace_type {
-	NAMESPACE_PRIVATE,
-	NAMESPACE_SHARED,
-	NAMESPACE_PUBLIC
+	NAMESPACE_PRIVATE	= 0x01,
+	NAMESPACE_SHARED	= 0x02,
+	NAMESPACE_PUBLIC	= 0x04
 };
 
 enum namespace_flags {

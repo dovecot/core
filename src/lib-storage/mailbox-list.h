@@ -10,6 +10,7 @@
 #  define MAILBOX_LIST_NAME_MAX_LENGTH 4096
 #endif
 
+enum namespace_type;
 struct mail_namespace;
 struct mail_storage;
 struct mailbox_list;
@@ -63,17 +64,24 @@ enum mailbox_list_iter_flags {
 	/* Use virtual mailbox names (virtual separators and namespace
 	   prefixes) for patterns and for returned mailbox names. */
 	MAILBOX_LIST_ITER_VIRTUAL_NAMES		= 0x000002,
+	/* Don't list INBOX unless it actually exists */
+	MAILBOX_LIST_ITER_NO_AUTO_INBOX		= 0x000004,
+
 	/* For mailbox_list_iter_init_namespaces(): Skip namespaces that
 	   have alias_for set. */
-	MAILBOX_LIST_ITER_SKIP_ALIASES		= 0x000004,
-	/* Don't list INBOX unless it actually exists */
-	MAILBOX_LIST_ITER_NO_AUTO_INBOX		= 0x000008,
+	MAILBOX_LIST_ITER_SKIP_ALIASES		= 0x000008,
+	/* For mailbox_list_iter_init_namespaces(): '*' in a pattern doesn't
+	   match beyond namespace boundary (e.g. "foo*" or "*o" doesn't match
+	   "foo." namespace's mailboxes, but "*.*" does). also '%' can't match
+	   namespace prefixes, if there exists a parent namespace whose children
+	   it matches. VIRTUAL_NAMES must be set when using this flag. */
+	MAILBOX_LIST_ITER_STAR_WITHIN_NS	= 0x000010,
 
 	/* List only subscribed mailboxes */
-	MAILBOX_LIST_ITER_SELECT_SUBSCRIBED	= 0x000010,
+	MAILBOX_LIST_ITER_SELECT_SUBSCRIBED	= 0x000100,
 	/* Return MAILBOX_CHILD_* if mailbox's children match selection
 	   criteria, even if the mailbox itself wouldn't match. */
-	MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH	= 0x000020,
+	MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH	= 0x000200,
 
 	/* Don't return any flags unless it can be done without cost */
 	MAILBOX_LIST_ITER_RETURN_NO_FLAGS	= 0x001000,
@@ -238,6 +246,7 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 				  const char *const *patterns,
+				  enum namespace_type type_mask,
 				  enum mailbox_list_iter_flags flags);
 /* Get next mailbox. Returns the mailbox name */
 const struct mailbox_info *

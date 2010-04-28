@@ -38,7 +38,8 @@ struct ns_list_iterate_context {
 	struct mailbox_list_iterate_context *backend_ctx;
 	struct mail_namespace *namespaces;
 	pool_t pool;
-	const char **patterns;
+	const char **patterns, **patterns_ns_match;
+	enum namespace_type type_mask;
 };
 
 struct mailbox_list_module_register mailbox_list_module_register = { 0 };
@@ -592,12 +593,124 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 	return list->v.iter_init(list, patterns, flags);
 }
 
+static bool
+ns_match_simple(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
+{
+	if ((ctx->type_mask & ns->type) == 0)
+		return FALSE;
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SKIP_ALIASES) != 0) {
+		if (ns->alias_for != NULL)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static bool
+ns_match_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns,
+	      const char *pattern)
+{
+	struct imap_match_glob *glob;
+	enum imap_match_result result;
+	const char *prefix_without_sep;
+	unsigned int len;
+
+	len = ns->prefix_len;
+	if (len > 0 && ns->prefix[len-1] == ns->sep)
+		len--;
+
+	if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+			  NAMESPACE_FLAG_LIST_CHILDREN)) == 0) {
+		/* non-listable namespace matches only with exact prefix */
+		if (strncmp(ns->prefix, pattern, ns->prefix_len) != 0)
+			return FALSE;
+	}
+
+	prefix_without_sep = t_strndup(ns->prefix, len);
+	if (*prefix_without_sep == '\0')
+		result = IMAP_MATCH_CHILDREN;
+	else {
+		glob = imap_match_init(pool_datastack_create(), pattern,
+				       TRUE, ns->sep);
+		result = imap_match(glob, prefix_without_sep);
+	}
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) == 0) {
+		switch (result) {
+		case IMAP_MATCH_YES:
+		case IMAP_MATCH_CHILDREN:
+			return TRUE;
+		case IMAP_MATCH_NO:
+		case IMAP_MATCH_PARENT:
+			break;
+		}
+		return FALSE;
+	}
+
+	switch (result) {
+	case IMAP_MATCH_YES:
+		/* allow matching prefix only when it's done without
+		   wildcards */
+		if (strcmp(prefix_without_sep, pattern) == 0)
+			return TRUE;
+		break;
+	case IMAP_MATCH_CHILDREN: {
+		/* allow this only if there isn't another namespace
+		   with longer prefix that matches this pattern
+		   (namespaces are sorted by prefix length) */
+		struct mail_namespace *tmp;
+
+		T_BEGIN {
+			for (tmp = ns->next; tmp != NULL; tmp = tmp->next) {
+				if (ns_match_simple(ctx, tmp) &&
+				    ns_match_next(ctx, tmp, pattern))
+					break;
+			}
+		} T_END;
+		if (tmp == NULL)
+			return TRUE;
+		break;
+	}
+	case IMAP_MATCH_NO:
+	case IMAP_MATCH_PARENT:
+		break;
+	}
+	return FALSE;
+}
+
+static bool
+ns_match(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
+{
+	unsigned int i;
+
+	if (!ns_match_simple(ctx, ns))
+		return FALSE;
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
+		/* filter out namespaces whose prefix doesn't match.
+		   this same code handles both with and without
+		   STAR_WITHIN_NS, so the "without" case is slower than
+		   necessary, but this shouldn't matter much */
+		T_BEGIN {
+			for (i = 0; ctx->patterns_ns_match[i] != NULL; i++) {
+				if (ns_match_next(ctx, ns,
+						  ctx->patterns_ns_match[i]))
+					break;
+			}
+		} T_END;
+
+		if (ctx->patterns_ns_match[i] == NULL)
+			return FALSE;
+	}
+	return ns;
+}
+
 static struct mail_namespace *
 ns_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 {
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SKIP_ALIASES) != 0) {
-		while (ns != NULL && ns->alias_for != NULL)
-			ns = ns->next;
+	for (; ns != NULL; ns = ns->next) {
+		if (ns_match(ctx, ns))
+			break;
 	}
 	return ns;
 }
@@ -609,7 +722,8 @@ mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
 		(struct ns_list_iterate_context *)_ctx;
 	const struct mailbox_info *info;
 
-	info = mailbox_list_iter_next(ctx->backend_ctx);
+	info = ctx->backend_ctx == NULL ? NULL :
+		mailbox_list_iter_next(ctx->backend_ctx);
 	if (info == NULL && ctx->namespaces != NULL) {
 		/* go to the next namespace */
 		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
@@ -632,16 +746,39 @@ mailbox_list_ns_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		(struct ns_list_iterate_context *)_ctx;
 	int ret;
 
-	if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
-		_ctx->failed = TRUE;
+	if (ctx->backend_ctx != NULL) {
+		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
+			_ctx->failed = TRUE;
+	}
 	ret = _ctx->failed ? -1 : 0;
 	pool_unref(&ctx->pool);
 	return ret;
 }
 
+static const char **
+dup_patterns_without_stars(pool_t pool, const char *const *patterns,
+			   unsigned int count)
+{
+	const char **dup;
+	unsigned int i;
+
+	dup = p_new(pool, const char *, count + 1);
+	for (i = 0; i < count; i++) {
+		char *p = p_strdup(pool, patterns[i]);
+		dup[i] = p;
+
+		for (; *p != '\0'; p++) {
+			if (*p == '*')
+				*p = '%';
+		}
+	}
+	return dup;
+}
+
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 				  const char *const *patterns,
+				  enum namespace_type type_mask,
 				  enum mailbox_list_iter_flags flags)
 {
 	struct ns_list_iterate_context *ctx;
@@ -650,9 +787,13 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 
 	i_assert(namespaces != NULL);
 
+	i_assert((flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) == 0 ||
+		 (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0);
+
 	pool = pool_alloconly_create("mailbox list namespaces", 1024);
 	ctx = p_new(pool, struct ns_list_iterate_context, 1);
 	ctx->pool = pool;
+	ctx->type_mask = type_mask;
 	ctx->ctx.flags = flags;
 	ctx->ctx.list = p_new(pool, struct mailbox_list, 1);
 	ctx->ctx.list->v.iter_next = mailbox_list_ns_iter_next;
@@ -663,11 +804,22 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	for (i = 0; i < count; i++)
 		ctx->patterns[i] = p_strdup(pool, patterns[i]);
 
+	if ((flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) != 0) {
+		/* create copies of patterns with '*' wildcard changed to '%' */
+		ctx->patterns_ns_match =
+			dup_patterns_without_stars(pool, ctx->patterns, count);
+	} else {
+		ctx->patterns_ns_match = ctx->patterns;
+	}
+
 	namespaces = ns_next(ctx, namespaces);
 	ctx->ctx.list->ns = namespaces;
-	ctx->backend_ctx = mailbox_list_iter_init_multiple(namespaces->list,
-							   patterns, flags);
-	ctx->namespaces = ns_next(ctx, namespaces->next);
+	if (namespaces != NULL) {
+		ctx->backend_ctx =
+			mailbox_list_iter_init_multiple(namespaces->list,
+							patterns, flags);
+		ctx->namespaces = ns_next(ctx, namespaces->next);
+	}
 	return &ctx->ctx;
 }
 
