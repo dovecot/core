@@ -16,6 +16,8 @@
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
 
+#include <stdio.h>
+
 struct fetch_context {
 	struct mail_search_args *search_args;
 	struct ostream *output;
@@ -248,6 +250,16 @@ static const struct fetch_field *fetch_field_find(const char *name)
 	return NULL;
 }
 
+static void print_fetch_fields(void)
+{
+	unsigned int i;
+
+	fprintf(stderr, "Available fetch fields: %s", fetch_fields[0].name);
+	for (i = 1; i < N_ELEMENTS(fetch_fields); i++)
+		fprintf(stderr, " %s", fetch_fields[i].name);
+	fprintf(stderr, "\n");
+}
+
 static void parse_fetch_fields(struct fetch_context *ctx, const char *str)
 {
 	const char *const *fields, *name;
@@ -259,8 +271,10 @@ static void parse_fetch_fields(struct fetch_context *ctx, const char *str)
 		name = t_str_lcase(*fields);
 
 		field = fetch_field_find(name);
-		if (field == NULL)
+		if (field == NULL) {
+			print_fetch_fields();
 			i_fatal("Unknown fetch field: %s", name);
+		}
 		ctx->wanted_fields |= field->wanted_fields;
 
 		array_append(&ctx->fields, field, 1);
