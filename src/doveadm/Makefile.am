@@ -54,6 +54,7 @@ doveadm_SOURCES = \
 	doveadm-mail.c \
 	doveadm-mail-altmove.c \
 	doveadm-mail-fetch.c \
+	doveadm-mail-list.c \
 	doveadm-mail-list-iter.c \
 	doveadm-penalty.c \
 	doveadm-pw.c \

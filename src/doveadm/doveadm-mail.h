@@ -32,5 +32,6 @@ doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox);
 
 void cmd_fetch(struct mail_user *user, const char *const args[]);
 void cmd_altmove(struct mail_user *user, const char *const args[]);
+void cmd_list(struct mail_user *user, const char *const args[]);
 
 #endif
