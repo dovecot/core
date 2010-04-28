@@ -524,6 +524,65 @@ mail_search_args_analyze(struct mail_search_arg *args,
 	return buffer_get_data(headers, NULL);
 }
 
+static bool
+mail_search_args_match_mailbox_arg(const struct mail_search_arg *arg,
+				   const char *vname, char sep)
+{
+	const struct mail_search_arg *subarg;
+	bool ret;
+
+	switch (arg->type) {
+	case SEARCH_OR:
+		subarg = arg->value.subargs;
+		for (; subarg != NULL; subarg = subarg->next) {
+			if (mail_search_args_match_mailbox_arg(subarg,
+							       vname, sep))
+				return TRUE;
+		}
+		return FALSE;
+	case SEARCH_SUB:
+	case SEARCH_INTHREAD:
+		subarg = arg->value.subargs;
+		for (; subarg != NULL; subarg = subarg->next) {
+			if (!mail_search_args_match_mailbox_arg(subarg,
+								vname, sep))
+				return FALSE;
+		}
+		return TRUE;
+	case SEARCH_MAILBOX:
+		ret = strcmp(arg->value.str, vname) == 0;
+		return ret != arg->not;
+	case SEARCH_MAILBOX_GLOB: {
+		T_BEGIN {
+			struct imap_match_glob *glob;
+
+			glob = imap_match_init(pool_datastack_create(),
+					       arg->value.str, TRUE, sep);
+			ret = imap_match(glob, vname) == IMAP_MATCH_YES;
+		} T_END;
+		return ret != arg->not;
+	}
+	default:
+		break;
+	}
+	return TRUE;
+}
+
+bool mail_search_args_match_mailbox(struct mail_search_args *args,
+				    const char *vname, char sep)
+{
+	const struct mail_search_arg *arg;
+
+	if (!args->simplified)
+		mail_search_args_simplify(args);
+
+	for (arg = args->args; arg != NULL; arg = arg->next) {
+		if (!mail_search_args_match_mailbox_arg(arg, vname, sep))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static struct mail_keywords *
 mail_search_keywords_merge(struct mailbox *box,
 			   struct mail_keywords **_kw1,

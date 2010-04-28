@@ -168,6 +168,11 @@ const char *const *
 mail_search_args_analyze(struct mail_search_arg *args,
 			 bool *have_headers, bool *have_body);
 
+/* Returns FALSE if search query contains MAILBOX[_GLOB] args such that the
+   query can never match any messages in the given mailbox. */
+bool mail_search_args_match_mailbox(struct mail_search_args *args,
+				    const char *vname, char sep);
+
 /* Simplify/optimize search arguments. Afterwards all OR/SUB args are
    guaranteed to have not=FALSE. */
 void mail_search_args_simplify(struct mail_search_args *args);
