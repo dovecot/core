@@ -5,24 +5,9 @@
 #include "mail-index.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
-#include "mail-search-build.h"
-#include "mail-search-parser.h"
+#include "mail-search.h"
 #include "doveadm-mail-list-iter.h"
 #include "doveadm-mail.h"
-
-static struct mail_search_args *build_search_args(const char *const args[])
-{
-	struct mail_search_parser *parser;
-	struct mail_search_args *sargs;
-	const char *error;
-
-	parser = mail_search_parser_init_cmdline(args);
-	if (mail_search_build(mail_search_register_human, parser, "UTF-8",
-			      &sargs, &error) < 0)
-		i_fatal("%s", error);
-	mail_search_parser_deinit(&parser);
-	return sargs;
-}
 
 static int
 cmd_altmove_box(struct mailbox *box, struct mail_search_args *search_args)
@@ -92,7 +77,7 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("altmove");
-	search_args = build_search_args(args);
+	search_args = doveadm_mail_build_search_args(args);
 
 	t_array_init(&purged_storages, 8);
 	iter = doveadm_mail_list_iter_init(user, search_args, iter_flags);

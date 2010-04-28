@@ -11,8 +11,7 @@
 #include "imap-util.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
-#include "mail-search-build.h"
-#include "mail-search-parser.h"
+#include "mail-search.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
 
@@ -225,20 +224,6 @@ static const struct fetch_field fetch_fields[] = {
 	{ "date.saved",    MAIL_FETCH_SAVE_DATE,     fetch_date_saved }
 };
 
-static struct mail_search_args *build_search_args(const char *const args[])
-{
-	struct mail_search_parser *parser;
-	struct mail_search_args *sargs;
-	const char *error;
-
-	parser = mail_search_parser_init_cmdline(args);
-	if (mail_search_build(mail_search_register_human, parser, "UTF-8",
-			      &sargs, &error) < 0)
-		i_fatal("%s", error);
-	mail_search_parser_deinit(&parser);
-	return sargs;
-}
-
 static const struct fetch_field *fetch_field_find(const char *name)
 {
 	unsigned int i;
@@ -345,7 +330,7 @@ void cmd_fetch(struct mail_user *user, const char *const args[])
 	if (fetch_fields == NULL || args[1] == NULL)
 		doveadm_mail_help_name("fetch");
 	parse_fetch_fields(&ctx, fetch_fields);
-	ctx.search_args = build_search_args(args + 1);
+	ctx.search_args = doveadm_mail_build_search_args(args + 1);
 
 	ctx.output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
 

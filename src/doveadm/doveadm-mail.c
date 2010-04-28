@@ -11,6 +11,8 @@
 #include "mail-storage.h"
 #include "mail-storage-settings.h"
 #include "mail-storage-service.h"
+#include "mail-search-build.h"
+#include "mail-search-parser.h"
 #include "doveadm.h"
 #include "doveadm-settings.h"
 #include "doveadm-mail.h"
@@ -71,6 +73,21 @@ doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox)
 						    NULL));
 	}
 	return box;
+}
+
+struct mail_search_args *
+doveadm_mail_build_search_args(const char *const args[])
+{
+	struct mail_search_parser *parser;
+	struct mail_search_args *sargs;
+	const char *error;
+
+	parser = mail_search_parser_init_cmdline(args);
+	if (mail_search_build(mail_search_register_human, parser, "UTF-8",
+			      &sargs, &error) < 0)
+		i_fatal("%s", error);
+	mail_search_parser_deinit(&parser);
+	return sargs;
 }
 
 static void cmd_force_resync(struct mail_user *user, const char *const args[])
