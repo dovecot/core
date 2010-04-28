@@ -774,7 +774,7 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 		   be done for guid/mailbox, and for others we should support
 		   full i18n case-insensitivity (or the active comparator
 		   in future). */
-		return strcmp(arg1->value.str, arg2->value.str);
+		return strcmp(arg1->value.str, arg2->value.str) == 0;
 
 	case SEARCH_MODSEQ: {
 		const struct mail_search_modseq *m1 = arg1->value.modseq;
