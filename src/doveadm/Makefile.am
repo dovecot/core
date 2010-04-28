@@ -54,6 +54,7 @@ doveadm_SOURCES = \
 	doveadm-mail.c \
 	doveadm-mail-altmove.c \
 	doveadm-mail-fetch.c \
+	doveadm-mail-list-iter.c \
 	doveadm-penalty.c \
 	doveadm-pw.c \
 	doveadm-settings.c \
@@ -63,5 +64,6 @@ noinst_HEADERS = \
 	doveadm.h \
 	doveadm-dump.h \
 	doveadm-mail.h \
+	doveadm-mail-list-iter.h \
 	doveadm-settings.h \
 	doveadm-who.h
