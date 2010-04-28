@@ -48,31 +48,42 @@ static void test_imap_match(void)
 		{ "%I%N%B%O%X%/foo", "inbox/foo", IMAP_MATCH_YES },
 		{ "i%X/foo", "inbx/foo", IMAP_MATCH_NO }
 	};
-	struct imap_match_glob *glob;
+	struct imap_match_glob *glob, *glob2;
 	unsigned int i;
-	enum imap_match_result result;
+	pool_t pool;
+
+	pool = pool_alloconly_create_clean("test", 1024);
 
 	/* first try tests without inboxcasing */
+	test_begin("imap match");
 	for (i = 0; i < N_ELEMENTS(test); i++) {
-		glob = imap_match_init(default_pool, test[i].pattern,
+		glob = imap_match_init(pool, test[i].pattern,
 				       FALSE, '/');
-		result = imap_match(glob, test[i].input);
-		imap_match_deinit(&glob);
+		test_assert(imap_match(glob, test[i].input) == test[i].result);
 
-		test_out(t_strdup_printf("imap_match(%d)", i), 
-			 result == test[i].result);
+		glob2 = imap_match_dup(default_pool, glob);
+		p_clear(pool);
+
+		/* test the dup after clearing first one's memory */
+		test_assert(imap_match(glob2, test[i].input) == test[i].result);
+		imap_match_deinit(&glob2);
 	}
 
 	/* inboxcasing tests */
 	for (i = 0; i < N_ELEMENTS(inbox_test); i++) {
-		glob = imap_match_init(default_pool, inbox_test[i].pattern,
+		glob = imap_match_init(pool, inbox_test[i].pattern,
 				       TRUE, '/');
-		result = imap_match(glob, inbox_test[i].input);
-		imap_match_deinit(&glob);
+		test_assert(imap_match(glob, inbox_test[i].input) == inbox_test[i].result);
 
-		test_out(t_strdup_printf("imap_match(inboxcase, %d)", i),
-			 result == inbox_test[i].result);
+		glob2 = imap_match_dup(default_pool, glob);
+		p_clear(pool);
+
+		/* test the dup after clearing first one's memory */
+		test_assert(imap_match(glob2, inbox_test[i].input) == inbox_test[i].result);
+		imap_match_deinit(&glob2);
 	}
+	pool_unref(&pool);
+	test_end();
 }
 
 int main(void)

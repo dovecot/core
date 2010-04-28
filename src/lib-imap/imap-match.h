@@ -27,8 +27,10 @@ imap_match_init(pool_t pool, const char *pattern,
 struct imap_match_glob *
 imap_match_init_multiple(pool_t pool, const char *const *patterns,
 			 bool inboxcase, char separator);
-
 void imap_match_deinit(struct imap_match_glob **glob);
+
+struct imap_match_glob *
+imap_match_dup(pool_t pool, const struct imap_match_glob *glob);
 
 enum imap_match_result
 imap_match(struct imap_match_glob *glob, const char *data);

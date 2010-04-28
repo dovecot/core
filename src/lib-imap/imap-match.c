@@ -4,6 +4,7 @@
    rewritten. */
 
 #include "lib.h"
+#include "array.h"
 #include "imap-match.h"
 
 #include <ctype.h>
@@ -174,6 +175,39 @@ void imap_match_deinit(struct imap_match_glob **glob)
 	p_free((*glob)->pool, *glob);
 	*glob = NULL;
 }
+
+static struct imap_match_glob *
+imap_match_dup_real(pool_t pool, const struct imap_match_glob *glob)
+{
+	ARRAY_TYPE(const_string) patterns;
+	const struct imap_match_pattern *p;
+	bool inboxcase = FALSE;
+
+	t_array_init(&patterns, 8);
+	for (p = glob->patterns; p->pattern != NULL; p++) {
+		if (p->inboxcase)
+			inboxcase = TRUE;
+		array_append(&patterns, &p->pattern, 1);
+	}
+	(void)array_append_space(&patterns);
+	return imap_match_init_multiple_real(pool, array_idx(&patterns, 0),
+					     inboxcase, glob->sep);
+};
+
+struct imap_match_glob *
+imap_match_dup(pool_t pool, const struct imap_match_glob *glob)
+{
+	struct imap_match_glob *new_glob;
+
+	if (pool->datastack_pool) {
+		return imap_match_dup_real(pool, glob);
+	} else {
+		T_BEGIN {
+			new_glob = imap_match_dup_real(pool, glob);
+		} T_END;
+		return new_glob;
+	}
+};
 
 #define CMP_CUR_CHR(ctx, data, pattern) \
 	(*(data) == *(pattern) || \
