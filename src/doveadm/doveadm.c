@@ -28,7 +28,7 @@ void usage(void)
 {
 	const struct doveadm_cmd *cmd;
 
-	fprintf(stderr, "usage: doveadm\n");
+	fprintf(stderr, "usage: doveadm [-Dv] <command> [<args>]\n");
 
 	array_foreach(&doveadm_cmds, cmd) {
 		fprintf(stderr, USAGE_CMDNAME_FMT" %s\n",
