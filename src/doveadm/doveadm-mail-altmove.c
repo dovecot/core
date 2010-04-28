@@ -77,6 +77,7 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 {
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RAW_LIST |
+		MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 		MAILBOX_LIST_ITER_NO_AUTO_INBOX |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct mail_search_args *search_args;
@@ -85,6 +86,7 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 	struct mail_namespace *ns, *prev_ns = NULL;
 	struct mailbox *box;
 	ARRAY_DEFINE(purged_storages, struct mail_storage *);
+	const char *storage_name;
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 
@@ -94,7 +96,7 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 
 	t_array_init(&purged_storages, 8);
 	iter = doveadm_mail_list_iter_init(user, search_args, iter_flags);
-	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) {
+	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
 		if (info->ns != prev_ns) {
 			if (prev_ns != NULL) {
 				ns_purge(prev_ns);
@@ -104,12 +106,14 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 			prev_ns = info->ns;
 		}
 
-		box = mailbox_alloc(info->ns->list, info->name,
+		storage_name = mail_namespace_get_storage_name(info->ns,
+							       info->name);
+		box = mailbox_alloc(info->ns->list, storage_name,
 				    MAILBOX_FLAG_KEEP_RECENT |
 				    MAILBOX_FLAG_IGNORE_ACLS);
 		(void)cmd_altmove_box(box, search_args);
 		mailbox_free(&box);
-	}
+	} T_END;
 	doveadm_mail_list_iter_deinit(&iter);
 
 	/* make sure all private storages have been purged */

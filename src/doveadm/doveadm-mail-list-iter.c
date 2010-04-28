@@ -13,7 +13,6 @@ struct doveadm_mail_list_iter {
 	enum mailbox_list_iter_flags iter_flags;
 
 	struct mailbox_list_iterate_context *iter;
-	string_t *vname;
 };
 
 static void
@@ -52,6 +51,8 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 	struct doveadm_mail_list_iter *iter;
 	ARRAY_TYPE(const_string) patterns;
 
+	i_assert((iter_flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0);
+
 	iter = i_new(struct doveadm_mail_list_iter, 1);
 	iter->search_args = search_args;
 
@@ -70,7 +71,6 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 						       array_idx(&patterns, 0),
 						       NAMESPACE_PRIVATE,
 						       iter_flags);
-	iter->vname = str_new(default_pool, 256);
 	return iter;
 }
 
@@ -82,7 +82,6 @@ void doveadm_mail_list_iter_deinit(struct doveadm_mail_list_iter **_iter)
 
 	if (mailbox_list_iter_deinit(&iter->iter) < 0)
 		i_error("Listing mailboxes failed");
-	str_free(&iter->vname);
 	i_free(iter);
 }
 
@@ -90,17 +89,10 @@ const struct mailbox_info *
 doveadm_mail_list_iter_next(struct doveadm_mail_list_iter *iter)
 {
 	const struct mailbox_info *info;
-	const char *vname;
 
 	while ((info = mailbox_list_iter_next(iter->iter)) != NULL) {
-		if ((iter->iter_flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0)
-			vname = info->name;
-		else {
-			vname = mail_namespace_get_vname(info->ns, iter->vname,
-							 info->name);
-		}
-		if (mail_search_args_match_mailbox(iter->search_args, vname,
-						   info->ns->sep))
+		if (mail_search_args_match_mailbox(iter->search_args,
+						   info->name, info->ns->sep))
 			break;
 	}
 	return info;
