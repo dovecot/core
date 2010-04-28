@@ -5,49 +5,32 @@
 #include "mail-index.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
-#include "mail-search.h"
 #include "doveadm-mail-list-iter.h"
+#include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
 static int
-cmd_altmove_box(struct mailbox *box, struct mail_search_args *search_args)
+cmd_altmove_box(const struct mailbox_info *info,
+		struct mail_search_args *search_args)
 {
-	struct mail_storage *storage;
-	struct mailbox_transaction_context *t;
-	struct mail_search_context *search_ctx;
+	struct doveadm_mail_iter *iter;
+	struct mailbox_transaction_context *trans;
 	struct mail *mail;
-	const char *box_name;
-	int ret = 0;
 
-	box_name = mailbox_get_vname(box);
-	storage = mailbox_get_storage(box);
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("Syncing mailbox %s failed: %s", box_name,
-			mail_storage_get_last_error(storage, NULL));
+	if (doveadm_mail_iter_init(info, search_args, &trans, &iter) < 0)
 		return -1;
-	}
 
-	t = mailbox_transaction_begin(box, 0);
-	search_ctx = mailbox_search_init(t, search_args, NULL);
-	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(search_ctx, mail)) {
-		if (doveadm_debug)
-			i_debug("altmove: box=%s uid=%u", box_name, mail->uid);
+	mail = mail_alloc(trans, 0, NULL);
+	while (doveadm_mail_iter_next(iter, mail)) {
+		if (doveadm_debug) {
+			i_debug("altmove: box=%s uid=%u",
+				info->name, mail->uid);
+		}
 		mail_update_flags(mail, MODIFY_ADD,
 				  MAIL_INDEX_MAIL_FLAG_BACKEND);
 	}
 	mail_free(&mail);
-	if (mailbox_search_deinit(&search_ctx) < 0) {
-		i_error("Searching mailbox %s failed: %s", box_name,
-			mail_storage_get_last_error(storage, NULL));
-		ret = -1;
-	}
-	if (mailbox_transaction_commit(&t) < 0) {
-		i_error("Commiting mailbox %s failed: %s", box_name,
-			mail_storage_get_last_error(storage, NULL));
-		ret = -1;
-	}
-	return ret;
+	return doveadm_mail_iter_deinit(&iter);
 }
 
 static void ns_purge(struct mail_namespace *ns)
@@ -69,9 +52,7 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 	struct doveadm_mail_list_iter *iter;
 	const struct mailbox_info *info;
 	struct mail_namespace *ns, *prev_ns = NULL;
-	struct mailbox *box;
 	ARRAY_DEFINE(purged_storages, struct mail_storage *);
-	const char *storage_name;
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 
@@ -90,14 +71,7 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 			}
 			prev_ns = info->ns;
 		}
-
-		storage_name = mail_namespace_get_storage_name(info->ns,
-							       info->name);
-		box = mailbox_alloc(info->ns->list, storage_name,
-				    MAILBOX_FLAG_KEEP_RECENT |
-				    MAILBOX_FLAG_IGNORE_ACLS);
-		(void)cmd_altmove_box(box, search_args);
-		mailbox_free(&box);
+		(void)cmd_altmove_box(info, search_args);
 	} T_END;
 	doveadm_mail_list_iter_deinit(&iter);
 

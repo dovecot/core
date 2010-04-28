@@ -9,11 +9,10 @@
 #include "str.h"
 #include "message-size.h"
 #include "imap-util.h"
-#include "mail-namespace.h"
 #include "mail-storage.h"
-#include "mail-search.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
+#include "doveadm-mail-iter.h"
 
 #include <stdio.h>
 
@@ -266,50 +265,47 @@ static void parse_fetch_fields(struct fetch_context *ctx, const char *str)
 	}
 }
 
-static void
-cmd_fetch_box(struct fetch_context *ctx, struct mailbox *box)
+static void cmd_fetch_mail(struct fetch_context *ctx)
 {
-	struct mail_storage *storage = mailbox_get_storage(box);
-	struct mailbox_transaction_context *t;
-	struct mail_search_context *search_ctx;
-	struct mail *mail;
 	const struct fetch_field *field;
+	struct mail *mail = ctx->mail;
 
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("Syncing mailbox %s failed: %s", mailbox_get_vname(box),
-			mail_storage_get_last_error(storage, NULL));
-		return;
+	array_foreach(&ctx->fields, field) {
+		str_printfa(ctx->hdr, "%s: ", field->name);
+		if (field->print(ctx) < 0) {
+			struct mail_storage *storage =
+				mailbox_get_storage(mail->box);
+
+			i_error("fetch(%s) failed for box=%s uid=%u: %s",
+				field->name, mailbox_get_vname(mail->box),
+				mail->uid, mail_storage_get_last_error(storage, NULL));
+		}
+		str_append_c(ctx->hdr, '\n');
 	}
+	flush_hdr(ctx);
+}
 
-	mail_search_args_init(ctx->search_args, box, FALSE, NULL);
-	t = mailbox_transaction_begin(box, 0);
-	search_ctx = mailbox_search_init(t, ctx->search_args, NULL);
-	mail = mail_alloc(t, ctx->wanted_fields, NULL);
-	while (mailbox_search_next(search_ctx, mail)) {
+static int
+cmd_fetch_box(struct fetch_context *ctx, const struct mailbox_info *info)
+{
+	struct doveadm_mail_iter *iter;
+	struct mailbox_transaction_context *trans;
+	struct mail *mail;
+
+	if (doveadm_mail_iter_init(info, ctx->search_args, &trans, &iter) < 0)
+		return -1;
+
+	mail = mail_alloc(trans, ctx->wanted_fields, NULL);
+	while (doveadm_mail_iter_next(iter, mail)) {
 		str_truncate(ctx->hdr, 0);
 		str_append(ctx->hdr, ctx->prefix);
 
 		ctx->mail = mail;
-		array_foreach(&ctx->fields, field) {
-			str_printfa(ctx->hdr, "%s: ", field->name);
-			if (field->print(ctx) < 0) {
-				i_error("fetch(%s) failed for box=%s uid=%u: %s",
-					field->name, mailbox_get_vname(box),
-					mail->uid, mail_storage_get_last_error(storage, NULL));
-			}
-			str_append_c(ctx->hdr, '\n');
-		}
-		flush_hdr(ctx);
-
+		cmd_fetch_mail(ctx);
 		ctx->mail = NULL;
 	}
 	mail_free(&mail);
-	if (mailbox_search_deinit(&search_ctx) < 0) {
-		i_error("Search failed: %s",
-			mail_storage_get_last_error(storage, NULL));
-	}
-	mail_search_args_deinit(ctx->search_args);
-	(void)mailbox_transaction_commit(&t);
+	return doveadm_mail_iter_deinit(&iter);
 }
 
 void cmd_fetch(struct mail_user *user, const char *const args[])
@@ -322,8 +318,6 @@ void cmd_fetch(struct mail_user *user, const char *const args[])
 	struct fetch_context ctx;
 	struct doveadm_mail_list_iter *iter;
 	const struct mailbox_info *info;
-	struct mailbox *box;
-	const char *storage_name;
 	unsigned char prefix_buf[9];
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -344,13 +338,7 @@ void cmd_fetch(struct mail_user *user, const char *const args[])
 
 	iter = doveadm_mail_list_iter_init(user, ctx.search_args, iter_flags);
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
-		storage_name = mail_namespace_get_storage_name(info->ns,
-							       info->name);
-		box = mailbox_alloc(info->ns->list, storage_name,
-				    MAILBOX_FLAG_KEEP_RECENT |
-				    MAILBOX_FLAG_IGNORE_ACLS);
-		(void)cmd_fetch_box(&ctx, box);
-		mailbox_free(&box);
+		(void)cmd_fetch_box(&ctx, info);
 	} T_END;
 	doveadm_mail_list_iter_deinit(&iter);
 	o_stream_unref(&ctx.output);
