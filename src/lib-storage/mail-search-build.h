@@ -25,6 +25,10 @@ int mail_search_build(struct mail_search_register *reg,
 		      struct mail_search_parser *parser, const char *charset,
 		      struct mail_search_args **args_r, const char **error_r);
 
+/* Add new search arg with given type. */
+struct mail_search_arg *
+mail_search_build_add(struct mail_search_args *args,
+		      enum mail_search_arg_type type);
 /* Add SEARCH_ALL to search args. */
 void mail_search_build_add_all(struct mail_search_args *args);
 /* Add a sequence set to search args. */

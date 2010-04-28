@@ -177,15 +177,23 @@ struct mail_search_args *mail_search_build_init(void)
 	return args;
 }
 
-void mail_search_build_add_all(struct mail_search_args *args)
+struct mail_search_arg *
+mail_search_build_add(struct mail_search_args *args,
+		      enum mail_search_arg_type type)
 {
 	struct mail_search_arg *arg;
 
 	arg = p_new(args->pool, struct mail_search_arg, 1);
-	arg->type = SEARCH_ALL;
+	arg->type = type;
 
 	arg->next = args->args;
 	args->args = arg;
+	return arg;
+}
+
+void mail_search_build_add_all(struct mail_search_args *args)
+{
+	mail_search_build_add(args, SEARCH_ALL);
 }
 
 void mail_search_build_add_seqset(struct mail_search_args *args,
@@ -193,11 +201,8 @@ void mail_search_build_add_seqset(struct mail_search_args *args,
 {
 	struct mail_search_arg *arg;
 
-	arg = p_new(args->pool, struct mail_search_arg, 1);
-	arg->type = SEARCH_SEQSET;
+	arg = mail_search_build_add(args, SEARCH_SEQSET);
+
 	p_array_init(&arg->value.seqset, args->pool, 1);
 	seq_range_array_add_range(&arg->value.seqset, seq1, seq2);
-
-	arg->next = args->args;
-	args->args = arg;
 }
