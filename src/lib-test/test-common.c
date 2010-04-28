@@ -213,6 +213,7 @@ int test_deinit(void)
 {
 	i_assert(test_prefix == NULL);
 	printf("%u / %u tests failed\n", failure_count, total_count);
+	lib_deinit();
 	return failure_count == 0 ? 0 : 1;
 }
 
