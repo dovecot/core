@@ -209,6 +209,24 @@ imap_match_dup(pool_t pool, const struct imap_match_glob *glob)
 	}
 };
 
+bool imap_match_globs_equal(const struct imap_match_glob *glob1,
+			    const struct imap_match_glob *glob2)
+{
+	const struct imap_match_pattern *p1 = glob1->patterns;
+	const struct imap_match_pattern *p2 = glob2->patterns;
+
+	if (glob1->sep != glob2->sep)
+		return FALSE;
+
+	for (; p1->pattern != NULL && p2->pattern != NULL; p1++, p2++) {
+		if (strcmp(p1->pattern, p2->pattern) != 0)
+			return FALSE;
+		if (p1->inboxcase != p2->inboxcase)
+			return FALSE;
+	}
+	return p1->pattern == p2->pattern;
+}
+
 #define CMP_CUR_CHR(ctx, data, pattern) \
 	(*(data) == *(pattern) || \
 	 (i_toupper(*(data)) == i_toupper(*(pattern)) && \

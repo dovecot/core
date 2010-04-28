@@ -52,7 +52,7 @@ static void test_imap_match(void)
 	unsigned int i;
 	pool_t pool;
 
-	pool = pool_alloconly_create_clean("test", 1024);
+	pool = pool_alloconly_create_clean("imap match", 1024);
 
 	/* first try tests without inboxcasing */
 	test_begin("imap match");
@@ -62,6 +62,7 @@ static void test_imap_match(void)
 		test_assert(imap_match(glob, test[i].input) == test[i].result);
 
 		glob2 = imap_match_dup(default_pool, glob);
+		test_assert(imap_match_globs_equal(glob, glob2));
 		p_clear(pool);
 
 		/* test the dup after clearing first one's memory */
@@ -76,6 +77,7 @@ static void test_imap_match(void)
 		test_assert(imap_match(glob, inbox_test[i].input) == inbox_test[i].result);
 
 		glob2 = imap_match_dup(default_pool, glob);
+		test_assert(imap_match_globs_equal(glob, glob2));
 		p_clear(pool);
 
 		/* test the dup after clearing first one's memory */
@@ -86,10 +88,39 @@ static void test_imap_match(void)
 	test_end();
 }
 
+static void test_imap_match_globs_equal(void)
+{
+	struct imap_match_glob *glob;
+	pool_t pool;
+
+	pool = pool_alloconly_create_clean("imap match globs equal", 1024);
+	test_begin("imap match globs equal");
+
+	glob = imap_match_init(pool, "1", FALSE, '/');
+	test_assert(imap_match_globs_equal(glob,
+		imap_match_init(pool, "1", FALSE, '/')));
+	test_assert(imap_match_globs_equal(glob,
+		imap_match_init(pool, "1", TRUE, '/')));
+	test_assert(!imap_match_globs_equal(glob,
+		imap_match_init(pool, "1", FALSE, '.')));
+	test_assert(!imap_match_globs_equal(glob,
+		imap_match_init(pool, "11", FALSE, '/')));
+
+	glob = imap_match_init(pool, "in%", TRUE, '/');
+	test_assert(!imap_match_globs_equal(glob,
+		imap_match_init(pool, "in%", FALSE, '/')));
+	test_assert(!imap_match_globs_equal(glob,
+		imap_match_init(pool, "In%", TRUE, '/')));
+
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_imap_match,
+		test_imap_match_globs_equal,
 		NULL
 	};
 	return test_run(test_functions);

@@ -31,6 +31,10 @@ void imap_match_deinit(struct imap_match_glob **glob);
 
 struct imap_match_glob *
 imap_match_dup(pool_t pool, const struct imap_match_glob *glob);
+/* Returns TRUE if two globs were created with same init() parameters
+   (but inboxcase is ignored if no patterns can match INBOX) */
+bool imap_match_globs_equal(const struct imap_match_glob *glob1,
+			    const struct imap_match_glob *glob2);
 
 enum imap_match_result
 imap_match(struct imap_match_glob *glob, const char *data);
