@@ -752,7 +752,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 			ext->record_size);
 		return -1;
 	}
-	if (u->diff < 0 && (uint32_t)(-u->diff) > orig_num) {
+	if (u->diff < 0 && (uint64_t)(-u->diff) > orig_num) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension record inc drops number below zero "
 			"(uid=%u, diff=%d, orig=%llu)",
