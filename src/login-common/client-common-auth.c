@@ -90,18 +90,16 @@ static void client_auth_parse_args(struct client *client,
 		else if (strcmp(key, "master") == 0)
 			reply_r->master_user = value;
 		else if (strcmp(key, "ssl") == 0) {
-			if (strcmp(value, "yes") == 0) {
-				reply_r->ssl_flags |= PROXY_SSL_FLAG_YES;
-				if (reply_r->port == 0) {
-					reply_r->port =
-						login_binary.default_ssl_port;
-				}
-			} else if (strcmp(value, "any-cert") == 0) {
-				reply_r->ssl_flags |= PROXY_SSL_FLAG_YES |
-					PROXY_SSL_FLAG_ANY_CERT;
-			}
+			reply_r->ssl_flags |= PROXY_SSL_FLAG_YES;
+			if (strcmp(value, "any-cert") == 0)
+				reply_r->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
+			if (reply_r->port == 0)
+				reply_r->port = login_binary.default_ssl_port;
 		} else if (strcmp(key, "starttls") == 0) {
-			reply_r->ssl_flags |= PROXY_SSL_FLAG_STARTTLS;
+			reply_r->ssl_flags |= PROXY_SSL_FLAG_YES |
+				PROXY_SSL_FLAG_STARTTLS;
+			if (strcmp(value, "any-cert") == 0)
+				reply_r->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
 		} else if (strcmp(key, "user") == 0) {
 			/* already handled in login-common */
 		} else if (client->set->auth_debug)
