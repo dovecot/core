@@ -699,7 +699,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	const struct mail_index_ext *ext;
 	void *data;
 	uint32_t seq;
-	uint64_t orig_num;
+	uint64_t min_value, max_value, orig_num;
 
 	i_assert(ctx->cur_ext_map_idx != (uint32_t)-1);
 	i_assert(!ctx->cur_ext_ignore);
@@ -720,30 +720,49 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 	data = PTR_OFFSET(rec, ext->record_offset);
 
+	min_value = u->diff >= 0 ? 0 : (uint64_t)(-(int64_t)u->diff);
+
+	max_value = ext->record_size == 8 ? (uint64_t)-1 :
+		((uint64_t)1 << (ext->record_size*8)) - 1;
+	if (u->diff <= 0) {
+		/* skip */
+	} else if (max_value >= (uint32_t)u->diff) {
+		max_value -= u->diff;
+	} else {
+		mail_index_sync_set_corrupted(ctx,
+			"Extension record inc diff=%d larger than max value=%u "
+			"(uid=%u)", u->diff, (unsigned int)max_value, u->uid);
+		return -1;
+	}
+
 	switch (ext->record_size) {
 	case 1: {
 		uint8_t *num = data;
 
 		orig_num = *num;
-		*num += u->diff;
+		if (orig_num >= min_value && orig_num <= max_value)
+			*num += u->diff;
 		break;
 	}
 	case 2: {
 		uint16_t *num = data;
 		orig_num = *num;
-		*num += u->diff;
+		if (orig_num >= min_value && orig_num <= max_value)
+			*num += u->diff;
 		break;
 	}
 	case 4: {
 		uint32_t *num = data;
 		orig_num = *num;
-		*num += u->diff;
+		if (orig_num >= min_value && orig_num <= max_value)
+			*num += u->diff;
 		break;
 	}
 	case 8: {
 		uint64_t *num = data;
 		orig_num = *num;
-		*num += u->diff;
+		if (orig_num >= min_value && orig_num <= max_value)
+			*num += u->diff;
 		break;
 	}
 	default:
@@ -752,9 +771,15 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 			ext->record_size);
 		return -1;
 	}
-	if (u->diff < 0 && (uint64_t)(-(int64_t)u->diff) > orig_num) {
+	if (orig_num < min_value) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension record inc drops number below zero "
+			"(uid=%u, diff=%d, orig=%llu)",
+			u->uid, u->diff, (unsigned long long)orig_num);
+		return -1;
+	} else if (orig_num > max_value) {
+		mail_index_sync_set_corrupted(ctx,
+			"Extension record inc overflows number "
 			"(uid=%u, diff=%d, orig=%llu)",
 			u->uid, u->diff, (unsigned long long)orig_num);
 		return -1;
