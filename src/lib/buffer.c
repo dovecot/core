@@ -63,6 +63,22 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 		buffer_alloc(buf, pool_get_exp_grown_size(buf->pool, buf->alloc,
 							  new_size));
 	}
+#ifdef DEBUG
+	else if (new_size > buf->used && buf->alloced &&
+		 !buf->pool->alloconly_pool && !buf->pool->datastack_pool) {
+		void *new_buf;
+
+		/* buffer's size increased: move the buffer's memory elsewhere.
+		   this should help catch bugs where old pointers are tried to
+		   be used to access the buffer's memory */
+		new_buf = p_malloc(buf->pool, buf->alloc);
+		memcpy(new_buf, buf->w_buffer, buf->alloc);
+		p_free(buf->pool, buf->w_buffer);
+
+		buf->w_buffer = new_buf;
+		buf->r_buffer = new_buf;
+	}
+#endif
 
 	if (new_size > buf->used)
 		buf->used = new_size;
