@@ -184,15 +184,15 @@ static int o_stream_zlib_send_flush(struct zlib_ostream *zstream)
 static int o_stream_zlib_flush(struct ostream_private *stream)
 {
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
+	int ret;
 
 	if (o_stream_zlib_send_flush(zstream) < 0)
 		return -1;
 
-	if (o_stream_flush(zstream->output) < 0) {
+	ret = o_stream_flush(zstream->output);
+	if (ret < 0)
 		zstream_copy_error(zstream);
-		return -1;
-	}
-	return 0;
+	return ret;
 }
 
 static ssize_t
