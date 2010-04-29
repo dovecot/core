@@ -410,7 +410,7 @@ static struct master_settings *master_settings_read(void)
 
 static void main_log_startup(void)
 {
-#define STARTUP_STRING PACKAGE_NAME" v"VERSION" starting up"
+#define STARTUP_STRING PACKAGE_NAME" v"DOVECOT_VERSION_FULL" starting up"
 	rlim_t core_limit;
 
 	core_dumps_disabled = restrict_get_core_limit(&core_limit) == 0 &&
