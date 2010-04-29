@@ -62,7 +62,7 @@ static int mdbox_sync_expunge(struct mdbox_sync_context *ctx, uint32_t seq,
 		return -1;
 	if (mdbox_mail_lookup(ctx->mbox, ctx->sync_view, seq, &map_uid) < 0)
 		return -1;
-	if (dbox_map_update_refcount(ctx->map_trans, map_uid, -1) < 0)
+	if (mdbox_map_update_refcount(ctx->map_trans, map_uid, -1) < 0)
 		return -1;
 	return 0;
 }
@@ -149,7 +149,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 
 	/* handle syncing records without map being locked. */
 	ctx->map_trans =
-		dbox_map_transaction_begin(ctx->mbox->storage->map, FALSE);
+		mdbox_map_transaction_begin(ctx->mbox->storage->map, FALSE);
 	i_array_init(&ctx->expunged_seqs, 64);
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
 		if ((ret = mdbox_sync_rec(ctx, &sync_rec)) < 0)
@@ -159,7 +159,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 	/* write refcount changes to map index. map index is locked by
 	   the commit() and log head is updated, while tail is left behind. */
 	if (ret == 0)
-		ret = dbox_map_transaction_commit(ctx->map_trans);
+		ret = mdbox_map_transaction_commit(ctx->map_trans);
 	/* write changes to mailbox index */
 	if (ret == 0)
 		ret = dbox_sync_mark_expunges(ctx);
@@ -167,8 +167,8 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 	/* finish the map changes and unlock the map. this also updates
 	   map's tail -> head. */
 	if (ret < 0)
-		dbox_map_transaction_set_failed(ctx->map_trans);
-	dbox_map_transaction_free(&ctx->map_trans);
+		mdbox_map_transaction_set_failed(ctx->map_trans);
+	mdbox_map_transaction_free(&ctx->map_trans);
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);

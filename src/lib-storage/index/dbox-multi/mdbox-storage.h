@@ -27,7 +27,7 @@ struct mdbox_storage {
 
 	/* paths for storage directories */
 	const char *storage_dir, *alt_storage_dir;
-	struct dbox_map *map;
+	struct mdbox_map *map;
 
 	ARRAY_DEFINE(open_files, struct mdbox_file *);
 	struct timeout *to_close_unused_files;

@@ -255,7 +255,7 @@ rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 			     uint32_t next_uid)
 {
 	struct mdbox_rebuild_msg **msgs;
-	struct dbox_map_mail_index_record rec;
+	struct mdbox_map_mail_index_record rec;
 	unsigned int i, count;
 	uint32_t seq;
 
@@ -279,7 +279,7 @@ rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 
 static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 {
-	struct dbox_map *map = ctx->storage->map;
+	struct mdbox_map *map = ctx->storage->map;
 	const struct mail_index_header *hdr;
 	struct mdbox_rebuild_msg *const *msgs, **pos;
 	struct mdbox_rebuild_msg search_msg, *search_msgp = &search_msg;
@@ -293,8 +293,8 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 	msgs = array_get_modifiable(&ctx->msgs, &count);
 	hdr = mail_index_get_header(ctx->sync_view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		if (dbox_map_view_lookup_rec(map, ctx->sync_view,
-					     seq, &rec) < 0)
+		if (mdbox_map_view_lookup_rec(map, ctx->sync_view,
+					      seq, &rec) < 0)
 			return -1;
 
 		/* look up the rebuild msg record for this message */
@@ -441,7 +441,7 @@ static void mdbox_header_update(struct dbox_sync_rebuild_context *rebuild_ctx,
 	}
 
 	/* update map's uid-validity */
-	hdr.map_uid_validity = dbox_map_get_uid_validity(mbox->storage->map);
+	hdr.map_uid_validity = mdbox_map_get_uid_validity(mbox->storage->map);
 
 	/* and write changes */
 	mail_index_update_header_ext(rebuild_ctx->trans, mbox->hdr_ext_id, 0,
@@ -747,7 +747,7 @@ static int rebuild_finish(struct mdbox_storage_rebuild_context *ctx)
 
 	ctx->rebuild_count++;
 	mail_index_update_header_ext(ctx->trans, ctx->storage->map->map_ext_id,
-		offsetof(struct dbox_map_mail_index_header, rebuild_count),
+		offsetof(struct mdbox_map_mail_index_header, rebuild_count),
 		&ctx->rebuild_count, sizeof(ctx->rebuild_count));
 	return 0;
 }
@@ -809,7 +809,7 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 	uint32_t uid_validity;
 	int ret = 0;
 
-	if (dbox_map_open_or_create(ctx->storage->map) < 0)
+	if (mdbox_map_open_or_create(ctx->storage->map) < 0)
 		return -1;
 
 	/* begin by locking the map, so that other processes can't try to
@@ -833,7 +833,7 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 
 	i_warning("mdbox %s: rebuilding indexes", ctx->storage->storage_dir);
 
-	uid_validity = dbox_map_get_uid_validity(ctx->storage->map);
+	uid_validity = mdbox_map_get_uid_validity(ctx->storage->map);
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity != uid_validity) {
 		mail_index_update_header(ctx->trans,

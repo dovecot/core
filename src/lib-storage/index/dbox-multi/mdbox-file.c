@@ -264,7 +264,7 @@ void mdbox_file_unrefed(struct dbox_file *file)
 int mdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 {
 	struct mdbox_file *mfile = (struct mdbox_file *)file;
-	struct dbox_map *map = mfile->storage->map;
+	struct mdbox_map *map = mfile->storage->map;
 	mode_t old_mask;
 	const char *p, *dir;
 	int fd;

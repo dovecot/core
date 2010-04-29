@@ -58,7 +58,7 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 					       "/"MDBOX_GLOBAL_DIR_NAME, NULL);
 	i_array_init(&storage->open_files, 64);
 
-	storage->map = dbox_map_init(storage, ns->list, storage->storage_dir);
+	storage->map = mdbox_map_init(storage, ns->list, storage->storage_dir);
 	return 0;
 }
 
@@ -67,7 +67,7 @@ static void mdbox_storage_destroy(struct mail_storage *_storage)
 	struct mdbox_storage *storage = (struct mdbox_storage *)_storage;
 
 	mdbox_files_free(storage);
-	dbox_map_deinit(&storage->map);
+	mdbox_map_deinit(&storage->map);
 	if (storage->to_close_unused_files != NULL)
 		timeout_remove(&storage->to_close_unused_files);
 
@@ -173,7 +173,7 @@ void mdbox_update_header(struct mdbox_mailbox *mbox,
 	}
 
 	new_hdr.map_uid_validity =
-		dbox_map_get_uid_validity(mbox->storage->map);
+		mdbox_map_get_uid_validity(mbox->storage->map);
 	if (memcmp(&hdr, &new_hdr, sizeof(hdr)) != 0) {
 		mail_index_update_header_ext(trans, mbox->hdr_ext_id, 0,
 					     &new_hdr, sizeof(new_hdr));
@@ -188,7 +188,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 	const struct mail_index_header *hdr;
 	uint32_t uid_validity, uid_next;
 
-	if (dbox_map_open_or_create(mbox->storage->map) < 0)
+	if (mdbox_map_open_or_create(mbox->storage->map) < 0)
 		return -1;
 
 	hdr = mail_index_get_header(box->view);
@@ -254,8 +254,8 @@ void mdbox_storage_set_corrupted(struct mdbox_storage *storage)
 	storage->corrupted = TRUE;
 	storage->corrupted_rebuild_count = (uint32_t)-1;
 
-	if (dbox_map_open(storage->map) > 0 &&
-	    dbox_map_refresh(storage->map) == 0) {
+	if (mdbox_map_open(storage->map) > 0 &&
+	    mdbox_map_refresh(storage->map) == 0) {
 		storage->corrupted_rebuild_count =
 			mdbox_map_get_rebuild_count(storage->map);
 	}
@@ -301,12 +301,12 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 
 static int mdbox_mailbox_unref_mails(struct mdbox_mailbox *mbox)
 {
-	struct dbox_map_transaction_context *map_trans;
+	struct mdbox_map_transaction_context *map_trans;
 	const struct mail_index_header *hdr;
 	uint32_t seq, map_uid;
 	int ret = 0;
 
-	map_trans = dbox_map_transaction_begin(mbox->storage->map, FALSE);
+	map_trans = mdbox_map_transaction_begin(mbox->storage->map, FALSE);
 	hdr = mail_index_get_header(mbox->box.view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		if (mdbox_mail_lookup(mbox, mbox->box.view, seq,
@@ -315,15 +315,15 @@ static int mdbox_mailbox_unref_mails(struct mdbox_mailbox *mbox)
 			break;
 		}
 
-		if (dbox_map_update_refcount(map_trans, map_uid, -1) < 0) {
+		if (mdbox_map_update_refcount(map_trans, map_uid, -1) < 0) {
 			ret = -1;
 			break;
 		}
 	}
 
 	if (ret == 0)
-		ret = dbox_map_transaction_commit(map_trans);
-	dbox_map_transaction_free(&map_trans);
+		ret = mdbox_map_transaction_commit(map_trans);
+	mdbox_map_transaction_free(&map_trans);
 	return ret;
 }
 

@@ -16,7 +16,7 @@ struct mdbox_sync_context {
         struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
-	struct dbox_map_transaction_context *map_trans;
+	struct mdbox_map_transaction_context *map_trans;
 	enum mdbox_sync_flags flags;
 
 	ARRAY_TYPE(seq_range) expunged_seqs;

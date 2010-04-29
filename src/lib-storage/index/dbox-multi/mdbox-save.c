@@ -33,10 +33,10 @@ struct mdbox_save_context {
 	struct mdbox_sync_context *sync_ctx;
 
 	struct dbox_file_append_context *cur_file_append;
-	struct dbox_map_append_context *append_ctx;
+	struct mdbox_map_append_context *append_ctx;
 
 	ARRAY_TYPE(uint32_t) copy_map_uids;
-	struct dbox_map_transaction_context *map_trans;
+	struct mdbox_map_transaction_context *map_trans;
 
 	ARRAY_DEFINE(mails, struct dbox_save_mail);
 };
@@ -56,8 +56,8 @@ mdbox_copy_file_get_file(struct mailbox_transaction_context *t,
 			      &data, &expunged);
 	rec = data;
 
-	if (dbox_map_lookup(ctx->mbox->storage->map, rec->map_uid,
-			    &file_id, offset_r) <= 0)
+	if (mdbox_map_lookup(ctx->mbox->storage->map, rec->map_uid,
+			     &file_id, offset_r) <= 0)
 		i_unreached();
 
 	return mdbox_file_init(ctx->mbox->storage, file_id);
@@ -112,7 +112,7 @@ mdbox_save_alloc(struct mailbox_transaction_context *t)
 	ctx->ctx.ctx.transaction = t;
 	ctx->ctx.trans = t->itrans;
 	ctx->mbox = mbox;
-	ctx->append_ctx = dbox_map_append_begin(mbox->storage->map);
+	ctx->append_ctx = mdbox_map_append_begin(mbox->storage->map);
 	i_array_init(&ctx->mails, 32);
 	t->save_ctx = &ctx->ctx.ctx;
 	return t->save_ctx;
@@ -135,9 +135,9 @@ int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		st = i_stream_stat(input, FALSE);
 		mail_size = st->st_size > 0 ? st->st_size : 0;
 	}
-	if (dbox_map_append_next(ctx->append_ctx, mail_size, 0,
-				 &ctx->cur_file_append,
-				 &ctx->ctx.dbox_output) < 0) {
+	if (mdbox_map_append_next(ctx->append_ctx, mail_size, 0,
+				  &ctx->cur_file_append,
+				  &ctx->ctx.dbox_output) < 0) {
 		ctx->ctx.failed = TRUE;
 		return -1;
 	}
@@ -201,7 +201,7 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 		if (mdbox_save_mail_write_metadata(ctx, mails) < 0)
 			ctx->ctx.failed = TRUE;
 		else
-			dbox_map_append_finish(ctx->append_ctx);
+			mdbox_map_append_finish(ctx->append_ctx);
 	} T_END;
 
 	i_stream_unref(&ctx->ctx.input);
@@ -251,8 +251,8 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	/* assign map UIDs for newly saved messages. they're written to
 	   transaction log immediately within this function, but the map
 	   is left locked. */
-	if (dbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
-					    &last_map_uid) < 0) {
+	if (mdbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
+					     &last_map_uid) < 0) {
 		mdbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
@@ -285,9 +285,9 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	/* increase map's refcount for copied mails */
 	if (array_is_created(&ctx->copy_map_uids)) {
 		ctx->map_trans =
-			dbox_map_transaction_begin(mbox->storage->map, FALSE);
-		if (dbox_map_update_refcounts(ctx->map_trans,
-					      &ctx->copy_map_uids, 1) < 0) {
+			mdbox_map_transaction_begin(mbox->storage->map, FALSE);
+		if (mdbox_map_update_refcounts(ctx->map_trans,
+					       &ctx->copy_map_uids, 1) < 0) {
 			mdbox_transaction_save_rollback(_ctx);
 			return -1;
 		}
@@ -313,12 +313,12 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 	/* finish writing the mailbox APPENDs */
 	if (mdbox_sync_finish(&ctx->sync_ctx, TRUE) == 0) {
 		if (ctx->map_trans != NULL)
-			(void)dbox_map_transaction_commit(ctx->map_trans);
+			(void)mdbox_map_transaction_commit(ctx->map_trans);
 		/* commit only updates the sync tail offset, everything else
 		   was already written at this point. */
-		(void)dbox_map_append_commit(ctx->append_ctx);
+		(void)mdbox_map_append_commit(ctx->append_ctx);
 	}
-	dbox_map_append_free(&ctx->append_ctx);
+	mdbox_map_append_free(&ctx->append_ctx);
 
 	if (!ctx->mbox->storage->storage.storage.set->fsync_disable) {
 		if (fdatasync_path(ctx->mbox->box.path) < 0) {
@@ -336,9 +336,9 @@ void mdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 	if (!ctx->ctx.finished)
 		mdbox_save_cancel(&ctx->ctx.ctx);
 	if (ctx->append_ctx != NULL)
-		dbox_map_append_free(&ctx->append_ctx);
+		mdbox_map_append_free(&ctx->append_ctx);
 	if (ctx->map_trans != NULL)
-		dbox_map_transaction_free(&ctx->map_trans);
+		mdbox_map_transaction_free(&ctx->map_trans);
 	if (array_is_created(&ctx->copy_map_uids))
 		array_free(&ctx->copy_map_uids);
 

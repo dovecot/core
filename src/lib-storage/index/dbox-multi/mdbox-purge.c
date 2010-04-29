@@ -46,12 +46,12 @@ struct mdbox_purge_context {
 	struct hash_table *altmoves;
 	bool have_altmoves;
 
-	struct dbox_map_append_context *append_ctx;
+	struct mdbox_map_append_context *append_ctx;
 };
 
 static int mdbox_map_file_msg_offset_cmp(const void *p1, const void *p2)
 {
-	const struct dbox_map_file_msg *m1 = p1, *m2 = p2;
+	const struct mdbox_map_file_msg *m1 = p1, *m2 = p2;
 
 	if (m1->offset < m2->offset)
 		return -1;
@@ -130,24 +130,24 @@ mdbox_purge_want_altpath(struct mdbox_purge_context *ctx, uint32_t map_uid)
 
 static int
 mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
-		     const struct dbox_map_file_msg *msg)
+		     const struct mdbox_map_file_msg *msg)
 {
 	struct dbox_file_append_context *out_file_append;
 	struct istream *input;
 	struct ostream *output;
-	enum dbox_map_append_flags append_flags;
+	enum mdbox_map_append_flags append_flags;
 	uoff_t msg_size;
 	off_t ret;
 	int read_errno;
 
 	if (ctx->append_ctx == NULL)
-		ctx->append_ctx = dbox_map_append_begin(ctx->storage->map);
+		ctx->append_ctx = mdbox_map_append_begin(ctx->storage->map);
 
 	append_flags = !mdbox_purge_want_altpath(ctx, msg->map_uid) ? 0 :
 		DBOX_MAP_APPEND_FLAG_ALT;
 	msg_size = file->msg_header_size + file->cur_physical_size;
-	if (dbox_map_append_next(ctx->append_ctx, file->cur_physical_size,
-				 append_flags, &out_file_append, &output) < 0)
+	if (mdbox_map_append_next(ctx->append_ctx, file->cur_physical_size,
+				  append_flags, &out_file_append, &output) < 0)
 		return -1;
 
 	i_assert(file != out_file_append->file);
@@ -176,7 +176,7 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 	if ((ret = mdbox_file_copy_metadata(file, output)) <= 0)
 		return ret;
 
-	dbox_map_append_finish(ctx->append_ctx);
+	mdbox_map_append_finish(ctx->append_ctx);
 	return 1;
 }
 
@@ -185,8 +185,8 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 {
 	struct mdbox_storage *dstorage = (struct mdbox_storage *)file->storage;
 	struct stat st;
-	ARRAY_TYPE(dbox_map_file_msg) msgs_arr;
-	const struct dbox_map_file_msg *msgs;
+	ARRAY_TYPE(mdbox_map_file_msg) msgs_arr;
+	const struct mdbox_map_file_msg *msgs;
 	ARRAY_TYPE(seq_range) expunged_map_uids;
 	ARRAY_TYPE(uint32_t) copied_map_uids;
 	unsigned int i, count;
@@ -211,9 +211,9 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 	/* get list of map UIDs that exist in this file (again has to be done
 	   after locking) */
 	i_array_init(&msgs_arr, 128);
-	if (dbox_map_get_file_msgs(dstorage->map,
-				   ((struct mdbox_file *)file)->file_id,
-				   &msgs_arr) < 0) {
+	if (mdbox_map_get_file_msgs(dstorage->map,
+				    ((struct mdbox_file *)file)->file_id,
+				    &msgs_arr) < 0) {
 		array_free(&msgs_arr);
 		dbox_file_unlock(file);
 		return -1;
@@ -276,9 +276,9 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 		ret = 1;
 	} else {
 		/* assign new file_id + offset to moved messages */
-		if (dbox_map_append_move(ctx->append_ctx, &copied_map_uids,
-					 &expunged_map_uids) < 0 ||
-		    dbox_map_append_commit(ctx->append_ctx) < 0)
+		if (mdbox_map_append_move(ctx->append_ctx, &copied_map_uids,
+					  &expunged_map_uids) < 0 ||
+		    mdbox_map_append_commit(ctx->append_ctx) < 0)
 			ret = -1;
 		else
 			ret = 1;
@@ -286,7 +286,7 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 	if (ret > 0)
 		(void)dbox_file_unlink(file);
 	if (ctx->append_ctx != NULL)
-		dbox_map_append_free(&ctx->append_ctx);
+		mdbox_map_append_free(&ctx->append_ctx);
 	if (ret < 0)
 		dbox_file_unlock(file);
 	array_free(&copied_map_uids);
@@ -425,7 +425,7 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 	struct mdbox_storage *dstorage = ctx->storage;
 	const uint32_t *map_uids;
 	unsigned int i, count, alt_refcount = 0;
-	struct dbox_map_mail_index_record cur_rec;
+	struct mdbox_map_mail_index_record cur_rec;
 	uint32_t cur_map_uid;
 	uint16_t cur_refcount = 0;
 	uoff_t offset;
@@ -443,8 +443,8 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 	for (i = 0; i < count; i++) {
 		if (cur_map_uid != map_uids[i]) {
 			cur_map_uid = map_uids[i];
-			if (dbox_map_lookup_full(dstorage->map, cur_map_uid,
-						 &cur_rec, &cur_refcount) < 0) {
+			if (mdbox_map_lookup_full(dstorage->map, cur_map_uid,
+						  &cur_rec, &cur_refcount) < 0) {
 				cur_refcount = (uint16_t)-1;
 				ret = -1;
 			}
@@ -479,8 +479,8 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 			continue;
 		cur_map_uid = map_uids[i];
 
-		if (dbox_map_lookup(dstorage->map, cur_map_uid,
-				    &cur_rec.file_id, &offset) < 0) {
+		if (mdbox_map_lookup(dstorage->map, cur_map_uid,
+				     &cur_rec.file_id, &offset) < 0) {
 			ret = -1;
 			continue;
 		}
@@ -509,7 +509,7 @@ int mdbox_purge(struct mail_storage *_storage)
 	int ret;
 
 	ctx = mdbox_purge_alloc(storage);
-	ret = dbox_map_get_zero_ref_files(storage->map, &ctx->purge_file_ids);
+	ret = mdbox_map_get_zero_ref_files(storage->map, &ctx->purge_file_ids);
 	if (storage->alt_storage_dir != NULL) {
 		if (mdbox_purge_get_primary_files(ctx) < 0)
 			ret = -1;
@@ -527,7 +527,7 @@ int mdbox_purge(struct mail_storage *_storage)
 			if (mdbox_file_purge(ctx, file) < 0)
 				ret = -1;
 		} else {
-			dbox_map_remove_file_id(storage->map, file_id);
+			mdbox_map_remove_file_id(storage->map, file_id);
 		}
 		dbox_file_unref(&file);
 	} T_END;
