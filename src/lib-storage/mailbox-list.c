@@ -403,8 +403,8 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 			return;
 		}
 	} else {
-		*file_mode_r = st.st_mode & 0666;
-		*dir_mode_r = st.st_mode & 0777;
+		*file_mode_r = (st.st_mode & 0666) | 0600;
+		*dir_mode_r = (st.st_mode & 0777) | 0700;
 		*gid_origin_r = path;
 
 		if (!S_ISDIR(st.st_mode)) {
