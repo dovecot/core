@@ -346,11 +346,11 @@ syslog_handler(int level, enum log_type type, const char *format, va_list args)
 	recursed++;
 
 	/* syslogs don't generatelly bother to log the level in any way,
-	   so make sure fatals and panics are shown clearly */
+	   so make sure errors are shown clearly */
 	T_BEGIN {
 		syslog(level, "%s%s%s",
 		       log_prefix == NULL ? "" : log_prefix,
-		       type == LOG_TYPE_FATAL || type == LOG_TYPE_PANIC ?
+		       type != LOG_TYPE_INFO ?
 		       failure_log_type_prefixes[type] : "",
 		       t_strdup_vprintf(format, args));
 	} T_END;
