@@ -41,8 +41,12 @@ static int imap_search_parse_key(struct mail_search_parser *_parser,
 		stack = p_new(_parser->pool, struct imap_arg_stack, 1);
 		stack->prev = parser->cur;
 		stack->args = imap_arg_as_list(arg);
+
+		parser->cur->args++;
+		parser->cur = stack;
+
 		*key_r = MAIL_SEARCH_PARSER_KEY_LIST;
-		break;
+		return 1;
 	case IMAP_ARG_EOL:
 		parser->cur = parser->cur->prev;
 		return 0;
