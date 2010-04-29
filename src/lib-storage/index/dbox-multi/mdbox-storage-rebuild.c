@@ -214,8 +214,7 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 {
 	struct dbox_file *file;
 	uint32_t file_id;
-	const char *fname;
-	unsigned int len;
+	const char *fname, *ext;
 	bool deleted;
 	int ret = 0;
 
@@ -224,10 +223,13 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 	fname += strlen(MDBOX_MAIL_FILE_PREFIX) + 1;
 
 	if (str_to_uint32(fname, &file_id) < 0 || file_id == 0) {
-		len = strlen(fname);
-		if (len > 7 && strcmp(fname + len - 7, ".broken") != 0) {
-			i_warning("dbox rebuild: File name is missing ID: %s",
-				  path);
+		/* m.*.broken files are created by file fixing
+		   m.*.lock files are created if flock() isn't available */
+		ext = strrchr(fname, '.');
+		if (ext == NULL || (strcmp(ext, ".broken") != 0 &&
+				    strcmp(ext, ".lock") != 0)) {
+			i_warning("dbox rebuild: "
+				  "Skipping file with missing ID: %s", path);
 		}
 		return 0;
 	}
