@@ -261,7 +261,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 				return mdbox_sync_begin(mbox, flags, ctx_r);
 			}
 			mail_storage_set_critical(storage,
-				"dbox %s: Storage keeps breaking",
+				"mdbox %s: Storage keeps breaking",
 				ctx->mbox->box.path);
 			ret = -1;
 		}

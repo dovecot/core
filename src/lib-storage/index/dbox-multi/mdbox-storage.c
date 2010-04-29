@@ -43,7 +43,7 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	storage->set = mail_storage_get_driver_settings(_storage);
 
 	if (*ns->list->set.mailbox_dir_name == '\0') {
-		*error_r = "dbox: MAILBOXDIR must not be empty";
+		*error_r = "mdbox: MAILBOXDIR must not be empty";
 		return -1;
 	}
 
@@ -144,7 +144,7 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 	if (data_size < MDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
 		mail_storage_set_critical(&mbox->storage->storage.storage,
-			"dbox %s: Invalid dbox header size: %"PRIuSIZE_T,
+			"mdbox %s: Invalid dbox header size: %"PRIuSIZE_T,
 			mbox->box.path, data_size);
 		mdbox_storage_set_corrupted(mbox->storage);
 		return -1;

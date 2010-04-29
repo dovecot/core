@@ -35,7 +35,7 @@ void dbox_map_set_corrupted(struct dbox_map *map, const char *format, ...)
 
 	va_start(args, format);
 	mail_storage_set_critical(MAP_STORAGE(map),
-				  "dbox map %s corrupted: %s",
+				  "mdbox map %s corrupted: %s",
 				  map->index->filepath,
 				  t_strdup_vprintf(format, args));
 	va_end(args);
@@ -414,7 +414,7 @@ dbox_map_sync_handle(struct dbox_map *map, struct mail_index_sync_ctx *sync_ctx)
 	mail_index_sync_get_offsets(sync_ctx, &seq1, &offset1, &seq2, &offset2);
 	if (offset1 != offset2 || seq1 != seq2) {
 		/* something had crashed. need a full resync. */
-		i_warning("dbox %s: Inconsistency in map index "
+		i_warning("mdbox %s: Inconsistency in map index "
 			  "(%u,%"PRIuUOFF_T" != %u,%"PRIuUOFF_T")",
 			  map->path, seq1, offset1, seq2, offset2);
 		mdbox_storage_set_corrupted(map->storage);

@@ -229,7 +229,7 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 		ext = strrchr(fname, '.');
 		if (ext == NULL || (strcmp(ext, ".broken") != 0 &&
 				    strcmp(ext, ".lock") != 0)) {
-			i_warning("dbox rebuild: "
+			i_warning("mdbox rebuild: "
 				  "Skipping file with missing ID: %s", path);
 		}
 		return 0;
@@ -245,7 +245,7 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 	if ((ret = dbox_file_open(file, &deleted)) > 0 && !deleted)
 		ret = rebuild_file_mails(ctx, file);
 	if (ret == 0)
-		i_error("dbox rebuild: Failed to fix file %s", path);
+		i_error("mdbox rebuild: Failed to fix file %s", path);
 	dbox_file_unref(&file);
 	return ret < 0 ? -1 : 0;
 }
@@ -831,7 +831,7 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 		return 0;
 	}
 
-	i_warning("dbox %s: rebuilding indexes", ctx->storage->storage_dir);
+	i_warning("mdbox %s: rebuilding indexes", ctx->storage->storage_dir);
 
 	uid_validity = dbox_map_get_uid_validity(ctx->storage->map);
 	hdr = mail_index_get_header(ctx->sync_view);
