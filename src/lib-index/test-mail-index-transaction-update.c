@@ -200,6 +200,7 @@ static void test_mail_index_flag_update_simple_merges(void)
 				      MAIL_FLAGGED);
 	mail_index_update_flags_range(t, 11, 11, MODIFY_ADD,
 				      MAIL_FLAGGED);
+	updates = array_get(&t->updates, &count);
 	test_assert(count == 1);
 	test_assert(updates[0].uid1 == 4);
 	test_assert(updates[0].uid2 == 12);
