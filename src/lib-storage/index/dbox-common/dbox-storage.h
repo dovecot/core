@@ -5,6 +5,7 @@
 
 struct dbox_file;
 struct dbox_mail;
+struct dbox_storage;
 
 #define DBOX_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define DBOX_UIDVALIDITY_FILE_NAME "dovecot-uidvalidity"
@@ -37,13 +38,13 @@ struct dbox_storage_vfuncs {
 	/* create/update mailbox indexes */
 	int (*mailbox_create_indexes)(struct mailbox *box,
 				      const struct mailbox_update *update);
+	/* mark the file corrupted */
+	void (*set_file_corrupted)(struct dbox_file *file);
 };
 
 struct dbox_storage {
 	struct mail_storage storage;
 	struct dbox_storage_vfuncs v;
-
-	unsigned int files_corrupted:1;
 };
 
 void dbox_storage_get_list_settings(const struct mail_namespace *ns,

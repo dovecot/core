@@ -33,14 +33,14 @@ void dbox_map_set_corrupted(struct dbox_map *map, const char *format, ...)
 {
 	va_list args;
 
-	map->storage->storage.files_corrupted = TRUE;
-
 	va_start(args, format);
 	mail_storage_set_critical(MAP_STORAGE(map),
 				  "dbox map %s corrupted: %s",
 				  map->index->filepath,
 				  t_strdup_vprintf(format, args));
 	va_end(args);
+
+	mdbox_storage_set_corrupted(map->storage);
 }
 
 struct dbox_map *
@@ -186,6 +186,26 @@ int dbox_map_refresh(struct dbox_map *map)
 		return -1;
 	}
 	return 0;
+}
+
+static void
+mdbox_map_get_ext_hdr(struct dbox_map *map, struct mail_index_view *view,
+		      struct dbox_map_mail_index_header *hdr_r)
+{
+	const void *data;
+	size_t data_size;
+
+	mail_index_get_header_ext(view, map->map_ext_id, &data, &data_size);
+	memset(hdr_r, 0, sizeof(*hdr_r));
+	memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
+}
+
+uint32_t mdbox_map_get_rebuild_count(struct dbox_map *map)
+{
+	struct dbox_map_mail_index_header hdr;
+
+	mdbox_map_get_ext_hdr(map, map->view, &hdr);
+	return hdr.rebuild_count;
 }
 
 static int dbox_map_lookup_seq(struct dbox_map *map, uint32_t seq,
@@ -397,7 +417,7 @@ dbox_map_sync_handle(struct dbox_map *map, struct mail_index_sync_ctx *sync_ctx)
 		i_warning("dbox %s: Inconsistency in map index "
 			  "(%u,%"PRIuUOFF_T" != %u,%"PRIuUOFF_T")",
 			  map->path, seq1, offset1, seq2, offset2);
-		map->storage->storage.files_corrupted = TRUE;
+		mdbox_storage_set_corrupted(map->storage);
 	} else {
 		while (mail_index_sync_next(sync_ctx, &sync_rec)) ;
 	}
@@ -962,35 +982,12 @@ void dbox_map_append_finish(struct dbox_map_append_context *ctx)
 	appends[count-1].size = cur_offset - appends[count-1].offset;
 }
 
-static int
-dbox_map_get_next_file_id(struct dbox_map *map, struct mail_index_view *view,
-			  uint32_t *file_id_r)
-{
-	const struct dbox_map_mail_index_header *hdr;
-	const void *data;
-	size_t data_size;
-
-	mail_index_get_header_ext(view, map->map_ext_id, &data, &data_size);
-	if (data_size != sizeof(*hdr)) {
-		if (data_size != 0) {
-			dbox_map_set_corrupted(map, "hdr size=%"PRIuSIZE_T,
-					       data_size);
-			return -1;
-		}
-		/* first file */
-		*file_id_r = 1;
-	} else {
-		hdr = data;
-		*file_id_r = hdr->highest_file_id + 1;
-	}
-	return 0;
-}
-
 static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx,
 				    bool separate_transaction)
 {
 	struct dbox_file_append_context *const *file_appends;
 	unsigned int i, count;
+	struct dbox_map_mail_index_header hdr;
 	uint32_t first_file_id, file_id;
 	int ret;
 
@@ -1006,10 +1003,8 @@ static int dbox_map_assign_file_ids(struct dbox_map_append_context *ctx,
 	}
 	dbox_map_sync_handle(ctx->map, ctx->sync_ctx);
 
-	if (dbox_map_get_next_file_id(ctx->map, ctx->sync_view, &file_id) < 0) {
-		mail_index_sync_rollback(&ctx->sync_ctx);
-		return -1;
-	}
+	mdbox_map_get_ext_hdr(ctx->map, ctx->sync_view, &hdr);
+	file_id = hdr.highest_file_id + 1;
 
 	/* assign file_ids for newly created files */
 	first_file_id = file_id;

@@ -13,6 +13,8 @@ enum dbox_map_append_flags {
 
 struct dbox_map_mail_index_header {
 	uint32_t highest_file_id;
+	/* increased every time storage is rebuilt */
+	uint32_t rebuild_count;
 };
 
 struct dbox_map_mail_index_record {
@@ -40,6 +42,9 @@ int dbox_map_open(struct dbox_map *map);
 int dbox_map_open_or_create(struct dbox_map *map);
 /* Refresh the map. Returns 0 if ok, -1 if error. */
 int dbox_map_refresh(struct dbox_map *map);
+
+/* Return the current rebuild counter */
+uint32_t mdbox_map_get_rebuild_count(struct dbox_map *map);
 
 /* Look up file_id and offset for given map UID. Returns 1 if ok, 0 if UID
    is already expunged, -1 if error. */

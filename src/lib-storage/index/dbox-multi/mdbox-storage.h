@@ -35,6 +35,11 @@ struct mdbox_storage {
 	ARRAY_TYPE(uint32_t) move_to_alt_map_uids;
 	ARRAY_TYPE(uint32_t) move_from_alt_map_uids;
 
+	/* if non-zero, storage should be rebuilt (except if rebuild_count
+	   has changed from this value) */
+	uint32_t corrupted_rebuild_count;
+
+	unsigned int corrupted:1;
 	unsigned int rebuilding_storage:1;
 };
 
@@ -93,5 +98,7 @@ int mdbox_copy(struct mail_save_context *ctx, struct mail *mail);
 
 void mdbox_purge_alt_flag_change(struct mail *mail, bool move_to_alt);
 int mdbox_purge(struct mail_storage *storage);
+
+void mdbox_storage_set_corrupted(struct mdbox_storage *storage);
 
 #endif

@@ -54,14 +54,14 @@ void dbox_file_set_corrupted(struct dbox_file *file, const char *reason, ...)
 {
 	va_list args;
 
-	file->storage->files_corrupted = TRUE;
-
 	va_start(args, reason);
 	mail_storage_set_critical(&file->storage->storage,
 		"Corrupted dbox file %s (around offset=%"PRIuUOFF_T"): %s",
 		file->cur_path, file->input == NULL ? 0 : file->input->v_offset,
 		t_strdup_vprintf(reason, args));
 	va_end(args);
+
+	file->storage->v.set_file_corrupted(file);
 }
 
 void dbox_file_init(struct dbox_file *file)

@@ -30,13 +30,13 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 		mail_storage_set_critical(&mbox->storage->storage.storage,
 			"dbox %s: map uid lost for uid %u",
 			mbox->box.path, uid);
-		mbox->storage->storage.files_corrupted = TRUE;
+		mdbox_storage_set_corrupted(mbox->storage);
 		return -1;
 	}
 
 	if (mbox->map_uid_validity == 0) {
 		if (mdbox_read_header(mbox, &hdr) < 0) {
-			mbox->storage->storage.files_corrupted = TRUE;
+			mdbox_storage_set_corrupted(mbox->storage);
 			return -1;
 		}
 		mbox->map_uid_validity = hdr.map_uid_validity;
@@ -50,7 +50,7 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 			"dbox %s: map uidvalidity mismatch (%u vs %u)",
 			mbox->box.path, mbox->map_uid_validity,
 			cur_map_uid_validity);
-		mbox->storage->storage.files_corrupted = TRUE;
+		mdbox_storage_set_corrupted(mbox->storage);
 		return -1;
 	}
 	*map_uid_r = dbox_rec->map_uid;
@@ -72,7 +72,6 @@ static void dbox_mail_set_expunged(struct dbox_mail *mail, uint32_t map_uid)
 			       "Unexpectedly lost %s uid=%u map_uid=%u",
 			       mailbox_get_vname(_mail->box),
 			       _mail->uid, map_uid);
-	mbox->storage->storage.files_corrupted = TRUE;
 }
 
 static int dbox_mail_open_init(struct dbox_mail *mail, uint32_t map_uid)

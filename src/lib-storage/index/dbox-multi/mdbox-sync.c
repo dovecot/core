@@ -44,7 +44,7 @@ dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
 		ctx->mbox->box.vname, uid,
 		binary_to_hex(data, MAIL_GUID_128_SIZE),
 		binary_to_hex(guid_128, MAIL_GUID_128_SIZE));
-	ctx->mbox->storage->storage.files_corrupted = TRUE;
+	mdbox_storage_set_corrupted(ctx->mbox->storage);
 	return -1;
 }
 
@@ -175,7 +175,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 
 	array_free(&ctx->expunged_seqs);
 	return ret == 0 ? 1 :
-		(ctx->mbox->storage->storage.files_corrupted ? 0 : -1);
+		(ctx->mbox->storage->corrupted ? 0 : -1);
 }
 
 static int mdbox_refresh_header(struct mdbox_mailbox *mbox, bool retry)
@@ -189,7 +189,7 @@ static int mdbox_refresh_header(struct mdbox_mailbox *mbox, bool retry)
 	mail_index_view_close(&view);
 
 	if (ret == 0) {
-		ret = mbox->storage->storage.files_corrupted ? -1 : 0;
+		ret = mbox->storage->corrupted ? -1 : 0;
 	} else if (retry) {
 		(void)mail_index_refresh(mbox->box.index);
 		return mdbox_refresh_header(mbox, FALSE);
@@ -255,7 +255,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 			if (!storage_rebuilt) {
 				/* we'll need to rebuild storage too.
 				   try again from the beginning. */
-				mbox->storage->storage.files_corrupted = TRUE;
+				mdbox_storage_set_corrupted(mbox->storage);
 				mail_index_sync_rollback(&ctx->index_sync_ctx);
 				i_free(ctx);
 				return mdbox_sync_begin(mbox, flags, ctx_r);
@@ -321,7 +321,7 @@ mdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	}
 
 	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->box, flags) ||
-			 mbox->storage->storage.files_corrupted)) {
+			 mbox->storage->corrupted)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
 			mdbox_sync_flags |= MDBOX_SYNC_FLAG_FORCE_REBUILD;
 		ret = mdbox_sync(mbox, mdbox_sync_flags);

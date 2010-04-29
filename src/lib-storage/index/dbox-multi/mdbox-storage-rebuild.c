@@ -43,6 +43,7 @@ struct mdbox_storage_rebuild_context {
 	struct hash_table *guid_hash;
 	ARRAY_DEFINE(msgs, struct mdbox_rebuild_msg *);
 
+	uint32_t rebuild_count;
 	uint32_t prev_file_id;
 	uint32_t highest_seen_map_uid;
 
@@ -743,6 +744,11 @@ static int rebuild_finish(struct mdbox_storage_rebuild_context *ctx)
 	if (rebuild_handle_zero_refs(ctx) < 0)
 		return -1;
 	rebuild_update_refcounts(ctx);
+
+	ctx->rebuild_count++;
+	mail_index_update_header_ext(ctx->trans, ctx->storage->map->map_ext_id,
+		offsetof(struct dbox_map_mail_index_header, rebuild_count),
+		&ctx->rebuild_count, sizeof(ctx->rebuild_count));
 	return 0;
 }
 
@@ -817,6 +823,16 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 		return -1;
 	}
 
+	/* get storage rebuild counter after locking */
+	ctx->rebuild_count = mdbox_map_get_rebuild_count(ctx->storage->map);
+	if (ctx->rebuild_count != ctx->storage->corrupted_rebuild_count &&
+	    ctx->storage->corrupted) {
+		/* storage was already rebuilt by someone else */
+		return 0;
+	}
+
+	i_warning("dbox %s: rebuilding indexes", ctx->storage->storage_dir);
+
 	uid_validity = dbox_map_get_uid_validity(ctx->storage->map);
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity != uid_validity) {
@@ -859,13 +875,13 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage)
 		return -1;
 	}
 
-	i_warning("dbox %s: rebuilding indexes", storage->storage_dir);
-
 	ctx = mdbox_storage_rebuild_init(storage);
 	ret = mdbox_storage_rebuild_scan(ctx);
 	mdbox_storage_rebuild_deinit(ctx);
 
-	if (ret == 0)
-		storage->storage.files_corrupted = FALSE;
+	if (ret == 0) {
+		storage->corrupted = FALSE;
+		storage->corrupted_rebuild_count = 0;
+	}
 	return ret;
 }

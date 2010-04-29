@@ -127,8 +127,7 @@ static void mdbox_mailbox_close(struct mailbox *box)
 {
 	struct mdbox_storage *mstorage = (struct mdbox_storage *)box->storage;
 
-	if (mstorage->storage.files_corrupted &&
-	    !mstorage->rebuilding_storage)
+	if (mstorage->corrupted && !mstorage->rebuilding_storage)
 		(void)mdbox_storage_rebuild(mstorage);
 
 	index_storage_mailbox_close(box);
@@ -145,8 +144,9 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 	if (data_size < MDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
 		mail_storage_set_critical(&mbox->storage->storage.storage,
-			"dbox %s: Invalid dbox header size",
-			mbox->box.path);
+			"dbox %s: Invalid dbox header size: %"PRIuSIZE_T,
+			mbox->box.path, data_size);
+		mdbox_storage_set_corrupted(mbox->storage);
 		return -1;
 	}
 	memset(hdr, 0, sizeof(*hdr));
@@ -242,6 +242,30 @@ static int mdbox_mailbox_create_indexes(struct mailbox *box,
 	ret = mdbox_write_index_header(box, update);
 	mbox->creating = FALSE;
 	return ret;
+}
+
+void mdbox_storage_set_corrupted(struct mdbox_storage *storage)
+{
+	if (storage->corrupted) {
+		/* already set it corrupted (possibly recursing back here) */
+		return;
+	}
+
+	storage->corrupted = TRUE;
+	storage->corrupted_rebuild_count = (uint32_t)-1;
+
+	if (dbox_map_open(storage->map) > 0 &&
+	    dbox_map_refresh(storage->map) == 0) {
+		storage->corrupted_rebuild_count =
+			mdbox_map_get_rebuild_count(storage->map);
+	}
+}
+
+static void mdbox_set_file_corrupted(struct dbox_file *file)
+{
+	struct mdbox_storage *mstorage = (struct mdbox_storage *)file->storage;
+
+	mdbox_storage_set_corrupted(mstorage);
 }
 
 static int
@@ -388,5 +412,6 @@ struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs = {
 	mdbox_file_unrefed,
 	mdbox_file_create_fd,
 	mdbox_mail_open,
-	mdbox_mailbox_create_indexes
+	mdbox_mailbox_create_indexes,
+	mdbox_set_file_corrupted
 };
