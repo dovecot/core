@@ -38,55 +38,42 @@ static void cmd_quota_get_root(struct mail_user *user, struct quota_root *root)
 	printf("\n");
 }
 
-static void cmd_quota_get(struct mail_user *user, struct quota *quota)
+static void
+cmd_quota_get(struct mail_user *user, const char *const args[] ATTR_UNUSED)
 {
+	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct quota_root *const *root;
 
-	array_foreach(&quota->roots, root)
+	array_foreach(&quser->quota->roots, root)
 		cmd_quota_get_root(user, *root);
 }
 
-static void cmd_quota_recalc(struct quota *quota)
+static void
+cmd_quota_recalc(struct mail_user *user, const char *const args[] ATTR_UNUSED)
 {
+	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct quota_root *const *root;
 	struct quota_transaction_context trans;
 
 	memset(&trans, 0, sizeof(trans));
-	trans.quota = quota;
+	trans.quota = quser->quota;
 	trans.recalculate = TRUE;
 
-	array_foreach(&quota->roots, root)
+	array_foreach(&quser->quota->roots, root)
 		(void)(*root)->backend.v.update(*root, &trans);
 }
 
-static void cmd_quota(struct mail_user *user, const char *const args[])
-{
-	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
-	struct quota *quota;
-	const char *subcmd = args[0];
-
-	if (subcmd == NULL)
-		doveadm_mail_help_name("quota");
-
-	if (quser == NULL)
-		i_fatal("User has no quota");
-
-	quota = quser->quota;
-	if (strcmp(subcmd, "get") == 0)
-		cmd_quota_get(user, quota);
-	else if (strcmp(subcmd, "recalc") == 0)
-		cmd_quota_recalc(quota);
-	else
-		doveadm_mail_help_name("quota");
-}
-
-static struct doveadm_mail_cmd quota_cmd = {
-	cmd_quota, "quota", "get|recalc"
+static struct doveadm_mail_cmd quota_commands[] = {
+	{ cmd_quota_get, "quota get", "" },
+	{ cmd_quota_recalc, "quota recalc", "" }
 };
 
 void doveadm_quota_plugin_init(struct module *module ATTR_UNUSED)
 {
-	doveadm_mail_register_cmd(&quota_cmd);
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(quota_commands); i++)
+		doveadm_mail_register_cmd(&quota_commands[i]);
 }
 
 void doveadm_quota_plugin_deinit(void)
