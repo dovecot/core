@@ -28,7 +28,7 @@ cmd_search_box(const struct mailbox_info *info,
 	else {
 		guid_str = mail_guid_128_to_string(guid);
 		while (doveadm_mail_iter_next(iter, mail))
-			printf("mailbox-guid %s uid %u\n", guid_str, mail->uid);
+			printf("%s %u\n", guid_str, mail->uid);
 	}
 	mail_free(&mail);
 	if (doveadm_mail_iter_deinit(&iter) < 0)
