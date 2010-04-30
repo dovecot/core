@@ -10,6 +10,7 @@
 #include "message-size.h"
 #include "imap-util.h"
 #include "mail-storage.h"
+#include "mail-search.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
 #include "doveadm-mail-iter.h"
@@ -319,6 +320,32 @@ cmd_fetch_box(struct fetch_context *ctx, const struct mailbox_info *info)
 	return doveadm_mail_iter_deinit(&iter);
 }
 
+static bool search_args_have_unique_fetch(struct mail_search_args *args)
+{
+	struct mail_search_arg *arg;
+	const struct seq_range *seqset;
+	unsigned int count;
+	bool have_mailbox = FALSE, have_msg = FALSE;
+
+	for (arg = args->args; arg != NULL; arg = arg->next) {
+		switch (arg->type) {
+		case SEARCH_MAILBOX:
+		case SEARCH_MAILBOX_GUID:
+			have_mailbox = TRUE;
+			break;
+		case SEARCH_SEQSET:
+		case SEARCH_UIDSET:
+			seqset = array_get(&arg->value.seqset, &count);
+			if (count == 1 && seqset->seq1 == seqset->seq2)
+				have_msg = TRUE;
+			break;
+		default:
+			break;
+		}
+	}
+	return have_mailbox && have_msg;
+}
+
 void cmd_fetch(struct mail_user *user, const char *const args[])
 {
 	const enum mailbox_list_iter_flags iter_flags =
@@ -339,13 +366,17 @@ void cmd_fetch(struct mail_user *user, const char *const args[])
 
 	ctx.output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
 
-	random_fill_weak(prefix_buf, sizeof(prefix_buf));
 	ctx.hdr = str_new(default_pool, 512);
-	str_append(ctx.hdr, "===");
-	base64_encode(prefix_buf, sizeof(prefix_buf), ctx.hdr);
-	str_append_c(ctx.hdr, '\n');
-	ctx.prefix = t_strdup(str_c(ctx.hdr));
-	str_truncate(ctx.hdr, 0);
+	if (search_args_have_unique_fetch(ctx.search_args))
+		ctx.prefix = "";
+	else {
+		random_fill_weak(prefix_buf, sizeof(prefix_buf));
+		str_append(ctx.hdr, "===");
+		base64_encode(prefix_buf, sizeof(prefix_buf), ctx.hdr);
+		str_append_c(ctx.hdr, '\n');
+		ctx.prefix = t_strdup(str_c(ctx.hdr));
+		str_truncate(ctx.hdr, 0);
+	}
 
 	iter = doveadm_mail_list_iter_init(user, ctx.search_args, iter_flags);
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
