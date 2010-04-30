@@ -24,8 +24,23 @@ ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 
 static int killed_signo = 0;
 
+struct doveadm_mail_cmd_context *
+doveadm_mail_cmd_init_size(size_t size)
+{
+	struct doveadm_mail_cmd_context *ctx;
+	pool_t pool;
+
+	i_assert(size >= sizeof(struct doveadm_mail_cmd_context));
+
+	pool = pool_alloconly_create("doveadm mail cmd", 1024);
+	ctx = p_malloc(pool, size);
+	ctx->pool = pool;
+	return ctx;
+}
+
 static void
-cmd_purge(struct mail_user *user, const char *const args[] ATTR_UNUSED)
+cmd_purge_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+	      struct mail_user *user)
 {
 	struct mail_namespace *ns;
 
@@ -38,6 +53,16 @@ cmd_purge(struct mail_user *user, const char *const args[] ATTR_UNUSED)
 				mail_storage_get_last_error(ns->storage, NULL));
 		}
 	}
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_purge(const char *const args[] ATTR_UNUSED)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_init(struct doveadm_mail_cmd_context);
+	ctx->run = cmd_purge_run;
+	return ctx;
 }
 
 static struct mailbox *
@@ -90,30 +115,50 @@ doveadm_mail_build_search_args(const char *const args[])
 	return sargs;
 }
 
-static void cmd_force_resync(struct mail_user *user, const char *const args[])
+struct force_resync_cmd_context {
+	struct doveadm_mail_cmd_context ctx;
+	const char *mailbox;
+};
+
+static void cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
+				 struct mail_user *user)
 {
-	const char *mailbox = args[0];
+	struct force_resync_cmd_context *ctx =
+		(struct force_resync_cmd_context *)_ctx;
 	struct mail_storage *storage;
 	struct mailbox *box;
 
-	if (mailbox == NULL)
-		doveadm_mail_help_name("force-resync");
-
-	box = mailbox_find_and_open(user, mailbox);
+	box = mailbox_find_and_open(user, ctx->mailbox);
 	storage = mailbox_get_storage(box);
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
 			 MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
-		i_fatal("Forcing a resync on mailbox %s failed: %s", mailbox,
+		i_fatal("Forcing a resync on mailbox %s failed: %s",
+			ctx->mailbox,
 			mail_storage_get_last_error(storage, NULL));
 	}
 	mailbox_free(&box);
 }
 
+static struct doveadm_mail_cmd_context *
+cmd_force_resync(const char *const args[])
+{
+	struct force_resync_cmd_context *ctx;
+	const char *mailbox = args[0];
+
+	if (mailbox == NULL || args[1] != NULL)
+		doveadm_mail_help_name("force-resync");
+
+	ctx = doveadm_mail_cmd_init(struct force_resync_cmd_context);
+	ctx->ctx.run = cmd_force_resync_run;
+	ctx->mailbox = p_strdup(ctx->ctx.pool, mailbox);
+	return &ctx->ctx;
+}
+
 static int
-doveadm_mail_next_user(doveadm_mail_command_t *cmd,
+doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		       struct mail_storage_service_ctx *storage_service,
 		       const struct mail_storage_service_input *input,
-		       const char *const args[], const char **error_r)
+		       const char **error_r)
 {
 	struct mail_storage_service_user *service_user;
 	struct mail_user *mail_user;
@@ -139,16 +184,16 @@ doveadm_mail_next_user(doveadm_mail_command_t *cmd,
 		return ret;
 	}
 
-	cmd(mail_user, args);
+	ctx->run(ctx, mail_user);
 	mail_storage_service_user_free(&service_user);
 	mail_user_unref(&mail_user);
 	return 1;
 }
 
 static void
-doveadm_mail_single_user(doveadm_mail_command_t *cmd, const char *username,
-			 enum mail_storage_service_flags service_flags,
-			 const char *const args[])
+doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
+			 const char *username,
+			 enum mail_storage_service_flags service_flags)
 {
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_input input;
@@ -163,8 +208,7 @@ doveadm_mail_single_user(doveadm_mail_command_t *cmd, const char *username,
 
 	storage_service = mail_storage_service_init(master_service, NULL,
 						    service_flags);
-	ret = doveadm_mail_next_user(cmd, storage_service, &input,
-				     args, &error);
+	ret = doveadm_mail_next_user(ctx, storage_service, &input, &error);
 	if (ret < 0)
 		i_fatal("%s", error);
 	else if (ret == 0)
@@ -178,9 +222,8 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 }
 
 static void
-doveadm_mail_all_users(doveadm_mail_command_t *cmd,
-		       enum mail_storage_service_flags service_flags,
-		       const char *const args[])
+doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
+		       enum mail_storage_service_flags service_flags)
 {
 	struct mail_storage_service_input input;
 	struct mail_storage_service_ctx *storage_service;
@@ -209,8 +252,8 @@ doveadm_mail_all_users(doveadm_mail_command_t *cmd,
 						    &user)) > 0) {
 		input.username = user;
 		T_BEGIN {
-			ret = doveadm_mail_next_user(cmd, storage_service,
-						     &input, args, &error);
+			ret = doveadm_mail_next_user(ctx, storage_service,
+						     &input, &error);
 			if (ret < 0)
 				i_error("%s", error);
 			else if (ret == 0)
@@ -243,6 +286,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 {
 	enum mail_storage_service_flags service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
+	struct doveadm_mail_cmd_context *ctx;
 	const char *username;
 	bool all_users = FALSE;
 	int c;
@@ -272,14 +316,15 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			cmd->name, argv[0]);
 	}
 
+	ctx = cmd->init((const void *)argv);
 	if (!all_users) {
-		doveadm_mail_single_user(cmd->cmd, username, service_flags,
-					 (const void *)argv);
+		doveadm_mail_single_user(ctx, username, service_flags);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
-		doveadm_mail_all_users(cmd->cmd, service_flags,
-				       (const void *)argv);
+		doveadm_mail_all_users(ctx, service_flags);
 	}
+	if (ctx->deinit != NULL)
+		ctx->deinit(ctx);
 }
 
 static bool

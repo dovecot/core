@@ -39,7 +39,8 @@ static void cmd_quota_get_root(struct mail_user *user, struct quota_root *root)
 }
 
 static void
-cmd_quota_get(struct mail_user *user, const char *const args[] ATTR_UNUSED)
+cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+		  struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct quota_root *const *root;
@@ -48,8 +49,19 @@ cmd_quota_get(struct mail_user *user, const char *const args[] ATTR_UNUSED)
 		cmd_quota_get_root(user, *root);
 }
 
+static struct doveadm_mail_cmd_context *
+cmd_quota_get(const char *const args[] ATTR_UNUSED)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_init(struct doveadm_mail_cmd_context);
+	ctx->run = cmd_quota_get_run;
+	return ctx;
+}
+
 static void
-cmd_quota_recalc(struct mail_user *user, const char *const args[] ATTR_UNUSED)
+cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+		     struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct quota_root *const *root;
@@ -61,6 +73,16 @@ cmd_quota_recalc(struct mail_user *user, const char *const args[] ATTR_UNUSED)
 
 	array_foreach(&quser->quota->roots, root)
 		(void)(*root)->backend.v.update(*root, &trans);
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_quota_recalc(const char *const args[] ATTR_UNUSED)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_init(struct doveadm_mail_cmd_context);
+	ctx->run = cmd_quota_recalc_run;
+	return ctx;
 }
 
 static struct doveadm_mail_cmd quota_commands[] = {

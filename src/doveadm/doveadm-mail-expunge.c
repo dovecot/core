@@ -9,6 +9,11 @@
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
+struct expunge_cmd_context {
+	struct doveadm_mail_cmd_context ctx;
+	struct mail_search_args *search_args;
+};
+
 static int
 cmd_expunge_box(const struct mailbox_info *info,
 		struct mail_search_args *search_args)
@@ -161,35 +166,45 @@ expunge_search_args_is_msgset_ok(struct mail_search_arg *args)
 	return FALSE;
 }
 
-void cmd_expunge(struct mail_user *user, const char *const args[])
+static void
+cmd_expunge_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
+	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 		MAILBOX_LIST_ITER_NO_AUTO_INBOX |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	struct mail_search_args *search_args;
 	struct doveadm_mail_list_iter *iter;
 	const struct mailbox_info *info;
 
-	if (args[0] == NULL)
-		doveadm_mail_help_name("expunge");
-	search_args = doveadm_mail_build_search_args(args);
-	mail_search_args_simplify(search_args);
-
-	if (!expunge_search_args_is_mailbox_ok(search_args->args)) {
+	if (!expunge_search_args_is_mailbox_ok(ctx->search_args->args)) {
 		i_fatal("expunge: To avoid accidents, search query "
 			"must contain MAILBOX in all search branches");
 	}
-	if (!expunge_search_args_is_msgset_ok(search_args->args)) {
+	if (!expunge_search_args_is_msgset_ok(ctx->search_args->args)) {
 		i_fatal("expunge: To avoid accidents, each branch in "
 			"search query must contain something else "
 			"besides MAILBOX");
 	}
 
-	iter = doveadm_mail_list_iter_init(user, search_args, iter_flags);
+	iter = doveadm_mail_list_iter_init(user, ctx->search_args, iter_flags);
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
-		(void)cmd_expunge_box(info, search_args);
+		(void)cmd_expunge_box(info, ctx->search_args);
 	} T_END;
 	doveadm_mail_list_iter_deinit(&iter);
+}
+
+struct doveadm_mail_cmd_context *cmd_expunge(const char *const args[])
+{
+	struct expunge_cmd_context *ctx;
+
+	if (args[0] == NULL)
+		doveadm_mail_help_name("expunge");
+
+	ctx = doveadm_mail_cmd_init(struct expunge_cmd_context);
+	ctx->ctx.run = cmd_expunge_run;
+	ctx->search_args = doveadm_mail_build_search_args(args);
+	mail_search_args_simplify(ctx->search_args);
+	return &ctx->ctx;
 }

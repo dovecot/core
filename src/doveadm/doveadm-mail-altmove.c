@@ -9,6 +9,11 @@
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
+struct altmove_cmd_context {
+	struct doveadm_mail_cmd_context ctx;
+	struct mail_search_args *search_args;
+};
+
 static int
 cmd_altmove_box(const struct mailbox_info *info,
 		struct mail_search_args *search_args)
@@ -41,14 +46,15 @@ static void ns_purge(struct mail_namespace *ns)
 	}
 }
 
-void cmd_altmove(struct mail_user *user, const char *const args[])
+static void
+cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
+	struct altmove_cmd_context *ctx = (struct altmove_cmd_context *)_ctx;
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 		MAILBOX_LIST_ITER_NO_AUTO_INBOX |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	struct mail_search_args *search_args;
 	struct doveadm_mail_list_iter *iter;
 	const struct mailbox_info *info;
 	struct mail_namespace *ns, *prev_ns = NULL;
@@ -56,12 +62,8 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 	struct mail_storage *const *storages;
 	unsigned int i, count;
 
-	if (args[0] == NULL)
-		doveadm_mail_help_name("altmove");
-	search_args = doveadm_mail_build_search_args(args);
-
 	t_array_init(&purged_storages, 8);
-	iter = doveadm_mail_list_iter_init(user, search_args, iter_flags);
+	iter = doveadm_mail_list_iter_init(user, ctx->search_args, iter_flags);
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
 		if (info->ns != prev_ns) {
 			if (prev_ns != NULL) {
@@ -71,7 +73,7 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 			}
 			prev_ns = info->ns;
 		}
-		(void)cmd_altmove_box(info, search_args);
+		(void)cmd_altmove_box(info, ctx->search_args);
 	} T_END;
 	doveadm_mail_list_iter_deinit(&iter);
 
@@ -90,4 +92,17 @@ void cmd_altmove(struct mail_user *user, const char *const args[])
 			array_append(&purged_storages, &ns->storage, 1);
 		}
 	}
+}
+
+struct doveadm_mail_cmd_context *cmd_altmove(const char *const args[])
+{
+	struct altmove_cmd_context *ctx;
+
+	if (args[0] == NULL)
+		doveadm_mail_help_name("altmove");
+
+	ctx = doveadm_mail_cmd_init(struct altmove_cmd_context);
+	ctx->ctx.run = cmd_altmove_run;
+	ctx->search_args = doveadm_mail_build_search_args(args);
+	return &ctx->ctx;
 }
