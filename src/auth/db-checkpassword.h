@@ -48,6 +48,10 @@ enum checkpassword_sigchld_handler_result
 checkpassword_sigchld_handler(const struct child_wait_status *child_wait_status,
 			      struct chkpw_auth_request *request);
 void checkpassword_setup_env(struct auth_request *request);
+const char *
+checkpassword_get_cmd(struct auth_request *request, const char *args,
+		      const char *checkpassword_reply_path);
+
 void checkpassword_child_input(struct chkpw_auth_request *request);
 void checkpassword_child_output(struct chkpw_auth_request *request);
 

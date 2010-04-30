@@ -121,12 +121,12 @@ checkpassword_lookup_child(struct auth_request *request,
 		   handle this. */
 		env_put("AUTHORIZED=1");
 		checkpassword_setup_env(request);
-		/* very simple argument splitting. */
-		cmd = t_strconcat(module->checkpassword_path, " ",
-				  module->checkpassword_reply_path, NULL);
+		cmd = checkpassword_get_cmd(request, module->checkpassword_path,
+					    module->checkpassword_reply_path);
 		auth_request_log_debug(request, "userdb-checkpassword",
 				       "execute: %s", cmd);
 
+		/* very simple argument splitting. */
 		args = t_strsplit(cmd, " ");
 		execv_const(args[0], args);
 	}

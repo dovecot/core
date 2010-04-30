@@ -136,12 +136,12 @@ checkpassword_verify_plain_child(struct auth_request *request,
 				       "dup2() failed: %m");
 	} else {
 		checkpassword_setup_env(request);
-		/* very simple argument splitting. */
-		cmd = t_strconcat(module->checkpassword_path, " ",
-				  module->checkpassword_reply_path, NULL);
+		cmd = checkpassword_get_cmd(request, module->checkpassword_path,
+					    module->checkpassword_reply_path);
 		auth_request_log_debug(request, "checkpassword",
 				       "execute: %s", cmd);
 
+		/* very simple argument splitting. */
 		args = t_strsplit(cmd, " ");
 		execv_const(args[0], args);
 	}

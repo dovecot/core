@@ -4,6 +4,7 @@
 
 #if defined(PASSDB_CHECKPASSWORD) || defined(USERDB_CHECKPASSWORD)
 
+#include "var-expand.h"
 #include "db-checkpassword.h"
 
 static void env_put_extra_fields(const char *extra_fields)
@@ -127,6 +128,18 @@ void checkpassword_setup_env(struct auth_request *request)
 		/* extra fields could come from master db */
 		env_put_extra_fields(fields);
 	}
+}
+
+const char *
+checkpassword_get_cmd(struct auth_request *request, const char *args,
+		      const char *checkpassword_reply_path)
+{
+	string_t *str;
+
+	str = t_str_new(256);
+	var_expand(str, args,
+		   auth_request_get_var_expand_table(request, NULL));
+	return t_strconcat(str_c(str), " ", checkpassword_reply_path, NULL);
 }
 
 void checkpassword_child_input(struct chkpw_auth_request *request)
