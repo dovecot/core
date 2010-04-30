@@ -27,6 +27,8 @@ struct fetch_context {
 
 	string_t *hdr;
 	const char *prefix;
+
+	bool print_field_prefix;
 };
 
 static int fetch_mailbox(struct fetch_context *ctx)
@@ -93,7 +95,8 @@ static int fetch_hdr(struct fetch_context *ctx)
 	if (mail_get_stream(ctx->mail, &hdr_size, NULL, &input) < 0)
 		return -1;
 
-	str_append_c(ctx->hdr, '\n');
+	if (ctx->print_field_prefix)
+		str_append_c(ctx->hdr, '\n');
 	flush_hdr(ctx);
 	input = i_stream_create_limit(input, hdr_size.physical_size);
 	while (!i_stream_is_eof(input)) {
@@ -118,7 +121,8 @@ static int fetch_body(struct fetch_context *ctx)
 	if (mail_get_stream(ctx->mail, &hdr_size, NULL, &input) < 0)
 		return -1;
 
-	str_append_c(ctx->hdr, '\n');
+	if (ctx->print_field_prefix)
+		str_append_c(ctx->hdr, '\n');
 	flush_hdr(ctx);
 	i_stream_skip(input, hdr_size.physical_size);
 	while (!i_stream_is_eof(input)) {
@@ -141,7 +145,8 @@ static int fetch_text(struct fetch_context *ctx)
 	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 		return -1;
 
-	str_append_c(ctx->hdr, '\n');
+	if (ctx->print_field_prefix)
+		str_append_c(ctx->hdr, '\n');
 	flush_hdr(ctx);
 	while (!i_stream_is_eof(input)) {
 		if (o_stream_send_istream(ctx->output, input) <= 0)
@@ -275,6 +280,7 @@ static void parse_fetch_fields(struct fetch_context *ctx, const char *str)
 
 		array_append(&ctx->fields, field, 1);
 	}
+	ctx->print_field_prefix = array_count(&ctx->fields) > 1;
 }
 
 static void cmd_fetch_mail(struct fetch_context *ctx)
@@ -283,7 +289,8 @@ static void cmd_fetch_mail(struct fetch_context *ctx)
 	struct mail *mail = ctx->mail;
 
 	array_foreach(&ctx->fields, field) {
-		str_printfa(ctx->hdr, "%s: ", field->name);
+		if (ctx->print_field_prefix)
+			str_printfa(ctx->hdr, "%s: ", field->name);
 		if (field->print(ctx) < 0) {
 			struct mail_storage *storage =
 				mailbox_get_storage(mail->box);
