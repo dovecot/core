@@ -58,6 +58,7 @@ doveadm_SOURCES = \
 	doveadm-mail-iter.c \
 	doveadm-mail-list.c \
 	doveadm-mail-list-iter.c \
+	doveadm-mail-search.c \
 	doveadm-penalty.c \
 	doveadm-pw.c \
 	doveadm-settings.c \
