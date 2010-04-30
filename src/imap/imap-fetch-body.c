@@ -274,6 +274,8 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
 				ctx->cur_name, mailbox_get_vname(ctx->mail->box),
 				ctx->mail->uid, ctx->cur_offset, ctx->cur_size);
+			mail_set_cache_corrupted(ctx->mail,
+						 ctx->cur_size_field);
 			client_disconnect(ctx->client, "FETCH failed");
 			return -1;
 		}
