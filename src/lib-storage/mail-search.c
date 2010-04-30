@@ -312,6 +312,7 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
+	case SEARCH_MAILBOX_GUID:
 	case SEARCH_MAILBOX_GLOB:
 		new_arg->value.str = p_strdup(pool, arg->value.str);
 		break;
@@ -845,6 +846,7 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
+	case SEARCH_MAILBOX_GUID:
 	case SEARCH_MAILBOX_GLOB:
 		/* don't bother doing case-insensitive comparison. it must not
 		   be done for guid/mailbox, and for others we should support

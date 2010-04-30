@@ -218,6 +218,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	time_t date;
 	int tz_offset;
 	bool have_tz_offset;
+	uint8_t guid[MAIL_GUID_128_SIZE];
 
 	switch (arg->type) {
 	/* internal dates */
@@ -286,6 +287,12 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		if (strcasecmp(str, "INBOX") == 0)
 			return strcasecmp(arg->value.str, "INBOX") == 0;
 		return strcmp(str, arg->value.str) == 0;
+	case SEARCH_MAILBOX_GUID:
+		if (mailbox_get_guid(ctx->mail->box, guid) < 0)
+			return -1;
+
+		return strcmp(mail_guid_128_to_string(guid),
+			      arg->value.str) == 0;
 	case SEARCH_MAILBOX_GLOB:
 		if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME,
 				     &str) < 0)
@@ -1182,6 +1189,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
+	case SEARCH_MAILBOX_GUID:
 	case SEARCH_MAILBOX_GLOB:
 		return TRUE;
 	}

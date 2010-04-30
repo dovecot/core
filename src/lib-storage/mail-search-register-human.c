@@ -131,6 +131,12 @@ human_search_mailbox(struct mail_search_build_context *ctx)
 	return mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
 }
 
+static struct mail_search_arg *
+human_search_mailbox_guid(struct mail_search_build_context *ctx)
+{
+	return mail_search_build_str(ctx, SEARCH_MAILBOX_GUID);
+}
+
 static const struct mail_search_register_arg human_register_args[] = {
 	{ "OR", human_search_or },
 
@@ -154,7 +160,8 @@ static const struct mail_search_register_arg human_register_args[] = {
 
 	/* Other Dovecot extensions: */
 	{ "GUID", human_search_guid },
-	{ "MAILBOX", human_search_mailbox }
+	{ "MAILBOX", human_search_mailbox },
+	{ "MAILBOX-GUID", human_search_mailbox_guid }
 };
 
 struct mail_search_register *
