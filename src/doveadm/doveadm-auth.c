@@ -221,5 +221,5 @@ struct doveadm_cmd doveadm_cmd_auth = {
 
 struct doveadm_cmd doveadm_cmd_user = {
 	cmd_user, "user",
-	"[-a <auth socket path>] [-x <auth info>] <user> [<user> ...]", NULL
+	"[-a <userdb socket path>] [-x <auth info>] <user> [<user> ...]", NULL
 };
