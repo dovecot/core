@@ -268,6 +268,7 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 	new_arg->type = arg->type;
 	new_arg->not = arg->not;
 	new_arg->match_always = arg->match_always;
+	new_arg->nonmatch_always = arg->nonmatch_always;
 	new_arg->value.search_flags = arg->value.search_flags;
 
 	switch (arg->type) {
@@ -356,15 +357,22 @@ void mail_search_args_reset(struct mail_search_arg *args, bool full_reset)
 		if (args->type == SEARCH_OR || args->type == SEARCH_SUB)
 			mail_search_args_reset(args->value.subargs, full_reset);
 
-		if (!args->match_always)
-			args->result = -1;
-		else {
+		if (args->match_always) {
 			if (!full_reset)
 				args->result = 1;
 			else {
 				args->match_always = FALSE;
 				args->result = -1;
 			}
+		} else if (args->nonmatch_always) {
+			if (!full_reset)
+				args->result = 0;
+			else {
+				args->nonmatch_always = FALSE;
+				args->result = -1;
+			}
+		} else {
+			args->result = -1;
 		}
 
 		args = args->next;

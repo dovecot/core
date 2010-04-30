@@ -95,6 +95,7 @@ struct mail_search_arg {
 	const char *hdr_field_name; /* for SEARCH_HEADER* */
 	unsigned int not:1;
 	unsigned int match_always:1; /* result = 1 always */
+	unsigned int nonmatch_always:1; /* result = 0 always */
 
 	int result; /* -1 = unknown, 0 = unmatched, 1 = matched */
 };

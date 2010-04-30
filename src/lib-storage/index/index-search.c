@@ -58,6 +58,7 @@ struct index_search_context {
 	unsigned int sorted:1;
 	unsigned int have_seqsets:1;
 	unsigned int have_index_args:1;
+	unsigned int have_mailbox_args:1;
 };
 
 struct search_header_context {
@@ -87,6 +88,9 @@ static void search_parse_msgset_args(unsigned int messages_count,
 static void search_init_arg(struct mail_search_arg *arg,
 			    struct index_search_context *ctx)
 {
+	uint8_t guid[MAIL_GUID_128_SIZE];
+	bool match;
+
 	switch (arg->type) {
 	case SEARCH_SEQSET:
 		ctx->have_seqsets = TRUE;
@@ -100,9 +104,28 @@ static void search_init_arg(struct mail_search_arg *arg,
 			mail_index_modseq_enable(ctx->box->index);
 		ctx->have_index_args = TRUE;
 		break;
+	case SEARCH_MAILBOX_GUID:
+		if (mailbox_get_guid(ctx->box, guid) < 0) {
+			/* result will be unknown */
+			break;
+		}
+
+		match = strcmp(mail_guid_128_to_string(guid),
+			       arg->value.str) == 0;
+		if (match != arg->not)
+			arg->match_always = TRUE;
+		else
+			arg->nonmatch_always = TRUE;
+		break;
+	case SEARCH_MAILBOX:
+	case SEARCH_MAILBOX_GLOB:
+		ctx->have_mailbox_args = TRUE;
+		break;
 	case SEARCH_ALL:
 		if (!arg->not)
 			arg->match_always = TRUE;
+		else
+			arg->nonmatch_always = TRUE;
 		break;
 	default:
 		break;
@@ -150,8 +173,6 @@ static int search_arg_match_index(struct index_search_context *ctx,
 				  struct mail_search_arg *arg,
 				  const struct mail_index_record *rec)
 {
-	uint8_t guid[MAIL_GUID_128_SIZE];
-	const char *str;
 	enum mail_flags flags;
 	uint64_t modseq;
 	int ret;
@@ -186,25 +207,6 @@ static int search_arg_match_index(struct index_search_context *ctx,
 		}
 		return modseq >= arg->value.modseq->modseq;
 	}
-	case SEARCH_MAILBOX:
-		if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME,
-				     &str) < 0)
-			return -1;
-
-		if (strcasecmp(str, "INBOX") == 0)
-			return strcasecmp(arg->value.str, "INBOX") == 0;
-		return strcmp(str, arg->value.str) == 0;
-	case SEARCH_MAILBOX_GUID:
-		if (mailbox_get_guid(ctx->mail->box, guid) < 0)
-			return -1;
-
-		return strcmp(mail_guid_128_to_string(guid),
-			      arg->value.str) == 0;
-	case SEARCH_MAILBOX_GLOB:
-		if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME,
-				     &str) < 0)
-			return -1;
-		return imap_match(arg->value.mailbox_glob, str) == IMAP_MATCH_YES;
 	default:
 		return -1;
 	}
@@ -217,6 +219,47 @@ static void search_index_arg(struct mail_search_arg *arg,
 
 	rec = mail_index_lookup(ctx->view, ctx->mail_ctx.seq);
 	switch (search_arg_match_index(ctx, arg, rec)) {
+	case -1:
+		/* unknown */
+		break;
+	case 0:
+		ARG_SET_RESULT(arg, 0);
+		break;
+	default:
+		ARG_SET_RESULT(arg, 1);
+		break;
+	}
+}
+
+/* Returns >0 = matched, 0 = not matched, -1 = unknown */
+static int search_arg_match_mailbox(struct index_search_context *ctx,
+				    struct mail_search_arg *arg)
+{
+	const char *str;
+
+	switch (arg->type) {
+	case SEARCH_MAILBOX:
+		if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME,
+				     &str) < 0)
+			return -1;
+
+		if (strcasecmp(str, "INBOX") == 0)
+			return strcasecmp(arg->value.str, "INBOX") == 0;
+		return strcmp(str, arg->value.str) == 0;
+	case SEARCH_MAILBOX_GLOB:
+		if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME,
+				     &str) < 0)
+			return -1;
+		return imap_match(arg->value.mailbox_glob, str) == IMAP_MATCH_YES;
+	default:
+		return -1;
+	}
+}
+
+static void search_mailbox_arg(struct mail_search_arg *arg,
+			       struct index_search_context *ctx)
+{
+	switch (search_arg_match_mailbox(ctx, arg)) {
 	case -1:
 		/* unknown */
 		break;
@@ -1103,6 +1146,13 @@ static bool search_match_next(struct index_search_context *ctx)
 	};
 	unsigned int i;
 	int ret = -1;
+
+	if (ctx->have_mailbox_args) {
+		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
+					       search_mailbox_arg, ctx);
+		if (ret >= 0)
+			return ret > 0;
+	}
 
 	/* try to avoid doing extra work for as long as possible */
 	for (i = 0; i < N_ELEMENTS(cache_lookups) && ret < 0; i++) {
