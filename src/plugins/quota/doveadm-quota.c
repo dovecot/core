@@ -64,8 +64,8 @@ cmd_quota_recalc(struct mail_user *user, const char *const args[] ATTR_UNUSED)
 }
 
 static struct doveadm_mail_cmd quota_commands[] = {
-	{ cmd_quota_get, "quota get", "" },
-	{ cmd_quota_recalc, "quota recalc", "" }
+	{ cmd_quota_get, "quota get", NULL },
+	{ cmd_quota_recalc, "quota recalc", NULL }
 };
 
 void doveadm_quota_plugin_init(struct module *module ATTR_UNUSED)

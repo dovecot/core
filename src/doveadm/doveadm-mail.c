@@ -267,7 +267,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	}
 	argv += optind;
 
-	if (argv[0] != NULL && *cmd->usage_args == '\0') {
+	if (argv[0] != NULL && cmd->usage_args == NULL) {
 		i_fatal("doveadm %s: Unknown parameter: %s",
 			cmd->name, argv[0]);
 	}
