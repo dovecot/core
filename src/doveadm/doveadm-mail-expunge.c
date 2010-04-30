@@ -52,6 +52,7 @@ expunge_search_args_is_mailbox_or_ok(struct mail_search_arg *args)
 				return FALSE;
 			break;
 		case SEARCH_MAILBOX:
+		case SEARCH_MAILBOX_GUID:
 		case SEARCH_MAILBOX_GLOB:
 			break;
 		default:
@@ -71,6 +72,7 @@ expunge_search_args_is_mailbox_ok(struct mail_search_arg *args)
 	for (arg = args; arg != NULL; arg = arg->next) {
 		switch (arg->type) {
 		case SEARCH_MAILBOX:
+		case SEARCH_MAILBOX_GUID:
 		case SEARCH_MAILBOX_GLOB:
 			return TRUE;
 		case SEARCH_OR:
@@ -112,6 +114,7 @@ expunge_search_args_is_msgset_or_ok(struct mail_search_arg *args)
 	for (arg = args; arg != NULL; arg = arg->next) {
 		switch (arg->type) {
 		case SEARCH_MAILBOX:
+		case SEARCH_MAILBOX_GUID:
 		case SEARCH_MAILBOX_GLOB:
 			return FALSE;
 		case SEARCH_OR:
@@ -138,6 +141,7 @@ expunge_search_args_is_msgset_ok(struct mail_search_arg *args)
 	for (arg = args; arg != NULL; arg = arg->next) {
 		switch (arg->type) {
 		case SEARCH_MAILBOX:
+		case SEARCH_MAILBOX_GUID:
 		case SEARCH_MAILBOX_GLOB:
 			break;
 		case SEARCH_OR:

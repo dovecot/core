@@ -38,6 +38,16 @@ static int fetch_mailbox(struct fetch_context *ctx)
 	return 0;
 }
 
+static int fetch_mailbox_guid(struct fetch_context *ctx)
+{
+	uint8_t guid[MAIL_GUID_128_SIZE];
+
+	if (mailbox_get_guid(ctx->mail->box, guid) < 0)
+		return -1;
+	str_append(ctx->hdr, mail_guid_128_to_string(guid));
+	return 0;
+}
+
 static int fetch_seq(struct fetch_context *ctx)
 {
 	str_printfa(ctx->hdr, "%u", ctx->mail->seq);
@@ -208,6 +218,7 @@ struct fetch_field {
 
 static const struct fetch_field fetch_fields[] = {
 	{ "mailbox",       0,                        fetch_mailbox },
+	{ "mailbox-guid",  0,                        fetch_mailbox_guid },
 	{ "seq",           0,                        fetch_seq },
 	{ "uid",           0,                        fetch_uid },
 	{ "guid",          0,                        fetch_guid },
