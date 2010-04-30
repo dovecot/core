@@ -15,7 +15,7 @@ struct doveadm_mail_list_iter {
 	struct mailbox_list_iterate_context *iter;
 };
 
-static void
+static int
 search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 				 ARRAY_TYPE(const_string) *patterns)
 {
@@ -28,18 +28,24 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 		case SEARCH_INTHREAD:
 			subargs = args->value.subargs;
 			for (; subargs != NULL; subargs = subargs->next) {
-				search_args_get_mailbox_patterns(subargs,
-								 patterns);
+				if (!search_args_get_mailbox_patterns(subargs,
+								      patterns))
+					return 0;
 			}
 			break;
 		case SEARCH_MAILBOX:
 		case SEARCH_MAILBOX_GLOB:
+			if (args->not) {
+				array_clear(patterns);
+				return 0;
+			}
 			array_append(patterns, &args->value.str, 1);
 			break;
 		default:
 			break;
 		}
 	}
+	return 1;
 }
 
 struct doveadm_mail_list_iter *

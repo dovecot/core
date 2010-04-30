@@ -338,12 +338,14 @@ static bool search_args_have_unique_fetch(struct mail_search_args *args)
 		switch (arg->type) {
 		case SEARCH_MAILBOX:
 		case SEARCH_MAILBOX_GUID:
-			have_mailbox = TRUE;
+			if (!arg->not)
+				have_mailbox = TRUE;
 			break;
 		case SEARCH_SEQSET:
 		case SEARCH_UIDSET:
 			seqset = array_get(&arg->value.seqset, &count);
-			if (count == 1 && seqset->seq1 == seqset->seq2)
+			if (count == 1 && seqset->seq1 == seqset->seq2 &&
+			    !arg->not)
 				have_msg = TRUE;
 			break;
 		default:
