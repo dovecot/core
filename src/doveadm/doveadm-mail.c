@@ -267,6 +267,11 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	}
 	argv += optind;
 
+	if (argv[0] != NULL && *cmd->usage_args == '\0') {
+		i_fatal("doveadm %s: Unknown parameter: %s",
+			cmd->name, argv[0]);
+	}
+
 	if (!all_users) {
 		doveadm_mail_single_user(cmd->cmd, username, service_flags,
 					 (const void *)argv);
