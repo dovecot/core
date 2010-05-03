@@ -10,6 +10,7 @@
 #include "sql-api.h"
 #include "module-dir.h"
 #include "randgen.h"
+#include "process-title.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -44,6 +45,20 @@ static pool_t auth_set_pool;
 static struct module *modules = NULL;
 static struct mechanisms_register *mech_reg;
 static ARRAY_DEFINE(listen_fd_types, enum auth_socket_type);
+
+void auth_refresh_proctitle(void)
+{
+	if (!global_auth_settings->verbose_proctitle)
+		return;
+
+	process_title_set(t_strdup_printf(
+		"[%u wait, %u passdb, %u userdb]",
+		auth_request_state_count[AUTH_REQUEST_STATE_NEW] +
+		auth_request_state_count[AUTH_REQUEST_STATE_MECH_CONTINUE] +
+		auth_request_state_count[AUTH_REQUEST_STATE_FINISHED],
+		auth_request_state_count[AUTH_REQUEST_STATE_PASSDB],
+		auth_request_state_count[AUTH_REQUEST_STATE_USERDB]));
+}
 
 static const char *const *read_global_settings(void)
 {
@@ -130,6 +145,7 @@ static void main_init(void)
 		/* caching is handled only by the main auth process */
 		passdb_cache_init(global_auth_settings);
 	}
+	auth_refresh_proctitle();
 }
 
 static void main_deinit(void)

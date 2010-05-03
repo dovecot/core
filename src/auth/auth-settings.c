@@ -160,9 +160,12 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 
 /* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
 #undef DEF
+#undef DEF_NOPREFIX
 #undef DEFLIST
 #define DEF(type, name) \
 	{ type, "auth_"#name, offsetof(struct auth_settings, name), NULL }
+#define DEF_NOPREFIX(type, name) \
+	{ type, #name, offsetof(struct auth_settings, name), NULL }
 #define DEFLIST(field, name, defines) \
 	{ SET_DEFLIST, name, offsetof(struct auth_settings, field), defines }
 
@@ -196,6 +199,8 @@ static const struct setting_define auth_setting_defines[] = {
 	DEFLIST(passdbs, "passdb", &auth_passdb_setting_parser_info),
 	DEFLIST(userdbs, "userdb", &auth_userdb_setting_parser_info),
 
+	DEF_NOPREFIX(SET_BOOL, verbose_proctitle),
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -227,7 +232,9 @@ static const struct auth_settings auth_default_settings = {
 	.worker_max_count = 30,
 
 	.passdbs = ARRAY_INIT,
-	.userdbs = ARRAY_INIT
+	.userdbs = ARRAY_INIT,
+
+	.verbose_proctitle = FALSE
 };
 
 const struct setting_parser_info auth_setting_parser_info = {

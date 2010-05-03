@@ -491,7 +491,7 @@ static void userdb_callback(enum userdb_result result,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_USERDB);
 
-	request->state = AUTH_REQUEST_STATE_FINISHED;
+	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 
 	if (request->userdb_lookup_failed)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -566,7 +566,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 		/* the request isn't being referenced anywhere anymore,
 		   so we can do a bit of kludging.. replace the request's
 		   old client_id with master's id. */
-		request->state = AUTH_REQUEST_STATE_USERDB;
+		auth_request_set_state(request, AUTH_REQUEST_STATE_USERDB);
 		request->id = id;
 		request->context = handler;
 		request->master = master;

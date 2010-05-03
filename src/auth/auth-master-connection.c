@@ -214,7 +214,7 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 		auth_request_log_info(auth_request, "userdb", "%s", error);
 		user_callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 	} else {
-		auth_request->state = AUTH_REQUEST_STATE_USERDB;
+		auth_request_set_state(auth_request, AUTH_REQUEST_STATE_USERDB);
 		auth_request_lookup_user(auth_request, user_callback);
 	}
 	return TRUE;
@@ -274,7 +274,8 @@ master_input_pass(struct auth_master_connection *conn, const char *args)
 		pass_callback(PASSDB_RESULT_USER_UNKNOWN,
 			      NULL, 0, auth_request);
 	} else {
-		auth_request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+		auth_request_set_state(auth_request,
+				       AUTH_REQUEST_STATE_MECH_CONTINUE);
 		auth_request_lookup_credentials(auth_request, "",
 						pass_callback);
 	}

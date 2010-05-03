@@ -45,6 +45,8 @@ struct auth_settings {
 	ARRAY_DEFINE(passdbs, struct auth_passdb_settings *);
 	ARRAY_DEFINE(userdbs, struct auth_userdb_settings *);
 
+	bool verbose_proctitle;
+
 	/* generated: */
 	char username_chars_map[256];
 	char username_translation_map[256];

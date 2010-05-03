@@ -158,7 +158,7 @@ static_credentials_callback(enum passdb_result result,
 
 	auth_request->private_callback.userdb = ctx->old_callback;
 	auth_request->context = ctx->old_context;
-	auth_request->state = AUTH_REQUEST_STATE_USERDB;
+	auth_request_set_state(auth_request, AUTH_REQUEST_STATE_USERDB);
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
@@ -201,7 +201,8 @@ static void static_lookup(struct auth_request *auth_request,
 		ctx->callback = callback;
 
 		i_assert(auth_request->state == AUTH_REQUEST_STATE_USERDB);
-		auth_request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+		auth_request_set_state(auth_request,
+				       AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 		auth_request->context = ctx;
 		auth_request_lookup_credentials(auth_request, "",

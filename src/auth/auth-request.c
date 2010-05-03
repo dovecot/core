@@ -26,6 +26,8 @@
 
 #define CACHED_PASSWORD_SCHEME "SHA1"
 
+enum auth_request_state auth_request_state_count[AUTH_REQUEST_STATE_MAX];
+
 static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 			   const char *subsystem);
 
@@ -36,7 +38,9 @@ auth_request_new(const struct mech_module *mech,
 	struct auth_request *request;
 
 	request = mech->auth_new();
+
 	request->state = AUTH_REQUEST_STATE_NEW;
+	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
 
 	request->refcount = 1;
 	request->last_access = ioloop_time;
@@ -51,18 +55,34 @@ auth_request_new(const struct mech_module *mech,
 
 struct auth_request *auth_request_new_dummy(void)
 {
-	struct auth_request *auth_request;
+	struct auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create("auth_request", 1024);
-	auth_request = p_new(pool, struct auth_request, 1);
-	auth_request->pool = pool;
+	request = p_new(pool, struct auth_request, 1);
+	request->pool = pool;
 
-	auth_request->refcount = 1;
-	auth_request->last_access = ioloop_time;
-	auth_request->set = global_auth_settings;
+	request->state = AUTH_REQUEST_STATE_NEW;
+	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
 
-	return auth_request;
+	request->refcount = 1;
+	request->last_access = ioloop_time;
+	request->set = global_auth_settings;
+	return request;
+}
+
+void auth_request_set_state(struct auth_request *request,
+			    enum auth_request_state state)
+{
+	if (request->state == state)
+		return;
+
+	i_assert(auth_request_state_count[request->state] > 0);
+	auth_request_state_count[request->state]--;
+	auth_request_state_count[state]++;
+
+	request->state = state;
+	auth_refresh_proctitle();
 }
 
 void auth_request_init(struct auth_request *request)
@@ -91,7 +111,7 @@ void auth_request_success(struct auth_request *request,
 		return;
 	}
 
-	request->state = AUTH_REQUEST_STATE_FINISHED;
+	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	request->successful = TRUE;
 	auth_request_refresh_last_access(request);
 	request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
@@ -102,7 +122,7 @@ void auth_request_fail(struct auth_request *request)
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	request->state = AUTH_REQUEST_STATE_FINISHED;
+	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
 	request->callback(request, AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
 }
@@ -126,6 +146,9 @@ void auth_request_unref(struct auth_request **_request)
 	i_assert(request->refcount > 0);
 	if (--request->refcount > 0)
 		return;
+
+	auth_request_state_count[request->state]--;
+	auth_refresh_proctitle();
 
 	if (request->to_abort != NULL)
 		timeout_remove(&request->to_abort);
@@ -224,7 +247,7 @@ void auth_request_initial(struct auth_request *request)
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_NEW);
 
-	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 	request->mech->auth_initial(request, request->initial_response,
 				    request->initial_response_len);
 }
@@ -446,7 +469,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
-	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
@@ -526,7 +549,7 @@ void auth_request_verify_plain(struct auth_request *request,
 		return;
 	}
 
-	request->state = AUTH_REQUEST_STATE_PASSDB;
+	auth_request_set_state(request, AUTH_REQUEST_STATE_PASSDB);
 	request->credentials_scheme = NULL;
 
 	if (passdb->blocking)
@@ -569,7 +592,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
-	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
@@ -622,7 +645,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 		}
 	}
 
-	request->state = AUTH_REQUEST_STATE_PASSDB;
+	auth_request_set_state(request, AUTH_REQUEST_STATE_PASSDB);
 
 	if (passdb->iface.lookup_credentials == NULL) {
 		/* this passdb doesn't support credentials */

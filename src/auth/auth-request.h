@@ -13,7 +13,9 @@ enum auth_request_state {
 	AUTH_REQUEST_STATE_PASSDB,
 	AUTH_REQUEST_STATE_MECH_CONTINUE,
 	AUTH_REQUEST_STATE_FINISHED,
-	AUTH_REQUEST_STATE_USERDB
+	AUTH_REQUEST_STATE_USERDB,
+
+	AUTH_REQUEST_STATE_MAX
 };
 
 typedef const char *
@@ -110,12 +112,17 @@ struct auth_request {
 	/* ... mechanism specific data ... */
 };
 
+extern enum auth_request_state auth_request_state_count[AUTH_REQUEST_STATE_MAX];
+
 struct auth_request *
 auth_request_new(const struct mech_module *mech,
 		 mech_callback_t *callback, void *context);
 struct auth_request *auth_request_new_dummy(void);
 void auth_request_init(struct auth_request *request);
 struct auth *auth_request_get_auth(struct auth_request *request);
+
+void auth_request_set_state(struct auth_request *request,
+			    enum auth_request_state state);
 
 void auth_request_ref(struct auth_request *request);
 void auth_request_unref(struct auth_request **request);
