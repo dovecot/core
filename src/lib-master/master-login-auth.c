@@ -20,7 +20,9 @@
 struct master_login_auth_request {
 	struct master_login_auth_request *prev, *next;
 
+	unsigned int id;
 	time_t create_stamp;
+
 	master_login_auth_request_callback_t *callback;
 	void *context;
 };
@@ -131,6 +133,7 @@ static void master_login_auth_timeout(struct master_login_auth *auth)
 		request = auth->request_head;
 		DLLIST2_REMOVE(&auth->request_head,
 			       &auth->request_tail, request);
+		hash_table_remove(auth->requests, POINTER_CAST(request->id));
 
 		i_error("Auth server request timed out after %u secs",
 			(unsigned int)(ioloop_time - request->create_stamp));
@@ -360,6 +363,7 @@ void master_login_auth_request(struct master_login_auth *auth,
 
 	login_req = i_new(struct master_login_auth_request, 1);
 	login_req->create_stamp = ioloop_time;
+	login_req->id = id;
 	login_req->callback = callback;
 	login_req->context = context;
 	hash_table_insert(auth->requests, POINTER_CAST(id), login_req);
