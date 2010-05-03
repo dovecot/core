@@ -95,6 +95,10 @@ static void auth_request_handler_remove(struct auth_request_handler *handler,
 {
 	i_assert(request->handler == handler);
 
+	/* if db lookup is stuck, this call doesn't actually free the auth
+	   request, so make sure we don't get back here. */
+	timeout_remove(&request->to_abort);
+
 	hash_table_remove(handler->requests, POINTER_CAST(request->id));
 	auth_request_unref(&request);
 }
