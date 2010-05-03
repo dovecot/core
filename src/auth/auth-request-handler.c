@@ -453,7 +453,8 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 		reply = auth_stream_reply_init(pool_datastack_create());
 		auth_stream_reply_add(reply, "FAIL", NULL);
 		auth_stream_reply_add(reply, NULL, dec2str(id));
-		auth_stream_reply_add(reply, "reason", "Timeouted");
+		auth_stream_reply_add(reply, "reason",
+				      "Authentication request timed out");
 		handler->callback(reply, handler->context);
 		return TRUE;
 	}
