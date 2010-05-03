@@ -276,6 +276,20 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 
 static void auth_request_timeout(struct auth_request *request)
 {
+	const char *str;
+
+	str = t_strdup_printf("Request %u.%u timeouted after %u secs, state=%d",
+			      request->handler->client_pid, request->id,
+			      (unsigned int)(time(NULL) - request->last_access),
+			      request->state);
+	if (request->state != AUTH_REQUEST_STATE_MECH_CONTINUE) {
+		/* client's fault */
+		auth_request_log_error(request, request->mech->mech_name,
+				       "%s", str);
+	} else if (request->set->verbose) {
+		auth_request_log_info(request, request->mech->mech_name,
+				      "%s", str);
+	}
 	auth_request_handler_remove(request->handler, request);
 }
 
