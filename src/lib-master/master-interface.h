@@ -71,4 +71,12 @@ enum master_login_state {
    new child processes when needed. */
 #define MASTER_LISTEN_FD_FIRST 6
 
+/* Timeouts: base everything on how long we can wait for login clients. */
+#define MASTER_LOGIN_TIMEOUT_SECS (3*60)
+/* auth server should abort auth requests before that happens */
+#define MASTER_AUTH_SERVER_TIMEOUT_SECS (MASTER_LOGIN_TIMEOUT_SECS - 30)
+/* auth clients should abort auth lookups after server was supposed to have
+   done that */
+#define MASTER_AUTH_LOOKUP_TIMEOUT_SECS (MASTER_AUTH_SERVER_TIMEOUT_SECS + 5)
+
 #endif

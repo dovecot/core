@@ -8,6 +8,7 @@
 #include "hash.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "master-interface.h"
 #include "auth-penalty.h"
 #include "auth-request.h"
 #include "auth-master-connection.h"
@@ -393,7 +394,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	}
 	auth_request_init(request);
 
-	request->to_abort = timeout_add(AUTH_REQUEST_TIMEOUT * 1000,
+	request->to_abort = timeout_add(MASTER_AUTH_SERVER_TIMEOUT_SECS * 1000,
 					auth_request_timeout, request);
 	hash_table_insert(handler->requests, POINTER_CAST(id), request);
 

@@ -1,7 +1,8 @@
 noinst_LTLIBRARIES = libauth.la
 
 AM_CPPFLAGS = \
-	-I$(top_srcdir)/src/lib
+	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-master
 
 libauth_la_SOURCES = \
 	auth-client.c \

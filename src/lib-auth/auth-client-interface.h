@@ -8,8 +8,6 @@
 
 /* GSSAPI can use quite large packets */
 #define AUTH_CLIENT_MAX_LINE_LENGTH 16384
-/* Use a bit smaller than login process timeout */
-#define AUTH_REQUEST_TIMEOUT (3*60 - 30)
 
 enum mech_security_flags {
 	/* Don't advertise this as available SASL mechanism (eg. APOP) */

@@ -9,6 +9,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "master-interface.h"
 #include "auth-master.h"
 
 #include <stdlib.h>
@@ -17,7 +18,6 @@
 #define AUTH_PROTOCOL_MAJOR 1
 #define AUTH_PROTOCOL_MINOR 0
 
-#define AUTH_REQUEST_TIMEOUT_SECS 30
 #define AUTH_MASTER_IDLE_SECS 60
 
 #define MAX_INBUF_SIZE 8192
@@ -301,7 +301,7 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE, FALSE);
 	conn->io = io_add(conn->fd, IO_READ, auth_input, conn);
-	conn->to = timeout_add(1000*AUTH_REQUEST_TIMEOUT_SECS,
+	conn->to = timeout_add(1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS,
 			       auth_request_timeout, conn);
 	lib_signals_reset_ioloop();
 }

@@ -9,13 +9,13 @@
 #include "hex-binary.h"
 #include "hash.h"
 #include "str.h"
+#include "master-interface.h"
 #include "master-auth.h"
 #include "master-login-auth.h"
 
 #include <stdlib.h>
 
 #define AUTH_MAX_INBUF_SIZE 8192
-#define AUTH_REQUEST_TIMEOUT_SECS (2*60)
 
 struct master_login_auth_request {
 	struct master_login_auth_request *prev, *next;
@@ -120,7 +120,8 @@ static unsigned int auth_get_next_timeout_secs(struct master_login_auth *auth)
 {
 	time_t expires;
 
-	expires = auth->request_head->create_stamp + AUTH_REQUEST_TIMEOUT_SECS;
+	expires = auth->request_head->create_stamp +
+		MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
 	return expires <= ioloop_time ? 0 : expires - ioloop_time;
 }
 

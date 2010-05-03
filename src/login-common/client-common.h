@@ -17,7 +17,7 @@
 
 /* Disconnect client after this many milliseconds if it hasn't managed
    to log in yet. */
-#define CLIENT_LOGIN_TIMEOUT_MSECS (3*60*1000)
+#define CLIENT_LOGIN_TIMEOUT_MSECS (MASTER_LOGIN_TIMEOUT_SECS*1000)
 
 #define AUTH_SERVER_WAITING_MSG \
 	"Waiting for authentication process to respond.."
