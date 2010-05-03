@@ -91,8 +91,8 @@ struct pgsql_query_list {
 	const char *query;
 	unsigned int *affected_rows;
 };
-extern struct sql_db driver_pgsql_db;
-extern struct sql_result driver_pgsql_result;
+extern const struct sql_db driver_pgsql_db;
+extern const struct sql_result driver_pgsql_result;
 
 static void
 driver_pgsql_query_full(struct sql_db *db, const char *query,
@@ -1068,7 +1068,7 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query,
 	ctx->tail = list;
 }
 
-struct sql_db driver_pgsql_db = {
+const struct sql_db driver_pgsql_db = {
 	"pgsql",
 
 	.v = {
@@ -1090,7 +1090,7 @@ struct sql_db driver_pgsql_db = {
 	}
 };
 
-struct sql_result driver_pgsql_result = {
+const struct sql_result driver_pgsql_result = {
 	.v = {
 		driver_pgsql_result_free,
 		driver_pgsql_result_next_row,

@@ -33,9 +33,9 @@ struct sqlite_transaction_context {
 	unsigned int failed:1;
 };
 
-extern struct sql_db driver_sqlite_db;
-extern struct sql_result driver_sqlite_result;
-extern struct sql_result driver_sqlite_error_result;
+extern const struct sql_db driver_sqlite_db;
+extern const struct sql_result driver_sqlite_result;
+extern const struct sql_result driver_sqlite_error_result;
 
 static int driver_sqlite_connect(struct sql_db *_db)
 {
@@ -386,7 +386,7 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query,
 		*affected_rows = sqlite3_changes(db->sqlite);
 }
 
-struct sql_db driver_sqlite_db = {
+const struct sql_db driver_sqlite_db = {
 	"sqlite",
 
 	.v = {
@@ -407,7 +407,7 @@ struct sql_db driver_sqlite_db = {
 	}
 };
 
-struct sql_result driver_sqlite_result = {
+const struct sql_result driver_sqlite_result = {
 	.v = {
 		driver_sqlite_result_free,
 		driver_sqlite_result_next_row,
@@ -428,7 +428,7 @@ driver_sqlite_result_error_next_row(struct sql_result *result ATTR_UNUSED)
 	return -1;
 }
 
-struct sql_result driver_sqlite_error_result = {
+const struct sql_result driver_sqlite_error_result = {
 	.v = {
 		driver_sqlite_result_free,
 		driver_sqlite_result_error_next_row,

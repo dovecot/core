@@ -80,9 +80,9 @@ struct mysql_query_list {
 	unsigned int *affected_rows;
 };
 
-extern struct sql_db driver_mysql_db;
-extern struct sql_result driver_mysql_result;
-extern struct sql_result driver_mysql_error_result;
+extern const struct sql_db driver_mysql_db;
+extern const struct sql_result driver_mysql_result;
+extern const struct sql_result driver_mysql_error_result;
 
 static bool driver_mysql_connect(struct mysql_connection *conn)
 {
@@ -692,7 +692,7 @@ driver_mysql_update(struct sql_transaction_context *_ctx, const char *query,
 	ctx->tail = list;
 }
 
-struct sql_db driver_mysql_db = {
+const struct sql_db driver_mysql_db = {
 	"mysql",
 
 	.v = {
@@ -714,7 +714,7 @@ struct sql_db driver_mysql_db = {
 	}
 };
 
-struct sql_result driver_mysql_result = {
+const struct sql_result driver_mysql_result = {
 	.v = {
 		driver_mysql_result_free,
 		driver_mysql_result_next_row,
@@ -735,7 +735,7 @@ driver_mysql_result_error_next_row(struct sql_result *result ATTR_UNUSED)
 	return -1;
 }
 
-struct sql_result driver_mysql_error_result = {
+const struct sql_result driver_mysql_error_result = {
 	.v = {
 		driver_mysql_result_free,
 		driver_mysql_result_error_next_row,
