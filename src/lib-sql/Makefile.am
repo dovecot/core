@@ -32,7 +32,7 @@ AM_CPPFLAGS = \
 
 dist_sources = \
 	sql-api.c \
-	sql-pool.c
+	sql-db-cache.c
 
 if ! SQL_PLUGINS
 driver_sources = \
@@ -66,7 +66,7 @@ endif
 headers = \
 	sql-api.h \
 	sql-api-private.h \
-	sql-pool.h
+	sql-db-cache.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

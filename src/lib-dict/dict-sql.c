@@ -5,7 +5,7 @@
 #include "istream.h"
 #include "str.h"
 #include "sql-api-private.h"
-#include "sql-pool.h"
+#include "sql-db-cache.h"
 #include "dict-private.h"
 #include "dict-sql-settings.h"
 #include "dict-sql.h"
@@ -68,7 +68,7 @@ struct sql_dict_transaction_context {
 	unsigned int changed:1;
 };
 
-static struct sql_pool *dict_sql_pool;
+static struct sql_db_cache *dict_sql_db_cache;
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
 
@@ -94,8 +94,8 @@ sql_dict_init(struct dict *driver, const char *uri,
 	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
 	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
 
-	dict->db = sql_pool_new(dict_sql_pool, driver->name,
-				dict->set->connect);
+	dict->db = sql_db_cache_new(dict_sql_db_cache, driver->name,
+				    dict->set->connect);
 	return &dict->dict;
 }
 
@@ -900,7 +900,7 @@ void dict_sql_register(void)
         const struct sql_db *const *drivers;
 	unsigned int i, count;
 
-	dict_sql_pool = sql_pool_init(DICT_SQL_MAX_UNUSED_CONNECTIONS);
+	dict_sql_db_cache = sql_db_cache_init(DICT_SQL_MAX_UNUSED_CONNECTIONS);
 
 	/* @UNSAFE */
 	drivers = array_get(&sql_drivers, &count);
@@ -921,5 +921,5 @@ void dict_sql_unregister(void)
 	for (i = 0; dict_sql_drivers[i].name != NULL; i++)
 		dict_driver_unregister(&dict_sql_drivers[i]);
 	i_free(dict_sql_drivers);
-	sql_pool_deinit(&dict_sql_pool);
+	sql_db_cache_deinit(&dict_sql_db_cache);
 }
