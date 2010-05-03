@@ -112,7 +112,7 @@ struct auth_request {
 	/* ... mechanism specific data ... */
 };
 
-extern enum auth_request_state auth_request_state_count[AUTH_REQUEST_STATE_MAX];
+extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech,

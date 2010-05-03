@@ -26,7 +26,7 @@
 
 #define CACHED_PASSWORD_SCHEME "SHA1"
 
-enum auth_request_state auth_request_state_count[AUTH_REQUEST_STATE_MAX];
+unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 			   const char *subsystem);
