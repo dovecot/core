@@ -65,7 +65,6 @@ struct sql_dict_transaction_context {
 	struct sql_dict_inc_row *inc_row;
 
 	unsigned int failed:1;
-	unsigned int changed:1;
 };
 
 static struct sql_db_cache *dict_sql_db_cache;
