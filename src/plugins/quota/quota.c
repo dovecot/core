@@ -92,7 +92,7 @@ struct quota_settings *quota_user_read_settings(struct mail_user *user)
 	unsigned int i;
 	pool_t pool;
 
-	pool = pool_alloconly_create("quota settings", 1024);
+	pool = pool_alloconly_create("quota settings", 2048);
 	quota_set = p_new(pool, struct quota_settings, 1);
 	quota_set->pool = pool;
 	quota_set->test_alloc = quota_default_test_alloc;
