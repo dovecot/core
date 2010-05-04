@@ -502,6 +502,9 @@ static int client_dict_wait(struct dict *_dict)
 	char *line;
 	int ret = 0;
 
+	if (!dict->handshaked)
+		return -1;
+
 	while (dict->async_commits > 0) {
 		if (client_dict_read_one_line(dict, &line) < 0) {
 			ret = -1;
