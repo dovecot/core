@@ -54,7 +54,8 @@ service_create_file_listener(struct service *service,
 }
 
 static int
-resolve_ip(const char *address, struct ip_addr *ip_r, const char **error_r)
+resolve_ip(const char *address, const struct ip_addr **ips_r,
+	   unsigned int *ips_count_r, const char **error_r)
 {
 	struct ip_addr *ip_list;
 	unsigned int ips_count;
@@ -62,13 +63,19 @@ resolve_ip(const char *address, struct ip_addr *ip_r, const char **error_r)
 
 	if (address == NULL || strcmp(address, "*") == 0) {
 		/* IPv4 any */
-		net_get_ip_any4(ip_r);
+		ip_list = t_new(struct ip_addr, 1);
+		net_get_ip_any4(ip_list);
+		*ips_r = ip_list;
+		*ips_count_r = 1;
 		return 0;
 	}
 
 	if (strcmp(address, "::") == 0) {
 		/* IPv6 any */
-		net_get_ip_any6(ip_r);
+		ip_list = t_new(struct ip_addr, 1);
+		net_get_ip_any6(ip_list);
+		*ips_r = ip_list;
+		*ips_count_r = 1;
 		return 0;
 	}
 
@@ -84,20 +91,17 @@ resolve_ip(const char *address, struct ip_addr *ip_r, const char **error_r)
 		*error_r = t_strdup_printf("No IPs for address: %s", address);
 		return -1;
 	}
-	if (ips_count > 1) {
-		*error_r = t_strdup_printf("Multiple IPs for address: %s",
-					   address);
-		return -1;
-	}
 
-	*ip_r = ip_list[0];
+	*ips_r = ip_list;
+	*ips_count_r = ips_count;
 	return 0;
 }
 
 static struct service_listener *
 service_create_one_inet_listener(struct service *service,
 				 const struct inet_listener_settings *set,
-				 const char *address, const char **error_r)
+				 const char *address, const struct ip_addr *ip,
+				 const char **error_r)
 {
 	struct service_listener *l;
 
@@ -108,10 +112,8 @@ service_create_one_inet_listener(struct service *service,
 	l->type = SERVICE_LISTENER_INET;
 	l->fd = -1;
 	l->set.inetset.set = set;
+	l->set.inetset.ip = *ip;
 	l->inet_address = p_strdup(service->list->pool, address);
-
-	if (resolve_ip(address, &l->set.inetset.ip, error_r) < 0)
-		return NULL;
 
 	if (set->port > 65535) {
 		*error_r = t_strdup_printf("Invalid port: %u", set->port);
@@ -128,6 +130,8 @@ service_create_inet_listeners(struct service *service,
 {
 	static struct service_listener *l;
 	const char *const *tmp, *addresses;
+	const struct ip_addr *ips;
+	unsigned int i, ips_count;
 	bool ssl_disabled = strcmp(service->set->master_set->ssl, "no") == 0;
 
 	if (set->port == 0) {
@@ -144,14 +148,22 @@ service_create_inet_listeners(struct service *service,
 
 	tmp = t_strsplit_spaces(addresses, ", ");
 	for (; *tmp != NULL; tmp++) {
+		const char *address = *tmp;
+
 		if (set->ssl && ssl_disabled)
 			continue;
 
-		l = service_create_one_inet_listener(service, set, *tmp,
-						     error_r);
-		if (l == NULL)
+		if (resolve_ip(address, &ips, &ips_count, error_r) < 0)
 			return -1;
-		array_append(&service->listeners, &l, 1);
+
+		for (i = 0; i < ips_count; i++) {
+			l = service_create_one_inet_listener(service, set,
+							     address, &ips[i],
+							     error_r);
+			if (l == NULL)
+				return -1;
+			array_append(&service->listeners, &l, 1);
+		}
 		service->have_inet_listeners = TRUE;
 	}
 	return 0;
