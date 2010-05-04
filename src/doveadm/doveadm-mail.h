@@ -48,6 +48,9 @@ struct doveadm_mail_cmd_context *cmd_expunge(const char *const args[]);
 struct doveadm_mail_cmd_context *cmd_search(const char *const args[]);
 struct doveadm_mail_cmd_context *cmd_fetch(const char *const args[]);
 struct doveadm_mail_cmd_context *cmd_altmove(const char *const args[]);
-struct doveadm_mail_cmd_context *cmd_list(const char *const args[]);
+struct doveadm_mail_cmd_context *cmd_mailbox_list(const char *const args[]);
+struct doveadm_mail_cmd_context *cmd_mailbox_create(const char *const args[]);
+struct doveadm_mail_cmd_context *cmd_mailbox_delete(const char *const args[]);
+struct doveadm_mail_cmd_context *cmd_mailbox_rename(const char *const args[]);
 
 #endif

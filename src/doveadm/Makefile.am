@@ -56,7 +56,7 @@ doveadm_SOURCES = \
 	doveadm-mail-expunge.c \
 	doveadm-mail-fetch.c \
 	doveadm-mail-iter.c \
-	doveadm-mail-list.c \
+	doveadm-mail-mailbox.c \
 	doveadm-mail-list-iter.c \
 	doveadm-mail-search.c \
 	doveadm-penalty.c \

@@ -424,7 +424,10 @@ static struct doveadm_mail_cmd mail_commands[] = {
 	{ cmd_search, "search", "<search query>" },
 	{ cmd_fetch, "fetch", "<fields> <search query>" },
 	{ cmd_altmove, "altmove", "<search query>" },
-	{ cmd_list, "list", "[<mailbox> [...]]" }
+	{ cmd_mailbox_list, "mailbox list", "[<mailbox> [...]]" },
+	{ cmd_mailbox_create, "mailbox create", "<mailbox> [...]" },
+	{ cmd_mailbox_delete, "mailbox delete", "<mailbox> [...]" },
+	{ cmd_mailbox_rename, "mailbox rename", "<old name> <new name>" }
 };
 
 void doveadm_mail_init(void)
