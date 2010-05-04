@@ -38,6 +38,7 @@ if ! SQL_PLUGINS
 driver_sources = \
 	driver-mysql.c \
 	driver-pgsql.c \
+	driver-sqlpool.c \
 	driver-sqlite.c
 endif
 

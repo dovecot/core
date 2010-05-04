@@ -2,9 +2,11 @@
 
 #include "lib.h"
 #include "array.h"
+#include "ioloop.h"
 #include "sql-api-private.h"
 
 #include <stdlib.h>
+#include <time.h>
 
 struct sql_db_module_register sql_db_module_register = { 0 };
 ARRAY_TYPE(sql_drivers) sql_drivers;
@@ -38,23 +40,36 @@ void sql_driver_unregister(const struct sql_db *driver)
 	}
 }
 
-struct sql_db *sql_init(const char *db_driver,
-			const char *connect_string ATTR_UNUSED)
+static const struct sql_db *sql_find_driver(const char *name)
 {
 	const struct sql_db *const *drivers;
 	unsigned int i, count;
-	struct sql_db *db;
 
 	drivers = array_get(&sql_drivers, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(db_driver, drivers[i]->name) == 0) {
-			db = drivers[i]->v.init(connect_string);
-			i_array_init(&db->module_contexts, 5);
-			return db;
-		}
+		if (strcmp(drivers[i]->name, name) == 0)
+			return drivers[i];
 	}
+	return NULL;
+}
 
-	i_fatal("Unknown database driver '%s'", db_driver);
+struct sql_db *sql_init(const char *db_driver, const char *connect_string)
+{
+	const struct sql_db *driver;
+	struct sql_db *db;
+
+	i_assert(connect_string != NULL);
+
+	driver = sql_find_driver(db_driver);
+	if (driver == NULL)
+		i_fatal("Unknown database driver '%s'", db_driver);
+
+	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0)
+		db = driver->v.init(connect_string);
+	else
+		db = driver_sqlpool_init(connect_string, driver);
+	i_array_init(&db->module_contexts, 5);
+	return db;
 }
 
 void sql_deinit(struct sql_db **_db)
@@ -62,17 +77,44 @@ void sql_deinit(struct sql_db **_db)
 	struct sql_db *db = *_db;
 
 	*_db = NULL;
+
+	if (db->to_reconnect != NULL)
+		timeout_remove(&db->to_reconnect);
 	db->v.deinit(db);
 }
 
 enum sql_db_flags sql_get_flags(struct sql_db *db)
 {
-	return db->v.get_flags(db);
+	return db->flags;
 }
 
 int sql_connect(struct sql_db *db)
 {
+	time_t now;
+
+	switch (db->state) {
+	case SQL_DB_STATE_DISCONNECTED:
+		break;
+	case SQL_DB_STATE_CONNECTING:
+		return 0;
+	default:
+		return 1;
+	}
+
+	/* don't try reconnecting more than once a second */
+	now = time(NULL);
+	if (db->last_connect_try + (time_t)db->connect_delay > now)
+		return -1;
+	db->last_connect_try = now;
+
 	return db->v.connect(db);
+}
+
+void sql_disconnect(struct sql_db *db)
+{
+	if (db->to_reconnect != NULL)
+		timeout_remove(&db->to_reconnect);
+	db->v.disconnect(db);
 }
 
 const char *sql_escape_string(struct sql_db *db, const char *string)
@@ -286,7 +328,7 @@ sql_result_not_connected_next_row(struct sql_result *result ATTR_UNUSED)
 static const char *
 sql_result_not_connected_get_error(struct sql_result *result ATTR_UNUSED)
 {
-	return "Not connected to database";
+	return SQL_ERRSTR_NOT_CONNECTED;
 }
 
 struct sql_transaction_context *sql_transaction_begin(struct sql_db *db)
@@ -332,11 +374,43 @@ void sql_update_get_rows(struct sql_transaction_context *ctx, const char *query,
 	ctx->db->v.update(ctx, query, affected_rows);
 }
 
+void sql_db_set_state(struct sql_db *db, enum sql_db_state state)
+{
+	enum sql_db_state old_state = db->state;
+
+	if (db->state == state)
+		return;
+
+	db->state = state;
+	if (db->state_change_callback != NULL) {
+		db->state_change_callback(db, old_state,
+					  db->state_change_context);
+	}
+}
+
+void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
+			       const char *query, unsigned int *affected_rows)
+{
+	struct sql_transaction_query *tquery;
+
+	tquery = p_new(pool, struct sql_transaction_query, 1);
+	tquery->trans = ctx;
+	tquery->query = p_strdup(pool, query);
+	tquery->affected_rows = affected_rows;
+
+	if (ctx->head == NULL)
+		ctx->head = tquery;
+	else
+		ctx->tail->next = tquery;
+	ctx->tail = tquery;
+}
+
 struct sql_result sql_not_connected_result = {
 	.v = {
 		sql_result_not_connected_free,
 		sql_result_not_connected_next_row,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		sql_result_not_connected_get_error
-	}
+	},
+	.failed_try_retry = TRUE
 };

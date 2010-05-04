@@ -54,8 +54,17 @@ static int driver_sqlite_connect(struct sql_db *_db)
 		i_error("sqlite: open(%s) failed: %s", db->dbfile,
 			sqlite3_errmsg(db->sqlite));
 		sqlite3_close(db->sqlite);
+		db->sqlite = NULL;
 		return -1;
 	}
+}
+
+static void driver_sqlite_disconnect(struct sql_db *_db)
+{
+ 	struct sqlite_db *db = (struct sqlite_db *)_db;
+
+	sqlite3_close(db->sqlite);
+	db->sqlite = NULL;
 }
 
 static struct sql_db *driver_sqlite_init_v(const char *connect_string)
@@ -82,12 +91,6 @@ static void driver_sqlite_deinit_v(struct sql_db *_db)
 	sqlite3_close(db->sqlite);
 	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);
-}
-
-static enum sql_db_flags
-driver_sqlite_get_flags(struct sql_db *db ATTR_UNUSED)
-{
-	return SQL_DB_FLAG_BLOCKING;
 }
 
 static const char *
@@ -387,13 +390,14 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query,
 }
 
 const struct sql_db driver_sqlite_db = {
-	"sqlite",
+	.name = "sqlite",
+	.flags = SQL_DB_FLAG_BLOCKING,
 
 	.v = {
 		driver_sqlite_init_v,
 		driver_sqlite_deinit_v,
-		driver_sqlite_get_flags,
 		driver_sqlite_connect,
+		driver_sqlite_disconnect,
 		driver_sqlite_escape_string,
 		driver_sqlite_exec,
 		driver_sqlite_query,

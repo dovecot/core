@@ -6,7 +6,9 @@
 
 enum sql_db_flags {
 	/* Set if queries are not executed asynchronously */
-	SQL_DB_FLAG_BLOCKING		= 0x01
+	SQL_DB_FLAG_BLOCKING		= 0x01,
+	/* Set if database wants to use connection pooling */
+	SQL_DB_FLAG_POOLED		= 0x02
 };
 
 enum sql_field_type {
@@ -63,6 +65,8 @@ enum sql_db_flags sql_get_flags(struct sql_db *db);
    though. Returns -1 if we're not connected, 0 if we started connecting or
    1 if we are fully connected now. */
 int sql_connect(struct sql_db *db);
+/* Explicitly disconnect from database. */
+void sql_disconnect(struct sql_db *db);
 
 /* Escape the given string if needed and return it. */
 const char *sql_escape_string(struct sql_db *db, const char *string);

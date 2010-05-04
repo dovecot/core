@@ -3,15 +3,11 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
-#include "ioloop-internal.h" /* kind of dirty, but it should be fine.. */
 #include "sql-api-private.h"
 
 #ifdef BUILD_PGSQL
 #include <stdlib.h>
-#include <time.h>
 #include <libpq-fe.h>
-
-#define QUERY_TIMEOUT_SECS 6
 
 struct pgsql_db {
 	struct sql_db api;
@@ -21,20 +17,16 @@ struct pgsql_db {
 	PGconn *pg;
 
 	struct io *io;
+	struct timeout *to_connect;
 	enum io_condition io_dir;
 
-	struct pgsql_queue *queue, **queue_tail;
-	struct timeout *queue_to;
-
+	struct pgsql_result *cur_result;
 	struct ioloop *ioloop;
 	struct sql_result *sync_result;
 
 	char *error;
-	time_t last_connect;
-	unsigned int connecting:1;
-	unsigned int connected:1;
-	unsigned int querying:1;
-	unsigned int query_finished:1;
+
+	unsigned int fatal_error:1;
 };
 
 struct pgsql_binary_value {
@@ -45,8 +37,8 @@ struct pgsql_binary_value {
 struct pgsql_result {
 	struct sql_result api;
 	PGresult *pgres;
+	struct timeout *to;
 
-	char *query;
 	unsigned int rownum, rows;
 	unsigned int fields_count;
 	const char **fields;
@@ -57,15 +49,7 @@ struct pgsql_result {
 	sql_query_callback_t *callback;
 	void *context;
 
-	unsigned int retry_query:1;
-};
-
-struct pgsql_queue {
-	struct pgsql_queue *next;
-
-	time_t created;
-	char *query;
-	struct pgsql_result *result;
+	unsigned int timeout:1;
 };
 
 struct pgsql_transaction_context {
@@ -76,7 +60,6 @@ struct pgsql_transaction_context {
 	void *context;
 
 	pool_t query_pool;
-	struct pgsql_query_list *head, *tail;
 	const char *error;
 
 	unsigned int begin_succeeded:1;
@@ -84,26 +67,15 @@ struct pgsql_transaction_context {
 	unsigned int failed:1;
 };
 
-struct pgsql_query_list {
-	struct pgsql_query_list *next;
-	struct pgsql_transaction_context *ctx;
-
-	const char *query;
-	unsigned int *affected_rows;
-};
 extern const struct sql_db driver_pgsql_db;
 extern const struct sql_result driver_pgsql_result;
 
-static void
-driver_pgsql_query_full(struct sql_db *db, const char *query,
-			sql_query_callback_t *callback, void *context,
-			bool retry_query);
-static void queue_send_next(struct pgsql_db *db);
 static void result_finish(struct pgsql_result *result);
 
 static void driver_pgsql_close(struct pgsql_db *db)
 {
 	db->io_dir = 0;
+	db->fatal_error = FALSE;
 
 	PQfinish(db->pg);
 	db->pg = NULL;
@@ -113,10 +85,15 @@ static void driver_pgsql_close(struct pgsql_db *db)
 		   so use io_remove_closed(). */
 		io_remove_closed(&db->io);
 	}
+	if (db->to_connect != NULL)
+		timeout_remove(&db->to_connect);
 
-	db->connecting = FALSE;
-	db->connected = FALSE;
-        db->querying = FALSE;
+	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
+
+	if (db->ioloop != NULL) {
+		/* running a sync query, stop it */
+		io_loop_stop(db->ioloop);
+	}
 }
 
 static const char *last_error(struct pgsql_db *db)
@@ -150,9 +127,6 @@ static void connect_callback(struct pgsql_db *db)
 		io_dir = IO_WRITE;
 		break;
 	case PGRES_POLLING_OK:
-		i_info("pgsql: Connected to %s", PQdb(db->pg));
-		db->connecting = FALSE;
-		db->connected = TRUE;
 		break;
 	case PGRES_POLLING_FAILED:
 		i_error("pgsql: Connect failed to %s: %s",
@@ -169,20 +143,33 @@ static void connect_callback(struct pgsql_db *db)
 		db->io_dir = io_dir;
 	}
 
-	if (db->connected && db->queue != NULL)
-		queue_send_next(db);
+	if (io_dir == 0) {
+		i_info("pgsql: Connected to %s", PQdb(db->pg));
+		if (db->to_connect != NULL)
+			timeout_remove(&db->to_connect);
+		sql_db_set_state(&db->api, SQL_DB_STATE_IDLE);
+		if (db->ioloop != NULL) {
+			/* driver_pgsql_sync_init() waiting for connection to
+			   finish */
+			io_loop_stop(db->ioloop);
+		}
+	}
+}
+
+static void driver_pgsql_connect_timeout(struct pgsql_db *db)
+{
+	unsigned int secs = ioloop_time - db->api.last_connect_try;
+
+	i_error("pgsql: Connect failed to %s: Timeout after %u seconds",
+		PQdb(db->pg), secs);
+	driver_pgsql_close(db);
 }
 
 static int driver_pgsql_connect(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
-	time_t now;
 
-	/* don't try reconnecting more than once a second */
-	now = time(NULL);
-	if (db->connecting || db->last_connect == now)
-		return db->connected ? 1 : (db->connecting ? 0 : -1);
-	db->last_connect = now;
+	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
 
 	db->pg = PQconnectStart(db->connect_string);
 	if (db->pg == NULL)
@@ -193,28 +180,33 @@ static int driver_pgsql_connect(struct sql_db *_db)
 			PQdb(db->pg), last_error(db));
 		driver_pgsql_close(db);
 		return -1;
-	} else {
-		/* nonblocking connecting begins. */
-		if (PQsetnonblocking(db->pg, 1) < 0)
-			i_error("pgsql: PQsetnonblocking() failed");
-		db->io = io_add(PQsocket(db->pg), IO_WRITE,
-				connect_callback, db);
-		db->io_dir = IO_WRITE;
-		db->connecting = TRUE;
-		return 0;
 	}
+
+	/* nonblocking connecting begins. */
+	if (PQsetnonblocking(db->pg, 1) < 0)
+		i_error("pgsql: PQsetnonblocking() failed");
+	db->to_connect = timeout_add(SQL_CONNECT_TIMEOUT_SECS * 1000,
+				     driver_pgsql_connect_timeout, db);
+	db->io = io_add(PQsocket(db->pg), IO_WRITE, connect_callback, db);
+	db->io_dir = IO_WRITE;
+	sql_db_set_state(&db->api, SQL_DB_STATE_CONNECTING);
+	return 0;
+}
+
+static void driver_pgsql_disconnect(struct sql_db *_db)
+{
+	struct pgsql_db *db = (struct pgsql_db *)_db;
+
+	driver_pgsql_close(db);
 }
 
 static struct sql_db *driver_pgsql_init_v(const char *connect_string)
 {
 	struct pgsql_db *db;
 
-	i_assert(connect_string != NULL);
-
 	db = i_new(struct pgsql_db, 1);
 	db->connect_string = i_strdup(connect_string);
 	db->api = driver_pgsql_db;
-	db->queue_tail = &db->queue;
 	return &db->api;
 }
 
@@ -222,18 +214,9 @@ static void driver_pgsql_deinit_v(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 
-	while (db->queue != NULL) {
-		struct pgsql_queue *next = db->queue->next;
+	if (db->cur_result != NULL && db->cur_result->to != NULL)
+                result_finish(db->cur_result);
 
-                result_finish(db->queue->result);
-		i_free(db->queue->query);
-		i_free(db->queue);
-
-		db->queue = next;
-	}
-
-	if (db->queue_to != NULL)
-		timeout_remove(&db->queue_to);
         driver_pgsql_close(db);
 	i_free(db->error);
 	i_free(db->connect_string);
@@ -241,10 +224,14 @@ static void driver_pgsql_deinit_v(struct sql_db *_db)
 	i_free(db);
 }
 
-static enum sql_db_flags
-driver_pgsql_get_flags(struct sql_db *db ATTR_UNUSED)
+static void driver_pgsql_set_idle(struct pgsql_db *db)
 {
-	return 0;
+	i_assert(db->api.state == SQL_DB_STATE_BUSY);
+
+	if (db->fatal_error)
+		driver_pgsql_close(db);
+	else
+		sql_db_set_state(&db->api, SQL_DB_STATE_IDLE);
 }
 
 static void consume_results(struct pgsql_db *db)
@@ -261,31 +248,42 @@ static void consume_results(struct pgsql_db *db)
 		PQclear(pgres);
 	}
 
-	if (PQstatus(db->pg) == CONNECTION_BAD)
+	if (PQstatus(db->pg) == CONNECTION_BAD) {
 		io_remove_closed(&db->io);
-	else
+		driver_pgsql_close(db);
+	} else {
 		io_remove(&db->io);
-
-	db->querying = FALSE;
-	if (db->queue != NULL && db->connected)
-		queue_send_next(db);
+		driver_pgsql_set_idle(db);
+	}
 }
 
 static void driver_pgsql_result_free(struct sql_result *_result)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_result->db;
         struct pgsql_result *result = (struct pgsql_result *)_result;
+	bool success;
 
-	if (result->api.callback)
+	if (result->api.callback) {
+		/* we're coming here from a user's sql_result_free() that's
+		   being called from a callback. we'll do this later,
+		   so ignore. */
 		return;
+	}
+
+	i_assert(db->cur_result == result);
+	i_assert(result->callback == NULL);
 
 	if (_result == db->sync_result)
 		db->sync_result = NULL;
+	db->cur_result = NULL;
 
+	success = result->pgres != NULL && !db->fatal_error;
 	if (result->pgres != NULL) {
 		PQclear(result->pgres);
 		result->pgres = NULL;
+	}
 
+	if (success) {
 		/* we'll have to read the rest of the results as well */
 		i_assert(db->io == NULL);
 		db->io = io_add(PQsocket(db->pg), IO_READ,
@@ -293,7 +291,7 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 		db->io_dir = IO_READ;
 		consume_results(db);
 	} else {
-		db->querying = FALSE;
+		driver_pgsql_set_idle(db);
 	}
 
 	if (array_is_created(&result->binary_values)) {
@@ -306,54 +304,38 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 
 	i_free(result->fields);
 	i_free(result->values);
-	i_free(result->query);
 	i_free(result);
-
-	if (db->queue != NULL && !db->querying && db->connected)
-		queue_send_next(db);
 }
 
 static void result_finish(struct pgsql_result *result)
 {
 	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
-	bool free_result = TRUE, retry = FALSE;
-	bool disconnected;
+	bool free_result = TRUE;
+
+	timeout_remove(&result->to);
 
 	/* if connection to server was lost, we don't yet see that the
 	   connection is bad. we only see the fatal error, so assume it also
 	   means disconnection. */
-	disconnected = PQstatus(db->pg) == CONNECTION_BAD ||
-		PQresultStatus(result->pgres) == PGRES_FATAL_ERROR;
-	if (disconnected && result->retry_query) {
-		/* retry the query */
-		i_error("pgsql: Query failed, retrying: %s", last_error(db));
-		retry = TRUE;
-	} else if (result->callback != NULL) {
-		result->api.callback = TRUE;
-		T_BEGIN {
-			result->callback(&result->api, result->context);
-		} T_END;
-		result->api.callback = FALSE;
-		free_result = db->sync_result != &result->api;
-		if (db->queue == NULL && db->ioloop != NULL)
-			io_loop_stop(db->ioloop);
-	}                            
+	if (PQstatus(db->pg) == CONNECTION_BAD || result->pgres == NULL ||
+	    PQresultStatus(result->pgres) == PGRES_FATAL_ERROR)
+		db->fatal_error = TRUE;
 
-	if (disconnected) {
-		/* disconnected */
-		if (result->pgres != NULL) {
-			PQclear(result->pgres);
-			result->pgres = NULL;
-		}
-		driver_pgsql_close(db);
-
-		if (retry) {
-			/* retry the query */
-			driver_pgsql_query_full(&db->api, result->query,
-						result->callback,
-						result->context, FALSE);
-		}
+	if (db->fatal_error) {
+		result->api.failed = TRUE;
+		result->api.failed_try_retry = TRUE;
 	}
+	result->api.callback = TRUE;
+	T_BEGIN {
+		result->callback(&result->api, result->context);
+	} T_END;
+	result->api.callback = FALSE;
+	result->callback = NULL;
+
+	free_result = db->sync_result != &result->api;
+	if (db->ioloop != NULL)
+		io_loop_stop(db->ioloop);
+
 	if (free_result)
 		sql_result_unref(&result->api);
 }
@@ -363,7 +345,6 @@ static void get_result(struct pgsql_result *result)
         struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 
 	if (!PQconsumeInput(db->pg)) {
-		db->connected = FALSE;
 		result_finish(result);
 		return;
 	}
@@ -396,7 +377,6 @@ static void flush_callback(struct pgsql_result *result)
 	io_remove(&db->io);
 
 	if (ret < 0) {
-		db->connected = FALSE;
 		result_finish(result);
 	} else {
 		/* all flushed */
@@ -404,29 +384,34 @@ static void flush_callback(struct pgsql_result *result)
 	}
 }
 
-static void send_query(struct pgsql_result *result, const char *query)
+static void query_timeout(struct pgsql_result *result)
+{
+	i_error("pgsql: Query timed out, aborting");
+	result->timeout = TRUE;
+	result_finish(result);
+}
+
+static void do_query(struct pgsql_result *result, const char *query)
 {
         struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 	int ret;
 
+	i_assert(SQL_DB_IS_READY(&db->api));
+	i_assert(db->cur_result == NULL);
 	i_assert(db->io == NULL);
-	i_assert(!db->querying);
-	i_assert(db->connected);
 
-	if (!PQsendQuery(db->pg, query)) {
-		db->connected = FALSE;
+	db->cur_result = result;
+	result->to = timeout_add(SQL_QUERY_TIMEOUT_SECS * 1000,
+				 query_timeout, result);
+
+	if (!PQsendQuery(db->pg, query) ||
+	    (ret = PQflush(db->pg)) < 0) {
+		/* failed to send query */
 		result_finish(result);
 		return;
 	}
 
-	ret = PQflush(db->pg);
-	if (ret < 0) {
-		db->connected = FALSE;
-		result_finish(result);
-		return;
-	}
-
-	db->querying = TRUE;
+	sql_db_set_state(&db->api, SQL_DB_STATE_BUSY);
 	if (ret > 0) {
 		/* write blocks */
 		db->io = io_add(PQsocket(db->pg), IO_WRITE,
@@ -437,115 +422,29 @@ static void send_query(struct pgsql_result *result, const char *query)
 	}
 }
 
-static struct pgsql_queue *queue_unlink_first(struct pgsql_db *db)
+static const char *
+driver_pgsql_escape_string(struct sql_db *_db, const char *string)
 {
-	struct pgsql_queue *queue;
+	struct pgsql_db *db = (struct pgsql_db *)_db;
+	size_t len = strlen(string);
+	char *to;
 
-	queue = db->queue;
-	db->queue = queue->next;
-
-	if (db->queue == NULL)
-		db->queue_tail = &db->queue;
-	return queue;
-}
-
-static void queue_send_next(struct pgsql_db *db)
-{
-	struct pgsql_queue *queue;
-
-	queue = queue_unlink_first(db);
-	send_query(queue->result, queue->query);
-
-	i_free(queue->query);
-	i_free(queue);
-}
-
-static void queue_abort_next(struct pgsql_db *db)
-{
-	struct pgsql_queue *queue;
-
-	queue = queue_unlink_first(db);
-
-	queue->result->callback(&sql_not_connected_result,
-				queue->result->context);
-	i_free(queue->result);
-	i_free(queue->query);
-	i_free(queue);
-
-	if (db->queue == NULL && db->ioloop != NULL)
-		io_loop_stop(db->ioloop);
-}
-
-static void queue_drop_timed_out_queries(struct pgsql_db *db)
-{
-	while (db->queue != NULL &&
-	       db->queue->created + QUERY_TIMEOUT_SECS < ioloop_time)
-		queue_abort_next(db);
-
-}
-
-static void queue_timeout(struct pgsql_db *db)
-{
-	if (db->querying)
-		return;
-
-	if (!db->connected) {
-		queue_drop_timed_out_queries(db);
-		driver_pgsql_connect(&db->api);
-		return;
-	}
-
-	if (db->queue != NULL)
-		queue_send_next(db);
-
-	if (db->queue == NULL)
-		timeout_remove(&db->queue_to);
-}
-
-static void
-driver_pgsql_queue_query(struct pgsql_result *result, const char *query)
-{
-        struct pgsql_db *db = (struct pgsql_db *)result->api.db;
-	struct pgsql_queue *queue;
-
-	queue = i_new(struct pgsql_queue, 1);
-	queue->created = time(NULL);
-	queue->query = i_strdup(query);
-	queue->result = result;
-
-	*db->queue_tail = queue;
-	db->queue_tail = &queue->next;
-
-	if (db->queue_to == NULL)
-		db->queue_to = timeout_add(5000, queue_timeout, db);
-}
-
-static void do_query(struct pgsql_result *result, const char *query)
-{
-        struct pgsql_db *db = (struct pgsql_db *)result->api.db;
-
-	i_assert(db->sync_result == NULL);
-
-	if (db->querying) {
-		/* only one query at a time */
-		driver_pgsql_queue_query(result, query);
-		return;
-	}
-
-	if (!db->connected) {
+#ifdef HAVE_PQESCAPE_STRING_CONN
+	if (db->api.state == SQL_DB_STATE_DISCONNECTED) {
 		/* try connecting again */
-		driver_pgsql_connect(&db->api);
-		driver_pgsql_queue_query(result, query);
-		return;
+		(void)sql_connect(&db->api);
 	}
-
-	if (db->queue == NULL)
-		send_query(result, query);
-	else {
-		/* there's already queries queued, send them first */
-		driver_pgsql_queue_query(result, query);
-		queue_send_next(db);
+	if (db->api.state != SQL_DB_STATE_DISCONNECTED) {
+		to = t_buffer_get(len * 2 + 1);
+		len = PQescapeStringConn(db->pg, to, string, len, NULL);
+	} else
+#endif
+	{
+		to = t_buffer_get(len * 2 + 1);
+		len = PQescapeString(to, string, len);
 	}
+	t_buffer_alloc(len + 1);
+	return to;
 }
 
 static void exec_callback(struct sql_result *_result,
@@ -556,30 +455,7 @@ static void exec_callback(struct sql_result *_result,
 	i_error("pgsql: sql_exec() failed: %s", last_error(db));
 }
 
-static const char *
-driver_pgsql_escape_string(struct sql_db *_db, const char *string)
-{
-	struct pgsql_db *db = (struct pgsql_db *)_db;
-	size_t len = strlen(string);
-	char *to;
-
-#ifdef HAVE_PQESCAPE_STRING_CONN
-	if (!db->connected) {
-		/* try connecting again */
-		(void)driver_pgsql_connect(&db->api);
-	}
-	to = t_buffer_get(len * 2 + 1);
-	len = PQescapeStringConn(db->pg, to, string, len, NULL);
-#else
-	to = t_buffer_get(len * 2 + 1);
-	len = PQescapeString(to, string, len);
-#endif
-	t_buffer_alloc(len + 1);
-	return to;
-}
-
-static void driver_pgsql_exec_full(struct sql_db *db, const char *query,
-				   bool retry_query)
+static void driver_pgsql_exec(struct sql_db *db, const char *query)
 {
 	struct pgsql_result *result;
 
@@ -588,22 +464,11 @@ static void driver_pgsql_exec_full(struct sql_db *db, const char *query,
 	result->api.db = db;
 	result->api.refcount = 1;
 	result->callback = exec_callback;
-	if (retry_query) {
-		result->query = i_strdup(query);
-		result->retry_query = TRUE;
-	}
 	do_query(result, query);
 }
 
-static void driver_pgsql_exec(struct sql_db *db, const char *query)
-{
-	driver_pgsql_exec_full(db, query, TRUE);
-}
-
-static void
-driver_pgsql_query_full(struct sql_db *db, const char *query,
-			sql_query_callback_t *callback, void *context,
-			bool retry_query)
+static void driver_pgsql_query(struct sql_db *db, const char *query,
+			       sql_query_callback_t *callback, void *context)
 {
 	struct pgsql_result *result;
 
@@ -613,74 +478,65 @@ driver_pgsql_query_full(struct sql_db *db, const char *query,
 	result->api.refcount = 1;
 	result->callback = callback;
 	result->context = context;
-	if (retry_query) {
-		result->query = i_strdup(query);
-		result->retry_query = TRUE;
-	}
 	do_query(result, query);
-}
-
-static void driver_pgsql_query(struct sql_db *db, const char *query,
-			       sql_query_callback_t *callback, void *context)
-{
-	driver_pgsql_query_full(db, query, callback, context, TRUE);
 }
 
 static void pgsql_query_s_callback(struct sql_result *result, void *context)
 {
         struct pgsql_db *db = context;
 
-	db->query_finished = TRUE;
 	db->sync_result = result;
 }
 
-static struct sql_result *
-driver_pgsql_query_s(struct sql_db *_db, const char *query)
+static void driver_pgsql_sync_init(struct pgsql_db *db)
 {
-        struct pgsql_db *db = (struct pgsql_db *)_db;
-	struct sql_result *result;
-	struct io old_io;
-
-	if (db->queue_to != NULL) {
-		/* we're creating a new ioloop, make sure the timeout gets
-		   added there. */
-		timeout_remove(&db->queue_to);
-	}
-
-	if (db->io == NULL)
+	if (db->io == NULL) {
 		db->ioloop = io_loop_create();
-	else {
-		/* have to move our existing I/O handler to new I/O loop */
-		old_io = *db->io;
-		io_remove(&db->io);
-
-		db->ioloop = io_loop_create();
-
-		db->io = io_add(PQsocket(db->pg), old_io.condition,
-				old_io.callback, old_io.context);
+		return;
 	}
 
-	db->query_finished = FALSE;
-	if (query != NULL)
-		driver_pgsql_query(_db, query, pgsql_query_s_callback, db);
+	i_assert(db->api.state == SQL_DB_STATE_CONNECTING);
 
-	if (!db->query_finished) {
-		if ((db->connected || db->connecting) && db->io != NULL)
-			io_loop_run(db->ioloop);
-		else
-			queue_abort_next(db);
+	/* have to move our existing I/O handler to new I/O loop */
+	io_remove(&db->io);
 
-		if (db->io != NULL) {
-			i_assert(db->sync_result == &sql_not_connected_result);
-			io_remove(&db->io);
-		}
-		if (db->queue_to != NULL)
-			timeout_remove(&db->queue_to);
-	} else {
-		i_assert(db->io == NULL);
-		i_assert(db->queue_to == NULL);
-	}
+	db->ioloop = io_loop_create();
+	db->io = io_add(PQsocket(db->pg), db->io_dir, connect_callback, db);
+	/* wait for connecting to finish */
+	io_loop_run(db->ioloop);
+}
+
+static void driver_pgsql_sync_deinit(struct pgsql_db *db)
+{
 	io_loop_destroy(&db->ioloop);
+}
+
+static struct sql_result *
+driver_pgsql_sync_query(struct pgsql_db *db, const char *query)
+{
+	struct sql_result *result;
+
+	i_assert(db->sync_result == NULL);
+
+	switch (db->api.state) {
+	case SQL_DB_STATE_CONNECTING:
+	case SQL_DB_STATE_BUSY:
+		i_unreached();
+	case SQL_DB_STATE_DISCONNECTED:
+		sql_not_connected_result.refcount++;
+		return &sql_not_connected_result;
+	case SQL_DB_STATE_IDLE:
+		break;
+	}
+
+	driver_pgsql_query(&db->api, query, pgsql_query_s_callback, db);
+	if (db->sync_result == NULL)
+		io_loop_run(db->ioloop);
+
+	if (db->io != NULL) {
+		i_assert(db->fatal_error);
+		io_remove_closed(&db->io);
+	}
 
 	result = db->sync_result;
 	if (result == &sql_not_connected_result) {
@@ -690,6 +546,18 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 	}
 
 	i_assert(db->io == NULL);
+	return result;
+}
+
+static struct sql_result *
+driver_pgsql_query_s(struct sql_db *_db, const char *query)
+{
+	struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct sql_result *result;
+
+	driver_pgsql_sync_init(db);
+	result = driver_pgsql_sync_query(db, query);
+	driver_pgsql_sync_deinit(db);
 	return result;
 }
 
@@ -712,8 +580,10 @@ static int driver_pgsql_result_next_row(struct sql_result *_result)
 			return 0;
 	}
 
-	if (result->pgres == NULL)
+	if (result->pgres == NULL) {
+		_result->failed = TRUE;
 		return -1;
+	}
 
 	switch (PQresultStatus(result->pgres)) {
 	case PGRES_COMMAND_OK:
@@ -725,10 +595,12 @@ static int driver_pgsql_result_next_row(struct sql_result *_result)
 	case PGRES_EMPTY_QUERY:
 	case PGRES_NONFATAL_ERROR:
 		/* nonfatal error */
+		_result->failed = TRUE;
 		return -1;
 	default:
 		/* treat as fatal error */
-		db->connected = FALSE;
+		_result->failed = TRUE;
+		db->fatal_error = TRUE;
 		return -1;
 	}
 }
@@ -862,7 +734,9 @@ static const char *driver_pgsql_result_get_error(struct sql_result *_result)
 
 	i_free_and_null(db->error);
 
-	if (result->pgres == NULL) {
+	if (result->timeout) {
+		db->error = i_strdup("Query timed out");
+	} else if (result->pgres == NULL) {
 		/* connection error */
 		db->error = i_strdup(last_error(db));
 	} else {
@@ -905,7 +779,7 @@ driver_pgsql_transaction_unref(struct pgsql_transaction_context *ctx)
 
 static void
 transaction_begin_callback(struct sql_result *result,
-			    struct pgsql_transaction_context *ctx)
+			   struct pgsql_transaction_context *ctx)
 {
 	if (sql_result_next_row(result) < 0) {
 		ctx->begin_failed = TRUE;
@@ -930,17 +804,18 @@ transaction_commit_callback(struct sql_result *result,
 
 static void
 transaction_update_callback(struct sql_result *result,
-			    struct pgsql_query_list *list)
+			    struct sql_transaction_query *query)
 {
-	struct pgsql_transaction_context *ctx = list->ctx;
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)query->trans;
 
 	if (sql_result_next_row(result) < 0) {
 		ctx->failed = TRUE;
 		ctx->error = sql_result_get_error(result);
-	} else if (list->affected_rows != NULL) {
+	} else if (query->affected_rows != NULL) {
 		struct pgsql_result *pg_result = (struct pgsql_result *)result;
 
-		*list->affected_rows = atoi(PQcmdTuples(pg_result->pgres));
+		*query->affected_rows = atoi(PQcmdTuples(pg_result->pgres));
 	}
 	driver_pgsql_transaction_unref(ctx);
 }
@@ -955,25 +830,70 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 	ctx->callback = callback;
 	ctx->context = context;
 
-	if (ctx->failed || ctx->head == NULL) {
+	if (ctx->failed || _ctx->head == NULL) {
 		callback(ctx->failed ? ctx->error : NULL, context);
 		driver_pgsql_transaction_unref(ctx);
-	} else if (ctx->head->next == NULL) {
+	} else if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
-		sql_query(_ctx->db, ctx->head->query,
+		sql_query(_ctx->db, _ctx->head->query,
 			  transaction_commit_callback, ctx);
 	} else {
 		/* multiple queries, use a transaction */
 		ctx->refcount++;
 		sql_query(_ctx->db, "BEGIN", transaction_begin_callback, ctx);
-		while (ctx->head != NULL) {
+		while (_ctx->head != NULL) {
 			ctx->refcount++;
-			sql_query(_ctx->db, ctx->head->query,
-				  transaction_update_callback, ctx->head);
-			ctx->head = ctx->head->next;
+			sql_query(_ctx->db, _ctx->head->query,
+				  transaction_update_callback, _ctx->head);
+			_ctx->head = _ctx->head->next;
 		}
 		sql_query(_ctx->db, "COMMIT", transaction_commit_callback, ctx);
 	}
+}
+
+static void
+commit_multi_fail(struct pgsql_transaction_context *ctx,
+		  struct sql_result *result, const char *query)
+{
+	ctx->failed = TRUE;
+	ctx->error = t_strdup_printf("%s (query: %s)",
+				     sql_result_get_error(result), query);
+	sql_result_unref(result);
+}
+
+static struct sql_result *
+driver_pgsql_transaction_commit_multi(struct pgsql_transaction_context *ctx)
+{
+	struct pgsql_db *db = (struct pgsql_db *)ctx->ctx.db;
+	struct sql_result *result;
+	struct sql_transaction_query *query;
+
+	result = driver_pgsql_sync_query(db, "BEGIN");
+	if (sql_result_next_row(result) < 0) {
+		commit_multi_fail(ctx, result, "BEGIN");
+		return NULL;
+	}
+	sql_result_unref(result);
+
+	/* send queries */
+	for (query = ctx->ctx.head; query != NULL; query = query->next) {
+		result = driver_pgsql_sync_query(db, query->query);
+		if (sql_result_next_row(result) < 0) {
+			commit_multi_fail(ctx, result, query->query);
+			break;
+		}
+		if (query->affected_rows != NULL) {
+			struct pgsql_result *pg_result =
+				(struct pgsql_result *)result;
+
+			*query->affected_rows =
+				atoi(PQcmdTuples(pg_result->pgres));
+		}
+		sql_result_unref(result);
+	}
+
+	return driver_pgsql_sync_query(db, ctx->failed ?
+				       "ROLLBACK" : "COMMIT");
 }
 
 static int
@@ -982,51 +902,38 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 {
 	struct pgsql_transaction_context *ctx =
 		(struct pgsql_transaction_context *)_ctx;
+	struct pgsql_db *db = (struct pgsql_db *)_ctx->db;
+	struct sql_transaction_query *single_query = NULL;
 	struct sql_result *result;
 
 	*error_r = NULL;
 
-	if (ctx->failed || ctx->head == NULL) {
+	if (ctx->failed || _ctx->head == NULL) {
 		/* nothing to be done */
 		result = NULL;
-	} else if (ctx->head->next == NULL) {
+	} else if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
-		result = sql_query_s(_ctx->db, ctx->head->query);
+		single_query = _ctx->head;
+		result = sql_query_s(_ctx->db, single_query->query);
 	} else {
 		/* multiple queries, use a transaction */
-		ctx->refcount++;
-		sql_query(_ctx->db, "BEGIN", transaction_begin_callback, ctx);
-		while (ctx->head != NULL) {
-			ctx->refcount++;
-			sql_query(_ctx->db, ctx->head->query,
-				  transaction_update_callback, ctx->head);
-			ctx->head = ctx->head->next;
-		}
-		if (ctx->refcount > 1) {
-			/* flush the previous queries */
-			(void)driver_pgsql_query_s(_ctx->db, NULL);
-		}
-
-		if (ctx->begin_failed) {
-			result = NULL;
-		} else if (ctx->failed) {
-			result = sql_query_s(_ctx->db, "ROLLBACK");
-		} else {
-			result = sql_query_s(_ctx->db, "COMMIT");
-		}
+		driver_pgsql_sync_init(db);
+		result = driver_pgsql_transaction_commit_multi(ctx);
+		driver_pgsql_sync_deinit(db);
 	}
 
-	if (ctx->failed)
+	if (ctx->failed) {
+		i_assert(ctx->error != NULL);
 		*error_r = ctx->error;
-	else if (result != NULL) {
+	} else if (result != NULL) {
 		if (sql_result_next_row(result) < 0)
 			*error_r = sql_result_get_error(result);
-		else if (ctx->head != NULL &&
-			 ctx->head->affected_rows != NULL) {
+		else if (single_query != NULL &&
+			 single_query->affected_rows != NULL) {
 			struct pgsql_result *pg_result =
 				(struct pgsql_result *)result;
 
-			*ctx->head->affected_rows =
+			*single_query->affected_rows =
 				atoi(PQcmdTuples(pg_result->pgres));
 		}
 	}
@@ -1054,28 +961,19 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query,
 {
 	struct pgsql_transaction_context *ctx =
 		(struct pgsql_transaction_context *)_ctx;
-	struct pgsql_query_list *list;
 
-	list = p_new(ctx->query_pool, struct pgsql_query_list, 1);
-	list->ctx = ctx;
-	list->query = p_strdup(ctx->query_pool, query);
-	list->affected_rows = affected_rows;
-
-	if (ctx->head == NULL)
-		ctx->head = list;
-	else
-		ctx->tail->next = list;
-	ctx->tail = list;
+	sql_transaction_add_query(_ctx, ctx->query_pool, query, affected_rows);
 }
 
 const struct sql_db driver_pgsql_db = {
-	"pgsql",
+	.name = "pgsql",
+	.flags = SQL_DB_FLAG_POOLED,
 
 	.v = {
 		driver_pgsql_init_v,
 		driver_pgsql_deinit_v,
-		driver_pgsql_get_flags,
 		driver_pgsql_connect,
+		driver_pgsql_disconnect,
 		driver_pgsql_escape_string,
 		driver_pgsql_exec,
 		driver_pgsql_query,

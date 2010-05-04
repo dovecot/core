@@ -30,9 +30,14 @@
 
 # Database connection string. This is driver-specific setting.
 #
+# HA / round-robin load-balancing is supported by giving multiple host
+# settings, like: host=sql1.host.org host=sql2.host.org
+#
 # pgsql:
 #   For available options, see the PostgreSQL documention for the
 #   PQconnectdb function of libpq.
+#   Use maxconns=n (default 5) to change how many connections Dovecot can
+#   create to pgsql.
 #
 # mysql:
 #   Basic options emulate PostgreSQL option names:
@@ -49,8 +54,6 @@
 # 
 #   You can connect to UNIX sockets by using host: host=/var/run/mysql.sock
 #   Note that currently you can't use spaces in parameters.
-#
-#   MySQL supports multiple host parameters for load balancing / HA.
 #
 # sqlite:
 #   The path to the database file.
