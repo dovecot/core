@@ -10,6 +10,7 @@
 #include "str-sanitize.h"
 #include "safe-memset.h"
 #include "var-expand.h"
+#include "master-interface.h"
 #include "master-service.h"
 #include "master-auth.h"
 #include "auth-client.h"
