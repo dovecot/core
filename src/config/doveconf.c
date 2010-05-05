@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "abspath.h"
+#include "module-dir.h"
 #include "env-util.h"
 #include "ostream.h"
 #include "str.h"
@@ -592,6 +593,7 @@ int main(int argc, char *argv[])
 		i_fatal("Errors in configuration");
 
 	config_filter_deinit(&config_filter);
+	module_dir_unload(&modules);
 	master_service_deinit(&master_service);
         return 0;
 }

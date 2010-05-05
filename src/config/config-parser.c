@@ -34,6 +34,7 @@ static const enum settings_parser_flags settings_parser_flags =
 
 struct config_module_parser *config_module_parsers;
 struct config_filter_context *config_filter;
+struct module *modules;
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
 {
@@ -844,7 +845,7 @@ prevfile:
 void config_parse_load_modules(void)
 {
 	struct module_dir_load_settings mod_set;
-	struct module *modules, *m;
+	struct module *m;
 	const struct setting_parser_info **roots;
 	ARRAY_DEFINE(new_roots, const struct setting_parser_info *);
 	ARRAY_TYPE(service_settings) new_services;

@@ -12,6 +12,7 @@ ARRAY_DEFINE_TYPE(config_module_parsers, struct config_module_parser *);
 
 extern struct config_module_parser *config_module_parsers;
 extern struct config_filter_context *config_filter;
+extern struct module *modules;
 
 int config_parse_file(const char *path, bool expand_values, const char *module,
 		      const char **error_r);

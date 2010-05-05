@@ -1,8 +1,7 @@
 /* Copyright (c) 2005-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
-#include "env-util.h"
+#include "module-dir.h"
 #include "restrict-access.h"
 #include "master-service.h"
 #include "config-connection.h"
@@ -37,6 +36,7 @@ int main(int argc, char *argv[])
 	config_connections_destroy_all();
 
 	config_filter_deinit(&config_filter);
+	module_dir_unload(&modules);
 	master_service_deinit(&master_service);
         return 0;
 }
