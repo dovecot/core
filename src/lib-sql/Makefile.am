@@ -38,13 +38,13 @@ if ! SQL_PLUGINS
 driver_sources = \
 	driver-mysql.c \
 	driver-pgsql.c \
-	driver-sqlpool.c \
 	driver-sqlite.c
 endif
 
 libsql_la_SOURCES = \
 	$(dist_sources) \
-	$(driver_sources)
+	$(driver_sources) \
+	driver-sqlpool.c
 nodist_libsql_la_SOURCES = sql-drivers-register.c
 
 if SQL_PLUGINS
