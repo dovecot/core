@@ -501,7 +501,7 @@ const struct mail_search_register_arg imap_register_args[] = {
 	{ "X-MAILBOX", imap_search_x_mailbox }
 };
 
-struct mail_search_register *mail_search_register_init_imap(void)
+static struct mail_search_register *mail_search_register_init_imap(void)
 {
 	struct mail_search_register *reg;
 
@@ -510,4 +510,12 @@ struct mail_search_register *mail_search_register_init_imap(void)
 				 N_ELEMENTS(imap_register_args));
 	mail_search_register_fallback(reg, imap_search_fallback);
 	return reg;
+}
+
+struct mail_search_register *
+mail_search_register_get_imap(void)
+{
+	if (mail_search_register_imap == NULL)
+		mail_search_register_imap = mail_search_register_init_imap();
+	return mail_search_register_imap;
 }

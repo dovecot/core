@@ -386,6 +386,7 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct mail_user_settings *set = _set;
 
+	set->mail_privileged_group = "baba";
 #ifndef CONFIG_BINARY
 	fix_base_path(set, pool, &set->auth_socket_path);
 #else

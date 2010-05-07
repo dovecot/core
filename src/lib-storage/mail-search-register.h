@@ -12,9 +12,6 @@ struct mail_search_register_arg {
 		(*build)(struct mail_search_build_context *ctx);
 };
 
-extern struct mail_search_register *mail_search_register_imap;
-extern struct mail_search_register *mail_search_register_human;
-
 typedef struct mail_search_arg *
 mail_search_register_fallback_t(struct mail_search_build_context *ctx,
 				const char *key);
@@ -43,8 +40,7 @@ mail_search_register_find(struct mail_search_register *reg, const char *key);
 bool mail_search_register_get_fallback(struct mail_search_register *reg,
 				       mail_search_register_fallback_t **fallback_r);
 
-struct mail_search_register *mail_search_register_init_imap(void);
-struct mail_search_register *
-mail_search_register_init_human(struct mail_search_register *imap_register);
+struct mail_search_register *mail_search_register_get_imap(void);
+struct mail_search_register *mail_search_register_get_human(void);
 
 #endif

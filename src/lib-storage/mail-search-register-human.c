@@ -164,7 +164,7 @@ static const struct mail_search_register_arg human_register_args[] = {
 	{ "MAILBOX-GUID", human_search_mailbox_guid }
 };
 
-struct mail_search_register *
+static struct mail_search_register *
 mail_search_register_init_human(struct mail_search_register *imap_register)
 {
 	struct mail_search_register *reg;
@@ -202,4 +202,16 @@ mail_search_register_init_human(struct mail_search_register *imap_register)
 	if (mail_search_register_get_fallback(imap_register, &fallback))
 		mail_search_register_fallback(reg, fallback);
 	return reg;
+}
+
+struct mail_search_register *mail_search_register_get_human(void)
+{
+	if (mail_search_register_human == NULL) {
+		struct mail_search_register *imap_reg =
+			mail_search_register_get_imap();
+
+		mail_search_register_human =
+			mail_search_register_init_human(imap_reg);
+	}
+	return mail_search_register_human;
 }
