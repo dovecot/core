@@ -101,6 +101,9 @@ static void cmd_pw(int argc, char *argv[])
 		printf("{%s}%s (verified)\n", scheme, hash);
 	} else
 		printf("{%s}%s\n", scheme, hash);
+
+	password_schemes_deinit();
+	random_deinit();
 }
 
 struct doveadm_cmd doveadm_cmd_pw = {
