@@ -214,17 +214,18 @@ sqlpool_find_host_with_least_connections(struct sqlpool_db *db,
 	struct sqlpool_host *hosts, *min = NULL;
 	unsigned int i, count;
 
-	*host_idx_r = -1U;
-
 	hosts = array_get_modifiable(&db->hosts, &count);
-	for (i = 0; i < count; i++) {
-		if (min == NULL ||
-		    min->connection_count > hosts[i].connection_count) {
+	i_assert(count > 0);
+
+	min = &hosts[0];
+	*host_idx_r = 0;
+
+	for (i = 1; i < count; i++) {
+		if (min->connection_count > hosts[i].connection_count) {
 			min = &hosts[i];
 			*host_idx_r = i;
 		}
 	}
-	i_assert(min != NULL);
 	return min;
 }
 
