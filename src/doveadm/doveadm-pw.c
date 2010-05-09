@@ -22,17 +22,22 @@ static void cmd_pw(int argc, char *argv[])
 	const char *scheme = NULL;
 	const char *plaintext = NULL;
 	int ch, lflag = 0, Vflag = 0;
+	unsigned int rounds = 0;
 
 	random_init();
 	password_schemes_init();
 	
-	while ((ch = getopt(argc, argv, "lp:s:u:V")) != -1) {
+	while ((ch = getopt(argc, argv, "lp:r:s:u:V")) != -1) {
 		switch (ch) {
 		case 'l':
 			lflag = 1;
 			break;
 		case 'p':
 			plaintext = optarg;
+			break;
+		case 'r':
+			if (str_to_uint(optarg, &rounds) < 0)
+				i_fatal("Invalid number of rounds: %s", optarg);
 			break;
 		case 's':
 			scheme = optarg;
@@ -64,6 +69,9 @@ static void cmd_pw(int argc, char *argv[])
 		help(&doveadm_cmd_pw);
 
 	scheme = scheme == NULL ? DEFAULT_SCHEME : t_str_ucase(scheme);
+	if (rounds > 0)
+		password_set_encryption_rounds(rounds);
+
 	while (plaintext == NULL) {
 		const char *check;
 		static int lives = 3;
@@ -107,9 +115,11 @@ static void cmd_pw(int argc, char *argv[])
 }
 
 struct doveadm_cmd doveadm_cmd_pw = {
-	cmd_pw, "pw", "[-l] [-p plaintext] [-s scheme] [-u user] [-V]",
+	cmd_pw, "pw",
+	"[-l] [-p plaintext] [-r rounds] [-s scheme] [-u user] [-V]",
 "  -l            List known password schemes\n"
 "  -p plaintext  New password\n"
+"  -r rounds     Number of encryption rounds (if scheme uses it)\n"
 "  -s scheme     Password scheme\n"
 "  -u user       Username (if scheme uses it)\n"
 "  -V            Internally verify the hash\n"

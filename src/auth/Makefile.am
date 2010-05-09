@@ -34,6 +34,7 @@ auth_LDFLAGS = -export-dynamic
 libpassword_a_SOURCES = \
 	mycrypt.c \
 	password-scheme.c \
+	password-scheme-crypt.c \
 	password-scheme-md5crypt.c \
 	password-scheme-otp.c \
 	password-scheme-rpa.c

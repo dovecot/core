@@ -227,6 +227,19 @@ bool password_generate_encoded(const char *plaintext, const char *user,
 	return TRUE;
 }
 
+const char *password_generate_salt(size_t len)
+{
+	unsigned int i;
+	char *salt;
+
+	salt = t_malloc(len + 1);
+	random_fill(salt, len);
+	for (i = 0; i < len; i++)
+		salt[i] = salt_chars[salt[i] % (sizeof(salt_chars)-1)];
+	salt[len] = '\0';
+	return salt;
+}
+
 bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 {
 	const struct password_scheme *const *schemes, *s1 = NULL, *s2 = NULL;
@@ -273,9 +286,8 @@ password_scheme_detect(const char *plain_password, const char *crypted_password,
 	return NULL;
 }
 
-static bool
-crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
-	     const unsigned char *raw_password, size_t size)
+bool crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
+		  const unsigned char *raw_password, size_t size)
 {
 	const char *password, *crypted;
 
@@ -299,14 +311,10 @@ static void
 crypt_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	       const unsigned char **raw_password_r, size_t *size_r)
 {
-	char salt[3];
-	const char *password;
+#define	CRYPT_SALT_LEN 2
+	const char *password, *salt;
 
-	random_fill(salt, sizeof(salt)-1);
-	salt[0] = salt_chars[salt[0] % (sizeof(salt_chars)-1)];
-	salt[1] = salt_chars[salt[1] % (sizeof(salt_chars)-1)];
-	salt[2] = '\0';
-
+	salt = password_generate_salt(CRYPT_SALT_LEN);
 	password = t_strdup(mycrypt(plaintext, salt));
 	*raw_password_r = (const unsigned char *)password;
 	*size_r = strlen(password);
@@ -784,6 +792,7 @@ void password_schemes_init(void)
 	i_array_init(&password_schemes, N_ELEMENTS(builtin_schemes) + 4);
 	for (i = 0; i < N_ELEMENTS(builtin_schemes); i++)
 		password_scheme_register(&builtin_schemes[i]);
+	password_scheme_register_crypt();
 }
 
 void password_schemes_deinit(void)

@@ -65,10 +65,22 @@ void password_scheme_unregister(const struct password_scheme *scheme);
 void password_schemes_init(void);
 void password_schemes_deinit(void);
 
+/* some password schemes/algorithms supports a variable number of
+   encryption rounds. */
+void password_set_encryption_rounds(unsigned int rounds);
+
 /* INTERNAL: */
+const char *password_generate_salt(size_t len);
 const char *password_generate_md5_crypt(const char *pw, const char *salt);
 const char *password_generate_otp(const char *pw, const char *state,
 				  unsigned int algo);
 void password_generate_rpa(const char *pw, unsigned char result[]);
+
+bool crypt_verify(const char *plaintext, const char *user,
+		  const unsigned char *raw_password, size_t size);
+
+/* check wich of the algorithms Blowfisch, SHA-256 and SHA-512 are
+   supported by the used libc's/glibc's crypt() */
+void password_scheme_register_crypt(void);
 
 #endif
