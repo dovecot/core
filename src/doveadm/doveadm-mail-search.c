@@ -22,7 +22,7 @@ cmd_search_box(const struct mailbox_info *info,
 	struct mail *mail;
 	uint8_t guid[MAIL_GUID_128_SIZE];
 	const char *guid_str;
-	int ret;
+	int ret = 0;
 
 	if (doveadm_mail_iter_init(info, search_args, &trans, &iter) < 0)
 		return -1;
