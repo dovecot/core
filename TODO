@@ -1,11 +1,44 @@
-19295): Error: dbox map /home/tss/mdbox/storage/dovecot.map.index corrupted: Unexpectedly lost INBOX uid=1083397 map_uid=2001404
- ^ fixed, but it should continue breaking like:
-19295): Warning: dbox /home/tss/mdbox/storage: rebuilding indexes
-19295): Error: fcntl(write-lock) locking failed for file /home/tss/mdbox/mailboxes/INBOX/dbox-Mails/dovecot.index.log: Resource deadlock avoided
-19295): Error: mail_index_wait_lock_fd() failed with file /home/tss/mdbox/mailboxes/INBOX/dbox-Mails/dovecot.index.log: Resource deadlock avoided
-19295): Warning: dbox /home/tss/mdbox/storage: rebuilding indexes
-20162): Panic: file index-sync.c: line 40 (index_mailbox_set_recent_uid): assertion failed: (seq_range_exists(&ibox->recent_flags, uid))
+ - dovecot --version broken in openbsd/solaris
+ - mdbox+dotlocking: cleanup should delete stale *.lock files
+ - +|- before numbers? quota_rule2 = Trash:storage=+100M messages=+10
 
+#0  mail_thread_cache_sync_remove (box=<value optimized out>, 
+    args=<value optimized out>, ctx_r=<value optimized out>)
+    at index-thread.c:486
+#1  mail_thread_init (box=<value optimized out>, args=<value optimized out>, 
+    ctx_r=<value optimized out>) at index-thread.c:570
+#2  0x000000000042a3dc in imap_thread (cmd=0x11d8f70) at cmd-thread.c:89
+#3  cmd_thread (cmd=0x11d8f70) at cmd-thread.c:136
+#4  0x000000000042b33d in client_command_input (cmd=0x11d8f70)
+    at imap-client.c:646
+
+07:00 < Faxe> Info: dovecot: uidnext changed from -> to, has the wrong 
+              variables assigned:
+07:00 < Faxe> Info: dovecot: uidnext changed 81528 -> 81463
+07:00 < Faxe> (copy one mail and sync again)
+07:00 < Faxe> Info: dovecot: uidnext changed 81529 -> 81528
+  - same for highestmodseq, ~/m/dsync-v_mirror.txt
+
+ - doveadm help "mailbox rename"
+ - doveadm mailbox * [-7|-8] to specify if mailbox name mutf7/utf8
+     - default to utf8
+     - create -s to subscribe also
+ - doveadm mailbox convert [-7|-8] to convert mailbox name between mutf7/utf8
+ - doveadm import [-t storage] <dest mailbox> file|dir|-
+
+ - ns {prefix=, inbox=no}, ns { mbox, inbox=yes } -> INBOX shows up
+   as \noinferiors
+ - 1) mdbox: ns=INBOX. -> don't list INBOX.INBOX
+ - 2) same as 1), allow separate INBOX.INBOX mailbox!
+ - 3) INBOX.INBOX.foobar
+ - 4) dbox: ns= -> make sure INBOX/children are listed and accessiblex
+
+ - solr: crashes if expunge is done while search is indexing
+
+ - mdbox: existing INBOX dir in alt_path -> can't create INBOX. 
+   do storage rebuild instead
+ - change default dovecot_login_user to something else than "dovecot"
+    - dovein, doveless, dovenull?
  - single-dbox:
     - we get back to sdbox_sync_file() over and over again when expunging..
       especially with a broken guid expunge, it doesn't go away.
@@ -117,9 +150,6 @@
  - use universal hash functions?
 
  - expire plugin: log more with mail_debug=yes
-  - expire-tool -v could log UID and expire timestamps and what messages got
-    expunged
- - fts-squat: support ORs
  - UIDVALIDITY changed while saving -> sync errors
    - mbox: copy to Trash, manually delete copied msg, change uidvalidity,
      set nextuid=1, copy again -> error
@@ -130,6 +160,7 @@
    work unless iter_is_mailbox() returns the children flags
  - lucene: handle replacement chars?
  - squat:
+   - support ORs
    - wrong indexid
    - fts_build_init() assertion failed: (last_uid < last_uid_locked)
    - is locking done right? it reads header without file being locked?
@@ -139,7 +170,6 @@
 
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
- - cache: compress when we can drop temporary fields.
  - new %modifier for reverse DNS lookups with a cache
    - auth_gssapi_hostname = %Xl
    - proxying would also want DNS lookups, but not reverse..
@@ -153,10 +183,6 @@
 	 home = %{ldap:homeDirectory}
 	 quota_bytes = *:bytes=%{ldap:quota}
        }
-
- - Per-user options:
-   - Deny deleting non-empty mailboxes
-   - Disable IDLE "still here" notifications
 
  - maildir+pop3 fast updates:
    - with locking enabled, pop3 could just keep the one and same sync lock and
@@ -174,26 +200,19 @@
      dovecot-uidlist but newly saved mails are, so UIDs will be in wrong order
    - maildir_copy_with_hardlinks: copy already-cached data
 
- - mbox
-   - UID renumbering doesn't really work after all?
-   - still problems with CRLF mboxes..
-
- - logging consistency:
-   http://www.dovecot.org/list/dovecot/2007-April/021532.html
- - EXPUNGE command in read-only mailbox should give an error message if
-   there are messages marked as \Deleted?
  - file_cache: we're growing the mmap in page size blocks, which is horribly
    slow if mremap() doesn't exist.
- - login_max_processes_count shouldn't count proxying processes
 
  - ssl_verify_client_cert isn't working if the SSL cert doesn't have CRL
+ - configurable syslog prefix
 
  - keywords:
     - add some limits to how many there can be
        - don't return \* in PERMANENTFLAGS when we're full
     - remove unused keywords?
 
- - caching
+ - mail caching
+    - compress when we can drop temporary fields.
     - force bits should be used only for nonregistered fields
     - change envelope parsing not to use get_headers() so imap.envelope can
       actually be cached without all the headers..
@@ -207,6 +226,8 @@
       more space. all this to avoid cache file growing infinitely.
 
  - mbox
+    - UID renumbering doesn't really work after all?
+    - still problems with CRLF mboxes..
     - syncing existing indexes takes 4x longer than creating new one, why?
     - how well does dirty sync + status work? it reads the last mail every
       time? not very good..
@@ -240,21 +261,8 @@
     - x search charset asdf all -> should fail
 
  - login
-    - imap-login: Master sent reply with unknown tag 1. client closed
-      connection at the exact same time master was logging it in?
-      see master_request_abort()
     - Digest-MD5: support integrity protection, and maybe crypting. Do it
       through login process like SSL is done?
-    -  x login foo bar
-       x NO Authentication failed.
-       x login cras pass
-       * BYE Disconnected for inactivity.
-	^ but it's not disconnecting! (buggy dovecot-auth not replying)
-	  probably because userdb lookup didn't reply, and fd was already sent
-	  for master.. should imap-login be handling it anymore?..
-    - imap-login: Authenticate PLAIN failed: Authentication failed:
-      Authentication server isn't connected, try again later.. [127.0.0.1]
-        ^ NO Authentication failed. (should be Temporary login failure!)
     - if auth process dies, login process should retry authentication if
       possible. or if not, disconnect the client so it doesn't think the auth
       failed.
@@ -267,7 +275,6 @@
 	- auth_cache_negative_ttl doesn't check password mismatches
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
-    - does dovecot-auth really break when it runs out of fds?
     - dovecot-auth should limit how fast authentication requests are allowed
       from login processes. especially if there's one login/connection the speed
       should be something like once/sec. also limit how fast to accept new
@@ -276,15 +283,6 @@
       read-access to mails so mails could be read relatively safely with
       untrusted computers. Maybe always send [ALERT] about the previous
       read-only login time with IP?
-    - dovecot-auth workers: create a separate dovecot-pam worker which shares
-      pretty much all code with dovecot-auth worker but isn't linked against
-      any libraries. or..? this might be difficult to do, especially because the
-      workers currently can handle any kind of passdb/userb requests. perhaps
-      there should be a completely separate simple PAM authenticator binary.
-
- - master
-    - configurable syslog prefix
-    - if there are duplicate settings, complain about it
 
  - quota
     - if dovecot-uidlist can't be written, assume the new mails have UIDs 
@@ -312,50 +310,4 @@
       the above attachment scanning.
 
  - general
-    - stop using atol(), atoi(), strtoul() etc. in places where we actually
-      care about what they return, and rather create our own function which
-      checks if the input overflows the integer, and if so call i_fatal()
-    - ability to build plugins statically into the binaries
-    - ~/.dovecotrc to override system wide settings. namespace settings should
-      override all the previous namespace settings instead of adding new.
     - things break if next_uid gets to 2^32
-
-capabilities:
- - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
- - mailbox-referrals (rfc2193)
-     - this is useful whenever we would otherwise need to make the
-       connection ourself. for example load balancing and shared mailboxes
-       requiring another UID to run.
-     - this rfc defines no exact way for server to detect if client
-       supports referrals or not. I don't think there's much point in
-       supporting only referrals, as most clients don't support them.
-       Instead we should return referrals when we know that client
-       supports them, otherwise do the connecting ourself. If client
-       issues RLIST or RLSUB command, it's safe to assume it supports
-       referrals.
-     - for load balancing this works just fine, but what about shared
-       mailboxes which require different UID? If we login with our own
-       username, we end up with our own UID instead of what we wanted.
-       IMAP URLs don't support separated authorization id which would
-       have made this very easy.. We could give the "userid@group" as
-       userid, but clients probably treat it as different userid and
-       ask the password again.
-     - problems, problems, .. maybe not worth the trouble.
- - drafts:
-     - http://www.imc.org/ids.html
-     - annotate (draft-ietf-imapext-annotate)
-	 - per-message annotations. this will be major change. especially
-	   because currently there's no suitable storage for them, and
-	   they'll probably change all the time.. maybe if we moved into
-	   berkeley db to store the .data file and these annotations.
-	 - this is separate problem from index files. indexes are treated as
-	   temporary files, annotations are permanent data. we'd have to
-	   support non-db way to do this too, which would probably be just a
-	   simple (slow) text file.
-	 - use lib-dict probably
-     - metadata (draft-daboo-imap-annotatemore)
-	 - server and per-mailbox annotations. much easier than
-	   per-message annotations, but they'd be easier to place into
-	   db as well.
-	 - lib-dict, again
-     - binary (draft-nerenberg-imap-binary)
