@@ -406,7 +406,7 @@ void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
 	exit(0);
 }
 
-void doveadm_mail_help_name(const char *cmd_name)
+void doveadm_mail_try_help_name(const char *cmd_name)
 {
 	const struct doveadm_mail_cmd *cmd;
 
@@ -414,6 +414,11 @@ void doveadm_mail_help_name(const char *cmd_name)
 		if (strcmp(cmd->name, cmd_name) == 0)
 			doveadm_mail_help(cmd);
 	}
+}
+
+void doveadm_mail_help_name(const char *cmd_name)
+{
+	doveadm_mail_try_help_name(cmd_name);
 	i_fatal("Missing help for command %s", cmd_name);
 }
 

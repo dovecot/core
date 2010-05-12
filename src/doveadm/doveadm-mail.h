@@ -30,6 +30,7 @@ void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd);
 void doveadm_mail_usage(void);
 void doveadm_mail_help(const struct doveadm_mail_cmd *cmd) ATTR_NORETURN;
 void doveadm_mail_help_name(const char *cmd_name) ATTR_NORETURN;
+void doveadm_mail_try_help_name(const char *cmd_name);
 
 void doveadm_mail_init(void);
 void doveadm_mail_deinit(void);

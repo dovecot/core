@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "module-dir.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -56,17 +57,27 @@ const char *unixdate2str(time_t timestamp)
 	return buf;
 }
 
-static void cmd_help(int argc ATTR_UNUSED, char *argv[])
+static void cmd_help(int argc, char *argv[])
 {
 	const struct doveadm_cmd *cmd;
+	string_t *name;
+	int i;
 
 	if (argv[1] == NULL)
 		usage();
-	array_foreach(&doveadm_cmds, cmd) {
-		if (strcmp(cmd->name, argv[1]) == 0)
-			help(cmd);
+
+	name = t_str_new(100);
+	for (i = 1; i < argc; i++) {
+		str_append(name, argv[i]);
+
+		array_foreach(&doveadm_cmds, cmd) {
+			if (strcmp(cmd->name, str_c(name)) == 0)
+				help(cmd);
+		}
+		doveadm_mail_try_help_name(str_c(name));
+
+		str_append_c(name, ' ');
 	}
-	doveadm_mail_help_name(argv[1]);
 	usage();
 }
 
