@@ -346,6 +346,13 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 	return 0;
 }
 
+static struct mail *virtual_mail_get_real_mail(struct mail *mail)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+
+	return mail_get_real_mail(vmail->backend_mail);
+}
+
 static void virtual_mail_update_pop3_uidl(struct mail *mail, const char *uidl)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
@@ -401,6 +408,7 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_get_header_stream,
 	virtual_mail_get_stream,
 	virtual_mail_get_special,
+	virtual_mail_get_real_mail,
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_update_modseq,

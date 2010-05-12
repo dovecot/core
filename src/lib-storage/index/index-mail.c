@@ -1063,6 +1063,11 @@ int index_mail_get_special(struct mail *_mail,
 	}
 }
 
+struct mail *index_mail_get_real_mail(struct mail *mail)
+{
+	return mail;
+}
+
 struct mail *
 index_mail_alloc(struct mailbox_transaction_context *t,
 		 enum mail_fetch_field wanted_fields,

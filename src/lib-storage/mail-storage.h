@@ -660,6 +660,9 @@ int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 /* Get any of the "special" fields. Unhandled specials are returned as "". */
 int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 		     const char **value_r);
+/* Returns the mail for the physical message. Normally this is the mail itself,
+   but in virtual mailboxes it points to the backend mailbox. */
+struct mail *mail_get_real_mail(struct mail *mail);
 
 /* Update message flags. */
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,

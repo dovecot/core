@@ -180,6 +180,13 @@ int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 	return p->v.get_special(mail, field, value_r);
 }
 
+struct mail *mail_get_real_mail(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_real_mail(mail);
+}
+
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,
 		       enum mail_flags flags)
 {

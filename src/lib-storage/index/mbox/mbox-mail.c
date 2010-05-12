@@ -403,6 +403,7 @@ struct mail_vfuncs mbox_mail_vfuncs = {
 	index_mail_get_header_stream,
 	mbox_mail_get_stream,
 	mbox_mail_get_special,
+	index_mail_get_real_mail,
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_update_modseq,
