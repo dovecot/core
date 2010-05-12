@@ -33,6 +33,7 @@
 enum auth_socket_type {
 	AUTH_SOCKET_UNKNOWN = 0,
 	AUTH_SOCKET_CLIENT,
+	AUTH_SOCKET_LOGIN_CLIENT,
 	AUTH_SOCKET_MASTER,
 	AUTH_SOCKET_USERDB
 };
@@ -195,20 +196,29 @@ static void worker_connected(const struct master_service_connection *conn)
 static void client_connected(const struct master_service_connection *conn)
 {
 	enum auth_socket_type *type;
-	const char *name, *suffix;
+	const char *path, *name, *suffix;
 	struct auth *auth;
 
 	type = array_idx_modifiable(&listen_fd_types, conn->listen_fd);
 	if (*type == AUTH_SOCKET_UNKNOWN) {
 		/* figure out if this is a server or network socket by
 		   checking the socket path name. */
-		if (net_getunixname(conn->listen_fd, &name) < 0)
+		if (net_getunixname(conn->listen_fd, &path) < 0)
 			i_fatal("getsockname(%d) failed: %m", conn->listen_fd);
 
+		name = strrchr(path, '/');
+		if (name == NULL)
+			name = path;
+		else
+			name++;
+
 		suffix = strrchr(name, '-');
-		if (suffix == NULL)
-			*type = AUTH_SOCKET_CLIENT;
-		else {
+		if (suffix == NULL) {
+			if (strcmp(name, "login") == 0)
+				*type = AUTH_SOCKET_LOGIN_CLIENT;
+			else
+				*type = AUTH_SOCKET_CLIENT;
+		} else {
 			suffix++;
 			if (strcmp(suffix, "master") == 0)
 				*type = AUTH_SOCKET_MASTER;
@@ -227,8 +237,11 @@ static void client_connected(const struct master_service_connection *conn)
 	case AUTH_SOCKET_USERDB:
 		(void)auth_master_connection_create(auth, conn->fd, TRUE);
 		break;
+	case AUTH_SOCKET_LOGIN_CLIENT:
+		(void)auth_client_connection_create(auth, conn->fd, TRUE);
+		break;
 	case AUTH_SOCKET_CLIENT:
-		(void)auth_client_connection_create(auth, conn->fd);
+		(void)auth_client_connection_create(auth, conn->fd, FALSE);
 		break;
 	default:
 		i_unreached();

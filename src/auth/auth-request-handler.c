@@ -536,7 +536,7 @@ static void userdb_callback(enum userdb_result result,
         auth_request_handler_unref(&handler);
 }
 
-void auth_request_handler_master_request(struct auth_request_handler *handler,
+bool auth_request_handler_master_request(struct auth_request_handler *handler,
 					 struct auth_master_connection *master,
 					 unsigned int id,
 					 unsigned int client_id)
@@ -552,8 +552,10 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 			handler->client_pid, client_id);
 		auth_stream_reply_add(reply, "FAIL", NULL);
 		auth_stream_reply_add(reply, NULL, dec2str(id));
+		if (handler->master_callback == NULL)
+			return FALSE;
 		handler->master_callback(reply, master);
-		return;
+		return TRUE;
 	}
 
 	auth_request_ref(request);
@@ -582,6 +584,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 		handler->refcount++;
 		auth_request_lookup_user(request, userdb_callback);
 	}
+	return TRUE;
 }
 
 void auth_request_handler_flush_failures(bool flush_all)

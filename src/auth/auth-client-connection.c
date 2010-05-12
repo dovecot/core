@@ -115,6 +115,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
         conn->refcount++;
 	conn->request_handler =
 		auth_request_handler_create(auth_callback, conn,
+					    !conn->login_requests ? NULL :
 					    auth_master_request_callback);
 	auth_request_handler_set(conn->request_handler, conn->connect_uid, pid);
 
@@ -263,7 +264,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 }
 
 struct auth_client_connection *
-auth_client_connection_create(struct auth *auth, int fd)
+auth_client_connection_create(struct auth *auth, int fd, bool login_requests)
 {
 	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
@@ -273,6 +274,7 @@ auth_client_connection_create(struct auth *auth, int fd)
 	conn->auth = auth;
 	conn->refcount = 1;
 	conn->connect_uid = ++connect_uid_counter;
+	conn->login_requests = login_requests;
 	random_fill(conn->cookie, sizeof(conn->cookie));
 
 	conn->fd = fd;

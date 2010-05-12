@@ -100,9 +100,12 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 			client_pid);
 		(void)o_stream_send_str(conn->output,
 					t_strdup_printf("FAIL\t%u\n", id));
-	} else {
-		auth_request_handler_master_request(
-			client_conn->request_handler, conn, id, client_id);
+	} else if (!auth_request_handler_master_request(
+			client_conn->request_handler, conn, id, client_id)) {
+		i_error("Master requested auth for non-login client %u",
+			client_pid);
+		(void)o_stream_send_str(conn->output,
+					t_strdup_printf("FAIL\t%u\n", id));
 	}
 	return TRUE;
 }

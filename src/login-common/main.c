@@ -297,7 +297,7 @@ static void main_init(void)
 						   client_destroy_oldest);
 	master_service_set_die_callback(master_service, login_die);
 
-	auth_client = auth_client_init("auth", (unsigned int)getpid(), FALSE);
+	auth_client = auth_client_init("login", (unsigned int)getpid(), FALSE);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	master_auth = master_auth_init(master_service, login_binary.protocol);
 

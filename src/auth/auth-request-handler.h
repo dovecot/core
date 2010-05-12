@@ -33,7 +33,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				     const char *args);
 bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 					const char *args);
-void auth_request_handler_master_request(struct auth_request_handler *handler,
+bool auth_request_handler_master_request(struct auth_request_handler *handler,
 					 struct auth_master_connection *master,
 					 unsigned int id,
 					 unsigned int client_id);

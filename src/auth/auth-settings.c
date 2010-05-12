@@ -16,7 +16,7 @@ static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **err
 
 /* <settings checks> */
 static struct file_listener_settings auth_unix_listeners_array[] = {
-	{ "login/auth", 0666, "", "" },
+	{ "login/login", 0666, "", "" },
 	{ "auth-client", 0600, "", "" },
 	{ "auth-userdb", 0600, "", "" },
 	{ "auth-master", 0600, "", "" }
