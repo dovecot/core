@@ -36,6 +36,8 @@ int imap_status_parse_items(struct client_command_context *cmd,
 			items |= STATUS_UNSEEN;
 		else if (strcmp(item, "HIGHESTMODSEQ") == 0)
 			items |= STATUS_HIGHESTMODSEQ;
+		else if (strcmp(item, "X-VSIZE") == 0)
+			items |= STATUS_VIRTUAL_SIZE;
 		else if (strcmp(item, "X-GUID") == 0)
 			items_r->guid = TRUE;
 		else {
@@ -119,6 +121,10 @@ void imap_status_send(struct client *client, const char *mailbox,
 	if ((items->mailbox_items & STATUS_HIGHESTMODSEQ) != 0) {
 		str_printfa(str, "HIGHESTMODSEQ %llu ",
 			    (unsigned long long)status->highest_modseq);
+	}
+	if ((items->mailbox_items & STATUS_VIRTUAL_SIZE) != 0) {
+		str_printfa(str, "X-VSIZE %llu ",
+			    (unsigned long long)status->virtual_size);
 	}
 	if (items->guid) {
 		str_printfa(str, "X-GUID %s ",
