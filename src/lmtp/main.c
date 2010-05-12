@@ -33,6 +33,21 @@ static void client_connected(const struct master_service_connection *conn)
 	(void)client_create(conn->fd, conn->fd, conn);
 }
 
+static void drop_privileges(void)
+{
+	struct restrict_access_settings set;
+	const char *error;
+
+	/* by default we don't drop any privileges, but keep running as root. */
+	restrict_access_get_env(&set);
+	if (set.uid != 0) {
+		/* open config connection before dropping privileges */
+		(void)master_service_settings_read_simple(master_service,
+							  NULL, &error);
+	}
+	restrict_access_by_env(NULL, FALSE);
+}
+
 static void main_init(void)
 {
 	struct master_service_connection conn;
@@ -84,6 +99,8 @@ int main(int argc, char *argv[])
 			return FATAL_DEFAULT;
 		}
 	}
+
+	drop_privileges();
 	master_service_init_finish(master_service);
 	master_service_init_log(master_service,
 				t_strdup_printf("lmtp(%s): ", my_pid));
