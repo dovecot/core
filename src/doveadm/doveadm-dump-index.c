@@ -15,6 +15,10 @@
 #include <stdlib.h>
 #include <time.h>
 
+struct index_vsize_header {
+	uint64_t vsize;
+	uint32_t highest_uid;
+};
 struct maildir_index_header {
 	uint32_t new_check_time, new_mtime, new_mtime_nsecs;
 	uint32_t cur_check_time, cur_mtime, cur_mtime_nsecs;
@@ -105,7 +109,13 @@ static void dump_extension_header(struct mail_index *index,
 		return;
 
 	data = CONST_PTR_OFFSET(index->map->hdr_base, ext->hdr_offset);
-	if (strcmp(ext->name, "maildir") == 0) {
+	if (strcmp(ext->name, "hdr-vsize") == 0) {
+		const struct index_vsize_header *hdr = data;
+
+		printf("header\n");
+		printf(" - highest uid = %u\n", hdr->highest_uid);
+		printf(" - vsize ..... = %llu\n", (unsigned long long)hdr->vsize);
+	} else if (strcmp(ext->name, "maildir") == 0) {
 		const struct maildir_index_header *hdr = data;
 
 		printf("header\n");

@@ -27,6 +27,11 @@ struct index_transaction_context {
 	struct mail_cache_transaction_ctx *cache_trans;
 };
 
+struct index_vsize_header {
+	uint64_t vsize;
+	uint32_t highest_uid;
+};
+
 struct index_mailbox_context {
 	union mailbox_module_context module_ctx;
 	enum mail_index_open_flags index_flags;
@@ -50,6 +55,7 @@ struct index_mailbox_context {
 	ARRAY_TYPE(seq_range) recent_flags;
 	uint32_t recent_flags_prev_uid;
 	uint32_t recent_flags_count;
+	uint32_t vsize_hdr_ext_id;
 
 	time_t sync_last_check;
 };

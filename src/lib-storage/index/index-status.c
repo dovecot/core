@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-cache.h"
+#include "mail-search-build.h"
 #include "index-storage.h"
 #include "mail-index-modseq.h"
 
@@ -28,6 +29,95 @@ index_storage_get_status_cache_fields(struct mailbox *box,
 			array_append(cache_fields, &fields[i].name, 1);
 	}
 	status_r->cache_fields = cache_fields;
+}
+
+static void
+index_storage_virtual_size_add_new(struct mailbox *box,
+				   struct index_vsize_header *vsize_hdr)
+{
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+	const struct mail_index_header *hdr;
+	struct mailbox_transaction_context *trans;
+	struct mail_search_context *search_ctx;
+	struct mail_search_args *search_args;
+	struct mail *mail;
+	uint32_t seq1, seq2;
+	uoff_t vsize;
+	int ret = 0;
+
+	hdr = mail_index_get_header(box->view);
+	if (!mail_index_lookup_seq_range(box->view, vsize_hdr->highest_uid+1,
+					 hdr->next_uid, &seq1, &seq2)) {
+		/* the last messages are already expunged,
+		   don't bother updating cache */
+		return;
+	}
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_seqset(search_args, seq1, seq2);
+
+	trans = mailbox_transaction_begin(box, 0);
+	search_ctx = mailbox_search_init(trans, search_args, NULL);
+	mail = mail_alloc(trans, MAIL_FETCH_VIRTUAL_SIZE, NULL);
+	while (mailbox_search_next(search_ctx, mail)) {
+		if (mail_get_virtual_size(mail, &vsize) < 0) {
+			ret = -1;
+			break;
+		}
+		vsize_hdr->vsize += vsize;
+		vsize_hdr->highest_uid = mail->uid;
+	}
+	mail_free(&mail);
+	if (mailbox_search_deinit(&search_ctx) < 0)
+		ret = -1;
+
+	if (ret == 0) {
+		/* success, cache all */
+		vsize_hdr->highest_uid = hdr->next_uid - 1;
+	} else {
+		/* search failed, cache only up to highest seen uid */
+	}
+	mail_index_update_header_ext(trans->itrans, ibox->vsize_hdr_ext_id,
+				     0, vsize_hdr, sizeof(*vsize_hdr));
+	(void)mailbox_transaction_commit(&trans);
+
+}
+
+static void
+index_storage_get_status_virtual_size(struct mailbox *box,
+				      struct mailbox_status *status_r)
+{
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+	struct index_vsize_header vsize_hdr;
+	const void *data;
+	size_t size;
+
+	mail_index_get_header_ext(box->view, ibox->vsize_hdr_ext_id,
+				  &data, &size);
+	if (size == sizeof(vsize_hdr))
+		memcpy(&vsize_hdr, data, sizeof(vsize_hdr));
+	else {
+		if (size != 0) {
+			mail_storage_set_critical(box->storage,
+				"vsize-hdr has invalid size: %"PRIuSIZE_T,
+				size);
+		}
+		memset(&vsize_hdr, 0, sizeof(vsize_hdr));
+	}
+
+	if (vsize_hdr.highest_uid + 1 == status_r->uidnext) {
+		/* up to date */
+		status_r->virtual_size = vsize_hdr.vsize;
+		return;
+	}
+	if (vsize_hdr.highest_uid >= status_r->uidnext) {
+		mail_storage_set_critical(box->storage,
+			"vsize-hdr has invalid highest-uid (%u >= %u)",
+			vsize_hdr.highest_uid, status_r->uidnext);
+		memset(&vsize_hdr, 0, sizeof(vsize_hdr));
+	}
+	index_storage_virtual_size_add_new(box, &vsize_hdr);
+	status_r->virtual_size = vsize_hdr.vsize;
 }
 
 void index_storage_get_status(struct mailbox *box,
@@ -69,4 +159,6 @@ void index_storage_get_status(struct mailbox *box,
 		status_r->keywords = mail_index_get_keywords(box->index);
 	if ((items & STATUS_CACHE_FIELDS) != 0)
 		index_storage_get_status_cache_fields(box, status_r);
+	if ((items & STATUS_VIRTUAL_SIZE) != 0)
+		index_storage_get_status_virtual_size(box, status_r);
 }

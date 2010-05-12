@@ -62,7 +62,8 @@ enum mailbox_status_items {
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
 	STATUS_KEYWORDS		= 0x40,
 	STATUS_HIGHESTMODSEQ	= 0x80,
-	STATUS_CACHE_FIELDS	= 0x100
+	STATUS_CACHE_FIELDS	= 0x100,
+	STATUS_VIRTUAL_SIZE	= 0x200
 };
 
 enum mailbox_search_result_flags {
@@ -181,6 +182,8 @@ struct mailbox_status {
 
 	uint32_t first_unseen_seq;
 	uint64_t highest_modseq;
+	/* sum of virtual size of all messages in mailbox */
+	uint64_t virtual_size;
 
 	const ARRAY_TYPE(keywords) *keywords;
 	/* Fields that have "temp" or "yes" caching decision. */

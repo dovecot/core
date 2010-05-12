@@ -240,6 +240,10 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	index_cache_register_defaults(box);
 	box->view = mail_index_view_open(box->index);
 	ibox->keyword_names = mail_index_get_keywords(box->index);
+	ibox->vsize_hdr_ext_id =
+		mail_index_ext_register(box->index, "hdr-vsize",
+					sizeof(struct index_vsize_header), 0,
+					sizeof(uint64_t));
 
 	box->opened = TRUE;
 
