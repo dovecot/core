@@ -814,6 +814,24 @@ fetch_x_mailbox_init(struct imap_fetch_context *ctx ATTR_UNUSED,
 	return TRUE;
 }
 
+static int fetch_x_real_uid(struct imap_fetch_context *ctx, struct mail *mail,
+			    void *context ATTR_UNUSED)
+{
+	str_printfa(ctx->cur_str, "X-REAL-UID %u ",
+		    mail_get_real_mail(mail)->uid);
+	return 1;
+}
+
+static bool
+fetch_x_real_uid_init(struct imap_fetch_context *ctx ATTR_UNUSED,
+		      const char *name,
+		      const struct imap_arg **args ATTR_UNUSED)
+{
+	imap_fetch_add_handler(ctx, TRUE, FALSE, name, NULL,
+			       fetch_x_real_uid, NULL);
+	return TRUE;
+}
+
 static int fetch_x_savedate(struct imap_fetch_context *ctx, struct mail *mail,
 			    void *context ATTR_UNUSED)
 {
@@ -850,6 +868,7 @@ imap_fetch_default_handlers[] = {
 	{ "UID", fetch_uid_init },
 	{ "X-GUID", fetch_guid_init },
 	{ "X-MAILBOX", fetch_x_mailbox_init },
+	{ "X-REAL-UID", fetch_x_real_uid_init },
 	{ "X-SAVEDATE", fetch_x_savedate_init }
 };
 
