@@ -32,6 +32,8 @@ void restrict_access(const struct restrict_access_settings *set,
 /* Set environment variables so they can be read with
    restrict_access_by_env(). */
 void restrict_access_set_env(const struct restrict_access_settings *set);
+/* Read restrict_access_set_env() environments back into struct. */
+void restrict_access_get_env(struct restrict_access_settings *set_r);
 /* Read restrictions from environment and call restrict_access().
    If disallow_roots is TRUE, we'll kill ourself if we didn't have the
    environment settings. */

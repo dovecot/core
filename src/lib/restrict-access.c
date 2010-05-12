@@ -376,38 +376,42 @@ static const char *null_if_empty(const char *str)
 	return str == NULL || *str == '\0' ? NULL : str;
 }
 
-void restrict_access_by_env(const char *home, bool disallow_root)
+void restrict_access_get_env(struct restrict_access_settings *set_r)
 {
-	struct restrict_access_settings set;
 	const char *value;
 
-	restrict_access_init(&set);
-
+	restrict_access_init(set_r);
 	if ((value = getenv("RESTRICT_SETUID")) != NULL) {
-		if (str_to_uid(value, &set.uid) < 0)
+		if (str_to_uid(value, &set_r->uid) < 0)
 			i_fatal("Invalid uid: %s", value);
 	}
 	if ((value = getenv("RESTRICT_SETGID")) != NULL) {
-		if (str_to_gid(value, &set.gid) < 0)
+		if (str_to_gid(value, &set_r->gid) < 0)
 			i_fatal("Invalid gid: %s", value);
 	}
 	if ((value = getenv("RESTRICT_SETGID_PRIV")) != NULL) {
-		if (str_to_gid(value, &set.privileged_gid) < 0)
+		if (str_to_gid(value, &set_r->privileged_gid) < 0)
 			i_fatal("Invalid privileged_gid: %s", value);
 	}
 	if ((value = getenv("RESTRICT_GID_FIRST")) != NULL) {
-		if (str_to_gid(value, &set.first_valid_gid) < 0)
+		if (str_to_gid(value, &set_r->first_valid_gid) < 0)
 			i_fatal("Invalid first_valid_gid: %s", value);
 	}
 	if ((value = getenv("RESTRICT_GID_LAST")) != NULL) {
-		if (str_to_gid(value, &set.last_valid_gid) < 0)
+		if (str_to_gid(value, &set_r->last_valid_gid) < 0)
 			i_fatal("Invalid last_value_gid: %s", value);
 	}
 
-	set.extra_groups = null_if_empty(getenv("RESTRICT_SETEXTRAGROUPS"));
-	set.system_groups_user = null_if_empty(getenv("RESTRICT_USER"));
-	set.chroot_dir = null_if_empty(getenv("RESTRICT_CHROOT"));
+	set_r->extra_groups = null_if_empty(getenv("RESTRICT_SETEXTRAGROUPS"));
+	set_r->system_groups_user = null_if_empty(getenv("RESTRICT_USER"));
+	set_r->chroot_dir = null_if_empty(getenv("RESTRICT_CHROOT"));
+}
 
+void restrict_access_by_env(const char *home, bool disallow_root)
+{
+	struct restrict_access_settings set;
+
+	restrict_access_get_env(&set);
 	restrict_access(&set, home, disallow_root);
 
 	/* clear the environment, so we don't fail if we get back here */
