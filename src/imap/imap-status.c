@@ -13,6 +13,11 @@ int imap_status_parse_items(struct client_command_context *cmd,
 	const char *item;
 	enum mailbox_status_items items;
 
+	if (IMAP_ARG_IS_EOL(args)) {
+		client_send_command_error(cmd, "Empty status list.");
+		return -1;
+	}
+
 	memset(items_r, 0, sizeof(*items_r));
 	items = 0;
 	for (; !IMAP_ARG_IS_EOL(args); args++) {
