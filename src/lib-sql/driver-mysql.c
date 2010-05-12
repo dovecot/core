@@ -282,7 +282,6 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 
 	result = i_new(struct mysql_result, 1);
 	result->api = driver_mysql_result;
-	result->api.db = _db;
 
 	switch (driver_mysql_do_query(db, query)) {
 	case 0:
@@ -315,6 +314,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 		break;
 	}
 
+	result->api.db = _db;
 	result->api.refcount = 1;
 	return &result->api;
 }
