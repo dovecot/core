@@ -201,6 +201,7 @@ int main(int argc, char *argv[])
 	doveadm_register_cmd(&doveadm_cmd_who);
 	doveadm_register_cmd(&doveadm_cmd_penalty);
 	doveadm_register_cmd(&doveadm_cmd_kick);
+	doveadm_register_cmd(&doveadm_cmd_mailbox_convert);
 	doveadm_mail_init();
 	doveadm_load_modules();
 

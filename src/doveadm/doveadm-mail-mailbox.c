@@ -335,6 +335,49 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_rename_alloc(void)
 	return &ctx->ctx.ctx;
 }
 
+static void cmd_mailbox_convert(int argc, char *argv[])
+{
+	string_t *str;
+	bool from_utf8;
+	unsigned int i;
+	int c;
+
+	from_utf8 = TRUE;
+	while ((c = getopt(argc, argv, "78")) > 0) {
+		switch (c) {
+		case '7':
+			from_utf8 = FALSE;
+			break;
+		case '8':
+			from_utf8 = TRUE;
+			break;
+		default:
+			help(&doveadm_cmd_mailbox_convert);
+		}
+	}
+	argv += optind;
+
+	if (argv[0] == NULL)
+		help(&doveadm_cmd_mailbox_convert);
+
+	str = t_str_new(128);
+	for (i = 0; argv[i] != NULL; i++) {
+		str_truncate(str, 0);
+		if (from_utf8) {
+			if (imap_utf8_to_utf7(argv[i], str) < 0) {
+				i_error("Mailbox name not valid UTF-8: %s",
+					argv[i]);
+			}
+		} else {
+			if (imap_utf7_to_utf8(argv[i], str) < 0) {
+				i_error("Mailbox name not valid mUTF-7: %s",
+					argv[i]);
+			}
+		}
+		printf("%s\n", str_c(str));
+	}
+}
+
 struct doveadm_mail_cmd cmd_mailbox_list = {
 	cmd_mailbox_list_alloc, "mailbox list",
 	"[-7|-8] [<mailbox> [...]]"
@@ -350,4 +393,8 @@ struct doveadm_mail_cmd cmd_mailbox_delete = {
 struct doveadm_mail_cmd cmd_mailbox_rename = {
 	cmd_mailbox_rename_alloc, "mailbox rename",
 	"[-7|-8] <old name> <new name>"
+};
+struct doveadm_cmd doveadm_cmd_mailbox_convert = {
+	cmd_mailbox_convert, "mailbox convert",
+	"[-7|-8] <name> [...]", NULL
 };
