@@ -635,7 +635,7 @@ int main(int argc, char *argv[])
 	const char *error, *env_tz, *doveconf_arg = NULL;
 	failure_callback_t *orig_info_callback, *orig_debug_callback;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
-	int c, send_signal = 0;
+	int i, c, send_signal = 0;
 
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)
@@ -643,10 +643,18 @@ int main(int argc, char *argv[])
 	else
 		child_process_env[child_process_env_idx++] = "GDB=1";
 #endif
+	/* drop -- prefix from all --args */
+	for (i = 1; i < argc; i++) {
+		if (strncmp(argv[i], "--", 2) == 0) {
+			if (argv[i][2] == '\0')
+				break;
+			argv[i] += 2;
+		}
+	}
 	master_service = master_service_init(MASTER_SERVICE_NAME,
 				MASTER_SERVICE_FLAG_STANDALONE |
 				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
-				&argc, &argv, "Fanp-");
+				&argc, &argv, "Fanp");
 	i_set_failure_prefix("");
 
 	io_loop_set_time_moved_callback(current_ioloop, master_time_moved);
@@ -655,8 +663,6 @@ int main(int argc, char *argv[])
 	master_gid = getegid();
 
 	while ((c = master_getopt(master_service)) > 0) {
-		if (c == '-')
-			break;
 		switch (c) {
 		case 'F':
 			foreground = TRUE;
@@ -694,16 +700,16 @@ int main(int argc, char *argv[])
 	}
 
 	while (optind < argc) {
-		if (strcmp(argv[optind], "--version") == 0) {
+		if (strcmp(argv[optind], "version") == 0) {
 			printf("%s\n", DOVECOT_VERSION_FULL);
 			return 0;
-		} else if (strcmp(argv[optind], "--build-options") == 0) {
+		} else if (strcmp(argv[optind], "build-options") == 0) {
 			print_build_options();
 			return 0;
-		} else if (strcmp(argv[optind], "--log-error") == 0) {
+		} else if (strcmp(argv[optind], "log-error") == 0) {
 			log_error = TRUE;
 			foreground = TRUE;
-		} else if (strcmp(argv[optind], "--help") == 0) {
+		} else if (strcmp(argv[optind], "help") == 0) {
 			print_help();
 			return 0;
 		} else if (strcmp(argv[optind], "reload") == 0) {
