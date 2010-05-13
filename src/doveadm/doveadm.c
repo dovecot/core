@@ -157,6 +157,19 @@ static void doveadm_load_modules(void)
 	module_dir_init(modules);
 }
 
+
+static struct doveadm_cmd *doveadm_commands[] = {
+	&doveadm_cmd_help,
+	&doveadm_cmd_auth,
+	&doveadm_cmd_user,
+	&doveadm_cmd_dump,
+	&doveadm_cmd_pw,
+	&doveadm_cmd_who,
+	&doveadm_cmd_penalty,
+	&doveadm_cmd_kick,
+	&doveadm_cmd_mailbox_convert
+};
+
 int main(int argc, char *argv[])
 {
 	const struct setting_parser_info *set_roots[] = {
@@ -167,6 +180,7 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 	const char *cmd_name, *error;
+	unsigned int i;
 	int c;
 
 	/* "+" is GNU extension to stop at the first non-option.
@@ -193,15 +207,8 @@ int main(int argc, char *argv[])
 	doveadm_settings = master_service_settings_get_others(master_service)[0];
 
 	i_array_init(&doveadm_cmds, 32);
-	doveadm_register_cmd(&doveadm_cmd_help);
-	doveadm_register_cmd(&doveadm_cmd_auth);
-	doveadm_register_cmd(&doveadm_cmd_user);
-	doveadm_register_cmd(&doveadm_cmd_dump);
-	doveadm_register_cmd(&doveadm_cmd_pw);
-	doveadm_register_cmd(&doveadm_cmd_who);
-	doveadm_register_cmd(&doveadm_cmd_penalty);
-	doveadm_register_cmd(&doveadm_cmd_kick);
-	doveadm_register_cmd(&doveadm_cmd_mailbox_convert);
+	for (i = 0; i < N_ELEMENTS(doveadm_commands); i++)
+		doveadm_register_cmd(doveadm_commands[i]);
 	doveadm_mail_init();
 	doveadm_load_modules();
 
