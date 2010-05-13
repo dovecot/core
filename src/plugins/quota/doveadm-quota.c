@@ -28,9 +28,10 @@ static void cmd_quota_get_root(struct mail_user *user, struct quota_root *root)
 			printf("%llu/%llu",
 			       (unsigned long long)value,
 			       (unsigned long long)limit);
-		} else if (ret == 0)
-			printf("none");
-		else
+		} else if (ret == 0) {
+			printf("%llu/unlimited",
+			       (unsigned long long)value);
+		} else
 			printf("error");
 		if (res[1] != NULL)
 			printf(", ");
