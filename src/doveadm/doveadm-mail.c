@@ -344,7 +344,7 @@ doveadm_mail_try_run_multi_word(const struct doveadm_mail_cmd *cmd,
 {
 	unsigned int len;
 
-	if (argc < 1)
+	if (argc < 2)
 		return FALSE;
 
 	len = strlen(argv[1]);

@@ -91,7 +91,7 @@ doveadm_try_run_multi_word(const struct doveadm_cmd *cmd,
 {
 	unsigned int len;
 
-	if (argc < 1)
+	if (argc < 2)
 		return FALSE;
 
 	len = strlen(argv[1]);
@@ -150,7 +150,7 @@ static void doveadm_load_modules(void)
 	mod_set.version = master_service_get_version_string(master_service);
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = doveadm_debug;
-	mod_set.ignore_dlopen_errors = TRUE;
+	mod_set.ignore_dlopen_errors = !doveadm_debug;
 
 	modules = module_dir_load_missing(modules, DOVEADM_MODULEDIR,
 					  NULL, &mod_set);
