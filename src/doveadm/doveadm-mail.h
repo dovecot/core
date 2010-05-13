@@ -8,7 +8,9 @@ struct doveadm_mail_cmd_context;
 
 struct doveadm_mail_cmd_context {
 	pool_t pool;
+	const char *getopt_args;
 
+	bool (*parse_arg)(struct doveadm_mail_cmd_context *ctx,int c);
 	void (*init)(struct doveadm_mail_cmd_context *ctx,
 		     const char *const args[]);
 	void (*run)(struct doveadm_mail_cmd_context *ctx,

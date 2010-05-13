@@ -294,7 +294,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	enum mail_storage_service_flags service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
 	struct doveadm_mail_cmd_context *ctx;
-	const char *username;
+	const char *getopt_args, *username;
 	bool all_users = FALSE;
 	int c;
 
@@ -302,8 +302,9 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
 	ctx = cmd->alloc();
+	getopt_args = t_strconcat("Au:", ctx->getopt_args, NULL);
 	username = getenv("USER");
-	while ((c = getopt(argc, argv, "Au:")) > 0) {
+	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'A':
 			all_users = TRUE;
@@ -314,7 +315,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			username = optarg;
 			break;
 		default:
-			doveadm_mail_help(cmd);
+			if (ctx->parse_arg == NULL || !ctx->parse_arg(ctx, c))
+				doveadm_mail_help(cmd);
 		}
 	}
 	argv += optind;
