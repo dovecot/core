@@ -1356,7 +1356,7 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	cost1 = search_mail_get_cost(mail_private);
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
-		ctx->imail = mail_private->v.get_index_mail(mail);
+		ctx->imail = (struct index_mail *)mail_get_real_mail(mail);
 
 		T_BEGIN {
 			match = search_match_next(ctx);

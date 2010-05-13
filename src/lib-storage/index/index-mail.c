@@ -1533,8 +1533,3 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 				 "Broken %s for mail UID %u",
 				 field_name, mail->uid);
 }
-
-struct index_mail *index_mail_get_index_mail(struct mail *mail)
-{
-	return (struct index_mail *)mail;
-}

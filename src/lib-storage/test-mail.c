@@ -206,12 +206,6 @@ test_mail_set_cache_corrupted(struct mail *mail ATTR_UNUSED,
 {
 }
 
-static struct index_mail *
-test_mail_get_index_mail(struct mail *mail ATTR_UNUSED)
-{
-	return NULL;
-}
-
 struct mail_vfuncs test_mail_vfuncs = {
 	NULL,
 	test_mail_free,
@@ -241,6 +235,5 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_update_uid,
 	NULL,
 	test_mail_expunge,
-	test_mail_set_cache_corrupted,
-	test_mail_get_index_mail
+	test_mail_set_cache_corrupted
 };

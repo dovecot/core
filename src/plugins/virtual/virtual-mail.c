@@ -379,13 +379,6 @@ virtual_mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
 	mail_set_cache_corrupted(vmail->backend_mail, field);
 }
 
-static struct index_mail *virtual_mail_get_index_mail(struct mail *mail)
-{
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
-
-	return (struct index_mail *)vmail->backend_mail;
-}
-
 struct mail_vfuncs virtual_mail_vfuncs = {
 	NULL,
 	virtual_mail_free,
@@ -415,6 +408,5 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	index_mail_update_uid,
 	virtual_mail_update_pop3_uidl,
 	virtual_mail_expunge,
-	virtual_mail_set_cache_corrupted,
-	virtual_mail_get_index_mail
+	virtual_mail_set_cache_corrupted
 };

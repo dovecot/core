@@ -318,8 +318,6 @@ struct mail_vfuncs {
 	void (*expunge)(struct mail *mail);
 	void (*set_cache_corrupted)(struct mail *mail,
 				    enum mail_fetch_field field);
-
-	struct index_mail *(*get_index_mail)(struct mail *mail);
 };
 
 union mail_module_context {

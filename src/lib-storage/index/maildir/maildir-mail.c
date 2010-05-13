@@ -592,6 +592,5 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	maildir_mail_update_uid,
 	maildir_update_pop3_uidl,
 	index_mail_expunge,
-	maildir_mail_set_cache_corrupted,
-	index_mail_get_index_mail
+	maildir_mail_set_cache_corrupted
 };
