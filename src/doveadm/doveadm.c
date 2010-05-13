@@ -85,16 +85,57 @@ static struct doveadm_cmd doveadm_cmd_help = {
 	cmd_help, "help", "<cmd>", NULL
 };
 
+static bool
+doveadm_try_run_multi_word(const struct doveadm_cmd *cmd,
+			   const char *cmdname, int argc, char *argv[])
+{
+	unsigned int len;
+
+	if (argc < 1)
+		return FALSE;
+
+	len = strlen(argv[1]);
+	if (strncmp(cmdname, argv[1], len) != 0)
+		return FALSE;
+
+	if (cmdname[len] == ' ') {
+		/* more args */
+		return doveadm_try_run_multi_word(cmd, cmdname + len + 1,
+						  argc - 1, argv + 1);
+	}
+	if (cmdname[len] != '\0')
+		return FALSE;
+
+	/* match */
+	cmd->cmd(argc - 1, argv + 1);
+	return TRUE;
+}
+
 static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
 {
 	const struct doveadm_cmd *cmd;
+	unsigned int cmd_name_len;
 
+	i_assert(argc > 0);
+
+	cmd_name_len = strlen(cmd_name);
 	array_foreach(&doveadm_cmds, cmd) {
-		if (strcmp(cmd_name, cmd->name) == 0) {
+		if (strcmp(cmd->name, cmd_name) == 0) {
 			cmd->cmd(argc, argv);
 			return TRUE;
 		}
+
+		/* see if it matches a multi-word command */
+		if (strncmp(cmd->name, cmd_name, cmd_name_len) == 0 &&
+		    cmd->name[cmd_name_len] == ' ') {
+			const char *subcmd = cmd->name + cmd_name_len + 1;
+
+			if (doveadm_try_run_multi_word(cmd, subcmd,
+						       argc, argv))
+				return TRUE;
+		}
 	}
+
 	return FALSE;
 }
 
