@@ -50,11 +50,11 @@ cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 }
 
 static struct doveadm_mail_cmd_context *
-cmd_quota_get(const char *const args[] ATTR_UNUSED)
+cmd_quota_get_alloc(void)
 {
 	struct doveadm_mail_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_init(struct doveadm_mail_cmd_context);
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->run = cmd_quota_get_run;
 	return ctx;
 }
@@ -76,18 +76,18 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 }
 
 static struct doveadm_mail_cmd_context *
-cmd_quota_recalc(const char *const args[] ATTR_UNUSED)
+cmd_quota_recalc_alloc(void)
 {
 	struct doveadm_mail_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_init(struct doveadm_mail_cmd_context);
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->run = cmd_quota_recalc_run;
 	return ctx;
 }
 
 static struct doveadm_mail_cmd quota_commands[] = {
-	{ cmd_quota_get, "quota get", NULL },
-	{ cmd_quota_recalc, "quota recalc", NULL }
+	{ cmd_quota_get_alloc, "quota get", NULL },
+	{ cmd_quota_recalc_alloc, "quota recalc", NULL }
 };
 
 void doveadm_quota_plugin_init(struct module *module ATTR_UNUSED)
