@@ -270,7 +270,8 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 			i_warning("You should remove base_dir prefix from "
 				  "unix_listener: %s", set->path);
 		}
-		array_append(all_listeners, &set->path, 1);
+		if (set->mode != 0)
+			array_append(all_listeners, &set->path, 1);
 	}
 }
 
