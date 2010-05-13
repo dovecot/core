@@ -555,7 +555,7 @@ int main(int argc, char *argv[])
 			error);
 	}
 
-	if (ret <= 0 && (exec_args != NULL || ret == -2))
+	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
 		i_fatal("%s", error);
 
 	if (setting_name_filter != NULL) {
