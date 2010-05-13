@@ -94,15 +94,26 @@ cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 }
 
-struct doveadm_mail_cmd_context *cmd_altmove(const char *const args[])
+static void cmd_altmove_init(struct doveadm_mail_cmd_context *_ctx,
+			     const char *const args[])
 {
-	struct altmove_cmd_context *ctx;
+	struct altmove_cmd_context *ctx = (struct altmove_cmd_context *)_ctx;
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("altmove");
-
-	ctx = doveadm_mail_cmd_init(struct altmove_cmd_context);
-	ctx->ctx.run = cmd_altmove_run;
 	ctx->search_args = doveadm_mail_build_search_args(args);
+}
+
+static struct doveadm_mail_cmd_context *cmd_altmove_alloc(void)
+{
+	struct altmove_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct altmove_cmd_context);
+	ctx->ctx.init = cmd_altmove_init;
+	ctx->ctx.run = cmd_altmove_run;
 	return &ctx->ctx;
 }
+
+struct doveadm_mail_cmd cmd_altmove = {
+	cmd_altmove_alloc, "altmove", "<search query>"
+};

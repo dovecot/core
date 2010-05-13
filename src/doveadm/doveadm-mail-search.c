@@ -60,15 +60,27 @@ cmd_search_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	doveadm_mail_list_iter_deinit(&iter);
 }
 
-struct doveadm_mail_cmd_context *cmd_search(const char *const args[])
+static void cmd_search_init(struct doveadm_mail_cmd_context *_ctx,
+			    const char *const args[])
 {
-	struct search_cmd_context *ctx;
+	struct search_cmd_context *ctx = (struct search_cmd_context *)_ctx;
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("search");
 
-	ctx = doveadm_mail_cmd_init(struct search_cmd_context);
-	ctx->ctx.run = cmd_search_run;
 	ctx->search_args = doveadm_mail_build_search_args(args);
+}
+
+static struct doveadm_mail_cmd_context *cmd_search_alloc(void)
+{
+	struct search_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct search_cmd_context);
+	ctx->ctx.init = cmd_search_init;
+	ctx->ctx.run = cmd_search_run;
 	return &ctx->ctx;
 }
+
+struct doveadm_mail_cmd cmd_search = {
+	cmd_search_alloc, "search", "<search query>"
+};

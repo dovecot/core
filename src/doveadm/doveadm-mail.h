@@ -9,14 +9,15 @@ struct doveadm_mail_cmd_context;
 struct doveadm_mail_cmd_context {
 	pool_t pool;
 
+	void (*init)(struct doveadm_mail_cmd_context *ctx,
+		     const char *const args[]);
 	void (*run)(struct doveadm_mail_cmd_context *ctx,
 		    struct mail_user *mail_user);
 	void (*deinit)(struct doveadm_mail_cmd_context *ctx);
 };
 
 struct doveadm_mail_cmd {
-	struct doveadm_mail_cmd_context *
-		(*init)(const char *const args[]);
+	struct doveadm_mail_cmd_context *(*alloc)(void);
 	const char *name;
 	const char *usage_args;
 };
@@ -41,17 +42,17 @@ struct mail_search_args *
 doveadm_mail_build_search_args(const char *const args[]);
 
 struct doveadm_mail_cmd_context *
-doveadm_mail_cmd_init_size(size_t size);
-#define doveadm_mail_cmd_init(type) \
-	(type *)doveadm_mail_cmd_init_size(sizeof(type))
+doveadm_mail_cmd_alloc_size(size_t size);
+#define doveadm_mail_cmd_alloc(type) \
+	(type *)doveadm_mail_cmd_alloc_size(sizeof(type))
 
-struct doveadm_mail_cmd_context *cmd_expunge(const char *const args[]);
-struct doveadm_mail_cmd_context *cmd_search(const char *const args[]);
-struct doveadm_mail_cmd_context *cmd_fetch(const char *const args[]);
-struct doveadm_mail_cmd_context *cmd_altmove(const char *const args[]);
-struct doveadm_mail_cmd_context *cmd_mailbox_list(const char *const args[]);
-struct doveadm_mail_cmd_context *cmd_mailbox_create(const char *const args[]);
-struct doveadm_mail_cmd_context *cmd_mailbox_delete(const char *const args[]);
-struct doveadm_mail_cmd_context *cmd_mailbox_rename(const char *const args[]);
+struct doveadm_mail_cmd cmd_expunge;
+struct doveadm_mail_cmd cmd_search;
+struct doveadm_mail_cmd cmd_fetch;
+struct doveadm_mail_cmd cmd_altmove;
+struct doveadm_mail_cmd cmd_mailbox_list;
+struct doveadm_mail_cmd cmd_mailbox_create;
+struct doveadm_mail_cmd cmd_mailbox_delete;
+struct doveadm_mail_cmd cmd_mailbox_rename;
 
 #endif

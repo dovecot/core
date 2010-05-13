@@ -25,7 +25,7 @@ ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 static int killed_signo = 0;
 
 struct doveadm_mail_cmd_context *
-doveadm_mail_cmd_init_size(size_t size)
+doveadm_mail_cmd_alloc_size(size_t size)
 {
 	struct doveadm_mail_cmd_context *ctx;
 	pool_t pool;
@@ -55,12 +55,11 @@ cmd_purge_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 	}
 }
 
-static struct doveadm_mail_cmd_context *
-cmd_purge(const char *const args[] ATTR_UNUSED)
+static struct doveadm_mail_cmd_context *cmd_purge_alloc(void)
 {
 	struct doveadm_mail_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_init(struct doveadm_mail_cmd_context);
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->run = cmd_purge_run;
 	return ctx;
 }
@@ -139,18 +138,26 @@ static void cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 	mailbox_free(&box);
 }
 
-static struct doveadm_mail_cmd_context *
-cmd_force_resync(const char *const args[])
+static void cmd_force_resync_init(struct doveadm_mail_cmd_context *_ctx,
+				  const char *const args[])
 {
-	struct force_resync_cmd_context *ctx;
+	struct force_resync_cmd_context *ctx =
+		(struct force_resync_cmd_context *)_ctx;
 	const char *mailbox = args[0];
 
 	if (mailbox == NULL || args[1] != NULL)
 		doveadm_mail_help_name("force-resync");
 
-	ctx = doveadm_mail_cmd_init(struct force_resync_cmd_context);
-	ctx->ctx.run = cmd_force_resync_run;
 	ctx->mailbox = p_strdup(ctx->ctx.pool, mailbox);
+}
+
+static struct doveadm_mail_cmd_context *cmd_force_resync_alloc(void)
+{
+	struct force_resync_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct force_resync_cmd_context);
+	ctx->ctx.init = cmd_force_resync_init;
+	ctx->ctx.run = cmd_force_resync_run;
 	return &ctx->ctx;
 }
 
@@ -294,6 +301,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	if (doveadm_debug)
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
+	ctx = cmd->alloc();
 	username = getenv("USER");
 	while ((c = getopt(argc, argv, "Au:")) > 0) {
 		switch (c) {
@@ -316,7 +324,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			cmd->name, argv[0]);
 	}
 
-	ctx = cmd->init((const void *)argv);
+	if (ctx->init != NULL)
+		ctx->init(ctx, (const void *)argv);
 	if (!all_users) {
 		doveadm_mail_single_user(ctx, username, service_flags);
 	} else {
@@ -422,17 +431,24 @@ void doveadm_mail_help_name(const char *cmd_name)
 	i_fatal("Missing help for command %s", cmd_name);
 }
 
-static struct doveadm_mail_cmd mail_commands[] = {
-	{ cmd_purge, "purge", NULL },
-	{ cmd_force_resync, "force-resync", "<mailbox>" },
-	{ cmd_expunge, "expunge", "<search query>" },
-	{ cmd_search, "search", "<search query>" },
-	{ cmd_fetch, "fetch", "<fields> <search query>" },
-	{ cmd_altmove, "altmove", "<search query>" },
-	{ cmd_mailbox_list, "mailbox list", "[<mailbox> [...]]" },
-	{ cmd_mailbox_create, "mailbox create", "<mailbox> [...]" },
-	{ cmd_mailbox_delete, "mailbox delete", "<mailbox> [...]" },
-	{ cmd_mailbox_rename, "mailbox rename", "<old name> <new name>" }
+static struct doveadm_mail_cmd cmd_force_resync = {
+	cmd_force_resync_alloc, "force-resync", "<mailbox>"
+};
+static struct doveadm_mail_cmd cmd_purge = {
+	cmd_purge_alloc, "purge", NULL
+};
+
+static struct doveadm_mail_cmd *mail_commands[] = {
+	&cmd_force_resync,
+	&cmd_purge,
+	&cmd_expunge,
+	&cmd_search,
+	&cmd_fetch,
+	&cmd_altmove,
+	&cmd_mailbox_list,
+	&cmd_mailbox_create,
+	&cmd_mailbox_delete,
+	&cmd_mailbox_rename
 };
 
 void doveadm_mail_init(void)
@@ -442,7 +458,7 @@ void doveadm_mail_init(void)
 
 	i_array_init(&doveadm_mail_cmds, 32);
 	for (i = 0; i < N_ELEMENTS(mail_commands); i++)
-		doveadm_mail_register_cmd(&mail_commands[i]);
+		doveadm_mail_register_cmd(mail_commands[i]);
 
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.version = master_service_get_version_string(master_service);

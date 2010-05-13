@@ -45,14 +45,12 @@ cmd_mailbox_list_run(struct doveadm_mail_cmd_context *_ctx,
 	doveadm_mail_list_iter_deinit(&iter);
 }
 
-struct doveadm_mail_cmd_context *cmd_mailbox_list(const char *const args[])
+static void cmd_mailbox_list_init(struct doveadm_mail_cmd_context *_ctx,
+				  const char *const args[])
 {
-	struct list_cmd_context *ctx;
+	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
 	struct mail_search_arg *arg;
 	unsigned int i;
-
-	ctx = doveadm_mail_cmd_init(struct list_cmd_context);
-	ctx->ctx.run = cmd_mailbox_list_run;
 
 	ctx->search_args = mail_search_build_init();
 	for (i = 0; args[i] != NULL; i++) {
@@ -67,6 +65,15 @@ struct doveadm_mail_cmd_context *cmd_mailbox_list(const char *const args[])
 		arg = mail_search_build_add(ctx->search_args, SEARCH_OR);
 		arg->value.subargs = subargs;
 	}
+}
+
+static struct doveadm_mail_cmd_context *cmd_mailbox_list_alloc(void)
+{
+	struct list_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct list_cmd_context);
+	ctx->ctx.init = cmd_mailbox_list_init;
+	ctx->ctx.run = cmd_mailbox_list_run;
 	return &ctx->ctx;
 }
 
@@ -105,23 +112,30 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 }
 
-struct doveadm_mail_cmd_context *cmd_mailbox_create(const char *const args[])
+static void cmd_mailbox_create_init(struct doveadm_mail_cmd_context *_ctx,
+				    const char *const args[])
 {
-	struct mailbox_cmd_context *ctx;
+	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
 	const char *name;
 	unsigned int i;
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("mailbox create");
 
-	ctx = doveadm_mail_cmd_init(struct mailbox_cmd_context);
-	ctx->ctx.run = cmd_mailbox_create_run;
-	p_array_init(&ctx->mailboxes, ctx->ctx.pool, 16);
-
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.pool, args[i]);
 		array_append(&ctx->mailboxes, &name, 1);
 	}
+}
+
+static struct doveadm_mail_cmd_context *cmd_mailbox_create_alloc(void)
+{
+	struct mailbox_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct mailbox_cmd_context);
+	ctx->ctx.init = cmd_mailbox_create_init;
+	ctx->ctx.run = cmd_mailbox_create_run;
+	p_array_init(&ctx->mailboxes, ctx->ctx.pool, 16);
 	return &ctx->ctx;
 }
 
@@ -152,23 +166,30 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 }
 
-struct doveadm_mail_cmd_context *cmd_mailbox_delete(const char *const args[])
+static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx,
+				    const char *const args[])
 {
-	struct mailbox_cmd_context *ctx;
+	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
 	const char *name;
 	unsigned int i;
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("mailbox delete");
 
-	ctx = doveadm_mail_cmd_init(struct mailbox_cmd_context);
-	ctx->ctx.run = cmd_mailbox_delete_run;
-	p_array_init(&ctx->mailboxes, ctx->ctx.pool, 16);
-
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.pool, args[i]);
 		array_append(&ctx->mailboxes, &name, 1);
 	}
+}
+
+static struct doveadm_mail_cmd_context *cmd_mailbox_delete_alloc(void)
+{
+	struct mailbox_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct mailbox_cmd_context);
+	ctx->ctx.init = cmd_mailbox_delete_init;
+	ctx->ctx.run = cmd_mailbox_delete_run;
+	p_array_init(&ctx->mailboxes, ctx->ctx.pool, 16);
 	return &ctx->ctx;
 }
 
@@ -201,17 +222,41 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 	mailbox_free(&newbox);
 }
 
-struct doveadm_mail_cmd_context *cmd_mailbox_rename(const char *const args[])
+static void cmd_mailbox_rename_init(struct doveadm_mail_cmd_context *_ctx,
+				    const char *const args[])
 {
-	struct rename_cmd_context *ctx;
+	struct rename_cmd_context *ctx = (struct rename_cmd_context *)_ctx;
 
 	if (str_array_length(args) != 2)
 		doveadm_mail_help_name("mailbox rename");
 
-	ctx = doveadm_mail_cmd_init(struct rename_cmd_context);
-	ctx->ctx.run = cmd_mailbox_rename_run;
-
 	ctx->oldname = p_strdup(ctx->ctx.pool, args[0]);
 	ctx->newname = p_strdup(ctx->ctx.pool, args[1]);
+}
+
+static struct doveadm_mail_cmd_context *cmd_mailbox_rename_alloc(void)
+{
+	struct rename_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct rename_cmd_context);
+	ctx->ctx.init = cmd_mailbox_rename_init;
+	ctx->ctx.run = cmd_mailbox_rename_run;
 	return &ctx->ctx;
 }
+
+struct doveadm_mail_cmd cmd_mailbox_list = {
+	cmd_mailbox_list_alloc, "mailbox list",
+	"[-7|-8] [<mailbox> [...]]"
+};
+struct doveadm_mail_cmd cmd_mailbox_create = {
+	cmd_mailbox_create_alloc, "mailbox create",
+	"[-7|-8] <mailbox> [...]"
+};
+struct doveadm_mail_cmd cmd_mailbox_delete = {
+	cmd_mailbox_delete_alloc, "mailbox delete",
+	"[-7|-8] <mailbox> [...]"
+};
+struct doveadm_mail_cmd cmd_mailbox_rename = {
+	cmd_mailbox_rename_alloc, "mailbox rename",
+	"[-7|-8] <old name> <new name>"
+};

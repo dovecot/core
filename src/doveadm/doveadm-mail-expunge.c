@@ -195,16 +195,28 @@ cmd_expunge_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	doveadm_mail_list_iter_deinit(&iter);
 }
 
-struct doveadm_mail_cmd_context *cmd_expunge(const char *const args[])
+static void cmd_expunge_init(struct doveadm_mail_cmd_context *_ctx,
+			     const char *const args[])
 {
-	struct expunge_cmd_context *ctx;
+	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("expunge");
 
-	ctx = doveadm_mail_cmd_init(struct expunge_cmd_context);
-	ctx->ctx.run = cmd_expunge_run;
 	ctx->search_args = doveadm_mail_build_search_args(args);
 	mail_search_args_simplify(ctx->search_args);
+}
+
+static struct doveadm_mail_cmd_context *cmd_expunge_alloc(void)
+{
+	struct expunge_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct expunge_cmd_context);
+	ctx->ctx.init = cmd_expunge_init;
+	ctx->ctx.run = cmd_expunge_run;
 	return &ctx->ctx;
 }
+
+struct doveadm_mail_cmd cmd_expunge = {
+	cmd_expunge_alloc, "expunge", "<search query>"
+};

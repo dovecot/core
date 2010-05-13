@@ -383,18 +383,15 @@ static void cmd_fetch_deinit(struct doveadm_mail_cmd_context *_ctx)
 	str_free(&ctx->hdr);
 }
 
-struct doveadm_mail_cmd_context *cmd_fetch(const char *const args[])
+static void cmd_fetch_init(struct doveadm_mail_cmd_context *_ctx,
+			   const char *const args[])
 {
+	struct fetch_cmd_context *ctx = (struct fetch_cmd_context *)_ctx;
 	const char *fetch_fields = args[0];
-	struct fetch_cmd_context *ctx;
 	unsigned char prefix_buf[9];
 
 	if (fetch_fields == NULL || args[1] == NULL)
 		doveadm_mail_help_name("fetch");
-
-	ctx = doveadm_mail_cmd_init(struct fetch_cmd_context);
-	ctx->ctx.run = cmd_fetch_run;
-	ctx->ctx.deinit = cmd_fetch_deinit;
 
 	parse_fetch_fields(ctx, fetch_fields);
 	ctx->search_args = doveadm_mail_build_search_args(args + 1);
@@ -411,5 +408,19 @@ struct doveadm_mail_cmd_context *cmd_fetch(const char *const args[])
 		ctx->prefix = t_strdup(str_c(ctx->hdr));
 		str_truncate(ctx->hdr, 0);
 	}
+}
+
+static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)
+{
+	struct fetch_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct fetch_cmd_context);
+	ctx->ctx.init = cmd_fetch_init;
+	ctx->ctx.run = cmd_fetch_run;
+	ctx->ctx.deinit = cmd_fetch_deinit;
 	return &ctx->ctx;
 }
+
+struct doveadm_mail_cmd cmd_fetch = {
+	cmd_fetch_alloc, "fetch", "<fields> <search query>"
+};
