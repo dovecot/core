@@ -56,5 +56,7 @@ struct doveadm_mail_cmd cmd_mailbox_list;
 struct doveadm_mail_cmd cmd_mailbox_create;
 struct doveadm_mail_cmd cmd_mailbox_delete;
 struct doveadm_mail_cmd cmd_mailbox_rename;
+struct doveadm_mail_cmd cmd_mailbox_subscribe;
+struct doveadm_mail_cmd cmd_mailbox_unsubscribe;
 
 #endif

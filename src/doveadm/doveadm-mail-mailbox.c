@@ -366,6 +366,80 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_rename_alloc(void)
 	return &ctx->ctx.ctx;
 }
 
+static void
+cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
+			  struct mail_user *user)
+{
+	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	const char *const *namep;
+
+	array_foreach(&ctx->mailboxes, namep) {
+		const char *storage_name = *namep;
+
+		ns = mail_namespace_find(user->namespaces, &storage_name);
+		if (ns == NULL)
+			i_fatal("Can't find namespace for: %s", *namep);
+
+		box = mailbox_alloc(ns->list, storage_name, 0);
+		if (mailbox_list_set_subscribed(ns->list, storage_name,
+						ctx->ctx.subscriptions) < 0) {
+			i_error("Can't %s mailbox %s: %s", *namep,
+				ctx->ctx.subscriptions ? "subscribe to" :
+				"unsubscribe",
+				mailbox_list_get_last_error(ns->list, NULL));
+		}
+		mailbox_free(&box);
+	}
+}
+
+static void cmd_mailbox_subscribe_init(struct doveadm_mail_cmd_context *_ctx,
+				       const char *const args[])
+{
+	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
+	const char *name;
+	unsigned int i;
+
+	if (args[0] == NULL) {
+		doveadm_mail_help_name(ctx->ctx.subscriptions ?
+				       "mailbox subscribe" :
+				       "mailbox unsubscribe");
+	}
+	doveadm_mailbox_translate_args(&ctx->ctx, &args);
+
+	for (i = 0; args[i] != NULL; i++) {
+		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
+		array_append(&ctx->mailboxes, &name, 1);
+	}
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_mailbox_subscriptions_alloc(bool subscriptions)
+{
+	struct mailbox_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct mailbox_cmd_context);
+	ctx->ctx.subscriptions = subscriptions;
+
+	ctx->ctx.ctx.getopt_args = "78";
+	ctx->ctx.ctx.parse_arg = cmd_mailbox_parse_arg;
+	ctx->ctx.ctx.init = cmd_mailbox_subscribe_init;
+	ctx->ctx.ctx.run = cmd_mailbox_subscribe_run;
+	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
+	return &ctx->ctx.ctx;
+}
+
+static struct doveadm_mail_cmd_context *cmd_mailbox_subscribe_alloc(void)
+{
+	return cmd_mailbox_subscriptions_alloc(TRUE);
+}
+
+static struct doveadm_mail_cmd_context *cmd_mailbox_unsubscribe_alloc(void)
+{
+	return cmd_mailbox_subscriptions_alloc(FALSE);
+}
+
 static void cmd_mailbox_convert(int argc, char *argv[])
 {
 	string_t *str;
@@ -424,6 +498,14 @@ struct doveadm_mail_cmd cmd_mailbox_delete = {
 struct doveadm_mail_cmd cmd_mailbox_rename = {
 	cmd_mailbox_rename_alloc, "mailbox rename",
 	"[-7|-8] [-s] <old name> <new name>"
+};
+struct doveadm_mail_cmd cmd_mailbox_subscribe = {
+	cmd_mailbox_subscribe_alloc, "mailbox subscribe",
+	"[-7|-8] <mailbox> [...]"
+};
+struct doveadm_mail_cmd cmd_mailbox_unsubscribe = {
+	cmd_mailbox_unsubscribe_alloc, "mailbox unsubscribe",
+	"[-7|-8] <mailbox> [...]"
 };
 struct doveadm_cmd doveadm_cmd_mailbox_convert = {
 	cmd_mailbox_convert, "mailbox convert",
