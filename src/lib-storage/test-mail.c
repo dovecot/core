@@ -167,6 +167,11 @@ test_mail_get_special(struct mail *mail ATTR_UNUSED,
 	return -1;
 }
 
+static struct mail *test_mail_get_real_mail(struct mail *mail)
+{
+	return mail;
+}
+
 static void
 test_mail_update_flags(struct mail *mail ATTR_UNUSED,
 		       enum modify_type modify_type ATTR_UNUSED,
@@ -229,6 +234,7 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_get_header_stream,
 	test_mail_get_stream,
 	test_mail_get_special,
+	test_mail_get_real_mail,
 	test_mail_update_flags,
 	test_mail_update_keywords,
 	test_mail_update_modseq,
