@@ -5,7 +5,6 @@ pkglibexec_PROGRAMS = \
 	script \
 	$(TCPWRAP_BIN) \
 	gdbhelper \
-	imap-utf7 \
 	listview \
 	maildirlock
 
@@ -46,11 +45,6 @@ gdbhelper_LDADD = $(LIBDOVECOT)
 gdbhelper_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 gdbhelper_SOURCES = \
 	gdbhelper.c
-
-imap_utf7_LDADD = $(LIBDOVECOT)
-imap_utf7_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-imap_utf7_SOURCES = \
-	imap-utf7.c
 
 listview_LDADD = $(LIBDOVECOT)
 listview_DEPENDENCIES = $(LIBDOVECOT_DEPS)
