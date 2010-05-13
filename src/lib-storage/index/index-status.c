@@ -46,15 +46,28 @@ index_storage_virtual_size_add_new(struct mailbox *box,
 	int ret = 0;
 
 	hdr = mail_index_get_header(box->view);
-	if (!mail_index_lookup_seq_range(box->view, vsize_hdr->highest_uid+1,
-					 hdr->next_uid, &seq1, &seq2)) {
-		/* the last messages are already expunged,
-		   don't bother updating cache */
-		return;
+	if (vsize_hdr->highest_uid == 0)
+		seq2 = 0;
+	else if (!mail_index_lookup_seq_range(box->view, 1,
+					      vsize_hdr->highest_uid,
+					      &seq1, &seq2))
+		seq2 = 0;
+
+	if (vsize_hdr->message_count != seq2) {
+		if (vsize_hdr->message_count < seq2) {
+			mail_storage_set_critical(box->storage,
+				"vsize-hdr has invalid message-count (%u < %u)",
+				vsize_hdr->message_count, seq2);
+		} else {
+			/* some messages have been expunged, rescan */
+		}
+		memset(vsize_hdr, 0, sizeof(*vsize_hdr));
+		seq2 = 0;
 	}
 
 	search_args = mail_search_build_init();
-	mail_search_build_add_seqset(search_args, seq1, seq2);
+	mail_search_build_add_seqset(search_args, seq2 + 1,
+				     hdr->messages_count);
 
 	trans = mailbox_transaction_begin(box, 0);
 	search_ctx = mailbox_search_init(trans, search_args, NULL);
@@ -66,6 +79,7 @@ index_storage_virtual_size_add_new(struct mailbox *box,
 		}
 		vsize_hdr->vsize += vsize;
 		vsize_hdr->highest_uid = mail->uid;
+		vsize_hdr->message_count++;
 	}
 	mail_free(&mail);
 	if (mailbox_search_deinit(&search_ctx) < 0)
@@ -105,7 +119,8 @@ index_storage_get_status_virtual_size(struct mailbox *box,
 		memset(&vsize_hdr, 0, sizeof(vsize_hdr));
 	}
 
-	if (vsize_hdr.highest_uid + 1 == status_r->uidnext) {
+	if (vsize_hdr.highest_uid + 1 == status_r->uidnext &&
+	    vsize_hdr.message_count == status_r->messages) {
 		/* up to date */
 		status_r->virtual_size = vsize_hdr.vsize;
 		return;

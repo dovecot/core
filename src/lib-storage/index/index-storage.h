@@ -30,6 +30,7 @@ struct index_transaction_context {
 struct index_vsize_header {
 	uint64_t vsize;
 	uint32_t highest_uid;
+	uint32_t message_count;
 };
 
 struct index_mailbox_context {
