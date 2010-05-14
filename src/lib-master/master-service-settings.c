@@ -113,6 +113,7 @@ master_service_open_config(struct master_service *service,
 			   const struct master_service_settings_input *input,
 			   const char **path_r, const char **error_r)
 {
+	struct stat st;
 	const char *path;
 	int fd;
 
@@ -140,7 +141,14 @@ master_service_open_config(struct master_service *service,
 		/* fallback to executing doveconf */
 	}
 
-	fd = net_connect_unix_with_retries(path, 1000);
+	if (stat(path, &st) == 0 &&
+	    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
+		/* it's not an UNIX socket, don't even try to connect */
+		fd = -1;
+		errno = ENOTSOCK;
+	} else {
+		fd = net_connect_unix_with_retries(path, 1000);
+	}
 	if (fd < 0) {
 		*error_r = t_strdup_printf("net_connect_unix(%s) failed: %m",
 					   path);
