@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <syslog.h>
 
+#define DEFAULT_LOGIN_SOCKET "login"
 #define AUTH_CLIENT_IDLE_TIMEOUT_MSECS (1000*60)
 
 struct login_access_lookup {
@@ -283,7 +284,7 @@ static void main_preinit(bool allow_core_dumps)
 		restrict_access_allow_coredumps(TRUE);
 }
 
-static void main_init(void)
+static void main_init(const char *login_socket)
 {
 	/* make sure we can't fork() */
 	restrict_process_size((unsigned int)-1, 1);
@@ -297,7 +298,8 @@ static void main_init(void)
 						   client_destroy_oldest);
 	master_service_set_die_callback(master_service, login_die);
 
-	auth_client = auth_client_init("login", (unsigned int)getpid(), FALSE);
+	auth_client = auth_client_init(login_socket, (unsigned int)getpid(),
+				       FALSE);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	master_auth = master_auth_init(master_service, login_binary.protocol);
 
@@ -328,6 +330,7 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE;
 	pool_t set_pool;
 	bool allow_core_dumps = FALSE;
+	const char *login_socket = DEFAULT_LOGIN_SOCKET;
 	int c;
 
 	master_service = master_service_init(login_binary.process_name,
@@ -347,6 +350,8 @@ int main(int argc, char *argv[])
 			return FATAL_DEFAULT;
 		}
 	}
+	if (argv[optind] != NULL)
+		login_socket = argv[optind];
 
 	login_process_preinit();
 
@@ -359,7 +364,7 @@ int main(int argc, char *argv[])
 	   this. so call it first. */
 	master_service_init_finish(master_service);
 	main_preinit(allow_core_dumps);
-	main_init();
+	main_init(login_socket);
 
 	master_service_run(master_service, client_connected);
 	main_deinit();
