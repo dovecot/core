@@ -8,7 +8,7 @@
 
 #include <stdlib.h>
 
-#define CACHE_PREFETCH 1024
+#define CACHE_PREFETCH IO_BLOCK_SIZE
 
 int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 			  const struct mail_cache_record **rec_r)

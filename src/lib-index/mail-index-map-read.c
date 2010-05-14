@@ -125,7 +125,7 @@ mail_index_try_read_map(struct mail_index_map *map,
 {
 	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr;
-	unsigned char read_buf[4096];
+	unsigned char read_buf[IO_BLOCK_SIZE];
 	const void *buf;
 	void *data = NULL;
 	ssize_t ret;

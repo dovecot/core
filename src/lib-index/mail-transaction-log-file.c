@@ -12,7 +12,7 @@
 #include "mail-index-modseq.h"
 #include "mail-transaction-log-private.h"
 
-#define LOG_PREFETCH 1024
+#define LOG_PREFETCH IO_BLOCK_SIZE
 #define MEMORY_LOG_NAME "(in-memory transaction log file)"
 
 static int
