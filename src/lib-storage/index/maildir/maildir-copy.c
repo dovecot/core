@@ -124,12 +124,12 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 }
 
 static int
-maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
+maildir_copy_hardlink(struct mail_save_context *ctx,
+		      struct hardlink_ctx *do_ctx, struct mail *mail)
 {
 	struct maildir_mailbox *dest_mbox =
 		(struct maildir_mailbox *)ctx->transaction->box;
 	struct maildir_mailbox *src_mbox;
-	struct hardlink_ctx do_ctx;
 	const char *path, *guid;
 
 	if (strcmp(mail->box->storage->name, MAILDIR_STORAGE_NAME) == 0)
@@ -142,46 +142,45 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 		return 0;
 	}
 
-	memset(&do_ctx, 0, sizeof(do_ctx));
-	do_ctx.dest_path = str_new(default_pool, 512);
+	do_ctx->dest_path = str_new(default_pool, 512);
 
 	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) < 0)
 		guid = "";
 	if (*guid == '\0') {
 		/* the generated filename is _always_ unique, so we don't
 		   bother trying to check if it already exists */
-		do_ctx.dest_fname = maildir_filename_generate();
+		do_ctx->dest_fname = maildir_filename_generate();
 	} else {
-		do_ctx.dest_fname = guid;
-		do_ctx.preserve_filename = TRUE;
+		do_ctx->dest_fname = guid;
+		do_ctx->preserve_filename = TRUE;
 	}
 
 	/* hard link to tmp/ with basename and later when we
 	   have uidlist locked, move it to new/cur. */
-	str_printfa(do_ctx.dest_path, "%s/tmp/%s",
-		    dest_mbox->box.path, do_ctx.dest_fname);
-	do_ctx.base_end_pos = str_len(do_ctx.dest_path);
+	str_printfa(do_ctx->dest_path, "%s/tmp/%s",
+		    dest_mbox->box.path, do_ctx->dest_fname);
+	do_ctx->base_end_pos = str_len(do_ctx->dest_path);
 	if (src_mbox != NULL) {
 		/* maildir */
 		if (maildir_file_do(src_mbox, mail->uid,
-				    do_hardlink, &do_ctx) < 0)
+				    do_hardlink, do_ctx) < 0)
 			return -1;
 	} else {
 		/* raw / lda */
 		if (mail_get_special(mail, MAIL_FETCH_UIDL_FILE_NAME,
 				     &path) < 0 || *path == '\0')
 			return 0;
-		if (do_hardlink(dest_mbox, path, &do_ctx) < 0)
+		if (do_hardlink(dest_mbox, path, do_ctx) < 0)
 			return -1;
 	}
 
-	if (!do_ctx.success) {
+	if (!do_ctx->success) {
 		/* couldn't copy with hardlinking, fallback to copying */
 		return 0;
 	}
 
 	/* hardlinked to tmp/, treat as normal copied mail */
-	maildir_save_add(ctx, do_ctx.dest_fname, do_ctx.preserve_filename);
+	maildir_save_add(ctx, do_ctx->dest_fname, do_ctx->preserve_filename);
 	return 1;
 }
 
@@ -196,6 +195,7 @@ int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mailbox_transaction_context *_t = ctx->transaction;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_t->box;
+	struct hardlink_ctx do_ctx;
 	int ret;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -203,7 +203,10 @@ int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 	if (mbox->storage->set->maildir_copy_with_hardlinks &&
 	    maildir_compatible_file_modes(&mbox->box, mail->box)) {
 		T_BEGIN {
-			ret = maildir_copy_hardlink(ctx, mail);
+			memset(&do_ctx, 0, sizeof(do_ctx));
+			ret = maildir_copy_hardlink(ctx, &do_ctx, mail);
+			if (do_ctx.dest_path != NULL)
+				str_free(&do_ctx.dest_path);
 		} T_END;
 
 		if (ret != 0) {
