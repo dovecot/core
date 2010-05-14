@@ -11,7 +11,7 @@
 /* Block size when read()ing message header. */
 #define MAIL_READ_HDR_BLOCK_SIZE (1024*4)
 /* Block size when read()ing message (header and) body. */
-#define MAIL_READ_FULL_BLOCK_SIZE (1024*8)
+#define MAIL_READ_FULL_BLOCK_SIZE IO_BLOCK_SIZE
 
 struct mail_storage_module_register {
 	unsigned int id;

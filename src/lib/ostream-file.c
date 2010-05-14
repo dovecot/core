@@ -19,7 +19,7 @@
 
 /* try to keep the buffer size within 4k..128k. ReiserFS may actually return
    128k as optimal size. */
-#define DEFAULT_OPTIMAL_BLOCK_SIZE 4096
+#define DEFAULT_OPTIMAL_BLOCK_SIZE IO_BLOCK_SIZE
 #define MAX_OPTIMAL_BLOCK_SIZE (128*1024)
 
 #define IS_STREAM_EMPTY(fstream) \

@@ -247,7 +247,7 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 static off_t o_stream_default_send_istream(struct ostream_private *outstream,
 					   struct istream *instream)
 {
-	return io_stream_copy(&outstream->ostream, instream, 1024);
+	return io_stream_copy(&outstream->ostream, instream, IO_BLOCK_SIZE);
 }
 
 struct ostream *o_stream_create(struct ostream_private *_stream)

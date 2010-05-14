@@ -260,4 +260,9 @@ int i_my_clock_gettime(int clk_id, struct timespec *tp);
 int fdatasync(int);
 #endif
 
+/* Try to keep IO operations at least this size */
+#ifndef IO_BLOCK_SIZE
+#  define IO_BLOCK_SIZE 8192
+#endif
+
 #endif

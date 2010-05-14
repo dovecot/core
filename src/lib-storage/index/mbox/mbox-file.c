@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <utime.h>
 
-#define MBOX_READ_BLOCK_SIZE (1024*4)
+#define MBOX_READ_BLOCK_SIZE IO_BLOCK_SIZE
 
 int mbox_file_open(struct mbox_mailbox *mbox)
 {

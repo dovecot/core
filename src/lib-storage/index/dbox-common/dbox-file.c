@@ -23,7 +23,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 
-#define DBOX_READ_BLOCK_SIZE 4096
+#define DBOX_READ_BLOCK_SIZE IO_BLOCK_SIZE
 
 #ifndef DBOX_FILE_LOCK_METHOD_FLOCK
 static const struct dotlock_settings dotlock_set = {

@@ -19,7 +19,7 @@ int file_set_size(int fd, off_t size)
 #ifdef HAVE_POSIX_FALLOCATE
 	static bool posix_fallocate_supported = TRUE;
 #endif
-	char block[4096];
+	char block[IO_BLOCK_SIZE];
 	off_t offset;
 	ssize_t ret;
 	struct stat st;
