@@ -98,6 +98,7 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 
 	/* now that the whole transaction has been written, rewrite the first
 	   record's size so the transaction becomes visible */
+	hdr->size = first_size;
 	if (pwrite_full(file->fd, &first_size, sizeof(uint32_t),
 			file->sync_offset +
 			offsetof(struct mail_transaction_header, size)) < 0) {
@@ -123,6 +124,17 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 	   if it crashes before doing that, we'll need to overwrite it with
 	   a dummy record */
 
+	if (file->mmap_base == NULL) {
+		/* we're reading from a file. avoid re-reading the data that
+		   we just wrote. this is also important for some NFS clients,
+		   which for some reason sometimes can't read() this data we
+		   just wrote in the same process */
+		i_assert(file->buffer != NULL);
+		i_assert(file->buffer_offset +
+			 file->buffer->used == file->sync_offset);
+		buffer_append(file->buffer, ctx->output->data,
+			      ctx->output->used);
+	}
 	file->sync_offset += ctx->output->used;
 	return 0;
 }
