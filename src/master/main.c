@@ -551,6 +551,7 @@ static void print_build_options(void)
 #ifdef HAVE_OPENSSL
 		" openssl"
 #endif
+	        " io_block_size=%u"
 	"\nMail storages: "MAIL_STORAGES"\n"
 #ifdef SQL_DRIVER_PLUGINS
 	"SQL driver plugins:"
@@ -625,7 +626,7 @@ static void print_build_options(void)
 #ifdef USERDB_VPOPMAIL
 		" vpopmail"
 #endif
-	"\n");
+	"\n", IO_BLOCK_SIZE);
 }
 
 int main(int argc, char *argv[])
