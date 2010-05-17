@@ -21,6 +21,8 @@ struct squat_fts_backend {
 struct squat_fts_backend_build_context {
 	struct fts_backend_build_context ctx;
 	struct squat_trie_build_context *build_ctx;
+	enum squat_index_type squat_type;
+	uint32_t uid;
 };
 
 static void
@@ -127,18 +129,41 @@ fts_backend_squat_build_init(struct fts_backend *_backend, uint32_t *last_uid_r,
 	return 0;
 }
 
-static int
-fts_backend_squat_build_more(struct fts_backend_build_context *_ctx,
-			     uint32_t uid, const unsigned char *data,
-			     size_t size, bool headers)
+static void
+fts_backend_squat_build_hdr(struct fts_backend_build_context *_ctx,
+			    uint32_t uid)
 {
 	struct squat_fts_backend_build_context *ctx =
 		(struct squat_fts_backend_build_context *)_ctx;
-	enum squat_index_type squat_type;
 
-	squat_type = headers ? SQUAT_INDEX_TYPE_HEADER :
-		SQUAT_INDEX_TYPE_BODY;
-	return squat_trie_build_more(ctx->build_ctx, uid, squat_type,
+	ctx->squat_type = SQUAT_INDEX_TYPE_HEADER;
+	ctx->uid = uid;
+}
+
+static bool
+fts_backend_squat_build_body_begin(struct fts_backend_build_context *_ctx,
+				   uint32_t uid, const char *content_type,
+				   const char *content_disposition ATTR_UNUSED)
+{
+	struct squat_fts_backend_build_context *ctx =
+		(struct squat_fts_backend_build_context *)_ctx;
+
+	if (!fts_backend_default_can_index(content_type))
+		return FALSE;
+
+	ctx->squat_type = SQUAT_INDEX_TYPE_BODY;
+	ctx->uid = uid;
+	return TRUE;
+}
+
+static int
+fts_backend_squat_build_more(struct fts_backend_build_context *_ctx,
+			     const unsigned char *data, size_t size)
+{
+	struct squat_fts_backend_build_context *ctx =
+		(struct squat_fts_backend_build_context *)_ctx;
+
+	return squat_trie_build_more(ctx->build_ctx, ctx->uid, ctx->squat_type,
 				     data, size);
 }
 
@@ -248,6 +273,9 @@ struct fts_backend fts_backend_squat = {
 		fts_backend_squat_get_last_uid,
 		NULL,
 		fts_backend_squat_build_init,
+		fts_backend_squat_build_hdr,
+		fts_backend_squat_build_body_begin,
+		NULL,
 		fts_backend_squat_build_more,
 		fts_backend_squat_build_deinit,
 		fts_backend_squat_expunge,

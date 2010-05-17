@@ -99,10 +99,29 @@ int fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 	return ret;
 }
 
-int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
-			   const unsigned char *data, size_t size, bool headers)
+void fts_backend_build_hdr(struct fts_backend_build_context *ctx, uint32_t uid)
 {
-	return ctx->backend->v.build_more(ctx, uid, data, size, headers);
+	ctx->backend->v.build_hdr(ctx, uid);
+}
+
+bool fts_backend_build_body_begin(struct fts_backend_build_context *ctx,
+				  uint32_t uid, const char *content_type,
+				  const char *content_disposition)
+{
+	return ctx->backend->v.build_body_begin(ctx, uid, content_type,
+						content_disposition);
+}
+
+void fts_backend_build_body_end(struct fts_backend_build_context *ctx)
+{
+	if (ctx->backend->v.build_body_end != NULL)
+		ctx->backend->v.build_body_end(ctx);
+}
+
+int fts_backend_build_more(struct fts_backend_build_context *ctx,
+			   const unsigned char *data, size_t size)
+{
+	return ctx->backend->v.build_more(ctx, data, size);
 }
 
 int fts_backend_build_deinit(struct fts_backend_build_context **_ctx)
@@ -320,4 +339,10 @@ int fts_backend_lookup_deinit(struct fts_backend_lookup_context **_ctx,
 	}
 	pool_unref(&ctx->pool);
 	return ret;
+}
+
+bool fts_backend_default_can_index(const char *content_type)
+{
+	return strncasecmp(content_type, "text/", 5) == 0 ||
+		strcasecmp(content_type, "message/rfc822") == 0;
 }

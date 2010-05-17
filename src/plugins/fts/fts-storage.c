@@ -6,6 +6,7 @@
 #include "str.h"
 #include "istream.h"
 #include "time-util.h"
+#include "rfc822-parser.h"
 #include "message-parser.h"
 #include "message-decoder.h"
 #include "mail-namespace.h"
@@ -40,6 +41,7 @@ struct fts_storage_build_context {
 
 	uint32_t uid;
 	string_t *headers;
+	char *content_type, *content_disposition;
 };
 
 struct fts_transaction_context {
@@ -77,20 +79,52 @@ static int fts_build_mail_flush_headers(struct fts_storage_build_context *ctx)
 	if (str_len(ctx->headers) == 0)
 		return 0;
 
-	if (fts_backend_build_more(ctx->build, ctx->uid, str_data(ctx->headers),
-				   str_len(ctx->headers), TRUE) < 0)
+	fts_backend_build_hdr(ctx->build, ctx->uid);
+	if (fts_backend_build_more(ctx->build, str_data(ctx->headers),
+				   str_len(ctx->headers)) < 0)
 		return -1;
 
 	str_truncate(ctx->headers, 0);
 	return 0;
 }
 
-static bool fts_build_want_index_part(const struct message_block *block)
+static void fts_build_parse_content_type(struct fts_storage_build_context *ctx,
+					 const struct message_header_line *hdr)
 {
-	/* we'll index only text/xxx and message/rfc822 parts for now */
-	return (block->part->flags &
-		(MESSAGE_PART_FLAG_TEXT |
-		 MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0;
+	struct rfc822_parser_context parser;
+	string_t *content_type;
+
+	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
+	(void)rfc822_skip_lwsp(&parser);
+
+	T_BEGIN {
+		content_type = t_str_new(64);
+		if (rfc822_parse_content_type(&parser, content_type) >= 0) {
+			i_free(ctx->content_type);
+			ctx->content_type = i_strdup(str_c(content_type));
+		}
+	} T_END;
+}
+
+static void
+fts_build_parse_content_disposition(struct fts_storage_build_context *ctx,
+				    const struct message_header_line *hdr)
+{
+	/* just pass it as-is to backend. */
+	i_free(ctx->content_disposition);
+	ctx->content_disposition =
+		i_strndup(hdr->full_value, hdr->full_value_len);
+}
+
+static void fts_parse_mail_header(struct fts_storage_build_context *ctx,
+				  const struct message_block *raw_block)
+{
+	const struct message_header_line *hdr = raw_block->hdr;
+
+	if (strcasecmp(hdr->name, "Content-Type") == 0)
+		fts_build_parse_content_type(ctx, hdr);
+	else if (strcasecmp(hdr->name, "Content-Disposition") == 0)
+		fts_build_parse_content_disposition(ctx, hdr);
 }
 
 static void fts_build_mail_header(struct fts_storage_build_context *ctx,
@@ -114,6 +148,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 	struct message_decoder_context *decoder;
 	struct message_block raw_block, block;
 	struct message_part *prev_part, *parts;
+	bool skip_body = FALSE, body_part = FALSE;
 	int ret;
 
 	ctx->uid = uid;
@@ -125,7 +160,8 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 	parser = message_parser_init(pool_datastack_create(), input,
 				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
 				     0);
-	decoder = message_decoder_init(MESSAGE_DECODER_FLAG_DTCASE);
+	decoder = message_decoder_init(MESSAGE_DECODER_FLAG_DTCASE |
+				       MESSAGE_DECODER_FLAG_RETURN_BINARY);
 	for (;;) {
 		ret = message_parser_parse_next_block(parser, &raw_block);
 		i_assert(ret != 0);
@@ -134,30 +170,62 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 				ret = 0;
 			break;
 		}
-		if (raw_block.hdr == NULL && raw_block.size != 0 &&
-		    !fts_build_want_index_part(&raw_block)) {
-			/* skipping this body */
-			continue;
+
+		if (raw_block.part != prev_part) {
+			/* body part changed. we're now parsing the end of
+			   boundary, possibly followed by message epilogue */
+			if (!skip_body && prev_part != NULL) {
+				i_assert(body_part);
+				fts_backend_build_body_end(ctx->build);
+			}
+			prev_part = raw_block.part;
+			i_free_and_null(ctx->content_type);
+			i_free_and_null(ctx->content_disposition);
+
+			if (raw_block.size != 0) {
+				/* multipart. skip until beginning of next
+				   part's headers */
+				skip_body = TRUE;
+			}
+		}
+
+		if (raw_block.hdr != NULL) {
+			/* always handle headers */
+		} else if (raw_block.size == 0) {
+			/* end of headers */
+			const char *content_type = ctx->content_type == NULL ?
+				"text/plain" : ctx->content_type;
+
+			skip_body = !fts_backend_build_body_begin(ctx->build,
+					ctx->uid, content_type,
+					ctx->content_disposition);
+			body_part = TRUE;
+		} else {
+			if (skip_body)
+				continue;
 		}
 
 		if (!message_decoder_decode_next_block(decoder, &raw_block,
 						       &block))
 			continue;
 
-		if (block.hdr != NULL)
+		if (block.hdr != NULL) {
+			fts_parse_mail_header(ctx, &raw_block);
 			fts_build_mail_header(ctx, &block);
-		else if (block.size == 0) {
+		} else if (block.size == 0) {
 			/* end of headers */
 			str_append_c(ctx->headers, '\n');
 		} else {
-			if (fts_backend_build_more(ctx->build, ctx->uid,
-						   block.data, block.size,
-						   FALSE) < 0) {
+			i_assert(body_part);
+			if (fts_backend_build_more(ctx->build,
+						   block.data, block.size) < 0) {
 				ret = -1;
 				break;
 			}
 		}
 	}
+	if (!skip_body && body_part)
+		fts_backend_build_body_end(ctx->build);
 	if (message_parser_deinit(&parser, &parts) < 0)
 		mail_set_cache_corrupted(ctx->mail, MAIL_FETCH_MESSAGE_PARTS);
 	message_decoder_deinit(&decoder);
@@ -483,6 +551,8 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 
 	str_free(&ctx->headers);
 	mail_search_args_unref(&ctx->search_args);
+	i_free(ctx->content_type);
+	i_free(ctx->content_disposition);
 	i_free(ctx);
 	return ret;
 }

@@ -561,48 +561,78 @@ static void xml_encode_id(string_t *str, struct fts_backend *_backend,
 	xml_encode(str, backend->id_box_name);
 }
 
-static int
-fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
-			    uint32_t uid, const unsigned char *data,
-			    size_t size, bool headers)
+static void
+fts_backend_solr_uid_changed(struct solr_fts_backend_build_context *ctx,
+			     uint32_t uid)
+{
+	if (ctx->post == NULL) {
+		ctx->post = solr_connection_post_begin(solr_conn);
+		str_append(ctx->cmd, "<add>");
+	} else {
+		str_append(ctx->cmd, "</field></doc>");
+	}
+	ctx->prev_uid = uid;
+	ctx->headers = FALSE;
+
+	fts_backend_solr_add_doc_prefix(ctx, uid);
+	str_printfa(ctx->cmd, "<field name=\"id\">");
+	xml_encode_id(ctx->cmd, ctx->ctx.backend, uid, ctx->uid_validity);
+	str_append(ctx->cmd, "</field>");
+}
+
+static void
+fts_backend_solr_build_hdr(struct fts_backend_build_context *_ctx,
+			   uint32_t uid)
 {
 	struct solr_fts_backend_build_context *ctx =
 		(struct solr_fts_backend_build_context *)_ctx;
-	string_t *cmd = ctx->cmd;
 
-	/* body comes first, then headers */
-	if (ctx->prev_uid != uid) {
-		/* uid changed */
-		if (ctx->post == NULL) {
-			ctx->post = solr_connection_post_begin(solr_conn);
-			str_append(cmd, "<add>");
-		} else {
-			str_append(cmd, "</field></doc>");
-		}
-		ctx->prev_uid = uid;
-
-		fts_backend_solr_add_doc_prefix(ctx, uid);
-		str_printfa(cmd, "<field name=\"id\">");
-		xml_encode_id(cmd, _ctx->backend, uid, ctx->uid_validity);
-		str_append(cmd, "</field>");
-
-		ctx->headers = headers;
-		if (headers) {
-			str_append(cmd, "<field name=\"hdr\">");
-		} else {
-			str_append(cmd, "<field name=\"body\">");
-		}
-	} else if (headers && !ctx->headers) {
-		str_append(cmd, "</field><field name=\"hdr\">");
-	} else {
-		i_assert(!(!headers && ctx->headers));
+	if (uid != ctx->prev_uid)
+		fts_backend_solr_uid_changed(ctx, uid);
+	else {
+		i_assert(!ctx->headers);
+		str_append(ctx->cmd, "</field>");
 	}
 
-	xml_encode_data(cmd, data, size);
-	if (str_len(cmd) > SOLR_CMDBUF_SIZE-128) {
-		solr_connection_post_more(ctx->post, str_data(cmd),
-					  str_len(cmd));
-		str_truncate(cmd, 0);
+	ctx->headers = TRUE;
+	str_append(ctx->cmd, "<field name=\"hdr\">");
+}
+
+static bool
+fts_backend_solr_build_body_begin(struct fts_backend_build_context *_ctx,
+				  uint32_t uid, const char *content_type,
+				  const char *content_disposition ATTR_UNUSED)
+{
+	struct solr_fts_backend_build_context *ctx =
+		(struct solr_fts_backend_build_context *)_ctx;
+
+	if (!fts_backend_default_can_index(content_type))
+		return FALSE;
+
+	if (uid != ctx->prev_uid)
+		fts_backend_solr_uid_changed(ctx, uid);
+	else {
+		/* body comes first, then headers */
+		i_assert(!ctx->headers);
+	}
+
+	ctx->headers = FALSE;
+	str_append(ctx->cmd, "<field name=\"body\">");
+	return TRUE;
+}
+
+static int
+fts_backend_solr_build_more(struct fts_backend_build_context *_ctx,
+			    const unsigned char *data, size_t size)
+{
+	struct solr_fts_backend_build_context *ctx =
+		(struct solr_fts_backend_build_context *)_ctx;
+
+	xml_encode_data(ctx->cmd, data, size);
+	if (str_len(ctx->cmd) > SOLR_CMDBUF_SIZE-128) {
+		solr_connection_post_more(ctx->post, str_data(ctx->cmd),
+					  str_len(ctx->cmd));
+		str_truncate(ctx->cmd, 0);
 	}
 	return 0;
 }
@@ -806,6 +836,9 @@ struct fts_backend fts_backend_solr = {
 		fts_backend_solr_get_last_uid,
 		fts_backend_solr_get_all_last_uids,
 		fts_backend_solr_build_init,
+		fts_backend_solr_build_hdr,
+		fts_backend_solr_build_body_begin,
+		NULL,
 		fts_backend_solr_build_more,
 		fts_backend_solr_build_deinit,
 		fts_backend_solr_expunge,
