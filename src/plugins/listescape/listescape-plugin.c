@@ -177,6 +177,10 @@ listescape_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 		ctx->list->ns :
 		listescape_find_orig_ns(ctx->list->ns, info->name);
 
+	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
+	    strcasecmp(info->name, "INBOX") == 0)
+		return info;
+
 	str_truncate(mlist->list_name, 0);
 	str_append(mlist->list_name, ns->prefix);
 	list_unescape_str(ns, info->name + ns->prefix_len, mlist->list_name);
