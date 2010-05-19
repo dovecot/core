@@ -741,7 +741,10 @@ maildir_quota_parse_rule(struct quota_root_settings *root_set ATTR_UNUSED,
 {
 	uint64_t bytes, count;
 
-	if (!maildir_parse_limit(str, &bytes, &count)) {
+	if (strcmp(str, "NOQUOTA") == 0) {
+		bytes = 0;
+		count = 0;
+	} else if (!maildir_parse_limit(str, &bytes, &count)) {
 		*error_r = "Invalid Maildir++ quota rule";
 		return FALSE;
 	}
