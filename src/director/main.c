@@ -152,7 +152,8 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	notify_connection_deinit(&notify_conn);
+	if (notify_conn != NULL)
+		notify_connection_deinit(&notify_conn);
 	director_deinit(&director);
 	doveadm_connections_deinit();
 	login_connections_deinit();
