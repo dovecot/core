@@ -206,6 +206,10 @@ auth_server_connection_input_line(struct auth_server_connection *conn,
 		i_debug("auth input: %s", line);
 
 	args = t_strsplit(line, "\t");
+	if (args[0] == NULL) {
+		i_error("Auth server sent empty line");
+		return -1;
+	}
 	if (strcmp(args[0], "OK") == 0)
 		return auth_server_input_ok(conn, args + 1);
 	else if (strcmp(args[0], "CONT") == 0)
