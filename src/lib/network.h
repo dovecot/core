@@ -49,6 +49,8 @@ unsigned int net_ip_hash(const struct ip_addr *ip);
 /* Connect to socket with ip address */
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		   const struct ip_addr *my_ip);
+/* Returns 0 if we can bind() as given IP, -1 if not. */
+int net_try_bind(const struct ip_addr *ip);
 /* Connect to named UNIX socket */
 int net_connect_unix(const char *path);
 /* Try to connect to UNIX socket for give number of seconds when connect()

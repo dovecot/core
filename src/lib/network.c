@@ -193,7 +193,6 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 	if (my_ip != NULL) {
 		sin_set_ip(&so, my_ip);
 		if (bind(fd, &so.sa, SIZEOF_SOCKADDR(so)) == -1) {
-			/* failed, set it back to INADDR_ANY */
 			i_error("bind(%s) failed: %m", net_ip2addr(my_ip));
 			close_keep_errno(fd);
 			return -1;
@@ -216,6 +215,29 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 	}
 
 	return fd;
+}
+
+int net_try_bind(const struct ip_addr *ip)
+{
+	union sockaddr_union so;
+	int fd;
+
+	/* create the socket */
+	memset(&so, 0, sizeof(so));
+        so.sin.sin_family = ip->family;
+	fd = socket(ip->family, SOCK_STREAM, 0);
+	if (fd == -1) {
+		i_error("socket() failed: %m");
+		return -1;
+	}
+
+	sin_set_ip(&so, ip);
+	if (bind(fd, &so.sa, SIZEOF_SOCKADDR(so)) == -1) {
+		close_keep_errno(fd);
+		return -1;
+	}
+	(void)close(fd);
+	return 0;
 }
 
 int net_connect_unix(const char *path)
