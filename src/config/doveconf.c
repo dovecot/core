@@ -408,7 +408,7 @@ config_dump_one(const struct config_filter *filter,
 	array_foreach(&ctx->strings, str) {
 		if (strncmp(*str, setting_name_filter, len) == 0 &&
 		    (*str)[len] == '=') {
-			printf("%s = %s\n", setting_name_filter, *str + len+1);
+			printf("%s\n", *str + len+1);
 			break;
 		}
 	}
