@@ -118,7 +118,7 @@ void login_proxy_state_notify(struct login_proxy_state *state,
 		ret = write(state->notify_fd, cmd, len);
 	} T_END;
 
-	if (ret != len) {
+	if (ret != (ssize_t)len) {
 		if (ret < 0)
 			i_error("write(%s) failed: %m", state->notify_path);
 		else {

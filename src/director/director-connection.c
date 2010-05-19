@@ -162,7 +162,7 @@ director_user_refresh(struct director *dir, unsigned int username_hash,
 					     host, timestamp);
 		return TRUE;
 	}
-	if (timestamp == ioloop_time && user->timestamp != timestamp) {
+	if (timestamp == ioloop_time && (time_t)user->timestamp != timestamp) {
 		user_directory_refresh(dir->users, user);
 		ret = TRUE;
 	}

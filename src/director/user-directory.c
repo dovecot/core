@@ -52,7 +52,7 @@ static void user_free(struct user_directory *dir, struct user *user)
 static void user_directory_drop_expired(struct user_directory *dir)
 {
 	while (dir->head != NULL &&
-	       ioloop_time > dir->head->timestamp + dir->timeout_secs)
+	       ioloop_time > (time_t)(dir->head->timestamp + dir->timeout_secs))
 		user_free(dir, dir->head);
 }
 
@@ -117,8 +117,9 @@ unsigned int user_directory_get_username_hash(const char *username)
 bool user_directory_user_has_connections(struct user_directory *dir,
 					 struct user *user)
 {
-	return user->timestamp +
-		dir->timeout_secs - MAX_CLOCK_DRIFT_SECS >= ioloop_time;
+	time_t expire_timestamp = user->timestamp + dir->timeout_secs;
+
+	return expire_timestamp - MAX_CLOCK_DRIFT_SECS >= ioloop_time;
 }
 
 struct user_directory *user_directory_init(unsigned int timeout_secs)
