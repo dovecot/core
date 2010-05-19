@@ -19,7 +19,7 @@
 
 #include <unistd.h>
 
-#define AUTH_SOCKET_PATH "login/login"
+#define AUTH_SOCKET_PATH "auth-login"
 
 static struct director *director;
 static struct notify_connection *notify_conn;
