@@ -97,7 +97,7 @@ int director_connect_host(struct director *dir, struct director_host *host)
 		return -1;
 	}
 
-	fd = net_connect_ip(&host->ip, host->port, NULL);
+	fd = net_connect_ip(&host->ip, host->port, &dir->self_ip);
 	if (fd == -1) {
 		host->last_failed = ioloop_time;
 		i_error("connect(%s) failed: %m", host->name);
