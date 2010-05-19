@@ -35,16 +35,14 @@ static void director_find_self_ip(struct director *dir)
 
 	hosts = array_get(&dir->dir_hosts, &count);
 	for (i = 0; i < count; i++) {
-		fd = net_connect_ip(&hosts[i]->ip, hosts[i]->port, NULL);
+		fd = net_connect_ip(&hosts[i]->ip, hosts[i]->port,
+				    &hosts[i]->ip);
 		if (fd != -1)
 			break;
 	}
 
-	if (fd == -1) {
-		i_fatal("Couldn't connect to any servers listed in "
-			"director_servers (we should have been able to "
-			"connect at least to ourself)");
-	}
+	if (fd == -1)
+		i_fatal("director_servers doesn't list ourself");
 
 	if (net_getsockname(fd, &dir->self_ip, NULL) < 0)
 		i_fatal("getsockname() failed: %m");
@@ -56,11 +54,8 @@ static void director_find_self(struct director *dir)
 	if (dir->self_host != NULL)
 		return;
 
-	if (!director_is_self_ip_set(dir)) {
-		/* our IP isn't known yet. have to connect to some other
-		   server before we know it. */
+	if (!director_is_self_ip_set(dir))
 		director_find_self_ip(dir);
-	}
 
 	dir->self_host = director_host_lookup(dir, &dir->self_ip,
 					      dir->self_port);
