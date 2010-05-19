@@ -370,7 +370,7 @@ director_connection_handle_handshake(struct director_connection *conn,
 		director_handshake_cmd_done(conn);
 		return TRUE;
 	}
-	i_error("director(%s): Unknown command (in this state): %s",
+	i_error("director(%s): Invalid handshake command: %s",
 		conn->name, cmd);
 	return FALSE;
 }
@@ -456,8 +456,15 @@ director_connection_handle_line(struct director_connection *conn,
 		i_error("director(%s): Received empty line", conn->name);
 		return FALSE;
 	}
-	if (!conn->handshake_received)
-		return director_connection_handle_handshake(conn, cmd, args);
+	if (!conn->handshake_received) {
+		if (!director_connection_handle_handshake(conn, cmd, args)) {
+			/* invalid commands during handshake,
+			   we probably don't want to reconnect here */
+			conn->host->last_failed = ioloop_time;
+			return FALSE;
+		}
+		return TRUE;
+	}
 
 	if (strcmp(cmd, "USER") == 0)
 		return director_cmd_user(conn, args);
@@ -623,13 +630,18 @@ director_connection_init_in(struct director *dir, int fd)
 
 static void director_connection_connected(struct director_connection *conn)
 {
+	struct director *dir = conn->dir;
 	string_t *str = t_str_new(1024);
 	int err;
 
 	if ((err = net_geterror(conn->fd)) != 0) {
+		conn->host->last_failed = ioloop_time;
 		i_error("director(%s): connect() failed: %s", conn->name,
 			strerror(err));
 		director_connection_deinit(&conn);
+
+		/* try connecting to next server */
+		director_connect(dir);
 		return;
 	}
 	conn->connected = TRUE;
@@ -641,7 +653,7 @@ static void director_connection_connected(struct director_connection *conn)
 	director_connection_send_hosts(str);
 	director_connection_send(conn, str_c(str));
 
-	conn->user_iter = user_directory_iter_init(conn->dir->users);
+	conn->user_iter = user_directory_iter_init(dir->users);
 	(void)director_connection_send_users(conn);
 }
 

@@ -10,6 +10,8 @@
 #include "director-connection.h"
 #include "director.h"
 
+#define DIRECTOR_RECONNECT_RETRY_SECS 60
+
 static bool director_is_self_ip_set(struct director *dir)
 {
 	struct ip_addr ip;
@@ -90,14 +92,20 @@ int director_connect_host(struct director *dir, struct director_host *host)
 
 	i_assert(dir->right == NULL);
 
+	if (host->last_failed + DIRECTOR_RECONNECT_RETRY_SECS > ioloop_time) {
+		/* failed recently, don't try retrying here */
+		return -1;
+	}
+
 	fd = net_connect_ip(&host->ip, host->port, NULL);
 	if (fd == -1) {
+		host->last_failed = ioloop_time;
 		i_error("connect(%s) failed: %m", host->name);
 		return -1;
 	}
 
 	dir->right = director_connection_init_out(dir, fd, host);
-	return 1;
+	return 0;
 }
 
 void director_connect(struct director *dir)
@@ -114,7 +122,7 @@ void director_connect(struct director *dir)
 	for (i = 1; i < count; i++) {
 		unsigned int idx = (self_idx + i) % count;
 
-		if (director_connect_host(dir, hosts[idx]) > 0)
+		if (director_connect_host(dir, hosts[idx]) == 0)
 			break;
 	}
 	if (i == count) {

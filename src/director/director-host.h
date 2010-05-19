@@ -17,6 +17,9 @@ struct director_host {
 	   trust the one that has the highest sequence. */
 	unsigned int last_seq;
 
+	/* Last time host was detected to be down/broken */
+	time_t last_failed;
+
 	/* we are this director */
 	unsigned int self:1;
 };
