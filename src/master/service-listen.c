@@ -117,7 +117,7 @@ static int service_fifo_listener_listen(struct service_listener *l)
 		return -1;
 	}
 
-	fd = open(set->path, O_RDONLY);
+	fd = open(set->path, O_RDONLY | O_NONBLOCK);
 	if (fd == -1) {
 		service_error(service, "open(%s) failed: %m", set->path);
 		return -1;
@@ -134,8 +134,6 @@ static int service_fifo_listener_listen(struct service_listener *l)
 			return -1;
 		}
 	}
-
-	fd_set_nonblock(fd, TRUE);
 	fd_close_on_exec(fd, TRUE);
 
 	l->fd = fd;

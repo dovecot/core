@@ -267,7 +267,7 @@ service_create(pool_t pool, const struct service_settings *set,
 		unix_count = 0;
 	}
 	if (array_is_created(&set->fifo_listeners))
-		fifo_listeners = array_get(&set->unix_listeners, &fifo_count);
+		fifo_listeners = array_get(&set->fifo_listeners, &fifo_count);
 	else {
 		fifo_listeners = NULL;
 		fifo_count = 0;
@@ -305,7 +305,7 @@ service_create(pool_t pool, const struct service_settings *set,
 			continue;
 		}
 
-		l = service_create_file_listener(service, SERVICE_LISTENER_UNIX,
+		l = service_create_file_listener(service, SERVICE_LISTENER_FIFO,
 						 fifo_listeners[i], error_r);
 		if (l == NULL)
 			return NULL;
