@@ -177,6 +177,7 @@ static void doveadm_connection_deinit(struct doveadm_connection **_conn)
 
 	DLLIST_REMOVE(&doveadm_connections, conn);
 	io_remove(&conn->io);
+	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(doveadm connection) failed: %m");
