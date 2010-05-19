@@ -198,8 +198,11 @@ int str_to_gid(const char *str, gid_t *num_r)
 	if (str_to_uintmax(str, &l) < 0)
 		return -1;
 
+	/* OS X uses negative GIDs */
+#ifndef __APPLE__
 	if (verify_xid(l, sizeof(*num_r)) < 0)
 		return -1;
+#endif
 	*num_r = (gid_t)l;
 	return 0;
 }
