@@ -31,22 +31,15 @@ static void director_find_self_ip(struct director *dir)
 {
 	struct director_host *const *hosts;
 	unsigned int i, count;
-	int fd = -1;
 
 	hosts = array_get(&dir->dir_hosts, &count);
 	for (i = 0; i < count; i++) {
-		fd = net_connect_ip(&hosts[i]->ip, hosts[i]->port,
-				    &hosts[i]->ip);
-		if (fd != -1)
-			break;
+		if (net_try_bind(&hosts[i]->ip) == 0) {
+			dir->self_ip = hosts[i]->ip;
+			return;
+		}
 	}
-
-	if (fd == -1)
-		i_fatal("director_servers doesn't list ourself");
-
-	if (net_getsockname(fd, &dir->self_ip, NULL) < 0)
-		i_fatal("getsockname() failed: %m");
-	net_disconnect(fd);
+	i_fatal("director_servers doesn't list ourself");
 }
 
 static void director_find_self(struct director *dir)
