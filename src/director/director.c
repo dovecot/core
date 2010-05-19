@@ -115,9 +115,20 @@ void director_connect(struct director *dir)
 	}
 	if (i == count) {
 		/* we're the only one */
-		dir->ring_handshaked = TRUE;
-		director_set_state_changed(dir);
+		director_set_ring_handshaked(dir);
 	}
+}
+
+void director_set_ring_handshaked(struct director *dir)
+{
+	if (dir->ring_handshake_warning_sent) {
+		i_warning("Directors have been connected, "
+			  "continuing delayed connections");
+		dir->ring_handshake_warning_sent = FALSE;
+	}
+
+	dir->ring_handshaked = TRUE;
+	director_set_state_changed(dir);
 }
 
 void director_update_host(struct director *dir, struct director_host *src,

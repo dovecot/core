@@ -431,8 +431,7 @@ static bool director_connection_sync(struct director_connection *conn,
 			return TRUE;
 
 		/* the ring is handshaked */
-		conn->dir->ring_handshaked = TRUE;
-		director_set_state_changed(conn->dir);
+		director_set_ring_handshaked(conn->dir);
 		return TRUE;
 	}
 

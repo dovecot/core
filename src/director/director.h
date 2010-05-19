@@ -69,6 +69,7 @@ void director_deinit(struct director **dir);
 /* Start connecting to other directors */
 void director_connect(struct director *dir);
 
+void director_set_ring_handshaked(struct director *dir);
 void director_set_state_changed(struct director *dir);
 
 void director_update_host(struct director *dir, struct director_host *src,
