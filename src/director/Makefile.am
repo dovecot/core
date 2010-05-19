@@ -23,6 +23,7 @@ director_SOURCES = \
 	doveadm-connection.c \
 	login-connection.c \
 	mail-host.c \
+	notify-connection.c \
 	user-directory.c
 
 noinst_HEADERS = \
@@ -35,4 +36,5 @@ noinst_HEADERS = \
 	doveadm-connection.h \
 	login-connection.h \
 	mail-host.h \
+	notify-connection.h \
 	user-directory.h

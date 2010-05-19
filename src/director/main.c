@@ -10,6 +10,7 @@
 #include "auth-connection.h"
 #include "doveadm-connection.h"
 #include "login-connection.h"
+#include "notify-connection.h"
 #include "director.h"
 #include "director-host.h"
 #include "director-connection.h"
@@ -21,6 +22,7 @@
 #define AUTH_SOCKET_PATH "login/login"
 
 static struct director *director;
+static struct notify_connection *notify_conn;
 static char *auth_socket_path;
 
 static int director_client_connected(int fd, const struct ip_addr *ip)
@@ -41,6 +43,16 @@ static void client_connected(const struct master_service_connection *conn)
 	const char *path, *name;
 	struct ip_addr ip;
 	unsigned int port, len;
+
+	if (conn->fifo) {
+		if (notify_conn != NULL) {
+			i_error("Received another proxy-notify connection");
+			(void)close(conn->fd);
+			return;
+		}
+		notify_conn = notify_connection_init(director, conn->fd);
+		return;
+	}
 
 	if (net_getpeername(conn->fd, &ip, &port) == 0 &&
 	    (IPADDR_IS_V4(&ip) || IPADDR_IS_V6(&ip))) {
@@ -140,6 +152,7 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
+	notify_connection_deinit(&notify_conn);
 	director_deinit(&director);
 	doveadm_connections_deinit();
 	login_connections_deinit();

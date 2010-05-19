@@ -71,12 +71,16 @@ login_connection_send_line(struct login_connection *conn, const char *line)
 static void login_host_callback(const struct ip_addr *ip, void *context)
 {
 	struct login_host_request *request = context;
+	struct director *dir = request->conn->dir;
 	const char *line;
+	unsigned int secs;
 
 	T_BEGIN {
 		if (ip != NULL) {
-			line = t_strconcat(request->line, "\thost=",
-					   net_ip2addr(ip), NULL);
+			secs = dir->set->director_user_expire / 2;
+			line = t_strdup_printf("%s\thost=%s\tproxy_refresh=%u",
+					       request->line, net_ip2addr(ip),
+					       secs);
 		} else {
 			i_assert(strncmp(request->line, "OK\t", 3) == 0);
 			line = t_strconcat("FAIL\t",

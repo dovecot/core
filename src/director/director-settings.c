@@ -19,6 +19,16 @@ static buffer_t director_unix_listeners_buf = {
 	director_unix_listeners,
 	sizeof(director_unix_listeners), { 0, }
 };
+static struct file_listener_settings director_fifo_listeners_array[] = {
+	{ "login/proxy-notify", 0, "", "" }
+};
+static struct file_listener_settings *director_fifo_listeners[] = {
+	&director_fifo_listeners_array[0]
+};
+static buffer_t director_fifo_listeners_buf = {
+	director_fifo_listeners,
+	sizeof(director_fifo_listeners), { 0, }
+};
 /* </settings checks> */
 
 struct service_settings director_service_settings = {
@@ -42,7 +52,8 @@ struct service_settings director_service_settings = {
 
 	.unix_listeners = { { &director_unix_listeners_buf,
 			      sizeof(director_unix_listeners[0]) } },
-	.fifo_listeners = ARRAY_INIT,
+	.fifo_listeners = { { &director_fifo_listeners_buf,
+			      sizeof(director_fifo_listeners[0]) } },
 	.inet_listeners = ARRAY_INIT
 };
 #undef DEF
