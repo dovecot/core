@@ -29,5 +29,6 @@ void usage(void) ATTR_NORETURN;
 void help(const struct doveadm_cmd *cmd);
 
 const char *unixdate2str(time_t timestamp);
+void doveadm_register_director_commands(void);
 
 #endif

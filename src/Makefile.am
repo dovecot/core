@@ -33,6 +33,7 @@ SUBDIRS = \
 	lmtp \
 	log \
 	config \
+	director \
 	util \
 	doveadm \
 	dsync \

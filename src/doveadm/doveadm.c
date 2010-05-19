@@ -209,6 +209,7 @@ int main(int argc, char *argv[])
 	i_array_init(&doveadm_cmds, 32);
 	for (i = 0; i < N_ELEMENTS(doveadm_commands); i++)
 		doveadm_register_cmd(doveadm_commands[i]);
+	doveadm_register_director_commands();
 	doveadm_mail_init();
 	doveadm_load_modules();
 

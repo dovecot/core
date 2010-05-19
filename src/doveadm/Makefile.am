@@ -45,6 +45,7 @@ doveadm_DEPENDENCIES = \
 doveadm_SOURCES = \
 	doveadm.c \
 	doveadm-auth.c \
+	doveadm-director.c \
 	doveadm-dump.c \
 	doveadm-dump-index.c \
 	doveadm-dump-log.c \

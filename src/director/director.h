@@ -1,0 +1,88 @@
+#ifndef DIRECTOR_H
+#define DIRECTOR_H
+
+#include "network.h"
+#include "director-settings.h"
+
+struct director;
+struct mail_host;
+struct user;
+
+typedef void director_state_change_callback_t(struct director *dir);
+
+struct director_host_change {
+	/* originating director for this change. keep ip/port here separately,
+	   because by the time its sync comes, the director itself may have
+	   already been removed. */
+	struct ip_addr ip;
+	unsigned int port;
+	/* highest change sequence from this director */
+	unsigned int seq;
+};
+
+struct director {
+	const struct director_settings *set;
+
+	/* IP and port of this director. self_host->ip/port must equal these. */
+	struct ip_addr self_ip;
+	unsigned int self_port;
+
+	struct director_host *self_host;
+	struct director_connection *left, *right;
+
+	/* temporary user -> host associations */
+	struct user_directory *users;
+
+	/* these requests are waiting for directors to be in synced */
+	ARRAY_DEFINE(pending_requests, struct director_request *);
+	struct timeout *to_request;
+
+	director_state_change_callback_t *state_change_callback;
+
+	/* director hosts are sorted by IP (and port) */
+	ARRAY_DEFINE(dir_hosts, struct director_host *);
+
+	/* this array contains host changes done by directors.
+	   while it's non-empty, new user mappings can't be added, because
+	   different directors may see different hosts. SYNC events remove
+	   these changes. */
+	ARRAY_DEFINE(desynced_host_changes, struct director_host_change);
+
+	unsigned int sync_seq;
+
+	/* director ring handshaking is complete.
+	   director can start serving clients. */
+	unsigned int ring_handshaked:1;
+	unsigned int ring_handshake_warning_sent:1;
+};
+
+/* Create a new director. If listen_ip specifies an actual IP, it's used with
+   listen_port for finding ourself from the director_servers setting.
+   listen_port is used regardless by director_host_add_from_string() for hosts
+   without specified port. */
+struct director *
+director_init(const struct director_settings *set,
+	      const struct ip_addr *listen_ip, unsigned int listen_port,
+	      director_state_change_callback_t *callback);
+void director_deinit(struct director **dir);
+
+/* Start connecting to other directors */
+void director_connect(struct director *dir);
+
+void director_set_state_changed(struct director *dir);
+
+void director_update_host(struct director *dir, struct director_host *src,
+			  struct mail_host *host);
+void director_remove_host(struct director *dir, struct director_host *src,
+			  struct mail_host *host);
+void director_update_user(struct director *dir, struct director_host *src,
+			  struct user *user);
+
+/* Send data to all directors using both left and right connections
+   (unless they're the same). */
+void director_update_send(struct director *dir, struct director_host *src,
+			  const char *data);
+
+int director_connect_host(struct director *dir, struct director_host *host);
+
+#endif
