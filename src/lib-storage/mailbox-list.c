@@ -607,6 +607,19 @@ ns_match_simple(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 }
 
 static bool
+ns_match_inbox(struct mail_namespace *ns, const char *pattern)
+{
+	struct imap_match_glob *glob;
+
+	if ((ns->flags & NAMESPACE_FLAG_INBOX) == 0)
+		return FALSE;
+
+	glob = imap_match_init(pool_datastack_create(), pattern,
+			       TRUE, ns->sep);
+	return imap_match(glob, "INBOX") == IMAP_MATCH_YES;
+}
+
+static bool
 ns_match_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns,
 	      const char *pattern)
 {
@@ -693,6 +706,8 @@ ns_match(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 		   necessary, but this shouldn't matter much */
 		T_BEGIN {
 			for (i = 0; ctx->patterns_ns_match[i] != NULL; i++) {
+				if (ns_match_inbox(ns, ctx->patterns_ns_match[i]))
+					break;
 				if (ns_match_next(ctx, ns,
 						  ctx->patterns_ns_match[i]))
 					break;
