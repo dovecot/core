@@ -25,12 +25,20 @@ struct fetch_cmd_context {
 	struct mail *mail;
 
 	ARRAY_DEFINE(fields, const struct fetch_field);
+	ARRAY_TYPE(const_string) header_fields;
 	enum mail_fetch_field wanted_fields;
 
+	const struct fetch_field *cur_field;
 	string_t *hdr;
 	const char *prefix;
 
 	bool print_field_prefix;
+};
+
+struct fetch_field {
+	const char *name;
+	enum mail_fetch_field wanted_fields;
+	int (*print)(struct fetch_cmd_context *ctx);
 };
 
 static int fetch_mailbox(struct fetch_cmd_context *ctx)
@@ -112,6 +120,25 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 	i_stream_unref(&input);
 	o_stream_flush(ctx->output);
 	return ret;
+}
+
+static int fetch_hdr_field(struct fetch_cmd_context *ctx)
+{
+	const char *const *value;
+	bool add_lf = FALSE;
+
+	if (mail_get_headers(ctx->mail, ctx->cur_field->name, &value) < 0)
+		return -1;
+
+	for (; *value != NULL; value++) {
+		if (add_lf)
+			str_append_c(ctx->hdr, '\n');
+		if (ctx->print_field_prefix)
+			str_printfa(ctx->hdr, "hdr.%s: ", ctx->cur_field->name);
+		str_append(ctx->hdr, *value);
+		add_lf = TRUE;
+	}
+	return 0;
 }
 
 static int fetch_body(struct fetch_cmd_context *ctx)
@@ -248,12 +275,6 @@ static int fetch_imap_bodystructure(struct fetch_cmd_context *ctx)
 	return 0;
 }
 
-struct fetch_field {
-	const char *name;
-	enum mail_fetch_field wanted_fields;
-	int (*print)(struct fetch_cmd_context *ctx);
-};
-
 static const struct fetch_field fetch_fields[] = {
 	{ "mailbox",       0,                        fetch_mailbox },
 	{ "mailbox-guid",  0,                        fetch_mailbox_guid },
@@ -300,21 +321,34 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 {
 	const char *const *fields, *name;
 	const struct fetch_field *field;
+	struct fetch_field hdr_field;
+
+	memset(&hdr_field, 0, sizeof(hdr_field));
+	hdr_field.print = fetch_hdr_field;
 
 	t_array_init(&ctx->fields, 32);
+	t_array_init(&ctx->header_fields, 32);
 	fields = t_strsplit_spaces(str, " ");
 	for (; *fields != NULL; fields++) {
 		name = t_str_lcase(*fields);
 
-		field = fetch_field_find(name);
-		if (field == NULL) {
-			print_fetch_fields();
-			i_fatal("Unknown fetch field: %s", name);
+		if (strncmp(name, "hdr.", 4) == 0) {
+			name += 4;
+			hdr_field.name = name;
+			array_append(&ctx->fields, &hdr_field, 1);
+			array_append(&ctx->header_fields, &name, 1);
+		} else {
+			field = fetch_field_find(name);
+			if (field == NULL) {
+				print_fetch_fields();
+				i_fatal("Unknown fetch field: %s", name);
+			}
+			ctx->wanted_fields |= field->wanted_fields;
+			array_append(&ctx->fields, field, 1);
 		}
-		ctx->wanted_fields |= field->wanted_fields;
-
-		array_append(&ctx->fields, field, 1);
 	}
+	(void)array_append_space(&ctx->header_fields);
+
 	ctx->print_field_prefix = array_count(&ctx->fields) > 1;
 }
 
@@ -324,8 +358,10 @@ static void cmd_fetch_mail(struct fetch_cmd_context *ctx)
 	struct mail *mail = ctx->mail;
 
 	array_foreach(&ctx->fields, field) {
-		if (ctx->print_field_prefix)
+		if (ctx->print_field_prefix && field->print != fetch_hdr_field)
 			str_printfa(ctx->hdr, "%s: ", field->name);
+
+		ctx->cur_field = field;
 		if (field->print(ctx) < 0) {
 			struct mail_storage *storage =
 				mailbox_get_storage(mail->box);
@@ -345,11 +381,19 @@ cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 	struct doveadm_mail_iter *iter;
 	struct mailbox_transaction_context *trans;
 	struct mail *mail;
+	struct mailbox_header_lookup_ctx *headers = NULL;
 
 	if (doveadm_mail_iter_init(info, ctx->search_args, &trans, &iter) < 0)
 		return -1;
 
-	mail = mail_alloc(trans, ctx->wanted_fields, NULL);
+	if (array_count(&ctx->header_fields) > 1) {
+		headers = mailbox_header_lookup_init(
+					mailbox_transaction_get_mailbox(trans),
+					array_idx(&ctx->header_fields, 0));
+	}
+	mail = mail_alloc(trans, ctx->wanted_fields, headers);
+	if (headers != NULL)
+		mailbox_header_lookup_unref(&headers);
 	while (doveadm_mail_iter_next(iter, mail)) {
 		str_truncate(ctx->hdr, 0);
 		str_append(ctx->hdr, ctx->prefix);
