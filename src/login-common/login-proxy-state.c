@@ -15,6 +15,8 @@ struct login_proxy_state {
 
 	const char *notify_path;
 	int notify_fd;
+
+	unsigned int notify_fd_broken:1;
 };
 
 static unsigned int login_proxy_record_hash(const void *p)
@@ -40,17 +42,11 @@ struct login_proxy_state *login_proxy_state_init(const char *notify_path)
 
 	state = i_new(struct login_proxy_state, 1);
 	state->pool = pool_alloconly_create("login proxy state", 1024);
-	state->notify_path = p_strdup(state->pool, notify_path);
 	state->hash = hash_table_create(default_pool, state->pool, 0,
 					login_proxy_record_hash,
 					login_proxy_record_cmp);
-	if (state->notify_path == NULL)
-		state->notify_fd = -1;
-	else {
-		state->notify_fd = open(state->notify_path, O_WRONLY);
-		if (state->notify_fd == -1)
-			i_error("open(%s) failed: %m", state->notify_path);
-	}
+	state->notify_path = p_strdup(state->pool, notify_path);
+	state->notify_fd = -1;
 	return state;
 }
 
@@ -89,14 +85,30 @@ login_proxy_state_get(struct login_proxy_state *state,
 	return rec;
 }
 
+static int login_proxy_state_notify_open(struct login_proxy_state *state)
+{
+	if (state->notify_fd_broken)
+		return -1;
+
+	state->notify_fd = open(state->notify_path, O_WRONLY);
+	if (state->notify_fd == -1) {
+		i_error("open(%s) failed: %m", state->notify_path);
+		state->notify_fd_broken = TRUE;
+		return -1;
+	}
+	return 0;
+}
+
 void login_proxy_state_notify(struct login_proxy_state *state,
 			      const char *user)
 {
 	unsigned int len;
 	ssize_t ret;
 
-	if (state->notify_fd == -1)
-		return;
+	if (state->notify_fd == -1) {
+		if (login_proxy_state_notify_open(state) < 0)
+			return;
+	}
 
 	T_BEGIN {
 		const char *cmd;
