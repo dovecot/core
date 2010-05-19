@@ -17,6 +17,7 @@ static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **err
 /* <settings checks> */
 static struct file_listener_settings auth_unix_listeners_array[] = {
 	{ "login/login", 0666, "", "" },
+	{ "auth-login", 0600, "$default_internal_user", "" },
 	{ "auth-client", 0600, "", "" },
 	{ "auth-userdb", 0600, "", "" },
 	{ "auth-master", 0600, "", "" }
@@ -25,7 +26,8 @@ static struct file_listener_settings *auth_unix_listeners[] = {
 	&auth_unix_listeners_array[0],
 	&auth_unix_listeners_array[1],
 	&auth_unix_listeners_array[2],
-	&auth_unix_listeners_array[3]
+	&auth_unix_listeners_array[3],
+	&auth_unix_listeners_array[4]
 };
 static buffer_t auth_unix_listeners_buf = {
 	auth_unix_listeners, sizeof(auth_unix_listeners), { 0, }

@@ -213,20 +213,19 @@ static void client_connected(const struct master_service_connection *conn)
 			name++;
 
 		suffix = strrchr(name, '-');
-		if (suffix == NULL) {
-			if (strcmp(name, "login") == 0)
-				*type = AUTH_SOCKET_LOGIN_CLIENT;
-			else
-				*type = AUTH_SOCKET_CLIENT;
-		} else {
+		if (suffix == NULL)
+			suffix = name;
+		else
 			suffix++;
-			if (strcmp(suffix, "master") == 0)
-				*type = AUTH_SOCKET_MASTER;
-			else if (strcmp(suffix, "userdb") == 0)
-				*type = AUTH_SOCKET_USERDB;
-			else
-				*type = AUTH_SOCKET_CLIENT;
-		}
+
+		if (strcmp(suffix, "login") == 0)
+			*type = AUTH_SOCKET_LOGIN_CLIENT;
+		else if (strcmp(suffix, "master") == 0)
+			*type = AUTH_SOCKET_MASTER;
+		else if (strcmp(suffix, "userdb") == 0)
+			*type = AUTH_SOCKET_USERDB;
+		else
+			*type = AUTH_SOCKET_CLIENT;
 	}
 
 	auth = auth_find_service(NULL);
