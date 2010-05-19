@@ -3,11 +3,18 @@
 #include "lib.h"
 #include "network.h"
 #include "hash.h"
+#include "strescape.h"
 #include "login-proxy-state.h"
+
+#include <unistd.h>
+#include <fcntl.h>
 
 struct login_proxy_state {
 	struct hash_table *hash;
 	pool_t pool;
+
+	const char *notify_path;
+	int notify_fd;
 };
 
 static unsigned int login_proxy_record_hash(const void *p)
@@ -27,15 +34,23 @@ static int login_proxy_record_cmp(const void *p1, const void *p2)
 	return (int)rec1->port - (int)rec2->port;
 }
 
-struct login_proxy_state *login_proxy_state_init(void)
+struct login_proxy_state *login_proxy_state_init(const char *notify_path)
 {
 	struct login_proxy_state *state;
 
 	state = i_new(struct login_proxy_state, 1);
 	state->pool = pool_alloconly_create("login proxy state", 1024);
+	state->notify_path = p_strdup(state->pool, notify_path);
 	state->hash = hash_table_create(default_pool, state->pool, 0,
 					login_proxy_record_hash,
 					login_proxy_record_cmp);
+	if (state->notify_path == NULL)
+		state->notify_fd = -1;
+	else {
+		state->notify_fd = open(state->notify_path, O_WRONLY);
+		if (state->notify_fd == -1)
+			i_error("open(%s) failed: %m", state->notify_path);
+	}
 	return state;
 }
 
@@ -44,6 +59,11 @@ void login_proxy_state_deinit(struct login_proxy_state **_state)
 	struct login_proxy_state *state = *_state;
 
 	*_state = NULL;
+
+	if (state->notify_fd != -1) {
+		if (close(state->notify_fd) < 0)
+			i_error("close(%s) failed: %m", state->notify_path);
+	}
 	hash_table_destroy(&state->hash);
 	pool_unref(&state->pool);
 	i_free(state);
@@ -67,4 +87,31 @@ login_proxy_state_get(struct login_proxy_state *state,
 		hash_table_insert(state->hash, rec, rec);
 	}
 	return rec;
+}
+
+void login_proxy_state_notify(struct login_proxy_state *state,
+			      const char *user)
+{
+	unsigned int len;
+	ssize_t ret;
+
+	if (state->notify_fd == -1)
+		return;
+
+	T_BEGIN {
+		const char *cmd;
+
+		cmd = t_strconcat(str_tabescape(user), "\n", NULL);
+		len = strlen(cmd);
+		ret = write(state->notify_fd, cmd, len);
+	} T_END;
+
+	if (ret != len) {
+		if (ret < 0)
+			i_error("write(%s) failed: %m", state->notify_path);
+		else {
+			i_error("write(%s) wrote partial update",
+				state->notify_path);
+		}
+	}
 }

@@ -87,6 +87,8 @@ static void client_auth_parse_args(struct client *client,
 			reply_r->password = value;
 		else if (strcmp(key, "proxy_timeout") == 0)
 			reply_r->proxy_timeout_msecs = 1000*atoi(value);
+		else if (strcmp(key, "proxy_refresh") == 0)
+			reply_r->proxy_refresh_secs = atoi(value);
 		else if (strcmp(key, "master") == 0)
 			reply_r->master_user = value;
 		else if (strcmp(key, "ssl") == 0) {
@@ -261,6 +263,7 @@ static int proxy_start(struct client *client,
 	proxy_set.port = reply->port;
 	proxy_set.dns_client_socket_path = LOGIN_DNS_CLIENT_SOCKET_PATH;
 	proxy_set.connect_timeout_msecs = reply->proxy_timeout_msecs;
+	proxy_set.notify_refresh_secs = reply->proxy_refresh_secs;
 	proxy_set.ssl_flags = reply->ssl_flags;
 
 	if (login_proxy_new(client, &proxy_set, proxy_input) < 0) {

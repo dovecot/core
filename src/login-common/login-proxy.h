@@ -18,6 +18,9 @@ struct login_proxy_settings {
 	const char *dns_client_socket_path;
 	unsigned int port;
 	unsigned int connect_timeout_msecs;
+	/* send a notification about proxy connection to proxy-notify pipe
+	   every n seconds */
+	unsigned int notify_refresh_secs;
 	enum login_proxy_ssl_flags ssl_flags;
 };
 
@@ -54,7 +57,7 @@ login_proxy_get_ssl_flags(const struct login_proxy *proxy) ATTR_PURE;
 
 void login_proxy_kill_idle(void);
 
-void login_proxy_init(void);
+void login_proxy_init(const char *proxy_notify_pipe_path);
 void login_proxy_deinit(void);
 
 #endif

@@ -31,13 +31,14 @@ struct login_proxy {
 	time_t last_io;
 
 	struct timeval created;
-	struct timeout *to;
+	struct timeout *to, *to_notify;
 	struct login_proxy_record *state_rec;
 
 	struct ip_addr ip;
 	char *host;
 	unsigned int port;
 	unsigned int connect_timeout_msecs;
+	unsigned int notify_refresh_secs;
 	enum login_proxy_ssl_flags ssl_flags;
 
 	proxy_callback_t *callback;
@@ -266,6 +267,7 @@ int login_proxy_new(struct client *client,
 	proxy->host = i_strdup(set->host);
 	proxy->port = set->port;
 	proxy->connect_timeout_msecs = set->connect_timeout_msecs;
+	proxy->notify_refresh_secs = set->notify_refresh_secs;
 	proxy->ssl_flags = set->ssl_flags;
 	client_ref(client);
 
@@ -301,6 +303,8 @@ void login_proxy_free(struct login_proxy **_proxy)
 
 	if (proxy->to != NULL)
 		timeout_remove(&proxy->to);
+	if (proxy->to_notify != NULL)
+		timeout_remove(&proxy->to_notify);
 
 	if (proxy->state_rec != NULL)
 		proxy->state_rec->num_waiting_connections--;
@@ -390,6 +394,11 @@ login_proxy_get_ssl_flags(const struct login_proxy *proxy)
 	return proxy->ssl_flags;
 }
 
+static void login_proxy_notify(struct login_proxy *proxy)
+{
+	login_proxy_state_notify(proxy_state, proxy->client->proxy_user);
+}
+
 void login_proxy_detach(struct login_proxy *proxy)
 {
 	struct client *client = proxy->client;
@@ -419,6 +428,12 @@ void login_proxy_detach(struct login_proxy *proxy)
 		io_add(proxy->client_fd, IO_READ, proxy_client_input, proxy);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
 	i_stream_destroy(&proxy->server_input);
+
+	if (proxy->notify_refresh_secs != 0) {
+		proxy->to_notify =
+			timeout_add(proxy->notify_refresh_secs * 1000,
+				    login_proxy_notify, proxy);
+	}
 
 	proxy->callback = NULL;
 
@@ -503,9 +518,9 @@ void login_proxy_kill_idle(void)
 	}
 }
 
-void login_proxy_init(void)
+void login_proxy_init(const char *proxy_notify_pipe_path)
 {
-	proxy_state = login_proxy_state_init();
+	proxy_state = login_proxy_state_init(proxy_notify_pipe_path);
 }
 
 void login_proxy_deinit(void)

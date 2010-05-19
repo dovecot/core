@@ -144,9 +144,6 @@ void client_destroy(struct client *client, const char *reason)
 		i_free_and_null(client->proxy_password);
 	}
 
-	i_free_and_null(client->proxy_user);
-	i_free_and_null(client->proxy_master_user);
-
 	if (client->login_proxy != NULL)
 		login_proxy_free(&client->login_proxy);
 	if (client->ssl_proxy != NULL)
@@ -201,6 +198,8 @@ bool client_unref(struct client **_client)
 	if (client->output != NULL)
 		o_stream_unref(&client->output);
 
+	i_free(client->proxy_user);
+	i_free(client->proxy_master_user);
 	i_free(client->virtual_user);
 	i_free(client->auth_mech_name);
 	pool_unref(&client->pool);

@@ -304,7 +304,7 @@ static void main_init(const char *login_socket)
 	master_auth = master_auth_init(master_service, login_binary.protocol);
 
 	clients_init();
-	login_proxy_init();
+	login_proxy_init("proxy-notify");
 }
 
 static void main_deinit(void)
