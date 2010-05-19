@@ -85,7 +85,7 @@ static void login_host_callback(const struct ip_addr *ip, void *context)
 			i_assert(strncmp(request->line, "OK\t", 3) == 0);
 			line = t_strconcat("FAIL\t",
 					   t_strcut(request->line + 3, '\t'),
-					   NULL);
+					   "\ttemp", NULL);
 		}
 		login_connection_send_line(request->conn, line);
 	} T_END;
