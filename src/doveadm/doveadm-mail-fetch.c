@@ -218,6 +218,36 @@ static int fetch_date_saved(struct fetch_cmd_context *ctx)
 	return 0;
 }
 
+static int fetch_imap_envelope(struct fetch_cmd_context *ctx)
+{
+	const char *value;
+
+	if (mail_get_special(ctx->mail, MAIL_FETCH_IMAP_ENVELOPE, &value) < 0)
+		return -1;
+	str_append(ctx->hdr, value);
+	return 0;
+}
+
+static int fetch_imap_body(struct fetch_cmd_context *ctx)
+{
+	const char *value;
+
+	if (mail_get_special(ctx->mail, MAIL_FETCH_IMAP_BODY, &value) < 0)
+		return -1;
+	str_append(ctx->hdr, value);
+	return 0;
+}
+
+static int fetch_imap_bodystructure(struct fetch_cmd_context *ctx)
+{
+	const char *value;
+
+	if (mail_get_special(ctx->mail, MAIL_FETCH_IMAP_BODYSTRUCTURE, &value) < 0)
+		return -1;
+	str_append(ctx->hdr, value);
+	return 0;
+}
+
 struct fetch_field {
 	const char *name;
 	enum mail_fetch_field wanted_fields;
@@ -239,7 +269,10 @@ static const struct fetch_field fetch_fields[] = {
 	{ "size.virtual",  MAIL_FETCH_VIRTUAL_SIZE,  fetch_size_virtual },
 	{ "date.received", MAIL_FETCH_RECEIVED_DATE, fetch_date_received },
 	{ "date.sent",     MAIL_FETCH_DATE,          fetch_date_sent },
-	{ "date.saved",    MAIL_FETCH_SAVE_DATE,     fetch_date_saved }
+	{ "date.saved",    MAIL_FETCH_SAVE_DATE,     fetch_date_saved },
+	{ "imap.envelope", MAIL_FETCH_IMAP_ENVELOPE, fetch_imap_envelope },
+	{ "imap.body",     MAIL_FETCH_IMAP_BODY,     fetch_imap_body },
+	{ "imap.bodystructure", MAIL_FETCH_IMAP_BODYSTRUCTURE, fetch_imap_bodystructure }
 };
 
 static const struct fetch_field *fetch_field_find(const char *name)
