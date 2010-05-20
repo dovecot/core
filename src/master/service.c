@@ -611,10 +611,32 @@ static void service_throttle_timeout(struct service *service)
 	service_monitor_listen_start(service);
 }
 
+static void service_drop_listener_connections(struct service *service)
+{
+	struct service_listener *const *listenerp;
+	int fd;
+
+	array_foreach(&service->listeners, listenerp) {
+		switch ((*listenerp)->type) {
+		case SERVICE_LISTENER_UNIX:
+		case SERVICE_LISTENER_INET:
+			while ((fd = net_accept((*listenerp)->fd,
+						NULL, NULL)) >= 0)
+				(void)close(fd);
+			break;
+		case SERVICE_LISTENER_FIFO:
+			break;
+		}
+	}
+}
+
 void service_throttle(struct service *service, unsigned int secs)
 {
 	if (service->to_throttle != NULL)
 		return;
+
+	if (service->processes == NULL)
+		service_drop_listener_connections(service);
 
 	service_monitor_listen_stop(service);
 	service->to_throttle = timeout_add(secs * 1000,
