@@ -89,10 +89,12 @@ static void proctitle_hack_set(const char *title)
 {
 	size_t len = strlen(title);
 
-	if (len >= process_title_len)
-		len = process_title_len - 1;
+	/* OS X wants two NULs */
+	if (len >= process_title_len-1)
+		len = process_title_len - 2;
 
 	memcpy(process_title, title, len);
+	process_title[len++] = '\0';
 	process_title[len++] = '\0';
 
 	if (len < process_title_clean_pos) {
