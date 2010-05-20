@@ -77,12 +77,36 @@ cmd_director_init(int argc, char *argv[], unsigned int cmd_idx)
 	return ctx;
 }
 
+static void
+cmd_director_status_user(struct director_context *ctx, const char *user)
+{
+	const char *line;
+
+	director_send(ctx, t_strdup_printf("USER-LOOKUP\t%s\n", user));
+	line = i_stream_read_next_line(ctx->input);
+	if (line == NULL) {
+		printf("Lookup failed\n");
+		return;
+	}
+
+	if (strcmp(line, "NOTFOUND") == 0)
+		printf("User not assigned to any server\n");
+	else
+		printf("%s\n", line);
+	director_disconnect(ctx);
+}
+
 static void cmd_director_status(int argc, char *argv[])
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
 
 	ctx = cmd_director_init(argc, argv, 0);
+	if (argv[optind] != NULL) {
+		cmd_director_status_user(ctx, argv[optind]);
+		return;
+	}
+
 	fprintf(stderr, "%-20s vhosts  users\n", "mail server ip");
 	director_send(ctx, "HOST-LIST\n");
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
@@ -191,7 +215,7 @@ static void cmd_director_remove(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
-	  "[-a <director socket path>]", NULL },
+	  "[-a <director socket path>] [<username>]", NULL },
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] <host> [<vhost count>]", NULL },
 	{ cmd_director_remove, "director remove",

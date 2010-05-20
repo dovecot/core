@@ -115,6 +115,23 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn, const char *line)
 	return TRUE;
 }
 
+static bool
+doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
+{
+	struct user *user;
+	unsigned int hash;
+
+	hash = user_directory_get_username_hash(line);
+	user = user_directory_lookup(conn->dir->users, hash);
+	if (user == NULL)
+		o_stream_send_str(conn->output, "NOTFOUND\n");
+	else {
+		o_stream_send_str(conn->output, t_strconcat(
+			net_ip2addr(&user->host->ip), "\n", NULL));
+	}
+	return TRUE;
+}
+
 static void doveadm_connection_input(struct doveadm_connection *conn)
 {
 	const char *line;
@@ -143,6 +160,8 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 			ret = doveadm_cmd_host_set(conn, line + 9);
 		else if (strncmp(line, "HOST-REMOVE\t", 12) == 0)
 			ret = doveadm_cmd_host_remove(conn, line + 12);
+		else if (strncmp(line, "USER-LOOKUP\t", 12) == 0)
+			ret = doveadm_cmd_user_lookup(conn, line + 12);
 		else {
 			i_error("doveadm sent unknown command: %s", line);
 			ret = FALSE;
