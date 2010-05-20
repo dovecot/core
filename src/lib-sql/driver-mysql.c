@@ -459,8 +459,9 @@ driver_mysql_transaction_commit(struct sql_transaction_context *ctx,
 		callback(NULL, context);
 }
 
-static int transaction_send_query(struct mysql_transaction_context *ctx,
-				  const char *query)
+static int
+transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
+		       unsigned int *affected_rows_r)
 {
 	struct sql_result *result;
 	my_ulonglong rows;
@@ -474,13 +475,12 @@ static int transaction_send_query(struct mysql_transaction_context *ctx,
 		ctx->error = sql_result_get_error(result);
 		ctx->failed = TRUE;
 		ret = -1;
-	} else if (ctx->ctx.head != NULL &&
-		   ctx->ctx.head->affected_rows != NULL) {
+	} else if (affected_rows_r != NULL) {
 		struct mysql_db *db = (struct mysql_db *)result->db;
 
 		rows = mysql_affected_rows(db->mysql);
 		i_assert(rows != (my_ulonglong)-1);
-		*ctx->ctx.head->affected_rows = rows;
+		*affected_rows_r = rows;
 	}
 	sql_result_unref(result);
 	return ret;
@@ -499,13 +499,14 @@ driver_mysql_transaction_commit_s(struct sql_transaction_context *_ctx,
 	if (_ctx->head != NULL) {
 		/* try to use a transaction in any case,
 		   even if it doesn't work. */
-		(void)transaction_send_query(ctx, "BEGIN");
+		(void)transaction_send_query(ctx, "BEGIN", NULL);
 		while (_ctx->head != NULL) {
-			if (transaction_send_query(ctx, _ctx->head->query) < 0)
+			if (transaction_send_query(ctx, _ctx->head->query,
+						   _ctx->head->affected_rows) < 0)
 				break;
 			_ctx->head = _ctx->head->next;
 		}
-		ret = transaction_send_query(ctx, "COMMIT");
+		ret = transaction_send_query(ctx, "COMMIT", NULL);
 		*error_r = ctx->error;
 	}
 	sql_transaction_rollback(&_ctx);
