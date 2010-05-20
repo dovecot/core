@@ -264,11 +264,13 @@ static int imap_parser_read_atom(struct imap_parser *parser,
 			imap_parser_save_arg(parser, data, i);
 			break;
 		} else if (data[i] == ')') {
-			if (parser->list_arg != NULL ||
-			    (parser->flags &
-			     IMAP_PARSE_FLAG_ATOM_ALLCHARS) == 0) {
+			if (parser->list_arg != NULL) {
 				imap_parser_save_arg(parser, data, i);
 				break;
+			} else if ((parser->flags &
+				    IMAP_PARSE_FLAG_ATOM_ALLCHARS) == 0) {
+				parser->error = "Unexpected ')'";
+				return FALSE;
 			}
 			/* assume it's part of the atom */
 		} else if (!is_valid_atom_char(parser, data[i]))
