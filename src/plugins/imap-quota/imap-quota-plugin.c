@@ -116,10 +116,14 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	mailbox_free(&box);
 
 	/* send replies */
-	client_send_line(client, str_c(quotaroot_reply));
-	o_stream_send(client->output, str_data(quota_reply),
-		      str_len(quota_reply));
-	client_send_tagline(cmd, "OK Getquotaroot completed.");
+	if (str_len(quota_reply) == 0)
+		client_send_tagline(cmd, "OK No quota.");
+	else {
+		client_send_line(client, str_c(quotaroot_reply));
+		o_stream_send(client->output, str_data(quota_reply),
+			      str_len(quota_reply));
+		client_send_tagline(cmd, "OK Getquotaroot completed.");
+	}
 	return TRUE;
 }
 
