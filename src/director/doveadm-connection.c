@@ -120,16 +120,37 @@ static bool
 doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 {
 	struct user *user;
-	unsigned int hash;
+	struct mail_host *host;
+	unsigned int username_hash;
+	string_t *str = t_str_new(256);
 
-	hash = user_directory_get_username_hash(line);
-	user = user_directory_lookup(conn->dir->users, hash);
+	username_hash = user_directory_get_username_hash(line);
+
+	/* get user's current host */
+	user = user_directory_lookup(conn->dir->users, username_hash);
 	if (user == NULL)
-		o_stream_send_str(conn->output, "NOTFOUND\n");
+		str_append(str, "\t0");
 	else {
-		o_stream_send_str(conn->output, t_strconcat(
-			net_ip2addr(&user->host->ip), "\n", NULL));
+		str_printfa(str, "%s\t%u", net_ip2addr(&user->host->ip),
+			    user->timestamp +
+			    conn->dir->set->director_user_expire);
 	}
+
+	/* get host if it wasn't in user directory */
+	host = mail_host_get_by_hash(conn->dir->mail_hosts, username_hash);
+	if (host == NULL)
+		str_append(str, "\t");
+	else
+		str_printfa(str, "\t%s", net_ip2addr(&host->ip));
+
+	/* get host with default configuration */
+	host = mail_host_get_by_hash(conn->dir->orig_config_hosts,
+				     username_hash);
+	if (host == NULL)
+		str_append(str, "\t");
+	else
+		str_printfa(str, "\t%s\n", net_ip2addr(&host->ip));
+	o_stream_send(conn->output, str_data(str), str_len(str));
 	return TRUE;
 }
 

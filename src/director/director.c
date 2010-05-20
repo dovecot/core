@@ -208,6 +208,7 @@ void director_deinit(struct director **_dir)
 
 	user_directory_deinit(&dir->users);
 	mail_hosts_deinit(&dir->mail_hosts);
+	mail_hosts_deinit(&dir->orig_config_hosts);
 	if (dir->to_request != NULL)
 		timeout_remove(&dir->to_request);
 	array_foreach(&dir->dir_hosts, hostp)

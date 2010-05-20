@@ -30,7 +30,11 @@ struct director {
 	struct director_host *self_host;
 	struct director_connection *left, *right;
 
+	/* current mail hosts */
 	struct mail_host_list *mail_hosts;
+	/* original mail hosts configured in config file.
+	   this is used only for doveadm lookups */
+	struct mail_host_list *orig_config_hosts;
 	/* temporary user -> host associations */
 	struct user_directory *users;
 

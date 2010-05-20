@@ -80,7 +80,8 @@ cmd_director_init(int argc, char *argv[], unsigned int cmd_idx)
 static void
 cmd_director_status_user(struct director_context *ctx, const char *user)
 {
-	const char *line;
+	const char *line, *const *args;
+	unsigned int expires;
 
 	director_send(ctx, t_strdup_printf("USER-LOOKUP\t%s\n", user));
 	line = i_stream_read_next_line(ctx->input);
@@ -89,10 +90,21 @@ cmd_director_status_user(struct director_context *ctx, const char *user)
 		return;
 	}
 
-	if (strcmp(line, "NOTFOUND") == 0)
-		printf("User not assigned to any server\n");
-	else
-		printf("%s\n", line);
+	args = t_strsplit(line, "\t");
+	if (str_array_length(args) != 4 ||
+	    str_to_uint(args[1], &expires) < 0) {
+		printf("Invalid reply from director\n");
+		return;
+	}
+
+	if (args[0][0] != '\0') {
+		printf("Current: %s (expires %s)\n",
+		       args[0], unixdate2str(expires));
+	} else {
+		printf("Current: not assigned\n");
+	}
+	printf("Hashed: %s\n", args[2]);
+	printf("Initial config: %s\n", args[3]);
 	director_disconnect(ctx);
 }
 

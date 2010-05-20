@@ -32,4 +32,6 @@ const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list);
 struct mail_host_list *mail_hosts_init(void);
 void mail_hosts_deinit(struct mail_host_list **list);
 
+struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src);
+
 #endif

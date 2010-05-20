@@ -145,6 +145,7 @@ static void main_init(void)
 	if (mail_hosts_parse_and_add(director->mail_hosts,
 				     set->director_mail_servers) < 0)
 		i_fatal("Invalid value for director_mail_servers setting");
+	director->orig_config_hosts = mail_hosts_dup(director->mail_hosts);
 
 	director_connect(director);
 }

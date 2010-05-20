@@ -195,3 +195,26 @@ void mail_hosts_deinit(struct mail_host_list **_list)
 	array_free(&list->vhosts);
 	i_free(list);
 }
+
+static struct mail_host *mail_host_dup(const struct mail_host *src)
+{
+	struct mail_host *dest;
+
+	dest = i_new(struct mail_host, 1);
+	*dest = *src;
+	return dest;
+}
+
+struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src)
+{
+	struct mail_host_list *dest;
+	struct mail_host *const *hostp, *dest_host;
+
+	dest = mail_hosts_init();
+	array_foreach(&src->hosts, hostp) {
+		dest_host = mail_host_dup(*hostp);
+		array_append(&dest->hosts, &dest_host, 1);
+	}
+	mail_hosts_sort(dest);
+	return dest;
+}
