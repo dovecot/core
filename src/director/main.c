@@ -108,7 +108,7 @@ static void director_state_changed(struct director *dir)
 
 	if (!dir->ring_handshaked ||
 	    array_count(&dir->desynced_host_changes) != 0 ||
-	    mail_host_get_by_hash(0) == NULL)
+	    mail_host_get_by_hash(dir->mail_hosts, 0) == NULL)
 		return;
 
 	/* if there are any pending client requests, finish them now */
@@ -133,10 +133,6 @@ static void main_init(void)
 	auth_socket_path = i_strconcat(set->base_dir,
 				       "/"AUTH_SOCKET_PATH, NULL);
 
-	mail_hosts_init();
-	if (mail_hosts_parse_and_add(set->director_mail_servers) < 0)
-		i_fatal("Invalid value for director_mail_servers setting");
-
 	listen_port = find_inet_listener_port(&listen_ip);
 	if (listen_port == 0 && *set->director_servers != '\0') {
 		i_fatal("No inet_listeners defined for director service "
@@ -146,6 +142,9 @@ static void main_init(void)
 	director = director_init(set, &listen_ip, listen_port,
 				 director_state_changed);
 	director_host_add_from_string(director, set->director_servers);
+	if (mail_hosts_parse_and_add(director->mail_hosts,
+				     set->director_mail_servers) < 0)
+		i_fatal("Invalid value for director_mail_servers setting");
 
 	director_connect(director);
 }
@@ -158,7 +157,6 @@ static void main_deinit(void)
 	doveadm_connections_deinit();
 	login_connections_deinit();
 	auth_connections_deinit();
-	mail_hosts_deinit();
 	i_free(auth_socket_path);
 }
 

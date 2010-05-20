@@ -199,7 +199,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 		return FALSE;
 	}
 
-	host = mail_host_lookup(&ip);
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
 		i_error("director(%s): USER used unknown host %s in handshake",
 			conn->name, args[1]);
@@ -249,7 +249,7 @@ director_cmd_host_hand_start(struct director_connection *conn,
 
 	if (remote_ring_completed && !conn->dir->ring_handshaked) {
 		/* clear everything we have and use only what remote sends us */
-		hosts = mail_hosts_get();
+		hosts = mail_hosts_get(conn->dir->mail_hosts);
 		while (array_count(hosts) > 0) {
 			hostp = array_idx(hosts, 0);
 			director_remove_host(conn->dir, conn->host, *hostp);
@@ -281,9 +281,9 @@ director_cmd_host(struct director_connection *conn, const char *const *args)
 		return TRUE;
 	}
 
-	host = mail_host_lookup(&ip);
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
-		host = mail_host_add_ip(&ip);
+		host = mail_host_add_ip(conn->dir->mail_hosts, &ip);
 		update = TRUE;
 	} else {
 		update = host->vhost_count != vhost_count;
@@ -311,7 +311,7 @@ director_cmd_host_remove(struct director_connection *conn,
 		return FALSE;
 	}
 
-	host = mail_host_lookup(&ip);
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host != NULL)
 		director_remove_host(conn->dir, conn->host, host);
 	return TRUE;
@@ -432,7 +432,7 @@ director_cmd_user(struct director_connection *conn, const char *const *args)
 		return FALSE;
 	}
 
-	host = mail_host_lookup(&ip);
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
 		/* we probably just removed this host. */
 		return TRUE;
@@ -583,7 +583,7 @@ director_connection_send_hosts(struct director_connection *conn, string_t *str)
 	struct mail_host *const *hostp;
 
 	str_printfa(str, "HOST-HAND-START\t%u\n", conn->dir->ring_handshaked);
-	array_foreach(mail_hosts_get(), hostp) {
+	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
 		str_printfa(str, "HOST\t%s\t%u\n",
 			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count);
 	}

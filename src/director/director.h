@@ -30,6 +30,7 @@ struct director {
 	struct director_host *self_host;
 	struct director_connection *left, *right;
 
+	struct mail_host_list *mail_hosts;
 	/* temporary user -> host associations */
 	struct user_directory *users;
 

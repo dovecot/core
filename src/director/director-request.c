@@ -90,7 +90,8 @@ bool director_request_continue(struct director_request *request)
 			/* delay adding new users until ring is again synced */
 			return FALSE;
 		}
-		host = mail_host_get_by_hash(request->username_hash);
+		host = mail_host_get_by_hash(dir->mail_hosts,
+					     request->username_hash);
 		if (host == NULL) {
 			/* all hosts have been removed */
 			return FALSE;

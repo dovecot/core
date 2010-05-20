@@ -147,7 +147,7 @@ void director_remove_host(struct director *dir, struct director_host *src,
 	director_update_send(dir, src, t_strdup_printf(
 		"HOST-REMOVE\t%s\n", net_ip2addr(&host->ip)));
 	user_directory_remove_host(dir->users, host);
-	mail_host_remove(host);
+	mail_host_remove(dir->mail_hosts, host);
 }
 
 void director_update_user(struct director *dir, struct director_host *src,
@@ -190,6 +190,7 @@ director_init(const struct director_settings *set,
 	i_array_init(&dir->pending_requests, 16);
 	i_array_init(&dir->desynced_host_changes, 16);
 	dir->users = user_directory_init(set->director_user_expire);
+	dir->mail_hosts = mail_hosts_init();
 	return dir;
 }
 
@@ -206,6 +207,7 @@ void director_deinit(struct director **_dir)
 		director_connection_deinit(&dir->right);
 
 	user_directory_deinit(&dir->users);
+	mail_hosts_deinit(&dir->mail_hosts);
 	if (dir->to_request != NULL)
 		timeout_remove(&dir->to_request);
 	array_foreach(&dir->dir_hosts, hostp)

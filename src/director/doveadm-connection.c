@@ -43,7 +43,7 @@ static void doveadm_cmd_host_list(struct doveadm_connection *conn)
 	struct mail_host *const *hostp;
 	string_t *str = t_str_new(1024);
 
-	array_foreach(mail_hosts_get(), hostp) {
+	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
 		str_printfa(str, "%s\t%u\t%u\n",
 			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count,
 			    (*hostp)->user_count);
@@ -68,6 +68,7 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 static bool
 doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 {
+	struct director *dir = conn->dir;
 	const char *const *args;
 	struct mail_host *host;
 	struct ip_addr ip;
@@ -84,12 +85,12 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 		o_stream_send_str(conn->output, "vhost count too large\n");
 		return TRUE;
 	}
-	host = mail_host_lookup(&ip);
+	host = mail_host_lookup(dir->mail_hosts, &ip);
 	if (host == NULL)
-		host = mail_host_add_ip(&ip);
+		host = mail_host_add_ip(dir->mail_hosts, &ip);
 	if (vhost_count != -1U)
-		mail_host_set_vhost_count(host, vhost_count);
-	director_update_host(conn->dir, conn->dir->self_host, host);
+		mail_host_set_vhost_count(dir->mail_hosts, host, vhost_count);
+	director_update_host(dir, dir->self_host, host);
 
 	o_stream_send(conn->output, "OK\n", 3);
 	return TRUE;
@@ -105,7 +106,7 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn, const char *line)
 		i_error("doveadm sent invalid HOST-SET parameters");
 		return FALSE;
 	}
-	host = mail_host_lookup(&ip);
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL)
 		o_stream_send_str(conn->output, "NOTFOUND\n");
 	else {
