@@ -395,11 +395,11 @@ log_coredump(struct service *service, string_t *str, int status)
 	}
 
 #ifndef HAVE_PR_SET_DUMPABLE
-	if (!service->set->drop_priv_before_exec) {
+	if (!service->set->drop_priv_before_exec && service->uid != 0) {
 		str_append(str, " (core not dumped - set drop_priv_before_exec=yes)");
 		return;
 	}
-	if (*service->set->privileged_group != '\0') {
+	if (*service->set->privileged_group != '\0' && service->uid != 0) {
 		str_append(str, " (core not dumped - privileged_group prevented it)");
 		return;
 	}
