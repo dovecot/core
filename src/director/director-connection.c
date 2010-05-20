@@ -139,10 +139,11 @@ static bool director_cmd_me(struct director_connection *conn,
 		if (dir->left->host != dir->right->host)
 			director_connection_send(dir->right, connect_str);
 		else {
-			/* there are only two directors */
+			/* there are only two directors, and we already have
+			   a connection to this server. */
 		}
 	} else {
-		/* looks like we're the right side. */
+		/* there are only two directors. connect to the other one. */
 		(void)director_connect_host(dir, host);
 	}
 	return TRUE;

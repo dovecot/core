@@ -80,11 +80,6 @@ int director_connect_host(struct director *dir, struct director_host *host)
 
 	i_assert(dir->right == NULL);
 
-	if (host->last_failed + DIRECTOR_RECONNECT_RETRY_SECS > ioloop_time) {
-		/* failed recently, don't try retrying here */
-		return -1;
-	}
-
 	fd = net_connect_ip(&host->ip, host->port, &dir->self_ip);
 	if (fd == -1) {
 		host->last_failed = ioloop_time;
@@ -109,6 +104,12 @@ void director_connect(struct director *dir)
 	hosts = array_get(&dir->dir_hosts, &count);
 	for (i = 1; i < count; i++) {
 		unsigned int idx = (self_idx + i) % count;
+
+		if (hosts[idx]->last_failed +
+		    DIRECTOR_RECONNECT_RETRY_SECS > ioloop_time) {
+			/* failed recently, don't try retrying here */
+			continue;
+		}
 
 		if (director_connect_host(dir, hosts[idx]) == 0)
 			break;
