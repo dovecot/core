@@ -175,7 +175,7 @@ static void cmd_kick(int argc, char *argv[])
 	int c;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.who.anvil_path = PKG_RUNDIR"/anvil";
+	ctx.who.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 	ctx.force_kick = FALSE;
 	ctx.who.pool = pool_alloconly_create("kick pids", 10240);
 	ctx.pids = hash_table_create(default_pool, ctx.who.pool, 0, NULL, NULL);

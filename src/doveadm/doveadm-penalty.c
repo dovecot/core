@@ -98,7 +98,7 @@ static void cmd_penalty(int argc, char *argv[])
 	int c;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.anvil_path = PKG_RUNDIR"/anvil";
+	ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 	while ((c = getopt(argc, argv, "a:")) > 0) {
 		switch (c) {
 		case 'a':

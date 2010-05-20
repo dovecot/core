@@ -1,6 +1,8 @@
 #ifndef DOVEADM_H
 #define DOVEADM_H
 
+#include "doveadm-settings.h"
+
 #define USAGE_CMDNAME_FMT "  %-12s"
 
 typedef void doveadm_command_t(int argc, char *argv[]);

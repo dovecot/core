@@ -29,8 +29,10 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 	const char *username, *const *fields, *p;
 	int ret;
 
-	if (auth_socket_path == NULL)
-		auth_socket_path = PKG_RUNDIR"/auth-userdb";
+	if (auth_socket_path == NULL) {
+		auth_socket_path = t_strconcat(doveadm_settings->base_dir,
+					       "/auth-userdb", NULL);
+	}
 
 	pool = pool_alloconly_create("auth master lookup", 1024);
 
@@ -127,8 +129,10 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 {
 	struct auth_client *client;
 
-	if (auth_socket_path == NULL)
-		auth_socket_path = PKG_RUNDIR"/auth-client";
+	if (auth_socket_path == NULL) {
+		auth_socket_path = t_strconcat(doveadm_settings->base_dir,
+					       "/auth-client", NULL);
+	}
 
 	client = auth_client_init(auth_socket_path, getpid(), FALSE);
 	auth_client_set_connect_notify(client, auth_connected, input);

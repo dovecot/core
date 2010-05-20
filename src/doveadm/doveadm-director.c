@@ -62,7 +62,8 @@ cmd_director_init(int argc, char *argv[], unsigned int cmd_idx)
 	int c;
 
 	ctx = t_new(struct director_context, 1);
-	ctx->socket_path = PKG_RUNDIR"/director-admin";
+	ctx->socket_path = t_strconcat(doveadm_settings->base_dir,
+				       "/director-admin", NULL);
 
 	while ((c = getopt(argc, argv, "a:")) > 0) {
 		switch (c) {

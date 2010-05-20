@@ -2,6 +2,7 @@
 #define DOVEADM_SETTINGS_H
 
 struct doveadm_settings {
+	const char *base_dir;
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
 };
