@@ -47,6 +47,7 @@ struct director_connection {
 	unsigned int version_received:1;
 	unsigned int me_received:1;
 	unsigned int handshake_received:1;
+	unsigned int ignore_host_events:1;
 };
 
 static void director_connection_ping(struct director_connection *conn);
@@ -233,6 +234,34 @@ static bool director_cmd_director(struct director_connection *conn,
 }
 
 static bool
+director_cmd_host_hand_start(struct director_connection *conn,
+			     const char *const *args)
+{
+	const ARRAY_TYPE(mail_host) *hosts;
+	struct mail_host *const *hostp;
+	unsigned int remote_ring_completed;
+
+	if (args == NULL || str_to_uint(args[0], &remote_ring_completed) < 0) {
+		i_error("director(%s): Invalid HOST-HAND-START args",
+			conn->name);
+		return FALSE;
+	}
+
+	if (remote_ring_completed && !conn->dir->ring_handshaked) {
+		/* clear everything we have and use only what remote sends us */
+		hosts = mail_hosts_get();
+		while (array_count(hosts) > 0) {
+			hostp = array_idx(hosts, 0);
+			director_remove_host(conn->dir, conn->host, *hostp);
+		}
+	} else if (!remote_ring_completed && conn->dir->ring_handshaked) {
+		/* ignore whatever remote sends */
+		conn->ignore_host_events = TRUE;
+	}
+	return TRUE;
+}
+
+static bool
 director_cmd_host(struct director_connection *conn, const char *const *args)
 {
 	struct mail_host *host;
@@ -245,6 +274,11 @@ director_cmd_host(struct director_connection *conn, const char *const *args)
 	    str_to_uint(args[1], &vhost_count) < 0) {
 		i_error("director(%s): Invalid HOST args", conn->name);
 		return FALSE;
+	}
+	if (conn->ignore_host_events) {
+		/* remote is sending hosts in a handshake, but it doesn't have
+		   a completed ring and we do. */
+		return TRUE;
 	}
 
 	host = mail_host_lookup(&ip);
@@ -363,6 +397,13 @@ director_connection_handle_handshake(struct director_connection *conn,
 		return director_cmd_director(conn, args);
 	if (conn->in && strcmp(cmd, "HOST") == 0 && conn->me_received)
 		return director_cmd_host(conn, args);
+	if (strcmp(cmd, "HOST-HAND-START") == 0)
+		return director_cmd_host_hand_start(conn, args);
+	if (strcmp(cmd, "HOST-HAND-END") == 0) {
+		conn->ignore_host_events = TRUE;
+		return TRUE;
+	}
+
 	/* only incoming connections get a USER list */
 	if (conn->in && strcmp(cmd, "USER") == 0 && conn->me_received)
 		return director_handshake_cmd_user(conn, args);
@@ -536,14 +577,17 @@ static void director_connection_send_directors(struct director_connection *conn,
 	}
 }
 
-static void director_connection_send_hosts(string_t *str)
+static void
+director_connection_send_hosts(struct director_connection *conn, string_t *str)
 {
 	struct mail_host *const *hostp;
 
+	str_printfa(str, "HOST-HAND-START\t%u\n", conn->dir->ring_handshaked);
 	array_foreach(mail_hosts_get(), hostp) {
 		str_printfa(str, "HOST\t%s\t%u\n",
 			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count);
 	}
+	str_printfa(str, "HOST-HAND-END\t%u\n", conn->dir->ring_handshaked);
 }
 
 static int director_connection_send_users(struct director_connection *conn)
@@ -650,7 +694,7 @@ static void director_connection_connected(struct director_connection *conn)
 
 	director_connection_send_handshake(conn);
 	director_connection_send_directors(conn, str);
-	director_connection_send_hosts(str);
+	director_connection_send_hosts(conn, str);
 	director_connection_send(conn, str_c(str));
 
 	conn->user_iter = user_directory_iter_init(dir->users);
