@@ -103,7 +103,7 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn, const char *line)
 	struct ip_addr ip;
 
 	if (net_addr2ip(line, &ip) < 0) {
-		i_error("doveadm sent invalid HOST-SET parameters");
+		i_error("doveadm sent invalid HOST-REMOVE parameters");
 		return FALSE;
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
@@ -111,6 +111,41 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn, const char *line)
 		o_stream_send_str(conn->output, "NOTFOUND\n");
 	else {
 		director_remove_host(conn->dir, conn->dir->self_host, host);
+		o_stream_send(conn->output, "OK\n", 3);
+	}
+	return TRUE;
+}
+
+static void
+doveadm_cmd_host_flush_all(struct doveadm_connection *conn)
+{
+	struct mail_host *const *hostp;
+
+	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp)
+		director_flush_host(conn->dir, conn->dir->self_host, *hostp);
+	o_stream_send(conn->output, "OK\n", 3);
+}
+
+static bool
+doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *line)
+{
+	struct mail_host *host;
+	struct ip_addr ip;
+
+	if (*line == '\0') {
+		doveadm_cmd_host_flush_all(conn);
+		return TRUE;
+	}
+
+	if (net_addr2ip(line, &ip) < 0) {
+		i_error("doveadm sent invalid HOST-FLUSH parameters");
+		return FALSE;
+	}
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
+	if (host == NULL)
+		o_stream_send_str(conn->output, "NOTFOUND\n");
+	else {
+		director_flush_host(conn->dir, conn->dir->self_host, host);
 		o_stream_send(conn->output, "OK\n", 3);
 	}
 	return TRUE;
@@ -156,7 +191,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 
 static void doveadm_connection_input(struct doveadm_connection *conn)
 {
-	const char *line;
+	const char *line, *cmd, *args;
 	bool ret = TRUE;
 
 	if (!conn->handshaked) {
@@ -174,16 +209,27 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 	}
 
 	while ((line = i_stream_read_next_line(conn->input)) != NULL && ret) {
-		if (strcmp(line, "HOST-LIST") == 0)
+		args = strchr(line, '\t');
+		if (args == NULL) {
+			cmd = line;
+			args = "";
+		} else {
+			cmd = t_strdup_until(line, args);
+			args++;
+		}
+
+		if (strcmp(cmd, "HOST-LIST") == 0)
 			doveadm_cmd_host_list(conn);
-		else if (strcmp(line, "DIRECTOR-LIST") == 0)
+		else if (strcmp(cmd, "DIRECTOR-LIST") == 0)
 			doveadm_cmd_director_list(conn);
-		else if (strncmp(line, "HOST-SET\t", 9) == 0)
-			ret = doveadm_cmd_host_set(conn, line + 9);
-		else if (strncmp(line, "HOST-REMOVE\t", 12) == 0)
-			ret = doveadm_cmd_host_remove(conn, line + 12);
-		else if (strncmp(line, "USER-LOOKUP\t", 12) == 0)
-			ret = doveadm_cmd_user_lookup(conn, line + 12);
+		else if (strcmp(cmd, "HOST-SET") == 0)
+			ret = doveadm_cmd_host_set(conn, args);
+		else if (strcmp(cmd, "HOST-REMOVE") == 0)
+			ret = doveadm_cmd_host_remove(conn, args);
+		else if (strcmp(cmd, "HOST-FLUSH") == 0)
+			ret = doveadm_cmd_host_flush(conn, args);
+		else if (strcmp(cmd, "USER-LOOKUP") == 0)
+			ret = doveadm_cmd_user_lookup(conn, args);
 		else {
 			i_error("doveadm sent unknown command: %s", line);
 			ret = FALSE;

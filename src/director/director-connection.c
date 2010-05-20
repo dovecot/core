@@ -317,6 +317,25 @@ director_cmd_host_remove(struct director_connection *conn,
 	return TRUE;
 }
 
+static bool
+director_cmd_host_flush(struct director_connection *conn,
+			 const char *const *args)
+{
+	struct mail_host *host;
+	struct ip_addr ip;
+
+	if (str_array_length(args) != 1 ||
+	    net_addr2ip(args[0], &ip) < 0) {
+		i_error("director(%s): Invalid HOST-FLUSH args", conn->name);
+		return FALSE;
+	}
+
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
+	if (host != NULL)
+		director_flush_host(conn->dir, conn->host, host);
+	return TRUE;
+}
+
 static void director_handshake_cmd_done(struct director_connection *conn)
 {
 	struct director *dir = conn->dir;
@@ -513,6 +532,8 @@ director_connection_handle_line(struct director_connection *conn,
 		return director_cmd_host(conn, args);
 	if (strcmp(cmd, "HOST-REMOVE") == 0)
 		return director_cmd_host_remove(conn, args);
+	if (strcmp(cmd, "HOST-FLUSH") == 0)
+		return director_cmd_host_flush(conn, args);
 	if (strcmp(cmd, "DIRECTOR") == 0)
 		return director_cmd_director(conn, args);
 	if (strcmp(cmd, "SYNC") == 0)

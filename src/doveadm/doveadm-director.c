@@ -225,13 +225,76 @@ static void cmd_director_remove(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
+static void cmd_director_flush_all(struct director_context *ctx)
+{
+	const char *line;
+
+	director_send(ctx, "HOST-FLUSH\n");
+
+	line = i_stream_read_next_line(ctx->input);
+	if (line == NULL)
+		fprintf(stderr, "failed\n");
+	else if (strcmp(line, "OK") != 0)
+		fprintf(stderr, "%s\n", line);
+	else if (doveadm_verbose)
+		printf("flushed\n");
+	director_disconnect(ctx);
+}
+
+static void cmd_director_flush(int argc, char *argv[])
+{
+	struct director_context *ctx;
+	struct ip_addr *ips;
+	unsigned int i, ips_count;
+	struct ip_addr ip;
+	const char *host, *line;
+
+	ctx = cmd_director_init(argc, argv, 0);
+	host = argv[optind++];
+	if (host == NULL || argv[optind] != NULL)
+		help(&doveadm_cmd_director[2]);
+
+	if (strcmp(host, "all") == 0) {
+		cmd_director_flush_all(ctx);
+		return;
+	}
+	if (net_addr2ip(host, &ip) == 0) {
+		ips = &ip;
+		ips_count = 1;
+	} else {
+		if (net_gethostbyname(host, &ips, &ips_count) < 0)
+			i_fatal("gethostname(%s) failed: %m", host);
+	}
+
+	for (i = 0; i < ips_count; i++) {
+		director_send(ctx,
+			t_strdup_printf("HOST-FLUSH\t%s\n", net_ip2addr(&ip)));
+	}
+	for (i = 0; i < ips_count; i++) {
+		line = i_stream_read_next_line(ctx->input);
+		if (line == NULL || strcmp(line, "OK") != 0) {
+			fprintf(stderr, "%s: %s\n", net_ip2addr(&ips[i]),
+				line == NULL ? "failed" :
+				(strcmp(line, "NOTFOUND") == 0 ?
+				 "doesn't exist" : line));
+		} else if (doveadm_verbose) {
+			printf("%s: flushed\n", net_ip2addr(&ips[i]));
+		}
+	}
+	if (i != ips_count)
+		i_fatal("director flush failed");
+	director_disconnect(ctx);
+}
+
 struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
 	  "[-a <director socket path>] [<username>]", NULL },
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] <host> [<vhost count>]", NULL },
 	{ cmd_director_remove, "director remove",
-	  "[-a <director socket path>] <host>", NULL }
+	  "[-a <director socket path>] <host>", NULL },
+	{ cmd_director_flush, "director flush",
+	  "[-a <director socket path>] <host>|all", NULL }
 };
 
 

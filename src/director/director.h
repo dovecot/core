@@ -81,6 +81,8 @@ void director_update_host(struct director *dir, struct director_host *src,
 			  struct mail_host *host);
 void director_remove_host(struct director *dir, struct director_host *src,
 			  struct mail_host *host);
+void director_flush_host(struct director *dir, struct director_host *src,
+			 struct mail_host *host);
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user);
 

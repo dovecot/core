@@ -150,6 +150,14 @@ void director_remove_host(struct director *dir, struct director_host *src,
 	mail_host_remove(dir->mail_hosts, host);
 }
 
+void director_flush_host(struct director *dir, struct director_host *src,
+			 struct mail_host *host)
+{
+	director_update_send(dir, src, t_strdup_printf(
+		"HOST-FLUSH\t%s\n", net_ip2addr(&host->ip)));
+	user_directory_remove_host(dir->users, host);
+}
+
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user)
 {
