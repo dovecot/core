@@ -224,6 +224,8 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota)
 		for (; *tmp != NULL; tmp++) {
 			if (strcmp(*tmp, "noenforcing") == 0)
 				root->no_enforcing = TRUE;
+			else if (strcmp(*tmp, "ignoreunlimited") == 0)
+				root->disable_unlimited_tracking = TRUE;
 			else
 				break;
 		}
@@ -233,6 +235,10 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota)
 				root_set->name, root->backend.name, *tmp);
 		}
 	}
+	if (root_set->default_rule.bytes_limit == 0 &&
+	    root_set->default_rule.count_limit == 0 &&
+	    root->disable_unlimited_tracking)
+		return NULL;
 	return root;
 }
 
@@ -261,7 +267,8 @@ struct quota *quota_init(struct quota_settings *quota_set,
 	i_array_init(&quota->namespaces, count);
 	for (i = 0; i < count; i++) {
 		root = quota_root_init(root_sets[i], quota);
-		array_append(&quota->roots, &root, 1);
+		if (root != NULL)
+			array_append(&quota->roots, &root, 1);
 	}
 	return quota;
 }

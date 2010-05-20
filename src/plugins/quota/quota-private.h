@@ -117,6 +117,8 @@ struct quota_root {
 
 	/* don't enforce quota when saving */
 	unsigned int no_enforcing:1;
+	/* If user has unlimited quota, disable quota tracking */
+	unsigned int disable_unlimited_tracking:1;
 };
 
 struct quota_transaction_context {
