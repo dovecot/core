@@ -587,6 +587,16 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 	return TRUE;
 }
 
+void auth_request_handler_cancel_request(struct auth_request_handler *handler,
+					 unsigned int client_id)
+{
+	struct auth_request *request;
+
+	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
+	if (request != NULL)
+		auth_request_handler_remove(handler, request);
+}
+
 void auth_request_handler_flush_failures(bool flush_all)
 {
 	struct auth_request **auth_requests, *auth_request;

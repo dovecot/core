@@ -166,6 +166,20 @@ static const char *cont_line_hide_pass(const char *line)
 }
 
 static bool
+auth_client_cancel(struct auth_client_connection *conn, const char *line)
+{
+	unsigned int client_id;
+
+	if (str_to_uint(line, &client_id) < 0) {
+		i_error("BUG: Authentication client sent broken CANCEL");
+		return FALSE;
+	}
+
+	auth_request_handler_cancel_request(conn->request_handler, client_id);
+	return TRUE;
+}
+
+static bool
 auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 {
 	if (strncmp(line, "AUTH\t", 5) == 0) {
@@ -185,6 +199,11 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 		}
 		return auth_request_handler_auth_continue(conn->request_handler,
 							  line + 5);
+	}
+	if (strncmp(line, "CANCEL\t", 7) == 0) {
+		if (conn->auth->set->debug)
+			i_debug("client in: %s", line);
+		return auth_client_cancel(conn, line + 7);
 	}
 
 	i_error("BUG: Authentication client sent unknown command: %s",

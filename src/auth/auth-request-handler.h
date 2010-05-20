@@ -37,6 +37,8 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 					 struct auth_master_connection *master,
 					 unsigned int id,
 					 unsigned int client_id);
+void auth_request_handler_cancel_request(struct auth_request_handler *handler,
+					 unsigned int client_id);
 
 void auth_request_handler_flush_failures(bool flush_all);
 

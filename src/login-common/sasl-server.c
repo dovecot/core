@@ -139,6 +139,15 @@ static void master_send_request(struct anvil_request *anvil_request)
 			    master_auth_callback, client, &client->master_tag);
 }
 
+static void master_abort_request(struct anvil_request *anvil_request)
+{
+	const char *cookie;
+
+	cookie = binary_to_hex(anvil_request->cookie,
+			       sizeof(anvil_request->cookie));
+	auth_client_send_cancel(auth_client, anvil_request->auth_id);
+}
+
 static void anvil_lookup_callback(const char *reply, void *context)
 {
 	struct anvil_request *req = context;
@@ -155,6 +164,7 @@ static void anvil_lookup_callback(const char *reply, void *context)
 					 set->mail_max_userip_connections);
 		call_client_callback(client, SASL_SERVER_REPLY_MASTER_FAILED,
 				     errmsg, NULL);
+		master_abort_request(req);
 	}
 	i_free(req);
 }

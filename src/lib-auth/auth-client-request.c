@@ -115,8 +115,12 @@ void auth_client_request_continue(struct auth_client_request *request,
 void auth_client_request_abort(struct auth_client_request **_request)
 {
 	struct auth_client_request *request = *_request;
+	const char *str = t_strdup_printf("CANCEL\t%u\n", request->id);
 
 	*_request = NULL;
+
+	if (o_stream_send_str(request->conn->output, str) < 0)
+		i_error("Error sending request to auth server: %m");
 
 	request->callback(request, AUTH_REQUEST_STATUS_FAIL, NULL, NULL,
 			  request->context);
@@ -175,4 +179,12 @@ void auth_client_request_server_input(struct auth_client_request *request,
 	request->callback(request, status, base64_data, args, request->context);
 	if (status != AUTH_REQUEST_STATUS_CONTINUE)
 		pool_unref(&request->pool);
+}
+
+void auth_client_send_cancel(struct auth_client *client, unsigned int id)
+{
+	const char *str = t_strdup_printf("CANCEL\t%u\n", id);
+
+	if (o_stream_send_str(client->conn->output, str) < 0)
+		i_error("Error sending request to auth server: %m");
 }

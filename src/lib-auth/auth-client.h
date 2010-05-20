@@ -91,4 +91,7 @@ auth_client_request_get_server_pid(struct auth_client_request *request);
 /* Return cookie of the server that handled this request. */
 const char *auth_client_request_get_cookie(struct auth_client_request *request);
 
+/* Tell auth process to drop specified request from memory */
+void auth_client_send_cancel(struct auth_client *client, unsigned int id);
+
 #endif
