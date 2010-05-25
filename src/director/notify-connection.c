@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "master-service.h"
 #include "director.h"
 #include "user-directory.h"
 #include "notify-connection.h"
@@ -59,4 +60,6 @@ void notify_connection_deinit(struct notify_connection **_conn)
 	if (close(conn->fd) < 0)
 		i_error("close(notify connection) failed: %m");
 	i_free(conn);
+
+	master_service_client_connection_destroyed(master_service);
 }

@@ -8,6 +8,7 @@
 #include "array.h"
 #include "str.h"
 #include "llist.h"
+#include "master-service.h"
 #include "user-directory.h"
 #include "mail-host.h"
 #include "director.h"
@@ -269,6 +270,8 @@ static void doveadm_connection_deinit(struct doveadm_connection **_conn)
 	if (close(conn->fd) < 0)
 		i_error("close(doveadm connection) failed: %m");
 	i_free(conn);
+
+	master_service_client_connection_destroyed(master_service);
 }
 
 void doveadm_connections_deinit(void)

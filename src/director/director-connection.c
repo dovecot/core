@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "master-service.h"
 #include "mail-host.h"
 #include "director.h"
 #include "director-host.h"
@@ -758,6 +759,8 @@ void director_connection_deinit(struct director_connection **_conn)
 	if (close(conn->fd) < 0)
 		i_error("close(director connection) failed: %m");
 	i_free(conn);
+
+	master_service_client_connection_destroyed(master_service);
 }
 
 static void director_connection_timeout(struct director_connection *conn)
