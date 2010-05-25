@@ -20,6 +20,9 @@ void hostpid_init(void)
 	hostname[sizeof(hostname)-1] = '\0';
 	my_hostname = hostname;
 
+	if (strchr(hostname, '/') != NULL)
+		i_fatal("Invalid system hostname: %s", hostname);
+
 	/* allow calling hostpid_init() multiple times to reset hostname */
 	i_free_and_null(my_domain);
 
