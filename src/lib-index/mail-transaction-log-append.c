@@ -124,12 +124,11 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 	   if it crashes before doing that, we'll need to overwrite it with
 	   a dummy record */
 
-	if (file->mmap_base == NULL) {
+	if (file->mmap_base == NULL && file->buffer != NULL) {
 		/* we're reading from a file. avoid re-reading the data that
 		   we just wrote. this is also important for some NFS clients,
 		   which for some reason sometimes can't read() this data we
 		   just wrote in the same process */
-		i_assert(file->buffer != NULL);
 		i_assert(file->buffer_offset +
 			 file->buffer->used == file->sync_offset);
 		buffer_append(file->buffer, ctx->output->data,
