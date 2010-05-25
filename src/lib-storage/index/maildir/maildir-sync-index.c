@@ -601,7 +601,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		maildir_sync_mail_keywords(ctx, seq);
 	}
 	maildir_uidlist_iter_deinit(&iter);
-	mbox->syncing_commit = FALSE;
 
 	if (!partial) {
 		/* expunge the rest */
@@ -664,6 +663,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	}
 	array_free(&ctx->keywords);
 	array_free(&ctx->idx_keywords);
+	mbox->syncing_commit = FALSE;
 	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
 
