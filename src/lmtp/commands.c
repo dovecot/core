@@ -522,8 +522,8 @@ static struct istream *client_get_input(struct client *client)
 	struct client_state *state = &client->state;
 	struct istream *cinput, *inputs[3];
 
-	inputs[0] = i_stream_create_from_data(state->received_line,
-					      strlen(state->received_line));
+	inputs[0] = i_stream_create_from_data(state->added_headers,
+					      strlen(state->added_headers));
 
 	if (state->mail_data_output != NULL) {
 		o_stream_unref(&state->mail_data_output);
@@ -636,10 +636,21 @@ static void client_proxy_finish(bool timeout, void *context)
 	}
 }
 
-static const char *client_get_received_line(struct client *client)
+static const char *client_get_added_headers(struct client *client)
 {
 	string_t *str = t_str_new(200);
-	const char *host;
+	const char *host, *rcpt_to = NULL;
+
+	if (array_count(&client->state.rcpt_to) == 1) {
+		const struct mail_recipient *rcpt =
+			array_idx(&client->state.rcpt_to, 0);
+
+		rcpt_to = rcpt->address;
+	}
+
+	str_printfa(str, "Return-Path: <%s>\r\n", client->state.mail_from);
+	if (rcpt_to != NULL)
+		str_printfa(str, "Delivered-To: <%s>\r\n", rcpt_to);
 
 	str_printfa(str, "Received: from %s", client->state.lhlo);
 	if ((host = net_ip2addr(&client->remote_ip)) != NULL)
@@ -648,12 +659,8 @@ static const char *client_get_received_line(struct client *client)
 		    client->my_domain, client->state.session_id);
 
 	str_append(str, "\r\n\t");
-	if (array_count(&client->state.rcpt_to) == 1) {
-		const struct mail_recipient *rcpt =
-			array_idx(&client->state.rcpt_to, 0);
-
-		str_printfa(str, "for <%s>", rcpt->address);
-	}
+	if (rcpt_to != NULL)
+		str_printfa(str, "for <%s>", rcpt_to);
 	str_printfa(str, "; %s\r\n", message_date_create(ioloop_time));
 	return str_c(str);
 }
@@ -776,8 +783,8 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 		return 0;
 	}
 
-	client->state.received_line =
-		p_strdup(client->state_pool, client_get_received_line(client));
+	client->state.added_headers =
+		p_strdup(client->state_pool, client_get_added_headers(client));
 
 	i_assert(client->state.mail_data == NULL);
 	client->state.mail_data = buffer_create_dynamic(default_pool, 1024*64);
@@ -790,7 +797,7 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 	if (array_count(&client->state.rcpt_to) == 0) {
 		timeout_remove(&client->to_idle);
 		lmtp_proxy_start(client->proxy, client->dot_input,
-				 client->state.received_line,
+				 client->state.added_headers,
 				 client_proxy_finish, client);
 		i_stream_unref(&client->dot_input);
 	} else {

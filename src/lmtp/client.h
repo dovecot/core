@@ -25,7 +25,7 @@ struct client_state {
 	buffer_t *mail_data;
 	int mail_data_fd;
 	struct ostream *mail_data_output;
-	const char *received_line;
+	const char *added_headers;
 
 	struct mailbox *raw_box;
 	struct mailbox_transaction_context *raw_trans;
