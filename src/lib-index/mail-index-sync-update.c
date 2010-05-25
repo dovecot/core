@@ -959,12 +959,12 @@ int mail_index_sync_map(struct mail_index_map **_map,
 					    map->hdr.log_file_seq, start_offset,
 					    (uint32_t)-1, (uoff_t)-1, &reset);
 	if (ret <= 0) {
+		mail_index_view_close(&view);
 		if (force && ret == 0) {
 			/* the seq/offset is probably broken */
 			(void)mail_index_fsck(index);
 		}
 		/* can't use it. sync by re-reading index. */
-		mail_index_view_close(&view);
 		return 0;
 	}
 
