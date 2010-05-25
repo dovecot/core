@@ -5,6 +5,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "hostpid.h"
 #include "mountpoint.h"
 #include "quota-private.h"
 #include "quota-fs.h"
@@ -87,6 +88,17 @@ static struct quota_root *fs_quota_alloc(void)
 	return &root->root;
 }
 
+static const char *
+quota_fs_mail_user_get_temp_prefix(struct mail_user *user ATTR_UNUSED)
+{
+	/* when filesystem quota is used, temp files will decrease the user's
+	   quota if they're written under user's home. for example with lda
+	   large mails are also first written to this temp directory, so if it
+	   were in user's home, the user would always have two have twice
+	   as much space available as necessary. */
+	return t_strconcat("/tmp/dovecot.", my_pid, ".", NULL);
+}
+
 static int fs_quota_init(struct quota_root *_root, const char *args)
 {
 	struct fs_quota_root *root = (struct fs_quota_root *)_root;
@@ -112,6 +124,9 @@ static int fs_quota_init(struct quota_root *_root, const char *args)
 			return -1;
 		}
 	}
+
+	_root->quota->user->v.get_temp_prefix =
+		quota_fs_mail_user_get_temp_prefix;
 	return 0;
 }
 
