@@ -8,6 +8,7 @@ struct mail_user;
 
 struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
+	const char *(*get_temp_prefix)(struct mail_user *user);
 };
 
 struct mail_user {

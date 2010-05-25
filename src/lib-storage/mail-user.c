@@ -23,6 +23,8 @@
 struct mail_user_module_register mail_user_module_register = { 0 };
 struct auth_master_connection *mail_user_auth_master_conn;
 
+static const char *mail_user_get_temp_prefix_base(struct mail_user *user);
+
 static void mail_user_deinit_base(struct mail_user *user)
 {
 	mail_namespaces_deinit(&user->namespaces);
@@ -48,6 +50,7 @@ struct mail_user *mail_user_alloc(const char *username,
 	user->unexpanded_set = settings_dup(set_info, set, pool);
 	user->set = settings_dup(set_info, set, pool);
 	user->v.deinit = mail_user_deinit_base;
+	user->v.get_temp_prefix = mail_user_get_temp_prefix_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
 	return user;
 }
@@ -329,7 +332,7 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 	return 0;
 }
 
-const char *mail_user_get_temp_prefix(struct mail_user *user)
+static const char *mail_user_get_temp_prefix_base(struct mail_user *user)
 {
 	struct mail_namespace *ns;
 	const char *dir;
@@ -350,6 +353,11 @@ const char *mail_user_get_temp_prefix(struct mail_user *user)
 				    MAILBOX_LIST_PATH_TYPE_DIR);
 	return t_strconcat(dir, "/",
 			   mailbox_list_get_temp_prefix(ns->list), NULL);
+}
+
+const char *mail_user_get_temp_prefix(struct mail_user *user)
+{
+	return user->v.get_temp_prefix(user);
 }
 
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
