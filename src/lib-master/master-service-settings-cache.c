@@ -194,7 +194,7 @@ static void cache_add(struct master_service_settings_cache *cache,
 	if (!output->used_local) {
 		/* use global settings, but add local_ip/host to hash tables
 		   so we'll find them */
-		pool = pool_alloconly_create("settings global entry", 128);
+		pool = pool_alloconly_create("settings global entry", 256);
 		entry = p_new(pool, struct settings_entry, 1);
 	} else if (cache->cache_malloc_size >= cache->max_cache_size) {
 		/* free the oldest and reuse its pool */
