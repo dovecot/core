@@ -202,16 +202,6 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	}
 	i_assert(min_file_offset >= view->tail->hdr.hdr_size);
 
-	if (min_file_seq == view->head->hdr.file_seq &&
-	    min_file_offset > view->head->sync_offset) {
-		/* log file offset is probably corrupted in the index file. */
-		mail_transaction_log_view_set_corrupted(view,
-			"file_seq=%u, min_file_offset (%"PRIuUOFF_T
-			") > sync_offset (%"PRIuUOFF_T")", min_file_seq,
-			min_file_offset, view->head->sync_offset);
-		return -1;
-	}
-
 	/* we have all of them. update refcounts. */
 	mail_transaction_log_view_unref_all(view);
 
@@ -260,6 +250,16 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			}
 			i_assert(i == 1);
 		}
+	}
+
+	if (min_file_seq == view->head->hdr.file_seq &&
+	    min_file_offset > view->head->sync_offset) {
+		/* log file offset is probably corrupted in the index file. */
+		mail_transaction_log_view_set_corrupted(view,
+			"file_seq=%u, min_file_offset (%"PRIuUOFF_T
+			") > sync_offset (%"PRIuUOFF_T")", min_file_seq,
+			min_file_offset, view->head->sync_offset);
+		return -1;
 	}
 
 	i_assert(max_file_seq == (uint32_t)-1 ||
