@@ -75,9 +75,12 @@ int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 		mail_storage_set_error(&mbox->storage->storage,
 			MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 	} else {
+		const char *toobig_error = errno != EFBIG ? "" :
+			" (process was started with ulimit -f limit)";
 		mail_storage_set_critical(&mbox->storage->storage,
-					  "%s failed with mbox file %s: %m",
-					  function, mbox->box.path);
+					  "%s failed with mbox file %s: %m%s",
+					  function, mbox->box.path,
+					  toobig_error);
 	}
 	return -1;
 }
