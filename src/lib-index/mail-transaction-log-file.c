@@ -192,6 +192,7 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 			      struct mail_transaction_log_header *hdr)
 {
 	struct mail_index *index = log->index;
+	struct mail_transaction_log_file *file;
 
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->major_version = MAIL_TRANSACTION_LOG_MAJOR_VERSION;
@@ -226,6 +227,14 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	}
 
 	if (log->head != NULL) {
+		/* make sure the sequence always increases to avoid crashes
+		   later. this catches the buggy case where two processes
+		   happen to replace the same log file. */
+		for (file = log->head->next; file != NULL; file = file->next) {
+			if (hdr->file_seq <= file->hdr.file_seq)
+				hdr->file_seq = file->hdr.file_seq + 1;
+		}
+
 		if (hdr->file_seq <= log->head->hdr.file_seq) {
 			/* make sure the sequence grows */
 			hdr->file_seq = log->head->hdr.file_seq+1;

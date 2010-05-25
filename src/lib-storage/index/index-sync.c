@@ -37,8 +37,13 @@ void index_mailbox_set_recent_uid(struct mailbox *box, uint32_t uid)
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 
 	if (uid <= ibox->recent_flags_prev_uid) {
-		i_assert(seq_range_exists(&ibox->recent_flags, uid));
-		return;
+		if (seq_range_exists(&ibox->recent_flags, uid))
+			return;
+
+		mail_storage_set_critical(box->storage,
+			"Recent flags state corrupted for mailbox %s",
+			box->vname);
+		array_clear(&ibox->recent_flags);
 	}
 	ibox->recent_flags_prev_uid = uid;
 
