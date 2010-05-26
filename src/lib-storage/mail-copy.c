@@ -6,8 +6,9 @@
 #include "mail-copy.h"
 
 static int
-mail_storage_try_copy(struct mail_save_context *ctx, struct mail *mail)
+mail_storage_try_copy(struct mail_save_context **_ctx, struct mail *mail)
 {
+	struct mail_save_context *ctx = *_ctx;
 	struct mail_private *pmail = (struct mail_private *)mail;
 	struct istream *input;
 	const char *from_envelope, *guid;
@@ -41,7 +42,7 @@ mail_storage_try_copy(struct mail_save_context *ctx, struct mail *mail)
 			mailbox_save_set_guid(ctx, guid);
 	}
 
-	if (mailbox_save_begin(&ctx, input) < 0)
+	if (mailbox_save_begin(_ctx, input) < 0)
 		return -1;
 
 	do {
@@ -66,8 +67,9 @@ int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
 		mailbox_keywords_ref(ctx->transaction->box, ctx->keywords);
 	}
 
-	if (mail_storage_try_copy(ctx, mail) < 0) {
-		mailbox_save_cancel(&ctx);
+	if (mail_storage_try_copy(&ctx, mail) < 0) {
+		if (ctx != NULL)
+			mailbox_save_cancel(&ctx);
 		return -1;
 	}
 	return mailbox_save_finish(&ctx);
