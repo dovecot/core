@@ -31,7 +31,7 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 {
 	struct shared_storage *storage = (struct shared_storage *)_storage;
 	const char *driver, *p;
-	char *wildcardp;
+	char *wildcardp, key;
 	bool have_username;
 
 	/* location must begin with the actual mailbox driver */
@@ -61,11 +61,11 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	for (p = storage->ns_prefix_pattern; *p != '\0'; p++) {
 		if (*p != '%')
 			continue;
-		if (*++p == '\0')
-			break;
-		if (*p == 'u' || *p == 'n')
+
+		key = var_get_key(p + 1);
+		if (key == 'u' || key == 'n')
 			have_username = TRUE;
-		else if (*p != '%' && *p != 'd')
+		else if (key != '%' && key != 'd')
 			break;
 	}
 	if (*p != '\0') {
