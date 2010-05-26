@@ -292,17 +292,6 @@ zlib_mail_save_compress_begin(struct mail_save_context *ctx,
 	return 0;
 }
 
-static int zlib_mail_save_compress_finish(struct mail_save_context *ctx)
-{
-	struct mailbox *box = ctx->transaction->box;
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
-
-	/* a bit kludgy: zlib ostreams' offset is actually the
-	   uncompressed offset */
-	ctx->saved_physical_size = ctx->output->offset;
-	return zbox->super.save_finish(ctx);
-}
-
 static void zlib_permail_alloc_init(struct mailbox *box)
 {
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
@@ -316,7 +305,6 @@ static void zlib_permail_alloc_init(struct mailbox *box)
 		box->v.save_finish = zlib_mail_save_finish;
 	} else {
 		box->v.save_begin = zlib_mail_save_compress_begin;
-		box->v.save_finish = zlib_mail_save_compress_finish;
 	}
 }
 
