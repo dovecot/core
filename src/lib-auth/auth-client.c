@@ -47,6 +47,11 @@ bool auth_client_is_connected(struct auth_client *client)
 	return client->conn->handshake_received;
 }
 
+bool auth_client_is_disconnected(struct auth_client *client)
+{
+	return client->conn->fd == -1;
+}
+
 void auth_client_set_connect_notify(struct auth_client *client,
 				    auth_connect_notify_callback_t *callback,
 				    void *context)

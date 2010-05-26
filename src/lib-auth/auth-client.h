@@ -57,6 +57,7 @@ void auth_client_deinit(struct auth_client **client);
 void auth_client_connect(struct auth_client *client);
 void auth_client_disconnect(struct auth_client *client);
 bool auth_client_is_connected(struct auth_client *client);
+bool auth_client_is_disconnected(struct auth_client *client);
 void auth_client_set_connect_notify(struct auth_client *client,
 				    auth_connect_notify_callback_t *callback,
 				    void *context);
