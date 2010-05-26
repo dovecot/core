@@ -35,6 +35,8 @@ struct mysql_result {
 
 	MYSQL_FIELD *fields;
 	unsigned int fields_count;
+
+	my_ulonglong affected_rows;
 };
 
 struct mysql_transaction_context {
@@ -290,6 +292,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 		break;
 	case 1:
 		/* query ok */
+		result->affected_rows = mysql_affected_rows(db->mysql);
 		result->result = mysql_store_result(db->mysql);
 #ifdef CLIENT_MULTI_RESULTS
 		/* Because we've enabled CLIENT_MULTI_RESULTS, we need to read
@@ -463,26 +466,24 @@ static int
 transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
 		       unsigned int *affected_rows_r)
 {
-	struct sql_result *result;
-	my_ulonglong rows;
+	struct sql_result *_result;
 	int ret = 0;
 
 	if (ctx->failed)
 		return -1;
 
-	result = sql_query_s(ctx->ctx.db, query);
-	if (sql_result_next_row(result) < 0) {
-		ctx->error = sql_result_get_error(result);
+	_result = sql_query_s(ctx->ctx.db, query);
+	if (sql_result_next_row(_result) < 0) {
+		ctx->error = sql_result_get_error(_result);
 		ctx->failed = TRUE;
 		ret = -1;
 	} else if (affected_rows_r != NULL) {
-		struct mysql_db *db = (struct mysql_db *)result->db;
+		struct mysql_result *result = (struct mysql_result *)_result;
 
-		rows = mysql_affected_rows(db->mysql);
-		i_assert(rows != (my_ulonglong)-1);
-		*affected_rows_r = rows;
+		i_assert(result->affected_rows != (my_ulonglong)-1);
+		*affected_rows_r = result->affected_rows;
 	}
-	sql_result_unref(result);
+	sql_result_unref(_result);
 	return ret;
 }
 
