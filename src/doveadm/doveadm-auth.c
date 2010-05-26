@@ -137,7 +137,8 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 	client = auth_client_init(auth_socket_path, getpid(), FALSE);
 	auth_client_set_connect_notify(client, auth_connected, input);
 
-	io_loop_run(current_ioloop);
+	if (auth_client_is_connected(client))
+		io_loop_run(current_ioloop);
 
 	auth_client_set_connect_notify(client, NULL, NULL);
 	auth_client_deinit(&client);
