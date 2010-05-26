@@ -195,8 +195,10 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 
 	if (cmd == &doveadm_cmd_auth) {
 		input.username = argv[optind++];
-		input.password = argv[optind] != NULL ? argv[optind] :
+		input.password = argv[optind] != NULL ? argv[optind++] :
 			t_askpass("Password: ");
+		if (argv[optind] != NULL)
+			i_fatal("Unexpected parameter: %s", argv[optind]);
 		if (cmd_auth_input(auth_socket_path, &input) < 0)
 			exit(FATAL_DEFAULT);
 		if (!input.success)
