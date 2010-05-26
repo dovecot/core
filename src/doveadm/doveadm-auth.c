@@ -19,6 +19,7 @@ struct authtest_input {
 	const char *username;
 	const char *password;
 	struct auth_user_info info;
+	bool success;
 };
 
 static int
@@ -65,13 +66,14 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 	auth_master_deinit(&conn);
 	return ret == 0 ? 1 : 0;
 }
+
 static void
 auth_callback(struct auth_client_request *request ATTR_UNUSED,
 	      enum auth_request_status status,
 	      const char *data_base64 ATTR_UNUSED,
 	      const char *const *args, void *context)
 {
-	const struct authtest_input *input = context;
+	struct authtest_input *input = context;
 
 	if (!io_loop_is_running(current_ioloop))
 		return;
@@ -81,8 +83,10 @@ auth_callback(struct auth_client_request *request ATTR_UNUSED,
 
 	if (status < 0)
 		printf("passdb: %s auth failed\n", input->username);
-	else
+	else {
+		input->success = TRUE;
 		printf("passdb: %s auth succeeded\n", input->username);
+	}
 
 	if (*args != NULL) {
 		printf("extra fields:\n");
@@ -194,6 +198,8 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 		input.password = argv[optind] != NULL ? argv[optind] :
 			t_askpass("Password: ");
 		if (cmd_auth_input(auth_socket_path, &input) < 0)
+			exit(FATAL_DEFAULT);
+		if (!input.success)
 			exit(1);
 	} else {
 		bool first = TRUE;
