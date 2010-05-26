@@ -24,7 +24,7 @@ int dbox_save_continue(struct mail_save_context *_ctx);
 void dbox_save_end(struct dbox_save_context *ctx);
 
 void dbox_save_write_metadata(struct mail_save_context *ctx,
-			      struct ostream *output,
+			      struct ostream *output, uoff_t output_msg_size,
 			      const char *orig_mailbox_name,
 			      uint8_t guid_128_r[MAIL_GUID_128_SIZE]);
 

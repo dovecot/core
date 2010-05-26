@@ -168,7 +168,7 @@ static int mdbox_save_mail_write_metadata(struct mdbox_save_context *ctx,
 		mail->append_offset - mail->file_append->file->msg_header_size;
 
 	dbox_save_write_metadata(&ctx->ctx.ctx, ctx->ctx.dbox_output,
-				 ctx->mbox->box.name, guid_128);
+				 message_size, ctx->mbox->box.name, guid_128);
 	/* save the 128bit GUID to index so if the map index gets corrupted
 	   we can still find the message */
 	mail_index_update_ext(ctx->ctx.trans, ctx->ctx.seq,

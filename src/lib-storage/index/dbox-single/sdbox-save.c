@@ -116,7 +116,8 @@ static int dbox_save_mail_write_metadata(struct dbox_save_context *ctx,
 	message_size = ctx->dbox_output->offset -
 		file->msg_header_size - file->file_header_size;
 
-	dbox_save_write_metadata(&ctx->ctx, ctx->dbox_output, NULL, guid_128);
+	dbox_save_write_metadata(&ctx->ctx, ctx->dbox_output,
+				 message_size, NULL, guid_128);
 	dbox_msg_header_fill(&dbox_msg_hdr, message_size);
 	if (o_stream_pwrite(ctx->dbox_output, &dbox_msg_hdr,
 			    sizeof(dbox_msg_hdr),

@@ -103,11 +103,12 @@ void dbox_save_end(struct dbox_save_context *ctx)
 	ctx->ctx.output = dbox_output;
 }
 
-void dbox_save_write_metadata(struct mail_save_context *ctx,
-			      struct ostream *output,
+void dbox_save_write_metadata(struct mail_save_context *_ctx,
+			      struct ostream *output, uoff_t output_msg_size,
 			      const char *orig_mailbox_name,
 			      uint8_t guid_128[MAIL_GUID_128_SIZE])
 {
+	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct dbox_metadata_header metadata_hdr;
 	const char *guid;
 	string_t *str;
@@ -119,22 +120,26 @@ void dbox_save_write_metadata(struct mail_save_context *ctx,
 	o_stream_send(output, &metadata_hdr, sizeof(metadata_hdr));
 
 	str = t_str_new(256);
-	if (ctx->saved_physical_size != 0) {
+	if (output_msg_size != ctx->input->v_offset) {
+		/* a plugin changed the data written to disk, so the
+		   "message size" dbox header doesn't contain the actual
+		   "physical" message size. we need to save it as a
+		   separate metadata header. */
 		str_printfa(str, "%c%llx\n", DBOX_METADATA_PHYSICAL_SIZE,
-			    (unsigned long long)ctx->saved_physical_size);
+			    (unsigned long long)ctx->input->v_offset);
 	}
 	str_printfa(str, "%c%lx\n", DBOX_METADATA_RECEIVED_TIME,
-		    (unsigned long)ctx->received_date);
-	if (mail_get_virtual_size(ctx->dest_mail, &vsize) < 0)
+		    (unsigned long)_ctx->received_date);
+	if (mail_get_virtual_size(_ctx->dest_mail, &vsize) < 0)
 		i_unreached();
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
 		    (unsigned long long)vsize);
-	if (ctx->pop3_uidl != NULL) {
+	if (_ctx->pop3_uidl != NULL) {
 		str_printfa(str, "%c%s\n", DBOX_METADATA_POP3_UIDL,
-			    ctx->pop3_uidl);
+			    _ctx->pop3_uidl);
 	}
 
-	guid = ctx->guid;
+	guid = _ctx->guid;
 	if (guid != NULL)
 		mail_generate_guid_128_hash(guid, guid_128);
 	else {
