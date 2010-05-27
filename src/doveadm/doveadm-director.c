@@ -289,7 +289,7 @@ static void cmd_director_flush(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
-	  "[-a <director socket path>] [<username>]", NULL },
+	  "[-a <director socket path>] [<user>]", NULL },
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] <host> [<vhost count>]", NULL },
 	{ cmd_director_remove, "director remove",
