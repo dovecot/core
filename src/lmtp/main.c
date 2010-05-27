@@ -28,8 +28,9 @@
 const char *dns_client_socket_path;
 struct mail_storage_service_ctx *storage_service;
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
+	master_service_client_connection_accept(conn);
 	(void)client_create(conn->fd, conn->fd, conn);
 }
 

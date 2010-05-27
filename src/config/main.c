@@ -8,8 +8,9 @@
 #include "config-parser.h"
 #include "config-request.h"
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
+	master_service_client_connection_accept(conn);
 	config_connection_create(conn->fd);
 }
 

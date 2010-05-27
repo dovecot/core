@@ -67,7 +67,7 @@ usage(void)
 }
 
 static void
-dsync_connected(const struct master_service_connection *conn ATTR_UNUSED)
+dsync_connected(struct master_service_connection *conn ATTR_UNUSED)
 {
 	i_fatal("Running as service not supported currently");
 }

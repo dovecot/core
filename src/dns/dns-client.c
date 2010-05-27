@@ -115,13 +115,14 @@ static void dns_client_destroy(struct dns_client **_client)
 	master_service_client_connection_destroyed(master_service);
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
 	if (dns_client != NULL) {
 		i_error("dns-client must be configured with client_limit=1");
-		(void)close(conn->fd);
 		return;
 	}
+
+	master_service_client_connection_accept(conn);
 	dns_client = dns_client_create(conn->fd);
 }
 

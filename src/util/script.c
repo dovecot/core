@@ -22,7 +22,7 @@
 static const char **exec_args;
 static bool drop_privileges = FALSE;
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
 	enum mail_storage_service_flags flags =
 		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS;
@@ -53,8 +53,6 @@ static void client_connected(const struct master_service_connection *conn)
 			i_fatal("read() failed: %m");
 		else
 			i_fatal("read() failed: disconnected");
-		(void)close(conn->fd);
-		return;
 	}
 	if (fd == -1)
 		i_fatal("client fd not received");

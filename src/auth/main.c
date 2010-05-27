@@ -182,18 +182,18 @@ static void main_deinit(void)
 	pool_unref(&auth_set_pool);
 }
 
-static void worker_connected(const struct master_service_connection *conn)
+static void worker_connected(struct master_service_connection *conn)
 {
 	if (auth_worker_client != NULL) {
 		i_error("Auth workers can handle only a single client");
-		(void)close(conn->fd);
 		return;
 	}
 
+	master_service_client_connection_accept(conn);
 	(void)auth_worker_client_create(auth_find_service(NULL), conn->fd);
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
 	enum auth_socket_type *type;
 	const char *path, *name, *suffix;
@@ -245,6 +245,7 @@ static void client_connected(const struct master_service_connection *conn)
 	default:
 		i_unreached();
 	}
+	master_service_client_connection_accept(conn);
 }
 
 

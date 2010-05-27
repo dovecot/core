@@ -18,10 +18,11 @@ struct connect_limit *connect_limit;
 struct penalty *penalty;
 static struct io *log_fdpass_io;
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
 	bool master = conn->listen_fd == MASTER_LISTEN_FD_FIRST;
 
+	master_service_client_connection_accept(conn);
 	anvil_connection_create(conn->fd, master, conn->fifo);
 }
 

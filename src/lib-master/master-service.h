@@ -29,10 +29,12 @@ struct master_service_connection {
 
 	unsigned int fifo:1;
 	unsigned int ssl:1;
+
+	unsigned int accepted:1;
 };
 
 typedef void
-master_service_connection_callback_t(const struct master_service_connection *conn);
+master_service_connection_callback_t(struct master_service_connection *conn);
 
 extern struct master_service *master_service;
 
@@ -109,6 +111,8 @@ void master_service_stop_new_connections(struct master_service *service);
 
 /* Send command to anvil process, if we have fd to it. */
 void master_service_anvil_send(struct master_service *service, const char *cmd);
+/* Call to accept the client connection. Otherwise the connection is closed. */
+void master_service_client_connection_accept(struct master_service_connection *conn);
 /* Call whenever a client connection is destroyed. */
 void master_service_client_connection_destroyed(struct master_service *service);
 

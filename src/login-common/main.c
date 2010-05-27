@@ -206,11 +206,13 @@ static void client_input_error(struct login_access_lookup *lookup)
 	}
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
 	const char *access_sockets =
 		global_login_settings->login_access_sockets;
 	struct login_access_lookup *lookup;
+
+	master_service_client_connection_accept(conn);
 
 	/* make sure we're connected (or attempting to connect) to auth */
 	auth_client_connect(auth_client);

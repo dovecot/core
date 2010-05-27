@@ -276,12 +276,12 @@ static void login_client_failed(const struct master_login_client *client,
 	}
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
 	if (master_login == NULL) {
 		/* running standalone, we shouldn't even get here */
-		(void)close(conn->fd);
 	} else {
+		master_service_client_connection_accept(conn);
 		master_login_add(master_login, conn->fd);
 	}
 }

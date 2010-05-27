@@ -54,8 +54,9 @@ static void client_handle(int fd)
 	}
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
+	master_service_client_connection_accept(conn);
 	if (ssl_params->used == 0) {
 		/* waiting for parameter building to finish */
 		if (!array_is_created(&delayed_fds))

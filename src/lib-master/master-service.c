@@ -537,6 +537,11 @@ void master_service_anvil_send(struct master_service *service, const char *cmd)
 	}
 }
 
+void master_service_client_connection_accept(struct master_service_connection *conn)
+{
+	conn->accepted = TRUE;
+}
+
 void master_service_client_connection_destroyed(struct master_service *service)
 {
 	/* we can listen again */
@@ -711,6 +716,12 @@ static void master_service_listen(struct master_service_listener *l)
 	master_status_update(service);
 
 	service->callback(&conn);
+
+	if (!conn.accepted) {
+		if (close(conn.fd) < 0)
+			i_error("close(service connection) failed: %m");
+		master_service_client_connection_destroyed(service);
+	}
 }
 
 static void io_listeners_init(struct master_service *service)

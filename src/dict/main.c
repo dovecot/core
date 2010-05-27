@@ -20,8 +20,9 @@ static void dict_die(void)
 	/* hope that other processes relying on us will die first. */
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
+	master_service_client_connection_accept(conn);
 	dict_connection_create(conn->fd);
 }
 

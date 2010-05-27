@@ -28,8 +28,9 @@ static void main_deinit(void)
 	log_connections_deinit();
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
+	master_service_client_connection_accept(conn);
 	log_connection_create(conn->fd, conn->listen_fd);
 }
 

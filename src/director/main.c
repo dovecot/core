@@ -37,7 +37,7 @@ static int director_client_connected(int fd, const struct ip_addr *ip)
 	return 0;
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
 	struct auth_connection *auth;
 	const char *path, *name;
@@ -47,9 +47,9 @@ static void client_connected(const struct master_service_connection *conn)
 	if (conn->fifo) {
 		if (notify_conn != NULL) {
 			i_error("Received another proxy-notify connection");
-			(void)close(conn->fd);
 			return;
 		}
+		master_service_client_connection_accept(conn);
 		notify_conn = notify_connection_init(director, conn->fd);
 		return;
 	}
@@ -57,8 +57,8 @@ static void client_connected(const struct master_service_connection *conn)
 	if (net_getpeername(conn->fd, &ip, &port) == 0 &&
 	    (IPADDR_IS_V4(&ip) || IPADDR_IS_V6(&ip))) {
 		/* TCP/IP connection - this is another director */
-		if (director_client_connected(conn->fd, &ip) < 0)
-			(void)close(conn->fd);
+		if (director_client_connected(conn->fd, &ip) == 0)
+			master_service_client_connection_accept(conn);
 		return;
 	}
 
@@ -74,14 +74,15 @@ static void client_connected(const struct master_service_connection *conn)
 	len = strlen(name);
 	if (len > 6 && strcmp(name + len - 6, "-admin") == 0) {
 		/* doveadm connection */
+		master_service_client_connection_accept(conn);
 		(void)doveadm_connection_init(director, conn->fd);
 	} else {
 		/* login connection */
 		auth = auth_connection_init(auth_socket_path);
-		if (auth_connection_connect(auth) == 0)
+		if (auth_connection_connect(auth) == 0) {
+			master_service_client_connection_accept(conn);
 			login_connection_init(director, conn->fd, auth);
-		else {
-			(void)close(conn->fd);
+		} else {
 			auth_connection_deinit(&auth);
 		}
 	}

@@ -103,9 +103,10 @@ static void client_connected(const struct master_service_connection *conn)
 {
 	if (tcpwrap_client != NULL) {
 		i_error("tcpwrap must be configured with client_limit=1");
-		(void)close(conn->fd);
 		return;
 	}
+
+	master_service_client_connection_accept(conn);
 	tcpwrap_client = tcpwrap_client_create(conn->fd);
 }
 
