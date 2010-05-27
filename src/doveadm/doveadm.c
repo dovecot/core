@@ -188,13 +188,15 @@ static struct doveadm_cmd *doveadm_commands[] = {
 
 int main(int argc, char *argv[])
 {
-	const struct setting_parser_info *set_roots[] = {
+	static const struct setting_parser_info *set_roots[] = {
 		&doveadm_setting_parser_info,
 		NULL
 	};
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
+	struct master_service_settings_input input;
+	struct master_service_settings_output output;
 	const char *cmd_name, *error;
 	unsigned int i;
 	int c;
@@ -217,8 +219,12 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (master_service_settings_read_simple(master_service, set_roots,
-						&error) < 0)
+	memset(&input, 0, sizeof(input));
+	input.roots = set_roots;
+	input.module = "doveadm";
+	input.preserve_home = TRUE;
+	if (master_service_settings_read(master_service, &input,
+					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 	doveadm_settings = master_service_settings_get_others(master_service)[0];
 
