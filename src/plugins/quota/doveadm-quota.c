@@ -56,7 +56,7 @@ cmd_quota_get_alloc(void)
 	struct doveadm_mail_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
-	ctx->run = cmd_quota_get_run;
+	ctx->v.run = cmd_quota_get_run;
 	return ctx;
 }
 
@@ -82,7 +82,7 @@ cmd_quota_recalc_alloc(void)
 	struct doveadm_mail_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
-	ctx->run = cmd_quota_recalc_run;
+	ctx->v.run = cmd_quota_recalc_run;
 	return ctx;
 }
 
