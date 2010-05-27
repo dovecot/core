@@ -9,7 +9,7 @@
 #include "mail-namespace.h"
 #include "index-mail.h"
 #include "index-storage.h"
-#include "expire-env.h"
+#include "expire-set.h"
 #include "expire-plugin.h"
 
 #include <stdlib.h>
@@ -25,13 +25,11 @@ struct expire_mail_user {
 	union mail_user_module_context module_ctx;
 
 	struct dict *db;
-	struct expire_env *env;
+	struct expire_set *set;
 };
 
 struct expire_mailbox {
 	union mailbox_module_context module_ctx;
-	time_t expire_secs;
-	unsigned int altmove:1;
 };
 
 struct expire_transaction_context {
@@ -105,9 +103,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	bool update_dict = FALSE;
 	int ret;
 
-	if (xpr_box->altmove) {
-		/* only moving mails - don't update the move stamps */
-	} else if (xt->first_expunged) {
+	if (xt->first_expunged) {
 		/* first mail expunged. dict needs updating. */
 		first_nonexpunged_timestamp(t, &new_stamp);
 		update_dict = TRUE;
@@ -150,7 +146,6 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				/* everything expunged */
 				dict_unset(dctx, key);
 			} else {
-				new_stamp += xpr_box->expire_secs;
 				dict_set(dctx, key, dec2str(new_stamp));
 			}
 			dict_transaction_commit(&dctx);
@@ -227,8 +222,7 @@ expire_copy(struct mail_save_context *ctx, struct mail *mail)
 	return xpr_box->module_ctx.super.copy(ctx, mail);
 }
 
-static void
-mailbox_expire_hook(struct mailbox *box, time_t expire_secs, bool altmove)
+static void expire_mailbox_allocate_init(struct mailbox *box)
 {
 	struct expire_mailbox *xpr_box;
 
@@ -242,30 +236,7 @@ mailbox_expire_hook(struct mailbox *box, time_t expire_secs, bool altmove)
 	box->v.save_finish = expire_save_finish;
 	box->v.copy = expire_copy;
 
-	xpr_box->altmove = altmove;
-	xpr_box->expire_secs = expire_secs;
-
 	MODULE_CONTEXT_SET(box, expire_storage_module, xpr_box);
-}
-
-static void expire_mailbox_allocate_init(struct mailbox *box,
-					 struct expire_mail_user *euser)
-{
-	unsigned int secs;
-	bool altmove;
-
-	secs = expire_rule_find_min_secs(euser->env, box->vname, &altmove);
-	if (box->storage->user->mail_debug) {
-		if (secs == 0) {
-			i_debug("expire: No expiring in mailbox: %s",
-				box->vname);
-		} else {
-			i_debug("expire: Mails expire in %u secs in mailbox: "
-				"%s", secs, box->vname);
-		}
-	}
-	if (secs != 0)
-		mailbox_expire_hook(box, secs, altmove);
 }
 
 static void expire_mailbox_allocated(struct mailbox *box)
@@ -273,8 +244,8 @@ static void expire_mailbox_allocated(struct mailbox *box)
 	struct expire_mail_user *euser =
 		EXPIRE_USER_CONTEXT(box->storage->user);
 
-	if (euser != NULL)
-		expire_mailbox_allocate_init(box, euser);
+	if (euser != NULL && expire_set_lookup(euser->set, box->vname))
+		expire_mailbox_allocate_init(box);
 }
 
 static void expire_mail_user_deinit(struct mail_user *user)
@@ -282,22 +253,38 @@ static void expire_mail_user_deinit(struct mail_user *user)
 	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(user);
 
 	dict_deinit(&euser->db);
-	expire_env_deinit(&euser->env);
+	expire_set_deinit(&euser->set);
 
 	euser->module_ctx.super.deinit(user);
+}
+
+static const char *const *expire_get_patterns(struct mail_user *user)
+{
+	ARRAY_TYPE(const_string) patterns;
+	const char *str;
+	char set_name[20];
+	unsigned int i;
+
+	t_array_init(&patterns, 16);
+	str = mail_user_set_plugin_getenv(user->set, "expire");
+	for (i = 2; str != NULL; i++) {
+		array_append(&patterns, &str, 1);
+
+		i_snprintf(set_name, sizeof(set_name), "expire%u", i);
+		str = mail_user_set_plugin_getenv(user->set, set_name);
+	}
+	(void)array_append_space(&patterns);
+	return array_idx(&patterns, 0);
 }
 
 static void expire_mail_namespaces_created(struct mail_namespace *ns)
 {
 	struct mail_user *user = ns->user;
 	struct expire_mail_user *euser;
-	const char *dict_uri, *service_name;
+	const char *dict_uri;
 
-	service_name = master_service_get_name(master_service);
 	dict_uri = mail_user_plugin_getenv(user, "expire_dict");
-	if (strcmp(service_name, "expire-tool") == 0) {
-		/* expire-tool handles all of this internally */
-	} else if (mail_user_plugin_getenv(user, "expire") == NULL) {
+	if (mail_user_plugin_getenv(user, "expire") == NULL) {
 		if (user->mail_debug)
 			i_debug("expire: No expire setting - plugin disabled");
 	} else if (dict_uri == NULL) {
@@ -307,7 +294,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 		euser->module_ctx.super = user->v;
 		user->v.deinit = expire_mail_user_deinit;
 
-		euser->env = expire_env_init(ns);
+		euser->set = expire_set_init(expire_get_patterns(user));
 		/* we're using only shared dictionary, the username
 		   doesn't matter. */
 		euser->db = dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
