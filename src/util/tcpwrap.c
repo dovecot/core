@@ -99,7 +99,7 @@ static void tcpwrap_client_destroy(struct tcpwrap_client **_client)
 	master_service_client_connection_destroyed(master_service);
 }
 
-static void client_connected(const struct master_service_connection *conn)
+static void client_connected(struct master_service_connection *conn)
 {
 	if (tcpwrap_client != NULL) {
 		i_error("tcpwrap must be configured with client_limit=1");
