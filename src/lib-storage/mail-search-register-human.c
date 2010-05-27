@@ -35,6 +35,7 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 	const char *value, *error;
 	struct tm tm;
 	unsigned int secs;
+	unsigned long unixtime;
 
 	sarg = mail_search_build_new(ctx, type);
 	if (mail_search_parse_string(ctx->parser, &value) < 0)
@@ -42,7 +43,8 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 
 	/* a) yyyy-mm-dd
 	   b) imap date
-	   c) interval (e.g. n days) */
+	   c) unix timestamp
+	   d) interval (e.g. n days) */
 	if (i_isdigit(value[0]) && i_isdigit(value[1]) &&
 	    i_isdigit(value[2]) && i_isdigit(value[3]) && value[4] == '-' &&
 	    i_isdigit(value[5]) && i_isdigit(value[6]) && value[7] == '-' &&
@@ -55,6 +57,8 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 		sarg->value.time = mktime(&tm);
 	} else if (imap_parse_date(value, &sarg->value.time)) {
 		/* imap date */
+	} else if (str_to_ulong(value, &unixtime) == 0) {
+		sarg->value.time = unixtime;
 	} else if (settings_get_time(value, &secs, &error) == 0) {
 		sarg->value.time = ioloop_time - secs;
 	} else {
