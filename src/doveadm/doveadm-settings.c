@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "settings-parser.h"
+#include "mail-storage-settings.h"
 #include "doveadm-settings.h"
 
 #undef DEF
@@ -25,6 +26,11 @@ const struct doveadm_settings doveadm_default_settings = {
 	.plugin_envs = ARRAY_INIT
 };
 
+static const struct setting_parser_info *doveadm_setting_dependencies[] = {
+	&mail_user_setting_parser_info,
+	NULL
+};
+
 const struct setting_parser_info doveadm_setting_parser_info = {
 	.module_name = "doveadm",
 	.defines = doveadm_setting_defines,
@@ -33,7 +39,8 @@ const struct setting_parser_info doveadm_setting_parser_info = {
 	.type_offset = (size_t)-1,
 	.struct_size = sizeof(struct doveadm_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = (size_t)-1,
+	.dependencies = doveadm_setting_dependencies
 };
 
 const struct doveadm_settings *doveadm_settings;
