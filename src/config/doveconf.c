@@ -392,7 +392,7 @@ config_dump_human(const struct config_filter *filter, const char *module,
 }
 
 static int
-config_dump_one(const struct config_filter *filter,
+config_dump_one(const struct config_filter *filter, bool hide_key,
 		enum config_dump_scope scope, const char *setting_name_filter)
 {
 	static struct config_dump_human_context *ctx;
@@ -408,7 +408,12 @@ config_dump_one(const struct config_filter *filter,
 	array_foreach(&ctx->strings, str) {
 		if (strncmp(*str, setting_name_filter, len) == 0 &&
 		    (*str)[len] == '=') {
-			printf("%s\n", *str + len+1);
+			if (hide_key)
+				printf("%s\n", *str + len+1);
+			else {
+				printf("%s = %s\n", setting_name_filter,
+				       *str + len+1);
+			}
 			break;
 		}
 	}
@@ -491,12 +496,12 @@ int main(int argc, char *argv[])
 	const char *error, *setting_name_filter = NULL;
 	char **exec_args = NULL;
 	int c, ret, ret2;
-	bool config_path_specified, expand_vars = FALSE;
+	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
 
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "af:m:nNex");
+					     &argc, &argv, "af:hm:nNex");
 	orig_config_path = master_service_get_config_path(master_service);
 
 	i_set_failure_prefix("doveconf: ");
@@ -510,6 +515,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			filter_parse_arg(&filter, optarg);
+			break;
+		case 'h':
+			hide_key = TRUE;
 			break;
 		case 'm':
 			module = optarg;
@@ -559,7 +567,8 @@ int main(int argc, char *argv[])
 		i_fatal("%s", error);
 
 	if (setting_name_filter != NULL) {
-		ret2 = config_dump_one(&filter, scope, setting_name_filter);
+		ret2 = config_dump_one(&filter, hide_key, scope,
+				       setting_name_filter);
 	} else if (exec_args == NULL) {
 		const char *info;
 
