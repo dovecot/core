@@ -6,6 +6,7 @@
 #include "askpass.h"
 #include "base64.h"
 #include "str.h"
+#include "wildcard-match.h"
 #include "auth-client.h"
 #include "auth-master.h"
 #include "auth-server-connection.h"
@@ -168,11 +169,13 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 	}
 }
 
-static void cmd_user_list(const char *auth_socket_path)
+static void
+cmd_user_list(const char *auth_socket_path, char *const *users)
 {
 	struct auth_master_user_list_ctx *ctx;
 	struct auth_master_connection *conn;
 	const char *username;
+	unsigned int i;
 
 	if (auth_socket_path == NULL) {
 		auth_socket_path = t_strconcat(doveadm_settings->base_dir,
@@ -181,8 +184,14 @@ static void cmd_user_list(const char *auth_socket_path)
 
 	conn = auth_master_init(auth_socket_path, 0);
 	ctx = auth_master_user_list_init(conn);
-	while ((username = auth_master_user_list_next(ctx)) != NULL)
-		printf("%s\n", username);
+	while ((username = auth_master_user_list_next(ctx)) != NULL) {
+		for (i = 0; users[i] != NULL; i++) {
+			if (wildcard_match_icase(username, users[i]))
+				break;
+		}
+		if (users[i] != NULL)
+			printf("%s\n", username);
+	}
 	if (auth_master_user_list_deinit(&ctx) < 0) {
 		i_error("user listing failed");
 		exit(1);
@@ -195,6 +204,8 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 {
 	const char *auth_socket_path = NULL;
 	struct authtest_input input;
+	unsigned int i;
+	bool have_wildcards;
 	int c;
 
 	memset(&input, 0, sizeof(input));
@@ -213,10 +224,18 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 		}
 	}
 
-	if (cmd == &doveadm_cmd_auth) {
-		if (optind == argc)
-			help(cmd);
+	if (optind == argc)
+		help(cmd);
 
+	have_wildcards = FALSE;
+	for (i = optind; argv[i] != NULL; i++) {
+		if (strchr(argv[i], '*') != NULL) {
+			have_wildcards = TRUE;
+			break;
+		}
+	}
+
+	if (cmd == &doveadm_cmd_auth) {
 		input.username = argv[optind++];
 		input.password = argv[optind] != NULL ? argv[optind++] :
 			t_askpass("Password: ");
@@ -226,13 +245,10 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 			exit(FATAL_DEFAULT);
 		if (!input.success)
 			exit(1);
-	} else if (optind == argc) {
-		cmd_user_list(auth_socket_path);
+	} else if (have_wildcards) {
+		cmd_user_list(auth_socket_path, argv + optind);
 	} else {
 		bool first = TRUE;
-
-		if (optind == argc)
-			help(cmd);
 
 		while ((input.username = argv[optind++]) != NULL) {
 			if (first)
@@ -262,5 +278,5 @@ struct doveadm_cmd doveadm_cmd_auth = {
 
 struct doveadm_cmd doveadm_cmd_user = {
 	cmd_user, "user",
-	"[-a <userdb socket path>] [-x <auth info>] [<user> ...]", NULL
+	"[-a <userdb socket path>] [-x <auth info>] <user mask> [...]", NULL
 };
