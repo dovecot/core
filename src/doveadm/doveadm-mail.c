@@ -5,6 +5,7 @@
 #include "lib-signals.h"
 #include "ioloop.h"
 #include "module-dir.h"
+#include "wildcard-match.h"
 #include "master-service.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -235,6 +236,7 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 
 static void
 doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
+		       const char *wildcard_user,
 		       enum mail_storage_service_flags service_flags)
 {
 	struct mail_storage_service_input input;
@@ -262,6 +264,10 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	
 	user_idx = 0;
 	while ((ret = ctx->v.get_next_user(ctx, &user)) > 0) {
+		if (wildcard_user != NULL) {
+			if (!wildcard_match_icase(user, wildcard_user))
+				continue;
+		}
 		input.username = user;
 		T_BEGIN {
 			ret = doveadm_mail_next_user(ctx, &input, &error);
@@ -316,7 +322,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	enum mail_storage_service_flags service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
 	struct doveadm_mail_cmd_context *ctx;
-	const char *getopt_args, *username;
+	const char *getopt_args, *username, *wildcard_user;
 	bool all_users = FALSE;
 	int c;
 
@@ -335,6 +341,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	getopt_args = t_strconcat("Au:", ctx->getopt_args, NULL);
 	username = getenv("USER");
+	wildcard_user = NULL;
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'A':
@@ -344,6 +351,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			service_flags |=
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			username = optarg;
+			if (strchr(username, '*') != NULL)
+				wildcard_user = username;
 			break;
 		default:
 			if (ctx->v.parse_arg == NULL ||
@@ -360,11 +369,11 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	ctx->v.init(ctx, (const void *)argv);
 
-	if (!all_users) {
+	if (!all_users && wildcard_user == NULL) {
 		doveadm_mail_single_user(ctx, username, service_flags);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
-		doveadm_mail_all_users(ctx, service_flags);
+		doveadm_mail_all_users(ctx, wildcard_user, service_flags);
 	}
 	ctx->v.deinit(ctx);
 }
