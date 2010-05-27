@@ -383,6 +383,9 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 
+	/* new mail, new failure state */
+	ctx->failed = FALSE;
+
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
 		const char *fname = _ctx->guid;

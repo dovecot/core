@@ -57,6 +57,7 @@ sdbox_save_alloc(struct mailbox_transaction_context *t)
 
 	if (ctx != NULL) {
 		/* use the existing allocated structure */
+		ctx->ctx.failed = FALSE;
 		ctx->ctx.finished = FALSE;
 		return &ctx->ctx.ctx;
 	}

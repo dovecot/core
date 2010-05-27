@@ -81,6 +81,8 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	enum mail_flags save_flags;
 	struct istream *crlf_input;
 
+	ctx->failed = FALSE;
+
 	T_BEGIN {
 		const char *path;
 
