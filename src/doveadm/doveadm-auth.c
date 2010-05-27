@@ -168,6 +168,28 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 	}
 }
 
+static void cmd_user_list(const char *auth_socket_path)
+{
+	struct auth_master_user_list_ctx *ctx;
+	struct auth_master_connection *conn;
+	const char *username;
+
+	if (auth_socket_path == NULL) {
+		auth_socket_path = t_strconcat(doveadm_settings->base_dir,
+					       "/auth-userdb", NULL);
+	}
+
+	conn = auth_master_init(auth_socket_path, 0);
+	ctx = auth_master_user_list_init(conn);
+	while ((username = auth_master_user_list_next(ctx)) != NULL)
+		printf("%s\n", username);
+	if (auth_master_user_list_deinit(&ctx) < 0) {
+		i_error("user listing failed");
+		exit(1);
+	}
+	auth_master_deinit(&conn);
+}
+
 static void
 auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 {
@@ -190,10 +212,11 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 			help(cmd);
 		}
 	}
-	if (optind == argc)
-		help(cmd);
 
 	if (cmd == &doveadm_cmd_auth) {
+		if (optind == argc)
+			help(cmd);
+
 		input.username = argv[optind++];
 		input.password = argv[optind] != NULL ? argv[optind++] :
 			t_askpass("Password: ");
@@ -203,8 +226,13 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 			exit(FATAL_DEFAULT);
 		if (!input.success)
 			exit(1);
+	} else if (optind == argc) {
+		cmd_user_list(auth_socket_path);
 	} else {
 		bool first = TRUE;
+
+		if (optind == argc)
+			help(cmd);
 
 		while ((input.username = argv[optind++]) != NULL) {
 			if (first)
@@ -234,5 +262,5 @@ struct doveadm_cmd doveadm_cmd_auth = {
 
 struct doveadm_cmd doveadm_cmd_user = {
 	cmd_user, "user",
-	"[-a <userdb socket path>] [-x <auth info>] <user> [<user> ...]", NULL
+	"[-a <userdb socket path>] [-x <auth info>] [<user> ...]", NULL
 };
