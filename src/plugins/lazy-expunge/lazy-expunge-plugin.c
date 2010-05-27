@@ -493,6 +493,9 @@ static void lazy_expunge_mail_namespace_storage_added(struct mail_namespace *ns)
 	const char *const *p;
 	unsigned int i;
 
+	if (luser == NULL)
+		return;
+
 	/* if this is one of our internal namespaces, mark it as such before
 	   quota plugin sees it */
 	p = t_strsplit_spaces(luser->env, " ");
