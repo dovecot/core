@@ -5,6 +5,8 @@ struct doveadm_settings {
 	const char *base_dir;
 	const char *mail_plugins;
 	const char *mail_plugin_dir;
+
+	ARRAY_DEFINE(plugin_envs, const char *);
 };
 
 extern const struct setting_parser_info doveadm_setting_parser_info;

@@ -57,6 +57,22 @@ const char *unixdate2str(time_t timestamp)
 	return buf;
 }
 
+const char *doveadm_plugin_getenv(const char *name)
+{
+	const char *const *envs;
+	unsigned int i, count;
+
+	if (!array_is_created(&doveadm_settings->plugin_envs))
+		return NULL;
+
+	envs = array_get(&doveadm_settings->plugin_envs, &count);
+	for (i = 0; i < count; i += 2) {
+		if (strcmp(envs[i], name) == 0)
+			return envs[i+1];
+	}
+	return NULL;
+}
+
 static void cmd_help(int argc, char *argv[])
 {
 	const struct doveadm_cmd *cmd;

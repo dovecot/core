@@ -9,11 +9,6 @@
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
-struct expunge_cmd_context {
-	struct doveadm_mail_cmd_context ctx;
-	struct mail_search_args *search_args;
-};
-
 static int
 cmd_expunge_box(const struct mailbox_info *info,
 		struct mail_search_args *search_args)
@@ -167,9 +162,8 @@ expunge_search_args_is_msgset_ok(struct mail_search_arg *args)
 }
 
 static void
-cmd_expunge_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
+cmd_expunge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
-	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_VIRTUAL_NAMES |
@@ -195,11 +189,9 @@ cmd_expunge_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	doveadm_mail_list_iter_deinit(&iter);
 }
 
-static void cmd_expunge_init(struct doveadm_mail_cmd_context *_ctx,
+static void cmd_expunge_init(struct doveadm_mail_cmd_context *ctx,
 			     const char *const args[])
 {
-	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
-
 	if (args[0] == NULL)
 		doveadm_mail_help_name("expunge");
 
@@ -209,12 +201,12 @@ static void cmd_expunge_init(struct doveadm_mail_cmd_context *_ctx,
 
 static struct doveadm_mail_cmd_context *cmd_expunge_alloc(void)
 {
-	struct expunge_cmd_context *ctx;
+	struct doveadm_mail_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_alloc(struct expunge_cmd_context);
-	ctx->ctx.init = cmd_expunge_init;
-	ctx->ctx.run = cmd_expunge_run;
-	return &ctx->ctx;
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
+	ctx->v.init = cmd_expunge_init;
+	ctx->v.run = cmd_expunge_run;
+	return ctx;
 }
 
 struct doveadm_mail_cmd cmd_expunge = {

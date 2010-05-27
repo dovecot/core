@@ -9,11 +9,6 @@
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
-struct altmove_cmd_context {
-	struct doveadm_mail_cmd_context ctx;
-	struct mail_search_args *search_args;
-};
-
 static int
 cmd_altmove_box(const struct mailbox_info *info,
 		struct mail_search_args *search_args)
@@ -47,9 +42,8 @@ static void ns_purge(struct mail_namespace *ns)
 }
 
 static void
-cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
+cmd_altmove_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
-	struct altmove_cmd_context *ctx = (struct altmove_cmd_context *)_ctx;
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_VIRTUAL_NAMES |
@@ -94,11 +88,9 @@ cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 }
 
-static void cmd_altmove_init(struct doveadm_mail_cmd_context *_ctx,
+static void cmd_altmove_init(struct doveadm_mail_cmd_context *ctx,
 			     const char *const args[])
 {
-	struct altmove_cmd_context *ctx = (struct altmove_cmd_context *)_ctx;
-
 	if (args[0] == NULL)
 		doveadm_mail_help_name("altmove");
 	ctx->search_args = doveadm_mail_build_search_args(args);
@@ -106,12 +98,12 @@ static void cmd_altmove_init(struct doveadm_mail_cmd_context *_ctx,
 
 static struct doveadm_mail_cmd_context *cmd_altmove_alloc(void)
 {
-	struct altmove_cmd_context *ctx;
+	struct doveadm_mail_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_alloc(struct altmove_cmd_context);
-	ctx->ctx.init = cmd_altmove_init;
-	ctx->ctx.run = cmd_altmove_run;
-	return &ctx->ctx;
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
+	ctx->v.init = cmd_altmove_init;
+	ctx->v.run = cmd_altmove_run;
+	return ctx;
 }
 
 struct doveadm_mail_cmd cmd_altmove = {

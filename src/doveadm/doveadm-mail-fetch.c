@@ -20,7 +20,6 @@
 struct fetch_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
-	struct mail_search_args *search_args;
 	struct ostream *output;
 	struct mail *mail;
 
@@ -383,7 +382,8 @@ cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 	struct mail *mail;
 	struct mailbox_header_lookup_ctx *headers = NULL;
 
-	if (doveadm_mail_iter_init(info, ctx->search_args, &trans, &iter) < 0)
+	if (doveadm_mail_iter_init(info, ctx->ctx.search_args,
+				   &trans, &iter) < 0)
 		return -1;
 
 	if (array_count(&ctx->header_fields) > 1) {
@@ -445,7 +445,7 @@ cmd_fetch_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	struct doveadm_mail_list_iter *iter;
 	const struct mailbox_info *info;
 
-	iter = doveadm_mail_list_iter_init(user, ctx->search_args, iter_flags);
+	iter = doveadm_mail_list_iter_init(user, _ctx->search_args, iter_flags);
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
 		(void)cmd_fetch_box(ctx, info);
 	} T_END;
@@ -471,11 +471,11 @@ static void cmd_fetch_init(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_mail_help_name("fetch");
 
 	parse_fetch_fields(ctx, fetch_fields);
-	ctx->search_args = doveadm_mail_build_search_args(args + 1);
+	_ctx->search_args = doveadm_mail_build_search_args(args + 1);
 
 	ctx->output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
 	ctx->hdr = str_new(default_pool, 512);
-	if (search_args_have_unique_fetch(ctx->search_args))
+	if (search_args_have_unique_fetch(_ctx->search_args))
 		ctx->prefix = "";
 	else {
 		random_fill_weak(prefix_buf, sizeof(prefix_buf));
@@ -492,9 +492,9 @@ static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)
 	struct fetch_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct fetch_cmd_context);
-	ctx->ctx.init = cmd_fetch_init;
-	ctx->ctx.run = cmd_fetch_run;
-	ctx->ctx.deinit = cmd_fetch_deinit;
+	ctx->ctx.v.init = cmd_fetch_init;
+	ctx->ctx.v.run = cmd_fetch_run;
+	ctx->ctx.v.deinit = cmd_fetch_deinit;
 	return &ctx->ctx;
 }
 

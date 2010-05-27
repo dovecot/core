@@ -12,6 +12,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, base_dir),
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
+	{ SET_STRLIST, "plugin", offsetof(struct doveadm_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -19,7 +20,9 @@ static const struct setting_define doveadm_setting_defines[] = {
 const struct doveadm_settings doveadm_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.mail_plugins = "",
-	.mail_plugin_dir = MODULEDIR
+	.mail_plugin_dir = MODULEDIR,
+
+	.plugin_envs = ARRAY_INIT
 };
 
 const struct setting_parser_info doveadm_setting_parser_info = {

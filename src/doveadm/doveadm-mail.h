@@ -2,20 +2,44 @@
 #define DOVEADM_MAIL_H
 
 #include "doveadm.h"
+#include "module-context.h"
 
 struct mail_user;
+struct mail_storage_service_ctx;
+struct mail_storage_service_input;
+struct mail_storage_service_user;
 struct doveadm_mail_cmd_context;
+
+struct doveadm_mail_cmd_vfuncs {
+	bool (*parse_arg)(struct doveadm_mail_cmd_context *ctx,int c);
+	void (*init)(struct doveadm_mail_cmd_context *ctx,
+		     const char *const args[]);
+	int (*get_next_user)(struct doveadm_mail_cmd_context *ctx,
+			     const char **username_r);
+	void (*run)(struct doveadm_mail_cmd_context *ctx,
+		    struct mail_user *mail_user);
+	void (*deinit)(struct doveadm_mail_cmd_context *ctx);
+};
+
+struct doveadm_mail_cmd_module_register {
+	unsigned int id;
+};
+
+union doveadm_mail_cmd_module_context {
+        struct doveadm_mail_cmd_vfuncs super;
+	struct doveadm_mail_cmd_module_register *reg;
+};
 
 struct doveadm_mail_cmd_context {
 	pool_t pool;
 	const char *getopt_args;
+	struct mail_storage_service_ctx *storage_service;
+	/* search args aren't set for all mail commands */
+	struct mail_search_args *search_args;
 
-	bool (*parse_arg)(struct doveadm_mail_cmd_context *ctx,int c);
-	void (*init)(struct doveadm_mail_cmd_context *ctx,
-		     const char *const args[]);
-	void (*run)(struct doveadm_mail_cmd_context *ctx,
-		    struct mail_user *mail_user);
-	void (*deinit)(struct doveadm_mail_cmd_context *ctx);
+	struct doveadm_mail_cmd_vfuncs v;
+
+	ARRAY_DEFINE(module_contexts, union doveadm_mail_cmd_module_context *);
 };
 
 struct doveadm_mail_cmd {
@@ -26,6 +50,8 @@ struct doveadm_mail_cmd {
 ARRAY_DEFINE_TYPE(doveadm_mail_cmd, struct doveadm_mail_cmd);
 
 extern ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
+extern void (*hook_doveadm_mail_init)(struct doveadm_mail_cmd_context *ctx);
+extern struct doveadm_mail_cmd_module_register doveadm_mail_cmd_module_register;
 
 bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[]);
 void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd);

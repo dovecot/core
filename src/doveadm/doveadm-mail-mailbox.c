@@ -96,7 +96,7 @@ doveadm_mailbox_cmd_alloc_size(size_t size)
 
 	ctx = doveadm_mail_cmd_alloc_size(size);
 	ctx->getopt_args = "78s";
-	ctx->parse_arg = cmd_mailbox_parse_arg;
+	ctx->v.parse_arg = cmd_mailbox_parse_arg;
 	return ctx;
 }
 
@@ -166,8 +166,8 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_list_alloc(void)
 	struct list_cmd_context *ctx;
 
 	ctx = doveadm_mailbox_cmd_alloc(struct list_cmd_context);
-	ctx->ctx.ctx.init = cmd_mailbox_list_init;
-	ctx->ctx.ctx.run = cmd_mailbox_list_run;
+	ctx->ctx.ctx.v.init = cmd_mailbox_list_init;
+	ctx->ctx.ctx.v.run = cmd_mailbox_list_run;
 	return &ctx->ctx.ctx;
 }
 
@@ -235,8 +235,8 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_create_alloc(void)
 	struct mailbox_cmd_context *ctx;
 
 	ctx = doveadm_mailbox_cmd_alloc(struct mailbox_cmd_context);
-	ctx->ctx.ctx.init = cmd_mailbox_create_init;
-	ctx->ctx.ctx.run = cmd_mailbox_create_run;
+	ctx->ctx.ctx.v.init = cmd_mailbox_create_init;
+	ctx->ctx.ctx.v.run = cmd_mailbox_create_run;
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
@@ -297,8 +297,8 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_delete_alloc(void)
 	struct mailbox_cmd_context *ctx;
 
 	ctx = doveadm_mailbox_cmd_alloc(struct mailbox_cmd_context);
-	ctx->ctx.ctx.init = cmd_mailbox_delete_init;
-	ctx->ctx.ctx.run = cmd_mailbox_delete_run;
+	ctx->ctx.ctx.v.init = cmd_mailbox_delete_init;
+	ctx->ctx.ctx.v.run = cmd_mailbox_delete_run;
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
@@ -361,8 +361,8 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_rename_alloc(void)
 	struct rename_cmd_context *ctx;
 
 	ctx = doveadm_mailbox_cmd_alloc(struct rename_cmd_context);
-	ctx->ctx.ctx.init = cmd_mailbox_rename_init;
-	ctx->ctx.ctx.run = cmd_mailbox_rename_run;
+	ctx->ctx.ctx.v.init = cmd_mailbox_rename_init;
+	ctx->ctx.ctx.v.run = cmd_mailbox_rename_run;
 	return &ctx->ctx.ctx;
 }
 
@@ -423,9 +423,9 @@ cmd_mailbox_subscriptions_alloc(bool subscriptions)
 	ctx->ctx.subscriptions = subscriptions;
 
 	ctx->ctx.ctx.getopt_args = "78";
-	ctx->ctx.ctx.parse_arg = cmd_mailbox_parse_arg;
-	ctx->ctx.ctx.init = cmd_mailbox_subscribe_init;
-	ctx->ctx.ctx.run = cmd_mailbox_subscribe_run;
+	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_parse_arg;
+	ctx->ctx.ctx.v.init = cmd_mailbox_subscribe_init;
+	ctx->ctx.ctx.v.run = cmd_mailbox_subscribe_run;
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
