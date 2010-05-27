@@ -427,6 +427,11 @@ void services_monitor_reap_children(void)
 		}
 		if (service->type == SERVICE_TYPE_ANVIL)
 			service_anvil_process_destroyed(process);
+
+		/* if we're reloading, we may get here with a service list
+		   that's going to be destroyed after this process is
+		   destroyed. keep the list referenced until we're done. */
+		service_list_ref(service->list);
 		service_process_destroy(process);
 
 		if (throttle)
@@ -437,5 +442,6 @@ void services_monitor_reap_children(void)
 			if (service->to_throttle == NULL)
 				service_monitor_listen_start(service);
 		}
+		service_list_unref(service->list);
 	}
 }
