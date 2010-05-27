@@ -1,16 +1,14 @@
- - dovecot --version broken in openbsd/solaris
+ - director:
+    - user list iter should skip expired records
+    - sequence stuff is unused..
+ - doveadm expunge mailbox blah <- mutf7/utf8?
+     - doveadm forceresync same...
+     - always use utf8?..
+ - "dovecot stuff" should run "doveadm stuff"?
+
  - mdbox+dotlocking: cleanup should delete stale *.lock files
  - +|- before numbers? quota_rule2 = Trash:storage=+100M messages=+10
-
-#0  mail_thread_cache_sync_remove (box=<value optimized out>, 
-    args=<value optimized out>, ctx_r=<value optimized out>)
-    at index-thread.c:486
-#1  mail_thread_init (box=<value optimized out>, args=<value optimized out>, 
-    ctx_r=<value optimized out>) at index-thread.c:570
-#2  0x000000000042a3dc in imap_thread (cmd=0x11d8f70) at cmd-thread.c:89
-#3  cmd_thread (cmd=0x11d8f70) at cmd-thread.c:136
-#4  0x000000000042b33d in client_command_input (cmd=0x11d8f70)
-    at imap-client.c:646
+ - SEARCH SENT*/HEADER/etc. doesn't seem optimized when using with TEXT/BODY
 
 07:00 < Faxe> Info: dovecot: uidnext changed from -> to, has the wrong 
               variables assigned:
@@ -19,11 +17,6 @@
 07:00 < Faxe> Info: dovecot: uidnext changed 81529 -> 81528
   - same for highestmodseq, ~/m/dsync-v_mirror.txt
 
- - doveadm help "mailbox rename"
- - doveadm mailbox * [-7|-8] to specify if mailbox name mutf7/utf8
-     - default to utf8
-     - create -s to subscribe also
- - doveadm mailbox convert [-7|-8] to convert mailbox name between mutf7/utf8
  - doveadm import [-t storage] <dest mailbox> file|dir|-
 
  - ns {prefix=, inbox=no}, ns { mbox, inbox=yes } -> INBOX shows up
@@ -37,8 +30,6 @@
 
  - mdbox: existing INBOX dir in alt_path -> can't create INBOX. 
    do storage rebuild instead
- - change default dovecot_login_user to something else than "dovecot"
-    - dovein, doveless, dovenull?
  - single-dbox:
     - we get back to sdbox_sync_file() over and over again when expunging..
       especially with a broken guid expunge, it doesn't go away.
