@@ -42,6 +42,7 @@ sdbox_save_file_get_file(struct mailbox_transaction_context *t, uint32_t seq)
 
 	files = array_get(&ctx->files, &count);
 	i_assert(count > 0);
+	i_assert(seq - ctx->first_saved_seq < count);
 
 	return files[seq - ctx->first_saved_seq];
 }
@@ -75,6 +76,8 @@ void sdbox_save_add_file(struct mail_save_context *_ctx, struct dbox_file *file)
 {
 	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
 
+	if (ctx->first_saved_seq == 0)
+		ctx->first_saved_seq = ctx->ctx.seq;
 	array_append(&ctx->files, &file, 1);
 }
 
@@ -97,9 +100,6 @@ int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	}
 	ctx->ctx.cur_file = file;
 	dbox_save_begin(&ctx->ctx, input);
-
-	if (ctx->first_saved_seq == 0)
-		ctx->first_saved_seq = ctx->ctx.seq;
 
 	sdbox_save_add_file(_ctx, file);
 	return ctx->ctx.failed ? -1 : 0;
