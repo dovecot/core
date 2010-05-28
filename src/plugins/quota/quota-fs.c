@@ -279,6 +279,7 @@ static void fs_quota_namespace_added(struct quota *quota,
 			i_debug("fs quota add mailbox dir = %s", dir);
 			i_debug("fs quota block device = %s", mount->device_path);
 			i_debug("fs quota mount point = %s", mount->mount_path);
+			i_debug("fs quota mount type = %s", mount->type);
 		}
 
 		root = fs_quota_root_find_mountpoint(quota, mount);
