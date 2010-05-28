@@ -435,7 +435,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_unsubscribe_alloc(void)
 	return cmd_mailbox_subscriptions_alloc(FALSE);
 }
 
-static void cmd_mailbox_convert(int argc, char *argv[])
+static void cmd_mailbox_mutf7(int argc, char *argv[])
 {
 	string_t *str;
 	bool from_utf8;
@@ -452,13 +452,13 @@ static void cmd_mailbox_convert(int argc, char *argv[])
 			from_utf8 = TRUE;
 			break;
 		default:
-			help(&doveadm_cmd_mailbox_convert);
+			help(&doveadm_cmd_mailbox_mutf7);
 		}
 	}
 	argv += optind;
 
 	if (argv[0] == NULL)
-		help(&doveadm_cmd_mailbox_convert);
+		help(&doveadm_cmd_mailbox_mutf7);
 
 	str = t_str_new(128);
 	for (i = 0; argv[i] != NULL; i++) {
@@ -502,7 +502,7 @@ struct doveadm_mail_cmd cmd_mailbox_unsubscribe = {
 	cmd_mailbox_unsubscribe_alloc, "mailbox unsubscribe",
 	"<mailbox> [...]"
 };
-struct doveadm_cmd doveadm_cmd_mailbox_convert = {
-	cmd_mailbox_convert, "mailbox convert",
+struct doveadm_cmd doveadm_cmd_mailbox_mutf7 = {
+	cmd_mailbox_mutf7, "mailbox mutf7",
 	"[-7|-8] <name> [...]", NULL
 };
