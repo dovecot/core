@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "str.h"
+#include "imap-utf7.h"
 #include "settings-parser.h"
 #include "imap-date.h"
 #include "mail-search-register.h"
@@ -132,7 +134,19 @@ human_search_guid(struct mail_search_build_context *ctx)
 static struct mail_search_arg *
 human_search_mailbox(struct mail_search_build_context *ctx)
 {
-	return mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
+	struct mail_search_arg *sarg;
+
+	sarg = mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
+	T_BEGIN {
+		string_t *str = t_str_new(128);
+
+		if (imap_utf8_to_utf7(sarg->value.str, str) < 0) {
+			str_truncate(str, 0);
+			str_append(str, sarg->value.str);
+		}
+		sarg->value.str = p_strdup(ctx->pool, str_c(str));
+	} T_END;
+	return sarg;
 }
 
 static struct mail_search_arg *
