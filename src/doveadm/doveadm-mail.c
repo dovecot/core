@@ -79,8 +79,9 @@ mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 	const char *orig_mailbox = mailbox;
 
 	str = t_str_new(128);
-	if (imap_utf8_to_utf7(mailbox, str) == 0)
-		mailbox = str_c(str);
+	if (imap_utf8_to_utf7(mailbox, str) < 0)
+		i_fatal("Mailbox name not valid UTF-8: %s", mailbox);
+	mailbox = str_c(str);
 
 	ns = mail_namespace_find(user->namespaces, &mailbox);
 	if (ns == NULL)
