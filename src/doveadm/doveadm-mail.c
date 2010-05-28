@@ -359,7 +359,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			service_flags |=
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			username = optarg;
-			if (strchr(username, '*') != NULL)
+			if (strchr(username, '*') != NULL ||
+			    strchr(username, '?') != NULL)
 				wildcard_user = username;
 			break;
 		default:

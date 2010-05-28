@@ -229,7 +229,8 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 
 	have_wildcards = FALSE;
 	for (i = optind; argv[i] != NULL; i++) {
-		if (strchr(argv[i], '*') != NULL) {
+		if (strchr(argv[i], '*') != NULL ||
+		    strchr(argv[i], '?') != NULL) {
 			have_wildcards = TRUE;
 			break;
 		}
