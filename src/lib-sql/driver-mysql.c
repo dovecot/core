@@ -203,6 +203,8 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 
+	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
+
 	mysql_close(db->mysql);
 	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);

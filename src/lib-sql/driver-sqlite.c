@@ -88,6 +88,8 @@ static void driver_sqlite_deinit_v(struct sql_db *_db)
 {
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 
+	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
+
 	sqlite3_close(db->sqlite);
 	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);
