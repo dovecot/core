@@ -246,34 +246,6 @@ static void pid_file_check_running(const char *path)
 		"(read from %s)", dec2str(pid), path);
 }
 
-static void send_master_signal(int signo)
-{
-	unsigned int i;
-	pid_t pid;
-
-	if (!pid_file_read(pidfile_path, &pid)) {
-		i_fatal("Dovecot is not running (read from %s)", pidfile_path);
-		return;
-	}
-
-	if (kill(pid, signo) < 0)
-		i_fatal("kill(%s, %d) failed: %m", dec2str(pid), signo);
-
-	if (signo == SIGTERM) {
-		/* wait for a while for the process to die */
-		usleep(1000);
-		for (i = 0; i < 30; i++) {
-			if (kill(pid, 0) < 0) {
-				if (errno != ESRCH)
-					i_error("kill() failed: %m");
-				break;
-			}
-			usleep(100000);
-		}
-	}
-	exit(0);
-}
-
 static void create_pid_file(const char *path)
 {
 	const char *pid;
@@ -515,7 +487,7 @@ static void print_help(void)
 {
 	fprintf(stderr,
 "Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a] [--help] [--version]\n"
-"       [--build-options] [--log-error] [reload] [stop]\n");
+"       [--build-options] [--log-error]\n");
 }
 
 static void print_build_options(void)
@@ -636,7 +608,8 @@ int main(int argc, char *argv[])
 	const char *error, *env_tz, *doveconf_arg = NULL;
 	failure_callback_t *orig_info_callback, *orig_debug_callback;
 	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
-	int i, c, send_signal = 0;
+	bool doubleopts[argc];
+	int i, c;
 
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)
@@ -644,12 +617,16 @@ int main(int argc, char *argv[])
 	else
 		child_process_env[child_process_env_idx++] = "GDB=1";
 #endif
-	/* drop -- prefix from all --args */
+	/* drop -- prefix from all --args. ugly, but the only way that it
+	   works with standard getopt() in all OSes.. */
 	for (i = 1; i < argc; i++) {
 		if (strncmp(argv[i], "--", 2) == 0) {
 			if (argv[i][2] == '\0')
 				break;
 			argv[i] += 2;
+			doubleopts[i] = TRUE;
+		} else {
+			doubleopts[i] = FALSE;
 		}
 	}
 	master_service = master_service_init(MASTER_SERVICE_NAME,
@@ -701,6 +678,12 @@ int main(int argc, char *argv[])
 	}
 
 	while (optind < argc) {
+		if (!doubleopts[optind]) {
+			/* dovecot xx -> doveadm xx */
+			(void)execv(BINDIR"/doveadm", argv);
+			i_fatal("execv("BINDIR"/doveadm) failed: %m");
+		}
+
 		if (strcmp(argv[optind], "version") == 0) {
 			printf("%s\n", DOVECOT_VERSION_FULL);
 			return 0;
@@ -713,13 +696,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[optind], "help") == 0) {
 			print_help();
 			return 0;
-		} else if (strcmp(argv[optind], "reload") == 0) {
-			send_signal = SIGHUP;
-		} else if (strcmp(argv[optind], "stop") == 0) {
-			send_signal = SIGTERM;
 		} else {
 			print_help();
-			i_fatal("Unknown argument: %s", argv[optind]);
+			i_fatal("Unknown argument: --%s", argv[optind]);
 		}
 		optind++;
 	}
@@ -744,8 +723,6 @@ int main(int argc, char *argv[])
 
 	pidfile_path =
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
-	if (send_signal != 0)
-		send_master_signal(send_signal);
 
 	master_service_init_log(master_service, "master: ");
 	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
