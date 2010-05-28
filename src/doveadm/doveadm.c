@@ -176,6 +176,8 @@ static void doveadm_load_modules(void)
 
 static struct doveadm_cmd *doveadm_commands[] = {
 	&doveadm_cmd_help,
+	&doveadm_cmd_stop,
+	&doveadm_cmd_reload,
 	&doveadm_cmd_auth,
 	&doveadm_cmd_user,
 	&doveadm_cmd_dump,

@@ -14,6 +14,8 @@ struct doveadm_cmd {
 	const char *long_usage;
 };
 
+extern struct doveadm_cmd doveadm_cmd_stop;
+extern struct doveadm_cmd doveadm_cmd_reload;
 extern struct doveadm_cmd doveadm_cmd_auth;
 extern struct doveadm_cmd doveadm_cmd_user;
 extern struct doveadm_cmd doveadm_cmd_dump;

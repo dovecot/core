@@ -52,6 +52,7 @@ doveadm_SOURCES = \
 	doveadm-dump-mailboxlog.c \
 	doveadm-dump-thread.c \
 	doveadm-kick.c \
+	doveadm-master.c \
 	doveadm-mail.c \
 	doveadm-mail-altmove.c \
 	doveadm-mail-expunge.c \
