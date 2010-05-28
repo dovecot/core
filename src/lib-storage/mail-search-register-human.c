@@ -135,17 +135,24 @@ static struct mail_search_arg *
 human_search_mailbox(struct mail_search_build_context *ctx)
 {
 	struct mail_search_arg *sarg;
+	const char *value;
 
 	sarg = mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
+	value = sarg->value.str;
+
 	T_BEGIN {
 		string_t *str = t_str_new(128);
 
-		if (imap_utf8_to_utf7(sarg->value.str, str) < 0) {
-			str_truncate(str, 0);
-			str_append(str, sarg->value.str);
-		}
-		sarg->value.str = p_strdup(ctx->pool, str_c(str));
+		if (imap_utf8_to_utf7(value, str) < 0)
+			sarg->value.str = NULL;
+		else
+			sarg->value.str = p_strdup(ctx->pool, str_c(str));
 	} T_END;
+	if (sarg->value.str == NULL) {
+		ctx->_error = p_strconcat(ctx->pool,
+			"Mailbox name not valid UTF-8: ", value, NULL);
+		return NULL;
+	}
 	return sarg;
 }
 
