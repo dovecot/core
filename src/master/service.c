@@ -632,7 +632,7 @@ static void service_drop_listener_connections(struct service *service)
 
 void service_throttle(struct service *service, unsigned int secs)
 {
-	if (service->to_throttle != NULL)
+	if (service->to_throttle != NULL || service->list->destroyed)
 		return;
 
 	if (service->processes == NULL)
