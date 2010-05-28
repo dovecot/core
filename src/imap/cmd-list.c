@@ -16,6 +16,7 @@ struct cmd_list_context {
 	const char *const *patterns;
 	enum mailbox_list_iter_flags list_flags;
 	struct imap_status_items status_items;
+	enum mailbox_info_flags inbox_flags;
 
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *list_iter;
@@ -348,6 +349,15 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name,
 	imap_status_send(ctx->cmd->client, name, &ctx->status_items, &result);
 }
 
+static bool list_has_empty_prefix_ns(struct mail_user *user)
+{
+	struct mail_namespace *ns;
+
+	ns = mail_namespace_find_prefix(user->namespaces, "");
+	return ns != NULL && (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+					   NAMESPACE_FLAG_LIST_CHILDREN)) != 0;
+}
+
 static int
 list_namespace_mailboxes(struct cmd_list_context *ctx)
 {
@@ -374,7 +384,18 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 				   and we're now listing prefixless namespace
 				   that contains INBOX. There's no way we can
 				   show this mailbox. */
+				ctx->inbox_flags = flags &
+					(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
 				continue;
+			}
+
+			if (*info->ns->prefix != '\0' &&
+			    list_has_empty_prefix_ns(info->ns->user)) {
+				/* INBOX is in its own namespace, while a
+				   namespace with prefix="" has its children. */
+				flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN|
+					   MAILBOX_NOINFERIORS);
+				flags |= ctx->inbox_flags;
 			}
 			ctx->inbox_found = TRUE;
 		}
