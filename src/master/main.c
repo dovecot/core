@@ -487,7 +487,7 @@ static void print_help(void)
 {
 	fprintf(stderr,
 "Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a] [--help] [--version]\n"
-"       [--build-options] [--log-error]\n");
+"       [--build-options] [--log-error] [reload] [stop]\n");
 }
 
 static void print_build_options(void)
