@@ -25,24 +25,84 @@ void doveadm_register_cmd(const struct doveadm_cmd *cmd)
 	array_append(&doveadm_cmds, cmd, 1);
 }
 
+static void
+doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
+{
+	const char *cmd, *args, *p, *short_name, *prev_name = "";
+	char **lines;
+	unsigned int i, count, prefix_len = strlen(prefix);
+
+	/* split lines */
+	lines = p_strsplit(pool_datastack_create(), str, "\n");
+	for (count = 0; lines[count] != NULL; count++) ;
+
+	/* sort lines */
+	qsort(lines, count, sizeof(*lines), i_strcmp_p);
+
+	/* print lines, compress subcommands into a single line */
+	for (i = 0; i < count; i++) {
+		args = strchr(lines[i], '\t');
+		if (args == NULL) {
+			cmd = lines[i];
+			args = "";
+		} else {
+			cmd = t_strdup_until(lines[i], args);
+			args++;
+		}
+		if (*prefix != '\0') {
+			if (strncmp(cmd, prefix, prefix_len) != 0 ||
+			    cmd[prefix_len] != ' ')
+				continue;
+			cmd += prefix_len + 1;
+		}
+
+		p = strchr(cmd, ' ');
+		if (p == NULL) {
+			if (*prev_name != '\0') {
+				fprintf(out, "\n");
+				prev_name = "";
+			}
+			fprintf(out, USAGE_CMDNAME_FMT" %s\n", cmd, args);
+		} else {
+			short_name = t_strdup_until(cmd, p);
+			if (strcmp(prev_name, short_name) != 0) {
+				if (*prev_name != '\0')
+					fprintf(out, "\n");
+				fprintf(out, USAGE_CMDNAME_FMT" %s",
+					short_name, t_strcut(p + 1, ' '));
+				prev_name = short_name;
+			} else {
+				fprintf(out, "|%s", t_strcut(p + 1, ' '));
+			}
+		}
+	}
+	if (*prev_name != '\0')
+		fprintf(out, "\n");
+}
+
 static void ATTR_NORETURN
-usage_to(FILE *out)
+usage_to(FILE *out, const char *prefix)
 {
 	const struct doveadm_cmd *cmd;
+	string_t *str = t_str_new(1024);
 
-	fprintf(out, "usage: doveadm [-Dv] <command> [<args>]\n");
+	fprintf(out, "usage: doveadm [-Dv] ");
+	if (*prefix != '\0')
+		fprintf(out, "%s ", prefix);
+	fprintf(out, "<command> [<args>]\n");
 
-	array_foreach(&doveadm_cmds, cmd) {
-		fprintf(out, USAGE_CMDNAME_FMT" %s\n",
-			cmd->name, cmd->short_usage);
-	}
-	doveadm_mail_usage(out);
+	array_foreach(&doveadm_cmds, cmd)
+		str_printfa(str, "%s\t%s\n", cmd->name, cmd->short_usage);
+
+	doveadm_mail_usage(str);
+	doveadm_usage_compress_lines(out, str_c(str), prefix);
+
 	exit(1);
 }
 
 void usage(void)
 {
-	usage_to(stderr);
+	usage_to(stderr, "");
 }
 
 static void help_to(const struct doveadm_cmd *cmd, FILE *out)
@@ -84,6 +144,19 @@ const char *doveadm_plugin_getenv(const char *name)
 	return NULL;
 }
 
+static bool doveadm_has_subcommands(const char *cmd_name)
+{
+	const struct doveadm_cmd *cmd;
+	unsigned int len = strlen(cmd_name);
+
+	array_foreach(&doveadm_cmds, cmd) {
+		if (strncmp(cmd->name, cmd_name, len) == 0 &&
+		    cmd->name[len] == ' ')
+			return TRUE;
+	}
+	return doveadm_mail_has_subcommands(cmd_name);
+}
+
 static void cmd_help(int argc, char *argv[])
 {
 	const struct doveadm_cmd *cmd;
@@ -91,8 +164,9 @@ static void cmd_help(int argc, char *argv[])
 	int i;
 
 	if (argv[1] == NULL)
-		usage_to(stdout);
+		usage_to(stdout, "");
 
+	/* try to find exact command */
 	name = t_str_new(100);
 	for (i = 1; i < argc; i++) {
 		str_append(name, argv[i]);
@@ -105,7 +179,12 @@ static void cmd_help(int argc, char *argv[])
 
 		str_append_c(name, ' ');
 	}
-	usage_to(stdout);
+
+	/* see if there are subcommands we can list */
+	if (doveadm_has_subcommands(argv[1]))
+		usage_to(stdout, argv[1]);
+
+	usage_to(stdout, "");
 }
 
 static struct doveadm_cmd doveadm_cmd_help = {
@@ -250,7 +329,7 @@ int main(int argc, char *argv[])
 	doveadm_load_modules();
 
 	if (optind == argc)
-		usage_to(stdout);
+		usage_to(stdout, "");
 
 	cmd_name = argv[optind];
 	argc -= optind;
@@ -264,8 +343,11 @@ int main(int argc, char *argv[])
 	}
 
 	if (!doveadm_try_run(cmd_name, argc, argv) &&
-	    !doveadm_mail_try_run(cmd_name, argc, argv))
+	    !doveadm_mail_try_run(cmd_name, argc, argv)) {
+		if (doveadm_has_subcommands(argv[0]))
+			usage_to(stdout, argv[0]);
 		usage();
+	}
 
 	doveadm_mail_deinit();
 	module_dir_unload(&modules);

@@ -446,15 +446,15 @@ void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd)
 	array_append(&doveadm_mail_cmds, cmd, 1);
 }
 
-void doveadm_mail_usage(FILE *out)
+void doveadm_mail_usage(string_t *out)
 {
 	const struct doveadm_mail_cmd *cmd;
 
 	array_foreach(&doveadm_mail_cmds, cmd) {
-		fprintf(out, USAGE_CMDNAME_FMT" [-u <user>|-A]", cmd->name);
+		str_printfa(out, "%s\t[-u <user>|-A]", cmd->name);
 		if (cmd->usage_args != NULL)
-			fprintf(out, " %s", cmd->usage_args);
-		fputc('\n', out);
+			str_printfa(out, " %s", cmd->usage_args);
+		str_append_c(out, '\n');
 	}
 }
 
@@ -473,6 +473,19 @@ void doveadm_mail_try_help_name(const char *cmd_name)
 		if (strcmp(cmd->name, cmd_name) == 0)
 			doveadm_mail_help(cmd);
 	}
+}
+
+bool doveadm_mail_has_subcommands(const char *cmd_name)
+{
+	const struct doveadm_mail_cmd *cmd;
+	unsigned int len = strlen(cmd_name);
+
+	array_foreach(&doveadm_mail_cmds, cmd) {
+		if (strncmp(cmd->name, cmd_name, len) == 0 &&
+		    cmd->name[len] == ' ')
+			return TRUE;
+	}
+	return FALSE;
 }
 
 void doveadm_mail_help_name(const char *cmd_name)
