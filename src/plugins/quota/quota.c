@@ -359,9 +359,9 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 static int
 quota_rule_parse_limits(struct quota_root_settings *root_set,
 			struct quota_rule *rule, const char *limits,
-			bool allow_negative, const char **error_r)
+			bool relative_rule, const char **error_r)
 {
-	const char **args;
+	const char **args, *key, *value;
 	char *p;
 	uint64_t multiply;
 	int64_t *limit;
@@ -370,19 +370,39 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 	for (; *args != NULL; args++) {
 		multiply = 1;
 		limit = NULL;
-		if (strncmp(*args, "storage=", 8) == 0) {
+
+		key = *args;
+		value = strchr(key, '=');
+		if (value == NULL)
+			value = "";
+		else
+			key = t_strdup_until(key, value++);
+
+		if (*value == '+') {
+			if (!relative_rule) {
+				*error_r = "Rule limit cannot have '+'";
+				return -1;
+			}
+			value++;
+		} else if (*value != '-' && relative_rule) {
+			i_warning("quota: obsolete configuration for rule '%s' "
+				  "should be changed to '%s=+%s'",
+				  *args, key, value);
+		}
+
+		if (strcmp(key, "storage") == 0) {
 			multiply = 1024;
 			limit = &rule->bytes_limit;
-			*limit = strtoll(*args + 8, &p, 10);
-		} else if (strncmp(*args, "bytes=", 6) == 0) {
+			*limit = strtoll(value, &p, 10);
+		} else if (strcmp(key, "bytes") == 0) {
 			limit = &rule->bytes_limit;
-			*limit = strtoll(*args + 6, &p, 10);
-		} else if (strncmp(*args, "messages=", 9) == 0) {
+			*limit = strtoll(value, &p, 10);
+		} else if (strcmp(key, "messages") == 0) {
 			limit = &rule->count_limit;
-			*limit = strtoll(*args + 9, &p, 10);
+			*limit = strtoll(value, &p, 10);
 		} else {
 			*error_r = p_strdup_printf(root_set->set->pool,
-					"Unknown rule limit name: %s", *args);
+					"Unknown rule limit name: %s", key);
 			return -1;
 		}
 
@@ -418,7 +438,7 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 		}
 		*limit *= multiply;
 	}
-	if (!allow_negative) {
+	if (!relative_rule) {
 		if (rule->bytes_limit < 0) {
 			*error_r = "Bytes limit can't be negative";
 			return -1;
@@ -475,10 +495,10 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 						     p + 8, error_r))
 			ret = -1;
 	} else {
-		bool allow_negative = rule != &root_set->default_rule;
+		bool relative_rule = rule != &root_set->default_rule;
 
 		if (quota_rule_parse_limits(root_set, rule, p,
-					    allow_negative, error_r) < 0)
+					    relative_rule, error_r) < 0)
 			ret = -1;
 	}
 
@@ -622,7 +642,7 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	memset(&rule, 0, sizeof(rule));
 	ret = quota_rule_parse_limits(root_set, &rule,
 				      t_strdup_until(rule_def, p),
-				      TRUE, error_r);
+				      FALSE, error_r);
 	if (ret < 0)
 		return -1;
 
