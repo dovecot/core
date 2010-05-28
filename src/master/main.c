@@ -393,21 +393,13 @@ static void main_log_startup(void)
 		i_info(STARTUP_STRING);
 }
 
-static void main_init(const struct master_settings *set, bool log_error)
+static void main_init(const struct master_settings *set)
 {
 	drop_capabilities();
 
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	if (log_error) {
-		fprintf(stderr, "Writing to error logs and killing myself..\n");
-		i_debug("This is Dovecot's debug log");
-		i_info("This is Dovecot's info log");
-		i_warning("This is Dovecot's warning log");
-		i_error("This is Dovecot's error log");
-		i_fatal("This is Dovecot's fatal log");
-	}
 	main_log_startup();
 
 	lib_signals_init();
@@ -487,7 +479,7 @@ static void print_help(void)
 {
 	fprintf(stderr,
 "Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a] [--help] [--version]\n"
-"       [--build-options] [--log-error] [reload] [stop]\n");
+"       [--build-options] [reload] [stop]\n");
 }
 
 static void print_build_options(void)
@@ -607,7 +599,7 @@ int main(int argc, char *argv[])
 	unsigned int child_process_env_idx = 0;
 	const char *error, *env_tz, *doveconf_arg = NULL;
 	failure_callback_t *orig_info_callback, *orig_debug_callback;
-	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
+	bool foreground = FALSE, ask_key_pass = FALSE;
 	bool doubleopts[argc];
 	int i, c;
 
@@ -691,8 +683,10 @@ int main(int argc, char *argv[])
 			print_build_options();
 			return 0;
 		} else if (strcmp(argv[optind], "log-error") == 0) {
-			log_error = TRUE;
-			foreground = TRUE;
+			fprintf(stderr, "Writing to error logs and killing myself..\n");
+			argv[optind] = "log test";
+			(void)execv(BINDIR"/doveadm", argv);
+			i_fatal("execv("BINDIR"/doveadm) failed: %m");
 		} else if (strcmp(argv[optind], "help") == 0) {
 			print_help();
 			return 0;
@@ -730,11 +724,9 @@ int main(int argc, char *argv[])
 	i_set_fatal_handler(startup_fatal_handler);
 	i_set_error_handler(startup_error_handler);
 
-	if (!log_error) {
-		pid_file_check_running(pidfile_path);
-		master_settings_do_fixes(set);
-		fatal_log_check(set);
-	}
+	pid_file_check_running(pidfile_path);
+	master_settings_do_fixes(set);
+	fatal_log_check(set);
 
 	/* save TZ environment. AIX depends on it to get the timezone
 	   correctly. */
@@ -763,21 +755,19 @@ int main(int argc, char *argv[])
 
 	services->config->config_file_path = get_full_config_path(services);
 
-	if (!log_error) {
-		/* if any listening fails, fail completely */
-		if (services_listen(services) <= 0)
-			i_fatal("Failed to start listeners");
+	/* if any listening fails, fail completely */
+	if (services_listen(services) <= 0)
+		i_fatal("Failed to start listeners");
 
-		if (!foreground)
-			daemonize();
-		if (chdir(set->base_dir) < 0)
-			i_fatal("chdir(%s) failed: %m", set->base_dir);
-	}
+	if (!foreground)
+		daemonize();
+	if (chdir(set->base_dir) < 0)
+		i_fatal("chdir(%s) failed: %m", set->base_dir);
 
 	i_set_fatal_handler(master_fatal_callback);
 	i_set_error_handler(orig_error_callback);
 
-	main_init(set, log_error);
+	main_init(set);
 	master_service_run(master_service, NULL);
 	main_deinit();
 	master_service_deinit(&master_service);
