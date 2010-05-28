@@ -188,7 +188,8 @@ sqlpool_state_changed(struct sql_db *conndb, enum sql_db_state prev_state,
 	}
 
 	if (prev_state == SQL_DB_STATE_CONNECTING &&
-	    conndb->state == SQL_DB_STATE_DISCONNECTED) {
+	    conndb->state == SQL_DB_STATE_DISCONNECTED &&
+	    !conndb->no_reconnect) {
 		/* connect failed */
 		if (conndb->connect_failure_count > 0) {
 			/* increase delay between reconnections to this

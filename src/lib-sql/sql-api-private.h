@@ -97,6 +97,8 @@ struct sql_db {
 	unsigned int connect_delay;
 	unsigned int connect_failure_count;
 	struct timeout *to_reconnect;
+
+	unsigned int no_reconnect:1;
 };
 
 struct sql_result_vfuncs {
