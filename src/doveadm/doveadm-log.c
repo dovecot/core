@@ -192,6 +192,9 @@ cmd_log_find_syslog(struct log_find_context *ctx, int argc, char *argv[])
 	printf("Looking for log files from %s\n", log_dir);
 	cmd_log_find_syslog_files(ctx, log_dir);
 	cmd_log_test(0, NULL);
+
+	/* give syslog some time to write the messages to files */
+	sleep(1);
 	cmd_log_find_syslog_messages(ctx);
 }
 
