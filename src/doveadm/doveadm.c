@@ -25,18 +25,24 @@ void doveadm_register_cmd(const struct doveadm_cmd *cmd)
 	array_append(&doveadm_cmds, cmd, 1);
 }
 
-void usage(void)
+static void ATTR_NORETURN
+usage_to(FILE *out)
 {
 	const struct doveadm_cmd *cmd;
 
-	fprintf(stderr, "usage: doveadm [-Dv] <command> [<args>]\n");
+	fprintf(out, "usage: doveadm [-Dv] <command> [<args>]\n");
 
 	array_foreach(&doveadm_cmds, cmd) {
-		fprintf(stderr, USAGE_CMDNAME_FMT" %s\n",
+		fprintf(out, USAGE_CMDNAME_FMT" %s\n",
 			cmd->name, cmd->short_usage);
 	}
-	doveadm_mail_usage();
+	doveadm_mail_usage(out);
 	exit(1);
+}
+
+void usage(void)
+{
+	usage_to(stderr);
 }
 
 void help(const struct doveadm_cmd *cmd)
@@ -80,7 +86,7 @@ static void cmd_help(int argc, char *argv[])
 	int i;
 
 	if (argv[1] == NULL)
-		usage();
+		usage_to(stdout);
 
 	name = t_str_new(100);
 	for (i = 1; i < argc; i++) {
@@ -94,7 +100,7 @@ static void cmd_help(int argc, char *argv[])
 
 		str_append_c(name, ' ');
 	}
-	usage();
+	usage_to(stdout);
 }
 
 static struct doveadm_cmd doveadm_cmd_help = {
@@ -239,7 +245,7 @@ int main(int argc, char *argv[])
 	doveadm_load_modules();
 
 	if (optind == argc)
-		usage();
+		usage_to(stdout);
 
 	cmd_name = argv[optind];
 	argc -= optind;

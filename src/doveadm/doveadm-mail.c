@@ -446,15 +446,15 @@ void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd)
 	array_append(&doveadm_mail_cmds, cmd, 1);
 }
 
-void doveadm_mail_usage(void)
+void doveadm_mail_usage(FILE *out)
 {
 	const struct doveadm_mail_cmd *cmd;
 
 	array_foreach(&doveadm_mail_cmds, cmd) {
-		fprintf(stderr, USAGE_CMDNAME_FMT" [-u <user>|-A]", cmd->name);
+		fprintf(out, USAGE_CMDNAME_FMT" [-u <user>|-A]", cmd->name);
 		if (cmd->usage_args != NULL)
-			fprintf(stderr, " %s", cmd->usage_args);
-		fputc('\n', stderr);
+			fprintf(out, " %s", cmd->usage_args);
+		fputc('\n', out);
 	}
 }
 
