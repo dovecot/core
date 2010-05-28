@@ -45,7 +45,7 @@ static bool pid_file_read(const char *path, pid_t *pid_r)
 	return found;
 }
 
-static void send_master_signal(int signo)
+void doveadm_master_send_signal(int signo)
 {
 	const char *pidfile_path;
 	unsigned int i;
@@ -76,12 +76,12 @@ static void send_master_signal(int signo)
 
 static void cmd_stop(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 {
-	send_master_signal(SIGTERM);
+	doveadm_master_send_signal(SIGTERM);
 }
 
 static void cmd_reload(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 {
-	send_master_signal(SIGHUP);
+	doveadm_master_send_signal(SIGHUP);
 }
 
 struct doveadm_cmd doveadm_cmd_stop = {
