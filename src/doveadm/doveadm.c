@@ -45,12 +45,17 @@ void usage(void)
 	usage_to(stderr);
 }
 
+static void help_to(const struct doveadm_cmd *cmd, FILE *out)
+{
+	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->short_usage);
+	if (cmd->long_usage != NULL)
+		fprintf(out, "%s", cmd->long_usage);
+	exit(0);
+}
+
 void help(const struct doveadm_cmd *cmd)
 {
-	fprintf(stderr, "doveadm %s %s\n", cmd->name, cmd->short_usage);
-	if (cmd->long_usage != NULL)
-		fprintf(stderr, "%s", cmd->long_usage);
-	exit(0);
+	help_to(cmd, stdout);
 }
 
 const char *unixdate2str(time_t timestamp)
@@ -94,7 +99,7 @@ static void cmd_help(int argc, char *argv[])
 
 		array_foreach(&doveadm_cmds, cmd) {
 			if (strcmp(cmd->name, str_c(name)) == 0)
-				help(cmd);
+				help_to(cmd, stdout);
 		}
 		doveadm_mail_try_help_name(str_c(name));
 
