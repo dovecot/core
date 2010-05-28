@@ -4,9 +4,11 @@
 #include "array.h"
 #include "lib-signals.h"
 #include "ioloop.h"
+#include "str.h"
 #include "module-dir.h"
 #include "wildcard-match.h"
 #include "master-service.h"
+#include "imap-utf7.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
@@ -73,7 +75,12 @@ mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
+	string_t *str;
 	const char *orig_mailbox = mailbox;
+
+	str = t_str_new(128);
+	if (imap_utf8_to_utf7(mailbox, str) == 0)
+		mailbox = str_c(str);
 
 	ns = mail_namespace_find(user->namespaces, &mailbox);
 	if (ns == NULL)
