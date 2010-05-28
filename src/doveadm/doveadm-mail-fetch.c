@@ -8,6 +8,7 @@
 #include "randgen.h"
 #include "str.h"
 #include "message-size.h"
+#include "imap-utf7.h"
 #include "imap-util.h"
 #include "mail-storage.h"
 #include "mail-search.h"
@@ -43,10 +44,17 @@ struct fetch_field {
 static int fetch_mailbox(struct fetch_cmd_context *ctx)
 {
 	const char *value;
+	unsigned int len;
 
 	if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME, &value) < 0)
 		return -1;
-	str_append(ctx->hdr, value);
+
+	len = str_len(ctx->hdr);
+	if (imap_utf7_to_utf8(value, ctx->hdr) < 0) {
+		/* not a valid mUTF-7 name, fallback to showing it as-is */
+		str_truncate(ctx->hdr, len);
+		str_append(ctx->hdr, value);
+	}
 	return 0;
 }
 
