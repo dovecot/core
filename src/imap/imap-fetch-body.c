@@ -9,7 +9,7 @@
 #include "istream-header-filter.h"
 #include "message-parser.h"
 #include "message-send.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "imap-parser.h"
 #include "imap-fetch.h"
 
@@ -46,8 +46,9 @@ static struct partial_cache last_partial = { 0, 0, 0, 0, { 0, 0, 0 } };
 static void fetch_read_error(struct imap_fetch_context *ctx)
 {
 	errno = ctx->cur_input->stream_errno;
-	i_error("FETCH for mailbox %s UID %u "
-		"failed to read message input: %m",
+	mail_storage_set_critical(ctx->box->storage,
+		"read(%s) failed: %m (FETCH for mailbox %s UID %u)",
+		i_stream_get_name(ctx->cur_input),
 		mailbox_get_vname(ctx->mail->box), ctx->mail->uid);
 }
 
