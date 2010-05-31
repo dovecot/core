@@ -551,7 +551,8 @@ mail_cache_lock_full(struct mail_cache *cache, bool require_same_reset_id,
 		(void)mail_cache_open_and_verify(cache);
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache) ||
-	    MAIL_INDEX_IS_IN_MEMORY(cache->index))
+	    MAIL_INDEX_IS_IN_MEMORY(cache->index) ||
+	    cache->index->readonly)
 		return 0;
 
 	iview = mail_index_view_open(cache->index);
