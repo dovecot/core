@@ -207,6 +207,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 
 	if (client->output->closed) {
 		idle_finish(ctx, FALSE, FALSE);
+		client_destroy(client, NULL);
 		return TRUE;
 	}
 	if (client->io == NULL) {
