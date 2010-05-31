@@ -415,12 +415,9 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
 	void **sets;
-	uid_t old_uid;
 	const char *error, *username;
 	enum mail_error mail_error;
 	int ret;
-
-	old_uid = geteuid();
 
 	input = mail_storage_service_user_get_input(rcpt->service_user);
 	username = t_strdup(input->username);
@@ -473,13 +470,6 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 					 rcpt->address, error);
 		}
 		ret = -1;
-	}
-	if (old_uid == 0) {
-		/* switch back to running as root, since that's what we're
-		   practically doing anyway. it's also important in case we
-		   lose e.g. config connection and need to reconnect to it. */
-		if (seteuid(0) < 0)
-			i_fatal("seteuid(0) failed: %m");
 	}
 	pool_unref(&dctx.pool);
 	return ret;
@@ -584,10 +574,12 @@ static void
 client_input_data_write_local(struct client *client, struct istream *input)
 {
 	struct mail *src_mail;
+	uid_t old_uid, first_uid;
 
 	if (client_open_raw_mail(client, input) < 0)
 		return;
 
+	old_uid = geteuid();
 	src_mail = client->state.raw_mail;
 	while (client_deliver_next(client, src_mail)) {
 		if (client->state.first_saved_mail == NULL ||
@@ -598,6 +590,8 @@ client_input_data_write_local(struct client *client, struct istream *input)
 			   this might allow hard linking the files. */
 			client->state.dest_user = NULL;
 			src_mail = client->state.first_saved_mail;
+			first_uid = geteuid();
+			i_assert(first_uid != 0);
 		}
 	}
 
@@ -607,10 +601,27 @@ client_input_data_write_local(struct client *client, struct istream *input)
 		struct mailbox *box = trans->box;
 		struct mail_user *user = box->storage->user;
 
+		/* just in case these functions are going to write anything,
+		   change uid back to user's own one */
+		if (first_uid != old_uid) {
+			if (seteuid(0) < 0)
+				i_fatal("seteuid(0) failed: %m");
+			if (seteuid(first_uid) < 0)
+				i_fatal("seteuid() failed: %m");
+		}
+
 		mail_free(&mail);
 		mailbox_transaction_rollback(&trans);
 		mailbox_free(&box);
 		mail_user_unref(&user);
+	}
+
+	if (old_uid == 0) {
+		/* switch back to running as root, since that's what we're
+		   practically doing anyway. it's also important in case we
+		   lose e.g. config connection and need to reconnect to it. */
+		if (seteuid(0) < 0)
+			i_fatal("seteuid(0) failed: %m");
 	}
 }
 
