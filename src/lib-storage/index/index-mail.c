@@ -887,8 +887,10 @@ int index_mail_init_stream(struct index_mail *mail,
 	ret = index_mail_stream_check_failure(mail);
 
 	i_stream_seek(data->stream, 0);
+	if (ret < 0)
+		return -1;
 	*stream_r = data->stream;
-	return ret;
+	return 0;
 }
 
 static int index_mail_parse_bodystructure(struct index_mail *mail,
