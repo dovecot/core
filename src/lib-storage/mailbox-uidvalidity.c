@@ -67,7 +67,9 @@ static void mailbox_uidvalidity_write(struct mailbox_list *list,
 		i_error("close(%s) failed: %m", path);
 }
 
-static int mailbox_uidvalidity_rename(const char *path, uint32_t *uid_validity)
+static int
+mailbox_uidvalidity_rename(const char *path, uint32_t *uid_validity,
+			   bool log_enoent)
 {
 	string_t *src, *dest;
 	unsigned int i, prefix_len;
@@ -80,6 +82,9 @@ static int mailbox_uidvalidity_rename(const char *path, uint32_t *uid_validity)
 	prefix_len = str_len(src);
 
 	for (i = 0; i < RETRY_COUNT; i++) {
+		str_truncate(src, prefix_len);
+		str_truncate(dest, prefix_len);
+
 		str_printfa(src, ".%08x", *uid_validity);
 		*uid_validity += 1;
 		str_printfa(dest, ".%08x", *uid_validity);
@@ -89,10 +94,8 @@ static int mailbox_uidvalidity_rename(const char *path, uint32_t *uid_validity)
 			break;
 
 		/* possibly a race condition. try the next value. */
-		str_truncate(src, prefix_len);
-		str_truncate(dest, prefix_len);
 	}
-	if (ret < 0)
+	if (ret < 0 && (errno != ENOENT || log_enoent))
 		i_error("rename(%s, %s) failed: %m", str_c(src), str_c(dest));
 	return ret;
 }
@@ -175,7 +178,7 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 	}
 
 	cur_value = max_value;
-	if (mailbox_uidvalidity_rename(path, &cur_value) < 0)
+	if (mailbox_uidvalidity_rename(path, &cur_value, TRUE) < 0)
 		return mailbox_uidvalidity_next_fallback();
 	mailbox_uidvalidity_write(list, path, cur_value);
 	return cur_value;
@@ -208,7 +211,7 @@ uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 	}
 
 	/* we now have the current uidvalidity value that's hopefully correct */
-	if (mailbox_uidvalidity_rename(path, &cur_value) < 0)
+	if (mailbox_uidvalidity_rename(path, &cur_value, FALSE) < 0)
 		return mailbox_uidvalidity_next_rescan(list, path);
 
 	/* fast path succeeded. write the current value to the main
