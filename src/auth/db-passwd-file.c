@@ -11,6 +11,7 @@
 #include "istream.h"
 #include "hash.h"
 #include "str.h"
+#include "eacces-error.h"
 #include "var-expand.h"
 
 #include <stdlib.h>
@@ -164,7 +165,13 @@ static bool passwd_file_open(struct passwd_file *pw)
 
 	fd = open(pw->path, O_RDONLY);
 	if (fd == -1) {
-		i_error("passwd-file %s: Can't open file: %m", pw->path);
+		if (errno == EACCES) {
+			i_error("passwd-file %s: %s", pw->path,
+				eacces_error_get("open", pw->path));
+		} else {
+			i_error("passwd-file %s: Can't open file: %m",
+				pw->path);
+		}
 		return FALSE;
 	}
 
@@ -239,8 +246,12 @@ static bool passwd_file_sync(struct passwd_file *pw)
 	if (stat(pw->path, &st) < 0) {
 		/* with variables don't give hard errors, or errors about
 		   nonexisting files */
-		if (errno != ENOENT)
+		if (errno == EACCES) {
+			i_error("passwd-file %s: %s", pw->path,
+				eacces_error_get("stat", pw->path));
+		} else if (errno != ENOENT) {
 			i_error("passwd-file %s: stat() failed: %m", pw->path);
+		}
 
 		if (pw->db->default_file != pw)
 			passwd_file_free(pw);
