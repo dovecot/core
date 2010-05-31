@@ -127,11 +127,15 @@ static void idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
 
 static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)
 {
+	struct client *client = ctx->client;
+
 	if (ctx->sync_ctx != NULL)
 		ctx->sync_pending = TRUE;
 	else {
 		ctx->manual_cork = TRUE;
 		idle_sync_now(box, ctx);
+		if (client->disconnected)
+			client_destroy(client, NULL);
 	}
 }
 
@@ -207,7 +211,6 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 
 	if (client->output->closed) {
 		idle_finish(ctx, FALSE, FALSE);
-		client_destroy(client, NULL);
 		return TRUE;
 	}
 	if (client->io == NULL) {
