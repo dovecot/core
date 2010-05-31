@@ -5,6 +5,7 @@
 #include "network.h"
 #include "ostream.h"
 #include "llist.h"
+#include "master-service.h"
 #include "director.h"
 #include "director-request.h"
 #include "auth-connection.h"
@@ -192,6 +193,8 @@ void login_connection_deinit(struct login_connection **_conn)
 
 	auth_connection_deinit(&conn->auth);
 	login_connection_unref(&conn);
+
+	master_service_client_connection_destroyed(master_service);
 }
 
 static void login_connection_unref(struct login_connection **_conn)
