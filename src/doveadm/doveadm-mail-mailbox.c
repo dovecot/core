@@ -417,7 +417,6 @@ cmd_mailbox_subscriptions_alloc(bool subscriptions)
 	ctx = doveadm_mail_cmd_alloc(struct mailbox_cmd_context);
 	ctx->ctx.subscriptions = subscriptions;
 
-	ctx->ctx.ctx.getopt_args = "78";
 	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_parse_arg;
 	ctx->ctx.ctx.v.init = cmd_mailbox_subscribe_init;
 	ctx->ctx.ctx.v.run = cmd_mailbox_subscribe_run;
