@@ -129,8 +129,11 @@ mailbox_open_or_create_synced(struct mail_deliver_context *ctx,
 	/* try creating it. */
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		*error_r = mail_storage_get_last_error(storage, &error);
-		mailbox_free(&box);
-		return NULL;
+		if (error != MAIL_ERROR_EXISTS) {
+			mailbox_free(&box);
+			return NULL;
+		}
+		/* someone else just created it */
 	}
 	if (ctx->set->lda_mailbox_autosubscribe) {
 		/* (try to) subscribe to it */
