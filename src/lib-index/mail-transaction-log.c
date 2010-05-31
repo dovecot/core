@@ -306,6 +306,13 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 							  "stat()");
 			return -1;
 		}
+		/* see if the whole directory got deleted */
+		if (nfs_safe_stat(log->index->dir, &st) < 0 &&
+		    errno == ENOENT) {
+			log->index->index_deleted = TRUE;
+			return -1;
+		}
+
 		/* the file should always exist at this point. if it doesn't,
 		   someone deleted it manually while the index was open. try to
 		   handle this nicely by creating a new log file. */
