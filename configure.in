@@ -2118,7 +2118,7 @@ if test $want_pgsql != no; then
 	  ])
 	  old_CPPFLAGS=$CPPFLAGS
 	  if test "$PGSQL_INCLUDE" != ""; then
-		  CPPFLAGS="$CPPFLAGS -I $PGSQL_INCLUDE"
+		  CPPFLAGS="$CPPFLAGS -I$PGSQL_INCLUDE"
 	  fi
 	  AC_CHECK_HEADER(libpq-fe.h, [
 		  if test "$PGSQL_INCLUDE" != ""; then
@@ -2151,12 +2151,12 @@ if test $want_mysql != no; then
 	for i in /usr /usr/local /usr/local/mysql; do
 		for j in include include/mysql ""; do
 			if test -r "$i/$j/mysql.h"; then
-				MYSQL_INCLUDE="-I $i/$j"
+				MYSQL_INCLUDE="-I$i/$j"
 			fi
 		done
 		for j in lib lib/mysql lib64 lib64/mysql ""; do
 			if test -f "$i/$j/libmysqlclient.so" || test -f "$i/$j/libmysqlclient.a"; then
-				MYSQL_LIBS="-L $i/$j -lmysqlclient -lz -lm"
+				MYSQL_LIBS="-L$i/$j -lmysqlclient -lz -lm"
 			fi
 		done
 	done
