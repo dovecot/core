@@ -245,7 +245,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 			/* default */
 			return TRUE;
 		}
-		p = strchr(value, ':');
+		p = strrchr(value, ':');
 		if (p != NULL) {
 			obsolete(ctx, "%s=..:port has been replaced by service { inet_listener { port } }", key);
 			value = t_strdup_until(value, p++);
