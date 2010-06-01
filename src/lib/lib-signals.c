@@ -71,10 +71,14 @@ const char *lib_signal_code_to_str(int signo, int sicode)
 		switch (sicode) {
 		case BUS_ADRALN:
 			return "invalid address alignment";
+#ifdef BUS_ADRERR /* for OSX 10.3 */
 		case BUS_ADRERR:
 			return "nonexistent physical address";
+#endif
+#ifdef BUS_OBJERR /* for OSX 10.3 */
 		case BUS_OBJERR:
 			return "object-specific hardware error";
+#endif
 		}
 	}
 #endif
