@@ -348,7 +348,7 @@ void auth_client_connection_destroy(struct auth_client_connection **_conn)
 	conn->fd = -1;
 
 	if (conn->request_handler != NULL)
-		auth_request_handler_unref(&conn->request_handler);
+		auth_request_handler_destroy(&conn->request_handler);
 
         master_service_client_connection_destroyed(master_service);
         auth_client_connection_unref(&conn);

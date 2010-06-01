@@ -13,6 +13,7 @@
 #include "var-expand.h"
 #include "auth-cache.h"
 #include "auth-request.h"
+#include "auth-request-handler.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 #include "passdb.h"
@@ -389,6 +390,13 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			    strlen(request->passdb_password));
 	}
 
+	if (auth_request_handler_is_destroyed(request->handler)) {
+		/* the passdb may have been freed already. this request won't
+		   be sent anywhere anyway, so just fail it immediately. */
+		*result = PASSDB_RESULT_INTERNAL_FAILURE;
+		return TRUE;
+	}
+
 	if (request->passdb->set->deny &&
 	    *result != PASSDB_RESULT_USER_UNKNOWN) {
 		/* deny passdb. we can get through this step only if the
@@ -733,6 +741,14 @@ void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request)
 {
 	struct userdb_module *userdb = request->userdb->userdb;
+
+	if (auth_request_handler_is_destroyed(request->handler)) {
+		/* the userdb may have been freed already. this request won't
+		   be sent anywhere anyway, so just fail it immediately. */
+		request->private_callback.
+			userdb(USERDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	}
 
 	if (result != USERDB_RESULT_OK && request->userdb->next != NULL) {
 		/* try next userdb. */

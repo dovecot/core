@@ -23,7 +23,9 @@ auth_request_handler_create(auth_request_callback_t *callback, void *context,
 		(auth_request_callback_t *)callback, context, \
 		master_callback)
 #endif
-void auth_request_handler_unref(struct auth_request_handler **handler);
+void auth_request_handler_destroy(struct auth_request_handler **handler);
+
+bool auth_request_handler_is_destroyed(struct auth_request_handler *handler);
 
 void auth_request_handler_set(struct auth_request_handler *handler,
 			      unsigned int connect_uid,

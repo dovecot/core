@@ -29,6 +29,8 @@ struct auth_request_handler {
 	void *context;
 
 	auth_request_callback_t *master_callback;
+
+	unsigned int destroyed:1;
 };
 
 static ARRAY_DEFINE(auth_failures_arr, struct auth_request *);
@@ -57,7 +59,7 @@ auth_request_handler_create(auth_request_callback_t *callback, void *context,
 	return handler;
 }
 
-void auth_request_handler_unref(struct auth_request_handler **_handler)
+static void auth_request_handler_unref(struct auth_request_handler **_handler)
 {
         struct auth_request_handler *handler = *_handler;
 	struct hash_iterate_context *iter;
@@ -81,6 +83,23 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 
 	hash_table_destroy(&handler->requests);
 	pool_unref(&handler->pool);
+}
+
+void auth_request_handler_destroy(struct auth_request_handler **_handler)
+{
+        struct auth_request_handler *handler = *_handler;
+
+	*_handler = NULL;
+
+	i_assert(!handler->destroyed);
+
+	handler->destroyed = TRUE;
+	auth_request_handler_unref(&handler);
+}
+
+bool auth_request_handler_is_destroyed(struct auth_request_handler *handler)
+{
+	return handler->destroyed;
 }
 
 void auth_request_handler_set(struct auth_request_handler *handler,
