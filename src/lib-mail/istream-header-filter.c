@@ -353,6 +353,14 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
 
+	if (stream->istream.v_offset == v_offset) {
+		/* just reset the input buffer */
+		stream_reset_to(mstream, v_offset);
+		i_stream_seek(mstream->istream.parent,
+			      mstream->istream.parent_expected_offset);
+		return;
+	}
+
 	if (v_offset == 0) {
 		/* seeking to beginning of headers. */
 		stream_reset_to(mstream, 0);
