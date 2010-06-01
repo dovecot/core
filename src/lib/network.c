@@ -678,11 +678,22 @@ const char *net_ip2addr(const struct ip_addr *ip)
 
 int net_addr2ip(const char *addr, struct ip_addr *ip)
 {
+	int ret;
+
 	if (strchr(addr, ':') != NULL) {
 		/* IPv6 */
 		ip->family = AF_INET6;
 #ifdef HAVE_IPV6
-		if (inet_pton(AF_INET6, addr, &ip->u.ip6) == 0)
+		T_BEGIN {
+			if (addr[0] == '[') {
+				/* allow [ipv6 addr] */
+				unsigned int len = strlen(addr);
+				if (addr[len-1] == ']')
+					addr = t_strndup(addr+1, len-2);
+			}
+			ret = inet_pton(AF_INET6, addr, &ip->u.ip6);
+		} T_END;
+		if (ret == 0)
 			return -1;
 #else
 		ip->u.ip4.s_addr = 0;
@@ -785,9 +796,18 @@ bool is_ipv4_address(const char *addr)
 
 bool is_ipv6_address(const char *addr)
 {
+	bool have_prefix = FALSE;
+
+	if (*addr == '[') {
+		have_prefix = TRUE;
+		addr++;
+	}
 	while (*addr != '\0') {
-		if (*addr != ':' && !i_isxdigit(*addr))
+		if (*addr != ':' && !i_isxdigit(*addr)) {
+			if (have_prefix && *addr == ']' && addr[1] == '\0')
+				break;
 			return FALSE;
+		}
                 addr++;
 	}
 

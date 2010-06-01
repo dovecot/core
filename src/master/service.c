@@ -70,7 +70,7 @@ resolve_ip(const char *address, const struct ip_addr **ips_r,
 		return 0;
 	}
 
-	if (strcmp(address, "::") == 0) {
+	if (strcmp(address, "::") == 0 || strcmp(address, "[::]") == 0) {
 		/* IPv6 any */
 		ip_list = t_new(struct ip_addr, 1);
 		net_get_ip_any6(ip_list);

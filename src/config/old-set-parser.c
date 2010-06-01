@@ -215,6 +215,7 @@ static bool listen_has_port(const char *str)
 	for (; *addrs != NULL; addrs++) {
 		if (strcmp(*addrs, "*") != 0 &&
 		    strcmp(*addrs, "::") != 0 &&
+		    strcmp(*addrs, "[::]") != 0 &&
 		    !is_ipv4_address(*addrs) &&
 		    !is_ipv6_address(*addrs))
 			return TRUE;
