@@ -353,7 +353,7 @@ acl_parse_rights(pool_t pool, const char *acl, const char **error_r)
 			return NULL;
 		}
 
-		names = t_strsplit_spaces(acl + 1, ", ");
+		names = t_strsplit_spaces(acl + 1, ", \t");
 		for (; *names != NULL; names++) {
 			const char *name = p_strdup(pool, *names);
 			array_append(&rights, &name, 1);
