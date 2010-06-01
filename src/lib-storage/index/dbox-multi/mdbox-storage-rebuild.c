@@ -123,6 +123,11 @@ static int mdbox_rebuild_msg_offset_cmp(const void *p1, const void *p2)
 		return -1;
 	if ((*m1)->offset > (*m2)->offset)
 		return 1;
+
+	if ((*m1)->size < (*m2)->size)
+		return -1;
+	if ((*m1)->size > (*m2)->size)
+		return 1;
 	return 0;
 }
 
@@ -300,6 +305,7 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 		/* look up the rebuild msg record for this message */
 		search_msg.file_id = rec.rec.file_id;
 		search_msg.offset = rec.rec.offset;
+		search_msg.size = rec.rec.size;
 		pos = bsearch(&search_msgp, msgs, count, sizeof(*msgs),
 			      mdbox_rebuild_msg_offset_cmp);
 		if (pos == NULL || (*pos)->map_uid != 0) {
