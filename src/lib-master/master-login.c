@@ -301,7 +301,8 @@ static int master_login_postlogin(struct master_login_client *client,
 	}
 
 	str = t_str_new(256);
-	str_printfa(str, "%s\t%s", net_ip2addr(&client->auth_req.local_ip),
+	str_printfa(str, "VERSION\tscript-login\t1\t0\n"
+		    "%s\t%s", net_ip2addr(&client->auth_req.local_ip),
 		    net_ip2addr(&client->auth_req.remote_ip));
 	for (i = 0; auth_args[i] != NULL; i++) {
 		str_append_c(str, '\t');

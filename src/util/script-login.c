@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#define SCRIPT_LOGIN_PROTOCOL_VERSION_MAJOR 1
+#define SCRIPT_LOGIN_READ_TIMEOUT_SECS 10
 #define ENV_USERDB_KEYS "USERDB_KEYS"
 #define SCRIPT_COMM_FD 3
 
@@ -27,7 +29,7 @@ static void client_connected(struct master_service_connection *conn)
 	enum mail_storage_service_flags flags =
 		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS;
 	string_t *instr, *keys;
-	const char **args, *key, *value, *error;
+	const char **args, *key, *value, *error, *version_line, *data_line;
 	struct mail_storage_service_ctx *service_ctx;
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *user;
@@ -36,18 +38,38 @@ static void client_connected(struct master_service_connection *conn)
 	int fd = -1;
 	ssize_t ret;
 
+	alarm(SCRIPT_LOGIN_READ_TIMEOUT_SECS);
+
 	net_set_nonblock(conn->fd, FALSE);
 	instr = t_str_new(1024);
 	ret = fd_read(conn->fd, buf, sizeof(buf), &fd);
 	while (ret > 0) {
 		str_append_n(instr, buf, ret);
-		if (buf[ret-1] == '\n') {
+		if (buf[ret-1] == '\n' &&
+		    strchr(str_c(instr), '\n')[1] != '\0') {
 			str_truncate(instr, str_len(instr)-1);
 			break;
 		}
 
 		ret = read(conn->fd, buf, sizeof(buf));
 	}
+
+	version_line = str_c(instr);
+	data_line = strchr(version_line, '\n');
+	if (data_line != NULL)
+		version_line = t_strdup_until(version_line, data_line++);
+	else
+		version_line = NULL;
+
+	if (ret > 0 || version_line != NULL) {
+		if (version_line == NULL ||
+		    !version_string_verify(version_line, "script-login",
+				SCRIPT_LOGIN_PROTOCOL_VERSION_MAJOR)) {
+			i_fatal("Client not compatible with this binary "
+				"(connecting to wrong socket?)");
+		}
+	}
+
 	if (ret <= 0) {
 		if (ret < 0)
 			i_fatal("read() failed: %m");
@@ -60,7 +82,7 @@ static void client_connected(struct master_service_connection *conn)
 	/* put everything to environment */
 	env_clean();
 	keys = t_str_new(256);
-	args = t_strsplit(str_c(instr), "\t");
+	args = t_strsplit(data_line, "\t");
 
 	if (str_array_length(args) < 3)
 		i_fatal("Missing input fields");
