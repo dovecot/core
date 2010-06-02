@@ -94,6 +94,7 @@ auth_SOURCES = \
 	passdb-sia.c \
 	passdb-vpopmail.c \
 	passdb-sql.c \
+	passdb-static.c \
 	userdb.c \
 	userdb-blocking.c \
 	userdb-checkpassword.c \

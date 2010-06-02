@@ -1745,6 +1745,7 @@ passdb=""
 not_userdb=""
 not_passdb=""
 
+passdb="$passdb static"
 userdb="$userdb static"
 
 if test $want_prefetch_userdb != no; then
