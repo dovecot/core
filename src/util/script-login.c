@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 		script_execute_finish();
 	else {
 		if (argv[0] == NULL)
-			i_fatal("Missing script-login path");
+			i_fatal("Missing script path");
 		exec_args = i_new(const char *, argc + 2);
 		for (i = 0; i < argc; i++)
 			exec_args[i] = argv[i];
