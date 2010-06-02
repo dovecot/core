@@ -3,6 +3,7 @@
 #include "auth-common.h"
 #include "array.h"
 #include "hash.h"
+#include "llist.h"
 #include "str.h"
 #include "strescape.h"
 #include "str-sanitize.h"
@@ -25,6 +26,12 @@
 
 #define MAX_INBUF_SIZE 1024
 #define MAX_OUTBUF_SIZE (1024*50)
+
+struct auth_request_list {
+	struct auth_request_list *prev, *next;
+
+	struct auth_request *auth_request;
+};
 
 struct master_userdb_request {
 	struct auth_master_connection *conn;
@@ -116,6 +123,7 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 			  const char **error_r)
 {
 	struct auth_request *auth_request;
+	struct auth_request_list *request_list;
 	const char *const *list, *name, *arg;
 	unsigned int id;
 
@@ -129,8 +137,13 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 
 	auth_request = auth_request_new_dummy();
 	auth_request->id = id;
-	auth_request->context = conn;
+	auth_request->master = conn;
 	auth_master_connection_ref(conn);
+
+	request_list = p_new(auth_request->pool, struct auth_request_list, 1);
+	request_list->auth_request = auth_request;
+	DLLIST_PREPEND(&conn->requests, request_list);
+	auth_request->context = request_list;
 
 	if (!auth_request_set_username(auth_request, list[1], error_r)) {
 		*request_r = auth_request;
@@ -152,8 +165,9 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 
 	if (auth_request->service == NULL) {
 		i_error("BUG: Master sent %s request without service", cmd);
-		auth_master_connection_unref(&conn);
+		DLLIST_REMOVE(&conn->requests, request_list);
 		auth_request_unref(&auth_request);
+		auth_master_connection_unref(&conn);
 		return -1;
 	}
 
@@ -166,7 +180,8 @@ static void
 user_callback(enum userdb_result result,
 	      struct auth_request *auth_request)
 {
-	struct auth_master_connection *conn = auth_request->context;
+	struct auth_master_connection *conn = auth_request->master;
+	struct auth_request_list *list = auth_request->context;
 	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
 	const char *value;
@@ -198,6 +213,8 @@ user_callback(enum userdb_result result,
 
 	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
+
+	DLLIST_REMOVE(&conn->requests, list);
 	auth_request_unref(&auth_request);
 	auth_master_connection_unref(&conn);
 }
@@ -229,7 +246,8 @@ pass_callback(enum passdb_result result,
 	      size_t size ATTR_UNUSED,
 	      struct auth_request *auth_request)
 {
-	struct auth_master_connection *conn = auth_request->context;
+	struct auth_master_connection *conn = auth_request->master;
+	struct auth_request_list *list = auth_request->context;
 	struct auth_stream_reply *reply = auth_request->extra_fields;
 	string_t *str;
 
@@ -257,6 +275,8 @@ pass_callback(enum passdb_result result,
 
 	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
+
+	DLLIST_REMOVE(&conn->requests, list);
 	auth_request_unref(&auth_request);
 	auth_master_connection_unref(&conn);
 }
@@ -512,12 +532,16 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 {
         struct auth_master_connection *conn = *_conn;
         struct auth_master_connection *const *masters;
+	struct auth_request_list *list;
 	unsigned int idx;
 
 	*_conn = NULL;
 	if (conn->destroyed)
 		return;
 	conn->destroyed = TRUE;
+
+	for (list = conn->requests; list != NULL; list = list->next)
+		list->auth_request->destroyed = TRUE;
 
 	array_foreach(&auth_master_connections, masters) {
 		if (*masters == conn) {

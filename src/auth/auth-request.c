@@ -390,7 +390,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			    strlen(request->passdb_password));
 	}
 
-	if (auth_request_handler_is_destroyed(request->handler)) {
+	if (request->destroyed) {
 		/* the passdb may have been freed already. this request won't
 		   be sent anywhere anyway, so just fail it immediately. */
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
@@ -741,6 +741,14 @@ void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request)
 {
 	struct userdb_module *userdb = request->userdb->userdb;
+
+	if (request->destroyed) {
+		/* the userdb may have been freed already. this request won't
+		   be sent anywhere anyway, so just fail it immediately. */
+		request->private_callback.
+			userdb(USERDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	}
 
 	if (result != USERDB_RESULT_OK && request->userdb->next != NULL) {
 		/* try next userdb. */

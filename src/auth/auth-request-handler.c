@@ -74,6 +74,7 @@ static void auth_request_handler_unref(struct auth_request_handler **_handler)
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct auth_request *auth_request = value;
 
+		auth_request->destroyed = TRUE;
 		auth_request_unref(&auth_request);
 	}
 	hash_table_iterate_deinit(&iter);
@@ -95,11 +96,6 @@ void auth_request_handler_destroy(struct auth_request_handler **_handler)
 
 	handler->destroyed = TRUE;
 	auth_request_handler_unref(&handler);
-}
-
-bool auth_request_handler_is_destroyed(struct auth_request_handler *handler)
-{
-	return handler->destroyed;
 }
 
 void auth_request_handler_set(struct auth_request_handler *handler,

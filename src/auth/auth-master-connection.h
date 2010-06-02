@@ -12,6 +12,8 @@ struct auth_master_connection {
 	struct ostream *output;
 	struct io *io;
 
+	struct auth_request_list *requests;
+
 	unsigned int version_received:1;
 	unsigned int destroyed:1;
 	unsigned int userdb_only:1;
