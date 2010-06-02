@@ -68,7 +68,7 @@ static void client_connected(struct master_service_connection *conn)
 	i = 0;
 	memset(&input, 0, sizeof(input));
 	input.module = "mail"; /* need to get mail_uid, mail_gid */
-	input.service = "script";
+	input.service = "script-login";
 	(void)net_addr2ip(args[i++], &input.local_ip);
 	(void)net_addr2ip(args[i++], &input.remote_ip);
 	input.username = args[i++];
@@ -90,7 +90,7 @@ static void client_connected(struct master_service_connection *conn)
 	env_put(t_strconcat(ENV_USERDB_KEYS"=", str_c(keys), NULL));
 
 	master_service_init_log(master_service,
-		t_strdup_printf("script(%s): ", input.username));
+		t_strdup_printf("script-login(%s): ", input.username));
 
 	service_ctx = mail_storage_service_init(master_service, NULL, flags);
 	if (mail_storage_service_lookup(service_ctx, &input, &user, &error) <= 0)
@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
 	if (getenv(MASTER_UID_ENV) == NULL)
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
-	master_service = master_service_init("script", flags,
+	master_service = master_service_init("script-login", flags,
 					     &argc, &argv, "d");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	master_service_init_log(master_service, "script: ");
+	master_service_init_log(master_service, "script-login: ");
 	master_service_init_finish(master_service);
 	master_service_set_service_count(master_service, 1);
 
@@ -185,11 +185,11 @@ int main(int argc, char *argv[])
 		script_execute_finish();
 	else {
 		if (argv[0] == NULL)
-			i_fatal("Missing script path");
+			i_fatal("Missing script-login path");
 		exec_args = i_new(const char *, argc + 2);
 		for (i = 0; i < argc; i++)
 			exec_args[i] = argv[i];
-		exec_args[i] = PKG_LIBEXECDIR"/script";
+		exec_args[i] = PKG_LIBEXECDIR"/script-login";
 		exec_args[i+1] = NULL;
 
 		if (exec_args[0][0] != '/') {
