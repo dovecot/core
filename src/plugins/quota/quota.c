@@ -3,6 +3,9 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
+#include "str.h"
+#include "network.h"
+#include "write-full.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-fs.h"
@@ -634,7 +637,7 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	int ret;
 
 	p = strchr(rule_def, ' ');
-	if (p == NULL) {
+	if (p == NULL || p[1] == '\0') {
 		*error_r = "No command specified";
 		return -1;
 	}
@@ -901,20 +904,39 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 
 static void quota_warning_execute(struct quota_root *root, const char *cmd)
 {
-	int ret;
+	const char *socket_path, *const *args;
+	string_t *str;
+	int fd;
 
 	if (root->quota->set->debug)
 		i_debug("quota: Executing warning: %s", cmd);
 
-	ret = system(cmd);
-	if (ret < 0) {
-		i_error("system(%s) failed: %m", cmd);
-	} else if (WIFSIGNALED(ret)) {
-		i_error("system(%s) died with signal %d", cmd, WTERMSIG(ret));
-	} else if (!WIFEXITED(ret) || WEXITSTATUS(ret) != 0) {
-		i_error("system(%s) exited with status %d",
-			cmd, WIFEXITED(ret) ? WEXITSTATUS(ret) : ret);
+	args = t_strsplit(cmd, " ");
+	socket_path = args[0];
+	args++;
+
+	if (*socket_path != '/') {
+		socket_path = t_strconcat(root->quota->user->set->base_dir, "/",
+					  socket_path, NULL);
 	}
+	if ((fd = net_connect_unix_with_retries(socket_path, 1000)) < 0) {
+		i_error("quota: connect(%s) failed: %m", socket_path);
+		return;
+	}
+
+	str = t_str_new(1024);
+	str_append(str, "VERSION\tscript\t1\t0\n");
+	for (; *args != NULL; args++) {
+		str_append(str, *args);
+		str_append_c(str, '\n');
+	}
+	str_append_c(str, '\n');
+
+	net_set_nonblock(fd, FALSE);
+	if (write_full(fd, str_data(str), str_len(str)) < 0)
+		i_error("write(%s) failed: %m", socket_path);
+	if (close(fd) < 0)
+		i_error("close(%s) failed: %m", socket_path);
 }
 
 static void quota_warnings_execute(struct quota_transaction_context *ctx,
