@@ -258,7 +258,6 @@ dnl always enable all of the passbs and userdbs that don't require extra libs
 want_passwd=yes
 want_passwd_file=yes
 want_checkpassword=yes
-want_static_userdb=yes
 want_prefetch_userdb=yes
 
 AC_ISC_POSIX
@@ -1746,12 +1745,7 @@ passdb=""
 not_userdb=""
 not_passdb=""
 
-if test $want_static_userdb != no; then
-        AC_DEFINE(USERDB_STATIC,, Build with static userdb support)
-	userdb="$userdb static"
-else
-	not_userdb="$not_userdb static"
-fi
+userdb="$userdb static"
 
 if test $want_prefetch_userdb != no; then
         AC_DEFINE(USERDB_PREFETCH,, Build with prefetch userdb support)

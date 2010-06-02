@@ -122,8 +122,6 @@ void userdb_static_template_export(struct userdb_static_template *tmpl,
 	}
 }
 
-#ifdef USERDB_STATIC
-
 struct static_context {
 	userdb_callback_t *callback, *old_callback;
 	void *old_context;
@@ -242,8 +240,3 @@ struct userdb_module_interface userdb_static = {
 	NULL,
 	NULL
 };
-#else
-struct userdb_module_interface userdb_static = {
-	.name = "static"
-};
-#endif
