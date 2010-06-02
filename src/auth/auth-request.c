@@ -1496,6 +1496,9 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		{ 'a', NULL, "lport" },
 		{ 'b', NULL, "rport" },
 		{ 'k', NULL, "cert" },
+		{ '\0', NULL, "login_user" },
+		{ '\0', NULL, "login_username" },
+		{ '\0', NULL, "login_domain" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -1536,6 +1539,19 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	tab[12].value = dec2str(auth_request->local_port);
 	tab[13].value = dec2str(auth_request->remote_port);
 	tab[14].value = auth_request->valid_client_cert ? "valid" : "";
+
+	if (auth_request->requested_login_user != NULL) {
+		const char *login_user = auth_request->requested_login_user;
+
+		tab[15].value = escape_func(login_user, auth_request);
+		tab[16].value = escape_func(t_strcut(login_user, '@'),
+					    auth_request);
+		tab[17].value = strchr(login_user, '@');
+		if (tab[17].value != NULL) {
+			tab[17].value = escape_func(tab[17].value+1,
+						    auth_request);
+		}
+	}
 	return tab;
 }
 
