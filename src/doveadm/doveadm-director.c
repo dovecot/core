@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "network.h"
 #include "istream.h"
+#include "master-service.h"
 #include "doveadm.h"
 
 #include <stdio.h>
@@ -25,8 +26,7 @@ director_send(struct director_context *ctx, const char *data)
 
 static void director_connect(struct director_context *ctx)
 {
-#define DIRECTOR_HANDSHAKE_EXPECTED "VERSION\tdirector-doveadm\t1\t"
-#define DIRECTOR_HANDSHAKE DIRECTOR_HANDSHAKE_EXPECTED"0\n"
+#define DIRECTOR_HANDSHAKE "VERSION\tdirector-doveadm\t1\t0\n"
 	const char *line;
 	int fd;
 
@@ -41,8 +41,7 @@ static void director_connect(struct director_context *ctx)
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL)
 		i_fatal("%s disconnected", ctx->socket_path);
-	if (strncmp(line, DIRECTOR_HANDSHAKE_EXPECTED,
-		    strlen(DIRECTOR_HANDSHAKE_EXPECTED)) != 0) {
+	if (!version_string_verify(line, "director-doveadm", 1)) {
 		i_fatal("%s not a compatible director-doveadm socket",
 			ctx->socket_path);
 	}

@@ -18,8 +18,8 @@
 
 #include <unistd.h>
 
-#define DOVEADM_HANDSHAKE_EXPECTED "VERSION\tdirector-doveadm\t1\t"
-#define DOVEADM_HANDSHAKE DOVEADM_HANDSHAKE_EXPECTED"0\n"
+#define DOVEADM_PROTOCOL_VERSION_MAJOR 1
+#define DOVEADM_HANDSHAKE "VERSION\tdirector-doveadm\t1\t0\n"
 
 #define MAX_VALID_VHOST_COUNT 1000
 
@@ -199,8 +199,8 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 		if ((line = i_stream_read_next_line(conn->input)) == NULL)
 			return;
 
-		if (strncmp(line, DOVEADM_HANDSHAKE_EXPECTED,
-			    strlen(DOVEADM_HANDSHAKE_EXPECTED)) != 0) {
+		if (!version_string_verify(line, "director-doveadm",
+					   DOVEADM_PROTOCOL_VERSION_MAJOR)) {
 			i_error("doveadm not compatible with this server "
 				"(mixed old and new binaries?)");
 			doveadm_connection_deinit(&conn);

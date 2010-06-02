@@ -119,4 +119,10 @@ void master_service_client_connection_destroyed(struct master_service *service);
 /* Deinitialize the service. */
 void master_service_deinit(struct master_service **service);
 
+/* Returns TRUE if line contains compatible service name and major version.
+   The line is expected to be in format:
+   VERSION <tab> service_name <tab> major version <tab> minor version */
+bool version_string_verify(const char *line, const char *service_name,
+			   unsigned major_version);
+
 #endif

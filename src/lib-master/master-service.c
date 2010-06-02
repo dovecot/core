@@ -77,7 +77,7 @@ sig_state_changed(const siginfo_t *si ATTR_UNUSED, void *context)
 	master_service_refresh_login_state(service);
 }
 
-static void master_service_verify_version(struct master_service *service)
+static void master_service_verify_version_string(struct master_service *service)
 {
 	if (service->version_string != NULL &&
 	    strcmp(service->version_string, PACKAGE_VERSION) != 0) {
@@ -175,7 +175,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 		i_set_failure_prefix(t_strdup_printf("%s: ", name));
 	}
 
-	master_service_verify_version(service);
+	master_service_verify_version_string(service);
 	return service;
 }
 
@@ -871,4 +871,25 @@ void master_status_update(struct master_service *service)
 				       master_status_update, service);
 		}
 	}
+}
+
+bool version_string_verify(const char *line, const char *service_name,
+			   unsigned major_version)
+{
+	unsigned int service_name_len = strlen(service_name);
+	bool ret;
+
+	if (strncmp(line, "VERSION\t", 8) != 0)
+		return FALSE;
+	line += 8;
+
+	if (strncmp(line, service_name, service_name_len) != 0 ||
+	    line[service_name_len] != '\t')
+		return FALSE;
+	line += service_name_len + 1;
+
+	T_BEGIN {
+		ret = str_uint_equals(t_strcut(line, '\t'), major_version);
+	} T_END;
+	return ret;
 }

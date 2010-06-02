@@ -584,8 +584,7 @@ static void auth_worker_input(struct auth_worker_client *client)
 		if (line == NULL)
 			return;
 
-		if (strncmp(line, "VERSION\tauth-worker\t", 20) != 0 ||
-		    !str_uint_equals(t_strcut(line + 20, '\t'),
+		if (!version_string_verify(line, "auth-worker",
 				     AUTH_WORKER_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Auth worker not compatible with this server "
 				"(mixed old and new binaries?)");
