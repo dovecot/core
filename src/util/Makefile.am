@@ -2,6 +2,7 @@ pkglibexecdir = $(libexecdir)/dovecot
 
 pkglibexec_PROGRAMS = \
 	rawlog \
+	script \
 	script-login \
 	$(TCPWRAP_BIN) \
 	gdbhelper \
@@ -31,6 +32,11 @@ script_login_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT) $(MODULE_LIBS)
 script_login_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_DEPS)
 script_login_SOURCES = \
 	script-login.c
+
+script_LDADD = $(LIBDOVECOT) $(MODULE_LIBS)
+script_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+script_SOURCES = \
+	script.c
 
 if TCPWRAPPERS
 TCPWRAP_BIN = tcpwrap

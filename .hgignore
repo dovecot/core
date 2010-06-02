@@ -86,6 +86,7 @@ src/util/imap-utf7
 src/util/listview
 src/util/maildirlock
 src/util/rawlog
+src/util/script
 src/util/script-login
 src/util/tcpwrap
 src/plugins/quota/rquota_xdr.c
