@@ -14,10 +14,11 @@
 #include <fcntl.h>
 
 /* Disconnect from dict server after this many milliseconds of idling after
-   sending a command. This timeout is short, because dict server does blocking
-   dict accesses, so it can handle only one client at a time. increasing the
-   timeout increases number of idling dict processes. */
-#define DICT_CLIENT_TIMEOUT_MSECS 1000
+   sending a command. Because dict server does blocking dict accesses, it can
+   handle only one client at a time. This is why the default timeout is zero,
+   so that there won't be many dict processes just doing nothing. Zero means
+   that the socket is disconnected immediately after returning to ioloop. */
+#define DICT_CLIENT_TIMEOUT_MSECS 0
 
 /* Abort dict lookup after this many seconds. */
 #define DICT_CLIENT_READ_TIMEOUT_SECS 30
