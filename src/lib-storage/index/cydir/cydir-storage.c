@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "mail-copy.h"
 #include "index-mail.h"
+#include "mailbox-list-private.h"
 #include "cydir-sync.h"
 #include "cydir-storage.h"
 

@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "restrict-access.h"
 #include "master-service.h"
+#include "mailbox-list-private.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
 #include "mbox-file.h"

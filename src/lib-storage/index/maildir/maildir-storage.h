@@ -47,7 +47,6 @@
 #define MAILDIR_DELETE_RETRY_COUNT 3
 
 #include "index-storage.h"
-#include "mailbox-list-private.h"
 
 struct timeval;
 struct maildir_save_context;

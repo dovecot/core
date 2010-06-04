@@ -8,6 +8,7 @@
 #include "mail-index-modseq.h"
 #include "mail-index-alloc-cache.h"
 #include "mailbox-log.h"
+#include "mailbox-list-private.h"
 #include "dbox-mail.h"
 #include "dbox-save.h"
 #include "mdbox-map.h"

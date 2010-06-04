@@ -7,6 +7,7 @@
 #include "str.h"
 #include "imap-parser.h"
 #include "imap-match.h"
+#include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-search-parser.h"
 #include "virtual-storage.h"

@@ -9,6 +9,7 @@
 #include "index-mail.h"
 #include "mail-copy.h"
 #include "mail-search.h"
+#include "mailbox-list-private.h"
 #include "virtual-plugin.h"
 #include "virtual-transaction.h"
 #include "virtual-storage.h"

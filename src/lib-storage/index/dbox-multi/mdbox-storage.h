@@ -2,7 +2,6 @@
 #define MDBOX_STORAGE_H
 
 #include "index-storage.h"
-#include "mailbox-list-private.h"
 #include "dbox-storage.h"
 #include "mdbox-settings.h"
 
@@ -22,7 +21,6 @@ struct mdbox_index_header {
 
 struct mdbox_storage {
 	struct dbox_storage storage;
-	union mailbox_list_module_context list_module_ctx;
 	const struct mdbox_settings *set;
 
 	/* paths for storage directories */

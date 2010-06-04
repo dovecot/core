@@ -1,8 +1,6 @@
 #ifndef SHARED_STORAGE_H
 #define SHARED_STORAGE_H
 
-#include "mailbox-list-private.h"
-
 #define SHARED_STORAGE_NAME "shared"
 
 struct shared_storage {

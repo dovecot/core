@@ -2,7 +2,6 @@
 #define CYDIR_STORAGE_H
 
 #include "index-storage.h"
-#include "mailbox-list-private.h"
 
 #define CYDIR_STORAGE_NAME "cydir"
 #define CYDIR_SUBSCRIPTION_FILE_NAME "subscriptions."
@@ -10,7 +9,6 @@
 
 struct cydir_storage {
 	struct mail_storage storage;
-	union mailbox_list_module_context list_module_ctx;
 };
 
 struct cydir_mailbox {

@@ -3,7 +3,6 @@
 
 #include "seq-range-array.h"
 #include "index-storage.h"
-#include "mailbox-list-private.h"
 
 #define VIRTUAL_STORAGE_NAME "virtual"
 #define VIRTUAL_SUBSCRIPTION_FILE_NAME ".virtual-subscriptions"
@@ -49,7 +48,6 @@ struct virtual_mail_index_record {
 
 struct virtual_storage {
 	struct mail_storage storage;
-	union mailbox_list_module_context list_module_ctx;
 
 	/* List of mailboxes while a virtual mailbox is being opened.
 	   Used to track loops. */

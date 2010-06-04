@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "index-mail.h"
 #include "mail-copy.h"
+#include "mailbox-list-private.h"
 #include "raw-sync.h"
 #include "raw-storage.h"
 

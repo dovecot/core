@@ -14,6 +14,7 @@
 #include "istream-crlf.h"
 #include "istream-concat.h"
 #include "message-parser.h"
+#include "mail-user.h"
 #include "index-mail.h"
 #include "mbox-storage.h"
 #include "mbox-file.h"

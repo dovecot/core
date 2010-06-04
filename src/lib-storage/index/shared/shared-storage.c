@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "var-expand.h"
 #include "index-storage.h"
+#include "mailbox-list-private.h"
 #include "shared-storage.h"
 
 #include <stdlib.h>

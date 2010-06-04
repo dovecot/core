@@ -3,7 +3,6 @@
 
 #include "index-storage.h"
 #include "dbox-storage.h"
-#include "mailbox-list-private.h"
 
 #define SDBOX_STORAGE_NAME "dbox"
 #define SDBOX_MAIL_FILE_PREFIX "u."
@@ -17,7 +16,6 @@ struct sdbox_index_header {
 
 struct sdbox_storage {
 	struct dbox_storage storage;
-	union mailbox_list_module_context list_module_ctx;
 };
 
 struct sdbox_mailbox {

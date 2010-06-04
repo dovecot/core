@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "master-service.h"
 #include "mail-index-modseq.h"
+#include "mailbox-list-private.h"
 #include "dbox-mail.h"
 #include "dbox-save.h"
 #include "sdbox-file.h"

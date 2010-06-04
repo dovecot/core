@@ -2,14 +2,12 @@
 #define RAW_STORAGE_H
 
 #include "index-storage.h"
-#include "mailbox-list-private.h"
 
 #define RAW_STORAGE_NAME "raw"
 #define RAW_SUBSCRIPTION_FILE_NAME "subscriptions"
 
 struct raw_storage {
 	struct mail_storage storage;
-	union mailbox_list_module_context list_module_ctx;
 };
 
 struct raw_mailbox {

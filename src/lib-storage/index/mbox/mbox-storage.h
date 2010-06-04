@@ -3,7 +3,6 @@
 
 #include "index-storage.h"
 #include "mbox-settings.h"
-#include "mailbox-list-private.h"
 
 /* Padding to leave in X-Keywords header when rewriting mbox */
 #define MBOX_HEADER_PADDING 50

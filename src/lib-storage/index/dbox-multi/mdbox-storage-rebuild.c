@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "str.h"
 #include "dbox-sync-rebuild.h"
+#include "mail-namespace.h"
 #include "mdbox-storage.h"
 #include "mdbox-file.h"
 #include "mdbox-map-private.h"

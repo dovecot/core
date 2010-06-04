@@ -6,6 +6,7 @@
 #include "eacces-error.h"
 #include "unlink-old-files.h"
 #include "mailbox-uidvalidity.h"
+#include "mailbox-list-private.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
