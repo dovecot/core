@@ -19,6 +19,7 @@
 #include "index/raw/raw-storage.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
+#include "mail-namespace.h"
 #include "mail-deliver.h"
 #include "main.h"
 #include "client.h"
