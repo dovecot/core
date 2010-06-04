@@ -539,6 +539,39 @@ const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 	return list->v.get_path(list, name, type);
 }
 
+const char *
+mailbox_list_get_root_path(const struct mailbox_list_settings *set,
+			   enum mailbox_list_path_type type)
+{
+	const char *path;
+
+	switch (type) {
+	case MAILBOX_LIST_PATH_TYPE_DIR:
+		return set->root_dir;
+	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
+		return set->alt_dir;
+	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
+		if (*set->mailbox_dir_name == '\0')
+			return set->root_dir;
+		path = t_strconcat(set->root_dir, "/",
+				   set->mailbox_dir_name, NULL);
+		return t_strndup(path, strlen(path)-1);
+	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
+		if (*set->mailbox_dir_name == '\0')
+			return set->root_dir;
+		path = t_strconcat(set->alt_dir, "/",
+				   set->mailbox_dir_name, NULL);
+		return t_strndup(path, strlen(path)-1);
+	case MAILBOX_LIST_PATH_TYPE_CONTROL:
+		return set->control_dir != NULL ?
+			set->control_dir : set->root_dir;
+	case MAILBOX_LIST_PATH_TYPE_INDEX:
+		return set->index_dir != NULL ?
+			set->index_dir : set->root_dir;
+	}
+	i_unreached();
+}
+
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)
 {
 	return list->v.get_temp_prefix(list, FALSE);

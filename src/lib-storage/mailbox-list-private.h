@@ -140,6 +140,9 @@ void mailbox_lists_deinit(void);
 int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 				struct mailbox_list_settings *set_r,
 				const char **error_r);
+const char *
+mailbox_list_get_root_path(const struct mailbox_list_settings *set,
+			   enum mailbox_list_path_type type);
 
 int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name);

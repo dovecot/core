@@ -176,21 +176,7 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 
 	if (name == NULL) {
 		/* return root directories */
-		switch (type) {
-		case MAILBOX_LIST_PATH_TYPE_DIR:
-		case MAILBOX_LIST_PATH_TYPE_MAILBOX:
-			return _list->set.root_dir;
-		case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
-		case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
-			return _list->set.alt_dir;
-		case MAILBOX_LIST_PATH_TYPE_CONTROL:
-			return _list->set.control_dir != NULL ?
-				_list->set.control_dir : _list->set.root_dir;
-		case MAILBOX_LIST_PATH_TYPE_INDEX:
-			return _list->set.index_dir != NULL ?
-				_list->set.index_dir : _list->set.root_dir;
-		}
-		i_unreached();
+		return mailbox_list_get_root_path(&_list->set, type);
 	}
 
 	if (_list->mail_set->mail_full_filesystem_access &&

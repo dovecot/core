@@ -140,31 +140,11 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		 enum mailbox_list_path_type type)
 {
 	const struct mailbox_list_settings *set = &_list->set;
-	const char *path, *root_dir;
+	const char *root_dir;
 
 	if (name == NULL) {
 		/* return root directories */
-		switch (type) {
-		case MAILBOX_LIST_PATH_TYPE_DIR:
-			return set->root_dir;
-		case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
-			return _list->set.alt_dir;
-		case MAILBOX_LIST_PATH_TYPE_MAILBOX:
-			path = t_strconcat(set->root_dir, "/",
-					   set->mailbox_dir_name, NULL);
-			return t_strndup(path, strlen(path)-1);
-		case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
-			path = t_strconcat(set->alt_dir, "/",
-					   set->mailbox_dir_name, NULL);
-			return t_strndup(path, strlen(path)-1);
-		case MAILBOX_LIST_PATH_TYPE_CONTROL:
-			return set->control_dir != NULL ?
-				set->control_dir : set->root_dir;
-		case MAILBOX_LIST_PATH_TYPE_INDEX:
-			return set->index_dir != NULL ?
-				set->index_dir : set->root_dir;
-		}
-		i_unreached();
+		return mailbox_list_get_root_path(set, type);
 	}
 
 	i_assert(mailbox_list_is_valid_pattern(_list, name));
