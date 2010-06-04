@@ -248,6 +248,10 @@ static void client_connected(struct master_service_connection *conn)
 	master_service_client_connection_accept(conn);
 }
 
+static void auth_die(void)
+{
+	/* do nothing. auth clients should disconnect soon. */
+}
 
 int main(int argc, char *argv[])
 {
@@ -268,6 +272,7 @@ int main(int argc, char *argv[])
 
 	main_preinit();
 	master_service_init_finish(master_service);
+	master_service_set_die_callback(master_service, auth_die);
 	main_init();
 	master_service_run(master_service, worker ? worker_connected :
 			   client_connected);
