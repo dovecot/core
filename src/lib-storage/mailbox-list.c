@@ -306,6 +306,37 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 	return 0;
 }
 
+const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
+					     enum mailbox_list_path_type type)
+{
+	const struct mail_storage_settings *mail_set;
+	const char *location = list->ns->unexpanded_set->location;
+	struct mail_user *user = list->ns->user;
+	struct mailbox_list_settings set;
+	const char *p, *error;
+
+	i_assert(*location == '0');
+	location++;
+
+	if (*location == '\0') {
+		mail_set = mail_user_set_get_driver_settings(user->set_info,
+			user->unexpanded_set, MAIL_STORAGE_SET_DRIVER_NAME);
+		i_assert(mail_set != NULL);
+		location = mail_set->mail_location;
+		i_assert(*location == '0');
+		location++;
+	}
+
+	/* type:settings */
+	p = strchr(location, ':');
+	if (p == NULL)
+		return "";
+
+	if (mailbox_list_settings_parse(user, p + 1, &set, &error) < 0)
+		return "";
+	return mailbox_list_get_root_path(&set, type);
+}
+
 void mailbox_list_destroy(struct mailbox_list **_list)
 {
 	struct mailbox_list *list = *_list;
@@ -483,6 +514,129 @@ void mailbox_list_get_dir_permissions(struct mailbox_list *list,
 
 	mailbox_list_get_permissions_full(list, name, &file_mode,
 					  mode_r, gid_r, gid_origin_r);
+}
+
+static int
+mailbox_list_stat_parent(struct mailbox_list *list, const char *path,
+			 const char **root_dir_r, struct stat *st_r)
+{
+	const char *p;
+
+	while (stat(path, st_r) < 0) {
+		if (errno != ENOENT || strcmp(path, "/") == 0) {
+			mailbox_list_set_critical(list, "stat(%s) failed: %m",
+						  path);
+			return -1;
+		}
+		p = strrchr(path, '/');
+		if (p == NULL)
+			path = "/";
+		else
+			path = t_strdup_until(path, p);
+	}
+	*root_dir_r = path;
+	return 0;
+}
+
+static const char *
+get_expanded_path(const char *unexpanded_start, const char *unexpanded_stop,
+		  const char *expanded_full)
+{
+	const char *ret;
+	unsigned int i, slash_count = 0, slash2_count = 0;
+
+	/* get the expanded path up to the same amount of '/' characters.
+	   if there isn't the same amount of '/' characters, it means %variable
+	   expansion added more of them and we can't handle this. */
+	for (i = 0; unexpanded_start+i != unexpanded_stop; i++) {
+		if (unexpanded_start[i] == '/')
+			slash_count++;
+	}
+	for (; unexpanded_start[i] != '\0'; i++) {
+		if (unexpanded_start[i] == '/')
+			slash2_count++;
+	}
+
+	for (i = 0; expanded_full[i] != '\0'; i++) {
+		if (expanded_full[i] == '/') {
+			if (slash_count == 0)
+				break;
+			slash_count--;
+		}
+	}
+	if (slash_count != 0)
+		return "";
+
+	ret = t_strndup(expanded_full, i);
+	for (; expanded_full[i] != '\0'; i++) {
+		if (expanded_full[i] == '/') {
+			if (slash2_count == 0)
+				return "";
+			slash2_count--;
+		}
+	}
+	if (slash2_count != 0)
+		return "";
+	return ret;
+}
+
+int mailbox_list_mkdir(struct mailbox_list *list, const char *path,
+		       enum mailbox_list_path_type type)
+{
+	const char *expanded, *unexpanded, *root_dir, *p, *origin;
+	struct stat st;
+	mode_t mode;
+	gid_t gid;
+
+	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid, &origin);
+
+	/* get the directory path up to last %variable. for example
+	   unexpanded path may be "/var/mail/%d/%2n/%n/Maildir", and we want
+	   to get expanded="/var/mail/domain/nn" */
+	unexpanded = mailbox_list_get_unexpanded_path(list, type);
+	p = strrchr(unexpanded, '%');
+	if (p == NULL)
+		expanded = "";
+	else {
+		while (p != unexpanded && *p != '/') p--;
+		if (p == unexpanded)
+			expanded = "";
+		else {
+			expanded = mailbox_list_get_path(list, NULL, type);
+			expanded = get_expanded_path(unexpanded, p, expanded);
+		}
+	}
+
+	if (*expanded != '\0') {
+		/* up to this directory get the permissions from the first
+		   parent directory that exists, if it has setgid bit
+		   enabled. */
+		if (mailbox_list_stat_parent(list, expanded,
+					     &root_dir, &st) < 0)
+			return -1;
+		if ((st.st_mode & S_ISGID) != 0 && root_dir != expanded) {
+			if (mkdir_parents_chgrp(expanded, st.st_mode,
+						(gid_t)-1, root_dir) < 0 &&
+			    errno != EEXIST) {
+				mailbox_list_set_critical(list,
+					"mkdir(%s) failed: %m", expanded);
+				return -1;
+			}
+		}
+		if (gid == (gid_t)-1 && (mode & S_ISGID) == 0) {
+			/* change the group for user directories */
+			gid = getegid();
+		}
+	}
+
+	/* the rest of the directories exist only for one user. create them
+	   with default directory permissions */
+	if (mkdir_parents_chgrp(path, mode, gid, origin) < 0 &&
+	    errno != EEXIST) {
+		mailbox_list_set_critical(list, "mkdir(%s) failed: %m", path);
+		return -1;
+	}
+	return 0;
 }
 
 bool mailbox_list_is_valid_pattern(struct mailbox_list *list,

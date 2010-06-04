@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "mkdir-parents.h"
 #include "unlink-old-files.h"
+#include "mailbox-list-private.h"
 #include "mdbox-storage.h"
 #include "mdbox-file.h"
 #include "mdbox-map-private.h"
@@ -48,14 +49,13 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list,
 	       const char *path)
 {
 	struct mdbox_map *map;
-	gid_t tmp_gid;
-	const char *tmp_origin;
 
 	map = i_new(struct mdbox_map, 1);
 	map->storage = storage;
 	map->set = storage->set;
 	map->path = i_strdup(path);
 	map->index = mail_index_alloc(path, MDBOX_GLOBAL_INDEX_PREFIX);
+	map->root_list = root_list;
 	map->map_ext_id = mail_index_ext_register(map->index, "map",
 				sizeof(struct mdbox_map_mail_index_header),
 				sizeof(struct mdbox_map_mail_index_record),
@@ -66,8 +66,6 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list,
 
 	mailbox_list_get_permissions(root_list, NULL, &map->create_mode,
 				     &map->create_gid, &map->create_gid_origin);
-	mailbox_list_get_dir_permissions(root_list, NULL, &map->create_dir_mode,
-					 &tmp_gid, &tmp_origin);
 	mail_index_set_permissions(map->index, map->create_mode,
 				   map->create_gid, map->create_gid_origin);
 	return map;
@@ -90,11 +88,9 @@ void mdbox_map_deinit(struct mdbox_map **_map)
 
 static int mdbox_map_mkdir_storage(struct mdbox_map *map)
 {
-	if (mkdir_parents_chgrp(map->path, map->create_dir_mode,
-				map->create_gid, map->create_gid_origin) < 0 &&
-	    errno != EEXIST) {
-		mail_storage_set_critical(MAP_STORAGE(map),
-					  "mkdir(%s) failed: %m", map->path);
+	if (mailbox_list_mkdir(map->root_list, map->path,
+			       MAILBOX_LIST_PATH_TYPE_DIR) < 0) {
+		mail_storage_copy_list_error(MAP_STORAGE(map), map->root_list);
 		return -1;
 	}
 	return 0;

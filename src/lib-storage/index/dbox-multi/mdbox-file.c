@@ -13,6 +13,7 @@
 #include "fdatasync-path.h"
 #include "eacces-error.h"
 #include "str.h"
+#include "mailbox-list-private.h"
 #include "mdbox-storage.h"
 #include "mdbox-map-private.h"
 #include "mdbox-file.h"
@@ -275,11 +276,12 @@ int mdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 	if (fd == -1 && errno == ENOENT && parents &&
 	    (p = strrchr(path, '/')) != NULL) {
 		dir = t_strdup_until(path, p);
-		if (mkdir_parents_chgrp(dir, map->create_dir_mode,
-					map->create_gid,
-					map->create_gid_origin) < 0) {
-			mail_storage_set_critical(&file->storage->storage,
-				"mkdir_parents(%s) failed: %m", dir);
+		if (mailbox_list_mkdir(map->root_list, dir,
+				       path != file->alt_path ?
+				       MAILBOX_LIST_PATH_TYPE_DIR :
+				       MAILBOX_LIST_PATH_TYPE_ALT_DIR) < 0) {
+			mail_storage_copy_list_error(&file->storage->storage,
+						     map->root_list);
 			return -1;
 		}
 		/* try again */

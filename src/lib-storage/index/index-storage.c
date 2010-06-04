@@ -29,11 +29,10 @@ struct index_storage_module index_storage_module =
 int index_list_create_missing_index_dir(struct mailbox_list *list,
 					const char *name)
 {
-	const char *root_dir, *index_dir, *p, *parent_dir;
-	const char *origin, *parent_origin;
-	mode_t mode, parent_mode;
-	gid_t gid, parent_gid;
-	int n = 0;
+	const char *root_dir, *index_dir, *parent_dir, *p, *origin;
+	mode_t mode;
+	gid_t gid;
+	unsigned int n = 0;
 
 	root_dir = mailbox_list_get_path(list, name,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -54,16 +53,10 @@ int index_list_create_missing_index_dir(struct mailbox_list *list,
 			return -1;
 		}
 		/* create the parent directory first */
-		mailbox_list_get_dir_permissions(list, NULL, &parent_mode,
-						 &parent_gid, &parent_origin);
 		parent_dir = t_strdup_until(index_dir, p);
-		if (mkdir_parents_chgrp(parent_dir, parent_mode,
-					parent_gid, parent_origin) < 0 &&
-		    errno != EEXIST) {
-			mailbox_list_set_critical(list,
-				"mkdir(%s) failed: %m", parent_dir);
+		if (mailbox_list_mkdir(list, parent_dir,
+				       MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
 			return -1;
-		}
 	}
 	return 0;
 }

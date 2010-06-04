@@ -60,6 +60,7 @@ static void mail_namespace_free(struct mail_namespace *ns)
 static int
 namespace_add(struct mail_user *user,
 	      struct mail_namespace_settings *ns_set,
+	      struct mail_namespace_settings *unexpanded_ns_set,
 	      const struct mail_storage_settings *mail_set,
 	      struct mail_namespace **ns_p, const char **error_r)
 {
@@ -115,6 +116,7 @@ namespace_add(struct mail_user *user,
 		ns_set->location = mail_set->mail_location;
 
 	ns->set = ns_set;
+	ns->unexpanded_set = unexpanded_ns_set;
 	ns->mail_set = mail_set;
 	ns->prefix = i_strdup(ns_set->prefix);
 
@@ -253,24 +255,29 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
 	struct mail_namespace_settings *const *ns_set;
+	struct mail_namespace_settings *const *unexpanded_ns_set;
 	struct mail_namespace *namespaces, *ns, **ns_p;
 	struct mail_namespace_settings *inbox_set;
 	const char *error, *driver, *location_source;
-	unsigned int i, count;
+	unsigned int i, count, count2;
 
 	i_assert(user->initialized);
 
         namespaces = NULL; ns_p = &namespaces;
 
 	mail_set = mail_user_set_get_storage_set(user);
-	if (array_is_created(&user->set->namespaces))
+	if (array_is_created(&user->set->namespaces)) {
 		ns_set = array_get(&user->set->namespaces, &count);
-	else {
-		ns_set = NULL;
+		unexpanded_ns_set =
+			array_get(&user->unexpanded_set->namespaces, &count2);
+		i_assert(count == count2);
+	} else {
+		ns_set = unexpanded_ns_set = NULL;
 		count = 0;
 	}
 	for (i = 0; i < count; i++) {
-		if (namespace_add(user, ns_set[i], mail_set, ns_p, error_r) < 0)
+		if (namespace_add(user, ns_set[i], unexpanded_ns_set[i],
+				  mail_set, ns_p, error_r) < 0)
 			return -1;
 		ns_p = &(*ns_p)->next;
 	}

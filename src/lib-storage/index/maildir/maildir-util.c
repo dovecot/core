@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "mkdir-parents.h"
+#include "mailbox-list-private.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
@@ -131,11 +132,9 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 }
 
 static int maildir_create_path(struct mailbox *box, const char *path,
-			       bool is_mail_dir)
+			       enum mailbox_list_path_type type, bool retry)
 {
-	const char *p, *parent, *origin;
-	mode_t parent_mode;
-	gid_t parent_gid;
+	const char *p, *parent;
 
 	if (mkdir_chgrp(path, box->dir_create_mode, box->file_create_gid,
 			box->file_create_gid_origin) == 0)
@@ -146,20 +145,17 @@ static int maildir_create_path(struct mailbox *box, const char *path,
 		return 0;
 	case ENOENT:
 		p = strrchr(path, '/');
-		if (is_mail_dir || p == NULL) {
+		if (type == MAILBOX_LIST_PATH_TYPE_MAILBOX ||
+		    p == NULL || !retry) {
 			/* mailbox was being deleted just now */
 			mailbox_set_deleted(box);
 			return -1;
 		}
 		/* create index/control root directory */
 		parent = t_strdup_until(path, p);
-		mailbox_list_get_dir_permissions(box->list, NULL, &parent_mode,
-						 &parent_gid, &origin);
-		if (mkdir_parents_chgrp(parent, parent_mode, parent_gid,
-					origin) == 0 ||
-		    errno == EEXIST) {
+		if (mailbox_list_mkdir(box->list, parent, type) == 0) {
 			/* should work now, try again */
-			return maildir_create_path(box, path, TRUE);
+			return maildir_create_path(box, path, type, FALSE);
 		}
 		/* fall through */
 		path = parent;
@@ -174,16 +170,20 @@ static int maildir_create_subdirs(struct mailbox *box)
 {
 	static const char *subdirs[] = { "cur", "new", "tmp" };
 	const char *dirs[N_ELEMENTS(subdirs) + 2];
+	enum mailbox_list_path_type types[N_ELEMENTS(subdirs) + 2];
 	struct stat st;
 	const char *path;
 	unsigned int i;
-	bool is_mail_dir;
 
 	/* @UNSAFE: get a list of directories we want to create */
-	for (i = 0; i < N_ELEMENTS(subdirs); i++)
+	for (i = 0; i < N_ELEMENTS(subdirs); i++) {
+		types[i] = MAILBOX_LIST_PATH_TYPE_MAILBOX;
 		dirs[i] = t_strconcat(box->path, "/", subdirs[i], NULL);
+	}
+	types[i] = MAILBOX_LIST_PATH_TYPE_CONTROL;
 	dirs[i++] = mailbox_list_get_path(box->list, box->name,
 					  MAILBOX_LIST_PATH_TYPE_CONTROL);
+	types[i] = MAILBOX_LIST_PATH_TYPE_INDEX;
 	dirs[i++] = mailbox_list_get_path(box->list, box->name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
 	i_assert(i == N_ELEMENTS(dirs));
@@ -197,8 +197,7 @@ static int maildir_create_subdirs(struct mailbox *box)
 						  "stat(%s) failed: %m", path);
 			break;
 		}
-		is_mail_dir = i < N_ELEMENTS(subdirs);
-		if (maildir_create_path(box, path, is_mail_dir) < 0)
+		if (maildir_create_path(box, path, types[i], TRUE) < 0)
 			break;
 	}
 	return i == N_ELEMENTS(dirs) ? 0 : -1;

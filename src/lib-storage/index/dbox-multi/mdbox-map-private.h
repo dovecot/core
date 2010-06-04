@@ -20,7 +20,8 @@ struct mdbox_map {
 
 	uint32_t map_ext_id, ref_ext_id;
 
-	mode_t create_mode, create_dir_mode;
+	struct mailbox_list *root_list;
+	mode_t create_mode;
 	gid_t create_gid;
 	const char *create_gid_origin;
 };
