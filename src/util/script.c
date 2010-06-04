@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "env-util.h"
 #include "execv-const.h"
 #include "master-interface.h"
 #include "master-service.h"
@@ -84,6 +85,7 @@ static void client_connected(struct master_service_connection *conn)
 	if (close(conn->fd) < 0)
 		i_error("close() failed: %m");
 
+	env_clean();
 	args = array_idx(&exec_args, 0);
 	execvp_const(args[0], args);
 }
