@@ -297,9 +297,14 @@ static void mail_log_mail_copy(void *txn, struct mail *src, struct mail *dst)
 		(struct mail_log_mail_txn_context *)txn;
 	const char *desc;
 
-	desc = t_strdup_printf("copy from %s",
-			str_sanitize(mailbox_get_name(src->box),
-				     MAILBOX_NAME_LOG_LEN));
+	if (strcmp(src->box->storage->name, "raw") == 0) {
+		/* special case: lda/lmtp is saving a mail */
+		desc = "save";
+	} else {
+		desc = t_strdup_printf("copy from %s",
+				       str_sanitize(mailbox_get_name(src->box),
+						    MAILBOX_NAME_LOG_LEN));
+	}
 	mail_log_append_mail_message(ctx, dst, MAIL_LOG_EVENT_SAVE, desc);
 }
 
