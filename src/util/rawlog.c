@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "fd-set-nonblock.h"
 #include "network.h"
+#include "str.h"
 #include "write-full.h"
 #include "istream.h"
 #include "ostream.h"
@@ -17,11 +18,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 
-#define MAX_PROXY_INPUT_SIZE 4096
-#define OUTBUF_THRESHOLD 1024
-
-#define TIMESTAMP_WAIT_TIME 5
-#define TIMESTAMP_FORMAT "* OK [RAWLOG TIMESTAMP] %Y-%m-%d %H:%M:%S\n"
+#define OUTBUF_THRESHOLD IO_BLOCK_SIZE
 
 static struct ioloop *ioloop;
 
@@ -35,14 +32,11 @@ enum rawlog_flags {
 struct rawlog_proxy {
 	int client_in_fd, client_out_fd, server_fd;
 	struct io *client_io, *server_io;
-	struct istream *server_input;
 	struct ostream *client_output, *server_output;
 
 	int fd_in, fd_out;
 	enum rawlog_flags flags;
-
-	time_t last_write;
-	unsigned int last_out_lf:1;
+	bool prev_lf_in, prev_lf_out;
 };
 
 static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
@@ -60,7 +54,6 @@ static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 	if (proxy->server_io != NULL)
 		io_remove(&proxy->server_io);
 
-	i_stream_destroy(&proxy->server_input);
 	o_stream_destroy(&proxy->client_output);
 	o_stream_destroy(&proxy->server_output);
 
@@ -75,59 +68,81 @@ static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 	io_loop_stop(ioloop);
 }
 
+static int
+write_with_timestamps(int fd, bool *prev_lf,
+		      const unsigned char *data, size_t size)
+{
+	int ret;
+
+	T_BEGIN {
+		const char *timestamp = t_strdup_printf("%ld.%06lu ",
+			(long)ioloop_timeval.tv_sec,
+			(unsigned long)ioloop_timeval.tv_usec);
+		string_t *str = t_str_new(size + 128);
+		size_t i;
+
+		if (*prev_lf)
+			str_append(str, timestamp);
+
+		for (i = 0; i < size; i++) {
+			str_append_c(str, data[i]);
+			if (data[i] == '\n' && i+1 != size)
+				str_append(str, timestamp);
+		}
+		*prev_lf = data[i-1] == '\n';
+		ret = write_full(fd, str_data(str), str_len(str));
+	} T_END;
+	return ret;
+}
+
+static int proxy_write_data(struct rawlog_proxy *proxy, int fd,
+			    bool *prev_lf, const void *data, size_t size)
+{
+	if (fd == -1 || size == 0)
+		return 0;
+
+	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0) {
+		if (write_full(fd, "<<<\n", 4) < 0)
+			return -1;
+	}
+
+	if ((proxy->flags & RAWLOG_FLAG_LOG_TIMESTAMPS) != 0) {
+		if (write_with_timestamps(fd, prev_lf, data, size) < 0)
+			return -1;
+	} else {
+		if (write_full(fd, data, size) < 0)
+			return -1;
+	}
+
+	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0) {
+		if (write_full(fd, ">>>\n", 4) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 static void proxy_write_in(struct rawlog_proxy *proxy,
 			   const void *data, size_t size)
 {
-	if (proxy->fd_in == -1 || size == 0)
-		return;
-
-	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0)
-		write_full(proxy->fd_in, "<<<", 3);
-
-	if (write_full(proxy->fd_in, data, size) < 0) {
+	if (proxy_write_data(proxy, proxy->fd_in, &proxy->prev_lf_in,
+			     data, size) < 0) {
 		/* failed, disable logging */
 		i_error("write(in) failed: %m");
 		(void)close(proxy->fd_in);
 		proxy->fd_in = -1;
-	} else if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0) {
-		write_full(proxy->fd_in, ">>>\n", 4);
 	}
 }
 
 static void proxy_write_out(struct rawlog_proxy *proxy,
 			    const void *data, size_t size)
 {
-	struct tm *tm;
-	char buf[256];
-
-	if (proxy->fd_out == -1 || size == 0)
-		return;
-
-	if (proxy->last_out_lf &&
-	    (proxy->flags & RAWLOG_FLAG_LOG_TIMESTAMPS) != 0 &&
-	    ioloop_time - proxy->last_write >= TIMESTAMP_WAIT_TIME) {
-		tm = localtime(&ioloop_time);
-
-		if (strftime(buf, sizeof(buf), TIMESTAMP_FORMAT, tm) <= 0)
-			i_fatal("strftime() failed");
-		if (write_full(proxy->fd_out, buf, strlen(buf)) < 0)
-			i_fatal("Can't write to log file: %m");
-	}
-
-	if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0)
-		write_full(proxy->fd_out, "<<<", 3);
-	if (write_full(proxy->fd_out, data, size) < 0) {
+	if (proxy_write_data(proxy, proxy->fd_out, &proxy->prev_lf_out,
+			     data, size) < 0) {
 		/* failed, disable logging */
 		i_error("write(out) failed: %m");
 		(void)close(proxy->fd_out);
 		proxy->fd_out = -1;
-	} else if ((proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0) {
-		write_full(proxy->fd_out, ">>>\n", 4);
 	}
-
-	proxy->last_write = ioloop_time;
-	proxy->last_out_lf = ((const unsigned char *)buf)[size-1] == '\n' ||
-		(proxy->flags & RAWLOG_FLAG_LOG_BOUNDARIES) != 0;
 }
 
 static void server_input(struct rawlog_proxy *proxy)
@@ -148,7 +163,7 @@ static void server_input(struct rawlog_proxy *proxy)
 		(void)o_stream_send(proxy->client_output, buf, ret);
 		proxy_write_out(proxy, buf, ret);
 	} else if (ret <= 0)
-                rawlog_proxy_destroy(proxy);
+		rawlog_proxy_destroy(proxy);
 }
 
 static void client_input(struct rawlog_proxy *proxy)
@@ -169,7 +184,7 @@ static void client_input(struct rawlog_proxy *proxy)
 		(void)o_stream_send(proxy->server_output, buf, ret);
 		proxy_write_in(proxy, buf, ret);
 	} else if (ret < 0)
-                rawlog_proxy_destroy(proxy);
+		rawlog_proxy_destroy(proxy);
 }
 
 static int server_output(struct rawlog_proxy *proxy)
@@ -251,8 +266,6 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 
 	proxy = i_new(struct rawlog_proxy, 1);
 	proxy->server_fd = server_fd;
-	proxy->server_input =
-		i_stream_create_fd(server_fd, MAX_PROXY_INPUT_SIZE, FALSE);
 	proxy->server_output = o_stream_create_fd(server_fd, (size_t)-1, FALSE);
 	proxy->server_io = io_add(server_fd, IO_READ, server_input, proxy);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
@@ -268,9 +281,9 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	fd_set_nonblock(client_in_fd, TRUE);
 	fd_set_nonblock(client_out_fd, TRUE);
 
-	proxy->last_out_lf = TRUE;
 	proxy->flags = flags;
 
+	proxy->prev_lf_in = proxy->prev_lf_out = TRUE;
 	proxy->fd_in = proxy->fd_out = -1;
 	proxy_open_logs(proxy, path);
 	return proxy;
@@ -349,6 +362,7 @@ int main(int argc, char *argv[])
 {
 	char *executable, *p;
 	enum rawlog_flags flags;
+	int c;
 
 	flags = RAWLOG_FLAG_LOG_INPUT | RAWLOG_FLAG_LOG_OUTPUT;
 
@@ -356,30 +370,32 @@ int main(int argc, char *argv[])
 	i_set_failure_internal();
 	process_title_init(&argv);
 
-	argc--;
-	argv++;
-	while (argc > 0 && *argv[0] == '-') {
-		if (strcmp(argv[0], "-i") == 0)
+	while ((c = getopt(argc, argv, "iobt")) > 0) {
+		switch (c) {
+		case 'i':
 			flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
-		else if (strcmp(argv[0], "-o") == 0)
+			break;
+		case 'o':
 			flags &= ~RAWLOG_FLAG_LOG_INPUT;
-		else if (strcmp(argv[0], "-b") == 0)
+			break;
+		case 'b':
 			flags |= RAWLOG_FLAG_LOG_BOUNDARIES;
-		else {
+			break;
+		case 't':
+			flags |= RAWLOG_FLAG_LOG_TIMESTAMPS;
+			break;
+		default:
 			argc = 0;
 			break;
 		}
-		argc--;
-		argv++;
 	}
+	argc -= optind;
+	argv += optind;
 
 	if (argc < 1)
-		i_fatal("Usage: rawlog [-i | -o] [-b] <binary> <arguments>");
+		i_fatal("Usage: rawlog [-i | -o] [-b] [-t] <binary> <arguments>");
 
 	executable = argv[0];
-	if (strstr(executable, "/imap") != NULL)
-		flags |= RAWLOG_FLAG_LOG_TIMESTAMPS;
-
 	rawlog_open(flags);
 
 	/* hide the executable path, it's ugly */
