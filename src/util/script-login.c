@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
 	master_service = master_service_init("script-login", flags,
-					     &argc, &argv, "d");
+					     &argc, &argv, "+d");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'd':

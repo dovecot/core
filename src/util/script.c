@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 	const char *binary;
 	int i;
 
-	master_service = master_service_init("script", 0, &argc, &argv, NULL);
+	master_service = master_service_init("script", 0, &argc, &argv, "+");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 	argc -= optind;
