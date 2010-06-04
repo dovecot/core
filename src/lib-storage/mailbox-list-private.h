@@ -137,9 +137,8 @@ extern struct mailbox_list_module_register mailbox_list_module_register;
 void mailbox_lists_init(void);
 void mailbox_lists_deinit(void);
 
-int mailbox_list_settings_parse(const char *data,
-				struct mailbox_list_settings *set,
-				struct mail_namespace *ns,
+int mailbox_list_settings_parse(struct mail_user *user, const char *data,
+				struct mailbox_list_settings *set_r,
 				const char **error_r);
 
 int mailbox_list_delete_index_control(struct mailbox_list *list,

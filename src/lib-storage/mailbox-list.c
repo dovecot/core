@@ -197,7 +197,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	return 0;
 }
 
-static int fix_path(struct mail_namespace *ns, const char *path,
+static int fix_path(struct mail_user *user, const char *path,
 		    const char **path_r, const char **error_r)
 {
 	size_t len = strlen(path);
@@ -214,7 +214,7 @@ static int fix_path(struct mail_namespace *ns, const char *path,
 			return -1;
 		}
 	} else {
-		if (mail_user_try_home_expand(ns->user, &path) < 0) {
+		if (mail_user_try_home_expand(user, &path) < 0) {
 			*error_r = "Home directory not set for user. "
 				"Can't expand ~/ for ";
 			return -1;
@@ -243,13 +243,15 @@ static const char *split_next_arg(const char *const **_args)
 	return str;
 }
 
-int mailbox_list_settings_parse(const char *data,
-				struct mailbox_list_settings *set,
-				struct mail_namespace *ns, const char **error_r)
+int mailbox_list_settings_parse(struct mail_user *user, const char *data,
+				struct mailbox_list_settings *set_r,
+				const char **error_r)
 {
 	const char *const *tmp, *key, *value, **dest, *str, *error;
 
 	*error_r = NULL;
+
+	memset(set_r, 0, sizeof(*set_r));
 
 	if (*data == '\0')
 		return 0;
@@ -257,7 +259,7 @@ int mailbox_list_settings_parse(const char *data,
 	/* <root dir> */
 	tmp = t_strsplit(data, ":");
 	str = split_next_arg(&tmp);
-	if (fix_path(ns, str, &set->root_dir, &error) < 0) {
+	if (fix_path(user, str, &set_r->root_dir, &error) < 0) {
 		*error_r = t_strconcat(error, "mail root dir in: ", data, NULL);
 		return -1;
 	}
@@ -274,33 +276,33 @@ int mailbox_list_settings_parse(const char *data,
 		}
 
 		if (strcmp(key, "INBOX") == 0)
-			dest = &set->inbox_path;
+			dest = &set_r->inbox_path;
 		else if (strcmp(key, "INDEX") == 0)
-			dest = &set->index_dir;
+			dest = &set_r->index_dir;
 		else if (strcmp(key, "CONTROL") == 0)
-			dest = &set->control_dir;
+			dest = &set_r->control_dir;
 		else if (strcmp(key, "ALT") == 0)
-			dest = &set->alt_dir;
+			dest = &set_r->alt_dir;
 		else if (strcmp(key, "LAYOUT") == 0)
-			dest = &set->layout;
+			dest = &set_r->layout;
 		else if (strcmp(key, "SUBSCRIPTIONS") == 0)
-			dest = &set->subscription_fname;
+			dest = &set_r->subscription_fname;
 		else if (strcmp(key, "DIRNAME") == 0)
-			dest = &set->maildir_name;
+			dest = &set_r->maildir_name;
 		else if (strcmp(key, "MAILBOXDIR") == 0)
-			dest = &set->mailbox_dir_name;
+			dest = &set_r->mailbox_dir_name;
 		else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
 		}
-		if (fix_path(ns, value, dest, &error) < 0) {
+		if (fix_path(user, value, dest, &error) < 0) {
 			*error_r = t_strconcat(error, key, " in: ", data, NULL);
 			return -1;
 		}
 	}
 
-	if (set->index_dir != NULL && strcmp(set->index_dir, "MEMORY") == 0)
-		set->index_dir = "";
+	if (set_r->index_dir != NULL && strcmp(set_r->index_dir, "MEMORY") == 0)
+		set_r->index_dir = "";
 	return 0;
 }
 

@@ -277,7 +277,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 	} else {
 		if (driver == NULL)
 			mail_storage_set_autodetection(&data, &driver);
-		if (mailbox_list_settings_parse(data, &list_set, ns,
+		if (mailbox_list_settings_parse(ns->user, data, &list_set,
 						error_r) < 0)
 			return -1;
 	}
