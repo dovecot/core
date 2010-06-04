@@ -160,8 +160,13 @@ static void main_deinit(void)
 	auth_master_connections_deinit();
         auth_worker_server_deinit();
 
-	auths_deinit();
 	auth_request_handler_deinit();
+	/* there may still be some async auth requests left, but above
+	   functions should have marked all of them as destroyed. pass/userdb
+	   deinits should abort the pending requests, which still triggers
+	   callbacks, which should avoid crashes by checking the destroyed
+	   state. */
+	auths_deinit();
 	passdb_cache_deinit();
 
 	mech_register_deinit(&mech_reg);
