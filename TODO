@@ -1,13 +1,10 @@
+ - maildir: sometimes rm -rf Maildir;imaptest logout=0 gives
+   Error: Opening INBOX failed: Mailbox doesn't exist: INBOX
  - director:
     - user list iter should skip expired records
     - sequence stuff is unused..
- - doveadm expunge mailbox blah <- mutf7/utf8?
-     - doveadm forceresync same...
-     - always use utf8?..
- - "dovecot stuff" should run "doveadm stuff"?
+    - master shouldn't stop it when idling
 
- - mdbox+dotlocking: cleanup should delete stale *.lock files
- - +|- before numbers? quota_rule2 = Trash:storage=+100M messages=+10
  - SEARCH SENT*/HEADER/etc. doesn't seem optimized when using with TEXT/BODY
 
 07:00 < Faxe> Info: dovecot: uidnext changed from -> to, has the wrong 
@@ -16,15 +13,6 @@
 07:00 < Faxe> (copy one mail and sync again)
 07:00 < Faxe> Info: dovecot: uidnext changed 81529 -> 81528
   - same for highestmodseq, ~/m/dsync-v_mirror.txt
-
- - doveadm import [-t storage] <dest mailbox> file|dir|-
-
- - ns {prefix=, inbox=no}, ns { mbox, inbox=yes } -> INBOX shows up
-   as \noinferiors
- - 1) mdbox: ns=INBOX. -> don't list INBOX.INBOX
- - 2) same as 1), allow separate INBOX.INBOX mailbox!
- - 3) INBOX.INBOX.foobar
- - 4) dbox: ns= -> make sure INBOX/children are listed and accessiblex
 
  - solr: crashes if expunge is done while search is indexing
 
@@ -38,6 +26,7 @@
  - virtual: removed messages don't get expunged unless EXPUNGE is issued in
    same session. otherwise they get forgotten and never removed.
  - mdbox
+    - dotlocking: cleanup should delete stale *.lock files
     - purging seems to be inefficient. run imaptest for a while, get >500
       files, start purging, it's slow until there are about 100 files left,
       then the rest is suddenly fast.
@@ -61,7 +50,6 @@
  - quota_warn: add $QUOTA_LIMIT environment or %variable parameter
  - deliver -r <address> used as autoreplies' From-address?
  - add fd limit checks/warnings
- - expire plugin could support also "archive" operation = move to another mailbox
  - istream-seekable is inefficient. it shouldn't be reading the temp file
    immediately after writing to it
  - config process is handling requests too slowly. maybe add some caching.
@@ -113,8 +101,6 @@
    ctx->seq jumps around. And why is it also returned when fts is enabled
    along with "Indexed n% of the mailbox"?
  - how do shared mailboxes work with plugins?
-    - expire: not too well. would require knowing the mapping between shared
-      namespace and the original user's namespace to avoid duplication.
     - lazy-expunge, fts, etc.?
  - dovecot-acl-list:
     - how does it work with global acls?
@@ -140,7 +126,6 @@
  - QRESYNC: Drop expunges from the middle of given seq sets if possible
  - use universal hash functions?
 
- - expire plugin: log more with mail_debug=yes
  - UIDVALIDITY changed while saving -> sync errors
    - mbox: copy to Trash, manually delete copied msg, change uidvalidity,
      set nextuid=1, copy again -> error
