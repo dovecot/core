@@ -16,7 +16,6 @@ struct mdbox_map {
 
 	struct mail_index *index;
 	struct mail_index_view *view;
-	uint32_t created_uid_validity;
 
 	uint32_t map_ext_id, ref_ext_id;
 

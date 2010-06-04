@@ -101,8 +101,7 @@ int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 int mdbox_map_append_commit(struct mdbox_map_append_context *ctx);
 void mdbox_map_append_free(struct mdbox_map_append_context **ctx);
 
-/* Get either existing uidvalidity or create a new one if map was
-   just created. */
+/* Returns map's uidvalidity */
 uint32_t mdbox_map_get_uid_validity(struct mdbox_map *map);
 
 void mdbox_map_set_corrupted(struct mdbox_map *map, const char *format, ...)

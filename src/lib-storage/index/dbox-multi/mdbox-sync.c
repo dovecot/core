@@ -207,7 +207,9 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	int ret;
 	bool rebuild, storage_rebuilt = FALSE;
 
-	rebuild = mdbox_refresh_header(mbox, TRUE) < 0 ||
+	/* avoid race conditions with mailbox creation, don't check for dbox
+	   headers until syncing has locked the mailbox */
+	rebuild = mbox->storage->corrupted ||
 		(flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
 	if (rebuild) {
 		if (mdbox_storage_rebuild(mbox->storage) < 0)

@@ -30,6 +30,8 @@ struct mdbox_map_transaction_context {
 	unsigned int success:1;
 };
 
+static int mdbox_map_generate_uid_validity(struct mdbox_map *map);
+
 void mdbox_map_set_corrupted(struct mdbox_map *map, const char *format, ...)
 {
 	va_list args;
@@ -62,7 +64,6 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list,
 				sizeof(uint32_t));
 	map->ref_ext_id = mail_index_ext_register(map->index, "ref", 0,
 				sizeof(uint16_t), sizeof(uint16_t));
-	map->created_uid_validity = ioloop_time;
 
 	mailbox_list_get_permissions(root_list, NULL, &map->create_mode,
 				     &map->create_gid, &map->create_gid_origin);
@@ -146,6 +147,15 @@ static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 
 	map->view = mail_index_view_open(map->index);
 	mdbox_map_cleanup(map);
+
+	if (mail_index_get_header(map->view)->uid_validity == 0) {
+		if (mdbox_map_generate_uid_validity(map) < 0) {
+			mail_storage_set_internal_error(MAP_STORAGE(map));
+			mail_index_reset_error(map->index);
+			mail_index_close(map->index);
+			return -1;
+		}
+	}
 	return 1;
 }
 
@@ -1218,19 +1228,45 @@ void mdbox_map_append_free(struct mdbox_map_append_context **_ctx)
 	i_free(ctx);
 }
 
-uint32_t mdbox_map_get_uid_validity(struct mdbox_map *map)
+static int mdbox_map_generate_uid_validity(struct mdbox_map *map)
 {
 	const struct mail_index_header *hdr;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	uint32_t uid_validity;
+	int ret;
+
+	/* do this inside syncing, so that we're locked and there are no
+	   race conditions */
+	ret = mail_index_sync_begin(map->index, &sync_ctx, &view, &trans, 0);
+	if (ret <= 0) {
+		i_assert(ret != 0);
+		return -1;
+	}
+	mdbox_map_sync_handle(map, sync_ctx);
+
+	hdr = mail_index_get_header(map->view);
+	if (hdr->uid_validity != 0) {
+		/* someone else beat us to it */
+		uid_validity = hdr->uid_validity;
+	} else {
+		uid_validity = ioloop_time;
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, uid_validity),
+			&uid_validity, sizeof(uid_validity), TRUE);
+	}
+	return mail_index_sync_commit(&sync_ctx);
+}
+
+uint32_t mdbox_map_get_uid_validity(struct mdbox_map *map)
+{
+	uint32_t uid_validity;
 
 	i_assert(map->view != NULL);
 
-	hdr = mail_index_get_header(map->view);
-	if (hdr->uid_validity != 0)
-		return hdr->uid_validity;
-
-	/* refresh index in case it was just changed */
-	(void)mdbox_map_refresh(map);
-	hdr = mail_index_get_header(map->view);
-	return hdr->uid_validity != 0 ? hdr->uid_validity :
-		map->created_uid_validity;
+	uid_validity = mail_index_get_header(map->view)->uid_validity;
+	if (uid_validity == 0)
+		mdbox_map_set_corrupted(map, "lost uidvalidity");
+	return uid_validity;
 }

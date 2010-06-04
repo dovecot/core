@@ -812,8 +812,6 @@ mdbox_storage_rebuild_scan_dir(struct mdbox_storage_rebuild_context *ctx,
 
 static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 {
-	const struct mail_index_header *hdr;
-	uint32_t uid_validity;
 	int ret = 0;
 
 	if (mdbox_map_open_or_create(ctx->storage->map) < 0)
@@ -839,14 +837,6 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 	}
 
 	i_warning("mdbox %s: rebuilding indexes", ctx->storage->storage_dir);
-
-	uid_validity = mdbox_map_get_uid_validity(ctx->storage->map);
-	hdr = mail_index_get_header(ctx->sync_view);
-	if (hdr->uid_validity != uid_validity) {
-		mail_index_update_header(ctx->trans,
-			offsetof(struct mail_index_header, uid_validity),
-			&uid_validity, sizeof(uid_validity), TRUE);
-	}
 
 	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->storage_dir,
 					   FALSE) < 0)

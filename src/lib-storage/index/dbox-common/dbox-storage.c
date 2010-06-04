@@ -94,6 +94,10 @@ int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
+	int ret;
 
 	if (directory &&
 	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
@@ -101,7 +105,22 @@ int dbox_mailbox_create(struct mailbox *box,
 
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
-	if (storage->v.mailbox_create_indexes(box, update) < 0)
+
+	/* use syncing as a lock */
+	ret = mail_index_sync_begin(box->index, &sync_ctx, &view, &trans, 0);
+	if (ret <= 0) {
+		i_assert(ret != 0);
+		mail_storage_set_internal_error(box->storage);
+		mail_index_reset_error(box->index);
 		return -1;
-	return 0;
+	}
+
+	if (mail_index_get_header(view)->uid_validity == 0) {
+		if (storage->v.mailbox_create_indexes(box, update, trans) < 0) {
+			mail_index_sync_rollback(&sync_ctx);
+			return -1;
+		}
+	}
+
+	return mail_index_sync_commit(&sync_ctx);
 }

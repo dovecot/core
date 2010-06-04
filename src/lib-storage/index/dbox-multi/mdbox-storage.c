@@ -182,19 +182,23 @@ void mdbox_update_header(struct mdbox_mailbox *mbox,
 }
 
 static int mdbox_write_index_header(struct mailbox *box,
-				    const struct mailbox_update *update)
+				    const struct mailbox_update *update,
+				    struct mail_index_transaction *trans)
 {
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
-	struct mail_index_transaction *trans;
+	struct mail_index_transaction *new_trans = NULL;
 	const struct mail_index_header *hdr;
 	uint32_t uid_validity, uid_next;
 
 	if (mdbox_map_open_or_create(mbox->storage->map) < 0)
 		return -1;
 
-	hdr = mail_index_get_header(box->view);
-	trans = mail_index_transaction_begin(box->view, 0);
+	if (trans == NULL) {
+		new_trans = mail_index_transaction_begin(box->view, 0);
+		trans = new_trans;
+	}
 
+	hdr = mail_index_get_header(box->view);
 	uid_validity = hdr->uid_validity;
 	if (update != NULL && update->uid_validity != 0)
 		uid_validity = update->uid_validity;
@@ -226,21 +230,24 @@ static int mdbox_write_index_header(struct mailbox *box,
 	}
 
 	mdbox_update_header(mbox, trans, update);
-	if (mail_index_transaction_commit(&trans) < 0) {
-		mail_storage_set_index_error(box);
-		return -1;
+	if (new_trans != NULL) {
+		if (mail_index_transaction_commit(&new_trans) < 0) {
+			mail_storage_set_index_error(box);
+			return -1;
+		}
 	}
 	return 0;
 }
 
 static int mdbox_mailbox_create_indexes(struct mailbox *box,
-					const struct mailbox_update *update)
+					const struct mailbox_update *update,
+					struct mail_index_transaction *trans)
 {
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
 	int ret;
 
 	mbox->creating = TRUE;
-	ret = mdbox_write_index_header(box, update);
+	ret = mdbox_write_index_header(box, update, trans);
 	mbox->creating = FALSE;
 	return ret;
 }
@@ -280,7 +287,7 @@ mdbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 
 	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
-		if (mdbox_write_index_header(box, NULL) < 0 ||
+		if (mdbox_write_index_header(box, NULL, NULL) < 0 ||
 		    mdbox_read_header(mbox, &hdr) < 0)
 			return -1;
 	}
@@ -297,7 +304,7 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	}
 	if (update->cache_fields != NULL)
 		index_storage_mailbox_update_cache_fields(box, update);
-	return mdbox_write_index_header(box, update);
+	return mdbox_write_index_header(box, update, NULL);
 }
 
 static int mdbox_mailbox_unref_mails(struct mdbox_mailbox *mbox)
