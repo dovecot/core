@@ -35,7 +35,7 @@ struct client_dict {
 	const char *path;
 	enum dict_data_type value_type;
 
-	time_t last_connect_try;
+	time_t last_failed_connect;
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
@@ -373,9 +373,11 @@ static void client_dict_timeout(struct client_dict *dict)
 
 static void client_dict_add_timeout(struct client_dict *dict)
 {
-	if (dict->to_idle != NULL)
+	if (dict->to_idle != NULL) {
+#if DICT_CLIENT_TIMEOUT_MSECS > 0
 		timeout_reset(dict->to_idle);
-	else if (client_dict_is_finished(dict)) {
+#endif
+	} else if (client_dict_is_finished(dict)) {
 		dict->to_idle = timeout_add(DICT_CLIENT_TIMEOUT_MSECS,
 					    client_dict_timeout, dict);
 	}
@@ -398,14 +400,14 @@ static int client_dict_connect(struct client_dict *dict)
 
 	i_assert(dict->fd == -1);
 
-	if (dict->last_connect_try == ioloop_time) {
+	if (dict->last_failed_connect == ioloop_time) {
 		/* Try again later */
 		return -1;
 	}
-	dict->last_connect_try = ioloop_time;
 
 	dict->fd = net_connect_unix(dict->path);
 	if (dict->fd == -1) {
+		dict->last_failed_connect = ioloop_time;
 		i_error("net_connect_unix(%s) failed: %m", dict->path);
 		return -1;
 	}
@@ -424,6 +426,7 @@ static int client_dict_connect(struct client_dict *dict)
 				DICT_CLIENT_PROTOCOL_MINOR_VERSION,
 				dict->value_type, dict->username, dict->uri);
 	if (client_dict_send_query(dict, query) < 0) {
+		dict->last_failed_connect = ioloop_time;
 		client_dict_disconnect(dict);
 		return -1;
 	}
