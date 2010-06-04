@@ -358,16 +358,16 @@ mail_log_mail_transaction_commit(void *txn,
 	struct seq_range_iter iter;
 	unsigned int n = 0;
 	uint32_t uid;
-	bool ret;
 
 	seq_range_array_iter_init(&iter, &changes->saved_uids);
 	for (msg = ctx->messages; msg != NULL; msg = msg->next) {
 		if (msg->pretext == NULL) {
 			i_info("%s", msg->text);
 		} else {
-			ret = seq_range_array_iter_nth(&iter, n++, &uid);
-			i_assert(ret);
-			i_info("%s%u%s", msg->pretext, uid, msg->text);
+			if (seq_range_array_iter_nth(&iter, n++, &uid))
+				i_info("%s%u%s", msg->pretext, uid, msg->text);
+			else
+				i_info("%serror%s", msg->pretext, msg->text);
 		}
 	}
 	i_assert(!seq_range_array_iter_nth(&iter, n, &uid));
