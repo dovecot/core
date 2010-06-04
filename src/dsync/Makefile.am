@@ -10,8 +10,17 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage
 
-dsync_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT) $(MODULE_LIBS)
-dsync_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_DEPS)
+if !BUILD_SHARED_LIBS
+unused_objects = \
+	../lib/mountpoint.o
+endif
+
+libs = \
+	$(LIBDOVECOT_STORAGE) \
+	$(unused_objects)
+
+dsync_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
+dsync_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 dsync_SOURCES = \
 	dsync.c \
 	dsync-brain.c \
