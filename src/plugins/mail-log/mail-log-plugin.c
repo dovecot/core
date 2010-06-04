@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "llist.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "imap-util.h"
@@ -81,6 +82,7 @@ struct mail_log_settings {
 
 struct mail_log_message {
 	struct mail_log_message *prev, *next;
+
 	const char *pretext, *text;
 };
 
@@ -209,10 +211,13 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 		str_append(text, ", ");
 	}
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_UID) != 0) {
-		if (event == MAIL_LOG_EVENT_SAVE)
-			mail_log_append_uid(ctx, msg, text, 0);
-		else
+		if (event != MAIL_LOG_EVENT_SAVE)
 			mail_log_append_uid(ctx, msg, text, mail->uid);
+		else {
+			/* with mbox mail->uid contains the uid, but handle
+			   this consistently with all mailbox formats */
+			mail_log_append_uid(ctx, msg, text, 0);
+		}
 		str_append(text, ", ");
 	}
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_MSGID) != 0) {
@@ -250,12 +255,7 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 	str_truncate(text, str_len(text)-2);
 
 	msg->text = p_strdup(ctx->pool, str_c(text));
-	msg->prev = ctx->messages_tail;
-	ctx->messages_tail = msg;
-	if (msg->prev != NULL)
-		msg->prev->next = msg;
-	if (ctx->messages == NULL)
-		ctx->messages = msg;
+	DLLIST2_APPEND(&ctx->messages, &ctx->messages_tail, msg);
 }
 
 static void
