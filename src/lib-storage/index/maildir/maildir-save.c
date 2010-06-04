@@ -209,6 +209,7 @@ void maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
 		_ctx->dest_mail = ctx->mail;
 	}
 	mail_set_seq(_ctx->dest_mail, ctx->seq);
+	_ctx->dest_mail->saving = TRUE;
 
 	if (ctx->input == NULL) {
 		/* FIXME: copying with hardlinking. we could copy the

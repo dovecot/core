@@ -251,6 +251,7 @@ struct mail {
 	uint32_t seq, uid;
 
 	unsigned int expunged:1;
+	unsigned int saving:1; /* This mail is still being saved */
 	unsigned int has_nuls:1; /* message data is known to contain NULs */
 	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
 

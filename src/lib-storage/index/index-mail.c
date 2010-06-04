@@ -1172,6 +1172,7 @@ static void index_mail_reset(struct index_mail *mail)
 	mail->mail.mail.expunged = FALSE;
 	mail->mail.mail.has_nuls = FALSE;
 	mail->mail.mail.has_no_nuls = FALSE;
+	mail->mail.mail.saving = FALSE;
 }
 
 static void check_envelope(struct index_mail *mail)

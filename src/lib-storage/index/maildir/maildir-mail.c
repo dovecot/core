@@ -73,7 +73,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 	ctx.path = NULL;
 
 	p->stats_open_lookup_count++;
-	if (mail->uid != 0) {
+	if (!mail->saving) {
 		if (maildir_file_do(mbox, mail->uid, do_open, &ctx) < 0)
 			return NULL;
 	} else {

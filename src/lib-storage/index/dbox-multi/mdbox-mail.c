@@ -113,7 +113,7 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 	do {
 		if (mail->open_file != NULL) {
 			/* already open */
-		} else if (_mail->uid != 0) {
+		} else if (!_mail->saving) {
 			if (mdbox_mail_lookup(mbox, _mail->transaction->view,
 					      _mail->seq, &map_uid) < 0)
 				return -1;

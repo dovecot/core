@@ -393,7 +393,9 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	save_mail = array_append_space(&ctx->mails);
 	save_mail->seq = ctx->ctx.seq;
 
-	if (_ctx->dest_mail != NULL)
+	if (_ctx->dest_mail != NULL) {
 		mail_set_seq(_ctx->dest_mail, ctx->ctx.seq);
+		_ctx->dest_mail->saving = TRUE;
+	}
 	return 0;
 }

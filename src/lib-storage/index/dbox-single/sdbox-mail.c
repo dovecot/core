@@ -32,7 +32,7 @@ static bool sdbox_mail_file_set(struct dbox_mail *mail)
 	if (mail->open_file != NULL) {
 		/* already set */
 		return FALSE;
-	} else if (_mail->uid != 0) {
+	} else if (!_mail->saving) {
 		mail->open_file = sdbox_file_init(mbox, _mail->uid);
 		return FALSE;
 	} else {
