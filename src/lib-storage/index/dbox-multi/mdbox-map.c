@@ -1249,7 +1249,6 @@ static int mdbox_map_generate_uid_validity(struct mdbox_map *map)
 	hdr = mail_index_get_header(map->view);
 	if (hdr->uid_validity != 0) {
 		/* someone else beat us to it */
-		uid_validity = hdr->uid_validity;
 	} else {
 		uid_validity = ioloop_time;
 		mail_index_update_header(trans,
