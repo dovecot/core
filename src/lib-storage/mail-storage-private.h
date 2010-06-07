@@ -463,6 +463,7 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
+int mailbox_mark_index_deleted(struct mailbox *box, bool del);
 void mailbox_refresh_permissions(struct mailbox *box);
 
 /* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */

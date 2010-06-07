@@ -373,8 +373,11 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 	char timestamp[256];
 	int ret;
 
-	if (llist->internal_namespace)
+	if (llist->internal_namespace || !box->opened) {
+		/* a) deleting mailbox from lazy_expunge namespaces
+		   b) deleting a \noselect mailbox */
 		return lbox->super.delete(box);
+	}
 
 	expunge_ns = get_lazy_ns(list->ns->user, LAZY_NAMESPACE_EXPUNGE);
 	dest_ns = get_lazy_ns(list->ns->user, LAZY_NAMESPACE_DELETE);
@@ -393,7 +396,11 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 		destname = t_strconcat(box->name, "-", timestamp, NULL);
 	}
 
-	/* first move the actual mailbox */
+	/* avoid potential race conditions by marking it deleted */
+	if (mailbox_mark_index_deleted(box, TRUE) < 0)
+		return -1;
+
+	/* rename it into the lazy_expunge namespace */
 	ret = mailbox_move(box, dest_ns->list, destname, &expunge_box);
 	if (ret < 0)
 		return -1;

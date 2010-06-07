@@ -462,6 +462,9 @@ int index_storage_mailbox_delete(struct mailbox *box)
 		return index_storage_mailbox_delete_dir(box, FALSE);
 	}
 
+	if (mailbox_mark_index_deleted(box, TRUE) < 0)
+		return -1;
+
 	if (mailbox_get_guid(box, mailbox_guid) < 0)
 		return -1;
 

@@ -664,7 +664,7 @@ int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return box->v.update(box, update);
 }
 
-static int mailbox_mark_index_deleted(struct mailbox *box, bool del)
+int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 {
 	enum mail_index_transaction_flags trans_flags = 0;
 	struct mail_index_transaction *trans;
@@ -737,10 +737,6 @@ int mailbox_delete(struct mailbox *box)
 		}
 	}
 
-	if (box->opened) {
-		if (mailbox_mark_index_deleted(box, TRUE) < 0)
-			return -1;
-	}
 	ret = box->v.delete(box);
 
 	box->deleting = FALSE;
