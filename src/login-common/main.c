@@ -314,8 +314,8 @@ static void main_deinit(void)
 	ssl_proxy_deinit();
 	login_proxy_deinit();
 
-	auth_client_deinit(&auth_client);
 	clients_deinit();
+	auth_client_deinit(&auth_client);
 	master_auth_deinit(&master_auth);
 
 	if (anvil != NULL)
