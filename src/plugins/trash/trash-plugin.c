@@ -312,7 +312,6 @@ trash_mail_namespaces_created(struct mail_namespace *namespaces)
 		i_error("trash plugin: quota plugin not initialized");
 	} else {
 		tuser = p_new(user->pool, struct trash_user, 1);
-		tuser->module_ctx.super = user->v;
 		MODULE_CONTEXT_SET(user, trash_user_module, tuser);
 
 		if (read_configuration(user, env) == 0) {

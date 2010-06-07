@@ -168,25 +168,22 @@ static int zlib_permail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(imail, hdr_size, body_size, stream_r);
 }
 
-static struct mail *
-zlib_permail_mail_alloc(struct mailbox_transaction_context *t,
-			enum mail_fetch_field wanted_fields,
-			struct mailbox_header_lookup_ctx *wanted_headers)
+static void zlib_mail_allocated(struct mail *_mail)
 {
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(t->box);
+	struct zlib_transaction_context *zt = ZLIB_CONTEXT(_mail->transaction);
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_vfuncs *v = mail->vlast;
 	union mail_module_context *zmail;
-	struct mail *_mail;
-	struct mail_private *mail;
 
-	_mail = zbox->super.mail_alloc(t, wanted_fields, wanted_headers);
-	mail = (struct mail_private *)_mail;
+	if (zt == NULL)
+		return;
 
 	zmail = p_new(mail->pool, union mail_module_context, 1);
-	zmail->super = mail->v;
+	zmail->super = *v;
+	mail->vlast = &zmail->super;
 
-	mail->v.get_stream = zlib_permail_get_stream;
+	v->get_stream = zlib_permail_get_stream;
 	MODULE_CONTEXT_SET_SELF(mail, zlib_mail_module, zmail);
-	return _mail;
 }
 
 static struct mailbox_transaction_context *
@@ -292,19 +289,19 @@ zlib_mail_save_compress_begin(struct mail_save_context *ctx,
 	return 0;
 }
 
-static void zlib_permail_alloc_init(struct mailbox *box)
+static void
+zlib_permail_alloc_init(struct mailbox *box, struct mailbox_vfuncs *v)
 {
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
 
-	box->v.mail_alloc = zlib_permail_mail_alloc;
-	box->v.transaction_begin = zlib_mailbox_transaction_begin;
-	box->v.transaction_rollback = zlib_mailbox_transaction_rollback;
-	box->v.transaction_commit = zlib_mailbox_transaction_commit;
+	v->transaction_begin = zlib_mailbox_transaction_begin;
+	v->transaction_rollback = zlib_mailbox_transaction_rollback;
+	v->transaction_commit = zlib_mailbox_transaction_commit;
 	if (zuser->save_handler == NULL) {
-		box->v.save_begin = zlib_mail_save_begin;
-		box->v.save_finish = zlib_mail_save_finish;
+		v->save_begin = zlib_mail_save_begin;
+		v->save_finish = zlib_mail_save_finish;
 	} else {
-		box->v.save_begin = zlib_mail_save_compress_begin;
+		v->save_begin = zlib_mail_save_compress_begin;
 	}
 }
 
@@ -352,18 +349,20 @@ static int zlib_mailbox_open(struct mailbox *box)
 
 static void zlib_mailbox_allocated(struct mailbox *box)
 {
+	struct mailbox_vfuncs *v = box->vlast;
 	union mailbox_module_context *zbox;
 
 	zbox = p_new(box->pool, union mailbox_module_context, 1);
-	zbox->super = box->v;
-	box->v.open = zlib_mailbox_open;
+	zbox->super = *v;
+	box->vlast = &zbox->super;
+	v->open = zlib_mailbox_open;
 
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 
 	if (strcmp(box->storage->name, "maildir") == 0 ||
 	    strcmp(box->storage->name, "mdbox") == 0 ||
 	    strcmp(box->storage->name, "dbox") == 0)
-		zlib_permail_alloc_init(box);
+		zlib_permail_alloc_init(box, v);
 }
 
 static void zlib_mail_user_created(struct mail_user *user)
@@ -372,7 +371,6 @@ static void zlib_mail_user_created(struct mail_user *user)
 	const char *name;
 
 	zuser = p_new(user->pool, struct zlib_user, 1);
-	zuser->module_ctx.super = user->v;
 
 	name = mail_user_plugin_getenv(user, "zlib_save");
 	if (name != NULL && *name != '\0') {
@@ -395,7 +393,8 @@ static void zlib_mail_user_created(struct mail_user *user)
 
 static struct mail_storage_hooks zlib_mail_storage_hooks = {
 	.mail_user_created = zlib_mail_user_created,
-	.mailbox_allocated = zlib_mailbox_allocated
+	.mailbox_allocated = zlib_mailbox_allocated,
+	.mail_allocated = zlib_mail_allocated
 };
 
 void zlib_plugin_init(struct module *module)

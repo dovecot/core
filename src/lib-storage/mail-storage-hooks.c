@@ -125,6 +125,7 @@ void hook_mail_user_created(struct mail_user *user)
 
 	mail_user_add_plugin_hooks(user);
 
+	user->vlast = &user->v;
 	array_foreach(&user->hooks, hooks) {
 		if ((*hooks)->mail_user_created != NULL)
 			(*hooks)->mail_user_created(user);
@@ -155,6 +156,7 @@ void hook_mail_storage_created(struct mail_storage *storage)
 {
 	const struct mail_storage_hooks *const *hooks;
 
+	storage->vlast = &storage->v;
 	array_foreach(&storage->user->hooks, hooks) {
 		if ((*hooks)->mail_storage_created != NULL)
 			(*hooks)->mail_storage_created(storage);
@@ -165,6 +167,7 @@ void hook_mailbox_list_created(struct mailbox_list *list)
 {
 	const struct mail_storage_hooks *const *hooks;
 
+	list->vlast = &list->v;
 	array_foreach(&list->ns->user->hooks, hooks) {
 		if ((*hooks)->mailbox_list_created != NULL)
 			(*hooks)->mailbox_list_created(list);
@@ -175,6 +178,7 @@ void hook_mailbox_allocated(struct mailbox *box)
 {
 	const struct mail_storage_hooks *const *hooks;
 
+	box->vlast = &box->v;
 	array_foreach(&box->storage->user->hooks, hooks) {
 		if ((*hooks)->mailbox_allocated != NULL)
 			(*hooks)->mailbox_allocated(box);
@@ -188,5 +192,17 @@ void hook_mailbox_opened(struct mailbox *box)
 	array_foreach(&box->storage->user->hooks, hooks) {
 		if ((*hooks)->mailbox_opened != NULL)
 			(*hooks)->mailbox_opened(box);
+	}
+}
+
+void hook_mail_allocated(struct mail *mail)
+{
+	const struct mail_storage_hooks *const *hooks;
+	struct mail_private *pmail = (struct mail_private *)mail;
+
+	pmail->vlast = &pmail->v;
+	array_foreach(&mail->box->storage->user->hooks, hooks) {
+		if ((*hooks)->mail_allocated != NULL)
+			(*hooks)->mail_allocated(mail);
 	}
 }

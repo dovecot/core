@@ -7,6 +7,7 @@ struct mail_storage;
 struct mail_namespace;
 struct mailbox_list;
 struct mailbox;
+struct mail;
 
 struct mail_storage_hooks {
 	void (*mail_user_created)(struct mail_user *user);
@@ -16,6 +17,7 @@ struct mail_storage_hooks {
 	void (*mailbox_list_created)(struct mailbox_list *list);
 	void (*mailbox_allocated)(struct mailbox *box);
 	void (*mailbox_opened)(struct mailbox *box);
+	void (*mail_allocated)(struct mail *mail);
 };
 
 void mail_storage_hooks_init(void);
@@ -35,5 +37,6 @@ void hook_mail_storage_created(struct mail_storage *storage);
 void hook_mailbox_list_created(struct mailbox_list *list);
 void hook_mailbox_allocated(struct mailbox *box);
 void hook_mailbox_opened(struct mailbox *box);
+void hook_mail_allocated(struct mail *mail);
 
 #endif

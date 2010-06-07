@@ -26,11 +26,13 @@ static void acl_user_deinit(struct mail_user *user)
 
 static void acl_mail_user_create(struct mail_user *user, const char *env)
 {
+	struct mail_user_vfuncs *v = user->vlast;
 	struct acl_user *auser;
 
 	auser = p_new(user->pool, struct acl_user, 1);
-	auser->module_ctx.super = user->v;
-	user->v.deinit = acl_user_deinit;
+	auser->module_ctx.super = *v;
+	user->vlast = &auser->module_ctx.super;
+	v->deinit = acl_user_deinit;
 	auser->acl_lookup_dict = acl_lookup_dict_init(user);
 
 	auser->acl_env = env;

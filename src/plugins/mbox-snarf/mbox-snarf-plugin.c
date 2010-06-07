@@ -169,12 +169,14 @@ static void
 mbox_snarf_mail_storage_create(struct mail_storage *storage, const char *path)
 {
 	struct mbox_snarf_mail_storage *mstorage;
+	struct mail_storage_vfuncs *v = storage->vlast;
 
 	path = mail_user_home_expand(storage->user, path);
 	mstorage = p_new(storage->pool, struct mbox_snarf_mail_storage, 1);
 	mstorage->snarf_inbox_path = p_strdup(storage->pool, path);
-	mstorage->module_ctx.super = storage->v;
-	storage->v.mailbox_alloc = mbox_snarf_mailbox_alloc;
+	mstorage->module_ctx.super = *v;
+	storage->vlast = &mstorage->module_ctx.super;
+	v->mailbox_alloc = mbox_snarf_mailbox_alloc;
 
 	MODULE_CONTEXT_SET(storage, mbox_snarf_storage_module, mstorage);
 }

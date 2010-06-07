@@ -61,7 +61,7 @@ struct mail_storage {
 	const char *name;
 	enum mail_storage_class_flags class_flags;
 
-        struct mail_storage_vfuncs v;
+        struct mail_storage_vfuncs v, *vlast;
 
 /* private: */
 	pool_t pool;
@@ -219,7 +219,7 @@ struct mailbox {
 	struct mail_storage *storage;
 	struct mailbox_list *list;
 
-        struct mailbox_vfuncs v;
+        struct mailbox_vfuncs v, *vlast;
 /* private: */
 	pool_t pool;
 
@@ -327,7 +327,7 @@ union mail_module_context {
 
 struct mail_private {
 	struct mail mail;
-	struct mail_vfuncs v;
+	struct mail_vfuncs v, *vlast;
 
 	enum mail_fetch_field wanted_fields;
 	struct mailbox_header_lookup_ctx *wanted_headers;

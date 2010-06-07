@@ -71,27 +71,20 @@ notify_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
 	notify_contexts_mail_update_keywords(_mail, old_keywords);
 }
 
-static struct mail *
-notify_mail_alloc(struct mailbox_transaction_context *t,
-		  enum mail_fetch_field wanted_fields,
-		  struct mailbox_header_lookup_ctx *wanted_headers)
+static void notify_mail_allocated(struct mail *_mail)
 {
-	union mailbox_module_context *lbox = NOTIFY_CONTEXT(t->box);
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_vfuncs *v = mail->vlast;
 	union mail_module_context *lmail;
-	struct mail *_mail;
-	struct mail_private *mail;
-
-	_mail = lbox->super.mail_alloc(t, wanted_fields, wanted_headers);
-	mail = (struct mail_private *)_mail;
 
 	lmail = p_new(mail->pool, union mail_module_context, 1);
-	lmail->super = mail->v;
+	lmail->super = *v;
+	mail->vlast = &lmail->super;
 
-	mail->v.expunge = notify_mail_expunge;
-	mail->v.update_flags = notify_mail_update_flags;
-	mail->v.update_keywords = notify_mail_update_keywords;
+	v->expunge = notify_mail_expunge;
+	v->update_flags = notify_mail_update_flags;
+	v->update_keywords = notify_mail_update_keywords;
 	MODULE_CONTEXT_SET_SELF(mail, notify_mail_module, lmail);
-	return _mail;
 }
 
 static int
@@ -224,25 +217,27 @@ notify_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 
 static void notify_mailbox_allocated(struct mailbox *box)
 {
+	struct mailbox_vfuncs *v = box->vlast;
 	union mailbox_module_context *lbox;
 
 	lbox = p_new(box->pool, union mailbox_module_context, 1);
-	lbox->super = box->v;
+	lbox->super = *v;
+	box->vlast = &lbox->super;
 
-	box->v.mail_alloc = notify_mail_alloc;
-	box->v.copy = notify_copy;
-	box->v.save_begin = notify_save_begin;
-	box->v.save_finish = notify_save_finish;
-	box->v.transaction_begin = notify_transaction_begin;
-	box->v.transaction_commit = notify_transaction_commit;
-	box->v.transaction_rollback = notify_transaction_rollback;
-	box->v.delete = notify_mailbox_delete;
-	box->v.rename = notify_mailbox_rename;
+	v->copy = notify_copy;
+	v->save_begin = notify_save_begin;
+	v->save_finish = notify_save_finish;
+	v->transaction_begin = notify_transaction_begin;
+	v->transaction_commit = notify_transaction_commit;
+	v->transaction_rollback = notify_transaction_rollback;
+	v->delete = notify_mailbox_delete;
+	v->rename = notify_mailbox_rename;
 	MODULE_CONTEXT_SET_SELF(box, notify_storage_module, lbox);
 }
 
 static struct mail_storage_hooks notify_mail_storage_hooks = {
-	.mailbox_allocated = notify_mailbox_allocated
+	.mailbox_allocated = notify_mailbox_allocated,
+	.mail_allocated = notify_mail_allocated
 };
 
 void notify_plugin_init_storage(struct module *module)

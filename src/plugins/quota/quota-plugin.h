@@ -6,6 +6,7 @@
 
 struct module;
 struct mailbox;
+struct mail;
 
 #define QUOTA_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, quota_user_module)
@@ -24,6 +25,7 @@ void quota_mail_user_created(struct mail_user *user);
 void quota_mail_namespace_storage_added(struct mail_namespace *ns);
 void quota_mail_namespaces_created(struct mail_namespace *namespaces);
 void quota_mailbox_allocated(struct mailbox *box);
+void quota_mail_allocated(struct mail *mail);
 
 void quota_plugin_init(struct module *module);
 void quota_plugin_deinit(void);

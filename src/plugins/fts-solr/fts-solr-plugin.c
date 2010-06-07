@@ -49,7 +49,6 @@ static void fts_solr_mail_user_create(struct mail_user *user, const char *env)
 	struct fts_solr_user *fuser;
 
 	fuser = p_new(user->pool, struct fts_solr_user, 1);
-	fuser->module_ctx.super = user->v;
 	if (fts_solr_plugin_init_settings(user, &fuser->set, env) < 0) {
 		/* invalid settings, disabling */
 		return;

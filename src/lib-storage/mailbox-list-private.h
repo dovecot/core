@@ -88,7 +88,7 @@ struct mailbox_list {
 	enum mailbox_list_properties props;
 	size_t mailbox_name_max_length;
 
-	struct mailbox_list_vfuncs v;
+	struct mailbox_list_vfuncs v, *vlast;
 
 /* private: */
 	pool_t pool;

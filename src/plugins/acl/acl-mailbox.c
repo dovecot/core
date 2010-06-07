@@ -20,6 +20,7 @@ struct acl_mailbox {
 	union mailbox_module_context module_ctx;
 	struct acl_object *aclobj;
 	bool skip_acl_checks;
+	bool acl_enabled;
 };
 
 struct acl_transaction_context {
@@ -335,28 +336,24 @@ static void acl_mail_expunge(struct mail *_mail)
 	amail->super.expunge(_mail);
 }
 
-static struct mail *
-acl_mail_alloc(struct mailbox_transaction_context *t,
-	       enum mail_fetch_field wanted_fields,
-	       struct mailbox_header_lookup_ctx *wanted_headers)
+void acl_mail_allocated(struct mail *_mail)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
+	struct acl_mailbox *abox = ACL_CONTEXT(_mail->box);
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_vfuncs *v = mail->vlast;
 	union mail_module_context *amail;
-	struct mail *_mail;
-	struct mail_private *mail;
 
-	_mail = abox->module_ctx.super.
-		mail_alloc(t, wanted_fields, wanted_headers);
-	mail = (struct mail_private *)_mail;
+	if (abox == NULL || !abox->acl_enabled)
+		return;
 
 	amail = p_new(mail->pool, union mail_module_context, 1);
-	amail->super = mail->v;
+	amail->super = *v;
+	mail->vlast = &amail->super;
 
-	mail->v.update_flags = acl_mail_update_flags;
-	mail->v.update_keywords = acl_mail_update_keywords;
-	mail->v.expunge = acl_mail_expunge;
+	v->update_flags = acl_mail_update_flags;
+	v->update_keywords = acl_mail_update_keywords;
+	v->expunge = acl_mail_expunge;
 	MODULE_CONTEXT_SET_SELF(mail, acl_mail_module, amail);
-	return _mail;
 }
 
 static int acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
@@ -502,6 +499,7 @@ static int acl_mailbox_open(struct mailbox *box)
 void acl_mailbox_allocated(struct mailbox *box)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	struct mailbox_vfuncs *v = box->vlast;
 	struct acl_mailbox *abox;
 
 	if (alist == NULL) {
@@ -510,24 +508,25 @@ void acl_mailbox_allocated(struct mailbox *box)
 	}
 
 	abox = p_new(box->pool, struct acl_mailbox, 1);
-	abox->module_ctx.super = box->v;
+	abox->module_ctx.super = *v;
+	box->vlast = &abox->module_ctx.super;
 	abox->aclobj = acl_object_init_from_name(alist->rights.backend,
 						 mailbox_get_name(box));
 
 	if ((box->flags & MAILBOX_FLAG_IGNORE_ACLS) == 0) {
-		box->v.is_readonly = acl_is_readonly;
-		box->v.allow_new_keywords = acl_allow_new_keywords;
-		box->v.open = acl_mailbox_open;
-		box->v.free = acl_mailbox_free;
-		box->v.create = acl_mailbox_create;
-		box->v.update = acl_mailbox_update;
-		box->v.delete = acl_mailbox_delete;
-		box->v.rename = acl_mailbox_rename;
-		box->v.mail_alloc = acl_mail_alloc;
-		box->v.save_begin = acl_save_begin;
-		box->v.keywords_create = acl_keywords_create;
-		box->v.copy = acl_copy;
-		box->v.transaction_commit = acl_transaction_commit;
+		abox->acl_enabled = TRUE;
+		v->is_readonly = acl_is_readonly;
+		v->allow_new_keywords = acl_allow_new_keywords;
+		v->open = acl_mailbox_open;
+		v->free = acl_mailbox_free;
+		v->create = acl_mailbox_create;
+		v->update = acl_mailbox_update;
+		v->delete = acl_mailbox_delete;
+		v->rename = acl_mailbox_rename;
+		v->save_begin = acl_save_begin;
+		v->keywords_create = acl_keywords_create;
+		v->copy = acl_copy;
+		v->transaction_commit = acl_transaction_commit;
 	}
 	MODULE_CONTEXT_SET(box, acl_storage_module, abox);
 }

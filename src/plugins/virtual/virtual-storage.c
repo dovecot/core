@@ -389,13 +389,15 @@ virtual_list_get_mailbox_flags(struct mailbox_list *list,
 static void virtual_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 				     struct mailbox_list *list)
 {
+	struct mailbox_list_vfuncs *v = list->vlast;
 	struct virtual_mailbox_list *mlist;
 
 	mlist = p_new(list->pool, struct virtual_mailbox_list, 1);
-	mlist->module_ctx.super = list->v;
+	mlist->module_ctx.super = *v;
+	list->vlast = &mlist->module_ctx.super;
 
 	list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
-	list->v.get_mailbox_flags = virtual_list_get_mailbox_flags;
+	v->get_mailbox_flags = virtual_list_get_mailbox_flags;
 
 	MODULE_CONTEXT_SET(list, virtual_mailbox_list_module, mlist);
 }

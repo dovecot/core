@@ -13,7 +13,7 @@ struct mail_user_vfuncs {
 
 struct mail_user {
 	pool_t pool;
-	struct mail_user_vfuncs v;
+	struct mail_user_vfuncs v, *vlast;
 	int refcount;
 
 	const char *username;

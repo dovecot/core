@@ -15,7 +15,14 @@ struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
 			struct mailbox_header_lookup_ctx *wanted_headers)
 {
-	return t->box->v.mail_alloc(t, wanted_fields, wanted_headers);
+	struct mail *mail;
+
+	T_BEGIN {
+		mail = t->box->v.mail_alloc(t, wanted_fields, wanted_headers);
+		hook_mail_allocated(mail);
+	} T_END;
+
+	return mail;
 }
 
 void mail_free(struct mail **mail)

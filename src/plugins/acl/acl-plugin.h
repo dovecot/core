@@ -43,6 +43,7 @@ void acl_mail_namespace_storage_added(struct mail_namespace *ns);
 void acl_mail_user_created(struct mail_user *list);
 
 void acl_mailbox_allocated(struct mailbox *box);
+void acl_mail_allocated(struct mail *mail);
 
 struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list);
 int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,

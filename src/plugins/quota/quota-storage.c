@@ -113,26 +113,22 @@ quota_mailbox_transaction_rollback(struct mailbox_transaction_context *ctx)
 	quota_transaction_rollback(&qt);
 }
 
-static struct mail *
-quota_mail_alloc(struct mailbox_transaction_context *t,
-		 enum mail_fetch_field wanted_fields,
-		 struct mailbox_header_lookup_ctx *wanted_headers)
+void quota_mail_allocated(struct mail *_mail)
 {
-	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
+	struct quota_mailbox *qbox = QUOTA_CONTEXT(_mail->box);
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_vfuncs *v = mail->vlast;
 	union mail_module_context *qmail;
-	struct mail *_mail;
-	struct mail_private *mail;
 
-	_mail = qbox->module_ctx.super.
-		mail_alloc(t, wanted_fields, wanted_headers);
-	mail = (struct mail_private *)_mail;
+	if (qbox == NULL)
+		return;
 
 	qmail = p_new(mail->pool, union mail_module_context, 1);
-	qmail->super = mail->v;
+	qmail->super = *v;
+	mail->vlast = &qmail->super;
 
-	mail->v.expunge = quota_mail_expunge;
+	v->expunge = quota_mail_expunge;
 	MODULE_CONTEXT_SET_SELF(mail, quota_mail_module, qmail);
-	return _mail;
 }
 
 static int quota_check(struct mailbox_transaction_context *t, struct mail *mail)
@@ -389,25 +385,26 @@ static void quota_mailbox_free(struct mailbox *box)
 
 void quota_mailbox_allocated(struct mailbox *box)
 {
+	struct mailbox_vfuncs *v = box->vlast;
 	struct quota_mailbox *qbox;
 
 	if (QUOTA_LIST_CONTEXT(box->list) == NULL)
 		return;
 
 	qbox = p_new(box->pool, struct quota_mailbox, 1);
-	qbox->module_ctx.super = box->v;
+	qbox->module_ctx.super = *v;
+	box->vlast = &qbox->module_ctx.super;
 
-	box->v.transaction_begin = quota_mailbox_transaction_begin;
-	box->v.transaction_commit = quota_mailbox_transaction_commit;
-	box->v.transaction_rollback = quota_mailbox_transaction_rollback;
-	box->v.mail_alloc = quota_mail_alloc;
-	box->v.save_begin = quota_save_begin;
-	box->v.save_finish = quota_save_finish;
-	box->v.copy = quota_copy;
-	box->v.sync_notify = quota_mailbox_sync_notify;
-	box->v.sync_deinit = quota_mailbox_sync_deinit;
-	box->v.delete = quota_mailbox_delete;
-	box->v.free = quota_mailbox_free;
+	v->transaction_begin = quota_mailbox_transaction_begin;
+	v->transaction_commit = quota_mailbox_transaction_commit;
+	v->transaction_rollback = quota_mailbox_transaction_rollback;
+	v->save_begin = quota_save_begin;
+	v->save_finish = quota_save_finish;
+	v->copy = quota_copy;
+	v->sync_notify = quota_mailbox_sync_notify;
+	v->sync_deinit = quota_mailbox_sync_deinit;
+	v->delete = quota_mailbox_delete;
+	v->free = quota_mailbox_free;
 	MODULE_CONTEXT_SET(box, quota_storage_module, qbox);
 }
 
@@ -436,14 +433,16 @@ static void quota_user_deinit(struct mail_user *user)
 
 void quota_mail_user_created(struct mail_user *user)
 {
+	struct mail_user_vfuncs *v = user->vlast;
 	struct quota_user *quser;
 	struct quota_settings *set;
 
 	set = quota_user_read_settings(user);
 	if (set != NULL) {
 		quser = p_new(user->pool, struct quota_user, 1);
-		quser->module_ctx.super = user->v;
-		user->v.deinit = quota_user_deinit;
+		quser->module_ctx.super = *v;
+		user->vlast = &quser->module_ctx.super;
+		v->deinit = quota_user_deinit;
 		quser->quota = quota_init(set, user);
 
 		MODULE_CONTEXT_SET(user, quota_user_module, quser);
@@ -490,9 +489,12 @@ void quota_mail_namespace_storage_added(struct mail_namespace *ns)
 	}
 
 	if (add) {
+		struct mailbox_list_vfuncs *v = list->vlast;
+
 		qlist = p_new(list->pool, struct quota_mailbox_list, 1);
-		qlist->module_ctx.super = list->v;
-		list->v.deinit = quota_mailbox_list_deinit;
+		qlist->module_ctx.super = *v;
+		list->vlast = &qlist->module_ctx.super;
+		v->deinit = quota_mailbox_list_deinit;
 		MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
 
 		/* register to owner's quota roots */

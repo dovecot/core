@@ -265,10 +265,12 @@ static bool listescape_is_valid_create_name(struct mailbox_list *list,
 static void listescape_mail_storage_created(struct mail_storage *storage)
 {
 	struct listescape_mail_storage *mstorage;
+	struct mail_storage_vfuncs *v = storage->vlast;
 
 	mstorage = p_new(storage->pool, struct listescape_mail_storage, 1);
-	mstorage->module_ctx.super = storage->v;
-	storage->v.mailbox_alloc = listescape_mailbox_alloc;
+	mstorage->module_ctx.super = *v;
+	storage->vlast = &mstorage->module_ctx.super;
+	v->mailbox_alloc = listescape_mailbox_alloc;
 
 	MODULE_CONTEXT_SET(storage, listescape_storage_module, mstorage);
 }
@@ -276,6 +278,7 @@ static void listescape_mail_storage_created(struct mail_storage *storage)
 static void listescape_mail_namespace_storage_added(struct mail_namespace *ns)
 {
 	struct mailbox_list *list = ns->list;
+	struct mailbox_list_vfuncs *v = list->vlast;
 	struct listescape_mailbox_list *mlist;
 	const char *env;
 
@@ -285,15 +288,16 @@ static void listescape_mail_namespace_storage_added(struct mail_namespace *ns)
 	ns->real_sep = ns->sep;
 
 	mlist = p_new(list->pool, struct listescape_mailbox_list, 1);
-	mlist->module_ctx.super = list->v;
+	mlist->module_ctx.super = *v;
+	list->vlast = &mlist->module_ctx.super;
 	mlist->list_name = str_new(list->pool, 256);
-	list->v.iter_init = listescape_mailbox_list_iter_init;
-	list->v.iter_next = listescape_mailbox_list_iter_next;
-	list->v.iter_deinit = listescape_mailbox_list_iter_deinit;
-	list->v.set_subscribed = listescape_set_subscribed;
-	list->v.get_mailbox_name_status = listescape_get_mailbox_name_status;
-	list->v.is_valid_existing_name = listescape_is_valid_existing_name;
-	list->v.is_valid_create_name = listescape_is_valid_create_name;
+	v->iter_init = listescape_mailbox_list_iter_init;
+	v->iter_next = listescape_mailbox_list_iter_next;
+	v->iter_deinit = listescape_mailbox_list_iter_deinit;
+	v->set_subscribed = listescape_set_subscribed;
+	v->get_mailbox_name_status = listescape_get_mailbox_name_status;
+	v->is_valid_existing_name = listescape_is_valid_existing_name;
+	v->is_valid_create_name = listescape_is_valid_create_name;
 
 	env = mail_user_plugin_getenv(list->ns->user, "listescape_char");
 	mlist->escape_char = env != NULL && *env != '\0' ?

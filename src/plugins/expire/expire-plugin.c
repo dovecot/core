@@ -179,26 +179,22 @@ static void expire_mail_expunge(struct mail *_mail)
 	xpr_mail->super.expunge(_mail);
 }
 
-static struct mail *
-expire_mail_alloc(struct mailbox_transaction_context *t,
-		  enum mail_fetch_field wanted_fields,
-		  struct mailbox_header_lookup_ctx *wanted_headers)
+static void expire_mail_allocated(struct mail *_mail)
 {
-	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
+	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(_mail->box);
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_vfuncs *v = mail->vlast;
 	union mail_module_context *xpr_mail;
-	struct mail *_mail;
-	struct mail_private *mail;
 
-	_mail = xpr_box->module_ctx.super.
-		mail_alloc(t, wanted_fields, wanted_headers);
-	mail = (struct mail_private *)_mail;
+	if (xpr_box == NULL)
+		return;
 
 	xpr_mail = p_new(mail->pool, union mail_module_context, 1);
-	xpr_mail->super = mail->v;
+	xpr_mail->super = *v;
+	mail->vlast = &xpr_mail->super;
 
-	mail->v.expunge = expire_mail_expunge;
+	v->expunge = expire_mail_expunge;
 	MODULE_CONTEXT_SET_SELF(mail, expire_mail_module, xpr_mail);
-	return _mail;
 }
 
 static int expire_save_finish(struct mail_save_context *ctx)
@@ -224,17 +220,18 @@ expire_copy(struct mail_save_context *ctx, struct mail *mail)
 
 static void expire_mailbox_allocate_init(struct mailbox *box)
 {
+	struct mailbox_vfuncs *v = box->vlast;
 	struct expire_mailbox *xpr_box;
 
 	xpr_box = p_new(box->pool, struct expire_mailbox, 1);
-	xpr_box->module_ctx.super = box->v;
+	xpr_box->module_ctx.super = *v;
+	box->vlast = &xpr_box->module_ctx.super;
 
-	box->v.transaction_begin = expire_mailbox_transaction_begin;
-	box->v.transaction_commit = expire_mailbox_transaction_commit;
-	box->v.transaction_rollback = expire_mailbox_transaction_rollback;
-	box->v.mail_alloc = expire_mail_alloc;
-	box->v.save_finish = expire_save_finish;
-	box->v.copy = expire_copy;
+	v->transaction_begin = expire_mailbox_transaction_begin;
+	v->transaction_commit = expire_mailbox_transaction_commit;
+	v->transaction_rollback = expire_mailbox_transaction_rollback;
+	v->save_finish = expire_save_finish;
+	v->copy = expire_copy;
 
 	MODULE_CONTEXT_SET(box, expire_storage_module, xpr_box);
 }
@@ -290,9 +287,12 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 	} else if (dict_uri == NULL) {
 		i_error("expire plugin: expire_dict setting missing");
 	} else {
+		struct mail_user_vfuncs *v = user->vlast;
+
 		euser = p_new(user->pool, struct expire_mail_user, 1);
-		euser->module_ctx.super = user->v;
-		user->v.deinit = expire_mail_user_deinit;
+		euser->module_ctx.super = *v;
+		user->vlast = &euser->module_ctx.super;
+		v->deinit = expire_mail_user_deinit;
 
 		euser->set = expire_set_init(expire_get_patterns(user));
 		/* we're using only shared dictionary, the username
@@ -308,7 +308,8 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 
 static struct mail_storage_hooks expire_mail_storage_hooks = {
 	.mail_namespaces_created = expire_mail_namespaces_created,
-	.mailbox_allocated = expire_mailbox_allocated
+	.mailbox_allocated = expire_mailbox_allocated,
+	.mail_allocated = expire_mail_allocated
 };
 
 void expire_plugin_init(struct module *module)

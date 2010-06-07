@@ -951,29 +951,24 @@ static int fts_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	return fmail->module_ctx.super.get_special(_mail, field, value_r);
 }
 
-static struct mail *
-fts_mail_alloc(struct mailbox_transaction_context *t,
-	       enum mail_fetch_field wanted_fields,
-	       struct mailbox_header_lookup_ctx *wanted_headers)
+void fts_mail_allocated(struct mail *_mail)
 {
-	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_vfuncs *v = mail->vlast;
+	struct fts_mailbox *fbox = FTS_CONTEXT(_mail->box);
 	struct fts_mail *fmail;
-	struct mail *_mail;
-	struct mail_private *mail;
 
-	_mail = fbox->module_ctx.super.
-		mail_alloc(t, wanted_fields, wanted_headers);
-	if (fbox->backend_substr != NULL || fbox->backend_fast != NULL) {
-		mail = (struct mail_private *)_mail;
+	if (fbox == NULL ||
+	    (fbox->backend_substr == NULL && fbox->backend_fast == NULL))
+		return;
 
-		fmail = p_new(mail->pool, struct fts_mail, 1);
-		fmail->module_ctx.super = mail->v;
+	fmail = p_new(mail->pool, struct fts_mail, 1);
+	fmail->module_ctx.super = *v;
+	mail->vlast = &fmail->module_ctx.super;
 
-		mail->v.expunge = fts_mail_expunge;
-		mail->v.get_special = fts_mail_get_special;
-		MODULE_CONTEXT_SET(mail, fts_mail_module, fmail);
-	}
-	return _mail;
+	v->expunge = fts_mail_expunge;
+	v->get_special = fts_mail_get_special;
+	MODULE_CONTEXT_SET(mail, fts_mail_module, fmail);
 }
 
 static void fts_box_backends_init(struct mailbox *box)
@@ -1092,23 +1087,25 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 
 static void fts_mailbox_init(struct mailbox *box, const char *env)
 {
+	struct mailbox_vfuncs *v = box->vlast;
 	struct fts_mailbox *fbox;
 
 	fbox = i_new(struct fts_mailbox, 1);
 	fbox->virtual = strcmp(box->storage->name, "virtual") == 0;
 	fbox->env = env;
-	fbox->module_ctx.super = box->v;
-	box->v.free = fts_mailbox_free;
-	box->v.search_init = fts_mailbox_search_init;
-	box->v.search_next_nonblock = fts_mailbox_search_next_nonblock;
-	box->v.search_next_update_seq = fbox->virtual ?
+	fbox->module_ctx.super = *v;
+	box->vlast = &fbox->module_ctx.super;
+
+	v->free = fts_mailbox_free;
+	v->search_init = fts_mailbox_search_init;
+	v->search_next_nonblock = fts_mailbox_search_next_nonblock;
+	v->search_next_update_seq = fbox->virtual ?
 		fts_mailbox_search_next_update_seq_virtual :
 		fts_mailbox_search_next_update_seq;
-	box->v.search_deinit = fts_mailbox_search_deinit;
-	box->v.mail_alloc = fts_mail_alloc;
-	box->v.transaction_begin = fts_transaction_begin;
-	box->v.transaction_rollback = fts_transaction_rollback;
-	box->v.transaction_commit = fts_transaction_commit;
+	v->search_deinit = fts_mailbox_search_deinit;
+	v->transaction_begin = fts_transaction_begin;
+	v->transaction_rollback = fts_transaction_rollback;
+	v->transaction_commit = fts_transaction_commit;
 
 	MODULE_CONTEXT_SET(box, fts_storage_module, fbox);
 }
