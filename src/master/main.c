@@ -669,32 +669,29 @@ int main(int argc, char *argv[])
 		execv_const(args[0], args);
 	}
 
-	while (optind < argc) {
-		if (!doubleopts[optind]) {
-			/* dovecot xx -> doveadm xx */
-			(void)execv(BINDIR"/doveadm", argv);
-			i_fatal("execv("BINDIR"/doveadm) failed: %m");
-		}
-
-		if (strcmp(argv[optind], "version") == 0) {
-			printf("%s\n", DOVECOT_VERSION_FULL);
-			return 0;
-		} else if (strcmp(argv[optind], "build-options") == 0) {
-			print_build_options();
-			return 0;
-		} else if (strcmp(argv[optind], "log-error") == 0) {
-			fprintf(stderr, "Writing to error logs and killing myself..\n");
-			argv[optind] = "log test";
-			(void)execv(BINDIR"/doveadm", argv);
-			i_fatal("execv("BINDIR"/doveadm) failed: %m");
-		} else if (strcmp(argv[optind], "help") == 0) {
-			print_help();
-			return 0;
-		} else {
-			print_help();
-			i_fatal("Unknown argument: --%s", argv[optind]);
-		}
-		optind++;
+	if (optind == argc) {
+		/* starting Dovecot */
+	} else if (!doubleopts[optind]) {
+		/* dovecot xx -> doveadm xx */
+		(void)execv(BINDIR"/doveadm", argv);
+		i_fatal("execv("BINDIR"/doveadm) failed: %m");
+	} else if (strcmp(argv[optind], "version") == 0) {
+		printf("%s\n", DOVECOT_VERSION_FULL);
+		return 0;
+	} else if (strcmp(argv[optind], "build-options") == 0) {
+		print_build_options();
+		return 0;
+	} else if (strcmp(argv[optind], "log-error") == 0) {
+		fprintf(stderr, "Writing to error logs and killing myself..\n");
+		argv[optind] = "log test";
+		(void)execv(BINDIR"/doveadm", argv);
+		i_fatal("execv("BINDIR"/doveadm) failed: %m");
+	} else if (strcmp(argv[optind], "help") == 0) {
+		print_help();
+		return 0;
+	} else {
+		print_help();
+		i_fatal("Unknown argument: --%s", argv[optind]);
 	}
 
 	do {
