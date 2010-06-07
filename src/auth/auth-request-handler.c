@@ -62,13 +62,24 @@ auth_request_handler_create(auth_request_callback_t *callback, void *context,
 static void auth_request_handler_unref(struct auth_request_handler **_handler)
 {
         struct auth_request_handler *handler = *_handler;
-	struct hash_iterate_context *iter;
-	void *key, *value;
 
 	*_handler = NULL;
 	i_assert(handler->refcount > 0);
 	if (--handler->refcount > 0)
 		return;
+
+	/* notify parent that we're done with all requests */
+	handler->callback(NULL, handler->context);
+
+	hash_table_destroy(&handler->requests);
+	pool_unref(&handler->pool);
+}
+
+static void
+auth_request_handler_destroy_requests(struct auth_request_handler *handler)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
 
 	iter = hash_table_iterate_init(handler->requests);
 	while (hash_table_iterate(iter, &key, &value)) {
@@ -78,12 +89,7 @@ static void auth_request_handler_unref(struct auth_request_handler **_handler)
 		auth_request_unref(&auth_request);
 	}
 	hash_table_iterate_deinit(&iter);
-
-	/* notify parent that we're done with all requests */
-	handler->callback(NULL, handler->context);
-
-	hash_table_destroy(&handler->requests);
-	pool_unref(&handler->pool);
+	hash_table_clear(handler->requests, TRUE);
 }
 
 void auth_request_handler_destroy(struct auth_request_handler **_handler)
@@ -95,6 +101,7 @@ void auth_request_handler_destroy(struct auth_request_handler **_handler)
 	i_assert(!handler->destroyed);
 
 	handler->destroyed = TRUE;
+	auth_request_handler_destroy_requests(handler);
 	auth_request_handler_unref(&handler);
 }
 
