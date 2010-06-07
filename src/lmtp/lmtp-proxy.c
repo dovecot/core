@@ -288,6 +288,8 @@ lmtp_proxy_conn_data(bool success ATTR_UNUSED, const char *reply, void *context)
 
 	rcpt->reply = p_strdup(conn->proxy->pool, reply);
 	rcpt->data_reply_received = TRUE;
+
+	lmtp_proxy_try_finish(conn->proxy);
 }
 
 int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
