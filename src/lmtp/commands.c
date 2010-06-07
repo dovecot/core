@@ -149,7 +149,8 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_settings *set,
 				i_error("proxy: Unknown protocol %s", value);
 				return FALSE;
 			}
-		} else if (strcmp(key, "user") == 0) {
+		} else if (strcmp(key, "user") == 0 ||
+			   strcmp(key, "destuser") == 0) {
 			/* changing the username */
 			*address = value;
 		} else {
@@ -179,8 +180,24 @@ client_proxy_is_ourself(const struct client *client,
 	return TRUE;
 }
 
+static const char *
+address_add_detail(struct client *client, const char *username,
+		   const char *detail)
+{
+	const char *delim = client->set->recipient_delimiter;
+	const char *domain;
+
+	domain = strchr(username, '@');
+	if (domain == NULL)
+		return t_strconcat(username, delim, detail, NULL);
+	else {
+		username = t_strdup_until(username, domain);
+		return t_strconcat(username, delim, detail, domain, NULL);
+	}
+}
+
 static bool client_proxy_rcpt(struct client *client, const char *address,
-			      const char *username)
+			      const char *username, const char *detail)
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_settings set;
@@ -228,8 +245,13 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		pool_unref(&pool);
 		return FALSE;
 	}
-	if (strcmp(username, orig_username) == 0 &&
-	    client_proxy_is_ourself(client, &set)) {
+	if (strcmp(username, orig_username) != 0) {
+		/* username changed. change the address as well */
+		if (*detail == '\0')
+			address = username;
+		else
+			address = address_add_detail(client, username, detail);
+	} else if (client_proxy_is_ourself(client, &set)) {
 		i_error("Proxying to <%s> loops to itself", username);
 		client_send_line(client, "554 5.4.6 <%s> "
 				 "Proxying loops to itself", address);
@@ -349,7 +371,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	rcpt_address_parse(client, address, &username, &detail);
 
 	if (client->lmtp_set->lmtp_proxy) {
-		if (client_proxy_rcpt(client, address, username))
+		if (client_proxy_rcpt(client, address, username, detail))
 			return 0;
 	}
 
