@@ -31,6 +31,7 @@ unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 			   const char *subsystem);
+static void auth_request_userdb_reply_update_user(struct auth_request *request);
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech,
@@ -1096,6 +1097,10 @@ void auth_request_set_field(struct auth_request *request,
 				request->user, value);
 			request->user = p_strdup(request->pool, value);
 		}
+
+		if (request->userdb_reply != NULL)
+			auth_request_userdb_reply_update_user(request);
+
 		/* restore the original value so it gets saved correctly to
 		   cache. */
 		value = orig_value;
@@ -1170,6 +1175,20 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 {
 	request->userdb_reply = auth_stream_reply_init(request->pool);
 	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
+}
+
+static void auth_request_userdb_reply_update_user(struct auth_request *request)
+{
+	const char *str, *p;
+
+	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
+
+	auth_stream_reply_reset(request->userdb_reply);
+	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
+
+	p = strchr(str, '\t');
+	if (p != NULL)
+		auth_stream_reply_import(request->userdb_reply, p + 1);
 }
 
 static void
