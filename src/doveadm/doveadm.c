@@ -291,6 +291,7 @@ int main(int argc, char *argv[])
 	struct master_service_settings_output output;
 	const char *cmd_name, *error;
 	unsigned int i;
+	bool quick_init;
 	int c;
 
 	/* "+" is GNU extension to stop at the first non-option.
@@ -310,6 +311,7 @@ int main(int argc, char *argv[])
 			return FATAL_DEFAULT;
 		}
 	}
+	cmd_name = argv[optind];
 
 	memset(&input, 0, sizeof(input));
 	input.roots = set_roots;
@@ -323,15 +325,26 @@ int main(int argc, char *argv[])
 	i_array_init(&doveadm_cmds, 32);
 	for (i = 0; i < N_ELEMENTS(doveadm_commands); i++)
 		doveadm_register_cmd(doveadm_commands[i]);
-	doveadm_register_director_commands();
-	doveadm_register_log_commands();
-	doveadm_mail_init();
-	doveadm_load_modules();
 
-	if (optind == argc)
-		usage_to(stdout, "");
+	if (cmd_name != NULL && (strcmp(cmd_name, "stop") == 0 ||
+				 strcmp(cmd_name, "reload") == 0)) {
+		/* special case commands: even if there is something wrong
+		   with the config (e.g. mail_plugins), don't fail these
+		   commands */
+		quick_init = TRUE;
+	} else {
+		quick_init = FALSE;
+		doveadm_register_director_commands();
+		doveadm_register_log_commands();
+		doveadm_mail_init();
+		doveadm_load_modules();
 
-	cmd_name = argv[optind];
+		if (cmd_name == NULL) {
+			/* show usage after registering all plugins */
+			usage_to(stdout, "");
+		}
+	}
+
 	argc -= optind;
 	argv += optind;
 	optind = 1;
@@ -349,8 +362,10 @@ int main(int argc, char *argv[])
 		usage();
 	}
 
-	doveadm_mail_deinit();
-	module_dir_unload(&modules);
+	if (!quick_init) {
+		doveadm_mail_deinit();
+		module_dir_unload(&modules);
+	}
 	array_free(&doveadm_cmds);
 	master_service_deinit(&master_service);
 	return 0;
