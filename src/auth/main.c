@@ -151,6 +151,8 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
+	/* cancel all pending anvil penalty lookups */
+	auth_penalty_deinit(&auth_penalty);
 	/* deinit auth workers, which aborts pending requests */
         auth_worker_server_deinit();
 	/* deinit passdbs and userdbs. it aborts any pending async requests. */
@@ -168,7 +170,6 @@ static void main_deinit(void)
 
 	mech_register_deinit(&mech_reg);
 	mech_deinit(global_auth_settings);
-	auth_penalty_deinit(&auth_penalty);
 
 	/* allow modules to unregister their dbs/drivers/etc. before freeing
 	   the whole data structures containing them. */

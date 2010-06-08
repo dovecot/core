@@ -185,8 +185,10 @@ auth_request_handle_failure(struct auth_request *request,
 	request->delayed_failure = TRUE;
 	handler->refcount++;
 
-	auth_penalty_update(auth_penalty, request,
-			    request->last_penalty + 1);
+	if (auth_penalty != NULL) {
+		auth_penalty_update(auth_penalty, request,
+				    request->last_penalty + 1);
+	}
 
 	auth_request_refresh_last_access(request);
 	aqueue_append(auth_failures, &request);
@@ -221,7 +223,7 @@ void auth_request_handler_reply(struct auth_request *request,
 	case AUTH_CLIENT_RESULT_SUCCESS:
 		auth_request_proxy_finish(request, TRUE);
 
-		if (request->last_penalty != 0) {
+		if (request->last_penalty != 0 && auth_penalty != NULL) {
 			/* reset penalty */
 			auth_penalty_update(auth_penalty, request, 0);
 		}
@@ -445,8 +447,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	handler->refcount++;
 
 	/* before we start authenticating, see if we need to wait first */
-	auth_penalty_lookup(auth_penalty, request,
-			    auth_penalty_callback);
+	auth_penalty_lookup(auth_penalty, request, auth_penalty_callback);
 	return TRUE;
 }
 
