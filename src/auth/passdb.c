@@ -11,6 +11,10 @@
 static ARRAY_DEFINE(passdb_interfaces, struct passdb_module_interface *);
 static ARRAY_DEFINE(passdb_modules, struct passdb_module *);
 
+static const struct passdb_module_interface passdb_iface_deinit = {
+	.name = "deinit"
+};
+
 static struct passdb_module_interface *passdb_interface_find(const char *name)
 {
 	struct passdb_module_interface *const *ifaces;
@@ -230,6 +234,9 @@ void passdb_deinit(struct passdb_module *passdb)
 
 	if (passdb->iface.deinit != NULL)
 		passdb->iface.deinit(passdb);
+
+	/* make sure passdb isn't accessed again */
+	passdb->iface = passdb_iface_deinit;
 }
 
 void passdbs_generate_md5(unsigned char md5[MD5_RESULTLEN])

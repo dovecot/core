@@ -47,7 +47,7 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 		userdb_preinit(auth->pool, set->driver, set->args);
 }
 
-struct auth *
+static struct auth *
 auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 	     const struct mechanisms_register *reg)
 {
@@ -185,7 +185,7 @@ static void auth_mech_list_verify_passdb(struct auth *auth)
 	}
 }
 
-void auth_init(struct auth *auth)
+static void auth_init(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
@@ -200,13 +200,10 @@ void auth_init(struct auth *auth)
 	auth_mech_list_verify_passdb(auth);
 }
 
-void auth_deinit(struct auth **_auth)
+static void auth_deinit(struct auth *auth)
 {
-        struct auth *auth = *_auth;
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
-
-	*_auth = NULL;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		passdb_deinit(passdb->passdb);
@@ -214,8 +211,6 @@ void auth_deinit(struct auth **_auth)
 		passdb_deinit(passdb->passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_deinit(userdb->userdb);
-
-	pool_unref(&auth->pool);
 }
 
 struct auth *auth_find_service(const char *name)
@@ -280,6 +275,14 @@ void auths_init(void)
 
 void auths_deinit(void)
 {
+	struct auth *const *auth;
+
+	array_foreach(&auths, auth)
+		auth_deinit(*auth);
+}
+
+void auths_free(void)
+{
 	struct auth **auth;
 	unsigned int i, count;
 
@@ -287,6 +290,6 @@ void auths_deinit(void)
 	   the first auth pool that used them */
 	auth = array_get_modifiable(&auths, &count);
 	for (i = count; i > 0; i--)
-		auth_deinit(&auth[i-1]);
+		pool_unref(&auth[i-1]->pool);
 	array_free(&auths);
 }

@@ -29,8 +29,6 @@ struct auth_request_handler {
 	void *context;
 
 	auth_request_callback_t *master_callback;
-
-	unsigned int destroyed:1;
 };
 
 static ARRAY_DEFINE(auth_failures_arr, struct auth_request *);
@@ -59,60 +57,38 @@ auth_request_handler_create(auth_request_callback_t *callback, void *context,
 	return handler;
 }
 
-static void auth_request_handler_unref(struct auth_request_handler **_handler)
+void auth_request_handler_abort_requests(struct auth_request_handler *handler)
 {
-        struct auth_request_handler *handler = *_handler;
 	struct hash_iterate_context *iter;
 	void *key, *value;
-
-	*_handler = NULL;
-	i_assert(handler->refcount > 0);
-	if (--handler->refcount > 0)
-		return;
 
 	iter = hash_table_iterate_init(handler->requests);
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct auth_request *auth_request = value;
 
-		auth_request->destroyed = TRUE;
 		auth_request_unref(&auth_request);
 	}
 	hash_table_iterate_deinit(&iter);
 	hash_table_clear(handler->requests, TRUE);
+}
+
+void auth_request_handler_unref(struct auth_request_handler **_handler)
+{
+        struct auth_request_handler *handler = *_handler;
+
+	*_handler = NULL;
+
+	i_assert(handler->refcount > 0);
+	if (--handler->refcount > 0)
+		return;
+
+	i_assert(hash_table_count(handler->requests) == 0);
 
 	/* notify parent that we're done with all requests */
 	handler->callback(NULL, handler->context);
 
 	hash_table_destroy(&handler->requests);
 	pool_unref(&handler->pool);
-}
-
-static void
-auth_request_handler_destroy_requests(struct auth_request_handler *handler)
-{
-	struct hash_iterate_context *iter;
-	void *key, *value;
-
-	iter = hash_table_iterate_init(handler->requests);
-	while (hash_table_iterate(iter, &key, &value)) {
-		struct auth_request *auth_request = value;
-
-		auth_request->destroyed = TRUE;
-	}
-	hash_table_iterate_deinit(&iter);
-}
-
-void auth_request_handler_destroy(struct auth_request_handler **_handler)
-{
-        struct auth_request_handler *handler = *_handler;
-
-	*_handler = NULL;
-
-	i_assert(!handler->destroyed);
-
-	handler->destroyed = TRUE;
-	auth_request_handler_destroy_requests(handler);
-	auth_request_handler_unref(&handler);
 }
 
 void auth_request_handler_set(struct auth_request_handler *handler,
@@ -198,8 +174,7 @@ auth_request_handle_failure(struct auth_request *request,
 	auth_request_handler_remove(handler, request);
 
 	if (request->no_failure_delay) {
-		/* passdb specifically requested not to delay the
-		   reply. */
+		/* passdb specifically requested not to delay the reply. */
 		handler->callback(reply, handler->context);
 		auth_request_unref(&request);
 		return;

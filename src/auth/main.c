@@ -151,23 +151,20 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	if (auth_worker_client != NULL)
-		auth_worker_client_destroy(&auth_worker_client);
-	else
-		auth_request_handler_flush_failures(TRUE);
+	/* deinit auth workers, which aborts pending requests */
+        auth_worker_server_deinit();
+	/* deinit passdbs and userdbs. it aborts any pending async requests. */
+	auths_deinit();
+	/* flush pending requests */
+	auth_request_handler_deinit();
+	/* there are no more auth requests */
+	auths_free();
 
 	auth_client_connections_deinit();
 	auth_master_connections_deinit();
-        auth_worker_server_deinit();
 
-	auth_request_handler_deinit();
-	/* there may still be some async auth requests left, but above
-	   functions should have marked all of them as destroyed. pass/userdb
-	   deinits should abort the pending requests, which still triggers
-	   callbacks, which should avoid crashes by checking the destroyed
-	   state. */
-	auths_deinit();
-	passdb_cache_deinit();
+	if (auth_worker_client != NULL)
+		auth_worker_client_destroy(&auth_worker_client);
 
 	mech_register_deinit(&mech_reg);
 	mech_deinit(global_auth_settings);
@@ -179,6 +176,7 @@ static void main_deinit(void)
 
 	userdbs_deinit();
 	passdbs_deinit();
+	passdb_cache_deinit();
         password_schemes_deinit();
 	sql_drivers_deinit();
 	random_deinit();

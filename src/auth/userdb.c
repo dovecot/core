@@ -12,6 +12,10 @@
 static ARRAY_DEFINE(userdb_interfaces, struct userdb_module_interface *);
 static ARRAY_DEFINE(userdb_modules, struct userdb_module *);
 
+static const struct userdb_module_interface userdb_iface_deinit = {
+	.name = "deinit"
+};
+
 static struct userdb_module_interface *userdb_interface_find(const char *name)
 {
 	struct userdb_module_interface *const *ifaces;
@@ -171,6 +175,9 @@ void userdb_deinit(struct userdb_module *userdb)
 
 	if (userdb->iface->deinit != NULL)
 		userdb->iface->deinit(userdb);
+
+	/* make sure userdb isn't accessed again */
+	userdb->iface = &userdb_iface_deinit;
 }
 
 void userdbs_generate_md5(unsigned char md5[MD5_RESULTLEN])
