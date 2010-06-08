@@ -89,6 +89,11 @@ void mdbox_map_deinit(struct mdbox_map **_map)
 
 static int mdbox_map_mkdir_storage(struct mdbox_map *map)
 {
+	struct stat st;
+
+	if (stat(map->path, &st) == 0)
+		return 0;
+
 	if (mailbox_list_mkdir(map->root_list, map->path,
 			       MAILBOX_LIST_PATH_TYPE_DIR) < 0) {
 		mail_storage_copy_list_error(MAP_STORAGE(map), map->root_list);
