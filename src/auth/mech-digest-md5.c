@@ -506,10 +506,9 @@ static void credentials_callback(enum passdb_result result,
 		}
 
 		request->authenticated = TRUE;
-		auth_request->callback(auth_request,
-				       AUTH_CLIENT_RESULT_CONTINUE,
-				       request->rspauth,
-				       strlen(request->rspauth));
+		auth_request_handler_reply_continue(auth_request,
+						    request->rspauth,
+						    strlen(request->rspauth));
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -570,8 +569,8 @@ mech_digest_md5_auth_initial(struct auth_request *auth_request,
 	/* FIXME: there's no support for subsequent authentication */
 
 	challenge = get_digest_challenge(request);
-	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-			       str_data(challenge), str_len(challenge));
+	auth_request_handler_reply_continue(auth_request, str_data(challenge),
+					    str_len(challenge));
 }
 
 static struct auth_request *mech_digest_md5_auth_new(void)

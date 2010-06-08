@@ -201,9 +201,8 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		request->unicode_negotiated = flags & NTLMSSP_NEGOTIATE_UNICODE;
 		request->challenge = message->challenge;
 
-		auth_request->callback(auth_request,
-				       AUTH_CLIENT_RESULT_CONTINUE,
-				       message, message_size);
+		auth_request_handler_reply_continue(auth_request, message,
+						    message_size);
 	} else {
 		const struct ntlmssp_response *response =
 			(const struct ntlmssp_response *)data;

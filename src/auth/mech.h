@@ -3,20 +3,11 @@
 
 #include "auth-client-interface.h"
 
-enum auth_client_result {
-	AUTH_CLIENT_RESULT_CONTINUE = 1,
-	AUTH_CLIENT_RESULT_SUCCESS,
-	AUTH_CLIENT_RESULT_FAILURE
-};
-
 struct auth_settings;
 struct auth_request;
 
-typedef void mech_callback_t(struct auth_request *request,
-			     enum auth_client_result result,
-			     const void *reply, size_t reply_size);
-
 #include "auth-request.h"
+#include "auth-request-handler.h"
 
 /* Used only for string sanitization. */
 #define MAX_MECH_NAME_LEN 64

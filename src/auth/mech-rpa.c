@@ -450,9 +450,9 @@ rpa_credentials_callback(enum passdb_result result,
 			auth_request_fail(auth_request);
 		else {
 			token4 = mech_rpa_build_token4(request, &token4_size);
-			auth_request->callback(auth_request,
-					       AUTH_CLIENT_RESULT_CONTINUE,
-					       token4, token4_size);
+			auth_request_handler_reply_continue(auth_request,
+							    token4,
+							    token4_size);
 			request->phase = 2;
 		}
 		break;
@@ -489,8 +489,7 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 	request->service_ucs2be = ucs2be_str(request->pool, service,
 					     &request->service_len);
 
-	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-			       token2, token2_size);
+	auth_request_handler_reply_continue(auth_request, token2, token2_size);
 	request->phase = 1;
 }
 

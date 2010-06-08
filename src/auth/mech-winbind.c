@@ -226,9 +226,8 @@ do_auth_continue(struct auth_request *auth_request,
 		buffer_t *buf;
 
 		buf = t_base64_decode_str(token[1]);
-		auth_request->callback(auth_request,
-				       AUTH_CLIENT_RESULT_CONTINUE,
-				       buf->data, buf->used);
+		auth_request_handler_reply_continue(auth_request, buf->data,
+						    buf->used);
 		request->continued = TRUE;
 		return HR_OK;
 	} else if (strcmp(token[0], "NA") == 0) {

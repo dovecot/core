@@ -161,8 +161,8 @@ mech_cram_md5_auth_initial(struct auth_request *auth_request,
 		(struct cram_auth_request *)auth_request;
 
 	request->challenge = p_strdup(request->pool, get_cram_challenge());
-	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
-			       request->challenge, strlen(request->challenge));
+	auth_request_handler_reply_continue(auth_request,  request->challenge,
+					    strlen(request->challenge));
 }
 
 static struct auth_request *mech_cram_md5_auth_new(void)

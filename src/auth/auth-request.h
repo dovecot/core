@@ -57,10 +57,13 @@ struct auth_request {
 	struct auth_stream_reply *userdb_reply;
 
 	const struct mech_module *mech;
-	struct auth_request_handler *handler;
 	const struct auth_settings *set;
         struct auth_passdb *passdb;
         struct auth_userdb *userdb;
+
+	/* passdb lookups have a handler, userdb lookups don't */
+	struct auth_request_handler *handler;
+        struct auth_master_connection *master;
 
 	unsigned int connect_uid;
 	unsigned int client_pid;
@@ -84,9 +87,7 @@ struct auth_request {
 	} private_callback;
         const char *credentials_scheme;
 
-	mech_callback_t *callback;
 	void *context;
-        struct auth_master_connection *master;
 
 	unsigned int successful:1;
 	unsigned int passdb_failure:1;
@@ -116,8 +117,7 @@ struct auth_request {
 extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 struct auth_request *
-auth_request_new(const struct mech_module *mech,
-		 mech_callback_t *callback, void *context);
+auth_request_new(const struct mech_module *mech);
 struct auth_request *auth_request_new_dummy(void);
 void auth_request_init(struct auth_request *request);
 struct auth *auth_request_get_auth(struct auth_request *request);

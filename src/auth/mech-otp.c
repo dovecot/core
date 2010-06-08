@@ -50,9 +50,8 @@ otp_send_challenge(struct auth_request *auth_request,
 				 digest_name(request->state.algo),
 				 request->state.seq, request->state.seed);
 
-	auth_request->callback(auth_request,
-			       AUTH_CLIENT_RESULT_CONTINUE,
-			       answer, strlen(answer));
+	auth_request_handler_reply_continue(auth_request, answer,
+					    strlen(answer));
 }
 
 static void

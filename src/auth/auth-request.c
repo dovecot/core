@@ -34,8 +34,7 @@ static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 static void auth_request_userdb_reply_update_user(struct auth_request *request);
 
 struct auth_request *
-auth_request_new(const struct mech_module *mech,
-		 mech_callback_t *callback, void *context)
+auth_request_new(const struct mech_module *mech)
 {
 	struct auth_request *request;
 
@@ -50,8 +49,6 @@ auth_request_new(const struct mech_module *mech,
 	request->set = global_auth_settings;
 	request->mech = mech;
 	request->mech_name = mech == NULL ? NULL : mech->mech_name;
-	request->callback = callback;
-	request->context = context;
 	return request;
 }
 
@@ -116,8 +113,8 @@ void auth_request_success(struct auth_request *request,
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	request->successful = TRUE;
 	auth_request_refresh_last_access(request);
-	request->callback(request, AUTH_CLIENT_RESULT_SUCCESS,
-			  data, data_size);
+	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_SUCCESS,
+				   data, data_size);
 }
 
 void auth_request_fail(struct auth_request *request)
@@ -126,7 +123,8 @@ void auth_request_fail(struct auth_request *request)
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
-	request->callback(request, AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
+	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE,
+				   NULL, 0);
 }
 
 void auth_request_internal_failure(struct auth_request *request)

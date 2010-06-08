@@ -50,8 +50,7 @@ void mech_generic_auth_initial(struct auth_request *request,
 			       const unsigned char *data, size_t data_size)
 {
 	if (data == NULL) {
-		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
-				  NULL, 0);
+		auth_request_handler_reply_continue(request, NULL, 0);
 	} else {
 		/* initial reply given, even if it was 0 bytes */
 		request->mech->auth_continue(request, data, data_size);

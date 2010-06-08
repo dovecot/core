@@ -328,9 +328,9 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	}
 
 	if (ret == 0) {
-		auth_request->callback(auth_request,
-				       AUTH_CLIENT_RESULT_CONTINUE,
-				       output_token.value, output_token.length);
+		auth_request_handler_reply_continue(auth_request,
+						    output_token.value,
+						    output_token.length);
 	}
 	(void)gss_release_buffer(&minor_status, &output_token);
 	return ret;
@@ -370,9 +370,8 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	auth_request_log_debug(&request->auth_request, "gssapi",
 			       "Negotiated security layer");
 
-	request->auth_request.callback(&request->auth_request,
-				       AUTH_CLIENT_RESULT_CONTINUE,
-				       outbuf.value, outbuf.length);
+	auth_request_handler_reply_continue(&request->auth_request,
+					    outbuf.value, outbuf.length);
 
 	(void)gss_release_buffer(&minor_status, &outbuf);
 	request->sasl_gssapi_state = GSS_STATE_UNWRAP;
@@ -597,8 +596,7 @@ mech_gssapi_auth_initial(struct auth_request *request,
 
 	if (data_size == 0) {
 		/* The client should go first */
-		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
-				  NULL, 0);
+		auth_request_handler_reply_continue(request, NULL, 0);
 	} else {
 		mech_gssapi_auth_continue(request, data, data_size);
 	}

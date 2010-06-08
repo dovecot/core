@@ -185,7 +185,7 @@ static void
 auth_request_handle_failure(struct auth_request *request,
 			    struct auth_stream_reply *reply)
 {
-        struct auth_request_handler *handler = request->context;
+        struct auth_request_handler *handler = request->handler;
 
 	if (request->delayed_failure) {
 		/* we came here from flush_failures() */
@@ -222,11 +222,11 @@ auth_request_handle_failure(struct auth_request *request,
 	}
 }
 
-static void auth_callback(struct auth_request *request,
-			  enum auth_client_result result,
-			  const void *auth_reply, size_t reply_size)
+void auth_request_handler_reply(struct auth_request *request,
+				enum auth_client_result result,
+				const void *auth_reply, size_t reply_size)
 {
-        struct auth_request_handler *handler = request->context;
+        struct auth_request_handler *handler = request->handler;
 	struct auth_stream_reply *reply;
 	string_t *str;
 
@@ -292,6 +292,13 @@ static void auth_callback(struct auth_request *request,
 	/* NOTE: request may be destroyed now */
 
         auth_request_handler_unref(&handler);
+}
+
+void auth_request_handler_reply_continue(struct auth_request *request,
+					 const void *reply, size_t reply_size)
+{
+	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_CONTINUE,
+				   reply, reply_size);
 }
 
 static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
@@ -381,7 +388,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return FALSE;
 	}
 
-	request = auth_request_new(mech, auth_callback, handler);
+	request = auth_request_new(mech);
 	request->handler = handler;
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;
@@ -458,7 +465,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		request->initial_response_len = buf->used;
 	}
 
-	/* handler is referenced until auth_callback is called. */
+	/* handler is referenced until auth_request_handler_reply()
+	   is called. */
 	handler->refcount++;
 
 	/* before we start authenticating, see if we need to wait first */
@@ -513,7 +521,8 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 		return TRUE;
 	}
 
-	/* handler is referenced until auth_callback is called. */
+	/* handler is referenced until auth_request_handler_reply()
+	   is called. */
 	handler->refcount++;
 	auth_request_continue(request, buf->data, buf->used);
 	return TRUE;
@@ -522,7 +531,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 static void userdb_callback(enum userdb_result result,
 			    struct auth_request *request)
 {
-        struct auth_request_handler *handler = request->context;
+        struct auth_request_handler *handler = request->handler;
 	struct auth_stream_reply *reply;
 	const char *value;
 
@@ -607,7 +616,6 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 		   old client_id with master's id. */
 		auth_request_set_state(request, AUTH_REQUEST_STATE_USERDB);
 		request->id = id;
-		request->context = handler;
 		request->master = master;
 
 		/* master and handler are referenced until userdb_callback i
@@ -655,8 +663,8 @@ void auth_request_handler_flush_failures(bool flush_all)
 		aqueue_delete_tail(auth_failures);
 
 		i_assert(auth_request->state == AUTH_REQUEST_STATE_FINISHED);
-		auth_request->callback(auth_request,
-				       AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
+		auth_request_handler_reply(auth_request,
+					   AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
 		auth_request_unref(&auth_request);
 	}
 }

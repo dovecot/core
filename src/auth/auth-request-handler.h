@@ -5,6 +5,12 @@ struct auth_request;
 struct auth_master_connection;
 struct auth_stream_reply;
 
+enum auth_client_result {
+	AUTH_CLIENT_RESULT_CONTINUE = 1,
+	AUTH_CLIENT_RESULT_SUCCESS,
+	AUTH_CLIENT_RESULT_FAILURE
+};
+
 typedef void
 auth_request_callback_t(struct auth_stream_reply *reply, void *context);
 
@@ -33,6 +39,11 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				     const char *args);
 bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 					const char *args);
+void auth_request_handler_reply(struct auth_request *request,
+				enum auth_client_result result,
+				const void *reply, size_t reply_size);
+void auth_request_handler_reply_continue(struct auth_request *request,
+					 const void *reply, size_t reply_size);
 bool auth_request_handler_master_request(struct auth_request_handler *handler,
 					 struct auth_master_connection *master,
 					 unsigned int id,
