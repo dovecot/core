@@ -88,6 +88,7 @@ static void auth_penalty_anvil_callback(const char *reply, void *context)
 	}
 
 	request->callback(penalty, request->auth_request);
+	i_free(request);
 }
 
 static const char *
