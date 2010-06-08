@@ -253,11 +253,11 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 
 int mail_namespaces_init(struct mail_user *user, const char **error_r)
 {
-	const struct mail_storage_settings *mail_set;
+	const struct mail_storage_settings *mail_set, *unexpanded_mail_set;
 	struct mail_namespace_settings *const *ns_set;
 	struct mail_namespace_settings *const *unexpanded_ns_set;
 	struct mail_namespace *namespaces, *ns, **ns_p;
-	struct mail_namespace_settings *inbox_set;
+	struct mail_namespace_settings *inbox_set, *unexpanded_inbox_set;
 	const char *error, *driver, *location_source;
 	unsigned int i, count, count2;
 
@@ -310,9 +310,18 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	*inbox_set = mail_namespace_default_settings;
 	inbox_set->inbox = TRUE;
 
+	unexpanded_inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
+	*unexpanded_inbox_set = *inbox_set;
+
 	driver = NULL;
 	if (*mail_set->mail_location != '\0') {
+		unexpanded_mail_set = mail_user_set_get_driver_settings(
+			user->set_info, user->unexpanded_set,
+			MAIL_STORAGE_SET_DRIVER_NAME);
+
 		inbox_set->location = mail_set->mail_location;
+		unexpanded_inbox_set->location =
+			unexpanded_mail_set->mail_location;
 		location_source = "mail_location setting";
 	} else {
 		location_source = "environment MAIL";
@@ -329,7 +338,11 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		}
 	}
 
+	if (unexpanded_inbox_set->location == NULL)
+		unexpanded_inbox_set->location = inbox_set->location;
+
 	ns->set = inbox_set;
+	ns->unexpanded_set = unexpanded_inbox_set;
 	ns->mail_set = mail_set;
 	ns->prefix = i_strdup(ns->set->prefix);
 	ns->user = user;
