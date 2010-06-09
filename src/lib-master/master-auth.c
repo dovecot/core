@@ -146,7 +146,8 @@ static void master_auth_connection_input(struct master_auth_connection *conn)
 static void master_auth_connection_timeout(struct master_auth_connection *conn)
 {
 	i_error("master(%s): Auth request timed out (received %u/%u bytes)",
-		conn->auth->path, conn->buf_pos, sizeof(conn->buf));
+		conn->auth->path, conn->buf_pos,
+		(unsigned int)sizeof(conn->buf));
 	master_auth_connection_deinit(&conn);
 }
 
