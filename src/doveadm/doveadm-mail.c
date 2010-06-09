@@ -536,7 +536,8 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_mailbox_delete,
 	&cmd_mailbox_rename,
 	&cmd_mailbox_subscribe,
-	&cmd_mailbox_unsubscribe
+	&cmd_mailbox_unsubscribe,
+	&cmd_mailbox_status
 };
 
 void doveadm_mail_init(void)

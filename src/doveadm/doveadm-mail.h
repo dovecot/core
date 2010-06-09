@@ -74,6 +74,9 @@ struct mailbox *
 doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox);
 struct mail_search_args *
 doveadm_mail_build_search_args(const char *const args[]);
+const char *const *doveadm_mailbox_args_to_mutf7(const char *const args[]);
+struct mail_search_args *
+doveadm_mail_mailbox_search_args_build(const char *const args[]);
 
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_alloc_size(size_t size);
@@ -95,5 +98,6 @@ struct doveadm_mail_cmd cmd_mailbox_delete;
 struct doveadm_mail_cmd cmd_mailbox_rename;
 struct doveadm_mail_cmd cmd_mailbox_subscribe;
 struct doveadm_mail_cmd cmd_mailbox_unsubscribe;
+struct doveadm_mail_cmd cmd_mailbox_status;
 
 #endif

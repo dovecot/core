@@ -33,8 +33,7 @@ struct list_cmd_context {
 	bool mutf7;
 };
 
-static const char *const *
-doveadm_mailbox_args_to_mutf7(const char *const args[])
+const char *const *doveadm_mailbox_args_to_mutf7(const char *const args[])
 {
 	ARRAY_TYPE(const_string) dest;
 	string_t *str;
@@ -131,27 +130,35 @@ cmd_mailbox_list_run(struct doveadm_mail_cmd_context *_ctx,
 	doveadm_mail_list_iter_deinit(&iter);
 }
 
-static void cmd_mailbox_list_init(struct doveadm_mail_cmd_context *_ctx,
-				  const char *const args[])
+struct mail_search_args *
+doveadm_mail_mailbox_search_args_build(const char *const args[])
 {
-	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
+	struct mail_search_args *search_args;
 	struct mail_search_arg *arg;
 	unsigned int i;
 
 	args = doveadm_mailbox_args_to_mutf7(args);
-	ctx->search_args = mail_search_build_init();
+	search_args = mail_search_build_init();
 	for (i = 0; args[i] != NULL; i++) {
-		arg = mail_search_build_add(ctx->search_args,
-					    SEARCH_MAILBOX_GLOB);
-		arg->value.str = p_strdup(ctx->search_args->pool, args[i]);
+		arg = mail_search_build_add(search_args, SEARCH_MAILBOX_GLOB);
+		arg->value.str = p_strdup(search_args->pool, args[i]);
 	}
 	if (i > 1) {
-		struct mail_search_arg *subargs = ctx->search_args->args;
+		struct mail_search_arg *subargs = search_args->args;
 
-		ctx->search_args->args = NULL;
-		arg = mail_search_build_add(ctx->search_args, SEARCH_OR);
+		search_args->args = NULL;
+		arg = mail_search_build_add(search_args, SEARCH_OR);
 		arg->value.subargs = subargs;
 	}
+	return search_args;
+}
+
+static void cmd_mailbox_list_init(struct doveadm_mail_cmd_context *_ctx,
+				  const char *const args[])
+{
+	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
+
+	ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
 }
 
 static struct doveadm_mail_cmd_context *cmd_mailbox_list_alloc(void)
@@ -479,7 +486,7 @@ static void cmd_mailbox_mutf7(int argc, char *argv[])
 
 struct doveadm_mail_cmd cmd_mailbox_list = {
 	cmd_mailbox_list_alloc, "mailbox list",
-	"[-7|-8] [-s] [<mailbox> [...]]"
+	"[-7|-8] [-s] [<mailbox mask> [...]]"
 };
 struct doveadm_mail_cmd cmd_mailbox_create = {
 	cmd_mailbox_create_alloc, "mailbox create",
