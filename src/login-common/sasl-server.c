@@ -100,7 +100,7 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 			sasl_reply = SASL_SERVER_REPLY_SUCCESS;
 			break;
 		case MASTER_AUTH_STATUS_INTERNAL_ERROR:
-			sasl_reply = SASL_SERVER_REPLY_MASTER_ABORTED;
+			sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
 			break;
 		}
 		client->mail_pid = reply->mail_pid;

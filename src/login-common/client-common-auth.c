@@ -382,7 +382,6 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 	i_assert(!client->destroyed ||
 		 sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED ||
-		 sasl_reply == SASL_SERVER_REPLY_MASTER_ABORTED ||
 		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED);
 
 	switch (sasl_reply) {
@@ -423,19 +422,17 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			client_auth_failed(client);
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
-		if (data == NULL)
-			client_destroy_internal_failure(client);
-		else {
-			client_send_line(client,
-					 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP, data);
+		if (data != NULL) {
 			/* authentication itself succeeded, we just hit some
 			   internal failure. */
-			client_destroy_success(client, data);
+			client_send_line(client,
+					 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP, data);
 		}
-		break;
-	case SASL_SERVER_REPLY_MASTER_ABORTED:
-		/* mail process already sent the error message to client */
-		client_destroy_success(client, data);
+
+		if (data == NULL)
+			client_destroy_internal_failure(client);
+		else
+			client_destroy_success(client, data);
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
 		client->v.auth_send_challenge(client, data);
