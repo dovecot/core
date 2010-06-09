@@ -59,7 +59,6 @@ struct master_service {
 	unsigned int initial_status_sent:1;
 	unsigned int die_with_master:1;
 	unsigned int call_avail_overflow:1;
-	unsigned int delay_status_updates:1;
 	unsigned int config_path_is_default:1;
 };
 

@@ -675,11 +675,8 @@ static void master_service_listen(struct master_service_listener *l)
 		/* we are full. stop listening for now, unless overflow
 		   callback destroys one of the existing connections */
 		if (service->call_avail_overflow &&
-		    service->avail_overflow_callback != NULL) {
-			service->delay_status_updates = TRUE;
+		    service->avail_overflow_callback != NULL)
 			service->avail_overflow_callback();
-			service->delay_status_updates = FALSE;
-		}
 
 		if (service->master_status.available_count == 0) {
 			master_service_io_listeners_remove(service);
@@ -817,12 +814,14 @@ void master_status_update(struct master_service *service)
 	bool important_update;
 
 	important_update = master_status_update_is_important(service);
-	if (service->master_status.pid == 0 || service->delay_status_updates ||
+	if (service->master_status.pid == 0 ||
 	    service->master_status.available_count ==
 	    service->last_sent_status_avail_count) {
 		/* a) closed, b) updating to same state */
 		if (service->to_status != NULL)
 			timeout_remove(&service->to_status);
+		if (service->io_status_write != NULL)
+			io_remove(&service->io_status_write);
 		return;
 	}
 	if (ioloop_time == service->last_sent_status_time &&
@@ -835,6 +834,8 @@ void master_status_update(struct master_service *service)
 				timeout_add(1000, master_status_update,
 					    service);
 		}
+		if (service->io_status_write != NULL)
+			io_remove(&service->io_status_write);
 		return;
 	}
 
@@ -843,7 +844,7 @@ void master_status_update(struct master_service *service)
 
 	ret = write(MASTER_STATUS_FD, &service->master_status,
 		    sizeof(service->master_status));
-	if (ret > 0) {
+	if (ret == sizeof(service->master_status)) {
 		/* success */
 		if (service->io_status_write != NULL) {
 			/* delayed important update sent successfully */
@@ -853,9 +854,9 @@ void master_status_update(struct master_service *service)
 		service->last_sent_status_avail_count =
 			service->master_status.available_count;
 		service->initial_status_sent = TRUE;
-	} else if (ret == 0) {
+	} else if (ret >= 0) {
 		/* shouldn't happen? */
-		i_error("write(master_status_fd) returned 0");
+		i_error("write(master_status_fd) returned %d", (int)ret);
 		service->master_status.pid = 0;
 	} else if (errno != EAGAIN) {
 		/* failure */
