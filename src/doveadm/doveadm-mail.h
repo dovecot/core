@@ -38,9 +38,13 @@ struct doveadm_mail_cmd_context {
 	/* search args aren't set for all mail commands */
 	struct mail_search_args *search_args;
 
+	struct mail_user *cur_mail_user;
 	struct doveadm_mail_cmd_vfuncs v;
 
 	ARRAY_DEFINE(module_contexts, union doveadm_mail_cmd_module_context *);
+
+	unsigned int iterate_all_users:1;
+	unsigned int dm_printf_last_lf:1;
 };
 
 struct doveadm_mail_cmd {
@@ -75,6 +79,11 @@ struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_alloc_size(size_t size);
 #define doveadm_mail_cmd_alloc(type) \
 	(type *)doveadm_mail_cmd_alloc_size(sizeof(type))
+
+/* same as printf(), but when running with -A parameter,
+   prefix each line with username. */
+void dm_printf(struct doveadm_mail_cmd_context *ctx, const char *format, ...)
+	ATTR_FORMAT(2, 3);
 
 struct doveadm_mail_cmd cmd_expunge;
 struct doveadm_mail_cmd cmd_search;

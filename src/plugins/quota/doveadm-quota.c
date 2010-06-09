@@ -6,52 +6,52 @@
 #include "quota-private.h"
 #include "doveadm-mail.h"
 
-#include <stdio.h>
-
 const char *doveadm_quota_plugin_version = DOVECOT_VERSION;
 
 void doveadm_quota_plugin_init(struct module *module);
 void doveadm_quota_plugin_deinit(void);
 
-static void cmd_quota_get_root(struct mail_user *user, struct quota_root *root)
+static void
+cmd_quota_get_root(struct doveadm_mail_cmd_context *ctx,
+		   struct quota_root *root)
 {
 	const char *const *res;
 	uint64_t value, limit;
 	int ret;
 
-	printf("%s(%s): ", user->username, root->set->name);
+	dm_printf(ctx, "%s: ", root->set->name);
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
 		ret = quota_get_resource(root, "", *res, &value, &limit);
-		printf("%s ", *res);
+		dm_printf(ctx, "%s ", *res);
 		if (ret > 0) {
-			printf("%llu/%llu",
-			       (unsigned long long)value,
-			       (unsigned long long)limit);
+			dm_printf(ctx, "%llu/%llu",
+				  (unsigned long long)value,
+				  (unsigned long long)limit);
 			if (limit >= 100) {
-				printf(" (%u%%)",
-				       (unsigned int)(value / (limit/100)));
+				dm_printf(ctx, " (%u%%)",
+					  (unsigned int)(value / (limit/100)));
 			}
 		} else if (ret == 0) {
-			printf("%llu/unlimited",
-			       (unsigned long long)value);
+			dm_printf(ctx, "%llu/unlimited",
+				  (unsigned long long)value);
 		} else
-			printf("error");
+			dm_printf(ctx, "error");
 		if (res[1] != NULL)
-			printf(", ");
+			dm_printf(ctx, ", ");
 	}
-	printf("\n");
+	dm_printf(ctx, "\n");
 }
 
 static void
-cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx,
 		  struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct quota_root *const *root;
 
 	array_foreach(&quser->quota->roots, root)
-		cmd_quota_get_root(user, *root);
+		cmd_quota_get_root(ctx, *root);
 }
 
 static struct doveadm_mail_cmd_context *

@@ -9,8 +9,8 @@
 #include <stdio.h>
 
 static int
-cmd_search_box(const struct mailbox_info *info,
-	       struct mail_search_args *search_args)
+cmd_search_box(struct doveadm_mail_cmd_context *ctx,
+	       const struct mailbox_info *info)
 {
 	struct doveadm_mail_iter *iter;
 	struct mailbox_transaction_context *trans;
@@ -19,7 +19,7 @@ cmd_search_box(const struct mailbox_info *info,
 	const char *guid_str;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(info, search_args, &trans, &iter) < 0)
+	if (doveadm_mail_iter_init(info, ctx->search_args, &trans, &iter) < 0)
 		return -1;
 
 	mail = mail_alloc(trans, 0, NULL);
@@ -28,7 +28,7 @@ cmd_search_box(const struct mailbox_info *info,
 	else {
 		guid_str = mail_guid_128_to_string(guid);
 		while (doveadm_mail_iter_next(iter, mail))
-			printf("%s %u\n", guid_str, mail->uid);
+			dm_printf(ctx, "%s %u\n", guid_str, mail->uid);
 	}
 	mail_free(&mail);
 	if (doveadm_mail_iter_deinit(&iter) < 0)
@@ -49,7 +49,7 @@ cmd_search_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 
 	iter = doveadm_mail_list_iter_init(user, ctx->search_args, iter_flags);
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
-		(void)cmd_search_box(info, ctx->search_args);
+		(void)cmd_search_box(ctx, info);
 	} T_END;
 	doveadm_mail_list_iter_deinit(&iter);
 }

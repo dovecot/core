@@ -124,9 +124,9 @@ cmd_mailbox_list_run(struct doveadm_mail_cmd_context *_ctx,
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) {
 		str_truncate(str, 0);
 		if (ctx->mutf7 || imap_utf7_to_utf8(info->name, str) < 0)
-			printf("%s\n", info->name);
+			dm_printf(_ctx, "%s\n", info->name);
 		else
-			printf("%s\n", str_c(str));
+			dm_printf(_ctx, "%s\n", str_c(str));
 	}
 	doveadm_mail_list_iter_deinit(&iter);
 }
