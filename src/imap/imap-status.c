@@ -107,12 +107,14 @@ void imap_status_send(struct client *client, const char *mailbox,
 {
 	const struct mailbox_status *status = &result->status;
 	string_t *str;
+	unsigned int prefix_len;
 
 	str = t_str_new(128);
 	str_append(str, "* STATUS ");
         imap_quote_append_string(str, mailbox, FALSE);
 	str_append(str, " (");
 
+	prefix_len = str_len(str);
 	if ((items->mailbox_items & STATUS_MESSAGES) != 0)
 		str_printfa(str, "MESSAGES %u ", status->messages);
 	if ((items->mailbox_items & STATUS_RECENT) != 0)
@@ -136,7 +138,7 @@ void imap_status_send(struct client *client, const char *mailbox,
 			    mail_guid_128_to_string(result->mailbox_guid));
 	}
 
-	if (items != 0)
+	if (str_len(str) != prefix_len)
 		str_truncate(str, str_len(str)-1);
 	str_append_c(str, ')');
 
