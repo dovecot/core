@@ -460,20 +460,30 @@ static const char *get_mail_location(void)
 
 static void filter_parse_arg(struct config_filter *filter, const char *arg)
 {
-	if (strncmp(arg, "service=", 8) == 0)
-		filter->service = arg + 8;
-	else if (strncmp(arg, "protocol=", 9) == 0)
-		filter->service = arg + 9;
-	else if (strncmp(arg, "lname=", 6) == 0)
-		filter->local_name = arg + 6;
-	else if (strncmp(arg, "lip=", 4) == 0) {
-		if (net_parse_range(arg + 4, &filter->local_net,
-				    &filter->local_bits) < 0)
-			i_fatal("lip: Invalid network mask");
-	} else if (strncmp(arg, "rip=", 4) == 0) {
-		if (net_parse_range(arg + 4, &filter->remote_net,
-				    &filter->remote_bits) < 0)
-			i_fatal("rip: Invalid network mask");
+	const char *key, *value, *error;
+
+	value = strchr(arg, '=');
+	if (value != NULL)
+		key = t_strdup_until(arg, value++);
+	else {
+		key = arg;
+		value = "";
+	}
+
+	if (strcmp(key, "service") == 0)
+		filter->service = value;
+	else if (strcmp(key, "protocol") == 0)
+		filter->service = value;
+	else if (strcmp(key, "lname") == 0)
+		filter->local_name = value;
+	else if (strcmp(key, "local") == 0) {
+		if (config_parse_net(value, &filter->local_net,
+				     &filter->local_bits, &error) < 0)
+			i_fatal("local filter: %s", error);
+	} else if (strcmp(key, "remote") == 0) {
+		if (config_parse_net(value, &filter->remote_net,
+				     &filter->remote_bits, &error) < 0)
+			i_fatal("remote filter: %s", error);
 	} else {
 		i_fatal("Unknown filter argument: %s", arg);
 	}

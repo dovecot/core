@@ -14,6 +14,8 @@ extern struct config_module_parser *config_module_parsers;
 extern struct config_filter_context *config_filter;
 extern struct module *modules;
 
+int config_parse_net(const char *value, struct ip_addr *ip_r,
+		     unsigned int *bits_r, const char **error_r);
 int config_parse_file(const char *path, bool expand_values, const char *module,
 		      const char **error_r);
 

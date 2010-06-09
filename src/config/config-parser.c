@@ -183,8 +183,8 @@ config_filter_parser_find(struct config_parser_context *ctx,
 	return NULL;
 }
 
-static int config_parse_net(const char *value, struct ip_addr *ip_r,
-			    unsigned int *bits_r, const char **error_r)
+int config_parse_net(const char *value, struct ip_addr *ip_r,
+		     unsigned int *bits_r, const char **error_r)
 {
 	struct ip_addr *ips;
 	const char *p;
