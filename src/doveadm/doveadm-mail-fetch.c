@@ -10,6 +10,7 @@
 #include "message-size.h"
 #include "imap-utf7.h"
 #include "imap-util.h"
+#include "mail-user.h"
 #include "mail-storage.h"
 #include "mail-search.h"
 #include "doveadm-mail.h"
@@ -40,6 +41,12 @@ struct fetch_field {
 	enum mail_fetch_field wanted_fields;
 	int (*print)(struct fetch_cmd_context *ctx);
 };
+
+static int fetch_user(struct fetch_cmd_context *ctx)
+{
+	str_append(ctx->hdr, ctx->ctx.cur_mail_user->username);
+	return 0;
+}
 
 static int fetch_mailbox(struct fetch_cmd_context *ctx)
 {
@@ -283,6 +290,7 @@ static int fetch_imap_bodystructure(struct fetch_cmd_context *ctx)
 }
 
 static const struct fetch_field fetch_fields[] = {
+	{ "user",          0,                        fetch_user },
 	{ "mailbox",       0,                        fetch_mailbox },
 	{ "mailbox-guid",  0,                        fetch_mailbox_guid },
 	{ "seq",           0,                        fetch_seq },
