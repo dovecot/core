@@ -71,8 +71,8 @@ static struct doveadm_mail_cmd_context *cmd_purge_alloc(void)
 	return ctx;
 }
 
-static struct mailbox *
-mailbox_find_and_open(struct mail_user *user, const char *mailbox)
+static int mailbox_find_and_open(struct mail_user *user, const char *mailbox,
+				 struct mailbox **box_r)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
@@ -91,25 +91,28 @@ mailbox_find_and_open(struct mail_user *user, const char *mailbox)
 	box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
-		i_fatal("Opening mailbox %s failed: %s", orig_mailbox,
+		i_error("Opening mailbox %s failed: %s", orig_mailbox,
 			mail_storage_get_last_error(mailbox_get_storage(box),
 						    NULL));
+		mailbox_free(&box);
+		return -1;
 	}
-	return box;
+	*box_r = box;
+	return 0;
 }
 
-struct mailbox *
-doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox)
+int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
+				  struct mailbox **box_r)
 {
-	struct mailbox *box;
-
-	box = mailbox_find_and_open(user, mailbox);
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_fatal("Syncing mailbox %s failed: %s", mailbox,
-			mail_storage_get_last_error(mailbox_get_storage(box),
+	if (mailbox_find_and_open(user, mailbox, box_r) < 0)
+		return -1;
+	if (mailbox_sync(*box_r, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
+		i_error("Syncing mailbox %s failed: %s", mailbox,
+			mail_storage_get_last_error(mailbox_get_storage(*box_r),
 						    NULL));
+		return -1;
 	}
-	return box;
+	return 0;
 }
 
 struct mail_search_args *
@@ -140,13 +143,17 @@ static void cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mail_storage *storage;
 	struct mailbox *box;
 
-	box = mailbox_find_and_open(user, ctx->mailbox);
+	if (mailbox_find_and_open(user, ctx->mailbox, &box) < 0) {
+		_ctx->failed = TRUE;
+		return;
+	}
 	storage = mailbox_get_storage(box);
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
 			 MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
-		i_fatal("Forcing a resync on mailbox %s failed: %s",
+		i_error("Forcing a resync on mailbox %s failed: %s",
 			ctx->mailbox,
 			mail_storage_get_last_error(storage, NULL));
+		_ctx->failed = TRUE;
 	}
 	mailbox_free(&box);
 }
@@ -384,6 +391,9 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		doveadm_mail_all_users(ctx, wildcard_user, service_flags);
 	}
 	ctx->v.deinit(ctx);
+
+	if (ctx->failed)
+		exit(FATAL_DEFAULT);
 }
 
 void dm_printf(struct doveadm_mail_cmd_context *ctx, const char *format, ...)

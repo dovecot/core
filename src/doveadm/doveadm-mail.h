@@ -5,6 +5,7 @@
 #include "doveadm.h"
 #include "module-context.h"
 
+struct mailbox;
 struct mail_user;
 struct mail_storage_service_ctx;
 struct mail_storage_service_input;
@@ -45,6 +46,7 @@ struct doveadm_mail_cmd_context {
 
 	unsigned int iterate_all_users:1;
 	unsigned int dm_printf_last_lf:1;
+	unsigned int failed:1;
 };
 
 struct doveadm_mail_cmd {
@@ -70,8 +72,8 @@ bool doveadm_mail_has_subcommands(const char *cmd_name);
 void doveadm_mail_init(void);
 void doveadm_mail_deinit(void);
 
-struct mailbox *
-doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox);
+int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
+				  struct mailbox **box_r);
 struct mail_search_args *
 doveadm_mail_build_search_args(const char *const args[]);
 const char *const *doveadm_mailbox_args_to_mutf7(const char *const args[]);

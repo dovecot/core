@@ -109,7 +109,11 @@ status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 	struct mailbox_status status;
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 
-	box = doveadm_mailbox_find_and_sync(ctx->ctx.cur_mail_user, info->name);
+	if (doveadm_mailbox_find_and_sync(ctx->ctx.cur_mail_user,
+					  info->name, &box) < 0) {
+		ctx->ctx.failed = TRUE;
+		return;
+	}
 	mailbox_get_status(box, ctx->items, &status);
 	if (ctx->guid) {
 		if (mailbox_get_guid(box, mailbox_guid) < 0)
