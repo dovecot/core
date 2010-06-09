@@ -20,6 +20,11 @@ struct service_process {
 	/* kill process if it hits idle timeout */
 	struct timeout *to_idle;
 
+	/* time when we last received a status update */
+	time_t last_status_update;
+	/* time when we last sent SIGINT to process */
+	time_t last_kill_sent;
+
 	/* kill the process if it doesn't send initial status notification */
 	struct timeout *to_status;
 

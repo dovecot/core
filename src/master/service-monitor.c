@@ -25,19 +25,33 @@
 #define SERVICE_DROP_WARN_INTERVAL_SECS 60
 
 static void service_monitor_start_extra_avail(struct service *service);
+static void service_status_more(struct service_process *process,
+				const struct master_status *status);
 
 static void service_process_kill_idle(struct service_process *process)
 {
 	struct service *service = process->service;
+	struct master_status status;
+
+	i_assert(process->available_count == service->client_limit);
 
 	if (service->process_avail <= service->set->process_min_avail) {
 		/* we don't have any extra idling processes anymore. */
 		timeout_remove(&process->to_idle);
+	} else if (process->last_kill_sent > process->last_status_update+1) {
+		service_error(service, "Process %s is ignoring idle SIGINT",
+			      dec2str(process->pid));
+
+		/* assume this process is busy */
+		memset(&status, 0, sizeof(status));
+		service_status_more(process, &status);
+		process->available_count = 0;
 	} else {
 		if (kill(process->pid, SIGINT) < 0 && errno != ESRCH) {
 			service_error(service, "kill(%s, SIGINT) failed: %m",
 				      dec2str(process->pid));
 		}
+		process->last_kill_sent = ioloop_time;
 	}
 }
 
@@ -126,6 +140,7 @@ service_status_input_one(struct service *service,
 			      "(UID=%u)", dec2str(status->pid), status->uid);
 		return;
 	}
+	process->last_status_update = ioloop_time;
 
 	if (process->to_status != NULL) {
 		/* first status notification */
