@@ -429,6 +429,11 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 					 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP, data);
 		}
 
+		/* the fd may still be hanging somewhere in kernel or another
+		   process. make sure the client gets disconnected. */
+		if (shutdown(client->fd, SHUT_RDWR) < 0)
+			i_error("shutdown() failed: %m");
+
 		if (data == NULL)
 			client_destroy_internal_failure(client);
 		else
