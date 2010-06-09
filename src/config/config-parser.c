@@ -183,10 +183,8 @@ config_filter_parser_find(struct config_parser_context *ctx,
 	return NULL;
 }
 
-static int
-config_parse_net(struct config_parser_context *ctx, const char *value,
-		 const char **host_r, struct ip_addr *ip_r,
-		 unsigned int *bits_r, const char **error_r)
+static int config_parse_net(const char *value, struct ip_addr *ip_r,
+			    unsigned int *bits_r, const char **error_r)
 {
 	struct ip_addr *ips;
 	const char *p;
@@ -208,7 +206,6 @@ config_parse_net(struct config_parser_context *ctx, const char *value,
 					   value, net_gethosterror(ret));
 		return -1;
 	}
-	*host_r = p_strdup(ctx->pool, value);
 	*ip_r = ips[0];
 
 	max_bits = IPADDR_IS_V4(&ips[0]) ? 32 : 128;
@@ -240,8 +237,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			ctx->error = "local must not be under protocol";
 		else if (parent->local_name != NULL)
 			ctx->error = "local must not be under local_name";
-		else if (config_parse_net(ctx, value, &filter->local_host,
-					  &filter->local_net,
+		else if (config_parse_net(value, &filter->local_net,
 					  &filter->local_bits, &error) < 0)
 			ctx->error = p_strdup(ctx->pool, error);
 		else if (parent->local_bits > filter->local_bits ||
@@ -250,6 +246,8 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					     &parent->local_net,
 					     parent->local_bits)))
 			ctx->error = "local not a subset of parent local";
+		else
+			filter->local_host = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "local_name") == 0) {
 		if (parent->remote_bits > 0)
 			ctx->error = "local_name must not be under remote";
@@ -260,8 +258,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	} else if (strcmp(key, "remote") == 0) {
 		if (parent->service != NULL)
 			ctx->error = "remote must not be under protocol";
-		else if (config_parse_net(ctx, value, &filter->remote_host,
-					  &filter->remote_net,
+		else if (config_parse_net(value, &filter->remote_net,
 					  &filter->remote_bits, &error) < 0)
 			ctx->error = p_strdup(ctx->pool, error);
 		else if (parent->remote_bits > filter->remote_bits ||
@@ -270,6 +267,8 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					     &parent->remote_net,
 					     parent->remote_bits)))
 			ctx->error = "remote not a subset of parent remote";
+		else
+			filter->remote_host = p_strdup(ctx->pool, value);
 	} else {
 		return FALSE;
 	}
