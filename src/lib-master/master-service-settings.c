@@ -174,10 +174,8 @@ config_build_request(string_t *str,
 		str_printfa(str, "\tlip=%s", net_ip2addr(&input->local_ip));
 	if (input->remote_ip.family != 0)
 		str_printfa(str, "\trip=%s", net_ip2addr(&input->remote_ip));
-	if (input->local_host != NULL)
-		str_printfa(str, "\tlhost=%s", input->local_host);
-	if (input->remote_host != NULL)
-		str_printfa(str, "\tlhost=%s", input->remote_host);
+	if (input->local_name != NULL)
+		str_printfa(str, "\tlname=%s", input->local_name);
 	str_append_c(str, '\n');
 }
 

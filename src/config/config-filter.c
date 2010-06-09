@@ -33,27 +33,21 @@ static bool config_filter_match_service(const struct config_filter *mask,
 static bool config_filter_match_rest(const struct config_filter *mask,
 				     const struct config_filter *filter)
 {
-	if (mask->local_host != NULL) {
-		if (filter->local_host == NULL)
+	if (mask->local_name != NULL) {
+		if (filter->local_name == NULL)
 			return FALSE;
-		if (strcmp(filter->local_host, mask->local_host) != 0)
-			return FALSE;
-	}
-	if (mask->remote_host != NULL) {
-		if (filter->remote_host == NULL)
-			return FALSE;
-		if (strcmp(filter->remote_host, mask->remote_host) != 0)
+		if (strcmp(filter->local_name, mask->local_name) != 0)
 			return FALSE;
 	}
 	/* FIXME: it's not comparing full masks */
-	if (mask->remote_bits != 0 && mask->remote_host == NULL) {
+	if (mask->remote_bits != 0) {
 		if (filter->remote_bits == 0)
 			return FALSE;
 		if (!net_is_in_network(&filter->remote_net, &mask->remote_net,
 				       mask->remote_bits))
 			return FALSE;
 	}
-	if (mask->local_bits != 0 && mask->local_host == NULL) {
+	if (mask->local_bits != 0) {
 		if (filter->local_bits == 0)
 			return FALSE;
 		if (!net_is_in_network(&filter->local_net, &mask->local_net,
@@ -88,9 +82,7 @@ bool config_filters_equal(const struct config_filter *f1,
 	if (!net_ip_compare(&f1->local_net, &f2->local_net))
 		return FALSE;
 
-	if (null_strcmp(f1->remote_host, f2->remote_host) != 0)
-		return FALSE;
-	if (null_strcmp(f1->local_host, f2->local_host) != 0)
+	if (null_strcmp(f1->local_name, f2->local_name) != 0)
 		return FALSE;
 
 	return TRUE;
@@ -129,8 +121,13 @@ config_filter_parser_cmp(struct config_filter_parser *const *p1,
 {
 	const struct config_filter *f1 = &(*p1)->filter, *f2 = &(*p2)->filter;
 
-	/* remote and local are first, although it doesn't really
+	/* remote and locals are first, although it doesn't really
 	   matter which one comes first */
+	if (f1->local_name != NULL && f2->local_name == NULL)
+		return -1;
+	if (f1->local_name == NULL && f2->local_name != NULL)
+		return 1;
+
 	if (f1->local_bits > f2->local_bits)
 		return -1;
 	if (f1->local_bits < f2->local_bits)
@@ -211,12 +208,12 @@ config_filter_find_all(struct config_filter_context *ctx, const char *module,
 			continue;
 		}
 
-		if (mask->local_bits > 0)
+		if (mask->local_bits > 0 || mask->local_name != NULL)
 			output_r->service_uses_local = TRUE;
 		if (mask->remote_bits > 0)
 			output_r->service_uses_remote = TRUE;
 		if (config_filter_match_rest(mask, filter)) {
-			if (mask->local_bits > 0)
+			if (mask->local_bits > 0 || mask->local_name != NULL)
 				output_r->used_local = TRUE;
 			if (mask->remote_bits > 0)
 				output_r->used_remote = TRUE;
@@ -251,10 +248,8 @@ config_filter_find_subset(struct config_filter_context *ctx,
 		}
 
 		tmp_mask = *mask;
-		if (filter->local_host == NULL)
-			tmp_mask.local_host = NULL;
-		if (filter->remote_host == NULL)
-			tmp_mask.remote_host = NULL;
+		if (filter->local_name == NULL)
+			tmp_mask.local_name = NULL;
 		if (filter->local_bits == 0)
 			tmp_mask.local_bits = 0;
 		if (filter->remote_bits == 0)
@@ -278,6 +273,10 @@ config_filter_is_superset(const struct config_filter *sup,
 		return FALSE;
 	if (sup->remote_bits > filter->remote_bits)
 		return FALSE;
+	if (sup->local_name != NULL && filter->local_name == NULL) {
+		i_warning("%s", sup->local_name);
+		return FALSE;
+	}
 	if (sup->service != NULL && filter->service == NULL)
 		return FALSE;
 	return TRUE;

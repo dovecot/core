@@ -29,6 +29,7 @@ struct ip_addr {
 		struct in_addr ip4;
 	} u;
 };
+ARRAY_DEFINE_TYPE(ip_addr, struct ip_addr);
 
 /* maxmimum string length of IP address */
 #ifdef HAVE_IPV6

@@ -27,7 +27,7 @@ struct master_service_settings_input {
 	const char *service;
 	const char *username;
 	struct ip_addr local_ip, remote_ip;
-	const char *local_host, *remote_host;
+	const char *local_name;
 };
 
 struct master_service_settings_output {

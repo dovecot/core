@@ -238,6 +238,8 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			ctx->error = "local must not be under remote";
 		else if (parent->service != NULL)
 			ctx->error = "local must not be under protocol";
+		else if (parent->local_name != NULL)
+			ctx->error = "local must not be under local_name";
 		else if (config_parse_net(ctx, value, &filter->local_host,
 					  &filter->local_net,
 					  &filter->local_bits, &error) < 0)
@@ -248,6 +250,13 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					     &parent->local_net,
 					     parent->local_bits)))
 			ctx->error = "local not a subset of parent local";
+	} else if (strcmp(key, "local_name") == 0) {
+		if (parent->remote_bits > 0)
+			ctx->error = "local_name must not be under remote";
+		else if (parent->service != NULL)
+			ctx->error = "local_name must not be under protocol";
+		else
+			filter->local_name = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "remote") == 0) {
 		if (parent->service != NULL)
 			ctx->error = "remote must not be under protocol";

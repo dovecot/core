@@ -38,7 +38,7 @@ struct login_settings *
 login_settings_read(pool_t pool,
 		    const struct ip_addr *local_ip,
 		    const struct ip_addr *remote_ip,
-		    const char *local_host,
+		    const char *local_name,
 		    void ***other_settings_r);
 void login_settings_deinit(void);
 

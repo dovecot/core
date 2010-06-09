@@ -7,6 +7,10 @@ struct master_service_settings_output;
 
 struct config_filter {
 	const char *service;
+	/* local_name is for TLS SNI requests.
+	   both local_name and local_bits can't be set at the same time. */
+	const char *local_name;
+	/* the hosts are used only in doveconf output */
 	const char *local_host, *remote_host;
 	struct ip_addr local_net, remote_net;
 	unsigned int local_bits, remote_bits;

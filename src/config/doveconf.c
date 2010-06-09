@@ -302,6 +302,12 @@ config_dump_filter_begin(string_t *str,
 		indent++;
 	}
 
+	if (filter->local_name != NULL) {
+		str_append_n(str, indent_str, indent*2);
+		str_printfa(str, "local_name %s {\n", filter->local_name);
+		indent++;
+	}
+
 	if (filter->remote_bits > 0) {
 		str_append_n(str, indent_str, indent*2);
 		str_printfa(str, "remote %s",
@@ -458,10 +464,8 @@ static void filter_parse_arg(struct config_filter *filter, const char *arg)
 		filter->service = arg + 8;
 	else if (strncmp(arg, "protocol=", 9) == 0)
 		filter->service = arg + 9;
-	else if (strncmp(arg, "lhost=", 6) == 0)
-		filter->local_host = arg + 6;
-	else if (strncmp(arg, "rhost=", 6) == 0)
-		filter->remote_host = arg + 6;
+	else if (strncmp(arg, "lname=", 6) == 0)
+		filter->local_name = arg + 6;
 	else if (strncmp(arg, "lip=", 4) == 0) {
 		if (net_parse_range(arg + 4, &filter->local_net,
 				    &filter->local_bits) < 0)
