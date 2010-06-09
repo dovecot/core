@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 
 #define SOCKET_CONNECT_RETRY_MSECS 500
+#define MASTER_AUTH_REQUEST_TIMEOUT_MSECS (MASTER_LOGIN_TIMEOUT_SECS/2*1000)
 
 struct master_auth_connection {
 	struct master_auth *auth;
@@ -20,6 +21,7 @@ struct master_auth_connection {
 
 	int fd;
 	struct io *io;
+	struct timeout *to;
 
 	char buf[sizeof(struct master_auth_reply)];
 	unsigned int buf_pos;
@@ -69,11 +71,13 @@ master_auth_connection_deinit(struct master_auth_connection **_conn)
 	if (conn->callback != NULL)
 		conn->callback(NULL, conn->context);
 
+	if (conn->to != NULL)
+		timeout_remove(&conn->to);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
-			i_fatal("close(master auth conn) failed: %m");
+			i_fatal("close(%s) failed: %m", conn->auth->path);
 		conn->fd = -1;
 	}
 	i_free(conn);
@@ -110,10 +114,10 @@ static void master_auth_connection_input(struct master_auth_connection *conn)
 		if (ret < 0) {
 			if (errno == EAGAIN)
 				return;
-			i_error("read(master auth conn) failed: %m");
+			i_error("read(%s) failed: %m", conn->auth->path);
 		} else {
-			i_error("read(master auth conn) failed: "
-				"Remote closed connection");
+			i_error("read(%s) failed: Remote closed connection",
+				conn->auth->path);
 		}
 		master_auth_connection_deinit(&conn);
 		return;
@@ -128,13 +132,21 @@ static void master_auth_connection_input(struct master_auth_connection *conn)
 	conn->buf_pos = 0;
 
 	if (conn->tag != reply->tag)
-		i_error("Master sent reply with unknown tag %u", reply->tag);
+		i_error("master(%s): Received reply with unknown tag %u",
+			conn->auth->path, reply->tag);
 	else if (conn->callback == NULL) {
 		/* request aborted */
 	} else {
 		conn->callback(reply, conn->context);
 		conn->callback = NULL;
 	}
+	master_auth_connection_deinit(&conn);
+}
+
+static void master_auth_connection_timeout(struct master_auth_connection *conn)
+{
+	i_error("master(%s): Auth request timed out (received %u/%u bytes)",
+		conn->auth->path, conn->buf_pos, sizeof(conn->buf));
 	master_auth_connection_deinit(&conn);
 }
 
@@ -182,10 +194,10 @@ void master_auth_request(struct master_auth *auth, int fd,
 
 	ret = fd_send(conn->fd, fd, buf->data, buf->used);
 	if (ret < 0)
-		i_error("fd_send(%d) failed: %m", fd);
+		i_error("fd_send(%s, %d) failed: %m", auth->path, fd);
 	else if ((size_t)ret != buf->used) {
-		i_error("fd_send() sent only %d of %d bytes",
-			(int)ret, (int)buf->used);
+		i_error("fd_send(%s) sent only %d of %d bytes",
+			auth->path, (int)ret, (int)buf->used);
 		ret = -1;
 	}
 	if (ret < 0) {
@@ -194,6 +206,8 @@ void master_auth_request(struct master_auth *auth, int fd,
 	}
 
 	conn->tag = req.tag;
+	conn->to = timeout_add(MASTER_AUTH_REQUEST_TIMEOUT_MSECS,
+			       master_auth_connection_timeout, conn);
 	conn->io = io_add(conn->fd, IO_READ,
 			  master_auth_connection_input, conn);
 	hash_table_insert(auth->connections, POINTER_CAST(req.tag), conn);
