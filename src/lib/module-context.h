@@ -46,10 +46,9 @@
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(OBJ_REGISTER(obj), (id_ctx).reg)
 
 #define MODULE_CONTEXT(obj, id_ctx) \
-	(unlikely(!(id_ctx).id.module_id_set) ? NULL : \
 	(*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					(id_ctx).id.module_id) + \
-	 OBJ_REGISTER_COMPATIBLE(obj, id_ctx))))
+		module_get_context_id(&(id_ctx).id)) + \
+	 OBJ_REGISTER_COMPATIBLE(obj, id_ctx)))
 
 #ifdef HAVE_TYPEOF
 #  define MODULE_CONTEXT_DEFINE(_name, _reg) \
