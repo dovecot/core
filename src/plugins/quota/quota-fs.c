@@ -224,6 +224,11 @@ static void fs_quota_mount_init(struct fs_quota_root *root,
 	unsigned int i, count;
 
 #ifdef FS_QUOTA_SOLARIS
+#ifdef HAVE_RQUOTA
+	if (strcmp(mount->type, "nfs") == 0) {
+		/* using rquota for this mount */
+	} else
+#endif
 	if (mount->path == NULL) {
 		mount->path = i_strconcat(mount->mount_path, "/quotas", NULL);
 		mount->fd = open(mount->path, O_RDONLY);
