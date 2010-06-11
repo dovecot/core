@@ -43,6 +43,8 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	}
 	driver = t_strdup_until(ns->set->location, p);
 	storage->location = p_strdup(_storage->pool, ns->set->location);
+	storage->unexpanded_location =
+		p_strdup(_storage->pool, ns->unexpanded_set->location);
 	storage->storage_class = mail_storage_find_class(driver);
 	if (storage->storage_class == NULL) {
 		*error_r = t_strconcat("Unknown shared storage driver: ",
@@ -123,7 +125,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	};
 	struct var_expand_table *tab;
 	struct mail_namespace *new_ns, *ns = *_ns;
-	struct mail_namespace_settings *ns_set;
+	struct mail_namespace_settings *ns_set, *unexpanded_ns_set;
 	struct mail_user *owner;
 	const char *domain = NULL, *username = NULL, *userdomain = NULL;
 	const char *name, *p, *next, **dest, *error;
@@ -275,6 +277,13 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	ns_set->hidden = TRUE;
 	ns_set->list = "yes";
 	new_ns->set = ns_set;
+
+	unexpanded_ns_set =
+		p_new(user->pool, struct mail_namespace_settings, 1);
+	*unexpanded_ns_set = *ns_set;
+	unexpanded_ns_set->location =
+		p_strdup(user->pool, storage->unexpanded_location);
+	new_ns->unexpanded_set = unexpanded_ns_set;
 
 	if (mail_storage_create(new_ns, NULL, _storage->flags, &error) < 0) {
 		mailbox_list_set_critical(list, "Namespace '%s': %s",

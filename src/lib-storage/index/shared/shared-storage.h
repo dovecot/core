@@ -8,7 +8,7 @@ struct shared_storage {
 	union mailbox_list_module_context list_module_ctx;
 
 	const char *ns_prefix_pattern;
-	const char *location;
+	const char *location, *unexpanded_location;
 
 	struct mail_storage *storage_class;
 };
