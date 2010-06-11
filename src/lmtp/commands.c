@@ -597,7 +597,7 @@ static void
 client_input_data_write_local(struct client *client, struct istream *input)
 {
 	struct mail *src_mail;
-	uid_t old_uid, first_uid;
+	uid_t old_uid, first_uid = (uid_t)-1;
 
 	if (client_open_raw_mail(client, input) < 0)
 		return;
