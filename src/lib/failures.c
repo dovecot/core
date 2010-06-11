@@ -526,11 +526,12 @@ internal_handler(enum log_type log_type, const char *format, va_list args)
 		prefix_len = str_len(str);
 
 		str_vprintfa(str, format, args);
-		str_append_c(str, '\n');
-		if (str_len(str) <= PIPE_BUF)
+		if (str_len(str)+1 <= PIPE_BUF) {
+			str_append_c(str, '\n');
 			ret = log_fd_write(2, str_data(str), str_len(str));
-		else
+		} else {
 			ret = internal_send_split(str, prefix_len);
+		}
 	} T_END;
 
 	if (ret < 0 && failure_ignore_errors)
