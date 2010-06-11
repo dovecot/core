@@ -64,6 +64,10 @@ doveadm_SOURCES = \
 	doveadm-mail-list-iter.c \
 	doveadm-mail-search.c \
 	doveadm-penalty.c \
+	doveadm-print.c \
+	doveadm-print-flow.c \
+	doveadm-print-tab.c \
+	doveadm-print-table.c \
 	doveadm-pw.c \
 	doveadm-settings.c \
 	doveadm-who.c
@@ -74,5 +78,7 @@ noinst_HEADERS = \
 	doveadm-mail.h \
 	doveadm-mail-iter.h \
 	doveadm-mail-list-iter.h \
+	doveadm-print.h \
+	doveadm-print-private.h \
 	doveadm-settings.h \
 	doveadm-who.h

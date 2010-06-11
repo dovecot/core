@@ -7,6 +7,7 @@
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-search-build.h"
+#include "doveadm-print.h"
 #include "doveadm-mail-list-iter.h"
 #include "doveadm-mail.h"
 
@@ -123,9 +124,9 @@ cmd_mailbox_list_run(struct doveadm_mail_cmd_context *_ctx,
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) {
 		str_truncate(str, 0);
 		if (ctx->mutf7 || imap_utf7_to_utf8(info->name, str) < 0)
-			dm_printf(_ctx, "%s\n", info->name);
+			doveadm_print(info->name);
 		else
-			dm_printf(_ctx, "%s\n", str_c(str));
+			doveadm_print(str_c(str));
 	}
 	doveadm_mail_list_iter_deinit(&iter);
 }
@@ -158,6 +159,8 @@ static void cmd_mailbox_list_init(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
 
+	doveadm_print_header("mailbox", "mailbox",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 	ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
 }
 
@@ -170,6 +173,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_list_alloc(void)
 	ctx->ctx.ctx.v.run = cmd_mailbox_list_run;
 	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_list_parse_arg;
 	ctx->ctx.ctx.getopt_args = "78s";
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
 	return &ctx->ctx.ctx;
 }
 

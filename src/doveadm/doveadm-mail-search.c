@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mail-storage.h"
+#include "doveadm-print.h"
 #include "doveadm-mail-list-iter.h"
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
@@ -27,8 +28,12 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 		ret = -1;
 	else {
 		guid_str = mail_guid_128_to_string(guid);
-		while (doveadm_mail_iter_next(iter, mail))
-			dm_printf(ctx, "%s %u\n", guid_str, mail->uid);
+		while (doveadm_mail_iter_next(iter, mail)) {
+			doveadm_print(guid_str);
+			T_BEGIN {
+				doveadm_print(dec2str(mail->uid));
+			} T_END;
+		}
 	}
 	mail_free(&mail);
 	if (doveadm_mail_iter_deinit(&iter) < 0)
@@ -60,6 +65,11 @@ static void cmd_search_init(struct doveadm_mail_cmd_context *ctx,
 	if (args[0] == NULL)
 		doveadm_mail_help_name("search");
 
+	doveadm_print_header("mailbox-guid", "mailbox-guid",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+	doveadm_print_header("uid", "uid",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+
 	ctx->search_args = doveadm_mail_build_search_args(args);
 }
 
@@ -70,6 +80,7 @@ static struct doveadm_mail_cmd_context *cmd_search_alloc(void)
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->v.init = cmd_search_init;
 	ctx->v.run = cmd_search_run;
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
 	return ctx;
 }
 

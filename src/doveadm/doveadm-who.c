@@ -6,7 +6,9 @@
 #include "istream.h"
 #include "wildcard-match.h"
 #include "hash.h"
+#include "str.h"
 #include "doveadm.h"
+#include "doveadm-print.h"
 #include "doveadm-who.h"
 
 #include <stdio.h>
@@ -183,45 +185,54 @@ static bool who_user_filter_match(const struct who_user *user,
 	return TRUE;
 }
 
+static void who_print_user(const struct who_user *user)
+{
+	const struct ip_addr *ip;
+	const pid_t *pid;
+	string_t *str = t_str_new(256);
+
+	doveadm_print(user->username);
+	doveadm_print(dec2str(user->connection_count));
+	doveadm_print(user->service);
+
+	str_append_c(str, '(');
+	array_foreach(&user->pids, pid)
+		str_printfa(str, "%ld ", (long)*pid);
+	if (str_len(str) > 1)
+		str_truncate(str, str_len(str)-1);
+	str_append_c(str, ')');
+	doveadm_print(str_c(str));
+
+	str_truncate(str, 0);
+	str_append_c(str, '(');
+	array_foreach(&user->ips, ip)
+		str_printfa(str, "%s ", net_ip2addr(ip));
+	if (str_len(str) > 1)
+		str_truncate(str, str_len(str)-1);
+	str_append_c(str, ')');
+	doveadm_print(str_c(str));
+}
+
 static void who_print(struct who_context *ctx)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	fprintf(stderr, "%-30s  # proto\t(pids)\t(ips)\n", "username");
+	doveadm_print_header("username", "username", 0);
+	doveadm_print_header("connections", "#",
+			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
+	doveadm_print_header("service", "proto", 0);
+	doveadm_print_header("pids", "(pids)", 0);
+	doveadm_print_header("ips", "(ips)", 0);
 
 	iter = hash_table_iterate_init(ctx->users);
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct who_user *user = value;
-		const struct ip_addr *ip;
-		const pid_t *pid;
-		bool first = TRUE;
 
-		if (!who_user_filter_match(user, &ctx->filter))
-			continue;
-
-		printf("%-30s %2u %-5s ", user->username,
-		       user->connection_count, user->service);
-
-		printf("(");
-		array_foreach(&user->pids, pid) T_BEGIN {
-			if (first)
-				first = FALSE;
-			else
-				printf(" ");
-			printf("%ld", (long)*pid);
+		if (who_user_filter_match(user, &ctx->filter)) T_BEGIN {
+			who_print_user(user);
 		} T_END;
-		printf(") (");
-		first = TRUE;
-		array_foreach(&user->ips, ip) T_BEGIN {
-			if (first)
-				first = FALSE;
-			else
-				printf(" ");
-			printf("%s", net_ip2addr(ip));
-		} T_END;
-		printf(")\n");
-	};
+	}
 	hash_table_iterate_deinit(&iter);
 }
 
@@ -249,8 +260,10 @@ static void who_print_line(struct who_context *ctx,
 		return;
 
 	for (i = 0; i < line->refcount; i++) T_BEGIN {
-		printf("%-30s %-5s\t%ld\t%-15s\n", line->username,
-		       line->service, (long)line->pid, net_ip2addr(&line->ip));
+		doveadm_print(line->username);
+		doveadm_print(line->service);
+		doveadm_print(dec2str(line->pid));
+		doveadm_print(net_ip2addr(&line->ip));
 	} T_END;
 }
 
@@ -282,11 +295,15 @@ static void cmd_who(int argc, char *argv[])
 	argv += optind - 1;
 	who_parse_args(&ctx, argv);
 
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	if (!separate_connections) {
 		who_lookup(&ctx, who_aggregate_line);
 		who_print(&ctx);
 	} else {
-		fprintf(stderr, "%-30s proto\tpid\t%-15s\n", "username", "ip");
+		doveadm_print_header_simple("username");
+		doveadm_print_header_simple("service");
+		doveadm_print_header_simple("pid");
+		doveadm_print_header_simple("ip");
 		who_lookup(&ctx, who_print_line);
 	}
 

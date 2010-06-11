@@ -4,6 +4,7 @@
 #include "str.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
 
@@ -58,36 +59,25 @@ static void status_output(struct status_cmd_context *ctx, struct mailbox *box,
 			  const struct mailbox_status *status,
 			  uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
 {
-	string_t *str = t_str_new(128);
-
 	if (box != NULL)
-		str_printfa(str, "%s: ", mailbox_get_vname(box));
+		doveadm_print(mailbox_get_vname(box));
 
 	if ((ctx->items & STATUS_MESSAGES) != 0)
-		str_printfa(str, "messages=%u ", status->messages);
+		doveadm_print_num(status->messages);
 	if ((ctx->items & STATUS_RECENT) != 0)
-		str_printfa(str, "recent=%u ", status->recent);
+		doveadm_print_num(status->recent);
 	if ((ctx->items & STATUS_UIDNEXT) != 0)
-		str_printfa(str, "uidnext=%u ", status->uidnext);
+		doveadm_print_num(status->uidnext);
 	if ((ctx->items & STATUS_UIDVALIDITY) != 0)
-		str_printfa(str, "uidvalidity=%u ", status->uidvalidity);
+		doveadm_print_num(status->uidvalidity);
 	if ((ctx->items & STATUS_UNSEEN) != 0)
-		str_printfa(str, "unseen=%u ", status->unseen);
-	if ((ctx->items & STATUS_HIGHESTMODSEQ) != 0) {
-		str_printfa(str, "highestmodseq=%llu ",
-			    (unsigned long long)status->highest_modseq);
-	}
-	if ((ctx->items & STATUS_VIRTUAL_SIZE) != 0) {
-		str_printfa(str, "vsize=%llu ",
-			    (unsigned long long)status->virtual_size);
-	}
-	if (ctx->guid) {
-		str_printfa(str, "guid=%s ",
-			    mail_guid_128_to_string(mailbox_guid));
-	}
-
-	str_truncate(str, str_len(str)-1);
-	dm_printf(&ctx->ctx, "%s\n", str_c(str));
+		doveadm_print_num(status->unseen);
+	if ((ctx->items & STATUS_HIGHESTMODSEQ) != 0)
+		doveadm_print_num(status->highest_modseq);
+	if ((ctx->items & STATUS_VIRTUAL_SIZE) != 0)
+		doveadm_print_num(status->virtual_size);
+	if (ctx->guid)
+		doveadm_print(mail_guid_128_to_string(mailbox_guid));
 }
 
 static void
@@ -164,6 +154,27 @@ static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx,
 
 	status_parse_fields(ctx, t_strsplit_spaces(fields, " "));
 	ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
+
+	if (!ctx->total_sum) {
+		doveadm_print_header("mailbox", "mailbox",
+				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+	}
+	if ((ctx->items & STATUS_MESSAGES) != 0)
+		doveadm_print_header_simple("messages");
+	if ((ctx->items & STATUS_RECENT) != 0)
+		doveadm_print_header_simple("recent");
+	if ((ctx->items & STATUS_UIDNEXT) != 0)
+		doveadm_print_header_simple("uidnext");
+	if ((ctx->items & STATUS_UIDVALIDITY) != 0)
+		doveadm_print_header_simple("uidvalidity");
+	if ((ctx->items & STATUS_UNSEEN) != 0)
+		doveadm_print_header_simple("unseen");
+	if ((ctx->items & STATUS_HIGHESTMODSEQ) != 0)
+		doveadm_print_header_simple("highestmodseq");
+	if ((ctx->items & STATUS_VIRTUAL_SIZE) != 0)
+		doveadm_print_header_simple("vsize");
+	if (ctx->guid)
+		doveadm_print_header_simple("guid");
 }
 
 static bool
@@ -190,6 +201,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_status_alloc(void)
 	ctx->ctx.v.parse_arg = cmd_mailbox_status_parse_arg;
 	ctx->ctx.v.init = cmd_mailbox_status_init;
 	ctx->ctx.v.run = cmd_mailbox_status_run;
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
 	return &ctx->ctx;
 }
 

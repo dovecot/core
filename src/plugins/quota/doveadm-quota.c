@@ -4,6 +4,7 @@
 #include "module-dir.h"
 #include "quota-plugin.h"
 #include "quota-private.h"
+#include "doveadm-print.h"
 #include "doveadm-mail.h"
 
 const char *doveadm_quota_plugin_version = DOVECOT_VERSION;
@@ -11,47 +12,60 @@ const char *doveadm_quota_plugin_version = DOVECOT_VERSION;
 void doveadm_quota_plugin_init(struct module *module);
 void doveadm_quota_plugin_deinit(void);
 
-static void
-cmd_quota_get_root(struct doveadm_mail_cmd_context *ctx,
-		   struct quota_root *root)
+static void cmd_quota_get_root(struct quota_root *root)
 {
 	const char *const *res;
 	uint64_t value, limit;
 	int ret;
 
-	dm_printf(ctx, "%s: ", root->set->name);
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
 		ret = quota_get_resource(root, "", *res, &value, &limit);
-		dm_printf(ctx, "%s ", *res);
+		doveadm_print(root->set->name);
+		doveadm_print(*res);
 		if (ret > 0) {
-			dm_printf(ctx, "%llu/%llu",
-				  (unsigned long long)value,
-				  (unsigned long long)limit);
-			if (limit >= 100) {
-				dm_printf(ctx, " (%u%%)",
-					  (unsigned int)(value / (limit/100)));
-			}
+			doveadm_print_num(value);
+			doveadm_print_num(limit);
+			if (limit >= 100)
+				doveadm_print_num(value / (limit/100));
+			else
+				doveadm_print("0");
 		} else if (ret == 0) {
-			dm_printf(ctx, "%llu/unlimited",
-				  (unsigned long long)value);
-		} else
-			dm_printf(ctx, "error");
-		if (res[1] != NULL)
-			dm_printf(ctx, ", ");
+			doveadm_print_num(value);
+			doveadm_print("-");
+			doveadm_print("0");
+		} else {
+			doveadm_print("error");
+			doveadm_print("error");
+			doveadm_print("error");
+		}
 	}
-	dm_printf(ctx, "\n");
 }
 
 static void
-cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx,
+cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 		  struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct quota_root *const *root;
 
 	array_foreach(&quser->quota->roots, root)
-		cmd_quota_get_root(ctx, *root);
+		cmd_quota_get_root(*root);
+}
+
+static void cmd_quota_get_init(struct doveadm_mail_cmd_context *ctx,
+			       const char *const args[] ATTR_UNUSED)
+{
+	doveadm_print_header("root", "Quota name", 0);
+	doveadm_print_header("type", "Type", 0);
+	doveadm_print_header("value", "Value",
+			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
+	doveadm_print_header("limit", "Limit",
+			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
+	doveadm_print_header("percent", "%",
+			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
+
+	ctx->search_args = doveadm_mail_build_search_args(args);
 }
 
 static struct doveadm_mail_cmd_context *
@@ -61,6 +75,8 @@ cmd_quota_get_alloc(void)
 
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->v.run = cmd_quota_get_run;
+	ctx->v.init = cmd_quota_get_init;
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	return ctx;
 }
 

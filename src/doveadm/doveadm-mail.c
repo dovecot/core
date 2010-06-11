@@ -18,6 +18,7 @@
 #include "mail-search-parser.h"
 #include "doveadm.h"
 #include "doveadm-settings.h"
+#include "doveadm-print.h"
 #include "doveadm-mail.h"
 
 #include <stdio.h>
@@ -41,7 +42,6 @@ doveadm_mail_cmd_alloc_size(size_t size)
 	pool = pool_alloconly_create("doveadm mail cmd", 1024);
 	ctx = p_malloc(pool, size);
 	ctx->pool = pool;
-	ctx->dm_printf_last_lf = TRUE;
 	return ctx;
 }
 
@@ -276,7 +276,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	n = user_count / 10000;
 	for (interval = 10; n > 0 && interval < 1000; interval *= 10)
 		n /= 10;
-	
+
 	user_idx = 0;
 	while ((ret = ctx->v.get_next_user(ctx, &user)) > 0) {
 		if (wildcard_user != NULL) {
@@ -284,6 +284,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 				continue;
 		}
 		input.username = user;
+		doveadm_print_sticky("username", user);
 		T_BEGIN {
 			ret = doveadm_mail_next_user(ctx, &input, &error);
 			if (ret < 0)
@@ -360,6 +361,9 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		switch (c) {
 		case 'A':
 			ctx->iterate_all_users = TRUE;
+			doveadm_print_header("username", "Username",
+				DOVEADM_PRINT_HEADER_FLAG_STICKY |
+				DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 			break;
 		case 'u':
 			service_flags |=
@@ -394,29 +398,6 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	if (ctx->failed)
 		exit(FATAL_DEFAULT);
-}
-
-void dm_printf(struct doveadm_mail_cmd_context *ctx, const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	if (!ctx->iterate_all_users)
-		vprintf(format, args);
-	else T_BEGIN {
-		const char *str = t_strdup_vprintf(format, args);
-		bool prev_lf = ctx->dm_printf_last_lf;
-
-		for (; *str != '\0'; str++) {
-			if (prev_lf)
-				printf("%s: ", ctx->cur_mail_user->username);
-			putchar(*str);
-			prev_lf = *str == '\n';
-		}
-		ctx->dm_printf_last_lf = prev_lf;
-		
-	} T_END;
-	va_end(args);
 }
 
 static bool
