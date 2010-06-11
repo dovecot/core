@@ -323,6 +323,10 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 			user->unexpanded_set, MAIL_STORAGE_SET_DRIVER_NAME);
 		i_assert(mail_set != NULL);
 		location = mail_set->mail_location;
+		if (*location == '1') {
+			/* we'll get here if using -o mail_location=.. */
+			return "";
+		}
 		i_assert(*location == '0');
 		location++;
 	}
