@@ -60,9 +60,7 @@
    necessary. and the same could be done for ipv4 as well..
 
  - dsync:
-   - DSYNC_MAILBOX_FLAG_DELETED_DIR isn't handled at all
    - subscriptions syncing doesn't handle mixed hierarchy separators
-   - are \noselect mailboxes replicated correctly?
    - Can't rename mailbox INBOX_019acf2169c5784b307f000074ccac23 to INBOX: Target mailbox already exists
    - copying: does it work correctly with non-full syncs?
    - "backup mode" where one side is read-only and other side gets forced
@@ -72,8 +70,6 @@
 
  - lda: add some -h 'Header: value' parameter that adds/replaces header
  - ldap: fix multiple-gid support somehow
- - PERMANENTFLAGS returns () with readonly mailboxes, even when private flag
-   changes are allowed (because index is stored elsewhere)
  - search: use mail_get_parts() only when it's already cached. if it's not,
    add it to cache afterwards.
  - move ssl proxying code to lib-master
@@ -111,13 +107,9 @@
  - add anonymous environment for anon logins (for managesieve mainly)
  - fs quota: getquotaroot inbox vs. other-box should return different quotas
    if two quotas are defined
- - lda: log mailbox name using utf8, not mutf7
  - new primes code: are hash tables now being resized too often?
  - auth_log_prefix setting similar to mail_log_prefix
- - LDAP attrs: uid=foo,uid=bar doesn't work
 
- - easily limit master users to be able to only log as other users within
-   their domain
  - thread indexes: if we expunge a duplicate message-id: and we have a sibling
    with identical message-id:, we can probably just move the children?
    (unless there are non-sibling duplicates)
@@ -146,9 +138,6 @@
 
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
- - new %modifier for reverse DNS lookups with a cache
-   - auth_gssapi_hostname = %Xl
-   - proxying would also want DNS lookups, but not reverse..
  - ldap:
    - domain lookups which set the base for user lookup
    - same attribute can't be used for multiple values.
@@ -178,9 +167,6 @@
 
  - file_cache: we're growing the mmap in page size blocks, which is horribly
    slow if mremap() doesn't exist.
-
- - ssl_verify_client_cert isn't working if the SSL cert doesn't have CRL
- - configurable syslog prefix
 
  - keywords:
     - add some limits to how many there can be
@@ -228,20 +214,12 @@
 	   - only after that we can remove the transaction log offset
 	     overwriting (otherwise we can get partial transactions in views)
 
- - namespaces
-    - namespaces: add new "auto_disable" flag so if the mailbox can't be opened
-      (eg. file doesn't exist), just ignore the problem and disable the
-      namespace
-
  - lib-storage
     - x search charset asdf all -> should fail
 
  - login
     - Digest-MD5: support integrity protection, and maybe crypting. Do it
       through login process like SSL is done?
-    - if auth process dies, login process should retry authentication if
-      possible. or if not, disconnect the client so it doesn't think the auth
-      failed.
 
  - auth
     - with blocking passdb we're not caching lookups if the password was wrong
@@ -249,8 +227,6 @@
         - multiple passdbs don't work, only the first one is used
 	- auth cache's last_success password change check doesn't exist
 	- auth_cache_negative_ttl doesn't check password mismatches
-    - SIGHUP restarts auth processes .. but does it wait until they've finished
-      with all requests? no.
     - dovecot-auth should limit how fast authentication requests are allowed
       from login processes. especially if there's one login/connection the speed
       should be something like once/sec. also limit how fast to accept new
