@@ -102,7 +102,7 @@ static void dsync_worker_mailbox_input(void *context)
 		if (dsync_worker_mailbox_iter_deinit(&list->iter) < 0)
 			dsync_brain_fail(list->brain);
 		array_sort(&list->mailboxes, dsync_mailbox_p_guid_cmp);
-		array_sort(&list->dirs, dsync_mailbox_p_name_cmp);
+		array_sort(&list->dirs, dsync_mailbox_p_name_sha1_cmp);
 		dsync_brain_mailbox_list_finished(list->brain);
 	}
 }
@@ -309,6 +309,76 @@ static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 		new_box = *dest_boxes[dest];
 		new_box.uid_next = 0;
 		new_box.highest_modseq = 0;
+		dsync_worker_create_mailbox(brain->src_worker, &new_box);
+	}
+}
+
+static void dsync_brain_sync_dirs(struct dsync_brain *brain)
+{
+	struct dsync_mailbox *const *src_boxes, *const *dest_boxes, new_box;
+	unsigned int src, dest, src_count, dest_count;
+	bool src_deleted, dest_deleted;
+	int ret;
+
+	memset(&new_box, 0, sizeof(new_box));
+
+	/* create/delete missing directories. */
+	src_boxes = array_get(&brain->src_mailbox_list->dirs, &src_count);
+	dest_boxes = array_get(&brain->dest_mailbox_list->dirs, &dest_count);
+	for (src = dest = 0; src < src_count && dest < dest_count; ) {
+		src_deleted = (src_boxes[src]->flags &
+			       DSYNC_MAILBOX_FLAG_DELETED_DIR) != 0;
+		dest_deleted = (dest_boxes[dest]->flags &
+				DSYNC_MAILBOX_FLAG_DELETED_DIR) != 0;
+		ret = memcmp(src_boxes[src]->name_sha1.guid,
+			     dest_boxes[dest]->name_sha1.guid,
+			     sizeof(src_boxes[src]->name_sha1.guid));
+		if (ret < 0) {
+			/* exists only in source */
+			if (!src_deleted) {
+				new_box = *src_boxes[src];
+				dsync_worker_create_mailbox(brain->dest_worker,
+							    &new_box);
+			}
+			src++;
+		} else if (ret > 0) {
+			/* exists only in dest */
+			if (!dest_deleted) {
+				new_box = *dest_boxes[dest];
+				dsync_worker_create_mailbox(brain->src_worker,
+							    &new_box);
+			}
+			dest++;
+		} else if (src_deleted) {
+			/* delete from dest too */
+			if (!dest_deleted) {
+				dsync_worker_delete_dir(brain->dest_worker,
+							dest_boxes[dest]);
+			}
+			src++; dest++;
+		} else if (dest_deleted) {
+			/* delete from src too */
+			dsync_worker_delete_dir(brain->src_worker,
+						src_boxes[src]);
+			src++; dest++;
+		} else {
+			src++; dest++;
+		}
+	}
+	for (; src < src_count; src++) {
+		if ((src_boxes[src]->flags &
+		     DSYNC_MAILBOX_FLAG_DELETED_DIR) != 0)
+			continue;
+
+		new_box = *src_boxes[src];
+		dsync_worker_create_mailbox(brain->dest_worker, &new_box);
+	}
+	for (; dest < dest_count; dest++) {
+		if ((dest_boxes[dest]->flags &
+		     DSYNC_MAILBOX_FLAG_DELETED_DIR) != 0)
+			continue;
+
+		new_box = *dest_boxes[dest];
 		dsync_worker_create_mailbox(brain->src_worker, &new_box);
 	}
 }
@@ -612,6 +682,7 @@ void dsync_brain_sync(struct dsync_brain *brain)
 		break;
 	case DSYNC_STATE_SYNC_MAILBOXES:
 		dsync_brain_sync_mailboxes(brain);
+		dsync_brain_sync_dirs(brain);
 		brain->state++;
 		/* fall through */
 	case DSYNC_STATE_SYNC_SUBSCRIPTIONS:

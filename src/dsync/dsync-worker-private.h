@@ -40,6 +40,8 @@ struct dsync_worker_vfuncs {
 			       const struct dsync_mailbox *dsync_box);
 	void (*delete_mailbox)(struct dsync_worker *worker,
 			       const struct dsync_mailbox *dsync_box);
+	void (*delete_dir)(struct dsync_worker *worker,
+			   const struct dsync_mailbox *dsync_box);
 	void (*rename_mailbox)(struct dsync_worker *worker,
 			       const mailbox_guid_t *mailbox,
 			       const struct dsync_mailbox *dsync_box);

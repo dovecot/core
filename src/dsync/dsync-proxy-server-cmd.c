@@ -262,6 +262,21 @@ cmd_box_delete(struct dsync_proxy_server *server, const char *const *args)
 }
 
 static int
+cmd_dir_delete(struct dsync_proxy_server *server, const char *const *args)
+{
+	struct dsync_mailbox dsync_box;
+
+	if (str_array_length(args) < 2)
+		return -1;
+
+	memset(&dsync_box, 0, sizeof(dsync_box));
+	dsync_box.name = str_tabunescape(t_strdup_noconst(args[0]));
+	dsync_box.last_change = strtoul(args[1], NULL, 10);
+	dsync_worker_delete_dir(server->worker, &dsync_box);
+	return 1;
+}
+
+static int
 cmd_box_rename(struct dsync_proxy_server *server, const char *const *args)
 {
 	mailbox_guid_t guid;
@@ -552,6 +567,7 @@ static struct dsync_proxy_server_command commands[] = {
 	{ "MSG-LIST", cmd_msg_list },
 	{ "BOX-CREATE", cmd_box_create },
 	{ "BOX-DELETE", cmd_box_delete },
+	{ "DIR-DELETE", cmd_dir_delete },
 	{ "BOX-RENAME", cmd_box_rename },
 	{ "BOX-UPDATE", cmd_box_update },
 	{ "BOX-SELECT", cmd_box_select },

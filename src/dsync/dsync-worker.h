@@ -101,6 +101,9 @@ void dsync_worker_create_mailbox(struct dsync_worker *worker,
 /* Delete mailbox/dir with given GUID. */
 void dsync_worker_delete_mailbox(struct dsync_worker *worker,
 				 const struct dsync_mailbox *dsync_box);
+/* Delete mailbox's directory. Fail if it would also delete mailbox. */
+void dsync_worker_delete_dir(struct dsync_worker *worker,
+			     const struct dsync_mailbox *dsync_box);
 /* Change a mailbox and its childrens' name. The name is taken from the given
    dsync_box (applying name_sep if necessary). */
 void dsync_worker_rename_mailbox(struct dsync_worker *worker,

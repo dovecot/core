@@ -145,6 +145,14 @@ void dsync_worker_delete_mailbox(struct dsync_worker *worker,
 	} T_END;
 }
 
+void dsync_worker_delete_dir(struct dsync_worker *worker,
+			     const struct dsync_mailbox *dsync_box)
+{
+	if (!worker->readonly) T_BEGIN {
+		worker->v.delete_dir(worker, dsync_box);
+	} T_END;
+}
+
 void dsync_worker_rename_mailbox(struct dsync_worker *worker,
 				 const mailbox_guid_t *mailbox,
 				 const struct dsync_mailbox *dsync_box)

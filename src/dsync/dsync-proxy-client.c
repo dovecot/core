@@ -727,6 +727,25 @@ proxy_client_worker_delete_mailbox(struct dsync_worker *_worker,
 }
 
 static void
+proxy_client_worker_delete_dir(struct dsync_worker *_worker,
+			       const struct dsync_mailbox *dsync_box)
+{
+	struct proxy_client_dsync_worker *worker =
+		(struct proxy_client_dsync_worker *)_worker;
+
+	i_assert(worker->save_input == NULL);
+
+	T_BEGIN {
+		string_t *str = t_str_new(128);
+
+		str_append(str, "DIR-DELETE\t");
+		str_tabescape_write(str, dsync_box->name);
+		str_printfa(str, "\t%s\n", dec2str(dsync_box->last_change));
+		o_stream_send(worker->output, str_data(str), str_len(str));
+	} T_END;
+}
+
+static void
 proxy_client_worker_rename_mailbox(struct dsync_worker *_worker,
 				   const mailbox_guid_t *mailbox,
 				   const struct dsync_mailbox *dsync_box)
@@ -1037,6 +1056,7 @@ struct dsync_worker_vfuncs proxy_client_dsync_worker = {
 
 	proxy_client_worker_create_mailbox,
 	proxy_client_worker_delete_mailbox,
+	proxy_client_worker_delete_dir,
 	proxy_client_worker_rename_mailbox,
 	proxy_client_worker_update_mailbox,
 

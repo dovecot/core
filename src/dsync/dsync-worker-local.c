@@ -454,7 +454,8 @@ iter_next_deleted(struct local_dsync_worker_mailbox_iter *iter,
 			dsync_box_r->name = "";
 			dsync_box_r->name_sha1 = change->name_sha1;
 			dsync_box_r->last_change = change->last_delete;
-			dsync_box_r->flags |= DSYNC_MAILBOX_FLAG_DELETED_DIR;
+			dsync_box_r->flags |= DSYNC_MAILBOX_FLAG_NOSELECT |
+				DSYNC_MAILBOX_FLAG_DELETED_DIR;
 			return 1;
 		}
 	}
@@ -478,7 +479,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	struct mailbox_status status;
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 	struct local_dsync_mailbox_change *change;
-	struct local_dsync_dir_change *dir_change;
+	struct local_dsync_dir_change *dir_change, change_lookup;
 	const char *const *fields;
 	unsigned int i, field_count;
 
@@ -491,17 +492,20 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	dsync_box_r->name = info->name;
 	dsync_box_r->name_sep = info->ns->sep;
 
+	storage_name = mail_namespace_get_storage_name(info->ns, info->name);
+	dsync_str_sha_to_guid(storage_name, &dsync_box_r->name_sha1);
+
 	/* get last change timestamp */
-	dsync_str_sha_to_guid(info->name, &dsync_box_r->name_sha1);
-	dir_change = hash_table_lookup(worker->mailbox_changes_hash,
-				       dsync_box_r->name_sha1.guid);
+	change_lookup.list = info->ns->list;
+	change_lookup.name_sha1 = dsync_box_r->name_sha1;
+	dir_change = hash_table_lookup(worker->dir_changes_hash,
+				       &change_lookup);
 	if (dir_change != NULL) {
 		/* it shouldn't be marked as deleted, but drop it to be sure */
 		dir_change->deleted_dir = FALSE;
 		dsync_box_r->last_change = dir_change->last_rename;
 	}
 
-	storage_name = mail_namespace_get_storage_name(info->ns, info->name);
 	if ((info->flags & MAILBOX_NOSELECT) != 0) {
 		dsync_box_r->flags |= DSYNC_MAILBOX_FLAG_NOSELECT;
 		local_dsync_worker_add_mailbox(worker, info->ns, storage_name,
@@ -1136,6 +1140,27 @@ local_worker_delete_mailbox(struct dsync_worker *_worker,
 }
 
 static void
+local_worker_delete_dir(struct dsync_worker *_worker,
+			const struct dsync_mailbox *dsync_box)
+{
+	struct local_dsync_worker *worker =
+		(struct local_dsync_worker *)_worker;
+	struct mail_namespace *ns;
+	const char *storage_name;
+
+	storage_name = dsync_box->name;
+	ns = mail_namespace_find(worker->user->namespaces, &storage_name);
+
+	mailbox_list_set_changelog_timestamp(ns->list, dsync_box->last_change);
+	if (mailbox_list_delete_dir(ns->list, storage_name) < 0) {
+		i_error("Can't delete mailbox directory %s: %s",
+			dsync_box->name,
+			mailbox_list_get_last_error(ns->list, NULL));
+	}
+	mailbox_list_set_changelog_timestamp(ns->list, (time_t)-1);
+}
+
+static void
 local_worker_rename_mailbox(struct dsync_worker *_worker,
 			    const mailbox_guid_t *mailbox,
 			    const struct dsync_mailbox *dsync_box)
@@ -1632,6 +1657,7 @@ struct dsync_worker_vfuncs local_dsync_worker = {
 
 	local_worker_create_mailbox,
 	local_worker_delete_mailbox,
+	local_worker_delete_dir,
 	local_worker_rename_mailbox,
 	local_worker_update_mailbox,
 

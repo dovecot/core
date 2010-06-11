@@ -246,6 +246,20 @@ test_worker_delete_mailbox(struct dsync_worker *_worker,
 }
 
 static void
+test_worker_delete_dir(struct dsync_worker *_worker,
+		       const struct dsync_mailbox *dsync_box)
+{
+	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
+	struct test_dsync_box_event event;
+
+	memset(&event, 0, sizeof(event));
+	event.type = LAST_BOX_TYPE_DELETE_DIR;
+
+	event.box = *dsync_box;
+	array_append(&worker->box_events, &event, 1);
+}
+
+static void
 test_worker_rename_mailbox(struct dsync_worker *_worker,
 			   const mailbox_guid_t *mailbox,
 			   const struct dsync_mailbox *dsync_box)
@@ -447,6 +461,7 @@ struct dsync_worker_vfuncs test_dsync_worker = {
 
 	test_worker_create_mailbox,
 	test_worker_delete_mailbox,
+	test_worker_delete_dir,
 	test_worker_rename_mailbox,
 	test_worker_update_mailbox,
 
