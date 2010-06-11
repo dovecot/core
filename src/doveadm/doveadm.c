@@ -106,7 +106,8 @@ void usage(void)
 	usage_to(stderr, "");
 }
 
-static void help_to(const struct doveadm_cmd *cmd, FILE *out)
+static void ATTR_NORETURN
+help_to(const struct doveadm_cmd *cmd, FILE *out)
 {
 	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->short_usage);
 	if (cmd->long_usage != NULL)

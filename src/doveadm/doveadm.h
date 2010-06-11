@@ -30,7 +30,7 @@ extern bool doveadm_verbose, doveadm_debug;
 void doveadm_register_cmd(const struct doveadm_cmd *cmd);
 
 void usage(void) ATTR_NORETURN;
-void help(const struct doveadm_cmd *cmd);
+void help(const struct doveadm_cmd *cmd) ATTR_NORETURN;
 
 const char *unixdate2str(time_t timestamp);
 const char *doveadm_plugin_getenv(const char *name);
