@@ -301,7 +301,7 @@ static void cmd_who(int argc, char *argv[])
 		who_print(&ctx);
 	} else {
 		doveadm_print_header_simple("username");
-		doveadm_print_header_simple("service");
+		doveadm_print_header("service", "proto", 0);
 		doveadm_print_header_simple("pid");
 		doveadm_print_header_simple("ip");
 		who_lookup(&ctx, who_print_line);
