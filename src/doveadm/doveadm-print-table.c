@@ -5,8 +5,11 @@
 #include "doveadm-print-private.h"
 
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 
 #define DEFAULT_COLUMNS 80
+#define MIN_COLUMNS 30
 #define MAX_BUFFER_LINES 100
 
 struct doveadm_print_table_header {
@@ -164,6 +167,7 @@ static void doveadm_print_table_print(const char *value)
 static void doveadm_print_table_init(void)
 {
 	pool_t pool;
+	struct ttysize ts;
 
 	pool = pool_alloconly_create("doveadm print table", 1024);
 	ctx = p_new(pool, struct doveadm_print_table_context, 1);
@@ -171,6 +175,11 @@ static void doveadm_print_table_init(void)
 	p_array_init(&ctx->headers, pool, 16);
 	i_array_init(&ctx->buffered_values, 64);
 	ctx->columns = DEFAULT_COLUMNS;
+
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ts) == 0) {
+		ctx->columns = ts.ts_cols < MIN_COLUMNS ?
+			MIN_COLUMNS : ts.ts_cols;
+	}
 }
 
 static void doveadm_print_table_deinit(void)
