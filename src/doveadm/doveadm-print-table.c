@@ -167,7 +167,7 @@ static void doveadm_print_table_print(const char *value)
 static void doveadm_print_table_init(void)
 {
 	pool_t pool;
-	struct ttysize ts;
+	struct winsize ws;
 
 	pool = pool_alloconly_create("doveadm print table", 1024);
 	ctx = p_new(pool, struct doveadm_print_table_context, 1);
@@ -176,9 +176,9 @@ static void doveadm_print_table_init(void)
 	i_array_init(&ctx->buffered_values, 64);
 	ctx->columns = DEFAULT_COLUMNS;
 
-	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ts) == 0) {
-		ctx->columns = ts.ts_cols < MIN_COLUMNS ?
-			MIN_COLUMNS : ts.ts_cols;
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0) {
+		ctx->columns = ws.ws_col < MIN_COLUMNS ?
+			MIN_COLUMNS : ws.ws_col;
 	}
 }
 
