@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/termios.h> /* Solaris at least requires for TIOCGWINSZ */
 
 #define DEFAULT_COLUMNS 80
 #define MIN_COLUMNS 30
