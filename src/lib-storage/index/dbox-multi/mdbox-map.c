@@ -189,6 +189,11 @@ int mdbox_map_refresh(struct mdbox_map *map)
 		mail_index_reset_error(map->index);
 		return -1;
 	}
+	if (mail_index_view_get_transaction_count(map->view) > 0) {
+		/* can't sync when there are transactions */
+		return 0;
+	}
+
 	ctx = mail_index_view_sync_begin(map->view,
 				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
 	if (mail_index_view_sync_commit(&ctx, &delayed_expunges) < 0) {
