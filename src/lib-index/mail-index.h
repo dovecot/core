@@ -250,6 +250,9 @@ struct mail_index *mail_index_view_get_index(struct mail_index_view *view);
 uint32_t mail_index_view_get_messages_count(struct mail_index_view *view);
 /* Returns TRUE if we lost track of changes for some reason. */
 bool mail_index_view_is_inconsistent(struct mail_index_view *view);
+/* Returns number of transactions open for the view. */
+unsigned int
+mail_index_view_get_transaction_count(struct mail_index_view *view);
 
 /* Transaction has to be opened to be able to modify index. You can have
    multiple transactions open simultaneously. Committed transactions won't

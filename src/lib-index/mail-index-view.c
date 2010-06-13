@@ -68,6 +68,14 @@ struct mail_index *mail_index_view_get_index(struct mail_index_view *view)
 	return view->index;
 }
 
+unsigned int
+mail_index_view_get_transaction_count(struct mail_index_view *view)
+{
+	i_assert(view->transactions >= 0);
+
+	return view->transactions;
+}
+
 void mail_index_view_transaction_ref(struct mail_index_view *view)
 {
 	view->transactions++;
