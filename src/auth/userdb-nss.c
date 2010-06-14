@@ -109,10 +109,11 @@ userdb_nss_preinit(pool_t pool, const char *args)
 	module = p_new(pool, struct nss_userdb_module, 1);
 	module->bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
 	module->buf = p_malloc(pool, module->bufsize);
+	module->module.blocking = TRUE;
 
 	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
-		if (strcmp(*tmp, "blocking=yes") == 0)
-			module->module.blocking = TRUE;
+		if (strcmp(*tmp, "blocking=no") == 0)
+			module->module.blocking = FALSE;
 		else if (strncmp(*tmp, "service=", 8) == 0)
 			module->nss_module.name = p_strdup(pool, *tmp + 8);
 		else
