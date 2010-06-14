@@ -15,8 +15,7 @@ mech_plain_auth_continue(struct auth_request *request,
 	size_t i, len;
 	int count;
 
-	/* authorization ID \0 authentication ID \0 pass.
-	   we'll ignore authorization ID for now. */
+	/* authorization ID \0 authentication ID \0 pass. */
 	authid = (const char *) data;
 	authenid = NULL; pass = NULL;
 
