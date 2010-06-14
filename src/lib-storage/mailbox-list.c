@@ -13,6 +13,7 @@
 #include "write-full.h"
 #include "safe-mkstemp.h"
 #include "unlink-directory.h"
+#include "settings-parser.h"
 #include "imap-match.h"
 #include "imap-utf7.h"
 #include "mailbox-log.h"
@@ -315,12 +316,12 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	struct mailbox_list_settings set;
 	const char *p, *error;
 
-	if (*location == '1') {
+	if (*location == SETTING_STRVAR_EXPANDED[0]) {
 		/* set using -o or userdb lookup. */
 		return "";
 	}
 
-	i_assert(*location == '0');
+	i_assert(*location == SETTING_STRVAR_UNEXPANDED[0]);
 	location++;
 
 	if (*location == '\0') {
@@ -328,9 +329,9 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 			user->unexpanded_set, MAIL_STORAGE_SET_DRIVER_NAME);
 		i_assert(mail_set != NULL);
 		location = mail_set->mail_location;
-		if (*location == '1')
+		if (*location == SETTING_STRVAR_EXPANDED[0])
 			return "";
-		i_assert(*location == '0');
+		i_assert(*location == SETTING_STRVAR_UNEXPANDED[0]);
 		location++;
 	}
 
