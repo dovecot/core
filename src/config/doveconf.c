@@ -148,7 +148,8 @@ static void config_dump_human_deinit(struct config_dump_human_context *ctx)
 
 static int
 config_dump_human_output(struct config_dump_human_context *ctx,
-			 struct ostream *output, unsigned int indent)
+			 struct ostream *output, unsigned int indent,
+			 const char *setting_name_filter)
 {
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
@@ -156,20 +157,24 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	const char *const *strings, *const *args, *p, *str, *const *prefixes;
 	const char *key, *key2, *value;
 	unsigned int i, j, count, len, prefix_count, skip_len;
-	unsigned int prefix_idx = -1U;
+	unsigned int setting_name_filter_len, prefix_idx = -1U;
 	bool unique_key;
 	int ret = 0;
 
+	setting_name_filter_len = setting_name_filter == NULL ? 0 :
+		strlen(setting_name_filter);
 	if (config_export_finish(&ctx->export_ctx) < 0)
 		return -1;
 
 	array_sort(&ctx->strings, config_string_cmp);
 	strings = array_get(&ctx->strings, &count);
 
+	/* strings are sorted so that all lists come first */
 	p_array_init(&prefixes_arr, ctx->pool, 32);
 	for (i = 0; i < count && strings[i][0] == LIST_KEY_PREFIX[0]; i++) T_BEGIN {
 		p = strchr(strings[i], '=');
 		i_assert(p != NULL);
+		/* string is in format: "list=0 1 2" */
 		for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
 			str = p_strdup_printf(ctx->pool, "%s/%s/",
 					      t_strcut(strings[i]+1, '='),
@@ -193,8 +198,18 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					  p + 2, NULL);
 			unique_key = TRUE;
 		}
+		if (setting_name_filter_len > 0) {
+			/* see if this setting matches the name filter */
+			if (!(strncmp(setting_name_filter, key,
+				      setting_name_filter_len) == 0 &&
+			      (key[setting_name_filter_len] == '/' ||
+			       key[setting_name_filter_len] == '\0')))
+				goto end;
+		}
 	again:
 		j = 0;
+		/* if there are open sections and this key isn't in it,
+		   close the sections */
 		while (prefix_idx != -1U) {
 			len = strlen(prefixes[prefix_idx]);
 			if (strncmp(prefixes[prefix_idx], key, len) != 0) {
@@ -213,6 +228,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				break;
 			}
 		}
+		/* see if this key is in some section */
 		for (; j < prefix_count; j++) {
 			len = strlen(prefixes[j]);
 			if (strncmp(prefixes[j], key, len) == 0) {
@@ -364,7 +380,7 @@ config_dump_human_sections(struct ostream *output,
 		indent = config_dump_filter_begin(ctx->list_prefix,
 						  &(*filters)->filter);
 		config_export_parsers(ctx->export_ctx, (*filters)->parsers);
-		if (config_dump_human_output(ctx, output, indent) < 0)
+		if (config_dump_human_output(ctx, output, indent, NULL) < 0)
 			ret = -1;
 		if (ctx->list_prefix_sent)
 			config_dump_filter_end(output, indent);
@@ -386,7 +402,7 @@ config_dump_human(const struct config_filter *filter, const char *module,
 
 	ctx = config_dump_human_init(module, scope, TRUE);
 	config_export_by_filter(ctx->export_ctx, filter);
-	ret = config_dump_human_output(ctx, output, 0);
+	ret = config_dump_human_output(ctx, output, 0, setting_name_filter);
 	config_dump_human_deinit(ctx);
 
 	if (ret == 0 && setting_name_filter == NULL)
@@ -404,6 +420,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	static struct config_dump_human_context *ctx;
 	const char *const *str;
 	unsigned int len;
+	bool dump_section = FALSE;
 
 	ctx = config_dump_human_init("", scope, TRUE);
 	config_export_by_filter(ctx->export_ctx, filter);
@@ -412,18 +429,26 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 
 	len = strlen(setting_name_filter);
 	array_foreach(&ctx->strings, str) {
-		if (strncmp(*str, setting_name_filter, len) == 0 &&
-		    (*str)[len] == '=') {
+		if (strncmp(*str, setting_name_filter, len) != 0)
+			continue;
+
+		if ((*str)[len] == '=') {
 			if (hide_key)
 				printf("%s\n", *str + len+1);
 			else {
 				printf("%s = %s\n", setting_name_filter,
 				       *str + len+1);
 			}
+			dump_section = FALSE;
 			break;
+		} else if ((*str)[len] == '/') {
+			dump_section = TRUE;
 		}
 	}
 	config_dump_human_deinit(ctx);
+
+	if (dump_section)
+		config_dump_human(filter, "", scope, setting_name_filter);
 	return 0;
 }
 
@@ -509,8 +534,9 @@ int main(int argc, char *argv[])
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
 	const char *orig_config_path, *config_path, *module = "";
 	struct config_filter filter;
-	const char *error, *setting_name_filter = NULL;
-	char **exec_args = NULL;
+	const char *error;
+	char **exec_args = NULL, **setting_name_filters = NULL;
+	unsigned int i;
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
 
@@ -562,7 +588,7 @@ int main(int argc, char *argv[])
 		exec_args = &argv[optind];
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
-		setting_name_filter = argv[optind];
+		setting_name_filters = argv+optind;
 	} else {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
@@ -582,9 +608,13 @@ int main(int argc, char *argv[])
 	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
 		i_fatal("%s", error);
 
-	if (setting_name_filter != NULL) {
-		ret2 = config_dump_one(&filter, hide_key, scope,
-				       setting_name_filter);
+	if (setting_name_filters != NULL) {
+		ret2 = 0;
+		for (i = 0; setting_name_filters[i] != NULL; i++) {
+			if (config_dump_one(&filter, hide_key, scope,
+					    setting_name_filters[i]) < 0)
+				ret2 = -1;
+		}
 	} else if (exec_args == NULL) {
 		const char *info;
 
@@ -594,8 +624,7 @@ int main(int argc, char *argv[])
 		if (!config_path_specified)
 			check_wrong_config(config_path);
 		fflush(stdout);
-		ret2 = config_dump_human(&filter, module, scope,
-					 setting_name_filter);
+		ret2 = config_dump_human(&filter, module, scope, NULL);
 	} else {
 		struct config_export_context *ctx;
 
