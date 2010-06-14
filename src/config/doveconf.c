@@ -436,7 +436,7 @@ static void config_request_putenv(const char *key, const char *value,
 	} T_END;
 }
 
-static const char *get_mail_location(void)
+static const char *get_setting(const char *module, const char *name)
 {
 	struct config_module_parser *l;
 	const struct setting_define *def;
@@ -444,12 +444,12 @@ static const char *get_mail_location(void)
 	const void *set;
 
 	for (l = config_module_parsers; l->root != NULL; l++) {
-		if (strcmp(l->root->module_name, "mail") != 0)
+		if (strcmp(l->root->module_name, module) != 0)
 			continue;
 
 		set = settings_parser_get(l->parser);
 		for (def = l->root->defines; def->key != NULL; def++) {
-			if (strcmp(def->key, "mail_location") == 0) {
+			if (strcmp(def->key, name) == 0) {
 				value = CONST_PTR_OFFSET(set, def->offset);
 				return *value;
 			}
@@ -491,9 +491,11 @@ static void filter_parse_arg(struct config_filter *filter, const char *arg)
 
 static void check_wrong_config(const char *config_path)
 {
-	const char *prev_path;
+	const char *base_dir, *symlink_path, *prev_path;
 
-	if (t_readlink(PKG_RUNDIR"/"PACKAGE".conf", &prev_path) < 0)
+	base_dir = get_setting("master", "base_dir");
+	symlink_path = t_strconcat(base_dir, "/"PACKAGE".conf", NULL);
+	if (t_readlink(symlink_path, &prev_path) < 0)
 		return;
 
 	if (strcmp(prev_path, config_path) != 0) {
@@ -586,7 +588,7 @@ int main(int argc, char *argv[])
 	} else if (exec_args == NULL) {
 		const char *info;
 
-		info = sysinfo_get(get_mail_location());
+		info = sysinfo_get(get_setting("mail", "mail_location"));
 		if (*info != '\0')
 			printf("# %s\n", info);
 		if (!config_path_specified)
