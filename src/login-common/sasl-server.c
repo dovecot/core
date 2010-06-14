@@ -151,11 +151,11 @@ static void anvil_lookup_callback(const char *reply, void *context)
 		master_send_request(req);
 	else {
 		client->authenticating = FALSE;
+		auth_client_send_cancel(auth_client, req->auth_id);
 		errmsg = t_strdup_printf(ERR_TOO_MANY_USERIP_CONNECTIONS,
 					 set->mail_max_userip_connections);
 		call_client_callback(client, SASL_SERVER_REPLY_MASTER_FAILED,
 				     errmsg, NULL);
-		auth_client_send_cancel(auth_client, req->auth_id);
 	}
 	i_free(req);
 }
