@@ -273,6 +273,7 @@ void hook_mail_allocated(struct mail *mail)
 	struct mail_private *pmail = (struct mail_private *)mail;
 	struct mail_vfuncs mask, *prev_vlast = NULL;
 
+	memset(&mask, 0, sizeof(mask));
 	pmail->vlast = &pmail->v;
 	array_foreach(&mail->box->storage->user->hooks, hooks) {
 		if ((*hooks)->mail_allocated != NULL) {
