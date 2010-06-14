@@ -41,6 +41,7 @@ struct master_login_postlogin {
 	struct io *io;
 	struct timeout *to;
 	string_t *input;
+	char *username;
 };
 
 struct master_login {
@@ -222,6 +223,7 @@ static void master_login_postlogin_free(struct master_login_postlogin *pl)
 	if (close(pl->fd) < 0)
 		i_error("close(postlogin) failed: %m");
 	str_free(&pl->input);
+	i_free(pl->username);
 	i_free(pl);
 }
 
@@ -255,9 +257,12 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 
 			i_error("fd_read(%s) failed: %m",
 				login->postlogin_socket_path);
-		} else {
+		} else if (str_len(pl->input) > 0) {
 			i_error("fd_read(%s) failed: disconnected",
 				login->postlogin_socket_path);
+		} else {
+			i_info("Post-login script denied access to user %s",
+			       pl->username);
 		}
 		master_login_client_free(&pl->client);
 		master_login_postlogin_free(pl);
@@ -325,6 +330,7 @@ static int master_login_postlogin(struct master_login_client *client,
 
 	pl = i_new(struct master_login_postlogin, 1);
 	pl->client = client;
+	pl->username = i_strdup(auth_args[0]);
 	pl->fd = fd;
 	pl->io = io_add(fd, IO_READ, master_login_postlogin_input, pl);
 	pl->to = timeout_add(MASTER_LOGIN_POSTLOGIN_TIMEOUT_MSECS,
