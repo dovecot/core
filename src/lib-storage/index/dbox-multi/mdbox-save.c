@@ -187,7 +187,7 @@ static int mdbox_save_mail_write_metadata(struct mdbox_save_context *ctx,
 static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 {
 	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
-	struct dbox_save_mail *mails;
+	struct dbox_save_mail *mail;
 
 	ctx->ctx.finished = TRUE;
 	if (ctx->ctx.dbox_output == NULL)
@@ -197,14 +197,19 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 	index_mail_cache_parse_deinit(_ctx->dest_mail,
 				      _ctx->received_date, !ctx->ctx.failed);
 
-	mails = array_idx_modifiable(&ctx->mails, array_count(&ctx->mails) - 1);
+	mail = array_idx_modifiable(&ctx->mails, array_count(&ctx->mails) - 1);
 	if (!ctx->ctx.failed) T_BEGIN {
-		if (mdbox_save_mail_write_metadata(ctx, mails) < 0)
+		if (mdbox_save_mail_write_metadata(ctx, mail) < 0)
 			ctx->ctx.failed = TRUE;
 		else
 			mdbox_map_append_finish(ctx->append_ctx);
 	} T_END;
 
+	if (mail->file_append->file->input != NULL) {
+		/* if we try to read the saved mail before unlocking file,
+		   make sure the input stream doesn't have stale data */
+		i_stream_sync(mail->file_append->file->input);
+	}
 	i_stream_unref(&ctx->ctx.input);
 
 	if (ctx->ctx.failed) {
