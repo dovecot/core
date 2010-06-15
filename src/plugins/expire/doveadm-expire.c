@@ -321,7 +321,7 @@ static void doveadm_expire_mail_cmd_deinit(struct doveadm_mail_cmd_context *ctx)
 	dict_deinit(&ectx->dict);
 	hash_table_destroy(&ectx->seen_users);
 
-	return ectx->module_ctx.super.deinit(ctx);
+	ectx->module_ctx.super.deinit(ctx);
 }
 
 static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
