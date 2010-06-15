@@ -98,6 +98,8 @@ static void main_preinit(void)
 	   only by root. Also load all modules here. */
 	passdbs_init();
 	userdbs_init();
+	/* init schemes before plugins are loaded */
+	password_schemes_init();
 
 	services = read_global_settings();
 
@@ -131,7 +133,6 @@ static void main_init(void)
 	lib_signals_ignore(SIGUSR2, TRUE);
 
 	child_wait_init();
-	password_schemes_init();
 	auth_worker_server_init();
 	auths_init();
 	auth_request_handler_init();
