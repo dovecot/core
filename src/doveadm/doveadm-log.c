@@ -218,7 +218,9 @@ static void cmd_log_find(int argc, char *argv[])
 	/* first get the paths that we know are used */
 	set = master_service_settings_get(master_service);
 	log_file_path = set->log_path;
-	if (*log_file_path != '\0' && strcmp(log_file_path, "syslog") != 0) {
+	if (strcmp(log_file_path, "syslog") == 0)
+		log_file_path = "";
+	if (*log_file_path != '\0') {
 		cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_WARNING);
 		cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_ERROR);
 		cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_FATAL);
