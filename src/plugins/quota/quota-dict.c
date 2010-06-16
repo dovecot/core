@@ -115,6 +115,10 @@ dict_quota_count(struct dict_quota_root *root,
 
 	T_BEGIN {
 		dt = dict_transaction_begin(root->dict);
+		/* these unsets are mainly necessary for pgsql, because its
+		   trigger otherwise increases quota without deleting it */
+		dict_unset(dt, DICT_QUOTA_CURRENT_BYTES_PATH);
+		dict_unset(dt, DICT_QUOTA_CURRENT_COUNT_PATH);
 		dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
 		dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
 	} T_END;
