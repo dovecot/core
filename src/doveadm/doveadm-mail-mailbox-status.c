@@ -8,6 +8,11 @@
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
 
+#define ALL_STATUS_ITEMS \
+	(STATUS_MESSAGES | STATUS_RECENT | \
+	 STATUS_UIDNEXT | STATUS_UIDVALIDITY | \
+	 STATUS_UNSEEN | STATUS_HIGHESTMODSEQ | STATUS_VIRTUAL_SIZE)
+
 #define TOTAL_STATUS_ITEMS \
 	(STATUS_MESSAGES | STATUS_RECENT | STATUS_UNSEEN | STATUS_VIRTUAL_SIZE)
 
@@ -30,7 +35,14 @@ static void status_parse_fields(struct status_cmd_context *ctx,
 	for (; *fields != NULL; fields++) {
 		const char *field = *fields;
 
-		if (strcmp(field, "messages") == 0)
+		if (strcmp(field, "all") == 0) {
+			if (ctx->total_sum)
+				ctx->items |= TOTAL_STATUS_ITEMS;
+			else {
+				ctx->items |= ALL_STATUS_ITEMS;
+				ctx->guid = TRUE;
+			}
+		} else if (strcmp(field, "messages") == 0)
 			ctx->items |= STATUS_MESSAGES;
 		else if (strcmp(field, "recent") == 0)
 			ctx->items |= STATUS_RECENT;
