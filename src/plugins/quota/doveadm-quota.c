@@ -26,8 +26,8 @@ static void cmd_quota_get_root(struct quota_root *root)
 		if (ret > 0) {
 			doveadm_print_num(value);
 			doveadm_print_num(limit);
-			if (limit >= 100)
-				doveadm_print_num(value / (limit/100));
+			if (limit > 0)
+				doveadm_print_num(value*100 / limit);
 			else
 				doveadm_print("0");
 		} else if (ret == 0) {
