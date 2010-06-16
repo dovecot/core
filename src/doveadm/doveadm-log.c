@@ -29,8 +29,11 @@ static void cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 	for (i = 0; i < LAST_LOG_TYPE; i++) {
 		const char *prefix = failure_log_type_prefixes[i];
 
-		i_log_type(i, TEST_LOG_MSG_PREFIX"%s log",
-			   t_str_lcase(t_strcut(prefix, ':')));
+		/* add timestamp so that syslog won't just write
+		   "repeated message" text */
+		i_log_type(i, TEST_LOG_MSG_PREFIX"%s log (%u)",
+			   t_str_lcase(t_strcut(prefix, ':')),
+			   (unsigned int)ioloop_time);
 	}
 }
 
@@ -102,7 +105,8 @@ cmd_log_find_syslog_files(struct log_find_context *ctx, const char *path)
 		if (S_ISDIR(st.st_mode)) {
 			/* recursively go through all subdirectories */
 			cmd_log_find_syslog_files(ctx, str_c(full_path));
-		} else {
+		} else if (hash_table_lookup(ctx->files,
+					     str_c(full_path)) == NULL) {
 			file = p_new(ctx->pool, struct log_find_file, 1);
 			file->size = st.st_size;
 			file->path = key =
@@ -138,7 +142,9 @@ static void cmd_log_find_syslog_file_messages(struct log_find_file *file)
 	fd = open(file->path, O_RDONLY);
 	if (fd == -1)
 		return;
+	
 	input = i_stream_create_fd(fd, 1024, TRUE);
+	i_stream_seek(input, file->size);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		p = strstr(line, TEST_LOG_MSG_PREFIX);
 		if (p == NULL)
@@ -164,8 +170,7 @@ static void cmd_log_find_syslog_messages(struct log_find_context *ctx)
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct log_find_file *file = value;
 
-		if (file->mask != 0 ||
-		    stat(file->path, &st) < 0 ||
+		if (stat(file->path, &st) < 0 ||
 		    (uoff_t)st.st_size <= file->size)
 			continue;
 
