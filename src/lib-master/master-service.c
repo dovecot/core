@@ -214,8 +214,16 @@ void master_service_init_log(struct master_service *service,
 		return;
 	}
 
-	if (*service->set->log_path == '\0') {
-		/* log to syslog */
+	if (strcmp(service->set->log_path, "syslog") != 0) {
+		/* error logging goes to file or stderr */
+		path = home_expand(service->set->log_path);
+		i_set_failure_file(path, prefix);
+	}
+
+	if (strcmp(service->set->log_path, "syslog") == 0 ||
+	    strcmp(service->set->info_log_path, "syslog") == 0 ||
+	    strcmp(service->set->debug_log_path, "syslog") == 0) {
+		/* something gets logged to syslog */
 		int facility;
 
 		if (!syslog_facility_find(service->set->syslog_facility,
@@ -223,19 +231,27 @@ void master_service_init_log(struct master_service *service,
 			facility = LOG_MAIL;
 		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
 		i_set_failure_prefix(prefix);
-	} else {
-		/* log to file or stderr */
-		path = home_expand(service->set->log_path);
-		i_set_failure_file(path, prefix);
+
+		if (strcmp(service->set->log_path, "syslog") != 0) {
+			/* set error handlers back to file */
+			i_set_fatal_handler(NULL);
+			i_set_error_handler(NULL);
+		}
 	}
 
-	path = home_expand(service->set->info_log_path);
-	if (*path != '\0')
-		i_set_info_file(path);
+	if (*service->set->info_log_path != '\0' &&
+	    strcmp(service->set->info_log_path, "syslog") != 0) {
+		path = home_expand(service->set->info_log_path);
+		if (*path != '\0')
+			i_set_info_file(path);
+	}
 
-	path = home_expand(service->set->debug_log_path);
-	if (*path != '\0')
-		i_set_debug_file(path);
+	if (*service->set->debug_log_path != '\0' &&
+	    strcmp(service->set->debug_log_path, "syslog") != 0) {
+		path = home_expand(service->set->debug_log_path);
+		if (*path != '\0')
+			i_set_debug_file(path);
+	}
 	i_set_failure_timestamp_format(service->set->log_timestamp);
 }
 

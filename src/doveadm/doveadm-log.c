@@ -218,23 +218,30 @@ static void cmd_log_find(int argc, char *argv[])
 	/* first get the paths that we know are used */
 	set = master_service_settings_get(master_service);
 	log_file_path = set->log_path;
-	if (*log_file_path != '\0') {
+	if (*log_file_path != '\0' && strcmp(log_file_path, "syslog") != 0) {
 		cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_WARNING);
 		cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_ERROR);
 		cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_FATAL);
 	}
 
-	if (*set->info_log_path != '\0')
-		log_file_path = set->info_log_path;
-	if (*log_file_path != '\0')
-		cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_INFO);
+	if (strcmp(set->info_log_path, "syslog") != 0) {
+		if (*set->info_log_path != '\0')
+			log_file_path = set->info_log_path;
+		if (*log_file_path != '\0')
+			cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_INFO);
+	}
 
-	if (*set->debug_log_path != '\0')
-		log_file_path = set->debug_log_path;
-	if (*log_file_path != '\0')
-		cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_DEBUG);
+	if (strcmp(set->debug_log_path, "syslog") != 0) {
+		if (*set->debug_log_path != '\0')
+			log_file_path = set->debug_log_path;
+		if (*log_file_path != '\0')
+			cmd_log_find_add(&ctx, log_file_path, LOG_TYPE_DEBUG);
+	}
 
-	if (*set->log_path == '\0') {
+	if (*set->log_path == '\0' ||
+	    strcmp(set->log_path, "syslog") == 0 ||
+	    strcmp(set->info_log_path, "syslog") == 0 ||
+	    strcmp(set->debug_log_path, "syslog") == 0) {
 		/* at least some logs were logged via syslog */
 		cmd_log_find_syslog(&ctx, argc, argv);
 	}

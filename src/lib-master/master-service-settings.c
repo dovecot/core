@@ -27,6 +27,9 @@
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct master_service_settings, name), NULL }
 
+static bool
+master_service_settings_check(void *_set, pool_t pool, const char **error_r);
+
 static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, log_path),
 	DEF(SET_STR, info_log_path),
@@ -41,7 +44,7 @@ static const struct setting_define master_service_setting_defines[] = {
 };
 
 static const struct master_service_settings master_service_default_settings = {
-	.log_path = "",
+	.log_path = "syslog",
 	.info_log_path = "",
 	.debug_log_path = "",
 	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
@@ -59,8 +62,24 @@ const struct setting_parser_info master_service_setting_parser_info = {
 	.type_offset = (size_t)-1,
 	.struct_size = sizeof(struct master_service_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = (size_t)-1,
+	.check_func = master_service_settings_check
 };
+
+/* <settings checks> */
+static bool
+master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			      const char **error_r ATTR_UNUSED)
+{
+	struct master_service_settings *set = _set;
+
+	if (*set->log_path == '\0') {
+		/* default to syslog logging */
+		set->log_path = "syslog";
+	}
+	return TRUE;
+}
+/* </settings checks> */
 
 static void ATTR_NORETURN
 master_service_exec_config(struct master_service *service,
