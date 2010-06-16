@@ -536,7 +536,9 @@ static void search_header_arg(struct mail_search_arg *arg,
 		ret = message_search_more(msg_search_ctx, &block) ? 1 : 0;
 	} T_END;
 
-	ARG_SET_RESULT(arg, ret);
+	/* there may be multiple headers. don't mark this failed yet. */
+	if (ret > 0)
+		ARG_SET_RESULT(arg, 1);
 }
 
 static void search_header_unmatch(struct mail_search_arg *arg,
