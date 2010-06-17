@@ -298,7 +298,9 @@ int net_connect_unix_with_retries(const char *path, unsigned int msecs)
 
 void net_disconnect(int fd)
 {
-	if (close(fd) < 0)
+	/* FreeBSD's close() fails with ECONNRESET if socket still has unsent
+	   data in transmit buffer. We don't care. */
+	if (close(fd) < 0 && errno != ECONNRESET)
 		i_error("net_disconnect() failed: %m");
 }
 
