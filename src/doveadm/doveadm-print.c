@@ -87,6 +87,11 @@ void doveadm_print_sticky(const char *key, const char *value)
 {
 	struct doveadm_print_header_context *hdr;
 
+	if (ctx == NULL) {
+		/* command doesn't really print anything */
+		return;
+	}
+
 	array_foreach_modifiable(&ctx->headers, hdr) {
 		if (strcmp(hdr->key, key) == 0) {
 			i_free(hdr->sticky_value);
