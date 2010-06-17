@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "network.h"
 #include "istream.h"
+#include "write-full.h"
 #include "master-service.h"
 #include "doveadm.h"
 
@@ -20,7 +21,7 @@ extern struct doveadm_cmd doveadm_cmd_director[];
 static void
 director_send(struct director_context *ctx, const char *data)
 {
-	if (write(i_stream_get_fd(ctx->input), data, strlen(data)) < 0)
+	if (write_full(i_stream_get_fd(ctx->input), data, strlen(data)) < 0)
 		i_fatal("write(%s) failed: %m", ctx->socket_path);
 }
 
