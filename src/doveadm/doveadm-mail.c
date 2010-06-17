@@ -361,9 +361,11 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		switch (c) {
 		case 'A':
 			ctx->iterate_all_users = TRUE;
-			doveadm_print_header("username", "Username",
-				DOVEADM_PRINT_HEADER_FLAG_STICKY |
-				DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+			if (doveadm_print_is_initialized()) {
+				doveadm_print_header("username", "Username",
+					DOVEADM_PRINT_HEADER_FLAG_STICKY |
+					DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+			}
 			break;
 		case 'u':
 			service_flags |=

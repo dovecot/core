@@ -25,6 +25,11 @@ static const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 	&doveadm_print_table_vfuncs
 };
 
+bool doveadm_print_is_initialized(void)
+{
+	return ctx != NULL;
+}
+
 void doveadm_print_header(const char *key, const char *title,
 			  enum doveadm_print_header_flags flags)
 {
