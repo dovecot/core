@@ -622,6 +622,7 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 {
 	struct mailbox_node *node;
 	enum mailbox_info_flags flags;
+	struct mail_namespace *ns;
 	const char *path, *dir, *fname, *storage_name;
 	unsigned int len;
 	struct stat st;
@@ -639,21 +640,29 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 		return &ctx->info;
 	}
 
-	storage_name = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0 ?
-		ctx->info.name :
-		mail_namespace_get_storage_name(ctx->info.ns, ctx->info.name);
+	/* see if this is for another subscriptions=no namespace */
+	storage_name = ctx->info.name;
+	ns = mail_namespace_find_unsubscribable(ctx->info.ns->user->namespaces,
+						&storage_name);
+	if (ns == NULL) {
+		ns = ctx->info.ns;
+		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0)
+			storage_name = mail_namespace_get_storage_name(ns, storage_name);
+		else
+			storage_name = ctx->info.name;
+	}
 
 	/* if name ends with hierarchy separator, drop the separator */
 	len = strlen(storage_name);
-	if (len > 0 && storage_name[len-1] == ctx->info.ns->real_sep)
+	if (len > 0 && storage_name[len-1] == ns->real_sep)
 		storage_name = t_strndup(storage_name, len-1);
 
-	path = mailbox_list_get_path(ctx->ctx.list, storage_name,
+	path = mailbox_list_get_path(ns->list, storage_name,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(path, &dir, &fname);
-	if (ctx->ctx.list->v.get_mailbox_flags(ctx->ctx.list, dir, fname,
-					       MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-					       &st, &ctx->info.flags) < 0)
+	if (ns->list->v.get_mailbox_flags(ns->list, dir, fname,
+					  MAILBOX_LIST_FILE_TYPE_UNKNOWN,
+					  &st, &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
 
 	ctx->info.flags |= flags;
