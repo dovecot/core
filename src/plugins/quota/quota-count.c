@@ -9,7 +9,7 @@
 
 static int
 quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
-		    const char *name, uint64_t *bytes_r, uint64_t *count_r)
+		    const char *vname, uint64_t *bytes_r, uint64_t *count_r)
 {
 	struct quota_rule *rule;
 	struct mailbox *box;
@@ -17,17 +17,20 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct mail_search_args *search_args;
+	const char *storage_name;
 	enum mail_error error;
 	uoff_t size;
 	int ret = 0;
 
-	rule = quota_root_rule_find(root->set, name);
+	storage_name = mail_namespace_get_storage_name(ns, vname);
+
+	rule = quota_root_rule_find(root->set, vname);
 	if (rule != NULL && rule->ignore) {
 		/* mailbox not included in quota */
 		return 0;
 	}
 
-	box = mailbox_alloc(ns->list, name,
+	box = mailbox_alloc(ns->list, storage_name,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(box) < 0) {
 		mail_storage_get_last_error(mailbox_get_storage(box), &error);
@@ -78,6 +81,7 @@ quota_count_namespace(struct quota_root *root, struct mail_namespace *ns,
 	int ret = 0;
 
 	ctx = mailbox_list_iter_init(ns->list, "*",
+				     MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 				     MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(ctx)) != NULL) {
 		if ((info->flags & (MAILBOX_NONEXISTENT |

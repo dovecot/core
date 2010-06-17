@@ -130,6 +130,7 @@ maildir_list_init(struct maildir_quota_root *root, struct mailbox_list *list)
 	ctx->path = str_new(default_pool, 512);
 	ctx->list = list;
 	ctx->iter = mailbox_list_iter_init(list, "*",
+					   MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 					   MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	return ctx;
 }
@@ -155,9 +156,11 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 		}
 
 		T_BEGIN {
-			const char *path;
+			const char *path, *storage_name;
 
-			path = mailbox_list_get_path(ctx->list, ctx->info->name,
+			storage_name = mail_namespace_get_storage_name(
+				ctx->info->ns, ctx->info->name);
+			path = mailbox_list_get_path(ctx->list, storage_name,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 			str_truncate(ctx->path, 0);
 			str_append(ctx->path, path);
