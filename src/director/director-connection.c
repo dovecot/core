@@ -758,9 +758,10 @@ void director_connection_deinit(struct director_connection **_conn)
 	o_stream_unref(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(director connection) failed: %m");
-	i_free(conn);
 
-	master_service_client_connection_destroyed(master_service);
+	if (conn->in)
+		master_service_client_connection_destroyed(master_service);
+	i_free(conn);
 }
 
 static void director_connection_timeout(struct director_connection *conn)
