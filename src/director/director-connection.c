@@ -114,7 +114,7 @@ static bool director_cmd_me(struct director_connection *conn,
 		director_connection_deinit(&dir->left);
 	} else {
 		if (director_host_cmp_to_self(dir->left->host, host,
-					      dir->self_host) > 0) {
+					      dir->self_host) < 0) {
 			/* the old connection is the correct one.
 			   refer the client there. */
 			director_connection_send(conn, t_strdup_printf(
@@ -505,6 +505,43 @@ static bool director_connection_sync(struct director_connection *conn,
 	return TRUE;
 }
 
+static bool director_cmd_connect(struct director_connection *conn,
+				 const char *const *args)
+{
+	struct director *dir = conn->dir;
+	struct director_host *host;
+	struct ip_addr ip;
+	unsigned int port;
+
+	if (str_array_length(args) != 2 ||
+	    director_args_parse_ip_port(conn, args, &ip, &port) < 0) {
+		i_error("director(%s): Invalid CONNECT args", conn->name);
+		return FALSE;
+	}
+
+	host = director_host_lookup(dir, &ip, port);
+	if (host == NULL) {
+		i_error("Received CONNECT request to unknown host %s:%u",
+			net_ip2addr(&ip), port);
+		return TRUE;
+	}
+
+	/* remote suggests us to connect elsewhere */
+	if (dir->right != NULL &&
+	    director_host_cmp_to_self(host, dir->right->host,
+				      dir->self_host) <= 0) {
+		/* the old connection is the correct one */
+		return TRUE;
+	}
+
+	/* connect here, disconnect old one */
+	if (dir->right != NULL)
+		director_connection_deinit(&dir->right);
+
+	(void)director_connect_host(dir, host);
+	return TRUE;
+}
+
 static bool
 director_connection_handle_line(struct director_connection *conn,
 				const char *line)
@@ -521,7 +558,8 @@ director_connection_handle_line(struct director_connection *conn,
 		if (!director_connection_handle_handshake(conn, cmd, args)) {
 			/* invalid commands during handshake,
 			   we probably don't want to reconnect here */
-			conn->host->last_failed = ioloop_time;
+			if (conn->host != NULL)
+				conn->host->last_failed = ioloop_time;
 			return FALSE;
 		}
 		return TRUE;
@@ -539,6 +577,8 @@ director_connection_handle_line(struct director_connection *conn,
 		return director_cmd_director(conn, args);
 	if (strcmp(cmd, "SYNC") == 0)
 		return director_connection_sync(conn, args, line);
+	if (strcmp(cmd, "CONNECT") == 0)
+		return director_cmd_connect(conn, args);
 
 	if (strcmp(cmd, "PING") == 0) {
 		director_connection_send(conn, "PONG\n");

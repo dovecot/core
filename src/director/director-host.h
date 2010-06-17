@@ -38,8 +38,10 @@ director_host_lookup(struct director *dir, const struct ip_addr *ip,
 struct director_host *
 director_host_lookup_ip(struct director *dir, const struct ip_addr *ip);
 
-/* Returns -1 if b1 is more on our left side than b2, 1 if b2 is,
-   0 if they equal. */
+/* Returns 0 if b1 equals b2.
+   -1 if b1 is closer to our left side than b2 or
+   -1 if b2 is closer to our right side than b1
+   1 vice versa */
 int director_host_cmp_to_self(const struct director_host *b1,
 			      const struct director_host *b2,
 			      const struct director_host *self);

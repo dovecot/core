@@ -89,10 +89,21 @@ int director_host_cmp_to_self(const struct director_host *b1,
 			      const struct director_host *b2,
 			      const struct director_host *self)
 {
-	if (director_host_cmp(b1, self) < 0)
-		return director_host_cmp(b1, b2);
-	else
-		return director_host_cmp(b2, b1);
+	int ret;
+
+	if ((ret = director_host_cmp(b1, b2)) >= 0)
+		return ret == 0 ? 0 : -director_host_cmp_to_self(b2, b1, self);
+
+	/* order -> return:
+	   self, b1, b2 -> b2
+	   b1, self, b2 -> b1
+	   b1, b2, self -> b2
+	*/
+	if (director_host_cmp(self, b1) < 0)
+		return 1; /* self, b1, b2 */
+	if (director_host_cmp(self, b2) < 0)
+		return -1; /* b1, self, b2 */
+	return 1; /* b1, b2, self */
 }
 
 static void director_host_add_string(struct director *dir, const char *host)
