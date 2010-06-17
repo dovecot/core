@@ -622,7 +622,7 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 {
 	struct mailbox_node *node;
 	enum mailbox_info_flags flags;
-	const char *path, *dir, *fname, *name;
+	const char *path, *dir, *fname, *storage_name;
 	unsigned int len;
 	struct stat st;
 
@@ -639,13 +639,16 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 		return &ctx->info;
 	}
 
-	/* if name ends with hierarchy separator, drop the separator */
-	name = ctx->info.name;
-	len = strlen(name);
-	if (len > 0 && name[len-1] == ctx->info.ns->real_sep)
-		name = t_strndup(name, len-1);
+	storage_name = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0 ?
+		ctx->info.name :
+		mail_namespace_get_storage_name(ctx->info.ns, ctx->info.name);
 
-	path = mailbox_list_get_path(ctx->ctx.list, name,
+	/* if name ends with hierarchy separator, drop the separator */
+	len = strlen(storage_name);
+	if (len > 0 && storage_name[len-1] == ctx->info.ns->real_sep)
+		storage_name = t_strndup(storage_name, len-1);
+
+	path = mailbox_list_get_path(ctx->ctx.list, storage_name,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(path, &dir, &fname);
 	if (ctx->ctx.list->v.get_mailbox_flags(ctx->ctx.list, dir, fname,
