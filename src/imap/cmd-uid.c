@@ -20,7 +20,7 @@ bool cmd_uid(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	cmd->name = t_strconcat("UID ", cmd_name, NULL);
+	cmd->name = p_strconcat(cmd->pool, "UID ", cmd_name, NULL);
 	cmd->cmd_flags = command->flags;
 	cmd->func = command->func;
 	cmd->uid = TRUE;
