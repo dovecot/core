@@ -787,6 +787,11 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 {
 	i_assert(*patterns != NULL);
 
+	/* we'll want to remove MAILBOX_LIST_ITER_VIRTUAL_NAMES flag completely.
+	   this assert will be here until it's sure that there are no more
+	   non-virtual users and it can be safely removed. (and if there are,
+	   this assert can still be easily removed) */
+	i_assert((flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0);
 	return list->v.iter_init(list, patterns, flags);
 }
 

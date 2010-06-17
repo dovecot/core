@@ -5,6 +5,7 @@
 #include "hostpid.h"
 #include "eacces-error.h"
 #include "mkdir-parents.h"
+#include "str.h"
 #include "subscription-file.h"
 #include "mailbox-list-delete.h"
 #include "mailbox-list-maildir.h"
@@ -467,16 +468,14 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 	struct mailbox_list_iterate_context *iter;
         const struct mailbox_info *info;
 	ARRAY_DEFINE(names_arr, const char *);
-	const char *pattern, *oldpath, *newpath, *old_listname, *new_listname;
-	const char *const *names;
-	unsigned int i, count;
-	size_t oldnamelen;
+	const char *pattern, *oldpath, *newpath, *old_childname, *new_childname;
+	const char *const *names, *old_vname, *new_vname;
+	unsigned int i, count, old_vnamelen;
 	pool_t pool;
-	char old_sep;
+	string_t *str;
 	int ret;
 
 	ret = 0;
-	oldnamelen = strlen(oldname);
 
 	/* first get the list of the children and save them to memory, because
 	   we can't rely on readdir() not skipping files while the directory
@@ -485,9 +484,16 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 	pool = pool_alloconly_create("Maildir++ children list", 1024);
 	i_array_init(&names_arr, 64);
 
-	old_sep = mailbox_list_get_hierarchy_sep(oldlist);
-	pattern = t_strdup_printf("%s%c*", oldname, old_sep);
+	str = t_str_new(256);
+	old_vname = t_strdup(mail_namespace_get_vname(oldlist->ns, str, oldname));
+	old_vnamelen = strlen(oldname);
+
+	str_truncate(str, 0);
+	new_vname = t_strdup(mail_namespace_get_vname(newlist->ns, str, newname));
+
+	pattern = t_strdup_printf("%s%c*", old_vname, oldlist->ns->sep);
 	iter = mailbox_list_iter_init(oldlist, pattern,
+				      MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
 				      MAILBOX_LIST_ITER_RAW_LIST);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
@@ -495,9 +501,9 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 
 		/* verify that the prefix matches, otherwise we could have
 		   problems with mailbox names containing '%' and '*' chars */
-		if (strncmp(info->name, oldname, oldnamelen) == 0 &&
-		    info->name[oldnamelen] == old_sep) {
-			name = p_strdup(pool, info->name + oldnamelen);
+		if (strncmp(info->name, old_vname, old_vnamelen) == 0 &&
+		    info->name[old_vnamelen] == oldlist->ns->sep) {
+			name = p_strdup(pool, info->name + old_vnamelen);
 			array_append(&names_arr, &name, 1);
 		}
 	}
@@ -509,17 +515,19 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 	}
 
 	for (i = 0; i < count; i++) {
-		old_listname = t_strconcat(oldname, names[i], NULL);
-		if (strcmp(old_listname, newname) == 0) {
+		old_childname = mail_namespace_get_storage_name(oldlist->ns,
+					t_strconcat(old_vname, names[i], NULL));
+		if (strcmp(old_childname, new_vname) == 0) {
 			/* When doing RENAME "a" "a.b" we see "a.b" here.
 			   We don't want to rename it anymore to "a.b.b". */
 			continue;
 		}
 
-		new_listname = t_strconcat(newname, names[i], NULL);
-		oldpath = mailbox_list_get_path(oldlist, old_listname,
+		new_childname = mail_namespace_get_storage_name(newlist->ns,
+					t_strconcat(new_vname, names[i], NULL));
+		oldpath = mailbox_list_get_path(oldlist, old_childname,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		newpath = mailbox_list_get_path(newlist, new_listname,
+		newpath = mailbox_list_get_path(newlist, new_childname,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 		/* FIXME: it's possible to merge two mailboxes if either one of
@@ -539,9 +547,9 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 			break;
 		}
 
-		(void)rename_dir(oldlist, old_listname, newlist, new_listname,
+		(void)rename_dir(oldlist, old_childname, newlist, new_childname,
 				 MAILBOX_LIST_PATH_TYPE_CONTROL);
-		(void)rename_dir(oldlist, old_listname, newlist, new_listname,
+		(void)rename_dir(oldlist, old_childname, newlist, new_childname,
 				 MAILBOX_LIST_PATH_TYPE_INDEX);
 	}
 	array_free(&names_arr);

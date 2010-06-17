@@ -457,7 +457,7 @@ static void mdbox_header_update(struct dbox_sync_rebuild_context *rebuild_ctx,
 
 static int
 rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
-		struct mail_namespace *ns, const char *name)
+		struct mail_namespace *ns, const char *vname)
 {
 	struct mailbox *box;
 	struct mdbox_mailbox *mbox;
@@ -466,8 +466,10 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	struct mail_index_transaction *trans;
 	struct dbox_sync_rebuild_context *rebuild_ctx;
 	enum mail_error error;
+	const char *name;
 	int ret;
 
+	name = mail_namespace_get_storage_name(ns, vname);
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
@@ -518,6 +520,7 @@ rebuild_namespace_mailboxes(struct mdbox_storage_rebuild_context *ctx,
 		ctx->default_list = ns->list;
 
 	iter = mailbox_list_iter_init(ns->list, "*",
+				      MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 				      MAILBOX_LIST_ITER_RAW_LIST |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
