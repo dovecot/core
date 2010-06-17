@@ -211,12 +211,9 @@ void client_destroy(struct client *client, const char *reason)
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 
-	if (close(client->fd_in) < 0)
-		i_error("close(client in) failed: %m");
-	if (client->fd_in != client->fd_out) {
-		if (close(client->fd_out) < 0)
-			i_error("close(client out) failed: %m");
-	}
+	net_disconnect(client->fd_in);
+	if (client->fd_in != client->fd_out)
+		net_disconnect(client->fd_out);
 
 	if (array_is_created(&client->search_saved_uidset))
 		array_free(&client->search_saved_uidset);
