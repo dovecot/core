@@ -63,7 +63,7 @@ static void client_connected(struct master_service_connection *conn)
 	}
 
 	if (net_getunixname(conn->listen_fd, &path) < 0)
-		i_fatal("getsockname(%d) failed: %m", conn->listen_fd);
+		i_fatal("getunixname(%d) failed: %m", conn->listen_fd);
 
 	name = strrchr(path, '/');
 	if (name == NULL)
@@ -147,8 +147,6 @@ static void main_init(void)
 				     set->director_mail_servers) < 0)
 		i_fatal("Invalid value for director_mail_servers setting");
 	director->orig_config_hosts = mail_hosts_dup(director->mail_hosts);
-
-	director_connect(director);
 }
 
 static void main_deinit(void)
@@ -168,11 +166,26 @@ int main(int argc, char *argv[])
 		&director_setting_parser_info,
 		NULL
 	};
+	unsigned int test_port;
 	const char *error;
+	bool debug = FALSE;
+	int c;
 
-	master_service = master_service_init("director", 0, &argc, &argv, NULL);
-	if (master_getopt(master_service) > 0)
-		return FATAL_DEFAULT;
+	master_service = master_service_init("director", 0, &argc, &argv,
+					     "Dt:");
+	while ((c = master_getopt(master_service)) > 0) {
+		switch (c) {
+		case 'D':
+			debug = TRUE;
+			break;
+		case 't':
+			if (str_to_uint(optarg, &test_port) < 0)
+				i_fatal("-t: Not a number: %s", optarg);
+			break;
+		default:
+			return FATAL_DEFAULT;
+		}
+	}
 	if (master_service_settings_read_simple(master_service, set_roots,
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
@@ -184,6 +197,18 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 
 	main_init();
+	director->test_port = test_port;
+	director->debug = debug;
+	director_connect(director);
+
+	if (director->test_port != 0) {
+		/* we're testing, possibly writing to same log file.
+		   make it clear which director we are. */
+		master_service_init_log(master_service,
+			t_strdup_printf("director(%s): ",
+					net_ip2addr(&director->self_ip)));
+	}
+
 	master_service_run(master_service, client_connected);
 	main_deinit();
 

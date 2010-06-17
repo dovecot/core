@@ -527,10 +527,19 @@ static bool director_cmd_connect(struct director_connection *conn,
 	}
 
 	/* remote suggests us to connect elsewhere */
+	if (dir->debug) {
+		i_debug("Received CONNECT request to %s, "
+			"current right is %s", host->name,
+			dir->right == NULL ? "<none>" :
+			dir->right->name);
+	}
+
 	if (dir->right != NULL &&
 	    director_host_cmp_to_self(host, dir->right->host,
 				      dir->self_host) <= 0) {
 		/* the old connection is the correct one */
+		if (dir->debug)
+			i_debug("Ignoring CONNECT");
 		return TRUE;
 	}
 
@@ -782,6 +791,11 @@ void director_connection_deinit(struct director_connection **_conn)
 	struct director_connection *conn = *_conn;
 
 	*_conn = NULL;
+
+	if (conn->dir->debug && conn->host != NULL) {
+		i_debug("Director %s:%u disconnected",
+			net_ip2addr(&conn->host->ip), conn->host->port);
+	}
 
 	if (conn->dir->left == conn)
 		conn->dir->left = NULL;

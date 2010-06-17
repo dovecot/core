@@ -62,6 +62,7 @@ src/config/doveconf
 src/lda/dovecot-lda
 src/dict/dict
 src/director/director
+src/director/director-test
 src/dns/dns-client
 src/doveadm/doveadm
 src/dsync/dsync

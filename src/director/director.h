@@ -27,6 +27,8 @@ struct director {
 	struct ip_addr self_ip;
 	unsigned int self_port;
 
+	unsigned int test_port;
+
 	struct director_host *self_host;
 	struct director_connection *left, *right;
 
@@ -59,6 +61,7 @@ struct director {
 	   director can start serving clients. */
 	unsigned int ring_handshaked:1;
 	unsigned int ring_handshake_warning_sent:1;
+	unsigned int debug:1;
 };
 
 /* Create a new director. If listen_ip specifies an actual IP, it's used with

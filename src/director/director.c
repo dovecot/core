@@ -76,11 +76,17 @@ static unsigned int director_find_self_idx(struct director *dir)
 
 int director_connect_host(struct director *dir, struct director_host *host)
 {
+	unsigned int port;
 	int fd;
 
 	i_assert(dir->right == NULL);
 
-	fd = net_connect_ip(&host->ip, host->port, &dir->self_ip);
+	if (dir->debug) {
+		i_debug("Connecting to %s:%u",
+			net_ip2addr(&host->ip), host->port);
+	}
+	port = dir->test_port != 0 ? dir->test_port : host->port;
+	fd = net_connect_ip(&host->ip, port, &dir->self_ip);
 	if (fd == -1) {
 		host->last_failed = ioloop_time;
 		i_error("connect(%s) failed: %m", host->name);
@@ -127,6 +133,8 @@ void director_set_ring_handshaked(struct director *dir)
 			  "continuing delayed connections");
 		dir->ring_handshake_warning_sent = FALSE;
 	}
+	if (dir->debug)
+		i_debug("Director ring handshaked");
 
 	dir->ring_handshaked = TRUE;
 	director_set_state_changed(dir);

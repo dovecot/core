@@ -5,6 +5,7 @@ pkglibexec_PROGRAMS = director
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-DPKG_RUNDIR=\""$(rundir)"\"
@@ -38,3 +39,11 @@ noinst_HEADERS = \
 	mail-host.h \
 	notify-connection.h \
 	user-directory.h
+
+noinst_PROGRAMS = director-test
+
+director_test_LDADD = $(LIBDOVECOT)
+director_test_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+
+director_test_SOURCES = \
+	director-test.c
