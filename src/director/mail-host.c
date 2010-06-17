@@ -65,6 +65,9 @@ static int
 mail_hosts_add_range(struct mail_host_list *list, const char *host1, const char *host2)
 {
 	struct ip_addr ip1, ip2;
+	uint32_t *ip1_arr, *ip2_arr;
+	uint32_t i1, i2;
+	unsigned int i, j, max_bits, last_bits;
 
 	if (net_addr2ip(host1, &ip1) < 0) {
 		i_error("Invalid IP address: %s", host1);
@@ -74,9 +77,56 @@ mail_hosts_add_range(struct mail_host_list *list, const char *host1, const char 
 		i_error("Invalid IP address: %s", host2);
 		return -1;
 	}
+	if (ip1.family != ip2.family) {
+		i_error("IP address family mismatch: %s vs %s", host1, host2);
+		return -1;
+	}
+	if (net_ip_cmp(&ip1, &ip2) > 0) {
+		i_error("IP addresses reversed: %s-%s", host1, host2);
+		return -1;
+	}
+	if (IPADDR_IS_V4(&ip1)) {
+		ip1_arr = &ip1.u.ip4.s_addr;
+		ip2_arr = &ip2.u.ip4.s_addr;
+		max_bits = 32;
+		last_bits = 8;
+	} else {
+#ifndef HAVE_IPV6
+		i_error("IPv6 not supported");
+		return -1;
+#else
+		ip1_arr = (void *)&ip1.u.ip6;
+		ip2_arr = (void *)&ip2.u.ip6;
+		max_bits = 128;
+		last_bits = 16;
+#endif
+	}
 
-	// FIXME
+	/* make sure initial bits match */
+	for (i = 0; i < (max_bits-last_bits)/32; i++) {
+		if (ip1_arr[i] != ip2_arr[i]) {
+			i_error("IP address range too large: %s-%s",
+				host1, host2);
+			return -1;
+		}
+	}
+	i1 = htonl(ip1_arr[i]);
+	i2 = htonl(ip2_arr[i]);
 
+	for (j = last_bits; j < 32; j++) {
+		if ((i1 & (1 << j)) != (i2 & (1 << j))) {
+			i_error("IP address range too large: %s-%s",
+				host1, host2);
+			return -1;
+		}
+	}
+
+	/* create hosts from the final bits */
+	do {
+		ip1_arr[i] = ntohl(i1);
+		mail_host_add_ip(list, &ip1);
+		i1++;
+	} while (ip1_arr[i] != ip2_arr[i]);
 	return 0;
 }
 
