@@ -63,7 +63,7 @@ service imap-login {
   }
 }
 service director-test {
-  executable = /usr/local/libexec/dovecot/director-test /var/run/dovecot1/director-admin
+  executable = director-test /var/run/dovecot1/director-admin
   process_limit = 1
 
   inet_listener {
