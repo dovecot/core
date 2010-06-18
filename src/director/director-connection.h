@@ -17,4 +17,6 @@ void director_connection_send_except(struct director_connection *conn,
 				     struct director_host *skip_host,
 				     const char *data);
 
+const char *director_connection_get_name(struct director_connection *conn);
+
 #endif

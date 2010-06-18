@@ -79,7 +79,7 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 	if (args[0] == NULL ||
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && str_to_uint(args[1], &vhost_count) < 0)) {
-		i_error("doveadm sent invalid HOST-SET parameters");
+		i_error("doveadm sent invalid HOST-SET parameters: %s", line);
 		return FALSE;
 	}
 	if (vhost_count > MAX_VALID_VHOST_COUNT && vhost_count != -1U) {
@@ -160,7 +160,8 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 	unsigned int username_hash;
 	string_t *str = t_str_new(256);
 
-	username_hash = user_directory_get_username_hash(line);
+	if (str_to_uint(line, &username_hash) < 0)
+		username_hash = user_directory_get_username_hash(line);
 
 	/* get user's current host */
 	user = user_directory_lookup(conn->dir->users, username_hash);

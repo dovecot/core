@@ -137,7 +137,24 @@ void director_set_ring_handshaked(struct director *dir)
 		i_debug("Director ring handshaked");
 
 	dir->ring_handshaked = TRUE;
+	dir->ring_synced = TRUE;
 	director_set_state_changed(dir);
+}
+
+static void director_sync(struct director *dir)
+{
+	/* we're synced again, once we receive this SYNC back */
+	dir->sync_seq++;
+	dir->ring_synced = FALSE;
+
+	if (dir->debug) {
+		i_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
+			dir->sync_seq, director_connection_get_name(dir->right));
+	}
+
+	director_connection_send(dir->right, t_strdup_printf(
+		"SYNC\t%s\t%u\t%u\n", net_ip2addr(&dir->self_ip),
+		dir->self_port, dir->sync_seq));
 }
 
 void director_update_host(struct director *dir, struct director_host *src,
@@ -147,6 +164,7 @@ void director_update_host(struct director *dir, struct director_host *src,
 
 	director_update_send(dir, src, t_strdup_printf(
 		"HOST\t%s\t%u\n", net_ip2addr(&host->ip), host->vhost_count));
+	director_sync(dir);
 }
 
 void director_remove_host(struct director *dir, struct director_host *src,
@@ -156,6 +174,7 @@ void director_remove_host(struct director *dir, struct director_host *src,
 		"HOST-REMOVE\t%s\n", net_ip2addr(&host->ip)));
 	user_directory_remove_host(dir->users, host);
 	mail_host_remove(dir->mail_hosts, host);
+	director_sync(dir);
 }
 
 void director_flush_host(struct director *dir, struct director_host *src,
@@ -164,6 +183,7 @@ void director_flush_host(struct director *dir, struct director_host *src,
 	director_update_send(dir, src, t_strdup_printf(
 		"HOST-FLUSH\t%s\n", net_ip2addr(&host->ip)));
 	user_directory_remove_host(dir->users, host);
+	director_sync(dir);
 }
 
 void director_update_user(struct director *dir, struct director_host *src,
@@ -204,7 +224,6 @@ director_init(const struct director_settings *set,
 	dir->state_change_callback = callback;
 	i_array_init(&dir->dir_hosts, 16);
 	i_array_init(&dir->pending_requests, 16);
-	i_array_init(&dir->desynced_host_changes, 16);
 	dir->users = user_directory_init(set->director_user_expire);
 	dir->mail_hosts = mail_hosts_init();
 	return dir;
@@ -229,7 +248,6 @@ void director_deinit(struct director **_dir)
 		timeout_remove(&dir->to_request);
 	array_foreach(&dir->dir_hosts, hostp)
 		director_host_free(*hostp);
-	array_free(&dir->desynced_host_changes);
 	array_free(&dir->pending_requests);
 	array_free(&dir->dir_hosts);
 	i_free(dir);

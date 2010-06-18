@@ -75,7 +75,7 @@ bool director_request_continue(struct director_request *request)
 	if (!dir->ring_handshaked) {
 		/* delay requests until ring handshaking is complete */
 		if (!dir->ring_handshake_warning_sent) {
-			i_warning("Delaying connections until all "
+			i_warning("Delaying requests until all "
 				  "directors have connected");
 			dir->ring_handshake_warning_sent = TRUE;
 		}
@@ -86,8 +86,10 @@ bool director_request_continue(struct director_request *request)
 	if (user != NULL)
 		user_directory_refresh(dir->users, user);
 	else {
-		if (array_count(&dir->desynced_host_changes) != 0) {
+		if (!dir->ring_synced) {
 			/* delay adding new users until ring is again synced */
+			if (dir->debug)
+				i_debug("Delaying request until ring is synced");
 			return FALSE;
 		}
 		host = mail_host_get_by_hash(dir->mail_hosts,

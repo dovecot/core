@@ -107,8 +107,7 @@ static void director_state_changed(struct director *dir)
 	struct director_request *const *requestp;
 	bool ret;
 
-	if (!dir->ring_handshaked ||
-	    array_count(&dir->desynced_host_changes) != 0 ||
+	if (!dir->ring_synced ||
 	    mail_host_get_by_hash(dir->mail_hosts, 0) == NULL)
 		return;
 

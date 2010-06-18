@@ -164,7 +164,7 @@ void mail_host_set_vhost_count(struct mail_host_list *list,
 			       struct mail_host *host, unsigned int vhost_count)
 {
 	host->vhost_count = vhost_count;
-	mail_hosts_sort(list);
+	list->hosts_unsorted = TRUE;
 }
 
 void mail_host_remove(struct mail_host_list *list, struct mail_host *host)
@@ -181,7 +181,7 @@ void mail_host_remove(struct mail_host_list *list, struct mail_host *host)
 	}
 
 	i_free(host);
-	mail_hosts_sort(list);
+	list->hosts_unsorted = TRUE;
 }
 
 struct mail_host *

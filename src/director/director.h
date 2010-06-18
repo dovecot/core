@@ -49,18 +49,13 @@ struct director {
 	/* director hosts are sorted by IP (and port) */
 	ARRAY_DEFINE(dir_hosts, struct director_host *);
 
-	/* this array contains host changes done by directors.
-	   while it's non-empty, new user mappings can't be added, because
-	   different directors may see different hosts. SYNC events remove
-	   these changes. */
-	ARRAY_DEFINE(desynced_host_changes, struct director_host_change);
-
 	unsigned int sync_seq;
 
 	/* director ring handshaking is complete.
 	   director can start serving clients. */
 	unsigned int ring_handshaked:1;
 	unsigned int ring_handshake_warning_sent:1;
+	unsigned int ring_synced:1;
 	unsigned int debug:1;
 };
 
