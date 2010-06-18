@@ -63,7 +63,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 		buffer_alloc(buf, pool_get_exp_grown_size(buf->pool, buf->alloc,
 							  new_size));
 	}
-#ifdef DEBUG
+#if 0
 	else if (new_size > buf->used && buf->alloced &&
 		 !buf->pool->alloconly_pool && !buf->pool->datastack_pool) {
 		void *new_buf;
