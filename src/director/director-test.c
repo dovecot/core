@@ -35,7 +35,7 @@
 #define DIRECTOR_OUT_PORT 9090
 #define USER_TIMEOUT_MSECS (1000*60)
 #define ADMIN_RANDOM_TIMEOUT_MSECS 500
-#define DIRECTOR_CONN_MAX_DELAY_MSECS 1000
+#define DIRECTOR_CONN_MAX_DELAY_MSECS 100
 
 struct host {
 	int refcount;
@@ -134,7 +134,6 @@ static void client_username_check(struct imap_client *client)
 	if (user == NULL) {
 		user = i_new(struct user, 1);
 		user->username = i_strdup(client->username);
-		user->host = host;
 		hash_table_insert(users, user->username, user);
 	} else if (user->host != host) {
 		i_error("user %s: old connection from %s, new from %s. "
@@ -142,9 +141,10 @@ static void client_username_check(struct imap_client *client)
 			user->username, net_ip2addr(&user->host->ip),
 			net_ip2addr(&host->ip), user->connections,
 			(unsigned int)(ioloop_time - user->last_seen));
-		return;
+		host_unref(&user->host);
 	}
 	client->user = user;
+	user->host = host;
 	user->connections++;
 	user->last_seen = ioloop_time;
 	user->host->refcount++;
@@ -324,9 +324,6 @@ static void director_connection_timeout(struct director_connection *conn)
 			     director_connection_in_input, conn);
 	conn->out_io = io_add(conn->out_fd, IO_READ,
 			      director_connection_out_input, conn);
-
-	director_connection_in_input(conn);
-	director_connection_out_input(conn);
 }
 
 static void
