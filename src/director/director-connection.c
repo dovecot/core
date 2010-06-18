@@ -25,7 +25,10 @@
 #define MAX_INBUF_SIZE 1024
 #define MAX_OUTBUF_SIZE (1024*1024*10)
 #define OUTBUF_FLUSH_THRESHOLD (1024*128)
+/* How long to wait for PONG after PING request */
 #define DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS (2*1000)
+/* How long to wait to send PING when connection is idle */
+#define DIRECTOR_CONNECTION_PING_INTERVAL_MSECS (15*1000)
 
 struct director_connection {
 	struct director *dir;
@@ -50,6 +53,7 @@ struct director_connection {
 	unsigned int handshake_received:1;
 	unsigned int ignore_host_events:1;
 	unsigned int handshake_sending_hosts:1;
+	unsigned int ping_waiting:1;
 };
 
 static void director_connection_ping(struct director_connection *conn);
@@ -382,6 +386,10 @@ static void director_handshake_cmd_done(struct director_connection *conn)
 					net_ip2addr(&dir->self_ip),
 					dir->self_port, dir->sync_seq));
 	}
+	if (conn->to_ping == NULL) {
+		conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_INTERVAL_MSECS,
+					    director_connection_ping, conn);
+	}
 }
 
 static bool
@@ -597,6 +605,18 @@ static bool director_cmd_connect(struct director_connection *conn,
 	return TRUE;
 }
 
+static bool director_cmd_pong(struct director_connection *conn)
+{
+	if (!conn->ping_waiting)
+		return TRUE;
+
+	conn->ping_waiting = FALSE;
+	timeout_remove(&conn->to_ping);
+	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_INTERVAL_MSECS,
+				    director_connection_ping, conn);
+	return TRUE;
+}
+
 static bool
 director_connection_handle_line(struct director_connection *conn,
 				const char *line)
@@ -639,11 +659,8 @@ director_connection_handle_line(struct director_connection *conn,
 		director_connection_send(conn, "PONG\n");
 		return TRUE;
 	}
-	if (strcmp(cmd, "PONG") == 0) {
-		if (conn->to_ping != NULL)
-			timeout_remove(&conn->to_ping);
-		return TRUE;
-	}
+	if (strcmp(cmd, "PONG") == 0)
+		return director_cmd_pong(conn);
 	i_error("director(%s): Unknown command (in this state): %s",
 		conn->name, cmd);
 	return FALSE;
@@ -907,12 +924,14 @@ static void director_connection_ping_timeout(struct director_connection *conn)
 
 static void director_connection_ping(struct director_connection *conn)
 {
-	if (conn->to_ping != NULL)
+	if (conn->ping_waiting)
 		return;
 
+	timeout_remove(&conn->to_ping);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS,
 				    director_connection_ping_timeout, conn);
 	director_connection_send(conn, "PING\n");
+	conn->ping_waiting = TRUE;
 }
 
 const char *director_connection_get_name(struct director_connection *conn)
