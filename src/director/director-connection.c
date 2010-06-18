@@ -175,7 +175,13 @@ director_user_refresh(struct director *dir, unsigned int username_hash,
 			"%s and %s", username_hash,
 			net_ip2addr(&user->host->ip),
 			net_ip2addr(&host->ip));
+
+		/* change the host anyway. we'll also need to remove the user
+		   from the old host's user_count, because we can't keep track
+		   of the user for more than one host */
+		user->host->user_count--;
 		user->host = host;
+		user->host->user_count++;
 		ret = TRUE;
 	}
 	*user_r = user;
