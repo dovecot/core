@@ -149,7 +149,8 @@ static void director_sync(struct director *dir)
 
 	if (dir->debug) {
 		i_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
-			dir->sync_seq, director_connection_get_name(dir->right));
+			dir->sync_seq, dir->right == NULL ? "(nowhere)" :
+			director_connection_get_name(dir->right));
 	}
 
 	director_connection_send(dir->right, t_strdup_printf(
