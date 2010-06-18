@@ -5,11 +5,11 @@
    port 14300. If the same user is connecting to multiple different local IPs,
    it logs an error (i.e. director is not working right then).
 
-   This program also accepts incoming director connections on port 9090 and
-   forwards them to local_ip:9091. So all directors think the others are
-   listening on port 9091, while in reality all of them are on 9090.
-   The idea is that this test tool hooks between all director connections and
-   can then add delays or break the connections.
+   This program also accepts incoming director connections on port 9091 and
+   forwards them to local_ip:9090. To make this work properly, director
+   executable must be given -t 9091 parameter. The idea is that this test tool
+   hooks between all director connections and can then add delays or break the
+   connections.
 
    Finally, this program connects to director-admin socket where it adds
    and removes mail hosts.
@@ -27,14 +27,26 @@
 #include "master-service-settings.h"
 #include "director-settings.h"
 
+#include <stdlib.h>
+#include <unistd.h>
+
 #define IMAP_PORT 14300
 #define DIRECTOR_IN_PORT 9091
 #define DIRECTOR_OUT_PORT 9090
 #define USER_TIMEOUT_MSECS (1000*60)
+#define ADMIN_RANDOM_TIMEOUT_MSECS 500
+#define DIRECTOR_CONN_MAX_DELAY_MSECS 1000
+
+struct host {
+	int refcount;
+
+	struct ip_addr ip;
+	unsigned int vhost_count;
+};
 
 struct user {
 	char *username;
-	struct ip_addr local_ip;
+	struct host *host;
 
 	time_t last_seen;
 	unsigned int connections;
@@ -62,47 +74,80 @@ struct director_connection {
 	struct io *in_io, *out_io;
 	struct istream *in_input, *out_input;
 	struct ostream *in_output, *out_output;
+	struct timeout *to_delay;
 };
 
 struct admin_connection {
 	char *path;
 	int fd;
+	struct io *io;
 	struct istream *input;
+	struct timeout *to_random;
 };
 
 static struct imap_client *imap_clients;
 static struct director_connection *director_connections;
 static struct hash_table *users;
+static struct hash_table *hosts;
+static ARRAY_DEFINE(hosts_array, struct host *);
 static struct admin_connection *admin;
 
 static void imap_client_destroy(struct imap_client **client);
-static void director_connection_destroy(struct director_connection **_conn);
+static void director_connection_destroy(struct director_connection **conn);
+static void director_connection_timeout(struct director_connection *conn);
+
+static void host_unref(struct host **_host)
+{
+	struct host *host = *_host;
+
+	*_host = NULL;
+
+	i_assert(host->refcount > 0);
+	if (--host->refcount > 0)
+		return;
+
+	i_free(host);
+}
 
 static void client_username_check(struct imap_client *client)
 {
 	struct user *user;
+	struct host *host;
 	struct ip_addr local_ip;
 
 	if (net_getsockname(client->fd, &local_ip, NULL) < 0)
 		i_fatal("net_getsockname() failed: %m");
 
+	host = hash_table_lookup(hosts, &local_ip);
+	if (host == NULL) {
+		i_error("User logging into unknown host %s",
+			net_ip2addr(&local_ip));
+		host = i_new(struct host, 1);
+		host->refcount++;
+		host->ip = local_ip;
+		host->vhost_count = 100;
+		hash_table_insert(hosts, &host->ip, host);
+		array_append(&hosts_array, &host, 1);
+	}
+
 	user = hash_table_lookup(users, client->username);
 	if (user == NULL) {
 		user = i_new(struct user, 1);
 		user->username = i_strdup(client->username);
-		user->local_ip = local_ip;
+		user->host = host;
 		hash_table_insert(users, user->username, user);
-	} else if (!net_ip_compare(&user->local_ip, &local_ip)) {
+	} else if (user->host != host) {
 		i_error("user %s: old connection from %s, new from %s. "
 			"%u old connections, last was %u secs ago",
-			user->username, net_ip2addr(&user->local_ip),
-			net_ip2addr(&local_ip), user->connections,
+			user->username, net_ip2addr(&user->host->ip),
+			net_ip2addr(&host->ip), user->connections,
 			(unsigned int)(ioloop_time - user->last_seen));
 		return;
 	}
 	client->user = user;
 	user->connections++;
 	user->last_seen = ioloop_time;
+	user->host->refcount++;
 
 	if (user->to != NULL)
 		timeout_remove(&user->to);
@@ -110,6 +155,7 @@ static void client_username_check(struct imap_client *client)
 
 static void user_free(struct user *user)
 {
+	host_unref(&user->host);
 	if (user->to != NULL)
 		timeout_remove(&user->to);
 	hash_table_remove(users, user->username);
@@ -237,52 +283,27 @@ static void imap_client_destroy(struct imap_client **_client)
 	master_service_client_connection_destroyed(master_service);
 }
 
-static const char *director_line_update_port(const char *line)
-{
-	const char *p, *prefix, *suffix;
-	unsigned int i = 0;
-
-	/* <cmd> \t IP \t <port> [\t more] */
-	for (p = line;; p++) {
-		if (*p == '\0') {
-			i_error("director: Invalid input: %s", line);
-			return line;
-		}
-		if (*p == '\t') {
-			if (++i == 2)
-				break;
-		}
-	}
-	prefix = t_strdup_until(line, ++p);
-	suffix = strchr(p, '\t');
-	return t_strdup_printf("%s%u%s", prefix, DIRECTOR_OUT_PORT,
-			       suffix != NULL ? suffix : "");
-}
-
 static void
 director_connection_input(struct director_connection *conn,
 			  struct istream *input, struct ostream *output)
 {
-	const char *line;
+	const unsigned char *data;
+	size_t size;
 
-	o_stream_cork(output);
-	while ((line = i_stream_read_next_line(input)) != NULL) {
-#if 0
-		if (strncmp(line, "ME\t", 3) == 0 ||
-		    strncmp(line, "DIRECTOR\t", 9) == 0 ||
-		    strncmp(line, "SYNC\t", 5) == 0) {
-			const char *orig = line;
-
-			line = director_line_update_port(line);
-		}
-#endif
-		o_stream_send_str(output, line);
-		o_stream_send(output, "\n", 1);
-	}
-	o_stream_uncork(output);
-	if (input->stream_errno != 0 || input->eof) {
+	if (i_stream_read_data(input, &data, &size, 0) == -1) {
 		director_connection_destroy(&conn);
 		return;
+	}
+
+	o_stream_send(output, data, size);
+	i_stream_skip(input, size);
+
+	if (rand() % 3 == 0 && conn->to_delay == NULL) {
+		conn->to_delay =
+			timeout_add(rand() % DIRECTOR_CONN_MAX_DELAY_MSECS,
+				    director_connection_timeout, conn);
+		io_remove(&conn->in_io);
+		io_remove(&conn->out_io);
 	}
 }
 
@@ -294,6 +315,18 @@ static void director_connection_in_input(struct director_connection *conn)
 static void director_connection_out_input(struct director_connection *conn)
 {
 	director_connection_input(conn, conn->out_input, conn->in_output);
+}
+
+static void director_connection_timeout(struct director_connection *conn)
+{
+	timeout_remove(&conn->to_delay);
+	conn->in_io = io_add(conn->in_fd, IO_READ,
+			     director_connection_in_input, conn);
+	conn->out_io = io_add(conn->out_fd, IO_READ,
+			      director_connection_out_input, conn);
+
+	director_connection_in_input(conn);
+	director_connection_out_input(conn);
 }
 
 static void
@@ -323,12 +356,17 @@ static void director_connection_destroy(struct director_connection **_conn)
 
 	DLLIST_REMOVE(&director_connections, conn);
 
-	io_remove(&conn->in_io);
+	if (conn->to_delay != NULL)
+		timeout_remove(&conn->to_delay);
+
+	if (conn->in_io != NULL)
+		io_remove(&conn->in_io);
 	i_stream_unref(&conn->in_input);
 	o_stream_unref(&conn->in_output);
 	net_disconnect(conn->in_fd);
 
-	io_remove(&conn->out_io);
+	if (conn->out_io != NULL)
+		io_remove(&conn->out_io);
 	i_stream_unref(&conn->out_input);
 	o_stream_unref(&conn->out_output);
 	net_disconnect(conn->out_fd);
@@ -362,6 +400,32 @@ admin_send(struct admin_connection *conn, const char *data)
 		i_fatal("write(%s) failed: %m", conn->path);
 }
 
+static void admin_input(struct admin_connection *conn)
+{
+	const char *line;
+
+	while ((line = i_stream_read_next_line(conn->input)) != NULL) {
+		if (strcmp(line, "OK") != 0)
+			i_error("director-doveadm: Unexpected input: %s", line);
+	}
+	if (conn->input->stream_errno != 0 || conn->input->eof)
+		i_fatal("director-doveadm: Connection lost");
+}
+
+static void admin_random_action(struct admin_connection *conn)
+{
+	struct host *const *hosts;
+	unsigned int i, count;
+
+	hosts = array_get(&hosts_array, &count);
+	i = rand() % count;
+
+	hosts[i]->vhost_count = (rand() % 20) * 10;
+
+	admin_send(conn, t_strdup_printf("HOST-SET\t%s\t%u\n",
+		net_ip2addr(&hosts[i]->ip), hosts[i]->vhost_count));
+}
+
 static struct admin_connection *admin_connect(const char *path)
 {
 #define DIRECTOR_ADMIN_HANDSHAKE "VERSION\tdirector-doveadm\t1\t0\n"
@@ -373,8 +437,11 @@ static struct admin_connection *admin_connect(const char *path)
 	conn->fd = net_connect_unix(path);
 	if (conn->fd == -1)
 		i_fatal("net_connect_unix(%s) failed: %m", path);
-	net_set_nonblock(conn->fd, FALSE);
+	conn->io = io_add(conn->fd, IO_READ, admin_input, conn);
+	conn->to_random = timeout_add(ADMIN_RANDOM_TIMEOUT_MSECS,
+				      admin_random_action, conn);
 
+	net_set_nonblock(conn->fd, FALSE);
 	conn->input = i_stream_create_fd(conn->fd, (size_t)-1, TRUE);
 	admin_send(conn, DIRECTOR_ADMIN_HANDSHAKE);
 
@@ -385,6 +452,7 @@ static struct admin_connection *admin_connect(const char *path)
 		i_fatal("%s not a compatible director-doveadm socket",
 			conn->path);
 	}
+	net_set_nonblock(conn->fd, TRUE);
 	return conn;
 }
 
@@ -393,22 +461,52 @@ static void admin_disconnect(struct admin_connection **_conn)
 	struct admin_connection *conn = *_conn;
 
 	*_conn = NULL;
+	//timeout_remove(&conn->to_random);
 	i_stream_destroy(&conn->input);
+	io_remove(&conn->io);
 	net_disconnect(conn->fd);
 	i_free(conn->path);
 	i_free(conn);
 }
 
-static void main_init(void)
+static void admin_read_hosts(struct admin_connection *conn)
 {
-	const char *admin_path;
+	const char *line;
 
-	/*set = master_service_settings_get_others(master_service)[0];
-	admin_path = t_strconcat(set->base_dir, "/director-admin", NULL);
-	admin = admin_connect(admin_path);*/
+	net_set_nonblock(admin->fd, FALSE);
+	while ((line = i_stream_read_next_line(conn->input)) != NULL) {
+		if (*line == '\0')
+			break;
+		/* ip vhost-count user-count */
+		T_BEGIN {
+			const char *const *args = t_strsplit(line, "\t");
+			struct host *host;
 
+			host = i_new(struct host, 1);
+			if (net_addr2ip(args[0], &host->ip) < 0 ||
+			    str_to_uint(args[1], &host->vhost_count) < 0)
+				i_fatal("host list broken");
+			hash_table_insert(hosts, &host->ip, host);
+			array_append(&hosts_array, &host, 1);
+		} T_END;
+	}
+	if (line == NULL)
+		i_fatal("Couldn't read hosts list");
+	net_set_nonblock(admin->fd, TRUE);
+}
+
+static void main_init(const char *admin_path)
+{
 	users = hash_table_create(default_pool, default_pool, 0,
 				  str_hash, (hash_cmp_callback_t *)strcmp);
+	hosts = hash_table_create(default_pool, default_pool, 0,
+				  (hash_callback_t *)net_ip_hash,
+				  (hash_cmp_callback_t *)net_ip_cmp);
+	i_array_init(&hosts_array, 256);
+
+	admin = admin_connect(admin_path);
+	admin_send(admin, "HOST-LIST\n");
+	admin_read_hosts(admin);
 }
 
 static void main_deinit(void)
@@ -418,13 +516,11 @@ static void main_deinit(void)
 
 	while (imap_clients != NULL) {
 		struct imap_client *client = imap_clients;
-
 		imap_client_destroy(&client);
 	}
 
 	while (director_connections != NULL) {
 		struct director_connection *conn = director_connections;
-
 		director_connection_destroy(&conn);
 	}
 
@@ -435,20 +531,35 @@ static void main_deinit(void)
 	}
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&users);
-	//admin_disconnect(&admin);
+
+	iter = hash_table_iterate_init(hosts);
+	while (hash_table_iterate(iter, &key, &value)) {
+		struct host *host = value;
+		host_unref(&host);
+	}
+	hash_table_iterate_deinit(&iter);
+	hash_table_destroy(&hosts);
+	array_free(&hosts_array);
+
+	admin_disconnect(&admin);
 }
 
 int main(int argc, char *argv[])
 {
+	const char *admin_path;
+
 	master_service = master_service_init("director-test", 0,
 					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
+	admin_path = argv[optind];
+	if (admin_path == NULL)
+		i_fatal("director-doveadm socket path missing");
 
 	master_service_init_log(master_service, "director-test: ");
 	master_service_init_finish(master_service);
 
-	main_init();
+	main_init(admin_path);
 	master_service_run(master_service, client_connected);
 	main_deinit();
 
