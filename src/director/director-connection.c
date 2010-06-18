@@ -341,6 +341,9 @@ static void director_handshake_cmd_done(struct director_connection *conn)
 {
 	struct director *dir = conn->dir;
 
+	if (dir->debug)
+		i_debug("Handshaked to %s", conn->host->name);
+
 	conn->handshake_received = TRUE;
 	if (conn->in) {
 		/* handshaked to left side. tell it we've received the
@@ -527,20 +530,27 @@ static bool director_cmd_connect(struct director_connection *conn,
 	}
 
 	/* remote suggests us to connect elsewhere */
-	if (dir->debug) {
-		i_debug("Received CONNECT request to %s, "
-			"current right is %s", host->name,
-			dir->right == NULL ? "<none>" :
-			dir->right->name);
-	}
-
 	if (dir->right != NULL &&
 	    director_host_cmp_to_self(host, dir->right->host,
 				      dir->self_host) <= 0) {
 		/* the old connection is the correct one */
-		if (dir->debug)
-			i_debug("Ignoring CONNECT");
+		if (dir->debug) {
+			i_debug("Ignoring CONNECT request to %s "
+				"(current right is %s)",
+				host->name, dir->right->name);
+		}
 		return TRUE;
+	}
+
+	if (dir->debug) {
+		if (dir->right == NULL) {
+			i_debug("Received CONNECT request to %s, "
+				"initializing right", host->name);
+		} else {
+			i_debug("Received CONNECT request to %s, "
+				"replacing current right %s",
+				host->name, dir->right->name);
+		}
 	}
 
 	/* connect here, disconnect old one */
