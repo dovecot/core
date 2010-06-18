@@ -13,6 +13,7 @@
 #include "mail-user.h"
 #include "mail-storage.h"
 #include "mail-search.h"
+#include "mail-namespace.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
 #include "doveadm-mail-iter.h"
@@ -397,6 +398,13 @@ cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 	struct mailbox_transaction_context *trans;
 	struct mail *mail;
 	struct mailbox_header_lookup_ctx *headers = NULL;
+	unsigned int len;
+
+	len = strlen(info->name);
+	if (len > 0 && info->name[len-1] == info->ns->sep) {
+		/* when listing "foo/%" it lists "foo/". skip it. */
+		return 0;
+	}
 
 	if (doveadm_mail_iter_init(info, ctx->ctx.search_args,
 				   &trans, &iter) < 0)
