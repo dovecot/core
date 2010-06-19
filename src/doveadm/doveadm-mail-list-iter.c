@@ -95,8 +95,15 @@ const struct mailbox_info *
 doveadm_mail_list_iter_next(struct doveadm_mail_list_iter *iter)
 {
 	const struct mailbox_info *info;
+	unsigned int len;
 
 	while ((info = mailbox_list_iter_next(iter->iter)) != NULL) {
+		len = strlen(info->name);
+		if (len > 0 && info->name[len-1] == info->ns->sep) {
+			/* when listing "foo/%" it lists "foo/". skip it. */
+			continue;
+		}
+
 		if (mail_search_args_match_mailbox(iter->search_args,
 						   info->name, info->ns->sep))
 			break;
