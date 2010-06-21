@@ -145,6 +145,13 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 	if (mail_get_headers(ctx->mail, ctx->cur_field->name, &value) < 0)
 		return -1;
 
+	if (*value == NULL) {
+		/* no value */
+		if (ctx->print_field_prefix)
+			str_printfa(ctx->hdr, "hdr.%s: ", ctx->cur_field->name);
+		return 0;
+	}
+
 	for (; *value != NULL; value++) {
 		if (add_lf)
 			str_append_c(ctx->hdr, '\n');
