@@ -147,7 +147,8 @@ void doveadm_print_deinit(void)
 
 	if (ctx->v->flush != NULL)
 		ctx->v->flush();
-	ctx->v->deinit();
+	if (ctx->v->deinit != NULL)
+		ctx->v->deinit();
 	array_foreach_modifiable(&ctx->headers, hdr)
 		i_free(hdr->sticky_value);
 	pool_unref(&ctx->pool);
