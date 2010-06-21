@@ -58,7 +58,8 @@ static void sig_die(const siginfo_t *si, void *context)
 			  si->si_signo, dec2str(si->si_pid),
 			  dec2str(si->si_uid),
 			  lib_signal_code_to_str(si->si_signo, si->si_code));
-	} else if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
+	} else if ((service->flags & (MASTER_SERVICE_FLAG_STANDALONE |
+				      MASTER_SERVICE_FLAG_NO_IDLE_DIE)) == 0) {
 		/* SIGINT came from master. die only if we're not handling
 		   any clients currently. */
 		if (service->master_status.available_count !=

@@ -17,7 +17,9 @@ enum master_service_flags {
 	/* Don't read settings, but use whatever is in environment */
 	MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS	= 0x10,
 	/* Use MASTER_LOGIN_NOTIFY_FD to track login overflow state */
-	MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE	= 0x40
+	MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE	= 0x40,
+	/* If master sends SIGINT, don't die even if we don't have clients */
+	MASTER_SERVICE_FLAG_NO_IDLE_DIE		= 0x80
 };
 
 struct master_service_connection {
