@@ -138,6 +138,9 @@ human_search_mailbox(struct mail_search_build_context *ctx)
 	const char *value;
 
 	sarg = mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
+	if (sarg == NULL)
+		return NULL;
+
 	value = sarg->value.str;
 
 	T_BEGIN {
