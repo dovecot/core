@@ -731,6 +731,12 @@ static int director_connection_send_users(struct director_connection *conn)
 
 	o_stream_cork(conn->output);
 	while ((user = user_directory_iter_next(conn->user_iter)) != NULL) {
+		if (!user_directory_user_has_connections(conn->dir->users,
+							 user)) {
+			/* user is already expired */
+			continue;
+		}
+
 		T_BEGIN {
 			const char *line;
 
