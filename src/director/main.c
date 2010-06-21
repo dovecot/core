@@ -170,8 +170,9 @@ int main(int argc, char *argv[])
 	bool debug = FALSE;
 	int c;
 
-	master_service = master_service_init("director", 0, &argc, &argv,
-					     "Dt:");
+	master_service = master_service_init("director",
+					     MASTER_SERVICE_FLAG_NO_IDLE_DIE,
+					     &argc, &argv, "Dt:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
