@@ -375,7 +375,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 		userdb = userdb->next;
 	if (userdb == NULL) {
 		i_error("Trying to iterate users, but userdbs don't support it");
-		str = t_strdup_printf("DONE\t%u\tfail", id);
+		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		(void)o_stream_send_str(conn->output, str);
 		return TRUE;
 	}
