@@ -40,17 +40,20 @@ static void doveadm_print_tab_print(const char *value)
 	}
 }
 
-static void doveadm_print_tab_deinit(void)
+static void doveadm_print_tab_flush(void)
 {
-	if (!ctx.header_written)
+	if (!ctx.header_written) {
 		printf("\n");
+		ctx.header_written = TRUE;
+	}
 }
 
 struct doveadm_print_vfuncs doveadm_print_tab_vfuncs = {
 	"tab",
 
 	NULL,
-	doveadm_print_tab_deinit,
+	NULL,
 	doveadm_print_tab_header,
-	doveadm_print_tab_print
+	doveadm_print_tab_print,
+	doveadm_print_tab_flush
 };

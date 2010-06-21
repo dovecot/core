@@ -4,6 +4,8 @@
 #include "array.h"
 #include "doveadm-print-private.h"
 
+#include <stdio.h>
+
 struct doveadm_print_header_context {
 	const char *key;
 	char *sticky_value;
@@ -102,6 +104,13 @@ void doveadm_print_sticky(const char *key, const char *value)
 	i_unreached();
 }
 
+void doveadm_print_flush(void)
+{
+	if (ctx != NULL && ctx->v->flush != NULL)
+		ctx->v->flush();
+	fflush(stdout);
+}
+
 void doveadm_print_init(const char *name)
 {
 	pool_t pool;
@@ -136,6 +145,8 @@ void doveadm_print_deinit(void)
 	if (ctx == NULL)
 		return;
 
+	if (ctx->v->flush != NULL)
+		ctx->v->flush();
 	ctx->v->deinit();
 	array_foreach_modifiable(&ctx->headers, hdr)
 		i_free(hdr->sticky_value);

@@ -51,6 +51,8 @@ static void doveadm_calc_header_length(void)
 	unsigned int i, line, len, hdr_count, value_count, line_count;
 	unsigned int max_length, orig_length, diff;
 
+	ctx->lengths_set = TRUE;
+
 	headers = array_get_modifiable(&ctx->headers, &hdr_count);
 	values = array_get(&ctx->buffered_values, &value_count);
 	i_assert((value_count % hdr_count) == 0);
@@ -169,6 +171,12 @@ static void doveadm_print_table_print(const char *value)
 	doveadm_print_next(value);
 }
 
+static void doveadm_print_table_flush(void)
+{
+	if (!ctx->lengths_set && array_count(&ctx->headers) > 0)
+		doveadm_buffer_flush();
+}
+
 static void doveadm_print_table_init(void)
 {
 	pool_t pool;
@@ -189,9 +197,6 @@ static void doveadm_print_table_init(void)
 
 static void doveadm_print_table_deinit(void)
 {
-	if (!ctx->lengths_set && array_count(&ctx->headers) > 0)
-		doveadm_buffer_flush();
-
 	array_free(&ctx->buffered_values);
 	pool_unref(&ctx->pool);
 	ctx = NULL;
@@ -203,5 +208,6 @@ struct doveadm_print_vfuncs doveadm_print_table_vfuncs = {
 	doveadm_print_table_init,
 	doveadm_print_table_deinit,
 	doveadm_print_table_header,
-	doveadm_print_table_print
+	doveadm_print_table_print,
+	doveadm_print_table_flush
 };

@@ -56,11 +56,16 @@ static void doveadm_print_flow_init(void)
 	p_array_init(&ctx->headers, pool, 16);
 }
 
+static void doveadm_print_flow_flush(void)
+{
+	if (ctx->header_idx != 0) {
+		printf("\n");
+		ctx->header_idx = 0;
+	}
+}
+
 static void doveadm_print_flow_deinit(void)
 {
-	if (ctx->header_idx != 0)
-		printf("\n");
-
 	pool_unref(&ctx->pool);
 	ctx = NULL;
 }
@@ -71,5 +76,6 @@ struct doveadm_print_vfuncs doveadm_print_flow_vfuncs = {
 	doveadm_print_flow_init,
 	doveadm_print_flow_deinit,
 	doveadm_print_flow_header,
-	doveadm_print_flow_print
+	doveadm_print_flow_print,
+	doveadm_print_flow_flush
 };

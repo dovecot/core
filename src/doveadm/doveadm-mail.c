@@ -397,6 +397,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		doveadm_mail_all_users(ctx, wildcard_user, service_flags);
 	}
 	ctx->v.deinit(ctx);
+	doveadm_print_flush();
 
 	if (ctx->failed)
 		exit(FATAL_DEFAULT);
