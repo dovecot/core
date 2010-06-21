@@ -52,7 +52,7 @@ static void user_free(struct user_directory *dir, struct user *user)
 static void user_directory_drop_expired(struct user_directory *dir)
 {
 	while (dir->head != NULL &&
-	       ioloop_time > (time_t)(dir->head->timestamp + dir->timeout_secs))
+	       !user_directory_user_has_connections(dir, dir->head))
 		user_free(dir, dir->head);
 }
 
