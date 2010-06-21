@@ -154,8 +154,12 @@ static void doveadm_buffer_flush(void)
 
 static void doveadm_print_table_print(const char *value)
 {
+	unsigned int line_count;
+
 	if (!ctx->lengths_set) {
-		if (array_count(&ctx->buffered_values) < MAX_BUFFER_LINES) {
+		line_count = array_count(&ctx->buffered_values) /
+			array_count(&ctx->headers);
+		if (line_count < MAX_BUFFER_LINES) {
 			value = p_strdup(ctx->pool, value);
 			array_append(&ctx->buffered_values, &value, 1);
 			return;
