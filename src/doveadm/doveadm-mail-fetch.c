@@ -30,8 +30,6 @@ struct fetch_cmd_context {
 	enum mail_fetch_field wanted_fields;
 
 	const struct fetch_field *cur_field;
-
-	bool print_field_prefix;
 };
 
 struct fetch_field {
@@ -368,8 +366,6 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 		}
 	}
 	(void)array_append_space(&ctx->header_fields);
-
-	ctx->print_field_prefix = array_count(&ctx->fields) > 1;
 }
 
 static void cmd_fetch_mail(struct fetch_cmd_context *ctx)
