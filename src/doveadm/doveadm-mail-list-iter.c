@@ -13,6 +13,7 @@ struct doveadm_mail_list_iter {
 	enum mailbox_list_iter_flags iter_flags;
 
 	struct mailbox_list_iterate_context *iter;
+	bool only_selectable;
 };
 
 static int
@@ -72,11 +73,24 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 	}
 	(void)array_append_space(&patterns);
 
+	iter->only_selectable = TRUE;
 	iter->iter_flags = iter_flags;
 	iter->iter = mailbox_list_iter_init_namespaces(user->namespaces,
 						       array_idx(&patterns, 0),
 						       NAMESPACE_PRIVATE,
 						       iter_flags);
+	return iter;
+}
+
+struct doveadm_mail_list_iter *
+doveadm_mail_list_iter_full_init(struct mail_user *user,
+				 struct mail_search_args *search_args,
+				 enum mailbox_list_iter_flags iter_flags)
+{
+	struct doveadm_mail_list_iter *iter;
+
+	iter = doveadm_mail_list_iter_init(user, search_args, iter_flags);
+	iter->only_selectable = FALSE;
 	return iter;
 }
 
@@ -98,6 +112,11 @@ doveadm_mail_list_iter_next(struct doveadm_mail_list_iter *iter)
 	unsigned int len;
 
 	while ((info = mailbox_list_iter_next(iter->iter)) != NULL) {
+		if ((info->flags & (MAILBOX_NOSELECT |
+				    MAILBOX_NONEXISTENT)) != 0) {
+			if (iter->only_selectable)
+				continue;
+		}
 		len = strlen(info->name);
 		if (len > 0 && info->name[len-1] == info->ns->sep) {
 			/* when listing "foo/%" it lists "foo/". skip it. */

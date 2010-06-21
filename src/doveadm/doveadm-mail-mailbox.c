@@ -120,7 +120,8 @@ cmd_mailbox_list_run(struct doveadm_mail_cmd_context *_ctx,
 	if (ctx->ctx.subscriptions)
 		iter_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED;
 
-	iter = doveadm_mail_list_iter_init(user, ctx->search_args, iter_flags);
+	iter = doveadm_mail_list_iter_full_init(user, ctx->search_args,
+						iter_flags);
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) {
 		str_truncate(str, 0);
 		if (ctx->mutf7 || imap_utf7_to_utf8(info->name, str) < 0)
