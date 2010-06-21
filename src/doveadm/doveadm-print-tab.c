@@ -40,6 +40,22 @@ static void doveadm_print_tab_print(const char *value)
 	}
 }
 
+static void
+doveadm_print_tab_print_stream(const unsigned char *value, size_t size)
+{
+	if (size == 0) {
+		doveadm_print_tab_print("");
+		return;
+	}
+	if (!ctx.header_written) {
+		printf("\n");
+		ctx.header_written = TRUE;
+	}
+	if (ctx.header_idx > 0)
+		printf("\t");
+	printf("%.*s", (int)size, value);
+}
+
 static void doveadm_print_tab_flush(void)
 {
 	if (!ctx.header_written) {
@@ -55,5 +71,6 @@ struct doveadm_print_vfuncs doveadm_print_tab_vfuncs = {
 	NULL,
 	doveadm_print_tab_header,
 	doveadm_print_tab_print,
+	doveadm_print_tab_print_stream,
 	doveadm_print_tab_flush
 };

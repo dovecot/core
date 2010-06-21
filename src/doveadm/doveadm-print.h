@@ -17,6 +17,8 @@ void doveadm_print_header(const char *key, const char *title,
 void doveadm_print_header_simple(const char *key_title);
 void doveadm_print(const char *value);
 void doveadm_print_num(uintmax_t value);
+/* Stream for same field continues until len=0 */
+void doveadm_print_stream(const void *value, size_t size);
 void doveadm_print_sticky(const char *key, const char *value);
 void doveadm_print_flush(void);
 

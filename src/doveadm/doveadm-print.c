@@ -24,7 +24,8 @@ static struct doveadm_print_context *ctx;
 static const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 	&doveadm_print_flow_vfuncs,
 	&doveadm_print_tab_vfuncs,
-	&doveadm_print_table_vfuncs
+	&doveadm_print_table_vfuncs,
+	&doveadm_print_pager_vfuncs
 };
 
 bool doveadm_print_is_initialized(void)
@@ -83,6 +84,11 @@ void doveadm_print_num(uintmax_t value)
 	T_BEGIN {
 		doveadm_print(dec2str(value));
 	} T_END;
+}
+
+void doveadm_print_stream(const void *value, size_t size)
+{
+	ctx->v->print_stream(value, size);
 }
 
 void doveadm_print_sticky(const char *key, const char *value)

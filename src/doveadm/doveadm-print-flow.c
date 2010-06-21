@@ -15,6 +15,8 @@ struct doveadm_print_flow_context {
 	pool_t pool;
 	ARRAY_DEFINE(headers, struct doveadm_print_flow_header);
 	unsigned int header_idx;
+
+	unsigned int streaming:1;
 };
 
 static struct doveadm_print_flow_context *ctx;
@@ -29,6 +31,16 @@ doveadm_print_flow_header(const struct doveadm_print_header *hdr)
 	fhdr->flags = hdr->flags;
 }
 
+static void flow_next_hdr(void)
+{
+	if (++ctx->header_idx < array_count(&ctx->headers))
+		printf(" ");
+	else {
+		ctx->header_idx = 0;
+		printf("\n");
+	}
+}
+
 static void doveadm_print_flow_print(const char *value)
 {
 	const struct doveadm_print_flow_header *hdr =
@@ -37,12 +49,24 @@ static void doveadm_print_flow_print(const char *value)
 	if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0)
 		printf("%s=", hdr->title);
 	printf("%s", value);
+	flow_next_hdr();
+}
 
-	if (++ctx->header_idx < array_count(&ctx->headers))
-		printf(" ");
-	else {
-		ctx->header_idx = 0;
-		printf("\n");
+static void
+doveadm_print_flow_print_stream(const unsigned char *value, size_t size)
+{
+	const struct doveadm_print_flow_header *hdr =
+		array_idx(&ctx->headers, ctx->header_idx);
+
+	if (!ctx->streaming) {
+		ctx->streaming = TRUE;
+		if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0)
+			printf("%s=", hdr->title);
+	}
+	printf("%.*s", (int)size, value);
+	if (size == 0) {
+		flow_next_hdr();
+		ctx->streaming = FALSE;
 	}
 }
 
@@ -77,5 +101,6 @@ struct doveadm_print_vfuncs doveadm_print_flow_vfuncs = {
 	doveadm_print_flow_deinit,
 	doveadm_print_flow_header,
 	doveadm_print_flow_print,
+	doveadm_print_flow_print_stream,
 	doveadm_print_flow_flush
 };

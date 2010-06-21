@@ -171,6 +171,13 @@ static void doveadm_print_table_print(const char *value)
 	doveadm_print_next(value);
 }
 
+static void
+doveadm_print_table_print_stream(const unsigned char *value ATTR_UNUSED,
+				 size_t size ATTR_UNUSED)
+{
+	i_fatal("table formatter doesn't support multi-line values");
+}
+
 static void doveadm_print_table_flush(void)
 {
 	if (!ctx->lengths_set && array_count(&ctx->headers) > 0)
@@ -209,5 +216,6 @@ struct doveadm_print_vfuncs doveadm_print_table_vfuncs = {
 	doveadm_print_table_deinit,
 	doveadm_print_table_header,
 	doveadm_print_table_print,
+	doveadm_print_table_print_stream,
 	doveadm_print_table_flush
 };

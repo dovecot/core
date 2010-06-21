@@ -66,6 +66,7 @@ doveadm_SOURCES = \
 	doveadm-penalty.c \
 	doveadm-print.c \
 	doveadm-print-flow.c \
+	doveadm-print-pager.c \
 	doveadm-print-tab.c \
 	doveadm-print-table.c \
 	doveadm-pw.c \
