@@ -33,7 +33,7 @@ static void pager_next_hdr(void)
 {
 	if (++ctx->header_idx == array_count(&ctx->headers)) {
 		ctx->header_idx = 0;
-		printf("\x0c"); /* ^L */
+		printf("\x0c\n"); /* ^L */
 	}
 }
 
