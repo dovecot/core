@@ -400,6 +400,11 @@ void virtual_config_free(struct virtual_mailbox *mbox)
 	struct virtual_backend_box *const *bboxes;
 	unsigned int i, count;
 
+	if (!array_is_created(&mbox->backend_boxes)) {
+		/* mailbox wasn't opened */
+		return;
+	}
+
 	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
 		if (bboxes[i]->search_args != NULL)
