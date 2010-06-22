@@ -143,6 +143,7 @@ static void fts_build_mail_header(struct fts_storage_build_context *ctx,
 
 static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 {
+	enum message_decoder_flags decoder_flags = MESSAGE_DECODER_FLAG_DTCASE;
 	struct istream *input;
 	struct message_parser_ctx *parser;
 	struct message_decoder_context *decoder;
@@ -160,8 +161,11 @@ static int fts_build_mail(struct fts_storage_build_context *ctx, uint32_t uid)
 	parser = message_parser_init(pool_datastack_create(), input,
 				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
 				     0);
-	decoder = message_decoder_init(MESSAGE_DECODER_FLAG_DTCASE |
-				       MESSAGE_DECODER_FLAG_RETURN_BINARY);
+
+
+	if ((ctx->build->backend->flags & FTS_BACKEND_FLAG_BINARY_MIME_PARTS) != 0)
+		decoder_flags |= MESSAGE_DECODER_FLAG_RETURN_BINARY;
+	decoder = message_decoder_init(decoder_flags);
 	for (;;) {
 		ret = message_parser_parse_next_block(parser, &raw_block);
 		i_assert(ret != 0);

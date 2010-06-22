@@ -50,7 +50,9 @@ enum fts_backend_flags {
 	   optimized. */
 	FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS	= 0x01,
 	/* Backend supports virtual mailbox lookups. */
-	FTS_BACKEND_FLAG_VIRTUAL_LOOKUPS	= 0x02
+	FTS_BACKEND_FLAG_VIRTUAL_LOOKUPS	= 0x02,
+	/* Backend supports indexing binary MIME parts */
+	FTS_BACKEND_FLAG_BINARY_MIME_PARTS	= 0x04
 };
 
 struct fts_backend {
