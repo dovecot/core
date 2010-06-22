@@ -147,7 +147,7 @@ shared_list_join_refpattern(struct mailbox_list *list,
 		ns_ref = NULL;
 
 	if (ns_ref != NULL && shared_storage_get_namespace(&ns, &ns_ref) == 0)
-		return mailbox_list_join_refpattern(ns->list, ns_ref, pattern);
+		return mailbox_list_join_refpattern(ns->list, ref, pattern);
 
 	/* fallback to default behavior */
 	if (*ref != '\0')
