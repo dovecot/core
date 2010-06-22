@@ -29,6 +29,7 @@ struct solr_fts_backend_build_context {
 	uint32_t prev_uid, uid_validity;
 	string_t *cmd;
 	bool headers;
+	bool field_open;
 };
 
 struct solr_virtual_uid_map_context {
@@ -569,7 +570,11 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_build_context *ctx,
 		ctx->post = solr_connection_post_begin(solr_conn);
 		str_append(ctx->cmd, "<add>");
 	} else {
-		str_append(ctx->cmd, "</field></doc>");
+		if (ctx->field_open) {
+			str_append(ctx->cmd, "</field>");
+			ctx->field_open = FALSE;
+		}
+		str_append(ctx->cmd, "</doc>");
 	}
 	ctx->prev_uid = uid;
 	ctx->headers = FALSE;
@@ -591,9 +596,15 @@ fts_backend_solr_build_hdr(struct fts_backend_build_context *_ctx,
 		fts_backend_solr_uid_changed(ctx, uid);
 	else {
 		i_assert(!ctx->headers);
-		str_append(ctx->cmd, "</field>");
+
+		if (ctx->field_open) {
+			str_append(ctx->cmd, "</field>");
+			ctx->field_open = FALSE;
+		}
 	}
 
+	i_assert(!ctx->field_open);
+	ctx->field_open = TRUE;
 	ctx->headers = TRUE;
 	str_append(ctx->cmd, "<field name=\"hdr\">");
 }
@@ -616,6 +627,8 @@ fts_backend_solr_build_body_begin(struct fts_backend_build_context *_ctx,
 		i_assert(!ctx->headers);
 	}
 
+	i_assert(!ctx->field_open);
+	ctx->field_open = TRUE;
 	ctx->headers = FALSE;
 	str_append(ctx->cmd, "<field name=\"body\">");
 	return TRUE;
@@ -645,7 +658,11 @@ fts_backed_solr_build_commit(struct solr_fts_backend_build_context *ctx)
 	if (ctx->post == NULL)
 		return 0;
 
-	str_append(ctx->cmd, "</field></doc>");
+	if (ctx->field_open) {
+		str_append(ctx->cmd, "</field>");
+		ctx->field_open = FALSE;
+	}
+	str_append(ctx->cmd, "</doc>");
 
 	/* Update the mailbox's last_uid field, replacing the existing
 	   document. Note that since there is no locking, it's possible that
