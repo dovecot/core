@@ -45,7 +45,6 @@ struct mdbox_storage_rebuild_context {
 	ARRAY_DEFINE(msgs, struct mdbox_rebuild_msg *);
 
 	uint32_t rebuild_count;
-	uint32_t prev_file_id;
 	uint32_t highest_seen_map_uid;
 
 	struct mailbox_list *default_list;
@@ -54,8 +53,6 @@ struct mdbox_storage_rebuild_context {
 	struct mail_index_transaction *trans;
 
 	struct rebuild_msg_mailbox prev_msg;
-
-	unsigned int msgs_unsorted:1;
 };
 
 static unsigned int guid_hash(const void *p)
@@ -143,7 +140,7 @@ static int mdbox_rebuild_msg_uid_cmp(struct mdbox_rebuild_msg *const *m1,
 }
 
 static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
-			      struct dbox_file *file)
+			      struct dbox_file *file, uint32_t file_id)
 {
 	const char *guid;
 	struct mdbox_rebuild_msg *rec;
@@ -193,7 +190,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		}
 
 		rec = p_new(ctx->pool, struct mdbox_rebuild_msg, 1);
-		rec->file_id = ctx->prev_file_id;
+		rec->file_id = file_id;
 		rec->offset = offset;
 		rec->size = file->input->v_offset - offset;
 		mail_generate_guid_128_hash(guid, rec->guid_128);
@@ -241,15 +238,9 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 		return 0;
 	}
 
-	/* small optimization: typically files are returned sorted. in that
-	   case we don't need to sort them ourself. */
-	if (file_id < ctx->prev_file_id)
-		ctx->msgs_unsorted = TRUE;
-	ctx->prev_file_id = file_id;
-
 	file = mdbox_file_init(ctx->storage, file_id);
 	if ((ret = dbox_file_open(file, &deleted)) > 0 && !deleted)
-		ret = rebuild_file_mails(ctx, file);
+		ret = rebuild_file_mails(ctx, file, file_id);
 	if (ret == 0)
 		i_error("mdbox rebuild: Failed to fix file %s", path);
 	dbox_file_unref(&file);
@@ -293,8 +284,7 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 	uint32_t seq;
 	unsigned int count;
 
-	if (ctx->msgs_unsorted)
-		array_sort(&ctx->msgs, mdbox_rebuild_msg_offset_cmp);
+	array_sort(&ctx->msgs, mdbox_rebuild_msg_offset_cmp);
 
 	msgs = array_get_modifiable(&ctx->msgs, &count);
 	hdr = mail_index_get_header(ctx->sync_view);
