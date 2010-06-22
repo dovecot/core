@@ -627,10 +627,11 @@ fts_backend_solr_build_body_begin(struct fts_backend_build_context *_ctx,
 		i_assert(!ctx->headers);
 	}
 
-	i_assert(!ctx->field_open);
-	ctx->field_open = TRUE;
-	ctx->headers = FALSE;
-	str_append(ctx->cmd, "<field name=\"body\">");
+	if (!ctx->field_open) {
+		ctx->field_open = TRUE;
+		ctx->headers = FALSE;
+		str_append(ctx->cmd, "<field name=\"body\">");
+	}
 	return TRUE;
 }
 
