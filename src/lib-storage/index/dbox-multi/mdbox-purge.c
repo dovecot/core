@@ -524,7 +524,7 @@ int mdbox_purge(struct mail_storage *_storage)
 	while (seq_range_array_iter_nth(&iter, i++, &file_id)) T_BEGIN {
 		file = mdbox_file_init(storage, file_id);
 		if (dbox_file_open(file, &deleted) > 0 && !deleted) {
-			if (mdbox_file_purge(ctx, file) < 0)
+			if (mdbox_file_purge(ctx, file) <= 0)
 				ret = -1;
 		} else {
 			mdbox_map_remove_file_id(storage->map, file_id);
