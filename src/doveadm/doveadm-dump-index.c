@@ -498,22 +498,42 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 	}
 }
 
+static bool dir_has_index(const char *dir, const char *name)
+{
+	struct stat st;
+
+	return stat(t_strconcat(dir, "/", name, NULL), &st) == 0 ||
+		stat(t_strconcat(dir, "/", name, ".log", NULL), &st) == 0;
+}
+
+static struct mail_index *path_open_index(const char *path)
+{
+	struct stat st;
+	const char *p;
+
+	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+		if (dir_has_index(path, "dovecot.index"))
+			return mail_index_alloc(path, "dovecot.index");
+		else if (dir_has_index(path, "dovecot.map.index"))
+			return mail_index_alloc(path, "dovecot.map.index");
+		else
+			return NULL;
+	} else if ((p = strrchr(path, '/')) != NULL)
+		return mail_index_alloc(t_strdup_until(path, p), p + 1);
+	else
+		return mail_index_alloc(".", path);
+}
+
 static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])
 {
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache_view *cache_view;
-	struct stat st;
-	const char *p;
 	unsigned int seq, uid = 0;
 
-	if (stat(argv[1], &st) == 0 && S_ISDIR(st.st_mode))
-		index = mail_index_alloc(argv[1], "dovecot.index");
-	else if ((p = strrchr(argv[1], '/')) != NULL)
-		index = mail_index_alloc(t_strdup_until(argv[1], p), p + 1);
-	else
-		index = mail_index_alloc(".", argv[1]);
-	if (mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
+	index = path_open_index(argv[1]);
+	if (index == NULL ||
+	    mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
 			    FILE_LOCK_METHOD_FCNTL) <= 0)
 		i_fatal("Couldn't open index %s", argv[1]);
 	if (argv[2] != NULL)
@@ -551,16 +571,11 @@ static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])
 static bool test_dump_index(const char *path)
 {
 	struct mail_index *index;
-	struct stat st;
-	const char *p;
 	bool ret;
 
-	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
-		index = mail_index_alloc(path, "dovecot.index");
-	else if ((p = strrchr(path, '/')) != NULL)
-		index = mail_index_alloc(t_strdup_until(path, p), p + 1);
-	else
-		index = mail_index_alloc(".", path);
+	index = path_open_index(path);
+	if (index == NULL)
+		return FALSE;
 
 	ret = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
 			      FILE_LOCK_METHOD_FCNTL) > 0;
