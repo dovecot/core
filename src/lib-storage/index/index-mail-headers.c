@@ -722,13 +722,14 @@ index_mail_headers_decode(struct index_mail *mail, const char *const **_list,
 	for (i = 0; i < count; i++) {
 		str_truncate(str, 0);
 		input = list[i];
-		if (message_header_decode_utf8((const unsigned char *)input,
-					       strlen(list[i]), str, FALSE))
-			input = str_c(str);
+		/* unfold all lines into a single line */
 		if (unfold_header(mail->data_pool, &input) < 0)
 			return -1;
-		if (input == str->data)
-			input = p_strdup(mail->data_pool, input);
+
+		/* decode MIME encoded-words. decoding may also add new LFs. */
+		if (message_header_decode_utf8((const unsigned char *)input,
+					       strlen(list[i]), str, FALSE))
+			input = p_strdup(mail->data_pool, str_c(str));
 		decoded_list[i] = input;
 	}
 	*_list = decoded_list;
