@@ -113,9 +113,8 @@ static int mail_search_build_list(struct mail_search_build_context *ctx,
 			   belong to this type. */
 			cur_type = sarg->type;
 		} else {
-			ctx->_error = cur_type == SEARCH_OR ?
-				"Use parenthesis when using ORs" :
-				"Use parenthesis when mixing subtypes";
+			ctx->_error =
+				"Use parenthesis when mixing ANDs and ORs";
 			return -1;
 		}
 		subargs = &(*subargs)->next;
