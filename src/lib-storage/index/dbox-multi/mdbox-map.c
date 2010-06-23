@@ -57,6 +57,9 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list,
 	map->set = storage->set;
 	map->path = i_strdup(path);
 	map->index = mail_index_alloc(path, MDBOX_GLOBAL_INDEX_PREFIX);
+	mail_index_set_lock_method(map->index,
+		MAP_STORAGE(map)->set->parsed_lock_method,
+		mail_storage_get_lock_timeout(MAP_STORAGE(map), -1U));
 	map->root_list = root_list;
 	map->map_ext_id = mail_index_ext_register(map->index, "map",
 				sizeof(struct mdbox_map_mail_index_header),
@@ -137,8 +140,7 @@ static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 		if (mdbox_map_mkdir_storage(map) < 0)
 			return -1;
 	}
-	ret = mail_index_open(map->index, open_flags,
-			      MAP_STORAGE(map)->set->parsed_lock_method);
+	ret = mail_index_open(map->index, open_flags);
 	if (ret < 0) {
 		mail_storage_set_internal_error(MAP_STORAGE(map));
 		mail_index_reset_error(map->index);

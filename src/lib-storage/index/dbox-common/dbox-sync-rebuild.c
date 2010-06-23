@@ -168,8 +168,9 @@ dbox_sync_index_rebuild_init(struct mailbox *box,
 	if (box->storage->set->mmap_disable)
 #endif
 		open_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
-	if (mail_index_open(ctx->backup_index, open_flags,
-			    box->storage->set->parsed_lock_method) <= 0)
+	mail_index_set_lock_method(ctx->backup_index,
+				   box->storage->set->parsed_lock_method, -1U);
+	if (mail_index_open(ctx->backup_index, open_flags) <= 0)
 		mail_index_free(&ctx->backup_index);
 	else
 		ctx->backup_view = mail_index_view_open(ctx->backup_index);

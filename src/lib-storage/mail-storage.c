@@ -1466,3 +1466,10 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 	*fd_r = fd;
 	return 1;
 }
+
+unsigned int mail_storage_get_lock_timeout(struct mail_storage *storage,
+					   unsigned int secs)
+{
+	return storage->set->mail_max_lock_timeout == 0 ? secs :
+		I_MIN(secs, storage->set->mail_max_lock_timeout);
+}

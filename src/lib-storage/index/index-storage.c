@@ -187,8 +187,6 @@ void index_storage_lock_notify_reset(struct mailbox *box)
 int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
-	enum file_lock_method lock_method =
-		box->storage->set->parsed_lock_method;
 	enum mail_index_open_flags index_flags;
 	int ret;
 
@@ -211,7 +209,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 		return -1;
 	}
 
-	ret = mail_index_open(box->index, index_flags, lock_method);
+	ret = mail_index_open(box->index, index_flags);
 	if (ret <= 0 || move_to_memory) {
 		if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
 			i_assert(ret <= 0);
@@ -223,8 +221,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 			/* try opening once more. it should be created
 			   directly into memory now. */
 			if (mail_index_open_or_create(box->index,
-						      index_flags,
-						      lock_method) < 0)
+						      index_flags) < 0)
 				i_panic("in-memory index creation failed");
 		}
 	}
@@ -290,6 +287,9 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 	mail_index_set_permissions(box->index, box->file_create_mode,
 				   box->file_create_gid,
 				   box->file_create_gid_origin);
+	mail_index_set_lock_method(box->index,
+		box->storage->set->parsed_lock_method,
+		mail_storage_get_lock_timeout(box->storage, -1U));
 }
 
 int index_storage_mailbox_enable(struct mailbox *box,

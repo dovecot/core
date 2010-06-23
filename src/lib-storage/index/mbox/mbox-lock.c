@@ -405,7 +405,8 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 	memset(&set, 0, sizeof(set));
 	set.use_excl_lock = mbox->storage->storage.set->dotlock_use_excl;
 	set.nfs_flush = mbox->storage->storage.set->mail_nfs_storage;
-	set.timeout = mbox->storage->set->mbox_lock_timeout;
+	set.timeout = mail_storage_get_lock_timeout(&mbox->storage->storage,
+				mbox->storage->set->mbox_lock_timeout);
 	set.stale_timeout = mbox->storage->set->mbox_dotlock_change_timeout;
 	set.callback = dotlock_callback;
 	set.context = ctx;
@@ -707,7 +708,9 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 		return 1;
 	}
 
-	max_wait_time = time(NULL) + mbox->storage->set->mbox_lock_timeout;
+	max_wait_time = time(NULL) +
+		mail_storage_get_lock_timeout(&mbox->storage->storage,
+			mbox->storage->set->mbox_lock_timeout);
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.mbox = mbox;

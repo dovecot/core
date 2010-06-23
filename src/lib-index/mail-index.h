@@ -213,15 +213,17 @@ void mail_index_set_fsync_types(struct mail_index *index,
 				enum mail_index_sync_type fsync_mask);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid, const char *gid_origin);
+/* Set locking method and maximum time to wait for a lock (-1U = default). */
+void mail_index_set_lock_method(struct mail_index *index,
+				enum file_lock_method lock_method,
+				unsigned int max_timeout_secs);
 
 /* Open index. Returns 1 if ok, 0 if index doesn't exist and CREATE flags
    wasn't given, -1 if error. */
-int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
-		    enum file_lock_method lock_method);
+int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
 /* Open or create index. Returns 0 if ok, -1 if error. */
 int mail_index_open_or_create(struct mail_index *index,
-			      enum mail_index_open_flags flags,
-			      enum file_lock_method lock_method);
+			      enum mail_index_open_flags flags);
 void mail_index_close(struct mail_index *index);
 /* unlink() all the index files. */
 int mail_index_unlink(struct mail_index *index);

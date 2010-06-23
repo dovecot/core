@@ -81,7 +81,9 @@ maildir_keywords_init_readonly(struct mailbox *box)
 		box->storage->set->dotlock_use_excl;
 	mk->dotlock_settings.nfs_flush =
 		box->storage->set->mail_nfs_storage;
-	mk->dotlock_settings.timeout = KEYWORDS_LOCK_STALE_TIMEOUT + 2;
+	mk->dotlock_settings.timeout =
+		mail_storage_get_lock_timeout(box->storage,
+					      KEYWORDS_LOCK_STALE_TIMEOUT + 2);
 	mk->dotlock_settings.stale_timeout = KEYWORDS_LOCK_STALE_TIMEOUT;
 	mk->dotlock_settings.temp_prefix =
 		mailbox_list_get_temp_prefix(box->list);

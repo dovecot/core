@@ -414,7 +414,8 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
 	cache->dotlock_settings.nfs_flush =
 		(index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
-	cache->dotlock_settings.timeout = MAIL_CACHE_LOCK_TIMEOUT;
+	cache->dotlock_settings.timeout =
+		I_MIN(MAIL_CACHE_LOCK_TIMEOUT, index->max_lock_timeout_secs);
 	cache->dotlock_settings.stale_timeout = MAIL_CACHE_LOCK_CHANGE_TIMEOUT;
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index) &&
@@ -488,6 +489,7 @@ void mail_cache_free(struct mail_cache **_cache)
 
 static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 {
+	unsigned int timeout_secs;
 	int ret;
 
 	if (cache->last_lock_failed) {
@@ -498,9 +500,12 @@ static int mail_cache_lock_file(struct mail_cache *cache, bool nonblock)
 
 	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 		i_assert(cache->file_lock == NULL);
+		timeout_secs = I_MIN(MAIL_CACHE_LOCK_TIMEOUT,
+				     cache->index->max_lock_timeout_secs);
+
 		ret = mail_index_lock_fd(cache->index, cache->filepath,
 					 cache->fd, F_WRLCK,
-					 nonblock ? 0 : MAIL_CACHE_LOCK_TIMEOUT,
+					 nonblock ? 0 : timeout_secs,
 					 &cache->file_lock);
 	} else {
 		enum dotlock_create_flags flags =

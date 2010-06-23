@@ -533,8 +533,7 @@ static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])
 
 	index = path_open_index(argv[1]);
 	if (index == NULL ||
-	    mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
-			    FILE_LOCK_METHOD_FCNTL) <= 0)
+	    mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY) <= 0)
 		i_fatal("Couldn't open index %s", argv[1]);
 	if (argv[2] != NULL)
 		uid = atoi(argv[2]);
@@ -577,8 +576,7 @@ static bool test_dump_index(const char *path)
 	if (index == NULL)
 		return FALSE;
 
-	ret = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY,
-			      FILE_LOCK_METHOD_FCNTL) > 0;
+	ret = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY) > 0;
 	if (ret > 0)
 		mail_index_close(index);
 	mail_index_free(&index);

@@ -457,19 +457,18 @@ static int index_mailbox_list_open_indexes(struct mailbox_list *list,
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
 	const char *path;
 	enum mail_index_open_flags index_flags = 0;
-	enum file_lock_method lock_method = list->mail_set->parsed_lock_method;
 	int ret;
 
 	index_flags = mail_storage_settings_to_index_flags(list->mail_set);
 
-	if (mail_index_open_or_create(ilist->mail_index, index_flags,
-				      lock_method) < 0) {
+	mail_index_set_lock_method(ilist->mail_index,
+				   list->mail_set->parsed_lock_method, -1U);
+	if (mail_index_open_or_create(ilist->mail_index, index_flags) < 0) {
 		if (mail_index_move_to_memory(ilist->mail_index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
 			ret = mail_index_open_or_create(ilist->mail_index,
-							index_flags,
-							lock_method);
+							index_flags);
 			if (ret < 0) {
 				/* everything failed. there's a bug in the
 				   code, but just work around it by disabling

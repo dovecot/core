@@ -15,6 +15,7 @@ struct mail_storage_settings {
 	unsigned int mail_cache_min_mail_count;
 	unsigned int mailbox_idle_check_interval;
 	unsigned int mail_max_keyword_length;
+	unsigned int mail_max_lock_timeout;
 	bool mail_save_crlf;
 	bool fsync_disable;
 	bool mmap_disable;

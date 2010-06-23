@@ -469,5 +469,7 @@ void mailbox_refresh_permissions(struct mailbox *box);
 /* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */
 int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 		      int *fd_r);
+unsigned int mail_storage_get_lock_timeout(struct mail_storage *storage,
+					   unsigned int secs);
 
 #endif

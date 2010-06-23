@@ -208,6 +208,7 @@ struct mail_index {
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id_counter;
 	enum file_lock_method lock_method;
+	unsigned int max_lock_timeout_secs;
 
 	struct file_lock *file_lock;
 	struct dotlock *dotlock;

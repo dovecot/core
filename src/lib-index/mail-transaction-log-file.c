@@ -320,6 +320,7 @@ mail_transaction_log_file_undotlock(struct mail_transaction_log_file *file)
 
 int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 {
+	unsigned int lock_timeout_secs;
 	int ret;
 
 	if (file->locked)
@@ -334,8 +335,10 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		return mail_transaction_log_file_dotlock(file);
 
 	i_assert(file->file_lock == NULL);
+	lock_timeout_secs = I_MIN(MAIL_TRANSCATION_LOG_LOCK_TIMEOUT,
+				  file->log->index->max_lock_timeout_secs);
 	ret = mail_index_lock_fd(file->log->index, file->filepath, file->fd,
-				 F_WRLCK, MAIL_TRANSCATION_LOG_LOCK_TIMEOUT,
+				 F_WRLCK, lock_timeout_secs,
 				 &file->file_lock);
 	if (ret > 0) {
 		file->locked = TRUE;

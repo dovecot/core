@@ -37,7 +37,9 @@ mail_transaction_log_alloc(struct mail_index *index)
 	log = i_new(struct mail_transaction_log, 1);
 	log->index = index;
 
-	log->dotlock_settings.timeout = MAIL_TRANSCATION_LOG_LOCK_TIMEOUT;
+	log->dotlock_settings.timeout =
+		I_MIN(MAIL_TRANSCATION_LOG_LOCK_TIMEOUT,
+		      index->max_lock_timeout_secs);;
 	log->dotlock_settings.stale_timeout =
 		MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT;
 

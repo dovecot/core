@@ -273,7 +273,8 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	uidlist->dotlock_settings.nfs_flush =
 		mbox->box.storage->set->mail_nfs_storage;
 	uidlist->dotlock_settings.timeout =
-		MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT + 2;
+		mail_storage_get_lock_timeout(&mbox->storage->storage,
+			MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT + 2);
 	uidlist->dotlock_settings.stale_timeout =
 		MAILDIR_UIDLIST_LOCK_STALE_TIMEOUT;
 	uidlist->dotlock_settings.callback = dotlock_callback;

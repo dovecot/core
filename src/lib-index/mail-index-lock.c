@@ -139,10 +139,12 @@ void mail_index_flush_read_cache(struct mail_index *index, const char *path,
 
 int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r)
 {
+	unsigned int timeout_secs;
 	int ret;
 
-	ret = mail_index_lock(index, F_RDLCK, MAIL_INDEX_SHARED_LOCK_TIMEOUT,
-			      lock_id_r);
+	timeout_secs = I_MIN(MAIL_INDEX_SHARED_LOCK_TIMEOUT,
+			     index->max_lock_timeout_secs);
+	ret = mail_index_lock(index, F_RDLCK, timeout_secs, lock_id_r);
 	if (ret > 0) {
 		mail_index_flush_read_cache(index, index->filepath,
 					    index->fd, TRUE);

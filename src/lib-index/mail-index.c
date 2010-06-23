@@ -44,6 +44,8 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
+	index->lock_method = FILE_LOCK_METHOD_FCNTL;
+	index->max_lock_timeout_secs = -1U;
 
 	index->keywords_ext_id =
 		mail_index_ext_register(index, MAIL_INDEX_EXT_KEYWORDS,
@@ -96,6 +98,14 @@ void mail_index_set_permissions(struct mail_index *index,
 
 	i_free(index->gid_origin);
 	index->gid_origin = i_strdup(gid_origin);
+}
+
+void mail_index_set_lock_method(struct mail_index *index,
+				enum file_lock_method lock_method,
+				unsigned int max_timeout_secs)
+{
+	index->lock_method = lock_method;
+	index->max_lock_timeout_secs = max_timeout_secs;
 }
 
 uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
@@ -482,8 +492,7 @@ static int mail_index_open_files(struct mail_index *index,
 	return 1;
 }
 
-int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
-		    enum file_lock_method lock_method)
+int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 {
 	int ret;
 
@@ -508,7 +517,6 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	index->log_locked = FALSE;
 	index->flags = flags;
 	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
-	index->lock_method = lock_method;
 
 	if ((flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
 	    (flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0)
@@ -530,13 +538,12 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 }
 
 int mail_index_open_or_create(struct mail_index *index,
-			      enum mail_index_open_flags flags,
-			      enum file_lock_method lock_method)
+			      enum mail_index_open_flags flags)
 {
 	int ret;
 
 	flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
-	ret = mail_index_open(index, flags, lock_method);
+	ret = mail_index_open(index, flags);
 	i_assert(ret != 0);
 	return ret < 0 ? -1 : 0;
 }
