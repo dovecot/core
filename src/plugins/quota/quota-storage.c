@@ -426,9 +426,12 @@ struct quota *quota_get_mail_user_quota(struct mail_user *user)
 static void quota_user_deinit(struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
+	struct quota_settings *quota_set = quser->quota->set;
 
 	quota_deinit(&quser->quota);
 	quser->module_ctx.super.deinit(user);
+
+	quota_settings_deinit(&quota_set);
 }
 
 void quota_mail_user_created(struct mail_user *user)
