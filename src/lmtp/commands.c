@@ -95,9 +95,9 @@ int cmd_mail(struct client *client, const char *args)
 
 	for (argv++; *argv != NULL; argv++) {
 		if (strcasecmp(*argv, "BODY=7BIT") == 0)
-			client->mail_body_7bit = TRUE;
+			client->state.mail_body_7bit = TRUE;
 		else if (strcasecmp(*argv, "BODY=8BITMIME") == 0)
-			client->mail_body_8bitmime = TRUE;
+			client->state.mail_body_8bitmime = TRUE;
 		else {
 			client_send_line(client,
 				"501 5.5.4 Unsupported options");
@@ -263,9 +263,9 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		client->proxy = lmtp_proxy_init(client->set->hostname,
 						dns_client_socket_path,
 						client->output);
-		if (client->mail_body_8bitmime)
+		if (client->state.mail_body_8bitmime)
 			args = " BODY=8BITMIME";
-		else if (client->mail_body_7bit)
+		else if (client->state.mail_body_7bit)
 			args = " BODY=7BIT";
 		else
 			args = "";
