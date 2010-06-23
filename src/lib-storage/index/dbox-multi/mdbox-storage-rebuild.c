@@ -41,11 +41,14 @@ struct mdbox_storage_rebuild_context {
 	struct mdbox_storage *storage;
 	pool_t pool;
 
+	struct mdbox_map_mail_index_header orig_map_hdr;
 	struct hash_table *guid_hash;
 	ARRAY_DEFINE(msgs, struct mdbox_rebuild_msg *);
+	ARRAY_TYPE(seq_range) seen_file_ids;
 
 	uint32_t rebuild_count;
 	uint32_t highest_seen_map_uid;
+	uint32_t highest_file_id;
 
 	struct mailbox_list *default_list;
 	struct mail_index_sync_ctx *sync_ctx;
@@ -88,6 +91,7 @@ mdbox_storage_rebuild_init(struct mdbox_storage *storage)
 	ctx->guid_hash = hash_table_create(default_pool, ctx->pool, 0,
 					   guid_hash, guid_cmp);
 	i_array_init(&ctx->msgs, 512);
+	i_array_init(&ctx->seen_file_ids, 128);
 
 	ctx->storage->rebuilding_storage = TRUE;
 	return ctx;
@@ -104,6 +108,7 @@ mdbox_storage_rebuild_deinit(struct mdbox_storage_rebuild_context *ctx)
 
 	hash_table_destroy(&ctx->guid_hash);
 	pool_unref(&ctx->pool);
+	array_free(&ctx->seen_file_ids);
 	array_free(&ctx->msgs);
 	i_free(ctx);
 }
@@ -213,36 +218,71 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		return 1;
 }
 
+static int
+rebuild_rename_file(struct mdbox_storage_rebuild_context *ctx,
+		    const char *dir, const char **fname_p, uint32_t *file_id_r)
+{
+	const char *old_path, *new_path, *fname = *fname_p;
+
+	old_path = t_strconcat(dir, "/", fname, NULL);
+	do {
+		new_path = t_strdup_printf("%s/"MDBOX_MAIL_FILE_FORMAT,
+					   dir, ++ctx->highest_file_id);
+		/* use link()+unlink() instead of rename() to make sure we
+		   don't overwrite any files. */
+		if (link(old_path, new_path) == 0) {
+			if (unlink(old_path) < 0)
+				i_error("unlink(%s) failed: %m", old_path);
+			*fname_p = strrchr(new_path, '/') + 1;
+			*file_id_r = ctx->highest_file_id;
+			return 0;
+		}
+	} while (errno == EEXIST);
+
+	i_error("link(%s, %s) failed: %m", old_path, new_path);
+	return -1;
+}
+
 static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
-			    const char *path)
+			    const char *dir, const char *fname)
 {
 	struct dbox_file *file;
 	uint32_t file_id;
-	const char *fname, *ext;
+	const char *id_str, *ext;
 	bool deleted;
 	int ret = 0;
 
-	fname = strrchr(path, '/');
-	i_assert(fname != NULL);
-	fname += strlen(MDBOX_MAIL_FILE_PREFIX) + 1;
-
-	if (str_to_uint32(fname, &file_id) < 0 || file_id == 0) {
+	id_str = fname + strlen(MDBOX_MAIL_FILE_PREFIX);
+	if (str_to_uint32(id_str, &file_id) < 0 || file_id == 0) {
 		/* m.*.broken files are created by file fixing
 		   m.*.lock files are created if flock() isn't available */
-		ext = strrchr(fname, '.');
+		ext = strrchr(id_str, '.');
 		if (ext == NULL || (strcmp(ext, ".broken") != 0 &&
 				    strcmp(ext, ".lock") != 0)) {
 			i_warning("mdbox rebuild: "
-				  "Skipping file with missing ID: %s", path);
+				  "Skipping file with missing ID: %s/%s",
+				  dir, fname);
 		}
 		return 0;
 	}
+	if (!seq_range_exists(&ctx->seen_file_ids, file_id)) {
+		if (ctx->highest_file_id < file_id)
+			ctx->highest_file_id = file_id;
+	} else {
+		/* duplicate file. either readdir() returned it twice
+		   (unlikely) or it exists in both alt and primary storage.
+		   to make sure we don't lose any mails from either of the
+		   files, give this file a new ID and rename it. */
+		if (rebuild_rename_file(ctx, dir, &fname, &file_id) < 0)
+			return -1;
+	}
+	seq_range_array_add(&ctx->seen_file_ids, 0, file_id);
 
 	file = mdbox_file_init(ctx->storage, file_id);
 	if ((ret = dbox_file_open(file, &deleted)) > 0 && !deleted)
 		ret = rebuild_file_mails(ctx, file, file_id);
 	if (ret == 0)
-		i_error("mdbox rebuild: Failed to fix file %s", path);
+		i_error("mdbox rebuild: Failed to fix file %s/%s", dir, fname);
 	dbox_file_unref(&file);
 	return ret < 0 ? -1 : 0;
 }
@@ -739,16 +779,21 @@ static void rebuild_update_refcounts(struct mdbox_storage_rebuild_context *ctx)
 
 static int rebuild_finish(struct mdbox_storage_rebuild_context *ctx)
 {
+	struct mdbox_map_mail_index_header map_hdr;
+
 	i_assert(ctx->default_list != NULL);
 
 	if (rebuild_handle_zero_refs(ctx) < 0)
 		return -1;
 	rebuild_update_refcounts(ctx);
 
-	ctx->rebuild_count++;
+	/* update map header */
+	map_hdr = ctx->orig_map_hdr;
+	map_hdr.highest_file_id = ctx->highest_file_id;
+	map_hdr.rebuild_count = ++ctx->rebuild_count;
+
 	mail_index_update_header_ext(ctx->trans, ctx->storage->map->map_ext_id,
-		offsetof(struct mdbox_map_mail_index_header, rebuild_count),
-		&ctx->rebuild_count, sizeof(ctx->rebuild_count));
+				     0, &map_hdr, sizeof(map_hdr));
 	return 0;
 }
 
@@ -758,8 +803,6 @@ mdbox_storage_rebuild_scan_dir(struct mdbox_storage_rebuild_context *ctx,
 {
 	DIR *dir;
 	struct dirent *d;
-	string_t *path;
-	unsigned int dir_len;
 	int ret = 0;
 
 	dir = opendir(storage_dir);
@@ -771,24 +814,11 @@ mdbox_storage_rebuild_scan_dir(struct mdbox_storage_rebuild_context *ctx,
 			"opendir(%s) failed: %m", storage_dir);
 		return -1;
 	}
-	path = t_str_new(256);
-	str_append(path, storage_dir);
-	str_append_c(path, '/');
-	dir_len = str_len(path);
-
-	for (errno = 0; (d = readdir(dir)) != NULL; errno = 0) {
+	for (errno = 0; (d = readdir(dir)) != NULL && ret == 0; errno = 0) {
 		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX,
-			    strlen(MDBOX_MAIL_FILE_PREFIX)) == 0) {
-			str_truncate(path, dir_len);
-			str_append(path, d->d_name);
-			T_BEGIN {
-				ret = rebuild_add_file(ctx, str_c(path));
-			} T_END;
-			if (ret < 0) {
-				ret = -1;
-				break;
-			}
-		}
+			    strlen(MDBOX_MAIL_FILE_PREFIX)) == 0) T_BEGIN {
+			ret = rebuild_add_file(ctx, storage_dir, d->d_name);
+		} T_END;
 	}
 	if (ret == 0 && errno != 0) {
 		mail_storage_set_critical(&ctx->storage->storage.storage,
@@ -805,6 +835,8 @@ mdbox_storage_rebuild_scan_dir(struct mdbox_storage_rebuild_context *ctx,
 
 static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 {
+	const void *data;
+	size_t data_size;
 	int ret = 0;
 
 	if (mdbox_map_open_or_create(ctx->storage->map) < 0)
@@ -820,6 +852,14 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 		mail_index_reset_error(ctx->storage->map->index);
 		return -1;
 	}
+
+	/* get old map header */
+	mail_index_get_header_ext(ctx->sync_view, ctx->storage->map->map_ext_id,
+				  &data, &data_size);
+	memset(&ctx->orig_map_hdr, 0, sizeof(ctx->orig_map_hdr));
+	memcpy(&ctx->orig_map_hdr, data,
+	       I_MIN(data_size, sizeof(ctx->orig_map_hdr)));
+	ctx->highest_file_id = ctx->orig_map_hdr.highest_file_id;
 
 	/* get storage rebuild counter after locking */
 	ctx->rebuild_count = mdbox_map_get_rebuild_count(ctx->storage->map);
