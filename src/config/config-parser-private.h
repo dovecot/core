@@ -54,6 +54,8 @@ struct config_parser_context {
 	unsigned int expand_values:1;
 };
 
+extern void (*hook_config_parser_begin)(struct config_parser_context *ctx);
+
 int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char *line, const char *section_name);
 void config_parser_apply_line(struct config_parser_context *ctx,

@@ -35,6 +35,7 @@ static const enum settings_parser_flags settings_parser_flags =
 struct config_module_parser *config_module_parsers;
 struct config_filter_context *config_filter;
 struct module *modules;
+void (*hook_config_parser_begin)(struct config_parser_context *ctx);
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
 {
@@ -818,6 +819,8 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 	ctx.cur_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
+	if (hook_config_parser_begin != NULL)
+		hook_config_parser_begin(&ctx);
 
 prevfile:
 	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
