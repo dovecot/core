@@ -257,7 +257,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	new_ns->owner = owner;
 	new_ns->flags = (NAMESPACE_FLAG_SUBSCRIPTIONS & ns->flags) |
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_HIDDEN |
-		NAMESPACE_FLAG_AUTOCREATED | NAMESPACE_FLAG_INBOX;
+		NAMESPACE_FLAG_AUTOCREATED;
 	new_ns->sep = ns->sep;
 	new_ns->mail_set = _storage->set;
 
