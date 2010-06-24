@@ -46,12 +46,14 @@ doveconf_SOURCES = \
 noinst_HEADERS = \
 	all-settings.h \
 	config-connection.h \
+	old-set-parser.h \
+	sysinfo-get.h
+
+pkginclude_HEADERS = \
 	config-filter.h \
 	config-parser.h \
 	config-parser-private.h \
-	config-request.h \
-	old-set-parser.h \
-	sysinfo-get.h
+	config-request.h
 
 all-settings.c: $(SETTING_FILES) $(top_srcdir)/src/config/settings-get.pl
 	$(top_srcdir)/src/config/settings-get.pl $(SETTING_FILES) > all-settings.c || rm -f all-settings.c
