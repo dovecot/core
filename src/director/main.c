@@ -17,6 +17,7 @@
 #include "director-request.h"
 #include "mail-host.h"
 
+#include <stdio.h>
 #include <unistd.h>
 
 #define AUTH_SOCKET_PATH "auth-login"
