@@ -91,7 +91,7 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 		host = mail_host_add_ip(dir->mail_hosts, &ip);
 	if (vhost_count != -1U)
 		mail_host_set_vhost_count(dir->mail_hosts, host, vhost_count);
-	director_update_host(dir, dir->self_host, host);
+	director_update_host(dir, dir->self_host, NULL, host);
 
 	o_stream_send(conn->output, "OK\n", 3);
 	return TRUE;
@@ -111,7 +111,8 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn, const char *line)
 	if (host == NULL)
 		o_stream_send_str(conn->output, "NOTFOUND\n");
 	else {
-		director_remove_host(conn->dir, conn->dir->self_host, host);
+		director_remove_host(conn->dir, conn->dir->self_host,
+				     NULL, host);
 		o_stream_send(conn->output, "OK\n", 3);
 	}
 	return TRUE;
@@ -122,8 +123,10 @@ doveadm_cmd_host_flush_all(struct doveadm_connection *conn)
 {
 	struct mail_host *const *hostp;
 
-	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp)
-		director_flush_host(conn->dir, conn->dir->self_host, *hostp);
+	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
+		director_flush_host(conn->dir, conn->dir->self_host,
+				    NULL, *hostp);
+	}
 	o_stream_send(conn->output, "OK\n", 3);
 }
 
@@ -146,7 +149,8 @@ doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *line)
 	if (host == NULL)
 		o_stream_send_str(conn->output, "NOTFOUND\n");
 	else {
-		director_flush_host(conn->dir, conn->dir->self_host, host);
+		director_flush_host(conn->dir, conn->dir->self_host,
+				    NULL, host);
 		o_stream_send(conn->output, "OK\n", 3);
 	}
 	return TRUE;

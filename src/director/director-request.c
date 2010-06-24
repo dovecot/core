@@ -9,6 +9,7 @@
 #include "director-request.h"
 
 #define DIRECTOR_REQUEST_TIMEOUT_SECS 30
+#define RING_NOCONN_WARNING_DELAY_MSECS (2*1000)
 
 struct director_request {
 	struct director *dir;
@@ -66,6 +67,28 @@ void director_request(struct director *dir, const char *username,
 	array_append(&dir->pending_requests, &request, 1);
 }
 
+static void ring_noconn_warning(struct director *dir)
+{
+	if (!dir->ring_handshaked) {
+		i_warning("Delaying all requests "
+			  "until all directors have connected");
+	} else {
+		i_warning("Delaying new user requests until ring is synced");
+	}
+	dir->ring_handshake_warning_sent = TRUE;
+	timeout_remove(&dir->to_handshake_warning);
+}
+
+static void ring_log_delayed_warning(struct director *dir)
+{
+	if (dir->ring_handshake_warning_sent ||
+	    dir->to_handshake_warning != NULL)
+		return;
+
+	dir->to_handshake_warning = timeout_add(RING_NOCONN_WARNING_DELAY_MSECS,
+						ring_noconn_warning, dir);
+}
+
 bool director_request_continue(struct director_request *request)
 {
 	struct director *dir = request->dir;
@@ -74,11 +97,7 @@ bool director_request_continue(struct director_request *request)
 
 	if (!dir->ring_handshaked) {
 		/* delay requests until ring handshaking is complete */
-		if (!dir->ring_handshake_warning_sent) {
-			i_warning("Delaying requests until all "
-				  "directors have connected");
-			dir->ring_handshake_warning_sent = TRUE;
-		}
+		ring_log_delayed_warning(dir);
 		return FALSE;
 	}
 
@@ -88,8 +107,7 @@ bool director_request_continue(struct director_request *request)
 	else {
 		if (!dir->ring_synced) {
 			/* delay adding new users until ring is again synced */
-			if (dir->debug)
-				i_debug("Delaying request until ring is synced");
+			ring_log_delayed_warning(dir);
 			return FALSE;
 		}
 		host = mail_host_get_by_hash(dir->mail_hosts,

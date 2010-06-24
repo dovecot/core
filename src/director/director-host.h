@@ -11,15 +11,14 @@ struct director_host {
 
 	/* name contains "ip:port" */
 	char *name;
-
-	/* each command between directors contains an increasing sequence.
-	   if director A gets conflicting information about director B, it can
-	   trust the one that has the highest sequence. */
+	/* change commands each have originating host and originating sequence.
+	   we'll keep track of the highest sequence we've seen from the host.
+	   if we find a lower sequence, we've already handled the command and
+	   it can be ignored (or: it must be ignored to avoid potential command
+	   loops) */
 	unsigned int last_seq;
-
 	/* Last time host was detected to be down/broken */
 	time_t last_failed;
-
 	/* we are this director */
 	unsigned int self:1;
 };

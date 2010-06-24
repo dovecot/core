@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "llist.h"
 #include "master-service.h"
 #include "mail-host.h"
 #include "director.h"
@@ -25,14 +26,20 @@
 #define MAX_INBUF_SIZE 1024
 #define MAX_OUTBUF_SIZE (1024*1024*10)
 #define OUTBUF_FLUSH_THRESHOLD (1024*128)
+/* Max idling time while connecting/handshaking before disconnecting */
+#define DIRECTOR_CONNECTION_INIT_TIMEOUT_MSECS (2*1000)
 /* How long to wait for PONG after PING request */
 #define DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS (2*1000)
 /* How long to wait to send PING when connection is idle */
 #define DIRECTOR_CONNECTION_PING_INTERVAL_MSECS (15*1000)
+/* How long to wait before sending PING while waiting for SYNC reply */
+#define DIRECTOR_CONNECTION_SYNC_TIMEOUT_MSECS 1000
 
 struct director_connection {
+	struct director_connection *prev, *next;
+
 	struct director *dir;
-	const char *name;
+	char *name;
 
 	/* for incoming connections the director host isn't known until
 	   ME-line is received */
@@ -54,9 +61,11 @@ struct director_connection {
 	unsigned int ignore_host_events:1;
 	unsigned int handshake_sending_hosts:1;
 	unsigned int ping_waiting:1;
+	unsigned int sync_ping:1;
 };
 
 static void director_connection_ping(struct director_connection *conn);
+static void director_connection_disconnected(struct director_connection **conn);
 
 static bool
 director_args_parse_ip_port(struct director_connection *conn,
@@ -102,7 +111,12 @@ static bool director_cmd_me(struct director_connection *conn,
 	if (!conn->in)
 		return TRUE;
 
+	i_free(conn->name);
+	conn->name = i_strdup_printf("%s/left", host->name);
 	conn->host = host;
+	/* make sure we don't keep old sequence values across restarts */
+	host->last_seq = 0;
+
 	connect_str = t_strdup_printf("CONNECT\t%s\t%u\n",
 				      net_ip2addr(&host->ip), host->port);
 	/* make sure this is the correct incoming connection */
@@ -135,6 +149,8 @@ static bool director_cmd_me(struct director_connection *conn,
 		   one, but before that tell it to connect to the new one.
 		   that message might not reach it, so also send the same
 		   message to right side. */
+		i_warning("Replacing director connection %s with %s",
+			  dir->left->host->name, host->name);
 		director_connection_send(dir->left, connect_str);
 		(void)o_stream_flush(dir->left->output);
 		director_connection_deinit(&dir->left);
@@ -227,6 +243,33 @@ director_handshake_cmd_user(struct director_connection *conn,
 	return TRUE;
 }
 
+static bool
+director_cmd_user(struct director_connection *conn, const char *const *args)
+{
+	unsigned int username_hash;
+	struct ip_addr ip;
+	struct mail_host *host;
+	struct user *user;
+
+	if (str_array_length(args) != 2 ||
+	    str_to_uint(args[0], &username_hash) < 0 ||
+	    net_addr2ip(args[1], &ip) < 0) {
+		i_error("director(%s): Invalid USER args", conn->name);
+		return FALSE;
+	}
+
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
+	if (host == NULL) {
+		/* we probably just removed this host. */
+		return TRUE;
+	}
+
+	if (director_user_refresh(conn->dir, username_hash,
+				  host, ioloop_time, &user))
+		director_update_user(conn->dir, conn->host, user);
+	return TRUE;
+}
+
 static bool director_cmd_director(struct director_connection *conn,
 				  const char *const *args)
 {
@@ -269,7 +312,7 @@ director_cmd_host_hand_start(struct director_connection *conn,
 		hosts = mail_hosts_get(conn->dir->mail_hosts);
 		while (array_count(hosts) > 0) {
 			hostp = array_idx(hosts, 0);
-			director_remove_host(conn->dir, conn->host, *hostp);
+			director_remove_host(conn->dir, NULL, NULL, *hostp);
 		}
 	} else if (!remote_ring_completed && conn->dir->ring_handshaked) {
 		/* ignore whatever remote sends */
@@ -279,8 +322,46 @@ director_cmd_host_hand_start(struct director_connection *conn,
 	return TRUE;
 }
 
+static int
+director_cmd_is_seen(struct director_connection *conn,
+		     const char *const **_args,
+		     struct director_host **host_r)
+{
+	const char *const *args = *_args;
+	struct ip_addr ip;
+	unsigned int port, seq;
+	struct director_host *host;
+
+	if (str_array_length(args) < 3 ||
+	    net_addr2ip(args[0], &ip) < 0 ||
+	    str_to_uint(args[1], &port) < 0 ||
+	    str_to_uint(args[2], &seq) < 0) {
+		i_error("director(%s): Command is missing parameters",
+			conn->name);
+		return -1;
+	}
+	*_args = args + 3;
+
+	host = director_host_lookup(conn->dir, &ip, port);
+	if (host == NULL) {
+		/* director is already gone, but we can't be sure if this
+		   command was sent everywhere. re-send it as if it was from
+		   ourself. */
+		*host_r = NULL;
+	} else {
+		if (seq <= host->last_seq) {
+			/* already seen this */
+			return 1;
+		}
+		*host_r = host;
+		host->last_seq = seq;
+	}
+	return 0;
+}
+
 static bool
-director_cmd_host(struct director_connection *conn, const char *const *args)
+director_cmd_host_int(struct director_connection *conn, const char *const *args,
+		      struct director_host *dir_host)
 {
 	struct mail_host *host;
 	struct ip_addr ip;
@@ -311,17 +392,40 @@ director_cmd_host(struct director_connection *conn, const char *const *args)
 	if (update) {
 		mail_host_set_vhost_count(conn->dir->mail_hosts,
 					  host, vhost_count);
-		director_update_host(conn->dir, conn->host, host);
+		director_update_host(conn->dir, conn->host, dir_host, host);
 	}
 	return TRUE;
+}
+
+static bool
+director_cmd_host_handshake(struct director_connection *conn,
+			    const char *const *args)
+{
+	return director_cmd_host_int(conn, args, NULL);
+}
+
+static bool
+director_cmd_host(struct director_connection *conn, const char *const *args)
+{
+	struct director_host *dir_host;
+	int ret;
+
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
+		return ret > 0;
+	return director_cmd_host_int(conn, args, dir_host);
 }
 
 static bool
 director_cmd_host_remove(struct director_connection *conn,
 			 const char *const *args)
 {
+	struct director_host *dir_host;
 	struct mail_host *host;
 	struct ip_addr ip;
+	int ret;
+
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
+		return ret > 0;
 
 	if (str_array_length(args) != 1 ||
 	    net_addr2ip(args[0], &ip) < 0) {
@@ -331,7 +435,7 @@ director_cmd_host_remove(struct director_connection *conn,
 
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host != NULL)
-		director_remove_host(conn->dir, conn->host, host);
+		director_remove_host(conn->dir, conn->host, dir_host, host);
 	return TRUE;
 }
 
@@ -339,18 +443,25 @@ static bool
 director_cmd_host_flush(struct director_connection *conn,
 			 const char *const *args)
 {
+	struct director_host *dir_host;
 	struct mail_host *host;
 	struct ip_addr ip;
+	unsigned int seq;
+	int ret;
 
-	if (str_array_length(args) != 1 ||
-	    net_addr2ip(args[0], &ip) < 0) {
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
+		return ret > 0;
+
+	if (str_array_length(args) != 2 ||
+	    net_addr2ip(args[0], &ip) < 0 ||
+	    str_to_uint(args[1], &seq) < 0) {
 		i_error("director(%s): Invalid HOST-FLUSH args", conn->name);
 		return FALSE;
 	}
 
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host != NULL)
-		director_flush_host(conn->dir, conn->host, host);
+		director_flush_host(conn->dir, conn->host, dir_host, host);
 	return TRUE;
 }
 
@@ -380,16 +491,16 @@ static void director_handshake_cmd_done(struct director_connection *conn)
 	    dir->left->handshake_received && dir->right->handshake_received) {
 		/* we're connected to both directors. see if the ring is
 		   finished by sending a SYNC. if we get it back, it's done. */
-		dir->sync_seq = ++dir->self_host->last_seq;
+		dir->sync_seq++;
 		director_connection_send(dir->right,
 			t_strdup_printf("SYNC\t%s\t%u\t%u\n",
 					net_ip2addr(&dir->self_ip),
 					dir->self_port, dir->sync_seq));
 	}
-	if (conn->to_ping == NULL) {
-		conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_INTERVAL_MSECS,
-					    director_connection_ping, conn);
-	}
+	if (conn->to_ping != NULL)
+		timeout_remove(&conn->to_ping);
+	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_INTERVAL_MSECS,
+				    director_connection_ping, conn);
 }
 
 static bool
@@ -444,7 +555,10 @@ director_connection_handle_handshake(struct director_connection *conn,
 	if (strcmp(cmd, "HOST") == 0) {
 		/* allow hosts from all connections always,
 		   this could be an host update */
-		return director_cmd_host(conn, args);
+		if (conn->handshake_sending_hosts)
+			return director_cmd_host_handshake(conn, args);
+		else
+			return director_cmd_host(conn, args);
 	}
 	if (conn->handshake_sending_hosts &&
 	    strcmp(cmd, "HOST-HAND-END") == 0) {
@@ -456,45 +570,25 @@ director_connection_handle_handshake(struct director_connection *conn,
 	    conn->me_received)
 		return director_cmd_host_hand_start(conn, args);
 
-	/* only incoming connections get a USER list */
-	if (conn->in && strcmp(cmd, "USER") == 0 && conn->me_received)
-		return director_handshake_cmd_user(conn, args);
+	/* only incoming connections get a full USER list, but outgoing
+	   connections can also receive USER updates during handshake and
+	   it wouldn't be safe to ignore them. */
+	if (strcmp(cmd, "USER") == 0 && conn->me_received) {
+		if (conn->in)
+			return director_handshake_cmd_user(conn, args);
+		else
+			return director_cmd_user(conn, args);
+	}
 	/* both get DONE */
 	if (strcmp(cmd, "DONE") == 0 && !conn->handshake_received &&
 	    !conn->handshake_sending_hosts) {
 		director_handshake_cmd_done(conn);
 		return TRUE;
 	}
-	i_error("director(%s): Invalid handshake command: %s",
-		conn->name, cmd);
+	i_error("director(%s): Invalid handshake command: %s "
+		"(in=%d me_received=%d)", conn->name, cmd,
+		conn->in, conn->me_received);
 	return FALSE;
-}
-
-static bool
-director_cmd_user(struct director_connection *conn, const char *const *args)
-{
-	unsigned int username_hash;
-	struct ip_addr ip;
-	struct mail_host *host;
-	struct user *user;
-
-	if (str_array_length(args) != 2 ||
-	    str_to_uint(args[0], &username_hash) < 0 ||
-	    net_addr2ip(args[1], &ip) < 0) {
-		i_error("director(%s): Invalid USER args", conn->name);
-		return FALSE;
-	}
-
-	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
-	if (host == NULL) {
-		/* we probably just removed this host. */
-		return TRUE;
-	}
-
-	if (director_user_refresh(conn->dir, username_hash,
-				  host, ioloop_time, &user))
-		director_update_user(conn->dir, conn->host, user);
-	return TRUE;
 }
 
 static bool director_connection_sync(struct director_connection *conn,
@@ -523,24 +617,21 @@ static bool director_connection_sync(struct director_connection *conn,
 			/* stale SYNC event */
 			return TRUE;
 		}
+
 		if (!dir->ring_handshaked) {
 			/* the ring is handshaked */
 			director_set_ring_handshaked(dir);
-			return TRUE;
-		}
-
-		if (dir->ring_synced) {
+		} else if (dir->ring_synced) {
 			i_error("Received SYNC from %s (seq=%u) "
 				"while already synced", conn->name, seq);
 			return TRUE;
+		} else {
+			if (dir->debug) {
+				i_debug("Ring is synced (%s sent seq=%u)",
+					conn->name, seq);
+			}
+			director_set_ring_synced(dir);
 		}
-
-		if (dir->debug) {
-			i_debug("Ring is synced (%s sent seq=%u)",
-				conn->name, seq);
-		}
-		dir->ring_synced = TRUE;
-		director_set_state_changed(dir);
 		return TRUE;
 	}
 
@@ -597,10 +688,7 @@ static bool director_cmd_connect(struct director_connection *conn,
 		}
 	}
 
-	/* connect here, disconnect old one */
-	if (dir->right != NULL)
-		director_connection_deinit(&dir->right);
-
+	/* connect here */
 	(void)director_connect_host(dir, host);
 	return TRUE;
 }
@@ -629,6 +717,15 @@ director_connection_handle_line(struct director_connection *conn,
 		i_error("director(%s): Received empty line", conn->name);
 		return FALSE;
 	}
+
+	/* ping/pong is always handled */
+	if (strcmp(cmd, "PING") == 0) {
+		director_connection_send(conn, "PONG\n");
+		return TRUE;
+	}
+	if (strcmp(cmd, "PONG") == 0)
+		return director_cmd_pong(conn);
+
 	if (!conn->handshake_received) {
 		if (!director_connection_handle_handshake(conn, cmd, args)) {
 			/* invalid commands during handshake,
@@ -655,12 +752,6 @@ director_connection_handle_line(struct director_connection *conn,
 	if (strcmp(cmd, "CONNECT") == 0)
 		return director_cmd_connect(conn, args);
 
-	if (strcmp(cmd, "PING") == 0) {
-		director_connection_send(conn, "PONG\n");
-		return TRUE;
-	}
-	if (strcmp(cmd, "PONG") == 0)
-		return director_cmd_pong(conn);
 	i_error("director(%s): Unknown command (in this state): %s",
 		conn->name, cmd);
 	return FALSE;
@@ -668,6 +759,7 @@ director_connection_handle_line(struct director_connection *conn,
 
 static void director_connection_input(struct director_connection *conn)
 {
+	struct director *dir = conn->dir;
 	char *line;
 	bool ret;
 
@@ -678,26 +770,31 @@ static void director_connection_input(struct director_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		director_connection_deinit(&conn);
+		i_error("Director %s disconnected%s", conn->name,
+			conn->handshake_received ? "" :
+			" before handshake finished");
+		director_connection_disconnected(&conn);
 		return;
 	case -2:
 		/* buffer full */
-		i_error("BUG: Director sent us more than %d bytes",
-			MAX_INBUF_SIZE);
-		director_connection_deinit(&conn);
+		i_error("BUG: Director %s sent us more than %d bytes",
+			conn->name, MAX_INBUF_SIZE);
+		director_connection_disconnected(&conn);
 		return;
 	}
 
+	director_sync_freeze(dir);
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		T_BEGIN {
 			ret = director_connection_handle_line(conn, line);
 		} T_END;
 
 		if (!ret) {
-			director_connection_deinit(&conn);
+			director_connection_disconnected(&conn);
 			break;
 		}
 	}
+	director_sync_thaw(dir);
 }
 
 static void director_connection_send_directors(struct director_connection *conn,
@@ -773,6 +870,18 @@ static int director_connection_output(struct director_connection *conn)
 		return o_stream_flush(conn->output);
 }
 
+static void
+director_connection_init_timeout(struct director_connection *conn)
+{
+	if (conn->host != NULL)
+		conn->host->last_failed = ioloop_time;
+	if (!conn->connected)
+		i_error("director(%s): Connect timed out", conn->name);
+	else
+		i_error("director(%s): Handshaking timed out", conn->name);
+	director_connection_disconnected(&conn);
+}
+
 static struct director_connection *
 director_connection_init_common(struct director *dir, int fd)
 {
@@ -785,6 +894,9 @@ director_connection_init_common(struct director *dir, int fd)
 	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE, FALSE);
 	o_stream_set_flush_callback(conn->output,
 				    director_connection_output, conn);
+	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_INIT_TIMEOUT_MSECS,
+				    director_connection_init_timeout, conn);
+	DLLIST_PREPEND(&dir->connections, conn);
 	return conn;
 }
 
@@ -798,14 +910,15 @@ static void director_connection_send_handshake(struct director_connection *conn)
 }
 
 struct director_connection *
-director_connection_init_in(struct director *dir, int fd)
+director_connection_init_in(struct director *dir, int fd,
+			    const struct ip_addr *ip)
 {
 	struct director_connection *conn;
 
 	conn = director_connection_init_common(dir, fd);
 	conn->in = TRUE;
 	conn->connected = TRUE;
-	conn->name = "<incoming>";
+	conn->name = i_strdup_printf("%s/in", net_ip2addr(ip));
 	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
 
 	director_connection_send_handshake(conn);
@@ -822,13 +935,25 @@ static void director_connection_connected(struct director_connection *conn)
 		conn->host->last_failed = ioloop_time;
 		i_error("director(%s): connect() failed: %s", conn->name,
 			strerror(err));
-		director_connection_deinit(&conn);
-
-		/* try connecting to next server */
-		director_connect(dir);
+		director_connection_disconnected(&conn);
 		return;
 	}
 	conn->connected = TRUE;
+
+	if (dir->right != NULL) {
+		/* see if we should disconnect or keep the existing
+		   connection. */
+		if (director_host_cmp_to_self(conn->host, dir->right->host,
+					      dir->self_host) <= 0) {
+			/* the old connection is the correct one */
+			director_connection_deinit(&conn);
+			return;
+		}
+		director_connection_deinit(&dir->right);
+	}
+	dir->right = conn;
+	i_free(conn->name);
+	conn->name = i_strdup_printf("%s/right", conn->host->name);
 
 	io_remove(&conn->io);
 
@@ -847,10 +972,15 @@ director_connection_init_out(struct director *dir, int fd,
 {
 	struct director_connection *conn;
 
+	/* make sure we don't keep old sequence values across restarts */
+	host->last_seq = 0;
+
 	conn = director_connection_init_common(dir, fd);
-	conn->name = host->name;
+	conn->name = i_strdup_printf("%s/out", host->name);
 	conn->host = host;
-	conn->io = io_add(conn->fd, IO_WRITE,
+	/* use IO_READ instead of IO_WRITE, so that we don't assign
+	   dir->right until remote has actually sent some data */
+	conn->io = io_add(conn->fd, IO_READ,
 			  director_connection_connected, conn);
 	return conn;
 }
@@ -858,19 +988,18 @@ director_connection_init_out(struct director *dir, int fd,
 void director_connection_deinit(struct director_connection **_conn)
 {
 	struct director_connection *conn = *_conn;
+	struct director *dir = conn->dir;
 
 	*_conn = NULL;
 
-	if (conn->dir->debug && conn->host != NULL) {
-		i_debug("Director %s:%u disconnected",
-			net_ip2addr(&conn->host->ip), conn->host->port);
-	}
+	DLLIST_REMOVE(&dir->connections, conn);
+	if (dir->left == conn)
+		dir->left = NULL;
+	if (dir->right == conn)
+		dir->right = NULL;
 
-	if (conn->dir->left == conn)
-		conn->dir->left = NULL;
-	if (conn->dir->right == conn)
-		conn->dir->right = NULL;
-
+	if (conn->user_iter != NULL)
+		user_directory_iter_deinit(&conn->user_iter);
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 	if (conn->to_ping != NULL)
@@ -884,12 +1013,29 @@ void director_connection_deinit(struct director_connection **_conn)
 
 	if (conn->in)
 		master_service_client_connection_destroyed(master_service);
+	i_free(conn->name);
 	i_free(conn);
+
+	if (dir->left == NULL || dir->right == NULL) {
+		/* we aren't synced until we're again connected to a ring */
+		dir->sync_seq++;
+		dir->ring_synced = FALSE;
+	}
+}
+
+void director_connection_disconnected(struct director_connection **_conn)
+{
+	struct director_connection *conn = *_conn;
+	struct director *dir = conn->dir;
+
+	director_connection_deinit(_conn);
+	if (dir->right == NULL)
+		director_connect(dir);
 }
 
 static void director_connection_timeout(struct director_connection *conn)
 {
-	director_connection_deinit(&conn);
+	director_connection_disconnected(&conn);
 }
 
 void director_connection_send(struct director_connection *conn,
@@ -925,15 +1071,17 @@ void director_connection_send_except(struct director_connection *conn,
 static void director_connection_ping_timeout(struct director_connection *conn)
 {
 	i_error("director(%s): Ping timed out, disconnecting", conn->name);
-	director_connection_deinit(&conn);
+	director_connection_disconnected(&conn);
 }
 
 static void director_connection_ping(struct director_connection *conn)
 {
+	conn->sync_ping = FALSE;
 	if (conn->ping_waiting)
 		return;
 
-	timeout_remove(&conn->to_ping);
+	if (conn->to_ping != NULL)
+		timeout_remove(&conn->to_ping);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS,
 				    director_connection_ping_timeout, conn);
 	director_connection_send(conn, "PING\n");
@@ -943,4 +1091,47 @@ static void director_connection_ping(struct director_connection *conn)
 const char *director_connection_get_name(struct director_connection *conn)
 {
 	return conn->name;
+}
+
+struct director_host *
+director_connection_get_host(struct director_connection *conn)
+{
+	return conn->host;
+}
+
+struct director_connection *
+director_connection_find_outgoing(struct director *dir,
+				  struct director_host *host)
+{
+	struct director_connection *conn;
+
+	for (conn = dir->connections; conn != NULL; conn = conn->next) {
+		if (conn->host == host && !conn->in)
+			return conn;
+	}
+	return NULL;
+}
+
+void director_connection_cork(struct director_connection *conn)
+{
+	o_stream_cork(conn->output);
+}
+
+void director_connection_uncork(struct director_connection *conn)
+{
+	o_stream_uncork(conn->output);
+}
+
+void director_connection_wait_sync(struct director_connection *conn)
+{
+	/* switch to faster ping timeout. avoid reseting the timeout if it's
+	   already fast. */
+	if (conn->ping_waiting || conn->sync_ping)
+		return;
+
+	if (conn->to_ping != NULL)
+		timeout_remove(&conn->to_ping);
+	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_SYNC_TIMEOUT_MSECS,
+				    director_connection_ping, conn);
+	conn->sync_ping = TRUE;
 }

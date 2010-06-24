@@ -15,11 +15,11 @@ while [ $i != $director_count ]; do
 listen = 127.0.1.$i
 base_dir = /var/run/dovecot$i
 
-!include dovecot-director-common.conf
+!include dovecot-director-common.conf.inc
 EOF
 done
 
-cat > dovecot-director-common.conf <<EOF
+cat > dovecot-director-common.conf.inc <<EOF
 log_path = /var/log/dovecot.log
 info_log_path = /var/log/dovecot-access.log
 director_servers =$dirs
@@ -83,12 +83,7 @@ EOF
 echo
 echo "Start up dovecot instances:"
 echo
-echo "dovecot -c dovecot-test.conf"
-i=0
-while [ $i != $director_count ]; do
-  i=`expr $i + 1`
-  echo "dovecot -c dovecot-director$i.conf"
-done
+echo 'for conf in dovecot*.conf; do dovecot -c $conf; done'
 echo
 echo "Start testing:"
 echo

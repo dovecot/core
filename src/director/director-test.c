@@ -36,6 +36,7 @@
 #define USER_TIMEOUT_MSECS (1000*60)
 #define ADMIN_RANDOM_TIMEOUT_MSECS 500
 #define DIRECTOR_CONN_MAX_DELAY_MSECS 100
+#define DIRECTOR_DISCONNECT_TIMEOUT_SECS 10
 
 struct host {
 	int refcount;
@@ -83,6 +84,7 @@ struct admin_connection {
 	struct io *io;
 	struct istream *input;
 	struct timeout *to_random;
+	bool pending_command;
 };
 
 static struct imap_client *imap_clients;
@@ -91,6 +93,7 @@ static struct hash_table *users;
 static struct hash_table *hosts;
 static ARRAY_DEFINE(hosts_array, struct host *);
 static struct admin_connection *admin;
+static struct timeout *to_disconnect;
 
 static void imap_client_destroy(struct imap_client **client);
 static void director_connection_destroy(struct director_connection **conn);
@@ -330,6 +333,13 @@ static void
 director_connection_create(int in_fd, const struct ip_addr *local_ip)
 {
 	struct director_connection *conn;
+	int out_fd;
+
+	out_fd = net_connect_ip(local_ip, DIRECTOR_OUT_PORT, NULL);
+	if (out_fd == -1) {
+		(void)close(in_fd);
+		return;
+	}
 
 	conn = i_new(struct director_connection, 1);
 	conn->in_fd = in_fd;
@@ -338,7 +348,7 @@ director_connection_create(int in_fd, const struct ip_addr *local_ip)
 	conn->in_io = io_add(conn->in_fd, IO_READ,
 			     director_connection_in_input, conn);
 
-	conn->out_fd = net_connect_ip(local_ip, DIRECTOR_OUT_PORT, NULL);
+	conn->out_fd = out_fd;
 	conn->out_input = i_stream_create_fd(conn->out_fd, (size_t)-1, FALSE);
 	conn->out_output = o_stream_create_fd(conn->out_fd, (size_t)-1, FALSE);
 	conn->out_io = io_add(conn->out_fd, IO_READ,
@@ -404,6 +414,7 @@ static void admin_input(struct admin_connection *conn)
 	while ((line = i_stream_read_next_line(conn->input)) != NULL) {
 		if (strcmp(line, "OK") != 0)
 			i_error("director-doveadm: Unexpected input: %s", line);
+		conn->pending_command = FALSE;
 	}
 	if (conn->input->stream_errno != 0 || conn->input->eof)
 		i_fatal("director-doveadm: Connection lost");
@@ -414,6 +425,9 @@ static void admin_random_action(struct admin_connection *conn)
 	struct host *const *hosts;
 	unsigned int i, count;
 
+	if (conn->pending_command)
+		return;
+
 	hosts = array_get(&hosts_array, &count);
 	i = rand() % count;
 
@@ -421,6 +435,7 @@ static void admin_random_action(struct admin_connection *conn)
 
 	admin_send(conn, t_strdup_printf("HOST-SET\t%s\t%u\n",
 		net_ip2addr(&hosts[i]->ip), hosts[i]->vhost_count));
+	conn->pending_command = TRUE;
 }
 
 static struct admin_connection *admin_connect(const char *path)
@@ -458,7 +473,8 @@ static void admin_disconnect(struct admin_connection **_conn)
 	struct admin_connection *conn = *_conn;
 
 	*_conn = NULL;
-	//timeout_remove(&conn->to_random);
+	if (conn->to_random != NULL)
+		timeout_remove(&conn->to_random);
 	i_stream_destroy(&conn->input);
 	io_remove(&conn->io);
 	net_disconnect(conn->fd);
@@ -492,6 +508,23 @@ static void admin_read_hosts(struct admin_connection *conn)
 	net_set_nonblock(admin->fd, TRUE);
 }
 
+static void
+director_connection_disconnect_timeout(void *context ATTR_UNUSED)
+{
+	struct director_connection *conn;
+	unsigned int i, count = 0;
+
+	for (conn = director_connections; conn != NULL; conn = conn->next)
+		count++;
+
+	if (count != 0) {
+		i = 0; count = rand() % count;
+		for (conn = director_connections; i < count; conn = conn->next)
+			i++;
+		director_connection_destroy(&conn);
+	}
+}
+
 static void main_init(const char *admin_path)
 {
 	users = hash_table_create(default_pool, default_pool, 0,
@@ -504,6 +537,10 @@ static void main_init(const char *admin_path)
 	admin = admin_connect(admin_path);
 	admin_send(admin, "HOST-LIST\n");
 	admin_read_hosts(admin);
+
+	to_disconnect =
+		timeout_add(1000*(1 + rand()%DIRECTOR_DISCONNECT_TIMEOUT_SECS),
+			    director_connection_disconnect_timeout, NULL);
 }
 
 static void main_deinit(void)
@@ -516,6 +553,7 @@ static void main_deinit(void)
 		imap_client_destroy(&client);
 	}
 
+	timeout_remove(&to_disconnect);
 	while (director_connections != NULL) {
 		struct director_connection *conn = director_connections;
 		director_connection_destroy(&conn);

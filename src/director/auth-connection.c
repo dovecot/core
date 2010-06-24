@@ -27,6 +27,8 @@ struct auth_connection {
 
 static struct auth_connection *auth_connections;
 
+static void auth_connection_disconnected(struct auth_connection **conn);
+
 static void auth_connection_input(struct auth_connection *conn)
 {
 	char *line;
@@ -36,13 +38,13 @@ static void auth_connection_input(struct auth_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		auth_connection_deinit(&conn);
+		auth_connection_disconnected(&conn);
 		return;
 	case -2:
 		/* buffer full */
 		i_error("BUG: Auth server sent us more than %d bytes",
 			(int)AUTH_CLIENT_MAX_LINE_LENGTH);
-		auth_connection_deinit(&conn);
+		auth_connection_disconnected(&conn);
 		return;
 	}
 
@@ -103,10 +105,18 @@ void auth_connection_deinit(struct auth_connection **_conn)
 
 		if (close(conn->fd) < 0)
 			i_error("close(auth connection) failed: %m");
-		conn->callback(NULL, conn->context);
 	}
 	i_free(conn->path);
 	i_free(conn);
+}
+
+static void auth_connection_disconnected(struct auth_connection **_conn)
+{
+	struct auth_connection *conn = *_conn;
+
+	*_conn = NULL;
+	/* notify callback. it should deinit this connection */
+	conn->callback(NULL, conn->context);
 }
 
 void auth_connection_send(struct auth_connection *conn,
@@ -122,6 +132,6 @@ void auth_connections_deinit(void)
 	while (auth_connections != NULL) {
 		struct auth_connection *conn = auth_connections;
 
-		auth_connection_deinit(&conn);
+		auth_connection_disconnected(&conn);
 	}
 }

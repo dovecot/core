@@ -34,7 +34,7 @@ static int director_client_connected(int fd, const struct ip_addr *ip)
 		return -1;
 	}
 
-	director_connection_init_in(director, fd);
+	director_connection_init_in(director, fd, ip);
 	return 0;
 }
 
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
 		&director_setting_parser_info,
 		NULL
 	};
-	unsigned int test_port;
+	unsigned int test_port = 0;
 	const char *error;
 	bool debug = FALSE;
 	int c;

@@ -10,16 +10,6 @@ struct user;
 
 typedef void director_state_change_callback_t(struct director *dir);
 
-struct director_host_change {
-	/* originating director for this change. keep ip/port here separately,
-	   because by the time its sync comes, the director itself may have
-	   already been removed. */
-	struct ip_addr ip;
-	unsigned int port;
-	/* highest change sequence from this director */
-	unsigned int seq;
-};
-
 struct director {
 	const struct director_settings *set;
 
@@ -31,6 +21,9 @@ struct director {
 
 	struct director_host *self_host;
 	struct director_connection *left, *right;
+	/* all director connections */
+	struct director_connection *connections;
+	struct timeout *to_reconnect;
 
 	/* current mail hosts */
 	struct mail_host_list *mail_hosts;
@@ -43,6 +36,7 @@ struct director {
 	/* these requests are waiting for directors to be in synced */
 	ARRAY_DEFINE(pending_requests, struct director_request *);
 	struct timeout *to_request;
+	struct timeout *to_handshake_warning;
 
 	director_state_change_callback_t *state_change_callback;
 
@@ -56,6 +50,8 @@ struct director {
 	unsigned int ring_handshaked:1;
 	unsigned int ring_handshake_warning_sent:1;
 	unsigned int ring_synced:1;
+	unsigned int sync_frozen:1;
+	unsigned int sync_pending:1;
 	unsigned int debug:1;
 };
 
@@ -73,16 +69,23 @@ void director_deinit(struct director **dir);
 void director_connect(struct director *dir);
 
 void director_set_ring_handshaked(struct director *dir);
+void director_set_ring_synced(struct director *dir);
 void director_set_state_changed(struct director *dir);
 
 void director_update_host(struct director *dir, struct director_host *src,
+			  struct director_host *orig_src,
 			  struct mail_host *host);
 void director_remove_host(struct director *dir, struct director_host *src,
+			  struct director_host *orig_src,
 			  struct mail_host *host);
 void director_flush_host(struct director *dir, struct director_host *src,
+			 struct director_host *orig_src,
 			 struct mail_host *host);
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user);
+
+void director_sync_freeze(struct director *dir);
+void director_sync_thaw(struct director *dir);
 
 /* Send data to all directors using both left and right connections
    (unless they're the same). */

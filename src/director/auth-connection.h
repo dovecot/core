@@ -2,7 +2,7 @@
 #define AUTH_CONNECTION_H
 
 /* Called for each input line. This is also called with line=NULL if
-   connection gets disonnected. */
+   connection gets disconnected. */
 typedef void auth_input_callback(const char *line, void *context);
 
 struct auth_connection *auth_connection_init(const char *path);
