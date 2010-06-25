@@ -36,6 +36,7 @@ struct mail_user *mail_user_alloc(const char *username,
 				  const struct mail_user_settings *set)
 {
 	struct mail_user *user;
+	const char *error;
 	pool_t pool;
 
 	i_assert(username != NULL);
@@ -49,6 +50,12 @@ struct mail_user *mail_user_alloc(const char *username,
 	user->set_info = set_info;
 	user->unexpanded_set = settings_dup(set_info, set, pool);
 	user->set = settings_dup(set_info, set, pool);
+
+	/* check settings so that the duplicated structure will again
+	   contain the parsed fields */
+	if (!settings_check(set_info, pool, user->set, &error))
+		i_panic("Settings check unexpectedly failed: %s", error);
+
 	user->v.deinit = mail_user_deinit_base;
 	user->v.get_temp_prefix = mail_user_get_temp_prefix_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
