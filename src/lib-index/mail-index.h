@@ -2,6 +2,7 @@
 #define MAIL_INDEX_H
 
 #include "file-lock.h"
+#include "fsync-mode.h"
 #include "mail-types.h"
 #include "seq-range-array.h"
 
@@ -17,8 +18,6 @@ enum mail_index_open_flags {
 	MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE	= 0x04,
 	/* Rely on O_EXCL when creating dotlocks */
 	MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL	= 0x10,
-	/* Don't fsync() or fdatasync() */
-	MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE	= 0x20,
 	/* Flush NFS attr/data/write cache when necessary */
 	MAIL_INDEX_OPEN_FLAG_NFS_FLUSH		= 0x40,
 	/* Open the index read-only */
@@ -207,10 +206,10 @@ struct mail_index_view_sync_ctx;
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix);
 void mail_index_free(struct mail_index **index);
 
-/* Specify the transaction types that are fsynced after writing.
-   Default is to fsync nothing. */
-void mail_index_set_fsync_types(struct mail_index *index,
-				enum mail_index_sync_type fsync_mask);
+/* Specify how often to do fsyncs. If mode is FSYNC_MODE_OPTIMIZED, the mask
+   can be used to specify which transaction types to fsync. */
+void mail_index_set_fsync_mode(struct mail_index *index, enum fsync_mode mode,
+			       enum mail_index_sync_type mask);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid, const char *gid_origin);
 /* Set locking method and maximum time to wait for a lock (-1U = default). */

@@ -297,7 +297,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 	o_stream_destroy(&output);
 
-	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
+	if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(fd) < 0) {
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 			array_free(ext_offsets);

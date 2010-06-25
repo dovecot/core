@@ -287,6 +287,8 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 	mail_index_set_permissions(box->index, box->file_create_mode,
 				   box->file_create_gid,
 				   box->file_create_gid_origin);
+	mail_index_set_fsync_mode(box->index,
+				  box->storage->set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(box->index,
 		box->storage->set->parsed_lock_method,
 		mail_storage_get_lock_timeout(box->storage, -1U));

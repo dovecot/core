@@ -875,8 +875,7 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 			ret = -1;
 		}
 		if (ret == 0 &&
-		    (ctx->index->mail_index->flags &
-		     MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
+		    ctx->index->mail_index->fsync_mode == FSYNC_MODE_ALWAYS &&
 		    fdatasync(ctx->index->fd) < 0) {
 			mailbox_list_index_set_syscall_error(ctx->index,
 							     "fdatasync()");

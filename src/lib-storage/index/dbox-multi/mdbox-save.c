@@ -310,6 +310,7 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 					struct mail_index_transaction_commit_result *result)
 {
 	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
+	struct mail_storage *storage = _ctx->transaction->box->storage;
 
 	_ctx->transaction = NULL; /* transaction is already freed */
 
@@ -326,9 +327,10 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 	}
 	mdbox_map_append_free(&ctx->append_ctx);
 
-	if (!ctx->mbox->storage->storage.storage.set->fsync_disable) {
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync_path(ctx->mbox->box.path) < 0) {
-			i_error("fdatasync_path(%s) failed: %m",
+			mail_storage_set_critical(storage,
+				"fdatasync_path(%s) failed: %m",
 				ctx->mbox->box.path);
 		}
 	}

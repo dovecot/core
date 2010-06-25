@@ -520,6 +520,8 @@ void dbox_file_append_rollback(struct dbox_file_append_context **_ctx)
 
 int dbox_file_append_flush(struct dbox_file_append_context *ctx)
 {
+	struct mail_storage *storage = &ctx->file->storage->storage;
+
 	if (ctx->last_flush_offset == ctx->output->offset)
 		return 0;
 
@@ -528,7 +530,7 @@ int dbox_file_append_flush(struct dbox_file_append_context *ctx)
 		return -1;
 	}
 
-	if (!ctx->file->storage->storage.set->fsync_disable) {
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync(ctx->file->fd) < 0) {
 			dbox_file_set_syscall_error(ctx->file, "fdatasync()");
 			return -1;
@@ -678,6 +680,7 @@ const char *dbox_file_metadata_get(struct dbox_file *file,
 
 int dbox_file_move(struct dbox_file *file, bool alt_path)
 {
+	struct mail_storage *storage = &file->storage->storage;
 	struct ostream *output;
 	const char *dest_dir, *temp_path, *dest_path, *p;
 	struct stat st;
@@ -716,30 +719,30 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 		ret = o_stream_flush(output);
 	if (output->stream_errno != 0) {
 		errno = output->stream_errno;
-		mail_storage_set_critical(&file->storage->storage,
-					  "write(%s) failed: %m", temp_path);
+		mail_storage_set_critical(storage, "write(%s) failed: %m",
+					  temp_path);
 		ret = -1;
 	} else if (file->input->stream_errno != 0) {
 		errno = file->input->stream_errno;
 		dbox_file_set_syscall_error(file, "ftruncate()");
 		ret = -1;
 	} else if (ret < 0) {
-		mail_storage_set_critical(&file->storage->storage,
+		mail_storage_set_critical(storage,
 			"o_stream_send_istream(%s, %s) "
 			"failed with unknown error",
 			temp_path, file->cur_path);
 	}
 	o_stream_unref(&output);
 
-	if (!file->storage->storage.set->fsync_disable && ret == 0) {
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER && ret == 0) {
 		if (fsync(out_fd) < 0) {
-			mail_storage_set_critical(&file->storage->storage,
+			mail_storage_set_critical(storage,
 				"fsync(%s) failed: %m", temp_path);
 			ret = -1;
 		}
 	}
 	if (close(out_fd) < 0) {
-		mail_storage_set_critical(&file->storage->storage,
+		mail_storage_set_critical(storage,
 			"close(%s) failed: %m", temp_path);
 		ret = -1;
 	}
@@ -752,14 +755,14 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	   destination file. the destination shouldn't exist, but if it does
 	   its contents should be the same (except for maybe older metadata) */
 	if (rename(temp_path, dest_path) < 0) {
-		mail_storage_set_critical(&file->storage->storage,
+		mail_storage_set_critical(storage,
 			"rename(%s, %s) failed: %m", temp_path, dest_path);
 		(void)unlink(temp_path);
 		return -1;
 	}
-	if (!file->storage->storage.set->fsync_disable) {
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync_path(dest_dir) < 0) {
-			mail_storage_set_critical(&file->storage->storage,
+			mail_storage_set_critical(storage,
 				"fdatasync(%s) failed: %m", dest_dir);
 			(void)unlink(dest_path);
 			return -1;
@@ -779,7 +782,7 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	/* file was successfully moved - reopen it */
 	dbox_file_close(file);
 	if (dbox_file_open(file, &deleted) <= 0) {
-		mail_storage_set_critical(&file->storage->storage,
+		mail_storage_set_critical(storage,
 			"dbox_file_move(%s): reopening file failed", dest_path);
 		return -1;
 	}

@@ -2,6 +2,7 @@
 #define MAIL_STORAGE_SETTINGS_H
 
 #include "file-lock.h"
+#include "fsync-mode.h"
 
 #define MAIL_STORAGE_SET_DRIVER_NAME "MAIL"
 
@@ -17,7 +18,7 @@ struct mail_storage_settings {
 	unsigned int mail_max_keyword_length;
 	unsigned int mail_max_lock_timeout;
 	bool mail_save_crlf;
-	bool fsync_disable;
+	const char *mail_fsync;
 	bool mmap_disable;
 	bool dotlock_use_excl;
 	bool mail_nfs_storage;
@@ -30,6 +31,7 @@ struct mail_storage_settings {
 	const char *pop3_uidl_format;
 
 	enum file_lock_method parsed_lock_method;
+	enum fsync_mode parsed_fsync_mode;
 };
 
 struct mail_namespace_settings {

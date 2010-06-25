@@ -266,6 +266,7 @@ void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 					struct mail_index_transaction_commit_result *result)
 {
 	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
+	struct mail_storage *storage = _ctx->transaction->box->storage;
 
 	_ctx->transaction = NULL; /* transaction is already freed */
 
@@ -280,9 +281,10 @@ void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 	if (sdbox_sync_finish(&ctx->sync_ctx, TRUE) < 0)
 		ctx->ctx.failed = TRUE;
 
-	if (!ctx->mbox->storage->storage.storage.set->fsync_disable) {
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync_path(ctx->mbox->box.path) < 0) {
-			i_error("fdatasync_path(%s) failed: %m",
+			mail_storage_set_critical(storage,
+				"fdatasync_path(%s) failed: %m",
 				ctx->mbox->box.path);
 		}
 	}

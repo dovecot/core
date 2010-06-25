@@ -171,7 +171,7 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 		ctx->failed = TRUE;
 	}
 
-	if (!storage->set->fsync_disable) {
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fsync(ctx->fd) < 0) {
 			mail_storage_set_critical(storage,
 						  "fsync(%s) failed: %m", path);

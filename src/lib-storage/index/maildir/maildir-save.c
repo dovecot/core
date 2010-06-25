@@ -549,7 +549,8 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	output_errno = _ctx->output->stream_errno;
 	o_stream_destroy(&_ctx->output);
 
-	if (!storage->set->fsync_disable && !ctx->failed) {
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER &&
+	    !ctx->failed) {
 		if (fsync(ctx->fd) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
@@ -675,7 +676,7 @@ static int maildir_transaction_fsync_dirs(struct maildir_save_context *ctx,
 {
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 
-	if (storage->set->fsync_disable)
+	if (storage->set->parsed_fsync_mode == FSYNC_MODE_NEVER)
 		return 0;
 
 	if (new_changed) {

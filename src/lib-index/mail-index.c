@@ -84,10 +84,12 @@ void mail_index_free(struct mail_index **_index)
 	i_free(index);
 }
 
-void mail_index_set_fsync_types(struct mail_index *index,
-				enum mail_index_sync_type fsync_mask)
+void mail_index_set_fsync_mode(struct mail_index *index,
+			       enum fsync_mode mode,
+			       enum mail_index_sync_type mask)
 {
-	index->fsync_mask = fsync_mask;
+	index->fsync_mode = mode;
+	index->fsync_mask = mask;
 }
 
 void mail_index_set_permissions(struct mail_index *index,
@@ -519,8 +521,8 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
 
 	if ((flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
-	    (flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0)
-		i_fatal("nfs flush requires fsync_disable=no");
+	    index->fsync_mode != FSYNC_MODE_ALWAYS)
+		i_fatal("nfs flush requires mail_fsync=always");
 	if ((flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
 	    (flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0)
 		i_fatal("nfs flush requires mmap_disable=yes");

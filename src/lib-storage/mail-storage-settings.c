@@ -30,7 +30,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_UINT, mail_max_keyword_length),
 	DEF(SET_TIME, mail_max_lock_timeout),
 	DEF(SET_BOOL, mail_save_crlf),
-	DEF(SET_BOOL, fsync_disable),
+	DEF(SET_ENUM, mail_fsync),
 	DEF(SET_BOOL, mmap_disable),
 	DEF(SET_BOOL, dotlock_use_excl),
 	DEF(SET_BOOL, mail_nfs_storage),
@@ -54,7 +54,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_max_keyword_length = 50,
 	.mail_max_lock_timeout = 0,
 	.mail_save_crlf = FALSE,
-	.fsync_disable = FALSE,
+	.mail_fsync = "optimized:never:always",
 	.mmap_disable = FALSE,
 	.dotlock_use_excl = FALSE,
 	.mail_nfs_storage = FALSE,
@@ -239,8 +239,6 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 {
 	enum mail_index_open_flags index_flags = 0;
 
-	if (set->fsync_disable)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
 #ifndef MMAP_CONFLICTS_WRITE
 	if (set->mmap_disable)
 #endif
@@ -291,12 +289,25 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	bool uidl_format_ok;
 	char c;
 
+	if (strcmp(set->mail_fsync, "optimized") == 0)
+		set->parsed_fsync_mode = FSYNC_MODE_OPTIMIZED;
+	else if (strcmp(set->mail_fsync, "never") == 0)
+		set->parsed_fsync_mode = FSYNC_MODE_NEVER;
+	else if (strcmp(set->mail_fsync, "always") == 0)
+		set->parsed_fsync_mode = FSYNC_MODE_ALWAYS;
+	else {
+		*error_r = t_strdup_printf("Unknown mail_fsync: %s",
+					   set->mail_fsync);
+		return FALSE;
+	}
+
 	if (set->mail_nfs_index && !set->mmap_disable) {
 		*error_r = "mail_nfs_index=yes requires mmap_disable=yes";
 		return FALSE;
 	}
-	if (set->mail_nfs_index && set->fsync_disable) {
-		*error_r = "mail_nfs_index=yes requires fsync_disable=no";
+	if (set->mail_nfs_index &&
+	    set->parsed_fsync_mode != FSYNC_MODE_ALWAYS) {
+		*error_r = "mail_nfs_index=yes requires mail_fsync=always";
 		return FALSE;
 	}
 

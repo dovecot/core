@@ -109,8 +109,8 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 	}
 
 	if ((ctx->want_fsync &&
-	     (file->log->flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) == 0) ||
-	    (file->log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
+	     file->log->index->fsync_mode != FSYNC_MODE_NEVER) ||
+	    file->log->index->fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(file->fd) < 0) {
 			mail_index_file_set_syscall_error(ctx->log->index,
 							  file->filepath,

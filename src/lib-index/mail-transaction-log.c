@@ -80,15 +80,12 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 				    MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 	log->filepath2 = i_strconcat(log->filepath, ".2", NULL);
 
-	log->flags = log->index->flags;
+	log->nfs_flush =
+		(log->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	log->dotlock_settings.use_excl_lock =
-		(log->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
-	log->dotlock_settings.nfs_flush =
-		(log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
-	log->new_dotlock_settings.use_excl_lock =
-		(log->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
-	log->new_dotlock_settings.nfs_flush =
-		(log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
+		(log->index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
+	log->dotlock_settings.nfs_flush = log->nfs_flush;
+	log->new_dotlock_settings = log->dotlock_settings;
 
 	if (log->open_file != NULL)
 		mail_transaction_log_file_free(&log->open_file);
@@ -299,7 +296,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(log->head))
 		return 0;
 
-	if (nfs_flush && (log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0)
+	if (nfs_flush && log->nfs_flush)
 		nfs_flush_file_handle_cache(log->filepath);
 	if (nfs_safe_stat(log->filepath, &st) < 0) {
 		if (errno != ENOENT) {
@@ -386,8 +383,7 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 		if (mail_transaction_log_refresh(log, FALSE) < 0)
 			return -1;
 		if (file_seq > log->head->hdr.file_seq) {
-			if (!nfs_flush ||
-			    (log->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) == 0)
+			if (!nfs_flush || !log->nfs_flush)
 				return 0;
 			/* try again, this time flush attribute cache */
 			if (mail_transaction_log_refresh(log, TRUE) < 0)

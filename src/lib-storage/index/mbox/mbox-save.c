@@ -781,7 +781,7 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		o_stream_flush(ctx->output);
 	}
 	if (mbox->mbox_fd != -1 && !mbox->mbox_writeonly &&
-	    !mbox->storage->storage.set->fsync_disable) {
+	    mbox->storage->storage.set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync(mbox->mbox_fd) < 0) {
 			mbox_set_syscall_error(mbox, "fdatasync()");
 			mbox_save_truncate(ctx);

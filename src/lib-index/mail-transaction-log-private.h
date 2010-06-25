@@ -80,7 +80,6 @@ struct mail_transaction_log_file {
 struct mail_transaction_log {
 	struct mail_index *index;
         struct mail_transaction_log_view *views;
-	enum mail_index_open_flags flags;
 	char *filepath, *filepath2;
 
 	/* files is a linked list of all the opened log files. the list is
@@ -94,6 +93,8 @@ struct mail_transaction_log {
 	unsigned int dotlock_count;
         struct dotlock_settings dotlock_settings, new_dotlock_settings;
 	struct dotlock *dotlock;
+
+	unsigned int nfs_flush:1;
 };
 
 void

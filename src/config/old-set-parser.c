@@ -130,6 +130,14 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		set_rename(ctx, key, "ssl", value);
 		return TRUE;
 	}
+	if (strcmp(key, "fsync_disable") == 0) {
+		if (strcasecmp(value, "yes") == 0)
+			value = "never";
+		else if (strcasecmp(value, "no") == 0)
+			value = "optimized";
+		set_rename(ctx, key, "mail_fsync", value);
+		return TRUE;
+	}
 	if (strcmp(key, "dbox_rotate_size") == 0) {
 		set_rename(ctx, key, "mdbox_rotate_size", value);
 		return TRUE;

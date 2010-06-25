@@ -657,7 +657,7 @@ int mail_cache_unlock(struct mail_cache *cache)
 		mail_cache_update_need_compress(cache);
 	}
 
-	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
+	if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(cache->fd) < 0)
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 	}

@@ -1296,7 +1296,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		return -1;
 	}
 
-	if (!storage->set->fsync_disable) {
+	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync(fd) < 0) {
 			mail_storage_set_critical(storage,
 				"fdatasync(%s) failed: %m", path);

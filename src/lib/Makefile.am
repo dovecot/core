@@ -144,6 +144,7 @@ headers = \
 	file-dotlock.h \
 	file-lock.h \
 	file-set-size.h \
+	fsync-mode.h \
 	hash.h \
 	hash2.h \
 	hex-binary.h \

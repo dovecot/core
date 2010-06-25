@@ -78,8 +78,7 @@ static int mail_index_recreate(struct mail_index *index)
 	}
 	o_stream_destroy(&output);
 
-	if (ret == 0 &&
-	    (index->flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) == 0) {
+	if (ret == 0 && index->fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync(fd) < 0) {
 			mail_index_file_set_syscall_error(index, path,
 							  "fdatasync()");
@@ -245,7 +244,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 		ret = mail_index_write_map_over(index);
 		if (ret < 0)
 			mail_index_set_syscall_error(index, "pwrite_full()");
-		else if ((index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
+		else if (index->fsync_mode == FSYNC_MODE_ALWAYS) {
 			ret = fdatasync(index->fd);
 			if (ret < 0) {
 				mail_index_set_syscall_error(index,

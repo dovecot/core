@@ -274,7 +274,7 @@ int mailbox_list_index_file_create(struct mailbox_list_index *index,
 		return -1;
 	}
 
-	if ((index->mail_index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
+	if (index->mail_index->fsync_mode == FSYNC_MODE_ALWAYS &&
 	    fdatasync(fd) < 0) {
 		mailbox_list_index_set_syscall_error(index, "fdatasync()");
 		(void)file_dotlock_delete(&dotlock);

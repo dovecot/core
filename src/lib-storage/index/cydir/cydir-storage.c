@@ -55,9 +55,10 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->box, name, flags,
 				    CYDIR_INDEX_PREFIX);
-	mail_index_set_fsync_types(mbox->box.index,
-				   MAIL_INDEX_SYNC_TYPE_APPEND |
-				   MAIL_INDEX_SYNC_TYPE_EXPUNGE);
+	mail_index_set_fsync_mode(mbox->box.index,
+				  storage->set->parsed_fsync_mode,
+				  MAIL_INDEX_SYNC_TYPE_APPEND |
+				  MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = cydir_transaction_save_commit_pre;
