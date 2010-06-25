@@ -1027,6 +1027,26 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	return ret;
 }
 
+static bool
+settings_check_dynamic(const struct setting_parser_info *info, pool_t pool,
+		       void *set, const char **error_r)
+{
+	unsigned int i;
+
+	if (info->dynamic_parsers == NULL)
+		return TRUE;
+
+	for (i = 0; info->dynamic_parsers[i].name != NULL; i++) {
+		struct dynamic_settings_parser *dyn = &info->dynamic_parsers[i];
+
+		if (!settings_check(dyn->info, pool,
+				    PTR_OFFSET(set, dyn->struct_offset),
+				    error_r))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 bool settings_check(const struct setting_parser_info *info, pool_t pool,
 		    void *set, const char **error_r)
 {
@@ -1055,7 +1075,7 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 				return FALSE;
 		}
 	}
-	return TRUE;
+	return settings_check_dynamic(info, pool, set, error_r);
 }
 
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
