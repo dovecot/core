@@ -80,12 +80,16 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 				    MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 	log->filepath2 = i_strconcat(log->filepath, ".2", NULL);
 
+	/* these settings aren't available at alloc() time, so we need to
+	   set them here: */
 	log->nfs_flush =
 		(log->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	log->dotlock_settings.use_excl_lock =
+		log->dotlock_settings.nfs_flush =
 		(log->index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
-	log->dotlock_settings.nfs_flush = log->nfs_flush;
-	log->new_dotlock_settings = log->dotlock_settings;
+	log->dotlock_settings.nfs_flush =
+		log->new_dotlock_settings.nfs_flush =
+		log->nfs_flush;
 
 	if (log->open_file != NULL)
 		mail_transaction_log_file_free(&log->open_file);
