@@ -111,6 +111,7 @@ static const struct setting_define service_setting_defines[] = {
 	DEF(SET_UINT, process_limit),
 	DEF(SET_UINT, client_limit),
 	DEF(SET_UINT, service_count),
+	DEF(SET_TIME, idle_kill),
 	DEF(SET_SIZE, vsz_limit),
 
 	DEFLIST_UNIQUE(unix_listeners, "unix_listener",
@@ -140,6 +141,7 @@ static const struct service_settings service_default_settings = {
 	.process_limit = -1U,
 	.client_limit = 0,
 	.service_count = 0,
+	.idle_kill = 0,
 	.vsz_limit = (uoff_t)-1,
 
 	.unix_listeners = ARRAY_INIT,
@@ -175,6 +177,7 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, default_login_user),
 	DEF(SET_UINT, default_process_limit),
 	DEF(SET_UINT, default_client_limit),
+	DEF(SET_UINT, default_idle_kill),
 	DEF(SET_SIZE, default_vsz_limit),
 
 	DEF(SET_BOOL, version_ignore),
@@ -201,6 +204,7 @@ static const struct master_settings master_default_settings = {
 	.default_login_user = "dovenull",
 	.default_process_limit = 100,
 	.default_client_limit = 1000,
+	.default_idle_kill = 60,
 	.default_vsz_limit = 256*1024*1024,
 
 	.version_ignore = FALSE,

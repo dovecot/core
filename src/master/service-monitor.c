@@ -20,7 +20,6 @@
 #include <syslog.h>
 #include <signal.h>
 
-#define SERVICE_PROCESS_KILL_IDLE_MSECS (1000*60)
 #define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
 #define SERVICE_DROP_WARN_INTERVAL_SECS 60
 
@@ -99,12 +98,12 @@ static void service_status_less(struct service_process *process,
 		process->idle_start = ioloop_time;
 		if (service->process_avail > service->set->process_min_avail &&
 		    process->to_idle == NULL &&
-		    service->type != SERVICE_TYPE_ANVIL) {
+		    service->idle_kill != -1U) {
 			/* we have more processes than we really need.
 			   add a bit of randomness so that we don't send the
 			   signal to all of them at once */
 			process->to_idle =
-				timeout_add(SERVICE_PROCESS_KILL_IDLE_MSECS +
+				timeout_add((service->set->idle_kill * 1000) +
 					    (rand() % 100)*10,
 					    service_process_kill_idle,
 					    process);

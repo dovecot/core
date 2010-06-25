@@ -51,6 +51,7 @@ struct service_settings auth_service_settings = {
 	.process_limit = 1,
 	.client_limit = 4096,
 	.service_count = 0,
+	.idle_kill = 0,
 	.vsz_limit = -1U,
 
 	.unix_listeners = { { &auth_unix_listeners_buf,
@@ -88,6 +89,7 @@ struct service_settings auth_worker_service_settings = {
 	.process_limit = 0,
 	.client_limit = 1,
 	.service_count = 1,
+	.idle_kill = 0,
 	.vsz_limit = -1U,
 
 	.unix_listeners = { { &auth_worker_unix_listeners_buf,

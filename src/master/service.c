@@ -194,6 +194,8 @@ service_create(pool_t pool, const struct service_settings *set,
 
 	service->vsz_limit = set->vsz_limit != (uoff_t)-1 ? set->vsz_limit :
 		set->master_set->default_vsz_limit;
+	service->idle_kill = set->idle_kill != 0 ? set->idle_kill :
+		set->master_set->default_idle_kill;
 	service->type = service->set->parsed_type;
 
 	if (set->process_limit == 0) {

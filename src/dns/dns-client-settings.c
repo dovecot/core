@@ -38,6 +38,7 @@ struct service_settings dns_client_service_settings = {
 	.process_limit = 0,
 	.client_limit = 1,
 	.service_count = 0,
+	.idle_kill = 0,
 	.vsz_limit = -1U,
 
 	.unix_listeners = { { &dns_client_unix_listeners_buf,

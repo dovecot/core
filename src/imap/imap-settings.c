@@ -43,6 +43,7 @@ struct service_settings imap_service_settings = {
 	.process_limit = 1024,
 	.client_limit = 1,
 	.service_count = 1,
+	.idle_kill = 0,
 	.vsz_limit = -1U,
 
 	.unix_listeners = { { &imap_unix_listeners_buf,

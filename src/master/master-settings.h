@@ -13,6 +13,7 @@ struct master_settings {
 	const char *default_login_user;
 	unsigned int default_process_limit;
 	unsigned int default_client_limit;
+	unsigned int default_idle_kill;
 	uoff_t default_vsz_limit;
 
 	bool version_ignore;

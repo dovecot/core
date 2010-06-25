@@ -40,6 +40,7 @@ struct service_settings pop3_login_service_settings = {
 	.process_limit = 0,
 	.client_limit = 0,
 	.service_count = 1,
+	.idle_kill = 0,
 	.vsz_limit = 64,
 
 	.unix_listeners = ARRAY_INIT,

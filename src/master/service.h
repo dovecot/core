@@ -64,6 +64,8 @@ struct service {
 
 	/* Maximum number of client connections a process can handle. */
 	unsigned int client_limit;
+	/* Kill idling processes after this many seconds. */
+	unsigned int idle_kill;
 	/* set->vsz_limit or set->master_set->default_client_limit */
 	uoff_t vsz_limit;
 

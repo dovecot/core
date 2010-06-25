@@ -43,6 +43,7 @@ struct service_settings pop3_service_settings = {
 	.process_limit = 1024,
 	.client_limit = 1,
 	.service_count = 1,
+	.idle_kill = 0,
 	.vsz_limit = -1U,
 
 	.unix_listeners = { { &pop3_unix_listeners_buf,

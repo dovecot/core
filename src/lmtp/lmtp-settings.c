@@ -41,6 +41,7 @@ struct service_settings lmtp_login_service_settings = {
 	.process_limit = 0,
 	.client_limit = 0,
 	.service_count = 0,
+	.idle_kill = 0,
 	.vsz_limit = 0,
 
 	.unix_listeners = { { &lmtp_login_unix_listeners_buf,
