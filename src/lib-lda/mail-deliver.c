@@ -83,72 +83,6 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	va_end(args);
 }
 
-static struct mailbox *
-mailbox_open_or_create_synced(struct mail_deliver_context *ctx, 
-			      const char *name, struct mail_namespace **ns_r,
-			      const char **error_r)
-{
-	struct mail_namespace *ns;
-	struct mail_storage *storage;
-	struct mailbox *box;
-	enum mail_error error;
-	enum mailbox_flags flags =
-		MAILBOX_FLAG_KEEP_RECENT | MAILBOX_FLAG_SAVEONLY |
-		MAILBOX_FLAG_POST_SESSION;
-
-	*error_r = NULL;
-
-	if (strcasecmp(name, "INBOX") == 0) {
-		/* deliveries to INBOX must always succeed,
-		   regardless of ACLs */
-		flags |= MAILBOX_FLAG_IGNORE_ACLS;
-	}
-
-	*ns_r = ns = mail_namespace_find(ctx->dest_user->namespaces, &name);
-	if (*ns_r == NULL)
-		return NULL;
-
-	if (*name == '\0' && (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
-		/* delivering to a namespace prefix means we actually want to
-		   deliver to the INBOX instead */
-		*error_r = "Trying to deliver to namespace prefix";
-		return NULL;
-	}
-
-	box = mailbox_alloc(ns->list, name, flags);
-	if (mailbox_open(box) == 0)
-		return box;
-
-	storage = mailbox_get_storage(box);
-	*error_r = mail_storage_get_last_error(storage, &error);
-	if (!ctx->set->lda_mailbox_autocreate || error != MAIL_ERROR_NOTFOUND) {
-		mailbox_free(&box);
-		return NULL;
-	}
-
-	/* try creating it. */
-	if (mailbox_create(box, NULL, FALSE) < 0) {
-		*error_r = mail_storage_get_last_error(storage, &error);
-		if (error != MAIL_ERROR_EXISTS) {
-			mailbox_free(&box);
-			return NULL;
-		}
-		/* someone else just created it */
-	}
-	if (ctx->set->lda_mailbox_autosubscribe) {
-		/* (try to) subscribe to it */
-		(void)mailbox_list_set_subscribed(ns->list, name, TRUE);
-	}
-
-	/* and try opening again */
-	if (mailbox_sync(box, 0) < 0) {
-		*error_r = mail_storage_get_last_error(storage, &error);
-		mailbox_free(&box);
-		return NULL;
-	}
-	return box;
-}
-
 static const char *mailbox_name_to_mutf7(const char *mailbox_utf8)
 {
 	string_t *str = t_str_new(128);
@@ -159,11 +93,75 @@ static const char *mailbox_name_to_mutf7(const char *mailbox_utf8)
 		return str_c(str);
 }
 
+int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
+			   const char *name, struct mailbox **box_r,
+			   const char **error_r)
+{
+	struct mail_namespace *ns;
+	struct mail_storage *storage;
+	struct mailbox *box;
+	enum mail_error error;
+	enum mailbox_flags flags =
+		MAILBOX_FLAG_KEEP_RECENT | MAILBOX_FLAG_SAVEONLY |
+		MAILBOX_FLAG_POST_SESSION;
+
+	*box_r = NULL;
+	*error_r = NULL;
+
+	name = mailbox_name_to_mutf7(name);
+	ns = mail_namespace_find(ctx->user->namespaces, &name);
+	if (ns == NULL) {
+		*error_r = "Unknown namespace";
+		return -1;
+	}
+
+	if (*name == '\0' && (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		/* delivering to a namespace prefix means we actually want to
+		   deliver to the INBOX instead */
+		name = "INBOX";
+		ns = mail_namespace_find_inbox(ctx->user->namespaces);
+	}
+
+	if (strcasecmp(name, "INBOX") == 0) {
+		/* deliveries to INBOX must always succeed,
+		   regardless of ACLs */
+		flags |= MAILBOX_FLAG_IGNORE_ACLS;
+	}
+
+	*box_r = box = mailbox_alloc(ns->list, name, flags);
+	if (mailbox_open(box) == 0)
+		return 0;
+
+	storage = mailbox_get_storage(box);
+	*error_r = mail_storage_get_last_error(storage, &error);
+	if (!ctx->lda_mailbox_autocreate || error != MAIL_ERROR_NOTFOUND)
+		return -1;
+
+	/* try creating it. */
+	if (mailbox_create(box, NULL, FALSE) < 0) {
+		*error_r = mail_storage_get_last_error(storage, &error);
+		if (error != MAIL_ERROR_EXISTS)
+			return -1;
+		/* someone else just created it */
+	}
+	if (ctx->lda_mailbox_autosubscribe) {
+		/* (try to) subscribe to it */
+		(void)mailbox_list_set_subscribed(ns->list, name, TRUE);
+	}
+
+	/* and try opening again */
+	if (mailbox_sync(box, 0) < 0) {
+		*error_r = mail_storage_get_last_error(storage, &error);
+		return -1;
+	}
+	return 0;
+}
+
 int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		      enum mail_flags flags, const char *const *keywords,
 		      struct mail_storage **storage_r)
 {
-	struct mail_namespace *ns;
+	struct mail_deliver_save_open_context open_ctx;
 	struct mailbox *box;
 	enum mailbox_transaction_flags trans_flags;
 	struct mailbox_transaction_context *t;
@@ -182,20 +180,15 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	if (default_save)
 		ctx->tried_default_save = TRUE;
 
+	memset(&open_ctx, 0, sizeof(open_ctx));
+	open_ctx.user = ctx->dest_user;
+	open_ctx.lda_mailbox_autocreate = ctx->set->lda_mailbox_autocreate;
+	open_ctx.lda_mailbox_autosubscribe = ctx->set->lda_mailbox_autosubscribe;
+
 	mailbox_name = str_sanitize(mailbox, 80);
-	mailbox = mailbox_name_to_mutf7(mailbox);
-	box = mailbox_open_or_create_synced(ctx, mailbox, &ns, &errstr);
-	if (box == NULL) {
-		if (ns == NULL) {
-			mail_deliver_log(ctx,
-					 "save failed to %s: Unknown namespace",
-					 mailbox_name);
-			return -1;
-		}
-		if (default_save && strcmp(ns->prefix, mailbox) == 0) {
-			/* silently store to the INBOX instead */
-			return -1;
-		}
+	if (mail_deliver_save_open(&open_ctx, mailbox, &box, &errstr) < 0) {
+		if (box != NULL)
+			mailbox_free(&box);
 		mail_deliver_log(ctx, "save failed to %s: %s",
 				 mailbox_name, errstr);
 		return -1;

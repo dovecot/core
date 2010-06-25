@@ -3,6 +3,7 @@
 
 enum mail_flags;
 struct mail_storage;
+struct mailbox;
 
 struct mail_deliver_context {
 	pool_t pool;
@@ -35,6 +36,12 @@ struct mail_deliver_context {
 	bool save_dest_mail;
 };
 
+struct mail_deliver_save_open_context {
+	struct mail_user *user;
+	bool lda_mailbox_autocreate;
+	bool lda_mailbox_autosubscribe;
+};
+
 typedef int deliver_mail_func_t(struct mail_deliver_context *ctx,
 				struct mail_storage **storage_r);
 
@@ -49,6 +56,11 @@ const char *mail_deliver_get_address(struct mail *mail, const char *header);
 const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx);
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx);
 
+/* Try to open mailbox for saving. Returns 0 if ok, -1 if error. The box may
+   be returned even with -1, and the caller must free it then. */
+int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
+			   const char *name, struct mailbox **box_r,
+			   const char **error_r);
 int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		      enum mail_flags flags, const char *const *keywords,
 		      struct mail_storage **storage_r);
