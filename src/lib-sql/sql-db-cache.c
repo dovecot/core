@@ -67,19 +67,23 @@ static void sql_db_cache_unlink(struct sql_db_cache_context *ctx)
 	ctx->cache->unused_count--;
 }
 
-static void sql_db_cache_drop_oldest(struct sql_db_cache *cache)
+static void sql_db_cache_free_tail(struct sql_db_cache *cache)
 {
 	struct sql_db *db;
 	struct sql_db_cache_context *ctx;
 
-	while (cache->unused_count >= cache->max_unused_connections) {
-		db = cache->unused_tail;
-		ctx = SQL_DB_CACHE_CONTEXT(db);
-		sql_db_cache_unlink(ctx);
+	db = cache->unused_tail;
+	ctx = SQL_DB_CACHE_CONTEXT(db);
+	sql_db_cache_unlink(ctx);
 
-		i_free(ctx->key);
-		ctx->orig_deinit(db);
-	}
+	i_free(ctx->key);
+	ctx->orig_deinit(db);
+}
+
+static void sql_db_cache_drop_oldest(struct sql_db_cache *cache)
+{
+	while (cache->unused_count >= cache->max_unused_connections)
+		sql_db_cache_free_tail(cache);
 }
 
 struct sql_db *
@@ -134,6 +138,8 @@ void sql_db_cache_deinit(struct sql_db_cache **_cache)
 	struct sql_db_cache *cache = *_cache;
 
 	*_cache = NULL;
+	while (cache->unused_tail != NULL)
+		sql_db_cache_free_tail(cache);
 	hash_table_destroy(&cache->dbs);
 	i_free(cache);
 }
