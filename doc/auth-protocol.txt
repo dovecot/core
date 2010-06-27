@@ -89,7 +89,7 @@ Mechanisms may have parameters giving some details about them:
 Authentication Request
 ----------------------
 
- C: "AUTH" TAB <id> TAB <mechanism> TAB service=<service> [TAB <parameters>]
+ C: "AUTH" TAB <id> TAB <mechanism> TAB service=<service> [TAB <parameters>]
 
  S1: "FAIL" TAB <id> [TAB <parameters>]
  S2: "CONT" TAB <id> TAB <base64 data>
