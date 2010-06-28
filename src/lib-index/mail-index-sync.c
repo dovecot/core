@@ -496,6 +496,12 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	return 1;
 }
 
+bool mail_index_sync_has_expunges(struct mail_index_sync_ctx *ctx)
+{
+	return array_is_created(&ctx->sync_trans->expunges) &&
+		array_count(&ctx->sync_trans->expunges) > 0;
+}
+
 static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 					  enum mail_index_sync_flags flags)
 {

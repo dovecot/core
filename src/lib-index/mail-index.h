@@ -340,6 +340,8 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			  struct mail_index_sync_rec *sync_rec);
 /* Returns TRUE if there's more to sync. */
 bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
+/* Returns TRUE if sync has any expunges to handle. */
+bool mail_index_sync_has_expunges(struct mail_index_sync_ctx *ctx);
 /* Reset syncing to initial state after mail_index_sync_begin(), so you can
    go through all the sync records again with mail_index_sync_next(). */
 void mail_index_sync_reset(struct mail_index_sync_ctx *ctx);
