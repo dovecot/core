@@ -1,0 +1,112 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-AUTH 1 "2010-06-09" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-auth \- Test authentication for a user
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " auth
+[\fB\-a\fP \fIauth_socket_path\fP]
+[\fB\-x\fP \fIauth_info\fP]
+.I user
+[\fIpassword\fP]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B auth
+command can be used to test the authentication for the given
+.IR user .
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+.TP
+.BI \-a\  auth_socket_path
+This option is used to specify an absolute path to an alternative UNIX
+domain socket.
+.sp
+By default
+.BR doveadm (1)
+will use the socket
+.IR @rundir@/auth\-client .
+The socket may be located in another directory, when the default
+.I base_dir
+setting was overridden in
+.IR @sysconfdir@/dovecot/dovecot.conf .
+.\"-------------------------------------
+.TP
+.BI \-x\  auth_info
+.I auth_info
+specifies additional conditions for the
+.B auth
+command.
+The
+.I auth_info
+option string has to be given as
+.IB name = value
+pair.
+For multiple conditions the
+.B \-x
+option could be supplied multiple times.
+.br
+Possible names for the
+.I auth_info
+are:
+.RS
+.TP
+.B service
+The service for which the authentication lookup should be tested.
+The value may be the name of a service, commonly used with Dovecot.
+For example:
+.BR imap ,
+.BR pop3\  or
+.BR smtp .
+.TP
+.B lip
+The local IP address (server) for the test.
+.TP
+.B rip
+The remote IP address (client) for the test.
+.TP
+.B lport
+The local port, e.g. 143
+.TP
+.B rport
+The remote port, e.g. 24567
+.RE
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.\"-------------------------------------
+.TP
+.I user
+The
+.IR user \(aqs
+login name.
+Depending on the configuration, the login name may be for example
+.BR jane " or " john@example.com .
+.\"-------------------------------------
+.TP
+.I password
+Optionally the user\(aqs password.
+.BR doveadm (1)
+will prompt for the password, if none was given.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example demonstrates an imap authentication test for user john,
+assuming the user is connected from the host with the IP address
+192.0.2.143.
+.PP
+.nf
+.B doveadm auth \-x service=imap \-x rip=192.0.2.143 john johns_password
+passdb: john auth succeeded
+extra fields:
+  user=john
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveconf (1)

@@ -1,13 +1,9 @@
 aclocaldir = $(datadir)/aclocal
 
-if BUILD_DOCS
-DOCS = doc
-endif
-
 SUBDIRS = \
 	. \
 	src \
-	$(DOCS)
+	doc
 
 dist_pkginclude_HEADERS = \
 	dovecot-version.h

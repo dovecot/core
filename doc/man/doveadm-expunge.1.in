@@ -1,0 +1,73 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-EXPUNGE 1 "2010-06-23" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-expunge \- Expunge messages matching given search query
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " expunge
+.I search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " "expunge \-A"
+.I search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " "expunge \-u"
+.I user search_query
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+This command can be used to expunge mails matching the given search query.
+It is typically used to expunge old mails from users\(aq Trash and/or Spam
+mailboxes. To test which messages a given search query would match, you can
+use
+.I doveadm fetch
+or
+.I doveadm search
+commands.
+.PP
+In the first form,
+.BR doveadm (1)
+will executed the
+.B expunge
+action with the environment of the logged in system user.
+.PP
+In the second form, the command will be performed for all users.
+.PP
+In the third form, only matching mails of the given
+.IR user (s)
+will be expunged.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I search_query
+Expunge messages matching this search query.
+See
+.BR doveadm\-search\-query (7)
+for details.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example expunges messages from Spam mailbox that were saved/copied
+there more than two weeks ago:
+.PP
+.nf
+.B doveadm expunge \-u jane.doe@example.org mailbox Spam savedbefore 2w
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-fetch (1),
+.BR doveadm\-purge (1),
+.BR doveadm\-search (1),
+.BR doveadm\-search\-query (7)

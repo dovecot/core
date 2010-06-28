@@ -1,0 +1,99 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-LOG 1 "2010-06-13" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-log \- Locate, test or reopen Dovecot\(aqs log files
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " "log find"
+.RI [ directory ]
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "log reopen"
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "log test"
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B doveadm log
+.I commands
+are used to locate and reopen the log files of
+.BR dovecot (1).
+It\(aqs also possible to test the configured targets of the
+.I *log_path
+settings.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS log find
+.B doveadm log find
+.RI [ directory ]
+.PP
+The
+.B log find
+command is used to show the location of the log files, to which
+.BR dovecot (1)
+sends its log messages.
+If
+.BR dovecot (1)
+logs its messages through
+.BR syslogd (8)
+and
+.BR doveadm (1)
+could not find any log files, you can specify the
+.I directory
+where your syslogd writes its log files.
+.\"-------------------------------------
+.SS log reopen
+.B doveadm log reopen
+.PP
+This command causes
+.B doveadm
+to reopen all log files, configured in the
+.IR log_path ,
+.I info_log_path
+and
+.I debug_log_path
+settings.
+These settings are configured in
+.IR @sysconfdir@/dovecot/conf.d/10\-logging.conf .
+.br
+This is for example useful after manually rotating the log files.
+.\"-------------------------------------
+.SS log test
+.B doveadm log test
+.PP
+This command causes
+.B doveadm
+to write the message \(dqThis is Dovecot\(aqs
+.I priority
+log
+.RI ( timestamp )\(dq
+to the configured log files.
+The used priorities are:
+.BR debug ,
+.BR info ,
+.BR warning ,
+.BR error
+and
+.BR fatal .
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example shows how to locate the log files used by
+.BR dovecot (1).
+.sp
+.nf
+.B doveadm log find
+Looking for log files from /var/log
+Debug: /var/log/dovecot.debug
+Info: /var/log/mail.log
+Warning: /var/log/mail.log
+Error: /var/log/mail.log
+Fatal: /var/log/mail.log
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

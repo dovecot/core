@@ -1,0 +1,55 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-PENALTY 1 "2010-06-15" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-penalty \- Show current penalties
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " penalty " [" \-a
+.IR anvil_socket_path ]
+[\fIip\fP[\fB/\fP\fImask\fP]]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B doveadm penalty
+command can be used to see the current penalties.
+(Extend me!/explain it)
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.TP
+.BI \-a\  anvil_socket_path
+This option is used to specify an absolute path to an alternative UNIX
+domain socket.
+.sp
+By default
+.BR doveadm (1)
+will use the socket
+.IR @rundir@/anvil .
+The socket may be located in another directory, when the default
+.I base_dir
+setting was overridden in
+.IR @sysconfdir@/dovecot/dovecot.conf .
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.IR ip [/ mask ]
+To reduce/filter the output supply an IP address or a network range in
+CIDR notation (ip/mask).
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Show current penalties
+.sp
+.nf
+.B doveadm penalty
+IP               penalty last_penalty        last_update
+192.0.2.222            3 2010\-06\-15 15:19:27 15:19:27
+192.0.2.53             3 2010\-06\-15 15:19:34 15:19:34
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

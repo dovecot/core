@@ -1,0 +1,36 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-HELP 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-help \- Show information about doveadm commands
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " help
+.RI [ command ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.br
+With no
+.I command
+argument given,
+.B doveadm help
+will print:
+.TP 4
+*
+the synopsis for the most of the
+.BR doveadm (1)
+commands.
+.TP
+*
+groups of commands, e.g.
+.BR log " or " mailbox .
+.PP
+When the name of a
+.I command
+(or a group) was given, it will show the man page for that command.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

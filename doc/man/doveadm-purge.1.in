@@ -1,0 +1,55 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-PURGE 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-purge \- Remove messages with refcount=0 from mdbox files
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " purge
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "purge \-A"
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "purge \-u"
+.I user
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B doveadm purge
+command is used to remove all messages with refcount=0 from a user\(aqs
+mail storage.
+The refcount of a message is decreased to 0 when the user (or some
+administration utility) has expunged all instances of a message from all
+mailboxes.
+.PP
+In the first form,
+.BR doveadm (1)
+will perform the
+.B purge
+action for the currently logged in user.
+.PP
+In the second form, the command will be executed for all users
+.PP
+In the last form, only messages of the given
+.IR user (s)
+will be purged.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-expunge (1)
+.PP
+See http://wiki.dovecot.org/MailboxFormat/dbox#Multi\-dbox for some
+details.

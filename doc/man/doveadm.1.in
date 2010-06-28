@@ -1,0 +1,169 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM 1 "2010-06-24" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm \- Dovecot\(aqs administration utility
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.IR command " [" command_options "] [" command_arguments ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm
+is the Dovecot administration tool. It can be used to manage various parts
+of Dovecot, as well as access users\(aq mailboxes.
+.br
+Execute
+.BR doveadm\ help ,
+for a command usage listing.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.\"------------------------------------------------------------------------
+This commands works directly with Dovecot\(aqs master process.
+.\"-------------------------------------
+.SS reload
+.B doveadm reload
+.PP
+Force
+.BR dovecot (1)
+to reload the configuration.
+.\"------------------------------------------------------------------------
+.SS stop
+.B doveadm stop
+.PP
+Stop
+.BR dovecot (1)
+and all its child processes.
+.\"------------------------------------------------------------------------
+.SS ADDITIONAL MASTER COMMANDS
+.TP
+.B doveadm director
+.BR doveadm\-director (1),
+Manage Dovecot directors (if used by proxy servers).
+.\"-------------------------------------
+.TP
+.B doveadm kick
+.BR doveadm\-kick (1),
+Disconnect users by user name and/or IP address.
+.\"-------------------------------------
+.TP
+.B doveadm log
+.BR doveadm\-log (1),
+Locate, test or reopen Dovecot\(aqs log files.
+.\"-------------------------------------
+.TP
+.B doveadm penalty
+.BR doveadm\-penalty (1),
+Show current penalties.
+.\"-------------------------------------
+.TP
+.B doveadm who
+.BR doveadm\-who (1);
+Show who is logged in to the Dovecot server.
+.\"------------------------------------------------------------------------
+.SS AUTHENTICATION COMMANDS
+.\"-------------------------------------
+.TP
+.B doveadm auth
+.BR doveadm\-auth (1),
+Test authentication for a user.
+.\"-------------------------------------
+.TP
+.B doveadm pw
+.BR doveadm\-pw (1),
+Dovecot\(aqs password hash generator.
+.\"-------------------------------------
+.TP
+.B doveadm user
+.BR doveadm\-user (1),
+Perform a user lookup in Dovecot\(aqs userdbs
+.\"------------------------------------------------------------------------
+.SS MAILBOX COMMANDS
+.TP
+.B doveadm altmove
+.BR doveadm\-altmove (1),
+Move matching mails to the alternative storage.
+.\"-------------------------------------
+.TP
+.B doveadm dump
+.BR doveadm\-dump (1),
+Dump the content of Dovecot\(aqs binary mailbox index/log.
+.\"-------------------------------------
+.TP
+.B doveadm expunge
+.BR doveadm\-expunge (1),
+Expunge messages matching given search query.
+.\"-------------------------------------
+.TP
+.B doveadm fetch
+.BR doveadm\-fetch (1),
+Fetch messages matching given search query.
+.\"-------------------------------------
+.TP
+.B doveadm force\-resync
+.BR doveadm\-force\-resync (1),
+Repair broken mailboxes, in case Dovecot doesn\(aqt automatically do that.
+.\"-------------------------------------
+.TP
+.B doveadm mailbox
+.BR doveadm\-mailbox (1),
+Various commands related to handling mailboxes.
+.\"-------------------------------------
+.TP
+.B doveadm purge
+.BR doveadm\-purge (1)
+Remove messages with refcount=0 from mdbox files.
+.\"-------------------------------------
+.TP
+.B doveadm quota
+.BR doveadm\-quota (1),
+Initialize/recalculate or show current quota usage.
+.\"-------------------------------------
+.TP
+.B doveadm search
+.BR doveadm\-search (1),
+Show a list of mailbox GUIDs and message UIDs matching given search query.
+.\"------------------------------------------------------------------------
+.SH "EXIT STATUS"
+.B doveadm
+will exit with one of the following values:
+.TP 4
+.B 0
+Selected command was executed successful.
+.TP
+.B 1
+(doveadm <nothing> || userdb lookup no perms)
+.TP
+.B 89
+Command failed in some way.
+.\"------------------------------------------------------------------------
+.SH ENVIRONMENT
+.TP
+.B USER
+This environment variable is used to determine the
+.I user
+if a command accepts a
+.I user
+but none was specified.
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @sysconfdir@/dovecot/dovecot.conf
+Dovecot\(aqs main configuration file.
+.TP
+.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+Mailbox locations and namespaces.
+.TP
+.I @sysconfdir@/dovecot/conf.d/90\-plugin.conf
+Plugin specific settings.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm\-help (1),
+.BR doveconf (1),
+.BR dovecot (1),
+.BR dsync (1),
+.BR doveadm\-search\-query (7)

@@ -1,0 +1,152 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVECOT 1 "2010-06-01" "Dovecot v2.0" "Dovecot"
+.SH NAME
+dovecot \- a secure and highly configurable IMAP and POP3 server
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+\fBdovecot\fP [\fB\-Fp\fP] [\fB\-c\fP \fIconfig\-file\fP]
+.br
+.B dovecot \-a
+[\fB\-c\fP \fIconfig\-file\fP]
+.br
+.B dovecot \-n
+[\fB\-c\fP \fIconfig\-file\fP]
+.br
+.B dovecot \-\-build\-options
+.br
+.B dovecot \-\-help
+.br
+.B dovecot \-\-version
+.br
+.B dovecot reload
+.br
+.B dovecot stop
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+Dovecot is an open source IMAP and POP3 server for Linux/UNIX\-like
+systems, written with security primarily in mind.
+Dovecot is an excellent choice for both small and large installations.
+It\(aqs fast, simple to set up, requires no special administration and it
+uses very little memory.
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+.TP
+.B \-a
+Dump all configuration settings to stdout and exit successfully.
+The same as
+.IR doveconf\ \-a .
+.TP
+.BI \-c\  config\-file
+Start
+.B dovecot
+with an alternative configuration.
+.TP
+.B \-F
+Run
+.B dovecot
+in foreground, do not daemonize.
+.TP
+.B \-n
+Dump non\-default settings to stdout and exit successfully.
+The same as
+.IR doveconf\ \-n .
+.TP
+.B \-p
+Prompt for the ssl key password for the configured
+.I ssl_key
+on startup.
+.TP
+.B \-\-build\-options
+Show Dovecot\(aqs build options and exit successfully.
+.TP
+.B \-\-help
+Print a usage message to stdout and exit successfully.
+.TP
+.B \-\-version
+Show Dovecot\(aqs version and exit successfully.
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.TP
+.B reload
+Force
+.B dovecot
+to reload its configuration.
+.TP
+.B stop
+Shutdown
+.B dovecot
+and all its child processes.
+.PP
+When
+.I shutdown_clients
+is set to
+.BR no ,
+existing sessions will continue to use the old settings, after a
+.BR "dovecot reload" .
+Also all sessions will keep alive after a
+.BR "dovecot stop" .
+.br
+By default all active sessions will be shut down.
+.\"------------------------------------------------------------------------
+.SH SIGNALS
+Dovecot handles the following
+.I signals
+as described:
+.TP
+.B HUP
+Force
+.B dovecot
+to reload its configuration.
+.TP
+.B INT
+Shutdown
+.B dovecot
+and all its child processes.
+.TP
+.B TERM
+Shutdown
+.B dovecot
+and all its child processes.
+.TP
+.B USR1
+Force
+.B dovecot
+to reopen all configured log files (\c
+.IR log_path ,
+.IR info_log_path\  and
+.IR debug_log_path ).
+.
+.PP
+The
+.I signals
+.BR ALARM\  and
+.B PIPE
+are ignored.
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @sysconfdir@/dovecot/dovecot.conf
+Dovecot\(aqs main configuration file.
+.TP
+.I @sysconfdir@/dovecot/dovecot\-ldap.conf.ext
+Dovecot\(aqs LDAP authdb/userdb module configuration file.
+.TP
+.I @sysconfdir@/dovecot/dovecot\-sql.conf.ext
+Dovecot\(aqs SQL authdb/userdb module configuration file.
+.TP
+.I @sysconfdir@/dovecot/dovecot\-dict\-sql.conf.ext
+Dovecot\(aqs dict configuration with SQL\-backend.
+.TP
+.I @sysconfdir@/dovecot/conf.d/auth\-*\-conf.ext
+Configuration files of different authentication modules.
+.TP
+.I @sysconfdir@/dovecot/conf.d/*.conf
+Configuration files of different services and settings.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveconf (1),
+.BR dovecot\-lda (1),
+.BR dsync (1)

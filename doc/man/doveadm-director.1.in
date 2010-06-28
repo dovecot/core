@@ -1,0 +1,181 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-DIRECTOR 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-director \- Manage Dovecot directors
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " "director add"
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.IR host " [" vhost_count ]
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "director flush"
+[\fB\-a\fP \fIdirector_socket_path\fP]
+\fIhost\fP|\fBall\fP
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "director remove"
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.I host
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "director status"
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.RI [ user ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm director
+can be used to manage and query the status of the list of backend mail
+servers where Dovecot proxy can redirect connections to.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+.TP
+.BI \-a\  director_socket_path
+This option is used to specify an absolute path to an alternative UNIX
+domain socket.
+.sp
+By default
+.BR doveadm (1)
+will use the socket
+.IR @rundir@/director\-admin .
+The socket may be located in another directory, when the default
+.I base_dir
+setting was overridden in
+.IR @sysconfdir@/dovecot/dovecot.conf .
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I host
+A mail server\(aqs hostname or IP address.
+.\"-------------------------------------
+.TP
+.I user
+Is a
+.IR user \(aqs
+login name.
+Depending on the configuration, a login name may be for example
+.BR jane " or " john@example.com .
+.\"-------------------------------------
+.TP
+.I vhost_count
+The number of \(dqvirtual hosts\(dq to assign to this server. The higher
+the number is relative to other servers, the more connections it gets. The
+default is 100.
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS director add
+.B doveadm director add
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.I host
+.RI [ vhost_count ]
+.PP
+The command\(aqs tasks are:
+.TP 4
+*
+assign a new mail server to the director.
+.TP
+*
+increase/decrease the
+.I vhost_count
+of an already assigned server.
+.PP
+.\"-------------------------------------
+.SS director flush
+.B doveadm director flush
+[\fB\-a\fP \fIdirector_socket_path\fP]
+\fIhost\fP|\fBall\fP
+.PP
+.B doveadm director flush
+drops all user associations either from the given
+.I host
+or
+.B all
+hosts.
+This command is intended mainly for testing purposes.
+.\"-------------------------------------
+.SS director remove
+.B doveadm director remove
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.I host
+.PP
+Use this command in oder to remove the given
+.I host
+from the director.
+.\"-------------------------------------
+.SS director status
+.B doveadm director status
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.RI [ user ]
+.PP
+This command is used to show the current usage of all assigned mail
+servers.
+.br
+When a user name is given, this command shows which server the
+.I user
+is currently assigned to, where the user will be assigned after the current
+saved assignment gets removed and where the user would be assigned to if
+the whole proxy cluster was restarted fresh.
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @sysconfdir@/dovecot/dovecot.conf
+Dovecot\(aqs main configuration file.
+.TP
+.I @sysconfdir@/dovecot/conf.d/10\-director.conf
+Director specific settings.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Add a director with vhost count 150 (or change existing one\(aqs
+vhost count to 150):
+.PP
+.nf
+.B doveadm \-v director add x1357.imap.ha.example.net 150
+2001:db8:543:6861:143::1357: OK
+.fi
+.\"-------------------------------------
+.PP
+Remove a director:
+.PP
+.nf
+.B doveadm director remove x1357.imap.ha.example.net
+.fi
+.\"-------------------------------------
+.PP
+Query the status of mail hosts in a director:
+.PP
+.nf
+.B doveadm director status
+mail server ip       vhosts  users
+192.168.10.1            100    125
+192.168.10.2            100    144
+192.168.10.3            100    115
+.fi
+.\"-------------------------------------
+.PP
+Query the status of a user\(aqs assignment:
+.PP
+.nf
+.B doveadm director status user@example.com
+Current: 192.168.10.1 (expires 2010\-06\-18 20:17:04)
+Hashed: 192.168.10.2
+Initial config: 192.168.10.3
+.fi
+.PP
+This means that the user is currently assigned to mail server on IP
+192.168.10.1. After all of user\(aqs connections have logged out, the
+assignment will be removed (currently it looks like at 20:17:04, but
+that may be increased). After the assignment has expired, the user will
+next time be redirected to 192.168.10.2 (assuming no changes to director
+settings). If the entire Dovecot proxy cluster was restarted, so that all
+of the director configuration would revert back to its initial values, the
+user would be redirected to 192.168.10.3.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

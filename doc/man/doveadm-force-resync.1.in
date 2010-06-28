@@ -1,0 +1,54 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-FORCE\-RESYNC 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-force\-resync \- Repair broken mailboxes
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " force\-resync
+.I mailbox
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "force\-resync \-A"
+.I mailbox
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "force\-resync \-u"
+.I user mailbox
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+Under certain circumstances it may happen, that
+.BR dovecot (1)
+is unable to automatically solve problems with mailboxes.
+In such situations the
+.B force\-resync
+command may be helpful.
+It tries to fix all problems.
+For dbox and mdbox mailboxes the storage files will be also checked.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I mailbox
+The name of the mailbox to fix. With mdbox all of the mailboxes are fixed,
+so you can use for example INBOX as the name.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Fix bob\(aqs INBOX:
+.PP
+.nf
+.B doveadm force\-resync \-u bob INBOX
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

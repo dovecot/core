@@ -1,0 +1,180 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVECONF 1 "2010-06-26" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveconf \- Dovecot\(aqs configuration dumping utility
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.B doveconf
+.RB [ \-anNx ]
+[\fB\-c\fP \fIconfig\-file\fP]
+[\fB\-f\fP \fIfilter\fP]
+[\fB\-m\fP \fImodule\fP]
+.\"-------------------------------------
+.br
+.B doveconf
+.RB [ \-n ]
+[\fB\-c\fP \fIconfig\-file\fP]
+.IR section_name \ ...
+.\"-------------------------------------
+.br
+.B doveconf
+.RB [ \-h ]
+[\fB\-c\fP \fIconfig\-file\fP]
+[\fB\-f\fP \fIfilter\fP]
+.IR setting_name \ ...
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveconf
+reads and parses Dovecot\(aqs configuration files and converts them into a
+simpler format used by the rest of Dovecot. All standalone programs, such
+as
+.BR dovecot (1)
+and
+.BR dovecot\-lda (1),
+will first get their settings by executing doveconf.
+.PP
+For system administrators,
+.B doveconf
+is mainly useful for dumping the configuration in easy human readable
+output.
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+.TP
+.B \-a
+Show all settings with their currently configured values.
+.\"---------------------------------
+.TP
+.BI \-c \ config\-file
+read configuration from the given
+.IR config\-file .
+By default
+.I @sysconfdir@/dovecot/dovecot.conf
+will be used.
+.\"---------------------------------
+.TP
+.BI \-f \ filter
+Show the matching configuration for the specified
+.I filter
+condition.
+The
+.I filter
+option string has to be given as
+.IB name = value
+pair.
+For multiple filter conditions the
+.B \-f
+option can be supplied multiple times.
+.br
+Possible names for the
+.I filter
+are:
+.RS
+.TP
+.B lname
+The local hostname, e.g. mail.example.com.
+This will only match hostnames which were configured like:
+.br
+.B local_name mail.example.com { # special settings }
+.TP
+.B local
+The server\(aqs hostname or IP address.
+This will also match hostnames which were configured like:
+.br
+.B local imap.example.net { # special settings }
+.TP
+.B protocol, service
+The protocol, e.g. imap or pop3
+.TP
+.B remote
+The client\(aqs hostname or IP address.
+.RE
+.\"---------------------------------
+.TP
+.B \-h
+Hide the setting\(aqs name, show only the setting\(aqs value.
+.\"---------------------------------
+.TP
+.BI \-m\  module
+Show only settings for the given
+.IR module .
+.RS
+e.g.
+.BR imap ,
+.BR imap\-login ,
+.BR lmtp ,
+.BR pop3\  or
+.B pop3\-login
+.RE
+.\"---------------------------------
+.TP
+.B \-n
+Show only settings with non\-default values.
+.\"---------------------------------
+.TP
+.B \-N
+Show settings with non\-default values and explicitly set default values.
+.\"---------------------------------
+.TP
+.B \-x
+Expand configuration variables (e.g. \(Domail_plugins \(rA quota) and show
+file contents (from e.g. ssl_cert = </etc/ssl/certs/dovecot.pem).
+.\"---------------------------------
+.TP
+.I section_name
+Show only the current configuration of one or more specified sections.
+.\"---------------------------------
+.TP
+.I setting_name
+Show only the setting of one or more
+.IR setting_name (s)
+with the currently configured value.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+When Dovecot was configured to use different settings for some
+networks/subnets it is possible to show which settings will be applied
+for a specific connection.
+.sp
+.nf
+.B doveconf \-f local=10.0.0.110 \-f remote=10.11.1.2 \-f service=pop3 \-n
+.fi
+.PP
+.B doveconf
+can be also used to convert v1.x configuration files into v2.0 format.
+.sp
+.nf
+.B doveconf \-n \-c /oldpath/dovecot.conf > \
+@sysconfdir@/dovecot/dovecot.conf.new
+.fi
+.\"-------------------------------------
+.PP
+This example shows how to ask
+.B doveconf
+for a global setting and a protocol specific setting.
+The second command uses also the
+.B \-h
+option, in order to hide the setting\(aqs name.
+.sp
+.nf
+.B doveconf mail_plugins
+mail_plugins = quota
+.B doveconf  \-h \-f protocol=imap mail_plugins
+quota imap_quota
+.fi
+.\"-------------------------------------
+.PP
+This example demonstrates how to dump a whole configuration section.
+.sp
+.nf
+.B doveconf dict
+dict {
+  quota = pgsql:@sysconfdir@/dovecot/dovecot\-dict\-sql.conf.ext
+}
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR dovecot (1),
+.BR dovecot\-lda (1),
+.BR dsync (1)

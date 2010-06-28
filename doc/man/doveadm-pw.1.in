@@ -1,0 +1,142 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-PW 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-pw \- Dovecot\(aqs password hash generator
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " "pw \-l"
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " pw
+[\fB\-p\fP \fIpassword\fP]
+[\fB\-r\fP \fIrounds\fP]
+[\fB\-s\fP \fIscheme\fP]
+[\fB\-u\fP \fIuser\fP]
+.RB [ \-V ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm pw
+is used to generate password hashes for different password
+.IR scheme s
+and optionally verify the generated hash.
+.PP
+All generated password hashes have a
+.RI { scheme }
+prefix, for example
+.RB { SHA512\-CRYPT.HEX }.
+All passdbs have a default scheme for passwords stored without the
+.RI { scheme }
+prefix.
+The default scheme can be overridden by storing the password with the
+scheme prefix.
+.PP
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+.TP
+.B \-l
+List all supported password
+.IR scheme s
+and exit successfully.
+.br
+There are up to three optional password
+.IR scheme s:
+.BR BLF\-CRYPT " (Blowfish crypt),"
+.BR SHA256\-CRYPT\  and
+.BR SHA512\-CRYPT .
+Their availability depends on the system\(aqs currently used libc.
+.\"-------------------------------------
+.TP
+.BI \-p\  password
+The plain text
+.I password
+for which the hash should be generated.
+If no
+.I password
+was given
+.BR doveadm (1)
+will prompt interactively for one.
+.\"-------------------------------------
+.TP
+.BI \-r\  rounds
+The password
+.IR scheme s
+.BR BLF\-CRYPT ,
+.BR SHA256\-CRYPT\  and
+.B SHA512\-CRYPT
+supports a variable number of encryption
+.IR rounds .
+The following table shows the minimum/maximum number of encryption
+.I rounds
+per scheme.
+When the
+.B \-r
+option was omitted the default number of encryption rounds will be applied.
+.\"
+.sp
+.nf
+ Scheme       | Minimum | Maximum   | Default
+----------------------------------------------
+ BLF\-CRYPT    |       4 |        31 |       5
+ SHA256\-CRYPT |    1000 | 999999999 |    5000
+ SHA512\-CRYPT |    1000 | 999999999 |    5000
+.fi
+.\"
+.\"-------------------------------------
+.TP
+.BI \-s\  scheme
+The password
+.I scheme
+which should be used to generate the hashed password.
+By default the
+.BI CRAM\-MD5\  scheme
+will be used.
+It is also possible to append an encoding suffix to the
+.IR scheme .
+Supported encoding suffixes are:
+.BR .b64 ,
+.BR .base64\  and
+.BR .hex .
+.br
+See also http://wiki.dovecot.org/Authentication/PasswordSchemes for more
+details about password schemes.
+.\"-------------------------------------
+.TP
+.BI \-u\  user
+When the
+.BI DIGEST\-MD5\  scheme
+is used, also the
+.I user
+name must be given, because the user name is a part of the generated hash.
+For more information about Digest\-MD5 please read also:
+http://wiki.dovecot.org/Authentication/Mechanisms/DigestMD5
+.\"-------------------------------------
+.TP
+.B \-V
+When this option is given, the hashed password will be internally verified.
+The result of the verification will be shown after the hashed password,
+enclosed in parenthesis.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+The first password hash is a DIGEST\-MD5 hash for jane.roe@example.com.
+The second password hash is a CRAM\-MD5 hash for john.doe@example.com.
+.sp
+.nf
+.B doveadm pw \-s digest\-md5 \-u jane.roe@example.com
+Enter new password:
+Retype new password:
+{DIGEST\-MD5}9b9dcb4466233a9307bbc33708dffda0
+.B doveadm pw
+Enter new password:
+Retype new password:
+{CRAM\-MD5}913331d8782236a8ecba7764a63aa27b26437fd40ca878d887f11d81245c2c6b
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

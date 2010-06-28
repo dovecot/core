@@ -1,0 +1,403 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-SEARCH\-QUERY 7 "2010-06-24" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-search\-query \- Overview of search queries for doveadm mailbox \
+commands
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+Several
+.BR doveadm (1)
+commands use a
+.I search_query
+in order to act only on matching messages.
+This manual page describes all
+.IR SEARCH\ KEYS ,
+which can be used in a
+.IR search_query .
+.PP
+Each
+.I search_query
+consists at least of one
+.IR SEARCH\ KEY .
+Most of the
+.I SEARCH KEYS
+require an argument.
+All
+.I SEARCH\ KEYS
+are case\-insensitive.
+The shortest valid
+.I search_query
+is
+.BR ALL .
+For example:
+.sp
+.RS
+.nf
+doveadm search ALL
+.fi
+.RE
+.PP
+Multiple search query expressions will be combined with the
+.B AND
+operator by default.
+To find all messages that are new and greater than 50 kilobyte, one can
+use:
+.sp
+.RS
+.nf
+doveadm search NEW LARGER 50k
+.fi
+.RE
+.PP
+.BR OR \-ed
+.I SEARCH KEYS
+have to be written in parenthesis, when mixing ANDs and ORs.
+Shells commonly require escaping for parentheses.
+To find messages that were saved on the \(dq13th of April  2007\(dq AND
+have the \(rsSeen and/or \(rsFlagged flag set, one
+can use for example:
+.sp
+.RS
+.nf
+doveadm search SAVEDON 2007\-04\-13 \(rs( SEEN OR FLAGGED \(rs)
+.fi
+.RE
+.PP
+It\(aqs also possible to specify the mailbox, in which should be searched.
+Use either the keyword
+.B mailbox
+and the name of the mailbox or the keyword
+.B mailbox\-guid
+and the mailbox\(aqs globally unique identifier at the beginning of the
+.IR search_query .
+To find all messages in the mailbox with the GUID
+\(dq44f68b13ce97044b837f000035ca9452\(dq use:
+.sp
+.RS
+.nf
+doveadm search mailbox\-guid 44f68b13ce97044b837f000035ca9452 ALL
+.fi
+.RE
+.PP
+To list all deleted messages in the \(dqTrash\(dq folder use:
+.sp
+.RS
+.nf
+doveadm search mailbox Trash DELETED
+.fi
+.RE
+.\"------------------------------------------------------------------------
+.SH SEARCH KEYS
+The following search keys from the specification of IMAP version 4 revision
+1 (see: RFC 3501, section 6.4.4) are supported:
+.\"-----------------
+.TP
+.B ALL
+Matches all messages.
+.\"-----------------
+.TP
+.B ANSWERED
+Matches messages with the IMAP flag \(rsAnswered set.
+.\"-----------------
+.TP
+.BI BCC\  pattern
+Matches messages, which contain
+.I pattern
+in the BCC field of the message\(aqs IMAP envelope structure.
+.\"-----------------
+.TP
+.BI BEFORE \ date\ specification
+Matches messages with an internal date before
+.IR date\ specification .
+.\"-----------------
+.TP
+.BI BODY\  pattern
+Matches messages, which contain
+.I pattern
+in the body part.
+.\"-----------------
+.TP
+.BI CC\  pattern
+Matches messages, which contain
+.I pattern
+in the CC field of the message\(aqs IMAP envelope structure.
+.\"-----------------
+.TP
+.B DELETED
+Matches messages with the IMAP flag \(rsDeleted set.
+.\"-----------------
+.TP
+.B DRAFT
+Matches messages with the IMAP flag \(rsDraft set.
+.\"-----------------
+.TP
+.B FLAGGED
+Matches messages with the IMAP flag \(rsFlagged set.
+.\"-----------------
+.TP
+.BI FROM\  pattern
+Matches messages, which contain
+.I pattern
+in the FROM field of the message\(aqs IMAP envelope structure.
+.\"-----------------
+.TP
+\fBHEADER\fP \fIfield\fP [\fIpattern\fP]
+Matches messages, which either have the named header
+.IR field ,
+when no
+.I pattern
+was given.
+Or messages, where the given header
+.IR field \(aqs
+value contains the specified
+.IR pattern .
+.\"-----------------
+.TP
+.BI KEYWORD\  keyword
+Matches messages with the given IMAP
+.I keyword
+(e.g. \(DoForwarded) flag set.
+.\"-----------------
+.TP
+.BI LARGER\  size
+Matches messages that are larger than the specified
+.IR size .
+.\"-----------------
+.TP
+.B NEW
+Matches messages, which have the IMAP flag \(rsRecent set
+.B but not
+the IMAP flag \(rsSeen.
+.\"-----------------
+.TP
+.BI NOT\  search\ key
+Inverse matching \- matches massages, where the search doesn\(aqt match
+the specified
+.I search\ key
+or its value.
+.\"-----------------
+.TP
+.B OLD
+Matches messages, which do not have the IMAP flag \(rsRecent set.
+.\"-----------------
+.TP
+.BI ON\  date\ specification
+Matches messages whose internal date matches the given
+.IR date\ specification .
+.\"-----------------
+.TP
+.IB search\ key\  OR\  search\ key
+Matches messages where one of the OR\-ed search keys matches.
+.br
+Note: IMAP4rev1 uses the syntax:
+.BI OR\  search\ key\ search\ key
+.\"-----------------
+.TP
+.B RECENT
+Matches messages with the IMAP flag \(rsRecent set.
+.\"-----------------
+.TP
+.B SEEN
+Matches messages with the IMAP flag \(rsSeen set.
+.\"-----------------
+.TP
+.BI SENTBEFORE\  date\ specification
+Matches messages with a Date: header before
+.IR date\ specification .
+.\"-----------------
+.TP
+.BI SENTON\  date\ specification
+Matches messages with a Date: header matching the given
+.IR date\ specification .
+.\"-----------------
+.TP
+.BI SENTSINCE\  date\ specification
+Matches messages with a Date: header matching or after the given
+.IR date\ specification .
+.\"-----------------
+.TP
+.BI SINCE\  date\ specification
+Matches messages whose internal date is within or after the given
+.IR date\ specification .
+.\"-----------------
+.TP
+.BI SMALLER\  size
+Matches messages with a size smaller than the given
+.IR size .
+.\"-----------------
+.TP
+.BI SUBJECT\  pattern
+Matches messages, which contain
+.I pattern
+in the SUBJECT field of the message\(aqs IMAP envelope structure.
+.\"-----------------
+.TP
+.BI TEXT\  pattern
+Matches messages, which contain
+.I pattern
+in the message body.
+.\"-----------------
+.TP
+.BI TO\  pattern
+Matches messages, which contain
+.I pattern
+in the TO field of the message\(aqs IMAP envelope structure.
+.\"-----------------
+.TP
+.BI UID\  sequence
+Matches messages with the given UID(s).
+A
+.I sequence
+may be a single UID.
+Can be a sequence range, written as
+.IR from : to ,
+.RB e.g.\  100 : 125 .
+As comma separated list of UIDs, e.g.
+.BR 11,50,4 .
+It\(aqs also possible to combine multiple sequences, e.g.
+.BR 1,3,5,7,10:20 .
+.\"-----------------
+.TP
+.B UNANSWERED
+Matches messages, which do not have the IMAP flag \(rsAnswered set.
+.\"-----------------
+.TP
+.B UNDELETED
+Matches messages, which do not have the IMAP flag \(rsDeleted set.
+.\"-----------------
+.TP
+.B UNDRAFT
+Matches messages, which do not have the IMAP flag \(rsDraft set.
+.\"-----------------
+.TP
+.B UNFLAGGED
+Matches messages, which do not have the IMAP flag \(rsFlagged set.
+.\"-----------------
+.TP
+.BI UNKEYWORD\  keyword
+Matches messages, which do not have the given IMAP
+.I keyword
+flag set
+.\"-----------------
+.TP
+.B UNSEEN
+Matches messages, which do not have the IMAP flag \(rsSeen set.
+.\"-------------------------------------
+.SS DOVEADM SEARCH KEYS
+Additional search keys, provided by
+.BR doveadm (1).
+.\"-----------------
+.TP
+.BI SAVEDBEFORE\  date\ specification
+Matches messages, which were saved before
+.IR date\ specification .
+.\"-----------------
+.TP
+.BI SAVEDON\  date\ specification
+Matches messages whose save date matches the given
+.IR date\ specification .
+.\"-----------------
+.TP
+.BI SAVEDSINCE\  date\ specification
+Matches messages with a save date matching or after the given
+.IR date\ specification .
+.\"------------------------------------------------------------------------
+.SH DATE SPECIFICATION
+.BR doveadm (1)
+supports a few additional
+.I date specification
+formats.
+They can be used anywhere, where a
+.I date specification
+value is obligatory.
+.TP
+.IB day \- month \- year
+Default IMAP4rev1 date format.
+.br
+.IR day ,
+the day of month:
+.BR 1 \- 31 .
+.br
+.IR month ,
+the abbreviated month name:
+.BR Jan ,
+.BR Feb ,
+.BR Mar ,
+.BR Apr ,
+.BR May ,
+.BR Jun ,
+.BR Jul ,
+.BR Aug ,
+.BR Sep ,
+.BR Oct ,
+.BR Nov \ or
+.BR Dec .
+.br
+.IR year ,
+four digits of year, e.g.
+.BR 2007 .
+.br
+For example the \(dq13th of April 2007\(dq will be represented as
+.BR 13\-Apr\-2007 .
+.
+.TP
+.I interval
+Combination of a positive integer
+.I number
+and a
+.IR time\ unit .
+.br
+Available
+.I time\ units
+are:
+.BR weeks " (abbr: " w ),
+.BR days " (abbr: " d ),
+.BR hours " (abbr: " h ),
+.BR mins " (abbr: " m ") and"
+.BR secs " (abbr: " s ).
+.br
+To match messages from last week, you may specify for example:
+.BR since\ 1w ,
+.BR since\ 1weeks \ or
+.BR since\ 7days .
+.
+.TP
+.I Unix timestamp
+A 10 digit Unix timestamp, seconds since the 1st of January 1970, 00:00:00
+UTC.
+For example the \(dq13th of April 2007\(dq will be represented as
+.BR 1176418800 .
+.
+.TP
+.I YYYY\-MM\-DD
+Extended ISO\-8601 calendar date format.
+For example the \(dq13th of April 2007\(dq will be represented as
+.BR 2007\-04\-13 .
+.\"------------------------------------------------------------------------
+.SH SIZE
+.BR doveadm (1)
+provides also an additional
+.I size
+representation format.
+The following formats can be used anywhere, where a
+.I size
+value is obligatory.
+.TP
+.I octets
+The message size in octets, as specified in the IMAP4rev1 specification.
+.TP
+.I size
+The message size in
+.BR B \ (byte),
+.BR k \ (kilobyte),
+.BR M \ (megabyte),
+.BR G \ (gigabyte)\ or
+.BR T \ (terabyte).
+.br
+To match messages, bigger than 1 megabyte, you may specify for example:
+.BR larger\ 1M \ or
+.BR larger\ 1024k .
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-search (1)

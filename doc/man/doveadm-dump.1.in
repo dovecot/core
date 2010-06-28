@@ -1,0 +1,69 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-DUMP 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-dump \- Dump the content of Dovecot\(aqs binary mailbox index/log
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " dump " [" \-t
+.IR type "] " path
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+Dovecot uses several binary index and log files in order to improve
+performance for accessing mails. For some mailbox formats, such as dbox
+and mdbox, the index files are part of the format itself.
+For details about index files, see also: http://wiki.dovecot.org/IndexFiles
+.PP
+.B doveadm dump
+is used to show the contents of those mailbox index/log files, in human
+readable format. This is mainly useful for Dovecot developers when
+debugging some problem.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.TP
+.BI \-t\  type
+the file type of the file to be dumped.
+If the
+.I type
+was omitted,
+.BR doveadm (1)
+tries to detect the type of
+.IR path .
+.I type
+can be:
+.RS
+.TP 12
+.B index
+\(rA dovecot.index, dovecot.map.index
+.TP
+.B log
+\(rA dovecot.index.log, dovecot.map.index.log
+.TP
+.B mailboxlog
+\(rA dovecot.mailbox.log
+.TP
+.B thread
+\(rA dovecot.index.thread
+.RE
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I path
+The path to the corresponding index or log file. If only a directory is
+specified, doveadm tries to find and dump
+.B index
+type file under it.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Look at the contents of a mailbox\(aqs index:
+.PP
+.nf
+.B doveadm dump ~/Maildir/.work/
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

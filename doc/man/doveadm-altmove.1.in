@@ -1,0 +1,77 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-ALTMOVE 1 "2010-06-23" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-altmove \- Move matching mails to the alternative storage (dbox\-only)
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " altmove
+.I search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " "altmove \-A"
+.I search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " "altmove \-u"
+.I user search_query
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+This command can be used with dbox or mdbox storage to move mails to
+alternative storage path when :ALT=<path> is specified for the mail
+location.
+.PP
+In the first form,
+.BR doveadm (1)
+will executed the
+.B altmove
+action with the environment of the logged in system user.
+.PP
+In the second form, the command will be performed for all users.
+.PP
+In the third form, only matching mails of the given
+.IR user (s)
+will be moved to the alternative storage.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I search_query
+Messages matching this search query will be moved to alt storage.
+See
+.BR doveadm\-search\-query (7)
+for details.
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+Mailbox locations and namespaces.
+.TP
+.I @sysconfdir@/dovecot/conf.d/auth\-*.conf.ext
+Authentication processes, including userdb settings.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example moves seen mails older than one week to alternative storage
+under /nfsmount:
+.br
+.nf
+mail_location = mdbox:~/mdbox:ALT=/nfsmount/%h/mdbox
+.fi
+.PP
+.nf
+.B doveadm altmove \-u johnd@example.com seen savedbefore 1w
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-search\-query (7)

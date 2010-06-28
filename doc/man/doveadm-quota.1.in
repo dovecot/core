@@ -1,0 +1,112 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-QUOTA 1 "2010-06-23" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-quota \- Initialize/recalculate or show current quota usage
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.B quota
+.I command
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.B quota
+.IB command\  \-A
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BI quota\  command\  \-u
+.I user
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+In the first form,
+.BR doveadm (1)
+will execute the
+.I command
+for the currently logged in user.
+.PP
+In the second form, the
+.I command
+will be performed for all users.
+.PP
+In the third form, the
+.I command
+will affect only the matching
+.IR user (s).
+.IP Note:
+The
+.B quota get
+and
+.B quota recalc
+commands are only available when the global
+.I mail_plugins
+setting contains the
+.B quota
+plugin.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS quota get
+.BR doveadm " [" \-f
+.IR formatter ]
+.B quota get
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+.PP
+The
+.B quota get
+command is used to display the current quota usage.
+.PP
+This command uses by default the output formatter
+.BR table .
+.\"-------------------------------------
+.SS quota recalc
+.B doveadm quota recalc
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+.PP
+The
+.B quota recalc
+command is used to recalculate the current quota usage.
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @sysconfdir@/dovecot/dovecot.conf
+Dovecot\(aqs main configuration file, including the
+.I dict
+section.
+.TP
+.I @sysconfdir@/dovecot/dovecot\-dict\-sql.conf.ext
+SQL dictionary proxy settings.
+.TP
+.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+Mailbox locations and namespaces, including global
+.I mail_location
+.TP
+.I @sysconfdir@/dovecot/conf.d/90\-quota.conf
+Quota configuration.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Get the current quota usage of user jane.
+.sp
+.nf
+.B doveadm quota get \-u jane
+Quota name                        Type    Value  Limit  %
+user                              STORAGE 90099 102400 87
+user                              MESSAGE 20548  30000 68
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

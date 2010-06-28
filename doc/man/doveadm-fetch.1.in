@@ -1,0 +1,177 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-FETCH 1 "2010-06-26" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-fetch \- Fetch partial/full messages or message information
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.B fetch
+.I fields search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.B fetch \-A
+.I fields search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.B fetch \-u
+.I user fields search_query
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm fetch
+can be used to fetch messages\(aq contents and metadata. This can be useful
+for scripts and for debugging. If you want to fetch messages one at a time,
+see
+.BR doveadm\-search (1).
+.IP Important:
+Please respect your users\(aq privacy.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\" --- command specific options --- "/.
+.PP
+This command uses by default the output formatter
+.BR pager .
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I fields
+One or more result field names to display, if the
+.I search_query
+matches any messages.
+In order to specify multiple fields, enclose them in single or double
+quotes.
+.br
+Supported
+.I fields
+are:
+.RS
+.TP
+.B body
+.\"-----------------
+The body of a message.
+.TP
+.B date.received
+Date and time of final delivery, when the message was delivered to a
+user\(aqs mailbox for the first time.
+.br
+The internal date and time of the source message, when the message was
+copied by the IMAP COPY command.
+.br
+The date\-time attribute when present, otherwise the current time, when the
+message was saved by the IMAP APPEND command.
+.\"-----------------
+.TP
+.B date.saved
+Date and time when the message was saved to mailbox.
+.\"-----------------
+.TP
+.B date.sent
+Date and time of the message\(aqs Date: header.
+.\"-----------------
+.TP
+.B flags
+A message\(aqs IMAP flags, e.g. \(rsSeen
+.\"-----------------
+.TP
+.B guid
+A message\(aqs globally unique identifier.
+.\"-----------------
+.TP
+.B hdr
+The header of the message.
+.\"-----------------
+.TP
+.B imap.body
+IMAP BODY output of the message (see RFC 3501).
+.\"-----------------
+.TP
+.B imap.bodystructure
+IMAP BODYSTRUCTURE output of the message (see RFC 3501).
+.\"-----------------
+.TP
+.B imap.envelope
+IMAP ENVELOPE output of the message (see RFC 3501).
+.\"-----------------
+.TP
+.B mailbox
+Name of the mailbox, in which the message is stored. The name is in UTF\-8.
+.\"-----------------
+.TP
+.B mailbox\-guid
+The globally unique identifier of the mailbox, in which the message is
+located.
+.\"-----------------
+.TP
+.B seq
+A message\(aqs sequence number in a mailbox.
+.\"-----------------
+.TP
+.B size.physical
+A message\(aqs physical size.
+.\"-----------------
+.TP
+.B size.virtual
+A message\(aqs virtual size, computed with CRLF line terminators.
+.\"-----------------
+.TP
+.B text
+The entire message (header and body).
+.\"-----------------
+.TP
+.B uid
+A message\(aqs unique (IMAP) identifier in a mailbox.
+.\"-----------------
+.TP
+.B user
+A message owner\(aqs login name.
+.\"-----------------
+.RE
+.\"-------------------------------------
+.TP
+.I search_query
+Fetch messages matching this search query.
+See
+.BR doveadm\-search\-query (7)
+for details.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example based on the first example from
+.BR doveadm\-search (1).
+We are fetching the fields
+.BR mailbox\  and\  date.sent
+from user bob\(aqs mailbox with the guid
+\(dq3a94c928d66ebe4bda04000015811c6a\(dq for the messages with the
+UIDs
+.BR 8 ,\  25 \ and \ 45 .
+.PP
+.nf
+.B doveadm fetch \-u bob \(dqmailbox date.sent\(dq \(rs
+.B mailbox\-guid 3a94c928d66ebe4bda04000015811c6a uid 8,25,45
+mailbox: dovecot/pigeonhole/2.0
+date.sent: 2010\-01\-19 01:17:41 (+0100)
+^L
+mailbox: dovecot/pigeonhole/2.0
+date.sent: 2010\-01\-28 09:38:49 (+0100)
+^L
+mailbox: dovecot/pigeonhole/2.0
+date.sent: 2010\-03\-28 18:41:14 (+0200)
+^L
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-search (1),
+.BR doveadm\-search\-query (7)

@@ -1,0 +1,279 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-MAILBOX 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-mailbox \- Commands related to handling mailboxes
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter "] " mailbox_cmd " [" options "] [" arguments ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm mailbox
+can be used to query and modify mailboxes.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I mailbox
+Is the name of a
+.IR mailbox ,
+as visible to IMAP clients, except in UTF\-8 format. The hierarchy
+separator between a parent and child mailbox is commonly
+.RB \(aq / \(aq
+or
+.RB \(aq . \(aq,
+but this depends on your selected mailbox storage format and namespace
+configuration. The mailbox names may also require a namespace prefix.
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS mailbox create
+.B doveadm mailbox create
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+.RB [ \-s ]
+.IR mailbox\  ...
+.PP
+This command is used to create one or more mailboxes.
+The mailbox format of the created mailboxes depends on the
+.I mail_location
+setting, or the user\(aqs
+.I mail
+field, returned by the userdb.
+.PP
+When the
+.B \-s
+option was given, the created mailboxes will be also added to the user\(aqs
+subscriptions.
+.\"------------------------------------------------------------------------
+.SS mailbox delete
+.B doveadm mailbox delete
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+.RB [ \-s ]
+.IR mailbox\  ...
+.PP
+This command deletes a mailbox and expunges all the messages it contains.
+If the mailbox has any children, they won\(aqt be deleted.
+.br
+When the
+.B \-s
+option is present, the deleted mailboxes will be also unsubscribed.
+.\"------------------------------------------------------------------------
+.SS mailbox list
+.B doveadm mailbox list
+.RB [ \-7 | \-8 ]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+.RB [ \-s ]
+[\fImailbox\fP ...]
+.PP
+To get an overview of existing mailboxes use this command.
+It\(aqs also possible to use wildcards in the
+.I mailbox
+name.
+.br
+When the
+.B \-s
+option is present, only subscribed mailboxes will be listed. Listed
+subscriptions may also contain mailboxes that are already deleted.
+.PP
+.\"-------------------------------------
+.TP
+.B \-7
+Lists the mailboxes with mUTF\-7 encoding.
+.\"-------------------------------------
+.TP
+.B \-8
+Lists the mailboxes with UTF\-8 encoding.
+.\"------------------------------------------------------------------------
+.SS mailbox mutf7
+.B doveadm mailbox mutf7
+.RB [ \-7 | \-8 ]
+.IR name\  ...
+.PP
+The
+.B mailbox mutf7
+command may be used to convert the international mailbox
+.I name
+into a modified version of the UTF\-7 encoding and vice versa.
+See RFC 3501, section 5.1.3 (Mailbox International Naming Convention).
+.PP
+.\"-------------------------------------
+.TP
+.B \-7
+Indicates that the
+.IR name \(aqs
+string representation is mUTF\-7 encoded and it should be converted to
+UTF\-8.
+.\"-------------------------------------
+.TP
+.B \-8
+Indicates that the
+.IR name \(aqs
+is UTF\-8 encoded and should be converted to mUTF\-7 (default).
+.TP
+.I name
+One or more mailbox names that should be converted.
+.\"------------------------------------------------------------------------
+.SS mailbox rename
+.B doveadm mailbox rename
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+.RB [ \-s ]
+.I old_name
+.I new_name
+.PP
+The
+.B mailbox rename
+command is used to rename the mailbox
+.I old_name
+to
+.IR new_name .
+.br
+When the
+.B \-s
+option is given,
+.I old_name
+will be unsubscribed
+and
+.I new_name
+will be subscribed.
+.\"------------------------------------------------------------------------
+.SS mailbox status
+.BR doveadm " [" \-f
+.IR formatter ]
+.B mailbox status
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP] [\fB\-t\fP]
+.IR "fields mailbox\ " ...
+.PP
+Show the
+.B status
+of one or more mailboxes.
+The
+.I mailbox
+name may also contain wildcards.
+.br
+This command uses by default the output
+.I formatter
+.BR flow .
+.TP
+.B \-t
+Summarize the values of the status
+.I fields
+.BR messages ,
+.BR recent ,
+.BR unseen " and/or"
+.B vsize
+of multiple mailboxes to a sum (total).
+.\"-------------------------------------
+.TP
+.I fields
+Specify the status
+.I fields
+which should be shown.
+In order to specify multiple status
+.IR fields ,
+enclosed them in quotes.
+.RS
+.TP
+.B all
+This is a special status field name.
+It means show all of the following
+.IR fields .
+When the
+.B \-t
+option is present, it means show only the
+.BR messages ,
+.BR recent ,
+.BR unseen " and"
+.B vsize
+.IR fields .
+.TP
+.B guid
+The
+.IR mailbox \(aqs
+globally unique identifier.
+.TP
+.B highestmodseq
+The highest mod\-sequence value of all messages in the
+.IR mailbox .
+.TP
+.B messages
+The number of messages in the
+.IR mailbox .
+.TP
+.B recent
+The number of messages with the \(rsRecent flag set.
+.TP
+.B uidnext
+The next unique identifier value.
+.TP
+.B uidvalidity
+The unique identifier validity value.
+.TP
+.B unseen
+The message sequence number of the first unseen message in the
+.IR mailbox .
+.TP
+.B vsize
+The
+.IR mailbox \(aqs
+virtual size, computed with CRLF line terminators.
+.RE
+.PP
+.\"------------------------------------------------------------------------
+.SS mailbox subscribe
+.B doveadm mailbox subscribe
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+.IR mailbox\  ...
+.PP
+This command is used to subscribe one or more mailboxes.
+.\"------------------------------------------------------------------------
+.SS mailbox unsubscribe
+.B doveadm mailbox unsubscribe
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+.IR mailbox\  ...
+.PP
+This command is used to unsubscribe one or more mailboxes.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+List subscribed mailboxes, beginning with \(aqdovecot\(aq, of user bob.
+.sp
+.nf
+.B doveadm mailbox list \-s \-u bob dovecot*
+dovecot
+dovecot/pigeonhole
+dovecot/pigeonhole/2.0
+.fi
+.\"-------------------------------------
+.PP
+Now have a look at the status of user bob\(aqs dovecot mailboxes.
+.sp
+.nf
+.B doveadm \-f table mailbox status \-u bob \(dqmessages vsize\(dq dovecot*
+mailbox                                    messages vsize
+dovecot                                    20501    93968492
+dovecot/pigeonhole                         0        0
+dovecot/pigeonhole/2.0                     47       323474
+.fi
+.\"-------------------------------------
+.PP
+Converting an internationalized mailbox name from mUTF\-7 to UTF\-8 and
+vice versa.
+.sp
+.nf
+.B doveadm mailbox mutf7 \-7 \(dq~peter/mail/&U,BTFw\-/&ZeVnLIqe\-\(dq
+~peter/mail/台北/日本語
+.B doveadm mailbox mutf7 ~peter/mail/台北/日本語
+~peter/mail/&U,BTFw\-/&ZeVnLIqe\-
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

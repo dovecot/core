@@ -1,0 +1,176 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DSYNC 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+dsync \- Dovecot\(aqs synchronization utility
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+\fBdsync\fP [\fB\-Dfrv\fP] [\fB\-C\fP \fIalt_char\fP]
+[\fB\-m\fP \fImailbox\fP] [\fB\-o\fP \fIsetting\fP=\fIvalue\fP ...]
+[\fB\-u\fP \fIuser\fP] \fIcommand\fP
+\fIcommand_arguments\fP
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B dsync
+is Dovecot\(aqs synchronization utility.
+It can be used for several different use cases:
+Two\-way synchronization of mailboxes in different servers (via
+.BR ssh (1)),
+creating backups of mails to a remote server, and convert mailboxes
+from/to different mailbox formats.
+.PP
+Any errors are written to stderr.
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+.B dsync
+recognizes the following command line options:
+.TP
+.BI \-C\  alt_char
+Specifies an alternative mailbox name character.
+If source and destination mailbox formats are different, it\(aqs possible
+that on one side there exists a mailbox name that isn\(aqt valid for the
+other side.
+These invalid mailbox names are fixed by replacing such invalid
+characters with the given
+.IR alt_char .
+The default is
+.RB \(aq _ \(aq.
+.\"---------------------------------
+.TP
+.B \-D
+Activates debug messages and makes
+.B dsync
+more verbose.
+.\"---------------------------------
+.TP
+.B \-f
+Makes
+.B dsync
+run in "full sync" mode rather than "fast sync" mode.
+.\"---------------------------------
+.TP
+.BI \-m\  mailbox
+Specifies the
+.I mailbox
+that should be synchronized or from which mails should be converted.
+The default is to synchronize all respectively convert from all mailboxes.
+.\"---------------------------------
+.TP
+.BI \-o\  setting = value
+Overrides the configuration
+.I setting
+from
+.I @sysconfdir@/dovecot/dovecot.conf
+and from the userdb with the given
+.IR value .
+In order to override multiple settings to
+.B \-o
+option may be specified multiple times.
+.\"---------------------------------
+.TP
+.B \-r
+Specifies that this side of
+.B dsync
+mirror runs read\-only.
+(This probably gets removed when full backup functionality is implemented.)
+.\"---------------------------------
+.TP
+.BI \-u\  user
+Specifies that the userdb lookup for the given
+.I user
+should be done and used to set up the environment (uid, gid, home, etc.).
+By default the system user\(aqs current environment will be used.
+.\"---------------------------------
+.TP
+.B \-v
+Makes
+.B dsync
+more verbose.
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.B dsync
+provides the following commands:
+.\"------------------------------------------------------------------------
+.SS convert
+.
+\fBdsync\fP [\fIdsync options\fP] \fBconvert\fP \fIsource_mail_location\fP
+.PP
+The
+.B convert
+command is used to convert mailboxes from one mailbox format to another.
+The
+.B \-r
+option is ignored by the
+.B convert
+command.
+.TP
+.I source_mail_location
+Specifies the source mail_location, from which the mails should be
+converted.
+The syntax for the
+.I source_mail_location
+is:
+.IB type : path\c
+[\c
+.BI : modifier\c
+\ ...]
+.br
+For details see: http://wiki.dovecot.org/MailLocation
+.PP
+The destination mail_location is configured in
+@sysconfdir@/dovecot/conf.d/10\-mail.conf.
+The global mail_location setting will be overridden by the mail field from
+the userdb lookup for
+.IR user ,
+if it returns one.
+The mail_location from the userdb and/or from the configuration file may be
+overridden by specifying a different mail_location using the
+.B \-o
+option.
+.\"------------------------------------------------------------------------
+.SS mirror
+.
+\fBdsync\fP [\fIdsync options\fP] \fBmirror\fP
+\fB\(dqssh\fP [\fIssh options\fP] [\fIuser\fP\fB@\fP]\fIhostname\fP
+\fBdsync\fP [\fIdsync options\fP]\fB\(dq\fP
+
+.\" remote: -o mail_location=... ???
+.\" remote: mbox && local: mdbox ???
+.\" ssh -C su - dsyny -u mail@user ...
+.\"	ssh -t el-presidente 'su -c "vmm di example.com" -'
+.\"	ssh -t el-presidente 'sudo vmm di example.com'
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+.SS convert
+.PP
+Assuming that the
+.I mail_location
+setting in
+.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+is set to:
+.B mail_location = mdbox:~/mdbox\c
+\ , a logged in system user may convert her/his mails from its Maildir in
+her/his home directory to the mdbox mailbox format.
+The user has to execute the command:
+.PP
+.RS
+.nf
+.B dsync convert maildir:~/Maildir
+.fi
+.RE
+
+.SS mirror
+Synchronize user\(aqs mails between local server and imap2 server:
+.PP
+.RS
+.nf
+.B dsync \-u user@example.com mirror \(rs
+.B \(dqssh imap2.example.com dsync \-u user@example.com\(dq
+.fi
+.RE
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveconf (1),
+.BR dovecot (1)

@@ -1,4 +1,8 @@
-SUBDIRS = wiki example-config
+if BUILD_DOCS
+DOCDIRS = wiki example-config
+endif
+
+SUBDIRS = man $(DOCDIRS)
 
 docfiles = \
 	auth-protocol.txt \

@@ -1,0 +1,153 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVECOT\-LDA 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+dovecot\-lda \- Dovecot\(aqs local mail delivery agent
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.B dovecot\-lda
+.RB [ \-ek ]
+[\fB\-a\fP \fIaddress\fP]
+[\fB\-c\fP \fIconfig_file\fP]
+[\fB\-d\fP \fIusername\fP]
+[\fB\-f\fP \fIenvelope_sender\fP]
+[\fB\-m\fP \fImailbox\fP]
+[\fB\-p\fP \fIpath\fP]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B dovecot\-lda
+is a local mail delivery agent which takes mail from an MTA and delivers
+it to a user\(aqs mailbox, while keeping Dovecot index files up to date.
+.PP
+Main features of the
+.B dovecot\-lda
+are:
+.TP 4
+*
+Mailbox indexing during mail delivery, providing faster mailbox access
+later
+.TP
+*
+Quota enforcing by the quota plugin
+.TP
+*
+Sieve language support by the Pigeonhole sieve plugin
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+Options accepted by
+.BR dovecot\-lda :
+.\"-------------------------------------
+.TP
+.BI \-a\  address
+Destination address (e.g. user+ext@domain). Default is the same as
+.IR username .
+.\"-------------------------------------
+.TP
+.BI \-c\  config_file
+Alternative configuration file path.
+.\"-------------------------------------
+.TP
+.BI \-d\  username
+Destination
+.IR username .
+If given, the user information is looked up from userdb.
+Typically used with virtual users, but not necessarily with system users.
+.\"-------------------------------------
+.TP
+.B \-e
+If mail gets rejected, write the rejection reason to stderr and exit with
+status 77 (EX_NOPERM).
+The default is to send a rejection mail ourself.
+.\"-------------------------------------
+.TP
+.BI \-f\  envelope_sender
+Envelope sender address.
+.\"-------------------------------------
+.TP
+.B \-k
+Don\(aqt clear all environment at startup.
+.\"-------------------------------------
+.TP
+.BI \-m\  mailbox
+Destination mailbox (default is
+.BR INBOX ).
+If the mailbox doesn\(aqt exist, it will not be created (unless the
+.I lda_mailbox_autocreate
+setting is set to
+.BR yes ).
+If a message couldn\(aqt be saved to the
+.I mailbox
+for any reason, it\(aqs delivered to
+.B INBOX
+instead.
+.\"-------------------------------------
+.TP
+.BI \-p\  path
+Path to the mail to be delivered instead of reading from stdin.
+If using maildir the file is hard linked to the destination if possible.
+This allows a single mail to be delivered to multiple users using hard
+links, but currently it also prevents deliver from updating cache file so
+it shouldn\(aqt be used unless really necessary.
+.\"------------------------------------------------------------------------
+.SH "EXIT STATUS"
+.B dovecot\-lda
+will exit with one of the following values:
+.TP 4
+.B 0
+Delivery was successful. (EX_OK)
+.TP
+.B 64
+Invalid parameter given. (EX_USAGE)
+.TP
+.B 77
+.B \-e
+option was used and mail was rejected.
+Typically this happens when user is over quota and
+.B quota_full_tempfail = no
+is configured. (EX_NOPERM)
+.TP
+.B 75
+A temporary failure. This is returned for almost all failures. See the log
+file for details. (EX_TEMPFAIL)
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @sysconfdir@/dovecot/dovecot.conf
+Dovecot\(aqs main configuration file.
+.TP
+.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+Mailbox locations and namespaces.
+.TP
+.I @sysconfdir@/dovecot/conf.d/15\-lda.conf
+LDA specific settings.
+.TP
+.I @sysconfdir@/dovecot/conf.d/90\-plugin.conf
+Plugin specific settings.
+.TP
+.I @sysconfdir@/dovecot/conf.d/90\-quota.conf
+Quota configuration.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR dovecot (1),
+.BR doveconf (1),
+.BR dsync (1)
+.PP
+Related MTA specific documentation:
+.\"-------------------------------------
+.TP
+Postfix:
+.BR postconf (5),
+.BR transport (5),
+.BR pipe (8)
+.\"-------------------------------------
+.PP
+Exim:
+.IP "The accept router"
+http://exim.org/exim\-html\-current/doc/html/spec_html/ch16.html
+.IP "Generic options for transports"
+http://exim.org/exim\-html\-current/doc/html/spec_html/ch24.html
+.IP "The pipe transport"
+http://exim.org/exim\-html\-current/doc/html/spec_html/ch29.html

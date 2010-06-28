@@ -1,0 +1,105 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-SEARCH 1 "2010-06-26" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-search \- Show a list of mailbox GUIDs and message UIDs matching \
+given search query.
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BI search\  search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BI "search \-A " search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BI "search \-u " "user search_query"
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B search
+command is used to find matching messages.
+.BR doveadm (1)
+will print the mailbox\(aqs guid and the message\(aqs uid for each match.
+.br
+When used with the
+.B \-A
+or
+.BI \-u \ wildcard
+options,
+.BR doveadm (1)
+will print the fields
+.BR username ,
+.BR mailbox\-guid \ and
+.B uid
+for each matching message.
+.PP
+In the first form,
+.BR doveadm (1)
+will executed the
+.B search
+action with the environment of the logged in system user.
+.PP
+In the second form, the command will be performed for all users.
+.PP
+In the third form, only matching mails of the given
+.IR user (s)
+will be searched.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\" --- command specific options --- "/.
+.PP
+This command uses by default the output formatter
+.B flow
+(without the
+.IR key =
+prefix).
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I search_query
+Show messages matching this search query.
+See
+.BR doveadm\-search\-query (7)
+for details.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example demonstrates how to search in user bob\(aqs dovecot mailboxes
+all messages, which contains the word \(dqtodo\(dq in the Subject: header.
+.PP
+.nf
+.B doveadm search \-u bob mailbox dovecot\(rs* subject todo
+3a94c928d66ebe4bda04000015811c6a	8
+3a94c928d66ebe4bda04000015811c6a	25
+3a94c928d66ebe4bda04000015811c6a	45
+.fi
+.PP
+The search command is mainly useful when used together with
+.I doveadm\ fetch
+command. For example to save message bodies of all messages from INBOX
+that have "todo" in subject, use:
+.PP
+.nf
+.B doveadm search \-u bob mailbox INBOX subject todo |
+.B while read guid uid; do
+.B \ \ doveadm fetch \-u bob body mailbox\-guid $guid uid $uid > msg.$uid
+.B done
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-fetch (1),
+.BR doveadm\-search\-query (7)

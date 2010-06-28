@@ -1,0 +1,93 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-WHO 1 "2010-06-23" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-who \- Show who is logged in to the Dovecot server
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BR who\  [ \-1 ]
+[\fB\-a\fP \fIanvil_socket_path\fP]
+.RI [ user ]
+[\fIip\fP[\fB/\fP\fImask\fP]]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B who
+command is used to show which users from which hosts are currently
+connected to which service.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\" --- command specific options --- "/.
+.PP
+This command uses by default the output formatter
+.BR table .
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+.TP
+.B \-1
+Print one line per user and connection.
+Otherwise the connections are grouped by the username.
+.\"-------------------------------------
+.TP
+.BI \-a\  anvil_socket_path
+This option is used to specify an absolute path to an alternative UNIX
+domain socket.
+.sp
+By default
+.BR doveadm (1)
+will use the socket
+.IR @rundir@/anvil .
+The socket may be located in another directory, when the default
+.I base_dir
+setting was overridden in
+.IR @sysconfdir@/dovecot/dovecot.conf .
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+\fIip\fP[\fB/\fP\fImask\fP]
+Specify an
+.I ip
+address or network range, in CIDR notation, to reduce the result to
+matching connections.
+.\"-------------------------------------
+.TP
+.I user
+List only users, whose name match
+.IR user .
+It\(aqs also possible to use wildcards in the
+.I user
+name.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Show authenticated sessions, filtered by the client\(aqs IP address.
+.sp
+.nf
+.B doveadm who ::1
+username                       # proto (pids)        (ips)
+jane                           2 imap  (30155 30412) (::1)
+.B doveadm who 192.0.2.0/24
+username                        # proto (pids)  (ips)
+john@example.com                1 imap  (30257) (192.0.2.34)
+.fi
+.PP
+Show authenticated sessions, filtered by username.
+.sp
+.nf
+.B doveadm who pvo
+username         # proto (pids)                    (ips)
+pvo              1 sieve (30343)                   (fd95:4eed:38ba::25)
+pvo              4 imap  (25693 25686 25679 25669) (fd95:4eed:38ba::25)
+.B doveadm who ja*
+username                    # proto (pids)        (ips)
+james                       1 imap  (30091)       (127.0.0.1)
+jane                        2 imap  (30155 30412) (::1)
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-kick (1)

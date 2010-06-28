@@ -1,0 +1,138 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-KICK 1 "2010-06-12" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-kick \- Disconnect users by user name and/or IP address
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " kick " [ \-a
+.IR anvil_socket_path ]
+.RB [ \-f ]
+.I user
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " kick " [ \-a
+.IR anvil_socket_path ]
+.RB [ \-f ]
+\fIip\fP[\fB/\fP\fImask\fP]
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " kick " [ \-a
+.IR anvil_socket_path ]
+.RB [ \-f ]
+.I user
+\fIip\fP[\fB/\fP\fImask\fP]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.BR doveadm \(aqs\  kick
+command is used to disconnect users by
+.I user
+name and/or the
+.I ip
+address, from which they are connected.
+.PP
+In the first form, all users, whose login name matches the
+.I user
+argument, will be disconnected.
+.PP
+In the second form, all users, connected from the given IP address or
+network range, will be disconnected.
+.PP
+In the last form, only users connected from the given IP address or
+networks range and a matching login name will be disconnected.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+.TP
+.BI \-a\  anvil_socket_path
+This option is used to specify an absolute path to an alternative UNIX
+domain socket.
+.sp
+By default
+.BR doveadm (1)
+will use the socket
+.IR @rundir@/anvil .
+The socket may be located in another directory, when the default
+.I base_dir
+setting was overridden in
+.IR @sysconfdir@/dovecot/dovecot.conf .
+.\"-------------------------------------
+.TP
+.B \-f
+Enforce the disconnect, even when there are multiple
+.IR user s,
+from different networks, connected to a single process.
+This option may be only required when you have configured something like:
+.sp
+.nf
+service imap {
+  ...
+  client_limit = \fI1+n\fP
+  service_count = 0
+  ...
+}
+.fi
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.IR ip [/ mask ]
+.I ip
+or
+.IB ip /\c
+.I mask
+is the host or network, from which the users are connected.
+.\"-------------------------------------
+.TP
+.I user
+Is a
+.IR user \(aqs
+login name.
+Depending on the configuration, a login name may be for example
+.BR jane " or " john@example.com .
+It\(aqs also possible to use
+.RB \(aq * \(aq
+and
+.RB \(aq ? \(aq
+wildcards (e.g. \-u *@example.org).
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+If you don\(aqt want to disconnect all users at once, you can check
+who\(aqs currently logged in.
+The first example demonstrates how to disconnect all users whose login name
+is 3 characters long and begins with
+.BR ba .
+.sp
+.nf
+.B doveadm who \-1 ja*
+username                      proto pid  ip
+jane                          imap  8192 ::1
+james                         imap  8203 2001:db8:543:2::1
+.B doveadm kick ba?
+kicked connections from the following users:
+bar baz
+.fi
+.PP
+The next example shows how to kick user foo\(aqs connections from 192.0.2.*.
+.sp
+.nf
+.B doveadm who \-1 foo
+username                     proto pid  ip
+foo                          imap  8135 fd95:4eed:38ba::25
+foo                          imap  9112 192.0.2.53
+foo                          imap  8216 192.0.2.111
+.B doveadm kick foo 192.0.2.0/24
+kicked connections from the following users:
+foo
+.B doveadm who f*
+username                  # proto (pids) (ips)
+foo                       1 imap  (8135) (fd95:4eed:38ba::25)
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-who (1)

@@ -1,0 +1,147 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-USER 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-user \- Perform a user lookup in Dovecot\(aqs userdbs
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " user
+[\fB\-a\fP \fIuserdb_socket_path\fP]
+[\fB\-x\fP \fIauth_info\fP]
+.IR user\  ...
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B user
+command is used to perform a user lookup \- to show what information
+Dovecot sees about the
+.IR user (s),
+or if it exists at all in the configured
+.IR userdb (s).
+.PP
+The
+.I auth_info
+may be useful when the userdb is for example a SQL database and you are
+using %variables, like
+.B %s
+or
+.BR %l ,
+in the
+.I user_query
+setting.
+Or when you have configured the userdb in a way like this:
+.sp
+.nf
+userdb {
+  driver = passwd\-file
+  args = /etc/%s.passwd
+}
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+.TP
+.BI \-a\  userdb_socket_path
+This option is used to specify an absolute path to an alternative UNIX
+domain socket.
+.sp
+By default
+.BR doveadm (1)
+will use the socket
+.IR @rundir@/auth\-userdb .
+The socket may be located in another directory, when the default
+.I base_dir
+setting was overridden in
+.IR @sysconfdir@/dovecot/dovecot.conf .
+.\"-------------------------------------
+.TP
+.BI \-x\  auth_info
+.I auth_info
+specifies additional conditions for the
+.B user
+command.
+The
+.I auth_info
+option string has to be given as
+.IB name = value
+pair.
+For multiple conditions the
+.B \-x
+option could be supplied multiple times.
+.br
+Possible names for the
+.I auth_info
+are:
+.RS
+.TP
+.B service
+The service for which the userdb lookup should be tested.
+The value may be the name of a service, commonly used with Dovecot.
+For example:
+.BR imap ,
+.BR pop3\  or
+.BR smtp .
+.TP
+.B lip
+The local IP address (server) for the test.
+.TP
+.B rip
+The remote IP address (client) for the test.
+.TP
+.B lport
+The local port, e.g. 143
+.TP
+.B rport
+The remote port, e.g. 24567
+.RE
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I user
+Is a
+.IR user \(aqs
+login name.
+Depending on the configuration, a login name may be for example
+.BR jane " or " john@example.com .
+It\(aqs also possible to use
+.RB \(aq * \(aq
+and
+.RB \(aq ? \(aq
+wildcards (e.g. \-u *@example.org).
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Perform a user lookup for the users jane and john@example.com.
+.sp
+.nf
+.B doveadm user jane john@example.com
+userdb: jane
+  uid       : 8001
+  gid       : 8001
+  home      : /home/jane
+  mail      : dbox:~/dbox
+  plugins   : sieve
+  quota_rule: *:storage=150M
+
+userdb: john@example.com
+  home      : /srv/mail/8/70312/79832
+  uid       : 79832
+  gid       : 70312
+  mail      : mdbox:~/mdbox
+.fi
+.PP
+The next example shows a user lookup, using wildcards.
+.sp
+.nf
+.B doveadm user *.?oe@example.net
+jane.doe@example.net
+judy.roe@example.net
+john.doe@example.net
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)
