@@ -198,9 +198,16 @@ static int sdbox_mailbox_create_indexes(struct mailbox *box,
 	return ret;
 }
 
-static void sdbox_set_file_corrupted(struct dbox_file *file ATTR_UNUSED)
+static void sdbox_set_mailbox_corrupted(struct mailbox *box ATTR_UNUSED)
 {
 	/* FIXME */
+}
+
+static void sdbox_set_file_corrupted(struct dbox_file *_file)
+{
+	struct sdbox_file *file = (struct sdbox_file *)_file;
+
+	sdbox_set_mailbox_corrupted(&file->mbox->box);
 }
 
 static int
@@ -309,5 +316,6 @@ struct dbox_storage_vfuncs sdbox_dbox_storage_vfuncs = {
 	sdbox_file_create_fd,
 	sdbox_mail_open,
 	sdbox_mailbox_create_indexes,
+	sdbox_set_mailbox_corrupted,
 	sdbox_set_file_corrupted
 };

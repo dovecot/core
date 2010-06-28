@@ -10,6 +10,8 @@
 #include "dbox-storage.h"
 
 #include <stdio.h>
+#include <dirent.h>
+#include <unistd.h>
 
 void dbox_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 				    struct mailbox_list_settings *set)
@@ -90,6 +92,36 @@ int dbox_mailbox_open(struct mailbox *box)
 	}
 }
 
+static int dir_is_empty(struct mail_storage *storage, const char *path)
+{
+	DIR *dir;
+	struct dirent *d;
+	int ret = 1;
+
+	dir = opendir(path);
+	if (dir == NULL) {
+		if (errno == ENOENT) {
+			/* race condition with DELETE/RENAME? */
+			return 1;
+		}
+		mail_storage_set_critical(storage, "opendir(%s) failed: %m",
+					  path);
+		return -1;
+	}
+	while ((d = readdir(dir)) != NULL) {
+		if (*d->d_name == '.')
+			continue;
+
+		ret = 0;
+	}
+	if (closedir(dir) < 0) {
+		mail_storage_set_critical(storage, "closedir(%s) failed: %m",
+					  path);
+		ret = -1;
+	}
+	return ret;
+}
+
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory)
 {
@@ -97,6 +129,8 @@ int dbox_mailbox_create(struct mailbox *box,
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
+	const char *alt_path;
+	struct stat st;
 	int ret;
 
 	if (directory &&
@@ -105,6 +139,25 @@ int dbox_mailbox_create(struct mailbox *box,
 
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
+
+	/* if alt path already exists and contains files, rebuild storage so
+	   that we don't start overwriting files. */
+	alt_path = mailbox_list_get_path(box->list, box->name,
+					 MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+	if (alt_path != NULL && stat(alt_path, &st) == 0) {
+		ret = dir_is_empty(box->storage, alt_path);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
+			mail_storage_set_critical(&storage->storage,
+				"Mailbox %s has existing files in alt path, "
+				"rebuilding storage to avoid losing messages",
+				box->vname);
+			storage->v.set_mailbox_corrupted(box);
+			return -1;
+		}
+		/* dir is empty, ignore it */
+	}
 
 	/* use syncing as a lock */
 	ret = mail_index_sync_begin(box->index, &sync_ctx, &view, &trans, 0);

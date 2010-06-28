@@ -270,6 +270,13 @@ void mdbox_storage_set_corrupted(struct mdbox_storage *storage)
 	}
 }
 
+static void mdbox_set_mailbox_corrupted(struct mailbox *box)
+{
+	struct mdbox_storage *mstorage = (struct mdbox_storage *)box->storage;
+
+	mdbox_storage_set_corrupted(mstorage);
+}
+
 static void mdbox_set_file_corrupted(struct dbox_file *file)
 {
 	struct mdbox_storage *mstorage = (struct mdbox_storage *)file->storage;
@@ -426,5 +433,6 @@ struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs = {
 	mdbox_file_create_fd,
 	mdbox_mail_open,
 	mdbox_mailbox_create_indexes,
+	mdbox_set_mailbox_corrupted,
 	mdbox_set_file_corrupted
 };

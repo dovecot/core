@@ -316,26 +316,11 @@ static int
 fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 			   bool directory)
 {
-	const char *path, *alt_path, *gid_origin, *p;
-	struct stat st;
+	const char *path, *gid_origin, *p;
 	mode_t mode;
 	gid_t gid;
 	bool create_parent_dir;
 	int ret;
-
-	/* make sure the alt path doesn't exist yet. it shouldn't (except with
-	   race conditions with RENAME/DELETE), but if something crashed and
-	   left it lying around we don't want to start overwriting files in
-	   it. */
-	if (!directory) {
-		alt_path = mailbox_list_get_path(list, name,
-					MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
-		if (alt_path != NULL && stat(alt_path, &st) == 0) {
-			mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
-					       "Mailbox already exists");
-			return -1;
-		}
-	}
 
 	path = mailbox_list_get_path(list, name,
 				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :

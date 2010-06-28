@@ -39,6 +39,8 @@ struct dbox_storage_vfuncs {
 	int (*mailbox_create_indexes)(struct mailbox *box,
 				      const struct mailbox_update *update,
 				      struct mail_index_transaction *trans);
+	/* mark the mailbox corrupted */
+	void (*set_mailbox_corrupted)(struct mailbox *box);
 	/* mark the file corrupted */
 	void (*set_file_corrupted)(struct dbox_file *file);
 };
