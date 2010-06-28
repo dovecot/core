@@ -227,6 +227,11 @@ void client_destroy(struct client *client, const char *reason)
 	imap_refresh_proctitle();
 }
 
+static void client_destroy_timeout(struct client *client)
+{
+	client_destroy(client, NULL);
+}
+
 void client_disconnect(struct client *client, const char *reason)
 {
 	i_assert(reason != NULL);
@@ -240,6 +245,10 @@ void client_disconnect(struct client *client, const char *reason)
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);
+
+	if (client->to_idle != NULL)
+		timeout_remove(&client->to_idle);
+	client->to_idle = timeout_add(0, client_destroy_timeout, client);
 }
 
 void client_disconnect_with_error(struct client *client, const char *msg)
