@@ -143,7 +143,7 @@ static int zlib_permail_get_stream(struct mail *_mail,
 	   in such situation we're probably checking if the user-given input
 	   looks compressed */
 	if (imail->data.stream != NULL ||
-	    (_mail->uid == 0 && zuser->save_handler == NULL)) {
+	    (_mail->saving && zuser->save_handler == NULL)) {
 		return zmail->super.get_stream(_mail, hdr_size, body_size,
 					       stream_r);
 	}

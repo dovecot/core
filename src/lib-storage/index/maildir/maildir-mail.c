@@ -118,7 +118,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 		if (stp == NULL)
 			return -1;
 		*st = *stp;
-	} else if (mail->uid != 0) {
+	} else if (!mail->saving) {
 		imail->mail.stats_stat_lookup_count++;
 		ret = maildir_file_do(mbox, mail->uid, do_stat, st);
 		if (ret <= 0) {
@@ -274,7 +274,7 @@ static int maildir_quick_size_lookup(struct index_mail *mail, bool vsize,
 	enum maildir_uidlist_rec_ext_key key;
 	const char *path, *fname, *value;
 
-	if (_mail->uid != 0) {
+	if (!_mail->saving) {
 		if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
 			return -1;
 	} else {
@@ -292,7 +292,7 @@ static int maildir_quick_size_lookup(struct index_mail *mail, bool vsize,
 		return 1;
 
 	/* size can be included in uidlist entry */
-	if (_mail->uid != 0) {
+	if (!_mail->saving) {
 		key = vsize ? MAILDIR_UIDLIST_REC_EXT_VSIZE :
 			MAILDIR_UIDLIST_REC_EXT_PSIZE;
 		value = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
@@ -411,7 +411,7 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		return 0;
 	}
 
-	if (_mail->uid != 0) {
+	if (!_mail->saving) {
 		ret = maildir_file_do(mbox, _mail->uid, do_stat, &st);
 		if (ret <= 0) {
 			if (ret == 0)
@@ -450,7 +450,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			*value_r = mail->data.guid;
 			return 0;
 		}
-		if (_mail->uid != 0) {
+		if (!_mail->saving) {
 			if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
 				return -1;
 		} else {

@@ -1320,7 +1320,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		/* open the stream only if we didn't get here from
 		   mailbox_save_init() */
 		hdr = mail_index_get_header(_mail->box->view);
-		if (_mail->uid != 0 && _mail->uid < hdr->next_uid)
+		if (!_mail->saving && _mail->uid < hdr->next_uid)
 			(void)mail_get_stream(_mail, NULL, NULL, &input);
 	}
 }
