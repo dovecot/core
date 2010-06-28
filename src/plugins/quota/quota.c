@@ -282,11 +282,13 @@ void quota_deinit(struct quota **_quota)
 	struct quota_root *const *roots;
 	unsigned int i, count;
 
-	*_quota = NULL;
-
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++)
 		quota_root_deinit(roots[i]);
+
+	/* deinit quota roots before setting quser->quota=NULL */
+	*_quota = NULL;
+
 	array_free(&quota->roots);
 	array_free(&quota->namespaces);
 	i_free(quota);
@@ -839,6 +841,8 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	ctx->quota = box->list->ns->owner != NULL ?
 		quota_get_mail_user_quota(box->list->ns->owner) :
 		quota_get_mail_user_quota(box->list->ns->user);
+	i_assert(ctx->quota != NULL);
+
 	ctx->box = box;
 	ctx->bytes_left = (uint64_t)-1;
 	ctx->count_left = (uint64_t)-1;
