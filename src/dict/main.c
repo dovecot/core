@@ -69,9 +69,9 @@ static void main_init(void)
 static void main_deinit(void)
 {
 	dict_connections_destroy_all();
-	module_dir_unload(&modules);
-
 	dict_drivers_unregister_all();
+
+	module_dir_unload(&modules);
 
 	sql_drivers_deinit();
 	random_deinit();
