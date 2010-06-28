@@ -1,7 +1,10 @@
 SUBDIRS = conf.d
 
 dovecotconfdir = $(sysconfdir)/dovecot
-dovecotconf_DATA = README
+nodist_dovecotconf_DATA = README
+# nodist_ prefix just doesn't seem to work, so rm it directly:
+dist-hook:
+	rm -f $(distdir)/README
 
 README: README.in Makefile
 	cat $(srcdir)/README.in | sed "s|@exampledir@|$(exampledir)|" > README
