@@ -103,7 +103,7 @@ static void service_status_less(struct service_process *process,
 			   add a bit of randomness so that we don't send the
 			   signal to all of them at once */
 			process->to_idle =
-				timeout_add((service->set->idle_kill * 1000) +
+				timeout_add((service->idle_kill * 1000) +
 					    (rand() % 100)*10,
 					    service_process_kill_idle,
 					    process);
