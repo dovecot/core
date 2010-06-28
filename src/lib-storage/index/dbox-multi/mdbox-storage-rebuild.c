@@ -39,6 +39,7 @@ struct rebuild_msg_mailbox {
 
 struct mdbox_storage_rebuild_context {
 	struct mdbox_storage *storage;
+	struct mdbox_map_atomic_context *atomic;
 	pool_t pool;
 
 	struct mdbox_map_mail_index_header orig_map_hdr;
@@ -51,9 +52,6 @@ struct mdbox_storage_rebuild_context {
 	uint32_t highest_file_id;
 
 	struct mailbox_list *default_list;
-	struct mail_index_sync_ctx *sync_ctx;
-	struct mail_index_view *sync_view;
-	struct mail_index_transaction *trans;
 
 	struct rebuild_msg_mailbox prev_msg;
 };
@@ -79,7 +77,8 @@ static int guid_cmp(const void *p1, const void *p2)
 }
 
 static struct mdbox_storage_rebuild_context *
-mdbox_storage_rebuild_init(struct mdbox_storage *storage)
+mdbox_storage_rebuild_init(struct mdbox_storage *storage,
+			   struct mdbox_map_atomic_context *atomic)
 {
 	struct mdbox_storage_rebuild_context *ctx;
 
@@ -87,6 +86,7 @@ mdbox_storage_rebuild_init(struct mdbox_storage *storage)
 
 	ctx = i_new(struct mdbox_storage_rebuild_context, 1);
 	ctx->storage = storage;
+	ctx->atomic = atomic;
 	ctx->pool = pool_alloconly_create("dbox map rebuild", 1024*256);
 	ctx->guid_hash = hash_table_create(default_pool, ctx->pool, 0,
 					   guid_hash, guid_cmp);
@@ -103,8 +103,6 @@ mdbox_storage_rebuild_deinit(struct mdbox_storage_rebuild_context *ctx)
 	i_assert(ctx->storage->rebuilding_storage);
 
 	ctx->storage->rebuilding_storage = FALSE;
-	if (ctx->sync_ctx != NULL)
-		mail_index_sync_rollback(&ctx->sync_ctx);
 
 	hash_table_destroy(&ctx->guid_hash);
 	pool_unref(&ctx->pool);
@@ -307,8 +305,9 @@ rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 		rec.size = msgs[i]->size;
 
 		msgs[i]->map_uid = next_uid++;
-		mail_index_append(ctx->trans, msgs[i]->map_uid, &seq);
-		mail_index_update_ext(ctx->trans, seq,
+		mail_index_append(ctx->atomic->sync_trans,
+				  msgs[i]->map_uid, &seq);
+		mail_index_update_ext(ctx->atomic->sync_trans, seq,
 				      ctx->storage->map->map_ext_id,
 				      &rec, NULL);
 	}
@@ -327,9 +326,9 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 	array_sort(&ctx->msgs, mdbox_rebuild_msg_offset_cmp);
 
 	msgs = array_get_modifiable(&ctx->msgs, &count);
-	hdr = mail_index_get_header(ctx->sync_view);
+	hdr = mail_index_get_header(ctx->atomic->sync_view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		if (mdbox_map_view_lookup_rec(map, ctx->sync_view,
+		if (mdbox_map_view_lookup_rec(map, ctx->atomic->sync_view,
 					      seq, &rec) < 0)
 			return -1;
 
@@ -342,7 +341,7 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 		if (pos == NULL || (*pos)->map_uid != 0) {
 			/* map record points to non-existing or
 			   a duplicate message. */
-			mail_index_expunge(ctx->trans, seq);
+			mail_index_expunge(ctx->atomic->sync_trans, seq);
 		} else {
 			(*pos)->map_uid = rec.map_uid;
 			if (rec.refcount == 0)
@@ -748,21 +747,21 @@ static void rebuild_update_refcounts(struct mdbox_storage_rebuild_context *ctx)
 
 	/* update refcounts for existing map records */
 	msgs = array_get_modifiable(&ctx->msgs, &count);
-	hdr = mail_index_get_header(ctx->sync_view);
+	hdr = mail_index_get_header(ctx->atomic->sync_view);
 	for (seq = 1, i = 0; seq <= hdr->messages_count && i < count; seq++) {
-		mail_index_lookup_uid(ctx->sync_view, seq, &map_uid);
+		mail_index_lookup_uid(ctx->atomic->sync_view, seq, &map_uid);
 		if (map_uid != msgs[i]->map_uid) {
 			/* we've already expunged this map record */
 			i_assert(map_uid < msgs[i]->map_uid);
 			continue;
 		}
 
-		mail_index_lookup_ext(ctx->sync_view, seq,
+		mail_index_lookup_ext(ctx->atomic->sync_view, seq,
 				      ctx->storage->map->ref_ext_id,
 				      &data, &expunged);
 		ref16_p = data;
 		if (ref16_p == NULL || *ref16_p != msgs[i]->refcount) {
-			mail_index_update_ext(ctx->trans, seq,
+			mail_index_update_ext(ctx->atomic->sync_trans, seq,
 					      ctx->storage->map->ref_ext_id,
 					      &msgs[i]->refcount, NULL);
 		}
@@ -771,7 +770,7 @@ static void rebuild_update_refcounts(struct mdbox_storage_rebuild_context *ctx)
 
 	/* update refcounts for newly created map records */
 	for (; i < count; i++, seq++) {
-		mail_index_update_ext(ctx->trans, seq,
+		mail_index_update_ext(ctx->atomic->sync_trans, seq,
 				      ctx->storage->map->ref_ext_id,
 				      &msgs[i]->refcount, NULL);
 	}
@@ -792,7 +791,8 @@ static int rebuild_finish(struct mdbox_storage_rebuild_context *ctx)
 	map_hdr.highest_file_id = ctx->highest_file_id;
 	map_hdr.rebuild_count = ++ctx->rebuild_count;
 
-	mail_index_update_header_ext(ctx->trans, ctx->storage->map->map_ext_id,
+	mail_index_update_header_ext(ctx->atomic->sync_trans,
+				     ctx->storage->map->map_ext_id,
 				     0, &map_hdr, sizeof(map_hdr));
 	return 0;
 }
@@ -837,24 +837,18 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 {
 	const void *data;
 	size_t data_size;
-	int ret = 0;
 
 	if (mdbox_map_open_or_create(ctx->storage->map) < 0)
 		return -1;
 
 	/* begin by locking the map, so that other processes can't try to
 	   rebuild at the same time. */
-	ret = mail_index_sync_begin(ctx->storage->map->index, &ctx->sync_ctx,
-				    &ctx->sync_view, &ctx->trans, 0);
-	if (ret <= 0) {
-		i_assert(ret != 0);
-		mail_storage_set_internal_error(&ctx->storage->storage.storage);
-		mail_index_reset_error(ctx->storage->map->index);
+	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
 		return -1;
-	}
 
 	/* get old map header */
-	mail_index_get_header_ext(ctx->sync_view, ctx->storage->map->map_ext_id,
+	mail_index_get_header_ext(ctx->atomic->sync_view,
+				  ctx->storage->map->map_ext_id,
 				  &data, &data_size);
 	memset(&ctx->orig_map_hdr, 0, sizeof(ctx->orig_map_hdr));
 	memcpy(&ctx->orig_map_hdr, data,
@@ -882,13 +876,15 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 
 	if (rebuild_apply_map(ctx) < 0 ||
 	    rebuild_mailboxes(ctx) < 0 ||
-	    rebuild_finish(ctx) < 0 ||
-	    mail_index_sync_commit(&ctx->sync_ctx) < 0)
+	    rebuild_finish(ctx) < 0) {
+		mdbox_map_atomic_set_failed(ctx->atomic);
 		return -1;
+	}
 	return 0;
 }
 
-int mdbox_storage_rebuild(struct mdbox_storage *storage)
+int mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
+				     struct mdbox_map_atomic_context *atomic)
 {
 	struct mdbox_storage_rebuild_context *ctx;
 	struct stat st;
@@ -905,7 +901,7 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage)
 		return -1;
 	}
 
-	ctx = mdbox_storage_rebuild_init(storage);
+	ctx = mdbox_storage_rebuild_init(storage, atomic);
 	ret = mdbox_storage_rebuild_scan(ctx);
 	mdbox_storage_rebuild_deinit(ctx);
 
@@ -913,5 +909,17 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage)
 		storage->corrupted = FALSE;
 		storage->corrupted_rebuild_count = 0;
 	}
+	return ret;
+}
+
+int mdbox_storage_rebuild(struct mdbox_storage *storage)
+{
+	struct mdbox_map_atomic_context *atomic;
+	int ret;
+
+	atomic = mdbox_map_atomic_begin(storage->map);
+	ret = mdbox_storage_rebuild_in_context(storage, atomic);
+	if (mdbox_map_atomic_finish(&atomic) < 0)
+		ret = -1;
 	return ret;
 }

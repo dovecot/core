@@ -59,12 +59,25 @@ int mdbox_map_lookup_full(struct mdbox_map *map, uint32_t map_uid,
 int mdbox_map_get_file_msgs(struct mdbox_map *map, uint32_t file_id,
 			    ARRAY_TYPE(mdbox_map_file_msg) *recs);
 
+/* Begin atomic context. There can be multiple transactions/appends within the
+   same atomic context. */
+struct mdbox_map_atomic_context *mdbox_map_atomic_begin(struct mdbox_map *map);
+/* Lock the map immediately. */
+int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic);
+/* Returns TRUE if map is locked */
+bool mdbox_map_atomic_is_locked(struct mdbox_map_atomic_context *atomic);
+/* When finish() is called, rollback the changes. If data was already written
+   to map's transaction log, this desyncs the map and causes a rebuild */
+void mdbox_map_atomic_set_failed(struct mdbox_map_atomic_context *atomic);
+/* Commit/rollback changes within this atomic context. */
+int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **atomic);
+
 struct mdbox_map_transaction_context *
-mdbox_map_transaction_begin(struct mdbox_map *map, bool external);
+mdbox_map_transaction_begin(struct mdbox_map_atomic_context *atomic,
+			    bool external);
 /* Write transaction to map and leave it locked. Call _free() to update tail
    offset and unlock. */
 int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx);
-void mdbox_map_transaction_set_failed(struct mdbox_map_transaction_context *ctx);
 void mdbox_map_transaction_free(struct mdbox_map_transaction_context **ctx);
 
 int mdbox_map_update_refcount(struct mdbox_map_transaction_context *ctx,
@@ -78,7 +91,7 @@ int mdbox_map_get_zero_ref_files(struct mdbox_map *map,
 				 ARRAY_TYPE(seq_range) *file_ids_r);
 
 struct mdbox_map_append_context *
-mdbox_map_append_begin(struct mdbox_map *map);
+mdbox_map_append_begin(struct mdbox_map_atomic_context *atomic);
 /* Request file for saving a new message with given size (if available). If an
    existing file can be used, the record is locked and updated in index.
    Returns 0 if ok, -1 if error. */

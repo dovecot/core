@@ -32,10 +32,8 @@ struct mdbox_map_append {
 
 struct mdbox_map_append_context {
 	struct mdbox_map *map;
-
-	struct mail_index_sync_ctx *sync_ctx;
-	struct mail_index_view *sync_view;
-	struct mail_index_transaction *sync_trans, *trans;
+	struct mdbox_map_atomic_context *atomic;
+	struct mail_index_transaction *trans;
 
 	ARRAY_DEFINE(file_appends, struct dbox_file_append_context *);
 	ARRAY_DEFINE(files, struct dbox_file *);
@@ -46,7 +44,17 @@ struct mdbox_map_append_context {
 	unsigned int files_nonappendable_count;
 
 	unsigned int failed:1;
-	unsigned int committed:1;
+};
+
+struct mdbox_map_atomic_context {
+	struct mdbox_map *map;
+	struct mail_index_transaction *sync_trans;
+	struct mail_index_sync_ctx *sync_ctx;
+	struct mail_index_view *sync_view;
+
+	unsigned int map_refreshed:1;
+	unsigned int locked:1;
+	unsigned int success:1;
 };
 
 int mdbox_map_view_lookup_rec(struct mdbox_map *map,

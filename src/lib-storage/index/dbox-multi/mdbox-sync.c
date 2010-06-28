@@ -148,71 +148,86 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 	}
 
 	/* handle syncing records without map being locked. */
-	ctx->map_trans =
-		mdbox_map_transaction_begin(ctx->mbox->storage->map, FALSE);
-	i_array_init(&ctx->expunged_seqs, 64);
+	if (mdbox_map_atomic_is_locked(ctx->atomic)) {
+		ctx->map_trans = mdbox_map_transaction_begin(ctx->atomic, FALSE);
+		i_array_init(&ctx->expunged_seqs, 64);
+	}
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
 		if ((ret = mdbox_sync_rec(ctx, &sync_rec)) < 0)
 			break;
 	}
 
-	/* write refcount changes to map index. map index is locked by
-	   the commit() and log head is updated, while tail is left behind. */
-	if (ret == 0)
-		ret = mdbox_map_transaction_commit(ctx->map_trans);
-	/* write changes to mailbox index */
-	if (ret == 0)
-		ret = dbox_sync_mark_expunges(ctx);
+	/* write refcount changes to map index. transaction commit updates the
+	   log head, while tail is left behind. */
+	if (mdbox_map_atomic_is_locked(ctx->atomic)) {
+		if (ret == 0)
+			ret = mdbox_map_transaction_commit(ctx->map_trans);
+		/* write changes to mailbox index */
+		if (ret == 0)
+			ret = dbox_sync_mark_expunges(ctx);
 
-	/* finish the map changes and unlock the map. this also updates
-	   map's tail -> head. */
-	if (ret < 0)
-		mdbox_map_transaction_set_failed(ctx->map_trans);
-	mdbox_map_transaction_free(&ctx->map_trans);
+		/* finish the map changes and unlock the map. this also updates
+		   map's tail -> head. */
+		if (ret < 0)
+			mdbox_map_atomic_set_failed(ctx->atomic);
+		mdbox_map_transaction_free(&ctx->map_trans);
+		array_free(&ctx->expunged_seqs);
+	}
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
 
-	array_free(&ctx->expunged_seqs);
 	return ret == 0 ? 1 :
 		(ctx->mbox->storage->corrupted ? 0 : -1);
 }
 
-static int mdbox_refresh_header(struct mdbox_mailbox *mbox, bool retry)
+static int mdbox_sync_try_begin(struct mdbox_sync_context *ctx,
+				enum mail_index_sync_flags sync_flags)
 {
-	struct mail_index_view *view;
-	struct mdbox_index_header hdr;
+	struct mdbox_mailbox *mbox = ctx->mbox;
 	int ret;
 
-	view = mail_index_view_open(mbox->box.index);
-	ret = mdbox_read_header(mbox, &hdr);
-	mail_index_view_close(&view);
-
-	if (ret == 0) {
-		ret = mbox->storage->corrupted ? -1 : 0;
-	} else if (retry) {
-		(void)mail_index_refresh(mbox->box.index);
-		return mdbox_refresh_header(mbox, FALSE);
+	ret = mail_index_sync_begin(mbox->box.index, &ctx->index_sync_ctx,
+				    &ctx->sync_view, &ctx->trans, sync_flags);
+	if (ret < 0) {
+		mail_storage_set_index_error(&mbox->box);
+		return -1;
 	}
-	return ret;
+	if (ret == 0) {
+		/* nothing to do */
+		return 0;
+	}
+
+	if (!mdbox_map_atomic_is_locked(ctx->atomic) &&
+	    mail_index_sync_has_expunges(ctx->index_sync_ctx)) {
+		/* we have expunges, so we need to write to map.
+		   it needs to be locked before mailbox index. */
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
+		if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+			return -1;
+		return mdbox_sync_try_begin(ctx, sync_flags);
+	}
+	return 1;
 }
 
 int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
+		     struct mdbox_map_atomic_context *atomic,
 		     struct mdbox_sync_context **ctx_r)
 {
 	struct mail_storage *storage = mbox->box.storage;
 	struct mdbox_sync_context *ctx;
 	enum mail_index_sync_flags sync_flags;
-	unsigned int i;
 	int ret;
 	bool rebuild, storage_rebuilt = FALSE;
+
+	*ctx_r = NULL;
 
 	/* avoid race conditions with mailbox creation, don't check for dbox
 	   headers until syncing has locked the mailbox */
 	rebuild = mbox->storage->corrupted ||
 		(flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
 	if (rebuild) {
-		if (mdbox_storage_rebuild(mbox->storage) < 0)
+		if (mdbox_storage_rebuild_in_context(mbox->storage, atomic) < 0)
 			return -1;
 		index_mailbox_reset_uidvalidity(&mbox->box);
 		storage_rebuilt = TRUE;
@@ -221,6 +236,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	ctx = i_new(struct mdbox_sync_context, 1);
 	ctx->mbox = mbox;
 	ctx->flags = flags;
+	ctx->atomic = atomic;
 
 	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	if (!rebuild && (flags & MDBOX_SYNC_FLAG_FORCE) == 0)
@@ -230,48 +246,32 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	/* don't write unnecessary dirty flag updates */
 	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
 
-	for (i = 0;; i++) {
-		ret = mail_index_sync_begin(mbox->box.index,
-					    &ctx->index_sync_ctx,
-					    &ctx->sync_view, &ctx->trans,
-					    sync_flags);
-		if (ret <= 0) {
-			if (ret < 0)
-				mail_storage_set_index_error(&mbox->box);
-			i_free(ctx);
-			*ctx_r = NULL;
-			return ret;
-		}
+	ret = mdbox_sync_try_begin(ctx, sync_flags);
+	if (ret <= 0) {
+		/* failed / nothing to do */
+		i_free(ctx);
+		return ret;
+	}
 
-		/* now that we're locked, check again if we want to rebuild */
-		if (mdbox_refresh_header(mbox, FALSE) < 0)
-			ret = 0;
-		else {
-			if ((ret = mdbox_sync_index(ctx)) > 0)
-				break;
-		}
+	if ((ret = mdbox_sync_index(ctx)) <= 0) {
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
+		i_free_and_null(ctx);
 
-		/* failure. keep the index locked while we're doing a
-		   rebuild. */
-		if (ret == 0) {
-			if (!storage_rebuilt) {
-				/* we'll need to rebuild storage too.
-				   try again from the beginning. */
-				mdbox_storage_set_corrupted(mbox->storage);
-				mail_index_sync_rollback(&ctx->index_sync_ctx);
-				i_free(ctx);
-				return mdbox_sync_begin(mbox, flags, ctx_r);
-			}
+		if (ret < 0)
+			return -1;
+
+		/* corrupted */
+		if (storage_rebuilt) {
 			mail_storage_set_critical(storage,
 				"mdbox %s: Storage keeps breaking",
-				ctx->mbox->box.path);
-			ret = -1;
-		}
-		mail_index_sync_rollback(&ctx->index_sync_ctx);
-		if (ret < 0) {
-			i_free(ctx);
+				mbox->box.path);
 			return -1;
 		}
+
+		/* we'll need to rebuild storage.
+		   try again from the beginning. */
+		mdbox_storage_set_corrupted(mbox->storage);
+		return mdbox_sync_begin(mbox, flags, atomic, ctx_r);
 	}
 
 	*ctx_r = ctx;
@@ -301,13 +301,16 @@ int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 {
 	struct mdbox_sync_context *sync_ctx;
+	struct mdbox_map_atomic_context *atomic;
+	int ret;
 
-	if (mdbox_sync_begin(mbox, flags, &sync_ctx) < 0)
-		return -1;
-
-	if (sync_ctx == NULL)
-		return 0;
-	return mdbox_sync_finish(&sync_ctx, TRUE);
+	atomic = mdbox_map_atomic_begin(mbox->storage->map);
+	ret = mdbox_sync_begin(mbox, flags, atomic, &sync_ctx);
+	if (ret == 0 && sync_ctx != NULL)
+		ret = mdbox_sync_finish(&sync_ctx, TRUE);
+	if (mdbox_map_atomic_finish(&atomic) < 0)
+		ret = -1;
+	return ret;
 }
 
 struct mailbox_sync_context *

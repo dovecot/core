@@ -36,6 +36,7 @@ struct mdbox_save_context {
 	struct mdbox_map_append_context *append_ctx;
 
 	ARRAY_TYPE(uint32_t) copy_map_uids;
+	struct mdbox_map_atomic_context *atomic;
 	struct mdbox_map_transaction_context *map_trans;
 
 	ARRAY_DEFINE(mails, struct dbox_save_mail);
@@ -113,7 +114,8 @@ mdbox_save_alloc(struct mailbox_transaction_context *t)
 	ctx->ctx.ctx.transaction = t;
 	ctx->ctx.trans = t->itrans;
 	ctx->mbox = mbox;
-	ctx->append_ctx = mdbox_map_append_begin(mbox->storage->map);
+	ctx->atomic = mdbox_map_atomic_begin(mbox->storage->map);
+	ctx->append_ctx = mdbox_map_append_begin(ctx->atomic);
 	i_array_init(&ctx->mails, 32);
 	t->save_ctx = &ctx->ctx.ctx;
 	return t->save_ctx;
@@ -246,19 +248,20 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	i_assert(ctx->ctx.finished);
 
-	/* lock the mailbox before map to avoid deadlocks */
-	if (mdbox_sync_begin(mbox, MDBOX_SYNC_FLAG_NO_PURGE |
-			     MDBOX_SYNC_FLAG_FORCE |
-			     MDBOX_SYNC_FLAG_FSYNC, &ctx->sync_ctx) < 0) {
-		mdbox_transaction_save_rollback(_ctx);
-		return -1;
-	}
-
 	/* assign map UIDs for newly saved messages. they're written to
 	   transaction log immediately within this function, but the map
 	   is left locked. */
 	if (mdbox_map_append_assign_map_uids(ctx->append_ctx, &first_map_uid,
 					     &last_map_uid) < 0) {
+		mdbox_transaction_save_rollback(_ctx);
+		return -1;
+	}
+
+	/* map is now locked. lock the mailbox after it to avoid deadlocks. */
+	if (mdbox_sync_begin(mbox, MDBOX_SYNC_FLAG_NO_PURGE |
+			     MDBOX_SYNC_FLAG_FORCE |
+			     MDBOX_SYNC_FLAG_FSYNC, ctx->atomic,
+			     &ctx->sync_ctx) < 0) {
 		mdbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
@@ -290,8 +293,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	/* increase map's refcount for copied mails */
 	if (array_is_created(&ctx->copy_map_uids)) {
-		ctx->map_trans =
-			mdbox_map_transaction_begin(mbox->storage->map, FALSE);
+		ctx->map_trans = mdbox_map_transaction_begin(ctx->atomic, FALSE);
 		if (mdbox_map_update_refcounts(ctx->map_trans,
 					       &ctx->copy_map_uids, 1) < 0) {
 			mdbox_transaction_save_rollback(_ctx);
@@ -319,13 +321,19 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 	/* finish writing the mailbox APPENDs */
 	if (mdbox_sync_finish(&ctx->sync_ctx, TRUE) == 0) {
-		if (ctx->map_trans != NULL)
-			(void)mdbox_map_transaction_commit(ctx->map_trans);
-		/* commit only updates the sync tail offset, everything else
-		   was already written at this point. */
-		(void)mdbox_map_append_commit(ctx->append_ctx);
+		/* commit refcount increases for copied mails */
+		if (ctx->map_trans != NULL) {
+			if (mdbox_map_transaction_commit(ctx->map_trans) < 0)
+				mdbox_map_atomic_set_failed(ctx->atomic);
+		}
+		/* flush file append writes */
+		if (mdbox_map_append_commit(ctx->append_ctx) < 0)
+			mdbox_map_atomic_set_failed(ctx->atomic);
 	}
 	mdbox_map_append_free(&ctx->append_ctx);
+	/* update the sync tail offset, everything else
+	   was already written at this point. */
+	(void)mdbox_map_atomic_finish(&ctx->atomic);
 
 	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync_path(ctx->mbox->box.path) < 0) {
@@ -347,6 +355,8 @@ void mdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 		mdbox_map_append_free(&ctx->append_ctx);
 	if (ctx->map_trans != NULL)
 		mdbox_map_transaction_free(&ctx->map_trans);
+	if (ctx->atomic != NULL)
+		(void)mdbox_map_atomic_finish(&ctx->atomic);
 	if (array_is_created(&ctx->copy_map_uids))
 		array_free(&ctx->copy_map_uids);
 

@@ -17,12 +17,14 @@ struct mdbox_sync_context {
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
 	struct mdbox_map_transaction_context *map_trans;
+	struct mdbox_map_atomic_context *atomic;
 	enum mdbox_sync_flags flags;
 
 	ARRAY_TYPE(seq_range) expunged_seqs;
 };
 
 int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
+		     struct mdbox_map_atomic_context *atomic,
 		     struct mdbox_sync_context **ctx_r);
 int mdbox_sync_finish(struct mdbox_sync_context **ctx, bool success);
 int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags);

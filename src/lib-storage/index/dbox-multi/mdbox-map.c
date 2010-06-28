@@ -22,12 +22,11 @@
 #define MAP_STORAGE(map) (&(map)->storage->storage.storage)
 
 struct mdbox_map_transaction_context {
-	struct mdbox_map *map;
+	struct mdbox_map_atomic_context *atomic;
 	struct mail_index_transaction *trans;
-	struct mail_index_sync_ctx *sync_ctx;
 
 	unsigned int changed:1;
-	unsigned int success:1;
+	unsigned int committed:1;
 };
 
 static int mdbox_map_generate_uid_validity(struct mdbox_map *map);
@@ -408,22 +407,13 @@ int mdbox_map_get_zero_ref_files(struct mdbox_map *map,
 	return 0;
 }
 
-struct mdbox_map_transaction_context *
-mdbox_map_transaction_begin(struct mdbox_map *map, bool external)
+struct mdbox_map_atomic_context *mdbox_map_atomic_begin(struct mdbox_map *map)
 {
-	struct mdbox_map_transaction_context *ctx;
-	enum mail_index_transaction_flags flags =
-		MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
+	struct mdbox_map_atomic_context *atomic;
 
-	if (external)
-		flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
-
-	ctx = i_new(struct mdbox_map_transaction_context, 1);
-	ctx->map = map;
-	if (mdbox_map_open(map) > 0 &&
-	    mdbox_map_refresh(map) == 0)
-		ctx->trans = mail_index_transaction_begin(map->view, flags);
-	return ctx;
+	atomic = i_new(struct mdbox_map_atomic_context, 1);
+	atomic->map = map;
+	return atomic;
 }
 
 static void
@@ -446,57 +436,120 @@ mdbox_map_sync_handle(struct mdbox_map *map,
 	}
 }
 
-int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx)
+int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic)
 {
-	struct mdbox_map *map = ctx->map;
-	struct mail_index_view *view;
-	struct mail_index_transaction *sync_trans;
 	int ret;
 
-	if (!ctx->changed)
+	if (atomic->locked)
 		return 0;
+
+	if (mdbox_map_open_or_create(atomic->map) < 0)
+		return -1;
 
 	/* use syncing to lock the transaction log, so that we always see
 	   log's head_offset = tail_offset */
-	ret = mail_index_sync_begin(map->index, &ctx->sync_ctx,
-				    &view, &sync_trans, 0);
+	ret = mail_index_sync_begin(atomic->map->index, &atomic->sync_ctx,
+				    &atomic->sync_view, &atomic->sync_trans, 0);
 	if (ret <= 0) {
 		i_assert(ret != 0);
-		mail_storage_set_internal_error(MAP_STORAGE(map));
-		mail_index_reset_error(map->index);
-		mail_index_transaction_rollback(&ctx->trans);
+		mail_storage_set_internal_error(MAP_STORAGE(atomic->map));
+		mail_index_reset_error(atomic->map->index);
 		return -1;
 	}
-	mdbox_map_sync_handle(map, ctx->sync_ctx);
-
-	if (mail_index_transaction_commit(&ctx->trans) < 0) {
-		mail_storage_set_internal_error(MAP_STORAGE(map));
-		mail_index_reset_error(map->index);
-		return -1;
-	}
-	ctx->success = TRUE;
+	atomic->locked = TRUE;
+	/* reset refresh state so that if it's wanted to be done locked,
+	   it gets the latest changes */
+	atomic->map_refreshed = FALSE;
+	mdbox_map_sync_handle(atomic->map, atomic->sync_ctx);
 	return 0;
 }
 
-void mdbox_map_transaction_set_failed(struct mdbox_map_transaction_context *ctx)
+bool mdbox_map_atomic_is_locked(struct mdbox_map_atomic_context *atomic)
 {
-	ctx->success = FALSE;
+	return atomic->locked;
+}
+
+void mdbox_map_atomic_set_failed(struct mdbox_map_atomic_context *atomic)
+{
+	atomic->success = FALSE;
+}
+
+int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **_atomic)
+{
+	struct mdbox_map_atomic_context *atomic = *_atomic;
+	int ret = 0;
+
+	*_atomic = NULL;
+
+	if (atomic->success) {
+		if (mail_index_sync_commit(&atomic->sync_ctx) < 0) {
+			mail_storage_set_internal_error(MAP_STORAGE(atomic->map));
+			mail_index_reset_error(atomic->map->index);
+			ret = -1;
+		}
+	} else if (atomic->sync_ctx != NULL) {
+		mail_index_sync_rollback(&atomic->sync_ctx);
+	}
+	i_free(atomic);
+	return ret;
+}
+
+struct mdbox_map_transaction_context *
+mdbox_map_transaction_begin(struct mdbox_map_atomic_context *atomic,
+			    bool external)
+{
+	struct mdbox_map_transaction_context *ctx;
+	enum mail_index_transaction_flags flags =
+		MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
+	bool success;
+
+	if (external)
+		flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
+
+	ctx = i_new(struct mdbox_map_transaction_context, 1);
+	ctx->atomic = atomic;
+	if (atomic->locked && atomic->map_refreshed) {
+		/* already refreshed within a lock, don't do it again */
+		success = TRUE;
+	} else {
+		success = mdbox_map_open(atomic->map) > 0 &&
+			mdbox_map_refresh(atomic->map) == 0;
+	}
+
+	if (success) {
+		atomic->map_refreshed = TRUE;
+		ctx->trans = mail_index_transaction_begin(atomic->map->view,
+							  flags);
+	}
+	return ctx;
+}
+
+int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx)
+{
+	i_assert(!ctx->committed);
+
+	ctx->committed = TRUE;
+	if (!ctx->changed)
+		return 0;
+
+	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+		return -1;
+
+	if (mail_index_transaction_commit(&ctx->trans) < 0) {
+		mail_storage_set_internal_error(MAP_STORAGE(ctx->atomic->map));
+		mail_index_reset_error(ctx->atomic->map->index);
+		return -1;
+	}
+	ctx->atomic->success = TRUE;
+	return 0;
 }
 
 void mdbox_map_transaction_free(struct mdbox_map_transaction_context **_ctx)
 {
 	struct mdbox_map_transaction_context *ctx = *_ctx;
-	struct mdbox_map *map = ctx->map;
 
 	*_ctx = NULL;
-	if (ctx->success) {
-		if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
-			mail_storage_set_internal_error(MAP_STORAGE(map));
-			mail_index_reset_error(map->index);
-		}
-	} else if (ctx->sync_ctx != NULL) {
-		mail_index_sync_rollback(&ctx->sync_ctx);
-	}
+
 	if (ctx->trans != NULL)
 		mail_index_transaction_rollback(&ctx->trans);
 	i_free(ctx);
@@ -505,7 +558,7 @@ void mdbox_map_transaction_free(struct mdbox_map_transaction_context **_ctx)
 int mdbox_map_update_refcount(struct mdbox_map_transaction_context *ctx,
 			      uint32_t map_uid, int diff)
 {
-	struct mdbox_map *map = ctx->map;
+	struct mdbox_map *map = ctx->atomic->map;
 	const void *data;
 	uint32_t seq;
 	bool expunged;
@@ -564,6 +617,7 @@ int mdbox_map_update_refcounts(struct mdbox_map_transaction_context *ctx,
 
 int mdbox_map_remove_file_id(struct mdbox_map *map, uint32_t file_id)
 {
+	struct mdbox_map_atomic_context *atomic;
 	struct mdbox_map_transaction_context *map_trans;
 	const struct mail_index_header *hdr;
 	const struct mdbox_map_mail_index_record *rec;
@@ -576,7 +630,8 @@ int mdbox_map_remove_file_id(struct mdbox_map *map, uint32_t file_id)
 	   messages that have already been moved to other files. */
 
 	/* we need a per-file transaction, otherwise we can't refresh the map */
-	map_trans = mdbox_map_transaction_begin(map, TRUE);
+	atomic = mdbox_map_atomic_begin(map);
+	map_trans = mdbox_map_transaction_begin(atomic, TRUE);
 
 	hdr = mail_index_get_header(map->view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
@@ -595,29 +650,35 @@ int mdbox_map_remove_file_id(struct mdbox_map *map, uint32_t file_id)
 		}
 	}
 	if (ret == 0)
-		(void)mdbox_map_transaction_commit(map_trans);
+		ret = mdbox_map_transaction_commit(map_trans);
 	mdbox_map_transaction_free(&map_trans);
+	if (mdbox_map_atomic_finish(&atomic) < 0)
+		ret = -1;
 	return ret;
 }
 
 struct mdbox_map_append_context *
-mdbox_map_append_begin(struct mdbox_map *map)
+mdbox_map_append_begin(struct mdbox_map_atomic_context *atomic)
 {
 	struct mdbox_map_append_context *ctx;
 
 	ctx = i_new(struct mdbox_map_append_context, 1);
-	ctx->map = map;
+	ctx->atomic = atomic;
+	ctx->map = atomic->map;
 	ctx->first_new_file_id = (uint32_t)-1;
 	i_array_init(&ctx->file_appends, 64);
 	i_array_init(&ctx->files, 64);
 	i_array_init(&ctx->appends, 128);
 
-	if (mdbox_map_open_or_create(map) < 0)
+	if (mdbox_map_open_or_create(atomic->map) < 0)
 		ctx->failed = TRUE;
 	else {
 		/* refresh the map so we can try appending to the
 		   latest files */
-		(void)mdbox_map_refresh(ctx->map);
+		if (mdbox_map_refresh(atomic->map) == 0)
+			atomic->map_refreshed = TRUE;
+		else
+			ctx->failed = TRUE;
 	}
 	return ctx;
 }
@@ -1013,21 +1074,13 @@ static int mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 	unsigned int i, count;
 	struct mdbox_map_mail_index_header hdr;
 	uint32_t first_file_id, file_id;
-	int ret;
 
 	/* start the syncing. we'll need it even if there are no file ids to
 	   be assigned. */
-	ret = mail_index_sync_begin(ctx->map->index, &ctx->sync_ctx,
-				    &ctx->sync_view, &ctx->sync_trans, 0);
-	if (ret <= 0) {
-		i_assert(ret != 0);
-		mail_storage_set_internal_error(MAP_STORAGE(ctx->map));
-		mail_index_reset_error(ctx->map->index);
+	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
 		return -1;
-	}
-	mdbox_map_sync_handle(ctx->map, ctx->sync_ctx);
 
-	mdbox_map_get_ext_hdr(ctx->map, ctx->sync_view, &hdr);
+	mdbox_map_get_ext_hdr(ctx->map, ctx->atomic->sync_view, &hdr);
 	file_id = hdr.highest_file_id + 1;
 
 	/* assign file_ids for newly created files */
@@ -1037,22 +1090,13 @@ static int mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 		struct mdbox_file *mfile =
 			(struct mdbox_file *)file_appends[i]->file;
 
-		if (dbox_file_append_flush(file_appends[i]) < 0) {
-			ret = -1;
-			break;
-		}
+		if (dbox_file_append_flush(file_appends[i]) < 0)
+			return -1;
 
 		if (mfile->file_id == 0) {
-			if (mdbox_file_assign_file_id(mfile, file_id++) < 0) {
-				ret = -1;
-				break;
-			}
+			if (mdbox_file_assign_file_id(mfile, file_id++) < 0)
+				return -1;
 		}
-	}
-
-	if (ret < 0) {
-		mail_index_sync_rollback(&ctx->sync_ctx);
-		return -1;
 	}
 
 	ctx->trans = !separate_transaction ? NULL :
@@ -1063,7 +1107,7 @@ static int mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 	if (first_file_id != file_id) {
 		file_id--;
 		mail_index_update_header_ext(ctx->trans != NULL ? ctx->trans :
-					     ctx->sync_trans,
+					     ctx->atomic->sync_trans,
 					     ctx->map->map_ext_id,
 					     0, &file_id, sizeof(file_id));
 	}
@@ -1116,7 +1160,7 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 	}
 
 	/* assign map UIDs for appended records */
-	hdr = mail_index_get_header(ctx->sync_view);
+	hdr = mail_index_get_header(ctx->atomic->sync_view);
 	t_array_init(&uids, 1);
 	mail_index_append_finish_uids(ctx->trans, hdr->next_uid, &uids);
 	range = array_idx(&uids, 0);
@@ -1169,24 +1213,24 @@ int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 		rec.size = appends[j].size;
 		j++;
 
-		if (!mail_index_lookup_seq(ctx->sync_view, uids[i], &seq))
+		if (!mail_index_lookup_seq(ctx->atomic->sync_view,
+					   uids[i], &seq))
 			i_unreached();
-		mail_index_update_ext(ctx->sync_trans, seq,
+		mail_index_update_ext(ctx->atomic->sync_trans, seq,
 				      ctx->map->map_ext_id, &rec, NULL);
 	}
 
 	seq_range_array_iter_init(&iter, expunge_map_uids); i = 0;
 	while (seq_range_array_iter_nth(&iter, i++, &uid)) {
-		if (!mail_index_lookup_seq(ctx->sync_view, uid, &seq))
+		if (!mail_index_lookup_seq(ctx->atomic->sync_view, uid, &seq))
 			i_unreached();
-		mail_index_expunge(ctx->sync_trans, seq);
+		mail_index_expunge(ctx->atomic->sync_trans, seq);
 	}
 	return 0;
 }
 
 int mdbox_map_append_commit(struct mdbox_map_append_context *ctx)
 {
-	struct mdbox_map *map = ctx->map;
 	struct dbox_file_append_context **file_appends;
 	unsigned int i, count;
 
@@ -1197,16 +1241,7 @@ int mdbox_map_append_commit(struct mdbox_map_append_context *ctx)
 		if (dbox_file_append_commit(&file_appends[i]) < 0)
 			return -1;
 	}
-
-	if (ctx->sync_ctx != NULL) {
-		if (mail_index_sync_commit(&ctx->sync_ctx) < 0) {
-			mail_storage_set_internal_error(MAP_STORAGE(map));
-			mail_index_reset_error(map->index);
-			return -1;
-		}
-	}
-
-	ctx->committed = TRUE;
+	ctx->atomic->success = TRUE;
 	return 0;
 }
 
@@ -1221,8 +1256,6 @@ void mdbox_map_append_free(struct mdbox_map_append_context **_ctx)
 
 	if (ctx->trans != NULL)
 		mail_index_transaction_rollback(&ctx->trans);
-	if (ctx->sync_ctx != NULL)
-		mail_index_sync_rollback(&ctx->sync_ctx);
 
 	file_appends = array_get_modifiable(&ctx->file_appends, &count);
 	for (i = 0; i < count; i++) {

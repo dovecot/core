@@ -46,6 +46,7 @@ struct mdbox_purge_context {
 	struct hash_table *altmoves;
 	bool have_altmoves;
 
+	struct mdbox_map_atomic_context *atomic;
 	struct mdbox_map_append_context *append_ctx;
 };
 
@@ -140,8 +141,10 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 	off_t ret;
 	int read_errno;
 
-	if (ctx->append_ctx == NULL)
-		ctx->append_ctx = mdbox_map_append_begin(ctx->storage->map);
+	if (ctx->append_ctx == NULL) {
+		ctx->atomic = mdbox_map_atomic_begin(ctx->storage->map);
+		ctx->append_ctx = mdbox_map_append_begin(ctx->atomic);
+	}
 
 	append_flags = !mdbox_purge_want_altpath(ctx, msg->map_uid) ? 0 :
 		DBOX_MAP_APPEND_FLAG_ALT;
@@ -285,8 +288,11 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 	}
 	if (ret > 0)
 		(void)dbox_file_unlink(file);
-	if (ctx->append_ctx != NULL)
+	if (ctx->append_ctx != NULL) {
 		mdbox_map_append_free(&ctx->append_ctx);
+		if (mdbox_map_atomic_finish(&ctx->atomic) < 0)
+			ret = -1;
+	}
 	if (ret < 0)
 		dbox_file_unlock(file);
 	array_free(&copied_map_uids);

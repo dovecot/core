@@ -310,12 +310,14 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 
 static int mdbox_mailbox_unref_mails(struct mdbox_mailbox *mbox)
 {
+	struct mdbox_map_atomic_context *atomic;
 	struct mdbox_map_transaction_context *map_trans;
 	const struct mail_index_header *hdr;
 	uint32_t seq, map_uid;
 	int ret = 0;
 
-	map_trans = mdbox_map_transaction_begin(mbox->storage->map, FALSE);
+	atomic = mdbox_map_atomic_begin(mbox->storage->map);
+	map_trans = mdbox_map_transaction_begin(atomic, FALSE);
 	hdr = mail_index_get_header(mbox->box.view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		if (mdbox_mail_lookup(mbox, mbox->box.view, seq,
@@ -333,6 +335,8 @@ static int mdbox_mailbox_unref_mails(struct mdbox_mailbox *mbox)
 	if (ret == 0)
 		ret = mdbox_map_transaction_commit(map_trans);
 	mdbox_map_transaction_free(&map_trans);
+	if (mdbox_map_atomic_finish(&atomic) < 0)
+		ret = -1;
 	return ret;
 }
 
