@@ -887,19 +887,7 @@ int mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 				     struct mdbox_map_atomic_context *atomic)
 {
 	struct mdbox_storage_rebuild_context *ctx;
-	struct stat st;
 	int ret;
-
-	if (stat(storage->storage_dir, &st) < 0) {
-		if (errno == ENOENT) {
-			/* no multi-dbox files */
-			return 0;
-		}
-
-		mail_storage_set_critical(&storage->storage.storage,
-			"stat(%s) failed: %m", storage->storage_dir);
-		return -1;
-	}
 
 	ctx = mdbox_storage_rebuild_init(storage, atomic);
 	ret = mdbox_storage_rebuild_scan(ctx);
