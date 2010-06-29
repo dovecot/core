@@ -10,7 +10,8 @@
 
 #define SDBOX_INDEX_HEADER_MIN_SIZE (sizeof(uint32_t))
 struct sdbox_index_header {
-	uint32_t oldv1_highest_maildir_uid;
+	/* increased every time a full mailbox rebuild is done */
+	uint32_t rebuild_count;
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 };
 
@@ -23,6 +24,9 @@ struct sdbox_mailbox {
 	struct sdbox_storage *storage;
 
 	uint32_t hdr_ext_id;
+	/* if non-zero, storage should be rebuilt (except if rebuild_count
+	   has changed from this value) */
+	uint32_t corrupted_rebuild_count;
 
 	unsigned int creating:1;
 };

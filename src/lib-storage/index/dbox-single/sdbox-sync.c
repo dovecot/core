@@ -104,7 +104,6 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq1, seq2;
-	int ret = 1;
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
@@ -122,7 +121,7 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
-	return ret;
+	return 1;
 }
 
 static int
@@ -151,10 +150,12 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 	enum mail_index_sync_flags sync_flags;
 	unsigned int i;
 	int ret;
-	bool rebuild;
+	bool rebuild, force_rebuild;
 
-	rebuild = sdbox_refresh_header(mbox, TRUE, FALSE) < 0 ||
-		(flags & SDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
+	force_rebuild = (flags & SDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
+	rebuild = force_rebuild ||
+		mbox->corrupted_rebuild_count != 0 ||
+		sdbox_refresh_header(mbox, TRUE, FALSE) < 0;
 
 	ctx = i_new(struct sdbox_sync_context, 1);
 	ctx->mbox = mbox;
@@ -181,8 +182,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 			return ret;
 		}
 
-		/* now that we're locked, check again if we want to rebuild. */
-		if (sdbox_refresh_header(mbox, FALSE, TRUE) < 0)
+		if (rebuild)
 			ret = 0;
 		else {
 			if ((ret = sdbox_sync_index(ctx)) > 0)
@@ -201,7 +201,9 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 				/* do a full resync and try again. */
 				i_warning("dbox %s: Rebuilding index",
 					  ctx->mbox->box.path);
-				ret = sdbox_sync_index_rebuild(mbox);
+				rebuild = FALSE;
+				ret = sdbox_sync_index_rebuild(mbox,
+							       force_rebuild);
 			}
 		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);

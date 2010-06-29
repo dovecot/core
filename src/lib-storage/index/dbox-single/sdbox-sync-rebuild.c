@@ -36,12 +36,16 @@ static int sdbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
 			return 0;
 		ret = dbox_file_get_mail_stream(file, 0, NULL);
 	}
+	if (ret == 0) {
+		if ((ret = dbox_file_fix(file, 0)) == 0)
+			ret = dbox_file_get_mail_stream(file, 0, NULL);
+	}
 
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
 
-		i_warning("dbox: Ignoring broken file: %s", file->cur_path);
+		i_warning("dbox: Skipping unfixable file: %s", file->cur_path);
 		return 0;
 	}
 
@@ -132,6 +136,8 @@ static void sdbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 		memset(&hdr, 0, sizeof(hdr));
 	if (!mail_guid_128_is_empty(hdr.mailbox_guid))
 		mail_generate_guid_128(hdr.mailbox_guid);
+	if (++hdr.rebuild_count == 0)
+		hdr.rebuild_count = 1;
 	mail_index_update_header_ext(ctx->trans, mbox->hdr_ext_id, 0,
 				     &hdr, sizeof(hdr));
 }
@@ -154,12 +160,21 @@ sdbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx)
 	return ret;
 }
 
-int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox)
+int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force)
 {
 	struct dbox_sync_rebuild_context *ctx;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
+	struct sdbox_index_header hdr;
 	int ret;
+
+	if (!force && sdbox_read_header(mbox, &hdr, FALSE) == 0) {
+		if (hdr.rebuild_count != mbox->corrupted_rebuild_count &&
+		    hdr.rebuild_count != 0) {
+			/* already rebuilt by someone else */
+			return 0;
+		}
+	}
 
 	view = mail_index_view_open(mbox->box.index);
 	trans = mail_index_transaction_begin(view,
@@ -174,5 +189,6 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox)
 	else
 		ret = mail_index_transaction_commit(&trans);
 	mail_index_view_close(&view);
+	mbox->corrupted_rebuild_count = 0;
 	return ret;
 }

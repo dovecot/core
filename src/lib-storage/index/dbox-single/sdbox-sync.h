@@ -29,7 +29,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 int sdbox_sync_finish(struct sdbox_sync_context **ctx, bool success);
 int sdbox_sync(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags);
 
-int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox);
+int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force);
 
 struct mailbox_sync_context *
 sdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);

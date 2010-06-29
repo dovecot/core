@@ -84,10 +84,13 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 int sdbox_read_header(struct sdbox_mailbox *mbox,
 		      struct sdbox_index_header *hdr, bool log_error)
 {
+	struct mail_index_view *view;
 	const void *data;
 	size_t data_size;
+	int ret;
 
-	mail_index_get_header_ext(mbox->box.view, mbox->hdr_ext_id,
+	view = mail_index_view_open(mbox->box.index);
+	mail_index_get_header_ext(view, mbox->hdr_ext_id,
 				  &data, &data_size);
 	if (data_size < SDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
@@ -97,11 +100,14 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 				"dbox %s: Invalid dbox header size",
 				mbox->box.path);
 		}
-		return -1;
+		ret = -1;
+	} else {
+		memset(hdr, 0, sizeof(*hdr));
+		memcpy(hdr, data, I_MIN(data_size, sizeof(*hdr)));
+		ret = 0;
 	}
-	memset(hdr, 0, sizeof(*hdr));
-	memcpy(hdr, data, I_MIN(data_size, sizeof(*hdr)));
-	return 0;
+	mail_index_view_close(&view);
+	return ret;
 }
 
 void sdbox_update_header(struct sdbox_mailbox *mbox,
@@ -198,9 +204,15 @@ static int sdbox_mailbox_create_indexes(struct mailbox *box,
 	return ret;
 }
 
-static void sdbox_set_mailbox_corrupted(struct mailbox *box ATTR_UNUSED)
+static void sdbox_set_mailbox_corrupted(struct mailbox *box)
 {
-	/* FIXME */
+	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_index_header hdr;
+
+	if (sdbox_read_header(mbox, &hdr, TRUE) < 0 || hdr.rebuild_count == 0)
+		mbox->corrupted_rebuild_count = 1;
+	else
+		mbox->corrupted_rebuild_count = hdr.rebuild_count;
 }
 
 static void sdbox_set_file_corrupted(struct dbox_file *_file)
@@ -208,6 +220,15 @@ static void sdbox_set_file_corrupted(struct dbox_file *_file)
 	struct sdbox_file *file = (struct sdbox_file *)_file;
 
 	sdbox_set_mailbox_corrupted(&file->mbox->box);
+}
+
+static void sdbox_mailbox_close(struct mailbox *box)
+{
+	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+
+	if (mbox->corrupted_rebuild_count != 0)
+		(void)sdbox_sync(mbox, 0);
+	index_storage_mailbox_close(box);
 }
 
 static int
@@ -264,7 +285,7 @@ struct mailbox sdbox_mailbox = {
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		dbox_mailbox_open,
-		index_storage_mailbox_close,
+		sdbox_mailbox_close,
 		index_storage_mailbox_free,
 		dbox_mailbox_create,
 		dbox_mailbox_update,
