@@ -962,6 +962,9 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		mail_index_view_close(&view);
 		if (force && ret == 0) {
 			/* the seq/offset is probably broken */
+			mail_index_set_error(index, "Index %s: Lost log for "
+				"seq=%u offset=%"PRIuUOFF_T, index->filepath,
+				map->hdr.log_file_seq, start_offset);
 			(void)mail_index_fsck(index);
 		}
 		/* can't use it. sync by re-reading index. */
