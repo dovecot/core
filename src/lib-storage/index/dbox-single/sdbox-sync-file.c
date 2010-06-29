@@ -17,14 +17,13 @@ dbox_sync_file_move_if_needed(struct dbox_file *file,
 			      enum sdbox_sync_entry_type type)
 {
 	bool move_to_alt = type == SDBOX_SYNC_ENTRY_TYPE_MOVE_TO_ALT;
-	
+	bool deleted;
+
 	if (move_to_alt != dbox_file_is_in_alt(file)) {
 		/* move the file. if it fails, nothing broke so
 		   don't worry about it. */
-		if (dbox_file_try_lock(file) > 0) {
+		if (dbox_file_open(file, &deleted) > 0 && !deleted)
 			(void)dbox_file_move(file, move_to_alt);
-			dbox_file_unlock(file);
-		}
 	}
 }
 

@@ -688,7 +688,6 @@ int dbox_file_move(struct dbox_file *file, bool alt_path)
 	int out_fd, ret = 0;
 
 	i_assert(file->input != NULL);
-	i_assert(file->lock != NULL);
 
 	if (dbox_file_is_in_alt(file) == alt_path)
 		return 0;
