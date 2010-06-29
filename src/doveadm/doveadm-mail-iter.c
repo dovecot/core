@@ -70,7 +70,8 @@ doveadm_mail_iter_deinit_transaction(struct doveadm_mail_iter *iter)
 	return ret;
 }
 
-int doveadm_mail_iter_deinit(struct doveadm_mail_iter **_iter)
+static int
+doveadm_mail_iter_deinit_full(struct doveadm_mail_iter **_iter, bool sync)
 {
 	struct doveadm_mail_iter *iter = *_iter;
 	int ret;
@@ -78,9 +79,21 @@ int doveadm_mail_iter_deinit(struct doveadm_mail_iter **_iter)
 	*_iter = NULL;
 
 	ret = doveadm_mail_iter_deinit_transaction(iter);
+	if (ret == 0 && sync)
+		ret = mailbox_sync(iter->box, 0);
 	mailbox_free(&iter->box);
 	i_free(iter);
 	return ret;
+}
+
+int doveadm_mail_iter_deinit(struct doveadm_mail_iter **_iter)
+{
+	return doveadm_mail_iter_deinit_full(_iter, FALSE);
+}
+
+int doveadm_mail_iter_deinit_sync(struct doveadm_mail_iter **_iter)
+{
+	return doveadm_mail_iter_deinit_full(_iter, TRUE);
 }
 
 bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter, struct mail *mail)

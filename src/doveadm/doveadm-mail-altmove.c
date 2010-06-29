@@ -30,7 +30,7 @@ cmd_altmove_box(const struct mailbox_info *info,
 				  MAIL_INDEX_MAIL_FLAG_BACKEND);
 	}
 	mail_free(&mail);
-	return doveadm_mail_iter_deinit(&iter);
+	return doveadm_mail_iter_deinit_sync(&iter);
 }
 
 static void ns_purge(struct mail_namespace *ns)
