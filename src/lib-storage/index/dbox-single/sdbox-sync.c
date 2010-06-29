@@ -1,91 +1,101 @@
 /* Copyright (c) 2007-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
-#include "ioloop.h"
-#include "str.h"
-#include "hash.h"
 #include "sdbox-storage.h"
 #include "sdbox-file.h"
 #include "sdbox-sync.h"
 
 #define SDBOX_REBUILD_COUNT 3
 
-static unsigned int sdbox_sync_file_entry_hash(const void *p)
+static void
+dbox_sync_file_move_if_needed(struct dbox_file *file,
+			      enum sdbox_sync_entry_type type)
 {
-	const struct sdbox_sync_file_entry *entry = p;
+	bool move_to_alt = type == SDBOX_SYNC_ENTRY_TYPE_MOVE_TO_ALT;
+	bool deleted;
 
-	return entry->uid;
+	if (move_to_alt != dbox_file_is_in_alt(file)) {
+		/* move the file. if it fails, nothing broke so
+		   don't worry about it. */
+		if (dbox_file_open(file, &deleted) > 0 && !deleted)
+			(void)dbox_file_move(file, move_to_alt);
+	}
 }
 
-static int sdbox_sync_file_entry_cmp(const void *p1, const void *p2)
+static void dbox_sync_file_expunge(struct sdbox_sync_context *ctx,
+				   struct dbox_file *file, uint32_t seq)
 {
-	const struct sdbox_sync_file_entry *entry1 = p1, *entry2 = p2;
+	struct sdbox_file *sfile = (struct sdbox_file *)file;
+	struct mailbox *box = &ctx->mbox->box;
 
-	/* this is only for hashing, don't bother ever returning 1. */
-	if (entry1->uid != entry2->uid)
-		return -1;
-	return 0;
-}
-
-static int sdbox_sync_add_seq(struct sdbox_sync_context *ctx,
-			      const struct mail_index_sync_rec *sync_rec,
-			      uint32_t seq)
-{
-	struct sdbox_sync_file_entry *entry, lookup_entry;
-
-	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
-		 sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
-
-	memset(&lookup_entry, 0, sizeof(lookup_entry));
-	mail_index_lookup_uid(ctx->sync_view, seq, &lookup_entry.uid);
-
-	entry = hash_table_lookup(ctx->syncs, &lookup_entry);
-	if (entry == NULL) {
-		entry = p_new(ctx->pool, struct sdbox_sync_file_entry, 1);
-		*entry = lookup_entry;
-		hash_table_insert(ctx->syncs, entry, entry);
+	if (mail_index_transaction_is_expunged(ctx->trans, seq)) {
+		/* already expunged within this transaction */
+		return;
+	}
+	if (dbox_file_unlink(file) < 0) {
+		/* some non-ENOENT error trying to unlink the file */
+		return;
 	}
 
-	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE)
-		entry->type = SDBOX_SYNC_ENTRY_TYPE_EXPUNGE;
-	else if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) != 0)
-		entry->type = SDBOX_SYNC_ENTRY_TYPE_MOVE_TO_ALT;
-	else
-		entry->type = SDBOX_SYNC_ENTRY_TYPE_MOVE_FROM_ALT;
-	return 1;
+	/* file was either unlinked by us or someone else */
+	mail_index_expunge(ctx->trans, seq);
+	if (box->v.sync_notify != NULL)
+		box->v.sync_notify(box, sfile->uid, MAILBOX_SYNC_TYPE_EXPUNGE);
 }
 
-static int sdbox_sync_add(struct sdbox_sync_context *ctx,
-			  const struct mail_index_sync_rec *sync_rec)
+static void sdbox_sync_file(struct sdbox_sync_context *ctx,
+			    uint32_t seq, uint32_t uid,
+			    enum sdbox_sync_entry_type type)
 {
+	struct dbox_file *file;
+
+	file = sdbox_file_init(ctx->mbox, uid);
+	switch (type) {
+	case SDBOX_SYNC_ENTRY_TYPE_EXPUNGE:
+		dbox_sync_file_expunge(ctx, file, seq);
+		break;
+	case SDBOX_SYNC_ENTRY_TYPE_MOVE_FROM_ALT:
+	case SDBOX_SYNC_ENTRY_TYPE_MOVE_TO_ALT:
+		dbox_sync_file_move_if_needed(file, type);
+		break;
+	}
+	dbox_file_unref(&file);
+}
+
+static void sdbox_sync_add(struct sdbox_sync_context *ctx,
+			   const struct mail_index_sync_rec *sync_rec)
+{
+	uint32_t uid;
+	enum sdbox_sync_entry_type type;
 	uint32_t seq, seq1, seq2;
-	int ret;
 
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
 		/* we're interested */
+		type = SDBOX_SYNC_ENTRY_TYPE_EXPUNGE;
 	} else if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS) {
 		/* we care only about alt flag changes */
-		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) == 0 &&
-		    (sync_rec->remove_flags & DBOX_INDEX_FLAG_ALT) == 0)
-			return 1;
+		if ((sync_rec->add_flags & DBOX_INDEX_FLAG_ALT) != 0)
+			type = SDBOX_SYNC_ENTRY_TYPE_MOVE_TO_ALT;
+		else if ((sync_rec->remove_flags & DBOX_INDEX_FLAG_ALT) != 0)
+			type = SDBOX_SYNC_ENTRY_TYPE_MOVE_FROM_ALT;
+		else
+			return;
 	} else {
 		/* not interested */
-		return 1;
+		return;
 	}
 
 	if (!mail_index_lookup_seq_range(ctx->sync_view,
 					 sync_rec->uid1, sync_rec->uid2,
 					 &seq1, &seq2)) {
 		/* already expunged everything. nothing to do. */
-		return 1;
+		return;
 	}
 
 	for (seq = seq1; seq <= seq2; seq++) {
-		if ((ret = sdbox_sync_add_seq(ctx, sync_rec, seq)) <= 0)
-			return ret;
+		mail_index_lookup_uid(ctx->sync_view, seq, &uid);
+		sdbox_sync_file(ctx, seq, uid, type);
 	}
-	return 1;
 }
 
 static int sdbox_sync_index(struct sdbox_sync_context *ctx)
@@ -93,8 +103,6 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 	struct mailbox *box = &ctx->mbox->box;
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_rec sync_rec;
-        struct hash_iterate_context *iter;
-	void *key, *value;
 	uint32_t seq1, seq2;
 	int ret = 1;
 
@@ -106,39 +114,14 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(ctx->sync_view, hdr->first_recent_uid,
-					hdr->next_uid, &seq1, &seq2)) {
-		index_mailbox_set_recent_seq(&ctx->mbox->box, ctx->sync_view,
-					     seq1, seq2);
-	}
+					hdr->next_uid, &seq1, &seq2))
+		index_mailbox_set_recent_seq(box, ctx->sync_view, seq1, seq2);
 
-	/* read all changes and group changes to same file_id together */
-	ctx->pool = pool_alloconly_create("dbox sync pool", 1024*32);
-	ctx->syncs = hash_table_create(default_pool, ctx->pool, 0,
-				       sdbox_sync_file_entry_hash,
-				       sdbox_sync_file_entry_cmp);
-
-	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
-		if ((ret = sdbox_sync_add(ctx, &sync_rec)) <= 0)
-			break;
-	}
-
-	if (ret > 0) {
-		/* now sync each file separately */
-		iter = hash_table_iterate_init(ctx->syncs);
-		while (hash_table_iterate(iter, &key, &value)) {
-			const struct sdbox_sync_file_entry *entry = value;
-
-			if ((ret = sdbox_sync_file(ctx, entry)) <= 0)
-				break;
-		}
-		hash_table_iterate_deinit(&iter);
-	}
+	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))
+		sdbox_sync_add(ctx, &sync_rec);
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
-
-	hash_table_destroy(&ctx->syncs);
-	pool_unref(&ctx->pool);
 	return ret;
 }
 
@@ -247,8 +230,6 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
-	if (ctx->path != NULL)
-		str_free(&ctx->path);
 
 	i_free(ctx);
 	return ret;

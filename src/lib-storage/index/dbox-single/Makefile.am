@@ -17,7 +17,6 @@ libstorage_dbox_single_la_SOURCES = \
 	sdbox-mail.c \
 	sdbox-save.c \
 	sdbox-sync.c \
-	sdbox-sync-file.c \
 	sdbox-sync-rebuild.c \
 	sdbox-storage.c
 
