@@ -14,6 +14,7 @@ struct pgsql_db {
 
 	pool_t pool;
 	char *connect_string;
+	char *host;
 	PGconn *pg;
 
 	struct io *io;
@@ -21,7 +22,7 @@ struct pgsql_db {
 	enum io_condition io_dir;
 
 	struct pgsql_result *cur_result;
-	struct ioloop *ioloop;
+	struct ioloop *ioloop, *orig_ioloop;
 	struct sql_result *sync_result;
 
 	char *error;
@@ -72,6 +73,17 @@ extern const struct sql_result driver_pgsql_result;
 
 static void result_finish(struct pgsql_result *result);
 
+static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
+{
+	/* switch back to original ioloop in case the caller wants to
+	   add/remove timeouts */
+	if (db->ioloop != NULL)
+		current_ioloop = db->orig_ioloop;
+	sql_db_set_state(&db->api, state);
+	if (db->ioloop != NULL)
+		current_ioloop = db->ioloop;
+}
+
 static void driver_pgsql_close(struct pgsql_db *db)
 {
 	db->io_dir = 0;
@@ -88,7 +100,7 @@ static void driver_pgsql_close(struct pgsql_db *db)
 	if (db->to_connect != NULL)
 		timeout_remove(&db->to_connect);
 
-	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
+	driver_pgsql_set_state(db, SQL_DB_STATE_DISCONNECTED);
 
 	if (db->ioloop != NULL) {
 		/* running a sync query, stop it */
@@ -147,7 +159,7 @@ static void connect_callback(struct pgsql_db *db)
 		i_info("pgsql: Connected to %s", PQdb(db->pg));
 		if (db->to_connect != NULL)
 			timeout_remove(&db->to_connect);
-		sql_db_set_state(&db->api, SQL_DB_STATE_IDLE);
+		driver_pgsql_set_state(db, SQL_DB_STATE_IDLE);
 		if (db->ioloop != NULL) {
 			/* driver_pgsql_sync_init() waiting for connection to
 			   finish */
@@ -158,10 +170,11 @@ static void connect_callback(struct pgsql_db *db)
 
 static void driver_pgsql_connect_timeout(struct pgsql_db *db)
 {
+	const char *dbname = PQdb(db->pg);
 	unsigned int secs = ioloop_time - db->api.last_connect_try;
 
 	i_error("pgsql: Connect failed to %s: Timeout after %u seconds",
-		PQdb(db->pg), secs);
+		dbname != NULL ? dbname : db->host, secs);
 	driver_pgsql_close(db);
 }
 
@@ -185,11 +198,12 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	/* nonblocking connecting begins. */
 	if (PQsetnonblocking(db->pg, 1) < 0)
 		i_error("pgsql: PQsetnonblocking() failed");
+	i_assert(db->to_connect == NULL);
 	db->to_connect = timeout_add(SQL_CONNECT_TIMEOUT_SECS * 1000,
 				     driver_pgsql_connect_timeout, db);
 	db->io = io_add(PQsocket(db->pg), IO_WRITE, connect_callback, db);
 	db->io_dir = IO_WRITE;
-	sql_db_set_state(&db->api, SQL_DB_STATE_CONNECTING);
+	driver_pgsql_set_state(db, SQL_DB_STATE_CONNECTING);
 	return 0;
 }
 
@@ -209,6 +223,15 @@ static struct sql_db *driver_pgsql_init_v(const char *connect_string)
 	db = i_new(struct pgsql_db, 1);
 	db->connect_string = i_strdup(connect_string);
 	db->api = driver_pgsql_db;
+
+	T_BEGIN {
+		const char *const *arg = t_strsplit(connect_string, " ");
+
+		for (; *arg != NULL; arg++) {
+			if (strncmp(*arg, "host=", 5) == 0)
+				db->host = i_strdup(*arg + 5);
+		}
+	} T_END;
 	return &db->api;
 }
 
@@ -221,6 +244,7 @@ static void driver_pgsql_deinit_v(struct sql_db *_db)
 
 	_db->no_reconnect = TRUE;
         driver_pgsql_close(db);
+	i_free(db->host);
 	i_free(db->error);
 	i_free(db->connect_string);
 	array_free(&_db->module_contexts);
@@ -234,7 +258,7 @@ static void driver_pgsql_set_idle(struct pgsql_db *db)
 	if (db->fatal_error)
 		driver_pgsql_close(db);
 	else
-		sql_db_set_state(&db->api, SQL_DB_STATE_IDLE);
+		driver_pgsql_set_state(db, SQL_DB_STATE_IDLE);
 }
 
 static void consume_results(struct pgsql_db *db)
@@ -414,7 +438,7 @@ static void do_query(struct pgsql_result *result, const char *query)
 		return;
 	}
 
-	sql_db_set_state(&db->api, SQL_DB_STATE_BUSY);
+	driver_pgsql_set_state(db, SQL_DB_STATE_BUSY);
 	if (ret > 0) {
 		/* write blocks */
 		db->io = io_add(PQsocket(db->pg), IO_WRITE,
@@ -493,6 +517,7 @@ static void pgsql_query_s_callback(struct sql_result *result, void *context)
 
 static void driver_pgsql_sync_init(struct pgsql_db *db)
 {
+	db->orig_ioloop = current_ioloop;
 	if (db->io == NULL) {
 		db->ioloop = io_loop_create();
 		return;
@@ -500,10 +525,14 @@ static void driver_pgsql_sync_init(struct pgsql_db *db)
 
 	i_assert(db->api.state == SQL_DB_STATE_CONNECTING);
 
-	/* have to move our existing I/O handler to new I/O loop */
+	/* have to move our existing I/O and timeout handlers to new I/O loop */
 	io_remove(&db->io);
+	if (db->to_connect != NULL)
+		timeout_remove(&db->to_connect);
 
 	db->ioloop = io_loop_create();
+	db->to_connect = timeout_add(SQL_CONNECT_TIMEOUT_SECS * 1000,
+				     driver_pgsql_connect_timeout, db);
 	db->io = io_add(PQsocket(db->pg), db->io_dir, connect_callback, db);
 	/* wait for connecting to finish */
 	io_loop_run(db->ioloop);
