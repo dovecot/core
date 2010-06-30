@@ -396,17 +396,22 @@ log_coredump(struct service *service, string_t *str, int status)
 
 #ifndef HAVE_PR_SET_DUMPABLE
 	if (!service->set->drop_priv_before_exec && service->uid != 0) {
-		str_append(str, " (core not dumped - set drop_priv_before_exec=yes)");
+		str_append(str, " (core not dumped - set service %s "
+			   "{ drop_priv_before_exec=yes })",
+			   service->set->name);
 		return;
 	}
 	if (*service->set->privileged_group != '\0' && service->uid != 0) {
-		str_append(str, " (core not dumped - privileged_group prevented it)");
+		str_append(str, " (core not dumped - service %s "
+			   "{ privileged_group } prevented it)",
+			   service->set->name);
 		return;
 	}
 #else
 	if (!service->set->login_dump_core &&
 	    service->type == SERVICE_TYPE_LOGIN) {
-		str_append(str, " (core not dumped - add -D parameter to service executable");
+		str_printfa(str, " (core not dumped - add -D parameter to "
+			    "service %s { executable }", service->set->name);
 		return;
 	}
 #endif
