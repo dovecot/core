@@ -511,11 +511,17 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 					      root_set->default_rule.bytes_limit,
 					      root_set->default_rule.count_limit);
 	if (root_set->set->debug) {
+		const char *rule_plus =
+			rule == &root_set->default_rule ? "" : "+";
+
 		i_debug("Quota rule: root=%s mailbox=%s "
-			"bytes=%lld%s messages=%lld%s", root_set->name,
-			mailbox_name, (long long)rule->bytes_limit,
+			"bytes=%s%lld%s messages=%s%lld%s",
+			root_set->name, mailbox_name,
+			rule->bytes_limit > 0 ? rule_plus : "",
+			(long long)rule->bytes_limit,
 			rule->bytes_percent == 0 ? "" :
 			t_strdup_printf(" (%u%%)", rule->bytes_percent),
+			rule->count_limit > 0 ? rule_plus : "",
 			(long long)rule->count_limit,
 			rule->count_percent == 0 ? "" :
 			t_strdup_printf(" (%u%%)", rule->count_percent));
