@@ -64,8 +64,6 @@ void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 
 	if (array_is_created(&t->appends))
 		array_free(&t->appends);
-	if (array_is_created(&t->uid_updates))
-		array_free(&t->uid_updates);
 	if (array_is_created(&t->modseq_updates))
 		array_free(&t->modseq_updates);
 	if (array_is_created(&t->expunges))
@@ -107,7 +105,6 @@ void mail_index_transaction_set_log_updates(struct mail_index_transaction *t)
 {
 	/* flag updates aren't included in log_updates */
 	t->log_updates = array_is_created(&t->appends) ||
-		array_is_created(&t->uid_updates) ||
 		array_is_created(&t->modseq_updates) ||
 		array_is_created(&t->expunges) ||
 		array_is_created(&t->keyword_resets) ||
@@ -238,21 +235,6 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 			range->seq1 = range->seq2 = recs[i].uid;
 		}
 	}
-}
-
-void mail_index_update_uid(struct mail_index_transaction *t, uint32_t seq,
-			   uint32_t new_uid)
-{
-	struct mail_transaction_uid_update *u;
-
-	if (!array_is_created(&t->uid_updates))
-		i_array_init(&t->uid_updates, 32);
-
-	u = array_append_space(&t->uid_updates);
-	u->old_uid = seq;
-	u->new_uid = new_uid;
-
-	t->log_updates = TRUE;
 }
 
 void mail_index_update_modseq(struct mail_index_transaction *t, uint32_t seq,

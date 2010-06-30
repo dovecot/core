@@ -1476,11 +1476,6 @@ void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq)
 				 min_modseq);
 }
 
-void index_mail_update_uid(struct mail *mail, uint32_t new_uid)
-{
-	mail_index_update_uid(mail->transaction->itrans, mail->seq, new_uid);
-}
-
 void index_mail_expunge(struct mail *mail)
 {
 	const char *value;

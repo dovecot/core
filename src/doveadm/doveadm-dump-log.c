@@ -52,7 +52,6 @@ mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
 	case MAIL_TRANSACTION_FLAG_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_RESET:
-	case MAIL_TRANSACTION_UID_UPDATE:
 		/* these changes increase modseq */
 		return TRUE;
 	}
@@ -102,9 +101,6 @@ static const char *log_record_type(unsigned int type)
 		break;
 	case MAIL_TRANSACTION_EXT_ATOMIC_INC:
 		name = "ext-atomic-inc";
-		break;
-	case MAIL_TRANSACTION_UID_UPDATE:
-		name = "uid-update";
 		break;
 	case MAIL_TRANSACTION_MODSEQ_UPDATE:
 		name = "modseq-update";
@@ -394,16 +390,6 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 			printf("%u-%u, ", u->uid1, u->uid2);
 		}
 		printf("\n");
-		break;
-	}
-	case MAIL_TRANSACTION_UID_UPDATE: {
-		const struct mail_transaction_uid_update *rec, *end;
-
-		end = CONST_PTR_OFFSET(data, size);
-		for (rec = data; rec < end; rec++) {
-			printf(" - old uid=%u new uid=%u\n",
-			       rec->old_uid, rec->new_uid);
-		}
 		break;
 	}
 	case MAIL_TRANSACTION_MODSEQ_UPDATE: {

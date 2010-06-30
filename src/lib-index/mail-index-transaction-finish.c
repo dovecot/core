@@ -311,7 +311,6 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 
         keyword_updates_convert_to_uids(t);
 	expunges_convert_to_uids(t);
-	mail_index_convert_to_uids(t, (void *)&t->uid_updates);
 	mail_index_convert_to_uids(t, (void *)&t->modseq_updates);
 	mail_index_convert_to_uid_ranges(t, (void *)&t->updates);
 	mail_index_convert_to_uid_ranges(t, &t->keyword_resets);

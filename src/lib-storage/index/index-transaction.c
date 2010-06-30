@@ -126,7 +126,6 @@ int index_transaction_commit(struct mailbox_transaction_context *t,
 	if (ret < 0 && mail_index_is_deleted(box->index))
 		mailbox_set_deleted(box);
 
-	changes_r->ignored_uid_changes = result.ignored_uid_changes;
 	changes_r->ignored_modseq_changes = result.ignored_modseq_changes;
 	return ret;
 }

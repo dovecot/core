@@ -45,7 +45,6 @@ struct mail_index_transaction {
 	uint32_t min_flagupdate_seq, max_flagupdate_seq;
 
 	ARRAY_DEFINE(modseq_updates, struct mail_transaction_modseq_update);
-	ARRAY_DEFINE(uid_updates, struct mail_transaction_uid_update);
 	ARRAY_DEFINE(expunges, struct mail_transaction_expunge_guid);
 	ARRAY_DEFINE(updates, struct mail_transaction_flag_update);
 	size_t last_update_idx;

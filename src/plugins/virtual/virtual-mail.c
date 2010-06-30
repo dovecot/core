@@ -405,7 +405,6 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_update_modseq,
-	index_mail_update_uid,
 	virtual_mail_update_pop3_uidl,
 	virtual_mail_expunge,
 	virtual_mail_set_cache_corrupted

@@ -191,11 +191,6 @@ static void test_mail_update_modseq(struct mail *mail ATTR_UNUSED,
 {
 }
 
-static void test_mail_update_uid(struct mail *mail ATTR_UNUSED,
-				 uint32_t new_uid ATTR_UNUSED)
-{
-}
-
 static void test_mail_expunge(struct mail *mail ATTR_UNUSED)
 {
 }
@@ -232,7 +227,6 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_update_flags,
 	test_mail_update_keywords,
 	test_mail_update_modseq,
-	test_mail_update_uid,
 	NULL,
 	test_mail_expunge,
 	test_mail_set_cache_corrupted

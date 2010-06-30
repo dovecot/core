@@ -301,41 +301,6 @@ static bool sync_update_ignored_change(struct mail_index_sync_map_ctx *ctx)
 	return TRUE;
 }
 
-static void sync_uid_update(struct mail_index_sync_map_ctx *ctx,
-			    uint32_t old_uid, uint32_t new_uid)
-{
-	struct mail_index_view *view = ctx->view;
-	struct mail_index_map *map;
-	struct mail_index_record *rec;
-	uint32_t old_seq;
-	void *dest;
-
-	if (new_uid < ctx->view->map->hdr.next_uid) {
-		/* uid update is no longer possible */
-		if (sync_update_ignored_change(ctx))
-			view->index->sync_commit_result->ignored_uid_changes++;
-		return;
-	}
-
-	if (!mail_index_lookup_seq(view, old_uid, &old_seq))
-		return;
-
-	map = mail_index_sync_get_atomic_map(ctx);
-	map->hdr.next_uid = new_uid+1;
-	map->rec_map->last_appended_uid = new_uid;
-
-	/* add the new record */
-	dest = sync_append_record(map);
-	rec = MAIL_INDEX_MAP_IDX(map, old_seq-1);
-	rec->uid = new_uid;
-	memcpy(dest, rec, map->hdr.record_size);
-
-	/* @UNSAFE: remove the old record */
-	memmove(rec, PTR_OFFSET(rec, map->hdr.record_size),
-		(map->rec_map->records_count + 1 - old_seq) *
-		map->hdr.record_size);
-}
-
 static int
 sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 		   const struct mail_transaction_modseq_update *u,
@@ -797,14 +762,6 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		const struct mail_transaction_keyword_reset *rec = data;
 
 		ret = mail_index_sync_keywords_reset(ctx, hdr, rec);
-		break;
-	}
-	case MAIL_TRANSACTION_UID_UPDATE: {
-		const struct mail_transaction_uid_update *rec, *end;
-
-		end = CONST_PTR_OFFSET(data, hdr->size);
-		for (rec = data; rec < end; rec++)
-			sync_uid_update(ctx, rec->old_uid, rec->new_uid);
 		break;
 	}
 	case MAIL_TRANSACTION_MODSEQ_UPDATE: {

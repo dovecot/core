@@ -336,61 +336,6 @@ log_append_keyword_updates(struct mail_index_export_context *ctx)
 	return change_mask;
 }
 
-static bool
-mail_index_transaction_export_new_uids(struct mail_index_export_context *ctx,
-				       struct mail_index_transaction *t)
-{
-	const struct mail_index_record *appends;
-	const struct mail_transaction_uid_update *updates;
-	unsigned int a, u, append_count, update_count;
-
-	if (!array_is_created(&t->uid_updates)) {
-		/* fast path */
-		if (!array_is_created(&t->appends))
-			return FALSE;
-
-		log_append_buffer(ctx, t->appends.arr.buffer,
-				  MAIL_TRANSACTION_APPEND);
-		return TRUE;
-	}
-	if (!array_is_created(&t->appends)) {
-		log_append_buffer(ctx, t->uid_updates.arr.buffer,
-				  MAIL_TRANSACTION_UID_UPDATE);
-		return TRUE;
-	}
-
-	/* we'll need to merge so that UIDs are only being appended.
-	   appends quite a lot of separate records unnecessarily,
-	   but UID updates are rare.. */
-	appends = array_get(&t->appends, &append_count);
-	updates = array_get(&t->uid_updates, &update_count);
-
-	for (a = u = 0; a < append_count && u < update_count; ) {
-		if (appends[a].uid < updates[u].new_uid) {
-			mail_transaction_log_append_add(ctx->append_ctx,
-					MAIL_TRANSACTION_APPEND,
-					&appends[a], sizeof(appends[a]));
-			a++;
-		} else {
-			mail_transaction_log_append_add(ctx->append_ctx,
-					MAIL_TRANSACTION_UID_UPDATE,
-					&updates[u], sizeof(updates[u]));
-			u++;
-		}
-	}
-	if (a < append_count) {
-		mail_transaction_log_append_add(ctx->append_ctx,
-				MAIL_TRANSACTION_APPEND, &appends[a],
-				(append_count - a) * sizeof(appends[a]));
-	}
-	if (u < update_count) {
-		mail_transaction_log_append_add(ctx->append_ctx,
-				MAIL_TRANSACTION_UID_UPDATE, &updates[u],
-				(update_count - u) * sizeof(updates[u]));
-	}
-	return TRUE;
-}
-
 void mail_index_transaction_export(struct mail_index_transaction *t,
 				   struct mail_transaction_log_append_ctx *append_ctx)
 {
@@ -416,8 +361,11 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 		log_append_buffer(&ctx, log_get_hdr_update_buffer(t, TRUE),
 				  MAIL_TRANSACTION_HEADER_UPDATE);
 	}
-	if (mail_index_transaction_export_new_uids(&ctx, t))
+	if (array_is_created(&t->appends)) {
 		change_mask |= MAIL_INDEX_SYNC_TYPE_APPEND;
+		log_append_buffer(&ctx, t->appends.arr.buffer,
+				  MAIL_TRANSACTION_APPEND);
+	}
 
 	if (array_is_created(&t->updates)) {
 		change_mask |= MAIL_INDEX_SYNC_TYPE_FLAGS;

@@ -37,10 +37,6 @@ struct maildir_filename {
 	/* unsigned int keywords[]; */
 };
 
-struct maildir_save_conflict {
-	uint32_t old_uid, new_uid;
-};
-
 struct maildir_save_context {
 	struct mail_save_context ctx;
 	pool_t pool;
@@ -55,8 +51,6 @@ struct maildir_save_context {
 	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files, **files_tail, *file_last;
 	unsigned int files_count;
-
-	ARRAY_DEFINE(conflicts, struct maildir_save_conflict);
 
 	buffer_t keywords_buffer;
 	ARRAY_TYPE(keyword_indexes) keywords_array;
@@ -611,55 +605,6 @@ void maildir_save_cancel(struct mail_save_context *_ctx)
 	(void)maildir_save_finish(_ctx);
 }
 
-void maildir_save_add_conflict(struct mailbox_transaction_context *t,
-			       uint32_t old_uid, uint32_t new_uid)
-{
-	struct maildir_save_context *save_ctx;
-	struct maildir_save_conflict *c;
-
-	save_ctx = (struct maildir_save_context *)maildir_save_alloc(t);
-
-	if (!array_is_created(&save_ctx->conflicts))
-		i_array_init(&save_ctx->conflicts, 64);
-
-	c = array_append_space(&save_ctx->conflicts);
-	c->old_uid = old_uid;
-	c->new_uid = new_uid;
-}
-
-static void maildir_sync_conflict(struct maildir_save_context *ctx,
-				  const struct maildir_save_conflict *conflict)
-{
-	const char *filename;
-	enum maildir_uidlist_rec_flag flags;
-
-	if (maildir_uidlist_lookup(ctx->mbox->uidlist, conflict->old_uid,
-				   &flags, &filename) <= 0) {
-		i_error("maildir %s: uid %u update failed: lost filename",
-			ctx->mbox->box.path, conflict->old_uid);
-		return;
-	}
-	maildir_uidlist_sync_remove(ctx->uidlist_sync_ctx, filename);
-	if (maildir_uidlist_sync_next_uid(ctx->uidlist_sync_ctx, filename,
-					  conflict->new_uid, 0) < 0) {
-		i_error("maildir %s: uid %u update failed: sync failed",
-			ctx->mbox->box.path, conflict->old_uid);
-	}
-}
-
-static void maildir_sync_conflicts(struct maildir_save_context *ctx)
-{
-	const struct maildir_save_conflict *conflicts;
-	unsigned int i, count;
-
-	if (!array_is_created(&ctx->conflicts))
-		return;
-
-	conflicts = array_get(&ctx->conflicts, &count);
-	for (i = 0; i < count; i++)
-		maildir_sync_conflict(ctx, &conflicts[i]);
-}
-
 static void
 maildir_save_unlink_files(struct maildir_save_context *ctx)
 {
@@ -905,7 +850,7 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	i_assert(_ctx->output == NULL);
 	i_assert(ctx->last_save_finished);
 
-	if (ctx->files_count == 0 && !array_is_created(&ctx->conflicts))
+	if (ctx->files_count == 0)
 		return 0;
 
 	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL |
@@ -932,7 +877,6 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 			maildir_transaction_save_rollback(_ctx);
 			return -1;
 		}
-		maildir_sync_conflicts(ctx);
 	} else if (ret == 0 &&
 		   (sync_flags & MAILDIR_UIDLIST_SYNC_TRYLOCK) != 0) {
 		ctx->locked = FALSE;
@@ -1006,8 +950,6 @@ void maildir_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->mbox->uidlist);
-	if (array_is_created(&ctx->conflicts))
-		array_free(&ctx->conflicts);
 	pool_unref(&ctx->pool);
 }
 
@@ -1032,7 +974,5 @@ void maildir_transaction_save_rollback(struct mail_save_context *_ctx)
 
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
-	if (array_is_created(&ctx->conflicts))
-		array_free(&ctx->conflicts);
 	pool_unref(&ctx->pool);
 }

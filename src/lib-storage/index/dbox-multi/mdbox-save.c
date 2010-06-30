@@ -273,9 +273,12 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	/* save map UIDs to mailbox index */
 	if (first_map_uid != 0) {
+		const struct mdbox_mail_index_record *old_rec;
 		struct mdbox_mail_index_record rec;
 		const struct dbox_save_mail *mails;
 		unsigned int i, count;
+		const void *data;
+		bool expunged;
 		uint32_t next_map_uid = first_map_uid;
 
 		mdbox_update_header(mbox, ctx->ctx.trans, NULL);
@@ -284,6 +287,15 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		rec.save_date = ioloop_time;
 		mails = array_get(&ctx->mails, &count);
 		for (i = 0; i < count; i++) {
+			mail_index_lookup_ext(_t->view, mails[i].seq,
+					      mbox->ext_id, &data, &expunged);
+			old_rec = data;
+			if (old_rec != NULL && old_rec->map_uid != 0) {
+				/* message was copied. keep the existing
+				   map uid */
+				continue;
+			}
+
 			rec.map_uid = next_map_uid++;
 			mail_index_update_ext(ctx->ctx.trans, mails[i].seq,
 					      mbox->ext_id, &rec, NULL);

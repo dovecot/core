@@ -217,13 +217,6 @@ void mail_update_modseq(struct mail *mail, uint64_t min_modseq)
 	p->v.update_modseq(mail, min_modseq);
 }
 
-void mail_update_uid(struct mail *mail, uint32_t new_uid)
-{
-	struct mail_private *p = (struct mail_private *)mail;
-
-	p->v.update_uid(mail, new_uid);
-}
-
 void mail_update_pop3_uidl(struct mail *mail, const char *uidl)
 {
 	struct mail_private *p = (struct mail_private *)mail;

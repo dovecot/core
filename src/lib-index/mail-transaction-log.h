@@ -39,7 +39,6 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_KEYWORD_RESET		= 0x00000800,
 	MAIL_TRANSACTION_EXT_ATOMIC_INC		= 0x00001000,
 	MAIL_TRANSACTION_EXPUNGE_GUID		= 0x00002000,
-	MAIL_TRANSACTION_UID_UPDATE		= 0x00004000,
 	MAIL_TRANSACTION_MODSEQ_UPDATE		= 0x00008000,
 	MAIL_TRANSACTION_EXT_HDR_UPDATE32	= 0x00010000,
 	MAIL_TRANSACTION_INDEX_DELETED		= 0x00020000,
@@ -65,10 +64,6 @@ enum mail_transaction_type {
 struct mail_transaction_header {
 	uint32_t size;
 	uint32_t type; /* enum mail_transaction_type */
-};
-
-struct mail_transaction_uid_update {
-	uint32_t old_uid, new_uid;
 };
 
 struct mail_transaction_modseq_update {

@@ -313,7 +313,6 @@ struct mail_vfuncs {
 	void (*update_keywords)(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords);
 	void (*update_modseq)(struct mail *mail, uint64_t min_modseq);
-	void (*update_uid)(struct mail *mail, uint32_t new_uid);
 	void (*update_pop3_uidl)(struct mail *mail, const char *uidl);
 	void (*expunge)(struct mail *mail);
 	void (*set_cache_corrupted)(struct mail *mail,

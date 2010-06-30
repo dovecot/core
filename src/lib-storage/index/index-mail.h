@@ -201,7 +201,6 @@ void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords);
 void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq);
-void index_mail_update_uid(struct mail *mail, uint32_t new_uid);
 void index_mail_expunge(struct mail *mail);
 void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field);

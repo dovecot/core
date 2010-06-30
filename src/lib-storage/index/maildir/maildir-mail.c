@@ -506,12 +506,6 @@ static int maildir_mail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
-static void maildir_mail_update_uid(struct mail *_mail, uint32_t new_uid)
-{
-	maildir_save_add_conflict(_mail->transaction, _mail->uid, new_uid);
-	index_mail_update_uid(_mail, new_uid);
-}
-
 static void maildir_update_pop3_uidl(struct mail *_mail, const char *uidl)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
@@ -589,7 +583,6 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_update_flags,
 	index_mail_update_keywords,
 	index_mail_update_modseq,
-	maildir_mail_update_uid,
 	maildir_update_pop3_uidl,
 	index_mail_expunge,
 	maildir_mail_set_cache_corrupted

@@ -192,7 +192,6 @@ struct mail_index_transaction_commit_result {
 	   all of it was written to the same file. */
 	uoff_t commit_size;
 
-	unsigned int ignored_uid_changes;
 	unsigned int ignored_modseq_changes;
 };
 
@@ -425,12 +424,6 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 void mail_index_append_finish_uids(struct mail_index_transaction *t,
 				   uint32_t first_uid,
 				   ARRAY_TYPE(seq_range) *uids_r);
-/* Update message's UID. The new UID must not be lower than next_uid at the
-   commit time, otherwise the UID update fails and is just ignored.
-   If there are appends in the same transaction, the updated UIDs must be
-   higher than the append UIDs. */
-void mail_index_update_uid(struct mail_index_transaction *t, uint32_t seq,
-			   uint32_t new_uid);
 /* Expunge record from index. Note that this doesn't affect sequence numbers
    until transaction is committed and mailbox is synced. */
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);

@@ -212,8 +212,7 @@ struct mail_transaction_commit_changes {
 	/* UIDs assigned to saved messages. Not necessarily ascending. */
 	ARRAY_TYPE(seq_range) saved_uids;
 
-	/* number of uid/modseq changes that couldn't be changed as requested */
-	unsigned int ignored_uid_changes;
+	/* number of modseq changes that couldn't be changed as requested */
 	unsigned int ignored_modseq_changes;
 };
 
@@ -674,9 +673,6 @@ void mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 /* Update message's modseq to be at least min_modseq. */
 void mail_update_modseq(struct mail *mail, uint64_t min_modseq);
 
-/* Update message's UID. The new UID must not be lower than next_uid at the
-   commit time, otherwise the UID update fails and is just ignored. */
-void mail_update_uid(struct mail *mail, uint32_t new_uid);
 /* Update message's POP3 UIDL (if possible). */
 void mail_update_pop3_uidl(struct mail *mail, const char *uidl);
 /* Expunge this message. Sequence numbers don't change until commit. */

@@ -462,31 +462,6 @@ static void test_mail_index_transaction_get_flag_update_pos(void)
 	test_end();
 }
 
-static void test_mail_index_uid_update(void)
-{
-	struct mail_index_transaction *t;
-	const struct mail_transaction_uid_update *uid_updates;
-	unsigned int count;
-
-	test_begin("mail index uid update");
-
-	hdr.messages_count = 10;
-	t = mail_index_transaction_new();
-
-	mail_index_update_uid(t, 4, 7);
-	mail_index_update_uid(t, 6, 8);
-	mail_index_update_uid(t, 2, 5);
-	mail_index_update_uid(t, 4, 9);
-
-	uid_updates = array_get(&t->uid_updates, &count);
-	test_assert(count == 4);
-	test_assert(uid_updates[0].old_uid == 4 && uid_updates[0].new_uid == 7);
-	test_assert(uid_updates[1].old_uid == 6 && uid_updates[1].new_uid == 8);
-	test_assert(uid_updates[2].old_uid == 2 && uid_updates[2].new_uid == 5);
-	test_assert(uid_updates[3].old_uid == 4 && uid_updates[3].new_uid == 9);
-	test_end();
-}
-
 static void test_mail_index_modseq_update(void)
 {
 	struct mail_index_transaction *t;
@@ -578,7 +553,6 @@ int main(void)
 		test_mail_index_flag_update_appends,
 		test_mail_index_cancel_flag_updates,
 		test_mail_index_transaction_get_flag_update_pos,
-		test_mail_index_uid_update,
 		test_mail_index_modseq_update,
 		test_mail_index_expunge,
 		NULL

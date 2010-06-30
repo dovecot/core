@@ -154,38 +154,6 @@ static void test_mail_index_transaction_finish_check_conflicts(void)
 	test_end();
 }
 
-static void test_mail_index_transaction_finish_uid_updates(void)
-{
-	struct mail_index_transaction *t;
-	const struct mail_transaction_uid_update *uid_updates;
-	struct mail_transaction_uid_update *u;
-	unsigned int count;
-
-	t = t_new(struct mail_index_transaction, 1);
-
-	test_begin("mail index transaction finish uid updates");
-
-	t_array_init(&t->uid_updates, 10);
-	u = array_append_space(&t->uid_updates);
-	u->old_uid = 1; u->new_uid = 15;
-	u = array_append_space(&t->uid_updates);
-	u->old_uid = 2; u->new_uid = 16;
-	u = array_append_space(&t->uid_updates);
-	u->old_uid = 5; u->new_uid = 17;
-	u = array_append_space(&t->uid_updates);
-	u->old_uid = 2; u->new_uid = 18;
-
-	mail_index_transaction_finish(t);
-
-	uid_updates = array_get(&t->uid_updates, &count);
-	test_assert(count == 4);
-	test_assert(uid_updates[0].old_uid == 1*2 && uid_updates[0].new_uid == 15);
-	test_assert(uid_updates[1].old_uid == 2*2 && uid_updates[1].new_uid == 16);
-	test_assert(uid_updates[2].old_uid == 5*2 && uid_updates[2].new_uid == 17);
-	test_assert(uid_updates[3].old_uid == 2*2 && uid_updates[3].new_uid == 18);
-	test_end();
-}
-
 static void test_mail_index_transaction_finish_modseq_updates(void)
 {
 	struct mail_index_transaction *t;
@@ -288,7 +256,6 @@ int main(void)
 	static void (*test_functions[])(void) = {
 		test_mail_index_transaction_finish_flag_updates,
 		test_mail_index_transaction_finish_check_conflicts,
-		test_mail_index_transaction_finish_uid_updates,
 		test_mail_index_transaction_finish_modseq_updates,
 		test_mail_index_transaction_finish_expunges,
 		NULL
