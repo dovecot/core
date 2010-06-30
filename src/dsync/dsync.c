@@ -87,9 +87,10 @@ static bool mirror_get_remote_cmd(char **argv, const char *const **cmd_args_r)
 		}
 	}
 
-	if (strchr(argv[0], ' ') != NULL) {
-		/* the whole command is in one string. this is mainly for
-		   backwards compatibility. */
+	if (strchr(argv[0], ' ') != NULL || strchr(argv[0], '/') != NULL) {
+		/* a) the whole command is in one string. this is mainly for
+		      backwards compatibility.
+		   b) script/path */
 		argv = p_strsplit(pool_datastack_create(), argv[0], " ");
 		return mirror_get_remote_cmd(argv, cmd_args_r);
 	}
