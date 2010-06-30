@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "execv-const.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -14,13 +15,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h>
 
+static const char *ssh_cmd = "ssh";
 static struct dsync_brain *brain;
 static struct dsync_proxy_server *server;
 
-static void run_cmd(const char *cmd, int *fd_in_r, int *fd_out_r)
+static void run_cmd(const char *const *args, int *fd_in_r, int *fd_out_r)
 {
-	const char *const *args;
 	int fd_in[2], fd_out[2];
 
 	if (pipe(fd_in) < 0 || pipe(fd_out) < 0)
@@ -42,7 +44,6 @@ static void run_cmd(const char *cmd, int *fd_in_r, int *fd_out_r)
 		(void)close(fd_out[0]);
 		(void)close(fd_out[1]);
 
-		args = t_strsplit(cmd, " ");
 		execvp_const(args[0], args);
 		break;
 	default:
@@ -55,13 +56,74 @@ static void run_cmd(const char *cmd, int *fd_in_r, int *fd_out_r)
 	}
 }
 
+static bool mirror_get_remote_cmd(char **argv, const char *const **cmd_args_r)
+{
+	ARRAY_TYPE(const_string) cmd_args;
+	unsigned int i;
+	const char *p, *user, *host;
+
+	t_array_init(&cmd_args, 8);
+	if (argv[1] != NULL) {
+		/* more than one parameter, so it contains a full command
+		   (e.g. ssh host dsync) */
+		for (i = 0; argv[i] != NULL; i++) {
+			p = argv[i];
+			array_append(&cmd_args, &p, 1);
+		}
+
+		p = "server"; array_append(&cmd_args, &p, 1);
+		(void)array_append_space(&cmd_args);
+		*cmd_args_r = array_idx(&cmd_args, 0);
+		return TRUE;
+	}
+
+	/* if it begins with /[a-z0-9]+:/, it's a mail location
+	   (e.g. mdbox:~/mail) */
+	for (p = argv[0]; *p != '\0'; p++) {
+		if (!i_isalnum(*p)) {
+			if (*p == ':')
+				return FALSE;
+			break;
+		}
+	}
+
+	if (strchr(argv[0], ' ') != NULL) {
+		/* the whole command is in one string. this is mainly for
+		   backwards compatibility. */
+		argv = p_strsplit(pool_datastack_create(), argv[0], " ");
+		return mirror_get_remote_cmd(argv, cmd_args_r);
+	}
+
+	/* [user@]host */
+	host = strchr(argv[0], '@');
+	if (host != NULL)
+		user = t_strdup_until(argv[0], host++);
+	else {
+		user = "";
+		host = argv[0];
+	}
+
+	/* we'll assume virtual users, so in user@host it really means not to
+	   give ssh a username, but to give dsync -u user parameter. */
+	array_append(&cmd_args, &ssh_cmd, 1);
+	array_append(&cmd_args, &host, 1);
+	p = "dsync"; array_append(&cmd_args, &p, 1);
+	if (*user != '\0') {
+		p = "-u"; array_append(&cmd_args, &p, 1);
+		array_append(&cmd_args, &user, 1);
+	}
+	p = "server"; array_append(&cmd_args, &p, 1);
+	(void)array_append_space(&cmd_args);
+	*cmd_args_r = array_idx(&cmd_args, 0);
+	return TRUE;
+}
+
 static void ATTR_NORETURN
 usage(void)
 {
 	fprintf(stderr,
 "usage: dsync [-C <alt char>] [-m <mailbox>] [-u <user>] [-frv]\n"
-"  mirror  <command to execute remote dsync>\n"
-"  convert <source mail_location>\n"
+"  mirror <local mail_location> | [<user>@]<host> | <remote dsync command>\n"
 );
 	exit(1);
 }
@@ -83,8 +145,8 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user, *mail_user2 = NULL;
 	struct dsync_worker *worker1, *worker2;
-	const char *error, *username, *mailbox = NULL, *mirror_cmd = NULL;
-	const char *convert_location = NULL;
+	const char *error, *username, *cmd_name, *mailbox = NULL;
+	const char *local_location = NULL, *const *remote_cmd_args = NULL;
 	bool dsync_server = FALSE, readonly = FALSE, unexpected_changes = FALSE;
 	bool dsync_debug = FALSE;
 	char alt_char = '_';
@@ -92,7 +154,7 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "C:Dfm:ru:v");
+					     &argc, &argv, "+C:Dfm:ru:v");
 
 	username = getenv("USER");
 	while ((c = master_getopt(master_service)) > 0) {
@@ -129,20 +191,24 @@ int main(int argc, char *argv[])
 	}
 	if (optind == argc)
 		usage();
+	cmd_name = argv[optind++];
 
-	if (strcmp(argv[optind], "mirror") == 0 && optind+1 != argc) {
-		mirror_cmd = argv[optind+1];
-		optind += 2;
-	} else if (strcmp(argv[optind], "server") == 0) {
-		dsync_server = TRUE;
+	if (strcmp(cmd_name, "mirror") == 0 ||
+	    strcmp(cmd_name, "convert") == 0) {
+		if (optind == argc)
+			usage();
+
+		if (!mirror_get_remote_cmd(argv+optind, &remote_cmd_args)) {
+			if (optind+1 != argc)
+				usage();
+			local_location = argv[optind];
+		}
 		optind++;
-	} else if (strcmp(argv[optind], "convert") == 0 &&
-		   optind+1 != argc) {
-		convert_location = argv[optind+1];
-		optind += 2;
-	}
-	if (optind != argc)
+	} else if (strcmp(cmd_name, "server") == 0) {
+		dsync_server = TRUE;
+	} else {
 		usage();
+	}
 	master_service_init_finish(master_service);
 
 	if (!dsync_debug) {
@@ -164,21 +230,20 @@ int main(int argc, char *argv[])
 				      &mail_user) < 0)
 		i_fatal("User init failed");
 
-	if (mirror_cmd != NULL) {
+	if (remote_cmd_args != NULL) {
 		/* user initialization may exec doveconf, so do our forking
 		   after that */
-		run_cmd(t_strconcat(mirror_cmd, " server", NULL),
-			&fd_in, &fd_out);
+		run_cmd(remote_cmd_args, &fd_in, &fd_out);
 	}
 
 	/* create the first local worker */
 	worker1 = dsync_worker_init_local(mail_user, alt_char);
-	if (convert_location != NULL) {
+	if (local_location != NULL) {
 		/* update mail_location and create another user for the
 		   second location. */
 		struct setting_parser_context *set_parser;
 		const char *set_line =
-			t_strconcat("mail_location=", convert_location, NULL);
+			t_strconcat("mail_location=", local_location, NULL);
 
 		set_parser = mail_storage_service_user_get_settings_parser(service_user);
 		if (settings_parse_line(set_parser, set_line) < 0)
@@ -204,7 +269,7 @@ int main(int argc, char *argv[])
 
 		master_service_run(master_service, dsync_connected);
 	} else {
-		i_assert(mirror_cmd != NULL);
+		i_assert(remote_cmd_args != NULL);
 		i_set_failure_prefix(t_strdup_printf("dsync-local(%s): ",
 						     username));
 
