@@ -810,6 +810,17 @@ local_worker_msg_iter_init(struct dsync_worker *worker,
 	return &iter->iter;
 }
 
+static int mailbox_expunge_rec_cmp(const struct mailbox_expunge_rec *e1,
+				   const struct mailbox_expunge_rec *e2)
+{
+	if (e1->uid < e2->uid)
+		return -1;
+	else if (e1->uid > e2->uid)
+		return 1;
+	else
+		return 0;
+}
+
 static bool
 iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 				uint32_t prev_uid, struct dsync_message *msg_r)
@@ -836,6 +847,7 @@ iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 		return TRUE;
 	}
 
+	/* initialize list of expunged messages at the end of mailbox */
 	iter->expunge_idx = 0;
 	array_clear(&iter->expunges);
 	iter->expunges_set = TRUE;
@@ -854,6 +866,7 @@ iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 					  status.uidnext - 1);
 		(void)mailbox_get_expunges(box, 0, &uids_filter,
 					   &iter->expunges);
+		array_sort(&iter->expunges, mailbox_expunge_rec_cmp);
 	} T_END;
 	return iter_local_mailbox_next_expunge(iter, prev_uid, msg_r);
 }
@@ -1246,8 +1259,7 @@ static void local_worker_mailbox_close(struct local_dsync_worker *worker)
 	if (mailbox_transaction_commit_get_changes(&ext_trans, &changes) < 0)
 		dsync_worker_set_failure(&worker->worker);
 	else {
-		if (changes.ignored_uid_changes != 0 ||
-		    changes.ignored_modseq_changes != 0 ||
+		if (changes.ignored_modseq_changes != 0 ||
 		    !has_expected_save_uids(worker, &changes))
 			worker->worker.unexpected_changes = TRUE;
 		pool_unref(&changes.pool);
@@ -1380,11 +1392,18 @@ local_worker_msg_update_uid(struct dsync_worker *_worker,
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
+	struct mail_save_context *save_ctx;
 
-	if (!mail_set_uid(worker->ext_mail, old_uid))
+	if (!mail_set_uid(worker->ext_mail, old_uid)) {
 		dsync_worker_set_failure(_worker);
-	else
-		mail_update_uid(worker->ext_mail, new_uid);
+		return;
+	}
+
+	save_ctx = mailbox_save_alloc(worker->ext_mail->transaction);
+	mailbox_save_copy_flags(save_ctx, worker->ext_mail);
+	mailbox_save_set_uid(save_ctx, new_uid);
+	if (mailbox_copy(&save_ctx, worker->ext_mail) == 0)
+		mail_expunge(worker->ext_mail);
 }
 
 static void local_worker_msg_expunge(struct dsync_worker *_worker, uint32_t uid)

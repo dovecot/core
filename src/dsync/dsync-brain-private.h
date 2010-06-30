@@ -61,7 +61,6 @@ struct dsync_brain_msg_iter {
 	unsigned int next_new_msg, next_conflict;
 
 	/* copy operations that failed. indexes point to new_msgs array */
-	ARRAY_TYPE(uint32_t) copy_retry_indexes;
 	unsigned int copy_results_left;
 	unsigned int save_results_left;
 
@@ -75,7 +74,11 @@ struct dsync_brain_uid_conflict {
 };
 
 struct dsync_brain_new_msg {
-	uint32_t mailbox_idx;
+	unsigned int mailbox_idx:30;
+	/* TRUE if it currently looks like message has been saved/copied.
+	   if copying fails, it sets this back to FALSE and updates
+	   iter->next_new_msg. */
+	unsigned int saved:1;
 	uint32_t orig_uid;
 	struct dsync_message *msg;
 };
@@ -132,6 +135,5 @@ void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync);
 void dsync_brain_msg_sync_deinit(struct dsync_brain_mailbox_sync **_sync);
 
 void dsync_brain_msg_sync_new_msgs(struct dsync_brain_mailbox_sync *sync);
-void dsync_brain_msg_sync_resolve_uid_conflicts(struct dsync_brain_mailbox_sync *sync);
 
 #endif

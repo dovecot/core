@@ -1,5 +1,49 @@
 /* Copyright (c) 2009-2010 Dovecot authors, see the included COPYING file */
 
+/* This code synchronizes messages in all mailboxes between two workers.
+   The "src" and "dest" terms don't really have anything to do with reality,
+   they're both treated equal.
+
+   1. Iterate through all messages in all (wanted) mailboxes. The mailboxes
+      are iterated in the same order and messages in ascending order.
+      All of the expunged messages at the end of mailbox (i.e.
+      last_existing_uid+1 .. next_uid-1) are also returned with
+      DSYNC_MAIL_FLAG_EXPUNGED set. We only care about the end of the mailbox,
+      because we can detect UID conflicts for messages in the middle by looking
+      at the next existing message and seeing if it has UID conflict.
+   2. For each seen non-expunged message, save it to GUID instance hash table:
+      message GUID => linked list of { uid, mailbox }
+   3. Each message in a mailbox is matched between the two workers as long as
+      both have messages left (the last ones may be expunged).
+      The possibilities are:
+
+      i) We don't know the GUIDs of both messages:
+
+	a) Message is expunged in both. Do nothing.
+	b) Message is expunged in only one of them. If there have been no UID
+	   conflicts seen so far, expunge the message in the other one.
+	   Otherwise, give the existing a message a new UID (at step 6).
+
+      ii) We know GUIDs of both messages (one/both of them may be expunged):
+
+	a) Messages have conflicting GUIDs. Give new UIDs for the non-expunged
+	   message(s) (at step 6).
+	b) Messages have matching GUIDs and one of them is expunged.
+	   Expunge also the other one. (We don't need to care about previous
+	   UID conflicts here, because we know this message is the same with
+	   both workers, since they have the same GUID.)
+	c) Messages have matching GUIDs and both of them exist. Sync flags from
+	   whichever has the higher modseq. If both modseqs equal but flags
+	   don't, pick the one that has more flags. If even the flag count is
+	   the same, just pick one of them.
+   4. One of the workers may messages left in the mailbox. Copy these
+      (non-expunged) messages to the other worker (at step 6).
+   5. If there are more mailboxes left, go to next one and goto 2.
+
+   6. Copy the new messages and give new UIDs to conflicting messages.
+      This code exists in dsync-brain-msgs-new.c
+*/
+
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
@@ -99,21 +143,52 @@ dsync_brain_msg_sync_conflict(struct dsync_brain_msg_iter *conflict_iter,
 	new_msg->msg->uid = new_uid;
 }
 
+static int
+dsync_message_flag_importance_cmp(const struct dsync_message *m1,
+				  const struct dsync_message *m2)
+{
+	unsigned int i, count1, count2;
+
+	if (m1->modseq > m2->modseq)
+		return -1;
+	else if (m1->modseq < m2->modseq)
+		return 1;
+
+	if (m1->flags == m2->flags &&
+	    dsync_keyword_list_equals(m1->keywords, m2->keywords))
+		return 0;
+
+	/* modseqs match, but flags aren't the same. pick the one that
+	   has more flags. */
+	count1 = str_array_length(m1->keywords);
+	count2 = str_array_length(m2->keywords);
+	for (i = 1; i != MAIL_RECENT; i <<= 1) {
+		if ((m1->flags & i) != 0)
+			count1++;
+		if ((m2->flags & i) != 0)
+			count2++;
+	}
+	if (count1 > count2)
+		return -1;
+	else if (count1 < count2)
+		return 1;
+
+	/* they even have the same number of flags. don't bother with further
+	   guessing, just pick the first one. */
+	return -1;
+}
+
 static void dsync_brain_msg_sync_existing(struct dsync_brain_mailbox_sync *sync,
 					  struct dsync_message *src_msg,
 					  struct dsync_message *dest_msg)
 {
-	if (src_msg->modseq > dest_msg->modseq)
+	int ret;
+
+	ret = dsync_message_flag_importance_cmp(src_msg, dest_msg);
+	if (ret < 0)
 		dsync_worker_msg_update_metadata(sync->dest_worker, src_msg);
-	else if (src_msg->modseq < dest_msg->modseq)
+	else if (ret > 0)
 		dsync_worker_msg_update_metadata(sync->src_worker, dest_msg);
-	else if (src_msg->flags != dest_msg->flags ||
-		 !dsync_keyword_list_equals(src_msg->keywords,
-					    dest_msg->keywords)) {
-		/* modseqs match, but flags aren't the same. we can't really
-		   know which one we should use, so just pick one. */
-		dsync_worker_msg_update_metadata(sync->dest_worker, src_msg);
-	}
 }
 
 static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
@@ -130,6 +205,10 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 	src_expunged = (src_msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0;
 	dest_expunged = (dest_msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0;
 
+	/* If a message is expunged, it's guaranteed to have a 128bit GUID.
+	   If the other message isn't expunged, we'll need to convert its GUID
+	   to the 128bit GUID form (if it's not already) so that we can compare
+	   them. */
 	if (src_expunged) {
 		src_guid = src_msg->guid;
 		dest_guid = dsync_get_guid_128_str(dest_msg->guid,
@@ -144,6 +223,9 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 		dest_guid = dest_msg->guid;
 	}
 
+	/* FIXME: checking for sync->uid_conflict isn't fully reliable here.
+	   we should be checking if the next matching message pair has a
+	   conflict, not if the previous pair had one. */
 	if (src_msg->uid < dest_msg->uid) {
 		/* message has been expunged from dest. */
 		if (src_expunged) {
@@ -259,35 +341,37 @@ dsync_brain_msg_sync_mailbox_more(struct dsync_brain_mailbox_sync *sync)
 	return TRUE;
 }
 
-static void dsync_brain_msg_sync_finish(struct dsync_brain_mailbox_sync *sync)
-{
-	/* synced all existing messages. now add the new messages. */
-	if (dsync_worker_msg_iter_deinit(&sync->src_msg_iter->iter) < 0 ||
-	    dsync_worker_msg_iter_deinit(&sync->dest_msg_iter->iter) < 0)
-		dsync_brain_fail(sync->brain);
-
-	dsync_brain_msg_sync_new_msgs(sync);
-}
-
 void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync)
 {
 	const struct dsync_brain_mailbox *mailboxes;
-	unsigned int count, mailbox_idx;
+	unsigned int count, mailbox_idx = 0;
 
 	mailboxes = array_get(&sync->mailboxes, &count);
 	while (dsync_brain_msg_sync_mailbox_more(sync)) {
 		/* sync the next mailbox */
 		sync->uid_conflict = FALSE;
 		mailbox_idx = ++sync->wanted_mailbox_idx;
-		if (mailbox_idx >= count) {
-			dsync_brain_msg_sync_finish(sync);
-			return;
-		}
+		if (mailbox_idx >= count)
+			break;
+
 		dsync_worker_select_mailbox(sync->src_worker,
 			&mailboxes[mailbox_idx].box);
 		dsync_worker_select_mailbox(sync->dest_worker,
 			&mailboxes[mailbox_idx].box);
 	}
+	if (mailbox_idx < count) {
+		/* output buffer is full */
+		return;
+	}
+
+	/* finished with all mailboxes. */
+	if (dsync_worker_msg_iter_deinit(&sync->src_msg_iter->iter) < 0 ||
+	    dsync_worker_msg_iter_deinit(&sync->dest_msg_iter->iter) < 0) {
+		dsync_brain_fail(sync->brain);
+		return;
+	}
+
+	dsync_brain_msg_sync_new_msgs(sync);
 }
 
 static void dsync_worker_msg_callback(void *context)
@@ -310,7 +394,6 @@ dsync_brain_msg_iter_init(struct dsync_brain_mailbox_sync *sync,
 	iter->worker = worker;
 	i_array_init(&iter->uid_conflicts, 128);
 	i_array_init(&iter->new_msgs, 128);
-	i_array_init(&iter->copy_retry_indexes, 32);
 	iter->guid_hash = hash_table_create(default_pool, sync->pool, 10000,
 					    strcase_hash,
 					    (hash_cmp_callback_t *)strcasecmp);
@@ -338,7 +421,6 @@ static void dsync_brain_msg_iter_deinit(struct dsync_brain_msg_iter *iter)
 	hash_table_destroy(&iter->guid_hash);
 	array_free(&iter->uid_conflicts);
 	array_free(&iter->new_msgs);
-	array_free(&iter->copy_retry_indexes);
 }
 
 static void

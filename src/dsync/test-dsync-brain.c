@@ -34,8 +34,6 @@ void dsync_brain_msg_sync_deinit(struct dsync_brain_mailbox_sync **_sync)
 	i_free(*_sync);
 }
 
-void dsync_brain_msg_sync_resolve_uid_conflicts(struct dsync_brain_mailbox_sync *sync ATTR_UNUSED) {}
-
 static void mailboxes_set_guids(struct dsync_mailbox *boxes)
 {
 	for (; boxes->name != NULL; boxes++) {
