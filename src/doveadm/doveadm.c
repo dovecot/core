@@ -251,6 +251,25 @@ static void doveadm_load_modules(void)
 	module_dir_init(modules);
 }
 
+static void doveadm_read_settings(void)
+{
+	static const struct setting_parser_info *set_roots[] = {
+		&doveadm_setting_parser_info,
+		NULL
+	};
+	struct master_service_settings_input input;
+	struct master_service_settings_output output;
+	const char *error;
+
+	memset(&input, 0, sizeof(input));
+	input.roots = set_roots;
+	input.module = "doveadm";
+	input.preserve_home = TRUE;
+	if (master_service_settings_read(master_service, &input,
+					 &output, &error) < 0)
+		i_fatal("Error reading configuration: %s", error);
+	doveadm_settings = master_service_settings_get_others(master_service)[0];
+}
 
 static struct doveadm_cmd *doveadm_commands[] = {
 	&doveadm_cmd_help,
@@ -268,18 +287,12 @@ static struct doveadm_cmd *doveadm_commands[] = {
 
 int main(int argc, char *argv[])
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&doveadm_setting_parser_info,
-		NULL
-	};
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
-	const char *cmd_name, *error;
+	const char *cmd_name;
 	unsigned int i;
-	bool quick_init;
+	bool quick_init = FALSE;
 	int c;
 
 	/* "+" is GNU extension to stop at the first non-option.
@@ -304,20 +317,19 @@ int main(int argc, char *argv[])
 	}
 	cmd_name = argv[optind];
 
-	memset(&input, 0, sizeof(input));
-	input.roots = set_roots;
-	input.module = "doveadm";
-	input.preserve_home = TRUE;
-	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
-	doveadm_settings = master_service_settings_get_others(master_service)[0];
+	if (cmd_name != NULL && strcmp(cmd_name, "help") == 0) {
+		/* help doesn't need any configuration */
+		quick_init = TRUE;
+	} else {
+		doveadm_read_settings();
+	}
 
 	i_array_init(&doveadm_cmds, 32);
 	for (i = 0; i < N_ELEMENTS(doveadm_commands); i++)
 		doveadm_register_cmd(doveadm_commands[i]);
 
-	if (cmd_name != NULL && (strcmp(cmd_name, "stop") == 0 ||
+	if (cmd_name != NULL && (quick_init ||
+				 strcmp(cmd_name, "stop") == 0 ||
 				 strcmp(cmd_name, "reload") == 0)) {
 		/* special case commands: even if there is something wrong
 		   with the config (e.g. mail_plugins), don't fail these
