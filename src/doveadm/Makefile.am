@@ -15,7 +15,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/auth \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DDOVEADM_MODULEDIR=\""$(doveadm_moduledir)"\" \
-	-DPKG_RUNDIR=\""$(rundir)"\"
+	-DPKG_RUNDIR=\""$(rundir)"\" \
+	-DMANDIR=\""$(mandir)"\"
 
 if !BUILD_SHARED_LIBS
 unused_objects = \

@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "env-util.h"
+#include "execv-const.h"
 #include "module-dir.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -159,34 +161,18 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 	return doveadm_mail_has_subcommands(cmd_name);
 }
 
-static void cmd_help(int argc, char *argv[])
+static void cmd_help(int argc ATTR_UNUSED, char *argv[])
 {
-	const struct doveadm_cmd *cmd;
-	string_t *name;
-	int i;
+	const char *man_argv[3];
 
 	if (argv[1] == NULL)
 		usage_to(stdout, "");
 
-	/* try to find exact command */
-	name = t_str_new(100);
-	for (i = 1; i < argc; i++) {
-		str_append(name, argv[i]);
-
-		array_foreach(&doveadm_cmds, cmd) {
-			if (strcmp(cmd->name, str_c(name)) == 0)
-				help_to(cmd, stdout);
-		}
-		doveadm_mail_try_help_name(str_c(name));
-
-		str_append_c(name, ' ');
-	}
-
-	/* see if there are subcommands we can list */
-	if (doveadm_has_subcommands(argv[1]))
-		usage_to(stdout, argv[1]);
-
-	usage_to(stdout, "");
+	env_put("MANPATH="MANDIR);
+	man_argv[0] = "man";
+	man_argv[1] = t_strconcat("doveadm-", argv[1], NULL);
+	man_argv[2] = NULL;
+	execvp_const(man_argv[0], man_argv);
 }
 
 static struct doveadm_cmd doveadm_cmd_help = {
