@@ -436,10 +436,12 @@ proxy_client_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		return ret;
 	}
 
-	if (*line == '\t') {
+	if ((line[0] == '+' || line[0] == '-') && line[1] == '\0') {
 		/* end of mailboxes */
-		if (line[1] != '0')
+		if (line[0] == '-') {
+			i_error("Worker server's mailbox iteration failed");
 			_iter->failed = TRUE;
+		}
 		return -1;
 	}
 
@@ -497,10 +499,12 @@ proxy_client_worker_subs_iter_next_line(struct proxy_client_dsync_worker_subs_it
 		return ret;
 	}
 
-	if (*line == '\t') {
+	if ((line[0] == '+' || line[0] == '-') && line[1] == '\0') {
 		/* end of subscribed subscriptions */
-		if (line[1] != '0')
+		if (line[0] == '-') {
+			i_error("Worker server's subscription iteration failed");
 			iter->iter.failed = TRUE;
+		}
 		return -1;
 	}
 
@@ -647,10 +651,12 @@ proxy_client_worker_msg_iter_next(struct dsync_worker_msg_iter *_iter,
 		return ret;
 	}
 
-	if (*line == '\t') {
+	if ((line[0] == '+' || line[0] == '-') && line[1] == '\0') {
 		/* end of messages */
-		if (line[1] != '0')
+		if (line[0] == '-') {
+			i_error("Worker server's message iteration failed");
 			_iter->failed = TRUE;
+		}
 		iter->done = TRUE;
 		return -1;
 	}

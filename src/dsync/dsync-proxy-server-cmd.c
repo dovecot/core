@@ -54,10 +54,10 @@ cmd_box_list(struct dsync_proxy_server *server,
 		return 0;
 	}
 	if (dsync_worker_mailbox_iter_deinit(&server->mailbox_iter) < 0) {
-		o_stream_send(server->output, "\t-1\n", 4);
+		o_stream_send(server->output, "-\n", 2);
 		return -1;
 	} else {
-		o_stream_send(server->output, "\t0\n", 3);
+		o_stream_send(server->output, "+\n", 2);
 		return 1;
 	}
 }
@@ -120,8 +120,6 @@ static int
 cmd_subs_list(struct dsync_proxy_server *server,
 	      const char *const *args ATTR_UNUSED)
 {
-	int ret = 1;
-
 	if (server->subs_iter == NULL) {
 		server->subs_iter =
 			dsync_worker_subs_iter_init(server->worker);
@@ -130,20 +128,21 @@ cmd_subs_list(struct dsync_proxy_server *server,
 	if (!server->subs_sending_unsubscriptions) {
 		if (!cmd_subs_list_subscriptions(server))
 			return 0;
-		o_stream_send(server->output, "\t0\n", 3);
+		/* a bit hacky way to handle this. this assumes that caller
+		   goes through all subscriptions first, and next starts
+		   going through unsubscriptions */
+		o_stream_send(server->output, "+\n", 2);
 		server->subs_sending_unsubscriptions = TRUE;
 	}
-	if (ret > 0) {
-		if (!cmd_subs_list_unsubscriptions(server))
-			return 0;
-	}
+	if (!cmd_subs_list_unsubscriptions(server))
+		return 0;
 
 	server->subs_sending_unsubscriptions = FALSE;
 	if (dsync_worker_subs_iter_deinit(&server->subs_iter) < 0) {
-		o_stream_send(server->output, "\t-1\n", 4);
+		o_stream_send(server->output, "-\n", 2);
 		return -1;
 	} else {
-		o_stream_send(server->output, "\t0\n", 3);
+		o_stream_send(server->output, "+\n", 2);
 		return 1;
 	}
 }
@@ -217,10 +216,10 @@ cmd_msg_list(struct dsync_proxy_server *server, const char *const *args)
 		return 0;
 	}
 	if (dsync_worker_msg_iter_deinit(&server->msg_iter) < 0) {
-		o_stream_send(server->output, "\t-1\n", 4);
+		o_stream_send(server->output, "-\n", 2);
 		return -1;
 	} else {
-		o_stream_send(server->output, "\t0\n", 3);
+		o_stream_send(server->output, "+\n", 2);
 		return 1;
 	}
 }
