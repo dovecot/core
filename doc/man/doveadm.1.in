@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM 1 "2010-06-24" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM 1 "2010-07-01" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm \- Dovecot\(aqs administration utility
 .\"------------------------------------------------------------------------
@@ -21,7 +21,7 @@ for a command usage listing.
 .\"------------------------------------------------------------------------
 .SH COMMANDS
 .\"------------------------------------------------------------------------
-This commands works directly with Dovecot\(aqs master process.
+These commands work directly with Dovecot\(aqs master process.
 .\"-------------------------------------
 .SS reload
 .B doveadm reload
