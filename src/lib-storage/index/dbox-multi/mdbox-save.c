@@ -107,6 +107,9 @@ mdbox_save_alloc(struct mailbox_transaction_context *t)
 		/* use the existing allocated structure */
 		ctx->ctx.failed = FALSE;
 		ctx->ctx.finished = FALSE;
+		ctx->ctx.cur_file = NULL;
+		ctx->ctx.dbox_output = NULL;
+		ctx->cur_file_append = NULL;
 		return &ctx->ctx.ctx;
 	}
 
@@ -141,8 +144,6 @@ int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	if (mdbox_map_append_next(ctx->append_ctx, mail_size, 0,
 				  &ctx->cur_file_append,
 				  &ctx->ctx.dbox_output) < 0) {
-		ctx->cur_file_append = NULL;
-		ctx->ctx.dbox_output = NULL;
 		ctx->ctx.failed = TRUE;
 		return -1;
 	}
