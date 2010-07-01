@@ -416,8 +416,9 @@ static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 	}
 }
 
-static int do_rquota_group(struct fs_quota_root *root, bool bytes,
-			   uint64_t *value_r, uint64_t *limit_r)
+static int
+do_rquota_group(struct fs_quota_root *root ATTR_UNUSED, bool bytes ATTR_UNUSED,
+		uint64_t *value_r ATTR_UNUSED, uint64_t *limit_r ATTR_UNUSED)
 {
 #if defined(EXT_RQUOTAVERS) && defined(GRPQUOTA)
 	struct getquota_rslt result;
