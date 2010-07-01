@@ -148,14 +148,14 @@ int main(int argc, char *argv[])
 	struct dsync_worker *worker1, *worker2, *workertmp;
 	const char *error, *username, *cmd_name, *mailbox = NULL;
 	const char *local_location = NULL, *const *remote_cmd_args = NULL;
-	bool dsync_server = FALSE, readonly = FALSE, unexpected_changes = FALSE;
+	bool dsync_server = FALSE, unexpected_changes = FALSE;
 	bool dsync_debug = FALSE, reverse_workers = FALSE;
 	char alt_char = '_';
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "+C:Dfm:rRu:v");
+					     &argc, &argv, "+C:Dfm:Ru:v");
 
 	username = getenv("USER");
 	while ((c = master_getopt(master_service)) > 0) {
@@ -172,9 +172,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'm':
 			mailbox = optarg;
-			break;
-		case 'r':
-			readonly = TRUE;
 			break;
 		case 'R':
 			reverse_workers = TRUE;
@@ -274,8 +271,6 @@ int main(int argc, char *argv[])
 	} else if (dsync_server) {
 		i_set_failure_prefix(t_strdup_printf("dsync-remote(%s): ",
 						     username));
-		if (readonly)
-			dsync_worker_set_readonly(worker1);
 		server = dsync_proxy_server_init(fd_in, fd_out, worker1);
 		worker2 = NULL;
 
@@ -285,8 +280,6 @@ int main(int argc, char *argv[])
 		i_set_failure_prefix(t_strdup_printf("dsync-local(%s): ",
 						     username));
 
-		if (readonly)
-			dsync_worker_set_readonly(worker1);
 		worker2 = dsync_worker_init_proxy_client(fd_in, fd_out);
 		if (reverse_workers) {
 			workertmp = worker1;
