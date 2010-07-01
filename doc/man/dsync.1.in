@@ -4,12 +4,12 @@
 dsync \- Dovecot\(aqs mailbox synchronization utility
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.B dsync 
+.B dsync
 .RI [ options ]
 .BI mirror\  location2
 .\"-------------------------------------
 .br
-.B dsync 
+.B dsync
 .RI [ options ]
 .BI backup\  location2
 .\"------------------------------------------------------------------------
@@ -220,12 +220,7 @@ Once all users have been converted, you can set the default
 to mdbox and remove the per\-user mail locations from
 .IR userdb .
 .\"------------------------------------------------------------------------
-.SH REPORTING BUGS
-Report bugs, including
-.I doveconf \-n
-output, to the Dovecot Mailing List <dovecot@dovecot.org>.
-Information about reporting bugs is available at:
-http://dovecot.org/bugreport.html
+@INCLUDE:reporting-bugs@
 .\"------------------------------------------------------------------------
 .SH SEE ALSO
 .BR doveadm (1),
