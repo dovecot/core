@@ -127,6 +127,7 @@ struct dsync_brain {
 	unsigned int verbose:1;
 	unsigned int backup:1;
 	unsigned int unexpected_changes:1;
+	unsigned int stdout_tty:1;
 };
 
 void dsync_brain_fail(struct dsync_brain *brain);

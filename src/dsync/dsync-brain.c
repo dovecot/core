@@ -7,6 +7,8 @@
 #include "dsync-worker.h"
 #include "dsync-brain-private.h"
 
+#include <unistd.h>
+
 static void
 dsync_brain_mailbox_list_deinit(struct dsync_brain_mailbox_list **list);
 static void
@@ -26,6 +28,7 @@ dsync_brain_init(struct dsync_worker *src_worker,
 	brain->flags = flags;
 	brain->verbose = (flags & DSYNC_BRAIN_FLAG_VERBOSE) != 0;
 	brain->backup = (flags & DSYNC_BRAIN_FLAG_BACKUP) != 0;
+	brain->stdout_tty = isatty(STDOUT_FILENO) > 0;
 	return brain;
 }
 
