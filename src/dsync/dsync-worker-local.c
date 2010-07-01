@@ -1490,6 +1490,7 @@ static void dsync_worker_try_finish(struct local_dsync_worker *worker)
 static void
 local_worker_save_msg_continue(struct local_dsync_worker *worker)
 {
+	struct mailbox *dest_box = worker->ext_mail->box;
 	int ret;
 
 	while ((ret = i_stream_read(worker->save_input)) > 0) {
@@ -1519,8 +1520,13 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 		i_assert(worker->save_input->eof);
 		ret = mailbox_save_finish(&worker->save_ctx);
 	}
-	if (ret < 0)
+	if (ret < 0) {
+		struct mail_storage *storage = mailbox_get_storage(dest_box);
+		i_error("Can't save message to mailbox %s: %s",
+			mailbox_get_vname(dest_box),
+			mail_storage_get_last_error(storage, NULL));
 		dsync_worker_set_failure(&worker->worker);
+	}
 	i_stream_unref(&worker->save_input);
 	dsync_worker_try_finish(worker);
 }
@@ -1532,6 +1538,7 @@ local_worker_msg_save(struct dsync_worker *_worker,
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
+	struct mailbox *dest_box = worker->ext_mail->box;
 	struct mail_save_context *save_ctx;
 
 	i_assert(worker->save_input == NULL);
@@ -1545,6 +1552,10 @@ local_worker_msg_save(struct dsync_worker *_worker,
 	mailbox_save_set_received_date(save_ctx, data->received_date, 0);
 
 	if (mailbox_save_begin(&save_ctx, data->input) < 0) {
+		struct mail_storage *storage = mailbox_get_storage(dest_box);
+		i_error("Can't save message to mailbox %s: %s",
+			mailbox_get_vname(dest_box),
+			mail_storage_get_last_error(storage, NULL));
 		dsync_worker_set_failure(_worker);
 		return;
 	}
