@@ -562,6 +562,13 @@ static bool dsync_mailbox_has_changed_msgs(struct dsync_brain *brain,
 		}
 		return TRUE;
 	}
+	if (box1->message_count != box2->message_count) {
+		if (brain->verbose) {
+			i_info("%s: message_count changed %u -> %u", name,
+			       box1->message_count, box2->message_count);
+		}
+		return TRUE;
+	}
 	return FALSE;
 }
 

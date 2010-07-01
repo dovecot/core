@@ -172,8 +172,8 @@ void dsync_proxy_mailbox_export(string_t *str,
 
 	str_append_c(str, '\t');
 	dsync_proxy_mailbox_guid_export(str, &box->mailbox_guid);
-	str_printfa(str, "\t%u\t%u\t%llu",
-		    box->uid_validity, box->uid_next,
+	str_printfa(str, "\t%u\t%u\t%u\t%llu",
+		    box->uid_validity, box->uid_next, box->message_count,
 		    (unsigned long long)box->highest_modseq);
 	dsync_proxy_strings_export(str, &box->cache_fields);
 }
@@ -193,7 +193,8 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 		return -1;
 	}
 
-	/* name dir_guid mailbox_guid uid_validity uid_next highest_modseq */
+	/* name dir_guid mailbox_guid uid_validity uid_next
+	   message_count highest_modseq */
 	box_r->name = p_strdup(pool, args[i++]);
 	dsync_str_sha_to_guid(box_r->name, &box_r->name_sha1);
 
@@ -235,6 +236,12 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 	box_r->uid_next = strtoul(args[i++], &p, 10);
 	if (box_r->uid_validity == 0 || *p != '\0') {
 		*error_r = "Invalid mailbox uid_next";
+		return -1;
+	}
+
+	box_r->message_count = strtoul(args[i++], &p, 10);
+	if (*p != '\0') {
+		*error_r = "Invalid mailbox message_count";
 		return -1;
 	}
 

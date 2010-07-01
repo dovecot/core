@@ -538,6 +538,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	       sizeof(dsync_box_r->mailbox_guid.guid));
 	dsync_box_r->uid_validity = status.uidvalidity;
 	dsync_box_r->uid_next = status.uidnext;
+	dsync_box_r->message_count = status.messages;
 	dsync_box_r->highest_modseq = status.highest_modseq;
 
 	p_clear(iter->ret_pool);
