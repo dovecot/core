@@ -104,6 +104,7 @@ struct dsync_brain_mailbox_sync {
 	struct dsync_brain_msg_iter *dest_msg_iter;
 
 	unsigned int uid_conflict:1;
+	unsigned int skip_mailbox:1;
 };
 
 struct dsync_brain {
@@ -124,6 +125,8 @@ struct dsync_brain {
 
 	unsigned int failed:1;
 	unsigned int verbose:1;
+	unsigned int backup:1;
+	unsigned int unexpected_changes:1;
 };
 
 void dsync_brain_fail(struct dsync_brain *brain);

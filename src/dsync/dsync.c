@@ -195,10 +195,13 @@ int main(int argc, char *argv[])
 	cmd_name = argv[optind++];
 
 	if (strcmp(cmd_name, "mirror") == 0 ||
-	    strcmp(cmd_name, "convert") == 0) {
+	    strcmp(cmd_name, "convert") == 0 ||
+	    strcmp(cmd_name, "backup") == 0) {
 		if (optind == argc)
 			usage();
 
+		if (strcmp(cmd_name, "backup") == 0)
+			brain_flags |= DSYNC_BRAIN_FLAG_BACKUP;
 		if (!mirror_get_remote_cmd(argv+optind, &remote_cmd_args)) {
 			if (optind+1 != argc)
 				usage();

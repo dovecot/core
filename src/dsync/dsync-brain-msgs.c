@@ -77,7 +77,8 @@ static int dsync_brain_msg_iter_next(struct dsync_brain_msg_iter *iter)
 	int ret = 1;
 
 	if (iter->msg.guid == NULL) {
-		ret = dsync_worker_msg_iter_next(iter->iter, &iter->mailbox_idx,
+		ret = dsync_worker_msg_iter_next(iter->iter,
+						 &iter->mailbox_idx,
 						 &iter->msg);
 		if (ret > 0)
 			dsync_brain_guid_add(iter);
@@ -90,9 +91,31 @@ static int dsync_brain_msg_iter_next(struct dsync_brain_msg_iter *iter)
 	return ret;
 }
 
+static int
+dsync_brain_msg_iter_skip_mailbox(struct dsync_brain_mailbox_sync *sync)
+{
+	int ret;
+
+	while ((ret = dsync_brain_msg_iter_next(sync->src_msg_iter)) > 0) ;
+	if (ret == 0)
+		return 0;
+
+	while ((ret = dsync_brain_msg_iter_next(sync->dest_msg_iter)) > 0) ;
+	if (ret == 0)
+		return 0;
+
+	sync->skip_mailbox = FALSE;
+	return -1;
+}
+
 static int dsync_brain_msg_iter_next_pair(struct dsync_brain_mailbox_sync *sync)
 {
 	int ret;
+
+	if (sync->skip_mailbox) {
+		if (dsync_brain_msg_iter_skip_mailbox(sync) == 0)
+			return 0;
+	}
 
 	if ((ret = dsync_brain_msg_iter_next(sync->src_msg_iter)) <= 0)
 		return ret;
@@ -129,6 +152,18 @@ dsync_brain_msg_sync_conflict(struct dsync_brain_msg_iter *conflict_iter,
 
 	brain_box = array_idx_modifiable(&save_iter->sync->mailboxes,
 					 save_iter->mailbox_idx);
+
+	if (save_iter->sync->brain->backup) {
+		i_warning("Destination mailbox %s has been modified, "
+			  "need to recreate it before we can continue syncing",
+			  brain_box->box.name);
+		dsync_worker_delete_mailbox(save_iter->sync->brain->dest_worker,
+					    &brain_box->box);
+		save_iter->sync->brain->unexpected_changes = TRUE;
+		save_iter->sync->skip_mailbox = TRUE;
+		return;
+	}
+
 	new_uid = brain_box->box.uid_next++;
 
 	conflict = array_append_space(&conflict_iter->uid_conflicts);
@@ -185,7 +220,7 @@ static void dsync_brain_msg_sync_existing(struct dsync_brain_mailbox_sync *sync,
 	int ret;
 
 	ret = dsync_message_flag_importance_cmp(src_msg, dest_msg);
-	if (ret < 0)
+	if (ret < 0 || (sync->brain->backup && ret > 0))
 		dsync_worker_msg_update_metadata(sync->dest_worker, src_msg);
 	else if (ret > 0)
 		dsync_worker_msg_update_metadata(sync->src_worker, dest_msg);
@@ -230,7 +265,7 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 		/* message has been expunged from dest. */
 		if (src_expunged) {
 			/* expunged from source already */
-		} else if (sync->uid_conflict) {
+		} else if (sync->uid_conflict || sync->brain->backup) {
 			/* update uid src, copy to dest */
 			dsync_brain_msg_sync_conflict(sync->src_msg_iter,
 						      sync->dest_msg_iter,
@@ -246,7 +281,7 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 		/* message has been expunged from src. */
 		if (dest_expunged) {
 			/* expunged from dest already */
-		} else if (sync->uid_conflict) {
+		} else if (sync->uid_conflict && !sync->brain->backup) {
 			/* update uid in dest, copy to src */
 			dsync_brain_msg_sync_conflict(sync->dest_msg_iter,
 						      sync->src_msg_iter,
@@ -281,7 +316,13 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 		}
 	} else if (dest_expunged) {
 		/* message expunged from destination */
-		if (!src_expunged) {
+		if (src_expunged) {
+			/* expunged from source already */
+		} else if (sync->brain->backup) {
+			dsync_brain_msg_sync_conflict(sync->src_msg_iter,
+						      sync->dest_msg_iter,
+						      src_msg);
+		} else {
 			dsync_worker_msg_expunge(sync->src_worker,
 						 src_msg->uid);
 		}
@@ -329,9 +370,11 @@ dsync_brain_msg_sync_mailbox_more(struct dsync_brain_mailbox_sync *sync)
 	/* finished syncing messages in this mailbox that exist in both source
 	   and destination. if there are messages left, we can't reliably know
 	   if they should be expunged, so just copy them to the other side. */
-	if (!dsync_brain_msg_sync_mailbox_end(sync->dest_msg_iter,
-					      sync->src_msg_iter))
-		return FALSE;
+	if (!sync->brain->backup) {
+		if (!dsync_brain_msg_sync_mailbox_end(sync->dest_msg_iter,
+						      sync->src_msg_iter))
+			return FALSE;
+	}
 	if (!dsync_brain_msg_sync_mailbox_end(sync->src_msg_iter,
 					      sync->dest_msg_iter))
 		return FALSE;

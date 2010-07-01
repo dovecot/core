@@ -3,7 +3,10 @@
 
 enum dsync_brain_flags {
 	DSYNC_BRAIN_FLAG_FULL_SYNC	= 0x01,
-	DSYNC_BRAIN_FLAG_VERBOSE	= 0x02
+	DSYNC_BRAIN_FLAG_VERBOSE	= 0x02,
+	/* Run in backup mode. All changes from src are forced into dest,
+	   discarding any potential changes in dest. */
+	DSYNC_BRAIN_FLAG_BACKUP		= 0x04
 };
 
 struct dsync_worker;
