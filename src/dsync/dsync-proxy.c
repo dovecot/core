@@ -168,7 +168,8 @@ void dsync_proxy_mailbox_export(string_t *str,
 		i_assert(box->uid_validity == 0);
 		return;
 	}
-	i_assert(box->uid_validity != 0);
+	i_assert(box->uid_validity != 0 ||
+		 (box->flags & DSYNC_MAILBOX_FLAG_DELETED_MAILBOX) != 0);
 
 	str_append_c(str, '\t');
 	dsync_proxy_mailbox_guid_export(str, &box->mailbox_guid);
