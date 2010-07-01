@@ -402,18 +402,26 @@ static void test_dsync_brain_msg_sync_existing(void)
 	box = test_box_add(ADD_BOTH, "box");
 	test_msg_add(box, ADD_BOTH, "guid1", 1);
 	test_msg_add(box, ADD_BOTH, "guid2", 2);
+	test_msg_add(box, ADD_BOTH, "guid3", 3);
 	test_msg_add(box, ADD_BOTH, "guid5", 5);
 	test_msg_add(box, ADD_BOTH, "guid6", 6);
 	test_msg_add(box, ADD_BOTH, "guid9", 9);
 	test_msg_add(box, ADD_BOTH, "guid10", 10);
+	test_msg_add(box, ADD_BOTH, "guid11", 11);
+	test_msg_add(box, ADD_BOTH, "guid12", 12);
 
 	/* unchanged */
 	test_msg_set_flags(box, ADD_BOTH, 1, MAIL_SEEN);
 
-	/* changed, same modseq - src will be used */
+	/* changed, same modseq - dest has more flags so it will be used */
 	test_msg_set_flags(box, ADD_SRC, 2, MAIL_ANSWERED);
 	test_msg_set_flags(box, ADD_DEST, 2, MAIL_ANSWERED | MAIL_SEEN);
 	test_msg_set_modseq(box, ADD_BOTH, 2, 2);
+
+	/* changed, same modseq - src has more flags so it will be used */
+	test_msg_set_flags(box, ADD_SRC, 3, MAIL_ANSWERED | MAIL_SEEN);
+	test_msg_set_flags(box, ADD_DEST, 3, MAIL_ANSWERED);
+	test_msg_set_modseq(box, ADD_BOTH, 3, 3);
 
 	/* changed, dest has higher modseq */
 	test_msg_set_flags(box, ADD_BOTH, 5, MAIL_DRAFT);
@@ -426,20 +434,41 @@ static void test_dsync_brain_msg_sync_existing(void)
 	/* keywords changed, src has higher modseq */
 	test_msg_set_keywords(box, ADD_SRC, 9, "hello", "world", NULL);
 
-	/* flag/keyword conflict, same modseq - src will be used */
+	/* flag/keyword conflict, same modseq - src has more so it
+	   will be used */
 	test_msg_set_keywords(box, ADD_SRC, 10, "foo", NULL);
 	test_msg_set_flags(box, ADD_SRC, 10, MAIL_SEEN);
 	test_msg_set_flags(box, ADD_DEST, 10, MAIL_DRAFT);
 	test_msg_set_modseq(box, ADD_BOTH, 10, 5);
 
+	/* flag/keyword conflict, same modseq - dest has more so it
+	   will be used */
+	test_msg_set_keywords(box, ADD_DEST, 11, "foo", NULL);
+	test_msg_set_flags(box, ADD_SRC, 11, MAIL_SEEN);
+	test_msg_set_flags(box, ADD_DEST, 11, MAIL_DRAFT);
+	test_msg_set_modseq(box, ADD_BOTH, 11, 5);
+
+	/* flag/keyword conflict, same modseq - both have same number of
+	   flags so src will be used */
+	test_msg_set_keywords(box, ADD_SRC, 12, "bar", NULL);
+	test_msg_set_keywords(box, ADD_DEST, 12, "foo", NULL);
+	test_msg_set_flags(box, ADD_SRC, 12, MAIL_SEEN);
+	test_msg_set_flags(box, ADD_DEST, 12, MAIL_DRAFT);
+	test_msg_set_modseq(box, ADD_BOTH, 12, 5);
+
 	sync = test_dsync_brain_sync_init();
 	test_assert(array_count(&sync->src_msg_iter->new_msgs) == 0);
 	test_assert(array_count(&sync->dest_msg_iter->new_msgs) == 0);
 
-	test_assert(test_dsync_worker_next_msg_event(test_dest_worker, &msg_event));
+	test_assert(test_dsync_worker_next_msg_event(test_src_worker, &msg_event));
 	test_assert(msg_event.type == LAST_MSG_TYPE_UPDATE);
 	test_assert(msg_event.msg.uid == 2);
-	test_assert(msg_event.msg.flags == MAIL_ANSWERED);
+	test_assert(msg_event.msg.flags == (MAIL_ANSWERED | MAIL_SEEN));
+
+	test_assert(test_dsync_worker_next_msg_event(test_dest_worker, &msg_event));
+	test_assert(msg_event.type == LAST_MSG_TYPE_UPDATE);
+	test_assert(msg_event.msg.uid == 3);
+	test_assert(msg_event.msg.flags == (MAIL_ANSWERED | MAIL_SEEN));
 
 	test_assert(test_dsync_worker_next_msg_event(test_src_worker, &msg_event));
 	test_assert(msg_event.type == LAST_MSG_TYPE_UPDATE);
@@ -464,6 +493,20 @@ static void test_dsync_brain_msg_sync_existing(void)
 	test_assert(msg_event.msg.uid == 10);
 	test_assert(msg_event.msg.flags == MAIL_SEEN);
 	test_assert(strcmp(msg_event.msg.keywords[0], "foo") == 0);
+	test_assert(msg_event.msg.keywords[1] == NULL);
+
+	test_assert(test_dsync_worker_next_msg_event(test_src_worker, &msg_event));
+	test_assert(msg_event.type == LAST_MSG_TYPE_UPDATE);
+	test_assert(msg_event.msg.uid == 11);
+	test_assert(msg_event.msg.flags == MAIL_DRAFT);
+	test_assert(strcmp(msg_event.msg.keywords[0], "foo") == 0);
+	test_assert(msg_event.msg.keywords[1] == NULL);
+
+	test_assert(test_dsync_worker_next_msg_event(test_dest_worker, &msg_event));
+	test_assert(msg_event.type == LAST_MSG_TYPE_UPDATE);
+	test_assert(msg_event.msg.uid == 12);
+	test_assert(msg_event.msg.flags == MAIL_SEEN);
+	test_assert(strcmp(msg_event.msg.keywords[0], "bar") == 0);
 	test_assert(msg_event.msg.keywords[1] == NULL);
 
 	test_assert(!test_dsync_worker_next_msg_event(test_src_worker, &msg_event));
