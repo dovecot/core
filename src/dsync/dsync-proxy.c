@@ -184,6 +184,7 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 					 const char **error_r)
 {
 	unsigned int i = 0, count;
+	bool box_deleted;
 	char *p;
 
 	memset(box_r, 0, sizeof(*box_r));
@@ -199,7 +200,7 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 	box_r->name = p_strdup(pool, args[i++]);
 	dsync_str_sha_to_guid(box_r->name, &box_r->name_sha1);
 
-	if (strlen(args[i]) != 1) {
+	if (strlen(args[i]) > 1) {
 		*error_r = "Invalid mailbox name hierarchy separator";
 		return -1;
 	}
@@ -216,6 +217,12 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 		*error_r = "Invalid mailbox flags";
 		return -1;
 	}
+	box_deleted = (box_r->flags & (DSYNC_MAILBOX_FLAG_DELETED_MAILBOX |
+				       DSYNC_MAILBOX_FLAG_DELETED_DIR)) != 0;
+	if (box_r->name_sep == '\0' && !box_deleted) {
+		*error_r = "Missing mailbox name hierarchy separator";
+		return -1;
+	}
 
 	if (args[i] == NULL) {
 		/* \noselect mailbox */
@@ -229,13 +236,14 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 	}
 
 	box_r->uid_validity = strtoul(args[i++], &p, 10);
-	if (box_r->uid_validity == 0 || *p != '\0') {
+	if (*p != '\0' || (box_r->uid_validity == 0 && !box_deleted)) {
+		abort();
 		*error_r = "Invalid mailbox uid_validity";
 		return -1;
 	}
 
 	box_r->uid_next = strtoul(args[i++], &p, 10);
-	if (box_r->uid_validity == 0 || *p != '\0') {
+	if (*p != '\0' || (box_r->uid_next == 0 && !box_deleted)) {
 		*error_r = "Invalid mailbox uid_next";
 		return -1;
 	}
