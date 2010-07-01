@@ -289,10 +289,11 @@ dsync_brain_mailbox_action(struct dsync_brain *brain,
 
 static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 {
-	struct dsync_mailbox *const *src_boxes, *const *dest_boxes, *action_box;
+	struct dsync_mailbox *const *src_boxes, *const *dest_boxes;
+	struct dsync_mailbox *action_box = NULL;
+	struct dsync_worker *action_worker = NULL;
 	unsigned int src, dest, src_count, dest_count;
 	enum dsync_brain_mailbox_action action;
-	struct dsync_worker *action_worker;
 	bool src_deleted, dest_deleted;
 	int ret;
 
@@ -369,7 +370,7 @@ static void dsync_brain_sync_dirs(struct dsync_brain *brain)
 	struct dsync_mailbox *const *src_boxes, *const *dest_boxes, *action_box;
 	unsigned int src, dest, src_count, dest_count;
 	enum dsync_brain_mailbox_action action;
-	struct dsync_worker *action_worker;
+	struct dsync_worker *action_worker = NULL;
 	bool src_deleted, dest_deleted;
 	int ret;
 
@@ -378,6 +379,8 @@ static void dsync_brain_sync_dirs(struct dsync_brain *brain)
 	dest_boxes = array_get(&brain->dest_mailbox_list->dirs, &dest_count);
 	for (src = dest = 0; src < src_count && dest < dest_count; ) {
 		action = DSYNC_BRAIN_MAILBOX_ACTION_NONE;
+		action_box = NULL;
+
 		src_deleted = (src_boxes[src]->flags &
 			       DSYNC_MAILBOX_FLAG_DELETED_DIR) != 0;
 		dest_deleted = (dest_boxes[dest]->flags &
@@ -418,7 +421,8 @@ static void dsync_brain_sync_dirs(struct dsync_brain *brain)
 		} else {
 			src++; dest++;
 		}
-		i_assert(dsync_mailbox_is_noselect(action_box));
+		i_assert(action_box == NULL ||
+			 dsync_mailbox_is_noselect(action_box));
 		dsync_brain_mailbox_action(brain, action,
 					   action_worker, action_box);
 	}
