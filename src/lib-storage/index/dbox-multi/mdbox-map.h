@@ -101,6 +101,8 @@ int mdbox_map_append_next(struct mdbox_map_append_context *ctx, uoff_t mail_size
 			  struct ostream **output_r);
 /* Finished saving the last mail. Saves the message size. */
 void mdbox_map_append_finish(struct mdbox_map_append_context *ctx);
+/* Abort saving the last mail. */
+void mdbox_map_append_abort(struct mdbox_map_append_context *ctx);
 /* Assign map UIDs to all appended msgs to multi-files. */
 int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 				     uint32_t *first_map_uid_r,

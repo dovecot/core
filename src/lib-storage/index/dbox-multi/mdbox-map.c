@@ -1070,6 +1070,16 @@ void mdbox_map_append_finish(struct mdbox_map_append_context *ctx)
 	appends[count-1].size = cur_offset - appends[count-1].offset;
 }
 
+void mdbox_map_append_abort(struct mdbox_map_append_context *ctx)
+{
+	struct mdbox_map_append *appends;
+	unsigned int count;
+
+	appends = array_get_modifiable(&ctx->appends, &count);
+	i_assert(count > 0 && appends[count-1].size == (uint32_t)-1);
+	array_delete(&ctx->appends, count-1, 1);
+}
+
 static int mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 				     bool separate_transaction)
 {
