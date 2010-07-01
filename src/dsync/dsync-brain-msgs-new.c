@@ -293,6 +293,11 @@ dsync_brain_msg_sync_add_new_msgs(struct dsync_brain_msg_iter *iter)
 	const struct dsync_brain_mailbox *mailbox;
 	const mailbox_guid_t *mailbox_guid;
 
+	if (iter->msgs_sent) {
+		dsync_brain_msg_sync_finish(iter);
+		return;
+	}
+
 	do {
 		mailbox = array_idx(&iter->sync->mailboxes, iter->mailbox_idx);
 		mailbox_guid = &mailbox->box.mailbox_guid;
