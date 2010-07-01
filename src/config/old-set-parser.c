@@ -541,6 +541,13 @@ bool old_settings_handle(struct config_parser_context *ctx,
 			return TRUE;
 		} else if (ctx->pathlen == 0 && strcmp(key, "namespace") == 0)
 			return old_namespace(ctx, value);
+		else if (ctx->pathlen == 0 && strcmp(key, "protocol") == 0 &&
+			 strcmp(value, "managesieve") == 0) {
+			obsolete(ctx, "protocol managesieve {} has been replaced by protocol sieve { }");
+			config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
+						 "protocol", "sieve");
+			return TRUE;
+		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_END:
 		if (ctx->old->auth_section > 0) {
