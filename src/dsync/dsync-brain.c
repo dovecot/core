@@ -693,13 +693,20 @@ static void
 dsync_brain_sync_update_mailboxes(struct dsync_brain *brain)
 {
 	const struct dsync_brain_mailbox *mailbox;
+	bool failed_changes = dsync_brain_has_unexpected_changes(brain);
 
 	array_foreach(&brain->mailbox_sync->mailboxes, mailbox) {
-		if (!brain->backup) {
+		/* don't update mailboxes if any changes had failed.
+		   for example if some messages couldn't be saved, we don't
+		   want to increase the next_uid to jump over them */
+		if (!brain->backup && !failed_changes) {
 			dsync_worker_update_mailbox(brain->src_worker,
 						    &mailbox->box);
 		}
-		dsync_worker_update_mailbox(brain->dest_worker, &mailbox->box);
+		if (!failed_changes) {
+			dsync_worker_update_mailbox(brain->dest_worker,
+						    &mailbox->box);
+		}
 
 		if (mailbox->src != NULL && mailbox->dest != NULL &&
 		    strcmp(mailbox->src->name, mailbox->dest->name) != 0)
