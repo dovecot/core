@@ -1,26 +1,9 @@
- - maildir: sometimes rm -rf Maildir;imaptest logout=0 gives
-   Error: Opening INBOX failed: Mailbox doesn't exist: INBOX
- - director:
-    - user list iter should skip expired records
-    - sequence stuff is unused..
-    - master shouldn't stop it when idling
-
+ - config: why is old-set-parser giving Fatal failures for some people when
+   converting an old setting?
+ - NTLMv1 and LM should be disabled if disable_plaintext_auth=yes
  - SEARCH SENT*/HEADER/etc. doesn't seem optimized when using with TEXT/BODY
 
-07:00 < Faxe> Info: dovecot: uidnext changed from -> to, has the wrong 
-              variables assigned:
-07:00 < Faxe> Info: dovecot: uidnext changed 81528 -> 81463
-07:00 < Faxe> (copy one mail and sync again)
-07:00 < Faxe> Info: dovecot: uidnext changed 81529 -> 81528
-  - same for highestmodseq, ~/m/dsync-v_mirror.txt
-
- - solr: crashes if expunge is done while search is indexing
-
- - mdbox: existing INBOX dir in alt_path -> can't create INBOX. 
-   do storage rebuild instead
- - single-dbox:
-    - we get back to sdbox_sync_file() over and over again when expunging..
-      especially with a broken guid expunge, it doesn't go away.
+ - fts-solr: crashes if expunge is done while search is indexing
  - fts-solr: handle DELETE, RENAME. use mailbox GUIDs (optionally)
 
  - virtual: removed messages don't get expunged unless EXPUNGE is issued in
@@ -47,7 +30,6 @@
     - optimize away reading file header?
  - maildir: out-of-disk-space failures apparently cause all kinds of
    problems, e.g. "Expunged message reappeared", "Duplicate file entry"?
- - quota_warn: add $QUOTA_LIMIT environment or %variable parameter
  - deliver -r <address> used as autoreplies' From-address?
  - add fd limit checks/warnings
  - istream-seekable is inefficient. it shouldn't be reading the temp file
@@ -60,13 +42,14 @@
    necessary. and the same could be done for ipv4 as well..
 
  - dsync:
+   - check for uid conflicts in the middle of mailbox based on next existing
+     message, not previous
    - subscriptions syncing doesn't handle mixed hierarchy separators
    - Can't rename mailbox INBOX_019acf2169c5784b307f000074ccac23 to INBOX: Target mailbox already exists
-   - copying: does it work correctly with non-full syncs?
-   - "backup mode" where one side is read-only and other side gets forced
-     everything exactly as they're in read-only side, even if backup side had
-     done some changes of its own
-   - superfast mode
+   - copying can't work in non-full mode unless source mailbox is modified
+     in some way. possibly add some COPY records to transaction log in future?
+   - superfast mode: when syncing changes within a mailbox, use modseqs to
+     figure out what has changed similar to QRESYNC.
 
  - lda: add some -h 'Header: value' parameter that adds/replaces header
  - ldap: fix multiple-gid support somehow
