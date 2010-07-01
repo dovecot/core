@@ -147,11 +147,13 @@ dsync_brain_msg_sync_add_new_msg(struct dsync_brain_msg_iter *dest_iter,
 		copy_ctx->iter = dest_iter;
 		copy_ctx->msg_idx = msg_idx;
 
+		dest_iter->copy_results_left++;
+		dest_iter->adding_msgs = TRUE;
 		dsync_worker_msg_copy(dest_iter->worker,
 				      &inst_box->box.mailbox_guid,
 				      inst->uid, msg->msg,
 				      dsync_brain_copy_callback, copy_ctx);
-		dest_iter->copy_results_left++;
+		dest_iter->adding_msgs = FALSE;
 	} else {
 		src_iter = dest_iter == dest_iter->sync->dest_msg_iter ?
 			dest_iter->sync->src_msg_iter :
@@ -162,8 +164,8 @@ dsync_brain_msg_sync_add_new_msg(struct dsync_brain_msg_iter *dest_iter,
 		save_ctx->msg = msg->msg;
 		save_ctx->mailbox_idx = dest_iter->mailbox_idx;
 
-		dest_iter->adding_msgs = TRUE;
 		dest_iter->save_results_left++;
+		dest_iter->adding_msgs = TRUE;
 		dsync_worker_msg_get(src_iter->worker, src_mailbox,
 				     msg->orig_uid, msg_get_callback, save_ctx);
 		dest_iter->adding_msgs = FALSE;
@@ -178,27 +180,30 @@ dsync_brain_mailbox_add_new_msgs(struct dsync_brain_msg_iter *iter,
 				 const mailbox_guid_t *mailbox_guid)
 {
 	struct dsync_brain_new_msg *msgs;
-	unsigned int i, msg_count;
+	unsigned int msg_count;
 	bool ret = TRUE;
 
 	msgs = array_get_modifiable(&iter->new_msgs, &msg_count);
-	for (i = iter->next_new_msg; i < msg_count; i++) {
-		if (msgs[i].saved)
-			continue;
-		if (msgs[i].mailbox_idx != iter->mailbox_idx) {
-			i_assert(msgs[i].mailbox_idx > iter->mailbox_idx);
+	while (iter->next_new_msg < msg_count) {
+		struct dsync_brain_new_msg *msg = &msgs[iter->next_new_msg];
+
+		if (msg->mailbox_idx != iter->mailbox_idx) {
+			i_assert(msg->mailbox_idx > iter->mailbox_idx);
 			ret = FALSE;
 			break;
 		}
+		iter->next_new_msg++;
+
+		if (msg->saved)
+			continue;
 		if (dsync_brain_msg_sync_add_new_msg(iter, mailbox_guid,
-						     i, &msgs[i]) <= 0) {
+						     iter->next_new_msg - 1,
+						     msg) <= 0) {
 			/* failed / continue later */
-			i++;
 			break;
 		}
 	}
-	iter->next_new_msg = i;
-	if (i == msg_count)
+	if (iter->next_new_msg == msg_count)
 		ret = FALSE;
 
 	/* flush copy commands */
