@@ -549,21 +549,21 @@ static bool dsync_mailbox_has_changed_msgs(struct dsync_brain *brain,
 
 	if (box1->uid_validity != box2->uid_validity) {
 		if (brain->verbose) {
-			i_info("%s: uidvalidity changed %u -> %u", name,
+			i_info("%s: uidvalidity changed: %u != %u", name,
 			       box1->uid_validity, box2->uid_validity);
 		}
 		return TRUE;
 	}
 	if (box1->uid_next != box2->uid_next) {
 		if (brain->verbose) {
-			i_info("%s: uidnext changed %u -> %u", name,
+			i_info("%s: uidnext changed: %u != %u", name,
 			       box1->uid_next, box2->uid_next);
 		}
 		return TRUE;
 	}
 	if (box1->highest_modseq != box2->highest_modseq) {
 		if (brain->verbose) {
-			i_info("%s: highest_modseq changed %llu -> %llu", name,
+			i_info("%s: highest_modseq changed: %llu != %llu", name,
 			       (unsigned long long)box1->highest_modseq,
 			       (unsigned long long)box2->highest_modseq);
 		}
@@ -571,7 +571,7 @@ static bool dsync_mailbox_has_changed_msgs(struct dsync_brain *brain,
 	}
 	if (box1->message_count != box2->message_count) {
 		if (brain->verbose) {
-			i_info("%s: message_count changed %u -> %u", name,
+			i_info("%s: message_count changed: %u != %u", name,
 			       box1->message_count, box2->message_count);
 		}
 		return TRUE;
