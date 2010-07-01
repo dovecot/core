@@ -63,6 +63,10 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 	if (brain->dest_subs_list != NULL)
 		dsync_brain_subs_list_deinit(&brain->dest_subs_list);
 
+	if (dsync_worker_has_failed(brain->src_worker) ||
+	    dsync_worker_has_failed(brain->dest_worker))
+		ret = -1;
+
 	*_brain = NULL;
 	i_free(brain->mailbox);
 	i_free(brain);
@@ -693,7 +697,9 @@ static void
 dsync_brain_sync_update_mailboxes(struct dsync_brain *brain)
 {
 	const struct dsync_brain_mailbox *mailbox;
-	bool failed_changes = dsync_brain_has_unexpected_changes(brain);
+	bool failed_changes = dsync_brain_has_unexpected_changes(brain) ||
+		dsync_worker_has_failed(brain->src_worker) ||
+		dsync_worker_has_failed(brain->dest_worker);
 
 	array_foreach(&brain->mailbox_sync->mailboxes, mailbox) {
 		/* don't update mailboxes if any changes had failed.
