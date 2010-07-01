@@ -60,6 +60,8 @@ sdbox_save_alloc(struct mailbox_transaction_context *t)
 		/* use the existing allocated structure */
 		ctx->ctx.failed = FALSE;
 		ctx->ctx.finished = FALSE;
+		ctx->ctx.cur_file = NULL;
+		ctx->ctx.dbox_output = NULL;
 		return &ctx->ctx.ctx;
 	}
 
