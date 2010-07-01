@@ -107,7 +107,7 @@ static void test_dsync_proxy_box_list(void)
 	/* last mailbox */
 	test_worker->box_iter.last = TRUE;
 	test_assert(run_more() == 1);
-	test_assert(strcmp(str_c(out), "\t0\n") == 0);
+	test_assert(strcmp(str_c(out), "+\n") == 0);
 	out_clear();
 
 	test_end();
@@ -140,7 +140,7 @@ static void test_dsync_proxy_subs_list(void)
 
 	test_worker->subs_iter.last_subs = TRUE;
 	test_assert(run_more() == 0);
-	test_assert(strcmp(str_c(out), "\t0\n") == 0);
+	test_assert(strcmp(str_c(out), "+\n") == 0);
 	out_clear();
 
 	/* unsubscription */
@@ -156,7 +156,7 @@ static void test_dsync_proxy_subs_list(void)
 
 	test_worker->subs_iter.last_unsubs = TRUE;
 	test_assert(run_more() == 1);
-	test_assert(strcmp(str_c(out), "\t0\n") == 0);
+	test_assert(strcmp(str_c(out), "+\n") == 0);
 	out_clear();
 
 	test_end();
@@ -207,7 +207,7 @@ static void test_dsync_proxy_msg_list(void)
 	/* last message */
 	test_worker->msg_iter.last = TRUE;
 	test_assert(run_more() == 1);
-	test_assert(strcmp(str_c(out), "\t0\n") == 0);
+	test_assert(strcmp(str_c(out), "+\n") == 0);
 	out_clear();
 
 	test_end();
