@@ -141,6 +141,8 @@ int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	if (mdbox_map_append_next(ctx->append_ctx, mail_size, 0,
 				  &ctx->cur_file_append,
 				  &ctx->ctx.dbox_output) < 0) {
+		ctx->cur_file_append = NULL;
+		ctx->ctx.dbox_output = NULL;
 		ctx->ctx.failed = TRUE;
 		return -1;
 	}

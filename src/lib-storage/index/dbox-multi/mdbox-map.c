@@ -481,13 +481,16 @@ int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **_atomic)
 
 	*_atomic = NULL;
 
-	if (atomic->success) {
+	if (atomic->sync_ctx == NULL) {
+		/* not locked */
+		i_assert(!atomic->locked);
+	} else if (atomic->success) {
 		if (mail_index_sync_commit(&atomic->sync_ctx) < 0) {
 			mail_storage_set_internal_error(MAP_STORAGE(atomic->map));
 			mail_index_reset_error(atomic->map->index);
 			ret = -1;
 		}
-	} else if (atomic->sync_ctx != NULL) {
+	} else {
 		mail_index_sync_rollback(&atomic->sync_ctx);
 	}
 	i_free(atomic);
