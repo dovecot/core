@@ -102,7 +102,7 @@ Supported encoding suffixes are:
 .BR .base64\  and
 .BR .hex .
 .br
-See also http://wiki.dovecot.org/Authentication/PasswordSchemes for more
+See also http://wiki2.dovecot.org/Authentication/PasswordSchemes for more
 details about password schemes.
 .\"-------------------------------------
 .TP
@@ -113,7 +113,7 @@ is used, also the
 .I user
 name must be given, because the user name is a part of the generated hash.
 For more information about Digest\-MD5 please read also:
-http://wiki.dovecot.org/Authentication/Mechanisms/DigestMD5
+http://wiki2.dovecot.org/Authentication/Mechanisms/DigestMD5
 .\"-------------------------------------
 .TP
 .B \-V

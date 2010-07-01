@@ -114,7 +114,7 @@ is:
 .BI : modifier\c
 \ ...]
 .br
-For details see: http://wiki.dovecot.org/MailLocation
+For details see: http://wiki2.dovecot.org/MailLocation
 .PP
 The destination mail_location is configured in
 @sysconfdir@/dovecot/conf.d/10\-mail.conf.

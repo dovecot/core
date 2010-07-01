@@ -11,7 +11,7 @@ doveadm\-dump \- Dump the content of Dovecot\(aqs binary mailbox index/log
 Dovecot uses several binary index and log files in order to improve
 performance for accessing mails. For some mailbox formats, such as dbox
 and mdbox, the index files are part of the format itself.
-For details about index files, see also: http://wiki.dovecot.org/IndexFiles
+For details about index files, see also: http://wiki2.dovecot.org/IndexFiles
 .PP
 .B doveadm dump
 is used to show the contents of those mailbox index/log files, in human
