@@ -25,7 +25,7 @@ pkglib_DATA = $(datafiles)
 
 if MAINTAINER_MODE
 ChangeLog: .hg/dirstate
-	hg log --style=changelog > ChangeLog
+	hg log -r tip:fef8259e7277 --style=changelog > ChangeLog
 endif
 
 aclocal_DATA = dovecot.m4
