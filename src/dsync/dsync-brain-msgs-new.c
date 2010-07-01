@@ -191,8 +191,10 @@ dsync_brain_mailbox_add_new_msgs(struct dsync_brain_msg_iter *iter,
 	while (iter->next_new_msg < msg_count) {
 		struct dsync_brain_new_msg *msg = &msgs[iter->next_new_msg];
 
-		if (output_stats && (n++ % 10) == 0)
+		if (output_stats && (n++ % 10) == 0) {
 			printf("\r%u/%u", iter->next_new_msg, msg_count);
+			fflush(stdout);
+		}
 
 		if (msg->mailbox_idx != iter->mailbox_idx) {
 			i_assert(msg->mailbox_idx > iter->mailbox_idx);
