@@ -460,6 +460,9 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 				"rmdir(%s) failed: %m", oldpath);
 		}
 	}
+
+	/* avoid leaving empty directories lying around */
+	mailbox_list_delete_until_root(oldlist, oldpath, type);
 	return 0;
 }
 

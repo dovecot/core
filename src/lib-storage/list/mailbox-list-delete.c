@@ -234,9 +234,8 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 	return 0;
 }
 
-static void
-mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
-			       enum mailbox_list_path_type type)
+void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
+				    enum mailbox_list_path_type type)
 {
 	const char *root_dir, *p;
 	unsigned int len;
