@@ -160,9 +160,12 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 					       set->mailbox_dir_name, name);
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
+		if (set->alt_dir == NULL)
+			return NULL;
 		if (*set->maildir_name != '\0')
 			return t_strdup_printf("%s/%s%s", set->alt_dir,
 					       set->mailbox_dir_name, name);
+		root_dir = set->alt_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
 		break;
