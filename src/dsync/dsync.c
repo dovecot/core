@@ -123,7 +123,7 @@ static void ATTR_NORETURN
 usage(void)
 {
 	fprintf(stderr,
-"usage: dsync [-C <alt char>] [-m <mailbox>] [-u <user>] [-frv]\n"
+"usage: dsync [-C <alt char>] [-m <mailbox>] [-u <user>] [-frRv]\n"
 "  mirror <local mail_location> | [<user>@]<host> | <remote dsync command>\n"
 );
 	exit(1);
@@ -145,17 +145,17 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input input;
 	struct mail_user *mail_user, *mail_user2 = NULL;
-	struct dsync_worker *worker1, *worker2;
+	struct dsync_worker *worker1, *worker2, *workertmp;
 	const char *error, *username, *cmd_name, *mailbox = NULL;
 	const char *local_location = NULL, *const *remote_cmd_args = NULL;
 	bool dsync_server = FALSE, readonly = FALSE, unexpected_changes = FALSE;
-	bool dsync_debug = FALSE;
+	bool dsync_debug = FALSE, reverse_workers = FALSE;
 	char alt_char = '_';
 	int c, ret, fd_in = STDIN_FILENO, fd_out = STDOUT_FILENO;
 
 	master_service = master_service_init("dsync",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "+C:Dfm:ru:v");
+					     &argc, &argv, "+C:Dfm:rRu:v");
 
 	username = getenv("USER");
 	while ((c = master_getopt(master_service)) > 0) {
@@ -175,6 +175,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'r':
 			readonly = TRUE;
+			break;
+		case 'R':
+			reverse_workers = TRUE;
 			break;
 		case 'f':
 			brain_flags |= DSYNC_BRAIN_FLAG_FULL_SYNC;
@@ -257,6 +260,11 @@ int main(int argc, char *argv[])
 			i_fatal("User init failed");
 
 		worker2 = dsync_worker_init_local(mail_user2, alt_char);
+		if (reverse_workers) {
+			workertmp = worker1;
+			worker1 = worker2;
+			worker2 = workertmp;
+		}
 
 		i_set_failure_prefix(t_strdup_printf("dsync(%s): ", username));
 		brain = dsync_brain_init(worker1, worker2,
@@ -280,6 +288,12 @@ int main(int argc, char *argv[])
 		if (readonly)
 			dsync_worker_set_readonly(worker1);
 		worker2 = dsync_worker_init_proxy_client(fd_in, fd_out);
+		if (reverse_workers) {
+			workertmp = worker1;
+			worker1 = worker2;
+			worker2 = workertmp;
+		}
+
 		brain = dsync_brain_init(worker1, worker2,
 					 mailbox, brain_flags);
 		server = NULL;
