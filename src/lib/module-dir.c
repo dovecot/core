@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <dirent.h>
 #include <dlfcn.h>
 
@@ -96,6 +97,35 @@ module_check_missing_dependencies(struct module *module,
 	return TRUE;
 }
 
+static void *quiet_dlopen(const char *path, int flags)
+{
+#ifndef __OpenBSD__
+	return dlopen(path, flags);
+#else
+	void *handle;
+	int fd, fd_null;
+
+	/* OpenBSD likes to print all "undefined symbol" errors to stderr.
+	   Hide them by sending them to /dev/null. */
+	fd_null = open("/dev/null", O_WRONLY);
+	if (fd_null == -1)
+		i_fatal("open(/dev/null) failed: %m");
+	fd = dup(STDERR_FILENO);
+	if (fd == -1)
+		i_fatal("dup() failed: %m");
+	if (dup2(fd_null, STDERR_FILENO) < 0)
+		i_fatal("dup2() failed: %m");
+	handle = dlopen(path, flags);
+	if (dup2(fd, STDERR_FILENO) < 0)
+		i_fatal("dup2() failed: %m");
+	if (close(fd) < 0)
+		i_error("close() failed: %m");
+	if (close(fd_null) < 0)
+		i_error("close() failed: %m");
+	return handle;
+#endif
+}
+
 static struct module *
 module_load(const char *path, const char *name,
 	    const struct module_dir_load_settings *set,
@@ -105,11 +135,16 @@ module_load(const char *path, const char *name,
 	struct module *module;
 	const char *const *module_version;
 
-	handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
-	if (handle == NULL) {
-		if (!set->ignore_dlopen_errors)
+	if (set->ignore_dlopen_errors) {
+		handle = quiet_dlopen(path, RTLD_GLOBAL | RTLD_NOW);
+		if (handle == NULL)
+			return NULL;
+	} else {
+		handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
+		if (handle == NULL) {
 			i_error("dlopen(%s) failed: %s", path, dlerror());
-		return NULL;
+			return NULL;
+		}
 	}
 
 	module = i_new(struct module, 1);
