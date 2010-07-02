@@ -133,10 +133,7 @@ will exit with one of the following values:
 .B 0
 Selected command was executed successful.
 .TP
-.B 1
-(doveadm <nothing> || userdb lookup no perms)
-.TP
-.B 89
+.B >0
 Command failed in some way.
 .\"------------------------------------------------------------------------
 .SH ENVIRONMENT
