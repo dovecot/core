@@ -250,12 +250,20 @@ static bool module_is_loaded(struct module *modules, const char *name)
 
 static void module_names_fix(const char **module_names)
 {
-	unsigned int i;
+	unsigned int i, j;
 
 	/* allow giving the module names also in non-base form.
 	   convert them in here. */
 	for (i = 0; module_names[i] != NULL; i++)
 		module_names[i] = module_file_get_name(module_names[i]);
+
+	/* @UNSAFE: drop duplicates */
+	qsort(module_names, i, sizeof(*module_names), i_strcmp_p);
+	for (i = j = 1; module_names[i] != NULL; i++) {
+		if (strcmp(module_names[i-1], module_names[i]) != 0)
+			module_names[j++] = module_names[i];
+	}
+	module_names[j] = NULL;
 }
 
 static bool
