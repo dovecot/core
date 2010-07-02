@@ -25,6 +25,7 @@ struct login_connection {
 	struct director *dir;
 
 	unsigned int destroyed:1;
+	unsigned int userdb:1;
 };
 
 struct login_host_request {
@@ -100,7 +101,7 @@ static void auth_input_line(const char *line, void *context)
 {
 	struct login_connection *conn = context;
 	struct login_host_request *request;
-	const char *const *args, *username = NULL;
+	const char *const *args, *line_params, *username = NULL;
 	bool proxy = FALSE, host = FALSE;
 
 	if (line == NULL) {
@@ -108,13 +109,17 @@ static void auth_input_line(const char *line, void *context)
 		login_connection_deinit(&conn);
 		return;
 	}
-	if (strncmp(line, "OK\t", 3) != 0) {
+	if (!conn->userdb && strncmp(line, "OK\t", 3) == 0)
+		line_params = line + 3;
+	else if (conn->userdb && strncmp(line, "PASS\t", 5) == 0)
+		line_params = line + 5;
+	else {
 		login_connection_send_line(conn, line);
 		return;
 	}
 
 	/* OK <id> [<parameters>] */
-	args = t_strsplit(line + 3, "\t");
+	args = t_strsplit(line_params, "\t");
 	if (*args != NULL) {
 		/* we should always get here, but in case we don't just
 		   forward as-is and let login process handle the error. */
@@ -157,7 +162,7 @@ static void auth_input_line(const char *line, void *context)
 
 struct login_connection *
 login_connection_init(struct director *dir, int fd,
-		      struct auth_connection *auth)
+		      struct auth_connection *auth, bool userdb)
 {
 	struct login_connection *conn;
 
@@ -168,6 +173,7 @@ login_connection_init(struct director *dir, int fd,
 	conn->dir = dir;
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
 	conn->io = io_add(conn->fd, IO_READ, login_connection_input, conn);
+	conn->userdb = userdb;
 
 	auth_connection_set_callback(conn->auth, auth_input_line, conn);
 	DLLIST_PREPEND(&login_connections, conn);

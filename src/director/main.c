@@ -21,10 +21,11 @@
 #include <unistd.h>
 
 #define AUTH_SOCKET_PATH "auth-login"
+#define AUTH_USERDB_SOCKET_PATH "auth-userdb"
 
 static struct director *director;
 static struct notify_connection *notify_conn;
-static char *auth_socket_path;
+static char *auth_socket_path, *userdb_socket_path;
 
 static int director_client_connected(int fd, const struct ip_addr *ip)
 {
@@ -41,9 +42,10 @@ static int director_client_connected(int fd, const struct ip_addr *ip)
 static void client_connected(struct master_service_connection *conn)
 {
 	struct auth_connection *auth;
-	const char *path, *name;
+	const char *path, *name, *socket_path;
 	struct ip_addr ip;
 	unsigned int port, len;
+	bool userdb;
 
 	if (conn->fifo) {
 		if (notify_conn != NULL) {
@@ -77,15 +79,21 @@ static void client_connected(struct master_service_connection *conn)
 		/* doveadm connection */
 		master_service_client_connection_accept(conn);
 		(void)doveadm_connection_init(director, conn->fd);
+		return;
+	}
+
+	/* a) userdb connection, probably for lmtp proxy
+	   b) login connection
+	   Both of them are handled exactly the same, except for which
+	   auth socket they connect to. */
+	userdb = len > 7 && strcmp(name + len - 7, "-userdb") == 0;
+	socket_path = userdb ? userdb_socket_path : auth_socket_path;
+	auth = auth_connection_init(socket_path);
+	if (auth_connection_connect(auth) == 0) {
+		master_service_client_connection_accept(conn);
+		login_connection_init(director, conn->fd, auth, userdb);
 	} else {
-		/* login connection */
-		auth = auth_connection_init(auth_socket_path);
-		if (auth_connection_connect(auth) == 0) {
-			master_service_client_connection_accept(conn);
-			login_connection_init(director, conn->fd, auth);
-		} else {
-			auth_connection_deinit(&auth);
-		}
+		auth_connection_deinit(&auth);
 	}
 }
 
@@ -133,6 +141,8 @@ static void main_init(void)
 
 	auth_socket_path = i_strconcat(set->base_dir,
 				       "/"AUTH_SOCKET_PATH, NULL);
+	userdb_socket_path = i_strconcat(set->base_dir,
+					 "/"AUTH_USERDB_SOCKET_PATH, NULL);
 
 	listen_port = find_inet_listener_port(&listen_ip);
 	if (listen_port == 0 && *set->director_servers != '\0') {
@@ -158,6 +168,7 @@ static void main_deinit(void)
 	login_connections_deinit();
 	auth_connections_deinit();
 	i_free(auth_socket_path);
+	i_free(userdb_socket_path);
 }
 
 int main(int argc, char *argv[])
