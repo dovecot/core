@@ -16,10 +16,13 @@
 
 DAEMON=/usr/local/sbin/dovecot
 
+# Uncomment to allow Dovecot daemons to produce core dumps.
+#ulimit -c unlimited
+
 test -x $DAEMON || exit 1
 set -e
 
-base_dir=`$DAEMON -a|grep '^base_dir = '|sed 's/^base_dir = //'`
+base_dir=`$DAEMON config -h base_dir`
 pidfile=$base_dir/master.pid
 
 if test -f $pidfile; then
