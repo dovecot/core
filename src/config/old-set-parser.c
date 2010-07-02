@@ -32,7 +32,7 @@ static const struct config_filter pop3_filter = {
 	.service = "pop3"
 };
 static const struct config_filter managesieve_filter = {
-	.service = "managesieve"
+	.service = "sieve"
 };
 
 static void ATTR_FORMAT(2, 3)
