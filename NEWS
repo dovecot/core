@@ -1,4 +1,4 @@
-v2.0.UNSTABLE  Timo Sirainen <tss@iki.fi>
+v2.0.rc1 2010-07-02  Timo Sirainen <tss@iki.fi>
 
 	* Global ACLs are now looked up using namespace prefixes. For example
 	  if you previously had INBOX. namespace prefix and a global ACL for
