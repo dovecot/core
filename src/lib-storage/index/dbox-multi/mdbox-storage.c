@@ -226,6 +226,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 	if (update != NULL && update->min_highest_modseq != 0 &&
 	    mail_index_modseq_get_highest(box->view) <
 	    					update->min_highest_modseq) {
+		mail_index_modseq_enable(box->index);
 		mail_index_update_highest_modseq(trans,
 						 update->min_highest_modseq);
 	}
