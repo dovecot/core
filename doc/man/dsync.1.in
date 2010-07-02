@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DSYNC 1 "2010-07-01" "Dovecot v2.0" "Dovecot"
+.TH DSYNC 1 "2010-07-02" "Dovecot v2.0" "Dovecot"
 .SH NAME
 dsync \- Dovecot\(aqs mailbox synchronization utility
 .\"------------------------------------------------------------------------
@@ -49,10 +49,11 @@ more verbose.
 .B \-f
 Makes
 .B dsync
-run in \(dqfull sync\(dq mode rather than \(dqfast sync\(dq mode. In fast
-sync mode dsync might skip syncing a mailbox, if both locations had modified
-it equally many times (i.e. highest-modseqs were equal), but with different
-changes.
+run in \(dqfull sync\(dq mode rather than \(dqfast sync\(dq mode.
+In fast sync mode
+.B dsync
+might skip syncing a mailbox, if both locations had modified it equally
+many times (i.e. highest\-modseqs were equal), but with different changes.
 .\"---------------------------------
 .TP
 .BI \-m\  mailbox
@@ -105,18 +106,23 @@ This parameter defines the other mail location that is used.
 If the location is on local filesystem, you can use a regular
 mail_location, such as maildir:/backup/user/Maildir
 .sp
-If the location is on a remote server, dsync can ssh to it by giving
+If the location is on a remote server,
+.B dsync
+can ssh to it by giving
 .I host
 or
 .I user@host
 as the parameter.
 If user is specified, it\(aqs given as
 .B \-u
-parameter to dsync, not to ssh.
+parameter to
+.BR dsync ,
+not to ssh.
 The ssh username is always the default.
 .sp
 The final way to specify a location is to give a full command line or a
-path to a script that executes the dsync.
+path to a script that executes the
+.BR dsync .
 For example:
 .sp
 .nf
@@ -181,6 +187,7 @@ The user has to execute the command:
 If you want to do this without any downtime, you can do the conversion one
 user at a time.
 Initially:
+.RS 4
 .IP \(bu 4
 Configuration uses
 .B mail_location = maildir:~/Maildir
@@ -188,8 +195,10 @@ Configuration uses
 Set up the possibility of doing per\-user mail location using
 .I userdb
 extra fields.
+.RE
 .PP
 Then for each user:
+.RS 4
 .IP 1. 4
 Run
 .I dsync mirror
@@ -214,6 +223,7 @@ once more to apply final changes that were possibly done.
 After this there should be no changes to Maildir, because the user\(aqs
 mail location has been changed and all existing processes using it have
 been killed.
+.RE
 .PP
 Once all users have been converted, you can set the default
 .I mail_location

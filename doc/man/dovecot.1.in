@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVECOT 1 "2010-06-01" "Dovecot v2.0" "Dovecot"
+.TH DOVECOT 1 "2010-07-02" "Dovecot v2.0" "Dovecot"
 .SH NAME
 dovecot \- a secure and highly configurable IMAP and POP3 server
 .\"------------------------------------------------------------------------
@@ -144,6 +144,12 @@ Configuration files of different authentication modules.
 Configuration files of different services and settings.
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH AUTHOR
+Dovecot <http://dovecot.org> and its manual pages were written by the
+Dovecot authors <http://dovecot.org/doc/AUTHORS>, mainly Timo Sirainen <tss
+at iki.fi>, and are licensed under the terms of the MIT and LGPLv2.1
+licenses, see <http://dovecot.org/doc/COPYING> for details.
 .\"------------------------------------------------------------------------
 .SH SEE ALSO
 .BR doveadm (1),
