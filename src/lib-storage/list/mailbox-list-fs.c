@@ -410,23 +410,48 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return 0;
 }
 
-static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
+static int fs_list_rmdir(struct mailbox_list *list, const char *name,
+			 const char *path)
 {
-	const char *path;
 	uint8_t dir_sha128[MAIL_GUID_128_SIZE];
 
+	if (rmdir(path) < 0)
+		return -1;
+
+	mailbox_name_get_sha128(name, dir_sha128);
+	mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_DIR,
+				dir_sha128);
+	return 0;
+}
+
+static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
+{
+	const char *path, *child_name, *child_path, *p;
+
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
-	if (rmdir(path) == 0) {
-		mailbox_name_get_sha128(name, dir_sha128);
-		mailbox_list_add_change(list, MAILBOX_LOG_RECORD_DELETE_DIR,
-					dir_sha128);
+	if (fs_list_rmdir(list, name, path) == 0)
 		return 0;
-	}
 
 	if (errno == ENOENT) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 	} else if (errno == ENOTEMPTY) {
+		/* mbox workaround: if only .imap/ directory is preventing the
+		   deletion, remove it */
+		child_name = t_strdup_printf("%s%cchild", name,
+					     list->ns->real_sep);
+		child_path = mailbox_list_get_path(list, child_name,
+						   MAILBOX_LIST_PATH_TYPE_INDEX);
+		if (strncmp(path, child_path, strlen(path)) == 0) {
+			/* drop the "/child" part out. */
+			p = strrchr(child_path, '/');
+			if (rmdir(t_strdup_until(child_path, p)) == 0) {
+				/* try again */
+				if (fs_list_rmdir(list, name, path) == 0)
+					return 0;
+			}
+		}
+
 		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
 			"Mailbox has children, delete them first");
 	} else {
