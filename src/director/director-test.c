@@ -519,8 +519,10 @@ director_connection_disconnect_timeout(void *context ATTR_UNUSED)
 
 	if (count != 0) {
 		i = 0; count = rand() % count;
-		for (conn = director_connections; i < count; conn = conn->next)
+		for (conn = director_connections; i < count; conn = conn->next) {
+			i_assert(conn != NULL);
 			i++;
+		}
 		director_connection_destroy(&conn);
 	}
 }
