@@ -34,8 +34,6 @@
 #include "dsync-worker.h"
 #include "dsync-brain-private.h"
 
-#include <stdio.h>
-
 struct dsync_brain_msg_copy_context {
 	struct dsync_brain_msg_iter *iter;
 	unsigned int msg_idx;
@@ -182,19 +180,12 @@ dsync_brain_mailbox_add_new_msgs(struct dsync_brain_msg_iter *iter,
 				 const mailbox_guid_t *mailbox_guid)
 {
 	struct dsync_brain_new_msg *msgs;
-	unsigned int msg_count, n = 0;
-	bool output_stats = iter->sync->brain->verbose &&
-		iter->sync->brain->stdout_tty;
+	unsigned int msg_count;
 	bool ret = TRUE;
 
 	msgs = array_get_modifiable(&iter->new_msgs, &msg_count);
 	while (iter->next_new_msg < msg_count) {
 		struct dsync_brain_new_msg *msg = &msgs[iter->next_new_msg];
-
-		if (output_stats && (n++ % 10) == 0) {
-			printf("\r%u/%u", iter->next_new_msg, msg_count);
-			fflush(stdout);
-		}
 
 		if (msg->mailbox_idx != iter->mailbox_idx) {
 			i_assert(msg->mailbox_idx > iter->mailbox_idx);
@@ -212,11 +203,8 @@ dsync_brain_mailbox_add_new_msgs(struct dsync_brain_msg_iter *iter,
 			break;
 		}
 	}
-	if (iter->next_new_msg == msg_count) {
-		if (output_stats)
-			printf("\r%u msgs saved\n", msg_count);
+	if (iter->next_new_msg == msg_count)
 		ret = FALSE;
-	}
 
 	/* flush copy commands */
 	if (dsync_worker_output_flush(iter->worker) > 0 && ret) {
@@ -376,7 +364,6 @@ dsync_brain_msg_iter_sync_new_msgs(struct dsync_brain_msg_iter *iter)
 
 void dsync_brain_msg_sync_new_msgs(struct dsync_brain_mailbox_sync *sync)
 {
-	printf("Syncing new messages:\n");
 	dsync_brain_msg_iter_sync_new_msgs(sync->src_msg_iter);
 	dsync_brain_msg_iter_sync_new_msgs(sync->dest_msg_iter);
 }
