@@ -16,6 +16,7 @@ AM_CPPFLAGS = \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DDOVEADM_MODULEDIR=\""$(doveadm_moduledir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
+	-DBINDIR=\""$(bindir)"\" \
 	-DMANDIR=\""$(mandir)"\"
 
 if !BUILD_SHARED_LIBS
