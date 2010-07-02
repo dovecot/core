@@ -84,6 +84,9 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			else if (strcmp(*s, "pop3s") == 0) {
 				*s = "";
 				have_pop3s = TRUE;
+			} else if (strcmp(*s, "managesieve") == 0) {
+				*s = "sieve";
+				obsolete(ctx, "protocols=managesieve has been renamed to protocols=sieve");
 			}
 		}
 		value = t_strarray_join((const char *const *)protos, " ");
