@@ -19,10 +19,10 @@ done
 
 if test ! -f doc/wiki/Authentication.txt; then
   cd doc
-  wget http://www.dovecot.org/tmp/wiki-export.tar.gz
-  tar xzf wiki-export.tar.gz
-  mv wiki-export/*.txt wiki/
-  rm -rf wiki-export wiki-export.tar.gz
+  wget http://www.dovecot.org/tmp/wiki2-export.tar.gz
+  tar xzf wiki2-export.tar.gz
+  mv wiki2-export/*.txt wiki/
+  rm -rf wiki2-export wiki2-export.tar.gz
   cd ..
 fi
 
