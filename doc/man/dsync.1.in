@@ -237,3 +237,8 @@ to mdbox and remove the per\-user mail locations from
 .BR doveadm\-kick (1),
 .BR doveconf (1),
 .BR dovecot (1)
+.\"-------------------------------------
+.PP
+Additional resources:
+.IP "dsync design"
+http://wiki2.dovecot.org/Design/Dsync
