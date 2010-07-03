@@ -1,5 +1,6 @@
 dist_man1_MANS = \
 	deliver.1 \
+	doveadm-config.1 \
 	doveadm-reload.1 \
 	doveadm-stop.1
 
@@ -10,7 +11,6 @@ nodist_man1_MANS = \
 	doveadm.1 \
 	doveadm-altmove.1 \
 	doveadm-auth.1 \
-	doveadm-config.1 \
 	doveadm-director.1 \
 	doveadm-dump.1 \
 	doveadm-expunge.1 \
