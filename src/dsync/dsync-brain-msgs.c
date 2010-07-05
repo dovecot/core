@@ -408,6 +408,11 @@ void dsync_brain_msg_sync_more(struct dsync_brain_mailbox_sync *sync)
 	}
 
 	/* finished with all mailboxes. */
+	dsync_worker_set_input_callback(sync->src_msg_iter->worker, NULL, NULL);
+	dsync_worker_set_output_callback(sync->src_msg_iter->worker, NULL, NULL);
+	dsync_worker_set_input_callback(sync->dest_msg_iter->worker, NULL, NULL);
+	dsync_worker_set_output_callback(sync->dest_msg_iter->worker, NULL, NULL);
+
 	if (dsync_worker_msg_iter_deinit(&sync->src_msg_iter->iter) < 0 ||
 	    dsync_worker_msg_iter_deinit(&sync->dest_msg_iter->iter) < 0) {
 		dsync_brain_fail(sync->brain);
