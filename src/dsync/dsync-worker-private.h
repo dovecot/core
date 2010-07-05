@@ -79,6 +79,7 @@ struct dsync_worker {
 
 	unsigned int readonly:1;
 	unsigned int failed:1;
+	unsigned int verbose:1;
 	unsigned int unexpected_changes:1;
 };
 

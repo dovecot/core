@@ -17,6 +17,11 @@ void dsync_worker_set_readonly(struct dsync_worker *worker)
 	worker->readonly = TRUE;
 }
 
+void dsync_worker_set_verbose(struct dsync_worker *worker)
+{
+	worker->verbose = TRUE;
+}
+
 void dsync_worker_set_input_callback(struct dsync_worker *worker,
 				     io_callback_t *callback, void *context)
 {

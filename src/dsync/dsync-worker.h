@@ -35,6 +35,8 @@ void dsync_worker_deinit(struct dsync_worker **worker);
 
 /* Set this worker as read-only. All attempted changes are ignored. */
 void dsync_worker_set_readonly(struct dsync_worker *worker);
+/* Log verbosely */
+void dsync_worker_set_verbose(struct dsync_worker *worker);
 
 /* If any function returns with "waiting for more data", the given callback
    gets called when more data is available. */

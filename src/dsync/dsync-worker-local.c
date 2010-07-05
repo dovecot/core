@@ -1272,9 +1272,21 @@ static void local_worker_mailbox_close(struct local_dsync_worker *worker)
 	if (mailbox_transaction_commit_get_changes(&ext_trans, &changes) < 0)
 		dsync_worker_set_failure(&worker->worker);
 	else {
-		if (changes.ignored_modseq_changes != 0 ||
-		    !has_expected_save_uids(worker, &changes))
+		if (changes.ignored_modseq_changes != 0) {
+			if (worker->worker.verbose) {
+				i_info("%s: Ignored %u modseq changes",
+				       mailbox_get_vname(worker->selected_box),
+				       changes.ignored_modseq_changes);
+			}
 			worker->worker.unexpected_changes = TRUE;
+		}
+		if (!has_expected_save_uids(worker, &changes)) {
+			if (worker->worker.verbose) {
+				i_info("%s: Couldn't keep all uids",
+				       mailbox_get_vname(worker->selected_box));
+			}
+			worker->worker.unexpected_changes = TRUE;
+		}
 		pool_unref(&changes.pool);
 	}
 	array_clear(&worker->saved_uids);

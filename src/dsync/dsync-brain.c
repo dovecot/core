@@ -34,6 +34,11 @@ dsync_brain_init(struct dsync_worker *src_worker,
 	brain->verbose = (flags & DSYNC_BRAIN_FLAG_VERBOSE) != 0;
 	brain->backup = (flags & DSYNC_BRAIN_FLAG_BACKUP) != 0;
 	brain->stdout_tty = isatty(STDOUT_FILENO) > 0;
+
+	if ((flags & DSYNC_BRAIN_FLAG_VERBOSE) != 0) {
+		dsync_worker_set_verbose(src_worker);
+		dsync_worker_set_verbose(dest_worker);
+	}
 	return brain;
 }
 
