@@ -381,22 +381,20 @@ static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 		/* convert the results from blocks to bytes */
 		const rquota *rq = &result.getquota_rslt_u.gqr_rquota;
 
-		if (rq->rq_active) {
-			if (bytes) {
-				*value_r = (uint64_t)rq->rq_curblocks *
-					(uint64_t)rq->rq_bsize;
-				*limit_r = (uint64_t)rq->rq_bsoftlimit *
-					(uint64_t)rq->rq_bsize;
-			} else {
-				*value_r = rq->rq_curfiles;
-				*limit_r = rq->rq_fsoftlimit;
-			}
+		if (bytes) {
+			*value_r = (uint64_t)rq->rq_curblocks *
+				(uint64_t)rq->rq_bsize;
+			*limit_r = (uint64_t)rq->rq_bsoftlimit *
+				(uint64_t)rq->rq_bsize;
+		} else {
+			*value_r = rq->rq_curfiles;
+			*limit_r = rq->rq_fsoftlimit;
 		}
 		if (root->root.quota->set->debug) {
-			i_debug("quota-fs: uid=%s, value=%llu, "
-				"limit=%llu, active=%d", dec2str(root->uid),
+			i_debug("quota-fs: uid=%s, value=%llu, limit=%llu",
+				dec2str(root->uid),
 				(unsigned long long)*value_r,
-				(unsigned long long)*limit_r, rq->rq_active);
+				(unsigned long long)*limit_r);
 		}
 		return 1;
 	}
@@ -483,22 +481,20 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED, bool bytes ATTR_UNUSED,
 		/* convert the results from blocks to bytes */
 		const rquota *rq = &result.getquota_rslt_u.gqr_rquota;
 
-		if (rq->rq_active) {
-			if (bytes) {
-				*value_r = (uint64_t)rq->rq_curblocks *
-					(uint64_t)rq->rq_bsize;
-				*limit_r = (uint64_t)rq->rq_bsoftlimit *
-					(uint64_t)rq->rq_bsize;
-			} else {
-				*value_r = rq->rq_curfiles;
-				*limit_r = rq->rq_fsoftlimit;
-			}
+		if (bytes) {
+			*value_r = (uint64_t)rq->rq_curblocks *
+				(uint64_t)rq->rq_bsize;
+			*limit_r = (uint64_t)rq->rq_bsoftlimit *
+				(uint64_t)rq->rq_bsize;
+		} else {
+			*value_r = rq->rq_curfiles;
+			*limit_r = rq->rq_fsoftlimit;
 		}
 		if (root->root.quota->set->debug) {
-			i_debug("quota-fs: gid=%s, value=%llu, "
-				"limit=%llu, active=%d", dec2str(root->gid),
+			i_debug("quota-fs: gid=%s, value=%llu, limit=%llu",
+				dec2str(root->gid),
 				(unsigned long long)*value_r,
-				(unsigned long long)*limit_r, rq->rq_active);
+				(unsigned long long)*limit_r);
 		}
 		return 1;
 	}
