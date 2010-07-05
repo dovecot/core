@@ -180,8 +180,11 @@ config_apply_login_set(struct config_parser_context *ctx,
 			t_strdup_printf("service/pop3-login/%s=%s", key, value), NULL);
 	}
 	if (config_filter_match(&old_section->filter, &managesieve_filter)) {
+		/* if pigeonhole isn't installed, this fails.
+		   just ignore it then.. */
 		config_apply_line(ctx, key,
 			t_strdup_printf("service/managesieve-login/%s=%s", key, value), NULL);
+		ctx->error = NULL;
 	}
 }
 
@@ -203,6 +206,7 @@ config_apply_mail_set(struct config_parser_context *ctx,
 	if (config_filter_match(&old_section->filter, &managesieve_filter)) {
 		config_apply_line(ctx, key,
 			t_strdup_printf("service/managesieve/%s=%s", key,value), NULL);
+		ctx->error = NULL;
 	}
 }
 
@@ -272,6 +276,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 			    config_filter_match(&old_section->filter, &managesieve_filter)) {
 				config_apply_line(ctx, "port",
 					t_strdup_printf("service/managesieve-login/inet_listener/managesieve/port=%s", p), NULL);
+				ctx->error = NULL;
 			}
 		}
 		if (root && *ssl == '\0') {
@@ -291,6 +296,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 			    config_filter_match(&old_section->filter, &managesieve_filter)) {
 				config_apply_line(ctx, "address",
 					t_strdup_printf("service/managesieve-login/inet_listener/managesieve/address=%s", value), NULL);
+				ctx->error = NULL;
 			}
 		}
 		return TRUE;
