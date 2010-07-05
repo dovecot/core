@@ -252,6 +252,9 @@ static void module_names_fix(const char **module_names)
 {
 	unsigned int i, j;
 
+	if (module_names[0] == NULL)
+		return;
+
 	/* allow giving the module names also in non-base form.
 	   convert them in here. */
 	for (i = 0; module_names[i] != NULL; i++)
