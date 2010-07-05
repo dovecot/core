@@ -48,6 +48,10 @@
 #  define _LINUX_QUOTA_VERSION 1
 #endif
 
+#define mount_type_is_nfs(mount) \
+	(strcmp((mount)->type, "nfs") == 0 || \
+	 strcmp((mount)->type, "nfs4") == 0)
+
 struct fs_quota_mountpoint {
 	int refcount;
 
@@ -179,7 +183,7 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 	mount->fd = -1;
 #endif
 
-	if (strcmp(mount->type, "nfs") == 0) {
+	if (mount_type_is_nfs(mount)) {
 		if (strchr(mount->device_path, ':') == NULL) {
 			i_error("quota-fs: %s is not a valid NFS device path",
 				mount->device_path);
@@ -225,7 +229,7 @@ static void fs_quota_mount_init(struct fs_quota_root *root,
 
 #ifdef FS_QUOTA_SOLARIS
 #ifdef HAVE_RQUOTA
-	if (strcmp(mount->type, "nfs") == 0) {
+	if (mount_type_is_nfs(mount)) {
 		/* using rquota for this mount */
 	} else
 #endif
@@ -334,6 +338,14 @@ static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 
 	host = t_strdup_until(mount->device_path, path);
 	path++;
+
+	/* For NFSv4, we send the filesystem path without initial /. Server
+	   prepends proper NFS pseudoroot automatically and uses this for
+	   detection of NFSv4 mounts. */
+	if (strcmp(root->mount->type, "nfs4") == 0) {
+		while (*path == '/')
+			path++;
+	}
 
 	if (root->root.quota->set->debug) {
 		i_debug("quota-fs: host=%s, path=%s, uid=%s, %s",
@@ -773,7 +785,7 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	bytes = strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) == 0;
 
 #ifdef HAVE_RQUOTA
-	if (strcmp(root->mount->type, "nfs") == 0) {
+	if (mount_type_is_nfs(root->mount)) {
 		T_BEGIN {
 			ret = !root->user_disabled ?
 				do_rquota_user(root, bytes, value_r, &limit) :
