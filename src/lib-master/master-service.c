@@ -289,10 +289,6 @@ bool master_service_parse_option(struct master_service *service,
 	case 'O':
 		service->flags |= MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS;
 		break;
-	case 's':
-		if (str_to_uint(arg, &service->socket_count) < 0)
-			i_fatal("Invalid socket count: %s", arg);
-		break;
 	case 'L':
 		service->log_directly = TRUE;
 		break;
