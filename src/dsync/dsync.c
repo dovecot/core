@@ -314,10 +314,9 @@ int main(int argc, char *argv[])
 		mail_user_unref(&mail_user2);
 	mail_storage_service_user_free(&service_user);
 
-	if (unexpected_changes &&
-	    (brain_flags & DSYNC_BRAIN_FLAG_VERBOSE) != 0) {
-		i_info("Mailbox changes caused a desync. "
-		       "You may want to run dsync again.");
+	if (unexpected_changes) {
+		i_warning("Mailbox changes caused a desync. "
+			  "You may want to run dsync again.");
 	}
 
 	mail_storage_service_deinit(&storage_service);
