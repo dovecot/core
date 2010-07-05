@@ -480,6 +480,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 	struct local_dsync_mailbox_change *change;
 	struct local_dsync_dir_change *dir_change, change_lookup;
+	struct local_dsync_mailbox *old_lbox;
 	const char *const *fields;
 	unsigned int i, field_count;
 
@@ -550,6 +551,17 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		array_append(&dsync_box_r->cache_fields, &field_name, 1);
 	}
 
+	old_lbox = hash_table_lookup(worker->mailbox_hash,
+				     &dsync_box_r->mailbox_guid);
+	if (old_lbox != NULL) {
+		i_error("Mailboxes don't have unique GUIDs: "
+			"%s is shared by %s and %s",
+			dsync_guid_to_str(&dsync_box_r->mailbox_guid),
+			old_lbox->storage_name, storage_name);
+		mailbox_free(&box);
+		_iter->failed = TRUE;
+		return -1;
+	}
 	local_dsync_worker_add_mailbox(worker, info->ns, storage_name,
 				       &dsync_box_r->mailbox_guid);
 	mailbox_free(&box);
