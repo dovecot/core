@@ -9,6 +9,11 @@
 
 #include <unistd.h>
 
+#define DSYNC_WRONG_DIRECTION_ERROR_MSG \
+	"dsync backup: " \
+	"Looks like you're trying to run backup in wrong direction. " \
+	"Source is empty and destination is not."
+
 static void
 dsync_brain_mailbox_list_deinit(struct dsync_brain_mailbox_list **list);
 static void
@@ -290,6 +295,21 @@ dsync_brain_mailbox_action(struct dsync_brain *brain,
 	}
 }
 
+static bool
+dsync_mailbox_list_is_empty(const ARRAY_TYPE(dsync_mailbox) *boxes_arr)
+{
+	struct dsync_mailbox *const *boxes;
+	unsigned int count;
+
+	boxes = array_get(boxes_arr, &count);
+	if (count == 0)
+		return TRUE;
+	if (count == 1 && strcasecmp(boxes[0]->name, "INBOX") == 0 &&
+	    boxes[0]->message_count == 0)
+		return TRUE;
+	return FALSE;
+}
+
 static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 {
 	struct dsync_mailbox *const *src_boxes, *const *dest_boxes;
@@ -299,6 +319,12 @@ static void dsync_brain_sync_mailboxes(struct dsync_brain *brain)
 	enum dsync_brain_mailbox_action action;
 	bool src_deleted, dest_deleted;
 	int ret;
+
+	if (brain->backup &&
+	    dsync_mailbox_list_is_empty(&brain->src_mailbox_list->mailboxes) &&
+	    !dsync_mailbox_list_is_empty(&brain->dest_mailbox_list->mailboxes)) {
+		i_fatal(DSYNC_WRONG_DIRECTION_ERROR_MSG);
+	}
 
 	/* create/delete missing mailboxes. the mailboxes are sorted by
 	   GUID, so we can do this quickly. */
