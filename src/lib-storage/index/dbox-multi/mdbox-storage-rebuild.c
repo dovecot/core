@@ -618,6 +618,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	if (ret > 0 && !deleted && dbox_file_metadata_read(file) > 0) {
 		mailbox = dbox_file_metadata_get(file,
 						 DBOX_METADATA_ORIG_MAILBOX);
+		mailbox = t_strdup(mailbox);
 	}
 	dbox_file_unref(&file);
 	if (ret <= 0 || deleted) {
