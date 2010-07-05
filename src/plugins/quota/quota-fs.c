@@ -321,6 +321,31 @@ fs_quota_root_get_resources(struct quota_root *_root)
 }
 
 #ifdef HAVE_RQUOTA
+static void
+rquota_get_result(const rquota *rq, bool bytes,
+		  uint64_t *value_r, uint64_t *limit_r)
+{
+	/* use soft limits if they exist, fallback to hard limits */
+	if (bytes) {
+		/* convert the results from blocks to bytes */
+		*value_r = (uint64_t)rq->rq_curblocks *
+			(uint64_t)rq->rq_bsize;
+		if (rq->rq_bsoftlimit != 0) {
+			*limit_r = (uint64_t)rq->rq_bsoftlimit *
+				(uint64_t)rq->rq_bsize;
+		} else {
+			*limit_r = (uint64_t)rq->rq_bhardlimit *
+				(uint64_t)rq->rq_bsize;
+		}
+	} else {
+		*value_r = rq->rq_curfiles;
+		if (rq->rq_fsoftlimit != 0)
+			*limit_r = rq->rq_fsoftlimit;
+		else
+			*limit_r = rq->rq_fhardlimit;
+	}
+}
+
 static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 			  uint64_t *value_r, uint64_t *limit_r)
 {
@@ -390,18 +415,8 @@ static int do_rquota_user(struct fs_quota_root *root, bool bytes,
 
 	switch (result.status) {
 	case Q_OK: {
-		/* convert the results from blocks to bytes */
-		const rquota *rq = &result.getquota_rslt_u.gqr_rquota;
-
-		if (bytes) {
-			*value_r = (uint64_t)rq->rq_curblocks *
-				(uint64_t)rq->rq_bsize;
-			*limit_r = (uint64_t)rq->rq_bsoftlimit *
-				(uint64_t)rq->rq_bsize;
-		} else {
-			*value_r = rq->rq_curfiles;
-			*limit_r = rq->rq_fsoftlimit;
-		}
+		rquota_get_result(&result.getquota_rslt_u.gqr_rquota, bytes,
+				  value_r, limit_r);
 		if (root->root.quota->set->debug) {
 			i_debug("quota-fs: uid=%s, value=%llu, limit=%llu",
 				dec2str(root->uid),
@@ -490,18 +505,8 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED, bool bytes ATTR_UNUSED,
 
 	switch (result.status) {
 	case Q_OK: {
-		/* convert the results from blocks to bytes */
-		const rquota *rq = &result.getquota_rslt_u.gqr_rquota;
-
-		if (bytes) {
-			*value_r = (uint64_t)rq->rq_curblocks *
-				(uint64_t)rq->rq_bsize;
-			*limit_r = (uint64_t)rq->rq_bsoftlimit *
-				(uint64_t)rq->rq_bsize;
-		} else {
-			*value_r = rq->rq_curfiles;
-			*limit_r = rq->rq_fsoftlimit;
-		}
+		rquota_get_result(&result.getquota_rslt_u.gqr_rquota, bytes,
+				  value_r, limit_r);
 		if (root->root.quota->set->debug) {
 			i_debug("quota-fs: gid=%s, value=%llu, limit=%llu",
 				dec2str(root->gid),
