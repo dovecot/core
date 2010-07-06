@@ -244,7 +244,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 					zlib_read_error(zstream,
 							"unexpected EOF");
 				}
-				stream->istream.stream_errno = EINVAL;
+				stream->istream.stream_errno = EPIPE;
 			}
 			return -1;
 		}
