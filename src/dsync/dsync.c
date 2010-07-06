@@ -8,6 +8,7 @@
 #include "master-service-settings.h"
 #include "mail-storage-service.h"
 #include "mail-user.h"
+#include "mail-namespace.h"
 #include "dsync-brain.h"
 #include "dsync-worker.h"
 #include "dsync-proxy-server.h"
@@ -255,6 +256,13 @@ int main(int argc, char *argv[])
 		if (mail_storage_service_next(storage_service, service_user,
 					      &mail_user2) < 0)
 			i_fatal("User init failed");
+
+		if (mail_namespaces_get_root_sep(mail_user->namespaces) !=
+		    mail_namespaces_get_root_sep(mail_user2->namespaces)) {
+			i_fatal("Mail locations must use the same "
+				"virtual mailbox hierarchy separator "
+				"(specify separator for the default namespace)");
+		}
 
 		worker2 = dsync_worker_init_local(mail_user2, alt_char);
 		if (reverse_workers) {
