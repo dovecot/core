@@ -237,7 +237,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	namespaces = array_get(&root->root.quota->namespaces, &count);
 	i_assert(count > 0);
 	for (i = 0; i < count; i++) {
-		if ((namespaces[i]->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		if ((namespaces[i]->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 			mailbox_list_get_permissions(namespaces[i]->list,
 						     NULL, &mode, &gid,
 						     &gid_origin);

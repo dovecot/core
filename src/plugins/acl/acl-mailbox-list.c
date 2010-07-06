@@ -118,7 +118,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 	update_ctx.iter_ctx = &ctx->ctx;
 	update_ctx.glob =
 		imap_match_init(pool_datastack_create(), "*",
-				(ns->flags & NAMESPACE_FLAG_INBOX) != 0,
+				(ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0,
 				ctx->sep);
 	update_ctx.match_parents = TRUE;
 	update_ctx.tree_ctx = mailbox_tree_init(ctx->sep);
@@ -172,7 +172,7 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
 
-	inboxcase = (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0;
+	inboxcase = (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
 	ctx->sep = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
 		list->ns->sep : list->ns->real_sep;
 	ctx->glob = imap_match_init_multiple(default_pool, patterns,

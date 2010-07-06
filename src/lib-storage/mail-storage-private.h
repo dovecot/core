@@ -268,8 +268,10 @@ struct mailbox {
 	unsigned int backend_readonly:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
-	/* TRUE if this is the INBOX */
-	unsigned int inbox:1;
+	/* TRUE if this is an INBOX for this user */
+	unsigned int inbox_user:1;
+	/* TRUE if this is an INBOX for this namespace (user or shared) */
+	unsigned int inbox_any:1;
 };
 
 struct mail_vfuncs {

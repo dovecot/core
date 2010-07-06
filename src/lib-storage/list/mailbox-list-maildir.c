@@ -232,7 +232,7 @@ maildir_list_get_mailbox_name_status(struct mailbox_list *_list,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	if ((strcmp(name, "INBOX") == 0 &&
-	     (_list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) ||
+	     (_list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) ||
 	    stat(path, &st) == 0) {
 		*status = MAILBOX_NAME_EXISTS_MAILBOX;
 		return 0;

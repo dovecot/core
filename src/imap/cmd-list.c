@@ -177,7 +177,7 @@ list_get_inbox_flags(struct cmd_list_context *ctx)
 	enum mailbox_info_flags flags = MAILBOX_UNMARKED;
 
 	if (ctx->seen_inbox_namespace &&
-	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX) == 0) {
+	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0) {
 		/* INBOX doesn't exist. use the default INBOX flags */
 		return flags;
 	}
@@ -381,7 +381,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 				   of handling INBOX/ namespace */
 				continue;
 			}
-			if ((ctx->ns->flags & NAMESPACE_FLAG_INBOX) == 0) {
+			if ((ctx->ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0) {
 				/* INBOX is in non-empty prefix namespace,
 				   and we're now listing prefixless namespace
 				   that contains INBOX. There's no way we can
@@ -554,7 +554,7 @@ list_use_inboxcase(struct cmd_list_context *ctx)
 	enum imap_match_result match, ret;
 
 	if (*ctx->ns->prefix != '\0' &&
-	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX) == 0)
+	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0)
 		return IMAP_MATCH_NO;
 
 	/* if the original reference and pattern combined produces something
@@ -706,7 +706,7 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 
 	ctx->cur_ns_skip_trailing_sep = FALSE;
 
-	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0)
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
 		ctx->seen_inbox_namespace = TRUE;
 
 	if (*cur_ns_prefix != '\0') {
@@ -758,7 +758,7 @@ static void list_inbox(struct cmd_list_context *ctx)
 
 	/* INBOX always exists */
 	if (!ctx->inbox_found && ctx->cur_ns_match_inbox &&
-	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
+	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
 		str = t_strdup_printf("* LIST (\\Unmarked) \"%s\" \"INBOX\"",
 				      ctx->ns->sep_str);

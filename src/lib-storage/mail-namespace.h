@@ -12,16 +12,20 @@ enum namespace_type {
 };
 
 enum namespace_flags {
-	/* Namespace contains the INBOX mailbox (there can be only one) */
-	NAMESPACE_FLAG_INBOX		= 0x01,
+	/* Namespace contains the user's INBOX mailbox (there can be only
+	   one) */
+	NAMESPACE_FLAG_INBOX_USER	= 0x01,
+	/* Namespace contains someone's INBOX. This is set for both user's
+	   INBOX namespace and also for any other users' shared namespaces. */
+	NAMESPACE_FLAG_INBOX_ANY	= 0x02,
 	/* Namespace is visible only by explicitly using its full prefix */
-	NAMESPACE_FLAG_HIDDEN		= 0x02,
+	NAMESPACE_FLAG_HIDDEN		= 0x04,
 	/* Namespace prefix is visible with LIST */
-	NAMESPACE_FLAG_LIST_PREFIX	= 0x04,
+	NAMESPACE_FLAG_LIST_PREFIX	= 0x08,
 	/* Namespace prefix isn't visible with LIST, but child mailboxes are */
-	NAMESPACE_FLAG_LIST_CHILDREN	= 0x08,
+	NAMESPACE_FLAG_LIST_CHILDREN	= 0x10,
 	/* Namespace uses its own subscriptions. */
-	NAMESPACE_FLAG_SUBSCRIPTIONS	= 0x10,
+	NAMESPACE_FLAG_SUBSCRIPTIONS	= 0x20,
 
 	/* Namespace was created automatically (for shared mailboxes) */
 	NAMESPACE_FLAG_AUTOCREATED	= 0x1000,

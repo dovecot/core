@@ -94,8 +94,10 @@ namespace_add(struct mail_user *user,
 		return -1;
 	}
 
-	if (ns_set->inbox)
-		ns->flags |= NAMESPACE_FLAG_INBOX;
+	if (ns_set->inbox) {
+		ns->flags |= NAMESPACE_FLAG_INBOX_USER |
+			NAMESPACE_FLAG_INBOX_ANY;
+	}
 	if (ns_set->hidden)
 		ns->flags |= NAMESPACE_FLAG_HIDDEN;
 	if (ns_set->subscriptions)
@@ -199,7 +201,7 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
 		if (namespace_set_alias_for(ns, namespaces, error_r) < 0)
 			return FALSE;
-		if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+		if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 			if (inbox_ns != NULL) {
 				*error_r = "namespace configuration error: "
 					"There can be only one namespace with "
@@ -302,8 +304,8 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	/* no namespaces defined, create a default one */
 	ns = i_new(struct mail_namespace, 1);
 	ns->type = NAMESPACE_PRIVATE;
-	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST_PREFIX |
-		NAMESPACE_FLAG_SUBSCRIPTIONS;
+	ns->flags = NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY |
+		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_SUBSCRIPTIONS;
 	ns->owner = user;
 
 	inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
@@ -377,8 +379,8 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
 	ns->user = user;
 	ns->owner = user;
 	ns->prefix = i_strdup("");
-	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST_PREFIX |
-		NAMESPACE_FLAG_SUBSCRIPTIONS;
+	ns->flags = NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY |
+		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_SUBSCRIPTIONS;
 	ns->mail_set = mail_user_set_get_storage_set(user);
 	user->namespaces = ns;
 	return ns;
@@ -465,7 +467,7 @@ const char *mail_namespace_get_vname(struct mail_namespace *ns, string_t *dest,
 				     const char *name)
 {
 	str_truncate(dest, 0);
-	if ((ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0 ||
 	    strcasecmp(name, "INBOX") != 0 ||
 	    ns->user != ns->owner)
 		str_append(dest, ns->prefix);
@@ -535,7 +537,7 @@ mail_namespace_find_mask(struct mail_namespace *namespaces,
 		/* find the INBOX namespace */
 		*mailbox = "INBOX";
 		while (ns != NULL) {
-			if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
+			if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 			    (ns->flags & mask) == flags)
 				return ns;
 			if (*ns->prefix == '\0')
@@ -620,7 +622,7 @@ mail_namespace_find_unsubscribable(struct mail_namespace *namespaces,
 struct mail_namespace *
 mail_namespace_find_inbox(struct mail_namespace *namespaces)
 {
-	while ((namespaces->flags & NAMESPACE_FLAG_INBOX) == 0)
+	while ((namespaces->flags & NAMESPACE_FLAG_INBOX_USER) == 0)
 		namespaces = namespaces->next;
 	return namespaces;
 }

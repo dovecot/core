@@ -25,7 +25,7 @@ mailbox_list_check_root_delete(struct mailbox_list *list, const char *name,
 		return 0;
 
 	if (strcmp(name, "INBOX") == 0 &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
 				       "INBOX can't be deleted.");
 		return -1;

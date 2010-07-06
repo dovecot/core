@@ -403,7 +403,7 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 	}
 	move_to_memory = want_memory_indexes(mbox->storage, box->path);
 
-	if (box->inbox) {
+	if (box->inbox_any) {
 		/* if INBOX isn't under the root directory, it's probably in
 		   /var/mail and we want to allow privileged dotlocking */
 		rootdir = mailbox_list_get_path(box->list, NULL,
@@ -518,7 +518,7 @@ mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
 		return 0;
 
-	if (box->inbox) {
+	if (box->inbox_any) {
 		if (create_inbox(box) < 0)
 			return -1;
 	} else {

@@ -115,7 +115,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 		return -1;
 	}
 
-	if (*name == '\0' && (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	if (*name == '\0' && (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* delivering to a namespace prefix means we actually want to
 		   deliver to the INBOX instead */
 		name = "INBOX";

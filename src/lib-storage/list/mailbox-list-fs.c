@@ -220,7 +220,7 @@ fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 	enum mailbox_info_flags flags;
 
 	if (strcmp(name, "INBOX") == 0 &&
-	    (_list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	    (_list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		*status = MAILBOX_NAME_EXISTS_MAILBOX;
 		return 0;
 	}

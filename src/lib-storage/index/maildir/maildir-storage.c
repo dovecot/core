@@ -57,7 +57,7 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 					mailbox_list_get_temp_prefix(list));
 
 	if (list->set.control_dir == NULL && list->set.inbox_path == NULL &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
 		/* put the temp files into tmp/ directory preferrably */
 		storage->temp_prefix = p_strconcat(_storage->pool, "tmp/",
 						   storage->temp_prefix, NULL);
@@ -84,7 +84,7 @@ static void maildir_storage_get_list_settings(const struct mail_namespace *ns,
 	if (set->inbox_path == NULL && set->maildir_name == NULL &&
 	    (strcmp(set->layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
 	     strcmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
 		/* Maildir++ INBOX is the Maildir base itself */
 		set->inbox_path = set->root_dir;
 	}

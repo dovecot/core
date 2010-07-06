@@ -121,7 +121,7 @@ static void maildir_set_children(struct maildir_list_iterate_context *ctx,
 
 static int
 maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
-		   struct imap_match_glob *glob,
+		   struct imap_match_glob *glob, const char *inbox_name,
 		   bool update_only)
 {
 	struct mailbox_node *node;
@@ -143,17 +143,17 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 	}
 
 	if (update_only) {
-		node = mailbox_tree_lookup(ctx->tree_ctx, "INBOX");
+		node = mailbox_tree_lookup(ctx->tree_ctx, inbox_name);
 		if (node != NULL)
 			node->flags &= ~MAILBOX_NONEXISTENT;
 	} else {
-		node = mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
+		node = mailbox_tree_get(ctx->tree_ctx, inbox_name, &created);
 		if (created)
 			node->flags = MAILBOX_NOCHILDREN;
 		else
 			node->flags &= ~MAILBOX_NONEXISTENT;
 
-		match = imap_match(glob, "INBOX");
+		match = imap_match(glob, inbox_name);
 		if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0)
 			node->flags |= MAILBOX_MATCHED;
 	}
@@ -391,11 +391,15 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		return -1;
 	}
 
-	if ((ns->flags & NAMESPACE_FLAG_INBOX) == 0)
-		return 0;
-	else {
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* make sure INBOX is listed */
-		return maildir_fill_inbox(ctx, glob, update_only);
+		return maildir_fill_inbox(ctx, glob, "INBOX", update_only);
+	} else if ((ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
+		/* show shared INBOX. */
+		return maildir_fill_inbox(ctx, glob,
+			t_strconcat(ns->prefix, "INBOX", NULL), update_only);
+	} else {
+		return 0;
 	}
 }
 

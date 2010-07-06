@@ -813,7 +813,7 @@ ns_match_inbox(struct mail_namespace *ns, const char *pattern)
 {
 	struct imap_match_glob *glob;
 
-	if ((ns->flags & NAMESPACE_FLAG_INBOX) == 0)
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0)
 		return FALSE;
 
 	glob = imap_match_init(pool_datastack_create(), pattern,
@@ -1091,7 +1091,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		fname = "";
 	}
 	if (*fname == '\0' && *name == '\0' &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* if INBOX is in e.g. ~/Maildir, it shouldn't be possible to
 		   access it also via namespace prefix. */
 		inbox = mailbox_list_get_path(list, "INBOX",

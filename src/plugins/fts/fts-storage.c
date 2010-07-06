@@ -434,7 +434,7 @@ fts_box_get_root(struct mailbox *box, struct mail_namespace **ns_r)
 	*ns_r = ns;
 
 	if (*name == '\0' && ns != mailbox_get_namespace(box) &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* ugly workaround to allow selecting INBOX from a Maildir/
 		   when it's not in the inbox=yes namespace. */
 		return "INBOX";

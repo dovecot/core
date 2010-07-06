@@ -545,7 +545,7 @@ rebuild_namespace_mailboxes(struct mdbox_storage_rebuild_context *ctx,
 	int ret = 0;
 
 	if (ctx->default_list == NULL ||
-	    (ns->flags & NAMESPACE_FLAG_INBOX) != 0)
+	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0)
 		ctx->default_list = ns->list;
 
 	iter = mailbox_list_iter_init(ns->list, "*",

@@ -393,10 +393,13 @@ fs_list_get_subscription_flags(struct fs_list_iterate_context *ctx,
 
 static void inbox_flags_set(struct fs_list_iterate_context *ctx)
 {
+	struct mail_namespace *ns = ctx->ctx.list->ns;
+
 	/* INBOX is always selectable */
 	ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT);
 
-	if (*ctx->ctx.list->ns->prefix != '\0') {
+	if (*ns->prefix != '\0' &&
+	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* we're listing INBOX for a namespace with a prefix.
 		   if there are children for the INBOX, they're returned under
 		   the mailbox prefix, not under the INBOX itself. */
@@ -407,8 +410,15 @@ static void inbox_flags_set(struct fs_list_iterate_context *ctx)
 
 static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 {
+	struct mail_namespace *ns = ctx->ctx.list->ns;
+
 	ctx->info.flags = 0;
-	ctx->info.name = "INBOX";
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
+		ctx->info.name = "INBOX";
+	else {
+		ctx->info.name = p_strconcat(ctx->info_pool,
+					     ns->prefix, "INBOX", NULL);
+	}
 
 	if (mailbox_list_mailbox(ctx->ctx.list, "INBOX", &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
@@ -594,7 +604,7 @@ list_file(struct fs_list_iterate_context *ctx,
 	ctx->info.flags |= fs_list_get_subscription_flags(ctx, list_path);
 
 	/* make sure we give only one correct INBOX */
-	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		if (strcasecmp(list_path, "INBOX") == 0) {
 			if (!list_file_inbox(ctx, fname))
 				return 0;
@@ -604,6 +614,13 @@ list_file(struct fs_list_iterate_context *ctx,
 			/* This is the INBOX. Don't return it under the mailbox
 			   prefix unless it has children. */
 			return 0;
+		}
+	} else if ((ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
+		/* shared namespace */
+		if (strcasecmp(fname, "INBOX") == 0 &&
+		    list_file_is_inbox(ctx, fname)) {
+			if (!list_file_inbox(ctx, fname))
+				return 0;
 		}
 	}
 
@@ -778,7 +795,7 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 	}
 
 	if (!ctx->inbox_found &&
-	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
+	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 	    ((ctx->glob != NULL &&
 	      imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES) ||
 	     ctx->inbox_match)) {
