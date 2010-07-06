@@ -283,19 +283,23 @@ static bool sync_update_ignored_change(struct mail_index_sync_map_ctx *ctx)
 {
 	struct mail_index_transaction_commit_result *result =
 		ctx->view->index->sync_commit_result;
-	uint32_t log_seq;
-	uoff_t log_offset, start_offset;
+	uint32_t prev_log_seq;
+	uoff_t prev_log_offset, trans_start_offset, trans_end_offset;
 
 	if (result == NULL)
 		return FALSE;
 
+	/* we'll return TRUE if this modseq change was written within the
+	   transaction that was just committed */
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
-					       &log_seq, &log_offset);
-	if (log_seq != result->log_file_seq)
+					       &prev_log_seq, &prev_log_offset);
+	if (prev_log_seq != result->log_file_seq)
 		return FALSE;
 
-	start_offset = result->log_file_offset - result->commit_size;
-	if (log_offset < start_offset || log_offset >= result->log_file_offset)
+	trans_end_offset = result->log_file_offset;
+	trans_start_offset = trans_end_offset - result->commit_size;
+	if (prev_log_offset < trans_start_offset ||
+	    prev_log_offset >= trans_end_offset)
 		return FALSE;
 
 	return TRUE;
