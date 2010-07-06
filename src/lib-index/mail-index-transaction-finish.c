@@ -115,7 +115,7 @@ mail_index_transaction_finish_flag_updates(struct mail_index_transaction *t)
 	ARRAY_TYPE(seq_range) keeps;
 	uint32_t seq;
 
-	if (!t->drop_unnecessary_flag_updates)
+	if (!t->drop_unnecessary_flag_updates || !array_is_created(&t->updates))
 		return;
 
 	t_array_init(&keeps, 64);
