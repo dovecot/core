@@ -753,6 +753,10 @@ const char *settings_parse_unalias(struct setting_parser_context *ctx,
 
 	if (!settings_find_key(ctx, key, &def, &link))
 		return NULL;
+	if (def == NULL) {
+		/* strlist */
+		return key;
+	}
 
 	while (def->type == SET_ALIAS) {
 		i_assert(def != link->info->defines);
