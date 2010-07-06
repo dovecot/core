@@ -301,6 +301,9 @@ imap_search_older(struct mail_search_build_context *ctx)
 	struct mail_search_arg *sarg;
 
 	sarg = arg_new_interval(ctx, SEARCH_BEFORE);
+	if (sarg == NULL)
+		return NULL;
+
 	/* we need to match also equal, but SEARCH_BEFORE compares with "<" */
 	sarg->value.time++;
 	return sarg;
