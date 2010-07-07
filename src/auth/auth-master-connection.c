@@ -237,9 +237,12 @@ pass_callback(enum passdb_result result,
 	str = t_str_new(128);
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		str_printfa(str, "PASS\t%u\t", auth_request->id);
-		if (reply != NULL)
+		str_printfa(str, "PASS\t%u\tuser=", auth_request->id);
+		str_tabescape_write(str, auth_request->user);
+		if (reply != NULL) {
+			str_append_c(str, '\t');
 			str_append(str, auth_stream_reply_export(reply));
+		}
 		break;
 	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_USER_DISABLED:
