@@ -1141,6 +1141,11 @@ void mailbox_list_add_change(struct mailbox_list *list,
 	    mail_guid_128_is_empty(mailbox_guid))
 		return;
 
+	if (!list->index_root_dir_created) {
+		if (mailbox_list_create_missing_index_dir(list, NULL) < 0)
+			return;
+	}
+
 	stamp = list->changelog_timestamp != (time_t)-1 ?
 		list->changelog_timestamp : ioloop_time;
 
@@ -1400,6 +1405,42 @@ int mailbox_list_create_parent_dir(struct mailbox_list *list,
 		mailbox_list_set_critical(list, "mkdir_parents(%s) failed: %m",
 					  dir);
 		return -1;
+	}
+	return 0;
+}
+
+int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
+					  const char *name)
+{
+	const char *root_dir, *index_dir, *parent_dir, *p, *origin;
+	mode_t mode;
+	gid_t gid;
+	unsigned int n = 0;
+
+	list->index_root_dir_created = TRUE;
+	root_dir = mailbox_list_get_path(list, name,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	index_dir = mailbox_list_get_path(list, name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*index_dir == '\0' || strcmp(index_dir, root_dir) == 0)
+		return 0;
+
+	mailbox_list_get_dir_permissions(list, name, &mode, &gid, &origin);
+	while (mkdir_chgrp(index_dir, mode, gid, origin) < 0) {
+		if (errno == EEXIST)
+			break;
+
+		p = strrchr(index_dir, '/');
+		if (errno != ENOENT || p == NULL || ++n == 2) {
+			mailbox_list_set_critical(list,
+				"mkdir(%s) failed: %m", index_dir);
+			return -1;
+		}
+		/* create the parent directory first */
+		parent_dir = t_strdup_until(index_dir, p);
+		if (mailbox_list_mkdir(list, parent_dir,
+				       MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
+			return -1;
 	}
 	return 0;
 }
