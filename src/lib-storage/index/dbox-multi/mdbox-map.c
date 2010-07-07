@@ -474,6 +474,11 @@ void mdbox_map_atomic_set_failed(struct mdbox_map_atomic_context *atomic)
 	atomic->success = FALSE;
 }
 
+void mdbox_map_atomic_set_success(struct mdbox_map_atomic_context *atomic)
+{
+	atomic->success = TRUE;
+}
+
 int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **_atomic)
 {
 	struct mdbox_map_atomic_context *atomic = *_atomic;

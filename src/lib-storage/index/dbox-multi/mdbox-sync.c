@@ -308,6 +308,8 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 	ret = mdbox_sync_begin(mbox, flags, atomic, &sync_ctx);
 	if (ret == 0 && sync_ctx != NULL)
 		ret = mdbox_sync_finish(&sync_ctx, TRUE);
+	if (ret == 0)
+		mdbox_map_atomic_set_success(atomic);
 	if (mdbox_map_atomic_finish(&atomic) < 0)
 		ret = -1;
 	return ret;

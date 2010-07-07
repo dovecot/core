@@ -908,6 +908,7 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage)
 
 	atomic = mdbox_map_atomic_begin(storage->map);
 	ret = mdbox_storage_rebuild_in_context(storage, atomic);
+	mdbox_map_atomic_set_success(atomic);
 	if (mdbox_map_atomic_finish(&atomic) < 0)
 		ret = -1;
 	return ret;

@@ -69,6 +69,10 @@ bool mdbox_map_atomic_is_locked(struct mdbox_map_atomic_context *atomic);
 /* When finish() is called, rollback the changes. If data was already written
    to map's transaction log, this desyncs the map and causes a rebuild */
 void mdbox_map_atomic_set_failed(struct mdbox_map_atomic_context *atomic);
+/* Mark this atomic as having succeeded. This is internally done if
+   transaction or append is committed within this atomic, but not when the
+   atomic is used standalone. */
+void mdbox_map_atomic_set_success(struct mdbox_map_atomic_context *atomic);
 /* Commit/rollback changes within this atomic context. */
 int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **atomic);
 
