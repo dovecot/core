@@ -67,8 +67,29 @@ static void module_free(struct module *module)
 }
 
 static bool
-module_check_missing_dependencies(struct module *module,
-				  struct module *all_modules)
+module_check_wrong_binary_dependency(const struct module_dir_load_settings *set,
+				     struct module *module)
+{
+	const char *symbol_name, *binary_dep;
+
+	symbol_name = t_strconcat(module->name, "_binary_dependency", NULL);
+	binary_dep = dlsym(module->handle, symbol_name);
+	if (binary_dep == NULL)
+		return TRUE;
+
+	if (set->binary_name == NULL ||
+	    strcmp(binary_dep, set->binary_name) == 0)
+		return TRUE;
+
+	i_error("Can't load plugin %s: "
+		"Plugin is intended to be used only by %s binary (we're %s)",
+		module->name, binary_dep, set->binary_name);
+	return FALSE;
+}
+
+static bool
+module_check_missing_plugin_dependencies(struct module *module,
+					 struct module *all_modules)
 {
 	const char **deps;
 	struct module *m;
@@ -134,6 +155,7 @@ module_load(const char *path, const char *name,
 	void *handle;
 	struct module *module;
 	const char *const *module_version;
+	bool failed = FALSE;
 
 	if (set->ignore_dlopen_errors) {
 		handle = quiet_dlopen(path, RTLD_GLOBAL | RTLD_NOW);
@@ -143,7 +165,16 @@ module_load(const char *path, const char *name,
 		handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
 		if (handle == NULL) {
 			i_error("dlopen(%s) failed: %s", path, dlerror());
+#ifdef RTLD_LAZY
+			failed = TRUE;
+			/* try to give a better error message by lazily loading
+			   the plugin and checking its dependencies */
+			handle = dlopen(path, RTLD_LAZY);
+			if (handle == NULL)
+				return NULL;
+#else
 			return NULL;
+#endif
 		}
 	}
 
@@ -174,12 +205,12 @@ module_load(const char *path, const char *name,
 	    set->require_init_funcs) {
 		i_error("Module doesn't have %s function: %s",
 			module->init == NULL ? "init" : "deinit", path);
-		module->deinit = NULL;
-		module_free(module);
-		return NULL;
-	}
+		failed = TRUE;
+	} else if (!module_check_wrong_binary_dependency(set, module) ||
+		   !module_check_missing_plugin_dependencies(module, all_modules))
+		failed = TRUE;
 
-	if (!module_check_missing_dependencies(module, all_modules)) {
+	if (failed) {
 		module->deinit = NULL;
 		module_free(module);
 		return NULL;

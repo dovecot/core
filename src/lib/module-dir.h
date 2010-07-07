@@ -5,6 +5,9 @@ struct module_dir_load_settings {
 	/* If version is non-NULL and the module contains a version symbol,
 	   fail the load if they're different. */
 	const char *version;
+	/* Binary name used for checking if plugin is tried to be loaded for
+	   wrong binary. */
+	const char *binary_name;
 
 	/* Require all plugins to have <plugin_name>_init() function */
 	unsigned int require_init_funcs:1;
