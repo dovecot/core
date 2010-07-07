@@ -57,7 +57,7 @@ static void fts_box_name_get_root(struct mail_namespace **ns, const char **name)
 		*ns = (*ns)->alias_for;
 
 	if (**name == '\0' && *ns != orig_ns &&
-	    ((*ns)->flags & NAMESPACE_FLAG_INBOX) != 0) {
+	    ((*ns)->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* ugly workaround to allow selecting INBOX from a Maildir/
 		   when it's not in the inbox=yes namespace. */
 		*name = "INBOX";
@@ -747,7 +747,7 @@ static bool solr_virtual_uid_map(const char *ns_prefix, const char *mailbox,
 	bool convert_inbox;
 
 	ns = solr_get_namespaces(ctx->backend, ctx->box, ns_prefix);
-	convert_inbox = (ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
+	convert_inbox = (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 		strcmp(mailbox, "INBOX") == 0;
 	for (; ns != NULL; ns = ns->alias_chain_next) {
 		vname = convert_inbox ? ns->prefix :
