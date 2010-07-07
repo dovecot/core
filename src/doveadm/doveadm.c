@@ -363,7 +363,12 @@ int main(int argc, char *argv[])
 
 	argc -= optind;
 	argv += optind;
+#ifdef __GLIBC__
+	/* for subcommands allow -options anywhere in command line */
+	optind = 0;
+#else
 	optind = 1;
+#endif
 
 	master_service_init_finish(master_service);
 	if (!doveadm_debug) {
