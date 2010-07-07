@@ -51,6 +51,7 @@ struct mail_storage_service_ctx {
 	struct master_service_settings_cache *set_cache;
 
 	unsigned int debug:1;
+	unsigned int log_initialized:1;
 };
 
 struct mail_storage_service_user {
@@ -502,16 +503,17 @@ user_expand_varstr(struct master_service *service,
 }
 
 static void
-mail_storage_service_init_log(struct master_service *service,
+mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user)
 {
+	ctx->log_initialized = TRUE;
 	T_BEGIN {
 		string_t *str;
 
 		str = t_str_new(256);
 		var_expand(str, user->user_set->mail_log_prefix,
-			   get_var_expand_table(service, &user->input));
-		master_service_init_log(service, str_c(str));
+			   get_var_expand_table(ctx->service, &user->input));
+		master_service_init_log(ctx->service, str_c(str));
 	} T_END;
 }
 
@@ -586,6 +588,8 @@ mail_storage_service_init(struct master_service *service,
 	/* do all the global initialization. delay initializing plugins until
 	   we drop privileges the first time. */
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0) {
+		/* note: we may not have read any settings yet, so this logging
+		   may still be going to wrong location */
 		master_service_init_log(service,
 					t_strconcat(service->name, ": ", NULL));
 	}
@@ -741,6 +745,14 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 		*error_r = MAIL_ERRSTR_CRITICAL_MSG;
 		return -1;
 	}
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0 &&
+	    !ctx->log_initialized) {
+		/* initialize logging again, in case we only read the
+		   settings for the first above */
+		ctx->log_initialized = TRUE;
+		master_service_init_log(ctx->service,
+			t_strconcat(ctx->service->name, ": ", NULL));
+	}
 	user_set = settings_parser_get_list(set_parser)[1];
 
 	if (ctx->conn == NULL)
@@ -851,7 +863,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 	}
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
-		mail_storage_service_init_log(ctx->service, user);
+		mail_storage_service_init_log(ctx, user);
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		if (service_drop_privileges(user_set, user->system_groups_user,
