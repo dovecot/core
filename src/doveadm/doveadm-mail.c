@@ -240,7 +240,7 @@ doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	if (ret < 0)
 		i_fatal("%s", error);
 	else if (ret == 0)
-		i_fatal("User no longer exists");
+		i_fatal("User doesn't exist");
 	mail_storage_service_deinit(&ctx->storage_service);
 }
 
