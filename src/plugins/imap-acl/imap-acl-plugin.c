@@ -647,3 +647,4 @@ void imap_acl_plugin_deinit(void)
 }
 
 const char *imap_acl_plugin_dependencies[] = { "acl", NULL };
+const char imap_acl_plugin_binary_dependency[] = "imap";

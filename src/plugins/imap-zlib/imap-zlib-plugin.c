@@ -154,3 +154,4 @@ void imap_zlib_plugin_deinit(void)
 }
 
 const char *imap_zlib_plugin_dependencies[] = { "zlib", NULL };
+const char imap_zlib_plugin_binary_dependency[] = "imap";

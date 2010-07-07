@@ -235,3 +235,4 @@ void imap_quota_plugin_deinit(void)
 }
 
 const char *imap_quota_plugin_dependencies[] = { "quota", NULL };
+const char imap_quota_plugin_binary_dependency[] = "imap";
