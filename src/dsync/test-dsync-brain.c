@@ -268,9 +268,9 @@ static void test_dsync_brain_full(void)
 	test_assert(!test_dsync_worker_next_box_event(src_test_worker, &box_event));
 	test_assert(!test_dsync_worker_next_box_event(dest_test_worker, &box_event));
 
+	dsync_brain_deinit(&brain);
 	dsync_worker_deinit(&src_worker);
 	dsync_worker_deinit(&dest_worker);
-	dsync_brain_deinit(&brain);
 
 	test_end();
 }
