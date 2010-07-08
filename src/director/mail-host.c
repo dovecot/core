@@ -50,39 +50,35 @@ mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip)
 
 static int mail_host_add(struct mail_host_list *list, const char *host)
 {
-	struct ip_addr ip;
+	struct ip_addr *ips;
+	unsigned int i, ips_count;
 
-	if (net_addr2ip(host, &ip) < 0) {
-		i_error("Invalid IP address: %s", host);
+	if (net_gethostbyname(host, &ips, &ips_count) < 0) {
+		i_error("Unknown mail host: %s", host);
 		return -1;
 	}
 
-	mail_host_add_ip(list, &ip);
+	for (i = 0; i < ips_count; i++)
+		mail_host_add_ip(list, &ips[i]);
 	return 0;
 }
 
 static int
-mail_hosts_add_range(struct mail_host_list *list, const char *host1, const char *host2)
+mail_hosts_add_range(struct mail_host_list *list,
+		     struct ip_addr ip1, struct ip_addr ip2)
 {
-	struct ip_addr ip1, ip2;
 	uint32_t *ip1_arr, *ip2_arr;
 	uint32_t i1, i2;
 	unsigned int i, j, max_bits, last_bits;
 
-	if (net_addr2ip(host1, &ip1) < 0) {
-		i_error("Invalid IP address: %s", host1);
-		return -1;
-	}
-	if (net_addr2ip(host2, &ip2) < 0) {
-		i_error("Invalid IP address: %s", host2);
-		return -1;
-	}
 	if (ip1.family != ip2.family) {
-		i_error("IP address family mismatch: %s vs %s", host1, host2);
+		i_error("IP address family mismatch: %s vs %s",
+			net_ip2addr(&ip1), net_ip2addr(&ip2));
 		return -1;
 	}
 	if (net_ip_cmp(&ip1, &ip2) > 0) {
-		i_error("IP addresses reversed: %s-%s", host1, host2);
+		i_error("IP addresses reversed: %s-%s",
+			net_ip2addr(&ip1), net_ip2addr(&ip2));
 		return -1;
 	}
 	if (IPADDR_IS_V4(&ip1)) {
@@ -106,7 +102,7 @@ mail_hosts_add_range(struct mail_host_list *list, const char *host1, const char 
 	for (i = 0; i < (max_bits-last_bits)/32; i++) {
 		if (ip1_arr[i] != ip2_arr[i]) {
 			i_error("IP address range too large: %s-%s",
-				host1, host2);
+				net_ip2addr(&ip1), net_ip2addr(&ip2));
 			return -1;
 		}
 	}
@@ -116,7 +112,7 @@ mail_hosts_add_range(struct mail_host_list *list, const char *host1, const char 
 	for (j = last_bits; j < 32; j++) {
 		if ((i1 & (1 << j)) != (i2 & (1 << j))) {
 			i_error("IP address range too large: %s-%s",
-				host1, host2);
+				net_ip2addr(&ip1), net_ip2addr(&ip2));
 			return -1;
 		}
 	}
@@ -136,16 +132,26 @@ int mail_hosts_parse_and_add(struct mail_host_list *list,
 	int ret = 0;
 
 	T_BEGIN {
-		const char *const *tmp, *p;
+		const char *const *tmp, *p, *host1, *host2;
+		struct ip_addr ip1, ip2;
 
 		tmp = t_strsplit_spaces(hosts_string, " ");
 		for (; *tmp != NULL; tmp++) {
 			p = strchr(*tmp, '-');
-			if (p == NULL) {
-				if (mail_host_add(list, *tmp) < 0)
-					ret = -1;
-			} else if (mail_hosts_add_range(list, t_strdup_until(*tmp, p),
-							p + 1) < 0)
+			if (p != NULL) {
+				/* see if this is ip1-ip2 range */
+				host1 = t_strdup_until(*tmp, p);
+				host2 = p + 1;
+				if (net_addr2ip(host1, &ip1) == 0 &&
+				    net_addr2ip(host2, &ip2) == 0) {
+					if (mail_hosts_add_range(list, ip1,
+								 ip2) < 0)
+						ret = -1;
+					continue;
+				}
+			}
+
+			if (mail_host_add(list, *tmp) < 0)
 				ret = -1;
 		}
 	} T_END;
