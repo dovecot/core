@@ -221,8 +221,9 @@ fs_quota_root_find_mountpoint(struct quota *quota,
 	return empty;
 }
 
-static void fs_quota_mount_init(struct fs_quota_root *root,
-				struct fs_quota_mountpoint *mount)
+static void
+fs_quota_mount_init(struct fs_quota_root *root,
+		    struct fs_quota_mountpoint *mount, const char *dir)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
@@ -241,6 +242,13 @@ static void fs_quota_mount_init(struct fs_quota_root *root,
 	}
 #endif
 	root->mount = mount;
+
+	if (root->root.quota->set->debug) {
+		i_debug("fs quota add mailbox dir = %s", dir);
+		i_debug("fs quota block device = %s", mount->device_path);
+		i_debug("fs quota mount point = %s", mount->mount_path);
+		i_debug("fs quota mount type = %s", mount->type);
+	}
 
 	/* if there are more unused quota roots, copy this mount to them */
 	roots = array_get(&root->root.quota->roots, &count);
@@ -268,8 +276,10 @@ static void fs_quota_add_missing_mounts(struct quota *quota)
 			continue;
 
 		mount = fs_quota_mountpoint_get(root->storage_mount_path);
-		if (mount != NULL)
-			fs_quota_mount_init(root, mount);
+		if (mount != NULL) {
+			fs_quota_mount_init(root, mount,
+					    root->storage_mount_path);
+		}
 	}
 }
 
@@ -284,16 +294,9 @@ static void fs_quota_namespace_added(struct quota *quota,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	mount = fs_quota_mountpoint_get(dir);
 	if (mount != NULL) {
-		if (quota->set->debug) {
-			i_debug("fs quota add mailbox dir = %s", dir);
-			i_debug("fs quota block device = %s", mount->device_path);
-			i_debug("fs quota mount point = %s", mount->mount_path);
-			i_debug("fs quota mount type = %s", mount->type);
-		}
-
 		root = fs_quota_root_find_mountpoint(quota, mount);
 		if (root != NULL && root->mount == NULL)
-			fs_quota_mount_init(root, mount);
+			fs_quota_mount_init(root, mount, dir);
 		else
 			fs_quota_mountpoint_free(mount);
 	}
