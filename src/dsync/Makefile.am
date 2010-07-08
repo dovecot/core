@@ -12,7 +12,8 @@ AM_CPPFLAGS = \
 
 if !BUILD_SHARED_LIBS
 unused_objects = \
-	../lib/mountpoint.o
+	../lib/mountpoint.o \
+	../lib-storage/mail-search-parser-imap.o
 endif
 
 libs = \
