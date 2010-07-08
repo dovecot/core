@@ -167,7 +167,7 @@ static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 	    ext_size >= sizeof(*ext_hdr) &&
 	    ctx->mbox->prev_change_counter == ext_hdr->change_counter) {
 		/* fully refreshed */
-		return TRUE;
+		return 1;
 	}
 
 	ctx->mbox->prev_uid_validity = hdr->uid_validity;
@@ -231,7 +231,9 @@ static int virtual_sync_ext_header_read(struct virtual_sync_context *ctx)
 		} else {
 			bbox->mailbox_id = mailboxes[i].id;
 			bbox->sync_uid_validity = mailboxes[i].uid_validity;
-			bbox->sync_highest_modseq = mailboxes[i].highest_modseq;
+			bbox->ondisk_highest_modseq =
+				bbox->sync_highest_modseq =
+				mailboxes[i].highest_modseq;
 			bbox->sync_next_uid = mailboxes[i].next_uid;
 			bbox->sync_mailbox_idx = i;
 		}
@@ -292,7 +294,7 @@ static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
 		mailbox.id = bboxes[i]->mailbox_id;
 		mailbox.name_len = strlen(bboxes[i]->name);
 		mailbox.uid_validity = bboxes[i]->sync_uid_validity;
-		mailbox.highest_modseq = bboxes[i]->sync_highest_modseq;
+		mailbox.highest_modseq = bboxes[i]->ondisk_highest_modseq;
 		mailbox.next_uid = bboxes[i]->sync_next_uid;
 		buffer_write(buf, mailbox_pos, &mailbox, sizeof(mailbox));
 		buffer_write(buf, name_pos, bboxes[i]->name, mailbox.name_len);
@@ -981,17 +983,24 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 	struct mailbox_status status;
 	struct virtual_mail_index_mailbox_record mailbox;
 	unsigned int mailbox_offset;
+	uint64_t wanted_ondisk_highest_modseq;
 
 	mailbox_get_status(bbox->box, STATUS_UIDVALIDITY |
 			   STATUS_HIGHESTMODSEQ, &status);
+	wanted_ondisk_highest_modseq =
+		array_count(&bbox->sync_pending_removes) > 0 ? 0 :
+		status.highest_modseq;
+
 	if (bbox->sync_uid_validity == status.uidvalidity &&
 	    bbox->sync_next_uid == status.uidnext &&
-	    bbox->sync_highest_modseq == status.highest_modseq)
+	    bbox->sync_highest_modseq == status.highest_modseq &&
+	    bbox->ondisk_highest_modseq == wanted_ondisk_highest_modseq)
 		return;
 
 	/* mailbox changed - update extension header */
 	bbox->sync_uid_validity = status.uidvalidity;
 	bbox->sync_highest_modseq = status.highest_modseq;
+	bbox->ondisk_highest_modseq = wanted_ondisk_highest_modseq;
 	bbox->sync_next_uid = status.uidnext;
 
 	if (ctx->ext_header_rewrite) {
@@ -1001,7 +1010,7 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 
 	memset(&mailbox, 0, sizeof(mailbox));
 	mailbox.uid_validity = bbox->sync_uid_validity;
-	mailbox.highest_modseq = bbox->sync_highest_modseq;
+	mailbox.highest_modseq = bbox->ondisk_highest_modseq;
 	mailbox.next_uid = bbox->sync_next_uid;
 
 	mailbox_offset = sizeof(struct virtual_mail_index_header) +

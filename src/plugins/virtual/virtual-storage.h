@@ -69,6 +69,9 @@ struct virtual_backend_box {
 	uint32_t sync_uid_validity;
 	uint32_t sync_next_uid;
 	uint64_t sync_highest_modseq;
+	/* this value is either 0 or same as sync_highest_modseq. it's kept 0
+	   when there are pending removes that have yet to be expunged */
+	uint64_t ondisk_highest_modseq;
 
 	struct mail_search_args *search_args;
 	struct mail_search_result *search_result;
