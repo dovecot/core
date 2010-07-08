@@ -29,4 +29,6 @@ director_connection_find_outgoing(struct director *dir,
 void director_connection_cork(struct director_connection *conn);
 void director_connection_uncork(struct director_connection *conn);
 
+void director_connections_deinit(struct director *dir);
+
 #endif

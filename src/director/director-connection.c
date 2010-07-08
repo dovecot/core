@@ -1135,3 +1135,14 @@ void director_connection_wait_sync(struct director_connection *conn)
 				    director_connection_ping, conn);
 	conn->sync_ping = TRUE;
 }
+
+void director_connections_deinit(struct director *dir)
+{
+	struct director_connection *conn;
+
+	while (dir->connections != NULL) {
+		conn = dir->connections;
+		dir->connections = conn->next;
+		director_connection_deinit(&conn);
+	}
+}

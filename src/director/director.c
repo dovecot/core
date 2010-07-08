@@ -381,11 +381,7 @@ void director_deinit(struct director **_dir)
 
 	*_dir = NULL;
 
-	if (dir->left != NULL)
-		director_connection_deinit(&dir->left);
-	if (dir->right != NULL)
-		director_connection_deinit(&dir->right);
-
+	director_connections_deinit(dir);
 	user_directory_deinit(&dir->users);
 	mail_hosts_deinit(&dir->mail_hosts);
 	mail_hosts_deinit(&dir->orig_config_hosts);
