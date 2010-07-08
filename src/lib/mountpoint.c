@@ -164,6 +164,7 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 		i_error("fopen(%s) failed: %m", MTAB_PATH);
 		return -1;
 	}
+	resetmnttab(f);
 	while ((getextmntent(f, &ent.ext, sizeof(ent.ext))) == 0) {
 		if (hasmntopt(&ent.ent, MNTOPT_IGNORE) != NULL)
 			continue;
