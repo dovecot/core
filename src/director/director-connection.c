@@ -492,6 +492,7 @@ static void director_handshake_cmd_done(struct director_connection *conn)
 		/* we're connected to both directors. see if the ring is
 		   finished by sending a SYNC. if we get it back, it's done. */
 		dir->sync_seq++;
+		dir->ring_synced = FALSE;
 		director_connection_send(dir->right,
 			t_strdup_printf("SYNC\t%s\t%u\t%u\n",
 					net_ip2addr(&dir->self_ip),
