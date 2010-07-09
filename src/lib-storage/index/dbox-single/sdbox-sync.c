@@ -18,7 +18,7 @@ dbox_sync_file_move_if_needed(struct dbox_file *file,
 		/* move the file. if it fails, nothing broke so
 		   don't worry about it. */
 		if (dbox_file_open(file, &deleted) > 0 && !deleted)
-			(void)dbox_file_move(file, move_to_alt);
+			(void)sdbox_file_move(file, move_to_alt);
 	}
 }
 

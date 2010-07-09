@@ -184,8 +184,6 @@ int dbox_file_metadata_read(struct dbox_file *file);
 const char *dbox_file_metadata_get(struct dbox_file *file,
 				   enum dbox_metadata_key key);
 
-/* Move the file to alt path or back. */
-int dbox_file_move(struct dbox_file *file, bool alt_path);
 /* Fix a broken dbox file by rename()ing over it with a fixed file. Everything
    before start_offset is assumed to be valid and is simply copied. The file
    is reopened afterwards. Returns 0 if ok, -1 if I/O error. */

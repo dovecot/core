@@ -19,5 +19,7 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid);
 
 int sdbox_file_create_fd(struct dbox_file *file, const char *path,
 			 bool parents);
+/* Move the file to alt path or back. */
+int sdbox_file_move(struct dbox_file *file, bool alt_path);
 
 #endif

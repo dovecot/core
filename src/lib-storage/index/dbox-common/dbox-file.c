@@ -11,7 +11,6 @@
 #include "file-lock.h"
 #include "file-dotlock.h"
 #include "mkdir-parents.h"
-#include "fdatasync-path.h"
 #include "eacces-error.h"
 #include "str.h"
 #include "dbox-storage.h"
@@ -676,116 +675,6 @@ const char *dbox_file_metadata_get(struct dbox_file *file,
 			return metadata[i] + 1;
 	}
 	return NULL;
-}
-
-int dbox_file_move(struct dbox_file *file, bool alt_path)
-{
-	struct mail_storage *storage = &file->storage->storage;
-	struct ostream *output;
-	const char *dest_dir, *temp_path, *dest_path, *p;
-	struct stat st;
-	bool deleted;
-	int out_fd, ret = 0;
-
-	i_assert(file->input != NULL);
-
-	if (dbox_file_is_in_alt(file) == alt_path)
-		return 0;
-
-	if (stat(file->cur_path, &st) < 0 && errno == ENOENT) {
-		/* already expunged/moved by another session */
-		dbox_file_unlock(file);
-		return 0;
-	}
-
-	dest_path = !alt_path ? file->primary_path : file->alt_path;
-	p = strrchr(dest_path, '/');
-	i_assert(p != NULL);
-	dest_dir = t_strdup_until(dest_path, p);
-	temp_path = t_strdup_printf("%s/%s", dest_dir,
-				    dbox_generate_tmp_filename());
-
-	/* first copy the file. make sure to catch every possible error
-	   since we really don't want to break the file. */
-	out_fd = file->storage->v.file_create_fd(file, temp_path, TRUE);
-	if (out_fd == -1)
-		return -1;
-
-	output = o_stream_create_fd_file(out_fd, 0, FALSE);
-	i_stream_seek(file->input, 0);
-	while ((ret = o_stream_send_istream(output, file->input)) > 0) ;
-	if (ret == 0)
-		ret = o_stream_flush(output);
-	if (output->stream_errno != 0) {
-		errno = output->stream_errno;
-		mail_storage_set_critical(storage, "write(%s) failed: %m",
-					  temp_path);
-		ret = -1;
-	} else if (file->input->stream_errno != 0) {
-		errno = file->input->stream_errno;
-		dbox_file_set_syscall_error(file, "ftruncate()");
-		ret = -1;
-	} else if (ret < 0) {
-		mail_storage_set_critical(storage,
-			"o_stream_send_istream(%s, %s) "
-			"failed with unknown error",
-			temp_path, file->cur_path);
-	}
-	o_stream_unref(&output);
-
-	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER && ret == 0) {
-		if (fsync(out_fd) < 0) {
-			mail_storage_set_critical(storage,
-				"fsync(%s) failed: %m", temp_path);
-			ret = -1;
-		}
-	}
-	if (close(out_fd) < 0) {
-		mail_storage_set_critical(storage,
-			"close(%s) failed: %m", temp_path);
-		ret = -1;
-	}
-	if (ret < 0) {
-		(void)unlink(temp_path);
-		return -1;
-	}
-
-	/* the temp file was successfully written. rename it now to the
-	   destination file. the destination shouldn't exist, but if it does
-	   its contents should be the same (except for maybe older metadata) */
-	if (rename(temp_path, dest_path) < 0) {
-		mail_storage_set_critical(storage,
-			"rename(%s, %s) failed: %m", temp_path, dest_path);
-		(void)unlink(temp_path);
-		return -1;
-	}
-	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
-		if (fdatasync_path(dest_dir) < 0) {
-			mail_storage_set_critical(storage,
-				"fdatasync(%s) failed: %m", dest_dir);
-			(void)unlink(dest_path);
-			return -1;
-		}
-	}
-	if (unlink(file->cur_path) < 0) {
-		dbox_file_set_syscall_error(file, "unlink()");
-		if (errno == EACCES) {
-			/* configuration problem? revert the write */
-			(void)unlink(dest_path);
-		}
-		/* who knows what happened to the file. keep both just to be
-		   sure both won't get deleted. */
-		return -1;
-	}
-
-	/* file was successfully moved - reopen it */
-	dbox_file_close(file);
-	if (dbox_file_open(file, &deleted) <= 0) {
-		mail_storage_set_critical(storage,
-			"dbox_file_move(%s): reopening file failed", dest_path);
-		return -1;
-	}
-	return 0;
 }
 
 void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
