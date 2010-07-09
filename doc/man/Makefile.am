@@ -65,5 +65,71 @@ EXTRA_DIST = \
 
 CLEANFILES = $(nodist_man1_MANS)
 
-%.1: $(srcdir)/%.1.in Makefile
+doveadm.1: $(srcdir)/doveadm.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-altmove.1: $(srcdir)/doveadm-altmove.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-auth.1: $(srcdir)/doveadm-auth.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-director.1: $(srcdir)/doveadm-director.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-dump.1: $(srcdir)/doveadm-dump.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-expunge.1: $(srcdir)/doveadm-expunge.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-fetch.1: $(srcdir)/doveadm-fetch.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-force-resync.1: $(srcdir)/doveadm-force-resync.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-help.1: $(srcdir)/doveadm-help.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-kick.1: $(srcdir)/doveadm-kick.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-log.1: $(srcdir)/doveadm-log.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-mailbox.1: $(srcdir)/doveadm-mailbox.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-penalty.1: $(srcdir)/doveadm-penalty.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-purge.1: $(srcdir)/doveadm-purge.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-pw.1: $(srcdir)/doveadm-pw.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-quota.1: $(srcdir)/doveadm-quota.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-search.1: $(srcdir)/doveadm-search.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-user.1: $(srcdir)/doveadm-user.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveadm-who.1: $(srcdir)/doveadm-who.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+doveconf.1: $(srcdir)/doveconf.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+dovecot.1: $(srcdir)/dovecot.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+dovecot-lda.1: $(srcdir)/dovecot-lda.1.in Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
+
+dsync.1: $(srcdir)/dsync.1.in Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(sysconfdir) < $< > $@
