@@ -272,7 +272,7 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 	if (mail_user_auth_master_conn == NULL)
 		return 0;
 
-	userdb_pool = pool_alloconly_create("userdb lookup", 512);
+	userdb_pool = pool_alloconly_create("userdb lookup", 2048);
 	ret = auth_master_user_lookup(mail_user_auth_master_conn,
 				      user->username, &info, userdb_pool,
 				      &username, &fields);

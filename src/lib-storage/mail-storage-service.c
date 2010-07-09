@@ -760,7 +760,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	/* load global plugins */
 	mail_storage_service_load_modules(ctx, user_info, user_set);
 
-	temp_pool = pool_alloconly_create("userdb lookup", 1024);
+	temp_pool = pool_alloconly_create("userdb lookup", 2048);
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
 		ret = service_auth_userdb_lookup(ctx, input, temp_pool,
 						 &username, &userdb_fields,
