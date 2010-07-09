@@ -1,13 +1,9 @@
- - config: why is old-set-parser giving Fatal failures for some people when
-   converting an old setting?
  - NTLMv1 and LM should be disabled if disable_plaintext_auth=yes
  - SEARCH SENT*/HEADER/etc. doesn't seem optimized when using with TEXT/BODY
 
  - fts-solr: crashes if expunge is done while search is indexing
  - fts-solr: handle DELETE, RENAME. use mailbox GUIDs (optionally)
 
- - virtual: removed messages don't get expunged unless EXPUNGE is issued in
-   same session. otherwise they get forgotten and never removed.
  - mdbox
     - dotlocking: cleanup should delete stale *.lock files
     - purging seems to be inefficient. run imaptest for a while, get >500
@@ -76,6 +72,8 @@
  - fsck -> log_file_tail_offset 2273345664 -> 996 ->
    mail-transaction-log.c: line 341 (mail_transaction_log_set_mailbox_sync_pos):
    assertion failed: (file_offset >= log->head->saved_tail_offset)
+ - virtual: If last message matching INTHREAD rule gets expunged, the rest of
+   the thread doesn't go away
  - virtual: "Searched n% of the mailbox" gives broken numbers since
    ctx->seq jumps around. And why is it also returned when fts is enabled
    along with "Indexed n% of the mailbox"?
