@@ -287,7 +287,7 @@ dsync_brain_mailbox_action(struct dsync_brain *brain,
 		break;
 	case DSYNC_BRAIN_MAILBOX_ACTION_CREATE:
 		new_box = *action_box;
-		new_box.uid_next = 0;
+		new_box.uid_next = action_box->uid_validity == 0 ? 0 : 1;
 		new_box.highest_modseq = 0;
 		dsync_worker_create_mailbox(action_worker, &new_box);
 		break;
