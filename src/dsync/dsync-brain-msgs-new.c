@@ -52,7 +52,6 @@ static void msg_save_callback(void *context)
 {
 	struct dsync_brain_msg_save_context *ctx = context;
 
-	i_warning("save done");
 	if (--ctx->iter->save_results_left == 0 && !ctx->iter->adding_msgs)
 		dsync_brain_msg_sync_add_new_msgs(ctx->iter);
 	i_free(ctx);
@@ -68,7 +67,7 @@ static void msg_get_callback(enum dsync_msg_get_result result,
 
 	i_assert(ctx->iter->save_results_left > 0);
 
-	mailbox = array_idx(&->iter->sync->mailboxes, ctx->mailbox_idx);
+	mailbox = array_idx(&ctx->iter->sync->mailboxes, ctx->mailbox_idx);
 	switch (result) {
 	case DSYNC_MSG_GET_RESULT_SUCCESS:
 		/* the mailbox may have changed, make sure we've the
@@ -176,7 +175,6 @@ dsync_brain_msg_sync_add_new_msg(struct dsync_brain_msg_iter *dest_iter,
 		save_ctx->msg = msg->msg;
 		save_ctx->mailbox_idx = dest_iter->mailbox_idx;
 
-		i_warning("retr %d", save_ctx->msg->uid);
 		dest_iter->save_results_left++;
 		dest_iter->adding_msgs = TRUE;
 		dsync_worker_msg_get(src_iter->worker, src_mailbox,
