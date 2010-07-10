@@ -122,6 +122,7 @@ struct dsync_brain {
 	struct dsync_brain_subs_list *dest_subs_list;
 
 	struct dsync_brain_mailbox_sync *mailbox_sync;
+	struct timeout *to;
 
 	unsigned int failed:1;
 	unsigned int verbose:1;

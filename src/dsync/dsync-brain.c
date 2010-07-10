@@ -55,6 +55,8 @@ int dsync_brain_deinit(struct dsync_brain **_brain)
 
 	if (brain->state != DSYNC_STATE_SYNC_END)
 		ret = -1;
+	if (brain->to != NULL)
+		timeout_remove(&brain->to);
 
 	if (ret < 0) {
 		/* make sure we unreference save input streams before workers
@@ -783,11 +785,14 @@ static void dsync_brain_worker_finished(bool success, void *context)
 		dsync_brain_fail(brain);
 
 	brain->state++;
-	dsync_brain_sync(brain);
+	if (brain->to == NULL)
+		brain->to = timeout_add(0, dsync_brain_sync, brain);
 }
 
 void dsync_brain_sync(struct dsync_brain *brain)
 {
+	if (brain->to != NULL)
+		timeout_remove(&brain->to);
 	switch (brain->state) {
 	case DSYNC_STATE_GET_MAILBOXES:
 		i_assert(brain->src_mailbox_list == NULL);

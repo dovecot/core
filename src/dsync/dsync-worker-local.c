@@ -1562,8 +1562,8 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 	worker->save_callback = NULL;
 	i_stream_unref(&worker->save_input);
 
-	callback(worker->save_context);
 	dsync_worker_try_finish(worker);
+	callback(worker->save_context);
 }
 
 static void
