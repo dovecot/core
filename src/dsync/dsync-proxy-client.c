@@ -52,7 +52,7 @@ struct proxy_client_dsync_worker {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
-	struct timeout *to;
+	struct timeout *to, *to_input;
 
 	mailbox_guid_t selected_box_guid;
 
@@ -121,6 +121,13 @@ proxy_client_worker_read_line(struct proxy_client_dsync_worker *worker,
 }
 
 static void
+proxy_client_worker_timeout_input(struct proxy_client_dsync_worker *worker)
+{
+	timeout_remove(&worker->to_input);
+	proxy_client_worker_input(worker);
+}
+
+static void
 proxy_client_worker_msg_get_done(struct proxy_client_dsync_worker *worker)
 {
 	struct istream *input = worker->msg_get_data.input;
@@ -137,6 +144,13 @@ proxy_client_worker_msg_get_done(struct proxy_client_dsync_worker *worker)
 	   input as commands. make sure saving read everything. */
 	while ((i_stream_read_data(input, &data, &size, 0)) > 0)
 		i_stream_skip(input, size);
+
+	/* some input may already be buffered */
+	if (worker->to_input == NULL) {
+		worker->to_input =
+			timeout_add(0, proxy_client_worker_timeout_input,
+				    worker);
+	}
 }
 
 static bool
@@ -356,6 +370,8 @@ static void proxy_client_worker_deinit(struct dsync_worker *_worker)
 		(struct proxy_client_dsync_worker *)_worker;
 
 	timeout_remove(&worker->to);
+	if (worker->to_input != NULL)
+		timeout_remove(&worker->to_input);
 	if (worker->io != NULL)
 		io_remove(&worker->io);
 	i_stream_destroy(&worker->input);
