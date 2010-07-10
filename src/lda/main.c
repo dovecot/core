@@ -385,9 +385,6 @@ int main(int argc, char *argv[])
 	ctx.set = mail_storage_service_user_get_set(service_user)[1];
 
 	/* create a separate mail user for the internal namespace */
-	if (master_service_set(master_service,
-			       "mail_full_filesystem_access=yes") < 0)
-		i_unreached();
 	sets = master_service_settings_get_others(master_service);
 	raw_mail_user = mail_user_alloc(user, ctx.dest_user->set_info, sets[0]);
 	mail_user_set_home(raw_mail_user, "/");
