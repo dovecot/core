@@ -57,24 +57,33 @@ static void run_cmd(const char *const *args, int *fd_in_r, int *fd_out_r)
 	}
 }
 
-static bool mirror_get_remote_cmd(char **argv, const char *const **cmd_args_r)
+static void
+mirror_get_remote_cmd_line(char **argv, const char *const **cmd_args_r)
 {
 	ARRAY_TYPE(const_string) cmd_args;
 	unsigned int i;
+	const char *p;
+
+	t_array_init(&cmd_args, 16);
+	for (i = 0; argv[i] != NULL; i++) {
+		p = argv[i];
+		array_append(&cmd_args, &p, 1);
+	}
+
+	p = "server"; array_append(&cmd_args, &p, 1);
+	(void)array_append_space(&cmd_args);
+	*cmd_args_r = array_idx(&cmd_args, 0);
+}
+
+static bool mirror_get_remote_cmd(char **argv, const char *const **cmd_args_r)
+{
+	ARRAY_TYPE(const_string) cmd_args;
 	const char *p, *user, *host;
 
-	t_array_init(&cmd_args, 8);
 	if (argv[1] != NULL) {
 		/* more than one parameter, so it contains a full command
 		   (e.g. ssh host dsync) */
-		for (i = 0; argv[i] != NULL; i++) {
-			p = argv[i];
-			array_append(&cmd_args, &p, 1);
-		}
-
-		p = "server"; array_append(&cmd_args, &p, 1);
-		(void)array_append_space(&cmd_args);
-		*cmd_args_r = array_idx(&cmd_args, 0);
+		mirror_get_remote_cmd_line(argv, cmd_args_r);
 		return TRUE;
 	}
 
@@ -93,7 +102,8 @@ static bool mirror_get_remote_cmd(char **argv, const char *const **cmd_args_r)
 		      backwards compatibility.
 		   b) script/path */
 		argv = p_strsplit(pool_datastack_create(), argv[0], " ");
-		return mirror_get_remote_cmd(argv, cmd_args_r);
+		mirror_get_remote_cmd_line(argv, cmd_args_r);
+		return TRUE;
 	}
 
 	/* [user@]host */
@@ -107,6 +117,7 @@ static bool mirror_get_remote_cmd(char **argv, const char *const **cmd_args_r)
 
 	/* we'll assume virtual users, so in user@host it really means not to
 	   give ssh a username, but to give dsync -u user parameter. */
+	t_array_init(&cmd_args, 8);
 	array_append(&cmd_args, &ssh_cmd, 1);
 	array_append(&cmd_args, &host, 1);
 	p = "dsync"; array_append(&cmd_args, &p, 1);
