@@ -56,6 +56,8 @@ struct proxy_client_dsync_worker {
 
 	mailbox_guid_t selected_box_guid;
 
+	dsync_worker_save_callback_t *save_callback;
+	void *save_context;
 	struct istream *save_input;
 	struct io *save_io;
 	bool save_input_last_lf;
@@ -907,6 +909,7 @@ proxy_client_worker_msg_copy(struct dsync_worker *_worker,
 
 static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker)
 {
+	dsync_worker_save_callback_t *callback;
 	const unsigned char *data;
 	size_t size;
 	int ret;
@@ -947,13 +950,20 @@ static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker)
 		i_assert(!i_stream_have_bytes_left(worker->save_input));
 		o_stream_send(worker->output, "\n.\n", 3);
 	}
+
+	callback = worker->save_callback;
+	worker->save_callback = NULL;
 	i_stream_unref(&worker->save_input);
+
+	callback(worker->save_context);
 }
 
 static void
 proxy_client_worker_msg_save(struct dsync_worker *_worker,
 			     const struct dsync_message *msg,
-			     const struct dsync_msg_static_data *data)
+			     const struct dsync_msg_static_data *data,
+			     dsync_worker_save_callback_t *callback,
+			     void *context)
 {
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
@@ -972,6 +982,8 @@ proxy_client_worker_msg_save(struct dsync_worker *_worker,
 	} T_END;
 
 	i_assert(worker->save_io == NULL);
+	worker->save_callback = callback;
+	worker->save_context = context;
 	worker->save_input = data->input;
 	worker->save_input_last_lf = TRUE;
 	i_stream_ref(worker->save_input);

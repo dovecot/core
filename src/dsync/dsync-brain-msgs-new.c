@@ -48,6 +48,15 @@ struct dsync_brain_msg_save_context {
 static void
 dsync_brain_msg_sync_add_new_msgs(struct dsync_brain_msg_iter *iter);
 
+static void msg_save_callback(void *context)
+{
+	struct dsync_brain_msg_save_context *ctx = context;
+
+	if (--ctx->iter->save_results_left == 0 && !ctx->iter->adding_msgs)
+		dsync_brain_msg_sync_add_new_msgs(ctx->iter);
+	i_free(ctx);
+}
+
 static void msg_get_callback(enum dsync_msg_get_result result,
 			     const struct dsync_msg_static_data *data,
 			     void *context)
@@ -55,6 +64,8 @@ static void msg_get_callback(enum dsync_msg_get_result result,
 	struct dsync_brain_msg_save_context *ctx = context;
 	const struct dsync_brain_mailbox *mailbox;
 	struct istream *input;
+
+	i_assert(ctx->iter->save_results_left > 0);
 
 	mailbox = array_idx(&ctx->iter->sync->mailboxes, ctx->mailbox_idx);
 	switch (result) {
@@ -64,21 +75,21 @@ static void msg_get_callback(enum dsync_msg_get_result result,
 		dsync_worker_select_mailbox(ctx->iter->worker, &mailbox->box);
 
 		input = data->input;
-		dsync_worker_msg_save(ctx->iter->worker, ctx->msg, data);
+		dsync_worker_msg_save(ctx->iter->worker, ctx->msg, data,
+				      msg_save_callback, ctx);
 		i_stream_unref(&input);
 		break;
 	case DSYNC_MSG_GET_RESULT_EXPUNGED:
 		/* mail got expunged during sync. just skip this. */
+		msg_save_callback(ctx);
 		break;
 	case DSYNC_MSG_GET_RESULT_FAILED:
 		i_error("msg-get failed: box=%s uid=%u guid=%s",
 			mailbox->box.name, ctx->msg->uid, ctx->msg->guid);
 		dsync_brain_fail(ctx->iter->sync->brain);
+		msg_save_callback(ctx);
 		break;
 	}
-	if (--ctx->iter->save_results_left == 0 && !ctx->iter->adding_msgs)
-		dsync_brain_msg_sync_add_new_msgs(ctx->iter);
-	i_free(ctx);
 }
 
 static void
@@ -297,8 +308,9 @@ dsync_brain_msg_sync_add_new_msgs(struct dsync_brain_msg_iter *iter)
 		/* all messages saved for this mailbox. continue with saving
 		   its conflicts and waiting for copies to finish. */
 		dsync_brain_mailbox_save_conflicts(iter);
-		if (iter->copy_results_left > 0) {
-			/* wait for copies to finish */
+		if (iter->save_results_left > 0 ||
+		    iter->copy_results_left > 0) {
+			/* wait for saves/copies to finish */
 			return;
 		}
 

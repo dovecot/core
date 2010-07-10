@@ -62,7 +62,9 @@ struct dsync_worker_vfuncs {
 			 dsync_worker_copy_callback_t *callback, void *context);
 	void (*msg_save)(struct dsync_worker *worker,
 			 const struct dsync_message *msg,
-			 const struct dsync_msg_static_data *data);
+			 const struct dsync_msg_static_data *data,
+			 dsync_worker_save_callback_t *callback,
+			 void *context);
 	void (*msg_save_cancel)(struct dsync_worker *worker);
 	void (*msg_get)(struct dsync_worker *worker,
 			const mailbox_guid_t *mailbox, uint32_t uid,

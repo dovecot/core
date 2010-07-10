@@ -32,6 +32,7 @@ struct dsync_proxy_server {
 
 	unsigned int handshake_received:1;
 	unsigned int subs_sending_unsubscriptions:1;
+	unsigned int save_finished:1;
 	unsigned int finished:1;
 };
 

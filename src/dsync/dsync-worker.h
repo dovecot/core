@@ -23,6 +23,7 @@ struct dsync_worker_unsubscription {
 };
 
 typedef void dsync_worker_copy_callback_t(bool success, void *context);
+typedef void dsync_worker_save_callback_t(void *context);
 typedef void dsync_worker_msg_callback_t(enum dsync_msg_get_result result,
 					 const struct dsync_msg_static_data *data,
 					 void *context);
@@ -133,11 +134,13 @@ void dsync_worker_msg_copy(struct dsync_worker *worker,
 			   const struct dsync_message *dest_msg,
 			   dsync_worker_copy_callback_t *callback,
 			   void *context);
-/* Save given message from the given input stream. The stream is destroyed once
-   saving is finished. */
+/* Save given message from the given input stream. Once saving is finished,
+   the given callback is called and the stream is destroyed. */
 void dsync_worker_msg_save(struct dsync_worker *worker,
 			   const struct dsync_message *msg,
-			   const struct dsync_msg_static_data *data);
+			   const struct dsync_msg_static_data *data,
+			   dsync_worker_save_callback_t *callback,
+			   void *context);
 /* Cancel any pending saves */
 void dsync_worker_msg_save_cancel(struct dsync_worker *worker);
 /* Get message data for saving. The callback is called once when the static

@@ -388,7 +388,9 @@ test_worker_msg_copy(struct dsync_worker *_worker,
 static void
 test_worker_msg_save(struct dsync_worker *_worker,
 		     const struct dsync_message *msg,
-		     const struct dsync_msg_static_data *data)
+		     const struct dsync_msg_static_data *data,
+		     dsync_worker_save_callback_t *callback,
+		     void *context)
 {
 	struct test_dsync_worker *worker = (struct test_dsync_worker *)_worker;
 	struct test_dsync_msg_event *event;
@@ -408,6 +410,8 @@ test_worker_msg_save(struct dsync_worker *_worker,
 	}
 	i_assert(ret == -1);
 	event->save_body = p_strdup(worker->tmp_pool, str_c(body));
+
+	callback(context);
 }
 
 static void

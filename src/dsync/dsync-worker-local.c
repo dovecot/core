@@ -95,6 +95,8 @@ struct local_dsync_worker {
 	struct io *save_io;
 	struct mail_save_context *save_ctx;
 	struct istream *save_input;
+	dsync_worker_save_callback_t *save_callback;
+	void *save_context;
 
 	dsync_worker_finish_callback_t *finish_callback;
 	void *finish_context;
@@ -1516,6 +1518,7 @@ static void
 local_worker_save_msg_continue(struct local_dsync_worker *worker)
 {
 	struct mailbox *dest_box = worker->ext_mail->box;
+	dsync_worker_save_callback_t *callback;
 	int ret;
 
 	while ((ret = i_stream_read(worker->save_input)) > 0) {
@@ -1552,14 +1555,20 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 			mail_storage_get_last_error(storage, NULL));
 		dsync_worker_set_failure(&worker->worker);
 	}
+	callback = worker->save_callback;
+	worker->save_callback = NULL;
 	i_stream_unref(&worker->save_input);
+
+	callback(worker->save_context);
 	dsync_worker_try_finish(worker);
 }
 
 static void
 local_worker_msg_save(struct dsync_worker *_worker,
 		      const struct dsync_message *msg,
-		      const struct dsync_msg_static_data *data)
+		      const struct dsync_msg_static_data *data,
+		      dsync_worker_save_callback_t *callback,
+		      void *context)
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
@@ -1582,9 +1591,12 @@ local_worker_msg_save(struct dsync_worker *_worker,
 			mailbox_get_vname(dest_box),
 			mail_storage_get_last_error(storage, NULL));
 		dsync_worker_set_failure(_worker);
+		callback(context);
 		return;
 	}
 
+	worker->save_callback = callback;
+	worker->save_context = context;
 	worker->save_input = data->input;
 	worker->save_ctx = save_ctx;
 	i_stream_ref(worker->save_input);

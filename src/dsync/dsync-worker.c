@@ -222,11 +222,14 @@ void dsync_worker_msg_copy(struct dsync_worker *worker,
 
 void dsync_worker_msg_save(struct dsync_worker *worker,
 			   const struct dsync_message *msg,
-			   const struct dsync_msg_static_data *data)
+			   const struct dsync_msg_static_data *data,
+			   dsync_worker_save_callback_t *callback,
+			   void *context)
 {
 	if (!worker->readonly) {
 		if (!worker->failed) T_BEGIN {
-			worker->v.msg_save(worker, msg, data);
+			worker->v.msg_save(worker, msg, data,
+					   callback, context);
 		} T_END;
 	} else {
 		const unsigned char *d;
@@ -234,6 +237,7 @@ void dsync_worker_msg_save(struct dsync_worker *worker,
 
 		while ((i_stream_read_data(data->input, &d, &size, 0)) > 0)
 			i_stream_skip(data->input, size);
+		callback(context);
 	}
 }
 

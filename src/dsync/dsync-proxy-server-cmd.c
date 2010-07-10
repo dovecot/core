@@ -415,6 +415,13 @@ cmd_msg_copy(struct dsync_proxy_server *server, const char *const *args)
 	return 1;
 }
 
+static void cmd_msg_save_callback(void *context)
+{
+	struct dsync_proxy_server *server = context;
+
+	server->save_finished = TRUE;
+}
+
 static int
 cmd_msg_save(struct dsync_proxy_server *server, const char *const *args)
 {
@@ -437,10 +444,13 @@ cmd_msg_save(struct dsync_proxy_server *server, const char *const *args)
 	}
 
 	/* we rely on save reading the entire input */
+	server->save_finished = FALSE;
 	net_set_nonblock(server->fd_in, FALSE);
-	dsync_worker_msg_save(server->worker, &msg, &data);
+	dsync_worker_msg_save(server->worker, &msg, &data,
+			      cmd_msg_save_callback, server);
 	net_set_nonblock(server->fd_in, TRUE);
 	ret = dsync_worker_has_failed(server->worker) ? -1 : 1;
+	i_assert(server->save_finished);
 	i_assert(data.input->eof || ret < 0);
 	i_stream_destroy(&data.input);
 	return ret;
