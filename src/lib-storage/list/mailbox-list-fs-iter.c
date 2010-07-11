@@ -212,7 +212,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		  enum mailbox_list_iter_flags flags)
 {
 	struct fs_list_iterate_context *ctx;
-	const char *path, *vpath, *rootdir, *test_pattern;
+	const char *path, *vpath, *rootdir, *test_pattern, *real_pattern;
 	char *pattern;
 	DIR *dirp;
 	unsigned int prefix_len;
@@ -236,7 +236,11 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		   validation. */
 		if (strncmp(test_pattern, _list->ns->prefix, prefix_len) == 0)
 			test_pattern += prefix_len;
-		if (mailbox_list_is_valid_pattern(_list, test_pattern)) {
+		/* check pattern also when it's converted to use real
+		   separators. */
+		real_pattern = mail_namespace_fix_sep(_list->ns, test_pattern);
+		if (mailbox_list_is_valid_pattern(_list, test_pattern) &&
+		    mailbox_list_is_valid_pattern(_list, real_pattern)) {
 			if (strcasecmp(*patterns, "INBOX") == 0) {
 				ctx->inbox_match = TRUE;
 				continue;
