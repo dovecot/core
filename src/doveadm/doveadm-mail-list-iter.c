@@ -58,8 +58,6 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 	struct doveadm_mail_list_iter *iter;
 	ARRAY_TYPE(const_string) patterns;
 
-	i_assert((iter_flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0);
-
 	iter = i_new(struct doveadm_mail_list_iter, 1);
 	iter->search_args = search_args;
 

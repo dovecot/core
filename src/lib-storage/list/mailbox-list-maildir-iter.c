@@ -47,28 +47,18 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	struct mailbox_node *node;
 	const char *p, *mailbox_c;
-	char hierarchy_sep;
 	bool created;
-	unsigned int prefix_len;
-
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
-		hierarchy_sep = ns->sep;
-		prefix_len = ns->prefix_len;
-	} else {
-		hierarchy_sep = ns->real_sep;
-		prefix_len = 0;
-	}
 
 	mailbox_c = str_c(mailbox);
-	while ((p = strrchr(mailbox_c, hierarchy_sep)) != NULL) {
+	while ((p = strrchr(mailbox_c, ns->sep)) != NULL) {
 		str_truncate(mailbox, (size_t) (p-mailbox_c));
 		mailbox_c = str_c(mailbox);
 		if (imap_match(glob, mailbox_c) != IMAP_MATCH_YES)
 			continue;
 
-		if (prefix_len > 0 && str_len(mailbox) == prefix_len-1 &&
-		    strncmp(mailbox_c, ns->prefix, prefix_len - 1) == 0 &&
-		    mailbox_c[prefix_len-1] == hierarchy_sep) {
+		if (ns->prefix_len > 0 && str_len(mailbox) == ns->prefix_len-1 &&
+		    strncmp(mailbox_c, ns->prefix, ns->prefix_len - 1) == 0 &&
+		    mailbox_c[ns->prefix_len-1] == ns->sep) {
 			/* don't return matches to namespace prefix itself */
 			continue;
 		}
@@ -99,10 +89,7 @@ static void maildir_set_children(struct maildir_list_iterate_context *ctx,
 	const char *p, *mailbox_c;
 	char hierarchy_sep;
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0)
-		hierarchy_sep = ctx->ctx.list->ns->sep;
-	else
-		hierarchy_sep = ctx->ctx.list->ns->real_sep;
+	hierarchy_sep = ctx->ctx.list->ns->sep;
 
 	/* mark the first existing parent as containing children */
 	mailbox_c = str_c(mailbox);
@@ -287,7 +274,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 	enum mailbox_info_flags flags;
 	enum imap_match_result match;
 	struct mailbox_node *node;
-	bool created, virtual_names;
+	bool created;
 	struct stat st;
 	int ret;
 
@@ -303,8 +290,6 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		}
 		return 0;
 	}
-
-	virtual_names = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0;
 
 	mailbox = t_str_new(MAILBOX_LIST_NAME_MAX_LENGTH);
 	while ((d = readdir(dirp)) != NULL) {
@@ -323,14 +308,8 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		    (fname[1] == '\0' || (fname[1] == '.' && fname[2] == '\0')))
 			continue;
 
-		if (!virtual_names) {
-			str_truncate(mailbox, 0);
-			str_append(mailbox, mailbox_name);
-			mailbox_name = str_c(mailbox);
-		} else {
-			mailbox_name = mail_namespace_get_vname(ns, mailbox,
-								mailbox_name);
-		}
+		mailbox_name = mail_namespace_get_vname(ns, mailbox,
+							mailbox_name);
 
 		/* make sure the pattern matches */
 		match = imap_match(glob, mailbox_name);
@@ -412,7 +391,6 @@ maildir_fill_other_ns_subscriptions(struct maildir_list_iterate_context *ctx,
 	struct mailbox_node *node;
 
 	iter = mailbox_list_iter_init(ns->list, "*",
-				      MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 				      MAILBOX_LIST_ITER_RETURN_CHILDREN);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		node = mailbox_tree_lookup(ctx->tree_ctx, info->name);
@@ -459,24 +437,20 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 {
 	struct maildir_list_iterate_context *ctx;
         struct imap_match_glob *glob;
-	char sep;
 	pool_t pool;
 	int ret;
-
-	sep = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
-		_list->ns->sep : _list->ns->real_sep;
 
 	pool = pool_alloconly_create("maildir_list", 1024);
 	ctx = p_new(pool, struct maildir_list_iterate_context, 1);
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
 	ctx->pool = pool;
-	ctx->tree_ctx = mailbox_tree_init(sep);
+	ctx->tree_ctx = mailbox_tree_init(_list->ns->sep);
 	ctx->info.ns = _list->ns;
 	ctx->prefix_char = strcmp(_list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0 ?
 		'\0' : _list->hierarchy_sep;
 
-	glob = imap_match_init_multiple(pool, patterns, TRUE, sep);
+	glob = imap_match_init_multiple(pool, patterns, TRUE, _list->ns->sep);
 
 	ctx->dir = _list->set.root_dir;
 

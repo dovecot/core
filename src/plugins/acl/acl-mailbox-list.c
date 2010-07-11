@@ -111,9 +111,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 		return;
 
 	/* no LOOKUP right by default, we can optimize this */
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0)
-		vname = t_str_new(256);
-
+	vname = t_str_new(256);
 	memset(&update_ctx, 0, sizeof(update_ctx));
 	update_ctx.iter_ctx = &ctx->ctx;
 	update_ctx.glob =
@@ -173,8 +171,7 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 	ctx->ctx.flags = flags;
 
 	inboxcase = (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
-	ctx->sep = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
-		list->ns->sep : list->ns->real_sep;
+	ctx->sep = list->ns->sep;
 	ctx->glob = imap_match_init_multiple(default_pool, patterns,
 					     inboxcase, ctx->sep);
 	/* see if all patterns have only a single '*' and it's at the end.
@@ -225,9 +222,7 @@ acl_mailbox_list_iter_get_name(struct mailbox_list_iterate_context *ctx,
 	struct mail_namespace *ns = ctx->list->ns;
 	unsigned int len;
 
-	if ((ctx->flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0)
-		name = mail_namespace_get_storage_name(ns, name);
-
+	name = mail_namespace_get_storage_name(ns, name);
 	len = strlen(name);
 	if (name[len-1] == ns->real_sep) {
 		/* name ends with separator. this can happen if doing e.g.
@@ -256,7 +251,6 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
 {
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	enum mailbox_list_iter_flags flags;
 	string_t *pattern;
 	const char *prefix;
 	unsigned int i, prefix_len;
@@ -294,9 +288,8 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
 	prefix = str_c(pattern);
 	prefix_len = str_len(pattern) - 1;
 
-	flags = (ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) |
-		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	iter = mailbox_list_iter_init(ctx->ctx.list, str_c(pattern), flags);
+	iter = mailbox_list_iter_init(ctx->ctx.list, str_c(pattern),
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (only_nonpatterns &&
 		    imap_match(ctx->glob, info->name) == IMAP_MATCH_YES) {

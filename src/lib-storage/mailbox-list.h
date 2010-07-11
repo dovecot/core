@@ -61,9 +61,6 @@ enum mailbox_name_status {
 enum mailbox_list_iter_flags {
 	/* Ignore index file and ACLs (used by ACL plugin internally) */
 	MAILBOX_LIST_ITER_RAW_LIST		= 0x000001,
-	/* Use virtual mailbox names (virtual separators and namespace
-	   prefixes) for patterns and for returned mailbox names. */
-	MAILBOX_LIST_ITER_VIRTUAL_NAMES		= 0x000002,
 	/* Don't list INBOX unless it actually exists */
 	MAILBOX_LIST_ITER_NO_AUTO_INBOX		= 0x000004,
 
@@ -74,7 +71,7 @@ enum mailbox_list_iter_flags {
 	   match beyond namespace boundary (e.g. "foo*" or "*o" doesn't match
 	   "foo." namespace's mailboxes, but "*.*" does). also '%' can't match
 	   namespace prefixes, if there exists a parent namespace whose children
-	   it matches. VIRTUAL_NAMES must be set when using this flag. */
+	   it matches. */
 	MAILBOX_LIST_ITER_STAR_WITHIN_NS	= 0x000010,
 
 	/* List only subscribed mailboxes */

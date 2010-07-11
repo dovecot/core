@@ -113,18 +113,16 @@ listescape_mailbox_list_iter_init(struct mailbox_list *list,
 	struct mailbox_list_iterate_context *ctx;
 	const char **escaped_patterns;
 	unsigned int i;
-	bool vname;
 
 	/* this is kind of kludgy. In ACL code we want to convert patterns,
 	   in maildir renaming code we don't. so for now just use the _RAW_LIST
 	   flag.. */
 	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) == 0) {
-		vname = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0;
 		escaped_patterns = t_new(const char *,
 					 str_array_length(patterns) + 1);
 		for (i = 0; patterns[i] != NULL; i++) {
 			escaped_patterns[i] =
-				list_escape(list->ns, patterns[i], vname);
+				list_escape(list->ns, patterns[i], TRUE);
 		}
 		patterns = escaped_patterns;
 	}
@@ -170,7 +168,7 @@ listescape_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 	ctx->list->ns->real_sep = ctx->list->hierarchy_sep;
 	info = mlist->module_ctx.super.iter_next(ctx);
 	ctx->list->ns->real_sep = ctx->list->ns->sep;
-	if (info == NULL || (ctx->flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0)
+	if (info == NULL)
 		return info;
 
 	ns = (ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ?

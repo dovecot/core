@@ -51,7 +51,6 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 
 	/* check if there are any mailboxes really visible to us */
 	iter = mailbox_list_iter_init(new_ns->list, "*",
-				      MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL)
 		break;

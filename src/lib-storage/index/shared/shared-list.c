@@ -196,8 +196,6 @@ shared_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		   prefix matches without the trailing separator */
 		i_assert(ns->prefix_len > 0);
 		ctx->info.name = t_strndup(ns->prefix, ns->prefix_len - 1);
-		if ((_ctx->flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) == 0)
-			ctx->info.name += ctx->info.ns->prefix_len;
 		if (imap_match(ctx->glob, ctx->info.name) == IMAP_MATCH_YES) {
 			ctx->cur_ns = ns->next;
 			return &ctx->info;

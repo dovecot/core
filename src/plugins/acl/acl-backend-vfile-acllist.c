@@ -252,7 +252,6 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 
 	backend->rebuilding_acllist = TRUE;
 	iter = mailbox_list_iter_init(list, "*",
-				      MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 				      MAILBOX_LIST_ITER_RAW_LIST |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {

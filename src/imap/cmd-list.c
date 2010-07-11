@@ -184,8 +184,7 @@ list_get_inbox_flags(struct cmd_list_context *ctx)
 
 	/* find the INBOX flags */
 	ns = mail_namespace_find_inbox(ctx->cmd->client->user->namespaces);
-	list_iter = mailbox_list_iter_init(ns->list, "INBOX",
-					   MAILBOX_LIST_ITER_VIRTUAL_NAMES);
+	list_iter = mailbox_list_iter_init(ns->list, "INBOX", 0);
 	info = mailbox_list_iter_next(list_iter);
 	if (info != NULL) {
 		i_assert(strcasecmp(info->name, "INBOX") == 0);
@@ -198,8 +197,7 @@ list_get_inbox_flags(struct cmd_list_context *ctx)
 static bool list_namespace_has_children(struct cmd_list_context *ctx)
 {
 	enum mailbox_list_iter_flags list_flags =
-		MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
-		MAILBOX_LIST_ITER_VIRTUAL_NAMES;
+		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct mailbox_list_iterate_context *list_iter;
 	const struct mailbox_info *info;
 	bool ret = FALSE;
@@ -925,7 +923,6 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		args += 2;
 	}
 
-	ctx->list_flags |= MAILBOX_LIST_ITER_VIRTUAL_NAMES;
 	if (lsub) {
 		/* LSUB - we don't care about flags */
 		ctx->list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |

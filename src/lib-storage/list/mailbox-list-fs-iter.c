@@ -223,8 +223,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->ctx.flags = flags;
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
 	ctx->next = fs_list_next;
-	ctx->sep = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
-		_list->ns->sep : _list->ns->real_sep;
+	ctx->sep = _list->ns->sep;
 	ctx->info.ns = _list->ns;
 
 	prefix_len = strlen(_list->ns->prefix);
@@ -232,14 +231,11 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	for (; *patterns != NULL; patterns++) {
 		/* check that we're not trying to do any "../../" lists */
 		test_pattern = *patterns;
-		if ((flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
-			/* skip namespace prefix if possible. this allows using
-			   e.g. ~/mail/ prefix and have it pass the pattern
-			   validation. */
-			if (strncmp(test_pattern, _list->ns->prefix,
-				    prefix_len) == 0)
-				test_pattern += prefix_len;
-		}
+		/* skip namespace prefix if possible. this allows using
+		   e.g. ~/mail/ prefix and have it pass the pattern
+		   validation. */
+		if (strncmp(test_pattern, _list->ns->prefix, prefix_len) == 0)
+			test_pattern += prefix_len;
 		if (mailbox_list_is_valid_pattern(_list, test_pattern)) {
 			if (strcasecmp(*patterns, "INBOX") == 0) {
 				ctx->inbox_match = TRUE;
@@ -278,8 +274,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		return &ctx->ctx;
 	}
 
-	vpath = (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0 ?
-		_list->ns->prefix : "";
+	vpath = _list->ns->prefix;
 	rootdir = list_get_rootdir(ctx, &vpath);
 	if (rootdir == NULL) {
 		path = mailbox_list_get_path(_list, NULL,
@@ -663,10 +658,7 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 						&storage_name);
 	if (ns == NULL) {
 		ns = ctx->info.ns;
-		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0)
-			storage_name = mail_namespace_get_storage_name(ns, storage_name);
-		else
-			storage_name = ctx->info.name;
+		storage_name = mail_namespace_get_storage_name(ns, storage_name);
 	}
 
 	/* if name ends with hierarchy separator, drop the separator */

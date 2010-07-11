@@ -264,7 +264,6 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx)
 	const enum namespace_type iter_ns_types =
 		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
 	const enum mailbox_list_iter_flags iter_flags =
-		MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct mail_user *user = ctx->mbox->storage->storage.user;
 	ARRAY_TYPE(virtual_backend_box) wildcard_boxes, neg_boxes;

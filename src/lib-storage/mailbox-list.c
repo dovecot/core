@@ -787,11 +787,6 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 {
 	i_assert(*patterns != NULL);
 
-	/* we'll want to remove MAILBOX_LIST_ITER_VIRTUAL_NAMES flag completely.
-	   this assert will be here until it's sure that there are no more
-	   non-virtual users and it can be safely removed. (and if there are,
-	   this assert can still be easily removed) */
-	i_assert((flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0);
 	return list->v.iter_init(list, patterns, flags);
 }
 
@@ -901,25 +896,19 @@ ns_match(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 	if (!ns_match_simple(ctx, ns))
 		return FALSE;
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0) {
-		/* filter out namespaces whose prefix doesn't match.
-		   this same code handles both with and without
-		   STAR_WITHIN_NS, so the "without" case is slower than
-		   necessary, but this shouldn't matter much */
-		T_BEGIN {
-			for (i = 0; ctx->patterns_ns_match[i] != NULL; i++) {
-				if (ns_match_inbox(ns, ctx->patterns_ns_match[i]))
-					break;
-				if (ns_match_next(ctx, ns,
-						  ctx->patterns_ns_match[i]))
-					break;
-			}
-		} T_END;
+	/* filter out namespaces whose prefix doesn't match. this same code
+	   handles both with and without STAR_WITHIN_NS, so the "without" case
+	   is slower than necessary, but this shouldn't matter much */
+	T_BEGIN {
+		for (i = 0; ctx->patterns_ns_match[i] != NULL; i++) {
+			if (ns_match_inbox(ns, ctx->patterns_ns_match[i]))
+				break;
+			if (ns_match_next(ctx, ns, ctx->patterns_ns_match[i]))
+				break;
+		}
+	} T_END;
 
-		if (ctx->patterns_ns_match[i] == NULL)
-			return FALSE;
-	}
-	return ns;
+	return ctx->patterns_ns_match[i] != NULL;
 }
 
 static struct mail_namespace *
@@ -1003,9 +992,6 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	pool_t pool;
 
 	i_assert(namespaces != NULL);
-
-	i_assert((flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) == 0 ||
-		 (flags & MAILBOX_LIST_ITER_VIRTUAL_NAMES) != 0);
 
 	pool = pool_alloconly_create("mailbox list namespaces", 1024);
 	ctx = p_new(pool, struct ns_list_iterate_context, 1);

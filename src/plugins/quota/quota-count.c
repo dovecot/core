@@ -81,7 +81,6 @@ quota_count_namespace(struct quota_root *root, struct mail_namespace *ns,
 	int ret = 0;
 
 	ctx = mailbox_list_iter_init(ns->list, "*",
-				     MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 				     MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(ctx)) != NULL) {
 		if ((info->flags & (MAILBOX_NONEXISTENT |

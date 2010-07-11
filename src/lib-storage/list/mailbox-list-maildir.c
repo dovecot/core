@@ -493,7 +493,6 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 
 	pattern = t_strdup_printf("%s%c*", old_vname, oldlist->ns->sep);
 	iter = mailbox_list_iter_init(oldlist, pattern,
-				      MAILBOX_LIST_ITER_VIRTUAL_NAMES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
 				      MAILBOX_LIST_ITER_RAW_LIST);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
