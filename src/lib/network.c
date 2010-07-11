@@ -163,8 +163,8 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 static
 #endif
 
-int net_connect_ip(const struct ip_addr *ip, unsigned int port,
-		   const struct ip_addr *my_ip)
+static int net_connect_ip_full(const struct ip_addr *ip, unsigned int port,
+			       const struct ip_addr *my_ip, bool blocking)
 {
 	union sockaddr_union so;
 	int fd, ret, opt = 1;
@@ -187,7 +187,8 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 	/* set socket options */
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
-	net_set_nonblock(fd, TRUE);
+	if (!blocking)
+		net_set_nonblock(fd, TRUE);
 
 	/* set our own address */
 	if (my_ip != NULL) {
@@ -215,6 +216,18 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 	}
 
 	return fd;
+}
+
+int net_connect_ip(const struct ip_addr *ip, unsigned int port,
+		   const struct ip_addr *my_ip)
+{
+	return net_connect_ip_full(ip, port, my_ip, FALSE);
+}
+
+int net_connect_ip_blocking(const struct ip_addr *ip, unsigned int port,
+			    const struct ip_addr *my_ip)
+{
+	return net_connect_ip_full(ip, port, my_ip, TRUE);
 }
 
 int net_try_bind(const struct ip_addr *ip)

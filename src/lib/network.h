@@ -47,9 +47,13 @@ bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2);
 int net_ip_cmp(const struct ip_addr *ip1, const struct ip_addr *ip2);
 unsigned int net_ip_hash(const struct ip_addr *ip);
 
-/* Connect to socket with ip address */
+/* Connect to socket with ip address. The socket and connect() is
+   non-blocking. */
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		   const struct ip_addr *my_ip);
+/* Like net_connect_ip(), but do a blocking connect(). */
+int net_connect_ip_blocking(const struct ip_addr *ip, unsigned int port,
+			    const struct ip_addr *my_ip);
 /* Returns 0 if we can bind() as given IP, -1 if not. */
 int net_try_bind(const struct ip_addr *ip);
 /* Connect to named UNIX socket */
