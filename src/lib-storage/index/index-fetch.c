@@ -88,8 +88,10 @@ bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 	int ret;
 
 	if (!mail_index_modseq_get_next_log_offset(box->view, prev_modseq,
-						   &log_seq, &log_offset))
-		return FALSE;
+						   &log_seq, &log_offset)) {
+		log_seq = 1;
+		log_offset = 0;
+	}
 	if (log_seq > box->view->log_file_head_seq ||
 	    (log_seq == box->view->log_file_head_seq &&
 	     log_offset >= box->view->log_file_head_offset)) {
