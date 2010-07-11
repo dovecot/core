@@ -785,7 +785,7 @@ static void dsync_brain_worker_finished(bool success, void *context)
 		dsync_brain_fail(brain);
 
 	brain->state++;
-	if (brain->to == NULL)
+	if (brain->to == NULL && (brain->flags & DSYNC_BRAIN_FLAG_LOCAL) == 0)
 		brain->to = timeout_add(0, dsync_brain_sync, brain);
 }
 

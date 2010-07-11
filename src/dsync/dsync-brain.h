@@ -6,7 +6,9 @@ enum dsync_brain_flags {
 	DSYNC_BRAIN_FLAG_VERBOSE	= 0x02,
 	/* Run in backup mode. All changes from src are forced into dest,
 	   discarding any potential changes in dest. */
-	DSYNC_BRAIN_FLAG_BACKUP		= 0x04
+	DSYNC_BRAIN_FLAG_BACKUP		= 0x04,
+	/* Run in "local mode". Don't use ioloop. */
+	DSYNC_BRAIN_FLAG_LOCAL		= 0x08
 };
 
 struct dsync_worker;

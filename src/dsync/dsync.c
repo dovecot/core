@@ -283,8 +283,8 @@ int main(int argc, char *argv[])
 		}
 
 		i_set_failure_prefix(t_strdup_printf("dsync(%s): ", username));
-		brain = dsync_brain_init(worker1, worker2,
-					 mailbox, brain_flags);
+		brain = dsync_brain_init(worker1, worker2, mailbox,
+					 brain_flags | DSYNC_BRAIN_FLAG_LOCAL);
 		server = NULL;
 		dsync_brain_sync_all(brain);
 	} else if (dsync_server) {

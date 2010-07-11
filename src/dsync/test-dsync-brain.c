@@ -150,7 +150,8 @@ static void test_dsync_brain(void)
 	src_test_worker = (struct test_dsync_worker *)src_worker;
 	dest_test_worker = (struct test_dsync_worker *)dest_worker;
 
-	brain = dsync_brain_init(src_worker, dest_worker, NULL, 0);
+	brain = dsync_brain_init(src_worker, dest_worker, NULL,
+				 DSYNC_BRAIN_FLAG_LOCAL);
 	dsync_brain_sync(brain);
 
 	/* have brain read the mailboxes */
@@ -240,7 +241,8 @@ static void test_dsync_brain_full(void)
 	dest_test_worker = (struct test_dsync_worker *)dest_worker;
 
 	brain = dsync_brain_init(src_worker, dest_worker, NULL,
-				 DSYNC_BRAIN_FLAG_FULL_SYNC);
+				 DSYNC_BRAIN_FLAG_FULL_SYNC |
+				 DSYNC_BRAIN_FLAG_LOCAL);
 	dsync_brain_sync(brain);
 
 	/* have brain read the mailboxes */
