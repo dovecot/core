@@ -73,7 +73,7 @@ test_dsync_mailbox_create_equals(const struct dsync_mailbox *cbox,
 		memcmp(cbox->name_sha1.guid, obox->name_sha1.guid,
 		       sizeof(cbox->name_sha1.guid)) == 0 &&
 		cbox->uid_validity == obox->uid_validity &&
-		cbox->uid_next == 0 && cbox->highest_modseq == 0;
+		cbox->uid_next == 1 && cbox->highest_modseq == 0;
 }
 
 static bool
@@ -189,6 +189,9 @@ static void test_dsync_brain(void)
 	/* check mailbox updates */
 	brain->state++;
 	dsync_brain_sync(brain);
+	test_assert(brain->state == DSYNC_STATE_SYNC_UPDATE_MAILBOXES);
+	dsync_brain_sync(brain);
+	test_assert(brain->state == DSYNC_STATE_SYNC_END);
 
 	brain_boxes = array_get(&brain->mailbox_sync->mailboxes, &count);
 	test_assert(count == 7);
@@ -260,6 +263,9 @@ static void test_dsync_brain_full(void)
 	/* check mailbox updates */
 	brain->state++;
 	dsync_brain_sync(brain);
+	test_assert(brain->state == DSYNC_STATE_SYNC_UPDATE_MAILBOXES);
+	dsync_brain_sync(brain);
+	test_assert(brain->state == DSYNC_STATE_SYNC_END);
 
 	brain_boxes = array_get(&brain->mailbox_sync->mailboxes, &count);
 	test_assert(count == 1);
