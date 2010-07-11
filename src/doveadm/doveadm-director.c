@@ -32,9 +32,7 @@ static void director_connect(struct director_context *ctx)
 	const char *line;
 	int fd;
 
-	fd = net_connect_unix(ctx->socket_path);
-	if (fd == -1)
-		i_fatal("net_connect_unix(%s) failed: %m", ctx->socket_path);
+	fd = doveadm_connect(ctx->socket_path);
 	net_set_nonblock(fd, FALSE);
 
 	ctx->input = i_stream_create_fd(fd, (size_t)-1, TRUE);

@@ -34,6 +34,7 @@ void help(const struct doveadm_cmd *cmd) ATTR_NORETURN;
 
 const char *unixdate2str(time_t timestamp);
 const char *doveadm_plugin_getenv(const char *name);
+int doveadm_connect(const char *path);
 void doveadm_master_send_signal(int signo);
 
 void doveadm_register_director_commands(void);

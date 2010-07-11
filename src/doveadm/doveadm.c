@@ -5,6 +5,7 @@
 #include "str.h"
 #include "env-util.h"
 #include "execv-const.h"
+#include "network.h"
 #include "module-dir.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -17,6 +18,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/stat.h>
 
 bool doveadm_verbose = FALSE, doveadm_debug = FALSE;
 
@@ -146,6 +148,52 @@ const char *doveadm_plugin_getenv(const char *name)
 			return envs[i+1];
 	}
 	return NULL;
+}
+
+static bool
+parse_hostport(const char *str, const char **host_r, unsigned int *port_r)
+{
+	const char *p;
+
+	/* host:port */
+	p = strrchr(str, ':');
+	if (p == NULL || str_to_uint(p+1, port_r) < 0)
+		return FALSE;
+	*host_r = t_strdup_until(str, p);
+
+	/* there is any '/' character (unlikely to be found from host names),
+	   assume ':' is part of a file path */
+	if (strchr(str, '/') != NULL)
+		return FALSE;
+	return TRUE;
+}
+
+int doveadm_connect(const char *path)
+{
+	struct stat st;
+	const char *host;
+	struct ip_addr *ips;
+	unsigned int port, ips_count;
+	int fd, ret;
+
+	if (parse_hostport(path, &host, &port) && stat(path, &st) < 0) {
+		/* it's a host:port, connect via TCP */
+		ret = net_gethostbyname(host, &ips, &ips_count);
+		if (ret != 0) {
+			i_fatal("Lookup of host %s failed: %s",
+				host, net_gethosterror(ret));
+		}
+		fd = net_connect_ip_blocking(&ips[0], port, NULL);
+		if (fd == -1) {
+			i_fatal("connect(%s:%u) failed: %m",
+				net_ip2addr(&ips[0]), port);
+		}
+	} else {
+		fd = net_connect_unix(path);
+		if (fd == -1)
+			i_fatal("net_connect_unix(%s) failed: %m", path);
+	}
+	return fd;
 }
 
 static bool doveadm_has_subcommands(const char *cmd_name)

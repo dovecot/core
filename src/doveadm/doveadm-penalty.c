@@ -68,9 +68,7 @@ static void penalty_lookup(struct penalty_context *ctx)
 	const char *line;
 	int fd;
 
-	fd = net_connect_unix(ctx->anvil_path);
-	if (fd == -1)
-		i_fatal("net_connect_unix(%s) failed: %m", ctx->anvil_path);
+	fd = doveadm_connect(ctx->anvil_path);
 	net_set_nonblock(fd, FALSE);
 
 	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
