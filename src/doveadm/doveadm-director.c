@@ -125,7 +125,7 @@ static void cmd_director_status(int argc, char *argv[])
 	doveadm_print_header_simple("mail server ip");
 	doveadm_print_header("vhosts", "vhosts",
 			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
-	doveadm_print_header("users", "vhosts",
+	doveadm_print_header("users", "users",
 			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
 
 	director_send(ctx, "HOST-LIST\n");
