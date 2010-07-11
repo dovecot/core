@@ -288,7 +288,8 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
 			str_append_c(pattern, '%');
 		}
 	}
-	str_append_c(pattern, ctx->sep);
+	if (i > 0 && ctx->info.name[i-1] != ctx->sep)
+		str_append_c(pattern, ctx->sep);
 	str_append_c(pattern, '*');
 	prefix = str_c(pattern);
 	prefix_len = str_len(pattern) - 1;
@@ -329,8 +330,12 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 					  ACL_STORAGE_RIGHT_LOOKUP,
 					  NULL);
 	if (ret != 0) {
-		if ((info->flags & MAILBOX_CHILDREN) != 0 &&
-		    !iter_mailbox_has_visible_children(ctx, FALSE)) {
+		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
+			/* don't waste time checking if there are visible
+			   children, but also don't return incorrect flags */
+			info->flags &= ~MAILBOX_CHILDREN;
+		} else if ((info->flags & MAILBOX_CHILDREN) != 0 &&
+			   !iter_mailbox_has_visible_children(ctx, FALSE)) {
 			info->flags &= ~MAILBOX_CHILDREN;
 			info->flags |= MAILBOX_NOCHILDREN;
 		}
