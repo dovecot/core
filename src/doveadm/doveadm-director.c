@@ -6,6 +6,7 @@
 #include "write-full.h"
 #include "master-service.h"
 #include "doveadm.h"
+#include "doveadm-print.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -120,7 +121,13 @@ static void cmd_director_status(int argc, char *argv[])
 		return;
 	}
 
-	fprintf(stderr, "%-20s vhosts  users\n", "mail server ip");
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+	doveadm_print_header_simple("mail server ip");
+	doveadm_print_header("vhosts", "vhosts",
+			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
+	doveadm_print_header("users", "vhosts",
+			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
+
 	director_send(ctx, "HOST-LIST\n");
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
 		if (*line == '\0')
@@ -128,8 +135,9 @@ static void cmd_director_status(int argc, char *argv[])
 		T_BEGIN {
 			args = t_strsplit(line, "\t");
 			if (str_array_length(args) >= 3) {
-				printf("%-20s %6s %6s\n",
-				       args[0], args[1], args[2]);
+				doveadm_print(args[0]);
+				doveadm_print(args[1]);
+				doveadm_print(args[2]);
 			}
 		} T_END;
 	}
