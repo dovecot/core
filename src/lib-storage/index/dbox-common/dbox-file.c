@@ -573,6 +573,11 @@ int dbox_file_get_append_stream(struct dbox_file_append_context *ctx,
 			dbox_file_set_syscall_error(file, "fstat()");
 			return -1;
 		}
+		if (st.st_size < file->msg_header_size) {
+			dbox_file_set_corrupted(file,
+				"dbox file size too small");
+			return 0;
+		}
 		o_stream_seek(ctx->output, st.st_size);
 	}
 	*output_r = ctx->output;
