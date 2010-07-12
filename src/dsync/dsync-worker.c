@@ -108,6 +108,7 @@ dsync_worker_msg_iter_init(struct dsync_worker *worker,
 			   const mailbox_guid_t mailboxes[],
 			   unsigned int mailbox_count)
 {
+	i_assert(mailbox_count > 0);
 	return worker->v.msg_iter_init(worker, mailboxes, mailbox_count);
 }
 

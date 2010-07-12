@@ -710,18 +710,26 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 	}
 }
 
-static void dsync_brain_sync_msgs(struct dsync_brain *brain)
+static bool dsync_brain_sync_msgs(struct dsync_brain *brain)
 {
 	ARRAY_TYPE(dsync_brain_mailbox) mailboxes;
 	pool_t pool;
+	bool ret;
 
 	pool = pool_alloconly_create("dsync changed mailboxes", 10240);
 	p_array_init(&mailboxes, pool, 128);
 	dsync_brain_get_changed_mailboxes(brain, &mailboxes,
 		(brain->flags & DSYNC_BRAIN_FLAG_FULL_SYNC) != 0);
-	brain->mailbox_sync = dsync_brain_msg_sync_init(brain, &mailboxes);
-	dsync_brain_msg_sync_more(brain->mailbox_sync);
+	if (array_count(&mailboxes) > 0) {
+		brain->mailbox_sync =
+			dsync_brain_msg_sync_init(brain, &mailboxes);
+		dsync_brain_msg_sync_more(brain->mailbox_sync);
+		ret = TRUE;
+	} else {
+		ret = FALSE;
+	}
 	pool_unref(&pool);
+	return ret;
 }
 
 static void
@@ -747,6 +755,11 @@ dsync_brain_sync_update_mailboxes(struct dsync_brain *brain)
 	bool failed_changes = dsync_brain_has_unexpected_changes(brain) ||
 		dsync_worker_has_failed(brain->src_worker) ||
 		dsync_worker_has_failed(brain->dest_worker);
+
+	if (brain->mailbox_sync == NULL) {
+		/* no mailboxes changed */
+		return;
+	}
 
 	array_foreach(&brain->mailbox_sync->mailboxes, mailbox) {
 		/* don't update mailboxes if any changes had failed.
@@ -813,6 +826,9 @@ void dsync_brain_sync(struct dsync_brain *brain)
 		dsync_worker_subs_input(brain->dest_subs_list);
 		break;
 	case DSYNC_STATE_SYNC_MAILBOXES:
+		dsync_worker_set_input_callback(brain->src_worker, NULL, NULL);
+		dsync_worker_set_input_callback(brain->dest_worker, NULL, NULL);
+
 		dsync_brain_sync_mailboxes(brain);
 		dsync_brain_sync_dirs(brain);
 		brain->state++;
@@ -822,8 +838,10 @@ void dsync_brain_sync(struct dsync_brain *brain)
 		brain->state++;
 		/* fall through */
 	case DSYNC_STATE_SYNC_MSGS:
-		dsync_brain_sync_msgs(brain);
-		break;
+		if (dsync_brain_sync_msgs(brain))
+			break;
+		brain->state++;
+		/* no mailboxes changed */
 	case DSYNC_STATE_SYNC_MSGS_FLUSH:
 		/* wait until all saves are done, so we don't try to close
 		   the mailbox too early */
