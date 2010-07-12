@@ -1,7 +1,7 @@
 SUBDIRS = conf.d
 
-dovecotconfdir = $(sysconfdir)/dovecot
-nodist_dovecotconf_DATA = README
+pkgsysconfdir = $(sysconfdir)/dovecot
+nodist_pkgsysconf_DATA = README
 # nodist_ prefix just doesn't seem to work, so rm it directly:
 dist-hook:
 	rm -f $(distdir)/README
@@ -22,6 +22,6 @@ EXTRA_DIST = \
 	README.in
 
 install-data-local:
-	$(mkdir_p) $(DESTDIR)/$(sysconfdir)/dovecot
+	$(mkdir_p) $(DESTDIR)/$(pkgsysconfdir)
 
 CLEANFILES = README
