@@ -1561,6 +1561,9 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 	i_stream_unref(&worker->save_input);
 
 	dsync_worker_try_finish(worker);
+	/* call the callback last, since it could call worker code again and
+	   cause problems (e.g. if _try_finish() is called again, it could
+	   cause a duplicate finish_callback()) */
 	callback(worker->save_context);
 }
 
