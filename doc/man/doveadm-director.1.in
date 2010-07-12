@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DIRECTOR 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-DIRECTOR 1 "2010-07-12" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-director \- Manage Dovecot directors
 .\"------------------------------------------------------------------------
@@ -36,8 +36,11 @@ Command specific
 .\"-------------------------------------
 .TP
 .BI \-a\  director_socket_path
-This option is used to specify an absolute path to an alternative UNIX
-domain socket.
+This option is used to specify an alternative socket.
+The option\(aqs argument is either an absolute path to a local UNIX domain
+socket, or a hostname and port
+.RI ( hostname : port ),
+in order to connect a remote host via a TCP socket.
 .sp
 By default
 .BR doveadm (1)
