@@ -249,8 +249,12 @@ proxy_client_worker_next_finish(struct proxy_client_dsync_worker *worker,
 
 	if (strcmp(line, "changes") == 0)
 		worker->worker.unexpected_changes = TRUE;
-	else if (strcmp(line, "ok") != 0)
+	else if (strcmp(line, "fail") == 0)
 		success = FALSE;
+	else if (strcmp(line, "ok") != 0) {
+		i_error("Unexpected finish reply: %s", line);
+		success = FALSE;
+	}
 		
 	request->callback.finish(success, request->context);
 }
