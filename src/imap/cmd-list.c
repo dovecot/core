@@ -932,6 +932,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		/* non-extended LIST - return children flags always */
 		ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
 	}
+	ctx->list_flags |= MAILBOX_LIST_ITER_SHOW_EXISTING_PARENT;
 
 	if (!IMAP_ARG_IS_EOL(args)) {
 		client_send_command_error(cmd, "Extra arguments.");

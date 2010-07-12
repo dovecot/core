@@ -517,6 +517,12 @@ list_file_subdir(struct fs_list_iterate_context *ctx,
 		delayed_send = TRUE;
 	}
 
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SHOW_EXISTING_PARENT) == 0) {
+		/* LIST "" foo/% - we don't want to see foo/ returned */
+		delayed_send = FALSE;
+		match2 = IMAP_MATCH_CHILDREN;
+	}
+
 	if (scan_subdir) {
 		real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
 		ret = list_opendir(ctx, real_path, vpath, &dirp);

@@ -61,6 +61,10 @@ enum mailbox_name_status {
 enum mailbox_list_iter_flags {
 	/* Ignore index file and ACLs (used by ACL plugin internally) */
 	MAILBOX_LIST_ITER_RAW_LIST		= 0x000001,
+	/* When listing "foo/%" and "foo" is an existing mailbox
+	   (maybe \noselect), have LIST also return "foo/" in the replies.
+	   This is needed by IMAP, but messes up internal code. */
+	MAILBOX_LIST_ITER_SHOW_EXISTING_PARENT	= 0x000002,
 	/* Don't list INBOX unless it actually exists */
 	MAILBOX_LIST_ITER_NO_AUTO_INBOX		= 0x000004,
 
