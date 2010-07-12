@@ -121,7 +121,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 
 	conn->pid = pid;
 	if (conn->auth->set->debug)
-		i_debug("new auth connection: pid=%u", conn->pid);
+		i_debug("auth client connected (pid=%u)", conn->pid);
 	return TRUE;
 }
 
