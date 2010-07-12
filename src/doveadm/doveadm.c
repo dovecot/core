@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <time.h>
 #include <sys/stat.h>
 
@@ -207,6 +208,41 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 			return TRUE;
 	}
 	return doveadm_mail_has_subcommands(cmd_name);
+}
+
+static bool doveadm_has_unloaded_plugin(const char *name)
+{
+	struct module *module;
+	DIR *dir;
+	struct dirent *d;
+	const char *plugin_name;
+	unsigned int name_len = strlen(name);
+	bool found = FALSE;
+
+	/* first check that it's not actually loaded */
+	for (module = modules; module != NULL; module = module->next) {
+		if (strcmp(module_get_plugin_name(module), name) == 0)
+			return FALSE;
+	}
+
+	dir = opendir(DOVEADM_MODULEDIR);
+	if (dir == NULL)
+		return FALSE;
+
+	while ((d = readdir(dir)) != NULL) {
+		plugin_name = module_file_get_name(d->d_name);
+		if (strncmp(plugin_name, "doveadm_", 8) == 0)
+			plugin_name += 8;
+
+		if (strncmp(plugin_name, name, name_len) == 0 &&
+		    (plugin_name[name_len] == '\0' ||
+		     strcmp(plugin_name + name_len, "_plugin") == 0)) {
+			found = TRUE;
+			break;
+		}
+	}
+	(void)closedir(dir);
+	return found;
 }
 
 static void cmd_help(int argc ATTR_UNUSED, char *argv[])
@@ -426,8 +462,13 @@ int main(int argc, char *argv[])
 
 	if (!doveadm_try_run(cmd_name, argc, argv) &&
 	    !doveadm_mail_try_run(cmd_name, argc, argv)) {
-		if (doveadm_has_subcommands(argv[0]))
-			usage_to(stdout, argv[0]);
+		if (doveadm_has_subcommands(cmd_name))
+			usage_to(stdout, cmd_name);
+		if (doveadm_has_unloaded_plugin(cmd_name)) {
+			i_fatal("Unknown command '%s', but plugin %s exists. "
+				"Try to set mail_plugins=%s",
+				cmd_name, cmd_name, cmd_name);
+		}
 		usage();
 	}
 
