@@ -147,13 +147,13 @@ but none was specified.
 .\"------------------------------------------------------------------------
 .SH FILES
 .TP
-.I @sysconfdir@/dovecot/dovecot.conf
+.I @pkgsysconfdir@/dovecot.conf
 Dovecot\(aqs main configuration file.
 .TP
-.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+.I @pkgsysconfdir@/conf.d/10\-mail.conf
 Mailbox locations and namespaces.
 .TP
-.I @sysconfdir@/dovecot/conf.d/90\-plugin.conf
+.I @pkgsysconfdir@/conf.d/90\-plugin.conf
 Plugin specific settings.
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@

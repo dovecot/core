@@ -2,7 +2,7 @@
 
 SRCDIR="${1:-`pwd`}"
 RUNDIR="${2:-/usr/local/var/run/dovecot}"
-SYSCONFDIR="${3:-/usr/local/etc}"
+PKGSYSCONFDIR="${3:-/usr/local/etc/dovecot}"
 
 sed -e "/^@INCLUDE:global-options@$/{
 		r ${SRCDIR}/global-options.inc
@@ -23,5 +23,5 @@ sed -e "/^@INCLUDE:global-options@$/{
 	-e "/^@INCLUDE:reporting-bugs@$/{
 		r ${SRCDIR}/reporting-bugs.inc
 		d
-	}" | sed -e "s|@sysconfdir@|${SYSCONFDIR}|" -e "s|@rundir@|${RUNDIR}|"
+	}" | sed -e "s|@pkgsysconfdir@|${PKGSYSCONFDIR}|" -e "s|@rundir@|${RUNDIR}|"
 

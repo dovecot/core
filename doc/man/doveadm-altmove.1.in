@@ -52,10 +52,10 @@ for details.
 .\"------------------------------------------------------------------------
 .SH FILES
 .TP
-.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+.I @pkgsysconfdir@/conf.d/10\-mail.conf
 Mailbox locations and namespaces.
 .TP
-.I @sysconfdir@/dovecot/conf.d/auth\-*.conf.ext
+.I @pkgsysconfdir@/conf.d/auth\-*.conf.ext
 Authentication processes, including userdb settings.
 .\"------------------------------------------------------------------------
 .SH EXAMPLE

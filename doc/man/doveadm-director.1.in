@@ -49,7 +49,7 @@ will use the socket
 The socket may be located in another directory, when the default
 .I base_dir
 setting was overridden in
-.IR @sysconfdir@/dovecot/dovecot.conf .
+.IR @pkgsysconfdir@/dovecot.conf .
 .\"------------------------------------------------------------------------
 .SH ARGUMENTS
 .TP
@@ -126,10 +126,10 @@ the whole proxy cluster was restarted fresh.
 .\"------------------------------------------------------------------------
 .SH FILES
 .TP
-.I @sysconfdir@/dovecot/dovecot.conf
+.I @pkgsysconfdir@/dovecot.conf
 Dovecot\(aqs main configuration file.
 .TP
-.I @sysconfdir@/dovecot/conf.d/10\-director.conf
+.I @pkgsysconfdir@/conf.d/10\-director.conf
 Director specific settings.
 .\"------------------------------------------------------------------------
 .SH EXAMPLE

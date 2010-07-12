@@ -48,7 +48,7 @@ Show all settings with their currently configured values.
 read configuration from the given
 .IR config\-file .
 By default
-.I @sysconfdir@/dovecot/dovecot.conf
+.I @pkgsysconfdir@/dovecot.conf
 will be used.
 .\"---------------------------------
 .TP
@@ -143,7 +143,7 @@ can be also used to convert v1.x configuration files into v2.0 format.
 .sp
 .nf
 .B doveconf \-n \-c /oldpath/dovecot.conf > \
-@sysconfdir@/dovecot/dovecot.conf.new
+@pkgsysconfdir@/dovecot.conf.new
 .fi
 .\"-------------------------------------
 .PP
@@ -167,7 +167,7 @@ This example demonstrates how to dump a whole configuration section.
 .nf
 .B doveconf dict
 dict {
-  quota = pgsql:@sysconfdir@/dovecot/dovecot\-dict\-sql.conf.ext
+  quota = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 }
 .fi
 .\"------------------------------------------------------------------------

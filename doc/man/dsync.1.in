@@ -67,7 +67,7 @@ The default is to synchronize all respectively convert from all mailboxes.
 Overrides the configuration
 .I setting
 from
-.I @sysconfdir@/dovecot/dovecot.conf
+.I @pkgsysconfdir@/dovecot.conf
 and from the userdb with the given
 .IR value .
 In order to override multiple settings to
@@ -171,7 +171,7 @@ If you need more complex parameters to ssh, you can use e.g.:
 Assuming that the
 .I mail_location
 setting in
-.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+.I @pkgsysconfdir@/conf.d/10\-mail.conf
 is set to:
 .BR "mail_location = mdbox:~/mdbox" ,
 a logged in system user may convert her/his mails from its Maildir in

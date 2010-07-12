@@ -125,22 +125,22 @@ are ignored.
 .\"------------------------------------------------------------------------
 .SH FILES
 .TP
-.I @sysconfdir@/dovecot/dovecot.conf
+.I @pkgsysconfdir@/dovecot.conf
 Dovecot\(aqs main configuration file.
 .TP
-.I @sysconfdir@/dovecot/dovecot\-ldap.conf.ext
+.I @pkgsysconfdir@/dovecot\-ldap.conf.ext
 Dovecot\(aqs LDAP authdb/userdb module configuration file.
 .TP
-.I @sysconfdir@/dovecot/dovecot\-sql.conf.ext
+.I @pkgsysconfdir@/dovecot\-sql.conf.ext
 Dovecot\(aqs SQL authdb/userdb module configuration file.
 .TP
-.I @sysconfdir@/dovecot/dovecot\-dict\-sql.conf.ext
+.I @pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 Dovecot\(aqs dict configuration with SQL\-backend.
 .TP
-.I @sysconfdir@/dovecot/conf.d/auth\-*\-conf.ext
+.I @pkgsysconfdir@/conf.d/auth\-*\-conf.ext
 Configuration files of different authentication modules.
 .TP
-.I @sysconfdir@/dovecot/conf.d/*.conf
+.I @pkgsysconfdir@/conf.d/*.conf
 Configuration files of different services and settings.
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@

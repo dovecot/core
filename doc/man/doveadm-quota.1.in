@@ -81,19 +81,19 @@ command is used to recalculate the current quota usage.
 .\"------------------------------------------------------------------------
 .SH FILES
 .TP
-.I @sysconfdir@/dovecot/dovecot.conf
+.I @pkgsysconfdir@/dovecot.conf
 Dovecot\(aqs main configuration file, including the
 .I dict
 section.
 .TP
-.I @sysconfdir@/dovecot/dovecot\-dict\-sql.conf.ext
+.I @pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 SQL dictionary proxy settings.
 .TP
-.I @sysconfdir@/dovecot/conf.d/10\-mail.conf
+.I @pkgsysconfdir@/conf.d/10\-mail.conf
 Mailbox locations and namespaces, including global
 .I mail_location
 .TP
-.I @sysconfdir@/dovecot/conf.d/90\-quota.conf
+.I @pkgsysconfdir@/conf.d/90\-quota.conf
 Quota configuration.
 .\"------------------------------------------------------------------------
 .SH EXAMPLE

@@ -57,7 +57,7 @@ and
 .I debug_log_path
 settings.
 These settings are configured in
-.IR @sysconfdir@/dovecot/conf.d/10\-logging.conf .
+.IR @pkgsysconfdir@/conf.d/10\-logging.conf .
 .br
 This is for example useful after manually rotating the log files.
 .\"-------------------------------------

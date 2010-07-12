@@ -34,7 +34,7 @@ will use the socket
 The socket may be located in another directory, when the default
 .I base_dir
 setting was overridden in
-.IR @sysconfdir@/dovecot/dovecot.conf .
+.IR @pkgsysconfdir@/dovecot.conf .
 .\"-------------------------------------
 .TP
 .BI \-x\  auth_info
