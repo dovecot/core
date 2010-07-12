@@ -219,7 +219,8 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 	if (rmdir_path) {
 		if (rmdir(path) == 0)
 			unlinked_something = TRUE;
-		else if (errno != ENOENT && errno != ENOTEMPTY) {
+		else if (errno != ENOENT &&
+			 errno != ENOTEMPTY && errno != EEXIST) {
 			mailbox_list_set_critical(list, "rmdir(%s) failed: %m",
 						  path);
 			return -1;
@@ -260,7 +261,7 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 	}
 	while (strcmp(path, root_dir) != 0) {
 		if (rmdir(path) < 0 && errno != ENOENT) {
-			if (errno == ENOTEMPTY)
+			if (errno == ENOTEMPTY || errno == EEXIST)
 				return;
 
 			mailbox_list_set_critical(list, "rmdir(%s) failed: %m",

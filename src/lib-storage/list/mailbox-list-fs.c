@@ -391,7 +391,8 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		/* try to delete the parent directory */
 		path = mailbox_list_get_path(list, name,
 					     MAILBOX_LIST_PATH_TYPE_DIR);
-		if (rmdir(path) < 0 && errno != ENOENT && errno != ENOTEMPTY) {
+		if (rmdir(path) < 0 && errno != ENOENT &&
+		    errno != ENOTEMPTY && errno != EEXIST) {
 			mailbox_list_set_critical(list, "rmdir(%s) failed: %m",
 						  path);
 		}
@@ -435,7 +436,7 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 	if (errno == ENOENT) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
-	} else if (errno == ENOTEMPTY) {
+	} else if (errno == ENOTEMPTY || errno == EEXIST) {
 		/* mbox workaround: if only .imap/ directory is preventing the
 		   deletion, remove it */
 		child_name = t_strdup_printf("%s%cchild", name,
@@ -479,8 +480,8 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 	}
 	if (rmdir_parent && (p = strrchr(oldpath, '/')) != NULL) {
 		oldpath = t_strdup_until(oldpath, p);
-		if (rmdir(oldpath) < 0 &&
-		    errno != ENOENT && errno != ENOTEMPTY) {
+		if (rmdir(oldpath) < 0 && errno != ENOENT &&
+		    errno != ENOTEMPTY && errno != EEXIST) {
 			mailbox_list_set_critical(oldlist,
 				"rmdir(%s) failed: %m", oldpath);
 		}
@@ -603,7 +604,8 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 						MAILBOX_LIST_PATH_TYPE_DIR);
 		if (rmdir(oldpath) == 0)
 			rmdir_parent = TRUE;
-		else if (errno != ENOENT && errno != ENOTEMPTY) {
+		else if (errno != ENOENT &&
+			 errno != ENOTEMPTY && errno != EEXIST) {
 			mailbox_list_set_critical(oldlist,
 				"rmdir(%s) failed: %m", oldpath);
 		}
