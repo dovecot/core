@@ -285,6 +285,7 @@ proxy_client_worker_next_reply(struct proxy_client_dsync_worker *worker,
 		ret = proxy_client_worker_next_msg_get(worker, &request, line);
 		break;
 	case PROXY_CLIENT_REQUEST_TYPE_FINISH:
+		i_assert(!worker->finished);
 		worker->finished = TRUE;
 		proxy_client_worker_next_finish(worker, &request, line);
 		break;
@@ -1061,6 +1062,8 @@ proxy_client_worker_finish(struct dsync_worker *_worker,
 	struct proxy_client_request request;
 
 	i_assert(worker->save_input == NULL);
+
+	worker->finished = FALSE;
 
 	o_stream_send_str(worker->output, "FINISH\n");
 	o_stream_uncork(worker->output);
