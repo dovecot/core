@@ -47,10 +47,9 @@ want to modify the tokenizers and filters.
    <field name="last_uid" type="boolean" indexed="true" stored="false" /> 
    <field name="hdr" type="text" indexed="true" stored="false" /> 
    <field name="body" type="text" indexed="true" stored="false" /> 
-   <field name="any" type="text" indexed="true" stored="false" multiValued="true" />
  </fields>
 
  <uniqueKey>id</uniqueKey>
- <defaultSearchField>any</defaultSearchField>
+ <defaultSearchField>body</defaultSearchField>
  <solrQueryParser defaultOperator="AND" />
 </schema>
