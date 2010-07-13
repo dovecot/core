@@ -205,7 +205,8 @@ static bool list_namespace_has_children(struct cmd_list_context *ctx)
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
 		list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED;
 
-	list_iter = mailbox_list_iter_init(ctx->ns->list, "%", list_flags);
+	list_iter = mailbox_list_iter_init(ctx->ns->list,
+		t_strconcat(ctx->ns->prefix, "%", NULL), list_flags);
 	info = mailbox_list_iter_next(list_iter);
 	if (info != NULL)
 		ret = TRUE;
