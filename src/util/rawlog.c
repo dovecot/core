@@ -370,7 +370,7 @@ int main(int argc, char *argv[])
 	i_set_failure_internal();
 	process_title_init(&argv);
 
-	while ((c = getopt(argc, argv, "iobt")) > 0) {
+	while ((c = getopt(argc, argv, "+iobt")) > 0) {
 		switch (c) {
 		case 'i':
 			flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
