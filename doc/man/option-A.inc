@@ -15,7 +15,7 @@ setting.
 When the sql userdb module is used make sure that the
 .I iterate_query
 setting in the
-.I @sysconfdir@/dovecot/dovecot\-sql.conf.ext
+.I @pkgsysconfdir@/dovecot\-sql.conf.ext
 matches your database layout.
 Otherwise
 .BR doveadm (1)
