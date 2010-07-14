@@ -23,7 +23,7 @@ In such situations the
 .B force\-resync
 command may be helpful.
 It tries to fix all problems.
-For dbox and mdbox mailboxes the storage files will be also checked.
+For sdbox and mdbox mailboxes the storage files will be also checked.
 .\"------------------------------------------------------------------------
 @INCLUDE:global-options@
 .\" --- command specific options --- "/.

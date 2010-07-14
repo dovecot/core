@@ -121,7 +121,7 @@ userdb: jane
   uid       : 8001
   gid       : 8001
   home      : /home/jane
-  mail      : dbox:~/dbox
+  mail      : sdbox:~/sdbox
   plugins   : sieve
   quota_rule: *:storage=150M
 

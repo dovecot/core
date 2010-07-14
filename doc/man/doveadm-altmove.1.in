@@ -16,7 +16,7 @@ doveadm\-altmove \- Move matching mails to the alternative storage (dbox\-only)
 .I user search_query
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
-This command can be used with dbox or mdbox storage to move mails to
+This command can be used with sdbox or mdbox storage to move mails to
 alternative storage path when :ALT=<path> is specified for the mail
 location.
 .PP
