@@ -234,7 +234,7 @@ AC_ARG_WITH(storages,
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
-	mail_storages="shared maildir mbox dbox mdbox cydir")
+	mail_storages="shared maildir mbox sdbox mdbox cydir")
 AC_SUBST(mail_storages)
 
 AC_ARG_WITH(moduledir,
@@ -2409,7 +2409,7 @@ dnl **
 maildir_libs='$(top_builddir)/src/lib-storage/index/maildir/libstorage_maildir.la'
 mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.la'
 dbox_common_libs='$(top_builddir)/src/lib-storage/index/dbox-common/libstorage_dbox_common.la'
-dbox_libs='$(top_builddir)/src/lib-storage/index/dbox-single/libstorage_dbox_single.la'
+sdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-single/libstorage_dbox_single.la'
 mdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-multi/libstorage_dbox_multi.la'
 cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.la'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.la'
@@ -2422,15 +2422,24 @@ LINKED_STORAGE_LIBS=
 mail_storages="$mail_storages raw"
 # drop duplicates
 mail_storages=`(for i in $mail_storages; do echo $i; done)|sort|uniq|xargs echo`
+have_sdbox=no
 for storage in $mail_storages; do
   LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"
-  if test $storage = dbox || test $storage = mdbox; then
+  if test $storage = sdbox; then
+    have_sdbox=yes
+  fi
+  if test $storage = sdbox || test $storage = mdbox; then
     LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS $dbox_common_libs"
     dbox_common_libs=""
   fi
 done
 AC_SUBST(LINKED_STORAGE_LIBS)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
+
+if test $have_sdbox = yes; then
+  # create alias for sdbox
+  mail_storages="$mail_storages dbox"
+fi
 
 dnl **
 dnl ** Shared libraries usage

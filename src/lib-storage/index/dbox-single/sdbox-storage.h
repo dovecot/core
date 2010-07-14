@@ -4,7 +4,7 @@
 #include "index-storage.h"
 #include "dbox-storage.h"
 
-#define SDBOX_STORAGE_NAME "dbox"
+#define SDBOX_STORAGE_NAME "sdbox"
 #define SDBOX_MAIL_FILE_PREFIX "u."
 #define SDBOX_MAIL_FILE_FORMAT SDBOX_MAIL_FILE_PREFIX"%u"
 

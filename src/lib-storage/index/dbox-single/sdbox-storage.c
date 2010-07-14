@@ -10,7 +10,7 @@
 #include "sdbox-sync.h"
 #include "sdbox-storage.h"
 
-extern struct mail_storage dbox_storage;
+extern struct mail_storage dbox_storage, sdbox_storage;
 extern struct mailbox sdbox_mailbox;
 extern struct dbox_storage_vfuncs sdbox_dbox_storage_vfuncs;
 
@@ -19,7 +19,7 @@ static struct mail_storage *sdbox_storage_alloc(void)
 	struct sdbox_storage *storage;
 	pool_t pool;
 
-	pool = pool_alloconly_create("dbox storage", 512+256);
+	pool = pool_alloconly_create("sdbox storage", 512+256);
 	storage = p_new(pool, struct sdbox_storage, 1);
 	storage->storage.v = sdbox_dbox_storage_vfuncs;
 	storage->storage.storage = dbox_storage;
@@ -34,7 +34,7 @@ sdbox_storage_create(struct mail_storage *storage ATTR_UNUSED,
 {
 #ifndef HAVE_FLOCK
 	if (master_service_get_client_limit(master_service) > 1) {
-		*error_r = "dbox requires client_limit=1 for service "
+		*error_r = "sdbox requires client_limit=1 for service "
 			"since your OS doesn't support flock()";
 		return -1;
 	}
@@ -53,7 +53,7 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	/* dbox can't work without index files */
 	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
 
-	pool = pool_alloconly_create("dbox mailbox", 1024*3);
+	pool = pool_alloconly_create("sdbox mailbox", 1024*3);
 	mbox = p_new(pool, struct sdbox_mailbox, 1);
 	mbox->box = sdbox_mailbox;
 	mbox->box.pool = pool;
@@ -97,7 +97,7 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 		if (log_error) {
 			mail_storage_set_critical(
 				&mbox->storage->storage.storage,
-				"dbox %s: Invalid dbox header size",
+				"sdbox %s: Invalid dbox header size",
 				mbox->box.path);
 		}
 		ret = -1;
@@ -263,8 +263,25 @@ dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return sdbox_write_index_header(box, update, NULL);
 }
 
-struct mail_storage dbox_storage = {
+struct mail_storage sdbox_storage = {
 	.name = SDBOX_STORAGE_NAME,
+	.class_flags = 0,
+
+	.v = {
+                NULL,
+		sdbox_storage_alloc,
+		sdbox_storage_create,
+		NULL,
+		NULL,
+		dbox_storage_get_list_settings,
+		NULL,
+		sdbox_mailbox_alloc,
+		NULL
+	}
+};
+
+struct mail_storage dbox_storage = {
+	.name = "dbox", /* alias */
 	.class_flags = 0,
 
 	.v = {

@@ -194,12 +194,12 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 		if (ret == 0) {
 			if (i >= SDBOX_REBUILD_COUNT) {
 				mail_storage_set_critical(storage,
-					"dbox %s: Index keeps breaking",
+					"sdbox %s: Index keeps breaking",
 					ctx->mbox->box.path);
 				ret = -1;
 			} else {
 				/* do a full resync and try again. */
-				i_warning("dbox %s: Rebuilding index",
+				i_warning("sdbox %s: Rebuilding index",
 					  ctx->mbox->box.path);
 				rebuild = FALSE;
 				ret = sdbox_sync_index_rebuild(mbox,

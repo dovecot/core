@@ -45,7 +45,7 @@ static int sdbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
 		if (ret < 0)
 			return -1;
 
-		i_warning("dbox: Skipping unfixable file: %s", file->cur_path);
+		i_warning("sdbox: Skipping unfixable file: %s", file->cur_path);
 		return 0;
 	}
 
@@ -71,7 +71,7 @@ sdbox_sync_add_file(struct dbox_sync_rebuild_context *ctx,
 	fname += strlen(SDBOX_MAIL_FILE_PREFIX);
 
 	if (str_to_uint32(fname, &uid) < 0 || uid == 0) {
-		i_warning("dbox %s: Ignoring invalid filename %s",
+		i_warning("sdbox %s: Ignoring invalid filename %s",
 			  ctx->box->path, fname);
 		return 0;
 	}
