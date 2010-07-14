@@ -126,6 +126,9 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 				storage->user->username :
 				t_strconcat(storage->user->username,
 					    "@", my_hostdomain(), NULL);
+		} else if (*from_envelope == '\0') {
+			/* can't write empty envelope */
+			from_envelope = "MAILER-DAEMON";
 		}
 
 		/* save in local timezone, no matter what it was given with */
