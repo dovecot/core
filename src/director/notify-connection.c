@@ -32,8 +32,13 @@ static void notify_connection_input(struct notify_connection *conn)
 					     user);
 		}
 	}
-	if (conn->input->eof || conn->input->stream_errno != 0)
+	if (conn->input->eof) {
+		i_error("notify: read() unexpectedly returned EOF");
 		notify_connection_deinit(&conn);
+	} else if (conn->input->stream_errno != 0) {
+		i_error("notify: read() failed: %m");
+		notify_connection_deinit(&conn);
+	}
 }
 
 struct notify_connection *
