@@ -117,7 +117,9 @@ static int service_fifo_listener_listen(struct service_listener *l)
 		return -1;
 	}
 
-	fd = open(set->path, O_RDONLY | O_NONBLOCK);
+	/* open as RDWR, so that even if the last writer closes,
+	   we won't get EOF errors */
+	fd = open(set->path, O_RDWR | O_NONBLOCK);
 	if (fd == -1) {
 		service_error(service, "open(%s) failed: %m", set->path);
 		return -1;
