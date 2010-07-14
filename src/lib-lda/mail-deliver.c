@@ -203,6 +203,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	kw = str_array_length(keywords) == 0 ? NULL :
 		mailbox_keywords_create_valid(box, keywords);
 	save_ctx = mailbox_save_alloc(t);
+	if (ctx->src_envelope_sender != NULL)
+		mailbox_save_set_from_envelope(save_ctx, ctx->src_envelope_sender);
 	mailbox_save_set_flags(save_ctx, flags, kw);
 	if (mailbox_copy(&save_ctx, ctx->src_mail) < 0)
 		ret = -1;
