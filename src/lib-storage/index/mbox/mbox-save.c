@@ -121,8 +121,11 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 			struct mail_storage *storage =
 				&ctx->mbox->storage->storage;
 
-			from_envelope = t_strconcat(storage->user->username,
-						    "@", my_hostdomain(), NULL);
+			from_envelope =
+				strchr(storage->user->username, '@') != NULL ?
+				storage->user->username :
+				t_strconcat(storage->user->username,
+					    "@", my_hostdomain(), NULL);
 		}
 
 		/* save in local timezone, no matter what it was given with */
