@@ -4,6 +4,7 @@
 #include "network.h"
 #include "hash.h"
 #include "strescape.h"
+#include "fd-set-nonblock.h"
 #include "login-proxy-state.h"
 
 #include <unistd.h>
@@ -96,6 +97,7 @@ static int login_proxy_state_notify_open(struct login_proxy_state *state)
 		state->notify_fd_broken = TRUE;
 		return -1;
 	}
+	fd_set_nonblock(state->notify_fd, TRUE);
 	return 0;
 }
 
