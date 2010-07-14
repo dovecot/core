@@ -259,7 +259,7 @@ static void cmd_director_flush(int argc, char *argv[])
 	ctx = cmd_director_init(argc, argv, 0);
 	host = argv[optind++];
 	if (host == NULL || argv[optind] != NULL)
-		help(&doveadm_cmd_director[2]);
+		help(&doveadm_cmd_director[3]);
 
 	if (strcmp(host, "all") == 0) {
 		cmd_director_flush_all(ctx);
