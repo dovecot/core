@@ -446,15 +446,13 @@ director_cmd_host_flush(struct director_connection *conn,
 	struct director_host *dir_host;
 	struct mail_host *host;
 	struct ip_addr ip;
-	unsigned int seq;
 	int ret;
 
 	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
 		return ret > 0;
 
-	if (str_array_length(args) != 2 ||
-	    net_addr2ip(args[0], &ip) < 0 ||
-	    str_to_uint(args[1], &seq) < 0) {
+	if (str_array_length(args) != 1 ||
+	    net_addr2ip(args[0], &ip) < 0) {
 		i_error("director(%s): Invalid HOST-FLUSH args", conn->name);
 		return FALSE;
 	}
