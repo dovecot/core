@@ -32,13 +32,6 @@ sdbox_storage_create(struct mail_storage *storage ATTR_UNUSED,
 		     struct mail_namespace *ns ATTR_UNUSED,
 		     const char **error_r ATTR_UNUSED)
 {
-#ifndef HAVE_FLOCK
-	if (master_service_get_client_limit(master_service) > 1) {
-		*error_r = "sdbox requires client_limit=1 for service "
-			"since your OS doesn't support flock()";
-		return -1;
-	}
-#endif
 	return 0;
 }
 
