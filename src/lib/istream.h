@@ -24,6 +24,9 @@ typedef void istream_callback_t(void *context);
 
 struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 				   bool autoclose_fd);
+/* Open the given path only when something is actually tried to be read from
+   the stream. */
+struct istream *i_stream_create_file(const char *path, size_t max_buffer_size);
 struct istream *i_stream_create_mmap(int fd, size_t block_size,
 				     uoff_t start_offset, uoff_t v_size,
 				     bool autoclose_fd);

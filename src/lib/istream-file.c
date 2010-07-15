@@ -9,6 +9,7 @@
 
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 struct file_istream {
@@ -35,6 +36,19 @@ static void i_stream_file_close(struct iostream_private *stream)
 	_stream->fd = -1;
 }
 
+static int i_stream_file_open(struct istream_private *stream)
+{
+	const char *path = i_stream_get_name(&stream->istream);
+
+	stream->fd = open(path, O_RDONLY);
+	if (stream->fd == -1) {
+		stream->istream.stream_errno = errno;
+		i_error("file_istream.open(%s) failed: %m", path);
+		return -1;
+	}
+	return 0;
+}
+
 static ssize_t i_stream_file_read(struct istream_private *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
@@ -43,6 +57,11 @@ static ssize_t i_stream_file_read(struct istream_private *stream)
 
 	if (!i_stream_get_buffer_space(stream, 1, &size))
 		return -2;
+
+	if (stream->fd == -1) {
+		if (i_stream_file_open(stream) < 0)
+			return -1;
+	}
 
 	do {
 		if (fstream->file) {
@@ -129,11 +148,18 @@ static const struct stat *
 i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
+	const char *name = i_stream_get_name(&stream->istream);
 
-	if (fstream->file) {
-		if (fstat(fstream->istream.fd, &fstream->istream.statbuf) < 0) {
-			i_error("file_istream.fstat(%s) failed: %m",
-				i_stream_get_name(&stream->istream));
+	if (!fstream->file) {
+		/* return defaults */
+	} else if (stream->fd != -1) {
+		if (fstat(stream->fd, &stream->statbuf) < 0) {
+			i_error("file_istream.fstat(%s) failed: %m", name);
+			return NULL;
+		}
+	} else {
+		if (stat(name, &stream->statbuf) < 0) {
+			i_error("file_istream.fstat(%s) failed: %m", name);
 			return NULL;
 		}
 	}
@@ -141,8 +167,8 @@ i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
-				   bool autoclose_fd)
+static struct istream *
+i_stream_create_file_common(int fd, size_t max_buffer_size, bool autoclose_fd)
 {
 	struct file_istream *fstream;
 	struct stat st;
@@ -158,7 +184,7 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 	fstream->istream.stat = i_stream_file_stat;
 
 	/* if it's a file, set the flags properly */
-	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
+	if (fd == -1 || (fstat(fd, &st) == 0 && S_ISREG(st.st_mode))) {
 		fstream->file = TRUE;
 		fstream->istream.istream.blocking = TRUE;
 		fstream->istream.istream.seekable = TRUE;
@@ -166,4 +192,21 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 	fstream->istream.istream.readable_fd = TRUE;
 
 	return i_stream_create(&fstream->istream, NULL, fd);
+}
+
+struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
+				   bool autoclose_fd)
+{
+	i_assert(fd != -1);
+
+	return i_stream_create_file_common(fd, max_buffer_size, autoclose_fd);
+}
+
+struct istream *i_stream_create_file(const char *path, size_t max_buffer_size)
+{
+	struct istream *input;
+
+	input = i_stream_create_file_common(-1, max_buffer_size, TRUE);
+	i_stream_set_name(input, path);
+	return input;
 }
