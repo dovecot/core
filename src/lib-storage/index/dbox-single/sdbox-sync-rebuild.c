@@ -34,11 +34,11 @@ static int sdbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
 	if ((ret = dbox_file_open(file, &deleted)) > 0) {
 		if (deleted)
 			return 0;
-		ret = dbox_file_get_mail_stream(file, 0, NULL);
+		ret = dbox_file_seek(file, 0);
 	}
 	if (ret == 0) {
 		if ((ret = dbox_file_fix(file, 0)) == 0)
-			ret = dbox_file_get_mail_stream(file, 0, NULL);
+			ret = dbox_file_seek(file, 0);
 	}
 
 	if (ret <= 0) {

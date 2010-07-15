@@ -153,8 +153,10 @@ int dbox_file_stat(struct dbox_file *file, struct stat *st_r);
 int dbox_file_try_lock(struct dbox_file *file);
 void dbox_file_unlock(struct dbox_file *file);
 
-/* Seek to given offset in file and return the message's input stream.
-   Returns 1 if ok/expunged, 0 if file/offset is corrupted, -1 if I/O error. */
+/* Seek to given offset in file. Returns 1 if ok/expunged, 0 if file/offset is
+   corrupted, -1 if I/O error. */
+int dbox_file_seek(struct dbox_file *file, uoff_t offset);
+/* Same as dbox_file_seek(), but return also input stream for message. */
 int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 			      struct istream **input_r);
 /* Start seeking at the beginning of the file. */

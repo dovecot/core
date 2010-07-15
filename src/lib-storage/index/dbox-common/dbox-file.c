@@ -367,8 +367,7 @@ int dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 	return 1;
 }
 
-int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
-			      struct istream **stream_r)
+int dbox_file_seek(struct dbox_file *file, uoff_t offset)
 {
 	uoff_t size;
 	int ret;
@@ -387,10 +386,18 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 		file->cur_physical_size = size;
 	}
 	i_stream_seek(file->input, offset + file->msg_header_size);
-	if (stream_r != NULL) {
-		*stream_r = i_stream_create_limit(file->input,
-						  file->cur_physical_size);
-	}
+	return 1;
+}
+
+int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
+			      struct istream **stream_r)
+{
+	int ret;
+
+	if ((ret = dbox_file_seek(file, offset)) <= 0)
+		return ret;
+
+	*stream_r = i_stream_create_limit(file->input, file->cur_physical_size);
 	return 1;
 }
 
@@ -447,7 +454,7 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 	}
 	*last_r = FALSE;
 
-	ret = dbox_file_get_mail_stream(file, offset, NULL);
+	ret = dbox_file_seek(file, offset);
 	if (*offset_r == 0)
 		*offset_r = file->file_header_size;
 	return ret;

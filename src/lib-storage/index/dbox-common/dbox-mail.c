@@ -45,7 +45,7 @@ int dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 	if (storage->v.mail_open(mail, &offset, file_r) < 0)
 		return -1;
 
-	if (dbox_file_get_mail_stream(*file_r, offset, NULL) <= 0)
+	if (dbox_file_seek(*file_r, offset) <= 0)
 		return -1;
 	if (dbox_file_metadata_read(*file_r) <= 0)
 		return -1;
