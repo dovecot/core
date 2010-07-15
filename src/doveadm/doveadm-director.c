@@ -197,21 +197,49 @@ get_user_list(const char *auth_socket_path, pool_t pool,
 	auth_master_deinit(&conn);
 }
 
+static void director_get_host(const char *host, struct ip_addr **ips_r,
+			      unsigned int *ips_count_r)
+{
+	struct ip_addr ip;
+
+	if (net_addr2ip(host, &ip) == 0) {
+		*ips_r = &ip;
+		*ips_count_r = 1;
+	} else {
+		if (net_gethostbyname(host, ips_r, ips_count_r) < 0)
+			i_fatal("gethostname(%s) failed: %m", host);
+	}
+}
+
+static bool ip_find(const struct ip_addr *ips, unsigned int ips_count,
+		    const struct ip_addr *match_ip)
+{
+	unsigned int i;
+
+	for (i = 0; i < ips_count; i++) {
+		if (net_ip_compare(&ips[i], match_ip))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void cmd_director_map(int argc, char *argv[])
 {
 	struct director_context *ctx;
 	const char *line, *const *args, *username;
-	struct ip_addr ip, user_ip;
+	struct ip_addr *ips, user_ip;
 	pool_t pool;
 	struct hash_table *users;
 	struct user_list *user;
-	unsigned int user_hash, expires;
+	unsigned int ips_count, user_hash, expires;
 
 	ctx = cmd_director_init(argc, argv, cmd_director_map);
 	if (argv[optind] == NULL)
-		ip.family = 0;
-	else if (!net_addr2ip(argv[optind], &ip) < 0 || argv[optind+1] != NULL)
+		ips_count = 0;
+	else if (argv[optind+1] != NULL)
 		director_cmd_help(cmd_director_map);
+	else
+		director_get_host(argv[optind], &ips, &ips_count);
 
 	pool = pool_alloconly_create("director map users", 1024*128);
 	users = hash_table_create(default_pool, pool, 0, NULL, NULL);
@@ -222,7 +250,12 @@ static void cmd_director_map(int argc, char *argv[])
 	doveadm_print_header_simple("mail server ip");
 	doveadm_print_header_simple("expire time");
 
-	director_send(ctx, "USER-LIST\n");
+	if (ips_count != 1)
+		director_send(ctx, "USER-LIST\n");
+	else {
+		director_send(ctx, t_strdup_printf(
+			"USER-LIST\t%s\n", net_ip2addr(&ips[0])));
+	}
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
 		if (*line == '\0')
 			break;
@@ -233,8 +266,8 @@ static void cmd_director_map(int argc, char *argv[])
 			    str_to_uint(args[1], &expires) < 0 ||
 			    net_addr2ip(args[2], &user_ip) < 0)
 				i_error("Invalid USER-LIST reply: %s", line);
-			else if (ip.family == 0 ||
-				 net_ip_compare(&ip, &user_ip)) {
+			else if (ips_count == 0 ||
+				 ip_find(ips, ips_count, &user_ip)) {
 				user = hash_table_lookup(users,
 						POINTER_CAST(user_hash));
 				if (user == NULL)
@@ -257,7 +290,6 @@ static void cmd_director_add(int argc, char *argv[])
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int i, ips_count, vhost_count = -1U;
-	struct ip_addr ip;
 	const char *host, *cmd, *line;
 
 	ctx = cmd_director_init(argc, argv, cmd_director_add);
@@ -271,14 +303,7 @@ static void cmd_director_add(int argc, char *argv[])
 	if (argv[optind] != NULL)
 		director_cmd_help(cmd_director_add);
 
-	if (net_addr2ip(host, &ip) == 0) {
-		ips = &ip;
-		ips_count = 1;
-	} else {
-		if (net_gethostbyname(host, &ips, &ips_count) < 0)
-			i_fatal("gethostname(%s) failed: %m", host);
-	}
-
+	director_get_host(host, &ips, &ips_count);
 	for (i = 0; i < ips_count; i++) {
 		cmd = vhost_count == -1U ?
 			t_strdup_printf("HOST-SET\t%s\n",
@@ -306,7 +331,6 @@ static void cmd_director_remove(int argc, char *argv[])
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int i, ips_count;
-	struct ip_addr ip;
 	const char *host, *line;
 
 	ctx = cmd_director_init(argc, argv, cmd_director_remove);
@@ -314,17 +338,10 @@ static void cmd_director_remove(int argc, char *argv[])
 	if (host == NULL || argv[optind] != NULL)
 		director_cmd_help(cmd_director_remove);
 
-	if (net_addr2ip(host, &ip) == 0) {
-		ips = &ip;
-		ips_count = 1;
-	} else {
-		if (net_gethostbyname(host, &ips, &ips_count) < 0)
-			i_fatal("gethostname(%s) failed: %m", host);
-	}
-
+	director_get_host(host, &ips, &ips_count);
 	for (i = 0; i < ips_count; i++) {
-		director_send(ctx,
-			t_strdup_printf("HOST-REMOVE\t%s\n", net_ip2addr(&ip)));
+		director_send(ctx, t_strdup_printf(
+			"HOST-REMOVE\t%s\n", net_ip2addr(&ips[i])));
 	}
 	for (i = 0; i < ips_count; i++) {
 		line = i_stream_read_next_line(ctx->input);
@@ -407,7 +424,7 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
 	  "[-a <director socket path>] [<user>]", NULL },
 	{ cmd_director_map, "director map",
-	  "[-a <director socket path>] [<ip>]", NULL },
+	  "[-a <director socket path>] [<host>]", NULL },
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] <host> [<vhost count>]", NULL },
 	{ cmd_director_remove, "director remove",
