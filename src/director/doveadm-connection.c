@@ -195,6 +195,40 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 	return TRUE;
 }
 
+static bool
+doveadm_cmd_user_list(struct doveadm_connection *conn, const char *line)
+{
+	struct user_directory_iter *iter;
+	struct user *user;
+	struct ip_addr ip;
+
+	if (*line != '\0') {
+		if (net_addr2ip(line, &ip) < 0) {
+			i_error("doveadm sent invalid USER-LIST parameters");
+			return FALSE;
+		}
+	} else {
+		ip.family = 0;
+	}
+
+	iter = user_directory_iter_init(conn->dir->users);
+	while ((user = user_directory_iter_next(iter)) != NULL) {
+		if (ip.family == 0 ||
+		    net_ip_compare(&ip, &user->host->ip)) T_BEGIN {
+			unsigned int expire_time = user->timestamp +
+				conn->dir->set->director_user_expire;
+
+			o_stream_send_str(conn->output, t_strdup_printf(
+				"%u\t%u\t%s\n",
+				user->username_hash, expire_time,
+				net_ip2addr(&user->host->ip)));
+		} T_END;
+	}
+	user_directory_iter_deinit(&iter);
+	o_stream_send(conn->output, "\n", 1);
+	return TRUE;
+}
+
 static void doveadm_connection_input(struct doveadm_connection *conn)
 {
 	const char *line, *cmd, *args;
@@ -236,6 +270,8 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 			ret = doveadm_cmd_host_flush(conn, args);
 		else if (strcmp(cmd, "USER-LOOKUP") == 0)
 			ret = doveadm_cmd_user_lookup(conn, args);
+		else if (strcmp(cmd, "USER-LIST") == 0)
+			ret = doveadm_cmd_user_list(conn, args);
 		else {
 			i_error("doveadm sent unknown command: %s", line);
 			ret = FALSE;
