@@ -163,7 +163,7 @@ static void client_read_settings(struct client *client)
 					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
 
-	lmtp_settings_dup(set_parser, client->pool,
+	lmtp_settings_dup(set_parser, client->pool, &client->user_set,
 			  &client->lmtp_set, &client->set);
 }
 

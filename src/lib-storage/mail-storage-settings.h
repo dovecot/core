@@ -53,6 +53,7 @@ struct mail_namespace_settings {
 struct mail_user_settings {
 	const char *base_dir;
 	const char *auth_socket_path;
+	const char *mail_temp_dir;
 
 	const char *mail_uid;
 	const char *mail_gid;

@@ -11,7 +11,9 @@ struct lmtp_settings {
 extern const struct setting_parser_info lmtp_setting_parser_info;
 
 void lmtp_settings_dup(const struct setting_parser_context *set_parser,
-		       pool_t pool, const struct lmtp_settings **lmtp_set_r,
+		       pool_t pool,
+		       const struct mail_user_settings **user_set_r,
+		       const struct lmtp_settings **lmtp_set_r,
 		       const struct lda_settings **lda_set_r);
 
 #endif

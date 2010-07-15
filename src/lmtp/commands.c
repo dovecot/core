@@ -736,7 +736,7 @@ static int client_input_add_file(struct client *client,
 	/* move everything to a temporary file. FIXME: it really shouldn't
 	   be in /tmp.. */
 	path = t_str_new(256);
-	str_append(path, "/tmp/dovecot.lmtp.");
+	mail_user_set_get_temp_prefix(path, client->user_set);
 	fd = safe_mkstemp_hostpid(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1)
 		return -1;

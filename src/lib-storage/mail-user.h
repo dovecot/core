@@ -8,7 +8,6 @@ struct mail_user;
 
 struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
-	const char *(*get_temp_prefix)(struct mail_user *user);
 };
 
 struct mail_user {
@@ -89,9 +88,10 @@ void mail_user_set_home(struct mail_user *user, const char *home);
    successfully, 0 if there is no home directory (either user doesn't exist or
    has no home directory) or -1 if lookup failed. */
 int mail_user_get_home(struct mail_user *user, const char **home_r);
-/* Returns path + file prefix for creating a temporary file. Uses home
-   directory if possible, fallbacks to mail directory. */
-const char *mail_user_get_temp_prefix(struct mail_user *user);
+/* Appends path + file prefix for creating a temporary file.
+   The file prefix doesn't contain any uniqueness. */
+void mail_user_set_get_temp_prefix(string_t *dest,
+				   const struct mail_user_settings *set);
 
 /* Returns TRUE if plugin is loaded for the user. */
 bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module);

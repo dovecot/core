@@ -85,51 +85,15 @@ static const char *address_sanitize(const char *address)
 	return ret;
 }
 
-static int deliver_create_dir(struct mail_user *user, const char *dir)
-{
-	struct mail_namespace *ns;
-	const char *origin;
-	mode_t mode;
-	gid_t gid;
-
-	ns = mail_namespace_find_inbox(user->namespaces);
-	if (ns == NULL)
-		ns = user->namespaces;
-
-	mailbox_list_get_dir_permissions(ns->list, NULL, &mode, &gid, &origin);
-	if (mkdir_parents_chgrp(dir, mode, gid, origin) == 0) {
-		return 0;
-	} else if (errno == EACCES) {
-		i_error("%s", eacces_error_get_creating("mkdir_parents_chown",
-							dir));
-		return -1;
-	} else {
-		i_error("mkdir_parents_chown(%s, gid=%s) failed: %m",
-			dir, dec2str(gid));
-		return -1;
-	}
-}
-
 static int seekable_fd_callback(const char **path_r, void *context)
 {
 	struct mail_deliver_context *ctx = context;
-	const char *dir, *p;
 	string_t *path;
 	int fd;
 
 	path = t_str_new(128);
-	str_append(path, mail_user_get_temp_prefix(ctx->dest_user));
+	mail_user_set_get_temp_prefix(path, ctx->dest_user->set);
 	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1 && errno == ENOENT) {
-		dir = str_c(path);
-		p = strrchr(dir, '/');
-		if (p != NULL) {
-			dir = t_strdup_until(dir, p);
-			if (deliver_create_dir(ctx->dest_user, dir) < 0)
-				return -1;
-			fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
-		}
-	}
 	if (fd == -1) {
 		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;

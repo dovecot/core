@@ -23,8 +23,6 @@
 struct mail_user_module_register mail_user_module_register = { 0 };
 struct auth_master_connection *mail_user_auth_master_conn;
 
-static const char *mail_user_get_temp_prefix_base(struct mail_user *user);
-
 static void mail_user_deinit_base(struct mail_user *user)
 {
 	mail_namespaces_deinit(&user->namespaces);
@@ -57,7 +55,6 @@ struct mail_user *mail_user_alloc(const char *username,
 		i_panic("Settings check unexpectedly failed: %s", error);
 
 	user->v.deinit = mail_user_deinit_base;
-	user->v.get_temp_prefix = mail_user_get_temp_prefix_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
 	return user;
 }
@@ -339,32 +336,13 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 	return 0;
 }
 
-static const char *mail_user_get_temp_prefix_base(struct mail_user *user)
+void mail_user_set_get_temp_prefix(string_t *dest,
+				   const struct mail_user_settings *set)
 {
-	struct mail_namespace *ns;
-	const char *dir;
-
-	if (user->_home != NULL) {
-		return t_strconcat(user->_home, "/.temp.", my_hostname, ".",
-				   my_pid, ".", NULL);
-	}
-
-	ns = mail_namespace_find_inbox(user->namespaces);
-	if (ns == NULL)
-		ns = user->namespaces;
-
-	if (ns->storage->temp_path_prefix != NULL)
-		return ns->storage->temp_path_prefix;
-
-	dir = mailbox_list_get_path(ns->list, NULL,
-				    MAILBOX_LIST_PATH_TYPE_DIR);
-	return t_strconcat(dir, "/",
-			   mailbox_list_get_temp_prefix(ns->list), NULL);
-}
-
-const char *mail_user_get_temp_prefix(struct mail_user *user)
-{
-	return user->v.get_temp_prefix(user);
+	str_append(dest, set->mail_temp_dir);
+	str_append(dest, "/dovecot.");
+	str_append(dest, master_service_get_name(master_service));
+	str_append_c(dest, '.');
 }
 
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
