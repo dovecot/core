@@ -14,9 +14,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 struct director_context {
 	const char *socket_path;
+	const char *users_path;
 	struct istream *input;
 };
 
@@ -65,7 +67,8 @@ static void director_disconnect(struct director_context *ctx)
 }
 
 static struct director_context *
-cmd_director_init(int argc, char *argv[], doveadm_command_t *cmd)
+cmd_director_init(int argc, char *argv[], const char *getopt_args,
+		  doveadm_command_t *cmd)
 {
 	struct director_context *ctx;
 	int c;
@@ -74,10 +77,13 @@ cmd_director_init(int argc, char *argv[], doveadm_command_t *cmd)
 	ctx->socket_path = t_strconcat(doveadm_settings->base_dir,
 				       "/director-admin", NULL);
 
-	while ((c = getopt(argc, argv, "a:")) > 0) {
+	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'a':
 			ctx->socket_path = optarg;
+			break;
+		case 'f':
+			ctx->users_path = optarg;
 			break;
 		default:
 			director_cmd_help(cmd);
@@ -123,7 +129,7 @@ static void cmd_director_status(int argc, char *argv[])
 	struct director_context *ctx;
 	const char *line, *const *args;
 
-	ctx = cmd_director_init(argc, argv, cmd_director_status);
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_status);
 	if (argv[optind] != NULL) {
 		cmd_director_status_user(ctx, argv[optind]);
 		return;
@@ -164,14 +170,28 @@ static unsigned int director_username_hash(const char *username)
 }
 
 static void
-get_user_list(const char *auth_socket_path, pool_t pool,
-	      struct hash_table *users)
+user_list_add(const char *username, pool_t pool, struct hash_table *users)
+{
+	struct user_list *user, *old_user;
+	unsigned int user_hash;
+
+	user = p_new(pool, struct user_list, 1);
+	user->name = p_strdup(pool, username);
+	user_hash = director_username_hash(username);
+
+	old_user = hash_table_lookup(users, POINTER_CAST(user_hash));
+	if (old_user != NULL)
+		user->next = old_user;
+	hash_table_insert(users, POINTER_CAST(user_hash), user);
+}
+
+static void
+userdb_get_user_list(const char *auth_socket_path, pool_t pool,
+		     struct hash_table *users)
 {
 	struct auth_master_user_list_ctx *ctx;
 	struct auth_master_connection *conn;
 	const char *username;
-	struct user_list *user, *old_user;
-	unsigned int user_hash;
 
 	if (auth_socket_path == NULL) {
 		auth_socket_path = t_strconcat(doveadm_settings->base_dir,
@@ -180,21 +200,31 @@ get_user_list(const char *auth_socket_path, pool_t pool,
 
 	conn = auth_master_init(auth_socket_path, 0);
 	ctx = auth_master_user_list_init(conn);
-	while ((username = auth_master_user_list_next(ctx)) != NULL) {
-		user = p_new(pool, struct user_list, 1);
-		user->name = p_strdup(pool, username);
-		user_hash = director_username_hash(username);
-
-		old_user = hash_table_lookup(users, POINTER_CAST(user_hash));
-		if (old_user != NULL)
-			user->next = old_user;
-		hash_table_insert(users, POINTER_CAST(user_hash), user);
-	}
+	while ((username = auth_master_user_list_next(ctx)) != NULL)
+		user_list_add(username, pool, users);
 	if (auth_master_user_list_deinit(&ctx) < 0) {
 		i_error("user listing failed");
 		exit(1);
 	}
 	auth_master_deinit(&conn);
+}
+
+static void
+user_file_get_user_list(const char *path, pool_t pool, struct hash_table *users)
+{
+	struct auth_master_connection *conn;
+	struct istream *input;
+	const char *username;
+	int fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	while ((username = i_stream_read_next_line(input)) != NULL)
+		user_list_add(username, pool, users);
+	auth_master_deinit(&conn);
+	i_stream_unref(&input);
 }
 
 static void director_get_host(const char *host, struct ip_addr **ips_r,
@@ -233,7 +263,7 @@ static void cmd_director_map(int argc, char *argv[])
 	struct user_list *user;
 	unsigned int ips_count, user_hash, expires;
 
-	ctx = cmd_director_init(argc, argv, cmd_director_map);
+	ctx = cmd_director_init(argc, argv, "a:f:", cmd_director_map);
 	if (argv[optind] == NULL)
 		ips_count = 0;
 	else if (argv[optind+1] != NULL)
@@ -243,7 +273,10 @@ static void cmd_director_map(int argc, char *argv[])
 
 	pool = pool_alloconly_create("director map users", 1024*128);
 	users = hash_table_create(default_pool, pool, 0, NULL, NULL);
-	get_user_list(NULL, pool, users);
+	if (ctx->users_path == NULL)
+		userdb_get_user_list(NULL, pool, users);
+	else
+		user_file_get_user_list(ctx->users_path, pool, users);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header_simple("user");
@@ -292,7 +325,7 @@ static void cmd_director_add(int argc, char *argv[])
 	unsigned int i, ips_count, vhost_count = -1U;
 	const char *host, *cmd, *line;
 
-	ctx = cmd_director_init(argc, argv, cmd_director_add);
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_add);
 	host = argv[optind++];
 	if (host == NULL)
 		director_cmd_help(cmd_director_add);
@@ -333,7 +366,7 @@ static void cmd_director_remove(int argc, char *argv[])
 	unsigned int i, ips_count;
 	const char *host, *line;
 
-	ctx = cmd_director_init(argc, argv, cmd_director_remove);
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_remove);
 	host = argv[optind++];
 	if (host == NULL || argv[optind] != NULL)
 		director_cmd_help(cmd_director_remove);
@@ -383,7 +416,7 @@ static void cmd_director_flush(int argc, char *argv[])
 	struct ip_addr ip;
 	const char *host, *line;
 
-	ctx = cmd_director_init(argc, argv, cmd_director_flush);
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_flush);
 	host = argv[optind++];
 	if (host == NULL || argv[optind] != NULL)
 		director_cmd_help(cmd_director_flush);
@@ -424,7 +457,7 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
 	  "[-a <director socket path>] [<user>]", NULL },
 	{ cmd_director_map, "director map",
-	  "[-a <director socket path>] [<host>]", NULL },
+	  "[-a <director socket path>] [-f <users file>] [<host>]", NULL },
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] <host> [<vhost count>]", NULL },
 	{ cmd_director_remove, "director remove",
