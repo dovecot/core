@@ -207,6 +207,5 @@ static void cmd_kick(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_kick = {
 	cmd_kick, "kick",
-	"[-a <anvil socket path>] [-f] <user mask>[|]<ip/bits>",
-	NULL
+	"[-a <anvil socket path>] [-f] <user mask>[|]<ip/bits>"
 };

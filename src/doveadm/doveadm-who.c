@@ -311,5 +311,5 @@ static void cmd_who(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_who = {
 	cmd_who, "who",
-	"[-a <anvil socket path>] [-1] [<user mask>] [<ip/bits>]", NULL
+	"[-a <anvil socket path>] [-1] [<user mask>] [<ip/bits>]"
 };

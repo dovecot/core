@@ -514,5 +514,5 @@ struct doveadm_mail_cmd cmd_mailbox_unsubscribe = {
 };
 struct doveadm_cmd doveadm_cmd_mailbox_mutf7 = {
 	cmd_mailbox_mutf7, "mailbox mutf7",
-	"[-7|-8] <name> [...]", NULL
+	"[-7|-8] <name> [...]"
 };

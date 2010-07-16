@@ -116,11 +116,5 @@ static void cmd_pw(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_pw = {
 	cmd_pw, "pw",
-	"[-l] [-p plaintext] [-r rounds] [-s scheme] [-u user] [-V]",
-"  -l            List known password schemes\n"
-"  -p plaintext  New password\n"
-"  -r rounds     Number of encryption rounds (if scheme uses it)\n"
-"  -s scheme     Password scheme\n"
-"  -u user       Username (if scheme uses it)\n"
-"  -V            Internally verify the hash\n"
+	"[-l] [-p plaintext] [-r rounds] [-s scheme] [-u user] [-V]"
 };

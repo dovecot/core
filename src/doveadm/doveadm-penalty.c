@@ -120,5 +120,5 @@ static void cmd_penalty(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_penalty = {
 	cmd_penalty, "penalty",
-	"[-a <anvil socket path>] [<ip/bits>]", NULL
+	"[-a <anvil socket path>] [<ip/bits>]"
 };

@@ -453,15 +453,15 @@ static void cmd_director_flush(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
-	  "[-a <director socket path>] [<user>]", NULL },
+	  "[-a <director socket path>] [<user>]" },
 	{ cmd_director_map, "director map",
-	  "[-a <director socket path>] [-f <users file>] [<host>]", NULL },
+	  "[-a <director socket path>] [-f <users file>] [<host>]" },
 	{ cmd_director_add, "director add",
-	  "[-a <director socket path>] <host> [<vhost count>]", NULL },
+	  "[-a <director socket path>] <host> [<vhost count>]" },
 	{ cmd_director_remove, "director remove",
-	  "[-a <director socket path>] <host>", NULL },
+	  "[-a <director socket path>] <host>" },
 	{ cmd_director_flush, "director flush",
-	  "[-a <director socket path>] <host>|all", NULL }
+	  "[-a <director socket path>] <host>|all" }
 };
 
 static void director_cmd_help(doveadm_command_t *cmd)

@@ -274,10 +274,10 @@ static void cmd_user(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_auth = {
 	cmd_auth, "auth",
-	"[-a <auth socket path>] [-x <auth info>] <user> [<password>]", NULL
+	"[-a <auth socket path>] [-x <auth info>] <user> [<password>]"
 };
 
 struct doveadm_cmd doveadm_cmd_user = {
 	cmd_user, "user",
-	"[-a <userdb socket path>] [-x <auth info>] <user mask> [...]", NULL
+	"[-a <userdb socket path>] [-x <auth info>] <user mask> [...]"
 };

@@ -74,6 +74,5 @@ static void cmd_dump(int argc, char *argv[])
 }
 
 struct doveadm_cmd doveadm_cmd_dump = {
-	cmd_dump, "dump", "[-t <type>] <path>",
-"  <type> can be: index log mailboxlog thread\n"
+	cmd_dump, "dump", "[-t <type>] <path>"
 };

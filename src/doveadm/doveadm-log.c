@@ -272,9 +272,9 @@ static void cmd_log_find(int argc, char *argv[])
 }
 
 struct doveadm_cmd doveadm_cmd_log[] = {
-	{ cmd_log_test, "log test", "", NULL },
-	{ cmd_log_reopen, "log reopen", "", NULL },
-	{ cmd_log_find, "log find", "[<dir>]", NULL }
+	{ cmd_log_test, "log test", "" },
+	{ cmd_log_reopen, "log reopen", "" },
+	{ cmd_log_find, "log find", "[<dir>]" }
 };
 
 void doveadm_register_log_commands(void)

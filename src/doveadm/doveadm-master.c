@@ -85,9 +85,9 @@ static void cmd_reload(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 }
 
 struct doveadm_cmd doveadm_cmd_stop = {
-	cmd_stop, "stop", "", NULL
+	cmd_stop, "stop", ""
 };
 
 struct doveadm_cmd doveadm_cmd_reload = {
-	cmd_reload, "reload", "", NULL
+	cmd_reload, "reload", ""
 };

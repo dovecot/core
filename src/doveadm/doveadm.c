@@ -115,8 +115,6 @@ static void ATTR_NORETURN
 help_to(const struct doveadm_cmd *cmd, FILE *out)
 {
 	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->short_usage);
-	if (cmd->long_usage != NULL)
-		fprintf(out, "%s", cmd->long_usage);
 	exit(0);
 }
 
@@ -260,7 +258,7 @@ static void cmd_help(int argc ATTR_UNUSED, char *argv[])
 }
 
 static struct doveadm_cmd doveadm_cmd_help = {
-	cmd_help, "help", "<cmd>", NULL
+	cmd_help, "help", "<cmd>"
 };
 
 static void cmd_config(int argc ATTR_UNUSED, char *argv[])
@@ -271,7 +269,7 @@ static void cmd_config(int argc ATTR_UNUSED, char *argv[])
 }
 
 static struct doveadm_cmd doveadm_cmd_config = {
-	cmd_config, "config", "[doveconf parameters]", NULL
+	cmd_config, "config", "[doveconf parameters]"
 };
 
 static bool

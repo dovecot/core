@@ -11,7 +11,6 @@ struct doveadm_cmd {
 	doveadm_command_t *cmd;
 	const char *name;
 	const char *short_usage;
-	const char *long_usage;
 };
 
 extern struct doveadm_cmd doveadm_cmd_stop;
