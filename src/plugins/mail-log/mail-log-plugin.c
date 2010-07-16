@@ -16,12 +16,8 @@
 #define MAILBOX_NAME_LOG_LEN 64
 #define HEADER_LOG_LEN 80
 
-#define MAIL_LOG_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_log_storage_module)
-#define MAIL_LOG_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_log_mail_module)
-#define MAIL_LOG_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, mail_log_mailbox_list_module)
+#define MAIL_LOG_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, mail_log_user_module)
 
 enum mail_log_field {
 	MAIL_LOG_FIELD_UID	= 0x01,
@@ -74,11 +70,12 @@ static const char *event_names[] = {
 	NULL
 };
 
-struct mail_log_settings {
+struct mail_log_user {
+	union mail_user_module_context module_ctx;
+
 	enum mail_log_field fields;
 	enum mail_log_event events;
 };
-
 
 struct mail_log_message {
 	struct mail_log_message *prev, *next;
@@ -91,7 +88,8 @@ struct mail_log_mail_txn_context {
 	struct mail_log_message *messages, *messages_tail;
 };
 
-static struct mail_log_settings mail_log_set;
+static MODULE_CONTEXT_DEFINE_INIT(mail_log_user_module,
+				  &mail_user_module_register);
 
 static enum mail_log_field mail_log_field_find(const char *name)
 {
@@ -108,6 +106,10 @@ static enum mail_log_event mail_log_event_find(const char *name)
 {
 	unsigned int i;
 
+	if (strcmp(name, "append") == 0) {
+		/* v1.x backwards compatibility */
+		name = "save";
+	}
 	for (i = 0; event_names[i] != NULL; i++) {
 		if (strcmp(name, event_names[i]) == 0)
 			return 1 << i;
@@ -143,18 +145,20 @@ static enum mail_log_event mail_log_parse_events(const char *str)
 	return events;
 }
 
-static void mail_log_read_settings(struct mail_log_settings *set)
+static void mail_log_mail_user_created(struct mail_user *user)
 {
+	struct mail_log_user *muser;
 	const char *str;
 
-	memset(set, 0, sizeof(*set));
+	muser = p_new(user->pool, struct mail_log_user, 1);
+	MODULE_CONTEXT_SET(user, mail_log_user_module, muser);
 
-	str = getenv("MAIL_LOG_FIELDS");
-	set->fields = str == NULL ? MAIL_LOG_DEFAULT_FIELDS :
+	str = mail_user_plugin_getenv(user, "mail_log_fields");
+	muser->fields = str == NULL ? MAIL_LOG_DEFAULT_FIELDS :
 		mail_log_parse_fields(str);
 
-	str = getenv("MAIL_LOG_EVENTS");
-	set->events = str == NULL ? MAIL_LOG_DEFAULT_EVENTS :
+	str = mail_user_plugin_getenv(user, "mail_log_events");
+	muser->events = str == NULL ? MAIL_LOG_DEFAULT_EVENTS :
 		mail_log_parse_events(str);
 }
 
@@ -197,6 +201,8 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 				  struct mail *mail, enum mail_log_event event,
 				  const char *desc)
 {
+	struct mail_log_user *muser =
+		MAIL_LOG_USER_CONTEXT(mail->box->storage->user);
 	struct mail_log_message *msg;
 	string_t *text;
 	uoff_t size;
@@ -206,11 +212,11 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 	text = t_str_new(128);
 	str_append(text, desc);
 	str_append(text, ": ");
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_BOX) != 0) {
+	if ((muser->fields & MAIL_LOG_FIELD_BOX) != 0) {
 		mail_log_append_mailbox_name(text, mail);
 		str_append(text, ", ");
 	}
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_UID) != 0) {
+	if ((muser->fields & MAIL_LOG_FIELD_UID) != 0) {
 		if (event != MAIL_LOG_EVENT_SAVE)
 			mail_log_append_uid(ctx, msg, text, mail->uid);
 		else {
@@ -220,33 +226,33 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 		}
 		str_append(text, ", ");
 	}
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_MSGID) != 0) {
+	if ((muser->fields & MAIL_LOG_FIELD_MSGID) != 0) {
 		mail_log_append_mail_header(text, mail, "msgid", "Message-ID");
 		str_append(text, ", ");
 	}
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_PSIZE) != 0) {
+	if ((muser->fields & MAIL_LOG_FIELD_PSIZE) != 0) {
 		if (mail_get_physical_size(mail, &size) == 0)
 			str_printfa(text, "size=%"PRIuUOFF_T, size);
 		else
 			str_printfa(text, "size=error");
 		str_append(text, ", ");
 	}
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_VSIZE) != 0) {
+	if ((muser->fields & MAIL_LOG_FIELD_VSIZE) != 0) {
 		if (mail_get_virtual_size(mail, &size) == 0)
 			str_printfa(text, "vsize=%"PRIuUOFF_T, size);
 		else
 			str_printfa(text, "vsize=error");
 		str_append(text, ", ");
 	}
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_FROM) != 0) {
+	if ((muser->fields & MAIL_LOG_FIELD_FROM) != 0) {
 		mail_log_append_mail_header(text, mail, "from", "From");
 		str_append(text, ", ");
 	}
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_SUBJECT) != 0) {
+	if ((muser->fields & MAIL_LOG_FIELD_SUBJECT) != 0) {
 		mail_log_append_mail_header(text, mail, "subject", "Subject");
 		str_append(text, ", ");
 	}
-	if ((mail_log_set.fields & MAIL_LOG_FIELD_FLAGS) != 0) {
+	if ((muser->fields & MAIL_LOG_FIELD_FLAGS) != 0) {
 		str_printfa(text, "flags=(");
 		imap_write_flags(text, mail_get_flags(mail),
 				 mail_get_keywords(mail));
@@ -263,7 +269,10 @@ mail_log_append_mail_message(struct mail_log_mail_txn_context *ctx,
 			     struct mail *mail, enum mail_log_event event,
 			     const char *desc)
 {
-	if ((mail_log_set.events & event) == 0)
+	struct mail_log_user *muser =
+		MAIL_LOG_USER_CONTEXT(mail->box->storage->user);
+
+	if ((muser->events & event) == 0)
 		return;
 
 	T_BEGIN {
@@ -386,7 +395,9 @@ static void mail_log_mail_transaction_rollback(void *txn)
 static void
 mail_log_mailbox_delete_commit(void *txn ATTR_UNUSED, struct mailbox *box)
 {
-	if ((mail_log_set.events & MAIL_LOG_EVENT_MAILBOX_DELETE) == 0)
+	struct mail_log_user *muser = MAIL_LOG_USER_CONTEXT(box->storage->user);
+
+	if ((muser->events & MAIL_LOG_EVENT_MAILBOX_DELETE) == 0)
 		return;
 
 	i_info("Mailbox deleted: %s",
@@ -397,7 +408,9 @@ static void
 mail_log_mailbox_rename(struct mailbox *src,
 			struct mailbox *dest, bool rename_children ATTR_UNUSED)
 {
-	if ((mail_log_set.events & MAIL_LOG_EVENT_MAILBOX_RENAME) == 0)
+	struct mail_log_user *muser = MAIL_LOG_USER_CONTEXT(src->storage->user);
+
+	if ((muser->events & MAIL_LOG_EVENT_MAILBOX_RENAME) == 0)
 		return;
 
 	i_info("Mailbox renamed: %s -> %s",
@@ -422,14 +435,19 @@ static const struct notify_vfuncs mail_log_vfuncs = {
 
 static struct notify_context *mail_log_ctx;
 
-void mail_log_plugin_init(struct module *module ATTR_UNUSED)
+static struct mail_storage_hooks mail_log_mail_storage_hooks = {
+	.mail_user_created = mail_log_mail_user_created
+};
+
+void mail_log_plugin_init(struct module *module)
 {
-	mail_log_read_settings(&mail_log_set);
 	mail_log_ctx = notify_register(&mail_log_vfuncs);
+	mail_storage_hooks_add(module, &mail_log_mail_storage_hooks);
 }
 
 void mail_log_plugin_deinit(void)
 {
+	mail_storage_hooks_remove(&mail_log_mail_storage_hooks);
 	notify_unregister(mail_log_ctx);
 }
 
