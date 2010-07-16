@@ -102,6 +102,7 @@ struct local_dsync_worker {
 	void *finish_context;
 
 	unsigned int reading_mail:1;
+	unsigned int finishing:1;
 	unsigned int finished:1;
 };
 
@@ -1510,7 +1511,9 @@ static void dsync_worker_try_finish(struct local_dsync_worker *worker)
 	if (worker->save_io != NULL || worker->reading_mail)
 		return;
 
+	i_assert(worker->finishing);
 	i_assert(!worker->finished);
+	worker->finishing = FALSE;
 	worker->finished = TRUE;
 	worker->finish_callback(!worker->worker.failed, worker->finish_context);
 }
@@ -1700,6 +1703,9 @@ local_worker_finish(struct dsync_worker *_worker,
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
 
+	i_assert(!worker->finishing);
+
+	worker->finishing = TRUE;
 	worker->finished = FALSE;
 	worker->finish_callback = callback;
 	worker->finish_context = context;

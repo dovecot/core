@@ -68,6 +68,7 @@ struct proxy_client_dsync_worker {
 	struct aqueue *request_queue;
 
 	unsigned int handshake_received:1;
+	unsigned int finishing:1;
 	unsigned int finished:1;
 };
 
@@ -247,6 +248,12 @@ proxy_client_worker_next_finish(struct proxy_client_dsync_worker *worker,
 {
 	bool success = TRUE;
 
+	i_assert(worker->finishing);
+	i_assert(!worker->finished);
+
+	worker->finishing = FALSE;
+	worker->finished = TRUE;
+
 	if (strcmp(line, "changes") == 0)
 		worker->worker.unexpected_changes = TRUE;
 	else if (strcmp(line, "fail") == 0)
@@ -285,8 +292,6 @@ proxy_client_worker_next_reply(struct proxy_client_dsync_worker *worker,
 		ret = proxy_client_worker_next_msg_get(worker, &request, line);
 		break;
 	case PROXY_CLIENT_REQUEST_TYPE_FINISH:
-		i_assert(!worker->finished);
-		worker->finished = TRUE;
 		proxy_client_worker_next_finish(worker, &request, line);
 		break;
 	}
@@ -1062,7 +1067,9 @@ proxy_client_worker_finish(struct dsync_worker *_worker,
 	struct proxy_client_request request;
 
 	i_assert(worker->save_input == NULL);
+	i_assert(!worker->finishing);
 
+	worker->finishing = TRUE;
 	worker->finished = FALSE;
 
 	o_stream_send_str(worker->output, "FINISH\n");
