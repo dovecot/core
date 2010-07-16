@@ -1293,6 +1293,9 @@ esac
 if test $i_cv_fd_passing = buggy_cmsg_macros; then
   AC_DEFINE(BUGGY_CMSG_MACROS,, Define if you have buggy CMSG macros)
 fi
+if test $i_cv_fd_passing = no; then
+  AC_ERROR([fd passing is required for Dovecot to work])
+fi
 
 dnl * Solaris compatible sendfile()
 AC_CHECK_LIB(sendfile, sendfile, [
