@@ -290,7 +290,9 @@ mail_log_append_mail_message(struct mail_log_mail_txn_context *ctx,
 		MAIL_LOG_USER_CONTEXT(mail->box->storage->user);
 
 	if ((muser->events & event) == 0) {
-		mail_log_add_dummy_msg(ctx, event);
+		if (event == MAIL_LOG_EVENT_SAVE ||
+		    event == MAIL_LOG_EVENT_COPY)
+			mail_log_add_dummy_msg(ctx, event);
 		return;
 	}
 
