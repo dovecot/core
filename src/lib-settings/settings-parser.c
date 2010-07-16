@@ -1464,7 +1464,7 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 	/* add existing defines */
 	for (j = 0; parent->defines[j].key != NULL; j++)
 		array_append(&defines, &parent->defines[j], 1);
-	new_struct_size = parent->struct_size;
+	new_struct_size = MEM_ALIGN(parent->struct_size);
 
 	/* add new dynamic defines */
 	for (i = 0; parsers[i].name != NULL; i++) {
@@ -1486,7 +1486,7 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 	/* update defaults */
 	parent_defaults = p_malloc(pool, new_struct_size);
 	memcpy(parent_defaults, parent->defaults, parent->struct_size);
-	offset = parent->struct_size;
+	offset = MEM_ALIGN(parent->struct_size);
 	for (i = 0; parsers[i].name != NULL; i++) {
 		memcpy(PTR_OFFSET(parent_defaults, offset),
 		       parsers[i].info->defaults, parsers[i].info->struct_size);
@@ -1502,7 +1502,7 @@ info_update_real(pool_t pool, struct setting_parser_info *parent,
 				     &parent->dynamic_parsers[i], 1);
 		}
 	}
-	offset = parent->struct_size;
+	offset = MEM_ALIGN(parent->struct_size);
 	for (i = 0; parsers[i].name != NULL; i++) {
 		new_parser = parsers[i];
 		new_parser.name = p_strdup(pool, new_parser.name);
