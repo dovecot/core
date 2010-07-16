@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "llist.h"
 #include "module-dir.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -11,6 +12,28 @@
 struct mail_storage_module_hooks {
 	struct module *module;
 	const struct mail_storage_hooks *hooks;
+};
+
+struct hook_stack {
+	struct hook_stack *prev, *next;
+
+	/* Pointer to vfuncs struct. This assumes that a struct containing
+	   function pointers equals to an array of function pointers. Not
+	   ANSI-C, but should work in all OSes supported by Dovecot. Much
+	   easier anyway than doing this work manually.. */
+	void (**vfuncs)();
+	/* nonzero in the areas where vfuncs has been changed */
+	void (**mask)();
+};
+
+struct hook_build_context {
+	pool_t pool;
+	/* size of the vfuncs struct */
+	size_t size;
+	/* number of function pointers in the struct */
+	unsigned int count;
+
+	struct hook_stack *head, *tail;
 };
 
 static ARRAY_DEFINE(module_hooks,
@@ -119,71 +142,102 @@ static void mail_user_add_plugin_hooks(struct mail_user *user)
 	array_append_array(&user->hooks, &internal_hooks);
 }
 
-static void hook_vfuncs_update(void *_v, const void *_vlast,
-			       const void *_prev_vlast,
-			       void *_mask, size_t size)
+static void hook_build_append(struct hook_build_context *ctx, void (**vfuncs)())
 {
-	/* This function assumes that a struct containing function pointers
-	   equals to an array of function pointers. Not ANSI-C, but should work
-	   in all OSes supported by Dovecot. Much easier anyway than doing this
-	   work manually..
+	struct hook_stack *stack;
 
-	   The problem this function solves is:
+	stack = p_new(ctx->pool, struct hook_stack, 1);
+	stack->vfuncs = vfuncs;
+	stack->mask = p_malloc(ctx->pool, ctx->size);
+	DLLIST2_APPEND(&ctx->head, &ctx->tail, stack);
+}
 
-	   1. First hook overrides methods A and B by updating vlast->A+B.
-	      vlast points to v, so v->A+B gets updated.
-	   2. Second hook overrides method B and C by updating vlast->B+C.
-	      vlast points first hook's super struct. now, the call paths go:
-	       B: v->B = hook1_B, which calls its super.B = hook2_B,
-	          which calls super.B = original -> all OK
-	       C: v->C = still the original, so hook2_C won't be called!
-
-	   The idea is to detect the C situation, and update v->C = hook2_C
-	   so that the call path goes:
-	       C: v->C = hook2_C, which calls super.C = original
-	*/
-	void (**v)() = _v;
-	void (*const *prev_vlast)() = _prev_vlast;
-	void (*const *vlast)() = _vlast;
-	void (**mask)() = _mask;
-	unsigned int i, count;
+static struct hook_build_context *
+hook_build_init(void (**vfuncs)(), size_t size)
+{
+	struct hook_build_context *ctx;
+	pool_t pool;
 
 	i_assert((size % sizeof(void (*)())) == 0);
-	count = size / sizeof(void (*)());
 
-	for (i = 0; i < count; i++) {
-		if (mask[i] != NULL)
-			continue;
+	pool = pool_alloconly_create("hook build context", 1024);
+	ctx = p_new(pool, struct hook_build_context, 1);
+	ctx->pool = pool;
+	ctx->size = size;
+	ctx->count = size / sizeof(void (*)());
+	hook_build_append(ctx, vfuncs);
+	return ctx;
+}
 
-		if (v[i] != vlast[i]) {
-			/* first hook overriding any method in this object */
-			mask[i] = v[i];
-		} else if (prev_vlast != NULL && v[i] != prev_vlast[i]) {
-			/* first hook overriding this method object
-			   (but earlier hooks already overrode other methods) */
-			v[i] = prev_vlast[i];
-			mask[i] = prev_vlast[i];
+static void
+hook_update_mask(struct hook_build_context *ctx, struct hook_stack *stack,
+		 void (**vlast)())
+{
+	unsigned int i;
+
+	for (i = 0; i < ctx->count; i++) {
+		if (stack->vfuncs[i] != vlast[i])
+			stack->mask[i] = vlast[i];
+	}
+}
+
+static void
+hook_copy_stack(struct hook_build_context *ctx, struct hook_stack *stack)
+{
+	unsigned int i;
+
+	i_assert(stack->next != NULL);
+
+	for (i = 0; i < ctx->count; i++) {
+		if (stack->mask[i] == NULL) {
+			stack->vfuncs[i] = stack->next->vfuncs[i];
+			stack->mask[i] = stack->vfuncs[i];
 		}
 	}
+}
+
+static void hook_build_update(struct hook_build_context *ctx, void *_vlast)
+{
+	void (**vlast)() = _vlast;
+	struct hook_stack *stack;
+
+	/* ctx->vfuncs_stack->vfuncs points to the root vfuncs,
+	   ctx->vfuncs_stack->next->vfuncs points to the first super function
+	   that is being called, and so on.
+
+	   the previous plugin added its vfuncs to the stack tail.
+	   vlast contains the previous plugin's super vfuncs, which is where
+	   the next plugin should put its own vfuncs.
+
+	   first we'll need to figure out what vfuncs the previous plugin
+	   changed and update the mask */
+	hook_update_mask(ctx, ctx->tail, vlast);
+
+	/* now go up in the stack as long as the mask isn't set,
+	   and update the vfuncs */
+	for (stack = ctx->tail->prev; stack != NULL; stack = stack->prev)
+		hook_copy_stack(ctx, stack);
+
+	/* add vlast to stack */
+	hook_build_append(ctx, vlast);
 }
 
 void hook_mail_user_created(struct mail_user *user)
 {
 	const struct mail_storage_hooks *const *hooks;
-	struct mail_user_vfuncs mask, *prev_vlast = NULL;
+	struct hook_build_context *ctx;
 
 	mail_user_add_plugin_hooks(user);
 
-	memset(&mask, 0, sizeof(mask));
+	ctx = hook_build_init((void *)&user->v, sizeof(user->v));
 	user->vlast = &user->v;
 	array_foreach(&user->hooks, hooks) {
 		if ((*hooks)->mail_user_created != NULL) {
 			(*hooks)->mail_user_created(user);
-			hook_vfuncs_update(&user->v, user->vlast, prev_vlast,
-					   &mask, sizeof(mask));
-			prev_vlast = user->vlast;
+			hook_build_update(ctx, user->vlast);
 		}
 	}
+	pool_unref(&ctx->pool);
 }
 
 void hook_mail_namespace_storage_added(struct mail_namespace *ns)
@@ -209,52 +263,49 @@ void hook_mail_namespaces_created(struct mail_namespace *namespaces)
 void hook_mail_storage_created(struct mail_storage *storage)
 {
 	const struct mail_storage_hooks *const *hooks;
-	struct mail_storage_vfuncs mask, *prev_vlast = NULL;
+	struct hook_build_context *ctx;
 
-	memset(&mask, 0, sizeof(mask));
+	ctx = hook_build_init((void *)&storage->v, sizeof(storage->v));
 	storage->vlast = &storage->v;
 	array_foreach(&storage->user->hooks, hooks) {
 		if ((*hooks)->mail_storage_created != NULL) {
 			(*hooks)->mail_storage_created(storage);
-			hook_vfuncs_update(&storage->v, storage->vlast,
-					   prev_vlast, &mask, sizeof(mask));
-			prev_vlast = storage->vlast;
+			hook_build_update(ctx, storage->vlast);
 		}
 	}
+	pool_unref(&ctx->pool);
 }
 
 void hook_mailbox_list_created(struct mailbox_list *list)
 {
 	const struct mail_storage_hooks *const *hooks;
-	struct mailbox_list_vfuncs mask, *prev_vlast = NULL;
+	struct hook_build_context *ctx;
 
-	memset(&mask, 0, sizeof(mask));
+	ctx = hook_build_init((void *)&list->v, sizeof(list->v));
 	list->vlast = &list->v;
 	array_foreach(&list->ns->user->hooks, hooks) {
 		if ((*hooks)->mailbox_list_created != NULL) {
 			(*hooks)->mailbox_list_created(list);
-			hook_vfuncs_update(&list->v, list->vlast, prev_vlast,
-					   &mask, sizeof(mask));
-			prev_vlast = list->vlast;
+			hook_build_update(ctx, list->vlast);
 		}
 	}
+	pool_unref(&ctx->pool);
 }
 
 void hook_mailbox_allocated(struct mailbox *box)
 {
 	const struct mail_storage_hooks *const *hooks;
-	struct mailbox_vfuncs mask, *prev_vlast = NULL;
+	struct hook_build_context *ctx;
 
-	memset(&mask, 0, sizeof(mask));
+	ctx = hook_build_init((void *)&box->v, sizeof(box->v));
 	box->vlast = &box->v;
 	array_foreach(&box->storage->user->hooks, hooks) {
 		if ((*hooks)->mailbox_allocated != NULL) {
 			(*hooks)->mailbox_allocated(box);
-			hook_vfuncs_update(&box->v, box->vlast, prev_vlast,
-					   &mask, sizeof(mask));
-			prev_vlast = box->vlast;
+			hook_build_update(ctx, box->vlast);
 		}
 	}
+	pool_unref(&ctx->pool);
 }
 
 void hook_mailbox_opened(struct mailbox *box)
@@ -271,16 +322,15 @@ void hook_mail_allocated(struct mail *mail)
 {
 	const struct mail_storage_hooks *const *hooks;
 	struct mail_private *pmail = (struct mail_private *)mail;
-	struct mail_vfuncs mask, *prev_vlast = NULL;
+	struct hook_build_context *ctx;
 
-	memset(&mask, 0, sizeof(mask));
+	ctx = hook_build_init((void *)&pmail->v, sizeof(pmail->v));
 	pmail->vlast = &pmail->v;
 	array_foreach(&mail->box->storage->user->hooks, hooks) {
 		if ((*hooks)->mail_allocated != NULL) {
 			(*hooks)->mail_allocated(mail);
-			hook_vfuncs_update(&pmail->v, pmail->vlast, prev_vlast,
-					   &mask, sizeof(mask));
-			prev_vlast = pmail->vlast;
+			hook_build_update(ctx, pmail->vlast);
 		}
 	}
+	pool_unref(&ctx->pool);
 }
