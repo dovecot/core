@@ -38,13 +38,14 @@ enum mail_log_event {
 	MAIL_LOG_EVENT_UNDELETE		= 0x02,
 	MAIL_LOG_EVENT_EXPUNGE		= 0x04,
 	MAIL_LOG_EVENT_SAVE		= 0x08,
-	MAIL_LOG_EVENT_MAILBOX_DELETE	= 0x10,
-	MAIL_LOG_EVENT_MAILBOX_RENAME	= 0x20,
-	MAIL_LOG_EVENT_FLAG_CHANGE	= 0x40
+	MAIL_LOG_EVENT_COPY		= 0x10,
+	MAIL_LOG_EVENT_MAILBOX_DELETE	= 0x20,
+	MAIL_LOG_EVENT_MAILBOX_RENAME	= 0x40,
+	MAIL_LOG_EVENT_FLAG_CHANGE	= 0x80
 };
 #define MAIL_LOG_DEFAULT_EVENTS \
 	(MAIL_LOG_EVENT_DELETE | MAIL_LOG_EVENT_UNDELETE | \
-	 MAIL_LOG_EVENT_EXPUNGE | MAIL_LOG_EVENT_SAVE | \
+	 MAIL_LOG_EVENT_EXPUNGE | MAIL_LOG_EVENT_SAVE | MAIL_LOG_EVENT_COPY | \
 	 MAIL_LOG_EVENT_MAILBOX_DELETE | MAIL_LOG_EVENT_MAILBOX_RENAME)
 
 static const char *field_names[] = {
@@ -64,6 +65,7 @@ static const char *event_names[] = {
 	"undelete",
 	"expunge",
 	"save",
+	"copy",
 	"mailbox_delete",
 	"mailbox_rename",
 	"flag_change",
@@ -80,6 +82,8 @@ struct mail_log_user {
 struct mail_log_message {
 	struct mail_log_message *prev, *next;
 
+	enum mail_log_event event;
+	bool ignore;
 	const char *pretext, *text;
 };
 
@@ -217,7 +221,8 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 		str_append(text, ", ");
 	}
 	if ((muser->fields & MAIL_LOG_FIELD_UID) != 0) {
-		if (event != MAIL_LOG_EVENT_SAVE)
+		if (event != MAIL_LOG_EVENT_SAVE &&
+		    event != MAIL_LOG_EVENT_COPY)
 			mail_log_append_uid(ctx, msg, text, mail->uid);
 		else {
 			/* with mbox mail->uid contains the uid, but handle
@@ -260,7 +265,19 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 	}
 	str_truncate(text, str_len(text)-2);
 
+	msg->event = event;
 	msg->text = p_strdup(ctx->pool, str_c(text));
+	DLLIST2_APPEND(&ctx->messages, &ctx->messages_tail, msg);
+}
+
+static void mail_log_add_dummy_msg(struct mail_log_mail_txn_context *ctx,
+				   enum mail_log_event event)
+{
+	struct mail_log_message *msg;
+
+	msg = p_new(ctx->pool, struct mail_log_message, 1);
+	msg->event = event;
+	msg->ignore = TRUE;
 	DLLIST2_APPEND(&ctx->messages, &ctx->messages_tail, msg);
 }
 
@@ -272,8 +289,10 @@ mail_log_append_mail_message(struct mail_log_mail_txn_context *ctx,
 	struct mail_log_user *muser =
 		MAIL_LOG_USER_CONTEXT(mail->box->storage->user);
 
-	if ((muser->events & event) == 0)
+	if ((muser->events & event) == 0) {
+		mail_log_add_dummy_msg(ctx, event);
 		return;
+	}
 
 	T_BEGIN {
 		mail_log_append_mail_message_real(ctx, mail, event, desc);
@@ -314,7 +333,7 @@ static void mail_log_mail_copy(void *txn, struct mail *src, struct mail *dst)
 				       str_sanitize(mailbox_get_name(src->box),
 						    MAILBOX_NAME_LOG_LEN));
 	}
-	mail_log_append_mail_message(ctx, dst, MAIL_LOG_EVENT_SAVE, desc);
+	mail_log_append_mail_message(ctx, dst, MAIL_LOG_EVENT_COPY, desc);
 }
 
 static void mail_log_mail_expunge(void *txn, struct mail *mail)
@@ -357,6 +376,18 @@ mail_log_mail_update_keywords(void *txn, struct mail *mail,
 				     "flag_change");
 }
 
+static void mail_log_save(const struct mail_log_message *msg, uint32_t uid)
+{
+	if (msg->ignore) {
+		/* not logging this save/copy */
+	} else if (msg->pretext == NULL)
+		i_info("%s", msg->text);
+	else if (uid != 0)
+		i_info("%s%u%s", msg->pretext, uid, msg->text);
+	else
+		i_info("%serror%s", msg->pretext, msg->text);
+}
+
 static void
 mail_log_mail_transaction_commit(void *txn,
 				 struct mail_transaction_commit_changes *changes)
@@ -370,13 +401,14 @@ mail_log_mail_transaction_commit(void *txn,
 
 	seq_range_array_iter_init(&iter, &changes->saved_uids);
 	for (msg = ctx->messages; msg != NULL; msg = msg->next) {
-		if (msg->pretext == NULL) {
-			i_info("%s", msg->text);
+		if (msg->event == MAIL_LOG_EVENT_SAVE ||
+		    msg->event == MAIL_LOG_EVENT_COPY) {
+			if (!seq_range_array_iter_nth(&iter, n++, &uid))
+				uid = 0;
+			mail_log_save(msg, uid);
 		} else {
-			if (seq_range_array_iter_nth(&iter, n++, &uid))
-				i_info("%s%u%s", msg->pretext, uid, msg->text);
-			else
-				i_info("%serror%s", msg->pretext, msg->text);
+			i_assert(msg->pretext == NULL);
+			i_info("%s", msg->text);
 		}
 	}
 	i_assert(!seq_range_array_iter_nth(&iter, n, &uid));
