@@ -212,7 +212,6 @@ userdb_get_user_list(const char *auth_socket_path, pool_t pool,
 static void
 user_file_get_user_list(const char *path, pool_t pool, struct hash_table *users)
 {
-	struct auth_master_connection *conn;
 	struct istream *input;
 	const char *username;
 	int fd;
@@ -223,7 +222,6 @@ user_file_get_user_list(const char *path, pool_t pool, struct hash_table *users)
 	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	while ((username = i_stream_read_next_line(input)) != NULL)
 		user_list_add(username, pool, users);
-	auth_master_deinit(&conn);
 	i_stream_unref(&input);
 }
 
