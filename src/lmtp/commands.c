@@ -733,8 +733,7 @@ static int client_input_add_file(struct client *client,
 		return 0;
 	}
 
-	/* move everything to a temporary file. FIXME: it really shouldn't
-	   be in /tmp.. */
+	/* move everything to a temporary file. */
 	path = t_str_new(256);
 	mail_user_set_get_temp_prefix(path, client->user_set);
 	fd = safe_mkstemp_hostpid(path, 0600, (uid_t)-1, (gid_t)-1);
