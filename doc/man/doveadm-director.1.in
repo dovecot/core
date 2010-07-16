@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DIRECTOR 1 "2010-07-15" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-DIRECTOR 1 "2010-07-16" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-director \- Manage Dovecot directors
 .\"------------------------------------------------------------------------
@@ -16,6 +16,7 @@ doveadm\-director \- Manage Dovecot directors
 .br
 .BR doveadm " [" \-Dv "] " "director map"
 [\fB\-a\fP \fIdirector_socket_path\fP]
+[\fB\-f\fP \fIusers_file\fP]
 .RI [ host ]
 .\"-------------------------------------
 .br
@@ -109,6 +110,7 @@ This command is intended mainly for testing purposes.
 .SS director map
 .B doveadm director map
 [\fB\-a\fP \fIdirector_socket_path\fP]
+[\fB\-f\fP \fIusers_file\fP]
 .RI [ host ]
 .PP
 The command
@@ -116,6 +118,17 @@ The command
 is used to list current
 .IR user "\ \(->\ " host
 mappings.
+.PP
+.TP
+.BI \-f\  users_file
+Path to a file containing all user names (one per line).
+When given no
+.I userdb
+lookup will be performed.
+This may be a helpful alternative when for example the network connection
+to the LDAP or SQL server is slow.
+.TP
+.I host
 Specify a server\(aqs IP address or hostname, to list only mappings of the
 given
 .IR host .
