@@ -2,6 +2,7 @@
 #define MAIL_DELIVER_H
 
 enum mail_flags;
+enum mail_error;
 struct mail_storage;
 struct mailbox;
 
@@ -60,7 +61,7 @@ const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx);
    be returned even with -1, and the caller must free it then. */
 int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 			   const char *name, struct mailbox **box_r,
-			   const char **error_r);
+			   enum mail_error *error_r, const char **error_str_r);
 int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		      enum mail_flags flags, const char *const *keywords,
 		      struct mail_storage **storage_r);

@@ -95,23 +95,24 @@ static const char *mailbox_name_to_mutf7(const char *mailbox_utf8)
 
 int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 			   const char *name, struct mailbox **box_r,
-			   const char **error_r)
+			   enum mail_error *error_r, const char **error_str_r)
 {
 	struct mail_namespace *ns;
 	struct mail_storage *storage;
 	struct mailbox *box;
-	enum mail_error error;
 	enum mailbox_flags flags =
 		MAILBOX_FLAG_KEEP_RECENT | MAILBOX_FLAG_SAVEONLY |
 		MAILBOX_FLAG_POST_SESSION;
 
 	*box_r = NULL;
-	*error_r = NULL;
+	*error_r = MAIL_ERROR_NONE;
+	*error_str_r = NULL;
 
 	name = mailbox_name_to_mutf7(name);
 	ns = mail_namespace_find(ctx->user->namespaces, &name);
 	if (ns == NULL) {
-		*error_r = "Unknown namespace";
+		*error_str_r = "Unknown namespace";
+		*error_r = MAIL_ERROR_PARAMS;
 		return -1;
 	}
 
@@ -133,14 +134,14 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 		return 0;
 
 	storage = mailbox_get_storage(box);
-	*error_r = mail_storage_get_last_error(storage, &error);
-	if (!ctx->lda_mailbox_autocreate || error != MAIL_ERROR_NOTFOUND)
+	*error_str_r = mail_storage_get_last_error(storage, error_r);
+	if (!ctx->lda_mailbox_autocreate || *error_r != MAIL_ERROR_NOTFOUND)
 		return -1;
 
 	/* try creating it. */
 	if (mailbox_create(box, NULL, FALSE) < 0) {
-		*error_r = mail_storage_get_last_error(storage, &error);
-		if (error != MAIL_ERROR_EXISTS)
+		*error_str_r = mail_storage_get_last_error(storage, error_r);
+		if (*error_r != MAIL_ERROR_EXISTS)
 			return -1;
 		/* someone else just created it */
 	}
@@ -151,7 +152,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 
 	/* and try opening again */
 	if (mailbox_sync(box, 0) < 0) {
-		*error_r = mail_storage_get_last_error(storage, &error);
+		*error_str_r = mail_storage_get_last_error(storage, error_r);
 		return -1;
 	}
 	return 0;
@@ -186,7 +187,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	open_ctx.lda_mailbox_autosubscribe = ctx->set->lda_mailbox_autosubscribe;
 
 	mailbox_name = str_sanitize(mailbox, 80);
-	if (mail_deliver_save_open(&open_ctx, mailbox, &box, &errstr) < 0) {
+	if (mail_deliver_save_open(&open_ctx, mailbox, &box,
+				   &error, &errstr) < 0) {
 		if (box != NULL)
 			mailbox_free(&box);
 		mail_deliver_log(ctx, "save failed to %s: %s",
