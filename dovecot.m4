@@ -6,7 +6,7 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
-# serial 1
+# serial 2
 
 AC_DEFUN([DC_PLUGIN_DEPS],[
 	_plugin_deps=yes
@@ -47,11 +47,8 @@ AC_DEFUN([DC_DOVECOT],[
 		AC_MSG_ERROR([dovecot-config not found])
 	fi
 
-	eval `grep \
-		-e ^dovecot_[[a-z]]*= \
-		-e ^DOVECOT_[[A-Z_]]*= \
-		-e ^LIBDOVECOT[[A-Z_]]*= \
-		"$dovecotdir"/dovecot-config`
+	eval `grep -i '^dovecot_[[a-z]]*=' "$dovecotdir"/dovecot-config`
+	eval `grep '^LIBDOVECOT[[A-Z_]]*=' "$dovecotdir"/dovecot-config`
 	AX_SUBST_L([dovecot_moduledir], [dovecot_pkgincludedir], [dovecot_pkglibexecdir], [dovecot_pkglibdir], [dovecot_docdir])
 	AX_SUBST_L([DOVECOT_CFLAGS], [DOVECOT_LIBS], [DOVECOT_SSL_LIBS])
 	AX_SUBST_L([LIBDOVECOT], [LIBDOVECOT_LOGIN], [LIBDOVECOT_SQL], [LIBDOVECOT_LDA], [LIBDOVECOT_STORAGE])
