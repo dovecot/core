@@ -39,6 +39,13 @@
 
 #include "fdpass.h"
 
+#ifndef HAVE_CONFIG_H
+struct const_iovec {
+	const void *iov_base;
+	size_t iov_len;
+};
+#endif
+
 /* RFC 2292 defines CMSG_*() macros, but some operating systems don't have them
    so we'll define our own if they don't exist.
 
