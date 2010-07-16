@@ -122,13 +122,6 @@ proxy_client_worker_read_line(struct proxy_client_dsync_worker *worker,
 }
 
 static void
-proxy_client_worker_timeout_input(struct proxy_client_dsync_worker *worker)
-{
-	timeout_remove(&worker->to_input);
-	proxy_client_worker_input(worker);
-}
-
-static void
 proxy_client_worker_msg_get_done(struct proxy_client_dsync_worker *worker)
 {
 	struct istream *input = worker->msg_get_data.input;
@@ -149,8 +142,7 @@ proxy_client_worker_msg_get_done(struct proxy_client_dsync_worker *worker)
 	/* some input may already be buffered */
 	if (worker->to_input == NULL) {
 		worker->to_input =
-			timeout_add(0, proxy_client_worker_timeout_input,
-				    worker);
+			timeout_add(0, proxy_client_worker_input, worker);
 	}
 }
 
@@ -192,7 +184,6 @@ proxy_client_worker_next_msg_get(struct proxy_client_dsync_worker *worker,
 	const char *p, *error;
 	uint32_t uid;
 
-	i_assert(worker->msg_get_data.input == NULL);
 	p_clear(worker->msg_get_pool);
 	switch (line[0]) {
 	case '1':
@@ -274,6 +265,8 @@ proxy_client_worker_next_reply(struct proxy_client_dsync_worker *worker,
 	struct proxy_client_request request;
 	bool ret = TRUE;
 
+	i_assert(worker->msg_get_data.input == NULL);
+
 	if (aqueue_count(worker->request_queue) == 0) {
 		i_error("Unexpected reply from server: %s", line);
 		proxy_client_fail(worker);
@@ -302,6 +295,9 @@ static void proxy_client_worker_input(struct proxy_client_dsync_worker *worker)
 {
 	const char *line;
 	int ret;
+
+	if (worker->to_input != NULL)
+		timeout_remove(&worker->to_input);
 
 	timeout_reset(worker->to);
 	if (worker->worker.input_callback != NULL) {
