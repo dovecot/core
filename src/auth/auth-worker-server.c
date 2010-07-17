@@ -199,7 +199,8 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 				conn->request->context);
 	}
 
-	io_remove(&conn->io);
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	timeout_remove(&conn->to);
