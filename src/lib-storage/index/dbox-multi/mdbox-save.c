@@ -242,11 +242,45 @@ void mdbox_save_cancel(struct mail_save_context *_ctx)
 	(void)mdbox_save_finish(_ctx);
 }
 
+static void
+mdbox_save_set_map_uids(struct mdbox_save_context *ctx,
+			uint32_t first_map_uid, uint32_t last_map_uid)
+{
+	struct mdbox_mailbox *mbox = ctx->mbox;
+	struct mail_index_view *view = ctx->ctx.ctx.transaction->view;
+	const struct mdbox_mail_index_record *old_rec;
+	struct mdbox_mail_index_record rec;
+	const struct dbox_save_mail *mails;
+	unsigned int i, count;
+	const void *data;
+	bool expunged;
+	uint32_t next_map_uid = first_map_uid;
+
+	mdbox_update_header(mbox, ctx->ctx.trans, NULL);
+
+	memset(&rec, 0, sizeof(rec));
+	rec.save_date = ioloop_time;
+	mails = array_get(&ctx->mails, &count);
+	for (i = 0; i < count; i++) {
+		mail_index_lookup_ext(view, mails[i].seq, mbox->ext_id,
+				      &data, &expunged);
+		old_rec = data;
+		if (old_rec != NULL && old_rec->map_uid != 0) {
+			/* message was copied. keep the existing map uid */
+			continue;
+		}
+
+		rec.map_uid = next_map_uid++;
+		mail_index_update_ext(ctx->ctx.trans, mails[i].seq,
+				      mbox->ext_id, &rec, NULL);
+	}
+	i_assert(next_map_uid == last_map_uid + 1);
+}
+
 int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
 	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
 	struct mailbox_transaction_context *_t = _ctx->transaction;
-	struct mdbox_mailbox *mbox = ctx->mbox;
 	const struct mail_index_header *hdr;
 	uint32_t first_map_uid, last_map_uid;
 
@@ -261,8 +295,8 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		return -1;
 	}
 
-	/* map is now locked. lock the mailbox after it to avoid deadlocks. */
-	if (mdbox_sync_begin(mbox, MDBOX_SYNC_FLAG_NO_PURGE |
+	/* lock the mailbox after map to avoid deadlocks. */
+	if (mdbox_sync_begin(ctx->mbox, MDBOX_SYNC_FLAG_NO_PURGE |
 			     MDBOX_SYNC_FLAG_FORCE |
 			     MDBOX_SYNC_FLAG_FSYNC, ctx->atomic,
 			     &ctx->sync_ctx) < 0) {
@@ -276,36 +310,8 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 				      &_t->changes->saved_uids);
 
 	/* save map UIDs to mailbox index */
-	if (first_map_uid != 0) {
-		const struct mdbox_mail_index_record *old_rec;
-		struct mdbox_mail_index_record rec;
-		const struct dbox_save_mail *mails;
-		unsigned int i, count;
-		const void *data;
-		bool expunged;
-		uint32_t next_map_uid = first_map_uid;
-
-		mdbox_update_header(mbox, ctx->ctx.trans, NULL);
-
-		memset(&rec, 0, sizeof(rec));
-		rec.save_date = ioloop_time;
-		mails = array_get(&ctx->mails, &count);
-		for (i = 0; i < count; i++) {
-			mail_index_lookup_ext(_t->view, mails[i].seq,
-					      mbox->ext_id, &data, &expunged);
-			old_rec = data;
-			if (old_rec != NULL && old_rec->map_uid != 0) {
-				/* message was copied. keep the existing
-				   map uid */
-				continue;
-			}
-
-			rec.map_uid = next_map_uid++;
-			mail_index_update_ext(ctx->ctx.trans, mails[i].seq,
-					      mbox->ext_id, &rec, NULL);
-		}
-		i_assert(next_map_uid == last_map_uid + 1);
-	}
+	if (first_map_uid != 0)
+		mdbox_save_set_map_uids(ctx, first_map_uid, last_map_uid);
 
 	/* increase map's refcount for copied mails */
 	if (array_is_created(&ctx->copy_map_uids)) {
