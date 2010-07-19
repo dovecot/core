@@ -65,19 +65,19 @@ void userdb_blocking_lookup(struct auth_request *request)
 static bool iter_callback(const char *reply, void *context)
 {
 	struct blocking_userdb_iterate_context *ctx = context;
+	pool_t pool = ctx->pool;
 
 	if (strncmp(reply, "*\t", 2) == 0) {
 		ctx->next = FALSE;
 		ctx->ctx.callback(reply + 2, ctx->ctx.context);
 		return ctx->next;
-	} else if (strcmp(reply, "OK") == 0) {
-		ctx->ctx.callback(NULL, ctx->ctx.context);
-		return TRUE;
-	} else {
-		ctx->ctx.failed = TRUE;
-		ctx->ctx.callback(NULL, ctx->ctx.context);
-		return TRUE;
 	}
+
+	if (strcmp(reply, "OK") != 0)
+		ctx->ctx.failed = TRUE;
+	ctx->ctx.callback(NULL, ctx->ctx.context);
+	pool_unref(&pool);
+	return TRUE;
 }
 
 struct userdb_iterate_context *
@@ -99,6 +99,7 @@ userdb_blocking_iter_init(struct userdb_module *userdb,
 	ctx->ctx.context = context;
 	ctx->pool = pool;
 
+	pool_ref(pool);
 	ctx->conn = auth_worker_call(pool, reply, iter_callback, ctx);
 	return &ctx->ctx;
 }
