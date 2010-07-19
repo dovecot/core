@@ -783,6 +783,7 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 	enum config_line_type type;
 	char *line;
 	int fd, ret = 0;
+	bool handled;
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
@@ -829,7 +830,10 @@ prevfile:
 					 &key, &value);
 		str_truncate(ctx.str, ctx.pathlen);
 
-		if (!old_settings_handle(&ctx, type, key, value))
+		T_BEGIN {
+			handled = old_settings_handle(&ctx, type, key, value);
+		} T_END;
+		if (!handled)
 			config_parser_apply_line(&ctx, type, key, value);
 
 		if (ctx.error != NULL) {

@@ -145,6 +145,24 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		set_rename(ctx, key, "mdbox_rotate_size", value);
 		return TRUE;
 	}
+	if (strcmp(key, "imap_client_workarounds") == 0) {
+		char **args, **arg;
+
+		args = p_strsplit_spaces(pool_datastack_create(), value, " ,");
+		for (arg = args; *arg != NULL; arg++) {
+			if (strcmp(*arg, "outlook-idle") == 0) {
+				*arg = "";
+				obsolete(ctx, "imap_client_workarounds=outlook-idle is no longer necessary");
+			} else if (strcmp(*arg, "netscape-eoh") == 0) {
+				*arg = "";
+				obsolete(ctx, "imap_client_workarounds=netscape-eoh is no longer supported");
+			}
+		}
+		value = t_strarray_join((void *)args, " ");
+		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+					 key, value);
+		return TRUE;
+	}
 
 	if (strcmp(key, "login_dir") == 0 ||
 	    strcmp(key, "dbox_rotate_min_size") == 0 ||
