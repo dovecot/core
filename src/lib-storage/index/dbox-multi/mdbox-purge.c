@@ -141,10 +141,8 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 	off_t ret;
 	int read_errno;
 
-	if (ctx->append_ctx == NULL) {
-		ctx->atomic = mdbox_map_atomic_begin(ctx->storage->map);
+	if (ctx->append_ctx == NULL)
 		ctx->append_ctx = mdbox_map_append_begin(ctx->atomic);
-	}
 
 	append_flags = !mdbox_purge_want_altpath(ctx, msg->map_uid) ? 0 :
 		DBOX_MAP_APPEND_FLAG_ALT;
@@ -184,6 +182,41 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 }
 
 static int
+mdbox_file_purge_check_refcounts(struct mdbox_purge_context *ctx,
+				 const ARRAY_TYPE(mdbox_map_file_msg) *msgs_arr)
+{
+	struct mdbox_map *map = ctx->storage->map;
+	struct mdbox_map_mail_index_record rec;
+	uint16_t refcount;
+	const struct mdbox_map_file_msg *msgs;
+	unsigned int i, count;
+	int ret;
+
+	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+		return -1;
+
+	msgs = array_get(msgs_arr, &count);
+	for (i = 0; i < count; i++) {
+		if (msgs[i].refcount != 0)
+			continue;
+
+		ret = mdbox_map_lookup_full(map, msgs[i].map_uid, &rec,
+					    &refcount);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
+			mdbox_map_set_corrupted(map,
+				"Purging unexpectedly lost map_uid=%u",
+				msgs[i].map_uid);
+			return -1;
+		}
+		if (refcount > 0)
+			return 0;
+	}
+	return 1;
+}
+
+static int
 mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 {
 	struct mdbox_storage *dstorage = (struct mdbox_storage *)file->storage;
@@ -195,6 +228,9 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 	unsigned int i, count;
 	uoff_t offset;
 	int ret;
+
+	i_assert(ctx->atomic == NULL);
+	i_assert(ctx->append_ctx == NULL);
 
 	if ((ret = dbox_file_try_lock(file)) <= 0)
 		return ret;
@@ -224,6 +260,7 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 	/* sort messages by their offset */
 	array_sort(&msgs_arr, mdbox_map_file_msg_offset_cmp);
 
+	ctx->atomic = mdbox_map_atomic_begin(ctx->storage->map);
 	msgs = array_get(&msgs_arr, &count);
 	i_array_init(&copied_map_uids, I_MIN(count, 1));
 	i_array_init(&expunged_map_uids, I_MIN(count, 1));
@@ -270,11 +307,23 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 			"(%"PRIuUOFF_T" < %"PRIuUOFF_T")", offset, st.st_size);
 		ret = 0;
 	}
-	array_free(&msgs_arr); msgs = NULL;
 
 	if (ret <= 0)
 		ret = -1;
-	else if (ctx->append_ctx == NULL) {
+	else {
+		/* it's possible that one of the messages we purged was
+		   just copied to another mailbox. the only way to prevent that
+		   would be to keep map locked during the purge, but that could
+		   keep it locked for too long. instead we'll check here if
+		   there are such copies, and if there are cancel this file's
+		   purge. */
+		ret = mdbox_file_purge_check_refcounts(ctx, &msgs_arr);
+	}
+	array_free(&msgs_arr); msgs = NULL;
+
+	if (ret <= 0) {
+		/* failed */
+	} else if (ctx->append_ctx == NULL) {
 		/* everything purged from this file */
 		ret = 1;
 	} else {
@@ -286,14 +335,15 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 		else
 			ret = 1;
 	}
+	if (ctx->append_ctx != NULL)
+		mdbox_map_append_free(&ctx->append_ctx);
+	(void)mdbox_map_atomic_finish(&ctx->atomic);
+
+	/* unlink only after unlocking map, so readers don't see it
+	   temporarily vanished */
 	if (ret > 0)
 		(void)dbox_file_unlink(file);
-	if (ctx->append_ctx != NULL) {
-		mdbox_map_append_free(&ctx->append_ctx);
-		if (mdbox_map_atomic_finish(&ctx->atomic) < 0)
-			ret = -1;
-	}
-	if (ret < 0)
+	else
 		dbox_file_unlock(file);
 	array_free(&copied_map_uids);
 	array_free(&expunged_map_uids);
