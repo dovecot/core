@@ -160,7 +160,7 @@ hook_build_init(void (**vfuncs)(), size_t size)
 
 	i_assert((size % sizeof(void (*)())) == 0);
 
-	pool = pool_alloconly_create("hook build context", 1024);
+	pool = pool_alloconly_create("hook build context", 2048);
 	ctx = p_new(pool, struct hook_build_context, 1);
 	ctx->pool = pool;
 	ctx->size = size;
