@@ -578,8 +578,14 @@ int mdbox_map_update_refcount(struct mdbox_map_transaction_context *ctx,
 	if (!mail_index_lookup_seq(map->view, map_uid, &seq)) {
 		/* we can't refresh map here since view has a
 		   transaction open. */
-		mdbox_map_set_corrupted(map, "refcount update lost map_uid=%u",
-					map_uid);
+		if (diff > 0) {
+			/* the message was probably just purged */
+			mail_storage_set_error(MAP_STORAGE(map), MAIL_ERROR_EXPUNGED,
+				"Some of the requested messages no longer exist.");
+		} else {
+			mdbox_map_set_corrupted(map,
+				"refcount update lost map_uid=%u", map_uid);
+		}
 		return -1;
 	}
 	mail_index_lookup_ext(map->view, seq, map->ref_ext_id,
