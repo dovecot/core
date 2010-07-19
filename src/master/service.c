@@ -622,7 +622,7 @@ static void service_drop_listener_connections(struct service *service)
 		switch ((*listenerp)->type) {
 		case SERVICE_LISTENER_UNIX:
 		case SERVICE_LISTENER_INET:
-			if ((*listenerp)->fd != -1) {
+			if ((*listenerp)->fd == -1) {
 				/* already stopped listening */
 				break;
 			}
