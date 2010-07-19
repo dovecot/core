@@ -50,9 +50,19 @@ static void director_connect(struct director_context *ctx)
 	ctx->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	director_send(ctx, DIRECTOR_HANDSHAKE);
 
+	alarm(5);
 	line = i_stream_read_next_line(ctx->input);
-	if (line == NULL)
-		i_fatal("%s disconnected", ctx->socket_path);
+	alarm(0);
+	if (line == NULL) {
+		if (ctx->input->stream_errno != 0)
+			i_fatal("read(%s) failed: %m", ctx->socket_path);
+		else if (ctx->input->eof)
+			i_fatal("%s disconnected", ctx->socket_path);
+		else {
+			i_fatal("read(%s) timed out (is director configured?)",
+				ctx->socket_path);
+		}
+	}
 	if (!version_string_verify(line, "director-doveadm", 1)) {
 		i_fatal("%s not a compatible director-doveadm socket",
 			ctx->socket_path);
