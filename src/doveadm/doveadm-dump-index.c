@@ -32,12 +32,15 @@ struct mbox_index_header {
 	uint8_t unused[3];
 	uint8_t mailbox_guid[16];
 };
-struct dbox_index_header {
-	uint32_t map_uid_validity;
-	uint32_t highest_maildir_uid;
-	uint8_t mailbox_guid[16];
+struct sdbox_index_header {
+	uint32_t rebuild_count;
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 };
-struct dbox_mail_index_record {
+struct mdbox_index_header {
+	uint32_t map_uid_validity;
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+};
+struct mdbox_mail_index_record {
 	uint32_t map_uid;
 	uint32_t save_date;
 };
@@ -60,7 +63,7 @@ struct virtual_mail_index_record {
 	uint32_t real_uid;
 };
 
-struct dbox_mail_index_map_record {
+struct mdbox_mail_index_map_record {
 	uint32_t file_id;
 	uint32_t offset;
 	uint32_t size;
@@ -141,13 +144,20 @@ static void dump_extension_header(struct mail_index *index,
 		printf(" - mailbox_guid = %s\n",
 		       binary_to_hex(hdr->mailbox_guid,
 				     sizeof(hdr->mailbox_guid)));
-	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
-		const struct dbox_index_header *hdr = data;
+	} else if (strcmp(ext->name, "mdbox-hdr") == 0) {
+		const struct mdbox_index_header *hdr = data;
 
 		printf("header\n");
 		printf(" - map_uid_validity .. = %u\n", hdr->map_uid_validity);
-		printf(" - highest_maildir_uid = %u\n", hdr->highest_maildir_uid);
 		printf(" - mailbox_guid ...... = %s\n",
+		       binary_to_hex(hdr->mailbox_guid,
+				     sizeof(hdr->mailbox_guid)));
+	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
+		const struct sdbox_index_header *hdr = data;
+
+		printf("header\n");
+		printf(" - rebuild_count . = %u\n", hdr->rebuild_count);
+		printf(" - mailbox_guid .. = %s\n",
 		       binary_to_hex(hdr->mailbox_guid,
 				     sizeof(hdr->mailbox_guid)));
 	} else if (strcmp(ext->name, "modseq") == 0) {
@@ -486,12 +496,12 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			printf("                   : mailbox_id = %u\n", vrec->mailbox_id);
 			printf("                   : real_uid   = %u\n", vrec->real_uid);
 		} else if (strcmp(ext[i].name, "map") == 0) {
-			const struct dbox_mail_index_map_record *mrec = data;
+			const struct mdbox_mail_index_map_record *mrec = data;
 			printf("                   : file_id = %u\n", mrec->file_id);
 			printf("                   : offset  = %u\n", mrec->offset);
 			printf("                   : size    = %u\n", mrec->size);
-		} else if (strcmp(ext[i].name, "dbox") == 0) {
-			const struct dbox_mail_index_record *drec = data;
+		} else if (strcmp(ext[i].name, "mdbox") == 0) {
+			const struct mdbox_mail_index_record *drec = data;
 			printf("                   : map_uid   = %u\n", drec->map_uid);
 			printf("                   : save_date = %u (%s)\n", drec->save_date, unixdate2str(drec->save_date));
 		}
