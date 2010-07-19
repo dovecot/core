@@ -244,8 +244,10 @@ mailbox_log_iter_next(struct mailbox_log_iter *iter)
 			if (!mailbox_log_iter_open_next(iter))
 				return NULL;
 			iter->idx = iter->count = 0;
+			iter->offset = 0;
 			return mailbox_log_iter_next(iter);
 		}
+		iter->idx = 0;
 		iter->count = ret / sizeof(iter->buf[0]);
 		iter->offset += iter->count * sizeof(iter->buf[0]);
 	}
@@ -254,8 +256,8 @@ mailbox_log_iter_next(struct mailbox_log_iter *iter)
 	    rec->type > MAILBOX_LOG_RECORD_UNSUBSCRIBE) {
 		offset = iter->offset -
 			(iter->count - iter->idx) * sizeof(iter->buf[0]);
-		i_error("Corrupted mailbox log at offset %"PRIuUOFF_T": %s",
-			offset, iter->filepath);
+		i_error("Corrupted mailbox log %s at offset %"PRIuUOFF_T": "
+			"type=%d", iter->filepath, offset, rec->type);
 		if (unlink(iter->filepath) < 0)
 			i_error("unlink(%s) failed: %m", iter->filepath);
 		return NULL;
