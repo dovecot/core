@@ -203,6 +203,11 @@ static void hook_build_update(struct hook_build_context *ctx, void *_vlast)
 	void (**vlast)() = _vlast;
 	struct hook_stack *stack;
 
+	if (ctx->tail->vfuncs == vlast) {
+		/* no vfuncs overridden */
+		return;
+	}
+
 	/* ctx->vfuncs_stack->vfuncs points to the root vfuncs,
 	   ctx->vfuncs_stack->next->vfuncs points to the first super function
 	   that is being called, and so on.
