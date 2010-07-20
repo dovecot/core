@@ -13,6 +13,7 @@ struct blocking_userdb_iterate_context {
 	pool_t pool;
 	struct auth_worker_connection *conn;
 	bool next;
+	bool destroyed;
 };
 
 static bool user_callback(const char *reply, void *context)
@@ -75,7 +76,8 @@ static bool iter_callback(const char *reply, void *context)
 
 	if (strcmp(reply, "OK") != 0)
 		ctx->ctx.failed = TRUE;
-	ctx->ctx.callback(NULL, ctx->ctx.context);
+	if (!ctx->destroyed)
+		ctx->ctx.callback(NULL, ctx->ctx.context);
 	pool_unref(&pool);
 	return TRUE;
 }
@@ -120,6 +122,8 @@ int userdb_blocking_iter_deinit(struct userdb_iterate_context **_ctx)
 	int ret = ctx->ctx.failed ? -1 : 0;
 
 	*_ctx = NULL;
+
+	ctx->destroyed = TRUE;
 	pool_unref(&ctx->pool);
 	return ret;
 }
