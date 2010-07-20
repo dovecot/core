@@ -29,7 +29,7 @@ struct user_list {
 
 extern struct doveadm_cmd doveadm_cmd_director[];
 
-static void director_cmd_help(doveadm_command_t *cmd);
+static void director_cmd_help(doveadm_command_t *cmd) ATTR_NORETURN;
 
 static void
 director_send(struct director_context *ctx, const char *data)
