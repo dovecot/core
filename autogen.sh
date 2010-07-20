@@ -21,6 +21,10 @@ if test ! -f doc/wiki/Authentication.txt; then
   cd doc
   wget http://www.dovecot.org/tmp/wiki2-export.tar.gz
   tar xzf wiki2-export.tar.gz
+  if [ $? != 0 ]; then
+    echo "Failed to uncompress wiki docs"
+    exit
+  fi
   mv wiki2-export/*.txt wiki/
   rm -rf wiki2-export wiki2-export.tar.gz
   cd ..
