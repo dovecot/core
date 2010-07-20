@@ -1,3 +1,19 @@
+v2.0.rc3 2010-07-20  Timo Sirainen <tss@iki.fi>
+
+	* Single-dbox is now called "sdbox" instead of "dbox".
+	  "dbox" will stay as an alias for it for now.
+
+	+ Added mail_temp_dir setting, used by deliver and lmtp for creating
+	  temporary mail files. Default is /tmp.
+	+ doveadm: Added "director map" command to list user -> host mappings.
+	- imap: Fixed checking if list=children namespace has children.
+	- director: If all login processes died, director stopped reading
+	  proxy-notify input and caused future login processes to hang
+	- mail_log plugin configuration was broken
+	- Using more than 2 plugins could have caused broken behavior
+	- mdbox: Race condition fixes related to copying and purging
+	- dsync: Lots of fixes
+
 v2.0.rc2 2010-07-09  Timo Sirainen <tss@iki.fi>
 
 	- Fixed a crash with empty mail_plugins
