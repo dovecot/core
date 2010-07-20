@@ -264,7 +264,7 @@ static bool ip_find(const struct ip_addr *ips, unsigned int ips_count,
 static void cmd_director_map(int argc, char *argv[])
 {
 	struct director_context *ctx;
-	const char *line, *const *args, *username;
+	const char *line, *const *args;
 	struct ip_addr *ips, user_ip;
 	pool_t pool;
 	struct hash_table *users;
@@ -311,8 +311,11 @@ static void cmd_director_map(int argc, char *argv[])
 				 ip_find(ips, ips_count, &user_ip)) {
 				user = hash_table_lookup(users,
 						POINTER_CAST(user_hash));
-				if (user == NULL)
-					username = "<unknown>";
+				if (user == NULL) {
+					doveadm_print("<unknown>");
+					doveadm_print(args[2]);
+					doveadm_print(unixdate2str(expires));
+				}
 				for (; user != NULL; user = user->next) {
 					doveadm_print(user->name);
 					doveadm_print(args[2]);
