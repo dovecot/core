@@ -526,6 +526,8 @@ auth_user_list_reply_callback(const char *cmd, const char *const *args,
 	struct auth_master_user_list_ctx *ctx = context;
 	const char *user;
 
+	timeout_reset(ctx->conn->to);
+
 	if (strcmp(cmd, "DONE") == 0) {
 		io_loop_stop(ctx->conn->ioloop);
 		if (args[0] != NULL && strcmp(args[0], "fail") == 0) {
