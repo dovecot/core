@@ -176,8 +176,10 @@ hook_update_mask(struct hook_build_context *ctx, struct hook_stack *stack,
 	unsigned int i;
 
 	for (i = 0; i < ctx->count; i++) {
-		if (stack->vfuncs[i] != vlast[i])
-			stack->mask[i] = vlast[i];
+		if (stack->vfuncs[i] != vlast[i]) {
+			i_assert(stack->vfuncs[i] != NULL);
+			stack->mask[i] = stack->vfuncs[i];
+		}
 	}
 }
 
