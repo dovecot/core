@@ -22,7 +22,7 @@
 
 #include <unistd.h>
 
-#define CLIENT_IDLE_TIMEOUT_MSECS (1000*60)
+#define CLIENT_IDLE_TIMEOUT_MSECS (1000*60*5)
 #define CLIENT_MAX_INPUT_SIZE 4096
 
 static struct client *clients = NULL;
