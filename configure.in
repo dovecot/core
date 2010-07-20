@@ -2142,6 +2142,7 @@ if test $want_pgsql != no; then
   LIBS=$old_LIBS
 fi
 
+have_mysql=no
 if test $want_mysql != no; then
   AC_CHECK_PROG(MYSQL_CONFIG, mysql_config, YES, NO)
   if test $MYSQL_CONFIG = NO; then
@@ -2197,6 +2198,7 @@ if test $want_mysql != no; then
 				])
 			])
 			
+			have_mysql=yes
 			AC_DEFINE(HAVE_MYSQL,, Build with MySQL support)
 			found_sql_drivers="$found_sql_drivers mysql"
 		], [
@@ -2211,6 +2213,10 @@ if test $want_mysql != no; then
     fi
   ])
 
+  if test $have_mysql != yes; then
+    MYSQL_LIBS=
+    MYSQL_CFLAGS=
+  fi
   LIBS=$old_LIBS
 fi
 
