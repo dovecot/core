@@ -5,6 +5,7 @@
 
 #if defined(USERDB_LDAP) && (defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD))
 
+#include "ioloop.h"
 #include "hash.h"
 #include "str.h"
 #include "var-expand.h"
@@ -158,6 +159,10 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 		ctx->ctx.callback(NULL, ctx->ctx.context);
 		return;
 	}
+
+	/* the iteration can take a while. reset the request's create time so
+	   it won't be aborted while it's still running */
+	request->create_time = ioloop_time;
 
 	ctx->in_callback = TRUE;
 	ldap_iter = db_ldap_result_iterate_init(conn, res,
