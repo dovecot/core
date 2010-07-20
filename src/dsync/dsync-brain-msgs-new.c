@@ -248,6 +248,8 @@ dsync_brain_msg_sync_finish(struct dsync_brain_msg_iter *iter)
 {
 	struct dsync_brain_mailbox_sync *sync = iter->sync;
 
+	i_assert(sync->brain->state == DSYNC_STATE_SYNC_MSGS);
+
 	iter->msgs_sent = TRUE;
 
 	/* done with all mailboxes from this iter */
@@ -259,6 +261,10 @@ dsync_brain_msg_sync_finish(struct dsync_brain_msg_iter *iter)
 	    sync->dest_msg_iter->save_results_left == 0 &&
 	    dsync_worker_output_flush(sync->dest_worker) > 0 &&
 	    dsync_worker_output_flush(sync->src_worker) > 0) {
+		dsync_worker_set_output_callback(sync->src_msg_iter->worker,
+						 NULL, NULL);
+		dsync_worker_set_output_callback(sync->dest_msg_iter->worker,
+						 NULL, NULL);
 		sync->brain->state++;
 		dsync_brain_sync(sync->brain);
 	}
