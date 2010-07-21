@@ -57,6 +57,7 @@ struct local_dsync_mailbox_change {
 
 	unsigned int deleted_mailbox:1;
 };
+
 struct local_dsync_dir_change {
 	mailbox_guid_t name_sha1;
 	struct mailbox_list *list;
@@ -67,6 +68,13 @@ struct local_dsync_dir_change {
 
 	unsigned int unsubscribed:1;
 	unsigned int deleted_dir:1;
+};
+
+struct local_dsync_worker_msg_get {
+	mailbox_guid_t mailbox;
+	uint32_t uid;
+	dsync_worker_msg_callback_t *callback;
+	void *context;
 };
 
 struct local_dsync_worker {
@@ -91,6 +99,7 @@ struct local_dsync_worker {
 
 	mailbox_guid_t get_mailbox;
 	struct mail *get_mail;
+	ARRAY_DEFINE(msg_get_queue, struct local_dsync_worker_msg_get);
 
 	struct io *save_io;
 	struct mail_save_context *save_ctx;
@@ -110,6 +119,9 @@ extern struct dsync_worker_vfuncs local_dsync_worker;
 
 static void local_worker_mailbox_close(struct local_dsync_worker *worker);
 static void local_worker_msg_box_close(struct local_dsync_worker *worker);
+static void
+local_worker_msg_get_next(struct local_dsync_worker *worker,
+			  const struct local_dsync_worker_msg_get *get);
 
 static int mailbox_guid_cmp(const void *p1, const void *p2)
 {
@@ -187,6 +199,7 @@ dsync_worker_init_local(struct mail_user *user, char alt_char)
 		hash_table_create(default_pool, pool, 0,
 				  mailbox_guid_hash, mailbox_guid_cmp);
 	i_array_init(&worker->saved_uids, 128);
+	i_array_init(&worker->msg_get_queue, 32);
 	return &worker->worker;
 }
 
@@ -204,6 +217,7 @@ static void local_worker_deinit(struct dsync_worker *_worker)
 		hash_table_destroy(&worker->mailbox_changes_hash);
 	if (worker->dir_changes_hash != NULL)
 		hash_table_destroy(&worker->dir_changes_hash);
+	array_free(&worker->msg_get_queue);
 	array_free(&worker->saved_uids);
 	pool_unref(&worker->pool);
 }
@@ -1626,8 +1640,20 @@ static void local_worker_msg_save_cancel(struct dsync_worker *_worker)
 
 static void local_worker_msg_get_done(struct local_dsync_worker *worker)
 {
+	const struct local_dsync_worker_msg_get *gets;
+	struct local_dsync_worker_msg_get get;
+	unsigned int count;
+
 	worker->reading_mail = FALSE;
-	dsync_worker_try_finish(worker);
+
+	gets = array_get(&worker->msg_get_queue, &count);
+	if (count == 0)
+		dsync_worker_try_finish(worker);
+	else {
+		get = gets[0];
+		array_delete(&worker->msg_get_queue, 0, 1);
+		local_worker_msg_get_next(worker, &get);
+	}
 }
 
 static void local_worker_msg_box_close(struct local_dsync_worker *worker)
@@ -1648,32 +1674,31 @@ static void local_worker_msg_box_close(struct local_dsync_worker *worker)
 }
 
 static void
-local_worker_msg_get(struct dsync_worker *_worker,
-		     const mailbox_guid_t *mailbox, uint32_t uid,
-		     dsync_worker_msg_callback_t *callback, void *context)
+local_worker_msg_get_next(struct local_dsync_worker *worker,
+			  const struct local_dsync_worker_msg_get *get)
 {
-	struct local_dsync_worker *worker =
-		(struct local_dsync_worker *)_worker;
 	struct dsync_msg_static_data data;
 	struct mailbox_transaction_context *trans;
 	struct mailbox *box;
 
 	i_assert(!worker->reading_mail);
 
-	if (!dsync_guid_equals(&worker->get_mailbox, mailbox)) {
+	if (!dsync_guid_equals(&worker->get_mailbox, &get->mailbox)) {
 		local_worker_msg_box_close(worker);
-		if (local_mailbox_open(worker, mailbox, &box) < 0) {
-			callback(DSYNC_MSG_GET_RESULT_FAILED, NULL, context);
+		if (local_mailbox_open(worker, &get->mailbox, &box) < 0) {
+			get->callback(DSYNC_MSG_GET_RESULT_FAILED,
+				      NULL, get->context);
 			return;
 		}
-		worker->get_mailbox = *mailbox;
+		worker->get_mailbox = get->mailbox;
 
 		trans = mailbox_transaction_begin(box, 0);
 		worker->get_mail = mail_alloc(trans, 0, NULL);
 	}
 
-	if (!mail_set_uid(worker->get_mail, uid)) {
-		callback(DSYNC_MSG_GET_RESULT_EXPUNGED, NULL, context);
+	if (!mail_set_uid(worker->get_mail, get->uid)) {
+		get->callback(DSYNC_MSG_GET_RESULT_EXPUNGED,
+			      NULL, get->context);
 		return;
 	}
 
@@ -1682,18 +1707,39 @@ local_worker_msg_get(struct dsync_worker *_worker,
 			     &data.pop3_uidl) < 0 ||
 	    mail_get_received_date(worker->get_mail, &data.received_date) < 0 ||
 	    mail_get_stream(worker->get_mail, NULL, NULL, &data.input) < 0) {
-		if (worker->get_mail->expunged)
-			callback(DSYNC_MSG_GET_RESULT_EXPUNGED, NULL, context);
-		else
-			callback(DSYNC_MSG_GET_RESULT_FAILED, NULL, context);
+		get->callback(worker->get_mail->expunged ?
+			      DSYNC_MSG_GET_RESULT_EXPUNGED :
+			      DSYNC_MSG_GET_RESULT_FAILED, NULL, get->context);
 	} else {
 		worker->reading_mail = TRUE;
 		data.input = i_stream_create_limit(data.input, (uoff_t)-1);
 		i_stream_set_destroy_callback(data.input,
 					      local_worker_msg_get_done,
 					      worker);
-		callback(DSYNC_MSG_GET_RESULT_SUCCESS, &data, context);
+		get->callback(DSYNC_MSG_GET_RESULT_SUCCESS,
+			      &data, get->context);
 	}
+}
+
+static void
+local_worker_msg_get(struct dsync_worker *_worker,
+		     const mailbox_guid_t *mailbox, uint32_t uid,
+		     dsync_worker_msg_callback_t *callback, void *context)
+{
+	struct local_dsync_worker *worker =
+		(struct local_dsync_worker *)_worker;
+	struct local_dsync_worker_msg_get get;
+
+	memset(&get, 0, sizeof(get));
+	get.mailbox = *mailbox;
+	get.uid = uid;
+	get.callback = callback;
+	get.context = context;
+
+	if (!worker->reading_mail)
+		local_worker_msg_get_next(worker, &get);
+	else
+		array_append(&worker->msg_get_queue, &get, 1);
 }
 
 static void
