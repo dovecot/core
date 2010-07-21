@@ -60,14 +60,25 @@ static void sql_query_callback(struct sql_result *sql_result,
 			       struct userdb_sql_request *sql_request)
 {
 	struct auth_request *auth_request = sql_request->auth_request;
+	struct userdb_module *_module = auth_request->userdb->userdb;
+	struct sql_userdb_module *module =
+		(struct sql_userdb_module *)_module;
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 	int ret;
 
 	ret = sql_result_next_row(sql_result);
 	if (ret < 0) {
-		auth_request_log_error(auth_request, "sql",
-				       "User query failed: %s",
-				       sql_result_get_error(sql_result));
+		if (!module->conn->default_user_query) {
+			auth_request_log_error(auth_request, "sql",
+				"User query failed: %s",
+				sql_result_get_error(sql_result));
+		} else {
+			auth_request_log_error(auth_request, "sql",
+				"User query failed: %s "
+				"(using built-in default user_query: %s)",
+				sql_result_get_error(sql_result),
+				module->conn->set.user_query);
+		}
 	} else if (ret == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
 		auth_request_log_info(auth_request, "sql", "Unknown user");
@@ -180,6 +191,8 @@ static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
 {
 	struct sql_userdb_iterate_context *ctx =
 		(struct sql_userdb_iterate_context *)_ctx;
+	struct userdb_module *_module = _ctx->userdb;
+	struct sql_userdb_module *module = (struct sql_userdb_module *)_module;
 	const char *user;
 	int ret;
 
@@ -201,8 +214,15 @@ static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
 		}
 		_ctx->failed = TRUE;
 	} else if (ret < 0) {
-		i_error("sql: Iterate query failed: %s",
-			sql_result_get_error(ctx->result));
+		if (!module->conn->default_iterate_query) {
+			i_error("sql: Iterate query failed: %s",
+				sql_result_get_error(ctx->result));
+		} else {
+			i_error("sql: Iterate query failed: %s "
+				"(using built-in default iterate_query: %s)",
+				sql_result_get_error(ctx->result),
+				module->conn->set.iterate_query);
+		}
 		_ctx->failed = TRUE;
 	}
 	_ctx->callback(NULL, _ctx->context);

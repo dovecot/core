@@ -84,6 +84,15 @@ struct sql_connection *db_sql_init(const char *config_path)
 			   null_settings_section_callback, conn))
 		exit(FATAL_DEFAULT);
 
+	if (conn->set.password_query == default_sql_settings.password_query)
+		conn->default_password_query = TRUE;
+	if (conn->set.user_query == default_sql_settings.user_query)
+		conn->default_user_query = TRUE;
+	if (conn->set.update_query == default_sql_settings.update_query)
+		conn->default_update_query = TRUE;
+	if (conn->set.iterate_query == default_sql_settings.iterate_query)
+		conn->default_iterate_query = TRUE;
+
 	if (conn->set.driver == NULL) {
 		i_fatal("sql: driver not set in configuration file %s",
 			config_path);
