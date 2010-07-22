@@ -4,6 +4,7 @@
 #include "str.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "imap-utf7.h"
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
@@ -110,9 +111,15 @@ status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 	struct mailbox *box;
 	struct mailbox_status status;
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	string_t *mailbox_name = t_str_new(128);
+
+	if (imap_utf7_to_utf8(info->name, mailbox_name) < 0) {
+		str_truncate(mailbox_name, 0);
+		str_append(mailbox_name, info->name);
+	}
 
 	if (doveadm_mailbox_find_and_sync(ctx->ctx.cur_mail_user,
-					  info->name, &box) < 0) {
+					  str_c(mailbox_name), &box) < 0) {
 		ctx->ctx.failed = TRUE;
 		return;
 	}
