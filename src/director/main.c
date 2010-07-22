@@ -59,9 +59,14 @@ static void client_connected(struct master_service_connection *conn)
 
 	if (net_getpeername(conn->fd, &ip, &port) == 0 &&
 	    (IPADDR_IS_V4(&ip) || IPADDR_IS_V6(&ip))) {
-		/* TCP/IP connection - this is another director */
-		if (director_client_connected(conn->fd, &ip) == 0)
+		/* TCP/IP connection */
+		if (port == director->set->director_doveadm_port) {
 			master_service_client_connection_accept(conn);
+			(void)doveadm_connection_init(director, conn->fd);
+		} else {
+			if (director_client_connected(conn->fd, &ip) == 0)
+				master_service_client_connection_accept(conn);
+		}
 		return;
 	}
 

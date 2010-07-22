@@ -68,6 +68,7 @@ static const struct setting_define director_setting_defines[] = {
 	DEF(SET_STR, director_servers),
 	DEF(SET_STR, director_mail_servers),
 	DEF(SET_TIME, director_user_expire),
+	DEF(SET_UINT, director_doveadm_port),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -78,7 +79,8 @@ const struct director_settings director_default_settings = {
 
 	.director_servers = "",
 	.director_mail_servers = "",
-	.director_user_expire = 60*15
+	.director_user_expire = 60*15,
+	.director_doveadm_port = 0
 };
 
 const struct setting_parser_info director_setting_parser_info = {
