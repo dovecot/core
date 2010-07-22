@@ -1049,7 +1049,7 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r)
 {
-	const char *path, *fname, *rootdir, *inbox;
+	const char *path, *fname, *rootdir, *dir, *inbox;
 	struct stat st;
 	unsigned int len;
 
@@ -1061,19 +1061,24 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		return 0;
 	}
 
+	fname = strrchr(path, '/');
+	if (fname == NULL) {
+		fname = path;
+		dir = "/";
+	} else {
+		dir = t_strdup_until(path, fname);
+		fname++;
+	}
+
 	len = strlen(rootdir);
 	if (strncmp(path, rootdir, len) == 0 && path[len] == '/') {
-		fname = strrchr(path, '/');
-		if (fname == NULL) {
-			fname = path;
-			path = "/";
-		} else {
-			path = t_strdup_until(path, fname);
-			fname++;
-		}
+		/* looking up a regular mailbox under mail root dir */
+	} else if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+		   strcasecmp(name, "INBOX") == 0) {
+		/* looking up INBOX that's elsewhere */
 	} else {
-		/* a) looking up INBOX that's elsewhere
-		   b) looking up the root dir itself (as INBOX or "") */
+		/* looking up the root dir itself */
+		dir = path;
 		fname = "";
 	}
 	if (*fname == '\0' && *name == '\0' &&
@@ -1082,12 +1087,12 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		   access it also via namespace prefix. */
 		inbox = mailbox_list_get_path(list, "INBOX",
 					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		if (strcmp(inbox, path) == 0) {
+		if (strcmp(inbox, dir) == 0) {
 			*flags_r |= MAILBOX_NONEXISTENT;
 			return 0;
 		}
 	}
-	return list->v.get_mailbox_flags(list, path, fname,
+	return list->v.get_mailbox_flags(list, dir, fname,
 					 MAILBOX_LIST_FILE_TYPE_UNKNOWN,
 					 &st, flags_r);
 }
