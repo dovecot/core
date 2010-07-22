@@ -566,7 +566,7 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 	int ret;
         bool found;
 
-	/* NOTE: it's possible to rename a nonexisting mailbox which has
+	/* NOTE: it's possible to rename a nonexistent mailbox which has
 	   children. In that case we should ignore the rename() error. */
 	oldpath = mailbox_list_get_path(oldlist, oldname,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);

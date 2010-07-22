@@ -245,7 +245,7 @@ static bool passwd_file_sync(struct passwd_file *pw)
 
 	if (stat(pw->path, &st) < 0) {
 		/* with variables don't give hard errors, or errors about
-		   nonexisting files */
+		   nonexistent files */
 		if (errno == EACCES) {
 			i_error("passwd-file %s: %s", pw->path,
 				eacces_error_get("stat", pw->path));

@@ -232,7 +232,7 @@ static int thread_get_mail_header(struct mail *mail, const char *name,
 			return -1;
 
 		/* Message is expunged. Instead of failing the entire THREAD
-		   command, just treat the header as non-existing. */
+		   command, just treat the header as nonexistent. */
 		*value_r = NULL;
 	}
 	return 0;

@@ -95,7 +95,7 @@ shared_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 }
 
 static void
-get_nonexisting_user_location(struct shared_storage *storage,
+get_nonexistent_user_location(struct shared_storage *storage,
 			      const char *username, string_t *location)
 {
 	/* user wasn't found. we'll still need to create the storage
@@ -103,7 +103,7 @@ get_nonexisting_user_location(struct shared_storage *storage,
 	str_append(location, storage->storage_class->name);
 	str_append_c(location, ':');
 
-	/* use a reachable but non-existing path as the mail root directory */
+	/* use a reachable but nonexistent path as the mail root directory */
 	str_append(location, storage->storage.user->set->base_dir);
 	str_append(location, "/user-not-found/");
 	str_append(location, username);
@@ -265,7 +265,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	if (ret > 0)
 		var_expand(location, storage->location, tab);
 	else {
-		get_nonexisting_user_location(storage, userdomain, location);
+		get_nonexistent_user_location(storage, userdomain, location);
 		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
 	}
 

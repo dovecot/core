@@ -59,7 +59,7 @@ int dict_iterate_deinit(struct dict_iterate_context **ctx);
 /* Start a new dictionary transaction. */
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict);
 /* Commit the transaction. Returns 1 if ok, 0 if dict_atomic_inc() was used
-   on a non-existing key, -1 if failed. */
+   on a nonexistent key, -1 if failed. */
 int dict_transaction_commit(struct dict_transaction_context **ctx);
 /* Commit the transaction, but don't wait to see if it finishes successfully.
    If callback isn't NULL, it's called eventually. If it's not called by the

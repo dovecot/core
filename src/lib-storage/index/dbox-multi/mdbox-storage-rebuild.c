@@ -338,7 +338,7 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 		pos = bsearch(&search_msgp, msgs, count, sizeof(*msgs),
 			      mdbox_rebuild_msg_offset_cmp);
 		if (pos == NULL || (*pos)->map_uid != 0) {
-			/* map record points to non-existing or
+			/* map record points to nonexistent or
 			   a duplicate message. */
 			mail_index_expunge(ctx->atomic->sync_trans, seq);
 		} else {

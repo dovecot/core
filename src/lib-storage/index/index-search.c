@@ -736,7 +736,7 @@ static bool search_msgset_fix_limits(unsigned int messages_count,
 			   (e.g. with count+1:* we still want to include it) */
 			seq_range_array_add(seqset, 0, messages_count);
 		}
-		/* remove all non-existing messages */
+		/* remove all nonexistent messages */
 		seq_range_array_remove_range(seqset, messages_count + 1,
 					     (uint32_t)-1);
 	}

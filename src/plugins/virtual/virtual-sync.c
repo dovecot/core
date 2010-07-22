@@ -774,7 +774,7 @@ static void virtual_sync_drop_existing(struct virtual_backend_box *bbox,
 	seq_range_array_remove_seq_range(added_uids, &drop_uids);
 }
 
-static void virtual_sync_drop_nonexisting(struct virtual_backend_box *bbox,
+static void virtual_sync_drop_nonexistent(struct virtual_backend_box *bbox,
 					  ARRAY_TYPE(seq_range) *removed_uids)
 {
 	ARRAY_TYPE(seq_range) drop_uids;
@@ -835,7 +835,7 @@ static void virtual_sync_mailbox_box_update(struct virtual_sync_context *ctx,
 	}
 
 	virtual_sync_drop_existing(bbox, &added_uids);
-	virtual_sync_drop_nonexisting(bbox, &removed_uids);
+	virtual_sync_drop_nonexistent(bbox, &removed_uids);
 
 	/* if any of the pending removes came back, we don't want to expunge
 	   them anymore. also since they already exist, remove them from

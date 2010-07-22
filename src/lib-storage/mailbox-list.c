@@ -1156,7 +1156,7 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 		return -1;
 
 	/* subscriptions are about names, not about mailboxes. it's possible
-	   to have a subscription to non-existing mailbox. renames also don't
+	   to have a subscription to nonexistent mailbox. renames also don't
 	   change subscriptions. so instead of using actual GUIDs, we'll use
 	   hash of the name. */
 	mailbox_name_get_sha128(name, guid);

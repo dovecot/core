@@ -337,7 +337,7 @@ void mailbox_close(struct mailbox *box);
 void mailbox_free(struct mailbox **box);
 
 /* Create a mailbox. Returns failure if it already exists. Mailbox name is
-   allowed to contain multiple new non-existing hierarchy levels. If directory
+   allowed to contain multiple new nonexistent hierarchy levels. If directory
    is TRUE, the mailbox should be created so that it can contain children. The
    mailbox itself doesn't have to be created as long as it shows up in LIST.
    If update is non-NULL, its contents are used to set initial mailbox

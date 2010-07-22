@@ -182,7 +182,7 @@ fts_backend_solr_init(struct mailbox *box)
 						   set->default_ns_prefix);
 		if (backend->default_ns == NULL) {
 			i_fatal("fts_solr: default_ns setting points to "
-				"nonexisting namespace");
+				"nonexistent namespace");
 		}
 	} else {
 		backend->default_ns =

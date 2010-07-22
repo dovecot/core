@@ -91,7 +91,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 
 	client_conn = auth_client_connection_lookup(client_pid);
 	if (client_conn == NULL) {
-		i_error("Master requested auth for nonexisting client %u",
+		i_error("Master requested auth for nonexistent client %u",
 			client_pid);
 		(void)o_stream_send_str(conn->output,
 					t_strdup_printf("FAIL\t%u\n", id));

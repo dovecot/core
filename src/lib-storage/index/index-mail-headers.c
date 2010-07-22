@@ -340,7 +340,7 @@ void index_mail_parse_header(struct message_part *part,
 		str_append_n(mail->header_data, hdr->middle, hdr->middle_len);
 
 		/* remember that we saw this header so we don't add it to
-		   cache as nonexisting. */
+		   cache as nonexistent. */
 		match[field_idx] |= HEADER_MATCH_FLAG_FOUND;
 	}
 	str_append_n(mail->header_data, hdr->value, hdr->value_len);
@@ -641,7 +641,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 	data = buffer_get_modifiable_data(dest, &len);
 
 	if (len == 0) {
-		/* cached as non-existing. */
+		/* cached as nonexistent. */
 		*value_r = p_new(mail->data_pool, const char *, 1);
 		return 0;
 	}
