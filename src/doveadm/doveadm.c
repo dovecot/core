@@ -115,7 +115,7 @@ static void ATTR_NORETURN
 help_to(const struct doveadm_cmd *cmd, FILE *out)
 {
 	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->short_usage);
-	exit(0);
+	exit(1);
 }
 
 void help(const struct doveadm_cmd *cmd)

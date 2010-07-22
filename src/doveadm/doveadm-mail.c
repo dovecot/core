@@ -481,7 +481,7 @@ void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
 {
 	fprintf(stderr, "doveadm %s [-u <user>|-A] %s\n", cmd->name,
 		cmd->usage_args == NULL ? "" : cmd->usage_args);
-	exit(0);
+	exit(1);
 }
 
 void doveadm_mail_try_help_name(const char *cmd_name)
