@@ -83,6 +83,8 @@ void doveadm_print_num(uintmax_t value)
 void doveadm_print_stream(const void *value, size_t size)
 {
 	ctx->v->print_stream(value, size);
+	if (size == 0)
+		ctx->header_idx++;
 }
 
 void doveadm_print_sticky(const char *key, const char *value)
