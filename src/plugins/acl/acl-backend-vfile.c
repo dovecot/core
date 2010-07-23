@@ -127,7 +127,10 @@ static const char *
 acl_backend_vfile_get_local_dir(struct acl_backend *backend, const char *name)
 {
 	struct mail_namespace *ns;
-	const char *dir;
+	const char *dir, *inbox;
+
+	if (*name == '\0')
+		name = NULL;
 
 	ns = mailbox_list_get_namespace(backend->list);
 	if (mail_storage_is_mailbox_file(ns->storage)) {
@@ -136,6 +139,16 @@ acl_backend_vfile_get_local_dir(struct acl_backend *backend, const char *name)
 	} else {
 		dir = mailbox_list_get_path(ns->list, name,
 					    MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	}
+	if (name == NULL) {
+		/* verify that the directory isn't same as INBOX's directory.
+		   this is mainly for Maildir. */
+		inbox = mailbox_list_get_path(ns->list, "INBOX",
+					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (strcmp(inbox, dir) == 0) {
+			/* can't have default ACLs with this setup */
+			return NULL;
+		}
 	}
 	return dir;
 }
@@ -164,12 +177,7 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 						  str_c(vname), NULL);
 	} T_END;
 
-	if (*name == '\0') {
-		/* the default ACL for mailbox list */
-		dir = NULL;
-	} else {
-		dir = acl_backend_vfile_get_local_dir(_backend, name);
-	}
+	dir = acl_backend_vfile_get_local_dir(_backend, name);
 	aclobj->local_path = dir == NULL ? NULL :
 		i_strconcat(dir, "/"ACL_FILENAME, NULL);
 	return &aclobj->aclobj;
@@ -238,8 +246,8 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	ret = path == NULL ? 0 :
 		acl_backend_vfile_exists(backend, path,
 					 &new_validity.mailbox_validity);
-	if (ret == 0) {
-		dir = acl_backend_vfile_get_local_dir(_backend, name);
+	if (ret == 0 &&
+	    (dir = acl_backend_vfile_get_local_dir(_backend, name)) != NULL) {
 		local_path = t_strconcat(dir, "/", name, NULL);
 		ret = acl_backend_vfile_exists(backend, local_path,
 					       &new_validity.local_validity);
