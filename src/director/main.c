@@ -44,7 +44,7 @@ static void client_connected(struct master_service_connection *conn)
 	struct auth_connection *auth;
 	const char *path, *name, *socket_path;
 	struct ip_addr ip;
-	unsigned int port, len;
+	unsigned int local_port, len;
 	bool userdb;
 
 	if (conn->fifo) {
@@ -57,10 +57,11 @@ static void client_connected(struct master_service_connection *conn)
 		return;
 	}
 
-	if (net_getpeername(conn->fd, &ip, &port) == 0 &&
+	if (net_getpeername(conn->fd, &ip, NULL) == 0 &&
+	    net_getsockname(conn->fd, NULL, &local_port) == 0 &&
 	    (IPADDR_IS_V4(&ip) || IPADDR_IS_V6(&ip))) {
 		/* TCP/IP connection */
-		if (port == director->set->director_doveadm_port) {
+		if (local_port == director->set->director_doveadm_port) {
 			master_service_client_connection_accept(conn);
 			(void)doveadm_connection_init(director, conn->fd);
 		} else {
