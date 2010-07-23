@@ -74,6 +74,7 @@ doveadm_SOURCES = \
 	doveadm-print-table.c \
 	doveadm-pw.c \
 	doveadm-settings.c \
+	doveadm-util.c \
 	doveadm-who.c
 
 noinst_HEADERS = \
@@ -85,4 +86,5 @@ noinst_HEADERS = \
 	doveadm-print.h \
 	doveadm-print-private.h \
 	doveadm-settings.h \
+	doveadm-util.h \
 	doveadm-who.h

@@ -2,7 +2,7 @@
 #define DOVEADM_MAIL_H
 
 #include <stdio.h>
-#include "doveadm.h"
+#include "doveadm-util.h"
 #include "module-context.h"
 
 struct mailbox;
