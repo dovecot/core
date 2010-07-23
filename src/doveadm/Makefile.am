@@ -65,6 +65,7 @@ doveadm_SOURCES = \
 	doveadm-mail-mailbox-status.c \
 	doveadm-mail-list-iter.c \
 	doveadm-mail-search.c \
+	doveadm-mutf7.c \
 	doveadm-penalty.c \
 	doveadm-print.c \
 	doveadm-print-flow.c \
