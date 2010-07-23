@@ -32,9 +32,7 @@ static void doveadm_print_tab_print(const char *value)
 		printf("\t");
 	printf("%s", value);
 
-	if (++ctx.header_idx < ctx.header_count)
-		printf(" ");
-	else {
+	if (++ctx.header_idx == ctx.header_count) {
 		ctx.header_idx = 0;
 		printf("\n");
 	}
