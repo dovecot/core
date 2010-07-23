@@ -7,6 +7,7 @@
 #include "execv-const.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "settings-parser.h"
 #include "doveadm-print-private.h"
 #include "doveadm-mail.h"
 #include "doveadm-settings.h"
@@ -235,7 +236,11 @@ static void doveadm_read_settings(void)
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
+
 	doveadm_settings = master_service_settings_get_others(master_service)[0];
+	doveadm_settings = settings_dup(&doveadm_setting_parser_info,
+					doveadm_settings,
+					pool_datastack_create());
 }
 
 static struct doveadm_cmd *doveadm_commands[] = {
