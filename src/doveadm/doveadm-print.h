@@ -10,6 +10,8 @@ enum doveadm_print_header_flags {
 	DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE	 	= 0x04
 };
 
+extern const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[];
+
 bool doveadm_print_is_initialized(void);
 
 void doveadm_print_header(const char *key, const char *title,

@@ -15,6 +15,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
+	&doveadm_print_flow_vfuncs,
+	&doveadm_print_tab_vfuncs,
+	&doveadm_print_table_vfuncs,
+	&doveadm_print_pager_vfuncs,
+	NULL
+};
+
 static ARRAY_DEFINE(doveadm_cmds, struct doveadm_cmd);
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd)

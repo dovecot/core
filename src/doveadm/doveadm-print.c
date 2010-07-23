@@ -21,12 +21,6 @@ struct doveadm_print_context {
 };
 
 static struct doveadm_print_context *ctx;
-static const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
-	&doveadm_print_flow_vfuncs,
-	&doveadm_print_tab_vfuncs,
-	&doveadm_print_table_vfuncs,
-	&doveadm_print_pager_vfuncs
-};
 
 bool doveadm_print_is_initialized(void)
 {
@@ -132,7 +126,7 @@ void doveadm_print_init(const char *name)
 	ctx->pool = pool;
 	p_array_init(&ctx->headers, pool, 16);
 
-	for (i = 0; i < N_ELEMENTS(doveadm_print_vfuncs_all); i++) {
+	for (i = 0; doveadm_print_vfuncs_all[i] != NULL; i++) {
 		if (strcmp(doveadm_print_vfuncs_all[i]->name, name) == 0) {
 			ctx->v = doveadm_print_vfuncs_all[i];
 			break;
