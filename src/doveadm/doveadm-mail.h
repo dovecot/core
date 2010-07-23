@@ -5,6 +5,7 @@
 #include "doveadm-util.h"
 #include "module-context.h"
 
+enum mail_storage_service_flags;
 struct mailbox;
 struct mail_user;
 struct mail_storage_service_ctx;
@@ -61,6 +62,7 @@ extern struct doveadm_mail_cmd_module_register doveadm_mail_cmd_module_register;
 
 bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[]);
 void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd);
+const struct doveadm_mail_cmd *doveadm_mail_cmd_find(const char *cmd_name);
 
 void doveadm_mail_usage(string_t *out);
 void doveadm_mail_help(const struct doveadm_mail_cmd *cmd) ATTR_NORETURN;
@@ -70,6 +72,12 @@ bool doveadm_mail_has_subcommands(const char *cmd_name);
 
 void doveadm_mail_init(void);
 void doveadm_mail_deinit(void);
+
+struct doveadm_mail_cmd_context *
+doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd);
+void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
+			      const char *username,
+			      enum mail_storage_service_flags service_flags);
 
 int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
 				  struct mailbox **box_r);

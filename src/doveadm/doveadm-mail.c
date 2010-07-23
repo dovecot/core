@@ -216,10 +216,9 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	return 1;
 }
 
-static void
-doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			 const char *username,
-			 enum mail_storage_service_flags service_flags)
+void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
+			      const char *username,
+			      enum mail_storage_service_flags service_flags)
 {
 	struct mail_storage_service_input input;
 	const char *error;
@@ -332,6 +331,23 @@ doveadm_mail_cmd_deinit_noop(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED)
 {
 }
 
+struct doveadm_mail_cmd_context *
+doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = cmd->alloc();
+	if (ctx->v.init == NULL)
+		ctx->v.init = doveadm_mail_cmd_init_noop;
+	if (ctx->v.get_next_user == NULL)
+		ctx->v.get_next_user = doveadm_mail_cmd_get_next_user;
+	if (ctx->v.deinit == NULL)
+		ctx->v.deinit = doveadm_mail_cmd_deinit_noop;
+
+	p_array_init(&ctx->module_contexts, ctx->pool, 5);
+	return ctx;
+}
+
 static void
 doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 {
@@ -345,16 +361,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	if (doveadm_debug)
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
-	ctx = cmd->alloc();
-	if (ctx->v.init == NULL)
-		ctx->v.init = doveadm_mail_cmd_init_noop;
-	if (ctx->v.get_next_user == NULL)
-		ctx->v.get_next_user = doveadm_mail_cmd_get_next_user;
-	if (ctx->v.deinit == NULL)
-		ctx->v.deinit = doveadm_mail_cmd_deinit_noop;
-
-	p_array_init(&ctx->module_contexts, ctx->pool, 5);
-
+	ctx = doveadm_mail_cmd_init(cmd);
 	getopt_args = t_strconcat("Au:", ctx->getopt_args, NULL);
 	username = getenv("USER");
 	wildcard_user = NULL;
@@ -465,6 +472,17 @@ void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd)
 	array_append(&doveadm_mail_cmds, cmd, 1);
 }
 
+const struct doveadm_mail_cmd *doveadm_mail_cmd_find(const char *cmd_name)
+{
+	const struct doveadm_mail_cmd *cmd;
+
+	array_foreach(&doveadm_mail_cmds, cmd) {
+		if (strcmp(cmd->name, cmd_name) == 0)
+			return cmd;
+	}
+	return NULL;
+}
+
 void doveadm_mail_usage(string_t *out)
 {
 	const struct doveadm_mail_cmd *cmd;
@@ -488,10 +506,9 @@ void doveadm_mail_try_help_name(const char *cmd_name)
 {
 	const struct doveadm_mail_cmd *cmd;
 
-	array_foreach(&doveadm_mail_cmds, cmd) {
-		if (strcmp(cmd->name, cmd_name) == 0)
-			doveadm_mail_help(cmd);
-	}
+	cmd = doveadm_mail_cmd_find(cmd_name);
+	if (cmd != NULL)
+		doveadm_mail_help(cmd);
 }
 
 bool doveadm_mail_has_subcommands(const char *cmd_name)
