@@ -13,7 +13,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-bool doveadm_verbose = FALSE, doveadm_debug = FALSE;
+bool doveadm_verbose = FALSE, doveadm_debug = FALSE, doveadm_server = FALSE;
 static struct module *modules = NULL;
 
 void doveadm_load_modules(void)

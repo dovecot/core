@@ -202,6 +202,15 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
+	if (doveadm_settings->doveadm_worker_count > 0 && !doveadm_server) {
+		/* execute this command via doveadm server */
+		T_BEGIN {
+			ret = doveadm_mail_server_user(ctx, service_user);
+			mail_storage_service_user_free(&service_user);
+		} T_END;
+		return ret < 0 ? -1 : 1;
+	}
+
 	ret = mail_storage_service_next(ctx->storage_service, service_user,
 					&ctx->cur_mail_user);
 	if (ret < 0) {
@@ -311,6 +320,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	if (ret < 0)
 		i_error("Failed to iterate through some users");
 	mail_storage_service_deinit(&ctx->storage_service);
+	doveadm_mail_server_flush();
 }
 
 static void
@@ -337,6 +347,7 @@ doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd)
 	struct doveadm_mail_cmd_context *ctx;
 
 	ctx = cmd->alloc();
+	ctx->cmd = cmd;
 	if (ctx->v.init == NULL)
 		ctx->v.init = doveadm_mail_cmd_init_noop;
 	if (ctx->v.get_next_user == NULL)
@@ -362,6 +373,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
 	ctx = doveadm_mail_cmd_init(cmd);
+	ctx->args = (const void *)argv;
+
 	getopt_args = t_strconcat("Au:", ctx->getopt_args, NULL);
 	username = getenv("USER");
 	wildcard_user = NULL;

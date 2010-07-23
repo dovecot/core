@@ -8,6 +8,7 @@
 #include "imap-match.h"
 #include "expire-set.h"
 #include "mail-search.h"
+#include "doveadm-settings.h"
 #include "doveadm-mail.h"
 
 #define DOVEADM_EXPIRE_MAIL_CMD_CONTEXT(obj) \

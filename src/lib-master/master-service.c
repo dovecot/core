@@ -69,6 +69,7 @@ static void sig_die(const siginfo_t *si, void *context)
 			return;
 	}
 
+	service->killed = TRUE;
 	io_loop_stop(service->ioloop);
 }
 
@@ -528,6 +529,11 @@ void master_service_stop_new_connections(struct master_service *service)
 	}
 	if (service->login != NULL)
 		master_login_stop(service->login);
+}
+
+bool master_service_is_killed(struct master_service *service)
+{
+	return service->killed;
 }
 
 void master_service_anvil_send(struct master_service *service, const char *cmd)

@@ -65,6 +65,7 @@ src/director/director
 src/director/director-test
 src/dns/dns-client
 src/doveadm/doveadm
+src/doveadm/doveadm-server
 src/dsync/dsync
 src/imap-login/imap-login
 src/imap/imap

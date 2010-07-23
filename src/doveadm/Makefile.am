@@ -1,6 +1,7 @@
 doveadm_moduledir = $(moduledir)/doveadm
 
 bin_PROGRAMS = doveadm
+pkglibexec_PROGRAMS = doveadm-server
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -33,18 +34,42 @@ cmd_pw_libs = \
 
 libs = \
 	$(LIBDOVECOT_STORAGE) \
-	$(cmd_pw_libs) \
 	$(unused_objects)
 
 doveadm_LDADD = \
 	$(libs) $(AUTH_LIBS) \
+	$(cmd_pw_libs) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
 doveadm_DEPENDENCIES = \
 	$(libs) \
+	$(cmd_pw_libs) \
 	$(LIBDOVECOT_DEPS)
 
+doveadm_server_LDADD = \
+	$(libs) \
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
+doveadm_server_DEPENDENCIES = \
+	$(libs) \
+	$(LIBDOVECOT_DEPS)
+
+common = \
+	doveadm-mail.c \
+	doveadm-mail-altmove.c \
+	doveadm-mail-expunge.c \
+	doveadm-mail-fetch.c \
+	doveadm-mail-iter.c \
+	doveadm-mail-mailbox.c \
+	doveadm-mail-mailbox-status.c \
+	doveadm-mail-list-iter.c \
+	doveadm-mail-search.c \
+	doveadm-print.c \
+	doveadm-settings.c \
+	doveadm-util.c
+
 doveadm_SOURCES = \
+	$(common) \
 	doveadm.c \
 	doveadm-auth.c \
 	doveadm-director.c \
@@ -56,28 +81,26 @@ doveadm_SOURCES = \
 	doveadm-kick.c \
 	doveadm-log.c \
 	doveadm-master.c \
-	doveadm-mail.c \
-	doveadm-mail-altmove.c \
-	doveadm-mail-expunge.c \
-	doveadm-mail-fetch.c \
-	doveadm-mail-iter.c \
-	doveadm-mail-mailbox.c \
-	doveadm-mail-mailbox-status.c \
-	doveadm-mail-list-iter.c \
-	doveadm-mail-search.c \
+	doveadm-mail-server.c \
 	doveadm-mutf7.c \
 	doveadm-penalty.c \
-	doveadm-print.c \
 	doveadm-print-flow.c \
 	doveadm-print-pager.c \
 	doveadm-print-tab.c \
 	doveadm-print-table.c \
 	doveadm-pw.c \
-	doveadm-settings.c \
-	doveadm-util.c \
-	doveadm-who.c
+	doveadm-who.c \
+	server-connection.c
+
+doveadm_server_SOURCES = \
+	$(common) \
+	client-connection.c \
+	doveadm-print-server.c \
+	main.c
 
 noinst_HEADERS = \
+	client-connection.h \
+	server-connection.h \
 	doveadm.h \
 	doveadm-dump.h \
 	doveadm-mail.h \
@@ -85,6 +108,7 @@ noinst_HEADERS = \
 	doveadm-mail-list-iter.h \
 	doveadm-print.h \
 	doveadm-print-private.h \
+	doveadm-server.h \
 	doveadm-settings.h \
 	doveadm-util.h \
 	doveadm-who.h
