@@ -235,8 +235,11 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 	bool ret = TRUE;
 
 	if (!conn->handshaked) {
-		if ((line = i_stream_read_next_line(conn->input)) == NULL)
+		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
+			if (conn->input->eof || conn->input->stream_errno != 0)
+				doveadm_connection_deinit(&conn);
 			return;
+		}
 
 		if (!version_string_verify(line, "director-doveadm",
 					   DOVEADM_PROTOCOL_VERSION_MAJOR)) {
