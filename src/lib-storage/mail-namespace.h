@@ -43,6 +43,7 @@ enum namespace_flags {
 struct mail_namespace {
 	/* Namespaces are sorted by their prefix length, "" comes first */
 	struct mail_namespace *next;
+	int refcount;
 
         enum namespace_type type;
 	char sep, real_sep, sep_str[3];
@@ -68,6 +69,8 @@ struct mail_namespace {
 
 	const struct mail_namespace_settings *set, *unexpanded_set;
 	const struct mail_storage_settings *mail_set;
+
+	unsigned int destroyed:1;
 };
 
 int mail_namespaces_init(struct mail_user *user, const char **error_r);
@@ -75,6 +78,9 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
 /* Deinitialize all namespaces. mail_user_deinit() calls this automatically
    for user's namespaces. */
 void mail_namespaces_deinit(struct mail_namespace **namespaces);
+
+void mail_namespace_ref(struct mail_namespace *ns);
+void mail_namespace_unref(struct mail_namespace **ns);
 
 /* Set storage callback functions to use in all namespaces. */
 void mail_namespaces_set_storage_callbacks(struct mail_namespace *namespaces,

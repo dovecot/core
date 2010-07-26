@@ -68,6 +68,7 @@ namespace_add(struct mail_user *user,
 	const char *driver, *error;
 
 	ns = i_new(struct mail_namespace, 1);
+	ns->refcount = 1;
 	ns->user = user;
 	if (strncmp(ns_set->type, "private", 7) == 0) {
 		ns->owner = user;
@@ -303,6 +304,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 
 	/* no namespaces defined, create a default one */
 	ns = i_new(struct mail_namespace, 1);
+	ns->refcount = 1;
 	ns->type = NAMESPACE_PRIVATE;
 	ns->flags = NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY |
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_SUBSCRIPTIONS;
@@ -376,6 +378,7 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
 	struct mail_namespace *ns;
 
 	ns = i_new(struct mail_namespace, 1);
+	ns->refcount = 1;
 	ns->user = user;
 	ns->owner = user;
 	ns->prefix = i_strdup("");
@@ -412,6 +415,28 @@ void mail_namespaces_set_storage_callbacks(struct mail_namespace *namespaces,
 		mail_storage_set_callbacks(ns->storage, callbacks, context);
 }
 
+void mail_namespace_ref(struct mail_namespace *ns)
+{
+	i_assert(ns->refcount > 0);
+
+	ns->refcount++;
+}
+
+void mail_namespace_unref(struct mail_namespace **_ns)
+{
+	struct mail_namespace *ns = *_ns;
+
+	i_assert(ns->refcount > 0);
+
+	*_ns = NULL;
+
+	if (--ns->refcount > 0)
+		return;
+
+	i_assert(ns->destroyed);
+	mail_namespace_free(ns);
+}
+
 void mail_namespace_destroy(struct mail_namespace *ns)
 {
 	struct mail_namespace **nsp;
@@ -423,8 +448,9 @@ void mail_namespace_destroy(struct mail_namespace *ns)
 			break;
 		}
 	}
+	ns->destroyed = TRUE;
 
-	mail_namespace_free(ns);
+	mail_namespace_unref(&ns);
 }
 
 const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name)
