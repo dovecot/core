@@ -1175,8 +1175,10 @@ int mailbox_transaction_commit(struct mailbox_transaction_context **t)
 
 	/* Store changes temporarily so that plugins overriding
 	   transaction_commit() can look at them. */
+	changes.pool = NULL;
 	ret = mailbox_transaction_commit_get_changes(t, &changes);
-	pool_unref(&changes.pool);
+	if (changes.pool != NULL)
+		pool_unref(&changes.pool);
 	return ret;
 }
 
