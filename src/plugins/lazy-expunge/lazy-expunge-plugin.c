@@ -539,6 +539,7 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 			mail_namespace_find_prefix(namespaces, name);
 		if (luser->lazy_ns[i] == NULL)
 			i_fatal("lazy_expunge: Unknown namespace: '%s'", name);
+		mail_namespace_ref(luser->lazy_ns[i]);
 
 		/* we don't want to override these namespaces' expunge/delete
 		   operations. */
@@ -547,18 +548,35 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 	}
 	if (i == 0)
 		i_fatal("lazy_expunge: No namespaces defined");
-	for (; i < LAZY_NAMESPACE_COUNT; i++)
+	for (; i < LAZY_NAMESPACE_COUNT; i++) {
 		luser->lazy_ns[i] = luser->lazy_ns[i-1];
+		mail_namespace_ref(luser->lazy_ns[i]);
+	}
+}
+
+static void lazy_expunge_user_deinit(struct mail_user *user)
+{
+	struct lazy_expunge_mail_user *luser = LAZY_EXPUNGE_USER_CONTEXT(user);
+	unsigned int i;
+
+	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++)
+		mail_namespace_unref(&luser->lazy_ns[i]);
+
+	luser->module_ctx.super.deinit(user);
 }
 
 static void lazy_expunge_mail_user_created(struct mail_user *user)
 {
+	struct mail_user_vfuncs *v = user->vlast;
 	struct lazy_expunge_mail_user *luser;
 	const char *env;
 
 	env = mail_user_plugin_getenv(user, "lazy_expunge");
 	if (env != NULL) {
 		luser = p_new(user->pool, struct lazy_expunge_mail_user, 1);
+		luser->module_ctx.super = *v;
+		user->vlast = &luser->module_ctx.super;
+		v->deinit = lazy_expunge_user_deinit;
 		luser->env = env;
 
 		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
