@@ -194,6 +194,7 @@ int main(int argc, char *argv[])
 		case 'u':
 			username = optarg;
 			ssflags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			ssflags &= ~MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR;
 			break;
 		case 'v':
 			brain_flags |= DSYNC_BRAIN_FLAG_VERBOSE;
