@@ -1592,8 +1592,9 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		if (sync_ctx->delay_writes &&
 		    (sync_ctx->errors || sync_ctx->renumber_uids)) {
 			/* fixing a broken mbox state, be sure to write
-			   the changes. */
-			sync_ctx->delay_writes = FALSE;
+			   the changes (except if we're readonly). */
+			if (!sync_ctx->readonly)
+				sync_ctx->delay_writes = FALSE;
 		}
 		if (++i == 3)
 			break;
@@ -1791,6 +1792,7 @@ again:
 			if (mbox_lock(mbox, F_RDLCK, lock_id) <= 0)
 				return -1;
 			mbox->box.backend_readonly = readonly = TRUE;
+			delay_writes = TRUE;
 		}
 	}
 
