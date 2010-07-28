@@ -1,4 +1,5 @@
 doveadm_moduledir = $(moduledir)/doveadm
+pkglibexecdir = $(libexecdir)/dovecot
 
 bin_PROGRAMS = doveadm
 pkglibexec_PROGRAMS = doveadm-server
