@@ -12,7 +12,9 @@ enum header_filter_flags {
 	/* Return EOF at the beginning of message body. */
 	HEADER_FILTER_HIDE_BODY		= 0x08,
 	/* If the empty "end of headers" line doesn't exist, add it. */
-	HEADER_FILTER_ADD_MISSING_EOH	= 0x10
+	HEADER_FILTER_ADD_MISSING_EOH	= 0x10,
+	/* If body doesn't end with [CR]LF, add it/them. */
+	HEADER_FILTER_END_BODY_WITH_LF	= 0x20
 };
 
 struct message_header_line;
