@@ -374,7 +374,8 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 	/* filter out unwanted headers and keep track of headers' MD5 sum */
 	filter = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
 					       HEADER_FILTER_NO_CR |
-					       HEADER_FILTER_ADD_MISSING_EOH,
+					       HEADER_FILTER_ADD_MISSING_EOH |
+					       HEADER_FILTER_END_BODY_WITH_LF,
 					       mbox_save_drop_headers,
 					       mbox_save_drop_headers_count,
 					       save_header_callback, ctx);
@@ -553,17 +554,7 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 			return -1;
 	}
 
-	if (ctx->last_char != '\n') {
-		/* if mail doesn't end with LF, we'll do that.
-		   otherwise some mbox parsers don't like the result.
-		   this makes it impossible to save a mail that doesn't
-		   end with LF though. */
-		const char *linefeed =
-			ctx->mbox->storage->storage.set->mail_save_crlf ?
-			"\r\n" : "\n";
-		if (o_stream_send_str(ctx->output, linefeed) < 0)
-			return write_error(ctx);
-	}
+	i_assert(ctx->last_char == '\n');
 	return 0;
 }
 
@@ -627,10 +618,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	if (ret == 0)
 		return 0;
 
-	if (ctx->last_char != '\n') {
-		if (o_stream_send(ctx->output, "\n", 1) < 0)
-			return write_error(ctx);
-	}
+	i_assert(ctx->last_char == '\n');
 
 	if (ctx->mbox_md5_ctx) {
 		unsigned char hdr_md5_sum[16];
