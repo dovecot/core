@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "module-dir.h"
 
 #ifdef HAVE_MODULES
@@ -88,11 +89,13 @@ module_check_wrong_binary_dependency(const struct module_dir_load_settings *set,
 }
 
 static bool
-module_check_missing_plugin_dependencies(struct module *module,
+module_check_missing_plugin_dependencies(const struct module_dir_load_settings *set,
+					 struct module *module,
 					 struct module *all_modules)
 {
 	const char **deps;
 	struct module *m;
+	string_t *errmsg;
 	unsigned int len;
 
 	deps = dlsym(module->handle,
@@ -109,9 +112,17 @@ module_check_missing_plugin_dependencies(struct module *module,
 				break;
 		}
 		if (m == NULL) {
-			i_error("Can't load plugin %s: "
-				"Plugin %s must be loaded also",
-				module->name, *deps);
+			errmsg = t_str_new(128);
+			str_printfa(errmsg, "Can't load plugin %s: "
+				    "Plugin %s must be loaded also",
+				    module->name, *deps);
+			if (set->setting_name != NULL) {
+				str_printfa(errmsg,
+					    " (you must set: %s=$%s %s)",
+					    set->setting_name,
+					    set->setting_name, *deps);
+			}
+			i_error("%s", str_c(errmsg));
 			return FALSE;
 		}
 	}
@@ -207,7 +218,8 @@ module_load(const char *path, const char *name,
 			module->init == NULL ? "init" : "deinit", path);
 		failed = TRUE;
 	} else if (!module_check_wrong_binary_dependency(set, module) ||
-		   !module_check_missing_plugin_dependencies(module, all_modules))
+		   !module_check_missing_plugin_dependencies(set, module,
+							     all_modules))
 		failed = TRUE;
 
 	if (failed) {

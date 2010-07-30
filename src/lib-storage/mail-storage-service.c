@@ -711,6 +711,7 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.version = master_service_get_version_string(ctx->service);
 	mod_set.binary_name = master_service_get_name(ctx->service);
+	mod_set.setting_name = "mail_plugins";
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = mail_user_set_get_mail_debug(user_info, user_set);
 

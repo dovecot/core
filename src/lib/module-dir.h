@@ -8,6 +8,8 @@ struct module_dir_load_settings {
 	/* Binary name used for checking if plugin is tried to be loaded for
 	   wrong binary. */
 	const char *binary_name;
+	/* Setting name used in plugin dependency error message */
+	const char *setting_name;
 
 	/* Require all plugins to have <plugin_name>_init() function */
 	unsigned int require_init_funcs:1;
