@@ -405,9 +405,10 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 		i_stream_create_crlf(filter) : i_stream_create_lf(filter);
 	i_stream_unref(&filter);
 
-	if (ctx->mail != NULL) {
+	if (ctx->ctx.dest_mail != NULL) {
 		/* caching creates a tee stream */
-		cache_input = index_mail_cache_parse_init(ctx->mail, ret);
+		cache_input =
+			index_mail_cache_parse_init(ctx->ctx.dest_mail, ret);
 		i_stream_unref(&ret);
 		ret = cache_input;
 	}
@@ -540,10 +541,10 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 	ssize_t ret;
 
 	while ((ret = i_stream_read(ctx->input)) != -1) {
-		if (ctx->mail != NULL) {
+		if (ctx->ctx.dest_mail != NULL) {
 			/* i_stream_read() may have returned 0 at EOF
 			   because of this parser */
-			index_mail_cache_parse_continue(ctx->mail);
+			index_mail_cache_parse_continue(ctx->ctx.dest_mail);
 		}
 		if (ret == 0)
 			return 0;
@@ -595,8 +596,8 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	}
 
 	while ((ret = i_stream_read(ctx->input)) > 0) {
-		if (ctx->mail != NULL)
-			index_mail_cache_parse_continue(ctx->mail);
+		if (ctx->ctx.dest_mail != NULL)
+			index_mail_cache_parse_continue(ctx->ctx.dest_mail);
 
 		data = i_stream_get_data(ctx->input, &size);
 		for (i = 0; i < size; i++) {
@@ -685,8 +686,9 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 		} T_END;
 	}
 
-	if (ctx->mail != NULL) {
-		index_mail_cache_parse_deinit(ctx->mail, ctx->ctx.received_date,
+	if (ctx->ctx.dest_mail != NULL) {
+		index_mail_cache_parse_deinit(ctx->ctx.dest_mail,
+					      ctx->ctx.received_date,
 					      !ctx->failed);
 	}
 	if (ctx->input != NULL)
