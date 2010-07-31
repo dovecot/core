@@ -441,6 +441,8 @@ void mail_namespace_destroy(struct mail_namespace *ns)
 {
 	struct mail_namespace **nsp;
 
+	i_assert(!ns->destroyed);
+
 	/* remove from user's namespaces list */
 	for (nsp = &ns->user->namespaces; *nsp != NULL; nsp = &(*nsp)->next) {
 		if (*nsp == ns) {
