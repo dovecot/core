@@ -74,6 +74,8 @@ index_storage_virtual_size_add_new(struct mailbox *box,
 	mail = mail_alloc(trans, MAIL_FETCH_VIRTUAL_SIZE, NULL);
 	while (mailbox_search_next(search_ctx, mail)) {
 		if (mail_get_virtual_size(mail, &vsize) < 0) {
+			if (mail->expunged)
+				continue;
 			ret = -1;
 			break;
 		}
