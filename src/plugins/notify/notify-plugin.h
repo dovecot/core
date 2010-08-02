@@ -30,23 +30,6 @@ struct notify_vfuncs {
 			       bool rename_children);
 };
 
-void notify_noop_mail_transaction_begin(struct mailbox_transaction_context *t);
-void notify_noop_mail_save(void *txn, struct mail *mail);
-void notify_noop_mail_copy(void *txn, struct mail *src, struct mail *dst);
-void notify_noop_mail_expunge(void *txn, struct mail *mail);
-void notify_noop_mail_update_flags(void *txn, struct mail *mail,
-				   enum mail_flags old_flags);
-void notify_noop_mail_update_keywords(void *txn, struct mail *mail,
-				      const char *const *old_keywords);
-void notify_noop_mail_transaction_commit(void *txn,
-					 struct mail_transaction_commit_changes *changes);
-void notify_noop_mail_transaction_rollback(void *txn);
-void *notify_noop_mailbox_delete_begin(struct mailbox *box);
-void notify_noop_mailbox_delete_commit(void *txn, struct mailbox *box);
-void notify_noop_mailbox_delete_rollback(void *txn);
-void notify_noop_mailbox_rename(struct mailbox *src, struct mailbox *dest,
-				bool rename_children);
-
 struct notify_context *
 notify_register(const struct notify_vfuncs *vfuncs);
 void notify_unregister(struct notify_context *ctx);

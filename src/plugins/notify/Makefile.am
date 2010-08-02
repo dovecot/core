@@ -14,7 +14,6 @@ module_LTLIBRARIES = \
 
 lib15_notify_plugin_la_SOURCES = \
 	notify-plugin.c \
-	notify-noop.c \
 	notify-storage.c
 
 headers = \
