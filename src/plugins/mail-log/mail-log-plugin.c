@@ -39,9 +39,10 @@ enum mail_log_event {
 	MAIL_LOG_EVENT_EXPUNGE		= 0x04,
 	MAIL_LOG_EVENT_SAVE		= 0x08,
 	MAIL_LOG_EVENT_COPY		= 0x10,
-	MAIL_LOG_EVENT_MAILBOX_DELETE	= 0x20,
-	MAIL_LOG_EVENT_MAILBOX_RENAME	= 0x40,
-	MAIL_LOG_EVENT_FLAG_CHANGE	= 0x80
+	MAIL_LOG_EVENT_MAILBOX_CREATE	= 0x20,
+	MAIL_LOG_EVENT_MAILBOX_DELETE	= 0x40,
+	MAIL_LOG_EVENT_MAILBOX_RENAME	= 0x80,
+	MAIL_LOG_EVENT_FLAG_CHANGE	= 0x100
 };
 #define MAIL_LOG_DEFAULT_EVENTS \
 	(MAIL_LOG_EVENT_DELETE | MAIL_LOG_EVENT_UNDELETE | \
@@ -66,6 +67,7 @@ static const char *event_names[] = {
 	"expunge",
 	"save",
 	"copy",
+	"mailbox_create",
 	"mailbox_delete",
 	"mailbox_rename",
 	"flag_change",
@@ -427,6 +429,18 @@ static void mail_log_mail_transaction_rollback(void *txn)
 }
 
 static void
+mail_log_mailbox_create(struct mailbox *box)
+{
+	struct mail_log_user *muser = MAIL_LOG_USER_CONTEXT(box->storage->user);
+
+	if ((muser->events & MAIL_LOG_EVENT_MAILBOX_CREATE) == 0)
+		return;
+
+	i_info("Mailbox created: %s",
+	       str_sanitize(box->name, MAILBOX_NAME_LOG_LEN));
+}
+
+static void
 mail_log_mailbox_delete_commit(void *txn ATTR_UNUSED, struct mailbox *box)
 {
 	struct mail_log_user *muser = MAIL_LOG_USER_CONTEXT(box->storage->user);
@@ -461,6 +475,7 @@ static const struct notify_vfuncs mail_log_vfuncs = {
 	.mail_update_keywords = mail_log_mail_update_keywords,
 	.mail_transaction_commit = mail_log_mail_transaction_commit,
 	.mail_transaction_rollback = mail_log_mail_transaction_rollback,
+	.mailbox_create = mail_log_mailbox_create,
 	.mailbox_delete_commit = mail_log_mailbox_delete_commit,
 	.mailbox_rename = mail_log_mailbox_rename
 };
