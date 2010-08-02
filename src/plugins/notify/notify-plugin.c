@@ -43,7 +43,8 @@ void notify_contexts_mail_transaction_begin(struct mailbox_transaction_context *
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
 		mail_txn = i_new(struct notify_mail_txn, 1);
 		mail_txn->parent_mailbox_txn = t;
-		mail_txn->txn = ctx->v.mail_transaction_begin(t);
+		mail_txn->txn = ctx->v.mail_transaction_begin == NULL ? NULL :
+			ctx->v.mail_transaction_begin(t);
 		DLLIST_PREPEND(&ctx->mail_txn_list, mail_txn);
 	}
 }
@@ -54,6 +55,8 @@ void notify_contexts_mail_save(struct mail *mail)
 	struct notify_mail_txn *mail_txn;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mail_save == NULL)
+			continue;
 		mail_txn = notify_context_find_mail_txn(ctx, mail->transaction);
 		ctx->v.mail_save(mail_txn->txn, mail);
 	}
@@ -65,6 +68,8 @@ void notify_contexts_mail_copy(struct mail *src, struct mail *dst)
 	struct notify_mail_txn *mail_txn;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mail_copy == NULL)
+			continue;
 		mail_txn = notify_context_find_mail_txn(ctx, dst->transaction);
 		ctx->v.mail_copy(mail_txn->txn, src, dst);
 	}
@@ -76,6 +81,8 @@ void notify_contexts_mail_expunge(struct mail *mail)
 	struct notify_mail_txn *mail_txn;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mail_expunge == NULL)
+			continue;
 		mail_txn = notify_context_find_mail_txn(ctx, mail->transaction);
 		ctx->v.mail_expunge(mail_txn->txn, mail);
 	}
@@ -88,6 +95,8 @@ void notify_contexts_mail_update_flags(struct mail *mail,
 	struct notify_mail_txn *mail_txn;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mail_update_flags == NULL)
+			continue;
 		mail_txn = notify_context_find_mail_txn(ctx, mail->transaction);
 		ctx->v.mail_update_flags(mail_txn->txn, mail, old_flags);
 	}
@@ -100,6 +109,8 @@ void notify_contexts_mail_update_keywords(struct mail *mail,
 	struct notify_mail_txn *mail_txn;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mail_update_keywords == NULL)
+			continue;
 		mail_txn = notify_context_find_mail_txn(ctx, mail->transaction);
 		ctx->v.mail_update_keywords(mail_txn->txn, mail, old_keywords);
 	}
@@ -112,8 +123,11 @@ void notify_contexts_mail_transaction_commit(struct mailbox_transaction_context 
 	struct notify_mail_txn *mail_txn;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mail_transaction_commit == NULL)
+			continue;
 		mail_txn = notify_context_find_mail_txn(ctx, t);
-		ctx->v.mail_transaction_commit(mail_txn->txn, changes);
+		if (ctx->v.mail_transaction_commit != NULL)
+			ctx->v.mail_transaction_commit(mail_txn->txn, changes);
 		DLLIST_REMOVE(&ctx->mail_txn_list, mail_txn);
 		i_free(mail_txn);
 	}
@@ -126,7 +140,8 @@ void notify_contexts_mail_transaction_rollback(struct mailbox_transaction_contex
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
 		mail_txn = notify_context_find_mail_txn(ctx, t);
-		ctx->v.mail_transaction_rollback(mail_txn->txn);
+		if (ctx->v.mail_transaction_rollback != NULL)
+			ctx->v.mail_transaction_rollback(mail_txn->txn);
 		DLLIST_REMOVE(&ctx->mail_txn_list, mail_txn);
 		i_free(mail_txn);
 	}
@@ -136,8 +151,11 @@ void notify_contexts_mailbox_delete_begin(struct mailbox *box)
 {
 	struct notify_context *ctx;
 
-	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next)
-		ctx->mailbox_delete_txn = ctx->v.mailbox_delete_begin(box);
+	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		ctx->mailbox_delete_txn =
+			ctx->v.mailbox_delete_begin == NULL ? NULL :
+			ctx->v.mailbox_delete_begin(box);
+	}
 }
 
 void notify_contexts_mailbox_delete_commit(struct mailbox *box)
@@ -145,7 +163,10 @@ void notify_contexts_mailbox_delete_commit(struct mailbox *box)
 	struct notify_context *ctx;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
-		ctx->v.mailbox_delete_commit(ctx->mailbox_delete_txn, box);
+		if (ctx->v.mailbox_delete_commit != NULL) {
+			ctx->v.mailbox_delete_commit(ctx->mailbox_delete_txn,
+						     box);
+		}
 		ctx->mailbox_delete_txn = NULL;
 	}
 }
@@ -155,7 +176,8 @@ void notify_contexts_mailbox_delete_rollback(void)
 	struct notify_context *ctx;
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
-		ctx->v.mailbox_delete_rollback(ctx->mailbox_delete_txn);
+		if (ctx->v.mailbox_delete_rollback != NULL)
+			ctx->v.mailbox_delete_rollback(ctx->mailbox_delete_txn);
 		ctx->mailbox_delete_txn = NULL;
 	}
 }
@@ -184,9 +206,13 @@ void notify_unregister(struct notify_context *ctx)
 {
 	struct notify_mail_txn *mail_txn = ctx->mail_txn_list;
 
-	for (; mail_txn != NULL; mail_txn = mail_txn->next)
-		ctx->v.mail_transaction_rollback(mail_txn->txn);
-	ctx->v.mailbox_delete_rollback(ctx->mailbox_delete_txn);
+	for (; mail_txn != NULL; mail_txn = mail_txn->next) {
+		if (ctx->v.mail_transaction_rollback != NULL)
+			ctx->v.mail_transaction_rollback(mail_txn->txn);
+	}
+	if (ctx->mailbox_delete_txn != NULL &&
+	    ctx->v.mailbox_delete_rollback != NULL)
+		ctx->v.mailbox_delete_rollback(ctx->mailbox_delete_txn);
 	DLLIST_REMOVE(&ctx_list, ctx);
 	i_free(ctx);
 }
