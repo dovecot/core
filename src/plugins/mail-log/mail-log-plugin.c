@@ -453,18 +453,16 @@ mail_log_mailbox_rename(struct mailbox *src,
 }
 
 static const struct notify_vfuncs mail_log_vfuncs = {
-	/* mail_transaction_begin */	mail_log_mail_transaction_begin,
-	/* mail_save */			mail_log_mail_save,
-	/* mail_copy */			mail_log_mail_copy,
-	/* mail_expunge */		mail_log_mail_expunge,
-	/* mail_update_flags */		mail_log_mail_update_flags,
-	/* mail_update_keywords */	mail_log_mail_update_keywords,
-	/* mail_transaction_commit */	mail_log_mail_transaction_commit,
-	/* mail_transaction_rollback */	mail_log_mail_transaction_rollback,
-	/* mailbox_delete_begin */	notify_noop_mailbox_delete_begin,
-	/* mailbox_delete_commit */	mail_log_mailbox_delete_commit,
-	/* mailbox_delete_rollback */	notify_noop_mailbox_delete_rollback,
-	/* mailbox_rename */		mail_log_mailbox_rename,
+	.mail_transaction_begin = mail_log_mail_transaction_begin,
+	.mail_save = mail_log_mail_save,
+	.mail_copy = mail_log_mail_copy,
+	.mail_expunge = mail_log_mail_expunge,
+	.mail_update_flags = mail_log_mail_update_flags,
+	.mail_update_keywords = mail_log_mail_update_keywords,
+	.mail_transaction_commit = mail_log_mail_transaction_commit,
+	.mail_transaction_rollback = mail_log_mail_transaction_rollback,
+	.mailbox_delete_commit = mail_log_mailbox_delete_commit,
+	.mailbox_rename = mail_log_mailbox_rename
 };
 
 static struct notify_context *mail_log_ctx;
