@@ -189,6 +189,19 @@ notify_transaction_rollback(struct mailbox_transaction_context *t)
 }
 
 static int
+notify_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
+		      bool directory)
+{
+	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
+
+	if (lbox->super.create(box, update, directory) < 0)
+		return -1;
+
+	notify_contexts_mailbox_create(box);
+	return 0;
+}
+
+static int
 notify_mailbox_delete(struct mailbox *box)
 {
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
@@ -230,6 +243,7 @@ static void notify_mailbox_allocated(struct mailbox *box)
 	v->transaction_begin = notify_transaction_begin;
 	v->transaction_commit = notify_transaction_commit;
 	v->transaction_rollback = notify_transaction_rollback;
+	v->create = notify_mailbox_create;
 	v->delete = notify_mailbox_delete;
 	v->rename = notify_mailbox_rename;
 	MODULE_CONTEXT_SET_SELF(box, notify_storage_module, lbox);

@@ -147,6 +147,16 @@ void notify_contexts_mail_transaction_rollback(struct mailbox_transaction_contex
 	}
 }
 
+void notify_contexts_mailbox_create(struct mailbox *box)
+{
+	struct notify_context *ctx;
+
+	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mailbox_create != NULL)
+			ctx->v.mailbox_create(box);
+	}
+}
+
 void notify_contexts_mailbox_delete_begin(struct mailbox *box)
 {
 	struct notify_context *ctx;
