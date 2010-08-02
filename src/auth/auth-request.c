@@ -31,7 +31,6 @@ unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 			   const char *subsystem);
-static void auth_request_userdb_reply_update_user(struct auth_request *request);
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech)
@@ -1042,12 +1041,80 @@ static void auth_request_set_reply_field(struct auth_request *request,
 	auth_stream_reply_add(request->extra_fields, name, value);
 }
 
+static void auth_request_userdb_reply_update_user(struct auth_request *request)
+{
+	const char *str, *p;
+
+	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
+
+	/* reset the reply and add the new username */
+	auth_stream_reply_reset(request->userdb_reply);
+	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
+
+	/* add the rest */
+	p = strchr(str, '\t');
+	if (p != NULL)
+		auth_stream_reply_import(request->userdb_reply, p + 1);
+}
+
+static const char *
+get_updated_username(const char *old_username,
+		     const char *name, const char *value)
+{
+	const char *p;
+
+	if (strcmp(name, "user") == 0) {
+		/* replace the whole username */
+		return value;
+	}
+
+	p = strchr(old_username, '@');
+	if (strcmp(name, "username") == 0) {
+		if (strchr(value, '@') != NULL)
+			return value;
+
+		/* preserve the current @domain */
+		return t_strconcat(value, p, NULL);
+	}
+
+	if (strcmp(name, "domain") == 0) {
+		if (p == NULL) {
+			/* add the domain */
+			return t_strconcat(old_username, "@", value, NULL);
+		} else {
+			/* replace the existing domain */
+			p = t_strdup_until(old_username, p + 1);
+			return t_strconcat(p, value, NULL);
+		}
+	}
+	return NULL;
+}
+
+static bool
+auth_request_try_update_username(struct auth_request *request,
+				 const char *name, const char *value)
+{
+	const char *new_value;
+
+	new_value = get_updated_username(request->user, name, value);
+	if (new_value == NULL)
+		return FALSE;
+
+	if (strcmp(request->user, new_value) != 0) {
+		auth_request_log_debug(request, "auth",
+				       "username changed %s -> %s",
+				       request->user, new_value);
+		request->user = p_strdup(request->pool, new_value);
+		if (request->userdb_reply != NULL)
+			auth_request_userdb_reply_update_user(request);
+	}
+	return TRUE;
+}
+
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
 {
-	const char *p, *orig_value;
-
 	i_assert(*name != '\0');
 	i_assert(value != NULL);
 
@@ -1061,41 +1128,9 @@ void auth_request_set_field(struct auth_request *request,
 		return;
 	}
 
-	if (strcmp(name, "user") == 0 ||
-	    strcmp(name, "username") == 0 || strcmp(name, "domain") == 0) {
-		/* update username */
-		orig_value = value;
-		if (strcmp(name, "username") == 0 &&
-		    strchr(value, '@') == NULL &&
-		    (p = strchr(request->user, '@')) != NULL) {
-			/* preserve the current @domain */
-			value = t_strconcat(value, p, NULL);
-		} else if (strcmp(name, "domain") == 0) {
-			p = strchr(request->user, '@');
-			if (p == NULL) {
-				/* add the domain */
-				value = t_strconcat(request->user, "@",
-						    value, NULL);
-			} else {
-				/* replace the existing domain */
-				p = t_strdup_until(request->user, p + 1);
-				value = t_strconcat(p, value, NULL);
-			}
-		}
-
-		if (strcmp(request->user, value) != 0) {
-			auth_request_log_debug(request, "auth",
-				"username changed %s -> %s",
-				request->user, value);
-			request->user = p_strdup(request->pool, value);
-		}
-
-		if (request->userdb_reply != NULL)
-			auth_request_userdb_reply_update_user(request);
-
-		/* restore the original value so it gets saved correctly to
-		   cache. */
-		value = orig_value;
+	if (auth_request_try_update_username(request, name, value)) {
+		/* don't change the original value so it gets saved correctly
+		   to cache. */
 	} else if (strcmp(name, "nodelay") == 0) {
 		/* don't delay replying to client of the failure */
 		request->no_failure_delay = TRUE;
@@ -1169,43 +1204,6 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
 }
 
-static void auth_request_userdb_reply_update_user(struct auth_request *request)
-{
-	const char *str, *p;
-
-	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
-
-	auth_stream_reply_reset(request->userdb_reply);
-	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
-
-	p = strchr(str, '\t');
-	if (p != NULL)
-		auth_stream_reply_import(request->userdb_reply, p + 1);
-}
-
-static void
-auth_request_change_userdb_user(struct auth_request *request, const char *user)
-{
-	const char *str;
-
-	/* replace the username in userdb_reply if it changed */
-	if (strcmp(user, request->user) == 0)
-		return;
-
-	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
-
-	/* reset the reply and add the new username */
-	auth_request_set_field(request, "user", user, NULL);
-	auth_stream_reply_reset(request->userdb_reply);
-	auth_stream_reply_add(request->userdb_reply,
-			      NULL, request->user);
-
-	/* add the rest */
-	str = strchr(str, '\t');
-	if (str != NULL)
-		auth_stream_reply_import(request->userdb_reply, str + 1);
-}
-
 static void auth_request_set_uidgid_file(struct auth_request *request,
 					 const char *path_template)
 {
@@ -1249,8 +1247,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 	} else if (strcmp(name, "tempfail") == 0) {
 		request->userdb_lookup_failed = TRUE;
 		return;
-	} else if (strcmp(name, "user") == 0) {
-		auth_request_change_userdb_user(request, value);
+	} else if (auth_request_try_update_username(request, name, value)) {
 		return;
 	} else if (strcmp(name, "uidgid_file") == 0) {
 		auth_request_set_uidgid_file(request, value);
