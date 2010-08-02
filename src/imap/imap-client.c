@@ -72,8 +72,16 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 
 	client->capability_string =
 		str_new(client->pool, sizeof(CAPABILITY_STRING)+64);
-	str_append(client->capability_string, *set->imap_capability != '\0' ?
-		   set->imap_capability : CAPABILITY_STRING);
+
+	if (*set->imap_capability == '\0')
+		str_append(client->capability_string, CAPABILITY_STRING);
+	else if (*set->imap_capability != '+')
+		str_append(client->capability_string, set->imap_capability);
+	else {
+		str_append(client->capability_string, CAPABILITY_STRING);
+		str_append_c(client->capability_string, ' ');
+		str_append(client->capability_string, set->imap_capability + 1);
+	}
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {

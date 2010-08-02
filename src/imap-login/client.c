@@ -62,16 +62,25 @@ bool client_skip_line(struct imap_client *client)
 static const char *get_capability(struct client *client)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
-	const char *auths, *cap_str;
+	string_t *cap_str = t_str_new(256);
 
-	cap_str = *imap_client->set->imap_capability != '\0' ?
-		imap_client->set->imap_capability : CAPABILITY_BANNER_STRING;
-	auths = client_authenticate_get_capabilities(client);
-	return t_strconcat(cap_str,
-			   (ssl_initialized && !client->tls) ? " STARTTLS" : "",
-			   client->set->disable_plaintext_auth &&
-			   !client->secured ? " LOGINDISABLED" : "",
-			   auths, NULL);
+	if (*imap_client->set->imap_capability == '\0')
+		str_append(cap_str, CAPABILITY_BANNER_STRING);
+	else if (*imap_client->set->imap_capability != '+')
+		str_append(cap_str, imap_client->set->imap_capability);
+	else {
+		str_append(cap_str, CAPABILITY_BANNER_STRING);
+		str_append_c(cap_str, ' ');
+		str_append(cap_str, imap_client->set->imap_capability + 1);
+	}
+
+	if (ssl_initialized && !client->tls)
+		str_append(cap_str, " STARTTLS");
+	if (client->set->disable_plaintext_auth && !client->secured)
+		str_append(cap_str, " LOGINDISABLED");
+
+	client_authenticate_get_capabilities(client, cap_str);
+	return str_c(cap_str);
 }
 
 static int cmd_capability(struct imap_client *imap_client)

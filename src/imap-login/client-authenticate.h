@@ -3,7 +3,7 @@
 
 struct imap_arg;
 
-const char *client_authenticate_get_capabilities(struct client *client);
+void client_authenticate_get_capabilities(struct client *client, string_t *str);
 
 bool imap_client_auth_handle_reply(struct client *client,
 				   const struct client_auth_reply *reply);

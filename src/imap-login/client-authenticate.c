@@ -18,21 +18,17 @@
 
 #include <stdlib.h>
 
-const char *client_authenticate_get_capabilities(struct client *client)
+void client_authenticate_get_capabilities(struct client *client, string_t *str)
 {
 	const struct auth_mech_desc *mech;
 	unsigned int i, count;
-	string_t *str;
 
-	str = t_str_new(128);
 	mech = sasl_server_get_advertised_mechs(client, &count);
 	for (i = 0; i < count; i++) {
 		str_append_c(str, ' ');
 		str_append(str, "AUTH=");
 		str_append(str, mech[i].name);
 	}
-
-	return str_c(str);
 }
 
 bool imap_client_auth_handle_reply(struct client *client,
