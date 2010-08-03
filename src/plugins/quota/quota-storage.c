@@ -477,16 +477,18 @@ void quota_mail_namespace_storage_added(struct mail_namespace *ns)
 	struct quota_root *root;
 	bool add;
 
+	/* see if we have a quota explicitly defined for this namespace */
+	quota = quota_get_mail_user_quota(ns->user);
+	root = quota_find_root_for_ns(quota, ns);
+	if (root != NULL)
+		root->ns = ns;
+
 	if ((ns->flags & NAMESPACE_FLAG_NOQUOTA) != 0)
 		add = FALSE;
 	else if (ns->owner == NULL) {
-		/* see if we have a quota explicitly defined for
-		   this namespace */
-		quota = quota_get_mail_user_quota(ns->user);
-		root = quota_find_root_for_ns(quota, ns);
+		/* public namespace - add quota only if namespace is
+		   explicitly defined for it */
 		add = root != NULL;
-		if (root != NULL)
-			root->ns = ns;
 	} else {
 		add = TRUE;
 	}
