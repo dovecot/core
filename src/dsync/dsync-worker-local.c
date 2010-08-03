@@ -90,6 +90,7 @@ struct local_dsync_worker {
 	struct hash_table *dir_changes_hash;
 
 	char alt_char;
+	ARRAY_DEFINE(subs_namespaces, struct mail_namespace *);
 
 	mailbox_guid_t selected_box_guid;
 	struct mailbox *selected_box;
@@ -146,8 +147,24 @@ static unsigned int mailbox_guid_hash(const void *p)
 	return h;
 }
 
-static void dsync_drop_extra_namespaces(struct mail_user *user)
+static struct mail_namespace *
+namespace_find_set(struct mail_user *user,
+		   const struct mail_namespace_settings *set)
 {
+	struct mail_namespace *ns;
+
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		/* compare settings pointers so that it'll work
+		   for shared namespaces */
+		if (ns->set == set)
+			return ns;
+	}
+	return NULL;
+}
+
+static void dsync_drop_extra_namespaces(struct local_dsync_worker *worker)
+{
+	struct mail_user *user = worker->user;
 	struct mail_namespace_settings *const *ns_unset, *const *ns_set;
 	struct mail_namespace *ns;
 	unsigned int i, count, count2;
@@ -164,15 +181,16 @@ static void dsync_drop_extra_namespaces(struct mail_user *user)
 			   SETTING_STRVAR_UNEXPANDED) == 0)
 			continue;
 
-		for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-			/* compare settings pointers so that it'll work
-			   for shared namespaces */
-			if (ns->set == ns_set[i]) {
-				mail_namespace_destroy(ns);
-				break;
-			}
-		}
+		ns = namespace_find_set(user, ns_set[i]);
 		i_assert(ns != NULL);
+		if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0) {
+			/* remember the subscriptions=no namespaces so we can
+			   handle their subscriptions in parent namespaces
+			   properly */
+			mail_namespace_ref(ns);
+			array_append(&worker->subs_namespaces, &ns, 1);
+		}
+		mail_namespace_destroy(ns);
 	}
 	if (user->namespaces == NULL) {
 		i_fatal("All your namespaces have a location setting. "
@@ -187,8 +205,6 @@ dsync_worker_init_local(struct mail_user *user, char alt_char)
 	struct local_dsync_worker *worker;
 	pool_t pool;
 
-	dsync_drop_extra_namespaces(user);
-
 	pool = pool_alloconly_create("local dsync worker", 10240);
 	worker = p_new(pool, struct local_dsync_worker, 1);
 	worker->worker.v = local_dsync_worker;
@@ -200,6 +216,8 @@ dsync_worker_init_local(struct mail_user *user, char alt_char)
 				  mailbox_guid_hash, mailbox_guid_cmp);
 	i_array_init(&worker->saved_uids, 128);
 	i_array_init(&worker->msg_get_queue, 32);
+	p_array_init(&worker->subs_namespaces, pool, 8);
+	dsync_drop_extra_namespaces(worker);
 	return &worker->worker;
 }
 
@@ -207,8 +225,12 @@ static void local_worker_deinit(struct dsync_worker *_worker)
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
+	struct mail_namespace **nsp;
 
 	i_assert(worker->save_input == NULL);
+
+	array_foreach_modifiable(&worker->subs_namespaces, nsp)
+		mail_namespace_unref(nsp);
 
 	local_worker_msg_box_close(worker);
 	local_worker_mailbox_close(worker);
@@ -620,6 +642,18 @@ local_worker_subs_iter_init(struct dsync_worker *_worker)
 	return &iter->iter;
 }
 
+static struct mail_namespace *
+find_subscription_ns(struct local_dsync_worker *worker, const char *vname)
+{
+	struct mail_namespace *const *nsp;
+
+	array_foreach(&worker->subs_namespaces, nsp) {
+		if (strncmp((*nsp)->prefix, vname, (*nsp)->prefix_len) == 0)
+			return *nsp;
+	}
+	return NULL;
+}
+
 static int
 local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 			    struct dsync_worker_subscription *rec_r)
@@ -630,6 +664,7 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 		(struct local_dsync_worker *)_iter->worker;
 	struct local_dsync_dir_change *change, change_lookup;
 	const struct mailbox_info *info;
+	struct mail_namespace *subs_ns;
 	const char *storage_name;
 
 	memset(rec_r, 0, sizeof(*rec_r));
@@ -638,7 +673,13 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 	if (info == NULL)
 		return -1;
 
-	storage_name = mail_namespace_get_storage_name(info->ns, info->name);
+	subs_ns = find_subscription_ns(worker, info->name);
+	if (subs_ns == NULL)
+		subs_ns = info->ns;
+	storage_name = mail_namespace_get_storage_name(subs_ns, info->name);
+	if (subs_ns != info->ns)
+		storage_name = t_strconcat(subs_ns->prefix, storage_name, NULL);
+
 	dsync_str_sha_to_guid(storage_name, &change_lookup.name_sha1);
 	change_lookup.list = info->ns->list;
 
@@ -707,14 +748,27 @@ local_worker_set_subscribed(struct dsync_worker *_worker,
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
-	struct mail_namespace *ns;
+	struct mail_namespace *ns, *subs_ns;
 	const char *storage_name;
 
 	storage_name = name;
-	ns = mail_namespace_find(worker->user->namespaces, &storage_name);
+	ns = mail_namespace_find(worker->user->namespaces,
+				 &storage_name);
 	if (ns == NULL) {
 		i_error("Can't find namespace for mailbox %s", name);
 		return;
+	}
+
+	subs_ns = find_subscription_ns(worker, name);
+	if (subs_ns != NULL) {
+		/* subscription is being written to a different namespace
+		   than where the mailbox exists. */
+		storage_name = mail_namespace_get_storage_name(subs_ns, name);
+		storage_name = t_strconcat(subs_ns->prefix, storage_name, NULL);
+		/* drop the common prefix */
+		i_assert(strncmp(ns->prefix, storage_name,
+				 strlen(ns->prefix)) == 0);
+		storage_name += strlen(ns->prefix);
 	}
 
 	mailbox_list_set_changelog_timestamp(ns->list, last_change);
