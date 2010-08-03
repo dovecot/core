@@ -84,6 +84,14 @@ static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
 		current_ioloop = db->ioloop;
 }
 
+static void driver_pgsql_stop_io(struct pgsql_db *db)
+{
+	if (db->io != NULL) {
+		io_remove(&db->io);
+		db->io_dir = 0;
+	}
+}
+
 static void driver_pgsql_close(struct pgsql_db *db)
 {
 	db->io_dir = 0;
@@ -92,11 +100,7 @@ static void driver_pgsql_close(struct pgsql_db *db)
 	PQfinish(db->pg);
 	db->pg = NULL;
 
-	if (db->io != NULL) {
-		/* The fd may be closed before call to PQfinish() already,
-		   so use io_remove_closed(). */
-		io_remove_closed(&db->io);
-	}
+	driver_pgsql_stop_io(db);
 	if (db->to_connect != NULL)
 		timeout_remove(&db->to_connect);
 
@@ -128,6 +132,8 @@ static void connect_callback(struct pgsql_db *db)
 	enum io_condition io_dir = 0;
 	int ret;
 
+	driver_pgsql_stop_io(db);
+
 	while ((ret = PQconnectPoll(db->pg)) == PGRES_POLLING_ACTIVE)
 		;
 
@@ -147,11 +153,8 @@ static void connect_callback(struct pgsql_db *db)
 		return;
 	}
 
-	if (db->io_dir != io_dir) {
-		if (db->io != NULL)
-			io_remove(&db->io);
-		db->io = io_dir == 0 ? NULL :
-			io_add(PQsocket(db->pg), io_dir, connect_callback, db);
+	if (io_dir != 0) {
+		db->io = io_add(PQsocket(db->pg), io_dir, connect_callback, db);
 		db->io_dir = io_dir;
 	}
 
@@ -265,9 +268,15 @@ static void consume_results(struct pgsql_db *db)
 {
 	PGresult *pgres;
 
+	driver_pgsql_stop_io(db);
+
 	while (PQconsumeInput(db->pg)) {
-		if (PQisBusy(db->pg))
+		if (PQisBusy(db->pg)) {
+			db->io = io_add(PQsocket(db->pg), IO_READ,
+					consume_results, db);
+			db->io_dir = IO_READ;
 			return;
+		}
 
 		pgres = PQgetResult(db->pg);
 		if (pgres == NULL)
@@ -275,13 +284,10 @@ static void consume_results(struct pgsql_db *db)
 		PQclear(pgres);
 	}
 
-	if (PQstatus(db->pg) == CONNECTION_BAD) {
-		io_remove_closed(&db->io);
+	if (PQstatus(db->pg) == CONNECTION_BAD)
 		driver_pgsql_close(db);
-	} else {
-		io_remove(&db->io);
+	else
 		driver_pgsql_set_idle(db);
-	}
 }
 
 static void driver_pgsql_result_free(struct sql_result *_result)
@@ -313,9 +319,6 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 	if (success) {
 		/* we'll have to read the rest of the results as well */
 		i_assert(db->io == NULL);
-		db->io = io_add(PQsocket(db->pg), IO_READ,
-				consume_results, db);
-		db->io_dir = IO_READ;
 		consume_results(db);
 	} else {
 		driver_pgsql_set_idle(db);
@@ -339,6 +342,7 @@ static void result_finish(struct pgsql_result *result)
 	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 	bool free_result = TRUE;
 
+	i_assert(db->io == NULL);
 	timeout_remove(&result->to);
 
 	/* if connection to server was lost, we don't yet see that the
@@ -371,22 +375,19 @@ static void get_result(struct pgsql_result *result)
 {
         struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 
+	driver_pgsql_stop_io(db);
+
 	if (!PQconsumeInput(db->pg)) {
 		result_finish(result);
 		return;
 	}
 
 	if (PQisBusy(db->pg)) {
-		if (db->io == NULL) {
- 			db->io = io_add(PQsocket(db->pg), IO_READ,
-					get_result, result);
-			db->io_dir = IO_READ;
-		}
+		db->io = io_add(PQsocket(db->pg), IO_READ,
+				get_result, result);
+		db->io_dir = IO_READ;
 		return;
 	}
-
-	if (db->io != NULL)
-		io_remove(&db->io);
 
 	result->pgres = PQgetResult(db->pg);
 	result_finish(result);
@@ -397,11 +398,15 @@ static void flush_callback(struct pgsql_result *result)
         struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 	int ret;
 
-	ret = PQflush(db->pg);
-	if (ret > 0)
-		return;
+	driver_pgsql_stop_io(db);
 
-	io_remove(&db->io);
+	ret = PQflush(db->pg);
+	if (ret > 0) {
+		db->io = io_add(PQsocket(db->pg), IO_WRITE,
+				flush_callback, result);
+		db->io_dir = IO_WRITE;
+		return;
+	}
 
 	if (ret < 0) {
 		result_finish(result);
@@ -565,10 +570,7 @@ driver_pgsql_sync_query(struct pgsql_db *db, const char *query)
 	if (db->sync_result == NULL)
 		io_loop_run(db->ioloop);
 
-	if (db->io != NULL) {
-		i_assert(db->fatal_error);
-		io_remove_closed(&db->io);
-	}
+	i_assert(db->io == NULL);
 
 	result = db->sync_result;
 	if (result == &sql_not_connected_result) {
