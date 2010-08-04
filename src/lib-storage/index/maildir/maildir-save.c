@@ -764,6 +764,8 @@ static void
 maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 				 struct maildir_filename *mf)
 {
+	uoff_t size;
+
 	if (!ctx->locked_uidlist_refresh) {
 		(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
 		ctx->locked_uidlist_refresh = TRUE;
@@ -771,9 +773,19 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 
 	if (maildir_uidlist_get_full_filename(ctx->mbox->uidlist,
 					      mf->dest_basename) != NULL) {
-		/* file already exists. give it another name. */
+		/* file already exists. give it another name.
+		   but preserve the size/vsize in the filename if possible */
+		if (maildir_filename_get_size(mf->dest_basename,
+					      MAILDIR_EXTRA_FILE_SIZE, &size))
+			mf->size = size;
+		if (maildir_filename_get_size(mf->dest_basename,
+					      MAILDIR_EXTRA_VIRTUAL_SIZE,
+					      &size))
+			mf->vsize = size;
+
 		mf->dest_basename = p_strdup(ctx->pool,
 					     maildir_filename_generate());
+		mf->preserve_filename = FALSE;
 	}
 }
 
