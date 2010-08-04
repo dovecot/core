@@ -851,9 +851,13 @@ maildir_quota_update(struct quota_root *_root,
 	if (recalculated) {
 		/* quota was just recalculated and it already contains the changes
 		   we wanted to do. */
-	} else if (root->fd == -1 || ctx->recalculate)
-		maildirsize_rebuild_later(root);
-	else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0)
+	} else if (root->fd == -1)
+		(void)maildirsize_recalculate(root);
+	else if (ctx->recalculate) {
+		(void)close(root->fd);
+		root->fd = -1;
+		(void)maildirsize_recalculate(root);
+	} else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0)
 		maildirsize_rebuild_later(root);
 
 	return 0;
