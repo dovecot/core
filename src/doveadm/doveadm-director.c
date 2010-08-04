@@ -241,7 +241,8 @@ static void director_get_host(const char *host, struct ip_addr **ips_r,
 	struct ip_addr ip;
 
 	if (net_addr2ip(host, &ip) == 0) {
-		*ips_r = &ip;
+		*ips_r = t_new(struct ip_addr, 1);
+		**ips_r = ip;
 		*ips_count_r = 1;
 	} else {
 		if (net_gethostbyname(host, ips_r, ips_count_r) < 0)
