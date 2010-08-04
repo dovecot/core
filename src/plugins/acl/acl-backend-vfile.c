@@ -885,6 +885,12 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 	gid_t gid;
 	int fd;
 
+	if (aclobj->local_path == NULL) {
+		i_error("Can't update acl object '%s': No local acl file path",
+			aclobj->aclobj.name);
+		return -1;
+	}
+
 	/* first lock the ACL file */
 	mailbox_list_get_permissions(_aclobj->backend->list, _aclobj->name,
 				     &mode, &gid, &gid_origin);
