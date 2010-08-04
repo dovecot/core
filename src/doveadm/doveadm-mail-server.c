@@ -166,7 +166,6 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	struct server_connection *conn;
 	const char *host;
 	char *username_dup;
-	void **sets;
 
 	i_assert(cmd_ctx == ctx || cmd_ctx == NULL);
 	cmd_ctx = ctx;
@@ -176,8 +175,6 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	doveadm_print_unstick_headers();
 
 	input = mail_storage_service_user_get_input(user);
-	sets = mail_storage_service_user_get_set(user);
-
 	if (userdb_field_find(input->userdb_fields, "proxy") != NULL) {
 		host = userdb_field_find(input->userdb_fields, "host");
 		if (host == NULL) {
