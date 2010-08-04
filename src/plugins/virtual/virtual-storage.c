@@ -356,9 +356,29 @@ virtual_mailbox_get_guid(struct mailbox *box,
 	return -1;
 }
 
-static void virtual_notify_changes(struct mailbox *box ATTR_UNUSED)
+static void
+virtual_notify_callback(struct mailbox *bbox ATTR_UNUSED, struct mailbox *box)
 {
-	/* FIXME: maybe some day */
+	box->notify_callback(box, box->notify_context);
+}
+
+static void virtual_notify_changes(struct mailbox *box)
+{
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_backend_box *const *bboxes;
+	unsigned int i, count;
+
+	bboxes = array_get(&mbox->backend_boxes, &count);
+	for (i = 0; i < count; i++) {
+		struct mailbox *bbox = bboxes[i]->box;
+
+		if (box->notify_callback == NULL)
+			mailbox_notify_changes_stop(bbox);
+		else {
+			mailbox_notify_changes(bbox, box->notify_min_interval,
+					       virtual_notify_callback, box);
+		}
+	}
 }
 
 static int
