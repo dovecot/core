@@ -96,11 +96,13 @@ dsync_brain_msg_iter_skip_mailbox(struct dsync_brain_mailbox_sync *sync)
 {
 	int ret;
 
-	while ((ret = dsync_brain_msg_iter_next(sync->src_msg_iter)) > 0) ;
+	while ((ret = dsync_brain_msg_iter_next(sync->src_msg_iter)) > 0)
+		sync->src_msg_iter->msg.guid = NULL;
 	if (ret == 0)
 		return 0;
 
-	while ((ret = dsync_brain_msg_iter_next(sync->dest_msg_iter)) > 0) ;
+	while ((ret = dsync_brain_msg_iter_next(sync->dest_msg_iter)) > 0)
+		sync->dest_msg_iter->msg.guid = NULL;
 	if (ret == 0)
 		return 0;
 
