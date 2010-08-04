@@ -58,6 +58,7 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *storage_name;
+	enum mailbox_name_status status;
 	int ret;
 
 	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
@@ -65,9 +66,14 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 		return NULL;
 	}
 
-	ns = client_find_namespace(cmd, name, &storage_name, NULL);
+	ns = client_find_namespace(cmd, name, &storage_name, &status);
 	if (ns == NULL)
 		return NULL;
+
+	if (status == MAILBOX_NAME_INVALID) {
+		client_fail_mailbox_name_status(cmd, name, NULL, status);
+		return NULL;
+	}
 
 	/* Force opening the mailbox so that we can give a nicer error message
 	   if mailbox isn't selectable but is listable. */
