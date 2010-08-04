@@ -504,10 +504,13 @@ int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 		else
 			return -2;
 	}
-
-	if (addr != NULL) sin_get_ip(&so, addr);
-	if (port != NULL) *port = sin_get_port(&so);
-
+	if (so.sin.sin_family == AF_UNIX) {
+		if (addr != NULL) addr->family = 0;
+		if (port != NULL) *port = 0;
+	} else {
+		if (addr != NULL) sin_get_ip(&so, addr);
+		if (port != NULL) *port = sin_get_port(&so);
+	}
 	return ret;
 }
 
@@ -630,10 +633,13 @@ int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 	addrlen = sizeof(so);
 	if (getsockname(fd, &so.sa, &addrlen) == -1)
 		return -1;
-
-        if (addr != NULL) sin_get_ip(&so, addr);
-	if (port != NULL) *port = sin_get_port(&so);
-
+	if (so.sin.sin_family == AF_UNIX) {
+		if (addr != NULL) addr->family = 0;
+		if (port != NULL) *port = 0;
+	} else {
+		if (addr != NULL) sin_get_ip(&so, addr);
+		if (port != NULL) *port = sin_get_port(&so);
+	}
 	return 0;
 }
 
@@ -647,10 +653,13 @@ int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port)
 	addrlen = sizeof(so);
 	if (getpeername(fd, &so.sa, &addrlen) == -1)
 		return -1;
-
-        if (addr != NULL) sin_get_ip(&so, addr);
-	if (port != NULL) *port = sin_get_port(&so);
-
+	if (so.sin.sin_family == AF_UNIX) {
+		if (addr != NULL) addr->family = 0;
+		if (port != NULL) *port = 0;
+	} else {
+		if (addr != NULL) sin_get_ip(&so, addr);
+		if (port != NULL) *port = sin_get_port(&so);
+	}
 	return 0;
 }
 
