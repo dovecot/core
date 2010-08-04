@@ -36,7 +36,7 @@ static bool doveadm_mail_cmd_server(const char *cmd_name, const char *username,
 	struct doveadm_mail_cmd_context *ctx;
 	const struct doveadm_mail_cmd *cmd;
 	const char *getopt_args;
-	bool add_username_header;
+	bool add_username_header = FALSE;
 	int c;
 
 	cmd = doveadm_mail_cmd_find(cmd_name);
