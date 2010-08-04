@@ -1,3 +1,19 @@
+v2.0.rc4 2010-08-04  Timo Sirainen <tss@iki.fi>
+
+	+ director: Added director_doveadm_port for accepting doveadm
+	  TCP connections. 
+	+ doveadm: Added client/server architecture support for running mail
+	  commands. Enable this by setting doveadm_worker_count to non-zero.
+	+ mail-log: Added support for mailbox_create event.
+	+ imap_capability = +XFOO BAR can be used to add capabilities instead
+	  of replacing the whole capability string.
+	+ virtual storage: Added support for IDLE notifications. 
+	- doveadm mailbox status: Fixed listing non-ASCII mailbox names. 
+	- doveadm fetch: Fixed output when fetching message header or body
+	- doveadm director map/add/remove: Fixed handling IP address as
+	  parameter. 
+	- dsync: A few more fixes
+
 v2.0.rc3 2010-07-20  Timo Sirainen <tss@iki.fi>
 
 	* Single-dbox is now called "sdbox" instead of "dbox".
