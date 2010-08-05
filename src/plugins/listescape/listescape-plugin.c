@@ -22,10 +22,15 @@ struct listescape_mail_storage {
 	union mail_storage_module_context module_ctx;
 };
 
+struct listescape_mailbox_list_iter {
+	struct mailbox_list_iterate_context *ctx;
+	string_t *name;
+	struct mailbox_info info;
+};
+
 struct listescape_mailbox_list {
 	union mailbox_list_module_context module_ctx;
-	struct mailbox_info info;
-	string_t *list_name;
+	ARRAY_DEFINE(iters, struct listescape_mailbox_list_iter);
 	char escape_char;
 };
 
@@ -111,6 +116,7 @@ listescape_mailbox_list_iter_init(struct mailbox_list *list,
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 	struct mailbox_list_iterate_context *ctx;
+	struct listescape_mailbox_list_iter *liter;
 	const char **escaped_patterns;
 	unsigned int i;
 
@@ -134,6 +140,10 @@ listescape_mailbox_list_iter_init(struct mailbox_list *list,
 	list->ns->real_sep = list->hierarchy_sep;
 	ctx = mlist->module_ctx.super.iter_init(list, patterns, flags);
 	list->ns->real_sep = list->ns->sep;
+
+	liter = array_append_space(&mlist->iters);
+	liter->ctx = ctx;
+	liter->name = str_new(default_pool, 256);
 	return ctx;
 }
 
@@ -157,13 +167,30 @@ listescape_find_orig_ns(struct mail_namespace *parent_ns, const char *name)
 	return best != NULL ? best : parent_ns;
 }
 
+static struct listescape_mailbox_list_iter *
+listescape_mailbox_list_iter_find(struct listescape_mailbox_list *mlist,
+				 struct mailbox_list_iterate_context *ctx)
+{
+	struct listescape_mailbox_list_iter *liter;
+
+	array_foreach_modifiable(&mlist->iters, liter) {
+		if (liter->ctx == ctx)
+			return liter;
+	}
+	return NULL;
+}
+
 static const struct mailbox_info *
 listescape_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
 	struct listescape_mailbox_list *mlist =
 		LIST_ESCAPE_LIST_CONTEXT(ctx->list);
 	struct mail_namespace *ns;
+	struct listescape_mailbox_list_iter *liter;
 	const struct mailbox_info *info;
+
+	liter = listescape_mailbox_list_iter_find(mlist, ctx);
+	i_assert(liter != NULL);
 
 	ctx->list->ns->real_sep = ctx->list->hierarchy_sep;
 	info = mlist->module_ctx.super.iter_next(ctx);
@@ -179,12 +206,12 @@ listescape_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 	    strcasecmp(info->name, "INBOX") == 0)
 		return info;
 
-	str_truncate(mlist->list_name, 0);
-	str_append(mlist->list_name, ns->prefix);
-	list_unescape_str(ns, info->name + ns->prefix_len, mlist->list_name);
-	mlist->info = *info;
-	mlist->info.name = str_c(mlist->list_name);
-	return &mlist->info;
+	str_truncate(liter->name, 0);
+	str_append(liter->name, ns->prefix);
+	list_unescape_str(ns, info->name + ns->prefix_len, liter->name);
+	liter->info = *info;
+	liter->info.name = str_c(liter->name);
+	return &liter->info;
 }
 
 static int
@@ -193,7 +220,17 @@ listescape_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 	struct mailbox_list *list = ctx->list;
 	struct listescape_mailbox_list *mlist =
 		LIST_ESCAPE_LIST_CONTEXT(ctx->list);
+	struct listescape_mailbox_list_iter *liters;
+	unsigned int i, count;
 	int ret;
+
+	liters = array_get_modifiable(&mlist->iters, &count);
+	for (i = 0; i < count; i++) {
+		if (liters[i].ctx == ctx) {
+			str_free(&liters[i].name);
+			array_delete(&mlist->iters, i, 1);
+		}
+	}
 
 	list->ns->real_sep = list->hierarchy_sep;
 	ret = mlist->module_ctx.super.iter_deinit(ctx);
@@ -287,7 +324,7 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 	mlist = p_new(list->pool, struct listescape_mailbox_list, 1);
 	mlist->module_ctx.super = *v;
 	list->vlast = &mlist->module_ctx.super;
-	mlist->list_name = str_new(list->pool, 256);
+	p_array_init(&mlist->iters, list->pool, 4);
 	v->iter_init = listescape_mailbox_list_iter_init;
 	v->iter_next = listescape_mailbox_list_iter_next;
 	v->iter_deinit = listescape_mailbox_list_iter_deinit;
