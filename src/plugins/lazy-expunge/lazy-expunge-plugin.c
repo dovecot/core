@@ -558,8 +558,10 @@ static void lazy_expunge_user_deinit(struct mail_user *user)
 	struct lazy_expunge_mail_user *luser = LAZY_EXPUNGE_USER_CONTEXT(user);
 	unsigned int i;
 
-	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++)
-		mail_namespace_unref(&luser->lazy_ns[i]);
+	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++) {
+		if (luser->lazy_ns[i] != NULL)
+			mail_namespace_unref(&luser->lazy_ns[i]);
+	}
 
 	luser->module_ctx.super.deinit(user);
 }
