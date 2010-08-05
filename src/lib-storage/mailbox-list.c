@@ -362,11 +362,6 @@ const char *mailbox_list_get_driver_name(const struct mailbox_list *list)
 	return list->name;
 }
 
-char mailbox_list_get_hierarchy_sep(const struct mailbox_list *list)
-{
-	return list->hierarchy_sep;
-}
-
 enum mailbox_list_flags mailbox_list_get_flags(const struct mailbox_list *list)
 {
 	return list->flags;

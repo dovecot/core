@@ -27,7 +27,6 @@ client_find_namespace(struct client_command_context *cmd, const char *mailbox,
 	struct mail_namespace *ns;
 	const char *storage_name, *p;
 	unsigned int storage_name_len;
-	char sep;
 
 	storage_name = mailbox;
 	ns = mail_namespace_find(cmd->client->user->namespaces, &storage_name);
@@ -47,11 +46,10 @@ client_find_namespace(struct client_command_context *cmd, const char *mailbox,
 		return NULL;
 	}
 
-	sep = mailbox_list_get_hierarchy_sep(ns->list);
 	storage_name_len = strlen(storage_name);
 	if ((cmd->client->set->parsed_workarounds &
 	     		WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
-	    storage_name[storage_name_len-1] == sep) {
+	    storage_name[storage_name_len-1] == ns->real_sep) {
 		/* drop the extra trailing hierarchy separator */
 		storage_name = t_strndup(storage_name, storage_name_len-1);
 	}

@@ -60,9 +60,9 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 	}
 
 	if ((cmd->client->set->parsed_workarounds &
-	     		WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
-	    *subs_name != '\0' && subs_name[strlen(subs_name)-1] ==
-	    mailbox_list_get_hierarchy_sep(ns->list)) {
+	     WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
+	    *subs_name != '\0' &&
+	    subs_name[strlen(subs_name)-1] == ns->real_sep) {
 		/* verify the validity without the trailing '/' */
 		mailbox = t_strndup(mailbox, strlen(mailbox)-1);
 		subs_name2 = subs_name;
