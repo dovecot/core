@@ -140,7 +140,7 @@ acl_backend_vfile_get_local_dir(struct acl_backend *backend, const char *name)
 		dir = mailbox_list_get_path(ns->list, name,
 					    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	}
-	if (name == NULL) {
+	if (name == NULL && dir != NULL) {
 		/* verify that the directory isn't same as INBOX's directory.
 		   this is mainly for Maildir. */
 		inbox = mailbox_list_get_path(ns->list, "INBOX",
