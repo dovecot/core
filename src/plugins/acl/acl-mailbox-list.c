@@ -516,32 +516,8 @@ static void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
 
 static void acl_mailbox_list_init_default(struct mailbox_list *list)
 {
-	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
 	struct mailbox_list_vfuncs *v = list->vlast;
 	struct acl_mailbox_list *alist;
-	struct acl_backend *backend;
-	struct mail_namespace *ns;
-	const char *current_username, *owner_username;
-	bool owner = TRUE;
-
-	owner_username = list->ns->user->username;
-	current_username = auser->master_user;
-	if (current_username == NULL)
-		current_username = owner_username;
-	else
-		owner = strcmp(current_username, owner_username) == 0;
-
-	/* We don't care about the username for non-private mailboxes.
-	   It's used only when checking if we're the mailbox owner. We never
-	   are for shared/public mailboxes. */
-	ns = mailbox_list_get_namespace(list);
-	if (ns->type != NAMESPACE_PRIVATE)
-		owner = FALSE;
-
-	backend = acl_backend_init(auser->acl_env, list, current_username,
-				   auser->groups, owner);
-	if (backend == NULL)
-		i_fatal("ACL backend initialization failed");
 
 	if (list->mail_set->mail_full_filesystem_access) {
 		/* not necessarily, but safer to do this for now. */
@@ -558,21 +534,49 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	v->get_mailbox_name_status = acl_get_mailbox_name_status;
 	v->create_mailbox_dir = acl_mailbox_list_create_dir;
 
-	acl_storage_rights_ctx_init(&alist->rights, backend);
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }
 
 void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
+	struct acl_backend *backend;
+	const char *current_username, *owner_username;
+	bool owner = TRUE;
+
+	owner_username = ns->user->username;
+	current_username = auser->master_user;
+	if (current_username == NULL)
+		current_username = owner_username;
+	else
+		owner = strcmp(current_username, owner_username) == 0;
+
+	/* We don't care about the username for non-private mailboxes.
+	   It's used only when checking if we're the mailbox owner. We never
+	   are for shared/public mailboxes. */
+	if (ns->type != NAMESPACE_PRIVATE)
+		owner = FALSE;
+
+	/* we need to know the storage when initializing backend */
+	backend = acl_backend_init(auser->acl_env, ns->list, current_username,
+				   auser->groups, owner);
+	if (backend == NULL)
+		i_fatal("ACL backend initialization failed");
+	acl_storage_rights_ctx_init(&alist->rights, backend);
+}
+
+void acl_mailbox_list_created(struct mailbox_list *list)
+{
+	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
 
 	if (auser == NULL) {
 		/* ACLs disabled for this user */
-	} else if ((ns->flags & NAMESPACE_FLAG_NOACL) != 0) {
+	} else if ((list->ns->flags & NAMESPACE_FLAG_NOACL) != 0) {
 		/* no ACL checks for internal namespaces (lda, shared) */
-		if (ns->type == NAMESPACE_SHARED)
-			acl_mailbox_list_init_shared(ns->list);
+		if (list->ns->type == NAMESPACE_SHARED)
+			acl_mailbox_list_init_shared(list);
 	} else {
-		acl_mailbox_list_init_default(ns->list);
+		acl_mailbox_list_init_default(list);
 	}
 }

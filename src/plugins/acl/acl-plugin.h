@@ -39,6 +39,7 @@ extern MODULE_CONTEXT_DEFINE(acl_user_module, &mail_user_module_register);
 extern MODULE_CONTEXT_DEFINE(acl_mailbox_list_module,
 			     &mailbox_list_module_register);
 
+void acl_mailbox_list_created(struct mailbox_list *list);
 void acl_mail_namespace_storage_added(struct mail_namespace *ns);
 void acl_mail_user_created(struct mail_user *list);
 
