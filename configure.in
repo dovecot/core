@@ -2160,8 +2160,8 @@ if test $want_mysql != no; then
 		done
 	done
   else
-    MYSQL_INCLUDE="`mysql_config --include`"
-    MYSQL_LIBS="`mysql_config --libs`"
+    MYSQL_INCLUDE="`$MYSQL_CONFIG --include`"
+    MYSQL_LIBS="`$MYSQL_CONFIG --libs`"
   fi
 
   old_LIBS=$LIBS
