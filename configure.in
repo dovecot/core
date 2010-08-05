@@ -1865,12 +1865,12 @@ fi
 
 have_gssapi=no
 if test $want_gssapi != no; then
-	AC_CHECK_PROG(KRB5CONFIG, krb5-config, YES, NO)
-	if test $KRB5CONFIG = YES; then
-		if ! krb5-config --version gssapi 2>/dev/null > /dev/null; then
+	AC_CHECK_PROG(KRB5CONFIG, krb5-config, krb5-config, NO)
+	if test $KRB5CONFIG != NO; then
+		if ! $KRB5CONFIG --version gssapi 2>/dev/null > /dev/null; then
 		  # krb5-config doesn't support gssapi.
-		  KRB5_LIBS="`krb5-config --libs`"
-		  KRB5_CFLAGS=`krb5-config --cflags`
+		  KRB5_LIBS="`$KRB5CONFIG --libs`"
+		  KRB5_CFLAGS=`$KRB5CONFIG --cflags`
 		  AC_CHECK_LIB(gss, gss_acquire_cred, [
 		    # Solaris
 		    KRB5_LIBS="$KRB5_LIBS -lgss"
@@ -1879,8 +1879,8 @@ if test $want_gssapi != no; then
 		    KRB5_LIBS=
 		  ], $KRB5_LIBS)
 		else
-		  KRB5_LIBS=`krb5-config --libs gssapi`
-		  KRB5_CFLAGS=`krb5-config --cflags gssapi`
+		  KRB5_LIBS=`$KRB5CONFIG --libs gssapi`
+		  KRB5_CFLAGS=`$KRB5CONFIG --cflags gssapi`
 		fi
 		if test "$KRB5_LIBS" != ""; then
 			AC_SUBST(KRB5_LIBS)
@@ -2083,7 +2083,7 @@ if test $want_db != no; then
 fi
 
 if test $want_pgsql != no; then
-  AC_CHECK_PROG(PG_CONFIG, pg_config, YES, NO)
+  AC_CHECK_PROG(PG_CONFIG, pg_config, pg_config, NO)
   if test $PG_CONFIG = NO; then
     # based on code from PHP
     for i in /usr /usr/local /usr/local/pgsql; do
@@ -2101,8 +2101,8 @@ if test $want_pgsql != no; then
       done
     done
   else
-    PGSQL_INCLUDE="`pg_config --includedir`"
-    PGSQL_LIBDIR="`pg_config --libdir`"  
+    PGSQL_INCLUDE="`$PG_CONFIG --includedir`"
+    PGSQL_LIBDIR="`$PG_CONFIG --libdir`"  
   fi
 
   old_LIBS=$LIBS
@@ -2144,7 +2144,7 @@ fi
 
 have_mysql=no
 if test $want_mysql != no; then
-  AC_CHECK_PROG(MYSQL_CONFIG, mysql_config, YES, NO)
+  AC_CHECK_PROG(MYSQL_CONFIG, mysql_config, mysql_config, NO)
   if test $MYSQL_CONFIG = NO; then
 	# based on code from PHP
 	for i in /usr /usr/local /usr/local/mysql; do
@@ -2160,8 +2160,8 @@ if test $want_mysql != no; then
 		done
 	done
   else
-    MYSQL_INCLUDE="`mysql_config --include`"
-    MYSQL_LIBS="`mysql_config --libs`"
+    MYSQL_INCLUDE="`$MYSQL_CONFIG --include`"
+    MYSQL_LIBS="`$MYSQL_CONFIG --libs`"
   fi
 
   old_LIBS=$LIBS
@@ -2563,10 +2563,10 @@ fi
 AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
 
 if test "$want_solr" != "no"; then
-  AC_CHECK_PROG(CURLCONFIG, curl-config, YES, NO)
-  if test $CURLCONFIG = YES; then
-    CURL_CFLAGS=`curl-config --cflags`
-    CURL_LIBS=`curl-config --libs`
+  AC_CHECK_PROG(CURLCONFIG, curl-config, curl-config, NO)
+  if test $CURLCONFIG != NO; then
+    CURL_CFLAGS=`$CURL_CONFIG --cflags`
+    CURL_LIBS=`$CURL_CONFIG --libs`
     
     dnl libcurl found, also need libexpat
     AC_CHECK_LIB(expat, XML_Parse, [
@@ -2619,8 +2619,8 @@ if test "$docdir" = ""; then
 fi
 AC_SUBST(docdir)
 
-AC_CHECK_PROG(VALGRIND, valgrind, YES, NO)
-if test $VALGRIND = YES; then
+AC_CHECK_PROG(VALGRIND, valgrind, yes, no)
+if test $VALGRIND = yes; then
   RUN_TEST='$(SHELL) $(top_srcdir)/run-test.sh'
 else
   RUN_TEST=''
