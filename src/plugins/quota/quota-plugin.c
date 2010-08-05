@@ -12,7 +12,7 @@ const char *quota_plugin_version = DOVECOT_VERSION;
 static struct mail_storage_hooks quota_mail_storage_hooks = {
 	.mail_user_created = quota_mail_user_created,
 	.mail_namespaces_created = quota_mail_namespaces_created,
-	.mail_namespace_storage_added = quota_mail_namespace_storage_added,
+	.mailbox_list_created = quota_mailbox_list_created,
 	.mailbox_allocated = quota_mailbox_allocated,
 	.mail_allocated = quota_mail_allocated
 };
