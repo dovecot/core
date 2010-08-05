@@ -38,8 +38,9 @@ libs = \
 	$(unused_objects)
 
 doveadm_LDADD = \
-	$(libs) $(AUTH_LIBS) \
+	$(libs) \
 	$(cmd_pw_libs) \
+	$(AUTH_LIBS) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
 doveadm_DEPENDENCIES = \
