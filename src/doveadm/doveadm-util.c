@@ -27,7 +27,7 @@ void doveadm_load_modules(void)
 	mod_set.version = master_service_get_version_string(master_service);
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = doveadm_debug;
-	mod_set.ignore_dlopen_errors = !doveadm_debug;
+	mod_set.ignore_dlopen_errors = TRUE;
 
 	modules = module_dir_load_missing(modules, DOVEADM_MODULEDIR,
 					  NULL, &mod_set);
