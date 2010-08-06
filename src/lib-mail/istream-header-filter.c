@@ -41,6 +41,8 @@ struct header_filter_istream {
 
 header_filter_callback *null_header_filter_callback = NULL;
 
+static ssize_t i_stream_header_filter_read(struct istream_private *stream);
+
 static void i_stream_header_filter_destroy(struct iostream_private *stream)
 {
 	struct header_filter_istream *mstream =
@@ -289,7 +291,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			 mstream->istream.pos ==
 			 mstream->header_size.virtual_size);
 
-		return read_header(mstream);
+		return i_stream_header_filter_read(&mstream->istream);
 	}
 
 	return ret;
