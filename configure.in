@@ -2565,8 +2565,8 @@ AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
 if test "$want_solr" != "no"; then
   AC_CHECK_PROG(CURLCONFIG, curl-config, curl-config, NO)
   if test $CURLCONFIG != NO; then
-    CURL_CFLAGS=`$CURL_CONFIG --cflags`
-    CURL_LIBS=`$CURL_CONFIG --libs`
+    CURL_CFLAGS=`$CURLCONFIG --cflags`
+    CURL_LIBS=`$CURLCONFIG --libs`
     
     dnl libcurl found, also need libexpat
     AC_CHECK_LIB(expat, XML_Parse, [
