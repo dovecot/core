@@ -32,18 +32,13 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 
 	box = mailbox_alloc(ns->list, storage_name,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT);
-	if (mailbox_open(box) < 0) {
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		mail_storage_get_last_error(mailbox_get_storage(box), &error);
 		mailbox_free(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
 		/* non-temporary error, e.g. ACLs denied access. */
 		return 0;
-	}
-
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		mailbox_free(&box);
-		return -1;
 	}
 
 	trans = mailbox_transaction_begin(box, 0);
