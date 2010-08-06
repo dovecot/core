@@ -80,11 +80,10 @@ list_escape(struct mail_namespace *ns, const char *str, bool vname)
 	return str_c(esc);
 }
 
-static void list_unescape_str(struct mail_namespace *ns,
+static void list_unescape_str(struct listescape_mailbox_list *mlist,
+			      struct mail_namespace *ns,
 			      const char *str, string_t *dest)
 {
-	struct listescape_mailbox_list *mlist =
-		LIST_ESCAPE_LIST_CONTEXT(ns->list);
 	unsigned int num;
 
 	for (; *str != '\0'; str++) {
@@ -208,7 +207,7 @@ listescape_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 
 	str_truncate(liter->name, 0);
 	str_append(liter->name, ns->prefix);
-	list_unescape_str(ns, info->name + ns->prefix_len, liter->name);
+	list_unescape_str(mlist, ns, info->name + ns->prefix_len, liter->name);
 	liter->info = *info;
 	liter->info.name = str_c(liter->name);
 	return &liter->info;
