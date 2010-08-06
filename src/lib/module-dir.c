@@ -170,8 +170,14 @@ module_load(const char *path, const char *name,
 
 	if (set->ignore_dlopen_errors) {
 		handle = quiet_dlopen(path, RTLD_GLOBAL | RTLD_NOW);
-		if (handle == NULL)
+		if (handle == NULL) {
+			if (set->debug) {
+				i_debug("Skipping module %s, "
+					"because dlopen() failed: %s",
+					name, dlerror());
+			}
 			return NULL;
+		}
 	} else {
 		handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
 		if (handle == NULL) {
