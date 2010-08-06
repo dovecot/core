@@ -193,7 +193,7 @@ hook_copy_stack(struct hook_build_context *ctx, struct hook_stack *stack)
 	for (i = 0; i < ctx->count; i++) {
 		if (stack->mask[i] == NULL) {
 			stack->vfuncs[i] = stack->next->vfuncs[i];
-			stack->mask[i] = stack->vfuncs[i];
+			stack->mask[i] = stack->next->mask[i];
 		}
 	}
 }
