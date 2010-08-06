@@ -1405,6 +1405,11 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 		   don't bother trying to update cache file */
 		mail->data.no_caching = TRUE;
 		mail->data.forced_no_caching = TRUE;
+
+		if (mail->data.parser_ctx == NULL) {
+			/* we didn't even start cache parsing */
+			return;
+		}
 	}
 
 	/* This is needed with 0 byte mails to get hdr=NULL call done. */
