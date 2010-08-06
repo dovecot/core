@@ -78,10 +78,10 @@ read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 		mstream->istream.istream.eof = mstream->istream.parent->eof;
 
 		if (ret <= 0) {
-			i_assert(pos > 0);
-
 			data = mstream->hdr_buf->data;
 			pos = mstream->hdr_buf->used;
+			i_assert(pos > 0);
+
 			if (mstream->end_body_with_lf && data[pos-1] != '\n' &&
 			    ret == -1 && mstream->istream.istream.eof) {
 				/* add missing trailing LF to body */
