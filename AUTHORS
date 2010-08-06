@@ -6,7 +6,7 @@ Andrey Panin <pazke@donpac.ru> (src/auth/mech-apop.c, src/auth/mech-login.c,
   src/lib-ntlm/*, src/auth/mech-ntlm.c, src/auth/mech-rpa.c)
 
 Joshua Goodall <joshua@roughtrade.net> (src/auth/mech-cram-md5.c,
-  src/util/dovecotpw.c)
+  src/doveadm/doveadm-pw.c)
 
 Jelmer Vernooij <jelmer@samba.org> (src/auth/mech-gssapi.c)
 
