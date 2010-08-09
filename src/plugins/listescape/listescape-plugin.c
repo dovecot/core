@@ -42,10 +42,9 @@ static MODULE_CONTEXT_DEFINE_INIT(listescape_list_module,
 				  &mailbox_list_module_register);
 
 static const char *
-list_escape(struct mail_namespace *ns, const char *str, bool vname)
+list_escape(struct listescape_mailbox_list *mlist,
+	    struct mail_namespace *ns, const char *str, bool vname)
 {
-	struct listescape_mailbox_list *mlist =
-		LIST_ESCAPE_LIST_CONTEXT(ns->list);
 	string_t *esc = t_str_new(64);
 	unsigned int i;
 
@@ -133,6 +132,7 @@ iter_escape_patterns(struct mailbox_list *list,
 		     const char *const *patterns,
 		     enum mailbox_list_iter_flags flags)
 {
+	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 	struct mail_namespace *orig_ns;
 	const char **escaped_patterns;
 	unsigned int i;
@@ -148,7 +148,8 @@ iter_escape_patterns(struct mailbox_list *list,
 		} else {
 			orig_ns = list->ns;
 		}
-		escaped_patterns[i] = list_escape(orig_ns, patterns[i], TRUE);
+		escaped_patterns[i] = list_escape(mlist, orig_ns,
+						  patterns[i], TRUE);
 	}
 	return escaped_patterns;
 }
@@ -259,9 +260,10 @@ listescape_mailbox_alloc(struct mail_storage *storage,
 			 const char *name, enum mailbox_flags flags)
 {
 	struct listescape_mail_storage *mstorage = LIST_ESCAPE_CONTEXT(storage);
+	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
 	if (list->hierarchy_sep != list->ns->sep)
-		name = list_escape(list->ns, name, FALSE);
+		name = list_escape(mlist, list->ns, name, FALSE);
 	return mstorage->module_ctx.super.
 		mailbox_alloc(storage, list, name, flags);
 }
@@ -275,9 +277,9 @@ static int listescape_set_subscribed(struct mailbox_list *list,
 
 	ns = listescape_find_orig_ns(list->ns, name);
 	if (ns == list->ns || strncmp(ns->prefix, name, ns->prefix_len) != 0)
-		name = list_escape(ns, name, FALSE);
+		name = list_escape(mlist, ns, name, FALSE);
 	else {
-		esc_name = list_escape(ns, name + ns->prefix_len, FALSE);
+		esc_name = list_escape(mlist, ns, name + ns->prefix_len, FALSE);
 		name = t_strconcat(ns->prefix, esc_name, NULL);
 	}
 	return mlist->module_ctx.super.set_subscribed(list, name, set);
@@ -289,7 +291,7 @@ static int listescape_get_mailbox_name_status(struct mailbox_list *list,
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	name = list_escape(list->ns, name, FALSE);
+	name = list_escape(mlist, list->ns, name, FALSE);
 	return mlist->module_ctx.super.
 		get_mailbox_name_status(list, name, status);
 }
@@ -299,7 +301,7 @@ static bool listescape_is_valid_existing_name(struct mailbox_list *list,
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	name = list_escape(list->ns, name, FALSE);
+	name = list_escape(mlist, list->ns, name, FALSE);
 	return mlist->module_ctx.super.is_valid_existing_name(list, name);
 }
 
@@ -308,7 +310,7 @@ static bool listescape_is_valid_create_name(struct mailbox_list *list,
 {
 	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
 
-	name = list_escape(list->ns, name, FALSE);
+	name = list_escape(mlist, list->ns, name, FALSE);
 	return mlist->module_ctx.super.is_valid_create_name(list, name);
 }
 
