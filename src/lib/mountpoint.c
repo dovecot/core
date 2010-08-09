@@ -47,6 +47,11 @@
 #  define MNTTYPE_NFS "nfs"
 #endif
 
+/* Linux sometimes has mtab entry for "rootfs" as well as the real root
+   entry. Skip the rootfs. */
+#ifndef MNTTYPE_ROOTFS
+#  define MNTTYPE_ROOTFS "rootfs"
+#endif
 
 int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 {
@@ -191,7 +196,8 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	}
 	while ((ent = getmntent(f)) != NULL) {
 		if (strcmp(ent->mnt_type, MNTTYPE_SWAP) == 0 ||
-		    strcmp(ent->mnt_type, MNTTYPE_IGNORE) == 0)
+		    strcmp(ent->mnt_type, MNTTYPE_IGNORE) == 0 ||
+		    strcmp(ent->mnt_type, MNTTYPE_ROOTFS) == 0)
 			continue;
 
 		if (stat(ent->mnt_dir, &st2) == 0 &&
