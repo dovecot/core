@@ -108,44 +108,6 @@ static void list_unescape_str(struct listescape_mailbox_list *mlist,
 	}
 }
 
-static struct mailbox_list_iterate_context *
-listescape_mailbox_list_iter_init(struct mailbox_list *list,
-				  const char *const *patterns,
-				  enum mailbox_list_iter_flags flags)
-{
-	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
-	struct mailbox_list_iterate_context *ctx;
-	struct listescape_mailbox_list_iter *liter;
-	const char **escaped_patterns;
-	unsigned int i;
-
-	/* this is kind of kludgy. In ACL code we want to convert patterns,
-	   in maildir renaming code we don't. so for now just use the _RAW_LIST
-	   flag.. */
-	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) == 0) {
-		escaped_patterns = t_new(const char *,
-					 str_array_length(patterns) + 1);
-		for (i = 0; patterns[i] != NULL; i++) {
-			escaped_patterns[i] =
-				list_escape(list->ns, patterns[i], TRUE);
-		}
-		patterns = escaped_patterns;
-	}
-
-	/* Listing breaks if ns->real_sep isn't correct, but with everything
-	   else we need real_sep == virtual_sep. maybe some day lib-storage
-	   API gets changed so that it sees only virtual mailbox names and
-	   convers them internally and we don't have this problem. */
-	list->ns->real_sep = list->hierarchy_sep;
-	ctx = mlist->module_ctx.super.iter_init(list, patterns, flags);
-	list->ns->real_sep = list->ns->sep;
-
-	liter = array_append_space(&mlist->iters);
-	liter->ctx = ctx;
-	liter->name = str_new(default_pool, 256);
-	return ctx;
-}
-
 static struct mail_namespace *
 listescape_find_orig_ns(struct mail_namespace *parent_ns, const char *name)
 {
@@ -164,6 +126,60 @@ listescape_find_orig_ns(struct mail_namespace *parent_ns, const char *name)
 		}
 	}
 	return best != NULL ? best : parent_ns;
+}
+
+static const char *const *
+iter_escape_patterns(struct mailbox_list *list,
+		     const char *const *patterns,
+		     enum mailbox_list_iter_flags flags)
+{
+	struct mail_namespace *orig_ns;
+	const char **escaped_patterns;
+	unsigned int i;
+
+	escaped_patterns = t_new(const char *, str_array_length(patterns) + 1);
+	for (i = 0; patterns[i] != NULL; i++) {
+		if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+			/* we may be listing subscriptions for other namespaces
+			   prefixes. don't escape characters in the namespace
+			   prefixes. */
+			orig_ns = listescape_find_orig_ns(list->ns,
+							  patterns[i]);
+		} else {
+			orig_ns = list->ns;
+		}
+		escaped_patterns[i] = list_escape(orig_ns, patterns[i], TRUE);
+	}
+	return escaped_patterns;
+}
+
+static struct mailbox_list_iterate_context *
+listescape_mailbox_list_iter_init(struct mailbox_list *list,
+				  const char *const *patterns,
+				  enum mailbox_list_iter_flags flags)
+{
+	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
+	struct mailbox_list_iterate_context *ctx;
+	struct listescape_mailbox_list_iter *liter;
+
+	/* this is kind of kludgy. In ACL code we want to convert patterns,
+	   in maildir renaming code we don't. so for now just use the _RAW_LIST
+	   flag.. */
+	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) == 0)
+		patterns = iter_escape_patterns(list, patterns, flags);
+
+	/* Listing breaks if ns->real_sep isn't correct, but with everything
+	   else we need real_sep == virtual_sep. maybe some day lib-storage
+	   API gets changed so that it sees only virtual mailbox names and
+	   convers them internally and we don't have this problem. */
+	list->ns->real_sep = list->hierarchy_sep;
+	ctx = mlist->module_ctx.super.iter_init(list, patterns, flags);
+	list->ns->real_sep = list->ns->sep;
+
+	liter = array_append_space(&mlist->iters);
+	liter->ctx = ctx;
+	liter->name = str_new(default_pool, 256);
+	return ctx;
 }
 
 static struct listescape_mailbox_list_iter *
