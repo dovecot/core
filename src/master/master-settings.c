@@ -311,6 +311,8 @@ static bool master_settings_parse_type(struct service_settings *set,
 		set->parsed_type = SERVICE_TYPE_ANVIL;
 	else if (strcmp(set->type, "login") == 0)
 		set->parsed_type = SERVICE_TYPE_LOGIN;
+	else if (strcmp(set->type, "startup") == 0)
+		set->parsed_type = SERVICE_TYPE_STARTUP;
 	else {
 		*error_r = t_strconcat("Unknown service type: ",
 				       set->type, NULL);

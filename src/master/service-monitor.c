@@ -359,6 +359,16 @@ void services_monitor_start(struct service_list *service_list)
 
 	if (service_process_create(service_list->log) != NULL)
 		service_monitor_listen_stop(service_list->log);
+
+	/* start up a process for startup-services */
+	array_foreach(&service_list->services, services) {
+		struct service *service = *services;
+
+		if (service->type == SERVICE_TYPE_STARTUP) {
+			if (service_process_create(service) != NULL)
+				service_monitor_listen_stop(service);
+		}
+	}
 }
 
 void service_monitor_stop(struct service *service)

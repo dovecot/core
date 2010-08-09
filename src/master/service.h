@@ -108,6 +108,7 @@ struct service_list {
 	int refcount;
 	struct timeout *to_kill;
 
+	const struct master_settings *set;
 	const struct master_service_settings *service_set;
 
 	struct service *config;
