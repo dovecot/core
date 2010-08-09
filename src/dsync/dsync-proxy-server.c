@@ -52,8 +52,10 @@ static int proxy_server_run_cmd(struct dsync_proxy_server *server)
 
 	if ((ret = server->cur_cmd->func(server, server->cur_args)) == 0)
 		return 0;
-	if (ret < 0)
+	if (ret < 0) {
 		i_error("command %s failed", server->cur_cmd->name);
+		return -1;
+	}
 
 	server->cur_cmd = NULL;
 	server->cur_args = NULL;

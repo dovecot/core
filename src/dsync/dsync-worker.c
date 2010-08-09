@@ -228,7 +228,9 @@ void dsync_worker_msg_save(struct dsync_worker *worker,
 			   void *context)
 {
 	if (!worker->readonly) {
-		if (!worker->failed) T_BEGIN {
+		if (worker->failed)
+			callback(context);
+		else T_BEGIN {
 			worker->v.msg_save(worker, msg, data,
 					   callback, context);
 		} T_END;
