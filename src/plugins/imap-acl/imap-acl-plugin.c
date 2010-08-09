@@ -177,6 +177,41 @@ imap_acl_write_right(string_t *dest, string_t *tmp,
 	imap_acl_write_rights_list(dest, rights);
 }
 
+static bool
+acl_rights_is_owner(struct acl_backend *backend,
+		    const struct acl_rights *rights)
+{
+	switch (rights->id_type) {
+	case ACL_ID_OWNER:
+		return TRUE;
+	case ACL_ID_USER:
+		return acl_backend_user_name_equals(backend,
+						    rights->identifier);
+	default:
+		return FALSE;
+	}
+}
+
+static bool have_positive_owner_rights(struct acl_backend *backend,
+				       struct acl_object *aclobj)
+{
+	struct acl_object_list_iter *iter;
+	struct acl_rights rights;
+	bool ret = FALSE;
+
+	iter = acl_object_list_init(aclobj);
+	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+		if (acl_rights_is_owner(backend, &rights)) {
+			if (rights.rights != NULL) {
+				ret = TRUE;
+				break;
+			}
+		}
+	}
+	acl_object_list_deinit(&iter);
+	return ret;
+}
+
 static int
 imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 		      struct acl_object *aclobj, bool convert_owner,
@@ -187,7 +222,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 	string_t *tmp;
 	const char *username;
 	unsigned int orig_len = str_len(dest);
-	bool owner, seen_owner = FALSE, seen_positive_owner = FALSE;
+	bool seen_owner = FALSE, seen_positive_owner = FALSE;
 	int ret;
 
 	username = acl_backend_get_acl_username(backend);
@@ -197,20 +232,11 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 	tmp = t_str_new(128);
 	iter = acl_object_list_init(aclobj);
 	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
-		if (rights.id_type == ACL_ID_USER &&
-		    acl_backend_user_name_equals(backend, rights.identifier))
-			owner = TRUE;
-		else if (rights.id_type == ACL_ID_OWNER) {
-			owner = TRUE;
-			if (convert_owner) {
+		if (acl_rights_is_owner(backend, &rights)) {
+			if (rights.id_type == ACL_ID_OWNER && convert_owner) {
 				rights.id_type = ACL_ID_USER;
 				rights.identifier = username;
 			}
-		} else {
-			owner = FALSE;
-		}
-
-		if (owner) {
 			if (seen_owner && convert_owner) {
 				/* oops, we have both owner and user=myself.
 				   can't do the conversion, so try again. */
@@ -462,10 +488,13 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 	return 0;
 }
 
-static void imap_acl_update_ensure_keep_admins(struct acl_rights_update *update)
+static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
+					       struct acl_object *aclobj,
+					       struct acl_rights_update *update)
 {
 	static const char *acl_admin = MAIL_ACL_ADMIN;
 	const char *const *rights = update->rights.rights;
+	const char *const *default_rights;
 	ARRAY_TYPE(const_string) new_rights;
 	unsigned int i;
 
@@ -477,6 +506,18 @@ static void imap_acl_update_ensure_keep_admins(struct acl_rights_update *update)
 	}
 
 	switch (update->modify_mode) {
+	case ACL_MODIFY_MODE_ADD:
+		if (have_positive_owner_rights(backend, aclobj))
+			return;
+
+		/* adding initial rights for a user. we need to add
+		   the defaults also. don't worry about duplicates. */
+		for (; rights[i] != NULL; i++)
+			array_append(&new_rights, &rights[i], 1);
+		default_rights = acl_object_get_default_rights(aclobj);
+		for (i = 0; default_rights[i] != NULL; i++)
+			array_append(&new_rights, &default_rights[i], 1);
+		break;
 	case ACL_MODIFY_MODE_REMOVE:
 		if (rights[i] == NULL)
 			return;
@@ -504,6 +545,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct acl_backend *backend;
+	struct acl_object *aclobj;
 	struct acl_rights_update update;
 	struct acl_rights *r;
 	const char *mailbox, *identifier, *rights, *error;
@@ -560,6 +602,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		return TRUE;
 	}
 
+	aclobj = acl_mailbox_get_aclobj(box);
 	if (negative) {
 		update.neg_modify_mode = update.modify_mode;
 		update.modify_mode = ACL_MODIFY_MODE_REMOVE;
@@ -573,10 +616,10 @@ static bool cmd_setacl(struct client_command_context *cmd)
 			    ns->user->username) == 0))) {
 		/* make sure client doesn't (accidentally) remove admin
 		   privileges from its own mailboxes */
-		imap_acl_update_ensure_keep_admins(&update);
+		imap_acl_update_ensure_keep_admins(backend, aclobj, &update);
 	}
 
-	if (acl_object_update(acl_mailbox_get_aclobj(box), &update) < 0)
+	if (acl_object_update(aclobj, &update) < 0)
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
 	else
 		client_send_tagline(cmd, "OK Setacl complete.");
