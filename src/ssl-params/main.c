@@ -79,9 +79,10 @@ static void ssl_params_callback(const unsigned char *data, size_t size)
 	buffer_append(ssl_params, data, size);
 
 	if (!array_is_created(&delayed_fds)) {
-		/* master ran us at startup to make sure ssl parameters
-		   are generated asap. we may not be needed for a while
-		   (or ever), so kill ourself now. */
+		/* if we don't get client connections soon, it means master
+		   ran us at startup to make sure ssl parameters are generated
+		   asap. if we're here because of that, don't bother hanging
+		   around to see if we get any client connections. */
 		to_startup = timeout_add(STARTUP_IDLE_TIMEOUT_MSECS,
 					 master_service_stop, master_service);
 		return;
