@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 
 #define SSL_BUILD_PARAM_FNAME "ssl-parameters.dat"
+#define STARTUP_IDLE_TIMEOUT_MSECS 1000
 
 struct client {
 	int fd;
@@ -21,6 +22,7 @@ struct client {
 static ARRAY_DEFINE(delayed_fds, int);
 struct ssl_params *param;
 static buffer_t *ssl_params;
+static struct timeout *to_startup;
 
 static void client_deinit(struct ostream *output)
 {
@@ -56,6 +58,8 @@ static void client_handle(int fd)
 
 static void client_connected(struct master_service_connection *conn)
 {
+	if (to_startup != NULL)
+		timeout_remove(&to_startup);
 	master_service_client_connection_accept(conn);
 	if (ssl_params->used == 0) {
 		/* waiting for parameter building to finish */
@@ -74,8 +78,14 @@ static void ssl_params_callback(const unsigned char *data, size_t size)
 	buffer_set_used_size(ssl_params, 0);
 	buffer_append(ssl_params, data, size);
 
-	if (!array_is_created(&delayed_fds))
+	if (!array_is_created(&delayed_fds)) {
+		/* master ran us at startup to make sure ssl parameters
+		   are generated asap. we may not be needed for a while
+		   (or ever), so kill ourself now. */
+		to_startup = timeout_add(STARTUP_IDLE_TIMEOUT_MSECS,
+					 master_service_stop, master_service);
 		return;
+	}
 
 	array_foreach(&delayed_fds, fds)
 		client_handle(*fds);
@@ -108,6 +118,8 @@ static void main_init(const struct ssl_params_settings *set)
 static void main_deinit(void)
 {
 	ssl_params_deinit(&param);
+	if (to_startup != NULL)
+		timeout_remove(&to_startup);
 	if (array_is_created(&delayed_fds))
 		array_free(&delayed_fds);
 }
