@@ -70,9 +70,13 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 	if (ns == NULL)
 		return NULL;
 
-	if (status == MAILBOX_NAME_INVALID) {
+	switch (status) {
+	case MAILBOX_NAME_INVALID:
+	case MAILBOX_NAME_VALID:
 		client_fail_mailbox_name_status(cmd, name, NULL, status);
 		return NULL;
+	default:
+		break;
 	}
 
 	/* Force opening the mailbox so that we can give a nicer error message
