@@ -36,10 +36,7 @@ char *p_strdup(pool_t pool, const char *str)
 	if (str == NULL)
                 return NULL;
 
-	for (len = 0; (str)[len] != '\0'; )
-		len++;
-	len++;
-
+	len = strlen(str) + 1;
 	mem = p_malloc(pool, len);
 	memcpy(mem, str, len);
 	return mem;
