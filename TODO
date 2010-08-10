@@ -79,6 +79,7 @@
    along with "Indexed n% of the mailbox"?
  - how do shared mailboxes work with plugins?
     - lazy-expunge, fts, etc.?
+    - listescape+acl can't handle shared mailboxes with escape chars
  - dovecot-acl-list:
     - how does it work with global acls?
     - update immediately after SETACL: add/remove entries, update timestamps
