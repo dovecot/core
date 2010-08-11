@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <pwd.h>
 #include <sys/ioctl.h>
 #include <sys/inotify.h>
 
@@ -146,6 +147,23 @@ void io_loop_notify_remove(struct io *_io)
 		io_remove(&ctx->event_io);
 }
 
+static void ioloop_inotify_user_limit_exceeded(void)
+{
+	const struct passwd *pw;
+	const char *name;
+	uid_t uid = geteuid();
+
+	pw = getpwuid(uid);
+	if (pw == NULL)
+		name = t_strdup_printf("UID %s", dec2str(uid));
+	else {
+		name = t_strdup_printf("%s (UID %s)",
+				       dec2str(uid), pw->pw_name);
+	}
+	i_warning("Inotify instance limit for user %s exceeded, disabling. "
+		  "Increase /proc/sys/fs/inotify/max_user_instances", name);
+}
+
 static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 {
 	struct ioloop *ioloop = current_ioloop;
@@ -158,11 +176,8 @@ static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 	if (ctx->inotify_fd == -1) {
 		if (errno != EMFILE)
 			i_error("inotify_init() failed: %m");
-		else {
-			i_warning("Inotify instance limit for user exceeded, "
-				  "disabling. Increase "
-				  "/proc/sys/fs/inotify/max_user_instances");
-		}
+		else
+			ioloop_inotify_user_limit_exceeded();
 		ctx->disabled = TRUE;
 	} else {
 		fd_close_on_exec(ctx->inotify_fd, TRUE);
