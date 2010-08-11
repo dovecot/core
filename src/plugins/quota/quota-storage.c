@@ -327,6 +327,17 @@ static int quota_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 	return ret;
 }
 
+static void quota_mailbox_close(struct mailbox *box)
+{
+	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
+
+	/* sync_notify() may be called outside sync_begin()..sync_deinit().
+	   make sure we apply changes at close time at latest. */
+	quota_mailbox_sync_commit(qbox);
+
+	qbox->module_ctx.super.close(box);
+}
+
 static int
 quota_mailbox_delete_shrink_quota(struct mailbox *box)
 {
@@ -403,6 +414,7 @@ void quota_mailbox_allocated(struct mailbox *box)
 	v->copy = quota_copy;
 	v->sync_notify = quota_mailbox_sync_notify;
 	v->sync_deinit = quota_mailbox_sync_deinit;
+	v->close = quota_mailbox_close;
 	v->delete = quota_mailbox_delete;
 	v->free = quota_mailbox_free;
 	MODULE_CONTEXT_SET(box, quota_storage_module, qbox);
