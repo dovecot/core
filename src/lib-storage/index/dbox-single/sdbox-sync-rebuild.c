@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "dbox-sync-rebuild.h"
+#include "mail-cache.h"
 #include "sdbox-storage.h"
 #include "sdbox-file.h"
 #include "sdbox-sync.h"
@@ -175,6 +176,8 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force)
 			return 0;
 		}
 	}
+
+	mail_cache_reset(mbox->box.cache);
 
 	view = mail_index_view_open(mbox->box.index);
 	trans = mail_index_transaction_begin(view,
