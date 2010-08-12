@@ -71,20 +71,30 @@ static bool
 module_check_wrong_binary_dependency(const struct module_dir_load_settings *set,
 				     struct module *module)
 {
-	const char *symbol_name, *binary_dep;
+	const char *symbol_name, *binary_dep, *const *names;
+	string_t *errstr;
+
+	if (set->binary_name == NULL)
+		return TRUE;
 
 	symbol_name = t_strconcat(module->name, "_binary_dependency", NULL);
 	binary_dep = dlsym(module->handle, symbol_name);
 	if (binary_dep == NULL)
 		return TRUE;
 
-	if (set->binary_name == NULL ||
-	    strcmp(binary_dep, set->binary_name) == 0)
+	names = t_strsplit(binary_dep, " ");
+	if (str_array_find(names, set->binary_name))
 		return TRUE;
 
-	i_error("Can't load plugin %s: "
-		"Plugin is intended to be used only by %s binary (we're %s)",
-		module->name, binary_dep, set->binary_name);
+	errstr = t_str_new(128);
+	str_printfa(errstr, "Can't load plugin %s: "
+		    "Plugin is intended to be used only by ", module->name);
+	if (names[1] == NULL)
+		str_printfa(errstr, "%s binary", binary_dep);
+	else
+		str_printfa(errstr, "binaries: %s", binary_dep);
+	str_printfa(errstr, " (we're %s)", set->binary_name);
+	i_error("%s", str_c(errstr));
 	return FALSE;
 }
 
