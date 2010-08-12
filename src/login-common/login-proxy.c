@@ -202,6 +202,8 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
 	    rec->num_waiting_connections != 0) {
 		/* the server is down. fail immediately */
+		i_error("proxy(%s): Host %s:%u is down",
+			proxy->client->virtual_user, proxy->host, proxy->port);
 		login_proxy_free(&proxy);
 		return -1;
 	}

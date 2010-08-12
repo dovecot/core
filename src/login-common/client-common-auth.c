@@ -179,6 +179,13 @@ void client_proxy_failed(struct client *client, bool send_line)
 	client_auth_failed(client);
 }
 
+static const char *get_disconnect_reason(struct istream *input)
+{
+	errno = input->stream_errno;
+	return errno == 0 || errno == EPIPE ? "Connection closed" :
+		t_strdup_printf("Connection closed: %m");
+}
+
 static void proxy_input(struct client *client)
 {
 	struct istream *input;
@@ -209,7 +216,11 @@ static void proxy_input(struct client *client)
 		client_proxy_failed(client, TRUE);
 		return;
 	case -1:
-		client_log_err(client, "proxy: Remote disconnected");
+		client_log_err(client, t_strdup_printf(
+			"proxy: Remote %s:%u disconnected: %s",
+			login_proxy_get_host(client->login_proxy),
+			login_proxy_get_port(client->login_proxy),
+			get_disconnect_reason(input)));
 		client_proxy_failed(client, TRUE);
 		return;
 	}
