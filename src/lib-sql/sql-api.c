@@ -21,8 +21,25 @@ void sql_drivers_deinit(void)
 	array_free(&sql_drivers);
 }
 
+static const struct sql_db *sql_driver_lookup(const char *name)
+{
+	const struct sql_db *const *drivers;
+	unsigned int i, count;
+
+	drivers = array_get(&sql_drivers, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(drivers[i]->name, name) == 0)
+			return drivers[i];
+	}
+	return NULL;
+}
+
 void sql_driver_register(const struct sql_db *driver)
 {
+	if (sql_driver_lookup(driver->name) != NULL) {
+		i_fatal("sql_driver_register(%s): Already registered",
+			driver->name);
+	}
 	array_append(&sql_drivers, &driver, 1);
 }
 
@@ -40,19 +57,6 @@ void sql_driver_unregister(const struct sql_db *driver)
 	}
 }
 
-static const struct sql_db *sql_find_driver(const char *name)
-{
-	const struct sql_db *const *drivers;
-	unsigned int i, count;
-
-	drivers = array_get(&sql_drivers, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(drivers[i]->name, name) == 0)
-			return drivers[i];
-	}
-	return NULL;
-}
-
 struct sql_db *sql_init(const char *db_driver, const char *connect_string)
 {
 	const struct sql_db *driver;
@@ -60,7 +64,7 @@ struct sql_db *sql_init(const char *db_driver, const char *connect_string)
 
 	i_assert(connect_string != NULL);
 
-	driver = sql_find_driver(db_driver);
+	driver = sql_driver_lookup(db_driver);
 	if (driver == NULL)
 		i_fatal("Unknown database driver '%s'", db_driver);
 
