@@ -68,7 +68,7 @@ mdbox_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 	struct dbox_metadata_header meta_hdr;
 	const char *line;
 	const unsigned char *data;
-	size_t size;
+	size_t size, buf_size;
 	int ret;
 
 	ret = i_stream_read_data(file->input, &data, &size,
@@ -93,6 +93,9 @@ mdbox_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 	i_stream_skip(file->input, sizeof(meta_hdr));
 	if (output != NULL)
 		o_stream_send(output, &meta_hdr, sizeof(meta_hdr));
+
+	buf_size = i_stream_get_max_buffer_size(file->input);
+	i_stream_set_max_buffer_size(file->input, 0);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
@@ -103,6 +106,8 @@ mdbox_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 			o_stream_send(output, "\n", 1);
 		}
 	}
+	i_stream_set_max_buffer_size(file->input, buf_size);
+
 	if (line == NULL) {
 		dbox_file_set_corrupted(file, "missing end-of-metadata line");
 		return 0;
