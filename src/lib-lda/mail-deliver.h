@@ -69,4 +69,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 int mail_deliver(struct mail_deliver_context *ctx,
 		 struct mail_storage **storage_r);
 
+/* Sets the deliver_mail hook and returns the previous hook,
+   which the new_hook should call if it's non-NULL. */
+deliver_mail_func_t *mail_deliver_hook_set(deliver_mail_func_t *new_hook);
+
 #endif

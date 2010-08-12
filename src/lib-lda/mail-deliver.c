@@ -296,3 +296,11 @@ int mail_deliver(struct mail_deliver_context *ctx,
 	}
 	return ret;
 }
+
+deliver_mail_func_t *mail_deliver_hook_set(deliver_mail_func_t *new_hook)
+{
+	deliver_mail_func_t *old_hook = deliver_mail;
+
+	deliver_mail = new_hook;
+	return old_hook;
+}
