@@ -126,6 +126,12 @@ static int unlink_directory_r(const char *dir)
 					}
 					errno = 0;
 				}
+			} else if (old_errno == EBUSY &&
+				   strncmp(d->d_name, ".nfs", 4) == 0) {
+				/* can't delete NFS files that are still
+				   in use. let the caller decide if this error
+				   is worth logging about */
+				break;
 			} else {
                                 /* so it wasn't a directory */
 				errno = old_errno;
