@@ -105,7 +105,8 @@ int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 		}
 	}
 
-	if (unlink_directory(trash_dir, TRUE) < 0 && errno != ENOTEMPTY) {
+	if (unlink_directory(trash_dir, TRUE) < 0 &&
+	    errno != ENOTEMPTY && errno != EBUSY) {
 		mailbox_list_set_critical(list,
 			"unlink_directory(%s) failed: %m", trash_dir);
 
