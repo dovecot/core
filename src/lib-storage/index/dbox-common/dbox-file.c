@@ -210,7 +210,7 @@ static int dbox_file_open_full(struct dbox_file *file, bool try_altpath,
 		}
 	}
 
-	file->input = i_stream_create_fd(file->fd, 0, FALSE);
+	file->input = i_stream_create_fd(file->fd, DBOX_READ_BLOCK_SIZE, FALSE);
 	i_stream_set_name(file->input, file->cur_path);
 	i_stream_set_init_buffer_size(file->input, DBOX_READ_BLOCK_SIZE);
 	return dbox_file_read_header(file);
@@ -405,6 +405,7 @@ static int
 dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 {
 	const char *line;
+	size_t buf_size;
 	int ret;
 
 	i_stream_seek(file->input, *offset);
@@ -412,12 +413,15 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 		return ret;
 
 	/* skip over the actual metadata */
+	buf_size = i_stream_get_max_buffer_size(file->input);
+	i_stream_set_max_buffer_size(file->input, 0);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
 			break;
 		}
 	}
+	i_stream_set_max_buffer_size(file->input, buf_size);
 	*offset = file->input->v_offset;
 	return 1;
 }
@@ -626,6 +630,7 @@ static int
 dbox_file_metadata_read_at(struct dbox_file *file, uoff_t metadata_offset)
 {
 	const char *line;
+	size_t buf_size;
 	int ret;
 
 	if (file->metadata_pool != NULL)
@@ -641,6 +646,8 @@ dbox_file_metadata_read_at(struct dbox_file *file, uoff_t metadata_offset)
 		return ret;
 
 	ret = 0;
+	buf_size = i_stream_get_max_buffer_size(file->input);
+	i_stream_set_max_buffer_size(file->input, 0);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
@@ -650,6 +657,7 @@ dbox_file_metadata_read_at(struct dbox_file *file, uoff_t metadata_offset)
 		line = p_strdup(file->metadata_pool, line);
 		array_append(&file->metadata, &line, 1);
 	}
+	i_stream_set_max_buffer_size(file->input, buf_size);
 	if (ret == 0)
 		dbox_file_set_corrupted(file, "missing end-of-metadata line");
 	return ret;

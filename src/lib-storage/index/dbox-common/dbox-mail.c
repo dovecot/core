@@ -239,6 +239,7 @@ int dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			return -1;
 		}
 		data->stream = input;
+		index_mail_set_read_buffer_size(_mail, input);
 	}
 
 	return index_mail_init_stream(&mail->imail, hdr_size, body_size,
