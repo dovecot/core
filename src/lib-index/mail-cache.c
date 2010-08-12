@@ -25,14 +25,18 @@ static void mail_cache_unlink(struct mail_cache *cache)
 		(void)unlink(cache->filepath);
 }
 
+void mail_cache_reset(struct mail_cache *cache)
+{
+	mail_cache_unlink(cache);
+	/* mark the cache as unusable */
+	cache->hdr = NULL;
+}
+
 void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 {
 	va_list va;
 
-	mail_cache_unlink(cache);
-
-	/* mark the cache as unusable */
-	cache->hdr = NULL;
+	mail_cache_reset(cache);
 
 	va_start(va, fmt);
 	T_BEGIN {
