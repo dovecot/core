@@ -80,6 +80,11 @@ void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size)
 	io_stream_set_max_buffer_size(&stream->real_stream->iostream, max_size);
 }
 
+size_t i_stream_get_max_buffer_size(struct istream *stream)
+{
+	return stream->real_stream->max_buffer_size;
+}
+
 void i_stream_set_return_partial_line(struct istream *stream, bool set)
 {
 	stream->real_stream->return_nolf_line = set;

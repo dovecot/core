@@ -72,6 +72,8 @@ void i_stream_set_init_buffer_size(struct istream *stream, size_t size);
 /* Change the maximum size for stream's input buffer to grow. Useful only
    for buffered streams (currently only file). */
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size);
+/* Returns the current max. buffer size. */
+size_t i_stream_get_max_buffer_size(struct istream *stream);
 /* Enable/disable i_stream[_read]_next_line() returning the last line if it
    doesn't end with LF. */
 void i_stream_set_return_partial_line(struct istream *stream, bool set);
