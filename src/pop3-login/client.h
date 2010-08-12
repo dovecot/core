@@ -15,8 +15,6 @@ enum pop3_proxy_state {
 struct pop3_client {
 	struct client common;
 
-	enum pop3_proxy_state proxy_state;
-
 	char *last_user;
 	char *apop_challenge;
 	unsigned int apop_server_pid, apop_connect_uid;

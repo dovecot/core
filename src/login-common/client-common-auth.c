@@ -217,10 +217,10 @@ static void proxy_input(struct client *client)
 		return;
 	case -1:
 		client_log_err(client, t_strdup_printf(
-			"proxy: Remote %s:%u disconnected: %s",
+			"proxy: Remote %s:%u disconnected: %s (state=%u)",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
-			get_disconnect_reason(input)));
+			get_disconnect_reason(input), client->proxy_state));
 		client_proxy_failed(client, TRUE);
 		return;
 	}

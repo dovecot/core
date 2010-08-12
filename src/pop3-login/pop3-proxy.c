@@ -48,7 +48,7 @@ static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 		str_append(str, "AUTH PLAIN\r\n");
 	}
 	(void)o_stream_send(output, str_data(str), str_len(str));
-	client->proxy_state = POP3_PROXY_LOGIN1;
+	client->common.proxy_state = POP3_PROXY_LOGIN1;
 }
 
 int pop3_proxy_parse_line(struct client *client, const char *line)
@@ -61,7 +61,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	i_assert(!client->destroyed);
 
 	output = login_proxy_get_ostream(client->login_proxy);
-	switch (pop3_client->proxy_state) {
+	switch (client->proxy_state) {
 	case POP3_PROXY_BANNER:
 		/* this is a banner */
 		if (strncmp(line, "+OK", 3) != 0) {
@@ -77,7 +77,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			proxy_send_login(pop3_client, output);
 		} else {
 			(void)o_stream_send_str(output, "STLS\r\n");
-			pop3_client->proxy_state = POP3_PROXY_STARTTLS;
+			client->proxy_state = POP3_PROXY_STARTTLS;
 		}
 		return 0;
 	case POP3_PROXY_STARTTLS:
@@ -115,7 +115,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		}
 		(void)o_stream_send(output, str_data(str), str_len(str));
 		proxy_free_password(client);
-		pop3_client->proxy_state = POP3_PROXY_LOGIN2;
+		client->proxy_state = POP3_PROXY_LOGIN2;
 		return 0;
 	case POP3_PROXY_LOGIN2:
 		if (strncmp(line, "+OK", 3) != 0)
@@ -162,7 +162,5 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 
 void pop3_proxy_reset(struct client *client)
 {
-	struct pop3_client *pop3_client = (struct pop3_client *)client;
-
-	pop3_client->proxy_state = POP3_PROXY_BANNER;
+	client->proxy_state = POP3_PROXY_BANNER;
 }

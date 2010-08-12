@@ -17,6 +17,16 @@
 
 #include <stdlib.h>
 
+enum imap_proxy_state {
+	IMAP_PROXY_STATE_NONE,
+	IMAP_PROXY_STATE_BANNER,
+	IMAP_PROXY_STATE_ID,
+	IMAP_PROXY_STATE_STARTTLS,
+	IMAP_PROXY_STATE_CAPABILITY,
+	IMAP_PROXY_STATE_AUTH_CONTINUE,
+	IMAP_PROXY_STATE_LOGIN
+};
+
 static void proxy_write_id(struct imap_client *client, string_t *str)
 {
 	str_printfa(str, "I ID ("
@@ -164,6 +174,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	output = login_proxy_get_ostream(client->login_proxy);
 	if (!imap_client->proxy_seen_banner) {
 		/* this is a banner */
+		client->proxy_state = IMAP_PROXY_STATE_BANNER;
 		imap_client->proxy_seen_banner = TRUE;
 		if (proxy_input_banner(imap_client, output, line) < 0) {
 			client_proxy_failed(client, TRUE);
@@ -176,6 +187,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			/* used literals with LOGIN command, just ignore. */
 			return 0;
 		}
+		client->proxy_state = IMAP_PROXY_STATE_AUTH_CONTINUE;
 		imap_client->proxy_wait_auth_continue = FALSE;
 
 		str = t_str_new(128);
@@ -195,6 +207,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		}
 		/* STARTTLS successful, begin TLS negotiation. */
+		client->proxy_state = IMAP_PROXY_STATE_STARTTLS;
 		if (login_proxy_starttls(client->login_proxy) < 0) {
 			client_proxy_failed(client, TRUE);
 			return -1;
@@ -207,6 +220,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 1;
 	} else if (strncmp(line, "L OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
+		client->proxy_state = IMAP_PROXY_STATE_LOGIN;
 		str = t_str_new(128);
 		client_send_login_reply(imap_client, str, line + 5);
 		(void)o_stream_send(client->output,
@@ -258,10 +272,12 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	} else if (strncmp(line, "C ", 2) == 0) {
 		/* Reply to CAPABILITY command we sent, ignore it */
+		client->proxy_state = IMAP_PROXY_STATE_CAPABILITY;
 		return 0;
 	} else if (strncasecmp(line, "I ", 2) == 0 ||
 		   strncasecmp(line, "* ID ", 5) == 0) {
 		/* Reply to ID command we sent, ignore it */
+		client->proxy_state = IMAP_PROXY_STATE_ID;
 		return 0;
 	} else if (strncmp(line, "* ", 2) == 0) {
 		/* untagged reply. just foward it. */
@@ -283,4 +299,5 @@ void imap_proxy_reset(struct client *client)
 	imap_client->proxy_sasl_ir = FALSE;
 	imap_client->proxy_seen_banner = FALSE;
 	imap_client->proxy_wait_auth_continue = FALSE;
+	client->proxy_state = IMAP_PROXY_STATE_NONE;
 }
