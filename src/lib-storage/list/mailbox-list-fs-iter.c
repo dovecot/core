@@ -407,17 +407,21 @@ static void inbox_flags_set(struct fs_list_iterate_context *ctx)
 	}
 }
 
-static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
+static const char *
+fs_list_get_inbox_vname(struct fs_list_iterate_context *ctx)
 {
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 
-	ctx->info.flags = 0;
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
-		ctx->info.name = "INBOX";
-	else {
-		ctx->info.name = p_strconcat(ctx->info_pool,
-					     ns->prefix, "INBOX", NULL);
-	}
+		return "INBOX";
+	else
+		return p_strconcat(ctx->info_pool, ns->prefix, "INBOX", NULL);
+}
+
+static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
+{
+	ctx->info.flags = 0;
+	ctx->info.name = fs_list_get_inbox_vname(ctx);
 
 	if (mailbox_list_mailbox(ctx->ctx.list, "INBOX", &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
@@ -799,7 +803,8 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 	if (!ctx->inbox_found &&
 	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 	    ((ctx->glob != NULL &&
-	      imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES) ||
+	      imap_match(ctx->glob,
+			 fs_list_get_inbox_vname(ctx)) == IMAP_MATCH_YES) ||
 	     ctx->inbox_match)) {
 		/* INBOX wasn't seen while listing other mailboxes. It might
 		   be located elsewhere. */
