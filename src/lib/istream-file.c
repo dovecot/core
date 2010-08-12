@@ -172,6 +172,7 @@ i_stream_create_file_common(int fd, size_t max_buffer_size, bool autoclose_fd)
 {
 	struct file_istream *fstream;
 	struct stat st;
+	bool is_file;
 
 	fstream = i_new(struct file_istream, 1);
 	fstream->autoclose_fd = autoclose_fd;
@@ -184,7 +185,21 @@ i_stream_create_file_common(int fd, size_t max_buffer_size, bool autoclose_fd)
 	fstream->istream.stat = i_stream_file_stat;
 
 	/* if it's a file, set the flags properly */
-	if (fd == -1 || (fstat(fd, &st) == 0 && S_ISREG(st.st_mode))) {
+	if (fd == -1)
+		is_file = TRUE;
+	else if (fstat(fd, &st) < 0)
+		is_file = FALSE;
+	else if (S_ISREG(st.st_mode))
+		is_file = TRUE;
+	else if (!S_ISDIR(st.st_mode))
+		is_file = FALSE;
+	else {
+		/* we're trying to open a directory.
+		   we're not designed for it. */
+		fstream->istream.istream.stream_errno = EISDIR;
+		is_file = FALSE;
+	}
+	if (is_file) {
 		fstream->file = TRUE;
 		fstream->istream.istream.blocking = TRUE;
 		fstream->istream.istream.seekable = TRUE;
