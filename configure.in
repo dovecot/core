@@ -1696,6 +1696,9 @@ if test $want_openssl != no && test $have_ssl = no; then
     AC_CHECK_LIB(ssl, SSL_get_current_compression, [
       AC_DEFINE(HAVE_SSL_COMPRESSION,, Build with OpenSSL compression)
     ],, $SSL_LIBS)
+    AC_CHECK_LIB(ssl, SSL_get_servername, [
+      AC_DEFINE(HAVE_SSL_GET_SERVERNAME,, Build with TLS hostname support)
+    ],, $SSL_LIBS)
   fi
 fi
 

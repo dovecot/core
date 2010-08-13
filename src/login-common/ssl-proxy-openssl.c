@@ -31,6 +31,10 @@
 
 #define SSL_PARAMETERS_PATH "ssl-params"
 
+#ifndef SSL_CTRL_SET_TLSEXT_HOSTNAME /* FIXME: this may be unnecessary.. */
+#  undef HAVE_SSL_GET_SERVERNAME
+#endif
+
 enum ssl_io_action {
 	SSL_ADD_INPUT,
 	SSL_REMOVE_INPUT,
@@ -1062,7 +1066,7 @@ end:
 	return ret;
 }
 
-#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+#ifdef HAVE_SSL_GET_SERVERNAME
 static void ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 				    void *context ATTR_UNUSED)
 {
@@ -1116,7 +1120,7 @@ ssl_server_context_init(const struct login_settings *set)
 			ssl_proxy_get_use_certificate_error(ctx->cert));
 	}
 
-#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+#ifdef HAVE_SSL_GET_SERVERNAME
 	if (SSL_CTX_set_tlsext_servername_callback(ctx->ctx,
 						   ssl_servername_callback) != 1) {
 		if (set->verbose_ssl)
