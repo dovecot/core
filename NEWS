@@ -1,3 +1,8 @@
+v2.0.rc6 2010-08-13  Timo Sirainen <tss@iki.fi>
+
+	- dict quota didn't always decrease quota when messages were expunged
+	- Shared INBOX wasn't always listed with FS layout
+
 v2.0.rc5 2010-08-09  Timo Sirainen <tss@iki.fi>
 
 	- Using more than 2 plugins could have caused broken behavior
