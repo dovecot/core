@@ -1,3 +1,29 @@
+v2.0.0 2010-08-16  Timo Sirainen <tss@iki.fi>
+
+	* Dovecot uses two system users for internal purposes now by default:
+	  dovenull and dovecot. You need to create the dovenull user or change
+	  default_login_user setting.
+	* Global ACLs are now looked up using namespace prefixes. For example
+	  if you previously had INBOX. namespace prefix and a global ACL for
+	  "INBOX.Sent", it's now looked up from "INBOX.Sent" file instead of
+	  "Sent" as before.
+	* Maildir: File permissions are no longer based on dovecot-shared file,
+	  but the mailbox directory.
+
+	+ Redesigned master process. It's now more modular and there is less
+	  code running as root.
+	+ Configuration supports now per-local/remote ip/network settings.
+	+ dsync utility does a two-way mailbox synchronization.
+	+ LMTP server and proxying.
+	+ Added mdbox (multi-dbox) mail storage backend.
+	+ doveadm utility can be used to do all kinds of administration
+	  functions. Old dovecotpw and *view utilities now exist in its
+	  subcommands.
+	+ imap and pop3 processes can now handle multiple connections.
+	+ IMAP: COMPRESS=DEFLATE is supported by imap_zlib plugin
+	+ director service helps NFS installations to redirect users always
+	  to same server to avoid corruption
+
 v2.0.rc6 2010-08-13  Timo Sirainen <tss@iki.fi>
 
 	- dict quota didn't always decrease quota when messages were expunged
@@ -58,26 +84,7 @@ v2.0.rc2 2010-07-09  Timo Sirainen <tss@iki.fi>
 
 v2.0.rc1 2010-07-02  Timo Sirainen <tss@iki.fi>
 
-	* Global ACLs are now looked up using namespace prefixes. For example
-	  if you previously had INBOX. namespace prefix and a global ACL for
-	  "INBOX.Sent", it's now looked up from "INBOX.Sent" file instead of
-	  "Sent" as before.
-	* Maildir: File permissions are no longer based on dovecot-shared file,
-	  but the mailbox directory.
-
-	+ Redesigned master process. It's now more modular and there is less
-	  code running as root.
-	+ Configuration supports now per-local/remote ip/network settings.
-	+ dsync utility does a two-way mailbox synchronization.
-	+ LMTP server and proxying.
-	+ Added mdbox (multi-dbox) mail storage backend.
-	+ doveadm utility can be used to do all kinds of administration
-	  functions. Old dovecotpw and *view utilities now exist in its
-	  subcommands.
-	+ imap and pop3 processes can now handle multiple connections.
-	+ IMAP: COMPRESS=DEFLATE is supported by imap_zlib plugin
-	+ director service helps NFS installations to redirect users always
-	  to same server to avoid corruption
+	* See v2.0.0 notes
 
 v1.2.6 2009-10-05  Timo Sirainen <tss@iki.fi>
 
