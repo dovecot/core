@@ -2,6 +2,12 @@
 #define SERVICE_SETTINGS_H
 
 /* <settings checks> */
+enum service_user_default {
+	SERVICE_USER_DEFAULT_NONE = 0,
+	SERVICE_USER_DEFAULT_INTERNAL,
+	SERVICE_USER_DEFAULT_LOGIN
+};
+
 enum service_type {
 	SERVICE_TYPE_UNKNOWN,
 	SERVICE_TYPE_LOG,
@@ -55,6 +61,7 @@ struct service_settings {
 	/* internal to master: */
 	struct master_settings *master_set;
 	enum service_type parsed_type;
+	enum service_user_default user_default;
 	unsigned int login_dump_core:1;
 };
 ARRAY_DEFINE_TYPE(service_settings, struct service_settings *);

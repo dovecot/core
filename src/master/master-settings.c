@@ -239,15 +239,21 @@ const struct setting_parser_info master_setting_parser_info = {
 
 /* <settings checks> */
 static void
-expand_user(const char **user, const struct master_settings *set)
+expand_user(const char **user, enum service_user_default *default_r,
+	    const struct master_settings *set)
 {
 	/* $variable expansion is typically done by doveconf, but these
 	   variables can come from built-in settings, so we need to expand
 	   them here */
-	if (strcmp(*user, "$default_internal_user") == 0)
+	if (strcmp(*user, "$default_internal_user") == 0) {
 		*user = set->default_internal_user;
-	else if (strcmp(*user, "$default_login_user") == 0)
+		*default_r = SERVICE_USER_DEFAULT_INTERNAL;
+	} else if (strcmp(*user, "$default_login_user") == 0) {
 		*user = set->default_login_user;
+		*default_r = SERVICE_USER_DEFAULT_LOGIN;
+	} else {
+		*default_r = SERVICE_USER_DEFAULT_NONE;
+	}
 }
 
 static void
@@ -257,6 +263,7 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 {
 	struct file_listener_settings *const *sets;
 	unsigned int base_dir_len = strlen(master_set->base_dir);
+	enum service_user_default user_default;
 
 	if (!array_is_created(l))
 		return;
@@ -264,7 +271,7 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 	array_foreach(l, sets) {
 		struct file_listener_settings *set = *sets;
 
-		expand_user(&set->user, master_set);
+		expand_user(&set->user, &user_default, master_set);
 		if (*set->path != '/') {
 			set->path = p_strconcat(pool, master_set->base_dir, "/",
 						set->path, NULL);
@@ -401,7 +408,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				return FALSE;
 			}
 		}
-		expand_user(&service->user, set);
+		expand_user(&service->user, &service->user_default, set);
 		service_set_login_dump_core(service);
 	}
 	set->protocols_split = p_strsplit_spaces(pool, set->protocols, " ");

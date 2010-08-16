@@ -38,6 +38,7 @@ service_create_file_listener(struct service *service,
 			     const char **error_r)
 {
 	struct service_listener *l;
+	const char *set_name;
 	gid_t gid;
 
 	l = p_new(service->list->pool, struct service_listener, 1);
@@ -47,10 +48,18 @@ service_create_file_listener(struct service *service,
 	l->set.fileset.set = set;
 
 	if (get_uidgid(set->user, &l->set.fileset.uid, &gid, error_r) < 0)
-		return NULL;
-	if (get_gid(set->group, &l->set.fileset.gid, error_r) < 0)
-		return NULL;
-	return l;
+		set_name = "user";
+	else if (get_gid(set->group, &l->set.fileset.gid, error_r) < 0)
+		set_name = "group";
+	else
+		return l;
+
+	*error_r = t_strdup_printf(
+		"%s (See service %s { %s_listener %s { %s } } setting)",
+		*error_r, service->set->name,
+		type == SERVICE_LISTENER_UNIX ? "unix" : "fifo",
+		set->path, set_name);
+	return NULL;
 }
 
 static int
@@ -169,6 +178,26 @@ service_create_inet_listeners(struct service *service,
 	return 0;
 }
 
+static int service_get_groups(const char *groups, pool_t pool,
+			      const char **gids_r, const char **error_r)
+{
+	const char *const *tmp;
+	string_t *str;
+	gid_t gid;
+
+	str = t_str_new(64);
+	for (tmp = t_strsplit(groups, ","); *tmp != NULL; tmp++) {
+		if (get_gid(*tmp, &gid, error_r) < 0)
+			return -1;
+
+		if (str_len(str) > 0)
+			str_append_c(str, ',');
+		str_append(str, dec2str(gid));
+	}
+	*gids_r = p_strdup(pool, str_c(str));
+	return 0;
+}
+
 static struct service *
 service_create(pool_t pool, const struct service_settings *set,
 	       struct service_list *service_list, const char **error_r)
@@ -178,8 +207,6 @@ service_create(pool_t pool, const struct service_settings *set,
 	struct inet_listener_settings *const *inet_listeners;
 	struct service *service;
         struct service_listener *l;
-	const char *const *tmp;
-	string_t *str;
 	unsigned int i, unix_count, fifo_count, inet_count;
 
 	service = p_new(pool, struct service, 1);
@@ -215,30 +242,48 @@ service_create(pool_t pool, const struct service_settings *set,
 	}
 
 	/* default gid to user's primary group */
-	if (get_uidgid(set->user, &service->uid, &service->gid, error_r) < 0)
+	if (get_uidgid(set->user, &service->uid, &service->gid, error_r) < 0) {
+		switch (set->user_default) {
+		case SERVICE_USER_DEFAULT_NONE:
+			*error_r = t_strdup_printf(
+				"%s (See service %s { user } setting)",
+				*error_r, set->name);
+			break;
+		case SERVICE_USER_DEFAULT_INTERNAL:
+			*error_r = t_strconcat(*error_r,
+				" (See default_internal_user setting)", NULL);
+			break;
+		case SERVICE_USER_DEFAULT_LOGIN:
+			*error_r = t_strconcat(*error_r,
+				" (See default_login_user setting)", NULL);
+			break;
+		}
 		return NULL;
+	}
 	if (*set->group != '\0') {
-		if (get_gid(set->group, &service->gid, error_r) < 0)
+		if (get_gid(set->group, &service->gid, error_r) < 0) {
+			*error_r = t_strdup_printf(
+				"%s (See service %s { group } setting)",
+				*error_r, set->name);
 			return NULL;
+		}
 	}
 	if (get_gid(set->privileged_group, &service->privileged_gid,
-		    error_r) < 0)
+		    error_r) < 0) {
+		*error_r = t_strdup_printf(
+			"%s (See service %s { privileged_group } setting)",
+			*error_r, set->name);
 		return NULL;
+	}
 
 	if (*set->extra_groups != '\0') {
-		str = t_str_new(64);
-		tmp = t_strsplit(set->extra_groups, ",");
-		for (; *tmp != NULL; tmp++) {
-			gid_t gid;
-
-			if (get_gid(*tmp, &gid, error_r) < 0)
-				return NULL;
-
-			if (str_len(str) > 0)
-				str_append_c(str, ',');
-			str_append(str, dec2str(gid));
+		if (service_get_groups(set->extra_groups, pool,
+				       &service->extra_gids, error_r) < 0) {
+			*error_r = t_strdup_printf(
+				"%s (See service %s { extra_groups } setting)",
+				*error_r, set->name);
+			return NULL;
 		}
-		service->extra_gids = p_strdup(pool, str_c(str));
 	}
 
 	if (*set->executable == '/')
