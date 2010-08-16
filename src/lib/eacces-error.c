@@ -106,6 +106,8 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	if (pw != NULL) {
 		pw_name = t_strdup(pw->pw_name);
 		str_printfa(errmsg, "(%s)", pw_name);
+	} else {
+		str_append(errmsg, "(<unknown>)");
 	}
 
 	str_printfa(errmsg, " egid=%s", dec2str(getegid()));
@@ -113,6 +115,8 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	if (group != NULL) {
 		gr_name = t_strdup(group->gr_name);
 		str_printfa(errmsg, "(%s)", gr_name);
+	} else {
+		str_append(errmsg, "(<unknown>)");
 	}
 
 	dir = "/"; memset(&dir_st, 0, sizeof(dir_st));
