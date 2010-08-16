@@ -2739,6 +2739,3 @@ echo "SQL drivers .... :$sql_drivers"
 if test "$not_sql_drivers" != ""; then
   echo "                 :$not_sql_drivers"
 fi
-
-echo
-echo "NOTE: This is the UNSTABLE development branch of Dovecot v2.0."
