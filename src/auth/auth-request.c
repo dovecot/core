@@ -172,6 +172,8 @@ void auth_request_export(struct auth_request *request,
 	}
 	auth_stream_reply_add(reply, "original_username",
 			      request->original_username);
+	auth_stream_reply_add(reply, "requested_login_user",
+			      request->requested_login_user);
 
 	if (request->local_ip.family != 0) {
 		auth_stream_reply_add(reply, "lip",
@@ -208,6 +210,8 @@ bool auth_request_import(struct auth_request *request,
 		request->master_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "original_username") == 0)
 		request->original_username = p_strdup(request->pool, value);
+	else if (strcmp(key, "requested_login_user") == 0)
+		request->requested_login_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "cert_username") == 0) {
 		if (request->set->ssl_username_from_cert) {
 			/* get username from SSL certificate. it overrides
