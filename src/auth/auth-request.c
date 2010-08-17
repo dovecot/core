@@ -949,7 +949,13 @@ bool auth_request_set_login_username(struct auth_request *request,
 
         request->requested_login_user =
                 auth_request_fix_username(request, username, error_r);
-	return request->requested_login_user != NULL;
+	if (request->requested_login_user == NULL)
+		return FALSE;
+
+	auth_request_log_debug(request, "auth",
+			       "Master user lookup for login: %s",
+			       request->requested_login_user);
+	return TRUE;
 }
 
 static void auth_request_validate_networks(struct auth_request *request,
