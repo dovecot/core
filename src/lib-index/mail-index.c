@@ -840,8 +840,10 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 			errstr = eacces_error_get(function, filepath);
 		return mail_index_set_error(index, "%s", errstr);
 	} else {
-		return mail_index_set_error(index, "%s failed with file %s: %m",
-					    function, filepath);
+		const char *suffix = errno != EFBIG ? "" :
+			" (process was started with ulimit -f limit)";
+		return mail_index_set_error(index, "%s failed with file %s: "
+					    "%m%s", function, filepath, suffix);
 	}
 }
 
