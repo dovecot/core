@@ -322,9 +322,11 @@ is_valid_utf8_seq(const unsigned char *input, unsigned int size)
 	if (unlikely(len > size || len == 1))
 		return 0;
 
+	/* the rest of the chars should be in 0x80..0xbf range.
+	   anything else is start of a sequence or invalid */
 	for (i = 1; i < len; i++) {
 		if (unlikely(uni_utf8_char_bytes(input[i]) != len-i ||
-			     input[i] < 192-2))
+			     input[i] < 0x80 || input[i] >= 0xbf))
 			return 0;
 	}
 	return len;
