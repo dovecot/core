@@ -812,16 +812,8 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 int mail_index_set_syscall_error(struct mail_index *index,
 				 const char *function)
 {
-	i_assert(function != NULL);
-
-	if (ENOSPACE(errno)) {
-		index->nodiskspace = TRUE;
-		if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
-			return -1;
-	}
-
-	return mail_index_set_error(index, "%s failed with index file %s: %m",
-				    function, index->filepath);
+	return mail_index_file_set_syscall_error(index, index->filepath,
+						 function);
 }
 
 int mail_index_file_set_syscall_error(struct mail_index *index,
