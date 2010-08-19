@@ -44,9 +44,10 @@
 # TLS options, currently supported only with OpenLDAP:
 #tls_ca_cert_file =
 #tls_ca_cert_dir =
+#tls_cipher_suite =
+# TLS cert/key is used only if LDAP server requires a client certificate.
 #tls_cert_file =
 #tls_key_file =
-#tls_cipher_suite =
 # Valid values: never, hard, demand, allow, try
 #tls_require_cert =
 
