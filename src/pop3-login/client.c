@@ -138,6 +138,11 @@ static char *get_apop_challenge(struct pop3_client *client)
 	unsigned char buffer_base64[MAX_BASE64_ENCODED_SIZE(sizeof(buffer)) + 1];
 	buffer_t buf;
 
+	if (auth_client_find_mech(auth_client, "APOP") == NULL) {
+		/* disabled, no need to present the challenge */
+		return NULL;
+	}
+
 	auth_client_get_connect_id(auth_client, &client->apop_server_pid,
 				   &client->apop_connect_uid);
 
