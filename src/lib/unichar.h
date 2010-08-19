@@ -43,8 +43,9 @@ int uni_utf8_get_char_n(const void *input, size_t max_len, unichar_t *chr_r);
 /* Returns UTF-8 string length with maximum input size. */
 unsigned int uni_utf8_strlen_n(const void *input, size_t size) ATTR_PURE;
 
-/* Returns the number of bytes belonging to this partial UTF-8 character.
-   Invalid input is returned with length 1. */
+/* Returns the number of bytes belonging to this UTF-8 character. The given
+   parameter is the first byte of the UTF-8 sequence. Invalid input is
+   returned with length 1. */
 static inline unsigned int ATTR_CONST
 uni_utf8_char_bytes(char chr)
 {

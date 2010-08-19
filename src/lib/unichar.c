@@ -316,7 +316,7 @@ int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,
 static inline unsigned int
 is_valid_utf8_seq(const unsigned char *input, unsigned int size)
 {
-	size_t i, len;
+	unsigned int i, len;
 
 	len = uni_utf8_char_bytes(input[0]);
 	if (unlikely(len > size || len == 1))
@@ -325,8 +325,7 @@ is_valid_utf8_seq(const unsigned char *input, unsigned int size)
 	/* the rest of the chars should be in 0x80..0xbf range.
 	   anything else is start of a sequence or invalid */
 	for (i = 1; i < len; i++) {
-		if (unlikely(uni_utf8_char_bytes(input[i]) != len-i ||
-			     input[i] < 0x80 || input[i] >= 0xbf))
+		if (unlikely(input[i] < 0x80 || input[i] > 0xbf))
 			return 0;
 	}
 	return len;
