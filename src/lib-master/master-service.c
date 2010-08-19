@@ -709,16 +709,25 @@ static void master_service_listen(struct master_service_listener *l)
 	conn.listen_fd = l->fd;
 	conn.fd = net_accept(l->fd, &conn.remote_ip, &conn.remote_port);
 	if (conn.fd < 0) {
+		struct stat st;
+		int orig_errno = errno;
+
 		if (conn.fd == -1)
 			return;
 
-		if (errno != ENOTSOCK) {
+		if (errno == ENOTSOCK) {
+			/* it's not a socket. should be a fifo. */
+		} else if (errno == EINVAL &&
+			   (fstat(l->fd, &st) < 0 || !S_ISFIFO(st.st_mode))) {
+			/* BSDI fails accept(fifo) with EINVAL. */
+		} else {
+			errno = orig_errno;
 			i_error("net_accept() failed: %m");
 			master_service_error(service);
 			return;
 		}
-		/* it's not a socket. probably a fifo. use the "listener"
-		   as the connection fd and stop the listener. */
+		/* use the "listener" as the connection fd and stop the
+		   listener. */
 		conn.fd = l->fd;
 		conn.listen_fd = l->fd;
 		conn.fifo = TRUE;
