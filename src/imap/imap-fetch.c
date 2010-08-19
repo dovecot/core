@@ -150,6 +150,7 @@ static void
 expunges_drop_known(struct imap_fetch_context *ctx, struct mail *mail,
 		    ARRAY_TYPE(seq_range) *expunged_uids)
 {
+	struct mailbox_status status;
 	const uint32_t *seqs, *uids;
 	unsigned int i, count;
 
@@ -158,8 +159,10 @@ expunges_drop_known(struct imap_fetch_context *ctx, struct mail *mail,
 	i_assert(array_count(ctx->qresync_sample_uidset) == count);
 	i_assert(count > 0);
 
+	mailbox_get_status(ctx->box, STATUS_MESSAGES, &status);
+
 	/* FIXME: we could do removals from the middle as well */
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count && seqs[i] <= status.messages; i++) {
 		mail_set_seq(mail, seqs[i]);
 		if (uids[i] != mail->uid)
 			break;
