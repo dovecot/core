@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
+#include "unichar.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "solr-connection.h"
@@ -75,9 +76,25 @@ fts_box_get_root(struct mailbox *box, struct mail_namespace **ns_r)
 	return name;
 }
 
+static bool is_valid_xml_char(unichar_t chr)
+{
+	/* Valid characters in XML:
+
+	   #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] |
+	   [#x10000-#x10FFFF]
+
+	   This function gets called only for #x80 and higher */
+	if (chr > 0xd7ff && chr < 0xe000)
+		return FALSE;
+	if (chr > 0xfffd && chr < 0x10000)
+		return FALSE;
+	return chr < 0x10ffff;
+}
+
 static void
 xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
 {
+	unichar_t chr;
 	unsigned int i;
 
 	for (i = 0; i < len; i++) {
@@ -102,11 +119,26 @@ xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
 				/* SOLR doesn't like control characters.
 				   replace them with spaces. */
 				str_append_c(dest, ' ');
+			} else if (data[i] >= 0x80) {
+				/* make sure the character is valid for XML
+				   so we don't get XML parser errors */
+				unsigned int char_len =
+					uni_utf8_char_bytes(data[0]);
+				if (i + char_len <= len &&
+				    uni_utf8_get_char_n(data, len, &chr) == 0 &&
+				    is_valid_xml_char(chr))
+					str_append_n(dest, data + i, char_len);
+				else {
+					str_append_n(dest, utf8_replacement_char,
+						     UTF8_REPLACEMENT_CHAR_LEN);
+				}
+				i += char_len - 1;
 			} else {
 				str_append_c(dest, data[i]);
 			}
 			break;
 		}
+		i += uni_utf8_char_bytes(data[0]);
 	}
 }
 
