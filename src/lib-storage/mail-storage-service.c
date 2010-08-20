@@ -301,6 +301,7 @@ service_drop_privileges(const struct mail_user_settings *set,
 
 	current_euid = geteuid();
 	restrict_access_init(&rset);
+	restrict_access_get_env(&rset);
 	if (*set->mail_uid != '\0') {
 		if (!parse_uid(set->mail_uid, &rset.uid)) {
 			*error_r = t_strdup_printf("Unknown mail_uid user: %s",
@@ -341,8 +342,10 @@ service_drop_privileges(const struct mail_user_settings *set,
 			return -1;
 		}
 	}
-	if (*set->mail_access_groups != '\0')
-		rset.extra_groups = set->mail_access_groups;
+	if (*set->mail_access_groups != '\0') {
+		rset.extra_groups = t_strconcat(set->mail_access_groups, ",",
+						rset.extra_groups, NULL);
+	}
 
 	rset.first_valid_gid = set->first_valid_gid;
 	rset.last_valid_gid = set->last_valid_gid;
