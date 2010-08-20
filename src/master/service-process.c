@@ -166,11 +166,10 @@ drop_privileges(struct service *service)
 	}
 	rset.extra_groups = service->extra_gids;
 
+	restrict_access_set_env(&rset);
 	if (service->set->drop_priv_before_exec) {
 		disallow_root = service->type == SERVICE_TYPE_LOGIN;
 		restrict_access(&rset, NULL, disallow_root);
-	} else {
-		restrict_access_set_env(&rset);
 	}
 }
 
