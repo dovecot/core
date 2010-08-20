@@ -175,7 +175,6 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(SET_ENUM, ssl),
 	DEF(SET_STR, default_internal_user),
 	DEF(SET_STR, default_login_user),
-	DEF(SET_STR, default_mail_extra_groups),
 	DEF(SET_UINT, default_process_limit),
 	DEF(SET_UINT, default_client_limit),
 	DEF(SET_UINT, default_idle_kill),
@@ -203,7 +202,6 @@ static const struct master_settings master_default_settings = {
 	.ssl = "yes:no:required",
 	.default_internal_user = "dovecot",
 	.default_login_user = "dovenull",
-	.default_mail_extra_groups = "",
 	.default_process_limit = 100,
 	.default_client_limit = 1000,
 	.default_idle_kill = 60,
@@ -256,14 +254,6 @@ expand_user(const char **user, enum service_user_default *default_r,
 	} else {
 		*default_r = SERVICE_USER_DEFAULT_NONE;
 	}
-}
-
-static void
-expand_group(const char **group, const struct master_settings *set)
-{
-	/* same reason as expand_user() */
-	if (strcmp(*group, "$default_mail_extra_groups") == 0)
-		*group = set->default_mail_extra_groups;
 }
 
 static void
@@ -419,7 +409,6 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			}
 		}
 		expand_user(&service->user, &service->user_default, set);
-		expand_group(&service->extra_groups, set);
 		service_set_login_dump_core(service);
 	}
 	set->protocols_split = p_strsplit_spaces(pool, set->protocols, " ");

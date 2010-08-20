@@ -33,7 +33,7 @@ struct service_settings lmtp_login_service_settings = {
 	.user = "",
 	.group = "",
 	.privileged_group = "",
-	.extra_groups = "$default_mail_extra_groups",
+	.extra_groups = "",
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,

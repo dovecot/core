@@ -11,7 +11,6 @@ struct master_settings {
 	const char *ssl;
 	const char *default_internal_user;
 	const char *default_login_user;
-	const char *default_mail_extra_groups;
 	unsigned int default_process_limit;
 	unsigned int default_client_limit;
 	unsigned int default_idle_kill;
