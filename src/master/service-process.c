@@ -117,7 +117,11 @@ service_dup_fds(struct service *service)
 	}
 	dup2_append(&dups, service->status_fd[1], MASTER_STATUS_FD);
 
-	if (service->type != SERVICE_TYPE_LOG) {
+	if (service->type == SERVICE_TYPE_LOG) {
+		/* keep stderr as-is. this is especially important when
+		   log_path=/dev/stderr, but might be helpful even in other
+		   situations for logging startup errors */
+	} else {
 		/* set log file to stderr. dup2() here immediately so that
 		   we can set up logging to it without causing any log messages
 		   to be lost. */
@@ -127,8 +131,6 @@ service_dup_fds(struct service *service)
 		if (dup2(service->log_fd[1], STDERR_FILENO) < 0)
 			i_fatal("dup2(log fd) failed: %m");
 		i_set_failure_internal();
-	} else {
-		dup2_append(&dups, null_fd, STDERR_FILENO);
 	}
 
 	/* make sure we don't leak syslog fd. try to do it as late as possible,
