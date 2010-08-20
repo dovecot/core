@@ -10,6 +10,9 @@
 #define HANGUL_FIRST 0xac00
 #define HANGUL_LAST 0xd7a3
 
+const unsigned char utf8_replacement_char[UTF8_REPLACEMENT_CHAR_LEN] =
+	{ 0xef, 0xbf, 0xbd }; /* 0xfffd */
+
 static const uint8_t utf8_non1_bytes[256 - 192 - 2] = {
 	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
 	3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,6,6,1,1
@@ -269,18 +272,14 @@ static bool uni_ucs4_decompose_multi_utf8(unichar_t chr, buffer_t *output)
 
 static void output_add_replacement_char(buffer_t *output)
 {
-	/* 0xfffd */
-	static const unsigned char replacement_utf8[] = { 0xef, 0xbf, 0xbd };
-#define REPLACEMENT_UTF8_LEN 3
-
-	if (output->used >= REPLACEMENT_UTF8_LEN &&
+	if (output->used >= UTF8_REPLACEMENT_CHAR_LEN &&
 	    memcmp(CONST_PTR_OFFSET(output->data,
-				    output->used - REPLACEMENT_UTF8_LEN),
-		   replacement_utf8, REPLACEMENT_UTF8_LEN) == 0) {
+				    output->used - UTF8_REPLACEMENT_CHAR_LEN),
+		   utf8_replacement_char, UTF8_REPLACEMENT_CHAR_LEN) == 0) {
 		/* don't add the replacement char multiple times */
 		return;
 	}
-	buffer_append(output, replacement_utf8, REPLACEMENT_UTF8_LEN);
+	buffer_append(output, utf8_replacement_char, UTF8_REPLACEMENT_CHAR_LEN);
 }
 
 int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,

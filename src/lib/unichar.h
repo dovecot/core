@@ -22,9 +22,12 @@
 	(UTF16_SURROGATE_LOW_FIRST + \
 	 (((chr) - UTF16_SURROGATE_BASE) & UTF16_SURROGATE_MASK))
 
+#define UTF8_REPLACEMENT_CHAR_LEN 3
+
 typedef uint32_t unichar_t;
 ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
+extern const unsigned char utf8_replacement_char[UTF8_REPLACEMENT_CHAR_LEN];
 extern const uint8_t *const uni_utf8_non1_bytes;
 
 /* Returns number of characters in a NUL-terminated unicode string */
