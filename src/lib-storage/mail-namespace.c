@@ -105,19 +105,20 @@ namespace_add(struct mail_user *user,
 	if (ns_set->subscriptions)
 		ns->flags |= NAMESPACE_FLAG_SUBSCRIPTIONS;
 
+	if (*ns_set->location == '\0')
+		ns_set->location = mail_set->mail_location;
+
 	if (mail_set->mail_debug) {
 		i_debug("Namespace %s: type=%s, prefix=%s, sep=%s, "
-			"inbox=%s, hidden=%s, list=%s, subscriptions=%s",
+			"inbox=%s, hidden=%s, list=%s, subscriptions=%s "
+			"location=%s",
 			ns_set->name, ns_set->type, ns_set->prefix,
 			ns_set->separator == NULL ? "" : ns_set->separator,
 			ns_set->inbox ? "yes" : "no",
 			ns_set->hidden ? "yes" : "no",
 			ns_set->list,
-			ns_set->subscriptions ? "yes" : "no");
+			ns_set->subscriptions ? "yes" : "no", ns_set->location);
 	}
-
-	if (*ns_set->location == '\0')
-		ns_set->location = mail_set->mail_location;
 
 	ns->set = ns_set;
 	ns->unexpanded_set = unexpanded_ns_set;
