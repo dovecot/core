@@ -186,6 +186,7 @@ AC_ARG_WITH(ssl,
 		want_gnutls=no
 		want_openssl=no
 	elif test x$withval = xgnutls; then
+		AC_ERROR([GNUTLS support is broken currently])
 		want_gnutls=yes
 		want_openssl=no
 	elif test x$withval = xopenssl; then
