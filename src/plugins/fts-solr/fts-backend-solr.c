@@ -123,9 +123,9 @@ xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
 				/* make sure the character is valid for XML
 				   so we don't get XML parser errors */
 				unsigned int char_len =
-					uni_utf8_char_bytes(data[0]);
+					uni_utf8_char_bytes(data[i]);
 				if (i + char_len <= len &&
-				    uni_utf8_get_char_n(data, len, &chr) == 0 &&
+				    uni_utf8_get_char_n(data + i, char_len, &chr) == 1 &&
 				    is_valid_xml_char(chr))
 					str_append_n(dest, data + i, char_len);
 				else {
@@ -138,7 +138,6 @@ xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
 			}
 			break;
 		}
-		i += uni_utf8_char_bytes(data[0]);
 	}
 }
 
