@@ -57,6 +57,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 		if (unlikely(!buf->dynamic)) {
 			i_panic("Buffer full (%"PRIuSIZE_T" > %"PRIuSIZE_T", "
 				"pool %s)", pos + data_size, buf->alloc,
+				buf->pool == NULL ? "<none>" :
 				pool_get_name(buf->pool));
 		}
 
