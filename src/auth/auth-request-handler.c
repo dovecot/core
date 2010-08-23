@@ -66,10 +66,22 @@ void auth_request_handler_abort_requests(struct auth_request_handler *handler)
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct auth_request *auth_request = value;
 
-		auth_request_unref(&auth_request);
+		switch (auth_request->state) {
+		case AUTH_REQUEST_STATE_NEW:
+		case AUTH_REQUEST_STATE_MECH_CONTINUE:
+		case AUTH_REQUEST_STATE_FINISHED:
+			auth_request_unref(&auth_request);
+			hash_table_remove(handler->requests, key);
+			break;
+		case AUTH_REQUEST_STATE_PASSDB:
+		case AUTH_REQUEST_STATE_USERDB:
+			/* can't abort a pending passdb/userdb lookup */
+			break;
+		case AUTH_REQUEST_STATE_MAX:
+			i_unreached();
+		}
 	}
 	hash_table_iterate_deinit(&iter);
-	hash_table_clear(handler->requests, TRUE);
 }
 
 void auth_request_handler_unref(struct auth_request_handler **_handler)
