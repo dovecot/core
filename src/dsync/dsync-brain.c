@@ -804,6 +804,12 @@ static void dsync_brain_worker_finished(bool success, void *context)
 
 void dsync_brain_sync(struct dsync_brain *brain)
 {
+	if (dsync_worker_has_failed(brain->src_worker) ||
+	    dsync_worker_has_failed(brain->dest_worker)) {
+		/* we can't safely continue, especially with backup */
+		return;
+	}
+
 	if (brain->to != NULL)
 		timeout_remove(&brain->to);
 	switch (brain->state) {
