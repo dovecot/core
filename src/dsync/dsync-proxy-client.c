@@ -140,7 +140,9 @@ proxy_client_worker_msg_get_done(struct proxy_client_dsync_worker *worker)
 	while ((i_stream_read_data(input, &data, &size, 0)) > 0)
 		i_stream_skip(input, size);
 
-	/* some input may already be buffered */
+	/* some input may already be buffered. note that we may be coming here
+	   from the input function itself, in which case this timeout must not
+	   be called (we'll remove it later) */
 	if (worker->to_input == NULL) {
 		worker->to_input =
 			timeout_add(0, proxy_client_worker_input, worker);
@@ -313,6 +315,12 @@ static void proxy_client_worker_input(struct proxy_client_dsync_worker *worker)
 	if (ret < 0) {
 		/* try to continue */
 		proxy_client_worker_next_reply(worker, "");
+	}
+
+	if (worker->to_input != NULL) {
+		/* input stream's destroy callback was already called.
+		   don't get back here. */
+		timeout_remove(&worker->to_input);
 	}
 }
 
