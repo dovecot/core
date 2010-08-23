@@ -19,15 +19,56 @@ is Dovecot\(aqs mailbox synchronization utility.
 It can be used for several different use cases:
 Two\-way synchronization of mailboxes in different servers (via
 .BR ssh (1)),
-creating backups of mails to a remote server, and convert mailboxes
-from/to different mailbox formats.
+creating backups of mails to a remote server, and convert mailboxes from/to
+different mailbox formats.
 .PP
+The syncing is done as perfectly as possible: an IMAP or a POP3 client
+shouldn\(aqt be able to notice any differences between the two mailboxes.
+Two\-way syncing means that it\(aqs safe to do any kind of modifications in
+both sides, and
+.B dsync
+will merge the changes without losing any changes done on either side. This
+is possible because
+.B dsync
+can access Dovecot\(aqs index logs that keep track of changes. It\(aqs of
+course possible to have conflicts during merging, these are resolved in a
+safe way. See the
+.B dsync
+design document for more information.
+.PP
+.B dsync
+uses the same configuration files as the rest of Dovecot (via doveconf
+binary). The entire configuration can be changed by giving \-c parameter to
+another configuration file, or using \-o parameter to override specific
+settings. When executing a remote
+.B dsync
+program it works the same way: it uses its own local configuration.
+.PP
+.B dsync
+can be run completely standalone. It doesn\(aqt require any Dovecot server
+processes to be running, except when using \-u parameter to do a userdb
+lookup from auth process.
+.PP
+.B dsync
+can currently sync only one user at a time. If you want to
+.B dsync
+all users, you\(aqll need to get a list of all users and execute
+.B dsync
+separately for each one.
+
 Any errors are written to stderr.
 .\"------------------------------------------------------------------------
 .SH OPTIONS
 .B dsync
 recognizes the following command line options:
 .TP
+.BI \-c \ config\-file
+read configuration from the given
+.IR config\-file .
+By default
+.I @pkgsysconfdir@/dovecot.conf
+will be used.
+.\"---------------------------------
 .BI \-C\  alt_char
 Specifies an alternative mailbox name character.
 If source and destination mailbox formats are different, it\(aqs possible
@@ -148,6 +189,23 @@ parameter is given).
 No changes are ever done to the source location.
 Any changes done in destination are discarded.
 .\"------------------------------------------------------------------------
+.SH "EXIT STATUS"
+.B dsync
+will exit with one of the following values:
+.TP 4
+.B 0
+Synchronization was done perfectly.
+.TP
+.B 2
+Synchronization was done without errors, but some changes couldn\(aqt be done,
+so the mailboxes aren\(aqt perfectly synchronized. Running dsync again
+usually fixes this. Typically this occurs for message modification
+sequences with newly created mailboxes. It can also occur if one of the
+mailboxes change during the syncing.
+.TP
+.B 1, >2
+Synchronization failed.
+.\"------------------------------------------------------------------------
 .SH EXAMPLE
 .SS MIRRORING
 Mirror mailboxes to a remote server.
@@ -163,7 +221,7 @@ If you need more complex parameters to ssh, you can use e.g.:
 .PP
 .RS
 .nf
-.B dsync \-u username mirror ssh mailuser@example.com dsync \-u username
+.B dsync \-u username mirror ssh \-i id_dsa.dovecot mailuser@example.com dsync \-u username
 .fi
 .RE
 .\"------------------------------------------------------------------------
