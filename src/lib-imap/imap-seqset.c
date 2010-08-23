@@ -85,6 +85,18 @@ int imap_seq_set_parse(const char *str, ARRAY_TYPE(seq_range) *dest)
 	return 0;
 }
 
+int imap_seq_set_nostar_parse(const char *str, ARRAY_TYPE(seq_range) *dest)
+{
+	if (imap_seq_set_parse(str, dest) < 0)
+		return -1;
+
+	if (seq_range_exists(dest, (uint32_t)-1)) {
+		/* '*' used */
+		return -1;
+	}
+	return 0;
+}
+
 int imap_seq_range_parse(const char *str, uint32_t *seq1_r, uint32_t *seq2_r)
 {
 	if (get_next_seq_range(&str, seq1_r, seq2_r) < 0)
