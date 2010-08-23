@@ -112,6 +112,10 @@ void db_sql_unref(struct sql_connection **_conn)
 {
         struct sql_connection *conn = *_conn;
 
+	/* abort all pending auth requests before setting conn to NULL,
+	   so that callbacks can still access it */
+	sql_disconnect(conn->db);
+
 	*_conn = NULL;
 	if (--conn->refcount > 0)
 		return;
