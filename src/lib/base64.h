@@ -20,6 +20,9 @@ int base64_decode(const void *src, size_t src_size,
 /* Decode given string to a buffer allocated from data stack. */
 buffer_t *t_base64_decode_str(const char *str);
 
+/* Returns TRUE if c is a valid base64 encoding character (excluding '=') */
+bool base64_is_valid_char(char c);
+
 /* max. buffer size required for base64_encode() */
 #define MAX_BASE64_ENCODED_SIZE(size) \
 	((size) / 3 * 4 + 2+2)

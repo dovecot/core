@@ -159,3 +159,8 @@ buffer_t *t_base64_decode_str(const char *str)
 	(void)base64_decode(str, len, NULL, buf);
 	return buf;
 }
+
+bool base64_is_valid_char(char c)
+{
+	return b64dec[(uint8_t)c] != 0xff;
+}
