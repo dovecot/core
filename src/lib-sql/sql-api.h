@@ -65,7 +65,7 @@ enum sql_db_flags sql_get_flags(struct sql_db *db);
    though. Returns -1 if we're not connected, 0 if we started connecting or
    1 if we are fully connected now. */
 int sql_connect(struct sql_db *db);
-/* Explicitly disconnect from database. */
+/* Explicitly disconnect from database and abort pending auth requests. */
 void sql_disconnect(struct sql_db *db);
 
 /* Escape the given string if needed and return it. */

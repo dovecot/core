@@ -432,6 +432,17 @@ driver_sqlpool_init(const char *connect_string, const struct sql_db *driver)
 	return &db->api;
 }
 
+static void driver_sqlpool_abort_requests(struct sqlpool_db *db)
+{
+	while (db->requests_head != NULL) {
+		struct sqlpool_request *request = db->requests_head;
+
+		sqlpool_request_abort(&request);
+	}
+	if (db->request_to != NULL)
+		timeout_remove(&db->request_to);
+}
+
 static void driver_sqlpool_deinit(struct sql_db *_db)
 {
 	struct sqlpool_db *db = (struct sqlpool_db *)_db;
@@ -442,13 +453,7 @@ static void driver_sqlpool_deinit(struct sql_db *_db)
 		sql_deinit(&conn->db);
 	array_clear(&db->all_connections);
 
-	while (db->requests_head != NULL) {
-		struct sqlpool_request *request = db->requests_head;
-
-		sqlpool_request_abort(&request);
-	}
-	if (db->request_to != NULL)
-		timeout_remove(&db->request_to);
+	driver_sqlpool_abort_requests(db);
 
 	array_foreach_modifiable(&db->hosts, host)
 		i_free(host->connect_string);
@@ -483,6 +488,7 @@ static void driver_sqlpool_disconnect(struct sql_db *_db)
 
 	array_foreach(&db->all_connections, conn)
 		sql_disconnect(conn->db);
+	driver_sqlpool_abort_requests(db);
 }
 
 static const char *
