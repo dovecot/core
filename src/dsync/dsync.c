@@ -243,15 +243,17 @@ int main(int argc, char *argv[])
 	if (mail_storage_service_lookup(storage_service, &input,
 					&service_user, &error) <= 0)
 		i_fatal("User lookup failed: %s", error);
+
+	if (remote_cmd_args != NULL) {
+		/* _service_lookup() may exec doveconf, so do our forking
+		   after that. but do it before _service_next() in case it
+		   drops process privileges */
+		run_cmd(remote_cmd_args, &fd_in, &fd_out);
+	}
+
 	if (mail_storage_service_next(storage_service, service_user,
 				      &mail_user) < 0)
 		i_fatal("User init failed");
-
-	if (remote_cmd_args != NULL) {
-		/* user initialization may exec doveconf, so do our forking
-		   after that */
-		run_cmd(remote_cmd_args, &fd_in, &fd_out);
-	}
 
 	/* create the first local worker */
 	worker1 = dsync_worker_init_local(mail_user, alt_char);
