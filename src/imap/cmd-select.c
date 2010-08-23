@@ -73,7 +73,7 @@ select_parse_qresync_known_set(struct imap_select_context *ctx,
 
 	t_array_init(&seqset, 32);
 	if (!imap_arg_get_atom(args, &str) ||
-	    imap_seq_set_parse(str, &seqset) < 0) {
+	    imap_seq_set_nostar_parse(str, &seqset) < 0) {
 		client_send_command_error(ctx->cmd,
 			"Invalid QRESYNC known-sequence-set");
 		return FALSE;
@@ -82,7 +82,7 @@ select_parse_qresync_known_set(struct imap_select_context *ctx,
 
 	t_array_init(&uidset, 32);
 	if (!imap_arg_get_atom(args, &str) ||
-	    imap_seq_set_parse(str, &uidset) < 0) {
+	    imap_seq_set_nostar_parse(str, &uidset) < 0) {
 		client_send_command_error(ctx->cmd,
 			"Invalid QRESYNC known-uid-set");
 		return FALSE;
@@ -136,7 +136,7 @@ select_parse_qresync(struct imap_select_context *ctx,
 					  1, (uint32_t)-1);
 	} else {
 		i_array_init(&ctx->qresync_known_uids, 64);
-		if (imap_seq_set_parse(str, &ctx->qresync_known_uids) < 0) {
+		if (imap_seq_set_nostar_parse(str, &ctx->qresync_known_uids) < 0) {
 			client_send_command_error(ctx->cmd,
 						  "Invalid QRESYNC known-uids");
 			return FALSE;
