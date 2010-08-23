@@ -130,23 +130,22 @@ select_parse_qresync(struct imap_select_context *ctx,
 	}
 	args += 2;
 
-	if (!imap_arg_get_atom(args, &str)) {
-		i_array_init(&ctx->qresync_known_uids, 64);
-		seq_range_array_add_range(&ctx->qresync_known_uids,
-					  1, (uint32_t)-1);
-	} else {
-		i_array_init(&ctx->qresync_known_uids, 64);
+	i_array_init(&ctx->qresync_known_uids, 64);
+	if (imap_arg_get_atom(args, &str)) {
 		if (imap_seq_set_nostar_parse(str, &ctx->qresync_known_uids) < 0) {
 			client_send_command_error(ctx->cmd,
 						  "Invalid QRESYNC known-uids");
 			return FALSE;
 		}
 		args++;
-		if (imap_arg_get_list(args, &list_args)) {
-			if (!select_parse_qresync_known_set(ctx, list_args))
-				return FALSE;
-			args++;
-		}
+	} else {
+		seq_range_array_add_range(&ctx->qresync_known_uids,
+					  1, (uint32_t)-1);
+	}
+	if (imap_arg_get_list(args, &list_args)) {
+		if (!select_parse_qresync_known_set(ctx, list_args))
+			return FALSE;
+		args++;
 	}
 	if (!IMAP_ARG_IS_EOL(args)) {
 		client_send_command_error(ctx->cmd,
