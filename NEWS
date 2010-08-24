@@ -1,3 +1,13 @@
+v2.0.1 2010-08-24  Timo Sirainen <tss@iki.fi>
+
+	* When dsync is started as root, remote dsync command is now also
+	  executed as root instead of with dropped privileges.
+
+	- IMAP: QRESYNC parameters for SELECT weren't handled correctly.
+	- UTF-8 string validity checking wasn't done correctly (e.g.
+	  mailbox names in Sieve fileinto)
+	- dsync: Fixed a random assert-crash with remote dsyncing
+
 v2.0.0 2010-08-16  Timo Sirainen <tss@iki.fi>
 
 	* Dovecot uses two system users for internal purposes now by default:
