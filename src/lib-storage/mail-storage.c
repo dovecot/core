@@ -669,6 +669,12 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 	enum mail_index_transaction_flags trans_flags = 0;
 	struct mail_index_transaction *trans;
 
+	if (box->marked_deleted && del) {
+		/* we already marked it deleted. this allows plugins to
+		   "lock" the deletion earlier. */
+		return 0;
+	}
+
 	trans_flags = del ? 0 : MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
 	trans = mail_index_transaction_begin(box->view, trans_flags);
 	if (del)
@@ -683,7 +689,11 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 	/* sync the mailbox. this finishes the index deletion and it can
 	   succeed only for a single session. we do it here, so the rest of
 	   the deletion code doesn't have to worry about race conditions. */
-	return mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
+		return -1;
+
+	box->marked_deleted = del;
+	return 0;
 }
 
 static bool mailbox_try_undelete(struct mailbox *box)

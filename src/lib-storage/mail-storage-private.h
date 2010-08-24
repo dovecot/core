@@ -268,6 +268,8 @@ struct mailbox {
 	unsigned int backend_readonly:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
+	/* Mailbox was already marked as deleted within this allocation. */
+	unsigned int marked_deleted:1;
 	/* TRUE if this is an INBOX for this user */
 	unsigned int inbox_user:1;
 	/* TRUE if this is an INBOX for this namespace (user or shared) */
