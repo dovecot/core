@@ -317,7 +317,8 @@ service_drop_privileges(const struct mail_user_settings *set,
 				dec2str(rset.uid));
 			return -1;
 		}
-	} else if (rset.uid == (uid_t)-1 && disallow_root) {
+	} else if (rset.uid == (uid_t)-1 &&
+		   disallow_root && current_euid == 0) {
 		*error_r = "User is missing UID (see mail_uid setting)";
 		return -1;
 	}
@@ -336,7 +337,8 @@ service_drop_privileges(const struct mail_user_settings *set,
 				dec2str(rset.gid));
 			return -1;
 		}
-	} else if (rset.gid == (gid_t)-1 && disallow_root) {
+	} else if (rset.gid == (gid_t)-1 && disallow_root &&
+		   set->first_valid_gid > 0 && getegid() == 0) {
 		*error_r = "User is missing GID (see mail_gid setting)";
 		return -1;
 	}
