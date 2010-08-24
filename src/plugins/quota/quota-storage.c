@@ -347,6 +347,9 @@ quota_mailbox_delete_shrink_quota(struct mailbox *box)
 	struct mail *mail;
 	struct mail_search_args *search_args;
 
+	if (mailbox_mark_index_deleted(box, TRUE) < 0)
+		return -1;
+
 	t = mailbox_transaction_begin(box, 0);
 	qt = quota_transaction_begin(box);
 
