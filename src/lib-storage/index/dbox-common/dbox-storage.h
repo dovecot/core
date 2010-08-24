@@ -10,7 +10,7 @@ struct dbox_storage;
 #define DBOX_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define DBOX_UIDVALIDITY_FILE_NAME "dovecot-uidvalidity"
 #define DBOX_INDEX_PREFIX "dovecot.index"
-#define DBOX_TEMP_FILE_PREFIX "temp."
+#define DBOX_TEMP_FILE_PREFIX ".temp."
 
 #define DBOX_MAILBOX_DIR_NAME "mailboxes"
 #define DBOX_TRASH_DIR_NAME "trash"
