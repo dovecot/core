@@ -38,7 +38,14 @@ static const struct config_filter managesieve_filter = {
 static void ATTR_FORMAT(2, 3)
 obsolete(struct config_parser_context *ctx, const char *str, ...)
 {
+	static bool seen_obsoletes = FALSE;
 	va_list args;
+
+	if (!seen_obsoletes) {
+		i_warning("NOTE: You can get a new clean config file with: "
+			  "doveconf -n > dovecot-new.conf");
+		seen_obsoletes = TRUE;
+	}
 
 	va_start(args, str);
 	i_warning("Obsolete setting in %s:%u: %s",
