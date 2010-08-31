@@ -112,9 +112,9 @@ AC_ARG_WITH(vpopmail,
 			vpopmail_home="$withval"
 			want_vpopmail=yes
 		fi
+		AC_ERROR([vpopmail support is broken. fix it or access its db another way.])
 	fi, [
-		want_vpopmail=auto
-		vpopmail_home="`echo ~vpopmail`"
+		want_vpopmail=no
 	])
 
 # Berkeley DB support is more or less broken. Disabled for now.
