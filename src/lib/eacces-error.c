@@ -95,9 +95,14 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	orig_errno = errno;
 	errmsg = t_str_new(256);
 	str_printfa(errmsg, "%s(%s)", func, path);
+	dir = "/";
 	if (*path != '/') {
 		if (t_get_current_dir(&dir) == 0)
 			str_printfa(errmsg, " in directory %s", dir);
+		if (strchr(path, '/') == NULL) {
+			/* we have no path. do the file access checks anyway. */
+			ret = 0;
+		}
 	}
 	str_printfa(errmsg, " failed: Permission denied (euid=%s",
 		    dec2str(geteuid()));
@@ -119,7 +124,7 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 		str_append(errmsg, "(<unknown>)");
 	}
 
-	dir = "/"; memset(&dir_st, 0, sizeof(dir_st));
+	memset(&dir_st, 0, sizeof(dir_st));
 	while ((p = strrchr(prev_path, '/')) != NULL) {
 		dir = t_strdup_until(prev_path, p);
 		ret = stat(dir, &st);
