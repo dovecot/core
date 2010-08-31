@@ -9,6 +9,7 @@
 #include "ostream.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "eacces-error.h"
 #include "auth-request.h"
 #include "auth-worker-client.h"
 #include "auth-worker-server.h"
@@ -153,8 +154,13 @@ static struct auth_worker_connection *auth_worker_create(void)
 
 	fd = net_connect_unix_with_retries(worker_socket_path, 5000);
 	if (fd == -1) {
-		i_fatal("net_connect_unix(%s) failed: %m",
-			worker_socket_path);
+		if (errno == EACCES) {
+			i_fatal("%s", eacces_error_get("net_connect_unix",
+						       worker_socket_path));
+		} else {
+			i_fatal("net_connect_unix(%s) failed: %m",
+				worker_socket_path);
+		}
 	}
 
 	conn = i_new(struct auth_worker_connection, 1);
