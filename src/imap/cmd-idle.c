@@ -55,7 +55,7 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 		client_command_free(&ctx->cmd);
 }
 
-static void idle_client_input(struct cmd_idle_context *ctx)
+static void idle_client_input_more(struct cmd_idle_context *ctx)
 {
 	struct client *client = ctx->client;
 	char *line;
@@ -66,7 +66,7 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
-		client_destroy(client, "Disconnected in IDLE");
+		client_disconnect(client, "Disconnected in IDLE");
 		return;
 	case -2:
 		client->input_skip_line = TRUE;
@@ -90,10 +90,17 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 			break;
 		}
 	}
+	if (!client->disconnected)
+		client_continue_pending_input(client);
+}
+
+static void idle_client_input(struct cmd_idle_context *ctx)
+{
+	struct client *client = ctx->client;
+
+	idle_client_input_more(ctx);
 	if (client->disconnected)
 		client_destroy(client, NULL);
-	else
-		client_continue_pending_input(client);
 }
 
 static void keepalive_timeout(struct cmd_idle_context *ctx)
@@ -217,7 +224,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		/* input is pending */
 		client->io = io_add(i_stream_get_fd(client->input),
 				    IO_READ, idle_client_input, ctx);
-		idle_client_input(ctx);
+		idle_client_input_more(ctx);
 	}
 	return FALSE;
 }
