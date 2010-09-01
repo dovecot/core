@@ -49,6 +49,7 @@ client_find_namespace(struct client_command_context *cmd, const char *mailbox,
 	storage_name_len = strlen(storage_name);
 	if ((cmd->client->set->parsed_workarounds &
 	     		WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
+	    storage_name_len > 0 &&
 	    storage_name[storage_name_len-1] == ns->real_sep) {
 		/* drop the extra trailing hierarchy separator */
 		storage_name = t_strndup(storage_name, storage_name_len-1);
