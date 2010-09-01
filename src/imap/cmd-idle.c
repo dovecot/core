@@ -90,7 +90,7 @@ static void idle_client_input_more(struct cmd_idle_context *ctx)
 			break;
 		}
 	}
-	if (!client->disconnected)
+	if (!client->disconnected && !client->handling_input)
 		client_continue_pending_input(client);
 }
 
@@ -260,5 +260,6 @@ bool cmd_idle(struct client_command_context *cmd)
 	   added mailbox-notifier, we wouldn't see them otherwise. */
 	if (client->mailbox != NULL)
 		idle_sync_now(client->mailbox, ctx);
+	idle_client_input_more(ctx);
 	return FALSE;
 }
