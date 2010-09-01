@@ -348,10 +348,25 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	return 0;
 }
 
+static void close_selected_mailbox(struct client *client)
+{
+	struct mailbox *box;
+
+	if (client->mailbox == NULL)
+		return;
+
+	client_search_updates_free(client);
+	box = client->mailbox;
+	client->mailbox = NULL;
+
+	mailbox_free(&box);
+	/* CLOSED response is required by QRESYNC */
+	client_send_line(client, "* OK [CLOSED] Previous mailbox closed.");
+}
+
 bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 {
 	struct client *client = cmd->client;
-	struct mailbox *box;
 	struct imap_select_context *ctx;
 	const struct imap_arg *args, *list_args;
 	enum mailbox_name_status status;
@@ -364,14 +379,17 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	if (!imap_arg_get_astring(args, &mailbox)) {
 		client_send_command_error(cmd, "Invalid arguments.");
+		close_selected_mailbox(client);
 		return FALSE;
 	}
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
 	ctx->ns = client_find_namespace(cmd, mailbox, &storage_name, &status);
-	if (ctx->ns == NULL)
+	if (ctx->ns == NULL) {
+		close_selected_mailbox(client);
 		return TRUE;
+	}
 	switch (status) {
 	case MAILBOX_NAME_EXISTS_MAILBOX:
 		break;
@@ -382,12 +400,14 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	case MAILBOX_NAME_INVALID:
 	case MAILBOX_NAME_NOINFERIORS:
 		client_fail_mailbox_name_status(cmd, mailbox, NULL, status);
+		close_selected_mailbox(client);
 		return TRUE;
 	}
 
 	if (imap_arg_get_list(&args[1], &list_args)) {
 		if (!select_parse_options(ctx, list_args)) {
 			select_context_free(ctx);
+			close_selected_mailbox(client);
 			return TRUE;
 		}
 	}
@@ -395,16 +415,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	i_assert(client->mailbox_change_lock == NULL);
 	client->mailbox_change_lock = cmd;
 
-	if (client->mailbox != NULL) {
-		client_search_updates_free(client);
-		box = client->mailbox;
-		client->mailbox = NULL;
-
-		mailbox_free(&box);
-		/* CLOSED response is required by QRESYNC */
-		client_send_line(client,
-				 "* OK [CLOSED] Previous mailbox closed.");
-	}
+	close_selected_mailbox(client);
 
 	if (ctx->condstore) {
 		/* Enable while no mailbox is opened to avoid sending
