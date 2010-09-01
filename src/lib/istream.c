@@ -351,7 +351,7 @@ char *i_stream_next_line(struct istream *stream)
 
 	pos = memchr(_stream->buffer + _stream->skip, '\n',
 		     _stream->pos - _stream->skip);
-	if (pos == NULL) {
+	if (pos != NULL) {
 		return i_stream_next_line_finish(_stream,
 						 pos - _stream->buffer);
 	} else {
