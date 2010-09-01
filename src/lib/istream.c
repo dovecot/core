@@ -336,8 +336,7 @@ static char *i_stream_last_line(struct istream_private *_stream)
 char *i_stream_next_line(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
-	char *ret_buf;
-        size_t i;
+	const unsigned char *pos;
 
 	if (_stream->skip >= _stream->pos) {
 		stream->stream_errno = 0;
@@ -350,18 +349,14 @@ char *i_stream_next_line(struct istream *stream)
 		return NULL;
 	}
 
-	/* @UNSAFE */
-	ret_buf = NULL;
-	for (i = _stream->skip; i < _stream->pos; i++) {
-		if (_stream->buffer[i] == 10) {
-			/* got it */
-			ret_buf = i_stream_next_line_finish(_stream, i);
-                        break;
-		}
-	}
-	if (ret_buf == NULL)
+	pos = memchr(_stream->buffer + _stream->skip, '\n',
+		     _stream->pos - _stream->skip);
+	if (pos == NULL) {
+		return i_stream_next_line_finish(_stream,
+						 pos - _stream->buffer);
+	} else {
 		return i_stream_last_line(_stream);
-        return ret_buf;
+	}
 }
 
 char *i_stream_read_next_line(struct istream *stream)
