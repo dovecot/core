@@ -626,9 +626,7 @@ bool master_settings_do_fixes(const struct master_settings *set)
 		i_error("%s is not a directory", set->base_dir);
 		return FALSE;
 	}
-	if ((st.st_mode & 0777) == 0777) {
-		/* FIXME: backwards compatibility: v1.2 was creating
-		   base_dir with 0777 permissions.. */
+	if ((st.st_mode & 0755) != 0755) {
 		i_warning("Fixing permissions of %s to be world-readable",
 			  set->base_dir);
 		if (chmod(set->base_dir, 0755) < 0)
