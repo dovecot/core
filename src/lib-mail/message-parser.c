@@ -80,28 +80,36 @@ static void parse_body_add_block(struct message_parser_ctx *ctx,
 				 struct message_block *block)
 {
 	unsigned int missing_cr_count = 0;
-	const unsigned char *data = block->data;
-	size_t i;
+	const unsigned char *cur, *next, *data = block->data;
+
+	i_assert(block->size > 0);
 
 	block->hdr = NULL;
 
-	for (i = 0; i < block->size; i++) {
-		if (data[i] <= '\n') {
-			if (data[i] == '\n') {
-				ctx->part->body_size.lines++;
-				if ((i > 0 && data[i-1] != '\r') ||
-				    (i == 0 && ctx->last_chr != '\r'))
-					missing_cr_count++;
-			} else if (data[i] == '\0')
-				ctx->part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
-		}
+	/* check if we have NULs */
+	if (memchr(data, '\0', block->size) != NULL)
+		ctx->part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
+
+	/* count number of lines and missing CRs */
+	if (*data == '\n') {
+		ctx->part->body_size.lines++;
+		if (ctx->last_chr != '\r')
+			missing_cr_count++;
 	}
+
+	cur = data + 1;
+	while ((next = memchr(cur, '\n', block->size - (cur - data))) != NULL) {
+		ctx->part->body_size.lines++;
+		if (next[-1] != '\r')
+			missing_cr_count++;
+
+		cur = next + 1;
+	}
+	ctx->last_chr = data[block->size - 1];
+	ctx->skip += block->size;
 
 	ctx->part->body_size.physical_size += block->size;
 	ctx->part->body_size.virtual_size += block->size + missing_cr_count;
-
-	ctx->last_chr = data[i-1];
-	ctx->skip += block->size;
 }
 
 static int message_parser_read_more(struct message_parser_ctx *ctx,
@@ -196,8 +204,6 @@ boundary_line_find(struct message_parser_ctx *ctx,
 		   const unsigned char *data, size_t size, bool full,
 		   struct message_boundary **boundary_r)
 {
-	size_t i;
-
 	*boundary_r = NULL;
 
 	if (size < 2) {
@@ -215,11 +221,8 @@ boundary_line_find(struct message_parser_ctx *ctx,
 	}
 
 	/* need to find the end of line */
-	for (i = 2; i < size; i++) {
-		if (data[i] == '\n')
-			break;
-	}
-	if (i == size && i < BOUNDARY_END_MAX_LEN &&
+	if (memchr(data + 2, '\n', size - 2) == NULL &&
+	    size < BOUNDARY_END_MAX_LEN &&
 	    !ctx->input->eof && !full) {
 		/* no LF found */
 		ctx->want_count = BOUNDARY_END_MAX_LEN;
@@ -251,25 +254,21 @@ static int parse_next_mime_header_init(struct message_parser_ctx *ctx,
 static int parse_next_body_skip_boundary_line(struct message_parser_ctx *ctx,
 					      struct message_block *block_r)
 {
-	size_t i;
+	const unsigned char *ptr;
 	int ret;
 	bool full;
 
 	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
 		return ret;
 
-	for (i = 0; i < block_r->size; i++) {
-		if (block_r->data[i] == '\n')
-			break;
-	}
-
-	if (i == block_r->size) {
+	ptr = memchr(block_r->data, '\n', block_r->size);
+	if (ptr == NULL) {
 		parse_body_add_block(ctx, block_r);
 		return 1;
 	}
 
 	/* found the LF */
-	block_r->size = i + 1;
+	block_r->size = (ptr - block_r->data) + 1;
 	parse_body_add_block(ctx, block_r);
 
 	/* a new MIME part begins */
@@ -322,8 +321,8 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 				       struct message_block *block_r)
 {
 	struct message_boundary *boundary = NULL;
-	const unsigned char *data;
-	size_t i, boundary_start;
+	const unsigned char *data, *cur, *next, *end;
+	size_t boundary_start;
 	int ret;
 	bool full;
 
@@ -343,42 +342,34 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	}
 
 	i_assert(block_r->size > 0);
-	for (i = boundary_start = 0; i < block_r->size; i++) {
-		/* skip to beginning of the next line. the first line was
-		   handled already. */
-		size_t next_line_idx = block_r->size;
+	boundary_start = 0;
 
-		for (; i < block_r->size; i++) {
-			if (data[i] == '\n') {
-				boundary_start = i;
-				if (i > 0 && data[i-1] == '\r')
-					boundary_start--;
-				next_line_idx = i + 1;
-				break;
-			}
-		}
+	/* skip to beginning of the next line. the first line was
+	   handled already. */
+	cur = data; end = data + block_r->size;
+	while ((next = memchr(cur, '\n', end - cur)) != NULL) {
+		cur = next + 1;
+
+		boundary_start = next - data;
+		if (next > data && next[-1] == '\r')
+			boundary_start--;
+
 		if (boundary_start != 0) {
-			/* we can skip the first lines. input buffer can't be
-			   full anymore. */
-			full = FALSE;
-		} else if (next_line_idx == block_r->size) {
-			/* no linefeeds in this block. we can just skip it. */
-			boundary_start = block_r->size;
+			/* we can at least skip data until the first [CR]LF.
+			   input buffer can't be full anymore. */
 			full = FALSE;
 		}
 
-		ret = boundary_line_find(ctx, block_r->data + next_line_idx,
-					 block_r->size - next_line_idx, full,
-					 &boundary);
+		ret = boundary_line_find(ctx, cur, end - cur, full, &boundary);
 		if (ret >= 0) {
 			/* found / need more data */
 			if (ret == 0 && boundary_start == 0)
-				ctx->want_count += next_line_idx;
+				ctx->want_count += cur - block_r->data;
 			break;
 		}
 	}
 
-	if (i >= block_r->size) {
+	if (next == NULL) {
 		/* the boundary wasn't found from this data block,
 		   we'll need more data. */
 		ret = 0;
@@ -386,8 +377,8 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	} else {
 		/* found / need more data */
 		i_assert(ret >= 0);
+		i_assert(!(ret == 0 && full));
 	}
-	i_assert(!(ret == 0 && full));
 
 	if (ret > 0 || (ret == 0 && !ctx->eof)) {
 		/* a) we found the boundary
