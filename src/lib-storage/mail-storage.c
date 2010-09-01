@@ -748,6 +748,12 @@ int mailbox_delete(struct mailbox *box)
 	}
 
 	ret = box->v.delete(box);
+	if (ret < 0 && box->marked_deleted) {
+		/* deletion failed. revert the mark so it can maybe be
+		   tried again later. */
+		if (mailbox_mark_index_deleted(box, FALSE) < 0)
+			return -1;
+	}
 
 	box->deleting = FALSE;
 	mailbox_close(box);
