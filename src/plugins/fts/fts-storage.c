@@ -565,8 +565,7 @@ static void fts_build_notify(struct fts_storage_build_context *ctx)
 {
 	struct mailbox *box = ctx->mail->transaction->box;
 	const struct seq_range *range;
-	float percentage;
-	unsigned int msecs, secs;
+	unsigned int percentage, msecs, secs;
 
 	if (ctx->last_notify.tv_sec == 0) {
 		/* set the search time in here, in case a plugin
@@ -574,17 +573,17 @@ static void fts_build_notify(struct fts_storage_build_context *ctx)
 		ctx->search_start_time = ioloop_timeval;
 	} else if (box->storage->callbacks.notify_ok != NULL) {
 		range = array_idx(&ctx->search_args->args->value.seqset, 0);
-		percentage = (ctx->mail->seq - range->seq1) * 100.0 /
+		percentage = (ctx->mail->seq - range->seq1) * 100 /
 			(range->seq2 - range->seq1);
 		msecs = timeval_diff_msecs(&ioloop_timeval,
 					   &ctx->search_start_time);
-		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
+		secs = (msecs*percentage / 100 - msecs) / 1000;
 
 		T_BEGIN {
 			const char *text;
 
-			text = t_strdup_printf("Indexed %d%% of the mailbox, "
-					       "ETA %d:%02d", (int)percentage,
+			text = t_strdup_printf("Indexed %u%% of the mailbox, "
+					       "ETA %d:%02d", percentage,
 					       secs/60, secs%60);
 			box->storage->callbacks.
 				notify_ok(box, text,
