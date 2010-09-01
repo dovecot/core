@@ -57,6 +57,7 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 	static const char *all_pattern = "*";
 	struct doveadm_mail_list_iter *iter;
 	ARRAY_TYPE(const_string) patterns;
+	enum namespace_type ns_mask = NAMESPACE_PRIVATE;
 
 	iter = i_new(struct doveadm_mail_list_iter, 1);
 	iter->search_args = search_args;
@@ -68,6 +69,7 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 		array_append(&patterns, &all_pattern, 1);
 	} else {
 		iter_flags |= MAILBOX_LIST_ITER_STAR_WITHIN_NS;
+		ns_mask |= NAMESPACE_SHARED | NAMESPACE_PUBLIC;
 	}
 	(void)array_append_space(&patterns);
 
@@ -75,8 +77,7 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 	iter->iter_flags = iter_flags;
 	iter->iter = mailbox_list_iter_init_namespaces(user->namespaces,
 						       array_idx(&patterns, 0),
-						       NAMESPACE_PRIVATE,
-						       iter_flags);
+						       ns_mask, iter_flags);
 	return iter;
 }
 
