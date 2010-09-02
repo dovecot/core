@@ -564,27 +564,45 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 static void fts_build_notify(struct fts_storage_build_context *ctx)
 {
 	struct mailbox *box = ctx->mail->transaction->box;
-	const struct seq_range *range;
-	unsigned int percentage, msecs, secs;
 
 	if (ctx->last_notify.tv_sec == 0) {
 		/* set the search time in here, in case a plugin
 		   already spent some time indexing the mailbox */
 		ctx->search_start_time = ioloop_timeval;
 	} else if (box->storage->callbacks.notify_ok != NULL) {
-		range = array_idx(&ctx->search_args->args->value.seqset, 0);
-		percentage = (ctx->mail->seq - range->seq1) * 100 /
-			(range->seq2 - range->seq1);
-		msecs = timeval_diff_msecs(&ioloop_timeval,
-					   &ctx->search_start_time);
-		secs = (msecs*percentage / 100 - msecs) / 1000;
+		double completed_frac;
+		unsigned int eta_secs;
+		const struct seq_range *range;
+		uint32_t seq_diff;
+
+		range =	array_idx(&ctx->search_args->args->value.seqset, 0);
+
+		seq_diff = range->seq2 - range->seq1;
+
+		if (seq_diff != 0) {
+			completed_frac = (double)(ctx->mail->seq - range->seq1) / seq_diff;
+
+			if (completed_frac >= 0.000001) {
+				unsigned int elapsed_msecs, est_total_msecs;
+
+				elapsed_msecs = timeval_diff_msecs(&ioloop_timeval,
+							   &ctx->search_start_time);
+				est_total_msecs = elapsed_msecs / completed_frac;
+				eta_secs = (est_total_msecs - elapsed_msecs) / 1000;
+			} else {
+				eta_secs = 0;
+			}
+		} else {
+			completed_frac = 0.0;
+			eta_secs = 0;
+		}
 
 		T_BEGIN {
 			const char *text;
 
-			text = t_strdup_printf("Indexed %u%% of the mailbox, "
-					       "ETA %d:%02d", percentage,
-					       secs/60, secs%60);
+			text = t_strdup_printf("Indexed %d%% of the mailbox, "
+					       "ETA %d:%02d", (int)(completed_frac * 100.0),
+					       eta_secs/60, eta_secs%60);
 			box->storage->callbacks.
 				notify_ok(box, text,
 				box->storage->callback_context);
