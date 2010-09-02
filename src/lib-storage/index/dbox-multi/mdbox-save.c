@@ -287,8 +287,10 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	i_assert(ctx->ctx.finished);
 
 	/* make sure the map gets locked */
-	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+	if (mdbox_map_atomic_lock(ctx->atomic) < 0) {
+		mdbox_transaction_save_rollback(_ctx);
 		return -1;
+	}
 
 	/* assign map UIDs for newly saved messages. they're written to
 	   transaction log immediately within this function, but the map
