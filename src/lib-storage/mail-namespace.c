@@ -206,6 +206,13 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 	char list_sep = '\0';
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (mail_namespace_find_prefix(ns->next, ns->prefix) != NULL) {
+			*error_r = t_strdup_printf(
+				"namespace configuration error: "
+				"Duplicate namespace prefix: \"%s\"",
+				ns->prefix);
+			return FALSE;
+		}
 		if (namespace_set_alias_for(ns, namespaces, error_r) < 0)
 			return FALSE;
 		if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
