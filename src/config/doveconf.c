@@ -7,6 +7,7 @@
 #include "env-util.h"
 #include "ostream.h"
 #include "str.h"
+#include "strescape.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "all-settings.h"
@@ -146,6 +147,20 @@ static void config_dump_human_deinit(struct config_dump_human_context *ctx)
 	pool_unref(&ctx->pool);
 }
 
+static bool value_need_quote(const char *value)
+{
+	unsigned int len = strlen(value);
+
+	if (len == 0)
+		return FALSE;
+
+	if (strchr(value, '#') != NULL)
+		return TRUE;
+	if (IS_WHITE(value[0]) || IS_WHITE(value[len-1]))
+		return TRUE;
+	return FALSE;
+}
+
 static int
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
@@ -271,7 +286,13 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		value = strchr(key, '=');
 		o_stream_send(output, key, value-key);
 		o_stream_send_str(output, " = ");
-		o_stream_send_str(output, value+1);
+		if (!value_need_quote(value+1))
+			o_stream_send_str(output, value+1);
+		else {
+			o_stream_send(output, "\"", 1);
+			o_stream_send_str(output, str_escape(value+1));
+			o_stream_send(output, "\"", 1);
+		}
 		o_stream_send(output, "\n", 1);
 	end: ;
 	} T_END;

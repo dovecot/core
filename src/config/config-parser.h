@@ -3,6 +3,8 @@
 
 #define CONFIG_MODULE_DIR MODULEDIR"/settings"
 
+#define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
+
 struct config_module_parser {
 	const struct setting_parser_info *root;
 	struct setting_parser_context *parser;

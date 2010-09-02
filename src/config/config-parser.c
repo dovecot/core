@@ -26,8 +26,6 @@
 #  define GLOB_BRACE 0
 #endif
 
-#define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
-
 static const enum settings_parser_flags settings_parser_flags =
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
 	SETTINGS_PARSER_FLAG_TRACK_CHANGES;
