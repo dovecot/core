@@ -34,12 +34,16 @@
 #define DIRECTOR_CONNECTION_PING_INTERVAL_MSECS (15*1000)
 /* How long to wait before sending PING while waiting for SYNC reply */
 #define DIRECTOR_CONNECTION_SYNC_TIMEOUT_MSECS 1000
+/* If outgoing director connection exists for less than this many seconds,
+   mark the host as failed so we won't try to reconnect to it immediately */
+#define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 10
 
 struct director_connection {
 	struct director_connection *prev, *next;
 
 	struct director *dir;
 	char *name;
+	time_t created;
 
 	/* for incoming connections the director host isn't known until
 	   ME-line is received */
@@ -887,6 +891,7 @@ director_connection_init_common(struct director *dir, int fd)
 	struct director_connection *conn;
 
 	conn = i_new(struct director_connection, 1);
+	conn->created = ioloop_time;
 	conn->fd = fd;
 	conn->dir = dir;
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
@@ -990,6 +995,10 @@ void director_connection_deinit(struct director_connection **_conn)
 	struct director *dir = conn->dir;
 
 	*_conn = NULL;
+
+	if (conn->host != NULL && !conn->in &&
+	    conn->created + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time)
+		conn->host->last_failed = ioloop_time;
 
 	DLLIST_REMOVE(&dir->connections, conn);
 	if (dir->left == conn)
