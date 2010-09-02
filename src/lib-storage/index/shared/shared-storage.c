@@ -65,7 +65,7 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		if (*p != '%')
 			continue;
 
-		key = var_get_key(p + 1);
+		key = p[1];
 		if (key == 'u' || key == 'n')
 			have_username = TRUE;
 		else if (key != '%' && key != 'd')
