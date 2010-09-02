@@ -208,7 +208,6 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
 		if (mail_namespace_find_prefix(ns->next, ns->prefix) != NULL) {
 			*error_r = t_strdup_printf(
-				"namespace configuration error: "
 				"Duplicate namespace prefix: \"%s\"",
 				ns->prefix);
 			return FALSE;
@@ -217,8 +216,7 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 			return FALSE;
 		if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 			if (inbox_ns != NULL) {
-				*error_r = "namespace configuration error: "
-					"There can be only one namespace with "
+				*error_r = "There can be only one namespace with "
 					"inbox=yes";
 				return FALSE;
 			}
@@ -229,7 +227,6 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0 &&
 		    ns->prefix[strlen(ns->prefix)-1] != ns->sep) {
 			*error_r = t_strdup_printf(
-				"namespace configuration error: "
 				"list=yes requires prefix=%s "
 				"to end with separator", ns->prefix);
 			return FALSE;
@@ -239,8 +236,7 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 			if (list_sep == '\0')
 				list_sep = ns->sep;
 			else if (list_sep != ns->sep) {
-				*error_r = "namespace configuration error: "
-					"All list=yes namespaces must use "
+				*error_r = "All list=yes namespaces must use "
 					"the same separator";
 				return FALSE;
 			}
@@ -250,18 +246,15 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 	}
 
 	if (inbox_ns == NULL) {
-			*error_r = "namespace configuration error: "
-				"inbox=yes namespace missing";
+		*error_r = "inbox=yes namespace missing";
 		return FALSE;
 	}
 	if (list_sep == '\0') {
-		*error_r = "namespace configuration error: "
-			"no list=yes namespaces";
+		*error_r = "no list=yes namespaces";
 		return FALSE;
 	}
 	if (subscriptions_count == 0) {
-		*error_r = "namespace configuration error: "
-			"no subscriptions=yes namespaces";
+		*error_r = "no subscriptions=yes namespaces";
 		return FALSE;
 	}
 	return TRUE;
@@ -300,6 +293,8 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 
 	if (namespaces != NULL) {
 		if (!namespaces_check(namespaces, error_r)) {
+			*error_r = t_strconcat("namespace configuration error: ",
+					       *error_r, NULL);
 			while (namespaces != NULL) {
 				ns = namespaces;
 				namespaces = ns->next;
