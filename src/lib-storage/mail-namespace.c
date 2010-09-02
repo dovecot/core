@@ -125,8 +125,12 @@ namespace_add(struct mail_user *user,
 	ns->mail_set = mail_set;
 	ns->prefix = i_strdup(ns_set->prefix);
 
-	if (ns->type == NAMESPACE_SHARED && strchr(ns->prefix, '%') != NULL) {
-		/* dynamic shared namespace */
+	if (ns->type == NAMESPACE_SHARED &&
+	    (strchr(ns->prefix, '%') != NULL ||
+	     strchr(ns->set->location, '%') != NULL)) {
+		/* dynamic shared namespace. the above check catches wrong
+		   mixed %% usage, but still allows for specifying a shared
+		   namespace to an explicit location without any %% */
 		ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 		driver = "shared";
 	} else {
