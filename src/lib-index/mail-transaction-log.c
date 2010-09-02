@@ -14,8 +14,6 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
-#define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
-
 static void
 mail_transaction_log_set_head(struct mail_transaction_log *log,
 			      struct mail_transaction_log_file *file)
@@ -36,15 +34,6 @@ mail_transaction_log_alloc(struct mail_index *index)
 
 	log = i_new(struct mail_transaction_log, 1);
 	log->index = index;
-
-	log->dotlock_settings.timeout =
-		I_MIN(MAIL_TRANSCATION_LOG_LOCK_TIMEOUT,
-		      index->max_lock_timeout_secs);;
-	log->dotlock_settings.stale_timeout =
-		MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT;
-
-	log->new_dotlock_settings = log->dotlock_settings;
-	log->new_dotlock_settings.lock_suffix = LOG_NEW_DOTLOCK_SUFFIX;
 	return log;
 }
 
@@ -84,12 +73,6 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 	   set them here: */
 	log->nfs_flush =
 		(log->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
-	log->dotlock_settings.use_excl_lock =
-		log->dotlock_settings.nfs_flush =
-		(log->index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
-	log->dotlock_settings.nfs_flush =
-		log->new_dotlock_settings.nfs_flush =
-		log->nfs_flush;
 
 	if (log->open_file != NULL)
 		mail_transaction_log_file_free(&log->open_file);
@@ -535,4 +518,18 @@ int mail_transaction_log_get_mtime(struct mail_transaction_log *log,
 	}
 	*mtime_r = st.st_mtime;
 	return 0;
+}
+
+void mail_transaction_log_get_dotlock_set(struct mail_transaction_log *log,
+					  struct dotlock_settings *set_r)
+{
+	struct mail_index *index = log->index;
+
+	memset(set_r, 0, sizeof(*set_r));
+	set_r->timeout = I_MIN(MAIL_TRANSCATION_LOG_LOCK_TIMEOUT,
+			       index->max_lock_timeout_secs);
+	set_r->stale_timeout = MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT;
+	set_r->nfs_flush = (index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
+	set_r->use_excl_lock =
+		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
 }

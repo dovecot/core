@@ -154,8 +154,8 @@ int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r)
 		return -1;
 
 	mail_index_set_error(index,
-		"Timeout while waiting for shared lock for index file %s",
-		index->filepath);
+		"Timeout (%us) while waiting for shared lock for index file %s",
+		timeout_secs, index->filepath);
 	index->index_lock_timeout = TRUE;
 	return -1;
 }

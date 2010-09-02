@@ -2,8 +2,9 @@
 #define MAIL_TRANSACTION_LOG_VIEW_H
 
 #include "buffer.h"
-#include "file-dotlock.h"
 #include "mail-transaction-log.h"
+
+struct dotlock_settings;
 
 /* Synchronization can take a while sometimes, especially when copying lots of
    mails. */
@@ -91,7 +92,6 @@ struct mail_transaction_log {
 	struct mail_transaction_log_file *open_file;
 
 	unsigned int dotlock_count;
-        struct dotlock_settings dotlock_settings, new_dotlock_settings;
 	struct dotlock *dotlock;
 
 	unsigned int nfs_flush:1;
@@ -101,6 +101,9 @@ void
 mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 					const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
+
+void mail_transaction_log_get_dotlock_set(struct mail_transaction_log *log,
+					  struct dotlock_settings *set_r);
 
 struct mail_transaction_log_file *
 mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log);

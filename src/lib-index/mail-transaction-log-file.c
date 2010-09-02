@@ -14,6 +14,7 @@
 
 #define LOG_PREFETCH IO_BLOCK_SIZE
 #define MEMORY_LOG_NAME "(in-memory transaction log file)"
+#define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 
 static int
 log_file_set_syscall_error(struct mail_transaction_log_file *file,
@@ -268,13 +269,14 @@ mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log)
 static int
 mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file)
 {
+	struct dotlock_settings dotlock_set;
 	int ret;
 
 	if (file->log->dotlock_count > 0)
 		ret = 1;
 	else {
-		ret = file_dotlock_create(&file->log->dotlock_settings,
-					  file->filepath, 0,
+		mail_transaction_log_get_dotlock_set(file->log, &dotlock_set);
+		ret = file_dotlock_create(&dotlock_set, file->filepath, 0,
 					  &file->log->dotlock);
 	}
 	if (ret > 0) {
@@ -288,9 +290,9 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file)
 	}
 
 	mail_index_set_error(file->log->index,
-			     "Timeout while waiting for "
+			     "Timeout (%us) while waiting for "
 			     "dotlock for transaction log file %s",
-			     file->filepath);
+			     dotlock_set.timeout, file->filepath);
 	file->log->index->index_lock_timeout = TRUE;
 	return -1;
 }
@@ -350,8 +352,9 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 	}
 
 	mail_index_set_error(file->log->index,
-		"Timeout while waiting for lock for transaction log file %s",
-		file->filepath);
+		"Timeout (%us) while waiting for lock for "
+		"transaction log file %s",
+		lock_timeout_secs, file->filepath);
 	file->log->index->index_lock_timeout = TRUE;
 	return -1;
 }
@@ -671,6 +674,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 				     bool reset)
 {
 	struct mail_index *index = file->log->index;
+	struct dotlock_settings new_dotlock_set;
 	struct dotlock *dotlock;
 	mode_t old_mask;
 	int fd;
@@ -684,11 +688,13 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 		return -1;
 	}
 
+	mail_transaction_log_get_dotlock_set(file->log, &new_dotlock_set);
+	new_dotlock_set.lock_suffix = LOG_NEW_DOTLOCK_SUFFIX;
+
 	/* With dotlocking we might already have path.lock created, so this
 	   filename has to be different. */
 	old_mask = umask(index->mode ^ 0666);
-	fd = file_dotlock_open(&file->log->new_dotlock_settings,
-			       file->filepath, 0, &dotlock);
+	fd = file_dotlock_open(&new_dotlock_set, file->filepath, 0, &dotlock);
 	umask(old_mask);
 
 	if (fd == -1)
