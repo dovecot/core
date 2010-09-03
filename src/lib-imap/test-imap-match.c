@@ -52,7 +52,7 @@ static void test_imap_match(void)
 	unsigned int i;
 	pool_t pool;
 
-	pool = pool_alloconly_create_clean("imap match", 1024);
+	pool = pool_alloconly_create("imap match", 1024);
 
 	/* first try tests without inboxcasing */
 	test_begin("imap match");
@@ -93,7 +93,7 @@ static void test_imap_match_globs_equal(void)
 	struct imap_match_glob *glob;
 	pool_t pool;
 
-	pool = pool_alloconly_create_clean("imap match globs equal", 1024);
+	pool = pool_alloconly_create("imap match globs equal", 1024);
 	test_begin("imap match globs equal");
 
 	glob = imap_match_init(pool, "1", FALSE, '/');
