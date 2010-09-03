@@ -375,8 +375,8 @@ static void pool_alloconly_clear(pool_t pool)
 	base_size = DEFAULT_BASE_SIZE;
 #endif
 	avail_size = apool->block->size - base_size;
-	safe_memset(PTR_OFFSET(POOL_BLOCK_DATA(apool->block), base_size), 0,
-		    avail_size - apool->block->left);
+	memset(PTR_OFFSET(POOL_BLOCK_DATA(apool->block), base_size), 0,
+	       avail_size - apool->block->left);
 	apool->block->left = avail_size;
 	apool->block->last_alloc_size = 0;
 }
