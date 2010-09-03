@@ -566,10 +566,10 @@ config_parse_line(struct config_parser_context *ctx,
 			*value_r = "Expecting '='";
 			return CONFIG_LINE_TYPE_ERROR;
 		}
-		if (line[1] != '\0') {
-			*value_r = "Garbage after '{'";
-			return CONFIG_LINE_TYPE_ERROR;
-		}
+	}
+	if (line[1] != '\0') {
+		*value_r = "Garbage after '{'";
+		return CONFIG_LINE_TYPE_ERROR;
 	}
 	return CONFIG_LINE_TYPE_SECTION_BEGIN;
 }
