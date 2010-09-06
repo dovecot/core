@@ -29,7 +29,7 @@ struct maildir_index_sync_context {
 	enum mail_flags flags;
 	ARRAY_TYPE(keyword_indexes) keywords, idx_keywords;
 
-	uint32_t /*seq, */uid;
+	uint32_t uid;
 	bool update_maildir_hdr_cur;
 };
 
