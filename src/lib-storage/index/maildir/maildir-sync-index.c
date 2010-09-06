@@ -8,7 +8,7 @@
 #include "index-sync-changes.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
-#include "maildir-filename.h"
+#include "maildir-filename-flags.h"
 #include "maildir-sync.h"
 
 #include <stdio.h>
@@ -123,7 +123,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	i_assert(*fname != '\0');
 
 	/* get the current flags and keywords */
-	maildir_filename_get_flags(ctx->keywords_sync_ctx,
+	maildir_filename_flags_get(ctx->keywords_sync_ctx,
 				   fname, &ctx->flags, &ctx->keywords);
 
 	/* apply changes */
@@ -133,7 +133,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	ctx->flags = flags8;
 
 	/* and try renaming with the new name */
-	newfname = maildir_filename_set_flags(ctx->keywords_sync_ctx, fname,
+	newfname = maildir_filename_flags_set(ctx->keywords_sync_ctx, fname,
 					      ctx->flags, &ctx->keywords);
 	newpath = t_strconcat(dir, newfname, NULL);
 	if (strcmp(path, newpath) == 0) {
@@ -497,7 +497,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	i_array_init(&ctx->idx_keywords, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
-		maildir_filename_get_flags(ctx->keywords_sync_ctx, filename,
+		maildir_filename_flags_get(ctx->keywords_sync_ctx, filename,
 					   &ctx->flags, &ctx->keywords);
 
 		i_assert(uid > prev_uid);

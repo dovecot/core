@@ -15,6 +15,7 @@
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
 #include "maildir-filename.h"
+#include "maildir-filename-flags.h"
 #include "maildir-sync.h"
 
 #include <stdio.h>
@@ -268,7 +269,7 @@ maildir_get_dest_filename(struct maildir_save_context *ctx,
 			return TRUE;
 		}
 
-		*fname_r = maildir_filename_set_flags(NULL, basename,
+		*fname_r = maildir_filename_flags_set(NULL, basename,
 					mf->flags & MAIL_FLAGS_MASK, NULL);
 		return FALSE;
 	}
@@ -276,7 +277,7 @@ maildir_get_dest_filename(struct maildir_save_context *ctx,
 	i_assert(ctx->keywords_sync_ctx != NULL || mf->keywords_count == 0);
 	buffer_create_const_data(&ctx->keywords_buffer, mf + 1,
 				 mf->keywords_count * sizeof(unsigned int));
-	*fname_r = maildir_filename_set_flags(ctx->keywords_sync_ctx, basename,
+	*fname_r = maildir_filename_flags_set(ctx->keywords_sync_ctx, basename,
 					      mf->flags & MAIL_FLAGS_MASK,
 					      &ctx->keywords_array);
 	return FALSE;

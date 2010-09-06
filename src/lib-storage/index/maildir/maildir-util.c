@@ -9,7 +9,7 @@
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
-#include "maildir-filename.h"
+#include "maildir-filename-flags.h"
 #include "maildir-sync.h"
 
 #include <stdio.h>
@@ -41,12 +41,12 @@ maildir_filename_guess(struct maildir_mailbox *mbox, uint32_t uid,
 	mail_index_lookup_view_flags(view, seq, &flags, &keywords);
 	if (array_count(&keywords) == 0) {
 		*have_flags_r = (flags & MAIL_FLAGS_NONRECENT) != 0;
-		fname = maildir_filename_set_flags(NULL, fname, flags, NULL);
+		fname = maildir_filename_flags_set(NULL, fname, flags, NULL);
 	} else {
 		*have_flags_r = TRUE;
 		kw_ctx = maildir_keywords_sync_init_readonly(mbox->keywords,
 							     mbox->box.index);
-		fname = maildir_filename_set_flags(kw_ctx, fname,
+		fname = maildir_filename_flags_set(kw_ctx, fname,
 						   flags, &keywords);
 		maildir_keywords_sync_deinit(&kw_ctx);
 	}
