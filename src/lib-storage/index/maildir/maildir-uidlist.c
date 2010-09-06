@@ -534,9 +534,12 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		/* This can happen if expunged file is moved back and the file
 		   was appended to uidlist. */
 		i_warning("%s: Duplicate file entry at line %u: "
-			  "%s (uid %u -> %u)",
+			  "%s (uid %u -> %u)%s",
 			  uidlist->path, uidlist->read_line_count, line,
-			  old_rec->uid, uid);
+			  old_rec->uid, uid, uidlist->retry_rewind ?
+			  " - retrying by re-reading from beginning" : "");
+		if (uidlist->retry_rewind)
+			return FALSE;
 		/* Delete the old UID */
 		maildir_uidlist_records_array_delete(uidlist, old_rec);
 		/* Replace the old record with this new one */
