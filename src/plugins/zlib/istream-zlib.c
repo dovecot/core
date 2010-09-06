@@ -170,7 +170,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	if (zstream->eof_offset == high_offset) {
-		i_assert(zstream->high_pos == 0);
+		i_assert(zstream->high_pos == 0 ||
+			 zstream->high_pos == stream->pos);
 		if (!zstream->trailer_read) {
 			do {
 				ret = i_stream_zlib_read_trailer(zstream);

@@ -50,7 +50,8 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	if (zstream->eof_offset == high_offset) {
-		i_assert(zstream->high_pos == 0);
+		i_assert(zstream->high_pos == 0 ||
+			 zstream->high_pos == stream->pos);
 		stream->istream.eof = TRUE;
 		return -1;
 	}
