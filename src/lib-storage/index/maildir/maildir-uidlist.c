@@ -93,6 +93,7 @@ struct maildir_uidlist {
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 
 	unsigned int recreate:1;
+	unsigned int recreate_on_change:1;
 	unsigned int initial_read:1;
 	unsigned int initial_hdr_read:1;
 	unsigned int retry_rewind:1;
@@ -778,7 +779,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
                         ret = -1;
 
 		if (uidlist->unsorted) {
-			uidlist->recreate = TRUE;
+			uidlist->recreate_on_change = TRUE;
 			maildir_uidlist_records_sort_by_uid(uidlist);
 		}
 		if (uidlist->next_uid <= uidlist->prev_read_uid)
@@ -1453,6 +1454,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		uidlist->fd_size = st.st_size;
 		uidlist->last_read_offset = st.st_size;
 		uidlist->recreate = FALSE;
+		uidlist->recreate_on_change = FALSE;
 		uidlist->have_mailbox_guid = TRUE;
 		maildir_uidlist_update_hdr(uidlist, &st);
 	}
@@ -1515,7 +1517,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	struct stat st;
 	uoff_t file_size;
 
-	if (maildir_uidlist_want_recreate(ctx))
+	if (maildir_uidlist_want_recreate(ctx) || uidlist->recreate_on_change)
 		return maildir_uidlist_recreate(uidlist);
 
 	if (!uidlist->locked_refresh || uidlist->fd == -1) {
