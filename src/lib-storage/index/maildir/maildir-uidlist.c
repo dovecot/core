@@ -1903,7 +1903,7 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 		recs[dest]->flags &= ~MAILDIR_UIDLIST_REC_FLAG_MOVED;
 	}
 
-	if (ctx->uidlist->locked_refresh)
+	if (ctx->uidlist->locked_refresh && ctx->uidlist->initial_read)
 		ctx->uidlist->last_seen_uid = ctx->uidlist->next_uid-1;
 
 	ctx->new_files_count = 0;
