@@ -64,10 +64,8 @@ struct sqlpool_transaction_context {
 	sql_commit_callback_t *callback;
 	void *context;
 
-	struct sqlpool_request *commit_request;
-	struct sql_transaction_context *conn_trans;
-
 	pool_t query_pool;
+	struct sqlpool_request *commit_request;
 };
 
 extern struct sql_db driver_sqlpool_db;
@@ -120,31 +118,30 @@ sqlpool_request_abort(struct sqlpool_request **_request)
 	sqlpool_request_free(&request);
 }
 
-static void
+static struct sql_transaction_context *
 driver_sqlpool_new_conn_trans(struct sqlpool_transaction_context *trans,
 			      struct sql_db *conndb)
 {
-	trans->conn_trans = sql_transaction_begin(conndb);
+	struct sql_transaction_context *conn_trans;
+
+	conn_trans = sql_transaction_begin(conndb);
 	/* backend will use our queries list (we might still append more
 	   queries to the list) */
-	trans->conn_trans->head = trans->ctx.head;
-	trans->conn_trans->tail = trans->ctx.tail;
+	conn_trans->head = trans->ctx.head;
+	conn_trans->tail = trans->ctx.tail;
+	return conn_trans;
 }
 
 static void
 sqlpool_request_handle_transaction(struct sql_db *conndb,
 				   struct sqlpool_transaction_context *trans)
 {
-	i_assert(trans->conn_trans == NULL);
+	struct sql_transaction_context *conn_trans;
 
 	sqlpool_request_free(&trans->commit_request);
-	driver_sqlpool_new_conn_trans(trans, conndb);
-
-	if (trans->callback != NULL) {
-		/* commit() already called, finish it */
-		sql_transaction_commit(&trans->conn_trans,
-				       driver_sqlpool_commit_callback, trans);
-	}
+	conn_trans = driver_sqlpool_new_conn_trans(trans, conndb);
+	sql_transaction_commit(&conn_trans,
+			       driver_sqlpool_commit_callback, trans);
 }
 
 static void
@@ -630,31 +627,21 @@ driver_sqlpool_query_s(struct sql_db *_db, const char *query)
 static struct sql_transaction_context *
 driver_sqlpool_transaction_begin(struct sql_db *_db)
 {
-        struct sqlpool_db *db = (struct sqlpool_db *)_db;
 	struct sqlpool_transaction_context *ctx;
-	const struct sqlpool_connection *conn;
 
 	ctx = i_new(struct sqlpool_transaction_context, 1);
 	ctx->ctx.db = _db;
 
-	if (driver_sqlpool_get_connection(db, -1U, &conn))
-		ctx->conn_trans = sql_transaction_begin(conn->db);
-	else {
-		/* queue changes until we get a connection */
-		ctx->commit_request = sqlpool_request_new(db, NULL);
-		ctx->commit_request->trans = ctx;
-		ctx->query_pool = pool_alloconly_create("sqlpool transaction",
-							1024);
-		driver_sqlpool_append_request(db, ctx->commit_request);
-	}
+	/* queue changes until commit. even if we did have a free connection
+	   now, don't use it or multiple open transactions could tie up all
+	   connections. */
+	ctx->query_pool = pool_alloconly_create("sqlpool transaction", 1024);
 	return &ctx->ctx;
 }
 
 static void
 driver_sqlpool_transaction_free(struct sqlpool_transaction_context *ctx)
 {
-	i_assert(ctx->conn_trans == NULL);
-
 	if (ctx->commit_request != NULL)
 		sqlpool_request_abort(&ctx->commit_request);
 	if (ctx->query_pool != NULL)
@@ -677,14 +664,19 @@ driver_sqlpool_transaction_commit(struct sql_transaction_context *_ctx,
 {
 	struct sqlpool_transaction_context *ctx =
 		(struct sqlpool_transaction_context *)_ctx;
+	struct sqlpool_db *db = (struct sqlpool_db *)_ctx->db;
+	const struct sqlpool_connection *conn;
 
 	ctx->callback = callback;
 	ctx->context = context;
 
-	if (ctx->conn_trans != NULL) {
-		sql_transaction_commit(&ctx->conn_trans,
-				       driver_sqlpool_commit_callback, ctx);
-	}
+	ctx->commit_request = sqlpool_request_new(db, NULL);
+	ctx->commit_request->trans = ctx;
+
+	if (driver_sqlpool_get_connection(db, -1U, &conn))
+		sqlpool_request_handle_transaction(conn->db, ctx);
+	else
+		driver_sqlpool_append_request(db, ctx->commit_request);
 }
 
 static int
@@ -695,22 +687,19 @@ driver_sqlpool_transaction_commit_s(struct sql_transaction_context *_ctx,
 		(struct sqlpool_transaction_context *)_ctx;
         struct sqlpool_db *db = (struct sqlpool_db *)_ctx->db;
 	const struct sqlpool_connection *conn;
+	struct sql_transaction_context *conn_trans;
 	int ret;
 
 	*error_r = NULL;
 
-	if (ctx->conn_trans == NULL) {
-		if (driver_sqlpool_get_sync_connection(db, &conn))
-			driver_sqlpool_new_conn_trans(ctx, conn->db);
-		else {
-			*error_r = SQL_ERRSTR_NOT_CONNECTED;
-			driver_sqlpool_transaction_free(ctx);
-			return -1;
-		}
-		sqlpool_request_abort(&ctx->commit_request);
+	if (!driver_sqlpool_get_sync_connection(db, &conn)) {
+		*error_r = SQL_ERRSTR_NOT_CONNECTED;
+		driver_sqlpool_transaction_free(ctx);
+		return -1;
 	}
 
-	ret = sql_transaction_commit_s(&ctx->conn_trans, error_r);
+	conn_trans = driver_sqlpool_new_conn_trans(ctx, conn->db);
+	ret = sql_transaction_commit_s(&conn_trans, error_r);
 	driver_sqlpool_transaction_free(ctx);
 	return ret;
 }
@@ -721,8 +710,6 @@ driver_sqlpool_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct sqlpool_transaction_context *ctx =
 		(struct sqlpool_transaction_context *)_ctx;
 
-	if (ctx->conn_trans != NULL)
-		sql_transaction_rollback(&ctx->conn_trans);
 	driver_sqlpool_transaction_free(ctx);
 }
 
@@ -733,14 +720,10 @@ driver_sqlpool_update(struct sql_transaction_context *_ctx, const char *query,
 	struct sqlpool_transaction_context *ctx =
 		(struct sqlpool_transaction_context *)_ctx;
 
-	if (ctx->conn_trans != NULL && ctx->ctx.head == NULL)
-		sql_update_get_rows(ctx->conn_trans, query, affected_rows);
-	else {
-		/* we didn't get a connection for transaction immediately.
-		   queue updates until commit transfers all of these */
-		sql_transaction_add_query(&ctx->ctx, ctx->query_pool,
-					  query, affected_rows);
-	}
+	/* we didn't get a connection for transaction immediately.
+	   queue updates until commit transfers all of these */
+	sql_transaction_add_query(&ctx->ctx, ctx->query_pool,
+				  query, affected_rows);
 }
 
 struct sql_db driver_sqlpool_db = {
