@@ -128,7 +128,7 @@ static void master_auth_connection_input(struct master_auth_connection *conn)
 		return;
 
 	/* reply is now read */
-	reply = (struct master_auth_reply *)conn->buf;
+	reply = (const void *)conn->buf;
 	conn->buf_pos = 0;
 
 	if (conn->tag != reply->tag)

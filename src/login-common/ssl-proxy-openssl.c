@@ -706,7 +706,7 @@ const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy)
 
 const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy)
 {
-	SSL_CIPHER *cipher;
+	const SSL_CIPHER *cipher;
 	int bits, alg_bits;
 	const char *comp_str;
 

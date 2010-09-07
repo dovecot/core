@@ -1501,7 +1501,7 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	struct index_mail *imail = (struct index_mail *)mail;
 	const char *field_name;
 
-	switch (field) {
+	switch ((int)field) {
 	case 0:
 		field_name = "fields";
 		break;
