@@ -269,6 +269,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 {
 	struct config_section_stack *old_section = ctx->cur_section;
 	const char *p;
+	uoff_t size;
 	bool root;
 
 	while (ctx->cur_section->prev != NULL)
@@ -405,6 +406,14 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 	}
 	if (strcmp(key, "auth_chroot") == 0) {
 		config_apply_auth_set(ctx, key, "chroot", value);
+		return TRUE;
+	}
+	if (strcmp(key, "auth_cache_size") == 0 &&
+	    str_to_uoff(value, &size) == 0 && size < 1024) {
+		obsolete(ctx, "auth_cache_size value no longer defaults to "
+			 "megabytes. Use %sM", value);
+		config_apply_line(ctx, key,
+				  t_strdup_printf("%s=%sM", key, value), NULL);
 		return TRUE;
 	}
 	if (strcmp(key, "auth_count") == 0) {
