@@ -155,9 +155,9 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	prefix_len = strlen(prefix);
 	iter = dict_iterate_init(dict->dict, prefix, DICT_ITERATE_FLAG_RECURSE);
 	while (dict_iterate(iter, &key, &value)) {
-		/* prefix/$dest/$source */
+		/* prefix/$type/$dest/$source */
 		key += prefix_len;
-		p = strchr(key, '/');
+		p = strrchr(key, '/');
 		if (p != NULL && strcmp(p + 1, username) == 0) {
 			key = t_strdup_until(key, p);
 			array_append(&old_ids_arr, &key, 1);
