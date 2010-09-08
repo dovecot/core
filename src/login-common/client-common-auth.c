@@ -525,9 +525,11 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 
 void clients_notify_auth_connected(void)
 {
-	struct client *client;
+	struct client *client, *next;
 
-	for (client = clients; client != NULL; client = client->next) {
+	for (client = clients; client != NULL; client = next) {
+		next = client->next;
+
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
 		if (!client->greeting_sent)
