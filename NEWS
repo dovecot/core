@@ -1,3 +1,15 @@
+v2.0.2 2010-09-08  Timo Sirainen <tss@iki.fi>
+
+	* vpopmail support is disabled for now, since it's broken. You can use
+	  it via checkpassword support or its sql/ldap database directly.
+
+	- maildir: Fixed "duplicate uidlist entry" errors that happened at
+	  least with LMTP when mail was delivered to multiple recipients
+	- Deleting ACLs didn't cause entries to be removed from acl_shared_dict
+	- mail_max_lock_timeout setting wasn't working with all locks
+	- auth_cache_size setting's old-style value wasn't autoconverted
+	  and it usually also caused a crash
+
 v2.0.1 2010-08-24  Timo Sirainen <tss@iki.fi>
 
 	* When dsync is started as root, remote dsync command is now also
