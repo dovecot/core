@@ -409,7 +409,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (strcmp(key, "auth_cache_size") == 0 &&
-	    str_to_uoff(value, &size) == 0 && size < 1024) {
+	    str_to_uoff(value, &size) == 0 && size > 0 && size < 1024) {
 		obsolete(ctx, "auth_cache_size value no longer defaults to "
 			 "megabytes. Use %sM", value);
 		config_apply_line(ctx, key,
