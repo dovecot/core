@@ -6,7 +6,16 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
-# serial 2
+# serial 3
+
+AC_DEFUN([DC_DOVECOT_MODULEDIR],[
+	AC_ARG_WITH(moduledir,
+	[  --with-moduledir=DIR    Base directory for dynamically loadable modules],
+		moduledir="$withval",
+		moduledir=$libdir/dovecot
+	)
+	AC_SUBST(moduledir)
+])
 
 AC_DEFUN([DC_PLUGIN_DEPS],[
 	_plugin_deps=yes
@@ -49,7 +58,7 @@ AC_DEFUN([DC_DOVECOT],[
 
 	eval `grep -i '^dovecot_[[a-z]]*=' "$dovecotdir"/dovecot-config`
 	eval `grep '^LIBDOVECOT[[A-Z_]]*=' "$dovecotdir"/dovecot-config`
-	AX_SUBST_L([dovecot_moduledir], [dovecot_pkgincludedir], [dovecot_pkglibexecdir], [dovecot_pkglibdir], [dovecot_docdir])
+	AX_SUBST_L([dovecotdir], [dovecot_moduledir], [dovecot_pkgincludedir], [dovecot_pkglibexecdir], [dovecot_pkglibdir], [dovecot_docdir])
 	AX_SUBST_L([DOVECOT_CFLAGS], [DOVECOT_LIBS], [DOVECOT_SSL_LIBS])
 	AX_SUBST_L([LIBDOVECOT], [LIBDOVECOT_LOGIN], [LIBDOVECOT_SQL], [LIBDOVECOT_LDA], [LIBDOVECOT_STORAGE])
 	AX_SUBST_L([LIBDOVECOT_DEPS], [LIBDOVECOT_LOGIN_DEPS], [LIBDOVECOT_SQL_DEPS], [LIBDOVECOT_LDA_DEPS], [LIBDOVECOT_STORAGE_DEPS])

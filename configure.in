@@ -238,12 +238,7 @@ AC_ARG_WITH(storages,
 	mail_storages="shared maildir mbox sdbox mdbox cydir")
 AC_SUBST(mail_storages)
 
-AC_ARG_WITH(moduledir,
-[  --with-moduledir=DIR    Base directory for dynamically loadable modules],
-	moduledir="$withval",
-	moduledir=$libdir/dovecot
-)
-AC_SUBST(moduledir)
+DC_DOVECOT_MODULEDIR
 
 AC_ARG_WITH(docs,
 [  --with-docs             Install documentation (default)],
