@@ -203,8 +203,14 @@ static void static_lookup(struct auth_request *auth_request,
 				       AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 		auth_request->context = ctx;
-		auth_request_lookup_credentials(auth_request, "",
-						static_credentials_callback);
+		if (auth_request->passdb != NULL) {
+			auth_request_lookup_credentials(auth_request, "",
+				static_credentials_callback);
+		} else {
+			static_credentials_callback(
+				PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
+				NULL, 0, auth_request);
+		}
 	} else {
 		static_lookup_real(auth_request, callback);
 	}
