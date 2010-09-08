@@ -256,7 +256,7 @@ const struct setting_parser_info auth_setting_parser_info = {
 
 /* <settings checks> */
 static bool auth_settings_check(void *_set, pool_t pool,
-				const char **error_r ATTR_UNUSED)
+				const char **error_r)
 {
 	struct auth_settings *set = _set;
 	const char *p;
@@ -265,6 +265,15 @@ static bool auth_settings_check(void *_set, pool_t pool,
 		set->debug = TRUE;
 	if (set->debug)
 		set->verbose = TRUE;
+
+	if (set->cache_size < 1024) {
+		/* probably a configuration error.
+		   older versions used megabyte numbers */
+		*error_r = t_strdup_printf("auth_cache_size value is too small "
+					   "(%"PRIuUOFF_T" bytes)",
+					   set->cache_size);
+		return FALSE;
+	}
 
 	if (*set->username_chars == '\0') {
 		/* all chars are allowed */
