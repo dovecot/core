@@ -43,8 +43,14 @@ static void drop_privileges(void)
 	restrict_access_get_env(&set);
 	if (set.uid != 0) {
 		/* open config connection before dropping privileges */
-		(void)master_service_settings_read_simple(master_service,
-							  NULL, &error);
+		struct master_service_settings_input input;
+		struct master_service_settings_output output;
+
+		memset(&input, 0, sizeof(input));
+		input.module = "lmtp";
+		input.service = "lmtp";
+		(void)master_service_settings_read(master_service,
+						   &input, &output, &error);
 	}
 	restrict_access_by_env(NULL, FALSE);
 }
