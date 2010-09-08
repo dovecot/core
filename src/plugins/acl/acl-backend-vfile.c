@@ -1168,9 +1168,11 @@ acl_backend_vfile_object_update(struct acl_object *_aclobj,
 		acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 		return -1;
 	}
-	/* make sure dovecot-acl-list gets updated if we added any
+	/* make sure dovecot-acl-list gets updated if we changed any
 	   lookup rights. */
-	if (acl_rights_has_nonowner_lookup_changes(&update->rights))
+	if (acl_rights_has_nonowner_lookup_changes(&update->rights) ||
+	    update->modify_mode == ACL_MODIFY_MODE_REPLACE ||
+	    update->modify_mode == ACL_MODIFY_MODE_CLEAR)
 		(void)acl_backend_vfile_acllist_rebuild(backend);
 	return 0;
 }
