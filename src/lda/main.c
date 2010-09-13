@@ -338,10 +338,14 @@ int main(int argc, char *argv[])
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 	storage_service = mail_storage_service_init(master_service, set_roots,
 						    service_flags);
-	if (mail_storage_service_lookup_next(storage_service, &service_input,
-					     &service_user, &ctx.dest_user,
-					     &errstr) <= 0)
-		i_fatal("%s", errstr);
+	ret = mail_storage_service_lookup_next(storage_service, &service_input,
+					       &service_user, &ctx.dest_user,
+					       &errstr);
+	if (ret <= 0) {
+		if (ret < 0)
+			i_fatal("%s", errstr);
+		return EX_NOUSER;
+	}
 
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
