@@ -53,7 +53,7 @@ cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 		cmd_quota_get_root(*root);
 }
 
-static void cmd_quota_get_init(struct doveadm_mail_cmd_context *ctx,
+static void cmd_quota_get_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 			       const char *const args[] ATTR_UNUSED)
 {
 	doveadm_print_header("root", "Quota name", 0);
@@ -64,8 +64,6 @@ static void cmd_quota_get_init(struct doveadm_mail_cmd_context *ctx,
 			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
 	doveadm_print_header("percent", "%",
 			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
-
-	ctx->search_args = doveadm_mail_build_search_args(args);
 }
 
 static struct doveadm_mail_cmd_context *
