@@ -93,7 +93,8 @@ static int login_proxy_state_notify_open(struct login_proxy_state *state)
 
 	state->notify_fd = open(state->notify_path, O_WRONLY);
 	if (state->notify_fd == -1) {
-		i_error("open(%s) failed: %m", state->notify_path);
+		if (errno != ENOENT)
+			i_error("open(%s) failed: %m", state->notify_path);
 		state->notify_fd_broken = TRUE;
 		return -1;
 	}
