@@ -442,7 +442,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 		/* the fd may still be hanging somewhere in kernel or another
 		   process. make sure the client gets disconnected. */
-		if (shutdown(client->fd, SHUT_RDWR) < 0)
+		if (shutdown(client->fd, SHUT_RDWR) < 0 && errno != ENOTCONN)
 			i_error("shutdown() failed: %m");
 
 		if (data == NULL)
