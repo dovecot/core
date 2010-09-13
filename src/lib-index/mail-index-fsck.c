@@ -433,9 +433,9 @@ int mail_index_fsck(struct mail_index *index)
 
 	if (index->log->head == NULL) {
 		/* we're trying to open the index files, but there wasn't
-		   any .log file. this should be rare, so just fsck it without
-		   locking. */
-		orig_locked = TRUE;
+		   any .log file. */
+		if (mail_transaction_log_create(index->log, FALSE) < 0)
+			return -1;
 	}
 
 	if (!orig_locked) {
