@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "write-full.h"
 #include "str.h"
+#include "eacces-error.h"
 #include "execv-const.h"
 #include "settings-parser.h"
 #include "master-service-private.h"
@@ -160,8 +161,13 @@ master_service_open_config(struct master_service *service,
 		/* fallback to executing doveconf */
 	}
 
-	if (stat(path, &st) == 0 &&
-	    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
+	if (stat(path, &st) < 0) {
+		*error_r = errno == EACCES ? eacces_error_get("stat", path) :
+			t_strdup_printf("stat(%s) failed: %m", path);
+		return -1;
+	}
+
+	if (!S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
 		/* it's not an UNIX socket, don't even try to connect */
 		fd = -1;
 		errno = ENOTSOCK;
