@@ -214,7 +214,7 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 static int driver_mysql_do_query(struct mysql_db *db, const char *query)
 {
 	if (mysql_query(db->mysql, query) == 0)
-		return 1;
+		return 0;
 
 	/* failed */
 	switch (mysql_errno(db->mysql)) {
@@ -223,9 +223,9 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query)
 		sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
 		break;
 	default:
-		return -1;
+		break;
 	}
-	return 0;
+	return -1;
 }
 
 static const char *
@@ -288,12 +288,9 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 	result = i_new(struct mysql_result, 1);
 	result->api = driver_mysql_result;
 
-	switch (driver_mysql_do_query(db, query)) {
-	case 0:
-		/* not connected */
-		result->api = sql_not_connected_result;
-		break;
-	case 1:
+	if (driver_mysql_do_query(db, query) < 0)
+		result->api = driver_mysql_error_result;
+	else {
 		/* query ok */
 		result->affected_rows = mysql_affected_rows(db->mysql);
 		result->result = mysql_store_result(db->mysql);
@@ -307,17 +304,14 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 #endif
 
 		if (ret < 0 &&
-		    (result->result != NULL || mysql_errno(db->mysql) == 0))
-			break;
-
-		/* failed */
-		if (result->result != NULL)
-			mysql_free_result(result->result);
-		/* fall through */
-	case -1:
-		/* error */
-		result->api = driver_mysql_error_result;
-		break;
+		    (result->result != NULL || mysql_errno(db->mysql) == 0)) {
+			/* ok */
+		} else {
+			/* failed */
+			if (result->result != NULL)
+				mysql_free_result(result->result);
+			result->api = driver_mysql_error_result;
+		}
 	}
 
 	result->api.db = _db;
