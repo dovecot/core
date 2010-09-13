@@ -263,7 +263,10 @@ static void driver_mysql_exec(struct sql_db *_db, const char *query)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 
-	(void)driver_mysql_do_query(db, query);
+	if (driver_mysql_do_query(db, query) < 0) {
+		i_error("mysql: Query '%s' failed: %s",
+			query, mysql_error(db->mysql));
+	}
 }
 
 static void driver_mysql_query(struct sql_db *db, const char *query,
