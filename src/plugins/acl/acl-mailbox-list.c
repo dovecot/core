@@ -224,7 +224,7 @@ acl_mailbox_list_iter_get_name(struct mailbox_list_iterate_context *ctx,
 
 	name = mail_namespace_get_storage_name(ns, name);
 	len = strlen(name);
-	if (name[len-1] == ns->real_sep) {
+	if (len > 0 && name[len-1] == ns->real_sep) {
 		/* name ends with separator. this can happen if doing e.g.
 		   LIST "" foo/% and it lists "foo/". */
 		name = t_strndup(name, len-1);
