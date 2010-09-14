@@ -466,7 +466,7 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 
 static int
 acl_mailbox_list_create_dir(struct mailbox_list *list, const char *name,
-			    bool directory)
+			    enum mailbox_dir_create_type type)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	int ret;
@@ -484,8 +484,7 @@ acl_mailbox_list_create_dir(struct mailbox_list *list, const char *name,
 				       MAIL_ERRSTR_NO_PERMISSION);
 		return -1;
 	}
-	return alist->module_ctx.super.
-		create_mailbox_dir(list, name, directory);
+	return alist->module_ctx.super.create_mailbox_dir(list, name, type);
 }
 
 static void acl_mailbox_list_init_shared(struct mailbox_list *list)

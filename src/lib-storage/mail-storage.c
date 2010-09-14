@@ -643,14 +643,17 @@ void mailbox_free(struct mailbox **_box)
 int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
+	enum mailbox_dir_create_type type;
+
 	if (!mailbox_list_is_valid_create_name(box->list, box->name)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
 	}
 
-	if (box->list->v.create_mailbox_dir(box->list, box->name,
-					    directory) < 0) {
+	type = directory ? MAILBOX_DIR_CREATE_TYPE_TRY_NOSELECT :
+		MAILBOX_DIR_CREATE_TYPE_MAILBOX;
+	if (box->list->v.create_mailbox_dir(box->list, box->name, type) < 0) {
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
 	}

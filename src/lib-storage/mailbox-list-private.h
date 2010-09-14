@@ -21,6 +21,14 @@ struct mailbox_tree_context;
 	(((flags) & (MAILBOX_SELECT | MAILBOX_NOSELECT | \
 		     MAILBOX_NONEXISTENT)) != 0)
 
+enum mailbox_dir_create_type {
+	/* Creating a mailbox */
+	MAILBOX_DIR_CREATE_TYPE_MAILBOX,
+	/* Create a \Noselect or a mailbox */
+	MAILBOX_DIR_CREATE_TYPE_TRY_NOSELECT,
+	/* Create a \Noselect or fail */
+	MAILBOX_DIR_CREATE_TYPE_ONLY_NOSELECT
+};
 
 struct mailbox_list_vfuncs {
 	struct mailbox_list *(*alloc)(void);
@@ -65,7 +73,7 @@ struct mailbox_list_vfuncs {
 	int (*set_subscribed)(struct mailbox_list *list,
 			      const char *name, bool set);
 	int (*create_mailbox_dir)(struct mailbox_list *list, const char *name,
-				  bool directory);
+				  enum mailbox_dir_create_type type);
 	int (*delete_mailbox)(struct mailbox_list *list, const char *name);
 	int (*delete_dir)(struct mailbox_list *list, const char *name);
 	int (*rename_mailbox)(struct mailbox_list *oldlist, const char *oldname,

@@ -323,16 +323,22 @@ maildir_list_create_maildirfolder_file(struct mailbox_list *list,
 
 static int
 maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
-				bool directory ATTR_UNUSED)
+				enum mailbox_dir_create_type type)
 {
 	const char *path, *root_dir, *gid_origin, *p;
 	mode_t mode;
 	gid_t gid;
 	bool create_parent_dir;
 
+	if (type == MAILBOX_DIR_CREATE_TYPE_ONLY_NOSELECT) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				       "Can't create non-selectable mailbox");
+		return -1;
+	}
+
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	create_parent_dir = !directory &&
+	create_parent_dir = type == MAILBOX_DIR_CREATE_TYPE_MAILBOX &&
 		(list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0;
 	if (create_parent_dir) {
 		/* we only need to make sure that the parent directory exists */
@@ -351,7 +357,7 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 	} else if (errno == EEXIST) {
 		if (create_parent_dir)
 			return 0;
-		if (!directory) {
+		if (type == MAILBOX_DIR_CREATE_TYPE_MAILBOX) {
 			if (strcmp(path, root_dir) == 0) {
 				/* even though the root directory exists,
 				   the mailbox might not */

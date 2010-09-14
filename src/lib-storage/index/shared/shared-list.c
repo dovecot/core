@@ -232,14 +232,14 @@ static int shared_list_set_subscribed(struct mailbox_list *list,
 
 static int
 shared_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
-			       bool directory)
+			       enum mailbox_dir_create_type type)
 {
 	struct mail_namespace *ns = list->ns;
 	int ret;
 
 	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return -1;
-	ret = ns->list->v.create_mailbox_dir(ns->list, name, directory);
+	ret = ns->list->v.create_mailbox_dir(ns->list, name, type);
 	if (ret < 0)
 		shared_list_copy_error(list, ns);
 	return ret;

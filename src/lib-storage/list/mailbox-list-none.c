@@ -84,7 +84,7 @@ static int none_list_set_subscribed(struct mailbox_list *list,
 static int
 none_list_create_mailbox_dir(struct mailbox_list *list,
 			     const char *name ATTR_UNUSED,
-			     bool directory ATTR_UNUSED)
+			     enum mailbox_dir_create_type type ATTR_UNUSED)
 {
 	mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE, "Not supported");
 	return -1;

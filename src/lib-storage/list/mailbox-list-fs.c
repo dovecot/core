@@ -317,14 +317,15 @@ static int mailbox_is_selectable(struct mailbox_list *list, const char *name)
 
 static int
 fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
-			   bool directory)
+			   enum mailbox_dir_create_type type)
 {
 	const char *path, *gid_origin, *p;
 	mode_t mode;
 	gid_t gid;
-	bool create_parent_dir;
+	bool directory, create_parent_dir;
 	int ret;
 
+	directory = type != MAILBOX_LIST_PATH_TYPE_MAILBOX;
 	path = mailbox_list_get_path(list, name,
 				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
