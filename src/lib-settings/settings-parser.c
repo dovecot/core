@@ -298,8 +298,8 @@ get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
 	else if (strcasecmp(value, "no") == 0)
 		*result_r = FALSE;
 	else {
-		ctx->error = p_strconcat(ctx->parser_pool, "Invalid boolean: ",
-					 value, NULL);
+		ctx->error = p_strdup_printf(ctx->parser_pool,
+			"Invalid boolean value: %s (use yes or no)", value);
 		return -1;
 	}
 
