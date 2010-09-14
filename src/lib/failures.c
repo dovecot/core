@@ -5,6 +5,7 @@
 #include "str.h"
 #include "hostpid.h"
 #include "network.h"
+#include "lib-signals.h"
 #include "backtrace-string.h"
 #include "printf-format-fix.h"
 #include "write-full.h"
@@ -85,7 +86,8 @@ static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 	struct ioloop *ioloop;
 	struct io *io;
 	ssize_t ret;
-	unsigned int eintr_count = 0;
+	unsigned int prev_signal_term_counter = signal_term_counter;
+	unsigned int terminal_eintr_count = 0;
 
 	while ((ret = write(fd, data, len)) != (ssize_t)len) {
 		if (ret > 0) {
@@ -99,21 +101,33 @@ static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 			errno = ENOSPC;
 			return -1;
 		}
-		if (errno == EINTR && ++eintr_count < 3) {
-			/* we don't want to die because of this.
-			   try again a couple of times. */
-			continue;
-		}
-		if (errno != EAGAIN)
+		switch (errno) {
+		case EAGAIN:
+			/* wait until we can write more. this can happen at
+			   least when writing to terminal, even if fd is
+			   blocking. */
+			ioloop = io_loop_create();
+			io = io_add(fd, IO_WRITE, log_fd_flush_stop, ioloop);
+			io_loop_run(ioloop);
+			io_remove(&io);
+			io_loop_destroy(&ioloop);
+			break;
+		case EINTR:
+			if (prev_signal_term_counter == signal_term_counter) {
+				/* non-terminal signal. ignore. */
+			} else if (terminal_eintr_count++ == 0) {
+				/* we'd rather not die in the middle of
+				   writing to log. try again once more */
+			} else {
+				/* received two terminal signals.
+				   someone wants us dead. */
+				return -1;
+			}
+			break;
+		default:
 			return -1;
-
-		/* wait until we can write more. this can happen at least
-		   when writing to terminal, even if fd is blocking. */
-		ioloop = io_loop_create();
-		io = io_add(fd, IO_WRITE, log_fd_flush_stop, ioloop);
-		io_loop_run(ioloop);
-		io_remove(&io);
-		io_loop_destroy(&ioloop);
+		}
+		prev_signal_term_counter = signal_term_counter;
 	}
 	return 0;
 }
