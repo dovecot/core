@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("lda",
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
-		&argc, &argv, "a:d:ef:km:p:");
+		&argc, &argv, "a:d:ef:km:p:r:");
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("mail deliver context", 256);
@@ -262,7 +262,7 @@ int main(int argc, char *argv[])
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'a':
-			/* destination address */
+			/* original recipient address */
 			ctx.dest_addr = optarg;
 			break;
 		case 'd':
@@ -293,6 +293,10 @@ int main(int argc, char *argv[])
 		case 'p':
 			/* input path */
 			path = t_abspath(optarg);
+			break;
+		case 'r':
+			/* final recipient address */
+			ctx.final_dest_addr = optarg;
 			break;
 		default:
 			print_help();
@@ -409,6 +413,8 @@ int main(int argc, char *argv[])
 				t_strconcat(user, "@", ctx.set->hostname, NULL);
 		}
 	}
+	if (ctx.final_dest_addr == NULL)
+		ctx.final_dest_addr = ctx.dest_addr;
 
 	if (mail_deliver(&ctx, &storage) < 0) {
 		if (storage == NULL) {

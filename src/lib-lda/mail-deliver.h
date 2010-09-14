@@ -21,8 +21,10 @@ struct mail_deliver_context {
 
 	/* Destination user */
 	struct mail_user *dest_user;
-	/* Destination email address */
+	/* Original recipient address */
 	const char *dest_addr;
+	/* Final recipient address (typically same as dest_addr) */
+	const char *final_dest_addr;
 	/* Mailbox where mail should be saved, unless e.g. Sieve does
 	   something to it. */
 	const char *dest_mailbox_name;
