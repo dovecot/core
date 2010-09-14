@@ -11,6 +11,7 @@ struct lda_settings {
 	const char *rejection_reason;
 	const char *deliver_log_format;
 	const char *recipient_delimiter;
+	const char *lda_original_recipient_header;
 	bool quota_full_tempfail;
 	bool lda_mailbox_autocreate;
 	bool lda_mailbox_autosubscribe;

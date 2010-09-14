@@ -405,13 +405,14 @@ int main(int argc, char *argv[])
 	mailbox_header_lookup_unref(&headers_ctx);
 	mail_set_seq(ctx.src_mail, 1);
 
-	if (ctx.dest_addr == NULL) {
+	if (ctx.dest_addr == NULL &&
+	    *ctx.set->lda_original_recipient_header != '\0') {
 		ctx.dest_addr = mail_deliver_get_address(ctx.src_mail,
-							 "Envelope-To");
-		if (ctx.dest_addr == NULL) {
-			ctx.dest_addr = strchr(user, '@') != NULL ? user :
-				t_strconcat(user, "@", ctx.set->hostname, NULL);
-		}
+					ctx.set->lda_original_recipient_header);
+	}
+	if (ctx.dest_addr == NULL) {
+		ctx.dest_addr = strchr(user, '@') != NULL ? user :
+			t_strconcat(user, "@", ctx.set->hostname, NULL);
 	}
 	if (ctx.final_dest_addr == NULL)
 		ctx.final_dest_addr = ctx.dest_addr;

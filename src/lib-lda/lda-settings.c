@@ -25,6 +25,7 @@ static const struct setting_define lda_setting_defines[] = {
 	DEF(SET_STR, rejection_reason),
 	DEF(SET_STR, deliver_log_format),
 	DEF(SET_STR, recipient_delimiter),
+	DEF(SET_STR, lda_original_recipient_header),
 	DEF(SET_BOOL, quota_full_tempfail),
 	DEF(SET_BOOL, lda_mailbox_autocreate),
 	DEF(SET_BOOL, lda_mailbox_autosubscribe),
@@ -41,6 +42,7 @@ static const struct lda_settings lda_default_settings = {
 		"Your message to <%t> was automatically rejected:%n%r",
 	.deliver_log_format = "msgid=%m: %$",
 	.recipient_delimiter = "+",
+	.lda_original_recipient_header = "",
 	.quota_full_tempfail = FALSE,
 	.lda_mailbox_autocreate = FALSE,
 	.lda_mailbox_autosubscribe = FALSE
