@@ -143,7 +143,8 @@ void mail_index_update_day_headers(struct mail_index_transaction *t)
 
 	/* @UNSAFE: move days forward and fill the missing days with old
 	   day_first_uid[0]. */
-	memmove(hdr.day_first_uid + days, hdr.day_first_uid, max_days - days);
+	memmove(hdr.day_first_uid + days, hdr.day_first_uid,
+		(max_days - days) * sizeof(hdr.day_first_uid[0]));
 	for (i = 1; i < days; i++)
 		hdr.day_first_uid[i] = hdr.day_first_uid[0];
 
