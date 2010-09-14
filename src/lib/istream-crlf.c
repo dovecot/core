@@ -93,11 +93,11 @@ static ssize_t i_stream_crlf_read_crlf(struct istream_private *stream)
 		if (src[-1] != '\r')
 			*dest++ = '\r';
 
-		if (dest < dest_end) {
-			*dest++ = '\n';
-			src++;
-		}
+		if (dest == dest_end)
+			break;
 
+		*dest++ = '\n';
+		src++;
 		i_assert(src == ptr + 1);
 	}
 
