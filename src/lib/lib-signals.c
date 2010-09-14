@@ -11,6 +11,9 @@
 
 #define MAX_SIGNAL_VALUE 31
 
+#define SIGNAL_IS_TERMINAL(signo) \
+	((signo) == SIGINT || (signo) == SIGQUIT || (signo) == SIGTERM)
+
 #if !defined(SA_SIGINFO) && !defined(SI_NOINFO)
 /* without SA_SIGINFO we don't know what the real code is. we need SI_NOINFO
    to make sure lib_signal_code_to_str() returns "". */
@@ -24,6 +27,8 @@ struct signal_handler {
 	bool delayed;
         struct signal_handler *next;
 };
+
+volatile unsigned int signal_term_counter = 0;
 
 /* Remember that these are accessed inside signal handler which may be called
    even while we're initializing/deinitializing. Try hard to keep everything
@@ -111,6 +116,9 @@ static void sig_handler(int signo)
 
 	if (signo < 0 || signo > MAX_SIGNAL_VALUE)
 		return;
+
+	if (SIGNAL_IS_TERMINAL(signo))
+		signal_term_counter++;
 
 	/* remember that we're inside a signal handler which might have been
 	   called at any time. don't do anything that's unsafe. we might also

@@ -5,6 +5,17 @@
 
 typedef void signal_handler_t(const siginfo_t *si, void *context);
 
+/* Number of times a "termination signal" has been received.
+   These signals are SIGINT, SIGQUIT and SIGTERM. Callers can compare this to
+   their saved previous value to see if a syscall returning EINTR should be
+   treated as someone wanting to end the process or just some internal signal
+   that should be ignored, such as SIGCHLD.
+
+   This is marked as volatile so that compiler won't optimize away its
+   comparisons. It may not work perfectly everywhere, such as when accessing it
+   isn't atomic, so you shouldn't heavily rely on its actual value. */
+extern volatile unsigned int signal_term_counter;
+
 /* Convert si_code to string */
 const char *lib_signal_code_to_str(int signo, int sicode);
 
