@@ -41,8 +41,8 @@ struct quota_rule {
 
 struct quota_warning_rule {
 	struct quota_rule rule;
-
 	const char *command;
+	unsigned int reverse:1;
 };
 
 struct quota_backend_vfuncs {

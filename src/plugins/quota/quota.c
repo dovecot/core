@@ -641,8 +641,9 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 {
 	struct quota_warning_rule *warning;
 	struct quota_rule rule;
-	const char *p;
+	const char *p, *q;
 	int ret;
+	bool reverse = FALSE;
 
 	p = strchr(rule_def, ' ');
 	if (p == NULL || p[1] == '\0') {
@@ -650,9 +651,20 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 		return -1;
 	}
 
+	if (*rule_def == '+') {
+		/* warn when exceeding quota */
+		q = rule_def+1;
+	} else if (*rule_def == '-') {
+		/* warn when going below quota */
+		q = rule_def+1;
+		reverse = TRUE;
+	} else {
+		/* default: same as '+' */
+		q = rule_def;
+	}
+
 	memset(&rule, 0, sizeof(rule));
-	ret = quota_rule_parse_limits(root_set, &rule,
-				      t_strdup_until(rule_def, p),
+	ret = quota_rule_parse_limits(root_set, &rule, t_strdup_until(q, p),
 				      FALSE, error_r);
 	if (ret < 0)
 		return -1;
@@ -660,19 +672,21 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	warning = array_append_space(&root_set->warning_rules);
 	warning->command = i_strdup(p+1);
 	warning->rule = rule;
+	warning->reverse = reverse;
 
 	quota_root_recalculate_relative_rules(root_set,
 					      root_set->default_rule.bytes_limit,
 					      root_set->default_rule.count_limit);
 	if (root_set->set->debug) {
 		i_debug("Quota warning: bytes=%llu%s "
-			"messages=%llu%s command=%s",
+			"messages=%llu%s reverse=%s command=%s",
 			(unsigned long long)warning->rule.bytes_limit,
 			warning->rule.bytes_percent == 0 ? "" :
 			t_strdup_printf(" (%u%%)", warning->rule.bytes_percent),
 			(unsigned long long)warning->rule.count_limit,
 			warning->rule.count_percent == 0 ? "" :
 			t_strdup_printf(" (%u%%)", warning->rule.count_percent),
+			warning->reverse ? "yes" : "no",
 			warning->command);
 	}
 	return 0;
@@ -949,6 +963,23 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd)
 		i_error("close(%s) failed: %m", socket_path);
 }
 
+static bool
+quota_warning_match(const struct quota_warning_rule *w,
+		    uint64_t bytes_before, uint64_t bytes_current,
+		    uint64_t count_before, uint64_t count_current)
+{
+#define QUOTA_EXCEEDED(before, current, limit) \
+	((before) < (uint64_t)(limit) && (current) >= (uint64_t)(limit))
+	if (!w->reverse) {
+		/* over quota (default) */
+		return QUOTA_EXCEEDED(bytes_before, bytes_current, w->rule.bytes_limit) ||
+			QUOTA_EXCEEDED(count_before, count_current, w->rule.count_limit);
+	} else {
+		return QUOTA_EXCEEDED(bytes_current, bytes_before, w->rule.bytes_limit) ||
+			QUOTA_EXCEEDED(count_current, count_before, w->rule.count_limit);
+	}
+}
+
 static void quota_warnings_execute(struct quota_transaction_context *ctx,
 				   struct quota_root *root)
 {
@@ -971,10 +1002,9 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 	bytes_before = bytes_current - ctx->bytes_used;
 	count_before = count_current - ctx->count_used;
 	for (i = 0; i < count; i++) {
-		if ((bytes_before < (uint64_t)warnings[i].rule.bytes_limit &&
-		     bytes_current >= (uint64_t)warnings[i].rule.bytes_limit) ||
-		    (count_before < (uint64_t)warnings[i].rule.count_limit &&
-		     count_current >= (uint64_t)warnings[i].rule.count_limit)) {
+		if (quota_warning_match(&warnings[i],
+					bytes_before, bytes_current,
+					count_before, count_current)) {
 			quota_warning_execute(root, warnings[i].command);
 			break;
 		}
