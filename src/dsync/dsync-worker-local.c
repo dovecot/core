@@ -1130,6 +1130,33 @@ local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 	return mailbox_alloc(ns->list, name, 0);
 }
 
+static int local_worker_create_dir(struct mailbox *box,
+				   const struct dsync_mailbox *dsync_box)
+{
+	struct mailbox_list *list = mailbox_get_namespace(box)->list;
+	const char *errstr;
+	enum mail_error error;
+
+	if (mailbox_list_create_dir(list, mailbox_get_name(box)) == 0)
+		return 0;
+
+	errstr = mailbox_list_get_last_error(list, &error);
+	switch (error) {
+	case MAIL_ERROR_EXISTS:
+		/* directory already exists - that's ok */
+		return 0;
+	case MAIL_ERROR_NOTPOSSIBLE:
+		/* \noselect mailboxes not supported - just ignore them
+		   (we don't want to create a selectable mailbox if the other
+		   side of the sync doesn't support dual-use mailboxes,
+		   e.g. mbox) */
+		return 0;
+	default:
+		i_error("Can't create mailbox %s: %s", dsync_box->name, errstr);
+		return -1;
+	}
+}
+
 static int
 local_worker_create_allocated_mailbox(struct local_dsync_worker *worker,
 				      struct mailbox *box,
@@ -1141,15 +1168,19 @@ local_worker_create_allocated_mailbox(struct local_dsync_worker *worker,
 
 	local_worker_copy_mailbox_update(dsync_box, &update);
 
-	if (mailbox_create(box, &update, dsync_box->uid_validity == 0) < 0) {
+	if (dsync_mailbox_is_noselect(dsync_box)) {
+		if (local_worker_create_dir(box, dsync_box) < 0) {
+			dsync_worker_set_failure(&worker->worker);
+			return -1;
+		}
+		return 1;
+	}
+
+	if (mailbox_create(box, &update, FALSE) < 0) {
 		errstr = mail_storage_get_last_error(mailbox_get_storage(box),
 						     &error);
 		if (error == MAIL_ERROR_EXISTS) {
 			/* mailbox already exists */
-			if (dsync_box->uid_validity == 0) {
-				/* just a directory - no one cares */
-				return 1;
-			}
 			return 0;
 		}
 
