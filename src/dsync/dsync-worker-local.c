@@ -1109,8 +1109,9 @@ local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 	struct local_dsync_mailbox *lbox;
 	const char *name;
 
-	lbox = hash_table_lookup(worker->mailbox_hash,
-				 &dsync_box->mailbox_guid);
+	lbox = dsync_mailbox_is_noselect(dsync_box) ? NULL :
+		hash_table_lookup(worker->mailbox_hash,
+				  &dsync_box->mailbox_guid);
 	if (lbox != NULL) {
 		/* use the existing known mailbox name */
 		return mailbox_alloc(lbox->ns->list, lbox->storage_name, 0);
@@ -1125,8 +1126,10 @@ local_worker_mailbox_alloc(struct local_dsync_worker *worker,
 
 	name = local_worker_convert_mailbox_name(worker, name, ns,
 						 dsync_box, creating);
-	local_dsync_worker_add_mailbox(worker, ns, name,
-				       &dsync_box->mailbox_guid);
+	if (!dsync_mailbox_is_noselect(dsync_box)) {
+		local_dsync_worker_add_mailbox(worker, ns, name,
+					       &dsync_box->mailbox_guid);
+	}
 	return mailbox_alloc(ns->list, name, 0);
 }
 
