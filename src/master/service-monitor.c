@@ -202,9 +202,9 @@ static void service_drop_connections(struct service *service)
 		service->last_drop_warning = ioloop_time;
 		i_warning("service(%s): %s reached, "
 			  "client connections are being dropped",
+			  service->set->name,
 			  service->process_limit > 1 ?
-			  "process_limit" : "client_limit",
-			  service->set->name);
+			  "process_limit" : "client_limit");
 	}
 	service->listen_pending = TRUE;
 	service_monitor_listen_stop(service);
