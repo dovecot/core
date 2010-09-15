@@ -231,6 +231,15 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 				"to end with separator", ns->prefix);
 			return FALSE;
 		}
+		if (*ns->prefix != '\0' &&
+		    (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0 &&
+		    ns->prefix[0] == ns->sep) {
+			*error_r = t_strdup_printf(
+				"list=yes requires prefix=%s "
+				"not to start with separator", ns->prefix);
+			return FALSE;
+		}
 		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
 				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0) {
 			if (list_sep == '\0')
