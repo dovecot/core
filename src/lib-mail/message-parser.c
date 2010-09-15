@@ -369,15 +369,19 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 		}
 	}
 
-	if (next == NULL) {
+	if (next != NULL) {
+		/* found / need more data */
+		i_assert(ret >= 0);
+		i_assert(!(ret == 0 && full));
+	} else if (boundary_start == 0) {
+		/* no linefeeds in this block. we can just skip it. */
+		ret = 0;
+		boundary_start = block_r->size;
+	} else {
 		/* the boundary wasn't found from this data block,
 		   we'll need more data. */
 		ret = 0;
 		ctx->want_count = (block_r->size - boundary_start) + 1;
-	} else {
-		/* found / need more data */
-		i_assert(ret >= 0);
-		i_assert(!(ret == 0 && full));
 	}
 
 	if (ret > 0 || (ret == 0 && !ctx->eof)) {
