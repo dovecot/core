@@ -23,5 +23,6 @@ void dsync_brain_sync(struct dsync_brain *brain);
 void dsync_brain_sync_all(struct dsync_brain *brain);
 
 bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain);
+bool dsync_brain_has_failed(struct dsync_brain *brain);
 
 #endif

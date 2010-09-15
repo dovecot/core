@@ -900,3 +900,10 @@ bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain)
 		dsync_worker_has_unexpected_changes(brain->src_worker) ||
 		dsync_worker_has_unexpected_changes(brain->dest_worker);
 }
+
+bool dsync_brain_has_failed(struct dsync_brain *brain)
+{
+	return brain->failed ||
+		dsync_worker_has_failed(brain->src_worker) ||
+		dsync_worker_has_failed(brain->dest_worker);
+}

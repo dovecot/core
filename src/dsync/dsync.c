@@ -314,7 +314,8 @@ int main(int argc, char *argv[])
 		server = NULL;
 		dsync_brain_sync(brain);
 
-		master_service_run(master_service, dsync_connected);
+		if (!dsync_brain_has_failed(brain))
+			master_service_run(master_service, dsync_connected);
 	}
 
 	if (brain == NULL)
