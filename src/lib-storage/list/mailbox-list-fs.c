@@ -325,7 +325,7 @@ fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 	bool directory, create_parent_dir;
 	int ret;
 
-	directory = type != MAILBOX_LIST_PATH_TYPE_MAILBOX;
+	directory = type != MAILBOX_DIR_CREATE_TYPE_MAILBOX;
 	path = mailbox_list_get_path(list, name,
 				     directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
