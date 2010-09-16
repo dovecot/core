@@ -579,6 +579,7 @@ void doveadm_mail_init(void)
 	mod_set.version = master_service_get_version_string(master_service);
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = doveadm_debug;
+	mod_set.binary_name = "doveadm";
 
 	/* load all configured mail plugins */
 	mail_storage_service_modules =
