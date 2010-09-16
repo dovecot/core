@@ -33,6 +33,7 @@ struct maildir_filename {
 	uoff_t size, vsize;
 	enum mail_flags flags;
 	unsigned int preserve_filename:1;
+	unsigned int save_guid:1; /* tmp_name contains the GUID */
 	unsigned int keywords_count;
 	/* unsigned int keywords[]; */
 };
@@ -786,6 +787,7 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 		mf->dest_basename = p_strdup(ctx->pool,
 					     maildir_filename_generate());
 		mf->preserve_filename = FALSE;
+		mf->save_guid = TRUE;
 	}
 }
 
@@ -828,6 +830,7 @@ static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
 	struct maildir_filename *mf;
 	struct seq_range_iter iter;
 	enum maildir_uidlist_rec_flag flags;
+	struct maildir_uidlist_rec *rec;
 	unsigned int n = 0;
 	uint32_t uid;
 	bool newdir, bret;
@@ -845,8 +848,13 @@ static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
 		if (newdir)
 			flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
 		ret = maildir_uidlist_sync_next_uid(ctx->uidlist_sync_ctx,
-						    dest, uid, flags);
+						    dest, uid, flags, &rec);
 		i_assert(ret > 0);
+		i_assert(rec != NULL);
+		if (mf->save_guid) {
+			maildir_uidlist_sync_set_ext(ctx->uidlist_sync_ctx, rec,
+				MAILDIR_UIDLIST_REC_EXT_GUID, mf->tmp_name);
+		}
 	} T_END;
 	i_assert(!seq_range_array_iter_nth(&iter, n, &uid));
 }

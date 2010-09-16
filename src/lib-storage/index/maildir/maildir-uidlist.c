@@ -1141,33 +1141,16 @@ void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 }
 
 static void
-maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
-			     enum maildir_uidlist_rec_ext_key key,
-			     const char *value)
+maildir_uidlist_rec_set_ext(struct maildir_uidlist_rec *rec, pool_t pool,
+			    enum maildir_uidlist_rec_ext_key key,
+			    const char *value)
 {
-	struct maildir_uidlist_rec *rec;
 	const unsigned char *p;
 	buffer_t *buf;
 	unsigned int len;
-	int ret;
-
-	ret = maildir_uidlist_lookup_rec(uidlist, uid, &rec);
-	if (ret <= 0) {
-		if (ret < 0)
-			return;
-
-		/* maybe it's a new message */
-		if (maildir_uidlist_refresh(uidlist) < 0)
-			return;
-		if (maildir_uidlist_lookup_rec(uidlist, uid, &rec) <= 0) {
-			/* message is already expunged, ignore */
-			return;
-		}
-	}
-
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
 
 	/* copy existing extensions, except for the one we're updating */
+	buf = buffer_create_dynamic(pool_datastack_create(), 128);
 	if (rec->extensions != NULL) {
 		p = rec->extensions;
 		while (*p != '\0') {
@@ -1184,22 +1167,40 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 	}
 	buffer_append_c(buf, '\0');
 
-	rec->extensions = p_malloc(uidlist->record_pool, buf->used);
+	rec->extensions = p_malloc(pool, buf->used);
 	memcpy(rec->extensions, buf->data, buf->used);
-
-	if (rec->uid != (uint32_t)-1) {
-		/* message already exists in uidlist, need to recreate it */
-		uidlist->recreate = TRUE;
-	}
 }
 
 void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 			     enum maildir_uidlist_rec_ext_key key,
 			     const char *value)
 {
+	struct maildir_uidlist_rec *rec;
+	int ret;
+
+	ret = maildir_uidlist_lookup_rec(uidlist, uid, &rec);
+	if (ret <= 0) {
+		if (ret < 0)
+			return;
+
+		/* maybe it's a new message */
+		if (maildir_uidlist_refresh(uidlist) < 0)
+			return;
+		if (maildir_uidlist_lookup_rec(uidlist, uid, &rec) <= 0) {
+			/* message is already expunged, ignore */
+			return;
+		}
+	}
+
 	T_BEGIN {
-		maildir_uidlist_set_ext_real(uidlist, uid, key, value);
+		maildir_uidlist_rec_set_ext(rec, uidlist->record_pool,
+					    key, value);
 	} T_END;
+
+	if (rec->uid != (uint32_t)-1) {
+		/* message already exists in uidlist, need to recreate it */
+		uidlist->recreate = TRUE;
+	}
 }
 
 static void
@@ -1645,10 +1646,12 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 static int
 maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 				  const char *filename, uint32_t uid,
-				  enum maildir_uidlist_rec_flag flags)
+				  enum maildir_uidlist_rec_flag flags,
+				  struct maildir_uidlist_rec **rec_r)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
-	struct maildir_uidlist_rec *rec;
+	struct maildir_uidlist_rec *rec, *const *recs;
+	unsigned int count;
 
 	/* we'll update uidlist directly */
 	rec = hash_table_lookup(uidlist->files, filename);
@@ -1686,6 +1689,11 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		rec->uid = uid;
 		if (uidlist->next_uid <= uid)
 			uidlist->next_uid = uid + 1;
+		else {
+			recs = array_get(&uidlist->records, &count);
+			if (count > 1 && uid < recs[count-1]->uid)
+				uidlist->unsorted = TRUE;
+		}
 	}
 
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
@@ -1693,6 +1701,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	hash_table_insert(uidlist->files, rec->filename, rec);
 
 	ctx->finished = FALSE;
+	*rec_r = rec;
 	return 1;
 }
 
@@ -1719,16 +1728,21 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags)
 {
-	return maildir_uidlist_sync_next_uid(ctx, filename, 0, flags);
+	struct maildir_uidlist_rec *rec;
+
+	return maildir_uidlist_sync_next_uid(ctx, filename, 0, flags, &rec);
 }
 
 int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 				  const char *filename, uint32_t uid,
-				  enum maildir_uidlist_rec_flag flags)
+				  enum maildir_uidlist_rec_flag flags,
+				  struct maildir_uidlist_rec **rec_r)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 	struct maildir_uidlist_rec *rec, *old_rec;
 	const char *p, *dir;
+
+	*rec_r = NULL;
 
 	if (ctx->failed)
 		return -1;
@@ -1746,7 +1760,7 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 
 	if (ctx->partial) {
 		return maildir_uidlist_sync_next_partial(ctx, filename,
-							 uid, flags);
+							 uid, flags, rec_r);
 	}
 
 	rec = hash_table_lookup(ctx->files, filename);
@@ -1791,6 +1805,7 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(ctx->record_pool, filename);
 	hash_table_insert(ctx->files, rec->filename, rec);
+	*rec_r = rec;
 	return 1;
 }
 
@@ -1821,6 +1836,17 @@ void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 
 	ctx->changed = TRUE;
 	ctx->uidlist->recreate = TRUE;
+}
+
+void maildir_uidlist_sync_set_ext(struct maildir_uidlist_sync_ctx *ctx,
+				  struct maildir_uidlist_rec *rec,
+				  enum maildir_uidlist_rec_ext_key key,
+				  const char *value)
+{
+	pool_t pool = ctx->partial ?
+		ctx->uidlist->record_pool : ctx->record_pool;
+
+	maildir_uidlist_rec_set_ext(rec, pool, key, value);
 }
 
 const char *

@@ -469,11 +469,20 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
-	const char *path, *fname, *end, *uidl;
+	const char *path, *fname, *end, *guid, *uidl;
 
 	switch (field) {
-	case MAIL_FETCH_UIDL_FILE_NAME:
 	case MAIL_FETCH_GUID:
+		/* use GUID from uidlist if it exists */
+		guid = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
+						  MAILDIR_UIDLIST_REC_EXT_GUID);
+		if (guid != NULL) {
+			*value_r = guid;
+			return 0;
+		}
+
+		/* default to base filename: */
+	case MAIL_FETCH_UIDL_FILE_NAME:
 		if (mail->data.guid != NULL) {
 			*value_r = mail->data.guid;
 			return 0;
