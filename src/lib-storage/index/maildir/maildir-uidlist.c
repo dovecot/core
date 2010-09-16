@@ -990,12 +990,18 @@ int maildir_uidlist_refresh_fast_init(struct maildir_uidlist *uidlist)
 }
 
 static int
+maildir_uid_bsearch_cmp(const uint32_t *uidp,
+			struct maildir_uidlist_rec *const *recp)
+{
+	return *uidp < (*recp)->uid ? -1 :
+		*uidp > (*recp)->uid ? 1 : 0;
+}
+
+static int
 maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
-			   unsigned int *idx_r,
 			   struct maildir_uidlist_rec **rec_r)
 {
-	struct maildir_uidlist_rec *const *recs;
-	unsigned int idx, left_idx, right_idx;
+	struct maildir_uidlist_rec *const *pos;
 
 	if (!uidlist->initial_read) {
 		/* first time we need to read uidlist */
@@ -1003,25 +1009,14 @@ maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
 			return -1;
 	}
 
-	idx = left_idx = 0;
-	recs = array_get(&uidlist->records, &right_idx);
-	while (left_idx < right_idx) {
-		idx = (left_idx + right_idx) / 2;
-
-		if (recs[idx]->uid < uid)
-			left_idx = idx+1;
-		else if (recs[idx]->uid > uid)
-			right_idx = idx;
-		else {
-			*idx_r = idx;
-			*rec_r = recs[idx];
-			return 1;
-		}
+	pos = array_bsearch(&uidlist->records, &uid,
+			    maildir_uid_bsearch_cmp);
+	if (pos == NULL) {
+		*rec_r = NULL;
+		return 0;
 	}
-
-	if (idx > 0) idx--;
-	*idx_r = idx;
-	return 0;
+	*rec_r = *pos;
+	return 1;
 }
 
 int maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
@@ -1058,10 +1053,9 @@ int maildir_uidlist_lookup_nosync(struct maildir_uidlist *uidlist, uint32_t uid,
 				  const char **fname_r)
 {
 	struct maildir_uidlist_rec *rec;
-	unsigned int idx;
 	int ret;
 
-	if ((ret = maildir_uidlist_lookup_rec(uidlist, uid, &idx, &rec)) <= 0)
+	if ((ret = maildir_uidlist_lookup_rec(uidlist, uid, &rec)) <= 0)
 		return ret;
 
 	*flags_r = rec->flags;
@@ -1074,11 +1068,10 @@ maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 			   enum maildir_uidlist_rec_ext_key key)
 {
 	struct maildir_uidlist_rec *rec;
-	unsigned int idx;
 	const unsigned char *p;
 	int ret;
 
-	ret = maildir_uidlist_lookup_rec(uidlist, uid, &idx, &rec);
+	ret = maildir_uidlist_lookup_rec(uidlist, uid, &rec);
 	if (ret <= 0 || rec->extensions == NULL)
 		return NULL;
 
@@ -1153,13 +1146,12 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 			     const char *value)
 {
 	struct maildir_uidlist_rec *rec;
-	unsigned int idx;
 	const unsigned char *p;
 	buffer_t *buf;
 	unsigned int len;
 	int ret;
 
-	ret = maildir_uidlist_lookup_rec(uidlist, uid, &idx, &rec);
+	ret = maildir_uidlist_lookup_rec(uidlist, uid, &rec);
 	if (ret <= 0) {
 		if (ret < 0)
 			return;
@@ -1167,7 +1159,7 @@ maildir_uidlist_set_ext_real(struct maildir_uidlist *uidlist, uint32_t uid,
 		/* maybe it's a new message */
 		if (maildir_uidlist_refresh(uidlist) < 0)
 			return;
-		if (maildir_uidlist_lookup_rec(uidlist, uid, &idx, &rec) <= 0) {
+		if (maildir_uidlist_lookup_rec(uidlist, uid, &rec) <= 0) {
 			/* message is already expunged, ignore */
 			return;
 		}
