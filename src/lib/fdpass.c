@@ -107,7 +107,6 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
         struct const_iovec iov;
         struct cmsghdr *cmsg;
 	char buf[CMSG_SPACE(sizeof(int))];
-	void *cmsg_data;
 
 	/* at least one byte is required to be sent with fd passing */
 	i_assert(size > 0 && size < INT_MAX);
@@ -130,8 +129,7 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 		cmsg->cmsg_level = SOL_SOCKET;
 		cmsg->cmsg_type = SCM_RIGHTS;
 		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-		cmsg_data = CMSG_DATA(cmsg);
-		*(int *)cmsg_data = send_fd;
+		memcpy(CMSG_DATA(cmsg), &send_fd, sizeof(send_fd));
 
 		/* set the real length we want to use. Do it after all is
 		   set just in case CMSG macros required the extra padding
@@ -166,7 +164,6 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	struct cmsghdr *cmsg;
 	ssize_t ret;
 	char buf[CMSG_SPACE(sizeof(int))];
-	void *cmsg_data;
 
 	i_assert(size > 0 && size < INT_MAX);
 
@@ -196,10 +193,8 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	cmsg = CMSG_FIRSTHDR(&msg);
 	if (!CHECK_MSG(msg) || !CHECK_CMSG(cmsg))
 		*fd = -1;
-	else {
-		cmsg_data = CMSG_DATA(cmsg);
-		*fd = *(int *)cmsg_data;
-	}
+	else
+		memcpy(fd, CMSG_DATA(cmsg), sizeof(*fd));
 	return ret;
 }
 
