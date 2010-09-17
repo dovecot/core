@@ -680,13 +680,20 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 	if (len > 0 && storage_name[len-1] == ns->real_sep)
 		storage_name = t_strndup(storage_name, len-1);
 
-	path = mailbox_list_get_path(ns->list, storage_name,
-				     MAILBOX_LIST_PATH_TYPE_DIR);
-	path_split(path, &dir, &fname);
-	if (ns->list->v.get_mailbox_flags(ns->list, dir, fname,
-					  MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-					  &st, &ctx->info.flags) < 0)
-		ctx->ctx.failed = TRUE;
+	if (!mailbox_list_is_valid_pattern(ns->list, storage_name)) {
+		/* broken entry in subscriptions file */
+		ctx->info.flags = MAILBOX_NONEXISTENT;
+	} else {
+		struct mailbox_list *list = ns->list;
+
+		path = mailbox_list_get_path(list, storage_name,
+					     MAILBOX_LIST_PATH_TYPE_DIR);
+		path_split(path, &dir, &fname);
+		if (list->v.get_mailbox_flags(list, dir, fname,
+					      MAILBOX_LIST_FILE_TYPE_UNKNOWN,
+					      &st, &ctx->info.flags) < 0)
+			ctx->ctx.failed = TRUE;
+	}
 
 	ctx->info.flags |= flags;
 	return &ctx->info;
