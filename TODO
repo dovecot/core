@@ -1,6 +1,7 @@
+ - doveadm director assign <user> <host> - do it permanently in memory
+ - LSUB shows subscribed namespace prefix as prefix/, also SUBSCRIBE adds the /
  - sql pool: if async query is pending and sync query is sent and there
    are no more empty connections, it should flush the async query first
- - DELETEACL doesn't update shared dict
  - NTLMv1 and LM should be disabled if disable_plaintext_auth=yes
  - SEARCH SENT*/HEADER/etc. doesn't seem optimized when using with TEXT/BODY
 

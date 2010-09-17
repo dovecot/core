@@ -1,3 +1,25 @@
+v2.0.3 2010-09-17  Timo Sirainen <tss@iki.fi>
+
+	* dovecot-lda: Removed use of non-standard Envelope-To: header as a
+	  default for -a. Set lda_original_recipient_header=Envelope-To to
+	  returns the old behavior.
+
+	+ Added support for reverse quota warnings (i.e. when quota goes back
+	  under the limit). This is enabled by adding '-' to beginning of
+	  quota_warning value. Based on patch by Jeroen Koekkoek.
+	+ dovecot-lda: Added lda_original_recipient_header setting, which is
+	  used for getting original recipient if -a isn't used.
+	+ dovecot-lda: Added -r parameter to specify final recipient address.
+	  (It may differ from original address for e.g. aliases.)
+	+ Maildir: uidlist file can now override message's GUID, making it
+	  possible for multiple messages in a mailbox to have the same GUID.
+	  This also fixes dsync's message conflict resolution.
+	- dovecot-lda: If destination user isn't found, exit with EX_NOUSER,
+	  not EX_TEMPFAIL.
+	- dsync: Fixed handling \Noselect mailboxes
+	- Fixed an infinite loop introduced by v2.0.2's message parser changes.
+	- Fixed a crash introduced by v2.0.2's istream-crlf changes.
+
 v2.0.2 2010-09-08  Timo Sirainen <tss@iki.fi>
 
 	* vpopmail support is disabled for now, since it's broken. You can use
