@@ -155,6 +155,14 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop, &tv);
+#ifdef _AIX
+	if (msecs > 1000) {
+		/* AIX seems to check IO_POLL_ERRORs only at the beginning of
+		   the poll() call, not during it. keep timeouts short enough
+		   so that we'll notice them pretty quickly. */
+		msecs = 1000;
+	}
+#endif
 
 	ret = poll(ctx->fds, ctx->fds_pos, msecs);
 	if (ret < 0 && errno != EINTR)
