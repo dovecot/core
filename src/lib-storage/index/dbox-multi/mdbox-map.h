@@ -31,8 +31,7 @@ struct mdbox_map_file_msg {
 ARRAY_DEFINE_TYPE(mdbox_map_file_msg, struct mdbox_map_file_msg);
 
 struct mdbox_map *
-mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list,
-	       const char *path);
+mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list);
 void mdbox_map_deinit(struct mdbox_map **map);
 
 /* Open the map. Returns 1 if ok, 0 if map doesn't exist, -1 if error. */

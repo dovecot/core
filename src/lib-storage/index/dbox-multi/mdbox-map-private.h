@@ -12,7 +12,7 @@ struct dbox_mail_lookup_rec {
 struct mdbox_map {
 	struct mdbox_storage *storage;
 	const struct mdbox_settings *set;
-	char *path;
+	char *path, *index_path;
 
 	struct mail_index *index;
 	struct mail_index_view *view;

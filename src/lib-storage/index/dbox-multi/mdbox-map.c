@@ -46,16 +46,24 @@ void mdbox_map_set_corrupted(struct mdbox_map *map, const char *format, ...)
 }
 
 struct mdbox_map *
-mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list,
-	       const char *path)
+mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 {
 	struct mdbox_map *map;
+	const char *root, *index_root;
+
+	root = mailbox_list_get_path(root_list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_DIR);
+	index_root = mailbox_list_get_path(root_list, NULL,
+					   MAILBOX_LIST_PATH_TYPE_INDEX);
 
 	map = i_new(struct mdbox_map, 1);
 	map->storage = storage;
 	map->set = storage->set;
-	map->path = i_strdup(path);
-	map->index = mail_index_alloc(path, MDBOX_GLOBAL_INDEX_PREFIX);
+	map->path = i_strconcat(root, "/"MDBOX_GLOBAL_DIR_NAME, NULL);
+	map->index_path =
+		i_strconcat(index_root, "/"MDBOX_GLOBAL_DIR_NAME, NULL);
+	map->index = mail_index_alloc(map->index_path,
+				      MDBOX_GLOBAL_INDEX_PREFIX);
 	mail_index_set_fsync_mode(map->index,
 		MAP_STORAGE(map)->set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(map->index,
@@ -87,21 +95,34 @@ void mdbox_map_deinit(struct mdbox_map **_map)
 		mail_index_close(map->index);
 	}
 	mail_index_free(&map->index);
+	i_free(map->index_path);
 	i_free(map->path);
 	i_free(map);
 }
 
-static int mdbox_map_mkdir_storage(struct mdbox_map *map)
+static int mdbox_map_mkdir_storage_path(struct mdbox_map *map, const char *path)
 {
 	struct stat st;
 
-	if (stat(map->path, &st) == 0)
+	if (stat(path, &st) == 0)
 		return 0;
 
-	if (mailbox_list_mkdir(map->root_list, map->path,
+	if (mailbox_list_mkdir(map->root_list, path,
 			       MAILBOX_LIST_PATH_TYPE_DIR) < 0) {
 		mail_storage_copy_list_error(MAP_STORAGE(map), map->root_list);
 		return -1;
+	}
+	return 0;
+}
+
+static int mdbox_map_mkdir_storage(struct mdbox_map *map)
+{
+	if (mdbox_map_mkdir_storage_path(map, map->path) < 0)
+		return -1;
+
+	if (strcmp(map->path, map->index_path) != 0) {
+		if (mdbox_map_mkdir_storage_path(map, map->index_path) < 0)
+			return -1;
 	}
 	return 0;
 }
