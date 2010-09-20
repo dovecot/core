@@ -28,8 +28,10 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
+deps=../lib-storage/libdovecot-storage.la ../lib-dovecot/libdovecot.la
+
 pkglib_LTLIBRARIES = libdovecot-lda.la
 libdovecot_lda_la_SOURCES = 
-libdovecot_lda_la_LIBADD = liblda.la
-libdovecot_lda_la_DEPENDENCIES = liblda.la
+libdovecot_lda_la_LIBADD = liblda.la $(deps)
+libdovecot_lda_la_DEPENDENCIES = liblda.la $(deps)
 libdovecot_lda_la_LDFLAGS = -export-dynamic

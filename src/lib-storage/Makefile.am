@@ -66,14 +66,15 @@ headers = \
 shlibs = \
 	libstorage.la \
 	libstorage_service.la \
-	../lib-index/libindex.la \
 	list/libstorage_list.la \
 	index/libstorage_index.la \
-	register/libstorage_register.la	
+	register/libstorage_register.la \
+	../lib-index/libindex.la \
+	../lib-dovecot/libdovecot.la
 
 pkglib_LTLIBRARIES = libdovecot-storage.la
 libdovecot_storage_la_SOURCES = 
-libdovecot_storage_la_LIBADD = $(shlibs)
+libdovecot_storage_la_LIBADD = $(shlibs) $(MODULE_LIBS)
 libdovecot_storage_la_DEPENDENCIES = $(shlibs)
 libdovecot_storage_la_LDFLAGS = -export-dynamic
 
