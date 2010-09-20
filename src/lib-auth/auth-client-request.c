@@ -112,19 +112,25 @@ void auth_client_request_continue(struct auth_client_request *request,
 		i_error("Error sending continue request to auth server: %m");
 }
 
+static void call_callback(struct auth_client_request *request,
+			  enum auth_request_status status,
+			  const char *data_base64,
+			  const char *const *args)
+{
+	auth_request_callback_t *callback = request->callback;
+
+	request->callback = NULL;
+	callback(request, status, data_base64, args, request->context);
+}
+
 void auth_client_request_abort(struct auth_client_request **_request)
 {
 	struct auth_client_request *request = *_request;
-	const char *str = t_strdup_printf("CANCEL\t%u\n", request->id);
 
 	*_request = NULL;
 
-	if (o_stream_send_str(request->conn->output, str) < 0)
-		i_error("Error sending request to auth server: %m");
-
-	request->callback(request, AUTH_REQUEST_STATUS_FAIL, NULL, NULL,
-			  request->context);
-	request->callback = NULL;
+	auth_client_send_cancel(request->conn->client, request->id);
+	call_callback(request, AUTH_REQUEST_STATUS_FAIL, NULL, NULL);
 }
 
 unsigned int auth_client_request_get_id(struct auth_client_request *request)
@@ -176,7 +182,7 @@ void auth_client_request_server_input(struct auth_client_request *request,
 		break;
 	}
 
-	request->callback(request, status, base64_data, args, request->context);
+	call_callback(request, status, base64_data, args);
 	if (status != AUTH_REQUEST_STATUS_CONTINUE)
 		pool_unref(&request->pool);
 }
