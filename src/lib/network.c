@@ -99,6 +99,10 @@ sin_set_ip(union sockaddr_union *so, const struct ip_addr *ip)
 static inline void
 sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 {
+	/* IP structs may be sent across processes. Clear the whole struct
+	   first to make sure it won't leak any data across processes. */
+	memset(ip, 0, sizeof(*ip));
+
 	ip->family = so->sin.sin_family;
 
 #ifdef HAVE_IPV6
@@ -505,7 +509,8 @@ int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 			return -2;
 	}
 	if (so.sin.sin_family == AF_UNIX) {
-		if (addr != NULL) addr->family = 0;
+		if (addr != NULL)
+			memset(addr, 0, sizeof(*addr));
 		if (port != NULL) *port = 0;
 	} else {
 		if (addr != NULL) sin_get_ip(&so, addr);
@@ -634,7 +639,8 @@ int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 	if (getsockname(fd, &so.sa, &addrlen) == -1)
 		return -1;
 	if (so.sin.sin_family == AF_UNIX) {
-		if (addr != NULL) addr->family = 0;
+		if (addr != NULL)
+			memset(addr, 0, sizeof(*addr));
 		if (port != NULL) *port = 0;
 	} else {
 		if (addr != NULL) sin_get_ip(&so, addr);
@@ -654,7 +660,8 @@ int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port)
 	if (getpeername(fd, &so.sa, &addrlen) == -1)
 		return -1;
 	if (so.sin.sin_family == AF_UNIX) {
-		if (addr != NULL) addr->family = 0;
+		if (addr != NULL)
+			memset(addr, 0, sizeof(*addr));
 		if (port != NULL) *port = 0;
 	} else {
 		if (addr != NULL) sin_get_ip(&so, addr);
