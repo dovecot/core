@@ -26,7 +26,11 @@ static buffer_t ssl_params_unix_listeners_buf = {
 struct service_settings ssl_params_service_settings = {
 	.name = "ssl-params",
 	.protocol = "",
+#ifdef HAVE_SSL
 	.type = "startup",
+#else
+	.type = "",
+#endif
 	.executable = "ssl-params",
 	.user = "",
 	.group = "",
