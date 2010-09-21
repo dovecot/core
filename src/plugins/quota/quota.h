@@ -13,18 +13,16 @@ struct mail_user;
 #define QUOTA_NAME_MESSAGES "MESSAGE"
 
 struct quota;
+struct quota_settings;
+struct quota_root_settings;
 struct quota_root;
 struct quota_root_iter;
 struct quota_transaction_context;
 
-struct quota_settings *quota_user_read_settings(struct mail_user *user);
+int quota_user_read_settings(struct mail_user *user,
+			     struct quota_settings **set_r,
+			     const char **error_r);
 void quota_settings_deinit(struct quota_settings **quota_set);
-
-/* Set up a new quota root. */
-struct quota_root_settings *
-quota_root_settings_init(struct quota_settings *quota_set,
-			 const char *root_def);
-void quota_root_settings_deinit(struct quota_root_settings **root_set);
 
 /* Add a new rule too the quota root. Returns 0 if ok, -1 if rule is invalid. */
 int quota_root_add_rule(struct quota_root_settings *root_set,
@@ -35,8 +33,8 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 				const char *rule_def, const char **error_r);
 
 /* Initialize quota for the given user. */
-struct quota *quota_init(struct quota_settings *quota_set,
-			 struct mail_user *user);
+int quota_init(struct quota_settings *quota_set, struct mail_user *user,
+	       struct quota **quota_r, const char **error_r);
 void quota_deinit(struct quota **quota);
 
 /* List all quota roots. Returned quota roots are freed by quota_deinit(). */

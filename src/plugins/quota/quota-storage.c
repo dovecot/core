@@ -454,14 +454,28 @@ void quota_mail_user_created(struct mail_user *user)
 	struct mail_user_vfuncs *v = user->vlast;
 	struct quota_user *quser;
 	struct quota_settings *set;
+	struct quota *quota;
+	const char *error;
+	int ret;
 
-	set = quota_user_read_settings(user);
-	if (set != NULL) {
+	if ((ret = quota_user_read_settings(user, &set, &error)) > 0) {
+		if (quota_init(set, user, &quota, &error) < 0) {
+			quota_settings_deinit(&set);
+			ret = -1;
+		}
+	}
+
+	if (ret < 0) {
+		user->error = p_strdup_printf(user->pool,
+			"Failed to initialize quota: %s", error);
+		return;
+	}
+	if (ret > 0) {
 		quser = p_new(user->pool, struct quota_user, 1);
 		quser->module_ctx.super = *v;
 		user->vlast = &quser->module_ctx.super;
 		v->deinit = quota_user_deinit;
-		quser->quota = quota_init(set, user);
+		quser->quota = quota;
 
 		MODULE_CONTEXT_SET(user, quota_user_module, quser);
 	} else if (user->mail_debug) {
