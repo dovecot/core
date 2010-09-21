@@ -6,6 +6,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "eacces-error.h"
 #include "dict-private.h"
 #include "dict-client.h"
 
@@ -408,7 +409,13 @@ static int client_dict_connect(struct client_dict *dict)
 	dict->fd = net_connect_unix(dict->path);
 	if (dict->fd == -1) {
 		dict->last_failed_connect = ioloop_time;
-		i_error("net_connect_unix(%s) failed: %m", dict->path);
+		if (errno == EACCES) {
+			i_fatal("%s", eacces_error_get("net_connect_unix",
+						       dict->path));
+		} else {
+			i_fatal("net_connect_unix(%s) failed: %m",
+				dict->path);
+		}
 		return -1;
 	}
 
