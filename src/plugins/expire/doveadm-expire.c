@@ -339,6 +339,14 @@ static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
 	if (expire_dict == NULL)
 		return;
 
+	if (ctx->iterate_single_user) {
+		if (doveadm_debug) {
+			i_debug("expire: Iterating only a single user, "
+				"ignoring expire database");
+		}
+		return;
+	}
+
 	ectx = p_new(ctx->pool, struct doveadm_expire_mail_cmd_context, 1);
 	ectx->module_ctx.super = ctx->v;
 	MODULE_CONTEXT_SET(ctx, doveadm_expire_mail_cmd_module, ectx);
@@ -347,7 +355,9 @@ static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
 	   are valid for optimization. */
 	if (!doveadm_expire_analyze_query(ctx))
 		return;
-	i_debug("expire: Searching only users listed in expire database");
+
+	if (doveadm_debug)
+		i_debug("expire: Searching only users listed in expire database");
 
 	dict = dict_init(expire_dict, DICT_DATA_TYPE_UINT32, "",
 			 doveadm_settings->base_dir);
