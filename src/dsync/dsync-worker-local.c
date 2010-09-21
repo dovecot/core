@@ -1690,7 +1690,8 @@ local_worker_msg_save(struct dsync_worker *_worker,
 	mailbox_save_set_guid(save_ctx, msg->guid);
 	local_worker_msg_save_set_metadata(worker, worker->mail->box,
 					   save_ctx, msg);
-	mailbox_save_set_pop3_uidl(save_ctx, data->pop3_uidl);
+	if (*data->pop3_uidl != '\0')
+		mailbox_save_set_pop3_uidl(save_ctx, data->pop3_uidl);
 
 	mailbox_save_set_received_date(save_ctx, data->received_date, 0);
 
