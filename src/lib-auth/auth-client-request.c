@@ -119,7 +119,8 @@ static void call_callback(struct auth_client_request *request,
 {
 	auth_request_callback_t *callback = request->callback;
 
-	request->callback = NULL;
+	if (status != AUTH_REQUEST_STATUS_CONTINUE)
+		request->callback = NULL;
 	callback(request, status, data_base64, args, request->context);
 }
 
