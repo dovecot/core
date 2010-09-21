@@ -1318,6 +1318,8 @@ void mailbox_save_set_guid(struct mail_save_context *ctx, const char *guid)
 
 void mailbox_save_set_pop3_uidl(struct mail_save_context *ctx, const char *uidl)
 {
+	i_assert(*uidl != '\0');
+
 	i_free(ctx->pop3_uidl);
 	ctx->pop3_uidl = i_strdup(uidl);
 }
