@@ -221,6 +221,7 @@ int main(int argc, char *argv[])
 	struct istream *input;
 	struct mailbox_transaction_context *t;
 	struct mailbox_header_lookup_ctx *headers_ctx;
+	const char *user_source = "";
 	void **sets;
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
@@ -319,10 +320,12 @@ int main(int argc, char *argv[])
 		home = getenv("HOME");
 		if (user != NULL && home != NULL) {
 			/* no need for a pw lookup */
+			user_source = "USER environment";
 		} else if ((pw = getpwuid(process_euid)) != NULL) {
 			user = t_strdup(pw->pw_name);
 			if (home == NULL)
 				env_put(t_strconcat("HOME=", pw->pw_dir, NULL));
+			user_source = "passwd lookup for process euid";
 		} else if (user == NULL) {
 			i_fatal_status(EX_USAGE,
 				       "Couldn't lookup our username (uid=%s)",
@@ -355,6 +358,11 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 	ctx.set = mail_storage_service_user_get_set(service_user)[1];
+
+	if (ctx.dest_user->mail_debug && *user_source != '\0') {
+		i_debug("userdb lookup skipped, username taken from %s",
+			user_source);
+	}
 
 	/* create a separate mail user for the internal namespace */
 	sets = master_service_settings_get_others(master_service);
