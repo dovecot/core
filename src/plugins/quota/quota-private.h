@@ -119,6 +119,8 @@ struct quota_root {
 	unsigned int no_enforcing:1;
 	/* If user has unlimited quota, disable quota tracking */
 	unsigned int disable_unlimited_tracking:1;
+	/* Set while quota is being recalculated to avoid recursion. */
+	unsigned int recounting:1;
 };
 
 struct quota_transaction_context {

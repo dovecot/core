@@ -99,6 +99,9 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 	int ret = 0;
 
 	*bytes_r = *count_r = 0;
+	if (root->recounting)
+		return 0;
+	root->recounting = TRUE;
 
 	namespaces = array_get(&root->quota->namespaces, &count);
 	for (i = 0; i < count; i++) {
@@ -110,5 +113,6 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 		if (ret < 0)
 			break;
 	}
+	root->recounting = FALSE;
 	return ret;
 }
