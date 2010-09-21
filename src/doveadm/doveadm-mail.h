@@ -48,6 +48,9 @@ struct doveadm_mail_cmd_context {
 
 	ARRAY_DEFINE(module_contexts, union doveadm_mail_cmd_module_context *);
 
+	/* We're handling only a single user */
+	unsigned int iterate_single_user:1;
+	/* We're going through all users (not set for wildcard usernames) */
 	unsigned int iterate_all_users:1;
 	unsigned int failed:1;
 };

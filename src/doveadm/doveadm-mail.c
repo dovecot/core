@@ -366,7 +366,6 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
 	struct doveadm_mail_cmd_context *ctx;
 	const char *getopt_args, *username, *wildcard_user;
-	bool iter_single_user;
 	int c;
 
 	if (doveadm_debug)
@@ -403,8 +402,9 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			cmd->name, argv[0]);
 	}
 
-	iter_single_user = !ctx->iterate_all_users && wildcard_user == NULL;
-	if (doveadm_print_is_initialized() && !iter_single_user) {
+	ctx->iterate_single_user =
+		!ctx->iterate_all_users && wildcard_user == NULL;
+	if (doveadm_print_is_initialized() && !ctx->iterate_single_user) {
 		doveadm_print_header("username", "Username",
 				     DOVEADM_PRINT_HEADER_FLAG_STICKY |
 				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
@@ -412,7 +412,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	ctx->v.init(ctx, (const void *)argv);
 
-	if (iter_single_user) {
+	if (ctx->iterate_single_user) {
 		doveadm_mail_single_user(ctx, username, service_flags);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
