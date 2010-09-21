@@ -23,7 +23,8 @@ struct mail_user {
 	const char *service;
 	struct ip_addr *local_ip, *remote_ip;
 	const struct var_expand_table *var_expand_table;
-	/* error during initialization */
+	/* If non-NULL, fail the user initialization with this error.
+	   This could be set by plugins that need to fail the initialization. */
 	const char *error;
 
 	const struct setting_parser_info *set_info;

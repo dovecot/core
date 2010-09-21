@@ -114,6 +114,11 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	user->initialized = TRUE;
 	hook_mail_user_created(user);
+
+	if (user->error != NULL) {
+		*error_r = t_strdup(user->error);
+		return -1;
+	}
 	return 0;
 }
 
