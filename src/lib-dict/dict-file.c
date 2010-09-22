@@ -89,6 +89,10 @@ static void file_dict_deinit(struct dict *_dict)
 {
 	struct file_dict *dict = (struct file_dict *)_dict;
 
+	if (dict->fd != -1) {
+		if (close(dict->fd) < 0)
+			i_error("close(%s) failed: %m", dict->path);
+	}
 	hash_table_destroy(&dict->hash);
 	pool_unref(&dict->hash_pool);
 	i_free(dict->path);
