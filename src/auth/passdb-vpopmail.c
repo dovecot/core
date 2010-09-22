@@ -182,8 +182,8 @@ vpopmail_preinit(pool_t pool, const char *args)
 	}
 	if (!vauth_load_initialized) {
 		vauth_load_initialized = TRUE;
-		if (!vauth_load_module(NULL))
-			i_fatal("vpopmail: vauth_load_module() failed");
+		if (vauth_open(0) != 0)
+			i_fatal("vpopmail: vauth_open() failed");
 	}
 	return &module->module;
 }
