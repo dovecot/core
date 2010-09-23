@@ -54,7 +54,7 @@ maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
 
 	T_BEGIN {
 		guid = maildir_uidlist_lookup_ext(ctx->mbox->uidlist, uid,
-						  MAILDIR_UIDLIST_HDR_EXT_GUID);
+						  MAILDIR_UIDLIST_REC_EXT_GUID);
 		if (guid == NULL)
 			guid = t_strcut(filename, ':');
 		mail_generate_guid_128_hash(guid, guid_128);
