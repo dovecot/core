@@ -469,11 +469,17 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
-	const char *path, *fname, *end, *guid, *uidl;
+	const char *path, *fname = NULL, *end, *guid, *uidl;
 
 	switch (field) {
 	case MAIL_FETCH_GUID:
 		/* use GUID from uidlist if it exists */
+		i_assert(!_mail->saving);
+
+		/* first make sure that we have a refreshed uidlist */
+		if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
+			return -1;
+
 		guid = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 						  MAILDIR_UIDLIST_REC_EXT_GUID);
 		if (guid != NULL) {
@@ -487,7 +493,10 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			*value_r = mail->data.guid;
 			return 0;
 		}
-		if (!_mail->saving) {
+		if (fname != NULL) {
+			/* we came here from MAIL_FETCH_GUID,
+			   avoid a second lookup */
+		} else if (!_mail->saving) {
 			if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
 				return -1;
 		} else {
