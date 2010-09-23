@@ -1097,6 +1097,11 @@ local_worker_convert_mailbox_name(struct local_dsync_worker *worker,
 			name = mailbox_name_force_cleanup(name,
 							  worker->alt_char);
 		}
+		if (!mailbox_list_is_valid_create_name(ns->list, name)) {
+			/* probably some reserved name (e.g. dbox-Mails) */
+			name = t_strconcat("_", name, NULL);
+		}
+		i_assert(mailbox_list_is_valid_create_name(ns->list, name));
 	}
 	return name;
 }
