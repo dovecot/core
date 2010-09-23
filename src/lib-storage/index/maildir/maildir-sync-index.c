@@ -39,33 +39,6 @@ maildir_sync_get_keywords_sync_ctx(struct maildir_index_sync_context *ctx)
 	return ctx->keywords_sync_ctx;
 }
 
-static void
-maildir_index_expunge(struct maildir_index_sync_context *ctx, uint32_t seq)
-{
-	enum maildir_uidlist_rec_flag flags;
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
-	uint32_t uid;
-
-	mail_index_lookup_uid(ctx->view, seq, &uid);
-	T_BEGIN {
-		const char *guid;
-
-		guid = maildir_uidlist_lookup_ext(ctx->mbox->uidlist, uid,
-						  MAILDIR_UIDLIST_HDR_EXT_GUID);
-		if (guid == NULL) {
-			if (maildir_uidlist_lookup(ctx->mbox->uidlist, uid,
-						   &flags, &guid) > 0)
-				guid = t_strcut(guid, ':');
-		}
-
-		if (guid == NULL)
-			memset(guid_128, 0, sizeof(guid_128));
-		else
-			mail_generate_guid_128_hash(guid, guid_128);
-	} T_END;
-	mail_index_expunge_guid(ctx->trans, seq, guid_128);
-}
-
 static bool
 maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
 			      uint32_t uid, const char *filename,
@@ -546,8 +519,9 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		rec = mail_index_lookup(view, seq);
 		if (uid > rec->uid) {
-			/* expunged */
-			maildir_index_expunge(ctx, seq);
+			/* already expunged (no point in showing guid in the
+			   expunge record anymore) */
+			mail_index_expunge(ctx->trans, seq);
 			goto again;
 		}
 
@@ -559,17 +533,17 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			continue;
 		}
 
-		index_sync_changes_read(ctx->sync_changes, rec->uid, &expunged,
+		index_sync_changes_read(ctx->sync_changes, ctx->uid, &expunged,
 					expunged_guid_128);
 		if (expunged) {
-			if (!maildir_expunge_is_valid_guid(ctx, rec->uid,
+			if (!maildir_expunge_is_valid_guid(ctx, ctx->uid,
 							   filename,
 							   expunged_guid_128))
 				continue;
 			if (maildir_file_do(mbox, ctx->uid,
 					    maildir_expunge, ctx) >= 0) {
 				/* successful expunge */
-				maildir_index_expunge(ctx, seq);
+				mail_index_expunge(ctx->trans, seq);
 			}
 			if ((++changes % MAILDIR_SLOW_MOVE_COUNT) == 0)
 				maildir_sync_notify(ctx->maildir_sync_ctx);
@@ -617,7 +591,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	if (!partial) {
 		/* expunge the rest */
 		for (seq++; seq <= hdr->messages_count; seq++)
-			maildir_index_expunge(ctx, seq);
+			mail_index_expunge(ctx->trans, seq);
 	}
 
 	/* add \Recent flags. use updated view so it contains newly
