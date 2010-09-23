@@ -435,9 +435,10 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 			}
 			value++;
 		} else if (*value != '-' && relative_rule) {
-			i_warning("quota: obsolete configuration for rule '%s' "
+			i_warning("quota root %s: "
+				  "obsolete configuration for rule '%s' "
 				  "should be changed to '%s=+%s'",
-				  *args, key, value);
+				  root_set->name, *args, key, value);
 		}
 
 		if (strcmp(key, "storage") == 0) {
