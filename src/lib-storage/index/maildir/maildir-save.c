@@ -863,6 +863,7 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx)
 		prev_mf = mf;
 	}
 
+	maildir_sync_set_new_msgs_count(ctx->sync_ctx, array_count(&files));
 	return maildir_transaction_fsync_dirs(ctx, new_changed, cur_changed);
 }
 

@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#define MAILDIR_SYNC_TIME_WARN_SECS 60
+
 struct maildir_index_sync_context {
         struct maildir_mailbox *mbox;
 	struct maildir_sync_context *maildir_sync_ctx;
@@ -31,12 +33,21 @@ struct maildir_index_sync_context {
 
 	uint32_t uid;
 	bool update_maildir_hdr_cur;
+
+	time_t start_time;
+	unsigned int flag_change_count, expunge_count, new_msgs_count;
 };
 
 struct maildir_keywords_sync_ctx *
 maildir_sync_get_keywords_sync_ctx(struct maildir_index_sync_context *ctx)
 {
 	return ctx->keywords_sync_ctx;
+}
+
+void maildir_sync_set_new_msgs_count(struct maildir_index_sync_context *ctx,
+				     unsigned int count)
+{
+	ctx->new_msgs_count = count;
 }
 
 static bool
@@ -76,6 +87,8 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 {
 	struct mailbox *box = &mbox->box;
 
+	ctx->expunge_count++;
+
 	if (unlink(path) == 0) {
 		if (box->v.sync_notify != NULL) {
 			box->v.sync_notify(box, ctx->uid,
@@ -99,6 +112,8 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	const char *dir, *fname, *newfname, *newpath;
 	enum mail_index_sync_type sync_type;
 	uint8_t flags8;
+
+	ctx->flag_change_count++;
 
 	fname = strrchr(path, '/');
 	i_assert(fname != NULL);
@@ -228,6 +243,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	ctx->sync_changes =
 		index_sync_changes_init(ctx->sync_ctx, ctx->view, ctx->trans,
 					mbox->box.backend_readonly);
+	ctx->start_time = time(NULL);
 
 	*ctx_r = ctx;
 	return 0;
@@ -286,7 +302,18 @@ static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
 				     bool success)
 {
 	struct maildir_mailbox *mbox = ctx->mbox;
+	unsigned int time_diff;
 	int ret = success ? 0 : -1;
+
+	time_diff = time(NULL) - ctx->start_time;
+	if (time_diff >= MAILDIR_SYNC_TIME_WARN_SECS) {
+		i_warning("Maildir %s: Synchronization took %u seconds "
+			  "(%u new msgs, %u flag change attempts, "
+			  "%u expunge attempts)",
+			  ctx->mbox->box.path, time_diff,
+			  ctx->new_msgs_count, ctx->flag_change_count,
+			  ctx->expunge_count);
+	}
 
 	if (ret < 0)
 		mail_index_sync_rollback(&ctx->sync_ctx);
