@@ -409,6 +409,7 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 static int
 quota_rule_parse_limits(struct quota_root_settings *root_set,
 			struct quota_rule *rule, const char *limits,
+			const char *full_rule_def,
 			bool relative_rule, const char **error_r)
 {
 	const char **args, *key, *value;
@@ -435,10 +436,11 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 			}
 			value++;
 		} else if (*value != '-' && relative_rule) {
-			i_warning("quota root %s: "
+			i_warning("quota root %s rule %s: "
 				  "obsolete configuration for rule '%s' "
 				  "should be changed to '%s=+%s'",
-				  root_set->name, *args, key, value);
+				  root_set->name, full_rule_def,
+				  *args, key, value);
 		}
 
 		if (strcmp(key, "storage") == 0) {
@@ -551,7 +553,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 	} else {
 		bool relative_rule = rule != &root_set->default_rule;
 
-		if (quota_rule_parse_limits(root_set, rule, p,
+		if (quota_rule_parse_limits(root_set, rule, p, rule_def,
 					    relative_rule, error_r) < 0)
 			ret = -1;
 	}
@@ -714,7 +716,7 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 
 	memset(&rule, 0, sizeof(rule));
 	ret = quota_rule_parse_limits(root_set, &rule, t_strdup_until(q, p),
-				      FALSE, error_r);
+				      rule_def, FALSE, error_r);
 	if (ret < 0)
 		return -1;
 
