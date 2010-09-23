@@ -136,8 +136,8 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 	return &ctx->ctx;
 }
 
-void maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
-		      bool preserve_filename)
+struct maildir_filename *
+maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct maildir_filename *mf;
@@ -159,13 +159,10 @@ void maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
 	keyword_count = _ctx->keywords == NULL ? 0 : _ctx->keywords->count;
 	mf = p_malloc(ctx->pool, sizeof(*mf) +
 		      sizeof(unsigned int) * keyword_count);
-	mf->tmp_name = mf->dest_basename = p_strdup(ctx->pool, base_fname);
+	mf->tmp_name = mf->dest_basename = p_strdup(ctx->pool, tmp_fname);
 	mf->flags = _ctx->flags;
 	mf->size = (uoff_t)-1;
 	mf->vsize = (uoff_t)-1;
-	mf->preserve_filename = preserve_filename;
-	if (preserve_filename)
-		ctx->have_preserved_filenames = TRUE;
 
 	ctx->file_last = mf;
 	i_assert(*ctx->files_tail == NULL);
@@ -220,6 +217,25 @@ void maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
 		ctx->input = input;
 		ctx->cur_dest_mail = _ctx->dest_mail;
 	}
+	return mf;
+}
+
+void maildir_save_set_dest_basename(struct mail_save_context *_ctx,
+				    struct maildir_filename *mf,
+				    const char *basename)
+{
+	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+
+	mf->preserve_filename = TRUE;
+	mf->dest_basename = p_strdup(ctx->pool, basename);
+	ctx->have_preserved_filenames = TRUE;
+}
+
+void maildir_save_set_sizes(struct maildir_filename *mf,
+			    uoff_t size, uoff_t vsize)
+{
+	mf->size = size;
+	mf->vsize = vsize;
 }
 
 static bool
@@ -297,12 +313,12 @@ const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 }
 
 static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
-			      const char **fname)
+			      const char **fname_r)
 {
 	struct mailbox *box = &mbox->box;
 	struct stat st;
 	unsigned int prefix_len;
-	const char *tmp_fname = *fname;
+	const char *tmp_fname;
 	string_t *path;
 	int fd;
 
@@ -312,8 +328,7 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	prefix_len = str_len(path);
 
 	for (;;) {
-		if (tmp_fname == NULL)
-			tmp_fname = maildir_filename_generate();
+		tmp_fname = maildir_filename_generate();
 		str_truncate(path, prefix_len);
 		str_append(path, tmp_fname);
 
@@ -341,7 +356,7 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		tmp_fname = NULL;
 	}
 
-	*fname = tmp_fname;
+	*fname_r = tmp_fname;
 	if (fd == -1) {
 		if (ENOSPACE(errno)) {
 			mail_storage_set_error(box->storage,
@@ -381,13 +396,14 @@ maildir_save_alloc(struct mailbox_transaction_context *t)
 int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_filename *mf;
 
 	/* new mail, new failure state */
 	ctx->failed = FALSE;
 
 	T_BEGIN {
 		/* create a new file in tmp/ directory */
-		const char *fname = _ctx->guid;
+		const char *fname;
 
 		ctx->fd = maildir_create_tmp(ctx->mbox, ctx->tmpdir, &fname);
 		if (ctx->fd == -1)
@@ -397,7 +413,11 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 				ctx->input = i_stream_create_crlf(input);
 			else
 				ctx->input = i_stream_create_lf(input);
-			maildir_save_add(_ctx, fname, fname == _ctx->guid);
+			mf = maildir_save_add(_ctx, fname);
+			if (_ctx->guid != NULL) {
+				maildir_save_set_dest_basename(_ctx, mf,
+							       _ctx->guid);
+			}
 		}
 	} T_END;
 
@@ -766,7 +786,8 @@ maildir_save_rollback_index_changes(struct maildir_save_context *ctx)
 
 static void
 maildir_filename_check_conflicts(struct maildir_save_context *ctx,
-				 struct maildir_filename *mf)
+				 struct maildir_filename *mf,
+				 struct maildir_filename *prev_mf)
 {
 	uoff_t size;
 
@@ -775,7 +796,9 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 		ctx->locked_uidlist_refresh = TRUE;
 	}
 
-	if (maildir_uidlist_get_full_filename(ctx->mbox->uidlist,
+	if ((prev_mf != NULL &&
+	     strcmp(mf->dest_basename, prev_mf->dest_basename) == 0) ||
+	    maildir_uidlist_get_full_filename(ctx->mbox->uidlist,
 					      mf->dest_basename) != NULL) {
 		/* file already exists. give it another name.
 		   but preserve the size/vsize in the filename if possible */
@@ -795,22 +818,38 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 }
 
 static int
-maildir_save_move_files_to_newcur(struct maildir_save_context *ctx,
-				  struct maildir_filename **last_mf_r)
+maildir_filename_dest_basename_cmp(struct maildir_filename *const *f1,
+				   struct maildir_filename *const *f2)
 {
-	struct maildir_filename *mf;
+	return strcmp((*f1)->dest_basename, (*f2)->dest_basename);
+}
+
+static int
+maildir_save_move_files_to_newcur(struct maildir_save_context *ctx)
+{
+	ARRAY_DEFINE(files, struct maildir_filename *);
+	struct maildir_filename *mf, *const *mfp, *prev_mf;
 	bool newdir, new_changed, cur_changed;
 	int ret;
 
-	*last_mf_r = NULL;
+	/* put files into an array sorted by the destination filename.
+	   this way we can easily check if there are duplicate destination
+	   filenames within this transaction. */
+	t_array_init(&files, ctx->files_count);
+	for (mf = ctx->files; mf != NULL; mf = mf->next)
+		array_append(&files, &mf, 1);
+	array_sort(&files, maildir_filename_dest_basename_cmp);
 
-	new_changed = cur_changed = FALSE;
-	for (mf = ctx->files; mf != NULL; mf = mf->next) {
+	new_changed = cur_changed = FALSE; prev_mf = FALSE;
+	array_foreach(&files, mfp) {
+		mf = *mfp;
 		T_BEGIN {
 			const char *dest;
 
-			if (mf->preserve_filename)
-				maildir_filename_check_conflicts(ctx, mf);
+			if (mf->preserve_filename) {
+				maildir_filename_check_conflicts(ctx, mf,
+								 prev_mf);
+			}
 
 			newdir = maildir_get_dest_filename(ctx, mf, &dest);
 			if (newdir)
@@ -821,7 +860,7 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx,
 		} T_END;
 		if (ret < 0)
 			return -1;
-		*last_mf_r = mf;
+		prev_mf = mf;
 	}
 
 	return maildir_transaction_fsync_dirs(ctx, new_changed, cur_changed);
@@ -871,7 +910,6 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct mailbox_transaction_context *_t = _ctx->transaction;
-	struct maildir_filename *last_mf;
 	enum maildir_uidlist_sync_flags sync_flags;
 	int ret;
 
@@ -917,7 +955,9 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		return -1;
 	}
 
-	ret = maildir_save_move_files_to_newcur(ctx, &last_mf);
+	T_BEGIN {
+		ret = maildir_save_move_files_to_newcur(ctx);
+	} T_END;
 	if (ctx->locked) {
 		if (ret == 0) {
 			/* update dovecot-uidlist file. */

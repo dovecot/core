@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
-#include "str.h"
 #include "nfs-workarounds.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
@@ -18,85 +17,19 @@
 #include <sys/stat.h>
 
 struct hardlink_ctx {
-	string_t *dest_path;
-	const char *dest_fname;
-	unsigned int base_end_pos;
-
-	unsigned int size_set:1;
-	unsigned int vsize_set:1;
+	const char *dest_path;
 	unsigned int success:1;
-	unsigned int preserve_filename:1;
 };
-
-static int do_save_mail_size(struct maildir_mailbox *mbox, const char *path,
-			     struct hardlink_ctx *ctx)
-{
-	const char *fname, *str;
-	struct stat st;
-	uoff_t size;
-
-	fname = strrchr(path, '/');
-	fname = fname != NULL ? fname + 1 : path;
-
-	if (!maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE,
-				       &size)) {
-		if (stat(path, &st) < 0) {
-			if (errno == ENOENT)
-				return 0;
-			mail_storage_set_critical(&mbox->storage->storage,
-						  "stat(%s) failed: %m", path);
-			return -1;
-		}
-		size = st.st_size;
-	}
-
-	str = t_strdup_printf(",%c=%"PRIuUOFF_T, MAILDIR_EXTRA_FILE_SIZE, size);
-	str_insert(ctx->dest_path, ctx->base_end_pos, str);
-
-	ctx->dest_fname = strrchr(str_c(ctx->dest_path), '/') + 1;
-	ctx->size_set = TRUE;
-	return 1;
-}
-
-static void do_save_mail_vsize(const char *path, struct hardlink_ctx *ctx)
-{
-	const char *fname, *str;
-	uoff_t size;
-
-	fname = strrchr(path, '/');
-	fname = fname != NULL ? fname + 1 : path;
-
-	if (!maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
-				       &size))
-		return;
-
-	str = t_strdup_printf(",%c=%"PRIuUOFF_T,
-			      MAILDIR_EXTRA_VIRTUAL_SIZE, size);
-	str_insert(ctx->dest_path, ctx->base_end_pos, str);
-
-	ctx->dest_fname = strrchr(str_c(ctx->dest_path), '/') + 1;
-	ctx->vsize_set = TRUE;
-}
 
 static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 		       struct hardlink_ctx *ctx)
 {
 	int ret;
 
-	if (!ctx->preserve_filename) {
-		if (!ctx->size_set) {
-			if ((ret = do_save_mail_size(mbox, path, ctx)) <= 0)
-				return ret;
-		}
-		/* set virtual size if it's in the original file name */
-		if (!ctx->vsize_set)
-			do_save_mail_vsize(path, ctx);
-	}
-
 	if (mbox->storage->storage.set->mail_nfs_storage)
-		ret = nfs_safe_link(path, str_c(ctx->dest_path), FALSE);
+		ret = nfs_safe_link(path, ctx->dest_path, FALSE);
 	else
-		ret = link(path, str_c(ctx->dest_path));
+		ret = link(path, ctx->dest_path);
 	if (ret < 0) {
 		if (errno == ENOENT)
 			return 0;
@@ -115,7 +48,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 
 		mail_storage_set_critical(&mbox->storage->storage,
 					  "link(%s, %s) failed: %m",
-					  path, str_c(ctx->dest_path));
+					  path, ctx->dest_path);
 		return -1;
 	}
 
@@ -124,13 +57,16 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 }
 
 static int
-maildir_copy_hardlink(struct mail_save_context *ctx,
-		      struct hardlink_ctx *do_ctx, struct mail *mail)
+maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct maildir_mailbox *dest_mbox =
 		(struct maildir_mailbox *)ctx->transaction->box;
 	struct maildir_mailbox *src_mbox;
-	const char *path, *guid;
+	struct maildir_filename *mf;
+	struct hardlink_ctx do_ctx;
+	const char *path, *guid, *dest_fname;
+	uoff_t vsize, size;
+	enum mail_lookup_abort old_abort;
 
 	if (strcmp(mail->box->storage->name, MAILDIR_STORAGE_NAME) == 0)
 		src_mbox = (struct maildir_mailbox *)mail->box;
@@ -142,45 +78,47 @@ maildir_copy_hardlink(struct mail_save_context *ctx,
 		return 0;
 	}
 
-	do_ctx->dest_path = str_new(default_pool, 512);
-
-	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) < 0)
-		guid = "";
-	if (*guid == '\0') {
-		/* the generated filename is _always_ unique, so we don't
-		   bother trying to check if it already exists */
-		do_ctx->dest_fname = maildir_filename_generate();
-	} else {
-		do_ctx->dest_fname = guid;
-		do_ctx->preserve_filename = TRUE;
-	}
-
-	/* hard link to tmp/ with basename and later when we
+	/* hard link to tmp/ with a newly generated filename and later when we
 	   have uidlist locked, move it to new/cur. */
-	str_printfa(do_ctx->dest_path, "%s/tmp/%s",
-		    dest_mbox->box.path, do_ctx->dest_fname);
-	do_ctx->base_end_pos = str_len(do_ctx->dest_path);
+	dest_fname = maildir_filename_generate();
+	memset(&do_ctx, 0, sizeof(do_ctx));
+	do_ctx.dest_path =
+		t_strdup_printf("%s/tmp/%s", dest_mbox->box.path, dest_fname);
 	if (src_mbox != NULL) {
 		/* maildir */
 		if (maildir_file_do(src_mbox, mail->uid,
-				    do_hardlink, do_ctx) < 0)
+				    do_hardlink, &do_ctx) < 0)
 			return -1;
 	} else {
 		/* raw / lda */
 		if (mail_get_special(mail, MAIL_FETCH_UIDL_FILE_NAME,
 				     &path) < 0 || *path == '\0')
 			return 0;
-		if (do_hardlink(dest_mbox, path, do_ctx) < 0)
+		if (do_hardlink(dest_mbox, path, &do_ctx) < 0)
 			return -1;
 	}
 
-	if (!do_ctx->success) {
+	if (!do_ctx.success) {
 		/* couldn't copy with hardlinking, fallback to copying */
 		return 0;
 	}
 
 	/* hardlinked to tmp/, treat as normal copied mail */
-	maildir_save_add(ctx, do_ctx->dest_fname, do_ctx->preserve_filename);
+	mf = maildir_save_add(ctx, dest_fname);
+	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) == 0) {
+		if (*guid != '\0')
+			maildir_save_set_dest_basename(ctx, mf, guid);
+	}
+
+	/* remember size/vsize if possible */
+	old_abort = mail->lookup_abort;
+	mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
+	if (mail_get_physical_size(mail, &size) < 0)
+		size = (uoff_t)-1;
+	if (mail_get_virtual_size(mail, &vsize) < 0)
+		vsize = (uoff_t)-1;
+	maildir_save_set_sizes(mf, size, vsize);
+	mail->lookup_abort = old_abort;
 	return 1;
 }
 
@@ -195,7 +133,6 @@ int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mailbox_transaction_context *_t = ctx->transaction;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_t->box;
-	struct hardlink_ctx do_ctx;
 	int ret;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -203,10 +140,7 @@ int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 	if (mbox->storage->set->maildir_copy_with_hardlinks &&
 	    maildir_compatible_file_modes(&mbox->box, mail->box)) {
 		T_BEGIN {
-			memset(&do_ctx, 0, sizeof(do_ctx));
-			ret = maildir_copy_hardlink(ctx, &do_ctx, mail);
-			if (do_ctx.dest_path != NULL)
-				str_free(&do_ctx.dest_path);
+			ret = maildir_copy_hardlink(ctx, mail);
 		} T_END;
 
 		if (ret != 0) {

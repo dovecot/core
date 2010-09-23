@@ -117,8 +117,13 @@ int maildir_save_continue(struct mail_save_context *ctx);
 int maildir_save_finish(struct mail_save_context *ctx);
 void maildir_save_cancel(struct mail_save_context *ctx);
 
-void maildir_save_add(struct mail_save_context *_ctx, const char *base_fname,
-		      bool preserve_filename);
+struct maildir_filename *
+maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname);
+void maildir_save_set_dest_basename(struct mail_save_context *ctx,
+				    struct maildir_filename *mf,
+				    const char *basename);
+void maildir_save_set_sizes(struct maildir_filename *mf,
+			    uoff_t size, uoff_t vsize);
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq);
 
