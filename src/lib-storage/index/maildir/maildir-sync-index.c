@@ -44,27 +44,35 @@ maildir_index_expunge(struct maildir_index_sync_context *ctx, uint32_t seq)
 {
 	enum maildir_uidlist_rec_flag flags;
 	uint8_t guid_128[MAIL_GUID_128_SIZE];
-	const char *fname;
 	uint32_t uid;
 
 	mail_index_lookup_uid(ctx->view, seq, &uid);
-	if (maildir_uidlist_lookup(ctx->mbox->uidlist, uid,
-				   &flags, &fname) <= 0)
-		memset(guid_128, 0, sizeof(guid_128));
-	else T_BEGIN {
-		mail_generate_guid_128_hash(t_strcut(fname, ':'),
-					    guid_128);
-	} T_END;
+	T_BEGIN {
+		const char *guid;
 
+		guid = maildir_uidlist_lookup_ext(ctx->mbox->uidlist, uid,
+						  MAILDIR_UIDLIST_HDR_EXT_GUID);
+		if (guid == NULL) {
+			if (maildir_uidlist_lookup(ctx->mbox->uidlist, uid,
+						   &flags, &guid) > 0)
+				guid = t_strcut(guid, ':');
+		}
+
+		if (guid == NULL)
+			memset(guid_128, 0, sizeof(guid_128));
+		else
+			mail_generate_guid_128_hash(guid, guid_128);
+	} T_END;
 	mail_index_expunge_guid(ctx->trans, seq, guid_128);
 }
 
 static bool
 maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
-			      const char *filename,
+			      uint32_t uid, const char *filename,
 			      uint8_t expunged_guid_128[MAIL_GUID_128_SIZE])
 {
 	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	const char *guid;
 
 	if (mail_guid_128_is_empty(expunged_guid_128)) {
 		/* no GUID associated with expunge */
@@ -72,8 +80,11 @@ maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
 	}
 
 	T_BEGIN {
-		mail_generate_guid_128_hash(t_strcut(filename, ':'),
-					    guid_128);
+		guid = maildir_uidlist_lookup_ext(ctx->mbox->uidlist, uid,
+						  MAILDIR_UIDLIST_HDR_EXT_GUID);
+		if (guid == NULL)
+			guid = t_strcut(filename, ':');
+		mail_generate_guid_128_hash(guid, guid_128);
 	} T_END;
 
 	if (memcmp(guid_128, expunged_guid_128, sizeof(guid_128)) == 0)
@@ -551,7 +562,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		index_sync_changes_read(ctx->sync_changes, rec->uid, &expunged,
 					expunged_guid_128);
 		if (expunged) {
-			if (!maildir_expunge_is_valid_guid(ctx, filename,
+			if (!maildir_expunge_is_valid_guid(ctx, rec->uid,
+							   filename,
 							   expunged_guid_128))
 				continue;
 			if (maildir_file_do(mbox, ctx->uid,
