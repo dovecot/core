@@ -373,6 +373,8 @@ master_login_auth_send_request(struct master_login_auth *auth,
 
 	if (auth->auth_server_pid != req->auth_pid) {
 		/* auth server was restarted. don't even attempt a login. */
+		i_warning("Auth server restarted (pid %u -> %u), aborting auth",
+			  req->auth_pid, auth->auth_server_pid);
 		master_login_auth_request_remove(auth, req);
 		req->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
 			      req->context);
