@@ -73,6 +73,7 @@ struct mail_transaction_log_file {
 	struct modseq_cache modseq_cache[LOG_FILE_MODSEQ_CACHE_SIZE];
 
 	struct file_lock *file_lock;
+	time_t lock_created;
 
 	unsigned int locked:1;
 	unsigned int corrupted:1;
