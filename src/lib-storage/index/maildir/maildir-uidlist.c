@@ -1248,8 +1248,12 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 			mail_generate_guid_128(uidlist->mailbox_guid);
 
 		i_assert(uidlist->next_uid > 0);
-		str_printfa(str, "%u V%u N%u G%s", uidlist->version,
-			    uidlist->uid_validity, uidlist->next_uid,
+		str_printfa(str, "%u %c%u %c%u %c%s", uidlist->version,
+			    MAILDIR_UIDLIST_HDR_EXT_UID_VALIDITY,
+			    uidlist->uid_validity,
+			    MAILDIR_UIDLIST_HDR_EXT_NEXT_UID,
+			    uidlist->next_uid,
+			    MAILDIR_UIDLIST_HDR_EXT_GUID,
 			    binary_to_hex(uidlist->mailbox_guid,
 					  sizeof(uidlist->mailbox_guid)));
 		if (str_len(uidlist->hdr_extensions) > 0) {
