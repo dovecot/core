@@ -140,6 +140,18 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		set_rename(ctx, key, "ssl", value);
 		return TRUE;
 	}
+	if (strcmp(key, "sieve") == 0 ||
+	    strcmp(key, "sieve_storage") == 0) {
+		if (strcmp(key, "sieve_storage") == 0)
+			obsolete(ctx, "sieve_storage has been moved into plugin { sieve_dir }");
+		else
+			obsolete(ctx, "%s has been moved into plugin {} section", key);
+
+		config_apply_line(ctx, "", "plugin=", NULL);
+		config_apply_line(ctx, key,
+			t_strdup_printf("plugin/%s=%s", key, value), NULL);
+		return TRUE;
+	}
 	if (strcmp(key, "fsync_disable") == 0) {
 		if (strcasecmp(value, "yes") == 0)
 			value = "never";
