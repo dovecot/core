@@ -203,6 +203,8 @@ static struct duplicate_file *duplicate_file_new(struct duplicate_context *ctx)
 	struct duplicate_file *file;
 	pool_t pool;
 
+	i_assert(ctx->path != NULL);
+
 	pool = pool_alloconly_create("duplicates", 10240);
 
 	file = p_new(pool, struct duplicate_file, 1);
@@ -235,8 +237,13 @@ int duplicate_check(struct duplicate_context *ctx,
 {
 	struct duplicate d;
 
-	if (ctx->file == NULL)
+	if (ctx->file == NULL) {
+		if (ctx->path == NULL) {
+			/* duplicate database disabled */
+			return 0;
+		}
 		ctx->file = duplicate_file_new(ctx);
+	}
 
 	d.id = id;
 	d.id_size = id_size;
@@ -252,8 +259,13 @@ void duplicate_mark(struct duplicate_context *ctx,
 	struct duplicate *d;
 	void *new_id;
 
-	if (ctx->file == NULL)
+	if (ctx->file == NULL) {
+		if (ctx->path == NULL) {
+			/* duplicate database disabled */
+			return;
+		}
 		ctx->file = duplicate_file_new(ctx);
+	}
 
 	new_id = p_malloc(ctx->file->pool, id_size);
 	memcpy(new_id, id, id_size);
@@ -313,9 +325,12 @@ struct duplicate_context *duplicate_init(struct mail_user *user)
 	struct duplicate_context *ctx;
 	const struct mail_storage_settings *mail_set;
 	const char *home;
+	int ret;
 
-	if (mail_user_get_home(user, &home) < 0)
-		i_fatal("User %s doesn't have home dir set", user->username);
+	if ((ret = mail_user_get_home(user, &home)) <= 0) {
+		i_error("User %s doesn't have home dir set, "
+			"disabling duplicate database", user->username);
+	}
 
 	ctx = i_new(struct duplicate_context, 1);
 	ctx->path = i_strconcat(home, "/"DUPLICATE_FNAME, NULL);
