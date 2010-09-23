@@ -28,6 +28,8 @@ struct service_settings log_service_settings = {
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
-	.inet_listeners = ARRAY_INIT
+	.inet_listeners = ARRAY_INIT,
+
+	.process_limit_1 = TRUE
 };
 

@@ -57,7 +57,9 @@ struct service_settings auth_service_settings = {
 	.unix_listeners = { { &auth_unix_listeners_buf,
 			      sizeof(auth_unix_listeners[0]) } },
 	.fifo_listeners = ARRAY_INIT,
-	.inet_listeners = ARRAY_INIT
+	.inet_listeners = ARRAY_INIT,
+
+	.process_limit_1 = TRUE
 };
 
 /* <settings checks> */

@@ -55,7 +55,9 @@ struct service_settings director_service_settings = {
 			      sizeof(director_unix_listeners[0]) } },
 	.fifo_listeners = { { &director_fifo_listeners_buf,
 			      sizeof(director_fifo_listeners[0]) } },
-	.inet_listeners = ARRAY_INIT
+	.inet_listeners = ARRAY_INIT,
+
+	.process_limit_1 = TRUE
 };
 #undef DEF
 #define DEF(type, name) \

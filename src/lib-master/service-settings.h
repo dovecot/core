@@ -63,6 +63,11 @@ struct service_settings {
 	enum service_type parsed_type;
 	enum service_user_default user_default;
 	unsigned int login_dump_core:1;
+
+	/* -- flags that can be set internally -- */
+
+	/* process_limit must not be higher than 1 */
+	unsigned int process_limit_1:1;
 };
 ARRAY_DEFINE_TYPE(service_settings, struct service_settings *);
 

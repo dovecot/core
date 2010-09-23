@@ -354,10 +354,28 @@ services_have_protocol(struct master_settings *set, const char *name)
 	return FALSE;
 }
 
+#ifdef CONFIG_BINARY
+static const struct service_settings *
+master_default_settings_get_service(const char *name)
+{
+	extern struct master_settings master_default_settings;
+	struct service_settings *const *setp;
+
+	array_foreach(&master_default_settings.services, setp) {
+		if (strcmp((*setp)->name, name) == 0)
+			return *setp;
+	}
+	return NULL;
+}
+#endif
+
 static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
 	static int warned_auth = FALSE;
+#ifdef CONFIG_BINARY
+	const struct service_settings *default_service;
+#endif
 	struct master_settings *set = _set;
 	struct service_settings *const *services;
 	const char *const *strings;
@@ -465,6 +483,17 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				service->name);
 			return FALSE;
 		}
+
+#ifdef CONFIG_BINARY
+		default_service =
+			master_default_settings_get_service(service->name);
+		if (default_service != NULL &&
+		    default_service->process_limit_1 && process_limit > 1) {
+			*error_r = t_strdup_printf("service(%s): "
+				"process_limit must be 1", service->name);
+			return FALSE;
+		}
+#endif
 
 		if (strcmp(service->name, "auth") == 0) {
 			auth_client_limit = service->client_limit != 0 ?
