@@ -908,7 +908,7 @@ static int maildir_uidlist_open_latest(struct maildir_uidlist *uidlist)
 
 		if (!recreated)
 			return 0;
-		maildir_uidlist_close(uidlist);
+		maildir_uidlist_reset(uidlist);
 	}
 
 	uidlist->fd = nfs_safe_open(uidlist->path, O_RDWR);
