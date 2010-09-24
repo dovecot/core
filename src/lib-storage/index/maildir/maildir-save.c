@@ -76,6 +76,9 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *tmp_path, *new_path;
 
+	i_assert(*destname != '\0');
+	i_assert(*mf->tmp_name != '\0');
+
 	/* if we have flags, we'll move it to cur/ directly, because files in
 	   new/ directory can't have flags. alternative would be to write it
 	   in new/ and set the flags dirty in index file, but in that case

@@ -429,6 +429,8 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 
 		flags = 0;
 		if (move_new) {
+			i_assert(dp->d_name[0] != '\0');
+
 			str_truncate(src, 0);
 			str_truncate(dest, 0);
 			str_printfa(src, "%s/%s", ctx->new_dir, dp->d_name);

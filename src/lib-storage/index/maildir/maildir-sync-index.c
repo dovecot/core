@@ -120,6 +120,8 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	fname++;
 	dir = t_strdup_until(path, fname);
 
+	i_assert(*fname != '\0');
+
 	/* get the current flags and keywords */
 	maildir_filename_get_flags(ctx->keywords_sync_ctx,
 				   fname, &ctx->flags, &ctx->keywords);
