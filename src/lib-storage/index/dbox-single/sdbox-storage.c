@@ -22,7 +22,7 @@ static struct mail_storage *sdbox_storage_alloc(void)
 	pool = pool_alloconly_create("sdbox storage", 512+256);
 	storage = p_new(pool, struct sdbox_storage, 1);
 	storage->storage.v = sdbox_dbox_storage_vfuncs;
-	storage->storage.storage = dbox_storage;
+	storage->storage.storage = sdbox_storage;
 	storage->storage.storage.pool = pool;
 	return &storage->storage.storage;
 }
