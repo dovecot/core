@@ -59,7 +59,6 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 					       "/"MDBOX_GLOBAL_DIR_NAME, NULL);
 	i_array_init(&storage->open_files, 64);
 
-	dir = mailbox_list_get_path(ns->list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
 	storage->map = mdbox_map_init(storage, ns->list);
 	return 0;
 }
