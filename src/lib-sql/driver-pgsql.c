@@ -97,10 +97,11 @@ static void driver_pgsql_close(struct pgsql_db *db)
 	db->io_dir = 0;
 	db->fatal_error = FALSE;
 
+	driver_pgsql_stop_io(db);
+
 	PQfinish(db->pg);
 	db->pg = NULL;
 
-	driver_pgsql_stop_io(db);
 	if (db->to_connect != NULL)
 		timeout_remove(&db->to_connect);
 
