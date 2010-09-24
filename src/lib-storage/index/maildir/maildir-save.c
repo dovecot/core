@@ -147,6 +147,8 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname)
 	struct istream *input;
 	unsigned int keyword_count;
 
+	i_assert(*tmp_fname != '\0');
+
 	/* allow caller to specify recent flag only when uid is specified
 	   (we're replicating, converting, etc.). */
 	if (_ctx->uid == 0)
