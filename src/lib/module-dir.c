@@ -183,7 +183,9 @@ module_load(const char *path, const char *name,
 		if (handle == NULL) {
 			if (set->debug) {
 				i_debug("Skipping module %s, "
-					"because dlopen() failed: %s",
+					"because dlopen() failed: %s "
+					"(this is usually intentional, "
+					"so just ignore this message)",
 					name, dlerror());
 			}
 			return NULL;
