@@ -316,10 +316,10 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			      const char **fname_r)
 {
 	struct mailbox *box = &mbox->box;
-	struct stat st;
 	unsigned int prefix_len;
 	const char *tmp_fname;
 	string_t *path;
+	mode_t old_mask;
 	int fd;
 
 	path = t_str_new(256);
@@ -327,34 +327,20 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	str_append_c(path, '/');
 	prefix_len = str_len(path);
 
-	for (;;) {
+	do {
 		tmp_fname = maildir_filename_generate();
 		str_truncate(path, prefix_len);
 		str_append(path, tmp_fname);
 
-		/* stat() first to see if it exists. pretty much the only
-		   possibility of that happening is if time had moved
-		   backwards, but even then it's highly unlikely. */
-		if (stat(str_c(path), &st) == 0) {
-			/* try another file name */
-		} else if (errno != ENOENT) {
-			mail_storage_set_critical(box->storage,
-				"stat(%s) failed: %m", str_c(path));
-			return -1;
-		} else {
-			/* doesn't exist */
-			mode_t old_mask = umask(0777 & ~box->file_create_mode);
-			fd = open(str_c(path),
-				  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, 0777);
-			umask(old_mask);
-
-			if (fd != -1 || errno != EEXIST)
-				break;
-			/* race condition between stat() and open().
-			   highly unlikely. */
-		}
-		tmp_fname = NULL;
-	}
+		/* the generated filename is unique. the only reason why it
+		   might return an existing filename is if the time moved
+		   backwards. so we'll use O_EXCL anyway, although it's mostly
+		   useless. */
+		old_mask = umask(0777 & ~box->file_create_mode);
+		fd = open(str_c(path),
+			  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, 0777);
+		umask(old_mask);
+	} while (fd == -1 && errno == EEXIST);
 
 	*fname_r = tmp_fname;
 	if (fd == -1) {
