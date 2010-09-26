@@ -235,27 +235,23 @@ static int create_maildir(struct mailbox *box, bool verify)
 {
 	const char *path;
 	unsigned int i;
-	int ret;
-
-	if (!verify) {
-		ret = maildir_check_tmp(box->storage, box->path);
-		if (ret > 0) {
-			mail_storage_set_error(box->storage,
-				MAIL_ERROR_EXISTS, "Mailbox already exists");
-			return -1;
-		}
-		if (ret < 0)
-			return -1;
-	}
+	enum mail_error error;
+	int ret = 0;
 
 	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
 		path = t_strconcat(box->path, "/", maildir_subdirs[i], NULL);
 		if (mkdir_verify(box->storage, box->list->ns, path,
 				 box->dir_create_mode, box->file_create_gid,
-				 box->file_create_gid_origin, verify) < 0)
-			return -1;
+				 box->file_create_gid_origin, verify) < 0) {
+			(void)mail_storage_get_last_error(box->storage, &error);
+			if (error != MAIL_ERROR_EXISTS)
+				return -1;
+			/* try to create all of the directories in case one
+			   of them doesn't exist */
+			ret = -1;
+		}
 	}
-	return 0;
+	return ret;
 }
 
 static void maildir_lock_touch_timeout(struct maildir_mailbox *mbox)
@@ -431,10 +427,20 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 {
 	const char *root_dir, *shared_path;
 	struct stat st;
+	int ret;
 
 	if (directory &&
 	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
 		return 0;
+
+	ret = maildir_check_tmp(box->storage, box->path);
+	if (ret > 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+				       "Mailbox already exists");
+		return -1;
+	}
+	if (ret < 0)
+		return -1;
 
 	if (create_maildir(box, FALSE) < 0)
 		return -1;
