@@ -1,3 +1,7 @@
+ - mail_max_lock_timeout error could be reported more nicely, also ones coming
+   from lib-index
+ - dsync: if mailbox is renamed due to it being invalid, its subscription
+   isn't renamed
  - doveadm director assign <user> <host> - do it permanently in memory
  - LSUB shows subscribed namespace prefix as prefix/, also SUBSCRIBE adds the /
  - sql pool: if async query is pending and sync query is sent and there

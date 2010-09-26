@@ -1,3 +1,24 @@
+v2.0.4 2010-09-26  Timo Sirainen <tss@iki.fi>
+
+	* multi-dbox: If :INDEX=path is specified, keep
+	  storage/dovecot.map.index* files also in the index path rather than
+	  in the main storage directory.
+
+	  WARNING: if you specified :INDEX= with earlier mdbox installation,
+	  you must now manually move the storage indexes to the expected
+	  directory! Otherwise Dovecot won't see them and will rebuild the
+	  indexes, possibly unexpunging some mails.
+
+	- Maildir: Copying messages with hard links sometimes caused the
+	  source maildir's entire tmp/ directory to be renamed to destination
+	  maildir as if it were a message.
+	- Maildir: v2.0.3 broke expunging copied messages sometimes
+	- Maildir: INBOX whose tmp/ directory was lost couldn't be opened
+	- single-dbox: Messages weren't copied with hard links
+	- vpopmail support is hopefully working again.
+	- dsync: POP3 UIDLs weren't copied with Maildir
+	- dict file: Fixed fd leak (showed up easily with LMTP + quota)
+
 v2.0.3 2010-09-17  Timo Sirainen <tss@iki.fi>
 
 	* dovecot-lda: Removed use of non-standard Envelope-To: header as a
