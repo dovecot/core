@@ -24,14 +24,18 @@ client_find_namespace(struct client_command_context *cmd, const char *mailbox,
 		      const char **storage_name_r,
 		      enum mailbox_name_status *mailbox_status_r)
 {
+	struct mail_namespace *namespaces = cmd->client->user->namespaces;
 	struct mail_namespace *ns;
 	const char *storage_name, *p;
 	unsigned int storage_name_len;
 
 	storage_name = mailbox;
-	ns = mail_namespace_find(cmd->client->user->namespaces, &storage_name);
+	ns = mail_namespace_find(namespaces, &storage_name);
 	if (ns == NULL) {
-		client_send_tagline(cmd, "NO Unknown namespace.");
+		client_send_tagline(cmd, t_strdup_printf(
+			"NO Client tried to access nonexistent namespace. "
+			"(Mailbox name should probably be prefixed with: %s)",
+			mail_namespace_find_inbox(namespaces)->prefix));
 		return NULL;
 	}
 
