@@ -3,7 +3,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/lib-storage/index
+	-I$(top_srcdir)/src/lib-storage/index \
+	-I$(top_srcdir)/src/lib-storage/index/dbox-common
 
 lib20_zlib_plugin_la_LDFLAGS = -module -avoid-version
 

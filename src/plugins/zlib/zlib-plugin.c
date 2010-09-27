@@ -5,6 +5,9 @@
 #include "istream.h"
 #include "ostream.h"
 #include "mail-user.h"
+#include "dbox-single/sdbox-storage.h"
+#include "dbox-multi/mdbox-storage.h"
+#include "maildir/maildir-storage.h"
 #include "index-storage.h"
 #include "index-mail.h"
 #include "istream-zlib.h"
@@ -359,9 +362,9 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 
-	if (strcmp(box->storage->name, "maildir") == 0 ||
-	    strcmp(box->storage->name, "mdbox") == 0 ||
-	    strcmp(box->storage->name, "sdbox") == 0)
+	if (strcmp(box->storage->name, MAILDIR_STORAGE_NAME) == 0 ||
+	    strcmp(box->storage->name, MDBOX_STORAGE_NAME) == 0 ||
+	    strcmp(box->storage->name, SDBOX_STORAGE_NAME) == 0)
 		zlib_permail_alloc_init(box, v);
 }
 
