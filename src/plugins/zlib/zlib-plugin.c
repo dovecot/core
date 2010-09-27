@@ -361,7 +361,7 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 
 	if (strcmp(box->storage->name, "maildir") == 0 ||
 	    strcmp(box->storage->name, "mdbox") == 0 ||
-	    strcmp(box->storage->name, "dbox") == 0)
+	    strcmp(box->storage->name, "sdbox") == 0)
 		zlib_permail_alloc_init(box, v);
 }
 
