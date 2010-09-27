@@ -663,18 +663,20 @@ static int config_write_value(struct config_parser_context *ctx,
 		}
 		break;
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		if (!ctx->expand_values) {
+		/* expand_parent=TRUE for "key = $key stuff".
+		   we'll always expand it so that doveconf -n can give
+		   usable output */
+		p = strchr(value, ' ');
+		if (p == NULL)
+			var_name = value;
+		else
+			var_name = t_strdup_until(value, p);
+		expand_parent = strcmp(key, var_name) == 0;
+
+		if (!ctx->expand_values && !expand_parent) {
 			str_append_c(str, '$');
 			str_append(str, value);
 		} else {
-			p = strchr(value, ' ');
-			if (p == NULL)
-				var_name = value;
-			else
-				var_name = t_strdup_until(value, p);
-
-			/* expand_parent=TRUE for "key = $key stuff" */
-			expand_parent = strcmp(key, var_name) == 0;
 			var_value = config_get_value(ctx->cur_section, var_name,
 						     expand_parent, &var_type);
 			if (var_value == NULL) {
