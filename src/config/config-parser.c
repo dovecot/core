@@ -9,6 +9,7 @@
 #include "module-dir.h"
 #include "settings-parser.h"
 #include "service-settings.h"
+#include "master-service.h"
 #include "master-service-settings.h"
 #include "all-settings.h"
 #include "old-set-parser.h"
@@ -868,6 +869,7 @@ void config_parse_load_modules(void)
 	unsigned int i, count;
 
 	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.version = master_service_get_version_string(master_service);
 	modules = module_dir_load(CONFIG_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
