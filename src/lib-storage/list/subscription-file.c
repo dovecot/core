@@ -87,6 +87,7 @@ static const char *next_line(struct mailbox_list *list, const char *path,
 int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			    const char *temp_prefix, const char *name, bool set)
 {
+	const struct mail_storage_settings *mail_set = list->mail_set;
 	struct dotlock_settings dotlock_set;
 	struct dotlock *dotlock;
 	const char *line, *origin;
@@ -101,8 +102,8 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		name = "INBOX";
 
 	memset(&dotlock_set, 0, sizeof(dotlock_set));
-	dotlock_set.use_excl_lock = list->mail_set->dotlock_use_excl;
-	dotlock_set.nfs_flush = list->mail_set->mail_nfs_storage;
+	dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
+	dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
 	dotlock_set.temp_prefix = temp_prefix;
 	dotlock_set.timeout = SUBSCRIPTION_FILE_LOCK_TIMEOUT;
 	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;
@@ -139,6 +140,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		i_stream_create_fd(fd_in, list->mailbox_name_max_length+1,
 				   TRUE);
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
+	o_stream_cork(output);
 	found = FALSE;
 	while ((line = next_line(list, path, input,
 				 &failed, FALSE)) != NULL) {
@@ -150,29 +152,27 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			}
 		}
 
-		if (o_stream_send_str(output, line) < 0 ||
-		    o_stream_send(output, "\n", 1) < 0) {
-			subswrite_set_syscall_error(list, "write()", path);
-			failed = TRUE;
-			break;
-		}
+		(void)o_stream_send_str(output, line);
+		(void)o_stream_send(output, "\n", 1);
 	}
 
 	if (!failed && set && !found) {
 		/* append subscription */
 		line = t_strconcat(name, "\n", NULL);
-		if (o_stream_send_str(output, line) < 0) {
-			subswrite_set_syscall_error(list, "write()", path);
-			failed = TRUE;
-		}
+		(void)o_stream_send_str(output, line);
 		changed = TRUE;
 	}
 
-	if (changed && !failed &&
-	    list->mail_set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
-		if (fsync(fd_out) < 0) {
-			subswrite_set_syscall_error(list, "fsync()", path);
+	if (changed && !failed) {
+		if (o_stream_flush(output) < 0) {
+			subswrite_set_syscall_error(list, "write()", path);
 			failed = TRUE;
+		} else if (mail_set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
+			if (fsync(fd_out) < 0) {
+				subswrite_set_syscall_error(list, "fsync()",
+							    path);
+				failed = TRUE;
+			}
 		}
 	}
 
