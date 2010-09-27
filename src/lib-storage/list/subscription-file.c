@@ -95,7 +95,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	int fd_in, fd_out;
 	mode_t mode;
 	gid_t gid;
-	bool found, failed = FALSE;
+	bool found, changed = FALSE, failed = FALSE;
 
 	if (strcasecmp(name, "INBOX") == 0)
 		name = "INBOX";
@@ -144,8 +144,10 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 				 &failed, FALSE)) != NULL) {
 		if (strcmp(line, name) == 0) {
 			found = TRUE;
-			if (!set)
+			if (!set) {
+				changed = TRUE;
 				continue;
+			}
 		}
 
 		if (o_stream_send_str(output, line) < 0 ||
@@ -163,18 +165,22 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			subswrite_set_syscall_error(list, "write()", path);
 			failed = TRUE;
 		}
+		changed = TRUE;
 	}
 
-	if (!failed && fsync(fd_out) < 0) {
-		subswrite_set_syscall_error(list, "fsync()", path);
-		failed = TRUE;
+	if (changed && !failed &&
+	    list->mail_set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
+		if (fsync(fd_out) < 0) {
+			subswrite_set_syscall_error(list, "fsync()", path);
+			failed = TRUE;
+		}
 	}
 
 	if (input != NULL)
 		i_stream_destroy(&input);
 	o_stream_destroy(&output);
 
-	if (failed || (set && found) || (!set && !found)) {
+	if (failed || !changed) {
 		if (file_dotlock_delete(&dotlock) < 0) {
 			subswrite_set_syscall_error(list,
 				"file_dotlock_delete()", path);
