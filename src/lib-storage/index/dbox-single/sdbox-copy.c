@@ -36,9 +36,8 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 	}
 	if (ret < 0) {
 		if (ECANTLINK(errno))
-			return 0;
-
-		if (errno == ENOENT)
+			ret = 0;
+		else if (errno == ENOENT)
 			mail_set_expunged(mail);
 		else {
 			mail_storage_set_critical(
@@ -46,7 +45,9 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 				"link(%s, %s) failed: %m",
 				src_path, dest_file->cur_path);
 		}
-		return -1;
+		dbox_file_unref(&src_file);
+		dbox_file_unref(&dest_file);
+		return ret;
 	}
 
 	dbox_save_add_to_index(ctx);
@@ -55,6 +56,7 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 		mail_set_seq(_ctx->dest_mail, ctx->seq);
 		_ctx->dest_mail->saving = TRUE;
 	}
+	dbox_file_unref(&src_file);
 	return 1;
 }
 
