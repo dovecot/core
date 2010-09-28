@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "eacces-error.h"
 #include "mailbox-log.h"
 
@@ -14,6 +15,7 @@
 struct mailbox_log {
 	char *filepath, *filepath2;
 	int fd;
+	time_t open_timestamp;
 
 	mode_t mode;
 	gid_t gid;
@@ -81,6 +83,7 @@ static int mailbox_log_open(struct mailbox_log *log)
 {
 	mode_t old_mode;
 
+	log->open_timestamp = ioloop_time;
 	log->fd = open(log->filepath, O_RDWR | O_APPEND);
 	if (log->fd != -1)
 		return 0;
@@ -154,11 +157,12 @@ int mailbox_log_append(struct mailbox_log *log,
 
 	/* we don't have to be too strict about appending to the latest log
 	   file. the records' ordering doesn't matter and iteration goes
-	   through both logs anyway. */
-	if (log->fd == -1) {
-		if (mailbox_log_open(log) < 0)
-			return -1;
-	}
+	   through both logs anyway. still, if there's a long running session
+	   it shouldn't keep writing to a rotated log forever. */
+	if (log->open_timestamp != ioloop_time)
+		mailbox_log_close(log);
+	if (mailbox_log_open(log) < 0)
+		return -1;
 
 	/* We don't bother with locking, atomic appends will protect us.
 	   If they don't (NFS), the worst that can happen is that a few
