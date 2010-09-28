@@ -7,6 +7,7 @@
 #include "write-full.h"
 #include "str.h"
 #include "eacces-error.h"
+#include "env-util.h"
 #include "execv-const.h"
 #include "settings-parser.h"
 #include "master-service-private.h"
@@ -92,6 +93,8 @@ master_service_exec_config(struct master_service *service,
 
 	if (!service->keep_environment)
 		master_service_env_clean(input->preserve_home);
+	if (input->use_sysexits)
+		env_put("USE_SYSEXITS=1");
 
 	/* @UNSAFE */
 	conf_argv = t_new(const char *, 8 + (service->argc + 1) + 1);

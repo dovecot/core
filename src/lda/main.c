@@ -342,7 +342,8 @@ int main(int argc, char *argv[])
 	service_input.service = "lda";
 	service_input.username = user;
 
-	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+	service_flags |= MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
+		MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS;
 	storage_service = mail_storage_service_init(master_service, set_roots,
 						    service_flags);
 	ret = mail_storage_service_lookup_next(storage_service, &service_input,

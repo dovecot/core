@@ -18,7 +18,9 @@
 #include "dovecot-version.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <sysexits.h>
 
 struct prefix_stack {
 	unsigned int prefix_idx;
@@ -545,6 +547,13 @@ static void check_wrong_config(const char *config_path)
 	}
 }
 
+static void failure_exit_callback(int *status)
+{
+	/* don't use EX_CONFIG, because it often causes MTAs to bounce
+	   the mails back. */
+	*status = EX_TEMPFAIL;
+}
+
 int main(int argc, char *argv[])
 {
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
@@ -555,6 +564,11 @@ int main(int argc, char *argv[])
 	unsigned int i;
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
+
+	if (getenv("USE_SYSEXITS") != NULL) {
+		/* we're coming from (e.g.) LDA */
+		i_set_failure_exit_callback(failure_exit_callback);
+	}
 
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
