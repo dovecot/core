@@ -101,6 +101,7 @@ struct client {
 	struct auth_client_request *auth_request;
 	string_t *auth_response;
 
+	unsigned int master_auth_id;
 	unsigned int master_tag;
 	sasl_server_callback_t *sasl_callback;
 

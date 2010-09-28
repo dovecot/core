@@ -104,6 +104,8 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 			break;
 		}
 		client->mail_pid = reply->mail_pid;
+	} else {
+		auth_client_send_cancel(auth_client, client->master_auth_id);
 	}
 	call_client_callback(client, sasl_reply, data, NULL);
 }
@@ -135,6 +137,7 @@ static void master_send_request(struct anvil_request *anvil_request)
 	buffer_append(buf, data, size);
 	req.data_size = buf->used;
 
+	client->master_auth_id = req.auth_id;
 	master_auth_request(master_auth, client->fd, &req, buf->data,
 			    master_auth_callback, client, &client->master_tag);
 }
