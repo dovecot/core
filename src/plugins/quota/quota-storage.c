@@ -505,6 +505,9 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 	struct quota_root *root;
 	bool add;
 
+	if (QUOTA_USER_CONTEXT(list->ns->user) == NULL)
+		return;
+
 	/* see if we have a quota explicitly defined for this namespace */
 	quota = quota_get_mail_user_quota(list->ns->user);
 	root = quota_find_root_for_ns(quota, list->ns);
@@ -565,6 +568,9 @@ void quota_mail_namespaces_created(struct mail_namespace *namespaces)
 	struct quota *quota;
 	struct quota_root *const *roots;
 	unsigned int i, count;
+
+	if (QUOTA_USER_CONTEXT(namespaces->user) == NULL)
+		return;
 
 	quota = quota_get_mail_user_quota(namespaces->user);
 	roots = array_get(&quota->roots, &count);
