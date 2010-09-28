@@ -58,22 +58,6 @@ do_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st)
 	return -1;
 }
 
-static int
-maildir_rmdir_unexpected_dir(struct mail_storage *storage, const char *path)
-{
-	if (rmdir(path) == 0) {
-		mail_storage_set_critical(storage,
-			"Maildir: rmdir()ed unwanted empty directory: %s",
-			path);
-		return 0;
-	} else {
-		mail_storage_set_critical(storage,
-			"Maildir: Found unwanted directory %s, "
-			"but rmdir() failed: %m", path);
-		return -1;
-	}
-}
-
 static struct istream *
 maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 		  bool *deleted_r)
@@ -105,14 +89,9 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 
 	input = i_stream_create_fd(ctx.fd, 0, TRUE);
 	if (input->stream_errno == EISDIR) {
-		/* there's a directory in maildir. many installations seem to
-		   have messed up something and causing "cur", "new" and "tmp"
-		   directories to be created under the "cur" directory.
-		   if the directory is empty, just get rid of it and log an
-		   error */
 		i_stream_destroy(&input);
-		if (maildir_rmdir_unexpected_dir(&mbox->storage->storage,
-						 ctx.path) == 0)
+		if (maildir_lose_unexpected_dir(&mbox->storage->storage,
+						ctx.path) >= 0)
 			*deleted_r = TRUE;
 	} else {
 		i_stream_set_name(input, ctx.path);

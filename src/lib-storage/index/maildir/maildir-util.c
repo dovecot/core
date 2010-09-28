@@ -12,6 +12,7 @@
 #include "maildir-filename.h"
 #include "maildir-sync.h"
 
+#include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -223,4 +224,55 @@ bool maildir_set_deleted(struct mailbox *box)
 		ret = maildir_create_subdirs(box);
 	} T_END;
 	return ret < 0 ? FALSE : TRUE;
+}
+
+int maildir_lose_unexpected_dir(struct mail_storage *storage, const char *path)
+{
+	const char *dest, *fname, *p;
+
+	/* There's a directory in maildir, get rid of it.
+
+	   In some installations this was caused by a messed up configuration
+	   where e.g. mails was initially delivered to new/new/ directory.
+	   Also Dovecot v2.0.0 - v2.0.4 sometimes may have renamed tmp/
+	   directory under new/ or cur/. */
+	if (rmdir(path) == 0) {
+		mail_storage_set_critical(storage,
+			"Maildir: rmdir()ed unwanted empty directory: %s",
+			path);
+		return 1;
+	} else if (errno == ENOENT) {
+		/* someone else rmdired or renamed it */
+		return 0;
+	} else if (errno != ENOTEMPTY) {
+		mail_storage_set_critical(storage,
+			"Maildir: Found unwanted directory %s, "
+			"but rmdir() failed: %m", path);
+		return -1;
+	}
+
+	/* It's not safe to delete this directory since it has some files in it,
+	   but it's also not helpful to log this message over and over again.
+	   Get rid of this error by renaming the directory elsewhere */
+	p = strrchr(path, '/');
+	i_assert(p != NULL);
+	fname = p + 1;
+	while (p != path && p[-1] != '/') p--;
+	i_assert(p != NULL);
+
+	dest = t_strconcat(t_strdup_until(path, p), "extra-", fname, NULL);
+	if (rename(path, dest) == 0) {
+		mail_storage_set_critical(storage,
+			"Maildir: renamed unwanted directory %s to %s",
+			path, dest);
+		return 1;
+	} else if (errno == ENOENT) {
+		/* someone else renamed it (could have been flag change) */
+		return 0;
+	} else {
+		mail_storage_set_critical(storage,
+			"Maildir: Found unwanted directory, "
+			"but rename(%s, %s) failed: %m", path, dest);
+		return -1;
+	}
 }

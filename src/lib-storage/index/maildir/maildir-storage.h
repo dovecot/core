@@ -109,6 +109,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 
 bool maildir_set_deleted(struct mailbox *box);
 uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list);
+int maildir_lose_unexpected_dir(struct mail_storage *storage, const char *path);
 
 struct mail_save_context *
 maildir_save_alloc(struct mailbox_transaction_context *_t);
