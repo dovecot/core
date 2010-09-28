@@ -286,12 +286,13 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			   const struct config_module_parser *p,
 			   const char **error_r)
 {
-	/* skip checking settings we don't care about */
-	if (*ctx->module != '\0' &&
-	    !config_module_want_parser(ctx->root_parsers, ctx->module, p->root))
-		return 0;
-
 	for (; p->root != NULL; p++) {
+		/* skip checking settings we don't care about */
+		if (*ctx->module != '\0' &&
+		    !config_module_want_parser(ctx->root_parsers,
+					       ctx->module, p->root))
+			continue;
+
 		settings_parse_var_skip(p->parser);
 		if (!settings_parser_check(p->parser, ctx->pool, error_r))
 			return -1;
