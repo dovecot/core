@@ -656,8 +656,9 @@ static int config_write_value(struct config_parser_context *ctx,
 			str_append_c(str, '<');
 			str_append(str, value);
 		} else {
-			if (str_append_file(str, key, value, &error) < 0 &&
-			    config_require_key(ctx, key)) {
+			if (!config_require_key(ctx, key)) {
+				/* don't even try to open the file */
+			} else if (str_append_file(str, key, value, &error) < 0) {
 				/* file reading failed */
 				ctx->error = p_strdup(ctx->pool, error);
 				return -1;
