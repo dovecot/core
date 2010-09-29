@@ -15,7 +15,8 @@ pop3_LDFLAGS = -export-dynamic
 if !BUILD_SHARED_LIBS
 unused_objects = \
 	../lib/mountpoint.o \
-	../lib-imap/imap-util.o
+	../lib-imap/imap-util.o \
+	../lib-storage/mail-search-parser-imap.o
 endif
 
 libs = \
