@@ -85,6 +85,7 @@ struct maildir_mailbox {
 	struct maildir_index_header maildir_hdr;
 	uint32_t maildir_ext_id;
 
+	unsigned int synced:1;
 	unsigned int syncing_commit:1;
 };
 

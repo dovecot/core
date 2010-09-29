@@ -532,25 +532,28 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 		(move_count <= MAILDIR_RENAME_RESCAN_COUNT || final ? 0 : 1);
 }
 
-int maildir_sync_header_refresh(struct maildir_mailbox *mbox)
+static void maildir_sync_get_header(struct maildir_mailbox *mbox)
 {
 	const void *data;
 	size_t data_size;
 
+	mail_index_get_header_ext(mbox->box.view, mbox->maildir_ext_id,
+				  &data, &data_size);
+	if (data_size == 0) {
+		/* header doesn't exist */
+	} else {
+		memcpy(&mbox->maildir_hdr, data,
+		       I_MIN(sizeof(mbox->maildir_hdr), data_size));
+	}
+}
+
+int maildir_sync_header_refresh(struct maildir_mailbox *mbox)
+{
 	if (mail_index_refresh(mbox->box.index) < 0) {
 		mail_storage_set_index_error(&mbox->box);
 		return -1;
 	}
-
-	mail_index_get_header_ext(mbox->box.view, mbox->maildir_ext_id,
-				  &data, &data_size);
-	if (data_size == 0) {
-		/* doesn't exist */
-		return 0;
-	}
-
-	memcpy(&mbox->maildir_hdr, data,
-	       I_MIN(sizeof(mbox->maildir_hdr), data_size));
+	maildir_sync_get_header(mbox);
 	return 0;
 }
 
@@ -573,8 +576,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 	bool refreshed = FALSE, check_new = FALSE, check_cur = FALSE;
 
 	if (mbox->maildir_hdr.new_mtime == 0) {
-		if (maildir_sync_header_refresh(mbox) < 0)
-			return -1;
+		maildir_sync_get_header(mbox);
 		if (mbox->maildir_hdr.new_mtime == 0) {
 			/* first sync */
 			*new_changed_r = *cur_changed_r = TRUE;
@@ -694,6 +696,11 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
 		flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
+	if (mbox->synced) {
+		/* refresh index only after the first sync, i.e. avoid wasting
+		   time on refreshing it immediately after it was just opened */
+		(void)mail_index_refresh(mbox->box.index);
+	}
 	return mail_index_sync_have_any(mbox->box.index, flags) ? 1 : 0;
 }
 
@@ -965,6 +972,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		mail_index_map_move_to_memory(mbox->flags_view->map);
 		maildir_uidlist_set_all_nonsynced(mbox->uidlist);
 	}
+	mbox->synced = TRUE;
 	return index_mailbox_sync_init(box, flags, ret < 0);
 }
 

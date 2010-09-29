@@ -561,8 +561,6 @@ bool mail_index_sync_have_any(struct mail_index *index,
 	struct mail_index_view *view;
 	bool ret;
 
-	(void)mail_index_refresh(index);
-
 	view = mail_index_view_open(index);
 	ret = mail_index_sync_view_have_any(view, flags);
 	mail_index_view_close(&view);
