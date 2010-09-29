@@ -390,21 +390,42 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 static ssize_t
 mail_transaction_log_file_read_header(struct mail_transaction_log_file *file)
 {
-	ssize_t pos, ret;
+	void *dest;
+	size_t pos, dest_size;
+	ssize_t ret;
+
+	i_assert(file->buffer == NULL && file->mmap_base == NULL);
 
 	memset(&file->hdr, 0, sizeof(file->hdr));
+	if (file->last_size < mmap_get_page_size() && file->last_size > 0) {
+		/* just read the entire transaction log to memory */
+		file->buffer = buffer_create_dynamic(default_pool, 4096);
+		file->buffer_offset = 0;
+		dest_size = file->last_size;
+		dest = buffer_append_space_unsafe(file->buffer, dest_size);
+	} else {
+		/* read only the header */
+		dest = &file->hdr;
+		dest_size = sizeof(file->hdr);
+	}
 
-        /* try to read the whole header, but it's not necessarily an error to
-	   read less since the older versions of the log format could be
-	   smaller. */
+	/* it's not necessarily an error to read less than wanted header size,
+	   since older versions of the log format used smaller headers. */
         pos = 0;
 	do {
-		ret = pread(file->fd, PTR_OFFSET(&file->hdr, pos),
-			    sizeof(file->hdr) - pos, pos);
+		ret = pread(file->fd, PTR_OFFSET(dest, pos),
+			    dest_size - pos, pos);
 		if (ret > 0)
 			pos += ret;
-	} while (ret > 0 && pos < (ssize_t)sizeof(file->hdr));
-	return ret < 0 ? -1 : pos;
+	} while (ret > 0 && pos < dest_size);
+
+	if (file->buffer != NULL) {
+		buffer_set_used_size(file->buffer, pos);
+		memcpy(&file->hdr, file->buffer->data,
+		       I_MIN(pos, sizeof(file->hdr)));
+	}
+
+	return ret < 0 ? -1 : (ssize_t)pos;
 }
 
 static int
@@ -598,6 +619,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 			}
 		} else {
 			file->fd = fd;
+			file->last_size = 0;
 			if (mail_transaction_log_file_read_hdr(file,
 							       FALSE) > 0 &&
 			    mail_transaction_log_file_stat(file, FALSE) == 0) {
