@@ -96,6 +96,7 @@ struct mail_transaction_log {
 	struct dotlock *dotlock;
 
 	unsigned int nfs_flush:1;
+	unsigned int log_2_unlink_checked:1;
 };
 
 void

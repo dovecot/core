@@ -87,7 +87,6 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 		return ret;
 	}
 	mail_transaction_log_set_head(log, file);
-	mail_transaction_log_2_unlink_old(log);
 	return 1;
 }
 
@@ -409,6 +408,17 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
 	int ret = 0;
+
+	if (!log->log_2_unlink_checked) {
+		/* we need to check once in a while if .log.2 should be deleted
+		   to avoid wasting space on such old files. but we also don't
+		   want to waste time on checking it when the same mailbox
+		   gets opened over and over again rapidly (e.g. pop3). so
+		   do this only when there have actually been some changes
+		   to mailbox (i.e. when it's being locked here) */
+		log->log_2_unlink_checked = TRUE;
+		mail_transaction_log_2_unlink_old(log);
+	}
 
 	/* we want to get the head file locked. this is a bit racy,
 	   since by the time we have it locked a new log file may have been
