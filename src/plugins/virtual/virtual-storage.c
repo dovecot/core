@@ -271,28 +271,11 @@ static void virtual_mailbox_close_internal(struct virtual_mailbox *mbox)
 static int virtual_mailbox_open(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
-	struct stat st;
 	int ret = 0;
 
 	if (virtual_mailbox_is_in_open_stack(mbox->storage, box->name)) {
 		mail_storage_set_critical(box->storage,
 			"Virtual mailbox loops: %s", box->name);
-		return -1;
-	}
-
-	if (stat(box->path, &st) == 0) {
-		/* exists, open it */
-	} else if (errno == ENOENT) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
-			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
-		return -1;
-	} else if (errno == EACCES) {
-		mail_storage_set_critical(box->storage, "%s",
-			mail_error_eacces_msg("stat", box->path));
-		return -1;
-	} else {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", box->path);
 		return -1;
 	}
 
@@ -304,7 +287,6 @@ static int virtual_mailbox_open(struct mailbox *box)
 		array_delete(&mbox->storage->open_stack,
 			     array_count(&mbox->storage->open_stack)-1, 1);
 	}
-
 	if (ret < 0) {
 		virtual_mailbox_close_internal(mbox);
 		return -1;

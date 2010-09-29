@@ -324,8 +324,9 @@ static void virtual_config_search_args_dup(struct virtual_mailbox *mbox)
 
 int virtual_config_read(struct virtual_mailbox *mbox)
 {
-	struct mail_user *user = mbox->storage->storage.user;
+	struct mail_storage *storage = mbox->box.storage;
 	struct virtual_parse_context ctx;
+	struct stat st;
 	const char *path, *line, *error;
 	unsigned int linenum = 0;
 	int fd, ret = 0;
@@ -336,19 +337,27 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	path = t_strconcat(mbox->box.path, "/"VIRTUAL_CONFIG_FNAME, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		if (errno == ENOENT) {
-			mail_storage_set_error(mbox->box.storage,
-				MAIL_ERROR_NOTPOSSIBLE,
+		if (errno == EACCES) {
+			mail_storage_set_critical(storage, "%s",
+				mail_error_eacces_msg("stat", mbox->box.path));
+		} else if (errno != ENOENT) {
+			mail_storage_set_critical(storage,
+						  "open(%s) failed: %m", path);
+		} else if (stat(mbox->box.path, &st) == 0) {
+			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
 				"Virtual mailbox missing configuration file");
-			return -1;
+		} else if (errno == ENOENT) {
+			mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(mbox->box.name));
+		} else {
+			mail_storage_set_critical(storage,
+				"stat(%s) failed: %m", mbox->box.path);
 		}
-		mail_storage_set_critical(mbox->box.storage,
-					  "open(%s) failed: %m", path);
 		return -1;
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.sep = mail_namespaces_get_root_sep(user->namespaces);
+	ctx.sep = mail_namespaces_get_root_sep(storage->user->namespaces);
 	ctx.mbox = mbox;
 	ctx.pool = mbox->box.pool;
 	ctx.rule = t_str_new(256);
@@ -363,7 +372,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 		else
 			ret = virtual_config_parse_line(&ctx, line, &error);
 		if (ret < 0) {
-			mail_storage_set_critical(mbox->box.storage,
+			mail_storage_set_critical(storage,
 						  "%s: Error at line %u: %s",
 						  path, linenum, error);
 			break;
@@ -372,7 +381,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	if (ret == 0) {
 		ret = virtual_config_add_rule(&ctx, &error);
 		if (ret < 0) {
-			mail_storage_set_critical(mbox->box.storage,
+			mail_storage_set_critical(storage,
 						  "%s: Error at line %u: %s",
 						  path, linenum, error);
 		}
@@ -383,7 +392,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 		ret = virtual_config_expand_wildcards(&ctx);
 
 	if (ret == 0 && array_count(&mbox->backend_boxes) == 0) {
-		mail_storage_set_critical(mbox->box.storage,
+		mail_storage_set_critical(storage,
 					  "%s: No mailboxes defined", path);
 		ret = -1;
 	}
