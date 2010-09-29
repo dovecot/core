@@ -64,9 +64,11 @@ static const char *
 maildir_list_get_dirname_path(struct mailbox_list *list, const char *dir,
 			      const char *name)
 {
-	if (strcmp(list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0 || *name == '\0')
+	if (*name == '\0')
+		return dir;
+	else if (list->name == imapdir_mailbox_list.name)
 		return t_strdup_printf("%s/%s", dir, name);
-	
+
 	return t_strdup_printf("%s/%c%s", dir, list->hierarchy_sep, name);
 }
 
