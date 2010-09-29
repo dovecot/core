@@ -225,4 +225,6 @@ void index_mail_cache_parse_deinit(struct mail *mail, time_t received_date,
 int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 				  unsigned int field_idx);
 
+enum index_mail_access_part index_mail_get_access_part(struct index_mail *mail);
+
 #endif

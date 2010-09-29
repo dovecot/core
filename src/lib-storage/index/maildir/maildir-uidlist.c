@@ -227,6 +227,11 @@ bool maildir_uidlist_is_locked(struct maildir_uidlist *uidlist)
 	return UIDLIST_IS_LOCKED(uidlist);
 }
 
+bool maildir_uidlist_is_read(struct maildir_uidlist *uidlist)
+{
+	return uidlist->initial_read;
+}
+
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 {
 	i_assert(uidlist->lock_count > 0);

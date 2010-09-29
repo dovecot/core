@@ -112,7 +112,8 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
 		return mail_set_aborted(mail);
 
-	if (imail->data.access_part != 0 && imail->data.stream == NULL) {
+	if (index_mail_get_access_part(imail) != 0 &&
+	    imail->data.stream == NULL) {
 		/* we're going to open the mail anyway */
 		struct istream *input;
 
@@ -364,20 +365,32 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 
 static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 {
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct message_size hdr_size, body_size;
 	struct istream *input;
 	uoff_t old_offset;
 
-	if (index_mail_get_cached_virtual_size(mail, size_r)) {
-		i_assert(mail->data.virtual_size != (uoff_t)-1);
-		maildir_handle_size_caching(mail, TRUE, TRUE);
-		return 0;
+	if (maildir_uidlist_is_read(mbox->uidlist) ||
+	    (_mail->box->flags & MAILBOX_FLAG_POP3_SESSION) != 0) {
+		/* try to get the size from uidlist. this is especially useful
+		   with pop3 to avoid unnecessarily opening the cache file. */
+		if (maildir_quick_size_lookup(mail, TRUE,
+					      &data->virtual_size) < 0)
+			return -1;
 	}
 
-	if (maildir_quick_size_lookup(mail, TRUE, &data->virtual_size) < 0)
-		return -1;
+	if (data->virtual_size == (uoff_t)-1) {
+		if (index_mail_get_cached_virtual_size(mail, size_r)) {
+			i_assert(mail->data.virtual_size != (uoff_t)-1);
+			maildir_handle_size_caching(mail, TRUE, TRUE);
+			return 0;
+		}
+
+		if (maildir_quick_size_lookup(mail, TRUE, &data->virtual_size) < 0)
+			return -1;
+	}
 	if (data->virtual_size != (uoff_t)-1) {
 		data->dont_cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
 		*size_r = data->virtual_size;
