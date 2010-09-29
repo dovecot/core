@@ -1481,8 +1481,7 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 
 static bool maildir_uidlist_want_compress(struct maildir_uidlist_sync_ctx *ctx)
 {
-	struct mail_index_view *view = ctx->uidlist->mbox->box.view;
-	unsigned int min_rewrite_count, messages_count;
+	unsigned int min_rewrite_count;
 
 	if (!ctx->uidlist->locked_refresh)
 		return FALSE;
@@ -1492,9 +1491,7 @@ static bool maildir_uidlist_want_compress(struct maildir_uidlist_sync_ctx *ctx)
 	min_rewrite_count =
 		(ctx->uidlist->read_records_count + ctx->new_files_count) *
 		UIDLIST_COMPRESS_PERCENTAGE / 100;
-	messages_count = I_MIN(mail_index_view_get_messages_count(view),
-			       array_count(&ctx->uidlist->records));
-	return min_rewrite_count >= messages_count;
+	return min_rewrite_count >= array_count(&ctx->uidlist->records);
 }
 
 static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
