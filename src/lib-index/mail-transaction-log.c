@@ -365,6 +365,12 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 			   file exists. */
 			return 0;
 		}
+		if (log->index->open_count == 0) {
+			/* we're opening the index and we just opened the
+			   log file. don't waste time checking if there's a
+			   newer one. */
+			return 0;
+		}
 
 		if (mail_transaction_log_refresh(log, FALSE) < 0)
 			return -1;

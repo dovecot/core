@@ -527,12 +527,13 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	    (flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0)
 		i_fatal("nfs flush requires mmap_disable=yes");
 
-	index->open_count++;
 	if ((ret = mail_index_open_files(index, flags)) <= 0) {
 		/* doesn't exist and create flag not used */
+		index->open_count++;
 		mail_index_close(index);
 		return ret;
 	}
+	index->open_count++;
 
 	i_assert(index->map != NULL);
 	mail_index_alloc_cache_index_opened(index);
