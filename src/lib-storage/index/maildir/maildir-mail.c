@@ -387,8 +387,8 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 			maildir_handle_size_caching(mail, TRUE, TRUE);
 			return 0;
 		}
-
-		if (maildir_quick_size_lookup(mail, TRUE, &data->virtual_size) < 0)
+		if (maildir_quick_size_lookup(mail, TRUE,
+					      &data->virtual_size) < 0)
 			return -1;
 	}
 	if (data->virtual_size != (uoff_t)-1) {
@@ -417,14 +417,24 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	const char *path;
 	int ret;
 
-	if (index_mail_get_physical_size(_mail, size_r) == 0) {
-		i_assert(mail->data.physical_size != (uoff_t)-1);
-		maildir_handle_size_caching(mail, TRUE, FALSE);
-		return 0;
+	if (maildir_uidlist_is_read(mbox->uidlist) ||
+	    (_mail->box->flags & MAILBOX_FLAG_POP3_SESSION) != 0) {
+		/* try to get the size from uidlist (see virtual size above) */
+		if (maildir_quick_size_lookup(mail, FALSE,
+					      &data->physical_size) < 0)
+			return -1;
 	}
 
-	if (maildir_quick_size_lookup(mail, FALSE, &data->physical_size) < 0)
-		return -1;
+	if (data->physical_size == (uoff_t)-1) {
+		if (index_mail_get_physical_size(_mail, size_r) == 0) {
+			i_assert(mail->data.physical_size != (uoff_t)-1);
+			maildir_handle_size_caching(mail, TRUE, FALSE);
+			return 0;
+		}
+		if (maildir_quick_size_lookup(mail, FALSE,
+					      &data->physical_size) < 0)
+			return -1;
+	}
 	if (data->physical_size != (uoff_t)-1) {
 		data->dont_cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
 		*size_r = data->physical_size;
