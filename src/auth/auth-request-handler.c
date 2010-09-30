@@ -116,6 +116,12 @@ static void auth_request_handler_remove(struct auth_request_handler *handler,
 {
 	i_assert(request->handler == handler);
 
+	if (request->removed_from_handler) {
+		/* already removed it */
+		return;
+	}
+	request->removed_from_handler = TRUE;
+
 	/* if db lookup is stuck, this call doesn't actually free the auth
 	   request, so make sure we don't get back here. */
 	timeout_remove(&request->to_abort);
