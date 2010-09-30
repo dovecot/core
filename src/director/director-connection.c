@@ -603,7 +603,7 @@ static bool director_connection_sync(struct director_connection *conn,
 	unsigned int port, seq;
 
 	if (str_array_length(args) != 3 ||
-	    director_args_parse_ip_port(conn, args, &ip, &port) < 0 ||
+	    !director_args_parse_ip_port(conn, args, &ip, &port) ||
 	    str_to_uint(args[2], &seq) < 0) {
 		i_error("director(%s): Invalid SYNC args", conn->name);
 		return FALSE;
@@ -655,7 +655,7 @@ static bool director_cmd_connect(struct director_connection *conn,
 	unsigned int port;
 
 	if (str_array_length(args) != 2 ||
-	    director_args_parse_ip_port(conn, args, &ip, &port) < 0) {
+	    !director_args_parse_ip_port(conn, args, &ip, &port)) {
 		i_error("director(%s): Invalid CONNECT args", conn->name);
 		return FALSE;
 	}
