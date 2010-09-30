@@ -456,6 +456,9 @@ int mail_index_sync_begin_to(struct mail_index *index,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	mail_index_view_close(&sync_view);
 
+	/* set before any rollbacks are called */
+	index->syncing = TRUE;
+
 	/* we wish to see all the changes from last mailbox sync position to
 	   the end of the transaction log */
 	if (mail_index_sync_set_log_view(ctx->view, hdr->log_file_seq,
@@ -487,8 +490,6 @@ int mail_index_sync_begin_to(struct mail_index *index,
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
 	ctx->ext_trans = mail_index_transaction_begin(ctx->view, trans_flags);
 	ctx->ext_trans->sync_transaction = TRUE;
-
-	index->syncing = TRUE;
 
 	*ctx_r = ctx;
 	*view_r = ctx->view;
