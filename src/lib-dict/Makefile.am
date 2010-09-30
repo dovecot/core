@@ -48,6 +48,7 @@ dict-drivers-register.c: Makefile $(top_builddir)/config.h
 	  fi; \
 	done
 	echo 'void dict_drivers_register_all(void) {' >>$@
+	echo 'dict_drivers_register_builtin();' >>$@
 	echo 'dict_sql_register();' >>$@
 	for i in $(dict_drivers) null; do \
 	  if [ "$${i}" != "null" ]; then \
@@ -56,6 +57,7 @@ dict-drivers-register.c: Makefile $(top_builddir)/config.h
 	done
 	echo '}' >>$@
 	echo 'void dict_drivers_unregister_all(void) {' >>$@
+	echo 'dict_drivers_unregister_builtin();' >>$@
 	echo 'dict_sql_unregister();' >>$@
 	for i in $(dict_drivers) null; do \
 	  if [ "$${i}" != "null" ]; then \

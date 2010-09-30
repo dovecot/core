@@ -2046,7 +2046,7 @@ else
 fi
 AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
 
-dict_drivers=client
+dict_drivers=
 
 if test $want_db != no; then
   AC_CACHE_CHECK([db_env_create in -ldb],i_cv_have_db_env_create,[
