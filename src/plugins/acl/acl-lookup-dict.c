@@ -24,12 +24,10 @@ struct acl_lookup_dict_iter {
 	pool_t pool;
 	struct acl_lookup_dict *dict;
 
+	pool_t iter_value_pool;
 	ARRAY_TYPE(const_string) iter_ids;
-	struct dict_iterate_context *dict_iter;
-	unsigned int iter_idx;
-
-	const char *prefix;
-	unsigned int prefix_len;
+	ARRAY_TYPE(const_string) iter_values;
+	unsigned int iter_idx, iter_value_idx;
 
 	unsigned int failed:1;
 };
@@ -245,18 +243,35 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 	return ret;
 }
 
-static void acl_lookup_dict_iterate_start(struct acl_lookup_dict_iter *iter)
+static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 {
-	const char *const *idp;
+	struct dict_iterate_context *dict_iter;
+	const char *const *idp, *prefix, *key, *value;
+	unsigned int prefix_len;
 
 	idp = array_idx(&iter->iter_ids, iter->iter_idx);
 	iter->iter_idx++;
-	iter->prefix = p_strconcat(iter->pool, DICT_PATH_SHARED
-				   DICT_SHARED_BOXES_PATH, *idp, "/", NULL);
-	iter->prefix_len = strlen(iter->prefix);
+	iter->iter_value_idx = 0;
 
-	iter->dict_iter = dict_iterate_init(iter->dict->dict, iter->prefix,
-					    DICT_ITERATE_FLAG_RECURSE);
+	prefix = t_strconcat(DICT_PATH_SHARED DICT_SHARED_BOXES_PATH,
+			     *idp, "/", NULL);
+	prefix_len = strlen(prefix);
+
+	/* read all of it to memory. at least currently dict-proxy can support
+	   only one iteration at a time, but the acl code can end up rebuilding
+	   the dict, which opens another iteration. */
+	p_clear(iter->iter_value_pool);
+	array_clear(&iter->iter_values);
+	dict_iter = dict_iterate_init(iter->dict->dict, prefix,
+				      DICT_ITERATE_FLAG_RECURSE);
+	while (dict_iterate(dict_iter, &key, &value)) {
+		i_assert(prefix_len < strlen(key));
+
+		key = p_strdup(iter->iter_value_pool, key + prefix_len);
+		array_append(&iter->iter_values, &key, 1);
+	}
+	if (dict_iterate_deinit(&dict_iter) < 0)
+		iter->failed = TRUE;
 }
 
 struct acl_lookup_dict_iter *
@@ -268,7 +283,7 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 	unsigned int i;
 	pool_t pool;
 
-	pool = pool_alloconly_create("acl lookup dict iter", 512);
+	pool = pool_alloconly_create("acl lookup dict iter", 1024);
 	iter = p_new(pool, struct acl_lookup_dict_iter, 1);
 	iter->pool = pool;
 	iter->dict = dict;
@@ -278,6 +293,10 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 	array_append(&iter->iter_ids, &id, 1);
 	id = p_strconcat(pool, "user/", dict->user->username, NULL);
 	array_append(&iter->iter_ids, &id, 1);
+
+	i_array_init(&iter->iter_values, 64);
+	iter->iter_value_pool =
+		pool_alloconly_create("acl lookup dict iter values", 1024);
 
 	/* get all groups we belong to */
 	if (auser->groups != NULL) {
@@ -291,28 +310,23 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 	/* iterate through all identifiers that match us, start with the
 	   first one */
 	if (dict->dict != NULL)
-		acl_lookup_dict_iterate_start(iter);
+		acl_lookup_dict_iterate_read(iter);
 	return iter;
 }
 
 const char *
 acl_lookup_dict_iterate_visible_next(struct acl_lookup_dict_iter *iter)
 {
-	const char *key, *value;
+	const char *const *keys;
+	unsigned int count;
 
-	if (iter->dict_iter == NULL)
-		return 0;
-
-	if (dict_iterate(iter->dict_iter, &key, &value)) {
-		i_assert(iter->prefix_len < strlen(key));
-		return key + iter->prefix_len;
-	}
-	if (dict_iterate_deinit(&iter->dict_iter) < 0)
-		iter->failed = TRUE;
+	keys = array_get(&iter->iter_values, &count);
+	if (iter->iter_value_idx < count)
+		return keys[iter->iter_value_idx++];
 
 	if (iter->iter_idx < array_count(&iter->iter_ids)) {
 		/* get to the next iterator */
-		acl_lookup_dict_iterate_start(iter);
+		acl_lookup_dict_iterate_read(iter);
 		return acl_lookup_dict_iterate_visible_next(iter);
 	}
 	return NULL;
@@ -324,10 +338,8 @@ int acl_lookup_dict_iterate_visible_deinit(struct acl_lookup_dict_iter **_iter)
 	int ret = iter->failed ? -1 : 0;
 
 	*_iter = NULL;
-	if (iter->dict_iter != NULL) {
-		if (dict_iterate_deinit(&iter->dict_iter) < 0)
-			ret = -1;
-	}
+	array_free(&iter->iter_values);
+	pool_unref(&iter->iter_value_pool);
 	pool_unref(&iter->pool);
 	return ret;
 }
