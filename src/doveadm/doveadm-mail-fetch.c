@@ -79,7 +79,7 @@ static int fetch_seq(struct fetch_cmd_context *ctx)
 
 static int fetch_uid(struct fetch_cmd_context *ctx)
 {
-	doveadm_print_num(ctx->mail->seq);
+	doveadm_print_num(ctx->mail->uid);
 	return 0;
 }
 
