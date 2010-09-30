@@ -29,6 +29,8 @@ struct auth_request_handler {
 	void *context;
 
 	auth_request_callback_t *master_callback;
+
+	unsigned int destroyed:1;
 };
 
 static ARRAY_DEFINE(auth_failures_arr, struct auth_request *);
@@ -101,6 +103,18 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 
 	hash_table_destroy(&handler->requests);
 	pool_unref(&handler->pool);
+}
+
+void auth_request_handler_destroy(struct auth_request_handler **_handler)
+{
+	struct auth_request_handler *handler = *_handler;
+
+	*_handler = NULL;
+
+	i_assert(!handler->destroyed);
+
+	handler->destroyed = TRUE;
+	auth_request_handler_unref(&handler);
 }
 
 void auth_request_handler_set(struct auth_request_handler *handler,
@@ -224,6 +238,13 @@ void auth_request_handler_reply(struct auth_request *request,
         struct auth_request_handler *handler = request->handler;
 	struct auth_stream_reply *reply;
 	string_t *str;
+
+	if (handler->destroyed) {
+		/* the client connection was already closed. we can't do
+		   anything but abort this request */
+		request->internal_failure = TRUE;
+		result = AUTH_CLIENT_RESULT_FAILURE;
+	}
 
 	reply = auth_stream_reply_init(pool_datastack_create());
 	switch (result) {
@@ -365,10 +386,12 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	unsigned int id;
 	buffer_t *buf;
 
+	i_assert(!handler->destroyed);
+
 	/* <id> <mechanism> [...] */
 	list = t_strsplit(args, "\t");
 	if (list[0] == NULL || list[1] == NULL ||
-	    str_to_uint(list[0], &id) < 0) {
+	    str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
 		return FALSE;

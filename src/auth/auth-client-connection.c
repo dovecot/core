@@ -352,7 +352,7 @@ auth_client_connection_destroy_full(struct auth_client_connection **_conn,
 	if (conn->request_handler != NULL) {
 		if (abort_requests)
 			auth_request_handler_abort_requests(conn->request_handler);
-		auth_request_handler_unref(&conn->request_handler);
+		auth_request_handler_destroy(&conn->request_handler);
 	}
 
         master_service_client_connection_destroyed(master_service);
