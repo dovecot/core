@@ -142,16 +142,19 @@ static int virtual_backend_box_open_failed(struct virtual_mailbox *mbox,
 					  &error);
 	name = t_strdup(get_user_visible_mailbox_name(bbox->box));
 	mailbox_free(&bbox->box);
-	if (bbox->wildcard &&
-	    (error == MAIL_ERROR_PERM || error == MAIL_ERROR_NOTFOUND)) {
-		/* this mailbox wasn't explicitly specified. just skip it. */
+	if (error == MAIL_ERROR_NOTFOUND) {
+		/* ignore this. it could be intentional. */
+		if (mbox->storage->storage.user->mail_debug) {
+			i_debug("virtual mailbox %s: "
+				"Skipping non-existing mailbox %s",
+				mbox->box.vname, name);
+		}
 		return 0;
 	}
 
-	if (error == MAIL_ERROR_NOTFOUND) {
-		/* the virtual mailbox exists, we just can't open it.
-		   change the error type. */
-		error = MAIL_ERROR_NOTPOSSIBLE;
+	if (error == MAIL_ERROR_PERM && bbox->wildcard) {
+		/* this mailbox wasn't explicitly specified. just skip it. */
+		return 0;
 	}
 	str = t_strdup_printf(
 		"Virtual mailbox open failed because of mailbox %s: %s",
