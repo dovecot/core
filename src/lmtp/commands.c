@@ -801,6 +801,12 @@ static void client_input_data_handle(struct client *client)
 	if (ret == 0)
 		return;
 
+	if (!client->dot_input->eof) {
+		/* client probably disconnected */
+		client_destroy(client, NULL, NULL);
+		return;
+	}
+
 	if (client_input_data_write(client))
 		client_input_data_finish(client);
 }
