@@ -403,10 +403,8 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		}
 	}
 
-	if (mark) {
-		i_stream_compress(stream);
+	if (mark)
 		zstream->marked = TRUE;
-	}
 }
 
 static const struct stat *
