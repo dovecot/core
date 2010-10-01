@@ -160,6 +160,7 @@ int main(int argc, char *argv[])
 	struct dsync_worker *worker1, *worker2, *workertmp;
 	const char *error, *username, *cmd_name, *mailbox = NULL;
 	const char *local_location = NULL, *const *remote_cmd_args = NULL;
+	const char *path1, *path2;
 	bool dsync_server = FALSE, unexpected_changes = FALSE;
 	bool dsync_debug = FALSE, reverse_workers = FALSE;
 	char alt_char = '_';
@@ -276,6 +277,14 @@ int main(int argc, char *argv[])
 			i_fatal("Mail locations must use the same "
 				"virtual mailbox hierarchy separator "
 				"(specify separator for the default namespace)");
+		}
+		path1 = mailbox_list_get_path(mail_user->namespaces->list, NULL,
+					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		path2 = mailbox_list_get_path(mail_user2->namespaces->list, NULL,
+					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (strcmp(path1, path2) == 0) {
+			i_fatal("Both source and destination mail_location "
+				"points to same directory: %s", path1);
 		}
 
 		worker2 = dsync_worker_init_local(mail_user2, alt_char);
