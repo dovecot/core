@@ -110,6 +110,9 @@ bool acl_backend_user_is_in_group(struct acl_backend *backend,
 /* Returns index for the right name. If it doesn't exist, it's created. */
 unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 				      const char *right);
+/* Returns TRUE if acl_rights matches backend user. */
+bool acl_backend_rights_match_me(struct acl_backend *backend,
+				 const struct acl_rights *rights);
 
 /* List mailboxes that have lookup right to some non-owners. */
 struct acl_mailbox_list_context *

@@ -284,9 +284,8 @@ acl_cache_object_get(struct acl_cache *cache, const char *objname,
 	return obj_cache;
 }
 
-static void
-acl_cache_update_rights(struct acl_cache *cache, const char *objname,
-			const struct acl_rights_update *update)
+void acl_cache_update(struct acl_cache *cache, const char *objname,
+		      const struct acl_rights_update *update)
 {
 	struct acl_object_cache *obj_cache;
 	bool created;
@@ -308,37 +307,6 @@ acl_cache_update_rights(struct acl_cache *cache, const char *objname,
 	acl_cache_update_rights_mask(cache, obj_cache, update->neg_modify_mode,
 				     update->rights.neg_rights,
 				     &obj_cache->my_neg_rights);
-}
-
-void acl_cache_update(struct acl_cache *cache, const char *objname,
-		      const struct acl_rights_update *update)
-{
-	switch (update->rights.id_type) {
-	case ACL_ID_ANYONE:
-		acl_cache_update_rights(cache, objname, update);
-		break;
-	case ACL_ID_AUTHENTICATED:
-		if (acl_backend_user_is_authenticated(cache->backend))
-			acl_cache_update_rights(cache, objname, update);
-		break;
-	case ACL_ID_GROUP:
-	case ACL_ID_GROUP_OVERRIDE:
-		if (acl_backend_user_is_in_group(cache->backend,
-						 update->rights.identifier))
-			acl_cache_update_rights(cache, objname, update);
-		break;
-	case ACL_ID_USER:
-		if (acl_backend_user_name_equals(cache->backend,
-						 update->rights.identifier))
-			acl_cache_update_rights(cache, objname, update);
-		break;
-	case ACL_ID_OWNER:
-		if (acl_backend_user_is_owner(cache->backend))
-			acl_cache_update_rights(cache, objname, update);
-		break;
-	case ACL_ID_TYPE_COUNT:
-		i_unreached();
-	}
 }
 
 void acl_cache_set_validity(struct acl_cache *cache, const char *objname,

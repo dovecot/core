@@ -756,7 +756,7 @@ static void acl_backend_vfile_rights_sort(struct acl_object_vfile *aclobj)
 		array_delete(&aclobj->rights, dest, count - dest);
 }
 
-static void apply_owner_rights(struct acl_object *_aclobj)
+static void apply_owner_default_rights(struct acl_object *_aclobj)
 {
 	struct acl_rights_update ru;
 	const char *null = NULL;
@@ -776,9 +776,9 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 	struct acl_object *_aclobj = &aclobj->aclobj;
 	struct acl_rights_update ru;
 	enum acl_modify_mode add_mode;
-	const struct acl_rights *rights;
+	const struct acl_rights *rights, *prev_match = NULL;
 	unsigned int i, count;
-	bool owner_applied, first_global = TRUE;
+	bool first_global = TRUE;
 
 	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 
@@ -786,26 +786,54 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 		return;
 
 	ns = mailbox_list_get_namespace(_aclobj->backend->list);
-	owner_applied = ns->type != NAMESPACE_PRIVATE;
 
+	/* Rights are sorted by their 1) locals first, globals next,
+	   2) acl_id_type. We'll apply only the rights matching ourself.
+
+	   Every time acl_id_type or local/global changes, the new ACLs will
+	   replace all of the existing ACLs. Basically this means that if
+	   user belongs to multiple matching groups or group-overrides, their
+	   ACLs are merged. In all other situations the ACLs are replaced
+	   (because there aren't duplicate rights entries and a user can't
+	   match multiple usernames). */
 	memset(&ru, 0, sizeof(ru));
 	rights = array_get(&aclobj->rights, &count);
-	for (i = 0; i < count; i++) {
-		if (!owner_applied &&
-		    (rights[i].id_type >= ACL_ID_OWNER || rights[i].global)) {
-			owner_applied = TRUE;
-			if (rights[i].id_type != ACL_ID_OWNER) {
-				/* owner rights weren't explicitly specified.
-				   replace all the current rights  */
-				apply_owner_rights(_aclobj);
-			}
+	if (!acl_backend_user_is_owner(_aclobj->backend))
+		i = 0;
+	else {
+		/* we're the owner. skip over all rights entries until we
+		   reach ACL_ID_OWNER or higher, or alternatively when we
+		   reach a global ACL (even ACL_ID_ANYONE overrides owner's
+		   rights if it's global) */
+		for (i = 0; i < count; i++) {
+			if (rights[i].id_type >= ACL_ID_OWNER ||
+			    rights[i].global)
+				break;
 		}
+		apply_owner_default_rights(_aclobj);
+		/* now continue applying the rest of the rights,
+		   if there are any */
+	}
+	for (; i < count; i++) {
+		if (!acl_backend_rights_match_me(_aclobj->backend, &rights[i]))
+			continue;
+
+		if (prev_match == NULL ||
+		    prev_match->id_type != rights[i].id_type ||
+		    prev_match->global != rights[i].global) {
+			/* replace old ACLs */
+			add_mode = ACL_MODIFY_MODE_REPLACE;
+		} else {
+			/* merging to existing ACLs */
+			i_assert(rights[i].id_type == ACL_ID_GROUP ||
+				 rights[i].id_type == ACL_ID_GROUP_OVERRIDE);
+			add_mode = ACL_MODIFY_MODE_ADD;
+		}
+		prev_match = &rights[i];
+
 		/* If [neg_]rights is NULL it needs to be ignored.
 		   The easiest way to do that is to just mark it with
 		   REMOVE mode */
-		add_mode = i > 0 && rights[i-1].id_type == rights[i].id_type &&
-			rights[i-1].global == rights[i].global ?
-			ACL_MODIFY_MODE_ADD : ACL_MODIFY_MODE_REPLACE;
 		ru.modify_mode = rights[i].rights == NULL ?
 			ACL_MODIFY_MODE_REMOVE : add_mode;
 		ru.neg_modify_mode = rights[i].neg_rights == NULL ?
@@ -819,8 +847,6 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 		}
 		acl_cache_update(_aclobj->backend->cache, _aclobj->name, &ru);
 	}
-	if (!owner_applied && count > 0)
-		apply_owner_rights(_aclobj);
 }
 
 static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)

@@ -130,6 +130,27 @@ bool acl_backend_user_is_in_group(struct acl_backend *backend,
 		       sizeof(const char *), bsearch_strcmp) != NULL;
 }
 
+bool acl_backend_rights_match_me(struct acl_backend *backend,
+				 const struct acl_rights *rights)
+{
+	switch (rights->id_type) {
+	case ACL_ID_ANYONE:
+		return TRUE;
+	case ACL_ID_AUTHENTICATED:
+		return acl_backend_user_is_authenticated(backend);
+	case ACL_ID_GROUP:
+	case ACL_ID_GROUP_OVERRIDE:
+		return acl_backend_user_is_in_group(backend, rights->identifier);
+	case ACL_ID_USER:
+		return acl_backend_user_name_equals(backend, rights->identifier);
+	case ACL_ID_OWNER:
+		return acl_backend_user_is_owner(backend);
+	case ACL_ID_TYPE_COUNT:
+		break;
+	}
+	i_unreached();
+}
+
 unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 				      const char *right)
 {
