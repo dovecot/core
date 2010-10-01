@@ -292,6 +292,11 @@ bool i_stream_is_eof(struct istream *stream)
 	return !i_stream_have_bytes_left(stream);
 }
 
+uoff_t i_stream_get_absolute_offset(struct istream *stream)
+{
+	return stream->real_stream->abs_start_offset + stream->v_offset;
+}
+
 static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 {
 	char *ret;

@@ -107,6 +107,9 @@ int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r);
 bool i_stream_have_bytes_left(const struct istream *stream) ATTR_PURE;
 /* Returns TRUE if there are no bytes buffered and read() returns EOF. */
 bool i_stream_is_eof(struct istream *stream);
+/* Returns the absolute offset of the stream. This is the stream's current
+   v_offset + the parent's absolute offset when the stream was created. */
+uoff_t i_stream_get_absolute_offset(struct istream *stream);
 
 /* Gets the next line from stream and returns it, or NULL if more data is
    needed to make a full line. i_stream_set_return_partial_line() specifies
