@@ -64,6 +64,45 @@ static void client_idle_timeout(struct client *client)
 	}
 }
 
+static int
+pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
+{
+	struct mail_storage *storage;
+	enum mail_error error;
+	int ret;
+
+	if (!client->set->pop3_fast_size_lookups)
+		return mail_get_virtual_size(mail, size_r);
+
+	/* first try to get the virtual size */
+	mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
+	ret = mail_get_virtual_size(mail, size_r);
+	mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
+	if (ret == 0)
+		return 0;
+
+	storage = mailbox_get_storage(mail->box);
+	(void)mail_storage_get_last_error(storage, &error);
+	if (error != MAIL_ERROR_NOTPOSSIBLE)
+		return -1;
+
+	/* virtual size not available with a fast lookup.
+	   fallback to trying the physical size */
+	mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
+	ret = mail_get_physical_size(mail, size_r);
+	mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
+	if (ret == 0)
+		return 0;
+
+	(void)mail_storage_get_last_error(storage, &error);
+	if (error != MAIL_ERROR_NOTPOSSIBLE)
+		return -1;
+
+	/* no way to quickly get the size. fallback to doing a slow virtual
+	   size lookup */
+	return mail_get_virtual_size(mail, size_r);
+}
+
 static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 {
         struct mailbox_status status;
@@ -94,7 +133,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 
 	mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
 	while (mailbox_search_next(ctx, mail)) {
-		if (mail_get_virtual_size(mail, &size) < 0) {
+		if (pop3_mail_get_size(client, mail, &size) < 0) {
 			ret = mail->expunged ? 0 : -1;
 			*failed_uid_r = mail->uid;
 			break;

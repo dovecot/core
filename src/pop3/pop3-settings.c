@@ -68,6 +68,7 @@ static const struct setting_define pop3_setting_defines[] = {
 	DEF(SET_BOOL, pop3_reuse_xuidl),
 	DEF(SET_BOOL, pop3_save_uidl),
 	DEF(SET_BOOL, pop3_lock_session),
+	DEF(SET_BOOL, pop3_fast_size_lookups),
 	DEF(SET_STR, pop3_client_workarounds),
 	DEF(SET_STR, pop3_logout_format),
 
@@ -83,6 +84,7 @@ static const struct pop3_settings pop3_default_settings = {
 	.pop3_reuse_xuidl = FALSE,
 	.pop3_save_uidl = FALSE,
 	.pop3_lock_session = FALSE,
+	.pop3_fast_size_lookups = FALSE,
 	.pop3_client_workarounds = "",
 	.pop3_logout_format = "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s"
 };
