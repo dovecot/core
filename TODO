@@ -1,3 +1,6 @@
+ - doveadm -A <<EOF expunge + purge + EOF
+ - dsync: give error if source and dest are the same
+ - sent, drafts: .Sent/dovecot.index: modseq_hdr.log_offset too large
  - mail_max_lock_timeout error could be reported more nicely, also ones coming
    from lib-index
  - dsync: if mailbox is renamed due to it being invalid, its subscription

@@ -1,3 +1,30 @@
+v2.0.5 2010-10-01  Timo Sirainen <tss@iki.fi>
+
+	* acl: Fixed the logic of merging multiple ACL entries. Now it works as
+	  documented, while previously it could have done slightly different
+	  things depending on the order of the entries.
+	* virtual: Allow opening virtual mailboxes that refer to non-existing
+	  mailboxes. It seems that the benefits of this outweigh the lack of
+	  error message when typoing a mailbox name.
+
+	+ Added some disk I/O optimizations to Maildir and index code. They're
+	  especially helpful with short-lived connections like POP3.
+	+ pop3: Added pop3_fast_size_lookups setting.
+	- doveconf sometimes failed with complaining about missing ssl_key
+	  setting, causing e.g. dovecot-lda to fail.
+	- lda: If there's an error in configuration, doveconf didn't exit with
+	  EX_TEMPFAIL as it should have.
+	- sdbox: Fixed memory leak when copying messages with hard links. 
+	- zlib + sdbox combination didn't work
+	- zlib: Fixed several crashes, which mainly showed up with mbox.
+	- quota: Don't crash if user has quota disabled, but plugin loaded.
+	- doveadm fetch uid was actually returning sequence, not uid.
+	- v2.0.4's subscription listing ignored (and logged a warning about)
+	  subscriptions=no namespaces' entries in some configurations.
+	  (So listing shared mailboxes' subscriptions could have been broken.)
+	- acl: Fixed crashing when sometimes listing shared mailboxes via
+	  dict proxy.
+
 v2.0.4 2010-09-26  Timo Sirainen <tss@iki.fi>
 
 	* multi-dbox: If :INDEX=path is specified, keep
