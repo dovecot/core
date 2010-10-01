@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2010 Dovecot authors, see the included COPYING file */
 
 #include "pop3-common.h"
-#include "buffer.h"
+#include "array.h"
 #include "ioloop.h"
 #include "network.h"
 #include "istream.h"
@@ -64,99 +64,109 @@ static void client_idle_timeout(struct client *client)
 	}
 }
 
-static bool init_mailbox(struct client *client, const char **error_r)
+static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 {
-	struct mail_search_args *search_args;
-        struct mailbox_transaction_context *t;
-	struct mail_search_context *ctx;
         struct mailbox_status status;
+        struct mailbox_transaction_context *t;
+	struct mail_search_args *search_args;
+	struct mail_search_context *ctx;
 	struct mail *mail;
-	buffer_t *message_sizes_buf;
-	uint32_t failed_uid = 0;
 	uoff_t size;
-	int i;
-	bool failed, expunged;
+	ARRAY_DEFINE(message_sizes, uoff_t);
+	int ret = 1;
 
-	message_sizes_buf = buffer_create_dynamic(default_pool, 512);
+	*failed_uid_r = 0;
+
+	mailbox_get_status(client->mailbox, STATUS_UIDVALIDITY, &status);
+	client->uid_validity = status.uidvalidity;
+	client->messages_count = status.messages;
+
+	t = mailbox_transaction_begin(client->mailbox, 0);
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-
-	for (i = 0; i < 2; i++) {
-		expunged = FALSE;
-		if (mailbox_sync(client->mailbox,
-				 MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-			client_send_storage_error(client);
-			break;
-		}
-		mailbox_get_status(client->mailbox, STATUS_UIDVALIDITY, &status);
-		client->uid_validity = status.uidvalidity;
-
-		t = mailbox_transaction_begin(client->mailbox, 0);
-		ctx = mailbox_search_init(t, search_args, NULL);
-
-		client->last_seen = 0;
-		client->total_size = 0;
-		buffer_set_used_size(message_sizes_buf, 0);
-
-		failed = FALSE;
-		mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
-		while (mailbox_search_next(ctx, mail)) {
-			if (mail_get_virtual_size(mail, &size) < 0) {
-				expunged = mail->expunged;
-				failed = TRUE;
-				if (failed_uid == mail->uid) {
-					i_error("Getting size of message "
-						"UID=%u failed", mail->uid);
-					break;
-				}
-				failed_uid = mail->uid;
-				break;
-			}
-
-			if ((mail_get_flags(mail) & MAIL_SEEN) != 0)
-				client->last_seen = mail->seq;
-                        client->total_size += size;
-
-			buffer_append(message_sizes_buf, &size, sizeof(size));
-		}
-		client->messages_count =
-			message_sizes_buf->used / sizeof(uoff_t);
-
-		mail_free(&mail);
-		if (mailbox_search_deinit(&ctx) < 0 || (failed && !expunged)) {
-			client_send_storage_error(client);
-			(void)mailbox_transaction_commit(&t);
-			break;
-		}
-
-		if (!failed) {
-			client->trans = t;
-			client->message_sizes =
-				buffer_free_without_data(&message_sizes_buf);
-			mail_search_args_unref(&search_args);
-			return TRUE;
-		}
-
-		/* well, sync and try again. we might have cached virtual
-		   sizes, make sure they get committed. */
-		(void)mailbox_transaction_commit(&t);
-	}
+	ctx = mailbox_search_init(t, search_args, NULL);
 	mail_search_args_unref(&search_args);
 
-	if (expunged) {
-		client_send_line(client,
-				 "-ERR [IN-USE] Couldn't sync mailbox.");
-		*error_r = "Can't sync mailbox: Messages keep getting expunged";
+	client->last_seen = 0;
+	client->total_size = 0;
+	i_array_init(&message_sizes, client->messages_count);
+
+	mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
+	while (mailbox_search_next(ctx, mail)) {
+		if (mail_get_virtual_size(mail, &size) < 0) {
+			ret = mail->expunged ? 0 : -1;
+			*failed_uid_r = mail->uid;
+			break;
+		}
+
+		if ((mail_get_flags(mail) & MAIL_SEEN) != 0)
+			client->last_seen = mail->seq;
+		client->total_size += size;
+
+		array_append(&message_sizes, &size, 1);
+	}
+	mail_free(&mail);
+
+	if (mailbox_search_deinit(&ctx) < 0)
+		ret = -1;
+
+	if (ret > 0) {
+		client->trans = t;
+		client->message_sizes =
+			buffer_free_without_data(&message_sizes.arr.buffer);
 	} else {
+		/* commit the transaction instead of rollbacking to make sure
+		   we don't lose data (virtual sizes) added to cache file */
+		(void)mailbox_transaction_commit(&t);
+		array_free(&message_sizes);
+	}
+	return ret;
+}
+
+static int init_mailbox(struct client *client, const char **error_r)
+{
+	uint32_t failed_uid = 0, last_failed_uid = 0;
+	int i, ret = -1;
+
+	for (i = 0;; i++) {
+		if (mailbox_sync(client->mailbox,
+				 MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
+			ret = -1;
+			break;
+		}
+
+		ret = read_mailbox(client, &failed_uid);
+		if (ret > 0)
+			return 0;
+		if (i == 2)
+			break;
+
+		/* well, sync and try again. maybe it works the second time. */
+		last_failed_uid = failed_uid;
+		failed_uid = 0;
+	}
+
+	if (ret < 0) {
 		struct mail_storage *storage;
 		enum mail_error error;
 
 		storage = mailbox_get_storage(client->mailbox);
 		*error_r = mail_storage_get_last_error(storage, &error);
+		client_send_storage_error(client);
+	} else {
+		if (failed_uid == last_failed_uid && failed_uid != 0) {
+			/* failed twice in same message */
+			*error_r = t_strdup_printf(
+				"Getting size of message UID=%u failed",
+				failed_uid);
+		} else {
+			*error_r = "Can't sync mailbox: "
+				"Messages keep getting expunged";
+		}
+		client_send_line(client, "-ERR [IN-USE] Couldn't sync mailbox.");
 	}
-	buffer_free(&message_sizes_buf);
-	return FALSE;
+	return -1;
 }
 
 static enum uidl_keys parse_uidl_keymask(const char *format)
@@ -252,7 +262,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	}
 	client->mail_set = mail_storage_get_settings(storage);
 
-	if (!init_mailbox(client, &errmsg)) {
+	if (init_mailbox(client, &errmsg) < 0) {
 		i_error("Couldn't init INBOX: %s", errmsg);
 		client_destroy(client, "Mailbox init failed");
 		return NULL;
