@@ -173,11 +173,8 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 
 		vname = t_str_new(128);
 		mail_namespace_get_vname(ns, vname, name);
-		if (str_len(vname) > 0) {
-			aclobj->global_path =
-				i_strconcat(backend->global_dir, "/",
-					    str_c(vname), NULL);
-		}
+		aclobj->global_path = i_strconcat(backend->global_dir, "/",
+						  str_c(vname), NULL);
 	} T_END;
 
 	dir = acl_backend_vfile_get_local_dir(_backend, name);
