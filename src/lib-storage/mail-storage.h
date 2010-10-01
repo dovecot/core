@@ -254,6 +254,7 @@ struct mail {
 	unsigned int has_nuls:1; /* message data is known to contain NULs */
 	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
 
+	/* If the lookup is aborted, error is set to MAIL_ERROR_NOTPOSSIBLE */
 	enum mail_lookup_abort lookup_abort;
 };
 
@@ -641,7 +642,8 @@ int mail_get_first_header(struct mail *mail, const char *field,
    Also multiline headers are returned unfolded. */
 int mail_get_first_header_utf8(struct mail *mail, const char *field,
 			       const char **value_r);
-/* Return a NULL-terminated list of values for each found field. */
+/* Return a NULL-terminated list of values for each found field.
+   Returns -1 if error, 0 otherwise (with or without headers found). */
 int mail_get_headers(struct mail *mail, const char *field,
 		     const char *const **value_r);
 /* Like mail_get_headers(), but decode MIME encoded words to UTF-8.
