@@ -17,7 +17,7 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 	struct mailbox_list_iter_update_context update_ctx;
 	struct subsfile_list_context *subsfile_ctx;
 	struct mail_namespace *ns;
-	const char *path, *name, *name2, *full_name;
+	const char *path, *name, *name2, *full_name, *orig_name;
 	string_t *vname;
 
 	vname = str_new(default_pool, 256);
@@ -38,6 +38,7 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 		(ctx->flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0;
 
 	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) T_BEGIN {
+		orig_name = name;
 		full_name = name2 =
 			t_strconcat(default_ns->prefix, name, NULL);
 		ns = mail_namespace_find_unsubscribable(namespaces, &name2);
@@ -45,7 +46,9 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 			ns = default_ns;
 		else if (ns->type == NAMESPACE_SHARED &&
 			 (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
-			/* we'll need to get the namespace autocreated. */
+			/* we'll need to get the namespace autocreated.
+			   one easy way is to just ask if a mailbox name under
+			   it is valid, and it gets created */
 			(void)mailbox_list_is_valid_existing_name(ns->list,
 								  name2);
 			name = full_name;
@@ -54,8 +57,16 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 		} else {
 			name = name2;
 		}
-		name = mail_namespace_get_vname(ns, vname, name);
-		mailbox_list_iter_update(&update_ctx, name);
+
+		if (!mailbox_list_is_valid_existing_name(ns->list, name)) {
+			/* we'll only get into trouble if we show this */
+			i_warning("Subscriptions file %s: "
+				  "Ignoring invalid entry: %s",
+				  path, orig_name);
+		} else {
+			name = mail_namespace_get_vname(ns, vname, name);
+			mailbox_list_iter_update(&update_ctx, name);
+		}
 	} T_END;
 	str_free(&vname);
 	return subsfile_list_deinit(subsfile_ctx);

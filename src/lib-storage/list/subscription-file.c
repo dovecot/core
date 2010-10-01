@@ -245,14 +245,6 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
         for (i = 0;; i++) {
                 line = next_line(ctx->list, ctx->path, ctx->input, &ctx->failed,
 				 i < SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT);
-		if (line != NULL &&
-		    !mailbox_list_is_valid_existing_name(ctx->list, line)) {
-			/* we'll only get into trouble if we show this */
-			i_warning("Subscriptions file %s: "
-				  "Ignoring invalid entry: %s",
-				  ctx->path, line);
-			continue;
-		}
 		if (ctx->input->stream_errno != ESTALE ||
                     i == SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT)
                         break;
