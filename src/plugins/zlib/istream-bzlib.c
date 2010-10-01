@@ -152,7 +152,8 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 		i_fatal_status(FATAL_OUTOFMEM, "bzlib.read(%s): Out of memory",
 			       i_stream_get_name(&stream->istream));
 	case BZ_STREAM_END:
-		zstream->eof_offset = stream->istream.v_offset + stream->pos;
+		zstream->eof_offset = stream->istream.v_offset +
+			(stream->pos - stream->skip);
 		if (size == 0) {
 			stream->istream.eof = TRUE;
 			return -1;

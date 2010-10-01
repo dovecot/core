@@ -287,7 +287,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		i_fatal_status(FATAL_OUTOFMEM, "zlib.read(%s): Out of memory",
 			       i_stream_get_name(&stream->istream));
 	case Z_STREAM_END:
-		zstream->eof_offset = stream->istream.v_offset + stream->pos;
+		zstream->eof_offset = stream->istream.v_offset +
+			(stream->pos - stream->skip);
 		i_stream_skip(stream->parent,
 			      zstream->prev_size - zstream->zs.avail_in);
 		zstream->zs.avail_in = 0;
