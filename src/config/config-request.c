@@ -30,6 +30,52 @@ struct config_export_context {
 	bool failed;
 };
 
+static void config_export_size(string_t *str, uoff_t size)
+{
+	static const char suffixes[] = { 'B', 'k', 'M', 'G', 'T' };
+	char suffix = suffixes[0];
+	unsigned int i;
+
+	if (size == 0) {
+		str_append_c(str, '0');
+		return;
+	}
+	for (i = 1; i < N_ELEMENTS(suffixes) && (size % 1024) == 0; i++) {
+		suffix = suffixes[i];
+		size /= 1024;
+	}
+	str_printfa(str, "%llu %c", (unsigned long long)size, suffix);
+}
+
+static void config_export_time(string_t *str, unsigned int stamp)
+{
+	const char *suffix = "secs";
+
+	if (stamp == 0) {
+		str_append_c(str, '0');
+		return;
+	}
+
+	if (stamp % 60 == 0) {
+		stamp /= 60;
+		suffix = "mins";
+		if (stamp % 60 == 0) {
+			stamp /= 60;
+			suffix = "hours";
+			if (stamp % 24 == 0) {
+				stamp /= 24;
+				suffix = "days";
+				if (stamp % 7 == 0) {
+					stamp /= 7;
+					suffix = "weeks";
+				}
+			}
+		}
+	}
+
+	str_printfa(str, "%u %s", stamp, suffix);
+}
+
 bool config_export_type(string_t *str, const void *value,
 			const void *default_value,
 			enum setting_type type, bool dump_default,
@@ -47,7 +93,7 @@ bool config_export_type(string_t *str, const void *value,
 		const uoff_t *val = value, *dval = default_value;
 
 		if (dump_default || dval == NULL || *val != *dval)
-			str_printfa(str, "%llu", (unsigned long long)*val);
+			config_export_size(str, *val);
 		break;
 	}
 	case SET_UINT:
@@ -61,7 +107,7 @@ bool config_export_type(string_t *str, const void *value,
 				str_printfa(str, "0%o", *val);
 				break;
 			case SET_TIME:
-				str_printfa(str, "%u s", *val);
+				config_export_time(str, *val);
 				break;
 			default:
 				str_printfa(str, "%u", *val);
