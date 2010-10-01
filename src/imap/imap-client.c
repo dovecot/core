@@ -145,7 +145,7 @@ static const char *client_stats(struct client *client)
 	tab = t_malloc(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
-	tab[0].value = dec2str(client->input->v_offset);
+	tab[0].value = dec2str(i_stream_get_absolute_offset(client->input));
 	tab[1].value = dec2str(client->output->offset);
 
 	str = t_str_new(128);

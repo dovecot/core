@@ -112,6 +112,9 @@ static bool cmd_compress(struct client_command_context *cmd)
 	old_output = client->output;
 	client->input = handler->create_istream(old_input, FALSE);
 	client->output = handler->create_ostream(old_output, level);
+	/* preserve output offset so that the bytes out counter in logout
+	   message doesn't get reset here */
+	client->output->offset = old_output->offset;
 	i_stream_unref(&old_input);
 	o_stream_unref(&old_output);
 
