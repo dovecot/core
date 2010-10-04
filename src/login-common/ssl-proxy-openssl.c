@@ -964,8 +964,11 @@ static const char *ssl_proxy_get_use_certificate_error(const char *cert)
 	else if (is_pem_key(cert)) {
 		return "The file contains a private key "
 			"(you've mixed ssl_cert and ssl_key settings)";
+	} else if (strchr(cert, '\n') == NULL) {
+		return t_strdup_printf("There is no valid PEM certificate. "
+			"(You probably forgot '<' from ssl_cert=<%s)", cert);
 	} else {
-		return "There is no certificate.";
+		return "There is no valid PEM certificate.";
 	}
 }
 
