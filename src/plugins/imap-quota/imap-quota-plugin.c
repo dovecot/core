@@ -221,8 +221,8 @@ void imap_quota_plugin_init(struct module *module)
 	command_register("SETQUOTA", cmd_setquota, 0);
 
 	imap_quota_module = module;
-	next_hook_client_created = hook_client_created;
-	hook_client_created = imap_quota_client_created;
+	next_hook_client_created =
+		imap_client_created_hook_set(imap_quota_client_created);
 }
 
 void imap_quota_plugin_deinit(void)
@@ -231,7 +231,7 @@ void imap_quota_plugin_deinit(void)
 	command_unregister("GETQUOTA");
 	command_unregister("SETQUOTA");
 
-	hook_client_created = next_hook_client_created;
+	imap_client_created_hook_set(next_hook_client_created);
 }
 
 const char *imap_quota_plugin_dependencies[] = { "quota", NULL };
