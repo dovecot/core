@@ -378,6 +378,14 @@ static void lmtp_proxy_wait_for_output(struct lmtp_proxy *proxy)
 	}
 }
 
+static void proxy_send_more(struct lmtp_proxy *proxy)
+{
+	struct lmtp_proxy_connection *const *conns;
+
+	array_foreach(&proxy->connections, conns)
+		lmtp_client_send_more((*conns)->client);
+}
+
 static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 {
 	size_t size;
@@ -404,6 +412,8 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 		if (proxy->data_input->stream_errno != 0)
 			lmtp_proxy_fail_all(proxy, "disconnect");
 		else {
+			/* make sure LMTP clients see the EOF */
+			proxy_send_more(proxy);
 			/* finished reading data input. now we'll just have to
 			   wait for replies. */
 			lmtp_proxy_wait_for_output(proxy);
@@ -423,14 +433,11 @@ static bool lmtp_proxy_data_read(struct lmtp_proxy *proxy)
 
 static void lmtp_proxy_data_input(struct lmtp_proxy *proxy)
 {
-	struct lmtp_proxy_connection *const *conns;
-
 	i_assert(!proxy->handling_data_input);
 
 	proxy->handling_data_input = TRUE;
 	do {
-		array_foreach(&proxy->connections, conns)
-			lmtp_client_send_more((*conns)->client);
+		proxy_send_more(proxy);
 	} while (lmtp_proxy_data_read(proxy));
 	proxy->handling_data_input = FALSE;
 }
