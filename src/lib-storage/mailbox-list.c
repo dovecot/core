@@ -1146,9 +1146,10 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set)
 {
 	uint8_t guid[MAIL_GUID_128_SIZE];
+	int ret;
 
-	if (list->v.set_subscribed(list, name, set) < 0)
-		return -1;
+	if ((ret = list->v.set_subscribed(list, name, set)) <= 0)
+		return ret;
 
 	/* subscriptions are about names, not about mailboxes. it's possible
 	   to have a subscription to nonexistent mailbox. renames also don't

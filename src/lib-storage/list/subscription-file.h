@@ -13,6 +13,7 @@ int subsfile_list_deinit(struct subsfile_list_context *ctx);
 /* Returns the next subscribed mailbox, or NULL. */
 const char *subsfile_list_next(struct subsfile_list_context *ctx);
 
+/* Returns 1 if subscribed, 0 if no changes done, -1 if error. */
 int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			    const char *temp_prefix, const char *name,
 			    bool set);

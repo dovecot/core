@@ -195,7 +195,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			failed = TRUE;
 		}
 	}
-	return failed ? -1 : 0;
+	return failed ? -1 : (changed ? 1 : 0);
 }
 
 struct subsfile_list_context *
