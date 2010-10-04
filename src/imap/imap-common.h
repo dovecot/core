@@ -17,7 +17,14 @@
 #include "imap-client.h"
 #include "imap-settings.h"
 
-extern void (*hook_client_created)(struct client **client);
+typedef void imap_client_created_func_t(struct client **client);
+
+extern imap_client_created_func_t *hook_client_created;
+
+/* Sets the hook_client_created and returns the previous hook,
+   which the new_hook should call if it's non-NULL. */
+imap_client_created_func_t *
+imap_client_created_hook_set(imap_client_created_func_t *new_hook);
 
 void imap_refresh_proctitle(void);
 

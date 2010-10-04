@@ -32,7 +32,16 @@ static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;
 static struct master_login *master_login = NULL;
 
-void (*hook_client_created)(struct client **client) = NULL;
+imap_client_created_func_t *hook_client_created = NULL;
+
+imap_client_created_func_t *
+imap_client_created_hook_set(imap_client_created_func_t *new_hook)
+{
+	imap_client_created_func_t *old_hook = hook_client_created;
+
+	hook_client_created = new_hook;
+	return old_hook;
+}
 
 void imap_refresh_proctitle(void)
 {
