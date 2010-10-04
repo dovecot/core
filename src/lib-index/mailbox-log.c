@@ -83,6 +83,8 @@ static int mailbox_log_open(struct mailbox_log *log)
 {
 	mode_t old_mode;
 
+	i_assert(log->fd == -1);
+
 	log->open_timestamp = ioloop_time;
 	log->fd = open(log->filepath, O_RDWR | O_APPEND);
 	if (log->fd != -1)
@@ -161,8 +163,10 @@ int mailbox_log_append(struct mailbox_log *log,
 	   it shouldn't keep writing to a rotated log forever. */
 	if (log->open_timestamp != ioloop_time)
 		mailbox_log_close(log);
-	if (mailbox_log_open(log) < 0)
-		return -1;
+	if (log->fd == -1) {
+		if (mailbox_log_open(log) < 0)
+			return -1;
+	}
 
 	/* We don't bother with locking, atomic appends will protect us.
 	   If they don't (NFS), the worst that can happen is that a few
