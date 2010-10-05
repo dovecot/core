@@ -374,6 +374,7 @@ static struct master_settings *master_settings_read(void)
 
 	memset(&input, 0, sizeof(input));
 	input.roots = set_roots;
+	input.module = "master";
 	if (master_service_settings_read(master_service, &input, &output,
 					 &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
