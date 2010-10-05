@@ -110,11 +110,15 @@ static void keepalive_timeout(struct cmd_idle_context *ctx)
 		return;
 	}
 
-	/* Sending this keeps NATs/stateful firewalls alive. Sending this
-	   also catches dead connections. */
-	o_stream_cork(ctx->client->output);
-	client_send_line(ctx->client, "* OK Still here");
-	o_stream_uncork(ctx->client->output);
+	if (o_stream_get_buffer_used_size(ctx->client->output) == 0) {
+		/* Sending this keeps NATs/stateful firewalls alive.
+		   Sending this also catches dead connections. Don't send
+		   anything if there is already data waiting in output
+		   buffer. */
+		o_stream_cork(ctx->client->output);
+		client_send_line(ctx->client, "* OK Still here");
+		o_stream_uncork(ctx->client->output);
+	}
 	/* Make sure idling connections don't get disconnected. There are
 	   several clients that really want to IDLE forever and there's not
 	   much harm in letting them do so. */
