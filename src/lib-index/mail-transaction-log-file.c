@@ -369,6 +369,7 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 		return;
 
 	file->locked = FALSE;
+	file->locked_sync_offset_updated = FALSE;
 
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
 		return;
@@ -1552,7 +1553,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	i_assert(start_offset >= file->hdr.hdr_size);
 	i_assert(start_offset <= end_offset);
 
-	if (index->log_locked && file == file->log->head &&
+	if (file->locked_sync_offset_updated && file == file->log->head &&
 	    end_offset == (uoff_t)-1) {
 		/* we're not interested of going further than sync_offset */
 		if (log_file_map_check_offsets(file, start_offset,
@@ -1561,6 +1562,9 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		i_assert(start_offset <= file->sync_offset);
 		end_offset = file->sync_offset;
 	}
+
+	if (file->locked)
+		file->locked_sync_offset_updated = TRUE;
 
 	if (file->buffer != NULL && file->buffer_offset <= start_offset) {
 		/* see if we already have it */

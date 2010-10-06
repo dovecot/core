@@ -109,7 +109,7 @@ mail_transaction_log_file_refresh(struct mail_index_transaction *t,
 	}
 	file = t->view->index->log->head;
 
-	if (!t->view->index->log_locked) {
+	if (!t->view->index->log_sync_locked) {
 		/* update sync_offset */
 		if (mail_transaction_log_file_map(file, file->sync_offset,
 						  (uoff_t)-1) <= 0)

@@ -76,6 +76,7 @@ struct mail_transaction_log_file {
 	time_t lock_created;
 
 	unsigned int locked:1;
+	unsigned int locked_sync_offset_updated:1;
 	unsigned int corrupted:1;
 };
 

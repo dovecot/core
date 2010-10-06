@@ -206,7 +206,7 @@ int mail_transaction_log_append_begin(struct mail_index *index, bool external,
 {
 	struct mail_transaction_log_append_ctx *ctx;
 
-	if (!index->log_locked) {
+	if (!index->log_sync_locked) {
 		if (mail_transaction_log_lock_head(index->log) < 0)
 			return -1;
 	}
@@ -228,7 +228,7 @@ int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **
 	*_ctx = NULL;
 
 	ret = mail_transaction_log_append_locked(ctx);
-	if (!index->log_locked)
+	if (!index->log_sync_locked)
 		mail_transaction_log_file_unlock(index->log->head);
 
 	buffer_free(&ctx->output);

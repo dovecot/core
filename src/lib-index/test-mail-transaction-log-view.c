@@ -126,7 +126,7 @@ static void test_mail_transaction_log_view(void)
 	log = i_new(struct mail_transaction_log, 1);
 	log->index = i_new(struct mail_index, 1);
 	log->index->log = log;
-	log->index->log_locked = TRUE;
+	log->index->log_sync_locked = TRUE;
 	test_transaction_log_file_add(1);
 	test_transaction_log_file_add(2);
 	test_transaction_log_file_add(3);

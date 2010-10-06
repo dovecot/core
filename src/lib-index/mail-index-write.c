@@ -185,7 +185,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	unsigned int lock_id;
 	int ret;
 
-	i_assert(index->log_locked);
+	i_assert(index->log_sync_locked);
 
 	if (!mail_index_map_has_changed(map) || index->readonly)
 		return;

@@ -516,7 +516,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	index->readonly = FALSE;
 	index->nodiskspace = FALSE;
 	index->index_lock_timeout = FALSE;
-	index->log_locked = FALSE;
+	index->log_sync_locked = FALSE;
 	index->flags = flags;
 	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
 

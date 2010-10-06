@@ -230,7 +230,7 @@ struct mail_index {
 
 	unsigned int index_delete_requested:1; /* next sync sets it deleted */
 	unsigned int index_deleted:1; /* no changes allowed anymore */
-	unsigned int log_locked:1;
+	unsigned int log_sync_locked:1;
 	unsigned int readonly:1;
 	unsigned int mapping:1;
 	unsigned int syncing:1;

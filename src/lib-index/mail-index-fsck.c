@@ -424,7 +424,7 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map)
 
 int mail_index_fsck(struct mail_index *index)
 {
-	bool orig_locked = index->log_locked;
+	bool orig_locked = index->log_sync_locked;
 	struct mail_index_map *map;
 	uint32_t file_seq;
 	uoff_t file_offset;
@@ -465,7 +465,7 @@ void mail_index_fsck_locked(struct mail_index *index)
 {
 	int ret;
 
-	i_assert(index->log_locked);
+	i_assert(index->log_sync_locked);
 	ret = mail_index_fsck(index);
 	i_assert(ret == 0);
 }

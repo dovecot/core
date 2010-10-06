@@ -466,7 +466,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r)
 {
-	i_assert(!log->index->log_locked);
+	i_assert(!log->index->log_sync_locked);
 
 	if (mail_transaction_log_lock_head(log) < 0)
 		return -1;
@@ -478,7 +478,7 @@ int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 		return -1;
 	}
 
-	log->index->log_locked = TRUE;
+	log->index->log_sync_locked = TRUE;
 	*file_seq_r = log->head->hdr.file_seq;
 	*file_offset_r = log->head->sync_offset;
 	return 0;
@@ -486,9 +486,9 @@ int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 
 void mail_transaction_log_sync_unlock(struct mail_transaction_log *log)
 {
-	i_assert(log->index->log_locked);
+	i_assert(log->index->log_sync_locked);
 
-	log->index->log_locked = FALSE;
+	log->index->log_sync_locked = FALSE;
 	mail_transaction_log_file_unlock(log->head);
 }
 
