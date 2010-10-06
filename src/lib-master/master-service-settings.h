@@ -23,6 +23,7 @@ struct master_service_settings_input {
 	bool preserve_home;
 	bool never_exec;
 	bool use_sysexits;
+	bool parse_full_config;
 
 	const char *module;
 	const char *service;

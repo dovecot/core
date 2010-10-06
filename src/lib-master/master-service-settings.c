@@ -88,6 +88,7 @@ master_service_exec_config(struct master_service *service,
 			   const struct master_service_settings_input *input)
 {
 	const char **conf_argv, *binary_path = service->argv[0];
+	unsigned int i, argv_max_count;
 
 	(void)t_binary_abspath(&binary_path);
 
@@ -97,18 +98,28 @@ master_service_exec_config(struct master_service *service,
 		env_put("USE_SYSEXITS=1");
 
 	/* @UNSAFE */
-	conf_argv = t_new(const char *, 8 + (service->argc + 1) + 1);
-	conf_argv[0] = DOVECOT_CONFIG_BIN_PATH;
-	conf_argv[1] = "-f";
-	conf_argv[2] = t_strconcat("service=", service->name, NULL);
-	conf_argv[3] = "-m";
-	conf_argv[4] = input->module == NULL ? "" : input->module;
-	conf_argv[5] = "-c";
-	conf_argv[6] = service->config_path;
-	conf_argv[7] = "-e";
-	conf_argv[8] = binary_path;
-	memcpy(conf_argv+9, service->argv + 1,
+	i = 0;
+	argv_max_count = 9 + (service->argc + 1) + 1;
+	conf_argv = t_new(const char *, argv_max_count);
+	conf_argv[i++] = DOVECOT_CONFIG_BIN_PATH;
+	conf_argv[i++] = "-f";
+	conf_argv[i++] = t_strconcat("service=", service->name, NULL);
+	conf_argv[i++] = "-c";
+	conf_argv[i++] = service->config_path;
+	if (input->module != NULL) {
+		conf_argv[i++] = "-m";
+		conf_argv[i++] = input->module;
+	}
+	if (input->parse_full_config)
+		conf_argv[i++] = "-p";
+
+	conf_argv[i++] = "-e";
+	conf_argv[i++] = binary_path;
+	memcpy(conf_argv+i, service->argv + 1,
 	       (service->argc) * sizeof(conf_argv[0]));
+	i += service->argc;
+
+	i_assert(i < argv_max_count);
 	execv_const(conf_argv[0], conf_argv);
 }
 
