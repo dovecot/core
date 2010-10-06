@@ -410,10 +410,10 @@ static int client_dict_connect(struct client_dict *dict)
 	if (dict->fd == -1) {
 		dict->last_failed_connect = ioloop_time;
 		if (errno == EACCES) {
-			i_fatal("%s", eacces_error_get("net_connect_unix",
+			i_error("%s", eacces_error_get("net_connect_unix",
 						       dict->path));
 		} else {
-			i_fatal("net_connect_unix(%s) failed: %m",
+			i_error("net_connect_unix(%s) failed: %m",
 				dict->path);
 		}
 		return -1;
