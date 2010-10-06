@@ -618,16 +618,31 @@ static int maildirsize_read(struct maildir_quota_root *root)
 
 static bool maildirquota_limits_init(struct maildir_quota_root *root)
 {
-	if (!root->limits_initialized) {
-		root->limits_initialized = TRUE;
+	struct mailbox_list *list;
+	struct mail_storage *storage;
+	const char *name = "";
 
-		if (root->maildirsize_path == NULL) {
-			i_warning("quota maildir: No maildir namespaces, "
-				  "ignoring quota.");
-		}
+	if (root->limits_initialized)
+		return root->maildirsize_path != NULL;
+	root->limits_initialized = TRUE;
+
+	if (root->maildirsize_ns == NULL) {
+		i_assert(root->maildirsize_path == NULL);
+		return FALSE;
 	}
+	i_assert(root->maildirsize_path != NULL);
 
-	return root->maildirsize_path != NULL;
+	list = root->maildirsize_ns->list;
+	if (mailbox_list_get_storage(&list, &name, &storage) == 0 &&
+	    strcmp(storage->name, MAILDIR_STORAGE_NAME) != 0) {
+		/* non-maildir namespace, skip */
+		i_warning("quota: Namespace '%s' is not Maildir, "
+			  "skipping for Maildir++ quota",
+			  root->maildirsize_ns->prefix);
+		root->maildirsize_path = NULL;
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static int maildirquota_read_limits(struct maildir_quota_root *root)
