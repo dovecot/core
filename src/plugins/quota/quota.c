@@ -6,6 +6,7 @@
 #include "str.h"
 #include "network.h"
 #include "write-full.h"
+#include "eacces-error.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-fs.h"
@@ -995,7 +996,14 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd)
 					  socket_path, NULL);
 	}
 	if ((fd = net_connect_unix_with_retries(socket_path, 1000)) < 0) {
-		i_error("quota: connect(%s) failed: %m", socket_path);
+		if (errno == EACCES) {
+			i_error("quota: %s",
+				eacces_error_get("net_connect_unix",
+						 socket_path));
+		} else {
+			i_error("quota: net_connect_unix(%s) failed: %m",
+				socket_path);
+		}
 		return;
 	}
 
