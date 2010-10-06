@@ -627,7 +627,7 @@ static void search_body(struct mail_search_arg *arg,
 		i_assert(ret >= 0 || ctx->input->stream_errno != 0);
 	}
 
-	ARG_SET_RESULT(arg, ret > 0);
+	ARG_SET_RESULT(arg, ret);
 }
 
 static int search_arg_match_text(struct mail_search_arg *args,
