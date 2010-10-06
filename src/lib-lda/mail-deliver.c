@@ -229,7 +229,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 			t = mailbox_transaction_begin(box, 0);
 			ctx->dest_mail = mail_alloc(t, MAIL_FETCH_STREAM_BODY,
 						    NULL);
-			if (mail_set_uid(ctx->dest_mail, range[0].seq1) < 0) {
+			if (!mail_set_uid(ctx->dest_mail, range[0].seq1)) {
 				mail_free(&ctx->dest_mail);
 				mailbox_transaction_rollback(&t);
 			}
