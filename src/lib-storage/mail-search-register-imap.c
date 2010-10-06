@@ -292,6 +292,7 @@ arg_new_interval(struct mail_search_build_context *ctx,
 	}
 	sarg->value.search_flags = MAIL_SEARCH_ARG_FLAG_USE_TZ;
 	sarg->value.time = ioloop_time - interval;
+	sarg->value.date_type = MAIL_SEARCH_DATE_TYPE_RECEIVED;
 	return sarg;
 }
 
