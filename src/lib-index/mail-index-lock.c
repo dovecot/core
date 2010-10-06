@@ -42,22 +42,25 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	int ret;
 
 	i_assert(lock_type == F_RDLCK || lock_type == F_WRLCK);
+	i_assert(timeout_secs == 0 || lock_type == F_RDLCK);
 
-	if (lock_type == F_RDLCK && index->lock_type != F_UNLCK) {
-		index->shared_lock_count++;
-		*lock_id_r = index->lock_id_counter;
-		ret = 1;
-	} else if (lock_type == F_WRLCK && index->lock_type == F_WRLCK) {
-		index->excl_lock_count++;
-		*lock_id_r = index->lock_id_counter + 1;
-		ret = 1;
-	} else {
-		ret = 0;
-	}
+	switch (lock_type) {
+	case F_RDLCK:
+		if (index->lock_type != F_UNLCK) {
+			index->shared_lock_count++;
+			*lock_id_r = index->lock_id_counter;
+			return 1;
+		}
+		break;
+	case F_WRLCK:
+		if (index->lock_type == F_WRLCK) {
+			index->excl_lock_count++;
+			*lock_id_r = index->lock_id_counter + 1;
+			return 1;
+		}
 
-	if (ret > 0) {
-		/* file is already locked */
-		return 1;
+		i_assert(index->lock_type == F_UNLCK);
+		break;
 	}
 
 	if (index->lock_method == FILE_LOCK_METHOD_DOTLOCK &&
@@ -74,34 +77,9 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		return 1;
 	}
 
-	if (lock_type == F_RDLCK || !index->log_locked) {
-		i_assert(index->file_lock == NULL);
-		ret = mail_index_lock_fd(index, index->filepath, index->fd,
-					 lock_type, timeout_secs,
-					 &index->file_lock);
-	} else {
-		/* this is kind of kludgy. we wish to avoid deadlocks while
-		   trying to lock transaction log, but it can happen if our
-		   process is holding transaction log lock and waiting for
-		   index write lock, while the other process is holding index
-		   read lock and waiting for transaction log lock.
-
-		   we don't have a problem with grabbing read index lock
-		   because the only way for it to block is if it's
-		   write-locked, which isn't allowed unless transaction log
-		   is also locked.
-
-		   so, the workaround for this problem is that we simply try
-		   locking once. if it doesn't work, just rewrite the file.
-		   hopefully there won't be any other deadlocking issues. :) */
-		if (index->file_lock == NULL) {
-			ret = mail_index_lock_fd(index, index->filepath,
-						 index->fd, lock_type, 0,
-						 &index->file_lock);
-		} else {
-			ret = file_lock_try_update(index->file_lock, lock_type);
-		}
-	}
+	i_assert(index->file_lock == NULL);
+	ret = mail_index_lock_fd(index, index->filepath, index->fd,
+				 lock_type, timeout_secs, &index->file_lock);
 	if (ret <= 0)
 		return ret;
 
