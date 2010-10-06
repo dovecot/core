@@ -619,6 +619,9 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 	struct mail_cache *cache = ctx->cache;
 	uint32_t i, old_offset, orig_write_offset;
 
+	mail_index_ext_using_reset_id(ctx->trans, ctx->cache->ext_id,
+				      ctx->cache_file_seq);
+
 	/* write the cache_offsets to index file. records' prev_offset
 	   is updated to point to old cache record when index is being
 	   synced. */
