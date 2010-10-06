@@ -564,6 +564,7 @@ int main(int argc, char *argv[])
 	unsigned int i;
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
+	bool parse_full_config = FALSE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -573,7 +574,7 @@ int main(int argc, char *argv[])
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "af:hm:nNex");
+					     &argc, &argv, "af:hm:nNpex");
 	orig_config_path = master_service_get_config_path(master_service);
 
 	i_set_failure_prefix("doveconf: ");
@@ -599,6 +600,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'N':
 			scope = CONFIG_DUMP_SCOPE_SET;
+			break;
+		case 'p':
+			parse_full_config = TRUE;
 			break;
 		case 'x':
 			expand_vars = TRUE;
@@ -629,7 +633,8 @@ int main(int argc, char *argv[])
 	config_parse_load_modules();
 
 	if ((ret = config_parse_file(config_path, expand_vars,
-				     module, &error)) == 0 &&
+				     parse_full_config ? "" : module,
+				     &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
 			error);
