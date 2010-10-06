@@ -284,7 +284,7 @@ int main(int argc, char *argv[])
 			   Ignore -m "". This allows doing -m ${extension}
 			   in Postfix to handle user+mailbox */
 			if (*optarg != '\0') T_BEGIN {
-				if (uni_utf8_str_is_valid(optarg) < 0) {
+				if (!uni_utf8_str_is_valid(optarg)) {
 					i_fatal("Mailbox name not UTF-8: %s",
 						optarg);
 				}
