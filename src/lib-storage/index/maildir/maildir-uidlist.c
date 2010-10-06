@@ -1234,6 +1234,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	struct maildir_uidlist_rec *rec;
 	string_t *str;
 	const unsigned char *p;
+	const char *strp;
 	unsigned int len;
 	int ret;
 
@@ -1285,7 +1286,13 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 				p += len + 1;
 			}
 		}
-		str_printfa(str, " :%s\n", rec->filename);
+		str_append(str, " :");
+		strp = strchr(rec->filename, ':');
+		if (strp == NULL)
+			str_append(str, rec->filename);
+		else
+			str_append_n(str, rec->filename, strp - rec->filename);
+		str_append_c(str, '\n');
 		o_stream_send(output, str_data(str), str_len(str));
 	}
 	maildir_uidlist_iter_deinit(&iter);
