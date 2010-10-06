@@ -109,12 +109,10 @@ mail_transaction_log_file_refresh(struct mail_index_transaction *t,
 	}
 	file = t->view->index->log->head;
 
-	if (!t->view->index->log_sync_locked) {
-		/* update sync_offset */
-		if (mail_transaction_log_file_map(file, file->sync_offset,
-						  (uoff_t)-1) <= 0)
-			return -1;
-	}
+	/* make sure we have everything mapped */
+	if (mail_index_map(t->view->index, MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0)
+		return -1;
+
 	i_assert(file->sync_offset >= file->buffer_offset);
 	ctx->new_highest_modseq = file->sync_highest_modseq;
 	return 1;
@@ -135,9 +133,8 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 		return -1;
 	ret = mail_transaction_log_file_refresh(t, ctx);
 	if (ret > 0) {
-		ret = mail_index_transaction_finish(t);
-		if (ret == 0)
-			mail_index_transaction_export(t, ctx);
+		mail_index_transaction_finish(t);
+		mail_index_transaction_export(t, ctx);
 	}
 
 	mail_transaction_log_get_head(log, &log_seq1, &log_offset1);

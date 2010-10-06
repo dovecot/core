@@ -316,7 +316,7 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	mail_index_convert_to_uid_ranges(t, &t->keyword_resets);
 }
 
-int mail_index_transaction_finish(struct mail_index_transaction *t)
+void mail_index_transaction_finish(struct mail_index_transaction *t)
 {
 	if (array_is_created(&t->appends)) {
 		mail_index_update_day_headers(t);
@@ -324,11 +324,6 @@ int mail_index_transaction_finish(struct mail_index_transaction *t)
 	}
 	mail_index_transaction_finish_flag_updates(t);
 
-	if (array_is_created(&t->ext_reset_atomic) || t->max_modseq != 0) {
-		if (mail_index_map(t->view->index,
-				   MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0)
-			return -1;
-	}
 	if (array_is_created(&t->ext_reset_atomic))
 		transaction_update_atomic_reset_ids(t);
 	if (t->max_modseq != 0)
@@ -340,5 +335,4 @@ int mail_index_transaction_finish(struct mail_index_transaction *t)
 	/* and kind of ugly way to update highest modseq */
 	if (t->min_highest_modseq != 0)
 		mail_index_update_modseq(t, 0, t->min_highest_modseq);
-	return 0;
 }

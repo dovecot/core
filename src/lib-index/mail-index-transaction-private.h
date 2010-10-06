@@ -126,7 +126,7 @@ bool mail_index_cancel_flag_updates(struct mail_index_transaction *t,
 bool mail_index_cancel_keyword_updates(struct mail_index_transaction *t,
 				       uint32_t seq);
 
-int mail_index_transaction_finish(struct mail_index_transaction *t);
+void mail_index_transaction_finish(struct mail_index_transaction *t);
 void mail_index_transaction_export(struct mail_index_transaction *t,
 				   struct mail_transaction_log_append_ctx *append_ctx);
 int mail_transaction_expunge_guid_cmp(const struct mail_transaction_expunge_guid *e1,
