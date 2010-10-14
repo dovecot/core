@@ -358,6 +358,8 @@ static void auth_request_save_cache(struct auth_request *request,
 
 static bool auth_request_master_lookup_finish(struct auth_request *request)
 {
+	struct auth_passdb *passdb;
+
 	if (request->passdb_failure)
 		return TRUE;
 
@@ -380,6 +382,16 @@ static bool auth_request_master_lookup_finish(struct auth_request *request)
 	/* the authentication continues with passdb lookup for the
 	   requested_login_user. */
 	request->passdb = auth_request_get_auth(request)->passdbs;
+
+	for (passdb = request->passdb; passdb != NULL; passdb = passdb->next) {
+		if (passdb->passdb->iface.lookup_credentials != NULL)
+			break;
+	}
+	if (passdb == NULL) {
+		auth_request_log_error(request, "passdb",
+			"No passdbs support skipping password verification - "
+			"pass=yes can't be used in master passdb");
+	}
 	return FALSE;
 }
 
