@@ -10,6 +10,14 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+/* How often to reopen the log file to make sure that the changes are written
+   to the latest file. The main problem here is if the value is too high the
+   changes could be written to a file that was already rotated and deleted.
+   That wouldn't happen in any real world situations though, since the file
+   rotation time is probably measured in months or years. Still, each session
+   rarely writes anything here, so the value can just as well be a pretty small
+   one without any performance problems. */
+#define MAILBOX_LOG_REOPEN_SECS (60)
 #define MAILBOX_LOG_ROTATE_SIZE (1024*4)
 
 struct mailbox_log {
@@ -162,7 +170,8 @@ int mailbox_log_append(struct mailbox_log *log,
 	   file. the records' ordering doesn't matter and iteration goes
 	   through both logs anyway. still, if there's a long running session
 	   it shouldn't keep writing to a rotated log forever. */
-	if (log->open_timestamp != ioloop_time)
+	if (log->open_timestamp/MAILBOX_LOG_REOPEN_SECS !=
+	    ioloop_time/MAILBOX_LOG_REOPEN_SECS)
 		mailbox_log_close(log);
 	if (log->fd == -1) {
 		if (mailbox_log_open(log) < 0)
