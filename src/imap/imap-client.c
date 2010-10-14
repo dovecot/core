@@ -847,6 +847,7 @@ int client_output(struct client *client)
 	if (client->to_idle_output != NULL)
 		timeout_reset(client->to_idle_output);
 
+	o_stream_cork(client->output);
 	if ((ret = o_stream_flush(client->output)) < 0) {
 		client_destroy(client, NULL);
 		return 1;
@@ -856,7 +857,6 @@ int client_output(struct client *client)
 	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next)
 		cmd->temp_executed = FALSE;
 
-	o_stream_cork(client->output);
 	if (client->output_lock != NULL) {
 		client->output_lock->temp_executed = TRUE;
 		client_output_cmd(client->output_lock);

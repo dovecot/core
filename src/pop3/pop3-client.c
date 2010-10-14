@@ -641,6 +641,7 @@ static void client_input(struct client *client)
 
 static int client_output(struct client *client)
 {
+	o_stream_cork(client->output);
 	if (o_stream_flush(client->output) < 0) {
 		client_destroy(client, NULL);
 		return 1;
@@ -651,11 +652,8 @@ static int client_output(struct client *client)
 	if (client->to_commit != NULL)
 		timeout_reset(client->to_commit);
 
-	if (client->cmd != NULL) {
-		o_stream_cork(client->output);
+	if (client->cmd != NULL)
 		client->cmd(client);
-		o_stream_uncork(client->output);
-	}
 
 	if (client->cmd == NULL) {
 		if (o_stream_get_buffer_used_size(client->output) <
@@ -668,6 +666,7 @@ static int client_output(struct client *client)
 			client_input(client);
 	}
 
+	o_stream_uncork(client->output);
 	return client->cmd == NULL;
 }
 
