@@ -92,7 +92,7 @@ static int do_racecheck(struct maildir_mailbox *mbox, const char *path,
 {
 	struct stat st;
 
-	if (lstat(path, &st) == 0 && (st.st_mode & S_IFLNK) != 0) {
+	if (lstat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFLNK) {
 		/* most likely a symlink pointing to a nonexistent file */
 		mail_storage_set_critical(&mbox->storage->storage,
 			"Maildir: Symlink destination doesn't exist: %s", path);
