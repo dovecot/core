@@ -42,25 +42,22 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	int ret;
 
 	i_assert(lock_type == F_RDLCK || lock_type == F_WRLCK);
-	i_assert(timeout_secs == 0 || lock_type == F_RDLCK);
 
-	switch (lock_type) {
-	case F_RDLCK:
-		if (index->lock_type != F_UNLCK) {
-			index->shared_lock_count++;
-			*lock_id_r = index->lock_id_counter;
-			return 1;
-		}
-		break;
-	case F_WRLCK:
-		if (index->lock_type == F_WRLCK) {
-			index->excl_lock_count++;
-			*lock_id_r = index->lock_id_counter + 1;
-			return 1;
-		}
+	if (lock_type == F_RDLCK && index->lock_type != F_UNLCK) {
+		index->shared_lock_count++;
+		*lock_id_r = index->lock_id_counter;
+		ret = 1;
+	} else if (lock_type == F_WRLCK && index->lock_type == F_WRLCK) {
+		index->excl_lock_count++;
+		*lock_id_r = index->lock_id_counter + 1;
+		ret = 1;
+	} else {
+		ret = 0;
+	}
 
-		i_assert(index->lock_type == F_UNLCK);
-		break;
+	if (ret > 0) {
+		/* file is already locked */
+		return 1;
 	}
 
 	if (index->lock_method == FILE_LOCK_METHOD_DOTLOCK &&
