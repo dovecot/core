@@ -393,7 +393,8 @@ get_var_expand_table(struct client *client)
 		tab[12].value =
 			ssl_proxy_get_security_string(client->ssl_proxy);
 	}
-	tab[13].value = dec2str(client->mail_pid);
+	tab[13].value = client->mail_pid == 0 ? "" :
+		dec2str(client->mail_pid);
 	return tab;
 }
 
