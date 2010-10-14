@@ -67,6 +67,7 @@ static void mailbox_log_close(struct mailbox_log *log)
 	if (log->fd != -1) {
 		if (close(log->fd) < 0)
 			i_error("close(%s) failed: %m", log->filepath);
+		log->fd = -1;
 	}
 }
 
