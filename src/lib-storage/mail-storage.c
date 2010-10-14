@@ -669,14 +669,23 @@ int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 
 int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 {
-	enum mail_index_transaction_flags trans_flags = 0;
 	struct mail_index_transaction *trans;
+	enum mail_index_transaction_flags trans_flags = 0;
+	enum mailbox_flags old_flag;
+	int ret;
 
 	if (box->marked_deleted && del) {
 		/* we already marked it deleted. this allows plugins to
 		   "lock" the deletion earlier. */
 		return 0;
 	}
+
+	old_flag = box->flags & MAILBOX_FLAG_OPEN_DELETED;
+	box->flags |= MAILBOX_FLAG_OPEN_DELETED;
+	ret = mailbox_open(box);
+	box->flags = (box->flags & ~MAILBOX_FLAG_OPEN_DELETED) | old_flag;
+	if (ret < 0)
+		return -1;
 
 	trans_flags = del ? 0 : MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
 	trans = mail_index_transaction_begin(box->view, trans_flags);
