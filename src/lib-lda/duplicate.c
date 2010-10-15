@@ -324,10 +324,9 @@ struct duplicate_context *duplicate_init(struct mail_user *user)
 {
 	struct duplicate_context *ctx;
 	const struct mail_storage_settings *mail_set;
-	const char *home;
-	int ret;
+	const char *home = NULL;
 
-	if ((ret = mail_user_get_home(user, &home)) <= 0) {
+	if (mail_user_get_home(user, &home) <= 0) {
 		i_error("User %s doesn't have home dir set, "
 			"disabling duplicate database", user->username);
 	}
