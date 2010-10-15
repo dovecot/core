@@ -400,8 +400,8 @@ passdb_ldap_preinit(pool_t pool, const char *args)
 	module = p_new(pool, struct ldap_passdb_module, 1);
 	module->conn = conn = db_ldap_init(args);
 	conn->pass_attr_map =
-		hash_table_create(default_pool, conn->pool, 0, str_hash,
-				  (hash_cmp_callback_t *)strcmp);
+		hash_table_create(default_pool, conn->pool, 0, strcase_hash,
+				  (hash_cmp_callback_t *)strcasecmp);
 
 	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
 			  conn->pass_attr_map,
