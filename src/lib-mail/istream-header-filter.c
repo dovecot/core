@@ -157,8 +157,9 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	buffer_set_used_size(mstream->hdr_buf, mstream->istream.pos);
 
 	if (mstream->header_read) {
+		i_assert(mstream->istream.skip == 0);
 		highwater_offset = mstream->istream.istream.v_offset +
-			(mstream->istream.pos - mstream->istream.skip);
+			mstream->istream.pos;
 		if (highwater_offset >= mstream->header_size.virtual_size) {
 			/* we want to return mixed headers and body */
 			size_t body_highwater_size = highwater_offset -

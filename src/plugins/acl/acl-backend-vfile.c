@@ -772,7 +772,6 @@ static void apply_owner_default_rights(struct acl_object *_aclobj)
 
 static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 {
-	struct mail_namespace *ns;
 	struct acl_object *_aclobj = &aclobj->aclobj;
 	struct acl_rights_update ru;
 	enum acl_modify_mode add_mode;
@@ -784,8 +783,6 @@ static void acl_backend_vfile_cache_rebuild(struct acl_object_vfile *aclobj)
 
 	if (!array_is_created(&aclobj->rights))
 		return;
-
-	ns = mailbox_list_get_namespace(_aclobj->backend->list);
 
 	/* Rights are sorted by their 1) locals first, globals next,
 	   2) acl_id_type. We'll apply only the rights matching ourself.

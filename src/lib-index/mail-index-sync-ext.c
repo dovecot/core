@@ -290,7 +290,6 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 		ext->hdr_size = u->hdr_size;
 		modified = TRUE;
 	}
-	map->hdr_base = map->hdr_copy_buf->data;
 
 	if (ext->record_align < u->record_align ||
 	    (ext->record_align > u->record_align && !no_shrink)) {
@@ -319,6 +318,8 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 		ext_hdr->record_offset = ext->record_offset;
 		ext_hdr->record_size = ext->record_size;
 		ext_hdr->record_align = ext->record_align;
+	} else {
+		i_assert(map->hdr_base == map->hdr_copy_buf->data);
 	}
 
 	if (new_size != old_size) {
