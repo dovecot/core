@@ -122,7 +122,8 @@ static void log_parse_master_line(const char *line)
 	}
 }
 
-static void log_it(struct log_connection *log, const char *line)
+static void
+log_it(struct log_connection *log, const char *line, const struct tm *tm)
 {
 	struct failure_line failure;
 	struct failure_context failure_ctx;
@@ -153,6 +154,7 @@ static void log_it(struct log_connection *log, const char *line)
 
 	memset(&failure_ctx, 0, sizeof(failure_ctx));
 	failure_ctx.type = failure.log_type;
+	failure_ctx.timestamp = tm;
 
 	prefix = client != NULL && client->prefix != NULL ?
 		client->prefix : log->default_prefix;
@@ -210,6 +212,9 @@ static int log_connection_handshake(struct log_connection *log)
 static void log_connection_input(struct log_connection *log)
 {
 	const char *line;
+	ssize_t ret;
+	time_t now;
+	struct tm tm;
 
 	if (!log->handshaked) {
 		if (log_connection_handshake(log) < 0) {
@@ -218,8 +223,14 @@ static void log_connection_input(struct log_connection *log)
 		}
 	}
 
-	while ((line = i_stream_read_next_line(log->input)) != NULL)
-		log_it(log, line);
+	while ((ret = i_stream_read(log->input)) > 0 || ret == -2) {
+		/* get new timestamps for every read() */
+		now = time(NULL);
+		tm = *localtime(&now);
+
+		while ((line = i_stream_next_line(log->input)) != NULL)
+			log_it(log, line, &tm);
+	}
 
 	if (log->input->eof)
 		log_connection_destroy(log);
