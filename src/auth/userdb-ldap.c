@@ -169,6 +169,11 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 						request->auth_request,
 						conn->iterate_attr_map);
 	while (db_ldap_result_iterate_next_all(ldap_iter, &name, &values)) {
+		if (strcmp(name, "user") != 0) {
+			i_warning("ldap: iterate: "
+				  "Ignoring field not named 'user': %s", name);
+			continue;
+		}
 		for (; *values != NULL; values++) {
 			ctx->continued = FALSE;
 			ctx->ctx.callback(*values, ctx->ctx.context);
