@@ -718,7 +718,7 @@ static void master_service_listen(struct master_service_listener *l)
 		if (errno == ENOTSOCK) {
 			/* it's not a socket. should be a fifo. */
 		} else if (errno == EINVAL &&
-			   (fstat(l->fd, &st) < 0 || !S_ISFIFO(st.st_mode))) {
+			   (fstat(l->fd, &st) == 0 && S_ISFIFO(st.st_mode))) {
 			/* BSDI fails accept(fifo) with EINVAL. */
 		} else {
 			errno = orig_errno;
