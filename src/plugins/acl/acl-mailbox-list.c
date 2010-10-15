@@ -202,15 +202,18 @@ acl_mailbox_list_iter_next_info(struct acl_mailbox_list_iterate_context *ctx)
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->ctx.list);
 	const struct mailbox_info *info;
 
-	do {
-		info = alist->module_ctx.super.iter_next(ctx->super_ctx);
-		if (info == NULL)
-			return NULL;
+	while ((info = alist->module_ctx.super.iter_next(ctx->super_ctx)) != NULL) {
 		/* if we've a list of mailboxes with LOOKUP rights, skip the
 		   mailboxes not in the list (since we know they can't be
 		   visible to us). */
-	} while (ctx->lookup_boxes != NULL &&
-		 mailbox_tree_lookup(ctx->lookup_boxes, info->name) == NULL);
+		if (ctx->lookup_boxes == NULL ||
+		    mailbox_tree_lookup(ctx->lookup_boxes, info->name) != NULL)
+			break;
+		if (ctx->ctx.list->ns->user->mail_debug) {
+			i_debug("acl: Mailbox not in dovecot-acl-list: %s",
+				info->name);
+		}
+	}
 
 	return info;
 }
@@ -378,6 +381,10 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 			return NULL;
 		}
 		/* skip to next one */
+		if (ctx->ctx.list->ns->user->mail_debug) {
+			i_debug("acl: No lookup right to mailbox: %s",
+				info->name);
+		}
 	}
 	return info == NULL ? NULL : &ctx->info;
 }
