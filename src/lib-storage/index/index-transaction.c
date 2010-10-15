@@ -56,6 +56,7 @@ static void index_transaction_index_rollback(struct mail_index_transaction *t)
 	if (it->mailbox_ctx.save_ctx != NULL)
 		ibox->save_rollback(it->mailbox_ctx.save_ctx);
 
+	i_assert(it->mail_ref_count == 0);
 	it->super.rollback(t);
 	index_transaction_free(it);
 }
