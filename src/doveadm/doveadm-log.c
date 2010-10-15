@@ -21,17 +21,20 @@
 
 static void cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 {
+	struct failure_context ctx;
 	unsigned int i;
 
 	master_service->flags |= MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR;
 	master_service_init_log(master_service, "doveadm: ");
 
+	memset(&ctx, 0, sizeof(ctx));
 	for (i = 0; i < LAST_LOG_TYPE; i++) {
 		const char *prefix = failure_log_type_prefixes[i];
 
 		/* add timestamp so that syslog won't just write
 		   "repeated message" text */
-		i_log_type(i, TEST_LOG_MSG_PREFIX"%s log (%u)",
+		ctx.type = i;
+		i_log_type(&ctx, TEST_LOG_MSG_PREFIX"%s log (%u)",
 			   t_str_lcase(t_strcut(prefix, ':')),
 			   (unsigned int)ioloop_time);
 	}

@@ -125,6 +125,7 @@ static void log_parse_master_line(const char *line)
 static void log_it(struct log_connection *log, const char *line)
 {
 	struct failure_line failure;
+	struct failure_context failure_ctx;
 	struct log_client *client = NULL;
 	const char *prefix;
 
@@ -150,10 +151,13 @@ static void log_it(struct log_connection *log, const char *line)
 	}
 	i_assert(failure.log_type < LOG_TYPE_COUNT);
 
+	memset(&failure_ctx, 0, sizeof(failure_ctx));
+	failure_ctx.type = failure.log_type;
+
 	prefix = client != NULL && client->prefix != NULL ?
 		client->prefix : log->default_prefix;
 	i_set_failure_prefix(prefix);
-	i_log_type(failure.log_type, "%s", failure.text);
+	i_log_type(&failure_ctx, "%s", failure.text);
 	i_set_failure_prefix("log: ");
 }
 

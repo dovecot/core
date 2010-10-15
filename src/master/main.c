@@ -46,7 +46,7 @@ int null_fd;
 struct service_list *services;
 
 static char *pidfile_path;
-static fatal_failure_callback_t *orig_fatal_callback;
+static failure_callback_t *orig_fatal_callback;
 static failure_callback_t *orig_error_callback;
 static const char *child_process_env[3]; /* @UNSAFE */
 
@@ -125,7 +125,7 @@ int get_gid(const char *group, gid_t *gid_r, const char **error_r)
 }
 
 static void ATTR_NORETURN ATTR_FORMAT(3, 0)
-master_fatal_callback(enum log_type type, int status,
+master_fatal_callback(const struct failure_context *ctx,
 		      const char *format, va_list args)
 {
 	const char *path, *str;
@@ -147,32 +147,33 @@ master_fatal_callback(enum log_type type, int status,
 		}
 	}
 
-	orig_fatal_callback(type, status, format, args);
+	orig_fatal_callback(ctx, format, args);
 	abort(); /* just to silence the noreturn attribute warnings */
 }
 
 static void ATTR_NORETURN
-startup_fatal_handler(enum log_type type, int status,
+startup_fatal_handler(const struct failure_context *ctx,
 		      const char *fmt, va_list args)
 {
 	va_list args2;
 
 	VA_COPY(args2, args);
-	fprintf(stderr, "%s%s\n", failure_log_type_prefixes[type],
+	fprintf(stderr, "%s%s\n", failure_log_type_prefixes[ctx->type],
 		t_strdup_vprintf(fmt, args2));
-	orig_fatal_callback(type, status, fmt, args);
+	orig_fatal_callback(ctx, fmt, args);
 	abort();
 }
 
 static void
-startup_error_handler(enum log_type type, const char *fmt, va_list args)
+startup_error_handler(const struct failure_context *ctx,
+		      const char *fmt, va_list args)
 {
 	va_list args2;
 
 	VA_COPY(args2, args);
-	fprintf(stderr, "%s%s\n", failure_log_type_prefixes[type],
+	fprintf(stderr, "%s%s\n", failure_log_type_prefixes[ctx->type],
 		t_strdup_vprintf(fmt, args2));
-	orig_error_callback(type, fmt, args);
+	orig_error_callback(ctx, fmt, args);
 }
 
 static void fatal_log_check(const struct master_settings *set)

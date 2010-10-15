@@ -32,15 +32,20 @@ struct failure_line {
 	const char *text;
 };
 
+struct failure_context {
+	enum log_type type;
+	int exit_status; /* for LOG_TYPE_FATAL */
+};
+
 #define DEFAULT_FAILURE_STAMP_FORMAT "%b %d %H:%M:%S "
 
-typedef void failure_callback_t(enum log_type type, const char *, va_list);
-typedef void fatal_failure_callback_t(enum log_type type, int status,
-				      const char *, va_list);
+typedef void failure_callback_t(const struct failure_context *ctx,
+				const char *format, va_list args);
 
 extern const char *failure_log_type_prefixes[];
 
-void i_log_type(enum log_type type, const char *format, ...) ATTR_FORMAT(2, 3);
+void i_log_type(const struct failure_context *ctx, const char *format, ...)
+	ATTR_FORMAT(2, 3);
 
 void i_panic(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
 void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
@@ -54,31 +59,33 @@ void i_fatal_status(int status, const char *format, ...)
 
 /* Change failure handlers. */
 #ifndef __cplusplus
-void i_set_fatal_handler(fatal_failure_callback_t *callback ATTR_NORETURN);
+void i_set_fatal_handler(failure_callback_t *callback ATTR_NORETURN);
 #else
 /* Older g++ doesn't like attributes in parameters */
-void i_set_fatal_handler(fatal_failure_callback_t *callback);
+void i_set_fatal_handler(failure_callback_t *callback);
 #endif
 void i_set_error_handler(failure_callback_t *callback);
 void i_set_info_handler(failure_callback_t *callback);
 void i_set_debug_handler(failure_callback_t *callback);
-void i_get_failure_handlers(fatal_failure_callback_t **fatal_callback_r,
+void i_get_failure_handlers(failure_callback_t **fatal_callback_r,
 			    failure_callback_t **error_callback_r,
 			    failure_callback_t **info_callback_r,
 			    failure_callback_t **debug_callback_r);
 
 /* Send failures to file. */
-void default_fatal_handler(enum log_type type, int status,
+void default_fatal_handler(const struct failure_context *ctx,
 			   const char *format, va_list args)
-	ATTR_NORETURN ATTR_FORMAT(3, 0);
-void default_error_handler(enum log_type type, const char *format, va_list args)
+	ATTR_NORETURN ATTR_FORMAT(2, 0);
+void default_error_handler(const struct failure_context *ctx,
+			   const char *format, va_list args)
 	ATTR_FORMAT(2, 0);
 
 /* Send failures to syslog() */
-void i_syslog_fatal_handler(enum log_type type, int status,
-			    const char *fmt, va_list args)
-	ATTR_NORETURN ATTR_FORMAT(3, 0);
-void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
+void i_syslog_fatal_handler(const struct failure_context *ctx,
+			    const char *format, va_list args)
+	ATTR_NORETURN ATTR_FORMAT(2, 0);
+void i_syslog_error_handler(const struct failure_context *ctx,
+			    const char *format, va_list args)
 	ATTR_FORMAT(2, 0);
 
 /* Open syslog and set failure/info/debug handlers to use it. */

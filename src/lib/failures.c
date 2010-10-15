@@ -27,12 +27,17 @@ const char *failure_log_type_prefixes[LOG_TYPE_COUNT] = {
 };
 
 /* Initialize working defaults */
-static fatal_failure_callback_t *fatal_handler ATTR_NORETURN =
+static failure_callback_t *fatal_handler ATTR_NORETURN =
 	default_fatal_handler;
 static failure_callback_t *error_handler = default_error_handler;
 static failure_callback_t *info_handler = default_error_handler;
 static failure_callback_t *debug_handler = default_error_handler;
 static void (*failure_exit_callback)(int *) = NULL;
+
+static struct failure_context failure_ctx_debug = { .type = LOG_TYPE_DEBUG };
+static struct failure_context failure_ctx_info = { .type = LOG_TYPE_INFO };
+static struct failure_context failure_ctx_warning = { .type = LOG_TYPE_WARNING };
+static struct failure_context failure_ctx_error = { .type = LOG_TYPE_ERROR };
 
 static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO,
 	   log_debug_fd = STDERR_FILENO;
@@ -40,7 +45,8 @@ static char *log_prefix = NULL, *log_stamp_format = NULL;
 static bool failure_ignore_errors = FALSE;
 
 static void ATTR_FORMAT(2, 0)
-i_internal_error_handler(enum log_type type, const char *fmt, va_list args);
+i_internal_error_handler(const struct failure_context *ctx,
+			 const char *format, va_list args);
 
 /* kludgy .. we want to trust log_stamp_format with -Wformat-nonliteral */
 static const char *get_log_stamp_format(const char *unused)
@@ -180,21 +186,25 @@ default_fatal_finish(enum log_type type, int status)
 		failure_exit(status);
 }
 
-void default_fatal_handler(enum log_type type, int status,
+void default_fatal_handler(const struct failure_context *ctx,
 			   const char *format, va_list args)
 {
-	if (default_handler(failure_log_type_prefixes[type], log_fd, format,
-			    args) < 0 && status == FATAL_DEFAULT)
+	int status = ctx->exit_status;
+
+	if (default_handler(failure_log_type_prefixes[ctx->type],
+			    log_fd, format, args) < 0 &&
+	    status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
 
-	default_fatal_finish(type, status);
+	default_fatal_finish(ctx->type, status);
 }
 
-void default_error_handler(enum log_type type, const char *format, va_list args)
+void default_error_handler(const struct failure_context *ctx,
+			   const char *format, va_list args)
 {
 	int fd;
 
-	switch (type) {
+	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
 		fd = log_debug_fd;
 		break;
@@ -205,7 +215,7 @@ void default_error_handler(enum log_type type, const char *format, va_list args)
 		fd = log_fd;
 	}
 
-	if (default_handler(failure_log_type_prefixes[type],
+	if (default_handler(failure_log_type_prefixes[ctx->type],
 			    fd, format, args) < 0) {
 		if (fd == log_fd)
 			failure_exit(FATAL_LOGWRITE);
@@ -216,21 +226,21 @@ void default_error_handler(enum log_type type, const char *format, va_list args)
 	}
 }
 
-void i_log_type(enum log_type type, const char *format, ...)
+void i_log_type(const struct failure_context *ctx, const char *format, ...)
 {
 	va_list args;
 
 	va_start(args, format);
 
-	switch (type) {
+	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
-		debug_handler(type, format, args);
+		debug_handler(ctx, format, args);
 		break;
 	case LOG_TYPE_INFO:
-		info_handler(type, format, args);
+		info_handler(ctx, format, args);
 		break;
 	default:
-		error_handler(type, format, args);
+		error_handler(ctx, format, args);
 	}
 
 	va_end(args);
@@ -238,28 +248,42 @@ void i_log_type(enum log_type type, const char *format, ...)
 
 void i_panic(const char *format, ...)
 {
+	struct failure_context ctx;
 	va_list args;
 
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.type = LOG_TYPE_PANIC;
+
 	va_start(args, format);
-	fatal_handler(LOG_TYPE_PANIC, 0, format, args);
+	fatal_handler(&ctx, format, args);
 	va_end(args);
 }
 
 void i_fatal(const char *format, ...)
 {
+	struct failure_context ctx;
 	va_list args;
 
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.type = LOG_TYPE_FATAL;
+	ctx.exit_status = FATAL_DEFAULT;
+
 	va_start(args, format);
-	fatal_handler(LOG_TYPE_FATAL, FATAL_DEFAULT, format, args);
+	fatal_handler(&ctx, format, args);
 	va_end(args);
 }
 
 void i_fatal_status(int status, const char *format, ...)
 {
+	struct failure_context ctx;
 	va_list args;
 
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.type = LOG_TYPE_FATAL;
+	ctx.exit_status = status;
+
 	va_start(args, format);
-	fatal_handler(LOG_TYPE_FATAL, status, format, args);
+	fatal_handler(&ctx, format, args);
 	va_end(args);
 }
 
@@ -269,7 +293,7 @@ void i_error(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	error_handler(LOG_TYPE_ERROR, format, args);
+	error_handler(&failure_ctx_error, format, args);
 	va_end(args);
 
 	errno = old_errno;
@@ -281,7 +305,7 @@ void i_warning(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	error_handler(LOG_TYPE_WARNING, format, args);
+	error_handler(&failure_ctx_warning, format, args);
 	va_end(args);
 
 	errno = old_errno;
@@ -293,7 +317,7 @@ void i_info(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	info_handler(LOG_TYPE_INFO, format, args);
+	info_handler(&failure_ctx_info, format, args);
 	va_end(args);
 
 	errno = old_errno;
@@ -305,13 +329,13 @@ void i_debug(const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	debug_handler(LOG_TYPE_DEBUG, format, args);
+	debug_handler(&failure_ctx_debug, format, args);
 	va_end(args);
 
 	errno = old_errno;
 }
 
-void i_set_fatal_handler(fatal_failure_callback_t *callback ATTR_NORETURN)
+void i_set_fatal_handler(failure_callback_t *callback ATTR_NORETURN)
 {
 	if (callback == NULL)
 		callback = default_fatal_handler;
@@ -339,7 +363,7 @@ void i_set_debug_handler(failure_callback_t *callback)
 	debug_handler = callback;
 }
 
-void i_get_failure_handlers(fatal_failure_callback_t **fatal_callback_r,
+void i_get_failure_handlers(failure_callback_t **fatal_callback_r,
 			    failure_callback_t **error_callback_r,
 			    failure_callback_t **info_callback_r,
 			    failure_callback_t **debug_callback_r)
@@ -372,21 +396,24 @@ syslog_handler(int level, enum log_type type, const char *format, va_list args)
 	return 0;
 }
 
-void i_syslog_fatal_handler(enum log_type type, int status,
-			    const char *fmt, va_list args)
+void i_syslog_fatal_handler(const struct failure_context *ctx,
+			    const char *format, va_list args)
 {
-	if (syslog_handler(LOG_CRIT, type, fmt, args) < 0 &&
+	int status = ctx->exit_status;
+
+	if (syslog_handler(LOG_CRIT, ctx->type, format, args) < 0 &&
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
-	default_fatal_finish(type, status);
+	default_fatal_finish(ctx->type, status);
 }
 
-void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
+void i_syslog_error_handler(const struct failure_context *ctx,
+			    const char *format, va_list args)
 {
 	int level = LOG_ERR;
 
-	switch (type) {
+	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
 		level = LOG_DEBUG;
 		break;
@@ -408,7 +435,7 @@ void i_syslog_error_handler(enum log_type type, const char *fmt, va_list args)
 		i_unreached();
 	}
 
-	if (syslog_handler(level, type, fmt, args) < 0)
+	if (syslog_handler(level, ctx->type, format, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 }
 
@@ -511,7 +538,8 @@ static int internal_send_split(string_t *full_str, unsigned int prefix_len)
 		str_truncate(str, prefix_len);
 		str_append_n(str, str_c(full_str) + pos, max_text_len);
 		str_append_c(str, '\n');
-		if (log_fd_write(2, str_data(str), str_len(str)) < 0)
+		if (log_fd_write(STDERR_FILENO,
+				 str_data(str), str_len(str)) < 0)
 			return -1;
 		pos += max_text_len;
 	}
@@ -519,7 +547,8 @@ static int internal_send_split(string_t *full_str, unsigned int prefix_len)
 }
 
 static int ATTR_FORMAT(2, 0)
-internal_handler(enum log_type log_type, const char *format, va_list args)
+internal_handler(const struct failure_context *ctx,
+		 const char *format, va_list args)
 {
 	static int recursed = 0;
 	int ret;
@@ -536,13 +565,14 @@ internal_handler(enum log_type log_type, const char *format, va_list args)
 		unsigned int prefix_len;
 
 		str = t_str_new(128);
-		str_printfa(str, "\001%c%s ", log_type + 1, my_pid);
+		str_printfa(str, "\001%c%s ", ctx->type + 1, my_pid);
 		prefix_len = str_len(str);
 
 		str_vprintfa(str, format, args);
 		if (str_len(str)+1 <= PIPE_BUF) {
 			str_append_c(str, '\n');
-			ret = log_fd_write(2, str_data(str), str_len(str));
+			ret = log_fd_write(STDERR_FILENO,
+					   str_data(str), str_len(str));
 		} else {
 			ret = internal_send_split(str, prefix_len);
 		}
@@ -596,21 +626,24 @@ void i_failure_parse_line(const char *line, struct failure_line *failure)
 	failure->text = line + 1;
 }
 
-static void ATTR_NORETURN ATTR_FORMAT(3, 0)
-i_internal_fatal_handler(enum log_type type, int status,
-			 const char *fmt, va_list args)
+static void ATTR_NORETURN ATTR_FORMAT(2, 0)
+i_internal_fatal_handler(const struct failure_context *ctx,
+			 const char *format, va_list args)
 {
-	if (internal_handler(type, fmt, args) < 0 &&
+	int status = ctx->exit_status;
+
+	if (internal_handler(ctx, format, args) < 0 &&
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
-	default_fatal_finish(type, status);
+	default_fatal_finish(ctx->type, status);
 }
 
 static void
-i_internal_error_handler(enum log_type type, const char *fmt, va_list args)
+i_internal_error_handler(const struct failure_context *ctx,
+			 const char *format, va_list args)
 {
-	if (internal_handler(type, fmt, args) < 0)
+	if (internal_handler(ctx, format, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 }
 
