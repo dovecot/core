@@ -18,8 +18,8 @@ static void filter_callback(struct message_header_line *hdr,
 
 static void test_istream_filter(void)
 {
-	static const char *exclude_headers[] = { "To", NULL };
-	const char *input = "From: foo\nFrom: abc\nTo: bar\n\nhello world\n";
+	static const char *exclude_headers[] = { "Subject", "To", NULL };
+	const char *input = "From: foo\nFrom: abc\nTo: bar\nSubject: plop\n\nhello world\n";
 	const char *output = "From: abc\n\nhello world\n";
 	struct istream *istream, *filter, *filter2;
 	unsigned int i, input_len = strlen(input);
@@ -32,12 +32,12 @@ static void test_istream_filter(void)
 	filter = i_stream_create_header_filter(istream,
 					       HEADER_FILTER_EXCLUDE |
 					       HEADER_FILTER_NO_CR,
-					       exclude_headers, 1,
+					       exclude_headers, 2,
 					       filter_callback, NULL);
 	filter2 = i_stream_create_header_filter(filter,
 						HEADER_FILTER_EXCLUDE |
 						HEADER_FILTER_NO_CR,
-						exclude_headers, 1,
+						exclude_headers, 2,
 						null_header_filter_callback, NULL);
 	i_stream_unref(&filter);
 	filter = filter2;
