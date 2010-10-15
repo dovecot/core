@@ -270,6 +270,7 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 		*home_r = user->_home;
 		return user->_home != NULL ? 1 : 0;
 	}
+	*home_r = NULL;
 
 	if (mail_user_auth_master_conn == NULL)
 		return 0;
@@ -278,9 +279,7 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 	ret = auth_master_user_lookup(mail_user_auth_master_conn,
 				      user->username, &info, userdb_pool,
 				      &username, &fields);
-	if (ret < 0)
-		*home_r = NULL;
-	else {
+	if (ret >= 0) {
 		auth_user_fields_parse(fields, userdb_pool, &reply);
 		user->_home = ret == 0 ? NULL :
 			p_strdup(user->pool, reply.home);
