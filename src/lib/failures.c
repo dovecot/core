@@ -64,15 +64,17 @@ void failure_exit(int status)
 	exit(status);
 }
 
-static void log_prefix_add(string_t *str)
+static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 {
-	struct tm *tm;
+	const struct tm *tm = ctx->timestamp;
 	char buf[256];
 	time_t now;
 
 	if (log_stamp_format != NULL) {
-		now = time(NULL);
-		tm = localtime(&now);
+		if (tm == NULL) {
+			now = time(NULL);
+			tm = localtime(&now);
+		}
 
 		if (strftime(buf, sizeof(buf),
 			     get_log_stamp_format("unused"), tm) > 0)
@@ -139,7 +141,8 @@ static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
 }
 
 static int ATTR_FORMAT(3, 0)
-default_handler(const char *prefix, int fd, const char *format, va_list args)
+default_handler(const struct failure_context *ctx, int fd,
+		const char *format, va_list args)
 {
 	static int recursed = 0;
 	int ret;
@@ -153,8 +156,8 @@ default_handler(const char *prefix, int fd, const char *format, va_list args)
 	recursed++;
 	T_BEGIN {
 		string_t *str = t_str_new(256);
-		log_prefix_add(str);
-		str_append(str, prefix);
+		log_prefix_add(ctx, str);
+		str_append(str, failure_log_type_prefixes[ctx->type]);
 
 		/* make sure there's no %n in there and fix %m */
 		str_vprintfa(str, printf_format_fix(format), args);
@@ -191,8 +194,7 @@ void default_fatal_handler(const struct failure_context *ctx,
 {
 	int status = ctx->exit_status;
 
-	if (default_handler(failure_log_type_prefixes[ctx->type],
-			    log_fd, format, args) < 0 &&
+	if (default_handler(ctx, log_fd, format, args) < 0 &&
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
 
@@ -215,8 +217,7 @@ void default_error_handler(const struct failure_context *ctx,
 		fd = log_fd;
 	}
 
-	if (default_handler(failure_log_type_prefixes[ctx->type],
-			    fd, format, args) < 0) {
+	if (default_handler(ctx, fd, format, args) < 0) {
 		if (fd == log_fd)
 			failure_exit(FATAL_LOGWRITE);
 		/* we failed to log to info/debug log, try to log the
