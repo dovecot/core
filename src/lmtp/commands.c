@@ -526,7 +526,7 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail)
 	return FALSE;
 }
 
-static void client_rcpt_fail_all(struct client *client)
+static void client_rcpt_tempfail_all(struct client *client)
 {
 	const struct mail_recipient *rcpt;
 
@@ -583,7 +583,6 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 		i_error("Can't open delivery mail as raw: %s",
 			mail_storage_get_last_error(box->storage, &error));
 		mailbox_free(&box);
-		client_rcpt_fail_all(client);
 		return -1;
 	}
 	raw_box = (struct raw_mailbox *)box;
@@ -605,8 +604,10 @@ client_input_data_write_local(struct client *client, struct istream *input)
 	struct mail *src_mail;
 	uid_t old_uid, first_uid = (uid_t)-1;
 
-	if (client_open_raw_mail(client, input) < 0)
+	if (client_open_raw_mail(client, input) < 0) {
+		client_rcpt_tempfail_all(client);
 		return;
+	}
 
 	old_uid = geteuid();
 	src_mail = client->state.raw_mail;
@@ -707,12 +708,28 @@ static const char *client_get_added_headers(struct client *client)
 	return str_c(str);
 }
 
+static void client_rcpt_fail_all_zerosize(struct client *client)
+{
+	const struct mail_recipient *rcpt;
+
+	array_foreach(&client->state.rcpt_to, rcpt) {
+		client_send_line(client,
+				 "451 4.2.0 <%s> Can't save empty message",
+				 rcpt->address);
+	}
+}
+
 static bool client_input_data_write(struct client *client)
 {
 	struct istream *input;
 	bool ret = TRUE;
 
 	i_stream_destroy(&client->dot_input);
+	if (client->state.mail_data_output == NULL &&
+	    client->state.mail_data->used == 0) {
+		client_rcpt_fail_all_zerosize(client);
+		return TRUE;
+	}
 
 	input = client_get_input(client);
 	client_input_data_write_local(client, input);
