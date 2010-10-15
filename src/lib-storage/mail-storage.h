@@ -20,7 +20,10 @@ enum mail_storage_flags {
 	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x02,
 	/* Don't autocreate any directories. If they don't exist,
 	   fail to create the storage. */
-	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x04
+	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x04,
+	/* Don't verify existence or accessibility of any directories.
+	   Create the storage in any case. */
+	MAIL_STORAGE_FLAG_NO_AUTOVERIFY		= 0x08
 };
 
 enum mailbox_flags {

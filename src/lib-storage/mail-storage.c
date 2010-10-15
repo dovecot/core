@@ -190,6 +190,9 @@ mail_storage_create_root(struct mailbox_list *list,
 	mode_t mode;
 	gid_t gid;
 
+	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOVERIFY) != 0)
+		return 0;
+
 	root_dir = mailbox_list_get_path(list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (root_dir == NULL) {
