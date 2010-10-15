@@ -88,6 +88,7 @@ static void auth_penalty_anvil_callback(const char *reply, void *context)
 	}
 
 	request->callback(penalty, request->auth_request);
+	auth_request_unref(&request->auth_request);
 	i_free(request);
 }
 
@@ -123,6 +124,7 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 	request = i_new(struct auth_penalty_request, 1);
 	request->auth_request = auth_request;
 	request->callback = callback;
+	auth_request_ref(auth_request);
 
 	T_BEGIN {
 		anvil_client_query(penalty->client,
