@@ -124,7 +124,7 @@ int get_gid(const char *group, gid_t *gid_r, const char **error_r)
 	return 0;
 }
 
-static void ATTR_NORETURN ATTR_FORMAT(3, 0)
+static void ATTR_NORETURN ATTR_FORMAT(2, 0)
 master_fatal_callback(const struct failure_context *ctx,
 		      const char *format, va_list args)
 {
