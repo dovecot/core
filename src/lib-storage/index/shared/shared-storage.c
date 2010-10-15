@@ -286,7 +286,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		p_strdup(user->pool, storage->unexpanded_location);
 	new_ns->unexpanded_set = unexpanded_ns_set;
 
-	if (mail_storage_create(new_ns, NULL, _storage->flags, &error) < 0) {
+	if (mail_storage_create(new_ns, NULL, _storage->flags |
+				MAIL_STORAGE_FLAG_NO_AUTOVERIFY, &error) < 0) {
 		mailbox_list_set_critical(list, "Namespace '%s': %s",
 					  new_ns->prefix, error);
 		mail_namespace_destroy(new_ns);
