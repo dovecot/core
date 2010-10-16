@@ -667,7 +667,15 @@ static int client_output(struct client *client)
 	}
 
 	o_stream_uncork(client->output);
-	return client->cmd == NULL;
+	if (client->cmd != NULL) {
+		/* command not finished yet */
+		return 0;
+	} else if (client->io == NULL) {
+		/* data still in output buffer, get back here to add IO */
+		return 0;
+	} else {
+		return 1;
+	}
 }
 
 void clients_destroy_all(void)
