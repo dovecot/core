@@ -510,15 +510,17 @@ void acl_mailbox_allocated(struct mailbox *box)
 	abox = p_new(box->pool, struct acl_mailbox, 1);
 	abox->module_ctx.super = *v;
 	box->vlast = &abox->module_ctx.super;
+	/* aclobj can be used for setting ACLs, even when mailbox is opened
+	   with IGNORE_ACLS flag */
+	abox->aclobj = acl_object_init_from_name(alist->rights.backend,
+						 mailbox_get_name(box));
 
+	v->free = acl_mailbox_free;
 	if ((box->flags & MAILBOX_FLAG_IGNORE_ACLS) == 0) {
-		abox->aclobj = acl_object_init_from_name(alist->rights.backend,
-							 mailbox_get_name(box));
 		abox->acl_enabled = TRUE;
 		v->is_readonly = acl_is_readonly;
 		v->allow_new_keywords = acl_allow_new_keywords;
 		v->open = acl_mailbox_open;
-		v->free = acl_mailbox_free;
 		v->create = acl_mailbox_create;
 		v->update = acl_mailbox_update;
 		v->delete = acl_mailbox_delete;
