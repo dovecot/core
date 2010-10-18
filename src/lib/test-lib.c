@@ -19,6 +19,7 @@ int main(void)
 		test_llist,
 		test_mempool_alloconly,
 		test_network,
+		test_ostream_file,
 		test_primes,
 		test_priorityq,
 		test_seq_range_array,

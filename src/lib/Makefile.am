@@ -237,6 +237,7 @@ test_lib_SOURCES = \
 	test-llist.c \
 	test-mempool-alloconly.c \
 	test-network.c \
+	test-ostream-file.c \
 	test-primes.c \
 	test-priorityq.c \
 	test-seq-range-array.c \

@@ -621,7 +621,8 @@ o_stream_file_write_at(struct ostream_private *stream,
 
 	/* update buffer if the write overlaps it */
 	used = file_buffer_get_used_size(fstream);
-	if (fstream->buffer_offset < offset + size &&
+	if (used > 0 &&
+	    fstream->buffer_offset < offset + size &&
 	    fstream->buffer_offset + used > offset) {
 		if (fstream->buffer_offset <= offset) {
 			/* updating from the beginning */
@@ -641,9 +642,11 @@ o_stream_file_write_at(struct ostream_private *stream,
 				   of it in one pwrite(). */
 			} else {
 				/* write only the suffix */
-				data = CONST_PTR_OFFSET(data, skip);
-				size -= skip;
-				offset += skip;
+				unsigned int update_count = size - left;
+
+				data = CONST_PTR_OFFSET(data, update_count);
+				size -= update_count;
+				offset += update_count;
 			}
 		} else if (skip == 0) {
 			/* everything done */
@@ -651,7 +654,6 @@ o_stream_file_write_at(struct ostream_private *stream,
 		} else {
 			/* still have to write prefix */
 			size = skip;
-
 		}
 	}
 
