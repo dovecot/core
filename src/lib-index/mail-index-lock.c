@@ -74,9 +74,15 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		return 1;
 	}
 
-	i_assert(index->file_lock == NULL);
-	ret = mail_index_lock_fd(index, index->filepath, index->fd,
-				 lock_type, timeout_secs, &index->file_lock);
+	if (index->file_lock == NULL) {
+		i_assert(index->lock_type == F_UNLCK);
+		ret = mail_index_lock_fd(index, index->filepath, index->fd,
+					 lock_type, timeout_secs,
+					 &index->file_lock);
+	} else {
+		i_assert(index->lock_type == F_RDLCK && lock_type == F_WRLCK);
+		ret = file_lock_try_update(index->file_lock, lock_type);
+	}
 	if (ret <= 0)
 		return ret;
 
