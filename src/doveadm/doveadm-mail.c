@@ -556,6 +556,7 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_expunge,
 	&cmd_search,
 	&cmd_fetch,
+	&cmd_import,
 	&cmd_altmove,
 	&cmd_mailbox_list,
 	&cmd_mailbox_create,

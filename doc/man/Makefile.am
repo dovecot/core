@@ -17,6 +17,7 @@ nodist_man1_MANS = \
 	doveadm-dump.1 \
 	doveadm-expunge.1 \
 	doveadm-fetch.1 \
+	doveadm-import.1 \
 	doveadm-force-resync.1 \
 	doveadm-help.1 \
 	doveadm-kick.1 \
@@ -49,6 +50,7 @@ EXTRA_DIST = \
 	doveadm-dump.1.in \
 	doveadm-expunge.1.in \
 	doveadm-fetch.1.in \
+	doveadm-import.1.in \
 	doveadm-force-resync.1.in \
 	doveadm-help.1.in \
 	doveadm-kick.1.in \
@@ -97,6 +99,10 @@ doveadm-expunge.1: $(srcdir)/doveadm-expunge.1.in $(man_includefiles) Makefile
 doveadm-fetch.1: $(srcdir)/doveadm-fetch.1.in $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
 		< $(srcdir)/doveadm-fetch.1.in > doveadm-fetch.1
+
+doveadm-import.1: $(srcdir)/doveadm-import.1.in $(man_includefiles) Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
+		< $(srcdir)/doveadm-import.1.in > doveadm-import.1
 
 doveadm-force-resync.1: $(srcdir)/doveadm-force-resync.1.in $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \

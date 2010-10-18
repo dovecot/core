@@ -1,0 +1,81 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-IMPORT 1 "2010-10-18" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-import \- Import messages matching given search query
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " import
+.I source_location dest_parent search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " "import \-A"
+.I source_location dest_parent search_query
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " "import \-u"
+.I user source_location dest_parent search_query
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+This command can be used to import mails from another mail storage specified by
+.I source_location
+to one or more user\(aqs mailboxes. All the mailboxes are imported under the
+given
+.I dest_parent
+mailbox. The
+.I search_query
+can be used to restrict which mailboxes or messages are imported.
+
+In the first form,
+.BR doveadm (1)
+will executed the
+.B import
+action with the environment of the logged in system user.
+.PP
+In the second form, the mails will be imported for all users.
+.PP
+In the third form, the mails will be imported only for given
+.IR user (s)
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I search_query
+Copy messages matching this search query.
+See
+.BR doveadm\-search\-query (7)
+for details.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+This example imports all mails from a backup under a
+.I backup-20101026
+mailbox:
+.PP
+.nf
+.B doveadm import \-u jane.doe@example.org \(rs
+.B mdbox:/backup/20101026/jane.doe/mdbox backup-20101026 all
+.fi
+.PP
+Another example that imports only messages from foo@example.org in the
+backup mdbox\(aqs INBOX to jane\(aqs INBOX:
+.PP
+.nf
+.B doveadm import \-u jane.doe@example.org \(rs
+.B mdbox:~/mdbox-backup "" mailbox INBOX from foo@example.org
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-fetch (1),
+.BR doveadm\-search (1),
+.BR doveadm\-search\-query (7)

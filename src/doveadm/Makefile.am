@@ -61,6 +61,7 @@ common = \
 	doveadm-mail-altmove.c \
 	doveadm-mail-expunge.c \
 	doveadm-mail-fetch.c \
+	doveadm-mail-import.c \
 	doveadm-mail-iter.c \
 	doveadm-mail-mailbox.c \
 	doveadm-mail-mailbox-status.c \

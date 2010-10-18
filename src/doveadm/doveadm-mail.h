@@ -104,6 +104,7 @@ doveadm_mail_cmd_alloc_size(size_t size);
 struct doveadm_mail_cmd cmd_expunge;
 struct doveadm_mail_cmd cmd_search;
 struct doveadm_mail_cmd cmd_fetch;
+struct doveadm_mail_cmd cmd_import;
 struct doveadm_mail_cmd cmd_altmove;
 struct doveadm_mail_cmd cmd_mailbox_list;
 struct doveadm_mail_cmd cmd_mailbox_create;
