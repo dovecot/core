@@ -181,17 +181,41 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	}
 	return NULL;
 }
+
+static int
+mail_storage_verify_root(const char *root_dir, bool autocreate,
+			 const char **error_r)
+{
+	struct stat st;
+
+	if (stat(root_dir, &st) == 0) {
+		/* exists */
+		return 1;
+	} else if (errno == EACCES) {
+		*error_r = mail_error_eacces_msg("stat", root_dir);
+		return -1;
+	} else if (errno != ENOENT && errno != ENOTDIR) {
+		*error_r = t_strdup_printf("stat(%s) failed: %m", root_dir);
+		return -1;
+	} else if (!autocreate) {
+		*error_r = t_strdup_printf(
+			"Root mail directory doesn't exist: %s", root_dir);
+		return -1;
+	} else {
+		/* doesn't exist */
+		return 0;
+	}
+}
+
 static int
 mail_storage_create_root(struct mailbox_list *list,
 			 enum mail_storage_flags flags, const char **error_r)
 {
-	const char *root_dir, *origin;
-	struct stat st;
+	const char *root_dir, *origin, *error;
 	mode_t mode;
 	gid_t gid;
-
-	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOVERIFY) != 0)
-		return 0;
+	bool autocreate;
+	int ret;
 
 	root_dir = mailbox_list_get_path(list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -199,23 +223,24 @@ mail_storage_create_root(struct mailbox_list *list,
 		/* storage doesn't use directories (e.g. shared root) */
 		return 0;
 	}
-	if (stat(root_dir, &st) == 0) {
-		/* ok */
+
+	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOVERIFY) != 0) {
+		if (!list->mail_set->mail_debug)
+			return 0;
+
+		/* we don't need to verify, but since debugging is
+		   enabled, check and log if the root doesn't exist */
+		if (mail_storage_verify_root(root_dir, FALSE, &error) < 0) {
+			i_debug("Namespace %s: Creating storage despite: %s",
+				list->ns->prefix, error);
+		}
 		return 0;
-	} else if (errno == EACCES) {
-		*error_r = mail_error_eacces_msg("stat", root_dir);
-		return -1;
-	} else if (errno != ENOENT && errno != ENOTDIR) {
-		*error_r = t_strdup_printf("stat(%s) failed: %m", root_dir);
-		return -1;
-	} else if (list->ns->type == NAMESPACE_SHARED) {
-		/* can't create a new user, but we don't want to fail
-		   the storage creation. */
-	} else if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
-		*error_r = t_strdup_printf(
-			"Root mail directory doesn't exist: %s", root_dir);
-		return -1;
 	}
+
+	autocreate = (flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) == 0;
+	ret = mail_storage_verify_root(root_dir, autocreate, error_r);
+	if (ret != 0)
+		return ret;
 
 	/* we need to create the root directory. */
 	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid, &origin);
