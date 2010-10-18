@@ -494,6 +494,14 @@ acl_mailbox_list_create_dir(struct mailbox_list *list, const char *name,
 	return alist->module_ctx.super.create_mailbox_dir(list, name, type);
 }
 
+static void acl_mailbox_list_deinit(struct mailbox_list *list)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+
+	acl_backend_deinit(&alist->rights.backend);
+	alist->module_ctx.super.deinit(list);
+}
+
 static void acl_mailbox_list_init_shared(struct mailbox_list *list)
 {
 	struct acl_mailbox_list *alist;
@@ -502,6 +510,7 @@ static void acl_mailbox_list_init_shared(struct mailbox_list *list)
 	alist = p_new(list->pool, struct acl_mailbox_list, 1);
 	alist->module_ctx.super = *v;
 	list->vlast = &alist->module_ctx.super;
+	v->deinit = acl_mailbox_list_deinit;
 	v->iter_init = acl_mailbox_list_iter_init_shared;
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
@@ -534,6 +543,7 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	alist = p_new(list->pool, struct acl_mailbox_list, 1);
 	alist->module_ctx.super = *v;
 	list->vlast = &alist->module_ctx.super;
+	v->deinit = acl_mailbox_list_deinit;
 	v->iter_init = acl_mailbox_list_iter_init;
 	v->iter_next = acl_mailbox_list_iter_next;
 	v->iter_deinit = acl_mailbox_list_iter_deinit;
