@@ -82,7 +82,7 @@ void doveadm_mail_deinit(void);
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd);
 void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			      const char *username,
+			      char *argv[], const char *username,
 			      enum mail_storage_service_flags service_flags);
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			     struct mail_storage_service_user *user);

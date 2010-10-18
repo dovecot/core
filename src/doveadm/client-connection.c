@@ -87,8 +87,7 @@ static bool doveadm_mail_cmd_server(const char *cmd_name, const char *username,
 		doveadm_print_sticky("username", username);
 	}
 
-	ctx->v.init(ctx, (const void *)argv);
-	doveadm_mail_single_user(ctx, username, service_flags);
+	doveadm_mail_single_user(ctx, argv, username, service_flags);
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();
 	return !ctx->failed;

@@ -226,7 +226,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 }
 
 void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			      const char *username,
+			      char *argv[], const char *username,
 			      enum mail_storage_service_flags service_flags)
 {
 	struct mail_storage_service_input input;
@@ -241,6 +241,7 @@ void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 service_flags);
+	ctx->v.init(ctx, (const void *)argv);
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
@@ -258,7 +259,7 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 }
 
 static void
-doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
+doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 		       const char *wildcard_user,
 		       enum mail_storage_service_flags service_flags)
 {
@@ -277,6 +278,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
         lib_signals_set_handler(SIGINT, FALSE, sig_die, NULL);
 	lib_signals_set_handler(SIGTERM, FALSE, sig_die, NULL);
 
+	ctx->v.init(ctx, (const void *)argv);
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
@@ -410,13 +412,11 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 	}
 
-	ctx->v.init(ctx, (const void *)argv);
-
 	if (ctx->iterate_single_user) {
-		doveadm_mail_single_user(ctx, username, service_flags);
+		doveadm_mail_single_user(ctx, argv, username, service_flags);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
-		doveadm_mail_all_users(ctx, wildcard_user, service_flags);
+		doveadm_mail_all_users(ctx, argv, wildcard_user, service_flags);
 	}
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();
