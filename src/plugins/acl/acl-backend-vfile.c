@@ -102,6 +102,7 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	}
 	if (_backend->debug) {
 		i_debug("acl vfile: Global ACL directory: %s",
+			backend->global_dir == NULL ? "(none)" :
 			backend->global_dir);
 	}
 
