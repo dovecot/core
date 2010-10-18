@@ -733,8 +733,12 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
 				  &expired, &neg_expired);
-	if (value == NULL || (expired && !use_expired))
+	if (value == NULL || (expired && !use_expired)) {
+		auth_request_log_debug(request, "userdb-cache",
+				       value == NULL ? "miss" : "expired");
 		return FALSE;
+	}
+	auth_request_log_debug(request, "userdb-cache", "hit: %s", value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
