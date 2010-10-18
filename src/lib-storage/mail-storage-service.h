@@ -41,6 +41,9 @@ struct mail_storage_service_input {
 	struct ip_addr local_ip, remote_ip;
 
 	const char *const *userdb_fields;
+
+	/* override MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP for this lookup */
+	unsigned int no_userdb_lookup:1;
 };
 
 extern struct module *mail_storage_service_modules;

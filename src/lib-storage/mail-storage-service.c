@@ -633,7 +633,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	/* settings reader may exec doveconf, which is going to clear
 	   environment, and if we're not doing a userdb lookup we want to
 	   use $HOME */
-	set_input.preserve_home = 
+	set_input.preserve_home =
 		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
 	set_input.use_sysexits =
 		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS) != 0;
@@ -739,6 +739,8 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				struct mail_storage_service_user **user_r,
 				const char **error_r)
 {
+	const bool userdb_lookup = !input->no_userdb_lookup &&
+		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
 	struct mail_storage_service_user *user;
 	const char *username = input->username;
 	const struct setting_parser_info *user_info;
@@ -775,7 +777,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	mail_storage_service_load_modules(ctx, user_info, user_set);
 
 	temp_pool = pool_alloconly_create("userdb lookup", 2048);
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
+	if (userdb_lookup) {
 		ret = service_auth_userdb_lookup(ctx, input, temp_pool,
 						 &username, &userdb_fields,
 						 error_r);
@@ -802,7 +804,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	user->user_set = settings_parser_get_list(user->set_parser)[1];
 
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0) {
+	if (!userdb_lookup) {
 		const char *home = getenv("HOME");
 		if (home != NULL)
 			set_keyval(ctx, user, "mail_home", home);
