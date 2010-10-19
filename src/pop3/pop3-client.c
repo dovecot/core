@@ -662,8 +662,12 @@ static int client_output(struct client *client)
 			client->io = io_add(i_stream_get_fd(client->input),
 					    IO_READ, client_input, client);
 		}
-		if (client->io != NULL && client->waiting_input)
-			client_input(client);
+		if (client->io != NULL && client->waiting_input) {
+			if (!client_handle_input(client)) {
+				/* client got destroyed */
+				return 1;
+			}
+		}
 	}
 
 	o_stream_uncork(client->output);
