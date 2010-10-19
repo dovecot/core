@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "dbox-attachment.h"
 #include "sdbox-storage.h"
 #include "sdbox-file.h"
 #include "sdbox-sync.h"
@@ -27,12 +28,18 @@ static void dbox_sync_file_expunge(struct sdbox_sync_context *ctx,
 {
 	struct sdbox_file *sfile = (struct sdbox_file *)file;
 	struct mailbox *box = &ctx->mbox->box;
+	int ret;
 
 	if (mail_index_transaction_is_expunged(ctx->trans, seq)) {
 		/* already expunged within this transaction */
 		return;
 	}
-	if (dbox_file_unlink(file) < 0) {
+
+	if (file->storage->attachment_dir != NULL)
+		ret = sdbox_file_unlink_with_attachments(sfile);
+	else
+		ret = dbox_file_unlink(file);
+	if (ret < 0) {
 		/* some non-ENOENT error trying to unlink the file */
 		return;
 	}

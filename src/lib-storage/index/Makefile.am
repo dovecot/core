@@ -5,13 +5,16 @@ noinst_LTLIBRARIES = libstorage_index.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage
 
 libstorage_index_la_SOURCES = \
+	istream-attachment.c \
 	istream-mail-stats.c \
+	index-attachment.c \
 	index-fetch.c \
 	index-mail.c \
 	index-mail-headers.c \
@@ -34,7 +37,9 @@ libstorage_index_la_LIBADD = @LINKED_STORAGE_LIBS@
 libstorage_index_la_DEPENDENCIES = @LINKED_STORAGE_LIBS@
 
 headers = \
+	istream-attachment.h \
 	istream-mail-stats.h \
+	index-attachment.h \
 	index-mail.h \
 	index-search-result.h \
 	index-sort.h \

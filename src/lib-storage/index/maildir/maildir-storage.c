@@ -636,6 +636,7 @@ struct mailbox maildir_mailbox = {
 		maildir_save_finish,
 		maildir_save_cancel,
 		maildir_copy,
+		NULL,
 		index_storage_is_inconsistent
 	}
 };

@@ -179,6 +179,7 @@ struct mailbox cydir_mailbox = {
 		cydir_save_finish,
 		cydir_save_cancel,
 		mail_storage_copy,
+		NULL,
 		index_storage_is_inconsistent
 	}
 };

@@ -14,6 +14,7 @@
 #include "mailbox-list-private.h"
 #include "index-storage.h"
 #include "index-mail.h"
+#include "index-attachment.h"
 #include "index-thread-private.h"
 
 #include <stdlib.h>
@@ -597,4 +598,5 @@ void index_save_context_free(struct mail_save_context *ctx)
 	i_free_and_null(ctx->from_envelope);
 	i_free_and_null(ctx->guid);
 	i_free_and_null(ctx->pop3_uidl);
+	index_attachment_save_free(ctx);
 }

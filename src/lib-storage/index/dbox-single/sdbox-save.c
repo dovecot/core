@@ -12,6 +12,7 @@
 #include "write-full.h"
 #include "index-mail.h"
 #include "mail-copy.h"
+#include "dbox-attachment.h"
 #include "dbox-save.h"
 #include "sdbox-storage.h"
 #include "sdbox-file.h"
@@ -110,9 +111,13 @@ int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 static int dbox_save_mail_write_metadata(struct dbox_save_context *ctx,
 					 struct dbox_file *file)
 {
+	struct sdbox_file *sfile = (struct sdbox_file *)file;
+	const ARRAY_TYPE(mail_attachment_extref) *extrefs_arr;
+	const struct mail_attachment_extref *extrefs;
 	struct dbox_message_header dbox_msg_hdr;
 	uoff_t message_size;
 	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	unsigned int i, count;
 
 	i_assert(file->msg_header_size == sizeof(dbox_msg_hdr));
 
@@ -127,6 +132,26 @@ static int dbox_save_mail_write_metadata(struct dbox_save_context *ctx,
 			    file->file_header_size) < 0) {
 		dbox_file_set_syscall_error(file, "pwrite()");
 		return -1;
+	}
+
+	/* remember the attachment paths until commit time */
+	extrefs_arr = index_attachment_save_get_extrefs(&ctx->ctx);
+	if (extrefs_arr != NULL)
+		extrefs = array_get(extrefs_arr, &count);
+	else {
+		extrefs = NULL;
+		count = 0;
+	}
+	if (count > 0) {
+		sfile->attachment_pool =
+			pool_alloconly_create("sdbox attachment paths", 512);
+		p_array_init(&sfile->attachment_paths,
+			     sfile->attachment_pool, count);
+		for (i = 0; i < count; i++) {
+			const char *path = p_strdup(sfile->attachment_pool,
+						    extrefs[i].path);
+			array_append(&sfile->attachment_paths, &path, 1);
+		}
 	}
 	return 0;
 }
@@ -213,18 +238,16 @@ static int dbox_save_assign_uids(struct sdbox_save_context *ctx,
 
 static void dbox_save_unref_files(struct sdbox_save_context *ctx)
 {
-	struct mail_storage *storage = &ctx->mbox->storage->storage.storage;
 	struct dbox_file **files;
 	unsigned int i, count;
 
 	files = array_get_modifiable(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		if (ctx->ctx.failed) {
-			if (unlink(files[i]->cur_path) < 0) {
-				mail_storage_set_critical(storage,
-					"unlink(%s) failed: %m",
-					files[i]->cur_path);
-			}
+			struct sdbox_file *sfile =
+				(struct sdbox_file *)files[i];
+
+			(void)sdbox_file_unlink_aborted_save(sfile);
 		}
 		dbox_file_unref(&files[i]);
 	}

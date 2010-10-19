@@ -28,6 +28,7 @@ struct sdbox_mailbox {
 	   has changed from this value) */
 	uint32_t corrupted_rebuild_count;
 
+	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 	unsigned int creating:1;
 };
 

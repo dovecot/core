@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "fs-api.h"
 #include "mkdir-parents.h"
 #include "unlink-old-files.h"
 #include "mailbox-uidvalidity.h"
@@ -24,6 +25,43 @@ void dbox_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 		set->maildir_name = DBOX_MAILDIR_NAME;
 	if (set->mailbox_dir_name == NULL)
 		set->mailbox_dir_name = DBOX_MAILBOX_DIR_NAME;
+}
+
+int dbox_storage_create(struct mail_storage *_storage,
+			struct mail_namespace *ns,
+			const char **error_r ATTR_UNUSED)
+{
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	const struct mail_storage_settings *set = _storage->set;
+	struct fs_settings fs_set;
+
+	memset(&fs_set, 0, sizeof(fs_set));
+	fs_set.temp_file_prefix = mailbox_list_get_global_temp_prefix(ns->list);
+
+	if (*set->mail_attachment_fs != '\0') T_BEGIN {
+		const char *name, *args, *dir;
+
+		args = strchr(set->mail_attachment_fs, ' ');
+		if (args == NULL) {
+			name = set->mail_attachment_fs;
+			args = "";
+		} else {
+			name = t_strdup_until(set->mail_attachment_fs, args++);
+		}
+		dir = mail_user_home_expand(_storage->user,
+					    set->mail_attachment_dir);
+		storage->attachment_dir = p_strdup(_storage->pool, dir);
+		storage->attachment_fs = fs_init(name, args, &fs_set);
+	} T_END;
+	return 0;
+}
+
+void dbox_storage_destroy(struct mail_storage *_storage)
+{
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+
+	if (storage->attachment_fs != NULL)
+		fs_deinit(&storage->attachment_fs);
 }
 
 uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list)

@@ -6,6 +6,9 @@
 #include "mkdir-parents.h"
 #include "istream.h"
 #include "ostream.h"
+#include "str.h"
+#include "fs-api.h"
+#include "dbox-attachment.h"
 #include "sdbox-storage.h"
 #include "sdbox-file.h"
 
@@ -61,6 +64,84 @@ struct dbox_file *sdbox_file_create(struct sdbox_mailbox *mbox)
 	return file;
 }
 
+void sdbox_file_free(struct dbox_file *file)
+{
+	struct sdbox_file *sfile = (struct sdbox_file *)file;
+
+	if (sfile->attachment_pool != NULL)
+		pool_unref(&sfile->attachment_pool);
+	dbox_file_free(file);
+}
+
+int sdbox_file_get_attachments(struct dbox_file *file, const char **extrefs_r)
+{
+	const char *line;
+	bool deleted;
+	int ret;
+
+	*extrefs_r = NULL;
+
+	/* read the metadata */
+	ret = dbox_file_open(file, &deleted);
+	if (ret > 0) {
+		if (deleted)
+			return 0;
+		if ((ret = dbox_file_seek(file, 0)) > 0)
+			ret = dbox_file_metadata_read(file);
+	}
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		/* corrupted file. we're deleting it anyway. */
+		line = NULL;
+	} else {
+		line = dbox_file_metadata_get(file, DBOX_METADATA_EXT_REF);
+	}
+	if (line == NULL) {
+		/* no attachments */
+		return 0;
+	}
+	*extrefs_r = line;
+	return 1;
+}
+
+const char *
+sdbox_file_attachment_relpath(struct sdbox_file *file, const char *srcpath)
+{
+	const char *p;
+
+	p = strchr(srcpath, '-');
+	if (p == NULL) {
+		mail_storage_set_critical(file->mbox->box.storage,
+			"sdbox attachment path in invalid format: %s", srcpath);
+	} else {
+		p = strchr(p+1, '-');
+	}
+	return t_strdup_printf("%s-%s-%u",
+			p == NULL ? srcpath : t_strdup_until(srcpath, p),
+			mail_guid_128_to_string(file->mbox->mailbox_guid),
+			file->uid);
+}
+
+static int sdbox_file_rename_attachments(struct sdbox_file *file)
+{
+	struct dbox_storage *storage = file->file.storage;
+	const char *const *pathp, *src, *dest;
+	int ret = 0;
+
+	array_foreach(&file->attachment_paths, pathp) T_BEGIN {
+		src = t_strdup_printf("%s/%s", storage->attachment_dir, *pathp);
+		dest = t_strdup_printf("%s/%s", storage->attachment_dir,
+				sdbox_file_attachment_relpath(file, *pathp));
+		if (fs_rename(storage->attachment_fs, src, dest) < 0) {
+			mail_storage_set_critical(&storage->storage, "%s",
+				fs_last_error(storage->attachment_fs));
+			ret = -1;
+		}
+	} T_END;
+	return ret;
+}
+
 int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 {
 	const char *old_path, *new_fname, *new_path;
@@ -80,7 +161,60 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 	}
 	sdbox_file_init_paths(file, new_fname);
 	file->uid = uid;
+
+	if (array_is_created(&file->attachment_paths)) {
+		if (sdbox_file_rename_attachments(file) < 0)
+			return -1;
+	}
 	return 0;
+}
+
+static int sdbox_file_unlink_aborted_save_attachments(struct sdbox_file *file)
+{
+	struct dbox_storage *storage = file->file.storage;
+	struct fs *fs = storage->attachment_fs;
+	const char *const *pathp, *path;
+	int ret = 0;
+
+	array_foreach(&file->attachment_paths, pathp) T_BEGIN {
+		/* we don't know if we aborted before renaming this attachment,
+		   so try deleting both source and dest path. the source paths
+		   point to temporary files (not to source messages'
+		   attachment paths), so it's safe to delete them. */
+		path = t_strdup_printf("%s/%s", storage->attachment_dir,
+				       *pathp);
+		if (fs_unlink(fs, path) < 0 &&
+		    errno != ENOENT) {
+			mail_storage_set_critical(&storage->storage, "%s",
+						  fs_last_error(fs));
+			ret = -1;
+		}
+		path = t_strdup_printf("%s/%s", storage->attachment_dir,
+				sdbox_file_attachment_relpath(file, *pathp));
+		if (fs_unlink(fs, path) < 0 &&
+		    errno != ENOENT) {
+			mail_storage_set_critical(&storage->storage, "%s",
+						  fs_last_error(fs));
+			ret = -1;
+		}
+	} T_END;
+	return ret;
+}
+
+int sdbox_file_unlink_aborted_save(struct sdbox_file *file)
+{
+	int ret = 0;
+
+	if (unlink(file->file.cur_path) < 0) {
+		mail_storage_set_critical(file->mbox->box.storage,
+			"unlink(%s) failed: %m", file->file.cur_path);
+		ret = -1;
+	}
+	if (array_is_created(&file->attachment_paths)) {
+		if (sdbox_file_unlink_aborted_save_attachments(file) < 0)
+			ret = -1;
+	}
+	return ret;
 }
 
 int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
@@ -237,4 +371,53 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 		return -1;
 	}
 	return 0;
+}
+
+static int
+sdbox_unlink_attachments(struct sdbox_file *sfile,
+			 const ARRAY_TYPE(mail_attachment_extref) *extrefs)
+{
+	struct dbox_storage *storage = sfile->file.storage;
+	const struct mail_attachment_extref *extref;
+	const char *path;
+	int ret = 0;
+
+	array_foreach(extrefs, extref) T_BEGIN {
+		path = sdbox_file_attachment_relpath(sfile, extref->path);
+		if (index_attachment_delete(&storage->storage,
+					    storage->attachment_fs, path) < 0)
+			ret = -1;
+	} T_END;
+	return ret;
+}
+
+int sdbox_file_unlink_with_attachments(struct sdbox_file *sfile)
+{
+	ARRAY_TYPE(mail_attachment_extref) extrefs;
+	const char *extrefs_line;
+	pool_t pool;
+	int ret;
+
+	ret = sdbox_file_get_attachments(&sfile->file, &extrefs_line);
+	if (ret < 0)
+		return -1;
+	if (ret == 0) {
+		/* no attachments */
+		return dbox_file_unlink(&sfile->file);
+	}
+
+	pool = pool_alloconly_create("sdbox attachments unlink", 1024);
+	p_array_init(&extrefs, pool, 16);
+	if (!dbox_attachment_parse_extref(extrefs_line, pool, &extrefs)) {
+		i_warning("%s: Ignoring corrupted extref: %s",
+			  sfile->file.cur_path, extrefs_line);
+		array_clear(&extrefs);
+	}
+
+	/* try to delete the file first, so if it fails we don't have
+	   missing attachments */
+	if ((ret = dbox_file_unlink(&sfile->file)) >= 0)
+		(void)sdbox_unlink_attachments(sfile, &extrefs);
+	pool_unref(&pool);
+	return ret;
 }

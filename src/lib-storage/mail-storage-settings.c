@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hash-format.h"
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "mail-index.h"
@@ -23,6 +24,10 @@ static bool mail_user_settings_check(void *_set, pool_t pool, const char **error
 static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_STR_VARS, mail_location),
 	{ SET_ALIAS, "mail", 0, NULL },
+	DEF(SET_STR_VARS, mail_attachment_fs),
+	DEF(SET_STR_VARS, mail_attachment_dir),
+	DEF(SET_STR, mail_attachment_hash),
+	DEF(SET_SIZE, mail_attachment_min_size),
 	DEF(SET_STR, mail_cache_fields),
 	DEF(SET_STR, mail_never_cache_fields),
 	DEF(SET_UINT, mail_cache_min_mail_count),
@@ -47,6 +52,10 @@ static const struct setting_define mail_storage_setting_defines[] = {
 
 const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_location = "",
+	.mail_attachment_fs = "sis posix",
+	.mail_attachment_dir = "",
+	.mail_attachment_hash = "%{sha1}",
+	.mail_attachment_min_size = 1024*128,
 	.mail_cache_fields = "flags",
 	.mail_never_cache_fields = "imap.envelope",
 	.mail_cache_min_mail_count = 0,
@@ -287,7 +296,8 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					const char **error_r)
 {
 	struct mail_storage_settings *set = _set;
-	const char *p;
+	struct hash_format *format;
+	const char *p, *error;
 	bool uidl_format_ok;
 	char c;
 
@@ -347,6 +357,23 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			"%% variables.";
 		return FALSE;
 	}
+
+	if (strchr(set->mail_attachment_hash, '/') != NULL) {
+		*error_r = "mail_attachment_hash setting "
+			"must not contain '/' characters";
+		return FALSE;
+	}
+	if (hash_format_init(set->mail_attachment_hash, &format, &error) < 0) {
+		*error_r = t_strconcat("Invalid mail_attachment_hash setting: ",
+				       error, NULL);
+		return FALSE;
+	}
+	if (strchr(set->mail_attachment_hash, '-') != NULL) {
+		*error_r = "mail_attachment_hash setting "
+			"must not contain '-' characters";
+		return FALSE;
+	}
+	hash_format_deinit_free(&format);
 	return TRUE;
 }
 

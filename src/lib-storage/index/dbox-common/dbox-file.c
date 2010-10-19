@@ -14,6 +14,7 @@
 #include "eacces-error.h"
 #include "str.h"
 #include "dbox-storage.h"
+#include "dbox-attachment.h"
 #include "dbox-file.h"
 
 #include <stdio.h>
@@ -396,6 +397,9 @@ int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
 
 	if ((ret = dbox_file_seek(file, offset)) <= 0)
 		return ret;
+
+	if (file->storage->attachment_dir != NULL)
+		return dbox_attachment_file_get_stream(file, stream_r);
 
 	*stream_r = i_stream_create_limit(file->input, file->cur_physical_size);
 	return 1;

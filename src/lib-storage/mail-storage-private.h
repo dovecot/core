@@ -91,6 +91,11 @@ struct mail_storage {
 	ARRAY_DEFINE(module_contexts, union mail_storage_module_context *);
 };
 
+struct mail_attachment_part {
+	struct message_part *part;
+	const char *content_type, *content_disposition;
+};
+
 struct mailbox_vfuncs {
 	bool (*is_readonly)(struct mailbox *box);
 	bool (*allow_new_keywords)(struct mailbox *box);
@@ -205,6 +210,9 @@ struct mailbox_vfuncs {
 	int (*save_finish)(struct mail_save_context *ctx);
 	void (*save_cancel)(struct mail_save_context *ctx);
 	int (*copy)(struct mail_save_context *ctx, struct mail *mail);
+	/* returns TRUE if message part is an attachment. */
+	bool (*save_is_attachment)(struct mail_save_context *ctx,
+				   const struct mail_attachment_part *part);
 
 	bool (*is_inconsistent)(struct mailbox *box);
 };
@@ -420,6 +428,8 @@ struct mail_save_context {
 	uint32_t uid;
 	char *guid, *pop3_uidl, *from_envelope;
 	struct ostream *output;
+
+	struct mail_save_attachment *attach;
 
 	/* we came here from mailbox_copy() */
 	unsigned int copying:1;

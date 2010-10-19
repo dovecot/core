@@ -60,7 +60,7 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	i_array_init(&storage->open_files, 64);
 
 	storage->map = mdbox_map_init(storage, ns->list);
-	return 0;
+	return dbox_storage_create(_storage, ns, error_r);
 }
 
 static void mdbox_storage_destroy(struct mail_storage *_storage)
@@ -77,6 +77,7 @@ static void mdbox_storage_destroy(struct mail_storage *_storage)
 	if (array_is_created(&storage->move_to_alt_map_uids))
 		array_free(&storage->move_to_alt_map_uids);
 	array_free(&storage->open_files);
+	dbox_storage_destroy(_storage);
 }
 
 struct mailbox *
@@ -271,6 +272,12 @@ void mdbox_storage_set_corrupted(struct mdbox_storage *storage)
 	}
 }
 
+static const char *
+mdbox_get_attachment_path_suffix(struct dbox_file *file ATTR_UNUSED)
+{
+	return "";
+}
+
 static void mdbox_set_mailbox_corrupted(struct mailbox *box)
 {
 	struct mdbox_storage *mstorage = (struct mdbox_storage *)box->storage;
@@ -425,6 +432,7 @@ struct mailbox mdbox_mailbox = {
 		mdbox_save_finish,
 		mdbox_save_cancel,
 		mdbox_copy,
+		NULL,
 		index_storage_is_inconsistent
 	}
 };
@@ -434,6 +442,7 @@ struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs = {
 	mdbox_file_create_fd,
 	mdbox_mail_open,
 	mdbox_mailbox_create_indexes,
+	mdbox_get_attachment_path_suffix,
 	mdbox_set_mailbox_corrupted,
 	mdbox_set_file_corrupted
 };

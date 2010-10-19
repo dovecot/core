@@ -11,6 +11,10 @@ struct mail_storage;
 
 struct mail_storage_settings {
 	const char *mail_location;
+	const char *mail_attachment_fs;
+	const char *mail_attachment_dir;
+	const char *mail_attachment_hash;
+	uoff_t mail_attachment_min_size;
 	const char *mail_cache_fields;
 	const char *mail_never_cache_fields;
 	unsigned int mail_cache_min_mail_count;

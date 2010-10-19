@@ -179,6 +179,7 @@ struct mailbox raw_mailbox = {
 		NULL,
 		NULL,
 		mail_storage_copy,
+		NULL,
 		index_storage_is_inconsistent
 	}
 };

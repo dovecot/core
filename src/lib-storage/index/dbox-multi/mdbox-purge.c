@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "hash.h"
+#include "dbox-attachment.h"
 #include "mdbox-storage.h"
 #include "mdbox-storage-rebuild.h"
 #include "mdbox-file.h"
@@ -63,16 +64,15 @@ static int mdbox_map_file_msg_offset_cmp(const void *p1, const void *p2)
 }
 
 static int
-mdbox_file_copy_metadata(struct dbox_file *file, struct ostream *output)
+mdbox_file_read_metadata_hdr(struct dbox_file *file,
+			     struct dbox_metadata_header *meta_hdr_r)
 {
-	struct dbox_metadata_header meta_hdr;
-	const char *line;
 	const unsigned char *data;
-	size_t size, buf_size;
+	size_t size;
 	int ret;
 
 	ret = i_stream_read_data(file->input, &data, &size,
-				 sizeof(meta_hdr));
+				 sizeof(*meta_hdr_r));
 	if (ret <= 0) {
 		i_assert(ret == -1);
 		if (file->input->stream_errno == 0) {
@@ -84,26 +84,74 @@ mdbox_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 		return -1;
 	}
 
-	memcpy(&meta_hdr, data, sizeof(meta_hdr));
-	if (memcmp(meta_hdr.magic_post, DBOX_MAGIC_POST,
-		   sizeof(meta_hdr.magic_post)) != 0) {
+	memcpy(meta_hdr_r, data, sizeof(*meta_hdr_r));
+	if (memcmp(meta_hdr_r->magic_post, DBOX_MAGIC_POST,
+		   sizeof(meta_hdr_r->magic_post)) != 0) {
 		dbox_file_set_corrupted(file, "invalid metadata magic");
 		return 0;
 	}
-	i_stream_skip(file->input, sizeof(meta_hdr));
-	if (output != NULL)
-		o_stream_send(output, &meta_hdr, sizeof(meta_hdr));
+	i_stream_skip(file->input, sizeof(*meta_hdr_r));
+	return 1;
+}
+
+static int
+mdbox_file_metadata_copy(struct dbox_file *file, struct ostream *output)
+{
+	struct dbox_metadata_header meta_hdr;
+	const char *line;
+	size_t buf_size;
+	int ret;
+
+	if ((ret = mdbox_file_read_metadata_hdr(file, &meta_hdr)) <= 0)
+		return ret;
+
+	o_stream_send(output, &meta_hdr, sizeof(meta_hdr));
+	buf_size = i_stream_get_max_buffer_size(file->input);
+	i_stream_set_max_buffer_size(file->input, 0);
+	while ((line = i_stream_read_next_line(file->input)) != NULL) {
+		if (*line == '\0') {
+			/* end of metadata */
+			break;
+		}
+		o_stream_send_str(output, line);
+		o_stream_send(output, "\n", 1);
+	}
+	i_stream_set_max_buffer_size(file->input, buf_size);
+
+	if (line == NULL) {
+		dbox_file_set_corrupted(file, "missing end-of-metadata line");
+		return 0;
+	}
+	o_stream_send(output, "\n", 1);
+	return 1;
+}
+
+static int
+mdbox_metadata_get_extrefs(struct dbox_file *file, pool_t ext_refs_pool,
+			   ARRAY_TYPE(mail_attachment_extref) *extrefs)
+{
+	struct dbox_metadata_header meta_hdr;
+	const char *line;
+	size_t buf_size;
+	int ret;
+
+	/* skip and ignore the header */
+	if ((ret = mdbox_file_read_metadata_hdr(file, &meta_hdr)) <= 0)
+		return ret;
 
 	buf_size = i_stream_get_max_buffer_size(file->input);
 	i_stream_set_max_buffer_size(file->input, 0);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
-		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
+		if (*line == '\0') {
 			/* end of metadata */
 			break;
 		}
-		if (output != NULL) {
-			o_stream_send_str(output, line);
-			o_stream_send(output, "\n", 1);
+		if (*line == DBOX_METADATA_EXT_REF) {
+			if (dbox_attachment_parse_extref(line+1, ext_refs_pool,
+							 extrefs) < 0) {
+				i_warning("%s: Ignoring corrupted extref: %s",
+					  file->cur_path, line);
+			}
 		}
 	}
 	i_stream_set_max_buffer_size(file->input, buf_size);
@@ -112,8 +160,6 @@ mdbox_file_copy_metadata(struct dbox_file *file, struct ostream *output)
 		dbox_file_set_corrupted(file, "missing end-of-metadata line");
 		return 0;
 	}
-	if (output != NULL)
-		o_stream_send(output, "\n", 1);
 	return 1;
 }
 
@@ -179,7 +225,7 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 	i_assert(ret == (off_t)msg_size);
 
 	/* copy metadata */
-	if ((ret = mdbox_file_copy_metadata(file, output)) <= 0)
+	if ((ret = mdbox_file_metadata_copy(file, output)) <= 0)
 		return ret;
 
 	mdbox_map_append_finish(ctx->append_ctx);
@@ -222,6 +268,23 @@ mdbox_file_purge_check_refcounts(struct mdbox_purge_context *ctx,
 }
 
 static int
+mdbox_purge_attachments(struct mdbox_purge_context *ctx,
+			const ARRAY_TYPE(mail_attachment_extref) *extrefs_arr)
+{
+	struct dbox_storage *storage = &ctx->storage->storage;
+	const struct mail_attachment_extref *extref;
+	int ret = 0;
+
+	array_foreach(extrefs_arr, extref) {
+		if (index_attachment_delete(&storage->storage,
+					    storage->attachment_fs,
+					    extref->path) < 0)
+			ret = -1;
+	}
+	return ret;
+}
+
+static int
 mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 {
 	struct mdbox_storage *dstorage = (struct mdbox_storage *)file->storage;
@@ -230,6 +293,8 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 	const struct mdbox_map_file_msg *msgs;
 	ARRAY_TYPE(seq_range) expunged_map_uids;
 	ARRAY_TYPE(uint32_t) copied_map_uids;
+	ARRAY_TYPE(mail_attachment_extref) ext_refs;
+	pool_t ext_refs_pool;
 	unsigned int i, count;
 	uoff_t offset;
 	int ret;
@@ -265,8 +330,10 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 	/* sort messages by their offset */
 	array_sort(&msgs_arr, mdbox_map_file_msg_offset_cmp);
 
+	ext_refs_pool = pool_alloconly_create("mdbox purge ext refs", 1024);
 	ctx->atomic = mdbox_map_atomic_begin(ctx->storage->map);
 	msgs = array_get(&msgs_arr, &count);
+	i_array_init(&ext_refs, 32);
 	i_array_init(&copied_map_uids, I_MIN(count, 1));
 	i_array_init(&expunged_map_uids, I_MIN(count, 1));
 	offset = file->file_header_size;
@@ -290,7 +357,9 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 				      file->msg_header_size +
 				      file->cur_physical_size);
 			/* skip metadata */
-			if ((ret = mdbox_file_copy_metadata(file, NULL)) <= 0)
+			ret = mdbox_metadata_get_extrefs(file, ext_refs_pool,
+							 &ext_refs);
+			if (ret <= 0)
 				break;
 			seq_range_array_add(&expunged_map_uids, 0,
 					    msgs[i].map_uid);
@@ -352,6 +421,10 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 		dbox_file_unlock(file);
 	array_free(&copied_map_uids);
 	array_free(&expunged_map_uids);
+
+	(void)mdbox_purge_attachments(ctx, &ext_refs);
+	array_free(&ext_refs);
+	pool_unref(&ext_refs_pool);
 	return ret;
 }
 

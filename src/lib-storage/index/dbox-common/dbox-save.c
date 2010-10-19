@@ -7,6 +7,7 @@
 #include "str.h"
 #include "hex-binary.h"
 #include "index-mail.h"
+#include "dbox-attachment.h"
 #include "dbox-file.h"
 #include "dbox-save.h"
 
@@ -31,6 +32,8 @@ void dbox_save_add_to_index(struct dbox_save_context *ctx)
 void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 {
 	struct mail_save_context *_ctx = &ctx->ctx;
+	struct mail_storage *_storage = _ctx->transaction->box->storage;
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct dbox_message_header dbox_msg_hdr;
 	struct istream *crlf_input;
 
@@ -53,7 +56,7 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 	o_stream_cork(ctx->dbox_output);
 	if (o_stream_send(ctx->dbox_output, &dbox_msg_hdr,
 			  sizeof(dbox_msg_hdr)) < 0) {
-		mail_storage_set_critical(_ctx->transaction->box->storage,
+		mail_storage_set_critical(_storage,
 			"o_stream_send(%s) failed: %m", 
 			ctx->cur_file->cur_path);
 		ctx->failed = TRUE;
@@ -62,6 +65,7 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 
 	if (_ctx->received_date == (time_t)-1)
 		_ctx->received_date = ioloop_time;
+	index_attachment_save_begin(_ctx, storage->attachment_fs, ctx->input);
 }
 
 int dbox_save_continue(struct mail_save_context *_ctx)
@@ -71,6 +75,9 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 
 	if (ctx->failed)
 		return -1;
+
+	if (_ctx->attach != NULL)
+		return index_attachment_save_continue(_ctx);
 
 	do {
 		if (o_stream_send_istream(_ctx->output, ctx->input) < 0) {
@@ -95,6 +102,10 @@ void dbox_save_end(struct dbox_save_context *ctx)
 {
 	struct ostream *dbox_output = ctx->dbox_output;
 
+	if (ctx->ctx.attach != NULL) {
+		if (index_attachment_save_finish(&ctx->ctx) < 0)
+			ctx->failed = TRUE;
+	}
 	if (ctx->ctx.output == dbox_output)
 		return;
 
@@ -158,6 +169,8 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 		str_printfa(str, "%c%s\n", DBOX_METADATA_ORIG_MAILBOX,
 			    orig_mailbox_name);
 	}
+
+	dbox_attachment_save_write_metadata(_ctx, str);
 
 	str_append_c(str, '\n');
 	o_stream_send(output, str_data(str), str_len(str));
