@@ -22,6 +22,11 @@ bool ioloop_iolist_add(struct io_list *list, struct io_file *io)
 		i_unreached();
 	}
 
+	if (list->ios[idx] != NULL) {
+		i_panic("io_add(0x%x) called twice fd=%d, callback=%p -> %p",
+			io->io.condition, io->fd, list->ios[idx]->io.callback,
+			io->io.callback);
+	}
 	i_assert(list->ios[idx] == NULL);
 	list->ios[idx] = io;
 
