@@ -265,3 +265,27 @@ void md4_get_digest(const void *data, size_t size,
 	md4_update(&ctx, data, size);
 	md4_final(&ctx, result);
 }
+
+static void hash_method_init_md4(void *context)
+{
+	md4_init(context);
+}
+static void hash_method_loop_md4(void *context, const void *data, size_t size)
+{
+	md4_update(context, data, size);
+}
+
+static void hash_method_result_md4(void *context, unsigned char *result_r)
+{
+	md4_final(context, result_r);
+}
+
+const struct hash_method hash_method_md4 = {
+	"md4",
+	sizeof(struct md4_context),
+	MD4_RESULTLEN,
+
+	hash_method_init_md4,
+	hash_method_loop_md4,
+	hash_method_result_md4
+};

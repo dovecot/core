@@ -36,6 +36,7 @@ liblib_la_SOURCES = \
 	file-lock.c \
 	file-set-size.c \
 	hash.c \
+	hash-method.c \
 	hash2.c \
 	hex-binary.c \
 	hex-dec.c \
@@ -145,6 +146,7 @@ headers = \
 	file-set-size.h \
 	fsync-mode.h \
 	hash.h \
+	hash-method.h \
 	hash2.h \
 	hex-binary.h \
 	hex-dec.h \

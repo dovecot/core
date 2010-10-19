@@ -9,6 +9,8 @@
 #ifndef MD5_H
 #define MD5_H
 
+#include "hash-method.h"
+
 #define	MD5_RESULTLEN (128/8)
 
 struct md5_context {
@@ -24,5 +26,7 @@ void md5_final(struct md5_context *ctx, unsigned char result[MD5_RESULTLEN]);
 
 void md5_get_digest(const void *data, size_t size,
 		    unsigned char result[MD5_RESULTLEN]);
+
+extern const struct hash_method hash_method_md5;
 
 #endif

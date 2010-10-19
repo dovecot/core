@@ -9,6 +9,8 @@
 #ifndef MD4_H
 #define MD4_H
 
+#include "hash-method.h"
+
 #define	MD4_RESULTLEN (128/8)
 
 struct md4_context {
@@ -24,5 +26,7 @@ void md4_final(struct md4_context *ctx, unsigned char result[MD4_RESULTLEN]);
 
 void md4_get_digest(const void *data, size_t size,
 		    unsigned char result[MD4_RESULTLEN]);
+
+extern const struct hash_method hash_method_md4;
 
 #endif

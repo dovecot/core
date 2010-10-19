@@ -423,3 +423,51 @@ void sha512_get_digest(const void *data, size_t size,
 	sha512_loop(&ctx, data, size);
 	sha512_result(&ctx, digest);
 }
+
+static void hash_method_init_sha256(void *context)
+{
+	sha256_init(context);
+}
+static void hash_method_loop_sha256(void *context, const void *data, size_t size)
+{
+	sha256_loop(context, data, size);
+}
+
+static void hash_method_result_sha256(void *context, unsigned char *result_r)
+{
+	sha256_result(context, result_r);
+}
+
+const struct hash_method hash_method_sha256 = {
+	"sha256",
+	sizeof(struct sha256_ctx),
+	SHA256_RESULTLEN,
+
+	hash_method_init_sha256,
+	hash_method_loop_sha256,
+	hash_method_result_sha256
+};
+
+static void hash_method_init_sha512(void *context)
+{
+	sha512_init(context);
+}
+static void hash_method_loop_sha512(void *context, const void *data, size_t size)
+{
+	sha512_loop(context, data, size);
+}
+
+static void hash_method_result_sha512(void *context, unsigned char *result_r)
+{
+	sha512_result(context, result_r);
+}
+
+const struct hash_method hash_method_sha512 = {
+	"sha512",
+	sizeof(struct sha512_ctx),
+	SHA512_RESULTLEN,
+
+	hash_method_init_sha512,
+	hash_method_loop_sha512,
+	hash_method_result_sha512
+};

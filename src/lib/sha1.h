@@ -38,6 +38,8 @@
 #ifndef SHA1_H
 #define SHA1_H
 
+#include "hash-method.h"
+
 /* libmysqlclient really should try to keep its internal stuff internal so
    they won't conflict with the actual programs that are trying to use it.
    This particular instance has been fixed in 4.1.18 and 5.0.19, but there
@@ -76,5 +78,7 @@ typedef struct sha1_ctxt SHA1_CTX;
 
 extern void sha1_get_digest(const void *, size_t,
 	unsigned char [SHA1_RESULTLEN]);
+
+extern const struct hash_method hash_method_sha1;
 
 #endif

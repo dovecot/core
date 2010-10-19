@@ -34,6 +34,8 @@
 #ifndef SHA2_H
 #define SHA2_H
 
+#include "hash-method.h"
+
 #define SHA256_RESULTLEN (256 / 8)
 #define SHA256_BLOCK_SIZE (512 / 8)
 
@@ -69,5 +71,8 @@ void sha512_result(struct sha512_ctx *ctx,
 
 void sha512_get_digest(const void *data, size_t size,
 		       unsigned char digest[SHA512_RESULTLEN]);
+
+extern const struct hash_method hash_method_sha256;
+extern const struct hash_method hash_method_sha512;
 
 #endif /* !SHA2_H */

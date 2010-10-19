@@ -280,3 +280,27 @@ void md5_get_digest(const void *data, size_t size,
 	md5_update(&ctx, data, size);
 	md5_final(&ctx, result);
 }
+
+static void hash_method_init_md5(void *context)
+{
+	md5_init(context);
+}
+static void hash_method_loop_md5(void *context, const void *data, size_t size)
+{
+	md5_update(context, data, size);
+}
+
+static void hash_method_result_md5(void *context, unsigned char *result_r)
+{
+	md5_final(context, result_r);
+}
+
+const struct hash_method hash_method_md5 = {
+	"md5",
+	sizeof(struct md5_context),
+	MD5_RESULTLEN,
+
+	hash_method_init_md5,
+	hash_method_loop_md5,
+	hash_method_result_md5
+};

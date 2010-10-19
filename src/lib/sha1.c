@@ -261,3 +261,27 @@ void sha1_get_digest(const void *data, size_t size,
 	sha1_loop(&ctx, data, size);
 	sha1_result(&ctx, result);
 }
+
+static void hash_method_init_sha1(void *context)
+{
+	sha1_init(context);
+}
+static void hash_method_loop_sha1(void *context, const void *data, size_t size)
+{
+	sha1_loop(context, data, size);
+}
+
+static void hash_method_result_sha1(void *context, unsigned char *result_r)
+{
+	sha1_result(context, result_r);
+}
+
+const struct hash_method hash_method_sha1 = {
+	"sha1",
+	sizeof(struct sha1_ctxt),
+	SHA1_RESULTLEN,
+
+	hash_method_init_sha1,
+	hash_method_loop_sha1,
+	hash_method_result_sha1
+};
