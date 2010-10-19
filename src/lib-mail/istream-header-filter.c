@@ -520,7 +520,7 @@ i_stream_create_header_filter(struct istream *input,
 		i_assert(ret < 0);
 		mstream->headers[j++] = p_strdup(mstream->pool, headers[i]);
 	}
-	mstream->headers_count = headers_count;
+	mstream->headers_count = j;
 	mstream->hdr_buf = buffer_create_dynamic(mstream->pool, 1024);
 
 	mstream->callback = callback;
