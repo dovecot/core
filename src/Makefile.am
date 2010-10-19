@@ -3,6 +3,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-auth \
 	lib-charset \
 	lib-dns \
+	lib-fs \
 	lib-mail \
 	lib-imap \
 	lib-master \
