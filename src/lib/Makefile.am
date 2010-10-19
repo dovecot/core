@@ -47,6 +47,7 @@ liblib_la_SOURCES = \
 	imem.c \
 	iostream.c \
 	istream.c \
+	istream-base64-encoder.c \
 	istream-concat.c \
 	istream-crlf.c \
 	istream-data.c \
@@ -158,6 +159,7 @@ headers = \
 	imem.h \
 	iostream-internal.h \
 	istream.h \
+	istream-base64-encoder.h \
 	istream-concat.h \
 	istream-crlf.h \
 	istream-internal.h \
