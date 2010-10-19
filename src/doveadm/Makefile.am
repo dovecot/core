@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
@@ -92,6 +93,7 @@ doveadm_SOURCES = \
 	doveadm-print-tab.c \
 	doveadm-print-table.c \
 	doveadm-pw.c \
+	doveadm-sis.c \
 	doveadm-who.c \
 	server-connection.c
 
