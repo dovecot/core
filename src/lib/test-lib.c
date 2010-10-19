@@ -11,6 +11,7 @@ int main(void)
 		test_bsearch_insert_pos,
 		test_buffer,
 		test_crc32,
+		test_hash_format,
 		test_hex_binary,
 		test_istream_concat,
 		test_istream_crlf,

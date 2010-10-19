@@ -36,6 +36,7 @@ liblib_la_SOURCES = \
 	file-lock.c \
 	file-set-size.c \
 	hash.c \
+	hash-format.c \
 	hash-method.c \
 	hash2.c \
 	hex-binary.c \
@@ -146,6 +147,7 @@ headers = \
 	file-set-size.h \
 	fsync-mode.h \
 	hash.h \
+	hash-format.h \
 	hash-method.h \
 	hash2.h \
 	hex-binary.h \
@@ -231,6 +233,7 @@ test_lib_SOURCES = \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
 	test-crc32.c \
+	test-hash-format.c \
 	test-hex-binary.c \
 	test-istream-concat.c \
 	test-istream-crlf.c \
