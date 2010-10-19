@@ -499,7 +499,8 @@ i_stream_create_header_filter(struct istream *input,
 			      header_filter_callback *callback, void *context)
 {
 	struct header_filter_istream *mstream;
-	unsigned int i;
+	unsigned int i, j;
+	int ret;
 
 	i_assert((flags & (HEADER_FILTER_INCLUDE|HEADER_FILTER_EXCLUDE)) != 0);
 
@@ -510,10 +511,14 @@ i_stream_create_header_filter(struct istream *input,
 
 	mstream->headers = headers_count == 0 ? NULL :
 		p_new(mstream->pool, const char *, headers_count);
-	for (i = 0; i < headers_count; i++)  {
-		i_assert(i == 0 ||
-			 strcmp(mstream->headers[i-1], headers[i]) < 0);
-		mstream->headers[i] = p_strdup(mstream->pool, headers[i]);
+	for (i = j = 0; i < headers_count; i++)  {
+		ret = j == 0 ? -1 : strcmp(mstream->headers[j-1], headers[i]);
+		if (ret == 0) {
+			/* drop duplicate */
+			continue;
+		} 
+		i_assert(ret < 0);
+		mstream->headers[j++] = p_strdup(mstream->pool, headers[i]);
 	}
 	mstream->headers_count = headers_count;
 	mstream->hdr_buf = buffer_create_dynamic(mstream->pool, 1024);
