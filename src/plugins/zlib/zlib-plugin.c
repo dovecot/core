@@ -129,14 +129,10 @@ static const struct zlib_handler *zlib_get_zlib_handler_ext(const char *name)
 	return NULL;
 }
 
-static int zlib_permail_get_stream(struct mail *_mail,
-				   struct message_size *hdr_size,
-				   struct message_size *body_size,
-				   struct istream **stream_r)
+static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 {
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(_mail->box->storage->user);
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct index_mail *imail = (struct index_mail *)mail;
 	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
 	const struct zlib_handler *handler;
@@ -145,17 +141,10 @@ static int zlib_permail_get_stream(struct mail *_mail,
 	   in the middle of saving, and we didn't do the compression ourself.
 	   in such situation we're probably checking if the user-given input
 	   looks compressed */
-	if (imail->data.stream != NULL ||
-	    (_mail->saving && zuser->save_handler == NULL)) {
-		return zmail->super.get_stream(_mail, hdr_size, body_size,
-					       stream_r);
-	}
+	if (_mail->saving && zuser->save_handler == NULL)
+		return zmail->super.istream_opened(_mail, stream);
 
-	if (zmail->super.get_stream(_mail, NULL, NULL, &input) < 0)
-		return -1;
-	i_assert(input == imail->data.stream);
-
-	handler = zlib_get_zlib_handler(imail->data.stream);
+	handler = zlib_get_zlib_handler(*stream);
 	if (handler != NULL) {
 		if (handler->create_istream == NULL) {
 			mail_storage_set_critical(_mail->box->storage,
@@ -164,11 +153,11 @@ static int zlib_permail_get_stream(struct mail *_mail,
 			return -1;
 		}
 
-		input = imail->data.stream;
-		imail->data.stream = handler->create_istream(input, TRUE);
+		input = *stream;
+		*stream = handler->create_istream(input, TRUE);
 		i_stream_unref(&input);
 	}
-	return index_mail_init_stream(imail, hdr_size, body_size, stream_r);
+	return zmail->super.istream_opened(_mail, stream);
 }
 
 static void zlib_mail_allocated(struct mail *_mail)
@@ -185,7 +174,7 @@ static void zlib_mail_allocated(struct mail *_mail)
 	zmail->super = *v;
 	mail->vlast = &zmail->super;
 
-	v->get_stream = zlib_permail_get_stream;
+	v->istream_opened = zlib_istream_opened;
 	MODULE_CONTEXT_SET_SELF(mail, zlib_mail_module, zmail);
 }
 
