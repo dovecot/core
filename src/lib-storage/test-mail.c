@@ -229,5 +229,6 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_update_modseq,
 	NULL,
 	test_mail_expunge,
-	test_mail_set_cache_corrupted
+	test_mail_set_cache_corrupted,
+	NULL
 };

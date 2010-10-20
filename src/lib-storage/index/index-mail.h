@@ -204,6 +204,7 @@ void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq);
 void index_mail_expunge(struct mail *mail);
 void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field);
+int index_mail_opened(struct mail *mail, struct istream **stream);
 struct index_mail *index_mail_get_index_mail(struct mail *mail);
 
 bool index_mail_get_cached_uoff_t(struct index_mail *mail,

@@ -15,6 +15,6 @@ bool dbox_attachment_parse_extref(const char *line, pool_t pool,
 /* Build a single message body stream out of the current message and all of its
    attachments. */
 int dbox_attachment_file_get_stream(struct dbox_file *file,
-				    struct istream **stream_r);
+				    struct istream **stream);
 
 #endif

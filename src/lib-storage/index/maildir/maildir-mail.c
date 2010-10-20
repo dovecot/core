@@ -549,6 +549,11 @@ static int maildir_mail_get_stream(struct mail *_mail,
 				mail_set_expunged(_mail);
 			return -1;
 		}
+		if (mail->mail.v.istream_opened != NULL) {
+			if (mail->mail.v.istream_opened(_mail,
+							&data->stream) < 0)
+				return -1;
+		}
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
@@ -633,5 +638,6 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_update_modseq,
 	maildir_update_pop3_uidl,
 	index_mail_expunge,
-	maildir_mail_set_cache_corrupted
+	maildir_mail_set_cache_corrupted,
+	index_mail_opened
 };

@@ -1550,3 +1550,9 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 				 "Broken %s for mail UID %u",
 				 field_name, mail->uid);
 }
+
+int index_mail_opened(struct mail *mail ATTR_UNUSED,
+		      struct istream **stream ATTR_UNUSED)
+{
+	return 0;
+}

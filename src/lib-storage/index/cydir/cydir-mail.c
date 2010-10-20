@@ -115,6 +115,10 @@ cydir_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		mail->data.stream = i_stream_create_fd(fd, 0, TRUE);
 		i_stream_set_name(mail->data.stream, path);
 		index_mail_set_read_buffer_size(_mail, mail->data.stream);
+		if (mail->mail.v.istream_opened != NULL) {
+			if (mail->mail.v.istream_opened(_mail, stream_r) < 0)
+				return -1;
+		}
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
@@ -148,5 +152,6 @@ struct mail_vfuncs cydir_mail_vfuncs = {
 	index_mail_update_modseq,
 	NULL,
 	index_mail_expunge,
-	index_mail_set_cache_corrupted
+	index_mail_set_cache_corrupted,
+	index_mail_opened
 };

@@ -156,9 +156,6 @@ void dbox_file_unlock(struct dbox_file *file);
 /* Seek to given offset in file. Returns 1 if ok/expunged, 0 if file/offset is
    corrupted, -1 if I/O error. */
 int dbox_file_seek(struct dbox_file *file, uoff_t offset);
-/* Same as dbox_file_seek(), but return also input stream for message. */
-int dbox_file_get_mail_stream(struct dbox_file *file, uoff_t offset,
-			      struct istream **input_r);
 /* Start seeking at the beginning of the file. */
 void dbox_file_seek_rewind(struct dbox_file *file);
 /* Seek to next message after current one. If there are no more messages,

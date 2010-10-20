@@ -329,6 +329,7 @@ struct mail_vfuncs {
 	void (*expunge)(struct mail *mail);
 	void (*set_cache_corrupted)(struct mail *mail,
 				    enum mail_fetch_field field);
+	int (*istream_opened)(struct mail *mail, struct istream **input);
 };
 
 union mail_module_context {

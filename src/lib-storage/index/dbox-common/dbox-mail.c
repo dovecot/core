@@ -5,6 +5,7 @@
 #include "str.h"
 #include "index-storage.h"
 #include "index-mail.h"
+#include "dbox-attachment.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
 #include "dbox-mail.h"
@@ -211,7 +212,29 @@ int dbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 
 	return index_mail_get_special(_mail, field, value_r);
 }
-							
+
+static int
+get_mail_stream(struct dbox_mail *mail, uoff_t offset,
+		struct istream **stream_r)
+{
+	struct mail_private *pmail = &mail->imail.mail;
+	struct dbox_file *file = mail->open_file;
+	int ret;
+
+	if ((ret = dbox_file_seek(file, offset)) <= 0)
+		return ret;
+
+	*stream_r = i_stream_create_limit(file->input, file->cur_physical_size);
+	if (pmail->v.istream_opened != NULL) {
+		if (pmail->v.istream_opened(&pmail->mail, stream_r) < 0)
+			return -1;
+	}
+	if (file->storage->attachment_dir == NULL)
+		return 1;
+	else
+		return dbox_attachment_file_get_stream(file, stream_r);
+}
+
 int dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			 struct message_size *body_size,
 			 struct istream **stream_r)
@@ -228,8 +251,7 @@ int dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		if (storage->v.mail_open(mail, &offset, &mail->open_file) < 0)
 			return -1;
 
-		ret = dbox_file_get_mail_stream(mail->open_file, offset,
-						&input);
+		ret = get_mail_stream(mail, offset, &input);
 		if (ret <= 0) {
 			if (ret < 0)
 				return -1;

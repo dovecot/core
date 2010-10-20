@@ -139,14 +139,14 @@ bool dbox_attachment_parse_extref(const char *line, pool_t pool,
 static int
 dbox_attachment_file_get_stream_from(struct dbox_file *file,
 				     const char *ext_refs,
-				     struct istream **stream_r)
+				     struct istream **stream)
 {
 	ARRAY_TYPE(mail_attachment_extref) extrefs_arr;
 	ARRAY_DEFINE(streams, struct istream *);
 	const struct mail_attachment_extref *extref;
 	struct istream **inputs, *input, *input2;
 	const char *path, *path_suffix;
-	uoff_t root_offset, last_voffset = 0;
+	uoff_t last_voffset = 0;
 	unsigned int i;
 
 	t_array_init(&extrefs_arr, 16);
@@ -154,7 +154,6 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 					       &extrefs_arr))
 		return 0;
 
-	root_offset = file->input->v_offset;
 	t_array_init(&streams, 8);
 	array_foreach(&extrefs_arr, extref) {
 		path_suffix = file->storage->v.get_attachment_path_suffix(file);
@@ -164,10 +163,9 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 		if (extref->start_offset != last_voffset) {
 			uoff_t part_size = extref->start_offset - last_voffset;
 
-			input = i_stream_create_limit(file->input, part_size);
+			input = i_stream_create_limit(*stream, part_size);
 			array_append(&streams, &input, 1);
-			i_stream_seek(file->input,
-				      file->input->v_offset + part_size);
+			i_stream_seek(*stream, (*stream)->v_offset + part_size);
 			last_voffset += part_size;
 		}
 
@@ -187,24 +185,25 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 		array_append(&streams, &input, 1);
 	}
 
-	if (file->cur_physical_size != file->input->v_offset-root_offset) {
+	if (file->cur_physical_size != (*stream)->v_offset) {
 		uoff_t trailer_size = file->cur_physical_size -
-			(file->input->v_offset - root_offset);
+			(*stream)->v_offset;
 
-		input = i_stream_create_limit(file->input, trailer_size);
+		input = i_stream_create_limit(*stream, trailer_size);
 		array_append(&streams, &input, 1);
 		(void)array_append_space(&streams);
 	}
 
 	inputs = array_idx_modifiable(&streams, 0);
-	*stream_r = i_stream_create_concat(inputs);
+	i_stream_unref(stream);
+	*stream = i_stream_create_concat(inputs);
 	for (i = 0; inputs[i] != NULL; i++)
 		i_stream_unref(&inputs[i]);
 	return 1;
 }
 
 int dbox_attachment_file_get_stream(struct dbox_file *file,
-				    struct istream **stream_r)
+				    struct istream **stream)
 {
 	const char *ext_refs;
 	int ret;
@@ -216,16 +215,13 @@ int dbox_attachment_file_get_stream(struct dbox_file *file,
 	i_stream_seek(file->input, file->cur_offset + file->msg_header_size);
 
 	ext_refs = dbox_file_metadata_get(file, DBOX_METADATA_EXT_REF);
-	if (ext_refs == NULL) {
-		*stream_r = i_stream_create_limit(file->input,
-						  file->cur_physical_size);
+	if (ext_refs == NULL)
 		return 1;
-	}
 
 	/* we have external references. */
 	T_BEGIN {
 		ret = dbox_attachment_file_get_stream_from(file, ext_refs,
-							   stream_r);
+							   stream);
 	} T_END;
 	if (ret == 0) {
 		dbox_file_set_corrupted(file, "Ext refs metadata corrupted: %s",
