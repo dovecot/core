@@ -600,3 +600,58 @@ void index_save_context_free(struct mail_save_context *ctx)
 	i_free_and_null(ctx->pop3_uidl);
 	index_attachment_save_free(ctx);
 }
+
+static void
+mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
+		      uint32_t dest_seq, const char *name, buffer_t *buf)
+{
+	struct mailbox_transaction_context *dest_trans = ctx->transaction;
+	struct index_transaction_context *dest_itrans =
+		(struct index_transaction_context *)dest_trans;
+	struct index_transaction_context *src_itrans =
+		(struct index_transaction_context *)src_mail->transaction;
+	const struct mail_cache_field *dest_field;
+	unsigned int src_field_idx, dest_field_idx;
+
+	src_field_idx = mail_cache_register_lookup(src_mail->box->cache, name);
+	i_assert(src_field_idx != -1U);
+
+	dest_field_idx = mail_cache_register_lookup(dest_trans->box->cache, name);
+	if (dest_field_idx == -1U) {
+		/* unknown field */
+		return;
+	}
+	dest_field = mail_cache_register_get_field(dest_trans->box->cache,
+						   dest_field_idx);
+	if ((dest_field->decision &
+	     ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO) {
+		/* field not wanted in destination mailbox */
+		return;
+	}
+
+	buffer_set_used_size(buf, 0);
+	if (mail_cache_lookup_field(src_itrans->cache_view, buf,
+				    src_mail->seq, src_field_idx) > 0) {
+		mail_cache_add(dest_itrans->cache_trans, dest_seq,
+			       dest_field_idx, buf->data, buf->used);
+	}
+}
+
+void index_copy_cache_fields(struct mail_save_context *ctx,
+			     struct mail *src_mail, uint32_t dest_seq)
+{
+	T_BEGIN {
+		struct mailbox_status src_status;
+		const char *const *namep;
+		buffer_t *buf;
+
+		index_storage_get_status(src_mail->box, STATUS_CACHE_FIELDS,
+					 &src_status);
+
+		buf = buffer_create_dynamic(pool_datastack_create(), 1024);
+		array_foreach(src_status.cache_fields, namep) {
+			mail_copy_cache_field(ctx, src_mail, dest_seq,
+					      *namep, buf);
+		}
+	} T_END;
+}

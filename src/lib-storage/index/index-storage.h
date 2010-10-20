@@ -166,6 +166,8 @@ int index_transaction_commit(struct mailbox_transaction_context *t,
 			     struct mail_transaction_commit_changes *changes_r);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
 void index_save_context_free(struct mail_save_context *ctx);
+void index_copy_cache_fields(struct mail_save_context *ctx,
+			     struct mail *src_mail, uint32_t dest_seq);
 
 bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
 			     const ARRAY_TYPE(keyword_indexes) *k2);

@@ -127,6 +127,8 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 	}
 
 	dbox_save_add_to_index(ctx);
+	index_copy_cache_fields(_ctx, mail, ctx->seq);
+
 	sdbox_save_add_file(_ctx, dest_file);
 	if (_ctx->dest_mail != NULL) {
 		mail_set_seq(_ctx->dest_mail, ctx->seq);

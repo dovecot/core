@@ -434,6 +434,7 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 		mail_index_update_ext(ctx->ctx.trans, ctx->ctx.seq,
 				      ctx->mbox->guid_ext_id, data, NULL);
 	}
+	index_copy_cache_fields(_ctx, mail, ctx->ctx.seq);
 
 	save_mail = array_append_space(&ctx->mails);
 	save_mail->seq = ctx->ctx.seq;

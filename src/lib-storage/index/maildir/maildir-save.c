@@ -140,7 +140,8 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 }
 
 struct maildir_filename *
-maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname)
+maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
+		 struct mail *src_mail)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct maildir_filename *mf;
@@ -212,8 +213,9 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname)
 	_ctx->dest_mail->saving = TRUE;
 
 	if (ctx->input == NULL) {
-		/* FIXME: copying with hardlinking. we could copy the
-		   cached data directly */
+		/* copying with hardlinking. */
+		i_assert(src_mail != NULL);
+		index_copy_cache_fields(_ctx, src_mail, ctx->seq);
 		ctx->cur_dest_mail = NULL;
 	} else {
 		input = index_mail_cache_parse_init(_ctx->dest_mail,
@@ -404,7 +406,7 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 				ctx->input = i_stream_create_crlf(input);
 			else
 				ctx->input = i_stream_create_lf(input);
-			mf = maildir_save_add(_ctx, fname);
+			mf = maildir_save_add(_ctx, fname, NULL);
 			if (_ctx->guid != NULL) {
 				maildir_save_set_dest_basename(_ctx, mf,
 							       _ctx->guid);

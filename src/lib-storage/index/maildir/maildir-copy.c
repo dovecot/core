@@ -104,7 +104,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	}
 
 	/* hardlinked to tmp/, treat as normal copied mail */
-	mf = maildir_save_add(ctx, dest_fname);
+	mf = maildir_save_add(ctx, dest_fname, mail);
 	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) == 0) {
 		if (*guid != '\0')
 			maildir_save_set_dest_basename(ctx, mf, guid);

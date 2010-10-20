@@ -120,7 +120,8 @@ int maildir_save_finish(struct mail_save_context *ctx);
 void maildir_save_cancel(struct mail_save_context *ctx);
 
 struct maildir_filename *
-maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname);
+maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
+		 struct mail *src_mail);
 void maildir_save_set_dest_basename(struct mail_save_context *ctx,
 				    struct maildir_filename *mf,
 				    const char *basename);
