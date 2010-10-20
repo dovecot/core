@@ -70,9 +70,12 @@ static void i_stream_concat_read_next(struct concat_istream *cstream)
 	/* we already verified that the data size is less than the
 	   maximum buffer size */
 	cstream->istream.pos = 0;
-	if (!i_stream_get_buffer_space(&cstream->istream, data_size, &size))
-		i_unreached();
-	i_assert(size >= data_size);
+	if (data_size > 0) {
+		if (!i_stream_get_buffer_space(&cstream->istream,
+					       data_size, &size))
+			i_unreached();
+		i_assert(size >= data_size);
+	}
 
 	cstream->prev_stream_left = data_size;
 	memcpy(cstream->istream.w_buffer, data, data_size);
