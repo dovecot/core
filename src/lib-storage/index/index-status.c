@@ -19,10 +19,8 @@ index_storage_get_status_cache_fields(struct mailbox *box,
 	fields = mail_cache_register_get_list(box->cache,
 					      pool_datastack_create(), &count);
 
-	/* a bit leaky to allocate memory from mailbox pool every time, but this
-	   is unlikely to be called more than once for the mailbox anyway. */
-	cache_fields = p_new(box->pool, ARRAY_TYPE(const_string), 1);
-	p_array_init(cache_fields, box->pool, count);
+	cache_fields = t_new(ARRAY_TYPE(const_string), 1);
+	t_array_init(cache_fields, count);
 	for (i = 0; i < count; i++) {
 		dec = fields[i].decision & ~MAIL_CACHE_DECISION_FORCED;
 		if (dec != MAIL_CACHE_DECISION_NO)
