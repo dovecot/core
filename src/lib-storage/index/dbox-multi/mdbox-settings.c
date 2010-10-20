@@ -12,6 +12,7 @@
 	{ type, #name, offsetof(struct mdbox_settings, name), NULL }
 
 static const struct setting_define mdbox_setting_defines[] = {
+	DEF(SET_BOOL, mdbox_preallocate_space),
 	DEF(SET_SIZE, mdbox_rotate_size),
 	DEF(SET_TIME, mdbox_rotate_interval),
 
@@ -19,6 +20,7 @@ static const struct setting_define mdbox_setting_defines[] = {
 };
 
 static const struct mdbox_settings mdbox_default_settings = {
+	.mdbox_preallocate_space = FALSE,
 	.mdbox_rotate_size = 2*1024*1024,
 	.mdbox_rotate_interval = 0
 };

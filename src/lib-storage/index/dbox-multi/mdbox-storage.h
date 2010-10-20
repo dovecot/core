@@ -39,6 +39,7 @@ struct mdbox_storage {
 
 	unsigned int corrupted:1;
 	unsigned int rebuilding_storage:1;
+	unsigned int preallocate_space:1;
 };
 
 struct mdbox_mail_index_record {

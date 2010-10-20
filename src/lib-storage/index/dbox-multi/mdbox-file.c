@@ -9,6 +9,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "file-lock.h"
+#include "file-set-size.h"
 #include "mkdir-parents.h"
 #include "fdatasync-path.h"
 #include "eacces-error.h"
@@ -97,14 +98,38 @@ static void mdbox_file_init_paths(struct mdbox_file *file, const char *fname)
 	file->file.cur_path = file->file.primary_path;
 }
 
-static int mdbox_file_create(struct dbox_file *file)
+static int mdbox_file_create(struct mdbox_file *file)
 {
+	struct dbox_file *_file = &file->file;
 	bool create_parents;
+	int ret;
 
-	create_parents = dbox_file_is_in_alt(file);
-	file->fd = file->storage->v.
-		file_create_fd(file, file->cur_path, create_parents);
-	return file->fd == -1 ? -1 : 0;
+	create_parents = dbox_file_is_in_alt(_file);
+	_file->fd = _file->storage->v.
+		file_create_fd(_file, _file->cur_path, create_parents);
+	if (_file->fd == -1)
+		return -1;
+
+	if (file->storage->preallocate_space) {
+		ret = file_preallocate(_file->fd,
+				       file->storage->set->mdbox_rotate_size);
+		if (ret < 0) {
+			switch (errno) {
+			case ENOSPC:
+			case EDQUOT:
+				/* ignore */
+				break;
+			default:
+				i_error("file_preallocate(%s) failed: %m",
+					_file->cur_path);
+				break;
+			}
+		} else if (ret == 0) {
+			/* not supported by filesystem, disable. */
+			file->storage->preallocate_space = FALSE;
+		}
+	}
+	return 0;
 }
 
 static struct dbox_file *
@@ -142,7 +167,7 @@ mdbox_file_init_full(struct mdbox_storage *storage,
 	if (file_id != 0)
 		array_append(&storage->open_files, &file, 1);
 	else
-		(void)mdbox_file_create(&file->file);
+		(void)mdbox_file_create(file);
 	return &file->file;
 }
 

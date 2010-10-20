@@ -42,6 +42,7 @@ mdbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	const char *dir;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
+	storage->preallocate_space = storage->set->mdbox_preallocate_space;
 
 	if (*ns->list->set.mailbox_dir_name == '\0') {
 		*error_r = "mdbox: MAILBOXDIR must not be empty";
