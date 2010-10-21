@@ -88,6 +88,24 @@ int file_preallocate(int fd ATTR_UNUSED, off_t size ATTR_UNUSED)
 	if (fallocate(fd, FALLOC_FL_KEEP_SIZE, 0, size) < 0)
 		return errno == ENOSYS ? 0 : -1;
 	return 1;
+#elif defined (F_PREALLOCATE)
+	/* OSX */
+	fstore_t fs;
+
+	memset(&fs, 0, sizeof(fs));
+	fs.fst_flags = F_ALLOCATECONTIG;
+	fs.fst_posmode = F_PEOFPOSMODE;
+	fs.fst_offset = 0;
+	fs.fst_length = size;
+	fs.fst_bytesalloc = 0;
+	if (fcntl(fd, F_PREALLOCATE, &fs) < 0) {
+		if (errno == ENOSPC) {
+			/* can't allocate contiguous block. just forget it. */
+			return 0;
+		}
+		return -1;
+	}
+	return 0;
 #else
 	return 0;
 #endif
