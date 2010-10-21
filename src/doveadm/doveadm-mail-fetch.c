@@ -290,6 +290,15 @@ static int fetch_imap_bodystructure(struct fetch_cmd_context *ctx)
 	doveadm_print(value);
 	return 0;
 }
+static int fetch_pop3_uidl(struct fetch_cmd_context *ctx)
+{
+	const char *value;
+
+	if (mail_get_special(ctx->mail, MAIL_FETCH_UIDL_BACKEND, &value) < 0)
+		return -1;
+	doveadm_print(value);
+	return 0;
+}
 
 static const struct fetch_field fetch_fields[] = {
 	{ "user",          0,                        fetch_user },
@@ -310,7 +319,8 @@ static const struct fetch_field fetch_fields[] = {
 	{ "date.saved",    MAIL_FETCH_SAVE_DATE,     fetch_date_saved },
 	{ "imap.envelope", MAIL_FETCH_IMAP_ENVELOPE, fetch_imap_envelope },
 	{ "imap.body",     MAIL_FETCH_IMAP_BODY,     fetch_imap_body },
-	{ "imap.bodystructure", MAIL_FETCH_IMAP_BODYSTRUCTURE, fetch_imap_bodystructure }
+	{ "imap.bodystructure", MAIL_FETCH_IMAP_BODYSTRUCTURE, fetch_imap_bodystructure },
+	{ "pop3.uidl",     MAIL_FETCH_UIDL_BACKEND,  fetch_pop3_uidl }
 };
 
 static const struct fetch_field *fetch_field_find(const char *name)
