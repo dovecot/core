@@ -229,7 +229,7 @@ AC_ARG_WITH(gc,
 
 AC_ARG_WITH(storages,
 [  --with-storages         Build with specified mail storage formats
-                          (maildir mbox dbox mdbox cydir)], [
+                          (maildir mbox sdbox mdbox cydir)], [
 	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
