@@ -18,7 +18,7 @@ dbox_sync_file_move_if_needed(struct dbox_file *file,
 	if (move_to_alt != dbox_file_is_in_alt(file)) {
 		/* move the file. if it fails, nothing broke so
 		   don't worry about it. */
-		if (sdbox_file_open(file, &deleted) > 0 && !deleted)
+		if (dbox_file_open(file, &deleted) > 0 && !deleted)
 			(void)sdbox_file_move(file, move_to_alt);
 	}
 }

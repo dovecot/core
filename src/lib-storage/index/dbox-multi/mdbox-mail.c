@@ -129,7 +129,7 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 
 		if (!dbox_file_is_open(mail->open_file))
 			mail->imail.mail.stats_open_lookup_count++;
-		if (mdbox_file_open(mail->open_file, &deleted) <= 0)
+		if (dbox_file_open(mail->open_file, &deleted) <= 0)
 			return -1;
 		if (deleted) {
 			/* either it's expunged now or moved to another file. */

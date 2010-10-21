@@ -19,8 +19,6 @@ struct dbox_file *sdbox_file_init(struct sdbox_mailbox *mbox, uint32_t uid);
 struct dbox_file *sdbox_file_create(struct sdbox_mailbox *mbox);
 void sdbox_file_free(struct dbox_file *file);
 
-int sdbox_file_open(struct dbox_file *file, bool *deleted_r);
-
 /* Get file's extrefs metadata. */
 int sdbox_file_get_attachments(struct dbox_file *file, const char **extrefs_r);
 /* Returns attachment path for this file, given the source path. The result is

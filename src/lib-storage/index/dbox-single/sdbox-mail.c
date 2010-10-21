@@ -43,7 +43,7 @@ static bool sdbox_mail_file_set(struct dbox_mail *mail)
 		mail->open_file->refcount++;
 
 		/* it doesn't have input stream yet */
-		ret = sdbox_file_open(mail->open_file, &deleted);
+		ret = dbox_file_open(mail->open_file, &deleted);
 		i_assert(ret > 0);
 		return TRUE;
 	}
@@ -63,7 +63,7 @@ int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 	if (!sdbox_mail_file_set(mail)) {
 		if (!dbox_file_is_open(mail->open_file))
 			mail->imail.mail.stats_open_lookup_count++;
-		if (sdbox_file_open(mail->open_file, &deleted) <= 0)
+		if (dbox_file_open(mail->open_file, &deleted) <= 0)
 			return -1;
 		if (deleted) {
 			sdbox_mail_set_expunged(mail);
