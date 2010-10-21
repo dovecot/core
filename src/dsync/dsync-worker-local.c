@@ -1806,6 +1806,7 @@ local_worker_msg_get_next(struct local_dsync_worker *worker,
 			      DSYNC_MSG_GET_RESULT_FAILED, NULL, get->context);
 	} else {
 		worker->reading_mail = TRUE;
+		data.pop3_uidl = t_strdup(data.pop3_uidl);
 		data.input = i_stream_create_limit(data.input, (uoff_t)-1);
 		i_stream_set_destroy_callback(data.input,
 					      local_worker_msg_get_done,
