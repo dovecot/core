@@ -20,6 +20,7 @@ struct passwd_userdb_module {
 struct passwd_userdb_iterate_context {
 	struct userdb_iterate_context ctx;
 	struct passwd_userdb_iterate_context *next_waiting;
+	const struct auth_settings *set;
 };
 
 static struct passwd_userdb_iterate_context *cur_userdb_iter = NULL;
@@ -78,6 +79,7 @@ passwd_iterate_init(struct userdb_module *userdb,
 	ctx->ctx.userdb = userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
+	ctx->set = auth_find_service("")->set;
 	setpwent();
 
 	if (cur_userdb_iter == NULL)
@@ -100,16 +102,21 @@ static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 	}
 
 	errno = 0;
-	pw = getpwent();
-	if (pw == NULL) {
-		if (errno != 0) {
-			i_error("getpwent() failed: %m");
-			_ctx->failed = TRUE;
+	while ((pw = getpwent()) != NULL) {
+		/* skip entries not in valid UID range.
+		   they're users for daemons and such. */
+		if (pw->pw_uid >= ctx->set->first_valid_uid &&
+		    (ctx->set->last_valid_uid == 0 ||
+		     pw->pw_uid <= ctx->set->last_valid_uid)) {
+			_ctx->callback(pw->pw_name, _ctx->context);
+			return;
 		}
-		_ctx->callback(NULL, _ctx->context);
-	} else {
-		_ctx->callback(pw->pw_name, _ctx->context);
 	}
+	if (errno != 0) {
+		i_error("getpwent() failed: %m");
+		_ctx->failed = TRUE;
+	}
+	_ctx->callback(NULL, _ctx->context);
 }
 
 static void passwd_iterate_next_timeout(void *context ATTR_UNUSED)

@@ -191,6 +191,8 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_STR, gssapi_hostname),
 	DEF(SET_STR, winbind_helper_path),
 	DEF(SET_TIME, failure_delay),
+	DEF(SET_UINT, first_valid_uid),
+	DEF(SET_UINT, last_valid_uid),
 
 	DEF(SET_BOOL, verbose),
 	DEF(SET_BOOL, debug),
@@ -226,6 +228,8 @@ static const struct auth_settings auth_default_settings = {
 	.gssapi_hostname = "",
 	.winbind_helper_path = "/usr/bin/ntlm_auth",
 	.failure_delay = 2,
+	.first_valid_uid = 500,
+	.last_valid_uid = 0,
 
 	.verbose = FALSE,
 	.debug = FALSE,

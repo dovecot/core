@@ -33,6 +33,8 @@ struct auth_settings {
 	const char *gssapi_hostname;
 	const char *winbind_helper_path;
 	unsigned int failure_delay;
+	unsigned int first_valid_uid;
+	unsigned int last_valid_uid;
 
 	bool verbose, debug, debug_passwords;
 	const char *verbose_passwords;
