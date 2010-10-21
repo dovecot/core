@@ -344,7 +344,7 @@ static int fs_posix_write_stream_finish(struct fs_file *_file, bool success)
 	case FS_OPEN_MODE_RDONLY:
 		i_unreached();
 	}
-	return 0;
+	return ret;
 }
 
 static int
