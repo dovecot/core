@@ -1,5 +1,9 @@
+ - mdbox: storage rebuilding could log about changes it does
+ - cache: mail_cache_lookup() should be able to return mail_cache_add()ed
+   fields even before they've been flushed to disk. this is useful when copying
+   messages and some plugin (e.g. mail_log) fetches some fields that are
+   already added to cache (to avoid opening and parsing the message)
  - doveadm -A <<EOF expunge + purge + EOF
- - dsync: give error if source and dest are the same
  - sent, drafts: .Sent/dovecot.index: modseq_hdr.log_offset too large
  - mail_max_lock_timeout error could be reported more nicely, also ones coming
    from lib-index
@@ -156,7 +160,6 @@
    - physical separator could be configurable
    - lda+maildir: if new mails are in new/ or cur/ they're not added to
      dovecot-uidlist but newly saved mails are, so UIDs will be in wrong order
-   - maildir_copy_with_hardlinks: copy already-cached data
 
  - file_cache: we're growing the mmap in page size blocks, which is horribly
    slow if mremap() doesn't exist.
@@ -167,7 +170,6 @@
     - remove unused keywords?
 
  - mail caching
-    - compress when we can drop temporary fields.
     - force bits should be used only for nonregistered fields
     - change envelope parsing not to use get_headers() so imap.envelope can
       actually be cached without all the headers..

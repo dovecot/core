@@ -1,3 +1,24 @@
+v2.0.6 2010-10-21  Timo Sirainen <tss@iki.fi>
+
+	* Pre-login CAPABILITY includes IDLE again. Mainly to make Blackberry
+	  servers happy.
+	* auth: auth_cache_negative_ttl default was 0 in earlier v2.0.x, but it
+	  was supposed to be 1 hour as in v1.x. Changed it back to 1h.
+	  If you want it disabled, make sure doveconf shows it as 0.
+
+	+ dbox: Added support for saving mail attachments to external files,
+	  with also support for single instance storage. This feature hasn't
+	  had much testing yet, so be careful with it.
+	+ doveadm: Added import command for importing mails from other storages.
+	+ Reduced NFS I/O operations for index file accesses
+	+ dbox, Maildir: When copying messages, copy also already cached fields
+	  from dovecot.index.cache
+	+ mdbox: Added mdbox_preallocate_space setting (Linux+ext3/XFS only)
+	- Maildir: LDA/LMTP assert-crashed sometimes when saving a mail.
+	- Fixed leaking fds when writing to dovecot.mailbox.log.
+	- Fixed rare dovecot.index.cache corruption
+	- IMAP: SEARCH YOUNGER/OLDER wasn't working correctly
+
 v2.0.5 2010-10-01  Timo Sirainen <tss@iki.fi>
 
 	* acl: Fixed the logic of merging multiple ACL entries. Now it works as
