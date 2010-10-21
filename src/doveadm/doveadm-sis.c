@@ -34,6 +34,8 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
 	struct stat st1, st2;
 	int fd1, fd2, ret = -1;
 
+	*path2_inode_r = 0;
+
 	/* do a byte-by-byte comparison for the files to find out if they're
 	   the same or if this is a hash collision */
 	fd1 = open(path1, O_RDONLY);
@@ -79,6 +81,7 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
 			i_error("read(%s) failed: %m", path1);
 		else if (ret1 == 0)
 			ret = 1;
+		*path2_inode_r = st2.st_ino;
 	}
 
 	if (close(fd1) < 0)
@@ -86,7 +89,6 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
 	if (close(fd2) < 0)
 		i_error("close(%s) failed: %m", path2);
 
-	*path2_inode_r = st2.st_ino;
 	return ret;
 }
 
