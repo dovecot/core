@@ -206,6 +206,8 @@ int main(int argc, char *argv[])
 	}
 	if (optind == argc)
 		usage();
+	if (username == NULL)
+		i_fatal("USER environment not set and -u parameter not given");
 	cmd_name = argv[optind++];
 
 	if (strcmp(cmd_name, "mirror") == 0 ||
