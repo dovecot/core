@@ -13,7 +13,7 @@ v2.0.6 2010-10-21  Timo Sirainen <tss@iki.fi>
 	+ Reduced NFS I/O operations for index file accesses
 	+ dbox, Maildir: When copying messages, copy also already cached fields
 	  from dovecot.index.cache
-	+ mdbox: Added mdbox_preallocate_space setting (Linux+ext3/XFS only)
+	+ mdbox: Added mdbox_preallocate_space setting (Linux+ext4/XFS only)
 	- Maildir: LDA/LMTP assert-crashed sometimes when saving a mail.
 	- Fixed leaking fds when writing to dovecot.mailbox.log.
 	- Fixed rare dovecot.index.cache corruption
