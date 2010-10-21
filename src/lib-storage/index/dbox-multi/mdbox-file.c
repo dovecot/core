@@ -183,6 +183,32 @@ mdbox_file_init_new_alt(struct mdbox_storage *storage)
 	return mdbox_file_init_full(storage, 0, TRUE);
 }
 
+int mdbox_file_open(struct dbox_file *file, bool *deleted_r)
+{
+	struct mdbox_file *mfile = (struct mdbox_file *)file;
+	struct stat st;
+	int ret;
+
+	if ((ret = dbox_file_open(file, deleted_r)) <= 0 || !*deleted_r)
+		return ret;
+
+	/* file appears to be deleted. check if the alt path root even exists
+	   to avoid reindexing errors if alt path isn't mounted currently */
+	if (stat(mfile->storage->alt_storage_dir, &st) == 0)
+		return 1;
+	else if (errno == ENOENT) {
+		mail_storage_set_critical(&file->storage->storage,
+			"mdbox: User's alt path lost: %s",
+			mfile->storage->alt_storage_dir);
+		return -1;
+	} else {
+		mail_storage_set_critical(&file->storage->storage,
+			"stat(%s) failed: %m", mfile->storage->alt_storage_dir);
+		return -1;
+	}
+}
+
+
 int mdbox_file_assign_file_id(struct mdbox_file *file, uint32_t file_id)
 {
 	const char *old_path;

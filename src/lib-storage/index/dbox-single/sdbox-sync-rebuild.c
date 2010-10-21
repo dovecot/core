@@ -32,7 +32,7 @@ static int sdbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
 	bool deleted;
 	int ret;
 
-	if ((ret = dbox_file_open(file, &deleted)) > 0) {
+	if ((ret = sdbox_file_open(file, &deleted)) > 0) {
 		if (deleted)
 			return 0;
 		ret = dbox_file_seek(file, 0);

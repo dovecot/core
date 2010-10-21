@@ -73,6 +73,33 @@ void sdbox_file_free(struct dbox_file *file)
 	dbox_file_free(file);
 }
 
+int sdbox_file_open(struct dbox_file *file, bool *deleted_r)
+{
+	struct sdbox_file *sfile = (struct sdbox_file *)file;
+	struct stat st;
+	const char *alt_root;
+	int ret;
+
+	if ((ret = dbox_file_open(file, deleted_r)) <= 0 || !*deleted_r)
+		return ret;
+
+	/* file appears to be deleted. check if the alt path root even exists
+	   to avoid reindexing errors if alt path isn't mounted currently */
+	alt_root = mailbox_list_get_path(sfile->mbox->box.list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+	if (stat(alt_root, &st) == 0)
+		return 1;
+	else if (errno == ENOENT) {
+		mail_storage_set_critical(&file->storage->storage,
+			"sdbox: User's alt path lost: %s", alt_root);
+		return -1;
+	} else {
+		mail_storage_set_critical(&file->storage->storage,
+			"stat(%s) failed: %m", alt_root);
+		return -1;
+	}
+}
+
 int sdbox_file_get_attachments(struct dbox_file *file, const char **extrefs_r)
 {
 	const char *line;
@@ -82,7 +109,7 @@ int sdbox_file_get_attachments(struct dbox_file *file, const char **extrefs_r)
 	*extrefs_r = NULL;
 
 	/* read the metadata */
-	ret = dbox_file_open(file, &deleted);
+	ret = sdbox_file_open(file, &deleted);
 	if (ret > 0) {
 		if (deleted)
 			return 0;
@@ -365,7 +392,7 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 
 	/* file was successfully moved - reopen it */
 	dbox_file_close(file);
-	if (dbox_file_open(file, &deleted) <= 0) {
+	if (sdbox_file_open(file, &deleted) <= 0) {
 		mail_storage_set_critical(storage,
 			"dbox_file_move(%s): reopening file failed", dest_path);
 		return -1;

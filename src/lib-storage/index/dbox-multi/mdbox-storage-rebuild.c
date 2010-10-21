@@ -277,7 +277,7 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 	seq_range_array_add(&ctx->seen_file_ids, 0, file_id);
 
 	file = mdbox_file_init(ctx->storage, file_id);
-	if ((ret = dbox_file_open(file, &deleted)) > 0 && !deleted)
+	if ((ret = mdbox_file_open(file, &deleted)) > 0 && !deleted)
 		ret = rebuild_file_mails(ctx, file, file_id);
 	if (ret == 0)
 		i_error("mdbox rebuild: Failed to fix file %s/%s", dir, fname);
@@ -614,7 +614,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	/* first see if message contains the mailbox it was originally
 	   saved to */
 	file = mdbox_file_init(ctx->storage, msg->file_id);
-	ret = dbox_file_open(file, &deleted);
+	ret = mdbox_file_open(file, &deleted);
 	if (ret > 0 && !deleted)
 		ret = dbox_file_seek(file, msg->offset);
 	if (ret > 0 && !deleted && dbox_file_metadata_read(file) > 0) {
