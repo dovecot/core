@@ -76,7 +76,7 @@ cmd_import_box_contents(struct doveadm_mail_iter *iter, struct mail *src_mail,
 	struct mail_save_context *save_ctx;
 	struct mailbox_transaction_context *dest_trans;
 	const char *mailbox = mailbox_get_vname(dest_box);
-	int ret;
+	int ret = 0;
 
 	dest_trans = mailbox_transaction_begin(dest_box,
 				MAILBOX_TRANSACTION_FLAG_EXTERNAL);
