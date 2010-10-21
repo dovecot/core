@@ -147,6 +147,7 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
 		    (unsigned long long)vsize);
 	if (_ctx->pop3_uidl != NULL) {
+		i_assert(strchr(_ctx->pop3_uidl, '\n') == NULL);
 		str_printfa(str, "%c%s\n", DBOX_METADATA_POP3_UIDL,
 			    _ctx->pop3_uidl);
 	}
