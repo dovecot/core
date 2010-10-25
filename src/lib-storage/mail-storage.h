@@ -658,7 +658,8 @@ int mail_get_header_stream(struct mail *mail,
 			   struct mailbox_header_lookup_ctx *headers,
 			   struct istream **stream_r);
 /* Returns input stream pointing to beginning of message header.
-   hdr_size and body_size are updated unless they're NULL. */
+   hdr_size and body_size are updated unless they're NULL. The returned stream
+   is destroyed automatically, don't unreference it. */
 int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r);
 
