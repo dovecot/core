@@ -1630,7 +1630,7 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 {
 	struct mailbox *dest_box = worker->ext_mail->box;
 	dsync_worker_save_callback_t *callback;
-	int ret;
+	ssize_t ret;
 
 	while ((ret = i_stream_read(worker->save_input)) > 0) {
 		if (mailbox_save_continue(worker->save_ctx) < 0)
@@ -1654,17 +1654,18 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 		errno = worker->save_input->stream_errno;
 		i_error("read(msg input) failed: %m");
 		mailbox_save_cancel(&worker->save_ctx);
-		ret = -1;
+		dsync_worker_set_failure(&worker->worker);
 	} else {
 		i_assert(worker->save_input->eof);
-		ret = mailbox_save_finish(&worker->save_ctx);
-	}
-	if (ret < 0) {
-		struct mail_storage *storage = mailbox_get_storage(dest_box);
-		i_error("Can't save message to mailbox %s: %s",
-			mailbox_get_vname(dest_box),
-			mail_storage_get_last_error(storage, NULL));
-		dsync_worker_set_failure(&worker->worker);
+		if (mailbox_save_finish(&worker->save_ctx) < 0) {
+			struct mail_storage *storage =
+				mailbox_get_storage(dest_box);
+
+			i_error("Can't save message to mailbox %s: %s",
+				mailbox_get_vname(dest_box),
+				mail_storage_get_last_error(storage, NULL));
+			dsync_worker_set_failure(&worker->worker);
+		}
 	}
 	callback = worker->save_callback;
 	worker->save_callback = NULL;
