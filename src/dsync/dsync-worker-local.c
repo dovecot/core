@@ -1706,6 +1706,7 @@ local_worker_msg_save(struct dsync_worker *_worker,
 		i_error("Can't save message to mailbox %s: %s",
 			mailbox_get_vname(dest_box),
 			mail_storage_get_last_error(storage, NULL));
+		mailbox_save_cancel(&save_ctx);
 		dsync_worker_set_failure(_worker);
 		callback(context);
 		return;

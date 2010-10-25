@@ -192,7 +192,8 @@ void dsync_proxy_server_deinit(struct dsync_proxy_server **_server)
 		i_stream_unref(&server->get_input);
 	pool_unref(&server->cmd_pool);
 	timeout_remove(&server->to);
-	io_remove(&server->io);
+	if (server->io != NULL)
+		io_remove(&server->io);
 	i_stream_destroy(&server->input);
 	o_stream_destroy(&server->output);
 	if (close(server->fd_in) < 0)
