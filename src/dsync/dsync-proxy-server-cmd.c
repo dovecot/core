@@ -511,6 +511,11 @@ cmd_msg_get_callback(enum dsync_msg_get_result result,
 	/* then we'll still have to send the message body. */
 	server->get_input = data->input;
 	cmd_msg_get_send_more(server);
+	if (server->get_input == NULL) {
+		/* if we came here from ioloop, make sure the command gets
+		   freed in the output flush callback */
+		o_stream_set_flush_pending(server->output, TRUE);
+	}
 }
 
 static int
