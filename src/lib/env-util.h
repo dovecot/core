@@ -8,6 +8,8 @@ void env_put(const char *env);
 void env_remove(const char *name);
 /* Clear all environment variables. */
 void env_clean(void);
+/* Clear all environment variables except what's listed in preserve_envs[] */
+void env_clean_except(const char *const preserve_envs[]);
 
 /* Save a copy of the current environment. */
 struct env_backup *env_backup_save(void);

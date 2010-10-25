@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "env-util.h"
 
 #include <stdlib.h>
@@ -68,6 +69,39 @@ void env_clean(void)
 #endif
 	if (env_pool != NULL)
 		p_clear(env_pool);
+}
+
+static void env_clean_except_real(const char *const preserve_envs[])
+{
+	ARRAY_TYPE(const_string) copy;
+	const char *value, *const *envp;
+	unsigned int i;
+
+	t_array_init(&copy, 16);
+	for (i = 0; preserve_envs[i] != NULL; i++) {
+		const char *key = preserve_envs[i];
+
+		value = getenv(key);
+		if (value != NULL) {
+			value = t_strconcat(key, "=", value, NULL);
+			array_append(&copy, &value, 1);
+		}
+	}
+
+	/* Note that if the original environment was set with env_put(), the
+	   environment strings will be invalid after env_clean(). That's why
+	   we t_strconcat() them above. */
+	env_clean();
+
+	array_foreach(&copy, envp)
+		env_put(*envp);
+}
+
+void env_clean_except(const char *const preserve_envs[])
+{
+	T_BEGIN {
+		env_clean_except_real(preserve_envs);
+	} T_END;
 }
 
 struct env_backup *env_backup_save(void)
