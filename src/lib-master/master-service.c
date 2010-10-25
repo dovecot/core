@@ -393,32 +393,38 @@ void master_service_init_finish(struct master_service *service)
 
 void master_service_env_clean(bool preserve_home)
 {
-	const char *user, *tz, *home;
+	static const char *preserve_envs[] = {
+		"HOME", /* keep as the first element */
+		"USER",
+		"TZ",
 #ifdef DEBUG
-	bool gdb = getenv("GDB") != NULL;
+		"GDB",
 #endif
+		NULL
+	};
+	ARRAY_TYPE(const_string) envs;
+	const char *value, *const *envp;
+	unsigned int i;
 
-	user = getenv("USER");
-	if (user != NULL)
-		user = t_strconcat("USER=", user, NULL);
-	tz = getenv("TZ");
-	if (tz != NULL)
-		tz = t_strconcat("TZ=", tz, NULL);
-	home = preserve_home ? getenv("HOME") : NULL;
-	if (home != NULL)
-		home = t_strconcat("HOME=", home, NULL);
+	t_array_init(&envs, N_ELEMENTS(preserve_envs));
+	i = preserve_home ? 0 : 1;
+	for (; preserve_envs[i] != NULL; i++) {
+		const char *key = preserve_envs[i];
+
+		value = getenv(key);
+		if (value != NULL) {
+			value = t_strconcat(key, "=", value, NULL);
+			array_append(&envs, &value, 1);
+		}
+	}
 
 	/* Note that if the original environment was set with env_put(), the
 	   environment strings will be invalid after env_clean(). That's why
 	   we t_strconcat() them above. */
 	env_clean();
 
-	if (user != NULL) env_put(user);
-	if (tz != NULL) env_put(tz);
-	if (home != NULL) env_put(home);
-#ifdef DEBUG
-	if (gdb) env_put("GDB=1");
-#endif
+	array_foreach(&envs, envp)
+		env_put(*envp);
 }
 
 void master_service_set_client_limit(struct master_service *service,
