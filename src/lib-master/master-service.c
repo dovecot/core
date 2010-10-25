@@ -402,29 +402,7 @@ void master_service_env_clean(bool preserve_home)
 #endif
 		NULL
 	};
-	ARRAY_TYPE(const_string) envs;
-	const char *value, *const *envp;
-	unsigned int i;
-
-	t_array_init(&envs, N_ELEMENTS(preserve_envs));
-	i = preserve_home ? 0 : 1;
-	for (; preserve_envs[i] != NULL; i++) {
-		const char *key = preserve_envs[i];
-
-		value = getenv(key);
-		if (value != NULL) {
-			value = t_strconcat(key, "=", value, NULL);
-			array_append(&envs, &value, 1);
-		}
-	}
-
-	/* Note that if the original environment was set with env_put(), the
-	   environment strings will be invalid after env_clean(). That's why
-	   we t_strconcat() them above. */
-	env_clean();
-
-	array_foreach(&envs, envp)
-		env_put(*envp);
+	env_clean_except(preserve_envs + (preserve_home ? 0 : 1));
 }
 
 void master_service_set_client_limit(struct master_service *service,
