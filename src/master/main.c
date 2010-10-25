@@ -598,6 +598,11 @@ static void print_build_options(void)
 
 int main(int argc, char *argv[])
 {
+	static const char *preserve_envs[] = {
+		/* AIX depends on TZ to get the timezone correctly. */
+		"TZ",
+		NULL
+	};
 	struct master_settings *set;
 	unsigned int child_process_env_idx = 0;
 	const char *error, *env_tz, *doveconf_arg = NULL;
@@ -728,19 +733,13 @@ int main(int argc, char *argv[])
 	master_settings_do_fixes(set);
 	fatal_log_check(set);
 
-	/* save TZ environment. AIX depends on it to get the timezone
-	   correctly. */
+	/* clean up the environment */
+	env_clean_except(preserve_envs);
+
 	env_tz = getenv("TZ");
-
-	/* clean up the environment of everything */
-	env_clean();
-
-	/* put back the TZ */
 	if (env_tz != NULL) {
-		const char *env = t_strconcat("TZ=", env_tz, NULL);
-
-		env_put(env);
-		child_process_env[child_process_env_idx++] = env;
+		child_process_env[child_process_env_idx++] =
+			t_strconcat("TZ=", env_tz, NULL);
 	}
 	i_assert(child_process_env_idx <
 		 sizeof(child_process_env) / sizeof(child_process_env[0]));
