@@ -187,7 +187,12 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 		value = "";
 	index_mail_cache_add_idx(imail, ibox->cache_fields[cache_field].idx,
 				 value, strlen(value)+1);
-	*value_r = value;
+
+	/* don't return pointer to dbox metadata directly, since it may
+	   change unexpectedly */
+	str_truncate(str, 0);
+	str_append(str, value);
+	*value_r = str_c(str);
 	return 0;
 }
 
