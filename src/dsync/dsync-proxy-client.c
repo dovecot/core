@@ -153,6 +153,7 @@ proxy_client_worker_read_to_eof(struct proxy_client_dsync_worker *worker)
 		io_remove(&worker->io);
 		proxy_client_worker_msg_get_finish(worker);
 	}
+	timeout_reset(worker->to);
 }
 
 static void
@@ -328,9 +329,9 @@ static void proxy_client_worker_input(struct proxy_client_dsync_worker *worker)
 	if (worker->to_input != NULL)
 		timeout_remove(&worker->to_input);
 
-	timeout_reset(worker->to);
 	if (worker->worker.input_callback != NULL) {
 		worker->worker.input_callback(worker->worker.input_context);
+		timeout_reset(worker->to);
 		return;
 	}
 
@@ -348,13 +349,14 @@ static void proxy_client_worker_input(struct proxy_client_dsync_worker *worker)
 		   don't get back here. */
 		timeout_remove(&worker->to_input);
 	}
+	timeout_reset(worker->to);
 }
 
-static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
+static int
+proxy_client_worker_output_real(struct proxy_client_dsync_worker *worker)
 {
 	int ret;
 
-	timeout_reset(worker->to);
 	if ((ret = o_stream_flush(worker->output)) < 0)
 		return 1;
 
@@ -368,6 +370,15 @@ static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
 
 	if (worker->worker.output_callback != NULL)
 		worker->worker.output_callback(worker->worker.output_context);
+	return ret;
+}
+
+static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
+{
+	int ret;
+
+	ret = proxy_client_worker_output_real(worker);
+	timeout_reset(worker->to);
 	return ret;
 }
 
@@ -962,7 +973,8 @@ proxy_client_worker_msg_copy(struct dsync_worker *_worker,
 	aqueue_append(worker->request_queue, &request);
 }
 
-static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker)
+static void
+proxy_client_send_stream_real(struct proxy_client_dsync_worker *worker)
 {
 	dsync_worker_save_callback_t *callback;
 	const unsigned char *data;
@@ -1012,6 +1024,12 @@ static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker)
 	(void)proxy_client_worker_output_flush(&worker->worker);
 
 	callback(worker->save_context);
+}
+
+static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker)
+{
+	proxy_client_send_stream_real(worker);
+	timeout_reset(worker->to);
 }
 
 static void
