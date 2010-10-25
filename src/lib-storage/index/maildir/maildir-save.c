@@ -29,12 +29,11 @@
 struct maildir_filename {
 	struct maildir_filename *next;
 	const char *tmp_name, *dest_basename;
-	const char *pop3_uidl;
+	const char *pop3_uidl, *guid;
 
 	uoff_t size, vsize;
 	enum mail_flags flags;
 	unsigned int preserve_filename:1;
-	unsigned int save_guid:1; /* tmp_name contains the GUID */
 	unsigned int keywords_count;
 	/* unsigned int keywords[]; */
 };
@@ -777,6 +776,21 @@ maildir_save_rollback_index_changes(struct maildir_save_context *ctx)
 	mail_cache_transaction_reset(t->cache_trans);
 }
 
+static bool maildir_filename_has_conflict(struct maildir_filename *mf,
+					  struct maildir_filename *prev_mf)
+{
+	if (strcmp(mf->dest_basename, prev_mf->dest_basename) == 0) {
+		/* already used this */
+		return TRUE;
+	}
+	if (prev_mf->guid != NULL &&
+	    strcmp(mf->dest_basename, prev_mf->guid) == 0) {
+		/* previous filename also had a conflict */
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static void
 maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 				 struct maildir_filename *mf,
@@ -789,8 +803,7 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 		ctx->locked_uidlist_refresh = TRUE;
 	}
 
-	if ((prev_mf != NULL &&
-	     strcmp(mf->dest_basename, prev_mf->dest_basename) == 0) ||
+	if ((prev_mf != NULL && maildir_filename_has_conflict(mf, prev_mf)) ||
 	    maildir_uidlist_get_full_filename(ctx->mbox->uidlist,
 					      mf->dest_basename) != NULL) {
 		/* file already exists. give it another name.
@@ -803,10 +816,10 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 					      &size))
 			mf->vsize = size;
 
+		mf->guid = mf->dest_basename;
 		mf->dest_basename = p_strdup(ctx->pool,
 					     maildir_filename_generate());
 		mf->preserve_filename = FALSE;
-		mf->save_guid = TRUE;
 	}
 }
 
@@ -891,9 +904,9 @@ static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
 						    dest, uid, flags, &rec);
 		i_assert(ret > 0);
 		i_assert(rec != NULL);
-		if (mf->save_guid) {
+		if (mf->guid != NULL) {
 			maildir_uidlist_sync_set_ext(ctx->uidlist_sync_ctx, rec,
-				MAILDIR_UIDLIST_REC_EXT_GUID, mf->tmp_name);
+				MAILDIR_UIDLIST_REC_EXT_GUID, mf->guid);
 		}
 		if (mf->pop3_uidl != NULL) {
 			maildir_uidlist_sync_set_ext(ctx->uidlist_sync_ctx, rec,
