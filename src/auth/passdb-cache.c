@@ -32,7 +32,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	int ret;
 	bool expired, neg_expired;
 
-	if (passdb_cache == NULL || key == NULL)
+	if (passdb_cache == NULL || key == NULL || request->master_user != NULL)
 		return FALSE;
 
 	/* value = password \t ... */
@@ -96,7 +96,7 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 	struct auth_cache_node *node;
 	bool expired, neg_expired;
 
-	if (passdb_cache == NULL)
+	if (passdb_cache == NULL || request->master_user != NULL)
 		return FALSE;
 
 	value = auth_cache_lookup(passdb_cache, request, key, &node,

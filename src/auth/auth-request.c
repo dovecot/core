@@ -290,10 +290,8 @@ static void auth_request_save_cache(struct auth_request *request,
 	extra_fields = request->extra_fields == NULL ? NULL :
 		auth_stream_reply_export(request->extra_fields);
 
-	if (passdb_cache == NULL)
-		return;
-
-	if (passdb->cache_key == NULL)
+	if (passdb_cache == NULL || passdb->cache_key == NULL ||
+	    request->master_user != NULL)
 		return;
 
 	if (result < 0) {
@@ -712,7 +710,8 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 	struct userdb_module *userdb = request->userdb->userdb;
 	const char *str;
 
-	if (passdb_cache == NULL || userdb->cache_key == NULL)
+	if (passdb_cache == NULL || userdb->cache_key == NULL ||
+	    request->master_user != NULL)
 		return;
 
 	str = result == USERDB_RESULT_USER_UNKNOWN ? "" :
@@ -730,6 +729,9 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	const char *value;
 	struct auth_cache_node *node;
 	bool expired, neg_expired;
+
+	if (request->master_user != NULL)
+		return FALSE;
 
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
 				  &expired, &neg_expired);
