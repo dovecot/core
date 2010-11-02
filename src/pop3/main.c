@@ -239,7 +239,8 @@ int main(int argc, char *argv[])
 			main_stdio_run(username);
 		} T_END;
 	} else {
-		master_login = master_login_init(master_service, "auth-master",
+		master_login = master_login_init(master_service,
+						 t_abspath("auth-master"),
 						 postlogin_socket_path,
 						 login_client_connected,
 						 login_client_failed);
