@@ -1158,7 +1158,8 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx)
 		if (!first)
 			str_append_c(ctx->debug, '/');
 		if (ctx->auth_request->set->debug_passwords ||
-		    strcmp(ctx->name, "password") != 0)
+		    (strcmp(ctx->name, "password") != 0 &&
+		     strcmp(ctx->name, "password_noscheme") != 0))
 			str_append(ctx->debug, ctx->value);
 		else
 			str_append(ctx->debug, PASSWORD_HIDDEN_STR);
