@@ -88,7 +88,8 @@ static void sql_query_callback(struct sql_result *result,
 		   found. Just checking if password is set isn't enough,
 		   because with proxies we might want to return NULL as
 		   password. */
-		if (sql_result_find_field(result, "password") < 0) {
+		if (sql_result_find_field(result, "password") < 0 &&
+		    sql_result_find_field(result, "password_noscheme") < 0) {
 			auth_request_log_error(auth_request, "sql",
 				"Password query must return a field named "
 				"'password'");
