@@ -327,6 +327,7 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name,
 			     enum mailbox_info_flags flags)
 {
 	struct imap_status_result result;
+	struct mail_namespace *ns;
 	const char *storage_name, *error;
 
 	if ((flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
@@ -339,8 +340,11 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name,
 		return;
 	}
 
-	storage_name = mail_namespace_get_storage_name(ctx->ns, name);
-	if (imap_status_get(ctx->cmd, ctx->ns, storage_name,
+	/* if we're listing subscriptions and there are subscriptions=no
+	   namespaces, ctx->ns may not point to correct one */
+	storage_name = name;
+	ns = mail_namespace_find(ctx->ns->user->namespaces, &storage_name);
+	if (imap_status_get(ctx->cmd, ns, storage_name,
 			    &ctx->status_items, &result, &error) < 0) {
 		client_send_line(ctx->cmd->client,
 				 t_strconcat("* ", error, NULL));
