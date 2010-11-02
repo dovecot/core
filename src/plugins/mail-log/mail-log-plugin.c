@@ -172,7 +172,7 @@ static void mail_log_append_mailbox_name(string_t *str, struct mail *mail)
 {
 	const char *mailbox_str;
 
-	mailbox_str = mailbox_get_name(mail->box);
+	mailbox_str = mailbox_get_vname(mail->box);
 	str_printfa(str, "box=%s",
 		    str_sanitize(mailbox_str, MAILBOX_NAME_LOG_LEN));
 }
