@@ -103,7 +103,9 @@ static void client_connected(struct master_service_connection *conn)
 	}
 }
 
-static unsigned int find_inet_listener_port(struct ip_addr *ip_r)
+static unsigned int
+find_inet_listener_port(struct ip_addr *ip_r,
+			const struct director_settings *set)
 {
 	unsigned int i, socket_count, port;
 
@@ -111,7 +113,8 @@ static unsigned int find_inet_listener_port(struct ip_addr *ip_r)
 	for (i = 0; i < socket_count; i++) {
 		int fd = MASTER_LISTEN_FD_FIRST + i;
 
-		if (net_getsockname(fd, ip_r, &port) == 0 && port > 0)
+		if (net_getsockname(fd, ip_r, &port) == 0 && port > 0 &&
+		    port != set->director_doveadm_port)
 			return port;
 	}
 	return 0;
@@ -150,7 +153,7 @@ static void main_init(void)
 	userdb_socket_path = i_strconcat(set->base_dir,
 					 "/"AUTH_USERDB_SOCKET_PATH, NULL);
 
-	listen_port = find_inet_listener_port(&listen_ip);
+	listen_port = find_inet_listener_port(&listen_ip, set);
 	if (listen_port == 0 && *set->director_servers != '\0') {
 		i_fatal("No inet_listeners defined for director service "
 			"(for standalone keep director_servers empty)");
