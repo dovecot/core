@@ -10,6 +10,7 @@
 #include "hash.h"
 #include "str.h"
 #include "master-interface.h"
+#include "master-service.h"
 #include "master-auth.h"
 #include "master-login-auth.h"
 
@@ -282,7 +283,10 @@ static void master_login_auth_input(struct master_login_auth *auth)
 	case 0:
 		return;
 	case -1:
-		/* disconnected */
+		/* disconnected. stop accepting new connections, because in
+		   default configuration we no longer have permissions to
+		   connect back to auth-master */
+		master_service_stop_new_connections(master_service);
 		master_login_auth_disconnect(auth);
 		return;
 	case -2:
@@ -411,6 +415,9 @@ void master_login_auth_request(struct master_login_auth *auth,
 
 	if (auth->fd == -1) {
 		if (master_login_auth_connect(auth) < 0) {
+			/* we couldn't connect to auth now,
+			   so we probably can't in future either. */
+			master_service_stop_new_connections(master_service);
 			callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
 				 context);
 			return;
