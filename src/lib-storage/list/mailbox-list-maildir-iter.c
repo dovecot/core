@@ -42,7 +42,7 @@ static void node_fix_parents(struct mailbox_node *node)
 static void
 maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 		     struct imap_match_glob *glob, bool update_only,
-		     string_t *mailbox, enum mailbox_info_flags flags)
+		     string_t *mailbox)
 {
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	struct mailbox_node *node;
@@ -75,7 +75,7 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 			}
 			if (!update_only)
 				node->flags |= MAILBOX_MATCHED;
-			node->flags |= MAILBOX_CHILDREN | flags;
+			node->flags |= MAILBOX_CHILDREN;
 			node->flags &= ~MAILBOX_NOCHILDREN;
 			node_fix_parents(node);
 		}
@@ -338,7 +338,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		if ((match & IMAP_MATCH_PARENT) != 0) {
 			T_BEGIN {
 				maildir_fill_parents(ctx, glob, update_only,
-						     mailbox, flags);
+						     mailbox);
 			} T_END;
 		} else {
 			created = FALSE;
