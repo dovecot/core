@@ -143,6 +143,7 @@ vpopmail_preinit(pool_t pool, const char *args)
 	const char *const *tmp, *p;
 
 	module = p_new(pool, struct vpopmail_userdb_module, 1);
+	module->module.blocking = TRUE;
 
 	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
 		if (strncmp(*tmp, "cache_key=", 10) == 0)
@@ -156,6 +157,8 @@ vpopmail_preinit(pool_t pool, const char *args)
 			module->quota_template_key =
 				p_strdup_until(pool, *tmp + 15, p);
 			module->quota_template_value = p_strdup(pool, p + 1);
+		} else if (strcmp(*tmp, "blocking=no") == 0) {
+			module->module.blocking = FALSE;
 		} else
 			i_fatal("userdb vpopmail: Unknown setting: %s", *tmp);
 	}

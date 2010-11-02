@@ -167,6 +167,7 @@ vpopmail_preinit(pool_t pool, const char *args)
 
 	module = p_new(pool, struct vpopmail_passdb_module, 1);
 	module->module.default_pass_scheme = VPOPMAIL_DEFAULT_PASS_SCHEME;
+	module->module.blocking = TRUE;
 
 	tmp = t_strsplit_spaces(args, " ");
 	for (; *tmp != NULL; tmp++) {
@@ -176,6 +177,8 @@ vpopmail_preinit(pool_t pool, const char *args)
 		} else if (strncmp(*tmp, "webmail=", 8) == 0) {
 			if (net_addr2ip(*tmp + 8, &module->webmail_ip) < 0)
 				i_fatal("vpopmail: Invalid webmail IP address");
+		} else if (strcmp(*tmp, "blocking=no") == 0) {
+			module->module.blocking = FALSE;
 		} else {
 			i_fatal("passdb vpopmail: Unknown setting: %s", *tmp);
 		}
