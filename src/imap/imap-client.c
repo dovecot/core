@@ -424,6 +424,8 @@ client_command_find_with_flags(struct client_command_context *new_cmd,
 
 	cmd = new_cmd->client->command_queue;
 	for (; cmd != NULL; cmd = cmd->next) {
+		i_warning("cmd=%s state=%d<=%d flags=%x & %x",
+			  cmd->name, cmd->state, max_state, cmd->cmd_flags, flags);
 		if (cmd->state <= max_state &&
 		    cmd != new_cmd && (cmd->cmd_flags & flags) != 0)
 			return cmd;

@@ -263,11 +263,11 @@ static int select_qresync(struct imap_select_context *ctx)
 
 			ctx->cmd->func = cmd_select_continue;
 			ctx->cmd->context = ctx;
-			return FALSE;
+			return 0;
 		}
 	}
 
-	return imap_fetch_deinit(fetch_ctx);
+	return imap_fetch_deinit(fetch_ctx) < 0 ? -1 : 1;
 }
 
 static int
@@ -276,6 +276,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	struct client *client = ctx->cmd->client;
 	struct mailbox_status status;
 	enum mailbox_flags flags = 0;
+	int ret;
 
 	if (readonly)
 		flags |= MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT;
@@ -339,13 +340,15 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	}
 
 	if (ctx->qresync_uid_validity == status.uidvalidity) {
-		if (select_qresync(ctx) < 0) {
+		if ((ret = select_qresync(ctx)) < 0) {
 			client_send_storage_error(ctx->cmd,
 				mailbox_get_storage(ctx->box));
 			return -1;
 		}
+	} else {
+		ret = 1;
 	}
-	return 0;
+	return ret;
 }
 
 static void close_selected_mailbox(struct client *client)
@@ -424,6 +427,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	}
 
 	ret = select_open(ctx, storage_name, readonly);
+	if (ret == 0)
+		return FALSE;
 	cmd_select_finish(ctx, ret);
 	return TRUE;
 }
