@@ -14,18 +14,18 @@
 #include <unistd.h>
 
 /* <settings checks> */
-static struct file_listener_settings lmtp_login_unix_listeners_array[] = {
+static struct file_listener_settings lmtp_unix_listeners_array[] = {
 	{ "lmtp", 0666, "", "" }
 };
-static struct file_listener_settings *lmtp_login_unix_listeners[] = {
-	&lmtp_login_unix_listeners_array[0]
+static struct file_listener_settings *lmtp_unix_listeners[] = {
+	&lmtp_unix_listeners_array[0]
 };
-static buffer_t lmtp_login_unix_listeners_buf = {
-	lmtp_login_unix_listeners, sizeof(lmtp_login_unix_listeners), { 0, }
+static buffer_t lmtp_unix_listeners_buf = {
+	lmtp_unix_listeners, sizeof(lmtp_unix_listeners), { 0, }
 };
 /* </settings checks> */
 
-struct service_settings lmtp_login_service_settings = {
+struct service_settings lmtp_service_settings = {
 	.name = "lmtp",
 	.protocol = "lmtp",
 	.type = "",
@@ -45,8 +45,8 @@ struct service_settings lmtp_login_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = 0,
 
-	.unix_listeners = { { &lmtp_login_unix_listeners_buf,
-			      sizeof(lmtp_login_unix_listeners[0]) } },
+	.unix_listeners = { { &lmtp_unix_listeners_buf,
+			      sizeof(lmtp_unix_listeners[0]) } },
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
 };
