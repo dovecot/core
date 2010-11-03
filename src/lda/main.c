@@ -154,6 +154,13 @@ create_raw_stream(struct mail_deliver_context *ctx,
 	i_free(sender);
 
 	if (input->v_offset == 0) {
+		if (deliver_mail == NULL) {
+			/* no Sieve or any other plugin. this input stream
+			   simply passes to mailbox_save(), so it doesn't need
+			   to be seekable and we can avoid creating temp files
+			   for large mails. */
+			return input;
+		}
 		input2 = input;
 		i_stream_ref(input2);
 	} else {
