@@ -226,9 +226,6 @@ service_create(pool_t pool, const struct service_settings *set,
 	service->type = service->set->parsed_type;
 
 	if (set->process_limit == 0) {
-		/* unlimited */
-		service->process_limit = INT_MAX;
-	} else if (set->process_limit == -1U) {
 		/* use default */
 		service->process_limit =
 			set->master_set->default_process_limit;
