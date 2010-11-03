@@ -16,6 +16,13 @@
 
 deliver_mail_func_t *deliver_mail = NULL;
 
+static const char *lda_log_wanted_headers[] = {
+	"From", "Message-ID", "Subject",
+	NULL
+};
+static enum mail_fetch_field lda_log_wanted_fetch_fields =
+	MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE;
+
 const char *mail_deliver_get_address(struct mail *mail, const char *header)
 {
 	struct message_address *addr;
@@ -65,6 +72,26 @@ mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
 	return tab;
 }
 
+static void
+mail_deliver_log_cache_var_expand_table(struct mail_deliver_context *ctx)
+{
+	const struct var_expand_table *src;
+	struct var_expand_table *dest;
+	struct mail *mail;
+	unsigned int i, len;
+
+	mail = ctx->dest_mail != NULL ? ctx->dest_mail : ctx->src_mail;
+	src = mail_deliver_get_log_var_expand_table(mail, "");
+	for (len = 0; src[len].key != '\0'; len++) ;
+
+	dest = p_new(ctx->pool, struct var_expand_table, len + 1);
+	for (i = 0; i < len; i++) {
+		dest[i] = src[i];
+		dest[i].value = p_strdup(ctx->pool, src[i].value);
+	}
+	ctx->var_expand_table = dest;
+}
+
 void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 {
 	va_list args;
@@ -77,8 +104,14 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	str = t_str_new(256);
 	if (ctx->session_id != NULL)
 		str_printfa(str, "%s: ", ctx->session_id);
-	var_expand(str, ctx->set->deliver_log_format,
-		   mail_deliver_get_log_var_expand_table(ctx->src_mail, msg));
+
+	if (ctx->var_expand_table == NULL)
+		mail_deliver_log_cache_var_expand_table(ctx);
+	/* update %$ */
+	ctx->var_expand_table[0].value = msg;
+	var_expand(str, ctx->set->deliver_log_format, ctx->var_expand_table);
+	ctx->var_expand_table[0].value = "";
+
 	i_info("%s", str_c(str));
 	va_end(args);
 }
@@ -167,6 +200,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	enum mailbox_transaction_flags trans_flags;
 	struct mailbox_transaction_context *t;
 	struct mail_save_context *save_ctx;
+	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail_keywords *kw;
 	enum mail_error error;
 	const char *mailbox_name, *errstr;
@@ -208,10 +242,19 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	if (ctx->src_envelope_sender != NULL)
 		mailbox_save_set_from_envelope(save_ctx, ctx->src_envelope_sender);
 	mailbox_save_set_flags(save_ctx, flags, kw);
+
+	headers_ctx = mailbox_header_lookup_init(box, lda_log_wanted_headers);
+	ctx->dest_mail = mail_alloc(t, lda_log_wanted_fetch_fields, NULL);
+	mailbox_header_lookup_unref(&headers_ctx);
+	mailbox_save_set_dest_mail(save_ctx, ctx->dest_mail);
+
 	if (mailbox_copy(&save_ctx, ctx->src_mail) < 0)
 		ret = -1;
+	else
+		mail_deliver_log_cache_var_expand_table(ctx);
 	if (kw != NULL)
 		mailbox_keywords_unref(box, &kw);
+	mail_free(&ctx->dest_mail);
 
 	if (ret < 0)
 		mailbox_transaction_rollback(&t);

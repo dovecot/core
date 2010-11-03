@@ -34,6 +34,9 @@ struct mail_deliver_context {
 	   the mailbox. */
 	struct mail *dest_mail;
 
+	/* mail_deliver_log() caches the var expand table here */
+	struct var_expand_table *var_expand_table;
+
 	bool tried_default_save;
 	bool saved_mail;
 	bool save_dest_mail;
