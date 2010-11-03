@@ -186,13 +186,15 @@ int main(int argc, char *argv[])
 		&director_setting_parser_info,
 		NULL
 	};
+	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_NO_IDLE_DIE |
+		MASTER_SERVICE_FLAG_UPDATE_PROCTITLE;
 	unsigned int test_port = 0;
 	const char *error;
 	bool debug = FALSE;
 	int c;
 
-	master_service = master_service_init("director",
-					     MASTER_SERVICE_FLAG_NO_IDLE_DIE,
+	master_service = master_service_init("director", service_flags,
 					     &argc, &argv, "Dt:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
