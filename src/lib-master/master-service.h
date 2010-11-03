@@ -19,7 +19,10 @@ enum master_service_flags {
 	/* Use MASTER_LOGIN_NOTIFY_FD to track login overflow state */
 	MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE	= 0x40,
 	/* If master sends SIGINT, don't die even if we don't have clients */
-	MASTER_SERVICE_FLAG_NO_IDLE_DIE		= 0x80
+	MASTER_SERVICE_FLAG_NO_IDLE_DIE		= 0x80,
+	/* Show number of connections in process title
+	   (only if verbose_proctitle setting is enabled) */
+	MASTER_SERVICE_FLAG_UPDATE_PROCTITLE	= 0x100
 };
 
 struct master_service_connection {

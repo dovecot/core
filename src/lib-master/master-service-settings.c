@@ -41,6 +41,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_SIZE, config_cache_size),
 	DEF(SET_BOOL, version_ignore),
 	DEF(SET_BOOL, shutdown_clients),
+	DEF(SET_BOOL, verbose_proctitle),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -53,7 +54,8 @@ static const struct master_service_settings master_service_default_settings = {
 	.syslog_facility = "mail",
 	.config_cache_size = 1024*1024,
 	.version_ignore = FALSE,
-	.shutdown_clients = TRUE
+	.shutdown_clients = TRUE,
+	.verbose_proctitle = FALSE
 };
 
 const struct setting_parser_info master_service_setting_parser_info = {

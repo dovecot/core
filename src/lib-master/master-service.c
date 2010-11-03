@@ -827,6 +827,15 @@ void master_status_update(struct master_service *service)
 	ssize_t ret;
 	bool important_update;
 
+	if ((service->flags & MASTER_SERVICE_FLAG_UPDATE_PROCTITLE) != 0 &&
+	    service->set != NULL && service->set->verbose_proctitle) T_BEGIN {
+		unsigned int used_count = service->total_available_count -
+			service->master_status.available_count;
+
+		process_title_set(t_strdup_printf("[%u connections]",
+						  used_count));
+	} T_END;
+
 	important_update = master_status_update_is_important(service);
 	if (service->master_status.pid == 0 ||
 	    service->master_status.available_count ==

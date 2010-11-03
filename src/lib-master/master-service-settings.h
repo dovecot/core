@@ -15,6 +15,7 @@ struct master_service_settings {
 	uoff_t config_cache_size;
 	bool version_ignore;
 	bool shutdown_clients;
+	bool verbose_proctitle;
 };
 
 struct master_service_settings_input {
