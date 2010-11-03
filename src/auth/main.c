@@ -111,7 +111,8 @@ static void main_preinit(void)
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
-	auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
+	if (!worker)
+		auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
 	auths_preinit(global_auth_settings, auth_set_pool,
@@ -152,8 +153,10 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	/* cancel all pending anvil penalty lookups */
-	auth_penalty_deinit(&auth_penalty);
+	if (auth_penalty != NULL) {
+		/* cancel all pending anvil penalty lookups */
+		auth_penalty_deinit(&auth_penalty);
+	}
 	/* deinit auth workers, which aborts pending requests */
         auth_worker_server_deinit();
 	/* deinit passdbs and userdbs. it aborts any pending async requests. */
