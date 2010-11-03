@@ -1,27 +1,28 @@
-/* Copyright (C) 2004 Joshua Goodall */
+/* Copyright (c) 2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "doveadm.h"
 #include "doveadm-dump.h"
 
 #include <stdio.h>
 #include <unistd.h>
 
-static const struct doveadm_cmd_dump *dumps[] = {
-	&doveadm_cmd_dump_index,
-	&doveadm_cmd_dump_log,
-	&doveadm_cmd_dump_mailboxlog,
-	&doveadm_cmd_dump_thread
-};
+static ARRAY_DEFINE(dumps, const struct doveadm_cmd_dump *);
+
+void doveadm_dump_register(const struct doveadm_cmd_dump *dump)
+{
+	array_append(&dumps, &dump, 1);
+}
 
 static const struct doveadm_cmd_dump *
 dump_find_name(const char *name)
 {
-	unsigned int i;
+	const struct doveadm_cmd_dump *const *dumpp;
 
-	for (i = 0; i < N_ELEMENTS(dumps); i++) {
-		if (strcmp(dumps[i]->name, name) == 0)
-			return dumps[i];
+	array_foreach(&dumps, dumpp) {
+		if (strcmp((*dumpp)->name, name) == 0)
+			return *dumpp;
 	}
 	return NULL;
 }
@@ -29,11 +30,11 @@ dump_find_name(const char *name)
 static const struct doveadm_cmd_dump *
 dump_find_test(const char *path)
 {
-	unsigned int i;
+	const struct doveadm_cmd_dump *const *dumpp;
 
-	for (i = 0; i < N_ELEMENTS(dumps); i++) {
-		if (dumps[i]->test(path))
-			return dumps[i];
+	array_foreach(&dumps, dumpp) {
+		if ((*dumpp)->test(path))
+			return *dumpp;
 	}
 	return NULL;
 }
@@ -76,3 +77,24 @@ static void cmd_dump(int argc, char *argv[])
 struct doveadm_cmd doveadm_cmd_dump = {
 	cmd_dump, "dump", "[-t <type>] <path>"
 };
+
+static const struct doveadm_cmd_dump *dumps_builtin[] = {
+	&doveadm_cmd_dump_index,
+	&doveadm_cmd_dump_log,
+	&doveadm_cmd_dump_mailboxlog,
+	&doveadm_cmd_dump_thread
+};
+
+void doveadm_dump_init(void)
+{
+	unsigned int i;
+
+	i_array_init(&dumps, N_ELEMENTS(dumps_builtin) + 8);
+	for (i = 0; i < N_ELEMENTS(dumps_builtin); i++)
+		doveadm_dump_register(dumps_builtin[i]);
+}
+
+void doveadm_dump_deinit(void)
+{
+	array_free(&dumps);
+}

@@ -9,6 +9,7 @@
 #include "master-service-settings.h"
 #include "settings-parser.h"
 #include "doveadm-print-private.h"
+#include "doveadm-dump.h"
 #include "doveadm-mail.h"
 #include "doveadm-settings.h"
 #include "doveadm.h"
@@ -315,6 +316,7 @@ int main(int argc, char *argv[])
 		quick_init = FALSE;
 		doveadm_register_director_commands();
 		doveadm_register_log_commands();
+		doveadm_dump_init();
 		doveadm_mail_init();
 		doveadm_load_modules();
 
@@ -353,6 +355,7 @@ int main(int argc, char *argv[])
 
 	if (!quick_init) {
 		doveadm_mail_deinit();
+		doveadm_dump_deinit();
 		doveadm_unload_modules();
 		doveadm_print_deinit();
 	}
