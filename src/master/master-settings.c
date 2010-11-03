@@ -369,10 +369,26 @@ master_default_settings_get_service(const char *name)
 }
 #endif
 
+static unsigned int
+service_get_client_limit(struct master_settings *set, const char *name)
+{
+	struct service_settings *const *servicep;
+
+	array_foreach(&set->services, servicep) {
+		if (strcmp((*servicep)->name, name) == 0) {
+			if ((*servicep)->client_limit != 0)
+				return (*servicep)->client_limit;
+			else
+				return set->default_client_limit;
+		}
+	}
+	return set->default_client_limit;
+}
+
 static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
-	static int warned_auth = FALSE;
+	static int warned_auth = FALSE, warned_anvil = FALSE;
 #ifdef CONFIG_BINARY
 	const struct service_settings *default_service;
 #endif
@@ -380,8 +396,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	struct service_settings *const *services;
 	const char *const *strings;
 	ARRAY_TYPE(const_string) all_listeners;
-	unsigned int i, j, count, len, process_limit;
-	unsigned int auth_client_limit, max_auth_client_processes;
+	unsigned int i, j, count, len, client_limit, process_limit;
+	unsigned int max_auth_client_processes, max_anvil_client_processes;
 
 	len = strlen(set->base_dir);
 	if (len > 0 && set->base_dir[len-1] == '/') {
@@ -448,7 +464,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		}
 	}
 	t_array_init(&all_listeners, 64);
-	auth_client_limit = max_auth_client_processes = 0;
+	max_auth_client_processes = 0;
+	max_anvil_client_processes = 2; /* blocking, nonblocking pipes */
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
 
@@ -495,17 +512,16 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		}
 #endif
 
-		if (strcmp(service->name, "auth") == 0) {
-			auth_client_limit = service->client_limit != 0 ?
-				service->client_limit :
-				set->default_client_limit;
-		} else if (*service->protocol != '\0' &&
-			   str_array_find((const char **)set->protocols_split,
-					  service->protocol)) {
+		if (*service->protocol != '\0' &&
+		    str_array_find((const char **)set->protocols_split,
+				   service->protocol)) {
 			/* each imap/pop3/lmtp process can use up a connection,
 			   although if service_count=1 it's only temporary */
 			max_auth_client_processes += process_limit;
 		}
+		if (strcmp(service->type, "login") == 0 ||
+		    strcmp(service->name, "auth") == 0)
+			max_anvil_client_processes += process_limit;
 
 		fix_file_listener_paths(&service->unix_listeners,
 					pool, set, &all_listeners);
@@ -514,11 +530,20 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		add_inet_listeners(&service->inet_listeners, &all_listeners);
 	}
 
-	if (auth_client_limit < max_auth_client_processes && !warned_auth) {
+	client_limit = service_get_client_limit(set, "auth");
+	if (client_limit < max_auth_client_processes && !warned_auth) {
 		warned_auth = TRUE;
 		i_warning("service auth { client_limit=%u } is lower than "
 			  "required under max. load (%u)",
-			  auth_client_limit, max_auth_client_processes);
+			  client_limit, max_auth_client_processes);
+	}
+
+	client_limit = service_get_client_limit(set, "anvil");
+	if (client_limit < max_anvil_client_processes && !warned_anvil) {
+		warned_anvil = TRUE;
+		i_warning("service anvil { client_limit=%u } is lower than "
+			  "required under max. load (%u)",
+			  client_limit, max_anvil_client_processes);
 	}
 
 	/* check for duplicate listeners */
