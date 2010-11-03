@@ -7,6 +7,7 @@
 #include "ioloop.h"
 #include "restrict-access.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-interface.h"
 #include "connect-limit.h"
 #include "penalty.h"
@@ -49,9 +50,17 @@ static void log_fdpass_input(void *context ATTR_UNUSED)
 
 int main(int argc, char *argv[])
 {
-	master_service = master_service_init("anvil", 0, &argc, &argv, NULL);
+	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_UPDATE_PROCTITLE;
+	const char *error;
+
+	master_service = master_service_init("anvil", service_flags,
+					     &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
+	if (master_service_settings_read_simple(master_service,
+						NULL, &error) < 0)
+		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service, "anvil: ");
 
 	restrict_access_by_env(NULL, FALSE);
