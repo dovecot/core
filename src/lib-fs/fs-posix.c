@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 
 #define FS_POSIX_DOTLOCK_STALE_TIMEOUT_SECS (60*10)
+#define MAX_MKDIR_RETRY_COUNT 5
 
 enum fs_posix_lock_method {
 	FS_POSIX_LOCK_METHOD_FLOCK,
@@ -85,13 +86,16 @@ static int fs_posix_create_parent_dir(struct fs *fs, const char *path)
 
 	fname = strrchr(path, '/');
 	if (fname == NULL)
-		return 0;
+		return 1;
 	dir = t_strdup_until(path, fname);
-	if (mkdir_parents(dir, 0700) < 0 && errno != EEXIST) {
+	if (mkdir_parents(dir, 0700) == 0)
+		return 0;
+	else if (errno == EEXIST)
+		return 1;
+	else {
 		fs_set_error(fs, "mkdir_parents(%s) failed: %m", dir);
 		return -1;
 	}
-	return 0;
 }
 
 static int
@@ -101,6 +105,7 @@ fs_posix_create(struct posix_fs *fs, const char *path, enum fs_open_flags flags,
 	struct fs *_fs = &fs->fs;
 	string_t *str = t_str_new(256);
 	const char *slash = strrchr(path, '/');
+	unsigned int try_count = 0;
 	int fd;
 
 	if (slash != NULL)
@@ -108,10 +113,13 @@ fs_posix_create(struct posix_fs *fs, const char *path, enum fs_open_flags flags,
 	str_append(str, fs->temp_file_prefix);
 
 	fd = safe_mkstemp_hostpid(str, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1 && errno == ENOENT && (flags & FS_OPEN_FLAG_MKDIR) != 0) {
+	while (fd == -1 && errno == ENOENT &&
+	       try_count <= MAX_MKDIR_RETRY_COUNT &&
+	       (flags & FS_OPEN_FLAG_MKDIR) != 0) {
 		if (fs_posix_create_parent_dir(_fs, path) < 0)
 			return -1;
 		fd = safe_mkstemp_hostpid(str, 0600, (uid_t)-1, (gid_t)-1);
+		try_count++;
 	}
 	if (fd == -1) {
 		fs_set_error(_fs, "safe_mkstemp(%s) failed: %m", str_c(str));
@@ -454,13 +462,16 @@ static int fs_posix_stat(struct fs *fs, const char *path, struct stat *st_r)
 
 static int fs_posix_link(struct fs *fs, const char *src, const char *dest)
 {
+	unsigned int try_count = 0;
 	int ret;
 
 	ret = link(src, dest);
-	if (ret < 0 && errno == ENOENT) {
+	while (ret < 0 && errno == ENOENT &&
+	       try_count <= MAX_MKDIR_RETRY_COUNT) {
 		if (fs_posix_create_parent_dir(fs, dest) < 0)
 			return -1;
 		ret = link(src, dest);
+		try_count++;
 	}
 	if (ret < 0) {
 		fs_set_error(fs, "link(%s, %s) failed: %m", src, dest);
@@ -471,13 +482,16 @@ static int fs_posix_link(struct fs *fs, const char *src, const char *dest)
 
 static int fs_posix_rename(struct fs *fs, const char *src, const char *dest)
 {
+	unsigned int try_count = 0;
 	int ret;
 
 	ret = rename(src, dest);
-	if (ret < 0 && errno == ENOENT) {
+	while (ret < 0 && errno == ENOENT &&
+	       try_count <= MAX_MKDIR_RETRY_COUNT) {
 		if (fs_posix_create_parent_dir(fs, dest) < 0)
 			return -1;
 		ret = rename(src, dest);
+		try_count++;
 	}
 	if (ret < 0) {
 		fs_set_error(fs, "link(%s, %s) failed: %m", src, dest);
