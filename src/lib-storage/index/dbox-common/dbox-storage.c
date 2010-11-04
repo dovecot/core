@@ -151,6 +151,7 @@ static int dir_is_empty(struct mail_storage *storage, const char *path)
 			continue;
 
 		ret = 0;
+		break;
 	}
 	if (closedir(dir) < 0) {
 		mail_storage_set_critical(storage, "closedir(%s) failed: %m",
