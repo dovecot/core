@@ -120,6 +120,11 @@ static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 static const struct stat *
 i_stream_base64_encoder_stat(struct istream_private *stream, bool exact)
 {
+	if (exact) {
+		/* too much trouble to implement until it's actually needed */
+		i_panic("istream-base64-encoder: "
+			"stat() doesn't support getting exact size");
+	}
 	return i_stream_stat(stream->parent, exact);
 }
 
