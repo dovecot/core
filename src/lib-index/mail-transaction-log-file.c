@@ -1505,7 +1505,8 @@ mail_transaction_log_file_map_mmap(struct mail_transaction_log_file *file,
 
 	if ((uoff_t)st.st_size < file->sync_offset) {
 		mail_transaction_log_file_set_corrupted(file,
-							"file size shrank");
+			"file size shrank (%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+			(uoff_t)st.st_size, file->sync_offset);
 		return 0;
 	}
 
