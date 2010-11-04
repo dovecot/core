@@ -636,9 +636,12 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 	if (mailbox_list_get_storage(&list, &name, &storage) == 0 &&
 	    strcmp(storage->name, MAILDIR_STORAGE_NAME) != 0) {
 		/* non-maildir namespace, skip */
-		i_warning("quota: Namespace '%s' is not Maildir, "
-			  "skipping for Maildir++ quota",
-			  root->maildirsize_ns->prefix);
+		if ((storage->class_flags &
+		     MAIL_STORAGE_CLASS_FLAG_NOQUOTA) == 0) {
+			i_warning("quota: Namespace '%s' is not Maildir, "
+				  "skipping for Maildir++ quota",
+				  root->maildirsize_ns->prefix);
+		}
 		root->maildirsize_path = NULL;
 		return FALSE;
 	}

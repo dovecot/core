@@ -405,6 +405,9 @@ void quota_mailbox_allocated(struct mailbox *box)
 	if (QUOTA_LIST_CONTEXT(box->list) == NULL)
 		return;
 
+	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
+		return;
+
 	qbox = p_new(box->pool, struct quota_mailbox, 1);
 	qbox->module_ctx.super = *v;
 	box->vlast = &qbox->module_ctx.super;
@@ -514,8 +517,7 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 	if (root != NULL)
 		root->ns = list->ns;
 
-	if ((list->ns->flags & NAMESPACE_FLAG_NOQUOTA) != 0 ||
-	    strncmp(list->ns->set->location, "virtual:", 8) == 0) /* FIXME: remove ugly workaround */
+	if ((list->ns->flags & NAMESPACE_FLAG_NOQUOTA) != 0)
 		add = FALSE;
 	else if (list->ns->owner == NULL) {
 		/* public namespace - add quota only if namespace is
