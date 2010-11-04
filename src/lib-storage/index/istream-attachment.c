@@ -53,10 +53,14 @@ static ssize_t i_stream_attachment_read(struct istream_private *stream)
 		stream->istream.eof = TRUE;
 	} else if (!stream->istream.eof) {
 		/* still more to read */
+	} else if (stream->istream.stream_errno == ENOENT) {
+		/* lost the file */
 	} else {
 		i_error("Attachment file %s smaller than expected "
-			"(%"PRIuUOFF_T")", i_stream_get_name(stream->parent),
-			astream->size);
+			"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+			i_stream_get_name(stream->parent),
+			stream->istream.v_offset, astream->size);
+		stream->istream.stream_errno = EIO;
 	}
 
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
