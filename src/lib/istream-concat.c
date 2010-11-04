@@ -126,7 +126,7 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		if (ret == -2 || ret == 0)
 			return ret;
 
-		if (ret == -1 && stream->istream.stream_errno != 0) {
+		if (ret == -1 && cstream->cur_input->stream_errno != 0) {
 			stream->istream.stream_errno =
 				cstream->cur_input->stream_errno;
 			return -1;
