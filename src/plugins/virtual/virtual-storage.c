@@ -401,7 +401,6 @@ static void virtual_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 	mlist->module_ctx.super = *v;
 	list->vlast = &mlist->module_ctx.super;
 
-	list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
 	v->get_mailbox_flags = virtual_list_get_mailbox_flags;
 
 	MODULE_CONTEXT_SET(list, virtual_mailbox_list_module, mlist);
@@ -488,7 +487,7 @@ static bool virtual_is_inconsistent(struct mailbox *box)
 
 struct mail_storage virtual_storage = {
 	.name = VIRTUAL_STORAGE_NAME,
-	.class_flags = 0,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_NOQUOTA,
 
 	.v = {
 		NULL,

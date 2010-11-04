@@ -54,7 +54,9 @@ enum mail_storage_class_flags {
 	/* root_dir points to a unique directory */
 	MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT	= 0x02,
 	/* mailbox_open_stream() is supported */
-	MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS	= 0x04
+	MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS	= 0x04,
+	/* never use quota for this storage (e.g. virtual mailboxes) */
+	MAIL_STORAGE_CLASS_FLAG_NOQUOTA		= 0x08
 };
 
 struct mail_storage {
