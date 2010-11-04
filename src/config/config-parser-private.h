@@ -23,6 +23,9 @@ struct config_section_stack {
 	/* root=NULL-terminated list of parsers */
 	struct config_module_parser *parsers;
 	unsigned int pathlen;
+
+	const char *open_path;
+	unsigned int open_linenum;
 };
 
 struct input_stack {

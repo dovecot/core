@@ -165,6 +165,9 @@ config_add_new_section(struct config_parser_context *ctx)
 	section->prev = ctx->cur_section;
 	section->filter = ctx->cur_section->filter;
 	section->parsers = ctx->cur_section->parsers;
+
+	section->open_path = p_strdup(ctx->pool, ctx->cur_input->path);
+	section->open_linenum = ctx->cur_input->linenum;
 	return section;
 }
 
@@ -311,6 +314,14 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	unsigned int i, count;
 	pool_t tmp_pool;
 	int ret = 0;
+
+	if (ctx->cur_section->prev != NULL) {
+		*error_r = t_strdup_printf(
+			"Missing '}' (section started at %s:%u)",
+			ctx->cur_section->open_path,
+			ctx->cur_section->open_linenum);
+		return -1;
+	}
 
 	tmp_pool = pool_alloconly_create("config parsers check", 1024*32);
 	parsers = array_get(&ctx->all_parsers, &count);
