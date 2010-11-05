@@ -370,7 +370,8 @@ static int auth_master_run_cmd(struct auth_master_connection *conn,
 		io_loop_run(conn->ioloop);
 	}
 
-	auth_master_unset_io(conn, prev_ioloop);
+	if (prev_ioloop != NULL)
+		auth_master_unset_io(conn, prev_ioloop);
 	if (conn->aborted) {
 		conn->aborted = FALSE;
 		auth_connection_close(conn);
