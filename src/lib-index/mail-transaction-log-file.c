@@ -17,6 +17,9 @@
 #define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 
 static int
+mail_transaction_log_file_sync(struct mail_transaction_log_file *file);
+
+static int
 log_file_set_syscall_error(struct mail_transaction_log_file *file,
 			   const char *function)
 {
@@ -186,6 +189,14 @@ mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 
 	file->next = *p;
 	*p = file;
+
+	if (file->buffer != NULL) {
+		/* if we read any unfinished data, make sure the buffer gets
+		   truncated. */
+		(void)mail_transaction_log_file_sync(file);
+		buffer_set_used_size(file->buffer,
+				     file->sync_offset - file->buffer_offset);
+	}
 }
 
 static int
@@ -399,7 +410,9 @@ mail_transaction_log_file_read_header(struct mail_transaction_log_file *file)
 
 	memset(&file->hdr, 0, sizeof(file->hdr));
 	if (file->last_size < mmap_get_page_size() && file->last_size > 0) {
-		/* just read the entire transaction log to memory */
+		/* just read the entire transaction log to memory.
+		   note that if some of the data hasn't been fully committed
+		   yet (hdr.size=0), the buffer must be truncated later */
 		file->buffer = buffer_create_dynamic(default_pool, 4096);
 		file->buffer_offset = 0;
 		dest_size = file->last_size;
@@ -1403,23 +1416,19 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	}
 
 	if ((ret = mail_transaction_log_file_read_more(file)) <= 0)
-		return ret;
-
-	if (file->log->nfs_flush && !nfs_flush &&
-	    mail_transaction_log_file_need_nfs_flush(file)) {
+		;
+	else if (file->log->nfs_flush && !nfs_flush &&
+		 mail_transaction_log_file_need_nfs_flush(file)) {
 		/* we didn't read enough data. flush and try again. */
 		return mail_transaction_log_file_read(file, start_offset, TRUE);
+	} else if ((ret = mail_transaction_log_file_sync(file)) <= 0) {
+		i_assert(ret != 0); /* ret=0 happens only with mmap */
+	} else {
+		i_assert(file->sync_offset >= file->buffer_offset);
 	}
-
-	if ((ret = mail_transaction_log_file_sync(file)) <= 0) {
-		i_assert(ret != 0); /* happens only with mmap */
-		return -1;
-	}
-
-	i_assert(file->sync_offset >= file->buffer_offset);
 	buffer_set_used_size(file->buffer,
 			     file->sync_offset - file->buffer_offset);
-	return 1;
+	return ret;
 }
 
 static int
@@ -1553,6 +1562,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 	i_assert(start_offset >= file->hdr.hdr_size);
 	i_assert(start_offset <= end_offset);
+	i_assert(file->buffer == NULL || file->mmap_base != NULL ||
+		 file->sync_offset >= file->buffer_offset + file->buffer->used);
 
 	if (file->locked_sync_offset_updated && file == file->log->head &&
 	    end_offset == (uoff_t)-1) {
@@ -1605,6 +1616,9 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		mail_transaction_log_file_munmap(file);
 		ret = mail_transaction_log_file_read(file, start_offset, FALSE);
 	}
+
+	i_assert(file->buffer == NULL || file->mmap_base != NULL ||
+		 file->sync_offset >= file->buffer_offset + file->buffer->used);
 
 	return ret <= 0 ? ret :
 		log_file_map_check_offsets(file, start_offset, end_offset);
