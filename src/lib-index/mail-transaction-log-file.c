@@ -1564,14 +1564,17 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		end_offset = file->sync_offset;
 	}
 
-	if (file->locked)
-		file->locked_sync_offset_updated = TRUE;
-
 	if (file->buffer != NULL && file->buffer_offset <= start_offset) {
 		/* see if we already have it */
 		size = buffer_get_used_size(file->buffer);
 		if (file->buffer_offset + size >= end_offset)
 			return 1;
+	}
+
+	if (file->locked) {
+		/* set this only when we've synced to end of file while locked
+		   (either end_offset=(uoff_t)-1 or we had to read anyway) */
+		file->locked_sync_offset_updated = TRUE;
 	}
 
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
