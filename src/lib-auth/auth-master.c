@@ -309,8 +309,10 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 static void auth_master_unset_io(struct auth_master_connection *conn,
 				 struct ioloop *prev_ioloop)
 {
-	io_loop_set_current(prev_ioloop);
-	lib_signals_reset_ioloop();
+	if (prev_ioloop != NULL) {
+		io_loop_set_current(prev_ioloop);
+		lib_signals_reset_ioloop();
+	}
 	io_loop_set_current(conn->ioloop);
 
 	timeout_remove(&conn->to);
@@ -320,8 +322,12 @@ static void auth_master_unset_io(struct auth_master_connection *conn,
 	io_loop_destroy(&conn->ioloop);
 
 	if ((conn->flags & AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT) == 0) {
-		conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
-				       auth_idle_timeout, conn);
+		if (prev_ioloop == NULL)
+			auth_connection_close(conn);
+		else {
+			conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
+					       auth_idle_timeout, conn);
+		}
 	}
 }
 
@@ -370,8 +376,7 @@ static int auth_master_run_cmd(struct auth_master_connection *conn,
 		io_loop_run(conn->ioloop);
 	}
 
-	if (prev_ioloop != NULL)
-		auth_master_unset_io(conn, prev_ioloop);
+	auth_master_unset_io(conn, prev_ioloop);
 	if (conn->aborted) {
 		conn->aborted = FALSE;
 		auth_connection_close(conn);
