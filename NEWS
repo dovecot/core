@@ -11,7 +11,8 @@ v2.0.7 2010-11-08  Timo Sirainen <tss@iki.fi>
 	  COMPRESS DEFLATE I/O traffic (e.g. from rawlog).
 	- IMAP: Fixed LIST-STATUS when listing subscriptions with
 	  subscriptions=no namespaces. 
-	- IMAP: Fixed SELECT QRESYNC not to crash on mailbox close if a lot of changes were being sent. 
+	- IMAP: Fixed SELECT QRESYNC not to crash on mailbox close if a lot of
+	  changes were being sent. 
 	- quota: Don't count virtual mailboxes in quota
 	- doveadm expunge didn't always actually do the physical expunging
 	- Fixed some index reading optimizations introduced by v2.0.5.
