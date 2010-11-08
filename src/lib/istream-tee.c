@@ -192,9 +192,12 @@ struct tee_istream *tee_i_stream_create(struct istream *input)
 	struct tee_istream *tee;
 
 	tee = i_new(struct tee_istream, 1);
-	tee->input = input;
-
-	i_stream_ref(input);
+	if (input->v_offset == 0) {
+		i_stream_ref(input);
+		tee->input = input;
+	} else {
+		tee->input = i_stream_create_limit(input, (uoff_t)-1);
+	}
 	return tee;
 }
 
