@@ -202,6 +202,10 @@ static void lmtp_proxy_finish(struct lmtp_proxy *proxy)
 
 static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 {
+	if (proxy->finish_callback == NULL) {
+		/* DATA command hasn't been sent yet */
+		return;
+	}
 	if (lmtp_proxy_send_data_replies(proxy) &&
 	    (proxy->data_input == NULL ||
 	     proxy->data_input->eof ||
