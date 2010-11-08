@@ -485,7 +485,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		guid = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 						  MAILDIR_UIDLIST_REC_EXT_GUID);
 		if (guid != NULL) {
-			*value_r = guid;
+			*value_r = p_strdup(mail->data_pool, guid);
 			return 0;
 		}
 
@@ -524,7 +524,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			return maildir_mail_get_special(_mail,
 					MAIL_FETCH_UIDL_FILE_NAME, value_r);
 		} else {
-			*value_r = uidl;
+			*value_r = p_strdup(mail->data_pool, uidl);
 		}
 		return 0;
 	default:
