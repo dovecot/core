@@ -256,9 +256,16 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		client_send_line(client, "554 5.4.6 <%s> "
 				 "Proxying loops to itself", address);
 		pool_unref(&pool);
-		return FALSE;
+		return TRUE;
 	}
 
+	if (array_count(&client->state.rcpt_to) != 0) {
+		client_send_line(client, "451 4.3.0 <%s> "
+			"Can't handle mixed proxy/non-proxy destinations",
+			address);
+		pool_unref(&pool);
+		return TRUE;
+	}
 	if (client->proxy == NULL) {
 		client->proxy = lmtp_proxy_init(client->set->hostname,
 						dns_client_socket_path,
@@ -373,6 +380,13 @@ int cmd_rcpt(struct client *client, const char *args)
 	if (client->lmtp_set->lmtp_proxy) {
 		if (client_proxy_rcpt(client, address, username, detail))
 			return 0;
+	}
+
+	if (client->proxy != NULL) {
+		client_send_line(client, "451 4.3.0 <%s> "
+			"Can't handle mixed proxy/non-proxy destinations",
+			address);
+		return 0;
 	}
 
 	memset(&input, 0, sizeof(input));
