@@ -1,4 +1,9 @@
+ - imap, pop3: if client init fails, wait a second or two before disconnecting
+   client.
+ - doveadm expunge parameter to delete empty mailboxes (for lazy-expunge)
+ - doveadm search savedbefore 7d could be optimized in large mailboxes..
  - mdbox: storage rebuilding could log about changes it does
+ - mdbox: broken extrefs header keeps causing index rebuilds
  - cache: mail_cache_lookup() should be able to return mail_cache_add()ed
    fields even before they've been flushed to disk. this is useful when copying
    messages and some plugin (e.g. mail_log) fetches some fields that are
@@ -136,9 +141,11 @@
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
  - ldap:
+   - support multiple connections for doing auth binds
    - domain lookups which set the base for user lookup
    - same attribute can't be used for multiple values.
    - multiple attributes can't be merged to a single value.
+   - multiple value could be joined with specified separator (per-field)
    - implement something like:
        user_attrs {
 	 uid = %{ldap:uidNumber}

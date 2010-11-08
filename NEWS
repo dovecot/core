@@ -1,3 +1,22 @@
+v2.0.7 2010-11-08  Timo Sirainen <tss@iki.fi>
+
+	* master: default_process_limit wasn't actually used anywhere,
+	  rather the default was unlimited. Now that it is enforced, you might
+	  notice that the default limit is too low and you need to increase it.
+	  Dovecot logs a warning when this happens.
+	* mail-log plugin: Log mailbox name as virtual name rather than
+	  physical name (e.g. namespace prefix is included in the name)
+
+	+ doveadm dump: Added imapzlib type to uncompress IMAP's
+	  COMPRESS DEFLATE I/O traffic (e.g. from rawlog).
+	- IMAP: Fixed LIST-STATUS when listing subscriptions with
+	  subscriptions=no namespaces. 
+	- IMAP: Fixed SELECT QRESYNC not to crash on mailbox close if a lot of changes were being sent. 
+	- quota: Don't count virtual mailboxes in quota
+	- doveadm expunge didn't always actually do the physical expunging
+	- Fixed some index reading optimizations introduced by v2.0.5.
+	- LMTP proxying fixes
+
 v2.0.6 2010-10-21  Timo Sirainen <tss@iki.fi>
 
 	* Pre-login CAPABILITY includes IDLE again. Mainly to make Blackberry
