@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "env-util.h"
 #include "process-title.h"
 
 #include <stdlib.h> /* NetBSD, OpenBSD */
@@ -115,12 +116,12 @@ static void proctitle_hack_set(const char *title)
 void process_title_init(char **argv[])
 {
 #ifdef PROCTITLE_HACK
-	extern char **environ;
+	char ***environ_p = env_get_environ_p();
 	char **orig_argv = *argv;
-	char **orig_environ = environ;
+	char **orig_environ = *environ_p;
 
 	*argv = argv_dup(orig_argv, &argv_memblock);
-	environ = argv_dup(orig_environ, &environ_memblock);
+	*environ_p = argv_dup(orig_environ, &environ_memblock);
 	proctitle_hack_init(orig_argv, orig_environ);
 #endif
 	process_name = (*argv)[0];

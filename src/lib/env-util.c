@@ -5,6 +5,9 @@
 #include "env-util.h"
 
 #include <stdlib.h>
+#ifdef __APPLE__
+#  include <crt_externs.h>
+#endif
 
 struct env_backup {
 	pool_t pool;
@@ -106,8 +109,8 @@ void env_clean_except(const char *const preserve_envs[])
 
 struct env_backup *env_backup_save(void)
 {
+	char **environ = *env_get_environ_p();
 	struct env_backup *env;
-	extern char **environ;
 	unsigned int i, count;
 	pool_t pool;
 
@@ -139,6 +142,17 @@ void env_backup_free(struct env_backup **_env)
 
 	*_env = NULL;
 	pool_unref(&env->pool);
+}
+
+char ***env_get_environ_p(void)
+{
+#ifdef __APPLE__
+	return _NSGetEnviron();
+#else
+	extern char **environ;
+
+	return &environ;
+#endif
 }
 
 void env_deinit(void)

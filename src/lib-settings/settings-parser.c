@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "network.h"
 #include "istream.h"
+#include "env-util.h"
 #include "execv-const.h"
 #include "str.h"
 #include "strescape.h"
@@ -942,7 +943,7 @@ static int environ_cmp(char *const *s1, char *const *s2)
 
 int settings_parse_environ(struct setting_parser_context *ctx)
 {
-	extern char **environ;
+	char **environ = *env_get_environ_p();
 	ARRAY_TYPE(string) sorted_envs_arr;
 	const char *key, *value;
 	char *const *sorted_envs;

@@ -18,6 +18,10 @@ void env_backup_restore(struct env_backup *env);
 /* Free the memory used by environment backup. */
 void env_backup_free(struct env_backup **env);
 
+/* Returns the value of "&environ". This is more portable than using it
+   directly. */
+char ***env_get_environ_p(void);
+
 /* Free all memory used by env_put() function. Environment must not be
    accessed afterwards. */
 void env_deinit(void);
