@@ -1101,6 +1101,14 @@ local_worker_convert_mailbox_name(struct local_dsync_worker *worker,
 			/* probably some reserved name (e.g. dbox-Mails) */
 			name = t_strconcat("_", name, NULL);
 		}
+		if (!mailbox_list_is_valid_create_name(ns->list, name)) {
+			/* name is too long? just give up and generate a
+			   unique name */
+			uint8_t guid[MAIL_GUID_128_SIZE];
+
+			mail_generate_guid_128(guid);
+			name = mail_guid_128_to_string(guid);
+		}
 		i_assert(mailbox_list_is_valid_create_name(ns->list, name));
 	}
 	return name;
