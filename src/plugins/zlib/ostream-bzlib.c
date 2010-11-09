@@ -119,6 +119,19 @@ static int o_stream_bzlib_send_flush(struct bzlib_ostream *zstream)
 	return 0;
 }
 
+static void o_stream_bzlib_cork(struct ostream_private *stream, bool set)
+{
+	struct bzlib_ostream *zstream = (struct bzlib_ostream *)stream;
+
+	stream->corked = set;
+	if (set)
+		o_stream_cork(zstream->output);
+	else {
+		(void)o_stream_flush(&stream->ostream);
+		o_stream_uncork(zstream->output);
+	}
+}
+
 static int o_stream_bzlib_flush(struct ostream_private *stream)
 {
 	struct bzlib_ostream *zstream = (struct bzlib_ostream *)stream;
@@ -161,6 +174,7 @@ struct ostream *o_stream_create_bz2(struct ostream *output, int level)
 
 	zstream = i_new(struct bzlib_ostream, 1);
 	zstream->ostream.sendv = o_stream_bzlib_sendv;
+	zstream->ostream.cork = o_stream_bzlib_cork;
 	zstream->ostream.flush = o_stream_bzlib_flush;
 	zstream->ostream.iostream.close = o_stream_bzlib_close;
 	zstream->output = output;
