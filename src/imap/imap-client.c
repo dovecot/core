@@ -250,6 +250,7 @@ void client_disconnect(struct client *client, const char *reason)
 	i_info("Disconnected: %s %s", reason, client_stats(client));
 	client->disconnected = TRUE;
 	(void)o_stream_flush(client->output);
+	o_stream_uncork(client->output);
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);

@@ -9,7 +9,6 @@ bool cmd_logout(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 
 	client_send_line(client, "* BYE Logging out");
-	o_stream_uncork(client->output);
 
 	if (client->mailbox != NULL) {
 		client_search_updates_free(client);
