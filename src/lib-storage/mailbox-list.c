@@ -205,7 +205,7 @@ static int fix_path(struct mail_user *user, const char *path,
 
 	if (len > 1 && path[len-1] == '/')
 		path = t_strndup(path, len-1);
-	if (path[0] == '~' && path[1] != '/') {
+	if (path[0] == '~' && path[1] != '/' && path[1] != '\0') {
 		/* ~otheruser/dir */
 		if (home_try_expand(&path) < 0) {
 			*error_r = t_strconcat(
