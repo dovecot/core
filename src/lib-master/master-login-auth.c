@@ -31,6 +31,8 @@ struct master_login_auth_request {
 
 	master_login_auth_request_callback_t *callback;
 	void *context;
+
+	unsigned int aborted:1;
 };
 
 struct master_login_auth {
@@ -56,7 +58,7 @@ struct master_login_auth {
 };
 
 static void master_login_auth_set_timeout(struct master_login_auth *auth);
-static void master_login_auth_send_all_requests(struct master_login_auth *auth);
+static void master_login_auth_check_spids(struct master_login_auth *auth);
 
 struct master_login_auth *master_login_auth_init(const char *auth_socket_path)
 {
@@ -195,6 +197,12 @@ master_login_auth_lookup_request(struct master_login_auth *auth,
 		return NULL;
 	}
 	master_login_auth_request_remove(auth, request);
+	if (request->aborted) {
+		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+				  request->context);
+		i_free(request);
+		return NULL;
+	}
 	return request;
 }
 
@@ -325,7 +333,7 @@ static void master_login_auth_input(struct master_login_auth *auth)
 			return;
 		}
 		auth->spid_received = TRUE;
-		master_login_auth_send_all_requests(auth);
+		master_login_auth_check_spids(auth);
 	}
 
 	auth->refcount++;
@@ -367,19 +375,38 @@ master_login_auth_connect(struct master_login_auth *auth)
 	return 0;
 }
 
+static bool
+auth_request_check_spid(struct master_login_auth *auth,
+			struct master_login_auth_request *req)
+{
+	if (auth->auth_server_pid != req->auth_pid && auth->spid_received) {
+		/* auth server was restarted. don't even attempt a login. */
+		i_warning("Auth server restarted (pid %u -> %u), aborting auth",
+			  (unsigned int)req->auth_pid,
+			  (unsigned int)auth->auth_server_pid);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static void master_login_auth_check_spids(struct master_login_auth *auth)
+{
+	struct master_login_auth_request *req, *next;
+
+	for (req = auth->request_head; req != NULL; req = next) {
+		next = req->next;
+		if (!auth_request_check_spid(auth, req))
+			req->aborted = TRUE;
+	}
+}
+
 static void
 master_login_auth_send_request(struct master_login_auth *auth,
 			       struct master_login_auth_request *req)
 {
 	string_t *str;
 
-	i_assert(auth->spid_received);
-
-	if (auth->auth_server_pid != req->auth_pid) {
-		/* auth server was restarted. don't even attempt a login. */
-		i_warning("Auth server restarted (pid %u -> %u), aborting auth",
-			  (unsigned int)req->auth_pid,
-			  (unsigned int)auth->auth_server_pid);
+	if (!auth_request_check_spid(auth, req)) {
 		master_login_auth_request_remove(auth, req);
 		req->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
 			      req->context);
@@ -393,16 +420,6 @@ master_login_auth_send_request(struct master_login_auth *auth,
 	binary_to_hex_append(str, req->cookie, sizeof(req->cookie));
 	str_append_c(str, '\n');
 	o_stream_send(auth->output, str_data(str), str_len(str));
-}
-
-static void master_login_auth_send_all_requests(struct master_login_auth *auth)
-{
-	struct master_login_auth_request *req, *next;
-
-	for (req = auth->request_head; req != NULL; req = next) {
-		next = req->next;
-		master_login_auth_send_request(auth, req);
-	}
 }
 
 void master_login_auth_request(struct master_login_auth *auth,
@@ -447,8 +464,7 @@ void master_login_auth_request(struct master_login_auth *auth,
 	if (auth->to == NULL)
 		master_login_auth_set_timeout(auth);
 
-	if (auth->spid_received)
-		master_login_auth_send_request(auth, login_req);
+	master_login_auth_send_request(auth, login_req);
 }
 
 unsigned int master_login_auth_request_count(struct master_login_auth *auth)
