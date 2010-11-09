@@ -42,7 +42,7 @@ static struct failure_context failure_ctx_error = { .type = LOG_TYPE_ERROR };
 static int log_fd = STDERR_FILENO, log_info_fd = STDERR_FILENO,
 	   log_debug_fd = STDERR_FILENO;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
-static bool failure_ignore_errors = FALSE;
+static bool failure_ignore_errors = FALSE, log_prefix_sent = FALSE;
 
 static void ATTR_FORMAT(2, 0)
 i_internal_error_handler(const struct failure_context *ctx,
@@ -523,7 +523,7 @@ void i_set_failure_prefix(const char *prefix)
 	i_free(log_prefix);
 	log_prefix = i_strdup(prefix);
 
-	i_failure_send_option("prefix", prefix);
+	log_prefix_sent = FALSE;
 }
 
 static int internal_send_split(string_t *full_str, unsigned int prefix_len)
@@ -564,6 +564,11 @@ internal_handler(const struct failure_context *ctx,
 	T_BEGIN {
 		string_t *str;
 		unsigned int prefix_len;
+
+		if (!log_prefix_sent) {
+			log_prefix_sent = TRUE;
+			i_failure_send_option("prefix", log_prefix);
+		}
 
 		str = t_str_new(128);
 		str_printfa(str, "\001%c%s ", ctx->type + 1, my_pid);
