@@ -66,6 +66,9 @@ int main(int argc, char *argv[])
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
 
+	/* delay dying until all of our clients are gone */
+	master_service_set_die_with_master(master_service, FALSE);
+
 	master_service_init_finish(master_service);
 	connect_limit = connect_limit_init();
 	penalty = penalty_init();
