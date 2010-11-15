@@ -128,6 +128,24 @@ i_stream_base64_encoder_stat(struct istream_private *stream, bool exact)
 	return i_stream_stat(stream->parent, exact);
 }
 
+static void
+i_stream_base64_encoder_seek(struct istream_private *stream,
+			     uoff_t v_offset, bool mark)
+{
+	struct base64_encoder_istream *bstream =
+		(struct base64_encoder_istream *)stream;
+
+	if (v_offset < stream->istream.v_offset) {
+		/* seeking backwards - go back to beginning and seek
+		   forward from there. */
+		stream->parent_expected_offset = stream->parent_start_offset;
+		stream->skip = stream->pos = 0;
+		stream->istream.v_offset = 0;
+		bstream->cur_line_len = 0;
+	}
+	i_stream_default_seek(stream, v_offset, mark);
+}
+
 struct istream *
 i_stream_create_base64_encoder(struct istream *input,
 			       unsigned int chars_per_line, bool crlf)
@@ -144,6 +162,7 @@ i_stream_create_base64_encoder(struct istream *input,
 	bstream->istream.parent = input;
 	bstream->istream.read = i_stream_base64_encoder_read;
 	bstream->istream.stat = i_stream_base64_encoder_stat;
+	bstream->istream.seek = i_stream_base64_encoder_seek;
 
 	bstream->istream.istream.readable_fd = FALSE;
 	bstream->istream.istream.blocking = input->blocking;
