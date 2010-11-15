@@ -143,6 +143,7 @@ i_stream_base64_encoder_seek(struct istream_private *stream,
 		stream->skip = stream->pos = 0;
 		stream->istream.v_offset = 0;
 		bstream->cur_line_len = 0;
+		i_stream_seek(stream->parent, 0);
 	}
 	i_stream_default_seek(stream, v_offset, mark);
 }
