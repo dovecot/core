@@ -168,7 +168,7 @@ i_stream_create_base64_encoder(struct istream *input,
 
 	bstream->istream.istream.readable_fd = FALSE;
 	bstream->istream.istream.blocking = input->blocking;
-	bstream->istream.istream.seekable = FALSE;
+	bstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&bstream->istream, input,
 			       i_stream_get_fd(input));
 }
