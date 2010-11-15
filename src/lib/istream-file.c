@@ -159,7 +159,7 @@ i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 		}
 	} else {
 		if (stat(name, &stream->statbuf) < 0) {
-			i_error("file_istream.fstat(%s) failed: %m", name);
+			i_error("file_istream.stat(%s) failed: %m", name);
 			return NULL;
 		}
 	}
