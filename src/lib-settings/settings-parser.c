@@ -651,9 +651,9 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 }
 
 static bool
-settings_find_key(struct setting_parser_context *ctx, const char *key,
-		  const struct setting_define **def_r,
-		  struct setting_link **link_r)
+settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
+		      unsigned int n, const struct setting_define **def_r,
+		      struct setting_link **link_r)
 {
 	const struct setting_define *def;
 	struct setting_link *link;
@@ -663,12 +663,14 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 	/* try to find from roots */
 	for (i = 0; i < ctx->root_count; i++) {
 		def = setting_define_find(ctx->roots[i].info, key);
-		if (def != NULL) {
+		if (def != NULL && n-- == 0) {
 			*def_r = def;
 			*link_r = &ctx->roots[i];
 			return TRUE;
 		}
 	}
+	if (n > 0)
+		return FALSE;
 
 	/* try to find from links */
 	end = strrchr(key, SETTINGS_SEPARATOR);
@@ -687,6 +689,14 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 		*def_r = setting_define_find(link->info, end + 1);
 		return *def_r != NULL;
 	}
+}
+
+static bool
+settings_find_key(struct setting_parser_context *ctx, const char *key,
+		  const struct setting_define **def_r,
+		  struct setting_link **link_r)
+{
+	return settings_find_key_nth(ctx, key, 0, def_r, link_r);
 }
 
 static void
@@ -720,8 +730,15 @@ static int settings_parse_keyvalue(struct setting_parser_context *ctx,
 {
 	const struct setting_define *def;
 	struct setting_link *link;
+	unsigned int n = 0;
 
-	if (settings_find_key(ctx, key, &def, &link)) {
+	if (!settings_find_key(ctx, key, &def, &link)) {
+		ctx->error = p_strconcat(ctx->parser_pool,
+					 "Unknown setting: ", key, NULL);
+		return 0;
+	}
+
+	do {
 		if (link->info == &strlist_info) {
 			settings_parse_strlist(ctx, link, key, value);
 			return 1;
@@ -729,12 +746,9 @@ static int settings_parse_keyvalue(struct setting_parser_context *ctx,
 
 		if (settings_parse(ctx, link, def, key, value) < 0)
 			return -1;
-		return 1;
-	} else {
-		ctx->error = p_strconcat(ctx->parser_pool,
-					 "Unknown setting: ", key, NULL);
-		return 0;
-	}
+		/* there may be more instances of the setting */
+	} while (settings_find_key_nth(ctx, key, ++n, &def, &link));
+	return 1;
 }
 
 bool settings_parse_is_valid_key(struct setting_parser_context *ctx,
