@@ -23,7 +23,7 @@
 #define LMTP_MASTER_FIRST_LISTEN_FD 3
 
 #define IS_STANDALONE() \
-        (getenv(MASTER_UID_ENV) == NULL)
+        (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
 const char *dns_client_socket_path;
 struct mail_storage_service_ctx *storage_service;

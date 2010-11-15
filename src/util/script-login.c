@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 	enum master_service_flags flags = 0;
 	int i, c;
 
-	if (getenv(MASTER_UID_ENV) == NULL)
+	if (getenv(MASTER_IS_PARENT_ENV) == NULL)
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
 	master_service = master_service_init("script-login", flags,

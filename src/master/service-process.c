@@ -207,6 +207,7 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 		break;
 	}
 
+	env_put(MASTER_IS_PARENT_ENV"=1");
 	env_put(t_strdup_printf(MASTER_CLIENT_LIMIT_ENV"=%u",
 				service->client_limit));
 	if (service->set->service_count != 0) {

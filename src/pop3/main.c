@@ -22,7 +22,7 @@
 #include <unistd.h>
 
 #define IS_STANDALONE() \
-        (getenv(MASTER_UID_ENV) == NULL)
+        (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
 static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;

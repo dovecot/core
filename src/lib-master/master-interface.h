@@ -33,6 +33,10 @@ enum master_login_state {
 	MASTER_LOGIN_STATE_FULL
 };
 
+/* getenv(MASTER_IS_PARENT_ENV) != NULL if process was started by
+   Dovecot master */
+#define MASTER_IS_PARENT_ENV "DOVECOT_CHILD_PROCESS"
+
 /* getenv(MASTER_UID_ENV) provides master_status.uid value */
 #define MASTER_UID_ENV "GENERATION"
 
@@ -47,7 +51,8 @@ enum master_login_state {
 /* getenv(MASTER_CONFIG_FILE_ENV) provides path to configuration file/socket */
 #define MASTER_CONFIG_FILE_ENV "CONFIG_FILE"
 
-/* getenv(MASTER_DOVECOT_VERSION_ENV) provides master's version number */
+/* getenv(MASTER_DOVECOT_VERSION_ENV) provides master's version number
+   (unset if version_ignore=yes) */
 #define MASTER_DOVECOT_VERSION_ENV "DOVECOT_VERSION"
 
 /* getenv(MASTER_SSL_KEY_PASSWORD_ENV) returns manually typed SSL key password,
