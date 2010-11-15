@@ -534,9 +534,8 @@ static void i_stream_default_destroy(struct iostream_private *stream)
 		i_stream_unref(&_stream->parent);
 }
 
-static void
-i_stream_default_seek(struct istream_private *stream,
-		      uoff_t v_offset, bool mark ATTR_UNUSED)
+void i_stream_default_seek(struct istream_private *stream,
+			   uoff_t v_offset, bool mark ATTR_UNUSED)
 {
 	size_t available;
 
@@ -559,6 +558,7 @@ i_stream_default_seek(struct istream_private *stream,
 		}
 	}
 }
+
 static const struct stat *
 i_stream_default_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
