@@ -228,8 +228,21 @@ static int sdbox_mailbox_open(struct mailbox *box)
 		return -1;
 
 	/* get/generate mailbox guid */
-	if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
-		memset(&hdr, 0, sizeof(hdr));
+	if (sdbox_read_header(mbox, &hdr, FALSE) < 0) {
+		/* it's possible that this mailbox is just now being created
+		   by another process. lock it first and see if the header is
+		   available then. */
+		struct mail_index_sync_ctx *sync_ctx;
+		struct mail_index_view *view;
+		struct mail_index_transaction *trans;
+
+		if (mail_index_sync_begin(box->index, &sync_ctx,
+					  &view, &trans, 0) > 0)
+			(void)mail_index_sync_commit(&sync_ctx);
+
+		if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
+			memset(&hdr, 0, sizeof(hdr));
+	}
 
 	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
