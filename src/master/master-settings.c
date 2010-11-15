@@ -181,8 +181,6 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(SET_SIZE, default_vsz_limit),
 
 	DEF(SET_BOOL, version_ignore),
-	DEF(SET_BOOL, mail_debug),
-	DEF(SET_BOOL, auth_debug),
 
 	DEF(SET_UINT, first_valid_uid),
 	DEF(SET_UINT, last_valid_uid),
@@ -208,8 +206,6 @@ static const struct master_settings master_default_settings = {
 	.default_vsz_limit = 256*1024*1024,
 
 	.version_ignore = FALSE,
-	.mail_debug = FALSE,
-	.auth_debug = FALSE,
 
 	.first_valid_uid = 500,
 	.last_valid_uid = 0,

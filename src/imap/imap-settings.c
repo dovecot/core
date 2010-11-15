@@ -60,7 +60,6 @@ struct service_settings imap_service_settings = {
 	{ SET_DEFLIST, name, offsetof(struct imap_settings, field), defines }
 
 static const struct setting_define imap_setting_defines[] = {
-	DEF(SET_BOOL, mail_debug),
 	DEF(SET_BOOL, verbose_proctitle),
 
 	DEF(SET_SIZE, imap_max_line_length),
@@ -75,7 +74,6 @@ static const struct setting_define imap_setting_defines[] = {
 };
 
 static const struct imap_settings imap_default_settings = {
-	.mail_debug = FALSE,
 	.verbose_proctitle = FALSE,
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't

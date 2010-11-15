@@ -11,7 +11,6 @@ enum imap_client_workarounds {
 /* </settings checks> */
 
 struct imap_settings {
-	bool mail_debug;
 	bool verbose_proctitle;
 
 	/* imap: */

@@ -11,7 +11,6 @@ enum pop3_client_workarounds {
 /* </settings checks> */
 
 struct pop3_settings {
-	bool mail_debug;
 	bool verbose_proctitle;
 
 	/* pop3: */

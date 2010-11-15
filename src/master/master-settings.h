@@ -17,8 +17,6 @@ struct master_settings {
 	uoff_t default_vsz_limit;
 
 	bool version_ignore;
-	bool mail_debug;
-	bool auth_debug;
 
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
