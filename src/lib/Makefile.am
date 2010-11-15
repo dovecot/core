@@ -237,6 +237,7 @@ test_lib_SOURCES = \
 	test-crc32.c \
 	test-hash-format.c \
 	test-hex-binary.c \
+	test-istream-base64-encoder.c \
 	test-istream-concat.c \
 	test-istream-crlf.c \
 	test-istream-seekable.c \
