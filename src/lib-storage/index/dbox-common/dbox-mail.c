@@ -32,9 +32,11 @@ void dbox_mail_close(struct mail *_mail)
 {
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
 
+	index_mail_close(_mail);
+	/* close the dbox file only after index is closed, since it may still
+	   try to read from it. */
 	if (mail->open_file != NULL)
 		dbox_file_unref(&mail->open_file);
-	index_mail_close(_mail);
 }
 
 int dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
