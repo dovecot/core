@@ -36,7 +36,7 @@ struct service_settings dict_service_settings = {
 	.client_limit = 1,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = -1U,
+	.vsz_limit = (uoff_t)-1,
 
 	.unix_listeners = { { &dict_unix_listeners_buf,
 			      sizeof(dict_unix_listeners[0]) } },

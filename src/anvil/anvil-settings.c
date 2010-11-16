@@ -39,7 +39,7 @@ struct service_settings anvil_service_settings = {
 	.client_limit = 0,
 	.service_count = 0,
 	.idle_kill = -1U,
-	.vsz_limit = -1U,
+	.vsz_limit = (uoff_t)-1,
 
 	.unix_listeners = { { &anvil_unix_listeners_buf,
 			      sizeof(anvil_unix_listeners[0]) } },

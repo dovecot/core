@@ -26,7 +26,7 @@ struct service_settings tcpwrap_service_settings = {
 	.client_limit = 1,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = -1U,
+	.vsz_limit = (uoff_t)-1,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
