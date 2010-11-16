@@ -496,6 +496,11 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				service->name);
 			return FALSE;
 		}
+		if (service->vsz_limit < 1024) {
+			*error_r = t_strdup_printf("service(%s): "
+				"vsz_limit is too low", service->name);
+			return FALSE;
+		}
 
 #ifdef CONFIG_BINARY
 		default_service =
