@@ -114,10 +114,9 @@ static void mbox_file_fix_atime(struct mbox_mailbox *mbox)
 		if (st.st_atime >= st.st_mtime) {
 			buf.modtime = st.st_mtime;
 			buf.actime = buf.modtime - 1;
-			if (utime(mbox->box.path, &buf) < 0) {
-				mbox_set_syscall_error(mbox, "utimes()");
-				return;
-			}
+			/* EPERM can happen with shared mailboxes */
+			if (utime(mbox->box.path, &buf) < 0 && errno != EPERM)
+				mbox_set_syscall_error(mbox, "utime()");
 		}
 	}
 }
