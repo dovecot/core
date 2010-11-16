@@ -763,12 +763,14 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	}
 
 	if (ret == 0 && ctx->orig_atime != st.st_atime) {
-		/* try to set atime back to its original value */
+		/* try to set atime back to its original value.
+		   (it'll fail with EPERM for shared mailboxes where we aren't
+		   the file's owner) */
 		struct utimbuf buf;
 
 		buf.modtime = st.st_mtime;
 		buf.actime = ctx->orig_atime;
-		if (utime(mbox->box.path, &buf) < 0)
+		if (utime(mbox->box.path, &buf) < 0 && errno != EPERM)
 			mbox_set_syscall_error(mbox, "utime()");
 	}
 

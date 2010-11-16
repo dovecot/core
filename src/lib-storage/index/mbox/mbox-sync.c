@@ -1904,7 +1904,9 @@ again:
 
 	if (ret == 0 && mbox->mbox_fd != -1 && sync_ctx.keep_recent &&
 	    !readonly) {
-		/* try to set atime back to its original value */
+		/* try to set atime back to its original value.
+		   (it'll fail with EPERM for shared mailboxes where we aren't
+		   the file's owner) */
 		struct utimbuf buf;
 		struct stat st;
 
@@ -1913,7 +1915,7 @@ again:
 		else {
 			buf.modtime = st.st_mtime;
 			buf.actime = sync_ctx.orig_atime;
-			if (utime(mbox->box.path, &buf) < 0)
+			if (utime(mbox->box.path, &buf) < 0 && errno != EPERM)
 				mbox_set_syscall_error(mbox, "utime()");
 		}
 	}
