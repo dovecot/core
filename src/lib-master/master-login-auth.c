@@ -79,6 +79,8 @@ void master_login_auth_disconnect(struct master_login_auth *auth)
 {
 	struct master_login_auth_request *request;
 
+	if (auth->request_head != NULL)
+		i_error("Disconnected from auth server, aborting requests");
 	while (auth->request_head != NULL) {
 		request = auth->request_head;
 		DLLIST2_REMOVE(&auth->request_head,
@@ -272,8 +274,10 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
-		if (error != NULL)
+		if (error == NULL)
 			i_error("Internal auth failure");
+		else
+			i_error("Internal auth failure: %s", error);
 		request->callback(NULL, error != NULL ? error :
 				  MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
 				  request->context);
