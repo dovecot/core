@@ -512,7 +512,8 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->headers = headers_count == 0 ? NULL :
 		p_new(mstream->pool, const char *, headers_count);
 	for (i = j = 0; i < headers_count; i++)  {
-		ret = j == 0 ? -1 : strcmp(mstream->headers[j-1], headers[i]);
+		ret = j == 0 ? -1 :
+			strcasecmp(mstream->headers[j-1], headers[i]);
 		if (ret == 0) {
 			/* drop duplicate */
 			continue;
