@@ -5,6 +5,7 @@ AC_CONFIG_SRCDIR([src])
 AM_INIT_AUTOMAKE([foreign])
 
 AM_MAINTAINER_MODE
+PKG_PROG_PKG_CONFIG
 
 ACLOCAL_AMFLAGS='-I $(top_srcdir)'
 AC_SUBST(ACLOCAL_AMFLAGS)
@@ -1662,7 +1663,7 @@ dnl **
 have_ssl=no
 
 if test $want_openssl != no && test $have_ssl = no; then
-  if pkg-config --exists openssl 2>/dev/null; then
+  if test "$PKG_CONFIG" != "" && $PKG_CONFIG --exists openssl 2>/dev/null; then
     PKG_CHECK_MODULES(SSL, openssl)
     CFLAGS="$CFLAGS $SSL_CFLAGS"
     have_openssl=yes
