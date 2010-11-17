@@ -49,6 +49,17 @@ dovecot-config: dovecot-config.in Makefile
 	-e "s|^\(dovecot_moduledir\)=|\1=$(moduledir)|" \
 	> dovecot-config
 
+if HAVE_SYSTEMD
+%.service: %.service.in
+	$(AM_V_GEN)sed -e 's,@sbindir\@,$(sbindir),g' $< > $@
+
+systemdsystemunit_DATA = \
+        dovecot.socket \
+        dovecot.service
+else
+EXTRA_DIST += dovecot.socket dovecot.service.in
+endif
+
 install-exec-hook:
 	rm $(DESTDIR)$(pkglibdir)/dovecot-config && \
 	grep -v '^LIBDOVECOT_.*_INCLUDE' dovecot-config | \
@@ -62,6 +73,9 @@ install-exec-hook:
 	> $(DESTDIR)$(pkglibdir)/dovecot-config
 
 CLEANFILES = $(datafiles)
+if HAVE_SYSTEMD
+CLEANFILES += $systedmsystemunit_DATA
+endif
 
 DISTCLEANFILES = $(top_builddir)/dovecot-version.h
 

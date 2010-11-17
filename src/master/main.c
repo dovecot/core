@@ -601,6 +601,10 @@ int main(int argc, char *argv[])
 	static const char *preserve_envs[] = {
 		/* AIX depends on TZ to get the timezone correctly. */
 		"TZ",
+#ifdef HAVE_SYSTEMD
+		"LISTEN_PID",
+		"LISTEN_FDS",
+#endif
 		NULL
 	};
 	struct master_settings *set;

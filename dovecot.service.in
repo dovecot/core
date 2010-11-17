@@ -1,0 +1,8 @@
+[Unit]
+Description=Dovecot IMAP/POP3 email server
+After=local-fs.target network.target
+
+[Service]
+Type=simple
+ExecStart=@sbindir@/dovecot -F
+NonBlocking=yes

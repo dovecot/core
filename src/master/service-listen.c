@@ -5,6 +5,9 @@
 #include "fd-set-nonblock.h"
 #include "fd-close-on-exec.h"
 #include "network.h"
+#ifdef HAVE_SYSTEMD
+#include "sd-daemon.h"
+#endif
 #include "service.h"
 #include "service-listen.h"
 
@@ -142,19 +145,55 @@ static int service_fifo_listener_listen(struct service_listener *l)
 	return 1;
 }
 
+#ifdef HAVE_SYSTEMD
+static int
+systemd_listen_fd(const struct ip_addr *my_ip, unsigned int port, int *fd_r)
+{
+	static int sd_fds = -1;
+	int fd, fd_max;
+
+	if (sd_fds < 0) {
+		sd_fds = sd_listen_fds(0);
+		if (sd_fds == -1) {
+			i_error("sd_listen_fds() failed: %m");
+			return -1;
+		}
+	}
+
+	fd_max = SD_LISTEN_FDS_START + sd_fds - 1;
+	for (fd = SD_LISTEN_FDS_START; fd <= fd_max; fd++) {
+		if (sd_is_socket_inet(fd, ip->family, SOCK_STREAM, 1, port)) {
+			*fd_r = fd;
+			return 0;
+		}
+	}
+	/* when systemd didn't provide a usable socket,
+	   fall back to the regular socket creation code */
+	*fd_r = -1;
+	return 0;
+}
+#endif
+
 static int service_inet_listener_listen(struct service_listener *l)
 {
         struct service *service = l->service;
 	const struct inet_listener_settings *set = l->set.inetset.set;
 	unsigned int port = set->port;
 	int fd;
+#ifdef HAVE_SYSTEMD
+	if (systemd_listen_fd(&l->set.inetset.ip, port, &fd) < 0)
+		return -1;
 
-	fd = net_listen(&l->set.inetset.ip, &port,
-			service_get_backlog(service));
-	if (fd < 0) {
-		service_error(service, "listen(%s, %u) failed: %m",
-			      l->inet_address, set->port);
-		return errno == EADDRINUSE ? 0 : -1;
+	if (fd == -1)
+#endif
+	{
+		fd = net_listen(&l->set.inetset.ip, &port,
+				service_get_backlog(service));
+		if (fd < 0) {
+			service_error(service, "listen(%s, %u) failed: %m",
+				      l->inet_address, set->port);
+			return errno == EADDRINUSE ? 0 : -1;
+		}
 	}
 	net_set_nonblock(fd, TRUE);
 	fd_close_on_exec(fd, TRUE);

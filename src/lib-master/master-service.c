@@ -400,6 +400,10 @@ void master_service_env_clean(bool preserve_home)
 #ifdef DEBUG
 		"GDB",
 #endif
+#ifdef HAVE_SYSTEMD
+		"LISTEN_PID",
+		"LISTEN_FDS",
+#endif
 		NULL
 	};
 	env_clean_except(preserve_envs + (preserve_home ? 0 : 1));
