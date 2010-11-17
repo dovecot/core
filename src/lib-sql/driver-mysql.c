@@ -61,6 +61,8 @@ static int driver_mysql_connect(struct sql_db *_db)
 
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
 
+	sql_db_set_state(&db->api, SQL_DB_STATE_CONNECTING);
+
 	if (*db->host == '/') {
 		unix_socket = db->host;
 		host = NULL;
