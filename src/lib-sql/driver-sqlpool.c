@@ -70,6 +70,9 @@ struct sqlpool_transaction_context {
 
 extern struct sql_db driver_sqlpool_db;
 
+static struct sqlpool_connection *
+sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
+		       unsigned int host_idx);
 static void
 driver_sqlpool_query_callback(struct sql_result *result,
 			      struct sqlpool_request *request);
@@ -172,39 +175,6 @@ static void sqlpool_reconnect(struct sql_db *conndb)
 	(void)sql_connect(conndb);
 }
 
-static void
-sqlpool_state_changed(struct sql_db *conndb, enum sql_db_state prev_state,
-		      void *context)
-{
-	struct sqlpool_db *db = context;
-
-	if (conndb->state == SQL_DB_STATE_IDLE) {
-		conndb->connect_failure_count = 0;
-		conndb->connect_delay = SQL_CONNECT_MIN_DELAY;
-		sqlpool_request_send_next(db, conndb);
-	}
-
-	if (prev_state == SQL_DB_STATE_CONNECTING &&
-	    conndb->state == SQL_DB_STATE_DISCONNECTED &&
-	    !conndb->no_reconnect) {
-		/* connect failed */
-		if (conndb->connect_failure_count > 0) {
-			/* increase delay between reconnections to this
-			   server */
-			conndb->connect_delay *= 5;
-			if (conndb->connect_delay > SQL_CONNECT_MAX_DELAY)
-				conndb->connect_delay = SQL_CONNECT_MAX_DELAY;
-		}
-		conndb->connect_failure_count++;
-
-		/* reconnect after the delay */
-		if (conndb->to_reconnect != NULL)
-			timeout_remove(&conndb->to_reconnect);
-		conndb->to_reconnect = timeout_add(conndb->connect_delay * 1000,
-						   sqlpool_reconnect, conndb);
-	}
-}
-
 static struct sqlpool_host *
 sqlpool_find_host_with_least_connections(struct sqlpool_db *db,
 					 unsigned int *host_idx_r)
@@ -227,16 +197,72 @@ sqlpool_find_host_with_least_connections(struct sqlpool_db *db,
 	return min;
 }
 
-static struct sqlpool_connection *sqlpool_add_connection(struct sqlpool_db *db)
+static bool sqlpool_have_successful_connections(struct sqlpool_db *db)
 {
-	struct sql_db *conndb;
+	const struct sqlpool_connection *conn;
+
+	array_foreach(&db->all_connections, conn) {
+		if (conn->db->state >= SQL_DB_STATE_IDLE)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static void
+sqlpool_handle_connect_failed(struct sqlpool_db *db, struct sql_db *conndb)
+{
 	struct sqlpool_host *host;
-	struct sqlpool_connection *conn;
 	unsigned int host_idx;
 
-	host = sqlpool_find_host_with_least_connections(db, &host_idx);
-	if (host->connection_count >= db->connection_limit)
-		return NULL;
+	if (conndb->connect_failure_count > 0) {
+		/* increase delay between reconnections to this
+		   server */
+		conndb->connect_delay *= 5;
+		if (conndb->connect_delay > SQL_CONNECT_MAX_DELAY)
+			conndb->connect_delay = SQL_CONNECT_MAX_DELAY;
+	}
+	conndb->connect_failure_count++;
+
+	/* reconnect after the delay */
+	if (conndb->to_reconnect != NULL)
+		timeout_remove(&conndb->to_reconnect);
+	conndb->to_reconnect = timeout_add(conndb->connect_delay * 1000,
+					   sqlpool_reconnect, conndb);
+
+	/* if we have zero successful hosts and there still are hosts
+	   without connections, connect to one of them. */
+	if (!sqlpool_have_successful_connections(db)) {
+		host = sqlpool_find_host_with_least_connections(db, &host_idx);
+		if (host->connection_count == 0)
+			(void)sqlpool_add_connection(db, host, host_idx);
+	}
+}
+
+static void
+sqlpool_state_changed(struct sql_db *conndb, enum sql_db_state prev_state,
+		      void *context)
+{
+	struct sqlpool_db *db = context;
+
+	if (conndb->state == SQL_DB_STATE_IDLE) {
+		conndb->connect_failure_count = 0;
+		conndb->connect_delay = SQL_CONNECT_MIN_DELAY;
+		sqlpool_request_send_next(db, conndb);
+	}
+
+	if (prev_state == SQL_DB_STATE_CONNECTING &&
+	    conndb->state == SQL_DB_STATE_DISCONNECTED &&
+	    !conndb->no_reconnect)
+		sqlpool_handle_connect_failed(db, conndb);
+}
+
+static struct sqlpool_connection *
+sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
+		       unsigned int host_idx)
+{
+	struct sql_db *conndb;
+	struct sqlpool_connection *conn;
+
 	host->connection_count++;
 
 	conndb = db->driver->v.init(host->connect_string);
@@ -250,6 +276,19 @@ static struct sqlpool_connection *sqlpool_add_connection(struct sqlpool_db *db)
 	conn->host_idx = host_idx;
 	conn->db = conndb;
 	return conn;
+}
+
+static struct sqlpool_connection *
+sqlpool_add_new_connection(struct sqlpool_db *db)
+{
+	struct sqlpool_host *host;
+	unsigned int host_idx;
+
+	host = sqlpool_find_host_with_least_connections(db, &host_idx);
+	if (host->connection_count >= db->connection_limit)
+		return NULL;
+	else
+		return sqlpool_add_connection(db, host, host_idx);
 }
 
 static const struct sqlpool_connection *
@@ -316,7 +355,7 @@ driver_sqlpool_get_connection(struct sqlpool_db *db,
 	}
 	if (conn == NULL) {
 		/* still nothing. try creating new connections */
-		conn = sqlpool_add_connection(db);
+		conn = sqlpool_add_new_connection(db);
 		if (conn == NULL || !SQL_DB_IS_READY(conn->db))
 			return FALSE;
 	}
@@ -425,7 +464,7 @@ driver_sqlpool_init(const char *connect_string, const struct sql_db *driver)
 
 	i_array_init(&db->all_connections, 16);
 	/* always have at least one backend connection initialized */
-	(void)sqlpool_add_connection(db);
+	(void)sqlpool_add_new_connection(db);
 	return &db->api;
 }
 
