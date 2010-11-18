@@ -147,7 +147,7 @@ static int service_fifo_listener_listen(struct service_listener *l)
 
 #ifdef HAVE_SYSTEMD
 static int
-systemd_listen_fd(const struct ip_addr *my_ip, unsigned int port, int *fd_r)
+systemd_listen_fd(const struct ip_addr *ip, unsigned int port, int *fd_r)
 {
 	static int sd_fds = -1;
 	int fd, fd_max;
