@@ -348,7 +348,11 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 	errmsg = eacces_error_get_creating("file_dotlock_create", path);
 	dir = strrchr(path, '/');
 	dir = dir == NULL ? "." : t_strdup_until(path, dir);
-	if (!mbox->box.inbox_any) {
+	/* allow privileged locking for
+	   a) user's own INBOX,
+	   b) another user's shared INBOX, and
+	   c) anything called INBOX (in inbox=no namespace) */
+	if (!mbox->box.inbox_any && strcmp(mbox->box.name, "INBOX") != 0) {
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (not INBOX -> no privileged locking)", errmsg);
 	} else if (!mbox->mbox_privileged_locking) {

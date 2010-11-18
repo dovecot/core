@@ -403,7 +403,7 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 	}
 	move_to_memory = want_memory_indexes(mbox->storage, box->path);
 
-	if (box->inbox_any) {
+	if (box->inbox_any || strcmp(box->name, "INBOX") == 0) {
 		/* if INBOX isn't under the root directory, it's probably in
 		   /var/mail and we want to allow privileged dotlocking */
 		rootdir = mailbox_list_get_path(box->list, NULL,
