@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "network.h"
 #include "crc32.h"
+#include "master-service.h"
 #include "anvil-client.h"
 #include "auth-request.h"
 #include "auth-penalty.h"
@@ -16,6 +17,7 @@
 
 struct auth_penalty_request {
 	struct auth_request *auth_request;
+	struct anvil_client *client;
 	auth_penalty_callback_t *callback;
 };
 
@@ -67,7 +69,12 @@ static void auth_penalty_anvil_callback(const char *reply, void *context)
 	unsigned int secs, drop_penalty;
 
 	if (reply == NULL) {
-		/* internal failure */
+		/* internal failure. */
+		if (!anvil_client_is_connected(request->client)) {
+			/* we probably didn't have permissions to reconnect
+			   back to anvil. need to restart ourself. */
+			master_service_stop(master_service);
+		}
 	} else if (sscanf(reply, "%u %lu", &penalty, &last_penalty) != 2) {
 		i_error("Invalid PENALTY-GET reply: %s", reply);
 	} else {
@@ -123,6 +130,7 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 
 	request = i_new(struct auth_penalty_request, 1);
 	request->auth_request = auth_request;
+	request->client = penalty->client;
 	request->callback = callback;
 	auth_request_ref(auth_request);
 
