@@ -30,79 +30,75 @@ CPPFLAGS=-I$2/include LDFLAGS=-L$2/lib ./configure --with-$1])
 ])
 
 AC_ARG_ENABLE(devel-checks,
-[  --enable-devel-checks   Enable some extra expensive checks for developers],
+AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for developers]),
 	if test x$enableval = xyes; then
 		AC_DEFINE(DEBUG,, Build with extra debugging checks)
 	fi)
 
 AC_ARG_ENABLE(asserts,
-[  --enable-asserts        Enable asserts (default)],
+AS_HELP_STRING([--enable-asserts], [Enable asserts (default)]),
 	if test x$enableval = xno; then
 		AC_DEFINE(DISABLE_ASSERTS,, Disable asserts)
 	fi)
 
 AC_ARG_WITH(shared-libs,
-[  --with-shared-libs      Link binaries using shared Dovecot libraries (default)],
+AS_HELP_STRING([--with-shared-libs], [Link binaries using shared Dovecot libraries (default)]),
 	want_shared_libs=$withval,
 	want_shared_libs=yes)
 AM_CONDITIONAL(BUILD_SHARED_LIBS, test "$want_shared_libs" = "yes")
 
 AC_ARG_WITH(mem-align,
-[  --with-mem-align=BYTES  Set the memory alignment (default: 8)],
+AS_HELP_STRING([--with-mem-align=BYTES], [Set the memory alignment (default: 8)]),
 	mem_align=$withval,
 	mem_align=8)
 
 AC_ARG_WITH(ioloop,
-[  --with-ioloop=IOLOOP    Specify the I/O loop method to use
-                          (epoll, kqueue, poll; best for the fastest available;
-			   default is best)],
+AS_HELP_STRING([--with-ioloop=IOLOOP], [Specify the I/O loop method to use (epoll, kqueue, poll; best for the fastest available; default is best)]),
 	ioloop=$withval,
 	ioloop=best)
 
 AC_ARG_WITH(notify,
-[  --with-notify=NOTIFY    Specify the file system notification method to use
-                          (inotify, kqueue, dnotify, none;
-                           default is detected in the above order)],
+AS_HELP_STRING([--with-notify=NOTIFY], [Specify the file system notification method to use (inotify, kqueue, dnotify, none; default is detected in the above order)]),
 	notify=$withval,
 	notify=)
 
 AC_ARG_WITH(nss,
-[  --with-nss              Build with NSS module support (auto)],
+AS_HELP_STRING([--with-nss], [Build with NSS module support (auto)]),
   TEST_WITH(nss, $withval),
   want_nss=auto)
 
 AC_ARG_WITH(shadow,
-[  --with-shadow           Build with shadow password support (auto)],
+AS_HELP_STRING([--with-shadow], [Build with shadow password support (auto)]),
   TEST_WITH(shadow, $withval),
   want_shadow=auto)
 
 AC_ARG_WITH(pam,
-[  --with-pam              Build with PAM support (auto)],
+AS_HELP_STRING([--with-pam], [Build with PAM support (auto)]),
   TEST_WITH(pam, $withval),
   want_pam=auto)
 
 AC_ARG_WITH(bsdauth,
-[  --with-bsdauth          Build with BSD authentication support (auto)],
+AS_HELP_STRING([--with-bsdauth], [Build with BSD authentication support (auto)]),
   TEST_WITH(bsdauth, $withval),
   want_bsdauth=auto)
 
 AC_ARG_WITH(gssapi,
-[  --with-gssapi=yes|plugin Build with GSSAPI authentication support],
+AS_HELP_STRING([--with-gssapi=yes|plugin Build with GSSAPI authentication support]),
   TEST_WITH(gssapi, $withval, plugin),
   want_gssapi=no)
 
 AC_ARG_WITH(sia,
-[  --with-sia              Build with Tru64 SIA support],
+AS_HELP_STRING([--with-sia], [Build with Tru64 SIA support]),
   TEST_WITH(sia, $withval),
   want_sia=no)
 
 AC_ARG_WITH(ldap,
-[  --with-ldap=yes|plugin  Build with LDAP support],
+AS_HELP_STRING([--with-ldap=yes|plugin], [Build with LDAP support]),
   TEST_WITH(ldap, $withval, plugin),
   want_ldap=no)
 
 AC_ARG_WITH(vpopmail,
-[  --with-vpopmail         Build with vpopmail support (auto)],
+AS_HELP_STRING([--with-vpopmail], [Build with vpopmail support (auto)]),
 	if test x$withval = xno; then
 		want_vpopmail=no
 	else
@@ -119,7 +115,7 @@ AC_ARG_WITH(vpopmail,
 
 # Berkeley DB support is more or less broken. Disabled for now.
 #AC_ARG_WITH(db,
-#[  --with-db               Build with Berkeley DB support],
+#AS_HELP_STRING([--with-db], [Build with Berkeley DB support]),
 #  TEST_WITH(db, $withval),
 #  want_db=no)
 want_db=no
@@ -127,27 +123,27 @@ want_db=no
 dnl The --with-sql is useful only if Dovecot is being built with all the SQL
 dnl drivers as modules. If any SQL driver is built-in, this option is ignored.
 AC_ARG_WITH(sql,
-[  --with-sql=yes|plugin   Build with generic SQL support],
+AS_HELP_STRING([--with-sql=yes|plugin], [Build with generic SQL support]),
   TEST_WITH(sql, $withval, plugin),
   want_sql=no)
 
 AC_ARG_WITH(pgsql,
-[  --with-pgsql            Build with PostgreSQL driver support],
+AS_HELP_STRING([--with-pgsql], [Build with PostgreSQL driver support]),
   TEST_WITH(pgsql, $withval),
   want_pgsql=no)
 
 AC_ARG_WITH(mysql,
-[  --with-mysql            Build with MySQL driver support],
+AS_HELP_STRING([--with-mysql], [Build with MySQL driver support]),
   TEST_WITH(mysql, $withval),
   want_mysql=no)
 
 AC_ARG_WITH(sqlite,
-[  --with-sqlite           Build with SQLite3 driver support],
+AS_HELP_STRING([--with-sqlite], [Build with SQLite3 driver support]),
   TEST_WITH(sqlite, $withval),
   want_sqlite=no)
 
 AC_ARG_WITH(lucene,
-[  --with-lucene           Build with CLucene full text search support],
+AS_HELP_STRING([--with-lucene], [Build with CLucene full text search support]),
   TEST_WITH(lucene, $withval),
   want_lucene=no)
 if test "$want_lucene" = "yes"; then
@@ -156,32 +152,32 @@ fi
 AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
 
 AC_ARG_WITH(solr,
-[  --with-solr             Build with Solr full text search support],
+AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   TEST_WITH(solr, $withval),
   want_solr=no)
 
 AC_ARG_WITH(zlib,
-[  --with-zlib             Build with zlib compression support],
+AS_HELP_STRING([--with-zlib], [Build with zlib compression support]),
   TEST_WITH(zlib, $withval),
   want_zlib=auto)
 
 AC_ARG_WITH(bzlib,
-[  --with-bzlib            Build with bzlib compression support],
+AS_HELP_STRING([--with-bzlib], [Build with bzlib compression support]),
   TEST_WITH(bzlib, $withval),
   want_bzlib=auto)
 
 AC_ARG_WITH(libcap,
-[  --with-libcap           Build with libcap support (Dropping capabilities).],
+AS_HELP_STRING([--with-libcap], [Build with libcap support (Dropping capabilities).]),
   TEST_WITH(libcap, $withval),
   want_libcap=auto)
 
 AC_ARG_WITH(libwrap,
-[  --with-libwrap          Build with libwrap, ie. TCP-wrappers],
+AS_HELP_STRING([--with-libwrap], [Build with libwrap, ie. TCP-wrappers]),
   TEST_WITH(libwrap, $withval),
   want_libwrap=no)
 
 AC_ARG_WITH(ssl,
-[  --with-ssl=gnutls|openssl Build with GNUTLS or OpenSSL (default)],
+AS_HELP_STRING([--with-ssl=gnutls|openssl], [Build with GNUTLS or OpenSSL (default)]),
 	if test x$withval = xno; then
 		want_gnutls=no
 		want_openssl=no
@@ -203,34 +199,33 @@ AC_ARG_WITH(ssl,
 	])
 
 AC_ARG_WITH(ssldir,
-[  --with-ssldir=DIR       SSL base directory for certificates (/etc/ssl)],
+AS_HELP_STRING([--with-ssldir=DIR], [SSL base directory for certificates (/etc/ssl)]),
 	ssldir="$withval",
 	ssldir=/etc/ssl
 )
 AC_SUBST(ssldir)
 
 AC_ARG_WITH(rundir,
-[  --with-rundir=DIR       Runtime data directory (LOCALSTATEDIR/run/dovecot)],
+AS_HELP_STRING([--with-rundir=DIR], [Runtime data directory (LOCALSTATEDIR/run/dovecot)]),
 	rundir="$withval",
 	rundir=$localstatedir/run/$PACKAGE
 )
 AC_SUBST(rundir)
 
 AC_ARG_WITH(statedir,
-[  --with-statedir=DIR     Permanent data directory (LOCALSTATEDIR/lib/dovecot)],
+AS_HELP_STRING([--with-statedir=DIR], [Permanent data directory (LOCALSTATEDIR/lib/dovecot)]),
 	statedir="$withval",
 	statedir=$localstatedir/lib/$PACKAGE
 )
 AC_SUBST(statedir)
 
 AC_ARG_WITH(gc,
-[  --with-gc               Use Boehm garbage collector],
+AS_HELP_STRING([--with-gc], [Use Boehm garbage collector]),
   TEST_WITH(gc, $withval),
   want_gc=no)
 
 AC_ARG_WITH(storages,
-[  --with-storages         Build with specified mail storage formats
-                          (maildir mbox sdbox mdbox cydir)], [
+AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (maildir mbox sdbox mdbox cydir)]), [
 	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
@@ -241,7 +236,7 @@ AC_SUBST(mail_storages)
 DC_DOVECOT_MODULEDIR
 
 AC_ARG_WITH(docs,
-[  --with-docs             Install documentation (default)],
+AS_HELP_STRING([--with-docs], [Install documentation (default)]),
 	if test x$withval = xno; then
 		want_docs=no
 	else
