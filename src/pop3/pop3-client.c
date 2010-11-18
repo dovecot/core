@@ -252,8 +252,6 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	net_set_nonblock(fd_in, TRUE);
 	net_set_nonblock(fd_out, TRUE);
 
-	pop3_client_count++;
-
 	client = i_new(struct client, 1);
 	client->service_user = service_user;
 	client->set = set;
@@ -273,6 +271,9 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	}
 
 	client->user = user;
+
+	pop3_client_count++;
+	DLLIST_PREPEND(&pop3_clients, client);
 
 	inbox = "INBOX";
 	ns = mail_namespace_find(user->namespaces, &inbox);
@@ -326,7 +327,6 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		client->anvil_sent = TRUE;
 	}
 
-	DLLIST_PREPEND(&pop3_clients, client);
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
 
