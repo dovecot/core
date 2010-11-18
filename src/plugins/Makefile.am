@@ -19,11 +19,11 @@ SUBDIRS = \
 	fts-squat \
 	lazy-expunge \
 	listescape \
-	mbox-snarf \
 	notify \
 	mail-log \
 	quota \
 	imap-quota \
+	snarf \
 	trash \
 	virtual \
 	$(ZLIB) \

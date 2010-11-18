@@ -2707,10 +2707,10 @@ src/plugins/fts-squat/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/listescape/Makefile
 src/plugins/mail-log/Makefile
-src/plugins/mbox-snarf/Makefile
 src/plugins/notify/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
+src/plugins/snarf/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
 src/plugins/zlib/Makefile
