@@ -4,12 +4,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage
 
-lib20_snarf_plugin_la_LDFLAGS = -module -avoid-version
+lib05_snarf_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
-	lib20_snarf_plugin.la
+	lib05_snarf_plugin.la
 
-lib20_snarf_plugin_la_SOURCES = \
+lib05_snarf_plugin_la_SOURCES = \
 	snarf-plugin.c
 
 noinst_HEADERS = \
