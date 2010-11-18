@@ -319,9 +319,7 @@ auth_client_connection_create(struct auth *auth, int fd, bool login_requests)
 	return conn;
 }
 
-static void
-auth_client_connection_destroy_full(struct auth_client_connection **_conn,
-				    bool abort_requests)
+void auth_client_connection_destroy(struct auth_client_connection **_conn)
 {
         struct auth_client_connection *conn = *_conn;
 	struct auth_client_connection *const *clients;
@@ -350,18 +348,12 @@ auth_client_connection_destroy_full(struct auth_client_connection **_conn,
 	conn->fd = -1;
 
 	if (conn->request_handler != NULL) {
-		if (abort_requests)
-			auth_request_handler_abort_requests(conn->request_handler);
+		auth_request_handler_abort_requests(conn->request_handler);
 		auth_request_handler_destroy(&conn->request_handler);
 	}
 
         master_service_client_connection_destroyed(master_service);
         auth_client_connection_unref(&conn);
-}
-
-void auth_client_connection_destroy(struct auth_client_connection **_conn)
-{
-	auth_client_connection_destroy_full(_conn, TRUE);
 }
 
 static void auth_client_connection_unref(struct auth_client_connection **_conn)
@@ -404,6 +396,6 @@ void auth_client_connections_deinit(void)
 
 	clients = array_get_modifiable(&auth_client_connections, &count);
 	for (i = count; i > 0; i--)
-		auth_client_connection_destroy_full(&clients[i-1], FALSE);
+		auth_client_connection_destroy(&clients[i-1]);
 	array_free(&auth_client_connections);
 }
