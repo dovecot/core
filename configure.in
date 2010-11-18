@@ -231,7 +231,7 @@ if test "$systemdsystemunitdir" != ""; then
         AC_SUBST(systemdsystemunitdir)
         AC_DEFINE(HAVE_SYSTEMD,, Define if you want to use systemd socket activation)
 fi
-AM_CONDITIONAL(BUILD_LUCENE, test "$systemdsystemunitdir" != "")
+AM_CONDITIONAL(HAVE_SYSTEMD, test "$systemdsystemunitdir" != "")
 
 AC_ARG_WITH(gc,
 AS_HELP_STRING([--with-gc], [Use Boehm garbage collector]),
