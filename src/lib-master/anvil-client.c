@@ -189,3 +189,8 @@ void anvil_client_cmd(struct anvil_client *client, const char *cmd)
 {
 	(void)anvil_client_send(client, cmd);
 }
+
+bool anvil_client_is_connected(struct anvil_client *client)
+{
+	return client->fd != -1;
+}

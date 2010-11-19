@@ -25,4 +25,7 @@ void anvil_client_query(struct anvil_client *client, const char *query,
 /* Send a command to anvil, don't expect any replies. */
 void anvil_client_cmd(struct anvil_client *client, const char *cmd);
 
+/* Returns TRUE if anvil is connected to. */
+bool anvil_client_is_connected(struct anvil_client *client);
+
 #endif
