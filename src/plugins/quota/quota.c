@@ -588,7 +588,7 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 {
 	struct quota_rule *rule;
 	int64_t bytes_limit, count_limit;
-	bool found;
+	bool enabled;
 
 	if (!root->set->force_default_rule) {
 		if (root->backend.v.init_limits != NULL) {
@@ -600,11 +600,11 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 	bytes_limit = root->bytes_limit;
 	count_limit = root->count_limit;
 
-	/* if default rule limits are 0, this rule applies only to specific
-	   mailboxes */
-	found = bytes_limit != 0 || count_limit != 0;
+	/* if default rule limits are 0, user has unlimited quota.
+	   ignore any specific quota rules */
+	enabled = bytes_limit != 0 || count_limit != 0;
 
-	rule = quota_root_rule_find(root->set, mailbox_name);
+	rule = enabled ? quota_root_rule_find(root->set, mailbox_name) : NULL;
 	if (rule != NULL) {
 		if (!rule->ignore) {
 			bytes_limit += rule->bytes_limit;
@@ -613,12 +613,11 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 			bytes_limit = 0;
 			count_limit = 0;
 		}
-		found = TRUE;
 	}
 
 	*bytes_limit_r = bytes_limit <= 0 ? 0 : bytes_limit;
 	*count_limit_r = count_limit <= 0 ? 0 : count_limit;
-	return found ? 1 : 0;
+	return enabled ? 1 : 0;
 }
 
 void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
