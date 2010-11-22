@@ -72,7 +72,9 @@ static bool doveadm_mail_cmd_server(const char *cmd_name, const char *username,
 		}
 	}
 
-	argv += optind;
+	argv += optind-1;
+	optind = 1;
+
 	if (argv[0] != NULL && cmd->usage_args == NULL) {
 		i_error("doveadm %s: Client sent unknown parameter: %s",
 			cmd->name, argv[0]);
