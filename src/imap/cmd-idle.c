@@ -87,11 +87,11 @@ static void idle_client_input_more(struct cmd_idle_context *ctx)
 			client->input_skip_line = FALSE;
 		else {
 			idle_finish(ctx, strcasecmp(line, "DONE") == 0, TRUE);
+			if (!client->disconnected)
+				client_continue_pending_input(client);
 			break;
 		}
 	}
-	if (!client->disconnected && !client->handling_input)
-		client_continue_pending_input(client);
 }
 
 static void idle_client_input(struct cmd_idle_context *ctx)
