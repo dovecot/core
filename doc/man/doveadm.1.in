@@ -107,6 +107,11 @@ Fetch messages matching given search query.
 Repair broken mailboxes, in case Dovecot doesn\(aqt automatically do that.
 .\"-------------------------------------
 .TP
+.B doveadm import
+.BR doveadm\-import (1),
+Import messages matching given search query.
+.\"-------------------------------------
+.TP
 .B doveadm mailbox
 .BR doveadm\-mailbox (1),
 Various commands related to handling mailboxes.
