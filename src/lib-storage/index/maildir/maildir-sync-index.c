@@ -15,8 +15,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define MAILDIR_SYNC_TIME_WARN_SECS 60
-
 struct maildir_index_sync_context {
         struct maildir_mailbox *mbox;
 	struct maildir_sync_context *maildir_sync_ctx;

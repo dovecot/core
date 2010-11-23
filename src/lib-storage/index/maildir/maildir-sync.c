@@ -363,8 +363,8 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 	struct dirent *dp;
 	struct stat st;
 	enum maildir_uidlist_rec_flag flags;
-	unsigned int i = 0, move_count = 0;
-	time_t now;
+	unsigned int time_diff, i, readdir_count = 0, move_count = 0;
+	time_t start_time;
 	int ret = 1;
 	bool move_new, dir_changed = FALSE;
 
@@ -404,13 +404,13 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 	}
 #endif
 
-	now = time(NULL);
+	start_time = time(NULL);
 	if (new_dir) {
-		ctx->mbox->maildir_hdr.new_check_time = now;
+		ctx->mbox->maildir_hdr.new_check_time = start_time;
 		ctx->mbox->maildir_hdr.new_mtime = st.st_mtime;
 		ctx->mbox->maildir_hdr.new_mtime_nsecs = ST_MTIME_NSEC(st);
 	} else {
-		ctx->mbox->maildir_hdr.cur_check_time = now;
+		ctx->mbox->maildir_hdr.cur_check_time = start_time;
 		ctx->mbox->maildir_hdr.cur_mtime = st.st_mtime;
 		ctx->mbox->maildir_hdr.cur_mtime_nsecs = ST_MTIME_NSEC(st);
 	}
@@ -468,8 +468,8 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 				MAILDIR_UIDLIST_REC_FLAG_RECENT;
 		}
 
-		i++;
-		if ((i % MAILDIR_SLOW_CHECK_COUNT) == 0)
+		readdir_count++;
+		if ((readdir_count % MAILDIR_SLOW_CHECK_COUNT) == 0)
 			maildir_sync_notify(ctx);
 
 		ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
@@ -510,22 +510,28 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 
 	if (dir_changed) {
 		/* save the exact new times. the new mtimes should be >=
-		   "now", but just in case something weird happens and mtime
-		   doesn't update, use "now". */
+		   "start_time", but just in case something weird happens and
+		   mtime doesn't update, use "start_time". */
 		if (stat(ctx->new_dir, &st) == 0) {
 			ctx->mbox->maildir_hdr.new_check_time =
-				I_MAX(st.st_mtime, now);
+				I_MAX(st.st_mtime, start_time);
 			ctx->mbox->maildir_hdr.new_mtime = st.st_mtime;
 			ctx->mbox->maildir_hdr.new_mtime_nsecs =
 				ST_MTIME_NSEC(st);
 		}
 		if (stat(ctx->cur_dir, &st) == 0) {
 			ctx->mbox->maildir_hdr.new_check_time =
-				I_MAX(st.st_mtime, now);
+				I_MAX(st.st_mtime, start_time);
 			ctx->mbox->maildir_hdr.cur_mtime = st.st_mtime;
 			ctx->mbox->maildir_hdr.cur_mtime_nsecs =
 				ST_MTIME_NSEC(st);
 		}
+	}
+	time_diff = time(NULL) - start_time;
+	if (time_diff >= MAILDIR_SYNC_TIME_WARN_SECS) {
+		i_warning("Maildir: Scanning %s took %u seconds "
+			  "(%u readdir()s, %u rename()s to cur/)",
+			  path, time_diff, readdir_count, move_count);
 	}
 
 	return ret < 0 ? -1 :
