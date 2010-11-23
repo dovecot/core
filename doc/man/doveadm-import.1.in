@@ -21,7 +21,9 @@ This command can be used to import mails from another mail storage specified by
 to one or more user\(aqs mailboxes. All the mailboxes are imported under the
 given
 .I dest_parent
-mailbox. The
+mailbox, or to root level if
+.I dest_parent
+is empty (""). The
 .I search_query
 can be used to restrict which mailboxes or messages are imported.
 
