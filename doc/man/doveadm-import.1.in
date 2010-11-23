@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-IMPORT 1 "2010-10-18" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-IMPORT 1 "2010-11-23" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-import \- Import messages matching given search query
 .\"------------------------------------------------------------------------
@@ -23,7 +23,7 @@ given
 .I dest_parent
 mailbox, or to root level if
 .I dest_parent
-is empty (""). The
+is empty (\(dq\(dq). The
 .I search_query
 can be used to restrict which mailboxes or messages are imported.
 
@@ -36,7 +36,7 @@ action with the environment of the logged in system user.
 In the second form, the mails will be imported for all users.
 .PP
 In the third form, the mails will be imported only for given
-.IR user (s)
+.IR user (s).
 .\"------------------------------------------------------------------------
 @INCLUDE:global-options@
 .\" --- command specific options --- "/.
@@ -58,12 +58,12 @@ for details.
 .\"------------------------------------------------------------------------
 .SH EXAMPLE
 This example imports all mails from a backup under a
-.I backup-20101026
+.I backup\-20101026
 mailbox:
 .PP
 .nf
 .B doveadm import \-u jane.doe@example.org \(rs
-.B mdbox:/backup/20101026/jane.doe/mdbox backup-20101026 all
+.B mdbox:/backup/20101026/jane.doe/mdbox backup\-20101026 all
 .fi
 .PP
 Another example that imports only messages from foo@example.org in the
@@ -71,7 +71,7 @@ backup mdbox\(aqs INBOX to jane\(aqs INBOX:
 .PP
 .nf
 .B doveadm import \-u jane.doe@example.org \(rs
-.B mdbox:~/mdbox-backup "" mailbox INBOX from foo@example.org
+.B mdbox:~/mdbox\-backup \(dq\(dq mailbox INBOX from foo@example.org
 .fi
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@
