@@ -150,7 +150,7 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 static const struct setting_define mail_user_setting_defines[] = {
 	DEF(SET_STR, base_dir),
 	DEF(SET_STR, auth_socket_path),
-	DEF(SET_STR, mail_temp_dir),
+	DEF(SET_STR_VARS, mail_temp_dir),
 
 	DEF(SET_STR, mail_uid),
 	DEF(SET_STR, mail_gid),
