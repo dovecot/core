@@ -122,13 +122,6 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	return 1;
 }
 
-static bool
-maildir_compatible_file_modes(struct mailbox *box1, struct mailbox *box2)
-{
-	return box1->file_create_mode == box2->file_create_mode &&
-		box1->file_create_gid == box2->file_create_gid;
-}
-
 int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mailbox_transaction_context *_t = ctx->transaction;
@@ -138,7 +131,7 @@ int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (mbox->storage->set->maildir_copy_with_hardlinks &&
-	    maildir_compatible_file_modes(&mbox->box, mail->box)) {
+	    mail_storage_copy_can_use_hardlink(mail->box, &mbox->box)) {
 		T_BEGIN {
 			ret = maildir_copy_hardlink(ctx, mail);
 		} T_END;

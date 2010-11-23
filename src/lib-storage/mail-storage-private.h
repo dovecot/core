@@ -284,6 +284,10 @@ struct mailbox {
 	unsigned int inbox_user:1;
 	/* TRUE if this is an INBOX for this namespace (user or shared) */
 	unsigned int inbox_any:1;
+	/* When copying to this mailbox, require that mailbox_copy() uses
+	   mailbox_save_*() to actually save a new physical copy rather than
+	   simply incrementing a reference count (e.g. via hard link) */
+	unsigned int disable_reflink_copy_to:1;
 };
 
 struct mail_vfuncs {

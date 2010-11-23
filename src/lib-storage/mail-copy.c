@@ -74,3 +74,11 @@ int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
 	}
 	return mailbox_save_finish(&ctx);
 }
+
+bool mail_storage_copy_can_use_hardlink(struct mailbox *src,
+					struct mailbox *dest)
+{
+	return src->file_create_mode == src->file_create_mode &&
+		src->file_create_gid == src->file_create_gid &&
+		!dest->disable_reflink_copy_to;
+}

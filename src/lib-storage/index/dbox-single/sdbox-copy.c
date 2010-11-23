@@ -138,13 +138,6 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 	return 1;
 }
 
-static bool
-sdbox_compatible_file_modes(struct mailbox *box1, struct mailbox *box2)
-{
-	return box1->file_create_mode == box2->file_create_mode &&
-		box1->file_create_gid == box2->file_create_gid;
-}
-
 int sdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
@@ -155,7 +148,7 @@ int sdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	ctx->finished = TRUE;
-	if (sdbox_compatible_file_modes(&mbox->box, mail->box)) {
+	if (mail_storage_copy_can_use_hardlink(mail->box, &mbox->box)) {
 		T_BEGIN {
 			ret = sdbox_copy_hardlink(_ctx, mail);
 		} T_END;
