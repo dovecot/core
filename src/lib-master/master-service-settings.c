@@ -480,6 +480,12 @@ void **master_service_settings_get_others(struct master_service *service)
 	return settings_parser_get_list(service->set_parser) + 1;
 }
 
+struct setting_parser_context *
+master_service_get_settings_parser(struct master_service *service)
+{
+	return service->set_parser;
+}
+
 int master_service_set(struct master_service *service, const char *line)
 {
 	return settings_parse_line(service->set_parser, line);
