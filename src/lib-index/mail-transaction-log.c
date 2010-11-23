@@ -41,6 +41,9 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 {
 	struct stat st;
 
+	if (MAIL_INDEX_IS_IN_MEMORY(log->index))
+		return;
+
 	if (stat(log->filepath2, &st) < 0) {
 		if (errno != ENOENT && errno != ESTALE) {
 			mail_index_set_error(log->index,
