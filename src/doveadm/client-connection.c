@@ -143,7 +143,8 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	/* flush the output and disconnect */
 	net_set_nonblock(conn->fd, FALSE);
 	(void)o_stream_flush(conn->output);
-	return FALSE;
+	net_set_nonblock(conn->fd, TRUE);
+	return TRUE;
 }
 
 static bool
@@ -179,7 +180,7 @@ static void client_connection_input(struct client_connection *conn)
 			return;
 	}
 
-	while ((line = i_stream_read_next_line(conn->input)) != NULL && ret) {
+	while (ret && (line = i_stream_read_next_line(conn->input)) != NULL) {
 		T_BEGIN {
 			char **args;
 
