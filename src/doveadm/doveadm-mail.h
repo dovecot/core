@@ -85,7 +85,8 @@ void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 			      char *argv[], const char *username,
 			      enum mail_storage_service_flags service_flags);
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
-			     struct mail_storage_service_user *user);
+			     struct mail_storage_service_user *user,
+			     const char **error_r);
 void doveadm_mail_server_flush(void);
 
 int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,

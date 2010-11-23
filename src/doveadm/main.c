@@ -19,7 +19,8 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 struct client_connection *doveadm_client;
 
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
-			     struct mail_storage_service_user *user ATTR_UNUSED)
+			     struct mail_storage_service_user *user ATTR_UNUSED,
+			     const char **error_r ATTR_UNUSED)
 {
 	/* this function should be called only by doveadm client code */
 	i_unreached();

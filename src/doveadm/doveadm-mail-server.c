@@ -121,6 +121,8 @@ static void doveadm_mail_server_handle(struct server_connection *conn,
 	str_append_c(cmd, '\t');
 
 	str_tabescape_write(cmd, username);
+	str_append_c(cmd, '\t');
+	str_tabescape_write(cmd, cmd_ctx->cmd->name);
 	for (i = 0; cmd_ctx->args[i] != NULL; i++) {
 		str_append_c(cmd, '\t');
 		str_tabescape_write(cmd, cmd_ctx->args[i]);
@@ -159,7 +161,8 @@ static const char *userdb_field_find(const char *const *fields, const char *key)
 }
 
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
-			     struct mail_storage_service_user *user)
+			     struct mail_storage_service_user *user,
+			     const char **error_r)
 {
 	const struct mail_storage_service_input *input;
 	struct doveadm_server *server;
@@ -178,9 +181,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	if (userdb_field_find(input->userdb_fields, "proxy") != NULL) {
 		host = userdb_field_find(input->userdb_fields, "host");
 		if (host == NULL) {
-			i_error("user %s: Proxy is missing destination host",
-				input->username);
-			return 0;
+			*error_r = "Proxy is missing destination host";
+			return -1;
 		}
 	} else {
 		host = doveadm_settings->doveadm_socket_path;
@@ -201,6 +203,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		username_dup = i_strdup(input->username);
 		array_append(&server->queue, &username_dup, 1);
 	}
+	*error_r = "doveadm server failure";
 	return DOVEADM_MAIL_SERVER_FAILED() ? -1 : 0;
 }
 
