@@ -221,7 +221,7 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 	return doveadm_mail_has_subcommands(cmd_name);
 }
 
-static void doveadm_read_settings(const char *socket_path)
+static void doveadm_read_settings(void)
 {
 	static const struct setting_parser_info *set_roots[] = {
 		&doveadm_setting_parser_info,
@@ -229,6 +229,7 @@ static void doveadm_read_settings(const char *socket_path)
 	};
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
+	const struct doveadm_settings *set;
 	const char *error;
 
 	memset(&input, 0, sizeof(input));
@@ -239,24 +240,8 @@ static void doveadm_read_settings(const char *socket_path)
 					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	doveadm_settings = master_service_settings_get_others(master_service)[0];
-	if (socket_path != NULL) {
-		struct setting_parser_context *set_parser =
-			master_service_get_settings_parser(master_service);
-		const char *set_line =
-			t_strconcat("doveadm_socket_path=", socket_path, NULL);
-
-		if (settings_parse_line(set_parser, set_line) < 0)
-			i_unreached();
-		if (doveadm_settings->doveadm_worker_count == 0) {
-			if (settings_parse_line(set_parser,
-						"doveadm_worker_count=1") < 0)
-				i_unreached();
-		}
-	}
-
-	doveadm_settings = settings_dup(&doveadm_setting_parser_info,
-					doveadm_settings,
+	set = master_service_settings_get_others(master_service)[0];
+	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
 					pool_datastack_create());
 }
 
@@ -282,7 +267,7 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
-	const char *cmd_name, *socket_path = NULL;
+	const char *cmd_name;
 	unsigned int i;
 	bool quick_init = FALSE;
 	int c;
@@ -290,7 +275,7 @@ int main(int argc, char *argv[])
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */
 	master_service = master_service_init("doveadm", service_flags,
-					     &argc, &argv, "+Df:s:v");
+					     &argc, &argv, "+Df:v");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
@@ -299,9 +284,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			doveadm_print_init(optarg);
-			break;
-		case 's':
-			socket_path = optarg;
 			break;
 		case 'v':
 			doveadm_verbose = TRUE;
@@ -317,7 +299,7 @@ int main(int argc, char *argv[])
 		/* "help cmd" doesn't need any configuration */
 		quick_init = TRUE;
 	} else {
-		doveadm_read_settings(socket_path);
+		doveadm_read_settings();
 	}
 
 	i_array_init(&doveadm_cmds, 32);

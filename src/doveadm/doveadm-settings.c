@@ -91,7 +91,7 @@ const struct setting_parser_info doveadm_setting_parser_info = {
 	.dependencies = doveadm_setting_dependencies
 };
 
-const struct doveadm_settings *doveadm_settings;
+struct doveadm_settings *doveadm_settings;
 
 static void
 fix_base_path(struct doveadm_settings *set, pool_t pool, const char **str)

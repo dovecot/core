@@ -372,13 +372,18 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	ctx = doveadm_mail_cmd_init(cmd);
 
-	getopt_args = t_strconcat("Au:", ctx->getopt_args, NULL);
+	getopt_args = t_strconcat("As:u:", ctx->getopt_args, NULL);
 	username = getenv("USER");
 	wildcard_user = NULL;
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'A':
 			ctx->iterate_all_users = TRUE;
+			break;
+		case 's':
+			doveadm_settings->doveadm_socket_path = optarg;
+			if (doveadm_settings->doveadm_worker_count == 0)
+				doveadm_settings->doveadm_worker_count = 1;
 			break;
 		case 'u':
 			service_flags |=
