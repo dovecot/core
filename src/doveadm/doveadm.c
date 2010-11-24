@@ -93,8 +93,7 @@ usage_to(FILE *out, const char *prefix)
 	const struct doveadm_cmd *cmd;
 	string_t *str = t_str_new(1024);
 
-	fprintf(out, "usage: doveadm [-Dv] [-f <formatter>] "
-		     "[-s <socket path>] ");
+	fprintf(out, "usage: doveadm [-Dv] [-f <formatter>] ");
 	if (*prefix != '\0')
 		fprintf(out, "%s ", prefix);
 	fprintf(out, "<command> [<args>]\n");
