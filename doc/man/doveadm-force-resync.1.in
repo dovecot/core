@@ -1,19 +1,21 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-FORCE\-RESYNC 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-FORCE\-RESYNC 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-force\-resync \- Repair broken mailboxes
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " force\-resync
-.I mailbox
+.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.IR socket_path "] " mailbox
 .\"-------------------------------------
 .br
-.BR doveadm " [" \-Dv "] " "force\-resync \-A"
-.I mailbox
+.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.IR socket_path "] "
+.BI \-A \ mailbox
 .\"-------------------------------------
 .br
-.BR doveadm " [" \-Dv "] " "force\-resync \-u"
-.I user mailbox
+.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.IR socket_path "] "
+.BI \-u " user mailbox"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 Under certain circumstances it may happen, that
@@ -32,6 +34,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------

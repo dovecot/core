@@ -39,6 +39,7 @@ man_includefiles = \
 	$(srcdir)/global-options-formatter.inc \
 	$(srcdir)/global-options.inc \
 	$(srcdir)/option-A.inc \
+	$(srcdir)/option-S-socket.inc \
 	$(srcdir)/option-u-user.inc \
 	$(srcdir)/reporting-bugs.inc
 

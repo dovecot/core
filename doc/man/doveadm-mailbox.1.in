@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MAILBOX 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-MAILBOX 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-mailbox \- Commands related to handling mailboxes
 .\"------------------------------------------------------------------------
@@ -18,6 +18,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------
@@ -38,6 +40,7 @@ configuration. The mailbox names may also require a namespace prefix.
 .SS mailbox create
 .B doveadm mailbox create
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-s ]
 .IR mailbox\  ...
 .PP
@@ -56,6 +59,7 @@ subscriptions.
 .SS mailbox delete
 .B doveadm mailbox delete
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-s ]
 .IR mailbox\  ...
 .PP
@@ -70,6 +74,7 @@ option is present, the deleted mailboxes will be also unsubscribed.
 .B doveadm mailbox list
 .RB [ \-7 | \-8 ]
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-s ]
 [\fImailbox\fP ...]
 .PP
@@ -124,6 +129,7 @@ One or more mailbox names that should be converted.
 .SS mailbox rename
 .B doveadm mailbox rename
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-s ]
 .I old_name
 .I new_name
@@ -148,7 +154,8 @@ will be subscribed.
 .BR doveadm " [" \-f
 .IR formatter ]
 .B mailbox status
-[\fB\-A\fP|\fB\-u\fP \fIuser\fP] [\fB\-t\fP]
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-S\fP \fIsocket_path\fP] [\fB\-t\fP]
 .IR "fields mailbox\ " ...
 .PP
 Show the
@@ -230,6 +237,7 @@ virtual size, computed with CRLF line terminators.
 .SS mailbox subscribe
 .B doveadm mailbox subscribe
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-S\fP \fIsocket_path\fP]
 .IR mailbox\  ...
 .PP
 This command is used to subscribe one or more mailboxes.
@@ -237,6 +245,7 @@ This command is used to subscribe one or more mailboxes.
 .SS mailbox unsubscribe
 .B doveadm mailbox unsubscribe
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP]
+[\fB\-S\fP \fIsocket_path\fP]
 .IR mailbox\  ...
 .PP
 This command is used to unsubscribe one or more mailboxes.

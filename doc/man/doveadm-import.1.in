@@ -1,19 +1,21 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-IMPORT 1 "2010-11-23" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-IMPORT 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-import \- Import messages matching given search query
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " import
-.I source_location dest_parent search_query
+.BR doveadm " [" \-Dv "] " import " [" \-S
+.IR socket_path "] " "source_location dest_parent search_query"
 .br
 .\"-------------------------------------
-.BR doveadm " [" \-Dv "] " "import \-A"
-.I source_location dest_parent search_query
+.BR doveadm " [" \-Dv "] " import " [" \-S
+.IR socket_path "] "
+.BI \-A " source_location dest_parent search_query"
 .br
 .\"-------------------------------------
-.BR doveadm " [" \-Dv "] " "import \-u"
-.I user source_location dest_parent search_query
+.BR doveadm " [" \-Dv "] " import " [" \-S
+.IR socket_path "] "
+.BI \-u " user source_location dest_parent search_query"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 This command can be used to import mails from another mail storage specified by
@@ -45,6 +47,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------

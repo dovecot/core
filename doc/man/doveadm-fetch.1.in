@@ -1,25 +1,27 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-FETCH 1 "2010-06-26" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-FETCH 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-fetch \- Fetch partial/full messages or message information
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.B fetch
-.I fields search_query
+.BR fetch " [" \-S
+.IR socket_path "] " "fields search_query"
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.B fetch \-A
-.I fields search_query
+.BR fetch " [" \-S
+.IR socket_path "]"
+.BI \-A " fields search_query"
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.B fetch \-u
-.I user fields search_query
+.BR fetch " [" \-S
+.IR socket_path "]"
+.BI \-u " user fields search_query"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 .B doveadm fetch
@@ -40,6 +42,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------

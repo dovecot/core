@@ -1,19 +1,21 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-EXPUNGE 1 "2010-06-23" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-EXPUNGE 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-expunge \- Expunge messages matching given search query
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " expunge
-.I search_query
+.BR doveadm " [" \-Dv "] " expunge " [" \-S
+.IR socket_path "] " search_query
 .br
 .\"-------------------------------------
-.BR doveadm " [" \-Dv "] " "expunge \-A"
-.I search_query
+.BR doveadm " [" \-Dv "] " expunge " [" \-S
+.IR socket_path "] "
+.BI  \-A " search_query"
 .br
 .\"-------------------------------------
-.BR doveadm " [" \-Dv "] " "expunge \-u"
-.I user search_query
+.BR doveadm " [" \-Dv "] " expunge " [" \-S
+.IR socket_path "] "
+.BI \-u " user search_query"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 This command can be used to expunge mails matching the given search query.
@@ -44,6 +46,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-SEARCH 1 "2010-06-26" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-SEARCH 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-search \- Show a list of mailbox GUIDs and message UIDs matching \
 given search query.
@@ -7,17 +7,22 @@ given search query.
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.BI search\  search_query
+.BR search " [" \-S
+.IR socket_path "] " search_query
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.BI "search \-A " search_query
+.BR search " [" \-S
+.IR socket_path ]
+.BI \-A \ search_query
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.BI "search \-u " "user search_query"
+.BR search " [" \-S
+.IR socket_path ]
+.BI \-u " user search_query"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 The
@@ -63,6 +68,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------

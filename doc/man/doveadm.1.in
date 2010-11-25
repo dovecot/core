@@ -1,13 +1,12 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM 1 "2010-11-23" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm \- Dovecot\(aqs administration utility
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] [" \-f
-.IR formatter "] ["
-.BI \-s " socket_path
-.RI "] " command " [" command_options "] [" command_arguments ]
+.IR formatter ]
+.IR command " [" command_options "] [" command_arguments ]
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 .B doveadm

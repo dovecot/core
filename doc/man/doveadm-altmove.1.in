@@ -1,19 +1,21 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-ALTMOVE 1 "2010-06-23" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-ALTMOVE 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-altmove \- Move matching mails to the alternative storage (dbox\-only)
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " altmove
-.I search_query
+.BR doveadm " [" \-Dv "] " altmove " [" \-S
+.IR socket_path "] " search_query
 .br
 .\"-------------------------------------
-.BR doveadm " [" \-Dv "] " "altmove \-A"
-.I search_query
+.BR doveadm " [" \-Dv "] " altmove " [" \-S
+.IR socket_path "] "
+.BI \-A " search_query"
 .br
 .\"-------------------------------------
-.BR doveadm " [" \-Dv "] " "altmove \-u"
-.I user search_query
+.BR doveadm " [" \-Dv "] " altmove " [" \-S
+.IR socket_path "] "
+.BI \-u " user search_query"
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 This command can be used with sdbox or mdbox storage to move mails to
@@ -39,6 +41,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------

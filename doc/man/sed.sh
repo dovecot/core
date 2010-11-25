@@ -16,6 +16,10 @@ sed -e "/^@INCLUDE:global-options@$/{
 		r ${SRCDIR}/option-A.inc
 		d
 	}" \
+	-e "/^@INCLUDE:option-S-socket@$/{
+		r ${SRCDIR}/option-S-socket.inc
+		d
+	}" \
 	-e "/^@INCLUDE:option-u-user@$/{
 		r ${SRCDIR}/option-u-user.inc
 		d

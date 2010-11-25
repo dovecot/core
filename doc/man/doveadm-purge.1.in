@@ -1,17 +1,21 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-PURGE 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-PURGE 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-purge \- Remove messages with refcount=0 from mdbox files
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " purge
+.BR doveadm " [" \-Dv "] " purge " [" \-S
+.IR socket_path "] "
 .\"-------------------------------------
 .br
-.BR doveadm " [" \-Dv "] " "purge \-A"
+.BR doveadm " [" \-Dv "] " purge " [" \-S
+.IR socket_path ]
+.B \-A
 .\"-------------------------------------
 .br
-.BR doveadm " [" \-Dv "] " "purge \-u"
-.I user
+.BR doveadm " [" \-Dv "] " purge " [" \-S
+.IR socket_path "] "
+.BI \-u \ user
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 The
@@ -42,8 +46,9 @@ Command specific
 .\"-------------------------------------
 @INCLUDE:option-A@
 .\"-------------------------------------
+@INCLUDE:option-S-socket@
+.\"-------------------------------------
 @INCLUDE:option-u-user@
-
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@
 .\"------------------------------------------------------------------------

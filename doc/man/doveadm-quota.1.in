@@ -1,25 +1,27 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-QUOTA 1 "2010-06-23" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-QUOTA 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-quota \- Initialize/recalculate or show current quota usage
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.B quota
-.I command
+.BR quota " [" \-S
+.IR socket_path "] " command
 .\"-------------------------------------
 .br
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.B quota
+.BR quota " [" \-S
+.IR socket_path "]"
 .IB command\  \-A
 .\"-------------------------------------
 .br
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
-.BI quota\  command\  \-u
-.I user
+.BR quota " [" \-S
+.IR socket_path "]"
+.IB  command\  \-u \ user
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 In the first form,
@@ -54,6 +56,8 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------
