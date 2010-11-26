@@ -1,3 +1,9 @@
+ - if global ACL path points to a file instead of a directory, read all of
+   them from there. support wildcards in names.
+ - master passdb preserves userdb_* extra fields. should it preserve
+   non-userdb_* extra fields too?
+ - acl_get_mailbox_name_status() is used by SUBSCRIBE .. it should probably
+   restrict more .. only be visible if 'l' or 'r' right is given, maybe more?
  - imap, pop3: if client init fails, wait a second or two before disconnecting
    client.
  - doveadm expunge parameter to delete empty mailboxes (for lazy-expunge)
@@ -20,6 +26,7 @@
    are no more empty connections, it should flush the async query first
  - NTLMv1 and LM should be disabled if disable_plaintext_auth=yes
  - SEARCH SENT*/HEADER/etc. doesn't seem optimized when using with TEXT/BODY
+ - dict sql: support ignoring some search key hierarchies (e.g. acl "anyone")
 
  - fts-solr: crashes if expunge is done while search is indexing
  - fts-solr: handle DELETE, RENAME. use mailbox GUIDs (optionally)
@@ -191,7 +198,8 @@
 
  - mbox
     - UID renumbering doesn't really work after all?
-    - still problems with CRLF mboxes..
+    - still problems with CRLF mboxes.. especially with broken Content-Length
+      headers (pointing between CR-LF?)
     - syncing existing indexes takes 4x longer than creating new one, why?
     - how well does dirty sync + status work? it reads the last mail every
       time? not very good..
