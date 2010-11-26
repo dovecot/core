@@ -143,16 +143,24 @@ static struct userdb_iterate_context *
 userdb_sql_iterate_init(struct userdb_module *userdb,
 			userdb_iter_callback_t *callback, void *context)
 {
+	static struct var_expand_table static_tab[] = {
+		/* nothing for now, but e.g. %{hostname} can be used */
+		{ '\0', NULL, NULL }
+	};
 	struct sql_userdb_module *module =
 		(struct sql_userdb_module *)userdb;
 	struct sql_userdb_iterate_context *ctx;
+	string_t *query;
+
+	query = t_str_new(512);
+	var_expand(query, module->conn->set.iterate_query, static_tab);
 
 	ctx = i_new(struct sql_userdb_iterate_context, 1);
 	ctx->ctx.userdb = userdb;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
 
-	sql_query(module->conn->db, module->conn->set.iterate_query,
+	sql_query(module->conn->db, str_c(query),
 		  sql_iter_query_callback, ctx);
 	return &ctx->ctx;
 }

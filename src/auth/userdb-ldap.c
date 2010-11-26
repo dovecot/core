@@ -188,12 +188,17 @@ static struct userdb_iterate_context *
 userdb_ldap_iterate_init(struct userdb_module *userdb,
 			 userdb_iter_callback_t *callback, void *context)
 {
+	static struct var_expand_table static_tab[] = {
+		/* nothing for now, but e.g. %{hostname} can be used */
+		{ '\0', NULL, NULL }
+	};
 	struct ldap_userdb_module *module =
 		(struct ldap_userdb_module *)userdb;
 	struct ldap_connection *conn = module->conn;
 	struct ldap_userdb_iterate_context *ctx;
 	struct userdb_iter_ldap_request *request;
 	const char **attr_names = (const char **)conn->iterate_attr_names;
+	string_t *str;
 
 	ctx = i_new(struct ldap_userdb_iterate_context, 1);
 	ctx->ctx.userdb = userdb;
@@ -205,7 +210,12 @@ userdb_ldap_iterate_init(struct userdb_module *userdb,
 
 	request->request.request.auth_request = auth_request_new_dummy();
 	request->request.base = conn->set.base;
-	request->request.filter = conn->set.iterate_filter;
+
+	str = t_str_new(512);
+	var_expand(str, conn->set.iterate_filter, static_tab);
+	request->request.filter =
+		p_strdup(request->request.request.auth_request->pool,
+			 str_c(str));
 	request->request.attributes = conn->iterate_attr_names;
 
 	if (global_auth_settings->debug) {
