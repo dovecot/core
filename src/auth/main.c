@@ -212,7 +212,7 @@ static void client_connected(struct master_service_connection *conn)
 		/* figure out if this is a server or network socket by
 		   checking the socket path name. */
 		if (net_getunixname(conn->listen_fd, &path) < 0)
-			i_fatal("getsockname(%d) failed: %m", conn->listen_fd);
+			i_fatal("getunixname(%d) failed: %m", conn->listen_fd);
 
 		name = strrchr(path, '/');
 		if (name == NULL)
