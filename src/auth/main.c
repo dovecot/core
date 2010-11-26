@@ -201,40 +201,51 @@ static void worker_connected(struct master_service_connection *conn)
 	(void)auth_worker_client_create(auth_find_service(NULL), conn->fd);
 }
 
+static enum auth_socket_type
+auth_socket_type_get(int listen_fd)
+{
+	const char *path, *name, *suffix;
+
+	/* figure out if this is a server or network socket by
+	   checking the socket path name. */
+	if (net_getunixname(listen_fd, &path) < 0) {
+		if (errno != ENOTSOCK)
+			i_fatal("getunixname(%d) failed: %m", listen_fd);
+		/* not UNIX socket. let's just assume it's an
+		   auth client. */
+		return AUTH_SOCKET_CLIENT;
+	}
+
+	name = strrchr(path, '/');
+	if (name == NULL)
+		name = path;
+	else
+		name++;
+
+	suffix = strrchr(name, '-');
+	if (suffix == NULL)
+		suffix = name;
+	else
+		suffix++;
+
+	if (strcmp(suffix, "login") == 0)
+		return AUTH_SOCKET_LOGIN_CLIENT;
+	else if (strcmp(suffix, "master") == 0)
+		return AUTH_SOCKET_MASTER;
+	else if (strcmp(suffix, "userdb") == 0)
+		return AUTH_SOCKET_USERDB;
+	else
+		return AUTH_SOCKET_CLIENT;
+}
+
 static void client_connected(struct master_service_connection *conn)
 {
 	enum auth_socket_type *type;
-	const char *path, *name, *suffix;
 	struct auth *auth;
 
 	type = array_idx_modifiable(&listen_fd_types, conn->listen_fd);
-	if (*type == AUTH_SOCKET_UNKNOWN) {
-		/* figure out if this is a server or network socket by
-		   checking the socket path name. */
-		if (net_getunixname(conn->listen_fd, &path) < 0)
-			i_fatal("getunixname(%d) failed: %m", conn->listen_fd);
-
-		name = strrchr(path, '/');
-		if (name == NULL)
-			name = path;
-		else
-			name++;
-
-		suffix = strrchr(name, '-');
-		if (suffix == NULL)
-			suffix = name;
-		else
-			suffix++;
-
-		if (strcmp(suffix, "login") == 0)
-			*type = AUTH_SOCKET_LOGIN_CLIENT;
-		else if (strcmp(suffix, "master") == 0)
-			*type = AUTH_SOCKET_MASTER;
-		else if (strcmp(suffix, "userdb") == 0)
-			*type = AUTH_SOCKET_USERDB;
-		else
-			*type = AUTH_SOCKET_CLIENT;
-	}
+	if (*type == AUTH_SOCKET_UNKNOWN)
+		*type = auth_socket_type_get(conn->listen_fd);
 
 	auth = auth_find_service(NULL);
 	switch (*type) {
