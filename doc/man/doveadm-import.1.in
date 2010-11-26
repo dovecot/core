@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-IMPORT 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-IMPORT 1 "2010-11-26" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-import \- Import messages matching given search query
 .\"------------------------------------------------------------------------
@@ -54,11 +54,29 @@ Command specific
 .\"------------------------------------------------------------------------
 .SH ARGUMENTS
 .TP
+.I dest_parent
+The name of the destination mailbox, under which the mails should be
+imported.
+.BR doveadm (1)
+will create the
+.I dest_parent
+mailbox if it doesn\(aqt exist.
+.TP
 .I search_query
 Copy messages matching this search query.
 See
 .BR doveadm\-search\-query (7)
 for details.
+.TP
+.I source_location
+This argument specifies the mailbox format and location of the source
+location. The syntax is the same as for the
+.I mail_location
+setting.
+For example:
+.B maildir:/backup/20101126/jane.doe/Maildir
+or
+.B mdbox:/srv/mail/john.doe/mdbox:ALT=/nfsmount/john.doe/mdbox
 .\"------------------------------------------------------------------------
 .SH EXAMPLE
 This example imports all mails from a backup under a
