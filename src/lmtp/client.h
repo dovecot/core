@@ -45,7 +45,6 @@ struct client {
 	const struct setting_parser_info *user_set_info;
 	const struct lda_settings *set;
 	const struct lmtp_settings *lmtp_set;
-	const struct mail_user_settings *user_set;
 	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;

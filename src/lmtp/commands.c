@@ -757,10 +757,12 @@ static int client_input_add_file(struct client *client,
 
 	/* move everything to a temporary file. */
 	path = t_str_new(256);
-	mail_user_set_get_temp_prefix(path, client->user_set);
+	mail_user_set_get_temp_prefix(path, client->raw_mail_user->set);
 	fd = safe_mkstemp_hostpid(path, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1)
+	if (fd == -1) {
+		i_error("Temp file creation to %s failed: %m", str_c(path));
 		return -1;
+	}
 
 	/* we just want the fd, unlink it */
 	if (unlink(str_c(path)) < 0) {
