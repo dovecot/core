@@ -180,6 +180,14 @@ static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx,
 					     &service_user, &user, &error) < 0)
 		i_fatal("Import user initialization failed: %s", error);
 	ctx->src_user = user;
+	mail_storage_service_user_free(&service_user);
+}
+
+static void cmd_import_deinit(struct doveadm_mail_cmd_context *_ctx)
+{
+	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
+
+	mail_user_unref(&ctx->src_user);
 }
 
 static struct doveadm_mail_cmd_context *cmd_import_alloc(void)
@@ -188,6 +196,7 @@ static struct doveadm_mail_cmd_context *cmd_import_alloc(void)
 
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->v.init = cmd_import_init;
+	ctx->v.deinit = cmd_import_deinit;
 	ctx->v.run = cmd_import_run;
 	return ctx;
 }
