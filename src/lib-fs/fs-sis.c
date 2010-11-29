@@ -129,6 +129,7 @@ static void fs_sis_close(struct fs_file *_file)
 	}
 	fs_close(&file->super);
 	i_free(file->hash);
+	i_free(file->hash_path);
 	i_free(file->file.path);
 	i_free(file);
 }
