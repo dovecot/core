@@ -41,7 +41,7 @@
 uid_t master_uid;
 gid_t master_gid;
 bool core_dumps_disabled;
-char ssl_manual_key_password[100];
+const char *ssl_manual_key_password;
 int null_fd;
 struct service_list *services;
 
@@ -715,9 +715,8 @@ int main(int argc, char *argv[])
 
 	set = master_settings_read();
 	if (ask_key_pass) {
-		askpass("Give the password for SSL keys: ",
-			ssl_manual_key_password,
-			sizeof(ssl_manual_key_password));
+		ssl_manual_key_password =
+			t_askpass("Give the password for SSL keys: ");
 	}
 
 	if (dup2(null_fd, STDIN_FILENO) < 0 ||
