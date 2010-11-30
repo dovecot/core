@@ -1,6 +1,8 @@
 /* Copyright (c) 2006-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
+#include "str.h"
 #include "askpass.h"
 
 #include <stdio.h>
@@ -8,7 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-void askpass(const char *prompt, char *buf, size_t buf_size)
+static void askpass_str(const char *prompt, buffer_t *pass)
 {
         struct termios old_tio, tio;
 	bool restore_tio = FALSE;
@@ -37,13 +39,10 @@ void askpass(const char *prompt, char *buf, size_t buf_size)
 	/* read the password */
 	pos = 0;
 	while (read(fd, &ch, 1) > 0) {
-		if (pos >= buf_size-1)
-			break;
 		if (ch == '\n' || ch == '\r')
 			break;
-		buf[pos++] = ch;
+		buffer_append_c(pass, ch);
 	}
-	buf[pos] = '\0';
 
 	if (restore_tio)
 		(void)tcsetattr(fd, TCSAFLUSH, &old_tio);
@@ -52,10 +51,19 @@ void askpass(const char *prompt, char *buf, size_t buf_size)
 	(void)close(fd);
 }
 
+void askpass(const char *prompt, char *buf, size_t buf_size)
+{
+	buffer_t str;
+
+	buffer_create_data(&str, buf, buf_size);
+	askpass_str(prompt, &str);
+	buffer_append_c(&str, '\0');
+}
+
 const char *t_askpass(const char *prompt)
 {
-	char buf[1024];
+	string_t *str = t_str_new(32);
 
-	askpass(prompt, buf, sizeof(buf));
-	return t_strdup(buf);
+	askpass_str(prompt, str);
+	return str_c(str);
 }
