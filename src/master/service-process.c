@@ -219,7 +219,7 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 	if (!service->set->master_set->version_ignore)
 		env_put(MASTER_DOVECOT_VERSION_ENV"="PACKAGE_VERSION);
 
-	if (*ssl_manual_key_password != '\0' && service->have_inet_listeners) {
+	if (ssl_manual_key_password != NULL && service->have_inet_listeners) {
 		/* manually given SSL password. give it only to services
 		   that have inet listeners. */
 		env_put(t_strconcat(MASTER_SSL_KEY_PASSWORD_ENV"=",
