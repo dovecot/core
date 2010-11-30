@@ -6,6 +6,7 @@ struct lmtp_settings;
 
 struct lmtp_settings {
 	bool lmtp_proxy;
+	bool lmtp_save_to_detail_mailbox;
 };
 
 extern const struct setting_parser_info lmtp_setting_parser_info;

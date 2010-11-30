@@ -483,7 +483,9 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	if (dctx.dest_addr == NULL)
 		dctx.dest_addr = rcpt->address;
 	dctx.final_dest_addr = rcpt->address;
-	dctx.dest_mailbox_name = *rcpt->detail == '\0' ? "INBOX" : rcpt->detail;
+	dctx.dest_mailbox_name = *rcpt->detail != '\0' &&
+		client->lmtp_set->lmtp_save_to_detail_mailbox ?
+		rcpt->detail : "INBOX";
 	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
 		client->state.first_saved_mail == NULL;
 

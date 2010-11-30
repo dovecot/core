@@ -58,12 +58,14 @@ struct service_settings lmtp_service_settings = {
 
 static const struct setting_define lmtp_setting_defines[] = {
 	DEF(SET_BOOL, lmtp_proxy),
+	DEF(SET_BOOL, lmtp_save_to_detail_mailbox),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct lmtp_settings lmtp_default_settings = {
-	.lmtp_proxy = FALSE
+	.lmtp_proxy = FALSE,
+	.lmtp_save_to_detail_mailbox = FALSE
 };
 
 static const struct setting_parser_info *lmtp_setting_dependencies[] = {
