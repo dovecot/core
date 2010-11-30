@@ -13,27 +13,30 @@
 static void askpass_str(const char *prompt, buffer_t *pass)
 {
         struct termios old_tio, tio;
-	bool restore_tio = FALSE;
+	bool tty, restore_tio = FALSE;
 	size_t pos;
 	char ch;
 	int fd;
 
-	if (!isatty(STDIN_FILENO))
-		i_fatal("stdin isn't a TTY");
+	tty = isatty(STDIN_FILENO);
+	if (tty) {
+		fputs(prompt, stderr);
+		fflush(stderr);
 
-	fputs(prompt, stderr);
-	fflush(stderr);
+		fd = open("/dev/tty", O_RDONLY);
+		if (fd < 0)
+			i_fatal("open(/dev/tty) failed: %m");
 
-	fd = open("/dev/tty", O_RDONLY);
-	if (fd < 0)
-		i_fatal("open(/dev/tty) failed: %m");
-
-	/* turn off echo */
-	if (tcgetattr(fd, &old_tio) == 0) {
-		restore_tio = TRUE;
-		tio = old_tio;
-		tio.c_lflag &= ~(ECHO | ECHONL);
-		(void)tcsetattr(fd, TCSAFLUSH, &tio);
+		/* turn off echo */
+		if (tcgetattr(fd, &old_tio) == 0) {
+			restore_tio = TRUE;
+			tio = old_tio;
+			tio.c_lflag &= ~(ECHO | ECHONL);
+			(void)tcsetattr(fd, TCSAFLUSH, &tio);
+		}
+	} else {
+		/* read it from stdin without showing a prompt */
+		fd = STDIN_FILENO;
 	}
 
 	/* read the password */
@@ -44,11 +47,13 @@ static void askpass_str(const char *prompt, buffer_t *pass)
 		buffer_append_c(pass, ch);
 	}
 
-	if (restore_tio)
-		(void)tcsetattr(fd, TCSAFLUSH, &old_tio);
+	if (tty) {
+		if (restore_tio)
+			(void)tcsetattr(fd, TCSAFLUSH, &old_tio);
 
-	fputs("\n", stderr); fflush(stderr);
-	(void)close(fd);
+		fputs("\n", stderr); fflush(stderr);
+		(void)close(fd);
+	}
 }
 
 void askpass(const char *prompt, char *buf, size_t buf_size)
