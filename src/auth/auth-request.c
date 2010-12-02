@@ -440,7 +440,11 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
                 request->passdb = request->passdb->next;
 		request->passdb_password = NULL;
 
-                if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
+		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
+			/* remember that we did at least one successful
+			   passdb lookup */
+			request->passdb_user_unknown = TRUE;
+		} else if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
 			/* remember that we have had an internal failure. at
 			   the end return internal failure if we couldn't
 			   successfully login. */
@@ -595,6 +599,12 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 			auth_request_log_debug(request, "password",
 				"Credentials: %s",
 				binary_to_hex(credentials, size));
+		}
+		if (result == PASSDB_RESULT_SCHEME_NOT_AVAILABLE &&
+		    request->passdb_user_unknown) {
+			/* one of the passdbs accepted the scheme,
+			   but the user was unknown there */
+			result = PASSDB_RESULT_USER_UNKNOWN;
 		}
 		request->private_callback.
 			lookup_credentials(result, credentials, size, request);
