@@ -449,6 +449,12 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		auth_request_unref(&request);
 		return FALSE;
 	}
+	if (hash_table_lookup(handler->requests, POINTER_CAST(id)) != NULL) {
+		i_error("BUG: Authentication client %u "
+			"sent a duplicate ID %u", handler->client_pid, id);
+		auth_request_unref(&request);
+		return FALSE;
+	}
 	auth_request_init(request);
 
 	request->to_abort = timeout_add(MASTER_AUTH_SERVER_TIMEOUT_SECS * 1000,
