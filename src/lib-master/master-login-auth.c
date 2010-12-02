@@ -246,7 +246,7 @@ master_login_auth_input_notfound(struct master_login_auth *auth,
 
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
-		i_error("Authenticated user not found from userdb");
+		i_error("Authenticated user not found from userdb (id=%u)", id);
 		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
 				  request->context);
 		i_free(request);
