@@ -72,6 +72,7 @@ struct master_login_auth *master_login_auth_init(const char *auth_socket_path)
 	auth->refcount = 1;
 	auth->fd = -1;
 	auth->requests = hash_table_create(default_pool, pool, 0, NULL, NULL);
+	auth->id_counter = (rand() % 32767) * 131072U;
 	return auth;
 }
 
