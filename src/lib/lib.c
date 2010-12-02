@@ -6,7 +6,8 @@
 #include "process-title.h"
 
 #include <stdlib.h>
-#include <time.h>
+#include <unistd.h>
+#include <sys/time.h>
 
 size_t nearest_power(size_t num)
 {
@@ -20,8 +21,12 @@ size_t nearest_power(size_t num)
 
 void lib_init(void)
 {
+	struct timeval tv;
+
 	/* standard way to get rand() return different values. */
-	srand((unsigned int) time(NULL));
+	if (gettimeofday(&tv, NULL) < 0)
+		i_fatal("gettimeofday(): %m");
+	srand((unsigned int) (tv.tv_sec ^ tv.tv_usec ^ getpid()));
 
 	data_stack_init();
 	hostpid_init();
