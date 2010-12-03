@@ -108,7 +108,6 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct timeval tv;
 	struct io_file *io;
-	unsigned int t_id;
 	int ret;
 
 	/* get the time left for next timeout task */
@@ -137,14 +136,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
 		if (io_check_condition(ctx, io->fd, io->io.condition)) {
 			ret--;
-
-			t_id = t_push();
-			io->io.callback(io->io.context);
-			if (t_pop() != t_id) {
-				i_panic("Leaked a t_pop() call in "
-					"I/O handler %p",
-					(void *)io->io.callback);
-			}
+			io_loop_call_io(&io->io);
 		}
 	}
 }

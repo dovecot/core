@@ -44,6 +44,11 @@ struct io *io_add(int fd, enum io_condition condition,
 	io->refcount = 1;
 	io->fd = fd;
 
+	if (io->io.ioloop->cur_log != NULL) {
+		io->io.log = io->io.ioloop->cur_log;
+		io_loop_log_ref(io->io.log);
+	}
+
 	if (io->io.ioloop->handler_context == NULL)
 		io_loop_initialize_handler(io->io.ioloop);
 	io_loop_handle_add(io);
@@ -83,6 +88,9 @@ static void io_remove_full(struct io **_io, bool closed)
 	/* make sure the callback doesn't get called anymore.
 	   kqueue code relies on this. */
 	io->callback = NULL;
+
+	if (io->log != NULL)
+		io_loop_log_unref(&io->log);
 
 	if ((io->condition & IO_NOTIFY) != 0)
 		io_loop_notify_remove(io);
@@ -142,10 +150,22 @@ struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 	timeout->callback = callback;
 	timeout->context = context;
 
+	if (timeout->ioloop->cur_log != NULL) {
+		timeout->log = timeout->ioloop->cur_log;
+		io_loop_log_ref(timeout->log);
+	}
+
 	timeout_update_next(timeout, timeout->ioloop->running ?
 			    NULL : &ioloop_timeval);
 	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
 	return timeout;
+}
+
+static void timeout_free(struct timeout *timeout)
+{
+	if (timeout->log != NULL)
+		io_loop_log_unref(&timeout->log);
+	i_free(timeout);
 }
 
 void timeout_remove(struct timeout **_timeout)
@@ -154,7 +174,7 @@ void timeout_remove(struct timeout **_timeout)
 
 	*_timeout = NULL;
 	priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
-	i_free(timeout);
+	timeout_free(timeout);
 }
 
 static void
@@ -324,11 +344,20 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		/* update timeout's next_run and reposition it in the queue */
 		timeout_reset_timeval(timeout, &tv_call);
 
+		if (timeout->log != NULL) {
+			ioloop->cur_log = timeout->log;
+			io_loop_log_ref(ioloop->cur_log);
+			i_set_failure_prefix(timeout->log->prefix);
+		}
                 t_id = t_push();
 		timeout->callback(timeout->context);
 		if (t_pop() != t_id) {
 			i_panic("Leaked a t_pop() call in timeout handler %p",
 				(void *)timeout->callback);
+		}
+		if (ioloop->cur_log != NULL) {
+			io_loop_log_unref(&ioloop->cur_log);
+			i_set_failure_prefix(ioloop->default_log_prefix);
 		}
 	}
 }
@@ -340,10 +369,35 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 	} T_END;
 }
 
+void io_loop_call_io(struct io *io)
+{
+	struct ioloop *ioloop = io->ioloop;
+	unsigned int t_id;
+
+	if (io->log != NULL) {
+		ioloop->cur_log = io->log;
+		io_loop_log_ref(ioloop->cur_log);
+		i_set_failure_prefix(io->log->prefix);
+	}
+	t_id = t_push();
+	io->callback(io->context);
+	if (t_pop() != t_id) {
+		i_panic("Leaked a t_pop() call in I/O handler %p",
+			(void *)io->callback);
+	}
+	if (ioloop->cur_log != NULL) {
+		io_loop_log_unref(&ioloop->cur_log);
+		i_set_failure_prefix(ioloop->default_log_prefix);
+	}
+}
+
 void io_loop_run(struct ioloop *ioloop)
 {
 	if (ioloop->handler_context == NULL)
 		io_loop_initialize_handler(ioloop);
+
+	if (ioloop->cur_log != NULL)
+		io_loop_log_unref(&ioloop->cur_log);
 
 	ioloop->running = TRUE;
 	while (ioloop->running)
@@ -437,4 +491,55 @@ void io_loop_set_time_moved_callback(struct ioloop *ioloop,
 void io_loop_set_current(struct ioloop *ioloop)
 {
 	current_ioloop = ioloop;
+}
+
+struct ioloop_log *io_loop_log_new(struct ioloop *ioloop)
+{
+	struct ioloop_log *log;
+
+	log = i_new(struct ioloop_log, 1);
+	log->refcount = 2;
+	log->prefix = i_strdup("");
+
+	log->ioloop = ioloop;
+	if (ioloop->cur_log != NULL)
+		io_loop_log_unref(&ioloop->cur_log);
+	ioloop->cur_log = log;
+	return log;
+}
+
+void io_loop_log_ref(struct ioloop_log *log)
+{
+	i_assert(log->refcount > 0);
+
+	log->refcount++;
+}
+
+void io_loop_log_unref(struct ioloop_log **_log)
+{
+	struct ioloop_log *log = *_log;
+
+	*_log = NULL;
+
+	i_assert(log->refcount > 0);
+	if (--log->refcount > 0)
+		return;
+
+	/* cur_log itself keeps a reference */
+	i_assert(log->ioloop->cur_log != log);
+
+	i_free(log->prefix);
+	i_free(log);
+}
+
+void io_loop_log_set_prefix(struct ioloop_log *log, const char *prefix)
+{
+	i_free(log->prefix);
+	log->prefix = i_strdup(prefix);
+}
+
+void io_loop_set_default_log_prefix(struct ioloop *ioloop, const char *prefix)
+{
+	i_free(ioloop->default_log_prefix);
+	ioloop->default_log_prefix = i_strdup(prefix);
 }

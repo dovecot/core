@@ -114,7 +114,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct timeval tv;
 	struct timespec ts;
 	struct io_file *io;
-	unsigned int events_count, t_id;
+	unsigned int events_count;
 	int ret, i;
 
 	/* get the time left for next timeout task */
@@ -144,15 +144,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		io = (void *)event->udata;
 
 		/* callback is NULL if io_remove() was already called */
-		if (io->io.callback != NULL) {
-			t_id = t_push();
-			io->io.callback(io->io.context);
-			if (t_pop() != t_id) {
-				i_panic("Leaked a t_pop() call in "
-					"I/O handler %p",
-					(void *)io->io.callback);
-			}
-		}
+		if (io->io.callback != NULL)
+			io_loop_call_io(&io->io);
 
 		i_assert(io->refcount > 0);
 		if (--io->refcount == 0)

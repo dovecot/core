@@ -11,6 +11,9 @@
 struct ioloop {
         struct ioloop *prev;
 
+	struct ioloop_log *cur_log;
+	char *default_log_prefix;
+
 	struct io_file *io_files;
 	struct io_file *next_io_file;
 	struct priorityq *timeouts;
@@ -32,6 +35,7 @@ struct io {
         void *context;
 
 	struct ioloop *ioloop;
+	struct ioloop_log *log;
 };
 
 struct io_file {
@@ -54,10 +58,18 @@ struct timeout {
         void *context;
 
 	struct ioloop *ioloop;
+	struct ioloop_log *log;
+};
+
+struct ioloop_log {
+	int refcount;
+	char *prefix;
+	struct ioloop *ioloop;
 };
 
 int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);
 void io_loop_handle_timeouts(struct ioloop *ioloop);
+void io_loop_call_io(struct io *io);
 
 /* I/O handler calls */
 void io_loop_handle_add(struct io_file *io);

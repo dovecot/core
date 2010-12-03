@@ -170,7 +170,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct io_list *list;
 	struct io_file *io;
 	struct timeval tv;
-	unsigned int events_count, t_id;
+	unsigned int events_count;
 	int msecs, ret, i, j;
 	bool call;
 
@@ -209,15 +209,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			else if ((io->io.condition & IO_ERROR) != 0)
 				call = (event->events & IO_EPOLL_ERROR) != 0;
 
-			if (call) {
-				t_id = t_push();
-				io->io.callback(io->io.context);
-				if (t_pop() != t_id) {
-					i_panic("Leaked a t_pop() call in "
-						"I/O handler %p",
-						(void *)io->io.callback);
-				}
-			}
+			if (call)
+				io_loop_call_io(&io->io);
 		}
 	}
 }

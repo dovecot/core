@@ -149,7 +149,6 @@ void io_loop_handler_run(struct ioloop *ioloop)
         struct pollfd *pollfd;
         struct timeval tv;
 	struct io_file *io;
-	unsigned int t_id;
 	int msecs, ret;
 	bool call;
 
@@ -208,15 +207,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			if (pollfd->revents == 0)
 				ret--;
 
-			if (call) {
-				t_id = t_push();
-				io->io.callback(io->io.context);
-				if (t_pop() != t_id) {
-					i_panic("Leaked a t_pop() call in "
-						"I/O handler %p",
-						(void *)io->io.callback);
-				}
-			}
+			if (call)
+				io_loop_call_io(&io->io);
 		}
 	}
 }

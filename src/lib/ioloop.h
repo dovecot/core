@@ -100,4 +100,15 @@ void io_loop_set_time_moved_callback(struct ioloop *ioloop,
 /* Change the current_ioloop. */
 void io_loop_set_current(struct ioloop *ioloop);
 
+/* This log is used for all further I/O and timeout callbacks that are added
+   until returning to ioloop. */
+struct ioloop_log *io_loop_log_new(struct ioloop *ioloop);
+void io_loop_log_ref(struct ioloop_log *log);
+void io_loop_log_unref(struct ioloop_log **log);
+/* Set the log's prefix. Note that this doesn't immediately call
+   i_set_failure_prefix(). */
+void io_loop_log_set_prefix(struct ioloop_log *log, const char *prefix);
+/* Set the default log prefix to use outside callbacks. */
+void io_loop_set_default_log_prefix(struct ioloop *ioloop, const char *prefix);
+
 #endif
