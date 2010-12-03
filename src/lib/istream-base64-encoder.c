@@ -97,12 +97,15 @@ static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 {
 	struct base64_encoder_istream *bstream =
 		(struct base64_encoder_istream *)stream;
-	size_t pre_count, post_count;
+	size_t pre_count, post_count, size;
 	int ret;
 
-	ret = i_stream_read_parent(stream);
-	if (ret <= 0)
-		return ret;
+	do {
+		ret = i_stream_read_parent(stream);
+		if (ret <= 0)
+			return ret;
+		(void)i_stream_get_data(stream->parent, &size);
+	} while (size < 4 && !stream->parent->eof);
 
 	/* encode as many lines as fits into destination buffer */
 	pre_count = stream->pos - stream->skip;
