@@ -141,14 +141,16 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 
 	if (buf == NULL) {
 		/* create new / replace broken header */
+		const unsigned int initial_keywords_count = 1;
+
 		buf = buffer_create_dynamic(pool_datastack_create(), 512);
 		kw_hdr = buffer_append_space_unsafe(buf, sizeof(*kw_hdr));
-		kw_hdr->keywords_count = 1;
+		kw_hdr->keywords_count = initial_keywords_count;
 
                 keywords_count = kw_hdr->keywords_count;
 		rec_offset = buf->used;
 		name_offset_root = rec_offset +
-			kw_hdr->keywords_count * sizeof(kw_rec);
+			initial_keywords_count * sizeof(kw_rec);
 		name_offset = 0;
 	}
 
