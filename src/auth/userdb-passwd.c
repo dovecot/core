@@ -105,9 +105,9 @@ static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 	while ((pw = getpwent()) != NULL) {
 		/* skip entries not in valid UID range.
 		   they're users for daemons and such. */
-		if (pw->pw_uid >= ctx->set->first_valid_uid &&
+		if (pw->pw_uid >= (uid_t)ctx->set->first_valid_uid &&
 		    (ctx->set->last_valid_uid == 0 ||
-		     pw->pw_uid <= ctx->set->last_valid_uid)) {
+		     pw->pw_uid <= (uid_t)ctx->set->last_valid_uid)) {
 			_ctx->callback(pw->pw_name, _ctx->context);
 			return;
 		}

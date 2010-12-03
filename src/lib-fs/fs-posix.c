@@ -358,7 +358,9 @@ static int fs_posix_write_stream_finish(struct fs_file *_file, bool success)
 static int
 fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 {
+#ifdef HAVE_FLOCK
 	struct posix_fs_file *file = (struct posix_fs_file *)_file;
+#endif
 	struct posix_fs *fs = (struct posix_fs *)_file->fs;
 	struct dotlock_settings dotlock_set;
 	struct posix_fs_lock fs_lock, *ret_lock;
