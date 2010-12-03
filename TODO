@@ -1,9 +1,5 @@
- - if global ACL path points to a file instead of a directory, read all of
-   them from there. support wildcards in names.
  - master passdb preserves userdb_* extra fields. should it preserve
    non-userdb_* extra fields too?
- - acl_get_mailbox_name_status() is used by SUBSCRIBE .. it should probably
-   restrict more .. only be visible if 'l' or 'r' right is given, maybe more?
  - imap, pop3: if client init fails, wait a second or two before disconnecting
    client.
  - doveadm expunge parameter to delete empty mailboxes (for lazy-expunge)

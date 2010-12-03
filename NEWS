@@ -1,3 +1,28 @@
+v2.0.8 2010-12-03  Timo Sirainen <tss@iki.fi>
+
+	* Services' default vsz_limits weren't being enforced correctly in
+	  earlier v2.0 releases. Now that they are enforced, you might notice
+	  that the default limits are too low and you need to increase them.
+	  This problem will show up in logs as "out of memory" errors.
+	  See default_vsz_limit and service { vsz_limit } settings.
+	* LMTP: In earlier versions if mail was delivered to user+detail@domain
+	  address, LMTP server always attempted to deliver the mail to mailbox
+	  named "detail". This was rather unintentional and shouldn't have been
+	  the default. lmtp_save_to_detail_mailbox=yes setting now preserves
+	  this behavior (default is no).
+
+	+ Added systemd support (configure --with-systemdsystemunitdir).
+	  Based on patch by Christophe Fergeau.
+	+ Replaced broken mbox-snarf plugin with a new more generic snarf
+	  plugin.
+	- dbox: Fixes to handling external mail attachments
+	- verbose_proctitle=yes didn't work for all processes in v2.0.7
+	- imap, pop3: When service { client_count } was larger than 1, the
+	  log messages didn't use the correct prefix. Last logged in user's
+	  prefix was always used, regardless of what user's session actually
+	  logged it. Now the proper log prefix is always used.
+	- MySQL: Only the first specified host was ever used
+
 v2.0.7 2010-11-08  Timo Sirainen <tss@iki.fi>
 
 	* master: default_process_limit wasn't actually used anywhere,
