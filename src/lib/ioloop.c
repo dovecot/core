@@ -468,7 +468,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 		struct timeout *to = (struct timeout *)item;
 
 		i_warning("Timeout leak: %p", (void *)to->callback);
-		i_free(to);
+		timeout_free(to);
 	}
 	priorityq_deinit(&ioloop->timeouts);
 
