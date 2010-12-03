@@ -685,6 +685,22 @@ const char *dbox_file_metadata_get(struct dbox_file *file,
 	return NULL;
 }
 
+uoff_t dbox_file_get_plaintext_size(struct dbox_file *file)
+{
+	const char *value;
+
+	i_assert(file->metadata_read_offset == file->cur_offset);
+
+	/* see if we have it in metadata */
+	value = dbox_file_metadata_get(file, DBOX_METADATA_PHYSICAL_SIZE);
+	if (value != NULL)
+		return strtoul(value, NULL, 16);
+	else {
+		/* no. that means we can use the size in the header */
+		return file->cur_physical_size;
+	}
+}
+
 void dbox_msg_header_fill(struct dbox_message_header *dbox_msg_hdr,
 			  uoff_t message_size)
 {

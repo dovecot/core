@@ -183,6 +183,10 @@ int dbox_file_metadata_read(struct dbox_file *file);
 const char *dbox_file_metadata_get(struct dbox_file *file,
 				   enum dbox_metadata_key key);
 
+/* Returns DBOX_METADATA_PHYSICAL_SIZE if set, otherwise physical size from
+   header. They differ only for e.g. compressed mails. */
+uoff_t dbox_file_get_plaintext_size(struct dbox_file *file);
+
 /* Fix a broken dbox file by rename()ing over it with a fixed file. Everything
    before start_offset is assumed to be valid and is simply copied. The file
    is reopened afterwards. Returns 0 if ok, -1 if I/O error. */
