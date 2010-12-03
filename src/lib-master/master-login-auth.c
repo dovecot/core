@@ -76,19 +76,27 @@ struct master_login_auth *master_login_auth_init(const char *auth_socket_path)
 	return auth;
 }
 
+static void
+request_internal_failure(struct master_login_auth_request *request,
+			 const char *reason)
+{
+	i_error("%s (client-pid=%u client-id=%u)",
+		reason, request->client_pid, request->auth_id);
+	request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
+			  request->context);
+}
+
 void master_login_auth_disconnect(struct master_login_auth *auth)
 {
 	struct master_login_auth_request *request;
 
-	if (auth->request_head != NULL)
-		i_error("Disconnected from auth server, aborting requests");
 	while (auth->request_head != NULL) {
 		request = auth->request_head;
 		DLLIST2_REMOVE(&auth->request_head,
 			       &auth->request_tail, request);
 
-		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
-				  request->context);
+		request_internal_failure(request,
+			"Disconnected from auth server, aborting");
 		i_free(request);
 	}
 	hash_table_clear(auth->requests, FALSE);
@@ -143,6 +151,7 @@ static unsigned int auth_get_next_timeout_secs(struct master_login_auth *auth)
 static void master_login_auth_timeout(struct master_login_auth *auth)
 {
 	struct master_login_auth_request *request;
+	const char *reason;
 
 	while (auth->request_head != NULL &&
 	       auth_get_next_timeout_secs(auth) == 0) {
@@ -151,10 +160,10 @@ static void master_login_auth_timeout(struct master_login_auth *auth)
 			       &auth->request_tail, request);
 		hash_table_remove(auth->requests, POINTER_CAST(request->id));
 
-		i_error("Auth server request timed out after %u secs",
+		reason = t_strdup_printf(
+			"Auth server request timed out after %u secs",
 			(unsigned int)(ioloop_time - request->create_stamp));
-		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
-				  request->context);
+		request_internal_failure(request, reason);
 		i_free(request);
 	}
 	timeout_remove(&auth->to);
@@ -247,9 +256,10 @@ master_login_auth_input_notfound(struct master_login_auth *auth,
 
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
-		i_error("Authenticated user not found from userdb (id=%u)", id);
-		request->callback(NULL, MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
-				  request->context);
+		const char *reason = t_strdup_printf(
+			"Authenticated user not found from userdb, "
+			"auth lookup id=%u", id);
+		request_internal_failure(request, reason);
 		i_free(request);
 	}
 	return TRUE;
@@ -275,13 +285,15 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 
 	request = master_login_auth_lookup_request(auth, id);
 	if (request != NULL) {
-		if (error == NULL)
-			i_error("Internal auth failure");
-		else
-			i_error("Internal auth failure: %s", error);
-		request->callback(NULL, error != NULL ? error :
-				  MASTER_AUTH_ERRMSG_INTERNAL_FAILURE,
-				  request->context);
+		if (error == NULL) {
+			request_internal_failure(request,
+						 "Internal auth failure");
+		} else {
+			i_error("Internal tuah failure: %s "
+				"(client-pid=%u client-id=%u)",
+				error, request->client_pid, request->auth_id);
+			request->callback(NULL, error, request->context);
+		}
 		i_free(request);
 	}
 	return TRUE;

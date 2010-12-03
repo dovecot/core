@@ -171,7 +171,9 @@ void client_destroy_internal_failure(struct client *client)
 	client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
 			 "Internal login failure. "
 			 "Refer to server log for more information.");
-	client_destroy(client, "Internal login failure");
+	client_destroy(client, t_strdup_printf(
+		"Internal login failure (pid=%s id=%u)",
+		my_pid, client->master_auth_id));
 }
 
 void client_ref(struct client *client)
