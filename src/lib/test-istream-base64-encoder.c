@@ -41,8 +41,8 @@ test_istream_base64_encoder_seek(const char *textin, const char *textout)
 	input_data = i_stream_create_from_data(textin, strlen(textin));
 	input = i_stream_create_base64_encoder(input_data, 4, TRUE);
 
-	while ((ret = i_stream_read(input)) > 0) ;
-	data = i_stream_get_data(input, &size);
+	while (i_stream_read(input) > 0) ;
+	(void)i_stream_get_data(input, &size);
 	i_stream_skip(input, size);
 
 	for (offset = 0; offset < len; offset++) {
