@@ -497,6 +497,8 @@ struct ioloop_log *io_loop_log_new(struct ioloop *ioloop)
 {
 	struct ioloop_log *log;
 
+	i_assert(ioloop->default_log_prefix != NULL);
+
 	log = i_new(struct ioloop_log, 1);
 	log->refcount = 2;
 	log->prefix = i_strdup("");
@@ -540,6 +542,8 @@ void io_loop_log_set_prefix(struct ioloop_log *log, const char *prefix)
 
 void io_loop_set_default_log_prefix(struct ioloop *ioloop, const char *prefix)
 {
+	i_assert(prefix != NULL);
+
 	i_free(ioloop->default_log_prefix);
 	ioloop->default_log_prefix = i_strdup(prefix);
 }
