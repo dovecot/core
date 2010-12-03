@@ -39,9 +39,8 @@ struct mail_save_attachment_part {
 	uoff_t start_offset;
 
 	/* for saving attachments base64-decoded: */
-	enum base64_state base64_state, base64_prev_state;
+	enum base64_state base64_state;
 	unsigned int base64_line_blocks, cur_base64_blocks;
-	unsigned int base64_last_newline_size;
 	uoff_t base64_bytes;
 	bool base64_have_crlf; /* CRLF linefeeds */
 	bool base64_failed;
@@ -366,18 +365,18 @@ static int index_attachment_save_finish_part(struct mail_save_context *ctx)
 		return -1;
 	}
 
-	if (part->base64_state == BASE64_STATE_0) {
-		part->base64_bytes = part->output->offset -
-			part->base64_last_newline_size;
-		part->base64_state = BASE64_STATE_EOM;
-	}
-
-	if (!part->base64_failed &&
-	    part->base64_state == BASE64_STATE_EOM) {
-		/* base64 data looks ok. STATE_0 happens when
-		   there is no trailing LF or '=' characters. */
-		if (index_attachment_base64_decode(ctx) < 0)
-			part->base64_failed = TRUE;
+	if (!part->base64_failed) {
+		if (part->base64_state == BASE64_STATE_0 &&
+		    part->base64_bytes > 0) {
+			/* there is no trailing LF or '=' characters,
+			   but it's not completely empty */
+			part->base64_state = BASE64_STATE_EOM;
+		}
+		if (part->base64_state == BASE64_STATE_EOM) {
+			/* base64 data looks ok. */
+			if (index_attachment_base64_decode(ctx) < 0)
+				part->base64_failed = TRUE;
+		}
 	}
 
 	/* open the attachment destination file */
@@ -451,10 +450,6 @@ static int
 index_attachment_try_base64_decode_char(struct mail_save_attachment_part *part,
 					size_t pos, char chr)
 {
-	enum base64_state prev_state = part->base64_prev_state;
-
-	part->base64_last_newline_size = 0;
-	part->base64_prev_state = part->base64_state;
 	switch (part->base64_state) {
 	case BASE64_STATE_0:
 		if (base64_is_valid_char(chr))
@@ -463,15 +458,9 @@ index_attachment_try_base64_decode_char(struct mail_save_attachment_part *part,
 			part->base64_state = BASE64_STATE_CR;
 		else if (chr == '\n') {
 			part->base64_state = BASE64_STATE_0;
-			part->base64_last_newline_size =
-				prev_state == BASE64_STATE_CR ? 2 : 1;
 			if (part->cur_base64_blocks <
 			    part->base64_line_blocks) {
 				/* last line */
-				part->base64_bytes =
-					part->output->offset + pos;
-				if (prev_state == BASE64_STATE_CR)
-					part->base64_bytes--;
 				part->base64_state = BASE64_STATE_EOM;
 				return 0;
 			} else if (part->base64_line_blocks == 0) {
@@ -505,11 +494,11 @@ index_attachment_try_base64_decode_char(struct mail_save_attachment_part *part,
 			return -1;
 		break;
 	case BASE64_STATE_3:
+		part->base64_bytes = part->output->offset + pos + 1;
 		if (base64_is_valid_char(chr)) {
 			part->base64_state = BASE64_STATE_0;
 			part->cur_base64_blocks++;
 		} else if (chr == '=') {
-			part->base64_bytes = part->output->offset + pos + 1;
 			part->base64_state = BASE64_STATE_EOM;
 			part->cur_base64_blocks++;
 			return 0;
