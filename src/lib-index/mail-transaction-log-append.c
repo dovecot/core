@@ -23,7 +23,7 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 	if (type == MAIL_TRANSACTION_EXPUNGE ||
 	    type == MAIL_TRANSACTION_EXPUNGE_GUID)
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
-	if (ctx->external)
+	if (ctx->external || type == MAIL_TRANSACTION_BOUNDARY)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
 	hdr.size = sizeof(hdr) + size;
 	hdr.size = mail_index_uint32_to_offset(hdr.size);

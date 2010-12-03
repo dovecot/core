@@ -43,6 +43,7 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_EXT_HDR_UPDATE32	= 0x00010000,
 	MAIL_TRANSACTION_INDEX_DELETED		= 0x00020000,
 	MAIL_TRANSACTION_INDEX_UNDELETED	= 0x00040000,
+	MAIL_TRANSACTION_BOUNDARY		= 0x00080000,
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x000fffff,
 
@@ -155,6 +156,10 @@ struct mail_transaction_ext_rec_update {
 struct mail_transaction_ext_atomic_inc {
 	uint32_t uid;
 	int32_t diff;
+};
+
+struct mail_transaction_boundary {
+	uint32_t size;
 };
 
 struct mail_transaction_log_append_ctx {

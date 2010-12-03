@@ -1161,7 +1161,7 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 	mail_transaction_update_modseq(hdr, hdr + 1,
 				       &file->sync_highest_modseq);
 	if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
-		return 0;
+		return 1;
 
 	/* external transactions: */
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
@@ -1171,7 +1171,7 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 							     trans_size -
 							     sizeof(*hdr));
 		if (ret != 0)
-			return ret < 0 ? -1 : 0;
+			return ret < 0 ? -1 : 1;
 		break;
 	case MAIL_TRANSACTION_INDEX_DELETED:
 		if (file->sync_offset < file->index_undeleted_offset)
@@ -1186,6 +1186,19 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 		file->log->index->index_delete_requested = FALSE;
 		file->index_undeleted_offset = file->sync_offset + trans_size;
 		break;
+	case MAIL_TRANSACTION_BOUNDARY: {
+		const struct mail_transaction_boundary *boundary =
+			(const void *)(hdr + 1);
+		size_t wanted_buffer_size;
+
+		wanted_buffer_size = file->sync_offset - file->buffer_offset +
+			boundary->size;
+		if (wanted_buffer_size > file->buffer->used) {
+			/* the full transaction hasn't been written yet */
+			return 0;
+		}
+		break;
+	}
 	}
 
 	if (file->max_tail_offset == file->sync_offset) {
@@ -1194,7 +1207,7 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 		   avoid re-reading it at the next sync. */
 		file->max_tail_offset += trans_size;
 	}
-	return 0;
+	return 1;
 }
 
 static int
@@ -1205,6 +1218,7 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 	struct stat st;
 	size_t size, avail;
 	uint32_t trans_size = 0;
+	int ret;
 
 	i_assert(file->sync_offset >= file->buffer_offset);
 
@@ -1233,8 +1247,11 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 			break;
 
 		/* transaction has been fully written */
-		if (log_file_track_sync(file, hdr, trans_size) < 0)
-			return -1;
+		if ((ret = log_file_track_sync(file, hdr, trans_size)) <= 0) {
+			if (ret < 0)
+				return -1;
+			break;
+		}
 
 		file->sync_offset += trans_size;
 		trans_size = 0;

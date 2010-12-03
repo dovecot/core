@@ -792,6 +792,8 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 	case MAIL_TRANSACTION_INDEX_UNDELETED:
 		ctx->view->index->index_delete_requested = FALSE;
 		break;
+	case MAIL_TRANSACTION_BOUNDARY:
+		break;
 	default:
 		mail_index_sync_set_corrupted(ctx,
 			"Unknown transaction record type 0x%x",

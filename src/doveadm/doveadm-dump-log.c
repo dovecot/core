@@ -111,6 +111,9 @@ static const char *log_record_type(unsigned int type)
 	case MAIL_TRANSACTION_INDEX_UNDELETED:
 		name = "index-undeleted";
 		break;
+	case MAIL_TRANSACTION_BOUNDARY:
+		name = "boundary";
+		break;
 	default:
 		name = t_strdup_printf("unknown: %x", type);
 		break;
@@ -406,6 +409,12 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	case MAIL_TRANSACTION_INDEX_DELETED:
 	case MAIL_TRANSACTION_INDEX_UNDELETED:
 		break;
+	case MAIL_TRANSACTION_BOUNDARY: {
+		const struct mail_transaction_boundary *rec = data;
+
+		printf(" - size=%u\n", rec->size);
+		break;
+	}
 	default:
 		break;
 	}
