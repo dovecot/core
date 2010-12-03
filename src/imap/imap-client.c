@@ -25,8 +25,6 @@ struct imap_module_register imap_module_register = { 0 };
 struct client *imap_clients = NULL;
 unsigned int imap_client_count = 0;
 
-static struct mail_user *log_prefix_user = NULL;
-
 static void client_idle_timeout(struct client *client)
 {
 	if (client->output_lock == NULL)
@@ -97,7 +95,6 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
 
-	log_prefix_user = client->user;
 	imap_refresh_proctitle();
 	return client;
 }
@@ -132,29 +129,6 @@ void client_command_cancel(struct client_command_context **_cmd)
 			i_panic("command didn't cancel itself: %s", cmd->name);
 	} else {
 		client_command_free(_cmd);
-	}
-}
-
-void client_log_start(struct client *client)
-{
-	/* FIXME: This is kind of ugly way to do it here manually. Would be
-	   better if this was integrated to ioloop, so that all io/timeout
-	   callbacks could set the prefixes automatically */
-	if (log_prefix_user != NULL &&
-	    log_prefix_user == client->user)
-		return;
-
-	mail_user_set_log_prefix(client->user);
-	log_prefix_user = client->user;
-}
-
-void client_log_stop(void)
-{
-	if (imap_client_count == 1)
-		client_log_start(imap_clients);
-	else {
-		master_service_init_log(master_service, "imap: ");
-		log_prefix_user = NULL;
 	}
 }
 
@@ -195,7 +169,6 @@ void client_destroy(struct client *client, const char *reason)
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
 
-	client_log_start(client);
 	if (!client->disconnected) {
 		client->disconnected = TRUE;
 		if (reason == NULL)
@@ -258,7 +231,6 @@ void client_destroy(struct client *client, const char *reason)
 	mail_storage_service_user_free(&client->service_user);
 	pool_unref(&client->pool);
 
-	client_log_stop();
 	master_service_client_connection_destroyed(master_service);
 	imap_refresh_proctitle();
 }
@@ -275,7 +247,6 @@ void client_disconnect(struct client *client, const char *reason)
 	if (client->disconnected)
 		return;
 
-	client_log_start(client);
 	i_info("Disconnected: %s %s", reason, client_stats(client));
 	client->disconnected = TRUE;
 	(void)o_stream_flush(client->output);
@@ -817,8 +788,6 @@ void client_input(struct client *client)
 
 	i_assert(client->io != NULL);
 
-	client_log_start(client);
-
 	client->last_input = ioloop_time;
 	timeout_reset(client->to_idle);
 
@@ -850,7 +819,6 @@ void client_input(struct client *client)
 		client_destroy(client, NULL);
 	else
 		client_continue_pending_input(client);
-	client_log_stop();
 }
 
 static void client_output_cmd(struct client_command_context *cmd)
@@ -875,7 +843,6 @@ int client_output(struct client *client)
 
 	i_assert(!client->destroyed);
 
-	client_log_start(client);
 	client->last_output = ioloop_time;
 	timeout_reset(client->to_idle);
 	if (client->to_idle_output != NULL)
@@ -920,7 +887,6 @@ int client_output(struct client *client)
 		client_destroy(client, NULL);
 	else
 		client_continue_pending_input(client);
-	client_log_stop();
 	return ret;
 }
 

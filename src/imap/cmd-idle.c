@@ -82,7 +82,6 @@ static void idle_client_input_more(struct cmd_idle_context *ctx)
 		return;
 	}
 
-	client_log_start(client);
 	while ((line = i_stream_next_line(client->input)) != NULL) {
 		if (client->input_skip_line)
 			client->input_skip_line = FALSE;
@@ -93,7 +92,6 @@ static void idle_client_input_more(struct cmd_idle_context *ctx)
 			break;
 		}
 	}
-	client_log_stop();
 }
 
 static void idle_client_input(struct cmd_idle_context *ctx)
@@ -146,11 +144,9 @@ static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)
 		ctx->sync_pending = TRUE;
 	else {
 		ctx->manual_cork = TRUE;
-		client_log_start(client);
 		idle_sync_now(box, ctx);
 		if (client->disconnected)
 			client_destroy(client, NULL);
-		client_log_stop();
 	}
 }
 

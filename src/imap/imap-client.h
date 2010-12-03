@@ -209,9 +209,6 @@ void client_input(struct client *client);
 bool client_handle_input(struct client *client);
 int client_output(struct client *client);
 
-void client_log_start(struct client *client);
-void client_log_stop(void);
-
 void clients_destroy_all(void);
 
 #endif

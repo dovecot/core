@@ -425,7 +425,6 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	bool finished;
 
-	client_log_start(client);
 	o_stream_cork(client->output);
 	finished = cmd_search_more(cmd);
 	o_stream_uncork(client->output);
@@ -440,7 +439,6 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 		client_destroy(client, NULL);
 	else
 		client_continue_pending_input(client);
-	client_log_stop();
 }
 
 int cmd_search_parse_return_if_found(struct imap_search_context *ctx,

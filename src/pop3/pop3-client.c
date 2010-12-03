@@ -39,33 +39,8 @@
 struct client *pop3_clients;
 unsigned int pop3_client_count;
 
-static struct mail_user *log_prefix_user = NULL;
-
 static void client_input(struct client *client);
 static int client_output(struct client *client);
-
-static void client_log_start(struct client *client)
-{
-	/* FIXME: This is kind of ugly way to do it here manually. Would be
-	   better if this was integrated to ioloop, so that all io/timeout
-	   callbacks could set the prefixes automatically */
-	if (log_prefix_user != NULL &&
-	    log_prefix_user == client->user)
-		return;
-
-	mail_user_set_log_prefix(client->user);
-	log_prefix_user = client->user;
-}
-
-static void client_log_stop(void)
-{
-	if (pop3_client_count == 1)
-		client_log_start(pop3_clients);
-	else {
-		master_service_init_log(master_service, "pop3: ");
-		log_prefix_user = NULL;
-	}
-}
 
 static void client_commit_timeout(struct client *client)
 {
@@ -355,7 +330,6 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
 
-	log_prefix_user = client->user;
 	pop3_refresh_proctitle();
 	return client;
 }
@@ -454,7 +428,6 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->seen_change_count > 0)
 		client_update_mails(client);
 
-	client_log_start(client);
 	if (!client->disconnected) {
 		if (reason == NULL)
 			reason = client_get_disconnect_reason(client);
@@ -507,7 +480,6 @@ void client_destroy(struct client *client, const char *reason)
 	mail_storage_service_user_free(&client->service_user);
 	i_free(client);
 
-	client_log_stop();
 	master_service_client_connection_destroyed(master_service);
 	pop3_refresh_proctitle();
 }
@@ -652,7 +624,6 @@ static void client_input(struct client *client)
 	if (client->to_commit != NULL)
 		timeout_reset(client->to_commit);
 
-	client_log_start(client);
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
@@ -666,12 +637,10 @@ static void client_input(struct client *client)
 	}
 
 	(void)client_handle_input(client);
-	client_log_stop();
 }
 
 static int client_output(struct client *client)
 {
-	client_log_start(client);
 	o_stream_cork(client->output);
 	if (o_stream_flush(client->output) < 0) {
 		client_destroy(client, NULL);
@@ -685,7 +654,6 @@ static int client_output(struct client *client)
 
 	if (client->cmd != NULL)
 		client->cmd(client);
-	client_log_stop();
 
 	if (client->cmd == NULL) {
 		if (o_stream_get_buffer_used_size(client->output) <
