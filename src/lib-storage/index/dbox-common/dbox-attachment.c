@@ -146,7 +146,7 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	const struct mail_attachment_extref *extref;
 	struct istream **inputs, *input, *input2;
 	const char *path, *path_suffix;
-	uoff_t last_voffset = 0;
+	uoff_t psize, last_voffset = 0;
 	unsigned int i;
 
 	t_array_init(&extrefs_arr, 16);
@@ -185,9 +185,9 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 		array_append(&streams, &input, 1);
 	}
 
-	if (file->cur_physical_size != (*stream)->v_offset) {
-		uoff_t trailer_size = file->cur_physical_size -
-			(*stream)->v_offset;
+	psize = dbox_file_get_plaintext_size(file);
+	if (psize != (*stream)->v_offset) {
+		uoff_t trailer_size = psize - (*stream)->v_offset;
 
 		input = i_stream_create_limit(*stream, trailer_size);
 		array_append(&streams, &input, 1);
