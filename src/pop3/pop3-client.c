@@ -46,6 +46,9 @@ static int client_output(struct client *client);
 
 static void client_log_start(struct client *client)
 {
+	/* FIXME: This is kind of ugly way to do it here manually. Would be
+	   better if this was integrated to ioloop, so that all io/timeout
+	   callbacks could set the prefixes automatically */
 	if (log_prefix_user != NULL &&
 	    log_prefix_user == client->user)
 		return;
@@ -56,10 +59,9 @@ static void client_log_start(struct client *client)
 
 static void client_log_stop(void)
 {
-	if (pop3_client_count == 1) {
-		mail_user_set_log_prefix(pop3_clients->user);
-		log_prefix_user = pop3_clients->user;
-	} else {
+	if (pop3_client_count == 1)
+		client_log_start(pop3_clients);
+	else {
 		master_service_init_log(master_service, "pop3: ");
 		log_prefix_user = NULL;
 	}

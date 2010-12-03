@@ -137,6 +137,9 @@ void client_command_cancel(struct client_command_context **_cmd)
 
 void client_log_start(struct client *client)
 {
+	/* FIXME: This is kind of ugly way to do it here manually. Would be
+	   better if this was integrated to ioloop, so that all io/timeout
+	   callbacks could set the prefixes automatically */
 	if (log_prefix_user != NULL &&
 	    log_prefix_user == client->user)
 		return;
@@ -147,10 +150,9 @@ void client_log_start(struct client *client)
 
 void client_log_stop(void)
 {
-	if (imap_client_count == 1) {
-		mail_user_set_log_prefix(imap_clients->user);
-		log_prefix_user = imap_clients->user;
-	} else {
+	if (imap_client_count == 1)
+		client_log_start(imap_clients);
+	else {
 		master_service_init_log(master_service, "imap: ");
 		log_prefix_user = NULL;
 	}
