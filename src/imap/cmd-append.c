@@ -51,6 +51,7 @@ static void client_input_append(struct client_command_context *cmd)
 	client->last_input = ioloop_time;
 	timeout_reset(client->to_idle);
 
+	client_log_start(client);
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
@@ -76,6 +77,7 @@ static void client_input_append(struct client_command_context *cmd)
 		client_send_command_error(cmd, "Too long argument.");
 		cmd->param_error = TRUE;
 		client_command_free(&cmd);
+		client_log_stop();
 		return;
 	}
 
@@ -92,6 +94,7 @@ static void client_input_append(struct client_command_context *cmd)
 		client_destroy(client, NULL);
 	else
 		client_continue_pending_input(client);
+	client_log_stop();
 }
 
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
