@@ -289,7 +289,7 @@ master_login_auth_input_fail(struct master_login_auth *auth,
 			request_internal_failure(request,
 						 "Internal auth failure");
 		} else {
-			i_error("Internal tuah failure: %s "
+			i_error("Internal auth failure: %s "
 				"(client-pid=%u client-id=%u)",
 				error, request->client_pid, request->auth_id);
 			request->callback(NULL, error, request->context);
