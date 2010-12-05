@@ -188,7 +188,7 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 	bool exists;
 	int ret;
 
-	ret = maildir_uidlist_lookup(mbox->uidlist, mail->uid, &flags, fname_r);
+	ret = maildir_sync_lookup(mbox, mail->uid, &flags, fname_r);
 	if (ret != 0)
 		return ret;
 
@@ -588,8 +588,7 @@ static void maildir_mail_set_cache_corrupted(struct mail *_mail,
 	if (field == MAIL_FETCH_VIRTUAL_SIZE) {
 		/* make sure it gets removed from uidlist.
 		   if it's in file name, we can't really do more than log it. */
-		ret = maildir_uidlist_lookup(mbox->uidlist, _mail->uid,
-					     &flags, &fname);
+		ret = maildir_sync_lookup(mbox, _mail->uid, &flags, &fname);
 		if (ret <= 0)
 			return;
 		if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,

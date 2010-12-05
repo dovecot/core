@@ -42,6 +42,10 @@ void maildir_sync_notify(struct maildir_sync_context *ctx);
 void maildir_sync_set_new_msgs_count(struct maildir_index_sync_context *ctx,
 				     unsigned int count);
 
+int maildir_sync_lookup(struct maildir_mailbox *mbox, uint32_t uid,
+			enum maildir_uidlist_rec_flag *flags_r,
+			const char **fname_r);
+
 int maildir_list_index_has_changed(struct mailbox *box,
 				   struct mail_index_view *list_view,
 				   uint32_t seq);

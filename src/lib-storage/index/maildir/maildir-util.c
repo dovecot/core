@@ -61,7 +61,7 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 	bool have_flags;
 	int ret;
 
-	ret = maildir_uidlist_lookup(mbox->uidlist, uid, &flags, &fname);
+	ret = maildir_sync_lookup(mbox, uid, &flags, &fname);
 	if (ret <= 0)
 		return ret == 0 ? -2 : -1;
 

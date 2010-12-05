@@ -36,7 +36,6 @@
 #include "nfs-workarounds.h"
 #include "eacces-error.h"
 #include "maildir-storage.h"
-#include "maildir-sync.h"
 #include "maildir-filename.h"
 #include "maildir-uidlist.h"
 
@@ -230,6 +229,11 @@ bool maildir_uidlist_is_locked(struct maildir_uidlist *uidlist)
 bool maildir_uidlist_is_read(struct maildir_uidlist *uidlist)
 {
 	return uidlist->initial_read;
+}
+
+bool maildir_uidlist_is_open(struct maildir_uidlist *uidlist)
+{
+	return uidlist->fd != -1;
 }
 
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
@@ -1027,35 +1031,6 @@ maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
 int maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 			   enum maildir_uidlist_rec_flag *flags_r,
 			   const char **fname_r)
-{
-	int ret;
-
-	ret = maildir_uidlist_lookup_nosync(uidlist, uid, flags_r, fname_r);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		if (uidlist->fd != -1 || uidlist->mbox == NULL) {
-			/* refresh uidlist and check again in case it was added
-			   after the last mailbox sync */
-			if (maildir_uidlist_refresh(uidlist) < 0)
-				return -1;
-		} else {
-			/* the uidlist doesn't exist. */
-			if (maildir_storage_sync_force(uidlist->mbox, uid) < 0)
-				return -1;
-		}
-
-		/* try again */
-		ret = maildir_uidlist_lookup_nosync(uidlist, uid,
-						    flags_r, fname_r);
-	}
-
-	return ret;
-}
-
-int maildir_uidlist_lookup_nosync(struct maildir_uidlist *uidlist, uint32_t uid,
-				  enum maildir_uidlist_rec_flag *flags_r,
-				  const char **fname_r)
 {
 	struct maildir_uidlist_rec *rec;
 	int ret;

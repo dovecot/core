@@ -881,8 +881,8 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	}
 
 	if (find_uid != NULL && *find_uid != 0) {
-		ret = maildir_uidlist_lookup_nosync(ctx->mbox->uidlist,
-						    *find_uid, &flags, &fname);
+		ret = maildir_uidlist_lookup(ctx->mbox->uidlist,
+					     *find_uid, &flags, &fname);
 		if (ret < 0)
 			return -1;
 		if (ret == 0) {
@@ -895,6 +895,35 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	}
 
 	return maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx, TRUE);
+}
+
+int maildir_sync_lookup(struct maildir_mailbox *mbox, uint32_t uid,
+			enum maildir_uidlist_rec_flag *flags_r,
+			const char **fname_r)
+{
+	int ret;
+
+	ret = maildir_uidlist_lookup(mbox->uidlist, uid, flags_r, fname_r);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		if (maildir_uidlist_is_open(mbox->uidlist)) {
+			/* refresh uidlist and check again in case it was added
+			   after the last mailbox sync */
+			if (maildir_uidlist_refresh(mbox->uidlist) < 0)
+				return -1;
+		} else {
+			/* the uidlist doesn't exist. */
+			if (maildir_storage_sync_force(mbox, uid) < 0)
+				return -1;
+		}
+
+		/* try again */
+		ret = maildir_uidlist_lookup(mbox->uidlist, uid,
+					     flags_r, fname_r);
+	}
+
+	return ret;
 }
 
 int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
