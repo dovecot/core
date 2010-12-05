@@ -360,6 +360,7 @@ static void part_write_body_multipart(const struct message_part *part,
 static void part_write_body(const struct message_part *part,
 			    string_t *str, bool extended)
 {
+#define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
 	struct message_part_body_data *data = part->context;
 	bool text;
 

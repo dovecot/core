@@ -38,9 +38,6 @@
 #define CLAMP(x, low, high) \
 	(((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
-#undef NVL
-#define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
-
 /* make it easier to cast from/to pointers. assumes that
    sizeof(size_t) == sizeof(void *) and they're both the largest datatypes
    that are allowed to be used. so, long long isn't safe with these. */
