@@ -1504,6 +1504,10 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 	} else if (errno == ENOENT) {
 		mailbox_set_deleted(box);
 		return -1;
+	} else if (errno == ENOTDIR) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			"Mailbox doesn't allow inferior mailboxes");
+		return -1;
 	} else if (mail_storage_set_error_from_errno(box->storage)) {
 		return -1;
 	} else {
