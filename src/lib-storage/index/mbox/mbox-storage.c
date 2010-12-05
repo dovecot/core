@@ -369,13 +369,6 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->storage = (struct mbox_storage *)storage;
 	mbox->mbox_fd = -1;
 	mbox->mbox_lock_type = F_UNLCK;
-	mbox->mbox_ext_idx =
-		mail_index_ext_register(mbox->box.index, "mbox",
-					sizeof(mbox->mbox_hdr),
-					sizeof(uint64_t), sizeof(uint64_t));
-	mbox->md5hdr_ext_idx =
-		mail_index_ext_register(mbox->box.index, "header-md5",
-					0, 16, 1);
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
 		mbox->mbox_save_md5 = TRUE;
@@ -385,6 +378,22 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
 {
 	mbox_dotlock_touch(mbox);
+}
+
+static int
+mbox_mailbox_open_finish(struct mbox_mailbox *mbox, bool move_to_memory)
+{
+	if (index_storage_mailbox_open(&mbox->box, move_to_memory) < 0)
+		return -1;
+
+	mbox->mbox_ext_idx =
+		mail_index_ext_register(mbox->box.index, "mbox",
+					sizeof(mbox->mbox_hdr),
+					sizeof(uint64_t), sizeof(uint64_t));
+	mbox->md5hdr_ext_idx =
+		mail_index_ext_register(mbox->box.index, "header-md5",
+					0, 16, 1);
+	return 0;
 }
 
 static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
@@ -420,7 +429,7 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 					    mbox_lock_touch_timeout, mbox);
 		}
 	}
-	return index_storage_mailbox_open(box, move_to_memory);
+	return mbox_mailbox_open_finish(mbox, move_to_memory);
 }
 
 static int mbox_mailbox_open(struct mailbox *box)
@@ -434,7 +443,7 @@ static int mbox_mailbox_open(struct mailbox *box)
 		mbox->mbox_file_stream = box->input;
 		mbox->box.backend_readonly = TRUE;
 		mbox->no_mbox_file = TRUE;
-		return index_storage_mailbox_open(box, FALSE);
+		return mbox_mailbox_open_finish(mbox, FALSE);
 	}
 
 	ret = stat(mailbox_get_path(box), &st);

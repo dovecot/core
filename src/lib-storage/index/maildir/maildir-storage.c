@@ -286,9 +286,6 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	ibox->save_rollback = maildir_transaction_save_rollback;
 
 	mbox->storage = (struct maildir_storage *)storage;
-	mbox->maildir_ext_id =
-		mail_index_ext_register(mbox->box.index, "maildir",
-					sizeof(mbox->maildir_hdr), 0, 0);
 	return &mbox->box;
 }
 
@@ -316,7 +313,13 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 	if (access(t_strconcat(box_path, "/cur", NULL), W_OK) < 0 &&
 	    errno == EACCES)
 		mbox->box.backend_readonly = TRUE;
-	return index_storage_mailbox_open(box, FALSE);
+	if (index_storage_mailbox_open(box, FALSE) < 0)
+		return -1;
+
+	mbox->maildir_ext_id =
+		mail_index_ext_register(mbox->box.index, "maildir",
+					sizeof(mbox->maildir_hdr), 0, 0);
+	return 0;
 }
 
 static int maildir_mailbox_open(struct mailbox *box)

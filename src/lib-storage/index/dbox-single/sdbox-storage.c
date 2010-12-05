@@ -48,10 +48,6 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.mail_vfuncs = &sdbox_mail_vfuncs;
 
 	index_storage_mailbox_alloc(&mbox->box, name, flags, DBOX_INDEX_PREFIX);
-	mail_index_set_fsync_mode(mbox->box.index,
-				  storage->set->parsed_fsync_mode,
-				  MAIL_INDEX_SYNC_TYPE_APPEND |
-				  MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = sdbox_transaction_save_commit_pre;
@@ -61,9 +57,6 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
 	mbox->storage = (struct sdbox_storage *)storage;
-	mbox->hdr_ext_id =
-		mail_index_ext_register(mbox->box.index, "dbox-hdr",
-					sizeof(struct sdbox_index_header), 0, 0);
 	return &mbox->box;
 }
 
@@ -226,6 +219,9 @@ static int sdbox_mailbox_open(struct mailbox *box)
 
 	if (dbox_mailbox_open(box) < 0)
 		return -1;
+	mbox->hdr_ext_id =
+		mail_index_ext_register(box->index, "dbox-hdr",
+					sizeof(struct sdbox_index_header), 0, 0);
 
 	/* get/generate mailbox guid */
 	if (sdbox_read_header(mbox, &hdr, FALSE) < 0) {

@@ -1470,32 +1470,42 @@ const char *mailbox_get_path(struct mailbox *box)
 	return box->_path;
 }
 
-const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box)
+static void mailbox_get_permissions_if_not_set(struct mailbox *box)
 {
 	const char *origin, *dir_origin;
 	gid_t dir_gid;
 
 	if (box->_perm.file_create_mode != 0)
-		return &box->_perm;
+		return;
 
 	if (box->input != NULL) {
 		box->_perm.file_create_mode = 0600;
 		box->_perm.dir_create_mode = 0700;
 		box->_perm.file_create_gid = (gid_t)-1;
 		box->_perm.file_create_gid_origin = "defaults";
-		return &box->_perm;
+		return;
 	}
 
 	mailbox_list_get_permissions(box->list, box->name,
 				     &box->_perm.file_create_mode,
 				     &box->_perm.file_create_gid, &origin);
-	mail_index_set_permissions(box->index, box->_perm.file_create_mode,
-				   box->_perm.file_create_gid, origin);
-
 	box->_perm.file_create_gid_origin = p_strdup(box->pool, origin);
 	mailbox_list_get_dir_permissions(box->list, box->name,
 					 &box->_perm.dir_create_mode,
 					 &dir_gid, &dir_origin);
+}
+
+const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box)
+{
+	mailbox_get_permissions_if_not_set(box);
+
+	if (!box->_perm.mail_index_permissions_set && box->index != NULL) {
+		box->_perm.mail_index_permissions_set = TRUE;
+		mail_index_set_permissions(box->index,
+					   box->_perm.file_create_mode,
+					   box->_perm.file_create_gid,
+					   box->_perm.file_create_gid_origin);
+	}
 	return &box->_perm;
 }
 

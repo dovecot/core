@@ -230,10 +230,14 @@ struct mailbox_permissions {
 	gid_t file_create_gid;
 	/* origin (e.g. path) where the file_create_gid was got from */
 	const char *file_create_gid_origin;
+
+	bool mail_index_permissions_set;
 };
 
 struct mailbox {
 	const char *name;
+	/* mailbox's virtual name (from mail_namespace_get_vname()) */
+	const char *vname;
 	struct mail_storage *storage;
 	struct mailbox_list *list;
 
@@ -253,9 +257,8 @@ struct mailbox {
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
 
-	/* mailbox's virtual name (from mail_namespace_get_vname()) */
-	const char *vname;
 	struct istream *input;
+	const char *index_prefix;
 	enum mailbox_flags flags;
 	unsigned int transaction_count;
 	enum mailbox_feature enabled_features;

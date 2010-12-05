@@ -27,22 +27,6 @@
 struct index_storage_module index_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
-static struct mail_index *
-index_storage_alloc(struct mailbox_list *list, const char *name,
-		    enum mailbox_flags flags, const char *prefix)
-{
-	const char *index_dir, *mailbox_path;
-
-	mailbox_path = mailbox_list_get_path(list, name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = (flags & MAILBOX_FLAG_NO_INDEX_FILES) != 0 ? "" :
-		mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*index_dir == '\0')
-		index_dir = NULL;
-
-	return mail_index_alloc_cache_get(mailbox_path, index_dir, prefix);
-}
-
 static void set_cache_decisions(const char *set, const char *fields,
 				enum mail_cache_decision_type dec)
 {
@@ -150,6 +134,23 @@ void index_storage_lock_notify_reset(struct mailbox *box)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
+static struct mail_index *
+index_mailbox_alloc_index(struct mailbox *box)
+{
+	const char *index_dir, *mailbox_path;
+
+	mailbox_path = mailbox_list_get_path(box->list, box->name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	index_dir = (box->flags & MAILBOX_FLAG_NO_INDEX_FILES) != 0 ? "" :
+		mailbox_list_get_path(box->list, box->name,
+				      MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*index_dir == '\0')
+		index_dir = NULL;
+
+	return mail_index_alloc_cache_get(mailbox_path, index_dir,
+					  box->index_prefix);
+}
+
 int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
@@ -174,6 +175,13 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 		mail_storage_set_internal_error(box->storage);
 		return -1;
 	}
+
+	box->index = index_mailbox_alloc_index(box);
+	mail_index_set_fsync_mode(box->index,
+				  box->storage->set->parsed_fsync_mode, 0);
+	mail_index_set_lock_method(box->index,
+		box->storage->set->parsed_lock_method,
+		mail_storage_get_lock_timeout(box->storage, -1U));
 
 	/* make sure mail_index_set_permissions() has been called */
 	(void)mailbox_get_permissions(box);
@@ -232,7 +240,9 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 	vname = t_str_new(128);
 	mail_namespace_get_vname(box->list->ns, vname, name);
 	box->vname = p_strdup(box->pool, str_c(vname));
+
 	box->flags = flags;
+	box->index_prefix = p_strdup(box->pool, index_prefix);
 
 	p_array_init(&box->search_results, box->pool, 16);
 	array_create(&box->module_contexts,
@@ -244,16 +254,10 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	MODULE_CONTEXT_SET(box, index_storage_module, ibox);
 
-	box->index = index_storage_alloc(box->list, name, flags, index_prefix);
 	box->inbox_user = strcmp(name, "INBOX") == 0 &&
 		(box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
 	box->inbox_any = strcmp(name, "INBOX") == 0 &&
 		(box->list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0;
-	mail_index_set_fsync_mode(box->index,
-				  box->storage->set->parsed_fsync_mode, 0);
-	mail_index_set_lock_method(box->index,
-		box->storage->set->parsed_lock_method,
-		mail_storage_get_lock_timeout(box->storage, -1U));
 }
 
 int index_storage_mailbox_enable(struct mailbox *box,
@@ -295,7 +299,8 @@ void index_storage_mailbox_close(struct mailbox *box)
 
 void index_storage_mailbox_free(struct mailbox *box)
 {
-	mail_index_alloc_cache_unref(&box->index);
+	if (box->index != NULL)
+		mail_index_alloc_cache_unref(&box->index);
 }
 
 void index_storage_mailbox_update_cache_fields(struct mailbox *box,
@@ -499,6 +504,8 @@ bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
 {
 	unsigned int i, idx;
 
+	i_assert(box->opened);
+
 	/* if it already exists, skip validity checks */
 	if (mail_index_keyword_lookup(box->index, keyword, &idx))
 		return TRUE;
@@ -549,6 +556,8 @@ int index_keywords_create(struct mailbox *box, const char *const keywords[],
 	const char *error;
 	unsigned int i;
 
+	i_assert(box->opened);
+
 	for (i = 0; keywords[i] != NULL; i++) {
 		if (mailbox_keyword_is_valid(box, keywords[i], &error))
 			continue;
@@ -571,10 +580,12 @@ int index_keywords_create(struct mailbox *box, const char *const keywords[],
 }
 
 struct mail_keywords *
-index_keywords_create_from_indexes(struct mailbox *_box,
+index_keywords_create_from_indexes(struct mailbox *box,
 				   const ARRAY_TYPE(keyword_indexes) *idx)
 {
-	return mail_index_keywords_create_from_indexes(_box->index, idx);
+	i_assert(box->opened);
+
+	return mail_index_keywords_create_from_indexes(box->index, idx);
 }
 
 void index_keywords_ref(struct mail_keywords *keywords)

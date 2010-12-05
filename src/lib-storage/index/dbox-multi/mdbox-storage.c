@@ -101,10 +101,6 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.mail_vfuncs = &mdbox_mail_vfuncs;
 
 	index_storage_mailbox_alloc(&mbox->box, name, flags, DBOX_INDEX_PREFIX);
-	mail_index_set_fsync_mode(mbox->box.index,
-				  storage->set->parsed_fsync_mode,
-				  MAIL_INDEX_SYNC_TYPE_APPEND |
-				  MAIL_INDEX_SYNC_TYPE_EXPUNGE);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = mdbox_transaction_save_commit_pre;
@@ -114,6 +110,16 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
 	mbox->storage = (struct mdbox_storage *)storage;
+	return &mbox->box;
+}
+
+static int mdbox_mailbox_open(struct mailbox *box)
+{
+	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
+
+	if (dbox_mailbox_open(box) < 0)
+		return -1;
+
 	mbox->ext_id =
 		mail_index_ext_register(mbox->box.index, "mdbox", 0,
 					sizeof(struct mdbox_mail_index_record),
@@ -124,7 +130,7 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->guid_ext_id =
 		mail_index_ext_register(mbox->box.index, "guid",
 					0, MAIL_GUID_128_SIZE, 1);
-	return &mbox->box;
+	return 0;
 }
 
 static void mdbox_mailbox_close(struct mailbox *box)
@@ -389,7 +395,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
-		dbox_mailbox_open,
+		mdbox_mailbox_open,
 		mdbox_mailbox_close,
 		index_storage_mailbox_free,
 		dbox_mailbox_create,

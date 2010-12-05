@@ -115,9 +115,9 @@ int dbox_mailbox_open(struct mailbox *box)
 {
 	const char *box_path = mailbox_get_path(box);
 
-	if (dbox_cleanup_if_exists(box->list, box_path)) {
-		return index_storage_mailbox_open(box, FALSE);
-	} else if (errno == ENOENT) {
+	if (dbox_cleanup_if_exists(box->list, box_path))
+		;
+	else if (errno == ENOENT) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;
@@ -130,6 +130,14 @@ int dbox_mailbox_open(struct mailbox *box)
 					  "stat(%s) failed: %m", box_path);
 		return -1;
 	}
+
+	if (index_storage_mailbox_open(box, FALSE) < 0)
+		return -1;
+	mail_index_set_fsync_mode(box->index,
+				  box->storage->set->parsed_fsync_mode,
+				  MAIL_INDEX_SYNC_TYPE_APPEND |
+				  MAIL_INDEX_SYNC_TYPE_EXPUNGE);
+	return 0;
 }
 
 static int dir_is_empty(struct mail_storage *storage, const char *path)
