@@ -606,10 +606,6 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 		      uint32_t dest_seq, const char *name, buffer_t *buf)
 {
 	struct mailbox_transaction_context *dest_trans = ctx->transaction;
-	struct index_transaction_context *dest_itrans =
-		(struct index_transaction_context *)dest_trans;
-	struct index_transaction_context *src_itrans =
-		(struct index_transaction_context *)src_mail->transaction;
 	const struct mail_cache_field *dest_field;
 	unsigned int src_field_idx, dest_field_idx;
 
@@ -630,9 +626,9 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 	}
 
 	buffer_set_used_size(buf, 0);
-	if (mail_cache_lookup_field(src_itrans->cache_view, buf,
+	if (mail_cache_lookup_field(src_mail->transaction->cache_view, buf,
 				    src_mail->seq, src_field_idx) > 0) {
-		mail_cache_add(dest_itrans->cache_trans, dest_seq,
+		mail_cache_add(dest_trans->cache_trans, dest_seq,
 			       dest_field_idx, buf->data, buf->used);
 	}
 }

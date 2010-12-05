@@ -491,14 +491,12 @@ static int maildir_save_finish_received_date(struct maildir_save_context *ctx,
 
 static void maildir_save_remove_last_filename(struct maildir_save_context *ctx)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)ctx->ctx.transaction;
 	struct maildir_filename **fm;
 
 	mail_index_expunge(ctx->trans, ctx->seq);
 	/* currently we can't just drop pending cache updates for this one
 	   specific record, so we'll reset the whole cache transaction. */
-	mail_cache_transaction_reset(t->cache_trans);
+	mail_cache_transaction_reset(ctx->ctx.transaction->cache_trans);
 	ctx->seq--;
 
 	for (fm = &ctx->files; (*fm)->next != NULL; fm = &(*fm)->next) ;
@@ -764,8 +762,6 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 static void
 maildir_save_rollback_index_changes(struct maildir_save_context *ctx)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)ctx->ctx.transaction;
 	uint32_t seq;
 
 	if (ctx->seq == 0)
@@ -774,7 +770,7 @@ maildir_save_rollback_index_changes(struct maildir_save_context *ctx)
 	for (seq = ctx->seq; seq >= ctx->first_seq; seq--)
 		mail_index_expunge(ctx->trans, seq);
 
-	mail_cache_transaction_reset(t->cache_trans);
+	mail_cache_transaction_reset(ctx->ctx.transaction->cache_trans);
 }
 
 static bool maildir_filename_has_conflict(struct maildir_filename *mf,

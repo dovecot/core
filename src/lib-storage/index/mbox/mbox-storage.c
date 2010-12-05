@@ -641,8 +641,8 @@ mbox_transaction_begin(struct mailbox *box,
 	struct mbox_transaction_context *mt;
 
 	mt = i_new(struct mbox_transaction_context, 1);
-	index_transaction_init(&mt->ictx, box, flags);
-	return &mt->ictx.mailbox_ctx;
+	index_transaction_init(&mt->t, box, flags);
+	return &mt->t;
 }
 
 static void mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id)

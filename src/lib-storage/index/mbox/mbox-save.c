@@ -255,7 +255,7 @@ static int
 mbox_save_init_file(struct mbox_save_context *ctx,
 		    struct mbox_transaction_context *t, bool want_mail)
 {
-	struct mailbox_transaction_context *_t = &t->ictx.mailbox_ctx;
+	struct mailbox_transaction_context *_t = &t->t;
 	struct mbox_mailbox *mbox = ctx->mbox;
 	struct mail_storage *storage = &mbox->storage->storage;
 	bool empty = FALSE;

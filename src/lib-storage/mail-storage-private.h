@@ -383,9 +383,16 @@ struct mailbox_transaction_context {
 	struct mailbox *box;
 	enum mailbox_transaction_flags flags;
 
+	union mail_index_transaction_module_context module_ctx;
+	struct mail_index_transaction_vfuncs super;
+	int mail_ref_count;
+
 	struct mail_index_transaction *itrans;
 	/* view contains all changes done within this transaction */
 	struct mail_index_view *view;
+
+	struct mail_cache_view *cache_view;
+	struct mail_cache_transaction_ctx *cache_trans;
 
 	struct mail_transaction_commit_changes *changes;
 	ARRAY_DEFINE(module_contexts,

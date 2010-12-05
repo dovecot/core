@@ -4,7 +4,7 @@
 #include "index-storage.h"
 
 struct virtual_transaction_context {
-	struct index_transaction_context ictx;
+	struct mailbox_transaction_context t;
 
 	ARRAY_DEFINE(backend_transactions,
 		     struct mailbox_transaction_context *);

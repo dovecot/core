@@ -60,7 +60,9 @@ struct mbox_mailbox {
 };
 
 struct mbox_transaction_context {
-	struct index_transaction_context ictx;
+	struct mailbox_transaction_context t;
+	union mail_index_transaction_module_context module_ctx;
+
 	unsigned int mbox_lock_id;
 };
 

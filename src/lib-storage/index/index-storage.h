@@ -16,17 +16,6 @@ enum mailbox_lock_notify_type {
 	MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE
 };
 
-struct index_transaction_context {
-	struct mailbox_transaction_context mailbox_ctx;
-	union mail_index_transaction_module_context module_ctx;
-
-	struct mail_index_transaction_vfuncs super;
-	int mail_ref_count;
-
-	struct mail_cache_view *cache_view;
-	struct mail_cache_transaction_ctx *cache_trans;
-};
-
 struct index_vsize_header {
 	uint64_t vsize;
 	uint32_t highest_uid;
@@ -159,7 +148,7 @@ void index_transaction_set_max_modseq(struct mailbox_transaction_context *_t,
 struct mailbox_transaction_context *
 index_transaction_begin(struct mailbox *box,
 			enum mailbox_transaction_flags flags);
-void index_transaction_init(struct index_transaction_context *it,
+void index_transaction_init(struct mailbox_transaction_context *t,
 			    struct mailbox *box,
 			    enum mailbox_transaction_flags flags);
 int index_transaction_commit(struct mailbox_transaction_context *t,

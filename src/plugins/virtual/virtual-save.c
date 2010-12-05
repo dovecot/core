@@ -25,7 +25,7 @@ virtual_save_alloc(struct mailbox_transaction_context *_t)
 		return _t->save_ctx;
 
 	ctx = i_new(struct virtual_save_context, 1);
-	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
+	ctx->ctx.transaction = &t->t;
 
 	if (mbox->save_bbox != NULL) {
 		backend_trans =

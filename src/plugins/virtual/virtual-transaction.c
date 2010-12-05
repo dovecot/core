@@ -35,8 +35,8 @@ virtual_transaction_begin(struct mailbox *box,
 	vt = i_new(struct virtual_transaction_context, 1);
 	i_array_init(&vt->backend_transactions,
 		     array_count(&mbox->backend_boxes));
-	index_transaction_init(&vt->ictx, box, flags);
-	return &vt->ictx.mailbox_ctx;
+	index_transaction_init(&vt->t, box, flags);
+	return &vt->t;
 }
 
 int virtual_transaction_commit(struct mailbox_transaction_context *t,

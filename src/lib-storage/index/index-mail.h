@@ -120,7 +120,6 @@ struct index_mail {
 	struct index_mailbox_context *ibox;
 
 	pool_t data_pool;
-	struct index_transaction_context *trans;
 	uint32_t uid_validity;
 
 	enum mail_fetch_field wanted_fields;

@@ -33,7 +33,7 @@ static void mbox_prepare_resync(struct mail *mail)
 static int mbox_mail_seek(struct index_mail *mail)
 {
 	struct mbox_transaction_context *t =
-		(struct mbox_transaction_context *)mail->trans;
+		(struct mbox_transaction_context *)mail->mail.mail.transaction;
 	struct mail *_mail = &mail->mail.mail;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
 	enum mbox_sync_flags sync_flags = 0;
