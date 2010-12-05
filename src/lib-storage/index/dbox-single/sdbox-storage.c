@@ -84,7 +84,7 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 			mail_storage_set_critical(
 				&mbox->storage->storage.storage,
 				"sdbox %s: Invalid dbox header size",
-				mbox->box.path);
+				mailbox_get_path(&mbox->box));
 		}
 		ret = -1;
 	} else {

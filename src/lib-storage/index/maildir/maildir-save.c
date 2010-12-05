@@ -117,6 +117,7 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->box;
 	struct maildir_save_context *ctx;
+	const char *path;
 	pool_t pool;
 
 	pool = pool_alloconly_create("maildir_save_context", 4096);
@@ -128,9 +129,10 @@ maildir_save_transaction_init(struct mailbox_transaction_context *t)
 	ctx->files_tail = &ctx->files;
 	ctx->fd = -1;
 
-	ctx->tmpdir = p_strconcat(pool, mbox->box.path, "/tmp", NULL);
-	ctx->newdir = p_strconcat(pool, mbox->box.path, "/new", NULL);
-	ctx->curdir = p_strconcat(pool, mbox->box.path, "/cur", NULL);
+	path = mailbox_get_path(&mbox->box);
+	ctx->tmpdir = p_strconcat(pool, path, "/tmp", NULL);
+	ctx->newdir = p_strconcat(pool, path, "/new", NULL);
+	ctx->curdir = p_strconcat(pool, path, "/cur", NULL);
 
 	buffer_create_const_data(&ctx->keywords_buffer, NULL, 0);
 	array_create_from_buffer(&ctx->keywords_array, &ctx->keywords_buffer,
@@ -323,6 +325,7 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			      const char **fname_r)
 {
 	struct mailbox *box = &mbox->box;
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
 	unsigned int prefix_len;
 	const char *tmp_fname;
 	string_t *path;
@@ -343,7 +346,7 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		   might return an existing filename is if the time moved
 		   backwards. so we'll use O_EXCL anyway, although it's mostly
 		   useless. */
-		old_mask = umask(0777 & ~box->file_create_mode);
+		old_mask = umask(0777 & ~perm->file_create_mode);
 		fd = open(str_c(path),
 			  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, 0777);
 		umask(old_mask);
@@ -358,14 +361,14 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			mail_storage_set_critical(box->storage,
 				"open(%s) failed: %m", str_c(path));
 		}
-	} else if (box->file_create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
+	} else if (perm->file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 			if (errno == EPERM) {
 				mail_storage_set_critical(box->storage, "%s",
 					eperm_error_get_chgrp("fchown",
 						str_c(path),
-						box->file_create_gid,
-						box->file_create_gid_origin));
+						perm->file_create_gid,
+						perm->file_create_gid_origin));
 			} else {
 				mail_storage_set_critical(box->storage,
 					"fchown(%s) failed: %m", str_c(path));

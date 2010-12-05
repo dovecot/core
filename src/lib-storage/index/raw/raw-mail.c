@@ -22,7 +22,8 @@ static int raw_mail_stat(struct mail *mail)
 	st = i_stream_stat(mail->box->input, TRUE);
 	if (st == NULL) {
 		mail_storage_set_critical(mail->box->storage,
-			"stat(%s) failed: %m", mail->box->path);
+					  "stat(%s) failed: %m",
+					  i_stream_get_name(mail->box->input));
 		return -1;
 	}
 
@@ -103,7 +104,8 @@ raw_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = mbox->envelope_sender;
 		return 0;
 	case MAIL_FETCH_UIDL_FILE_NAME:
-		*value_r = mbox->have_filename ? _mail->box->path : "";
+		*value_r = mbox->have_filename ?
+			mailbox_get_path(_mail->box) : "";
 		return 0;
 	default:
 		return index_mail_get_special(_mail, field, value_r);

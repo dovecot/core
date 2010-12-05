@@ -62,6 +62,7 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 static int raw_mailbox_open(struct mailbox *box)
 {
 	struct raw_mailbox *mbox = (struct raw_mailbox *)box;
+	const char *path;
 	int fd;
 
 	if (box->input != NULL) {
@@ -69,9 +70,9 @@ static int raw_mailbox_open(struct mailbox *box)
 		return index_storage_mailbox_open(box, FALSE);
 	}
 
-	box->path = box->name;
+	path = box->_path = box->name;
 	mbox->have_filename = TRUE;
-	fd = open(box->path, O_RDONLY);
+	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (ENOTFOUND(errno)) {
 			mail_storage_set_error(box->storage,
@@ -79,12 +80,12 @@ static int raw_mailbox_open(struct mailbox *box)
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		} else if (!mail_storage_set_error_from_errno(box->storage)) {
 			mail_storage_set_critical(box->storage,
-				"open(%s) failed: %m", box->path);
+				"open(%s) failed: %m", path);
 		}
 		return -1;
 	}
 	box->input = i_stream_create_fd(fd, MAIL_READ_FULL_BLOCK_SIZE, TRUE);
-	i_stream_set_name(box->input, box->path);
+	i_stream_set_name(box->input, path);
 	i_stream_set_init_buffer_size(box->input, MAIL_READ_FULL_BLOCK_SIZE);
 	return index_storage_mailbox_open(box, FALSE);
 }

@@ -224,6 +224,14 @@ union mailbox_module_context {
 	struct mail_storage_module_register *reg;
 };
 
+struct mailbox_permissions {
+	/* mode and GID to use for newly created files/dirs */
+	mode_t file_create_mode, dir_create_mode;
+	gid_t file_create_gid;
+	/* origin (e.g. path) where the file_create_gid was got from */
+	const char *file_create_gid_origin;
+};
+
 struct mailbox {
 	const char *name;
 	struct mail_storage *storage;
@@ -233,15 +241,18 @@ struct mailbox {
 /* private: */
 	pool_t pool;
 
+	/* these won't be set until mailbox is opened: */
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache *cache;
+	/* Filled lazily by mailbox_get_permissions() */
+	struct mailbox_permissions _perm;
+	/* Filled lazily by mailbox_get_path() */
+	const char *_path;
 
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
 
-	/* mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX */
-	const char *path;
 	/* mailbox's virtual name (from mail_namespace_get_vname()) */
 	const char *vname;
 	struct istream *input;
@@ -251,12 +262,6 @@ struct mailbox {
 
 	/* User's private flags if this is a shared mailbox */
 	enum mail_flags private_flags_mask;
-
-	/* mode and GID to use for newly created files/dirs */
-	mode_t file_create_mode, dir_create_mode;
-	gid_t file_create_gid;
-	/* origin (e.g. path) where the file_create_gid was got from */
-	const char *file_create_gid_origin;
 
 	/* Mailbox notification settings: */
 	unsigned int notify_min_interval;
@@ -491,6 +496,11 @@ int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);
+/* Easy wrapper for getting mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX */
+const char *mailbox_get_path(struct mailbox *box) ATTR_PURE;
+/* Get mailbox permissions. */
+const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box);
+/* Force permissions to be refreshed on next lookup */
 void mailbox_refresh_permissions(struct mailbox *box);
 
 /* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */

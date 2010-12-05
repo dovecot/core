@@ -1458,42 +1458,66 @@ void mailbox_set_deleted(struct mailbox *box)
 	box->mailbox_deleted = TRUE;
 }
 
-void mailbox_refresh_permissions(struct mailbox *box)
+const char *mailbox_get_path(struct mailbox *box)
+{
+	const char *path;
+
+	if (box->_path == NULL) {
+		path = mailbox_list_get_path(box->list, box->name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		box->_path = p_strdup(box->pool, path);
+	}
+	return box->_path;
+}
+
+const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box)
 {
 	const char *origin, *dir_origin;
 	gid_t dir_gid;
 
+	if (box->_perm.file_create_mode != 0)
+		return &box->_perm;
+
 	if (box->input != NULL) {
-		box->file_create_mode = 0600;
-		box->dir_create_mode = 0700;
-		box->file_create_gid = (gid_t)-1;
-		box->file_create_gid_origin = "defaults";
-		return;
+		box->_perm.file_create_mode = 0600;
+		box->_perm.dir_create_mode = 0700;
+		box->_perm.file_create_gid = (gid_t)-1;
+		box->_perm.file_create_gid_origin = "defaults";
+		return &box->_perm;
 	}
 
 	mailbox_list_get_permissions(box->list, box->name,
-				     &box->file_create_mode,
-				     &box->file_create_gid, &origin);
+				     &box->_perm.file_create_mode,
+				     &box->_perm.file_create_gid, &origin);
+	mail_index_set_permissions(box->index, box->_perm.file_create_mode,
+				   box->_perm.file_create_gid, origin);
 
-	box->file_create_gid_origin = p_strdup(box->pool, origin);
+	box->_perm.file_create_gid_origin = p_strdup(box->pool, origin);
 	mailbox_list_get_dir_permissions(box->list, box->name,
-					 &box->dir_create_mode,
+					 &box->_perm.dir_create_mode,
 					 &dir_gid, &dir_origin);
+	return &box->_perm;
+}
+
+void mailbox_refresh_permissions(struct mailbox *box)
+{
+	memset(&box->_perm, 0, sizeof(box->_perm));
+	(void)mailbox_get_permissions(box);
 }
 
 int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 		      int *fd_r)
 {
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
 	mode_t old_mask;
 	int fd;
 
-	i_assert(box->file_create_mode != 0);
 	i_assert((flags & O_CREAT) != 0);
 
 	*fd_r = -1;
 
 	old_mask = umask(0);
-	fd = open(path, flags, box->file_create_mode);
+	fd = open(path, flags, perm->file_create_mode);
 	umask(old_mask);
 
 	if (fd != -1) {
@@ -1516,14 +1540,14 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 		return -1;
 	}
 
-	if (box->file_create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, box->file_create_gid) == 0) {
+	if (perm->file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, perm->file_create_gid) == 0) {
 			/* ok */
 		} else if (errno == EPERM) {
 			mail_storage_set_critical(box->storage, "%s",
 				eperm_error_get_chgrp("fchown", path,
-					box->file_create_gid,
-					box->file_create_gid_origin));
+					perm->file_create_gid,
+					perm->file_create_gid_origin));
 		} else {
 			mail_storage_set_critical(box->storage,
 				"fchown(%s) failed: %m", path);

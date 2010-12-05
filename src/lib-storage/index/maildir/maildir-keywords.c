@@ -290,6 +290,7 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 {
 	struct maildir_mailbox *mbox = mk->mbox;
 	struct mailbox *box = &mbox->box;
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
 	const char *const *keywords;
 	unsigned int i, count;
 	string_t *str;
@@ -313,14 +314,14 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 		return -1;
 	}
 
-	if (st.st_gid != box->file_create_gid &&
-	    box->file_create_gid != (gid_t)-1) {
-		if (fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
+	if (st.st_gid != perm->file_create_gid &&
+	    perm->file_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 			if (errno == EPERM) {
 				mail_storage_set_critical(mk->storage, "%s",
 					eperm_error_get_chgrp("fchown", path,
-						box->file_create_gid,
-						box->file_create_gid_origin));
+						perm->file_create_gid,
+						perm->file_create_gid_origin));
 			} else {
 				mail_storage_set_critical(mk->storage,
 					"fchown(%s) failed: %m", path);
@@ -353,6 +354,7 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 
 static int maildir_keywords_commit(struct maildir_keywords *mk)
 {
+	const struct mailbox_permissions *perm;
 	struct dotlock *dotlock;
 	const char *lock_path;
 	mode_t old_mask;
@@ -366,11 +368,12 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	lock_path = t_strconcat(mk->path, ".lock", NULL);
 	(void)unlink(lock_path);
 
+	perm = mailbox_get_permissions(&mk->mbox->box);
 	for (i = 0;; i++) {
 		/* we could just create the temp file directly, but doing it
 		   this ways avoids potential problems with overwriting
 		   contents in malicious symlinks */
-		old_mask = umask(0777 & ~mk->mbox->box.file_create_mode);
+		old_mask = umask(0777 & ~perm->file_create_mode);
 		fd = file_dotlock_open(&mk->dotlock_settings, mk->path,
 				       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
 		umask(old_mask);

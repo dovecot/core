@@ -78,7 +78,12 @@ int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
 bool mail_storage_copy_can_use_hardlink(struct mailbox *src,
 					struct mailbox *dest)
 {
-	return src->file_create_mode == dest->file_create_mode &&
-		src->file_create_gid == dest->file_create_gid &&
+	const struct mailbox_permissions *src_perm =
+		mailbox_get_permissions(src);
+	const struct mailbox_permissions *dest_perm =
+		mailbox_get_permissions(dest);
+
+	return src_perm->file_create_mode == dest_perm->file_create_mode &&
+		src_perm->file_create_gid == dest_perm->file_create_gid &&
 		!dest->disable_reflink_copy_to;
 }

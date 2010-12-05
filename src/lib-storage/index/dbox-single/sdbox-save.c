@@ -307,10 +307,11 @@ void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 		ctx->ctx.failed = TRUE;
 
 	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
-		if (fdatasync_path(ctx->mbox->box.path) < 0) {
+		const char *box_path = mailbox_get_path(&ctx->mbox->box);
+
+		if (fdatasync_path(box_path) < 0) {
 			mail_storage_set_critical(storage,
-				"fdatasync_path(%s) failed: %m",
-				ctx->mbox->box.path);
+				"fdatasync_path(%s) failed: %m", box_path);
 		}
 	}
 	sdbox_transaction_save_rollback(_ctx);

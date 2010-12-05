@@ -136,6 +136,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 					bool refresh_when_locked)
 {
 	struct mailbox *box = uidlist->box;
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
 	const char *control_dir, *path;
 	mode_t old_mask;
 	const enum dotlock_create_flags dotlock_flags =
@@ -158,7 +159,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	path = t_strconcat(control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
 
 	for (i = 0;; i++) {
-		old_mask = umask(0777 & ~box->file_create_mode);
+		old_mask = umask(0777 & ~perm->file_create_mode);
 		ret = file_dotlock_create(&uidlist->dotlock_settings, path,
 					  dotlock_flags, &uidlist->dotlock);
 		umask(old_mask);
@@ -1351,6 +1352,7 @@ maildir_uidlist_records_drop_expunges(struct maildir_uidlist *uidlist)
 static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 {
 	struct mailbox *box = uidlist->box;
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
 	const char *control_dir, *temp_path;
 	struct stat st;
 	mode_t old_mask;
@@ -1367,7 +1369,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 				"/" MAILDIR_UIDLIST_NAME ".tmp", NULL);
 
 	for (i = 0;; i++) {
-		old_mask = umask(0777 & ~box->file_create_mode);
+		old_mask = umask(0777 & ~perm->file_create_mode);
 		fd = open(temp_path, O_RDWR | O_CREAT | O_TRUNC, 0777);
 		umask(old_mask);
 		if (fd != -1)
@@ -1384,13 +1386,13 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 			return -1;
 	}
 
-	if (box->file_create_gid != (gid_t)-1 &&
-	    fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
+	if (perm->file_create_gid != (gid_t)-1 &&
+	    fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 		if (errno == EPERM) {
 			mail_storage_set_critical(box->storage, "%s",
 				eperm_error_get_chgrp("fchown", temp_path,
-						box->file_create_gid,
-						box->file_create_gid_origin));
+						perm->file_create_gid,
+						perm->file_create_gid_origin));
 		} else {
 			mail_storage_set_critical(box->storage,
 				"fchown(%s) failed: %m", temp_path);

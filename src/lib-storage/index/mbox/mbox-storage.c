@@ -79,9 +79,8 @@ int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 		const char *toobig_error = errno != EFBIG ? "" :
 			" (process was started with ulimit -f limit)";
 		mail_storage_set_critical(&mbox->storage->storage,
-					  "%s failed with mbox file %s: %m%s",
-					  function, mbox->box.path,
-					  toobig_error);
+			"%s failed with mbox file %s: %m%s", function,
+			mailbox_get_path(&mbox->box), toobig_error);
 	}
 	return -1;
 }
@@ -391,24 +390,24 @@ static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
 static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 {
 	struct mailbox *box = &mbox->box;
-	const char *rootdir;
+	const char *rootdir, *box_path = mailbox_get_path(box);
 	bool move_to_memory;
 
-	if (access(box->path, R_OK|W_OK) < 0) {
+	if (access(box_path, R_OK|W_OK) < 0) {
 		if (errno != EACCES) {
 			mbox_set_syscall_error(mbox, "access()");
 			return -1;
 		}
 		mbox->box.backend_readonly = TRUE;
 	}
-	move_to_memory = want_memory_indexes(mbox->storage, box->path);
+	move_to_memory = want_memory_indexes(mbox->storage, box_path);
 
 	if (box->inbox_any || strcmp(box->name, "INBOX") == 0) {
 		/* if INBOX isn't under the root directory, it's probably in
 		   /var/mail and we want to allow privileged dotlocking */
 		rootdir = mailbox_list_get_path(box->list, NULL,
 						MAILBOX_LIST_PATH_TYPE_DIR);
-		if (strncmp(box->path, rootdir, strlen(rootdir)) != 0)
+		if (strncmp(box_path, rootdir, strlen(rootdir)) != 0)
 			mbox->mbox_privileged_locking = TRUE;
 	}
 	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {
@@ -438,9 +437,10 @@ static int mbox_mailbox_open(struct mailbox *box)
 		return index_storage_mailbox_open(box, FALSE);
 	}
 
-	if ((ret = stat(box->path, &st)) == 0 && !S_ISDIR(st.st_mode))
-		return mbox_mailbox_open_existing(mbox);
-	else if (ret == 0) {
+	ret = stat(mailbox_get_path(box), &st);
+	if (ret == 0) {
+		if (!S_ISDIR(st.st_mode))
+			return mbox_mailbox_open_existing(mbox);
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 				       "Mailbox isn't selectable");
 		return -1;
@@ -452,7 +452,7 @@ static int mbox_mailbox_open(struct mailbox *box)
 		return -1;
 	} else {
 		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", box->path);
+			"stat(%s) failed: %m", mailbox_get_path(box));
 		return -1;
 	}
 }
@@ -523,7 +523,7 @@ mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 			return -1;
 	} else {
 		/* create the mbox file */
-		ret = mailbox_create_fd(box, box->path,
+		ret = mailbox_create_fd(box, mailbox_get_path(box),
 					O_RDWR | O_CREAT | O_EXCL, &fd);
 		if (ret < 0)
 			return -1;
@@ -596,9 +596,9 @@ static void mbox_notify_changes(struct mailbox *box)
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(&mbox->box);
+		index_mailbox_check_remove_all(box);
 	else if (!mbox->no_mbox_file)
-		index_mailbox_check_add(&mbox->box, mbox->box.path);
+		index_mailbox_check_add(box, mailbox_get_path(box));
 }
 
 static bool

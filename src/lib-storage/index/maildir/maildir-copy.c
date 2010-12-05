@@ -83,7 +83,8 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	dest_fname = maildir_filename_generate();
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path =
-		t_strdup_printf("%s/tmp/%s", dest_mbox->box.path, dest_fname);
+		t_strdup_printf("%s/tmp/%s", mailbox_get_path(&dest_mbox->box),
+				dest_fname);
 	if (src_mbox != NULL) {
 		/* maildir */
 		if (maildir_file_do(src_mbox, mail->uid,

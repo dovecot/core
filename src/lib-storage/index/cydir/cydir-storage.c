@@ -71,9 +71,10 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 static int cydir_mailbox_open(struct mailbox *box)
 {
+	const char *box_path = mailbox_get_path(box);
 	struct stat st;
 
-	if (stat(box->path, &st) == 0) {
+	if (stat(box_path, &st) == 0) {
 		/* exists, open it */
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
@@ -81,11 +82,11 @@ static int cydir_mailbox_open(struct mailbox *box)
 		return -1;
 	} else if (errno == EACCES) {
 		mail_storage_set_critical(box->storage, "%s",
-			mail_error_eacces_msg("stat", box->path));
+			mail_error_eacces_msg("stat", box_path));
 		return -1;
 	} else {
 		mail_storage_set_critical(box->storage, "stat(%s) failed: %m",
-					  box->path);
+					  box_path);
 		return -1;
 	}
 	return index_storage_mailbox_open(box, FALSE);
@@ -105,12 +106,10 @@ cydir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 static void cydir_notify_changes(struct mailbox *box)
 {
-	struct cydir_mailbox *mbox = (struct cydir_mailbox *)box;
-
 	if (box->notify_callback == NULL)
-		index_mailbox_check_remove_all(&mbox->box);
+		index_mailbox_check_remove_all(box);
 	else
-		index_mailbox_check_add(&mbox->box, mbox->box.path);
+		index_mailbox_check_add(box, mailbox_get_path(box));
 }
 
 struct mail_storage cydir_storage = {

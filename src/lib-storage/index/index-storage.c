@@ -175,6 +175,9 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 		return -1;
 	}
 
+	/* make sure mail_index_set_permissions() has been called */
+	(void)mailbox_get_permissions(box);
+
 	ret = mail_index_open(box->index, index_flags);
 	if (ret <= 0 || move_to_memory) {
 		if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
@@ -221,7 +224,6 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 				 const char *index_prefix)
 {
 	struct index_mailbox_context *ibox;
-	const char *path;
 	string_t *vname;
 
 	i_assert(name != NULL);
@@ -242,19 +244,11 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	MODULE_CONTEXT_SET(box, index_storage_module, ibox);
 
-	path = mailbox_list_get_path(box->list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	box->path = p_strdup(box->pool, path);
 	box->index = index_storage_alloc(box->list, name, flags, index_prefix);
 	box->inbox_user = strcmp(name, "INBOX") == 0 &&
 		(box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
 	box->inbox_any = strcmp(name, "INBOX") == 0 &&
 		(box->list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0;
-	if (box->file_create_mode == 0)
-		mailbox_refresh_permissions(box);
-	mail_index_set_permissions(box->index, box->file_create_mode,
-				   box->file_create_gid,
-				   box->file_create_gid_origin);
 	mail_index_set_fsync_mode(box->index,
 				  box->storage->set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(box->index,

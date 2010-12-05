@@ -25,11 +25,11 @@ int mbox_file_open(struct mbox_mailbox *mbox)
 		return 0;
 	}
 
-	fd = open(mbox->box.path,
+	fd = open(mailbox_get_path(&mbox->box),
 		  mbox->box.backend_readonly ? O_RDONLY : O_RDWR);
 	if (fd == -1 && errno == EACCES && !mbox->box.backend_readonly) {
                 mbox->box.backend_readonly = TRUE;
-		fd = open(mbox->box.path, O_RDONLY);
+		fd = open(mailbox_get_path(&mbox->box), O_RDONLY);
 	}
 
 	if (fd == -1) {
@@ -86,7 +86,8 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 			i_stream_set_init_buffer_size(mbox->mbox_file_stream,
 						      MBOX_READ_BLOCK_SIZE);
 		}
-		i_stream_set_name(mbox->mbox_file_stream, mbox->box.path);
+		i_stream_set_name(mbox->mbox_file_stream,
+				  mailbox_get_path(&mbox->box));
 	}
 
 	mbox->mbox_stream = i_stream_create_raw_mbox(mbox->mbox_file_stream);
@@ -115,7 +116,8 @@ static void mbox_file_fix_atime(struct mbox_mailbox *mbox)
 			buf.modtime = st.st_mtime;
 			buf.actime = buf.modtime - 1;
 			/* EPERM can happen with shared mailboxes */
-			if (utime(mbox->box.path, &buf) < 0 && errno != EPERM)
+			if (utime(mailbox_get_path(&mbox->box), &buf) < 0 &&
+			    errno != EPERM)
 				mbox_set_syscall_error(mbox, "utime()");
 		}
 	}
@@ -153,7 +155,7 @@ int mbox_file_lookup_offset(struct mbox_mailbox *mbox,
 	if (data == NULL) {
 		mail_storage_set_critical(&mbox->storage->storage,
 			"Cached message offset lost for seq %u in mbox file %s",
-			seq, mbox->box.path);
+			seq, mailbox_get_path(&mbox->box));
                 mbox->mbox_hdr.dirty_flag = TRUE;
                 mbox->mbox_broken_offsets = TRUE;
 		return 0;
@@ -190,7 +192,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 
 		mail_storage_set_critical(&mbox->storage->storage,
 			"Cached message offset %s is invalid for mbox file %s",
-			dec2str(offset), mbox->box.path);
+			dec2str(offset), mailbox_get_path(&mbox->box));
 		mbox->mbox_hdr.dirty_flag = TRUE;
 		mbox->mbox_broken_offsets = TRUE;
 		return 0;

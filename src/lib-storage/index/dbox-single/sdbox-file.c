@@ -22,7 +22,7 @@ static void sdbox_file_init_paths(struct sdbox_file *file, const char *fname)
 	i_free(file->file.primary_path);
 	i_free(file->file.alt_path);
 	file->file.primary_path =
-		i_strdup_printf("%s/%s", box->path, fname);
+		i_strdup_printf("%s/%s", mailbox_get_path(box), fname);
 
 	alt_path = mailbox_list_get_path(box->list, box->name,
 					 MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
@@ -46,7 +46,7 @@ struct dbox_file *sdbox_file_init(struct sdbox_mailbox *mbox, uint32_t uid)
 		} else {
 			file->file.primary_path =
 				i_strdup_printf("%s/%s",
-						file->mbox->box.path,
+						mailbox_get_path(&mbox->box),
 						dbox_generate_tmp_filename());
 		}
 	} T_END;
@@ -151,7 +151,7 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 
 	old_path = file->file.cur_path;
 	new_fname = t_strdup_printf(SDBOX_MAIL_FILE_FORMAT, uid);
-	new_path = t_strdup_printf("%s/%s", file->mbox->box.path,
+	new_path = t_strdup_printf("%s/%s", mailbox_get_path(&file->mbox->box),
 				   new_fname);
 	if (rename(old_path, new_path) < 0) {
 		mail_storage_set_critical(&file->file.storage->storage,
@@ -221,43 +221,44 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 {
 	struct sdbox_file *sfile = (struct sdbox_file *)file;
 	struct mailbox *box = &sfile->mbox->box;
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
 	const char *p, *dir;
 	mode_t old_mask;
 	int fd;
 
-	old_mask = umask(0666 & ~box->file_create_mode);
+	old_mask = umask(0666 & ~perm->file_create_mode);
 	fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
 	umask(old_mask);
 	if (fd == -1 && errno == ENOENT && parents &&
 	    (p = strrchr(path, '/')) != NULL) {
 		dir = t_strdup_until(path, p);
-		if (mkdir_parents_chgrp(dir, box->dir_create_mode,
-					box->file_create_gid,
-					box->file_create_gid_origin) < 0) {
+		if (mkdir_parents_chgrp(dir, perm->dir_create_mode,
+					perm->file_create_gid,
+					perm->file_create_gid_origin) < 0) {
 			mail_storage_set_critical(box->storage,
 				"mkdir_parents(%s) failed: %m", dir);
 			return -1;
 		}
 		/* try again */
-		old_mask = umask(0666 & ~box->file_create_mode);
+		old_mask = umask(0666 & ~perm->file_create_mode);
 		fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
 		umask(old_mask);
 	}
 	if (fd == -1) {
 		mail_storage_set_critical(box->storage,
 			"open(%s, O_CREAT) failed: %m", path);
-	} else if (box->file_create_gid == (gid_t)-1) {
+	} else if (perm->file_create_gid == (gid_t)-1) {
 		/* no group change */
-	} else if (fchown(fd, (uid_t)-1, box->file_create_gid) < 0) {
+	} else if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 		if (errno == EPERM) {
 			mail_storage_set_critical(box->storage, "%s",
 				eperm_error_get_chgrp("fchown", path,
-					box->file_create_gid,
-					box->file_create_gid_origin));
+					perm->file_create_gid,
+					perm->file_create_gid_origin));
 		} else {
 			mail_storage_set_critical(box->storage,
 				"fchown(%s, -1, %ld) failed: %m",
-				path, (long)box->file_create_gid);
+				path, (long)perm->file_create_gid);
 		}
 		/* continue anyway */
 	}

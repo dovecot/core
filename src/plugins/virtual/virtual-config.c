@@ -327,23 +327,24 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	struct mail_storage *storage = mbox->box.storage;
 	struct virtual_parse_context ctx;
 	struct stat st;
-	const char *path, *line, *error;
+	const char *box_path, *path, *line, *error;
 	unsigned int linenum = 0;
 	int fd, ret = 0;
 
 	i_array_init(&mbox->backend_boxes, 8);
 	mbox->search_args_crc32 = (uint32_t)-1;
 
-	path = t_strconcat(mbox->box.path, "/"VIRTUAL_CONFIG_FNAME, NULL);
+	box_path = mailbox_get_path(&mbox->box);
+	path = t_strconcat(box_path, "/"VIRTUAL_CONFIG_FNAME, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == EACCES) {
 			mail_storage_set_critical(storage, "%s",
-				mail_error_eacces_msg("stat", mbox->box.path));
+				mail_error_eacces_msg("open", path));
 		} else if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
 						  "open(%s) failed: %m", path);
-		} else if (stat(mbox->box.path, &st) == 0) {
+		} else if (stat(box_path, &st) == 0) {
 			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
 				"Virtual mailbox missing configuration file");
 		} else if (errno == ENOENT) {
@@ -351,7 +352,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(mbox->box.name));
 		} else {
 			mail_storage_set_critical(storage,
-				"stat(%s) failed: %m", mbox->box.path);
+				"stat(%s) failed: %m", box_path);
 		}
 		return -1;
 	}

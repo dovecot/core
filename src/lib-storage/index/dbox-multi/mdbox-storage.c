@@ -149,7 +149,7 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 	    (!mbox->creating || data_size != 0)) {
 		mail_storage_set_critical(&mbox->storage->storage.storage,
 			"mdbox %s: Invalid dbox header size: %"PRIuSIZE_T,
-			mbox->box.path, data_size);
+			mailbox_get_path(&mbox->box), data_size);
 		mdbox_storage_set_corrupted(mbox->storage);
 		return -1;
 	}

@@ -206,7 +206,7 @@ static int maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 
 	i_warning("Maildir %s: Expunged message reappeared, giving a new UID "
-		  "(old uid=%u, file=%s)%s", ctx->mbox->box.path,
+		  "(old uid=%u, file=%s)%s", mailbox_get_path(&ctx->mbox->box),
 		  uid, filename, strncmp(filename, "msg.", 4) != 0 ? "" :
 		  " (Your MDA is saving MH files into Maildir?)");
 	return 0;
@@ -278,12 +278,13 @@ static void
 maildir_sync_index_update_ext_header(struct maildir_index_sync_context *ctx)
 {
 	struct maildir_mailbox *mbox = ctx->mbox;
+	const char *cur_path;
 	const void *data;
 	size_t data_size;
 	struct stat st;
 
-	if (ctx->update_maildir_hdr_cur &&
-	    stat(t_strconcat(mbox->box.path, "/cur", NULL), &st) == 0) {
+	cur_path = t_strconcat(mailbox_get_path(&mbox->box), "/cur", NULL);
+	if (ctx->update_maildir_hdr_cur && stat(cur_path, &st) == 0) {
 		if ((time_t)mbox->maildir_hdr.cur_check_time < st.st_mtime)
 			mbox->maildir_hdr.cur_check_time = st.st_mtime;
 		mbox->maildir_hdr.cur_mtime = st.st_mtime;
@@ -312,7 +313,7 @@ static int maildir_sync_index_finish(struct maildir_index_sync_context *ctx,
 		i_warning("Maildir %s: Synchronization took %u seconds "
 			  "(%u new msgs, %u flag change attempts, "
 			  "%u expunge attempts)",
-			  ctx->mbox->box.path, time_diff,
+			  mailbox_get_path(&ctx->mbox->box), time_diff,
 			  ctx->new_msgs_count, ctx->flag_change_count,
 			  ctx->expunge_count);
 	}
@@ -479,7 +480,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		   first time, reset the index so we can add all messages as
 		   new */
 		i_warning("Maildir %s: UIDVALIDITY changed (%u -> %u)",
-			  mbox->box.path, hdr->uid_validity, uid_validity);
+			  mailbox_get_path(&ctx->mbox->box),
+			  hdr->uid_validity, uid_validity);
 		mail_index_reset(trans);
 		index_mailbox_reset_uidvalidity(&mbox->box);
 

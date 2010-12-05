@@ -52,6 +52,7 @@ fts_backend_squat_set(struct squat_fts_backend *backend, const char *str)
 
 static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 {
+	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
 	struct squat_fts_backend *backend;
 	struct mail_storage *storage;
 	struct mailbox_status status;
@@ -82,8 +83,8 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 		squat_trie_init(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL),
 				status.uidvalidity,
 				storage->set->parsed_lock_method,
-				flags, box->file_create_mode,
-				box->file_create_gid);
+				flags, perm->file_create_mode,
+				perm->file_create_gid);
 
 	env = mail_user_plugin_getenv(box->storage->user, "fts_squat");
 	if (env != NULL)
