@@ -19,7 +19,6 @@
 	(sizeof(arr) / sizeof((arr)[0]))
 
 #define BITS_IN_UINT (CHAR_BIT * sizeof(unsigned int))
-#define BITS_IN_SIZE_T (CHAR_BIT * sizeof(size_t))
 
 #define MEM_ALIGN(size) \
 	(((size) + MEM_ALIGN_SIZE-1) & ~((unsigned int) MEM_ALIGN_SIZE-1))
