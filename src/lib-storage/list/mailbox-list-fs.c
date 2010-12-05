@@ -434,7 +434,7 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 	if (fs_list_rmdir(list, name, path) == 0)
 		return 0;
 
-	if (errno == ENOENT) {
+	if (errno == ENOENT || errno == ENOTDIR) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 	} else if (errno == ENOTEMPTY || errno == EEXIST) {

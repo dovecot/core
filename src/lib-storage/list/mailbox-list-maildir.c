@@ -440,7 +440,7 @@ static int maildir_list_delete_dir(struct mailbox_list *list, const char *name)
 	if (stat(path, &st) == 0) {
 		mailbox_list_set_error(list, MAIL_ERROR_EXISTS,
 				       "Mailbox exists");
-	} else if (errno == ENOENT) {
+	} else if (errno == ENOENT || errno == ENOTDIR) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 	} else {
