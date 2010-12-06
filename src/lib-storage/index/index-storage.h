@@ -108,15 +108,6 @@ enum mailbox_sync_type index_sync_type_convert(enum mail_index_sync_type type);
 void index_storage_get_status(struct mailbox *box,
 			      enum mailbox_status_items items,
 			      struct mailbox_status *status_r);
-void index_storage_get_seq_range(struct mailbox *box,
-				 uint32_t uid1, uint32_t uid2,
-				 uint32_t *seq1_r, uint32_t *seq2_r);
-void index_storage_get_uid_range(struct mailbox *box,
-				 const ARRAY_TYPE(seq_range) *seqs,
-				 ARRAY_TYPE(seq_range) *uids);
-bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
-				const ARRAY_TYPE(seq_range) *uids_filter,
-				ARRAY_TYPE(mailbox_expunge_rec) *expunges);
 
 struct mailbox_header_lookup_ctx *
 index_header_lookup_init(struct mailbox *box, const char *const headers[]);
@@ -130,10 +121,6 @@ int index_storage_search_deinit(struct mail_search_context *ctx);
 bool index_storage_search_next_nonblock(struct mail_search_context *ctx,
 					struct mail *mail, bool *tryagain_r);
 bool index_storage_search_next_update_seq(struct mail_search_context *ctx);
-
-void index_transaction_set_max_modseq(struct mailbox_transaction_context *_t,
-				      uint64_t max_modseq,
-				      ARRAY_TYPE(seq_range) *seqs);
 
 struct mailbox_transaction_context *
 index_transaction_begin(struct mailbox *box,

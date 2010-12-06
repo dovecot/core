@@ -3,19 +3,17 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-index-modseq.h"
-#include "index-storage.h"
-#include "index-mail.h"
+#include "mail-storage-private.h"
 
-void index_storage_get_seq_range(struct mailbox *box,
-				 uint32_t uid1, uint32_t uid2,
-				 uint32_t *seq1_r, uint32_t *seq2_r)
+void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
+			   uint32_t *seq1_r, uint32_t *seq2_r)
 {
 	mail_index_lookup_seq_range(box->view, uid1, uid2, seq1_r, seq2_r);
 }
 
-void index_storage_get_uid_range(struct mailbox *box,
-				 const ARRAY_TYPE(seq_range) *seqs,
-				 ARRAY_TYPE(seq_range) *uids)
+void mailbox_get_uid_range(struct mailbox *box,
+			   const ARRAY_TYPE(seq_range) *seqs,
+			   ARRAY_TYPE(seq_range) *uids)
 {
 	const struct seq_range *range;
 	unsigned int i, count;
@@ -75,9 +73,9 @@ add_guid_expunges(ARRAY_TYPE(mailbox_expunge_rec) *expunges,
 	}
 }
 
-bool index_storage_get_expunges(struct mailbox *box, uint64_t prev_modseq,
-				const ARRAY_TYPE(seq_range) *uids_filter,
-				ARRAY_TYPE(mailbox_expunge_rec) *expunges)
+bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
+			  const ARRAY_TYPE(seq_range) *uids_filter,
+			  ARRAY_TYPE(mailbox_expunge_rec) *expunges)
 {
 	struct mail_transaction_log_view *log_view;
 	const struct mail_transaction_header *thdr;

@@ -137,10 +137,3 @@ void index_transaction_rollback(struct mailbox_transaction_context *t)
 
 	mail_index_transaction_rollback(&itrans);
 }
-
-void index_transaction_set_max_modseq(struct mailbox_transaction_context *t,
-				      uint64_t max_modseq,
-				      ARRAY_TYPE(seq_range) *seqs)
-{
-	mail_index_transaction_set_max_modseq(t->itrans, max_modseq, seqs);
-}

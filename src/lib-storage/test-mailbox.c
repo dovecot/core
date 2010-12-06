@@ -138,39 +138,6 @@ test_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	return 0;
 }
 
-static void
-test_mailbox_transaction_set_max_modseq(struct mailbox_transaction_context *t ATTR_UNUSED,
-					uint64_t max_modseq ATTR_UNUSED,
-					ARRAY_TYPE(seq_range) *seqs ATTR_UNUSED)
-{
-}
-
-static void
-test_mailbox_get_seq_range(struct mailbox *box ATTR_UNUSED,
-			   uint32_t uid1, uint32_t uid2,
-			   uint32_t *seq1_r, uint32_t *seq2_r)
-{
-	*seq1_r = uid1;
-	*seq2_r = uid2;
-}
-
-static void
-test_mailbox_get_uid_range(struct mailbox *box ATTR_UNUSED,
-			   const ARRAY_TYPE(seq_range) *seqs,
-			   ARRAY_TYPE(seq_range) *uids)
-{
-	array_append_array(uids, seqs);
-}
-
-static bool
-test_mailbox_get_expunged_uids(struct mailbox *box ATTR_UNUSED,
-			       uint64_t prev_modseq ATTR_UNUSED,
-			       const ARRAY_TYPE(seq_range) *uids_filter ATTR_UNUSED,
-			       ARRAY_TYPE(mailbox_expunge_rec) *expunges ATTR_UNUSED)
-{
-	return FALSE;
-}
-
 static struct mailbox_header_lookup_ctx *
 test_mailbox_header_lookup_init(struct mailbox *box,
 				const char *const headers[])
@@ -298,10 +265,6 @@ struct mailbox test_mailbox = {
 		test_mailbox_transaction_begin,
 		test_mailbox_transaction_commit,
 		test_mailbox_transaction_rollback,
-		test_mailbox_transaction_set_max_modseq,
-		test_mailbox_get_seq_range,
-		test_mailbox_get_uid_range,
-		test_mailbox_get_expunged_uids,
 		NULL,
 		test_mailbox_mail_alloc,
 		test_mailbox_header_lookup_init,

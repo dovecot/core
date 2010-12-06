@@ -1013,27 +1013,6 @@ void mailbox_notify_changes_stop(struct mailbox *box)
 	mailbox_notify_changes(box, 0, NULL, NULL);
 }
 
-void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
-			   uint32_t *seq1_r, uint32_t *seq2_r)
-{
-	box->v.get_seq_range(box, uid1, uid2, seq1_r, seq2_r);
-}
-
-void mailbox_get_uid_range(struct mailbox *box,
-			   const ARRAY_TYPE(seq_range) *seqs,
-			   ARRAY_TYPE(seq_range) *uids)
-{
-	box->v.get_uid_range(box, seqs, uids);
-}
-
-bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
-			  const ARRAY_TYPE(seq_range) *uids_filter,
-			  ARRAY_TYPE(mailbox_expunge_rec) *expunges)
-{
-	return box->v.get_expunges(box, prev_modseq,
-				   uids_filter, expunges);
-}
-
 struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init(struct mailbox *box, const char *const headers[])
 {
@@ -1194,7 +1173,7 @@ void mailbox_transaction_set_max_modseq(struct mailbox_transaction_context *t,
 					uint64_t max_modseq,
 					ARRAY_TYPE(seq_range) *seqs)
 {
-	t->box->v.transaction_set_max_modseq(t, max_modseq, seqs);
+	mail_index_transaction_set_max_modseq(t->itrans, max_modseq, seqs);
 }
 
 struct mailbox *

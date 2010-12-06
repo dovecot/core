@@ -150,18 +150,7 @@ struct mailbox_vfuncs {
 	int (*transaction_commit)(struct mailbox_transaction_context *t,
 				  struct mail_transaction_commit_changes *changes_r);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);
-	void (*transaction_set_max_modseq)(struct mailbox_transaction_context *t,
-					   uint64_t max_modseq,
-					   ARRAY_TYPE(seq_range) *seqs);
 
-	void (*get_seq_range)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
-			      uint32_t *seq1_r, uint32_t *seq2_r);
-	void (*get_uid_range)(struct mailbox *box,
-			      const ARRAY_TYPE(seq_range) *seqs,
-			      ARRAY_TYPE(seq_range) *uids);
-	bool (*get_expunges)(struct mailbox *box, uint64_t prev_modseq,
-			     const ARRAY_TYPE(seq_range) *uids_filter,
-			     ARRAY_TYPE(mailbox_expunge_rec) *expunges);
 	enum mail_flags (*get_private_flags_mask)(struct mailbox *box);
 
 	struct mail *

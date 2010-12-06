@@ -4,7 +4,7 @@
 #include "array.h"
 #include "test-common.h"
 #include "mail-index-modseq.h"
-#include "index-storage.h"
+#include "mail-storage-private.h"
 
 static uint32_t expunge_uids[] = { 25, 15, 7, 3, 11, 1, 53, 33 };
 static uint8_t mail_guids[N_ELEMENTS(expunge_uids)][MAIL_GUID_128_SIZE];
@@ -114,8 +114,8 @@ static void test_index_storage_get_expunges(void)
 	t_array_init(&expunges, 32);
 	modseq = 98ULL << 32;
 	for (i = 0; i < 2; i++) {
-		test_assert(index_storage_get_expunges(box, modseq, &uids_filter,
-						       &expunges) == i);
+		test_assert(mailbox_get_expunges(box, modseq, &uids_filter,
+						 &expunges) == i);
 
 		exp = array_get(&expunges, &count);
 		test_assert(count == 5);
