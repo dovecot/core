@@ -127,7 +127,6 @@
     - read the entire file to memory only once and keep it there, stat() later
       to see if it has changed. if not, perhaps don't even bother stat()ing
       dovecot-acl files? at least not that often..
- - add anonymous environment for anon logins (for managesieve mainly)
  - fs quota: getquotaroot inbox vs. other-box should return different quotas
    if two quotas are defined
  - new primes code: are hash tables now being resized too often?
