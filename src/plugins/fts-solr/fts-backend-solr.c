@@ -7,6 +7,7 @@
 #include "unichar.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
+#include "fts-mailbox.h"
 #include "solr-connection.h"
 #include "fts-solr-plugin.h"
 
@@ -452,7 +453,7 @@ fts_backend_solr_filter_mailboxes(struct fts_backend *_backend,
 
 	t_array_init(&includes_arr, 16);
 	t_array_init(&excludes_arr, 16);
-	mailbox_get_virtual_box_patterns(box, &includes_arr, &excludes_arr);
+	fts_mailbox_get_virtual_box_patterns(box, &includes_arr, &excludes_arr);
 	includes = array_get(&includes_arr, &inc_count);
 	excludes = array_get(&excludes_arr, &exc_count);
 	i_assert(inc_count > 0);
@@ -783,8 +784,8 @@ static bool solr_virtual_uid_map(const char *ns_prefix, const char *mailbox,
 	for (; ns != NULL; ns = ns->alias_chain_next) {
 		vname = convert_inbox ? ns->prefix :
 			mail_namespace_get_vname(ns, ctx->vname, mailbox);
-		if (mailbox_get_virtual_uid(ctx->box, vname, uidvalidity,
-					    *uid, uid))
+		if (fts_mailbox_get_virtual_uid(ctx->box, vname, uidvalidity,
+						*uid, uid))
 			return TRUE;
 	}
 	return FALSE;

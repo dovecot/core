@@ -1034,42 +1034,6 @@ bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 				   uids_filter, expunges);
 }
 
-bool mailbox_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
-			     uint32_t backend_uidvalidity,
-			     uint32_t backend_uid, uint32_t *uid_r)
-{
-	if (box->v.get_virtual_uid == NULL)
-		return FALSE;
-	return box->v.get_virtual_uid(box, backend_mailbox, backend_uidvalidity,
-				      backend_uid, uid_r);
-}
-
-void mailbox_get_virtual_backend_boxes(struct mailbox *box,
-				       ARRAY_TYPE(mailboxes) *mailboxes,
-				       bool only_with_msgs)
-{
-	if (box->v.get_virtual_backend_boxes == NULL)
-		array_append(mailboxes, &box, 1);
-	else
-		box->v.get_virtual_backend_boxes(box, mailboxes, only_with_msgs);
-}
-
-void mailbox_get_virtual_box_patterns(struct mailbox *box,
-				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
-				ARRAY_TYPE(mailbox_virtual_patterns) *excludes)
-{
-	if (box->v.get_virtual_box_patterns == NULL) {
-		struct mailbox_virtual_pattern pat;
-
-		memset(&pat, 0, sizeof(pat));
-		pat.ns = box->list->ns;
-		pat.pattern = box->name;
-		array_append(includes, &pat, 1);
-	} else {
-		box->v.get_virtual_box_patterns(box, includes, excludes);
-	}
-}
-
 struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init(struct mailbox *box, const char *const headers[])
 {

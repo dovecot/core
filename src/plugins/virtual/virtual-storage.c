@@ -29,6 +29,7 @@ struct virtual_mailbox_list {
 
 extern struct mail_storage virtual_storage;
 extern struct mailbox virtual_mailbox;
+extern struct virtual_mailbox_vfuncs virtual_mailbox_vfuncs;
 
 struct virtual_storage_module virtual_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
@@ -234,6 +235,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	mbox->box.storage = _storage;
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &virtual_mail_vfuncs;
+	mbox->vfuncs = virtual_mailbox_vfuncs;
 
 	index_storage_mailbox_alloc(&mbox->box, name, flags,
 				    VIRTUAL_INDEX_PREFIX);
@@ -530,9 +532,6 @@ struct mailbox virtual_mailbox = {
 		index_storage_get_seq_range,
 		index_storage_get_uid_range,
 		index_storage_get_expunges,
-		virtual_get_virtual_uid,
-		virtual_get_virtual_backend_boxes,
-		virtual_get_virtual_box_patterns,
 		NULL,
 		virtual_mail_alloc,
 		index_header_lookup_init,
@@ -550,4 +549,10 @@ struct mailbox virtual_mailbox = {
 		NULL,
 		virtual_is_inconsistent
 	}
+};
+
+struct virtual_mailbox_vfuncs virtual_mailbox_vfuncs = {
+	virtual_get_virtual_uid,
+	virtual_get_virtual_backend_boxes,
+	virtual_get_virtual_box_patterns
 };

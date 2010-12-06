@@ -99,6 +99,19 @@ struct virtual_backend_box {
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
+struct virtual_mailbox_vfuncs {
+	bool (*get_virtual_uid)(struct mailbox *box,
+				const char *backend_mailbox,
+				uint32_t backend_uidvalidity,
+				uint32_t backend_uid, uint32_t *uid_r);
+	void (*get_virtual_backend_boxes)(struct mailbox *box,
+					  ARRAY_TYPE(mailboxes) *mailboxes,
+					  bool only_with_msgs);
+	void (*get_virtual_box_patterns)(struct mailbox *box,
+				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
+				ARRAY_TYPE(mailbox_virtual_patterns) *excludes);
+};
+
 struct virtual_mailbox {
 	struct mailbox box;
 	struct virtual_storage *storage;
@@ -121,6 +134,8 @@ struct virtual_mailbox {
 
 	ARRAY_TYPE(mailbox_virtual_patterns) list_include_patterns;
 	ARRAY_TYPE(mailbox_virtual_patterns) list_exclude_patterns;
+
+	struct virtual_mailbox_vfuncs vfuncs;
 
 	unsigned int uids_mapped:1;
 	unsigned int sync_initialized:1;

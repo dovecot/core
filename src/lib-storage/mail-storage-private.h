@@ -162,16 +162,6 @@ struct mailbox_vfuncs {
 	bool (*get_expunges)(struct mailbox *box, uint64_t prev_modseq,
 			     const ARRAY_TYPE(seq_range) *uids_filter,
 			     ARRAY_TYPE(mailbox_expunge_rec) *expunges);
-	bool (*get_virtual_uid)(struct mailbox *box,
-				const char *backend_mailbox,
-				uint32_t backend_uidvalidity,
-				uint32_t backend_uid, uint32_t *uid_r);
-	void (*get_virtual_backend_boxes)(struct mailbox *box,
-					  ARRAY_TYPE(mailboxes) *mailboxes,
-					  bool only_with_msgs);
-	void (*get_virtual_box_patterns)(struct mailbox *box,
-				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
-				ARRAY_TYPE(mailbox_virtual_patterns) *excludes);
 	enum mail_flags (*get_private_flags_mask)(struct mailbox *box);
 
 	struct mail *

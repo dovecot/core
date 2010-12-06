@@ -13,6 +13,7 @@
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "fts-api-private.h"
+#include "fts-mailbox.h"
 #include "fts-storage.h"
 #include "fts-plugin.h"
 
@@ -453,7 +454,7 @@ static int fts_build_init_virtual(struct fts_search_context *fctx)
 	int ret;
 
 	t_array_init(&mailboxes, 64);
-	mailbox_get_virtual_backend_boxes(fctx->t->box, &mailboxes, TRUE);
+	fts_mailbox_get_virtual_backend_boxes(fctx->t->box, &mailboxes, TRUE);
 	boxes = array_get_modifiable(&mailboxes, &box_count);
 
 	vctx->pool = pool_alloconly_create("fts virtual build", 1024);
