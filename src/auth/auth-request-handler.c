@@ -589,6 +589,15 @@ static void userdb_callback(enum userdb_result result,
 					      "master_user",
 					      request->master_user);
 		}
+		if (*request->set->anonymous_username != '\0' &&
+		    strcmp(request->user,
+			   request->set->anonymous_username) == 0) {
+			/* this is an anonymous login, either via ANONYMOUS
+			   SASL mechanism or simply logging in as the anonymous
+			   user via another mechanism */
+			auth_stream_reply_add(request->userdb_reply,
+					      "anonymous", NULL);
+		}
 		auth_stream_reply_import(reply,
 			auth_stream_reply_export(request->userdb_reply));
 		break;
