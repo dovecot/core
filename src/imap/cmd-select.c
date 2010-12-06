@@ -372,7 +372,6 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	struct client *client = cmd->client;
 	struct imap_select_context *ctx;
 	const struct imap_arg *args, *list_args;
-	enum mailbox_name_status status;
 	const char *mailbox, *storage_name;
 	int ret;
 
@@ -388,21 +387,8 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client_find_namespace(cmd, mailbox, &storage_name, &status);
+	ctx->ns = client_find_namespace(cmd, mailbox, &storage_name);
 	if (ctx->ns == NULL) {
-		close_selected_mailbox(client);
-		return TRUE;
-	}
-	switch (status) {
-	case MAILBOX_NAME_EXISTS_MAILBOX:
-		break;
-	case MAILBOX_NAME_EXISTS_DIR:
-		status = MAILBOX_NAME_VALID;
-		/* fall through */
-	case MAILBOX_NAME_VALID:
-	case MAILBOX_NAME_INVALID:
-	case MAILBOX_NAME_NOINFERIORS:
-		client_fail_mailbox_name_status(cmd, mailbox, NULL, status);
 		close_selected_mailbox(client);
 		return TRUE;
 	}

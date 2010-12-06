@@ -85,13 +85,11 @@ static int fetch_and_copy(struct client *client,
 bool cmd_copy(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	struct mail_namespace *dest_ns;
 	struct mail_storage *dest_storage;
 	struct mailbox *destbox;
 	struct mailbox_transaction_context *t;
         struct mail_search_args *search_args;
-	const char *messageset, *mailbox, *storage_name, *src_uidset;
-	enum mailbox_name_status status;
+	const char *messageset, *mailbox, *src_uidset;
 	enum mailbox_sync_flags sync_flags = 0;
 	enum imap_sync_flags imap_flags = 0;
 	struct mail_transaction_commit_changes changes;
@@ -110,40 +108,8 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (ret <= 0)
 		return ret < 0;
 
-	/* open the destination mailbox */
-	dest_ns = client_find_namespace(cmd, mailbox, &storage_name, &status);
-	if (dest_ns == NULL)
+	if (client_open_save_dest_box(cmd, mailbox, &destbox) < 0)
 		return TRUE;
-
-	switch (status) {
-	case MAILBOX_NAME_EXISTS_MAILBOX:
-		break;
-	case MAILBOX_NAME_EXISTS_DIR:
-		status = MAILBOX_NAME_VALID;
-		/* fall through */
-	case MAILBOX_NAME_VALID:
-	case MAILBOX_NAME_INVALID:
-	case MAILBOX_NAME_NOINFERIORS:
-		client_fail_mailbox_name_status(cmd, mailbox,
-						"TRYCREATE", status);
-		return NULL;
-	}
-
-	if (mailbox_equals(client->mailbox, dest_ns, storage_name))
-		destbox = client->mailbox;
-	else {
-		destbox = mailbox_alloc(dest_ns->list, storage_name,
-					MAILBOX_FLAG_SAVEONLY |
-					MAILBOX_FLAG_KEEP_RECENT);
-		if (mailbox_open(destbox) < 0) {
-			client_send_storage_error(cmd,
-				mailbox_get_storage(destbox));
-			mailbox_free(&destbox);
-			return TRUE;
-		}
-		if (client->enabled_features != 0)
-			mailbox_enable(destbox, client->enabled_features);
-	}
 
 	t = mailbox_transaction_begin(destbox,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |

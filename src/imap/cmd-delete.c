@@ -6,7 +6,6 @@
 bool cmd_delete(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	enum mailbox_name_status status;
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *name, *storage_name;
@@ -21,19 +20,9 @@ bool cmd_delete(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	ns = client_find_namespace(cmd, name, &storage_name, &status);
+	ns = client_find_namespace(cmd, name, &storage_name);
 	if (ns == NULL)
 		return TRUE;
-	switch (status) {
-	case MAILBOX_NAME_EXISTS_MAILBOX:
-	case MAILBOX_NAME_EXISTS_DIR:
-		break;
-	case MAILBOX_NAME_VALID:
-	case MAILBOX_NAME_INVALID:
-	case MAILBOX_NAME_NOINFERIORS:
-		client_fail_mailbox_name_status(cmd, name, NULL, status);
-		return TRUE;
-	}
 
 	box = mailbox_alloc(ns->list, storage_name, 0);
 	if (client->mailbox != NULL &&

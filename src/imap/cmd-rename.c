@@ -6,7 +6,6 @@
 
 bool cmd_rename(struct client_command_context *cmd)
 {
-	enum mailbox_name_status status;
 	struct mail_namespace *old_ns, *new_ns;
 	struct mailbox *old_box, *new_box;
 	const char *oldname, *newname, *storage_oldname, *storage_newname;
@@ -16,33 +15,12 @@ bool cmd_rename(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 2, &oldname, &newname))
 		return FALSE;
 
-	old_ns = client_find_namespace(cmd, oldname, &storage_oldname, &status);
+	old_ns = client_find_namespace(cmd, oldname, &storage_oldname);
 	if (old_ns == NULL)
 		return TRUE;
-	switch (status) {
-	case MAILBOX_NAME_EXISTS_MAILBOX:
-	case MAILBOX_NAME_EXISTS_DIR:
-		break;
-	case MAILBOX_NAME_VALID:
-	case MAILBOX_NAME_INVALID:
-	case MAILBOX_NAME_NOINFERIORS:
-		client_fail_mailbox_name_status(cmd, oldname, NULL, status);
-		return TRUE;
-	}
-
-	new_ns = client_find_namespace(cmd, newname, &storage_newname, &status);
+	new_ns = client_find_namespace(cmd, newname, &storage_newname);
 	if (new_ns == NULL)
 		return TRUE;
-	switch (status) {
-	case MAILBOX_NAME_VALID:
-		break;
-	case MAILBOX_NAME_EXISTS_MAILBOX:
-	case MAILBOX_NAME_EXISTS_DIR:
-	case MAILBOX_NAME_INVALID:
-	case MAILBOX_NAME_NOINFERIORS:
-		client_fail_mailbox_name_status(cmd, newname, NULL, status);
-		return TRUE;
-	}
 
 	if (old_ns == new_ns) {
 		/* disallow box -> box/child, because it may break clients and

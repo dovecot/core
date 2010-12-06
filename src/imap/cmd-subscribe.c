@@ -26,9 +26,39 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 	return FALSE;
 }
 
+static bool
+subscribe_is_valid_name(struct client_command_context *cmd, const char *mailbox)
+{
+	enum mailbox_name_status name_status;
+	struct mail_namespace *ns;
+	const char *storage_name;
+
+	if (have_listable_namespace_prefix(cmd->client->user->namespaces,
+					   mailbox)) {
+		/* subscribing to a listable namespace prefix, allow it. */
+		return TRUE;
+	}
+
+	/* see if the mailbox exists */
+	ns = client_find_namespace(cmd, mailbox, &storage_name);
+	if (ns == NULL)
+		return FALSE;
+
+	if (mailbox_list_get_mailbox_name_status(ns->list, storage_name,
+						 &name_status) < 0) {
+		client_send_list_error(cmd, ns->list);
+		return FALSE;
+	}
+	if (name_status == MAILBOX_NAME_NONEXISTENT) {
+		client_send_tagline(cmd, t_strdup_printf(
+			"NO "MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
+		return FALSE;
+	}
+	return TRUE;
+}
+
 bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
-	enum mailbox_name_status status;
 	struct mail_namespace *ns, *box_ns;
 	const char *mailbox, *storage_name, *subs_name, *subs_name2 = NULL;
 	bool unsubscribed_mailbox2;
@@ -37,7 +67,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
-	box_ns = client_find_namespace(cmd, mailbox, &storage_name, NULL);
+	box_ns = client_find_namespace(cmd, mailbox, &storage_name);
 	if (box_ns == NULL)
 		return TRUE;
 
@@ -69,39 +99,9 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		subs_name = t_strndup(subs_name, strlen(subs_name)-1);
 	}
 
-	if (have_listable_namespace_prefix(cmd->client->user->namespaces,
-					   mailbox)) {
-		/* subscribing to a listable namespace prefix, allow it. */
-	} else if (subscribe) {
-		if (client_find_namespace(cmd, mailbox,
-					  &storage_name, &status) == NULL)
+	if (subscribe) {
+		if (!subscribe_is_valid_name(cmd, mailbox))
 			return TRUE;
-		switch (status) {
-		case MAILBOX_NAME_EXISTS_MAILBOX:
-		case MAILBOX_NAME_EXISTS_DIR:
-			break;
-		case MAILBOX_NAME_VALID:
-		case MAILBOX_NAME_INVALID:
-		case MAILBOX_NAME_NOINFERIORS:
-			client_fail_mailbox_name_status(cmd, mailbox,
-							NULL, status);
-			return TRUE;
-		}
-	} else {
-		if (client_find_namespace(cmd, mailbox,
-					  &storage_name, &status) == NULL)
-			return TRUE;
-		switch (status) {
-		case MAILBOX_NAME_EXISTS_MAILBOX:
-		case MAILBOX_NAME_EXISTS_DIR:
-		case MAILBOX_NAME_VALID:
-			break;
-		case MAILBOX_NAME_INVALID:
-		case MAILBOX_NAME_NOINFERIORS:
-			client_fail_mailbox_name_status(cmd, mailbox,
-							NULL, status);
-			return TRUE;
-		}
 	}
 
 	unsubscribed_mailbox2 = FALSE;

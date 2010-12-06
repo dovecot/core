@@ -13,18 +13,15 @@ struct mailbox_keywords;
    or mailbox name is invalid, sends a tagged NO reply to client. */
 struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char *mailbox,
-		      const char **storage_name_r,
-		      enum mailbox_name_status *mailbox_status_r);
-
-/* Send tagged NO reply based on mailbox name status. */
-void client_fail_mailbox_name_status(struct client_command_context *cmd,
-				     const char *mailbox_name,
-				     const char *resp_code,
-				     enum mailbox_name_status status);
+		      const char **storage_name_r);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */
 bool client_verify_open_mailbox(struct client_command_context *cmd);
+
+/* Open APPEND/COPY destination mailbox. */
+int client_open_save_dest_box(struct client_command_context *cmd,
+			      const char *name, struct mailbox **destbox_r);
 
 const char *
 imap_get_error_string(struct client_command_context *cmd,
