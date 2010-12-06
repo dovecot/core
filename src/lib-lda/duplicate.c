@@ -232,15 +232,15 @@ static void duplicate_file_free(struct duplicate_file **_file)
 	pool_unref(&file->pool);
 }
 
-int duplicate_check(struct duplicate_context *ctx,
-		    const void *id, size_t id_size, const char *user)
+bool duplicate_check(struct duplicate_context *ctx,
+		     const void *id, size_t id_size, const char *user)
 {
 	struct duplicate d;
 
 	if (ctx->file == NULL) {
 		if (ctx->path == NULL) {
 			/* duplicate database disabled */
-			return 0;
+			return FALSE;
 		}
 		ctx->file = duplicate_file_new(ctx);
 	}

@@ -6,8 +6,8 @@ struct mail_storage_settings;
 
 #define DUPLICATE_DEFAULT_KEEP (3600 * 24)
 
-int duplicate_check(struct duplicate_context *ctx,
-		    const void *id, size_t id_size, const char *user);
+bool duplicate_check(struct duplicate_context *ctx,
+		     const void *id, size_t id_size, const char *user);
 void duplicate_mark(struct duplicate_context *ctx,
 		    const void *id, size_t id_size,
                     const char *user, time_t timestamp);
