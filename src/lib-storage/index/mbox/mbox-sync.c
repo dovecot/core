@@ -1733,7 +1733,7 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags,
 	int ret, changed;
 	bool delay_writes, readonly;
 
-	readonly = mbox->box.backend_readonly ||
+	readonly = mbox_is_backend_readonly(mbox) ||
 		(flags & MBOX_SYNC_READONLY) != 0;
 	delay_writes = readonly ||
 		((flags & MBOX_SYNC_REWRITE) == 0 &&
@@ -1791,7 +1791,8 @@ again:
 			/* try as read-only */
 			if (mbox_lock(mbox, F_RDLCK, lock_id) <= 0)
 				return -1;
-			mbox->box.backend_readonly = readonly = TRUE;
+			mbox->backend_readonly = readonly = TRUE;
+			mbox->backend_readonly_set = TRUE;
 			delay_writes = TRUE;
 		}
 	}

@@ -21,14 +21,14 @@ int mbox_file_open(struct mbox_mailbox *mbox)
 
 	if (mbox->mbox_file_stream != NULL) {
 		/* read-only mbox stream */
-		i_assert(mbox->box.backend_readonly);
+		i_assert(mbox_is_backend_readonly(mbox));
 		return 0;
 	}
 
 	fd = open(mailbox_get_path(&mbox->box),
-		  mbox->box.backend_readonly ? O_RDONLY : O_RDWR);
-	if (fd == -1 && errno == EACCES && !mbox->box.backend_readonly) {
-                mbox->box.backend_readonly = TRUE;
+		  mbox_is_backend_readonly(mbox) ? O_RDONLY : O_RDWR);
+	if (fd == -1 && errno == EACCES && !mbox->backend_readonly) {
+		mbox->backend_readonly = TRUE;
 		fd = open(mailbox_get_path(&mbox->box), O_RDONLY);
 	}
 
@@ -68,7 +68,7 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 
 	if (mbox->mbox_file_stream != NULL) {
 		/* read-only mbox stream */
-		i_assert(mbox->mbox_fd == -1 && mbox->box.backend_readonly);
+		i_assert(mbox->mbox_fd == -1 && mbox_is_backend_readonly(mbox));
 	} else {
 		if (mbox->mbox_fd == -1) {
 			if (mbox_file_open(mbox) < 0)
@@ -104,7 +104,7 @@ static void mbox_file_fix_atime(struct mbox_mailbox *mbox)
 
 	if (ibox->recent_flags_count > 0 &&
 	    (mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) != 0 &&
-	    mbox->mbox_fd != -1 && !mbox->box.backend_readonly) {
+	    mbox->mbox_fd != -1 && !mbox_is_backend_readonly(mbox)) {
 		/* we've seen recent messages which we want to keep recent.
 		   keep file's atime lower than mtime so \Marked status
 		   gets shown while listing */
@@ -133,7 +133,7 @@ void mbox_file_close_stream(struct mbox_mailbox *mbox)
 	if (mbox->mbox_file_stream != NULL) {
 		if (mbox->mbox_fd == -1) {
 			/* read-only mbox stream */
-			i_assert(mbox->box.backend_readonly);
+			i_assert(mbox_is_backend_readonly(mbox));
 			i_stream_seek(mbox->mbox_file_stream, 0);
 		} else {
 			i_stream_destroy(&mbox->mbox_file_stream);

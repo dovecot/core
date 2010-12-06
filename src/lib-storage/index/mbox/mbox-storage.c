@@ -402,13 +402,6 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 	const char *rootdir, *box_path = mailbox_get_path(box);
 	bool move_to_memory;
 
-	if (access(box_path, R_OK|W_OK) < 0) {
-		if (errno != EACCES) {
-			mbox_set_syscall_error(mbox, "access()");
-			return -1;
-		}
-		mbox->box.backend_readonly = TRUE;
-	}
 	move_to_memory = want_memory_indexes(mbox->storage, box_path);
 
 	if (box->inbox_any || strcmp(box->name, "INBOX") == 0) {
@@ -432,6 +425,22 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 	return mbox_mailbox_open_finish(mbox, move_to_memory);
 }
 
+static bool mbox_storage_is_readonly(struct mailbox *box)
+{
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+
+	if (index_storage_is_readonly(box))
+		return TRUE;
+
+	if (mbox_is_backend_readonly(mbox)) {
+		/* return read-only only if there are no private flags
+		   (that are stored in index files) */
+		if (mailbox_get_private_flags_mask(box) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int mbox_mailbox_open(struct mailbox *box)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
@@ -441,7 +450,8 @@ static int mbox_mailbox_open(struct mailbox *box)
 	if (box->input != NULL) {
 		i_stream_ref(box->input);
 		mbox->mbox_file_stream = box->input;
-		mbox->box.backend_readonly = TRUE;
+		mbox->backend_readonly = TRUE;
+		mbox->backend_readonly_set = TRUE;
 		mbox->no_mbox_file = TRUE;
 		return mbox_mailbox_open_finish(mbox, FALSE);
 	}
@@ -561,7 +571,7 @@ static void mbox_mailbox_close(struct mailbox *box)
 	if (box->view != NULL) {
 		hdr = mail_index_get_header(box->view);
 		if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
-		    !mbox->box.backend_readonly) {
+		    !mbox_is_backend_readonly(mbox)) {
 			/* we've done changes to mbox which haven't been
 			   written yet. do it now. */
 			sync_flags |= MBOX_SYNC_REWRITE;
@@ -696,6 +706,17 @@ mbox_transaction_rollback(struct mailbox_transaction_context *t)
 	mbox_transaction_unlock(box, lock_id);
 }
 
+bool mbox_is_backend_readonly(struct mbox_mailbox *mbox)
+{
+	if (!mbox->backend_readonly_set) {
+		mbox->backend_readonly_set = TRUE;
+		if (access(mailbox_get_path(&mbox->box), R_OK|W_OK) < 0 &&
+		    errno == EACCES)
+			mbox->backend_readonly = TRUE;
+	}
+	return mbox->backend_readonly;
+}
+
 struct mail_storage mbox_storage = {
 	.name = MBOX_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
@@ -716,7 +737,7 @@ struct mail_storage mbox_storage = {
 
 struct mailbox mbox_mailbox = {
 	.v = {
-		index_storage_is_readonly,
+		mbox_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		mbox_mailbox_open,

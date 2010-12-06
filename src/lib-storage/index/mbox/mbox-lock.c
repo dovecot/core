@@ -708,7 +708,7 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 
 	if (mbox->mbox_fd == -1 && mbox->mbox_file_stream != NULL) {
 		/* read-only mbox stream. no need to lock. */
-		i_assert(mbox->box.backend_readonly);
+		i_assert(mbox_is_backend_readonly(mbox));
 		mbox->mbox_lock_type = lock_type;
 		return 1;
 	}

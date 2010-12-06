@@ -244,7 +244,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 		maildir_keywords_sync_init(mbox->keywords, _box->index);
 	ctx->sync_changes =
 		index_sync_changes_init(ctx->sync_ctx, ctx->view, ctx->trans,
-					mbox->box.backend_readonly);
+					maildir_is_backend_readonly(mbox));
 	ctx->start_time = time(NULL);
 
 	*ctx_r = ctx;

@@ -652,7 +652,6 @@ void mailbox_close(struct mailbox *box)
 
 	box->opened = FALSE;
 	box->mailbox_deleted = FALSE;
-	box->backend_readonly = FALSE;
 	array_clear(&box->search_results);
 }
 

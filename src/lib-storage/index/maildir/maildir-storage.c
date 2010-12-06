@@ -292,7 +292,6 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 static int maildir_mailbox_open_existing(struct mailbox *box)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
-	const char *box_path = mailbox_get_path(box);
 
 	mbox->uidlist = maildir_uidlist_init(mbox);
 	mbox->keywords = maildir_keywords_init(mbox);
@@ -305,9 +304,6 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 						 mbox);
 	}
 
-	if (access(t_strconcat(box_path, "/cur", NULL), W_OK) < 0 &&
-	    errno == EACCES)
-		mbox->box.backend_readonly = TRUE;
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
 
@@ -315,6 +311,22 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 		mail_index_ext_register(mbox->box.index, "maildir",
 					sizeof(mbox->maildir_hdr), 0, 0);
 	return 0;
+}
+
+static bool maildir_storage_is_readonly(struct mailbox *box)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+
+	if (index_storage_is_readonly(box))
+		return TRUE;
+
+	if (maildir_is_backend_readonly(mbox)) {
+		/* return read-only only if there are no private flags
+		   (that are stored in index files) */
+		if (mailbox_get_private_flags_mask(box) == 0)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 static int maildir_mailbox_open(struct mailbox *box)
@@ -589,6 +601,19 @@ static enum mail_flags maildir_get_private_flags_mask(struct mailbox *box)
 	return mbox->_private_flags_mask;
 }
 
+bool maildir_is_backend_readonly(struct maildir_mailbox *mbox)
+{
+	if (!mbox->backend_readonly_set) {
+		const char *box_path = mailbox_get_path(&mbox->box);
+
+		mbox->backend_readonly_set = TRUE;
+		if (access(t_strconcat(box_path, "/cur", NULL), W_OK) < 0 &&
+		    errno == EACCES)
+			mbox->backend_readonly = TRUE;
+	}
+	return mbox->backend_readonly;
+}
+
 struct mail_storage maildir_storage = {
 	.name = MAILDIR_STORAGE_NAME,
 	.class_flags = 0,
@@ -608,7 +633,7 @@ struct mail_storage maildir_storage = {
 
 struct mailbox maildir_mailbox = {
 	.v = {
-		index_storage_is_readonly,
+		maildir_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		maildir_mailbox_open,

@@ -57,6 +57,8 @@ struct mbox_mailbox {
 	unsigned int mbox_used_privileges:1;
 	unsigned int mbox_privileged_locking:1;
 	unsigned int syncing:1;
+	unsigned int backend_readonly:1;
+	unsigned int backend_readonly_set:1;
 };
 
 struct mbox_transaction_context {
@@ -86,5 +88,7 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *ctx);
 void mbox_transaction_save_commit_post(struct mail_save_context *ctx,
 				       struct mail_index_transaction_commit_result *result);
 void mbox_transaction_save_rollback(struct mail_save_context *ctx);
+
+bool mbox_is_backend_readonly(struct mbox_mailbox *mbox);
 
 #endif

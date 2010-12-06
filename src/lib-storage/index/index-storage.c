@@ -476,16 +476,7 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 
 bool index_storage_is_readonly(struct mailbox *box)
 {
-	if ((box->flags & MAILBOX_FLAG_READONLY) != 0)
-		return TRUE;
-
-	if (box->backend_readonly) {
-		/* return read-only only if there are no private flags
-		   (that are stored in index files) */
-		if (mailbox_get_private_flags_mask(box) == 0)
-			return TRUE;
-	}
-	return FALSE;
+	return (box->flags & MAILBOX_FLAG_READONLY) != 0;
 }
 
 bool index_storage_allow_new_keywords(struct mailbox *box)
