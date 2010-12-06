@@ -407,11 +407,12 @@ acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
-static int acl_mailbox_have_any_rights(struct acl_mailbox_list *alist,
-				       const char *name)
+static int acl_mailbox_have_visibility_rights(struct acl_mailbox_list *alist,
+					      const char *name)
 {
 	struct acl_object *aclobj;
 	const char *const *rights;
+	unsigned int i;
 	int ret;
 
 	aclobj = acl_object_init_from_name(alist->rights.backend, name);
@@ -419,8 +420,21 @@ static int acl_mailbox_have_any_rights(struct acl_mailbox_list *alist,
 				       &rights);
 	acl_object_deinit(&aclobj);
 
-	return ret < 0 ? -1 :
-		(*rights == NULL ? 0 : 1);
+	if (ret < 0)
+		return -1;
+
+	/* for now this is used only by IMAP SUBSCRIBE. we'll intentionally
+	   violate RFC 4314 here, because it says SUBSCRIBE should succeed only
+	   when mailbox has 'l' right. But there's no point in not allowing
+	   a subscribe for a mailbox that can be selected anyway. Just the
+	   opposite: subscribing to such mailboxes is a very useful feature. */
+	for (i = 0; rights[i] != NULL; i++) {
+		if (strcmp(rights[i], MAIL_ACL_LOOKUP) == 0 ||
+		    strcmp(rights[i], MAIL_ACL_READ) == 0 ||
+		    strcmp(rights[i], MAIL_ACL_INSERT) == 0)
+			return 1;
+	}
+	return 0;
 }
 
 static int acl_get_mailbox_name_status(struct mailbox_list *list,
@@ -431,7 +445,7 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	int ret;
 
 	T_BEGIN {
-		ret = acl_mailbox_have_any_rights(alist, name);
+		ret = acl_mailbox_have_visibility_rights(alist, name);
 	} T_END;
 	if (ret < 0)
 		return -1;
