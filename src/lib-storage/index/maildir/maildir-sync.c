@@ -661,17 +661,21 @@ static void maildir_sync_update_next_uid(struct maildir_mailbox *mbox)
 	}
 }
 
-static bool have_recent_messages(struct maildir_sync_context *ctx)
+static bool
+have_recent_messages(struct maildir_sync_context *ctx, bool seen_changes)
 {
 	const struct mail_index_header *hdr;
+	uint32_t next_uid;
 
-	(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
-
-	/* if there are files in new/, we'll need to move them. we'll check
-	   this by checking if we have any recent messages */
 	hdr = mail_index_get_header(ctx->mbox->box.view);
-	return hdr->first_recent_uid <
-		maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
+	if (!seen_changes) {
+		/* index is up to date. get the next-uid from it */
+		next_uid = hdr->next_uid;
+	} else {
+		(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
+		next_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
+	}
+	return hdr->first_recent_uid < next_uid;
 }
 
 static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
@@ -685,15 +689,17 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 				     new_changed_r, cur_changed_r) < 0)
 		return -1;
 
+	/* if there are files in new/, we'll need to move them. we'll check
+	   this by seeing if we have any recent messages */
 	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
 		if (!*new_changed_r)
-			*new_changed_r = have_recent_messages(ctx);
+			*new_changed_r = have_recent_messages(ctx, FALSE);
 	} else if (*new_changed_r) {
-		/* we have some recent messages and new/ has changed.
-		   if messages had been externally deleted from new/,
+		/* if recent messages have been externally deleted from new/,
 		   we need to get them out of index. this requires that
 		   we make sure they weren't just moved to cur/. */
-		*cur_changed_r = have_recent_messages(ctx);
+		if (!*cur_changed_r)
+			*cur_changed_r = have_recent_messages(ctx, TRUE);
 	}
 
 	if (*new_changed_r || *cur_changed_r)
