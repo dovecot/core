@@ -426,7 +426,6 @@ struct mailbox mdbox_mailbox = {
 		mdbox_save_finish,
 		mdbox_save_cancel,
 		mdbox_copy,
-		NULL,
 		index_storage_is_inconsistent
 	}
 };

@@ -147,7 +147,6 @@ static void index_attachment_save_mail_header(struct mail_save_context *ctx,
 static bool save_is_attachment(struct mail_save_context *ctx,
 			       struct message_part *part)
 {
-	struct mailbox *box = ctx->transaction->box;
 	struct mail_attachment_part apart;
 
 	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0) {
@@ -155,14 +154,14 @@ static bool save_is_attachment(struct mail_save_context *ctx,
 		   but they're never themselves */
 		return FALSE;
 	}
-	if (box->v.save_is_attachment == NULL)
+	if (ctx->part_is_attachment == NULL)
 		return TRUE;
 
 	memset(&apart, 0, sizeof(apart));
 	apart.part = part;
 	apart.content_type = ctx->attach->part.content_type;
 	apart.content_disposition = ctx->attach->part.content_disposition;
-	return box->v.save_is_attachment(ctx, &apart);
+	return ctx->part_is_attachment(ctx, &apart);
 }
 
 static int index_attachment_save_temp_open_fd(struct mail_storage *storage)

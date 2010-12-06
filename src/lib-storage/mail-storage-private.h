@@ -175,9 +175,6 @@ struct mailbox_vfuncs {
 	int (*save_finish)(struct mail_save_context *ctx);
 	void (*save_cancel)(struct mail_save_context *ctx);
 	int (*copy)(struct mail_save_context *ctx, struct mail *mail);
-	/* returns TRUE if message part is an attachment. */
-	bool (*save_is_attachment)(struct mail_save_context *ctx,
-				   const struct mail_attachment_part *part);
 
 	bool (*is_inconsistent)(struct mailbox *box);
 };
@@ -410,6 +407,10 @@ struct mail_save_context {
 	struct ostream *output;
 
 	struct mail_save_attachment *attach;
+
+	/* returns TRUE if message part is an attachment. */
+	bool (*part_is_attachment)(struct mail_save_context *ctx,
+				   const struct mail_attachment_part *part);
 
 	/* we came here from mailbox_copy() */
 	unsigned int copying:1;

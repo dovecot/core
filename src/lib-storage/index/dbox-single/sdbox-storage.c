@@ -393,7 +393,6 @@ struct mailbox sdbox_mailbox = {
 		sdbox_save_finish,
 		sdbox_save_cancel,
 		sdbox_copy,
-		NULL,
 		index_storage_is_inconsistent
 	}
 };

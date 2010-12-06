@@ -540,7 +540,6 @@ struct mailbox virtual_mailbox = {
 		virtual_save_finish,
 		virtual_save_cancel,
 		mail_storage_copy,
-		NULL,
 		virtual_is_inconsistent
 	}
 };

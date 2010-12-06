@@ -771,7 +771,6 @@ struct mailbox mbox_mailbox = {
 		mbox_save_finish,
 		mbox_save_cancel,
 		mail_storage_copy,
-		NULL,
 		index_storage_is_inconsistent
 	}
 };

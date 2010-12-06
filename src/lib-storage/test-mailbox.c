@@ -259,7 +259,6 @@ struct mailbox test_mailbox = {
 		test_mailbox_save_finish,
 		test_mailbox_save_cancel,
 		test_mailbox_copy,
-		NULL,
 		test_mailbox_is_inconsistent
 	}
 };
