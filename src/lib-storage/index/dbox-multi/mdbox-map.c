@@ -77,8 +77,9 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 	map->ref_ext_id = mail_index_ext_register(map->index, "ref", 0,
 				sizeof(uint16_t), sizeof(uint16_t));
 
-	mailbox_list_get_permissions(root_list, NULL, &map->create_mode,
-				     &map->create_gid, &map->create_gid_origin);
+	mailbox_list_get_root_permissions(root_list, &map->create_mode,
+					  &map->create_gid,
+					  &map->create_gid_origin);
 	mail_index_set_permissions(map->index, map->create_mode,
 				   map->create_gid, map->create_gid_origin);
 	return map;

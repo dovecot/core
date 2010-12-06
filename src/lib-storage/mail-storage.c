@@ -243,7 +243,7 @@ mail_storage_create_root(struct mailbox_list *list,
 		return ret;
 
 	/* we need to create the root directory. */
-	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid, &origin);
+	mailbox_list_get_root_dir_permissions(list, &mode, &gid, &origin);
 	if (mkdir_parents_chgrp(root_dir, mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
 		*error_r = mail_error_create_eacces_msg("mkdir", root_dir);

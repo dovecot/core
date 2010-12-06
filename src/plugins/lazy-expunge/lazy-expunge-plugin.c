@@ -242,7 +242,7 @@ mailbox_move(struct mailbox *src_box, struct mailbox_list *dest_list,
 	int ret;
 
 	/* make sure the destination root directory exists */
-	mailbox_list_get_dir_permissions(dest_list, NULL, &mode, &gid, &origin);
+	mailbox_list_get_root_dir_permissions(dest_list, &mode, &gid, &origin);
 	dir = mailbox_list_get_path(dest_list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (mkdir_parents_chgrp(dir, mode, gid, origin) < 0 &&
 	    errno != EEXIST) {

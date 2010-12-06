@@ -236,16 +236,15 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	namespaces = array_get(&root->root.quota->namespaces, &count);
 	i_assert(count > 0);
 	for (i = 0; i < count; i++) {
-		if ((namespaces[i]->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
-			mailbox_list_get_permissions(namespaces[i]->list,
-						     NULL, &mode, &gid,
-						     &gid_origin);
-			mailbox_list_get_dir_permissions(namespaces[i]->list,
-							 NULL,
-							 &dir_mode, &dir_gid,
-							 &dir_gid_origin);
-			break;
-		}
+		if ((namespaces[i]->flags & NAMESPACE_FLAG_INBOX_USER) == 0)
+			continue;
+
+		mailbox_list_get_root_permissions(namespaces[i]->list,
+						  &mode, &gid, &gid_origin);
+		mailbox_list_get_root_dir_permissions(namespaces[i]->list,
+						      &dir_mode, &dir_gid,
+						      &dir_gid_origin);
+		break;
 	}
 
 	dotlock_settings.use_excl_lock = set->dotlock_use_excl;

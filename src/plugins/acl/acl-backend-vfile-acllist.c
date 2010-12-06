@@ -228,7 +228,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	/* Build it into a temporary file and rename() over. There's no need
 	   to use locking, because even if multiple processes are rebuilding
 	   the file at the same time the result should be the same. */
-	mailbox_list_get_permissions(list, NULL, &mode, &gid, &origin);
+	mailbox_list_get_root_permissions(list, &mode, &gid, &origin);
 	fd = safe_mkstemp_group(path, mode, gid, origin);
 	if (fd == -1 && errno == ENOENT) {
 		if (mailbox_list_create_parent_dir(backend->backend.list, NULL,

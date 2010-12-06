@@ -490,15 +490,26 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 {
 	mode_t dir_mode;
 
-	if (list->file_create_mode != (mode_t)-1 && name == NULL) {
-		*mode_r = list->file_create_mode;
-		*gid_r = list->file_create_gid;
-		*gid_origin_r = list->file_create_gid_origin;
-		return;
-	}
+	i_assert(name != NULL);
 
 	mailbox_list_get_permissions_full(list, name, mode_r, &dir_mode, gid_r,
 					  gid_origin_r);
+}
+
+void mailbox_list_get_root_permissions(struct mailbox_list *list,
+				       mode_t *mode_r, gid_t *gid_r,
+				       const char **gid_origin_r)
+{
+	mode_t dir_mode;
+
+	if (list->file_create_mode != (mode_t)-1) {
+		*mode_r = list->file_create_mode;
+		*gid_r = list->file_create_gid;
+		*gid_origin_r = list->file_create_gid_origin;
+	} else {
+		mailbox_list_get_permissions_full(list, NULL, mode_r, &dir_mode,
+						  gid_r, gid_origin_r);
+	}
 }
 
 void mailbox_list_get_dir_permissions(struct mailbox_list *list,
@@ -508,15 +519,26 @@ void mailbox_list_get_dir_permissions(struct mailbox_list *list,
 {
 	mode_t file_mode;
 
-	if (list->dir_create_mode != (mode_t)-1 && name == NULL) {
-		*mode_r = list->dir_create_mode;
-		*gid_r = list->file_create_gid;
-		*gid_origin_r = list->file_create_gid_origin;
-		return;
-	}
+	i_assert(name != NULL);
 
 	mailbox_list_get_permissions_full(list, name, &file_mode,
 					  mode_r, gid_r, gid_origin_r);
+}
+
+void mailbox_list_get_root_dir_permissions(struct mailbox_list *list,
+					   mode_t *mode_r, gid_t *gid_r,
+					   const char **gid_origin_r)
+{
+	mode_t file_mode;
+
+	if (list->dir_create_mode != (mode_t)-1) {
+		*mode_r = list->dir_create_mode;
+		*gid_r = list->file_create_gid;
+		*gid_origin_r = list->file_create_gid_origin;
+	} else {
+		mailbox_list_get_permissions_full(list, NULL, &file_mode,
+						  mode_r, gid_r, gid_origin_r);
+	}
 }
 
 static int
@@ -591,7 +613,7 @@ int mailbox_list_mkdir(struct mailbox_list *list, const char *path,
 	mode_t mode;
 	gid_t gid;
 
-	mailbox_list_get_dir_permissions(list, NULL, &mode, &gid, &origin);
+	mailbox_list_get_root_dir_permissions(list, &mode, &gid, &origin);
 
 	/* get the directory path up to last %variable. for example
 	   unexpanded path may be "/var/mail/%d/%2n/%n/Maildir", and we want
@@ -1112,7 +1134,7 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 	path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
 	list->changelog = mailbox_log_alloc(path);
 
-	mailbox_list_get_permissions(list, NULL, &mode, &gid, &gid_origin);
+	mailbox_list_get_root_permissions(list, &mode, &gid, &gid_origin);
 	mailbox_log_set_permissions(list->changelog, mode, gid, gid_origin);
 	return TRUE;
 }

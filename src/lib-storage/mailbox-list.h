@@ -173,18 +173,24 @@ void mailbox_list_get_closest_storage(struct mailbox_list *list,
 				      struct mail_storage **storage);
 
 /* Returns the mode and GID that should be used when creating new files to
-   the specified mailbox, or to mailbox list root if name is NULL. (gid_t)-1 is
+   the specified mailbox or to mailbox list root. (gid_t)-1 is
    returned if it's not necessary to change the default gid. */
 void mailbox_list_get_permissions(struct mailbox_list *list,
 				  const char *name,
 				  mode_t *mode_r, gid_t *gid_r,
 				  const char **gid_origin_r);
+void mailbox_list_get_root_permissions(struct mailbox_list *list,
+				       mode_t *mode_r, gid_t *gid_r,
+				       const char **gid_origin_r);
 /* Like mailbox_list_get_permissions(), but add execute-bits for mode
    if either read or write bit is set (e.g. 0640 -> 0750). */
 void mailbox_list_get_dir_permissions(struct mailbox_list *list,
 				      const char *name,
 				      mode_t *mode_r, gid_t *gid_r,
 				      const char **gid_origin_r);
+void mailbox_list_get_root_dir_permissions(struct mailbox_list *list,
+					   mode_t *mode_r, gid_t *gid_r,
+					   const char **gid_origin_r);
 /* Create path's parent directory with proper permissions. Since most
    directories are created lazily, this function can be used to easily create
    them whenever file creation fails with ENOENT. */
