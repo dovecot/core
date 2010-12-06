@@ -254,16 +254,8 @@ fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 		errno = ENOENT;
 	}
 
-	if (!mailbox_list_is_valid_create_name(_list, name)) {
-		*status = MAILBOX_NAME_INVALID;
-		return 0;
-	}
-
 	if (ENOTFOUND(errno) || errno == EACCES) {
-		*status = MAILBOX_NAME_VALID;
-		return 0;
-	} else if (errno == ENOTDIR) {
-		*status = MAILBOX_NAME_NOINFERIORS;
+		*status = MAILBOX_NAME_NONEXISTENT;
 		return 0;
 	} else {
 		mailbox_list_set_critical(_list, "stat(%s) failed: %m", path);

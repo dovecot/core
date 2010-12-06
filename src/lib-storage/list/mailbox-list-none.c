@@ -62,7 +62,7 @@ none_list_get_mailbox_name_status(struct mailbox_list *list ATTR_UNUSED,
 				  const char *name ATTR_UNUSED,
 				  enum mailbox_name_status *status)
 {
-	*status = MAILBOX_NAME_VALID;
+	*status = MAILBOX_NAME_NONEXISTENT;
 	return 0;
 }
 

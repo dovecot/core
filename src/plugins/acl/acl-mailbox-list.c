@@ -439,34 +439,9 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	if (alist->module_ctx.super.get_mailbox_name_status(list, name,
 							    status) < 0)
 		return -1;
-	if (ret > 0)
-		return 0;
-
-	/* we shouldn't reveal this mailbox's existance */
-	switch (*status) {
-	case MAILBOX_NAME_EXISTS_MAILBOX:
-	case MAILBOX_NAME_EXISTS_DIR:
-		*status = MAILBOX_NAME_VALID;
-		break;
-	case MAILBOX_NAME_VALID:
-	case MAILBOX_NAME_INVALID:
-		break;
-	case MAILBOX_NAME_NOINFERIORS:
-		/* have to check if we are allowed to see the parent */
-		T_BEGIN {
-			ret = acl_mailbox_list_have_right(list, name,
-					TRUE, ACL_STORAGE_RIGHT_LOOKUP, NULL);
-		} T_END;
-
-		if (ret < 0) {
-			mailbox_list_set_internal_error(list);
-			return -1;
-		}
-		if (ret == 0) {
-			/* no permission to see the parent */
-			*status = MAILBOX_NAME_VALID;
-		}
-		break;
+	if (ret == 0) {
+		/* we shouldn't reveal this mailbox's existance */
+		*status = MAILBOX_NAME_NONEXISTENT;
 	}
 	return 0;
 }
