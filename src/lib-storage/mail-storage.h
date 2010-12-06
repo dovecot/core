@@ -535,9 +535,8 @@ mailbox_keywords_create_valid(struct mailbox *box,
 struct mail_keywords *
 mailbox_keywords_create_from_indexes(struct mailbox *box,
 				     const ARRAY_TYPE(keyword_indexes) *idx);
-void mailbox_keywords_ref(struct mailbox *box, struct mail_keywords *keywords);
-void mailbox_keywords_unref(struct mailbox *box,
-			    struct mail_keywords **keywords);
+void mailbox_keywords_ref(struct mail_keywords *keywords);
+void mailbox_keywords_unref(struct mail_keywords **keywords);
 /* Returns TRUE if keyword is valid, FALSE and error if not. */
 bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,
 			      const char **error_r);

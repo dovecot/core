@@ -1523,7 +1523,7 @@ local_worker_msg_update_metadata(struct dsync_worker *_worker,
 		keywords = mailbox_keywords_create_valid(worker->mail->box,
 							 msg->keywords);
 		mail_update_keywords(worker->mail, MODIFY_REPLACE, keywords);
-		mailbox_keywords_unref(worker->mail->box, &keywords);
+		mailbox_keywords_unref(&keywords);
 		mail_update_modseq(worker->mail, msg->modseq);
 	}
 }
@@ -1574,7 +1574,7 @@ local_worker_msg_save_set_metadata(struct local_dsync_worker *worker,
 		mailbox_keywords_create_valid(box, msg->keywords);
 	mailbox_save_set_flags(save_ctx, msg->flags, keywords);
 	if (keywords != NULL)
-		mailbox_keywords_unref(box, &keywords);
+		mailbox_keywords_unref(&keywords);
 	mailbox_save_set_uid(save_ctx, msg->uid);
 	mailbox_save_set_save_date(save_ctx, msg->save_date);
 	mailbox_save_set_min_modseq(save_ctx, msg->modseq);

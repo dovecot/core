@@ -154,18 +154,6 @@ struct mailbox_vfuncs {
 					   uint64_t max_modseq,
 					   ARRAY_TYPE(seq_range) *seqs);
 
-	int (*keywords_create)(struct mailbox *box,
-			       const char *const keywords[],
-			       struct mail_keywords **keywords_r,
-			       bool skip_invalid);
-	struct mail_keywords *
-		(*keywords_create_from_indexes)(struct mailbox *box,
-						const ARRAY_TYPE(keyword_indexes) *idx);
-	void (*keywords_ref)(struct mail_keywords *keywords);
-	void (*keywords_unref)(struct mail_keywords *keywords);
-	bool (*keyword_is_valid)(struct mailbox *box, const char *keyword,
-				 const char **error_r);
-
 	void (*get_seq_range)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			      uint32_t *seq1_r, uint32_t *seq2_r);
 	void (*get_uid_range)(struct mailbox *box,

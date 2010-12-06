@@ -351,7 +351,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	ret = mailbox_save_begin(&ctx->save_ctx, ctx->input);
 
 	if (keywords != NULL)
-		mailbox_keywords_unref(ctx->box, &keywords);
+		mailbox_keywords_unref(&keywords);
 
 	if (ret < 0) {
 		/* save initialization failed */

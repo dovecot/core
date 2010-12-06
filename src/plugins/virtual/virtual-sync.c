@@ -406,7 +406,7 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 				MODIFY_ADD : MODIFY_REMOVE;
 			mail_update_keywords(bbox->sync_mail,
 					     modify_type, keywords);
-			mailbox_keywords_unref(bbox->box, &keywords);
+			mailbox_keywords_unref(&keywords);
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			kw_names[0] = NULL;
@@ -414,7 +414,7 @@ static void virtual_sync_index_rec(struct virtual_sync_context *ctx,
 								 kw_names);
 			mail_update_keywords(bbox->sync_mail, MODIFY_REPLACE,
 					     keywords);
-			mailbox_keywords_unref(bbox->box, &keywords);
+			mailbox_keywords_unref(&keywords);
 			break;
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			i_unreached();

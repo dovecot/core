@@ -145,47 +145,6 @@ test_mailbox_transaction_set_max_modseq(struct mailbox_transaction_context *t AT
 {
 }
 
-static int
-test_mailbox_keywords_create(struct mailbox *box ATTR_UNUSED,
-			     const char *const keywords[] ATTR_UNUSED,
-			     struct mail_keywords **keywords_r,
-			     bool skip_invalid ATTR_UNUSED)
-{
-	*keywords_r = i_new(struct mail_keywords, 1);
-	(*keywords_r)->refcount = 1;
-	return 0;
-}
-
-static struct mail_keywords *
-test_mailbox_keywords_create_from_indexes(struct mailbox *box ATTR_UNUSED,
-					  const ARRAY_TYPE(keyword_indexes) *idx ATTR_UNUSED)
-{
-	struct mail_keywords *keywords;
-
-	keywords = i_new(struct mail_keywords, 1);
-	keywords->refcount++;
-	return keywords;
-}
-
-static void test_mailbox_keywords_ref(struct mail_keywords *keywords)
-{
-	keywords->refcount++;
-}
-
-static void test_mailbox_keywords_unref(struct mail_keywords *keywords)
-{
-	if (--keywords->refcount == 0)
-		i_free(keywords);
-}
-
-static bool
-test_mailbox_keyword_is_valid(struct mailbox *box ATTR_UNUSED,
-			      const char *keyword ATTR_UNUSED,
-			      const char **error_r ATTR_UNUSED)
-{
-	return TRUE;
-}
-
 static void
 test_mailbox_get_seq_range(struct mailbox *box ATTR_UNUSED,
 			   uint32_t uid1, uint32_t uid2,
@@ -340,11 +299,6 @@ struct mailbox test_mailbox = {
 		test_mailbox_transaction_commit,
 		test_mailbox_transaction_rollback,
 		test_mailbox_transaction_set_max_modseq,
-		test_mailbox_keywords_create,
-		test_mailbox_keywords_create_from_indexes,
-		test_mailbox_keywords_ref,
-		test_mailbox_keywords_unref,
-		test_mailbox_keyword_is_valid,
 		test_mailbox_get_seq_range,
 		test_mailbox_get_uid_range,
 		test_mailbox_get_expunged_uids,

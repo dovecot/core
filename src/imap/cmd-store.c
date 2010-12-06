@@ -201,7 +201,7 @@ bool cmd_store(struct client_command_context *cmd)
 	mail_free(&mail);
 
 	if (ctx.keywords != NULL)
-		mailbox_keywords_unref(client->mailbox, &ctx.keywords);
+		mailbox_keywords_unref(&ctx.keywords);
 
 	ret = mailbox_search_deinit(&search_ctx);
 	if (ret < 0)

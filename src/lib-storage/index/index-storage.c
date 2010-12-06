@@ -5,7 +5,6 @@
 #include "istream.h"
 #include "ioloop.h"
 #include "str.h"
-#include "imap-parser.h"
 #include "mkdir-parents.h"
 #include "mail-index-alloc-cache.h"
 #include "mail-index-private.h"
@@ -488,105 +487,6 @@ bool index_storage_allow_new_keywords(struct mailbox *box)
 bool index_storage_is_inconsistent(struct mailbox *box)
 {
 	return mail_index_view_is_inconsistent(box->view);
-}
-
-bool index_keyword_is_valid(struct mailbox *box, const char *keyword,
-			    const char **error_r)
-{
-	unsigned int i, idx;
-
-	i_assert(box->opened);
-
-	/* if it already exists, skip validity checks */
-	if (mail_index_keyword_lookup(box->index, keyword, &idx))
-		return TRUE;
-
-	if (*keyword == '\0') {
-		*error_r = "Empty keywords not allowed";
-		return FALSE;
-	}
-
-	/* these are IMAP-specific restrictions, but for now IMAP is all we
-	   care about */
-	for (i = 0; keyword[i] != '\0'; i++) {
-		if (IS_ATOM_SPECIAL((unsigned char)keyword[i])) {
-			*error_r = "Invalid characters in keyword";
-			return FALSE;
-		}
-		if ((unsigned char)keyword[i] >= 0x80) {
-			*error_r = "8bit characters in keyword";
-			return FALSE;
-		}
-	}
-	if (i > box->storage->set->mail_max_keyword_length) {
-		*error_r = "Keyword length too long";
-		return FALSE;
-	}
-	return TRUE;
-}
-
-static struct mail_keywords *
-index_keywords_create_skip(struct mailbox *box,
-			   const char *const keywords[])
-{
-	ARRAY_DEFINE(valid_keywords, const char *);
-	const char *error;
-
-	t_array_init(&valid_keywords, 32);
-	for (; *keywords != NULL; keywords++) {
-		if (mailbox_keyword_is_valid(box, *keywords, &error))
-			array_append(&valid_keywords, keywords, 1);
-	}
-	(void)array_append_space(&valid_keywords); /* NULL-terminate */
-	return mail_index_keywords_create(box->index, keywords);
-}
-
-int index_keywords_create(struct mailbox *box, const char *const keywords[],
-			  struct mail_keywords **keywords_r, bool skip_invalid)
-{
-	const char *error;
-	unsigned int i;
-
-	i_assert(box->opened);
-
-	for (i = 0; keywords[i] != NULL; i++) {
-		if (mailbox_keyword_is_valid(box, keywords[i], &error))
-			continue;
-
-		if (!skip_invalid) {
-			mail_storage_set_error(box->storage,
-					       MAIL_ERROR_PARAMS, error);
-			return -1;
-		}
-
-		/* found invalid keywords, do this the slow way */
-		T_BEGIN {
-			*keywords_r = index_keywords_create_skip(box, keywords);
-		} T_END;
-		return 0;
-	}
-
-	*keywords_r = mail_index_keywords_create(box->index, keywords);
-	return 0;
-}
-
-struct mail_keywords *
-index_keywords_create_from_indexes(struct mailbox *box,
-				   const ARRAY_TYPE(keyword_indexes) *idx)
-{
-	i_assert(box->opened);
-
-	return mail_index_keywords_create_from_indexes(box->index, idx);
-}
-
-void index_keywords_ref(struct mail_keywords *keywords)
-{
-	mail_index_keywords_ref(keywords);
-}
-
-void index_keywords_unref(struct mail_keywords *keywords)
-{
-	mail_index_keywords_unref(&keywords);
 }
 
 void index_save_context_free(struct mail_save_context *ctx)

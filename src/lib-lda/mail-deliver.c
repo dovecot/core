@@ -253,7 +253,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	else
 		mail_deliver_log_cache_var_expand_table(ctx);
 	if (kw != NULL)
-		mailbox_keywords_unref(box, &kw);
+		mailbox_keywords_unref(&kw);
 	mail_free(&ctx->dest_mail);
 
 	if (ret < 0)

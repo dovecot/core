@@ -1013,57 +1013,6 @@ void mailbox_notify_changes_stop(struct mailbox *box)
 	mailbox_notify_changes(box, 0, NULL, NULL);
 }
 
-int mailbox_keywords_create(struct mailbox *box, const char *const keywords[],
-			    struct mail_keywords **keywords_r)
-{
-	const char *empty_keyword_list = NULL;
-
-	if (keywords == NULL)
-		keywords = &empty_keyword_list;
-	return box->v.keywords_create(box, keywords, keywords_r, FALSE);
-}
-
-struct mail_keywords *
-mailbox_keywords_create_valid(struct mailbox *box,
-			      const char *const keywords[])
-{
-	const char *empty_keyword_list = NULL;
-	struct mail_keywords *kw;
-
-	if (keywords == NULL)
-		keywords = &empty_keyword_list;
-	if (box->v.keywords_create(box, keywords, &kw, TRUE) < 0)
-		i_unreached();
-	return kw;
-}
-
-struct mail_keywords *
-mailbox_keywords_create_from_indexes(struct mailbox *box,
-				     const ARRAY_TYPE(keyword_indexes) *idx)
-{
-	return box->v.keywords_create_from_indexes(box, idx);
-}
-
-void mailbox_keywords_ref(struct mailbox *box, struct mail_keywords *keywords)
-{
-	box->v.keywords_ref(keywords);
-}
-
-void mailbox_keywords_unref(struct mailbox *box,
-			    struct mail_keywords **_keywords)
-{
-	struct mail_keywords *keywords = *_keywords;
-
-	*_keywords = NULL;
-	box->v.keywords_unref(keywords);
-}
-
-bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,
-			      const char **error_r)
-{
-	return box->v.keyword_is_valid(box, keyword, error_r);
-}
-
 void mailbox_get_seq_range(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			   uint32_t *seq1_r, uint32_t *seq2_r)
 {
@@ -1308,7 +1257,7 @@ void mailbox_save_set_flags(struct mail_save_context *ctx,
 	ctx->flags = flags;
 	ctx->keywords = keywords;
 	if (keywords != NULL)
-		mailbox_keywords_ref(ctx->transaction->box, keywords);
+		mailbox_keywords_ref(keywords);
 }
 
 void mailbox_save_copy_flags(struct mail_save_context *ctx, struct mail *mail)
@@ -1416,20 +1365,19 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	*_ctx = NULL;
 	ret = box->v.save_finish(ctx);
 	if (keywords != NULL)
-		mailbox_keywords_unref(box, &keywords);
+		mailbox_keywords_unref(&keywords);
 	return ret;
 }
 
 void mailbox_save_cancel(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
-	struct mailbox *box = ctx->transaction->box;
 	struct mail_keywords *keywords = ctx->keywords;
 
 	*_ctx = NULL;
 	ctx->transaction->box->v.save_cancel(ctx);
 	if (keywords != NULL)
-		mailbox_keywords_unref(box, &keywords);
+		mailbox_keywords_unref(&keywords);
 }
 
 int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
@@ -1449,7 +1397,7 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 
 	ret = ctx->transaction->box->v.copy(ctx, mail);
 	if (keywords != NULL)
-		mailbox_keywords_unref(box, &keywords);
+		mailbox_keywords_unref(&keywords);
 	return ret;
 }
 
