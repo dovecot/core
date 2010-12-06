@@ -685,16 +685,15 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 				     new_changed_r, cur_changed_r) < 0)
 		return -1;
 
-	if (have_recent_messages(ctx)) {
-		if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
-			*new_changed_r = TRUE;
-		} else if (*new_changed_r) {
-			/* we have some recent messages and new/ has changed.
-			   if messages had been externally deleted from new/,
-			   we need to get them out of index. this requires that
-			   we make sure they weren't just moved to cur/. */
-			*cur_changed_r = TRUE;
-		}
+	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
+		if (!*new_changed_r)
+			*new_changed_r = have_recent_messages(ctx);
+	} else if (*new_changed_r) {
+		/* we have some recent messages and new/ has changed.
+		   if messages had been externally deleted from new/,
+		   we need to get them out of index. this requires that
+		   we make sure they weren't just moved to cur/. */
+		*cur_changed_r = have_recent_messages(ctx);
 	}
 
 	if (*new_changed_r || *cur_changed_r)
