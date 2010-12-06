@@ -81,7 +81,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
-	ns = client_find_namespace(cmd, mailbox, &storage_name, NULL);
+	ns = client_find_namespace(cmd, mailbox, &storage_name);
 	if (ns == NULL)
 		return TRUE;
 
