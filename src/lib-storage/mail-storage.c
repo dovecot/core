@@ -930,6 +930,14 @@ int mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 	return 0;
 }
 
+enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box)
+{
+	if (box->v.get_private_flags_mask == NULL)
+		return 0;
+	else
+		return box->v.get_private_flags_mask(box);
+}
+
 struct mailbox_sync_context *
 mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {

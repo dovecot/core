@@ -184,6 +184,7 @@ struct mailbox_vfuncs {
 	void (*get_virtual_box_patterns)(struct mailbox *box,
 				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
 				ARRAY_TYPE(mailbox_virtual_patterns) *excludes);
+	enum mail_flags (*get_private_flags_mask)(struct mailbox *box);
 
 	struct mail *
 		(*mail_alloc)(struct mailbox_transaction_context *t,
@@ -262,9 +263,6 @@ struct mailbox {
 	enum mailbox_flags flags;
 	unsigned int transaction_count;
 	enum mailbox_feature enabled_features;
-
-	/* User's private flags if this is a shared mailbox */
-	enum mail_flags private_flags_mask;
 
 	/* Mailbox notification settings: */
 	unsigned int notify_min_interval;

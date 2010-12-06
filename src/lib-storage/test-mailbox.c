@@ -351,6 +351,7 @@ struct mailbox test_mailbox = {
 		NULL,
 		NULL,
 		NULL,
+		NULL,
 		test_mailbox_mail_alloc,
 		test_mailbox_header_lookup_init,
 		test_mailbox_header_lookup_deinit,

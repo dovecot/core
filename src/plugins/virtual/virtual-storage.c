@@ -538,6 +538,7 @@ struct mailbox virtual_mailbox = {
 		virtual_get_virtual_uid,
 		virtual_get_virtual_backend_boxes,
 		virtual_get_virtual_box_patterns,
+		NULL,
 		virtual_mail_alloc,
 		index_header_lookup_init,
 		index_header_lookup_deinit,

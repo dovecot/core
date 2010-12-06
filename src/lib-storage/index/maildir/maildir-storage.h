@@ -78,6 +78,9 @@ struct maildir_mailbox {
 
 	struct timeout *keep_lock_to;
 
+	/* Filled lazily by mailbox_get_private_flags_mask() */
+	enum mail_flags _private_flags_mask;
+
 	/* maildir sync: */
 	struct maildir_uidlist *uidlist;
 	struct maildir_keywords *keywords;
@@ -87,6 +90,7 @@ struct maildir_mailbox {
 
 	unsigned int synced:1;
 	unsigned int syncing_commit:1;
+	unsigned int private_flags_mask_set:1;
 };
 
 extern struct mail_vfuncs maildir_mail_vfuncs;

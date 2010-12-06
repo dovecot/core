@@ -482,7 +482,7 @@ bool index_storage_is_readonly(struct mailbox *box)
 	if (box->backend_readonly) {
 		/* return read-only only if there are no private flags
 		   (that are stored in index files) */
-		if (box->private_flags_mask == 0)
+		if (mailbox_get_private_flags_mask(box) == 0)
 			return TRUE;
 	}
 	return FALSE;

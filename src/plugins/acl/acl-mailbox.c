@@ -64,6 +64,7 @@ static bool acl_is_readonly(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 	enum acl_storage_rights save_right;
+	enum mail_flags private_flags_mask;
 
 	if (abox->module_ctx.super.is_readonly(box))
 		return TRUE;
@@ -78,10 +79,12 @@ static bool acl_is_readonly(struct mailbox *box)
 	/* Next up is the "shared flag rights" */
 	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0)
 		return FALSE;
-	if ((box->private_flags_mask & MAIL_DELETED) == 0 &&
+
+	private_flags_mask = mailbox_get_private_flags_mask(box);
+	if ((private_flags_mask & MAIL_DELETED) == 0 &&
 	    acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED) > 0)
 		return FALSE;
-	if ((box->private_flags_mask & MAIL_SEEN) == 0 &&
+	if ((private_flags_mask & MAIL_SEEN) == 0 &&
 	    acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) > 0)
 		return FALSE;
 

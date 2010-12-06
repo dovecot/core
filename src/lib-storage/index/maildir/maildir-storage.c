@@ -292,15 +292,10 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 static int maildir_mailbox_open_existing(struct mailbox *box)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
-	const char *shared_path, *box_path = mailbox_get_path(box);
-	struct stat st;
+	const char *box_path = mailbox_get_path(box);
 
 	mbox->uidlist = maildir_uidlist_init(mbox);
 	mbox->keywords = maildir_keywords_init(mbox);
-
-	shared_path = t_strconcat(box_path, "/dovecot-shared", NULL);
-	if (stat(shared_path, &st) == 0)
-		box->private_flags_mask = MAIL_SEEN;
 
 	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {
 		if (maildir_uidlist_lock(mbox->uidlist) <= 0)
@@ -578,6 +573,22 @@ uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
 	return mailbox_uidvalidity_next(list, path);
 }
 
+static enum mail_flags maildir_get_private_flags_mask(struct mailbox *box)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	const char *path;
+	struct stat st;
+
+	if (!mbox->private_flags_mask_set) {
+		path = t_strconcat(mailbox_get_path(box), "/dovecot-shared", NULL);
+		if (stat(path, &st) < 0)
+			mbox->_private_flags_mask = 0;
+		else
+			mbox->_private_flags_mask = MAIL_SEEN;
+	}
+	return mbox->_private_flags_mask;
+}
+
 struct mail_storage maildir_storage = {
 	.name = MAILDIR_STORAGE_NAME,
 	.class_flags = 0,
@@ -631,6 +642,7 @@ struct mailbox maildir_mailbox = {
 		NULL,
 		NULL,
 		NULL,
+		maildir_get_private_flags_mask,
 		index_mail_alloc,
 		index_header_lookup_init,
 		index_header_lookup_deinit,

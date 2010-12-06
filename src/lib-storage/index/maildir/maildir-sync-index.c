@@ -467,6 +467,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	int ret = 0;
 	time_t time_before_sync;
 	uint8_t expunged_guid_128[MAIL_GUID_128_SIZE];
+	enum mail_flags private_flags_mask;
 	bool expunged, full_rescan = FALSE;
 
 	i_assert(!mbox->syncing_commit);
@@ -492,6 +493,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	}
 	hdr_next_uid = hdr->next_uid;
 
+	private_flags_mask = mailbox_get_private_flags_mask(&mbox->box);
 	time_before_sync = time(NULL);
 	mbox->syncing_commit = TRUE;
 	seq = prev_uid = 0; first_recent_uid = I_MAX(hdr->first_recent_uid, 1);
@@ -507,7 +509,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		/* the private flags are kept only in indexes. don't use them
 		   at all even for newly seen mails */
-		ctx->flags &= ~mbox->box.private_flags_mask;
+		ctx->flags &= ~private_flags_mask;
 
 	again:
 		seq++;
@@ -582,7 +584,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		}
 
 		/* the private flags are stored only in indexes, keep them */
-		ctx->flags |= rec->flags & mbox->box.private_flags_mask;
+		ctx->flags |= rec->flags & private_flags_mask;
 
 		if (index_sync_changes_have(ctx->sync_changes)) {
 			/* apply flag changes to maildir */

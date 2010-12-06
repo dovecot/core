@@ -398,6 +398,9 @@ void mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 			struct mailbox_status *status_r);
 /* Get mailbox GUID, creating it if necessary. */
 int mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE]);
+/* Returns a mask of flags that are private to user in this mailbox
+   (as opposed to flags shared between users). */
+enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box);
 
 /* Synchronize the mailbox. */
 struct mailbox_sync_context *
