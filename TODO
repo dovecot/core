@@ -1,3 +1,21 @@
+ - mailbox deletion could really be "rmdir", which fails if everything isn't
+   already expunged. IMAP DELETE could fail with "mailbox changed during
+   deletion, aborting" if new messages arrive
+ - maildir: copy dovecot-shared file from parent mailbox, not root.
+ - is mail_index_sync_have_any() really necessary? especially that it returns
+   TRUE for ext rec changes ... why?...
+ - mailbox listing to use UTF8 everywhere
+    - move namespace sep vs. real_sep check from imap client_find_namespace()
+      to lib-storage mailbox name validity check
+ - rewrite autocreate plugin by making it list virtual mailbox names and only
+   lazily autocreate create them when mailbox is opened
+ - login-common API change to fix compiling with
+   LDFLAGS="-Wl,--as-needed -Wl,--no-undefined"
+ - if global ACL path points to a file instead of a directory, read all of
+   them from there. support wildcards in names.
+ - remove 3 unnecessary stat() calls when opening mailbox. they all come from
+   mailbox_list_get_permissions_full()
+
  - master passdb preserves userdb_* extra fields. should it preserve
    non-userdb_* extra fields too?
  - imap, pop3: if client init fails, wait a second or two before disconnecting
