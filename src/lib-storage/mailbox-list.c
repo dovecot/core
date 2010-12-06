@@ -1163,7 +1163,7 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 
 int mailbox_list_create_dir(struct mailbox_list *list, const char *name)
 {
-	if (!mailbox_list_is_valid_existing_name(list, name) || *name == '\0') {
+	if (!mailbox_list_is_valid_create_name(list, name) || *name == '\0') {
 		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
 		return -1;
