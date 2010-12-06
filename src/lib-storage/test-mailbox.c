@@ -138,24 +138,6 @@ test_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	return 0;
 }
 
-static struct mailbox_header_lookup_ctx *
-test_mailbox_header_lookup_init(struct mailbox *box,
-				const char *const headers[])
-{
-	struct mailbox_header_lookup_ctx *ctx;
-
-	ctx = i_new(struct mailbox_header_lookup_ctx, 1);
-	ctx->box = box;
-	ctx->headers = headers; /* now exactly right, but .. */
-	return ctx;
-}
-
-static void
-test_mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx)
-{
-	i_free(ctx);
-}
-
 static struct mail_search_context *
 test_mailbox_search_init(struct mailbox_transaction_context *t,
 			 struct mail_search_args *args,
@@ -267,8 +249,6 @@ struct mailbox test_mailbox = {
 		test_mailbox_transaction_rollback,
 		NULL,
 		test_mailbox_mail_alloc,
-		test_mailbox_header_lookup_init,
-		test_mailbox_header_lookup_deinit,
 		test_mailbox_search_init,
 		test_mailbox_search_deinit,
 		test_mailbox_search_next_nonblock,

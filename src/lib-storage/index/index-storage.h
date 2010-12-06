@@ -109,10 +109,6 @@ void index_storage_get_status(struct mailbox *box,
 			      enum mailbox_status_items items,
 			      struct mailbox_status *status_r);
 
-struct mailbox_header_lookup_ctx *
-index_header_lookup_init(struct mailbox *box, const char *const headers[]);
-void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx);
-
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *t,
 			  struct mail_search_args *args,

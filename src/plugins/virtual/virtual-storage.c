@@ -530,8 +530,6 @@ struct mailbox virtual_mailbox = {
 		virtual_transaction_rollback,
 		NULL,
 		virtual_mail_alloc,
-		index_header_lookup_init,
-		index_header_lookup_deinit,
 		virtual_search_init,
 		virtual_search_deinit,
 		virtual_search_next_nonblock,

@@ -761,8 +761,6 @@ struct mailbox mbox_mailbox = {
 		mbox_transaction_rollback,
 		NULL,
 		index_mail_alloc,
-		index_header_lookup_init,
-		index_header_lookup_deinit,
 		index_storage_search_init,
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,

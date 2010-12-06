@@ -123,7 +123,7 @@ struct index_mail {
 	uint32_t uid_validity;
 
 	enum mail_fetch_field wanted_fields;
-	struct index_header_lookup_ctx *wanted_headers;
+	struct mailbox_header_lookup_ctx *wanted_headers;
 
 	int pop3_state;
 

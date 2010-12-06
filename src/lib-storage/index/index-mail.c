@@ -1121,10 +1121,8 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 void index_mail_init(struct index_mail *mail,
 		     struct mailbox_transaction_context *t,
 		     enum mail_fetch_field wanted_fields,
-		     struct mailbox_header_lookup_ctx *_wanted_headers)
+		     struct mailbox_header_lookup_ctx *wanted_headers)
 {
-	struct index_header_lookup_ctx *wanted_headers =
-		(struct index_header_lookup_ctx *)_wanted_headers;
 	const struct mail_index_header *hdr;
 
 	array_create(&mail->mail.module_contexts, mail->mail.pool,
@@ -1134,7 +1132,7 @@ void index_mail_init(struct index_mail *mail,
 	mail->mail.mail.box = t->box;
 	mail->mail.mail.transaction = t;
 	mail->mail.wanted_fields = wanted_fields;
-	mail->mail.wanted_headers = _wanted_headers;
+	mail->mail.wanted_headers = wanted_headers;
 
 	hdr = mail_index_get_header(t->box->view);
 	mail->uid_validity = hdr->uid_validity;
@@ -1145,7 +1143,7 @@ void index_mail_init(struct index_mail *mail,
 	mail->wanted_fields = wanted_fields;
 	if (wanted_headers != NULL) {
 		mail->wanted_headers = wanted_headers;
-		mailbox_header_lookup_ref(_wanted_headers);
+		mailbox_header_lookup_ref(wanted_headers);
 	}
 }
 

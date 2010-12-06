@@ -97,7 +97,7 @@ virtual_mail_set_backend_mail(struct mail *mail,
 
 	backend_headers = vmail->wanted_headers == NULL ? NULL :
 		mailbox_header_lookup_init(bbox->box,
-					   vmail->wanted_headers->headers);
+					   vmail->wanted_headers->name);
 	vmail->backend_mail = mail_alloc(backend_trans, vmail->wanted_fields,
 					 backend_headers);
 	if (backend_headers != NULL)
@@ -301,7 +301,7 @@ virtual_mail_get_header_stream(struct mail *mail,
 		return -1;
 
 	backend_headers = mailbox_header_lookup_init(vmail->backend_mail->box,
-						     headers->headers);
+						     headers->name);
 	ret = mail_get_header_stream(vmail->backend_mail, backend_headers,
 				     stream_r);
 	mailbox_header_lookup_unref(&backend_headers);

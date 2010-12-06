@@ -15,17 +15,6 @@
 #include "index-storage.h"
 #include "index-mail.h"
 
-#include <stdlib.h>
-
-struct index_header_lookup_ctx {
-	struct mailbox_header_lookup_ctx ctx;
-	pool_t pool;
-
-	unsigned int count;
-	unsigned int *idx;
-	const char **name;
-};
-
 static const enum message_header_parser_flags hdr_parser_flags =
 	MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
 	MESSAGE_HEADER_PARSER_FLAG_DROP_CR;
@@ -194,10 +183,8 @@ static void index_mail_parse_header_register_all_wanted(struct index_mail *mail)
 }
 
 void index_mail_parse_header_init(struct index_mail *mail,
-				  struct mailbox_header_lookup_ctx *_headers)
+				  struct mailbox_header_lookup_ctx *headers)
 {
-	struct index_header_lookup_ctx *headers =
-		(struct index_header_lookup_ctx *)_headers;
 	const uint8_t *match;
 	unsigned int i, field_idx, match_count;
 
@@ -801,20 +788,18 @@ static void header_cache_callback(struct message_header_line *hdr,
 }
 
 int index_mail_get_header_stream(struct mail *_mail,
-				 struct mailbox_header_lookup_ctx *_headers,
+				 struct mailbox_header_lookup_ctx *headers,
 				 struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct index_header_lookup_ctx *headers =
-		(struct index_header_lookup_ctx *)_headers;
 	struct istream *input;
 	string_t *dest;
 
-	i_assert(_headers->box == _mail->box);
+	i_assert(headers->box == _mail->box);
 
 	if (mail->data.save_bodystructure_header) {
 		/* we have to parse the header. */
-		if (index_mail_parse_headers(mail, _headers) < 0)
+		if (index_mail_parse_headers(mail, headers) < 0)
 			return -1;
 	}
 
@@ -840,7 +825,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 	if (mail->data.filter_stream != NULL)
 		i_stream_destroy(&mail->data.filter_stream);
 
-	index_mail_parse_header_init(mail, _headers);
+	index_mail_parse_header_init(mail, headers);
 	mail->data.filter_stream =
 		i_stream_create_header_filter(mail->data.stream,
 					      HEADER_FILTER_INCLUDE |
@@ -849,74 +834,4 @@ int index_mail_get_header_stream(struct mail *_mail,
 					      header_cache_callback, mail);
 	*stream_r = mail->data.filter_stream;
 	return 0;
-}
-
-static struct mailbox_header_lookup_ctx *
-index_header_lookup_init_real(struct mailbox *box, const char *const headers[])
-{
-	struct mail_cache_field *fields, header_field = {
-		NULL, 0, MAIL_CACHE_FIELD_HEADER, 0,
-		MAIL_CACHE_DECISION_TEMP
-	};
-	struct index_header_lookup_ctx *ctx;
-	const char *const *name;
-	const char **sorted_headers;
-	pool_t pool;
-	unsigned int i, count;
-
-	i_assert(*headers != NULL);
-
-	for (count = 0, name = headers; *name != NULL; name++)
-		count++;
-
-	/* @UNSAFE: headers need to be sorted for filter stream. */
-	sorted_headers = t_new(const char *, count);
-	memcpy(sorted_headers, headers, count * sizeof(*sorted_headers));
-	qsort(sorted_headers, count, sizeof(*sorted_headers), i_strcasecmp_p);
-	headers = sorted_headers;
-
-	/* @UNSAFE */
-	fields = t_new(struct mail_cache_field, count);
-	for (i = 0; i < count; i++) {
-		header_field.name = t_strconcat("hdr.", headers[i], NULL);
-		fields[i] = header_field;
-	}
-	mail_cache_register_fields(box->cache, fields, count);
-
-	pool = pool_alloconly_create("index_header_lookup_ctx", 1024);
-	ctx = p_new(pool, struct index_header_lookup_ctx, 1);
-	ctx->ctx.box = box;
-	ctx->ctx.refcount = 1;
-	ctx->pool = pool;
-	ctx->count = count;
-
-	ctx->idx = p_new(pool, unsigned int, count);
-	ctx->name = p_new(pool, const char *, count + 1);
-
-	/* @UNSAFE */
-	for (i = 0; i < count; i++) {
-		ctx->idx[i] = fields[i].idx;
-		ctx->name[i] = p_strdup(pool, headers[i]);
-	}
-	ctx->ctx.headers = ctx->name;
-	return &ctx->ctx;
-}
-
-struct mailbox_header_lookup_ctx *
-index_header_lookup_init(struct mailbox *box, const char *const headers[])
-{
-	struct mailbox_header_lookup_ctx *ctx;
-
-	T_BEGIN {
-		ctx = index_header_lookup_init_real(box, headers);
-	} T_END;
-	return ctx;
-}
-
-void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *_ctx)
-{
-	struct index_header_lookup_ctx *ctx =
-		(struct index_header_lookup_ctx *)_ctx;
-
-	pool_unref(&ctx->pool);
 }

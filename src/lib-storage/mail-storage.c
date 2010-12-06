@@ -1013,31 +1013,6 @@ void mailbox_notify_changes_stop(struct mailbox *box)
 	mailbox_notify_changes(box, 0, NULL, NULL);
 }
 
-struct mailbox_header_lookup_ctx *
-mailbox_header_lookup_init(struct mailbox *box, const char *const headers[])
-{
-	return box->v.header_lookup_init(box, headers);
-}
-
-void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx)
-{
-	i_assert(ctx->refcount > 0);
-	ctx->refcount++;
-}
-
-void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **_ctx)
-{
-	struct mailbox_header_lookup_ctx *ctx = *_ctx;
-
-	*_ctx = NULL;
-
-	i_assert(ctx->refcount > 0);
-	if (--ctx->refcount > 0)
-		return;
-
-	ctx->box->v.header_lookup_deinit(ctx);
-}
-
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
 		    struct mail_search_args *args,

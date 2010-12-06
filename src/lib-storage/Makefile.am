@@ -35,6 +35,7 @@ libstorage_la_SOURCES = \
 	mail-thread.c \
 	mail-user.c \
 	mailbox-get.c \
+	mailbox-header.c \
 	mailbox-keywords.c \
 	mailbox-list.c \
 	mailbox-search-result.c \
