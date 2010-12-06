@@ -1149,12 +1149,6 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 	uint8_t guid[MAIL_GUID_128_SIZE];
 	int ret;
 
-	if (!mailbox_list_is_valid_existing_name(list, name)) {
-		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return -1;
-	}
-
 	if ((ret = list->v.set_subscribed(list, name, set)) <= 0)
 		return ret;
 

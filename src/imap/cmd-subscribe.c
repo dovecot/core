@@ -70,6 +70,10 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 	box_ns = client_find_namespace(cmd, mailbox, &storage_name);
 	if (box_ns == NULL)
 		return TRUE;
+	if (!mailbox_list_is_valid_existing_name(box_ns->list, storage_name)) {
+		client_send_tagline(cmd, "NO [CANNOT] Invalid mailbox name");
+		return TRUE;
+	}
 
 	/* now find a namespace where the subscription can be added to */
 	subs_name = mailbox;
