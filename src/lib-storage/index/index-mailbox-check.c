@@ -72,6 +72,8 @@ void index_mailbox_check_add(struct mailbox *box, const char *path)
 	struct io *io = NULL;
 	struct index_notify_io *aio;
 
+	i_assert(box->notify_min_interval > 0);
+
 	(void)io_add_notify(path, notify_callback, box, &io);
 	if (io != NULL) {
 		aio = i_new(struct index_notify_io, 1);
