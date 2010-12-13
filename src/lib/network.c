@@ -371,7 +371,8 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 	/* create the socket */
 	fd = socket(so.sin.sin_family, SOCK_STREAM, 0);
 #ifdef HAVE_IPV6
-	if (fd == -1 && (errno == EINVAL || errno == EAFNOSUPPORT)) {
+	if (fd == -1 && my_ip == NULL &&
+	    (errno == EINVAL || errno == EAFNOSUPPORT)) {
 		/* IPv6 is not supported by OS */
 		so.sin.sin_family = AF_INET;
 		so.sin.sin_addr.s_addr = INADDR_ANY;
