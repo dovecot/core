@@ -9,7 +9,7 @@ extern uid_t master_uid;
 extern gid_t master_gid;
 extern bool core_dumps_disabled;
 extern const char *ssl_manual_key_password;
-extern int null_fd;
+extern int null_fd, master_dead_pipe_fd[2];
 extern struct service_list *services;
 
 void process_exec(const char *cmd, const char *extra_args[]) ATTR_NORETURN;
