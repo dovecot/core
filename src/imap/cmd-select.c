@@ -295,10 +295,14 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 					  mailbox_get_storage(ctx->box));
 		return -1;
 	}
-	mailbox_get_status(ctx->box, STATUS_MESSAGES | STATUS_RECENT |
-			   STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
-			   STATUS_UIDNEXT | STATUS_KEYWORDS |
-			   STATUS_HIGHESTMODSEQ, &status);
+	if (mailbox_get_status(ctx->box, STATUS_MESSAGES | STATUS_RECENT |
+			       STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
+			       STATUS_UIDNEXT | STATUS_KEYWORDS |
+			       STATUS_HIGHESTMODSEQ, &status) < 0) {
+		client_send_storage_error(ctx->cmd,
+					  mailbox_get_storage(ctx->box));
+		return -1;
+	}
 
 	client->mailbox = ctx->box;
 	client->select_counter++;

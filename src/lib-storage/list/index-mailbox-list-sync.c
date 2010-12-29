@@ -159,7 +159,7 @@ index_list_get_cached_status(struct mailbox *box, struct mailbox_status *status)
 	return ret;
 }
 
-static void
+static int
 index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 		      struct mailbox_status *status)
 {
@@ -167,11 +167,11 @@ index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 
 	if ((items & ~CACHED_STATUS_ITEMS) == 0) {
 		if (index_list_get_cached_status(box, status) > 0)
-			return;
+			return 0;
 		/* nonsynced / error, fallback to doing it the slow way */
 	}
 
-	ibox->module_ctx.super.get_status(box, items, status);
+	return ibox->module_ctx.super.get_status(box, items, status);
 }
 
 static int index_list_lookup_or_create(struct index_mailbox_list *ilist,

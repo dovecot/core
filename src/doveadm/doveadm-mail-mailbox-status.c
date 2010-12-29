@@ -127,11 +127,11 @@ status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 	}
 
 	if (doveadm_mailbox_find_and_sync(ctx->ctx.cur_mail_user,
-					  str_c(mailbox_name), &box) < 0) {
+					  str_c(mailbox_name), &box) < 0 ||
+	   mailbox_get_status(box, ctx->items, &status) < 0) {
 		ctx->ctx.failed = TRUE;
 		return;
 	}
-	mailbox_get_status(box, ctx->items, &status);
 	if (ctx->guid) {
 		if (mailbox_get_guid(box, mailbox_guid) < 0)
 			memset(mailbox_guid, 0, sizeof(mailbox_guid));

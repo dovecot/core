@@ -926,8 +926,9 @@ void client_enable(struct client *client, enum mailbox_feature features)
 	if ((features & MAILBOX_FEATURE_CONDSTORE) != 0) {
 		/* CONDSTORE being enabled while mailbox is selected.
 		   Notify client of the latest HIGHESTMODSEQ. */
-		mailbox_get_status(client->mailbox,
-				   STATUS_HIGHESTMODSEQ, &status);
+		if (mailbox_get_status(client->mailbox,
+				       STATUS_HIGHESTMODSEQ, &status) < 0)
+			i_unreached();
 		client_send_line(client, t_strdup_printf(
 			"* OK [HIGHESTMODSEQ %llu] Highest",
 			(unsigned long long)status.highest_modseq));

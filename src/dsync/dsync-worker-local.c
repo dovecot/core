@@ -510,8 +510,11 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		(struct local_dsync_worker_mailbox_iter *)_iter;
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_iter->worker;
-	enum mailbox_flags flags =
+	const enum mailbox_flags flags =
 		MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT;
+	const enum mailbox_status_items status_items =
+		STATUS_UIDNEXT | STATUS_UIDVALIDITY |
+		STATUS_HIGHESTMODSEQ | STATUS_CACHE_FIELDS;
 	const struct mailbox_info *info;
 	const char *storage_name;
 	struct mailbox *box;
@@ -555,6 +558,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 
 	box = mailbox_alloc(info->ns->list, storage_name, flags);
 	if (mailbox_sync(box, 0) < 0 ||
+	    mailbox_get_status(box, status_items, &status) < 0 ||
 	    mailbox_get_guid(box, mailbox_guid) < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
 
@@ -564,9 +568,6 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		_iter->failed = TRUE;
 		return -1;
 	}
-
-	mailbox_get_status(box, STATUS_UIDNEXT | STATUS_UIDVALIDITY |
-			   STATUS_HIGHESTMODSEQ | STATUS_CACHE_FIELDS, &status);
 
 	change = hash_table_lookup(worker->mailbox_changes_hash, mailbox_guid);
 	if (change != NULL) {
@@ -935,7 +936,8 @@ iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 	array_clear(&iter->expunges);
 	iter->expunges_set = TRUE;
 
-	mailbox_get_status(box, STATUS_UIDNEXT, &status);
+	if (mailbox_get_status(box, STATUS_UIDNEXT, &status) < 0)
+		i_unreached();
 	if (prev_uid + 1 >= status.uidnext) {
 		/* no expunged messages at the end of mailbox */
 		return FALSE;

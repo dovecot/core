@@ -29,7 +29,7 @@ index_storage_get_status_cache_fields(struct mailbox *box,
 	status_r->cache_fields = cache_fields;
 }
 
-static void
+static int
 index_storage_virtual_size_add_new(struct mailbox *box,
 				   struct index_vsize_header *vsize_hdr)
 {
@@ -94,10 +94,10 @@ index_storage_virtual_size_add_new(struct mailbox *box,
 	mail_index_update_header_ext(trans->itrans, ibox->vsize_hdr_ext_id,
 				     0, vsize_hdr, sizeof(*vsize_hdr));
 	(void)mailbox_transaction_commit(&trans);
-
+	return ret;
 }
 
-static void
+static int
 index_storage_get_status_virtual_size(struct mailbox *box,
 				      struct mailbox_status *status_r)
 {
@@ -105,6 +105,7 @@ index_storage_get_status_virtual_size(struct mailbox *box,
 	struct index_vsize_header vsize_hdr;
 	const void *data;
 	size_t size;
+	int ret;
 
 	mail_index_get_header_ext(box->view, ibox->vsize_hdr_ext_id,
 				  &data, &size);
@@ -123,7 +124,7 @@ index_storage_get_status_virtual_size(struct mailbox *box,
 	    vsize_hdr.message_count == status_r->messages) {
 		/* up to date */
 		status_r->virtual_size = vsize_hdr.vsize;
-		return;
+		return 0;
 	}
 	if (vsize_hdr.highest_uid >= status_r->uidnext) {
 		mail_storage_set_critical(box->storage,
@@ -131,19 +132,26 @@ index_storage_get_status_virtual_size(struct mailbox *box,
 			vsize_hdr.highest_uid, status_r->uidnext);
 		memset(&vsize_hdr, 0, sizeof(vsize_hdr));
 	}
-	index_storage_virtual_size_add_new(box, &vsize_hdr);
+	ret = index_storage_virtual_size_add_new(box, &vsize_hdr);
 	status_r->virtual_size = vsize_hdr.vsize;
+	return ret;
 }
 
-void index_storage_get_status(struct mailbox *box,
-			      enum mailbox_status_items items,
-			      struct mailbox_status *status_r)
+int index_storage_get_status(struct mailbox *box,
+			     enum mailbox_status_items items,
+			     struct mailbox_status *status_r)
 {
 	const struct mail_index_header *hdr;
-
-	i_assert(box->opened);
+	int ret = 0;
 
 	memset(status_r, 0, sizeof(struct mailbox_status));
+
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			return -1;
+		if (mailbox_sync(box, 0) < 0)
+			return -1;
+	}
 
 	/* we can get most of the status items without any trouble */
 	hdr = mail_index_get_header(box->view);
@@ -174,6 +182,9 @@ void index_storage_get_status(struct mailbox *box,
 		status_r->keywords = mail_index_get_keywords(box->index);
 	if ((items & STATUS_CACHE_FIELDS) != 0)
 		index_storage_get_status_cache_fields(box, status_r);
-	if ((items & STATUS_VIRTUAL_SIZE) != 0)
-		index_storage_get_status_virtual_size(box, status_r);
+	if ((items & STATUS_VIRTUAL_SIZE) != 0) {
+		if (index_storage_get_status_virtual_size(box, status_r) < 0)
+			ret = -1;
+	}
+	return ret;
 }

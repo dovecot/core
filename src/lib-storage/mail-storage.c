@@ -904,11 +904,11 @@ bool mailbox_backends_equal(const struct mailbox *box1,
 	return ns1 == ns2;
 }
 
-void mailbox_get_status(struct mailbox *box,
-			enum mailbox_status_items items,
-			struct mailbox_status *status_r)
+int mailbox_get_status(struct mailbox *box,
+		       enum mailbox_status_items items,
+		       struct mailbox_status *status_r)
 {
-	box->v.get_status(box, items, status_r);
+	return box->v.get_status(box, items, status_r);
 }
 
 int mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])

@@ -82,13 +82,9 @@ int imap_status_get(struct client_command_context *cmd,
 	if ((items->mailbox_items & STATUS_HIGHESTMODSEQ) != 0)
 		client_enable(client, MAILBOX_FEATURE_CONDSTORE);
 
-	ret = box == client->mailbox ? 0 : mailbox_sync(box, 0);
-	if (ret == 0) {
-		mailbox_get_status(box, items->mailbox_items,
-				   &result_r->status);
-		if (items->guid)
-			ret = mailbox_get_guid(box, result_r->mailbox_guid);
-	}
+	ret = mailbox_get_status(box, items->mailbox_items, &result_r->status);
+	if (items->guid && ret == 0)
+		ret = mailbox_get_guid(box, result_r->mailbox_guid);
 
 	if (ret < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);

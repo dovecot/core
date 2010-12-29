@@ -68,13 +68,14 @@ static int test_mailbox_rename(struct mailbox *src,
 	return -1;
 }
 
-static void test_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
-				    enum mailbox_status_items items ATTR_UNUSED,
-				    struct mailbox_status *status_r)
+static int test_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
+				   enum mailbox_status_items items ATTR_UNUSED,
+				   struct mailbox_status *status_r)
 {
 	memset(status_r, 0, sizeof(*status_r));
 	status_r->uidvalidity = TEST_UID_VALIDITY;
 	status_r->uidnext = 1;
+	return 0;
 }
 
 static struct mailbox_sync_context *

@@ -114,8 +114,8 @@ struct mailbox_vfuncs {
 	int (*rename)(struct mailbox *src, struct mailbox *dest,
 		      bool rename_children);
 
-	void (*get_status)(struct mailbox *box, enum mailbox_status_items items,
-			   struct mailbox_status *status_r);
+	int (*get_status)(struct mailbox *box, enum mailbox_status_items items,
+			  struct mailbox_status *status_r);
 	int (*get_guid)(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE]);
 
 	/* Lookup sync extension record and figure out if it mailbox has
