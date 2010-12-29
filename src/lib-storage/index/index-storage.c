@@ -162,14 +162,6 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	if (move_to_memory)
 		ibox->index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
 
-	if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
-		if (mail_index_is_in_memory(box->index)) {
-			mail_storage_set_critical(box->storage,
-				"Couldn't create index file");
-			return -1;
-		}
-	}
-
 	if (mailbox_list_create_missing_index_dir(box->list, box->name) < 0) {
 		mail_storage_set_internal_error(box->storage);
 		return -1;
@@ -199,6 +191,13 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 			if (mail_index_open_or_create(box->index,
 						      index_flags) < 0)
 				i_panic("in-memory index creation failed");
+		}
+	}
+	if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
+		if (mail_index_is_in_memory(box->index)) {
+			mail_storage_set_critical(box->storage,
+				"Couldn't create index file");
+			return -1;
 		}
 	}
 
