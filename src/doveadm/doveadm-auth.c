@@ -65,7 +65,7 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 		}
 	}
 	auth_master_deinit(&conn);
-	return ret == 0 ? 1 : 0;
+	return ret;
 }
 
 static void
@@ -250,15 +250,23 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 		cmd_user_list(auth_socket_path, argv + optind);
 	} else {
 		bool first = TRUE;
+		bool notfound = FALSE;
 
 		while ((input.username = argv[optind++]) != NULL) {
 			if (first)
 				first = FALSE;
 			else
 				putchar('\n');
-			if (cmd_user_input(auth_socket_path, &input) < 0)
+			switch (cmd_user_input(auth_socket_path, &input)) {
+			case -1:
 				exit(1);
+			case 0:
+				notfound = TRUE;
+				break;
+			}
 		}
+		if (notfound)
+			exit(2);
 	}
 }
 
