@@ -18,7 +18,8 @@ struct doveadm_mail_list_iter {
 
 static int
 search_args_get_mailbox_patterns(const struct mail_search_arg *args,
-				 ARRAY_TYPE(const_string) *patterns)
+				 ARRAY_TYPE(const_string) *patterns,
+				 bool *have_guid_r)
 {
 	const struct mail_search_arg *subargs;
 
@@ -30,7 +31,7 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 			subargs = args->value.subargs;
 			for (; subargs != NULL; subargs = subargs->next) {
 				if (!search_args_get_mailbox_patterns(subargs,
-								      patterns))
+							patterns, have_guid_r))
 					return 0;
 			}
 			break;
@@ -41,6 +42,9 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 				return 0;
 			}
 			array_append(patterns, &args->value.str, 1);
+			break;
+		case SEARCH_MAILBOX_GUID:
+			*have_guid_r = TRUE;
 			break;
 		default:
 			break;
@@ -58,14 +62,18 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 	struct doveadm_mail_list_iter *iter;
 	ARRAY_TYPE(const_string) patterns;
 	enum namespace_type ns_mask = NAMESPACE_PRIVATE;
+	bool have_guid = FALSE;
 
 	iter = i_new(struct doveadm_mail_list_iter, 1);
 	iter->search_args = search_args;
 
 	t_array_init(&patterns, 16);
-	search_args_get_mailbox_patterns(search_args->args, &patterns);
+	search_args_get_mailbox_patterns(search_args->args, &patterns,
+					 &have_guid);
 	if (array_count(&patterns) == 0) {
 		iter_flags |= MAILBOX_LIST_ITER_SKIP_ALIASES;
+		if (have_guid)
+			ns_mask |= NAMESPACE_SHARED | NAMESPACE_PUBLIC;
 		array_append(&patterns, &all_pattern, 1);
 	} else {
 		iter_flags |= MAILBOX_LIST_ITER_STAR_WITHIN_NS;
