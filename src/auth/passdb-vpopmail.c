@@ -35,7 +35,7 @@ static bool vpopmail_is_disabled(struct auth_request *request,
 	struct vpopmail_passdb_module *module =
 		(struct vpopmail_passdb_module *)_module;
 
-	if (strcmp(request->service, "IMAP") == 0) {
+	if (strcasecmp(request->service, "IMAP") == 0) {
 		if ((vpw->pw_flags & NO_IMAP) != 0) {
 			/* IMAP from webmail IP may still be allowed */
 			if (!net_ip_compare(&module->webmail_ip,
@@ -49,7 +49,7 @@ static bool vpopmail_is_disabled(struct auth_request *request,
 		}
 	}
 	if ((vpw->pw_flags & NO_POP) != 0 &&
-	    strcmp(request->service, "POP3") == 0)
+	    strcasecmp(request->service, "POP3") == 0)
 		return TRUE;
 	return FALSE;
 }
@@ -137,8 +137,8 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	}
 
 #ifdef HAVE_VPOPMAIL_OPEN_SMTP_RELAY
-	if (strcmp(request->service, "POP3") == 0 ||
-	    strcmp(request->service, "IMAP") == 0) {
+	if (strcasecmp(request->service, "POP3") == 0 ||
+	    strcasecmp(request->service, "IMAP") == 0) {
 		const char *host = net_ip2addr(&request->remote_ip);
 		if (host != NULL) {
 			/* use putenv() directly rather than env_put() which
