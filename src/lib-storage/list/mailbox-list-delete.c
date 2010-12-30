@@ -97,7 +97,7 @@ int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 		if (trash_dir == trash_dest) {
 			trash_dest = t_strconcat(trash_dir, "/",
 						 unique_fname(), NULL);
-		} else if (unlink_directory(trash_dest, TRUE) < 0 &&
+		} else if (mailbox_list_delete_trash(trash_dest) < 0 &&
 			   (errno != ENOTEMPTY || count >= 5)) {
 			mailbox_list_set_critical(list,
 				"unlink_directory(%s) failed: %m", trash_dest);
@@ -105,7 +105,7 @@ int mailbox_list_delete_maildir_via_trash(struct mailbox_list *list,
 		}
 	}
 
-	if (unlink_directory(trash_dir, TRUE) < 0 &&
+	if (mailbox_list_delete_trash(trash_dir) < 0 &&
 	    errno != ENOTEMPTY && errno != EBUSY) {
 		mailbox_list_set_critical(list,
 			"unlink_directory(%s) failed: %m", trash_dir);
@@ -189,7 +189,7 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 		str_append(full_path, d->d_name);
 
 		if (mailbox_dir) {
-			if (unlink_directory(str_c(full_path), TRUE) < 0) {
+			if (mailbox_list_delete_trash(str_c(full_path)) < 0) {
 				mailbox_list_set_critical(list,
 					"unlink_directory(%s) failed: %m",
 					str_c(full_path));
@@ -297,7 +297,7 @@ static void mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 							     rmdir_path) < 0)
 			return;
 	} else {
-		if (unlink_directory(path, TRUE) < 0 &&
+		if (mailbox_list_delete_trash(path) < 0 &&
 		    errno != ENOENT && errno != ENOTEMPTY) {
 			mailbox_list_set_critical(list,
 				"unlink_directory(%s) failed: %m", path);
@@ -313,4 +313,18 @@ void mailbox_list_delete_finish(struct mailbox_list *list, const char *name)
 	mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
 	mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_CONTROL);
 	mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+}
+
+int mailbox_list_delete_trash(const char *path)
+{
+	if (unlink_directory(path, TRUE) < 0) {
+		if (errno == ELOOP) {
+			/* it's a symlink? try just deleting it */
+			if (unlink(path) == 0)
+				return 0;
+			errno = ELOOP;
+			return -1;
+		}
+	}
+	return 0;
 }
