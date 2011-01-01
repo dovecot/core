@@ -1,6 +1,8 @@
+ - notify_sync() could have "what changed" struct with old/new flags
  - mailbox deletion could really be "rmdir", which fails if everything isn't
    already expunged. IMAP DELETE could fail with "mailbox changed during
    deletion, aborting" if new messages arrive
+     - if doing any changes, figure out how to handle symlinked mailboxes
  - maildir: copy dovecot-shared file from parent mailbox, not root.
  - is mail_index_sync_have_any() really necessary? especially that it returns
    TRUE for ext rec changes ... why?...
