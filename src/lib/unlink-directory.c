@@ -59,7 +59,12 @@ static int unlink_directory_r(const char *dir)
 		return -1;
 
 	if (!S_ISDIR(st.st_mode)) {
-		errno = ENOTDIR;
+		if ((st.st_mode & S_IFMT) != S_IFLNK)
+			errno = ENOTDIR;
+		else {
+			/* be compatible with O_NOFOLLOW */
+			errno = ELOOP;
+		}
 		return -1;
 	}
 

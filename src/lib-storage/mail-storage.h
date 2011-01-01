@@ -641,7 +641,11 @@ int mail_get_physical_size(struct mail *mail, uoff_t *size_r);
 int mail_get_first_header(struct mail *mail, const char *field,
 			  const char **value_r);
 /* Like mail_get_first_header(), but decode MIME encoded words to UTF-8.
-   Also multiline headers are returned unfolded. */
+   Also multiline headers are returned unfolded.
+
+   Do not use this function for getting structured fields (e.g. address fields),
+   because decoding may break the structuring. Instead parse them first and
+   only afterwards decode the encoded words. */
 int mail_get_first_header_utf8(struct mail *mail, const char *field,
 			       const char **value_r);
 /* Return a NULL-terminated list of values for each found field.
@@ -649,7 +653,8 @@ int mail_get_first_header_utf8(struct mail *mail, const char *field,
 int mail_get_headers(struct mail *mail, const char *field,
 		     const char *const **value_r);
 /* Like mail_get_headers(), but decode MIME encoded words to UTF-8.
-   Also multiline headers are returned unfolded. */
+   Also multiline headers are returned unfolded.
+   Do not use for structured fields (see mail_get_first_header_utf8()). */
 int mail_get_headers_utf8(struct mail *mail, const char *field,
 			  const char *const **value_r);
 /* Returns stream containing specified headers. */

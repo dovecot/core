@@ -37,6 +37,10 @@ static int snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	enum mail_error error;
 	int ret;
 
+	/* make sure the destination mailbox has been opened */
+	if (mailbox_open(destbox) < 0)
+		return -1;
+
 	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
 

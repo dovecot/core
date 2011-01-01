@@ -35,6 +35,9 @@ static void checkpassword_request_finish(struct chkpw_auth_request *request,
 				"LF characters in checkpassword reply");
 			result = PASSDB_RESULT_INTERNAL_FAILURE;
 		} else {
+			auth_request_log_debug(request->request,
+					       "checkpassword", "input: %s",
+					       str_c(request->input_buf));
 			auth_request_set_fields(request->request,
 				t_strsplit(str_c(request->input_buf), "\t"),
 				NULL);

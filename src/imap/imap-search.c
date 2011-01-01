@@ -280,6 +280,7 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 	}
 	str_append(str, "\r\n");
 	o_stream_send(client->output, str_data(str), str_len(str));
+	str_free(&str);
 }
 
 static void search_update_mail(struct imap_search_context *ctx)

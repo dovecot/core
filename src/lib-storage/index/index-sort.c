@@ -309,7 +309,7 @@ get_first_addr(struct mail *mail, const char *header,
 	const char *str;
 	int ret;
 
-	if ((ret = mail_get_first_header_utf8(mail, header, &str)) <= 0) {
+	if ((ret = mail_get_first_header(mail, header, &str)) <= 0) {
 		*addr_r = NULL;
 		return ret;
 	}

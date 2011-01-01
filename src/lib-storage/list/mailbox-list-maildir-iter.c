@@ -6,6 +6,7 @@
 #include "unlink-directory.h"
 #include "imap-match.h"
 #include "mailbox-tree.h"
+#include "mailbox-list-delete.h"
 #include "mailbox-list-subscriptions.h"
 #include "mailbox-list-maildir.h"
 
@@ -256,7 +257,7 @@ static bool maildir_delete_trash_dir(struct maildir_list_iterate_context *ctx,
 	path = t_strdup_printf("%s/%s", ctx->dir, fname);
 	if (stat(path, &st) == 0 &&
 	    st.st_mtime < ioloop_time - 3600)
-		(void)unlink_directory(path, TRUE);
+		(void)mailbox_list_delete_trash(path);
 
 	return TRUE;
 }

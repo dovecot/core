@@ -354,6 +354,22 @@ static void auth_request_save_cache(struct auth_request *request,
 			  result == PASSDB_RESULT_OK);
 }
 
+static void auth_request_userdb_reply_update_user(struct auth_request *request)
+{
+	const char *str, *p;
+
+	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
+
+	/* reset the reply and add the new username */
+	auth_stream_reply_reset(request->userdb_reply);
+	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
+
+	/* add the rest */
+	p = strchr(str, '\t');
+	if (p != NULL)
+		auth_stream_reply_import(request->userdb_reply, p + 1);
+}
+
 static bool auth_request_master_lookup_finish(struct auth_request *request)
 {
 	struct auth_passdb *passdb;
@@ -368,6 +384,8 @@ static bool auth_request_master_lookup_finish(struct auth_request *request)
 	request->master_user = request->user;
 	request->user = request->requested_login_user;
 	request->requested_login_user = NULL;
+	if (request->userdb_reply != NULL)
+		auth_request_userdb_reply_update_user(request);
 
 	request->skip_password_check = TRUE;
 	request->passdb_password = NULL;
@@ -1077,22 +1095,6 @@ static void auth_request_set_reply_field(struct auth_request *request,
 	if (request->extra_fields == NULL)
 		request->extra_fields = auth_stream_reply_init(request->pool);
 	auth_stream_reply_add(request->extra_fields, name, value);
-}
-
-static void auth_request_userdb_reply_update_user(struct auth_request *request)
-{
-	const char *str, *p;
-
-	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
-
-	/* reset the reply and add the new username */
-	auth_stream_reply_reset(request->userdb_reply);
-	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
-
-	/* add the rest */
-	p = strchr(str, '\t');
-	if (p != NULL)
-		auth_stream_reply_import(request->userdb_reply, p + 1);
 }
 
 static const char *

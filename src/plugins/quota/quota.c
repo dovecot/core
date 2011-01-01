@@ -1092,9 +1092,12 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 	if (ctx->failed)
 		ret = -1;
 	else if (ctx->bytes_used != 0 || ctx->count_used != 0 ||
-		 ctx->recalculate) {
+		 ctx->recalculate) T_BEGIN {
+		ARRAY_DEFINE(warn_roots, struct quota_root *);
+
 		mailbox_name = mailbox_get_vname(ctx->box);
 		roots = array_get(&ctx->quota->roots, &count);
+		t_array_init(&warn_roots, count);
 		for (i = 0; i < count; i++) {
 			if (!quota_root_is_visible(roots[i], ctx->box, FALSE))
 				continue;
@@ -1108,13 +1111,15 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 
 			if (roots[i]->backend.v.update(roots[i], ctx) < 0)
 				ret = -1;
+			else
+				array_append(&warn_roots, &roots[i], 1);
 		}
 		/* execute quota warnings after all updates. this makes it
 		   work correctly regardless of whether backend.get_resource()
 		   returns updated values before backend.update() or not */
-		for (i = 0; i < count; i++)
-			quota_warnings_execute(ctx, roots[i]);
-	}
+		array_foreach(&warn_roots, roots)
+			quota_warnings_execute(ctx, *roots);
+	} T_END;
 
 	i_free(ctx);
 	return ret;

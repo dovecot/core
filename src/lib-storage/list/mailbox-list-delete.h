@@ -15,5 +15,6 @@ void mailbox_list_delete_finish(struct mailbox_list *list, const char *name);
 
 void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 				    enum mailbox_list_path_type type);
+int mailbox_list_delete_trash(const char *path);
 
 #endif

@@ -487,7 +487,8 @@ static void acl_mailbox_list_deinit(struct mailbox_list *list)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 
-	acl_backend_deinit(&alist->rights.backend);
+	if (alist->rights.backend != NULL)
+		acl_backend_deinit(&alist->rights.backend);
 	alist->module_ctx.super.deinit(list);
 }
 

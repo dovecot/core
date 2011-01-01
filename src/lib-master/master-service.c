@@ -375,7 +375,7 @@ void master_service_init_finish(struct master_service *service)
 			master_service_set_service_count(service, count);
 
 		/* start listening errors for status fd, it means master died */
-		service->io_status_error = io_add(MASTER_STATUS_FD, IO_ERROR,
+		service->io_status_error = io_add(MASTER_DEAD_FD, IO_ERROR,
 						  master_status_error, service);
 	} else {
 		master_service_set_client_limit(service, 1);
