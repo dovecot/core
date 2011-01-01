@@ -340,7 +340,7 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 
 	view = mail_index_view_open(ilist->mail_index);
 	if (mail_index_lookup_seq(view, uid, &seq)) {
-		mailbox_get_status(box, CACHED_STATUS_ITEMS, &status);
+		mailbox_get_open_status(box, CACHED_STATUS_ITEMS, &status);
 		(void)index_list_update(ilist, box, view, seq, &status);
 	}
 	mail_index_view_close(&view);

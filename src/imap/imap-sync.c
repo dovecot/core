@@ -210,9 +210,6 @@ imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
 int imap_sync_deinit(struct imap_sync_context *ctx,
 		     struct client_command_context *sync_cmd)
 {
-	const enum mailbox_status_items status_items =
-		STATUS_UIDVALIDITY | STATUS_MESSAGES | STATUS_RECENT |
-		STATUS_HIGHESTMODSEQ;
 	struct client *client = ctx->client;
 	struct mailbox_status status;
 	struct mailbox_sync_status sync_status;
@@ -223,13 +220,15 @@ int imap_sync_deinit(struct imap_sync_context *ctx,
 		array_free(&ctx->expunges);
 
 	if (mailbox_sync_deinit(&ctx->sync_ctx, &sync_status) < 0 ||
-	    mailbox_get_status(ctx->box, status_items, &status) < 0 ||
 	    ctx->failed) {
 		mailbox_transaction_rollback(&ctx->t);
 		array_free(&ctx->tmp_keywords);
 		i_free(ctx);
 		return -1;
 	}
+	mailbox_get_open_status(ctx->box, STATUS_UIDVALIDITY |
+				STATUS_MESSAGES | STATUS_RECENT |
+				STATUS_HIGHESTMODSEQ, &status);
 
 	ret = mailbox_transaction_commit(&ctx->t);
 

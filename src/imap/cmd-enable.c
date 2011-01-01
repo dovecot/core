@@ -21,13 +21,13 @@ bool cmd_enable(struct client_command_context *cmd)
 		}
 		str = t_str_ucase(str);
 		if (strcmp(str, "CONDSTORE") == 0) {
-			client_enable(cmd->client, MAILBOX_FEATURE_CONDSTORE);
-			str_append(reply, " CONDSTORE");
-		}
-		else if (strcmp(str, "QRESYNC") == 0) {
-			client_enable(cmd->client, MAILBOX_FEATURE_QRESYNC |
-				      MAILBOX_FEATURE_CONDSTORE);
-			str_append(reply, " QRESYNC");
+			if (client_enable(cmd->client,
+					  MAILBOX_FEATURE_CONDSTORE) == 0)
+				str_append(reply, " CONDSTORE");
+		} else if (strcmp(str, "QRESYNC") == 0) {
+			if (client_enable(cmd->client, MAILBOX_FEATURE_QRESYNC |
+					  MAILBOX_FEATURE_CONDSTORE) == 0)
+				str_append(reply, " QRESYNC");
 		}
 	}
 	if (str_len(reply) > 9)

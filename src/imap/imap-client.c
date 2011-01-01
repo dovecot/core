@@ -911,28 +911,35 @@ bool client_handle_search_save_ambiguity(struct client_command_context *cmd)
 	return TRUE;
 }
 
-void client_enable(struct client *client, enum mailbox_feature features)
+int client_enable(struct client *client, enum mailbox_feature features)
 {
 	struct mailbox_status status;
+	int ret;
 
 	if ((client->enabled_features & features) == features)
-		return;
+		return 0;
 
 	client->enabled_features |= features;
 	if (client->mailbox == NULL)
-		return;
+		return 0;
 
-	mailbox_enable(client->mailbox, features);
-	if ((features & MAILBOX_FEATURE_CONDSTORE) != 0) {
+	ret = mailbox_enable(client->mailbox, features);
+	if ((features & MAILBOX_FEATURE_CONDSTORE) != 0 && ret == 0) {
 		/* CONDSTORE being enabled while mailbox is selected.
 		   Notify client of the latest HIGHESTMODSEQ. */
-		if (mailbox_get_status(client->mailbox,
-				       STATUS_HIGHESTMODSEQ, &status) < 0)
-			i_unreached();
-		client_send_line(client, t_strdup_printf(
-			"* OK [HIGHESTMODSEQ %llu] Highest",
-			(unsigned long long)status.highest_modseq));
+		ret = mailbox_get_status(client->mailbox,
+					 STATUS_HIGHESTMODSEQ, &status);
+		if (ret == 0) {
+			client_send_line(client, t_strdup_printf(
+				"* OK [HIGHESTMODSEQ %llu] Highest",
+				(unsigned long long)status.highest_modseq));
+		}
 	}
+	if (ret < 0) {
+		client_send_untagged_storage_error(client,
+			mailbox_get_storage(client->mailbox));
+	}
+	return ret;
 }
 
 struct imap_search_update *

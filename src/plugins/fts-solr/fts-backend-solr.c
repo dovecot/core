@@ -298,7 +298,7 @@ static int fts_backend_solr_get_last_uid_fallback(struct fts_backend *backend,
 
 	box_name = fts_box_get_root(box, &ns);
 
-	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
+	mailbox_get_open_status(box, STATUS_UIDVALIDITY, &status);
 	str_printfa(str, "uidv:%u+box:", status.uidvalidity);
 	solr_quote_http(str, box_name);
 	solr_add_ns_query_http(str, backend, ns);
@@ -340,7 +340,7 @@ static int fts_backend_solr_get_last_uid(struct fts_backend *backend,
 
 	box_name = fts_box_get_root(box, &ns);
 
-	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
+	mailbox_get_open_status(box, STATUS_UIDVALIDITY, &status);
 	str_printfa(str, "uidv:%u+box:", status.uidvalidity);
 	solr_quote_http(str, box_name);
 	solr_add_ns_query_http(str, backend, ns);
@@ -539,7 +539,7 @@ fts_backend_solr_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
 	ctx->ctx.backend = backend;
 	ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
 
-	mailbox_get_status(backend->box, STATUS_UIDVALIDITY, &status);
+	mailbox_get_open_status(backend->box, STATUS_UIDVALIDITY, &status);
 	ctx->uid_validity = status.uidvalidity;
 
 	*ctx_r = &ctx->ctx;
@@ -737,7 +737,7 @@ fts_backend_solr_expunge(struct fts_backend *backend, struct mail *mail)
 {
 	struct mailbox_status status;
 
-	mailbox_get_status(mail->box, STATUS_UIDVALIDITY, &status);
+	mailbox_get_open_status(mail->box, STATUS_UIDVALIDITY, &status);
 
 	T_BEGIN {
 		string_t *cmd;
@@ -807,7 +807,7 @@ static int fts_backend_solr_lookup(struct fts_backend_lookup_context *ctx,
 	bool virtual;
 
 	virtual = strcmp(box->storage->name, "virtual") == 0;
-	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
+	mailbox_get_open_status(box, STATUS_UIDVALIDITY, &status);
 
 	str = t_str_new(256);
 	if (!virtual) {

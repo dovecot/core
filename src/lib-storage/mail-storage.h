@@ -64,9 +64,13 @@ enum mailbox_status_items {
 	STATUS_UNSEEN		= 0x10,
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
 	STATUS_KEYWORDS		= 0x40,
-	STATUS_HIGHESTMODSEQ	= 0x80,
-	STATUS_CACHE_FIELDS	= 0x100,
-	STATUS_VIRTUAL_SIZE	= 0x200
+	STATUS_HIGHESTMODSEQ	= 0x80
+};
+
+enum mailbox_metadata_items {
+	MAILBOX_METADATA_GUID		= 0x01,
+	MAILBOX_METADATA_VIRTUAL_SIZE	= 0x02,
+	MAILBOX_METADATA_CACHE_FIELDS	= 0x04
 };
 
 enum mailbox_search_result_flags {
@@ -185,15 +189,19 @@ struct mailbox_status {
 
 	uint32_t first_unseen_seq;
 	uint64_t highest_modseq;
-	/* sum of virtual size of all messages in mailbox */
-	uint64_t virtual_size;
 
 	const ARRAY_TYPE(keywords) *keywords;
-	/* Fields that have "temp" or "yes" caching decision. */
-	const ARRAY_TYPE(const_string) *cache_fields;
 
 	/* Modseqs aren't permanent (index is in memory) */
 	unsigned int nonpermanent_modseqs:1;
+};
+
+struct mailbox_metadata {
+	uint8_t guid[MAIL_GUID_128_SIZE];
+	/* sum of virtual size of all messages in mailbox */
+	uint64_t virtual_size;
+	/* Fields that have "temp" or "yes" caching decision. */
+	const ARRAY_TYPE(const_string) *cache_fields;
 };
 
 struct mailbox_update {
@@ -393,11 +401,16 @@ bool mailbox_backends_equal(const struct mailbox *box1,
    do forced CLOSE. */
 bool mailbox_is_inconsistent(struct mailbox *box);
 
-/* Gets the mailbox status information. */
+/* Gets the mailbox status information, opening the mailbox if necessary. */
 int mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 		       struct mailbox_status *status_r);
-/* Get mailbox GUID, creating it if necessary. */
-int mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE]);
+/* Gets the mailbox status, requires that mailbox is already opened. */
+void mailbox_get_open_status(struct mailbox *box,
+			     enum mailbox_status_items items,
+			     struct mailbox_status *status_r);
+/* Gets mailbox metadata */
+int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
+			 struct mailbox_metadata *metadata_r);
 /* Returns a mask of flags that are private to user in this mailbox
    (as opposed to flags shared between users). */
 enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box);

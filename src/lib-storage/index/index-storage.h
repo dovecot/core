@@ -108,6 +108,9 @@ enum mailbox_sync_type index_sync_type_convert(enum mail_index_sync_type type);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status_r);
+int index_mailbox_get_metadata(struct mailbox *box,
+			       enum mailbox_metadata_items items,
+			       struct mailbox_metadata *metadata_r);
 
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *t,

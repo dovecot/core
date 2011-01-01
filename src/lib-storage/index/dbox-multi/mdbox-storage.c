@@ -300,9 +300,9 @@ static void mdbox_set_file_corrupted(struct dbox_file *file)
 }
 
 static int
-mdbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
+mdbox_mailbox_get_guid(struct mdbox_mailbox *mbox,
+		       uint8_t guid[MAIL_GUID_128_SIZE])
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
 	struct mdbox_index_header hdr;
 
 	if (mdbox_read_header(mbox, &hdr) < 0)
@@ -310,12 +310,26 @@ mdbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 
 	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
-		if (mdbox_write_index_header(box, NULL, NULL) < 0 ||
+		if (mdbox_write_index_header(&mbox->box, NULL, NULL) < 0 ||
 		    mdbox_read_header(mbox, &hdr) < 0)
 			return -1;
 	}
 	memcpy(guid, hdr.mailbox_guid, MAIL_GUID_128_SIZE);
 	return 0;
+}
+
+static int
+mdbox_mailbox_get_metadata(struct mailbox *box,
+			   enum mailbox_metadata_items items,
+			   struct mailbox_metadata *metadata_r)
+{
+	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
+
+	if ((items & MAILBOX_METADATA_GUID) != 0) {
+		if (mdbox_mailbox_get_guid(mbox, metadata_r->guid) < 0)
+			return -1;
+	}
+	return index_mailbox_get_metadata(box, items, metadata_r);
 }
 
 static int
@@ -403,7 +417,7 @@ struct mailbox mdbox_mailbox = {
 		mdbox_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		mdbox_mailbox_get_guid,
+		mdbox_mailbox_get_metadata,
 		NULL,
 		NULL,
 		mdbox_storage_sync_init,

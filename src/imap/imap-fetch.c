@@ -159,7 +159,7 @@ expunges_drop_known(struct imap_fetch_context *ctx, struct mail *mail,
 	i_assert(array_count(ctx->qresync_sample_uidset) == count);
 	i_assert(count > 0);
 
-	mailbox_get_status(ctx->box, STATUS_MESSAGES, &status);
+	mailbox_get_open_status(ctx->box, STATUS_MESSAGES, &status);
 
 	/* FIXME: we could do removals from the middle as well */
 	for (i = 0; i < count && seqs[i] <= status.messages; i++) {
@@ -245,7 +245,7 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 					  uid_filter[i].seq2);
 	}
 
-	mailbox_get_status(ctx->box, STATUS_UIDNEXT, &status);
+	mailbox_get_open_status(ctx->box, STATUS_UIDNEXT, &status);
 	seq_range_array_remove_range(expunged_uids, status.uidnext,
 				     (uint32_t)-1);
 
@@ -751,7 +751,7 @@ static bool
 fetch_modseq_init(struct imap_fetch_context *ctx, const char *name,
 		  const struct imap_arg **args ATTR_UNUSED)
 {
-	client_enable(ctx->client, MAILBOX_FEATURE_CONDSTORE);
+	(void)client_enable(ctx->client, MAILBOX_FEATURE_CONDSTORE);
 	imap_fetch_add_handler(ctx, TRUE, FALSE, name, NULL,
 			       fetch_modseq, NULL);
 	return TRUE;

@@ -335,12 +335,16 @@ virtual_mailbox_update(struct mailbox *box,
 }
 
 static int
-virtual_mailbox_get_guid(struct mailbox *box,
-			 uint8_t guid[MAIL_GUID_128_SIZE] ATTR_UNUSED)
+virtual_mailbox_get_metadata(struct mailbox *box,
+			     enum mailbox_metadata_items items,
+			     struct mailbox_metadata *metadata_r)
 {
-	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Virtual mailboxes have no GUIDs");
-	return -1;
+	if ((items & MAILBOX_METADATA_GUID) != 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Virtual mailboxes have no GUIDs");
+		return -1;
+	}
+	return index_mailbox_get_metadata(box, items, metadata_r);
 }
 
 static void
@@ -437,7 +441,7 @@ virtual_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,
 	if (bbox == NULL)
 		return FALSE;
 
-	mailbox_get_status(bbox->box, STATUS_UIDVALIDITY, &status);
+	mailbox_get_open_status(bbox->box, STATUS_UIDVALIDITY, &status);
 	if (status.uidvalidity != backend_uidvalidity)
 		return FALSE;
 
@@ -517,7 +521,7 @@ struct mailbox virtual_mailbox = {
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		virtual_mailbox_get_guid,
+		virtual_mailbox_get_metadata,
 		NULL,
 		NULL,
 		virtual_storage_sync_init,

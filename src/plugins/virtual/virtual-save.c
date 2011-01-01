@@ -50,7 +50,7 @@ virtual_copy_keywords(struct mailbox *src_box,
 		return NULL;
 
 	t_array_init(&kw_strings, src_keywords->count + 1);
-	mailbox_get_status(src_box, STATUS_KEYWORDS, &status);
+	mailbox_get_open_status(src_box, STATUS_KEYWORDS, &status);
 
 	for (i = 0; i < src_keywords->count; i++) {
 		kwp = array_idx(status.keywords, src_keywords->idx[i]);

@@ -116,7 +116,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 
 	*failed_uid_r = 0;
 
-	mailbox_get_status(client->mailbox, STATUS_UIDVALIDITY, &status);
+	mailbox_get_open_status(client->mailbox, STATUS_UIDVALIDITY, &status);
 	client->uid_validity = status.uidvalidity;
 	client->messages_count = status.messages;
 

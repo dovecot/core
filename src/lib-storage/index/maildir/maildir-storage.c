@@ -473,11 +473,18 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 }
 
 static int
-maildir_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
+maildir_mailbox_get_metadata(struct mailbox *box,
+			     enum mailbox_metadata_items items,
+			     struct mailbox_metadata *metadata_r)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 
-	return maildir_uidlist_get_mailbox_guid(mbox->uidlist, guid);
+	if ((items & MAILBOX_METADATA_GUID) != 0) {
+		if (maildir_uidlist_get_mailbox_guid(mbox->uidlist,
+						     metadata_r->guid) < 0)
+			return -1;
+	}
+	return index_mailbox_get_metadata(box, items, metadata_r);
 }
 
 static void maildir_mailbox_close(struct mailbox *box)
@@ -644,7 +651,7 @@ struct mailbox maildir_mailbox = {
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		maildir_mailbox_get_guid,
+		maildir_mailbox_get_metadata,
 		maildir_list_index_has_changed,
 		maildir_list_index_update_sync,
 		maildir_storage_sync_init,

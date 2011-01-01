@@ -303,12 +303,17 @@ static int sdbox_mailbox_delete(struct mailbox *box)
 }
 
 static int
-sdbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
+sdbox_mailbox_get_metadata(struct mailbox *box,
+			   enum mailbox_metadata_items items,
+			   struct mailbox_metadata *metadata_r)
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 
-	memcpy(guid, mbox->mailbox_guid, MAIL_GUID_128_SIZE);
-	return 0;
+	if ((items & MAILBOX_METADATA_GUID) != 0) {
+		memcpy(metadata_r->guid, mbox->mailbox_guid,
+		       MAIL_GUID_128_SIZE);
+	}
+	return index_mailbox_get_metadata(box, items, metadata_r);
 }
 
 static int
@@ -370,7 +375,7 @@ struct mailbox sdbox_mailbox = {
 		sdbox_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		sdbox_mailbox_get_guid,
+		sdbox_mailbox_get_metadata,
 		NULL,
 		NULL,
 		sdbox_storage_sync_init,

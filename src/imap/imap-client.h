@@ -192,7 +192,7 @@ bool client_read_string_args(struct client_command_context *cmd,
    have to wait for an existing SEARCH SAVE to finish. */
 bool client_handle_search_save_ambiguity(struct client_command_context *cmd);
 
-void client_enable(struct client *client, enum mailbox_feature features);
+int client_enable(struct client *client, enum mailbox_feature features);
 
 struct imap_search_update *
 client_search_update_lookup(struct client *client, const char *tag,

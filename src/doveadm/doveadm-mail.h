@@ -89,6 +89,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			     const char **error_r);
 void doveadm_mail_server_flush(void);
 
+struct mailbox *
+doveadm_mailbox_find(struct mail_user *user, const char *mailbox);
 int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
 				  struct mailbox **box_r);
 struct mail_search_args *

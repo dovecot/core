@@ -88,7 +88,7 @@ static void search_parse_msgset_args(unsigned int messages_count,
 static void search_init_arg(struct mail_search_arg *arg,
 			    struct index_search_context *ctx)
 {
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	struct mailbox_metadata metadata;
 	bool match;
 
 	switch (arg->type) {
@@ -105,12 +105,13 @@ static void search_init_arg(struct mail_search_arg *arg,
 		ctx->have_index_args = TRUE;
 		break;
 	case SEARCH_MAILBOX_GUID:
-		if (mailbox_get_guid(ctx->box, guid) < 0) {
+		if (mailbox_get_metadata(ctx->box, MAILBOX_METADATA_GUID,
+					 &metadata) < 0) {
 			/* result will be unknown */
 			break;
 		}
 
-		match = strcmp(mail_guid_128_to_string(guid),
+		match = strcmp(mail_guid_128_to_string(metadata.guid),
 			       arg->value.str) == 0;
 		if (match != arg->not)
 			arg->match_always = TRUE;
@@ -1079,7 +1080,7 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 	if (gettimeofday(&ctx->last_nonblock_timeval, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
 
-	mailbox_get_status(t->box, STATUS_MESSAGES, &status);
+	mailbox_get_open_status(t->box, STATUS_MESSAGES, &status);
 	ctx->mail_ctx.progress_max = status.messages;
 
 	i_array_init(&ctx->mail_ctx.results, 5);

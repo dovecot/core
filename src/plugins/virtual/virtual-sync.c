@@ -986,8 +986,8 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 	unsigned int mailbox_offset;
 	uint64_t wanted_ondisk_highest_modseq;
 
-	mailbox_get_status(bbox->box, STATUS_UIDVALIDITY |
-			   STATUS_HIGHESTMODSEQ, &status);
+	mailbox_get_open_status(bbox->box, STATUS_UIDVALIDITY |
+				STATUS_HIGHESTMODSEQ, &status);
 	wanted_ondisk_highest_modseq =
 		array_count(&bbox->sync_pending_removes) > 0 ? 0 :
 		status.highest_modseq;
@@ -1053,7 +1053,7 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		if (mailbox_sync(bbox->box, sync_flags) < 0)
 			return -1;
 
-		mailbox_get_status(bbox->box, STATUS_UIDVALIDITY, &status);
+		mailbox_get_open_status(bbox->box, STATUS_UIDVALIDITY, &status);
 		virtual_backend_box_sync_mail_set(bbox);
 		if (status.uidvalidity != bbox->sync_uid_validity) {
 			/* UID validity changed since last sync (or this is

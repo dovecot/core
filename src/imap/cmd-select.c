@@ -276,7 +276,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	struct client *client = ctx->cmd->client;
 	struct mailbox_status status;
 	enum mailbox_flags flags = 0;
-	int ret;
+	int ret = 0;
 
 	if (readonly)
 		flags |= MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT;
@@ -289,20 +289,17 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	}
 
 	if (client->enabled_features != 0)
-		mailbox_enable(ctx->box, client->enabled_features);
-	if (mailbox_sync(ctx->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
+		ret = mailbox_enable(ctx->box, client->enabled_features);
+	if (ret < 0 ||
+	    mailbox_sync(ctx->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		client_send_storage_error(ctx->cmd,
 					  mailbox_get_storage(ctx->box));
 		return -1;
 	}
-	if (mailbox_get_status(ctx->box, STATUS_MESSAGES | STATUS_RECENT |
-			       STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
-			       STATUS_UIDNEXT | STATUS_KEYWORDS |
-			       STATUS_HIGHESTMODSEQ, &status) < 0) {
-		client_send_storage_error(ctx->cmd,
-					  mailbox_get_storage(ctx->box));
-		return -1;
-	}
+	mailbox_get_open_status(ctx->box, STATUS_MESSAGES | STATUS_RECENT |
+				STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
+				STATUS_UIDNEXT | STATUS_KEYWORDS |
+				STATUS_HIGHESTMODSEQ, &status);
 
 	client->mailbox = ctx->box;
 	client->select_counter++;
@@ -413,7 +410,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	if (ctx->condstore) {
 		/* Enable while no mailbox is opened to avoid sending
 		   HIGHESTMODSEQ for previously opened mailbox */
-		client_enable(client, MAILBOX_FEATURE_CONDSTORE);
+		(void)client_enable(client, MAILBOX_FEATURE_CONDSTORE);
 	}
 
 	ret = select_open(ctx, storage_name, readonly);

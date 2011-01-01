@@ -911,21 +911,27 @@ int mailbox_get_status(struct mailbox *box,
 	return box->v.get_status(box, items, status_r);
 }
 
-int mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
+void mailbox_get_open_status(struct mailbox *box,
+			     enum mailbox_status_items items,
+			     struct mailbox_status *status_r)
 {
-	if (box->v.get_guid == NULL) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-				       "Storage doesn't support mailbox GUIDs");
-		return -1;
-	}
+	i_assert(box->opened);
+	if (box->v.get_status(box, items, status_r) < 0)
+		i_unreached();
+}
+
+int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
+			 struct mailbox_metadata *metadata_r)
+{
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
 			return -1;
 	}
-	if (box->v.get_guid(box, guid) < 0)
+	if (box->v.get_metadata(box, items, metadata_r) < 0)
 		return -1;
 
-	i_assert(!mail_guid_128_is_empty(guid));
+	i_assert((items & MAILBOX_METADATA_GUID) == 0 ||
+		 !mail_guid_128_is_empty(metadata_r->guid));
 	return 0;
 }
 

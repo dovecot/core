@@ -593,12 +593,11 @@ static void mbox_mailbox_close(struct mailbox *box)
 }
 
 static int
-mbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
+mbox_mailbox_get_guid(struct mbox_mailbox *mbox,
+		      uint8_t guid[MAIL_GUID_128_SIZE])
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
-
-	if (mail_index_is_in_memory(box->index)) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+	if (mail_index_is_in_memory(mbox->box.index)) {
+		mail_storage_set_error(mbox->box.storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Mailbox GUIDs are not permanent without index files");
 		return -1;
 	}
@@ -608,6 +607,20 @@ mbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 	}
 	memcpy(guid, mbox->mbox_hdr.mailbox_guid, MAIL_GUID_128_SIZE);
 	return 0;
+}
+
+static int
+mbox_mailbox_get_metadata(struct mailbox *box,
+			  enum mailbox_metadata_items items,
+			  struct mailbox_metadata *metadata_r)
+{
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+
+	if ((items & MAILBOX_METADATA_GUID) != 0) {
+		if (mbox_mailbox_get_guid(mbox, metadata_r->guid) < 0)
+			return -1;
+	}
+	return index_mailbox_get_metadata(box, items, metadata_r);
 }
 
 static void mbox_notify_changes(struct mailbox *box)
@@ -748,7 +761,7 @@ struct mailbox mbox_mailbox = {
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		mbox_mailbox_get_guid,
+		mbox_mailbox_get_metadata,
 		NULL,
 		NULL,
 		mbox_storage_sync_init,

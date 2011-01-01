@@ -102,8 +102,13 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 		mailbox_free(&box);
 		return -1;
 	}
-	if (cmd->client->enabled_features != 0)
-		mailbox_enable(box, cmd->client->enabled_features);
+	if (cmd->client->enabled_features != 0) {
+		if (mailbox_enable(box, cmd->client->enabled_features) < 0) {
+			client_send_storage_error(cmd, mailbox_get_storage(box));
+			mailbox_free(&box);
+			return -1;
+		}
+	}
 	*destbox_r = box;
 	return 0;
 }

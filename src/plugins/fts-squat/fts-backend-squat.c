@@ -69,7 +69,7 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 		return NULL;
 	}
 
-	mailbox_get_status(box, STATUS_UIDVALIDITY, &status);
+	mailbox_get_open_status(box, STATUS_UIDVALIDITY, &status);
 	if (storage->set->mmap_disable)
 		flags |= SQUAT_INDEX_FLAG_MMAP_DISABLE;
 	if (storage->set->mail_nfs_index)

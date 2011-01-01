@@ -63,11 +63,12 @@ static int fetch_mailbox(struct fetch_cmd_context *ctx)
 
 static int fetch_mailbox_guid(struct fetch_cmd_context *ctx)
 {
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	struct mailbox_metadata metadata;
 
-	if (mailbox_get_guid(ctx->mail->box, guid) < 0)
+	if (mailbox_get_metadata(ctx->mail->box, MAILBOX_METADATA_GUID,
+				 &metadata) < 0)
 		return -1;
-	doveadm_print(mail_guid_128_to_string(guid));
+	doveadm_print(mail_guid_128_to_string(metadata.guid));
 	return 0;
 }
 

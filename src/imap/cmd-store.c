@@ -62,8 +62,8 @@ store_parse_modifiers(struct imap_store_context *ctx,
 							  "Invalid modseq");
 				return FALSE;
 			}
-			client_enable(ctx->cmd->client,
-				      MAILBOX_FEATURE_CONDSTORE);
+			(void)client_enable(ctx->cmd->client,
+					    MAILBOX_FEATURE_CONDSTORE);
 		} else {
 			client_send_command_error(ctx->cmd,
 						  "Unknown STORE modifier");

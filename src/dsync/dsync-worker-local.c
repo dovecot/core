@@ -514,12 +514,14 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT;
 	const enum mailbox_status_items status_items =
 		STATUS_UIDNEXT | STATUS_UIDVALIDITY |
-		STATUS_HIGHESTMODSEQ | STATUS_CACHE_FIELDS;
+		STATUS_HIGHESTMODSEQ;
+	const enum mailbox_metadata_items metadata_items =
+		MAILBOX_METADATA_CACHE_FIELDS | MAILBOX_METADATA_GUID;
 	const struct mailbox_info *info;
 	const char *storage_name;
 	struct mailbox *box;
 	struct mailbox_status status;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	struct mailbox_metadata metadata;
 	struct local_dsync_mailbox_change *change;
 	struct local_dsync_dir_change *dir_change, change_lookup;
 	struct local_dsync_mailbox *old_lbox;
@@ -557,9 +559,8 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	}
 
 	box = mailbox_alloc(info->ns->list, storage_name, flags);
-	if (mailbox_sync(box, 0) < 0 ||
-	    mailbox_get_status(box, status_items, &status) < 0 ||
-	    mailbox_get_guid(box, mailbox_guid) < 0) {
+	if (mailbox_get_status(box, status_items, &status) < 0 ||
+	    mailbox_get_metadata(box, metadata_items, &metadata) < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
 
 		i_error("Failed to sync mailbox %s: %s", info->name,
@@ -569,13 +570,13 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		return -1;
 	}
 
-	change = hash_table_lookup(worker->mailbox_changes_hash, mailbox_guid);
+	change = hash_table_lookup(worker->mailbox_changes_hash, metadata.guid);
 	if (change != NULL) {
 		/* it shouldn't be marked as deleted, but drop it to be sure */
 		change->deleted_mailbox = FALSE;
 	}
 
-	memcpy(dsync_box_r->mailbox_guid.guid, mailbox_guid,
+	memcpy(dsync_box_r->mailbox_guid.guid, metadata.guid,
 	       sizeof(dsync_box_r->mailbox_guid.guid));
 	dsync_box_r->uid_validity = status.uidvalidity;
 	dsync_box_r->uid_next = status.uidnext;
@@ -583,7 +584,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	dsync_box_r->highest_modseq = status.highest_modseq;
 
 	p_clear(iter->ret_pool);
-	fields = array_get(status.cache_fields, &field_count);
+	fields = array_get(metadata.cache_fields, &field_count);
 	p_array_init(&dsync_box_r->cache_fields, iter->ret_pool, field_count);
 	for (i = 0; i < field_count; i++) {
 		const char *field_name = p_strdup(iter->ret_pool, fields[i]);
@@ -788,7 +789,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 	enum mailbox_flags flags = MAILBOX_FLAG_KEEP_RECENT;
 	struct local_dsync_mailbox *lbox;
 	struct mailbox *box;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	struct mailbox_metadata metadata;
 
 	lbox = hash_table_lookup(worker->mailbox_hash, guid);
 	if (lbox == NULL) {
@@ -799,7 +800,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 
 	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, flags);
 	if (mailbox_sync(box, 0) < 0 ||
-	    mailbox_get_guid(box, mailbox_guid) < 0) {
+	    mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		struct mail_storage *storage = mailbox_get_storage(box);
 
 		i_error("Failed to sync mailbox %s: %s", lbox->storage_name,
@@ -808,10 +809,10 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 		return -1;
 	}
 
-	if (memcmp(mailbox_guid, guid->guid, sizeof(guid->guid)) != 0) {
+	if (memcmp(metadata.guid, guid->guid, sizeof(guid->guid)) != 0) {
 		i_error("Mailbox %s changed its GUID (%s -> %s)",
 			lbox->storage_name, dsync_guid_to_str(guid),
-			mail_guid_128_to_string(mailbox_guid));
+			mail_guid_128_to_string(metadata.guid));
 		mailbox_free(&box);
 		return -1;
 	}
@@ -936,8 +937,7 @@ iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 	array_clear(&iter->expunges);
 	iter->expunges_set = TRUE;
 
-	if (mailbox_get_status(box, STATUS_UIDNEXT, &status) < 0)
-		i_unreached();
+	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
 	if (prev_uid + 1 >= status.uidnext) {
 		/* no expunged messages at the end of mailbox */
 		return FALSE;

@@ -2,14 +2,13 @@
 #define IMAP_STATUS_H
 
 struct imap_status_items {
-	enum mailbox_status_items mailbox_items;
-
-	unsigned int guid:1;
+	enum mailbox_status_items status;
+	enum mailbox_metadata_items metadata;
 };
 
 struct imap_status_result {
 	struct mailbox_status status;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	struct mailbox_metadata metadata;
 };
 
 int imap_status_parse_items(struct client_command_context *cmd,

@@ -16,7 +16,7 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	struct doveadm_mail_iter *iter;
 	struct mailbox_transaction_context *trans;
 	struct mail *mail;
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	struct mailbox_metadata metadata;
 	const char *guid_str;
 	int ret = 0;
 
@@ -24,10 +24,12 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 		return -1;
 
 	mail = mail_alloc(trans, 0, NULL);
-	if (mailbox_get_guid(mail->box, guid) < 0)
+
+	if (mailbox_get_metadata(mail->box, MAILBOX_METADATA_GUID,
+				 &metadata) < 0)
 		ret = -1;
 	else {
-		guid_str = mail_guid_128_to_string(guid);
+		guid_str = mail_guid_128_to_string(metadata.guid);
 		while (doveadm_mail_iter_next(iter, mail)) {
 			doveadm_print(guid_str);
 			T_BEGIN {
