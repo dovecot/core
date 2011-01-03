@@ -82,9 +82,8 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		      enum mail_flags flags, const char *const *keywords,
 		      struct mail_storage **storage_r);
-void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_context *ctx,
-					     struct mail_save_context *save_ctx,
-					     const char *mailbox);
+void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *session,
+					     struct mail_save_context *save_ctx);
 
 int mail_deliver(struct mail_deliver_context *ctx,
 		 struct mail_storage **storage_r);

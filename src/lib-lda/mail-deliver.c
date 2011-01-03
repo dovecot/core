@@ -228,20 +228,24 @@ static bool mail_deliver_check_duplicate(struct mail_deliver_session *session,
 	return FALSE;
 }
 
-void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_context *ctx,
-					     struct mail_save_context *save_ctx,
-					     const char *mailbox)
+void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *session,
+					     struct mail_save_context *save_ctx)
 {
+	struct mailbox_transaction_context *trans =
+		mailbox_save_get_transaction(save_ctx);
+	struct mailbox *box = mailbox_transaction_get_mailbox(trans);
+	struct mail_storage *storage = mailbox_get_storage(box);
+	struct mail_user *user = mail_storage_get_user(storage);
 	uint8_t guid[MAIL_GUID_128_SIZE];
 
-	if (strcasecmp(mailbox, "INBOX") != 0)
+	if (strcmp(mailbox_get_name(box), "INBOX") != 0)
 		return;
 
 	/* avoid storing duplicate GUIDs to delivered mails to INBOX. this
 	   happens if mail is delivered to same user multiple times within a
 	   session. the problem with this is that if GUIDs are used as POP3
 	   UIDLs, some clients can't handle the duplicates well. */
-	if (mail_deliver_check_duplicate(ctx->session, ctx->dest_user)) {
+	if (mail_deliver_check_duplicate(session, user)) {
 		mail_generate_guid_128(guid);
 		mailbox_save_set_guid(save_ctx, mail_guid_128_to_string(guid));
 	}
@@ -303,7 +307,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	ctx->dest_mail = mail_alloc(t, lda_log_wanted_fetch_fields, NULL);
 	mailbox_header_lookup_unref(&headers_ctx);
 	mailbox_save_set_dest_mail(save_ctx, ctx->dest_mail);
-	mail_deliver_deduplicate_guid_if_needed(ctx, save_ctx, mailbox);
+	mail_deliver_deduplicate_guid_if_needed(ctx->session, save_ctx);
 
 	if (mailbox_copy(&save_ctx, ctx->src_mail) < 0)
 		ret = -1;
