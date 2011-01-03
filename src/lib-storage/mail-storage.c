@@ -1425,6 +1425,12 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 		mailbox_keywords_unref(box, &keywords);
 }
 
+struct mailbox_transaction_context *
+mailbox_save_get_transaction(struct mail_save_context *ctx)
+{
+	return ctx->transaction;
+}
+
 int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 {
 	struct mail_save_context *ctx = *_ctx;
