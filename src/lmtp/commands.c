@@ -446,7 +446,7 @@ int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 
 static int
 client_deliver(struct client *client, const struct mail_recipient *rcpt,
-	       struct mail *src_mail)
+	       struct mail *src_mail, struct mail_deliver_session *session)
 {
 	struct mail_deliver_context dctx;
 	struct mail_storage *storage;
@@ -470,7 +470,8 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
 
 	memset(&dctx, 0, sizeof(dctx));
-	dctx.pool = pool_alloconly_create("mail delivery", 1024);
+	dctx.session = session;
+	dctx.pool = session->pool;
 	dctx.set = sets[1];
 	dctx.session_id = client->state.session_id;
 	dctx.src_mail = src_mail;
@@ -516,11 +517,11 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		}
 		ret = -1;
 	}
-	pool_unref(&dctx.pool);
 	return ret;
 }
 
-static bool client_deliver_next(struct client *client, struct mail *src_mail)
+static bool client_deliver_next(struct client *client, struct mail *src_mail,
+				struct mail_deliver_session *session)
 {
 	const struct mail_recipient *rcpts;
 	unsigned int count;
@@ -529,7 +530,7 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail)
 	rcpts = array_get(&client->state.rcpt_to, &count);
 	while (client->state.rcpt_idx < count) {
 		ret = client_deliver(client, &rcpts[client->state.rcpt_idx],
-				     src_mail);
+				     src_mail, session);
 		i_set_failure_prefix(t_strdup_printf("lmtp(%s): ", my_pid));
 
 		client->state.rcpt_idx++;
@@ -618,15 +619,17 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 static void
 client_input_data_write_local(struct client *client, struct istream *input)
 {
+	struct mail_deliver_session *session;
 	struct mail *src_mail;
 	uid_t old_uid, first_uid = (uid_t)-1;
 
 	if (client_open_raw_mail(client, input) < 0)
 		return;
 
+	session = mail_deliver_session_init();
 	old_uid = geteuid();
 	src_mail = client->state.raw_mail;
-	while (client_deliver_next(client, src_mail)) {
+	while (client_deliver_next(client, src_mail, session)) {
 		if (client->state.first_saved_mail == NULL ||
 		    client->state.first_saved_mail == src_mail)
 			mail_user_unref(&client->state.dest_user);
@@ -639,6 +642,7 @@ client_input_data_write_local(struct client *client, struct istream *input)
 			i_assert(first_uid != 0);
 		}
 	}
+	mail_deliver_session_deinit(&session);
 
 	if (client->state.first_saved_mail != NULL) {
 		struct mail *mail = client->state.first_saved_mail;
