@@ -148,7 +148,8 @@ int sdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	ctx->finished = TRUE;
-	if (mail_storage_copy_can_use_hardlink(mail->box, &mbox->box)) {
+	if (mail_storage_copy_can_use_hardlink(mail->box, &mbox->box) &&
+	    _ctx->guid == NULL) {
 		T_BEGIN {
 			ret = sdbox_copy_hardlink(_ctx, mail);
 		} T_END;
