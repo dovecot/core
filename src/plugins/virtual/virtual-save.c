@@ -21,18 +21,20 @@ virtual_save_alloc(struct mailbox_transaction_context *_t)
 	struct mailbox_transaction_context *backend_trans;
 	struct virtual_save_context *ctx;
 
-	if (_t->save_ctx != NULL)
-		return _t->save_ctx;
-
-	ctx = i_new(struct virtual_save_context, 1);
-	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
+	if (_t->save_ctx == NULL) {
+		ctx = i_new(struct virtual_save_context, 1);
+		ctx->ctx.transaction = &t->ictx.mailbox_ctx;
+		_t->save_ctx = &ctx->ctx;
+	} else {
+		ctx = (struct virtual_save_context *)_t->save_ctx;
+	}
 
 	if (mbox->save_bbox != NULL) {
+		i_assert(ctx->backend_save_ctx == NULL);
 		backend_trans =
 			virtual_transaction_get(_t, mbox->save_bbox->box);
 		ctx->backend_save_ctx = mailbox_save_alloc(backend_trans);
 	}
-	_t->save_ctx = &ctx->ctx;
 	return _t->save_ctx;
 }
 
