@@ -591,6 +591,8 @@ const struct sql_result driver_mysql_error_result = {
 	.failed_try_retry = TRUE
 };
 
+const char *driver_mysql_version = DOVECOT_VERSION;
+
 void driver_mysql_init(void);
 void driver_mysql_deinit(void);
 
