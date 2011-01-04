@@ -494,7 +494,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 
 	str = t_str_new(256);
 	old_vname = t_strdup(mail_namespace_get_vname(oldlist->ns, str, oldname));
-	old_vnamelen = strlen(oldname);
+	old_vnamelen = strlen(old_vname);
 
 	str_truncate(str, 0);
 	new_vname = t_strdup(mail_namespace_get_vname(newlist->ns, str, newname));
