@@ -126,7 +126,7 @@ struct dbox_file {
 struct dbox_file_append_context {
 	struct dbox_file *file;
 
-	uoff_t first_append_offset, last_flush_offset;
+	uoff_t first_append_offset, last_checkpoint_offset, last_flush_offset;
 	struct ostream *output;
 };
 
@@ -173,6 +173,9 @@ void dbox_file_append_rollback(struct dbox_file_append_context **ctx);
    can't be appended to (old file version or corruption) or -1 if error. */
 int dbox_file_get_append_stream(struct dbox_file_append_context *ctx,
 				struct ostream **output_r);
+/* Call after message has been fully saved. If this isn't done, the writes
+   since the last checkpoint are truncated. */
+void dbox_file_append_checkpoint(struct dbox_file_append_context *ctx);
 /* Flush output buffer. */
 int dbox_file_append_flush(struct dbox_file_append_context *ctx);
 

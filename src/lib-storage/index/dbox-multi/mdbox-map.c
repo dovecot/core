@@ -1097,15 +1097,19 @@ int mdbox_map_append_next(struct mdbox_map_append_context *ctx,
 
 void mdbox_map_append_finish(struct mdbox_map_append_context *ctx)
 {
-	struct mdbox_map_append *appends;
+	struct mdbox_map_append *appends, *last;
 	unsigned int count;
 	uoff_t cur_offset;
 
 	appends = array_get_modifiable(&ctx->appends, &count);
-	i_assert(count > 0 && appends[count-1].size == (uint32_t)-1);
-	cur_offset = appends[count-1].file_append->output->offset;
-	i_assert(cur_offset >= appends[count-1].offset);
-	appends[count-1].size = cur_offset - appends[count-1].offset;
+	i_assert(count > 0);
+	last = &appends[count-1];
+	i_assert(last->size == (uint32_t)-1);
+
+	cur_offset = last->file_append->output->offset;
+	i_assert(cur_offset >= last->offset);
+	last->size = cur_offset - last->offset;
+	dbox_file_append_checkpoint(last->file_append);
 }
 
 void mdbox_map_append_abort(struct mdbox_map_append_context *ctx)
