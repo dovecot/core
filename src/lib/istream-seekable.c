@@ -157,8 +157,9 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 	const unsigned char *data;
 	size_t size, pos, offset;
 
-	if (stream->istream.v_offset +
-	    (stream->pos - stream->skip) >= sstream->buffer->used) {
+	i_assert(stream->skip == 0);
+
+	if (stream->istream.v_offset + stream->pos >= sstream->buffer->used) {
 		/* need to read more */
 		if (sstream->buffer->used >= stream->max_buffer_size)
 			return FALSE;
@@ -176,6 +177,7 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 
 		/* we should have more now. */
 		data = i_stream_get_data(sstream->cur_input, &size);
+		i_assert(size > 0);
 		buffer_append(sstream->buffer, data, size);
 		i_stream_skip(sstream->cur_input, size);
 	}
