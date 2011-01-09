@@ -526,6 +526,8 @@ static void pgsql_query_s_callback(struct sql_result *result, void *context)
 
 static void driver_pgsql_sync_init(struct pgsql_db *db)
 {
+	bool add_to_connect;
+
 	db->orig_ioloop = current_ioloop;
 	if (db->io == NULL) {
 		db->ioloop = io_loop_create();
@@ -536,12 +538,18 @@ static void driver_pgsql_sync_init(struct pgsql_db *db)
 
 	/* have to move our existing I/O and timeout handlers to new I/O loop */
 	io_remove(&db->io);
-	if (db->to_connect != NULL)
+	if (db->to_connect != NULL) {
 		timeout_remove(&db->to_connect);
+		add_to_connect = TRUE;
+	} else {
+		add_to_connect = FALSE;
+	}
 
 	db->ioloop = io_loop_create();
-	db->to_connect = timeout_add(SQL_CONNECT_TIMEOUT_SECS * 1000,
-				     driver_pgsql_connect_timeout, db);
+	if (add_to_connect) {
+		db->to_connect = timeout_add(SQL_CONNECT_TIMEOUT_SECS * 1000,
+					     driver_pgsql_connect_timeout, db);
+	}
 	db->io = io_add(PQsocket(db->pg), db->io_dir, connect_callback, db);
 	/* wait for connecting to finish */
 	io_loop_run(db->ioloop);
