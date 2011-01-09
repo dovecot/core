@@ -132,7 +132,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 			/* full / error */
 			sstream->istream.istream.stream_errno =
 				sstream->cur_input->stream_errno;
-			return ret;
+			return -1;
 		}
 
 		/* go to next stream */
