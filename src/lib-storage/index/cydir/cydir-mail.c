@@ -67,7 +67,7 @@ static int cydir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 		return 0;
 
 	if (cydir_mail_stat(_mail, &st) < 0)
-		return (time_t)-1;
+		return -1;
 
 	data->save_date = st.st_ctime;
 	*date_r = data->save_date;
