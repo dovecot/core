@@ -1,3 +1,9 @@
+ - remove mail_deliver_session after all, do all the stuff transparently
+   by hooking into mailbox_copy().
+     - use this hook also to do the mail deduplication: 1) sort all destination
+       users, 2) create mail_user only once for each user, 3) remember in
+       src_mail the previously copied mail, 4) use that for mailbox_copy()ing
+       to following recipients
  - notify_sync() could have "what changed" struct with old/new flags
  - mailbox deletion could really be "rmdir", which fails if everything isn't
    already expunged. IMAP DELETE could fail with "mailbox changed during
