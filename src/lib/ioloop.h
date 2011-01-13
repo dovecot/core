@@ -111,4 +111,10 @@ void io_loop_log_set_prefix(struct ioloop_log *log, const char *prefix);
 /* Set the default log prefix to use outside callbacks. */
 void io_loop_set_default_log_prefix(struct ioloop *ioloop, const char *prefix);
 
+/* Move the given I/O into the current I/O loop if it's not already
+   there. New I/O is returned, while the old one is freed. */
+struct io *io_loop_move_io(struct io **io);
+/* Like io_loop_move_io(), but for timeouts. */
+struct timeout *io_loop_move_timeout(struct timeout **timeout);
+
 #endif

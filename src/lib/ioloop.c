@@ -547,3 +547,32 @@ void io_loop_set_default_log_prefix(struct ioloop *ioloop, const char *prefix)
 	i_free(ioloop->default_log_prefix);
 	ioloop->default_log_prefix = i_strdup(prefix);
 }
+
+struct io *io_loop_move_io(struct io **_io)
+{
+	struct io *new_io, *old_io = *_io;
+	struct io_file *old_io_file;
+
+	i_assert((old_io->condition & IO_NOTIFY) == 0);
+
+	if (old_io->ioloop == current_ioloop)
+		return old_io;
+
+	old_io_file = (struct io_file *)old_io;
+	new_io = io_add(old_io_file->fd, old_io->condition,
+			old_io->callback, old_io->context);
+	io_remove(_io);
+	return new_io;
+}
+
+struct timeout *io_loop_move_timeout(struct timeout **_timeout)
+{
+	struct timeout *new_to, *old_to = *_timeout;
+
+	if (old_to->ioloop == current_ioloop)
+		return old_to;
+
+	new_to = timeout_add(old_to->msecs, old_to->callback, old_to->context);
+	timeout_remove(_timeout);
+	return new_to;
+}
