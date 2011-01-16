@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DSYNC 1 "2010-07-02" "Dovecot v2.0" "Dovecot"
+.TH DSYNC 1 "2011-01-16" "Dovecot v2.0" "Dovecot"
 .SH NAME
 dsync \- Dovecot\(aqs mailbox synchronization utility
 .\"------------------------------------------------------------------------
@@ -111,7 +111,7 @@ from
 .I @pkgsysconfdir@/dovecot.conf
 and from the userdb with the given
 .IR value .
-In order to override multiple settings to
+In order to override multiple settings, the
 .B \-o
 option may be specified multiple times.
 .\"---------------------------------
