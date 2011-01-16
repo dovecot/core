@@ -176,6 +176,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 
 	ctx = i_new(struct index_mailbox_sync_context, 1);
 	ctx->ctx.box = box;
+	ctx->flags = flags;
 
 	if (failed) {
 		ctx->failed = TRUE;

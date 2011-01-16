@@ -1,0 +1,54 @@
+#ifndef IMAPC_STORAGE_H
+#define IMAPC_STORAGE_H
+
+#include "index-storage.h"
+
+#define IMAPC_STORAGE_NAME "imapc"
+
+struct imap_arg;
+struct imapc_command_reply;
+
+struct imapc_storage {
+	struct mail_storage storage;
+	struct imapc_client *client;
+};
+
+struct imapc_mailbox {
+	struct mailbox box;
+	struct imapc_storage *storage;
+	struct imapc_client_mailbox *client_box;
+
+	struct mail_index_transaction *delayed_sync_trans;
+	struct mail_index_view *delayed_sync_view;
+
+	struct mail *cur_fetch_mail;
+
+	unsigned int new_msgs:1;
+};
+
+extern struct mail_vfuncs imapc_mail_vfuncs;
+
+struct mail_save_context *
+imapc_save_alloc(struct mailbox_transaction_context *_t);
+int imapc_save_begin(struct mail_save_context *ctx, struct istream *input);
+int imapc_save_continue(struct mail_save_context *ctx);
+int imapc_save_finish(struct mail_save_context *ctx);
+void imapc_save_cancel(struct mail_save_context *ctx);
+
+int imapc_transaction_save_commit_pre(struct mail_save_context *ctx);
+void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
+					struct mail_index_transaction_commit_result *result);
+void imapc_transaction_save_rollback(struct mail_save_context *ctx);
+
+struct mail_search_context *
+imapc_search_init(struct mailbox_transaction_context *t,
+		  struct mail_search_args *args,
+		  const enum mail_sort_type *sort_program);
+bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
+				struct mail *mail, bool *tryagain_r);
+void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args);
+
+void imapc_async_stop_callback(const struct imapc_command_reply *reply,
+			       void *context);
+
+#endif
