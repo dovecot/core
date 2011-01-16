@@ -33,12 +33,16 @@ mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 		return -1;
 	}
 	if (chown(path, uid, gid) < 0) {
+		orig_errno = errno;
+		if (rmdir(path) < 0)
+			i_error("rmdir(%s) failed: %m", path);
+		errno = orig_errno;
+
 		if (errno == EPERM && uid == (uid_t)-1) {
 			i_error("%s", eperm_error_get_chgrp("chown", path, gid,
 							    gid_origin));
 			return -1;
 		}
-		orig_errno = errno;
 
 		str = t_str_new(256);
 		str_printfa(str, "chown(%s, %ld", path,
