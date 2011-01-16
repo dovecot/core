@@ -335,7 +335,7 @@ const struct mech_module mech_winbind_ntlm = {
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	mech_winbind_ntlm_auth_new,
-	mech_generic_auth_initial,
+	mech_winbind_auth_initial,
 	mech_winbind_auth_continue,
 	mech_generic_auth_free
 };
