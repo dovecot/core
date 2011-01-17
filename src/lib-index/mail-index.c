@@ -423,8 +423,19 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
 
 	path = *path_r = t_strconcat(index->filepath, ".tmp", NULL);
 	old_mask = umask(0);
-	fd = open(path, O_RDWR|O_CREAT|O_TRUNC, index->mode);
+	fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->mode);
 	umask(old_mask);
+	if (fd == -1 && errno == EEXIST) {
+		/* stale temp file. unlink and recreate rather than overwriting,
+		   just to make sure locking problems won't cause corruption */
+		if (unlink(path) < 0) {
+			i_error("unlink(%s) failed: %m", path);
+			return -1;
+		}
+		old_mask = umask(0);
+		fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->mode);
+		umask(old_mask);
+	}
 	if (fd == -1) {
 		mail_index_file_set_syscall_error(index, path, "creat()");
 		return -1;
