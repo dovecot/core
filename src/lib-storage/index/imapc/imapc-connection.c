@@ -430,7 +430,7 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 	} else {
 		cmd = t_strdup_printf("AUTHENTICATE PLAIN\r\n%s",
 			imapc_connection_get_sasl_plain_request(conn));
-		imapc_connection_cmd(conn, "AUTHENTICATE PLAIN",
+		imapc_connection_cmd(conn, cmd,
 				     imapc_connection_login_cb, conn);
 	}
 	conn->input_callback = NULL;
