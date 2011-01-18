@@ -1474,7 +1474,8 @@ int auth_request_password_verify(struct auth_request *request,
 	}
 
 	if (request->no_password) {
-		auth_request_log_info(request, subsystem, "No password");
+		auth_request_log_debug(request, subsystem,
+				       "Allowing any password");
 		return 1;
 	}
 
