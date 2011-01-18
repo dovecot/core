@@ -821,7 +821,7 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 				    struct imapc_command *cmd)
 {
 	const unsigned char *p;
-	unsigned int seek_pos, end_pos, size;
+	unsigned int seek_pos, start_pos, end_pos, size;
 
 	i_assert(cmd->send_pos < cmd->data->used);
 
@@ -835,11 +835,18 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 		}
 	}
 
-	p = memchr(CONST_PTR_OFFSET(cmd->data->data, seek_pos), '\n',
-		   cmd->data->used - seek_pos);
-	i_assert(p != NULL);
+	do {
+		start_pos = seek_pos;
+		p = memchr(CONST_PTR_OFFSET(cmd->data->data, seek_pos), '\n',
+			   cmd->data->used - seek_pos);
+		i_assert(p != NULL);
 
-	end_pos = p - (const unsigned char *)cmd->data->data + 1;
+		seek_pos = p - (const unsigned char *)cmd->data->data + 1;
+		/* keep going for LITERAL+ command */
+	} while (start_pos + 3 < seek_pos &&
+		 p[-1] == '\r' && p[-2] == '}' && p[-3] == '+');
+	end_pos = seek_pos;
+
 	o_stream_send(conn->output,
 		      CONST_PTR_OFFSET(cmd->data->data, cmd->send_pos),
 		      end_pos - cmd->send_pos);
