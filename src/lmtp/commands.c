@@ -699,20 +699,18 @@ static void client_proxy_finish(bool timeout, void *context)
 static const char *client_get_added_headers(struct client *client)
 {
 	string_t *str = t_str_new(200);
-	const char *host, *address = NULL, *username = NULL;
+	const char *host, *rcpt_to = NULL;
 
 	if (array_count(&client->state.rcpt_to) == 1) {
 		const struct mail_recipient *rcpt =
 			array_idx(&client->state.rcpt_to, 0);
-		const char *detail;
 
-		address = rcpt->address;
-		rcpt_address_parse(client, address, &username, &detail);
+		rcpt_to = rcpt->address;
 	}
 
 	str_printfa(str, "Return-Path: <%s>\r\n", client->state.mail_from);
-	if (username != NULL)
-		str_printfa(str, "Delivered-To: <%s>\r\n", username);
+	if (rcpt_to != NULL)
+		str_printfa(str, "Delivered-To: <%s>\r\n", rcpt_to);
 
 	str_printfa(str, "Received: from %s", client->state.lhlo);
 	if ((host = net_ip2addr(&client->remote_ip)) != NULL)
@@ -721,8 +719,8 @@ static const char *client_get_added_headers(struct client *client)
 		    client->my_domain, client->state.session_id);
 
 	str_append(str, "\r\n\t");
-	if (address != NULL)
-		str_printfa(str, "for <%s>", address);
+	if (rcpt_to != NULL)
+		str_printfa(str, "for <%s>", rcpt_to);
 	str_printfa(str, "; %s\r\n", message_date_create(ioloop_time));
 	return str_c(str);
 }
