@@ -9,6 +9,7 @@
 #include "index-mail.h"
 #include "mailbox-list-private.h"
 #include "imapc-client.h"
+#include "imapc-list.h"
 #include "imapc-seqmap.h"
 #include "imapc-sync.h"
 #include "imapc-storage.h"
@@ -16,11 +17,6 @@
 #include <sys/stat.h>
 
 #define DNS_CLIENT_SOCKET_NAME "dns-client"
-
-struct imapc_simple_context {
-	struct imapc_storage *storage;
-	int ret;
-};
 
 struct imapc_open_context {
 	struct imapc_mailbox *mbox;
@@ -108,9 +104,8 @@ imapc_copy_error_from_reply(struct imapc_storage *storage,
 	}
 }
 
-static void
-imapc_simple_callback(const struct imapc_command_reply *reply,
-		      void *context)
+void imapc_simple_callback(const struct imapc_command_reply *reply,
+			   void *context)
 {
 	struct imapc_simple_context *ctx = context;
 
@@ -232,6 +227,11 @@ static void imapc_storage_untagged_cb(const struct imapc_untagged_reply *reply,
 	struct imapc_seqmap *seqmap;
 	uint32_t lseq;
 
+	if (strcasecmp(reply->name, "LIST") == 0)
+		imapc_list_update_mailbox(storage->list, reply->args);
+	else if (strcasecmp(reply->name, "LSUB") == 0)
+		imapc_list_update_subscription(storage->list, reply->args);
+
 	if (mbox == NULL)
 		return;
 
@@ -283,6 +283,8 @@ imapc_storage_create(struct mail_storage *_storage,
 	set.dns_client_socket_path =
 		t_strconcat(_storage->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
+	storage->list = (struct imapc_list *)ns->list;
+	storage->list->storage = storage;
 	storage->client = imapc_client_init(&set);
 	imapc_client_register_untagged(storage->client,
 				       imapc_storage_untagged_cb, storage);
@@ -300,7 +302,7 @@ static void
 imapc_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 				struct mailbox_list_settings *set)
 {
-	set->layout = "none";
+	set->layout = MAILBOX_LIST_NAME_IMAPC;
 }
 
 static struct mailbox *

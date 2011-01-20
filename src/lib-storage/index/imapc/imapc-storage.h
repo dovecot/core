@@ -10,6 +10,7 @@ struct imapc_command_reply;
 
 struct imapc_storage {
 	struct mail_storage storage;
+	struct imapc_mailbox_list *list;
 	struct imapc_client *client;
 };
 
@@ -24,6 +25,11 @@ struct imapc_mailbox {
 	struct mail *cur_fetch_mail;
 
 	unsigned int new_msgs:1;
+};
+
+struct imapc_simple_context {
+	struct imapc_storage *storage;
+	int ret;
 };
 
 extern struct mail_vfuncs imapc_mail_vfuncs;
@@ -48,6 +54,8 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 				struct mail *mail, bool *tryagain_r);
 void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args);
 
+void imapc_simple_callback(const struct imapc_command_reply *reply,
+			   void *context);
 void imapc_async_stop_callback(const struct imapc_command_reply *reply,
 			       void *context);
 

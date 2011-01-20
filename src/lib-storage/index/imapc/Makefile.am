@@ -12,6 +12,7 @@ AM_CPPFLAGS = \
 libstorage_imapc_la_SOURCES = \
 	imapc-client.c \
 	imapc-connection.c \
+	imapc-list.c \
 	imapc-mail.c \
 	imapc-save.c \
 	imapc-search.c \
@@ -21,6 +22,7 @@ libstorage_imapc_la_SOURCES = \
 
 headers = \
 	imapc-connection.h \
+	imapc-list.h \
 	imapc-seqmap.h \
 	imapc-storage.h \
 	imapc-sync.h
