@@ -1434,7 +1434,13 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 	if (*index_dir == '\0' || strcmp(index_dir, root_dir) == 0)
 		return 0;
 
-	mailbox_list_get_dir_permissions(list, name, &mode, &gid, &origin);
+	if (name == NULL) {
+		mailbox_list_get_root_dir_permissions(list, &mode,
+						      &gid, &origin);
+	} else {
+		mailbox_list_get_dir_permissions(list, name, &mode,
+						 &gid, &origin);
+	}
 	while (mkdir_chgrp(index_dir, mode, gid, origin) < 0) {
 		if (errno == EEXIST)
 			break;
