@@ -131,7 +131,6 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 			   enum mail_error *error_r, const char **error_str_r)
 {
 	struct mail_namespace *ns;
-	struct mail_storage *storage;
 	struct mailbox *box;
 	enum mailbox_flags flags =
 		MAILBOX_FLAG_KEEP_RECENT | MAILBOX_FLAG_SAVEONLY |
@@ -166,14 +165,13 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	if (mailbox_open(box) == 0)
 		return 0;
 
-	storage = mailbox_get_storage(box);
-	*error_str_r = mail_storage_get_last_error(storage, error_r);
+	*error_str_r = mailbox_get_last_error(box, error_r);
 	if (!ctx->lda_mailbox_autocreate || *error_r != MAIL_ERROR_NOTFOUND)
 		return -1;
 
 	/* try creating it. */
 	if (mailbox_create(box, NULL, FALSE) < 0) {
-		*error_str_r = mail_storage_get_last_error(storage, error_r);
+		*error_str_r = mailbox_get_last_error(box, error_r);
 		if (*error_r != MAIL_ERROR_EXISTS)
 			return -1;
 		/* someone else just created it */
@@ -185,7 +183,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 
 	/* and try opening again */
 	if (mailbox_sync(box, 0) < 0) {
-		*error_str_r = mail_storage_get_last_error(storage, error_r);
+		*error_str_r = mailbox_get_last_error(box, error_r);
 		return -1;
 	}
 	return 0;

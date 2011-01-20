@@ -90,14 +90,12 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 	box = mailbox_alloc(ns->list, storage_name,
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(box) < 0) {
-		struct mail_storage *storage = mailbox_get_storage(box);
-
-		error_string = mail_storage_get_last_error(storage, &error);
+		error_string = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_NOTFOUND) {
 			client_send_tagline(cmd,  t_strdup_printf(
 				"NO [TRYCREATE] %s", error_string));
 		} else {
-			client_send_storage_error(cmd, storage);
+			client_send_storage_error(cmd, mailbox_get_storage(box));
 		}
 		mailbox_free(&box);
 		return -1;

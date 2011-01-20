@@ -245,7 +245,7 @@ static int create_maildir(struct mailbox *box, bool verify)
 		if (mkdir_verify(box->storage, box->list->ns, path,
 				 perm->dir_create_mode, perm->file_create_gid,
 				 perm->file_create_gid_origin, verify) < 0) {
-			(void)mail_storage_get_last_error(box->storage, &error);
+			error = mailbox_get_last_mail_error(box);
 			if (error != MAIL_ERROR_EXISTS)
 				return -1;
 			/* try to create all of the directories in case one

@@ -504,7 +504,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	i_assert(box->storage == &ctx->storage->storage.storage);
 	if (dbox_mailbox_open(box) < 0) {
-		(void)mail_storage_get_last_error(box->storage, &error);
+		error = mailbox_get_last_mail_error(box);
 		mailbox_free(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
@@ -649,7 +649,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 		if (dbox_mailbox_open(box) == 0)
 			break;
 
-		(void)mail_storage_get_last_error(box->storage, &error);
+		error = mailbox_get_last_mail_error(box);
 		if (error == MAIL_ERROR_NOTFOUND && !created) {
 			/* mailbox doesn't exist currently? see if creating
 			   it helps. */

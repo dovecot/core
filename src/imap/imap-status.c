@@ -92,9 +92,7 @@ int imap_status_get(struct client_command_context *cmd,
 	}
 
 	if (ret < 0) {
-		struct mail_storage *storage = mailbox_get_storage(box);
-
-		*error_r = mail_storage_get_last_error(storage, &error);
+		*error_r = mailbox_get_last_error(box, &error);
 		*error_r = imap_get_error_string(cmd, *error_r, error);
 	}
 	if (box != client->mailbox)

@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
 				    MAILBOX_FLAG_NO_INDEX_FILES);
 		if (mailbox_open_stream(box, input) < 0) {
 			i_fatal("Can't open delivery mail as raw: %s",
-				mail_storage_get_last_error(box->storage, &error));
+				mailbox_get_last_error(box, &error));
 		}
 		i_stream_unref(&input);
 	} else {
@@ -396,12 +396,12 @@ int main(int argc, char *argv[])
 				    MAILBOX_FLAG_NO_INDEX_FILES);
 		if (mailbox_open(box) < 0) {
 			i_fatal("Can't open delivery mail as raw: %s",
-				mail_storage_get_last_error(box->storage, &error));
+				mailbox_get_last_error(box, &error));
 		}
 	}
 	if (mailbox_sync(box, 0) < 0) {
 		i_fatal("Can't sync delivery mail: %s",
-			mail_storage_get_last_error(box->storage, &error));
+			mailbox_get_last_error(box, &error));
 	}
 	raw_box = (struct raw_mailbox *)box;
 	raw_box->envelope_sender = ctx.src_envelope_sender != NULL ?

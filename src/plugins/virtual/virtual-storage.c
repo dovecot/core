@@ -59,7 +59,7 @@ void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src)
 	enum mail_error error;
 
 	name = get_user_visible_mailbox_name(src);
-	str = mail_storage_get_last_error(src->storage, &error);
+	str = mailbox_get_last_error(src, &error);
 
 	str = t_strdup_printf("%s (for backend mailbox %s)", str, name);
 	mail_storage_set_error(dest->storage, error, str);
@@ -139,8 +139,7 @@ static int virtual_backend_box_open_failed(struct virtual_mailbox *mbox,
 	enum mail_error error;
 	const char *str, *name;
 
-	str = mail_storage_get_last_error(mailbox_get_storage(bbox->box),
-					  &error);
+	str = mailbox_get_last_error(bbox->box, &error);
 	name = t_strdup(get_user_visible_mailbox_name(bbox->box));
 	mailbox_free(&bbox->box);
 	if (error == MAIL_ERROR_NOTFOUND) {

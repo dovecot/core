@@ -387,12 +387,9 @@ static void cmd_fetch_mail(struct fetch_cmd_context *ctx)
 	array_foreach(&ctx->fields, field) {
 		ctx->cur_field = field;
 		if (field->print(ctx) < 0) {
-			struct mail_storage *storage =
-				mailbox_get_storage(mail->box);
-
 			i_error("fetch(%s) failed for box=%s uid=%u: %s",
 				field->name, mailbox_get_vname(mail->box),
-				mail->uid, mail_storage_get_last_error(storage, NULL));
+				mail->uid, mailbox_get_last_error(mail->box, NULL));
 		}
 	}
 }

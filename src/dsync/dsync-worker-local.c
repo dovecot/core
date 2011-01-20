@@ -561,10 +561,8 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	box = mailbox_alloc(info->ns->list, storage_name, flags);
 	if (mailbox_get_status(box, status_items, &status) < 0 ||
 	    mailbox_get_metadata(box, metadata_items, &metadata) < 0) {
-		struct mail_storage *storage = mailbox_get_storage(box);
-
 		i_error("Failed to sync mailbox %s: %s", info->name,
-			mail_storage_get_last_error(storage, NULL));
+			mailbox_get_last_error(box, NULL));
 		mailbox_free(&box);
 		_iter->failed = TRUE;
 		return -1;
@@ -801,10 +799,8 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, flags);
 	if (mailbox_sync(box, 0) < 0 ||
 	    mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		struct mail_storage *storage = mailbox_get_storage(box);
-
 		i_error("Failed to sync mailbox %s: %s", lbox->storage_name,
-			mail_storage_get_last_error(storage, NULL));
+			mailbox_get_last_error(box, NULL));
 		mailbox_free(&box);
 		return -1;
 	}
@@ -861,11 +857,8 @@ iter_local_mailbox_close(struct local_dsync_worker_msg_iter *iter)
 	iter->expunges_set = FALSE;
 	mail_free(&iter->mail);
 	if (mailbox_search_deinit(&iter->search_ctx) < 0) {
-		struct mail_storage *storage =
-			mailbox_get_storage(iter->mail->box);
-
 		i_error("msg search failed: %s",
-			mail_storage_get_last_error(storage, NULL));
+			mailbox_get_last_error(iter->mail->box, NULL));
 		iter->iter.failed = TRUE;
 	}
 	(void)mailbox_transaction_commit(&trans);
@@ -985,11 +978,8 @@ local_worker_msg_iter_next(struct dsync_worker_msg_iter *_iter,
 
 	if (mail_get_special(iter->mail, MAIL_FETCH_GUID, &guid) < 0) {
 		if (!iter->mail->expunged) {
-			struct mail_storage *storage =
-				mailbox_get_storage(iter->mail->box);
-
 			i_error("msg guid lookup failed: %s",
-				mail_storage_get_last_error(storage, NULL));
+				mailbox_get_last_error(iter->mail->box, NULL));
 			_iter->failed = TRUE;
 			return -1;
 		}
@@ -1195,8 +1185,7 @@ local_worker_create_allocated_mailbox(struct local_dsync_worker *worker,
 	}
 
 	if (mailbox_create(box, &update, FALSE) < 0) {
-		errstr = mail_storage_get_last_error(mailbox_get_storage(box),
-						     &error);
+		errstr = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_EXISTS) {
 			/* mailbox already exists */
 			return 0;
@@ -1274,10 +1263,8 @@ local_worker_delete_mailbox(struct dsync_worker *_worker,
 					     dsync_box->last_change);
 	box = mailbox_alloc(lbox->ns->list, lbox->storage_name, 0);
 	if (mailbox_delete(box) < 0) {
-		struct mail_storage *storage = mailbox_get_storage(box);
-
 		i_error("Can't delete mailbox %s: %s", lbox->storage_name,
-			mail_storage_get_last_error(storage, NULL));
+			mailbox_get_last_error(box, NULL));
 		dsync_worker_set_failure(_worker);
 	}
 	mailbox_free(&box);
@@ -1338,10 +1325,8 @@ local_worker_rename_mailbox(struct dsync_worker *_worker,
 	old_box = mailbox_alloc(list, lbox->storage_name, 0);
 	new_box = mailbox_alloc(list, newname, 0);
 	if (mailbox_rename(old_box, new_box, FALSE) < 0) {
-		struct mail_storage *storage = mailbox_get_storage(old_box);
-
 		i_error("Can't rename mailbox %s to %s: %s", lbox->storage_name,
-			newname, mail_storage_get_last_error(storage, NULL));
+			newname, mailbox_get_last_error(old_box, NULL));
 		dsync_worker_set_failure(_worker);
 	} else {
 		lbox->storage_name = p_strdup(worker->pool, newname);
@@ -1445,8 +1430,7 @@ local_worker_update_mailbox(struct dsync_worker *_worker,
 	if (mailbox_update(box, &update) < 0) {
 		dsync_worker_set_failure(_worker);
 		i_error("Can't update mailbox %s: %s", dsync_box->name,
-			mail_storage_get_last_error(mailbox_get_storage(box),
-						    NULL));
+			mailbox_get_last_error(box, NULL));
 	}
 	mailbox_free(&box);
 
@@ -1668,12 +1652,9 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 	} else {
 		i_assert(worker->save_input->eof);
 		if (mailbox_save_finish(&worker->save_ctx) < 0) {
-			struct mail_storage *storage =
-				mailbox_get_storage(dest_box);
-
 			i_error("Can't save message to mailbox %s: %s",
 				mailbox_get_vname(dest_box),
-				mail_storage_get_last_error(storage, NULL));
+				mailbox_get_last_error(dest_box, NULL));
 			dsync_worker_set_failure(&worker->worker);
 		}
 	}
@@ -1712,10 +1693,9 @@ local_worker_msg_save(struct dsync_worker *_worker,
 	mailbox_save_set_received_date(save_ctx, data->received_date, 0);
 
 	if (mailbox_save_begin(&save_ctx, data->input) < 0) {
-		struct mail_storage *storage = mailbox_get_storage(dest_box);
 		i_error("Can't save message to mailbox %s: %s",
 			mailbox_get_vname(dest_box),
-			mail_storage_get_last_error(storage, NULL));
+			mailbox_get_last_error(dest_box, NULL));
 		mailbox_save_cancel(&save_ctx);
 		dsync_worker_set_failure(_worker);
 		callback(context);

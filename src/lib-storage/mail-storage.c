@@ -522,6 +522,20 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 	return storage->error_string;
 }
 
+const char *mailbox_get_last_error(struct mailbox *box,
+				   enum mail_error *error_r)
+{
+	return mail_storage_get_last_error(box->storage, error_r);
+}
+
+enum mail_error mailbox_get_last_mail_error(struct mailbox *box)
+{
+	enum mail_error error;
+
+	(void)mail_storage_get_last_error(box->storage, &error);
+	return error;
+}
+
 bool mail_storage_is_mailbox_file(struct mail_storage *storage)
 {
 	return (storage->class_flags &
@@ -616,7 +630,7 @@ static int mailbox_open_full(struct mailbox *box, struct istream *input)
 		if (ret < 0 && !box->storage->user->inbox_open_error_logged) {
 			box->storage->user->inbox_open_error_logged = TRUE;
 			i_error("Opening INBOX failed: %s",
-				mail_storage_get_last_error(box->storage, NULL));
+				mailbox_get_last_error(box, NULL));
 		}
 	} T_END;
 
@@ -763,7 +777,6 @@ static bool mailbox_try_undelete(struct mailbox *box)
 
 int mailbox_delete(struct mailbox *box)
 {
-	enum mail_error error;
 	int ret;
 
 	if (*box->name == '\0') {
@@ -779,8 +792,7 @@ int mailbox_delete(struct mailbox *box)
 
 	box->deleting = TRUE;
 	if (mailbox_open(box) < 0) {
-		(void)mail_storage_get_last_error(box->storage, &error);
-		if (error != MAIL_ERROR_NOTFOUND)
+		if (mailbox_get_last_mail_error(box) != MAIL_ERROR_NOTFOUND)
 			return -1;
 		if (!box->mailbox_deleted) {
 			/* \noselect mailbox */
@@ -990,7 +1002,7 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 	ret = box->v.sync_deinit(ctx, status_r);
 	if (ret < 0 && box->inbox_user &&
 	    !box->storage->user->inbox_open_error_logged) {
-		errormsg = mail_storage_get_last_error(box->storage, &error);
+		errormsg = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_NOTPOSSIBLE) {
 			box->storage->user->inbox_open_error_logged = TRUE;
 			i_error("Syncing INBOX failed: %s", errormsg);

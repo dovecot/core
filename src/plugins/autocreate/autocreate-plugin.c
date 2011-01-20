@@ -27,8 +27,7 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 
 	box = mailbox_alloc(ns->list, name, 0);
 	if (mailbox_create(box, NULL, FALSE) < 0) {
-		str = mail_storage_get_last_error(mailbox_get_storage(box),
-						  &error);
+		str = mailbox_get_last_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS && ns->mail_set->mail_debug) {
 			i_debug("autocreate: Failed to create mailbox %s: %s",
 				name, str);

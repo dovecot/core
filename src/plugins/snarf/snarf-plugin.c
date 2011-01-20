@@ -62,8 +62,7 @@ static int snarf(struct mailbox *srcbox, struct mailbox *destbox)
 
 		save_ctx = mailbox_save_alloc(dest_trans);
 		if (mailbox_copy(&save_ctx, mail) < 0 && !mail->expunged) {
-			(void)mail_storage_get_last_error(destbox->storage,
-							  &error);
+			error = mailbox_get_last_mail_error(destbox);
 			/* if we failed because of out of disk space, just
 			   move those messages we managed to move so far. */
 			if (error != MAIL_ERROR_NOSPACE)

@@ -203,10 +203,8 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 
 		box = mailbox_alloc(ns->list, storage_name, 0);
 		if (mailbox_create(box, NULL, directory) < 0) {
-			struct mail_storage *storage = mailbox_get_storage(box);
-
 			i_error("Can't create mailbox %s: %s", *namep,
-				mail_storage_get_last_error(storage, NULL));
+				mailbox_get_last_error(box, NULL));
 		}
 		if (ctx->ctx.subscriptions) {
 			if (mailbox_list_set_subscribed(ns->list, storage_name,
@@ -265,10 +263,8 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 
 		box = mailbox_alloc(ns->list, storage_name, 0);
 		if (mailbox_delete(box) < 0) {
-			struct mail_storage *storage = mailbox_get_storage(box);
-
 			i_error("Can't delete mailbox %s: %s", *namep,
-				mail_storage_get_last_error(storage, NULL));
+				mailbox_get_last_error(box, NULL));
 		}
 		if (ctx->ctx.subscriptions) {
 			if (mailbox_list_set_subscribed(ns->list, storage_name,
@@ -329,10 +325,8 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 	oldbox = mailbox_alloc(oldns->list, oldname, 0);
 	newbox = mailbox_alloc(newns->list, newname, 0);
 	if (mailbox_rename(oldbox, newbox, TRUE) < 0) {
-		struct mail_storage *storage = mailbox_get_storage(oldbox);
-
 		i_error("Can't rename mailbox %s to %s: %s", oldname, newname,
-			mail_storage_get_last_error(storage, NULL));
+			mailbox_get_last_error(oldbox, NULL));
 	}
 	if (ctx->ctx.subscriptions) {
 		if (mailbox_list_set_subscribed(oldns->list, oldname, FALSE) < 0) {
