@@ -26,12 +26,15 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 	struct mail_private *pmail = (struct mail_private *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	string_t *str;
+	unsigned int orig_len;
 
 	if (!index_storage_search_next_nonblock(_ctx, mail, tryagain_r))
 		return FALSE;
 
 	str = t_str_new(64);
 	str_printfa(str, "UID FETCH %u (", mail->uid);
+	orig_len = str_len(str);
+
 	if ((pmail->wanted_fields & (MAIL_FETCH_MESSAGE_PARTS |
 				     MAIL_FETCH_NUL_STATE |
 				     MAIL_FETCH_IMAP_BODY |
@@ -47,6 +50,11 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 
 	if ((pmail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		str_append(str, "INTERNALDATE ");
+
+	if (str_len(str) == orig_len) {
+		/* we don't need to fetch anything */
+		return TRUE;
+	}
 
 	str_truncate(str, str_len(str) - 1);
 	str_append_c(str, ')');
