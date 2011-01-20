@@ -428,6 +428,30 @@ acl_transaction_commit(struct mailbox_transaction_context *ctx,
 	return abox->module_ctx.super.transaction_commit(ctx, changes_r);
 }
 
+static int acl_mailbox_exists(struct mailbox *box)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	const char *const *rights;
+	unsigned int i;
+
+	if (acl_object_get_my_rights(abox->aclobj, pool_datastack_create(),
+				     &rights) < 0)
+		return -1;
+
+	/* for now this is used only by IMAP SUBSCRIBE. we'll intentionally
+	   violate RFC 4314 here, because it says SUBSCRIBE should succeed only
+	   when mailbox has 'l' right. But there's no point in not allowing
+	   a subscribe for a mailbox that can be selected anyway. Just the
+	   opposite: subscribing to such mailboxes is a very useful feature. */
+	for (i = 0; rights[i] != NULL; i++) {
+		if (strcmp(rights[i], MAIL_ACL_LOOKUP) == 0 ||
+		    strcmp(rights[i], MAIL_ACL_READ) == 0 ||
+		    strcmp(rights[i], MAIL_ACL_INSERT) == 0)
+			return abox->module_ctx.super.exists(box);
+	}
+	return 0;
+}
+
 static int acl_mailbox_open_check_acl(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
@@ -494,6 +518,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 		abox->acl_enabled = TRUE;
 		v->is_readonly = acl_is_readonly;
 		v->allow_new_keywords = acl_allow_new_keywords;
+		v->exists = acl_mailbox_exists;
 		v->open = acl_mailbox_open;
 		v->create = acl_mailbox_create;
 		v->update = acl_mailbox_update;

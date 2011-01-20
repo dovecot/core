@@ -211,58 +211,6 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	}
 }
 
-static int
-fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
-				enum mailbox_name_status *status)
-{
-	struct stat st;
-	const char *path, *dir_path;
-	enum mailbox_info_flags flags;
-
-	if (strcmp(name, "INBOX") == 0 &&
-	    (_list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
-		*status = MAILBOX_NAME_EXISTS_MAILBOX;
-		return 0;
-	}
-
-	path = mailbox_list_get_path(_list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0) {
-		if (*_list->set.maildir_name != '\0' ||
-		    _list->v.is_internal_name == NULL || !S_ISDIR(st.st_mode)) {
-			*status = MAILBOX_NAME_EXISTS_MAILBOX;
-			return 0;
-		}
-
-		/* check if mailbox is selectable */
-		if (mailbox_list_mailbox(_list, name, &flags) < 0)
-			return -1;
-		if ((flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) == 0)
-			*status = MAILBOX_NAME_EXISTS_MAILBOX;
-		else
-			*status = MAILBOX_NAME_EXISTS_DIR;
-		return 0;
-	}
-	if (errno == ENOENT) {
-		/* see if the directory exists */
-		dir_path = mailbox_list_get_path(_list, name,
-						 MAILBOX_LIST_PATH_TYPE_DIR);
-		if (strcmp(path, dir_path) != 0 && stat(dir_path, &st) == 0) {
-			*status = MAILBOX_NAME_EXISTS_DIR;
-			return 0;
-		}
-		errno = ENOENT;
-	}
-
-	if (ENOTFOUND(errno) || errno == EACCES) {
-		*status = MAILBOX_NAME_NONEXISTENT;
-		return 0;
-	} else {
-		mailbox_list_set_critical(_list, "stat(%s) failed: %m", path);
-		return -1;
-	}
-}
-
 static const char *
 fs_list_get_temp_prefix(struct mailbox_list *_list, bool global)
 {
@@ -628,7 +576,6 @@ struct mailbox_list fs_mailbox_list = {
 		fs_is_valid_existing_name,
 		fs_is_valid_create_name,
 		fs_list_get_path,
-		fs_list_get_mailbox_name_status,
 		fs_list_get_temp_prefix,
 		fs_list_join_refpattern,
 		fs_list_iter_init,

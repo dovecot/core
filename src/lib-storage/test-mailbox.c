@@ -24,6 +24,11 @@ static int test_mailbox_enable(struct mailbox *box,
 	return 0;
 }
 
+static int test_mailbox_exists(struct mailbox *box ATTR_UNUSED)
+{
+	return 1;
+}
+
 static int test_mailbox_open(struct mailbox *box ATTR_UNUSED)
 {
 	return 0;
@@ -229,6 +234,7 @@ struct mailbox test_mailbox = {
 		test_mailbox_is_readonly,
 		test_mailbox_allow_new_keywords,
 		test_mailbox_enable,
+		test_mailbox_exists,
 		test_mailbox_open,
 		test_mailbox_close,
 		NULL,

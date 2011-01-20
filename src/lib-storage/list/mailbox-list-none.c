@@ -57,15 +57,6 @@ none_list_get_path(struct mailbox_list *list ATTR_UNUSED,
 	return NULL;
 }
 
-static int
-none_list_get_mailbox_name_status(struct mailbox_list *list ATTR_UNUSED,
-				  const char *name ATTR_UNUSED,
-				  enum mailbox_name_status *status)
-{
-	*status = MAILBOX_NAME_NONEXISTENT;
-	return 0;
-}
-
 static const char *
 none_list_get_temp_prefix(struct mailbox_list *list ATTR_UNUSED,
 			  bool global ATTR_UNUSED)
@@ -168,7 +159,6 @@ struct mailbox_list none_mailbox_list = {
 		none_is_valid_existing_name,
 		none_is_valid_create_name,
 		none_list_get_path,
-		none_list_get_mailbox_name_status,
 		none_list_get_temp_prefix,
 		NULL,
 		none_list_iter_init,

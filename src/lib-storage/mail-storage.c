@@ -567,6 +567,17 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
 	return box;
 }
 
+int mailbox_exists(struct mailbox *box)
+{
+	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
+		return -1;
+	}
+
+	return box->v.exists(box);
+}
+
 static int mailbox_open_full(struct mailbox *box, struct istream *input)
 {
 	int ret;

@@ -367,6 +367,7 @@ struct mailbox sdbox_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
+		index_storage_mailbox_exists,
 		sdbox_mailbox_open,
 		sdbox_mailbox_close,
 		index_storage_mailbox_free,

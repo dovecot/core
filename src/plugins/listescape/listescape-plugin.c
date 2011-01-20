@@ -285,17 +285,6 @@ static int listescape_set_subscribed(struct mailbox_list *list,
 	return mlist->module_ctx.super.set_subscribed(list, name, set);
 }
 
-static int listescape_get_mailbox_name_status(struct mailbox_list *list,
-					      const char *name,
-					      enum mailbox_name_status *status)
-{
-	struct listescape_mailbox_list *mlist = LIST_ESCAPE_LIST_CONTEXT(list);
-
-	name = list_escape(mlist, list->ns, name, FALSE);
-	return mlist->module_ctx.super.
-		get_mailbox_name_status(list, name, status);
-}
-
 static bool listescape_is_valid_existing_name(struct mailbox_list *list,
 					      const char *name)
 {
@@ -346,7 +335,6 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 	v->iter_next = listescape_mailbox_list_iter_next;
 	v->iter_deinit = listescape_mailbox_list_iter_deinit;
 	v->set_subscribed = listescape_set_subscribed;
-	v->get_mailbox_name_status = listescape_get_mailbox_name_status;
 	v->is_valid_existing_name = listescape_is_valid_existing_name;
 	v->is_valid_create_name = listescape_is_valid_create_name;
 

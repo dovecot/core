@@ -407,59 +407,6 @@ acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
-static int acl_mailbox_have_visibility_rights(struct acl_mailbox_list *alist,
-					      const char *name)
-{
-	struct acl_object *aclobj;
-	const char *const *rights;
-	unsigned int i;
-	int ret;
-
-	aclobj = acl_object_init_from_name(alist->rights.backend, name);
-	ret = acl_object_get_my_rights(aclobj, pool_datastack_create(),
-				       &rights);
-	acl_object_deinit(&aclobj);
-
-	if (ret < 0)
-		return -1;
-
-	/* for now this is used only by IMAP SUBSCRIBE. we'll intentionally
-	   violate RFC 4314 here, because it says SUBSCRIBE should succeed only
-	   when mailbox has 'l' right. But there's no point in not allowing
-	   a subscribe for a mailbox that can be selected anyway. Just the
-	   opposite: subscribing to such mailboxes is a very useful feature. */
-	for (i = 0; rights[i] != NULL; i++) {
-		if (strcmp(rights[i], MAIL_ACL_LOOKUP) == 0 ||
-		    strcmp(rights[i], MAIL_ACL_READ) == 0 ||
-		    strcmp(rights[i], MAIL_ACL_INSERT) == 0)
-			return 1;
-	}
-	return 0;
-}
-
-static int acl_get_mailbox_name_status(struct mailbox_list *list,
-				       const char *name,
-				       enum mailbox_name_status *status)
-{
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
-	int ret;
-
-	T_BEGIN {
-		ret = acl_mailbox_have_visibility_rights(alist, name);
-	} T_END;
-	if (ret < 0)
-		return -1;
-
-	if (alist->module_ctx.super.get_mailbox_name_status(list, name,
-							    status) < 0)
-		return -1;
-	if (ret == 0) {
-		/* we shouldn't reveal this mailbox's existance */
-		*status = MAILBOX_NAME_NONEXISTENT;
-	}
-	return 0;
-}
-
 static int
 acl_mailbox_list_create_dir(struct mailbox_list *list, const char *name,
 			    enum mailbox_dir_create_type type)
@@ -537,7 +484,6 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	v->iter_init = acl_mailbox_list_iter_init;
 	v->iter_next = acl_mailbox_list_iter_next;
 	v->iter_deinit = acl_mailbox_list_iter_deinit;
-	v->get_mailbox_name_status = acl_get_mailbox_name_status;
 	v->create_mailbox_dir = acl_mailbox_list_create_dir;
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);

@@ -222,33 +222,6 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 	return maildir_list_get_dirname_path(_list, root_dir, name);
 }
 
-static int
-maildir_list_get_mailbox_name_status(struct mailbox_list *_list,
-				     const char *name,
-				     enum mailbox_name_status *status)
-{
-	struct stat st;
-	const char *path;
-
-	path = mailbox_list_get_path(_list, name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-
-	if ((strcmp(name, "INBOX") == 0 &&
-	     (_list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) ||
-	    stat(path, &st) == 0) {
-		*status = MAILBOX_NAME_EXISTS_MAILBOX;
-		return 0;
-	}
-
-	if (ENOTFOUND(errno) || errno == EACCES) {
-		*status = MAILBOX_NAME_NONEXISTENT;
-		return 0;
-	} else {
-		mailbox_list_set_critical(_list, "stat(%s) failed: %m", path);
-		return -1;
-	}
-}
-
 static const char *
 maildir_list_get_temp_prefix(struct mailbox_list *_list, bool global)
 {
@@ -637,7 +610,6 @@ struct mailbox_list maildir_mailbox_list = {
 		maildir_is_valid_existing_name,
 		maildir_is_valid_create_name,
 		maildir_list_get_path,
-		maildir_list_get_mailbox_name_status,
 		maildir_list_get_temp_prefix,
 		NULL,
 		maildir_list_iter_init,
@@ -669,7 +641,6 @@ struct mailbox_list imapdir_mailbox_list = {
 		maildir_is_valid_existing_name,
 		maildir_is_valid_create_name,
 		maildir_list_get_path,
-		maildir_list_get_mailbox_name_status,
 		maildir_list_get_temp_prefix,
 		NULL,
 		maildir_list_iter_init,

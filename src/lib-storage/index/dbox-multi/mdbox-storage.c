@@ -409,6 +409,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
+		index_storage_mailbox_exists,
 		mdbox_mailbox_open,
 		mdbox_mailbox_close,
 		index_storage_mailbox_free,

@@ -513,6 +513,7 @@ struct mailbox virtual_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
+		index_storage_mailbox_exists,
 		virtual_mailbox_open,
 		virtual_mailbox_close,
 		virtual_mailbox_free,

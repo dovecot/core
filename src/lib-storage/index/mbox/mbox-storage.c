@@ -753,6 +753,7 @@ struct mailbox mbox_mailbox = {
 		mbox_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
+		index_storage_mailbox_exists,
 		mbox_mailbox_open,
 		mbox_mailbox_close,
 		index_storage_mailbox_free,

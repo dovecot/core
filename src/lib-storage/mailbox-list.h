@@ -48,14 +48,6 @@ enum mailbox_info_flags {
 	MAILBOX_MATCHED			= 0x40000000
 };
 
-enum mailbox_name_status {
-	MAILBOX_NAME_NONEXISTENT,
-	/* name points to a selectable mailbox */
-	MAILBOX_NAME_EXISTS_MAILBOX,
-	/* name points to non-selectable mailbox */
-	MAILBOX_NAME_EXISTS_DIR
-};
-
 enum mailbox_list_iter_flags {
 	/* Ignore index file and ACLs (used by ACL plugin internally) */
 	MAILBOX_LIST_ITER_RAW_LIST		= 0x000001,
@@ -211,10 +203,6 @@ bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
    For INDEX=MEMORY it returns "" as the path. */
 const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 				  enum mailbox_list_path_type type);
-/* Returns mailbox name status */
-int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
-					 const char *name,
-					 enum mailbox_name_status *status);
 /* Returns mailbox's change log, or NULL if it doesn't have one. */
 struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list);
 /* Specify timestamp to use when writing mailbox changes to changelog.

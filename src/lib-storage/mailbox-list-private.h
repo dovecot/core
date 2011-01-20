@@ -45,9 +45,6 @@ struct mailbox_list_vfuncs {
 
 	const char *(*get_path)(struct mailbox_list *list, const char *name,
 				enum mailbox_list_path_type type);
-	int (*get_mailbox_name_status)(struct mailbox_list *list,
-				       const char *name,
-				       enum mailbox_name_status *status);
 
 	const char *(*get_temp_prefix)(struct mailbox_list *list, bool global);
 	const char *(*join_refpattern)(struct mailbox_list *list,

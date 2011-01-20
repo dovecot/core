@@ -150,6 +150,31 @@ index_mailbox_alloc_index(struct mailbox *box)
 					  box->index_prefix);
 }
 
+int index_storage_mailbox_exists(struct mailbox *box)
+{
+	struct stat st;
+	const char *path;
+
+	if (strcmp(box->name, "INBOX") == 0 &&
+	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		/* INBOX always exists */
+		return 1;
+	}
+
+	path = mailbox_list_get_path(box->list, box->name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (stat(path, &st) == 0)
+		return 1;
+	else if (ENOTFOUND(errno) || errno == EACCES)
+		return 0;
+	else {
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", path);
+		return -1;
+	}
+}
+
+
 int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);

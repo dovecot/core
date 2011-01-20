@@ -29,9 +29,10 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 static bool
 subscribe_is_valid_name(struct client_command_context *cmd, const char *mailbox)
 {
-	enum mailbox_name_status name_status;
 	struct mail_namespace *ns;
+	struct mailbox *box;
 	const char *storage_name;
+	int ret;
 
 	if (have_listable_namespace_prefix(cmd->client->user->namespaces,
 					   mailbox)) {
@@ -44,12 +45,15 @@ subscribe_is_valid_name(struct client_command_context *cmd, const char *mailbox)
 	if (ns == NULL)
 		return FALSE;
 
-	if (mailbox_list_get_mailbox_name_status(ns->list, storage_name,
-						 &name_status) < 0) {
-		client_send_list_error(cmd, ns->list);
+	box = mailbox_alloc(ns->list, storage_name, 0);
+	if ((ret = mailbox_exists(box)) < 0) {
+		client_send_storage_error(cmd, mailbox_get_storage(box));
+		mailbox_free(&box);
 		return FALSE;
 	}
-	if (name_status == MAILBOX_NAME_NONEXISTENT) {
+	mailbox_free(&box);
+
+	if (ret == 0) {
 		client_send_tagline(cmd, t_strdup_printf(
 			"NO "MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
 		return FALSE;

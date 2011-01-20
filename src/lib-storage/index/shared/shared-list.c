@@ -110,21 +110,6 @@ shared_list_get_path(struct mailbox_list *list, const char *name,
 	return mailbox_list_get_path(ns->list, name, type);
 }
 
-static int
-shared_list_get_mailbox_name_status(struct mailbox_list *list, const char *name,
-				    enum mailbox_name_status *status_r)
-{
-	struct mail_namespace *ns = list->ns;
-	int ret;
-
-	if (shared_storage_get_namespace(&ns, &name) < 0)
-		return -1;
-	ret = mailbox_list_get_mailbox_name_status(ns->list, name, status_r);
-	if (ret < 0)
-		shared_list_copy_error(list, ns);
-	return ret;
-}
-
 static const char *
 shared_list_get_temp_prefix(struct mailbox_list *list, bool global ATTR_UNUSED)
 {
@@ -326,7 +311,6 @@ struct mailbox_list shared_mailbox_list = {
 		shared_is_valid_existing_name,
 		shared_is_valid_create_name,
 		shared_list_get_path,
-		shared_list_get_mailbox_name_status,
 		shared_list_get_temp_prefix,
 		shared_list_join_refpattern,
 		shared_list_iter_init,

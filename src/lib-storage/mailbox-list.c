@@ -775,18 +775,6 @@ const char *mailbox_list_join_refpattern(struct mailbox_list *list,
 	return pattern;
 }
 
-int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
-					 const char *name,
-					 enum mailbox_name_status *status)
-{
-	if (!mailbox_list_is_valid_existing_name(list, name)) {
-		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return -1;
-	}
-	return list->v.get_mailbox_name_status(list, name, status);
-}
-
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 		       enum mailbox_list_iter_flags flags)
