@@ -506,6 +506,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 				lock_info.wait_usecs += lock_info.wait_usecs/2;
 			}
 			dotlock_wait(&lock_info);
+			now = time(NULL);
 		}
 
 		ret = check_lock(now, &lock_info);
