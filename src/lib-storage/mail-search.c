@@ -99,7 +99,7 @@ mail_search_args_init_sub(struct mail_search_args *args,
 
 			arg->value.mailbox_glob =
 				imap_match_init(default_pool, arg->value.str,
-						TRUE, ns->sep);
+						TRUE, mail_namespace_get_sep(ns));
 			break;
 		}
 		case SEARCH_INTHREAD:

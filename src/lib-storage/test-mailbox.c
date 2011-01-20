@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-storage-private.h"
+#include "mailbox-list-private.h"
 #include "test-mail-storage.h"
 
 #define TEST_UID_VALIDITY 1
@@ -272,7 +273,7 @@ struct mailbox test_mailbox = {
 
 struct mailbox *
 test_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, enum mailbox_flags flags)
+		   const char *vname, enum mailbox_flags flags)
 {
 	struct mailbox *box;
 	pool_t pool;
@@ -280,7 +281,8 @@ test_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	pool = pool_alloconly_create("test mailbox", 1024);
 	box = p_new(pool, struct mailbox, 1);
 	*box = test_mailbox;
-	box->name = p_strdup(pool, name);
+	box->vname = p_strdup(pool, vname);
+	box->name = p_strdup(pool, mailbox_list_get_storage_name(list, vname));
 	box->storage = storage;
 	box->list = list;
 

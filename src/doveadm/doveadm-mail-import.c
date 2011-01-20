@@ -24,29 +24,27 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	enum mail_error error;
-	const char *errstr, *storage_name;
+	const char *errstr;
 
 	if (*ctx->dest_parent != '\0') {
 		/* prefix destination mailbox name with given parent mailbox */
-		storage_name = ctx->dest_parent;
-		ns = mail_namespace_find(user->namespaces, &storage_name);
+		ns = mail_namespace_find(user->namespaces, ctx->dest_parent);
 		if (ns == NULL) {
 			i_error("Can't find namespace for parent mailbox %s",
 				ctx->dest_parent);
 			return -1;
 		}
 		name = t_strdup_printf("%s%c%s", ctx->dest_parent,
-				       ns->sep, name);
+				       mail_namespace_get_sep(ns), name);
 	}
 
-	storage_name = name;
-	ns = mail_namespace_find(user->namespaces, &storage_name);
+	ns = mail_namespace_find(user->namespaces, name);
 	if (ns == NULL) {
 		i_error("Can't find namespace for mailbox %s", name);
 		return -1;
 	}
 
-	box = mailbox_alloc(ns->list, storage_name, MAILBOX_FLAG_SAVEONLY |
+	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY |
 			    MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_error(box, &error);

@@ -165,8 +165,7 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 	const char *name;
 	int ret;
 
-	name = mail_namespace_get_storage_name(backend->backend.list->ns,
-					       vname);
+	name = mailbox_list_get_storage_name(backend->backend.list, vname);
 	acl_cache_flush(backend->backend.cache, name);
 	aclobj = acl_object_init_from_name(&backend->backend, name);
 

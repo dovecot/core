@@ -225,10 +225,10 @@ static const char *ns_get_listed_prefix(struct cmd_list_context *ctx)
 	bool inboxcase;
 
 	inboxcase = strncasecmp(ctx->ns->prefix, "INBOX", 5) == 0 &&
-		ctx->ns->prefix[5] == ctx->ns->sep;
+		ctx->ns->prefix[5] == mail_namespace_get_sep(ctx->ns);
 	glob = imap_match_init_multiple(pool_datastack_create(),
 					ctx->patterns, inboxcase,
-					ctx->ns->sep);
+					mail_namespace_get_sep(ctx->ns));
 	ns_prefix = ctx->ns->prefix;
 	match = imap_match(glob, ns_prefix);
 	if (match == IMAP_MATCH_YES) {
@@ -237,13 +237,23 @@ static const char *ns_get_listed_prefix(struct cmd_list_context *ctx)
 	}
 
 	while ((match & IMAP_MATCH_PARENT) != 0) {
-		p = strrchr(ns_prefix, ctx->ns->sep);
+		p = strrchr(ns_prefix, mail_namespace_get_sep(ctx->ns));
 		i_assert(p != NULL);
 		ns_prefix = t_strdup_until(ns_prefix, p);
 		match = imap_match(glob, ns_prefix);
 	}
 	i_assert(match == IMAP_MATCH_YES);
 	return ns_prefix;
+}
+
+static void list_reply_append_ns_sep_param(string_t *str, char sep)
+{
+	str_append_c(str, '"');
+	if (sep == '\\')
+		str_append(str, "\\\\");
+	else
+		str_append_c(str, sep);
+	str_append_c(str, '"');
 }
 
 static void
@@ -255,6 +265,7 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	const char *name;
 	string_t *str;
 	bool same_ns, ends_with_sep;
+	char ns_sep = mail_namespace_get_sep(ctx->ns);
 
 	ctx->cur_ns_send_prefix = FALSE;
 
@@ -267,7 +278,7 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 
 	name = ns_get_listed_prefix(ctx);
 	len = strlen(ctx->ns->prefix);
-	ends_with_sep = ctx->ns->prefix[len-1] == ctx->ns->sep;
+	ends_with_sep = ctx->ns->prefix[len-1] == ns_sep;
 
 	/* we may be listing namespace's parent. in such case we always want to
 	   set the name as nonexistent. */
@@ -314,9 +325,13 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	}
 
 	str = t_str_new(128);
-	str_append(str, "* LIST (");
+	str_printfa(str, "* %s (", ctx->lsub ? "LSUB" : "LIST");
+	if (ctx->lsub)
+		flags |= MAILBOX_NONEXISTENT;
 	mailbox_flags2str(ctx, str, flags);
-	str_printfa(str, ") \"%s\" ", ctx->ns->sep_str);
+	str_append(str, ") ");
+	list_reply_append_ns_sep_param(str, ns_sep);
+	str_append_c(str, ' ');
 	imap_quote_append_string(str, name, FALSE);
 	mailbox_childinfo2str(ctx, str, flags);
 
@@ -328,7 +343,7 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name,
 {
 	struct imap_status_result result;
 	struct mail_namespace *ns;
-	const char *storage_name, *error;
+	const char *error;
 
 	if ((flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
 		/* doesn't exist, don't even try to get STATUS */
@@ -342,9 +357,8 @@ static void list_send_status(struct cmd_list_context *ctx, const char *name,
 
 	/* if we're listing subscriptions and there are subscriptions=no
 	   namespaces, ctx->ns may not point to correct one */
-	storage_name = name;
-	ns = mail_namespace_find(ctx->ns->user->namespaces, &storage_name);
-	if (imap_status_get(ctx->cmd, ns, storage_name,
+	ns = mail_namespace_find(ctx->ns->user->namespaces, name);
+	if (imap_status_get(ctx->cmd, ns, name,
 			    &ctx->status_items, &result, &error) < 0) {
 		client_send_line(ctx->cmd->client,
 				 t_strconcat("* ", error, NULL));
@@ -427,7 +441,10 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		str_truncate(str, 0);
 		str_printfa(str, "* %s (", ctx->lsub ? "LSUB" : "LIST");
 		mailbox_flags2str(ctx, str, flags);
-		str_printfa(str, ") \"%s\" ", ctx->ns->sep_str);
+		str_append(str, ") ");
+		list_reply_append_ns_sep_param(str,
+			mail_namespace_get_sep(ctx->ns));
+		str_append_c(str, ' ');
 		imap_quote_append_string(str, name, FALSE);
 		mailbox_childinfo2str(ctx, str, flags);
 
@@ -506,7 +523,7 @@ skip_namespace_prefix_ref(struct cmd_list_context *ctx,
 		     -> cur_ns_prefix="", cur_ref="baz"
 		   */
 		skip_namespace_prefix(&cur_ns_prefix, &cur_ref, TRUE,
-				      ctx->ns->sep);
+				      mail_namespace_get_sep(ctx->ns));
 
 		if (*cur_ref != '\0' && *cur_ns_prefix != '\0') {
 			/* reference parameter didn't match with
@@ -537,7 +554,8 @@ skip_namespace_prefix_pattern(struct cmd_list_context *ctx,
 	i_assert(*cur_ref == '\0');
 
 	skip_namespace_prefix(&cur_ns_prefix, &cur_pattern,
-			      cur_ref == ctx->ref, ctx->ns->sep);
+			      cur_ref == ctx->ref,
+			      mail_namespace_get_sep(ctx->ns));
 
 	if (*cur_pattern == '\0' && *cur_ns_prefix == '\0') {
 		/* trying to list the namespace prefix itself. */
@@ -567,7 +585,7 @@ list_use_inboxcase(struct cmd_list_context *ctx)
 		inbox_glob =
 			imap_match_init(pool_datastack_create(),
 					t_strconcat(ctx->ref, *pat, NULL),
-					TRUE, ctx->ns->sep);
+					TRUE, mail_namespace_get_sep(ctx->ns));
 		match = imap_match(inbox_glob, "INBOX");
 
 		if (match == IMAP_MATCH_YES)
@@ -582,16 +600,8 @@ static bool
 list_want_send_prefix(struct cmd_list_context *ctx, const char *pattern)
 {
 	/* don't send the prefix if we're listing subscribed mailboxes */
-	if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
-		if ((ctx->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0) {
-			/* using parent's subscriptions file. it'll handle
-			   this internally */
-			return FALSE;
-		}
-		/* send prefix if namespace has at least some subscriptions,
-		   but pattern doesn't match any children (e.g. "%") */
-		return TRUE;
-	}
+	if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
+		return FALSE;
 
 	/* send the prefix if namespace is listable. if children are listable
 	   we may or may not need to send it. */
@@ -644,7 +654,7 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 	   don't do it if we're listing only the prefix itself
 	   (LIST "" foo/ needs to return "foo/" entry) */
 	len = strlen(cur_ns_prefix);
-	if (cur_ns_prefix[len-1] == ns->sep &&
+	if (cur_ns_prefix[len-1] == mail_namespace_get_sep(ns) &&
 	    strcmp(cur_pattern, cur_ns_prefix) != 0) {
 		ctx->cur_ns_skip_trailing_sep = TRUE;
 		cur_ns_prefix = t_strndup(cur_ns_prefix, len-1);
@@ -658,7 +668,7 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 
 	/* check if this namespace prefix matches the current pattern */
 	pat_glob = imap_match_init(pool_datastack_create(), orig_cur_pattern,
-				   inboxcase, ns->sep);
+				   inboxcase, mail_namespace_get_sep(ns));
 	match = imap_match(pat_glob, cur_ns_prefix);
 	if (match == IMAP_MATCH_YES) {
 		if (list_want_send_prefix(ctx, orig_cur_pattern))
@@ -670,9 +680,14 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 			if (*p == '*')
 				return TRUE;
 		}
+		if ((ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+			/* the namespace prefix itself may be subscribed. */
+			return TRUE;
+		}
+		return FALSE;
 	} else {
 		while ((match & IMAP_MATCH_PARENT) != 0) {
-			p = strrchr(cur_ns_prefix, ns->sep);
+			p = strrchr(cur_ns_prefix, mail_namespace_get_sep(ns));
 			if (p == NULL)
 				break;
 			cur_ns_prefix = t_strdup_until(cur_ns_prefix, p);
@@ -685,9 +700,8 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 			if (list_want_send_prefix(ctx, orig_cur_pattern))
 				ctx->cur_ns_send_prefix = TRUE;
 		}
+		return (match & IMAP_MATCH_CHILDREN) != 0;
 	}
-
-	return (match & IMAP_MATCH_CHILDREN) != 0;
 }
 
 static void list_namespace_init(struct cmd_list_context *ctx)
@@ -700,12 +714,6 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 
 	cur_ns_prefix = ns->prefix;
 	cur_ref = ctx->ref;
-
-	if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0 &&
-	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
-		/* ignore namespaces which don't have subscriptions */
-		return;
-	}
 
 	ctx->cur_ns_skip_trailing_sep = FALSE;
 
@@ -750,22 +758,24 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 	(void)array_append_space(&used_patterns); /* NULL-terminate */
 	pat = array_idx(&used_patterns, 0);
 
-	cur_ref = mail_namespace_fix_sep(ns, cur_ref);
 	ctx->list_iter = mailbox_list_iter_init_multiple(ns->list, pat,
 							 ctx->list_flags);
 }
 
 static void list_inbox(struct cmd_list_context *ctx)
 {
-	const char *str;
+	string_t *str;
 
 	/* INBOX always exists */
 	if (!ctx->inbox_found && ctx->cur_ns_match_inbox &&
 	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
-		str = t_strdup_printf("* LIST (\\Unmarked) \"%s\" \"INBOX\"",
-				      ctx->ns->sep_str);
-		client_send_line(ctx->cmd->client, str);
+		str = t_str_new(64);
+		str_append(str, "* LIST (\\Unmarked) ");
+		list_reply_append_ns_sep_param(str,
+			mail_namespace_get_sep(ctx->ns));
+		str_append(str, " \"INBOX\"");
+		client_send_line(ctx->cmd->client, str_c(str));
 	}
 }
 
@@ -821,10 +831,10 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 	/* Special request to return the hierarchy delimiter and mailbox root
 	   name. If namespace has a prefix, it's returned as the mailbox root.
 	   Otherwise we'll emulate UW-IMAP behavior. */
-	ns = mail_namespace_find_visible(client->user->namespaces, &ref);
+	ns = mail_namespace_find_visible(client->user->namespaces, ref);
 	if (ns != NULL) {
 		ns_prefix = ns->prefix;
-		ns_sep = ns->sep;
+		ns_sep = mail_namespace_get_sep(ns);
 	} else {
 		ns_prefix = "";
 		ns_sep = mail_namespaces_get_root_sep(client->user->namespaces);

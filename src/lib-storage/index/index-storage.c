@@ -250,20 +250,17 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	return 0;
 }
 
-void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
+void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 				 enum mailbox_flags flags,
 				 const char *index_prefix)
 {
 	struct index_mailbox_context *ibox;
-	string_t *vname;
 
-	i_assert(name != NULL);
+	i_assert(vname != NULL);
 
-	box->name = p_strdup(box->pool, name);
-	vname = t_str_new(128);
-	mail_namespace_get_vname(box->list->ns, vname, name);
-	box->vname = p_strdup(box->pool, str_c(vname));
-
+	box->vname = p_strdup(box->pool, vname);
+	box->name = p_strdup(box->pool,
+			     mailbox_list_get_storage_name(box->list, vname));
 	box->flags = flags;
 	box->index_prefix = p_strdup(box->pool, index_prefix);
 
@@ -277,9 +274,9 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	MODULE_CONTEXT_SET(box, index_storage_module, ibox);
 
-	box->inbox_user = strcmp(name, "INBOX") == 0 &&
+	box->inbox_user = strcmp(box->name, "INBOX") == 0 &&
 		(box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
-	box->inbox_any = strcmp(name, "INBOX") == 0 &&
+	box->inbox_any = strcmp(box->name, "INBOX") == 0 &&
 		(box->list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0;
 }
 

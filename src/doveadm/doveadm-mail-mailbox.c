@@ -184,33 +184,34 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
 	struct mail_namespace *ns;
 	struct mailbox *box;
+	struct mail_storage *storage;
 	const char *const *namep;
 
 	array_foreach(&ctx->mailboxes, namep) {
-		const char *storage_name = *namep;
+		const char *name = *namep;
 		unsigned int len;
 		bool directory = FALSE;
 
-		ns = mail_namespace_find(user->namespaces, &storage_name);
+		ns = mail_namespace_find(user->namespaces, name);
 		if (ns == NULL)
-			i_fatal("Can't find namespace for: %s", *namep);
+			i_fatal("Can't find namespace for: %s", name);
 
-		len = strlen(storage_name);
-		if (len > 0 && storage_name[len-1] == ns->real_sep) {
-			storage_name = t_strndup(storage_name, len-1);
+		len = strlen(name);
+		if (len > 0 && name[len-1] == mail_namespace_get_sep(ns)) {
+			name = t_strndup(name, len-1);
 			directory = TRUE;
 		}
 
-		box = mailbox_alloc(ns->list, storage_name, 0);
+		box = mailbox_alloc(ns->list, name, 0);
+		storage = mailbox_get_storage(box);
 		if (mailbox_create(box, NULL, directory) < 0) {
-			i_error("Can't create mailbox %s: %s", *namep,
+			i_error("Can't create mailbox %s: %s", name,
 				mailbox_get_last_error(box, NULL));
 		}
 		if (ctx->ctx.subscriptions) {
-			if (mailbox_list_set_subscribed(ns->list, storage_name,
-							TRUE) < 0) {
-				i_error("Can't subscribe to mailbox %s: %s", *namep,
-					mailbox_list_get_last_error(ns->list, NULL));
+			if (mailbox_set_subscribed(box, TRUE) < 0) {
+				i_error("Can't subscribe to mailbox %s: %s", name,
+					mail_storage_get_last_error(storage, NULL));
 			}
 		}
 		mailbox_free(&box);
@@ -252,25 +253,26 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
 	struct mail_namespace *ns;
 	struct mailbox *box;
+	struct mail_storage *storage;
 	const char *const *namep;
 
 	array_foreach(&ctx->mailboxes, namep) {
-		const char *storage_name = *namep;
+		const char *name = *namep;
 
-		ns = mail_namespace_find(user->namespaces, &storage_name);
+		ns = mail_namespace_find(user->namespaces, name);
 		if (ns == NULL)
-			i_fatal("Can't find namespace for: %s", *namep);
+			i_fatal("Can't find namespace for: %s", name);
 
-		box = mailbox_alloc(ns->list, storage_name, 0);
+		box = mailbox_alloc(ns->list, name, 0);
+		storage = mailbox_get_storage(box);
 		if (mailbox_delete(box) < 0) {
-			i_error("Can't delete mailbox %s: %s", *namep,
+			i_error("Can't delete mailbox %s: %s", name,
 				mailbox_get_last_error(box, NULL));
 		}
 		if (ctx->ctx.subscriptions) {
-			if (mailbox_list_set_subscribed(ns->list, storage_name,
-							FALSE) < 0) {
-				i_error("Can't unsubscribe mailbox %s: %s", *namep,
-					mailbox_list_get_last_error(ns->list, NULL));
+			if (mailbox_set_subscribed(box, FALSE) < 0) {
+				i_error("Can't unsubscribe mailbox %s: %s", name,
+					mail_storage_get_last_error(storage, NULL));
 			}
 		}
 		mailbox_free(&box);
@@ -315,10 +317,10 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 	const char *oldname = ctx->oldname;
 	const char *newname = ctx->newname;
 
-	oldns = mail_namespace_find(user->namespaces, &oldname);
+	oldns = mail_namespace_find(user->namespaces, oldname);
 	if (oldns == NULL)
 		i_fatal("Can't find namespace for: %s", oldname);
-	newns = mail_namespace_find(user->namespaces, &newname);
+	newns = mail_namespace_find(user->namespaces, newname);
 	if (newns == NULL)
 		i_fatal("Can't find namespace for: %s", newname);
 
@@ -329,13 +331,13 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 			mailbox_get_last_error(oldbox, NULL));
 	}
 	if (ctx->ctx.subscriptions) {
-		if (mailbox_list_set_subscribed(oldns->list, oldname, FALSE) < 0) {
+		if (mailbox_set_subscribed(oldbox, FALSE) < 0) {
 			i_error("Can't unsubscribe mailbox %s: %s", ctx->oldname,
-				mailbox_list_get_last_error(oldns->list, NULL));
+				mailbox_get_last_error(oldbox, NULL));
 		}
-		if (mailbox_list_set_subscribed(newns->list, newname, TRUE) < 0) {
+		if (mailbox_set_subscribed(newbox, TRUE) < 0) {
 			i_error("Can't subscribe to mailbox %s: %s", ctx->newname,
-				mailbox_list_get_last_error(newns->list, NULL));
+				mailbox_get_last_error(newbox, NULL));
 		}
 	}
 
@@ -376,19 +378,18 @@ cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
 	const char *const *namep;
 
 	array_foreach(&ctx->mailboxes, namep) {
-		const char *storage_name = *namep;
+		const char *name = *namep;
 
-		ns = mail_namespace_find(user->namespaces, &storage_name);
+		ns = mail_namespace_find(user->namespaces, name);
 		if (ns == NULL)
-			i_fatal("Can't find namespace for: %s", *namep);
+			i_fatal("Can't find namespace for: %s", name);
 
-		box = mailbox_alloc(ns->list, storage_name, 0);
-		if (mailbox_list_set_subscribed(ns->list, storage_name,
-						ctx->ctx.subscriptions) < 0) {
-			i_error("Can't %s mailbox %s: %s", *namep,
+		box = mailbox_alloc(ns->list, name, 0);
+		if (mailbox_set_subscribed(box, ctx->ctx.subscriptions) < 0) {
+			i_error("Can't %s mailbox %s: %s", name,
 				ctx->ctx.subscriptions ? "subscribe to" :
 				"unsubscribe",
-				mailbox_list_get_last_error(ns->list, NULL));
+				mail_storage_get_last_error(mailbox_get_storage(box), NULL));
 		}
 		mailbox_free(&box);
 	}

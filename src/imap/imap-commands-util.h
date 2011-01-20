@@ -12,8 +12,7 @@ struct mailbox_keywords;
 /* Finds namespace for given mailbox from namespaces. If namespace isn't found
    or mailbox name is invalid, sends a tagged NO reply to client. */
 struct mail_namespace *
-client_find_namespace(struct client_command_context *cmd, const char *mailbox,
-		      const char **storage_name_r);
+client_find_namespace(struct client_command_context *cmd, const char **mailbox);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */

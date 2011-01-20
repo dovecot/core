@@ -119,19 +119,22 @@ doveadm_mail_list_iter_next(struct doveadm_mail_list_iter *iter)
 	unsigned int len;
 
 	while ((info = mailbox_list_iter_next(iter->iter)) != NULL) {
+		char sep = mail_namespace_get_sep(info->ns);
+
 		if ((info->flags & (MAILBOX_NOSELECT |
 				    MAILBOX_NONEXISTENT)) != 0) {
 			if (iter->only_selectable)
 				continue;
 		}
 		len = strlen(info->name);
-		if (len > 0 && info->name[len-1] == info->ns->sep) {
+		if (len > 0 &&
+		    info->name[len-1] == sep) {
 			/* when listing "foo/%" it lists "foo/". skip it. */
 			continue;
 		}
 
 		if (mail_search_args_match_mailbox(iter->search_args,
-						   info->name, info->ns->sep))
+						   info->name, sep))
 			break;
 	}
 	return info;

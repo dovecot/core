@@ -225,16 +225,11 @@ static bool trash_find_storage(struct mail_user *user,
 			       struct trash_mailbox *trash)
 {
 	struct mail_namespace *ns;
-	const char *name;
 
-	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		name = trash->name;
-		if (mail_namespace_update_name(ns, &name)) {
-			if (name != trash->name)
-				trash->name = p_strdup(user->pool, name);
-			trash->ns = ns;
-			return TRUE;
-		}
+	ns = mail_namespace_find(user->namespaces, trash->name);
+	if (ns != NULL) {
+		trash->ns = ns;
+		return TRUE;
 	}
 	return FALSE;
 }

@@ -60,7 +60,7 @@ void index_storage_lock_notify(struct mailbox *box,
 			       unsigned int secs_left);
 void index_storage_lock_notify_reset(struct mailbox *box);
 
-void index_storage_mailbox_alloc(struct mailbox *box, const char *name,
+void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 				 enum mailbox_flags flags,
 				 const char *index_prefix);
 int index_storage_mailbox_exists(struct mailbox *box);

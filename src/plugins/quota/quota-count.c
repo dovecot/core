@@ -17,12 +17,9 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct mail_search_args *search_args;
-	const char *storage_name;
 	enum mail_error error;
 	uoff_t size;
 	int ret = 0;
-
-	storage_name = mail_namespace_get_storage_name(ns, vname);
 
 	rule = quota_root_rule_find(root->set, vname);
 	if (rule != NULL && rule->ignore) {
@@ -30,7 +27,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		return 0;
 	}
 
-	box = mailbox_alloc(ns->list, storage_name,
+	box = mailbox_alloc(ns->list, vname,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		error = mailbox_get_last_mail_error(box);

@@ -130,6 +130,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	const char *domain = NULL, *username = NULL, *userdomain = NULL;
 	const char *name, *p, *next, **dest, *error;
 	string_t *prefix, *location;
+	char ns_sep = mail_namespace_get_sep(ns);
 	int ret;
 
 	p = storage->ns_prefix_pattern;
@@ -156,7 +157,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		}
 		p++;
 
-		next = strchr(name, *p != '\0' ? *p : ns->sep);
+		next = strchr(name, *p != '\0' ? *p : ns_sep);
 		if (next == NULL) {
 			*dest = name;
 			name = "";
@@ -167,7 +168,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	}
 	if (*p != '\0') {
 		if (*name == '\0' ||
-		    (name[1] == '\0' && *name == ns->sep)) {
+		    (name[1] == '\0' && *name == ns_sep)) {
 			/* trying to open <prefix>/<user> mailbox */
 			name = "INBOX";
 		} else {
@@ -223,7 +224,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	*_ns = mail_namespace_find_prefix(user->namespaces, str_c(prefix));
 	if (*_ns != NULL) {
-		*_name = mail_namespace_fix_sep(ns, name);
+		*_name = mailbox_list_get_storage_name(ns->list,
+				t_strconcat(ns->prefix, name, NULL));
 		return 0;
 	}
 
@@ -259,7 +261,6 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	new_ns->flags = (NAMESPACE_FLAG_SUBSCRIPTIONS & ns->flags) |
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_HIDDEN |
 		NAMESPACE_FLAG_AUTOCREATED | NAMESPACE_FLAG_INBOX_ANY;
-	new_ns->sep = ns->sep;
 	new_ns->mail_set = _storage->set;
 
 	location = t_str_new(256);
@@ -276,7 +277,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	ns_set = p_new(user->pool, struct mail_namespace_settings, 1);
 	ns_set->type = "shared";
-	ns_set->separator = p_strdup_printf(user->pool, "%c", new_ns->sep);
+	ns_set->separator = p_strdup_printf(user->pool, "%c", ns_sep);
 	ns_set->prefix = new_ns->prefix;
 	ns_set->location = p_strdup(user->pool, str_c(location));
 	ns_set->hidden = TRUE;
@@ -298,7 +299,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		return -1;
 	}
 	ns->flags |= NAMESPACE_FLAG_USABLE;
-	*_name = mail_namespace_fix_sep(new_ns, name);
+	*_name = mailbox_list_get_storage_name(new_ns->list,
+				t_strconcat(new_ns->prefix, name, NULL));
 	*_ns = new_ns;
 
 	mail_user_add_namespace(user, &new_ns);

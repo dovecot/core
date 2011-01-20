@@ -141,14 +141,15 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	*error_str_r = NULL;
 
 	name = mailbox_name_to_mutf7(name);
-	ns = mail_namespace_find(ctx->user->namespaces, &name);
+	ns = mail_namespace_find(ctx->user->namespaces, name);
 	if (ns == NULL) {
 		*error_str_r = "Unknown namespace";
 		*error_r = MAIL_ERROR_PARAMS;
 		return -1;
 	}
 
-	if (*name == '\0' && (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+	if (strcmp(name, ns->prefix) == 0 &&
+	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* delivering to a namespace prefix means we actually want to
 		   deliver to the INBOX instead */
 		name = "INBOX";
@@ -178,7 +179,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	}
 	if (ctx->lda_mailbox_autosubscribe) {
 		/* (try to) subscribe to it */
-		(void)mailbox_list_set_subscribed(ns->list, name, TRUE);
+		(void)mailbox_set_subscribed(box, TRUE);
 	}
 
 	/* and try opening again */

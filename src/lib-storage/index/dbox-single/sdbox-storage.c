@@ -30,7 +30,7 @@ static struct mail_storage *sdbox_storage_alloc(void)
 
 static struct mailbox *
 sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, enum mailbox_flags flags)
+		    const char *vname, enum mailbox_flags flags)
 {
 	struct sdbox_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -47,7 +47,8 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &sdbox_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, flags, DBOX_INDEX_PREFIX);
+	index_storage_mailbox_alloc(&mbox->box, vname,
+				    flags, DBOX_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = sdbox_transaction_save_commit_pre;

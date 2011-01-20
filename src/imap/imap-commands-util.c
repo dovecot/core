@@ -14,16 +14,13 @@
 #include "imap-commands-util.h"
 
 struct mail_namespace *
-client_find_namespace(struct client_command_context *cmd, const char *mailbox,
-		      const char **storage_name_r)
+client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 {
 	struct mail_namespace *namespaces = cmd->client->user->namespaces;
 	struct mail_namespace *ns;
-	const char *storage_name, *p;
-	unsigned int storage_name_len;
+	unsigned int name_len;
 
-	storage_name = mailbox;
-	ns = mail_namespace_find(namespaces, &storage_name);
+	ns = mail_namespace_find(namespaces, *mailbox);
 	if (ns == NULL) {
 		client_send_tagline(cmd, t_strdup_printf(
 			"NO Client tried to access nonexistent namespace. "
@@ -32,31 +29,14 @@ client_find_namespace(struct client_command_context *cmd, const char *mailbox,
 		return NULL;
 	}
 
-	storage_name_len = strlen(storage_name);
+	name_len = strlen(*mailbox);
 	if ((cmd->client->set->parsed_workarounds &
 	     		WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
-	    storage_name_len > 0 &&
-	    storage_name[storage_name_len-1] == ns->real_sep) {
+	    name_len > 0 &&
+	    (*mailbox)[name_len-1] == mail_namespace_get_sep(ns)) {
 		/* drop the extra trailing hierarchy separator */
-		storage_name = t_strndup(storage_name, storage_name_len-1);
+		*mailbox = t_strndup(*mailbox, name_len-1);
 	}
-
-	if (ns->real_sep != ns->sep && ns->prefix_len < strlen(mailbox)) {
-		/* make sure there are no real separators used in the mailbox
-		   name. */
-		mailbox += ns->prefix_len;
-		for (p = mailbox; *p != '\0'; p++) {
-			if (*p == ns->real_sep) {
-				client_send_tagline(cmd, t_strdup_printf(
-					"NO Character not allowed "
-					"in mailbox name: '%c'",
-					ns->real_sep));
-				return NULL;
-			}
-		}
-	}
-
-	*storage_name_r = storage_name;
 	return ns;
 }
 
@@ -75,19 +55,19 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
-	const char *storage_name, *error_string;
+	const char *error_string;
 	enum mail_error error;
 
-	ns = client_find_namespace(cmd, name, &storage_name);
+	ns = client_find_namespace(cmd, &name);
 	if (ns == NULL)
 		return -1;
 
 	if (cmd->client->mailbox != NULL &&
-	    mailbox_equals(cmd->client->mailbox, ns, storage_name)) {
+	    mailbox_equals(cmd->client->mailbox, ns, name)) {
 		*destbox_r = cmd->client->mailbox;
 		return 0;
 	}
-	box = mailbox_alloc(ns->list, storage_name,
+	box = mailbox_alloc(ns->list, name,
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(box) < 0) {
 		error_string = mailbox_get_last_error(box, &error);
@@ -335,7 +315,7 @@ bool mailbox_equals(const struct mailbox *box1,
 	if (ns1 != ns2)
 		return FALSE;
 
-        name1 = mailbox_get_name(box1);
+        name1 = mailbox_get_vname(box1);
 	if (strcmp(name1, name2) == 0)
 		return TRUE;
 

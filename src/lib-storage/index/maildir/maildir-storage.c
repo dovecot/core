@@ -263,7 +263,7 @@ static void maildir_lock_touch_timeout(struct maildir_mailbox *mbox)
 
 static struct mailbox *
 maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		      const char *name, enum mailbox_flags flags)
+		      const char *vname, enum mailbox_flags flags)
 {
 	struct maildir_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -277,7 +277,7 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &maildir_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, flags,
+	index_storage_mailbox_alloc(&mbox->box, vname, flags,
 				    MAILDIR_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);

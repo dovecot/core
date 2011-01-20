@@ -43,31 +43,30 @@ static void node_fix_parents(struct mailbox_node *node)
 static void
 maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 		     struct imap_match_glob *glob, bool update_only,
-		     string_t *mailbox)
+		     const char *vname)
 {
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	struct mailbox_node *node;
-	const char *p, *mailbox_c;
-	bool created;
+	const char *p;
+	unsigned int vname_len = strlen(vname);
+	bool created, ns_sep = mail_namespace_get_sep(ns);
 
-	mailbox_c = str_c(mailbox);
-	while ((p = strrchr(mailbox_c, ns->sep)) != NULL) {
-		str_truncate(mailbox, (size_t) (p-mailbox_c));
-		mailbox_c = str_c(mailbox);
-		if (imap_match(glob, mailbox_c) != IMAP_MATCH_YES)
+	while ((p = strrchr(vname, ns_sep)) != NULL) {
+		vname = t_strdup_until(vname, p);
+		if (imap_match(glob, vname) != IMAP_MATCH_YES)
 			continue;
 
-		if (ns->prefix_len > 0 && str_len(mailbox) == ns->prefix_len-1 &&
-		    strncmp(mailbox_c, ns->prefix, ns->prefix_len - 1) == 0 &&
-		    mailbox_c[ns->prefix_len-1] == ns->sep) {
+		if (ns->prefix_len > 0 && vname_len == ns->prefix_len-1 &&
+		    strncmp(vname, ns->prefix, ns->prefix_len - 1) == 0 &&
+		    vname[ns->prefix_len-1] == ns_sep) {
 			/* don't return matches to namespace prefix itself */
 			continue;
 		}
 
 		created = FALSE;
 		node = update_only ?
-			mailbox_tree_lookup(ctx->tree_ctx, mailbox_c) :
-			mailbox_tree_get(ctx->tree_ctx, mailbox_c, &created);
+			mailbox_tree_lookup(ctx->tree_ctx, vname) :
+			mailbox_tree_get(ctx->tree_ctx, vname, &created);
 		if (node != NULL) {
 			if (created) {
 				/* we haven't yet seen this mailbox,
@@ -84,21 +83,19 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 }
 
 static void maildir_set_children(struct maildir_list_iterate_context *ctx,
-				 string_t *mailbox)
+				 const char *vname)
 {
 	struct mailbox_node *node;
-	const char *p, *mailbox_c;
+	const char *p;
 	char hierarchy_sep;
 
-	hierarchy_sep = ctx->ctx.list->ns->sep;
+	hierarchy_sep = mail_namespace_get_sep(ctx->ctx.list->ns);
 
 	/* mark the first existing parent as containing children */
-	mailbox_c = str_c(mailbox);
-	while ((p = strrchr(mailbox_c, hierarchy_sep)) != NULL) {
-		str_truncate(mailbox, (size_t) (p-mailbox_c));
-		mailbox_c = str_c(mailbox);
+	while ((p = strrchr(vname, hierarchy_sep)) != NULL) {
+		vname = t_strdup_until(vname, p);
 
-		node = mailbox_tree_lookup(ctx->tree_ctx, mailbox_c);
+		node = mailbox_tree_lookup(ctx->tree_ctx, vname);
 		if (node != NULL) {
 			node->flags &= ~MAILBOX_NOCHILDREN;
 			node->flags |= MAILBOX_CHILDREN;
@@ -263,6 +260,81 @@ static bool maildir_delete_trash_dir(struct maildir_list_iterate_context *ctx,
 }
 
 static int
+maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
+			   struct imap_match_glob *glob, const struct dirent *d,
+			   bool update_only)
+{
+	struct mailbox_list *list = ctx->ctx.list;
+	const char *fname, *storage_name, *vname;
+	enum mailbox_info_flags flags;
+	enum imap_match_result match;
+	struct mailbox_node *node;
+	bool created;
+	struct stat st;
+	int ret;
+
+	fname = d->d_name;
+	if (fname[0] == ctx->prefix_char)
+		storage_name = fname + 1;
+	else {
+		if (ctx->prefix_char != '\0' || fname[0] == '.')
+			return 0;
+		storage_name = fname;
+	}
+
+	/* skip . and .. */
+	if (fname[0] == '.' &&
+	    (fname[1] == '\0' || (fname[1] == '.' && fname[2] == '\0')))
+		return 0;
+
+	vname = mailbox_list_get_vname(list, storage_name);
+
+	/* make sure the pattern matches */
+	match = imap_match(glob, vname);
+	if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) == 0)
+		return 0;
+
+	/* check if this is an actual mailbox */
+	if (maildir_delete_trash_dir(ctx, fname))
+		return 0;
+
+	T_BEGIN {
+		ret = list->v.get_mailbox_flags(list, ctx->dir, fname,
+				mailbox_list_get_file_type(d), &st, &flags);
+	} T_END;
+	if (ret <= 0)
+		return ret;
+
+	/* we know the children flags ourself, so ignore if any of
+	   them were set. */
+	flags &= ~(MAILBOX_NOINFERIORS | MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
+
+	if ((match & IMAP_MATCH_PARENT) != 0)
+		maildir_fill_parents(ctx, glob, update_only, vname);
+	else {
+		created = FALSE;
+		node = update_only ?
+			mailbox_tree_lookup(ctx->tree_ctx, vname) :
+			mailbox_tree_get(ctx->tree_ctx, vname, &created);
+
+		if (node != NULL) {
+			if (created)
+				node->flags = MAILBOX_NOCHILDREN;
+			else
+				node->flags &= ~MAILBOX_NONEXISTENT;
+			if (!update_only)
+				node->flags |= MAILBOX_MATCHED;
+			node->flags |= flags;
+			node_fix_parents(node);
+		} else {
+			i_assert(update_only);
+			maildir_set_children(ctx, vname);
+		}
+	}
+	return 0;
+}
+
+static int
 maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		     struct imap_match_glob *glob, bool update_only)
 {
@@ -270,14 +342,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 	struct mail_namespace *ns = list->ns;
 	DIR *dirp;
 	struct dirent *d;
-	const char *mailbox_name;
-	string_t *mailbox;
-	enum mailbox_info_flags flags;
-	enum imap_match_result match;
-	struct mailbox_node *node;
-	bool created;
-	struct stat st;
-	int ret;
+	int ret = 0;
 
 	dirp = opendir(ctx->dir);
 	if (dirp == NULL) {
@@ -292,77 +357,13 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		return 0;
 	}
 
-	mailbox = t_str_new(MAILBOX_LIST_NAME_MAX_LENGTH);
 	while ((d = readdir(dirp)) != NULL) {
-		const char *fname = d->d_name;
-
-		if (fname[0] == ctx->prefix_char)
-			mailbox_name = fname + 1;
-		else {
-			if (ctx->prefix_char != '\0' || fname[0] == '.')
-				continue;
-			mailbox_name = fname;
-		}
-
-		/* skip . and .. */
-		if (fname[0] == '.' &&
-		    (fname[1] == '\0' || (fname[1] == '.' && fname[2] == '\0')))
-			continue;
-
-		mailbox_name = mail_namespace_get_vname(ns, mailbox,
-							mailbox_name);
-
-		/* make sure the pattern matches */
-		match = imap_match(glob, mailbox_name);
-		if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) == 0)
-			continue;
-
-		/* check if this is an actual mailbox */
-		if (maildir_delete_trash_dir(ctx, fname))
-			continue;
-
 		T_BEGIN {
-			ret = list->v.get_mailbox_flags(list, ctx->dir, fname,
-				mailbox_list_get_file_type(d), &st, &flags);
+			ret = maildir_fill_readdir_entry(ctx, glob, d,
+							 update_only);
 		} T_END;
-		if (ret <= 0) {
-			if (ret < 0)
-				return -1;
-			continue;
-		}
-
-		/* we know the children flags ourself, so ignore if any of
-		   them were set. */
-		flags &= ~(MAILBOX_NOINFERIORS |
-			   MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
-
-		if ((match & IMAP_MATCH_PARENT) != 0) {
-			T_BEGIN {
-				maildir_fill_parents(ctx, glob, update_only,
-						     mailbox);
-			} T_END;
-		} else {
-			created = FALSE;
-			node = update_only ?
-				mailbox_tree_lookup(ctx->tree_ctx,
-						    mailbox_name) :
-				mailbox_tree_get(ctx->tree_ctx,
-						 mailbox_name, &created);
-
-			if (node != NULL) {
-				if (created)
-					node->flags = MAILBOX_NOCHILDREN;
-				else
-					node->flags &= ~MAILBOX_NONEXISTENT;
-				if (!update_only)
-					node->flags |= MAILBOX_MATCHED;
-				node->flags |= flags;
-				node_fix_parents(node);
-			} else {
-				i_assert(update_only);
-				maildir_set_children(ctx, mailbox);
-			}
-		}
+		if (ret < 0)
+			break;
 	}
 
 	if (closedir(dirp) < 0) {
@@ -370,6 +371,8 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 					  ctx->dir);
 		return -1;
 	}
+	if (ret < 0)
+		return -1;
 
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* make sure INBOX is listed */
@@ -436,9 +439,12 @@ struct mailbox_list_iterate_context *
 maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		       enum mailbox_list_iter_flags flags)
 {
+	struct maildir_mailbox_list *list =
+		(struct maildir_mailbox_list *)_list;
 	struct maildir_list_iterate_context *ctx;
         struct imap_match_glob *glob;
 	pool_t pool;
+	char ns_sep = mail_namespace_get_sep(_list->ns);
 	int ret;
 
 	pool = pool_alloconly_create("maildir_list", 1024);
@@ -446,12 +452,12 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
 	ctx->pool = pool;
-	ctx->tree_ctx = mailbox_tree_init(_list->ns->sep);
+	ctx->tree_ctx = mailbox_tree_init(ns_sep);
 	ctx->info.ns = _list->ns;
 	ctx->prefix_char = strcmp(_list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0 ?
-		'\0' : _list->hierarchy_sep;
+		'\0' : list->sep;
 
-	glob = imap_match_init_multiple(pool, patterns, TRUE, _list->ns->sep);
+	glob = imap_match_init_multiple(pool, patterns, TRUE, ns_sep);
 
 	ctx->dir = _list->set.root_dir;
 

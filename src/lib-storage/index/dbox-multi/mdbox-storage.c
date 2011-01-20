@@ -81,9 +81,9 @@ static void mdbox_storage_destroy(struct mail_storage *_storage)
 	dbox_storage_destroy(_storage);
 }
 
-struct mailbox *
+static struct mailbox *
 mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, enum mailbox_flags flags)
+		    const char *vname, enum mailbox_flags flags)
 {
 	struct mdbox_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -100,7 +100,8 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &mdbox_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, flags, DBOX_INDEX_PREFIX);
+	index_storage_mailbox_alloc(&mbox->box, vname,
+				    flags, DBOX_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = mdbox_transaction_save_commit_pre;

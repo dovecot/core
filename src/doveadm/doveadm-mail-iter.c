@@ -20,12 +20,9 @@ int doveadm_mail_iter_init(const struct mailbox_info *info,
 			   struct doveadm_mail_iter **iter_r)
 {
 	struct doveadm_mail_iter *iter;
-	const char *storage_name;
-
-	storage_name = mail_namespace_get_storage_name(info->ns, info->name);
 
 	iter = i_new(struct doveadm_mail_iter, 1);
-	iter->box = mailbox_alloc(info->ns->list, storage_name,
+	iter->box = mailbox_alloc(info->ns->list, info->name,
 				  MAILBOX_FLAG_KEEP_RECENT |
 				  MAILBOX_FLAG_IGNORE_ACLS);
 	iter->search_args = search_args;

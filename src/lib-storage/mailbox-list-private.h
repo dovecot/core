@@ -34,7 +34,7 @@ struct mailbox_list_vfuncs {
 	struct mailbox_list *(*alloc)(void);
 	void (*deinit)(struct mailbox_list *list);
 
-	int (*get_storage)(struct mailbox_list **list, const char **name,
+	int (*get_storage)(struct mailbox_list **list, const char *vname,
 			   struct mail_storage **storage_r);
 	bool (*is_valid_pattern)(struct mailbox_list *list,
 				 const char *pattern);
@@ -43,6 +43,11 @@ struct mailbox_list_vfuncs {
 	bool (*is_valid_create_name)(struct mailbox_list *list,
 				     const char *name);
 
+	char (*get_hierarchy_sep)(struct mailbox_list *list);
+	const char *(*get_vname)(struct mailbox_list *list,
+				 const char *storage_name);
+	const char *(*get_storage_name)(struct mailbox_list *list,
+					const char *vname);
 	const char *(*get_path)(struct mailbox_list *list, const char *name,
 				enum mailbox_list_path_type type);
 
@@ -89,7 +94,6 @@ union mailbox_list_module_context {
 
 struct mailbox_list {
 	const char *name;
-	char hierarchy_sep;
 	enum mailbox_list_properties props;
 	size_t mailbox_name_max_length;
 
@@ -147,8 +151,15 @@ void mailbox_lists_deinit(void);
 int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 				struct mailbox_list_settings *set_r,
 				const char **error_r);
+const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
+						  const char *vname);
+const char *mailbox_list_default_get_vname(struct mailbox_list *list,
+					   const char *storage_name);
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 					     enum mailbox_list_path_type type);
+const char *mailbox_list_get_storage_name(struct mailbox_list *list,
+					  const char *vname);
+const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name);
 const char *
 mailbox_list_get_root_path(const struct mailbox_list_settings *set,
 			   enum mailbox_list_path_type type);

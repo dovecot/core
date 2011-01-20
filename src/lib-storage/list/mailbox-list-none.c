@@ -47,6 +47,11 @@ none_is_valid_create_name(struct mailbox_list *list ATTR_UNUSED,
 	return FALSE;
 }
 
+static char none_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
+{
+	return '/';
+}
+
 static const char *
 none_list_get_path(struct mailbox_list *list ATTR_UNUSED,
 		   const char *name ATTR_UNUSED,
@@ -147,7 +152,6 @@ none_list_get_mailbox_flags(struct mailbox_list *list ATTR_UNUSED,
 
 struct mailbox_list none_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_NONE,
-	.hierarchy_sep = '/',
 	.props = MAILBOX_LIST_PROP_NO_ROOT,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
@@ -158,6 +162,9 @@ struct mailbox_list none_mailbox_list = {
 		none_is_valid_pattern,
 		none_is_valid_existing_name,
 		none_is_valid_create_name,
+		none_list_get_hierarchy_sep,
+		mailbox_list_default_get_vname,
+		mailbox_list_default_get_storage_name,
 		none_list_get_path,
 		none_list_get_temp_prefix,
 		NULL,

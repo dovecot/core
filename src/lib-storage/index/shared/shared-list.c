@@ -43,12 +43,13 @@ static void shared_list_copy_error(struct mailbox_list *shared_list,
 }
 
 static int
-shared_get_storage(struct mailbox_list **list, const char **name,
+shared_get_storage(struct mailbox_list **list, const char *vname,
 		   struct mail_storage **storage_r)
 {
 	struct mail_namespace *ns = (*list)->ns;
+	const char *name = vname;
 
-	if (shared_storage_get_namespace(&ns, name) < 0)
+	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return -1;
 	*list = ns->list;
 	*storage_r = ns->storage;
@@ -83,6 +84,11 @@ shared_is_valid_create_name(struct mailbox_list *list, const char *name)
 	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return FALSE;
 	return mailbox_list_is_valid_create_name(ns->list, name);
+}
+
+static char shared_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
+{
+	return '/';
 }
 
 static const char *
@@ -145,6 +151,7 @@ shared_list_iter_init(struct mailbox_list *list, const char *const *patterns,
 		      enum mailbox_list_iter_flags flags)
 {
 	struct shared_mailbox_list_iterate_context *ctx;
+	char sep = mail_namespace_get_sep(list->ns);
 
 	ctx = i_new(struct shared_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
@@ -153,7 +160,7 @@ shared_list_iter_init(struct mailbox_list *list, const char *const *patterns,
 	ctx->info.ns = list->ns;
 	ctx->info.flags = MAILBOX_NONEXISTENT;
 	ctx->glob = imap_match_init_multiple(default_pool, patterns,
-					     FALSE, list->ns->sep);
+					     FALSE, sep);
 	return &ctx->ctx;
 }
 
@@ -299,7 +306,6 @@ shared_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 
 struct mailbox_list shared_mailbox_list = {
 	.name = "shared",
-	.hierarchy_sep = '/',
 	.props = 0,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
@@ -310,6 +316,9 @@ struct mailbox_list shared_mailbox_list = {
 		shared_is_valid_pattern,
 		shared_is_valid_existing_name,
 		shared_is_valid_create_name,
+		shared_list_get_hierarchy_sep,
+		mailbox_list_default_get_vname,
+		mailbox_list_default_get_storage_name,
 		shared_list_get_path,
 		shared_list_get_temp_prefix,
 		shared_list_join_refpattern,

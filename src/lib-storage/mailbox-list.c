@@ -345,6 +345,98 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	return mailbox_list_get_root_path(&set, type);
 }
 
+const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
+						  const char *vname)
+{
+	struct mail_namespace *ns = list->ns;
+	unsigned int prefix_len = strlen(ns->prefix);
+	char list_sep, ns_sep, *ret, *p;
+
+	if (prefix_len > 0) {
+		/* skip namespace prefix, except if this is INBOX */
+		if (strncmp(ns->prefix, vname, prefix_len) == 0)
+			vname += prefix_len;
+		else if (strncmp(ns->prefix, vname, prefix_len-1) == 0 &&
+			 ns->prefix[prefix_len-1] == mail_namespace_get_sep(ns)) {
+			/* trying to access the namespace prefix itself */
+			vname = "";
+		} else {
+			i_assert(strcasecmp(vname, "INBOX") == 0);
+		}
+	}
+
+	list_sep = mailbox_list_get_hierarchy_sep(list);
+	ns_sep = mail_namespace_get_sep(ns);
+
+	if (list_sep == ns_sep)
+		return vname;
+	if (ns->type == NAMESPACE_SHARED &&
+	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+		/* shared namespace root. the backend storage's hierarchy
+		   separator isn't known yet, so do nothing. */
+		return vname;
+	}
+
+	ret = p_strdup(unsafe_data_stack_pool, vname);
+	for (p = ret; *p != '\0'; p++) {
+		if (*p == ns_sep)
+			*p = list_sep;
+	}
+	return ret;
+}
+
+const char *mailbox_list_get_storage_name(struct mailbox_list *list,
+					  const char *vname)
+{
+	return list->v.get_storage_name(list, vname);
+}
+
+const char *mailbox_list_default_get_vname(struct mailbox_list *list,
+					   const char *storage_name)
+{
+	unsigned int i, prefix_len, name_len;
+	char list_sep, ns_sep, *ret;
+
+	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    strcasecmp(storage_name, "INBOX") == 0 &&
+	    list->ns->user == list->ns->owner) {
+		/* user's INBOX - use as-is */
+		return "INBOX";
+	}
+	if (*storage_name == '\0') {
+		/* return namespace prefix without the separator */
+		if (list->ns->prefix_len == 0)
+			return list->ns->prefix;
+		else {
+			return t_strndup(list->ns->prefix,
+					 list->ns->prefix_len - 1);
+		}
+	}
+
+	prefix_len = strlen(list->ns->prefix);
+	list_sep = mailbox_list_get_hierarchy_sep(list);
+	ns_sep = mail_namespace_get_sep(list->ns);
+
+	if (list_sep == ns_sep && prefix_len == 0)
+		return storage_name;
+
+	/* @UNSAFE */
+	name_len = strlen(storage_name);
+	ret = t_malloc(prefix_len + name_len + 1);
+	memcpy(ret, list->ns->prefix, prefix_len);
+	for (i = 0; i < name_len; i++) {
+		ret[i + prefix_len] = storage_name[i] == list_sep ? ns_sep :
+			storage_name[i];
+	}
+	ret[i + prefix_len] = '\0';
+	return ret;
+}
+
+const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name)
+{
+	return list->v.get_vname(list, name);
+}
+
 void mailbox_list_destroy(struct mailbox_list **_list)
 {
 	struct mailbox_list *list = *_list;
@@ -388,11 +480,11 @@ mailbox_list_get_user(const struct mailbox_list *list)
 	return list->ns->user;
 }
 
-int mailbox_list_get_storage(struct mailbox_list **list, const char **name,
+int mailbox_list_get_storage(struct mailbox_list **list, const char *vname,
 			     struct mail_storage **storage_r)
 {
 	if ((*list)->v.get_storage != NULL)
-		return (*list)->v.get_storage(list, name, storage_r);
+		return (*list)->v.get_storage(list, vname, storage_r);
 	else {
 		*storage_r = (*list)->ns->storage;
 		return 0;
@@ -403,6 +495,11 @@ void mailbox_list_get_closest_storage(struct mailbox_list *list,
 				      struct mail_storage **storage)
 {
 	*storage = list->ns->storage;
+}
+
+char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)
+{
+	return list->v.get_hierarchy_sep(list);
 }
 
 static void
@@ -818,7 +915,7 @@ ns_match_inbox(struct mail_namespace *ns, const char *pattern)
 		return FALSE;
 
 	glob = imap_match_init(pool_datastack_create(), pattern,
-			       TRUE, ns->sep);
+			       TRUE, mail_namespace_get_sep(ns));
 	return imap_match(glob, "INBOX") == IMAP_MATCH_YES;
 }
 
@@ -832,7 +929,7 @@ ns_match_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns,
 	unsigned int len;
 
 	len = ns->prefix_len;
-	if (len > 0 && ns->prefix[len-1] == ns->sep)
+	if (len > 0 && ns->prefix[len-1] == mail_namespace_get_sep(ns))
 		len--;
 
 	if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
@@ -847,7 +944,7 @@ ns_match_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns,
 		result = IMAP_MATCH_CHILDREN;
 	else {
 		glob = imap_match_init(pool_datastack_create(), pattern,
-				       TRUE, ns->sep);
+				       TRUE, mail_namespace_get_sep(ns));
 		result = imap_match(glob, prefix_without_sep);
 	}
 
@@ -1273,7 +1370,7 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 			break;
 
 		/* see if parent matches */
-		p = strrchr(name, ns->sep);
+		p = strrchr(name, mail_namespace_get_sep(ns));
 		if (p == NULL)
 			break;
 

@@ -373,7 +373,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 	struct client *client = cmd->client;
 	struct imap_select_context *ctx;
 	const struct imap_arg *args, *list_args;
-	const char *mailbox, *storage_name;
+	const char *mailbox;
 	int ret;
 
 	/* <mailbox> [(optional parameters)] */
@@ -388,7 +388,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	ctx = p_new(cmd->pool, struct imap_select_context, 1);
 	ctx->cmd = cmd;
-	ctx->ns = client_find_namespace(cmd, mailbox, &storage_name);
+	ctx->ns = client_find_namespace(cmd, &mailbox);
 	if (ctx->ns == NULL) {
 		close_selected_mailbox(client);
 		return TRUE;
@@ -413,7 +413,7 @@ bool cmd_select_full(struct client_command_context *cmd, bool readonly)
 		(void)client_enable(client, MAILBOX_FEATURE_CONDSTORE);
 	}
 
-	ret = select_open(ctx, storage_name, readonly);
+	ret = select_open(ctx, mailbox, readonly);
 	if (ret == 0)
 		return FALSE;
 	cmd_select_finish(ctx, ret);

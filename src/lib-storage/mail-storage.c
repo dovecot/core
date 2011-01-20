@@ -560,25 +560,47 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 	return TRUE;
 }
 
-struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
+struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags)
 {
 	struct mailbox_list *new_list = list;
 	struct mail_storage *storage;
 	struct mailbox *box;
 
-	if (mailbox_list_get_storage(&new_list, &name, &storage) < 0) {
+	if (mailbox_list_get_storage(&new_list, vname, &storage) < 0) {
 		/* just use the first storage. FIXME: does this break? */
 		storage = list->ns->storage;
 	}
 
 	T_BEGIN {
-		box = storage->v.mailbox_alloc(storage, new_list, name, flags);
+		box = storage->v.mailbox_alloc(storage, new_list, vname, flags);
 		hook_mailbox_allocated(box);
 	} T_END;
 
 	mail_storage_obj_ref(box->storage);
 	return box;
+}
+
+static bool have_listable_namespace_prefix(struct mail_namespace *ns,
+					   const char *name)
+{
+	unsigned int name_len = strlen(name);
+
+	for (; ns != NULL; ns = ns->next) {
+		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+				  NAMESPACE_FLAG_LIST_CHILDREN)) == 0)
+			continue;
+
+		if (ns->prefix_len <= name_len)
+			continue;
+
+		/* if prefix has multiple hierarchies, match
+		   any of the hierarchies */
+		if (strncmp(ns->prefix, name, name_len) == 0 &&
+		    ns->prefix[name_len] == mail_namespace_get_sep(ns))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 int mailbox_exists(struct mailbox *box)
@@ -589,7 +611,47 @@ int mailbox_exists(struct mailbox *box)
 		return -1;
 	}
 
+	if (have_listable_namespace_prefix(box->storage->user->namespaces,
+					   box->vname)) {
+		/* listable namespace prefix always exists */
+		return 1;
+	}
+
 	return box->v.exists(box);
+}
+
+static int mailbox_check_mismatching_separators(struct mailbox *box)
+{
+	struct mail_namespace *ns = box->list->ns;
+	const char *p, *vname = box->vname;
+	char list_sep, ns_sep;
+
+	list_sep = mailbox_list_get_hierarchy_sep(box->list);
+	ns_sep = mail_namespace_get_sep(ns);
+
+	if (ns_sep == list_sep)
+		return 0;
+
+	if (ns->prefix_len > 0) {
+		/* vname is prefix with or without separator */
+		i_assert(strncmp(vname, ns->prefix, ns->prefix_len-1) == 0);
+		vname += ns->prefix_len - 1;
+		if (vname[0] != '\0') {
+			i_assert(vname[0] == ns->prefix[ns->prefix_len-1]);
+			vname++;
+		}
+	}
+
+	for (p = vname; *p != '\0'; p++) {
+		if (*p == list_sep) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				t_strdup_printf("NO Character not allowed "
+						"in mailbox name: '%c'",
+						list_sep));
+			return -1;
+		}
+	}
+	return 0;
 }
 
 static int mailbox_open_full(struct mailbox *box, struct istream *input)
@@ -599,6 +661,8 @@ static int mailbox_open_full(struct mailbox *box, struct istream *input)
 	if (box->opened)
 		return 0;
 
+	if (mailbox_check_mismatching_separators(box) < 0)
+		return -1;
 	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 				       "Invalid mailbox name");
@@ -874,6 +938,42 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 	}
 
 	return src->v.rename(src, dest, rename_children);
+}
+
+int mailbox_set_subscribed(struct mailbox *box, bool set)
+{
+	struct mail_namespace *ns;
+	struct mailbox_list *list = box->list;
+	const char *subs_name;
+
+	if (!mailbox_list_is_valid_existing_name(list, box->name)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
+		return -1;
+	}
+
+	if ((list->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0)
+		subs_name = box->name;
+	else {
+		/* subscriptions=no namespace, find another one where we can
+		   add the subscription to */
+		ns = mail_namespace_find_subscribable(list->ns->user->namespaces,
+						      box->vname);
+		if (ns == NULL) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				"This namespace has no subscriptions");
+			return -1;
+		}
+		/* use <orig ns prefix><orig storage name> as the
+		   subscription name */
+		subs_name = t_strconcat(list->ns->prefix, box->name, NULL);
+		/* drop the common prefix (typically there isn't one) */
+		i_assert(strncmp(ns->prefix, subs_name, strlen(ns->prefix)) == 0);
+		subs_name += strlen(ns->prefix);
+
+		list = ns->list;
+	}
+	return mailbox_list_set_subscribed(list, subs_name, set);
 }
 
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)

@@ -29,6 +29,7 @@ static struct mailbox_list *maildir_list_alloc(void)
 	list = p_new(pool, struct maildir_mailbox_list, 1);
 	list->list = maildir_mailbox_list;
 	list->list.pool = pool;
+	list->sep = '.';
 
 	list->global_temp_prefix = MAILDIR_GLOBAL_TEMP_PREFIX;
 	list->temp_prefix = p_strconcat(pool, list->global_temp_prefix,
@@ -69,7 +70,8 @@ maildir_list_get_dirname_path(struct mailbox_list *list, const char *dir,
 	else if (list->name == imapdir_mailbox_list.name)
 		return t_strdup_printf("%s/%s", dir, name);
 
-	return t_strdup_printf("%s/%c%s", dir, list->hierarchy_sep, name);
+	return t_strdup_printf("%s/%c%s", dir,
+			       mailbox_list_get_hierarchy_sep(list), name);
 }
 
 static const char *
@@ -90,23 +92,23 @@ maildir_list_get_absolute_path(struct mailbox_list *list, const char *name)
 }
 
 static bool
-maildir_list_is_valid_common(struct mailbox_list *list, const char *name,
-			     size_t *len_r)
+maildir_list_is_valid_common(struct maildir_mailbox_list *list,
+			     const char *name, size_t *len_r)
 {
 	size_t len;
 
 	/* check that there are no adjacent hierarchy separators */
 	for (len = 0; name[len] != '\0'; len++) {
-		if (name[len] == list->hierarchy_sep &&
-		    name[len+1] == list->hierarchy_sep)
+		if (name[len] == list->sep &&
+		    name[len+1] == list->sep)
 			return FALSE;
 	}
 
 	if (len == 0 || name[len-1] == '/')
 		return FALSE;
 
-	if (name[0] == list->hierarchy_sep ||
-	    name[len-1] == list->hierarchy_sep)
+	if (name[0] == list->sep ||
+	    name[len-1] == list->sep)
 		return FALSE;
 
 	*len_r = len;
@@ -137,22 +139,26 @@ maildir_is_valid_pattern(struct mailbox_list *list ATTR_UNUSED,
 }
 
 static bool
-maildir_is_valid_existing_name(struct mailbox_list *list, const char *name)
+maildir_is_valid_existing_name(struct mailbox_list *_list, const char *name)
 {
+	struct maildir_mailbox_list *list =
+		(struct maildir_mailbox_list *)_list;
 	size_t len;
 
 	if (!maildir_list_is_valid_common(list, name, &len))
 		return FALSE;
 
-	if (list->mail_set->mail_full_filesystem_access)
+	if (_list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
 	return maildir_list_is_valid_common_nonfs(name);
 }
 
 static bool
-maildir_is_valid_create_name(struct mailbox_list *list, const char *name)
+maildir_is_valid_create_name(struct mailbox_list *_list, const char *name)
 {
+	struct maildir_mailbox_list *list =
+		(struct maildir_mailbox_list *)_list;
 	size_t len;
 
 	if (!maildir_list_is_valid_common(list, name, &len))
@@ -160,15 +166,23 @@ maildir_is_valid_create_name(struct mailbox_list *list, const char *name)
 	if (len > MAILDIR_MAX_CREATE_MAILBOX_NAME_LENGTH)
 		return FALSE;
 
-	if (list->mail_set->mail_full_filesystem_access)
+	if (_list->mail_set->mail_full_filesystem_access)
 		return TRUE;
 
 	if (!maildir_list_is_valid_common_nonfs(name))
 		return FALSE;
-	if (mailbox_list_name_is_too_large(name, list->hierarchy_sep))
+	if (mailbox_list_name_is_too_large(name, list->sep))
 		return FALSE;
 
 	return TRUE;
+}
+
+static char maildir_list_get_hierarchy_sep(struct mailbox_list *_list)
+{
+	struct maildir_mailbox_list *list =
+		(struct maildir_mailbox_list *)_list;
+
+	return list->sep;
 }
 
 static const char *
@@ -348,15 +362,17 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		maildir_list_create_maildirfolder_file(list, path);
 }
 
-static const char *mailbox_list_maildir_get_trash_dir(struct mailbox_list *list)
+static const char *
+mailbox_list_maildir_get_trash_dir(struct mailbox_list *_list)
 {
+	struct maildir_mailbox_list *list =
+		(struct maildir_mailbox_list *)_list;
 	const char *root_dir;
 
-	root_dir = mailbox_list_get_path(list, NULL,
+	root_dir = mailbox_list_get_path(_list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_DIR);
 	return t_strdup_printf("%s/%c%c"MAILBOX_LIST_MAILDIR_TRASH_DIR_NAME,
-			       root_dir, list->hierarchy_sep,
-			       list->hierarchy_sep);
+			       root_dir, list->sep, list->sep);
 }
 
 static int
@@ -448,7 +464,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 	const char *const *names, *old_vname, *new_vname;
 	unsigned int i, count, old_vnamelen;
 	pool_t pool;
-	string_t *str;
+	char old_ns_sep;
 	int ret;
 
 	ret = 0;
@@ -460,14 +476,13 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 	pool = pool_alloconly_create("Maildir++ children list", 1024);
 	i_array_init(&names_arr, 64);
 
-	str = t_str_new(256);
-	old_vname = t_strdup(mail_namespace_get_vname(oldlist->ns, str, oldname));
+	old_vname = mailbox_list_get_vname(oldlist, oldname);
 	old_vnamelen = strlen(oldname);
 
-	str_truncate(str, 0);
-	new_vname = t_strdup(mail_namespace_get_vname(newlist->ns, str, newname));
+	new_vname = mailbox_list_get_vname(newlist, newname);
 
-	pattern = t_strdup_printf("%s%c*", old_vname, oldlist->ns->sep);
+	old_ns_sep = mail_namespace_get_sep(oldlist->ns);
+	pattern = t_strdup_printf("%s%c*", old_vname, old_ns_sep);
 	iter = mailbox_list_iter_init(oldlist, pattern,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
 				      MAILBOX_LIST_ITER_RAW_LIST);
@@ -477,7 +492,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 		/* verify that the prefix matches, otherwise we could have
 		   problems with mailbox names containing '%' and '*' chars */
 		if (strncmp(info->name, old_vname, old_vnamelen) == 0 &&
-		    info->name[old_vnamelen] == oldlist->ns->sep) {
+		    info->name[old_vnamelen] == old_ns_sep) {
 			name = p_strdup(pool, info->name + old_vnamelen);
 			array_append(&names_arr, &name, 1);
 		}
@@ -490,7 +505,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 	}
 
 	for (i = 0; i < count; i++) {
-		old_childname = mail_namespace_get_storage_name(oldlist->ns,
+		old_childname = mailbox_list_get_storage_name(oldlist,
 					t_strconcat(old_vname, names[i], NULL));
 		if (strcmp(old_childname, new_vname) == 0) {
 			/* When doing RENAME "a" "a.b" we see "a.b" here.
@@ -498,7 +513,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 			continue;
 		}
 
-		new_childname = mail_namespace_get_storage_name(newlist->ns,
+		new_childname = mailbox_list_get_storage_name(newlist,
 					t_strconcat(new_vname, names[i], NULL));
 		oldpath = mailbox_list_get_path(oldlist, old_childname,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -596,7 +611,6 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 
 struct mailbox_list maildir_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
-	.hierarchy_sep = '.',
 	.props = MAILBOX_LIST_PROP_NO_MAILDIR_NAME |
 		MAILBOX_LIST_PROP_NO_ALT_DIR |
 		MAILBOX_LIST_PROP_NO_NOSELECT,
@@ -609,6 +623,9 @@ struct mailbox_list maildir_mailbox_list = {
 		maildir_is_valid_pattern,
 		maildir_is_valid_existing_name,
 		maildir_is_valid_create_name,
+		maildir_list_get_hierarchy_sep,
+		mailbox_list_default_get_vname,
+		mailbox_list_default_get_storage_name,
 		maildir_list_get_path,
 		maildir_list_get_temp_prefix,
 		NULL,
@@ -627,7 +644,6 @@ struct mailbox_list maildir_mailbox_list = {
 
 struct mailbox_list imapdir_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_IMAPDIR,
-	.hierarchy_sep = '.',
 	.props = MAILBOX_LIST_PROP_NO_MAILDIR_NAME |
 		MAILBOX_LIST_PROP_NO_ALT_DIR |
 		MAILBOX_LIST_PROP_NO_NOSELECT,
@@ -640,6 +656,9 @@ struct mailbox_list imapdir_mailbox_list = {
 		maildir_is_valid_pattern,
 		maildir_is_valid_existing_name,
 		maildir_is_valid_create_name,
+		maildir_list_get_hierarchy_sep,
+		mailbox_list_default_get_vname,
+		mailbox_list_default_get_storage_name,
 		maildir_list_get_path,
 		maildir_list_get_temp_prefix,
 		NULL,

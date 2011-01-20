@@ -223,7 +223,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->ctx.flags = flags;
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
 	ctx->next = fs_list_next;
-	ctx->sep = _list->ns->sep;
+	ctx->sep = mail_namespace_get_sep(_list->ns);
 	ctx->info.ns = _list->ns;
 
 	prefix_len = strlen(_list->ns->prefix);
@@ -238,7 +238,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 			test_pattern += prefix_len;
 		/* check pattern also when it's converted to use real
 		   separators. */
-		real_pattern = mail_namespace_fix_sep(_list->ns, test_pattern);
+		real_pattern =
+			mailbox_list_get_storage_name(_list, test_pattern);
 		if (mailbox_list_is_valid_pattern(_list, test_pattern) &&
 		    mailbox_list_is_valid_pattern(_list, real_pattern)) {
 			if (strcasecmp(*patterns, "INBOX") == 0) {
@@ -649,7 +650,7 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 	struct mailbox_node *node;
 	enum mailbox_info_flags flags;
 	struct mail_namespace *ns;
-	const char *path, *dir, *fname, *storage_name;
+	const char *path, *dir, *fname, *subs_name, *storage_name;
 	unsigned int len;
 	struct stat st;
 
@@ -667,19 +668,18 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 	}
 
 	/* see if this is for another subscriptions=no namespace */
-	storage_name = ctx->info.name;
+	subs_name = ctx->info.name;
 	ns = mail_namespace_find_unsubscribable(ctx->info.ns->user->namespaces,
-						&storage_name);
-	if (ns == NULL) {
+						subs_name);
+	if (ns == NULL)
 		ns = ctx->info.ns;
-		storage_name = mail_namespace_get_storage_name(ns, storage_name);
-	}
 
 	/* if name ends with hierarchy separator, drop the separator */
-	len = strlen(storage_name);
-	if (len > 0 && storage_name[len-1] == ns->real_sep)
-		storage_name = t_strndup(storage_name, len-1);
+	len = strlen(subs_name);
+	if (len > 0 && subs_name[len-1] == mail_namespace_get_sep(ns))
+		subs_name = t_strndup(subs_name, len-1);
 
+	storage_name = mailbox_list_get_storage_name(ns->list, subs_name);
 	if (!mailbox_list_is_valid_pattern(ns->list, storage_name)) {
 		/* broken entry in subscriptions file */
 		ctx->info.flags = MAILBOX_NONEXISTENT;

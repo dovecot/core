@@ -100,7 +100,7 @@ index_mailbox_list_is_synced(struct index_mailbox_list_iterate_context *ctx)
 static void pattern_parse(struct mailbox_list *list, const char *pattern,
 			  const char **prefix_r, int *recurse_level_r)
 {
-	char sep = list->hierarchy_sep;
+	char sep = mailbox_list_get_hierarchy_sep(list);
 	const char *prefix_start, *prefix_end;
 	bool seen_wildcards = FALSE;
 	int recurse_level = 0;
@@ -188,6 +188,7 @@ index_mailbox_list_iter_init_try(struct index_mailbox_list_iterate_context *ctx,
 	const char *prefix, *cur_prefix, *const *tmp;
 	enum mailbox_list_iter_flags subs_flags;
 	int cur_recurse_level;
+	char sep;
 
 	subs_flags = MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -198,12 +199,12 @@ index_mailbox_list_iter_init_try(struct index_mailbox_list_iterate_context *ctx,
 		return FALSE;
 	}
 
-	ctx->glob = imap_match_init_multiple(default_pool, patterns, TRUE,
-					     list->hierarchy_sep);
+	sep = mailbox_list_get_hierarchy_sep(list);
+	ctx->glob = imap_match_init_multiple(default_pool, patterns, TRUE, sep);
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
 		/* we'll need to know the subscriptions */
-		ctx->subs_tree = mailbox_tree_init(list->hierarchy_sep);
+		ctx->subs_tree = mailbox_tree_init(sep);
 		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->subs_tree,
 						    ctx->glob, FALSE) < 0) {
 			/* let the backend handle this failure */
@@ -261,8 +262,7 @@ index_mailbox_list_iter_init_try(struct index_mailbox_list_iterate_context *ctx,
 			mailbox_list_index_iterate_init(ctx->view, prefix,
 							ctx->recurse_level);
 		ctx->prefix = *prefix == '\0' ? i_strdup(ctx->ns_prefix) :
-			i_strdup_printf("%s%s%c", ctx->ns_prefix, prefix,
-					list->hierarchy_sep);
+			i_strdup_printf("%s%s%c", ctx->ns_prefix, prefix, sep);
 	}
 	return TRUE;
 }
@@ -457,6 +457,7 @@ static int index_mailbox_list_open_indexes(struct mailbox_list *list,
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
 	const char *path;
 	enum mail_index_open_flags index_flags = 0;
+	char sep;
 	int ret;
 
 	index_flags = mail_storage_settings_to_index_flags(list->mail_set);
@@ -479,7 +480,8 @@ static int index_mailbox_list_open_indexes(struct mailbox_list *list,
 	}
 
 	path = t_strconcat(dir, "/"MAILBOX_LIST_INDEX_NAME, NULL);
-	ilist->list_index = mailbox_list_index_alloc(path, list->hierarchy_sep,
+	sep = mailbox_list_get_hierarchy_sep(list);
+	ilist->list_index = mailbox_list_index_alloc(path, sep,
 						     ilist->mail_index);
 	if (mailbox_list_index_open_or_create(ilist->list_index) < 0) {
 		/* skip indexing */

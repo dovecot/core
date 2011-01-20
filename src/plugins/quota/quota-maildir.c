@@ -10,6 +10,7 @@
 #include "write-full.h"
 #include "str.h"
 #include "maildir-storage.h"
+#include "mailbox-list-private.h"
 #include "quota-private.h"
 
 #include <stdio.h>
@@ -157,8 +158,8 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 		T_BEGIN {
 			const char *path, *storage_name;
 
-			storage_name = mail_namespace_get_storage_name(
-				ctx->info->ns, ctx->info->name);
+			storage_name = mailbox_list_get_storage_name(
+				ctx->info->ns->list, ctx->info->name);
 			path = mailbox_list_get_path(ctx->list, storage_name,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 			str_truncate(ctx->path, 0);
@@ -619,7 +620,6 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 {
 	struct mailbox_list *list;
 	struct mail_storage *storage;
-	const char *name = "";
 
 	if (root->limits_initialized)
 		return root->maildirsize_path != NULL;
@@ -632,7 +632,7 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 	i_assert(root->maildirsize_path != NULL);
 
 	list = root->maildirsize_ns->list;
-	if (mailbox_list_get_storage(&list, &name, &storage) == 0 &&
+	if (mailbox_list_get_storage(&list, "", &storage) == 0 &&
 	    strcmp(storage->name, MAILDIR_STORAGE_NAME) != 0) {
 		/* non-maildir namespace, skip */
 		if ((storage->class_flags &

@@ -305,7 +305,7 @@ imapc_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 
 static struct mailbox *
 imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, enum mailbox_flags flags)
+		    const char *vname, enum mailbox_flags flags)
 {
 	struct imapc_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -321,7 +321,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &imapc_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, flags, NULL);
+	index_storage_mailbox_alloc(&mbox->box, vname, flags, NULL);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = imapc_transaction_save_commit_pre;

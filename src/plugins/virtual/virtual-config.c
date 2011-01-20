@@ -135,7 +135,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	if (*line == '-' || *line == '!') line++;
 	bbox->ns = strcasecmp(line, "INBOX") == 0 ?
 		mail_namespace_find_inbox(user->namespaces) :
-		mail_namespace_find(user->namespaces, &line);
+		mail_namespace_find(user->namespaces, line);
 	if (bbox->ns == NULL) {
 		*error_r = t_strdup_printf("Namespace not found for %s",
 					   bbox->name);

@@ -82,7 +82,7 @@ doveadm_mailbox_find(struct mail_user *user, const char *mailbox)
 		i_fatal("Mailbox name not valid UTF-8: %s", mailbox);
 	mailbox = str_c(str);
 
-	ns = mail_namespace_find(user->namespaces, &mailbox);
+	ns = mail_namespace_find(user->namespaces, mailbox);
 	if (ns == NULL)
 		i_fatal("Can't find namespace for mailbox %s", mailbox);
 

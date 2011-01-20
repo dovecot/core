@@ -159,10 +159,11 @@ struct mail_namespace *
 mailbox_list_get_namespace(const struct mailbox_list *list) ATTR_PURE;
 struct mail_user *
 mailbox_list_get_user(const struct mailbox_list *list) ATTR_PURE;
-int mailbox_list_get_storage(struct mailbox_list **list, const char **name,
+int mailbox_list_get_storage(struct mailbox_list **list, const char *vname,
 			     struct mail_storage **storage_r);
 void mailbox_list_get_closest_storage(struct mailbox_list *list,
 				      struct mail_storage **storage);
+char mailbox_list_get_hierarchy_sep(struct mailbox_list *list);
 
 /* Returns the mode and GID that should be used when creating new files to
    the specified mailbox or to mailbox list root. (gid_t)-1 is

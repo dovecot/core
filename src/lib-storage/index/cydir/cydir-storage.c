@@ -36,7 +36,7 @@ cydir_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 
 static struct mailbox *
 cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, enum mailbox_flags flags)
+		    const char *vname, enum mailbox_flags flags)
 {
 	struct cydir_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -53,7 +53,7 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &cydir_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, flags,
+	index_storage_mailbox_alloc(&mbox->box, vname, flags,
 				    CYDIR_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);

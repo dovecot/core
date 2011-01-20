@@ -125,7 +125,7 @@ snarf_box_find(struct mail_user *user, struct mailbox_list **list_r,
 	if (snarf_name == NULL)
 		return FALSE;
 
-	snarf_ns = mail_namespace_find(user->namespaces, &snarf_name);
+	snarf_ns = mail_namespace_find(user->namespaces, snarf_name);
 	if (snarf_ns == NULL) {
 		i_error("snarf: Namespace not found for mailbox: %s",
 			snarf_name);
@@ -166,8 +166,8 @@ static void snarf_mailbox_allocated(struct mailbox *box)
 
 static struct mailbox *
 snarf_mailbox_alloc(struct mail_storage *storage,
-		    struct mailbox_list *list, const char *name,
-		    enum mailbox_flags flags)
+		    struct mailbox_list *list,
+		    const char *vname, enum mailbox_flags flags)
 {
 	struct snarf_mail_storage *sstorage = SNARF_CONTEXT(storage);
 	struct mail_namespace *ns = mailbox_list_get_namespace(list);
@@ -176,7 +176,7 @@ snarf_mailbox_alloc(struct mail_storage *storage,
 	const char *snarf_name;
 	struct stat st;
 
-	if (strcmp(name, "INBOX") == 0 &&
+	if (strcmp(vname, "INBOX") == 0 &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		if (stat(sstorage->snarf_path, &st) == 0)
 			sstorage->snarfing_disabled = FALSE;
@@ -191,13 +191,13 @@ snarf_mailbox_alloc(struct mail_storage *storage,
 			if (snarf_box_find(storage->user, &snarf_list,
 					   &snarf_name)) {
 				list = snarf_list;
-				name = snarf_name;
+				vname = snarf_name;
 			}
 		}
 	}
 
 	box = sstorage->module_ctx.super.
-		mailbox_alloc(storage, list, name, flags);
+		mailbox_alloc(storage, list, vname, flags);
 	if (sstorage->snarfing_disabled) {
 		box->inbox_user = TRUE;
 		box->inbox_any = TRUE;

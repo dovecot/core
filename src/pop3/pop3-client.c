@@ -236,7 +236,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 {
 	struct mail_namespace *ns;
 	struct mail_storage *storage;
-	const char *inbox, *ident;
+	const char *ident;
 	struct client *client;
         enum mailbox_flags flags;
 	const char *errmsg;
@@ -269,8 +269,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	pop3_client_count++;
 	DLLIST_PREPEND(&pop3_clients, client);
 
-	inbox = "INBOX";
-	ns = mail_namespace_find(user->namespaces, &inbox);
+	ns = mail_namespace_find(user->namespaces, "INBOX");
 	if (ns == NULL) {
 		client_send_line(client, "-ERR No INBOX namespace for user.");
 		client_destroy(client, "No INBOX namespace for user.");

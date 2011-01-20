@@ -11,6 +11,7 @@
 #include "file-dotlock.h"
 #include "nfs-workarounds.h"
 #include "mail-storage-private.h"
+#include "mailbox-list-private.h"
 #include "mail-namespace.h"
 #include "acl-cache.h"
 #include "acl-backend-vfile.h"
@@ -161,21 +162,16 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
 	struct acl_object_vfile *aclobj;
-	const char *dir;
+	const char *dir, *vname;
 
 	aclobj = i_new(struct acl_object_vfile, 1);
 	aclobj->aclobj.backend = _backend;
 	aclobj->aclobj.name = i_strdup(name);
 
 	if (backend->global_dir != NULL) T_BEGIN {
-		struct mail_namespace *ns =
-			mailbox_list_get_namespace(_backend->list);
-		string_t *vname;
-
-		vname = t_str_new(128);
-		mail_namespace_get_vname(ns, vname, name);
+		vname = mailbox_list_get_vname(backend->backend.list, name);
 		aclobj->global_path = i_strconcat(backend->global_dir, "/",
-						  str_c(vname), NULL);
+						  vname, NULL);
 	} T_END;
 
 	dir = acl_backend_vfile_get_local_dir(_backend, name);
@@ -190,7 +186,7 @@ get_parent_mailbox(struct acl_backend *backend, const char *name)
 	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
 	const char *p;
 
-	p = strrchr(name, ns->real_sep);
+	p = strrchr(name, mail_namespace_get_sep(ns));
 	return p == NULL ? NULL : t_strdup_until(name, p);
 }
 

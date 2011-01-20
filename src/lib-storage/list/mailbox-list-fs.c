@@ -135,6 +135,11 @@ fs_is_valid_create_name(struct mailbox_list *list, const char *name)
 	return fs_list_is_valid_common_nonfs(list, name);
 }
 
+static char fs_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
+{
+	return '/';
+}
+
 static const char *
 fs_list_get_path(struct mailbox_list *_list, const char *name,
 		 enum mailbox_list_path_type type)
@@ -368,6 +373,7 @@ static int fs_list_rmdir(struct mailbox_list *list, const char *name,
 static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 {
 	const char *path, *child_name, *child_path, *p;
+	char sep;
 
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (fs_list_rmdir(list, name, path) == 0)
@@ -379,8 +385,8 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 	} else if (errno == ENOTEMPTY || errno == EEXIST) {
 		/* mbox workaround: if only .imap/ directory is preventing the
 		   deletion, remove it */
-		child_name = t_strdup_printf("%s%cchild", name,
-					     list->ns->real_sep);
+		sep = mailbox_list_get_hierarchy_sep(list);
+		child_name = t_strdup_printf("%s%cchild", name, sep);
 		child_path = mailbox_list_get_path(list, child_name,
 						   MAILBOX_LIST_PATH_TYPE_INDEX);
 		if (strncmp(path, child_path, strlen(path)) == 0) {
@@ -438,7 +444,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 				  const char *newname, bool rename_children)
 {
 	struct mail_storage *oldstorage;
-	const char *oldpath, *newpath, *alt_newpath, *root_path;
+	const char *oldvname, *oldpath, *newpath, *alt_newpath, *root_path;
 	const char *p, *origin;
 	enum mailbox_list_path_type path_type, alt_path_type;
 	struct stat st;
@@ -446,7 +452,8 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	gid_t gid;
 	bool rmdir_parent = FALSE;
 
-	if (mailbox_list_get_storage(&oldlist, &oldname, &oldstorage) < 0)
+	oldvname = mailbox_list_get_vname(oldlist, oldname);
+	if (mailbox_list_get_storage(&oldlist, oldvname, &oldstorage) < 0)
 		return -1;
 
 	if (rename_children) {
@@ -564,7 +571,6 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 
 struct mailbox_list fs_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_FS,
-	.hierarchy_sep = '/',
 	.props = 0,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
@@ -575,6 +581,9 @@ struct mailbox_list fs_mailbox_list = {
 		fs_is_valid_pattern,
 		fs_is_valid_existing_name,
 		fs_is_valid_create_name,
+		fs_list_get_hierarchy_sep,
+		mailbox_list_default_get_vname,
+		mailbox_list_default_get_storage_name,
 		fs_list_get_path,
 		fs_list_get_temp_prefix,
 		fs_list_join_refpattern,

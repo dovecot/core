@@ -495,11 +495,9 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	struct mail_index_transaction *trans;
 	struct dbox_sync_rebuild_context *rebuild_ctx;
 	enum mail_error error;
-	const char *name;
 	int ret;
 
-	name = mail_namespace_get_storage_name(ns, vname);
-	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_READONLY |
+	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	i_assert(box->storage == &ctx->storage->storage.storage);

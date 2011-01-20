@@ -15,6 +15,7 @@ struct maildir_mailbox_list {
 	struct mailbox_list list;
 
 	const char *global_temp_prefix, *temp_prefix;
+	char sep;
 };
 
 struct mailbox_list_iterate_context *

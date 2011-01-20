@@ -38,7 +38,7 @@ struct mail_storage_vfuncs {
 
 	struct mailbox *(*mailbox_alloc)(struct mail_storage *storage,
 					 struct mailbox_list *list,
-					 const char *name,
+					 const char *vname,
 					 enum mailbox_flags flags);
 	int (*purge)(struct mail_storage *storage);
 };

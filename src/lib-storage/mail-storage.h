@@ -341,7 +341,7 @@ bool mail_storage_is_mailbox_file(struct mail_storage *storage) ATTR_PURE;
 /* Initialize mailbox without actually opening any files or verifying that
    it exists. Note that append and copy may open the selected mailbox again
    with possibly different readonly-state. */
-struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *name,
+struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags);
 /* Returns 1 if mailbox exists (even if it's unselectable),
    0 if not and -1 if some error occurred. */
@@ -373,6 +373,9 @@ int mailbox_delete(struct mailbox *box);
    fails, the error is set to src's storage. */
 int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 		   bool rename_children);
+/* Subscribe/unsubscribe mailbox. Subscribing to
+   nonexistent mailboxes is optional. */
+int mailbox_set_subscribed(struct mailbox *box, bool set);
 
 /* Enable the given feature for the mailbox. */
 int mailbox_enable(struct mailbox *box, enum mailbox_feature features);

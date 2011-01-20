@@ -1,3 +1,5 @@
+ - check:
+    - dsyncing between two namespace separators is probably broken..
  - remove mail_deliver_session after all, do all the stuff transparently
    by hooking into mailbox_copy().
      - use this hook also to do the mail deduplication: 1) sort all destination

@@ -8,7 +8,7 @@
 bool cmd_create(struct client_command_context *cmd)
 {
 	struct mail_namespace *ns;
-	const char *mailbox, *storage_name;
+	const char *mailbox, *orig_mailbox;
 	struct mailbox *box;
 	bool directory;
 	size_t len;
@@ -17,36 +17,27 @@ bool cmd_create(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
-	ns = client_find_namespace(cmd, mailbox, &storage_name);
+	orig_mailbox = mailbox;
+	ns = client_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
 		return TRUE;
 
-	len = strlen(mailbox);
-	if (len == 0 || mailbox[len-1] != ns->sep)
+	len = strlen(orig_mailbox);
+	if (len == 0 || orig_mailbox[len-1] != mail_namespace_get_sep(ns))
 		directory = FALSE;
-	else if (*storage_name == '\0') {
-		client_send_tagline(cmd, "NO ["IMAP_RESP_CODE_ALREADYEXISTS
-				    "] Namespace already exists.");
-		return TRUE;
-	} else {
+	else {
 		/* name ends with hierarchy separator - client is just
 		   informing us that it wants to create children under this
 		   mailbox. */
                 directory = TRUE;
-		mailbox = t_strndup(mailbox, len-1);
 
-		/* drop also from storage_name. it's already dropped when
+		/* drop separator from mailbox. it's already dropped when
 		   WORKAROUND_TB_EXTRA_MAILBOX_SEP is enabled */
-		len = strlen(storage_name);
-		if (storage_name[len-1] == ns->real_sep)
-			storage_name = t_strndup(storage_name, len-1);
+		if (len == strlen(mailbox))
+			mailbox = t_strndup(mailbox, len-1);
 	}
 
-	ns = client_find_namespace(cmd, mailbox, &storage_name);
-	if (ns == NULL)
-		return TRUE;
-
-	box = mailbox_alloc(ns->list, storage_name, 0);
+	box = mailbox_alloc(ns->list, mailbox, 0);
 	if (mailbox_create(box, NULL, directory) < 0)
 		client_send_storage_error(cmd, mailbox_get_storage(box));
 	else

@@ -18,7 +18,7 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 	const char *str;
 	enum mail_error error;
 
-	ns = mail_namespace_find(namespaces, &name);
+	ns = mail_namespace_find(namespaces, name);
 	if (ns == NULL) {
 		if (namespaces->mail_set->mail_debug)
 			i_debug("autocreate: No namespace found for %s", name);
@@ -57,24 +57,26 @@ static void
 autosubscribe_mailbox(struct mail_namespace *namespaces, const char *name)
 {
 	struct mail_namespace *ns;
+	struct mailbox *box;
 	const char *str;
 	enum mail_error error;
 
-	ns = mail_namespace_find_subscribable(namespaces, &name);
+	ns = mail_namespace_find_subscribable(namespaces, name);
 	if (ns == NULL) {
 		if (namespaces->mail_set->mail_debug)
 			i_debug("autocreate: No namespace found for %s", name);
 		return;
 	}
 
-	if (mailbox_list_set_subscribed(ns->list, name, TRUE) < 0) {
-		str = mailbox_list_get_last_error(ns->list,
-						  &error);
+	box = mailbox_alloc(ns->list, name, 0);
+	if (mailbox_set_subscribed(box, TRUE) < 0) {
+		str = mailbox_get_last_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS && ns->mail_set->mail_debug) {
 			i_debug("autocreate: Failed to subscribe mailbox "
 				"%s: %s", name, str);
 		}
 	}
+	mailbox_free(&box);
 }
 
 static void autosubscribe_mailboxes(struct mail_namespace *namespaces)

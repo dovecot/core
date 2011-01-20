@@ -345,7 +345,7 @@ static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 
 static struct mailbox *
 mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		   const char *name, enum mailbox_flags flags)
+		   const char *vname, enum mailbox_flags flags)
 {
 	struct mbox_mailbox *mbox;
 	struct index_mailbox_context *ibox;
@@ -359,7 +359,8 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &mbox_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, flags, MBOX_INDEX_PREFIX);
+	index_storage_mailbox_alloc(&mbox->box, vname,
+				    flags, MBOX_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = mbox_transaction_save_commit_pre;

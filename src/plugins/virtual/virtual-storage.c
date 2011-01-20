@@ -49,7 +49,8 @@ static const char *get_user_visible_mailbox_name(struct mailbox *box)
 		return box->vname;
 	else {
 		return t_strdup_printf("<hidden>%c%s",
-				       box->list->hierarchy_sep, box->name);
+				       mail_namespace_get_sep(box->list->ns),
+				       box->vname);
 	}
 }
 
@@ -176,7 +177,7 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 	flags |= MAILBOX_FLAG_KEEP_RECENT;
 
 	mailbox = bbox->name;
-	ns = mail_namespace_find(user->namespaces, &mailbox);
+	ns = mail_namespace_find(user->namespaces, mailbox);
 	bbox->box = mailbox_alloc(ns->list, mailbox, flags);
 
 	if (mailbox_open(bbox->box) < 0)
@@ -221,7 +222,7 @@ static int virtual_mailboxes_open(struct virtual_mailbox *mbox,
 
 static struct mailbox *
 virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
-		      const char *name, enum mailbox_flags flags)
+		      const char *vname, enum mailbox_flags flags)
 {
 	struct virtual_storage *storage = (struct virtual_storage *)_storage;
 	struct virtual_mailbox *mbox;
@@ -236,7 +237,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	mbox->box.mail_vfuncs = &virtual_mail_vfuncs;
 	mbox->vfuncs = virtual_mailbox_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, name, flags,
+	index_storage_mailbox_alloc(&mbox->box, vname, flags,
 				    VIRTUAL_INDEX_PREFIX);
 
 	mbox->storage = storage;

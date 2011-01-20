@@ -61,10 +61,6 @@ struct mdbox_mailbox {
 
 extern struct mail_vfuncs mdbox_mail_vfuncs;
 
-struct mailbox *
-mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
-		    const char *name, enum mailbox_flags flags);
-
 int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r);
 
