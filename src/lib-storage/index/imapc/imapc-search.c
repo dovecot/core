@@ -96,9 +96,10 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 {
 	struct mail *_mail = &imail->mail.mail;
 	struct istream *input;
-	size_t size = strlen(value);
+	size_t value_len = strlen(value);
+	uoff_t size;
 	const char *path;
-	int fd;
+	int fd, ret;
 
 	if (imail->data.stream != NULL)
 		return;
@@ -106,7 +107,7 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 	fd = create_temp_fd(_mail->box->storage->user, &path);
 	if (fd == -1)
 		return;
-	if (write_full(fd, value, size) < 0) {
+	if (write_full(fd, value, value_len) < 0) {
 		(void)close(fd);
 		return;
 	}
@@ -115,7 +116,21 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 	i_stream_set_name(imail->data.stream, path);
 	index_mail_set_read_buffer_size(_mail, imail->data.stream);
 
+	if (imail->mail.v.istream_opened != NULL) {
+		if (imail->mail.v.istream_opened(_mail,
+						 &imail->data.stream) < 0) {
+			i_stream_unref(&imail->data.stream);
+			return;
+		}
+	}
+
 	if (body) {
+		ret = i_stream_get_size(imail->data.stream, TRUE, &size);
+		if (ret < 0) {
+			i_stream_unref(&imail->data.stream);
+			return;
+		}
+		i_assert(ret != 0);
 		imail->data.physical_size = size;
 		imail->data.virtual_size = size;
 	}
