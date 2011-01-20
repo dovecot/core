@@ -891,8 +891,12 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 	} else if (len > 0 && temp_priv_drop) {
 		/* we're dropping privileges only temporarily, so we can't
 		   chroot. fix home directory so we can access it. */
-		set_keyval(ctx, user, "mail_home",
-			   t_strconcat(chroot, "/", home, NULL));
+		if (*home == '\0' || strcmp(home, "/") == 0)
+			home = chroot;
+		else
+			home = t_strconcat(chroot, home, NULL);
+		chroot = "";
+		set_keyval(ctx, user, "mail_home", home);
 	}
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
