@@ -55,10 +55,26 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 		client_command_free(&ctx->cmd);
 }
 
+static bool
+idle_client_handle_input(struct cmd_idle_context *ctx, bool free_cmd)
+{
+	const char *line;
+
+	while ((line = i_stream_next_line(ctx->client->input)) != NULL) {
+		if (ctx->client->input_skip_line)
+			ctx->client->input_skip_line = FALSE;
+		else {
+			idle_finish(ctx, strcasecmp(line, "DONE") == 0,
+				    free_cmd);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static void idle_client_input_more(struct cmd_idle_context *ctx)
 {
 	struct client *client = ctx->client;
-	char *line;
 
 	client->last_input = ioloop_time;
 	timeout_reset(client->to_idle);
@@ -82,15 +98,9 @@ static void idle_client_input_more(struct cmd_idle_context *ctx)
 		return;
 	}
 
-	while ((line = i_stream_next_line(client->input)) != NULL) {
-		if (client->input_skip_line)
-			client->input_skip_line = FALSE;
-		else {
-			idle_finish(ctx, strcasecmp(line, "DONE") == 0, TRUE);
-			if (!client->disconnected)
-				client_continue_pending_input(client);
-			break;
-		}
+	if (idle_client_handle_input(ctx, TRUE)) {
+		if (!client->disconnected)
+			client_continue_pending_input(client);
 	}
 }
 
@@ -264,6 +274,5 @@ bool cmd_idle(struct client_command_context *cmd)
 	   added mailbox-notifier, we wouldn't see them otherwise. */
 	if (client->mailbox != NULL)
 		idle_sync_now(client->mailbox, ctx);
-	idle_client_input_more(ctx);
-	return FALSE;
+	return idle_client_handle_input(ctx, FALSE);
 }
