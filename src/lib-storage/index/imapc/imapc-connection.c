@@ -126,7 +126,8 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 
 		memset(&reply, 0, sizeof(reply));
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
-		reply.text = "Disconnected from server";
+		reply.text_without_resp = reply.text_full =
+			"Disconnected from server";
 
 		while (array_count(&conn->cmd_wait_list) > 0) {
 			cmdp = array_idx(&conn->cmd_wait_list, 0);
@@ -241,17 +242,8 @@ imapc_connection_parse_capability(struct imapc_connection *conn,
 
 static int
 imapc_connection_handle_resp_text_code(struct imapc_connection *conn,
-				       const char *text)
+				       const char *key, const char *value)
 {
-	const char *key, *value;
-
-	value = strchr(text, ' ');
-	if (value != NULL)
-		key = t_strdup_until(text, value++);
-	else {
-		key = text;
-		value = "";
-	}
 	if (strcasecmp(key, "CAPABILITY") == 0) {
 		if (imapc_connection_parse_capability(conn, value) < 0)
 			return -1;
@@ -268,10 +260,36 @@ imapc_connection_handle_resp_text_code(struct imapc_connection *conn,
 
 static int
 imapc_connection_handle_resp_text(struct imapc_connection *conn,
-				  const struct imap_arg *args,
-				  const char **text_r)
+				  const char *text,
+				  const char **key_r, const char **value_r)
 {
-	const char *text, *p;
+	const char *p, *value;
+
+	i_assert(text[0] == '[');
+
+	p = strchr(text, ']');
+	if (p == NULL) {
+		imapc_connection_input_error(conn, "Missing ']' in resp-text");
+		return -1;
+	}
+	text = t_strdup_until(text + 1, p);
+	value = strchr(text, ' ');
+	if (value != NULL) {
+		*key_r = t_strdup_until(text, value);
+		*value_r = value + 1;
+	} else {
+		*key_r = text;
+		*value_r = NULL;
+	}
+	return 0;
+}
+
+static int
+imapc_connection_handle_imap_resp_text(struct imapc_connection *conn,
+				       const struct imap_arg *args,
+				       const char **key_r, const char **value_r)
+{
+	const char *text;
 
 	if (args->type != IMAP_ARG_ATOM)
 		return 0;
@@ -285,17 +303,10 @@ imapc_connection_handle_resp_text(struct imapc_connection *conn,
 		}
 		return 0;
 	}
-	p = strchr(text, ']');
-	if (p == NULL) {
-		imapc_connection_input_error(conn, "Missing ']' in resp-text");
+	if (imapc_connection_handle_resp_text(conn, text, key_r, value_r) < 0)
 		return -1;
-	}
-	if (p[1] == '\0' || p[1] != ' ' || p[2] == '\0') {
-		imapc_connection_input_error(conn, "Missing text in resp-text");
-		return -1;
-	}
-	*text_r = text = t_strdup_until(text + 1, p);
-	return imapc_connection_handle_resp_text_code(conn, text);
+
+	return imapc_connection_handle_resp_text_code(conn, *key_r, *value_r);
 }
 
 static bool need_literal(const char *str)
@@ -346,7 +357,7 @@ imapc_connection_capability_cb(const struct imapc_command_reply *reply,
 
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
 		imapc_connection_input_error(conn,
-			"Failed to get capabilities: %s", reply->text);
+			"Failed to get capabilities: %s", reply->text_full);
 	} else if (conn->capabilities == 0) {
 		imapc_connection_input_error(conn,
 			"Capabilities not returned by server");
@@ -363,7 +374,7 @@ static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
 		imapc_connection_input_error(conn, "Authentication failed: %s",
-					     reply->text);
+					     reply->text_full);
 		return;
 	}
 
@@ -406,13 +417,14 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 {
 	const struct imapc_client_settings *set = &conn->client->set;
 	const struct imap_arg *imap_args;
-	const char *cmd, *text;
+	const char *cmd, *key, *value;
 	int ret;
 
 	if ((ret = imapc_connection_read_line(conn, &imap_args)) <= 0)
 		return ret;
 
-	if (imapc_connection_handle_resp_text(conn, imap_args, &text) < 0)
+	if (imapc_connection_handle_imap_resp_text(conn, imap_args,
+						   &key, &value) < 0)
 		return -1;
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_AUTHENTICATING);
 
@@ -482,8 +494,9 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 	memset(&reply, 0, sizeof(reply));
 
 	if (strcasecmp(name, "OK") == 0) {
-		if (imapc_connection_handle_resp_text(conn, imap_args,
-						      &reply.resp_text) < 0)
+		if (imapc_connection_handle_imap_resp_text(conn, imap_args,
+						&reply.resp_text_key,
+						&reply.resp_text_value) < 0)
 			return -1;
 	}
 
@@ -535,10 +548,10 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 
 	linep = strchr(line, ' ');
 	if (linep == NULL)
-		reply.text = "";
+		reply.text_full = "";
 	else {
 		*linep = '\0';
-		reply.text = linep + 1;
+		reply.text_full = linep + 1;
 	}
 
 	if (strcasecmp(line, "ok") == 0)
@@ -554,19 +567,20 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 		return -1;
 	}
 
-	if (reply.text[0] == '[') {
+	if (reply.text_full[0] == '[') {
 		/* get resp-text */
-		p = strchr(reply.text, ']');
-		if (p == NULL) {
-			imapc_connection_input_error(conn,
-				"Missing ']' from resp-text: %u %s",
-				conn->cur_tag, line);
+		if (imapc_connection_handle_resp_text(conn, reply.text_full,
+					&reply.resp_text_key,
+					&reply.resp_text_value) < 0)
 			return -1;
-		}
-		reply.resp_text = t_strndup(reply.text + 1, p - reply.text - 1);
-		if (imapc_connection_handle_resp_text_code(conn,
-							   reply.resp_text) < 0)
-			return -1;
+
+		p = strchr(reply.text_full, ']');
+		i_assert(p != NULL);
+		reply.text_without_resp = p + 1;
+		if (reply.text_without_resp[0] == ' ')
+			reply.text_without_resp++;
+	} else {
+		reply.text_without_resp = reply.text_full;
 	}
 
 	/* find the command. it's either the first command in send queue

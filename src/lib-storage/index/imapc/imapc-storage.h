@@ -6,12 +6,32 @@
 #define IMAPC_STORAGE_NAME "imapc"
 
 struct imap_arg;
+struct imapc_untagged_reply;
 struct imapc_command_reply;
+struct imapc_mailbox;
+struct imapc_storage;
+
+typedef void imapc_storage_callback_t(const struct imapc_untagged_reply *reply,
+				      struct imapc_storage *storage);
+typedef void imapc_mailbox_callback_t(const struct imapc_untagged_reply *reply,
+				      struct imapc_mailbox *mbox);
+
+struct imapc_storage_event_callback {
+	const char *name;
+	imapc_storage_callback_t *callback;
+};
+
+struct imapc_mailbox_event_callback {
+	const char *name;
+	imapc_mailbox_callback_t *callback;
+};
 
 struct imapc_storage {
 	struct mail_storage storage;
 	struct imapc_mailbox_list *list;
 	struct imapc_client *client;
+
+	ARRAY_DEFINE(untagged_callbacks, struct imapc_storage_event_callback);
 };
 
 struct imapc_mailbox {
@@ -23,6 +43,9 @@ struct imapc_mailbox {
 	struct mail_index_view *delayed_sync_view;
 
 	struct mail *cur_fetch_mail;
+
+	ARRAY_DEFINE(untagged_callbacks, struct imapc_mailbox_event_callback);
+	ARRAY_DEFINE(resp_text_callbacks, struct imapc_mailbox_event_callback);
 
 	unsigned int new_msgs:1;
 };
@@ -58,5 +81,17 @@ void imapc_simple_callback(const struct imapc_command_reply *reply,
 			   void *context);
 void imapc_async_stop_callback(const struct imapc_command_reply *reply,
 			       void *context);
+
+void imapc_storage_register_untagged(struct imapc_storage *storage,
+				     const char *name,
+				     imapc_storage_callback_t *callback);
+void imapc_mailbox_register_untagged(struct imapc_mailbox *mbox,
+				     const char *name,
+				     imapc_mailbox_callback_t *callback);
+void imapc_mailbox_register_resp_text(struct imapc_mailbox *mbox,
+				      const char *key,
+				      imapc_mailbox_callback_t *callback);
+
+void imapc_mailbox_register_callbacks(struct imapc_mailbox *mbox);
 
 #endif

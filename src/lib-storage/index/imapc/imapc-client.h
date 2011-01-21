@@ -34,10 +34,14 @@ struct imapc_client_settings {
 
 struct imapc_command_reply {
 	enum imapc_command_state state;
-	/* "RESP TEXT" when the reply contains [RESP TEXT], otherwise NULL */
-	const char *resp_text;
+	/* "[RESP TEXT]" produces key=RESP, value=TEXT.
+	   "[RESP]" produces key=RESP, value=NULL
+	   otherwise both are NULL */
+	const char *resp_text_key, *resp_text_value;
 	/* The full tagged reply, including [RESP TEXT]. */
-	const char *text;
+	const char *text_full;
+	/* Tagged reply text without [RESP TEXT] */
+	const char *text_without_resp;
 };
 
 struct imapc_untagged_reply {
@@ -49,8 +53,10 @@ struct imapc_untagged_reply {
 	/* the rest of the reply can be read from these args. */
 	const struct imap_arg *args;
 
-	/* "RESP TEXT" when the reply is "* OK [RESP TEXT]", otherwise NULL */
-	const char *resp_text;
+	/* "* OK [RESP TEXT]" produces key=RESP, value=TEXT.
+	   "* OK [RESP]" produces key=RESP, value=NULL
+	   otherwise both are NULL */
+	const char *resp_text_key, *resp_text_value;
 
 	/* If this reply occurred while a mailbox was selected, this contains
 	   the mailbox's untagged_context. */

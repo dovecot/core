@@ -2,19 +2,13 @@
 
 #include "lib.h"
 #include "str.h"
-#include "imap-util.h"
-#include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "mail-copy.h"
 #include "index-mail.h"
-#include "mailbox-list-private.h"
 #include "imapc-client.h"
 #include "imapc-list.h"
-#include "imapc-seqmap.h"
 #include "imapc-sync.h"
 #include "imapc-storage.h"
-
-#include <sys/stat.h>
 
 #define DNS_CLIENT_SOCKET_NAME "dns-client"
 
@@ -92,15 +86,13 @@ imapc_copy_error_from_reply(struct imapc_storage *storage,
 			    const struct imapc_command_reply *reply)
 {
 	enum mail_error error;
-	const char *p;
 
-	if (imap_resp_text_code_parse(reply->resp_text, &error)) {
-		p = strchr(reply->text, ']');
-		i_assert(p != NULL);
-		mail_storage_set_error(&storage->storage, error, p + 1);
+	if (imap_resp_text_code_parse(reply->resp_text_key, &error)) {
+		mail_storage_set_error(&storage->storage, error,
+				       reply->text_without_resp);
 	} else {
 		mail_storage_set_error(&storage->storage, default_error,
-				       reply->text);
+				       reply->text_without_resp);
 	}
 }
 
@@ -116,7 +108,7 @@ void imapc_simple_callback(const struct imapc_command_reply *reply,
 		ctx->ret = -1;
 	} else {
 		mail_storage_set_critical(&ctx->storage->storage,
-			"imapc: Command failed: %s", reply->text);
+			"imapc: Command failed: %s", reply->text_full);
 		ctx->ret = -1;
 	}
 	imapc_client_stop(ctx->storage->client);
@@ -133,90 +125,9 @@ void imapc_async_stop_callback(const struct imapc_command_reply *reply,
 		imapc_copy_error_from_reply(storage, MAIL_ERROR_PARAMS, reply);
 	} else {
 		mail_storage_set_critical(&storage->storage,
-			"imapc: Command failed: %s", reply->text);
+			"imapc: Command failed: %s", reply->text_full);
 	}
 	imapc_client_stop(storage->client);
-}
-
-static void
-imapc_mailbox_map_new_msgs(struct imapc_mailbox *mbox,
-			   struct imapc_seqmap *seqmap, uint32_t rcount)
-{
-	const struct mail_index_header *hdr;
-	uint32_t next_lseq, next_rseq;
-
-	next_lseq = mail_index_view_get_messages_count(mbox->box.view) + 1;
-	next_rseq = imapc_seqmap_lseq_to_rseq(seqmap, next_lseq);
-	if (next_rseq > rcount)
-		return;
-
-	hdr = mail_index_get_header(mbox->box.view);
-
-	mbox->new_msgs = TRUE;
-	imapc_client_mailbox_cmdf(mbox->client_box, imapc_async_stop_callback,
-				  mbox->storage, "UID FETCH %u:* FLAGS",
-				  hdr->next_uid);
-}
-
-static void
-imapc_mailbox_map_fetch_reply(struct imapc_mailbox *mbox,
-			      const struct imap_arg *args, uint32_t seq)
-{
-	struct imapc_seqmap *seqmap;
-	const struct imap_arg *list, *flags_list;
-	const char *atom;
-	const struct mail_index_record *rec;
-	enum mail_flags flags;
-	uint32_t uid, old_count;
-	unsigned int i, j;
-	bool seen_flags = FALSE;
-
-	if (seq == 0 || !imap_arg_get_list(args, &list))
-		return;
-
-	uid = 0; flags = 0;
-	for (i = 0; list[i].type != IMAP_ARG_EOL; i += 2) {
-		if (!imap_arg_get_atom(&list[i], &atom))
-			return;
-
-		if (strcasecmp(atom, "UID") == 0) {
-			if (!imap_arg_get_atom(&list[i+1], &atom) ||
-			    str_to_uint32(atom, &uid) < 0)
-				return;
-		} else if (strcasecmp(atom, "FLAGS") == 0) {
-			if (!imap_arg_get_list(&list[i+1], &flags_list))
-				return;
-
-			seen_flags = TRUE;
-			for (j = 0; flags_list[j].type != IMAP_ARG_EOL; j++) {
-				if (!imap_arg_get_atom(&flags_list[j], &atom))
-					return;
-				if (atom[0] == '\\')
-					flags |= imap_parse_system_flag(atom);
-			}
-		}
-	}
-
-	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-	seq = imapc_seqmap_rseq_to_lseq(seqmap, seq);
-
-	if (mbox->cur_fetch_mail != NULL && mbox->cur_fetch_mail->seq == seq) {
-		i_assert(uid == 0 || mbox->cur_fetch_mail->uid == uid);
-		imapc_fetch_mail_update(mbox->cur_fetch_mail, list);
-	}
-
-	old_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
-	if (seq > old_count) {
-		if (uid == 0)
-			return;
-		i_assert(seq == old_count + 1);
-		mail_index_append(mbox->delayed_sync_trans, uid, &seq);
-	}
-	rec = mail_index_lookup(mbox->delayed_sync_view, seq);
-	if (seen_flags && rec->flags != flags) {
-		mail_index_update_flags(mbox->delayed_sync_trans, seq,
-					MODIFY_REPLACE, flags);
-	}
 }
 
 static void imapc_storage_untagged_cb(const struct imapc_untagged_reply *reply,
@@ -224,42 +135,27 @@ static void imapc_storage_untagged_cb(const struct imapc_untagged_reply *reply,
 {
 	struct imapc_storage *storage = context;
 	struct imapc_mailbox *mbox = reply->untagged_box_context;
-	struct imapc_seqmap *seqmap;
-	uint32_t lseq;
+	const struct imapc_storage_event_callback *cb;
+	const struct imapc_mailbox_event_callback *mcb;
 
-	if (strcasecmp(reply->name, "LIST") == 0)
-		imapc_list_update_mailbox(storage->list, reply->args);
-	else if (strcasecmp(reply->name, "LSUB") == 0)
-		imapc_list_update_subscription(storage->list, reply->args);
+	array_foreach(&storage->untagged_callbacks, cb) {
+		if (strcasecmp(reply->name, cb->name) == 0)
+			cb->callback(reply, storage);
+	}
 
 	if (mbox == NULL)
 		return;
 
-	if (reply->resp_text != NULL) {
-		uint32_t uid_validity, uid_next;
-
-		if (strncasecmp(reply->resp_text, "UIDVALIDITY ", 12) == 0 &&
-		    str_to_uint32(reply->resp_text + 12, &uid_validity) == 0) {
-			mail_index_update_header(mbox->delayed_sync_trans,
-				offsetof(struct mail_index_header, uid_validity),
-				&uid_validity, sizeof(uid_validity), TRUE);
-		}
-		if (strncasecmp(reply->resp_text, "UIDNEXT ", 8) == 0 &&
-		    str_to_uint32(reply->resp_text + 8, &uid_next) == 0) {
-			mail_index_update_header(mbox->delayed_sync_trans,
-				offsetof(struct mail_index_header, next_uid),
-				&uid_next, sizeof(uid_next), FALSE);
-		}
+	array_foreach(&mbox->untagged_callbacks, mcb) {
+		if (strcasecmp(reply->name, mcb->name) == 0)
+			mcb->callback(reply, mbox);
 	}
 
-	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-	if (strcasecmp(reply->name, "EXISTS") == 0) {
-		imapc_mailbox_map_new_msgs(mbox, seqmap, reply->num);
-	} else if (strcasecmp(reply->name, "FETCH") == 0) {
-		imapc_mailbox_map_fetch_reply(mbox, reply->args, reply->num);
-	} else if (strcasecmp(reply->name, "EXPUNGE") == 0) {
-		lseq = imapc_seqmap_rseq_to_lseq(seqmap, reply->num);
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+	if (reply->resp_text_key != NULL) {
+		array_foreach(&mbox->resp_text_callbacks, mcb) {
+			if (strcasecmp(reply->resp_text_key, mcb->name) == 0)
+				mcb->callback(reply, mbox);
+		}
 	}
 }
 
@@ -283,11 +179,14 @@ imapc_storage_create(struct mail_storage *_storage,
 	set.dns_client_socket_path =
 		t_strconcat(_storage->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
-	storage->list = (struct imapc_list *)ns->list;
+	storage->list = (struct imapc_mailbox_list *)ns->list;
 	storage->list->storage = storage;
 	storage->client = imapc_client_init(&set);
+
+	p_array_init(&storage->untagged_callbacks, _storage->pool, 16);
 	imapc_client_register_untagged(storage->client,
 				       imapc_storage_untagged_cb, storage);
+	imapc_list_register_callbacks(storage->list);
 	return 0;
 }
 
@@ -296,6 +195,17 @@ static void imapc_storage_destroy(struct mail_storage *_storage)
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 
 	imapc_client_deinit(&storage->client);
+}
+
+void imapc_storage_register_untagged(struct imapc_storage *storage,
+				     const char *name,
+				     imapc_storage_callback_t *callback)
+{
+	struct imapc_storage_event_callback *cb;
+
+	cb = array_append_space(&storage->untagged_callbacks);
+	cb->name = p_strdup(storage->storage.pool, name);
+	cb->callback = callback;
 }
 
 static void
@@ -331,6 +241,10 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	ibox->save_rollback = imapc_transaction_save_rollback;
 
 	mbox->storage = (struct imapc_storage *)storage;
+
+	p_array_init(&mbox->untagged_callbacks, pool, 16);
+	p_array_init(&mbox->resp_text_callbacks, pool, 16);
+	imapc_mailbox_register_callbacks(mbox);
 	return &mbox->box;
 }
 
@@ -349,7 +263,7 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	} else {
 		mail_storage_set_critical(ctx->mbox->box.storage,
 			"imapc: Opening mailbox '%s' failed: %s",
-			ctx->mbox->box.name, reply->text);
+			ctx->mbox->box.name, reply->text_full);
 		ctx->ret = -1;
 	}
 	if (!ctx->mbox->new_msgs)
@@ -404,8 +318,8 @@ imapc_mailbox_create(struct mailbox *box,
 	const char *name = box->name;
 
 	if (directory) {
-		/* FIXME: hardcoded separator.. */
-		name = t_strconcat(name, "/", NULL);
+		name = t_strdup_printf("%s%c", name,
+				mailbox_list_get_hierarchy_sep(box->list));
 	}
 	ctx.storage = mbox->storage;
 	imapc_client_cmdf(mbox->storage->client, imapc_simple_callback, &ctx,
@@ -443,7 +357,7 @@ imapc_mailbox_status_callback(const struct imapc_command_reply *reply,
 	} else {
 		mail_storage_set_critical(ctx->mbox->box.storage,
 			"imapc: STATUS for mailbox '%s' failed: %s",
-			ctx->mbox->box.name, reply->text);
+			ctx->mbox->box.name, reply->text_full);
 		ctx->ret = -1;
 	}
 	imapc_client_stop(ctx->mbox->storage->client);

@@ -19,9 +19,6 @@ struct imapc_mailbox_list {
 	unsigned int broken:1;
 };
 
-void imapc_list_update_mailbox(struct imapc_mailbox_list *list,
-			       const struct imap_arg *args);
-void imapc_list_update_subscription(struct imapc_mailbox_list *list,
-				    const struct imap_arg *args);
+void imapc_list_register_callbacks(struct imapc_mailbox_list *list);
 
 #endif

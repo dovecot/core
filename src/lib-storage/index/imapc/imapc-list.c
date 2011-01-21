@@ -77,9 +77,11 @@ imapc_list_update_tree(struct mailbox_tree_context *tree,
 	return node;
 }
 
-void imapc_list_update_mailbox(struct imapc_mailbox_list *list,
-			       const struct imap_arg *args)
+static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
+				struct imapc_storage *storage)
 {
+	struct imapc_mailbox_list *list = storage->list;
+	const struct imap_arg *args = reply->args;
 	const char *sep, *name;
 
 	if (list->sep == '\0') {
@@ -99,9 +101,11 @@ void imapc_list_update_mailbox(struct imapc_mailbox_list *list,
 	(void)imapc_list_update_tree(list->mailboxes, args);
 }
 
-void imapc_list_update_subscription(struct imapc_mailbox_list *list,
-				    const struct imap_arg *args)
+static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
+				struct imapc_storage *storage)
 {
+	struct imapc_mailbox_list *list = storage->list;
+	const struct imap_arg *args = reply->args;
 	struct mailbox_node *node;
 
 	if (list->sep == '\0') {
@@ -113,6 +117,14 @@ void imapc_list_update_subscription(struct imapc_mailbox_list *list,
 	node = imapc_list_update_tree(list->subscriptions, args);
 	if (node != NULL)
 		node->flags |= MAILBOX_SUBSCRIBED;
+}
+
+void imapc_list_register_callbacks(struct imapc_mailbox_list *list)
+{
+	imapc_storage_register_untagged(list->storage, "LIST",
+					imapc_untagged_list);
+	imapc_storage_register_untagged(list->storage, "LSUB",
+					imapc_untagged_lsub);
 }
 
 static int imapc_list_refresh(struct imapc_mailbox_list *list,
@@ -279,10 +291,13 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 }
 
 static int
-imapc_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
-			      enum mailbox_dir_create_type type)
+imapc_list_create_mailbox_dir(struct mailbox_list *list ATTR_UNUSED,
+			      const char *name ATTR_UNUSED,
+			      enum mailbox_dir_create_type type ATTR_UNUSED)
 {
-	return -1;
+	/* this gets called just before mailbox.create().
+	   we don't need to do anything. */
+	return 0;
 }
 
 static int
