@@ -176,7 +176,7 @@ int dbox_mailbox_create(struct mailbox *box,
 	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0)
 		return 0;
 
-	if (index_storage_mailbox_open(box, FALSE) < 0)
+	if (mailbox_open(box) < 0)
 		return -1;
 
 	/* if alt path already exists and contains files, rebuild storage so
