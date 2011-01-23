@@ -352,6 +352,9 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	unsigned int prefix_len = strlen(ns->prefix);
 	char list_sep, ns_sep, *ret, *p;
 
+	if (strcasecmp(vname, "INBOX") == 0)
+		vname = "INBOX";
+
 	if (prefix_len > 0) {
 		/* skip namespace prefix, except if this is INBOX */
 		if (strncmp(ns->prefix, vname, prefix_len) == 0)
@@ -361,7 +364,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 			/* trying to access the namespace prefix itself */
 			vname = "";
 		} else {
-			i_assert(strcasecmp(vname, "INBOX") == 0);
+			i_assert(strcmp(vname, "INBOX") == 0);
 		}
 	}
 
