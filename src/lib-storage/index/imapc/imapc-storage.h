@@ -73,6 +73,7 @@ void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
 					struct mail_index_transaction_commit_result *result);
 void imapc_transaction_save_rollback(struct mail_save_context *ctx);
 
+void imapc_mail_fetch(struct mail *mail);
 struct mail_search_context *
 imapc_search_init(struct mailbox_transaction_context *t,
 		  struct mail_search_args *args,

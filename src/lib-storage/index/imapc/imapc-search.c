@@ -12,30 +12,20 @@
 #include "imapc-client.h"
 #include "imapc-storage.h"
 
-struct mail_search_context *
-imapc_search_init(struct mailbox_transaction_context *t,
-		  struct mail_search_args *args,
-		  const enum mail_sort_type *sort_program)
-{
-	return index_storage_search_init(t, args, sort_program);
-}
-
-bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
-				struct mail *mail, bool *tryagain_r)
+void imapc_mail_fetch(struct mail *mail)
 {
 	struct mail_private *pmail = (struct mail_private *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	string_t *str;
 	unsigned int orig_len;
 
-	if (!index_storage_search_next_nonblock(_ctx, mail, tryagain_r))
-		return FALSE;
-
 	str = t_str_new(64);
 	str_printfa(str, "UID FETCH %u (", mail->uid);
 	orig_len = str_len(str);
 
-	if ((pmail->wanted_fields & (MAIL_FETCH_MESSAGE_PARTS |
+	if ((pmail->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
+				     MAIL_FETCH_STREAM_BODY |
+				     MAIL_FETCH_MESSAGE_PARTS |
 				     MAIL_FETCH_NUL_STATE |
 				     MAIL_FETCH_IMAP_BODY |
 				     MAIL_FETCH_IMAP_BODYSTRUCTURE |
@@ -53,7 +43,7 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 
 	if (str_len(str) == orig_len) {
 		/* we don't need to fetch anything */
-		return TRUE;
+		return;
 	}
 
 	str_truncate(str, str_len(str) - 1);
@@ -64,6 +54,23 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 				  mbox->storage, "%1s", str_c(str));
 	imapc_client_run(mbox->storage->client);
 	mbox->cur_fetch_mail = NULL;
+}
+
+struct mail_search_context *
+imapc_search_init(struct mailbox_transaction_context *t,
+		  struct mail_search_args *args,
+		  const enum mail_sort_type *sort_program)
+{
+	return index_storage_search_init(t, args, sort_program);
+}
+
+bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
+				struct mail *mail, bool *tryagain_r)
+{
+	if (!index_storage_search_next_nonblock(_ctx, mail, tryagain_r))
+		return FALSE;
+
+	imapc_mail_fetch(mail);
 	return TRUE;
 }
 

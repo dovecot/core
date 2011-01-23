@@ -1,9 +1,25 @@
 /* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "istream.h"
 #include "index-mail.h"
+#include "imapc-client.h"
 #include "imapc-storage.h"
+
+static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq)
+{
+	index_mail_set_seq(_mail, seq);
+	imapc_mail_fetch(_mail);
+}
+
+static bool imapc_mail_set_uid(struct mail *_mail, uint32_t uid)
+{
+	if (!index_mail_set_uid(_mail, uid))
+		return FALSE;
+	imapc_mail_fetch(_mail);
+	return TRUE;
+}
 
 static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
@@ -54,8 +70,8 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_close,
 	index_mail_free,
-	index_mail_set_seq,
-	index_mail_set_uid,
+	imapc_mail_set_seq,
+	imapc_mail_set_uid,
 	index_mail_set_uid_cache_updates,
 
 	index_mail_get_flags,
