@@ -2,6 +2,7 @@ noinst_LTLIBRARIES = libstorage_imapc.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
@@ -30,3 +31,22 @@ headers = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+test_programs = \
+	test-imapc-seqmap
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../../../lib-test/libtest.la \
+	../../../lib/liblib.la
+
+test_imapc_seqmap_SOURCES = test-imapc-seqmap.c
+test_imapc_seqmap_LDADD = imapc-seqmap.lo $(test_libs)
+test_imapc_seqmap_DEPENDENCIES = imapc-seqmap.lo $(test_libs)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
