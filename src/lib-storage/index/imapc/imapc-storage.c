@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "mail-copy.h"
 #include "index-mail.h"
@@ -15,12 +16,6 @@
 
 struct imapc_open_context {
 	struct imapc_mailbox *mbox;
-	int ret;
-};
-
-struct imapc_status_context {
-	struct imapc_mailbox *mbox;
-	struct mailbox_status *status;
 	int ret;
 };
 
@@ -51,6 +46,9 @@ static struct imapc_resp_code_map imapc_resp_code_map[] = {
 	{ IMAP_RESP_CODE_ALREADYEXISTS, MAIL_ERROR_EXISTS },
 	{ IMAP_RESP_CODE_NONEXISTENT, MAIL_ERROR_NOTFOUND }
 };
+
+static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
+				  struct imapc_storage *storage);
 
 static bool
 imap_resp_text_code_parse(const char *str, enum mail_error *error_r)
@@ -167,11 +165,26 @@ imapc_storage_create(struct mail_storage *_storage,
 {
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 	struct imapc_client_settings set;
+	const char *port;
 
 	memset(&set, 0, sizeof(set));
 	set.host = ns->list->set.root_dir;
-	set.port = 143;
-	set.username = _storage->user->username;
+
+	port = mail_user_plugin_getenv(_storage->user, "imapc_port");
+	if (port == NULL)
+		set.port = 143;
+	else {
+		if (str_to_uint(port, &set.port) < 0 ||
+		    set.port == 0 || set.port >= 65536) {
+			*error_r = t_strdup_printf("Invalid port: %s", port);
+			return -1;
+		}
+	}
+
+	set.username = mail_user_plugin_getenv(_storage->user, "imapc_user");
+	if (set.username == NULL)
+		set.username = _storage->user->username;
+
 	set.password = mail_user_plugin_getenv(_storage->user, "pass");
 	if (set.password == NULL) {
 		*error_r = "missing pass";
@@ -188,6 +201,8 @@ imapc_storage_create(struct mail_storage *_storage,
 	imapc_client_register_untagged(storage->client,
 				       imapc_storage_untagged_cb, storage);
 	imapc_list_register_callbacks(storage->list);
+	imapc_storage_register_untagged(storage, "STATUS",
+					imapc_untagged_status);
 	return 0;
 }
 
@@ -343,6 +358,45 @@ static int imapc_mailbox_update(struct mailbox *box,
 	return -1;
 }
 
+static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
+				  struct imapc_storage *storage)
+{
+	struct mailbox_status *status;
+	const struct imap_arg *list;
+	const char *name, *key, *value;
+	uint32_t num;
+	unsigned int i;
+
+	if (!imap_arg_get_astring(&reply->args[0], &name) ||
+	    !imap_arg_get_list(&reply->args[1], &list))
+		return;
+
+	if (storage->cur_status_box == NULL ||
+	    strcmp(storage->cur_status_box->box.name, name) != 0)
+		return;
+
+	status = storage->cur_status;
+	for (i = 0; list[i].type != IMAP_ARG_EOL; i += 2) {
+		if (!imap_arg_get_atom(&list[i], &key) ||
+		    !imap_arg_get_atom(&list[i+1], &value) ||
+		    str_to_uint32(value, &num) < 0)
+			return;
+
+		if (strcasecmp(key, "MESSAGES") == 0)
+			status->messages = num;
+		else if (strcasecmp(key, "RECENT") == 0)
+			status->recent = num;
+		else if (strcasecmp(key, "UIDNEXT") == 0)
+			status->uidnext = num;
+		else if (strcasecmp(key, "UIDVALIDITY") == 0)
+			status->uidvalidity = num;
+		else if (strcasecmp(key, "UNSEEN") == 0)
+			status->unseen = num;
+		else if (strcasecmp(key, "HIGHESTMODSEQ") == 0)
+			status->highest_modseq = num;
+	}
+}
+
 static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 					      enum mailbox_status_items items,
 					      struct mailbox_status *status_r)
@@ -350,32 +404,12 @@ static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 	index_storage_get_status(&mbox->box, items, status_r);
 }
 
-static void
-imapc_mailbox_status_callback(const struct imapc_command_reply *reply,
-			      void *context)
-{
-	struct imapc_status_context *ctx = context;
-
-	if (reply->state == IMAPC_COMMAND_STATE_OK)
-		ctx->ret = 0;
-	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
-		imapc_copy_error_from_reply(ctx->mbox->storage,
-					    MAIL_ERROR_NOTFOUND, reply);
-	} else {
-		mail_storage_set_critical(ctx->mbox->box.storage,
-			"imapc: STATUS for mailbox '%s' failed: %s",
-			ctx->mbox->box.name, reply->text_full);
-		ctx->ret = -1;
-	}
-	imapc_client_stop(ctx->mbox->storage->client);
-}
-
 static int imapc_mailbox_get_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
-	struct imapc_status_context ctx;
+	struct imapc_simple_context ctx;
 	string_t *str;
 
 	memset(status_r, 0, sizeof(*status_r));
@@ -413,22 +447,28 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 		return 0;
 	}
 
-	ctx.mbox = mbox;
-	ctx.status = status_r;
+	ctx.storage = mbox->storage;
+	mbox->storage->cur_status_box = mbox;
+	mbox->storage->cur_status = status_r;
 	imapc_client_cmdf(mbox->storage->client,
-			  imapc_mailbox_status_callback, &ctx,
+			  imapc_simple_callback, &ctx,
 			  "STATUS %s (%1s)", box->name, str_c(str));
 	imapc_client_run(mbox->storage->client);
+	mbox->storage->cur_status_box = NULL;
+	mbox->storage->cur_status = NULL;
 	return ctx.ret;
 }
 
 static int imapc_mailbox_get_metadata(struct mailbox *box,
-				      enum mailbox_metadata_items items ATTR_UNUSED,
-				      struct mailbox_metadata *metadata_r ATTR_UNUSED)
+				      enum mailbox_metadata_items items,
+				      struct mailbox_metadata *metadata_r)
 {
-	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Not supported");
-	return -1;
+	if ((items & MAILBOX_METADATA_GUID) != 0) {
+		/* a bit ugly way to do this, but better than nothing for now.
+		   FIXME: if indexes are enabled, keep this there. */
+		mail_generate_guid_128_hash(box->name, metadata_r->guid);
+	}
+	return index_mailbox_get_metadata(box, items, metadata_r);
 }
 
 static void imapc_notify_changes(struct mailbox *box ATTR_UNUSED)

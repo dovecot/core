@@ -1022,6 +1022,15 @@ void imapc_connection_select(struct imapc_client_mailbox *box, const char *name,
 	imapc_connection_cmdf(conn, callback, context, "SELECT %s", name);
 }
 
+void imapc_connection_unselect(struct imapc_client_mailbox *box)
+{
+	i_assert(box->conn->selected_box == box ||
+		 box->conn->selecting_box == box);
+
+	box->conn->selected_box = NULL;
+	box->conn->selecting_box = NULL;
+}
+
 static void
 imapc_connection_idle_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
 			       void *context)

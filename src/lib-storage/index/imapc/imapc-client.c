@@ -179,6 +179,7 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 		}
 	}
 
+	imapc_connection_unselect(box);
 	imapc_seqmap_deinit(&box->seqmap);
 	i_free(box);
 }

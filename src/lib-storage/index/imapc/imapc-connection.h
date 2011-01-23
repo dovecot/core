@@ -35,6 +35,7 @@ void imapc_connection_cmdvf(struct imapc_connection *conn,
 	ATTR_FORMAT(4, 0);
 void imapc_connection_select(struct imapc_client_mailbox *box, const char *name,
 			     imapc_command_callback_t *callback, void *context);
+void imapc_connection_unselect(struct imapc_client_mailbox *box);
 
 enum imapc_connection_state
 imapc_connection_get_state(struct imapc_connection *conn);

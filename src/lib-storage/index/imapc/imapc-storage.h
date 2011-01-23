@@ -31,6 +31,9 @@ struct imapc_storage {
 	struct imapc_mailbox_list *list;
 	struct imapc_client *client;
 
+	struct imapc_mailbox *cur_status_box;
+	struct mailbox_status *cur_status;
+
 	ARRAY_DEFINE(untagged_callbacks, struct imapc_storage_event_callback);
 };
 
