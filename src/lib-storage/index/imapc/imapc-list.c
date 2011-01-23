@@ -41,6 +41,20 @@ static void imapc_list_deinit(struct mailbox_list *_list)
 	pool_unref(&list->list.pool);
 }
 
+static void imapc_list_simple_callback(const struct imapc_command_reply *reply,
+				       void *context)
+{
+	struct imapc_simple_context *ctx = context;
+	const char *str;
+	enum mail_error error;
+
+	imapc_simple_callback(reply, context);
+	if (ctx->ret < 0) {
+		str = mail_storage_get_last_error(&ctx->storage->storage, &error);
+		mailbox_list_set_error(&ctx->storage->list->list, error, str);
+	}
+}
+
 static struct mailbox_node *
 imapc_list_update_tree(struct mailbox_tree_context *tree,
 		       const struct imap_arg *args)
@@ -135,12 +149,14 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list,
 	ctx.storage = list->storage;
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
 		imapc_client_cmdf(list->storage->client,
-				  imapc_simple_callback, &ctx, "LIST \"\" *");
+				  imapc_list_simple_callback, &ctx,
+				  "LIST \"\" *");
 		if (list->mailboxes != NULL)
 			mailbox_tree_deinit(&list->mailboxes);
 	} else {
 		imapc_client_cmdf(list->storage->client,
-				  imapc_simple_callback, &ctx, "LSUB \"\" *");
+				  imapc_list_simple_callback, &ctx,
+				  "LSUB \"\" *");
 		if (list->subscriptions != NULL)
 			mailbox_tree_deinit(&list->subscriptions);
 	}
@@ -150,19 +166,22 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list,
 }
 
 static bool
-imapc_is_valid_pattern(struct mailbox_list *list, const char *pattern)
+imapc_is_valid_pattern(struct mailbox_list *list ATTR_UNUSED,
+		       const char *pattern ATTR_UNUSED)
 {
 	return TRUE;
 }
 
 static bool
-imapc_is_valid_existing_name(struct mailbox_list *list, const char *name)
+imapc_is_valid_existing_name(struct mailbox_list *list ATTR_UNUSED,
+			     const char *name ATTR_UNUSED)
 {
 	return TRUE;
 }
 
 static bool
-imapc_is_valid_create_name(struct mailbox_list *list, const char *name)
+imapc_is_valid_create_name(struct mailbox_list *list ATTR_UNUSED,
+			   const char *name ATTR_UNUSED)
 {
 	return TRUE;
 }
@@ -175,7 +194,7 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 	if (list->sep == '\0') {
 		ctx.storage = list->storage;
 		imapc_client_cmdf(list->storage->client,
-				  imapc_simple_callback, &ctx,
+				  imapc_list_simple_callback, &ctx,
 				  "LIST \"\" \"\"");
 		imapc_client_run(list->storage->client);
 		if (ctx.ret < 0) {
@@ -187,7 +206,8 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 }
 
 static const char *
-imapc_list_get_path(struct mailbox_list *list, const char *name,
+imapc_list_get_path(struct mailbox_list *list ATTR_UNUSED,
+		    const char *name ATTR_UNUSED,
 		    enum mailbox_list_path_type type)
 {
 	if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
@@ -284,7 +304,7 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 
 	ctx.storage = list->storage;
 	imapc_client_cmdf(list->storage->client,
-			  imapc_simple_callback, &ctx,
+			  imapc_list_simple_callback, &ctx,
 			  set ? "SUBSCRIBE %s" : "UNSUBSCRIBE %s", name);
 	imapc_client_run(list->storage->client);
 	return ctx.ret;
@@ -301,15 +321,23 @@ imapc_list_create_mailbox_dir(struct mailbox_list *list ATTR_UNUSED,
 }
 
 static int
-imapc_list_delete_mailbox(struct mailbox_list *list, const char *name)
+imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 {
-	return -1;
+	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct imapc_simple_context ctx;
+
+	ctx.storage = list->storage;
+	imapc_client_cmdf(list->storage->client,
+			  imapc_list_simple_callback, &ctx, "DELETE %s", name);
+	imapc_client_run(list->storage->client);
+	return ctx.ret;
 }
 
 static int
-imapc_list_delete_dir(struct mailbox_list *list, const char *name)
+imapc_list_delete_dir(struct mailbox_list *list ATTR_UNUSED,
+		      const char *name ATTR_UNUSED)
 {
-	return -1;
+	return 0;
 }
 
 static int
@@ -334,7 +362,7 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 
 	ctx.storage = list->storage;
 	imapc_client_cmdf(list->storage->client,
-			  imapc_simple_callback, &ctx,
+			  imapc_list_simple_callback, &ctx,
 			  "RENAME %s %s", oldname, newname);
 	imapc_client_run(list->storage->client);
 	return ctx.ret;

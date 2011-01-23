@@ -125,11 +125,14 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		imapc_client_run(mbox->storage->client);
 	}
 
-	mail_index_view_close(&mbox->delayed_sync_view);
-	if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0) {
-		// FIXME: mark inconsistent
-		mail_storage_set_index_error(&mbox->box);
-		ret = -1;
+	if (mbox->delayed_sync_view != NULL)
+		mail_index_view_close(&mbox->delayed_sync_view);
+	if (mbox->delayed_sync_trans != NULL) {
+		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0) {
+			// FIXME: mark inconsistent
+			mail_storage_set_index_error(&mbox->box);
+			ret = -1;
+		}
 	}
 
 	if (index_mailbox_want_full_sync(&mbox->box, flags) && ret == 0)
@@ -148,12 +151,8 @@ int imapc_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 	int ret;
 
 	ret = index_mailbox_sync_deinit(ctx, status_r);
-
-	mbox->delayed_sync_trans =
-		mail_index_transaction_begin(mbox->box.view,
-					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	mbox->delayed_sync_view =
-		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
+	if (mbox->client_box == NULL)
+		return ret;
 
 	if ((ictx->flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0 && ret == 0) {
 		seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);

@@ -93,21 +93,13 @@ void imapc_client_stop(struct imapc_client *client)
 		io_loop_stop(client->ioloop);
 }
 
-static void
-imapc_connection_state_changed(struct imapc_connection *conn,
-			       struct imapc_client *client,
-			       enum imapc_connection_state prev_state)
-{
-}
-
 static struct imapc_client_connection *
 imapc_client_add_connection(struct imapc_client *client)
 {
 	struct imapc_client_connection *conn;
 
 	conn = i_new(struct imapc_client_connection, 1);
-	conn->conn = imapc_connection_init(client,
-					   imapc_connection_state_changed);
+	conn->conn = imapc_connection_init(client);
 	array_append(&client->conns, &conn, 1);
 	return conn;
 }

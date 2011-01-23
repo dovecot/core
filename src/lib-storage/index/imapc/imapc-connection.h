@@ -17,15 +17,8 @@ enum imapc_connection_state {
 	IMAPC_CONNECTION_STATE_DONE
 };
 
-/* Called when connection state changes */
-typedef void
-imapc_connection_state_change(struct imapc_connection *conn,
-			      struct imapc_client *client,
-			      enum imapc_connection_state prev_state);
-
 struct imapc_connection *
-imapc_connection_init(struct imapc_client *client,
-		      imapc_connection_state_change *state_callback);
+imapc_connection_init(struct imapc_client *client);
 void imapc_connection_deinit(struct imapc_connection **conn);
 
 void imapc_connection_connect(struct imapc_connection *conn);

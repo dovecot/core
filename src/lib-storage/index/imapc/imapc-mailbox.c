@@ -10,6 +10,18 @@
 
 #define NOTIFY_DELAY_MSECS 500
 
+static void imapc_mailbox_init_delayed_trans(struct imapc_mailbox *mbox)
+{
+	if (mbox->delayed_sync_trans != NULL)
+		return;
+
+	mbox->delayed_sync_trans =
+		mail_index_transaction_begin(mbox->box.view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mbox->delayed_sync_view =
+		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
+}
+
 static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 				  struct imapc_mailbox *mbox)
 {
@@ -98,6 +110,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		imapc_fetch_mail_update(mbox->cur_fetch_mail, list);
 	}
 
+	imapc_mailbox_init_delayed_trans(mbox);
 	old_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
 	if (seq > old_count) {
 		if (uid == 0)
@@ -124,8 +137,10 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 
 	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 	lseq = imapc_seqmap_rseq_to_lseq(seqmap, rseq);
-	mail_index_expunge(mbox->delayed_sync_trans, lseq);
 	imapc_seqmap_expunge(seqmap, rseq);
+
+	imapc_mailbox_init_delayed_trans(mbox);
+	mail_index_expunge(mbox->delayed_sync_trans, lseq);
 
 	imapc_mailbox_idle_notify(mbox);
 }
@@ -140,6 +155,7 @@ imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 	    str_to_uint32(reply->resp_text_value, &uid_validity) < 0)
 		return;
 
+	imapc_mailbox_init_delayed_trans(mbox);
 	mail_index_update_header(mbox->delayed_sync_trans,
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
@@ -155,11 +171,11 @@ imapc_resp_text_uidnext(const struct imapc_untagged_reply *reply,
 	    str_to_uint32(reply->resp_text_value, &uid_next) < 0)
 		return;
 
+	imapc_mailbox_init_delayed_trans(mbox);
 	mail_index_update_header(mbox->delayed_sync_trans,
 				 offsetof(struct mail_index_header, next_uid),
 				 &uid_next, sizeof(uid_next), FALSE);
 }
-
 
 void imapc_mailbox_register_untagged(struct imapc_mailbox *mbox,
 				     const char *key,

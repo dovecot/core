@@ -279,11 +279,10 @@ static int imapc_mailbox_open(struct mailbox *box)
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
 
-	mbox->delayed_sync_trans =
-		mail_index_transaction_begin(box->view,
-					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	mbox->delayed_sync_view =
-		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
+	if (box->deleting) {
+		/* We don't actually want to SELECT the mailbox. */
+		return 0;
+	}
 
 	ctx.mbox = mbox;
 	ctx.ret = -1;
@@ -303,10 +302,14 @@ static void imapc_mailbox_close(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 
-	imapc_client_mailbox_close(&mbox->client_box);
-	mail_index_view_close(&mbox->delayed_sync_view);
-	if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
-		mail_storage_set_index_error(&mbox->box);
+	if (mbox->client_box != NULL)
+		imapc_client_mailbox_close(&mbox->client_box);
+	if (mbox->delayed_sync_view != NULL)
+		mail_index_view_close(&mbox->delayed_sync_view);
+	if (mbox->delayed_sync_trans != NULL) {
+		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
+			mail_storage_set_index_error(&mbox->box);
+	}
 	if (mbox->to_idle != NULL)
 		timeout_remove(&mbox->to_idle);
 	return index_storage_mailbox_close(box);

@@ -55,8 +55,6 @@ struct imapc_connection {
 	uint32_t cur_num;
 
 	struct imapc_client_mailbox *selecting_box, *selected_box;
-
-	imapc_connection_state_change *state_callback;
 	enum imapc_connection_state state;
 
 	enum imapc_capability capabilities;
@@ -79,14 +77,12 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 				    struct imapc_command *cmd);
 
 struct imapc_connection *
-imapc_connection_init(struct imapc_client *client,
-		      imapc_connection_state_change *state_callback)
+imapc_connection_init(struct imapc_client *client)
 {
 	struct imapc_connection *conn;
 
 	conn = i_new(struct imapc_connection, 1);
 	conn->client = client;
-	conn->state_callback = state_callback;
 	conn->fd = -1;
 	conn->name = i_strdup_printf("%s:%u", client->set.host,
 				     client->set.port);
@@ -121,8 +117,6 @@ void imapc_connection_ioloop_changed(struct imapc_connection *conn)
 static void imapc_connection_set_state(struct imapc_connection *conn,
 				       enum imapc_connection_state state)
 {
-	enum imapc_connection_state prev_state = conn->state;
-
 	if (state == IMAPC_CONNECTION_STATE_DISCONNECTED) {
 		/* abort all pending commands */
 		struct imapc_command_reply reply;
@@ -157,9 +151,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 			imapc_command_send_more(conn, *cmd_p);
 		}
 	}
-
 	conn->state = state;
-	conn->state_callback(conn, conn->client, prev_state);
 }
 
 static void imapc_connection_disconnect(struct imapc_connection *conn)
