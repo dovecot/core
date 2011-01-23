@@ -446,6 +446,7 @@ int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted)
 int index_storage_mailbox_delete(struct mailbox *box)
 {
 	struct mailbox_metadata metadata;
+	int ret_guid;
 
 	if (!box->opened) {
 		/* \noselect mailbox, try deleting only the directory */
@@ -455,8 +456,7 @@ int index_storage_mailbox_delete(struct mailbox *box)
 	if (mailbox_mark_index_deleted(box, TRUE) < 0)
 		return -1;
 
-	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
-		return -1;
+	ret_guid = mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata);
 
 	/* Make sure the indexes are closed before trying to delete the
 	   directory that contains them. It can still fail with some NFS
@@ -470,8 +470,11 @@ int index_storage_mailbox_delete(struct mailbox *box)
 		return -1;
 	} 
 
-	mailbox_list_add_change(box->list, MAILBOX_LOG_RECORD_DELETE_MAILBOX,
-				metadata.guid);
+	if (ret_guid == 0) {
+		mailbox_list_add_change(box->list,
+					MAILBOX_LOG_RECORD_DELETE_MAILBOX,
+					metadata.guid);
+	}
 	return index_storage_mailbox_delete_dir(box, TRUE);
 }
 
