@@ -1658,7 +1658,8 @@ local_worker_msg_save(struct dsync_worker *_worker,
 	i_assert(worker->save_input == NULL);
 
 	save_ctx = mailbox_save_alloc(worker->ext_mail->transaction);
-	mailbox_save_set_guid(save_ctx, msg->guid);
+	if (*msg->guid != '\0')
+		mailbox_save_set_guid(save_ctx, msg->guid);
 	local_worker_msg_save_set_metadata(worker, worker->mail->box,
 					   save_ctx, msg);
 	if (*data->pop3_uidl != '\0')
@@ -1753,7 +1754,10 @@ local_worker_msg_get_next(struct local_dsync_worker *worker,
 		worker->get_mailbox = get->mailbox;
 
 		trans = mailbox_transaction_begin(box, 0);
-		worker->get_mail = mail_alloc(trans, 0, NULL);
+		worker->get_mail = mail_alloc(trans, MAIL_FETCH_UIDL_BACKEND |
+					      MAIL_FETCH_RECEIVED_DATE |
+					      MAIL_FETCH_STREAM_HEADER |
+					      MAIL_FETCH_STREAM_BODY, NULL);
 	}
 
 	if (!mail_set_uid(worker->get_mail, get->uid)) {
@@ -1764,15 +1768,17 @@ local_worker_msg_get_next(struct local_dsync_worker *worker,
 
 	memset(&data, 0, sizeof(data));
 	if (mail_get_special(worker->get_mail, MAIL_FETCH_UIDL_BACKEND,
-			     &data.pop3_uidl) < 0 ||
-	    mail_get_received_date(worker->get_mail, &data.received_date) < 0 ||
+			     &data.pop3_uidl) < 0)
+		data.pop3_uidl = "";
+	else
+		data.pop3_uidl = t_strdup(data.pop3_uidl);
+	if (mail_get_received_date(worker->get_mail, &data.received_date) < 0 ||
 	    mail_get_stream(worker->get_mail, NULL, NULL, &data.input) < 0) {
 		get->callback(worker->get_mail->expunged ?
 			      DSYNC_MSG_GET_RESULT_EXPUNGED :
 			      DSYNC_MSG_GET_RESULT_FAILED, NULL, get->context);
 	} else {
 		worker->reading_mail = TRUE;
-		data.pop3_uidl = t_strdup(data.pop3_uidl);
 		data.input = i_stream_create_limit(data.input, (uoff_t)-1);
 		i_stream_set_destroy_callback(data.input,
 					      local_worker_msg_get_done,

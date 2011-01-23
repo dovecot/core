@@ -284,7 +284,8 @@ int main(int argc, char *argv[])
 					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		path2 = mailbox_list_get_path(mail_user2->namespaces->list, NULL,
 					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		if (strcmp(path1, path2) == 0) {
+		if (path1 != NULL && path2 != NULL &&
+		    strcmp(path1, path2) == 0) {
 			i_fatal("Both source and destination mail_location "
 				"points to same directory: %s", path1);
 		}
