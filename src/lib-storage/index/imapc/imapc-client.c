@@ -18,6 +18,7 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ "SASL-IR", IMAPC_CAPABILITY_SASL_IR },
 	{ "LITERAL+", IMAPC_CAPABILITY_LITERALPLUS },
 	{ "QRESYNC", IMAPC_CAPABILITY_QRESYNC },
+	{ "IDLE", IMAPC_CAPABILITY_IDLE },
 
 	{ "IMAP4REV1", IMAPC_CAPABILITY_IMAP4REV1 },
 	{ NULL, 0 }
@@ -88,7 +89,8 @@ void imapc_client_run(struct imapc_client *client)
 
 void imapc_client_stop(struct imapc_client *client)
 {
-	io_loop_stop(client->ioloop);
+	if (client->ioloop != NULL)
+		io_loop_stop(client->ioloop);
 }
 
 static void
@@ -224,4 +226,18 @@ struct imapc_seqmap *
 imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box)
 {
 	return box->seqmap;
+}
+
+void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
+{
+	imapc_connection_idle(box->conn);
+}
+
+enum imapc_capability
+imapc_client_get_capabilities(struct imapc_client *client)
+{
+	struct imapc_client_connection *const *connp;
+
+	connp = array_idx(&client->conns, 0);
+	return imapc_connection_get_capabilities((*connp)->conn);
 }

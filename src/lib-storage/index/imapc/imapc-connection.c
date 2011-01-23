@@ -67,6 +67,10 @@ struct imapc_connection {
 
 	unsigned int ips_count, prev_connect_idx;
 	struct ip_addr *ips;
+
+	unsigned int idling:1;
+	unsigned int idle_stopping:1;
+	unsigned int idle_plus_waiting:1;
 };
 
 static void imapc_connection_disconnect(struct imapc_connection *conn);
@@ -521,6 +525,13 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 {
 	struct imapc_command *const *cmd_p;
 
+	if (conn->idle_plus_waiting) {
+		/* "+ idling" reply for IDLE command */
+		conn->idle_plus_waiting = FALSE;
+		conn->idling = TRUE;
+		return imapc_connection_skip_line(conn);
+	}
+
 	if (array_count(&conn->cmd_send_queue) == 0) {
 		imapc_connection_input_error(conn, "Unexpected '+'");
 		return -1;
@@ -558,9 +569,11 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 		reply.state = IMAPC_COMMAND_STATE_OK;
 	else if (strcasecmp(line, "no") == 0)
 		reply.state = IMAPC_COMMAND_STATE_NO;
-	else if (strcasecmp(line, "bad") == 0)
-		reply.state = IMAPC_COMMAND_STATE_BAD;
 	else if (strcasecmp(line, "bad") == 0) {
+		i_error("imapc(%s): Command failed with BAD: %u %s",
+			conn->name, conn->cur_tag, line);
+		reply.state = IMAPC_COMMAND_STATE_BAD;
+	} else {
 		imapc_connection_input_error(conn,
 			"Invalid state in tagged reply: %u %s",
 			conn->cur_tag, line);
@@ -885,6 +898,10 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 static void imapc_command_send(struct imapc_connection *conn,
 			       struct imapc_command *cmd)
 {
+	if ((conn->idling || conn->idle_plus_waiting) && !conn->idle_stopping) {
+		conn->idle_stopping = TRUE;
+		o_stream_send_str(conn->output, "DONE\r\n");
+	}
 	switch (conn->state) {
 	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
 		array_insert(&conn->cmd_send_queue, 0, &cmd, 1);
@@ -986,6 +1003,12 @@ imapc_connection_get_state(struct imapc_connection *conn)
 	return conn->state;
 }
 
+enum imapc_capability
+imapc_connection_get_capabilities(struct imapc_connection *conn)
+{
+	return conn->capabilities;
+}
+
 void imapc_connection_select(struct imapc_client_mailbox *box, const char *name,
 			     imapc_command_callback_t *callback, void *context)
 {
@@ -1005,4 +1028,28 @@ void imapc_connection_select(struct imapc_client_mailbox *box, const char *name,
 	}
 
 	imapc_connection_cmdf(conn, callback, context, "SELECT %s", name);
+}
+
+static void
+imapc_connection_idle_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
+			       void *context)
+{
+	struct imapc_connection *conn = context;
+
+	conn->idling = FALSE;
+	conn->idle_plus_waiting = FALSE;
+	conn->idle_stopping = FALSE;
+}
+
+void imapc_connection_idle(struct imapc_connection *conn)
+{
+	if (array_count(&conn->cmd_send_queue) != 0 ||
+	    array_count(&conn->cmd_wait_list) != 0 ||
+	    conn->idling || conn->idle_plus_waiting ||
+	    (conn->capabilities & IMAPC_CAPABILITY_IDLE) == 0)
+		return;
+
+	imapc_connection_cmd(conn, "IDLE",
+			     imapc_connection_idle_callback, conn);
+	conn->idle_plus_waiting = TRUE;
 }

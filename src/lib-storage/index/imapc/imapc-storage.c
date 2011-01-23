@@ -1,6 +1,7 @@
 /* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "str.h"
 #include "imap-resp-code.h"
 #include "mail-copy.h"
@@ -302,9 +303,12 @@ static void imapc_mailbox_close(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 
+	imapc_client_mailbox_close(&mbox->client_box);
 	mail_index_view_close(&mbox->delayed_sync_view);
 	if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
 		mail_storage_set_index_error(&mbox->box);
+	if (mbox->to_idle != NULL)
+		timeout_remove(&mbox->to_idle);
 	return index_storage_mailbox_close(box);
 }
 
@@ -416,18 +420,17 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 }
 
 static int imapc_mailbox_get_metadata(struct mailbox *box,
-				      enum mailbox_metadata_items items,
-				      struct mailbox_metadata *metadata_r)
+				      enum mailbox_metadata_items items ATTR_UNUSED,
+				      struct mailbox_metadata *metadata_r ATTR_UNUSED)
 {
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 			       "Not supported");
 	return -1;
 }
 
-static void imapc_notify_changes(struct mailbox *box)
+static void imapc_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
-
+	/* we're doing IDLE all the time anyway - nothing to do here */
 }
 
 struct mail_storage imapc_storage = {

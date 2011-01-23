@@ -107,11 +107,22 @@ struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	enum imapc_capability capabilities;
 	int ret = 0;
 
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
 			ret = -1;
+	}
+
+	capabilities = imapc_client_get_capabilities(mbox->storage->client);
+	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0) {
+		/* IDLE not supported. do NOOP to get latest changes
+		   before starting sync. */
+		imapc_client_mailbox_cmdf(mbox->client_box,
+					  imapc_async_stop_callback,
+					  mbox->storage, "NOOP");
+		imapc_client_run(mbox->storage->client);
 	}
 
 	mail_index_view_close(&mbox->delayed_sync_view);
@@ -148,5 +159,6 @@ int imapc_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 		seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 		imapc_seqmap_reset(seqmap);
 	}
+	imapc_client_mailbox_idle(mbox->client_box);
 	return ret;
 }

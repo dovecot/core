@@ -12,6 +12,7 @@ enum imapc_capability {
 	IMAPC_CAPABILITY_SASL_IR	= 0x01,
 	IMAPC_CAPABILITY_LITERALPLUS	= 0x02,
 	IMAPC_CAPABILITY_QRESYNC	= 0x04,
+	IMAPC_CAPABILITY_IDLE		= 0x08,
 
 	IMAPC_CAPABILITY_IMAP4REV1	= 0x400000000
 };
@@ -96,5 +97,10 @@ void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 	ATTR_FORMAT(4, 5);
 struct imapc_seqmap *
 imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box);
+
+void imapc_client_mailbox_idle(struct imapc_client_mailbox *box);
+
+enum imapc_capability
+imapc_client_get_capabilities(struct imapc_client *client);
 
 #endif

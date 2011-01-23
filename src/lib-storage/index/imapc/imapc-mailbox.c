@@ -1,11 +1,14 @@
 /* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "imap-arg.h"
 #include "imap-util.h"
 #include "imapc-client.h"
 #include "imapc-seqmap.h"
 #include "imapc-storage.h"
+
+#define NOTIFY_DELAY_MSECS 500
 
 static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 				  struct imapc_mailbox *mbox)
@@ -32,6 +35,21 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 				  hdr->next_uid);
 }
 
+static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)
+{
+	timeout_remove(&mbox->to_idle);
+	if (mbox->box.notify_callback != NULL)
+		mbox->box.notify_callback(&mbox->box, mbox->box.notify_context);
+}
+
+static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
+{
+	if (mbox->box.notify_callback != NULL && mbox->to_idle == NULL) {
+		mbox->to_idle =
+			timeout_add(NOTIFY_DELAY_MSECS,
+				    imapc_mailbox_idle_timeout, mbox);
+	}
+}
 
 static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				 struct imapc_mailbox *mbox)
@@ -92,6 +110,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		mail_index_update_flags(mbox->delayed_sync_trans, seq,
 					MODIFY_REPLACE, flags);
 	}
+	imapc_mailbox_idle_notify(mbox);
 }
 
 static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
@@ -106,6 +125,9 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 	lseq = imapc_seqmap_rseq_to_lseq(seqmap, rseq);
 	mail_index_expunge(mbox->delayed_sync_trans, lseq);
+	imapc_seqmap_expunge(seqmap, rseq);
+
+	imapc_mailbox_idle_notify(mbox);
 }
 
 static void
