@@ -316,11 +316,12 @@ static int file_write_pid(int fd, const char *path, bool nfs_flush)
 }
 
 static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
-				    string_t *tmp_path)
+				    string_t *tmp_path, time_t now)
 {
 	const char *temp_prefix = lock_info->set->temp_prefix;
 	const char *p;
 	mode_t old_mask;
+	struct stat st;
 
 	if (lock_info->temp_path == NULL) {
 		/* we'll need our temp file first. */
@@ -366,6 +367,14 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 		}
 
                 lock_info->temp_path = str_c(tmp_path);
+	} else if (fstat(lock_info->fd, &st) < 0) {
+		i_error("fstat(%s) failed: %m", lock_info->temp_path);
+		return -1;
+	} else if (st.st_ctime < now) {
+		/* we've been waiting for a while.
+		   refresh the file's timestamp. */
+		if (utime(lock_info->temp_path, NULL) < 0)
+			i_error("utime(%s) failed: %m", lock_info->temp_path);
 	}
 
 	if (nfs_safe_link(lock_info->temp_path,
@@ -520,7 +529,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 			ret = set->use_excl_lock ?
 				try_create_lock_excl(&lock_info, write_pid) :
 				try_create_lock_hardlink(&lock_info, write_pid,
-							 tmp_path);
+							 tmp_path, now);
 			if (ret != 0)
 				break;
 		}
