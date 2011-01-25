@@ -201,8 +201,6 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		}
 	} T_END;
 
-	if (ctx->sync_command_count > 0)
-		imapc_client_run(ctx->mbox->storage->client);
 	imapc_sync_expunge_finish(ctx);
 	if (ctx->sync_command_count > 0)
 		imapc_client_run(ctx->mbox->storage->client);
