@@ -13,6 +13,7 @@ enum imapc_capability {
 	IMAPC_CAPABILITY_LITERALPLUS	= 0x02,
 	IMAPC_CAPABILITY_QRESYNC	= 0x04,
 	IMAPC_CAPABILITY_IDLE		= 0x08,
+	IMAPC_CAPABILITY_UIDPLUS	= 0x10,
 
 	IMAPC_CAPABILITY_IMAP4REV1	= 0x400000000
 };
@@ -91,6 +92,10 @@ imapc_client_mailbox_open(struct imapc_client *client, const char *name,
 			  imapc_command_callback_t *callback, void *context,
 			  void *untagged_box_context);
 void imapc_client_mailbox_close(struct imapc_client_mailbox **box);
+void imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
+			      const char *cmd,
+			      imapc_command_callback_t *callback,
+			      void *context);
 void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 			       imapc_command_callback_t *callback,
 			       void *context, const char *cmd_fmt, ...)

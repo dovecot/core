@@ -2,11 +2,168 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "str.h"
+#include "imap-util.h"
 #include "index-sync-private.h"
 #include "imapc-storage.h"
 #include "imapc-client.h"
 #include "imapc-seqmap.h"
 #include "imapc-sync.h"
+
+static void imapc_sync_callback(const struct imapc_command_reply *reply,
+				void *context)
+{
+	struct imapc_sync_context *ctx = context;
+
+	i_assert(ctx->sync_command_count > 0);
+
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		;
+	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+		/* maybe the message was expunged already.
+		   some servers fail STOREs with NO in such situation. */
+	} else {
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
+			"imapc: Sync command failed: %s", reply->text_full);
+	}
+	
+	if (--ctx->sync_command_count == 0)
+		imapc_client_stop(ctx->mbox->storage->client);
+}
+
+static void imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd)
+{
+	ctx->sync_command_count++;
+	imapc_client_mailbox_cmd(ctx->mbox->client_box, cmd,
+				 imapc_sync_callback, ctx);
+}
+
+static void
+imapc_sync_add_missing_deleted_flags(struct imapc_sync_context *ctx,
+				     uint32_t seq1, uint32_t seq2)
+{
+	const struct mail_index_record *rec;
+	uint32_t seq, uid1, uid2;
+	const char *cmd;
+
+	/* if any of them has a missing \Deleted flag,
+	   just add it to all of them. */
+	for (seq = seq1; seq <= seq2; seq++) {
+		rec = mail_index_lookup(ctx->sync_view, seq);
+		if ((rec->flags & MAIL_DELETED) == 0)
+			break;
+	}
+
+	if (seq <= seq2) {
+		mail_index_lookup_uid(ctx->sync_view, seq1, &uid1);
+		mail_index_lookup_uid(ctx->sync_view, seq2, &uid2);
+		cmd = t_strdup_printf("UID STORE %u:%u +FLAGS \\Deleted",
+				      uid1, uid2);
+		imapc_sync_cmd(ctx, cmd);
+	}
+}
+
+static void imapc_sync_index_flags(struct imapc_sync_context *ctx,
+				   const struct mail_index_sync_rec *sync_rec)
+{
+	string_t *str = t_str_new(128);
+
+	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
+
+	if (sync_rec->add_flags != 0) {
+		str_printfa(str, "UID STORE %u:%u +FLAGS (",
+			    sync_rec->uid1, sync_rec->uid2);
+		imap_write_flags(str, sync_rec->add_flags, NULL);
+		str_append_c(str, ')');
+		imapc_sync_cmd(ctx, str_c(str));
+	}
+
+	if (sync_rec->remove_flags != 0) {
+		str_truncate(str, 0);
+		str_printfa(str, "UID STORE %u:%u -FLAGS (",
+			    sync_rec->uid1, sync_rec->uid2);
+		imap_write_flags(str, sync_rec->remove_flags, NULL);
+		str_append_c(str, ')');
+		imapc_sync_cmd(ctx, str_c(str));
+	}
+}
+
+static void
+imapc_sync_index_keyword(struct imapc_sync_context *ctx,
+			 const struct mail_index_sync_rec *sync_rec)
+{
+	string_t *str = t_str_new(128);
+	const char *const *kw_p;
+	char change_char;
+
+	switch (sync_rec->type) {
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+		change_char = '+';
+		break;
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		change_char = '-';
+		break;
+	default:
+		i_unreached();
+	}
+
+	str_printfa(str, "UID STORE %u:%u %cFLAGS (",
+		    sync_rec->uid1, sync_rec->uid2, change_char);
+
+	kw_p = array_idx(ctx->keywords, sync_rec->keyword_idx);
+	str_append(str, *kw_p);
+	str_append_c(str, ')');
+	imapc_sync_cmd(ctx, str_c(str));
+}
+
+static void
+imapc_sync_index_keyword_reset(struct imapc_sync_context *ctx,
+			       uint32_t seq1, uint32_t seq2)
+{
+	const struct mail_index_record *rec;
+	string_t *str = t_str_new(128);
+	uint32_t seq;
+
+	for (seq = seq1; seq <= seq2; seq++) {
+		rec = mail_index_lookup(ctx->sync_view, seq);
+
+		str_truncate(str, 0);
+		str_printfa(str, "UID STORE %u FLAGS (", rec->uid);
+		imap_write_flags(str, rec->flags, NULL);
+		str_append_c(str, ')');
+		imapc_sync_cmd(ctx, str_c(str));
+	}
+}
+
+static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
+{
+	string_t *str;
+	enum imapc_capability caps;
+	const struct seq_range *range;
+	unsigned int i, count;
+
+	if (array_count(&ctx->expunged_uids) == 0)
+		return;
+
+	caps = imapc_client_get_capabilities(ctx->mbox->storage->client);
+	if ((caps & IMAPC_CAPABILITY_UIDPLUS) == 0) {
+		/* just expunge everything */
+		imapc_sync_cmd(ctx, "EXPUNGE");
+		return;
+	}
+
+	/* build a list of UIDs to expunge */
+	str = t_str_new(128);
+	str_append(str, "UID EXPUNGE");
+
+	range = array_get(&ctx->expunged_uids, &count);
+	for (i = 0; i < count; i++) {
+		str_printfa(str, " %u", range[i].seq1);
+		if (range[i].seq1 == range[i].seq2)
+			str_printfa(str, ":%u", range[i].seq2);
+	}
+	imapc_sync_cmd(ctx, str_c(str));
+}
 
 static void imapc_sync_index(struct imapc_sync_context *ctx)
 {
@@ -14,29 +171,42 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq1, seq2;
 
-	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
+	i_array_init(&ctx->expunged_uids, 64);
+	ctx->keywords = mail_index_get_keywords(box->index);
+
+	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) T_BEGIN {
 		if (!mail_index_lookup_seq_range(ctx->sync_view,
 						 sync_rec.uid1, sync_rec.uid2,
 						 &seq1, &seq2)) {
 			/* already expunged, nothing to do. */
-			continue;
-		}
-
-		switch (sync_rec.type) {
+		} else switch (sync_rec.type) {
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			/* don't care */
 			break;
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-			//imapc_sync_expunge(ctx, seq1, seq2);
+			imapc_sync_add_missing_deleted_flags(ctx, seq1, seq2);
+			seq_range_array_add_range(&ctx->expunged_uids,
+						  sync_rec.uid1, sync_rec.uid2);
 			break;
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+			imapc_sync_index_flags(ctx, &sync_rec);
+			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+			imapc_sync_index_keyword(ctx, &sync_rec);
+			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			/* FIXME: should be bother calling sync_notify()? */
+			imapc_sync_index_keyword_reset(ctx, seq1, seq2);
 			break;
 		}
-	}
+	} T_END;
+
+	if (ctx->sync_command_count > 0)
+		imapc_client_run(ctx->mbox->storage->client);
+	imapc_sync_expunge_finish(ctx);
+	if (ctx->sync_command_count > 0)
+		imapc_client_run(ctx->mbox->storage->client);
+	array_free(&ctx->expunged_uids);
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
@@ -69,7 +239,15 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 		return ret;
 	}
 
+	i_assert(mbox->delayed_sync_trans == NULL);
+	mbox->delayed_sync_view = ctx->sync_view;
+	mbox->delayed_sync_trans = ctx->trans;
+
 	imapc_sync_index(ctx);
+
+	mbox->delayed_sync_view = NULL;
+	mbox->delayed_sync_trans = NULL;
+
 	*ctx_r = ctx;
 	return 0;
 }
@@ -147,14 +325,17 @@ int imapc_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 	struct index_mailbox_sync_context *ictx =
 		(struct index_mailbox_sync_context *)ctx;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)ctx->box;
+	enum mailbox_sync_flags flags = ictx->flags;
 	struct imapc_seqmap *seqmap;
 	int ret;
 
 	ret = index_mailbox_sync_deinit(ctx, status_r);
+	ctx = NULL;
+
 	if (mbox->client_box == NULL)
 		return ret;
 
-	if ((ictx->flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0 && ret == 0) {
+	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0 && ret == 0) {
 		seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 		imapc_seqmap_reset(seqmap);
 	}

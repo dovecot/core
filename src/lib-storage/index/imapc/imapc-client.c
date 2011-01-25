@@ -19,6 +19,7 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ "LITERAL+", IMAPC_CAPABILITY_LITERALPLUS },
 	{ "QRESYNC", IMAPC_CAPABILITY_QRESYNC },
 	{ "IDLE", IMAPC_CAPABILITY_IDLE },
+	{ "UIDPLUS", IMAPC_CAPABILITY_UIDPLUS },
 
 	{ "IMAP4REV1", IMAPC_CAPABILITY_IMAP4REV1 },
 	{ NULL, 0 }
@@ -195,12 +196,12 @@ static void imapc_client_mailbox_cmd_cb(const struct imapc_command_reply *reply,
 	i_free(ctx);
 }
 
-void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
-			       imapc_command_callback_t *callback,
-			       void *context, const char *cmd_fmt, ...)
+static struct imapc_client_command_context *
+imapc_client_mailbox_cmd_common(struct imapc_client_mailbox *box,
+				imapc_command_callback_t *callback,
+				void *context)
 {
 	struct imapc_client_command_context *ctx;
-	va_list args;
 
 	ctx = i_new(struct imapc_client_command_context, 1);
 	ctx->box = box;
@@ -208,7 +209,28 @@ void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 	ctx->context = context;
 
 	box->pending_box_command_count++;
+	return ctx;
+}
 
+void imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
+			      const char *cmd,
+			      imapc_command_callback_t *callback,
+			      void *context)
+{
+	struct imapc_client_command_context *ctx;
+
+	ctx = imapc_client_mailbox_cmd_common(box, callback, context);
+	imapc_connection_cmd(box->conn, cmd, imapc_client_mailbox_cmd_cb, ctx);
+}
+
+void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
+			       imapc_command_callback_t *callback,
+			       void *context, const char *cmd_fmt, ...)
+{
+	struct imapc_client_command_context *ctx;
+	va_list args;
+
+	ctx = imapc_client_mailbox_cmd_common(box, callback, context);
 	va_start(args, cmd_fmt);
 	imapc_connection_cmdvf(box->conn, imapc_client_mailbox_cmd_cb,
 			       ctx, cmd_fmt, args);

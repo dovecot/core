@@ -614,7 +614,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	imapc_connection_input_reset(conn);
 	cmd->callback(&reply, cmd->context);
 	pool_unref(&cmd->pool);
-	return 0;
+	return 1;
 }
 
 static int imapc_connection_input_one(struct imapc_connection *conn)
