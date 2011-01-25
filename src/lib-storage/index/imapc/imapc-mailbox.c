@@ -74,6 +74,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	enum mail_flags flags;
 	uint32_t uid, old_count;
 	unsigned int i, j;
+	ARRAY_TYPE(const_string) keywords;
 	bool seen_flags = FALSE;
 
 	if (mbox == NULL || seq == 0 || !imap_arg_get_list(reply->args, &list))
@@ -92,12 +93,17 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			if (!imap_arg_get_list(&list[i+1], &flags_list))
 				return;
 
+			t_array_init(&keywords, 8);
 			seen_flags = TRUE;
 			for (j = 0; flags_list[j].type != IMAP_ARG_EOL; j++) {
 				if (!imap_arg_get_atom(&flags_list[j], &atom))
 					return;
 				if (atom[0] == '\\')
 					flags |= imap_parse_system_flag(atom);
+				else {
+					/* keyword */
+					array_append(&keywords, &atom, 1);
+				}
 			}
 		}
 	}
@@ -122,6 +128,16 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	if (seen_flags && rec->flags != flags) {
 		mail_index_update_flags(mbox->delayed_sync_trans, seq,
 					MODIFY_REPLACE, flags);
+	}
+	if (seen_flags) {
+		struct mail_keywords *kw;
+
+		(void)array_append_space(&keywords);
+		kw = mail_index_keywords_create(mbox->box.index,
+						array_idx(&keywords, 0));
+		mail_index_update_keywords(mbox->delayed_sync_trans, seq,
+					   MODIFY_REPLACE, kw);
+		mail_index_keywords_unref(&kw);
 	}
 	imapc_mailbox_idle_notify(mbox);
 }
