@@ -252,11 +252,12 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	item = priorityq_peek(ioloop->timeouts);
 	timeout = (struct timeout *)item;
 	if (timeout == NULL) {
-		/* no timeouts. give it INT_MAX msecs. */
+		/* no timeouts. use INT_MAX msecs for timeval and
+		   return -1 for poll/epoll infinity. */
 		tv_r->tv_sec = INT_MAX / 1000;
 		tv_r->tv_usec = 0;
 		ioloop->next_max_time = (1ULL << (TIME_T_MAX_BITS-1)) - 1;
-		return INT_MAX;
+		return -1;
 	}
 
 	tv_now.tv_sec = 0;
