@@ -104,9 +104,7 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 			i_stream_unref(&imail->data.stream);
 			return;
 		}
-	}
-
-	if (body) {
+	} else if (body) {
 		ret = i_stream_get_size(imail->data.stream, TRUE, &size);
 		if (ret < 0) {
 			i_stream_unref(&imail->data.stream);
@@ -114,6 +112,8 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 		}
 		i_assert(ret != 0);
 		imail->data.physical_size = size;
+		/* we'll assume that the remote server is working properly and
+		   sending CRLF linefeeds */
 		imail->data.virtual_size = size;
 	}
 

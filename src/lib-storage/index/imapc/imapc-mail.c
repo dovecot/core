@@ -43,13 +43,43 @@ static int imapc_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	return 0;
 }
 
+static int imapc_mail_get_sizes(struct index_mail *mail)
+{
+	struct message_size hdr_size, body_size;
+	struct istream *input;
+	uoff_t old_offset;
+
+	/* fallback to reading the file */
+	old_offset = mail->data.stream->v_offset;
+	if (mail_get_stream(&mail->mail.mail,
+			    &hdr_size, &body_size, &input) < 0)
+		return -1;
+	i_stream_seek(mail->data.stream, old_offset);
+	return 0;
+}
+
+static int imapc_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+
+	if (data->virtual_size == (uoff_t)-1) {
+		if (imapc_mail_get_sizes(mail) < 0)
+			return -1;
+	}
+	*size_r = data->virtual_size;
+	return 0;
+}
+
 static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 
-	if (data->physical_size == (uoff_t)-1)
-		return -1;
+	if (data->physical_size == (uoff_t)-1) {
+		if (imapc_mail_get_sizes(mail) < 0)
+			return -1;
+	}
 	*size_r = data->physical_size;
 	return 0;
 }
@@ -82,7 +112,7 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_get_date,
 	imapc_mail_get_received_date,
 	imapc_mail_get_save_date,
-	imapc_mail_get_physical_size, /* physical = virtual in our case */
+	imapc_mail_get_virtual_size,
 	imapc_mail_get_physical_size,
 	index_mail_get_first_header,
 	index_mail_get_headers,
