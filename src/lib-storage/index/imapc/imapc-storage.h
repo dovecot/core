@@ -51,6 +51,7 @@ struct imapc_mailbox {
 	ARRAY_DEFINE(untagged_callbacks, struct imapc_mailbox_event_callback);
 	ARRAY_DEFINE(resp_text_callbacks, struct imapc_mailbox_event_callback);
 
+	unsigned int opening:1;
 	unsigned int new_msgs:1;
 };
 
@@ -67,6 +68,7 @@ int imapc_save_begin(struct mail_save_context *ctx, struct istream *input);
 int imapc_save_continue(struct mail_save_context *ctx);
 int imapc_save_finish(struct mail_save_context *ctx);
 void imapc_save_cancel(struct mail_save_context *ctx);
+int imapc_copy(struct mail_save_context *ctx, struct mail *mail);
 
 int imapc_transaction_save_commit_pre(struct mail_save_context *ctx);
 void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
@@ -82,6 +84,9 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 				struct mail *mail, bool *tryagain_r);
 void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args);
 
+void imapc_copy_error_from_reply(struct imapc_storage *storage,
+				 enum mail_error default_error,
+				 const struct imapc_command_reply *reply);
 void imapc_simple_callback(const struct imapc_command_reply *reply,
 			   void *context);
 void imapc_async_stop_callback(const struct imapc_command_reply *reply,
@@ -98,5 +103,6 @@ void imapc_mailbox_register_resp_text(struct imapc_mailbox *mbox,
 				      imapc_mailbox_callback_t *callback);
 
 void imapc_mailbox_register_callbacks(struct imapc_mailbox *mbox);
+int imapc_create_temp_fd(struct mail_user *user, const char **path_r);
 
 #endif

@@ -3,9 +3,9 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "safe-mkstemp.h"
 #include "imap-arg.h"
 #include "imap-resp-code.h"
-#include "mail-copy.h"
 #include "index-mail.h"
 #include "imapc-client.h"
 #include "imapc-list.h"
@@ -79,10 +79,9 @@ static struct mail_storage *imapc_storage_alloc(void)
 	return &storage->storage;
 }
 
-static void
-imapc_copy_error_from_reply(struct imapc_storage *storage,
-			    enum mail_error default_error,
-			    const struct imapc_command_reply *reply)
+void imapc_copy_error_from_reply(struct imapc_storage *storage,
+				 enum mail_error default_error,
+				 const struct imapc_command_reply *reply)
 {
 	enum mail_error error;
 
@@ -294,11 +293,12 @@ static int imapc_mailbox_open(struct mailbox *box)
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
 
-	if (box->deleting) {
+	if (box->deleting || (box->flags & MAILBOX_FLAG_SAVEONLY) != 0) {
 		/* We don't actually want to SELECT the mailbox. */
 		return 0;
 	}
 
+	mbox->opening = TRUE;
 	ctx.mbox = mbox;
 	ctx.ret = -1;
 	mbox->client_box =
@@ -306,6 +306,7 @@ static int imapc_mailbox_open(struct mailbox *box)
 					  imapc_mailbox_open_callback,
 					  &ctx, mbox);
 	imapc_client_run(mbox->storage->client);
+	mbox->opening = FALSE;
 	if (ctx.ret < 0) {
 		mailbox_close(box);
 		return -1;
@@ -476,6 +477,30 @@ static void imapc_notify_changes(struct mailbox *box ATTR_UNUSED)
 	/* we're doing IDLE all the time anyway - nothing to do here */
 }
 
+int imapc_create_temp_fd(struct mail_user *user, const char **path_r)
+{
+	string_t *path;
+	int fd;
+
+	path = t_str_new(128);
+	mail_user_set_get_temp_prefix(path, user->set);
+	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
+	if (fd == -1) {
+		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		return -1;
+	}
+
+	/* we just want the fd, unlink it */
+	if (unlink(str_c(path)) < 0) {
+		/* shouldn't happen.. */
+		i_error("unlink(%s) failed: %m", str_c(path));
+		(void)close(fd);
+		return -1;
+	}
+	*path_r = str_c(path);
+	return fd;
+}
+
 struct mail_storage imapc_storage = {
 	.name = IMAPC_STORAGE_NAME,
 	.class_flags = 0,
@@ -529,7 +554,7 @@ struct mailbox imapc_mailbox = {
 		imapc_save_continue,
 		imapc_save_finish,
 		imapc_save_cancel,
-		mail_storage_copy,
+		imapc_copy,
 		index_storage_is_inconsistent
 	}
 };

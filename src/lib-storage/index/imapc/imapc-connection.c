@@ -28,11 +28,18 @@ enum imapc_input_state {
 	IMAPC_INPUT_STATE_SKIPLINE
 };
 
+struct imapc_command_stream {
+	unsigned int pos;
+	struct istream *input;
+};
+
 struct imapc_command {
 	pool_t pool;
 	buffer_t *data;
 	unsigned int send_pos;
 	unsigned int tag;
+
+	ARRAY_DEFINE(streams, struct imapc_command_stream);
 
 	imapc_command_callback_t *callback;
 	void *context;
@@ -73,6 +80,7 @@ struct imapc_connection {
 
 static void imapc_connection_disconnect(struct imapc_connection *conn);
 
+static void imapc_command_free(struct imapc_command *cmd);
 static void imapc_command_send_more(struct imapc_connection *conn,
 				    struct imapc_command *cmd);
 
@@ -133,7 +141,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 			array_delete(&conn->cmd_wait_list, 0, 1);
 
 			cmd->callback(&reply, cmd->context);
-			pool_unref(&cmd->pool);
+			imapc_command_free(cmd);
 		}
 		while (array_count(&conn->cmd_send_queue) > 0) {
 			cmdp = array_idx(&conn->cmd_send_queue, 0);
@@ -141,7 +149,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 			array_delete(&conn->cmd_send_queue, 0, 1);
 
 			cmd->callback(&reply, cmd->context);
-			pool_unref(&cmd->pool);
+			imapc_command_free(cmd);
 		}
 	}
 	if (state == IMAPC_CONNECTION_STATE_DONE) {
@@ -613,7 +621,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 
 	imapc_connection_input_reset(conn);
 	cmd->callback(&reply, cmd->context);
-	pool_unref(&cmd->pool);
+	imapc_command_free(cmd);
 	return 1;
 }
 
@@ -811,6 +819,17 @@ imapc_command_begin(imapc_command_callback_t *callback, void *context)
 	return cmd;
 }
 
+static void imapc_command_free(struct imapc_command *cmd)
+{
+	struct imapc_command_stream *stream;
+
+	if (array_is_created(&cmd->streams)) {
+		array_foreach_modifiable(&cmd->streams, stream)
+			i_stream_unref(&stream->input);
+	}
+	pool_unref(&cmd->pool);
+}
+
 static bool
 parse_sync_literal(const unsigned char *data, unsigned int pos,
 		   unsigned int *value_r)
@@ -836,16 +855,62 @@ parse_sync_literal(const unsigned char *data, unsigned int pos,
 	return TRUE;
 }
 
+static void imapc_command_send_done(struct imapc_connection *conn,
+				    struct imapc_command *cmd)
+{
+	/* everything sent. move command to wait list. */
+	i_assert(*array_idx(&conn->cmd_send_queue, 0) == cmd);
+	array_delete(&conn->cmd_send_queue, 0, 1);
+	array_append(&conn->cmd_wait_list, &cmd, 1);
+
+	if (array_count(&conn->cmd_send_queue) > 0 &&
+	    conn->state == IMAPC_CONNECTION_STATE_DONE) {
+		/* send the next command in queue */
+		struct imapc_command *const *cmd2_p =
+			array_idx(&conn->cmd_send_queue, 0);
+		imapc_command_send_more(conn, *cmd2_p);
+	}
+}
+
+static int imapc_command_try_send_stream(struct imapc_connection *conn,
+					 struct imapc_command *cmd)
+{
+	struct imapc_command_stream *stream;
+
+	if (!array_is_created(&cmd->streams) || array_count(&cmd->streams) == 0)
+		return -1;
+
+	stream = array_idx_modifiable(&cmd->streams, 0);
+	if (stream->pos != cmd->send_pos)
+		return -1;
+
+	/* we're sending the stream now */
+	(void)o_stream_send_istream(conn->output, stream->input);
+	if (!i_stream_is_eof(stream->input))
+		return 0;
+
+	/* finished with the stream */
+	i_stream_unref(&stream->input);
+	array_delete(&cmd->streams, 0, 1);
+
+	i_assert(cmd->send_pos != cmd->data->used);
+	return 1;
+}
+
 static void imapc_command_send_more(struct imapc_connection *conn,
 				    struct imapc_command *cmd)
 {
 	const unsigned char *p;
 	unsigned int seek_pos, start_pos, end_pos, size;
+	int ret;
 
 	i_assert(cmd->send_pos < cmd->data->used);
 
+	if ((ret = imapc_command_try_send_stream(conn, cmd)) == 0)
+		return;
+
 	seek_pos = cmd->send_pos;
-	if (seek_pos != 0) {
+	if (seek_pos != 0 && ret < 0) {
 		/* skip over the literal. we can also get here from
 		   AUTHENTICATE command, which doesn't use a literal */
 		if (parse_sync_literal(cmd->data->data, seek_pos, &size)) {
@@ -872,18 +937,9 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 	cmd->send_pos = end_pos;
 
 	if (cmd->send_pos == cmd->data->used) {
-		/* everything sent. move command to wait list. */
-		i_assert(*array_idx(&conn->cmd_send_queue, 0) == cmd);
-		array_delete(&conn->cmd_send_queue, 0, 1);
-		array_append(&conn->cmd_wait_list, &cmd, 1);
-
-		if (array_count(&conn->cmd_send_queue) > 0 &&
-		    conn->state == IMAPC_CONNECTION_STATE_DONE) {
-			/* send the next command in queue */
-			struct imapc_command *const *cmd2_p =
-				array_idx(&conn->cmd_send_queue, 0);
-			imapc_command_send_more(conn, *cmd2_p);
-		}
+		i_assert(!array_is_created(&cmd->streams) ||
+			 array_count(&cmd->streams) == 0);
+		imapc_command_send_done(conn, cmd);
 	}
 }
 
@@ -957,6 +1013,22 @@ void imapc_connection_cmdvf(struct imapc_connection *conn,
 			unsigned int arg = va_arg(args, unsigned int);
 
 			str_printfa(cmd->data, "%u", arg);
+			break;
+		}
+		case 'p': {
+			struct istream *input = va_arg(args, struct istream *);
+			struct imapc_command_stream *s;
+			uoff_t size;
+
+			if (!array_is_created(&cmd->streams))
+				p_array_init(&cmd->streams, cmd->pool, 2);
+			if (i_stream_get_size(input, TRUE, &size) < 0)
+				size = 0;
+			str_printfa(cmd->data, "{%"PRIuSIZE_T"}\r\n", size);
+			s = array_append_space(&cmd->streams);
+			s->pos = str_len(cmd->data);
+			s->input = input;
+			i_stream_ref(input);
 			break;
 		}
 		case 's': {

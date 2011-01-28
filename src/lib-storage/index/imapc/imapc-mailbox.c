@@ -22,6 +22,25 @@ static void imapc_mailbox_init_delayed_trans(struct imapc_mailbox *mbox)
 		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
 }
 
+static void
+imapc_newmsgs_callback(const struct imapc_command_reply *reply,
+		       void *context)
+{
+	struct imapc_mailbox *mbox = context;
+
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		;
+	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS,
+					    reply);
+	} else {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"imapc: Command failed: %s", reply->text_full);
+	}
+	if (mbox->opening)
+		imapc_client_stop(mbox->storage->client);
+}
+
 static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 				  struct imapc_mailbox *mbox)
 {
@@ -42,9 +61,8 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	hdr = mail_index_get_header(mbox->box.view);
 
 	mbox->new_msgs = TRUE;
-	imapc_client_mailbox_cmdf(mbox->client_box, imapc_async_stop_callback,
-				  mbox->storage, "UID FETCH %u:* FLAGS",
-				  hdr->next_uid);
+	imapc_client_mailbox_cmdf(mbox->client_box, imapc_newmsgs_callback,
+				  mbox, "UID FETCH %u:* FLAGS", hdr->next_uid);
 }
 
 static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)

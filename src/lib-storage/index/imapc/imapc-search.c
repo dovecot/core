@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "safe-mkstemp.h"
 #include "write-full.h"
 #include "str.h"
 #include "imap-arg.h"
@@ -74,30 +73,6 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 	return TRUE;
 }
 
-static int create_temp_fd(struct mail_user *user, const char **path_r)
-{
-	string_t *path;
-	int fd;
-
-	path = t_str_new(128);
-	mail_user_set_get_temp_prefix(path, user->set);
-	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
-		return -1;
-	}
-
-	/* we just want the fd, unlink it */
-	if (unlink(str_c(path)) < 0) {
-		/* shouldn't happen.. */
-		i_error("unlink(%s) failed: %m", str_c(path));
-		(void)close(fd);
-		return -1;
-	}
-	*path_r = str_c(path);
-	return fd;
-}
-
 static void
 imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 {
@@ -111,7 +86,7 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 	if (imail->data.stream != NULL)
 		return;
 
-	fd = create_temp_fd(_mail->box->storage->user, &path);
+	fd = imapc_create_temp_fd(_mail->box->storage->user, &path);
 	if (fd == -1)
 		return;
 	if (write_full(fd, value, value_len) < 0) {
