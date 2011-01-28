@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define SCRIPT_MAJOR_VERSION 1
+#define SCRIPT_MAJOR_VERSION 2
 #define SCRIPT_READ_TIMEOUT_SECS 10
 
 static ARRAY_TYPE(const_string) exec_args;
@@ -44,7 +44,9 @@ static void client_connected(struct master_service_connection *conn)
 	   arg 1 <lf>
 	   arg 2 <lf>
 	   ...
-	   <lf> */
+	   <lf>
+	   [data]
+	*/
 	alarm(SCRIPT_READ_TIMEOUT_SECS);
 	do {
 		prev_size = input->used;
@@ -82,6 +84,13 @@ static void client_connected(struct master_service_connection *conn)
 	}
 	if (close(MASTER_STATUS_FD) < 0)
 		i_error("close(status) failed: %m");
+
+	if (write(conn->fd, "1\n", 2) != 2)
+		i_error("write() failed: %m");
+
+	if (dup2(conn->fd, STDIN_FILENO) < 0 ||
+	    dup2(conn->fd, STDOUT_FILENO) < 0)
+		i_error("dup2() failed: %m");
 	if (close(conn->fd) < 0)
 		i_error("close() failed: %m");
 
