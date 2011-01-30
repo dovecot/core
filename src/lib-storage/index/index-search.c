@@ -18,6 +18,7 @@
 #include "index-sort.h"
 #include "mail-search.h"
 #include "mailbox-search-result-private.h"
+#include "index-search-private.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -37,29 +38,6 @@
 #define SEARCH_MAX_NONBLOCK_USECS 250000
 #define SEARCH_INITIAL_MAX_COST 30000
 #define SEARCH_RECALC_MIN_USECS 50000
-
-struct index_search_context {
-        struct mail_search_context mail_ctx;
-	struct mail_index_view *view;
-	struct mailbox *box;
-
-	uint32_t seq1, seq2;
-	struct mail *mail;
-	struct index_mail *imail;
-	struct mail_thread_context *thread_ctx;
-
-	const char *error;
-
-	struct timeval search_start_time, last_notify;
-	struct timeval last_nonblock_timeval;
-	unsigned long long cost, next_time_check_cost;
-
-	unsigned int failed:1;
-	unsigned int sorted:1;
-	unsigned int have_seqsets:1;
-	unsigned int have_index_args:1;
-	unsigned int have_mailbox_args:1;
-};
 
 struct search_header_context {
         struct index_search_context *index_context;
@@ -1062,15 +1040,13 @@ static int search_build_inthreads(struct index_search_context *ctx,
 	return ret;
 }
 
-struct mail_search_context *
-index_storage_search_init(struct mailbox_transaction_context *t,
-			  struct mail_search_args *args,
-			  const enum mail_sort_type *sort_program)
+void index_storage_search_init_context(struct index_search_context *ctx,
+				       struct mailbox_transaction_context *t,
+				       struct mail_search_args *args,
+				       const enum mail_sort_type *sort_program)
 {
-	struct index_search_context *ctx;
 	struct mailbox_status status;
 
-	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.transaction = t;
 	ctx->box = t->box;
 	ctx->view = t->view;
@@ -1100,6 +1076,17 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 
 	/* Need to reset results for match_always cases */
 	mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
+}
+
+struct mail_search_context *
+index_storage_search_init(struct mailbox_transaction_context *t,
+			  struct mail_search_args *args,
+			  const enum mail_sort_type *sort_program)
+{
+	struct index_search_context *ctx;
+
+	ctx = i_new(struct index_search_context, 1);
+	index_storage_search_init_context(ctx, t, args, sort_program);
 	return &ctx->mail_ctx;
 }
 
@@ -1149,6 +1136,17 @@ static bool search_match_next(struct index_search_context *ctx)
 	};
 	unsigned int i;
 	int ret = -1;
+
+	if (ctx->recheck_index_args) {
+		/* these were already checked in search_next_update_seq(),
+		   but someone reset the args and we have to recheck them */
+		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
+					       search_seqset_arg, ctx);
+		if (ctx->have_index_args) {
+			ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
+						       search_index_arg, ctx);
+		}
+	}
 
 	if (ctx->have_mailbox_args) {
 		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,

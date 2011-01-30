@@ -40,6 +40,7 @@ headers = \
 	istream-mail-stats.h \
 	index-attachment.h \
 	index-mail.h \
+	index-search-private.h \
 	index-search-result.h \
 	index-sort.h \
 	index-sort-private.h \
