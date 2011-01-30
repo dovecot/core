@@ -31,7 +31,7 @@ struct mysql_result {
 	struct sql_result api;
 
 	MYSQL_RES *result;
-        MYSQL_ROW row;
+	MYSQL_ROW row;
 
 	MYSQL_FIELD *fields;
 	unsigned int fields_count;
@@ -406,12 +406,16 @@ driver_mysql_result_get_field_value(struct sql_result *_result,
 }
 
 static const unsigned char *
-driver_mysql_result_get_field_value_binary(struct sql_result *_result ATTR_UNUSED,
-					   unsigned int idx ATTR_UNUSED,
-					   size_t *size_r ATTR_UNUSED)
+driver_mysql_result_get_field_value_binary(struct sql_result *_result,
+					   unsigned int idx, size_t *size_r)
 {
-	/* FIXME */
-	return NULL;
+	struct mysql_result *result = (struct mysql_result *)_result;
+	unsigned long *lengths;
+
+	lengths = mysql_fetch_lengths(result->result);
+
+	*size_r = lengths[idx];
+	return (const void *)result->row[idx];
 }
 
 static const char *
