@@ -96,6 +96,7 @@ struct index_mail_data {
 	ARRAY_TYPE(keywords) keywords;
 	ARRAY_TYPE(keyword_indexes) keyword_indexes;
 
+	unsigned int initialized:1;
 	unsigned int save_sent_date:1;
 	unsigned int sent_date_parsed:1;
 	unsigned int save_envelope:1;

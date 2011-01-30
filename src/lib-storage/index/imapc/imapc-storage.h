@@ -60,8 +60,6 @@ struct imapc_simple_context {
 	int ret;
 };
 
-extern struct mail_vfuncs imapc_mail_vfuncs;
-
 struct mail_save_context *
 imapc_save_alloc(struct mailbox_transaction_context *_t);
 int imapc_save_begin(struct mail_save_context *ctx, struct istream *input);
@@ -75,13 +73,14 @@ void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
 					struct mail_index_transaction_commit_result *result);
 void imapc_transaction_save_rollback(struct mail_save_context *ctx);
 
-void imapc_mail_fetch(struct mail *mail);
 struct mail_search_context *
 imapc_search_init(struct mailbox_transaction_context *t,
 		  struct mail_search_args *args,
 		  const enum mail_sort_type *sort_program);
+int imapc_search_deinit(struct mail_search_context *_ctx);
 bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 				struct mail *mail, bool *tryagain_r);
+bool imapc_search_next_update_seq(struct mail_search_context *_ctx);
 void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args);
 
 void imapc_copy_error_from_reply(struct imapc_storage *storage,

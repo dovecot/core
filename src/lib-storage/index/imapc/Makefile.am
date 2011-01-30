@@ -25,6 +25,7 @@ libstorage_imapc_la_SOURCES = \
 headers = \
 	imapc-connection.h \
 	imapc-list.h \
+	imapc-mail.h \
 	imapc-seqmap.h \
 	imapc-storage.h \
 	imapc-sync.h

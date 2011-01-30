@@ -92,7 +92,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	enum mail_flags flags;
 	uint32_t uid, old_count;
 	unsigned int i, j;
-	ARRAY_TYPE(const_string) keywords;
+	ARRAY_TYPE(const_string) keywords = ARRAY_INIT;
 	bool seen_flags = FALSE;
 
 	if (mbox == NULL || seq == 0 || !imap_arg_get_list(reply->args, &list))

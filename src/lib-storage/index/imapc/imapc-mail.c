@@ -3,22 +3,24 @@
 #include "lib.h"
 #include "str.h"
 #include "istream.h"
-#include "index-mail.h"
+#include "imapc-mail.h"
 #include "imapc-client.h"
 #include "imapc-storage.h"
 
-static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq)
+struct mail *
+imapc_mail_alloc(struct mailbox_transaction_context *t,
+		 enum mail_fetch_field wanted_fields,
+		 struct mailbox_header_lookup_ctx *wanted_headers)
 {
-	index_mail_set_seq(_mail, seq);
-	imapc_mail_fetch(_mail);
-}
+	struct imapc_mail *mail;
+	pool_t pool;
 
-static bool imapc_mail_set_uid(struct mail *_mail, uint32_t uid)
-{
-	if (!index_mail_set_uid(_mail, uid))
-		return FALSE;
-	imapc_mail_fetch(_mail);
-	return TRUE;
+	pool = pool_alloconly_create("mail", 2048);
+	mail = p_new(pool, struct imapc_mail, 1);
+	mail->imail.mail.pool = pool;
+
+	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers);
+	return &mail->imail.mail.mail;
 }
 
 static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
@@ -26,8 +28,15 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 
-	if (data->received_date == (time_t)-1)
-		return -1;
+	if (data->received_date == (time_t)-1) {
+		if (imapc_mail_fetch(_mail, MAIL_FETCH_RECEIVED_DATE) < 0)
+			return -1;
+		if (data->received_date == (time_t)-1) {
+			mail_storage_set_critical(_mail->box->storage,
+				"imapc: Remote server didn't send INTERNALDATE");
+			return -1;
+		}
+	}
 	*date_r = data->received_date;
 	return 0;
 }
@@ -37,8 +46,10 @@ static int imapc_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 
-	if (data->save_date == (time_t)-1)
+	if (data->save_date == (time_t)-1) {
+		/* FIXME */
 		return -1;
+	}
 	*date_r = data->save_date;
 	return 0;
 }
@@ -90,9 +101,25 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	enum mail_fetch_field fetch_field;
 
-	if (data->stream == NULL)
-		return -1;
+	if (data->stream == NULL) {
+		if (!mail->data.initialized) {
+			/* coming here from mail_set_seq() */
+			return -1;
+		}
+		fetch_field = body_size != NULL ||
+			(mail->wanted_fields & MAIL_FETCH_STREAM_BODY) != 0 ?
+			MAIL_FETCH_STREAM_BODY : MAIL_FETCH_STREAM_HEADER;
+		if (imapc_mail_fetch(_mail, fetch_field) < 0)
+			return -1;
+
+		if (data->stream == NULL) {
+			mail_storage_set_critical(_mail->box->storage,
+				"imapc: Remote server didn't send BODY[]");
+			return -1;
+		}
+	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
@@ -100,8 +127,8 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_close,
 	index_mail_free,
-	imapc_mail_set_seq,
-	imapc_mail_set_uid,
+	index_mail_set_seq,
+	index_mail_set_uid,
 	index_mail_set_uid_cache_updates,
 
 	index_mail_get_flags,

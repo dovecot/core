@@ -677,8 +677,6 @@ static int imapc_connection_input_one(struct imapc_connection *conn)
 
 static void imapc_connection_input(struct imapc_connection *conn)
 {
-	int ret;
-
 	if (i_stream_read(conn->input) == -1) {
 		/* disconnected */
 		i_error("imapc(%s): Server disconnected unexpectedly",
@@ -687,15 +685,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 		return;
 	}
 
-	o_stream_cork(conn->output);
-	do {
-		T_BEGIN {
-			ret = imapc_connection_input_one(conn);
-		} T_END;
-	} while (ret > 0);
-
-	if (conn->output != NULL)
-		o_stream_uncork(conn->output);
+	imapc_connection_input_pending(conn);
 }
 
 static void imapc_connection_connected(struct imapc_connection *conn)
@@ -798,6 +788,24 @@ void imapc_connection_connect(struct imapc_connection *conn)
 	} else {
 		imapc_connection_connect_next_ip(conn);
 	}
+}
+
+void imapc_connection_input_pending(struct imapc_connection *conn)
+{
+	int ret = 1;
+
+	if (conn->input == NULL)
+		return;
+
+	o_stream_cork(conn->output);
+	while (ret > 0 && !conn->client->stop_now) {
+		T_BEGIN {
+			ret = imapc_connection_input_one(conn);
+		} T_END;
+	}
+
+	if (conn->output != NULL)
+		o_stream_uncork(conn->output);
 }
 
 static struct imapc_command *

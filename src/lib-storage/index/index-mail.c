@@ -1340,6 +1340,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		if (!_mail->saving && _mail->uid < hdr->next_uid)
 			(void)mail_get_stream(_mail, NULL, NULL, &input);
 	}
+	mail->data.initialized = TRUE;
 }
 
 bool index_mail_set_uid(struct mail *_mail, uint32_t uid)

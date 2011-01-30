@@ -6,7 +6,7 @@
 #include "safe-mkstemp.h"
 #include "imap-arg.h"
 #include "imap-resp-code.h"
-#include "index-mail.h"
+#include "imapc-mail.h"
 #include "imapc-client.h"
 #include "imapc-list.h"
 #include "imapc-sync.h"
@@ -544,11 +544,11 @@ struct mailbox imapc_mailbox = {
 		index_transaction_commit,
 		index_transaction_rollback,
 		NULL,
-		index_mail_alloc,
+		imapc_mail_alloc,
 		imapc_search_init,
-		index_storage_search_deinit,
+		imapc_search_deinit,
 		imapc_search_next_nonblock,
-		index_storage_search_next_update_seq,
+		imapc_search_next_update_seq,
 		imapc_save_alloc,
 		imapc_save_begin,
 		imapc_save_continue,

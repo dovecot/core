@@ -6,41 +6,94 @@
 #include "str.h"
 #include "imap-arg.h"
 #include "imap-date.h"
+#include "imap-util.h"
 #include "mail-user.h"
-#include "index-mail.h"
+#include "mail-search.h"
+#include "index-search-private.h"
+#include "imapc-mail.h"
 #include "imapc-client.h"
 #include "imapc-storage.h"
 
-void imapc_mail_fetch(struct mail *mail)
+struct imapc_search_context {
+	struct index_search_context ictx;
+
+	/* non-NULL during _search_next_nonblock() */
+	struct mail *cur_mail;
+
+	/* sequences of messages we're next wanting to fetch. */
+	ARRAY_TYPE(seq_range) next_seqs;
+	uint32_t next_pending_seq, saved_seq;
+
+	unsigned int fetching:1;
+};
+
+static void imapc_search_fetch_callback(const struct imapc_command_reply *reply,
+					void *context)
 {
+	struct imapc_search_context *ctx = context;
+	struct imapc_mailbox *mbox =
+		(struct imapc_mailbox *)ctx->ictx.mail_ctx.transaction->box;
+
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		;
+	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS,
+					    reply);
+	} else {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"imapc: Command failed: %s", reply->text_full);
+	}
+	ctx->fetching = FALSE;
+	imapc_client_stop(mbox->storage->client);
+}
+
+static bool
+imapc_append_wanted_fields(string_t *str, enum mail_fetch_field fields,
+			   bool want_headers)
+{
+	bool ret = FALSE;
+
+	if ((fields & (MAIL_FETCH_STREAM_BODY |
+		       MAIL_FETCH_MESSAGE_PARTS |
+		       MAIL_FETCH_NUL_STATE |
+		       MAIL_FETCH_IMAP_BODY |
+		       MAIL_FETCH_IMAP_BODYSTRUCTURE |
+		       MAIL_FETCH_PHYSICAL_SIZE |
+		       MAIL_FETCH_VIRTUAL_SIZE)) != 0) {
+		str_append(str, "BODY.PEEK[] ");
+		ret = TRUE;
+	} else if (want_headers ||
+		   (fields & (MAIL_FETCH_STREAM_HEADER |
+			      MAIL_FETCH_IMAP_ENVELOPE |
+			      MAIL_FETCH_HEADER_MD5 |
+			      MAIL_FETCH_DATE)) != 0) {
+		str_append(str, "BODY.PEEK[HEADER] ");
+		ret = TRUE;
+	}
+
+	if ((fields & MAIL_FETCH_RECEIVED_DATE) != 0) {
+		str_append(str, "INTERNALDATE ");
+		ret = TRUE;
+	}
+	return ret;
+}
+
+static void
+imapc_search_send_fetch(struct imapc_search_context *ctx,
+			const ARRAY_TYPE(seq_range) *uids)
+{
+	struct mail *mail = ctx->cur_mail;
 	struct mail_private *pmail = (struct mail_private *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	string_t *str;
-	unsigned int orig_len;
 
 	str = t_str_new(64);
-	str_printfa(str, "UID FETCH %u (", mail->uid);
-	orig_len = str_len(str);
+	str_append(str, "UID FETCH ");
+	imap_write_seq_range(str, uids);
+	str_append(str, " (");
 
-	if ((pmail->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
-				     MAIL_FETCH_STREAM_BODY |
-				     MAIL_FETCH_MESSAGE_PARTS |
-				     MAIL_FETCH_NUL_STATE |
-				     MAIL_FETCH_IMAP_BODY |
-				     MAIL_FETCH_IMAP_BODYSTRUCTURE |
-				     MAIL_FETCH_PHYSICAL_SIZE |
-				     MAIL_FETCH_VIRTUAL_SIZE)) != 0)
-		str_append(str, "BODY.PEEK[] ");
-	else if ((pmail->wanted_fields & (MAIL_FETCH_IMAP_ENVELOPE |
-					  MAIL_FETCH_HEADER_MD5 |
-					  MAIL_FETCH_DATE)) != 0 ||
-		 pmail->wanted_headers != NULL)
-		str_append(str, "BODY.PEEK[HEADER] ");
-
-	if ((pmail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
-		str_append(str, "INTERNALDATE ");
-
-	if (str_len(str) == orig_len) {
+	if (!imapc_append_wanted_fields(str, pmail->wanted_fields,
+					pmail->wanted_headers != NULL)) {
 		/* we don't need to fetch anything */
 		return;
 	}
@@ -48,11 +101,9 @@ void imapc_mail_fetch(struct mail *mail)
 	str_truncate(str, str_len(str) - 1);
 	str_append_c(str, ')');
 
-	mbox->cur_fetch_mail = mail;
-	imapc_client_mailbox_cmdf(mbox->client_box, imapc_async_stop_callback,
-				  mbox->storage, "%1s", str_c(str));
-	imapc_client_run(mbox->storage->client);
-	mbox->cur_fetch_mail = NULL;
+	ctx->fetching = TRUE;
+	imapc_client_mailbox_cmdf(mbox->client_box, imapc_search_fetch_callback,
+				  ctx, "%1s", str_c(str));
 }
 
 struct mail_search_context *
@@ -60,16 +111,122 @@ imapc_search_init(struct mailbox_transaction_context *t,
 		  struct mail_search_args *args,
 		  const enum mail_sort_type *sort_program)
 {
-	return index_storage_search_init(t, args, sort_program);
+	struct imapc_search_context *ctx;
+
+	ctx = i_new(struct imapc_search_context, 1);
+	index_storage_search_init_context(&ctx->ictx, t, args, sort_program);
+	i_array_init(&ctx->next_seqs, 64);
+	ctx->ictx.recheck_index_args = TRUE;
+	return &ctx->ictx.mail_ctx;
+}
+
+int imapc_search_deinit(struct mail_search_context *_ctx)
+{
+	struct imapc_search_context *ctx = (struct imapc_search_context *)_ctx;
+	struct imapc_mailbox *mbox =
+		(struct imapc_mailbox *)_ctx->transaction->box;
+
+	while (ctx->fetching)
+		imapc_client_run(mbox->storage->client);
+
+	array_free(&ctx->next_seqs);
+	return index_storage_search_deinit(_ctx);
 }
 
 bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 				struct mail *mail, bool *tryagain_r)
 {
-	if (!index_storage_search_next_nonblock(_ctx, mail, tryagain_r))
+	struct imapc_search_context *ctx = (struct imapc_search_context *)_ctx;
+	struct imapc_mailbox *mbox =
+		(struct imapc_mailbox *)_ctx->transaction->box;
+	struct imapc_mail *imail = (struct imapc_mail *)mail;
+	bool ret;
+
+	imail->searching = TRUE;
+	ctx->cur_mail = mail;
+	ret = index_storage_search_next_nonblock(_ctx, mail, tryagain_r);
+	ctx->cur_mail = NULL;
+	imail->searching = FALSE;
+	if (!ret)
 		return FALSE;
 
-	imapc_mail_fetch(mail);
+	if (ctx->fetching) {
+		mbox->cur_fetch_mail = mail;
+		imapc_client_run(mbox->storage->client);
+		mbox->cur_fetch_mail = NULL;
+	}
+	return TRUE;
+}
+
+static void imapc_get_short_uid_range(struct mailbox *box,
+				      const ARRAY_TYPE(seq_range) *seqs,
+				      ARRAY_TYPE(seq_range) *uids)
+{
+	const struct seq_range *range;
+	unsigned int i, count;
+	uint32_t uid1, uid2;
+
+	range = array_get(seqs, &count);
+	for (i = 0; i < count; i++) {
+		mail_index_lookup_uid(box->view, range[i].seq1, &uid1);
+		mail_index_lookup_uid(box->view, range[i].seq2, &uid2);
+		seq_range_array_add_range(uids, uid1, uid2);
+	}
+}
+
+static void imapc_search_update_next_seqs(struct imapc_search_context *ctx)
+{
+	struct mail_search_context *_ctx = &ctx->ictx.mail_ctx;
+	uint32_t prev_seq;
+
+	/* add messages to the next_seqs list as long as the sequences
+	   are incrementing */
+	if (ctx->next_pending_seq == 0)
+		prev_seq = 0;
+	else {
+		prev_seq = ctx->next_pending_seq;
+		seq_range_array_add(&ctx->next_seqs, 0, prev_seq);
+	}
+	if (ctx->saved_seq != 0)
+		_ctx->seq = ctx->saved_seq;
+	while (index_storage_search_next_update_seq(_ctx)) {
+		mail_search_args_reset(_ctx->args->args, FALSE);
+		if (_ctx->seq < prev_seq) {
+			ctx->next_pending_seq = _ctx->seq;
+			break;
+		}
+		seq_range_array_add(&ctx->next_seqs, 0, _ctx->seq);
+	}
+	ctx->saved_seq = _ctx->seq;
+	if (array_count(&ctx->next_seqs) > 0) T_BEGIN {
+		ARRAY_TYPE(seq_range) uids;
+
+		t_array_init(&uids, array_count(&ctx->next_seqs)*2);
+		imapc_get_short_uid_range(_ctx->transaction->box,
+					  &ctx->next_seqs, &uids);
+		imapc_search_send_fetch(ctx, &uids);
+	} T_END;
+}
+
+bool imapc_search_next_update_seq(struct mail_search_context *_ctx)
+{
+	struct imapc_search_context *ctx = (struct imapc_search_context *)_ctx;
+	struct seq_range *seqs;
+	unsigned int count;
+
+	seqs = array_get_modifiable(&ctx->next_seqs, &count);
+	if (count == 0) {
+		imapc_search_update_next_seqs(ctx);
+		seqs = array_get_modifiable(&ctx->next_seqs, &count);
+		if (count == 0)
+			return FALSE;
+	}
+
+	_ctx->seq = seqs[0].seq1;
+	if (seqs[0].seq1 < seqs[0].seq2)
+		seqs[0].seq1++;
+	else
+		array_delete(&ctx->next_seqs, 0, 1);
 	return TRUE;
 }
 
@@ -123,6 +280,8 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 
 void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args)
 {
+	struct imapc_mailbox *mbox =
+		(struct imapc_mailbox *)mail->transaction->box;
 	struct index_mail *imail = (struct index_mail *)mail;
 	const char *key, *value;
 	unsigned int i;
@@ -151,4 +310,31 @@ void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args)
 			imail->data.received_date = t;
 		}
 	}
+	imapc_client_stop_now(mbox->storage->client);
+}
+
+int imapc_mail_fetch(struct mail *mail, enum mail_fetch_field fields)
+{
+	struct imapc_mailbox *mbox =
+		(struct imapc_mailbox *)mail->transaction->box;
+	struct imapc_simple_context sctx;
+	string_t *str;
+
+	str = t_str_new(64);
+	str_printfa(str, "UID FETCH %u (", mail->uid);
+
+	if (!imapc_append_wanted_fields(str, fields, FALSE))
+		return 0;
+
+	str_truncate(str, str_len(str) - 1);
+	str_append_c(str, ')');
+
+	sctx.storage = mbox->storage;
+	imapc_client_mailbox_cmdf(mbox->client_box, imapc_async_stop_callback,
+				  mbox->storage, "%1s", str_c(str));
+
+	mbox->cur_fetch_mail = mail;
+	imapc_client_run(mbox->storage->client);
+	mbox->cur_fetch_mail = NULL;
+	return sctx.ret;
 }
