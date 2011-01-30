@@ -5,6 +5,7 @@
 #include "str.h"
 #include "env-util.h"
 #include "execv-const.h"
+#include "restrict-access.h"
 #include "master-interface.h"
 #include "master-service.h"
 
@@ -102,6 +103,9 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	master_service_init_log(master_service, "script: ");
+	restrict_access_by_env(NULL, FALSE);
+	restrict_access_allow_coredumps(TRUE);
+
 	master_service_init_finish(master_service);
 	master_service_set_service_count(master_service, 1);
 
