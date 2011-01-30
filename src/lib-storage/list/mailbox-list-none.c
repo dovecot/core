@@ -6,6 +6,12 @@
 #define MAILBOX_LIST_NAME_NONE "none"
 #define GLOBAL_TEMP_PREFIX ".temp."
 
+struct noop_list_iterate_context {
+	struct mailbox_list_iterate_context ctx;
+	struct mailbox_info inbox_info;
+	unsigned int list_inbox:1;
+};
+
 extern struct mailbox_list none_mailbox_list;
 
 static struct mailbox_list *none_list_alloc(void)
@@ -58,11 +64,15 @@ none_list_get_path(struct mailbox_list *list ATTR_UNUSED,
 }
 
 static int
-none_list_get_mailbox_name_status(struct mailbox_list *list ATTR_UNUSED,
-				  const char *name ATTR_UNUSED,
+none_list_get_mailbox_name_status(struct mailbox_list *list,
+				  const char *name,
 				  enum mailbox_name_status *status)
 {
-	*status = MAILBOX_NAME_VALID;
+	if (strcasecmp(name, "INBOX") == 0 &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
+		*status = MAILBOX_NAME_EXISTS_MAILBOX;
+	else
+		*status = MAILBOX_NAME_VALID;
 	return 0;
 }
 
@@ -121,12 +131,17 @@ none_list_iter_init(struct mailbox_list *list,
 		    const char *const *patterns ATTR_UNUSED,
 		    enum mailbox_list_iter_flags flags)
 {
-	struct mailbox_list_iterate_context *ctx;
+	struct noop_list_iterate_context *ctx;
 
-	ctx = i_new(struct mailbox_list_iterate_context, 1);
-	ctx->list = list;
-	ctx->flags = flags;
-	return ctx;
+	ctx = i_new(struct noop_list_iterate_context, 1);
+	ctx->ctx.list = list;
+	ctx->ctx.flags = flags;
+	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		ctx->list_inbox = TRUE;
+		ctx->inbox_info.ns = list->ns;
+		ctx->inbox_info.name = "INBOX";
+	}
+	return &ctx->ctx;
 }
 
 static int
@@ -137,8 +152,15 @@ none_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 }
 
 static const struct mailbox_info *
-none_list_iter_next(struct mailbox_list_iterate_context *ctx ATTR_UNUSED)
+none_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
+	struct noop_list_iterate_context *ctx =
+		(struct noop_list_iterate_context *)_ctx;
+
+	if (ctx->list_inbox) {
+		ctx->list_inbox = FALSE;
+		return &ctx->inbox_info;
+	}
 	return NULL;
 }
 
