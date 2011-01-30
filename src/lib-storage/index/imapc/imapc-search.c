@@ -280,8 +280,7 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 
 void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args)
 {
-	struct imapc_mailbox *mbox =
-		(struct imapc_mailbox *)mail->transaction->box;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	struct index_mail *imail = (struct index_mail *)mail;
 	const char *key, *value;
 	unsigned int i;
@@ -315,8 +314,7 @@ void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args)
 
 int imapc_mail_fetch(struct mail *mail, enum mail_fetch_field fields)
 {
-	struct imapc_mailbox *mbox =
-		(struct imapc_mailbox *)mail->transaction->box;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	struct imapc_simple_context sctx;
 	string_t *str;
 
