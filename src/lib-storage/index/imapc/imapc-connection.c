@@ -96,6 +96,7 @@ struct imapc_connection {
 	unsigned int idle_plus_waiting:1;
 };
 
+static int imapc_connection_ssl_init(struct imapc_connection *conn);
 static void imapc_connection_disconnect(struct imapc_connection *conn);
 
 static void imapc_command_free(struct imapc_command *cmd);
@@ -578,6 +579,42 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 }
 
 static void
+imapc_connection_starttls_cb(const struct imapc_command_reply *reply,
+			     void *context)
+{
+	struct imapc_connection *conn = context;
+
+	if (reply->state != IMAPC_COMMAND_STATE_OK) {
+		imapc_connection_input_error(conn, "STARTTLS failed: %s",
+					     reply->text_full);
+		return;
+	}
+
+	if (imapc_connection_ssl_init(conn) < 0)
+		imapc_connection_disconnect(conn);
+	else
+		imapc_connection_authenticate(conn);
+}
+
+static void imapc_connection_starttls(struct imapc_connection *conn)
+{
+	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_STARTTLS &&
+	    conn->ssl_iostream == NULL) {
+		if ((conn->capabilities & IMAPC_CAPABILITY_STARTTLS) == 0) {
+			i_error("imapc(%s): Requested STARTTLS, "
+				"but server doesn't support it",
+				conn->name);
+			imapc_connection_disconnect(conn);
+			return;
+		}
+		imapc_connection_cmd(conn, "STARTTLS",
+				     imapc_connection_starttls_cb, conn);
+		return;
+	}
+	imapc_connection_authenticate(conn);
+}
+
+static void
 imapc_connection_capability_cb(const struct imapc_command_reply *reply,
 			       void *context)
 {
@@ -590,7 +627,7 @@ imapc_connection_capability_cb(const struct imapc_command_reply *reply,
 		imapc_connection_input_error(conn,
 			"Capabilities not returned by server");
 	} else {
-		imapc_connection_authenticate(conn);
+		imapc_connection_starttls(conn);
 	}
 }
 
@@ -613,7 +650,7 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 		imapc_connection_cmd(conn, "CAPABILITY",
 				     imapc_connection_capability_cb, conn);
 	} else {
-		imapc_connection_authenticate(conn);
+		imapc_connection_starttls(conn);
 	}
 	conn->input_callback = NULL;
 	imapc_connection_input_reset(conn);
