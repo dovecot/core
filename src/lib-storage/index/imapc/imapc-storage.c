@@ -467,7 +467,7 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	mbox->storage->cur_status = status_r;
 	imapc_client_cmdf(mbox->storage->client,
 			  imapc_simple_callback, &ctx,
-			  "STATUS %s (%1s)", box->name, str_c(str));
+			  "STATUS %s (%1s)", box->name, str_c(str)+1);
 	imapc_client_run(mbox->storage->client);
 	mbox->storage->cur_status_box = NULL;
 	mbox->storage->cur_status = NULL;
