@@ -175,6 +175,17 @@ static int imap_parser_close_list(struct imap_parser *parser)
 	return TRUE;
 }
 
+static char *
+imap_parser_strdup(struct imap_parser *parser,
+		   const void *data, size_t len)
+{
+	char *ret;
+
+	ret = p_malloc(parser->pool, len + 1);
+	memcpy(ret, data, len);
+	return ret;
+}
+
 static void imap_parser_save_arg(struct imap_parser *parser,
 				 const unsigned char *data, size_t size)
 {
@@ -191,7 +202,8 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 		} else {
 			/* simply save the string */
 			arg->type = IMAP_ARG_ATOM;
-			arg->_data.str = p_strndup(parser->pool, data, size);
+			arg->_data.str = imap_parser_strdup(parser, data, size);
+			arg->str_len = size;
 		}
 		break;
 	case ARG_PARSE_STRING:
@@ -208,6 +220,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 			str_unescape(str + parser->str_first_escape-1);
 		}
 		arg->_data.str = str;
+		arg->str_len = strlen(str);
 		break;
 	case ARG_PARSE_LITERAL_DATA:
 		if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) != 0) {
@@ -220,14 +233,12 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 		}
 		/* fall through */
 	case ARG_PARSE_LITERAL_DATA_FORCED:
-		if ((parser->flags &
-			    IMAP_PARSE_FLAG_LITERAL_TYPE) != 0) {
+		if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_TYPE) != 0)
 			arg->type = IMAP_ARG_LITERAL;
-			arg->_data.str = p_strndup(parser->pool, data, size);
-		} else {
+		else
 			arg->type = IMAP_ARG_STRING;
-			arg->_data.str = p_strndup(parser->pool, data, size);
-		}
+		arg->_data.str = imap_parser_strdup(parser, data, size);
+		arg->str_len = size;
 		break;
 	default:
                 i_unreached();

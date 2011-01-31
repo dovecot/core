@@ -36,6 +36,9 @@ struct imap_arg {
 	enum imap_arg_type type;
         struct imap_arg *parent; /* always of type IMAP_ARG_LIST */
 
+	/* Set when _data.str is set */
+	size_t str_len;
+
 	union {
 		const char *str;
 		uoff_t literal_size;
