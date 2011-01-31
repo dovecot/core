@@ -206,6 +206,8 @@ int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 		return -1;
 	}
 
+	o_stream_uncork(ssl_io->plain_output);
+
 	*input = i_stream_create_ssl(ssl_io);
 	*output = o_stream_create_ssl(ssl_io);
 
