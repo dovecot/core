@@ -103,15 +103,13 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 		   lets see if this is the reply for its request. */
 		if (args[0].type == IMAP_ARG_EOL ||
 		    !imap_arg_get_nstring(&args[1], &sep) ||
-		    !imap_arg_get_astring(&args[2], &name) || *name != '\0')
+		    !imap_arg_get_astring(&args[2], &name))
 			return;
 
 		/* we can't handle NIL separator yet */
 		list->sep = sep == NULL ? '/' : sep[0];
 		return;
 	}
-	if (list->mailboxes == NULL)
-		list->mailboxes = mailbox_tree_init(list->sep);
 	(void)imapc_list_update_tree(list->mailboxes, args);
 }
 
@@ -126,8 +124,6 @@ static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
 		/* we haven't asked for the separator yet */
 		return;
 	}
-	if (list->subscriptions == NULL)
-		list->subscriptions = mailbox_tree_init(list->sep);
 	node = imapc_list_update_tree(list->subscriptions, args);
 	if (node != NULL)
 		node->flags |= MAILBOX_SUBSCRIBED;
@@ -153,12 +149,14 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list,
 				  "LIST \"\" *");
 		if (list->mailboxes != NULL)
 			mailbox_tree_deinit(&list->mailboxes);
+		list->mailboxes = mailbox_tree_init(list->sep);
 	} else {
 		imapc_client_cmdf(list->storage->client,
 				  imapc_list_simple_callback, &ctx,
 				  "LSUB \"\" *");
 		if (list->subscriptions != NULL)
 			mailbox_tree_deinit(&list->subscriptions);
+		list->subscriptions = mailbox_tree_init(list->sep);
 	}
 
 	imapc_client_run(list->storage->client);
