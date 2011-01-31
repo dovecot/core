@@ -2664,6 +2664,7 @@ src/lib-ntlm/Makefile
 src/lib-otp/Makefile
 src/lib-dovecot/Makefile
 src/lib-settings/Makefile
+src/lib-ssl-iostream/Makefile
 src/lib-test/Makefile
 src/lib-storage/Makefile
 src/lib-storage/list/Makefile

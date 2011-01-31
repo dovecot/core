@@ -17,6 +17,7 @@ SUBDIRS = \
 	lib-index \
 	lib-storage \
 	lib-sql \
+	lib-ssl-iostream \
 	lib-ntlm \
 	lib-otp \
 	lib-lda \
