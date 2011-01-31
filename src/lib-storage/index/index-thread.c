@@ -297,10 +297,10 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 		NULL
 	};
 	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
-	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
+	struct mail_private *pmail;
 	uint32_t last_uid, seq1, seq2;
 	int ret = 0;
 
@@ -316,8 +316,10 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 						    &tbox->msgid_hash);
 	}
 
-	headers_ctx = mailbox_header_lookup_init(ctx->box, wanted_headers);
-	ctx->tmp_mail = mail_alloc(ctx->t, 0, headers_ctx);
+	ctx->tmp_mail = mail_alloc(ctx->t, 0, NULL);
+	pmail = (struct mail_private *)ctx->tmp_mail;
+	pmail->extra_wanted_headers =
+		mailbox_header_lookup_init(ctx->box, wanted_headers);
 
 	/* add all missing UIDs */
 	ctx->strmap_sync = mail_index_strmap_view_sync_init(tbox->strmap_view,
@@ -326,7 +328,6 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 			      &seq1, &seq2);
 	if (seq1 == 0) {
 		/* nothing is missing */
-		mailbox_header_lookup_unref(&headers_ctx);
 		mail_index_strmap_view_sync_commit(&ctx->strmap_sync);
 		return 0;
 	}
@@ -335,8 +336,10 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	mail_search_build_add_seqset(search_args, seq1, seq2);
 	search_ctx = mailbox_search_init(ctx->t, search_args, NULL);
 
-	mail = mail_alloc(ctx->t, 0, headers_ctx);
-	mailbox_header_lookup_unref(&headers_ctx);
+	mail = mail_alloc(ctx->t, 0, NULL);
+	pmail = (struct mail_private *)mail;
+	pmail->extra_wanted_headers =
+		mailbox_header_lookup_init(ctx->box, wanted_headers);
 
 	while (mailbox_search_next(search_ctx, mail)) {
 		if (mail_thread_map_add_mail(ctx, mail) < 0) {
@@ -344,6 +347,7 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 			break;
 		}
 	}
+	mailbox_header_lookup_unref(&pmail->extra_wanted_headers);
 	mail_free(&mail);
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
@@ -586,6 +590,9 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 
 static void mail_thread_clear(struct mail_thread_context *ctx)
 {
+	struct mail_private *pmail = (struct mail_private *)ctx->tmp_mail;
+
+	mailbox_header_lookup_unref(&pmail->extra_wanted_headers);
 	mail_free(&ctx->tmp_mail);
 	(void)mailbox_transaction_commit(&ctx->t);
 }
