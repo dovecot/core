@@ -230,29 +230,67 @@ bool imapc_search_next_update_seq(struct mail_search_context *_ctx)
 	return TRUE;
 }
 
-static void
-imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
+static bool imapc_find_lfile_arg(const struct imapc_untagged_reply *reply,
+				 const struct imap_arg *arg, int *fd_r)
 {
+	const struct imap_arg *list;
+	unsigned int i, count;
+
+	for (i = 0; i < reply->file_args_count; i++) {
+		const struct imapc_arg_file *farg = &reply->file_args[i];
+
+		if (farg->parent_arg == arg->parent &&
+		    imap_arg_get_list_full(arg->parent, &list, &count) &&
+		    farg->list_idx < count && &list[farg->list_idx] == arg) {
+			*fd_r = farg->fd;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static void
+imapc_fetch_stream(struct imapc_mail *mail,
+		   const struct imapc_untagged_reply *reply,
+		   const struct imap_arg *arg, bool body)
+{
+	struct index_mail *imail = &mail->imail;
 	struct mail *_mail = &imail->mail.mail;
 	struct istream *input;
-	size_t value_len = strlen(value);
 	uoff_t size;
-	const char *path;
+	const char *value;
 	int fd, ret;
 
 	if (imail->data.stream != NULL)
 		return;
 
-	fd = imapc_create_temp_fd(_mail->box->storage->user, &path);
-	if (fd == -1)
-		return;
-	if (write_full(fd, value, value_len) < 0) {
-		(void)close(fd);
-		return;
+	if (arg->type == IMAP_ARG_LITERAL_SIZE) {
+		if (!imapc_find_lfile_arg(reply, arg, &fd))
+			return;
+		if ((fd = dup(fd)) == -1) {
+			i_error("dup() failed: %m");
+			return;
+		}
+		imail->data.stream = i_stream_create_fd(fd, 0, TRUE);
+	} else {
+		if (!imap_arg_get_nstring(arg, &value))
+			return;
+		if (value == NULL) {
+			mail_set_expunged(_mail);
+			return;
+		}
+		if (mail->body == NULL) {
+			mail->body = buffer_create_dynamic(default_pool,
+							   arg->str_len + 1);
+		}
+		buffer_set_used_size(mail->body, 0);
+		buffer_append(mail->body, value, arg->str_len);
+		imail->data.stream = i_stream_create_from_data(mail->body->data,
+							       mail->body->used);
 	}
 
-	imail->data.stream = i_stream_create_fd(fd, 0, TRUE);
-	i_stream_set_name(imail->data.stream, path);
+	i_stream_set_name(imail->data.stream,
+			  t_strdup_printf("imapc mail uid=%u", _mail->uid));
 	index_mail_set_read_buffer_size(_mail, imail->data.stream);
 
 	if (imail->mail.v.istream_opened != NULL) {
@@ -278,11 +316,13 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 		i_stream_unref(&imail->data.stream);
 }
 
-void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args)
+void imapc_fetch_mail_update(struct mail *mail,
+			     const struct imapc_untagged_reply *reply,
+			     const struct imap_arg *args)
 {
 	struct imapc_mail *imapmail = (struct imapc_mail *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
-	struct index_mail *imail = (struct index_mail *)mail;
+	struct imapc_mail *imail = (struct imapc_mail *)mail;
 	const char *key, *value;
 	unsigned int i;
 	time_t t;
@@ -291,23 +331,16 @@ void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args)
 	for (i = 0; args[i].type != IMAP_ARG_EOL; i += 2) {
 		if (!imap_arg_get_atom(&args[i], &key) ||
 		    args[i+1].type == IMAP_ARG_EOL)
-			return;
+			break;
 
-		if (strcasecmp(key, "BODY[]") == 0) {
-			if (!imap_arg_get_nstring(&args[i+1], &value))
-				return;
-			if (value != NULL)
-				imapc_fetch_stream(imail, value, TRUE);
-		} else if (strcasecmp(key, "BODY[HEADER]") == 0) {
-			if (!imap_arg_get_nstring(&args[i+1], &value))
-				return;
-			if (value != NULL)
-				imapc_fetch_stream(imail, value, FALSE);
-		} else if (strcasecmp(key, "INTERNALDATE") == 0) {
-			if (!imap_arg_get_astring(&args[i+1], &value) ||
-			    !imap_parse_datetime(value, &t, &tz))
-				return;
-			imail->data.received_date = t;
+		if (strcasecmp(key, "BODY[]") == 0)
+			imapc_fetch_stream(imail, reply, &args[i+1], TRUE);
+		else if (strcasecmp(key, "BODY[HEADER]") == 0)
+			imapc_fetch_stream(imail, reply, &args[i+1], FALSE);
+		else if (strcasecmp(key, "INTERNALDATE") == 0) {
+			if (imap_arg_get_astring(&args[i+1], &value) &&
+			    imap_parse_datetime(value, &t, &tz))
+				imail->imail.data.received_date = t;
 		}
 	}
 	if (!imapmail->fetch_one)

@@ -131,7 +131,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 
 	if (mbox->cur_fetch_mail != NULL && mbox->cur_fetch_mail->seq == seq) {
 		i_assert(uid == 0 || mbox->cur_fetch_mail->uid == uid);
-		imapc_fetch_mail_update(mbox->cur_fetch_mail, list);
+		imapc_fetch_mail_update(mbox->cur_fetch_mail, reply, list);
 	}
 
 	imapc_mailbox_init_delayed_trans(mbox);

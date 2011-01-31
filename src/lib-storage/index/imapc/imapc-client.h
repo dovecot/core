@@ -32,6 +32,7 @@ struct imapc_client_settings {
 	const char *password;
 
 	const char *dns_client_socket_path;
+	const char *temp_path_prefix;
 };
 
 struct imapc_command_reply {
@@ -46,6 +47,16 @@ struct imapc_command_reply {
 	const char *text_without_resp;
 };
 
+struct imapc_arg_file {
+	/* file descriptor containing the value */
+	int fd;
+
+	/* parent_arg.list[list_idx] points to the IMAP_ARG_LITERAL_SIZE
+	   argument */
+	const struct imap_arg *parent_arg;
+	unsigned int list_idx;
+};
+
 struct imapc_untagged_reply {
 	/* name of the untagged reply, e.g. EXISTS */
 	const char *name;
@@ -54,6 +65,10 @@ struct imapc_untagged_reply {
 	uint32_t num;
 	/* the rest of the reply can be read from these args. */
 	const struct imap_arg *args;
+	/* arguments whose contents are stored into files. only
+	   "FETCH (BODY[" arguments can be here. */
+	const struct imapc_arg_file *file_args;
+	unsigned int file_args_count;
 
 	/* "* OK [RESP TEXT]" produces key=RESP, value=TEXT.
 	   "* OK [RESP]" produces key=RESP, value=NULL
@@ -110,5 +125,8 @@ void imapc_client_mailbox_idle(struct imapc_client_mailbox *box);
 
 enum imapc_capability
 imapc_client_get_capabilities(struct imapc_client *client);
+
+int imapc_client_create_temp_fd(struct imapc_client *client,
+				const char **path_r);
 
 #endif

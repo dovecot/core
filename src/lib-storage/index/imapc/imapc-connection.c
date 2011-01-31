@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "base64.h"
+#include "write-full.h"
 #include "str.h"
 #include "dns-lookup.h"
 #include "imap-quote.h"
@@ -15,10 +16,12 @@
 #include "imapc-seqmap.h"
 #include "imapc-connection.h"
 
+#include <unistd.h>
 #include <ctype.h>
 
 #define IMAPC_DNS_LOOKUP_TIMEOUT_MSECS (1000*30)
 #define IMAPC_CONNECT_TIMEOUT_MSECS (1000*30)
+#define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
 
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
@@ -43,6 +46,15 @@ struct imapc_command {
 
 	imapc_command_callback_t *callback;
 	void *context;
+};
+
+struct imapc_connection_literal {
+	char *temp_path;
+	int fd;
+	uoff_t bytes_left;
+
+	const struct imap_arg *parent_arg;
+	unsigned int list_idx;
 };
 
 struct imapc_connection {
@@ -73,6 +85,9 @@ struct imapc_connection {
 	unsigned int ips_count, prev_connect_idx;
 	struct ip_addr *ips;
 
+	struct imapc_connection_literal literal;
+	ARRAY_DEFINE(literal_files, struct imapc_arg_file);
+
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;
 	unsigned int idle_plus_waiting:1;
@@ -94,8 +109,10 @@ imapc_connection_init(struct imapc_client *client)
 	conn->fd = -1;
 	conn->name = i_strdup_printf("%s:%u", client->set.host,
 				     client->set.port);
+	conn->literal.fd = -1;
 	i_array_init(&conn->cmd_send_queue, 8);
 	i_array_init(&conn->cmd_wait_list, 32);
+	i_array_init(&conn->literal_files, 4);
 	return conn;
 }
 
@@ -109,6 +126,7 @@ void imapc_connection_deinit(struct imapc_connection **_conn)
 	p_strsplit_free(default_pool, conn->capabilities_list);
 	array_free(&conn->cmd_send_queue);
 	array_free(&conn->cmd_wait_list);
+	array_free(&conn->literal_files);
 	i_free(conn->ips);
 	i_free(conn->name);
 	i_free(conn);
@@ -162,11 +180,37 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 	conn->state = state;
 }
 
+static void imapc_connection_lfiles_free(struct imapc_connection *conn)
+{
+	struct imapc_arg_file *lfile;
+
+	array_foreach_modifiable(&conn->literal_files, lfile) {
+		if (close(lfile->fd) < 0)
+			i_error("imapc: close(literal file) failed: %m");
+	}
+	array_clear(&conn->literal_files);
+}
+
+static void
+imapc_connection_literal_reset(struct imapc_connection_literal *literal)
+{
+	if (literal->fd != -1) {
+		if (close(literal->fd) < 0)
+			i_error("close(%s) failed: %m", literal->temp_path);
+	}
+	i_free_and_null(literal->temp_path);
+
+	memset(literal, 0, sizeof(*literal));
+	literal->fd = -1;
+}
+
 static void imapc_connection_disconnect(struct imapc_connection *conn)
 {
 	if (conn->fd == -1)
 		return;
 
+	imapc_connection_lfiles_free(conn);
+	imapc_connection_literal_reset(&conn->literal);
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 	imap_parser_destroy(&conn->parser);
@@ -192,14 +236,104 @@ imapc_connection_input_error(struct imapc_connection *conn,
 	va_end(va);
 }
 
-static int
-imapc_connection_read_line(struct imapc_connection *conn,
-			   const struct imap_arg **imap_args_r)
+static bool last_arg_is_fetch_body(const struct imap_arg *args,
+				   const struct imap_arg **parent_arg_r,
+				   unsigned int *idx_r)
 {
-	int ret;
-	bool fatal;
+	const struct imap_arg *list;
+	const char *name;
+	unsigned int count;
 
-	ret = imap_parser_read_args(conn->parser, 0, 0, imap_args_r);
+	if (args[0].type == IMAP_ARG_ATOM &&
+	    imap_arg_atom_equals(&args[1], "FETCH") &&
+	    imap_arg_get_list_full(&args[2], &list, &count) && count >= 2 &&
+	    list[count].type == IMAP_ARG_LITERAL_SIZE &&
+	    imap_arg_get_atom(&list[count-1], &name) &&
+	    strncasecmp(name, "BODY[", 5) == 0) {
+		*parent_arg_r = &args[2];
+		*idx_r = count;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static int
+imapc_connection_read_literal_init(struct imapc_connection *conn, uoff_t size,
+				   const struct imap_arg *args)
+{
+	const char *path;
+	const struct imap_arg *parent_arg;
+	unsigned int idx;
+
+	i_assert(size > 0);
+	i_assert(conn->literal.fd == -1);
+
+	if (size <= IMAPC_MAX_INLINE_LITERAL_SIZE ||
+	    !last_arg_is_fetch_body(args, &parent_arg, &idx)) {
+		/* read the literal directly into parser */
+		return 0;
+	}
+
+	conn->literal.fd = imapc_client_create_temp_fd(conn->client, &path);
+	if (conn->literal.fd == -1)
+		return -1;
+	conn->literal.temp_path = i_strdup(path);
+	conn->literal.bytes_left = size;
+	conn->literal.parent_arg = parent_arg;
+	conn->literal.list_idx = idx;
+	return 1;
+}
+
+static int imapc_connection_read_literal(struct imapc_connection *conn)
+{
+	struct imapc_arg_file *lfile;
+	const unsigned char *data;
+	size_t size;
+
+	if (conn->literal.bytes_left == 0)
+		return 1;
+
+	data = i_stream_get_data(conn->input, &size);
+	if (size > conn->literal.bytes_left)
+		size = conn->literal.bytes_left;
+	if (size > 0) {
+		if (write_full(conn->literal.fd, data, size) < 0) {
+			i_error("imapc(%s): write(%s) failed: %m",
+				conn->name, conn->literal.temp_path);
+			imapc_connection_disconnect(conn);
+			return -1;
+		}
+		i_stream_skip(conn->input, size);
+		conn->literal.bytes_left -= size;
+	}
+	if (conn->literal.bytes_left > 0)
+		return 0;
+
+	/* finished */
+	lfile = array_append_space(&conn->literal_files);
+	lfile->fd = conn->literal.fd;
+	lfile->parent_arg = conn->literal.parent_arg;
+	lfile->list_idx = conn->literal.list_idx;
+
+	conn->literal.fd = -1;
+	imapc_connection_literal_reset(&conn->literal);
+	return 1;
+}
+
+static int
+imapc_connection_read_line_more(struct imapc_connection *conn,
+				const struct imap_arg **imap_args_r)
+{
+	uoff_t literal_size;
+	bool fatal;
+	int ret;
+
+	if ((ret = imapc_connection_read_literal(conn)) <= 0)
+		return ret;
+
+	ret = imap_parser_read_args(conn->parser, 0,
+				    IMAP_PARSE_FLAG_LITERAL_SIZE |
+				    IMAP_PARSE_FLAG_ATOM_ALLCHARS, imap_args_r);
 	if (ret == -2) {
 		/* need more data */
 		return 0;
@@ -209,7 +343,27 @@ imapc_connection_read_line(struct imapc_connection *conn,
 			imap_parser_get_error(conn->parser, &fatal));
 		return -1;
 	}
+
+	if (imap_parser_get_literal_size(conn->parser, &literal_size)) {
+		if (imapc_connection_read_literal_init(conn, literal_size,
+						       *imap_args_r) <= 0) {
+			imap_parser_read_last_literal(conn->parser);
+			return 2;
+		}
+		return imapc_connection_read_line_more(conn, imap_args_r);
+	}
 	return 1;
+}
+
+static int
+imapc_connection_read_line(struct imapc_connection *conn,
+			   const struct imap_arg **imap_args_r)
+{
+	int ret;
+
+	while ((ret = imapc_connection_read_line_more(conn, imap_args_r)) == 2)
+		;
+	return ret;
 }
 
 static int
@@ -332,6 +486,7 @@ static void imapc_connection_input_reset(struct imapc_connection *conn)
 	conn->cur_tag = 0;
 	conn->cur_num = 0;
 	imap_parser_reset(conn->parser);
+	imapc_connection_lfiles_free(conn);
 }
 
 static int imapc_connection_skip_line(struct imapc_connection *conn)
@@ -507,6 +662,9 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 	reply.name = name;
 	reply.num = conn->cur_num;
 	reply.args = imap_args;
+	reply.file_args = array_get(&conn->literal_files,
+				    &reply.file_args_count);
+
 	if (conn->selected_box != NULL) {
 		reply.untagged_box_context =
 			conn->selected_box->untagged_box_context;

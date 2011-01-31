@@ -81,7 +81,9 @@ int imapc_search_deinit(struct mail_search_context *_ctx);
 bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 				struct mail *mail, bool *tryagain_r);
 bool imapc_search_next_update_seq(struct mail_search_context *_ctx);
-void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args);
+void imapc_fetch_mail_update(struct mail *mail,
+			     const struct imapc_untagged_reply *reply,
+			     const struct imap_arg *args);
 
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,
@@ -102,6 +104,5 @@ void imapc_mailbox_register_resp_text(struct imapc_mailbox *mbox,
 				      imapc_mailbox_callback_t *callback);
 
 void imapc_mailbox_register_callbacks(struct imapc_mailbox *mbox);
-int imapc_create_temp_fd(struct mail_user *user, const char **path_r);
 
 #endif

@@ -64,7 +64,7 @@ int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 	i_assert(ctx->fd == -1);
 
-	ctx->fd = imapc_create_temp_fd(storage->user, &path);
+	ctx->fd = imapc_client_create_temp_fd(ctx->mbox->storage->client, &path);
 	if (ctx->fd == -1) {
 		mail_storage_set_critical(storage,
 					  "Couldn't create temp file %s", path);

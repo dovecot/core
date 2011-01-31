@@ -23,6 +23,15 @@ imapc_mail_alloc(struct mailbox_transaction_context *t,
 	return &mail->imail.mail.mail;
 }
 
+static void imapc_mail_free(struct mail *_mail)
+{
+	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+
+	if (mail->body != NULL)
+		buffer_free(&mail->body);
+	index_mail_free(_mail);
+}
+
 static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -126,7 +135,7 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 
 struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_close,
-	index_mail_free,
+	imapc_mail_free,
 	index_mail_set_seq,
 	index_mail_set_uid,
 	index_mail_set_uid_cache_updates,

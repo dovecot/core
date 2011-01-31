@@ -5,6 +5,8 @@
 
 struct imapc_mail {
 	struct index_mail imail;
+
+	buffer_t *body;
 	unsigned int searching:1;
 	unsigned int fetch_one:1;
 };

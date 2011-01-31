@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
-#include "safe-mkstemp.h"
 #include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "imapc-mail.h"
@@ -165,6 +164,7 @@ imapc_storage_create(struct mail_storage *_storage,
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 	struct imapc_client_settings set;
 	const char *port;
+	string_t *str;
 
 	memset(&set, 0, sizeof(set));
 	set.host = ns->list->set.root_dir;
@@ -192,6 +192,10 @@ imapc_storage_create(struct mail_storage *_storage,
 	set.dns_client_socket_path =
 		t_strconcat(_storage->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
+	str = t_str_new(128);
+	mail_user_set_get_temp_prefix(str, _storage->user->set);
+	set.temp_path_prefix = str_c(str);
+
 	storage->list = (struct imapc_mailbox_list *)ns->list;
 	storage->list->storage = storage;
 	storage->client = imapc_client_init(&set);
@@ -475,30 +479,6 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 static void imapc_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
 	/* we're doing IDLE all the time anyway - nothing to do here */
-}
-
-int imapc_create_temp_fd(struct mail_user *user, const char **path_r)
-{
-	string_t *path;
-	int fd;
-
-	path = t_str_new(128);
-	mail_user_set_get_temp_prefix(path, user->set);
-	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
-		return -1;
-	}
-
-	/* we just want the fd, unlink it */
-	if (unlink(str_c(path)) < 0) {
-		/* shouldn't happen.. */
-		i_error("unlink(%s) failed: %m", str_c(path));
-		(void)close(fd);
-		return -1;
-	}
-	*path_r = str_c(path);
-	return fd;
 }
 
 struct mail_storage imapc_storage = {

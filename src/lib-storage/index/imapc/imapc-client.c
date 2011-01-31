@@ -2,10 +2,14 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "ioloop.h"
+#include "safe-mkstemp.h"
 #include "imapc-seqmap.h"
 #include "imapc-connection.h"
 #include "imapc-client-private.h"
+
+#include <unistd.h>
 
 struct imapc_client_command_context {
 	struct imapc_client_mailbox *box;
@@ -42,6 +46,8 @@ imapc_client_init(const struct imapc_client_settings *set)
 	client->set.password = p_strdup(pool, set->password);
 	client->set.dns_client_socket_path =
 		p_strdup(pool, set->dns_client_socket_path);
+	client->set.temp_path_prefix =
+		p_strdup(pool, set->temp_path_prefix);
 	p_array_init(&client->conns, pool, 8);
 	return client;
 }
@@ -270,4 +276,29 @@ imapc_client_get_capabilities(struct imapc_client *client)
 
 	connp = array_idx(&client->conns, 0);
 	return imapc_connection_get_capabilities((*connp)->conn);
+}
+
+int imapc_client_create_temp_fd(struct imapc_client *client,
+				const char **path_r)
+{
+	string_t *path;
+	int fd;
+
+	path = t_str_new(128);
+	str_append(path, client->set.temp_path_prefix);
+	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
+	if (fd == -1) {
+		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		return -1;
+	}
+
+	/* we just want the fd, unlink it */
+	if (unlink(str_c(path)) < 0) {
+		/* shouldn't happen.. */
+		i_error("unlink(%s) failed: %m", str_c(path));
+		(void)close(fd);
+		return -1;
+	}
+	*path_r = str_c(path);
+	return fd;
 }
