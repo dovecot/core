@@ -25,6 +25,7 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ "QRESYNC", IMAPC_CAPABILITY_QRESYNC },
 	{ "IDLE", IMAPC_CAPABILITY_IDLE },
 	{ "UIDPLUS", IMAPC_CAPABILITY_UIDPLUS },
+	{ "AUTH=PLAIN", IMAPC_CAPABILITY_AUTH_PLAIN },
 
 	{ "IMAP4REV1", IMAPC_CAPABILITY_IMAP4REV1 },
 	{ NULL, 0 }

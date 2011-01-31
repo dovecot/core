@@ -514,24 +514,6 @@ static int imapc_connection_skip_line(struct imapc_connection *conn)
 	return ret;
 }
 
-static void
-imapc_connection_capability_cb(const struct imapc_command_reply *reply,
-			       void *context)
-{
-	struct imapc_connection *conn = context;
-
-	if (reply->state != IMAPC_COMMAND_STATE_OK) {
-		imapc_connection_input_error(conn,
-			"Failed to get capabilities: %s", reply->text_full);
-	} else if (conn->capabilities == 0) {
-		imapc_connection_input_error(conn,
-			"Capabilities not returned by server");
-	} else {
-		timeout_remove(&conn->to);
-		imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DONE);
-	}
-}
-
 static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 				      void *context)
 {
@@ -540,14 +522,6 @@ static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
 		imapc_connection_input_error(conn, "Authentication failed: %s",
 					     reply->text_full);
-		return;
-	}
-
-	if (conn->capabilities == 0) {
-		/* server didn't send capabilities automatically.
-		   request them manually before we're done. */
-		imapc_connection_cmd(conn, "CAPABILITY",
-				     imapc_connection_capability_cb, conn);
 		return;
 	}
 
@@ -578,23 +552,14 @@ imapc_connection_get_sasl_plain_request(struct imapc_connection *conn)
 	return str_c(out);
 }
 
-static int imapc_connection_input_banner(struct imapc_connection *conn)
+static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
 	const struct imapc_client_settings *set = &conn->client->set;
-	const struct imap_arg *imap_args;
-	const char *cmd, *key, *value;
-	int ret;
+	const char *cmd;
 
-	if ((ret = imapc_connection_read_line(conn, &imap_args)) <= 0)
-		return ret;
-
-	if (imapc_connection_handle_imap_resp_text(conn, imap_args,
-						   &key, &value) < 0)
-		return -1;
-	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_AUTHENTICATING);
-
-	if (set->master_user == NULL &&
-	    need_literal(set->username) && need_literal(set->password)) {
+	if ((set->master_user == NULL &&
+	     need_literal(set->username) && need_literal(set->password)) ||
+	    (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0) {
 		/* We can use LOGIN command */
 		imapc_connection_cmdf(conn, imapc_connection_login_cb, conn,
 				      "LOGIN %s %s",
@@ -610,6 +575,46 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 		imapc_connection_cmd(conn, cmd,
 				     imapc_connection_login_cb, conn);
 	}
+}
+
+static void
+imapc_connection_capability_cb(const struct imapc_command_reply *reply,
+			       void *context)
+{
+	struct imapc_connection *conn = context;
+
+	if (reply->state != IMAPC_COMMAND_STATE_OK) {
+		imapc_connection_input_error(conn,
+			"Failed to get capabilities: %s", reply->text_full);
+	} else if (conn->capabilities == 0) {
+		imapc_connection_input_error(conn,
+			"Capabilities not returned by server");
+	} else {
+		imapc_connection_authenticate(conn);
+	}
+}
+
+static int imapc_connection_input_banner(struct imapc_connection *conn)
+{
+	const struct imap_arg *imap_args;
+	const char *key, *value;
+	int ret;
+
+	if ((ret = imapc_connection_read_line(conn, &imap_args)) <= 0)
+		return ret;
+
+	if (imapc_connection_handle_imap_resp_text(conn, imap_args,
+						   &key, &value) < 0)
+		return -1;
+	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_AUTHENTICATING);
+
+	if (conn->capabilities == 0) {
+		/* capabilities weren't sent in the banner. ask for them. */
+		imapc_connection_cmd(conn, "CAPABILITY",
+				     imapc_connection_capability_cb, conn);
+	} else {
+		imapc_connection_authenticate(conn);
+	}
 	conn->input_callback = NULL;
 	imapc_connection_input_reset(conn);
 	return 1;
@@ -618,7 +623,7 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 static int imapc_connection_input_untagged(struct imapc_connection *conn)
 {
 	const struct imap_arg *imap_args;
-	const char *name;
+	const char *name, *value;
 	struct imapc_untagged_reply reply;
 	int ret;
 
@@ -662,6 +667,10 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 		if (imapc_connection_handle_imap_resp_text(conn, imap_args,
 						&reply.resp_text_key,
 						&reply.resp_text_value) < 0)
+			return -1;
+	} else if (strcasecmp(name, "CAPABILITY") == 0) {
+		value = imap_args_to_str(imap_args);
+		if (imapc_connection_parse_capability(conn, value) < 0)
 			return -1;
 	}
 
