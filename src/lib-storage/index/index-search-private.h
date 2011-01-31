@@ -8,6 +8,9 @@ struct index_search_context {
 	struct mail_index_view *view;
 	struct mailbox *box;
 
+	enum mail_fetch_field extra_wanted_fields;
+	struct mailbox_header_lookup_ctx *extra_wanted_headers;
+
 	uint32_t seq1, seq2;
 	struct mail *mail;
 	struct index_mail *imail;

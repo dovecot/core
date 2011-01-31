@@ -474,55 +474,11 @@ int cmd_search_parse_return_if_found(struct imap_search_context *ctx,
 	return 1;
 }
 
-static void wanted_fields_get(struct mailbox *box,
-			      const enum mail_sort_type *sort_program,
-			      enum mail_fetch_field *wanted_fields_r,
-			      struct mailbox_header_lookup_ctx **headers_ctx_r)
-{
-	const char *headers[2];
-
-	*wanted_fields_r = 0;
-	*headers_ctx_r = NULL;
-
-	if (sort_program == NULL)
-		return;
-
-	headers[0] = headers[1] = NULL;
-	switch (sort_program[0] & MAIL_SORT_MASK) {
-	case MAIL_SORT_ARRIVAL:
-		*wanted_fields_r = MAIL_FETCH_RECEIVED_DATE;
-		break;
-	case MAIL_SORT_CC:
-		headers[0] = "Cc";
-		break;
-	case MAIL_SORT_DATE:
-		*wanted_fields_r = MAIL_FETCH_DATE;
-		break;
-	case MAIL_SORT_FROM:
-		headers[0] = "From";
-		break;
-	case MAIL_SORT_SIZE:
-		*wanted_fields_r = MAIL_FETCH_VIRTUAL_SIZE;
-		break;
-	case MAIL_SORT_SUBJECT:
-		headers[0] = "Subject";
-		break;
-	case MAIL_SORT_TO:
-		headers[0] = "To";
-		break;
-	}
-
-	if (headers[0] != NULL)
-		*headers_ctx_r = mailbox_header_lookup_init(box, headers);
-}
-
 bool imap_search_start(struct imap_search_context *ctx,
 		       struct mail_search_args *sargs,
 		       const enum mail_sort_type *sort_program)
 {
 	struct client_command_context *cmd = ctx->cmd;
-	enum mail_fetch_field wanted_fields;
-	struct mailbox_header_lookup_ctx *wanted_headers;
 
 	imap_search_args_check(ctx, sargs->args);
 
@@ -532,13 +488,10 @@ bool imap_search_start(struct imap_search_context *ctx,
 	}
 
 	ctx->box = cmd->client->mailbox;
-	wanted_fields_get(ctx->box, sort_program,
-			  &wanted_fields, &wanted_headers);
-
 	ctx->trans = mailbox_transaction_begin(ctx->box, 0);
 	ctx->sargs = sargs;
 	ctx->search_ctx = mailbox_search_init(ctx->trans, sargs, sort_program);
-	ctx->mail = mail_alloc(ctx->trans, wanted_fields, wanted_headers);
+	ctx->mail = mail_alloc(ctx->trans, 0, NULL);
 	ctx->sorting = sort_program != NULL;
 	(void)gettimeofday(&ctx->start_time, NULL);
 	i_array_init(&ctx->result, 128);

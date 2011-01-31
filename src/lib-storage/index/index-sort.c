@@ -108,7 +108,9 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 {
 	i_assert(mail->transaction == program->t);
 
-	program->sort_list_add(program, mail);
+	T_BEGIN {
+		program->sort_list_add(program, mail);
+	} T_END;
 }
 
 static int sort_node_date_cmp(const struct mail_sort_node_date *n1,

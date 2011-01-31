@@ -1040,6 +1040,46 @@ static int search_build_inthreads(struct index_search_context *ctx,
 	return ret;
 }
 
+static void
+wanted_sort_fields_get(struct mailbox *box,
+		       const enum mail_sort_type *sort_program,
+		       enum mail_fetch_field *wanted_fields_r,
+		       struct mailbox_header_lookup_ctx **headers_ctx_r)
+{
+	const char *headers[2];
+
+	*wanted_fields_r = 0;
+	*headers_ctx_r = NULL;
+
+	headers[0] = headers[1] = NULL;
+	switch (sort_program[0] & MAIL_SORT_MASK) {
+	case MAIL_SORT_ARRIVAL:
+		*wanted_fields_r = MAIL_FETCH_RECEIVED_DATE;
+		break;
+	case MAIL_SORT_CC:
+		headers[0] = "Cc";
+		break;
+	case MAIL_SORT_DATE:
+		*wanted_fields_r = MAIL_FETCH_DATE;
+		break;
+	case MAIL_SORT_FROM:
+		headers[0] = "From";
+		break;
+	case MAIL_SORT_SIZE:
+		*wanted_fields_r = MAIL_FETCH_VIRTUAL_SIZE;
+		break;
+	case MAIL_SORT_SUBJECT:
+		headers[0] = "Subject";
+		break;
+	case MAIL_SORT_TO:
+		headers[0] = "To";
+		break;
+	}
+
+	if (headers[0] != NULL)
+		*headers_ctx_r = mailbox_header_lookup_init(box, headers);
+}
+
 void index_storage_search_init_context(struct index_search_context *ctx,
 				       struct mailbox_transaction_context *t,
 				       struct mail_search_args *args,
@@ -1069,6 +1109,12 @@ void index_storage_search_init_context(struct index_search_context *ctx,
 			ctx->failed = TRUE;
 		if (search_build_inthreads(ctx, args->args) < 0)
 			ctx->failed = TRUE;
+	}
+
+	if (sort_program != NULL) {
+		wanted_sort_fields_get(ctx->box, sort_program,
+				       &ctx->extra_wanted_fields,
+				       &ctx->extra_wanted_headers);
 	}
 
 	search_get_seqset(ctx, status.messages, args->args);
@@ -1117,6 +1163,8 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	(void)mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_arg_deinit, NULL);
 
+	if (ctx->extra_wanted_headers != NULL)
+		mailbox_header_lookup_unref(&ctx->extra_wanted_headers);
 	if (ctx->mail_ctx.sort_program != NULL)
 		index_sort_program_deinit(&ctx->mail_ctx.sort_program);
 	if (ctx->thread_ctx != NULL)
@@ -1347,6 +1395,8 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	}
 
 	ctx->mail = mail;
+	mail_private->extra_wanted_fields = ctx->extra_wanted_fields;
+	mail_private->extra_wanted_headers = ctx->extra_wanted_headers;
 
 	if (ioloop_time - ctx->last_notify.tv_sec >=
 	    SEARCH_NOTIFY_INTERVAL_SECS)
@@ -1396,6 +1446,8 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	ctx->mail = NULL;
 	ctx->imail = NULL;
 	mail_private->stats_track = old_stats_track;
+	mail_private->extra_wanted_fields = 0;
+	mail_private->extra_wanted_headers = NULL;
 
 	if (!match && _ctx->sort_program != NULL &&
 	    !*tryagain_r && !ctx->failed) {
