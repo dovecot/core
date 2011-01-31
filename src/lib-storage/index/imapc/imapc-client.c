@@ -5,6 +5,7 @@
 #include "str.h"
 #include "ioloop.h"
 #include "safe-mkstemp.h"
+#include "iostream-ssl.h"
 #include "imapc-seqmap.h"
 #include "imapc-connection.h"
 #include "imapc-client-private.h"
@@ -33,6 +34,8 @@ struct imapc_client *
 imapc_client_init(const struct imapc_client_settings *set)
 {
 	struct imapc_client *client;
+	struct ssl_iostream_settings ssl_set;
+	const char *source;
 	pool_t pool;
 
 	pool = pool_alloconly_create("imapc client", 1024);
@@ -48,6 +51,23 @@ imapc_client_init(const struct imapc_client_settings *set)
 		p_strdup(pool, set->dns_client_socket_path);
 	client->set.temp_path_prefix =
 		p_strdup(pool, set->temp_path_prefix);
+
+	if (set->ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE) {
+		client->set.ssl_mode = set->ssl_mode;
+		client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
+
+		memset(&ssl_set, 0, sizeof(ssl_set));
+		ssl_set.ca_dir = set->ssl_ca_dir;
+		ssl_set.verify_remote_cert = TRUE;
+
+		source = t_strdup_printf("%s:%u", set->host, set->port);
+		if (ssl_iostream_context_init_client(source, &ssl_set,
+						     &client->ssl_ctx) < 0) {
+			i_error("imapc(%s): Couldn't initialize SSL context",
+				source);
+		}
+	}
+
 	p_array_init(&client->conns, pool, 8);
 	return client;
 }
@@ -59,6 +79,8 @@ void imapc_client_deinit(struct imapc_client **_client)
 
 	*_client = NULL;
 
+	if (client->ssl_ctx != NULL)
+		ssl_iostream_context_deinit(&client->ssl_ctx);
 	array_foreach_modifiable(&client->conns, connp)
 		imapc_connection_deinit(&(*connp)->conn);
 	pool_unref(&client->pool);

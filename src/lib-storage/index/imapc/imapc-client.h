@@ -23,6 +23,12 @@ struct imapc_capability_name {
 };
 extern const struct imapc_capability_name imapc_capability_names[];
 
+enum imapc_client_ssl_mode {
+	IMAPC_CLIENT_SSL_MODE_NONE,
+	IMAPC_CLIENT_SSL_MODE_IMMEDIATE,
+	IMAPC_CLIENT_SSL_MODE_STARTTLS
+};
+
 struct imapc_client_settings {
 	const char *host;
 	unsigned int port;
@@ -33,6 +39,9 @@ struct imapc_client_settings {
 
 	const char *dns_client_socket_path;
 	const char *temp_path_prefix;
+
+	enum imapc_client_ssl_mode ssl_mode;
+	const char *ssl_ca_dir;
 };
 
 struct imapc_command_reply {

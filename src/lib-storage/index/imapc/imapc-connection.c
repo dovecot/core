@@ -9,6 +9,7 @@
 #include "write-full.h"
 #include "str.h"
 #include "dns-lookup.h"
+#include "iostream-ssl.h"
 #include "imap-quote.h"
 #include "imap-util.h"
 #include "imap-parser.h"
@@ -68,6 +69,8 @@ struct imapc_connection {
 	struct imap_parser *parser;
 	struct timeout *to;
 
+	struct ssl_iostream *ssl_iostream;
+
 	int (*input_callback)(struct imapc_connection *conn);
 	enum imapc_input_state input_state;
 	unsigned int cur_tag;
@@ -123,7 +126,8 @@ void imapc_connection_deinit(struct imapc_connection **_conn)
 	*_conn = NULL;
 
 	imapc_connection_disconnect(conn);
-	p_strsplit_free(default_pool, conn->capabilities_list);
+	if (conn->capabilities_list != NULL)
+		p_strsplit_free(default_pool, conn->capabilities_list);
 	array_free(&conn->cmd_send_queue);
 	array_free(&conn->cmd_wait_list);
 	array_free(&conn->literal_files);
@@ -215,6 +219,8 @@ static void imapc_connection_disconnect(struct imapc_connection *conn)
 		timeout_remove(&conn->to);
 	imap_parser_destroy(&conn->parser);
 	io_remove(&conn->io);
+	if (conn->ssl_iostream != NULL)
+		ssl_iostream_unref(&conn->ssl_iostream);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	net_disconnect(conn->fd);
@@ -835,15 +841,73 @@ static int imapc_connection_input_one(struct imapc_connection *conn)
 
 static void imapc_connection_input(struct imapc_connection *conn)
 {
-	if (i_stream_read(conn->input) == -1) {
+	ssize_t ret;
+
+	if ((ret = i_stream_read(conn->input)) > 0)
+		imapc_connection_input_pending(conn);
+	else if (ret < 0) {
 		/* disconnected */
-		i_error("imapc(%s): Server disconnected unexpectedly",
-			conn->name);
+		if (conn->ssl_iostream == NULL) {
+			i_error("imapc(%s): Server disconnected unexpectedly",
+				conn->name);
+		} else {
+			i_error("imapc(%s): Server disconnected: %s", conn->name,
+				ssl_iostream_get_last_error(conn->ssl_iostream));
+		}
 		imapc_connection_disconnect(conn);
 		return;
 	}
+}
 
-	imapc_connection_input_pending(conn);
+static int imapc_connection_ssl_handshaked(void *context)
+{
+	struct imapc_connection *conn = context;
+
+	if (ssl_iostream_has_valid_client_cert(conn->ssl_iostream))
+		return 0;
+
+	if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream)) {
+		i_error("imapc(%s): SSL certificate not received", conn->name);
+	} else {
+		i_error("imapc(%s): Received invalid SSL certificate",
+			conn->name);
+	}
+	i_stream_close(conn->input);
+	return -1;
+}
+
+static int imapc_connection_ssl_init(struct imapc_connection *conn)
+{
+	struct ssl_iostream_settings ssl_set;
+	const char *source;
+
+	if (conn->client->ssl_ctx == NULL) {
+		i_error("imapc(%s): No SSL context", conn->name);
+		return -1;
+	}
+
+	memset(&ssl_set, 0, sizeof(ssl_set));
+	ssl_set.verbose_invalid_cert = TRUE;
+	ssl_set.verify_remote_cert = TRUE;
+	ssl_set.require_valid_cert = TRUE;
+
+	source = t_strdup_printf("imapc(%s): ", conn->name);
+	if (io_stream_create_ssl(conn->client->ssl_ctx, source, &ssl_set,
+				 &conn->input, &conn->output,
+				 &conn->ssl_iostream) < 0) {
+		i_error("imapc(%s): Couldn't initialize SSL client",
+			conn->name);
+		return -1;
+	}
+	ssl_iostream_set_handshake_callback(conn->ssl_iostream,
+					    imapc_connection_ssl_handshaked,
+					    conn);
+	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
+		i_error("imapc(%s): SSL handshake failed", conn->name);
+		return -1;
+	}
+	imap_parser_set_streams(conn->parser, conn->input, NULL);
+	return 0;
 }
 
 static void imapc_connection_connected(struct imapc_connection *conn)
@@ -861,6 +925,11 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 	}
 	io_remove(&conn->io);
 	conn->io = io_add(conn->fd, IO_READ, imapc_connection_input, conn);
+
+	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
+		if (imapc_connection_ssl_init(conn) < 0)
+			imapc_connection_disconnect(conn);
+	}
 }
 
 static void imapc_connection_timeout(struct imapc_connection *conn)
@@ -956,7 +1025,7 @@ void imapc_connection_input_pending(struct imapc_connection *conn)
 		return;
 
 	o_stream_cork(conn->output);
-	while (ret > 0 && !conn->client->stop_now) {
+	while (ret > 0 && !conn->client->stop_now && conn->input != NULL) {
 		T_BEGIN {
 			ret = imapc_connection_input_one(conn);
 		} T_END;

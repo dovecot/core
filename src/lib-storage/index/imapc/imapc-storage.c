@@ -163,7 +163,7 @@ imapc_storage_create(struct mail_storage *_storage,
 {
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 	struct imapc_client_settings set;
-	const char *port;
+	const char *port, *value;
 	string_t *str;
 
 	memset(&set, 0, sizeof(set));
@@ -195,6 +195,16 @@ imapc_storage_create(struct mail_storage *_storage,
 	str = t_str_new(128);
 	mail_user_set_get_temp_prefix(str, _storage->user->set);
 	set.temp_path_prefix = str_c(str);
+
+	set.ssl_ca_dir = mail_user_plugin_getenv(_storage->user,
+						 "imapc_ssl_ca_dir");
+	if (set.ssl_ca_dir != NULL) {
+		value = mail_user_plugin_getenv(_storage->user,
+						"imapc_ssl_starttls");
+		set.ssl_mode = value != NULL ?
+			IMAPC_CLIENT_SSL_MODE_STARTTLS :
+			IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
+	}
 
 	storage->list = (struct imapc_mailbox_list *)ns->list;
 	storage->list->storage = storage;

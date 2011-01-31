@@ -11,6 +11,7 @@ struct imapc_client_connection {
 struct imapc_client {
 	pool_t pool;
 	struct imapc_client_settings set;
+	struct ssl_iostream_context *ssl_ctx;
 
 	imapc_untagged_callback_t *untagged_callback;
 	void *untagged_context;
