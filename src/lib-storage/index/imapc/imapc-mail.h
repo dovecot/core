@@ -6,6 +6,7 @@
 struct imapc_mail {
 	struct index_mail imail;
 	unsigned int searching:1;
+	unsigned int fetch_one:1;
 };
 
 extern struct mail_vfuncs imapc_mail_vfuncs;

@@ -280,6 +280,7 @@ imapc_fetch_stream(struct index_mail *imail, const char *value, bool body)
 
 void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args)
 {
+	struct imapc_mail *imapmail = (struct imapc_mail *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	struct index_mail *imail = (struct index_mail *)mail;
 	const char *key, *value;
@@ -309,11 +310,15 @@ void imapc_fetch_mail_update(struct mail *mail, const struct imap_arg *args)
 			imail->data.received_date = t;
 		}
 	}
-	imapc_client_stop_now(mbox->storage->client);
+	if (!imapmail->fetch_one)
+		imapc_client_stop_now(mbox->storage->client);
+	else
+		imapc_client_stop(mbox->storage->client);
 }
 
 int imapc_mail_fetch(struct mail *mail, enum mail_fetch_field fields)
 {
+	struct imapc_mail *imail = (struct imapc_mail *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	struct imapc_simple_context sctx;
 	string_t *str;
@@ -331,8 +336,10 @@ int imapc_mail_fetch(struct mail *mail, enum mail_fetch_field fields)
 	imapc_client_mailbox_cmdf(mbox->client_box, imapc_async_stop_callback,
 				  mbox->storage, "%1s", str_c(str));
 
+	imail->fetch_one = TRUE;
 	mbox->cur_fetch_mail = mail;
 	imapc_client_run(mbox->storage->client);
 	mbox->cur_fetch_mail = NULL;
+	imail->fetch_one = FALSE;
 	return sctx.ret;
 }
