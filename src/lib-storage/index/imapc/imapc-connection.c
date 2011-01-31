@@ -852,9 +852,12 @@ static void imapc_connection_input(struct imapc_connection *conn)
 {
 	ssize_t ret;
 
-	if ((ret = i_stream_read(conn->input)) > 0)
+	/* we need to read as much as we can with SSL streams to avoid
+	   hanging */
+	while (conn->input != NULL && (ret = i_stream_read(conn->input)) > 0)
 		imapc_connection_input_pending(conn);
-	else if (ret < 0) {
+
+	if (ret < 0) {
 		/* disconnected */
 		if (conn->ssl_iostream == NULL) {
 			i_error("imapc(%s): Server disconnected unexpectedly",
