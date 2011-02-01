@@ -50,7 +50,8 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 	struct mailbox_node *node;
 	const char *p;
 	unsigned int vname_len = strlen(vname);
-	bool created, ns_sep = mail_namespace_get_sep(ns);
+	bool created;
+	char ns_sep = mail_namespace_get_sep(ns);
 
 	while ((p = strrchr(vname, ns_sep)) != NULL) {
 		vname = t_strdup_until(vname, p);
