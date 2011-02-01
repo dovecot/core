@@ -28,6 +28,8 @@ struct imapc_mailbox_event_callback {
 
 struct imapc_storage {
 	struct mail_storage storage;
+	const struct imapc_settings *set;
+
 	struct imapc_mailbox_list *list;
 	struct imapc_client *client;
 

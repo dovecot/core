@@ -3,6 +3,7 @@ noinst_LTLIBRARIES = libstorage_imapc.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-mail \
@@ -20,6 +21,7 @@ libstorage_imapc_la_SOURCES = \
 	imapc-save.c \
 	imapc-search.c \
 	imapc-seqmap.c \
+	imapc-settings.c \
 	imapc-sync.c \
 	imapc-storage.c
 
@@ -28,6 +30,7 @@ headers = \
 	imapc-list.h \
 	imapc-mail.h \
 	imapc-seqmap.h \
+	imapc-settings.h \
 	imapc-storage.h \
 	imapc-sync.h
 

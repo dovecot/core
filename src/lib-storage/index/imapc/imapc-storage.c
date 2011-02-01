@@ -9,6 +9,7 @@
 #include "imapc-client.h"
 #include "imapc-list.h"
 #include "imapc-sync.h"
+#include "imapc-settings.h"
 #include "imapc-storage.h"
 
 #define DNS_CLIENT_SOCKET_NAME "dns-client"
@@ -163,30 +164,23 @@ imapc_storage_create(struct mail_storage *_storage,
 {
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 	struct imapc_client_settings set;
-	const char *port, *value;
 	string_t *str;
 
+	storage->set = mail_storage_get_driver_settings(_storage);
+
 	memset(&set, 0, sizeof(set));
-	set.host = ns->list->set.root_dir;
-
-	port = mail_user_plugin_getenv(_storage->user, "imapc_port");
-	if (port == NULL)
-		set.port = 143;
-	else {
-		if (str_to_uint(port, &set.port) < 0 ||
-		    set.port == 0 || set.port >= 65536) {
-			*error_r = t_strdup_printf("Invalid port: %s", port);
-			return -1;
-		}
+	set.host = storage->set->imapc_host;
+	if (*set.host == '\0') {
+		*error_r = "missing imapc_host";
+		return -1;
 	}
-
-	set.username = mail_user_plugin_getenv(_storage->user, "imapc_user");
-	if (set.username == NULL)
+	set.port = storage->set->imapc_port;
+	set.username = storage->set->imapc_user;
+	if (*set.username == '\0')
 		set.username = _storage->user->username;
-
-	set.password = mail_user_plugin_getenv(_storage->user, "pass");
-	if (set.password == NULL) {
-		*error_r = "missing pass";
+	set.password = storage->set->imapc_password;
+	if (*set.password == '\0') {
+		*error_r = "missing imapc_password";
 		return -1;
 	}
 	set.dns_client_socket_path =
@@ -196,15 +190,13 @@ imapc_storage_create(struct mail_storage *_storage,
 	mail_user_set_get_temp_prefix(str, _storage->user->set);
 	set.temp_path_prefix = str_c(str);
 
-	set.ssl_ca_dir = mail_user_plugin_getenv(_storage->user,
-						 "imapc_ssl_ca_dir");
-	if (set.ssl_ca_dir != NULL) {
-		value = mail_user_plugin_getenv(_storage->user,
-						"imapc_ssl_starttls");
-		set.ssl_mode = value != NULL ?
-			IMAPC_CLIENT_SSL_MODE_STARTTLS :
-			IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
-	}
+	set.ssl_ca_dir = storage->set->imapc_ssl_ca_dir;
+	if (strcmp(storage->set->imapc_ssl, "imaps") == 0)
+		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
+	else if (strcmp(storage->set->imapc_ssl, "starttls") == 0)
+		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
+	else
+		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
 
 	storage->list = (struct imapc_mailbox_list *)ns->list;
 	storage->list->storage = storage;
@@ -496,7 +488,7 @@ struct mail_storage imapc_storage = {
 	.class_flags = 0,
 
 	.v = {
-		NULL,
+		imapc_get_setting_parser_info,
 		imapc_storage_alloc,
 		imapc_storage_create,
 		imapc_storage_destroy,
