@@ -887,7 +887,7 @@ static int imapc_connection_input_one(struct imapc_connection *conn)
 
 static void imapc_connection_input(struct imapc_connection *conn)
 {
-	ssize_t ret;
+	ssize_t ret = 0;
 
 	/* we need to read as much as we can with SSL streams to avoid
 	   hanging */
