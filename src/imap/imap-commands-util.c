@@ -8,6 +8,7 @@
 #include "imap-resp-code.h"
 #include "imap-parser.h"
 #include "imap-sync.h"
+#include "imap-utf7.h"
 #include "imap-util.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
@@ -19,6 +20,7 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 	struct mail_namespace *namespaces = cmd->client->user->namespaces;
 	struct mail_namespace *ns;
 	unsigned int name_len;
+	string_t *utf8_name;
 
 	ns = mail_namespace_find(namespaces, *mailbox);
 	if (ns == NULL) {
@@ -37,6 +39,13 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 		/* drop the extra trailing hierarchy separator */
 		*mailbox = t_strndup(*mailbox, name_len-1);
 	}
+
+	utf8_name = t_str_new(64);
+	if (imap_utf7_to_utf8(*mailbox, utf8_name) < 0) {
+		client_send_tagline(cmd, "NO Mailbox name is not valid mUTF-7");
+		return NULL;
+	}
+	*mailbox = str_c(utf8_name);
 	return ns;
 }
 

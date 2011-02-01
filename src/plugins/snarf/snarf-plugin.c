@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "unichar.h"
 #include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
@@ -124,6 +125,10 @@ snarf_box_find(struct mail_user *user, struct mailbox_list **list_r,
 	snarf_name = mail_user_plugin_getenv(user, "snarf");
 	if (snarf_name == NULL)
 		return FALSE;
+	if (!uni_utf8_str_is_valid(snarf_name)) {
+		i_error("snarf: Mailbox name not UTF-8: %s", snarf_name);
+		return FALSE;
+	}
 
 	snarf_ns = mail_namespace_find(user->namespaces, snarf_name);
 	if (snarf_ns == NULL) {

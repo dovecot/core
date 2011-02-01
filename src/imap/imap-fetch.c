@@ -9,6 +9,7 @@
 #include "message-send.h"
 #include "message-size.h"
 #include "imap-date.h"
+#include "imap-utf7.h"
 #include "mail-search-build.h"
 #include "imap-commands.h"
 #include "imap-quote.h"
@@ -797,12 +798,18 @@ fetch_guid_init(struct imap_fetch_context *ctx ATTR_UNUSED, const char *name,
 static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
 			   void *context ATTR_UNUSED)
 {
-	const char *str;
+	const char *name;
+	string_t *mutf7_name;
 
-	if (mail_get_special(mail, MAIL_FETCH_MAILBOX_NAME, &str) < 0)
+	if (mail_get_special(mail, MAIL_FETCH_MAILBOX_NAME, &name) < 0)
 		i_panic("mailbox name not returned");
+
+	mutf7_name = t_str_new(strlen(name)*2);
+	if (imap_utf8_to_utf7(name, mutf7_name) < 0)
+		i_panic("FETCH: Mailbox name not UTF-8: %s", name);
+
 	str_append(ctx->cur_str, "X-MAILBOX ");
-	imap_quote_append_string(ctx->cur_str, str, FALSE);
+	imap_quote_append_string(ctx->cur_str, str_c(mutf7_name), FALSE);
 	str_append_c(ctx->cur_str, ' ');
 	return 1;
 }

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "unichar.h"
 #include "istream.h"
 #include "mail-namespace.h"
 #include "mail-search-build.h"
@@ -273,6 +274,11 @@ static int read_configuration(struct mail_user *user, const char *path)
 			ret = -1;
 		}
 
+		if (!uni_utf8_str_is_valid(trash->name)) {
+			i_error("trash: Mailbox name not UTF-8: %s",
+				trash->name);
+			ret = -1;
+		}
 		if (!trash_find_storage(user, trash)) {
 			i_error("trash: Namespace not found for mailbox '%s'",
 				trash->name);

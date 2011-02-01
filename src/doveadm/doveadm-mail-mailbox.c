@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "unichar.h"
 #include "imap-utf7.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
@@ -34,24 +35,14 @@ struct list_cmd_context {
 	bool mutf7;
 };
 
-const char *const *doveadm_mailbox_args_to_mutf7(const char *const args[])
+void doveadm_mailbox_args_check(const char *const args[])
 {
-	ARRAY_TYPE(const_string) dest;
-	string_t *str;
-	const char *mutf7;
 	unsigned int i;
 
-	str = t_str_new(128);
-	t_array_init(&dest, 8);
 	for (i = 0; args[i] != NULL; i++) {
-		str_truncate(str, 0);
-		if (imap_utf8_to_utf7(args[i], str) < 0)
+		if (!uni_utf8_str_is_valid(args[i]))
 			i_fatal("Mailbox name not valid UTF-8: %s", args[i]);
-		mutf7 = t_strdup(str_c(str));
-		array_append(&dest, &mutf7, 1);
 	}
-	(void)array_append_space(&dest);
-	return array_idx(&dest, 0);
 }
 
 static bool cmd_mailbox_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
@@ -122,11 +113,14 @@ cmd_mailbox_list_run(struct doveadm_mail_cmd_context *_ctx,
 	iter = doveadm_mail_list_iter_full_init(user, ctx->search_args,
 						iter_flags);
 	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) {
-		str_truncate(str, 0);
-		if (ctx->mutf7 || imap_utf7_to_utf8(info->name, str) < 0)
+		if (!ctx->mutf7)
 			doveadm_print(info->name);
-		else
+		else {
+			str_truncate(str, 0);
+			if (imap_utf8_to_utf7(info->name, str) < 0)
+				i_unreached();
 			doveadm_print(str_c(str));
+		}
 	}
 	doveadm_mail_list_iter_deinit(&iter);
 }
@@ -138,7 +132,7 @@ doveadm_mail_mailbox_search_args_build(const char *const args[])
 	struct mail_search_arg *arg;
 	unsigned int i;
 
-	args = doveadm_mailbox_args_to_mutf7(args);
+	doveadm_mailbox_args_check(args);
 	search_args = mail_search_build_init();
 	for (i = 0; args[i] != NULL; i++) {
 		arg = mail_search_build_add(search_args, SEARCH_MAILBOX_GLOB);
@@ -227,7 +221,7 @@ static void cmd_mailbox_create_init(struct doveadm_mail_cmd_context *_ctx,
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("mailbox create");
-	args = doveadm_mailbox_args_to_mutf7(args);
+	doveadm_mailbox_args_check(args);
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
@@ -288,7 +282,7 @@ static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx,
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name("mailbox delete");
-	args = doveadm_mailbox_args_to_mutf7(args);
+	doveadm_mailbox_args_check(args);
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
@@ -352,7 +346,7 @@ static void cmd_mailbox_rename_init(struct doveadm_mail_cmd_context *_ctx,
 
 	if (str_array_length(args) != 2)
 		doveadm_mail_help_name("mailbox rename");
-	args = doveadm_mailbox_args_to_mutf7(args);
+	doveadm_mailbox_args_check(args);
 
 	ctx->oldname = p_strdup(ctx->ctx.ctx.pool, args[0]);
 	ctx->newname = p_strdup(ctx->ctx.ctx.pool, args[1]);
@@ -407,7 +401,7 @@ static void cmd_mailbox_subscribe_init(struct doveadm_mail_cmd_context *_ctx,
 				       "mailbox subscribe" :
 				       "mailbox unsubscribe");
 	}
-	args = doveadm_mailbox_args_to_mutf7(args);
+	doveadm_mailbox_args_check(args);
 
 	for (i = 0; args[i] != NULL; i++) {
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);

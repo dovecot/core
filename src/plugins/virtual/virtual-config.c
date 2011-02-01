@@ -5,6 +5,7 @@
 #include "crc32.h"
 #include "istream.h"
 #include "str.h"
+#include "unichar.h"
 #include "imap-parser.h"
 #include "imap-match.h"
 #include "mail-namespace.h"
@@ -136,6 +137,11 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	bbox->ns = strcasecmp(line, "INBOX") == 0 ?
 		mail_namespace_find_inbox(user->namespaces) :
 		mail_namespace_find(user->namespaces, line);
+	if (!uni_utf8_str_is_valid(bbox->name)) {
+		*error_r = t_strdup_printf("Mailbox name not UTF-8: %s",
+					   bbox->name);
+		return -1;
+	}
 	if (bbox->ns == NULL) {
 		*error_r = t_strdup_printf("Namespace not found for %s",
 					   bbox->name);

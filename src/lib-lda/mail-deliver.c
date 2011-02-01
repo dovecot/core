@@ -5,9 +5,9 @@
 #include "array.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "unichar.h"
 #include "var-expand.h"
 #include "message-address.h"
-#include "imap-utf7.h"
 #include "lda-settings.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
@@ -116,16 +116,6 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	va_end(args);
 }
 
-static const char *mailbox_name_to_mutf7(const char *mailbox_utf8)
-{
-	string_t *str = t_str_new(128);
-
-	if (imap_utf8_to_utf7(mailbox_utf8, str) < 0)
-		return mailbox_utf8;
-	else
-		return str_c(str);
-}
-
 int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 			   const char *name, struct mailbox **box_r,
 			   enum mail_error *error_r, const char **error_str_r)
@@ -140,7 +130,12 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	*error_r = MAIL_ERROR_NONE;
 	*error_str_r = NULL;
 
-	name = mailbox_name_to_mutf7(name);
+	if (!uni_utf8_str_is_valid(name)) {
+		*error_str_r = "Mailbox name not valid UTF-8";
+		*error_r = MAIL_ERROR_PARAMS;
+		return -1;
+	}
+
 	ns = mail_namespace_find(ctx->user->namespaces, name);
 	if (ns == NULL) {
 		*error_str_r = "Unknown namespace";

@@ -6,7 +6,6 @@
 #include "ostream.h"
 #include "str.h"
 #include "message-size.h"
-#include "imap-utf7.h"
 #include "imap-util.h"
 #include "mail-user.h"
 #include "mail-storage.h"
@@ -47,17 +46,11 @@ static int fetch_user(struct fetch_cmd_context *ctx)
 static int fetch_mailbox(struct fetch_cmd_context *ctx)
 {
 	const char *value;
-	string_t *str = t_str_new(128);
 
 	if (mail_get_special(ctx->mail, MAIL_FETCH_MAILBOX_NAME, &value) < 0)
 		return -1;
 
-	if (imap_utf7_to_utf8(value, str) == 0)
-		doveadm_print(str_c(str));
-	else {
-		/* not a valid mUTF-7 name, fallback to showing it as-is */
-		doveadm_print(value);
-	}
+	doveadm_print(value);
 	return 0;
 }
 

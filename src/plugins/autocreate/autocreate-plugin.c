@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "unichar.h"
 #include "mail-storage.h"
 #include "mail-storage-hooks.h"
 #include "mail-namespace.h"
@@ -17,6 +18,11 @@ autocreate_mailbox(struct mail_namespace *namespaces, const char *name)
 	struct mailbox *box;
 	const char *str;
 	enum mail_error error;
+
+	if (!uni_utf8_str_is_valid(name)) {
+		i_error("autocreate: Mailbox name isn't valid UTF-8: %s", name);
+		return;
+	}
 
 	ns = mail_namespace_find(namespaces, name);
 	if (ns == NULL) {
@@ -60,6 +66,11 @@ autosubscribe_mailbox(struct mail_namespace *namespaces, const char *name)
 	struct mailbox *box;
 	const char *str;
 	enum mail_error error;
+
+	if (!uni_utf8_str_is_valid(name)) {
+		i_error("autocreate: Mailbox name isn't valid UTF-8: %s", name);
+		return;
+	}
 
 	ns = mail_namespace_find_subscribable(namespaces, name);
 	if (ns == NULL) {

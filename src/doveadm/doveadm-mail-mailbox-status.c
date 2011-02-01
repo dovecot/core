@@ -4,7 +4,6 @@
 #include "str.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
-#include "imap-utf7.h"
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-list-iter.h"
@@ -80,16 +79,8 @@ static void status_output(struct status_cmd_context *ctx, struct mailbox *box,
 			  const struct mailbox_status *status,
 			  const struct mailbox_metadata *metadata)
 {
-	string_t *name;
-
-	if (box != NULL) {
-		name = t_str_new(128);
-		if (imap_utf7_to_utf8(mailbox_get_vname(box), name) < 0) {
-			str_truncate(name, 0);
-			str_append(name, mailbox_get_vname(box));
-		}
-		doveadm_print(str_c(name));
-	}
+	if (box != NULL)
+		doveadm_print(mailbox_get_vname(box));
 
 	if ((ctx->status_items & STATUS_MESSAGES) != 0)
 		doveadm_print_num(status->messages);
@@ -128,14 +119,8 @@ status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 	struct mailbox *box;
 	struct mailbox_status status;
 	struct mailbox_metadata metadata;
-	string_t *mailbox_name = t_str_new(128);
 
-	if (imap_utf7_to_utf8(info->name, mailbox_name) < 0) {
-		str_truncate(mailbox_name, 0);
-		str_append(mailbox_name, info->name);
-	}
-
-	box = doveadm_mailbox_find(ctx->ctx.cur_mail_user, str_c(mailbox_name));
+	box = doveadm_mailbox_find(ctx->ctx.cur_mail_user, info->name);
 	if (mailbox_get_status(box, ctx->status_items, &status) < 0 ||
 	    mailbox_get_metadata(box, ctx->metadata_items, &metadata) < 0) {
 		ctx->ctx.failed = TRUE;

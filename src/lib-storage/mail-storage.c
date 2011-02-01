@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "llist.h"
+#include "unichar.h"
 #include "istream.h"
 #include "eacces-error.h"
 #include "mkdir-parents.h"
@@ -569,6 +570,8 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	struct mailbox_list *new_list = list;
 	struct mail_storage *storage;
 	struct mailbox *box;
+
+	i_assert(uni_utf8_str_is_valid(vname));
 
 	if (mailbox_list_get_storage(&new_list, vname, &storage) < 0) {
 		/* just use the first storage. FIXME: does this break? */

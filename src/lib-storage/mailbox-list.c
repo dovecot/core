@@ -350,37 +350,45 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 {
 	struct mail_namespace *ns = list->ns;
 	unsigned int prefix_len = strlen(ns->prefix);
+	const char *storage_name = vname;
+	string_t *str;
 	char list_sep, ns_sep, *ret, *p;
 
-	if (strcasecmp(vname, "INBOX") == 0)
-		vname = "INBOX";
+	if (strcasecmp(storage_name, "INBOX") == 0)
+		storage_name = "INBOX";
 
 	if (prefix_len > 0) {
 		/* skip namespace prefix, except if this is INBOX */
-		if (strncmp(ns->prefix, vname, prefix_len) == 0)
-			vname += prefix_len;
-		else if (strncmp(ns->prefix, vname, prefix_len-1) == 0 &&
+		if (strncmp(ns->prefix, storage_name, prefix_len) == 0)
+			storage_name += prefix_len;
+		else if (strncmp(ns->prefix, storage_name, prefix_len-1) == 0 &&
 			 ns->prefix[prefix_len-1] == mail_namespace_get_sep(ns)) {
 			/* trying to access the namespace prefix itself */
-			vname = "";
+			storage_name = "";
 		} else {
-			i_assert(strcmp(vname, "INBOX") == 0);
+			i_assert(strcmp(storage_name, "INBOX") == 0);
 		}
 	}
+
+	/* UTF-8 -> mUTF-7 conversion */
+	str = t_str_new(strlen(storage_name)*2);
+	if (imap_utf8_to_utf7(storage_name, str) < 0)
+		i_panic("Mailbox name not UTF-8: %s", vname);
+	storage_name = str_c(str);
 
 	list_sep = mailbox_list_get_hierarchy_sep(list);
 	ns_sep = mail_namespace_get_sep(ns);
 
 	if (list_sep == ns_sep)
-		return vname;
+		return storage_name;
 	if (ns->type == NAMESPACE_SHARED &&
 	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 		/* shared namespace root. the backend storage's hierarchy
 		   separator isn't known yet, so do nothing. */
-		return vname;
+		return storage_name;
 	}
 
-	ret = p_strdup(unsafe_data_stack_pool, vname);
+	ret = p_strdup(unsafe_data_stack_pool, storage_name);
 	for (p = ret; *p != '\0'; p++) {
 		if (*p == ns_sep)
 			*p = list_sep;
@@ -398,15 +406,16 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 					   const char *storage_name)
 {
 	unsigned int i, prefix_len, name_len;
+	const char *vname = storage_name;
 	char list_sep, ns_sep, *ret;
 
 	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-	    strcasecmp(storage_name, "INBOX") == 0 &&
+	    strcasecmp(vname, "INBOX") == 0 &&
 	    list->ns->user == list->ns->owner) {
 		/* user's INBOX - use as-is */
 		return "INBOX";
 	}
-	if (*storage_name == '\0') {
+	if (*vname == '\0') {
 		/* return namespace prefix without the separator */
 		if (list->ns->prefix_len == 0)
 			return list->ns->prefix;
@@ -414,6 +423,11 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 			return t_strndup(list->ns->prefix,
 					 list->ns->prefix_len - 1);
 		}
+	} else {
+		/* mUTF-7 -> UTF-8 conversion */
+		string_t *str = t_str_new(strlen(vname));
+		if (imap_utf7_to_utf8(vname, str) == 0)
+			vname = str_c(str);
 	}
 
 	prefix_len = strlen(list->ns->prefix);
@@ -421,15 +435,15 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 	ns_sep = mail_namespace_get_sep(list->ns);
 
 	if (list_sep == ns_sep && prefix_len == 0)
-		return storage_name;
+		return vname;
 
 	/* @UNSAFE */
-	name_len = strlen(storage_name);
+	name_len = strlen(vname);
 	ret = t_malloc(prefix_len + name_len + 1);
 	memcpy(ret, list->ns->prefix, prefix_len);
 	for (i = 0; i < name_len; i++) {
-		ret[i + prefix_len] = storage_name[i] == list_sep ? ns_sep :
-			storage_name[i];
+		ret[i + prefix_len] =
+			vname[i] == list_sep ? ns_sep : vname[i];
 	}
 	ret[i + prefix_len] = '\0';
 	return ret;

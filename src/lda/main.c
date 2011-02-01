@@ -17,7 +17,6 @@
 #include "unichar.h"
 #include "rfc822-parser.h"
 #include "message-address.h"
-#include "imap-utf7.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"

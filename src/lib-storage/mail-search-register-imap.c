@@ -3,8 +3,10 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "str.h"
 #include "imap-date.h"
 #include "imap-seqset.h"
+#include "imap-utf7.h"
 #include "imap-util.h"
 #include "mail-search-register.h"
 #include "mail-search-parser.h"
@@ -430,7 +432,25 @@ imap_search_inthread(struct mail_search_build_context *ctx)
 }
 
 CALLBACK_STR(x_guid, SEARCH_GUID);
-CALLBACK_STR(x_mailbox, SEARCH_MAILBOX_GLOB);
+
+static struct mail_search_arg *
+imap_search_x_mailbox(struct mail_search_build_context *ctx)
+{
+	struct mail_search_arg *sarg;
+	string_t *utf8_name;
+
+	sarg = mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
+	if (sarg == NULL)
+		return NULL;
+
+	utf8_name = t_str_new(strlen(sarg->value.str));
+	if (imap_utf7_to_utf8(sarg->value.str, utf8_name) < 0) {
+		ctx->_error = "X-MAILBOX name not mUTF-7";
+		return NULL;
+	}
+	sarg->value.str = p_strdup(ctx->pool, str_c(utf8_name));
+	return sarg;
+}
 
 const struct mail_search_register_arg imap_register_args[] = {
 	/* argument set operations */

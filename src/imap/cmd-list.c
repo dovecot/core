@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
+#include "imap-utf7.h"
 #include "imap-quote.h"
 #include "imap-match.h"
 #include "imap-status.h"
@@ -383,11 +384,12 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 	const struct mailbox_info *info;
 	struct mail_namespace *ns;
 	enum mailbox_info_flags flags;
-	string_t *str;
+	string_t *str, *mutf7_name;
 	const char *name;
 	int ret = 0;
 
 	str = t_str_new(256);
+	mutf7_name = t_str_new(128);
 	while ((info = mailbox_list_iter_next(ctx->list_iter)) != NULL) {
 		name = info->name;
 		flags = info->flags;
@@ -438,6 +440,10 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 			continue;
 		}
 
+		str_truncate(mutf7_name, 0);
+		if (imap_utf8_to_utf7(name, mutf7_name) < 0)
+			i_panic("LIST: Mailbox name not UTF-8: %s", name);
+
 		str_truncate(str, 0);
 		str_printfa(str, "* %s (", ctx->lsub ? "LSUB" : "LIST");
 		mailbox_flags2str(ctx, str, flags);
@@ -445,7 +451,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		list_reply_append_ns_sep_param(str,
 			mail_namespace_get_sep(ctx->ns));
 		str_append_c(str, ' ');
-		imap_quote_append_string(str, name, FALSE);
+		imap_quote_append_string(str, str_c(mutf7_name), FALSE);
 		mailbox_childinfo2str(ctx, str, flags);
 
 		ret = client_send_line(ctx->cmd->client, str_c(str));

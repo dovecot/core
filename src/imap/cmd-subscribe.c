@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2010 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
+#include "imap-utf7.h"
 #include "imap-commands.h"
 #include "mail-namespace.h"
 
@@ -22,12 +23,20 @@ subscribe_is_valid_name(struct client_command_context *cmd, struct mailbox *box)
 	return TRUE;
 }
 
+static bool str_ends_with_char(const char *str, char c)
+{
+	unsigned int len = strlen(str);
+
+	return len > 0 && str[len-1] == c;
+}
+
 bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box, *box2;
 	const char *mailbox, *orig_mailbox;
 	bool unsubscribed_mailbox2;
+	char sep;
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &mailbox))
@@ -46,10 +55,14 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		}
 	}
 
+	sep = mail_namespace_get_sep(ns);
 	unsubscribed_mailbox2 = FALSE;
-	if (!subscribe && mailbox != orig_mailbox) {
+	if (!subscribe &&
+	    str_ends_with_char(orig_mailbox, sep) &&
+	    !str_ends_with_char(mailbox, sep)) {
 		/* try to unsubscribe both "box" and "box/" */
-		box2 = mailbox_alloc(ns->list, orig_mailbox, 0);
+		const char *name2 = t_strdup_printf("%s%c", mailbox, sep);
+		box2 = mailbox_alloc(ns->list, name2, 0);
 		if (mailbox_set_subscribed(box2, FALSE) == 0)
 			unsubscribed_mailbox2 = TRUE;
 		mailbox_free(&box2);

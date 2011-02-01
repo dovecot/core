@@ -5,10 +5,10 @@
 #include "lib-signals.h"
 #include "ioloop.h"
 #include "str.h"
+#include "unichar.h"
 #include "module-dir.h"
 #include "wildcard-match.h"
 #include "master-service.h"
-#include "imap-utf7.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
@@ -75,12 +75,9 @@ struct mailbox *
 doveadm_mailbox_find(struct mail_user *user, const char *mailbox)
 {
 	struct mail_namespace *ns;
-	string_t *str;
 
-	str = t_str_new(128);
-	if (imap_utf8_to_utf7(mailbox, str) < 0)
+	if (!uni_utf8_str_is_valid(mailbox))
 		i_fatal("Mailbox name not valid UTF-8: %s", mailbox);
-	mailbox = str_c(str);
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	if (ns == NULL)
