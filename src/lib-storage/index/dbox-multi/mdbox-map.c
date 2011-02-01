@@ -50,6 +50,7 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 {
 	struct mdbox_map *map;
 	const char *root, *index_root;
+	mode_t dir_mode;
 
 	root = mailbox_list_get_path(root_list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
@@ -77,7 +78,8 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 	map->ref_ext_id = mail_index_ext_register(map->index, "ref", 0,
 				sizeof(uint16_t), sizeof(uint16_t));
 
-	mailbox_list_get_root_permissions(root_list, &map->create_mode,
+	mailbox_list_get_root_permissions(root_list,
+					  &map->create_mode, &dir_mode,
 					  &map->create_gid,
 					  &map->create_gid_origin);
 	mail_index_set_permissions(map->index, map->create_mode,

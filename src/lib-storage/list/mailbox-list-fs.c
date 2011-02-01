@@ -265,7 +265,7 @@ fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 			   enum mailbox_dir_create_type type)
 {
 	const char *path, *gid_origin, *p;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 	gid_t gid;
 	bool directory, create_parent_dir;
 	int ret;
@@ -284,8 +284,9 @@ fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		path = t_strdup_until(path, p);
 	}
 
-	mailbox_list_get_root_dir_permissions(list, &mode, &gid, &gid_origin);
-	if (mkdir_parents_chgrp(path, mode, gid, gid_origin) == 0)
+	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
+					  &gid, &gid_origin);
+	if (mkdir_parents_chgrp(path, dir_mode, gid, gid_origin) == 0)
 		return 0;
 	else if (errno == EEXIST) {
 		if (create_parent_dir)
@@ -448,7 +449,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	const char *p, *origin;
 	enum mailbox_list_path_type path_type, alt_path_type;
 	struct stat st;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 	gid_t gid;
 	bool rmdir_parent = FALSE;
 
@@ -487,10 +488,10 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
 	if (p != NULL) {
-		mailbox_list_get_root_dir_permissions(newlist, &mode,
-						      &gid, &origin);
+		mailbox_list_get_root_permissions(newlist, &file_mode,
+						  &dir_mode, &gid, &origin);
 		p = t_strdup_until(newpath, p);
-		if (mkdir_parents_chgrp(p, mode, gid, origin) < 0 &&
+		if (mkdir_parents_chgrp(p, dir_mode, gid, origin) < 0 &&
 		    errno != EEXIST) {
 			if (mailbox_list_set_error_from_errno(oldlist))
 				return -1;

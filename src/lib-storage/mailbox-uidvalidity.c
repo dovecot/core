@@ -37,13 +37,14 @@ static void mailbox_uidvalidity_write(struct mailbox_list *list,
 {
 	char buf[8+1];
 	int fd;
-	mode_t mode, old_mask;
+	mode_t file_mode, dir_mode, old_mask;
 	gid_t gid;
 	const char *gid_origin;
 
-	mailbox_list_get_root_permissions(list, &mode, &gid, &gid_origin);
+	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
+					  &gid, &gid_origin);
 
-	old_mask = umask(0666 & ~mode);
+	old_mask = umask(0666 & ~file_mode);
 	fd = open(path, O_RDWR | O_CREAT, 0666);
 	umask(old_mask);
 	if (fd == -1) {

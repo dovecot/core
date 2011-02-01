@@ -216,7 +216,7 @@ mail_storage_create_root(struct mailbox_list *list,
 			 enum mail_storage_flags flags, const char **error_r)
 {
 	const char *root_dir, *origin, *error;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 	gid_t gid;
 	bool autocreate;
 	int ret;
@@ -247,8 +247,9 @@ mail_storage_create_root(struct mailbox_list *list,
 		return ret;
 
 	/* we need to create the root directory. */
-	mailbox_list_get_root_dir_permissions(list, &mode, &gid, &origin);
-	if (mkdir_parents_chgrp(root_dir, mode, gid, origin) < 0 &&
+	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
+					  &gid, &origin);
+	if (mkdir_parents_chgrp(root_dir, dir_mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
 		*error_r = mail_error_create_eacces_msg("mkdir", root_dir);
 		return -1;
@@ -1480,8 +1481,7 @@ const char *mailbox_get_path(struct mailbox *box)
 
 static void mailbox_get_permissions_if_not_set(struct mailbox *box)
 {
-	const char *origin, *dir_origin;
-	gid_t dir_gid;
+	const char *origin;
 
 	if (box->_perm.file_create_mode != 0)
 		return;
@@ -1496,11 +1496,9 @@ static void mailbox_get_permissions_if_not_set(struct mailbox *box)
 
 	mailbox_list_get_permissions(box->list, box->name,
 				     &box->_perm.file_create_mode,
+				     &box->_perm.dir_create_mode,
 				     &box->_perm.file_create_gid, &origin);
 	box->_perm.file_create_gid_origin = p_strdup(box->pool, origin);
-	mailbox_list_get_dir_permissions(box->list, box->name,
-					 &box->_perm.dir_create_mode,
-					 &dir_gid, &dir_origin);
 }
 
 const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box)

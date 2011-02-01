@@ -222,18 +222,18 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
 	struct dotlock *dotlock;
-	const char *p, *dir, *gid_origin, *dir_gid_origin;
+	const char *p, *dir, *gid_origin;
 	string_t *str;
-	mode_t mode, dir_mode;
-	gid_t gid, dir_gid;
+	mode_t file_mode, dir_mode;
+	gid_t gid;
 	int fd;
 
 	i_assert(root->fd == -1);
 
 	/* figure out what permissions we should use for maildirsize.
 	   use the inbox namespace's permissions if possible. */
-	mode = 0600; dir_mode = 0700; dir_gid_origin = gid_origin = "default";
-	gid = dir_gid = (gid_t)-1;
+	file_mode = 0600; dir_mode = 0700; gid_origin = "default";
+	gid = (gid_t)-1;
 	namespaces = array_get(&root->root.quota->namespaces, &count);
 	i_assert(count > 0);
 	for (i = 0; i < count; i++) {
@@ -241,10 +241,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 			continue;
 
 		mailbox_list_get_root_permissions(namespaces[i]->list,
-						  &mode, &gid, &gid_origin);
-		mailbox_list_get_root_dir_permissions(namespaces[i]->list,
-						      &dir_mode, &dir_gid,
-						      &dir_gid_origin);
+						  &file_mode, &dir_mode,
+						  &gid, &gid_origin);
 		break;
 	}
 
@@ -252,20 +250,20 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	dotlock_settings.nfs_flush = set->mail_nfs_storage;
 	fd = file_dotlock_open_group(&dotlock_settings, path,
 				     DOTLOCK_CREATE_FLAG_NONBLOCK,
-				     mode, gid, gid_origin, &dotlock);
+				     file_mode, gid, gid_origin, &dotlock);
 	if (fd == -1 && errno == ENOENT) {
 		/* the control directory doesn't exist yet? create it */
 		p = strrchr(path, '/');
 		dir = t_strdup_until(path, p);
-		if (mkdir_parents_chgrp(dir, dir_mode, dir_gid,
-					dir_gid_origin) < 0 &&
+		if (mkdir_parents_chgrp(dir, dir_mode, gid, gid_origin) < 0 &&
 		    errno != EEXIST) {
 			i_error("mkdir_parents(%s) failed: %m", dir);
 			return -1;
 		}
 		fd = file_dotlock_open_group(&dotlock_settings, path,
 					     DOTLOCK_CREATE_FLAG_NONBLOCK,
-					     mode, gid, gid_origin, &dotlock);
+					     file_mode, gid, gid_origin,
+					     &dotlock);
 	}
 	if (fd == -1) {
 		if (errno == EAGAIN) {

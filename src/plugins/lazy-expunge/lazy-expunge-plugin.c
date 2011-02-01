@@ -235,14 +235,15 @@ mailbox_move(struct mailbox *src_box, struct mailbox_list *dest_list,
 	struct mailbox *dest_box;
 	const char *dir, *origin;
 	enum mail_error error;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 	gid_t gid;
 	int ret;
 
 	/* make sure the destination root directory exists */
-	mailbox_list_get_root_dir_permissions(dest_list, &mode, &gid, &origin);
+	mailbox_list_get_root_permissions(dest_list, &file_mode, &dir_mode,
+					  &gid, &origin);
 	dir = mailbox_list_get_path(dest_list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
-	if (mkdir_parents_chgrp(dir, mode, gid, origin) < 0 &&
+	if (mkdir_parents_chgrp(dir, dir_mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
 		mail_storage_set_critical(src_box->storage,
 			"mkdir_parents(%s) failed: %m", dir);

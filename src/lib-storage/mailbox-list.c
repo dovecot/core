@@ -519,8 +519,8 @@ char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)
 	return list->v.get_hierarchy_sep(list);
 }
 
-static void
-mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
+void mailbox_list_get_permissions(struct mailbox_list *list,
+				  const char *name,
 				  mode_t *file_mode_r, mode_t *dir_mode_r,
 				  gid_t *gid_r, const char **gid_origin_r)
 {
@@ -546,10 +546,9 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 		}
 		if (name != NULL) {
 			/* return defaults */
-			mailbox_list_get_permissions_full(list, NULL,
-							  file_mode_r,
-							  dir_mode_r, gid_r,
-							  gid_origin_r);
+			mailbox_list_get_permissions(list, NULL,
+						     file_mode_r, dir_mode_r,
+						     gid_r, gid_origin_r);
 			return;
 		}
 	} else {
@@ -597,61 +596,19 @@ mailbox_list_get_permissions_full(struct mailbox_list *list, const char *name,
 	}
 }
 
-void mailbox_list_get_permissions(struct mailbox_list *list,
-				  const char *name,
-				  mode_t *mode_r, gid_t *gid_r,
-				  const char **gid_origin_r)
-{
-	mode_t dir_mode;
-
-	i_assert(name != NULL);
-
-	mailbox_list_get_permissions_full(list, name, mode_r, &dir_mode, gid_r,
-					  gid_origin_r);
-}
-
 void mailbox_list_get_root_permissions(struct mailbox_list *list,
-				       mode_t *mode_r, gid_t *gid_r,
-				       const char **gid_origin_r)
+				       mode_t *file_mode_r, mode_t *dir_mode_r,
+				       gid_t *gid_r, const char **gid_origin_r)
 {
-	mode_t dir_mode;
-
 	if (list->file_create_mode != (mode_t)-1) {
-		*mode_r = list->file_create_mode;
+		*file_mode_r = list->file_create_mode;
+		*dir_mode_r = list->dir_create_mode;
 		*gid_r = list->file_create_gid;
 		*gid_origin_r = list->file_create_gid_origin;
 	} else {
-		mailbox_list_get_permissions_full(list, NULL, mode_r, &dir_mode,
-						  gid_r, gid_origin_r);
-	}
-}
-
-void mailbox_list_get_dir_permissions(struct mailbox_list *list,
-				      const char *name,
-				      mode_t *mode_r, gid_t *gid_r,
-				      const char **gid_origin_r)
-{
-	mode_t file_mode;
-
-	i_assert(name != NULL);
-
-	mailbox_list_get_permissions_full(list, name, &file_mode,
-					  mode_r, gid_r, gid_origin_r);
-}
-
-void mailbox_list_get_root_dir_permissions(struct mailbox_list *list,
-					   mode_t *mode_r, gid_t *gid_r,
-					   const char **gid_origin_r)
-{
-	mode_t file_mode;
-
-	if (list->dir_create_mode != (mode_t)-1) {
-		*mode_r = list->dir_create_mode;
-		*gid_r = list->file_create_gid;
-		*gid_origin_r = list->file_create_gid_origin;
-	} else {
-		mailbox_list_get_permissions_full(list, NULL, &file_mode,
-						  mode_r, gid_r, gid_origin_r);
+		mailbox_list_get_permissions(list, NULL,
+					     file_mode_r, dir_mode_r,
+					     gid_r, gid_origin_r);
 	}
 }
 
@@ -724,10 +681,11 @@ int mailbox_list_mkdir(struct mailbox_list *list, const char *path,
 {
 	const char *expanded, *unexpanded, *root_dir, *p, *origin;
 	struct stat st;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 	gid_t gid;
 
-	mailbox_list_get_root_dir_permissions(list, &mode, &gid, &origin);
+	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
+					  &gid, &origin);
 
 	/* get the directory path up to last %variable. for example
 	   unexpanded path may be "/var/mail/%d/%2n/%n/Maildir", and we want
@@ -762,7 +720,7 @@ int mailbox_list_mkdir(struct mailbox_list *list, const char *path,
 				return -1;
 			}
 		}
-		if (gid == (gid_t)-1 && (mode & S_ISGID) == 0) {
+		if (gid == (gid_t)-1 && (dir_mode & S_ISGID) == 0) {
 			/* change the group for user directories */
 			gid = getegid();
 		}
@@ -770,7 +728,7 @@ int mailbox_list_mkdir(struct mailbox_list *list, const char *path,
 
 	/* the rest of the directories exist only for one user. create them
 	   with default directory permissions */
-	if (mkdir_parents_chgrp(path, mode, gid, origin) < 0 &&
+	if (mkdir_parents_chgrp(path, dir_mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
 		mailbox_list_set_critical(list, "mkdir(%s) failed: %m", path);
 		return -1;
@@ -1220,7 +1178,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 static bool mailbox_list_init_changelog(struct mailbox_list *list)
 {
 	const char *path;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 	gid_t gid;
 	const char *gid_origin;
 
@@ -1236,8 +1194,9 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 	path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
 	list->changelog = mailbox_log_alloc(path);
 
-	mailbox_list_get_root_permissions(list, &mode, &gid, &gid_origin);
-	mailbox_log_set_permissions(list->changelog, mode, gid, gid_origin);
+	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
+					  &gid, &gid_origin);
+	mailbox_log_set_permissions(list->changelog, dir_mode, gid, gid_origin);
 	return TRUE;
 }
 
@@ -1515,15 +1474,16 @@ int mailbox_list_create_parent_dir(struct mailbox_list *list,
 {
 	const char *p, *dir, *origin;
 	gid_t gid;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 
 	p = strrchr(path, '/');
 	if (p == NULL)
 		return 0;
 
 	dir = t_strdup_until(path, p);
-	mailbox_list_get_dir_permissions(list, mailbox, &mode, &gid, &origin);
-	if (mkdir_parents_chgrp(dir, mode, gid, origin) < 0 &&
+	mailbox_list_get_permissions(list, mailbox, &file_mode, &dir_mode,
+				     &gid, &origin);
+	if (mkdir_parents_chgrp(dir, dir_mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
 		mailbox_list_set_critical(list, "mkdir_parents(%s) failed: %m",
 					  dir);
@@ -1536,7 +1496,7 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 					  const char *name)
 {
 	const char *root_dir, *index_dir, *parent_dir, *p, *origin;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 	gid_t gid;
 	unsigned int n = 0;
 
@@ -1549,13 +1509,13 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 		return 0;
 
 	if (name == NULL) {
-		mailbox_list_get_root_dir_permissions(list, &mode,
-						      &gid, &origin);
+		mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
+						  &gid, &origin);
 	} else {
-		mailbox_list_get_dir_permissions(list, name, &mode,
-						 &gid, &origin);
+		mailbox_list_get_permissions(list, name, &file_mode, &dir_mode,
+					     &gid, &origin);
 	}
-	while (mkdir_chgrp(index_dir, mode, gid, origin) < 0) {
+	while (mkdir_chgrp(index_dir, dir_mode, gid, origin) < 0) {
 		if (errno == EEXIST)
 			break;
 

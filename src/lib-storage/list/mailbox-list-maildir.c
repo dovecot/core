@@ -265,17 +265,18 @@ maildir_list_create_maildirfolder_file(struct mailbox_list *list,
 				       const char *dir)
 {
 	const char *path, *gid_origin;
-	mode_t mode, old_mask;
+	mode_t file_mode, dir_mode, old_mask;
 	gid_t gid;
 	int fd;
 
 	/* Maildir++ spec wants that maildirfolder named file is created for
 	   all subfolders. */
-	mailbox_list_get_root_permissions(list, &mode, &gid, &gid_origin);
+	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
+					  &gid, &gid_origin);
 
 	path = t_strconcat(dir, "/" MAILDIR_SUBFOLDER_FILENAME, NULL);
 	old_mask = umask(0);
-	fd = open(path, O_CREAT | O_WRONLY, mode);
+	fd = open(path, O_CREAT | O_WRONLY, file_mode);
 	umask(old_mask);
 	if (fd != -1) {
 		/* ok */
@@ -310,7 +311,7 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 				enum mailbox_dir_create_type type)
 {
 	const char *path, *root_dir, *gid_origin, *p;
-	mode_t mode;
+	mode_t file_mode, dir_mode;
 	gid_t gid;
 	bool create_parent_dir;
 
@@ -334,9 +335,9 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 
 	root_dir = mailbox_list_get_path(list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	mailbox_list_get_root_dir_permissions(list, &mode,
-					      &gid, &gid_origin);
-	if (mkdir_parents_chgrp(path, mode, gid, gid_origin) == 0) {
+	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
+					  &gid, &gid_origin);
+	if (mkdir_parents_chgrp(path, dir_mode, gid, gid_origin) == 0) {
 		/* ok */
 	} else if (errno == EEXIST) {
 		if (create_parent_dir)
