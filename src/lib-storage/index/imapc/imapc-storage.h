@@ -46,7 +46,7 @@ struct imapc_mailbox {
 
 	struct mail_index_transaction *delayed_sync_trans;
 	struct mail_index_view *delayed_sync_view;
-	struct timeout *to_idle;
+	struct timeout *to_idle_check, *to_idle_delay;
 
 	struct mail *cur_fetch_mail;
 

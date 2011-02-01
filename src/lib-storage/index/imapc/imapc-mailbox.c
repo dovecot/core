@@ -67,15 +67,16 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 
 static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)
 {
-	timeout_remove(&mbox->to_idle);
+	timeout_remove(&mbox->to_idle_delay);
 	if (mbox->box.notify_callback != NULL)
 		mbox->box.notify_callback(&mbox->box, mbox->box.notify_context);
 }
 
 static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
 {
-	if (mbox->box.notify_callback != NULL && mbox->to_idle == NULL) {
-		mbox->to_idle =
+	if (mbox->box.notify_callback != NULL &&
+	    mbox->to_idle_delay == NULL) {
+		mbox->to_idle_delay =
 			timeout_add(NOTIFY_DELAY_MSECS,
 				    imapc_mailbox_idle_timeout, mbox);
 	}

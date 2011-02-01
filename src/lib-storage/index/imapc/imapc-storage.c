@@ -112,8 +112,9 @@ void imapc_simple_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->storage->client);
 }
 
-void imapc_async_stop_callback(const struct imapc_command_reply *reply,
-			       void *context)
+static void imapc_async_callback(const struct imapc_command_reply *reply,
+				 void *context)
+
 {
 	struct imapc_storage *storage = context;
 
@@ -125,6 +126,14 @@ void imapc_async_stop_callback(const struct imapc_command_reply *reply,
 		mail_storage_set_critical(&storage->storage,
 			"imapc: Command failed: %s", reply->text_full);
 	}
+}
+
+void imapc_async_stop_callback(const struct imapc_command_reply *reply,
+			       void *context)
+{
+	struct imapc_storage *storage = context;
+
+	imapc_async_callback(reply, context);
 	imapc_client_stop(storage->client);
 }
 
@@ -330,8 +339,10 @@ static void imapc_mailbox_close(struct mailbox *box)
 		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
 			mail_storage_set_index_error(&mbox->box);
 	}
-	if (mbox->to_idle != NULL)
-		timeout_remove(&mbox->to_idle);
+	if (mbox->to_idle_delay != NULL)
+		timeout_remove(&mbox->to_idle_delay);
+	if (mbox->to_idle_check != NULL)
+		timeout_remove(&mbox->to_idle_check);
 	return index_storage_mailbox_close(box);
 }
 
@@ -476,9 +487,33 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 	return index_mailbox_get_metadata(box, items, metadata_r);
 }
 
-static void imapc_notify_changes(struct mailbox *box ATTR_UNUSED)
+static void imapc_idle_timeout(struct imapc_mailbox *mbox)
 {
-	/* we're doing IDLE all the time anyway - nothing to do here */
+	imapc_client_mailbox_cmd(mbox->client_box, "NOOP",
+				 imapc_async_callback, mbox->storage);
+}
+
+static void imapc_notify_changes(struct mailbox *box)
+{
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	enum imapc_capability capa;
+
+	if (box->notify_min_interval == 0) {
+		if (mbox->to_idle_check != NULL)
+			timeout_remove(&mbox->to_idle_check);
+		return;
+	}
+
+	capa = imapc_client_get_capabilities(mbox->storage->client);
+	if ((capa & IMAPC_CAPABILITY_IDLE) != 0) {
+		/* we're doing IDLE all the time anyway - nothing to do here */
+	} else {
+		/* remote server doesn't support IDLE.
+		   check for changes with NOOP every once in a while. */
+		mbox->to_idle_check =
+			timeout_add(box->notify_min_interval * 1000,
+				    imapc_idle_timeout, mbox);
+	}
 }
 
 struct mail_storage imapc_storage = {
