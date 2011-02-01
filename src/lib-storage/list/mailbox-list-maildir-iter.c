@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2010 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "str.h"
 #include "ioloop.h"
 #include "unlink-directory.h"
@@ -442,7 +443,6 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	struct maildir_mailbox_list *list =
 		(struct maildir_mailbox_list *)_list;
 	struct maildir_list_iterate_context *ctx;
-        struct imap_match_glob *glob;
 	pool_t pool;
 	char ns_sep = mail_namespace_get_sep(_list->ns);
 	int ret;
@@ -451,13 +451,14 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx = p_new(pool, struct maildir_list_iterate_context, 1);
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
+	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, TRUE, ns_sep);
+	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
+
 	ctx->pool = pool;
 	ctx->tree_ctx = mailbox_tree_init(ns_sep);
 	ctx->info.ns = _list->ns;
 	ctx->prefix_char = strcmp(_list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0 ?
 		'\0' : list->sep;
-
-	glob = imap_match_init_multiple(pool, patterns, TRUE, ns_sep);
 
 	ctx->dir = _list->set.root_dir;
 
@@ -465,7 +466,7 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		/* Listing only subscribed mailboxes.
 		   Flags are set later if needed. */
 		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx,
-						    glob, FALSE) < 0) {
+						    ctx->ctx.glob, FALSE) < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}
@@ -478,7 +479,8 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 			(flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0;
 
 		T_BEGIN {
-			ret = maildir_fill_readdir(ctx, glob, update_only);
+			ret = maildir_fill_readdir(ctx, ctx->ctx.glob,
+						   update_only);
 		} T_END;
 		if (ret < 0) {
 			ctx->ctx.failed = TRUE;
@@ -502,7 +504,7 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		/* we're listing all mailboxes but we want to know
 		   \Subscribed flags */
 		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx,
-						    glob, TRUE) < 0) {
+						    ctx->ctx.glob, TRUE) < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}

@@ -124,10 +124,19 @@ struct mailbox_list {
 	unsigned int index_root_dir_created:1;
 };
 
+union mailbox_list_iterate_module_context {
+	struct mailbox_list_module_register *reg;
+};
+
 struct mailbox_list_iterate_context {
 	struct mailbox_list *list;
 	enum mailbox_list_iter_flags flags;
 	bool failed;
+
+	struct imap_match_glob *glob;
+
+	ARRAY_DEFINE(module_contexts,
+		     union mailbox_list_iterate_module_context *);
 };
 
 struct mailbox_list_iter_update_context {

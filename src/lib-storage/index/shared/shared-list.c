@@ -9,7 +9,6 @@
 struct shared_mailbox_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	struct mail_namespace *cur_ns;
-	struct imap_match_glob *glob;
 	struct mailbox_info info;
 };
 
@@ -156,11 +155,13 @@ shared_list_iter_init(struct mailbox_list *list, const char *const *patterns,
 	ctx = i_new(struct shared_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
+	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns,
+						 FALSE, sep);
+	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+
 	ctx->cur_ns = list->ns->user->namespaces;
 	ctx->info.ns = list->ns;
 	ctx->info.flags = MAILBOX_NONEXISTENT;
-	ctx->glob = imap_match_init_multiple(default_pool, patterns,
-					     FALSE, sep);
 	return &ctx->ctx;
 }
 
@@ -188,7 +189,7 @@ shared_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		   prefix matches without the trailing separator */
 		i_assert(ns->prefix_len > 0);
 		ctx->info.name = t_strndup(ns->prefix, ns->prefix_len - 1);
-		if (imap_match(ctx->glob, ctx->info.name) == IMAP_MATCH_YES) {
+		if (imap_match(ctx->ctx.glob, ctx->info.name) == IMAP_MATCH_YES) {
 			ctx->cur_ns = ns->next;
 			return &ctx->info;
 		}
@@ -203,7 +204,8 @@ static int shared_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	struct shared_mailbox_list_iterate_context *ctx =
 		(struct shared_mailbox_list_iterate_context *)_ctx;
 
-	imap_match_deinit(&ctx->glob);
+	imap_match_deinit(&ctx->ctx.glob);
+	array_free(&ctx->ctx.module_contexts);
 	i_free(ctx);
 	return 0;
 }

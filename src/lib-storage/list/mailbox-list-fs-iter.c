@@ -36,7 +36,6 @@ struct fs_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 
 	ARRAY_DEFINE(valid_patterns, char *);
-	struct imap_match_glob *glob;
 	struct mailbox_tree_context *subs_tree;
 	struct mailbox_tree_iterate_context *tree_iter;
 	char sep;
@@ -221,6 +220,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx = i_new(struct fs_list_iterate_context, 1);
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
+	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
 	ctx->next = fs_list_next;
 	ctx->sep = mail_namespace_get_sep(_list->ns);
@@ -257,8 +258,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		return &ctx->ctx;
 	}
 	patterns = (const void *)array_idx(&ctx->valid_patterns, 0);
-	ctx->glob = imap_match_init_multiple(default_pool, patterns, TRUE,
-					     ctx->sep);
+	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns, TRUE,
+						 ctx->sep);
 
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
@@ -266,7 +267,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		   mailboxes. Build a mailbox tree of all the subscriptions. */
 		ctx->subs_tree = mailbox_tree_init(ctx->sep);
 		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->subs_tree,
-						    ctx->glob, FALSE) < 0) {
+						    ctx->ctx.glob, FALSE) < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}
@@ -336,8 +337,9 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		mailbox_tree_deinit(&ctx->subs_tree);
 	if (ctx->info_pool != NULL)
 		pool_unref(&ctx->info_pool);
-	if (ctx->glob != NULL)
-		imap_match_deinit(&ctx->glob);
+	if (ctx->ctx.glob != NULL)
+		imap_match_deinit(&ctx->ctx.glob);
+	array_free(&ctx->ctx.module_contexts);
 	i_free(ctx);
 
 	return ret;
@@ -504,7 +506,7 @@ list_file_subdir(struct fs_list_iterate_context *ctx,
 	int ret;
 
 	vpath = t_strdup_printf("%s%c", list_path, ctx->sep);
-	match2 = imap_match(ctx->glob, vpath);
+	match2 = imap_match(ctx->ctx.glob, vpath);
 
 	if (match == IMAP_MATCH_YES)
 		ctx->info.name = p_strdup(ctx->info_pool, list_path);
@@ -573,7 +575,7 @@ list_file(struct fs_list_iterate_context *ctx,
 
 	/* check the pattern */
 	list_path = t_strconcat(ctx->dir->virtual_path, fname, NULL);
-	match = imap_match(ctx->glob, list_path);
+	match = imap_match(ctx->ctx.glob, list_path);
 	if (match != IMAP_MATCH_YES && (match & IMAP_MATCH_CHILDREN) == 0 &&
 	    !ctx->dir->delayed_send)
 		return 0;
@@ -809,8 +811,8 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 
 	if (!ctx->inbox_found &&
 	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
-	    ((ctx->glob != NULL &&
-	      imap_match(ctx->glob,
+	    ((ctx->ctx.glob != NULL &&
+	      imap_match(ctx->ctx.glob,
 			 fs_list_get_inbox_vname(ctx)) == IMAP_MATCH_YES) ||
 	     ctx->inbox_match)) {
 		/* INBOX wasn't seen while listing other mailboxes. It might

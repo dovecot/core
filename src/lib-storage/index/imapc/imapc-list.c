@@ -11,7 +11,6 @@
 struct imapc_mailbox_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	struct mailbox_tree_iterate_context *iter;
-	struct imap_match_glob *glob;
 	struct mailbox_info info;
 	bool failed;
 };
@@ -242,9 +241,11 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx = i_new(struct imapc_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
+	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns,
+						 FALSE, sep);
+	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+
 	ctx->info.ns = _list->ns;
-	ctx->glob = imap_match_init_multiple(default_pool, patterns,
-					     FALSE, sep);
 	if (imapc_list_refresh(list, flags) < 0)
 		ctx->failed = TRUE;
 	else {
@@ -267,7 +268,7 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		return NULL;
 
 	while ((node = mailbox_tree_iterate_next(ctx->iter, &name)) != NULL) {
-		if (imap_match(ctx->glob, name) == IMAP_MATCH_YES) {
+		if (imap_match(ctx->ctx.glob, name) == IMAP_MATCH_YES) {
 			ctx->info.flags &= ~(MAILBOX_CHILDREN |
 					     MAILBOX_NOCHILDREN);
 			if (node->children == NULL)
@@ -289,7 +290,8 @@ static int imapc_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 
 	if (ctx->iter != NULL)
 		mailbox_tree_iterate_deinit(&ctx->iter);
-	imap_match_deinit(&ctx->glob);
+	imap_match_deinit(&ctx->ctx.glob);
+	array_free(&ctx->ctx.module_contexts);
 	i_free(ctx);
 	return ret;
 }
