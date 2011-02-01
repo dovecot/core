@@ -368,7 +368,7 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 
 struct mailbox_list imapc_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_IMAPC,
-	.props = 0,
+	.props = MAILBOX_LIST_PROP_NO_ROOT,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	{

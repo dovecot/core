@@ -485,7 +485,7 @@ static void imapc_notify_changes(struct mailbox *box ATTR_UNUSED)
 
 struct mail_storage imapc_storage = {
 	.name = IMAPC_STORAGE_NAME,
-	.class_flags = 0,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT,
 
 	.v = {
 		imapc_get_setting_parser_info,

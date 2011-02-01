@@ -148,6 +148,9 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		if (storage_class == NULL &&
 		    (flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0) {
 			/* autodetection should take care of this */
+		} else if (storage_class != NULL &&
+			   (storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0) {
+			/* root not required for this storage */
 		} else if (list != NULL &&
 			   (list->props & MAILBOX_LIST_PROP_NO_ROOT) != 0) {
 			/* root not required for this layout */

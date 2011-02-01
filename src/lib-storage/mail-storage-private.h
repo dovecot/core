@@ -56,7 +56,9 @@ enum mail_storage_class_flags {
 	/* mailbox_open_stream() is supported */
 	MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS	= 0x04,
 	/* never use quota for this storage (e.g. virtual mailboxes) */
-	MAIL_STORAGE_CLASS_FLAG_NOQUOTA		= 0x08
+	MAIL_STORAGE_CLASS_FLAG_NOQUOTA		= 0x08,
+	/* Storage doesn't need a mail root directory */
+	MAIL_STORAGE_CLASS_FLAG_NO_ROOT		= 0x10
 };
 
 struct mail_storage {
