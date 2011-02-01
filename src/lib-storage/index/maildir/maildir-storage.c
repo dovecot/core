@@ -595,14 +595,24 @@ uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
 static enum mail_flags maildir_get_private_flags_mask(struct mailbox *box)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
-	const char *path;
+	const char *path, *path2;
 	struct stat st;
 
-	if (!mbox->private_flags_mask_set) {
-		path = t_strconcat(mailbox_get_path(box), "/dovecot-shared", NULL);
-		if (stat(path, &st) < 0)
-			mbox->_private_flags_mask = 0;
-		else
+	if (mbox->private_flags_mask_set)
+		return mbox->_private_flags_mask;
+	mbox->private_flags_mask_set = TRUE;
+
+	path = mailbox_list_get_path(box->list, NULL,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	path2 = mailbox_list_get_path(box->list, NULL,
+				      MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (strcmp(path, path2) == 0) {
+		/* no separate index directory. we can't have private flags,
+		   so don't even bother checking if dovecot-shared exists */
+	} else {
+		path = t_strconcat(mailbox_get_path(box),
+				   "/dovecot-shared", NULL);
+		if (stat(path, &st) == 0)
 			mbox->_private_flags_mask = MAIL_SEEN;
 	}
 	return mbox->_private_flags_mask;
