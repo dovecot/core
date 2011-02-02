@@ -224,15 +224,33 @@ subsfile_list_init(struct mailbox_list *list, const char *path)
 	return ctx;
 }
 
-int subsfile_list_deinit(struct subsfile_list_context *ctx)
+int subsfile_list_deinit(struct subsfile_list_context **_ctx)
 {
+	struct subsfile_list_context *ctx = *_ctx;
 	int ret = ctx->failed ? -1 : 0;
+
+	*_ctx = NULL;
 
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
 	i_free(ctx->path);
 	i_free(ctx);
 	return ret;
+}
+
+int subsfile_list_fstat(struct subsfile_list_context *ctx, struct stat *st_r)
+{
+	const struct stat *st;
+
+	if (ctx->failed)
+		return -1;
+
+	if ((st = i_stream_stat(ctx->input, FALSE)) == NULL) {
+		ctx->failed = TRUE;
+		return -1;
+	}
+	*st_r = *st;
+	return 0;
 }
 
 const char *subsfile_list_next(struct subsfile_list_context *ctx)

@@ -388,55 +388,6 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 	}
 }
 
-static int
-maildir_fill_other_ns_subscriptions(struct maildir_list_iterate_context *ctx,
-				    struct mail_namespace *ns)
-{
-	struct mailbox_list_iterate_context *iter;
-	const struct mailbox_info *info;
-	struct mailbox_node *node;
-
-	iter = mailbox_list_iter_init(ns->list, "*",
-				      MAILBOX_LIST_ITER_RETURN_CHILDREN);
-	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		node = mailbox_tree_lookup(ctx->tree_ctx, info->name);
-		if (node != NULL) {
-			node->flags &= ~MAILBOX_NONEXISTENT;
-			node->flags |= info->flags;
-		}
-	}
-	if (mailbox_list_iter_deinit(&iter) < 0) {
-		enum mail_error error;
-		const char *errstr;
-
-		errstr = mailbox_list_get_last_error(ns->list, &error);
-		mailbox_list_set_error(ctx->ctx.list, error, errstr);
-		return -1;
-	}
-	return 0;
-}
-
-static int
-maildir_fill_other_subscriptions(struct maildir_list_iterate_context *ctx)
-{
-	struct mail_namespace *ns;
-	const char *path;
-
-	ns = ctx->ctx.list->ns->user->namespaces;
-	for (; ns != NULL; ns = ns->next) {
-		if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0 ||
-		    ns->prefix_len == 0)
-			continue;
-
-		path = t_strndup(ns->prefix, ns->prefix_len-1);
-		if (mailbox_tree_lookup(ctx->tree_ctx, path) != NULL) {
-			if (maildir_fill_other_ns_subscriptions(ctx, ns) < 0)
-				return -1;
-		}
-	}
-	return 0;
-}
-
 struct mailbox_list_iterate_context *
 maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		       enum mailbox_list_iter_flags flags)
@@ -466,11 +417,7 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* Listing only subscribed mailboxes.
 		   Flags are set later if needed. */
-		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx,
-						    ctx->ctx.glob, FALSE) < 0) {
-			ctx->ctx.failed = TRUE;
-			return &ctx->ctx;
-		}
+		mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx);
 	}
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
@@ -484,28 +431,6 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 						   update_only);
 		} T_END;
 		if (ret < 0) {
-			ctx->ctx.failed = TRUE;
-			return &ctx->ctx;
-		}
-	}
-
-	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0 &&
-	    (flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) {
-		/* if there are subscriptions=no namespaces, we may have some
-		   of their subscriptions whose flags need to be filled */
-		ret = maildir_fill_other_subscriptions(ctx);
-		if (ret < 0) {
-			ctx->ctx.failed = TRUE;
-			return &ctx->ctx;
-		}
-	}
-
-	if ((flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0 &&
-	    (flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
-		/* we're listing all mailboxes but we want to know
-		   \Subscribed flags */
-		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx,
-						    ctx->ctx.glob, TRUE) < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}
@@ -544,5 +469,12 @@ maildir_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		return NULL;
 
 	ctx->info.flags = node->flags;
+	if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0 &&
+	    (_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
+		/* we're listing all mailboxes but we want to know
+		   \Subscribed flags */
+		mailbox_list_set_subscription_flags(_ctx->list, ctx->info.name,
+						    &ctx->info.flags);
+	}
 	return &ctx->info;
 }

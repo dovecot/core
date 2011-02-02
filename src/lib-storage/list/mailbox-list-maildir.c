@@ -7,6 +7,7 @@
 #include "mkdir-parents.h"
 #include "str.h"
 #include "subscription-file.h"
+#include "mailbox-list-subscriptions.h"
 #include "mailbox-list-delete.h"
 #include "mailbox-list-maildir.h"
 
@@ -635,6 +636,7 @@ struct mailbox_list maildir_mailbox_list = {
 		maildir_list_iter_deinit,
 		maildir_list_get_mailbox_flags,
 		NULL,
+		mailbox_list_subscriptions_refresh,
 		maildir_list_set_subscribed,
 		maildir_list_create_mailbox_dir,
 		maildir_list_delete_mailbox,
@@ -668,6 +670,7 @@ struct mailbox_list imapdir_mailbox_list = {
 		maildir_list_iter_deinit,
 		maildir_list_get_mailbox_flags,
 		NULL,
+		mailbox_list_subscriptions_refresh,
 		maildir_list_set_subscribed,
 		maildir_list_create_mailbox_dir,
 		maildir_list_delete_mailbox,

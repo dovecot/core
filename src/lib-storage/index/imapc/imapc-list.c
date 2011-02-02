@@ -296,6 +296,12 @@ static int imapc_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
+static int
+imapc_list_subscriptions_refresh(struct mailbox_list *_list ATTR_UNUSED)
+{
+	return 0;
+}
+
 static int imapc_list_set_subscribed(struct mailbox_list *_list,
 				     const char *name, bool set)
 {
@@ -391,6 +397,7 @@ struct mailbox_list imapc_mailbox_list = {
 		imapc_list_iter_deinit,
 		NULL,
 		NULL,
+		imapc_list_subscriptions_refresh,
 		imapc_list_set_subscribed,
 		imapc_list_create_mailbox_dir,
 		imapc_list_delete_mailbox,

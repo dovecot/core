@@ -151,6 +151,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->dir_create_mode = (mode_t)-1;
 	list->file_create_gid = (gid_t)-1;
 	list->changelog_timestamp = (time_t)-1;
+	list->subscriptions = mailbox_tree_init(mail_namespace_get_sep(ns));
 
 	/* copy settings */
 	if (set->root_dir != NULL) {
@@ -461,6 +462,7 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 	*_list = NULL;
 	i_free_and_null(list->error_string);
 
+	mailbox_tree_deinit(&list->subscriptions);
 	if (list->changelog != NULL)
 		mailbox_log_free(&list->changelog);
 	list->v.deinit(list);
@@ -863,9 +865,19 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 				const char *const *patterns,
 				enum mailbox_list_iter_flags flags)
 {
+	struct mailbox_list_iterate_context *ctx;
+	int ret = 0;
+
 	i_assert(*patterns != NULL);
 
-	return list->v.iter_init(list, patterns, flags);
+	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0)
+		ret = list->v.subscriptions_refresh(list);
+
+	ctx = list->v.iter_init(list, patterns, flags);
+	if (ret < 0)
+		ctx->failed = TRUE;
+	return ctx;
 }
 
 static bool
@@ -1231,6 +1243,9 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 {
 	uint8_t guid[MAIL_GUID_128_SIZE];
 	int ret;
+
+	/* make sure we'll refresh the file on next list */
+	list->subscriptions_mtime = (time_t)-1;
 
 	if ((ret = list->v.set_subscribed(list, name, set)) <= 0)
 		return ret;

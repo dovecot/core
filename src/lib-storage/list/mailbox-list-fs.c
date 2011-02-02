@@ -6,6 +6,7 @@
 #include "mailbox-log.h"
 #include "subscription-file.h"
 #include "mail-storage.h"
+#include "mailbox-list-subscriptions.h"
 #include "mailbox-list-delete.h"
 #include "mailbox-list-fs.h"
 
@@ -593,6 +594,7 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_iter_deinit,
 		fs_list_get_mailbox_flags,
 		NULL,
+		mailbox_list_subscriptions_refresh,
 		fs_list_set_subscribed,
 		fs_list_create_mailbox_dir,
 		fs_list_delete_mailbox,

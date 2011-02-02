@@ -71,6 +71,12 @@ none_list_get_temp_prefix(struct mailbox_list *list ATTR_UNUSED,
 	return GLOBAL_TEMP_PREFIX;
 }
 
+static int
+none_list_subscriptions_refresh(struct mailbox_list *list ATTR_UNUSED)
+{
+	return 0;
+}
+
 static int none_list_set_subscribed(struct mailbox_list *list,
 				    const char *name ATTR_UNUSED,
 				    bool set ATTR_UNUSED)
@@ -180,6 +186,7 @@ struct mailbox_list none_mailbox_list = {
 		none_list_iter_deinit,
 		none_list_get_mailbox_flags,
 		NULL,
+		none_list_subscriptions_refresh,
 		none_list_set_subscribed,
 		none_list_create_mailbox_dir,
 		none_list_delete_mailbox,

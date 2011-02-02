@@ -1,15 +1,19 @@
 #ifndef SUBSCRIPTION_FILE_H
 #define SUBSCRIPTION_FILE_H
 
+struct stat;
 struct mailbox_list;
 
 /* Initialize new subscription file listing. */
 struct subsfile_list_context *
 subsfile_list_init(struct mailbox_list *list, const char *path);
-
 /* Deinitialize subscription file listing. Returns 0 if ok, or -1 if some
    error occurred while listing. */
-int subsfile_list_deinit(struct subsfile_list_context *ctx);
+int subsfile_list_deinit(struct subsfile_list_context **ctx);
+
+/* Call fstat() for subscription file */
+int subsfile_list_fstat(struct subsfile_list_context *ctx, struct stat *st_r);
+
 /* Returns the next subscribed mailbox, or NULL. */
 const char *subsfile_list_next(struct subsfile_list_context *ctx);
 

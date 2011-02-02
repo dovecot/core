@@ -27,12 +27,9 @@ struct mailbox_tree_iterate_context {
 struct mailbox_tree_context *mailbox_tree_init(char separator)
 {
 	struct mailbox_tree_context *tree;
-	pool_t pool;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"mailbox_tree", 10240);
-
-	tree = p_new(pool, struct mailbox_tree_context, 1);
-	tree->pool = pool;
+	tree = i_new(struct mailbox_tree_context, 1);
+	tree->pool = pool_alloconly_create(MEMPOOL_GROWING"mailbox_tree", 10240);
 	tree->separator = separator;
 	return tree;
 }
@@ -43,6 +40,13 @@ void mailbox_tree_deinit(struct mailbox_tree_context **_tree)
 
 	*_tree = NULL;
 	pool_unref(&tree->pool);
+	i_free(tree);
+}
+
+void mailbox_tree_clear(struct mailbox_tree_context *tree)
+{
+	p_clear(tree->pool);
+	tree->nodes = NULL;
 }
 
 static struct mailbox_node *

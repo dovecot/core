@@ -72,6 +72,7 @@ struct mailbox_list_vfuncs {
 	   If it does, mailbox deletion assumes it can safely delete it. */
 	bool (*is_internal_name)(struct mailbox_list *list, const char *name);
 
+	int (*subscriptions_refresh)(struct mailbox_list *list);
 	int (*set_subscribed)(struct mailbox_list *list,
 			      const char *name, bool set);
 	int (*create_mailbox_dir)(struct mailbox_list *list, const char *name,
@@ -111,6 +112,9 @@ struct mailbox_list {
 	gid_t file_create_gid;
 	/* origin (e.g. path) where the file_create_gid was got from */
 	const char *file_create_gid_origin;
+
+	struct mailbox_tree_context *subscriptions;
+	time_t subscriptions_mtime, subscriptions_read_time;
 
 	struct mailbox_log *changelog;
 	time_t changelog_timestamp;

@@ -210,6 +210,12 @@ static int shared_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return 0;
 }
 
+static int
+shared_list_subscriptions_refresh(struct mailbox_list *list ATTR_UNUSED)
+{
+	return 0;
+}
+
 static int shared_list_set_subscribed(struct mailbox_list *list,
 				      const char *name, bool set)
 {
@@ -329,6 +335,7 @@ struct mailbox_list shared_mailbox_list = {
 		shared_list_iter_deinit,
 		NULL,
 		NULL,
+		shared_list_subscriptions_refresh,
 		shared_list_set_subscribed,
 		shared_list_create_mailbox_dir,
 		shared_list_delete_mailbox,

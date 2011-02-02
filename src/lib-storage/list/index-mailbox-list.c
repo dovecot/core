@@ -205,8 +205,8 @@ index_mailbox_list_iter_init_try(struct index_mailbox_list_iterate_context *ctx,
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
 		/* we'll need to know the subscriptions */
 		ctx->subs_tree = mailbox_tree_init(sep);
-		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->subs_tree,
-						    ctx->glob, FALSE) < 0) {
+		/*if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->subs_tree,
+						    ctx->glob, FALSE) < 0)*/ {
 			/* let the backend handle this failure */
 			return FALSE;
 		}
