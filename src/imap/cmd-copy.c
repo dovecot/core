@@ -126,7 +126,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	case MAILBOX_NAME_NOINFERIORS:
 		client_fail_mailbox_name_status(cmd, mailbox,
 						"TRYCREATE", status);
-		return NULL;
+		return TRUE;
 	}
 
 	if (mailbox_equals(client->mailbox, dest_ns, storage_name))
