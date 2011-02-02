@@ -87,7 +87,8 @@ mailbox_childinfo2str(struct cmd_list_context *ctx, string_t *str,
 	if (!ctx->used_listext)
 		return;
 
-	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0)
+	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0)
 		str_append(str, " (CHILDINFO (\"SUBSCRIBED\"))");
 }
 
