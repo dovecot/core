@@ -323,7 +323,7 @@ static const char *lmtp_unescape_address(const char *name)
 static void rcpt_address_parse(struct client *client, const char *address,
 			       const char **username_r, const char **detail_r)
 {
-	const char *p, *p2;
+	const char *p, *domain;
 
 	*username_r = address;
 	*detail_r = "";
@@ -331,16 +331,16 @@ static void rcpt_address_parse(struct client *client, const char *address,
 	if (*client->set->recipient_delimiter == '\0')
 		return;
 
+	domain = strchr(address, '@');
 	p = strstr(address, client->set->recipient_delimiter);
-	if (p != NULL) {
+	if (p != NULL && (domain == NULL || p < domain)) {
 		/* user+detail@domain */
 		*username_r = t_strdup_until(*username_r, p);
-		p2 = strchr(p, '@');
-		if (p2 == NULL)
+		if (domain == NULL)
 			*detail_r = p+1;
 		else {
-			*detail_r = t_strdup_until(p+1, p2);
-			*username_r = t_strconcat(*username_r, p2, NULL);
+			*detail_r = t_strdup_until(p+1, domain);
+			*username_r = t_strconcat(*username_r, domain, NULL);
 		}
 	}
 }
