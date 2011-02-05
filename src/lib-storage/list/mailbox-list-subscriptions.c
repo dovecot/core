@@ -93,6 +93,7 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
 	struct subsfile_list_context *subsfile_ctx;
 	struct stat st;
 	const char *path, *name;
+	char sep;
 
 	if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0) {
 		/* no subscriptions in this namespace. find where they are. */
@@ -104,6 +105,10 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
 		}
 	}
 
+	if (list->subscriptions == NULL) {
+		sep = mail_namespace_get_sep(ns);
+		list->subscriptions = mailbox_tree_init(sep);
+	}
 	path = t_strconcat(ns->list->set.control_dir != NULL ?
 			   ns->list->set.control_dir : ns->list->set.root_dir,
 			   "/", ns->list->set.subscription_fname, NULL);

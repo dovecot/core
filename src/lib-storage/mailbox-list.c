@@ -151,7 +151,6 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->dir_create_mode = (mode_t)-1;
 	list->file_create_gid = (gid_t)-1;
 	list->changelog_timestamp = (time_t)-1;
-	list->subscriptions = mailbox_tree_init(mail_namespace_get_sep(ns));
 
 	/* copy settings */
 	if (set->root_dir != NULL) {
@@ -462,7 +461,8 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 	*_list = NULL;
 	i_free_and_null(list->error_string);
 
-	mailbox_tree_deinit(&list->subscriptions);
+	if (list->subscriptions != NULL)
+		mailbox_tree_deinit(&list->subscriptions);
 	if (list->changelog != NULL)
 		mailbox_log_free(&list->changelog);
 	list->v.deinit(list);
