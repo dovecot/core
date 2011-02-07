@@ -388,8 +388,10 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 	    (ctx->info.flags & MAILBOX_NONEXISTENT) != 0)
 		return NULL;
 
-	mailbox_list_set_subscription_flags(ctx->ctx.list, "INBOX",
-					    &ctx->info.flags);
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
+		mailbox_list_set_subscription_flags(ctx->ctx.list, "INBOX",
+						    &ctx->info.flags);
+	}
 	inbox_flags_set(ctx);
 	/* we got here because we didn't see INBOX among other mailboxes,
 	   which means it has no children. */
@@ -569,8 +571,10 @@ list_file(struct fs_list_iterate_context *ctx,
 		return 1;
 	}
 
-	mailbox_list_set_subscription_flags(ctx->ctx.list, list_path,
-					    &ctx->info.flags);
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
+		mailbox_list_set_subscription_flags(ctx->ctx.list, list_path,
+						    &ctx->info.flags);
+	}
 
 	/* make sure we give only one correct INBOX */
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
