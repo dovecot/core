@@ -149,6 +149,13 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 	unsigned char update_data[sizeof(*u) + sizeof(offset)];
 
 	if (file->max_tail_offset == file->sync_offset) {
+		if (ctx->output->used == 0 &&
+		    file->saved_tail_offset == file->max_tail_offset) {
+			/* nothing to write here after all (e.g. all unchanged
+			   flag updates were dropped by export) */
+			return;
+		}
+
 		/* FIXME: when we remove exclusive log locking, we
 		   can't rely on this. then write non-changed offset + check
 		   real offset + rewrite the new offset if other transactions
