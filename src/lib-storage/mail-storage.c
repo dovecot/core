@@ -574,6 +574,12 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 
 	i_assert(uni_utf8_str_is_valid(vname));
 
+	if (strcasecmp(vname, "INBOX") == 0 &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		/* make sure INBOX shows up in uppercase everywhere */
+		vname = "INBOX";
+	}
+
 	if (mailbox_list_get_storage(&new_list, vname, &storage) < 0) {
 		/* just use the first storage. FIXME: does this break? */
 		storage = list->ns->storage;

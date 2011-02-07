@@ -10,7 +10,7 @@ AM_CPPFLAGS = \
 
 libstorage_list_la_SOURCES = \
 	index-mailbox-list.c \
-	index-mailbox-list-sync.c \
+	index-mailbox-list-status.c \
 	mailbox-list-delete.c \
 	mailbox-list-fs.c \
 	mailbox-list-fs-flags.c \

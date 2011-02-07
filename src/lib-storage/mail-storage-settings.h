@@ -27,7 +27,7 @@ struct mail_storage_settings {
 	bool dotlock_use_excl;
 	bool mail_nfs_storage;
 	bool mail_nfs_index;
-	bool mailbox_list_index_disable;
+	bool mailbox_list_index;
 	bool mail_debug;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;
