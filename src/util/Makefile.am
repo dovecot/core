@@ -6,7 +6,6 @@ pkglibexec_PROGRAMS = \
 	script-login \
 	$(TCPWRAP_BIN) \
 	gdbhelper \
-	listview \
 	maildirlock
 
 AM_CPPFLAGS = \
@@ -51,11 +50,6 @@ gdbhelper_LDADD = $(LIBDOVECOT)
 gdbhelper_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 gdbhelper_SOURCES = \
 	gdbhelper.c
-
-listview_LDADD = $(LIBDOVECOT)
-listview_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-listview_SOURCES = \
-	listview.c
 
 maildirlock_LDADD = $(LIBDOVECOT)
 maildirlock_DEPENDENCIES = $(LIBDOVECOT_DEPS)

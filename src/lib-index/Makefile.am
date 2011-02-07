@@ -41,8 +41,6 @@ libindex_la_SOURCES = \
         mail-transaction-log-append.c \
         mail-transaction-log-file.c \
         mail-transaction-log-view.c \
-        mailbox-list-index.c \
-        mailbox-list-index-sync.c \
         mailbox-log.c
 
 headers = \
@@ -60,8 +58,6 @@ headers = \
         mail-transaction-log.h \
 	mail-transaction-log-private.h \
 	mail-transaction-log-view-private.h \
-        mailbox-list-index.h \
-        mailbox-list-index-private.h \
         mailbox-log.h
 
 test_programs = \
