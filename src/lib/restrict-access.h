@@ -19,6 +19,10 @@ struct restrict_access_settings {
 	   group user contains other GIDs, they're silently dropped. */
 	gid_t first_valid_gid, last_valid_gid;
 
+	/* Human readable "source" of UID and GID values. If non-NULL,
+	   displayed on error messages about failing to change uid/gid. */
+	const char *uid_source, *gid_source;
+
 	/* Chroot directory */
 	const char *chroot_dir;
 };
