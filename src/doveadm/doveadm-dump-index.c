@@ -97,8 +97,6 @@ static void dump_hdr(struct mail_index *index)
 		printf("log file tail offset ..... = %u\n", hdr->log_file_tail_offset);
 		printf("log file head offset ..... = %u\n", hdr->log_file_head_offset);
 	}
-	printf("sync size ................ = %llu\n", (unsigned long long)hdr->sync_size);
-	printf("sync stamp ............... = %u (%s)\n", hdr->sync_stamp, unixdate2str(hdr->sync_stamp));
 	printf("day stamp ................ = %u (%s)\n", hdr->day_stamp, unixdate2str(hdr->day_stamp));
 	for (i = 0; i < N_ELEMENTS(hdr->day_first_uid); i++)
 		printf("day first uid[%u] ......... = %u\n", i, hdr->day_first_uid[i]);

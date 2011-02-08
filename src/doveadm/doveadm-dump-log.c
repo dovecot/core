@@ -204,8 +204,6 @@ static struct {
 	HDRF(log_file_seq),
 	HDRF(log_file_tail_offset),
 	HDRF(log_file_head_offset),
-	HDRF(sync_size),
-	HDRF(sync_stamp),
 	HDRF(day_stamp)
 };
 
