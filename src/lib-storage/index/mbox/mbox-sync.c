@@ -1628,7 +1628,6 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 
 int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
 {
-	const struct mail_index_header *hdr;
 	const void *data;
 	size_t data_size;
 
@@ -1640,10 +1639,8 @@ int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
 	mail_index_get_header_ext(mbox->box.view, mbox->mbox_ext_idx,
 				  &data, &data_size);
 	if (data_size == 0) {
-		/* doesn't exist. FIXME: backwards compatibility copying */
-		hdr = mail_index_get_header(mbox->box.view);
-		mbox->mbox_hdr.sync_mtime = hdr->sync_stamp;
-		mbox->mbox_hdr.sync_size = hdr->sync_size;
+		/* doesn't exist yet. */
+		memset(&mbox->mbox_hdr, 0, sizeof(mbox->mbox_hdr));
 		return 0;
 	}
 
