@@ -373,6 +373,7 @@ int main(int argc, char *argv[])
 
 	memset(&raw_ns_set, 0, sizeof(raw_ns_set));
 	raw_ns_set.location = ":LAYOUT=none";
+	raw_ns_set.separator = "/";
 
 	raw_ns = mail_namespaces_init_empty(raw_mail_user);
 	raw_ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
