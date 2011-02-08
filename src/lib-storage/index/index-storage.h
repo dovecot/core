@@ -138,4 +138,11 @@ void index_copy_cache_fields(struct mail_save_context *ctx,
 bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
 			     const ARRAY_TYPE(keyword_indexes) *k2);
 
+int index_storage_list_index_has_changed(struct mailbox *box,
+					 struct mail_index_view *list_view,
+					 uint32_t seq);
+void index_storage_list_index_update_sync(struct mailbox *box,
+					  struct mail_index_transaction *trans,
+					  uint32_t seq);
+
 #endif

@@ -85,6 +85,7 @@ struct mail_storage {
 	struct mail_user *user;
 	const char *temp_path_prefix;
 	const struct mail_storage_settings *set;
+	uint32_t list_sync_ext_id;
 
 	enum mail_storage_flags flags;
 
@@ -128,10 +129,10 @@ struct mailbox_vfuncs {
 	int (*list_index_has_changed)(struct mailbox *box,
 				      struct mail_index_view *list_view,
 				      uint32_t seq);
-	/* Update the sync extension record. Returns 0 = ok, -1 = error. */
-	int (*list_index_update_sync)(struct mailbox *box,
-				      struct mail_index_transaction *trans,
-				      uint32_t seq);
+	/* Update the sync extension record. */
+	void (*list_index_update_sync)(struct mailbox *box,
+				       struct mail_index_transaction *trans,
+				       uint32_t seq);
 
 	struct mailbox_sync_context *
 		(*sync_init)(struct mailbox *box,

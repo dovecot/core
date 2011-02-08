@@ -27,6 +27,7 @@ index_list_mailbox_open_view(struct mailbox *box,
 	struct index_mailbox_node *node;
 	struct mail_index_view *view;
 	uint32_t seq;
+	int ret;
 
 	if (index_mailbox_list_refresh(box->list) < 0)
 		return -1;
@@ -40,9 +41,17 @@ index_list_mailbox_open_view(struct mailbox *box,
 	view = mail_index_view_open(ilist->index);
 	if (!mail_index_lookup_seq(view, node->uid, &seq)) {
 		/* our in-memory tree is out of sync */
+		ret = 1;
+	} else T_BEGIN {
+		ret = box->v.list_index_has_changed == NULL ? 0 :
+			box->v.list_index_has_changed(box, view, seq);
+	} T_END;
+
+	if (ret != 0) {
+		/* error / mailbox has changed. we'll need to sync it. */
 		index_mailbox_list_refresh_later(box->list);
 		mail_index_view_close(&view);
-		return 0;
+		return ret < 0 ? -1 : 0;
 	}
 
 	*view_r = view;
@@ -221,6 +230,9 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 				      &status->highest_modseq, NULL);
 	}
 
+	if (box->v.list_index_update_sync != NULL)
+		box->v.list_index_update_sync(box, trans, seq);
+
 	return mail_index_transaction_commit_full(&trans, &result);
 }
 
@@ -280,7 +292,7 @@ void index_mailbox_list_status_init_list(struct mailbox_list *list)
 		sizeof(uint32_t));
 
 	ilist->hmodseq_ext_id =
-		mail_index_ext_register(ilist->index, "msgs", 0,
+		mail_index_ext_register(ilist->index, "hmodseq", 0,
 					sizeof(uint64_t), sizeof(uint64_t));
 }
 

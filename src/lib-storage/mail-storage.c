@@ -349,6 +349,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 	storage->user = ns->user;
 	storage->set = ns->mail_set;
 	storage->flags = flags;
+	storage->list_sync_ext_id = (uint32_t)-1;
 	p_array_init(&storage->module_contexts, storage->pool, 5);
 
 	if (storage->v.create != NULL &&

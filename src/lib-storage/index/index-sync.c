@@ -6,6 +6,11 @@
 #include "array.h"
 #include "index-sync-private.h"
 
+struct index_storage_list_index_record {
+	uint32_t size;
+	uint32_t mtime;
+};
+
 enum mail_index_sync_flags index_storage_get_sync_flags(struct mailbox *box)
 {
 	enum mail_index_sync_flags sync_flags = 0;
@@ -429,4 +434,100 @@ enum mailbox_sync_type index_sync_type_convert(enum mail_index_sync_type type)
 		     MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET)) != 0)
 		ret |= MAILBOX_SYNC_TYPE_FLAGS;
 	return ret;
+}
+
+static unsigned int
+index_storage_list_get_ext_id(struct mail_storage *storage,
+			      struct mail_index_view *view)
+{
+	if (storage->list_sync_ext_id == (uint32_t)-1) {
+		storage->list_sync_ext_id =
+			mail_index_ext_register(mail_index_view_get_index(view),
+				"index sync", 0,
+				sizeof(struct index_storage_list_index_record),
+				sizeof(uint32_t));
+	}
+	return storage->list_sync_ext_id;
+}
+
+int index_storage_list_index_has_changed(struct mailbox *box,
+					 struct mail_index_view *list_view,
+					 uint32_t seq)
+{
+	const struct index_storage_list_index_record *rec;
+	const void *data;
+	const char *dir, *path;
+	struct stat st;
+	uint32_t ext_id;
+	bool expunged;
+
+	if (mail_index_is_in_memory(mail_index_view_get_index(list_view)))
+		return 1;
+
+	ext_id = index_storage_list_get_ext_id(box->storage, list_view);
+	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
+	rec = data;
+
+	if (rec == NULL || expunged || rec->size == 0 || rec->mtime == 0) {
+		/* doesn't exist / not synced */
+		return 1;
+	}
+
+	dir = mailbox_list_get_path(box->list, box->name,
+				    MAILBOX_LIST_PATH_TYPE_INDEX);
+	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
+	if (stat(path, &st) < 0) {
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", path);
+		return -1;
+	}
+	if (rec->size != (st.st_size & 0xffffffffU) ||
+	    rec->mtime != (st.st_mtime & 0xffffffffU))
+		return 1;
+	return 0;
+}
+
+void index_storage_list_index_update_sync(struct mailbox *box,
+					  struct mail_index_transaction *trans,
+					  uint32_t seq)
+{
+	struct mail_index_view *list_view;
+	const struct index_storage_list_index_record *old_rec;
+	struct index_storage_list_index_record new_rec;
+	const void *data;
+	const char *dir, *path;
+	struct stat st;
+	uint32_t ext_id;
+	bool expunged;
+
+	list_view = mail_index_transaction_get_view(trans);
+	if (mail_index_is_in_memory(mail_index_view_get_index(list_view)))
+		return;
+
+	/* get the current record */
+	ext_id = index_storage_list_get_ext_id(box->storage, list_view);
+	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
+	if (expunged)
+		return;
+	old_rec = data;
+
+	dir = mailbox_list_get_path(box->list, box->name,
+				    MAILBOX_LIST_PATH_TYPE_INDEX);
+	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
+	if (stat(path, &st) < 0) {
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", path);
+		return;
+	}
+
+	memset(&new_rec, 0, sizeof(new_rec));
+	new_rec.size = st.st_size & 0xffffffffU;
+	new_rec.mtime = st.st_mtime & 0xffffffffU;
+
+	if (old_rec == NULL ||
+	    memcmp(old_rec, &new_rec, sizeof(*old_rec)) != 0) {
+		mail_index_update_ext(trans, seq,
+				      box->storage->list_sync_ext_id,
+				      &new_rec, NULL);
+	}
 }
