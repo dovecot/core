@@ -19,6 +19,11 @@ enum mailbox_list_index_flags {
 	MAILBOX_LIST_INDEX_FLAG_MARKED
 };
 
+struct mailbox_list_index_header {
+	uint8_t refresh_flag;
+	/* array of { uint32_t id; char name[]; } */
+};
+
 struct mailbox_list_index_record {
 	/* points to given id in header */
 	uint32_t name_id;
@@ -68,11 +73,11 @@ struct index_mailbox_list {
 	uint32_t sync_log_file_seq;
 	uoff_t sync_log_file_offset;
 
+	uint32_t sync_stamp;
+
 	/* uint32_t uid => struct index_mailbox_node* */
 	struct hash_table *mailbox_hash;
 	struct index_mailbox_node *mailbox_tree;
-
-	unsigned int force_refresh:1;
 };
 
 struct index_mailbox_list_iterate_context {
@@ -95,6 +100,7 @@ struct index_mailbox_node *
 index_mailbox_list_lookup(struct mailbox_list *list, const char *vname);
 
 int index_mailbox_list_refresh(struct mailbox_list *list);
+void index_mailbox_list_refresh_later(struct mailbox_list *list);
 
 void index_mailbox_list_status_init(void);
 void index_mailbox_list_status_init_list(struct mailbox_list *list);

@@ -40,7 +40,7 @@ index_list_mailbox_open_view(struct mailbox *box,
 	view = mail_index_view_open(ilist->index);
 	if (!mail_index_lookup_seq(view, node->uid, &seq)) {
 		/* our in-memory tree is out of sync */
-		ilist->force_refresh = TRUE;
+		index_mailbox_list_refresh_later(box->list);
 		mail_index_view_close(&view);
 		return 0;
 	}
@@ -242,7 +242,7 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	/* update mailbox list index */
 	node = index_mailbox_list_lookup(box->list, box->vname);
 	if (node == NULL)
-		ilist->force_refresh = TRUE;
+		index_mailbox_list_refresh_later(box->list);
 	else {
 		view = mail_index_view_open(ilist->index);
 		if (mail_index_lookup_seq(view, node->uid, &seq)) {
