@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "mail-index-modseq.h"
 #include "mail-storage-private.h"
 #include "index-mailbox-list.h"
 
@@ -236,34 +237,82 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 	return mail_index_transaction_commit_full(&trans, &result);
 }
 
+static void
+index_list_update_mailbox(struct mailbox *box, struct mail_index_view *view)
+{
+	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct index_mailbox_node *node;
+	const struct mail_index_header *hdr;
+	struct mail_index_view *list_view;
+	struct mailbox_status status;
+	uint32_t seq, seq1, seq2;
+
+	node = index_mailbox_list_lookup(box->list, box->vname);
+	if (node == NULL) {
+		index_mailbox_list_refresh_later(box->list);
+		return;
+	}
+
+	list_view = mail_index_view_open(ilist->index);
+	if (!mail_index_lookup_seq(list_view, node->uid, &seq))
+		index_mailbox_list_refresh_later(box->list);
+	else {
+		/* get STATUS info using the given view, rather than
+		   using whatever state the mailbox is currently in */
+		hdr = mail_index_get_header(view);
+
+		memset(&status, 0, sizeof(status));
+		status.messages = hdr->messages_count;
+		status.unseen = hdr->messages_count - hdr->seen_messages_count;
+		status.uidvalidity = hdr->uid_validity;
+		status.uidnext = hdr->next_uid;
+
+		if (!mail_index_lookup_seq_range(view, hdr->first_recent_uid,
+						 (uint32_t)-1, &seq1, &seq2))
+			status.recent = 0;
+		else
+			status.recent = seq2 - seq1 + 1;
+
+		status.highest_modseq = mail_index_modseq_get_highest(view);
+		if (status.highest_modseq == 0) {
+			/* modseqs not enabled yet, but we can't return 0 */
+			status.highest_modseq = 1;
+		}
+
+		(void)index_list_update(box, list_view, seq, &status);
+	}
+	mail_index_view_close(&list_view);
+}
+
 static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 				  struct mailbox_sync_status *status_r)
 {
 	struct mailbox *box = ctx->box;
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
-	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
-	struct index_mailbox_node *node;
-	struct mail_index_view *view;
-	struct mailbox_status status;
-	uint32_t seq;
 
 	if (ibox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
 		return -1;
 	ctx = NULL;
 
-	/* update mailbox list index */
-	node = index_mailbox_list_lookup(box->list, box->vname);
-	if (node == NULL)
-		index_mailbox_list_refresh_later(box->list);
-	else {
-		view = mail_index_view_open(ilist->index);
-		if (mail_index_lookup_seq(view, node->uid, &seq)) {
-			mailbox_get_open_status(box, CACHED_STATUS_ITEMS,
-						&status);
-			(void)index_list_update(box, view, seq, &status);
-		}
-		mail_index_view_close(&view);
-	}
+	index_list_update_mailbox(box, box->view);
+	return 0;
+}
+
+static int
+index_list_transaction_commit(struct mailbox_transaction_context *t,
+			      struct mail_transaction_commit_changes *changes_r)
+{
+	struct mailbox *box = t->box;
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	struct mail_index_view *view;
+
+	if (ibox->module_ctx.super.transaction_commit(t, changes_r) < 0)
+		return -1;
+	t = NULL;
+
+	view = mail_index_view_open(box->index);
+	index_list_update_mailbox(box, view);
+	mail_index_view_close(&view);
 	return 0;
 }
 
@@ -279,6 +328,7 @@ static void index_list_mail_mailbox_allocated(struct mailbox *box)
 	ibox->module_ctx.super = box->v;
 	box->v.get_status = index_list_get_status;
 	box->v.sync_deinit = index_list_sync_deinit;
+	box->v.transaction_commit = index_list_transaction_commit;
 
 	MODULE_CONTEXT_SET(box, index_list_storage_module, ibox);
 }
