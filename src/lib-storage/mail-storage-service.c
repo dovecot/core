@@ -652,6 +652,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 
 	memset(&set_input, 0, sizeof(set_input));
 	set_input.roots = ctx->set_roots;
+	set_input.preserve_user = TRUE;
 	/* settings reader may exec doveconf, which is going to clear
 	   environment, and if we're not doing a userdb lookup we want to
 	   use $HOME */

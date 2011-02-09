@@ -59,6 +59,10 @@ enum master_login_state {
    if dovecot was started with -p parameter. */
 #define MASTER_SSL_KEY_PASSWORD_ENV "SSL_KEY_PASSWORD"
 
+/* getenv(DOVECOT_PRESERVE_ENVS_ENV) returns a space separated list of
+   environments that should be preserved. */
+#define DOVECOT_PRESERVE_ENVS_ENV "DOVECOT_PRESERVE_ENVS"
+
 /* Write pipe to anvil. */
 #define MASTER_ANVIL_FD 3
 /* Anvil reads new log fds from this fd */

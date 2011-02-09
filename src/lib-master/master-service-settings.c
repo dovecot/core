@@ -90,12 +90,22 @@ master_service_exec_config(struct master_service *service,
 			   const struct master_service_settings_input *input)
 {
 	const char **conf_argv, *binary_path = service->argv[0];
+	const char *home = NULL, *user = NULL;
 	unsigned int i, argv_max_count;
 
 	(void)t_binary_abspath(&binary_path);
 
-	if (!service->keep_environment)
-		master_service_env_clean(input->preserve_home);
+	if (!service->keep_environment && !input->preserve_environment) {
+		if (input->preserve_home)
+			home = getenv("HOME");
+		if (input->preserve_user)
+			user = getenv("USER");
+		master_service_env_clean();
+		if (home != NULL)
+			env_put(t_strconcat("HOME=", home, NULL));
+		if (user != NULL)
+			env_put(t_strconcat("USER=", user, NULL));
+	}
 	if (input->use_sysexits)
 		env_put("USE_SYSEXITS=1");
 

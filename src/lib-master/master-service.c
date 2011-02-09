@@ -391,22 +391,16 @@ void master_service_init_finish(struct master_service *service)
 	master_status_update(service);
 }
 
-void master_service_env_clean(bool preserve_home)
+void master_service_env_clean(void)
 {
-	static const char *preserve_envs[] = {
-		"HOME", /* keep as the first element */
-		"USER",
-		"TZ",
-#ifdef DEBUG
-		"GDB",
-#endif
-#ifdef HAVE_SYSTEMD
-		"LISTEN_PID",
-		"LISTEN_FDS",
-#endif
-		NULL
-	};
-	env_clean_except(preserve_envs + (preserve_home ? 0 : 1));
+	const char *value = getenv(DOVECOT_PRESERVE_ENVS_ENV);
+
+	if (value == NULL || *value == '\0')
+		env_clean();
+	else T_BEGIN {
+		value = t_strconcat(value, " "DOVECOT_PRESERVE_ENVS_ENV, NULL);
+		env_clean_except(t_strsplit_spaces(value, " "));
+	} T_END;
 }
 
 void master_service_set_client_limit(struct master_service *service,

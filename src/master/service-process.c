@@ -180,12 +180,8 @@ static void
 service_process_setup_environment(struct service *service, unsigned int uid)
 {
 	const struct master_service_settings *set = service->list->service_set;
-	const char *const *p;
 
-	/* remove all environment, and put back what we need */
-	env_clean();
-	for (p = service->list->child_process_env; *p != NULL; p++)
-		env_put(*p);
+	master_service_env_clean();
 
 	switch (service->type) {
 	case SERVICE_TYPE_CONFIG:

@@ -427,7 +427,6 @@ static bool service_want(struct service_settings *set)
 }
 
 int services_create(const struct master_settings *set,
-		    const char *const *child_process_env,
 		    struct service_list **services_r, const char **error_r)
 {
 	struct service_list *service_list;
@@ -445,7 +444,6 @@ int services_create(const struct master_settings *set,
 	service_list->service_set = master_service_settings_get(master_service);
 	service_list->set_pool = master_service_settings_detach(master_service);
 	service_list->set = set;
-	service_list->child_process_env = child_process_env;
 	service_list->master_log_fd[0] = -1;
 	service_list->master_log_fd[1] = -1;
 

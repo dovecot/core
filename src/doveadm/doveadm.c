@@ -234,6 +234,7 @@ static void doveadm_read_settings(void)
 	memset(&input, 0, sizeof(input));
 	input.roots = set_roots;
 	input.module = "doveadm";
+	input.preserve_user = TRUE;
 	input.preserve_home = TRUE;
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0)

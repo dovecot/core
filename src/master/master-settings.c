@@ -170,6 +170,7 @@ const struct setting_parser_info service_setting_parser_info = {
 static const struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, base_dir),
 	DEF(SET_STR, libexec_dir),
+	DEF(SET_STR, import_environment),
 	DEF(SET_STR, protocols),
 	DEF(SET_STR, listen),
 	DEF(SET_ENUM, ssl),
@@ -192,9 +193,23 @@ static const struct setting_define master_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
+/* <settings checks> */
+#ifdef HAVE_SYSTEMD
+#  define ENV_SYSTEMD " LISTEN_PID LISTEN_FDS"
+#else
+#  define ENV_SYSTEMD ""
+#endif
+#ifdef DEBUG
+#  define ENV_GDB " GDB"
+#else
+#  define ENV_GDB ""
+#endif
+/* </settings checks> */
+
 static const struct master_settings master_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.libexec_dir = PKG_LIBEXECDIR,
+	.import_environment = "TZ" ENV_SYSTEMD ENV_GDB,
 	.protocols = "imap pop3 lmtp",
 	.listen = "*, ::",
 	.ssl = "yes:no:required",

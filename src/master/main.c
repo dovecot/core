@@ -48,7 +48,6 @@ struct service_list *services;
 static char *pidfile_path;
 static failure_callback_t *orig_fatal_callback;
 static failure_callback_t *orig_error_callback;
-static const char *child_process_env[3]; /* @UNSAFE */
 
 static const struct setting_parser_info *set_roots[] = {
 	&master_setting_parser_info,
@@ -314,8 +313,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	sets = master_service_settings_get_others(master_service);
 	set = sets[0];
 
-	if (services_create(set, child_process_env,
-			    &new_services, &error) < 0) {
+	if (services_create(set, &new_services, &error) < 0) {
 		/* new configuration is invalid, keep the old */
 		i_error("Config reload failed: %s", error);
 		return;
@@ -377,10 +375,37 @@ static struct master_settings *master_settings_read(void)
 	input.roots = set_roots;
 	input.module = "master";
 	input.parse_full_config = TRUE;
+	input.preserve_environment = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,
 					 &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 	return master_service_settings_get_others(master_service)[0];
+}
+
+static void master_set_import_environment(const struct master_settings *set)
+{
+	const char *const *envs, *key, *value;
+	ARRAY_TYPE(const_string) keys;
+
+	if (*set->import_environment == '\0')
+		return;
+
+	t_array_init(&keys, 8);
+	envs = t_strsplit_spaces(set->import_environment, " ");
+	for (; *envs != NULL; envs++) {
+		value = strchr(*envs, '=');
+		if (value == NULL)
+			key = *envs;
+		else {
+			key = t_strdup_until(*envs, value);
+			env_put(*envs);
+		}
+		array_append(&keys, &key, 1);
+	}
+	(void)array_append_space(&keys);
+
+	value = t_strarray_join(array_idx(&keys, 0), " ");
+	env_put(t_strconcat(DOVECOT_PRESERVE_ENVS_ENV"=", value, NULL));
 }
 
 static void main_log_startup(void)
@@ -598,18 +623,8 @@ static void print_build_options(void)
 
 int main(int argc, char *argv[])
 {
-	static const char *preserve_envs[] = {
-		/* AIX depends on TZ to get the timezone correctly. */
-		"TZ",
-#ifdef HAVE_SYSTEMD
-		"LISTEN_PID",
-		"LISTEN_FDS",
-#endif
-		NULL
-	};
 	struct master_settings *set;
-	unsigned int child_process_env_idx = 0;
-	const char *error, *env_tz, *doveconf_arg = NULL;
+	const char *error, *doveconf_arg = NULL;
 	failure_callback_t *orig_info_callback, *orig_debug_callback;
 	bool foreground = FALSE, ask_key_pass = FALSE;
 	bool doubleopts[argc];
@@ -618,8 +633,6 @@ int main(int argc, char *argv[])
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)
 		fd_debug_verify_leaks(3, 1024);
-	else
-		child_process_env[child_process_env_idx++] = "GDB=1";
 #endif
 	/* drop -- prefix from all --args. ugly, but the only way that it
 	   works with standard getopt() in all OSes.. */
@@ -740,23 +753,16 @@ int main(int argc, char *argv[])
 	master_settings_do_fixes(set);
 	fatal_log_check(set);
 
-	/* clean up the environment */
-	env_clean_except(preserve_envs);
-
-	env_tz = getenv("TZ");
-	if (env_tz != NULL) {
-		child_process_env[child_process_env_idx++] =
-			t_strconcat("TZ=", env_tz, NULL);
-	}
-	i_assert(child_process_env_idx <
-		 sizeof(child_process_env) / sizeof(child_process_env[0]));
-	child_process_env[child_process_env_idx] = NULL;
+	T_BEGIN {
+		master_set_import_environment(set);
+	} T_END;
+	master_service_env_clean();
 
 	/* create service structures from settings. if there are any errors in
 	   service configuration we'll catch it here. */
 	service_pids_init();
 	service_anvil_global_init();
-	if (services_create(set, child_process_env, &services, &error) < 0)
+	if (services_create(set, &services, &error) < 0)
 		i_fatal("%s", error);
 
 	services->config->config_file_path = get_full_config_path(services);

@@ -59,8 +59,9 @@ bool master_service_parse_option(struct master_service *service,
    before calling this. */
 void master_service_init_finish(struct master_service *service);
 
-/* Clean environment from everything except TZ, USER and optionally HOME. */
-void master_service_env_clean(bool preserve_home);
+/* Clean environment from everything except the ones listed in
+   DOVECOT_PRESERVE_ENVS environment. */
+void master_service_env_clean(void);
 
 /* Initialize logging. */
 void master_service_init_log(struct master_service *service,

@@ -51,7 +51,7 @@ smtp_client_run_sendmail(const struct lda_settings *set,
 	if (dup2(fd, STDIN_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
 
-	master_service_env_clean(TRUE);
+	master_service_env_clean();
 
 	execv_const(sendmail_path, argv);
 }
