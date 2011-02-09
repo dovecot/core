@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "imap-match.h"
 #include "mail-index.h"
+#include "mail-storage.h"
 #include "mail-storage-hooks.h"
 #include "mailbox-list-subscriptions.h"
 #include "index-mailbox-list.h"
@@ -109,6 +110,8 @@ index_mailbox_list_lookup(struct mailbox_list *list, const char *vname)
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
 	struct index_mailbox_node *node;
+
+	(void)index_mailbox_list_refresh(list);
 
 	T_BEGIN {
 		const char *const *path;
@@ -575,6 +578,7 @@ static void
 index_mailbox_list_update_info(struct index_mailbox_list_iterate_context *ctx)
 {
 	struct index_mailbox_node *node = ctx->next_node;
+	struct mailbox *box;
 
 	str_truncate(ctx->path, ctx->parent_len);
 	if (str_len(ctx->path) > 0)
@@ -599,7 +603,11 @@ index_mailbox_list_update_info(struct index_mailbox_list_iterate_context *ctx)
 						    &ctx->info.flags);
 	}
 
-	/* FIXME: set marked, unmarked flags based on recent counter */
+	box = mailbox_alloc(ctx->ctx.list, ctx->info.name,
+			    MAILBOX_FLAG_KEEP_RECENT);
+	index_mailbox_list_status_set_info_flags(box, node->uid,
+						 &ctx->info.flags);
+	mailbox_free(&box);
 }
 
 static void

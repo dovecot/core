@@ -316,6 +316,41 @@ index_list_transaction_commit(struct mailbox_transaction_context *t,
 	return 0;
 }
 
+void index_mailbox_list_status_set_info_flags(struct mailbox *box, uint32_t uid,
+					      enum mailbox_info_flags *flags)
+{
+	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mail_index_view *view;
+	struct mailbox_status status;
+	uint32_t seq;
+	int ret;
+
+	view = mail_index_view_open(ilist->index);
+	if (!mail_index_lookup_seq(view, uid, &seq)) {
+		/* our in-memory tree is out of sync */
+		ret = 0;
+	} else T_BEGIN {
+		ret = box->v.list_index_has_changed == NULL ? 0 :
+			box->v.list_index_has_changed(box, view, seq);
+	} T_END;
+
+	if (ret != 0) {
+		/* error / not up to date. don't waste time with it. */
+		mail_index_view_close(&view);
+		return;
+	}
+
+	status.recent = 0;
+	(void)index_list_get_view_status(box, view, seq, STATUS_RECENT,
+					 &status, NULL);
+	mail_index_view_close(&view);
+
+	if (status.recent != 0)
+		*flags |= MAILBOX_MARKED;
+	else
+		*flags |= MAILBOX_UNMARKED;
+}
+
 static void index_list_mail_mailbox_allocated(struct mailbox *box)
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);

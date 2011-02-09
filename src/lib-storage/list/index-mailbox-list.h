@@ -102,6 +102,9 @@ index_mailbox_list_lookup(struct mailbox_list *list, const char *vname);
 int index_mailbox_list_refresh(struct mailbox_list *list);
 void index_mailbox_list_refresh_later(struct mailbox_list *list);
 
+void index_mailbox_list_status_set_info_flags(struct mailbox *box, uint32_t uid,
+					      enum mailbox_info_flags *flags);
+
 void index_mailbox_list_status_init(void);
 void index_mailbox_list_status_init_list(struct mailbox_list *list);
 
