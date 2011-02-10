@@ -771,13 +771,16 @@ int main(int argc, char *argv[])
 	if (services_listen(services) <= 0)
 		i_fatal("Failed to start listeners");
 
-	if (!foreground)
-		daemonize();
 	if (chdir(set->base_dir) < 0)
 		i_fatal("chdir(%s) failed: %m", set->base_dir);
 
+	if (dup2(null_fd, STDERR_FILENO) < 0)
+		i_fatal("dup2(null_fd) failed: %m");
 	i_set_fatal_handler(master_fatal_callback);
 	i_set_error_handler(orig_error_callback);
+
+	if (!foreground)
+		daemonize();
 
 	main_init(set);
 	master_service_run(master_service, NULL);
