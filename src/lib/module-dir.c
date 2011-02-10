@@ -432,7 +432,7 @@ module_dir_load_real(struct module *old_modules,
 		/* make sure all modules were found */
 		for (; *module_names != NULL; module_names++) {
 			if (**module_names != '\0') {
-				i_fatal("Plugin %s not found from directory %s",
+				i_fatal("Plugin '%s' not found from directory %s",
 					*module_names, dir);
 			}
 		}
