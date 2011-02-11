@@ -297,7 +297,8 @@ static int imapc_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 }
 
 static int
-imapc_list_subscriptions_refresh(struct mailbox_list *_list ATTR_UNUSED)
+imapc_list_subscriptions_refresh(struct mailbox_list *_src_list ATTR_UNUSED,
+				 struct mailbox_list *_dest_list ATTR_UNUSED)
 {
 	return 0;
 }

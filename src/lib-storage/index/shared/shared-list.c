@@ -211,7 +211,8 @@ static int shared_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 }
 
 static int
-shared_list_subscriptions_refresh(struct mailbox_list *list ATTR_UNUSED)
+shared_list_subscriptions_refresh(struct mailbox_list *src_list ATTR_UNUSED,
+				  struct mailbox_list *dest_list ATTR_UNUSED)
 {
 	return 0;
 }

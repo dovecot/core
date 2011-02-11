@@ -6,7 +6,8 @@ enum mailbox_list_iter_flags;
 struct mailbox_tree_context;
 struct mailbox_list_iterate_context;
 
-int mailbox_list_subscriptions_refresh(struct mailbox_list *list);
+int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
+				       struct mailbox_list *dest_list);
 
 /* Set MAILBOX_SUBSCRIBED and MAILBOX_CHILD_SUBSCRIBED flags,
    clearing them if they already are there when they shouldn't. */

@@ -87,55 +87,48 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	return 0;
 }
 
-int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
+int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
+				       struct mailbox_list *dest_list)
 {
-	struct mail_namespace *ns = list->ns;
 	struct subsfile_list_context *subsfile_ctx;
 	struct stat st;
 	const char *path, *name;
 	char sep;
 
-	if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0) {
-		/* no subscriptions in this namespace. find where they are. */
-		ns = mail_namespace_find_subscribable(ns->user->namespaces,
-						      ns->prefix);
-		if (ns == NULL) {
-			/* no subscriptions */
-			return 0;
-		}
-	}
+	i_assert((src_list->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0);
 
-	if (list->subscriptions == NULL) {
-		sep = mail_namespace_get_sep(ns);
-		list->subscriptions = mailbox_tree_init(sep);
+	if (dest_list->subscriptions == NULL) {
+		sep = mail_namespace_get_sep(src_list->ns);
+		dest_list->subscriptions = mailbox_tree_init(sep);
 	}
-	path = t_strconcat(ns->list->set.control_dir != NULL ?
-			   ns->list->set.control_dir : ns->list->set.root_dir,
-			   "/", ns->list->set.subscription_fname, NULL);
+	path = t_strconcat(src_list->set.control_dir != NULL ?
+			   src_list->set.control_dir : src_list->set.root_dir,
+			   "/", src_list->set.subscription_fname, NULL);
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
 			/* no subscriptions */
-			mailbox_tree_clear(list->subscriptions);
-			list->subscriptions_mtime = 0;
+			mailbox_tree_clear(dest_list->subscriptions);
+			dest_list->subscriptions_mtime = 0;
 			return 0;
 		}
-		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
+		mailbox_list_set_critical(dest_list, "stat(%s) failed: %m",
+					  path);
 		return -1;
 	}
-	if (st.st_mtime == list->subscriptions_mtime &&
-	    st.st_mtime < list->subscriptions_read_time-1) {
+	if (st.st_mtime == dest_list->subscriptions_mtime &&
+	    st.st_mtime < dest_list->subscriptions_read_time-1) {
 		/* we're up to date */
 		return 0;
 	}
 
-	mailbox_tree_clear(list->subscriptions);
-	list->subscriptions_read_time = ioloop_time;
+	mailbox_tree_clear(dest_list->subscriptions);
+	dest_list->subscriptions_read_time = ioloop_time;
 
-	subsfile_ctx = subsfile_list_init(list, path);
+	subsfile_ctx = subsfile_list_init(dest_list, path);
 	if (subsfile_list_fstat(subsfile_ctx, &st) == 0)
-		list->subscriptions_mtime = st.st_mtime;
+		dest_list->subscriptions_mtime = st.st_mtime;
 	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) T_BEGIN {
-		if (mailbox_list_subscription_fill_one(list, name) < 0) {
+		if (mailbox_list_subscription_fill_one(dest_list, name) < 0) {
 			i_warning("Subscriptions file %s: "
 				  "Ignoring invalid entry: %s",
 				  path, name);
@@ -143,7 +136,7 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
 	} T_END;
 
 	if (subsfile_list_deinit(&subsfile_ctx) < 0) {
-		list->subscriptions_mtime = (time_t)-1;
+		dest_list->subscriptions_mtime = (time_t)-1;
 		return -1;
 	}
 	return 0;

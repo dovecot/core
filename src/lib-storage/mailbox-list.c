@@ -867,6 +867,22 @@ mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 	return mailbox_list_iter_init_multiple(list, patterns, flags);
 }
 
+static int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
+{
+	struct mail_namespace *ns = list->ns;
+
+	if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0) {
+		/* no subscriptions in this namespace. find where they are. */
+		ns = mail_namespace_find_subscribable(ns->user->namespaces,
+						      ns->prefix);
+		if (ns == NULL) {
+			/* no subscriptions */
+			return 0;
+		}
+	}
+	return ns->list->v.subscriptions_refresh(ns->list, list);
+}
+
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init_multiple(struct mailbox_list *list,
 				const char *const *patterns,
@@ -879,7 +895,7 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0)
-		ret = list->v.subscriptions_refresh(list);
+		ret = mailbox_list_subscriptions_refresh(list);
 
 	ctx = list->v.iter_init(list, patterns, flags);
 	if (ret < 0)

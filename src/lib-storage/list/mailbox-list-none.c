@@ -72,7 +72,8 @@ none_list_get_temp_prefix(struct mailbox_list *list ATTR_UNUSED,
 }
 
 static int
-none_list_subscriptions_refresh(struct mailbox_list *list ATTR_UNUSED)
+none_list_subscriptions_refresh(struct mailbox_list *src_list ATTR_UNUSED,
+				struct mailbox_list *dest_list ATTR_UNUSED)
 {
 	return 0;
 }

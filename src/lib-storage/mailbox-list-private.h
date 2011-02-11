@@ -72,7 +72,10 @@ struct mailbox_list_vfuncs {
 	   If it does, mailbox deletion assumes it can safely delete it. */
 	bool (*is_internal_name)(struct mailbox_list *list, const char *name);
 
-	int (*subscriptions_refresh)(struct mailbox_list *list);
+	/* Read subscriptions from src_list, but place them into
+	   dest_list->subscriptions. Set errors to dest_list. */
+	int (*subscriptions_refresh)(struct mailbox_list *src_list,
+				     struct mailbox_list *dest_list);
 	int (*set_subscribed)(struct mailbox_list *list,
 			      const char *name, bool set);
 	int (*create_mailbox_dir)(struct mailbox_list *list, const char *name,
