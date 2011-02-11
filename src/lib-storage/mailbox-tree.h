@@ -15,6 +15,8 @@ struct mailbox_node {
 struct mailbox_tree_context *mailbox_tree_init(char separator);
 void mailbox_tree_deinit(struct mailbox_tree_context **tree);
 
+void mailbox_tree_set_separator(struct mailbox_tree_context *tree,
+				char separator);
 void mailbox_tree_clear(struct mailbox_tree_context *tree);
 
 struct mailbox_node *

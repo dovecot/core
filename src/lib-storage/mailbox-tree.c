@@ -43,6 +43,12 @@ void mailbox_tree_deinit(struct mailbox_tree_context **_tree)
 	i_free(tree);
 }
 
+void mailbox_tree_set_separator(struct mailbox_tree_context *tree,
+				char separator)
+{
+	tree->separator = separator;
+}
+
 void mailbox_tree_clear(struct mailbox_tree_context *tree)
 {
 	p_clear(tree->pool);
