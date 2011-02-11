@@ -574,6 +574,28 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 		return -1;
 	}
 
+	/* if we're renaming under another mailbox, require its permissions
+	   to be same as ours. */
+	if (strchr(newname, mailbox_list_get_hierarchy_sep(newlist)) != NULL) {
+		const char *origin, *old_origin;
+		mode_t file_mode, dir_mode, old_file_mode, old_dir_mode;
+		gid_t gid, old_gid;
+
+		mailbox_list_get_permissions(oldlist, oldname, &old_file_mode,
+					     &old_dir_mode, &old_gid, &old_origin);
+		mailbox_list_get_permissions(newlist, newname, &file_mode,
+					     &dir_mode, &gid, &origin);
+
+		if ((file_mode != old_file_mode ||
+		     dir_mode != old_dir_mode || gid != old_gid)) {
+			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+				"Renaming not supported across conflicting "
+				"directory permissions");
+			return -1;
+		}
+	}
+
+
 	ret = rename(oldpath, newpath);
 	if (ret == 0 || errno == ENOENT) {
 		(void)rename_dir(oldlist, oldname, newlist, newname,

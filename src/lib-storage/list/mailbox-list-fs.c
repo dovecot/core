@@ -447,11 +447,11 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 {
 	struct mail_storage *oldstorage;
 	const char *oldvname, *oldpath, *newpath, *alt_newpath, *root_path;
-	const char *p, *origin;
+	const char *p, *origin, *old_origin;
 	enum mailbox_list_path_type path_type, alt_path_type;
 	struct stat st;
-	mode_t file_mode, dir_mode;
-	gid_t gid;
+	mode_t file_mode, dir_mode, old_file_mode, old_dir_mode;
+	gid_t gid, old_gid;
 	bool rmdir_parent = FALSE;
 
 	oldvname = mailbox_list_get_vname(oldlist, oldname);
@@ -486,11 +486,25 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 		return -1;
 	}
 
+	mailbox_list_get_permissions(oldlist, oldname, &old_file_mode,
+				     &old_dir_mode, &old_gid, &old_origin);
+	mailbox_list_get_permissions(newlist, newname, &file_mode,
+				     &dir_mode, &gid, &origin);
+
+	/* if we're renaming under another mailbox, require its permissions
+	   to be same as ours. */
+	if (strchr(newname, mailbox_list_get_hierarchy_sep(newlist)) != NULL &&
+	    (file_mode != old_file_mode ||
+	     dir_mode != old_dir_mode || gid != old_gid)) {
+		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
+			"Renaming not supported across conflicting "
+			"directory permissions");
+		return -1;
+	}
+
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
 	if (p != NULL) {
-		mailbox_list_get_root_permissions(newlist, &file_mode,
-						  &dir_mode, &gid, &origin);
 		p = t_strdup_until(newpath, p);
 		if (mkdir_parents_chgrp(p, dir_mode, gid, origin) < 0 &&
 		    errno != EEXIST) {
