@@ -799,13 +799,15 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	const char *dir;
 
 	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*dir == '\0' || list->mail_set->mailbox_list_index) {
+	if (list->mail_set->mailbox_list_index) {
 		/* reserve the module context anyway, so syncing code knows
 		   that the index is disabled */
 		ilist = NULL;
 		MODULE_CONTEXT_SET(list, index_mailbox_list_module, ilist);
 		return;
 	}
+	if (*dir == '\0')
+		dir = NULL;
 
 	ilist = p_new(list->pool, struct index_mailbox_list, 1);
 	ilist->module_ctx.super = list->v;
@@ -822,8 +824,8 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 
 	MODULE_CONTEXT_SET(list, index_mailbox_list_module, ilist);
 
-	ilist->path = p_strdup_printf(list->pool,
-				      "%s/"MAILBOX_LIST_INDEX_PREFIX, dir);
+	ilist->path = dir == NULL ? "(in-memory mailbox list index)" :
+		p_strdup_printf(list->pool, "%s/"MAILBOX_LIST_INDEX_PREFIX, dir);
 	ilist->index = mail_index_alloc(dir, MAILBOX_LIST_INDEX_PREFIX);
 
 	ilist->ext_id = mail_index_ext_register(ilist->index, "list",
