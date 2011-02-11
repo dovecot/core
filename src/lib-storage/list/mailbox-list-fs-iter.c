@@ -302,7 +302,7 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		(struct fs_list_iterate_context *)_ctx;
 	char **patterns;
 	unsigned int i, count;
-	int ret = ctx->ctx.failed ? -1 : 0;
+	int ret = _ctx->failed ? -1 : 0;
 
 	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
 		return mailbox_list_subscriptions_iter_deinit(_ctx);
@@ -321,9 +321,9 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 
 	if (ctx->info_pool != NULL)
 		pool_unref(&ctx->info_pool);
-	if (ctx->ctx.glob != NULL)
-		imap_match_deinit(&ctx->ctx.glob);
-	array_free(&ctx->ctx.module_contexts);
+	if (_ctx->glob != NULL)
+		imap_match_deinit(&_ctx->glob);
+	array_free(&_ctx->module_contexts);
 	i_free(ctx);
 
 	return ret;

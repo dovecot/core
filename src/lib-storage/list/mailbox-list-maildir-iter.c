@@ -445,7 +445,7 @@ int maildir_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 {
 	struct maildir_list_iterate_context *ctx =
 		(struct maildir_list_iterate_context *)_ctx;
-	int ret = ctx->ctx.failed ? -1 : 0;
+	int ret = _ctx->failed ? -1 : 0;
 
 	if (ctx->tree_iter != NULL)
 		mailbox_tree_iterate_deinit(&ctx->tree_iter);
@@ -461,7 +461,7 @@ maildir_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		(struct maildir_list_iterate_context *)_ctx;
 	struct mailbox_node *node;
 
-	if (ctx->ctx.failed)
+	if (_ctx->failed)
 		return NULL;
 
 	node = mailbox_tree_iterate_next(ctx->tree_iter, &ctx->info.name);
