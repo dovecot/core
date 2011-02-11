@@ -526,7 +526,7 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 				  mode_t *file_mode_r, mode_t *dir_mode_r,
 				  gid_t *gid_r, const char **gid_origin_r)
 {
-	const char *path;
+	const char *path, *parent_name, *p;
 	struct stat st;
 
 	/* use safe defaults */
@@ -547,8 +547,15 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 			       list->ns->prefix, path);
 		}
 		if (name != NULL) {
-			/* return defaults */
-			mailbox_list_get_permissions(list, NULL,
+			/* return parent mailbox */
+			p = strrchr(name, mailbox_list_get_hierarchy_sep(list));
+			if (p == NULL) {
+				/* return root defaults */
+				parent_name = NULL;
+			} else {
+				parent_name = t_strdup_until(name, p);
+			}
+			mailbox_list_get_permissions(list, parent_name,
 						     file_mode_r, dir_mode_r,
 						     gid_r, gid_origin_r);
 			return;

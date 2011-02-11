@@ -285,8 +285,8 @@ fs_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		path = t_strdup_until(path, p);
 	}
 
-	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
-					  &gid, &gid_origin);
+	mailbox_list_get_permissions(list, name, &file_mode, &dir_mode,
+				     &gid, &gid_origin);
 	if (mkdir_parents_chgrp(path, dir_mode, gid, gid_origin) == 0)
 		return 0;
 	else if (errno == EEXIST) {
