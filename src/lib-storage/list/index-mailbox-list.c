@@ -246,7 +246,8 @@ index_mailbox_node_unlink(struct index_mailbox_list_sync_context *sync_ctx,
 	struct index_mailbox_node **prev;
 
 	prev = node->parent == NULL ?
-		&sync_ctx->ilist->mailbox_tree : &node->parent;
+		&sync_ctx->ilist->mailbox_tree :
+		&node->parent->children;
 
 	while (*prev != node)
 		prev = &(*prev)->next;
