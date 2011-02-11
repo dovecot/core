@@ -372,7 +372,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	ctx = doveadm_mail_cmd_init(cmd);
 
-	getopt_args = t_strconcat("As:u:", ctx->getopt_args, NULL);
+	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
 	username = getenv("USER");
 	wildcard_user = NULL;
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
@@ -399,8 +399,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 				doveadm_mail_help(cmd);
 		}
 	}
-	if (optind > 0)
-		argv += optind - 1;
+	argv += optind;
 	if (argv[0] != NULL && cmd->usage_args == NULL) {
 		i_fatal("doveadm %s: Unknown parameter: %s",
 			cmd->name, argv[0]);
