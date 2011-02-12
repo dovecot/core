@@ -1358,14 +1358,12 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 {
 	struct mail_namespace *ns = ctx->iter_ctx->list->ns;
 	struct mailbox_node *node;
-	enum mailbox_info_flags create_flags = 0, always_flags;
+	enum mailbox_info_flags create_flags, always_flags;
 	enum imap_match_result match;
 	const char *p;
 	bool created, add_matched;
 
-	if (ctx->update_only ||
-	    (ctx->iter_ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0)
-		create_flags = MAILBOX_NONEXISTENT | MAILBOX_NOCHILDREN;
+	create_flags = MAILBOX_NOCHILDREN;
 	always_flags = ctx->leaf_flags;
 	add_matched = TRUE;
 
@@ -1407,6 +1405,7 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 			break;
 
 		name = t_strdup_until(name, p);
+		create_flags |= MAILBOX_NONEXISTENT;
 		create_flags &= ~MAILBOX_NOCHILDREN;
 		always_flags = MAILBOX_CHILDREN | ctx->parent_flags;
 	}
