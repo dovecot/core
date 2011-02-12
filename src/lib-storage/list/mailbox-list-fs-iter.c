@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "imap-match.h"
+#include "mail-storage.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
 #include "mailbox-list-fs.h"
@@ -558,6 +559,29 @@ list_file(struct fs_list_iterate_context *ctx,
 				  entry->type, &st, &ctx->info.flags);
 	if (ret <= 0)
 		return ret;
+
+	if (!MAILBOX_INFO_FLAGS_FINISHED(ctx->info.flags)) {
+		struct mailbox *box;
+		enum mailbox_existence existence;
+
+		box = mailbox_alloc(ctx->ctx.list, list_path,
+				    MAILBOX_FLAG_KEEP_RECENT);
+		ret = mailbox_exists(box, &existence);
+		mailbox_free(&box);
+
+		if (ret < 0)
+			return -1;
+		switch (existence) {
+		case MAILBOX_EXISTENCE_NONE:
+			ctx->info.flags |= MAILBOX_NONEXISTENT;
+			break;
+		case MAILBOX_EXISTENCE_NOSELECT:
+			ctx->info.flags |= MAILBOX_NOSELECT;
+			break;
+		case MAILBOX_EXISTENCE_SELECT:
+			break;
+		}
+	}
 
 	if (ctx->dir->delayed_send) {
 		/* send the parent directory first, then handle this

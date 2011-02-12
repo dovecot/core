@@ -20,21 +20,12 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#define VIRTUAL_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, virtual_mailbox_list_module)
-
-struct virtual_mailbox_list {
-	union mailbox_list_module_context module_ctx;
-};
-
 extern struct mail_storage virtual_storage;
 extern struct mailbox virtual_mailbox;
 extern struct virtual_mailbox_vfuncs virtual_mailbox_vfuncs;
 
 struct virtual_storage_module virtual_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
-static MODULE_CONTEXT_DEFINE_INIT(virtual_mailbox_list_module,
-				  &mailbox_list_module_register);
 
 static bool ns_is_visible(struct mail_namespace *ns)
 {
@@ -273,6 +264,13 @@ static void virtual_mailbox_close_internal(struct virtual_mailbox *mbox)
 	i_free_and_null(mbox->vseq_lookup_prev_mailbox);
 }
 
+static int virtual_mailbox_exists(struct mailbox *box,
+				  enum mailbox_existence *existence_r)
+{
+	return index_storage_mailbox_exists_full(box, VIRTUAL_CONFIG_FNAME,
+						 existence_r);
+}
+
 static int virtual_mailbox_open(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
@@ -372,46 +370,6 @@ static void virtual_notify_changes(struct mailbox *box)
 	}
 }
 
-static int
-virtual_list_get_mailbox_flags(struct mailbox_list *list,
-			       const char *dir, const char *fname,
-			       enum mailbox_list_file_type type,
-			       struct stat *st_r,
-			       enum mailbox_info_flags *flags)
-{
-	struct virtual_mailbox_list *mlist = VIRTUAL_LIST_CONTEXT(list);
-	struct stat st2;
-	const char *virtual_path;
-	int ret;
-
-	ret = mlist->module_ctx.super.
-		get_mailbox_flags(list, dir, fname, type, st_r, flags);
-	if (ret <= 0 || MAILBOX_INFO_FLAGS_FINISHED(*flags))
-		return ret;
-
-	/* see if it's a selectable mailbox */
-	virtual_path = t_strconcat(dir, "/", fname, "/"VIRTUAL_CONFIG_FNAME,
-				   NULL);
-	if (stat(virtual_path, &st2) < 0)
-		*flags |= MAILBOX_NOSELECT;
-	return ret;
-}
-
-static void virtual_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
-				     struct mailbox_list *list)
-{
-	struct mailbox_list_vfuncs *v = list->vlast;
-	struct virtual_mailbox_list *mlist;
-
-	mlist = p_new(list->pool, struct virtual_mailbox_list, 1);
-	mlist->module_ctx.super = *v;
-	list->vlast = &mlist->module_ctx.super;
-
-	v->get_mailbox_flags = virtual_list_get_mailbox_flags;
-
-	MODULE_CONTEXT_SET(list, virtual_mailbox_list_module, mlist);
-}
-
 static int virtual_backend_uidmap_cmp(const uint32_t *uid,
 				      const struct virtual_backend_uidmap *map)
 {
@@ -500,7 +458,7 @@ struct mail_storage virtual_storage = {
 		virtual_storage_alloc,
 		NULL,
 		NULL,
-		virtual_storage_add_list,
+		NULL,
 		virtual_storage_get_list_settings,
 		NULL,
 		virtual_mailbox_alloc,
@@ -513,7 +471,7 @@ struct mailbox virtual_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
-		index_storage_mailbox_exists,
+		virtual_mailbox_exists,
 		virtual_mailbox_open,
 		virtual_mailbox_close,
 		virtual_mailbox_free,

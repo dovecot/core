@@ -329,6 +329,12 @@ static bool maildir_storage_is_readonly(struct mailbox *box)
 	return FALSE;
 }
 
+static int maildir_mailbox_exists(struct mailbox *box,
+				  enum mailbox_existence *existence_r)
+{
+	return index_storage_mailbox_exists_full(box, "cur", existence_r);
+}
+
 static int maildir_mailbox_open(struct mailbox *box)
 {
 	const char *box_path = mailbox_get_path(box);
@@ -528,46 +534,6 @@ maildir_is_internal_name(struct mailbox_list *list ATTR_UNUSED,
 		strcmp(name, "tmp") == 0;
 }
 
-static int
-maildir_list_get_mailbox_flags(struct mailbox_list *list,
-			       const char *dir, const char *fname,
-			       enum mailbox_list_file_type type,
-			       struct stat *st_r,
-			       enum mailbox_info_flags *flags)
-{
-	struct maildir_mailbox_list_context *mlist = MAILDIR_LIST_CONTEXT(list);
-	struct stat st2;
-	const char *cur_path;
-	int ret;
-
-	ret = mlist->module_ctx.super.
-		get_mailbox_flags(list, dir, fname, type, st_r, flags);
-	if (ret <= 0 || MAILBOX_INFO_FLAGS_FINISHED(*flags))
-		return ret;
-
-	/* see if it's a selectable mailbox. after that we can figure out based
-	   on the link count if we have child mailboxes or not. for a
-	   selectable mailbox we have 3 more links (cur/, new/ and tmp/)
-	   than non-selectable. */
-	cur_path = t_strconcat(dir, "/", fname, "/cur", NULL);
-	if ((ret = stat(cur_path, &st2)) < 0 || !S_ISDIR(st2.st_mode)) {
-		if (ret < 0 && errno == ENOENT)
-			*flags |= MAILBOX_NONEXISTENT;
-		else
-			*flags |= MAILBOX_NOSELECT;
-		if (st_r->st_nlink > 2)
-			*flags |= MAILBOX_CHILDREN;
-		else
-			*flags |= MAILBOX_NOCHILDREN;
-	} else {
-		if (st_r->st_nlink > 5)
-			*flags |= MAILBOX_CHILDREN;
-		else
-			*flags |= MAILBOX_NOCHILDREN;
-	}
-	return 1;
-}
-
 static void maildir_storage_add_list(struct mail_storage *storage,
 				     struct mailbox_list *list)
 {
@@ -578,7 +544,6 @@ static void maildir_storage_add_list(struct mail_storage *storage,
 	mlist->set = mail_storage_get_driver_settings(storage);
 
 	list->v.is_internal_name = maildir_is_internal_name;
-	list->v.get_mailbox_flags = maildir_list_get_mailbox_flags;
 	MODULE_CONTEXT_SET(list, maildir_mailbox_list_module, mlist);
 }
 
@@ -653,7 +618,7 @@ struct mailbox maildir_mailbox = {
 		maildir_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
-		index_storage_mailbox_exists,
+		maildir_mailbox_exists,
 		maildir_mailbox_open,
 		maildir_mailbox_close,
 		index_storage_mailbox_free,
