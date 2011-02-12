@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-storage/list \
 	-I$(top_srcdir)/src/lib-storage/index
 
 libstorage_imapc_la_SOURCES = \

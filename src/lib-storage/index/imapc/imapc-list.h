@@ -11,12 +11,16 @@ struct imapc_mailbox_list {
 	struct mailbox_list list;
 	struct imapc_storage *storage;
 
-	struct mailbox_tree_context *mailboxes, *subscriptions;
+	struct mailbox_tree_context *mailboxes, *tmp_subscriptions;
 	char sep;
+
+	unsigned int iter_count;
 
 	/* we've returned wrong separator. all mailbox list operations must
 	   fail from now on. */
 	unsigned int broken:1;
+	unsigned int refreshed_subscriptions:1;
+	unsigned int refreshed_mailboxes:1;
 };
 
 void imapc_list_register_callbacks(struct imapc_mailbox_list *list);
