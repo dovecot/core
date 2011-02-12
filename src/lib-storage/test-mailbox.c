@@ -25,9 +25,11 @@ static int test_mailbox_enable(struct mailbox *box,
 	return 0;
 }
 
-static int test_mailbox_exists(struct mailbox *box ATTR_UNUSED)
+static int test_mailbox_exists(struct mailbox *box ATTR_UNUSED,
+			       enum mailbox_existence *existence_r)
 {
-	return 1;
+	*existence_r = MAILBOX_EXISTENCE_SELECT;
+	return 0;
 }
 
 static int test_mailbox_open(struct mailbox *box ATTR_UNUSED)

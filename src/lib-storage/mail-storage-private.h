@@ -106,7 +106,7 @@ struct mailbox_vfuncs {
 	bool (*allow_new_keywords)(struct mailbox *box);
 
 	int (*enable)(struct mailbox *box, enum mailbox_feature features);
-	int (*exists)(struct mailbox *box);
+	int (*exists)(struct mailbox *box, enum mailbox_existence *existence_r);
 	int (*open)(struct mailbox *box);
 	void (*close)(struct mailbox *box);
 	void (*free)(struct mailbox *box);

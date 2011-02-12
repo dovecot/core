@@ -150,30 +150,43 @@ index_mailbox_alloc_index(struct mailbox *box)
 					  box->index_prefix);
 }
 
-int index_storage_mailbox_exists(struct mailbox *box)
+int index_storage_mailbox_exists(struct mailbox *box,
+				 enum mailbox_existence *existence_r)
 {
 	struct stat st;
-	const char *path;
+	const char *path, *path2;
 
 	if (strcmp(box->name, "INBOX") == 0 &&
 	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* INBOX always exists */
-		return 1;
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+		return 0;
 	}
 
+	/* see if it's selectable */
 	path = mailbox_list_get_path(box->list, box->name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(path, &st) == 0)
-		return 1;
-	else if (ENOTFOUND(errno) || errno == EACCES)
+	if (stat(path, &st) == 0) {
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
 		return 0;
-	else {
+	}
+	if (!ENOTFOUND(errno) && errno != EACCES) {
 		mail_storage_set_critical(box->storage,
 					  "stat(%s) failed: %m", path);
 		return -1;
 	}
-}
 
+	/* see if it's non-selectable */
+	path2 = mailbox_list_get_path(box->list, box->name,
+				      MAILBOX_LIST_PATH_TYPE_DIR);
+	if (strcmp(path, path2) != 0 &&
+	    stat(path2, &st) == 0) {
+		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
+		return 0;
+	}
+	*existence_r = MAILBOX_EXISTENCE_NONE;
+	return 0;
+}
 
 int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 {

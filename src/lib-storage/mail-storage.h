@@ -56,6 +56,12 @@ enum mailbox_feature {
 	MAILBOX_FEATURE_QRESYNC		= 0x02
 };
 
+enum mailbox_existence {
+	MAILBOX_EXISTENCE_NONE,
+	MAILBOX_EXISTENCE_NOSELECT,
+	MAILBOX_EXISTENCE_SELECT
+};
+
 enum mailbox_status_items {
 	STATUS_MESSAGES		= 0x01,
 	STATUS_RECENT		= 0x02,
@@ -343,9 +349,8 @@ bool mail_storage_is_mailbox_file(struct mail_storage *storage) ATTR_PURE;
    with possibly different readonly-state. */
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags);
-/* Returns 1 if mailbox exists (even if it's unselectable),
-   0 if not and -1 if some error occurred. */
-int mailbox_exists(struct mailbox *box);
+/* Get mailbox existence state */
+int mailbox_exists(struct mailbox *box, enum mailbox_existence *existence_r);
 /* Open the mailbox. If this function isn't called explicitly, it's also called
    internally by lib-storage when necessary. */
 int mailbox_open(struct mailbox *box);

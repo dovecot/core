@@ -428,7 +428,8 @@ acl_transaction_commit(struct mailbox_transaction_context *ctx,
 	return abox->module_ctx.super.transaction_commit(ctx, changes_r);
 }
 
-static int acl_mailbox_exists(struct mailbox *box)
+static int acl_mailbox_exists(struct mailbox *box,
+			      enum mailbox_existence *existence_r)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 	const char *const *rights;
@@ -447,8 +448,9 @@ static int acl_mailbox_exists(struct mailbox *box)
 		if (strcmp(rights[i], MAIL_ACL_LOOKUP) == 0 ||
 		    strcmp(rights[i], MAIL_ACL_READ) == 0 ||
 		    strcmp(rights[i], MAIL_ACL_INSERT) == 0)
-			return abox->module_ctx.super.exists(box);
+			return abox->module_ctx.super.exists(box, existence_r);
 	}
+	*existence_r = MAILBOX_EXISTENCE_NONE;
 	return 0;
 }
 

@@ -617,7 +617,7 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 	return FALSE;
 }
 
-int mailbox_exists(struct mailbox *box)
+int mailbox_exists(struct mailbox *box, enum mailbox_existence *existence_r)
 {
 	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
@@ -628,10 +628,11 @@ int mailbox_exists(struct mailbox *box)
 	if (have_listable_namespace_prefix(box->storage->user->namespaces,
 					   box->vname)) {
 		/* listable namespace prefix always exists */
-		return 1;
+		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
+		return 0;
 	}
 
-	return box->v.exists(box);
+	return box->v.exists(box, existence_r);
 }
 
 static int mailbox_check_mismatching_separators(struct mailbox *box)

@@ -8,13 +8,14 @@
 static bool
 subscribe_is_valid_name(struct client_command_context *cmd, struct mailbox *box)
 {
+	enum mailbox_existence existence;
 	int ret;
 
-	if ((ret = mailbox_exists(box)) < 0) {
+	if ((ret = mailbox_exists(box, &existence)) < 0) {
 		client_send_storage_error(cmd, mailbox_get_storage(box));
 		return FALSE;
 	}
-	if (ret == 0) {
+	if (existence == MAILBOX_EXISTENCE_NONE) {
 		client_send_tagline(cmd, t_strdup_printf(
 			"NO "MAIL_ERRSTR_MAILBOX_NOT_FOUND,
 			mailbox_get_vname(box)));
