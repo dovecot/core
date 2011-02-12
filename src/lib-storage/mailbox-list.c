@@ -1182,6 +1182,8 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 	struct stat st;
 	unsigned int len;
 
+	*flags_r = 0;
+
 	rootdir = mailbox_list_get_path(list, NULL,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
