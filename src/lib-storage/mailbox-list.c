@@ -1159,6 +1159,22 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 	return ctx->list->v.iter_deinit(ctx);
 }
 
+int mailbox_has_children(struct mailbox_list *list, const char *name)
+{
+	struct mailbox_list_iterate_context *iter;
+	const char *pattern;
+	int ret;
+
+	pattern = t_strdup_printf("%s%c%%", name,
+				  mail_namespace_get_sep(list->ns));
+	iter = mailbox_list_iter_init(list, pattern,
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	ret = mailbox_list_iter_next(iter) != NULL ? 1 : 0;
+	if (mailbox_list_iter_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
+}
+
 int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r)
 {

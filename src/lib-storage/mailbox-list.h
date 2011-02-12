@@ -243,6 +243,8 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **ctx);
    -1 if error. */
 int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r);
+/* Returns 1 if mailbox has children, 0 if not, -1 if error. */
+int mailbox_has_children(struct mailbox_list *list, const char *name);
 
 /* Subscribe/unsubscribe mailbox. There should be no error when
    subscribing to already subscribed mailbox. Subscribing to

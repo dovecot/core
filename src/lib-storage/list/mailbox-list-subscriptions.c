@@ -208,21 +208,6 @@ mailbox_list_subscriptions_iter_init(struct mailbox_list *list,
 	return &ctx->ctx;
 }
 
-static void
-path_split(const char *path, const char **dir_r, const char **fname_r)
-{
-	const char *p;
-
-	p = strrchr(path, '/');
-	if (p == NULL) {
-		*dir_r = "";
-		*fname_r = path;
-	} else {
-		*dir_r = t_strdup_until(path, p);
-		*fname_r = p + 1;
-	}
-}
-
 const struct mailbox_info *
 mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
@@ -231,8 +216,8 @@ mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 	struct mailbox_list *list = _ctx->list;
 	struct mailbox_node *node;
 	enum mailbox_info_flags subs_flags;
-	const char *path, *vname, *dir, *fname, *storage_name;
-	struct stat st;
+	const char *vname, *storage_name;
+	int ret;
 
 	node = mailbox_tree_iterate_next(ctx->iter, &vname);
 	if (node == NULL)
@@ -253,14 +238,21 @@ mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 	if (!mailbox_list_is_valid_pattern(list, storage_name)) {
 		/* broken entry in subscriptions file */
 		ctx->info.flags = MAILBOX_NONEXISTENT;
-	} else {
-		path = mailbox_list_get_path(list, storage_name,
-					     MAILBOX_LIST_PATH_TYPE_DIR);
-		path_split(path, &dir, &fname);
-		if (list->v.get_mailbox_flags(list, dir, fname,
-					      MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-					      &st, &ctx->info.flags) < 0)
+	} else if (mailbox_list_mailbox(list, storage_name,
+					&ctx->info.flags) < 0) {
+		ctx->info.flags = 0;
+		_ctx->failed = TRUE;
+	} else if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) != 0 &&
+		   (ctx->info.flags & (MAILBOX_CHILDREN |
+				       MAILBOX_NOCHILDREN)) == 0) {
+		ret = mailbox_has_children(list, storage_name);
+		if (ret < 0)
 			_ctx->failed = TRUE;
+		else if (ret == 0)
+			ctx->info.flags |= MAILBOX_NOCHILDREN;
+		else
+			ctx->info.flags |= MAILBOX_CHILDREN;
+
 	}
 
 	ctx->info.flags &= ~(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
