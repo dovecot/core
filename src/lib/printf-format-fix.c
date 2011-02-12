@@ -46,6 +46,7 @@ printf_format_fix_noalloc(const char *format, unsigned int *len_r)
 			case '\0':
 				i_panic("%% modifier missing");
 			}
+			p++;
 		}
 	}
 
