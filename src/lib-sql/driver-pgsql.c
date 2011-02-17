@@ -75,6 +75,8 @@ static void result_finish(struct pgsql_result *result);
 
 static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
 {
+	i_assert(state == SQL_DB_STATE_BUSY || db->cur_result == NULL);
+
 	/* switch back to original ioloop in case the caller wants to
 	   add/remove timeouts */
 	if (db->ioloop != NULL)
