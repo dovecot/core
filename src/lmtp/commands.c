@@ -71,7 +71,8 @@ int cmd_lhlo(struct client *client, const char *args)
 	client_send_line(client, "250-ENHANCEDSTATUSCODES");
 	client_send_line(client, "250 PIPELINING");
 
-	client->state.lhlo = p_strdup(client->state_pool, str_c(domain));
+	i_free(client->lhlo);
+	client->lhlo = i_strdup(str_c(domain));
 	return 0;
 }
 
@@ -712,7 +713,7 @@ static const char *client_get_added_headers(struct client *client)
 	if (rcpt_to != NULL)
 		str_printfa(str, "Delivered-To: <%s>\r\n", rcpt_to);
 
-	str_printfa(str, "Received: from %s", client->state.lhlo);
+	str_printfa(str, "Received: from %s", client->lhlo);
 	if ((host = net_ip2addr(&client->remote_ip)) != NULL)
 		str_printfa(str, " ([%s])", host);
 	str_printfa(str, "\r\n\tby %s ("PACKAGE_NAME") with LMTP id %s",
