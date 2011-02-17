@@ -844,8 +844,9 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 			"Can't rename mailboxes across specified storages.");
 		return -1;
 	}
-	if (src->list->ns->type != NAMESPACE_PRIVATE ||
-	    dest->list->ns->type != NAMESPACE_PRIVATE) {
+	if (src->list != dest->list &&
+	    (src->list->ns->type != NAMESPACE_PRIVATE ||
+	     dest->list->ns->type != NAMESPACE_PRIVATE)) {
 		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Renaming not supported across non-private namespaces.");
 		return -1;
