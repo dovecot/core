@@ -506,7 +506,12 @@ static void imapc_notify_changes(struct mailbox *box)
 
 	capa = imapc_client_get_capabilities(mbox->storage->client);
 	if ((capa & IMAPC_CAPABILITY_IDLE) != 0) {
-		/* we're doing IDLE all the time anyway - nothing to do here */
+		/* remote server is already in IDLE. but since some servers
+		   don't notice changes immediately, we'll force them to check
+		   here by sending a NOOP. this helps with clients that break
+		   IDLE when clicking "get mail". */
+		imapc_client_mailbox_cmd(mbox->client_box, "NOOP",
+					 imapc_async_callback, mbox->storage);
 	} else {
 		/* remote server doesn't support IDLE.
 		   check for changes with NOOP every once in a while. */
