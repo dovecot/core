@@ -382,10 +382,11 @@ static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
 	return ret;
 }
 
-static void proxy_client_worker_timeout(void *context ATTR_UNUSED)
+static void
+proxy_client_worker_timeout(struct proxy_client_dsync_worker *worker)
 {
 	i_error("proxy client timed out");
-	master_service_stop(master_service);
+	proxy_client_fail(worker);
 }
 
 struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
@@ -397,7 +398,7 @@ struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
 	worker->fd_in = fd_in;
 	worker->fd_out = fd_out;
 	worker->to = timeout_add(DSYNC_PROXY_TIMEOUT_MSECS,
-				 proxy_client_worker_timeout, NULL);
+				 proxy_client_worker_timeout, worker);
 	worker->io = io_add(fd_in, IO_READ, proxy_client_worker_input, worker);
 	worker->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
 	worker->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
