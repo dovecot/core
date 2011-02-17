@@ -1,6 +1,8 @@
 #ifndef DBOX_SYNC_REBUILD_H
 #define DBOX_SYNC_REBUILD_H
 
+struct mailbox_list;
+
 struct dbox_sync_rebuild_context {
 	struct mailbox *box;
 
@@ -23,5 +25,6 @@ void dbox_sync_index_rebuild_deinit(struct dbox_sync_rebuild_context **ctx);
 
 void dbox_sync_rebuild_index_metadata(struct dbox_sync_rebuild_context *ctx,
 				      uint32_t new_seq, uint32_t uid);
+int dbox_sync_rebuild_verify_alt_storage(struct mailbox_list *list);
 
 #endif

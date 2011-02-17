@@ -9,6 +9,7 @@
 #include "mail-cache.h"
 #include "dbox-sync-rebuild.h"
 #include "mail-namespace.h"
+#include "mailbox-list-private.h"
 #include "mdbox-storage.h"
 #include "mdbox-file.h"
 #include "mdbox-map-private.h"
@@ -891,6 +892,14 @@ int mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 {
 	struct mdbox_storage_rebuild_context *ctx;
 	int ret;
+
+	if (dbox_sync_rebuild_verify_alt_storage(storage->map->root_list) < 0) {
+		mail_storage_set_critical(&storage->storage.storage,
+			"mdbox rebuild: Alt storage %s not mounted, aborting",
+			storage->alt_storage_dir);
+		mdbox_map_atomic_set_failed(atomic);
+		return -1;
+	}
 
 	ctx = mdbox_storage_rebuild_init(storage, atomic);
 	ret = mdbox_storage_rebuild_scan(ctx);
