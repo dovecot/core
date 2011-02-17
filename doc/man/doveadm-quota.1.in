@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-QUOTA 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
+.\" Copyright (c) 2010-2011 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-QUOTA 1 "2011-02-17" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-quota \- Initialize/recalculate or show current quota usage
 .\"------------------------------------------------------------------------
@@ -71,6 +71,7 @@ Command specific
 The
 .B quota get
 command is used to display the current quota usage.
+The storage values are reported in kilobytes.
 .PP
 This command uses by default the output formatter
 .BR table .
