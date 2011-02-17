@@ -182,6 +182,11 @@ dsync_brain_msg_sync_add_new_msg(struct dsync_brain_msg_iter *dest_iter,
 		dest_iter->adding_msgs = FALSE;
 		if (dsync_worker_output_flush(src_iter->worker) < 0)
 			return -1;
+		if (dsync_worker_is_output_full(dest_iter->worker)) {
+			/* see if the output becomes less full by flushing */
+			if (dsync_worker_output_flush(dest_iter->worker) < 0)
+				return -1;
+		}
 	}
 	return dsync_worker_is_output_full(dest_iter->worker) ? 0 : 1;
 }
