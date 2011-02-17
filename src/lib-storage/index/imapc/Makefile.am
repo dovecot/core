@@ -27,6 +27,8 @@ libstorage_imapc_la_SOURCES = \
 	imapc-storage.c
 
 headers = \
+	imapc-client.h \
+	imapc-client-private.h \
 	imapc-connection.h \
 	imapc-list.h \
 	imapc-mail.h \
