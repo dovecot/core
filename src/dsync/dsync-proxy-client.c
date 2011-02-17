@@ -977,6 +977,8 @@ static void
 proxy_client_send_stream_real(struct proxy_client_dsync_worker *worker)
 {
 	dsync_worker_save_callback_t *callback;
+	void *context;
+	struct istream *input;
 	const unsigned char *data;
 	size_t size;
 	int ret;
@@ -1019,11 +1021,20 @@ proxy_client_send_stream_real(struct proxy_client_dsync_worker *worker)
 	}
 
 	callback = worker->save_callback;
+	context = worker->save_context;
 	worker->save_callback = NULL;
-	i_stream_unref(&worker->save_input);
+	worker->save_context = NULL;
+
+	/* a bit ugly way to free the stream. the problem is that local worker
+	   has set a destroy callback, which in turn can call our msg_save()
+	   again before the i_stream_unref() is finished. */
+	input = worker->save_input;
+	worker->save_input = NULL;
+	i_stream_unref(&input);
+
 	(void)proxy_client_worker_output_flush(&worker->worker);
 
-	callback(worker->save_context);
+	callback(context);
 }
 
 static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker)
@@ -1053,7 +1064,7 @@ proxy_client_worker_msg_save(struct dsync_worker *_worker,
 		proxy_client_worker_cmd(worker, str);
 	} T_END;
 
-	i_assert(worker->save_io == NULL);
+	i_assert(worker->save_input == NULL);
 	worker->save_callback = callback;
 	worker->save_context = context;
 	worker->save_input = data->input;
