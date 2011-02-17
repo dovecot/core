@@ -422,6 +422,10 @@ static void flush_callback(struct pgsql_result *result)
 
 static void query_timeout(struct pgsql_result *result)
 {
+        struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+
+	driver_pgsql_stop_io(db);
+
 	i_error("pgsql: Query timed out, aborting");
 	result->timeout = TRUE;
 	result_finish(result);
