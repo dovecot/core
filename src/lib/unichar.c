@@ -388,3 +388,10 @@ bool uni_utf8_str_is_valid(const char *str)
 	return uni_utf8_find_invalid_pos((const unsigned char *)str,
 					 strlen(str), &i) == 0;
 }
+
+bool uni_utf8_data_is_valid(const unsigned char *data, size_t size)
+{
+	size_t i;
+
+	return uni_utf8_find_invalid_pos(data, size, &i) == 0;
+}

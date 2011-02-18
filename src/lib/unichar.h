@@ -75,5 +75,7 @@ bool uni_utf8_get_valid_data(const unsigned char *input, size_t size,
 			     buffer_t *buf);
 /* Returns TRUE if string is valid UTF-8 input. */
 bool uni_utf8_str_is_valid(const char *str);
+/* Returns TRUE if data contains only valid UTF-8 input. */
+bool uni_utf8_data_is_valid(const unsigned char *data, size_t size);
 
 #endif
