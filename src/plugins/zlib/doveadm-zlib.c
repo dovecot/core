@@ -138,7 +138,8 @@ static void server_input(struct client *client)
 	}
 
 	data = i_stream_get_data(client->input, &size);
-	write(STDOUT_FILENO, data, size);
+	if (write(STDOUT_FILENO, data, size) < 0)
+		i_fatal("write(stdout) failed: %m");
 	i_stream_skip(client->input, size);
 }
 
