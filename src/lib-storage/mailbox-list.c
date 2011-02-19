@@ -366,7 +366,8 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 			/* trying to access the namespace prefix itself */
 			storage_name = "";
 		} else {
-			i_assert(strcmp(storage_name, "INBOX") == 0);
+			/* it's either INBOX, or we're converting a nonexistent
+			   mailbox name, such as a LIST pattern. */
 		}
 	}
 
