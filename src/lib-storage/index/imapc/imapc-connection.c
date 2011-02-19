@@ -214,6 +214,9 @@ static void imapc_connection_disconnect(struct imapc_connection *conn)
 	if (conn->fd == -1)
 		return;
 
+	if (conn->client->set.debug)
+		i_debug("imapc(%s): Disconnected", conn->name);
+
 	imapc_connection_lfiles_free(conn);
 	imapc_connection_literal_reset(&conn->literal);
 	if (conn->to != NULL)
@@ -380,6 +383,11 @@ imapc_connection_parse_capability(struct imapc_connection *conn,
 	const char *const *tmp;
 	unsigned int i;
 
+	if (conn->client->set.debug) {
+		i_debug("imapc(%s): Server capabilities: %s",
+			conn->name, value);
+	}
+
 	conn->capabilities = 0;
 	if (conn->capabilities_list != NULL)
 		p_strsplit_free(default_pool, conn->capabilities_list);
@@ -526,6 +534,9 @@ static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 		return;
 	}
 
+	if (conn->client->set.debug)
+		i_debug("imapc(%s): Authenticated successfully", conn->name);
+
 	timeout_remove(&conn->to);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DONE);
 }
@@ -557,6 +568,16 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
 	const struct imapc_client_settings *set = &conn->client->set;
 	const char *cmd;
+
+	if (conn->client->set.debug) {
+		if (set->master_user == NULL) {
+			i_debug("imapc(%s): Authenticating as %s",
+				conn->name, set->username);
+		} else {
+			i_debug("imapc(%s): Authenticating as %s for user %s",
+				conn->name, set->master_user, set->username);
+		}
+	}
 
 	if ((set->master_user == NULL &&
 	     need_literal(set->username) && need_literal(set->password)) ||
@@ -912,8 +933,13 @@ static int imapc_connection_ssl_handshaked(void *context)
 {
 	struct imapc_connection *conn = context;
 
-	if (ssl_iostream_has_valid_client_cert(conn->ssl_iostream))
+	if (ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
+		if (conn->client->set.debug) {
+			i_debug("imapc(%s): SSL handshake successful",
+				conn->name);
+		}
 		return 0;
+	}
 
 	if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream)) {
 		i_error("imapc(%s): SSL certificate not received", conn->name);
@@ -939,6 +965,9 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	ssl_set.verbose_invalid_cert = TRUE;
 	ssl_set.verify_remote_cert = TRUE;
 	ssl_set.require_valid_cert = TRUE;
+
+	if (conn->client->set.debug)
+		i_debug("imapc(%s): Starting SSL handshake", conn->name);
 
 	source = t_strdup_printf("imapc(%s): ", conn->name);
 	if (io_stream_create_ssl(conn->client->ssl_ctx, source, &ssl_set,
@@ -1003,11 +1032,12 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 
 static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 {
+	const struct ip_addr *ip;
 	int fd;
 
 	conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
-	fd = net_connect_ip(&conn->ips[conn->prev_connect_idx],
-			    conn->client->set.port, NULL);
+	ip = &conn->ips[conn->prev_connect_idx];
+	fd = net_connect_ip(ip, conn->client->set.port, NULL);
 	if (fd == -1) {
 		imapc_connection_set_state(conn,
 			IMAPC_CONNECTION_STATE_DISCONNECTED);
@@ -1020,6 +1050,10 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->parser = imap_parser_create(conn->input, NULL, (size_t)-1);
 	conn->to = timeout_add(IMAPC_CONNECT_TIMEOUT_MSECS,
 			       imapc_connection_timeout, conn);
+	if (conn->client->set.debug) {
+		i_debug("imapc(%s): Connecting to %s:%u", conn->name,
+			net_ip2addr(ip), conn->client->set.port);
+	}
 }
 
 static void
@@ -1051,6 +1085,9 @@ void imapc_connection_connect(struct imapc_connection *conn)
 
 	if (conn->fd != -1)
 		return;
+
+	if (conn->client->set.debug)
+		i_debug("imapc(%s): Looking up IP address", conn->name);
 
 	memset(&dns_set, 0, sizeof(dns_set));
 	dns_set.dns_client_socket_path =

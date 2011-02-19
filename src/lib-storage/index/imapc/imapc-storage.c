@@ -193,6 +193,8 @@ imapc_storage_create(struct mail_storage *_storage,
 	set.dns_client_socket_path =
 		t_strconcat(_storage->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
+	set.debug = _storage->set->mail_debug;
+
 	str = t_str_new(128);
 	mail_user_set_get_temp_prefix(str, _storage->user->set);
 	set.temp_path_prefix = str_c(str);

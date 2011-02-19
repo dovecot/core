@@ -44,6 +44,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 	client = p_new(pool, struct imapc_client, 1);
 	client->pool = pool;
 
+	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
 	client->set.port = set->port;
 	client->set.master_user = p_strdup(pool, set->master_user);

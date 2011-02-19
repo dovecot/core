@@ -44,6 +44,8 @@ struct imapc_client_settings {
 
 	enum imapc_client_ssl_mode ssl_mode;
 	const char *ssl_ca_dir;
+
+	bool debug;
 };
 
 struct imapc_command_reply {
