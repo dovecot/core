@@ -2440,6 +2440,8 @@ LINKED_STORAGE_LIBS=
 mail_storages="$mail_storages raw"
 # drop duplicates
 mail_storages=`(for i in $mail_storages; do echo $i; done)|sort|uniq|xargs echo`
+
+mailbox_list_drivers="maildir imapdir none fs shared"
 have_sdbox=no
 for storage in $mail_storages; do
   LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"
@@ -2450,8 +2452,12 @@ for storage in $mail_storages; do
     LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS $dbox_common_libs"
     dbox_common_libs=""
   fi
+  if test $storage = imapc; then
+    mailbox_list_drivers="$mailbox_list_drivers imapc"
+  fi
 done
 AC_SUBST(LINKED_STORAGE_LIBS)
+AC_SUBST(mailbox_list_drivers)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 
 if test $have_sdbox = yes; then
