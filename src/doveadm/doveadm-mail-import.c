@@ -172,7 +172,7 @@ static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx,
 
 	/* create a user for accessing the source storage */
 	memset(&input, 0, sizeof(input));
-	input.module = "module";
+	input.module = "mail";
 	input.username = "doveadm";
 	input.no_userdb_lookup = TRUE;
 	input.userdb_fields = userdb_fields;
