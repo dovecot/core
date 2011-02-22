@@ -1,3 +1,17 @@
+ - mailbox list index:
+    - with in-memory indexes be sure to refresh it more often
+    - refreshing could refresh only the parts that are actually requested,
+      e.g. %
+    - mailbox_get_metadata(guid) could be optimized
+    - virtual could use it to avoid keeping all mailboxes open
+ - ioloop: if next timeout is happening in less than 0.5ms from now, just run it
+ - lib-ssl-iostream: Verify remote server name. get logic from postfix.
+ - imapc: THREAD is broken - i guess it needs multiple IMAP connections
+ - imapc: fix hangs if remote disconnects
+ - stephan wants an easy way to get mail_user without storage
+     - and check the pipe plugin thing
+ - "protocols = $protocols sieve" when there no explicit protocols setting
+   gives duplicates
  - check:
     - dsyncing between two namespace separators is probably broken..
  - remove mail_deliver_session after all, do all the stuff transparently
@@ -11,20 +25,14 @@
    already expunged. IMAP DELETE could fail with "mailbox changed during
    deletion, aborting" if new messages arrive
      - if doing any changes, figure out how to handle symlinked mailboxes
+         - if mail root dir is a symlink, simply unlink() it?
  - maildir: copy dovecot-shared file from parent mailbox, not root.
  - is mail_index_sync_have_any() really necessary? especially that it returns
    TRUE for ext rec changes ... why?...
- - mailbox listing to use UTF8 everywhere
-    - move namespace sep vs. real_sep check from imap client_find_namespace()
-      to lib-storage mailbox name validity check
- - rewrite autocreate plugin by making it list virtual mailbox names and only
-   lazily autocreate create them when mailbox is opened
  - login-common API change to fix compiling with
    LDFLAGS="-Wl,--as-needed -Wl,--no-undefined"
  - if global ACL path points to a file instead of a directory, read all of
    them from there. support wildcards in names.
- - remove 3 unnecessary stat() calls when opening mailbox. they all come from
-   mailbox_list_get_permissions_full()
 
  - master passdb preserves userdb_* extra fields. should it preserve
    non-userdb_* extra fields too?
@@ -45,7 +53,6 @@
  - dsync: if mailbox is renamed due to it being invalid, its subscription
    isn't renamed
  - doveadm director assign <user> <host> - do it permanently in memory
- - LSUB shows subscribed namespace prefix as prefix/, also SUBSCRIBE adds the /
  - sql pool: if async query is pending and sync query is sent and there
    are no more empty connections, it should flush the async query first
  - NTLMv1 and LM should be disabled if disable_plaintext_auth=yes
@@ -156,8 +163,6 @@
    - recent_uids assert at least with mbox
  - quota fs: Should values returned by quota be divided by the actual
    filesystem block size instead of hardcoded DEV_BSIZE? not with AIX..
- - mailbox list fs: Listing subscriptions with children return options doesn't
-   work unless iter_is_mailbox() returns the children flags
  - lucene: handle replacement chars?
  - squat:
    - support ORs
