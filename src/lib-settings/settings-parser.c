@@ -66,6 +66,9 @@ static const struct setting_parser_info strlist_info = {
 	.parent_offset = (size_t)-1
 };
 
+static int settings_parse_keyvalue(struct setting_parser_context *ctx,
+				   const char *key, const char *value);
+
 static void
 setting_parser_copy_defaults(struct setting_parser_context *ctx, 
 			     const struct setting_parser_info *info,
@@ -657,7 +660,7 @@ settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
 {
 	const struct setting_define *def;
 	struct setting_link *link;
-	const char *end;
+	const char *end, *parent_key;
 	unsigned int i;
 
 	/* try to find from roots */
@@ -679,9 +682,27 @@ settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
 	if (end == NULL)
 		return FALSE;
 
-	link = hash_table_lookup(ctx->links, t_strdup_until(key, end));
-	if (link == NULL)
-		return FALSE;
+	parent_key = t_strdup_until(key, end);
+	link = hash_table_lookup(ctx->links, parent_key);
+	if (link == NULL) {
+		/* maybe this is the first strlist value */
+		unsigned int parent_n = 0;
+		const struct setting_define *parent_def;
+		struct setting_link *parent_link;
+
+		if (!settings_find_key_nth(ctx, parent_key, &parent_n,
+					   &parent_def, &parent_link))
+			return FALSE;
+		if (parent_def->type != SET_STRLIST)
+			return FALSE;
+
+		/* setting parent_key=0 adds it to links list */
+		if (settings_parse_keyvalue(ctx, parent_key, "0") <= 0)
+			return FALSE;
+
+		link = hash_table_lookup(ctx->links, parent_key);
+		i_assert(link != NULL);
+	}
 
 	*link_r = link;
 	if (link->info == &strlist_info) {
