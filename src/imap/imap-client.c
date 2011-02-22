@@ -432,7 +432,7 @@ client_command_find_with_flags(struct client_command_context *new_cmd,
 	return NULL;
 }
 
-static bool client_command_check_ambiguity(struct client_command_context *cmd)
+static bool client_command_is_ambiguous(struct client_command_context *cmd)
 {
 	enum command_flags flags;
 	enum client_command_state max_state =
@@ -442,6 +442,17 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 	if ((cmd->cmd_flags & COMMAND_FLAG_REQUIRES_SYNC) != 0 &&
 	    !imap_sync_is_allowed(cmd->client))
 		return TRUE;
+
+	if (cmd->search_save_result_used) {
+		/* if there are pending commands that update the search
+		   save result, wait */
+		struct client_command_context *old_cmd = cmd->next;
+
+		for (; old_cmd != NULL; old_cmd = old_cmd->next) {
+			if (old_cmd->search_save_result)
+				return TRUE;
+		}
+	}
 
 	if ((cmd->cmd_flags & COMMAND_FLAG_BREAKS_MAILBOX) ==
 	    COMMAND_FLAG_BREAKS_MAILBOX) {
@@ -578,11 +589,11 @@ void client_continue_pending_input(struct client *client)
 
 		/* the command is waiting for existing ambiguity causing
 		   commands to finish. */
-		if (client_command_check_ambiguity(cmd)) {
+		if (client_command_is_ambiguous(cmd)) {
 			/* we could be waiting for existing sync to finish */
 			if (!cmd_sync_delayed(client))
 				return;
-			if (client_command_check_ambiguity(cmd))
+			if (client_command_is_ambiguous(cmd))
 				return;
 		}
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
@@ -690,7 +701,7 @@ static bool client_command_input(struct client_command_context *cmd)
 	} else if ((command = command_find(cmd->name)) != NULL) {
 		cmd->func = command->func;
 		cmd->cmd_flags = command->flags;
-		if (client_command_check_ambiguity(cmd)) {
+		if (client_command_is_ambiguous(cmd)) {
 			/* do nothing until existing commands are finished */
 			i_assert(cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT);
 			cmd->state = CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY;
@@ -907,6 +918,7 @@ bool client_handle_search_save_ambiguity(struct client_command_context *cmd)
 	i_assert(cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT);
 	cmd->client->input_lock = cmd;
 	cmd->state = CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY;
+	cmd->search_save_result_used = TRUE;
 	io_remove(&cmd->client->io);
 	return TRUE;
 }
