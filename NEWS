@@ -1,3 +1,19 @@
+v2.1.UNSTABLE 2011-xx-xx  Timo Sirainen <tss@iki.fi>
+
+	* Plugins now use UTF-8 mailbox names rather than mUTF-7:
+	  acl, autocreate, expire, trash, virtual
+
+	+ imapc (= IMAP client) storage allows using a remote IMAP server to
+	  be used as storage. This allows using Dovecot as a smart (caching)
+	  proxy or using dsync to do migration from remote IMAP server.
+	+ Autocreate plugin creates/subscribes mailboxes physically only when
+	  the mailbox is opened for the first time. Mailbox listing shows the
+	  autocreated mailboxes even if they don't physically exist.
+	- listescape plugin works perfectly now
+	- virtual storage: Fixed saving multiple mails in a transaction
+	  (e.g. copy multiple messages).
+	- dsync: Saved messages' save-date was set to 1970-01-01.
+
 v2.0.9 2011-01-13  Timo Sirainen <tss@iki.fi>
 
 	- Linux: Fixed a high system CPU usage / high context switch count
