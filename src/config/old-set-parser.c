@@ -357,7 +357,8 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (strcmp(key, "login_process_size") == 0) {
-		config_apply_login_set(ctx, old_section, key, "vsz_limit", value);
+		config_apply_login_set(ctx, old_section, key, "vsz_limit",
+				       t_strconcat(value, " M", NULL));
 		return TRUE;
 	}
 	if (strcmp(key, "login_process_per_connection") == 0) {
@@ -378,7 +379,8 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (strcmp(key, "login_process_size") == 0) {
-		config_apply_login_set(ctx, old_section, key, "vsz_limit", value);
+		config_apply_login_set(ctx, old_section, key, "vsz_limit",
+				       t_strconcat(value, " M", NULL));
 		return TRUE;
 	}
 
@@ -391,7 +393,8 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (strcmp(key, "mail_process_size") == 0) {
-		config_apply_mail_set(ctx, old_section, key, "vsz_limit", value);
+		config_apply_mail_set(ctx, old_section, key, "vsz_limit",
+				      t_strconcat(value, " M", NULL));
 		return TRUE;
 	}
 	if (strcmp(key, "mail_drop_priv_before_exec") == 0) {
@@ -409,7 +412,8 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (strcmp(key, "auth_process_size") == 0) {
-		config_apply_auth_set(ctx, key, "vsz_limit", value);
+		config_apply_auth_set(ctx, key, "vsz_limit",
+				      t_strconcat(value, " M", NULL));
 		return TRUE;
 	}
 	if (strcmp(key, "auth_user") == 0) {
