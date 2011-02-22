@@ -495,13 +495,25 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		array_create_from_buffer(&uids, &uid_buf,
 			sizeof(struct mail_transaction_expunge));
 		break;
-	case MAIL_TRANSACTION_EXPUNGE_GUID:
-		if ((rec_size % sizeof(struct mail_transaction_expunge_guid)) != 0) {
+	case MAIL_TRANSACTION_EXPUNGE_GUID: {
+		const struct mail_transaction_expunge_guid *recs = data;
+		unsigned int i, count;
+
+		if ((rec_size % sizeof(*recs)) != 0) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid expunge guid record size");
 			return FALSE;
 		}
+		count = rec_size / sizeof(*recs);
+		for (i = 0; i < count; i++) {
+			if (recs[i].uid == 0) {
+				mail_transaction_log_file_set_corrupted(file,
+					"Expunge guid record with uid=0");
+				return FALSE;
+			}
+		}
 		break;
+	}
 	case MAIL_TRANSACTION_FLAG_UPDATE:
 		buffer_create_const_data(&uid_buf, data, rec_size);
 		array_create_from_buffer(&uids, &uid_buf,
