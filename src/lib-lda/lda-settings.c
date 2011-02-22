@@ -20,6 +20,7 @@ static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 static const struct setting_define lda_setting_defines[] = {
 	DEF(SET_STR, postmaster_address),
 	DEF(SET_STR, hostname),
+	DEF(SET_STR, submission_host),
 	DEF(SET_STR, sendmail_path),
 	DEF(SET_STR, rejection_subject),
 	DEF(SET_STR, rejection_reason),
@@ -36,6 +37,7 @@ static const struct setting_define lda_setting_defines[] = {
 static const struct lda_settings lda_default_settings = {
 	.postmaster_address = "",
 	.hostname = "",
+	.submission_host = "",
 	.sendmail_path = "/usr/sbin/sendmail",
 	.rejection_subject = "Rejected: %s",
 	.rejection_reason =

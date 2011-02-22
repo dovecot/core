@@ -74,6 +74,15 @@ static void config_add_type(struct setting_parser_context *parser,
 	i_assert(ret > 0);
 }
 
+static bool
+config_parser_is_in_localremote(struct config_section_stack *section)
+{
+	const struct config_filter *filter = &section->filter;
+
+	return filter->local_name != NULL || filter->local_bits > 0 ||
+		filter->remote_bits > 0;
+}
+
 int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char *line, const char *section_name)
 {
@@ -85,6 +94,14 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 		ret = settings_parse_line(l->parser, line);
 		if (ret > 0) {
 			found = TRUE;
+			/* FIXME: remove once auth does support these. */
+			if (strcmp(l->root->module_name, "auth") == 0 &&
+			    config_parser_is_in_localremote(ctx->cur_section)) {
+				ctx->error = p_strconcat(ctx->pool,
+					"Auth settings not supported inside local/remote blocks: ",
+					key, NULL);
+				return -1;
+			}
 			if (section_name != NULL)
 				config_add_type(l->parser, line, section_name);
 		} else if (ret < 0) {

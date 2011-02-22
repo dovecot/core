@@ -136,6 +136,7 @@ ssize_t i_stream_read(struct istream *stream)
 		break;
 	default:
 		i_assert(ret > 0);
+		i_assert(_stream->skip < _stream->pos);
 		i_assert((size_t)ret+old_size == _stream->pos - _stream->skip);
 		break;
 	}

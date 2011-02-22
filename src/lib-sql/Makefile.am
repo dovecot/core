@@ -64,6 +64,12 @@ libdriver_sqlite_la_CPPFLAGS = -I$(top_srcdir)/src/lib $(SQLITE_CFLAGS)
 libdriver_sqlite_la_SOURCES = driver-sqlite.c
 endif
 
+pkglib_LTLIBRARIES = libdovecot-sql.la
+libdovecot_sql_la_SOURCES = 
+libdovecot_sql_la_LIBADD = libsql.la $(MODULE_LIBS)
+libdovecot_sql_la_DEPENDENCIES = libsql.la
+libdovecot_sql_la_LDFLAGS = -export-dynamic
+
 headers = \
 	sql-api.h \
 	sql-api-private.h \

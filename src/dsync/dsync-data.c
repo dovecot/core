@@ -19,7 +19,9 @@ dsync_mailbox_dup(pool_t pool, const struct dsync_mailbox *box)
 
 	if (array_is_created(&box->cache_fields))
 		cache_fields = array_get(&box->cache_fields, &count);
-	if (count > 0) {
+	if (count == 0)
+		memset(&dest->cache_fields, 0, sizeof(dest->cache_fields));
+	else {
 		p_array_init(&dest->cache_fields, pool, count);
 		for (i = 0; i < count; i++) {
 			dup = p_strdup(pool, cache_fields[i]);

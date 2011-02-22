@@ -1074,6 +1074,10 @@ uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
 int maildir_uidlist_get_mailbox_guid(struct maildir_uidlist *uidlist,
 				     uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
 {
+	if (!uidlist->initial_hdr_read) {
+		if (maildir_uidlist_refresh(uidlist) < 0)
+			return -1;
+	}
 	if (!uidlist->have_mailbox_guid) {
 		uidlist->recreate = TRUE;
 		if (maildir_uidlist_update(uidlist) < 0)

@@ -58,7 +58,7 @@ struct mail_storage_service_user {
 	pool_t pool;
 	struct mail_storage_service_input input;
 
-	const char *system_groups_user;
+	const char *system_groups_user, *uid_source, *gid_source;
 	const struct mail_user_settings *user_set;
 	const struct setting_parser_info *user_info;
 	struct setting_parser_context *set_parser;
@@ -178,10 +178,13 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 			*error_r = "userdb returned 0 as uid";
 			return -1;
 		}
+		user->uid_source = "userdb lookup";
 		set_keyval(ctx, user, "mail_uid", dec2str(reply->uid));
 	}
-	if (reply->gid != (uid_t)-1)
+	if (reply->gid != (uid_t)-1) {
+		user->gid_source = "userdb lookup";
 		set_keyval(ctx, user, "mail_gid", dec2str(reply->gid));
+	}
 
 	if (home != NULL && chroot == NULL &&
 	    *user->user_set->valid_chroot_dirs != '\0' &&
@@ -299,8 +302,8 @@ static bool parse_gid(const char *str, gid_t *gid_r)
 }
 
 static int
-service_drop_privileges(const struct mail_user_settings *set,
-			const char *system_groups_user,
+service_drop_privileges(struct mail_storage_service_user *user,
+			const struct mail_user_settings *set,
 			const char *home, const char *chroot,
 			bool disallow_root, bool keep_setuid_root,
 			bool setenv_only, const char **error_r)
@@ -327,6 +330,7 @@ service_drop_privileges(const struct mail_user_settings *set,
 				dec2str(rset.uid));
 			return -1;
 		}
+		rset.uid_source = user->uid_source;
 	} else if (rset.uid == (uid_t)-1 &&
 		   disallow_root && current_euid == 0) {
 		*error_r = "User is missing UID (see mail_uid setting)";
@@ -347,6 +351,7 @@ service_drop_privileges(const struct mail_user_settings *set,
 				dec2str(rset.gid));
 			return -1;
 		}
+		rset.gid_source = user->gid_source;
 	} else if (rset.gid == (gid_t)-1 && disallow_root &&
 		   set->first_valid_gid > 0 && getegid() == 0) {
 		*error_r = "User is missing GID (see mail_gid setting)";
@@ -370,7 +375,7 @@ service_drop_privileges(const struct mail_user_settings *set,
 	/* we can't chroot if we want to switch between users. there's not
 	   much point either (from security point of view) */
 	rset.chroot_dir = *chroot == '\0' || keep_setuid_root ? NULL : chroot;
-	rset.system_groups_user = system_groups_user;
+	rset.system_groups_user = user->system_groups_user;
 
 	cur_chroot = restrict_access_get_current_chroot();
 	if (cur_chroot != NULL) {
@@ -647,6 +652,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 
 	memset(&set_input, 0, sizeof(set_input));
 	set_input.roots = ctx->set_roots;
+	set_input.preserve_user = TRUE;
 	/* settings reader may exec doveconf, which is going to clear
 	   environment, and if we're not doing a userdb lookup we want to
 	   use $HOME */
@@ -820,6 +826,8 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 		i_panic("settings_parser_check() failed: %s", error);
 
 	user->user_set = settings_parser_get_list(user->set_parser)[1];
+	user->gid_source = "mail_gid setting";
+	user->uid_source = "mail_uid setting";
 
 	if (!userdb_lookup) {
 		const char *home = getenv("HOME");
@@ -891,17 +899,21 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 	} else if (len > 0 && temp_priv_drop) {
 		/* we're dropping privileges only temporarily, so we can't
 		   chroot. fix home directory so we can access it. */
-		set_keyval(ctx, user, "mail_home",
-			   t_strconcat(chroot, "/", home, NULL));
+		if (*home == '\0' || strcmp(home, "/") == 0)
+			home = chroot;
+		else
+			home = t_strconcat(chroot, home, NULL);
+		chroot = "";
+		set_keyval(ctx, user, "mail_home", home);
 	}
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
 		mail_storage_service_init_log(ctx, user);
 
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
-		if (service_drop_privileges(user_set, user->system_groups_user,
-					    home, chroot, disallow_root,
-					    temp_priv_drop, FALSE, &error) < 0) {
+		if (service_drop_privileges(user, user_set, home, chroot,
+					    disallow_root, temp_priv_drop,
+					    FALSE, &error) < 0) {
 			i_error("user %s: Couldn't drop privileges: %s",
 				user->input.username, error);
 			return -1;
@@ -935,8 +947,8 @@ void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
 	chroot = user_expand_varstr(ctx->service, &user->input,
 				    user_set->mail_chroot);
 
-	if (service_drop_privileges(user_set, user->system_groups_user,
-				    home, chroot, FALSE, FALSE, TRUE,
+	if (service_drop_privileges(user, user_set, home, chroot,
+				    FALSE, FALSE, TRUE,
 				    &error) < 0)
 		i_fatal("%s", error);
 }

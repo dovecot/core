@@ -4,11 +4,20 @@
 enum mail_flags;
 enum mail_error;
 struct mail_storage;
+struct mail_save_context;
 struct mailbox;
+
+struct mail_deliver_session {
+	pool_t pool;
+
+	/* List of users who have already saved this mail to their INBOX */
+	ARRAY_TYPE(const_string) inbox_users;
+};
 
 struct mail_deliver_context {
 	pool_t pool;
 	const struct lda_settings *set;
+	struct mail_deliver_session *session;
 
 	struct duplicate_context *dup_ctx;
 
@@ -62,6 +71,9 @@ const char *mail_deliver_get_address(struct mail *mail, const char *header);
 const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx);
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx);
 
+struct mail_deliver_session *mail_deliver_session_init(void);
+void mail_deliver_session_deinit(struct mail_deliver_session **session);
+
 /* Try to open mailbox for saving. Returns 0 if ok, -1 if error. The box may
    be returned even with -1, and the caller must free it then. */
 int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
@@ -70,6 +82,8 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		      enum mail_flags flags, const char *const *keywords,
 		      struct mail_storage **storage_r);
+void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *session,
+					     struct mail_save_context *save_ctx);
 
 int mail_deliver(struct mail_deliver_context *ctx,
 		 struct mail_storage **storage_r);

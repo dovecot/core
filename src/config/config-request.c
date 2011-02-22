@@ -286,15 +286,13 @@ settings_export(struct config_export_context *ctx,
 				break;
 			}
 			hash_table_insert(ctx->keys, key, key);
-			ctx->callback(key, "0", CONFIG_KEY_LIST, ctx->context);
 
 			strings = array_get(val, &count);
 			i_assert(count % 2 == 0);
 			for (i = 0; i < count; i += 2) {
-				str = p_strdup_printf(ctx->pool, "%s%s%c0%c%s",
+				str = p_strdup_printf(ctx->pool, "%s%s%c%s",
 						      str_c(ctx->prefix),
 						      def->key,
-						      SETTINGS_SEPARATOR,
 						      SETTINGS_SEPARATOR,
 						      strings[i]);
 				ctx->callback(str, strings[i+1],

@@ -479,6 +479,13 @@ int dbox_file_append_commit(struct dbox_file_append_context **_ctx)
 	*_ctx = NULL;
 
 	ret = dbox_file_append_flush(ctx);
+	if (ctx->last_checkpoint_offset != ctx->output->offset) {
+		o_stream_close(ctx->output);
+		if (ftruncate(ctx->file->fd, ctx->last_checkpoint_offset) < 0) {
+			dbox_file_set_syscall_error(ctx->file, "ftruncate()");
+			return -1;
+		}
+	}
 	o_stream_unref(&ctx->output);
 	ctx->file->appending = FALSE;
 	i_free(ctx);
@@ -538,6 +545,11 @@ int dbox_file_append_flush(struct dbox_file_append_context *ctx)
 	return 0;
 }
 
+void dbox_file_append_checkpoint(struct dbox_file_append_context *ctx)
+{
+	ctx->last_checkpoint_offset = ctx->output->offset;
+}
+
 int dbox_file_get_append_stream(struct dbox_file_append_context *ctx,
 				struct ostream **output_r)
 {
@@ -546,6 +558,11 @@ int dbox_file_get_append_stream(struct dbox_file_append_context *ctx,
 
 	if (ctx->output == NULL) {
 		/* file creation had failed */
+		return -1;
+	}
+	if (ctx->last_checkpoint_offset != ctx->output->offset) {
+		/* a message was aborted. don't try appending to this
+		   file anymore. */
 		return -1;
 	}
 

@@ -382,10 +382,11 @@ static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
 	return ret;
 }
 
-static void proxy_client_worker_timeout(void *context ATTR_UNUSED)
+static void
+proxy_client_worker_timeout(struct proxy_client_dsync_worker *worker)
 {
 	i_error("proxy client timed out");
-	master_service_stop(master_service);
+	proxy_client_fail(worker);
 }
 
 struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
@@ -397,7 +398,7 @@ struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
 	worker->fd_in = fd_in;
 	worker->fd_out = fd_out;
 	worker->to = timeout_add(DSYNC_PROXY_TIMEOUT_MSECS,
-				 proxy_client_worker_timeout, NULL);
+				 proxy_client_worker_timeout, worker);
 	worker->io = io_add(fd_in, IO_READ, proxy_client_worker_input, worker);
 	worker->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
 	worker->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
@@ -977,6 +978,8 @@ static void
 proxy_client_send_stream_real(struct proxy_client_dsync_worker *worker)
 {
 	dsync_worker_save_callback_t *callback;
+	void *context;
+	struct istream *input;
 	const unsigned char *data;
 	size_t size;
 	int ret;
@@ -1019,11 +1022,20 @@ proxy_client_send_stream_real(struct proxy_client_dsync_worker *worker)
 	}
 
 	callback = worker->save_callback;
+	context = worker->save_context;
 	worker->save_callback = NULL;
-	i_stream_unref(&worker->save_input);
+	worker->save_context = NULL;
+
+	/* a bit ugly way to free the stream. the problem is that local worker
+	   has set a destroy callback, which in turn can call our msg_save()
+	   again before the i_stream_unref() is finished. */
+	input = worker->save_input;
+	worker->save_input = NULL;
+	i_stream_unref(&input);
+
 	(void)proxy_client_worker_output_flush(&worker->worker);
 
-	callback(worker->save_context);
+	callback(context);
 }
 
 static void proxy_client_send_stream(struct proxy_client_dsync_worker *worker)
@@ -1053,7 +1065,7 @@ proxy_client_worker_msg_save(struct dsync_worker *_worker,
 		proxy_client_worker_cmd(worker, str);
 	} T_END;
 
-	i_assert(worker->save_io == NULL);
+	i_assert(worker->save_input == NULL);
 	worker->save_callback = callback;
 	worker->save_context = context;
 	worker->save_input = data->input;

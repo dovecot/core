@@ -948,8 +948,9 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 			"Can't rename mailboxes across specified storages.");
 		return -1;
 	}
-	if (src->list->ns->type != NAMESPACE_PRIVATE ||
-	    dest->list->ns->type != NAMESPACE_PRIVATE) {
+	if (src->list != dest->list &&
+	    (src->list->ns->type != NAMESPACE_PRIVATE ||
+	     dest->list->ns->type != NAMESPACE_PRIVATE)) {
 		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Renaming not supported across non-private namespaces.");
 		return -1;
@@ -1443,6 +1444,12 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 	ctx->transaction->box->v.save_cancel(ctx);
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
+}
+
+struct mailbox_transaction_context *
+mailbox_save_get_transaction(struct mail_save_context *ctx)
+{
+	return ctx->transaction;
 }
 
 int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)

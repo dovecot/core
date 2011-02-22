@@ -129,16 +129,6 @@ static bool maildir_list_is_valid_common_nonfs(const char *name)
 	return TRUE;
 }
 
-static bool ATTR_NORETURN
-maildir_is_valid_pattern(struct mailbox_list *list ATTR_UNUSED,
-			 const char *pattern ATTR_UNUSED)
-{
-	i_unreached();
-#ifndef ATTRS_DEFINED
-	return FALSE;
-#endif
-}
-
 static bool
 maildir_is_valid_existing_name(struct mailbox_list *_list, const char *name)
 {
@@ -153,6 +143,15 @@ maildir_is_valid_existing_name(struct mailbox_list *_list, const char *name)
 		return TRUE;
 
 	return maildir_list_is_valid_common_nonfs(name);
+}
+
+static bool
+maildir_is_valid_pattern(struct mailbox_list *list, const char *pattern)
+{
+	/* maildir code itself doesn't care about this, but we may get here
+	   from listing subscriptions to LAYOUT=fs namespace containing
+	   entries for a subscriptions=no LAYOUT=maildir++ namespace */
+	return maildir_is_valid_existing_name(list, pattern);
 }
 
 static bool
@@ -477,7 +476,7 @@ maildir_rename_children(struct mailbox_list *oldlist, const char *oldname,
 	i_array_init(&names_arr, 64);
 
 	old_vname = mailbox_list_get_vname(oldlist, oldname);
-	old_vnamelen = strlen(oldname);
+	old_vnamelen = strlen(old_vname);
 
 	new_vname = mailbox_list_get_vname(newlist, newname);
 

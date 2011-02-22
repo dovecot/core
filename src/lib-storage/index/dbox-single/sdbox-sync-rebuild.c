@@ -178,6 +178,13 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force)
 		}
 	}
 
+	if (dbox_sync_rebuild_verify_alt_storage(mbox->box.list) < 0) {
+		mail_storage_set_critical(mbox->box.storage,
+			"sdbox %s: Alt storage not mounted, "
+			"aborting index rebuild", mailbox_get_path(&mbox->box));
+		return -1;
+	}
+
 	mail_cache_reset(mbox->box.cache);
 
 	view = mail_index_view_open(mbox->box.index);

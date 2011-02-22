@@ -318,7 +318,9 @@ handle_end_body_with_lf(struct header_filter_istream *mstream, ssize_t ret)
 
 	if (ret == -1 && stream->parent->eof && !last_lf) {
 		/* missing LF, need to add it */
+		i_assert(!mstream->last_lf_added);
 		i_assert(size == 0 || data[size-1] != '\n');
+
 		buffer_reset(mstream->hdr_buf);
 		buffer_append(mstream->hdr_buf, data, size);
 		if (mstream->crlf)
@@ -328,7 +330,7 @@ handle_end_body_with_lf(struct header_filter_istream *mstream, ssize_t ret)
 		mstream->last_lf_added = TRUE;
 
 		stream->skip = 0;
-		stream->pos = size + 1;
+		stream->pos = mstream->hdr_buf->used;
 		stream->buffer = mstream->hdr_buf->data;
 		return mstream->crlf ? 2 : 1;
 	} else {
@@ -425,8 +427,6 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
 
-	mstream->last_lf_added = FALSE;
-
 	if (stream->istream.v_offset == v_offset) {
 		/* just reset the input buffer */
 		stream_reset_to(mstream, v_offset);
@@ -434,6 +434,9 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 			      mstream->istream.parent_expected_offset);
 		return;
 	}
+	/* if last_lf_added=TRUE, we're currently at EOF. So reset it only if
+	   we're seeking backwards, otherwise we would just add a duplicate */
+	mstream->last_lf_added = FALSE;
 
 	if (v_offset == 0) {
 		/* seeking to beginning of headers. */

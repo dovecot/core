@@ -112,17 +112,23 @@ dsync_brain_msg_iter_skip_mailbox(struct dsync_brain_mailbox_sync *sync)
 
 static int dsync_brain_msg_iter_next_pair(struct dsync_brain_mailbox_sync *sync)
 {
-	int ret;
+	int ret1, ret2;
 
 	if (sync->skip_mailbox) {
 		if (dsync_brain_msg_iter_skip_mailbox(sync) == 0)
 			return 0;
 	}
 
-	if ((ret = dsync_brain_msg_iter_next(sync->src_msg_iter)) <= 0)
-		return ret;
-	if ((ret = dsync_brain_msg_iter_next(sync->dest_msg_iter)) <= 0)
-		return ret;
+	ret1 = dsync_brain_msg_iter_next(sync->src_msg_iter);
+	ret2 = dsync_brain_msg_iter_next(sync->dest_msg_iter);
+	if (ret1 == 0 || ret2 == 0) {
+		/* make sure we iterate through everything in both iterators
+		   (even if it might not seem necessary, because proxy
+		   requires it) */
+		return 0;
+	}
+	if (ret1 < 0 || ret2 < 0)
+		return -1;
 	return 1;
 }
 

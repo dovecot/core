@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVECOT\-LDA 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.TH DOVECOT\-LDA 1 "2011-01-16" "Dovecot v2.0" "Dovecot"
 .SH NAME
 dovecot\-lda \- Dovecot\(aqs local mail delivery agent
 .\"------------------------------------------------------------------------
@@ -11,6 +11,7 @@ dovecot\-lda \- Dovecot\(aqs local mail delivery agent
 [\fB\-d\fP \fIusername\fP]
 [\fB\-f\fP \fIenvelope_sender\fP]
 [\fB\-m\fP \fImailbox\fP]
+[\fB\-o\fP \fIsetting=value\fP]
 [\fB\-p\fP \fIpath\fP]
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
@@ -80,6 +81,18 @@ If a message couldn\(aqt be saved to the
 for any reason, it\(aqs delivered to
 .B INBOX
 instead.
+.\"---------------------------------
+.TP
+.BI \-o\  setting = value
+Overrides the configuration
+.I setting
+from
+.I @pkgsysconfdir@/dovecot.conf
+and from the userdb with the given
+.IR value .
+In order to override multiple settings, the
+.B \-o
+option may be specified multiple times.
 .\"-------------------------------------
 .TP
 .BI \-p\  path

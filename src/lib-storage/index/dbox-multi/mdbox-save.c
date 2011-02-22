@@ -410,7 +410,8 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	ctx->ctx.finished = TRUE;
 
 	if (mail->box->storage != _ctx->transaction->box->storage ||
-	    _ctx->transaction->box->disable_reflink_copy_to)
+	    _ctx->transaction->box->disable_reflink_copy_to ||
+	    _ctx->guid != NULL)
 		return mail_storage_copy(_ctx, mail);
 	src_mbox = (struct mdbox_mailbox *)mail->box;
 

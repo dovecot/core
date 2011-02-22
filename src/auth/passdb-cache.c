@@ -18,7 +18,7 @@ passdb_cache_log_hit(struct auth_request *request, const char *value)
 	    *value != '\0' && *value != '\t') {
 		/* hide the password */
 		p = strchr(value, '\t');
-		value = t_strconcat("<hidden>", p, NULL);
+		value = t_strconcat(PASSWORD_HIDDEN_STR, p, NULL);
 	}
 	auth_request_log_debug(request, "cache", "hit: %s", value);
 }

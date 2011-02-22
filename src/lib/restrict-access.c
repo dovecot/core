@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "lib.h"
+#include "str.h"
 #include "restrict-access.h"
 #include "env-util.h"
 
@@ -61,24 +62,31 @@ static const char *get_gid_str(gid_t gid)
 	return ret;
 }
 
-static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid)
+static void restrict_init_groups(gid_t primary_gid, gid_t privileged_gid,
+				 const char *gid_source)
 {
+	string_t *str;
+
 	if (privileged_gid == (gid_t)-1) {
 		if (primary_gid == getgid() && primary_gid == getegid()) {
 			/* everything is already set */
 			return;
 		}
 
-		if (setgid(primary_gid) != 0) {
-			i_fatal("setgid(%s) failed with "
-				"euid=%s, gid=%s, egid=%s: %m "
-				"(This binary should probably be called with "
-				"process group set to %s instead of %s)",
-				get_gid_str(primary_gid), get_uid_str(geteuid()),
-				get_gid_str(getgid()), get_gid_str(getegid()),
-				get_gid_str(primary_gid), get_gid_str(getegid()));
-		}
-		return;
+		if (setgid(primary_gid) == 0)
+			return;
+
+		str = t_str_new(128);
+		str_printfa(str, "setgid(%s", get_gid_str(primary_gid));
+		if (gid_source != NULL)
+			str_printfa(str, " from %s", gid_source);
+		str_printfa(str, ") failed with euid=%s, gid=%s, egid=%s: %m "
+			    "(This binary should probably be called with "
+			    "process group set to %s instead of %s)",
+			    get_uid_str(geteuid()),
+			    get_gid_str(getgid()), get_gid_str(getegid()),
+			    get_gid_str(primary_gid), get_gid_str(getegid()));
+		i_fatal("%s", str_c(str));
 	}
 
 	if (getegid() != 0 && primary_gid == getgid() &&
@@ -245,7 +253,7 @@ void restrict_access(const struct restrict_access_settings *set,
 		if (process_primary_gid == (gid_t)-1)
 			process_primary_gid = getegid();
 		restrict_init_groups(process_primary_gid,
-				     process_privileged_gid);
+				     process_privileged_gid, set->gid_source);
 	} else {
 		if (process_primary_gid == (gid_t)-1)
 			process_primary_gid = getegid();
@@ -295,11 +303,17 @@ void restrict_access(const struct restrict_access_settings *set,
 	/* uid last */
 	if (set->uid != (uid_t)-1) {
 		if (setuid(set->uid) != 0) {
-			i_fatal("setuid(%s) failed with euid=%s: %m "
+			string_t *str = t_str_new(128);
+
+			str_printfa(str, "setuid(%s", get_uid_str(set->uid));
+			if (set->uid_source != NULL)
+				str_printfa(str, " from %s", set->uid_source);
+			str_printfa(str, ") failed with euid=%s: %m "
 				"(This binary should probably be called with "
 				"process user set to %s instead of %s)",
-				get_uid_str(set->uid), get_uid_str(geteuid()),
+				get_uid_str(geteuid()),
 				get_uid_str(set->uid), get_uid_str(geteuid()));
+			i_fatal("%s", str_c(str));
 		}
 	}
 

@@ -64,7 +64,8 @@ doveadm_expire_mail_match_mailbox(struct doveadm_expire_mail_cmd_context *ectx,
 
 static bool
 doveadm_expire_mail_want(struct doveadm_mail_cmd_context *ctx,
-			 const char *key, time_t stamp, const char **username_r)
+			 const char *key, time_t oldest_savedate,
+			 const char **username_r)
 {
 	struct doveadm_expire_mail_cmd_context *ectx =
 		DOVEADM_EXPIRE_MAIL_CMD_CONTEXT(ctx);
@@ -76,6 +77,7 @@ doveadm_expire_mail_want(struct doveadm_mail_cmd_context *ctx,
 	mailbox = strchr(username, '/');
 	if (mailbox == NULL) {
 		/* invalid record, ignore */
+		i_error("expire: Invalid key: %s", key);
 		return FALSE;
 	}
 	username = t_strdup_until(username, mailbox++);
@@ -85,7 +87,8 @@ doveadm_expire_mail_want(struct doveadm_mail_cmd_context *ctx,
 		return FALSE;
 	}
 
-	if (!doveadm_expire_mail_match_mailbox(ectx, mailbox, stamp)) {
+	if (!doveadm_expire_mail_match_mailbox(ectx, mailbox,
+					       oldest_savedate)) {
 		/* this mailbox doesn't have any matching messages */
 		return FALSE;
 	}
@@ -103,19 +106,27 @@ doveadm_expire_mail_cmd_get_next_user(struct doveadm_mail_cmd_context *ctx,
 	struct doveadm_expire_mail_cmd_context *ectx =
 		DOVEADM_EXPIRE_MAIL_CMD_CONTEXT(ctx);
 	const char *key, *value;
-	unsigned long stamp;
+	unsigned long oldest_savedate;
 	bool ret;
 
 	while (dict_iterate(ectx->iter, &key, &value)) {
-		if (str_to_ulong(value, &stamp) < 0) {
+		if (str_to_ulong(value, &oldest_savedate) < 0) {
 			/* invalid record */
+			i_error("expire: Invalid timestamp: %s", value);
 			continue;
 		}
-		if ((time_t)stamp > ectx->oldest_before_time)
+		if ((time_t)oldest_savedate > ectx->oldest_before_time) {
+			if (doveadm_debug) {
+				i_debug("expire: Stopping iteration on key %s "
+					"(%lu > %ld)", key, oldest_savedate,
+					(long)ectx->oldest_before_time);
+			}
 			break;
+		}
 
 		T_BEGIN {
-			ret = doveadm_expire_mail_want(ctx, key, stamp,
+			ret = doveadm_expire_mail_want(ctx, key,
+						       oldest_savedate,
 						       username_r);
 		} T_END;
 		if (ret)

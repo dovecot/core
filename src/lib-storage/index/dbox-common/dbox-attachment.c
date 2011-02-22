@@ -148,11 +148,13 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	const char *path, *path_suffix;
 	uoff_t psize, last_voffset = 0;
 	unsigned int i;
+	int ret = 1;
 
 	t_array_init(&extrefs_arr, 16);
 	if (!dbox_attachment_parse_extref_real(ext_refs, pool_datastack_create(),
 					       &extrefs_arr))
 		return 0;
+	psize = dbox_file_get_plaintext_size(file);
 
 	t_array_init(&streams, 8);
 	array_foreach(&extrefs_arr, extref) {
@@ -166,6 +168,10 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 			input = i_stream_create_limit(*stream, part_size);
 			array_append(&streams, &input, 1);
 			i_stream_seek(*stream, (*stream)->v_offset + part_size);
+			if ((*stream)->v_offset + part_size > psize) {
+				/* extrefs point outside message */
+				ret = 0;
+			}
 			last_voffset += part_size;
 		}
 
@@ -185,13 +191,17 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 		array_append(&streams, &input, 1);
 	}
 
-	psize = dbox_file_get_plaintext_size(file);
 	if (psize != (*stream)->v_offset) {
-		uoff_t trailer_size = psize - (*stream)->v_offset;
+		if (psize < (*stream)->v_offset) {
+			/* extrefs point outside message */
+			ret = 0;
+		} else {
+			uoff_t trailer_size = psize - (*stream)->v_offset;
 
-		input = i_stream_create_limit(*stream, trailer_size);
-		array_append(&streams, &input, 1);
-		(void)array_append_space(&streams);
+			input = i_stream_create_limit(*stream, trailer_size);
+			array_append(&streams, &input, 1);
+			(void)array_append_space(&streams);
+		}
 	}
 
 	inputs = array_idx_modifiable(&streams, 0);
@@ -199,7 +209,7 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	*stream = i_stream_create_concat(inputs);
 	for (i = 0; inputs[i] != NULL; i++)
 		i_stream_unref(&inputs[i]);
-	return 1;
+	return ret;
 }
 
 int dbox_attachment_file_get_stream(struct dbox_file *file,

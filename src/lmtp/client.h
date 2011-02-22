@@ -12,7 +12,6 @@ struct mail_recipient {
 };
 
 struct client_state {
-	const char *lhlo;
 	const char *session_id;
 	const char *mail_from;
 	ARRAY_DEFINE(rcpt_to, struct mail_recipient);
@@ -58,6 +57,7 @@ struct client {
 
 	struct mail_user *raw_mail_user;
 	const char *my_domain;
+	char *lhlo;
 
 	pool_t state_pool;
 	struct client_state state;

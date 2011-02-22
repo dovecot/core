@@ -372,7 +372,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	ctx = doveadm_mail_cmd_init(cmd);
 
-	getopt_args = t_strconcat("As:u:", ctx->getopt_args, NULL);
+	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
 	username = getenv("USER");
 	wildcard_user = NULL;
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {

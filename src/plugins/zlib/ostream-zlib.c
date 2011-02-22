@@ -129,7 +129,8 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 	}
 	zstream->crc = crc32_data_more(zstream->crc, data, size);
 	zstream->bytes32 += size;
-	zstream->flushed = FALSE;
+	zstream->flushed = flush == Z_SYNC_FLUSH &&
+		zs->avail_out == sizeof(zstream->outbuf);
 	return 0;
 }
 
@@ -222,8 +223,12 @@ o_stream_zlib_sendv(struct ostream_private *stream,
 			return -1;
 		bytes += iov[i].iov_len;
 	}
-
 	stream->ostream.offset += bytes;
+
+	if (!zstream->ostream.corked) {
+		if (o_stream_zlib_send_flush(zstream) < 0)
+			return -1;
+	}
 	return bytes;
 }
 

@@ -497,7 +497,8 @@ bool client_is_trusted(struct client *client)
 
 const char *client_get_extra_disconnect_reason(struct client *client)
 {
-	if (client->set->ssl_require_client_cert && client->ssl_proxy != NULL) {
+	if (client->set->auth_ssl_require_client_cert &&
+	    client->ssl_proxy != NULL) {
 		if (ssl_proxy_has_broken_client_cert(client->ssl_proxy))
 			return "(client sent an invalid cert)";
 		if (!ssl_proxy_has_valid_client_cert(client->ssl_proxy))
@@ -510,7 +511,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	/* some auth attempts without SSL/TLS */
 	if (client->auth_tried_disabled_plaintext)
 		return "(tried to use disabled plaintext auth)";
-	if (client->set->ssl_require_client_cert)
+	if (client->set->auth_ssl_require_client_cert)
 		return "(cert required, client didn't start TLS)";
 	if (client->auth_tried_unsupported_mech)
 		return "(tried to use unsupported auth mechanism)";

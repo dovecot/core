@@ -16,8 +16,8 @@ struct login_settings {
 	const char *ssl_cipher_list;
 	const char *ssl_cert_username_field;
 	bool ssl_verify_client_cert;
-	bool ssl_require_client_cert;
-	bool ssl_username_from_cert;
+	bool auth_ssl_require_client_cert;
+	bool auth_ssl_username_from_cert;
 	bool verbose_ssl;
 
 	bool disable_plaintext_auth;

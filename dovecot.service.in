@@ -6,3 +6,6 @@ After=local-fs.target network.target
 Type=simple
 ExecStart=@sbindir@/dovecot -F
 NonBlocking=yes
+
+[Install]
+WantedBy=multi-user.target

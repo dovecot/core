@@ -186,8 +186,11 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 
 	if (ctx->ctx.failed)
 		dbox_file_append_rollback(&ctx->append_ctx);
-	else if (dbox_file_append_commit(&ctx->append_ctx) < 0)
-		ctx->ctx.failed = TRUE;
+	else {
+		dbox_file_append_checkpoint(ctx->append_ctx);
+		if (dbox_file_append_commit(&ctx->append_ctx) < 0)
+			ctx->ctx.failed = TRUE;
+	}
 
 	i_stream_unref(&ctx->ctx.input);
 	dbox_file_close(*files);

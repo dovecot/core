@@ -1,3 +1,21 @@
+v2.0.9 2011-01-13  Timo Sirainen <tss@iki.fi>
+
+	- Linux: Fixed a high system CPU usage / high context switch count
+	  performance problem
+	- Maildir: Avoid unnecessarily reading dovecot-uidlist while opening
+	  mailbox.
+	- Maildir: Fixed renaming child mailboxes when namespace had a prefix.
+	- mdbox: Don't leave partially written messages to mdbox files when
+	  aborting saving.
+	- Fixed master user logins when using userdb prefetch
+	- lda: Fixed a crash when trying to send "out of quota" reply
+	- lmtp: If delivering duplicate messages to same user's INBOX,
+	  create different GUIDs for them. This helps to avoid duplicate
+	  POP3 UIDLs when pop3_uidl_format=%g.
+	- virtual storage: Fixed saving multiple mails in a transaction
+	  (e.g. copy multiple messages).
+	- dsync: Saved messages' save-date was set to 1970-01-01.
+
 v2.0.8 2010-12-03  Timo Sirainen <tss@iki.fi>
 
 	* Services' default vsz_limits weren't being enforced correctly in
