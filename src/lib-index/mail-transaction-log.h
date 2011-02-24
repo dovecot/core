@@ -253,8 +253,6 @@ mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 bool
 mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view);
 
-void mail_transaction_log_views_close(struct mail_transaction_log *log);
-
 int mail_transaction_log_append_begin(struct mail_index *index, bool external,
 				      struct mail_transaction_log_append_ctx **ctx_r);
 void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx,

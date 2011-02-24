@@ -58,14 +58,6 @@ void mail_transaction_log_view_close(struct mail_transaction_log_view **_view)
 	i_free(view);
 }
 
-void mail_transaction_log_views_close(struct mail_transaction_log *log)
-{
-	struct mail_transaction_log_view *view;
-
-	for (view = log->views; view != NULL; view = view->next)
-		view->log = NULL;
-}
-
 int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				  uint32_t min_file_seq, uoff_t min_file_offset,
 				  uint32_t max_file_seq, uoff_t max_file_offset,

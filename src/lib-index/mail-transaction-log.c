@@ -125,7 +125,7 @@ int mail_transaction_log_create(struct mail_transaction_log *log, bool reset)
 
 void mail_transaction_log_close(struct mail_transaction_log *log)
 {
-	mail_transaction_log_views_close(log);
+	i_assert(log->views == NULL);
 
 	if (log->open_file != NULL)
 		mail_transaction_log_file_free(&log->open_file);

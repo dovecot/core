@@ -221,6 +221,8 @@ struct mail_index {
 	uint32_t keywords_ext_id;
 	uint32_t modseq_ext_id;
 
+	unsigned int view_count;
+
 	/* Module-specific contexts. */
 	ARRAY_DEFINE(module_contexts, union mail_index_module_context *);
 
