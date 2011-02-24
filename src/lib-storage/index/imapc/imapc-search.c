@@ -12,6 +12,7 @@
 #include "index-search-private.h"
 #include "imapc-mail.h"
 #include "imapc-client.h"
+#include "imapc-seqmap.h"
 #include "imapc-storage.h"
 
 struct imapc_search_context {
@@ -150,10 +151,24 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 	if (!ret)
 		return FALSE;
 
-	if (ctx->fetching) {
-		mbox->cur_fetch_mail = mail;
-		imapc_client_run(mbox->storage->client);
-		mbox->cur_fetch_mail = NULL;
+	if (!ctx->fetching) {
+		/* no need to fetch anything from remote */
+	} else if (mail_index_is_expunged(mbox->box.view, mail->seq)) {
+		/* already synced this message as expunged.
+		   remote server won't have it. */
+	} else {
+		struct imapc_seqmap *seqmap;
+		uint32_t rseq;
+
+		seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
+		rseq = imapc_seqmap_lseq_to_rseq(seqmap, mail->seq);
+		if (rseq == 0) {
+			/* expunged from remote already. */
+		} else {
+			mbox->cur_fetch_mail = mail;
+			imapc_client_run(mbox->storage->client);
+			mbox->cur_fetch_mail = NULL;
+		}
 	}
 	return TRUE;
 }
