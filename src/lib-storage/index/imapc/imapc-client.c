@@ -84,8 +84,10 @@ void imapc_client_deinit(struct imapc_client **_client)
 
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_deinit(&client->ssl_ctx);
-	array_foreach_modifiable(&client->conns, connp)
+	array_foreach_modifiable(&client->conns, connp) {
 		imapc_connection_deinit(&(*connp)->conn);
+		i_free(*connp);
+	}
 	pool_unref(&client->pool);
 }
 
@@ -212,6 +214,12 @@ imapc_client_mailbox_open(struct imapc_client *client, const char *name,
 	return box;
 }
 
+void imapc_client_mailbox_disconnect(struct imapc_client_mailbox *box)
+{
+	if (box->conn != NULL)
+		imapc_connection_disconnect(box->conn);
+}
+
 void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 {
 	struct imapc_client_mailbox *box = *_box;
@@ -226,7 +234,8 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 		}
 	}
 
-	imapc_connection_unselect(box);
+	if (box->conn != NULL)
+		imapc_connection_unselect(box);
 	imapc_seqmap_deinit(&box->seqmap);
 	i_free(box);
 }
@@ -258,12 +267,43 @@ imapc_client_mailbox_cmd_common(struct imapc_client_mailbox *box,
 	return ctx;
 }
 
+static bool
+imapc_client_mailbox_is_selected(struct imapc_client_mailbox *box,
+				 struct imapc_command_reply *reply_r)
+{
+	struct imapc_client_mailbox *selected_box;
+
+	selected_box = box->conn == NULL ? NULL :
+		imapc_connection_get_mailbox(box->conn);
+	if (selected_box == box)
+		return TRUE;
+
+	memset(reply_r, 0, sizeof(*reply_r));
+	reply_r->state = IMAPC_COMMAND_STATE_DISCONNECTED;
+	if (selected_box == NULL) {
+		reply_r->text_full = "Disconnected from server";
+	} else {
+		i_error("imapc: Selected mailbox changed unexpectedly");
+		reply_r->text_full = "Internal error";
+	}
+	reply_r->text_without_resp = reply_r->text_full;
+
+	box->conn = NULL;
+	return FALSE;
+}
+
 void imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
 			      const char *cmd,
 			      imapc_command_callback_t *callback,
 			      void *context)
 {
 	struct imapc_client_command_context *ctx;
+	struct imapc_command_reply reply;
+
+	if (!imapc_client_mailbox_is_selected(box, &reply)) {
+		callback(&reply, context);
+		return;
+	}
 
 	ctx = imapc_client_mailbox_cmd_common(box, callback, context);
 	imapc_connection_cmd(box->conn, cmd, imapc_client_mailbox_cmd_cb, ctx);
@@ -275,6 +315,12 @@ void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 {
 	struct imapc_client_command_context *ctx;
 	va_list args;
+	struct imapc_command_reply reply;
+
+	if (!imapc_client_mailbox_is_selected(box, &reply)) {
+		callback(&reply, context);
+		return;
+	}
 
 	ctx = imapc_client_mailbox_cmd_common(box, callback, context);
 	va_start(args, cmd_fmt);
@@ -291,7 +337,17 @@ imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box)
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
 {
-	imapc_connection_idle(box->conn);
+	struct imapc_command_reply reply;
+
+	if (imapc_client_mailbox_is_selected(box, &reply))
+		imapc_connection_idle(box->conn);
+}
+
+bool imapc_client_mailbox_is_connected(struct imapc_client_mailbox *box)
+{
+	struct imapc_command_reply reply;
+
+	return imapc_client_mailbox_is_selected(box, &reply);
 }
 
 enum imapc_capability

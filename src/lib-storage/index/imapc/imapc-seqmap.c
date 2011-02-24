@@ -36,6 +36,12 @@ void imapc_seqmap_reset(struct imapc_seqmap *seqmap)
 	array_clear(&seqmap->expunges);
 }
 
+bool imapc_seqmap_is_reset(struct imapc_seqmap *seqmap)
+{
+	return array_count(&seqmap->queue) == 0 &&
+		array_count(&seqmap->expunges) == 0;
+}
+
 void imapc_seqmap_expunge(struct imapc_seqmap *seqmap, uint32_t rseq)
 {
 	i_assert(rseq > 0);

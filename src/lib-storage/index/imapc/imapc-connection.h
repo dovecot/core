@@ -22,6 +22,7 @@ imapc_connection_init(struct imapc_client *client);
 void imapc_connection_deinit(struct imapc_connection **conn);
 
 void imapc_connection_connect(struct imapc_connection *conn);
+void imapc_connection_disconnect(struct imapc_connection *conn);
 void imapc_connection_ioloop_changed(struct imapc_connection *conn);
 void imapc_connection_input_pending(struct imapc_connection *conn);
 
@@ -42,6 +43,9 @@ enum imapc_connection_state
 imapc_connection_get_state(struct imapc_connection *conn);
 enum imapc_capability
 imapc_connection_get_capabilities(struct imapc_connection *conn);
+
+struct imapc_client_mailbox *
+imapc_connection_get_mailbox(struct imapc_connection *conn);
 
 void imapc_connection_idle(struct imapc_connection *conn);
 

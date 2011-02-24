@@ -12,6 +12,8 @@ struct imapc_sync_context {
 	const ARRAY_TYPE(keywords) *keywords;
 	ARRAY_TYPE(seq_range) expunged_uids;
 	unsigned int sync_command_count;
+
+	unsigned int failed:1;
 };
 
 struct mailbox_sync_context *

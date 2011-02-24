@@ -15,6 +15,7 @@ void imapc_seqmap_deinit(struct imapc_seqmap **seqmap);
 
 /* Reset local and remote sequences to be equal. */
 void imapc_seqmap_reset(struct imapc_seqmap *seqmap);
+bool imapc_seqmap_is_reset(struct imapc_seqmap *seqmap);
 
 /* Mark given remote sequence expunged. */
 void imapc_seqmap_expunge(struct imapc_seqmap *seqmap, uint32_t rseq);

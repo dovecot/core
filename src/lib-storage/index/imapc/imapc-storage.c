@@ -72,7 +72,7 @@ static struct mail_storage *imapc_storage_alloc(void)
 	struct imapc_storage *storage;
 	pool_t pool;
 
-	pool = pool_alloconly_create("imapc storage", 512+256);
+	pool = pool_alloconly_create("imapc storage", 2048);
 	storage = p_new(pool, struct imapc_storage, 1);
 	storage->storage = imapc_storage;
 	storage->storage.pool = pool;
@@ -341,6 +341,8 @@ static void imapc_mailbox_close(struct mailbox *box)
 		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
 			mail_storage_set_index_error(&mbox->box);
 	}
+	if (mbox->sync_view != NULL)
+		mail_index_view_close(&mbox->sync_view);
 	if (mbox->to_idle_delay != NULL)
 		timeout_remove(&mbox->to_idle_delay);
 	if (mbox->to_idle_check != NULL)
@@ -523,6 +525,16 @@ static void imapc_notify_changes(struct mailbox *box)
 	}
 }
 
+static bool imapc_is_inconsistent(struct mailbox *box)
+{
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+
+	if (mail_index_view_is_inconsistent(box->view))
+		return TRUE;
+
+	return !imapc_client_mailbox_is_connected(mbox->client_box);
+}
+
 struct mail_storage imapc_storage = {
 	.name = IMAPC_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT,
@@ -577,6 +589,6 @@ struct mailbox imapc_mailbox = {
 		imapc_save_finish,
 		imapc_save_cancel,
 		imapc_copy,
-		index_storage_is_inconsistent
+		imapc_is_inconsistent
 	}
 };

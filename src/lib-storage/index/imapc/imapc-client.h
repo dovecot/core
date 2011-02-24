@@ -123,6 +123,7 @@ imapc_client_mailbox_open(struct imapc_client *client, const char *name,
 			  imapc_command_callback_t *callback, void *context,
 			  void *untagged_box_context);
 void imapc_client_mailbox_close(struct imapc_client_mailbox **box);
+void imapc_client_mailbox_disconnect(struct imapc_client_mailbox *box);
 void imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
 			      const char *cmd,
 			      imapc_command_callback_t *callback,
@@ -135,6 +136,7 @@ struct imapc_seqmap *
 imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box);
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box);
+bool imapc_client_mailbox_is_connected(struct imapc_client_mailbox *box);
 
 enum imapc_capability
 imapc_client_get_capabilities(struct imapc_client *client);
