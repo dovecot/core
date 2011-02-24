@@ -70,7 +70,8 @@ static int imapc_mail_get_sizes(struct index_mail *mail)
 	uoff_t old_offset;
 
 	/* fallback to reading the file */
-	old_offset = mail->data.stream->v_offset;
+	old_offset = mail->data.stream == NULL ? 0 :
+		mail->data.stream->v_offset;
 	if (mail_get_stream(&mail->mail.mail,
 			    &hdr_size, &body_size, &input) < 0)
 		return -1;

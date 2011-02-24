@@ -327,21 +327,29 @@ void imapc_fetch_mail_update(struct mail *mail,
 	unsigned int i;
 	time_t t;
 	int tz;
+	bool match = FALSE;
 
 	for (i = 0; args[i].type != IMAP_ARG_EOL; i += 2) {
 		if (!imap_arg_get_atom(&args[i], &key) ||
 		    args[i+1].type == IMAP_ARG_EOL)
 			break;
 
-		if (strcasecmp(key, "BODY[]") == 0)
+		if (strcasecmp(key, "BODY[]") == 0) {
 			imapc_fetch_stream(imail, reply, &args[i+1], TRUE);
-		else if (strcasecmp(key, "BODY[HEADER]") == 0)
+			match = TRUE;
+		} else if (strcasecmp(key, "BODY[HEADER]") == 0) {
 			imapc_fetch_stream(imail, reply, &args[i+1], FALSE);
-		else if (strcasecmp(key, "INTERNALDATE") == 0) {
+			match = TRUE;
+		} else if (strcasecmp(key, "INTERNALDATE") == 0) {
 			if (imap_arg_get_astring(&args[i+1], &value) &&
 			    imap_parse_datetime(value, &t, &tz))
 				imail->imail.data.received_date = t;
+			match = TRUE;
 		}
+	}
+	if (!match) {
+		/* this is only a FETCH FLAGS update for the wanted mail */
+		return;
 	}
 	if (!imapmail->fetch_one)
 		imapc_client_stop_now(mbox->storage->client);
