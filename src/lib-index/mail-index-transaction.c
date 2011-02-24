@@ -132,10 +132,10 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	if (mail_transaction_log_append_begin(log->index, external, &ctx) < 0)
 		return -1;
 	ret = mail_transaction_log_file_refresh(t, ctx);
-	if (ret > 0) {
+	if (ret > 0) T_BEGIN {
 		mail_index_transaction_finish(t);
 		mail_index_transaction_export(t, ctx);
-	}
+	} T_END;
 
 	mail_transaction_log_get_head(log, &log_seq1, &log_offset1);
 	if (mail_transaction_log_append_commit(&ctx) < 0 || ret < 0)

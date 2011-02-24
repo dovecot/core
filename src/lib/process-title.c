@@ -137,7 +137,9 @@ void process_title_set(const char *title ATTR_UNUSED)
 	else
 		setproctitle("%s", title);
 #elif defined(PROCTITLE_HACK)
-	proctitle_hack_set(t_strconcat(process_name, " ", title, NULL));
+	T_BEGIN {
+		proctitle_hack_set(t_strconcat(process_name, " ", title, NULL));
+	} T_END;
 #endif
 }
 
