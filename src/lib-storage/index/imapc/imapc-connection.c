@@ -47,6 +47,8 @@ struct imapc_command {
 
 	imapc_command_callback_t *callback;
 	void *context;
+
+	unsigned int idle:1;
 };
 
 struct imapc_connection_literal {
@@ -157,6 +159,10 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 		reply.text_without_resp = reply.text_full =
 			"Disconnected from server";
+
+		conn->idling = FALSE;
+		conn->idle_plus_waiting = FALSE;
+		conn->idle_stopping = FALSE;
 
 		while (array_count(&conn->cmd_wait_list) > 0) {
 			cmdp = array_idx(&conn->cmd_wait_list, 0);
@@ -1179,6 +1185,9 @@ parse_sync_literal(const unsigned char *data, unsigned int pos,
 static void imapc_command_send_done(struct imapc_connection *conn,
 				    struct imapc_command *cmd)
 {
+	if (cmd->idle)
+		conn->idle_plus_waiting = TRUE;
+
 	/* everything sent. move command to wait list. */
 	i_assert(*array_idx(&conn->cmd_send_queue, 0) == cmd);
 	array_delete(&conn->cmd_send_queue, 0, 1);
@@ -1287,15 +1296,25 @@ static void imapc_command_send(struct imapc_connection *conn,
 	}
 }
 
-void imapc_connection_cmd(struct imapc_connection *conn, const char *cmdline,
-			  imapc_command_callback_t *callback, void *context)
+static struct imapc_command *
+imapc_connection_cmd_build(const char *cmdline,
+			   imapc_command_callback_t *callback, void *context)
 {
 	struct imapc_command *cmd;
 	unsigned int len = strlen(cmdline);
 
 	cmd = imapc_command_begin(callback, context);
-	cmd->data = str_new(cmd->pool, len + 2);
+	cmd->data = str_new(cmd->pool, 6 + len + 2);
 	str_printfa(cmd->data, "%u %s\r\n", cmd->tag, cmdline);
+	return cmd;
+}
+
+void imapc_connection_cmd(struct imapc_connection *conn, const char *cmdline,
+			  imapc_command_callback_t *callback, void *context)
+{
+	struct imapc_command *cmd;
+
+	cmd = imapc_connection_cmd_build(cmdline, callback, context);
 	imapc_command_send(conn, cmd);
 }
 
@@ -1437,13 +1456,16 @@ imapc_connection_idle_callback(const struct imapc_command_reply *reply ATTR_UNUS
 
 void imapc_connection_idle(struct imapc_connection *conn)
 {
+	struct imapc_command *cmd;
+
 	if (array_count(&conn->cmd_send_queue) != 0 ||
 	    array_count(&conn->cmd_wait_list) != 0 ||
 	    conn->idling || conn->idle_plus_waiting ||
 	    (conn->capabilities & IMAPC_CAPABILITY_IDLE) == 0)
 		return;
 
-	imapc_connection_cmd(conn, "IDLE",
-			     imapc_connection_idle_callback, conn);
-	conn->idle_plus_waiting = TRUE;
+	cmd = imapc_connection_cmd_build("IDLE", imapc_connection_idle_callback,
+					 conn);
+	cmd->idle = TRUE;
+	imapc_command_send(conn, cmd);
 }
