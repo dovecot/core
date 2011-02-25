@@ -285,9 +285,11 @@ static void log_append_ext_recs(struct mail_index_export_context *ctx,
 static void
 log_append_keyword_update(struct mail_index_export_context *ctx,
 			  buffer_t *tmp_buf, enum modify_type modify_type,
-			  const char *keyword, const buffer_t *buffer)
+			  const char *keyword, const buffer_t *uid_buffer)
 {
 	struct mail_transaction_keyword_update kt_hdr;
+
+	i_assert(uid_buffer->used > 0);
 
 	memset(&kt_hdr, 0, sizeof(kt_hdr));
 	kt_hdr.modify_type = modify_type;
@@ -298,7 +300,7 @@ log_append_keyword_update(struct mail_index_export_context *ctx,
 	buffer_append(tmp_buf, keyword, kt_hdr.name_size);
 	if ((tmp_buf->used % 4) != 0)
 		buffer_append_zero(tmp_buf, 4 - (tmp_buf->used % 4));
-	buffer_append(tmp_buf, buffer->data, buffer->used);
+	buffer_append(tmp_buf, uid_buffer->data, uid_buffer->used);
 
 	log_append_buffer(ctx, tmp_buf, MAIL_TRANSACTION_KEYWORD_UPDATE);
 }
@@ -320,13 +322,15 @@ log_append_keyword_updates(struct mail_index_export_context *ctx)
 	i_assert(count <= keywords_count);
 
 	for (i = 0; i < count; i++) {
-		if (array_is_created(&updates[i].add_seq)) {
+		if (array_is_created(&updates[i].add_seq) &&
+		    array_count(&updates[i].add_seq) > 0) {
 			change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD;
 			log_append_keyword_update(ctx, tmp_buf,
 					MODIFY_ADD, keywords[i],
 					updates[i].add_seq.arr.buffer);
 		}
-		if (array_is_created(&updates[i].remove_seq)) {
+		if (array_is_created(&updates[i].remove_seq) &&
+		    array_count(&updates[i].remove_seq) > 0) {
 			change_mask |= MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE;
 			log_append_keyword_update(ctx, tmp_buf,
 					MODIFY_REMOVE, keywords[i],
