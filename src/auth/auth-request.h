@@ -192,6 +192,9 @@ void auth_request_log_debug(struct auth_request *auth_request,
 void auth_request_log_info(struct auth_request *auth_request,
 			   const char *subsystem,
 			   const char *format, ...) ATTR_FORMAT(3, 4);
+void auth_request_log_warning(struct auth_request *auth_request,
+			      const char *subsystem,
+			      const char *format, ...);
 void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) ATTR_FORMAT(3, 4);

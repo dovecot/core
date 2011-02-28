@@ -1308,10 +1308,7 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 	if (*values == NULL)
 		return;
 
-	if (strcmp(name, "uid") == 0) {
-		/* there can be only one. use the first one. */
-		auth_request_set_userdb_field(request, name, *values);
-	} else if (strcmp(name, "gid") == 0) {
+	if (strcmp(name, "gid") == 0) {
 		/* convert gids to comma separated list */
 		string_t *value;
 		gid_t gid;
@@ -1332,6 +1329,11 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 				      str_c(value));
 	} else {
 		/* add only one */
+		if (values[1] != NULL) {
+			auth_request_log_warning(request, "userdb",
+				"Multiple values found for '%s', "
+				"using value '%s'", name, *values);
+		}
 		auth_request_set_userdb_field(request, name, *values);
 	}
 }
@@ -1668,6 +1670,19 @@ void auth_request_log_info(struct auth_request *auth_request,
 	va_start(va, format);
 	T_BEGIN {
 		i_info("%s", get_log_str(auth_request, subsystem, format, va));
+	} T_END;
+	va_end(va);
+}
+
+void auth_request_log_warning(struct auth_request *auth_request,
+			      const char *subsystem,
+			      const char *format, ...)
+{
+	va_list va;
+
+	va_start(va, format);
+	T_BEGIN {
+		i_warning("%s", get_log_str(auth_request, subsystem, format, va));
 	} T_END;
 	va_end(va);
 }

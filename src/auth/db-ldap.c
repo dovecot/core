@@ -58,12 +58,11 @@ struct db_ldap_result_iterate_context {
 	struct var_expand_table *var_table;
 
 	char *attr, **vals;
-	const char *name, *value, *template, *val_1_arr[2];
+	const char *name, *template, *val_1_arr[2];
 	const char *const *static_attrs;
 	BerElement *ber;
 
 	string_t *var, *debug;
-	unsigned int value_idx;
 };
 
 struct db_ldap_sasl_bind_context {
@@ -1111,6 +1110,8 @@ db_ldap_result_iterate_finish(struct db_ldap_result_iterate_context *ctx)
 static void
 db_ldap_result_change_attr(struct db_ldap_result_iterate_context *ctx)
 {
+	i_assert(ctx->vals == NULL);
+
 	ctx->name = hash_table_lookup(ctx->attr_map, ctx->attr);
 	ctx->template = NULL;
 
@@ -1119,10 +1120,8 @@ db_ldap_result_change_attr(struct db_ldap_result_iterate_context *ctx)
 			    ctx->name != NULL ? ctx->name : "?unknown?");
 	}
 
-	if (ctx->name == NULL || *ctx->name == '\0') {
-		ctx->value = NULL;
+	if (ctx->name == NULL || *ctx->name == '\0')
 		return;
-	}
 
 	if (strchr(ctx->name, '%') != NULL &&
 	    (ctx->template = strchr(ctx->name, '=')) != NULL) {
@@ -1138,31 +1137,35 @@ db_ldap_result_change_attr(struct db_ldap_result_iterate_context *ctx)
 
 	ctx->vals = ldap_get_values(ctx->conn->ld, ctx->entry,
 				    ctx->attr);
-	ctx->value = ctx->vals[0];
-	ctx->value_idx = 0;
 }
 
 static void
 db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx)
 {
-	bool first = ctx->value_idx == 0;
+	unsigned int i;
 
 	if (ctx->template != NULL) {
-		ctx->var_table[0].value = ctx->value;
+		if (ctx->vals[1] != NULL) {
+			auth_request_log_warning(ctx->auth_request, "ldap",
+				"Multiple values found for '%s', "
+				"using value '%s'", ctx->name, ctx->vals[0]);
+		}
+		ctx->var_table[0].value = ctx->vals[0];
 		str_truncate(ctx->var, 0);
 		var_expand(ctx->var, ctx->template, ctx->var_table);
-		ctx->value = str_c(ctx->var);
+		ctx->val_1_arr[0] = str_c(ctx->var);
 	}
 
-	if (ctx->debug != NULL) {
-		if (!first)
-			str_append_c(ctx->debug, '/');
-		if (ctx->auth_request->set->debug_passwords ||
-		    (strcmp(ctx->name, "password") != 0 &&
-		     strcmp(ctx->name, "password_noscheme") != 0))
-			str_append(ctx->debug, ctx->value);
-		else
-			str_append(ctx->debug, PASSWORD_HIDDEN_STR);
+	if (ctx->debug == NULL) {
+		/* no debugging */
+	} else if (ctx->auth_request->set->debug_passwords ||
+		   (strcmp(ctx->name, "password") != 0 &&
+		    strcmp(ctx->name, "password_noscheme") != 0)) {
+		str_append(ctx->debug, ctx->vals[0]);
+		for (i = 1; ctx->vals[i] != NULL; i++)
+			str_printfa(ctx->debug, ", %s", ctx->vals[i]);
+	} else {
+		str_append(ctx->debug, PASSWORD_HIDDEN_STR);
 	}
 }
 
@@ -1171,16 +1174,10 @@ static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 	const char *p;
 
 	while (ctx->attr != NULL) {
-		if (ctx->vals == NULL) {
-			/* a new attribute */
-			db_ldap_result_change_attr(ctx);
-		} else {
-			/* continuing existing attribute */
-			if (ctx->value != NULL)
-				ctx->value = ctx->vals[++ctx->value_idx];
-		}
+		/* a new attribute */
+		db_ldap_result_change_attr(ctx);
 
-		if (ctx->value != NULL) {
+		if (ctx->vals != NULL) {
 			db_ldap_result_return_value(ctx);
 			return TRUE;
 		}
@@ -1195,14 +1192,13 @@ static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 		p = strchr(*ctx->static_attrs, '=');
 		if (p == NULL) {
 			ctx->name = *ctx->static_attrs;
-			ctx->value = "";
+			ctx->val_1_arr[0] = "";
 		} else {
 			ctx->name = t_strdup_until(*ctx->static_attrs, p);
-			ctx->value = p + 1;
+			ctx->val_1_arr[0] = p + 1;
 		}
-		/* make _next_all() return correct values */
+		/* make _next() return correct values */
 		ctx->template = "";
-		ctx->val_1_arr[0] = ctx->value;
 		ctx->static_attrs++;
 		return TRUE;
 	}
@@ -1212,31 +1208,18 @@ static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 }
 
 bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
-				 const char **name_r, const char **value_r)
-{
-	if (!db_ldap_result_int_next(ctx))
-		return FALSE;
-
-	*name_r = ctx->name;
-	*value_r = ctx->value;
-	return TRUE;
-}
-
-bool db_ldap_result_iterate_next_all(struct db_ldap_result_iterate_context *ctx,
-				     const char **name_r,
-				     const char *const **values_r)
+				 const char **name_r,
+				 const char *const **values_r)
 {
 	if (!db_ldap_result_int_next(ctx))
 		return FALSE;
 
 	if (ctx->template != NULL) {
 		/* we can use only one value with templates */
-		ctx->val_1_arr[0] = ctx->value;
 		*values_r = ctx->val_1_arr;
 	} else {
 		*values_r = (const char *const *)ctx->vals;
 	}
-	ctx->value = NULL;
 	*name_r = ctx->name;
 	return TRUE;
 }
