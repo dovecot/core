@@ -35,6 +35,7 @@ enum imapc_input_state {
 
 struct imapc_command_stream {
 	unsigned int pos;
+	uoff_t size;
 	struct istream *input;
 };
 
@@ -101,6 +102,7 @@ struct imapc_connection {
 	unsigned int idle_plus_waiting:1;
 };
 
+static int imapc_connection_output(struct imapc_connection *conn);
 static int imapc_connection_ssl_init(struct imapc_connection *conn);
 static void imapc_command_free(struct imapc_command *cmd);
 static void imapc_command_send_more(struct imapc_connection *conn,
@@ -146,6 +148,19 @@ void imapc_connection_ioloop_changed(struct imapc_connection *conn)
 		conn->io = io_loop_move_io(&conn->io);
 	if (conn->to != NULL)
 		conn->to = io_loop_move_timeout(&conn->to);
+}
+
+static const char *imapc_command_get_readable(struct imapc_command *cmd)
+{
+	string_t *str = t_str_new(256);
+	const unsigned char *data = cmd->data->data;
+	unsigned int i;
+
+	for (i = 0; i < cmd->data->used; i++) {
+		if (data[i] != '\r' && data[i] != '\n')
+			str_append_c(str, data[i]);
+	}
+	return str_c(str);
 }
 
 static void
@@ -541,8 +556,9 @@ static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 	struct imapc_connection *conn = context;
 
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
-		imapc_connection_input_error(conn, "Authentication failed: %s",
-					     reply->text_full);
+		i_error("imapc(%s): Authentication failed: %s",
+			conn->name, reply->text_full);
+		imapc_connection_disconnect(conn);
 		return;
 	}
 
@@ -865,8 +881,8 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 
 	if (reply.state == IMAPC_COMMAND_STATE_BAD) {
 		i_error("imapc(%s): Command '%s' failed with BAD: %u %s",
-			conn->name, str_c(cmd->data), conn->cur_tag,
-			reply.text_full);
+			conn->name, imapc_command_get_readable(cmd),
+			conn->cur_tag, reply.text_full);
 	}
 
 	imapc_connection_input_reset(conn);
@@ -1063,6 +1079,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	o_stream_set_flush_callback(conn->output, imapc_connection_output,
+				    conn);
 	conn->io = io_add(fd, IO_WRITE, imapc_connection_connected, conn);
 	conn->parser = imap_parser_create(conn->input, NULL, (size_t)-1);
 	conn->to = timeout_add(IMAPC_CONNECT_TIMEOUT_MSECS,
@@ -1218,22 +1236,40 @@ static void imapc_command_send_done(struct imapc_connection *conn,
 	}
 }
 
+static struct imapc_command_stream *
+imapc_command_get_sending_stream(struct imapc_command *cmd)
+{
+	struct imapc_command_stream *stream;
+
+	if (!array_is_created(&cmd->streams) || array_count(&cmd->streams) == 0)
+		return NULL;
+
+	stream = array_idx_modifiable(&cmd->streams, 0);
+	if (stream->pos != cmd->send_pos)
+		return NULL;
+	return stream;
+}
+
 static int imapc_command_try_send_stream(struct imapc_connection *conn,
 					 struct imapc_command *cmd)
 {
 	struct imapc_command_stream *stream;
 
-	if (!array_is_created(&cmd->streams) || array_count(&cmd->streams) == 0)
-		return -1;
-
-	stream = array_idx_modifiable(&cmd->streams, 0);
-	if (stream->pos != cmd->send_pos)
+	stream = imapc_command_get_sending_stream(cmd);
+	if (stream == NULL)
 		return -1;
 
 	/* we're sending the stream now */
+	o_stream_set_max_buffer_size(conn->output, 0);
 	(void)o_stream_send_istream(conn->output, stream->input);
-	if (!i_stream_is_eof(stream->input))
+	o_stream_set_max_buffer_size(conn->output, (size_t)-1);
+
+	if (!i_stream_is_eof(stream->input)) {
+		o_stream_set_flush_pending(conn->output, TRUE);
+		i_assert(stream->input->v_offset < stream->size);
 		return 0;
+	}
+	i_assert(stream->input->v_offset == stream->size);
 
 	/* finished with the stream */
 	i_stream_unref(&stream->input);
@@ -1298,7 +1334,7 @@ static void imapc_command_timeout(struct imapc_connection *conn)
 	i_assert(count > 0);
 
 	i_error("imapc(%s): Command '%s' timed out, disconnecting",
-		conn->name, str_c(cmds[0]->data));
+		conn->name, imapc_command_get_readable(cmds[0]));
 	imapc_connection_disconnect(conn);
 }
 
@@ -1331,6 +1367,30 @@ static void imapc_command_send(struct imapc_connection *conn,
 		array_append(&conn->cmd_send_queue, &cmd, 1);
 		break;
 	}
+}
+
+static int imapc_connection_output(struct imapc_connection *conn)
+{
+	struct imapc_command *const *cmds;
+	unsigned int count;
+	int ret;
+
+	if (conn->to != NULL)
+		timeout_reset(conn->to);
+
+	o_stream_cork(conn->output);
+	if ((ret = o_stream_flush(conn->output)) < 0)
+		return 1;
+
+	cmds = array_get(&conn->cmd_send_queue, &count);
+	if (count > 0) {
+		if (imapc_command_get_sending_stream(cmds[0]) != NULL) {
+			/* we're sending a stream. send more. */
+			imapc_command_send_more(conn, cmds[0]);
+		}
+	}
+	o_stream_uncork(conn->output);
+	return ret;
 }
 
 static struct imapc_command *
@@ -1404,6 +1464,7 @@ void imapc_connection_cmdvf(struct imapc_connection *conn,
 			str_printfa(cmd->data, "{%"PRIuSIZE_T"}\r\n", size);
 			s = array_append_space(&cmd->streams);
 			s->pos = str_len(cmd->data);
+			s->size = size;
 			s->input = input;
 			i_stream_ref(input);
 			break;
