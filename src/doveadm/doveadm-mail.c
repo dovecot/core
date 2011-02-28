@@ -248,7 +248,6 @@ void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 		i_fatal("%s", error);
 	else if (ret == 0)
 		i_fatal("User doesn't exist");
-	mail_storage_service_deinit(&ctx->storage_service);
 }
 
 static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
@@ -319,7 +318,6 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 	i_set_failure_prefix("doveadm: ");
 	if (ret < 0)
 		i_error("Failed to iterate through some users");
-	mail_storage_service_deinit(&ctx->storage_service);
 }
 
 static void
@@ -420,14 +418,17 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(ctx, argv, wildcard_user, service_flags);
 	}
+	if (ctx->search_args != NULL)
+		mail_search_args_unref(&ctx->search_args);
 	doveadm_mail_server_flush();
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();
 
+	/* service deinit unloads mail plugins, so do it late */
+	mail_storage_service_deinit(&ctx->storage_service);
+
 	if (ctx->failed)
 		exit(FATAL_DEFAULT);
-	if (ctx->search_args != NULL)
-		mail_search_args_unref(&ctx->search_args);
 	pool_unref(&ctx->pool);
 }
 
