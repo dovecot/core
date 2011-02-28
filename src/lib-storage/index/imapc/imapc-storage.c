@@ -94,6 +94,20 @@ void imapc_copy_error_from_reply(struct imapc_storage *storage,
 	}
 }
 
+void imapc_simple_context_init(struct imapc_simple_context *sctx,
+			       struct imapc_storage *storage)
+{
+	memset(sctx, 0, sizeof(*sctx));
+	sctx->storage = storage;
+	sctx->ret = -2;
+}
+
+void imapc_simple_run(struct imapc_simple_context *sctx)
+{
+	while (sctx->ret == -2)
+		imapc_client_run(sctx->storage->client);
+}
+
 void imapc_simple_callback(const struct imapc_command_reply *reply,
 			   void *context)
 {
@@ -274,6 +288,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	p_array_init(&mbox->untagged_callbacks, pool, 16);
 	p_array_init(&mbox->resp_text_callbacks, pool, 16);
+	p_array_init(&mbox->alt_client_boxes, pool, 4);
 	imapc_mailbox_register_callbacks(mbox);
 	return &mbox->box;
 }
@@ -317,7 +332,8 @@ static int imapc_mailbox_open(struct mailbox *box)
 	ctx.mbox = mbox;
 	ctx.ret = -1;
 	mbox->client_box =
-		imapc_client_mailbox_open(mbox->storage->client, box->name,
+		imapc_client_mailbox_open(mbox->storage->client,
+					  box->name, FALSE,
 					  imapc_mailbox_open_callback,
 					  &ctx, mbox);
 	imapc_client_run(mbox->storage->client);
@@ -329,10 +345,46 @@ static int imapc_mailbox_open(struct mailbox *box)
 	return 0;
 }
 
+int imapc_mailbox_get_client_box(struct imapc_mailbox *mbox,
+				 struct imapc_client_mailbox **client_box_r)
+{
+	struct imapc_client_mailbox *const *client_boxp, *alt_box;
+	struct imapc_simple_context sctx;
+
+	if (!imapc_client_mailbox_is_locked(mbox->client_box)) {
+		*client_box_r = mbox->client_box;
+		return 0;
+	}
+
+	array_foreach(&mbox->alt_client_boxes, client_boxp) {
+		if (!imapc_client_mailbox_is_locked(*client_boxp)) {
+			*client_box_r = *client_boxp;
+			return 0;
+		}
+	}
+
+	imapc_simple_context_init(&sctx, mbox->storage);
+	alt_box = imapc_client_mailbox_open(mbox->storage->client,
+					    mbox->box.name, TRUE,
+					    imapc_simple_callback,
+					    &sctx, NULL);
+	imapc_simple_run(&sctx);
+
+	if (sctx.ret < 0) {
+		imapc_client_mailbox_close(&alt_box);
+		return -1;
+	}
+	array_append(&mbox->alt_client_boxes, &alt_box, 1);
+	return 0;
+}
+
 static void imapc_mailbox_close(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_client_mailbox **client_boxp;
 
+	array_foreach_modifiable(&mbox->alt_client_boxes, client_boxp)
+		imapc_client_mailbox_close(client_boxp);
 	if (mbox->client_box != NULL)
 		imapc_client_mailbox_close(&mbox->client_box);
 	if (mbox->delayed_sync_view != NULL)
@@ -356,18 +408,18 @@ imapc_mailbox_create(struct mailbox *box,
 		     bool directory)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
-	struct imapc_simple_context ctx;
+	struct imapc_simple_context sctx;
 	const char *name = box->name;
 
 	if (directory) {
 		name = t_strdup_printf("%s%c", name,
 				mailbox_list_get_hierarchy_sep(box->list));
 	}
-	ctx.storage = mbox->storage;
-	imapc_client_cmdf(mbox->storage->client, imapc_simple_callback, &ctx,
+	imapc_simple_context_init(&sctx, mbox->storage);
+	imapc_client_cmdf(mbox->storage->client, imapc_simple_callback, &sctx,
 			  "CREATE %s", name);
-	imapc_client_run(mbox->storage->client);
-	return ctx.ret;
+	imapc_simple_run(&sctx);
+	return sctx.ret;
 }
 
 static int imapc_mailbox_update(struct mailbox *box,
@@ -429,7 +481,7 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 				    struct mailbox_status *status_r)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
-	struct imapc_simple_context ctx;
+	struct imapc_simple_context sctx;
 	string_t *str;
 
 	memset(status_r, 0, sizeof(*status_r));
@@ -467,16 +519,16 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 		return 0;
 	}
 
-	ctx.storage = mbox->storage;
+	imapc_simple_context_init(&sctx, mbox->storage);
 	mbox->storage->cur_status_box = mbox;
 	mbox->storage->cur_status = status_r;
 	imapc_client_cmdf(mbox->storage->client,
-			  imapc_simple_callback, &ctx,
+			  imapc_simple_callback, &sctx,
 			  "STATUS %s (%1s)", box->name, str_c(str)+1);
-	imapc_client_run(mbox->storage->client);
+	imapc_simple_run(&sctx);
 	mbox->storage->cur_status_box = NULL;
 	mbox->storage->cur_status = NULL;
-	return ctx.ret;
+	return sctx.ret;
 }
 
 static int imapc_mailbox_get_metadata(struct mailbox *box,

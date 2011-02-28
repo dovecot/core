@@ -195,7 +195,8 @@ imapc_client_get_unboxed_connection(struct imapc_client *client)
 
 
 struct imapc_client_mailbox *
-imapc_client_mailbox_open(struct imapc_client *client, const char *name,
+imapc_client_mailbox_open(struct imapc_client *client,
+			  const char *name, bool examine,
 			  imapc_command_callback_t *callback, void *context,
 			  void *untagged_box_context)
 {
@@ -210,7 +211,7 @@ imapc_client_mailbox_open(struct imapc_client *client, const char *name,
 	box->conn = conn->conn;
 	box->seqmap = imapc_seqmap_init();
 
-	imapc_connection_select(box, name, callback, context);
+	imapc_connection_select(box, name, examine, callback, context);
 	return box;
 }
 
@@ -333,6 +334,25 @@ struct imapc_seqmap *
 imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box)
 {
 	return box->seqmap;
+}
+
+void imapc_client_mailbox_lock(struct imapc_client_mailbox *box)
+{
+	i_assert(!box->locked);
+
+	box->locked = TRUE;
+}
+
+void imapc_client_mailbox_unlock(struct imapc_client_mailbox *box)
+{
+	i_assert(box->locked);
+
+	box->locked = FALSE;
+}
+
+bool imapc_client_mailbox_is_locked(struct imapc_client_mailbox *box)
+{
+	return box->locked;
 }
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)

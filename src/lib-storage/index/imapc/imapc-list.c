@@ -168,11 +168,12 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 	struct imapc_simple_context ctx;
 
 	if (list->sep == '\0') {
-		ctx.storage = list->storage;
+		imapc_simple_context_init(&ctx, list->storage);
 		imapc_client_cmdf(list->storage->client,
 				  imapc_list_simple_callback, &ctx,
 				  "LIST \"\" \"\"");
-		imapc_client_run(list->storage->client);
+		imapc_simple_run(&ctx);
+
 		if (ctx.ret < 0) {
 			list->broken = TRUE;
 			return '/';
@@ -216,15 +217,14 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	if (list->sep == '\0')
 		(void)mailbox_list_get_hierarchy_sep(&list->list);
 
-	ctx.storage = list->storage;
+	imapc_simple_context_init(&ctx, list->storage);
 	imapc_client_cmdf(list->storage->client,
 			  imapc_list_simple_callback, &ctx, "LIST \"\" *");
 	if (list->mailboxes != NULL)
 		mailbox_tree_deinit(&list->mailboxes);
 	list->mailboxes = mailbox_tree_init(list->sep);
 
-	imapc_client_run(list->storage->client);
-
+	imapc_simple_run(&ctx);
 	if (ctx.ret == 0)
 		list->refreshed_mailboxes = TRUE;
 	return ctx.ret;
@@ -366,11 +366,11 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 
 	src_list->tmp_subscriptions = mailbox_tree_init(src_list->sep);
 
-	ctx.storage = src_list->storage;
+	imapc_simple_context_init(&ctx, src_list->storage);
 	imapc_client_cmdf(src_list->storage->client,
 			  imapc_list_simple_callback, &ctx,
 			  "LSUB \"\" *");
-	imapc_client_run(src_list->storage->client);
+	imapc_simple_run(&ctx);
 
 	/* replace subscriptions tree in destination */
 	mailbox_tree_set_separator(src_list->tmp_subscriptions,
@@ -390,11 +390,11 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	struct imapc_simple_context ctx;
 
-	ctx.storage = list->storage;
+	imapc_simple_context_init(&ctx, list->storage);
 	imapc_client_cmdf(list->storage->client,
 			  imapc_list_simple_callback, &ctx,
 			  set ? "SUBSCRIBE %s" : "UNSUBSCRIBE %s", name);
-	imapc_client_run(list->storage->client);
+	imapc_simple_run(&ctx);
 	return ctx.ret;
 }
 
@@ -414,10 +414,10 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	struct imapc_simple_context ctx;
 
-	ctx.storage = list->storage;
+	imapc_simple_context_init(&ctx, list->storage);
 	imapc_client_cmdf(list->storage->client,
 			  imapc_list_simple_callback, &ctx, "DELETE %s", name);
-	imapc_client_run(list->storage->client);
+	imapc_simple_run(&ctx);
 	return ctx.ret;
 }
 
@@ -448,11 +448,11 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 		return -1;
 	}
 
-	ctx.storage = list->storage;
+	imapc_simple_context_init(&ctx, list->storage);
 	imapc_client_cmdf(list->storage->client,
 			  imapc_list_simple_callback, &ctx,
 			  "RENAME %s %s", oldname, newname);
-	imapc_client_run(list->storage->client);
+	imapc_simple_run(&ctx);
 	return ctx.ret;
 }
 

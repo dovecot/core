@@ -18,6 +18,8 @@
 struct imapc_search_context {
 	struct index_search_context ictx;
 
+	struct imapc_client_mailbox *client_box;
+
 	/* non-NULL during _search_next_nonblock() */
 	struct mail *cur_mail;
 
@@ -26,6 +28,7 @@ struct imapc_search_context {
 	uint32_t next_pending_seq, saved_seq;
 
 	unsigned int fetching:1;
+	unsigned int failed:1;
 };
 
 static void imapc_search_fetch_callback(const struct imapc_command_reply *reply,
@@ -45,6 +48,7 @@ static void imapc_search_fetch_callback(const struct imapc_command_reply *reply,
 			"imapc: Command failed: %s", reply->text_full);
 	}
 	ctx->fetching = FALSE;
+	imapc_client_mailbox_unlock(ctx->client_box);
 	imapc_client_stop(mbox->storage->client);
 }
 
@@ -79,13 +83,14 @@ imapc_append_wanted_fields(string_t *str, enum mail_fetch_field fields,
 	return ret;
 }
 
-static void
+static int
 imapc_search_send_fetch(struct imapc_search_context *ctx,
 			const ARRAY_TYPE(seq_range) *uids)
 {
 	struct mail *mail = ctx->cur_mail;
 	struct mail_private *pmail = (struct mail_private *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
+	struct imapc_client_mailbox *client_box;
 	string_t *str;
 
 	str = t_str_new(64);
@@ -96,15 +101,21 @@ imapc_search_send_fetch(struct imapc_search_context *ctx,
 	if (!imapc_append_wanted_fields(str, pmail->wanted_fields,
 					pmail->wanted_headers != NULL)) {
 		/* we don't need to fetch anything */
-		return;
+		return 0;
 	}
 
 	str_truncate(str, str_len(str) - 1);
 	str_append_c(str, ')');
 
+	if (imapc_mailbox_get_client_box(mbox, &client_box) < 0)
+		return -1;
+
+	ctx->client_box = client_box;
 	ctx->fetching = TRUE;
-	imapc_client_mailbox_cmdf(mbox->client_box, imapc_search_fetch_callback,
+	imapc_client_mailbox_lock(client_box);
+	imapc_client_mailbox_cmdf(client_box, imapc_search_fetch_callback,
 				  ctx, "%1s", str_c(str));
+	return 0;
 }
 
 struct mail_search_context *
@@ -126,12 +137,15 @@ int imapc_search_deinit(struct mail_search_context *_ctx)
 	struct imapc_search_context *ctx = (struct imapc_search_context *)_ctx;
 	struct imapc_mailbox *mbox =
 		(struct imapc_mailbox *)_ctx->transaction->box;
+	int ret = ctx->failed ? -1 : 0;
 
 	while (ctx->fetching)
 		imapc_client_run(mbox->storage->client);
 
 	array_free(&ctx->next_seqs);
-	return index_storage_search_deinit(_ctx);
+	if (index_storage_search_deinit(_ctx) < 0)
+		ret = -1;
+	return ret;
 }
 
 bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
@@ -189,10 +203,11 @@ static void imapc_get_short_uid_range(struct mailbox *box,
 	}
 }
 
-static void imapc_search_update_next_seqs(struct imapc_search_context *ctx)
+static int imapc_search_update_next_seqs(struct imapc_search_context *ctx)
 {
 	struct mail_search_context *_ctx = &ctx->ictx.mail_ctx;
 	uint32_t prev_seq;
+	int ret = 0;
 
 	/* add messages to the next_seqs list as long as the sequences
 	   are incrementing */
@@ -219,8 +234,9 @@ static void imapc_search_update_next_seqs(struct imapc_search_context *ctx)
 		t_array_init(&uids, array_count(&ctx->next_seqs)*2);
 		imapc_get_short_uid_range(_ctx->transaction->box,
 					  &ctx->next_seqs, &uids);
-		imapc_search_send_fetch(ctx, &uids);
+		ret = imapc_search_send_fetch(ctx, &uids);
 	} T_END;
+	return ret;
 }
 
 bool imapc_search_next_update_seq(struct mail_search_context *_ctx)
@@ -231,7 +247,10 @@ bool imapc_search_next_update_seq(struct mail_search_context *_ctx)
 
 	seqs = array_get_modifiable(&ctx->next_seqs, &count);
 	if (count == 0) {
-		imapc_search_update_next_seqs(ctx);
+		if (imapc_search_update_next_seqs(ctx) < 0) {
+			ctx->failed = TRUE;
+			return FALSE;
+		}
 		seqs = array_get_modifiable(&ctx->next_seqs, &count);
 		if (count == 0)
 			return FALSE;
@@ -377,6 +396,7 @@ int imapc_mail_fetch(struct mail *mail, enum mail_fetch_field fields)
 	struct imapc_mail *imail = (struct imapc_mail *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	struct imapc_simple_context sctx;
+	struct imapc_client_mailbox *client_box;
 	string_t *str;
 
 	str = t_str_new(64);
@@ -384,17 +404,19 @@ int imapc_mail_fetch(struct mail *mail, enum mail_fetch_field fields)
 
 	if (!imapc_append_wanted_fields(str, fields, FALSE))
 		return 0;
+	if (imapc_mailbox_get_client_box(mbox, &client_box) < 0)
+		return -1;
 
 	str_truncate(str, str_len(str) - 1);
 	str_append_c(str, ')');
 
-	sctx.storage = mbox->storage;
-	imapc_client_mailbox_cmdf(mbox->client_box, imapc_async_stop_callback,
-				  mbox->storage, "%1s", str_c(str));
+	imapc_simple_context_init(&sctx, mbox->storage);
+	imapc_client_mailbox_cmdf(client_box, imapc_simple_callback,
+				  &sctx, "%1s", str_c(str));
 
 	imail->fetch_one = TRUE;
 	mbox->cur_fetch_mail = mail;
-	imapc_client_run(mbox->storage->client);
+	imapc_simple_run(&sctx);
 	mbox->cur_fetch_mail = NULL;
 	imail->fetch_one = FALSE;
 	return sctx.ret;

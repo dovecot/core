@@ -119,7 +119,8 @@ void imapc_client_stop(struct imapc_client *client);
 void imapc_client_stop_now(struct imapc_client *client);
 
 struct imapc_client_mailbox *
-imapc_client_mailbox_open(struct imapc_client *client, const char *name,
+imapc_client_mailbox_open(struct imapc_client *client,
+			  const char *name, bool examine,
 			  imapc_command_callback_t *callback, void *context,
 			  void *untagged_box_context);
 void imapc_client_mailbox_close(struct imapc_client_mailbox **box);
@@ -134,6 +135,10 @@ void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 	ATTR_FORMAT(4, 5);
 struct imapc_seqmap *
 imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box);
+
+void imapc_client_mailbox_lock(struct imapc_client_mailbox *box);
+void imapc_client_mailbox_unlock(struct imapc_client_mailbox *box);
+bool imapc_client_mailbox_is_locked(struct imapc_client_mailbox *box);
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box);
 bool imapc_client_mailbox_is_connected(struct imapc_client_mailbox *box);

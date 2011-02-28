@@ -42,7 +42,10 @@ struct imapc_storage {
 struct imapc_mailbox {
 	struct mailbox box;
 	struct imapc_storage *storage;
+	/* primary client connection to mailbox. handles untagged replies. */
 	struct imapc_client_mailbox *client_box;
+	/* alternative EXAMINEd client connections to mailbox. */
+	ARRAY_DEFINE(alt_client_boxes, struct imapc_client_mailbox *);
 
 	struct mail_index_transaction *delayed_sync_trans;
 	struct mail_index_view *sync_view, *delayed_sync_view;
@@ -90,10 +93,15 @@ void imapc_fetch_mail_update(struct mail *mail,
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,
 				 const struct imapc_command_reply *reply);
+void imapc_simple_context_init(struct imapc_simple_context *sctx,
+			       struct imapc_storage *storage);
+void imapc_simple_run(struct imapc_simple_context *sctx);
 void imapc_simple_callback(const struct imapc_command_reply *reply,
 			   void *context);
 void imapc_async_stop_callback(const struct imapc_command_reply *reply,
 			       void *context);
+int imapc_mailbox_get_client_box(struct imapc_mailbox *mbox,
+				 struct imapc_client_mailbox **client_box_r);
 
 void imapc_storage_register_untagged(struct imapc_storage *storage,
 				     const char *name,

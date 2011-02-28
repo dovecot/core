@@ -1511,7 +1511,8 @@ imapc_connection_get_capabilities(struct imapc_connection *conn)
 	return conn->capabilities;
 }
 
-void imapc_connection_select(struct imapc_client_mailbox *box, const char *name,
+void imapc_connection_select(struct imapc_client_mailbox *box,
+			     const char *name, bool examine,
 			     imapc_command_callback_t *callback, void *context)
 {
 	struct imapc_connection *conn = box->conn;
@@ -1529,7 +1530,8 @@ void imapc_connection_select(struct imapc_client_mailbox *box, const char *name,
 		conn->selected_box = box;
 	}
 
-	imapc_connection_cmdf(conn, callback, context, "SELECT %s", name);
+	imapc_connection_cmdf(conn, callback, context,
+			      examine ? "EXAMINE %s" : "SELECT %s", name);
 }
 
 void imapc_connection_unselect(struct imapc_client_mailbox *box)
