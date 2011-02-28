@@ -13,6 +13,7 @@
 #include "mail-search-build.h"
 #include "mailbox-search-result-private.h"
 #include "index-storage.h"
+#include "index-search-private.h"
 #include "index-thread-private.h"
 
 #include <stdlib.h>
@@ -299,6 +300,7 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
 	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
+	struct index_search_context *search_ctx_i;
 	struct mail *mail;
 	struct mail_private *pmail;
 	uint32_t last_uid, seq1, seq2;
@@ -337,8 +339,8 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	search_ctx = mailbox_search_init(ctx->t, search_args, NULL);
 
 	mail = mail_alloc(ctx->t, 0, NULL);
-	pmail = (struct mail_private *)mail;
-	pmail->extra_wanted_headers =
+	search_ctx_i = (struct index_search_context *)search_ctx;
+	search_ctx_i->extra_wanted_headers =
 		mailbox_header_lookup_init(ctx->box, wanted_headers);
 
 	while (mailbox_search_next(search_ctx, mail)) {
@@ -347,7 +349,6 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 			break;
 		}
 	}
-	mailbox_header_lookup_unref(&pmail->extra_wanted_headers);
 	mail_free(&mail);
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
@@ -572,7 +573,7 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 	tbox->ctx = ctx;
 
 	mail_thread_cache_sync_remove(tbox, ctx);
-	ret = mail_thread_index_map_build(ctx) < 0;
+	ret = mail_thread_index_map_build(ctx);
 	if (ret == 0)
 		mail_thread_cache_sync_add(tbox, ctx, search_ctx);
 	if (mailbox_search_deinit(&search_ctx) < 0)
