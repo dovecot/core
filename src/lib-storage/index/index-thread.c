@@ -568,7 +568,7 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 	tbox->ctx = ctx;
 
 	mail_thread_cache_sync_remove(tbox, ctx);
-	ret = mail_thread_index_map_build(ctx) < 0;
+	ret = mail_thread_index_map_build(ctx);
 	if (ret == 0)
 		mail_thread_cache_sync_add(tbox, ctx, search_ctx);
 	if (mailbox_search_deinit(&search_ctx) < 0)
