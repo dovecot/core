@@ -426,6 +426,9 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	if (ctx->failed)
 		exit(FATAL_DEFAULT);
+	if (ctx->search_args != NULL)
+		mail_search_args_unref(&ctx->search_args);
+	pool_unref(&ctx->pool);
 }
 
 static bool
