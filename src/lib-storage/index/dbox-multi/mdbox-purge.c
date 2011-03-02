@@ -222,7 +222,13 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 					  out_file_append->file->cur_path);
 		return -1;
 	}
-	i_assert(ret == (off_t)msg_size);
+	if (ret != (off_t)msg_size) {
+		i_assert(ret < (off_t)msg_size);
+		i_assert(i_stream_is_eof(file->input));
+
+		dbox_file_set_corrupted(file, "truncated message at EOF");
+		return 0;
+	}
 
 	/* copy metadata */
 	if ((ret = mdbox_file_metadata_copy(file, output)) <= 0)
@@ -366,10 +372,9 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 		} else {
 			/* non-expunged message. write it to output file. */
 			i_stream_seek(file->input, offset);
-			if (mdbox_purge_save_msg(ctx, file, &msgs[i]) < 0) {
-				ret = -1;
+			ret = mdbox_purge_save_msg(ctx, file, &msgs[i]);
+			if (ret <= 0)
 				break;
-			}
 			array_append(&copied_map_uids, &msgs[i].map_uid, 1);
 		}
 		offset = file->input->v_offset;
