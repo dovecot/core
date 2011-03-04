@@ -426,17 +426,15 @@ static bool service_want(struct service_settings *set)
 	return FALSE;
 }
 
-int services_create(const struct master_settings *set,
-		    struct service_list **services_r, const char **error_r)
+static int
+services_create_real(const struct master_settings *set, pool_t pool,
+		     struct service_list **services_r, const char **error_r)
 {
 	struct service_list *service_list;
 	struct service *service;
 	struct service_settings *const *service_settings;
-	pool_t pool;
 	const char *error;
 	unsigned int i, count;
-
-	pool = pool_alloconly_create("services pool", 4096);
 
 	service_list = p_new(pool, struct service_list, 1);
 	service_list->refcount = 1;
@@ -501,6 +499,19 @@ int services_create(const struct master_settings *set,
 	}
 
 	*services_r = service_list;
+	return 0;
+}
+
+int services_create(const struct master_settings *set,
+		    struct service_list **services_r, const char **error_r)
+{
+	pool_t pool;
+
+	pool = pool_alloconly_create("services pool", 4096);
+	if (services_create_real(set, pool, services_r, error_r) < 0) {
+		pool_unref(&pool);
+		return -1;
+	}
 	return 0;
 }
 
