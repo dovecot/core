@@ -276,6 +276,8 @@ struct mailbox {
 	unsigned int mailbox_deleted:1;
 	/* we've discovered there aren't enough permissions to modify mailbox */
 	unsigned int backend_readonly:1;
+	/* Mailbox is being created */
+	unsigned int creating:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
 	/* Mailbox was already marked as deleted within this allocation. */

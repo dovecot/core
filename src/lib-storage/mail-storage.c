@@ -672,6 +672,7 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
 	enum mailbox_dir_create_type type;
+	int ret;
 
 	if (!mailbox_list_is_valid_create_name(box->list, box->name)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
@@ -687,7 +688,10 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	}
 	mailbox_refresh_permissions(box);
 
-	return box->v.create(box, update, directory);
+	box->creating = TRUE;
+	ret = box->v.create(box, update, directory);
+	box->creating = FALSE;
+	return ret;
 }
 
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
