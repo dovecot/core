@@ -1,4 +1,5 @@
- - imap -O -o plugin/foo=bar doesn't add foo because of -O
+ - doveadm fetch text mailbox <ns prefix> -> no replies, because
+   mailbox_list_iter_init_namespaces() doesn't return ns prefixes
  - master passdb preserves userdb_* extra fields. should it preserve
    non-userdb_* extra fields too?
  - imap, pop3: if client init fails, wait a second or two before disconnecting
