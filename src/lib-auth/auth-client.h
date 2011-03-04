@@ -9,7 +9,9 @@ struct auth_client_request;
 
 enum auth_request_flags {
 	AUTH_REQUEST_FLAG_SECURED		= 0x01,
-	AUTH_REQUEST_FLAG_VALID_CLIENT_CERT	= 0x02
+	AUTH_REQUEST_FLAG_VALID_CLIENT_CERT	= 0x02,
+	/* Skip penalty checks for this request */
+	AUTH_REQUEST_FLAG_NO_PENALTY		= 0x04
 };
 
 enum auth_request_status {

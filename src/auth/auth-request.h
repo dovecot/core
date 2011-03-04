@@ -106,6 +106,7 @@ struct auth_request {
 	unsigned int proxy:1;
 	unsigned int proxy_maybe:1;
 	unsigned int valid_client_cert:1;
+	unsigned int no_penalty:1;
 	unsigned int cert_username:1;
 	unsigned int userdb_lookup:1;
 	unsigned int userdb_lookup_failed:1;
