@@ -332,7 +332,7 @@ cmd_acl_delete_alloc(void)
 	return ctx;
 }
 
-static bool cmd_acl_debug_mailbox(struct mailbox *box)
+static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 {
 	struct mail_namespace *ns = mailbox_get_namespace(box);
 	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
@@ -344,6 +344,9 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box)
 	enum mail_flags private_flags_mask;
 	string_t *str;
 	int ret;
+	bool all_ok = TRUE;
+
+	*retry_r = FALSE;
 
 	private_flags_mask = mailbox_get_private_flags_mask(box);
 	if (private_flags_mask == 0)
@@ -386,10 +389,14 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box)
 	if (ret < 0)
 		i_fatal("ACL non-owner iteration failed");
 	if (ret == 0) {
-		i_error("Mailbox not found from dovecot-acl-list");
-		return FALSE;
+		i_error("Mailbox not found from dovecot-acl-list, rebuilding");
+		if (acl_backend_nonowner_lookups_rebuild(backend) < 0)
+			i_fatal("dovecot-acl-list rebuilding failed");
+		all_ok = FALSE;
+		*retry_r = TRUE;
+	} else {
+		i_info("Mailbox found from dovecot-acl-list");
 	}
-	i_info("Mailbox found from dovecot-acl-list");
 
 	if (ns->type == NAMESPACE_PUBLIC) {
 		i_info("Mailbox is in public namespace");
@@ -410,13 +417,17 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box)
 	if (acl_lookup_dict_iterate_visible_deinit(&diter) < 0)
 		i_fatal("ACL shared dict iteration failed");
 	if (name == NULL) {
-		i_error("User %s not found from ACL shared dict",
+		i_error("User %s not found from ACL shared dict, rebuilding",
 			ns->owner->username);
-		return FALSE;
+		if (acl_lookup_dict_rebuild(auser->acl_lookup_dict) < 0)
+			i_fatal("ACL lookup dict rebuild failed");
+		all_ok = FALSE;
+		*retry_r = TRUE;
+	} else {
+		i_info("User %s found from ACL shared dict",
+		       ns->owner->username);
 	}
-
-	i_info("User %s found from ACL shared dict", ns->owner->username);
-	return TRUE;
+	return all_ok;
 }
 
 static void
@@ -424,11 +435,17 @@ cmd_acl_debug_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
 	const char *mailbox = ctx->args[0];
 	struct mailbox *box;
+	bool ret, retry;
 
 	if (cmd_acl_mailbox_open(user, mailbox, &box) < 0)
 		return;
 
-	if (cmd_acl_debug_mailbox(box))
+	ret = cmd_acl_debug_mailbox(box, &retry);
+	if (!ret && retry) {
+		i_info("Retrying after rebuilds:");
+		ret = cmd_acl_debug_mailbox(box, &retry);
+	}
+	if (ret)
 		i_info("Mailbox %s is visible in LIST", box->vname);
 	else
 		i_info("Mailbox %s is NOT visible in LIST", box->vname);
