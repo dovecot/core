@@ -450,6 +450,7 @@ static void do_query(struct pgsql_result *result, const char *query)
 	i_assert(db->cur_result == NULL);
 	i_assert(db->io == NULL);
 
+	driver_pgsql_set_state(db, SQL_DB_STATE_BUSY);
 	db->cur_result = result;
 	result->to = timeout_add(SQL_QUERY_TIMEOUT_SECS * 1000,
 				 query_timeout, result);
@@ -461,7 +462,6 @@ static void do_query(struct pgsql_result *result, const char *query)
 		return;
 	}
 
-	driver_pgsql_set_state(db, SQL_DB_STATE_BUSY);
 	if (ret > 0) {
 		/* write blocks */
 		db->io = io_add(PQsocket(db->pg), IO_WRITE,
