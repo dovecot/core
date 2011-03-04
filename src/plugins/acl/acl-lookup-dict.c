@@ -311,6 +311,8 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 	   first one */
 	if (dict->dict != NULL)
 		acl_lookup_dict_iterate_read(iter);
+	else
+		array_clear(&iter->iter_ids);
 	return iter;
 }
 
