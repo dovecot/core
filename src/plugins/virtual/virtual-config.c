@@ -117,6 +117,8 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 			*error_r = "Search rule without a mailbox";
 			return -1;
 		}
+		while (*line == ' ' || *line == '\t') line++;
+		str_append_c(ctx->rule, ' ');
 		str_append(ctx->rule, line);
 		return 0;
 	}
