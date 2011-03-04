@@ -46,8 +46,9 @@ shared_get_storage(struct mailbox_list **list, const char *vname,
 		   struct mail_storage **storage_r)
 {
 	struct mail_namespace *ns = (*list)->ns;
-	const char *name = vname;
+	const char *name;
 
+	name = mailbox_list_get_storage_name(*list, vname);
 	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return -1;
 	*list = ns->list;
