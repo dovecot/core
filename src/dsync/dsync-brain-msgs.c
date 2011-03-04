@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2011 Dovecot authors, see the included COPYING file */
 
 /* This code synchronizes messages in all mailboxes between two workers.
    The "src" and "dest" terms don't really have anything to do with reality,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2010 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
 
 /* The idea is that we use 32bit integers for string sort IDs which specifiy
    the sort order for primary sort condition. The whole 32bit integer space is
