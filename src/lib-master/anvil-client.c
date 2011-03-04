@@ -21,6 +21,9 @@ struct anvil_client {
 	struct ostream *output;
 	struct io *io;
 
+	struct timeout *to_reconnect;
+	time_t last_reconnect;
+
 	ARRAY_DEFINE(queries_arr, struct anvil_query);
 	struct aqueue *queries;
 
@@ -30,6 +33,7 @@ struct anvil_client {
 
 #define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
 #define ANVIL_INBUF_SIZE 1024
+#define ANVIL_RECONNECT_MIN_SECS 5
 
 static void anvil_client_disconnect(struct anvil_client *client);
 
@@ -59,6 +63,7 @@ void anvil_client_deinit(struct anvil_client **_client)
 	array_free(&client->queries_arr);
 	aqueue_deinit(&client->queries);
 	i_free(client->path);
+	i_assert(client->to_reconnect == NULL);
 	i_free(client);
 }
 
@@ -71,7 +76,17 @@ static void anvil_reconnect(struct anvil_client *client)
 			return;
 		}
 	}
-	(void)anvil_client_connect(client, FALSE);
+
+	if (ioloop_time - client->last_reconnect < ANVIL_RECONNECT_MIN_SECS) {
+		if (client->to_reconnect == NULL) {
+			client->to_reconnect =
+				timeout_add(ANVIL_RECONNECT_MIN_SECS,
+					    anvil_reconnect, client);
+		}
+	} else {
+		client->last_reconnect = ioloop_time;
+		(void)anvil_client_connect(client, FALSE);
+	}
 }
 
 static void anvil_input(struct anvil_client *client)
@@ -119,6 +134,9 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 		return -1;
 	}
 
+	if (client->to_reconnect != NULL)
+		timeout_remove(&client->to_reconnect);
+
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, ANVIL_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
@@ -142,15 +160,16 @@ static void anvil_client_cancel_queries(struct anvil_client *client)
 
 static void anvil_client_disconnect(struct anvil_client *client)
 {
-	if (client->fd == -1)
-		return;
-
-	anvil_client_cancel_queries(client);
-	io_remove(&client->io);
-	i_stream_destroy(&client->input);
-	o_stream_destroy(&client->output);
-	net_disconnect(client->fd);
-	client->fd = -1;
+	if (client->fd != -1) {
+		anvil_client_cancel_queries(client);
+		io_remove(&client->io);
+		i_stream_destroy(&client->input);
+		o_stream_destroy(&client->output);
+		net_disconnect(client->fd);
+		client->fd = -1;
+	}
+	if (client->to_reconnect != NULL)
+		timeout_remove(&client->to_reconnect);
 }
 
 static int anvil_client_send(struct anvil_client *client, const char *cmd)
