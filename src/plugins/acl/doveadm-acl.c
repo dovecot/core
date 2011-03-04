@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "module-dir.h"
+#include "imap-util.h"
 #include "acl-plugin.h"
 #include "acl-api-private.h"
 #include "acl-lookup-dict.h"
@@ -300,7 +301,16 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box)
 	struct acl_mailbox_list_context *iter;
 	struct acl_lookup_dict_iter *diter;
 	const char *const *rights, *name;
+	string_t *str;
 	int ret;
+
+	if (box->private_flags_mask == 0)
+		i_info("All message flags are shared across users in mailbox");
+	else {
+		str = t_str_new(64);
+		imap_write_flags(str, box->private_flags_mask, NULL);
+		i_info("Per-user private flags in mailbox: %s", str_c(str));
+	}
 
 	/* check if user has lookup right */
 	if (acl_object_get_my_rights(aclobj, pool_datastack_create(),
