@@ -5,6 +5,7 @@
 #include "module-dir.h"
 #include "acl-plugin.h"
 #include "acl-api-private.h"
+#include "acl-lookup-dict.h"
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 
@@ -288,10 +289,121 @@ cmd_acl_set_alloc(void)
 	return ctx;
 }
 
+static bool cmd_acl_debug_mailbox(struct mailbox *box)
+{
+	struct mail_namespace *ns = mailbox_get_namespace(box);
+	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
+	struct acl_object *aclobj = acl_mailbox_get_aclobj(box);
+	struct acl_backend *backend = acl_mailbox_list_get_backend(box->list);
+	struct acl_mailbox_list_context *iter;
+	struct acl_lookup_dict_iter *diter;
+	const char *const *rights, *name;
+	int ret;
+
+	/* check if user has lookup right */
+	if (acl_object_get_my_rights(aclobj, pool_datastack_create(),
+				     &rights) < 0)
+		i_fatal("Failed to get rights");
+
+	if (rights == NULL || rights[0] == NULL)
+		i_info("User %s has no rights for mailbox", ns->user->username);
+	else {
+		i_info("User %s has rights: %s",
+		       ns->user->username, t_strarray_join(rights, " "));
+	}
+	if (!str_array_find(rights, MAIL_ACL_LOOKUP)) {
+		i_error("User %s is missing 'lookup' right",
+			ns->user->username);
+		return FALSE;
+	}
+
+	/* check if mailbox is listable */
+	if (ns->type == NAMESPACE_PRIVATE) {
+		i_info("Mailbox in user's private namespace");
+		return TRUE;
+	}
+
+	iter = acl_backend_nonowner_lookups_iter_init(backend);
+	while ((ret = acl_backend_nonowner_lookups_iter_next(iter, &name)) > 0) {
+		if (strcmp(name, box->name) == 0)
+			break;
+	}
+	acl_backend_nonowner_lookups_iter_deinit(&iter);
+	if (ret < 0)
+		i_fatal("ACL non-owner iteration failed");
+	if (ret == 0) {
+		i_error("Mailbox not found from dovecot-acl-list");
+		return FALSE;
+	}
+	i_info("Mailbox found from dovecot-acl-list");
+
+	if (ns->type == NAMESPACE_PUBLIC) {
+		i_info("Mailbox is in public namespace");
+		return TRUE;
+	}
+
+	if (!acl_lookup_dict_is_enabled(auser->acl_lookup_dict)) {
+		i_error("acl_lookup_dict not enabled");
+		return FALSE;
+	}
+
+	/* shared namespace. see if it's in acl lookup dict */
+	diter = acl_lookup_dict_iterate_visible_init(auser->acl_lookup_dict);
+	while ((name = acl_lookup_dict_iterate_visible_next(diter)) != NULL) {
+		if (strcmp(name, ns->owner->username) == 0)
+			break;
+	}
+	if (acl_lookup_dict_iterate_visible_deinit(&diter) < 0)
+		i_fatal("ACL shared dict iteration failed");
+	if (name == NULL) {
+		i_error("User %s not found from ACL shared dict",
+			ns->owner->username);
+		return FALSE;
+	}
+
+	i_info("User %s found from ACL shared dict", ns->owner->username);
+	return TRUE;
+}
+
+static void
+cmd_acl_debug_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
+{
+	const char *mailbox = ctx->args[0];
+	struct mailbox *box;
+
+	if (cmd_acl_mailbox_open(user, mailbox, &box) < 0)
+		return;
+
+	if (cmd_acl_debug_mailbox(box))
+		i_info("Mailbox %s is visible in LIST", box->vname);
+	else
+		i_info("Mailbox %s is NOT visible in LIST", box->vname);
+	mailbox_free(&box);
+}
+
+static void cmd_acl_debug_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+			       const char *const args[])
+{
+	if (args[0] == NULL)
+		doveadm_mail_help_name("acl debug");
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_acl_debug_alloc(void)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
+	ctx->v.run = cmd_acl_debug_run;
+	ctx->v.init = cmd_acl_debug_init;
+	return ctx;
+}
+
 static struct doveadm_mail_cmd acl_commands[] = {
 	{ cmd_acl_get_alloc, "acl get", "[-m] <mailbox>" },
 	{ cmd_acl_rights_alloc, "acl rights", "<mailbox>" },
-	{ cmd_acl_set_alloc, "acl set", "<mailbox> <id> <rights>" }
+	{ cmd_acl_set_alloc, "acl set", "<mailbox> <id> <rights>" },
+	{ cmd_acl_debug_alloc, "acl debug", "<mailbox>" }
 };
 
 void doveadm_acl_plugin_init(struct module *module ATTR_UNUSED)
