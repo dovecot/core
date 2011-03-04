@@ -245,6 +245,8 @@ struct mailbox {
 	unsigned int opened:1;
 	/* Mailbox was deleted while we had it open. */
 	unsigned int mailbox_deleted:1;
+	/* Mailbox is being created */
+	unsigned int creating:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
 	/* Mailbox was already marked as deleted within this allocation. */
