@@ -75,7 +75,8 @@ static void result_finish(struct pgsql_result *result);
 
 static const char *pgsql_prefix(struct pgsql_db *db)
 {
-	return t_strdup_printf("pgsql(%s)", db->host);
+	return db->host == NULL ? "pgsql" :
+		t_strdup_printf("pgsql(%s)", db->host);
 }
 
 static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
