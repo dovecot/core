@@ -341,14 +341,16 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box)
 	struct acl_mailbox_list_context *iter;
 	struct acl_lookup_dict_iter *diter;
 	const char *const *rights, *name;
+	enum mail_flags private_flags_mask;
 	string_t *str;
 	int ret;
 
-	if (box->private_flags_mask == 0)
+	private_flags_mask = mailbox_get_private_flags_mask(box);
+	if (private_flags_mask == 0)
 		i_info("All message flags are shared across users in mailbox");
 	else {
 		str = t_str_new(64);
-		imap_write_flags(str, box->private_flags_mask, NULL);
+		imap_write_flags(str, private_flags_mask, NULL);
 		i_info("Per-user private flags in mailbox: %s", str_c(str));
 	}
 
