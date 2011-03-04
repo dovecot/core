@@ -119,6 +119,8 @@ struct service_list {
 	int master_log_fd[2];
 	struct service_process_notify *log_byes;
 
+	int master_dead_pipe_fd[2];
+
 	ARRAY_DEFINE(services, struct service *);
 
 	unsigned int destroyed:1;

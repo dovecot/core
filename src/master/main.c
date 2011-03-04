@@ -42,7 +42,7 @@ uid_t master_uid;
 gid_t master_gid;
 bool core_dumps_disabled;
 const char *ssl_manual_key_password;
-int null_fd, master_dead_pipe_fd[2];
+int null_fd, global_master_dead_pipe_fd[2];
 struct service_list *services;
 
 static char *pidfile_path;
@@ -725,10 +725,10 @@ int main(int argc, char *argv[])
 			i_fatal("Can't open /dev/null: %m");
 		fd_close_on_exec(null_fd, TRUE);
 	} while (null_fd <= STDERR_FILENO);
-	if (pipe(master_dead_pipe_fd) < 0)
+	if (pipe(global_master_dead_pipe_fd) < 0)
 		i_fatal("pipe() failed: %m");
-	fd_close_on_exec(master_dead_pipe_fd[0], TRUE);
-	fd_close_on_exec(master_dead_pipe_fd[1], TRUE);
+	fd_close_on_exec(global_master_dead_pipe_fd[0], TRUE);
+	fd_close_on_exec(global_master_dead_pipe_fd[1], TRUE);
 
 	set = master_settings_read();
 	if (ask_key_pass) {
