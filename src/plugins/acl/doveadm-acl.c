@@ -290,6 +290,48 @@ cmd_acl_set_alloc(void)
 	return ctx;
 }
 
+static void
+cmd_acl_delete_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
+{
+	const char *mailbox = ctx->args[0], *id = ctx->args[1];
+	struct mailbox *box;
+	struct acl_object *aclobj;
+	struct acl_rights_update update;
+
+	if (cmd_acl_mailbox_open(user, mailbox, &box) < 0)
+		return;
+
+	memset(&update, 0, sizeof(update));
+	update.modify_mode = ACL_MODIFY_MODE_CLEAR;
+	update.neg_modify_mode = ACL_MODIFY_MODE_CLEAR;
+
+	if (acl_identifier_parse(id, &update.rights) < 0)
+		i_fatal("Invalid ID: %s", id);
+
+	aclobj = acl_mailbox_get_aclobj(box);
+	if (acl_object_update(aclobj, &update) < 0)
+		i_error("Failed to set ACL");
+	mailbox_free(&box);
+}
+
+static void cmd_acl_delete_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+				const char *const args[])
+{
+	if (str_array_length(args) < 2)
+		doveadm_mail_help_name("acl delete");
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_acl_delete_alloc(void)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
+	ctx->v.run = cmd_acl_delete_run;
+	ctx->v.init = cmd_acl_delete_init;
+	return ctx;
+}
+
 static bool cmd_acl_debug_mailbox(struct mailbox *box)
 {
 	struct mail_namespace *ns = mailbox_get_namespace(box);
@@ -413,6 +455,7 @@ static struct doveadm_mail_cmd acl_commands[] = {
 	{ cmd_acl_get_alloc, "acl get", "[-m] <mailbox>" },
 	{ cmd_acl_rights_alloc, "acl rights", "<mailbox>" },
 	{ cmd_acl_set_alloc, "acl set", "<mailbox> <id> <rights>" },
+	{ cmd_acl_delete_alloc, "acl delete", "<mailbox> <id>" },
 	{ cmd_acl_debug_alloc, "acl debug", "<mailbox>" }
 };
 
