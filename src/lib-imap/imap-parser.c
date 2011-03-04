@@ -698,6 +698,8 @@ int imap_parser_finish_line(struct imap_parser *parser, unsigned int count,
 	int ret;
 
 	ret = imap_parser_read_args(parser, count, flags, args_r);
+	if (ret == -1)
+		return -1;
 	if (ret == -2) {
 		/* we should have noticed end of everything except atom */
 		if (parser->cur_type == ARG_PARSE_ATOM) {
