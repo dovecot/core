@@ -829,6 +829,9 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
+		(void)settings_parse_line(user->set_parser, "mail_debug=yes");
+
 	if (!userdb_lookup) {
 		const char *home = getenv("HOME");
 		if (home != NULL)
