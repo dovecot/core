@@ -1219,6 +1219,7 @@ struct acl_backend_vfuncs acl_backend_vfile = {
 	acl_backend_vfile_nonowner_iter_init,
 	acl_backend_vfile_nonowner_iter_next,
 	acl_backend_vfile_nonowner_iter_deinit,
+	acl_backend_vfile_nonowner_lookups_rebuild,
 	acl_backend_vfile_object_init,
 	acl_backend_vfile_object_init_parent,
 	acl_backend_vfile_object_deinit,

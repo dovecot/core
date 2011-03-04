@@ -121,6 +121,8 @@ int acl_backend_nonowner_lookups_iter_next(struct acl_mailbox_list_context *ctx,
 					   const char **name_r);
 void
 acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **ctx);
+/* Force a rebuild for nonowner lookups index */
+int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend);
 
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
 					     const char *name);
