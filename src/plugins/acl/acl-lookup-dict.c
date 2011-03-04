@@ -63,6 +63,11 @@ void acl_lookup_dict_deinit(struct acl_lookup_dict **_dict)
 	i_free(dict);
 }
 
+bool acl_lookup_dict_is_enabled(struct acl_lookup_dict *dict)
+{
+	return dict->dict != NULL;
+}
+
 static void
 acl_lookup_dict_write_rights_id(string_t *dest, const struct acl_rights *right)
 {

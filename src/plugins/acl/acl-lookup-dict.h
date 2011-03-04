@@ -4,6 +4,8 @@
 struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user);
 void acl_lookup_dict_deinit(struct acl_lookup_dict **dict);
 
+bool acl_lookup_dict_is_enabled(struct acl_lookup_dict *dict);
+
 int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict);
 
 struct acl_lookup_dict_iter *

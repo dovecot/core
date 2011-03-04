@@ -1,11 +1,15 @@
+doveadm_moduledir = $(moduledir)/doveadm
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
-	-I$(top_srcdir)/src/lib-storage
+	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/doveadm
 
+lib10_doveadm_acl_plugin_la_LDFLAGS = -module -avoid-version
 lib01_acl_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
@@ -33,3 +37,9 @@ noinst_HEADERS = \
 	acl-plugin.h \
 	acl-shared-storage.h \
 	acl-storage.h
+
+doveadm_module_LTLIBRARIES = \
+	lib10_doveadm_acl_plugin.la
+
+lib10_doveadm_acl_plugin_la_SOURCES = \
+	doveadm-acl.c

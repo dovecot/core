@@ -419,44 +419,8 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, bool global,
 		rights.neg_rights = right_names;
 	}
 
-	switch (*line) {
-	case 'u':
-		if (strncmp(line, ACL_ID_NAME_USER_PREFIX,
-			    strlen(ACL_ID_NAME_USER_PREFIX)) == 0) {
-			rights.id_type = ACL_ID_USER;
-			rights.identifier = line + 5;
-			break;
-		}
-	case 'o':
-		if (strcmp(line, ACL_ID_NAME_OWNER) == 0) {
-			rights.id_type = ACL_ID_OWNER;
-			break;
-		}
-	case 'g':
-		if (strncmp(line, ACL_ID_NAME_GROUP_PREFIX,
-			    strlen(ACL_ID_NAME_GROUP_PREFIX)) == 0) {
-			rights.id_type = ACL_ID_GROUP;
-			rights.identifier = line + 6;
-			break;
-		} else if (strncmp(line, ACL_ID_NAME_GROUP_OVERRIDE_PREFIX,
-				   strlen(ACL_ID_NAME_GROUP_OVERRIDE_PREFIX)) == 0) {
-			rights.id_type = ACL_ID_GROUP_OVERRIDE;
-			rights.identifier = line + 15;
-			break;
-		}
-	case 'a':
-		if (strcmp(line, ACL_ID_NAME_AUTHENTICATED) == 0) {
-			rights.id_type = ACL_ID_AUTHENTICATED;
-			break;
-		} else if (strcmp(line, ACL_ID_NAME_ANYONE) == 0 ||
-			   strcmp(line, "anonymous") == 0) {
-			rights.id_type = ACL_ID_ANYONE;
-			break;
-		}
-	default:
+	if (acl_identifier_parse(line, &rights) < 0)
 		error = t_strdup_printf("Unknown ID '%s'", line);
-		break;
-	}
 
 	if (error != NULL) {
 		i_error("ACL file %s line %u: %s", path, linenum, error);
@@ -1110,12 +1074,16 @@ acl_backend_vfile_update_write(struct acl_object_vfile *aclobj,
 	   first global */
 	rights = array_get(&aclobj->rights, &count);
 	for (i = 0; i < count && !rights[i].global; i++) {
-		if (rights[i].rights != NULL)
+		if (rights[i].rights != NULL) {
 			vfile_write_right(str, &rights[i], FALSE);
-		if (rights[i].neg_rights != NULL)
+			o_stream_send(output, str_data(str), str_len(str));
+			str_truncate(str, 0);
+		}
+		if (rights[i].neg_rights != NULL) {
 			vfile_write_right(str, &rights[i], TRUE);
-		o_stream_send(output, str_data(str), str_len(str));
-		str_truncate(str, 0);
+			o_stream_send(output, str_data(str), str_len(str));
+			str_truncate(str, 0);
+		}
 	}
 	str_free(&str);
 	if (o_stream_flush(output) < 0) {
