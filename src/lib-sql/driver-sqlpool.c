@@ -356,6 +356,8 @@ driver_sqlpool_get_connection(struct sqlpool_db *db,
 	if (conn == NULL) {
 		/* still nothing. try creating new connections */
 		conn = sqlpool_add_new_connection(db);
+		if (conn != NULL)
+			(void)sql_connect(conn->db);
 		if (conn == NULL || !SQL_DB_IS_READY(conn->db))
 			return FALSE;
 	}
