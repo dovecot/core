@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2010 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
 
 /*
    These tests were done with various Linux 2.6 kernels, FreeBSD 6.2 and

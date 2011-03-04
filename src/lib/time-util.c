@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "time-util.h"

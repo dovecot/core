@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2010 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
 
 /* curl: 7.16.0 curl_multi_timeout */
 
