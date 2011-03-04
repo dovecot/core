@@ -163,6 +163,11 @@ acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_ctx)
 	ctx->backend->v.nonowner_lookups_iter_deinit(ctx);
 }
 
+int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend)
+{
+	return backend->v.nonowner_lookups_rebuild(backend);
+}
+
 void acl_rights_write_id(string_t *dest, const struct acl_rights *right)
 {
 	switch (right->id_type) {

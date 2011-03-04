@@ -21,6 +21,7 @@ struct acl_backend_vfuncs {
 					  const char **name_r);
 	void (*nonowner_lookups_iter_deinit)
 		(struct acl_mailbox_list_context *ctx);
+	int (*nonowner_lookups_rebuild)(struct acl_backend *backend);
 
 	struct acl_object *(*object_init)(struct acl_backend *backend,
 					  const char *name);
