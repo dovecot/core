@@ -220,6 +220,17 @@ cmd_acl_rights_alloc(void)
 	return ctx;
 }
 
+static bool is_standard_right(const char *name)
+{
+	unsigned int i;
+
+	for (i = 0; all_mailbox_rights[i] != NULL; i++) {
+		if (strcmp(all_mailbox_rights[i], name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void
 cmd_acl_set_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
@@ -252,9 +263,17 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 			right++;
 			dest = &dest_neg_rights;
 		}
-		if (strcmp(right, "all") != 0)
-			array_append(dest, &right, 1);
-		else {
+		if (strcmp(right, "all") != 0) {
+			if (*right == ':') {
+				/* non-standard right */
+				right++;
+				array_append(dest, &right, 1);
+			} else if (is_standard_right(right)) {
+				array_append(dest, &right, 1);
+			} else {
+				i_fatal("Invalid right '%s'", right);
+			}
+		} else {
 			for (j = 0; all_mailbox_rights[j] != NULL; j++)
 				array_append(dest, &all_mailbox_rights[j], 1);
 		}
