@@ -1174,12 +1174,12 @@ static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 	const char *p;
 
 	while (ctx->attr != NULL) {
-		/* a new attribute */
-		db_ldap_result_change_attr(ctx);
-
-		if (ctx->vals != NULL) {
-			db_ldap_result_return_value(ctx);
-			return TRUE;
+		if (ctx->vals == NULL) {
+			db_ldap_result_change_attr(ctx);
+			if (ctx->vals != NULL) {
+				db_ldap_result_return_value(ctx);
+				return TRUE;
+			}
 		}
 
 		ldap_value_free(ctx->vals); ctx->vals = NULL;
