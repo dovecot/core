@@ -90,12 +90,34 @@ static void first_nonexpunged_timestamp(struct mailbox_transaction_context *t,
 	}
 }
 
+static void first_save_timestamp(struct mailbox *box, time_t *stamp_r)
+{
+	struct mailbox_transaction_context *t;
+	const struct mail_index_header *hdr;
+	struct mail *mail;
+
+	*stamp_r = ioloop_time;
+
+	t = mailbox_transaction_begin(box, 0);
+	mail = mail_alloc(t, 0, NULL);
+
+	/* find the first non-expunged mail. we're here because the first
+	   mail was expunged, so don't bother checking it. */
+	hdr = mail_index_get_header(box->view);
+	if (hdr->messages_count > 0) {
+		mail_set_seq(mail, 1);
+		(void)mail_get_save_date(mail, stamp_r);
+	}
+	mail_free(&mail);
+	(void)mailbox_transaction_commit(&t);
+}
+
 static int
 expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				  struct mail_transaction_commit_changes *changes_r)
 {
-	struct expire_mail_user *euser =
-		EXPIRE_USER_CONTEXT(t->box->storage->user);
+	struct mail_user *user = t->box->storage->user;
+	struct expire_mail_user *euser = EXPIRE_USER_CONTEXT(user);
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
 	struct mailbox *box = t->box;
@@ -131,23 +153,27 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			   this is the first mail in the database */
 			ret = dict_lookup(euser->db, pool_datastack_create(),
 					  key, &value);
-			update_dict = ret == 0 ||
-				(ret > 0 && strtoul(value, NULL, 10) == 0);
-			/* may not be exactly the first message's save time
-			   but a few second difference doesn't matter */
-			new_stamp = ioloop_time;
+			if (ret == 0) {
+				/* first time saving here with expire enabled */
+				first_save_timestamp(box, &new_stamp);
+				update_dict = TRUE;
+			} else if (strcmp(value, "0") == 0) {
+				/* we're saving the first mail to this mailbox.
+				   ioloop_time may not be exactly the first
+				   message's save time, but a few seconds
+				   difference doesn't matter */
+				new_stamp = ioloop_time;
+				update_dict = TRUE;
+			} else {
+				/* already exists */
+			}
 		}
 
 		if (update_dict) {
 			struct dict_transaction_context *dctx;
 
 			dctx = dict_transaction_begin(euser->db);
-			if (new_stamp == 0) {
-				/* everything expunged */
-				dict_unset(dctx, key);
-			} else {
-				dict_set(dctx, key, dec2str(new_stamp));
-			}
+			dict_set(dctx, key, dec2str(new_stamp));
 			dict_transaction_commit(&dctx);
 		}
 	} T_END;
