@@ -128,6 +128,11 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	if (xt->first_expunged) {
 		/* first mail expunged. dict needs updating. */
 		first_nonexpunged_timestamp(t, &new_stamp);
+		if (user->mail_debug) {
+			i_debug("expire: Expunging first message in %s, "
+				"updating timestamp to %ld",
+				box->vname, (long)new_stamp);
+		}
 		update_dict = TRUE;
 	}
 
@@ -166,6 +171,11 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				update_dict = TRUE;
 			} else {
 				/* already exists */
+			}
+			if (user->mail_debug && update_dict) {
+				i_debug("expire: Saving first message to %s, "
+					"updating timestamp to %ld",
+					box->vname, (long)new_stamp);
 			}
 		}
 
