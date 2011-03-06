@@ -128,6 +128,11 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	if (xt->first_expunged) {
 		/* first mail expunged. dict needs updating. */
 		first_nonexpunged_timestamp(t, &new_stamp);
+		if (new_stamp == 0 && xt->saves) {
+			/* everything was expunged, but also within this
+			   transaction a new message was saved */
+			new_stamp = ioloop_time;
+		}
 		if (user->mail_debug) {
 			i_debug("expire: Expunging first message in %s, "
 				"updating timestamp to %ld",
@@ -150,8 +155,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				  box->storage->user->username, "/",
 				  mailbox_get_vname(box), NULL);
 		if (xt->first_expunged) {
-			if (new_stamp == 0 && xt->saves)
-				new_stamp = ioloop_time;
+			/* new_stamp is already set */
 		} else {
 			i_assert(xt->saves);
 			/* saved new mails. dict needs to be updated only if
