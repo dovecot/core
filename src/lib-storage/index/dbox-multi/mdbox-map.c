@@ -1095,6 +1095,23 @@ int mdbox_map_append_next(struct mdbox_map_append_context *ctx,
 	return 0;
 }
 
+static void
+mdbox_map_append_close_if_unneeded(struct mdbox_map *map,
+				   struct dbox_file_append_context *append_ctx)
+{
+	struct mdbox_file *mfile =
+		(struct mdbox_file *)append_ctx->file;
+	uoff_t end_offset = append_ctx->output->offset;
+
+	/* if this file is now large enough not to fit any other
+	   mails and we created it, close its fd since it's not
+	   needed anymore. */
+	if (end_offset > map->set->mdbox_rotate_size &&
+	    mfile->file_id == 0 &&
+	    dbox_file_append_flush(append_ctx) == 0)
+		dbox_file_close(append_ctx->file);
+}
+
 void mdbox_map_append_finish(struct mdbox_map_append_context *ctx)
 {
 	struct mdbox_map_append *appends, *last;
@@ -1110,6 +1127,8 @@ void mdbox_map_append_finish(struct mdbox_map_append_context *ctx)
 	i_assert(cur_offset >= last->offset);
 	last->size = cur_offset - last->offset;
 	dbox_file_append_checkpoint(last->file_append);
+
+	mdbox_map_append_close_if_unneeded(ctx->map, last->file_append);
 }
 
 void mdbox_map_append_abort(struct mdbox_map_append_context *ctx)
