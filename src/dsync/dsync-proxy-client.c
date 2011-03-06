@@ -455,7 +455,7 @@ static bool proxy_client_worker_is_output_full(struct dsync_worker *_worker)
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
-	if (worker->save_io != NULL) {
+	if (worker->save_input != NULL) {
 		/* we haven't finished sending a message save, so we're full. */
 		return TRUE;
 	}
