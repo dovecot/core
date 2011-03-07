@@ -364,8 +364,10 @@ proxy_client_worker_output_real(struct proxy_client_dsync_worker *worker)
 		/* proxy_client_worker_msg_save() hasn't finished yet. */
 		o_stream_cork(worker->output);
 		proxy_client_send_stream(worker);
-		if (worker->save_input != NULL)
-			return 1;
+		if (worker->save_input != NULL) {
+			/* still unfinished, make sure we get called again */
+			return 0;
+		}
 	}
 
 	if (worker->worker.output_callback != NULL)
