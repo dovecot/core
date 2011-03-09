@@ -164,6 +164,7 @@ const char *imap_id_args_get_log_reply(const struct imap_arg *args,
 			str_append_c(reply, '=');
 			str_append(reply, str_sanitize(value, 80));
 		}
+		args++;
 	}
 	return str_len(reply) == 0 ? NULL : str_c(reply);
 }
