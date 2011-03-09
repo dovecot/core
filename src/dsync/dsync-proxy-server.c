@@ -172,7 +172,7 @@ dsync_proxy_server_init(int fd_in, int fd_out, struct dsync_worker *worker)
 	server->io = io_add(fd_in, IO_READ, proxy_server_input, server);
 	server->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
 	server->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
-	server->to = timeout_add(DSYNC_PROXY_TIMEOUT_MSECS,
+	server->to = timeout_add(DSYNC_PROXY_SERVER_TIMEOUT_MSECS,
 				 dsync_proxy_server_timeout, NULL);
 	o_stream_set_flush_callback(server->output, proxy_server_output,
 				    server);

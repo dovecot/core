@@ -399,7 +399,7 @@ struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
 	worker->worker.v = proxy_client_dsync_worker;
 	worker->fd_in = fd_in;
 	worker->fd_out = fd_out;
-	worker->to = timeout_add(DSYNC_PROXY_TIMEOUT_MSECS,
+	worker->to = timeout_add(DSYNC_PROXY_CLIENT_TIMEOUT_MSECS,
 				 proxy_client_worker_timeout, worker);
 	worker->io = io_add(fd_in, IO_READ, proxy_client_worker_input, worker);
 	worker->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
