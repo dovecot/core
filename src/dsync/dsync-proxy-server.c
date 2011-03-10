@@ -108,7 +108,6 @@ static void proxy_server_input(struct dsync_proxy_server *server)
 		return;
 	}
 
-	timeout_reset(server->to);
 	o_stream_cork(server->output);
 	while (proxy_server_read_line(server, &line) > 0) {
 		T_BEGIN {
@@ -123,6 +122,7 @@ static void proxy_server_input(struct dsync_proxy_server *server)
 
 	if (ret < 0)
 		master_service_stop(master_service);
+	timeout_reset(server->to);
 }
 
 static int proxy_server_output(struct dsync_proxy_server *server)
@@ -130,7 +130,6 @@ static int proxy_server_output(struct dsync_proxy_server *server)
 	struct ostream *output = server->output;
 	int ret;
 
-	timeout_reset(server->to);
 	if ((ret = o_stream_flush(output)) < 0)
 		ret = 1;
 	else if (server->cur_cmd != NULL) {
@@ -149,6 +148,7 @@ static int proxy_server_output(struct dsync_proxy_server *server)
 	}
 	if (output->closed)
 		master_service_stop(master_service);
+	timeout_reset(server->to);
 	return ret;
 }
 
