@@ -22,6 +22,7 @@
 #include "mailbox-list-private.h"
 
 #include <time.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -351,6 +352,40 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	return mailbox_list_get_root_path(&set, type);
 }
 
+static const char *
+mailbox_list_escape_name(struct mailbox_list *list, const char *vname)
+{
+	char ns_sep = mail_namespace_get_sep(list->ns);
+	char list_sep = mailbox_list_get_hierarchy_sep(list);
+	string_t *escaped_name = t_str_new(64);
+
+	/* no escaping of namespace prefix */
+	if (strncmp(list->ns->prefix, vname, list->ns->prefix_len) == 0) {
+		str_append_n(escaped_name, vname, list->ns->prefix_len);
+		vname += list->ns->prefix_len;
+	}
+
+	/* escape the mailbox name */
+	if (*vname == '~') {
+		str_printfa(escaped_name, "%c%02x",
+			    list->set.escape_char, *vname);
+		vname++;
+	}
+	for (; *vname != '\0'; vname++) {
+		if (*vname == ns_sep)
+			str_append_c(escaped_name, *vname);
+		else if (*vname == list_sep ||
+			 *vname == list->set.escape_char ||
+			 *vname == '/') {
+			str_printfa(escaped_name, "%c%02x",
+				    list->set.escape_char, *vname);
+		} else {
+			str_append_c(escaped_name, *vname);
+		}
+	}
+	return str_c(escaped_name);
+}
+
 const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 						  const char *vname)
 {
@@ -362,6 +397,8 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 
 	if (strcasecmp(storage_name, "INBOX") == 0)
 		storage_name = "INBOX";
+	else if (list->set.escape_char != '\0')
+		storage_name = mailbox_list_escape_name(list, vname);
 
 	if (prefix_len > 0) {
 		/* skip namespace prefix, except if this is INBOX */
@@ -409,6 +446,37 @@ const char *mailbox_list_get_storage_name(struct mailbox_list *list,
 	return list->v.get_storage_name(list, vname);
 }
 
+static const char *
+mailbox_list_unescape_name(struct mailbox_list *list, const char *src)
+{
+	char ns_sep = mail_namespace_get_sep(list->ns);
+	char list_sep = mailbox_list_get_hierarchy_sep(list);
+	string_t *dest = t_str_new(strlen(src));
+	unsigned int num;
+
+	for (; *src != '\0'; src++) {
+		if (*src == list->set.escape_char &&
+		    i_isxdigit(src[1]) && i_isxdigit(src[2])) {
+			if (src[1] >= '0' && src[1] <= '9')
+				num = src[1] - '0';
+			else
+				num = i_toupper(src[1]) - 'A' + 10;
+			num *= 16;
+			if (src[2] >= '0' && src[2] <= '9')
+				num += src[2] - '0';
+			else
+				num += i_toupper(src[2]) - 'A' + 10;
+
+			str_append_c(dest, num);
+			src += 2;
+		} else if (*src == list_sep)
+			str_append_c(dest, ns_sep);
+		else
+			str_append_c(dest, *src);
+	}
+	return str_c(dest);
+}
+
 const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 					   const char *storage_name)
 {
@@ -441,19 +509,21 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 	list_sep = mailbox_list_get_hierarchy_sep(list);
 	ns_sep = mail_namespace_get_sep(list->ns);
 
-	if (list_sep == ns_sep && prefix_len == 0)
-		return vname;
-
-	/* @UNSAFE */
-	name_len = strlen(vname);
-	ret = t_malloc(prefix_len + name_len + 1);
-	memcpy(ret, list->ns->prefix, prefix_len);
-	for (i = 0; i < name_len; i++) {
-		ret[i + prefix_len] =
-			vname[i] == list_sep ? ns_sep : vname[i];
+	if (list_sep != ns_sep || prefix_len > 0) {
+		/* @UNSAFE */
+		name_len = strlen(vname);
+		ret = t_malloc(prefix_len + name_len + 1);
+		memcpy(ret, list->ns->prefix, prefix_len);
+		for (i = 0; i < name_len; i++) {
+			ret[i + prefix_len] =
+				vname[i] == list_sep ? ns_sep : vname[i];
+		}
+		ret[i + prefix_len] = '\0';
+		vname = ret;
 	}
-	ret[i + prefix_len] = '\0';
-	return ret;
+	if (list->set.escape_char != '\0')
+		vname = mailbox_list_unescape_name(list, vname);
+	return vname;
 }
 
 const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name)

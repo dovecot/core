@@ -128,6 +128,9 @@ struct mailbox_list_settings {
 	/* if set, store mailboxes under root_dir/mailbox_dir_name/.
 	   this setting contains either "" or "dir/". */
 	const char *mailbox_dir_name;
+
+	/* Encode "bad" characters in mailbox names as <escape_char><hex> */
+	char escape_char;
 };
 
 struct mailbox_info {

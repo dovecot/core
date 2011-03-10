@@ -644,7 +644,7 @@ static int mailbox_check_mismatching_separators(struct mailbox *box)
 	list_sep = mailbox_list_get_hierarchy_sep(box->list);
 	ns_sep = mail_namespace_get_sep(ns);
 
-	if (ns_sep == list_sep)
+	if (ns_sep == list_sep || box->list->set.escape_char != '\0')
 		return 0;
 
 	if (ns->prefix_len > 0) {
