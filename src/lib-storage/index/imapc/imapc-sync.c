@@ -309,7 +309,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 	enum imapc_capability capabilities;
-	bool changes = FALSE;
+	bool changes;
 	int ret = 0;
 
 	if (!box->opened) {
@@ -327,18 +327,8 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		imapc_client_run(mbox->storage->client);
 	}
 
-	if (mbox->delayed_sync_view != NULL)
-		mail_index_view_close(&mbox->delayed_sync_view);
-	if (mbox->delayed_sync_trans != NULL) {
-		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0) {
-			mail_storage_set_index_error(&mbox->box);
-			ret = -1;
-		}
-		changes = TRUE;
-	}
-	if (mbox->sync_view != NULL)
-		mail_index_view_close(&mbox->sync_view);
-
+	if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
+		ret = -1;
 	if ((changes || index_mailbox_want_full_sync(&mbox->box, flags)) &&
 	    ret == 0)
 		ret = imapc_sync(mbox);

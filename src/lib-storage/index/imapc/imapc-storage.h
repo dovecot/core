@@ -4,6 +4,7 @@
 #include "index-storage.h"
 
 #define IMAPC_STORAGE_NAME "imapc"
+#define IMAPC_INDEX_PREFIX "dovecot.index"
 
 struct imap_arg;
 struct imapc_untagged_reply;
@@ -102,6 +103,8 @@ void imapc_async_stop_callback(const struct imapc_command_reply *reply,
 			       void *context);
 int imapc_mailbox_get_client_box(struct imapc_mailbox *mbox,
 				 struct imapc_client_mailbox **client_box_r);
+int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
+				       bool *changes_r);
 
 void imapc_storage_register_untagged(struct imapc_storage *storage,
 				     const char *name,

@@ -182,22 +182,84 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 	return list->sep;
 }
 
-static const char *
-imapc_list_get_path(struct mailbox_list *list ATTR_UNUSED,
-		    const char *name ATTR_UNUSED,
-		    enum mailbox_list_path_type type)
+static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 {
-	if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
-		return "";
-	return NULL;
+	struct mailbox_list_settings list_set;
+	const char *error, *dir;
+
+	dir = list->list.set.index_dir;
+	if (dir == NULL)
+		dir = list->list.set.root_dir;
+
+	if (dir == NULL) {
+		/* indexes disabled */
+	} else if (list->index_list == NULL && !list->index_list_failed) {
+		memset(&list_set, 0, sizeof(list_set));
+		list_set.layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
+		/* the root dir shouldn't actually ever be used. we just need
+		   it to be different from index_dir so the index directories
+		   get autocreated */
+		list_set.root_dir = t_strconcat(dir, "/", NULL);
+		list_set.index_dir = dir;
+		list_set.escape_char = '%';
+
+		if (mailbox_list_create(list_set.layout, list->list.ns,
+					&list_set, MAILBOX_LIST_FLAG_SECONDARY,
+					&list->index_list, &error) < 0) {
+			i_error("imapc: Couldn't create %s mailbox list: %s",
+				list_set.layout, error);
+			list->index_list_failed = TRUE;
+		}
+	}
+	return list->index_list;
 }
 
 static const char *
-imapc_list_get_temp_prefix(struct mailbox_list *list, bool global ATTR_UNUSED)
+imapc_list_get_fs_name(struct imapc_mailbox_list *list, const char *name)
 {
-	i_panic("imapc: Can't return a temp prefix for '%s'",
-		list->ns->prefix);
-	return NULL;
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+	const char *vname;
+
+	if (name == NULL)
+		return name;
+
+	vname = mailbox_list_get_vname(&list->list, name);
+	return mailbox_list_get_storage_name(fs_list, vname);
+}
+
+static const char *
+imapc_list_get_path(struct mailbox_list *_list, const char *name,
+		    enum mailbox_list_path_type type)
+{
+	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+	const char *fs_name;
+
+	if (fs_list != NULL) {
+		fs_name = imapc_list_get_fs_name(list, name);
+		return mailbox_list_get_path(fs_list, fs_name, type);
+	} else {
+		if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
+			return "";
+		return NULL;
+	}
+}
+
+static const char *
+imapc_list_get_temp_prefix(struct mailbox_list *_list, bool global)
+{
+	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+
+	if (fs_list != NULL) {
+		return global ?
+			mailbox_list_get_global_temp_prefix(fs_list) :
+			mailbox_list_get_temp_prefix(fs_list);
+	} else {
+		i_panic("imapc: Can't return a temp prefix for '%s'",
+			_list->ns->prefix);
+		return NULL;
+	}
 }
 
 static const char *
@@ -422,9 +484,15 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 }
 
 static int
-imapc_list_delete_dir(struct mailbox_list *list ATTR_UNUSED,
-		      const char *name ATTR_UNUSED)
+imapc_list_delete_dir(struct mailbox_list *_list, const char *name)
 {
+	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+
+	if (fs_list != NULL) {
+		name = imapc_list_get_fs_name(list, name);
+		(void)mailbox_list_delete_dir(fs_list, name);
+	}
 	return 0;
 }
 
@@ -434,6 +502,7 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			  bool rename_children)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)oldlist;
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 	struct imapc_simple_context ctx;
 
 	if (!rename_children) {
@@ -453,6 +522,13 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			  imapc_list_simple_callback, &ctx,
 			  "RENAME %s %s", oldname, newname);
 	imapc_simple_run(&ctx);
+	if (ctx.ret == 0 && fs_list != NULL && oldlist == newlist) {
+		oldname = imapc_list_get_fs_name(list, oldname);
+		newname = imapc_list_get_fs_name(list, newname);
+		(void)fs_list->v.rename_mailbox(fs_list, oldname,
+						fs_list, newname,
+						rename_children);
+	}
 	return ctx.ret;
 }
 

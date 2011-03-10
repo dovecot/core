@@ -267,8 +267,6 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	struct index_mailbox_context *ibox;
 	pool_t pool;
 
-	flags |= MAILBOX_FLAG_NO_INDEX_FILES;
-
 	pool = pool_alloconly_create("imapc mailbox", 1024*3);
 	mbox = p_new(pool, struct imapc_mailbox, 1);
 	mbox->box = imapc_mailbox;
@@ -277,7 +275,8 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &imapc_mail_vfuncs;
 
-	index_storage_mailbox_alloc(&mbox->box, vname, flags, NULL);
+	index_storage_mailbox_alloc(&mbox->box, vname, flags,
+				    IMAPC_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 	ibox->save_commit_pre = imapc_transaction_save_commit_pre;

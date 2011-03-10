@@ -10,6 +10,7 @@ struct imap_arg;
 struct imapc_mailbox_list {
 	struct mailbox_list list;
 	struct imapc_storage *storage;
+	struct mailbox_list *index_list;
 
 	struct mailbox_tree_context *mailboxes, *tmp_subscriptions;
 	char sep;
@@ -21,6 +22,7 @@ struct imapc_mailbox_list {
 	unsigned int broken:1;
 	unsigned int refreshed_subscriptions:1;
 	unsigned int refreshed_mailboxes:1;
+	unsigned int index_list_failed:1;
 };
 
 void imapc_list_register_callbacks(struct imapc_mailbox_list *list);
