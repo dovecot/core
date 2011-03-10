@@ -1339,13 +1339,18 @@ static void imapc_command_timeout(struct imapc_connection *conn)
 	imapc_connection_disconnect(conn);
 }
 
-static void imapc_command_send(struct imapc_connection *conn,
-			       struct imapc_command *cmd)
+static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 {
 	if ((conn->idling || conn->idle_plus_waiting) && !conn->idle_stopping) {
 		conn->idle_stopping = TRUE;
 		o_stream_send_str(conn->output, "DONE\r\n");
 	}
+}
+
+static void imapc_command_send(struct imapc_connection *conn,
+			       struct imapc_command *cmd)
+{
+	imapc_connection_send_idle_done(conn);
 	switch (conn->state) {
 	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
 		array_insert(&conn->cmd_send_queue, 0, &cmd, 1);
@@ -1546,6 +1551,8 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 	memset(&reply, 0, sizeof(reply));
 	reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 	reply.text_without_resp = reply.text_full = "Closing mailbox";
+
+	imapc_connection_send_idle_done(box->conn);
 
 	array_foreach(&box->conn->cmd_wait_list, cmdp) {
 		if ((*cmdp)->callback != NULL) {
