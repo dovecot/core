@@ -883,6 +883,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 		i_error("imapc(%s): Command '%s' failed with BAD: %u %s",
 			conn->name, imapc_command_get_readable(cmd),
 			conn->cur_tag, reply.text_full);
+		imapc_connection_disconnect(conn);
 	}
 
 	imapc_connection_input_reset(conn);
