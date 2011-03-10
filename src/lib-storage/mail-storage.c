@@ -280,6 +280,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			enum mail_storage_flags flags, const char **error_r)
 {
 	struct mail_storage *storage_class, *storage = NULL;
+	struct mailbox_list *list;
 	struct mailbox_list_settings list_set;
 	enum mailbox_list_flags list_flags = 0;
 	const char *data = ns->set->location;
@@ -326,7 +327,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		if (mail_storage_is_mailbox_file(storage_class))
 			list_flags |= MAILBOX_LIST_FLAG_MAILBOX_FILES;
 		if (mailbox_list_create(list_set.layout, ns, &list_set,
-					list_flags, error_r) < 0) {
+					list_flags, &list, error_r) < 0) {
 			*error_r = t_strdup_printf("Mailbox list driver %s: %s",
 						   list_set.layout, *error_r);
 			return -1;

@@ -29,7 +29,10 @@ enum mailbox_list_properties {
 
 enum mailbox_list_flags {
 	/* Mailboxes are files, not directories. */
-	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x01
+	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x01,
+	/* Namespace already has a mailbox list, don't assign this
+	   mailbox list to it. */
+	MAILBOX_LIST_FLAG_SECONDARY		= 0x02
 };
 
 enum mailbox_info_flags {
@@ -151,7 +154,8 @@ mailbox_list_find_class(const char *driver);
 /* Returns 0 if ok, -1 if driver was unknown. */
 int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
-			enum mailbox_list_flags flags, const char **error_r);
+			enum mailbox_list_flags flags,
+			struct mailbox_list **list_r, const char **error_r);
 void mailbox_list_destroy(struct mailbox_list **list);
 
 const char *

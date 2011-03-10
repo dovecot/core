@@ -111,13 +111,15 @@ mailbox_list_find_class(const char *driver)
 
 int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
-			enum mailbox_list_flags flags, const char **error_r)
+			enum mailbox_list_flags flags,
+			struct mailbox_list **list_r, const char **error_r)
 {
 	const struct mailbox_list *const *class_p;
 	struct mailbox_list *list;
 	unsigned int idx;
 
-	i_assert(ns->list == NULL);
+	i_assert(ns->list == NULL ||
+		 (flags & MAILBOX_LIST_FLAG_SECONDARY) != 0);
 
 	i_assert(set->subscription_fname == NULL ||
 		 *set->subscription_fname != '\0');
@@ -193,7 +195,10 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 			list->set.inbox_path == NULL ?
 			"" : list->set.inbox_path);
 	}
-	mail_namespace_finish_list_init(ns, list);
+	if ((flags & MAILBOX_LIST_FLAG_SECONDARY) == 0)
+		mail_namespace_finish_list_init(ns, list);
+
+	*list_r = list;
 
 	hook_mailbox_list_created(list);
 	return 0;
