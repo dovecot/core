@@ -317,17 +317,18 @@ service_drop_privileges(struct mail_storage_service_user *user,
 	restrict_access_get_env(&rset);
 	if (*set->mail_uid != '\0') {
 		if (!parse_uid(set->mail_uid, &rset.uid)) {
-			*error_r = t_strdup_printf("Unknown mail_uid user: %s",
-						   set->mail_uid);
+			*error_r = t_strdup_printf(
+				"Unknown UNIX UID user: %s (from %s)",
+				set->mail_uid, user->uid_source);
 			return -1;
 		}
 		if (rset.uid < (uid_t)set->first_valid_uid ||
 		    (set->last_valid_uid != 0 &&
 		     rset.uid > (uid_t)set->last_valid_uid)) {
 			*error_r = t_strdup_printf(
-				"Mail access for users with UID %s "
-				"not permitted (see first_valid_uid in config file).",
-				dec2str(rset.uid));
+				"Mail access for users with UID %s not permitted "
+				"(see first_valid_uid in config file, uid from %s).",
+				dec2str(rset.uid), user->uid_source);
 			return -1;
 		}
 		rset.uid_source = user->uid_source;
@@ -338,17 +339,18 @@ service_drop_privileges(struct mail_storage_service_user *user,
 	}
 	if (*set->mail_gid != '\0') {
 		if (!parse_gid(set->mail_gid, &rset.gid)) {
-			*error_r = t_strdup_printf("Unknown mail_gid group: %s",
-						   set->mail_gid);
+			*error_r = t_strdup_printf(
+				"Unknown UNIX GID group: %s (from %s)",
+				set->mail_gid, user->gid_source);
 			return -1;
 		}
 		if (rset.gid < (gid_t)set->first_valid_gid ||
 		    (set->last_valid_gid != 0 &&
 		     rset.gid > (gid_t)set->last_valid_gid)) {
 			*error_r = t_strdup_printf(
-				"Mail access for users with GID %s "
-				"not permitted (see first_valid_gid in config file).",
-				dec2str(rset.gid));
+				"Mail access for users with GID %s not permitted "
+				"(see first_valid_gid in config file, gid from %s).",
+				dec2str(rset.gid), user->gid_source);
 			return -1;
 		}
 		rset.gid_source = user->gid_source;
