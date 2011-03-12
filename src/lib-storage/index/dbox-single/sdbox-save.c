@@ -265,8 +265,12 @@ int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	i_assert(ctx->ctx.finished);
 
-	if (array_count(&ctx->files) == 0)
+	if (array_count(&ctx->files) == 0) {
+		/* the mail must be freed in the commit_pre() */
+		if (ctx->ctx.mail != NULL)
+			mail_free(&ctx->ctx.mail);
 		return 0;
+	}
 
 	if (sdbox_sync_begin(ctx->mbox, SDBOX_SYNC_FLAG_FORCE |
 			     SDBOX_SYNC_FLAG_FSYNC, &ctx->sync_ctx) < 0) {

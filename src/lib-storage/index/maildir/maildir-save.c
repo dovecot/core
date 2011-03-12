@@ -927,8 +927,12 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	i_assert(_ctx->output == NULL);
 	i_assert(ctx->last_save_finished);
 
-	if (ctx->files_count == 0)
+	if (ctx->files_count == 0) {
+		/* the mail must be freed in the commit_pre() */
+		if (ctx->mail != NULL)
+			mail_free(&ctx->mail);
 		return 0;
+	}
 
 	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL |
 		MAILDIR_UIDLIST_SYNC_NOREFRESH;
