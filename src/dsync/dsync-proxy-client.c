@@ -387,7 +387,21 @@ static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
 static void
 proxy_client_worker_timeout(struct proxy_client_dsync_worker *worker)
 {
-	i_error("proxy client timed out");
+	const char *reason;
+
+	if (worker->save_io != NULL)
+		reason = " (waiting for more input from mail being saved)";
+	else if (worker->save_input != NULL) {
+		size_t bytes = o_stream_get_buffer_used_size(worker->output);
+
+		reason = t_strdup_printf(" (waiting for output stream to flush, "
+					 "%"PRIuSIZE_T" bytes left)", bytes);
+	} else if (worker->msg_get_data.input != NULL) {
+		reason = " (waiting for MSG-GET message from remote)";
+	} else {
+		reason = "";
+	}
+	i_error("proxy client timed out%s", reason);
 	proxy_client_fail(worker);
 }
 
