@@ -6,7 +6,8 @@ struct mail_user_settings;
 /* <settings checks> */
 enum imap_client_workarounds {
 	WORKAROUND_DELAY_NEWMAIL		= 0x01,
-	WORKAROUND_TB_EXTRA_MAILBOX_SEP		= 0x08
+	WORKAROUND_TB_EXTRA_MAILBOX_SEP		= 0x08,
+	WORKAROUND_TB_LSUB_FLAGS		= 0x10
 };
 /* </settings checks> */
 
