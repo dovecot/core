@@ -170,9 +170,6 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 		if (extref->start_offset != last_voffset) {
 			uoff_t part_size = extref->start_offset - last_voffset;
 
-			input = i_stream_create_limit(*stream, part_size);
-			array_append(&streams, &input, 1);
-			i_stream_seek(*stream, (*stream)->v_offset + part_size);
 			if ((*stream)->v_offset + part_size > psize) {
 				*error_r = t_strdup_printf(
 					"ext-refs point outside message "
@@ -180,6 +177,10 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 					(*stream)->v_offset, part_size, psize);
 				ret = 0;
 			}
+
+			input = i_stream_create_limit(*stream, part_size);
+			array_append(&streams, &input, 1);
+			i_stream_seek(*stream, (*stream)->v_offset + part_size);
 			last_voffset += part_size;
 		}
 
