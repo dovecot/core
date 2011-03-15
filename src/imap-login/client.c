@@ -94,7 +94,8 @@ static int cmd_capability(struct imap_client *imap_client)
 		imap_client->client_ignores_capability_resp_code = TRUE;
 	client_send_raw(client, t_strconcat(
 		"* CAPABILITY ", get_capability(client), "\r\n", NULL));
-	client_send_line(client, CLIENT_CMD_REPLY_OK, "Capability completed.");
+	client_send_line(client, CLIENT_CMD_REPLY_OK,
+			 "Pre-login capabilities listed, post-login capabilities have more.");
 	return 1;
 }
 
