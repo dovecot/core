@@ -225,7 +225,7 @@ static int mdbox_write_index_header(struct mailbox *box,
 			offsetof(struct mail_index_header, next_uid),
 			&uid_next, sizeof(uid_next), TRUE);
 	}
-	if (update->min_first_recent_uid != 0 &&
+	if (update != NULL && update->min_first_recent_uid != 0 &&
 	    hdr->first_recent_uid < update->min_first_recent_uid) {
 		uint32_t first_recent_uid = update->min_first_recent_uid;
 
