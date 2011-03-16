@@ -203,6 +203,7 @@ struct mailbox_update {
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 	uint32_t uid_validity;
 	uint32_t min_next_uid;
+	uint32_t min_first_recent_uid;
 	uint64_t min_highest_modseq;
 	/* Add these fields to be temporarily cached, if they aren't already. */
 	const char *const *cache_fields;
