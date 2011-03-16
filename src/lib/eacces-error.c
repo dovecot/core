@@ -126,13 +126,14 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 
 	memset(&dir_st, 0, sizeof(dir_st));
 	while ((p = strrchr(prev_path, '/')) != NULL) {
-		dir = t_strdup_until(prev_path, p);
+		dir = p == prev_path ? "/" : t_strdup_until(prev_path, p);
 		ret = stat(dir, &st);
 		if (ret == 0)
 			break;
-		if (errno == EACCES) {
+		if (errno == EACCES && strcmp(dir, "/") != 0) {
 			/* see if we have access to parent directory */
-		} else if (errno == ENOENT && creating) {
+		} else if (errno == ENOENT && creating &&
+			   strcmp(dir, "/") != 0) {
 			/* probably mkdir_parents() failed here, find the first
 			   parent directory we couldn't create */
 		} else {
