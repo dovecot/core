@@ -774,8 +774,12 @@ int main(int argc, char *argv[])
 	if (chdir(set->base_dir) < 0)
 		i_fatal("chdir(%s) failed: %m", set->base_dir);
 
-	if (dup2(null_fd, STDERR_FILENO) < 0)
-		i_fatal("dup2(null_fd) failed: %m");
+	if (strcmp(services->service_set->log_path, "/dev/stderr") != 0 &&
+	    strcmp(services->service_set->info_log_path, "/dev/stderr") != 0 &&
+	    strcmp(services->service_set->debug_log_path, "/dev/stderr") != 0) {
+		if (dup2(null_fd, STDERR_FILENO) < 0)
+			i_fatal("dup2(null_fd) failed: %m");
+	}
 	i_set_fatal_handler(master_fatal_callback);
 	i_set_error_handler(orig_error_callback);
 
