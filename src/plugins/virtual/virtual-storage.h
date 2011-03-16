@@ -95,6 +95,7 @@ struct virtual_backend_box {
 
 	unsigned int sync_seen:1;
 	unsigned int wildcard:1;
+	unsigned int clear_recent:1;
 	unsigned int uids_nonsorted:1;
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
