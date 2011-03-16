@@ -92,6 +92,7 @@ static void test_dsync_proxy_box_list(void)
 	box.uid_next = 4023233417;
 	box.message_count = 4525;
 	box.highest_modseq = 18080787909545915012ULL;
+	box.first_recent_uid = 353;
 	test_worker->box_iter.next_box = &box;
 
 	test_assert(run_more() == 0);
@@ -101,7 +102,8 @@ static void test_dsync_proxy_box_list(void)
 			   "4275878552\t"
 			   "4023233417\t"
 			   "4525\t"
-			   "18080787909545915012\n") == 0);
+			   "18080787909545915012\t"
+			   "353\n") == 0);
 	out_clear();
 
 	/* last mailbox */
@@ -231,7 +233,7 @@ static void test_dsync_proxy_box_create(void)
 
 	test_assert(run_cmd("BOX-CREATE", "selectable", "?",
 			    "61", "2", TEST_MAILBOX_GUID2, "1234567890", "9876",
-			    "4610", "28427847284728", NULL) == 1);
+			    "4610", "28427847284728", "853", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_CREATE);
 	test_assert(strcmp(event.box.name, "selectable") == 0);
@@ -242,6 +244,7 @@ static void test_dsync_proxy_box_create(void)
 	test_assert(event.box.uid_next == 9876);
 	test_assert(event.box.message_count == 4610);
 	test_assert(event.box.highest_modseq == 28427847284728);
+	test_assert(event.box.first_recent_uid == 853);
 	test_assert(event.box.last_change == 61);
 
 	test_end();
@@ -299,7 +302,7 @@ static void test_dsync_proxy_box_update(void)
 
 	test_assert(run_cmd("BOX-UPDATE", "updated", "/",
 			    "53", "2", TEST_MAILBOX_GUID1, "34343", "22",
-			    "58293", "2238427847284728", NULL) == 1);
+			    "58293", "2238427847284728", "2482", NULL) == 1);
 	test_assert(test_dsync_worker_next_box_event(test_worker, &event));
 	test_assert(event.type == LAST_BOX_TYPE_UPDATE);
 	test_assert(strcmp(event.box.name, "updated") == 0);
@@ -310,6 +313,7 @@ static void test_dsync_proxy_box_update(void)
 	test_assert(event.box.uid_next == 22);
 	test_assert(event.box.message_count == 58293);
 	test_assert(event.box.highest_modseq == 2238427847284728);
+	test_assert(event.box.first_recent_uid == 2482);
 	test_assert(event.box.last_change == 53);
 
 	test_end();

@@ -174,9 +174,10 @@ void dsync_proxy_mailbox_export(string_t *str,
 
 	str_append_c(str, '\t');
 	dsync_proxy_mailbox_guid_export(str, &box->mailbox_guid);
-	str_printfa(str, "\t%u\t%u\t%u\t%llu",
+	str_printfa(str, "\t%u\t%u\t%u\t%llu\t%u",
 		    box->uid_validity, box->uid_next, box->message_count,
-		    (unsigned long long)box->highest_modseq);
+		    (unsigned long long)box->highest_modseq,
+		    box->first_recent_uid);
 	dsync_proxy_strings_export(str, &box->cache_fields);
 }
 
@@ -258,6 +259,12 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 	box_r->highest_modseq = strtoull(args[i++], &p, 10);
 	if (*p != '\0') {
 		*error_r = "Invalid mailbox highest_modseq";
+		return -1;
+	}
+
+	box_r->first_recent_uid = strtoul(args[i++], &p, 10);
+	if (*p != '\0') {
+		*error_r = "Invalid mailbox first_recent_uid";
 		return -1;
 	}
 

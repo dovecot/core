@@ -566,7 +566,8 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	}
 
 	mailbox_get_status(box, STATUS_UIDNEXT | STATUS_UIDVALIDITY |
-			   STATUS_HIGHESTMODSEQ | STATUS_CACHE_FIELDS, &status);
+			   STATUS_HIGHESTMODSEQ | STATUS_CACHE_FIELDS |
+			   STATUS_FIRST_RECENT_UID, &status);
 
 	change = hash_table_lookup(worker->mailbox_changes_hash, mailbox_guid);
 	if (change != NULL) {
@@ -579,6 +580,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	dsync_box_r->uid_validity = status.uidvalidity;
 	dsync_box_r->uid_next = status.uidnext;
 	dsync_box_r->message_count = status.messages;
+	dsync_box_r->first_recent_uid = status.first_recent_uid;
 	dsync_box_r->highest_modseq = status.highest_modseq;
 
 	p_clear(iter->ret_pool);
@@ -1030,6 +1032,7 @@ local_worker_copy_mailbox_update(const struct dsync_mailbox *dsync_box,
 	       sizeof(update_r->mailbox_guid));
 	update_r->uid_validity = dsync_box->uid_validity;
 	update_r->min_next_uid = dsync_box->uid_next;
+	update_r->min_first_recent_uid = dsync_box->first_recent_uid;
 	update_r->min_highest_modseq = dsync_box->highest_modseq;
 }
 
