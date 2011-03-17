@@ -135,7 +135,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	if (strcasecmp(line, "INBOX") == 0)
 		line = "INBOX";
 	bbox->name = p_strdup(ctx->pool, line);
-	if (*line == '-' || *line == '!') line++;
+	if (*line == '-' || *line == '+' || *line == '!') line++;
 	bbox->ns = strcasecmp(line, "INBOX") == 0 ?
 		mail_namespace_find_inbox(user->namespaces) :
 		mail_namespace_find(user->namespaces, line);
@@ -149,6 +149,11 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 					   bbox->name);
 		return -1;
 	}
+	if (bbox->name[0] == '+') {
+		bbox->name++;
+		bbox->clear_recent = TRUE;
+	}
+
 	if (strchr(bbox->name, '*') != NULL ||
 	    strchr(bbox->name, '%') != NULL) {
 		name = bbox->name[0] == '-' ? bbox->name + 1 : bbox->name;

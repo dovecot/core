@@ -43,12 +43,17 @@ ldap_query_save_result(struct ldap_connection *conn,
 		       LDAPMessage *entry, struct auth_request *auth_request)
 {
 	struct db_ldap_result_iterate_context *ldap_iter;
-	const char *name, *value;
+	const char *name, *const *values;
 
 	ldap_iter = db_ldap_result_iterate_init(conn, entry, auth_request,
 						conn->pass_attr_map);
-	while (db_ldap_result_iterate_next(ldap_iter, &name, &value)) {
-		auth_request_set_field(auth_request, name, value,
+	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
+		if (values[1] != NULL) {
+			auth_request_log_warning(auth_request, "ldap",
+				"Multiple values found for '%s', "
+				"using value '%s'", name, values[0]);
+		}
+		auth_request_set_field(auth_request, name, values[0],
 				       conn->set.default_pass_scheme);
 	}
 }

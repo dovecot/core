@@ -457,12 +457,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		service_set_login_dump_core(service);
 	}
 	set->protocols_split = p_strsplit_spaces(pool, set->protocols, " ");
-	if (set->protocols_split[0] == NULL) {
-		*error_r = "No protocols defined, "
-			"if you don't want any use protocols=none";
-		return FALSE;
-	}
-	if (strcmp(set->protocols_split[0], "none") == 0 &&
+	if (set->protocols_split[0] != NULL &&
+	    strcmp(set->protocols_split[0], "none") == 0 &&
 	    set->protocols_split[1] == NULL)
 		set->protocols_split[0] = NULL;
 

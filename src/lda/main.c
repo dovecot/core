@@ -10,6 +10,7 @@
 #include "abspath.h"
 #include "safe-mkstemp.h"
 #include "eacces-error.h"
+#include "ipwd.h"
 #include "mkdir-parents.h"
 #include "str.h"
 #include "str-sanitize.h"
@@ -30,7 +31,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pwd.h>
 #include <sysexits.h>
 
 #define DEFAULT_ENVELOPE_SENDER "MAILER-DAEMON"
@@ -314,18 +314,21 @@ int main(int argc, char *argv[])
 		;
 	else if (process_euid != 0) {
 		/* we're non-root. get our username and possibly our home. */
-		struct passwd *pw;
+		struct passwd pw;
 		const char *home;
 
 		home = getenv("HOME");
 		if (user != NULL && home != NULL) {
 			/* no need for a pw lookup */
 			user_source = "USER environment";
-		} else if ((pw = getpwuid(process_euid)) != NULL) {
-			user = t_strdup(pw->pw_name);
+		} else if ((ret = i_getpwuid(process_euid, &pw)) > 0) {
+			user = t_strdup(pw.pw_name);
 			if (home == NULL)
-				env_put(t_strconcat("HOME=", pw->pw_dir, NULL));
+				env_put(t_strconcat("HOME=", pw.pw_dir, NULL));
 			user_source = "passwd lookup for process euid";
+		} else if (ret < 0) {
+			/* temporary failure */
+			i_fatal("getpwuid() failed: %m");
 		} else if (user == NULL) {
 			i_fatal_status(EX_USAGE,
 				       "Couldn't lookup our username (uid=%s)",

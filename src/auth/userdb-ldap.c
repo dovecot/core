@@ -52,7 +52,7 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 	ldap_iter = db_ldap_result_iterate_init(conn, entry, auth_request,
 						conn->user_attr_map);
-	while (db_ldap_result_iterate_next_all(ldap_iter, &name, &values)) {
+	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		auth_request_set_userdb_field_values(auth_request,
 						     name, values);
 	}
@@ -168,7 +168,7 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 	ldap_iter = db_ldap_result_iterate_init(conn, res,
 						request->auth_request,
 						conn->iterate_attr_map);
-	while (db_ldap_result_iterate_next_all(ldap_iter, &name, &values)) {
+	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (strcmp(name, "user") != 0) {
 			i_warning("ldap: iterate: "
 				  "Ignoring field not named 'user': %s", name);

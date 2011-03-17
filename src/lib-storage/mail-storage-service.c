@@ -7,6 +7,7 @@
 #include "module-dir.h"
 #include "restrict-access.h"
 #include "eacces-error.h"
+#include "ipwd.h"
 #include "str.h"
 #include "var-expand.h"
 #include "dict.h"
@@ -22,8 +23,6 @@
 
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <pwd.h>
-#include <grp.h>
 
 #ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
@@ -271,34 +270,44 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 	return ret;
 }
 
-static bool parse_uid(const char *str, uid_t *uid_r)
+static bool parse_uid(const char *str, uid_t *uid_r, const char **error_r)
 {
-	struct passwd *pw;
+	struct passwd pw;
 
 	if (str_to_uid(str, uid_r) == 0)
 		return TRUE;
 
-	pw = getpwnam(str);
-	if (pw == NULL)
+	switch (i_getpwnam(str, &pw)) {
+	case -1:
+		*error_r = t_strdup_printf("getpwnam(%s) failed: %m", str);
 		return FALSE;
-
-	*uid_r = pw->pw_uid;
-	return TRUE;
+	case 0:
+		*error_r = t_strconcat("Unknown UNIX UID user: ", str, NULL);
+		return FALSE;
+	default:
+		*uid_r = pw.pw_uid;
+		return TRUE;
+	}
 }
 
-static bool parse_gid(const char *str, gid_t *gid_r)
+static bool parse_gid(const char *str, gid_t *gid_r, const char **error_r)
 {
-	struct group *gr;
+	struct group gr;
 
 	if (str_to_gid(str, gid_r) == 0)
 		return TRUE;
 
-	gr = getgrnam(str);
-	if (gr == NULL)
+	switch (i_getgrnam(str, &gr)) {
+	case -1:
+		*error_r = t_strdup_printf("getgrnam(%s) failed: %m", str);
 		return FALSE;
-
-	*gid_r = gr->gr_gid;
-	return TRUE;
+	case 0:
+		*error_r = t_strconcat("Unknown UNIX GID group: ", str, NULL);
+		return FALSE;
+	default:
+		*gid_r = gr.gr_gid;
+		return TRUE;
+	}
 }
 
 static int
@@ -310,24 +319,24 @@ service_drop_privileges(struct mail_storage_service_user *user,
 {
 	struct restrict_access_settings rset;
 	uid_t current_euid, setuid_uid = 0;
-	const char *cur_chroot;
+	const char *cur_chroot, *error;
 
 	current_euid = geteuid();
 	restrict_access_init(&rset);
 	restrict_access_get_env(&rset);
 	if (*set->mail_uid != '\0') {
-		if (!parse_uid(set->mail_uid, &rset.uid)) {
-			*error_r = t_strdup_printf("Unknown mail_uid user: %s",
-						   set->mail_uid);
+		if (!parse_uid(set->mail_uid, &rset.uid, &error)) {
+			*error_r = t_strdup_printf("%s (from %s)", error,
+						   user->uid_source);
 			return -1;
 		}
 		if (rset.uid < (uid_t)set->first_valid_uid ||
 		    (set->last_valid_uid != 0 &&
 		     rset.uid > (uid_t)set->last_valid_uid)) {
 			*error_r = t_strdup_printf(
-				"Mail access for users with UID %s "
-				"not permitted (see first_valid_uid in config file).",
-				dec2str(rset.uid));
+				"Mail access for users with UID %s not permitted "
+				"(see first_valid_uid in config file, uid from %s).",
+				dec2str(rset.uid), user->uid_source);
 			return -1;
 		}
 		rset.uid_source = user->uid_source;
@@ -337,18 +346,18 @@ service_drop_privileges(struct mail_storage_service_user *user,
 		return -1;
 	}
 	if (*set->mail_gid != '\0') {
-		if (!parse_gid(set->mail_gid, &rset.gid)) {
-			*error_r = t_strdup_printf("Unknown mail_gid group: %s",
-						   set->mail_gid);
+		if (!parse_gid(set->mail_gid, &rset.gid, &error)) {
+			*error_r = t_strdup_printf("%s (from %s)", error,
+						   user->gid_source);
 			return -1;
 		}
 		if (rset.gid < (gid_t)set->first_valid_gid ||
 		    (set->last_valid_gid != 0 &&
 		     rset.gid > (gid_t)set->last_valid_gid)) {
 			*error_r = t_strdup_printf(
-				"Mail access for users with GID %s "
-				"not permitted (see first_valid_gid in config file).",
-				dec2str(rset.gid));
+				"Mail access for users with GID %s not permitted "
+				"(see first_valid_gid in config file, gid from %s).",
+				dec2str(rset.gid), user->gid_source);
 			return -1;
 		}
 		rset.gid_source = user->gid_source;
@@ -358,10 +367,10 @@ service_drop_privileges(struct mail_storage_service_user *user,
 		return -1;
 	}
 	if (*set->mail_privileged_group != '\0') {
-		if (!parse_gid(set->mail_privileged_group, &rset.privileged_gid)) {
+		if (!parse_gid(set->mail_privileged_group, &rset.privileged_gid,
+			       &error)) {
 			*error_r = t_strdup_printf(
-				"Unknown mail_privileged_group: %s",
-				set->mail_gid);
+				"%s (in mail_privileged_group setting)", error);
 			return -1;
 		}
 	}

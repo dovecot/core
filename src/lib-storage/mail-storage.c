@@ -803,6 +803,10 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
+	i_assert(update->min_next_uid == 0 ||
+		 update->min_first_recent_uid == 0 ||
+		 update->min_first_recent_uid <= update->min_next_uid);
+
 	return box->v.update(box, update);
 }
 

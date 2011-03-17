@@ -153,6 +153,14 @@ static int sdbox_mailbox_create_indexes(struct mailbox *box,
 			offsetof(struct mail_index_header, next_uid),
 			&uid_next, sizeof(uid_next), TRUE);
 	}
+	if (update != NULL && update->min_first_recent_uid != 0 &&
+	    hdr->first_recent_uid < update->min_first_recent_uid) {
+		uint32_t first_recent_uid = update->min_first_recent_uid;
+
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, first_recent_uid),
+			&first_recent_uid, sizeof(first_recent_uid), FALSE);
+	}
 	if (update != NULL && update->min_highest_modseq != 0 &&
 	    mail_index_modseq_get_highest(box->view) <
 	    					update->min_highest_modseq) {
@@ -210,6 +218,11 @@ static int sdbox_mailbox_open(struct mailbox *box)
 	mbox->hdr_ext_id =
 		mail_index_ext_register(box->index, "dbox-hdr",
 					sizeof(struct sdbox_index_header), 0, 0);
+
+	if (box->creating) {
+		/* wait for mailbox creation to initialize the index */
+		return 0;
+	}
 
 	if (box->creating) {
 		/* wait for mailbox creation to initialize the index */

@@ -290,6 +290,7 @@ dsync_brain_mailbox_action(struct dsync_brain *brain,
 	case DSYNC_BRAIN_MAILBOX_ACTION_CREATE:
 		new_box = *action_box;
 		new_box.uid_next = action_box->uid_validity == 0 ? 0 : 1;
+		new_box.first_recent_uid = 0;
 		new_box.highest_modseq = 0;
 		dsync_worker_create_mailbox(action_worker, &new_box);
 		break;
@@ -667,8 +668,9 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 				brain_box->box = *src_boxes[src];
 				brain_box->src = src_boxes[src];
 				if (brain->verbose) {
-					i_info("%s: only in source",
-					       brain_box->box.name);
+					i_info("%s: only in source (guid=%s)",
+					       brain_box->box.name,
+					       dsync_guid_to_str(&brain_box->box.mailbox_guid));
 				}
 			}
  			src++;
@@ -679,8 +681,9 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 				brain_box->box = *dest_boxes[dest];
 				brain_box->dest = dest_boxes[dest];
 				if (brain->verbose) {
-					i_info("%s: only in dest",
-					       brain_box->box.name);
+					i_info("%s: only in dest (guid=%s)",
+					       brain_box->box.name,
+					       dsync_guid_to_str(&brain_box->box.mailbox_guid));
 				}
 			}
 			dest++;
@@ -694,8 +697,11 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 		brain_box = array_append_space(brain_boxes);
 		brain_box->box = *src_boxes[src];
 		brain_box->src = src_boxes[src];
-		if (brain->verbose)
-			i_info("%s: only in source", brain_box->box.name);
+		if (brain->verbose) {
+			i_info("%s: only in source (guid=%s)",
+			       brain_box->box.name,
+			       dsync_guid_to_str(&brain_box->box.mailbox_guid));
+		}
 	}
 	for (; dest < dest_count; dest++) {
 		if ((dest_boxes[dest]->flags &
@@ -705,8 +711,11 @@ dsync_brain_get_changed_mailboxes(struct dsync_brain *brain,
 		brain_box = array_append_space(brain_boxes);
 		brain_box->box = *dest_boxes[dest];
 		brain_box->dest = dest_boxes[dest];
-		if (brain->verbose)
-			i_info("%s: only in dest", brain_box->box.name);
+		if (brain->verbose) {
+			i_info("%s: only in dest (guid=%s)",
+			       brain_box->box.name,
+			       dsync_guid_to_str(&brain_box->box.mailbox_guid));
+		}
 	}
 }
 

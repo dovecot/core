@@ -1,16 +1,16 @@
 /* Copyright (c) 2003-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ipwd.h"
 #include "home-expand.h"
 
 #include <stdlib.h>
-#include <pwd.h>
 
 int home_try_expand(const char **_path)
 {
 	const char *path = *_path;
-	const char *home, *p;
-	struct passwd *pw;
+	const char *name, *home, *p;
+	struct passwd pw;
 
 	if (path == NULL || *path != '~')
 		return 0;
@@ -22,14 +22,24 @@ int home_try_expand(const char **_path)
 	} else {
 		p = strchr(path, '/');
 		if (p == NULL) {
-			pw = getpwnam(path);
+			name = path;
 			path = "";
 		} else {
-			pw = getpwnam(t_strdup_until(path, p));
+			name = t_strdup_until(path, p);
 			path = p+1;
 		}
-
-		home = pw == NULL ? NULL : pw->pw_dir;
+		switch (i_getpwnam(name, &pw)) {
+		case -1:
+			i_error("getpwnam(%s) failed: %m", name);
+			home = NULL;
+			break;
+		case 0:
+			home = NULL;
+			break;
+		default:
+			home = pw.pw_dir;
+			break;
+		}
 	}
 
 	if (home == NULL)

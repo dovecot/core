@@ -11,11 +11,11 @@
 #include "ioloop-notify-fd.h"
 #include "buffer.h"
 #include "network.h"
+#include "ipwd.h"
 
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <pwd.h>
 #include <sys/ioctl.h>
 #include <sys/inotify.h>
 
@@ -149,16 +149,15 @@ void io_loop_notify_remove(struct io *_io)
 
 static void ioloop_inotify_user_limit_exceeded(void)
 {
-	const struct passwd *pw;
+	struct passwd pw;
 	const char *name;
 	uid_t uid = geteuid();
 
-	pw = getpwuid(uid);
-	if (pw == NULL)
+	if (i_getpwuid(uid, &pw) <= 0)
 		name = t_strdup_printf("UID %s", dec2str(uid));
 	else {
 		name = t_strdup_printf("%s (UID %s)",
-				       dec2str(uid), pw->pw_name);
+				       dec2str(uid), pw.pw_name);
 	}
 	i_warning("Inotify instance limit for user %s exceeded, disabling. "
 		  "Increase /proc/sys/fs/inotify/max_user_instances", name);

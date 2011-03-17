@@ -104,10 +104,7 @@ charset_to_utf8_try(struct charset_translation *t,
 	else {
 		/* should be EILSEQ */
 		*result = CHARSET_RET_INVALID_INPUT;
-		if (!dtcase)
-			buffer_set_used_size(dest, dest->used - destleft);
-		uni_ucs4_to_utf8_c(UNICODE_REPLACEMENT_CHAR, dest);
-		return TRUE;
+		ret = FALSE;
 	}
 	*src_size -= srcleft;
 
@@ -132,6 +129,7 @@ charset_to_utf8(struct charset_translation *t,
 	bool dtcase = (t->flags & CHARSET_FLAG_DECOMP_TITLECASE) != 0;
 	enum charset_result result;
 	size_t pos, used, size, prev_pos = 0, prev_used = 0;
+	size_t prev_invalid_pos = (size_t)-1;
 	bool ret;
 
 	for (pos = 0;;) {
@@ -139,12 +137,17 @@ charset_to_utf8(struct charset_translation *t,
 		ret = charset_to_utf8_try(t, src + pos, &size, dest, &result);
 		pos += size;
 
-		if (ret) {
-			*src_size = pos;
-			return result;
-		}
+		if (ret)
+			break;
 
-		if (!dtcase) {
+		if (result == CHARSET_RET_INVALID_INPUT) {
+			if (prev_invalid_pos != dest->used) {
+				uni_ucs4_to_utf8_c(UNICODE_REPLACEMENT_CHAR,
+						   dest);
+				prev_invalid_pos = dest->used;
+			}
+			pos++;
+		} else if (!dtcase) {
 			/* force buffer to grow */
 			used = dest->used;
 			size = buffer_get_size(dest) - used + 1;
@@ -156,6 +159,12 @@ charset_to_utf8(struct charset_translation *t,
 			prev_used = dest->used;
 		}
 	}
+
+	if (prev_invalid_pos != (size_t)-1)
+		result = CHARSET_RET_INVALID_INPUT;
+
+	*src_size = pos;
+	return result;
 }
 
 #endif

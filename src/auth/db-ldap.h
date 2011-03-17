@@ -178,9 +178,7 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 			    struct auth_request *auth_request,
 			    struct hash_table *attr_map);
 bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
-				 const char **name_r, const char **value_r);
-bool db_ldap_result_iterate_next_all(struct db_ldap_result_iterate_context *ctx,
-				     const char **name_r,
-				     const char *const **values_r);
+				 const char **name_r,
+				 const char *const **values_r);
 
 #endif

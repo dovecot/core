@@ -123,7 +123,7 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 	const char *ident;
 
 	ident = auth_penalty_get_ident(auth_request);
-	if (penalty->disabled || ident == NULL) {
+	if (penalty->disabled || ident == NULL || auth_request->no_penalty) {
 		callback(0, auth_request);
 		return;
 	}
@@ -155,7 +155,7 @@ void auth_penalty_update(struct auth_penalty *penalty,
 	const char *ident;
 
 	ident = auth_penalty_get_ident(auth_request);
-	if (penalty->disabled || ident == NULL)
+	if (penalty->disabled || ident == NULL || auth_request->no_penalty)
 		return;
 
 	if (value > AUTH_PENALTY_MAX_PENALTY) {

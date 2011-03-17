@@ -106,6 +106,7 @@ struct auth_request {
 	unsigned int proxy:1;
 	unsigned int proxy_maybe:1;
 	unsigned int valid_client_cert:1;
+	unsigned int no_penalty:1;
 	unsigned int cert_username:1;
 	unsigned int userdb_lookup:1;
 	unsigned int userdb_lookup_failed:1;
@@ -192,6 +193,9 @@ void auth_request_log_debug(struct auth_request *auth_request,
 void auth_request_log_info(struct auth_request *auth_request,
 			   const char *subsystem,
 			   const char *format, ...) ATTR_FORMAT(3, 4);
+void auth_request_log_warning(struct auth_request *auth_request,
+			      const char *subsystem,
+			      const char *format, ...);
 void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) ATTR_FORMAT(3, 4);

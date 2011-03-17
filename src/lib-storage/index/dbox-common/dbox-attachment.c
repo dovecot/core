@@ -139,7 +139,8 @@ bool dbox_attachment_parse_extref(const char *line, pool_t pool,
 static int
 dbox_attachment_file_get_stream_from(struct dbox_file *file,
 				     const char *ext_refs,
-				     struct istream **stream)
+				     struct istream **stream,
+				     const char **error_r)
 {
 	ARRAY_TYPE(mail_attachment_extref) extrefs_arr;
 	ARRAY_DEFINE(streams, struct istream *);
@@ -150,10 +151,14 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	unsigned int i;
 	int ret = 1;
 
+	*error_r = NULL;
+
 	t_array_init(&extrefs_arr, 16);
 	if (!dbox_attachment_parse_extref_real(ext_refs, pool_datastack_create(),
-					       &extrefs_arr))
+					       &extrefs_arr)) {
+		*error_r = "Broken ext-refs string";
 		return 0;
+	}
 	psize = dbox_file_get_plaintext_size(file);
 
 	t_array_init(&streams, 8);
@@ -165,13 +170,17 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 		if (extref->start_offset != last_voffset) {
 			uoff_t part_size = extref->start_offset - last_voffset;
 
+			if ((*stream)->v_offset + part_size > psize) {
+				*error_r = t_strdup_printf(
+					"ext-refs point outside message "
+					"(%"PRIuUOFF_T" + %"PRIuUOFF_T" > %"PRIuUOFF_T")",
+					(*stream)->v_offset, part_size, psize);
+				ret = 0;
+			}
+
 			input = i_stream_create_limit(*stream, part_size);
 			array_append(&streams, &input, 1);
 			i_stream_seek(*stream, (*stream)->v_offset + part_size);
-			if ((*stream)->v_offset + part_size > psize) {
-				/* extrefs point outside message */
-				ret = 0;
-			}
 			last_voffset += part_size;
 		}
 
@@ -192,8 +201,11 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	}
 
 	if (psize != (*stream)->v_offset) {
-		if (psize < (*stream)->v_offset) {
-			/* extrefs point outside message */
+		if ((*stream)->v_offset > psize) {
+			*error_r = t_strdup_printf(
+				"ext-refs point outside message "
+				"(%"PRIuUOFF_T" > %"PRIuUOFF_T")",
+				(*stream)->v_offset, psize);
 			ret = 0;
 		} else {
 			uoff_t trailer_size = psize - (*stream)->v_offset;
@@ -215,7 +227,7 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 int dbox_attachment_file_get_stream(struct dbox_file *file,
 				    struct istream **stream)
 {
-	const char *ext_refs;
+	const char *ext_refs, *error;
 	int ret;
 
 	/* need to read metadata in case there are external references */
@@ -231,11 +243,12 @@ int dbox_attachment_file_get_stream(struct dbox_file *file,
 	/* we have external references. */
 	T_BEGIN {
 		ret = dbox_attachment_file_get_stream_from(file, ext_refs,
-							   stream);
+							   stream, &error);
+		if (ret == 0) {
+			dbox_file_set_corrupted(file,
+				"Corrupted ext-refs metadata %s: %s",
+				ext_refs, error);
+		}
 	} T_END;
-	if (ret == 0) {
-		dbox_file_set_corrupted(file, "Ext refs metadata corrupted: %s",
-					ext_refs);
-	}
 	return ret;
 }

@@ -165,7 +165,8 @@ static int virtual_backend_box_open(struct virtual_mailbox *mbox,
 
 	i_assert(bbox->box == NULL);
 
-	flags |= MAILBOX_FLAG_KEEP_RECENT;
+	if (!bbox->clear_recent)
+		flags |= MAILBOX_FLAG_KEEP_RECENT;
 
 	mailbox = bbox->name;
 	ns = mail_namespace_find(user->namespaces, mailbox);

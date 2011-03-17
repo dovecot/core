@@ -22,7 +22,7 @@ struct dsync_mailbox {
 	/* Mailbox's GUID. Full of zero with \Noselect mailboxes. */
 	mailbox_guid_t mailbox_guid;
 
-	uint32_t uid_validity, uid_next, message_count;
+	uint32_t uid_validity, uid_next, message_count, first_recent_uid;
 	uint64_t highest_modseq;
 	/* if mailbox is deleted, this is the deletion timestamp.
 	   otherwise it's the last rename timestamp. */

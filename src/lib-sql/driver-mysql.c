@@ -52,6 +52,11 @@ extern const struct sql_db driver_mysql_db;
 extern const struct sql_result driver_mysql_result;
 extern const struct sql_result driver_mysql_error_result;
 
+static const char *mysql_prefix(struct mysql_db *db)
+{
+	return t_strdup_printf("mysql(%s)", db->host);
+}
+
 static int driver_mysql_connect(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
@@ -105,15 +110,14 @@ static int driver_mysql_connect(struct sql_db *_db)
 	alarm(0);
 	if (failed) {
 		sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
-		i_error("mysql: Connect failed to %s (%s): %s - "
+		i_error("%s: Connect failed to database (%s): %s - "
 			"waiting for %u seconds before retry",
-			host != NULL ? host : unix_socket, db->dbname,
+			mysql_prefix(db), db->dbname,
 			mysql_error(db->mysql), db->api.connect_delay);
 		return -1;
 	} else {
-		i_info("mysql: Connected to %s%s (%s)",
-		       host != NULL ? host : unix_socket,
-		       db->ssl_set ? " using SSL" : "", db->dbname);
+		i_info("%s: Connected to database %s%s", mysql_prefix(db),
+		       db->dbname, db->ssl_set ? " using SSL" : "");
 
 		sql_db_set_state(&db->api, SQL_DB_STATE_IDLE);
 		return 1;
@@ -266,8 +270,8 @@ static void driver_mysql_exec(struct sql_db *_db, const char *query)
 	struct mysql_db *db = (struct mysql_db *)_db;
 
 	if (driver_mysql_do_query(db, query) < 0) {
-		i_error("mysql: Query '%s' failed: %s",
-			query, mysql_error(db->mysql));
+		i_error("%s: Query '%s' failed: %s",
+			mysql_prefix(db), query, mysql_error(db->mysql));
 	}
 }
 

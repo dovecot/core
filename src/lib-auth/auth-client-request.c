@@ -36,6 +36,8 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 
 	if ((info->flags & AUTH_REQUEST_FLAG_SECURED) != 0)
 		str_append(str, "\tsecured");
+	if ((info->flags & AUTH_REQUEST_FLAG_NO_PENALTY) != 0)
+		str_append(str, "\tno-penalty");
 	if ((info->flags & AUTH_REQUEST_FLAG_VALID_CLIENT_CERT) != 0)
 		str_append(str, "\tvalid-client-cert");
 

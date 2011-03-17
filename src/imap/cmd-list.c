@@ -946,10 +946,13 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 	}
 
 	if (lsub) {
-		/* LSUB - we don't care about flags */
+		/* LSUB - we don't care about flags except if
+		   tb-lsub-flags workaround is explicitly set */
 		ctx->list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
-			MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH |
-			MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
+			MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH;
+		if ((cmd->client->set->parsed_workarounds &
+		     WORKAROUND_TB_LSUB_FLAGS) == 0)
+			ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	} else if (!ctx->used_listext) {
 		/* non-extended LIST - return children flags always */
 		ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;

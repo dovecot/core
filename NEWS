@@ -14,6 +14,26 @@ v2.1.UNSTABLE 2011-xx-xx  Timo Sirainen <tss@iki.fi>
 	  (e.g. copy multiple messages).
 	- dsync: Saved messages' save-date was set to 1970-01-01.
 
+	+ Added submission_host setting to send mails via SMTP instead of
+	  via sendmail binary.
+	+ Added doveadm acl get/set/delete commands for ACL manipulation,
+	  similar to how IMAP ACL extension works.
+	+ Added doveadm acl debug command to help debug and fix problems
+	  with why shared mailboxes aren't working as expected.
+	- IMAP: Fixed hangs with COMPRESS extension
+	- IMAP: Fixed a hang when trying to COPY to a nonexistent mailbox. 
+	- IMAP: Fixed hang/crash with SEARCHRES + pipelining $.
+	- IMAP: Fixed assert-crash if IDLE+DONE is sent in same TCP packet. 
+	- LMTP: Fixed sending multiple messages in a session.
+	- doveadm: Fixed giving parameters to mail commands. 
+	- doveadm import: Settings weren't correctly used for the
+	  import storage.
+	- dsync: Fixed somewhat random failures with saving messages to
+	  remote dsync.
+	- v2.0.9: Config reload didn't notify running processes with
+	  shutdown_clients=no, so they could have kept serving new clients
+	  with old settings.
+
 v2.0.9 2011-01-13  Timo Sirainen <tss@iki.fi>
 
 	- Linux: Fixed a high system CPU usage / high context switch count

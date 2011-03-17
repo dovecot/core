@@ -437,13 +437,13 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 			*offset_r = file->cur_offset;
 			return ret;
 		}
+		if (i_stream_is_eof(file->input)) {
+			*last_r = TRUE;
+			return 0;
+		}
 	}
 	*offset_r = offset;
 
-	if (i_stream_is_eof(file->input)) {
-		*last_r = TRUE;
-		return 0;
-	}
 	*last_r = FALSE;
 
 	ret = dbox_file_seek(file, offset);

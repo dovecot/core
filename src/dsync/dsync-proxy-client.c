@@ -364,8 +364,10 @@ proxy_client_worker_output_real(struct proxy_client_dsync_worker *worker)
 		/* proxy_client_worker_msg_save() hasn't finished yet. */
 		o_stream_cork(worker->output);
 		proxy_client_send_stream(worker);
-		if (worker->save_input != NULL)
-			return 1;
+		if (worker->save_input != NULL) {
+			/* still unfinished, make sure we get called again */
+			return 0;
+		}
 	}
 
 	if (worker->worker.output_callback != NULL)
@@ -385,7 +387,21 @@ static int proxy_client_worker_output(struct proxy_client_dsync_worker *worker)
 static void
 proxy_client_worker_timeout(struct proxy_client_dsync_worker *worker)
 {
-	i_error("proxy client timed out");
+	const char *reason;
+
+	if (worker->save_io != NULL)
+		reason = " (waiting for more input from mail being saved)";
+	else if (worker->save_input != NULL) {
+		size_t bytes = o_stream_get_buffer_used_size(worker->output);
+
+		reason = t_strdup_printf(" (waiting for output stream to flush, "
+					 "%"PRIuSIZE_T" bytes left)", bytes);
+	} else if (worker->msg_get_data.input != NULL) {
+		reason = " (waiting for MSG-GET message from remote)";
+	} else {
+		reason = "";
+	}
+	i_error("proxy client timed out%s", reason);
 	proxy_client_fail(worker);
 }
 
@@ -397,7 +413,7 @@ struct dsync_worker *dsync_worker_init_proxy_client(int fd_in, int fd_out)
 	worker->worker.v = proxy_client_dsync_worker;
 	worker->fd_in = fd_in;
 	worker->fd_out = fd_out;
-	worker->to = timeout_add(DSYNC_PROXY_TIMEOUT_MSECS,
+	worker->to = timeout_add(DSYNC_PROXY_CLIENT_TIMEOUT_MSECS,
 				 proxy_client_worker_timeout, worker);
 	worker->io = io_add(fd_in, IO_READ, proxy_client_worker_input, worker);
 	worker->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
@@ -455,7 +471,7 @@ static bool proxy_client_worker_is_output_full(struct dsync_worker *_worker)
 	struct proxy_client_dsync_worker *worker =
 		(struct proxy_client_dsync_worker *)_worker;
 
-	if (worker->save_io != NULL) {
+	if (worker->save_input != NULL) {
 		/* we haven't finished sending a message save, so we're full. */
 		return TRUE;
 	}

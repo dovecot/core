@@ -26,8 +26,6 @@
 #include "service-process-notify.h"
 #include "service-process.h"
 
-#include <grp.h>
-#include <pwd.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -116,7 +114,13 @@ service_dup_fds(struct service *service)
 		break;
 	}
 	dup2_append(&dups, service->status_fd[1], MASTER_STATUS_FD);
-	dup2_append(&dups, master_dead_pipe_fd[1], MASTER_DEAD_FD);
+	if (service->type != SERVICE_TYPE_ANVIL) {
+		dup2_append(&dups, service->list->master_dead_pipe_fd[1],
+			    MASTER_DEAD_FD);
+	} else {
+		dup2_append(&dups, global_master_dead_pipe_fd[1],
+			    MASTER_DEAD_FD);
+	}
 
 	if (service->type == SERVICE_TYPE_LOG) {
 		/* keep stderr as-is. this is especially important when

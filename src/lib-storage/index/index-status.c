@@ -32,6 +32,7 @@ int index_storage_get_status(struct mailbox *box,
 	status_r->unseen = hdr->messages_count - hdr->seen_messages_count;
 	status_r->uidvalidity = hdr->uid_validity;
 	status_r->uidnext = hdr->next_uid;
+	status_r->first_recent_uid = hdr->first_recent_uid;
 	status_r->nonpermanent_modseqs = mail_index_is_in_memory(box->index);
 	if ((items & STATUS_HIGHESTMODSEQ) != 0) {
 		status_r->highest_modseq =

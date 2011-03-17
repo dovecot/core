@@ -187,13 +187,13 @@ static void cmd_import_deinit(struct doveadm_mail_cmd_context *_ctx)
 
 static struct doveadm_mail_cmd_context *cmd_import_alloc(void)
 {
-	struct doveadm_mail_cmd_context *ctx;
+	struct import_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
-	ctx->v.init = cmd_import_init;
-	ctx->v.deinit = cmd_import_deinit;
-	ctx->v.run = cmd_import_run;
-	return ctx;
+	ctx = doveadm_mail_cmd_alloc(struct import_cmd_context);
+	ctx->ctx.v.init = cmd_import_init;
+	ctx->ctx.v.deinit = cmd_import_deinit;
+	ctx->ctx.v.run = cmd_import_run;
+	return &ctx->ctx;
 }
 
 struct doveadm_mail_cmd cmd_import = {

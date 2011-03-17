@@ -514,7 +514,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT;
 	const enum mailbox_status_items status_items =
 		STATUS_UIDNEXT | STATUS_UIDVALIDITY |
-		STATUS_HIGHESTMODSEQ;
+		STATUS_HIGHESTMODSEQ | STATUS_FIRST_RECENT_UID;
 	const enum mailbox_metadata_items metadata_items =
 		MAILBOX_METADATA_CACHE_FIELDS | MAILBOX_METADATA_GUID;
 	const struct mailbox_info *info;
@@ -579,6 +579,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	dsync_box_r->uid_validity = status.uidvalidity;
 	dsync_box_r->uid_next = status.uidnext;
 	dsync_box_r->message_count = status.messages;
+	dsync_box_r->first_recent_uid = status.first_recent_uid;
 	dsync_box_r->highest_modseq = status.highest_modseq;
 
 	p_clear(iter->ret_pool);
@@ -994,6 +995,7 @@ local_worker_copy_mailbox_update(const struct dsync_mailbox *dsync_box,
 	       sizeof(update_r->mailbox_guid));
 	update_r->uid_validity = dsync_box->uid_validity;
 	update_r->min_next_uid = dsync_box->uid_next;
+	update_r->min_first_recent_uid = dsync_box->first_recent_uid;
 	update_r->min_highest_modseq = dsync_box->highest_modseq;
 }
 

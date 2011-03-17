@@ -7,23 +7,28 @@
 
 #include "safe-memset.h"
 #include "auth-cache.h"
+#include "ipwd.h"
 #include "mycrypt.h"
 
 #include <login_cap.h>
 #include <bsd_auth.h>
-#include <pwd.h>
 
 static void
 bsdauth_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
-	struct passwd *pw;
+	struct passwd pw;
 	int result;
 
 	auth_request_log_debug(request, "bsdauth", "lookup");
 
-	pw = getpwnam(request->user);
-	if (pw == NULL) {
+	switch (i_getpwnam(request->user, &pw)) {
+	case -1:
+		auth_request_log_error(request, "bsdauth",
+				       "getpwnam() failed: %m");
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	case 0:
 		auth_request_log_info(request, "bsdauth", "unknown user");
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
@@ -34,7 +39,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 			       t_strdup_noconst(password));
 
 	/* clear the passwords from memory */
-	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
+	safe_memset(pw.pw_passwd, 0, strlen(pw.pw_passwd));
 
 	if (result == 0) {
 		auth_request_log_password_mismatch(request, "bsdauth");
@@ -43,7 +48,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	/* make sure we're using the username exactly as it's in the database */
-        auth_request_set_field(request, "user", pw->pw_name, NULL);
+        auth_request_set_field(request, "user", pw.pw_name, NULL);
 
 	callback(PASSDB_RESULT_OK, request);
 }

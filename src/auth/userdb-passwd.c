@@ -6,9 +6,8 @@
 #ifdef USERDB_PASSWD
 
 #include "ioloop.h"
+#include "ipwd.h"
 #include "userdb-static.h"
-
-#include <pwd.h>
 
 #define USER_CACHE_KEY "%u"
 
@@ -32,18 +31,23 @@ static void passwd_lookup(struct auth_request *auth_request,
 	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct passwd_userdb_module *module =
 		(struct passwd_userdb_module *)_module;
-	struct passwd *pw;
+	struct passwd pw;
 
 	auth_request_log_debug(auth_request, "passwd", "lookup");
 
-	pw = getpwnam(auth_request->user);
-	if (pw == NULL) {
+	switch (i_getpwnam(auth_request->user, &pw)) {
+	case -1:
+		auth_request_log_error(auth_request, "passwd",
+				       "getpwnam() failed: %m");
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
+	case 0:
 		auth_request_log_info(auth_request, "passwd", "unknown user");
 		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}
 
-	auth_request_set_field(auth_request, "user", pw->pw_name, NULL);
+	auth_request_set_field(auth_request, "user", pw.pw_name, NULL);
 
 	auth_request_init_userdb_reply(auth_request);
 	userdb_static_template_export(module->tmpl, auth_request);
@@ -53,18 +57,18 @@ static void passwd_lookup(struct auth_request *auth_request,
 	    !userdb_static_template_isset(module->tmpl, "system_user")) {
 		auth_request_set_userdb_field(auth_request,
 					      "system_groups_user",
-					      pw->pw_name);
+					      pw.pw_name);
 	}
 	if (!userdb_static_template_isset(module->tmpl, "uid")) {
 		auth_request_set_userdb_field(auth_request,
-					      "uid", dec2str(pw->pw_uid));
+					      "uid", dec2str(pw.pw_uid));
 	}
 	if (!userdb_static_template_isset(module->tmpl, "gid")) {
 		auth_request_set_userdb_field(auth_request,
-					      "gid", dec2str(pw->pw_gid));
+					      "gid", dec2str(pw.pw_gid));
 	}
 	if (!userdb_static_template_isset(module->tmpl, "home"))
-		auth_request_set_userdb_field(auth_request, "home", pw->pw_dir);
+		auth_request_set_userdb_field(auth_request, "home", pw.pw_dir);
 
 	callback(USERDB_RESULT_OK, auth_request);
 }

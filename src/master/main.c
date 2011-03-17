@@ -9,6 +9,7 @@
 #include "env-util.h"
 #include "hostpid.h"
 #include "abspath.h"
+#include "ipwd.h"
 #include "execv-const.h"
 #include "restrict-process-size.h"
 #include "master-service.h"
@@ -28,8 +29,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <pwd.h>
-#include <grp.h>
 
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
 
@@ -42,7 +41,7 @@ uid_t master_uid;
 gid_t master_gid;
 bool core_dumps_disabled;
 const char *ssl_manual_key_password;
-int null_fd, master_dead_pipe_fd[2];
+int null_fd, global_master_dead_pipe_fd[2];
 struct service_list *services;
 
 static char *pidfile_path;
@@ -87,7 +86,7 @@ void process_exec(const char *cmd, const char *extra_args[])
 int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
 	       const char **error_r)
 {
-	struct passwd *pw;
+	struct passwd pw;
 
 	if (*user == '\0') {
 		*uid_r = (uid_t)-1;
@@ -95,32 +94,40 @@ int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
 		return 0;
 	}
 
-	if ((pw = getpwnam(user)) == NULL) {
+	switch (i_getpwnam(user, &pw)) {
+	case -1:
+		*error_r = t_strdup_printf("getpwnam(%s) failed: %m", user);
+		return -1;
+	case 0:
 		*error_r = t_strdup_printf("User doesn't exist: %s", user);
 		return -1;
+	default:
+		*uid_r = pw.pw_uid;
+		*gid_r = pw.pw_gid;
+		return 0;
 	}
-
-	*uid_r = pw->pw_uid;
-	*gid_r = pw->pw_gid;
-	return 0;
 }
 
 int get_gid(const char *group, gid_t *gid_r, const char **error_r)
 {
-	struct group *gr;
+	struct group gr;
 
 	if (*group == '\0') {
 		*gid_r = (gid_t)-1;
 		return 0;
 	}
 
-	if ((gr = getgrnam(group)) == NULL) {
+	switch (i_getgrnam(group, &gr)) {
+	case -1:
+		*error_r = t_strdup_printf("getgrnam(%s) failed: %m", group);
+		return -1;
+	case 0:
 		*error_r = t_strdup_printf("Group doesn't exist: %s", group);
 		return -1;
+	default:
+		*gid_r = gr.gr_gid;
+		return 0;
 	}
-
-	*gid_r = gr->gr_gid;
-	return 0;
 }
 
 static void ATTR_NORETURN ATTR_FORMAT(2, 0)
@@ -725,10 +732,10 @@ int main(int argc, char *argv[])
 			i_fatal("Can't open /dev/null: %m");
 		fd_close_on_exec(null_fd, TRUE);
 	} while (null_fd <= STDERR_FILENO);
-	if (pipe(master_dead_pipe_fd) < 0)
+	if (pipe(global_master_dead_pipe_fd) < 0)
 		i_fatal("pipe() failed: %m");
-	fd_close_on_exec(master_dead_pipe_fd[0], TRUE);
-	fd_close_on_exec(master_dead_pipe_fd[1], TRUE);
+	fd_close_on_exec(global_master_dead_pipe_fd[0], TRUE);
+	fd_close_on_exec(global_master_dead_pipe_fd[1], TRUE);
 
 	set = master_settings_read();
 	if (ask_key_pass) {
@@ -774,8 +781,12 @@ int main(int argc, char *argv[])
 	if (chdir(set->base_dir) < 0)
 		i_fatal("chdir(%s) failed: %m", set->base_dir);
 
-	if (dup2(null_fd, STDERR_FILENO) < 0)
-		i_fatal("dup2(null_fd) failed: %m");
+	if (strcmp(services->service_set->log_path, "/dev/stderr") != 0 &&
+	    strcmp(services->service_set->info_log_path, "/dev/stderr") != 0 &&
+	    strcmp(services->service_set->debug_log_path, "/dev/stderr") != 0) {
+		if (dup2(null_fd, STDERR_FILENO) < 0)
+			i_fatal("dup2(null_fd) failed: %m");
+	}
 	i_set_fatal_handler(master_fatal_callback);
 	i_set_error_handler(orig_error_callback);
 

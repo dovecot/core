@@ -197,6 +197,8 @@ void auth_request_export(struct auth_request *request,
 		auth_stream_reply_add(reply, "skip_password_check", "1");
 	if (request->valid_client_cert)
 		auth_stream_reply_add(reply, "valid-client-cert", "1");
+	if (request->no_penalty)
+		auth_stream_reply_add(reply, "no-penalty", "1");
 	if (request->mech_name != NULL)
 		auth_stream_reply_add(reply, "mech", request->mech_name);
 }
@@ -235,6 +237,8 @@ bool auth_request_import(struct auth_request *request,
 		request->no_login = TRUE;
 	else if (strcmp(key, "valid-client-cert") == 0)
 		request->valid_client_cert = TRUE;
+	else if (strcmp(key, "no-penalty") == 0)
+		request->no_penalty = TRUE;
 	else if (strcmp(key, "skip_password_check") == 0) {
 		i_assert(request->master_user !=  NULL);
 		request->skip_password_check = TRUE;
@@ -1308,10 +1312,7 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 	if (*values == NULL)
 		return;
 
-	if (strcmp(name, "uid") == 0) {
-		/* there can be only one. use the first one. */
-		auth_request_set_userdb_field(request, name, *values);
-	} else if (strcmp(name, "gid") == 0) {
+	if (strcmp(name, "gid") == 0) {
 		/* convert gids to comma separated list */
 		string_t *value;
 		gid_t gid;
@@ -1332,6 +1333,11 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 				      str_c(value));
 	} else {
 		/* add only one */
+		if (values[1] != NULL) {
+			auth_request_log_warning(request, "userdb",
+				"Multiple values found for '%s', "
+				"using value '%s'", name, *values);
+		}
 		auth_request_set_userdb_field(request, name, *values);
 	}
 }
@@ -1668,6 +1674,19 @@ void auth_request_log_info(struct auth_request *auth_request,
 	va_start(va, format);
 	T_BEGIN {
 		i_info("%s", get_log_str(auth_request, subsystem, format, va));
+	} T_END;
+	va_end(va);
+}
+
+void auth_request_log_warning(struct auth_request *auth_request,
+			      const char *subsystem,
+			      const char *format, ...)
+{
+	va_list va;
+
+	va_start(va, format);
+	T_BEGIN {
+		i_warning("%s", get_log_str(auth_request, subsystem, format, va));
 	} T_END;
 	va_end(va);
 }

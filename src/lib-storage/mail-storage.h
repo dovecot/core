@@ -70,7 +70,8 @@ enum mailbox_status_items {
 	STATUS_UNSEEN		= 0x10,
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
 	STATUS_KEYWORDS		= 0x40,
-	STATUS_HIGHESTMODSEQ	= 0x80
+	STATUS_HIGHESTMODSEQ	= 0x80,
+	STATUS_FIRST_RECENT_UID	= 0x400
 };
 
 enum mailbox_metadata_items {
@@ -194,6 +195,7 @@ struct mailbox_status {
 	uint32_t uidnext;
 
 	uint32_t first_unseen_seq;
+	uint32_t first_recent_uid;
 	uint64_t highest_modseq;
 
 	const ARRAY_TYPE(keywords) *keywords;
@@ -215,6 +217,7 @@ struct mailbox_update {
 	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
 	uint32_t uid_validity;
 	uint32_t min_next_uid;
+	uint32_t min_first_recent_uid;
 	uint64_t min_highest_modseq;
 	/* Add these fields to be temporarily cached, if they aren't already. */
 	const char *const *cache_fields;

@@ -4,6 +4,7 @@
 #include "eacces-error.h"
 #include "restrict-access.h"
 #include "nfs-workarounds.h"
+#include "ipwd.h"
 #include "mail-index-private.h"
 #include "mbox-storage.h"
 #include "istream-raw-mbox.h"
@@ -15,7 +16,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <grp.h>
 
 #ifdef HAVE_FLOCK
 #  include <sys/file.h>
@@ -341,9 +341,9 @@ static int mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 static void
 mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 {
-	const char *dir, *errmsg;
+	const char *dir, *errmsg, *name;
 	struct stat st;
-	const struct group *group;
+	struct group group;
 	int orig_errno = errno;
 
 	errmsg = eacces_error_get_creating("file_dotlock_create", path);
@@ -365,10 +365,12 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 	} else if (stat(dir, &st) == 0 &&
 		   (st.st_mode & 02) == 0 && /* not world-writable */
 		   (st.st_mode & 020) != 0) { /* group-writable */
-		group = getgrgid(st.st_gid);
+		if (i_getgrgid(st.st_gid, &group) <= 0)
+			name = dec2str(st.st_gid);
+		else
+			name = group.gr_name;
 		mail_storage_set_critical(&mbox->storage->storage,
-			"%s (set mail_privileged_group=%s)", errmsg,
-			group == NULL ? dec2str(st.st_gid) : group->gr_name);
+			"%s (set mail_privileged_group=%s)", errmsg, name);
 	} else {
 		mail_storage_set_critical(&mbox->storage->storage,
 			"%s (nonstandard permissions in %s)", errmsg, dir);

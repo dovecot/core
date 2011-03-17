@@ -45,6 +45,7 @@ liblib_la_SOURCES = \
 	home-expand.c \
 	hostpid.c \
 	imem.c \
+	ipwd.c \
 	iostream.c \
 	istream.c \
 	istream-base64-encoder.c \
@@ -157,6 +158,7 @@ headers = \
 	home-expand.h \
 	hostpid.h \
 	imem.h \
+	ipwd.h \
 	iostream-internal.h \
 	istream.h \
 	istream-base64-encoder.h \

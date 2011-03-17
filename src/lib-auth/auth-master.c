@@ -372,6 +372,7 @@ static int auth_master_run_cmd(struct auth_master_connection *conn,
 	if (conn->output->stream_errno != 0) {
 		errno = conn->output->stream_errno;
 		i_error("write(auth socket) failed: %m");
+		conn->aborted = TRUE;
 	} else {
 		io_loop_run(conn->ioloop);
 	}
