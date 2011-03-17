@@ -9,6 +9,7 @@
 #include "env-util.h"
 #include "hostpid.h"
 #include "abspath.h"
+#include "ipwd.h"
 #include "execv-const.h"
 #include "restrict-process-size.h"
 #include "master-service.h"
@@ -28,8 +29,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <pwd.h>
-#include <grp.h>
 
 #define DOVECOT_CONFIG_BIN_PATH BINDIR"/doveconf"
 
@@ -87,7 +86,7 @@ void process_exec(const char *cmd, const char *extra_args[])
 int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
 	       const char **error_r)
 {
-	struct passwd *pw;
+	struct passwd pw;
 
 	if (*user == '\0') {
 		*uid_r = (uid_t)-1;
@@ -95,32 +94,40 @@ int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
 		return 0;
 	}
 
-	if ((pw = getpwnam(user)) == NULL) {
+	switch (i_getpwnam(user, &pw)) {
+	case -1:
+		*error_r = t_strdup_printf("getpwnam(%s) failed: %m", user);
+		return -1;
+	case 0:
 		*error_r = t_strdup_printf("User doesn't exist: %s", user);
 		return -1;
+	default:
+		*uid_r = pw.pw_uid;
+		*gid_r = pw.pw_gid;
+		return 0;
 	}
-
-	*uid_r = pw->pw_uid;
-	*gid_r = pw->pw_gid;
-	return 0;
 }
 
 int get_gid(const char *group, gid_t *gid_r, const char **error_r)
 {
-	struct group *gr;
+	struct group gr;
 
 	if (*group == '\0') {
 		*gid_r = (gid_t)-1;
 		return 0;
 	}
 
-	if ((gr = getgrnam(group)) == NULL) {
+	switch (i_getgrnam(group, &gr)) {
+	case -1:
+		*error_r = t_strdup_printf("getgrnam(%s) failed: %m", group);
+		return -1;
+	case 0:
 		*error_r = t_strdup_printf("Group doesn't exist: %s", group);
 		return -1;
+	default:
+		*gid_r = gr.gr_gid;
+		return 0;
 	}
-
-	*gid_r = gr->gr_gid;
-	return 0;
 }
 
 static void ATTR_NORETURN ATTR_FORMAT(2, 0)

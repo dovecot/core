@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "env-util.h"
 #include "hostpid.h"
+#include "ipwd.h"
 #include "process-title.h"
 
 #include <stdlib.h>
@@ -34,6 +35,7 @@ void lib_init(void)
 
 void lib_deinit(void)
 {
+	ipwd_deinit();
 	data_stack_deinit();
 	env_deinit();
 	failures_deinit();

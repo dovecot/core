@@ -9,11 +9,10 @@
 #include "str.h"
 #include "restrict-access.h"
 #include "env-util.h"
+#include "ipwd.h"
 
 #include <stdlib.h>
 #include <time.h>
-#include <pwd.h>
-#include <grp.h>
 #ifdef HAVE_PR_SET_DUMPABLE
 #  include <sys/prctl.h>
 #endif
@@ -34,30 +33,28 @@ void restrict_access_init(struct restrict_access_settings *set)
 
 static const char *get_uid_str(uid_t uid)
 {
-	const struct passwd *pw;
+	struct passwd pw;
 	const char *ret;
 	int old_errno = errno;
 
-	pw = getpwuid(uid);
-	if (pw == NULL)
+	if (i_getpwuid(uid, &pw) <= 0)
 		ret = dec2str(uid);
 	else
-		ret = t_strdup_printf("%s(%s)", dec2str(uid), pw->pw_name);
+		ret = t_strdup_printf("%s(%s)", dec2str(uid), pw.pw_name);
 	errno = old_errno;
 	return ret;
 }
 
 static const char *get_gid_str(gid_t gid)
 {
-	const struct group *group;
+	struct group group;
 	const char *ret;
 	int old_errno = errno;
 
-	group = getgrgid(gid);
-	if (group == NULL)
+	if (i_getgrgid(gid, &group) <= 0)
 		ret = dec2str(gid);
 	else
-		ret = t_strdup_printf("%s(%s)", dec2str(gid), group->gr_name);
+		ret = t_strdup_printf("%s(%s)", dec2str(gid), group.gr_name);
 	errno = old_errno;
 	return ret;
 }
@@ -158,16 +155,20 @@ static void drop_restricted_groups(const struct restrict_access_settings *set,
 
 static gid_t get_group_id(const char *name)
 {
-	struct group *group;
+	struct group group;
 	gid_t gid;
 
 	if (str_to_gid(name, &gid) == 0)
 		return gid;
 
-	group = getgrnam(name);
-	if (group == NULL)
+	switch (i_getgrnam(name, &group)) {
+	case -1:
+		i_fatal("getgrnam(%s) failed: %m", name);
+	case 0:
 		i_fatal("unknown group name in extra_groups: %s", name);
-	return group->gr_gid;
+	default:
+		return group.gr_gid;
+	}
 }
 
 static void fix_groups_list(const struct restrict_access_settings *set,

@@ -26,8 +26,6 @@
 #include "service-process-notify.h"
 #include "service-process.h"
 
-#include <grp.h>
-#include <pwd.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>

@@ -2,12 +2,11 @@
 
 #include "auth-common.h"
 #include "array.h"
+#include "ipwd.h"
 #include "auth-worker-server.h"
 #include "userdb.h"
 
 #include <stdlib.h>
-#include <pwd.h>
-#include <grp.h>
 
 static ARRAY_DEFINE(userdb_interfaces, struct userdb_module_interface *);
 static ARRAY_DEFINE(userdb_modules, struct userdb_module *);
@@ -61,7 +60,7 @@ void userdb_unregister_module(struct userdb_module_interface *iface)
 
 uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 {
-	struct passwd *pw;
+	struct passwd pw;
 	uid_t uid;
 
 	if (str == NULL)
@@ -70,20 +69,24 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 	if (str_to_uid(str, &uid) == 0)
 		return uid;
 
-	pw = getpwnam(str);
-	if (pw == NULL) {
+	switch (i_getpwnam(str, &pw)) {
+	case -1:
+		i_error("getpwnam() failed: %m");
+		return (uid_t)-1;
+	case 0:
 		if (request != NULL) {
 			auth_request_log_error(request, "userdb",
 					       "Invalid UID value '%s'", str);
 		}
 		return (uid_t)-1;
+	default:
+		return pw.pw_uid;
 	}
-	return pw->pw_uid;
 }
 
 gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 {
-	struct group *gr;
+	struct group gr;
 	gid_t gid;
 
 	if (str == NULL)
@@ -92,15 +95,19 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	if (str_to_gid(str, &gid) == 0)
 		return gid;
 
-	gr = getgrnam(str);
-	if (gr == NULL) {
+	switch (i_getgrnam(str, &gr)) {
+	case -1:
+		i_error("getgrnam() failed: %m");
+		return (gid_t)-1;
+	case 0:
 		if (request != NULL) {
 			auth_request_log_error(request, "userdb",
 					       "Invalid GID value '%s'", str);
 		}
 		return (gid_t)-1;
+	default:
+		return gr.gr_gid;
 	}
-	return gr->gr_gid;
 }
 
 static struct userdb_module *

@@ -4,11 +4,10 @@
 #include "str.h"
 #include "eacces-error.h"
 #include "mkdir-parents.h"
+#include "ipwd.h"
 
 #include <sys/stat.h>
 #include <unistd.h>
-#include <pwd.h>
-#include <grp.h>
 
 static int
 mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
@@ -48,19 +47,19 @@ mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 		str_printfa(str, "chown(%s, %ld", path,
 			    uid == (uid_t)-1 ? -1L : (long)uid);
 		if (uid != (uid_t)-1) {
-			struct passwd *pw = getpwuid(uid);
+			struct passwd pw;
 
-			if (pw != NULL)
-				str_printfa(str, "(%s)", pw->pw_name);
+			if (i_getpwuid(uid, &pw) > 0)
+				str_printfa(str, "(%s)", pw.pw_name);
 
 		}
 		str_printfa(str, ", %ld",
 			    gid == (gid_t)-1 ? -1L : (long)gid);
 		if (gid != (gid_t)-1) {
-			struct group *gr = getgrgid(uid);
+			struct group gr;
 
-			if (gr != NULL)
-				str_printfa(str, "(%s)", gr->gr_name);
+			if (i_getgrgid(uid, &gr) > 0)
+				str_printfa(str, "(%s)", gr.gr_name);
 		}
 		errno = orig_errno;
 		i_error("%s) failed: %m", str_c(str));
