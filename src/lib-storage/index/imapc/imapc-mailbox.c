@@ -157,7 +157,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	struct imapc_seqmap *seqmap;
 	const struct imap_arg *list, *flags_list;
 	const char *atom;
-	const struct mail_index_record *rec;
+	const struct mail_index_record *rec = NULL;
 	enum mail_flags flags;
 	uint32_t uid, old_count;
 	unsigned int i, j;
@@ -228,8 +228,9 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			return;
 		i_assert(lseq == old_count + 1);
 		mail_index_append(mbox->delayed_sync_trans, uid, &lseq);
+		rec = NULL;
 	}
-	if (seen_flags && rec->flags != flags) {
+	if (seen_flags && (rec == NULL || rec->flags != flags)) {
 		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
 					MODIFY_REPLACE, flags);
 	}
