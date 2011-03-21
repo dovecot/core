@@ -1111,7 +1111,7 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 	/* don't do this in mailbox_list_create(), because _get_path() might be
 	   overridden by storage (mbox). */
 	path = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (path == NULL)
+	if (*path == '\0')
 		return FALSE;
 
 	path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
