@@ -191,12 +191,19 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	for (i = 0; i < count && strings[i][0] == LIST_KEY_PREFIX[0]; i++) T_BEGIN {
 		p = strchr(strings[i], '=');
 		i_assert(p != NULL);
-		/* string is in format: "list=0 1 2" */
-		for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
-			str = p_strdup_printf(ctx->pool, "%s/%s/",
-					      t_strcut(strings[i]+1, '='),
-					      *args);
+		if (p[1] == '\0') {
+			/* "strlist=" */
+			str = p_strdup_printf(ctx->pool, "%s/",
+					      t_strcut(strings[i]+1, '='));
 			array_append(&prefixes_arr, &str, 1);
+		} else {
+			/* string is in format: "list=0 1 2" */
+			for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
+				str = p_strdup_printf(ctx->pool, "%s/%s/",
+						      t_strcut(strings[i]+1, '='),
+						      *args);
+				array_append(&prefixes_arr, &str, 1);
+			}
 		}
 	} T_END;
 	prefixes = array_get(&prefixes_arr, &prefix_count);

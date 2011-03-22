@@ -286,6 +286,8 @@ settings_export(struct config_export_context *ctx,
 				break;
 			}
 			hash_table_insert(ctx->keys, key, key);
+			/* for doveconf -n to see this KEY_LIST */
+			ctx->callback(key, "", CONFIG_KEY_LIST, ctx->context);
 
 			strings = array_get(val, &count);
 			i_assert(count % 2 == 0);
