@@ -202,14 +202,16 @@ autocreate_iter_init(struct mailbox_list *list,
 	actx->pool = pool;
 
 	p_array_init(&actx->boxes, pool, 16);
-	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0)
-		extra_boxes = &auser->autocreate_mailboxes;
-	else
-		extra_boxes = &auser->autosubscribe_mailboxes;
+	if ((flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0) {
+		if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0)
+			extra_boxes = &auser->autocreate_mailboxes;
+		else
+			extra_boxes = &auser->autosubscribe_mailboxes;
 
-	array_foreach(extra_boxes, autobox) {
-		if (autobox->ns == list->ns)
-			array_append(&actx->boxes, autobox, 1);
+		array_foreach(extra_boxes, autobox) {
+			if (autobox->ns == list->ns)
+				array_append(&actx->boxes, autobox, 1);
+		}
 	}
 
 	MODULE_CONTEXT_SET(ctx, autocreate_list_module, actx);
