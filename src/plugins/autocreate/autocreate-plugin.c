@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "master-service.h"
 #include "mail-storage.h"
 #include "mail-storage-hooks.h"
 #include "mail-namespace.h"
@@ -98,6 +99,12 @@ static void autosubscribe_mailboxes(struct mail_namespace *namespaces)
 static void
 autocreate_mail_namespaces_created(struct mail_namespace *namespaces)
 {
+	if (strcmp(master_service_get_name(master_service), "dsync") == 0) {
+		/* kludge: disable autocreate plugin for dsync,
+		   since it'll only make things worse. this is fixed more
+		   nicely in v2.1 code. */
+		return;
+	}
 	autocreate_mailboxes(namespaces);
 	autosubscribe_mailboxes(namespaces);
 }
