@@ -9,6 +9,7 @@ int doveadm_mail_iter_init(const struct mailbox_info *info,
 			   struct doveadm_mail_iter **iter_r);
 int doveadm_mail_iter_deinit(struct doveadm_mail_iter **iter);
 int doveadm_mail_iter_deinit_sync(struct doveadm_mail_iter **iter);
+void doveadm_mail_iter_deinit_rollback(struct doveadm_mail_iter **iter);
 
 bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter, struct mail *mail);
 

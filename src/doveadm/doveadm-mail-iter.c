@@ -50,7 +50,8 @@ int doveadm_mail_iter_init(const struct mailbox_info *info,
 }
 
 static int
-doveadm_mail_iter_deinit_transaction(struct doveadm_mail_iter *iter)
+doveadm_mail_iter_deinit_transaction(struct doveadm_mail_iter *iter,
+				     bool commit)
 {
 	int ret = 0;
 
@@ -60,25 +61,30 @@ doveadm_mail_iter_deinit_transaction(struct doveadm_mail_iter *iter)
 			mail_storage_get_last_error(iter->storage, NULL));
 		ret = -1;
 	}
-	if (mailbox_transaction_commit(&iter->t) < 0) {
-		i_error("Commiting mailbox %s failed: %s",
-			mailbox_get_vname(iter->box),
-			mail_storage_get_last_error(iter->storage, NULL));
-		ret = -1;
+	if (commit) {
+		if (mailbox_transaction_commit(&iter->t) < 0) {
+			i_error("Commiting mailbox %s failed: %s",
+				mailbox_get_vname(iter->box),
+				mail_storage_get_last_error(iter->storage, NULL));
+			ret = -1;
+		}
+	} else {
+		mailbox_transaction_rollback(&iter->t);
 	}
 	mail_search_args_deinit(iter->search_args);
 	return ret;
 }
 
 static int
-doveadm_mail_iter_deinit_full(struct doveadm_mail_iter **_iter, bool sync)
+doveadm_mail_iter_deinit_full(struct doveadm_mail_iter **_iter,
+			      bool sync, bool commit)
 {
 	struct doveadm_mail_iter *iter = *_iter;
 	int ret;
 
 	*_iter = NULL;
 
-	ret = doveadm_mail_iter_deinit_transaction(iter);
+	ret = doveadm_mail_iter_deinit_transaction(iter, commit);
 	if (ret == 0 && sync)
 		ret = mailbox_sync(iter->box, 0);
 	mailbox_free(&iter->box);
@@ -88,12 +94,17 @@ doveadm_mail_iter_deinit_full(struct doveadm_mail_iter **_iter, bool sync)
 
 int doveadm_mail_iter_deinit(struct doveadm_mail_iter **_iter)
 {
-	return doveadm_mail_iter_deinit_full(_iter, FALSE);
+	return doveadm_mail_iter_deinit_full(_iter, FALSE, TRUE);
 }
 
 int doveadm_mail_iter_deinit_sync(struct doveadm_mail_iter **_iter)
 {
-	return doveadm_mail_iter_deinit_full(_iter, TRUE);
+	return doveadm_mail_iter_deinit_full(_iter, TRUE, TRUE);
+}
+
+void doveadm_mail_iter_deinit_rollback(struct doveadm_mail_iter **_iter)
+{
+	(void)doveadm_mail_iter_deinit_full(_iter, FALSE, FALSE);
 }
 
 bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter, struct mail *mail)
