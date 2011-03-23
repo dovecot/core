@@ -117,7 +117,7 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 	bool created;
 	int ret;
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_INBOX) == 0) {
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0) {
 		/* always show INBOX */
 	} else {
 		/* INBOX may be Maildir root or completely elsewhere.

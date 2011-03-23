@@ -58,8 +58,9 @@ enum mailbox_list_iter_flags {
 	   (maybe \noselect), have LIST also return "foo/" in the replies.
 	   This is needed by IMAP, but messes up internal code. */
 	MAILBOX_LIST_ITER_SHOW_EXISTING_PARENT	= 0x000002,
-	/* Don't list INBOX unless it actually exists */
-	MAILBOX_LIST_ITER_NO_AUTO_INBOX		= 0x000004,
+	/* Don't list autocreated mailboxes (e.g. INBOX) unless they
+	   physically exist */
+	MAILBOX_LIST_ITER_NO_AUTO_BOXES		= 0x000004,
 
 	/* For mailbox_list_iter_init_namespaces(): Skip namespaces that
 	   have alias_for set. */

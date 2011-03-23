@@ -385,7 +385,7 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 	if (mailbox_list_mailbox(ctx->ctx.list, "INBOX", &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_INBOX) != 0 &&
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) != 0 &&
 	    (ctx->info.flags & MAILBOX_NONEXISTENT) != 0)
 		return NULL;
 

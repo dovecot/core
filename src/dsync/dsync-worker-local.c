@@ -427,7 +427,7 @@ local_worker_mailbox_iter_init(struct dsync_worker *_worker)
 	struct local_dsync_worker_mailbox_iter *iter;
 	enum mailbox_list_iter_flags list_flags =
 		MAILBOX_LIST_ITER_SKIP_ALIASES |
-		MAILBOX_LIST_ITER_NO_AUTO_INBOX;
+		MAILBOX_LIST_ITER_NO_AUTO_BOXES;
 	static const char *patterns[] = { "*", NULL };
 
 	iter = i_new(struct local_dsync_worker_mailbox_iter, 1);
