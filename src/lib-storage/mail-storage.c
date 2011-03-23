@@ -769,11 +769,6 @@ int mailbox_delete(struct mailbox *box)
 				       "Storage root can't be deleted");
 		return -1;
 	}
-	if (box->inbox_any) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-				       "INBOX can't be deleted.");
-		return -1;
-	}
 
 	box->deleting = TRUE;
 	if (mailbox_open(box) < 0) {
