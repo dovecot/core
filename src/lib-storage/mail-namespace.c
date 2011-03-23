@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "file-lock.h"
+#include "settings-parser.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
 #include "mail-storage-settings.h"
@@ -358,9 +359,11 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 			location_source = "environment MAILDIR";
 		}
 	}
-
-	if (unexpanded_inbox_set->location == NULL)
-		unexpanded_inbox_set->location = inbox_set->location;
+	if (*unexpanded_inbox_set->location == '\0') {
+		unexpanded_inbox_set->location =
+			p_strconcat(user->pool, SETTING_STRVAR_EXPANDED,
+				    inbox_set->location, NULL);
+	}
 
 	ns->set = inbox_set;
 	ns->unexpanded_set = unexpanded_inbox_set;
