@@ -34,7 +34,6 @@ struct index_mailbox_context {
 	struct timeout *notify_to, *notify_delay_to;
 	struct index_notify_file *notify_files;
         struct index_notify_io *notify_ios;
-	time_t notify_last_check;
 
 	time_t next_lock_notify; /* temporary */
 	enum mailbox_lock_notify_type last_notify_type;
