@@ -1123,8 +1123,6 @@ void index_mail_init(struct index_mail *mail,
 		     enum mail_fetch_field wanted_fields,
 		     struct mailbox_header_lookup_ctx *wanted_headers)
 {
-	const struct mail_index_header *hdr;
-
 	array_create(&mail->mail.module_contexts, mail->mail.pool,
 		     sizeof(void *), 5);
 
@@ -1133,9 +1131,6 @@ void index_mail_init(struct index_mail *mail,
 	mail->mail.mail.transaction = t;
 	mail->mail.wanted_fields = wanted_fields;
 	mail->mail.wanted_headers = wanted_headers;
-
-	hdr = mail_index_get_header(t->box->view);
-	mail->uid_validity = hdr->uid_validity;
 
 	t->mail_ref_count++;
 	mail->data_pool = pool_alloconly_create("index_mail", 16384);

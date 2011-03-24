@@ -121,7 +121,6 @@ struct index_mail {
 	struct index_mailbox_context *ibox;
 
 	pool_t data_pool;
-	uint32_t uid_validity;
 
 	enum mail_fetch_field wanted_fields;
 	struct mailbox_header_lookup_ctx *wanted_headers;
