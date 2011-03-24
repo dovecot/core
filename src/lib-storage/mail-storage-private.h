@@ -182,6 +182,13 @@ struct mailbox_vfuncs {
 	void (*save_cancel)(struct mail_save_context *ctx);
 	int (*copy)(struct mail_save_context *ctx, struct mail *mail);
 
+	/* Called during transaction commit/rollback if saving was done */
+	int (*transaction_save_commit_pre)(struct mail_save_context *save_ctx);
+	void (*transaction_save_commit_post)
+		(struct mail_save_context *save_ctx,
+		 struct mail_index_transaction_commit_result *result_r);
+	void (*transaction_save_rollback)(struct mail_save_context *save_ctx);
+
 	bool (*is_inconsistent)(struct mailbox *box);
 };
 

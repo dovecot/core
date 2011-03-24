@@ -26,11 +26,6 @@ struct index_mailbox_context {
 	union mailbox_module_context module_ctx;
 	enum mail_index_open_flags index_flags;
 
-	int (*save_commit_pre)(struct mail_save_context *save_ctx);
-	void (*save_commit_post)(struct mail_save_context *save_ctx,
-				 struct mail_index_transaction_commit_result *result_r);
-	void (*save_rollback)(struct mail_save_context *save_ctx);
-
 	struct timeout *notify_to, *notify_delay_to;
 	struct index_notify_file *notify_files;
         struct index_notify_io *notify_ios;

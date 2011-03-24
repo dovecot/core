@@ -19,11 +19,10 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 {
 	struct mailbox_transaction_context *t =
 		MAIL_STORAGE_CONTEXT(index_trans);
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(t->box);
 	int ret = 0;
 
 	if (t->save_ctx != NULL) {
-		if (ibox->save_commit_pre(t->save_ctx) < 0) {
+		if (t->box->v.transaction_save_commit_pre(t->save_ctx) < 0) {
 			t->save_ctx = NULL;
 			ret = -1;
 		}
@@ -40,7 +39,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	}
 
 	if (t->save_ctx != NULL)
-		ibox->save_commit_post(t->save_ctx, result_r);
+		t->box->v.transaction_save_commit_post(t->save_ctx, result_r);
 
 	index_transaction_free(t);
 	return ret;
@@ -51,11 +50,9 @@ index_transaction_index_rollback(struct mail_index_transaction *index_trans)
 {
 	struct mailbox_transaction_context *t =
 		MAIL_STORAGE_CONTEXT(index_trans);
-	struct index_mailbox_context *ibox =
-		INDEX_STORAGE_CONTEXT(t->box);
 
 	if (t->save_ctx != NULL)
-		ibox->save_rollback(t->save_ctx);
+		t->box->v.transaction_save_rollback(t->save_ctx);
 
 	i_assert(t->mail_ref_count == 0);
 	t->super.rollback(index_trans);

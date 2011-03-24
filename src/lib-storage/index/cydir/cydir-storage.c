@@ -39,7 +39,6 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    const char *vname, enum mailbox_flags flags)
 {
 	struct cydir_mailbox *mbox;
-	struct index_mailbox_context *ibox;
 	pool_t pool;
 
 	/* cydir can't work without index files */
@@ -55,11 +54,6 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags,
 				    CYDIR_INDEX_PREFIX);
-
-	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
-	ibox->save_commit_pre = cydir_transaction_save_commit_pre;
-	ibox->save_commit_post = cydir_transaction_save_commit_post;
-	ibox->save_rollback = cydir_transaction_save_rollback;
 
 	mbox->storage = (struct cydir_storage *)storage;
 	return &mbox->box;
@@ -168,6 +162,9 @@ struct mailbox cydir_mailbox = {
 		cydir_save_finish,
 		cydir_save_cancel,
 		mail_storage_copy,
+		cydir_transaction_save_commit_pre,
+		cydir_transaction_save_commit_post,
+		cydir_transaction_save_rollback,
 		index_storage_is_inconsistent
 	}
 };

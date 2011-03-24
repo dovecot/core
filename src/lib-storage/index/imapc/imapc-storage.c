@@ -264,7 +264,6 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    const char *vname, enum mailbox_flags flags)
 {
 	struct imapc_mailbox *mbox;
-	struct index_mailbox_context *ibox;
 	pool_t pool;
 
 	pool = pool_alloconly_create("imapc mailbox", 1024*3);
@@ -277,11 +276,6 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags,
 				    IMAPC_INDEX_PREFIX);
-
-	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
-	ibox->save_commit_pre = imapc_transaction_save_commit_pre;
-	ibox->save_commit_post = imapc_transaction_save_commit_post;
-	ibox->save_rollback = imapc_transaction_save_rollback;
 
 	mbox->storage = (struct imapc_storage *)storage;
 
@@ -640,6 +634,9 @@ struct mailbox imapc_mailbox = {
 		imapc_save_finish,
 		imapc_save_cancel,
 		imapc_copy,
+		imapc_transaction_save_commit_pre,
+		imapc_transaction_save_commit_post,
+		imapc_transaction_save_rollback,
 		imapc_is_inconsistent
 	}
 };

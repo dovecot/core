@@ -104,9 +104,6 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 				    flags, DBOX_INDEX_PREFIX);
 
 	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
-	ibox->save_commit_pre = mdbox_transaction_save_commit_pre;
-	ibox->save_commit_post = mdbox_transaction_save_commit_post;
-	ibox->save_rollback = mdbox_transaction_save_rollback;
 	ibox->index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS |
 		MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
@@ -450,6 +447,9 @@ struct mailbox mdbox_mailbox = {
 		mdbox_save_finish,
 		mdbox_save_cancel,
 		mdbox_copy,
+		mdbox_transaction_save_commit_pre,
+		mdbox_transaction_save_commit_post,
+		mdbox_transaction_save_rollback,
 		index_storage_is_inconsistent
 	}
 };

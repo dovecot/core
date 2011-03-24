@@ -348,7 +348,6 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		   const char *vname, enum mailbox_flags flags)
 {
 	struct mbox_mailbox *mbox;
-	struct index_mailbox_context *ibox;
 	pool_t pool;
 
 	pool = pool_alloconly_create("mbox mailbox", 1024*3);
@@ -361,11 +360,6 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->box, vname,
 				    flags, MBOX_INDEX_PREFIX);
-
-	ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
-	ibox->save_commit_pre = mbox_transaction_save_commit_pre;
-	ibox->save_commit_post = mbox_transaction_save_commit_post;
-	ibox->save_rollback = mbox_transaction_save_rollback;
 
 	mbox->storage = (struct mbox_storage *)storage;
 	mbox->mbox_fd = -1;
@@ -786,6 +780,9 @@ struct mailbox mbox_mailbox = {
 		mbox_save_finish,
 		mbox_save_cancel,
 		mail_storage_copy,
+		mbox_transaction_save_commit_pre,
+		mbox_transaction_save_commit_post,
+		mbox_transaction_save_rollback,
 		index_storage_is_inconsistent
 	}
 };
