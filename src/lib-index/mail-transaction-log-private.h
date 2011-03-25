@@ -17,8 +17,9 @@ struct dotlock_settings;
 #define MAIL_TRANSACTION_LOG_ROTATE_MAX_SIZE (1024*1024)
 #define MAIL_TRANSACTION_LOG_ROTATE_TIME (60*5)
 
-/* Delete .log.2 files older than this many seconds */
-#define MAIL_TRANSACTION_LOG2_STALE_SECS (60*30)
+/* Delete .log.2 files older than this many seconds. Don't be too eager,
+   older files are useful for QRESYNC and dsync. */
+#define MAIL_TRANSACTION_LOG2_STALE_SECS (60*60*24*2)
 
 #define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
 
