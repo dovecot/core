@@ -925,6 +925,7 @@ iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 {
 	struct mailbox *box = iter->mail->box;
 	struct mailbox_status status;
+	const uint8_t *guid_128;
 	const struct mailbox_expunge_rec *expunges;
 	unsigned int count;
 
@@ -935,9 +936,11 @@ iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 
 		memset(msg_r, 0, sizeof(*msg_r));
 		str_truncate(iter->tmp_guid_str, 0);
-		binary_to_hex_append(iter->tmp_guid_str,
-				     expunges[iter->expunge_idx].guid_128,
-				     MAIL_GUID_128_SIZE);
+		guid_128 = expunges[iter->expunge_idx].guid_128;
+		if (!mail_guid_128_is_empty(guid_128)) {
+			binary_to_hex_append(iter->tmp_guid_str, guid_128,
+					     MAIL_GUID_128_SIZE);
+		}
 		msg_r->guid = str_c(iter->tmp_guid_str);
 		msg_r->uid = expunges[iter->expunge_idx].uid;
 		msg_r->flags = DSYNC_MAIL_FLAG_EXPUNGED;
