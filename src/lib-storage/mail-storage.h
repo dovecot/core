@@ -464,6 +464,11 @@ void mailbox_get_uid_range(struct mailbox *box,
 bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 			  const ARRAY_TYPE(seq_range) *uids_filter,
 			  ARRAY_TYPE(mailbox_expunge_rec) *expunges);
+/* Same as mailbox_get_expunges(), but return only list of UIDs. Not caring
+   about GUIDs is slightly faster. */
+bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t prev_modseq,
+			       const ARRAY_TYPE(seq_range) *uids_filter,
+			       ARRAY_TYPE(seq_range) *expunged_uids);
 /* If box is a virtual mailbox, look up UID for the given backend message.
    Returns TRUE if found, FALSE if not. */
 bool mailbox_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,

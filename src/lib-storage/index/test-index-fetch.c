@@ -85,6 +85,15 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view ATTR_U
 	return 1;
 }
 
+void mail_transaction_log_view_mark(struct mail_transaction_log_view *view ATTR_UNUSED)
+{
+}
+
+void mail_transaction_log_view_rewind(struct mail_transaction_log_view *view ATTR_UNUSED)
+{
+	expunge_idx = 0;
+}
+
 static void test_index_storage_get_expunges(void)
 {
 	struct mailbox *box;
@@ -115,7 +124,7 @@ static void test_index_storage_get_expunges(void)
 	modseq = 98ULL << 32;
 	for (i = 0; i < 2; i++) {
 		test_assert(index_storage_get_expunges(box, modseq, &uids_filter,
-						       &expunges) == i);
+						       NULL, &expunges) == i);
 
 		exp = array_get(&expunges, &count);
 		test_assert(count == 5);

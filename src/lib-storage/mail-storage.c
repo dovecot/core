@@ -1079,7 +1079,15 @@ bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 			  ARRAY_TYPE(mailbox_expunge_rec) *expunges)
 {
 	return box->v.get_expunges(box, prev_modseq,
-				   uids_filter, expunges);
+				   uids_filter, NULL, expunges);
+}
+
+bool mailbox_get_expunged_uids(struct mailbox *box, uint64_t prev_modseq,
+			       const ARRAY_TYPE(seq_range) *uids_filter,
+			       ARRAY_TYPE(seq_range) *expunged_uids)
+{
+	return box->v.get_expunges(box, prev_modseq,
+				   uids_filter, expunged_uids, NULL);
 }
 
 bool mailbox_get_virtual_uid(struct mailbox *box, const char *backend_mailbox,

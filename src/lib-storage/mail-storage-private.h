@@ -173,6 +173,7 @@ struct mailbox_vfuncs {
 			      ARRAY_TYPE(seq_range) *uids);
 	bool (*get_expunges)(struct mailbox *box, uint64_t prev_modseq,
 			     const ARRAY_TYPE(seq_range) *uids_filter,
+			     ARRAY_TYPE(seq_range) *expunged_uids,
 			     ARRAY_TYPE(mailbox_expunge_rec) *expunges);
 	bool (*get_virtual_uid)(struct mailbox *box,
 				const char *backend_mailbox,
