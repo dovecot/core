@@ -63,43 +63,31 @@ static int imapc_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	return 0;
 }
 
-static int imapc_mail_get_sizes(struct index_mail *mail)
-{
-	struct message_size hdr_size, body_size;
-	struct istream *input;
-	uoff_t old_offset;
-
-	/* fallback to reading the file */
-	old_offset = mail->data.stream == NULL ? 0 :
-		mail->data.stream->v_offset;
-	if (mail_get_stream(&mail->mail.mail,
-			    &hdr_size, &body_size, &input) < 0)
-		return -1;
-	i_stream_seek(mail->data.stream, old_offset);
-	return 0;
-}
-
-static int imapc_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
-{
-	struct index_mail *mail = (struct index_mail *)_mail;
-	struct index_mail_data *data = &mail->data;
-
-	if (data->virtual_size == (uoff_t)-1) {
-		if (imapc_mail_get_sizes(mail) < 0)
-			return -1;
-	}
-	*size_r = data->virtual_size;
-	return 0;
-}
-
 static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	struct istream *input;
+	uoff_t old_offset;
+	int ret;
 
+	if (data->physical_size == (uoff_t)-1)
+		(void)index_mail_get_physical_size(_mail, size_r);
 	if (data->physical_size == (uoff_t)-1) {
-		if (imapc_mail_get_sizes(mail) < 0)
+		old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
+		if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
 			return -1;
+		i_stream_seek(data->stream, old_offset);
+
+		ret = i_stream_get_size(data->stream, TRUE,
+					&data->physical_size);
+		if (ret <= 0) {
+			i_assert(ret != 0);
+			mail_storage_set_critical(_mail->box->storage,
+				"imapc: stat(%s) failed: %m",
+				i_stream_get_name(data->stream));
+			return -1;
+		}
 	}
 	*size_r = data->physical_size;
 	return 0;
@@ -116,7 +104,7 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	if (data->stream == NULL) {
 		if (!mail->data.initialized) {
 			/* coming here from mail_set_seq() */
-			return -1;
+			return mail_set_aborted(_mail);
 		}
 		fetch_field = body_size != NULL ||
 			(mail->wanted_fields & MAIL_FETCH_STREAM_BODY) != 0 ?
@@ -149,7 +137,7 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_get_date,
 	imapc_mail_get_received_date,
 	imapc_mail_get_save_date,
-	imapc_mail_get_virtual_size,
+	index_mail_get_virtual_size,
 	imapc_mail_get_physical_size,
 	index_mail_get_first_header,
 	index_mail_get_headers,
