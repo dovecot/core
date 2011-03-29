@@ -37,6 +37,9 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 
+	if (index_mail_get_received_date(_mail, date_r) == 0)
+		return 0;
+
 	if (data->received_date == (time_t)-1) {
 		if (imapc_mail_fetch(_mail, MAIL_FETCH_RECEIVED_DATE) < 0)
 			return -1;
