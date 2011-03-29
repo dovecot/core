@@ -497,22 +497,30 @@ bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
 			  const ARRAY_TYPE(seq_range) *uids_filter,
 			  ARRAY_TYPE(mailbox_expunge_rec) *expunges);
 
+/* Initialize header lookup for given headers. */
+struct mailbox_header_lookup_ctx *
+mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
+void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx);
+void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **ctx);
+
 /* Initialize new search request. charset specifies the character set used in
    the search argument strings. If sort_program is non-NULL, the messages are
    returned in the requested order, otherwise from first to last. */
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
 		    struct mail_search_args *args,
-		    const enum mail_sort_type *sort_program);
+		    const enum mail_sort_type *sort_program,
+		    enum mail_fetch_field wanted_fields,
+		    struct mailbox_header_lookup_ctx *wanted_headers);
 /* Deinitialize search request. */
 int mailbox_search_deinit(struct mail_search_context **ctx);
 /* Search the next message. Returns TRUE if found, FALSE if not. */
-bool mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
+bool mailbox_search_next(struct mail_search_context *ctx, struct mail **mail_r);
 /* Like mailbox_search_next(), but don't spend too much time searching.
    Returns FALSE with tryagain_r=FALSE if finished, and tryagain_r=TRUE if
    more results will be returned by calling the function again. */
 bool mailbox_search_next_nonblock(struct mail_search_context *ctx,
-				 struct mail *mail, bool *tryagain_r);
+				  struct mail **mail_r, bool *tryagain_r);
 /* Returns TRUE if some messages were already expunged and we couldn't
    determine correctly if those messages should have been returned in this
    search. */
@@ -615,12 +623,6 @@ mailbox_save_get_transaction(struct mail_save_context *ctx);
 /* Copy the given message. You'll need to specify the flags etc. using the
    mailbox_save_*() functions. */
 int mailbox_copy(struct mail_save_context **ctx, struct mail *mail);
-
-/* Initialize header lookup for given headers. */
-struct mailbox_header_lookup_ctx *
-mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
-void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx);
-void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **ctx);
 
 struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,

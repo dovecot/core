@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-search.h"
-#include "index-storage.h"
+#include "index-search-private.h"
 #include "virtual-storage.h"
 
 #include <stdlib.h>
@@ -102,12 +102,15 @@ static void virtual_search_get_records(struct mail_search_context *ctx,
 struct mail_search_context *
 virtual_search_init(struct mailbox_transaction_context *t,
 		    struct mail_search_args *args,
-		    const enum mail_sort_type *sort_program)
+		    const enum mail_sort_type *sort_program,
+		    enum mail_fetch_field wanted_fields,
+		    struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct mail_search_context *ctx;
 	struct virtual_search_context *vctx;
 
-	ctx = index_storage_search_init(t, args, sort_program);
+	ctx = index_storage_search_init(t, args, sort_program,
+					wanted_fields, wanted_headers);
 
 	vctx = i_new(struct virtual_search_context, 1);
 	vctx->search_state = VIRTUAL_SEARCH_STATE_BUILD;
@@ -131,9 +134,10 @@ int virtual_search_deinit(struct mail_search_context *ctx)
 }
 
 bool virtual_search_next_nonblock(struct mail_search_context *ctx,
-				  struct mail *mail, bool *tryagain_r)
+				  struct mail **mail_r, bool *tryagain_r)
 {
 	struct virtual_search_context *vctx = VIRTUAL_CONTEXT(ctx);
+	struct index_search_context *ictx = (struct index_search_context *)ctx;
 	uint32_t seq;
 
 	switch (vctx->search_state) {
@@ -142,14 +146,14 @@ bool virtual_search_next_nonblock(struct mail_search_context *ctx,
 			vctx->search_state = VIRTUAL_SEARCH_STATE_SORT;
 		else
 			vctx->search_state = VIRTUAL_SEARCH_STATE_RETURN;
-		return virtual_search_next_nonblock(ctx, mail, tryagain_r);
+		return virtual_search_next_nonblock(ctx, mail_r, tryagain_r);
 	case VIRTUAL_SEARCH_STATE_RETURN:
-		return index_storage_search_next_nonblock(ctx, mail, tryagain_r);
+		return index_storage_search_next_nonblock(ctx, mail_r, tryagain_r);
 	case VIRTUAL_SEARCH_STATE_SORT:
 		/* the messages won't be returned sorted, so we'll have to
 		   do it ourself */
-		while (index_storage_search_next_nonblock(ctx, mail, tryagain_r))
-			seq_range_array_add(&vctx->result, 0, mail->seq);
+		while (index_storage_search_next_nonblock(ctx, mail_r, tryagain_r))
+			seq_range_array_add(&vctx->result, 0, (*mail_r)->seq);
 		if (*tryagain_r)
 			return FALSE;
 
@@ -162,7 +166,8 @@ bool virtual_search_next_nonblock(struct mail_search_context *ctx,
 					      vctx->next_result_n, &seq))
 			return FALSE;
 		vctx->next_result_n++;
-		mail_set_seq(mail, seq);
+		mail_set_seq(ictx->mail, seq);
+		*mail_r = ictx->mail;
 		return TRUE;
 	}
 	i_unreached();

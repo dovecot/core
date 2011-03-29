@@ -38,7 +38,9 @@ struct local_dsync_worker_msg_iter {
 	unsigned int mailbox_idx, mailbox_count;
 
 	struct mail_search_context *search_ctx;
-	struct mail *mail;
+	struct mailbox *box;
+	struct mailbox_transaction_context *trans;
+	uint32_t prev_uid;
 
 	string_t *tmp_guid_str;
 	ARRAY_TYPE(mailbox_expunge_rec) expunges;
@@ -795,7 +797,6 @@ static int iter_local_mailbox_open(struct local_dsync_worker_msg_iter *iter)
 		(struct local_dsync_worker *)iter->iter.worker;
 	mailbox_guid_t *guid;
 	struct mailbox *box;
-	struct mailbox_transaction_context *trans;
 	struct mail_search_args *search_args;
 
 	if (iter->mailbox_idx == iter->mailbox_count) {
@@ -814,27 +815,26 @@ static int iter_local_mailbox_open(struct local_dsync_worker_msg_iter *iter)
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 
-	trans = mailbox_transaction_begin(box, 0);
-	iter->search_ctx = mailbox_search_init(trans, search_args, NULL);
-	iter->mail = mail_alloc(trans, MAIL_FETCH_FLAGS | MAIL_FETCH_GUID,
-				NULL);
+	iter->box = box;
+	iter->trans = mailbox_transaction_begin(box, 0);
+	iter->search_ctx =
+		mailbox_search_init(iter->trans, search_args, NULL,
+				    MAIL_FETCH_FLAGS | MAIL_FETCH_GUID, NULL);
 	return 0;
 }
 
 static void
 iter_local_mailbox_close(struct local_dsync_worker_msg_iter *iter)
 {
-	struct mailbox *box = iter->mail->box;
-	struct mailbox_transaction_context *trans = iter->mail->transaction;
+	struct mailbox *box = iter->box;
 
 	iter->expunges_set = FALSE;
-	mail_free(&iter->mail);
 	if (mailbox_search_deinit(&iter->search_ctx) < 0) {
 		i_error("msg search failed: %s",
-			mailbox_get_last_error(iter->mail->box, NULL));
+			mailbox_get_last_error(iter->box, NULL));
 		iter->iter.failed = TRUE;
 	}
-	(void)mailbox_transaction_commit(&trans);
+	(void)mailbox_transaction_commit(&iter->trans);
 	mailbox_free(&box);
 }
 
@@ -876,7 +876,7 @@ static bool
 iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 				uint32_t prev_uid, struct dsync_message *msg_r)
 {
-	struct mailbox *box = iter->mail->box;
+	struct mailbox *box = iter->box;
 	struct mailbox_status status;
 	const struct mailbox_expunge_rec *expunges;
 	unsigned int count;
@@ -929,15 +929,15 @@ local_worker_msg_iter_next(struct dsync_worker_msg_iter *_iter,
 {
 	struct local_dsync_worker_msg_iter *iter =
 		(struct local_dsync_worker_msg_iter *)_iter;
+	struct mail *mail;
 	const char *guid;
-	uint32_t prev_uid;
 
 	if (_iter->failed || iter->search_ctx == NULL)
 		return -1;
 
-	prev_uid = iter->mail->uid;
-	if (!mailbox_search_next(iter->search_ctx, iter->mail)) {
-		if (iter_local_mailbox_next_expunge(iter, prev_uid, msg_r)) {
+	if (!mailbox_search_next(iter->search_ctx, &mail)) {
+		if (iter_local_mailbox_next_expunge(iter, iter->prev_uid,
+						    msg_r)) {
 			*mailbox_idx_r = iter->mailbox_idx;
 			return 1;
 		}
@@ -948,11 +948,12 @@ local_worker_msg_iter_next(struct dsync_worker_msg_iter *_iter,
 		return local_worker_msg_iter_next(_iter, mailbox_idx_r, msg_r);
 	}
 	*mailbox_idx_r = iter->mailbox_idx;
+	iter->prev_uid = mail->uid;
 
-	if (mail_get_special(iter->mail, MAIL_FETCH_GUID, &guid) < 0) {
-		if (!iter->mail->expunged) {
+	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) < 0) {
+		if (!mail->expunged) {
 			i_error("msg guid lookup failed: %s",
-				mailbox_get_last_error(iter->mail->box, NULL));
+				mailbox_get_last_error(mail->box, NULL));
 			_iter->failed = TRUE;
 			return -1;
 		}
@@ -961,11 +962,11 @@ local_worker_msg_iter_next(struct dsync_worker_msg_iter *_iter,
 
 	memset(msg_r, 0, sizeof(*msg_r));
 	msg_r->guid = guid;
-	msg_r->uid = iter->mail->uid;
-	msg_r->flags = mail_get_flags(iter->mail);
-	msg_r->keywords = mail_get_keywords(iter->mail);
-	msg_r->modseq = mail_get_modseq(iter->mail);
-	if (mail_get_save_date(iter->mail, &msg_r->save_date) < 0)
+	msg_r->uid = mail->uid;
+	msg_r->flags = mail_get_flags(mail);
+	msg_r->keywords = mail_get_keywords(mail);
+	msg_r->modseq = mail_get_modseq(mail);
+	if (mail_get_save_date(mail, &msg_r->save_date) < 0)
 		msg_r->save_date = (time_t)-1;
 	return 1;
 }
@@ -977,7 +978,7 @@ local_worker_msg_iter_deinit(struct dsync_worker_msg_iter *_iter)
 		(struct local_dsync_worker_msg_iter *)_iter;
 	int ret = _iter->failed ? -1 : 0;
 
-	if (iter->mail != NULL)
+	if (iter->box != NULL)
 		iter_local_mailbox_close(iter);
 	array_free(&iter->expunges);
 	str_free(&iter->tmp_guid_str);

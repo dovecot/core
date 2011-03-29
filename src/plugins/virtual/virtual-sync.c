@@ -474,9 +474,9 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	int ret;
 
 	trans = mailbox_transaction_begin(bbox->box, 0);
-	mail = mail_alloc(trans, 0, NULL);
 
-	search_ctx = mailbox_search_init(trans, bbox->search_args, NULL);
+	search_ctx = mailbox_search_init(trans, bbox->search_args, NULL,
+					 0, NULL);
 
 	/* save the result and keep it updated */
 	result_flags = MAILBOX_SEARCH_RESULT_FLAG_UPDATE |
@@ -487,13 +487,11 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	/* add the found UIDs to uidmap. virtual_uid gets assigned later. */
 	memset(&uidmap, 0, sizeof(uidmap));
 	array_clear(&bbox->uids);
-	while (mailbox_search_next(search_ctx, mail)) {
+	while (mailbox_search_next(search_ctx, &mail)) {
 		uidmap.real_uid = mail->uid;
 		array_append(&bbox->uids, &uidmap, 1);
 	}
-
 	ret = mailbox_search_deinit(&search_ctx);
-	mail_free(&mail);
 
 	(void)mailbox_transaction_commit(&trans);
 	return ret;

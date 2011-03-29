@@ -355,13 +355,11 @@ quota_mailbox_delete_shrink_quota(struct mailbox *box)
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(t, search_args, NULL);
+	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
-	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(ctx, mail))
+	while (mailbox_search_next(ctx, &mail))
 		quota_free(qt, mail);
-	mail_free(&mail);
 
 	if (mailbox_search_deinit(&ctx) < 0) {
 		/* maybe we missed some mails. */

@@ -283,18 +283,19 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 	str_free(&str);
 }
 
-static void search_update_mail(struct imap_search_context *ctx)
+static void
+search_update_mail(struct imap_search_context *ctx, struct mail *mail)
 {
 	uint64_t modseq;
 
 	if ((ctx->return_options & SEARCH_RETURN_MODSEQ) != 0) {
-		modseq = mail_get_modseq(ctx->mail);
+		modseq = mail_get_modseq(mail);
 		if (ctx->highest_seen_modseq < modseq)
 			ctx->highest_seen_modseq = modseq;
 	}
 	if ((ctx->return_options & SEARCH_RETURN_SAVE) != 0) {
 		seq_range_array_add(&ctx->cmd->client->search_saved_uidset,
-				    0, ctx->mail->uid);
+				    0, mail->uid);
 	}
 }
 
@@ -318,6 +319,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 {
 	struct imap_search_context *ctx = cmd->context;
 	enum search_return_options opts = ctx->return_options;
+	struct mail *mail;
 	enum mailbox_sync_flags sync_flags;
 	struct timeval end_time;
 	const struct seq_range *range;
@@ -344,9 +346,9 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	minmax = (opts & (SEARCH_RETURN_MIN | SEARCH_RETURN_MAX)) != 0 &&
 		(opts & ~(SEARCH_RETURN_NORESULTS |
 			  SEARCH_RETURN_MIN | SEARCH_RETURN_MAX)) == 0;
-	while (mailbox_search_next_nonblock(ctx->search_ctx, ctx->mail,
-					    &tryagain)) {
-		id = cmd->uid ? ctx->mail->uid : ctx->mail->seq;
+	while (mailbox_search_next_nonblock(ctx->search_ctx,
+					    &mail, &tryagain)) {
+		id = cmd->uid ? mail->uid : mail->seq;
 		ctx->result_count++;
 
 		if (minmax) {
@@ -363,7 +365,7 @@ static bool cmd_search_more(struct client_command_context *cmd)
 			continue;
 		}
 
-		search_update_mail(ctx);
+		search_update_mail(ctx, mail);
 		if ((opts & ~(SEARCH_RETURN_NORESULTS |
 			      SEARCH_RETURN_COUNT)) == 0) {
 			/* we only want to count (and get modseqs) */
@@ -377,26 +379,28 @@ static bool cmd_search_more(struct client_command_context *cmd)
 	if (minmax && array_count(&ctx->result) > 0 &&
 	    (opts & (SEARCH_RETURN_MODSEQ | SEARCH_RETURN_SAVE)) != 0) {
 		/* handle MIN/MAX modseq/save updates */
+		mail = mail_alloc(ctx->trans, 0, NULL);
 		if ((opts & SEARCH_RETURN_MIN) != 0) {
 			i_assert(id_min != 0);
 			if (cmd->uid) {
-				if (!mail_set_uid(ctx->mail, id_min))
+				if (!mail_set_uid(mail, id_min))
 					i_unreached();
 			} else {
-				mail_set_seq(ctx->mail, id_min);
+				mail_set_seq(mail, id_min);
 			}
-			search_update_mail(ctx);
+			search_update_mail(ctx, mail);
 		}
 		if ((opts & SEARCH_RETURN_MAX) != 0) {
 			i_assert(id_max != 0);
 			if (cmd->uid) {
-				if (!mail_set_uid(ctx->mail, id_max))
+				if (!mail_set_uid(mail, id_max))
 					i_unreached();
 			} else {
-				mail_set_seq(ctx->mail, id_max);
+				mail_set_seq(mail, id_max);
 			}
-			search_update_mail(ctx);
+			search_update_mail(ctx, mail);
 		}
+		mail_free(&mail);
 	}
 
 	lost_data = mailbox_search_seen_lost_data(ctx->search_ctx);
@@ -490,8 +494,8 @@ bool imap_search_start(struct imap_search_context *ctx,
 	ctx->box = cmd->client->mailbox;
 	ctx->trans = mailbox_transaction_begin(ctx->box, 0);
 	ctx->sargs = sargs;
-	ctx->search_ctx = mailbox_search_init(ctx->trans, sargs, sort_program);
-	ctx->mail = mail_alloc(ctx->trans, 0, NULL);
+	ctx->search_ctx =
+		mailbox_search_init(ctx->trans, sargs, sort_program, 0, NULL);
 	ctx->sorting = sort_program != NULL;
 	(void)gettimeofday(&ctx->start_time, NULL);
 	i_array_init(&ctx->result, 128);
@@ -514,7 +518,6 @@ static int imap_search_deinit(struct imap_search_context *ctx)
 {
 	int ret = 0;
 
-	mail_free(&ctx->mail);
 	if (mailbox_search_deinit(&ctx->search_ctx) < 0)
 		ret = -1;
 

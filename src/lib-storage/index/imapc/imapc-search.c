@@ -121,12 +121,15 @@ imapc_search_send_fetch(struct imapc_search_context *ctx,
 struct mail_search_context *
 imapc_search_init(struct mailbox_transaction_context *t,
 		  struct mail_search_args *args,
-		  const enum mail_sort_type *sort_program)
+		  const enum mail_sort_type *sort_program,
+		  enum mail_fetch_field wanted_fields,
+		  struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct imapc_search_context *ctx;
 
 	ctx = i_new(struct imapc_search_context, 1);
-	index_storage_search_init_context(&ctx->ictx, t, args, sort_program);
+	index_storage_search_init_context(&ctx->ictx, t, args, sort_program,
+					  wanted_fields, wanted_headers);
 	i_array_init(&ctx->next_seqs, 64);
 	ctx->ictx.recheck_index_args = TRUE;
 	return &ctx->ictx.mail_ctx;
@@ -149,9 +152,10 @@ int imapc_search_deinit(struct mail_search_context *_ctx)
 }
 
 bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
-				struct mail *mail, bool *tryagain_r)
+				struct mail **mail_r, bool *tryagain_r)
 {
 	struct imapc_search_context *ctx = (struct imapc_search_context *)_ctx;
+	struct mail *mail = ctx->ictx.mail;
 	struct imapc_mailbox *mbox =
 		(struct imapc_mailbox *)_ctx->transaction->box;
 	struct imapc_mail *imail = (struct imapc_mail *)mail;
@@ -159,7 +163,7 @@ bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
 
 	imail->searching = TRUE;
 	ctx->cur_mail = mail;
-	ret = index_storage_search_next_nonblock(_ctx, mail, tryagain_r);
+	ret = index_storage_search_next_nonblock(_ctx, mail_r, tryagain_r);
 	ctx->cur_mail = NULL;
 	imail->searching = FALSE;
 	if (!ret)

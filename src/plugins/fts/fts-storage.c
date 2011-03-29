@@ -282,8 +282,7 @@ static int fts_build_init_seq(struct fts_search_context *fctx,
 	ctx = i_new(struct fts_storage_build_context, 1);
 	ctx->build = build;
 	ctx->headers = str_new(default_pool, 512);
-	ctx->mail = mail_alloc(t, 0, NULL);
-	ctx->search_ctx = mailbox_search_init(t, search_args, NULL);
+	ctx->search_ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
 	ctx->search_ctx->progress_hidden = TRUE;
 	ctx->search_args = search_args;
 
@@ -533,7 +532,7 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 
 	if (mailbox_search_deinit(&ctx->search_ctx) < 0)
 		ret = -1;
-	mail_free(&ctx->mail);
+	ctx->mail = NULL;
 
 	if (fts_backend_build_deinit(&ctx->build) < 0)
 		ret = -1;
@@ -620,7 +619,7 @@ static int fts_build_more(struct fts_storage_build_context *ctx)
 	    FTS_BUILD_NOTIFY_INTERVAL_SECS)
 		fts_build_notify(ctx);
 
-	while (mailbox_search_next(ctx->search_ctx, ctx->mail)) {
+	while (mailbox_search_next(ctx->search_ctx, &ctx->mail)) {
 		T_BEGIN {
 			ret = fts_build_mail(ctx, ctx->mail->uid);
 		} T_END;
@@ -680,14 +679,17 @@ static bool fts_try_build_init(struct mail_search_context *ctx,
 static struct mail_search_context *
 fts_mailbox_search_init(struct mailbox_transaction_context *t,
 			struct mail_search_args *args,
-			const enum mail_sort_type *sort_program)
+			const enum mail_sort_type *sort_program,
+			enum mail_fetch_field wanted_fields,
+			struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
 	struct mail_search_context *ctx;
 	struct fts_search_context *fctx;
 
-	ctx = fbox->module_ctx.super.search_init(t, args, sort_program);
+	ctx = fbox->module_ctx.super.search_init(t, args, sort_program,
+						 wanted_fields, wanted_headers);
 
 	fctx = i_new(struct fts_search_context, 1);
 	fctx->fbox = fbox;
@@ -708,7 +710,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 
 static bool
 fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
-				 struct mail *mail, bool *tryagain_r)
+				 struct mail **mail_r, bool *tryagain_r)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
@@ -745,7 +747,7 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 
 	/* if we're here, the indexes are either built or they're not used */
 	return fbox->module_ctx.super.
-		search_next_nonblock(ctx, mail, tryagain_r);
+		search_next_nonblock(ctx, mail_r, tryagain_r);
 }
 
 static void

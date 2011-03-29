@@ -87,7 +87,7 @@ cmd_import_box_contents(struct doveadm_mail_iter *iter, struct mail *src_mail,
 				mailbox_get_last_error(dest_box, NULL));
 			ret = -1;
 		}
-	} while (doveadm_mail_iter_next(iter, src_mail));
+	} while (doveadm_mail_iter_next(iter, &src_mail));
 
 	if (mailbox_transaction_commit(&dest_trans) < 0) {
 		i_error("Committing copied mails to %s failed: %s", mailbox,
@@ -108,11 +108,11 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 	struct mail *mail;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(info, search_args, &trans, &iter) < 0)
+	if (doveadm_mail_iter_init(info, search_args, 0, NULL,
+				   &trans, &iter) < 0)
 		return -1;
 
-	mail = mail_alloc(trans, 0, NULL);
-	if (doveadm_mail_iter_next(iter, mail)) {
+	if (doveadm_mail_iter_next(iter, &mail)) {
 		/* at least one mail matches in this mailbox */
 		if (dest_mailbox_open_or_create(ctx, dest_user, info->name,
 						&box) == 0) {
@@ -121,7 +121,6 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 			mailbox_free(&box);
 		}
 	}
-	mail_free(&mail);
 	if (doveadm_mail_iter_deinit_sync(&iter) < 0)
 		ret = -1;
 	return ret;

@@ -1364,6 +1364,10 @@ void index_mail_free(struct mail *_mail)
 	struct mailbox_header_lookup_ctx *headers_ctx =
 		(struct mailbox_header_lookup_ctx *)mail->wanted_headers;
 
+	/* make sure mailbox_search_*() users don't try to free the mail
+	   directly */
+	i_assert(!mail->search_mail);
+
 	mail->mail.v.close(_mail);
 
 	i_assert(_mail->transaction->mail_ref_count > 0);

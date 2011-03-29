@@ -33,6 +33,8 @@ struct index_search_context {
 void index_storage_search_init_context(struct index_search_context *ctx,
 				       struct mailbox_transaction_context *t,
 				       struct mail_search_args *args,
-				       const enum mail_sort_type *sort_program);
+				       const enum mail_sort_type *sort_program,
+				       enum mail_fetch_field wanted_fields,
+				       struct mailbox_header_lookup_ctx *wanted_headers);
 
 #endif

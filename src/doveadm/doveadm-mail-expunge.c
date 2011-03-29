@@ -17,18 +17,17 @@ cmd_expunge_box(const struct mailbox_info *info,
 	struct mailbox_transaction_context *trans;
 	struct mail *mail;
 
-	if (doveadm_mail_iter_init(info, search_args, &trans, &iter) < 0)
+	if (doveadm_mail_iter_init(info, search_args, 0, NULL,
+				   &trans, &iter) < 0)
 		return -1;
 
-	mail = mail_alloc(trans, 0, NULL);
-	while (doveadm_mail_iter_next(iter, mail)) {
+	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (doveadm_debug) {
 			i_debug("expunge: box=%s uid=%u",
 				info->name, mail->uid);
 		}
 		mail_expunge(mail);
 	}
-	mail_free(&mail);
 	return doveadm_mail_iter_deinit_sync(&iter);
 }
 

@@ -177,20 +177,18 @@ static int get_all_msg_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
 	int ret;
 
 	t = mailbox_transaction_begin(box, 0);
-	mail = mail_alloc(t, 0, NULL);
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	search_ctx = mailbox_search_init(t, search_args, NULL);
+	search_ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
-	while (mailbox_search_next(search_ctx, mail)) {
+	while (mailbox_search_next(search_ctx, &mail)) {
 		/* *2 because even/odd is for body/header */
 		seq_range_array_add_range(uids, mail->uid * 2,
 					  mail->uid * 2 + 1);
 	}
 	ret = mailbox_search_deinit(&search_ctx);
-	mail_free(&mail);
 	(void)mailbox_transaction_commit(&t);
 	return ret;
 }

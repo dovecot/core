@@ -285,17 +285,15 @@ static int sdbox_mailbox_delete(struct mailbox *box)
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(t, search_args, NULL);
+	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
-	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(ctx, mail)) {
+	while (mailbox_search_next(ctx, &mail)) {
 		file = sdbox_file_init(mbox, mail->uid);
 		sfile = (struct sdbox_file *)file;
 		(void)sdbox_file_unlink_with_attachments(sfile);
 		dbox_file_unref(&file);
 	}
-	mail_free(&mail);
 
 	if (mailbox_search_deinit(&ctx) < 0) {
 		/* maybe we missed some mails. oh well, can't help it. */

@@ -51,13 +51,13 @@ static int snarf(struct mailbox *srcbox, struct mailbox *destbox)
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	search_ctx = mailbox_search_init(src_trans, search_args, NULL);
+	search_ctx = mailbox_search_init(src_trans, search_args, NULL,
+					 MAIL_FETCH_STREAM_HEADER |
+					 MAIL_FETCH_STREAM_BODY, NULL);
 	mail_search_args_unref(&search_args);
 
 	ret = 0;
-	mail = mail_alloc(src_trans, MAIL_FETCH_STREAM_HEADER |
-			  MAIL_FETCH_STREAM_BODY, NULL);
-	while (mailbox_search_next(search_ctx, mail)) {
+	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mail->expunged)
 			continue;
 
@@ -72,7 +72,6 @@ static int snarf(struct mailbox *srcbox, struct mailbox *destbox)
 		}
 		mail_expunge(mail);
 	}
-	mail_free(&mail);
 
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;

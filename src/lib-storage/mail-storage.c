@@ -1173,12 +1173,15 @@ void mailbox_notify_changes_stop(struct mailbox *box)
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
 		    struct mail_search_args *args,
-		    const enum mail_sort_type *sort_program)
+		    const enum mail_sort_type *sort_program,
+		    enum mail_fetch_field wanted_fields,
+		    struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	mail_search_args_ref(args);
 	if (!args->simplified)
 		mail_search_args_simplify(args);
-	return t->box->v.search_init(t, args, sort_program);
+	return t->box->v.search_init(t, args, sort_program,
+				     wanted_fields, wanted_headers);
 }
 
 int mailbox_search_deinit(struct mail_search_context **_ctx)
@@ -1194,11 +1197,11 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 	return ret;
 }
 
-bool mailbox_search_next(struct mail_search_context *ctx, struct mail *mail)
+bool mailbox_search_next(struct mail_search_context *ctx, struct mail **mail_r)
 {
 	bool tryagain;
 
-	while (!mailbox_search_next_nonblock(ctx, mail, &tryagain)) {
+	while (!mailbox_search_next_nonblock(ctx, mail_r, &tryagain)) {
 		if (!tryagain)
 			return FALSE;
 	}
@@ -1206,14 +1209,16 @@ bool mailbox_search_next(struct mail_search_context *ctx, struct mail *mail)
 }
 
 bool mailbox_search_next_nonblock(struct mail_search_context *ctx,
-				  struct mail *mail, bool *tryagain_r)
+				  struct mail **mail_r, bool *tryagain_r)
 {
 	struct mailbox *box = ctx->transaction->box;
 
-	if (!box->v.search_next_nonblock(ctx, mail, tryagain_r))
+	*mail_r = NULL;
+
+	if (!box->v.search_next_nonblock(ctx, mail_r, tryagain_r))
 		return FALSE;
 	else {
-		mailbox_search_results_add(ctx, mail->uid);
+		mailbox_search_results_add(ctx, (*mail_r)->uid);
 		return TRUE;
 	}
 }
@@ -1232,11 +1237,9 @@ int mailbox_search_result_build(struct mailbox_transaction_context *t,
 	struct mail *mail;
 	int ret;
 
-	ctx = mailbox_search_init(t, args, NULL);
+	ctx = mailbox_search_init(t, args, NULL, 0, NULL);
 	*result_r = mailbox_search_result_save(ctx, flags);
-	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(ctx, mail)) ;
-	mail_free(&mail);
+	while (mailbox_search_next(ctx, &mail)) ;
 
 	ret = mailbox_search_deinit(&ctx);
 	if (ret < 0)

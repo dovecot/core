@@ -20,24 +20,22 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	const char *guid_str;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(info, ctx->search_args, &trans, &iter) < 0)
+	if (doveadm_mail_iter_init(info, ctx->search_args, 0, NULL,
+				   &trans, &iter) < 0)
 		return -1;
-
-	mail = mail_alloc(trans, 0, NULL);
 
 	if (mailbox_get_metadata(mail->box, MAILBOX_METADATA_GUID,
 				 &metadata) < 0)
 		ret = -1;
 	else {
 		guid_str = mail_guid_128_to_string(metadata.guid);
-		while (doveadm_mail_iter_next(iter, mail)) {
+		while (doveadm_mail_iter_next(iter, &mail)) {
 			doveadm_print(guid_str);
 			T_BEGIN {
 				doveadm_print(dec2str(mail->uid));
 			} T_END;
 		}
 	}
-	mail_free(&mail);
 	if (doveadm_mail_iter_deinit(&iter) < 0)
 		ret = -1;
 	return ret;

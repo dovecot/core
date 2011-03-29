@@ -210,11 +210,10 @@ bool client_update_mails(struct client *client)
 	}
 
 	search_args = pop3_search_build(client, 0);
-	ctx = mailbox_search_init(client->trans, search_args, NULL);
+	ctx = mailbox_search_init(client->trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
-	mail = mail_alloc(client->trans, 0, NULL);
-	while (mailbox_search_next(ctx, mail)) {
+	while (mailbox_search_next(ctx, &mail)) {
 		idx = mail->seq - 1;
 		bit = 1 << (idx % CHAR_BIT);
 		if (client->deleted_bitmask != NULL &&
@@ -226,7 +225,6 @@ bool client_update_mails(struct client *client)
 			mail_update_flags(mail, MODIFY_ADD, MAIL_SEEN);
 		}
 	}
-	mail_free(&mail);
 
 	client->seen_change_count = 0;
 	return mailbox_search_deinit(&ctx) == 0;
@@ -272,7 +270,6 @@ struct fetch_context {
 static void fetch_deinit(struct fetch_context *ctx)
 {
 	(void)mailbox_search_deinit(&ctx->search_ctx);
-	mail_free(&ctx->mail);
 	i_free(ctx);
 }
 
@@ -396,13 +393,12 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 	search_args = pop3_search_build(client, msgnum+1);
 
 	ctx = i_new(struct fetch_context, 1);
-	ctx->search_ctx = mailbox_search_init(client->trans, search_args, NULL);
+	ctx->search_ctx = mailbox_search_init(client->trans, search_args, NULL,
+					      MAIL_FETCH_STREAM_HEADER |
+					      MAIL_FETCH_STREAM_BODY, NULL);
 	mail_search_args_unref(&search_args);
 
-	ctx->mail = mail_alloc(client->trans, MAIL_FETCH_STREAM_HEADER |
-			       MAIL_FETCH_STREAM_BODY, NULL);
-
-	if (!mailbox_search_next(ctx->search_ctx, ctx->mail) ||
+	if (!mailbox_search_next(ctx->search_ctx, &ctx->mail) ||
 	    mail_get_stream(ctx->mail, NULL, NULL, &ctx->stream) < 0) {
 		ret = client_reply_msg_expunged(client, msgnum);
 		fetch_deinit(ctx);
@@ -474,13 +470,11 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 		/* remove all \Seen flags (as specified by RFC 1460) */
 		search_args = pop3_search_build(client, 0);
 		search_ctx = mailbox_search_init(client->trans,
-						 search_args, NULL);
+						 search_args, NULL, 0, NULL);
 		mail_search_args_unref(&search_args);
 
-		mail = mail_alloc(client->trans, 0, NULL);
-		while (mailbox_search_next(search_ctx, mail))
+		while (mailbox_search_next(search_ctx, &mail))
 			mail_update_flags(mail, MODIFY_REMOVE, MAIL_SEEN);
-		mail_free(&mail);
 		(void)mailbox_search_deinit(&search_ctx);
 
 		mailbox_transaction_commit(&client->trans);
@@ -602,7 +596,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	}
 
 	str = t_str_new(128);
-	while (mailbox_search_next(ctx->search_ctx, ctx->mail)) {
+	while (mailbox_search_next(ctx->search_ctx, &ctx->mail)) {
 		uint32_t idx = ctx->mail->seq - 1;
 
 		if (client->deleted) {
@@ -636,7 +630,6 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	}
 
 	/* finished */
-	mail_free(&ctx->mail);
 	(void)mailbox_search_deinit(&ctx->search_ctx);
 
 	client->cmd = NULL;
@@ -672,10 +665,10 @@ cmd_uidl_init(struct client *client, unsigned int message)
 	if ((client->uidl_keymask & UIDL_MD5) != 0)
 		wanted_fields |= MAIL_FETCH_HEADER_MD5;
 
-	ctx->search_ctx = mailbox_search_init(client->trans, search_args, NULL);
+	ctx->search_ctx = mailbox_search_init(client->trans, search_args, NULL,
+					      wanted_fields, NULL);
 	mail_search_args_unref(&search_args);
 
-	ctx->mail = mail_alloc(client->trans, wanted_fields, NULL);
 	if (message == 0) {
 		client->cmd = cmd_uidl_callback;
 		client->cmd_context = ctx;

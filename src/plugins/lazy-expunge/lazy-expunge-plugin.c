@@ -308,11 +308,10 @@ mailbox_move_all_mails(struct mailbox *src_box, const char *dest_name)
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	search_ctx = mailbox_search_init(src_trans, search_args, NULL);
+	search_ctx = mailbox_search_init(src_trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
-	mail = mail_alloc(src_trans, 0, NULL);
-	while ((ret = mailbox_search_next(search_ctx, mail)) > 0) {
+	while ((ret = mailbox_search_next(search_ctx, &mail)) > 0) {
 		save_ctx = mailbox_save_alloc(dest_trans);
 		mailbox_save_copy_flags(save_ctx, mail);
 		if (mailbox_copy(&save_ctx, mail) < 0) {
@@ -322,7 +321,6 @@ mailbox_move_all_mails(struct mailbox *src_box, const char *dest_name)
 			}
 		}
 	}
-	mail_free(&mail);
 
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;

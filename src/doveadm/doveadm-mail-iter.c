@@ -16,6 +16,8 @@ struct doveadm_mail_iter {
 
 int doveadm_mail_iter_init(const struct mailbox_info *info,
 			   struct mail_search_args *search_args,
+			   enum mail_fetch_field wanted_fields,
+			   struct mailbox_header_lookup_ctx *wanted_headers,
 			   struct mailbox_transaction_context **trans_r,
 			   struct doveadm_mail_iter **iter_r)
 {
@@ -37,7 +39,8 @@ int doveadm_mail_iter_init(const struct mailbox_info *info,
 
 	mail_search_args_init(search_args, iter->box, FALSE, NULL);
 	iter->t = mailbox_transaction_begin(iter->box, 0);
-	iter->search_ctx = mailbox_search_init(iter->t, search_args, NULL);
+	iter->search_ctx = mailbox_search_init(iter->t, search_args, NULL,
+					       wanted_fields, wanted_headers);
 
 	*trans_r = iter->t;
 	*iter_r = iter;
@@ -91,7 +94,8 @@ int doveadm_mail_iter_deinit_sync(struct doveadm_mail_iter **_iter)
 	return doveadm_mail_iter_deinit_full(_iter, TRUE);
 }
 
-bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter, struct mail *mail)
+bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter,
+			    struct mail **mail_r)
 {
-	return mailbox_search_next(iter->search_ctx, mail);
+	return mailbox_search_next(iter->search_ctx, mail_r);
 }

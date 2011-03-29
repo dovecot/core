@@ -150,7 +150,9 @@ test_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 static struct mail_search_context *
 test_mailbox_search_init(struct mailbox_transaction_context *t,
 			 struct mail_search_args *args,
-			 const enum mail_sort_type *sort_program ATTR_UNUSED)
+			 const enum mail_sort_type *sort_program ATTR_UNUSED,
+			 enum mail_fetch_field wanted_fields ATTR_UNUSED,
+			 struct mailbox_header_lookup_ctx *wanted_headers ATTR_UNUSED)
 {
 	struct mail_search_context *ctx;
 
@@ -173,10 +175,10 @@ static int test_mailbox_search_deinit(struct mail_search_context *ctx)
 
 static bool
 test_mailbox_search_next_nonblock(struct mail_search_context *ctx ATTR_UNUSED,
-				  struct mail *mail ATTR_UNUSED,
-				  bool *tryagain_r)
+				  struct mail **mail_r, bool *tryagain_r)
 {
 	*tryagain_r = FALSE;
+	*mail_r = NULL;
 	return FALSE;
 }
 

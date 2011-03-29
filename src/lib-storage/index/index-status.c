@@ -114,9 +114,9 @@ virtual_size_add_new(struct mailbox *box,
 				     hdr->messages_count);
 
 	trans = mailbox_transaction_begin(box, 0);
-	search_ctx = mailbox_search_init(trans, search_args, NULL);
-	mail = mail_alloc(trans, MAIL_FETCH_VIRTUAL_SIZE, NULL);
-	while (mailbox_search_next(search_ctx, mail)) {
+	search_ctx = mailbox_search_init(trans, search_args, NULL,
+					 MAIL_FETCH_VIRTUAL_SIZE, NULL);
+	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mail_get_virtual_size(mail, &vsize) < 0) {
 			if (mail->expunged)
 				continue;
@@ -127,7 +127,6 @@ virtual_size_add_new(struct mailbox *box,
 		vsize_hdr->highest_uid = mail->uid;
 		vsize_hdr->message_count++;
 	}
-	mail_free(&mail);
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
 

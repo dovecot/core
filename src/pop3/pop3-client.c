@@ -122,15 +122,15 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(t, search_args, NULL);
+	ctx = mailbox_search_init(t, search_args, NULL,
+				  MAIL_FETCH_VIRTUAL_SIZE, NULL);
 	mail_search_args_unref(&search_args);
 
 	client->last_seen = 0;
 	client->total_size = 0;
 	i_array_init(&message_sizes, client->messages_count);
 
-	mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
-	while (mailbox_search_next(ctx, mail)) {
+	while (mailbox_search_next(ctx, &mail)) {
 		if (pop3_mail_get_size(client, mail, &size) < 0) {
 			ret = mail->expunged ? 0 : -1;
 			*failed_uid_r = mail->uid;
@@ -143,7 +143,6 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 
 		array_append(&message_sizes, &size, 1);
 	}
-	mail_free(&mail);
 
 	if (mailbox_search_deinit(&ctx) < 0)
 		ret = -1;

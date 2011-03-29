@@ -148,10 +148,12 @@ void imap_fetch_add_handler(struct imap_fetch_context *ctx,
 }
 
 static void
-expunges_drop_known(struct imap_fetch_context *ctx, struct mail *mail,
+expunges_drop_known(struct imap_fetch_context *ctx,
+		    struct mailbox_transaction_context *trans,
 		    ARRAY_TYPE(seq_range) *expunged_uids)
 {
 	struct mailbox_status status;
+	struct mail *mail;
 	const uint32_t *seqs, *uids;
 	unsigned int i, count;
 
@@ -161,6 +163,7 @@ expunges_drop_known(struct imap_fetch_context *ctx, struct mail *mail,
 	i_assert(count > 0);
 
 	mailbox_get_open_status(ctx->box, STATUS_MESSAGES, &status);
+	mail = mail_alloc(trans, 0, NULL);
 
 	/* FIXME: we could do removals from the middle as well */
 	for (i = 0; i < count && seqs[i] <= status.messages; i++) {
@@ -170,6 +173,7 @@ expunges_drop_known(struct imap_fetch_context *ctx, struct mail *mail,
 	}
 	if (i > 0)
 		seq_range_array_remove_range(expunged_uids, 1, uids[i-1]);
+	mail_free(&mail);
 }
 
 static int get_expunges_fallback(struct imap_fetch_context *ctx,
@@ -199,11 +203,10 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 	array_append_array(&search_args->args->value.seqset, uid_filter_arr);
 
 	trans = mailbox_transaction_begin(ctx->box, 0);
-	mail = mail_alloc(trans, 0, NULL);
-	search_ctx = mailbox_search_init(trans, search_args, NULL);
+	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
-	while (mailbox_search_next(search_ctx, mail)) {
+	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mail->uid == next_uid) {
 			if (next_uid < uid_filter[i].seq2)
 				next_uid++;
@@ -255,9 +258,8 @@ static int get_expunges_fallback(struct imap_fetch_context *ctx,
 
 	if (ret == 0 && ctx->qresync_sample_seqset != NULL &&
 	    array_is_created(ctx->qresync_sample_seqset))
-		expunges_drop_known(ctx, mail, expunged_uids);
+		expunges_drop_known(ctx, trans, expunged_uids);
 
-	mail_free(&mail);
 	(void)mailbox_transaction_commit(&trans);
 	return ret;
 }
@@ -347,14 +349,13 @@ int imap_fetch_begin(struct imap_fetch_context *ctx)
 		MAILBOX_TRANSACTION_FLAG_HIDE |
 		MAILBOX_TRANSACTION_FLAG_REFRESH);
 	ctx->select_counter = ctx->client->select_counter;
-	ctx->mail = mail_alloc(ctx->trans, ctx->fetch_data,
-			       ctx->all_headers_ctx);
 
 	/* Delayed uidset -> seqset conversion. VANISHED needs the uidset. */
 	mail_search_args_init(ctx->search_args, ctx->box, TRUE,
 			      &ctx->cmd->client->search_saved_uidset);
 	ctx->search_ctx =
-		mailbox_search_init(ctx->trans, ctx->search_args, NULL);
+		mailbox_search_init(ctx->trans, ctx->search_args, NULL,
+				    ctx->fetch_data, ctx->all_headers_ctx);
 	return 0;
 }
 
@@ -447,9 +448,9 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx)
 			if (ctx->cmd->cancel)
 				return 1;
 
-			if (!mailbox_search_next(ctx->search_ctx, ctx->mail))
+			if (!mailbox_search_next(ctx->search_ctx,
+						 &ctx->cur_mail))
 				break;
-			ctx->cur_mail = ctx->mail;
 
 			str_printfa(ctx->cur_str, "* %u FETCH (",
 				    ctx->cur_mail->seq);
@@ -553,9 +554,6 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx)
 
 	if (ctx->cur_input != NULL)
 		i_stream_unref(&ctx->cur_input);
-
-	if (ctx->mail != NULL)
-		mail_free(&ctx->mail);
 
 	mail_search_args_unref(&ctx->search_args);
 	if (ctx->search_ctx != NULL) {

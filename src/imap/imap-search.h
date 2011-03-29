@@ -24,7 +24,6 @@ struct imap_search_context {
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
         struct mail_search_context *search_ctx;
-	struct mail *mail;
 
 	struct mail_search_args *sargs;
 	enum search_return_options return_options;

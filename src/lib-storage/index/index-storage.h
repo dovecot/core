@@ -113,10 +113,12 @@ int index_mailbox_get_metadata(struct mailbox *box,
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *t,
 			  struct mail_search_args *args,
-			  const enum mail_sort_type *sort_program);
+			  const enum mail_sort_type *sort_program,
+			  enum mail_fetch_field wanted_fields,
+			  struct mailbox_header_lookup_ctx *wanted_headers);
 int index_storage_search_deinit(struct mail_search_context *ctx);
 bool index_storage_search_next_nonblock(struct mail_search_context *ctx,
-					struct mail *mail, bool *tryagain_r);
+					struct mail **mail_r, bool *tryagain_r);
 bool index_storage_search_next_update_seq(struct mail_search_context *ctx);
 
 struct mailbox_transaction_context *

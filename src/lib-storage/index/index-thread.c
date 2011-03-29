@@ -336,20 +336,18 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq1, seq2);
-	search_ctx = mailbox_search_init(ctx->t, search_args, NULL);
+	search_ctx = mailbox_search_init(ctx->t, search_args, NULL, 0, NULL);
 
-	mail = mail_alloc(ctx->t, 0, NULL);
 	search_ctx_i = (struct index_search_context *)search_ctx;
 	search_ctx_i->extra_wanted_headers =
 		mailbox_header_lookup_init(ctx->box, wanted_headers);
 
-	while (mailbox_search_next(search_ctx, mail)) {
+	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mail_thread_map_add_mail(ctx, mail) < 0) {
 			ret = -1;
 			break;
 		}
 	}
-	mail_free(&mail);
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
 
@@ -524,8 +522,6 @@ static void mail_thread_cache_sync_add(struct mail_thread_mailbox *tbox,
 		THREAD_INVALID_MSGID_STR_IDX_SKIP_COUNT;
 	array_clear(&cache->thread_nodes);
 
-	mail = mail_alloc(ctx->t, 0, NULL);
-
 	cache->search_result =
 		mailbox_search_result_save(search_ctx,
 			MAILBOX_SEARCH_RESULT_FLAG_UPDATE |
@@ -536,13 +532,12 @@ static void mail_thread_cache_sync_add(struct mail_thread_mailbox *tbox,
 	   count - kind of kludgy) */
 	i_assert(msgid_map[count].uid == 0);
 	i = 0;
-	while (i < count && mailbox_search_next(search_ctx, mail)) {
+	while (i < count && mailbox_search_next(search_ctx, &mail)) {
 		while (msgid_map[i].uid < mail->uid)
 			i++;
 		i_assert(i < count);
 		mail_thread_add(cache, msgid_map+i, &i);
 	}
-	mail_free(&mail);
 }
 
 int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
@@ -568,7 +563,7 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 	ctx->search_args = args;
 	ctx->t = mailbox_transaction_begin(ctx->box, 0);
 	/* perform search first, so we don't break if there are INTHREAD keys */
-	search_ctx = mailbox_search_init(ctx->t, args, NULL);
+	search_ctx = mailbox_search_init(ctx->t, args, NULL, 0, NULL);
 
 	tbox->ctx = ctx;
 

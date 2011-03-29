@@ -140,6 +140,8 @@ struct index_mail {
 	uint8_t header_match_value;
 
 	unsigned int pop3_state_set:1;
+	/* mail created by mailbox_search_*() */
+	unsigned int search_mail:1;
 };
 
 struct mail *

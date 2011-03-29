@@ -167,10 +167,12 @@ struct mailbox_vfuncs {
 	struct mail_search_context *
 	(*search_init)(struct mailbox_transaction_context *t,
 		       struct mail_search_args *args,
-		       const enum mail_sort_type *sort_program);
+		       const enum mail_sort_type *sort_program,
+		       enum mail_fetch_field wanted_fields,
+		       struct mailbox_header_lookup_ctx *wanted_headers);
 	int (*search_deinit)(struct mail_search_context *ctx);
 	bool (*search_next_nonblock)(struct mail_search_context *ctx,
-				     struct mail *mail, bool *tryagain_r);
+				     struct mail **mail_r, bool *tryagain_r);
 	/* Internal search function which updates ctx->seq */
 	bool (*search_next_update_seq)(struct mail_search_context *ctx);
 

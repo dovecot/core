@@ -39,19 +39,18 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	}
 
 	trans = mailbox_transaction_begin(box, 0);
-	mail = mail_alloc(trans, MAIL_FETCH_PHYSICAL_SIZE, NULL);
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(trans, search_args, NULL);
+	ctx = mailbox_search_init(trans, search_args, NULL,
+				  MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	mail_search_args_unref(&search_args);
 
-	while (mailbox_search_next(ctx, mail)) {
+	while (mailbox_search_next(ctx, &mail)) {
 		if (mail_get_physical_size(mail, &size) == 0)
 			*bytes_r += size;
 		*count_r += 1;
 	}
-	mail_free(&mail);
 	if (mailbox_search_deinit(&ctx) < 0)
 		ret = -1;
 

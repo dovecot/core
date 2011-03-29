@@ -47,11 +47,10 @@ static int fetch_and_copy(struct client *client,
 	msgset_generator_init(&srcset_ctx, src_uidset);
 
 	src_trans = mailbox_transaction_begin(client->mailbox, 0);
-	search_ctx = mailbox_search_init(src_trans, search_args, NULL);
+	search_ctx = mailbox_search_init(src_trans, search_args, NULL, 0, NULL);
 
-	mail = mail_alloc(src_trans, 0, NULL);
 	ret = 1;
-	while (mailbox_search_next(search_ctx, mail) && ret > 0) {
+	while (mailbox_search_next(search_ctx, &mail) && ret > 0) {
 		if (mail->expunged) {
 			ret = 0;
 			break;
@@ -68,7 +67,6 @@ static int fetch_and_copy(struct client *client,
 
 		msgset_generator_next(&srcset_ctx, mail->uid);
 	}
-	mail_free(&mail);
 	msgset_generator_finish(&srcset_ctx);
 
 	if (mailbox_search_deinit(&search_ctx) < 0)

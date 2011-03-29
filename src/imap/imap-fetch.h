@@ -35,7 +35,6 @@ struct imap_fetch_context {
 	struct mailbox_transaction_context *trans;
 	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
-	struct mail *mail;
 
 	enum mail_fetch_field fetch_data;
 	ARRAY_TYPE(const_string) all_headers;

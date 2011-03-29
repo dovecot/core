@@ -69,13 +69,12 @@ search_result_update_search(struct mail_search_result *result,
 	mail_search_args_init(result->search_args, result->box, FALSE, NULL);
 
 	t = mailbox_transaction_begin(result->box, 0);
-	search_ctx = mailbox_search_init(t, result->search_args, NULL);
+	search_ctx = mailbox_search_init(t, result->search_args, NULL, 0, NULL);
 	/* tell search that we're updating an existing search result,
 	   so it can do some optimizations based on it */
 	search_ctx->update_result = result;
 
-	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(search_ctx, mail)) {
+	while (mailbox_search_next(search_ctx, &mail)) {
 		i_assert(next_uid != 0);
 
 		if (next_uid != mail->uid) {
@@ -97,7 +96,6 @@ search_result_update_search(struct mail_search_result *result,
 		/* match - make sure it exists in search result */
 		mailbox_search_result_add(result, mail->uid);
 	}
-	mail_free(&mail);
 	mail_search_args_deinit(result->search_args);
 	ret = mailbox_search_deinit(&search_ctx);
 
@@ -164,12 +162,10 @@ int index_search_result_update_appends(struct mail_search_result *result,
 
 	/* add all messages matching the search to search result */
 	t = mailbox_transaction_begin(result->box, 0);
-	search_ctx = mailbox_search_init(t, result->search_args, NULL);
+	search_ctx = mailbox_search_init(t, result->search_args, NULL, 0, NULL);
 
-	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(search_ctx, mail))
+	while (mailbox_search_next(search_ctx, &mail))
 		mailbox_search_result_add(result, mail->uid);
-	mail_free(&mail);
 
 	ret = mailbox_search_deinit(&search_ctx);
 	if (mailbox_transaction_commit(&t) < 0)
