@@ -112,7 +112,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
 		return mail_set_aborted(mail);
 
-	if (index_mail_get_access_part(imail) != 0 &&
+	if (imail->data.access_part != 0 &&
 	    imail->data.stream == NULL) {
 		/* we're going to open the mail anyway */
 		struct istream *input;

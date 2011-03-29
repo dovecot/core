@@ -812,34 +812,13 @@ static void index_mail_stream_destroy_callback(struct index_mail *mail)
 	mail->data.destroying_stream = FALSE;
 }
 
-enum index_mail_access_part index_mail_get_access_part(struct index_mail *mail)
-{
-	struct mail *_mail = &mail->mail.mail;
-	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
-
-	if ((mail->data.access_part & (READ_HDR | PARSE_HDR)) != 0 &&
-	    (mail->data.access_part & (READ_BODY | PARSE_BODY)) != 0)
-		return mail->data.access_part;
-
-	/* lazy virtual size access check */
-	if ((mail->wanted_fields & MAIL_FETCH_VIRTUAL_SIZE) != 0) {
-		const unsigned int cache_field =
-			cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx;
-
-		if (mail_cache_field_exists(_mail->transaction->cache_view,
-					    _mail->seq, cache_field) <= 0)
-			mail->data.access_part |= READ_HDR | READ_BODY;
-	}
-	return mail->data.access_part;
-}
-
 void index_mail_set_read_buffer_size(struct mail *_mail, struct istream *input)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	unsigned int block_size;
 
 	i_stream_set_max_buffer_size(input, MAIL_READ_FULL_BLOCK_SIZE);
-	block_size = (index_mail_get_access_part(mail) & READ_BODY) != 0 ?
+	block_size = (mail->data.access_part & (READ_BODY | PARSE_BODY)) != 0 ?
 		MAIL_READ_FULL_BLOCK_SIZE : MAIL_READ_HDR_BLOCK_SIZE;
 	i_stream_set_init_buffer_size(input, block_size);
 }
@@ -875,7 +854,7 @@ int index_mail_init_stream(struct index_mail *mail,
 	if (hdr_size != NULL || body_size != NULL) {
 		i_stream_seek(data->stream, 0);
 		if (!data->hdr_size_set) {
-			if ((index_mail_get_access_part(mail) & PARSE_HDR) != 0) {
+			if ((data->access_part & PARSE_HDR) != 0) {
 				(void)get_cached_parts(mail);
 				if (index_mail_parse_headers(mail, NULL) < 0)
 					return -1;
@@ -896,7 +875,7 @@ int index_mail_init_stream(struct index_mail *mail,
 		if (!data->body_size_set) {
 			i_stream_seek(data->stream,
 				      data->hdr_size.physical_size);
-			if ((index_mail_get_access_part(mail) & PARSE_BODY) != 0) {
+			if ((data->access_part & PARSE_BODY) != 0) {
 				if (index_mail_parse_body(mail, 0) < 0)
 					return -1;
 			} else {
@@ -1203,7 +1182,7 @@ static void check_envelope(struct index_mail *mail)
 		mail->ibox->cache_fields[MAIL_CACHE_IMAP_ENVELOPE].idx;
 	unsigned int cache_field_hdr;
 
-	if ((index_mail_get_access_part(mail) & PARSE_HDR) != 0) {
+	if ((mail->data.access_part & PARSE_HDR) != 0) {
 		mail->data.save_envelope = TRUE;
 		return;
 	}
@@ -1256,10 +1235,13 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		(void)index_mail_get_fixed_field(mail, MAIL_CACHE_FLAGS,
 						 &data->cache_flags,
 						 sizeof(data->cache_flags));
-		mail->mail.mail.has_nuls =
+		_mail->has_nuls =
 			(data->cache_flags & MAIL_CACHE_FLAG_HAS_NULS) != 0;
-		mail->mail.mail.has_no_nuls =
+		_mail->has_no_nuls =
 			(data->cache_flags & MAIL_CACHE_FLAG_HAS_NO_NULS) != 0;
+		/* we currently don't forcibly set the nul state. if it's not
+		   already cached, the caller can figure out itself what to
+		   do when neither is set */
 	}
 
 	/* see if wanted_fields can tell us if we need to read/parse
@@ -1335,6 +1317,21 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		if (!_mail->saving && _mail->uid < hdr->next_uid)
 			(void)mail_get_stream(_mail, NULL, NULL, &input);
 	}
+
+	if ((mail->wanted_fields & MAIL_FETCH_VIRTUAL_SIZE) != 0 &&
+	    _mail->lookup_abort == MAIL_LOOKUP_ABORT_NEVER &&
+	    ((data->access_part & (READ_HDR | PARSE_HDR)) == 0 ||
+	      (data->access_part & (READ_BODY | PARSE_BODY)) == 0)) {
+		/* we want virtual size, and we'd prefer not to read the entire
+		   message for it. see if it's possible. */
+		uoff_t vsize;
+
+		_mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
+		if (mail_get_virtual_size(_mail, &vsize) <= 0)
+			mail->data.access_part |= READ_HDR | READ_BODY;
+		_mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
+	}
+
 	mail->data.initialized = TRUE;
 }
 
