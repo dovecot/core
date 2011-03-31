@@ -1068,6 +1068,7 @@ void index_storage_search_init_context(struct index_search_context *ctx,
 				       struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct mailbox_status status;
+	struct index_mail *imail;
 
 	ctx->mail_ctx.transaction = t;
 	ctx->box = t->box;
@@ -1077,9 +1078,6 @@ void index_storage_search_init_context(struct index_search_context *ctx,
 	ctx->next_time_check_cost = SEARCH_INITIAL_MAX_COST;
 	if (gettimeofday(&ctx->last_nonblock_timeval, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
-
-	ctx->mail = mail_alloc(t, wanted_fields, wanted_headers);
-	((struct index_mail *)ctx->mail)->search_mail = TRUE;
 
 	mailbox_get_open_status(t->box, STATUS_MESSAGES, &status);
 	ctx->mail_ctx.progress_max = status.messages;
@@ -1101,6 +1099,13 @@ void index_storage_search_init_context(struct index_search_context *ctx,
 				       &ctx->extra_wanted_fields,
 				       &ctx->extra_wanted_headers);
 	}
+
+	ctx->mail = mail_alloc(t, wanted_fields, wanted_headers);
+	imail = (struct index_mail *)ctx->mail;
+	imail->search_mail = TRUE;
+	imail->mail.stats_track = TRUE;
+	imail->mail.extra_wanted_fields = ctx->extra_wanted_fields;
+	imail->mail.extra_wanted_headers = ctx->extra_wanted_headers;
 
 	search_get_seqset(ctx, status.messages, args->args);
 	(void)mail_search_args_foreach(args->args, search_init_arg, ctx);
@@ -1354,43 +1359,25 @@ static bool search_would_block(struct index_search_context *ctx)
 	return ret;
 }
 
-bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
-					struct mail **mail_r, bool *tryagain_r)
+static int search_more(struct index_search_context *ctx,
+		       struct mail *mail)
 {
-        struct index_search_context *ctx = (struct index_search_context *)_ctx;
+	struct mail_search_context *_ctx = &ctx->mail_ctx;
 	struct mailbox *box = _ctx->transaction->box;
-	struct mail *mail = ctx->mail;
 	struct mail_private *mail_private = (struct mail_private *)mail;
 	unsigned long long cost1, cost2;
-	bool old_stats_track, match = FALSE;
-
-	*mail_r = mail;
-	*tryagain_r = FALSE;
-
-	if (ctx->sorted) {
-		/* everything searched at this point already. just returning
-		   matches from sort list */
-		if (!index_sort_list_next(ctx->mail_ctx.sort_program, mail))
-			return FALSE;
-		return TRUE;
-	}
+	bool match = FALSE;
 
 	if (search_would_block(ctx)) {
 		/* this lookup is useful when a large number of
 		   messages match */
-		*tryagain_r = TRUE;
-		return FALSE;
+		return 0;
 	}
-
-	mail_private->extra_wanted_fields = ctx->extra_wanted_fields;
-	mail_private->extra_wanted_headers = ctx->extra_wanted_headers;
 
 	if (ioloop_time - ctx->last_notify.tv_sec >=
 	    SEARCH_NOTIFY_INTERVAL_SECS)
 		index_storage_search_notify(box, ctx);
 
-	old_stats_track = mail_private->stats_track;
-	mail_private->stats_track = TRUE;
 	cost1 = search_mail_get_cost(mail_private);
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
@@ -1398,51 +1385,78 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 
 		T_BEGIN {
 			match = search_match_next(ctx);
-
-			if (mail->expunged)
-				_ctx->seen_lost_data = TRUE;
-
-			if (!match &&
-			    search_has_static_nonmatches(_ctx->args->args)) {
-				/* if there are saved search results remember
-				   that this message never matches */
-				mailbox_search_results_never(_ctx, mail->uid);
-			}
 		} T_END;
+		ctx->imail = NULL;
+
+		if (mail->expunged)
+			_ctx->seen_lost_data = TRUE;
+
+		if (!match && search_has_static_nonmatches(_ctx->args->args)) {
+			/* if there are saved search results remember
+			   that this message never matches */
+			mailbox_search_results_never(_ctx, mail->uid);
+		}
+
 		cost2 = search_mail_get_cost(mail_private);
 		ctx->cost += cost2 - cost1;
 		cost1 = cost2;
 
 		mail_search_args_reset(_ctx->args->args, FALSE);
 
-		if (match) {
-			if (_ctx->sort_program == NULL)
-				break;
-
-			index_sort_list_add(_ctx->sort_program, mail);
-		}
-		match = FALSE;
-
-		if (search_would_block(ctx)) {
-			*tryagain_r = TRUE;
-			break;
-		}
+		if (match)
+			return 1;
+		if (search_would_block(ctx))
+			return 0;
 	}
-	ctx->imail = NULL;
-	mail_private->stats_track = old_stats_track;
-	mail_private->extra_wanted_fields = 0;
-	mail_private->extra_wanted_headers = NULL;
+	return -1;
+}
 
-	if (!match && _ctx->sort_program != NULL &&
-	    !*tryagain_r && !ctx->failed) {
+bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
+					struct mail **mail_r, bool *tryagain_r)
+{
+        struct index_search_context *ctx = (struct index_search_context *)_ctx;
+	struct mail *mail = ctx->mail;
+	uint32_t seq;
+	int ret;
+
+	*tryagain_r = FALSE;
+
+	if (_ctx->sort_program == NULL) {
+		ret = search_more(ctx, mail);
+		if (ret == 0) {
+			*tryagain_r = TRUE;
+			return FALSE;
+		}
+		if (ret < 0)
+			return FALSE;
+		*mail_r = mail;
+		return TRUE;
+	}
+
+	if (!ctx->sorted) {
+		while ((ret = search_more(ctx, mail)) > 0)
+			index_sort_list_add(_ctx->sort_program, mail);
+
+		if (ret == 0) {
+			*tryagain_r = TRUE;
+			return FALSE;
+		}
 		/* finished searching the messages. now sort them and start
 		   returning the messages. */
 		ctx->sorted = TRUE;
 		index_sort_list_finish(_ctx->sort_program);
-		return index_storage_search_next_nonblock(_ctx, mail_r,
-							  tryagain_r);
+		if (ctx->failed)
+			return FALSE;
 	}
-	return !ctx->failed && match;
+
+	/* everything searched at this point already. just returning
+	   matches from sort list */
+	if (!index_sort_list_next(_ctx->sort_program, &seq))
+		return FALSE;
+
+	mail_set_seq(mail, seq);
+	*mail_r = mail;
+	return TRUE;
 }
 
 bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)

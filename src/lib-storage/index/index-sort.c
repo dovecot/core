@@ -203,7 +203,7 @@ void index_sort_list_finish(struct mail_search_sort_program *program)
 }
 
 bool index_sort_list_next(struct mail_search_sort_program *program,
-			  struct mail *mail)
+			  uint32_t *seq_r)
 {
 	const uint32_t *seqp;
 
@@ -211,7 +211,7 @@ bool index_sort_list_next(struct mail_search_sort_program *program,
 		return FALSE;
 
 	seqp = array_idx(&program->seqs, program->iter_idx++);
-	mail_set_seq(mail, *seqp);
+	*seq_r = *seqp;
 	return TRUE;
 }
 
