@@ -897,7 +897,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 			*p = set->username_translation_map[*p & 0xff];
 		if (set->username_chars_map[*p & 0xff] == 0) {
 			*error_r = t_strdup_printf(
-				"Username contains disallowed character: "
+				"Username character disallowed by auth_username_chars: "
 				"0x%02x (username: %s)", *p,
 				str_sanitize(username, 128));
 			return NULL;
