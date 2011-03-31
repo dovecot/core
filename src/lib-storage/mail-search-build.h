@@ -10,19 +10,22 @@ struct mail_search_build_context {
 	pool_t pool;
 	struct mail_search_register *reg;
 	struct mail_search_parser *parser;
+	const char *charset;
 
 	struct mail_search_arg *parent;
 	/* error is either here or in parser */
 	const char *_error;
+	bool unknown_charset;
 };
 
 /* Start building a new search query. Use mail_search_args_unref() to
    free it. */
 struct mail_search_args *mail_search_build_init(void);
 
-/* Convert IMAP SEARCH command compatible parameters to mail_search_args. */
+/* Convert IMAP SEARCH command compatible parameters to mail_search_args.
+   If charset is unknown, it's changed to NULL. */
 int mail_search_build(struct mail_search_register *reg,
-		      struct mail_search_parser *parser, const char *charset,
+		      struct mail_search_parser *parser, const char **charset,
 		      struct mail_search_args **args_r, const char **error_r);
 
 /* Add new search arg with given type. */
@@ -34,6 +37,11 @@ void mail_search_build_add_all(struct mail_search_args *args);
 /* Add a sequence set to search args. */
 void mail_search_build_add_seqset(struct mail_search_args *args,
 				  uint32_t seq1, uint32_t seq2);
+
+/* Convert input string into UTF-8 decomposed titlecase, suitable for
+   message_search_init() */
+int mail_search_build_get_utf8_dtc(struct mail_search_build_context *ctx,
+				   const char *input, const char **output_r);
 
 struct mail_search_arg *
 mail_search_build_new(struct mail_search_build_context *ctx,

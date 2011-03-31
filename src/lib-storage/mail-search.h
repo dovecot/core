@@ -106,7 +106,6 @@ struct mail_search_args {
 	pool_t pool;
 	struct mailbox *box;
 	struct mail_search_arg *args;
-	const char *charset;
 
 	unsigned int simplified:1;
 	unsigned int have_inthreads:1;

@@ -110,7 +110,6 @@ mail_search_args_init_sub(struct mail_search_args *args,
 					      struct mail_search_args, 1);
 				thread_args->pool = args->pool;
 				thread_args->args = arg->value.subargs;
-				thread_args->charset = args->charset;
 				thread_args->simplified = TRUE;
 				/* simplification should have unnested all
 				   inthreads, so we'll assume that
@@ -344,7 +343,6 @@ mail_search_args_dup(const struct mail_search_args *args)
 	struct mail_search_args *new_args;
 
 	new_args = mail_search_build_init();
-	new_args->charset = p_strdup(new_args->pool, args->charset);
 	new_args->simplified = args->simplified;
 	new_args->have_inthreads = args->have_inthreads;
 	new_args->args = mail_search_arg_dup(new_args->pool, args->args);
@@ -894,9 +892,6 @@ bool mail_search_args_equal(const struct mail_search_args *args1,
 {
 	i_assert(args1->simplified == args2->simplified);
 	i_assert(args1->box == args2->box);
-
-	if (null_strcmp(args1->charset, args2->charset) != 0)
-		return FALSE;
 
 	return mail_search_arg_equals(args1->args, args2->args);
 }

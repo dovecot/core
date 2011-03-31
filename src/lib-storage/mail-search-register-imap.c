@@ -232,8 +232,10 @@ arg_new_header(struct mail_search_build_context *ctx,
 	if (mail_search_parse_string(ctx->parser, &value) < 0)
 		return NULL;
 
+	if (mail_search_build_get_utf8_dtc(ctx, value, &sarg->value.str) < 0)
+		return NULL;
+
 	sarg->hdr_field_name = p_strdup(ctx->pool, hdr_name);
-	sarg->value.str = p_strdup(ctx->pool, value);
 	return sarg;
 }
 
@@ -261,15 +263,33 @@ imap_search_header(struct mail_search_build_context *ctx)
 	return arg_new_header(ctx, SEARCH_HEADER, t_str_ucase(hdr_name));
 }
 
+static struct mail_search_arg *
+arg_new_body(struct mail_search_build_context *ctx,
+	     enum mail_search_arg_type type)
+{
+	struct mail_search_arg *sarg;
+
+	sarg = mail_search_build_str(ctx, type);
+	if (sarg == NULL)
+		return NULL;
+
+	if (mail_search_build_get_utf8_dtc(ctx, sarg->value.str,
+					   &sarg->value.str) < 0)
+		return NULL;
+
+	if (mail_search_parse_skip_next(ctx->parser, "")) {
+		/* optimization: BODY "" matches everything
+		   (but do this only after checking charset and key are ok) */
+		return mail_search_build_new(ctx, SEARCH_ALL);
+	}
+	return sarg;
+}
+
 #define CALLBACK_BODY(_func, _type) \
 static struct mail_search_arg *\
 imap_search_##_func(struct mail_search_build_context *ctx) \
 { \
-	if (mail_search_parse_skip_next(ctx->parser, "")) { \
-		/* optimization: BODY "" matches everything */ \
-		return mail_search_build_new(ctx, SEARCH_ALL); \
-	} \
-	return mail_search_build_str(ctx, _type); \
+	return arg_new_body(ctx, _type); \
 }
 CALLBACK_BODY(body, SEARCH_BODY);
 CALLBACK_BODY(text, SEARCH_TEXT);

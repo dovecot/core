@@ -503,8 +503,7 @@ mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
 void mailbox_header_lookup_ref(struct mailbox_header_lookup_ctx *ctx);
 void mailbox_header_lookup_unref(struct mailbox_header_lookup_ctx **ctx);
 
-/* Initialize new search request. charset specifies the character set used in
-   the search argument strings. If sort_program is non-NULL, the messages are
+/* Initialize new search request. If sort_program is non-NULL, the messages are
    returned in the requested order, otherwise from first to last. */
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,

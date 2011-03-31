@@ -16,8 +16,6 @@ struct index_search_context {
 	struct index_mail *imail;
 	struct mail_thread_context *thread_ctx;
 
-	const char *error;
-
 	struct timeval search_start_time, last_notify;
 	struct timeval last_nonblock_timeval;
 	unsigned long long cost, next_time_check_cost;

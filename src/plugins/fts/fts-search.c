@@ -4,7 +4,6 @@
 #include "array.h"
 #include "str.h"
 #include "seq-range-array.h"
-#include "charset-utf8.h"
 #include "mail-search.h"
 #include "mail-storage-private.h"
 #include "fts-api-private.h"
@@ -48,9 +47,6 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 	struct fts_backend_lookup_context **lookup_ctx_p;
 	enum fts_lookup_flags flags = 0;
 	const char *key;
-	string_t *key_utf8;
-	enum charset_result result;
-	int ret;
 
 	switch (arg->type) {
 	case SEARCH_HEADER:
@@ -63,7 +59,7 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 		if (*key == '\0') {
 			/* we're only checking the existence
 			   of the header. */
-			key = arg->hdr_field_name;
+			key = t_str_ucase(arg->hdr_field_name);
 		}
 		break;
 	case SEARCH_TEXT:
@@ -87,30 +83,19 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 	if (arg->not)
 		flags |= FTS_LOOKUP_FLAG_INVERT;
 
-	/* convert key to titlecase */
-	key_utf8 = t_str_new(128);
-	if (charset_to_utf8_str(fctx->args->charset,
-				CHARSET_FLAG_DECOMP_TITLECASE,
-				key, key_utf8, &result) < 0) {
-		/* unknown charset, can't handle this */
-		ret = 0;
-	} else if (result != CHARSET_RET_OK) {
-		/* let the core code handle this error */
-		ret = 0;
-	} else if (!backend->locked && fts_backend_lock(backend) <= 0)
-		ret = -1;
-	else {
-		ret = 0;
-		if (backend == fctx->fbox->backend_substr)
-			lookup_ctx_p = &fctx->lookup_ctx_substr;
-		else
-			lookup_ctx_p = &fctx->lookup_ctx_fast;
+	if (!backend->locked && fts_backend_lock(backend) <= 0)
+		return -1;
 
-		if (*lookup_ctx_p == NULL)
-			*lookup_ctx_p = fts_backend_lookup_init(backend);
-		fts_backend_lookup_add(*lookup_ctx_p, str_c(key_utf8), flags);
-	}
-	return ret;
+	if (backend == fctx->fbox->backend_substr)
+		lookup_ctx_p = &fctx->lookup_ctx_substr;
+	else
+		lookup_ctx_p = &fctx->lookup_ctx_fast;
+
+	/* note that the key is in UTF-8 decomposed titlecase */
+	if (*lookup_ctx_p == NULL)
+		*lookup_ctx_p = fts_backend_lookup_init(backend);
+	fts_backend_lookup_add(*lookup_ctx_p, key, flags);
+	return 0;
 }
 
 void fts_search_lookup(struct fts_search_context *fctx)

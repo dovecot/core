@@ -123,11 +123,11 @@ doveadm_mail_build_search_args(const char *const args[])
 {
 	struct mail_search_parser *parser;
 	struct mail_search_args *sargs;
-	const char *error;
+	const char *error, *charset = "UTF-8";
 
 	parser = mail_search_parser_init_cmdline(args);
 	if (mail_search_build(mail_search_register_get_human(),
-			      parser, "UTF-8", &sargs, &error) < 0)
+			      parser, &charset, &sargs, &error) < 0)
 		i_fatal("%s", error);
 	mail_search_parser_deinit(&parser);
 	return sargs;

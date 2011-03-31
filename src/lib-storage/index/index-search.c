@@ -23,9 +23,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#define TXT_UNKNOWN_CHARSET "[BADCHARSET] Unknown charset"
-#define TXT_INVALID_SEARCH_KEY "Invalid search key"
-
 #define SEARCH_NOTIFY_INTERVAL_SECS 10
 
 #define SEARCH_COST_DENTRY 3ULL
@@ -40,7 +37,7 @@
 #define SEARCH_RECALC_MIN_USECS 50000
 
 struct search_header_context {
-        struct index_search_context *index_context;
+        struct index_mail *imail;
 	struct mail_search_arg *args;
 
         struct message_header_line *hdr;
@@ -372,31 +369,17 @@ static int search_sent(enum mail_search_arg_type type, time_t search_time,
 }
 
 static struct message_search_context *
-msg_search_arg_context(struct index_search_context *ctx,
-		       struct mail_search_arg *arg)
+msg_search_arg_context(struct mail_search_arg *arg)
 {
-	struct message_search_context *arg_ctx = arg->context;
 	enum message_search_flags flags;
-	int ret;
 
-	if (arg_ctx != NULL)
-		return arg_ctx;
-
-	flags = (arg->type == SEARCH_BODY || arg->type == SEARCH_BODY_FAST) ?
-		MESSAGE_SEARCH_FLAG_SKIP_HEADERS : 0;
-
-	ret = message_search_init(arg->value.str,
-				  ctx->mail_ctx.args->charset, flags,
-				  &arg_ctx);
-	if (ret > 0) {
-		arg->context = arg_ctx;
-		return arg_ctx;
+	if (arg->context == NULL) {
+		flags = (arg->type == SEARCH_BODY ||
+			 arg->type == SEARCH_BODY_FAST) ?
+			MESSAGE_SEARCH_FLAG_SKIP_HEADERS : 0;
+		arg->context = message_search_init(arg->value.str, flags);
 	}
-	if (ret == 0)
-		ctx->error = TXT_UNKNOWN_CHARSET;
-	else
-		ctx->error = TXT_INVALID_SEARCH_KEY;
-	return NULL;
+	return arg->context;
 }
 
 static void compress_lwsp(string_t *dest, const unsigned char *src,
@@ -479,7 +462,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 	hdr.middle_len = 0;
 	block.hdr = &hdr;
 
-	msg_search_ctx = msg_search_arg_context(ctx->index_context, arg);
+	msg_search_ctx = msg_search_arg_context(arg);
 	if (msg_search_ctx == NULL)
 		return;
 
@@ -559,7 +542,7 @@ static void search_header(struct message_header_line *hdr,
 		return;
 
 	if (ctx->parse_headers)
-		index_mail_parse_header(NULL, hdr, ctx->index_context->imail);
+		index_mail_parse_header(NULL, hdr, ctx->imail);
 
 	if (ctx->custom_header || strcasecmp(hdr->name, "Date") == 0) {
 		ctx->hdr = hdr;
@@ -575,9 +558,6 @@ static void search_body(struct mail_search_arg *arg,
 	struct message_search_context *msg_search_ctx;
 	int ret;
 
-	if (ctx->index_ctx->error != NULL)
-		return;
-
 	switch (arg->type) {
 	case SEARCH_BODY:
 	case SEARCH_BODY_FAST:
@@ -588,7 +568,7 @@ static void search_body(struct mail_search_arg *arg,
 		return;
 	}
 
-	msg_search_ctx = msg_search_arg_context(ctx->index_ctx, arg);
+	msg_search_ctx = msg_search_arg_context(arg);
 	if (msg_search_ctx == NULL) {
 		ARG_SET_RESULT(arg, 0);
 		return;
@@ -650,7 +630,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		}
 
 		memset(&hdr_ctx, 0, sizeof(hdr_ctx));
-		hdr_ctx.index_context = ctx;
+		hdr_ctx.imail = ctx->imail;
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
 		hdr_ctx.parse_headers = headers == NULL &&
@@ -1160,12 +1140,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	int ret;
 
-	ret = ctx->failed || ctx->error != NULL ? -1 : 0;
-
-	if (ctx->error != NULL) {
-		mail_storage_set_error(ctx->box->storage,
-				       MAIL_ERROR_PARAMS, ctx->error);
-	}
+	ret = ctx->failed ? -1 : 0;
 
 	mail_search_args_reset(ctx->mail_ctx.args->args, FALSE);
 	(void)mail_search_args_foreach(ctx->mail_ctx.args->args,
@@ -1440,9 +1415,7 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 
 		mail_search_args_reset(_ctx->args->args, FALSE);
 
-		if (ctx->error != NULL)
-			ctx->failed = TRUE;
-		else if (match) {
+		if (match) {
 			if (_ctx->sort_program == NULL)
 				break;
 

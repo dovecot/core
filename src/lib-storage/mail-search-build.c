@@ -1,6 +1,8 @@
 /* Copyright (c) 2002-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
+#include "charset-utf8.h"
 #include "mail-storage-private.h"
 #include "mail-search-register.h"
 #include "mail-search-parser.h"
@@ -128,7 +130,7 @@ static int mail_search_build_list(struct mail_search_build_context *ctx,
 }
 
 int mail_search_build(struct mail_search_register *reg,
-		      struct mail_search_parser *parser, const char *charset,
+		      struct mail_search_parser *parser, const char **charset,
 		      struct mail_search_args **args_r, const char **error_r)
 {
         struct mail_search_build_context ctx;
@@ -139,16 +141,18 @@ int mail_search_build(struct mail_search_register *reg,
 	*error_r = NULL;
 
 	args = mail_search_build_init();
-	args->charset = p_strdup(args->pool, charset);
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = args->pool;
 	ctx.reg = reg;
 	ctx.parser = parser;
+	ctx.charset = p_strdup(ctx.pool, *charset);
 
 	if (mail_search_build_list(&ctx, &root) < 0) {
 		*error_r = ctx._error != NULL ? t_strdup(ctx._error) :
 			t_strdup(mail_search_parser_get_error(parser));
+		if (ctx.unknown_charset)
+			*charset = NULL;
 		pool_unref(&args->pool);
 		return -1;
 	}
@@ -204,4 +208,32 @@ void mail_search_build_add_seqset(struct mail_search_args *args,
 
 	p_array_init(&arg->value.seqset, args->pool, 1);
 	seq_range_array_add_range(&arg->value.seqset, seq1, seq2);
+}
+
+int mail_search_build_get_utf8_dtc(struct mail_search_build_context *ctx,
+				   const char *input, const char **output_r)
+{
+	int ret;
+
+	T_BEGIN {
+		string_t *utf8 = t_str_new(128);
+		enum charset_result result;
+
+		if (charset_to_utf8_str(ctx->charset,
+					CHARSET_FLAG_DECOMP_TITLECASE,
+					input, utf8, &result) < 0) {
+			/* unknown charset */
+			ctx->_error = "Unknown charset";
+			ctx->unknown_charset = TRUE;
+			ret = -1;
+		} else if (result != CHARSET_RET_OK) {
+			/* invalid key */
+			ctx->_error = "Invalid search key";
+			ret = -1;
+		} else {
+			*output_r = p_strdup(ctx->pool, str_c(utf8));
+			ret = 0;
+		}
+	} T_END;
+	return ret;
 }

@@ -1,6 +1,5 @@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-charset \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
