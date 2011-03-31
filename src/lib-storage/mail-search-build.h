@@ -15,6 +15,7 @@ struct mail_search_build_context {
 	struct mail_search_arg *parent;
 	/* error is either here or in parser */
 	const char *_error;
+	bool charset_checked;
 	bool unknown_charset;
 };
 

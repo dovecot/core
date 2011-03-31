@@ -136,6 +136,8 @@ int mail_search_build(struct mail_search_register *reg,
         struct mail_search_build_context ctx;
 	struct mail_search_args *args;
 	struct mail_search_arg *root;
+	const char *str;
+	int ret;
 
 	*args_r = NULL;
 	*error_r = NULL;
@@ -148,7 +150,12 @@ int mail_search_build(struct mail_search_register *reg,
 	ctx.parser = parser;
 	ctx.charset = p_strdup(ctx.pool, *charset);
 
-	if (mail_search_build_list(&ctx, &root) < 0) {
+	ret = mail_search_build_list(&ctx, &root);
+	if (!ctx.charset_checked && ret == 0) {
+		/* make sure we give an error message if charset is invalid */
+		ret = mail_search_build_get_utf8_dtc(&ctx, "", &str);
+	}
+	if (ret < 0) {
 		*error_r = ctx._error != NULL ? t_strdup(ctx._error) :
 			t_strdup(mail_search_parser_get_error(parser));
 		if (ctx.unknown_charset)
@@ -235,5 +242,7 @@ int mail_search_build_get_utf8_dtc(struct mail_search_build_context *ctx,
 			ret = 0;
 		}
 	} T_END;
+
+	ctx->charset_checked = TRUE;
 	return ret;
 }
