@@ -52,7 +52,7 @@ struct imapc_mailbox {
 	struct mail_index_view *sync_view, *delayed_sync_view;
 	struct timeout *to_idle_check, *to_idle_delay;
 
-	struct mail *cur_fetch_mail;
+	ARRAY_DEFINE(fetch_mails, struct imapc_mail *);
 
 	ARRAY_DEFINE(untagged_callbacks, struct imapc_mailbox_event_callback);
 	ARRAY_DEFINE(resp_text_callbacks, struct imapc_mailbox_event_callback);
@@ -78,20 +78,6 @@ int imapc_transaction_save_commit_pre(struct mail_save_context *ctx);
 void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
 					struct mail_index_transaction_commit_result *result);
 void imapc_transaction_save_rollback(struct mail_save_context *ctx);
-
-struct mail_search_context *
-imapc_search_init(struct mailbox_transaction_context *t,
-		  struct mail_search_args *args,
-		  const enum mail_sort_type *sort_program,
-		  enum mail_fetch_field wanted_fields,
-		  struct mailbox_header_lookup_ctx *wanted_headers);
-int imapc_search_deinit(struct mail_search_context *_ctx);
-bool imapc_search_next_nonblock(struct mail_search_context *_ctx,
-				struct mail **mail_r, bool *tryagain_r);
-bool imapc_search_next_update_seq(struct mail_search_context *_ctx);
-void imapc_fetch_mail_update(struct mail *mail,
-			     const struct imapc_untagged_reply *reply,
-			     const struct imap_arg *args);
 
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,

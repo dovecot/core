@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "istream.h"
+#include "imap-envelope.h"
 #include "imapc-mail.h"
 #include "imapc-client.h"
 #include "imapc-storage.h"
@@ -125,12 +126,66 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
+static bool
+imapc_mail_has_headers_in_cache(struct index_mail *mail,
+				struct mailbox_header_lookup_ctx *headers)
+{
+	struct mail *_mail = &mail->mail.mail;
+	unsigned int i;
+
+	for (i = 0; i < headers->count; i++) {
+		if (mail_cache_field_exists(_mail->transaction->cache_view,
+					    _mail->seq, headers->idx[i]) <= 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq)
+{
+	struct imapc_mail *imail = (struct imapc_mail *)_mail;
+	struct index_mail *mail = &imail->imail;
+	struct mailbox_header_lookup_ctx *header_ctx;
+	time_t date;
+	uoff_t size;
+
+	index_mail_set_seq(_mail, seq);
+
+	if ((mail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
+		(void)index_mail_get_received_date(_mail, &date);
+	if ((mail->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0) {
+		if (index_mail_get_physical_size(_mail, &size) < 0)
+			mail->data.access_part |= READ_HDR | READ_BODY;
+	}
+
+	if (mail->data.access_part == 0 && mail->wanted_headers != NULL) {
+		/* see if all wanted headers exist in cache */
+		if (!imapc_mail_has_headers_in_cache(mail, mail->wanted_headers))
+			mail->data.access_part |= PARSE_HDR;
+	}
+	if (mail->data.access_part == 0 &&
+	    (mail->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) != 0) {
+		/* the common code already checked this partially,
+		   but we need a guaranteed correct answer */
+		header_ctx = mailbox_header_lookup_init(_mail->box,
+							imap_envelope_headers);
+		if (!imapc_mail_has_headers_in_cache(mail, header_ctx))
+			mail->data.access_part |= PARSE_HDR;
+		mailbox_header_lookup_unref(&header_ctx);
+	}
+	/* searching code handles prefetching internally,
+	   elsewhere we want to do it immediately */
+	if (!mail->search_mail)
+		(void)imapc_mail_prefetch(_mail);
+}
+
 struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_close,
 	imapc_mail_free,
-	index_mail_set_seq,
+	imapc_mail_set_seq,
 	index_mail_set_uid,
 	index_mail_set_uid_cache_updates,
+	imapc_mail_prefetch,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

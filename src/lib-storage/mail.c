@@ -47,6 +47,13 @@ bool mail_set_uid(struct mail *mail, uint32_t uid)
 	return p->v.set_uid(mail, uid);
 }
 
+bool mail_prefetch(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.prefetch(mail);
+}
+
 enum mail_flags mail_get_flags(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;

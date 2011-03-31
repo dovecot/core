@@ -12,9 +12,13 @@ struct index_search_context {
 	struct mailbox_header_lookup_ctx *extra_wanted_headers;
 
 	uint32_t seq1, seq2;
-	struct mail *mail;
-	struct index_mail *imail;
+	struct mail *cur_mail;
+	struct index_mail *cur_imail;
 	struct mail_thread_context *thread_ctx;
+
+	ARRAY_DEFINE(mails, struct mail *);
+	unsigned int unused_mail_idx;
+	unsigned int max_mails;
 
 	struct timeval search_start_time, last_notify;
 	struct timeval last_nonblock_timeval;
@@ -25,14 +29,8 @@ struct index_search_context {
 	unsigned int have_seqsets:1;
 	unsigned int have_index_args:1;
 	unsigned int have_mailbox_args:1;
-	unsigned int recheck_index_args:1;
 };
 
-void index_storage_search_init_context(struct index_search_context *ctx,
-				       struct mailbox_transaction_context *t,
-				       struct mail_search_args *args,
-				       const enum mail_sort_type *sort_program,
-				       enum mail_fetch_field wanted_fields,
-				       struct mailbox_header_lookup_ctx *wanted_headers);
+struct mail *index_search_get_mail(struct index_search_context *ctx);
 
 #endif

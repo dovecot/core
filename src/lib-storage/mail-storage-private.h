@@ -58,7 +58,9 @@ enum mail_storage_class_flags {
 	/* never use quota for this storage (e.g. virtual mailboxes) */
 	MAIL_STORAGE_CLASS_FLAG_NOQUOTA		= 0x08,
 	/* Storage doesn't need a mail root directory */
-	MAIL_STORAGE_CLASS_FLAG_NO_ROOT		= 0x10
+	MAIL_STORAGE_CLASS_FLAG_NO_ROOT		= 0x10,
+	/* Storage uses one file per message */
+	MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG	= 0x20
 };
 
 struct mail_storage {
@@ -276,6 +278,7 @@ struct mail_vfuncs {
 	void (*set_seq)(struct mail *mail, uint32_t seq);
 	bool (*set_uid)(struct mail *mail, uint32_t uid);
 	void (*set_uid_cache_updates)(struct mail *mail, bool set);
+	bool (*prefetch)(struct mail *mail);
 
 	enum mail_flags (*get_flags)(struct mail *mail);
 	const char *const *(*get_keywords)(struct mail *mail);
@@ -396,6 +399,8 @@ struct mail_search_context {
 
 	struct mail_search_args *args;
 	struct mail_search_sort_program *sort_program;
+	enum mail_fetch_field wanted_fields;
+	struct mailbox_header_lookup_ctx *wanted_headers;
 
 	/* if non-NULL, specifies that a search resulting is being updated.
 	   this can be used as a search optimization: if searched message
@@ -481,6 +486,8 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 void mail_storage_copy_list_error(struct mail_storage *storage,
 				  struct mailbox_list *list);
 
+/* Returns TRUE if everything should already be in memory after this call. */
+bool mail_prefetch(struct mail *mail);
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mailbox_set_deleted(struct mailbox *box);

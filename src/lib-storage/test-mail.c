@@ -53,6 +53,11 @@ static void test_mail_set_uid_cache_updates(struct mail *mail ATTR_UNUSED,
 {
 }
 
+static bool test_mail_prefetch(struct mail *mail ATTR_UNUSED)
+{
+	return TRUE;
+}
+
 static enum mail_flags test_mail_get_flags(struct mail *mail ATTR_UNUSED)
 {
 	return 0;
@@ -207,6 +212,7 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_set_seq,
 	test_mail_set_uid,
 	test_mail_set_uid_cache_updates,
+	test_mail_prefetch,
 
 	test_mail_get_flags,
 	test_mail_get_keywords,

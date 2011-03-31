@@ -18,9 +18,9 @@ libstorage_imapc_la_SOURCES = \
 	imapc-connection.c \
 	imapc-list.c \
 	imapc-mail.c \
+	imapc-mail-fetch.c \
 	imapc-mailbox.c \
 	imapc-save.c \
-	imapc-search.c \
 	imapc-seqmap.c \
 	imapc-settings.c \
 	imapc-sync.c \

@@ -166,8 +166,9 @@ bool virtual_search_next_nonblock(struct mail_search_context *ctx,
 					      vctx->next_result_n, &seq))
 			return FALSE;
 		vctx->next_result_n++;
-		mail_set_seq(ictx->mail, seq);
-		*mail_r = ictx->mail;
+		*mail_r = index_search_get_mail(ictx);
+		i_assert(*mail_r != NULL);
+		mail_set_seq(*mail_r, seq);
 		return TRUE;
 	}
 	i_unreached();

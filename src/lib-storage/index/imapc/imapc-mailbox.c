@@ -6,6 +6,7 @@
 #include "imap-util.h"
 #include "imapc-client.h"
 #include "imapc-seqmap.h"
+#include "imapc-mail.h"
 #include "imapc-sync.h"
 #include "imapc-storage.h"
 
@@ -155,6 +156,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 {
 	uint32_t lseq, rseq = reply->num;
 	struct imapc_seqmap *seqmap;
+	struct imapc_mail *const *mailp;
 	const struct imap_arg *list, *flags_list;
 	const char *atom;
 	const struct mail_index_record *rec = NULL;
@@ -200,9 +202,13 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 	lseq = imapc_seqmap_rseq_to_lseq(seqmap, rseq);
 
-	if (mbox->cur_fetch_mail != NULL && mbox->cur_fetch_mail->seq == lseq) {
-		i_assert(uid == 0 || mbox->cur_fetch_mail->uid == uid);
-		imapc_fetch_mail_update(mbox->cur_fetch_mail, reply, list);
+	array_foreach(&mbox->fetch_mails, mailp) {
+		struct imapc_mail *mail = *mailp;
+
+		if (mail->imail.mail.mail.seq == lseq) {
+			i_assert(uid == 0 || mail->imail.mail.mail.uid == uid);
+			imapc_mail_fetch_update(mail, reply, list);
+		}
 	}
 
 	imapc_mailbox_init_delayed_trans(mbox);

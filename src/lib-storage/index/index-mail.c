@@ -17,6 +17,8 @@
 #include "istream-mail-stats.h"
 #include "index-mail.h"
 
+#include <fcntl.h>
+
 struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ "flags", 0, MAIL_CACHE_FIELD_BITMASK, sizeof(uint32_t), 0 },
 	{ "date.sent", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
@@ -1333,6 +1335,47 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	}
 
 	mail->data.initialized = TRUE;
+}
+
+bool index_mail_prefetch(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+#ifdef HAVE_POSIX_FADVISE
+	struct mail_storage *storage = _mail->box->storage;
+	struct istream *input;
+	off_t len;
+	int fd;
+
+	if ((storage->class_flags & MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG) == 0) {
+		/* we're handling only file-per-msg storages for now. */
+		return TRUE;
+	}
+	if (mail->data.access_part == 0) {
+		/* everything we need is cached */
+		return TRUE;
+	}
+
+	if (mail->data.stream == NULL) {
+		(void)mail_get_stream(_mail, NULL, NULL, &input);
+		if (mail->data.stream == NULL)
+			return TRUE;
+	}
+
+	/* tell OS to start reading the file into memory */
+	fd = i_stream_get_fd(mail->data.stream);
+	if (fd != -1) {
+		if ((mail->data.access_part & (READ_BODY | PARSE_BODY)) != 0)
+			len = 0;
+		else
+			len = MAIL_READ_HDR_BLOCK_SIZE;
+		if (posix_fadvise(fd, 0, len, POSIX_FADV_WILLNEED) < 0) {
+			i_error("posix_fadvise(%s) failed: %m",
+				i_stream_get_name(mail->data.stream));
+		}
+		mail->data.prefetch_sent = TRUE;
+	}
+#endif
+	return !mail->data.prefetch_sent;
 }
 
 bool index_mail_set_uid(struct mail *_mail, uint32_t uid)

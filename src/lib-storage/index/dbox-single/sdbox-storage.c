@@ -348,7 +348,7 @@ struct mail_storage sdbox_storage = {
 
 struct mail_storage dbox_storage = {
 	.name = "dbox", /* alias */
-	.class_flags = 0,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG,
 
 	.v = {
                 NULL,

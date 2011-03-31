@@ -161,6 +161,14 @@ static void virtual_mail_set_uid_cache_updates(struct mail *mail, bool set)
 	p->v.set_uid_cache_updates(vmail->backend_mail, set);
 }
 
+static bool virtual_mail_prefetch(struct mail *mail)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
+
+	return p->v.prefetch(vmail->backend_mail);
+}
+
 static int virtual_mail_handle_lost(struct virtual_mail *vmail)
 {
 	if (!vmail->lost)
@@ -384,6 +392,7 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_set_seq,
 	virtual_mail_set_uid,
 	virtual_mail_set_uid_cache_updates,
+	virtual_mail_prefetch,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

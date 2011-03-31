@@ -592,7 +592,7 @@ bool maildir_is_backend_readonly(struct maildir_mailbox *mbox)
 
 struct mail_storage maildir_storage = {
 	.name = MAILDIR_STORAGE_NAME,
-	.class_flags = 0,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG,
 
 	.v = {
                 maildir_get_setting_parser_info,

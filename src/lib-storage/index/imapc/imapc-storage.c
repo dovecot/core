@@ -282,6 +282,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	p_array_init(&mbox->untagged_callbacks, pool, 16);
 	p_array_init(&mbox->resp_text_callbacks, pool, 16);
 	p_array_init(&mbox->alt_client_boxes, pool, 4);
+	p_array_init(&mbox->fetch_mails, pool, 16);
 	imapc_mailbox_register_callbacks(mbox);
 	return &mbox->box;
 }
@@ -624,10 +625,10 @@ struct mailbox imapc_mailbox = {
 		index_transaction_rollback,
 		NULL,
 		imapc_mail_alloc,
-		imapc_search_init,
-		imapc_search_deinit,
-		imapc_search_next_nonblock,
-		imapc_search_next_update_seq,
+		index_storage_search_init,
+		index_storage_search_deinit,
+		index_storage_search_next_nonblock,
+		index_storage_search_next_update_seq,
 		imapc_save_alloc,
 		imapc_save_begin,
 		imapc_save_continue,

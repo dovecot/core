@@ -379,7 +379,8 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
 	       strtoull strtoll strtouq strtoq \
 	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
-	       walkcontext dirfd clearenv malloc_usable_size glob fallocate)
+	       walkcontext dirfd clearenv malloc_usable_size glob fallocate \
+	       posix_fadvise)
 
 AC_CHECK_LIB(rt, clock_gettime, [
   AC_DEFINE(HAVE_CLOCK_GETTIME,, Define if you have the clock_gettime function)

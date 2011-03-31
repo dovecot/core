@@ -113,6 +113,7 @@ struct index_mail_data {
 	unsigned int destroying_stream:1;
 	unsigned int initialized_wrapper_stream:1;
 	unsigned int destroy_callback_set:1;
+	unsigned int prefetch_sent:1;
 };
 
 struct index_mail {
@@ -156,6 +157,7 @@ void index_mail_init(struct index_mail *mail,
 void index_mail_set_seq(struct mail *mail, uint32_t seq);
 bool index_mail_set_uid(struct mail *mail, uint32_t uid);
 void index_mail_set_uid_cache_updates(struct mail *mail, bool set);
+bool index_mail_prefetch(struct mail *mail);
 void index_mail_close(struct mail *mail);
 void index_mail_free(struct mail *mail);
 
