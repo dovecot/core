@@ -1048,32 +1048,35 @@ wanted_sort_fields_get(struct mailbox *box,
 	*headers_ctx_r = NULL;
 
 	t_array_init(&headers, 8);
-	header = NULL;
-	switch (sort_program[0] & MAIL_SORT_MASK) {
-	case MAIL_SORT_ARRIVAL:
-		*wanted_fields_r |= MAIL_FETCH_RECEIVED_DATE;
-		break;
-	case MAIL_SORT_CC:
-		header = "Cc";
-		break;
-	case MAIL_SORT_DATE:
-		*wanted_fields_r |= MAIL_FETCH_DATE;
-		break;
-	case MAIL_SORT_FROM:
-		header = "From";
-		break;
-	case MAIL_SORT_SIZE:
-		*wanted_fields_r |= MAIL_FETCH_VIRTUAL_SIZE;
-		break;
-	case MAIL_SORT_SUBJECT:
-		header = "Subject";
-		break;
-	case MAIL_SORT_TO:
-		header = "To";
-		break;
+	for (i = 0; sort_program[i] != MAIL_SORT_END; i++) {
+		header = NULL;
+
+		switch (sort_program[i] & MAIL_SORT_MASK) {
+		case MAIL_SORT_ARRIVAL:
+			*wanted_fields_r |= MAIL_FETCH_RECEIVED_DATE;
+			break;
+		case MAIL_SORT_CC:
+			header = "Cc";
+			break;
+		case MAIL_SORT_DATE:
+			*wanted_fields_r |= MAIL_FETCH_DATE;
+			break;
+		case MAIL_SORT_FROM:
+			header = "From";
+			break;
+		case MAIL_SORT_SIZE:
+			*wanted_fields_r |= MAIL_FETCH_VIRTUAL_SIZE;
+			break;
+		case MAIL_SORT_SUBJECT:
+			header = "Subject";
+			break;
+		case MAIL_SORT_TO:
+			header = "To";
+			break;
+		}
+		if (header != NULL)
+			array_append(&headers, &header, 1);
 	}
-	if (header != NULL)
-		array_append(&headers, &header, 1);
 
 	if (wanted_headers != NULL) {
 		for (i = 0; wanted_headers->name[i] != NULL; i++)
