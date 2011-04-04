@@ -4,6 +4,7 @@
 #include "str.h"
 #include "istream.h"
 #include "imap-envelope.h"
+#include "imapc-seqmap.h"
 #include "imapc-mail.h"
 #include "imapc-client.h"
 #include "imapc-storage.h"
@@ -117,8 +118,17 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			return -1;
 
 		if (data->stream == NULL) {
-			mail_storage_set_critical(_mail->box->storage,
-				"imapc: Remote server didn't send BODY[]");
+			struct imapc_mailbox *mbox =
+				(struct imapc_mailbox *)_mail->box;
+			struct imapc_seqmap *seqmap;
+
+			seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
+			if (imapc_seqmap_lseq_to_rseq(seqmap, _mail->seq) == 0)
+				mail_set_expunged(_mail);
+			else if (!_mail->expunged) {
+				mail_storage_set_critical(_mail->box->storage,
+					"imapc: Remote server didn't send BODY[]");
+			}
 			return -1;
 		}
 	}
