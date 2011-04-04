@@ -279,7 +279,6 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 		/* expunging a message in index */
 		imapc_seqmap_expunge(seqmap, rseq);
 		mail_index_expunge(mbox->delayed_sync_trans, lseq);
-		i_assert(array_count(&mbox->delayed_sync_trans->expunges) > 0);
 	} else if (lseq <= mail_index_view_get_messages_count(mbox->delayed_sync_view)) {
 		/* expunging a message that was added to transaction,
 		   but not yet committed. expunging it here takes
