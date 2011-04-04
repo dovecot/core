@@ -317,7 +317,7 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 {
 	struct autocreate_mailbox_list_iterate_context *actx =
 		AUTOCREATE_LIST_CONTEXT(ctx);
-	enum match_result match;
+	enum imap_match_result match;
 
 	memset(&actx->new_info, 0, sizeof(actx->new_info));
 	actx->new_info.ns = ctx->list->ns;
