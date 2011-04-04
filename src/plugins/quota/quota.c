@@ -958,7 +958,6 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 						 QUOTA_NAME_STORAGE_BYTES,
 						 &current, &limit);
 			if (ret > 0) {
-				current += ctx->bytes_used;
 				left = limit < current ? 0 : limit - current;
 				if (ctx->bytes_left > left)
 					ctx->bytes_left = left;
@@ -973,7 +972,6 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 						 QUOTA_NAME_MESSAGES,
 						 &current, &limit);
 			if (ret > 0) {
-				current += ctx->count_used;
 				left = limit < current ? 0 : limit - current;
 				if (ctx->count_left > left)
 					ctx->count_left = left;
