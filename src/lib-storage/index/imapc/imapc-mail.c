@@ -179,8 +179,19 @@ static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq)
 		(void)imapc_mail_prefetch(_mail);
 }
 
+static void imapc_mail_close(struct mail *_mail)
+{
+	struct imapc_mail *imail = (struct imapc_mail *)_mail;
+	struct imapc_storage *storage =
+		(struct imapc_storage *)_mail->box->storage;
+
+	while (imail->fetch_count > 0)
+		imapc_client_run(storage->client);
+	index_mail_close(_mail);
+}
+
 struct mail_vfuncs imapc_mail_vfuncs = {
-	index_mail_close,
+	imapc_mail_close,
 	imapc_mail_free,
 	imapc_mail_set_seq,
 	index_mail_set_uid,

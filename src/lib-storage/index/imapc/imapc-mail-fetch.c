@@ -112,6 +112,24 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	return !mail->imail.data.prefetch_sent;
 }
 
+static bool
+imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
+{
+	if ((fields & MAIL_FETCH_RECEIVED_DATE) != 0) {
+		if (imail->imail.data.received_date == (time_t)-1)
+			return FALSE;
+		fields &= ~MAIL_FETCH_RECEIVED_DATE;
+	}
+	if ((fields & (MAIL_FETCH_STREAM_HEADER |
+		       MAIL_FETCH_STREAM_BODY)) != 0) {
+		if (imail->imail.data.stream == NULL)
+			return FALSE;
+		fields &= ~(MAIL_FETCH_STREAM_HEADER | MAIL_FETCH_STREAM_BODY);
+	}
+	i_assert(fields == 0);
+	return TRUE;
+}
+
 int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields)
 {
 	struct imapc_mail *imail = (struct imapc_mail *)_mail;
@@ -125,7 +143,10 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	if (ret < 0)
 		return -1;
 
-	while (imail->fetch_count > 0)
+	/* we'll continue waiting until we've got all the fields we wanted,
+	   or until all FETCH replies have been received (i.e. some FETCHes
+	   failed) */
+	while (!imapc_mail_have_fields(imail, fields) && imail->fetch_count > 0)
 		imapc_client_run(storage->client);
 	return 0;
 }
