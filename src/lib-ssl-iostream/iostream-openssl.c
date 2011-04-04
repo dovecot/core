@@ -453,7 +453,7 @@ const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 {
-	SSL_CIPHER *cipher;
+	const SSL_CIPHER *cipher;
 #ifdef HAVE_SSL_COMPRESSION
 	const COMP_METHOD *comp;
 #endif
