@@ -51,7 +51,9 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 {
 	struct imapc_mail *mail = (struct imapc_mail *)_mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct mail_index_view *view;
 	string_t *str;
+	uint32_t seq;
 
 	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
 		return -1;
@@ -60,6 +62,16 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	fields &= ~mail->fetching_fields;
 	if (fields == 0)
 		return 0;
+
+	/* if we already know that the mail is expunged,
+	   don't try to FETCH it */
+	view = mbox->delayed_sync_view != NULL ?
+		mbox->delayed_sync_view : mbox->box.view;
+	if (!mail_index_lookup_seq(view, _mail->uid, &seq) ||
+	    mail_index_is_expunged(view, seq)) {
+		mail_set_expunged(_mail);
+		return -1;
+	}
 
 	if ((fields & MAIL_FETCH_STREAM_BODY) != 0)
 		fields |= MAIL_FETCH_STREAM_HEADER;

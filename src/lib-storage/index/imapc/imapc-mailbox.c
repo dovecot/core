@@ -202,13 +202,14 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 	lseq = imapc_seqmap_rseq_to_lseq(seqmap, rseq);
 
+	/* fetch_mails' view is different from sync_view, so we can't compare
+	   their sequences directly. that is why this code supports only
+	   UID FETCH commands which are guaranteed to have UID in the reply. */
 	array_foreach(&mbox->fetch_mails, mailp) {
 		struct imapc_mail *mail = *mailp;
 
-		if (mail->imail.mail.mail.seq == lseq) {
-			i_assert(uid == 0 || mail->imail.mail.mail.uid == uid);
+		if (mail->imail.mail.mail.uid == uid)
 			imapc_mail_fetch_update(mail, reply, list);
-		}
 	}
 
 	imapc_mailbox_init_delayed_trans(mbox);

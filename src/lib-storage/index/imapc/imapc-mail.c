@@ -98,6 +98,25 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	return 0;
 }
 
+static bool imapc_mail_is_expunged(struct mail *_mail)
+{
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_seqmap *seqmap;
+	uint32_t lseq;
+
+	/* first we'll need to convert the mail's sequence to sync_view's
+	   sequence. if there's no sync_view, then no mails have been
+	   expunged. */
+	if (mbox->sync_view == NULL)
+		return FALSE;
+
+	if (!mail_index_lookup_seq(mbox->sync_view, _mail->uid, &lseq))
+		return TRUE;
+
+	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
+	return imapc_seqmap_lseq_to_rseq(seqmap, lseq) == 0;
+}
+
 static int
 imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		      struct message_size *body_size, struct istream **stream_r)
@@ -118,14 +137,9 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			return -1;
 
 		if (data->stream == NULL) {
-			struct imapc_mailbox *mbox =
-				(struct imapc_mailbox *)_mail->box;
-			struct imapc_seqmap *seqmap;
-
-			seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-			if (imapc_seqmap_lseq_to_rseq(seqmap, _mail->seq) == 0)
+			if (_mail->expunged || imapc_mail_is_expunged(_mail))
 				mail_set_expunged(_mail);
-			else if (!_mail->expunged) {
+			else {
 				mail_storage_set_critical(_mail->box->storage,
 					"imapc: Remote server didn't send BODY[]");
 			}
