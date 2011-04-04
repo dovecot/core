@@ -336,12 +336,6 @@ struct mail_private {
 	pool_t pool;
 	ARRAY_DEFINE(module_contexts, union mail_module_context *);
 
-	/* temporary extra wanted fields/headers that should be looked up
-	   automatically if possible. for example sort_program fields during
-	   search. */
-	enum mail_fetch_field extra_wanted_fields;
-	struct mailbox_header_lookup_ctx *extra_wanted_headers;
-
 	/* these statistics are never reset by mail-storage API: */
 
 	unsigned long stats_open_lookup_count;

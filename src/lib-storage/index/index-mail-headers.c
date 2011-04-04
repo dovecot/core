@@ -152,7 +152,6 @@ get_header_field_idx(struct mailbox *box, const char *field,
 bool index_mail_want_parse_headers(struct index_mail *mail)
 {
 	if (mail->wanted_headers != NULL ||
-	    mail->mail.extra_wanted_headers != NULL ||
 	    mail->data.save_bodystructure_header)
 		return TRUE;
 
@@ -220,13 +219,6 @@ void index_mail_parse_header_init(struct index_mail *mail,
 
 	if (mail->wanted_headers != NULL && mail->wanted_headers != headers) {
 		headers = mail->wanted_headers;
-		for (i = 0; i < headers->count; i++) {
-			array_idx_set(&mail->header_match, headers->idx[i],
-				      &mail->header_match_value);
-		}
-	}
-	if (mail->mail.extra_wanted_headers != NULL) {
-		headers = mail->mail.extra_wanted_headers;
 		for (i = 0; i < headers->count; i++) {
 			array_idx_set(&mail->header_match, headers->idx[i],
 				      &mail->header_match_value);

@@ -7,13 +7,10 @@
 #include "bsearch-insert-pos.h"
 #include "hash2.h"
 #include "message-id.h"
-#include "mail-index-private.h"
-#include "mail-index-sync-private.h"
 #include "mail-search.h"
 #include "mail-search-build.h"
 #include "mailbox-search-result-private.h"
 #include "index-storage.h"
-#include "index-search-private.h"
 #include "index-thread-private.h"
 
 #include <stdlib.h>
@@ -298,11 +295,10 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 		NULL
 	};
 	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT(ctx->box);
+	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
-	struct index_search_context *search_ctx_i;
 	struct mail *mail;
-	struct mail_private *pmail;
 	uint32_t last_uid, seq1, seq2;
 	int ret = 0;
 
@@ -318,10 +314,8 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 						    &tbox->msgid_hash);
 	}
 
-	ctx->tmp_mail = mail_alloc(ctx->t, 0, NULL);
-	pmail = (struct mail_private *)ctx->tmp_mail;
-	pmail->extra_wanted_headers =
-		mailbox_header_lookup_init(ctx->box, wanted_headers);
+	headers_ctx = mailbox_header_lookup_init(ctx->box, wanted_headers);
+	ctx->tmp_mail = mail_alloc(ctx->t, 0, headers_ctx);
 
 	/* add all missing UIDs */
 	ctx->strmap_sync = mail_index_strmap_view_sync_init(tbox->strmap_view,
@@ -336,11 +330,8 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq1, seq2);
-	search_ctx = mailbox_search_init(ctx->t, search_args, NULL, 0, NULL);
-
-	search_ctx_i = (struct index_search_context *)search_ctx;
-	search_ctx_i->extra_wanted_headers =
-		mailbox_header_lookup_init(ctx->box, wanted_headers);
+	search_ctx = mailbox_search_init(ctx->t, search_args, NULL,
+					 0, headers_ctx);
 
 	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mail_thread_map_add_mail(ctx, mail) < 0) {
@@ -586,9 +577,6 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 
 static void mail_thread_clear(struct mail_thread_context *ctx)
 {
-	struct mail_private *pmail = (struct mail_private *)ctx->tmp_mail;
-
-	mailbox_header_lookup_unref(&pmail->extra_wanted_headers);
 	mail_free(&ctx->tmp_mail);
 	(void)mailbox_transaction_commit(&ctx->t);
 }

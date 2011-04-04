@@ -1036,41 +1036,55 @@ static int search_build_inthreads(struct index_search_context *ctx,
 static void
 wanted_sort_fields_get(struct mailbox *box,
 		       const enum mail_sort_type *sort_program,
+		       struct mailbox_header_lookup_ctx *wanted_headers,
 		       enum mail_fetch_field *wanted_fields_r,
 		       struct mailbox_header_lookup_ctx **headers_ctx_r)
 {
-	const char *headers[2];
+	ARRAY_TYPE(const_string) headers;
+	const char *header;
+	unsigned int i;
 
 	*wanted_fields_r = 0;
 	*headers_ctx_r = NULL;
 
-	headers[0] = headers[1] = NULL;
+	t_array_init(&headers, 8);
+	header = NULL;
 	switch (sort_program[0] & MAIL_SORT_MASK) {
 	case MAIL_SORT_ARRIVAL:
-		*wanted_fields_r = MAIL_FETCH_RECEIVED_DATE;
+		*wanted_fields_r |= MAIL_FETCH_RECEIVED_DATE;
 		break;
 	case MAIL_SORT_CC:
-		headers[0] = "Cc";
+		header = "Cc";
 		break;
 	case MAIL_SORT_DATE:
-		*wanted_fields_r = MAIL_FETCH_DATE;
+		*wanted_fields_r |= MAIL_FETCH_DATE;
 		break;
 	case MAIL_SORT_FROM:
-		headers[0] = "From";
+		header = "From";
 		break;
 	case MAIL_SORT_SIZE:
-		*wanted_fields_r = MAIL_FETCH_VIRTUAL_SIZE;
+		*wanted_fields_r |= MAIL_FETCH_VIRTUAL_SIZE;
 		break;
 	case MAIL_SORT_SUBJECT:
-		headers[0] = "Subject";
+		header = "Subject";
 		break;
 	case MAIL_SORT_TO:
-		headers[0] = "To";
+		header = "To";
 		break;
 	}
+	if (header != NULL)
+		array_append(&headers, &header, 1);
 
-	if (headers[0] != NULL)
-		*headers_ctx_r = mailbox_header_lookup_init(box, headers);
+	if (wanted_headers != NULL) {
+		for (i = 0; wanted_headers->name[i] != NULL; i++)
+			array_append(&headers, &wanted_headers->name[i], 1);
+	}
+
+	if (array_count(&headers) > 0) {
+		(void)array_append_space(&headers);
+		*headers_ctx_r = mailbox_header_lookup_init(box,
+							array_idx(&headers, 0));
+	}
 }
 
 struct mail_search_context *
@@ -1089,11 +1103,6 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 	ctx->view = t->view;
 	ctx->mail_ctx.args = args;
 	ctx->mail_ctx.sort_program = index_sort_program_init(t, sort_program);
-	ctx->mail_ctx.wanted_fields = wanted_fields;
-	if (wanted_headers != NULL) {
-		ctx->mail_ctx.wanted_headers = wanted_headers;
-		mailbox_header_lookup_ref(wanted_headers);
-	}
 
 	ctx->max_mails = t->box->storage->set->mail_prefetch_count + 1;
 	if (ctx->max_mails == 0)
@@ -1119,10 +1128,14 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 	}
 
 	if (sort_program != NULL) {
-		wanted_sort_fields_get(ctx->box, sort_program,
-				       &ctx->extra_wanted_fields,
-				       &ctx->extra_wanted_headers);
+		wanted_sort_fields_get(ctx->box, sort_program, wanted_headers,
+				       &ctx->mail_ctx.wanted_fields,
+				       &ctx->mail_ctx.wanted_headers);
+	} else if (wanted_headers != NULL) {
+		ctx->mail_ctx.wanted_headers = wanted_headers;
+		mailbox_header_lookup_ref(wanted_headers);
 	}
+	ctx->mail_ctx.wanted_fields |= wanted_fields;
 
 	search_get_seqset(ctx, status.messages, args->args);
 	(void)mail_search_args_foreach(args->args, search_init_arg, ctx);
@@ -1157,8 +1170,6 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 
 	if (ctx->mail_ctx.wanted_headers != NULL)
 		mailbox_header_lookup_unref(&ctx->mail_ctx.wanted_headers);
-	if (ctx->extra_wanted_headers != NULL)
-		mailbox_header_lookup_unref(&ctx->extra_wanted_headers);
 	if (ctx->mail_ctx.sort_program != NULL)
 		index_sort_program_deinit(&ctx->mail_ctx.sort_program);
 	if (ctx->thread_ctx != NULL)
@@ -1456,8 +1467,6 @@ struct mail *index_search_get_mail(struct index_search_context *ctx)
 	imail = (struct index_mail *)mail;
 	imail->search_mail = TRUE;
 	imail->mail.stats_track = TRUE;
-	imail->mail.extra_wanted_fields = ctx->extra_wanted_fields;
-	imail->mail.extra_wanted_headers = ctx->extra_wanted_headers;
 
 	array_append(&ctx->mails, &mail, 1);
 	return mail;
