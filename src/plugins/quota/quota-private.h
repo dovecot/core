@@ -130,7 +130,9 @@ struct quota_transaction_context {
 	struct mailbox *box;
 
 	int64_t bytes_used, count_used;
-	uint64_t bytes_left, count_left;
+	/* how many bytes/mails can be saved until limit is reached.
+	   (set once, not updated by bytes_used/count_used) */
+	uint64_t bytes_ceil, count_ceil;
 
 	struct mail *tmp_mail;
 
