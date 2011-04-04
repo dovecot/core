@@ -51,7 +51,6 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 {
 	struct imapc_mail *mail = (struct imapc_mail *)_mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
-	struct imapc_client_mailbox *client_box;
 	string_t *str;
 
 	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
@@ -64,9 +63,6 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 
 	if ((fields & MAIL_FETCH_STREAM_BODY) != 0)
 		fields |= MAIL_FETCH_STREAM_HEADER;
-
-	if (imapc_mailbox_get_client_box(mbox, &client_box) < 0)
-		return -1;
 
 	str = t_str_new(64);
 	str_printfa(str, "UID FETCH %u (", _mail->uid);
@@ -84,7 +80,8 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	if (mail->fetch_count++ == 0)
 		array_append(&mbox->fetch_mails, &mail, 1);
 
-	imapc_client_mailbox_cmdf(client_box, imapc_mail_prefetch_callback,
+	imapc_client_mailbox_cmdf(mbox->client_box,
+				  imapc_mail_prefetch_callback,
 				  mail, "%1s", str_c(str));
 	mail->imail.data.prefetch_sent = TRUE;
 	return 0;

@@ -322,19 +322,15 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	struct imapc_mailbox *src_mbox = (struct imapc_mailbox *)mail->box;
-	struct imapc_client_mailbox *src_client_box;
 	struct imapc_save_cmd_context sctx;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (_t->box->storage == mail->box->storage) {
 		/* same server, we can use COPY for the mail */
-		if (imapc_mailbox_get_client_box(src_mbox, &src_client_box) < 0)
-			return -1;
-
 		sctx.ret = -2;
 		sctx.ctx = ctx;
-		imapc_client_mailbox_cmdf(src_client_box,
+		imapc_client_mailbox_cmdf(src_mbox->client_box,
 					  imapc_copy_callback, &sctx,
 					  "UID COPY %u %s",
 					  mail->uid, _t->box->name);

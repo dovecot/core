@@ -336,25 +336,6 @@ imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box)
 	return box->seqmap;
 }
 
-void imapc_client_mailbox_lock(struct imapc_client_mailbox *box)
-{
-	i_assert(!box->locked);
-
-	box->locked = TRUE;
-}
-
-void imapc_client_mailbox_unlock(struct imapc_client_mailbox *box)
-{
-	i_assert(box->locked);
-
-	box->locked = FALSE;
-}
-
-bool imapc_client_mailbox_is_locked(struct imapc_client_mailbox *box)
-{
-	return box->locked;
-}
-
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
 {
 	struct imapc_command_reply reply;

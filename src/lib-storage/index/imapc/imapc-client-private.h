@@ -30,8 +30,6 @@ struct imapc_client_mailbox {
 
 	void *untagged_box_context;
 	unsigned int pending_box_command_count;
-
-	unsigned int locked:1;
 };
 
 #endif
