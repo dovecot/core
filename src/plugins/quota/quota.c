@@ -1170,7 +1170,8 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 
 	*too_large_r = FALSE;
 
-	if (ctx->count_left != 0 && ctx->bytes_left >= ctx->bytes_used + size)
+	if ((int64_t)ctx->count_left >= ctx->count_used + 1 &&
+	    (int64_t)ctx->bytes_left >= ctx->bytes_used + (off_t)size)
 		return 1;
 
 	roots = array_get(&ctx->quota->roots, &count);
