@@ -178,4 +178,11 @@ bool mail_search_args_match_mailbox(struct mail_search_args *args,
    guaranteed to have not=FALSE. */
 void mail_search_args_simplify(struct mail_search_args *args);
 
+/* Serialization for search args' results. */
+void mail_search_args_result_serialize(const struct mail_search_args *args,
+				       buffer_t *dest);
+void mail_search_args_result_deserialize(struct mail_search_args *args,
+					 const unsigned char *data,
+					 size_t size);
+
 #endif

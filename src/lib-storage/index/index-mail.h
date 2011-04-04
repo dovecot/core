@@ -88,6 +88,8 @@ struct index_mail_data {
 	enum mail_fetch_field cache_fetch_fields, dont_cache_fetch_fields;
 	unsigned int dont_cache_field_idx;
 
+	buffer_t *search_results;
+
 	struct istream *stream, *filter_stream;
 	struct tee_istream *tee_stream;
 	struct message_size hdr_size, body_size;

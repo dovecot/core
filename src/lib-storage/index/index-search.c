@@ -53,12 +53,14 @@ struct search_body_context {
 	struct message_part *part;
 };
 
-static const enum message_header_parser_flags hdr_parser_flags =
-	MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
-
 static void search_parse_msgset_args(unsigned int messages_count,
 				     struct mail_search_arg *args,
 				     uint32_t *seq1_r, uint32_t *seq2_r);
+
+static void search_none(struct mail_search_arg *arg ATTR_UNUSED,
+			struct search_body_context *ctx ATTR_UNUSED)
+{
+}
 
 static void search_init_arg(struct mail_search_arg *arg,
 			    struct index_search_context *ctx)
@@ -590,93 +592,104 @@ static void search_body(struct mail_search_arg *arg,
 }
 
 static int search_arg_match_text(struct mail_search_arg *args,
-				 struct index_search_context *ctx, int ret)
+				 struct index_search_context *ctx)
 {
-	struct istream *input;
+	const enum message_header_parser_flags hdr_parser_flags =
+		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
+	struct index_mail *imail = (struct index_mail *)ctx->cur_mail;
+	struct istream *input = NULL;
 	struct mailbox_header_lookup_ctx *headers_ctx;
-	struct mail_search_arg *arg;
+	struct search_header_context hdr_ctx;
+	struct search_body_context body_ctx;
 	const char *const *headers;
-	bool have_headers, have_body;
+	bool have_headers, have_body, failed = FALSE;
+	int ret;
 
 	/* first check what we need to use */
 	headers = mail_search_args_analyze(args, &have_headers, &have_body);
 	if (!have_headers && !have_body)
-		return ret;
+		return -1;
+
+	memset(&hdr_ctx, 0, sizeof(hdr_ctx));
+	/* hdr_ctx.imail is different from imail for mails in
+	   virtual mailboxes */
+	hdr_ctx.imail = (struct index_mail *)mail_get_real_mail(ctx->cur_mail);
+	hdr_ctx.custom_header = TRUE;
+	hdr_ctx.args = args;
+
+	headers_ctx = headers == NULL ? NULL :
+		mailbox_header_lookup_init(ctx->box, headers);
+	if (headers != NULL &&
+	    (!have_body ||
+	     ctx->cur_mail->lookup_abort == MAIL_LOOKUP_ABORT_NEVER)) {
+		/* try to look up the specified headers from cache */
+		i_assert(*headers != NULL);
+
+		if (mail_get_header_stream(ctx->cur_mail, headers_ctx,
+					   &input) < 0)
+			failed = TRUE;
+		else {
+			message_parse_header(input, NULL, hdr_parser_flags,
+					     search_header, &hdr_ctx);
+		}
+		input = NULL;
+	} else if (have_headers) {
+		/* we need to read the entire header */
+		if (mail_get_stream(ctx->cur_mail, NULL, NULL, &input) < 0)
+			failed = TRUE;
+		else {
+			hdr_ctx.parse_headers =
+				index_mail_want_parse_headers(hdr_ctx.imail);
+			if (hdr_ctx.parse_headers) {
+				index_mail_parse_header_init(hdr_ctx.imail,
+							     headers_ctx);
+			}
+			message_parse_header(input, NULL, hdr_parser_flags,
+					     search_header, &hdr_ctx);
+		}
+	}
+	if (headers_ctx != NULL)
+		mailbox_header_lookup_unref(&headers_ctx);
+
+	if (failed) {
+		/* opening mail failed. maybe because of lookup_abort.
+		   update access_parts for prefetching */
+		if (have_body)
+			imail->data.access_part |= READ_HDR | READ_BODY;
+		else 
+			imail->data.access_part |= READ_HDR;
+		return -1;
+	}
 
 	if (have_headers) {
-		struct search_header_context hdr_ctx;
+		/* see if the header search succeeded in finishing the search */
+		ret = mail_search_args_foreach(args, search_none, NULL);
+		if (ret >= 0 || !have_body)
+			return ret;
+	}
 
-		if (have_body &&
-		    ctx->cur_mail->lookup_abort == MAIL_LOOKUP_ABORT_NEVER) {
-			/* just open the mail bypassing any caching, since
-			   we're going to read through the body anyway */
-			headers = NULL;
-		}
+	i_assert(have_body);
 
-		if (headers == NULL) {
-			headers_ctx = NULL;
-			if (mail_get_stream(ctx->cur_mail, NULL, NULL, &input) < 0)
-				return -1;
-		} else {
-			/* FIXME: do this once in init */
-			i_assert(*headers != NULL);
-			headers_ctx =
-				mailbox_header_lookup_init(ctx->box, headers);
-			if (mail_get_header_stream(ctx->cur_mail, headers_ctx,
-						   &input) < 0) {
-				mailbox_header_lookup_unref(&headers_ctx);
-				return -1;
-			}
-		}
+	if (ctx->cur_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		imail->data.access_part |= READ_HDR | READ_BODY;
+		return -1;
+	}
 
-		memset(&hdr_ctx, 0, sizeof(hdr_ctx));
-		hdr_ctx.imail = (struct index_mail *)mail_get_real_mail(ctx->cur_mail);
-		hdr_ctx.custom_header = TRUE;
-		hdr_ctx.args = args;
-		hdr_ctx.parse_headers = headers == NULL &&
-			index_mail_want_parse_headers(hdr_ctx.imail);
-
-		if (hdr_ctx.parse_headers)
-			index_mail_parse_header_init(hdr_ctx.imail, headers_ctx);
-		message_parse_header(input, NULL, hdr_parser_flags,
-				     search_header, &hdr_ctx);
-		if (headers_ctx != NULL)
-			mailbox_header_lookup_unref(&headers_ctx);
-	} else {
+	if (input == NULL) {
+		/* we didn't search headers. */
 		struct message_size hdr_size;
 
 		if (mail_get_stream(ctx->cur_mail, &hdr_size, NULL, &input) < 0)
 			return -1;
-
 		i_stream_seek(input, hdr_size.physical_size);
 	}
 
-	if (have_body) {
-		struct search_body_context body_ctx;
+	memset(&body_ctx, 0, sizeof(body_ctx));
+	body_ctx.index_ctx = ctx;
+	body_ctx.input = input;
+	(void)mail_get_parts(ctx->cur_mail, &body_ctx.part);
 
-		if (ctx->cur_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
-			return -1;
-
-		memset(&body_ctx, 0, sizeof(body_ctx));
-		body_ctx.index_ctx = ctx;
-		body_ctx.input = input;
-		(void)mail_get_parts(ctx->cur_mail, &body_ctx.part);
-
-		ret = mail_search_args_foreach(args, search_body, &body_ctx);
-	} else {
-		/* see if we have a decision */
-		ret = 1;
-		arg = ctx->mail_ctx.args->args;
-		for (; arg != NULL; arg = arg->next) {
-			if (arg->result == 0) {
-				ret = 0;
-				break;
-			}
-			if (arg->result < 0)
-				ret = -1;
-		}
-	}
-	return ret;
+	return mail_search_args_foreach(args, search_body, &body_ctx);
 }
 
 static bool search_msgset_fix_limits(unsigned int messages_count,
@@ -1164,71 +1177,32 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	return ret;
 }
 
-static bool search_match_next(struct index_search_context *ctx)
+static unsigned long long search_mail_get_cost(struct mail_private *mail)
 {
-	static enum mail_lookup_abort cache_lookups[] = {
-		MAIL_LOOKUP_ABORT_NOT_IN_CACHE,
-		MAIL_LOOKUP_ABORT_READ_MAIL,
-		MAIL_LOOKUP_ABORT_NEVER
-	};
-	unsigned int i;
-	int ret = -1;
-
-	if (ctx->have_mailbox_args) {
-		/* check that the mailbox name matches.
-		   this makes sense only with virtual mailboxes. */
-		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
-					       search_mailbox_arg, ctx);
-		if (ret >= 0)
-			return ret > 0;
-	}
-
-	/* avoid doing extra work for as long as possible */
-	for (i = 0; i < N_ELEMENTS(cache_lookups) && ret < 0; i++) {
-		ctx->cur_mail->lookup_abort = cache_lookups[i];
-		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
-					       search_cached_arg, ctx);
-		if (ret >= 0)
-			break;
-
-		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx, ret);
-		if (ret >= 0)
-			break;
-	}
-	ctx->cur_mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
-	return ret > 0;
+	return mail->stats_open_lookup_count * SEARCH_COST_DENTRY +
+		mail->stats_stat_lookup_count * SEARCH_COST_DENTRY +
+		mail->stats_fstat_lookup_count * SEARCH_COST_ATTR +
+		mail->stats_cache_hit_count * SEARCH_COST_CACHE +
+		mail->stats_files_read_count * SEARCH_COST_FILES_READ +
+		(mail->stats_files_read_bytes/1024) * SEARCH_COST_KBYTE;
 }
 
-static void index_storage_search_notify(struct mailbox *box,
-					struct index_search_context *ctx)
+static int search_match_once(struct index_search_context *ctx)
 {
-	float percentage;
-	unsigned int msecs, secs;
+	struct mail_private *mail_private =
+		(struct mail_private *)ctx->cur_mail;
+	unsigned long long cost1, cost2;
+	int ret;
 
-	if (ctx->last_notify.tv_sec == 0) {
-		/* set the search time in here, in case a plugin
-		   already spent some time indexing the mailbox */
-		ctx->search_start_time = ioloop_timeval;
-	} else if (box->storage->callbacks.notify_ok != NULL &&
-		   !ctx->mail_ctx.progress_hidden) {
-		percentage = ctx->mail_ctx.progress_cur * 100.0 /
-			ctx->mail_ctx.progress_max;
-		msecs = timeval_diff_msecs(&ioloop_timeval,
-					   &ctx->search_start_time);
-		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
+	cost1 = search_mail_get_cost(mail_private);
+	ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
+				       search_cached_arg, ctx);
+	if (ret < 0)
+		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx);
 
-		T_BEGIN {
-			const char *text;
-
-			text = t_strdup_printf("Searched %d%% of the mailbox, "
-					       "ETA %d:%02d", (int)percentage,
-					       secs/60, secs%60);
-			box->storage->callbacks.
-				notify_ok(box, text,
-					  box->storage->callback_context);
-		} T_END;
-	}
-	ctx->last_notify = ioloop_timeval;
+	cost2 = search_mail_get_cost(mail_private);
+	ctx->cost += cost2 - cost1;
+	return ret;
 }
 
 static bool search_arg_is_static(struct mail_search_arg *arg)
@@ -1293,14 +1267,82 @@ static bool search_has_static_nonmatches(struct mail_search_arg *arg)
 	return FALSE;
 }
 
-static unsigned long long search_mail_get_cost(struct mail_private *mail)
+static void search_match_finish(struct index_search_context *ctx, int match)
 {
-	return mail->stats_open_lookup_count * SEARCH_COST_DENTRY +
-		mail->stats_stat_lookup_count * SEARCH_COST_DENTRY +
-		mail->stats_fstat_lookup_count * SEARCH_COST_ATTR +
-		mail->stats_cache_hit_count * SEARCH_COST_CACHE +
-		mail->stats_files_read_count * SEARCH_COST_FILES_READ +
-		(mail->stats_files_read_bytes/1024) * SEARCH_COST_KBYTE;
+	if (ctx->cur_mail->expunged)
+		ctx->mail_ctx.seen_lost_data = TRUE;
+
+	if (match == 0 &&
+	    search_has_static_nonmatches(ctx->mail_ctx.args->args)) {
+		/* if there are saved search results remember
+		   that this message never matches */
+		mailbox_search_results_never(&ctx->mail_ctx,
+					     ctx->cur_mail->uid);
+	}
+}
+
+static int search_match_next(struct index_search_context *ctx)
+{
+	static enum mail_lookup_abort cache_lookups[] = {
+		MAIL_LOOKUP_ABORT_NOT_IN_CACHE,
+		MAIL_LOOKUP_ABORT_READ_MAIL,
+		MAIL_LOOKUP_ABORT_NEVER
+	};
+	unsigned int i, n = N_ELEMENTS(cache_lookups);
+	int ret = -1;
+
+	if (ctx->have_mailbox_args) {
+		/* check that the mailbox name matches.
+		   this makes sense only with virtual mailboxes. */
+		ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
+					       search_mailbox_arg, ctx);
+	}
+
+	/* avoid doing extra work for as long as possible */
+	if (ctx->max_mails > 1) {
+		/* we're doing prefetching. if we have to read the mail,
+		   do a prefetch first and the final search later */
+		n--;
+	}
+	for (i = 0; i < n && ret < 0; i++) {
+		ctx->cur_mail->lookup_abort = cache_lookups[i];
+		ret = search_match_once(ctx);
+	}
+	ctx->cur_mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
+	search_match_finish(ctx, ret);
+	return ret;
+}
+
+static void index_storage_search_notify(struct mailbox *box,
+					struct index_search_context *ctx)
+{
+	float percentage;
+	unsigned int msecs, secs;
+
+	if (ctx->last_notify.tv_sec == 0) {
+		/* set the search time in here, in case a plugin
+		   already spent some time indexing the mailbox */
+		ctx->search_start_time = ioloop_timeval;
+	} else if (box->storage->callbacks.notify_ok != NULL &&
+		   !ctx->mail_ctx.progress_hidden) {
+		percentage = ctx->mail_ctx.progress_cur * 100.0 /
+			ctx->mail_ctx.progress_max;
+		msecs = timeval_diff_msecs(&ioloop_timeval,
+					   &ctx->search_start_time);
+		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
+
+		T_BEGIN {
+			const char *text;
+
+			text = t_strdup_printf("Searched %d%% of the mailbox, "
+					       "ETA %d:%02d", (int)percentage,
+					       secs/60, secs%60);
+			box->storage->callbacks.
+				notify_ok(box, text,
+					  box->storage->callback_context);
+		} T_END;
+	}
+	ctx->last_notify = ioloop_timeval;
 }
 
 static bool search_would_block(struct index_search_context *ctx)
@@ -1353,9 +1395,8 @@ static int search_more_with_mail(struct index_search_context *ctx,
 {
 	struct mail_search_context *_ctx = &ctx->mail_ctx;
 	struct mailbox *box = _ctx->transaction->box;
-	struct mail_private *mail_private = (struct mail_private *)mail;
-	unsigned long long cost1, cost2;
-	bool match;
+	struct index_mail *imail = (struct index_mail *)mail;
+	int match;
 
 	if (search_would_block(ctx)) {
 		/* this lookup is useful when a large number of
@@ -1367,7 +1408,6 @@ static int search_more_with_mail(struct index_search_context *ctx,
 	    SEARCH_NOTIFY_INTERVAL_SECS)
 		index_storage_search_notify(box, ctx);
 
-	cost1 = search_mail_get_cost(mail_private);
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
 
@@ -1377,22 +1417,19 @@ static int search_more_with_mail(struct index_search_context *ctx,
 		} T_END;
 		ctx->cur_mail = NULL;
 
-		if (mail->expunged)
-			_ctx->seen_lost_data = TRUE;
-
-		if (!match && search_has_static_nonmatches(_ctx->args->args)) {
-			/* if there are saved search results remember
-			   that this message never matches */
-			mailbox_search_results_never(_ctx, mail->uid);
+		i_assert(imail->data.search_results == NULL);
+		if (match < 0) {
+			/* result isn't known yet, do a prefetch and
+			   finish later */
+			imail->data.search_results =
+				buffer_create_dynamic(imail->data_pool, 64);
+			mail_search_args_result_serialize(_ctx->args,
+				imail->data.search_results);
 		}
-
-		cost2 = search_mail_get_cost(mail_private);
-		ctx->cost += cost2 - cost1;
-		cost1 = cost2;
 
 		mail_search_args_reset(_ctx->args->args, FALSE);
 
-		if (match)
+		if (match != 0)
 			return 1;
 		if (search_would_block(ctx))
 			return 0;
@@ -1426,8 +1463,8 @@ struct mail *index_search_get_mail(struct index_search_context *ctx)
 	return mail;
 }
 
-static int search_more(struct index_search_context *ctx,
-		       struct mail **mail_r)
+static int search_more_with_prefetching(struct index_search_context *ctx,
+					struct mail **mail_r)
 {
 	struct mail *mail, *const *mails;
 	unsigned int count;
@@ -1469,6 +1506,42 @@ static int search_more(struct index_search_context *ctx,
 		array_append(&ctx->mails, mail_r, 1);
 	}
 	return 1;
+}
+
+static bool search_finish_prefetch(struct index_search_context *ctx,
+				   struct index_mail *imail)
+{
+	int ret;
+
+	i_assert(imail->mail.mail.lookup_abort == MAIL_LOOKUP_ABORT_NEVER);
+
+	ctx->cur_mail = &imail->mail.mail;
+	mail_search_args_result_deserialize(ctx->mail_ctx.args,
+					    imail->data.search_results->data,
+					    imail->data.search_results->used);
+	ret = search_match_once(ctx);
+	search_match_finish(ctx, ret);
+	ctx->cur_mail = NULL;
+	return ret > 0;
+}
+
+static int search_more(struct index_search_context *ctx,
+		       struct mail **mail_r)
+{
+	struct index_mail *imail;
+	int ret;
+
+	while ((ret = search_more_with_prefetching(ctx, mail_r)) > 0) {
+		imail = (struct index_mail *)*mail_r;
+		if (imail->data.search_results == NULL)
+			break;
+
+		/* searching wasn't finished yet */
+		if (search_finish_prefetch(ctx, imail))
+			break;
+		/* search finished as non-match */
+	}
+	return ret;
 }
 
 bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,

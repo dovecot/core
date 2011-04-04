@@ -895,3 +895,60 @@ bool mail_search_args_equal(const struct mail_search_args *args1,
 
 	return mail_search_arg_equals(args1->args, args2->args);
 }
+
+static void
+mail_search_args_result_serialize_arg(const struct mail_search_arg *arg,
+				      buffer_t *dest)
+{
+	const struct mail_search_arg *subarg;
+
+	buffer_append_c(dest, arg->result < 0 ? 0xff : arg->result);
+
+	switch (arg->type) {
+	case SEARCH_OR:
+	case SEARCH_SUB:
+	case SEARCH_INTHREAD:
+		subarg = arg->value.subargs;
+		for (; subarg != NULL; subarg = subarg->next)
+			mail_search_args_result_serialize_arg(subarg, dest);
+	default:
+		break;
+	}
+}
+
+void mail_search_args_result_serialize(const struct mail_search_args *args,
+				       buffer_t *dest)
+{
+	mail_search_args_result_serialize_arg(args->args, dest);
+}
+
+static void
+mail_search_args_result_deserialize_arg(struct mail_search_arg *arg,
+					const unsigned char **data,
+					size_t *size)
+{
+	struct mail_search_arg *subarg;
+
+	i_assert(*size > 0);
+	arg->result = **data == 0xff ? -1 : **data;
+	*data += 1; *size -= 1;
+
+	switch (arg->type) {
+	case SEARCH_OR:
+	case SEARCH_SUB:
+	case SEARCH_INTHREAD:
+		subarg = arg->value.subargs;
+		for (; subarg != NULL; subarg = subarg->next) {
+			mail_search_args_result_deserialize_arg(subarg,
+								data, size);
+		}
+	default:
+		break;
+	}
+}
+
+void mail_search_args_result_deserialize(struct mail_search_args *args,
+					 const unsigned char *data, size_t size)
+{
+	mail_search_args_result_deserialize_arg(args->args, &data, &size);
+}
