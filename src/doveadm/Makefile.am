@@ -41,7 +41,7 @@ libs = \
 doveadm_LDADD = \
 	$(libs) \
 	$(cmd_pw_libs) \
-	$(AUTH_LIBS) \
+	$(CRYPT_LIBS) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
 doveadm_DEPENDENCIES = \
