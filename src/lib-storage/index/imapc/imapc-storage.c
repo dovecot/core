@@ -323,13 +323,14 @@ static int imapc_mailbox_open(struct mailbox *box)
 
 	mbox->opening = TRUE;
 	ctx.mbox = mbox;
-	ctx.ret = -1;
+	ctx.ret = -2;
 	mbox->client_box =
 		imapc_client_mailbox_open(mbox->storage->client,
 					  box->name, FALSE,
 					  imapc_mailbox_open_callback,
 					  &ctx, mbox);
-	imapc_client_run(mbox->storage->client);
+	while (ctx.ret == -2)
+		imapc_client_run(mbox->storage->client);
 	mbox->opening = FALSE;
 	if (ctx.ret < 0) {
 		mailbox_close(box);

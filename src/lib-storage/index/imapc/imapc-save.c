@@ -185,11 +185,13 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 
 	input = i_stream_create_fd(ctx->fd, IO_BLOCK_SIZE, FALSE);
 	sctx.ctx = ctx;
+	sctx.ret = -2;
 	imapc_client_cmdf(ctx->mbox->storage->client,
 			  imapc_save_callback, &sctx, "APPEND %s%1s%1s %p",
 			  ctx->mbox->box.name, flags, internaldate, input);
 	i_stream_unref(&input);
-	imapc_client_run(ctx->mbox->storage->client);
+	while (sctx.ret == -2)
+		imapc_client_run(ctx->mbox->storage->client);
 	return sctx.ret;
 }
 
@@ -334,8 +336,8 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 					  imapc_copy_callback, &sctx,
 					  "UID COPY %u %s",
 					  mail->uid, _t->box->name);
-		imapc_client_run(src_mbox->storage->client);
-		i_assert(sctx.ret != -2);
+		while (sctx.ret == -2)
+			imapc_client_run(src_mbox->storage->client);
 		ctx->finished = TRUE;
 		return sctx.ret;
 	}
