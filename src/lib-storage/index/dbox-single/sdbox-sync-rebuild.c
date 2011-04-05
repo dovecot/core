@@ -153,10 +153,18 @@ sdbox_sync_index_rebuild_singles(struct dbox_sync_rebuild_context *ctx)
 					 MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
 
 	sdbox_sync_set_uidvalidity(ctx);
-	if (sdbox_sync_index_rebuild_dir(ctx, ctx->box->path, TRUE) < 0)
+	if (sdbox_sync_index_rebuild_dir(ctx, ctx->box->path, TRUE) < 0) {
+		mail_storage_set_critical(ctx->box->storage,
+			"sdbox: Rebuilding failed on path %s", ctx->box->path);
 		ret = -1;
-	else if (alt_path != NULL)
-		ret = sdbox_sync_index_rebuild_dir(ctx, alt_path, FALSE);
+	} else if (alt_path != NULL) {
+		if (sdbox_sync_index_rebuild_dir(ctx, alt_path, FALSE) < 0) {
+			mail_storage_set_critical(ctx->box->storage,
+				"sdbox: Rebuilding failed on alt path %s",
+				alt_path);
+			ret = -1;
+		}
+	}
 	sdbox_sync_update_header(ctx);
 	return ret;
 }

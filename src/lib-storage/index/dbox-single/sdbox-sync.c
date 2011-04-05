@@ -115,6 +115,9 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
 		/* newly created index file */
+		mail_storage_set_critical(box->storage,
+			"sdbox %s: Broken index: missing UIDVALIDITY",
+			box->path);
 		return 0;
 	}
 
