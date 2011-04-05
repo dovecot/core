@@ -169,7 +169,7 @@ mail_index_map_ext_hdr_check_record(const struct mail_index_header *hdr,
 	}
 	/* a large record size is most likely a bug somewhere. the maximum
 	   record size is limited to 64k anyway, so try to fail earlier. */
-	if (ext_hdr->record_size > sizeof(uint16_t)/2) {
+	if (ext_hdr->record_size >= 32768) {
 		*error_r = "Record size is too large";
 		return -1;
 	}
