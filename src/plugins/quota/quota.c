@@ -1170,8 +1170,10 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 
 	*too_large_r = FALSE;
 
-	if (ctx->count_used + 1 <= (int64_t)ctx->count_ceil &&
-	    ctx->bytes_used + (off_t)size <= (int64_t)ctx->bytes_ceil)
+	if ((ctx->count_used < 0 ||
+	     (uint64_t)ctx->count_used + 1 <= ctx->count_ceil) &&
+	    ((ctx->bytes_used < 0 && size <= ctx->bytes_ceil) ||
+	     (uint64_t)ctx->bytes_used + size <= ctx->bytes_ceil))
 		return 1;
 
 	/* limit reached. only thing left to do now is to set too_large_r. */
