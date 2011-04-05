@@ -283,7 +283,7 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h sys/fs/quota_common.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
   xfs/xqm.h execinfo.h ucontext.h malloc_np.h sys/utsname.h sys/vmount.h \
-  sys/utsname.h glob.h linux/falloc.h)
+  sys/utsname.h glob.h linux/falloc.h ucred.h)
 
 dnl * gcc specific options
 if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
@@ -380,7 +380,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 	       strtoull strtoll strtouq strtoq \
 	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
 	       walkcontext dirfd clearenv malloc_usable_size glob fallocate \
-	       posix_fadvise)
+	       posix_fadvise getpeereid getpeerucred)
 
 AC_CHECK_LIB(rt, clock_gettime, [
   AC_DEFINE(HAVE_CLOCK_GETTIME,, Define if you have the clock_gettime function)

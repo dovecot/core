@@ -1,5 +1,6 @@
 /* Copyright (c) 1999-2011 Dovecot authors, see the included COPYING file */
 
+#define _GNU_SOURCE /* For Linux's struct ucred */
 #include "lib.h"
 #include "close-keep-errno.h"
 #include "fd-set-nonblock.h"
@@ -12,6 +13,9 @@
 #include <ctype.h>
 #include <sys/un.h>
 #include <netinet/tcp.h>
+#ifdef HAVE_UCRED_H
+#  include <ucred.h> /* for getpeerucred() */
+#endif
 
 union sockaddr_union {
 	struct sockaddr sa;
@@ -684,6 +688,51 @@ int net_getunixname(int fd, const char **name_r)
 	}
 	*name_r = t_strdup(sa.sun_path);
 	return 0;
+}
+
+int net_getunixcred(int fd, struct net_unix_cred *cred_r)
+{
+#if defined(SO_PEERCRED)
+	/* Linux */
+	struct ucred ucred;
+	socklen_t len = sizeof(ucred);
+
+	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
+		i_error("getsockopt(SO_PEERCRED) failed: %m");
+		return -1;
+	}
+	cred_r->uid = ucred.uid;
+	cred_r->gid = ucred.gid;
+	return 0;
+#elif defined(HAVE_GETPEEREID)
+	/* OSX 10.4+, FreeBSD 4.6+, OpenBSD 3.0+, NetBSD 5.0+ */
+	if (getpeereid(fd, &cred_r->uid, &cred_r->gid) < 0) {
+		i_error("getpeereid() failed: %m");
+		return -1;
+	}
+	return 0;
+#elif defined(HAVE_GETPEERUCRED)
+	/* Solaris */
+	ucred_t *ucred;
+
+	if (getpeerucred(fd, &ucred) < 0) {
+		i_error("getpeerucred() failed: %m");
+		return -1;
+	}
+	cred_r->uid = ucred_geteuid(ucred);
+	cred_r->gid = ucred_getrgid(ucred);
+	ucred_free(ucred);
+
+	if (cred_r->uid == (uid_t)-1 ||
+	    cred_r->gid == (gid_t)-1) {
+		errno = EINVAL;
+		return -1;
+	}
+	return 0;
+#else
+	errno = EINVAL;
+	return -1;
+#endif
 }
 
 const char *net_ip2addr(const struct ip_addr *ip)
