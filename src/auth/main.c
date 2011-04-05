@@ -27,6 +27,7 @@
 #include "auth-client-connection.h"
 
 #include <unistd.h>
+#include <sys/stat.h>
 
 #define AUTH_PENALTY_ANVIL_PATH "anvil-auth-penalty"
 
@@ -38,6 +39,11 @@ enum auth_socket_type {
 	AUTH_SOCKET_USERDB
 };
 
+struct auth_socket_listener {
+	enum auth_socket_type type;
+	struct stat st;
+};
+
 bool worker = FALSE, shutdown_request = FALSE;
 time_t process_start_time;
 struct auth_penalty *auth_penalty;
@@ -45,7 +51,7 @@ struct auth_penalty *auth_penalty;
 static pool_t auth_set_pool;
 static struct module *modules = NULL;
 static struct mechanisms_register *mech_reg;
-static ARRAY_DEFINE(listen_fd_types, enum auth_socket_type);
+static ARRAY_DEFINE(listeners, struct auth_socket_listener);
 
 void auth_refresh_proctitle(void)
 {
@@ -80,6 +86,65 @@ static const char *const *read_global_settings(void)
 				       set_output.specific_services[i]);
 	}
 	return services;
+}
+
+static enum auth_socket_type
+auth_socket_type_get(int listen_fd, const char **path_r)
+{
+	const char *path, *name, *suffix;
+
+	/* figure out if this is a server or network socket by
+	   checking the socket path name. */
+	if (net_getunixname(listen_fd, &path) < 0) {
+		if (errno != ENOTSOCK)
+			i_fatal("getunixname(%d) failed: %m", listen_fd);
+		/* not UNIX socket. let's just assume it's an
+		   auth client. */
+		*path_r = NULL;
+		return AUTH_SOCKET_CLIENT;
+	}
+	*path_r = path;
+
+	name = strrchr(path, '/');
+	if (name == NULL)
+		name = path;
+	else
+		name++;
+
+	suffix = strrchr(name, '-');
+	if (suffix == NULL)
+		suffix = name;
+	else
+		suffix++;
+
+	if (strcmp(suffix, "login") == 0)
+		return AUTH_SOCKET_LOGIN_CLIENT;
+	else if (strcmp(suffix, "master") == 0)
+		return AUTH_SOCKET_MASTER;
+	else if (strcmp(suffix, "userdb") == 0)
+		return AUTH_SOCKET_USERDB;
+	else
+		return AUTH_SOCKET_CLIENT;
+}
+
+static void listeners_init(void)
+{
+	unsigned int i, n;
+	const char *path;
+
+	i_array_init(&listeners, 8);
+	n = master_service_get_socket_count(master_service);
+	for (i = 0; i < n; i++) {
+		int fd = MASTER_LISTEN_FD_FIRST + i;
+		struct auth_socket_listener *l;
+
+		l = array_idx_modifiable(&listeners, fd);
+		l->type = auth_socket_type_get(fd, &path);
+		if (l->type == AUTH_SOCKET_USERDB) {
+			if (stat(path, &l->st) < 0)
+				i_error("stat(%s) failed: %m", path);
+		}
+	}
 }
 
 static void main_preinit(void)
@@ -118,6 +183,8 @@ static void main_preinit(void)
 	auths_preinit(global_auth_settings, auth_set_pool,
 		      mech_reg, services);
 
+	listeners_init();
+
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
@@ -125,8 +192,6 @@ static void main_preinit(void)
 
 static void main_init(void)
 {
-	i_array_init(&listen_fd_types, 8);
-
         process_start_time = ioloop_time;
 
 	/* If auth caches aren't used, just ignore these signals */
@@ -186,7 +251,7 @@ static void main_deinit(void)
 	sql_drivers_deinit();
 	random_deinit();
 
-	array_free(&listen_fd_types);
+	array_free(&listeners);
 	pool_unref(&auth_set_pool);
 }
 
@@ -201,59 +266,21 @@ static void worker_connected(struct master_service_connection *conn)
 	(void)auth_worker_client_create(auth_find_service(NULL), conn->fd);
 }
 
-static enum auth_socket_type
-auth_socket_type_get(int listen_fd)
-{
-	const char *path, *name, *suffix;
-
-	/* figure out if this is a server or network socket by
-	   checking the socket path name. */
-	if (net_getunixname(listen_fd, &path) < 0) {
-		if (errno != ENOTSOCK)
-			i_fatal("getunixname(%d) failed: %m", listen_fd);
-		/* not UNIX socket. let's just assume it's an
-		   auth client. */
-		return AUTH_SOCKET_CLIENT;
-	}
-
-	name = strrchr(path, '/');
-	if (name == NULL)
-		name = path;
-	else
-		name++;
-
-	suffix = strrchr(name, '-');
-	if (suffix == NULL)
-		suffix = name;
-	else
-		suffix++;
-
-	if (strcmp(suffix, "login") == 0)
-		return AUTH_SOCKET_LOGIN_CLIENT;
-	else if (strcmp(suffix, "master") == 0)
-		return AUTH_SOCKET_MASTER;
-	else if (strcmp(suffix, "userdb") == 0)
-		return AUTH_SOCKET_USERDB;
-	else
-		return AUTH_SOCKET_CLIENT;
-}
-
 static void client_connected(struct master_service_connection *conn)
 {
-	enum auth_socket_type *type;
+	struct auth_socket_listener *l;
 	struct auth *auth;
 
-	type = array_idx_modifiable(&listen_fd_types, conn->listen_fd);
-	if (*type == AUTH_SOCKET_UNKNOWN)
-		*type = auth_socket_type_get(conn->listen_fd);
-
+	l = array_idx_modifiable(&listeners, conn->listen_fd);
 	auth = auth_find_service(NULL);
-	switch (*type) {
+	switch (l->type) {
 	case AUTH_SOCKET_MASTER:
-		(void)auth_master_connection_create(auth, conn->fd, FALSE);
+		(void)auth_master_connection_create(auth, conn->fd,
+						    NULL, FALSE);
 		break;
 	case AUTH_SOCKET_USERDB:
-		(void)auth_master_connection_create(auth, conn->fd, TRUE);
+		(void)auth_master_connection_create(auth, conn->fd,
+						    &l->st, TRUE);
 		break;
 	case AUTH_SOCKET_LOGIN_CLIENT:
 		(void)auth_client_connection_create(auth, conn->fd, TRUE);

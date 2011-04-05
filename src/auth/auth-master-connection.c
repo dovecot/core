@@ -162,6 +162,36 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 	return 1;
 }
 
+static int
+user_verify_restricted_uid(struct auth_request *auth_request)
+{
+	struct auth_master_connection *conn = auth_request->master;
+	struct auth_stream_reply *reply = auth_request->userdb_reply;
+	const char *value, *reason;
+	uid_t uid;
+
+	if (conn->userdb_restricted_uid == 0)
+		return 0;
+
+	value = auth_stream_reply_find(reply, "uid");
+	if (value == NULL)
+		reason = "userdb reply doesn't contain uid";
+	else if (str_to_uid(value, &uid) < 0)
+		reason = "userdb reply contains invalid uid";
+	else if (uid != conn->userdb_restricted_uid) {
+		reason = t_strdup_printf(
+			"userdb uid (%s) doesn't match peer uid (%s)",
+			dec2str(uid), dec2str(conn->userdb_restricted_uid));
+	} else {
+		return 0;
+	}
+
+	auth_request_log_error(auth_request, "userdb",
+		"client doesn't have lookup permissions for this user: %s "
+		"(change userdb socket permissions)", reason);
+	return -1;
+}
+
 static void
 user_callback(enum userdb_result result,
 	      struct auth_request *auth_request)
@@ -173,6 +203,11 @@ user_callback(enum userdb_result result,
 
 	if (auth_request->userdb_lookup_failed)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
+
+	if (result == USERDB_RESULT_OK) {
+		if (user_verify_restricted_uid(auth_request) < 0)
+			result = USERDB_RESULT_INTERNAL_FAILURE;
+	}
 
 	str = t_str_new(128);
 	switch (result) {
@@ -281,6 +316,13 @@ master_input_pass(struct auth_master_connection *conn, const char *args)
 		auth_request_log_info(auth_request, "passdb", "%s", error);
 		pass_callback(PASSDB_RESULT_USER_UNKNOWN,
 			      NULL, 0, auth_request);
+	} else if (conn->userdb_restricted_uid != 0) {
+		/* no permissions to do this lookup */
+		auth_request_log_error(auth_request, "passdb",
+			"Remote client doesn't have permissions to do "
+			"a PASS lookup");
+		pass_callback(PASSDB_RESULT_INTERNAL_FAILURE,
+			      NULL, 0, auth_request);
 	} else {
 		auth_request_set_state(auth_request,
 				       AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -374,6 +416,13 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 		return FALSE;
 	}
 
+	if (conn->userdb_restricted_uid != 0) {
+		i_error("Remote client doesn't have permissions to list users");
+		str = t_strdup_printf("DONE\t%u\tfail\n", id);
+		(void)o_stream_send_str(conn->output, str);
+		return TRUE;
+	}
+
 	while (userdb != NULL && userdb->userdb->iface->iterate_init == NULL)
 		userdb = userdb->next;
 	if (userdb == NULL) {
@@ -409,6 +458,7 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 		return master_input_pass(conn, line + 5);
 
 	if (!conn->userdb_only) {
+		i_assert(conn->userdb_restricted_uid == 0);
 		if (strncmp(line, "REQUEST\t", 8) == 0)
 			return master_input_request(conn, line + 8);
 		if (strncmp(line, "CPID\t", 5) == 0) {
@@ -487,8 +537,42 @@ static int master_output(struct auth_master_connection *conn)
 	return 1;
 }
 
+static int
+auth_master_connection_set_permissions(struct auth_master_connection *conn,
+				       const struct stat *st)
+{
+	struct net_unix_cred cred;
+
+	if (st == NULL)
+		return 0;
+
+	/* figure out what permissions we want to give to this client */
+	if ((st->st_mode & 0777) != 0666) {
+		/* permissions were already restricted by the socket
+		   permissions. also +x bit indicates that we shouldn't do
+		   any permission checks. */
+		return 0;
+	}
+
+	if (net_getunixcred(conn->fd, &cred) < 0) {
+		i_error("userdb connection: Failed to get peer's credentials");
+		return -1;
+	}
+
+	if (cred.uid == st->st_uid || cred.gid == st->st_gid) {
+		/* full permissions */
+		return 0;
+	} else {
+		/* restrict permissions: return only lookups whose returned
+		   uid matches the peer's uid */
+		conn->userdb_restricted_uid = cred.uid;
+		return 0;
+	}
+}
+
 struct auth_master_connection *
-auth_master_connection_create(struct auth *auth, int fd, bool userdb_only)
+auth_master_connection_create(struct auth *auth, int fd,
+			      const struct stat *socket_st, bool userdb_only)
 {
 	struct auth_master_connection *conn;
 	const char *line;
@@ -508,8 +592,12 @@ auth_master_connection_create(struct auth *auth, int fd, bool userdb_only)
 			       AUTH_MASTER_PROTOCOL_MINOR_VERSION,
 			       my_pid);
 	(void)o_stream_send_str(conn->output, line);
-
 	array_append(&auth_master_connections, &conn, 1);
+
+	if (auth_master_connection_set_permissions(conn, socket_st) < 0) {
+		auth_master_connection_destroy(&conn);
+		return NULL;
+	}
 	return conn;
 }
 
