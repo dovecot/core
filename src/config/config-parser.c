@@ -320,6 +320,25 @@ config_filter_parser_check(struct config_parser_context *ctx,
 	return 0;
 }
 
+static const char *
+get_str_setting(struct config_filter_parser *parser, const char *key)
+{
+	struct config_module_parser *module_parser;
+	const char *const *set_value;
+	enum setting_type set_type;
+
+	module_parser = parser->parsers;
+	for (; module_parser->parser != NULL; module_parser++) {
+		set_value = settings_parse_get_value(module_parser->parser,
+						     key, &set_type);
+		if (set_value != NULL) {
+			i_assert(set_type == SET_STR || set_type == SET_ENUM);
+			return *set_value;
+		}
+	}
+	i_unreached();
+}
+
 static int
 config_all_parsers_check(struct config_parser_context *ctx,
 			 struct config_filter_context *new_filter,
@@ -329,7 +348,10 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	struct config_module_parser *tmp_parsers;
 	struct master_service_settings_output output;
 	unsigned int i, count;
+	const char *ssl_set;
+	bool global_no_ssl;
 	pool_t tmp_pool;
+	bool ssl_warned = FALSE;
 	int ret = 0;
 
 	if (ctx->cur_section->prev != NULL) {
@@ -344,6 +366,9 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	parsers = array_get(&ctx->all_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
+
+	global_no_ssl = strcmp(get_str_setting(parsers[0], "ssl"), "no") == 0;
+
 	for (i = 0; i < count && ret == 0; i++) {
 		if (config_filter_parsers_get(new_filter, tmp_pool, "",
 					      &parsers[i]->filter,
@@ -351,6 +376,14 @@ config_all_parsers_check(struct config_parser_context *ctx,
 					      error_r) < 0) {
 			ret = -1;
 			break;
+		}
+
+		ssl_set = get_str_setting(parsers[i], "ssl");
+		if (strcmp(ssl_set, "no") != 0 && global_no_ssl &&
+		    !ssl_warned) {
+			i_warning("SSL is disabled because global ssl=no, "
+				  "ignoring ssl=%s for subsection", ssl_set);
+			ssl_warned = TRUE;
 		}
 
 		ret = config_filter_parser_check(ctx, tmp_parsers, error_r);
