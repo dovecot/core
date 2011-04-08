@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
 		} else if ((st.st_mode & 1) != 0 && (st.st_mode & 04000) != 0) {
 			fprintf(stderr, "%s must not be both world-executable "
 				"and setuid-root. This allows root exploits. "
-				"See http://wiki.dovecot.org/LDA#multipleuids\n",
+				"See http://wiki2.dovecot.org/LDA#multipleuids\n",
 				argv[0]);
 			return EX_TEMPFAIL;
 		}

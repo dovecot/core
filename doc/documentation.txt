@@ -1,5 +1,5 @@
 The documentation in wiki/ directory has been imported from
-http://wiki.dovecot.org/. The actual Wiki may contain more up-to-date
+http://wiki2.dovecot.org/. The actual Wiki may contain more up-to-date
 information, so unless this is an old Dovecot release, you may want to use
 the Wiki directly.
 
@@ -90,12 +90,12 @@ Dovecot configuration
 HOWTOs, examples and tutorials
 ==============================
 
-Some HOWTOs haven't been included in wiki/. Use http://wiki.dovecot.org/
+Some HOWTOs haven't been included in wiki/. Use http://wiki2.dovecot.org/
 instead.
 
  * <HOWTOs, examples and tutorials> [HowTo.txt] for different installations
  * Existing Dovecot installations
-   [http://wiki.dovecot.org/DovecotServerInstallations]
+   [http://wiki2.dovecot.org/DovecotServerInstallations]
 
 Migration from existing systems
 ===============================

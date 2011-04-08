@@ -16,7 +16,7 @@ environment variables. For example:
   CPPFLAGS=-I/opt/openssl/include LDFLAGS=-L/opt/openssl/lib ./configure
 
 See ./configure --help for a list of all available configure options.
-See http://wiki.dovecot.org/CompilingSource for more information.
+See http://wiki2.dovecot.org/CompilingSource for more information.
 
 Running
 -------
@@ -35,7 +35,7 @@ Once everything is configured, there's two ways to start Dovecot:
     binaries. If you're listening in SSL port, add --ssl parameter.
 
 See Wiki for more information about configuration. If you're in a hurry, go
-at least through http://wiki.dovecot.org/QuickConfiguration
+at least through http://wiki2.dovecot.org/QuickConfiguration
 
 SSL/TLS
 -------

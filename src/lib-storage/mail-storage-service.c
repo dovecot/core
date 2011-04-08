@@ -574,11 +574,11 @@ static void mail_storage_service_time_moved(time_t old_time, time_t new_time)
 		i_fatal("Time just moved backwards by %ld seconds. "
 			"This might cause a lot of problems, "
 			"so I'll just kill myself now. "
-			"http://wiki.dovecot.org/TimeMovedBackwards", diff);
+			"http://wiki2.dovecot.org/TimeMovedBackwards", diff);
 	} else {
 		i_error("Time just moved backwards by %ld seconds. "
 			"I'll sleep now until we're back in present. "
-			"http://wiki.dovecot.org/TimeMovedBackwards", diff);
+			"http://wiki2.dovecot.org/TimeMovedBackwards", diff);
 		/* Sleep extra second to make sure usecs also grows. */
 		diff++;
 
