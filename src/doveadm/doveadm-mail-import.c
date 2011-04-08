@@ -158,7 +158,7 @@ static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx,
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
-	const char *src_location, *error, *userdb_fields[2];
+	const char *src_location, *error;
 
 	if (str_array_length(args) < 3)
 		doveadm_mail_help_name("import");
@@ -166,19 +166,19 @@ static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx,
 	ctx->dest_parent = p_strdup(_ctx->pool, args[1]);
 	ctx->ctx.search_args = doveadm_mail_build_search_args(args+2);
 
-	/* @UNSAFE */
-	userdb_fields[0] = t_strconcat("mail=", src_location, NULL);
-	userdb_fields[1] = NULL;
-
 	/* create a user for accessing the source storage */
 	memset(&input, 0, sizeof(input));
 	input.module = "mail";
 	input.username = "doveadm";
-	input.no_userdb_lookup = TRUE;
-	input.userdb_fields = userdb_fields;
+	input.flags_override_add = MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES |
+		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS;
+	input.flags_override_remove = MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
 					     &service_user, &user, &error) < 0)
 		i_fatal("Import user initialization failed: %s", error);
+	if (mail_namespaces_init_location(user, src_location, &error) < 0)
+		i_fatal("Import namespace initialization failed: %s", error);
+
 	ctx->src_user = user;
 	mail_storage_service_user_free(&service_user);
 }
