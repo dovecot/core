@@ -26,7 +26,7 @@
 #define MAX_IMAP_LINE 8192
 
 /* Disconnect client when it sends too many bad commands */
-#define CLIENT_MAX_BAD_COMMANDS 10
+#define CLIENT_MAX_BAD_COMMANDS 3
 
 const struct login_binary login_binary = {
 	.protocol = "imap",
