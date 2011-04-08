@@ -110,6 +110,9 @@ static bool director_cmd_me(struct director_connection *conn,
 		return FALSE;
 	}
 	host = director_host_get(dir, &ip, port);
+	/* the host is up now, make sure we can connect to it immediately
+	   if needed */
+	host->last_failed = 0;
 	conn->me_received = TRUE;
 
 	if (!conn->in)
@@ -286,7 +289,9 @@ static bool director_cmd_director(struct director_connection *conn,
 
 	host = director_host_lookup(conn->dir, &ip, port);
 	if (host != NULL) {
-		/* already have this, skip */
+		/* already have this. just reset its last_failed timestamp,
+		   since it might be up now. */
+		host->last_failed = 0;
 		return TRUE;
 	}
 
@@ -474,6 +479,7 @@ static void director_handshake_cmd_done(struct director_connection *conn)
 	if (dir->debug)
 		i_debug("Handshaked to %s", conn->host->name);
 
+	conn->host->last_failed = 0;
 	conn->handshake_received = TRUE;
 	if (conn->in) {
 		/* handshaked to left side. tell it we've received the
@@ -548,6 +554,9 @@ director_connection_handle_handshake(struct director_connection *conn,
 
 		conn->dir->right = NULL;
 		host = director_host_get(conn->dir, &ip, port);
+		/* reset failure timestamp so we'll actually try to
+		   connect there. */
+		host->last_failed = 0;
 		(void)director_connect_host(conn->dir, host);
 		return FALSE;
 	}

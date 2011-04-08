@@ -94,6 +94,9 @@ int director_connect_host(struct director *dir, struct director_host *host)
 		i_error("connect(%s) failed: %m", host->name);
 		return -1;
 	}
+	/* Reset timestamp so that director_connect() won't skip this host
+	   while we're still trying to connect to it */
+	host->last_failed = 0;
 
 	director_connection_init_out(dir, fd, host);
 	return 0;
