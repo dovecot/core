@@ -56,6 +56,7 @@ struct mail_storage_service_ctx {
 struct mail_storage_service_user {
 	pool_t pool;
 	struct mail_storage_service_input input;
+	enum mail_storage_service_flags flags;
 
 	const char *system_groups_user, *uid_source, *gid_source;
 	const struct mail_user_settings *user_set;
@@ -457,13 +458,13 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			dec2str(geteuid()), dec2str(getegid()), home);
 	}
 
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
-	    (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) == 0) {
+	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
+	    (user->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) == 0) {
 		/* we don't want to write core files to any users' home
 		   directories since they could contain information about other
 		   users' mails as well. so do no chdiring to home. */
 	} else if (*home != '\0' &&
-		   (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR) == 0) {
+		   (user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR) == 0) {
 		/* If possible chdir to home directory, so that core file
 		   could be written in case we crash. */
 		if (chdir(home) < 0) {
@@ -481,7 +482,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		mail_user_unref(&mail_user);
 		return -1;
 	}
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES) == 0) {
+	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES) == 0) {
 		if (mail_namespaces_init(mail_user, error_r) < 0) {
 			mail_user_unref(&mail_user);
 			return -1;
@@ -648,6 +649,21 @@ mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx)
 	return ctx->conn;
 }
 
+static enum mail_storage_service_flags
+mail_storage_service_input_get_flags(struct mail_storage_service_ctx *ctx,
+				     const struct mail_storage_service_input *input)
+{
+	enum mail_storage_service_flags flags;
+
+	flags = (ctx->flags & ~input->flags_override_remove) |
+		input->flags_override_add;
+	if (input->no_userdb_lookup) {
+		/* FIXME: for API backwards compatibility only */
+		flags &= ~MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+	}
+	return flags;
+}
+
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
 				       pool_t pool,
@@ -659,7 +675,10 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	const struct setting_parser_info *const *roots;
 	struct master_service_settings_output set_output;
 	const struct dynamic_settings_parser *dyn_parsers;
+	enum mail_storage_service_flags flags;
 	unsigned int i;
+
+	flags = mail_storage_service_input_get_flags(ctx, input);
 
 	memset(&set_input, 0, sizeof(set_input));
 	set_input.roots = ctx->set_roots;
@@ -668,9 +687,9 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	   environment, and if we're not doing a userdb lookup we want to
 	   use $HOME */
 	set_input.preserve_home =
-		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
+		(flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
 	set_input.use_sysexits =
-		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS) != 0;
+		(flags & MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS) != 0;
 
 	if (input != NULL) {
 		set_input.module = input->module;
@@ -773,8 +792,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				struct mail_storage_service_user **user_r,
 				const char **error_r)
 {
-	const bool userdb_lookup = !input->no_userdb_lookup &&
-		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0;
+	enum mail_storage_service_flags flags;
 	struct mail_storage_service_user *user;
 	const char *username = input->username;
 	const struct setting_parser_info *user_info;
@@ -795,7 +813,9 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 		*error_r = MAIL_ERRSTR_CRITICAL_MSG;
 		return -1;
 	}
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0 &&
+
+	flags = mail_storage_service_input_get_flags(ctx, input);
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0 &&
 	    !ctx->log_initialized) {
 		/* initialize logging again, in case we only read the
 		   settings for the first above */
@@ -811,7 +831,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	mail_storage_service_load_modules(ctx, user_info, user_set);
 
 	temp_pool = pool_alloconly_create("userdb lookup", 2048);
-	if (userdb_lookup) {
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
 		ret = service_auth_userdb_lookup(ctx, input, temp_pool,
 						 &username, &userdb_fields,
 						 error_r);
@@ -831,6 +851,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	user->input.userdb_fields = NULL;
 	user->input.username = p_strdup(user_pool, username);
 	user->user_info = user_info;
+	user->flags = flags;
 
 	user->set_parser = settings_parser_dup(set_parser, user_pool);
 	if (!settings_parser_check(user->set_parser, user_pool, &error))
@@ -840,10 +861,10 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		(void)settings_parse_line(user->set_parser, "mail_debug=yes");
 
-	if (!userdb_lookup) {
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0) {
 		const char *home = getenv("HOME");
 		if (home != NULL)
 			set_keyval(ctx, user, "mail_home", home);
@@ -878,9 +899,9 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 	const char *home, *chroot, *error;
 	unsigned int len;
 	bool disallow_root =
-		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0;
+		(user->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0;
 	bool temp_priv_drop =
-		(ctx->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
+		(user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home and chroot sooner so do them separately here. */
@@ -921,10 +942,10 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		set_keyval(ctx, user, "mail_home", home);
 	}
 
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
+	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
 		mail_storage_service_init_log(ctx, user);
 
-	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
+	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		if (service_drop_privileges(user, user_set, home, chroot,
 					    disallow_root, temp_priv_drop,
 					    FALSE, &error) < 0) {
@@ -933,7 +954,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			return -1;
 		}
 		if (!temp_priv_drop ||
-		    (ctx->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) != 0)
+		    (user->flags & MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS) != 0)
 			restrict_access_allow_coredumps(TRUE);
 	}
 

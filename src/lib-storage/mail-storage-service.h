@@ -44,6 +44,10 @@ struct mail_storage_service_input {
 
 	const char *const *userdb_fields;
 
+	/* Override specified global flags */
+	enum mail_storage_service_flags flags_override_add;
+	enum mail_storage_service_flags flags_override_remove;
+
 	/* override MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP for this lookup */
 	unsigned int no_userdb_lookup:1;
 };
