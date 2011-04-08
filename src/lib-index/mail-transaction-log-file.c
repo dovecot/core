@@ -560,7 +560,7 @@ mail_transaction_log_file_stat(struct mail_transaction_log_file *file,
 	struct stat st;
 
 	if (fstat(file->fd, &st) < 0) {
-                if (errno != ESTALE || !ignore_estale)
+                if (!ESTALE_FSTAT(errno) || !ignore_estale)
 			log_file_set_syscall_error(file, "fstat()");
 		return -1;
 	}

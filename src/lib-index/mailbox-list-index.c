@@ -232,7 +232,7 @@ static int mailbox_list_index_is_recreated(struct mailbox_list_index *index)
 		return -1;
 	}
 	if (fstat(index->fd, &st2) < 0) {
-		if (errno == ESTALE)
+		if (ESTALE_FSTAT(errno))
 			return 1;
 		mailbox_list_index_set_syscall_error(index, "fstat()");
 		return -1;
