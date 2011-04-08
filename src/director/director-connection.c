@@ -129,20 +129,23 @@ static bool director_cmd_me(struct director_connection *conn,
 	/* make sure this is the correct incoming connection */
 	if (host->self) {
 		/* probably we're trying to find our own ip. it's no */
-		i_error("director(%s): Connection from self, dropping",
-			host->name);
+		i_error("Connection from self, dropping");
 		return FALSE;
 	} else if (dir->left == NULL) {
 		/* no conflicts yet */
 	} else if (dir->left->host == host) {
-		i_warning("director(%s): Dropping existing connection "
-			  "in favor of its new connection", host->name);
+		i_warning("Dropping existing connection %s "
+			  "in favor of its new connection %s",
+			  dir->left->host->name, host->name);
 		director_connection_deinit(&dir->left);
 	} else {
 		if (director_host_cmp_to_self(dir->left->host, host,
 					      dir->self_host) < 0) {
 			/* the old connection is the correct one.
 			   refer the client there. */
+			i_warning("Director connection %s tried to connect to "
+				  "us, should use %s instead",
+				  host->name, dir->left->host->name);
 			director_connection_send(conn, t_strdup_printf(
 				"CONNECT\t%s\t%u\n",
 				net_ip2addr(&dir->left->host->ip),
@@ -557,6 +560,8 @@ director_connection_handle_handshake(struct director_connection *conn,
 		/* reset failure timestamp so we'll actually try to
 		   connect there. */
 		host->last_failed = 0;
+		if (conn->dir->debug)
+			i_debug("Received CONNECT reference to %s", host->name);
 		(void)director_connect_host(conn->dir, host);
 		return FALSE;
 	}
@@ -742,6 +747,10 @@ director_connection_handle_line(struct director_connection *conn,
 		if (!director_connection_handle_handshake(conn, cmd, args)) {
 			/* invalid commands during handshake,
 			   we probably don't want to reconnect here */
+			if (conn->dir->debug) {
+				i_debug("director(%s): Handshaking failed",
+					conn->host->name);
+			}
 			if (conn->host != NULL)
 				conn->host->last_failed = ioloop_time;
 			return FALSE;
@@ -802,6 +811,10 @@ static void director_connection_input(struct director_connection *conn)
 		} T_END;
 
 		if (!ret) {
+			if (dir->debug) {
+				i_debug("director(%s): Invalid input, disconnecting",
+					conn->name);
+			}
 			director_connection_disconnected(&conn);
 			break;
 		}
@@ -959,9 +972,14 @@ static void director_connection_connected(struct director_connection *conn)
 		if (director_host_cmp_to_self(conn->host, dir->right->host,
 					      dir->self_host) <= 0) {
 			/* the old connection is the correct one */
+			i_warning("Aborting incorrect outgoing connection to %s "
+				  "(already connected to correct one: %s)",
+				  conn->host->name, dir->right->host->name);
 			director_connection_deinit(&conn);
 			return;
 		}
+		i_warning("Replacing director connection %s with %s",
+			  dir->right->host->name, conn->host->name);
 		director_connection_deinit(&dir->right);
 	}
 	dir->right = conn;
@@ -1004,6 +1022,9 @@ void director_connection_deinit(struct director_connection **_conn)
 	struct director *dir = conn->dir;
 
 	*_conn = NULL;
+
+	if (dir->debug && conn->host != NULL)
+		i_debug("Disconnecting from %s", conn->host->name);
 
 	if (conn->host != NULL && !conn->in &&
 	    conn->created + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time)

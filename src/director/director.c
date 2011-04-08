@@ -141,6 +141,10 @@ void director_connect(struct director *dir)
 	}
 	if (i == count) {
 		/* we're the only one */
+		if (dir->debug) {
+			i_debug("director: Couldn't connect to right side, "
+				"we must be the only director left");
+		}
 		if (dir->left != NULL) {
 			/* since we couldn't connect to it,
 			   it must have failed recently */
