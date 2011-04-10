@@ -678,7 +678,8 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	enum mail_storage_service_flags flags;
 	unsigned int i;
 
-	flags = mail_storage_service_input_get_flags(ctx, input);
+	flags = input == NULL ? ctx->flags :
+		mail_storage_service_input_get_flags(ctx, input);
 
 	memset(&set_input, 0, sizeof(set_input));
 	set_input.roots = ctx->set_roots;
