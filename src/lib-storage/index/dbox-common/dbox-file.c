@@ -744,8 +744,6 @@ int dbox_file_unlink(struct dbox_file *file)
 		}
 		if (file->alt_path == NULL || alt) {
 			/* not found */
-			i_warning("dbox: File unexpectedly lost: %s",
-				  file->primary_path);
 			return 0;
 		}
 
