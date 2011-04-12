@@ -196,7 +196,7 @@ sdbox_get_attachment_path_suffix(struct dbox_file *_file)
 			file->uid);
 }
 
-static void sdbox_set_mailbox_corrupted(struct mailbox *box)
+void sdbox_set_mailbox_corrupted(struct mailbox *box)
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 	struct sdbox_index_header hdr;
