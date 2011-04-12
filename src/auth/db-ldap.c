@@ -414,13 +414,6 @@ db_ldap_check_limits(struct ldap_connection *conn, struct ldap_request *request)
 		ldap_conn_reconnect(conn);
 		return TRUE;
 	}
-	if (conn->request_queue->full && count >= DB_LDAP_MAX_QUEUE_SIZE) {
-		/* Queue is full already, fail this request */
-		auth_request_log_error(request->auth_request, "ldap",
-			"Request queue is full (oldest added %d secs ago)",
-			(int)secs_diff);
-		return FALSE;
-	}
 	return TRUE;
 }
 
@@ -1313,7 +1306,7 @@ struct ldap_connection *db_ldap_init(const char *config_path)
         conn->set.ldap_deref = deref2str(conn->set.deref);
 	conn->set.ldap_scope = scope2str(conn->set.scope);
 
-	i_array_init(&conn->request_array, DB_LDAP_MAX_QUEUE_SIZE);
+	i_array_init(&conn->request_array, 512);
 	conn->request_queue = aqueue_init(&conn->request_array.arr);
 
 	conn->next = ldap_connections;
