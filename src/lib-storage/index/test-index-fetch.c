@@ -100,7 +100,7 @@ static void test_index_storage_get_expunges(void)
 	ARRAY_TYPE(seq_range) uids_filter;
 	ARRAY_TYPE(mailbox_expunge_rec) expunges;
 	const struct mailbox_expunge_rec *exp;
-	unsigned int i, count;
+	unsigned int count;
 	uint64_t modseq;
 
 	box = t_new(struct mailbox, 1);
@@ -122,27 +122,21 @@ static void test_index_storage_get_expunges(void)
 
 	t_array_init(&expunges, 32);
 	modseq = 98ULL << 32;
-	for (i = 0; i < 2; i++) {
-		test_assert(index_storage_get_expunges(box, modseq, &uids_filter,
-						       NULL, &expunges) == i);
+	test_assert(index_storage_get_expunges(box, modseq, &uids_filter,
+					       NULL, &expunges) == 0);
 
-		exp = array_get(&expunges, &count);
-		test_assert(count == 5);
-		test_assert(exp[0].uid == 7);
-		test_assert(memcmp(exp[0].guid_128, mail_guids[2], MAIL_GUID_128_SIZE) == 0);
-		test_assert(exp[1].uid == 3);
-		test_assert(memcmp(exp[1].guid_128, mail_guids[3], MAIL_GUID_128_SIZE) == 0);
-		test_assert(exp[2].uid == 11);
-		test_assert(memcmp(exp[2].guid_128, mail_guids[4], MAIL_GUID_128_SIZE) == 0);
-		test_assert(exp[3].uid == 1);
-		test_assert(memcmp(exp[3].guid_128, mail_guids[5], MAIL_GUID_128_SIZE) == 0);
-		test_assert(exp[4].uid == 53);
-		test_assert(memcmp(exp[4].guid_128, mail_guids[6], MAIL_GUID_128_SIZE) == 0);
-
-		array_clear(&uids_filter);
-		expunge_idx = 0;
-		modseq = 100ULL << 32;
-	}
+	exp = array_get(&expunges, &count);
+	test_assert(count == 5);
+	test_assert(exp[0].uid == 3);
+	test_assert(memcmp(exp[0].guid_128, mail_guids[3], MAIL_GUID_128_SIZE) == 0);
+	test_assert(exp[1].uid == 1);
+	test_assert(memcmp(exp[1].guid_128, mail_guids[5], MAIL_GUID_128_SIZE) == 0);
+	test_assert(exp[2].uid == 53);
+	test_assert(memcmp(exp[2].guid_128, mail_guids[6], MAIL_GUID_128_SIZE) == 0);
+	test_assert(exp[3].uid == 7);
+	test_assert(memcmp(exp[3].guid_128, mail_guids[2], MAIL_GUID_128_SIZE) == 0);
+	test_assert(exp[4].uid == 11);
+	test_assert(memcmp(exp[4].guid_128, mail_guids[4], MAIL_GUID_128_SIZE) == 0);
 
 	test_end();
 }
