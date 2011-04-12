@@ -1,3 +1,13 @@
+v2.0.12 2011-04-12  Timo Sirainen <tss@iki.fi>
+
+	+ doveadm: Added "move" command for moving mails between mailboxes.
+	+ virtual: Added support for "+mailbox" entries that clear \Recent
+	  flag from messages (default is to preserve them).
+	- dbox: Fixes to handling external attachments
+	- dsync: More fixes to avoid hanging with remote syncs
+	- dsync: Many other syncing/correctness fixes
+	- doveconf: v2.0.10 and v2.0.11 didn't output plugin {} section right
+
 v2.0.11 2011-03-07  Timo Sirainen <tss@iki.fi>
 
 	* dotlock_use_excl setting's default was accidentally "no" in all
