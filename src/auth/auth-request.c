@@ -199,6 +199,8 @@ void auth_request_export(struct auth_request *request,
 		auth_stream_reply_add(reply, "valid-client-cert", "1");
 	if (request->no_penalty)
 		auth_stream_reply_add(reply, "no-penalty", "1");
+	if (request->successful)
+		auth_stream_reply_add(reply, "successful", "1");
 	if (request->mech_name != NULL)
 		auth_stream_reply_add(reply, "mech", request->mech_name);
 }
@@ -239,6 +241,8 @@ bool auth_request_import(struct auth_request *request,
 		request->valid_client_cert = TRUE;
 	else if (strcmp(key, "no-penalty") == 0)
 		request->no_penalty = TRUE;
+	else if (strcmp(key, "successful") == 0)
+		request->successful = TRUE;
 	else if (strcmp(key, "skip_password_check") == 0) {
 		i_assert(request->master_user !=  NULL);
 		request->skip_password_check = TRUE;
