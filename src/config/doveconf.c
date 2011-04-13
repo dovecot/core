@@ -477,6 +477,26 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	return 0;
 }
 
+static void config_request_simple_stdout(const char *key, const char *value,
+					 enum config_key_type type ATTR_UNUSED,
+					 void *context)
+{
+	char **setting_name_filters = context;
+	unsigned int i, filter_len;
+
+	if (setting_name_filters == NULL) {
+		printf("%s=%s\n", key, value);
+		return;
+	}
+
+	for (i = 0; setting_name_filters[i] != NULL; i++) {
+		filter_len = strlen(setting_name_filters[i]);
+		if (strncmp(setting_name_filters[i], key, filter_len) == 0 &&
+		    (key[filter_len] == '\0' || key[filter_len] == '/'))
+			printf("%s=%s\n", key, value);
+	}
+}
+
 static void config_request_putenv(const char *key, const char *value,
 				  enum config_key_type type ATTR_UNUSED,
 				  void *context ATTR_UNUSED)
@@ -571,7 +591,7 @@ int main(int argc, char *argv[])
 	unsigned int i;
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
-	bool parse_full_config = FALSE;
+	bool parse_full_config = FALSE, simple_output = FALSE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -581,7 +601,7 @@ int main(int argc, char *argv[])
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "af:hm:nNpex");
+					     &argc, &argv, "af:hm:nNpexS");
 	orig_config_path = master_service_get_config_path(master_service);
 
 	i_set_failure_prefix("doveconf: ");
@@ -611,6 +631,9 @@ int main(int argc, char *argv[])
 		case 'p':
 			parse_full_config = TRUE;
 			break;
+		case 'S':
+			simple_output = TRUE;
+			break;
 		case 'x':
 			expand_vars = TRUE;
 			break;
@@ -630,7 +653,7 @@ int main(int argc, char *argv[])
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
 		setting_name_filters = argv+optind;
-	} else {
+	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
 		printf("# "DOVECOT_VERSION_FULL": %s\n", config_path);
@@ -650,7 +673,16 @@ int main(int argc, char *argv[])
 	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
 		i_fatal("%s", error);
 
-	if (setting_name_filters != NULL) {
+	if (simple_output) {
+		struct config_export_context *ctx;
+
+		ctx = config_export_init(module, scope,
+					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
+					 config_request_simple_stdout,
+					 setting_name_filters);
+		config_export_by_filter(ctx, &filter);
+		ret2 = config_export_finish(&ctx);
+	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		for (i = 0; setting_name_filters[i] != NULL; i++) {
 			if (config_dump_one(&filter, hide_key, scope,
