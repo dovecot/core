@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 #ifdef HAVE_GLOB_H
 #  include <glob.h>
 #endif
@@ -26,6 +27,9 @@
 #ifndef GLOB_BRACE
 #  define GLOB_BRACE 0
 #endif
+
+#define DNS_LOOKUP_TIMEOUT_SECS 30
+#define DNS_LOOKUP_WARN_SECS 5
 
 static const enum settings_parser_flags settings_parser_flags =
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
@@ -209,6 +213,7 @@ int config_parse_net(const char *value, struct ip_addr *ip_r,
 	struct ip_addr *ips;
 	const char *p;
 	unsigned int ip_count, bits, max_bits;
+	time_t t1, t2;
 	int ret;
 
 	if (net_parse_range(value, ip_r, bits_r) == 0)
@@ -220,13 +225,22 @@ int config_parse_net(const char *value, struct ip_addr *ip_r,
 		p++;
 	}
 
+	t1 = time(NULL);
+	alarm(DNS_LOOKUP_TIMEOUT_SECS);
 	ret = net_gethostbyname(value, &ips, &ip_count);
+	alarm(0);
+	t2 = time(NULL);
 	if (ret != 0) {
 		*error_r = t_strdup_printf("gethostbyname(%s) failed: %s",
 					   value, net_gethosterror(ret));
 		return -1;
 	}
 	*ip_r = ips[0];
+
+	if (t2 - t1 >= DNS_LOOKUP_WARN_SECS) {
+		i_warning("gethostbyname(%s) took %d seconds",
+			  value, (int)(t2-t1));
+	}
 
 	max_bits = IPADDR_IS_V4(&ips[0]) ? 32 : 128;
 	if (p == NULL || str_to_uint(p, &bits) < 0 || bits > max_bits)
