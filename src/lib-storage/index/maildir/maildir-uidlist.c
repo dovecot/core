@@ -423,8 +423,15 @@ maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 		/* skip over an extension field */
 		start = line;
 		while (*line != ' ' && *line != '\0') line++;
-		buffer_append(buf, start, line - start);
-		buffer_append_c(buf, '\0');
+		if (MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(*start)) {
+			buffer_append(buf, start, line - start);
+			buffer_append_c(buf, '\0');
+		} else {
+			maildir_uidlist_set_corrupted(uidlist,
+				"Invalid extension record, removing: %s",
+				t_strdup_until(start, line));
+			uidlist->recreate = TRUE;
+		}
 		while (*line == ' ') line++;
 	}
 
