@@ -377,7 +377,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		return -1;
 	}
 
-	tmp_pool = pool_alloconly_create("config parsers check", 1024*32);
+	tmp_pool = pool_alloconly_create("config parsers check", 1024*64);
 	parsers = array_get(&ctx->all_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
@@ -456,9 +456,9 @@ static int settings_add_include(struct config_parser_context *ctx, const char *p
 		return -1;
 	}
 
-	new_input = t_new(struct input_stack, 1);
+	new_input = p_new(ctx->pool, struct input_stack, 1);
 	new_input->prev = ctx->cur_input;
-	new_input->path = t_strdup(path);
+	new_input->path = p_strdup(ctx->pool, path);
 	new_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(new_input->input, TRUE);
 	ctx->cur_input = new_input;
@@ -870,7 +870,7 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.pool = pool_alloconly_create("config file parser", 1024*64);
+	ctx.pool = pool_alloconly_create("config file parser", 1024*256);
 	ctx.path = path;
 
 	for (count = 0; all_roots[count] != NULL; count++) ;
@@ -894,7 +894,7 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 	config_add_new_parser(&ctx);
 
 	ctx.str = str_new(ctx.pool, 256);
-	full_line = t_str_new(512);
+	full_line = str_new(default_pool, 512);
 	ctx.cur_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
@@ -910,9 +910,9 @@ prevfile:
 
 		T_BEGIN {
 			handled = old_settings_handle(&ctx, type, key, value);
+			if (!handled)
+				config_parser_apply_line(&ctx, type, key, value);
 		} T_END;
-		if (!handled)
-			config_parser_apply_line(&ctx, type, key, value);
 
 		if (ctx.error != NULL) {
 			*error_r = t_strdup_printf(
@@ -930,6 +930,7 @@ prevfile:
 	if (line == NULL && ctx.cur_input != NULL)
 		goto prevfile;
 
+	str_free(&full_line);
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, error_r);
 	return ret < 0 ? ret : 1;

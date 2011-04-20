@@ -125,7 +125,7 @@ config_dump_human_init(const char *module, enum config_dump_scope scope,
 	enum config_dump_flags flags;
 	pool_t pool;
 
-	pool = pool_alloconly_create("config human strings", 10240);
+	pool = pool_alloconly_create("config human strings", 1024*32);
 	ctx = p_new(pool, struct config_dump_human_context, 1);
 	ctx->pool = pool;
 	ctx->list_prefix = str_new(ctx->pool, 128);
