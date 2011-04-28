@@ -836,7 +836,7 @@ bool settings_parse_is_changed(struct setting_parser_context *ctx,
 	const unsigned char *p;
 
 	if (!settings_find_key(ctx, key, &def, &link))
-		return NULL;
+		return FALSE;
 	if (link->change_struct == NULL)
 		return FALSE;
 
