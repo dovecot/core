@@ -165,11 +165,16 @@ static int dbox_file_read_header(struct dbox_file *file)
 static int dbox_file_open_fd(struct dbox_file *file, bool try_altpath)
 {
 	const char *path;
+	int flags = O_RDWR;
 	bool alt = FALSE;
 
 	/* try the primary path first */
 	path = file->primary_path;
-	while ((file->fd = open(path, O_RDWR)) == -1) {
+	while ((file->fd = open(path, flags)) == -1) {
+		if (errno == EACCES && flags == O_RDWR) {
+			flags = O_RDONLY;
+			continue;
+		}
 		if (errno != ENOENT) {
 			mail_storage_set_critical(&file->storage->storage,
 						  "open(%s) failed: %m", path);
