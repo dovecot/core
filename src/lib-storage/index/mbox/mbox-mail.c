@@ -154,8 +154,10 @@ mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->mail.mail.box;
 	const void *ext_data;
 
-	if (mail->data.guid != NULL)
-		return mail->data.guid;
+	if (mail->data.guid != NULL) {
+		*value_r = mail->data.guid;
+		return TRUE;
+	}
 
 	mail_index_lookup_ext(mail->mail.mail.transaction->view,
 			      mail->mail.mail.seq, mbox->md5hdr_ext_idx,
