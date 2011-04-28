@@ -27,7 +27,7 @@ cmd_altmove_box(const struct mailbox_info *info,
 				info->name, mail->uid);
 		}
 		mail_update_flags(mail, MODIFY_ADD,
-				  MAIL_INDEX_MAIL_FLAG_BACKEND);
+			(enum mail_flags)MAIL_INDEX_MAIL_FLAG_BACKEND);
 	}
 	mail_free(&mail);
 	return doveadm_mail_iter_deinit_sync(&iter);
