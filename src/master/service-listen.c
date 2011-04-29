@@ -16,7 +16,7 @@
 #include <sys/stat.h>
 
 #define MIN_BACKLOG 4
-#define MAX_BACKLOG 128
+#define MAX_BACKLOG 511
 
 static unsigned int service_get_backlog(struct service *service)
 {
