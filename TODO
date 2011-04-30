@@ -1,15 +1,20 @@
+ - fix proxy_maybe=fqdn
  - mailbox list index:
     - with in-memory indexes be sure to refresh it more often
     - refreshing could refresh only the parts that are actually requested,
       e.g. %
     - mailbox_get_metadata(guid) could be optimized
     - virtual could use it to avoid keeping all mailboxes open
- - ioloop: if next timeout is happening in less than 0.5ms from now, just run it
- - lib-ssl-iostream: Verify remote server name. get logic from postfix.
- - imapc: THREAD is broken - i guess it needs multiple IMAP connections
- - imapc: fix hangs if remote disconnects
- - stephan wants an easy way to get mail_user without storage
-     - and check the pipe plugin thing
+ - lib-ssl-iostream:
+    - Verify remote server name. get logic from postfix.
+    - WANT_READ/WANT_WRITE handling isn't done right..
+ - imapc:
+     - prefetching to THREAD and SORT
+     - fix hangs if remote disconnects (still happening?)
+     - after LIST "" * is refreshed, delete all unlisted local index dirs
+     - fix lib-index assert-crash when >1 messages are expunged while they're
+       still in delayed_trans
+ - check the pigeonhole pipe plugin thing
  - "protocols = $protocols sieve" when there no explicit protocols setting
    gives duplicates
  - check:
@@ -21,16 +26,7 @@
        src_mail the previously copied mail, 4) use that for mailbox_copy()ing
        to following recipients
  - notify_sync() could have "what changed" struct with old/new flags
- - mailbox deletion could really be "rmdir", which fails if everything isn't
-   already expunged. IMAP DELETE could fail with "mailbox changed during
-   deletion, aborting" if new messages arrive
-     - if doing any changes, figure out how to handle symlinked mailboxes
-         - if mail root dir is a symlink, simply unlink() it?
  - maildir: copy dovecot-shared file from parent mailbox, not root.
- - is mail_index_sync_have_any() really necessary? especially that it returns
-   TRUE for ext rec changes ... why?...
- - login-common API change to fix compiling with
-   LDFLAGS="-Wl,--as-needed -Wl,--no-undefined"
  - if global ACL path points to a file instead of a directory, read all of
    them from there. support wildcards in names.
 
@@ -251,9 +247,6 @@
 	  single transaction.
 	   - only after that we can remove the transaction log offset
 	     overwriting (otherwise we can get partial transactions in views)
-
- - lib-storage
-    - x search charset asdf all -> should fail
 
  - login
     - Digest-MD5: support integrity protection, and maybe crypting. Do it
