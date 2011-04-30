@@ -11,6 +11,7 @@
 #include "mail-index-modseq.h"
 #include "mailbox-log.h"
 #include "mailbox-list-private.h"
+#include "mail-search-build.h"
 #include "index-storage.h"
 #include "index-mail.h"
 #include "index-attachment.h"
@@ -196,17 +197,10 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 	return 0;
 }
 
-int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
+static int index_storage_mailbox_alloc_index(struct mailbox *box)
 {
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
-	enum mail_index_open_flags index_flags;
-	int ret;
-
-	i_assert(!box->opened);
-
-	index_flags = ibox->index_flags;
-	if (move_to_memory)
-		ibox->index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
+	if (box->index != NULL)
+		return 0;
 
 	if (mailbox_list_create_missing_index_dir(box->list, box->name) < 0) {
 		mail_storage_set_internal_error(box->storage);
@@ -219,6 +213,23 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	mail_index_set_lock_method(box->index,
 		box->storage->set->parsed_lock_method,
 		mail_storage_get_lock_timeout(box->storage, -1U));
+	return 0;
+}
+
+int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
+{
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+	enum mail_index_open_flags index_flags;
+	int ret;
+
+	i_assert(!box->opened);
+
+	index_flags = ibox->index_flags;
+	if (move_to_memory)
+		ibox->index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
+
+	if (index_storage_mailbox_alloc_index(box) < 0)
+		return -1;
 
 	/* make sure mail_index_set_permissions() has been called */
 	(void)mailbox_get_permissions(box);
@@ -243,6 +254,15 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 		if (mail_index_is_in_memory(box->index)) {
 			mail_storage_set_critical(box->storage,
 				"Couldn't create index file");
+			mail_index_close(box->index);
+			return -1;
+		}
+	}
+
+	if ((box->flags & MAILBOX_FLAG_OPEN_DELETED) == 0) {
+		if (mail_index_is_deleted(box->index)) {
+			mailbox_set_deleted(box);
+			mail_index_close(box->index);
 			return -1;
 		}
 	}
@@ -261,13 +281,6 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	index_thread_mailbox_opened(box);
 	if (hook_mailbox_opened != NULL)
 		hook_mailbox_opened(box);
-
-	if ((box->flags & MAILBOX_FLAG_OPEN_DELETED) == 0) {
-		if (mail_index_is_deleted(box->index)) {
-			mailbox_set_deleted(box);
-			return -1;
-		}
-	}
 	return 0;
 }
 
@@ -472,9 +485,36 @@ int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted)
 	return 0;
 }
 
+static int mailbox_expunge_all_mails(struct mailbox *box)
+{
+	struct mail_search_context *ctx;
+        struct mailbox_transaction_context *t;
+	struct mail *mail;
+	struct mail_search_args *search_args;
+
+	(void)mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
+
+	t = mailbox_transaction_begin(box, 0);
+
+	search_args = mail_search_build_init();
+	mail_search_build_add_all(search_args);
+	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
+	mail_search_args_unref(&search_args);
+
+	while (mailbox_search_next(ctx, &mail))
+		mail_expunge(mail);
+
+	if (mailbox_search_deinit(&ctx) < 0) {
+		mailbox_transaction_rollback(&t);
+		return -1;
+	}
+	return mailbox_transaction_commit(&t);
+}
+
 int index_storage_mailbox_delete(struct mailbox *box)
 {
 	struct mailbox_metadata metadata;
+	struct mailbox_status status;
 	int ret_guid;
 
 	if (!box->opened) {
@@ -482,8 +522,27 @@ int index_storage_mailbox_delete(struct mailbox *box)
 		return index_storage_mailbox_delete_dir(box, FALSE);
 	}
 
+	/* we can't easily atomically delete all mails and the mailbox. so:
+	   1) expunge all mails
+	   2) mark the mailbox deleted (modifications after this will fail)
+	   3) check if a race condition between 1) and 2) added any mails:
+	     yes) abort and undelete mailbox
+	     no) finish deleting the mailbox
+	*/
+
+	if (mailbox_expunge_all_mails(box) < 0)
+		return -1;
 	if (mailbox_mark_index_deleted(box, TRUE) < 0)
 		return -1;
+
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
+		return -1;
+	mailbox_get_open_status(box, STATUS_MESSAGES, &status);
+	if (status.messages != 0) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+			"New mails were added to mailbox during deletion");
+		return -1;
+	}
 
 	ret_guid = mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata);
 

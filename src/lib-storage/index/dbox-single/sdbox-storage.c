@@ -263,46 +263,6 @@ static void sdbox_mailbox_close(struct mailbox *box)
 	index_storage_mailbox_close(box);
 }
 
-static int sdbox_mailbox_delete(struct mailbox *box)
-{
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
-	struct mail_search_context *ctx;
-        struct mailbox_transaction_context *t;
-	struct mail *mail;
-	struct mail_search_args *search_args;
-	struct dbox_file *file;
-	struct sdbox_file *sfile;
-
-	if (!box->opened || mbox->storage->storage.attachment_dir == NULL)
-		return index_storage_mailbox_delete(box);
-
-	/* mark the mailbox deleted to avoid race conditions */
-	if (mailbox_mark_index_deleted(box, TRUE) < 0)
-		return -1;
-
-	/* ulink all dbox mails and their attachements in the mailbox. */
-	t = mailbox_transaction_begin(box, 0);
-
-	search_args = mail_search_build_init();
-	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
-	mail_search_args_unref(&search_args);
-
-	while (mailbox_search_next(ctx, &mail)) {
-		file = sdbox_file_init(mbox, mail->uid);
-		sfile = (struct sdbox_file *)file;
-		(void)sdbox_file_unlink_with_attachments(sfile);
-		dbox_file_unref(&file);
-	}
-
-	if (mailbox_search_deinit(&ctx) < 0) {
-		/* maybe we missed some mails. oh well, can't help it. */
-	}
-	mailbox_transaction_rollback(&t);
-
-	return index_storage_mailbox_delete(box);
-}
-
 static int
 sdbox_mailbox_get_metadata(struct mailbox *box,
 			   enum mailbox_metadata_items items,
@@ -374,7 +334,7 @@ struct mailbox sdbox_mailbox = {
 		index_storage_mailbox_free,
 		dbox_mailbox_create,
 		dbox_mailbox_update,
-		sdbox_mailbox_delete,
+		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
 		sdbox_mailbox_get_metadata,

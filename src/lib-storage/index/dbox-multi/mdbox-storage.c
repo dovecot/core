@@ -350,49 +350,6 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	return mdbox_write_index_header(box, update, NULL);
 }
 
-static int mdbox_mailbox_unref_mails(struct mdbox_mailbox *mbox)
-{
-	struct mdbox_map_atomic_context *atomic;
-	struct mdbox_map_transaction_context *map_trans;
-	const struct mail_index_header *hdr;
-	uint32_t seq, map_uid;
-	int ret = 0;
-
-	atomic = mdbox_map_atomic_begin(mbox->storage->map);
-	map_trans = mdbox_map_transaction_begin(atomic, FALSE);
-	hdr = mail_index_get_header(mbox->box.view);
-	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		if (mdbox_mail_lookup(mbox, mbox->box.view, seq,
-				      &map_uid) < 0) {
-			ret = -1;
-			break;
-		}
-
-		if (mdbox_map_update_refcount(map_trans, map_uid, -1) < 0) {
-			ret = -1;
-			break;
-		}
-	}
-
-	if (ret == 0)
-		ret = mdbox_map_transaction_commit(map_trans);
-	mdbox_map_transaction_free(&map_trans);
-	if (mdbox_map_atomic_finish(&atomic) < 0)
-		ret = -1;
-	return ret;
-}
-
-static int mdbox_mailbox_delete(struct mailbox *box)
-{
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
-
-	if (box->opened) {
-		if (mdbox_mailbox_unref_mails(mbox) < 0)
-			return -1;
-	}
-	return index_storage_mailbox_delete(box);
-}
-
 struct mail_storage mdbox_storage = {
 	.name = MDBOX_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT,
@@ -421,7 +378,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_mailbox_free,
 		dbox_mailbox_create,
 		mdbox_mailbox_update,
-		mdbox_mailbox_delete,
+		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
 		mdbox_mailbox_get_metadata,

@@ -338,49 +338,6 @@ static void quota_mailbox_close(struct mailbox *box)
 	qbox->module_ctx.super.close(box);
 }
 
-static int
-quota_mailbox_delete_shrink_quota(struct mailbox *box)
-{
-	struct mail_search_context *ctx;
-        struct mailbox_transaction_context *t;
-	struct quota_transaction_context *qt;
-	struct mail *mail;
-	struct mail_search_args *search_args;
-
-	if (mailbox_mark_index_deleted(box, TRUE) < 0)
-		return -1;
-
-	t = mailbox_transaction_begin(box, 0);
-	qt = quota_transaction_begin(box);
-
-	search_args = mail_search_build_init();
-	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
-	mail_search_args_unref(&search_args);
-
-	while (mailbox_search_next(ctx, &mail))
-		quota_free(qt, mail);
-
-	if (mailbox_search_deinit(&ctx) < 0) {
-		/* maybe we missed some mails. */
-		quota_recalculate(qt);
-	}
-	(void)quota_transaction_commit(&qt);
-	mailbox_transaction_rollback(&t);
-	return 0;
-}
-
-static int quota_mailbox_delete(struct mailbox *box)
-{
-	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
-
-	if (box->opened) {
-		if (quota_mailbox_delete_shrink_quota(box) < 0)
-			return -1;
-	}
-	return qbox->module_ctx.super.delete(box);
-}
-
 static void quota_mailbox_free(struct mailbox *box)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
@@ -419,7 +376,6 @@ void quota_mailbox_allocated(struct mailbox *box)
 	v->sync_notify = quota_mailbox_sync_notify;
 	v->sync_deinit = quota_mailbox_sync_deinit;
 	v->close = quota_mailbox_close;
-	v->delete = quota_mailbox_delete;
 	v->free = quota_mailbox_free;
 	MODULE_CONTEXT_SET(box, quota_storage_module, qbox);
 }
