@@ -328,3 +328,25 @@ int mailbox_list_delete_trash(const char *path)
 	}
 	return 0;
 }
+
+int mailbox_list_delete_symlink_default(struct mailbox_list *list,
+					const char *name)
+{
+	const char *path;
+
+	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (unlink(path) == 0)
+		return 0;
+
+	if (errno == ENOENT) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+	} else if (errno == EISDIR) {
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox isn't a symlink");
+	} else {
+		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
+	}
+	return -1;
+}
+

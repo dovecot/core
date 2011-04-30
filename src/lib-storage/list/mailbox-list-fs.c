@@ -613,6 +613,7 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_create_mailbox_dir,
 		fs_list_delete_mailbox,
 		fs_list_delete_dir,
+		mailbox_list_delete_symlink_default,
 		fs_list_rename_mailbox
 	}
 };

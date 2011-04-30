@@ -522,6 +522,11 @@ int index_storage_mailbox_delete(struct mailbox *box)
 		return index_storage_mailbox_delete_dir(box, FALSE);
 	}
 
+	/* specifically support symlinked shared mailboxes. a deletion will
+	   simply remove the symlink, not actually expunge any mails */
+	if (mailbox_list_delete_symlink(box->list, box->name) == 0)
+		return 0;
+
 	/* we can't easily atomically delete all mails and the mailbox. so:
 	   1) expunge all mails
 	   2) mark the mailbox deleted (modifications after this will fail)

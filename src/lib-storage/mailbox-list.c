@@ -1404,6 +1404,16 @@ int mailbox_list_delete_dir(struct mailbox_list *list, const char *name)
 	return list->v.delete_dir(list, name);
 }
 
+int mailbox_list_delete_symlink(struct mailbox_list *list, const char *name)
+{
+	if (!mailbox_list_is_valid_existing_name(list, name) || *name == '\0') {
+		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
+		return -1;
+	}
+	return list->v.delete_symlink(list, name);
+}
+
 void mailbox_name_get_sha128(const char *name, uint8_t guid[MAIL_GUID_128_SIZE])
 {
 	unsigned char sha[SHA1_RESULTLEN];

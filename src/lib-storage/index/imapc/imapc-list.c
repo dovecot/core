@@ -497,6 +497,14 @@ imapc_list_delete_dir(struct mailbox_list *_list, const char *name)
 }
 
 static int
+imapc_list_delete_symlink(struct mailbox_list *list,
+			  const char *name ATTR_UNUSED)
+{
+	mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE, "Not supported");
+	return -1;
+}
+
+static int
 imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			  struct mailbox_list *newlist, const char *newname,
 			  bool rename_children)
@@ -560,6 +568,7 @@ struct mailbox_list imapc_mailbox_list = {
 		imapc_list_create_mailbox_dir,
 		imapc_list_delete_mailbox,
 		imapc_list_delete_dir,
+		imapc_list_delete_symlink,
 		imapc_list_rename_mailbox
 	}
 };

@@ -82,6 +82,7 @@ struct mailbox_list_vfuncs {
 				  enum mailbox_dir_create_type type);
 	int (*delete_mailbox)(struct mailbox_list *list, const char *name);
 	int (*delete_dir)(struct mailbox_list *list, const char *name);
+	int (*delete_symlink)(struct mailbox_list *list, const char *name);
 	int (*rename_mailbox)(struct mailbox_list *oldlist, const char *oldname,
 			      struct mailbox_list *newlist, const char *newname,
 			      bool rename_children);

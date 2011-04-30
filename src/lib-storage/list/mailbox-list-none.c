@@ -210,6 +210,7 @@ struct mailbox_list none_mailbox_list = {
 		none_list_create_mailbox_dir,
 		none_list_delete_mailbox,
 		none_list_delete_dir,
+		none_list_delete_dir,
 		none_list_rename_mailbox
 	}
 };

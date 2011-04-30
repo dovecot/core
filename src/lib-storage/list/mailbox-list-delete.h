@@ -17,4 +17,7 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 				    enum mailbox_list_path_type type);
 int mailbox_list_delete_trash(const char *path);
 
+int mailbox_list_delete_symlink_default(struct mailbox_list *list,
+					const char *name);
+
 #endif
