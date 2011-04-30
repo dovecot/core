@@ -127,7 +127,6 @@ struct client {
 };
 
 extern struct client *clients;
-extern struct client_vfuncs client_vfuncs;
 
 struct client *
 client_create(int fd, bool ssl, pool_t pool,
@@ -173,8 +172,5 @@ void client_proxy_failed(struct client *client, bool send_line);
 void clients_notify_auth_connected(void);
 void client_destroy_oldest(void);
 void clients_destroy_all(void);
-
-void clients_init(void);
-void clients_deinit(void);
 
 #endif

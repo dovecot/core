@@ -47,8 +47,8 @@ client_create(int fd, bool ssl, pool_t pool,
 
 	i_assert(fd != -1);
 
-	client = client_vfuncs.alloc(pool);
-	client->v = client_vfuncs;
+	client = login_binary->client_vfuncs->alloc(pool);
+	client->v = *login_binary->client_vfuncs;
 	if (client->v.auth_send_challenge == NULL)
 		client->v.auth_send_challenge = client_auth_send_challenge;
 	if (client->v.auth_parse_response == NULL)
@@ -371,7 +371,7 @@ get_var_expand_table(struct client *client)
 		for (i = 0; i < 3; i++)
 			tab[i].value = str_sanitize(tab[i].value, 80);
 	}
-	tab[3].value = login_binary.protocol;
+	tab[3].value = login_binary->protocol;
 	tab[4].value = getenv("HOME");
 	tab[5].value = net_ip2addr(&client->local_ip);
 	tab[6].value = net_ip2addr(&client->ip);

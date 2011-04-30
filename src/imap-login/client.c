@@ -28,18 +28,6 @@
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
 
-const struct login_binary login_binary = {
-	.protocol = "imap",
-	.process_name = "imap-login",
-	.default_port = 143,
-	.default_ssl_port = 993
-};
-
-void login_process_preinit(void)
-{
-	login_set_roots = imap_login_setting_roots;
-}
-
 /* Skip incoming data until newline is found,
    returns TRUE if newline was found. */
 bool client_skip_line(struct imap_client *client)
@@ -439,16 +427,21 @@ imap_client_send_line(struct client *client, enum client_cmd_reply reply,
 	} T_END;
 }
 
-void clients_init(void)
+static void imap_login_preinit(void)
+{
+	login_set_roots = imap_login_setting_roots;
+}
+
+static void imap_login_init(void)
 {
 }
 
-void clients_deinit(void)
+static void imap_login_deinit(void)
 {
 	clients_destroy_all();
 }
 
-struct client_vfuncs client_vfuncs = {
+static struct client_vfuncs imap_client_vfuncs = {
 	imap_client_alloc,
 	imap_client_create,
 	imap_client_destroy,
@@ -462,3 +455,20 @@ struct client_vfuncs client_vfuncs = {
 	imap_proxy_reset,
 	imap_proxy_parse_line
 };
+
+static const struct login_binary imap_login_binary = {
+	.protocol = "imap",
+	.process_name = "imap-login",
+	.default_port = 143,
+	.default_ssl_port = 993,
+
+	.client_vfuncs = &imap_client_vfuncs,
+	.preinit = imap_login_preinit,
+	.init = imap_login_init,
+	.deinit = imap_login_deinit
+};
+
+int main(int argc, char *argv[])
+{
+	return login_binary_run(&imap_login_binary, argc, argv);
+}

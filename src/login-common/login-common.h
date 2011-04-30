@@ -22,9 +22,14 @@ struct login_binary {
 	unsigned int default_port;
 	/* e.g. 993, 995. if there is no ssl port, use 0. */
 	unsigned int default_ssl_port;
+
+	const struct client_vfuncs *client_vfuncs;
+	void (*preinit)(void);
+	void (*init)(void);
+	void (*deinit)(void);
 };
 
-extern const struct login_binary login_binary;
+extern const struct login_binary *login_binary;
 extern struct auth_client *auth_client;
 extern struct master_auth *master_auth;
 extern bool closing_down;
@@ -36,6 +41,7 @@ extern void **global_other_settings;
 void login_refresh_proctitle(void);
 void login_client_destroyed(void);
 
-void login_process_preinit(void);
+int login_binary_run(const struct login_binary *binary,
+		     int argc, char *argv[]);
 
 #endif

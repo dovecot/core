@@ -31,6 +31,7 @@ struct login_access_lookup {
 	struct access_lookup *access;
 };
 
+const struct login_binary *login_binary;
 struct auth_client *auth_client;
 struct master_auth *master_auth;
 bool closing_down;
@@ -183,7 +184,7 @@ static void login_access_lookup_next(struct login_access_lookup *lookup)
 		return;
 	}
 	lookup->access = access_lookup(*lookup->next_socket, lookup->conn.fd,
-				       login_binary.protocol,
+				       login_binary->protocol,
 				       login_access_callback, lookup);
 	if (lookup->access == NULL)
 		login_access_lookup_free(lookup);
@@ -303,9 +304,9 @@ static void main_init(const char *login_socket)
 	auth_client = auth_client_init(login_socket, (unsigned int)getpid(),
 				       FALSE);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
-	master_auth = master_auth_init(master_service, login_binary.protocol);
+	master_auth = master_auth_init(master_service, login_binary->protocol);
 
-	clients_init();
+	login_binary->init();
 	login_proxy_init("proxy-notify");
 }
 
@@ -314,7 +315,7 @@ static void main_deinit(void)
 	ssl_proxy_deinit();
 	login_proxy_deinit();
 
-	clients_deinit();
+	login_binary->deinit();
 	auth_client_deinit(&auth_client);
 	master_auth_deinit(&master_auth);
 
@@ -325,7 +326,8 @@ static void main_deinit(void)
 	login_settings_deinit();
 }
 
-int main(int argc, char *argv[])
+int login_binary_run(const struct login_binary *binary,
+		     int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
@@ -335,10 +337,12 @@ int main(int argc, char *argv[])
 	const char *login_socket = DEFAULT_LOGIN_SOCKET;
 	int c;
 
-	master_service = master_service_init(login_binary.process_name,
+	login_binary = binary;
+
+	master_service = master_service_init(login_binary->process_name,
 					     service_flags, &argc, &argv, "DS");
 	master_service_init_log(master_service, t_strconcat(
-		login_binary.process_name, ": ", NULL));
+		login_binary->process_name, ": ", NULL));
 
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
@@ -355,7 +359,7 @@ int main(int argc, char *argv[])
 	if (argv[optind] != NULL)
 		login_socket = argv[optind];
 
-	login_process_preinit();
+	login_binary->preinit();
 
 	set_pool = pool_alloconly_create("global login settings", 4096);
 	global_login_settings =

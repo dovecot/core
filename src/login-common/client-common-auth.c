@@ -96,7 +96,7 @@ static void client_auth_parse_args(struct client *client,
 			if (strcmp(value, "any-cert") == 0)
 				reply_r->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
 			if (reply_r->port == 0)
-				reply_r->port = login_binary.default_ssl_port;
+				reply_r->port = login_binary->default_ssl_port;
 		} else if (strcmp(key, "starttls") == 0) {
 			reply_r->ssl_flags |= PROXY_SSL_FLAG_YES |
 				PROXY_SSL_FLAG_STARTTLS;
@@ -108,7 +108,7 @@ static void client_auth_parse_args(struct client *client,
 			i_debug("Ignoring unknown passdb extra field: %s", key);
 	}
 	if (reply_r->port == 0)
-		reply_r->port = login_binary.default_port;
+		reply_r->port = login_binary->default_port;
 
 	if (reply_r->destuser == NULL)
 		reply_r->destuser = client->virtual_user;
@@ -488,7 +488,7 @@ int client_auth_begin(struct client *client, const char *mech_name,
 
 	client_ref(client);
 	client->auth_initializing = TRUE;
-	sasl_server_auth_begin(client, login_binary.protocol, mech_name,
+	sasl_server_auth_begin(client, login_binary->protocol, mech_name,
 			       init_resp, sasl_callback);
 	client->auth_initializing = FALSE;
 	if (!client->authenticating)
