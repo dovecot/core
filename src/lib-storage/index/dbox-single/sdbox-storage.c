@@ -118,6 +118,8 @@ void sdbox_update_header(struct sdbox_mailbox *mbox,
 		mail_index_update_header_ext(trans, mbox->hdr_ext_id, 0,
 					     &new_hdr, sizeof(new_hdr));
 	}
+	memcpy(mbox->mailbox_guid, new_hdr.mailbox_guid,
+	       sizeof(mbox->mailbox_guid));
 }
 
 static int sdbox_mailbox_create_indexes(struct mailbox *box,
