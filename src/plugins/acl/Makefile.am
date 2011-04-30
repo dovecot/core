@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/doveadm
 
+NOPLUGIN_LDFLAGS =
 lib10_doveadm_acl_plugin_la_LDFLAGS = -module -avoid-version
 lib01_acl_plugin_la_LDFLAGS = -module -avoid-version
 

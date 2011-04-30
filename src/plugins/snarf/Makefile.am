@@ -4,6 +4,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage
 
+NOPLUGIN_LDFLAGS =
 lib05_snarf_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \

@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/maildir
 
+NOPLUGIN_LDFLAGS =
 lib15_notify_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \

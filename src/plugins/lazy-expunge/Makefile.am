@@ -8,6 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/plugins/quota
 
+NOPLUGIN_LDFLAGS =
 lib02_lazy_expunge_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \

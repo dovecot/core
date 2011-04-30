@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index
 
+NOPLUGIN_LDFLAGS =
 lib20_virtual_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \

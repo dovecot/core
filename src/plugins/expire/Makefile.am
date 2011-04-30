@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/doveadm
 
+NOPLUGIN_LDFLAGS =
 lib10_doveadm_expire_plugin_la_LDFLAGS = -module -avoid-version
 lib20_expire_plugin_la_LDFLAGS = -module -avoid-version
 

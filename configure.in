@@ -2632,6 +2632,11 @@ AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", IMAP capabilities)
 AC_DEFINE_UNQUOTED(CAPABILITY_BANNER_STRING, "$capability_banner", IMAP capabilities advertised in banner) 
 
 CFLAGS="$CFLAGS $EXTRA_CFLAGS"
+if test "$with_gnu_ld" = yes; then
+  NOPLUGIN_LDFLAGS="-Wl,--as-needed -Wl,--no-undefined"
+  LDFLAGS="\$(NOPLUGIN_LDFLAGS) $LDFLAGS"
+  AC_SUBST(NOPLUGIN_LDFLAGS)
+fi
 
 if test "$docdir" = ""; then
   dnl docdir supported only by autoconf v2.59c and later

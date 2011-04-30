@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index/maildir \
 	-I$(top_srcdir)/src/doveadm
 
+NOPLUGIN_LDFLAGS =
 lib10_doveadm_quota_plugin_la_LDFLAGS = -module -avoid-version
 lib10_quota_plugin_la_LDFLAGS = -module -avoid-version
 

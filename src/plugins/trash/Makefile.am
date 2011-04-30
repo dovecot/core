@@ -5,6 +5,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/plugins/quota
 
+NOPLUGIN_LDFLAGS =
 lib11_trash_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \

@@ -8,6 +8,7 @@ AM_CPPFLAGS = \
 
 imap_moduledir = $(moduledir)
 
+NOPLUGIN_LDFLAGS =
 lib11_imap_quota_plugin_la_LDFLAGS = -module -avoid-version
 
 imap_module_LTLIBRARIES = \

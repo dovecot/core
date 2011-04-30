@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/plugins/fts \
 	-I/usr/lib
 
+NOPLUGIN_LDFLAGS =
 lib21_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \

@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index/dbox-common \
 	-I$(top_srcdir)/src/doveadm
 
+NOPLUGIN_LDFLAGS =
 lib10_doveadm_zlib_plugin_la_LDFLAGS = -module -avoid-version
 lib20_zlib_plugin_la_LDFLAGS = -module -avoid-version
 

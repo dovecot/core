@@ -8,6 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index/maildir \
 	-I$(top_srcdir)/src/plugins/notify
 
+NOPLUGIN_LDFLAGS =
 lib20_mail_log_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
