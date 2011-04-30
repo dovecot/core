@@ -27,18 +27,10 @@
 #define LAZY_EXPUNGE_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, lazy_expunge_mail_module)
 
-enum lazy_namespace {
-	LAZY_NAMESPACE_EXPUNGE,
-	LAZY_NAMESPACE_DELETE,
-	LAZY_NAMESPACE_DELETE_EXPUNGE,
-
-	LAZY_NAMESPACE_COUNT
-};
-
 struct lazy_expunge_mail_user {
 	union mail_user_module_context module_ctx;
 
-	struct mail_namespace *lazy_ns[LAZY_NAMESPACE_COUNT];
+	struct mail_namespace *lazy_ns;
 	const char *env;
 };
 
@@ -99,28 +91,20 @@ mailbox_open_or_create(struct mailbox_list *list, const char *name,
 	return box;
 }
 
-static struct mail_namespace *
-get_lazy_ns(struct mail_user *user, enum lazy_namespace type)
-{
-	struct lazy_expunge_mail_user *luser = LAZY_EXPUNGE_USER_CONTEXT(user);
-
-	return luser->lazy_ns[type];
-}
-
 static void lazy_expunge_mail_expunge(struct mail *_mail)
 {
 	struct mail_namespace *ns = _mail->box->list->ns;
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(ns->user);
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *mmail = LAZY_EXPUNGE_MAIL_CONTEXT(mail);
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
-	struct mail_namespace *dest_ns;
 	struct mail_save_context *save_ctx;
 	const char *error;
 
-	dest_ns = get_lazy_ns(ns->user, LAZY_NAMESPACE_EXPUNGE);
 	if (lt->dest_box == NULL) {
-		lt->dest_box = mailbox_open_or_create(dest_ns->list,
+		lt->dest_box = mailbox_open_or_create(luser->lazy_ns->list,
 						      _mail->box->name, &error);
 		if (lt->dest_box == NULL) {
 			mail_storage_set_critical(_mail->box->storage,
@@ -354,16 +338,14 @@ static int mailbox_mark_index_undeleted(struct mailbox *box)
 
 static int lazy_expunge_mailbox_delete(struct mailbox *box)
 {
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(box->storage->user);
 	union mailbox_module_context *lbox =
 		LAZY_EXPUNGE_CONTEXT(box);
 	struct lazy_expunge_mailbox_list *llist =
 		LAZY_EXPUNGE_LIST_CONTEXT(box->list);
-	struct mailbox_list *list = box->list;
-	struct mail_namespace *expunge_ns, *dest_ns;
 	struct mailbox *expunge_box;
-	const char *destname, *str;
-	struct tm *tm;
-	char timestamp[256];
+	const char *str;
 	int ret;
 
 	if (llist->internal_namespace || !box->opened) {
@@ -372,29 +354,12 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 		return lbox->super.delete(box);
 	}
 
-	expunge_ns = get_lazy_ns(list->ns->user, LAZY_NAMESPACE_EXPUNGE);
-	dest_ns = get_lazy_ns(list->ns->user, LAZY_NAMESPACE_DELETE);
-	if (expunge_ns == dest_ns) {
-		/* if there are no expunged messages in this mailbox,
-		   we can simply rename the mailbox to the destination name */
-		destname = box->name;
-	} else {
-		/* destination mailbox name needs to contain a timestamp */
-		tm = localtime(&ioloop_time);
-		if (strftime(timestamp, sizeof(timestamp),
-			     "%Y%m%d-%H%M%S", tm) == 0) {
-			i_strocpy(timestamp, dec2str(ioloop_time),
-				  sizeof(timestamp));
-		}
-		destname = t_strconcat(box->name, "-", timestamp, NULL);
-	}
-
 	/* avoid potential race conditions by marking it deleted */
 	if (mailbox_mark_index_deleted(box, TRUE) < 0)
 		return -1;
 
 	/* rename it into the lazy_expunge namespace */
-	ret = mailbox_move(box, dest_ns->list, destname, &expunge_box);
+	ret = mailbox_move(box, luser->lazy_ns->list, box->name, &expunge_box);
 	if (ret < 0)
 		return -1;
 	if (ret == 0) {
@@ -418,24 +383,9 @@ static int lazy_expunge_mailbox_delete(struct mailbox *box)
 		return -1;
 	}
 
-	if (expunge_ns == dest_ns && strcmp(expunge_box->name, box->name) != 0)
+	if (strcmp(expunge_box->name, box->name) != 0)
 		ret = mailbox_move_all_mails(expunge_box, box->name);
-	else
-		ret = 0;
 	mailbox_free(&expunge_box);
-
-	/* next move the expunged messages mailbox, if it exists */
-	dest_ns = get_lazy_ns(list->ns->user, LAZY_NAMESPACE_DELETE_EXPUNGE);
-	if (expunge_ns != dest_ns) {
-		struct mailbox *ret_box;
-
-		expunge_box = mailbox_alloc(expunge_ns->list, box->name, 0);
-		ret = mailbox_move(expunge_box, dest_ns->list,
-				   destname, &ret_box);
-		if (ret > 0)
-			mailbox_free(&ret_box);
-		mailbox_free(&expunge_box);
-	}
 	return ret < 0 ? -1 : 0;
 }
 
@@ -490,23 +440,16 @@ static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT(list->ns->user);
 	struct lazy_expunge_mailbox_list *llist;
-	const char *const *p;
-	unsigned int i;
 
 	if (luser == NULL)
 		return;
 
 	/* if this is one of our internal namespaces, mark it as such before
 	   quota plugin sees it */
-	p = t_strsplit_spaces(luser->env, " ");
-	for (i = 0; i < LAZY_NAMESPACE_COUNT && *p != NULL; i++, p++) {
-		if (strcmp(list->ns->prefix, *p) == 0) {
-			list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
-			break;
-		}
-	}
+	if (strcmp(list->ns->prefix, luser->env) == 0)
+		list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
 
-	if (luser != NULL && list->ns->type == NAMESPACE_PRIVATE) {
+	if (list->ns->type == NAMESPACE_PRIVATE) {
 		llist = p_new(list->pool, struct lazy_expunge_mailbox_list, 1);
 		MODULE_CONTEXT_SET(list, lazy_expunge_mailbox_list_module,
 				   llist);
@@ -519,45 +462,25 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT(namespaces->user);
 	struct lazy_expunge_mailbox_list *llist;
-	const char *const *p;
-	int i;
 
 	if (luser == NULL)
 		return;
 
-	p = t_strsplit_spaces(luser->env, " ");
-	for (i = 0; i < LAZY_NAMESPACE_COUNT && *p != NULL; i++, p++) {
-		const char *name = *p;
+	luser->lazy_ns = mail_namespace_find_prefix(namespaces, luser->env);
+	if (luser->lazy_ns == NULL)
+		i_fatal("lazy_expunge: Unknown namespace: '%s'", luser->env);
+	mail_namespace_ref(luser->lazy_ns);
 
-		luser->lazy_ns[i] =
-			mail_namespace_find_prefix(namespaces, name);
-		if (luser->lazy_ns[i] == NULL)
-			i_fatal("lazy_expunge: Unknown namespace: '%s'", name);
-		mail_namespace_ref(luser->lazy_ns[i]);
-
-		/* we don't want to override these namespaces' expunge/delete
-		   operations. */
-		llist = LAZY_EXPUNGE_LIST_CONTEXT(luser->lazy_ns[i]->list);
-		llist->internal_namespace = TRUE;
-	}
-	if (i == 0)
-		i_fatal("lazy_expunge: No namespaces defined");
-	for (; i < LAZY_NAMESPACE_COUNT; i++) {
-		luser->lazy_ns[i] = luser->lazy_ns[i-1];
-		mail_namespace_ref(luser->lazy_ns[i]);
-	}
+	/* we don't want to override this namespace's expunge operation. */
+	llist = LAZY_EXPUNGE_LIST_CONTEXT(luser->lazy_ns->list);
+	llist->internal_namespace = TRUE;
 }
 
 static void lazy_expunge_user_deinit(struct mail_user *user)
 {
 	struct lazy_expunge_mail_user *luser = LAZY_EXPUNGE_USER_CONTEXT(user);
-	unsigned int i;
 
-	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++) {
-		if (luser->lazy_ns[i] != NULL)
-			mail_namespace_unref(&luser->lazy_ns[i]);
-	}
-
+	mail_namespace_unref(&luser->lazy_ns);
 	luser->module_ctx.super.deinit(user);
 }
 
