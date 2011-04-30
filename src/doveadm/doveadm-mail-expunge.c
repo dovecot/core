@@ -177,6 +177,20 @@ cmd_expunge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 	doveadm_mail_list_iter_deinit(&iter);
 }
 
+void expunge_search_args_check(struct mail_search_args *args, const char *cmd)
+{
+	mail_search_args_simplify(args);
+	if (!expunge_search_args_is_mailbox_ok(args->args)) {
+		i_fatal("%s: To avoid accidents, search query "
+			"must contain MAILBOX in all search branches", cmd);
+	}
+	if (!expunge_search_args_is_msgset_ok(args->args)) {
+		i_fatal("%s: To avoid accidents, each branch in "
+			"search query must contain something else "
+			"besides MAILBOX", cmd);
+	}
+}
+
 static void cmd_expunge_init(struct doveadm_mail_cmd_context *ctx,
 			     const char *const args[])
 {
@@ -184,17 +198,7 @@ static void cmd_expunge_init(struct doveadm_mail_cmd_context *ctx,
 		doveadm_mail_help_name("expunge");
 
 	ctx->search_args = doveadm_mail_build_search_args(args);
-	mail_search_args_simplify(ctx->search_args);
-
-	if (!expunge_search_args_is_mailbox_ok(ctx->search_args->args)) {
-		i_fatal("expunge: To avoid accidents, search query "
-			"must contain MAILBOX in all search branches");
-	}
-	if (!expunge_search_args_is_msgset_ok(ctx->search_args->args)) {
-		i_fatal("expunge: To avoid accidents, each branch in "
-			"search query must contain something else "
-			"besides MAILBOX");
-	}
+	expunge_search_args_check(ctx->search_args, "expunge");
 }
 
 static struct doveadm_mail_cmd_context *cmd_expunge_alloc(void)

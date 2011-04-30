@@ -1,5 +1,6 @@
 /* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
+#define _POSIX_PTHREAD_SEMANTICS /* for Solaris */
 #include "lib.h"
 #include "ipwd.h"
 
@@ -30,8 +31,12 @@ static void gr_init(void)
 	long size;
 
 	if (grbuf == NULL) {
+		/* OpenBSD (up to 4.8 at least) reports too low value in
+		   sysconf() */
+#ifndef __OpenBSD__
 		size = sysconf(_SC_GETGR_R_SIZE_MAX);
 		if (size < 0)
+#endif
 			size = DEFAULT_GRBUF_SIZE;
 
 		grbuf_size = size;

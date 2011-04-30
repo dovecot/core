@@ -375,6 +375,8 @@ static int index_attachment_save_finish_part(struct mail_save_context *ctx)
 			/* base64 data looks ok. */
 			if (index_attachment_base64_decode(ctx) < 0)
 				part->base64_failed = TRUE;
+		} else {
+			part->base64_failed = TRUE;
 		}
 	}
 

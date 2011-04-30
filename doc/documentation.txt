@@ -1,25 +1,10 @@
 The documentation in wiki/ directory has been imported from
-http://wiki.dovecot.org/. The actual Wiki may contain more up-to-date
+http://wiki2.dovecot.org/. The actual Wiki may contain more up-to-date
 information, so unless this is an old Dovecot release, you may want to use
 the Wiki directly.
 
-Documentation Index
-===================
-
  * <QuickConfiguration.txt> for people in hurry
  * <WhyDoesItNotWork.txt> - Why doesn't Dovecot work?
-
- 1. Welcome to the Dovecot Wiki
- 2. Dovecot Wiki Contents
- 3. Generic information about mail servers
- 4. Dovecot installation
- 5. Dovecot configuration
- 6. HOWTOs, examples and tutorials
- 7. Migration from existing systems
- 8. Troubleshooting
- 9. Tuning
- 10. Reference
- 11. Misc
 
 Generic information about mail servers
 ======================================
@@ -70,10 +55,13 @@ Dovecot configuration
     * <Restricting users' access> [Authentication.RestrictAccess.txt]
     * <Special authentication features> [PasswordDatabase.ExtraFields.txt]
     * <Master users> [Authentication.MasterUsers.txt]
+    * <Caching> [Authentication.Caching.txt]
  * <Mailbox location configuration> [MailLocation.txt]
     * <Mails stored in local disk> [MailLocation.LocalDisk.txt]
     * <Mails stored in shared filesystem> [MailLocation.SharedDisk.txt]
       (<NFS.txt>, clustered FS)
+        * <Director.txt> for easily proxying same user to same server to
+	  avoid caching problems. 
     * <Maildir configuration> [MailLocation.Maildir.txt]
     * <Mbox configuration> [MailLocation.Mbox.txt]
     * <Namespaces.txt>
@@ -85,17 +73,18 @@ Dovecot configuration
     * <Access Control Lists> [ACL.txt] (ACLs)
  * <Dovecot as a POP3 server> [POP3Server.txt]
  * <Dovecot's local delivery agent> [LDA.txt]
+ * <Sieve.txt> and <ManageSieve.txt>
  * <Post-login scripting> [PostLoginScripting.txt]
 
 HOWTOs, examples and tutorials
 ==============================
 
-Some HOWTOs haven't been included in wiki/. Use http://wiki.dovecot.org/
+Some HOWTOs haven't been included in wiki/. Use http://wiki2.dovecot.org/
 instead.
 
  * <HOWTOs, examples and tutorials> [HowTo.txt] for different installations
  * Existing Dovecot installations
-   [http://wiki.dovecot.org/DovecotServerInstallations]
+   [http://wiki2.dovecot.org/DovecotServerInstallations]
 
 Migration from existing systems
 ===============================
@@ -103,7 +92,7 @@ Migration from existing systems
  * <From other IMAP/POP3 servers> [Migration.txt]
     * <My mailboxes are lost after migrating to Dovecot!>
       [MissingMailboxes.txt]
- * <Upgrading from Dovecot 0.99.x to 1.0> [UpgradingDovecot.txt]
+ * <Upgrading Dovecot to a new version> [Upgrading.txt]
  * <Converting between mailbox formats> [Migration.MailFormat.txt] (mbox <->
    Maildir, etc.)
 
@@ -115,11 +104,15 @@ Troubleshooting
  * <Debugging authentication> [Debugging.Authentication.txt]
  * <Process tracing> [Debugging.ProcessTracing.txt] is useful when Dovecot
    seems slow or hangs completely
+ * Rawlog [Debugging.Rawlog.txt] can be used to log post-login IMAP/POP3
+   traffic 
  * <mbox errors and crashes> [MboxProblems.txt]
  * <Client issues and configuration> [Clients.txt]
     * <Negative UIDs / message sets> [Clients.NegativeUIDs.txt]
     * <Debugging using Thunderbird's logging> [Debugging.Thunderbird.txt]
  * <"Time moved backwards" error> [TimeMovedBackwards.txt]
+ * <%d expands to empty string> [DomainLost.txt]
+ * <pre-authenticated sessions> [PreAuth.txt]
  * Sending bug reports [http://dovecot.org/bugreport.html], debugging crashes
    and sniffing network traffic
 
@@ -133,11 +126,5 @@ Tuning
 Reference
 =========
 
- * <Command line arguments> [CommandLine.txt]
  * <Dovecot's design> [Design.txt]
  * <Client issues and configuration> [Clients.txt]
-
-Misc
-====
-
- * <Listening on Additional Ports> [Iptables.txt] using IP Tables or socat

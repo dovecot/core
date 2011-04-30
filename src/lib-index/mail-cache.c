@@ -86,7 +86,7 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 
 	if (fstat(cache->fd, &st) == 0)
 		file_cache_set_size(cache->file_cache, st.st_size);
-	else if (errno != ESTALE)
+	else if (!ESTALE_FSTAT(errno))
 		mail_cache_set_syscall_error(cache, "fstat()");
 
 	cache->st_ino = st.st_ino;
@@ -132,7 +132,7 @@ static bool mail_cache_need_reopen(struct mail_cache *cache)
 		   the same inode as the old one. we'll catch this here by
 		   checking if fstat() fails with ESTALE */
 		if (fstat(cache->fd, &st) < 0) {
-			if (errno == ESTALE)
+			if (ESTALE_FSTAT(errno))
 				return TRUE;
 			mail_cache_set_syscall_error(cache, "fstat()");
 			return FALSE;

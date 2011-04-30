@@ -199,6 +199,8 @@ void auth_request_export(struct auth_request *request,
 		auth_stream_reply_add(reply, "valid-client-cert", "1");
 	if (request->no_penalty)
 		auth_stream_reply_add(reply, "no-penalty", "1");
+	if (request->successful)
+		auth_stream_reply_add(reply, "successful", "1");
 	if (request->mech_name != NULL)
 		auth_stream_reply_add(reply, "mech", request->mech_name);
 }
@@ -239,6 +241,8 @@ bool auth_request_import(struct auth_request *request,
 		request->valid_client_cert = TRUE;
 	else if (strcmp(key, "no-penalty") == 0)
 		request->no_penalty = TRUE;
+	else if (strcmp(key, "successful") == 0)
+		request->successful = TRUE;
 	else if (strcmp(key, "skip_password_check") == 0) {
 		i_assert(request->master_user !=  NULL);
 		request->skip_password_check = TRUE;
@@ -897,7 +901,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 			*p = set->username_translation_map[*p & 0xff];
 		if (set->username_chars_map[*p & 0xff] == 0) {
 			*error_r = t_strdup_printf(
-				"Username contains disallowed character: "
+				"Username character disallowed by auth_username_chars: "
 				"0x%02x (username: %s)", *p,
 				str_sanitize(username, 128));
 			return NULL;

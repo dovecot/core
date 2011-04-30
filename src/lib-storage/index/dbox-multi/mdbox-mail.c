@@ -169,7 +169,7 @@ static int mdbox_mail_get_save_date(struct mail *mail, time_t *date_r)
 	}
 
 	*date_r = dbox_rec->save_date;
-	return TRUE;
+	return 0;
 }
 
 static void

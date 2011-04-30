@@ -281,7 +281,7 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size,
 		if (fstat(index->fd, &st) == 0)
 			file_size = st.st_size;
 		else {
-			if (errno != ESTALE) {
+			if (!ESTALE_FSTAT(errno)) {
 				mail_index_set_syscall_error(index, "fstat()");
 				return -1;
 			}
@@ -322,7 +322,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	if (fstat(index->fd, &st) == 0)
 		file_size = st.st_size;
 	else {
-		if (errno != ESTALE) {
+		if (!ESTALE_FSTAT(errno)) {
 			mail_index_set_syscall_error(index, "fstat()");
 			mail_index_unlock(index, &lock_id);
 			return -1;

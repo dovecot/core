@@ -308,7 +308,7 @@ static bool mail_index_strmap_need_reopen(struct mail_index_strmap *strmap)
 
 	/* FIXME: nfs flush */
 	if (fstat(strmap->fd, &st1) < 0) {
-		if (errno != ESTALE)
+		if (!ESTALE_FSTAT(errno))
 			mail_index_strmap_set_syscall_error(strmap, "fstat()");
 		return TRUE;
 	}

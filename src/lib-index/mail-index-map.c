@@ -162,6 +162,18 @@ mail_index_map_ext_hdr_check_record(const struct mail_index_header *hdr,
 		return -1;
 	}
 
+	/* until we get 128 bit CPUs having a larger alignment is pointless */
+	if (ext_hdr->record_align > sizeof(uint64_t)) {
+		*error_r = "Record alignment is too large";
+		return -1;
+	}
+	/* a large record size is most likely a bug somewhere. the maximum
+	   record size is limited to 64k anyway, so try to fail earlier. */
+	if (ext_hdr->record_size >= 32768) {
+		*error_r = "Record size is too large";
+		return -1;
+	}
+
 	if (ext_hdr->record_offset + ext_hdr->record_size > hdr->record_size) {
 		*error_r = t_strdup_printf("Record field points "
 					   "outside record size (%u+%u > %u)",

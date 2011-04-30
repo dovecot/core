@@ -923,8 +923,8 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	i_assert(ctx->quota != NULL);
 
 	ctx->box = box;
-	ctx->bytes_left = (uint64_t)-1;
-	ctx->count_left = (uint64_t)-1;
+	ctx->bytes_ceil = (uint64_t)-1;
+	ctx->count_ceil = (uint64_t)-1;
 	return ctx;
 }
 
@@ -933,7 +933,7 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	struct quota_root *const *roots;
 	const char *mailbox_name;
 	unsigned int i, count;
-	uint64_t bytes_limit, count_limit, current, limit, left;
+	uint64_t bytes_limit, count_limit, current, limit, ceil;
 	int ret;
 
 	ctx->limits_set = TRUE;
@@ -957,10 +957,9 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 						 QUOTA_NAME_STORAGE_BYTES,
 						 &current, &limit);
 			if (ret > 0) {
-				current += ctx->bytes_used;
-				left = limit < current ? 0 : limit - current;
-				if (ctx->bytes_left > left)
-					ctx->bytes_left = left;
+				ceil = limit < current ? 0 : limit - current;
+				if (ctx->bytes_ceil > ceil)
+					ctx->bytes_ceil = ceil;
 			} else if (ret < 0) {
 				ctx->failed = TRUE;
 				return -1;
@@ -972,10 +971,9 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 						 QUOTA_NAME_MESSAGES,
 						 &current, &limit);
 			if (ret > 0) {
-				current += ctx->count_used;
-				left = limit < current ? 0 : limit - current;
-				if (ctx->count_left > left)
-					ctx->count_left = left;
+				ceil = limit < current ? 0 : limit - current;
+				if (ctx->count_ceil > ceil)
+					ctx->count_ceil = ceil;
 			} else if (ret < 0) {
 				ctx->failed = TRUE;
 				return -1;
@@ -1171,9 +1169,13 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 
 	*too_large_r = FALSE;
 
-	if (ctx->count_left != 0 && ctx->bytes_left >= ctx->bytes_used + size)
+	if ((ctx->count_used < 0 ||
+	     (uint64_t)ctx->count_used + 1 <= ctx->count_ceil) &&
+	    ((ctx->bytes_used < 0 && size <= ctx->bytes_ceil) ||
+	     (uint64_t)ctx->bytes_used + size <= ctx->bytes_ceil))
 		return 1;
 
+	/* limit reached. only thing left to do now is to set too_large_r. */
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		uint64_t bytes_limit, count_limit;

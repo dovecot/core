@@ -414,13 +414,6 @@ db_ldap_check_limits(struct ldap_connection *conn, struct ldap_request *request)
 		ldap_conn_reconnect(conn);
 		return TRUE;
 	}
-	if (conn->request_queue->full && count >= DB_LDAP_MAX_QUEUE_SIZE) {
-		/* Queue is full already, fail this request */
-		auth_request_log_error(request->auth_request, "ldap",
-			"Request queue is full (oldest added %d secs ago)",
-			(int)secs_diff);
-		return FALSE;
-	}
 	return TRUE;
 }
 
@@ -456,6 +449,8 @@ static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 		return -1;
 	}
 
+	if (conn->to != NULL)
+		timeout_remove(&conn->to);
 	conn->conn_state = LDAP_CONN_STATE_BOUND_DEFAULT;
 	while (db_ldap_request_queue_next(conn))
 		;
@@ -693,6 +688,14 @@ sasl_interact(LDAP *ld ATTR_UNUSED, unsigned flags ATTR_UNUSED,
 }
 #endif
 
+static void ldap_connection_timeout(struct ldap_connection *conn)
+{
+	i_assert(conn->conn_state == LDAP_CONN_STATE_BINDING);
+
+	i_error("LDAP: Initial binding to LDAP server timed out");
+	db_ldap_conn_close(conn);
+}
+
 static int db_ldap_bind(struct ldap_connection *conn)
 {
 	int msgid;
@@ -714,6 +717,11 @@ static int db_ldap_bind(struct ldap_connection *conn)
 
 	conn->conn_state = LDAP_CONN_STATE_BINDING;
 	conn->default_bind_msgid = msgid;
+
+	if (conn->to != NULL)
+		timeout_remove(&conn->to);
+	conn->to = timeout_add(DB_LDAP_REQUEST_LOST_TIMEOUT_SECS*1000,
+			       ldap_connection_timeout, conn);
 	return 0;
 }
 
@@ -928,6 +936,9 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	conn->conn_state = LDAP_CONN_STATE_DISCONNECTED;
 	conn->default_bind_msgid = -1;
 
+	if (conn->to != NULL)
+		timeout_remove(&conn->to);
+
 	if (conn->pending_count != 0) {
 		requests = array_idx(&conn->request_array, 0);
 		for (i = 0; i < conn->pending_count; i++) {
@@ -951,10 +962,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 		io_remove_closed(&conn->io);
 	}
 
-	if (aqueue_count(conn->request_queue) == 0) {
-		if (conn->to != NULL)
-			timeout_remove(&conn->to);
-	} else if (conn->to == NULL) {
+	if (aqueue_count(conn->request_queue) > 0) {
 		conn->to = timeout_add(DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS *
 				       1000/2, db_ldap_disconnect_timeout, conn);
 	}
@@ -1298,7 +1306,7 @@ struct ldap_connection *db_ldap_init(const char *config_path)
         conn->set.ldap_deref = deref2str(conn->set.deref);
 	conn->set.ldap_scope = scope2str(conn->set.scope);
 
-	i_array_init(&conn->request_array, DB_LDAP_MAX_QUEUE_SIZE);
+	i_array_init(&conn->request_array, 512);
 	conn->request_queue = aqueue_init(&conn->request_array.arr);
 
 	conn->next = ldap_connections;

@@ -206,16 +206,18 @@ lmtp_client_rcpt_next(struct lmtp_client *client, const char *line)
 	rcpt->rcpt_to_callback(success, line, rcpt->context);
 }
 
-static void lmtp_client_send_data_cmd(struct lmtp_client *client)
+static int lmtp_client_send_data_cmd(struct lmtp_client *client)
 {
 	if (client->rcpt_next_receive_idx < array_count(&client->recipients))
-		return;
+		return 0;
 
-	if (client->global_fail_string != NULL || !client->rcpt_to_successes)
+	if (client->global_fail_string != NULL || !client->rcpt_to_successes) {
 		lmtp_client_fail(client, client->global_fail_string);
-	else {
+		return -1;
+	} else {
 		client->input_state++;
 		o_stream_send_str(client->output, "DATA\r\n");
+		return 0;
 	}
 }
 
@@ -390,7 +392,8 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 		lmtp_client_rcpt_next(client, line);
 		if (client->data_input == NULL)
 			break;
-		lmtp_client_send_data_cmd(client);
+		if (lmtp_client_send_data_cmd(client) < 0)
+			return -1;
 		break;
 	case LMTP_INPUT_STATE_DATA_CONTINUE:
 		/* Start sending DATA */
@@ -584,7 +587,7 @@ void lmtp_client_send(struct lmtp_client *client, struct istream *data_input)
 	i_stream_ref(data_input);
 	client->data_input = data_input;
 
-	lmtp_client_send_data_cmd(client);
+	(void)lmtp_client_send_data_cmd(client);
 }
 
 void lmtp_client_send_more(struct lmtp_client *client)

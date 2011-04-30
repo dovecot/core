@@ -560,7 +560,7 @@ mail_transaction_log_file_stat(struct mail_transaction_log_file *file,
 	struct stat st;
 
 	if (fstat(file->fd, &st) < 0) {
-                if (errno != ESTALE || !ignore_estale)
+                if (!ESTALE_FSTAT(errno) || !ignore_estale)
 			log_file_set_syscall_error(file, "fstat()");
 		return -1;
 	}
@@ -760,13 +760,19 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 				   bool check_existing)
 {
+	struct mail_index *index = file->log->index;
         unsigned int i;
 	bool ignore_estale;
 	int ret;
 
         for (i = 0;; i++) {
-                file->fd = nfs_safe_open(file->filepath, O_RDWR);
-                if (file->fd == -1) {
+		file->fd = nfs_safe_open(file->filepath,
+					 !index->readonly ? O_RDWR : O_RDONLY);
+		if (file->fd == -1 && errno == EACCES) {
+			file->fd = nfs_safe_open(file->filepath, O_RDONLY);
+			index->readonly = TRUE;
+		}
+		if (file->fd == -1) {
 			if (errno == ENOENT)
 				return 0;
 
@@ -790,11 +796,11 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 
 		if (ret == 0) {
 			/* corrupted */
-			if (file->log->index->readonly) {
+			if (index->readonly) {
 				/* don't delete */
 			} else if (unlink(file->filepath) < 0 &&
 				   errno != ENOENT) {
-				mail_index_set_error(file->log->index,
+				mail_index_set_error(index,
 						     "unlink(%s) failed: %m",
 						     file->filepath);
 			}

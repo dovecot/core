@@ -219,7 +219,7 @@ const char *eperm_error_get_chgrp(const char *func, const char *path,
 
 	errmsg = t_str_new(256);
 	
-	str_printfa(errmsg, "%s(%s, -1, %s", func, path, dec2str(gid));
+	str_printfa(errmsg, "%s(%s, group=%s", func, path, dec2str(gid));
 	group = getgrgid(gid);
 	if (group != NULL)
 		str_printfa(errmsg, "(%s)", group->gr_name);
@@ -231,7 +231,7 @@ const char *eperm_error_get_chgrp(const char *func, const char *path,
 		str_printfa(errmsg, "(%s)", group->gr_name);
 	if (gid_origin != NULL)
 		str_printfa(errmsg, ", group based on %s", gid_origin);
-	str_append_c(errmsg, ')');
+	str_append(errmsg, " - see http://wiki2.dovecot.org/Errors/ChgrpNoPerm)");
 	errno = orig_errno;
 	return str_c(errmsg);
 }

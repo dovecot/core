@@ -23,50 +23,26 @@ dbox_sync_file_move_if_needed(struct dbox_file *file,
 	}
 }
 
-static void dbox_sync_file_expunge(struct sdbox_sync_context *ctx,
-				   struct dbox_file *file, uint32_t seq)
-{
-	struct sdbox_file *sfile = (struct sdbox_file *)file;
-	struct mailbox *box = &ctx->mbox->box;
-	int ret;
-
-	if (mail_index_transaction_is_expunged(ctx->trans, seq)) {
-		/* already expunged within this transaction */
-		return;
-	}
-
-	if (file->storage->attachment_dir != NULL)
-		ret = sdbox_file_unlink_with_attachments(sfile);
-	else
-		ret = dbox_file_unlink(file);
-	if (ret < 0) {
-		/* some non-ENOENT error trying to unlink the file */
-		return;
-	}
-
-	/* file was either unlinked by us or someone else */
-	mail_index_expunge(ctx->trans, seq);
-	if (box->v.sync_notify != NULL)
-		box->v.sync_notify(box, sfile->uid, MAILBOX_SYNC_TYPE_EXPUNGE);
-}
-
 static void sdbox_sync_file(struct sdbox_sync_context *ctx,
 			    uint32_t seq, uint32_t uid,
 			    enum sdbox_sync_entry_type type)
 {
 	struct dbox_file *file;
 
-	file = sdbox_file_init(ctx->mbox, uid);
 	switch (type) {
 	case SDBOX_SYNC_ENTRY_TYPE_EXPUNGE:
-		dbox_sync_file_expunge(ctx, file, seq);
+		if (!mail_index_transaction_is_expunged(ctx->trans, seq)) {
+			mail_index_expunge(ctx->trans, seq);
+			array_append(&ctx->expunged_uids, &uid, 1);
+		}
 		break;
 	case SDBOX_SYNC_ENTRY_TYPE_MOVE_FROM_ALT:
 	case SDBOX_SYNC_ENTRY_TYPE_MOVE_TO_ALT:
+		file = sdbox_file_init(ctx->mbox, uid);
 		dbox_sync_file_move_if_needed(file, type);
+		dbox_file_unref(&file);
 		break;
 	}
-	dbox_file_unref(&file);
 }
 
 static void sdbox_sync_add(struct sdbox_sync_context *ctx,
@@ -115,6 +91,9 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
 		/* newly created index file */
+		mail_storage_set_critical(box->storage,
+			"sdbox %s: Broken index: missing UIDVALIDITY",
+			mailbox_get_path(box));
 		return 0;
 	}
 
@@ -125,10 +104,40 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))
 		sdbox_sync_add(ctx, &sync_rec);
-
-	if (box->v.sync_notify != NULL)
-		box->v.sync_notify(box, 0, 0);
 	return 1;
+}
+
+static void dbox_sync_file_expunge(struct sdbox_sync_context *ctx,
+				   uint32_t uid)
+{
+	struct mailbox *box = &ctx->mbox->box;
+	struct dbox_file *file;
+	struct sdbox_file *sfile;
+	int ret;
+
+	file = sdbox_file_init(ctx->mbox, uid);
+	sfile = (struct sdbox_file *)file;
+	if (file->storage->attachment_dir != NULL)
+		ret = sdbox_file_unlink_with_attachments(sfile);
+	else
+		ret = dbox_file_unlink(file);
+
+	/* do sync_notify only when the file was unlinked by us */
+	if (ret > 0 && box->v.sync_notify != NULL)
+		box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
+	dbox_file_unref(&file);
+}
+
+static void dbox_sync_expunge_files(struct sdbox_sync_context *ctx)
+{
+	const uint32_t *uidp;
+
+	/* NOTE: Index is no longer locked. Multiple processes may be unlinking
+	   the files at the same time. */
+	array_foreach(&ctx->expunged_uids, uidp)
+		dbox_sync_file_expunge(ctx, *uidp);
+	if (ctx->mbox->box.v.sync_notify != NULL)
+		ctx->mbox->box.v.sync_notify(&ctx->mbox->box, 0, 0);
 }
 
 static int
@@ -167,6 +176,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 	ctx = i_new(struct sdbox_sync_context, 1);
 	ctx->mbox = mbox;
 	ctx->flags = flags;
+	i_array_init(&ctx->expunged_uids, 32);
 
 	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	if (!rebuild && (flags & SDBOX_SYNC_FLAG_FORCE) == 0)
@@ -235,11 +245,14 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
 			mail_storage_set_index_error(&ctx->mbox->box);
 			ret = -1;
+		} else {
+			dbox_sync_expunge_files(ctx);
 		}
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
 
+	array_free(&ctx->expunged_uids);
 	i_free(ctx);
 	return ret;
 }

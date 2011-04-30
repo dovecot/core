@@ -125,7 +125,7 @@ config_dump_human_init(const char *module, enum config_dump_scope scope,
 	enum config_dump_flags flags;
 	pool_t pool;
 
-	pool = pool_alloconly_create("config human strings", 10240);
+	pool = pool_alloconly_create("config human strings", 1024*32);
 	ctx = p_new(pool, struct config_dump_human_context, 1);
 	ctx->pool = pool;
 	ctx->list_prefix = str_new(ctx->pool, 128);
@@ -191,12 +191,19 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	for (i = 0; i < count && strings[i][0] == LIST_KEY_PREFIX[0]; i++) T_BEGIN {
 		p = strchr(strings[i], '=');
 		i_assert(p != NULL);
-		/* string is in format: "list=0 1 2" */
-		for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
-			str = p_strdup_printf(ctx->pool, "%s/%s/",
-					      t_strcut(strings[i]+1, '='),
-					      *args);
+		if (p[1] == '\0') {
+			/* "strlist=" */
+			str = p_strdup_printf(ctx->pool, "%s/",
+					      t_strcut(strings[i]+1, '='));
 			array_append(&prefixes_arr, &str, 1);
+		} else {
+			/* string is in format: "list=0 1 2" */
+			for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
+				str = p_strdup_printf(ctx->pool, "%s/%s/",
+						      t_strcut(strings[i]+1, '='),
+						      *args);
+				array_append(&prefixes_arr, &str, 1);
+			}
 		}
 	} T_END;
 	prefixes = array_get(&prefixes_arr, &prefix_count);
@@ -470,6 +477,26 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	return 0;
 }
 
+static void config_request_simple_stdout(const char *key, const char *value,
+					 enum config_key_type type ATTR_UNUSED,
+					 void *context)
+{
+	char **setting_name_filters = context;
+	unsigned int i, filter_len;
+
+	if (setting_name_filters == NULL) {
+		printf("%s=%s\n", key, value);
+		return;
+	}
+
+	for (i = 0; setting_name_filters[i] != NULL; i++) {
+		filter_len = strlen(setting_name_filters[i]);
+		if (strncmp(setting_name_filters[i], key, filter_len) == 0 &&
+		    (key[filter_len] == '\0' || key[filter_len] == '/'))
+			printf("%s=%s\n", key, value);
+	}
+}
+
 static void config_request_putenv(const char *key, const char *value,
 				  enum config_key_type type ATTR_UNUSED,
 				  void *context ATTR_UNUSED)
@@ -564,7 +591,7 @@ int main(int argc, char *argv[])
 	unsigned int i;
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
-	bool parse_full_config = FALSE;
+	bool parse_full_config = FALSE, simple_output = FALSE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -574,7 +601,7 @@ int main(int argc, char *argv[])
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "af:hm:nNpex");
+					     &argc, &argv, "af:hm:nNpexS");
 	orig_config_path = master_service_get_config_path(master_service);
 
 	i_set_failure_prefix("doveconf: ");
@@ -604,6 +631,9 @@ int main(int argc, char *argv[])
 		case 'p':
 			parse_full_config = TRUE;
 			break;
+		case 'S':
+			simple_output = TRUE;
+			break;
 		case 'x':
 			expand_vars = TRUE;
 			break;
@@ -623,7 +653,7 @@ int main(int argc, char *argv[])
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
 		setting_name_filters = argv+optind;
-	} else {
+	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
 		printf("# "DOVECOT_VERSION_FULL": %s\n", config_path);
@@ -643,7 +673,16 @@ int main(int argc, char *argv[])
 	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
 		i_fatal("%s", error);
 
-	if (setting_name_filters != NULL) {
+	if (simple_output) {
+		struct config_export_context *ctx;
+
+		ctx = config_export_init(module, scope,
+					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
+					 config_request_simple_stdout,
+					 setting_name_filters);
+		config_export_by_filter(ctx, &filter);
+		ret2 = config_export_finish(&ctx);
+	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		for (i = 0; setting_name_filters[i] != NULL; i++) {
 			if (config_dump_one(&filter, hide_key, scope,

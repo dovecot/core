@@ -99,6 +99,8 @@ void doveadm_mailbox_args_check(const char *const args[]);
 struct mail_search_args *
 doveadm_mail_mailbox_search_args_build(const char *const args[]);
 
+void expunge_search_args_check(struct mail_search_args *args, const char *cmd);
+
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_alloc_size(size_t size);
 #define doveadm_mail_cmd_alloc(type) \
@@ -109,6 +111,7 @@ struct doveadm_mail_cmd cmd_search;
 struct doveadm_mail_cmd cmd_fetch;
 struct doveadm_mail_cmd cmd_import;
 struct doveadm_mail_cmd cmd_altmove;
+struct doveadm_mail_cmd cmd_move;
 struct doveadm_mail_cmd cmd_mailbox_list;
 struct doveadm_mail_cmd cmd_mailbox_create;
 struct doveadm_mail_cmd cmd_mailbox_delete;

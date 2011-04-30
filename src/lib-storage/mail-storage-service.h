@@ -31,7 +31,9 @@ enum mail_storage_service_flags {
 	/* Don't close auth connections because of idling. */
 	MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT	= 0x200,
 	/* When executing doveconf, tell it to use sysexits codes */
-	MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS		= 0x400
+	MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS		= 0x400,
+	/* Don't create namespaces, only the user. */
+	MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES		= 0x800
 };
 
 struct mail_storage_service_input {
@@ -41,6 +43,10 @@ struct mail_storage_service_input {
 	struct ip_addr local_ip, remote_ip;
 
 	const char *const *userdb_fields;
+
+	/* Override specified global flags */
+	enum mail_storage_service_flags flags_override_add;
+	enum mail_storage_service_flags flags_override_remove;
 
 	/* override MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP for this lookup */
 	unsigned int no_userdb_lookup:1;

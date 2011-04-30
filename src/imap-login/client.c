@@ -26,7 +26,7 @@
 #define MAX_IMAP_LINE 8192
 
 /* Disconnect client when it sends too many bad commands */
-#define CLIENT_MAX_BAD_COMMANDS 10
+#define CLIENT_MAX_BAD_COMMANDS 3
 
 /* Skip incoming data until newline is found,
    returns TRUE if newline was found. */
@@ -187,6 +187,33 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 	return -2;
 }
 
+static bool imap_is_valid_tag(const char *tag)
+{
+	for (; *tag != '\0'; tag++) {
+		switch (*tag) {
+		case '+':
+		/* atom-specials: */
+		case '(':
+		case ')':
+		case '{':
+		case '/':
+		case ' ':
+		/* list-wildcards: */
+		case '%':
+		case '*':
+		/* quoted-specials: */
+		case '"':
+		case '\\':
+			return FALSE;
+		default:
+			if (*tag < ' ') /* CTL */
+				return FALSE;
+			break;
+		}
+	}
+	return TRUE;
+}
+
 static bool client_handle_input(struct imap_client *client)
 {
 	const struct imap_arg *args;
@@ -218,6 +245,13 @@ static bool client_handle_input(struct imap_client *client)
                 client->cmd_tag = imap_parser_read_word(client->parser);
 		if (client->cmd_tag == NULL)
 			return FALSE; /* need more data */
+		if (!imap_is_valid_tag(client->cmd_tag)) {
+			/* the tag is invalid, don't allow it and don't
+			   send it back. this attempts to prevent any
+			   potentially dangerous replies in case someone tries
+			   to access us using HTTP protocol. */
+			client->cmd_tag = "";
+		}
 	}
 
 	if (client->cmd_name == NULL) {

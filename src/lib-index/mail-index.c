@@ -659,7 +659,7 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 	}
 
 	if (fstat(index->fd, &st1) < 0) {
-		if (errno != ESTALE)
+		if (!ESTALE_FSTAT(errno))
 			return mail_index_set_syscall_error(index, "fstat()");
 		/* deleted/recreated, reopen */
 	} else if (st1.st_ino == st2.st_ino &&

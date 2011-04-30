@@ -173,7 +173,7 @@ void index_sync_changes_apply(struct index_sync_changes_context *ctx,
 {
 	const struct mail_index_sync_rec *syncs;
 	unsigned int i, count;
-	enum mailbox_sync_type sync_type = 0;
+	enum mail_index_sync_type sync_type = 0;
 
 	syncs = array_get(&ctx->syncs, &count);
 	for (i = 0; i < count; i++) {

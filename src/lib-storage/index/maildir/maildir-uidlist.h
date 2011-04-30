@@ -37,6 +37,8 @@ enum maildir_uidlist_hdr_ext_key {
 	MAILDIR_UIDLIST_HDR_EXT_POP3_UIDL_FORMAT	= 'P'
 };
 
+#define MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(c) \
+	((c) >= 'A' && (c) <= 'Z')
 enum maildir_uidlist_rec_ext_key {
 	/* Physical message size. If filename also contains ,S=<vsize> this
 	   isn't written to uidlist. */

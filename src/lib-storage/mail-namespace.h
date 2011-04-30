@@ -73,6 +73,8 @@ struct mail_namespace {
 };
 
 int mail_namespaces_init(struct mail_user *user, const char **error_r);
+int mail_namespaces_init_location(struct mail_user *user, const char *location,
+				  const char **error_r);
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
 /* Deinitialize all namespaces. mail_user_deinit() calls this automatically
    for user's namespaces. */

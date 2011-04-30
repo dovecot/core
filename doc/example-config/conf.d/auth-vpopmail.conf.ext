@@ -5,11 +5,13 @@
 passdb {
   driver = vpopmail
 
-  # [cache_key=<key>]
-  # [quota_template=<template>] - %q expands to Maildir++ quota
-  args = quota_template=quota_rule=*:backend=%q
+  # [cache_key=<key>] [webmail=<ip>]
+  args =
 }
 
 userdb {
   driver = vpopmail
+
+  # [quota_template=<template>] - %q expands to Maildir++ quota
+  args = quota_template=quota_rule=*:backend=%q
 }

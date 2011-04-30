@@ -98,6 +98,9 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	string_t *str;
 	const char *msg;
 
+	if (*ctx->set->deliver_log_format == '\0')
+		return;
+
 	va_start(args, fmt);
 	msg = t_strdup_vprintf(fmt, args);
 

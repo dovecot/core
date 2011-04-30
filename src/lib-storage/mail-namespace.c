@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "file-lock.h"
+#include "settings-parser.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
 #include "mail-storage-settings.h"
@@ -257,12 +258,10 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 
 int mail_namespaces_init(struct mail_user *user, const char **error_r)
 {
-	const struct mail_storage_settings *mail_set, *unexpanded_mail_set;
+	const struct mail_storage_settings *mail_set;
 	struct mail_namespace_settings *const *ns_set;
 	struct mail_namespace_settings *const *unexpanded_ns_set;
 	struct mail_namespace *namespaces, *ns, **ns_p;
-	struct mail_namespace_settings *inbox_set, *unexpanded_inbox_set;
-	const char *error, *driver, *location_source;
 	unsigned int i, count, count2;
 
 	i_assert(user->initialized);
@@ -306,6 +305,19 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	}
 
 	/* no namespaces defined, create a default one */
+	return mail_namespaces_init_location(user, NULL, error_r);
+}
+
+int mail_namespaces_init_location(struct mail_user *user, const char *location,
+				  const char **error_r)
+{
+	struct mail_namespace_settings *inbox_set, *unexpanded_inbox_set;
+	struct mail_namespace *ns;
+	const struct mail_storage_settings *mail_set, *unexpanded_mail_set;
+	const char *error, *driver, *location_source;
+
+	i_assert(location == NULL || *location != '\0');
+
 	ns = i_new(struct mail_namespace, 1);
 	ns->refcount = 1;
 	ns->type = NAMESPACE_PRIVATE;
@@ -321,7 +333,11 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	*unexpanded_inbox_set = *inbox_set;
 
 	driver = NULL;
-	if (*mail_set->mail_location != '\0') {
+	mail_set = mail_user_set_get_storage_set(user);
+	if (location != NULL) {
+		inbox_set->location = p_strdup(user->pool, location);
+		location_source = "mail_location parameter";
+	} else if (*mail_set->mail_location != '\0') {
 		unexpanded_mail_set = mail_user_set_get_driver_settings(
 			user->set_info, user->unexpanded_set,
 			MAIL_STORAGE_SET_DRIVER_NAME);
@@ -344,9 +360,11 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 			location_source = "environment MAILDIR";
 		}
 	}
-
-	if (unexpanded_inbox_set->location == NULL)
-		unexpanded_inbox_set->location = inbox_set->location;
+	if (*unexpanded_inbox_set->location == '\0') {
+		unexpanded_inbox_set->location =
+			p_strconcat(user->pool, SETTING_STRVAR_EXPANDED,
+				    inbox_set->location, NULL);
+	}
 
 	ns->set = inbox_set;
 	ns->unexpanded_set = unexpanded_inbox_set;

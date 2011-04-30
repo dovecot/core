@@ -422,8 +422,15 @@ maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 		/* skip over an extension field */
 		start = line;
 		while (*line != ' ' && *line != '\0') line++;
-		buffer_append(buf, start, line - start);
-		buffer_append_c(buf, '\0');
+		if (MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(*start)) {
+			buffer_append(buf, start, line - start);
+			buffer_append_c(buf, '\0');
+		} else {
+			maildir_uidlist_set_corrupted(uidlist,
+				"Invalid extension record, removing: %s",
+				t_strdup_until(start, line));
+			uidlist->recreate = TRUE;
+		}
 		while (*line == ' ') line++;
 	}
 
@@ -1134,6 +1141,8 @@ maildir_uidlist_rec_set_ext(struct maildir_uidlist_rec *rec, pool_t pool,
 		p = rec->extensions;
 		while (*p != '\0') {
 			/* <key><value>\0 */
+			i_assert(MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(*p));
+
 			len = strlen((const char *)p) + 1;
 			if (*p != (unsigned char)key)
 				buffer_append(buf, p, len);
@@ -1156,6 +1165,8 @@ void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 {
 	struct maildir_uidlist_rec *rec;
 	int ret;
+
+	i_assert(MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(key));
 
 	ret = maildir_uidlist_lookup_rec(uidlist, uid, &rec);
 	if (ret <= 0) {
@@ -1254,6 +1265,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		str_printfa(str, "%u", rec->uid);
 		if (rec->extensions != NULL) {
 			for (p = rec->extensions; *p != '\0'; ) {
+				i_assert(MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(*p));
 				len = strlen((const char *)p);
 				str_append_c(str, ' ');
 				str_append_n(str, p, len);
@@ -1832,6 +1844,8 @@ void maildir_uidlist_sync_set_ext(struct maildir_uidlist_sync_ctx *ctx,
 {
 	pool_t pool = ctx->partial ?
 		ctx->uidlist->record_pool : ctx->record_pool;
+
+	i_assert(MAILDIR_UIDLIST_REC_EXT_KEY_IS_VALID(key));
 
 	maildir_uidlist_rec_set_ext(rec, pool, key, value);
 }

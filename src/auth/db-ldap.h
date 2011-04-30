@@ -5,8 +5,6 @@
    This define enables them until the code here can be refactored */
 #define LDAP_DEPRECATED 1
 
-/* Maximum number of requests in queue. After this new requests are dropped. */
-#define DB_LDAP_MAX_QUEUE_SIZE 1024
 /* Maximum number of pending requests before delaying new requests. */
 #define DB_LDAP_MAX_PENDING_REQUESTS 8
 /* If LDAP connection is down, fail requests after waiting for this long. */

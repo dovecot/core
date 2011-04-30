@@ -1,6 +1,6 @@
 # This file is opened as root, so it should be owned by root and mode 0600.
 #
-# http://wiki.dovecot.org/AuthDatabase/SQL
+# http://wiki2.dovecot.org/AuthDatabase/SQL
 #
 # For the sql passdb module, you'll need a database with a table that
 # contains fields for at least the username and password. If you want to
@@ -68,7 +68,7 @@
 # Default password scheme.
 #
 # List of supported schemes is in
-# http://wiki.dovecot.org/Authentication/PasswordSchemes
+# http://wiki2.dovecot.org/Authentication/PasswordSchemes
 #
 #default_pass_scheme = MD5
 
@@ -83,9 +83,9 @@
 # and "domain" fields instead of "user".
 #
 # The query can also return other fields which have a special meaning, see
-# http://wiki.dovecot.org/PasswordDatabase/ExtraFields
+# http://wiki2.dovecot.org/PasswordDatabase/ExtraFields
 #
-# Commonly used available substitutions (see http://wiki.dovecot.org/Variables
+# Commonly used available substitutions (see http://wiki2.dovecot.org/Variables
 # for full list):
 #   %u = entire user@domain
 #   %n = user part of user@domain
@@ -112,7 +112,7 @@
 # None of these are strictly required. If you use a single UID and GID, and
 # home or mail directory fits to a template string, you could use userdb static
 # instead. For a list of all fields that can be returned, see
-# http://wiki.dovecot.org/UserDatabase/ExtraFields
+# http://wiki2.dovecot.org/UserDatabase/ExtraFields
 #
 # Examples:
 #   user_query = SELECT home, uid, gid FROM users WHERE userid = '%u'

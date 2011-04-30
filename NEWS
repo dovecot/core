@@ -9,11 +9,35 @@ v2.1.UNSTABLE 2011-xx-xx  Timo Sirainen <tss@iki.fi>
 	+ Autocreate plugin creates/subscribes mailboxes physically only when
 	  the mailbox is opened for the first time. Mailbox listing shows the
 	  autocreated mailboxes even if they don't physically exist.
+	+ Mailbox list indexes
 	- listescape plugin works perfectly now
-	- virtual storage: Fixed saving multiple mails in a transaction
-	  (e.g. copy multiple messages).
-	- dsync: Saved messages' save-date was set to 1970-01-01.
 
+v2.0.12 2011-04-12  Timo Sirainen <tss@iki.fi>
+
+	+ doveadm: Added "move" command for moving mails between mailboxes.
+	+ virtual: Added support for "+mailbox" entries that clear \Recent
+	  flag from messages (default is to preserve them).
+	- dbox: Fixes to handling external attachments
+	- dsync: More fixes to avoid hanging with remote syncs
+	- dsync: Many other syncing/correctness fixes
+	- doveconf: v2.0.10 and v2.0.11 didn't output plugin {} section right
+
+v2.0.11 2011-03-07  Timo Sirainen <tss@iki.fi>
+
+	* dotlock_use_excl setting's default was accidentally "no" in all
+	  v2.0.x releases, instead of "yes" as in v1.1 and v1.2. Changed it
+	  back to "yes."
+
+	- v2.0.10: LDAP support was broken
+	- v2.0.10: dsyncing to remote often hanged (timed out in 15 mins)
+
+v2.0.10 2011-03-04  Timo Sirainen <tss@iki.fi>
+
+	* LMTP: For user+detail@domain deliveries, the +detail is again written
+	  to Delivered-To: header.
+	* Skip auth penalty checks from IPs in login_trusted_networks.
+
+	+ Added import_environment setting.
 	+ Added submission_host setting to send mails via SMTP instead of
 	  via sendmail binary.
 	+ Added doveadm acl get/set/delete commands for ACL manipulation,

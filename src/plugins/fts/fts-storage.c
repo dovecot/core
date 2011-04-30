@@ -545,7 +545,8 @@ static int fts_build_deinit(struct fts_storage_build_context **_ctx)
 	}
 
 	if (ioloop_time - ctx->search_start_time.tv_sec >=
-	    FTS_BUILD_NOTIFY_INTERVAL_SECS) {
+	    FTS_BUILD_NOTIFY_INTERVAL_SECS &&
+	    box->storage->callbacks.notify_ok != NULL) {
 		/* we notified at least once */
 		box->storage->callbacks.
 			notify_ok(box, "Mailbox indexing finished",

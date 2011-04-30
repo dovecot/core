@@ -485,8 +485,17 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		guid = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
 						  MAILDIR_UIDLIST_REC_EXT_GUID);
 		if (guid != NULL) {
-			*value_r = p_strdup(mail->data_pool, guid);
-			return 0;
+			if (*guid != '\0') {
+				*value_r = p_strdup(mail->data_pool, guid);
+				return 0;
+			}
+
+			mail_storage_set_critical(_mail->box->storage,
+				"Maildir %s: Corrupted dovecot-uidlist: "
+				"UID %u had empty GUID, clearing it",
+				mailbox_get_path(_mail->box), _mail->uid);
+			maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
+				MAILDIR_UIDLIST_REC_EXT_GUID, NULL);
 		}
 
 		/* default to base filename: */

@@ -253,6 +253,10 @@ int i_my_clock_gettime(int clk_id, struct timespec *tp);
 #define EDESTDIREXISTS(errno) \
 	((errno) == EEXIST || (errno) == ENOTEMPTY || (errno) == EBUSY)
 
+/* fstat() returns ENOENT instead of ESTALE with some Linux versions */
+#define ESTALE_FSTAT(errno) \
+	((errno) == ESTALE || (errno) == ENOENT)
+
 #if !defined(_POSIX_SYNCHRONIZED_IO) && \
     defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \
     (__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 1060)

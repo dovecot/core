@@ -23,7 +23,8 @@ unused_objects = \
 	../lib-mail/message-header-encode.o \
 	../lib-imap/imap-util.o \
 	../lib-storage/mail-search-parser-imap.o \
-	../lib-lda/smtp-client.o
+	../lib-lda/smtp-client.o \
+	../lib-lda/mail-send.o
 endif
 
 libs = \

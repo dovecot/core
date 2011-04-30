@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 #ifdef HAVE_GLOB_H
 #  include <glob.h>
 #endif
@@ -26,6 +27,9 @@
 #ifndef GLOB_BRACE
 #  define GLOB_BRACE 0
 #endif
+
+#define DNS_LOOKUP_TIMEOUT_SECS 30
+#define DNS_LOOKUP_WARN_SECS 5
 
 static const enum settings_parser_flags settings_parser_flags =
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
@@ -209,6 +213,7 @@ int config_parse_net(const char *value, struct ip_addr *ip_r,
 	struct ip_addr *ips;
 	const char *p;
 	unsigned int ip_count, bits, max_bits;
+	time_t t1, t2;
 	int ret;
 
 	if (net_parse_range(value, ip_r, bits_r) == 0)
@@ -220,13 +225,22 @@ int config_parse_net(const char *value, struct ip_addr *ip_r,
 		p++;
 	}
 
+	t1 = time(NULL);
+	alarm(DNS_LOOKUP_TIMEOUT_SECS);
 	ret = net_gethostbyname(value, &ips, &ip_count);
+	alarm(0);
+	t2 = time(NULL);
 	if (ret != 0) {
 		*error_r = t_strdup_printf("gethostbyname(%s) failed: %s",
 					   value, net_gethosterror(ret));
 		return -1;
 	}
 	*ip_r = ips[0];
+
+	if (t2 - t1 >= DNS_LOOKUP_WARN_SECS) {
+		i_warning("gethostbyname(%s) took %d seconds",
+			  value, (int)(t2-t1));
+	}
 
 	max_bits = IPADDR_IS_V4(&ips[0]) ? 32 : 128;
 	if (p == NULL || str_to_uint(p, &bits) < 0 || bits > max_bits)
@@ -320,6 +334,27 @@ config_filter_parser_check(struct config_parser_context *ctx,
 	return 0;
 }
 
+static const char *
+get_str_setting(struct config_filter_parser *parser, const char *key,
+		const char *default_value)
+{
+	struct config_module_parser *module_parser;
+	const char *const *set_value;
+	enum setting_type set_type;
+
+	module_parser = parser->parsers;
+	for (; module_parser->parser != NULL; module_parser++) {
+		set_value = settings_parse_get_value(module_parser->parser,
+						     key, &set_type);
+		if (set_value != NULL &&
+		    settings_parse_is_changed(module_parser->parser, key)) {
+			i_assert(set_type == SET_STR || set_type == SET_ENUM);
+			return *set_value;
+		}
+	}
+	return default_value;
+}
+
 static int
 config_all_parsers_check(struct config_parser_context *ctx,
 			 struct config_filter_context *new_filter,
@@ -329,7 +364,9 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	struct config_module_parser *tmp_parsers;
 	struct master_service_settings_output output;
 	unsigned int i, count;
+	const char *ssl_set, *global_ssl_set;
 	pool_t tmp_pool;
+	bool ssl_warned = FALSE;
 	int ret = 0;
 
 	if (ctx->cur_section->prev != NULL) {
@@ -340,10 +377,12 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		return -1;
 	}
 
-	tmp_pool = pool_alloconly_create("config parsers check", 1024*32);
+	tmp_pool = pool_alloconly_create("config parsers check", 1024*64);
 	parsers = array_get(&ctx->all_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
+
+	global_ssl_set = get_str_setting(parsers[0], "ssl", "");
 	for (i = 0; i < count && ret == 0; i++) {
 		if (config_filter_parsers_get(new_filter, tmp_pool, "",
 					      &parsers[i]->filter,
@@ -351,6 +390,14 @@ config_all_parsers_check(struct config_parser_context *ctx,
 					      error_r) < 0) {
 			ret = -1;
 			break;
+		}
+
+		ssl_set = get_str_setting(parsers[i], "ssl", global_ssl_set);
+		if (strcmp(ssl_set, "no") != 0 &&
+		    strcmp(global_ssl_set, "no") == 0 && !ssl_warned) {
+			i_warning("SSL is disabled because global ssl=no, "
+				  "ignoring ssl=%s for subsection", ssl_set);
+			ssl_warned = TRUE;
 		}
 
 		ret = config_filter_parser_check(ctx, tmp_parsers, error_r);
@@ -409,9 +456,9 @@ static int settings_add_include(struct config_parser_context *ctx, const char *p
 		return -1;
 	}
 
-	new_input = t_new(struct input_stack, 1);
+	new_input = p_new(ctx->pool, struct input_stack, 1);
 	new_input->prev = ctx->cur_input;
-	new_input->path = t_strdup(path);
+	new_input->path = p_strdup(ctx->pool, path);
 	new_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(new_input->input, TRUE);
 	ctx->cur_input = new_input;
@@ -823,7 +870,7 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.pool = pool_alloconly_create("config file parser", 1024*64);
+	ctx.pool = pool_alloconly_create("config file parser", 1024*256);
 	ctx.path = path;
 
 	for (count = 0; all_roots[count] != NULL; count++) ;
@@ -847,7 +894,7 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 	config_add_new_parser(&ctx);
 
 	ctx.str = str_new(ctx.pool, 256);
-	full_line = t_str_new(512);
+	full_line = str_new(default_pool, 512);
 	ctx.cur_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
@@ -863,9 +910,9 @@ prevfile:
 
 		T_BEGIN {
 			handled = old_settings_handle(&ctx, type, key, value);
+			if (!handled)
+				config_parser_apply_line(&ctx, type, key, value);
 		} T_END;
-		if (!handled)
-			config_parser_apply_line(&ctx, type, key, value);
 
 		if (ctx.error != NULL) {
 			*error_r = t_strdup_printf(
@@ -883,6 +930,7 @@ prevfile:
 	if (line == NULL && ctx.cur_input != NULL)
 		goto prevfile;
 
+	str_free(&full_line);
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, error_r);
 	return ret < 0 ? ret : 1;

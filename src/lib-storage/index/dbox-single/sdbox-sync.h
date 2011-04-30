@@ -22,6 +22,7 @@ struct sdbox_sync_context {
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *trans;
 	enum sdbox_sync_flags flags;
+	ARRAY_TYPE(uint32_t) expunged_uids;
 };
 
 int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
