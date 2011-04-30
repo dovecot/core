@@ -502,7 +502,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 			    MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	i_assert(box->storage == &ctx->storage->storage.storage);
-	if (dbox_mailbox_open(box) < 0) {
+	if (mailbox_open(box) < 0) {
 		error = mailbox_get_last_mail_error(box);
 		mailbox_free(&box);
 		if (error == MAIL_ERROR_TEMP)
@@ -645,7 +645,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 				    MAILBOX_FLAG_KEEP_RECENT |
 				    MAILBOX_FLAG_IGNORE_ACLS);
 		i_assert(box->storage == storage);
-		if (dbox_mailbox_open(box) == 0)
+		if (mailbox_open(box) == 0)
 			break;
 
 		error = mailbox_get_last_mail_error(box);
