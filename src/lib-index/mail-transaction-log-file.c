@@ -527,7 +527,7 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	   opened. it shouldn't happen unless the old log file was
 	   corrupted. */
 	for (f = file->log->files; f != NULL; f = f->next) {
-		if (f->hdr.file_seq == file->hdr.file_seq) {
+		if (f->hdr.file_seq == file->hdr.file_seq && !f->corrupted) {
 			/* mark the old file corrupted. we can't safely remove
 			   it from the list however, so return failure. */
 			f->corrupted = TRUE;
