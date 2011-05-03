@@ -53,6 +53,44 @@ static void doveadm_cmd_host_list(struct doveadm_connection *conn)
 	o_stream_send(conn->output, str_data(str), str_len(str));
 }
 
+static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
+{
+	struct mail_host_list *orig_hosts_list;
+	struct mail_host *const *orig_hosts, *const *cur_hosts;
+	unsigned int i, j, orig_hosts_count, cur_hosts_count;
+	string_t *str = t_str_new(1024);
+	int ret;
+
+	orig_hosts_list = mail_hosts_init();
+	(void)mail_hosts_parse_and_add(orig_hosts_list,
+				       conn->dir->set->director_mail_servers);
+
+	orig_hosts = array_get(mail_hosts_get(orig_hosts_list),
+			       &orig_hosts_count);
+	cur_hosts = array_get(mail_hosts_get(conn->dir->mail_hosts),
+			      &cur_hosts_count);
+
+	/* the hosts are sorted by IP */
+	for (i = j = 0; i < orig_hosts_count && j < cur_hosts_count; ) {
+		ret = net_ip_cmp(&orig_hosts[i]->ip, &cur_hosts[j]->ip);
+		if (ret == 0)
+			i++, j++;
+		else if (ret > 0)
+			j++;
+		else {
+			str_printfa(str, "%s\n",
+				    net_ip2addr(&orig_hosts[i]->ip));
+			i++;
+		}
+	}
+	for (; i < orig_hosts_count; i++)
+		str_printfa(str, "%s\n", net_ip2addr(&orig_hosts[i]->ip));
+	str_append_c(str, '\n');
+	o_stream_send(conn->output, str_data(str), str_len(str));
+
+	mail_hosts_deinit(&orig_hosts_list);
+}
+
 static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 {
 	struct director_host *const *hostp;
@@ -263,6 +301,8 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 
 		if (strcmp(cmd, "HOST-LIST") == 0)
 			doveadm_cmd_host_list(conn);
+		else if (strcmp(cmd, "HOST-LIST-REMOVED") == 0)
+			doveadm_cmd_host_list_removed(conn);
 		else if (strcmp(cmd, "DIRECTOR-LIST") == 0)
 			doveadm_cmd_director_list(conn);
 		else if (strcmp(cmd, "HOST-SET") == 0)

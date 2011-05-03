@@ -20,6 +20,7 @@ struct director_context {
 	const char *socket_path;
 	const char *users_path;
 	struct istream *input;
+	bool explicit_socket_path;
 };
 
 struct user_list {
@@ -91,6 +92,7 @@ cmd_director_init(int argc, char *argv[], const char *getopt_args,
 		switch (c) {
 		case 'a':
 			ctx->socket_path = optarg;
+			ctx->explicit_socket_path = TRUE;
 			break;
 		case 'f':
 			ctx->users_path = optarg;
@@ -465,6 +467,50 @@ static void cmd_director_flush(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
+static void ATTR_FORMAT(3, 4)
+director_dump_cmd(struct director_context *ctx,
+		  const char *cmd, const char *args, ...)
+{
+	va_list va;
+
+	va_start(va, args);
+	printf("doveadm director %s ", cmd);
+	if (ctx->explicit_socket_path)
+		printf("-a %s ", ctx->socket_path);
+	vprintf(args, va);
+	putchar('\n');
+	va_end(va);
+}
+
+static void cmd_director_dump(int argc, char *argv[])
+{
+	struct director_context *ctx;
+	const char *line, *const *args;
+
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_dump);
+
+	director_send(ctx, "HOST-LIST\n");
+	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+		if (*line == '\0')
+			break;
+		T_BEGIN {
+			args = t_strsplit(line, "\t");
+			if (str_array_length(args) >= 2) {
+				director_dump_cmd(ctx, "add", "%s %s",
+						  args[0], args[1]);
+			}
+		} T_END;
+	}
+
+	director_send(ctx, "HOST-LIST-REMOVED\n");
+	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+		if (*line == '\0')
+			break;
+		director_dump_cmd(ctx, "remove", "%s", line);
+	}
+	director_disconnect(ctx);
+}
+
 struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
 	  "[-a <director socket path>] [<user>]" },
@@ -475,7 +521,9 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_remove, "director remove",
 	  "[-a <director socket path>] <host>" },
 	{ cmd_director_flush, "director flush",
-	  "[-a <director socket path>] <host>|all" }
+	  "[-a <director socket path>] <host>|all" },
+	{ cmd_director_dump, "director dump",
+	  "[-a <director socket path>]" }
 };
 
 static void director_cmd_help(doveadm_command_t *cmd)
