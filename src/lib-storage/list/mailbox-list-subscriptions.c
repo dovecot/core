@@ -61,8 +61,12 @@ mailbox_list_subscriptions_fill_real(struct mailbox_list_iterate_context *ctx,
 		if (!mailbox_list_is_valid_existing_name(ns->list, name)) {
 			/* we'll only get into trouble if we show this */
 			i_warning("Subscriptions file %s: "
-				  "Ignoring invalid entry: %s",
+				  "Removing invalid entry: %s",
 				  path, orig_name);
+			(void)subsfile_set_subscribed(ns->list, path,
+				mailbox_list_get_temp_prefix(ns->list),
+				orig_name, FALSE);
+
 		} else {
 			name = mail_namespace_get_vname(ns, vname, name);
 			mailbox_list_iter_update(&update_ctx, name);
