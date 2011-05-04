@@ -199,8 +199,43 @@ cmd_user_list(const char *auth_socket_path, char *const *users)
 	auth_master_deinit(&conn);
 }
 
-static void
-auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
+static void cmd_auth(int argc, char *argv[])
+{
+	const char *auth_socket_path = NULL;
+	struct authtest_input input;
+	int c;
+
+	memset(&input, 0, sizeof(input));
+	input.info.service = "doveadm";
+
+	while ((c = getopt(argc, argv, "a:x:")) > 0) {
+		switch (c) {
+		case 'a':
+			auth_socket_path = optarg;
+			break;
+		case 'x':
+			auth_user_info_parse(&input.info, optarg);
+			break;
+		default:
+			help(&doveadm_cmd_auth);
+		}
+	}
+
+	if (optind == argc)
+		help(&doveadm_cmd_auth);
+
+	input.username = argv[optind++];
+	input.password = argv[optind] != NULL ? argv[optind++] :
+		t_askpass("Password: ");
+	if (argv[optind] != NULL)
+			i_fatal("Unexpected parameter: %s", argv[optind]);
+	if (cmd_auth_input(auth_socket_path, &input) < 0)
+		exit(FATAL_DEFAULT);
+	if (!input.success)
+		exit(1);
+}
+
+static void cmd_user(int argc, char *argv[])
 {
 	const char *auth_socket_path = NULL;
 	struct authtest_input input;
@@ -220,12 +255,12 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 			auth_user_info_parse(&input.info, optarg);
 			break;
 		default:
-			help(cmd);
+			help(&doveadm_cmd_user);
 		}
 	}
 
 	if (optind == argc)
-		help(cmd);
+		help(&doveadm_cmd_user);
 
 	have_wildcards = FALSE;
 	for (i = optind; argv[i] != NULL; i++) {
@@ -236,19 +271,9 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 		}
 	}
 
-	if (cmd == &doveadm_cmd_auth) {
-		input.username = argv[optind++];
-		input.password = argv[optind] != NULL ? argv[optind++] :
-			t_askpass("Password: ");
-		if (argv[optind] != NULL)
-			i_fatal("Unexpected parameter: %s", argv[optind]);
-		if (cmd_auth_input(auth_socket_path, &input) < 0)
-			exit(FATAL_DEFAULT);
-		if (!input.success)
-			exit(1);
-	} else if (have_wildcards) {
+	if (have_wildcards)
 		cmd_user_list(auth_socket_path, argv + optind);
-	} else {
+	else {
 		bool first = TRUE;
 		bool notfound = FALSE;
 
@@ -268,16 +293,6 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 		if (notfound)
 			exit(2);
 	}
-}
-
-static void cmd_auth(int argc, char *argv[])
-{
-	auth_cmd_common(&doveadm_cmd_auth, argc, argv);
-}
-
-static void cmd_user(int argc, char *argv[])
-{
-	auth_cmd_common(&doveadm_cmd_user, argc, argv);
 }
 
 struct doveadm_cmd doveadm_cmd_auth = {
