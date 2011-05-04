@@ -9,6 +9,12 @@ typedef void command_func_t(struct client *client);
 #define MSGS_BITMASK_SIZE(client) \
 	(((client)->messages_count + (CHAR_BIT-1)) / CHAR_BIT)
 
+/*
+   pop3_msn = 1..n in the POP3 protocol
+   msgnum = 0..n-1 = pop3_msn-1
+   seq = 1..n = mail's sequence number in lib-storage. when pop3 sort ordering
+     is used, msgnum_to_seq_map[] can be used for translation.
+*/
 struct client {
 	struct client *prev, *next;
 
@@ -34,17 +40,23 @@ struct client {
 	unsigned int uid_validity;
 	unsigned int messages_count;
 	unsigned int deleted_count, expunged_count, seen_change_count;
-	uint32_t *message_uidl_hashes;
-	uoff_t *message_sizes;
 	uoff_t total_size;
 	uoff_t deleted_size;
-	uint32_t last_seen, lowest_retr;
+	uint32_t last_seen_pop3_msn, lowest_retr_pop3_msn;
+
+	/* [msgnum] contains mail seq. anything after it has seq = msgnum+1 */
+	uint32_t *msgnum_to_seq_map;
+	uint32_t msgnum_to_seq_map_count;
 
 	uoff_t top_bytes;
 	uoff_t retr_bytes;
 	unsigned int top_count;
 	unsigned int retr_count;
 
+	/* [msgnum] */
+	uint32_t *message_uidl_hashes;
+	uoff_t *message_sizes;
+	/* [msgnum/8] & msgnum%8 */
 	unsigned char *deleted_bitmask;
 	unsigned char *seen_bitmask;
 

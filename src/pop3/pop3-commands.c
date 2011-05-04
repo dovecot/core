@@ -14,6 +14,17 @@
 #include "pop3-capability.h"
 #include "pop3-commands.h"
 
+static enum mail_sort_type pop3_sort_program[] = {
+	MAIL_SORT_POP3_ORDER,
+	MAIL_SORT_END
+};
+
+static uint32_t msgnum_to_seq(struct client *client, uint32_t msgnum)
+{
+	return msgnum < client->msgnum_to_seq_map_count ?
+		client->msgnum_to_seq_map[msgnum] : msgnum+1;
+}
+
 static const char *get_msgnum(struct client *client, const char *args,
 			      unsigned int *msgnum)
 {
@@ -132,8 +143,8 @@ static void cmd_list_callback(struct client *client)
 			    (1 << (ctx->msgnum % CHAR_BIT)))
 				continue;
 		}
-		ret = client_send_line(client, "%u %"PRIuUOFF_T,
-				       ctx->msgnum+1,
+
+		ret = client_send_line(client, "%u %"PRIuUOFF_T, ctx->msgnum+1,
 				       client->message_sizes[ctx->msgnum]);
 		if (ret < 0)
 			break;
@@ -172,7 +183,7 @@ static int cmd_list(struct client *client, const char *args)
 
 static int cmd_last(struct client *client, const char *args ATTR_UNUSED)
 {
-	client_send_line(client, "+OK %u", client->last_seen);
+	client_send_line(client, "+OK %u", client->last_seen_pop3_msn);
 	return 1;
 }
 
@@ -197,12 +208,28 @@ pop3_search_build(struct client *client, uint32_t seq)
 	return search_args;
 }
 
+static int client_verify_ordering(struct client *client,
+				  struct mail *mail, uint32_t msgnum)
+{
+	uint32_t seq;
+
+	seq = msgnum_to_seq(client, msgnum);
+	if (seq != mail->seq) {
+		i_error("Message ordering changed unexpectedly "
+			"(msg #%u: storage seq %u -> %u)",
+			msgnum+1, seq, mail->seq);
+		return -1;
+	}
+	return 0;
+}
+
 bool client_update_mails(struct client *client)
 {
 	struct mail_search_args *search_args;
 	struct mail_search_context *ctx;
 	struct mail *mail;
-	uint32_t idx, bit;
+	uint32_t msgnum, bit;
+	bool ret = TRUE;
 
 	if (mailbox_is_readonly(client->mailbox)) {
 		/* silently ignore */
@@ -210,26 +237,35 @@ bool client_update_mails(struct client *client)
 	}
 
 	search_args = pop3_search_build(client, 0);
-	ctx = mailbox_search_init(client->trans, search_args, NULL);
+	ctx = mailbox_search_init(client->trans, search_args,
+				  pop3_sort_program);
 	mail_search_args_unref(&search_args);
 
+	msgnum = 0;
 	mail = mail_alloc(client->trans, 0, NULL);
 	while (mailbox_search_next(ctx, mail)) {
-		idx = mail->seq - 1;
-		bit = 1 << (idx % CHAR_BIT);
+		if (client_verify_ordering(client, mail, msgnum) < 0) {
+			ret = FALSE;
+			break;
+		}
+
+		bit = 1 << (msgnum % CHAR_BIT);
 		if (client->deleted_bitmask != NULL &&
-		    (client->deleted_bitmask[idx / CHAR_BIT] & bit) != 0) {
+		    (client->deleted_bitmask[msgnum / CHAR_BIT] & bit) != 0) {
 			mail_expunge(mail);
 			client->expunged_count++;
 		} else if (client->seen_bitmask != NULL &&
-			   (client->seen_bitmask[idx / CHAR_BIT] & bit) != 0) {
+			   (client->seen_bitmask[msgnum / CHAR_BIT] & bit) != 0) {
 			mail_update_flags(mail, MODIFY_ADD, MAIL_SEEN);
 		}
+		msgnum++;
 	}
 	mail_free(&mail);
 
 	client->seen_change_count = 0;
-	return mailbox_search_deinit(&ctx) == 0;
+	if (mailbox_search_deinit(&ctx) < 0)
+		ret = FALSE;
+	return ret;
 }
 
 static int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
@@ -260,7 +296,6 @@ static int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 }
 
 struct fetch_context {
-	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	struct istream *stream;
 	uoff_t body_lines;
@@ -274,7 +309,6 @@ struct fetch_context {
 
 static void fetch_deinit(struct fetch_context *ctx)
 {
-	(void)mailbox_search_deinit(&ctx->search_ctx);
 	mail_free(&ctx->mail);
 	i_free(ctx);
 }
@@ -393,23 +427,17 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
 		 uoff_t *byte_counter)
 {
         struct fetch_context *ctx;
-	struct mail_search_args *search_args;
 	int ret;
 
-	search_args = pop3_search_build(client, msgnum+1);
-
 	ctx = i_new(struct fetch_context, 1);
-	ctx->search_ctx = mailbox_search_init(client->trans, search_args, NULL);
-	mail_search_args_unref(&search_args);
-
 	ctx->byte_counter = byte_counter;
 	ctx->byte_counter_offset = client->output->offset;
 
 	ctx->mail = mail_alloc(client->trans, MAIL_FETCH_STREAM_HEADER |
 			       MAIL_FETCH_STREAM_BODY, NULL);
+	mail_set_seq(ctx->mail, msgnum_to_seq(client, msgnum));
 
-	if (!mailbox_search_next(ctx->search_ctx, ctx->mail) ||
-	    mail_get_stream(ctx->mail, NULL, NULL, &ctx->stream) < 0) {
+	if (mail_get_stream(ctx->mail, NULL, NULL, &ctx->stream) < 0) {
 		ret = client_reply_msg_expunged(client, msgnum);
 		fetch_deinit(ctx);
 		return ret;
@@ -418,7 +446,8 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
 	if (body_lines == (uoff_t)-1 && client->seen_bitmask != NULL) {
 		if ((mail_get_flags(ctx->mail) & MAIL_SEEN) == 0) {
 			/* mark the message seen with RETR command */
-			client->seen_bitmask[msgnum / CHAR_BIT] |= 1 << (msgnum % CHAR_BIT);
+			client->seen_bitmask[msgnum / CHAR_BIT] |=
+				1 << (msgnum % CHAR_BIT);
 			client->seen_change_count++;
 		}
 	}
@@ -445,10 +474,11 @@ static int cmd_retr(struct client *client, const char *args)
 	if (get_msgnum(client, args, &msgnum) == NULL)
 		return -1;
 
-	if (client->lowest_retr > msgnum+1 || client->lowest_retr == 0)
-		client->lowest_retr = msgnum+1;
-	if (client->last_seen <= msgnum)
-		client->last_seen = msgnum+1;
+	if (client->lowest_retr_pop3_msn > msgnum+1 ||
+	    client->lowest_retr_pop3_msn == 0)
+		client->lowest_retr_pop3_msn = msgnum+1;
+	if (client->last_seen_pop3_msn < msgnum+1)
+		client->last_seen_pop3_msn = msgnum+1;
 
 	client->retr_count++;
 	return fetch(client, msgnum, (uoff_t)-1, &client->retr_bytes);
@@ -460,7 +490,7 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 	struct mail *mail;
 	struct mail_search_args *search_args;
 
-	client->last_seen = 0;
+	client->last_seen_pop3_msn = 0;
 
 	if (client->deleted) {
 		client->deleted = FALSE;
@@ -496,8 +526,8 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 
 static int cmd_stat(struct client *client, const char *args ATTR_UNUSED)
 {
-	client_send_line(client, "+OK %u %"PRIuUOFF_T, client->
-			 messages_count - client->deleted_count,
+	client_send_line(client, "+OK %u %"PRIuUOFF_T,
+			 client->messages_count - client->deleted_count,
 			 client->total_size - client->deleted_size);
 	return 1;
 }
@@ -520,7 +550,8 @@ static int cmd_top(struct client *client, const char *args)
 struct cmd_uidl_context {
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
-	unsigned int message;
+	uint32_t msgnum;
+	bool list_all;
 };
 
 static bool pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
@@ -595,7 +626,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	memcpy(tab, static_tab, sizeof(static_tab));
 	tab[0].value = t_strdup_printf("%u", client->uid_validity);
 
-	save_hashes = client->message_uidl_hashes_save && ctx->message == 0;
+	save_hashes = client->message_uidl_hashes_save && ctx->list_all;
 	if (save_hashes && client->message_uidl_hashes == NULL) {
 		client->message_uidl_hashes =
 			i_new(uint32_t, client->messages_count);
@@ -603,32 +634,33 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 
 	str = t_str_new(128);
 	while (mailbox_search_next(ctx->search_ctx, ctx->mail)) {
-		uint32_t idx = ctx->mail->seq - 1;
+		uint32_t msgnum = ctx->msgnum++;
 
+		if (client_verify_ordering(client, ctx->mail, msgnum) < 0)
+			i_fatal("Can't finish POP3 UIDL command");
 		if (client->deleted) {
-			if (client->deleted_bitmask[idx / CHAR_BIT] &
-			    (1 << (idx % CHAR_BIT)))
+			if (client->deleted_bitmask[msgnum / CHAR_BIT] &
+			    (1 << (msgnum % CHAR_BIT)))
 				continue;
 		}
 		found = TRUE;
 
 		str_truncate(str, 0);
-		str_printfa(str, ctx->message == 0 ? "%u " : "+OK %u ",
-			    ctx->mail->seq);
+		str_printfa(str, ctx->list_all ? "%u " : "+OK %u ", msgnum+1);
 		uidl_pos = str_len(str);
 		if (!pop3_get_uid(client, ctx, tab, str) &&
 		    client->set->pop3_save_uidl)
 			mail_update_pop3_uidl(ctx->mail, str_c(str) + uidl_pos);
 
 		if (save_hashes) {
-			client->message_uidl_hashes[idx] =
+			client->message_uidl_hashes[msgnum] =
 				crc32_str(str_c(str) + uidl_pos);
 		}
 
 		ret = client_send_line(client, "%s", str_c(str));
 		if (ret < 0)
 			break;
-		if (ret == 0 && ctx->message == 0) {
+		if (ret == 0 && ctx->list_all) {
 			/* output is being buffered, continue when there's
 			   more space */
 			return FALSE;
@@ -643,7 +675,7 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 
 	if (save_hashes)
 		client->message_uidl_hashes_save = FALSE;
-	if (ctx->message == 0)
+	if (ctx->list_all)
 		client_send_line(client, ".");
 	i_free(ctx);
 	return found;
@@ -657,26 +689,27 @@ static void cmd_uidl_callback(struct client *client)
 }
 
 static struct cmd_uidl_context *
-cmd_uidl_init(struct client *client, unsigned int message)
+cmd_uidl_init(struct client *client, uint32_t seq)
 {
         struct cmd_uidl_context *ctx;
 	struct mail_search_args *search_args;
 	enum mail_fetch_field wanted_fields;
 
-	search_args = pop3_search_build(client, message);
+	search_args = pop3_search_build(client, seq);
 
 	ctx = i_new(struct cmd_uidl_context, 1);
-	ctx->message = message;
+	ctx->list_all = seq == 0;
 
 	wanted_fields = 0;
 	if ((client->uidl_keymask & UIDL_MD5) != 0)
 		wanted_fields |= MAIL_FETCH_HEADER_MD5;
 
-	ctx->search_ctx = mailbox_search_init(client->trans, search_args, NULL);
+	ctx->search_ctx = mailbox_search_init(client->trans, search_args,
+					      pop3_sort_program);
 	mail_search_args_unref(&search_args);
 
 	ctx->mail = mail_alloc(client->trans, wanted_fields, NULL);
-	if (message == 0) {
+	if (seq == 0) {
 		client->cmd = cmd_uidl_callback;
 		client->cmd_context = ctx;
 	}
@@ -686,6 +719,7 @@ cmd_uidl_init(struct client *client, unsigned int message)
 static int cmd_uidl(struct client *client, const char *args)
 {
         struct cmd_uidl_context *ctx;
+	uint32_t seq;
 
 	if (*args == '\0') {
 		client_send_line(client, "+OK");
@@ -697,7 +731,9 @@ static int cmd_uidl(struct client *client, const char *args)
 		if (get_msgnum(client, args, &msgnum) == NULL)
 			return -1;
 
-		ctx = cmd_uidl_init(client, msgnum+1);
+		seq = msgnum_to_seq(client, msgnum);
+		ctx = cmd_uidl_init(client, seq);
+		ctx->msgnum = msgnum;
 		if (!list_uids_iter(client, ctx))
 			return client_reply_msg_expunged(client, msgnum);
 	}

@@ -39,6 +39,11 @@
 struct client *pop3_clients;
 unsigned int pop3_client_count;
 
+static enum mail_sort_type pop3_sort_program[] = {
+	MAIL_SORT_POP3_ORDER,
+	MAIL_SORT_END
+};
+
 static void client_input(struct client *client);
 static int client_output(struct client *client);
 
@@ -103,6 +108,28 @@ pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
 	return mail_get_virtual_size(mail, size_r);
 }
 
+static void
+msgnum_to_seq_map_add(ARRAY_TYPE(uint32_t) *msgnum_to_seq_map,
+		      struct client *client, struct mail *mail,
+		      unsigned int msgnum)
+{
+	uint32_t seq;
+
+	if (mail->seq == msgnum+1)
+		return;
+
+	if (!array_is_created(msgnum_to_seq_map))
+		i_array_init(msgnum_to_seq_map, client->messages_count);
+	else {
+		/* add any messages between this and the previous one that had
+		   a POP3 order defined */
+		seq = array_count(msgnum_to_seq_map) + 1;
+		for (; seq <= msgnum; seq++)
+			array_append(msgnum_to_seq_map, &seq, 1);
+	}
+	array_append(msgnum_to_seq_map, &mail->seq, 1);
+}
+
 static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 {
         struct mailbox_status status;
@@ -112,6 +139,8 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 	struct mail *mail;
 	uoff_t size;
 	ARRAY_DEFINE(message_sizes, uoff_t);
+	ARRAY_TYPE(uint32_t) msgnum_to_seq_map = ARRAY_INIT;
+	unsigned int msgnum;
 	int ret = 1;
 
 	*failed_uid_r = 0;
@@ -124,13 +153,14 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(t, search_args, NULL);
+	ctx = mailbox_search_init(t, search_args, pop3_sort_program);
 	mail_search_args_unref(&search_args);
 
-	client->last_seen = 0;
+	client->last_seen_pop3_msn = 0;
 	client->total_size = 0;
 	i_array_init(&message_sizes, client->messages_count);
 
+	msgnum = 0;
 	mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
 	while (mailbox_search_next(ctx, mail)) {
 		if (pop3_mail_get_size(client, mail, &size) < 0) {
@@ -138,29 +168,40 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 			*failed_uid_r = mail->uid;
 			break;
 		}
+		msgnum_to_seq_map_add(&msgnum_to_seq_map, client, mail, msgnum);
 
 		if ((mail_get_flags(mail) & MAIL_SEEN) != 0)
-			client->last_seen = mail->seq;
+			client->last_seen_pop3_msn = msgnum + 1;
 		client->total_size += size;
 
 		array_append(&message_sizes, &size, 1);
+		msgnum++;
 	}
 	mail_free(&mail);
 
 	if (mailbox_search_deinit(&ctx) < 0)
 		ret = -1;
 
-	if (ret > 0) {
-		client->trans = t;
-		client->message_sizes =
-			buffer_free_without_data(&message_sizes.arr.buffer);
-	} else {
+	if (ret <= 0) {
 		/* commit the transaction instead of rollbacking to make sure
 		   we don't lose data (virtual sizes) added to cache file */
 		(void)mailbox_transaction_commit(&t);
 		array_free(&message_sizes);
+		if (array_is_created(&msgnum_to_seq_map))
+			array_free(&msgnum_to_seq_map);
+		return ret;
 	}
-	return ret;
+
+	client->trans = t;
+	client->message_sizes =
+		buffer_free_without_data(&message_sizes.arr.buffer);
+	if (array_is_created(&msgnum_to_seq_map)) {
+		client->msgnum_to_seq_map_count =
+			array_count(&msgnum_to_seq_map);
+		client->msgnum_to_seq_map =
+			buffer_free_without_data(&msgnum_to_seq_map.arr.buffer);
+	}
+	return 1;
 }
 
 static int init_mailbox(struct client *client, const char **error_r)
@@ -349,8 +390,8 @@ static const char *client_build_uidl_change_string(struct client *client)
 	}
 
 	/* 1..new-1 were probably left to mailbox by previous POP3 session */
-	old_msg_count = client->lowest_retr > 0 ?
-		client->lowest_retr - 1 : client->messages_count;
+	old_msg_count = client->lowest_retr_pop3_msn > 0 ?
+		client->lowest_retr_pop3_msn - 1 : client->messages_count;
 	for (i = 0, old_hash = 0; i < old_msg_count; i++)
 		old_hash ^= client->message_uidl_hashes[i];
 
@@ -464,6 +505,7 @@ void client_destroy(struct client *client, const char *reason)
 	i_free(client->message_uidl_hashes);
 	i_free(client->deleted_bitmask);
 	i_free(client->seen_bitmask);
+	i_free(client->msgnum_to_seq_map);
 
 	if (client->io != NULL)
 		io_remove(&client->io);
