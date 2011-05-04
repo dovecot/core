@@ -24,7 +24,8 @@ struct authtest_input {
 };
 
 static int
-cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
+cmd_user_input(const char *auth_socket_path, const struct authtest_input *input,
+	       const char *show_field)
 {
 	struct auth_master_connection *conn;
 	pool_t pool;
@@ -49,8 +50,17 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 				input->username, fields[0]);
 		}
 	} else if (ret == 0) {
-		printf("userdb lookup: user %s doesn't exist\n",
-		       input->username);
+		fprintf(show_field == NULL ? stdout : stderr,
+			"userdb lookup: user %s doesn't exist\n",
+			input->username);
+	} else if (show_field != NULL) {
+		unsigned int show_field_len = strlen(show_field);
+
+		for (; *fields; fields++) {
+			if (strncmp(*fields, show_field, show_field_len) == 0 &&
+			    (*fields)[show_field_len] == '=')
+				printf("%s\n", *fields + show_field_len + 1);
+		}
 	} else {
 		printf("userdb: %s\n", input->username);
 
@@ -239,6 +249,7 @@ static void cmd_user(int argc, char *argv[])
 {
 	const char *auth_socket_path = NULL;
 	struct authtest_input input;
+	const char *show_field = NULL;
 	unsigned int i;
 	bool have_wildcards;
 	int c;
@@ -246,10 +257,13 @@ static void cmd_user(int argc, char *argv[])
 	memset(&input, 0, sizeof(input));
 	input.info.service = "doveadm";
 
-	while ((c = getopt(argc, argv, "a:x:")) > 0) {
+	while ((c = getopt(argc, argv, "a:f:x:")) > 0) {
 		switch (c) {
 		case 'a':
 			auth_socket_path = optarg;
+			break;
+		case 'f':
+			show_field = optarg;
 			break;
 		case 'x':
 			auth_user_info_parse(&input.info, optarg);
@@ -282,7 +296,8 @@ static void cmd_user(int argc, char *argv[])
 				first = FALSE;
 			else
 				putchar('\n');
-			switch (cmd_user_input(auth_socket_path, &input)) {
+			switch (cmd_user_input(auth_socket_path, &input,
+					       show_field)) {
 			case -1:
 				exit(1);
 			case 0:
@@ -302,5 +317,5 @@ struct doveadm_cmd doveadm_cmd_auth = {
 
 struct doveadm_cmd doveadm_cmd_user = {
 	cmd_user, "user",
-	"[-a <userdb socket path>] [-x <auth info>] <user mask> [...]"
+	"[-a <userdb socket path>] [-x <auth info>] [-f field] <user mask> [...]"
 };
