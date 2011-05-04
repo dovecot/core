@@ -45,9 +45,6 @@ struct client {
 	unsigned int top_count;
 	unsigned int retr_count;
 
-	uoff_t *byte_counter;
-	uoff_t byte_counter_offset;
-
 	unsigned char *deleted_bitmask;
 	unsigned char *seen_bitmask;
 

@@ -265,6 +265,9 @@ struct fetch_context {
 	struct istream *stream;
 	uoff_t body_lines;
 
+	uoff_t *byte_counter;
+	uoff_t byte_counter_offset;
+
 	unsigned char last;
 	bool cr_skipped, in_body;
 };
@@ -365,9 +368,8 @@ static void fetch_callback(struct client *client)
 		(void)o_stream_send(client->output, "\r\n", 2);
 	}
 
-	*client->byte_counter +=
-		client->output->offset - client->byte_counter_offset;
-        client->byte_counter = NULL;
+	*ctx->byte_counter +=
+		client->output->offset - ctx->byte_counter_offset;
 
 	client_send_line(client, ".");
 	fetch_deinit(ctx);
@@ -387,7 +389,8 @@ static int client_reply_msg_expunged(struct client *client, unsigned int msgnum)
 	return 1;
 }
 
-static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
+static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
+		 uoff_t *byte_counter)
 {
         struct fetch_context *ctx;
 	struct mail_search_args *search_args;
@@ -398,6 +401,9 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 	ctx = i_new(struct fetch_context, 1);
 	ctx->search_ctx = mailbox_search_init(client->trans, search_args, NULL);
 	mail_search_args_unref(&search_args);
+
+	ctx->byte_counter = byte_counter;
+	ctx->byte_counter_offset = client->output->offset;
 
 	ctx->mail = mail_alloc(client->trans, MAIL_FETCH_STREAM_HEADER |
 			       MAIL_FETCH_STREAM_BODY, NULL);
@@ -445,10 +451,7 @@ static int cmd_retr(struct client *client, const char *args)
 		client->last_seen = msgnum+1;
 
 	client->retr_count++;
-	client->byte_counter = &client->retr_bytes;
-	client->byte_counter_offset = client->output->offset;
-
-	return fetch(client, msgnum, (uoff_t)-1);
+	return fetch(client, msgnum, (uoff_t)-1, &client->retr_bytes);
 }
 
 static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
@@ -511,10 +514,7 @@ static int cmd_top(struct client *client, const char *args)
 		return -1;
 
 	client->top_count++;
-	client->byte_counter = &client->top_bytes;
-	client->byte_counter_offset = client->output->offset;
-
-	return fetch(client, msgnum, max_lines);
+	return fetch(client, msgnum, max_lines, &client->top_bytes);
 }
 
 struct cmd_uidl_context {
