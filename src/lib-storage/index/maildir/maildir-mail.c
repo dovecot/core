@@ -471,7 +471,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
-	const char *path, *fname = NULL, *end, *guid, *uidl;
+	const char *path, *fname = NULL, *end, *guid, *uidl, *order;
 
 	switch (field) {
 	case MAIL_FETCH_GUID:
@@ -534,6 +534,15 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 					MAIL_FETCH_UIDL_FILE_NAME, value_r);
 		} else {
 			*value_r = p_strdup(mail->data_pool, uidl);
+		}
+		return 0;
+	case MAIL_FETCH_POP3_ORDER:
+		order = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
+					MAILDIR_UIDLIST_REC_EXT_POP3_ORDER);
+		if (order == NULL) {
+			*value_r = "";
+		} else {
+			*value_r = p_strdup(mail->data_pool, order);
 		}
 		return 0;
 	default:
