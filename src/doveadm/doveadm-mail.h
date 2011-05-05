@@ -108,6 +108,7 @@ struct doveadm_mail_cmd cmd_expunge;
 struct doveadm_mail_cmd cmd_search;
 struct doveadm_mail_cmd cmd_fetch;
 struct doveadm_mail_cmd cmd_import;
+struct doveadm_mail_cmd cmd_index;
 struct doveadm_mail_cmd cmd_altmove;
 struct doveadm_mail_cmd cmd_move;
 struct doveadm_mail_cmd cmd_mailbox_list;
