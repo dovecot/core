@@ -94,9 +94,11 @@ bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
 bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 			      uint32_t seq, unsigned int field_idx);
 
-/* Retursn 1 if field exists, 0 if not, -1 if error. */
+/* Returns 1 if field exists, 0 if not, -1 if error. */
 int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 			    unsigned int field_idx);
+/* Returns TRUE if something is cached for the message, FALSE if not. */
+bool mail_cache_field_exists_any(struct mail_cache_view *view, uint32_t seq);
 /* Returns current caching decision for given field. */
 enum mail_cache_decision_type
 mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field_idx);
