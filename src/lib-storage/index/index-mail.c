@@ -1509,6 +1509,19 @@ void index_mail_expunge(struct mail *mail)
 	}
 }
 
+void index_mail_parse(struct mail *mail, bool parse_body)
+{
+	struct index_mail *imail = (struct index_mail *)mail;
+
+	imail->data.access_part |= PARSE_HDR;
+	if (index_mail_parse_headers(imail, NULL) == 0) {
+		if (parse_body) {
+			imail->data.access_part |= PARSE_BODY;
+			(void)index_mail_parse_body(imail, 0);
+		}
+	}
+}
+
 void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field)
 {

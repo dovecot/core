@@ -704,6 +704,9 @@ void mail_expunge(struct mail *mail);
 
 /* Returns TRUE if anything is cached for the mail, FALSE if not. */
 bool mail_is_cached(struct mail *mail);
+/* Parse mail's header and optionally body so that fields using them get
+   cached. */
+void mail_parse(struct mail *mail, bool parse_body);
 /* Mark a cached field corrupted and have it recalculated. */
 void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
 

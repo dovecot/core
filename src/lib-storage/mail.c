@@ -246,6 +246,13 @@ bool mail_is_cached(struct mail *mail)
 					   mail->seq);
 }
 
+void mail_parse(struct mail *mail, bool parse_body)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	p->v.parse(mail, parse_body);
+}
+
 void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
 {
 	struct mail_private *p = (struct mail_private *)mail;

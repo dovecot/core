@@ -195,6 +195,11 @@ static void test_mail_expunge(struct mail *mail ATTR_UNUSED)
 {
 }
 
+static void test_mail_parse(struct mail *mail ATTR_UNUSED,
+			    bool parse_body ATTR_UNUSED)
+{
+}
+
 static void
 test_mail_set_cache_corrupted(struct mail *mail ATTR_UNUSED,
 			      enum mail_fetch_field field ATTR_UNUSED)
@@ -229,6 +234,7 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_update_modseq,
 	NULL,
 	test_mail_expunge,
+	test_mail_parse,
 	test_mail_set_cache_corrupted,
 	NULL
 };

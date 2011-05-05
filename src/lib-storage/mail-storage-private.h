@@ -336,6 +336,7 @@ struct mail_vfuncs {
 	void (*update_modseq)(struct mail *mail, uint64_t min_modseq);
 	void (*update_pop3_uidl)(struct mail *mail, const char *uidl);
 	void (*expunge)(struct mail *mail);
+	void (*parse)(struct mail *mail, bool parse_body);
 	void (*set_cache_corrupted)(struct mail *mail,
 				    enum mail_fetch_field field);
 	int (*istream_opened)(struct mail *mail, struct istream **input);
