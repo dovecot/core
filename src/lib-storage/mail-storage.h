@@ -701,6 +701,9 @@ void mail_update_modseq(struct mail *mail, uint64_t min_modseq);
 void mail_update_pop3_uidl(struct mail *mail, const char *uidl);
 /* Expunge this message. Sequence numbers don't change until commit. */
 void mail_expunge(struct mail *mail);
+
+/* Returns TRUE if anything is cached for the mail, FALSE if not. */
+bool mail_is_cached(struct mail *mail);
 /* Mark a cached field corrupted and have it recalculated. */
 void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
 

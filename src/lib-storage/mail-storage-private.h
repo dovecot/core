@@ -390,6 +390,9 @@ struct mailbox_transaction_context {
 	/* view contains all changes done within this transaction */
 	struct mail_index_view *view;
 
+	struct mail_cache_view *cache_view;
+	struct mail_cache_transaction_ctx *cache_trans;
+
 	struct mail_transaction_commit_changes *changes;
 	ARRAY_DEFINE(module_contexts,
 		     union mailbox_transaction_module_context *);
