@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2011 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
+#include "imap-resp-code.h"
 #include "mail-namespace.h"
 #include "imap-commands.h"
 
@@ -26,7 +27,9 @@ bool cmd_rename(struct client_command_context *cmd)
 	case MAILBOX_NAME_VALID:
 	case MAILBOX_NAME_INVALID:
 	case MAILBOX_NAME_NOINFERIORS:
-		client_fail_mailbox_name_status(cmd, oldname, NULL, status);
+		client_fail_mailbox_name_status(cmd, oldname,
+						IMAP_RESP_CODE_NONEXISTENT,
+						status);
 		return TRUE;
 	}
 
