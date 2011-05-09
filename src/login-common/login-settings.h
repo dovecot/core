@@ -12,7 +12,6 @@ struct login_settings {
 	const char *ssl_cert;
 	const char *ssl_key;
 	const char *ssl_key_password;
-	const char *ssl_parameters_file;
 	const char *ssl_cipher_list;
 	const char *ssl_cert_username_field;
 	bool ssl_verify_client_cert;
