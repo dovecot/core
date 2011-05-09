@@ -22,7 +22,7 @@
 #define SCRIPT_COMM_FD 3
 
 static const char **exec_args;
-static bool drop_privileges = TRUE;
+static bool drop_privileges = FALSE;
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -120,7 +120,7 @@ static void client_connected(struct master_service_connection *conn)
 	mail_storage_service_restrict_setenv(service_ctx, user);
 
 	if (drop_privileges)
-		restrict_access_by_env(getenv("HOME"), FALSE);
+		restrict_access_by_env(getenv("HOME"), TRUE);
 
 	if (dup2(fd, STDIN_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
@@ -186,11 +186,11 @@ int main(int argc, char *argv[])
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
 	master_service = master_service_init("script-login", flags,
-					     &argc, &argv, "+n");
+					     &argc, &argv, "+d");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
-		case 'n':
-			drop_privileges = FALSE;
+		case 'd':
+			drop_privileges = TRUE;
 			break;
 		default:
 			return FATAL_DEFAULT;
