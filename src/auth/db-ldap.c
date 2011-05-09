@@ -328,6 +328,8 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 	struct ldap_request *const *requestp, *request;
 	int ret = -1;
 
+	i_assert(conn->pending_count <= aqueue_count(conn->request_queue));
+
 	if (conn->pending_count == aqueue_count(conn->request_queue)) {
 		/* no non-pending requests */
 		return FALSE;
