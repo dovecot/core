@@ -452,6 +452,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct mail_deliver_context dctx;
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
+	struct mail_namespace *ns;
 	void **sets;
 	const char *error, *username;
 	enum mail_error mail_error;
@@ -485,9 +486,15 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	if (dctx.dest_addr == NULL)
 		dctx.dest_addr = rcpt->address;
 	dctx.final_dest_addr = rcpt->address;
-	dctx.dest_mailbox_name = *rcpt->detail != '\0' &&
-		client->lmtp_set->lmtp_save_to_detail_mailbox ?
-		rcpt->detail : "INBOX";
+	if (rcpt->detail == '\0' ||
+	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
+		dctx.dest_mailbox_name = "INBOX";
+	else {
+		ns = mail_namespace_find_inbox(dctx.dest_user->namespaces);
+		dctx.dest_mailbox_name =
+			t_strconcat(ns->prefix, rcpt->detail, NULL);
+	}
+
 	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
 		client->state.first_saved_mail == NULL;
 
