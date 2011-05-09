@@ -1,6 +1,7 @@
 /* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "imap-match.h"
 #include "mailbox-list-private.h"
 
 #define MAILBOX_LIST_NAME_NONE "none"
@@ -128,19 +129,25 @@ none_list_rename_mailbox(struct mailbox_list *oldlist,
 
 static struct mailbox_list_iterate_context *
 none_list_iter_init(struct mailbox_list *list,
-		    const char *const *patterns ATTR_UNUSED,
+		    const char *const *patterns,
 		    enum mailbox_list_iter_flags flags)
 {
 	struct noop_list_iterate_context *ctx;
+	struct imap_match_glob *glob;
 
 	ctx = i_new(struct noop_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
-	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
-		ctx->list_inbox = TRUE;
+	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) T_BEGIN {
 		ctx->inbox_info.ns = list->ns;
 		ctx->inbox_info.name = "INBOX";
-	}
+
+		glob = imap_match_init_multiple(pool_datastack_create(),
+						patterns, TRUE,
+						list->hierarchy_sep);
+		if (imap_match(glob, "INBOX") == IMAP_MATCH_YES)
+			ctx->list_inbox = TRUE;
+	} T_END;
 	return &ctx->ctx;
 }
 
