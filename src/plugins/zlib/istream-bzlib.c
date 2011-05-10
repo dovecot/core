@@ -273,7 +273,11 @@ i_stream_bzlib_stat(struct istream_private *stream, bool exact)
 	if (st == NULL)
 		return NULL;
 
-	if (zstream->eof_offset == (uoff_t)-1 && !exact)
+	/* when exact=FALSE always return the parent stat's size, even if we
+	   know the exact value. this is necessary because otherwise e.g. mbox
+	   code can see two different values and think that a compressed mbox
+	   file keeps changing. */
+	if (!exact)
 		return st;
 
 	stream->statbuf = *st;
