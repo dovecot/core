@@ -110,6 +110,7 @@ int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
 		i_error("Syncing mailbox %s failed: %s", mailbox,
 			mail_storage_get_last_error(mailbox_get_storage(*box_r),
 						    NULL));
+		mailbox_free(box_r);
 		return -1;
 	}
 	return 0;
