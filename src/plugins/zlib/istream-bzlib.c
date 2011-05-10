@@ -16,6 +16,7 @@ struct bzlib_istream {
 	bz_stream zs;
 	uoff_t eof_offset;
 	size_t prev_size, high_pos;
+	struct stat last_parent_statbuf;
 
 	unsigned int log_errors:1;
 	unsigned int marked:1;
@@ -300,7 +301,18 @@ i_stream_bzlib_stat(struct istream_private *stream, bool exact)
 static void i_stream_bzlib_sync(struct istream_private *stream)
 {
 	struct bzlib_istream *zstream = (struct bzlib_istream *) stream;
+	const struct stat *st;
 
+	st = i_stream_stat(stream->parent, FALSE);
+	if (st != NULL) {
+		if (memcmp(&zstream->last_parent_statbuf,
+			   st, sizeof(*st)) == 0) {
+			/* a compressed file doesn't change unexpectedly,
+			   don't clear our caches unnecessarily */
+			return;
+		}
+		zstream->last_parent_statbuf = *st;
+	}
 	i_stream_bzlib_reset(zstream);
 }
 
