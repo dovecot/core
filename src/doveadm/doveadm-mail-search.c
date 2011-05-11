@@ -24,8 +24,8 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 				   &trans, &iter) < 0)
 		return -1;
 
-	if (mailbox_get_metadata(mail->box, MAILBOX_METADATA_GUID,
-				 &metadata) < 0)
+	if (mailbox_get_metadata(mailbox_transaction_get_mailbox(trans),
+				 MAILBOX_METADATA_GUID, &metadata) < 0)
 		ret = -1;
 	else {
 		guid_str = mail_guid_128_to_string(metadata.guid);
