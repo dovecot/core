@@ -168,13 +168,17 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 		(void)uni_utf8_to_decomposed_titlecase(hdr->name, hdr->name_len,
 						       ctx->buf);
 		buffer_append_c(ctx->buf, '\0');
+	} else {
+		if (!uni_utf8_get_valid_data((const unsigned char *)hdr->name,
+					     hdr->name_len, ctx->buf))
+			buffer_append_c(ctx->buf, '\0');
 	}
 
 	ctx->hdr = *hdr;
 	ctx->hdr.full_value = ctx->buf->data;
 	ctx->hdr.full_value_len = value_len;
 	ctx->hdr.value_len = 0;
-	if (dtcase) {
+	if (ctx->buf->used != value_len) {
 		ctx->hdr.name = CONST_PTR_OFFSET(ctx->buf->data,
 						 ctx->hdr.full_value_len);
 		ctx->hdr.name_len = ctx->buf->used - 1 - value_len;
