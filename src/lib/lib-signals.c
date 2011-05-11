@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <unistd.h>
 
-#define MAX_SIGNAL_VALUE 31
+#define MAX_SIGNAL_VALUE 63
 
 #define SIGNAL_IS_TERMINAL(signo) \
 	((signo) == SIGINT || (signo) == SIGQUIT || (signo) == SIGTERM)
