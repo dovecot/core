@@ -1329,7 +1329,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		uoff_t vsize;
 
 		_mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
-		if (mail_get_virtual_size(_mail, &vsize) <= 0)
+		if (mail_get_virtual_size(_mail, &vsize) < 0)
 			mail->data.access_part |= READ_HDR | READ_BODY;
 		_mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
 	}
