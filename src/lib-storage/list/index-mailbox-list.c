@@ -328,11 +328,11 @@ static int index_mailbox_list_sync(struct mailbox_list *list)
 
 		T_BEGIN {
 			seq = index_mailbox_list_sync_name(&sync_ctx,
-					info->name, (enum mail_flags)flags);
+					info->name, flags);
 		} T_END;
 
 		mail_index_update_flags(sync_ctx.trans, seq,
-					MODIFY_REPLACE, flags);
+					MODIFY_REPLACE, (enum mail_flags)flags);
 	}
 	if (ilist->module_ctx.super.iter_deinit(iter) < 0)
 		ret = -1;
