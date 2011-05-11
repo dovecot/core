@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
 	struct istream *input;
 	struct mailbox_transaction_context *t;
 	struct mailbox_header_lookup_ctx *headers_ctx;
-	const char *user_source = "";
+	const char *user_source = "", *destaddr_source = "";
 	void **sets;
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
@@ -266,6 +266,7 @@ int main(int argc, char *argv[])
 		case 'a':
 			/* original recipient address */
 			ctx.dest_addr = optarg;
+			destaddr_source = "-a parameter";
 			break;
 		case 'd':
 			/* destination user */
@@ -422,13 +423,21 @@ int main(int argc, char *argv[])
 	    *ctx.set->lda_original_recipient_header != '\0') {
 		ctx.dest_addr = mail_deliver_get_address(ctx.src_mail,
 					ctx.set->lda_original_recipient_header);
+		destaddr_source = t_strconcat(
+			ctx.set->lda_original_recipient_header, " header", NULL);
 	}
 	if (ctx.dest_addr == NULL) {
 		ctx.dest_addr = strchr(user, '@') != NULL ? user :
 			t_strconcat(user, "@", ctx.set->hostname, NULL);
+		destaddr_source = "user@hostname";
 	}
 	if (ctx.final_dest_addr == NULL)
 		ctx.final_dest_addr = ctx.dest_addr;
+
+	if (ctx.dest_user->mail_debug) {
+		i_debug("Destination address: %s (source: %s)",
+			ctx.dest_addr, destaddr_source);
+	}
 
 	if (mail_deliver(&ctx, &storage) < 0) {
 		if (storage == NULL) {
