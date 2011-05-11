@@ -1467,7 +1467,7 @@ void imapc_connection_cmdvf(struct imapc_connection *conn,
 				p_array_init(&cmd->streams, cmd->pool, 2);
 			if (i_stream_get_size(input, TRUE, &size) < 0)
 				size = 0;
-			str_printfa(cmd->data, "{%"PRIuSIZE_T"}\r\n", size);
+			str_printfa(cmd->data, "{%"PRIuUOFF_T"}\r\n", size);
 			s = array_append_space(&cmd->streams);
 			s->pos = str_len(cmd->data);
 			s->size = size;
