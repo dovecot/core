@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVECONF 1 "2010-06-26" "Dovecot v2.0" "Dovecot"
+.TH DOVECONF 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveconf \- Dovecot\(aqs configuration dumping utility
 .\"------------------------------------------------------------------------
@@ -127,7 +127,9 @@ Show only the current configuration of one or more specified sections.
 .I setting_name
 Show only the setting of one or more
 .IR setting_name (s)
-with the currently configured value.
+with the currently configured value. You can show a setting inside a
+section using \(aq/\(aq as the section separator, e.g.
+service/imap/executable.
 .\"------------------------------------------------------------------------
 .SH EXAMPLE
 When Dovecot was configured to use different settings for some
@@ -169,6 +171,13 @@ This example demonstrates how to dump a whole configuration section.
 dict {
   quota = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 }
+.fi
+.PP
+Or how to dump only the quota dict:
+.sp
+.nf
+.B doveconf dict/quota
+dict/quota = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 .fi
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@
