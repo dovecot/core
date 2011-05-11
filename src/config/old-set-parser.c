@@ -102,19 +102,19 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		value = t_strarray_join((const char *const *)protos, " ");
 
 		if (have_imaps && !have_imap) {
-			obsolete(ctx, "protocols=imaps is no longer supported. to disable non-ssl imap, use service imap-login { inet_listener imap { port=0 } }");
+			obsolete(ctx, "'imaps' protocol is no longer supported. to disable non-ssl imap, use service imap-login { inet_listener imap { port=0 } }");
 			value = t_strconcat(value, " imap", NULL);
 			config_apply_line(ctx, "port",
 				"service/imap-login/inet_listener/imap/port=0", NULL);
 		} else if (have_imaps)
-			obsolete(ctx, "protocols=imaps is no longer necessary, remove it");
+			obsolete(ctx, "'imaps' protocol is no longer necessary, remove it");
 		if (have_pop3s && !have_pop3) {
-			obsolete(ctx, "protocols=pop3s is no longer supported. to disable non-ssl pop3, use service pop3-login { inet_listener pop3 { port=0 } }");
+			obsolete(ctx, "'pop3s' protocol is no longer supported. to disable non-ssl pop3, use service pop3-login { inet_listener pop3 { port=0 } }");
 			value = t_strconcat(value, " pop3", NULL);
 			config_apply_line(ctx, "port",
 				"service/pop3-login/inet_listener/pop3/port=0", NULL);
 		} else if (have_pop3s)
-			obsolete(ctx, "protocols=pop3s is no longer necessary, remove it");
+			obsolete(ctx, "'pop3s' protocol is no longer necessary, remove it");
 
 		if (*value == ' ') value++;
 		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
