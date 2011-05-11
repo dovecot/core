@@ -1,3 +1,22 @@
+v2.0.13 2011-05-11  Timo Sirainen <tss@iki.fi>
+
+	+ Added "doveadm index" command to add unindexed messages into
+	  index/cache. If full text search is enabled, it also adds unindexed
+	  messages to the fts database.
+	+ added "doveadm director dump" command.
+	+ pop3: Added support for showing messages in "POP3 order", which can 
+	  be different from IMAP message order. This can be useful for
+	  migrations from other servers. Implemented it for Maildir as 'O'
+	  field in dovecot-uidlist.
+	- doveconf: Fixed a wrong "subsection has ssl=yes" warning.
+	- mdbox purge: Fixed wrong warning about corrupted extrefs.
+	- sdbox: INBOX GUID changed when INBOX was autocreated, leading to
+	  trouble with dsync.
+	- script-login binary wasn't actually dropping privileges to the
+	  user/group/chroot specified by its service settings.
+	- Fixed potential crashes and other problems when parsing header names
+	  that contained NUL characters.
+
 v2.0.12 2011-04-12  Timo Sirainen <tss@iki.fi>
 
 	+ doveadm: Added "move" command for moving mails between mailboxes.
