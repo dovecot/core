@@ -68,14 +68,31 @@ struct user *
 user_directory_add(struct user_directory *dir, unsigned int username_hash,
 		   struct mail_host *host, time_t timestamp)
 {
-	struct user *user;
+	struct user *user, *pos;
 
 	user = i_new(struct user, 1);
 	user->username_hash = username_hash;
 	user->host = host;
 	user->host->user_count++;
 	user->timestamp = timestamp;
-	DLLIST2_APPEND(&dir->head, &dir->tail, user);
+
+	if (dir->tail == NULL || dir->tail->timestamp <= timestamp)
+		DLLIST2_APPEND(&dir->head, &dir->tail, user);
+	else {
+		/* need to insert to correct position */
+		for (pos = dir->tail; pos != NULL; pos = pos->prev) {
+			if (pos->timestamp <= timestamp)
+				break;
+		}
+		if (pos == NULL)
+			DLLIST2_PREPEND(&dir->head, &dir->tail, user);
+		else {
+			user->prev = pos;
+			user->next = pos->next;
+			user->prev->next = user;
+			user->next->prev = user;
+		}
+	}
 
 	hash_table_insert(dir->hash, POINTER_CAST(user->username_hash), user);
 	return user;
