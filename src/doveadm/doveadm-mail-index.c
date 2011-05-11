@@ -152,9 +152,9 @@ static int fts_update(struct mailbox *box, const struct mailbox_status *status)
 	}
 	mail_free(&mail);
 
-	if (mailbox_search_deinit(&ctx) < 0)
+	ret = mailbox_search_deinit(&ctx);
+	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
-	(void)mailbox_transaction_commit(&t);
 	return ret;
 }
 
