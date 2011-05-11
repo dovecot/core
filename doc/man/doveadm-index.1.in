@@ -1,0 +1,57 @@
+.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-IMPORT 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-index \- Index mailboxes
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.IR socket_path "] " mailbox
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.IR socket_path "] "
+.BI \-A \ mailbox
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.IR socket_path "] "
+.BI \-u " user mailbox"
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+Add unindexed messages in a mailbox into index/cache file. If full text
+search is enabled, also add unindexed messages to the fts database.
+.PP
+The caching adds only the fields that were previously added to the
+mailbox\(aqs caching decisions, so it won\(aqt do anything useful for
+mailboxes that user\(aqs client hasn\(aqt accessed yet. You can use
+.B doveadm dump
+command to show a specific mailbox\(aqs current caching decisions.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I mailbox
+The name of the mailbox to index.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Index bob\(aqs INBOX:
+.PP
+.nf
+.B doveadm index \-u bob INBOX
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)
