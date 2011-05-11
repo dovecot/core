@@ -1,19 +1,19 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-IMPORT 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
+.\" Copyright (c) 2010-2011 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-INDEX 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-index \- Index mailboxes
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.BR doveadm " [" \-Dv "] " index " [" \-S
 .IR socket_path "] " mailbox
 .\"-------------------------------------
 .br
-.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.BR doveadm " [" \-Dv "] " index " [" \-S
 .IR socket_path "] "
 .BI \-A \ mailbox
 .\"-------------------------------------
 .br
-.BR doveadm " [" \-Dv "] " force\-resync " [" \-S
+.BR doveadm " [" \-Dv "] " index " [" \-S
 .IR socket_path "] "
 .BI \-u " user mailbox"
 .\"------------------------------------------------------------------------
