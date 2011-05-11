@@ -392,30 +392,19 @@ cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 {
 	struct doveadm_mail_iter *iter;
 	struct mailbox_transaction_context *trans;
-	struct mailbox_header_lookup_ctx *headers = NULL;
-	int ret;
-
-	if (array_count(&ctx->header_fields) > 1) {
-		headers = mailbox_header_lookup_init(
-					mailbox_transaction_get_mailbox(trans),
-					array_idx(&ctx->header_fields, 0));
-	}
 
 	if (doveadm_mail_iter_init(info, ctx->ctx.search_args,
-				   ctx->wanted_fields, headers,
+				   ctx->wanted_fields,
+				   array_idx(&ctx->header_fields, 0),
 				   &trans, &iter) < 0)
-		ret = -1;
-	else {
-		while (doveadm_mail_iter_next(iter, &ctx->mail)) {
-			T_BEGIN {
-				cmd_fetch_mail(ctx);
-			} T_END;
-		}
-		ret = doveadm_mail_iter_deinit(&iter);
+		return -1;
+
+	while (doveadm_mail_iter_next(iter, &ctx->mail)) {
+		T_BEGIN {
+			cmd_fetch_mail(ctx);
+		} T_END;
 	}
-	if (headers != NULL)
-		mailbox_header_lookup_unref(&headers);
-	return ret;
+	return doveadm_mail_iter_deinit(&iter);
 }
 
 static void

@@ -17,11 +17,12 @@ struct doveadm_mail_iter {
 int doveadm_mail_iter_init(const struct mailbox_info *info,
 			   struct mail_search_args *search_args,
 			   enum mail_fetch_field wanted_fields,
-			   struct mailbox_header_lookup_ctx *wanted_headers,
+			   const char *const *wanted_headers,
 			   struct mailbox_transaction_context **trans_r,
 			   struct doveadm_mail_iter **iter_r)
 {
 	struct doveadm_mail_iter *iter;
+	struct mailbox_header_lookup_ctx *headers_ctx;
 
 	iter = i_new(struct doveadm_mail_iter, 1);
 	iter->box = mailbox_alloc(info->ns->list, info->name,
@@ -37,10 +38,13 @@ int doveadm_mail_iter_init(const struct mailbox_info *info,
 		return -1;
 	}
 
+	headers_ctx = wanted_headers == NULL || wanted_headers[0] == NULL ?
+		NULL : mailbox_header_lookup_init(iter->box, wanted_headers);
+
 	mail_search_args_init(search_args, iter->box, FALSE, NULL);
 	iter->t = mailbox_transaction_begin(iter->box, 0);
 	iter->search_ctx = mailbox_search_init(iter->t, search_args, NULL,
-					       wanted_fields, wanted_headers);
+					       wanted_fields, headers_ctx);
 
 	*trans_r = iter->t;
 	*iter_r = iter;
