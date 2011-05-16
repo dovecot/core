@@ -83,7 +83,7 @@ static const struct imap_settings imap_default_settings = {
 	.imap_idle_notify_interval = 2*60,
 	.imap_capability = "",
 	.imap_client_workarounds = "",
-	.imap_logout_format = "bytes=%i/%o",
+	.imap_logout_format = "in=%i out=%o",
 	.imap_id_send = "",
 	.imap_id_log = ""
 };
