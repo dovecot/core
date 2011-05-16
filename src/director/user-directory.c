@@ -76,12 +76,12 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 	user->host->user_count++;
 	user->timestamp = timestamp;
 
-	if (dir->tail == NULL || dir->tail->timestamp <= timestamp)
+	if (dir->tail == NULL || (time_t)dir->tail->timestamp <= timestamp)
 		DLLIST2_APPEND(&dir->head, &dir->tail, user);
 	else {
 		/* need to insert to correct position */
 		for (pos = dir->tail; pos != NULL; pos = pos->prev) {
-			if (pos->timestamp <= timestamp)
+			if ((time_t)pos->timestamp <= timestamp)
 				break;
 		}
 		if (pos == NULL)
