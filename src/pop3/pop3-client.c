@@ -319,7 +319,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	inbox = "INBOX";
 	ns = mail_namespace_find(user->namespaces, &inbox);
 	if (ns == NULL) {
-		client_send_line(client, "-ERR No INBOX namespace for user.");
+		client_send_line(client, "-ERR [IN-USE] No INBOX namespace for user.");
 		client_destroy(client, "No INBOX namespace for user.");
 		return NULL;
 	}
