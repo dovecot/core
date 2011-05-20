@@ -8,6 +8,7 @@ struct doveadm_settings {
 	const char *doveadm_socket_path;
 	unsigned int doveadm_worker_count;
 	unsigned int doveadm_proxy_port;
+	const char *doveadm_password;
 
 	ARRAY_DEFINE(plugin_envs, const char *);
 };

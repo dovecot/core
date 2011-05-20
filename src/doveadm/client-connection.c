@@ -1,6 +1,7 @@
 /* Copyright (c) 2010-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "base64.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -11,6 +12,7 @@
 #include "doveadm-server.h"
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
+#include "doveadm-settings.h"
 #include "client-connection.h"
 
 #include <unistd.h>
@@ -147,17 +149,56 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	return TRUE;
 }
 
-static bool
-client_connection_authenticate(struct client_connection *conn ATTR_UNUSED)
+static int
+client_connection_authenticate(struct client_connection *conn)
 {
-	i_fatal("Authentication not supported yet");
-	return FALSE;
+	const char *line, *pass;
+	buffer_t *plain;
+	const unsigned char *data;
+	size_t size;
+
+	if ((line = i_stream_read_next_line(conn->input)) == NULL)
+		return 0;
+
+	if (*doveadm_settings->doveadm_password == '\0') {
+		i_error("doveadm_password not set, "
+			"remote authentication disabled");
+		return -1;
+	}
+
+	/* FIXME: some day we should probably let auth process do this and
+	   support all kinds of authentication */
+	if (strncmp(line, "PLAIN\t", 6) != 0) {
+		i_error("doveadm client attempted non-PLAIN authentication");
+		return -1;
+	}
+
+	plain = buffer_create_dynamic(pool_datastack_create(), 128);
+	if (base64_decode(line + 6, strlen(line + 6), NULL, plain) < 0) {
+		i_error("doveadm client sent invalid base64 auth PLAIN data");
+		return -1;
+	}
+	data = plain->data;
+	size = plain->used;
+
+	if (size < 10 || data[0] != '\0' ||
+	    memcmp(data+1, "doveadm", 7) != 0 || data[8] != '\0') {
+		i_error("doveadm client didn't authenticate as 'doveadm'");
+		return -1;
+	}
+	pass = t_strndup(data + 9, size - 9);
+	if (strcmp(pass, doveadm_settings->doveadm_password) != 0) {
+		i_error("doveadm client authenticated with wrong password");
+		return -1;
+	}
+	return 1;
 }
 
 static void client_connection_input(struct client_connection *conn)
 {
 	const char *line;
-	bool ret = TRUE;
+	bool ok = TRUE;
+	int ret;
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -176,19 +217,23 @@ static void client_connection_input(struct client_connection *conn)
 		conn->handshaked = TRUE;
 	}
 	if (!conn->authenticated) {
-		if (!client_connection_authenticate(conn))
+		if ((ret = client_connection_authenticate(conn)) <= 0) {
+			if (ret < 0)
+				client_connection_destroy(&conn);
 			return;
+		}
+		conn->authenticated = TRUE;
 	}
 
-	while (ret && (line = i_stream_read_next_line(conn->input)) != NULL) {
+	while (ok && (line = i_stream_read_next_line(conn->input)) != NULL) {
 		T_BEGIN {
 			char **args;
 
 			args = p_strsplit(pool_datastack_create(), line, "\t");
-			ret = client_handle_command(conn, args);
+			ok = client_handle_command(conn, args);
 		} T_END;
 	}
-	if (conn->input->eof || conn->input->stream_errno != 0 || !ret)
+	if (conn->input->eof || conn->input->stream_errno != 0 || !ok)
 		client_connection_destroy(&conn);
 }
 
