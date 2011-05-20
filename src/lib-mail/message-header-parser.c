@@ -268,7 +268,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		line->value_len = 0;
 
 		str_truncate(ctx->name, 0);
-		str_append_n(ctx->name, msg, size);
+		buffer_append(ctx->name, msg, size);
 		line->name = str_c(ctx->name);
 		line->name_len = str_len(ctx->name);
 
