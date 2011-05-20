@@ -30,7 +30,8 @@ static bool internal_failure = FALSE;
 static void doveadm_mail_server_handle(struct server_connection *conn,
 				       const char *username);
 
-static struct doveadm_server *doveadm_server_get(const char *name)
+static struct doveadm_server *
+doveadm_server_get(struct doveadm_mail_cmd_context *ctx, const char *name)
 {
 	struct doveadm_server *server;
 	char *dup_name;
@@ -46,7 +47,7 @@ static struct doveadm_server *doveadm_server_get(const char *name)
 		server = p_new(server_pool, struct doveadm_server, 1);
 		server->name = dup_name = p_strdup(server_pool, name);
 		p_array_init(&server->connections, server_pool,
-			     doveadm_settings->doveadm_worker_count);
+			     ctx->set->doveadm_worker_count);
 		p_array_init(&server->queue, server_pool,
 			     DOVEADM_SERVER_QUEUE_MAX);
 		hash_table_insert(servers, dup_name, server);
@@ -145,10 +146,9 @@ static void doveadm_server_flush_one(struct doveadm_server *server)
 
 static int
 doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
-				  const char *username, const char **host_r,
-				  const char **error_r)
+				  const struct mail_storage_service_input *input,
+				  const char **host_r, const char **error_r)
 {
-	struct mail_storage_service_input input;
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
 	pool_t pool;
@@ -157,22 +157,20 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	bool proxying;
 	int ret;
 
-	*host_r = doveadm_settings->doveadm_socket_path;
+	*host_r = ctx->set->doveadm_socket_path;
 
-	if (doveadm_settings->doveadm_proxy_port == 0)
+	if (ctx->set->doveadm_proxy_port == 0)
 		return 0;
 
 	/* make sure we have an auth connection */
-	memset(&input, 0, sizeof(input));
-	input.service = "doveadm";
-	mail_storage_service_init_settings(ctx->storage_service, &input);
+	mail_storage_service_init_settings(ctx->storage_service, input);
 
 	memset(&info, 0, sizeof(info));
 	info.service = master_service_get_name(master_service);
 
 	pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(ctx->storage_service);
-	ret = auth_master_pass_lookup(auth_conn, username, &info,
+	ret = auth_master_pass_lookup(auth_conn, input->username, &info,
 				      pool, &fields);
 	if (ret < 0) {
 		*error_r = fields[0] != NULL ?
@@ -196,7 +194,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			ret = -1;
 		} else {
 			*host_r = t_strdup_printf("%s:%u", proxy_host,
-					doveadm_settings->doveadm_proxy_port);
+						  ctx->set->doveadm_proxy_port);
 		}
 	}
 	pool_unref(&pool);
@@ -204,7 +202,8 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 }
 
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
-			     const char *username, const char **error_r)
+			     const struct mail_storage_service_input *input,
+			     const char **error_r)
 {
 	struct doveadm_server *server;
 	struct server_connection *conn;
@@ -219,28 +218,28 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	   so undo any sticks we might have added already */
 	doveadm_print_unstick_headers();
 
-	ret = doveadm_mail_server_user_get_host(ctx, username, &host, error_r);
+	ret = doveadm_mail_server_user_get_host(ctx, input, &host, error_r);
 	if (ret < 0)
 		return -1;
 	if (ret == 0 &&
-	    (doveadm_settings->doveadm_worker_count == 0 || doveadm_server)) {
+	    (ctx->set->doveadm_worker_count == 0 || doveadm_server)) {
 		/* run it ourself */
 		return 0;
 	}
 
-	server = doveadm_server_get(host);
+	server = doveadm_server_get(ctx, host);
 	conn = doveadm_server_find_unused_conn(server);
 	if (conn != NULL)
-		doveadm_mail_server_handle(conn, username);
+		doveadm_mail_server_handle(conn, input->username);
 	else if (array_count(&server->connections) <
-		 	I_MAX(doveadm_settings->doveadm_worker_count, 1)) {
+		 	I_MAX(ctx->set->doveadm_worker_count, 1)) {
 		conn = server_connection_create(server);
-		doveadm_mail_server_handle(conn, username);
+		doveadm_mail_server_handle(conn, input->username);
 	} else {
 		if (array_count(&server->queue) >= DOVEADM_SERVER_QUEUE_MAX)
 			doveadm_server_flush_one(server);
 
-		username_dup = i_strdup(username);
+		username_dup = i_strdup(input->username);
 		array_append(&server->queue, &username_dup, 1);
 	}
 	*error_r = "doveadm server failure";

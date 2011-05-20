@@ -39,6 +39,7 @@ struct doveadm_mail_cmd_context {
 	const char *const *args;
 
 	const char *getopt_args;
+	const struct doveadm_settings *set;
 	struct mail_storage_service_ctx *storage_service;
 	/* search args aren't set for all mail commands */
 	struct mail_search_args *search_args;
@@ -80,12 +81,14 @@ void doveadm_mail_init(void);
 void doveadm_mail_deinit(void);
 
 struct doveadm_mail_cmd_context *
-doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd);
-void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			      char *argv[], const char *username,
+doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
+		      const struct doveadm_settings *set);
+void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx, char *argv[],
+			      const struct mail_storage_service_input *input,
 			      enum mail_storage_service_flags service_flags);
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
-			     const char *username, const char **error_r);
+			     const struct mail_storage_service_input *input,
+			     const char **error_r);
 void doveadm_mail_server_flush(void);
 
 int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
