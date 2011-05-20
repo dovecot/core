@@ -111,6 +111,27 @@ doveadm_mail_cmd_server(const char *cmd_name,
 	return ret;
 }
 
+static bool client_is_allowed_command(const struct doveadm_settings *set,
+				      const char *cmd_name)
+{
+	bool ret = FALSE;
+
+	if (*set->doveadm_allowed_commands == '\0')
+		return TRUE;
+
+	T_BEGIN {
+		const char *const *cmds =
+			t_strsplit(set->doveadm_allowed_commands, ",");
+		for (; *cmds != NULL; cmds++) {
+			if (strcmp(*cmds, cmd_name) == 0) {
+				ret = TRUE;
+				break;
+			}
+		}
+	} T_END;
+	return ret;
+}
+
 static bool client_handle_command(struct client_connection *conn, char **args)
 {
 	struct mail_storage_service_input input;
@@ -150,6 +171,12 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 			i_error("doveadm client: Unknown flag: %c", *flags);
 			return FALSE;
 		}
+	}
+
+	if (!client_is_allowed_command(conn->set, cmd_name)) {
+		i_error("doveadm client isn't allowed to use command: %s",
+			cmd_name);
+		return FALSE;
 	}
 
 	o_stream_cork(conn->output);
