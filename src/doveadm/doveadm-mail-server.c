@@ -289,8 +289,10 @@ void doveadm_mail_server_flush(void)
 {
 	struct doveadm_server *server;
 
-	if (servers == NULL)
+	if (servers == NULL) {
+		cmd_ctx = NULL;
 		return;
+	}
 
 	while ((server = doveadm_server_find_used()) != NULL &&
 	       !DOVEADM_MAIL_SERVER_FAILED())

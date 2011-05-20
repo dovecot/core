@@ -47,7 +47,7 @@ doveadm_mail_cmd_server(const char *cmd_name,
 	struct doveadm_mail_cmd_context *ctx;
 	const struct doveadm_mail_cmd *cmd;
 	const char *getopt_args;
-	bool add_username_header = FALSE;
+	bool ret, add_username_header = FALSE;
 	int c;
 
 	cmd = doveadm_mail_cmd_find(cmd_name);
@@ -101,9 +101,14 @@ doveadm_mail_cmd_server(const char *cmd_name,
 	}
 
 	doveadm_mail_single_user(ctx, argv, input, service_flags);
+	doveadm_mail_server_flush();
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();
-	return !ctx->failed;
+	mail_storage_service_deinit(&ctx->storage_service);
+	ret = !ctx->failed;
+	pool_unref(&ctx->pool);
+
+	return ret;
 }
 
 static bool client_handle_command(struct client_connection *conn, char **args)
