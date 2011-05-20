@@ -24,6 +24,7 @@ SUBDIRS = \
 	auth \
 	dict \
 	dns \
+	ipc \
 	master \
 	login-common \
 	imap-login \
