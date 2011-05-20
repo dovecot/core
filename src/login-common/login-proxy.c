@@ -22,6 +22,7 @@
 #define LOGIN_PROXY_DNS_WARN_MSECS 500
 #define LOGIN_PROXY_IPC_PATH "ipc-proxy"
 #define LOGIN_PROXY_IPC_NAME "proxy"
+#define KILLED_BY_ADMIN_REASON "Killed by admin"
 
 struct login_proxy {
 	struct login_proxy *prev, *next;
@@ -58,6 +59,20 @@ static struct ipc_server *login_proxy_ipc_server;
 
 static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line);
 
+static void
+login_proxy_free_reason(struct login_proxy **_proxy, const char *reason);
+
+static void login_proxy_free_errno(struct login_proxy **proxy,
+				   int err, const char *who)
+{
+	const char *reason;
+
+	reason = err == 0 || err == EPIPE ?
+		t_strdup_printf("Disconnected by %s", who) :
+		t_strdup_printf("Disconnected by %s: %s", who, strerror(errno));
+	login_proxy_free_reason(proxy, reason);
+}
+
 static void server_input(struct login_proxy *proxy)
 {
 	unsigned char buf[OUTBUF_THRESHOLD];
@@ -73,8 +88,13 @@ static void server_input(struct login_proxy *proxy)
 	}
 
 	ret = net_receive(proxy->server_fd, buf, sizeof(buf));
-	if (ret < 0 || o_stream_send(proxy->client_output, buf, ret) != ret)
-                login_proxy_free(&proxy);
+	if (ret < 0)
+		login_proxy_free_errno(&proxy, errno, "server");
+	else if (o_stream_send(proxy->client_output, buf, ret) != ret) {
+		login_proxy_free_errno(&proxy,
+				       proxy->client_output->stream_errno,
+				       "client");
+	}
 }
 
 static void proxy_client_input(struct login_proxy *proxy)
@@ -92,15 +112,22 @@ static void proxy_client_input(struct login_proxy *proxy)
 	}
 
 	ret = net_receive(proxy->client_fd, buf, sizeof(buf));
-	if (ret < 0 || o_stream_send(proxy->server_output, buf, ret) != ret)
-                login_proxy_free(&proxy);
+	if (ret < 0)
+		login_proxy_free_errno(&proxy, errno, "client");
+	else if (o_stream_send(proxy->server_output, buf, ret) != ret) {
+		login_proxy_free_errno(&proxy,
+				       proxy->server_output->stream_errno,
+				       "server");
+	}
 }
 
 static int server_output(struct login_proxy *proxy)
 {
 	proxy->last_io = ioloop_time;
 	if (o_stream_flush(proxy->server_output) < 0) {
-                login_proxy_free(&proxy);
+		login_proxy_free_errno(&proxy,
+				       proxy->server_output->stream_errno,
+				       "server");
 		return 1;
 	}
 
@@ -119,7 +146,9 @@ static int proxy_client_output(struct login_proxy *proxy)
 {
 	proxy->last_io = ioloop_time;
 	if (o_stream_flush(proxy->client_output) < 0) {
-                login_proxy_free(&proxy);
+		login_proxy_free_errno(&proxy,
+				       proxy->client_output->stream_errno,
+				       "client");
 		return 1;
 	}
 
@@ -301,7 +330,8 @@ int login_proxy_new(struct client *client,
 	return 0;
 }
 
-void login_proxy_free(struct login_proxy **_proxy)
+static void
+login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 {
 	struct login_proxy *proxy = *_proxy;
 	struct client *client = proxy->client;
@@ -335,9 +365,10 @@ void login_proxy_free(struct login_proxy **_proxy)
 		DLLIST_REMOVE(&login_proxies, proxy);
 
 		ipstr = net_ip2addr(&proxy->client->ip);
-		i_info("proxy(%s): disconnecting %s",
+		i_info("proxy(%s): disconnecting %s%s",
 		       proxy->client->virtual_user,
-		       ipstr != NULL ? ipstr : "");
+		       ipstr != NULL ? ipstr : "",
+		       reason == NULL ? "" : t_strdup_printf(" (%s)", reason));
 
 		if (proxy->client_io != NULL)
 			io_remove(&proxy->client_io);
@@ -364,6 +395,11 @@ void login_proxy_free(struct login_proxy **_proxy)
 
 	client->login_proxy = NULL;
 	client_unref(&client);
+}
+
+void login_proxy_free(struct login_proxy **_proxy)
+{
+	login_proxy_free_reason(_proxy, NULL);
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,
@@ -516,7 +552,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 static void proxy_kill_idle(struct login_proxy *proxy)
 {
-	login_proxy_free(&proxy);
+	login_proxy_free_reason(&proxy, KILLED_BY_ADMIN_REASON);
 }
 
 void login_proxy_kill_idle(void)
@@ -555,7 +591,7 @@ login_proxy_cmd_kill(struct ipc_cmd *cmd, const char *const *args)
 		next = proxy->next;
 
 		if (strcmp(proxy->client->virtual_user, args[0]) == 0) {
-			login_proxy_free(&proxy);
+			login_proxy_free_reason(&proxy, KILLED_BY_ADMIN_REASON);
 			count++;
 		}
 	}
@@ -623,7 +659,7 @@ void login_proxy_deinit(void)
 
 	while (login_proxies != NULL) {
 		proxy = login_proxies;
-		login_proxy_free(&proxy);
+		login_proxy_free_reason(&proxy, KILLED_BY_ADMIN_REASON);
 	}
 	if (login_proxy_ipc_server != NULL)
 		ipc_server_deinit(&login_proxy_ipc_server);
