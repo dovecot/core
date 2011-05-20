@@ -5,9 +5,11 @@
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
+#include "md5.h"
 #include "str-sanitize.h"
 #include "time-util.h"
 #include "master-service.h"
+#include "ipc-server.h"
 #include "dns-lookup.h"
 #include "client-common.h"
 #include "ssl-proxy.h"
@@ -18,6 +20,8 @@
 #define OUTBUF_THRESHOLD 1024
 #define LOGIN_PROXY_DIE_IDLE_SECS 2
 #define LOGIN_PROXY_DNS_WARN_MSECS 500
+#define LOGIN_PROXY_IPC_PATH "ipc-proxy"
+#define LOGIN_PROXY_IPC_NAME "proxy"
 
 struct login_proxy {
 	struct login_proxy *prev, *next;
@@ -49,6 +53,10 @@ struct login_proxy {
 
 static struct login_proxy_state *proxy_state;
 static struct login_proxy *login_proxies = NULL;
+static struct login_proxy *login_proxies_pending = NULL;
+static struct ipc_server *login_proxy_ipc_server;
+
+static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line);
 
 static void server_input(struct login_proxy *proxy)
 {
@@ -286,6 +294,8 @@ int login_proxy_new(struct client *client,
 			return -1;
 	}
 
+	DLLIST_PREPEND(&login_proxies_pending, proxy);
+
 	proxy->callback = callback;
 	client->login_proxy = proxy;
 	return 0;
@@ -337,6 +347,8 @@ void login_proxy_free(struct login_proxy **_proxy)
 	} else {
 		i_assert(proxy->client_io == NULL);
 		i_assert(proxy->client_output == NULL);
+
+		DLLIST_REMOVE(&login_proxies_pending, proxy);
 
 		if (proxy->callback != NULL)
 			proxy->callback(proxy->client);
@@ -439,6 +451,14 @@ void login_proxy_detach(struct login_proxy *proxy)
 
 	proxy->callback = NULL;
 
+	if (login_proxy_ipc_server == NULL) {
+		login_proxy_ipc_server =
+			ipc_server_init(LOGIN_PROXY_IPC_PATH,
+					LOGIN_PROXY_IPC_NAME,
+					login_proxy_ipc_cmd);
+	}
+
+	DLLIST_REMOVE(&login_proxies_pending, proxy);
 	DLLIST_PREPEND(&login_proxies, proxy);
 
 	client->fd = -1;
@@ -520,6 +540,78 @@ void login_proxy_kill_idle(void)
 	}
 }
 
+static void
+login_proxy_cmd_kill(struct ipc_cmd *cmd, const char *const *args)
+{
+	struct login_proxy *proxy, *next;
+	unsigned int count = 0;
+
+	if (args[0] == NULL) {
+		ipc_cmd_fail(&cmd, "Missing parameter");
+		return;
+	}
+
+	for (proxy = login_proxies; proxy != NULL; proxy = next) {
+		next = proxy->next;
+
+		if (strcmp(proxy->client->virtual_user, args[0]) == 0) {
+			login_proxy_free(&proxy);
+			count++;
+		}
+	}
+	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) {
+		next = proxy->next;
+
+		if (strcmp(proxy->client->virtual_user, args[0]) == 0) {
+			client_destroy(proxy->client, "Connection killed");
+			count++;
+		}
+	}
+	ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
+}
+
+static void
+login_proxy_cmd_list_reply(struct ipc_cmd *cmd,
+			   struct login_proxy *proxy)
+{
+	T_BEGIN {
+		const char *reply;
+
+		reply = t_strdup_printf("%s\t%s\t%s\t%s\t%u",
+					proxy->client->virtual_user,
+					login_binary.protocol,
+					net_ip2addr(&proxy->client->ip),
+					net_ip2addr(&proxy->ip), proxy->port);
+		ipc_cmd_send(cmd, reply);
+	} T_END;
+}
+
+static void
+login_proxy_cmd_list(struct ipc_cmd *cmd, const char *const *args ATTR_UNUSED)
+{
+	struct login_proxy *proxy;
+
+	for (proxy = login_proxies; proxy != NULL; proxy = proxy->next)
+		login_proxy_cmd_list_reply(cmd, proxy);
+	for (proxy = login_proxies_pending; proxy != NULL; proxy = proxy->next)
+		login_proxy_cmd_list_reply(cmd, proxy);
+	ipc_cmd_success(&cmd);
+}
+
+static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
+{
+	const char *const *args = t_strsplit(line, "\t");
+	const char *name = args[0];
+
+	args++;
+	if (strcmp(name, "KILL") == 0)
+		login_proxy_cmd_kill(cmd, args);
+	else if (strcmp(name, "LIST") == 0)
+		login_proxy_cmd_list(cmd, args);
+	else
+		ipc_cmd_fail(&cmd, "Unknown command");
+}
+
 void login_proxy_init(const char *proxy_notify_pipe_path)
 {
 	proxy_state = login_proxy_state_init(proxy_notify_pipe_path);
@@ -533,5 +625,7 @@ void login_proxy_deinit(void)
 		proxy = login_proxies;
 		login_proxy_free(&proxy);
 	}
+	if (login_proxy_ipc_server != NULL)
+		ipc_server_deinit(&login_proxy_ipc_server);
 	login_proxy_state_deinit(&proxy_state);
 }
