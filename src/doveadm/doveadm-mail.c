@@ -236,6 +236,7 @@ void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 		i_fatal("USER environment is missing and -u option not used");
 
 	memset(&input, 0, sizeof(input));
+	input.service = "doveadm";
 	input.username = username;
 
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
