@@ -57,6 +57,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, mail_plugin_dir),
 	DEF(SET_STR, doveadm_socket_path),
 	DEF(SET_UINT, doveadm_worker_count),
+	DEF(SET_UINT, doveadm_proxy_port),
 
 	{ SET_STRLIST, "plugin", offsetof(struct doveadm_settings, plugin_envs), NULL },
 
@@ -69,6 +70,7 @@ const struct doveadm_settings doveadm_default_settings = {
 	.mail_plugin_dir = MODULEDIR,
 	.doveadm_socket_path = "doveadm-server",
 	.doveadm_worker_count = 0,
+	.doveadm_proxy_port = 0,
 
 	.plugin_envs = ARRAY_INIT
 };

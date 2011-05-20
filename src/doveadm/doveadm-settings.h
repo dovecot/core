@@ -7,6 +7,7 @@ struct doveadm_settings {
 	const char *mail_plugin_dir;
 	const char *doveadm_socket_path;
 	unsigned int doveadm_worker_count;
+	unsigned int doveadm_proxy_port;
 
 	ARRAY_DEFINE(plugin_envs, const char *);
 };

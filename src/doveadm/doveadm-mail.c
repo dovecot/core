@@ -193,6 +193,12 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 
 	i_set_failure_prefix(t_strdup_printf("doveadm(%s): ", input->username));
 
+	/* see if we want to execute this command via (another)
+	   doveadm server */
+	ret = doveadm_mail_server_user(ctx, input->username, error_r);
+	if (ret != 0)
+		return ret;
+
 	ret = mail_storage_service_lookup(ctx->storage_service, input,
 					  &service_user, &error);
 	if (ret <= 0) {
@@ -201,13 +207,6 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 						   error);
 		}
 		return ret;
-	}
-
-	if (doveadm_settings->doveadm_worker_count > 0 && !doveadm_server) {
-		/* execute this command via doveadm server */
-		ret = doveadm_mail_server_user(ctx, service_user, error_r);
-		mail_storage_service_user_free(&service_user);
-		return ret < 0 ? -1 : 1;
 	}
 
 	ret = mail_storage_service_next(ctx->storage_service, service_user,

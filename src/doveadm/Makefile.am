@@ -70,9 +70,11 @@ common = \
 	doveadm-mail-move.c \
 	doveadm-mail-list-iter.c \
 	doveadm-mail-search.c \
+	doveadm-mail-server.c \
 	doveadm-print.c \
 	doveadm-settings.c \
-	doveadm-util.c
+	doveadm-util.c \
+	server-connection.c
 
 doveadm_SOURCES = \
 	$(common) \
@@ -87,7 +89,6 @@ doveadm_SOURCES = \
 	doveadm-kick.c \
 	doveadm-log.c \
 	doveadm-master.c \
-	doveadm-mail-server.c \
 	doveadm-mutf7.c \
 	doveadm-penalty.c \
 	doveadm-print-flow.c \
@@ -96,8 +97,7 @@ doveadm_SOURCES = \
 	doveadm-print-table.c \
 	doveadm-pw.c \
 	doveadm-sis.c \
-	doveadm-who.c \
-	server-connection.c
+	doveadm-who.c
 
 doveadm_server_SOURCES = \
 	$(common) \
