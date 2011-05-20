@@ -95,6 +95,7 @@ doveadm_SOURCES = \
 	doveadm-print-pager.c \
 	doveadm-print-tab.c \
 	doveadm-print-table.c \
+	doveadm-proxy.c \
 	doveadm-pw.c \
 	doveadm-sis.c \
 	doveadm-who.c
