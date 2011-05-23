@@ -85,16 +85,6 @@ static bool acl_is_readonly(struct mailbox *box)
 	return TRUE;
 }
 
-static bool acl_allow_new_keywords(struct mailbox *box)
-{
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
-
-	if (!abox->module_ctx.super.allow_new_keywords(box))
-		return FALSE;
-
-	return acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0;
-}
-
 static void acl_mailbox_free(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
@@ -490,6 +480,29 @@ static int acl_mailbox_open(struct mailbox *box)
 	return abox->module_ctx.super.open(box);
 }
 
+static int acl_mailbox_get_status(struct mailbox *box,
+				  enum mailbox_status_items items,
+				  struct mailbox_status *status_r)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+
+	if (abox->module_ctx.super.get_status(box, items, status_r) < 0)
+		return -1;
+
+	if ((items & STATUS_PERMANENT_FLAGS) != 0) {
+		if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) <= 0) {
+			status_r->permanent_flags &= MAIL_DELETED|MAIL_SEEN;
+			status_r->permanent_keywords = FALSE;
+			status_r->allow_new_keywords = FALSE;
+		}
+		if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED) <= 0)
+			status_r->permanent_flags &= ~MAIL_DELETED;
+		if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) <= 0)
+			status_r->permanent_flags &= ~MAIL_SEEN;
+	}
+	return 0;
+}
+
 void acl_mailbox_allocated(struct mailbox *box)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
@@ -513,9 +526,9 @@ void acl_mailbox_allocated(struct mailbox *box)
 	if ((box->flags & MAILBOX_FLAG_IGNORE_ACLS) == 0) {
 		abox->acl_enabled = TRUE;
 		v->is_readonly = acl_is_readonly;
-		v->allow_new_keywords = acl_allow_new_keywords;
 		v->exists = acl_mailbox_exists;
 		v->open = acl_mailbox_open;
+		v->get_status = acl_mailbox_get_status;
 		v->create = acl_mailbox_create;
 		v->update = acl_mailbox_update;
 		v->delete = acl_mailbox_delete;

@@ -328,7 +328,6 @@ struct mail_storage dbox_storage = {
 struct mailbox sdbox_mailbox = {
 	.v = {
 		index_storage_is_readonly,
-		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		index_storage_mailbox_exists,
 		sdbox_mailbox_open,

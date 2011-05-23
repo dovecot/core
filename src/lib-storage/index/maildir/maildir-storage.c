@@ -610,7 +610,6 @@ struct mail_storage maildir_storage = {
 struct mailbox maildir_mailbox = {
 	.v = {
 		maildir_storage_is_readonly,
-		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		maildir_mailbox_exists,
 		maildir_mailbox_open,

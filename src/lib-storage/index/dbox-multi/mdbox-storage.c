@@ -370,7 +370,6 @@ struct mail_storage mdbox_storage = {
 struct mailbox mdbox_mailbox = {
 	.v = {
 		index_storage_is_readonly,
-		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		index_storage_mailbox_exists,
 		mdbox_mailbox_open,

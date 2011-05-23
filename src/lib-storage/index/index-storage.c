@@ -595,12 +595,6 @@ bool index_storage_is_readonly(struct mailbox *box)
 	return (box->flags & MAILBOX_FLAG_READONLY) != 0;
 }
 
-bool index_storage_allow_new_keywords(struct mailbox *box)
-{
-	/* FIXME: return FALSE if we're full */
-	return !index_storage_is_readonly(box);
-}
-
 bool index_storage_is_inconsistent(struct mailbox *box)
 {
 	return mail_index_view_is_inconsistent(box->view);

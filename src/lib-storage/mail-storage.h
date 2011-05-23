@@ -71,6 +71,7 @@ enum mailbox_status_items {
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
 	STATUS_KEYWORDS		= 0x40,
 	STATUS_HIGHESTMODSEQ	= 0x80,
+	STATUS_PERMANENT_FLAGS	= 0x200,
 	STATUS_FIRST_RECENT_UID	= 0x400
 };
 
@@ -198,10 +199,18 @@ struct mailbox_status {
 	uint32_t first_recent_uid;
 	uint64_t highest_modseq;
 
+	/* NULL-terminated array of keywords */
 	const ARRAY_TYPE(keywords) *keywords;
+
+	/* These flags can be permanently modified */
+	enum mail_flags permanent_flags;
 
 	/* Modseqs aren't permanent (index is in memory) */
 	unsigned int nonpermanent_modseqs:1;
+	/* All keywords can be permanently modified */
+	unsigned int permanent_keywords:1;
+	/* More keywords can be created */
+	unsigned int allow_new_keywords:1;
 };
 
 struct mailbox_metadata {
@@ -408,8 +417,6 @@ const char *mailbox_get_vname(const struct mailbox *box) ATTR_PURE;
 
 /* Returns TRUE if mailbox is read-only. */
 bool mailbox_is_readonly(struct mailbox *box);
-/* Returns TRUE if mailbox currently supports adding keywords. */
-bool mailbox_allow_new_keywords(struct mailbox *box);
 /* Returns TRUE if two mailboxes point to the same physical mailbox. */
 bool mailbox_backends_equal(const struct mailbox *box1,
 			    const struct mailbox *box2);

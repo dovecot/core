@@ -239,27 +239,12 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 	return TRUE;
 }
 
-static const char *get_keywords_string(const ARRAY_TYPE(keywords) *keywords)
-{
-	string_t *str;
-	const char *const *names;
-
-	str = t_str_new(256);
-	array_foreach(keywords, names) {
-		const char *name = *names;
-
-		str_append_c(str, ' ');
-		str_append(str, name);
-	}
-	return str_c(str);
-}
-
-#define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
-
 void client_send_mailbox_flags(struct client *client, bool selecting)
 {
+	struct mailbox_status status;
 	unsigned int count = array_count(client->keywords.names);
-	const char *str;
+	const char *const *keywords;
+	string_t *str;
 
 	if (!selecting && count == client->keywords.announce_count) {
 		/* no changes to keywords and we're not selecting a mailbox */
@@ -267,21 +252,35 @@ void client_send_mailbox_flags(struct client *client, bool selecting)
 	}
 
 	client->keywords.announce_count = count;
-	str = count == 0 ? "" : get_keywords_string(client->keywords.names);
-	client_send_line(client,
-		t_strconcat("* FLAGS ("SYSTEM_FLAGS, str, ")", NULL));
+	mailbox_get_open_status(client->mailbox, STATUS_PERMANENT_FLAGS,
+				&status);
 
-	if (mailbox_is_readonly(client->mailbox)) {
-		client_send_line(client, "* OK [PERMANENTFLAGS ()] "
-				 "Read-only mailbox.");
-	} else {
-		bool star = mailbox_allow_new_keywords(client->mailbox);
+	keywords = count == 0 ? NULL :
+		array_idx(client->keywords.names, 0);
+	str = t_str_new(128);
+	str_append(str, "* FLAGS (");
+	imap_write_flags(str, MAIL_FLAGS_NONRECENT, keywords);
+	str_append_c(str, ')');
+	client_send_line(client, str_c(str));
 
-		client_send_line(client,
-			t_strconcat("* OK [PERMANENTFLAGS ("SYSTEM_FLAGS, str,
-				    star ? " \\*" : "",
-				    ")] Flags permitted.", NULL));
+	if (!status.permanent_keywords)
+		keywords = NULL;
+
+	str_truncate(str, 0);
+	str_append(str, "* OK [PERMANENTFLAGS (");
+	imap_write_flags(str, status.permanent_flags, keywords);
+	if (status.allow_new_keywords) {
+		if (status.permanent_flags != 0 || keywords != NULL)
+			str_append_c(str, ' ');
+		str_append(str, "\\*");
 	}
+	str_append(str, ")] ");
+
+	if (mailbox_is_readonly(client->mailbox))
+		str_append(str, "Read-only mailbox.");
+	else
+		str_append(str, "Flags permitted.");
+	client_send_line(client, str_c(str));
 }
 
 void client_update_mailbox_flags(struct client *client,

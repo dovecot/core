@@ -105,7 +105,6 @@ struct mail_attachment_part {
 
 struct mailbox_vfuncs {
 	bool (*is_readonly)(struct mailbox *box);
-	bool (*allow_new_keywords)(struct mailbox *box);
 
 	int (*enable)(struct mailbox *box, enum mailbox_feature features);
 	int (*exists)(struct mailbox *box, enum mailbox_existence *existence_r);

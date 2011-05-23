@@ -1035,11 +1035,6 @@ bool mailbox_is_readonly(struct mailbox *box)
 	return box->v.is_readonly(box);
 }
 
-bool mailbox_allow_new_keywords(struct mailbox *box)
-{
-	return box->v.allow_new_keywords(box);
-}
-
 bool mailbox_backends_equal(const struct mailbox *box1,
 			    const struct mailbox *box2)
 {

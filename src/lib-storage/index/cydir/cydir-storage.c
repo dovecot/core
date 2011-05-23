@@ -128,7 +128,6 @@ struct mail_storage cydir_storage = {
 struct mailbox cydir_mailbox = {
 	.v = {
 		index_storage_is_readonly,
-		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		index_storage_mailbox_exists,
 		cydir_mailbox_open,

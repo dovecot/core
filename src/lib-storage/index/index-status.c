@@ -50,6 +50,14 @@ int index_storage_get_status(struct mailbox *box,
 
 	if ((items & STATUS_KEYWORDS) != 0)
 		status_r->keywords = mail_index_get_keywords(box->index);
+	if ((items & STATUS_PERMANENT_FLAGS) != 0) {
+		if (!mailbox_is_readonly(box)) {
+			status_r->permanent_flags = MAIL_FLAGS_NONRECENT;
+			status_r->permanent_keywords = TRUE;
+			/* FIXME: set to FALSE if we're full */
+			status_r->allow_new_keywords = TRUE;
+		}
+	}
 	return 0;
 }
 

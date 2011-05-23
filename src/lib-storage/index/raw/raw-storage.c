@@ -134,7 +134,6 @@ struct mail_storage raw_storage = {
 struct mailbox raw_mailbox = {
 	.v = {
 		index_storage_is_readonly,
-		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		index_storage_mailbox_exists,
 		raw_mailbox_open,

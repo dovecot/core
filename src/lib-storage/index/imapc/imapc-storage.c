@@ -565,7 +565,6 @@ struct mail_storage imapc_storage = {
 struct mailbox imapc_mailbox = {
 	.v = {
 		index_storage_is_readonly,
-		index_storage_allow_new_keywords,
 		index_storage_mailbox_enable,
 		index_storage_mailbox_exists,
 		imapc_mailbox_open,

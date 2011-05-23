@@ -13,11 +13,6 @@ static bool test_mailbox_is_readonly(struct mailbox *box ATTR_UNUSED)
 	return FALSE;
 }
 
-static bool test_mailbox_allow_new_keywords(struct mailbox *box ATTR_UNUSED)
-{
-	return TRUE;
-}
-
 static int test_mailbox_enable(struct mailbox *box,
 			       enum mailbox_feature features)
 {
@@ -237,7 +232,6 @@ static bool test_mailbox_is_inconsistent(struct mailbox *box ATTR_UNUSED)
 struct mailbox test_mailbox = {
 	.v = {
 		test_mailbox_is_readonly,
-		test_mailbox_allow_new_keywords,
 		test_mailbox_enable,
 		test_mailbox_exists,
 		test_mailbox_open,

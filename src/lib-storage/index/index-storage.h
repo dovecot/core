@@ -76,7 +76,6 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 				 bool rename_children);
 
 bool index_storage_is_readonly(struct mailbox *box);
-bool index_storage_allow_new_keywords(struct mailbox *box);
 bool index_storage_is_inconsistent(struct mailbox *box);
 
 void index_mailbox_set_recent_uid(struct mailbox *box, uint32_t uid);
