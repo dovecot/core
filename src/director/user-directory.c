@@ -122,6 +122,8 @@ void user_directory_remove_host(struct user_directory *dir,
 
 unsigned int user_directory_get_username_hash(const char *username)
 {
+	/* NOTE: If you modify this, modify also
+	   director_username_hash() in login-common/login-proxy.c */
 	unsigned char md5[MD5_RESULTLEN];
 	unsigned int i, hash = 0;
 

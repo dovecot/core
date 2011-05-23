@@ -10,7 +10,7 @@ i=0
 while [ $i != $director_count ]; do
   i=`expr $i + 1`
   dirs="$dirs 127.0.1.$i"
-  echo "director	127.0.1.$i"
+  echo "127.0.1.$i	director"
   cat > dovecot-director$i.conf <<EOF
 listen = 127.0.1.$i
 base_dir = /var/run/dovecot$i
@@ -24,6 +24,7 @@ log_path = /var/log/dovecot.log
 info_log_path = /var/log/dovecot-access.log
 director_servers =$dirs
 director_mail_servers = 127.0.0.1-127.0.0.255
+disable_plaintext_auth = no
 
 ssl = no
 service director {

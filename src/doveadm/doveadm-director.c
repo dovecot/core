@@ -406,6 +406,42 @@ static void cmd_director_remove(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
+static void cmd_director_move(int argc, char *argv[])
+{
+	struct director_context *ctx;
+	struct ip_addr *ips;
+	unsigned int ips_count, user_hash;
+	const char *host, *line, *ip_str;
+
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_move);
+	if (argv[optind] == NULL || argv[optind+1] == NULL ||
+	    argv[optind+2] != NULL)
+		director_cmd_help(cmd_director_move);
+
+	user_hash = director_username_hash(argv[optind++]);
+	host = argv[optind];
+
+	director_get_host(host, &ips, &ips_count);
+	ip_str = net_ip2addr(&ips[0]);
+	director_send(ctx, t_strdup_printf(
+		"USER-MOVE\t%u\t%s\n", user_hash, ip_str));
+	line = i_stream_read_next_line(ctx->input);
+	if (line == NULL)
+		fprintf(stderr, "failed\n");
+	else if (strcmp(line, "OK") == 0) {
+		if (doveadm_verbose)
+			printf("User hash %u moved to %s\n", user_hash, ip_str);
+	} else if (strcmp(line, "NOTFOUND") == 0) {
+		fprintf(stderr, "Host '%s' doesn't exist\n", ip_str);
+	} else if (strcmp(line, "TRYAGAIN") == 0) {
+		fprintf(stderr, "User is already being moved, "
+			"wait a while for it to be finished\n");
+	} else {
+		fprintf(stderr, "failed: %s\n", line);
+	}
+	director_disconnect(ctx);
+}
+
 static void cmd_director_flush_all(struct director_context *ctx)
 {
 	const char *line;
@@ -520,6 +556,8 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	  "[-a <director socket path>] <host> [<vhost count>]" },
 	{ cmd_director_remove, "director remove",
 	  "[-a <director socket path>] <host>" },
+	{ cmd_director_move, "director move",
+	  "[-a <director socket path>] <user> <host>" },
 	{ cmd_director_flush, "director flush",
 	  "[-a <director socket path>] <host>|all" },
 	{ cmd_director_dump, "director dump",

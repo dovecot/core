@@ -606,6 +606,49 @@ login_proxy_cmd_kill(struct ipc_cmd *cmd, const char *const *args)
 	ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
 }
 
+static unsigned int director_username_hash(const char *username)
+{
+	/* NOTE: If you modify this, modify also
+	   user_directory_get_username_hash() in director/user-director.c */
+	unsigned char md5[MD5_RESULTLEN];
+	unsigned int i, hash = 0;
+
+	md5_get_digest(username, strlen(username), md5);
+	for (i = 0; i < sizeof(hash); i++)
+		hash = (hash << CHAR_BIT) | md5[i];
+	return hash;
+}
+
+static void
+login_proxy_cmd_kill_director_hash(struct ipc_cmd *cmd, const char *const *args)
+{
+	struct login_proxy *proxy, *next;
+	unsigned int hash, count = 0;
+
+	if (args[0] == NULL || str_to_uint(args[0], &hash) < 0) {
+		ipc_cmd_fail(&cmd, "Invalid parameters");
+		return;
+	}
+
+	for (proxy = login_proxies; proxy != NULL; proxy = next) {
+		next = proxy->next;
+
+		if (director_username_hash(proxy->client->virtual_user) == hash) {
+			login_proxy_free_reason(&proxy, KILLED_BY_ADMIN_REASON);
+			count++;
+		}
+	}
+	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) {
+		next = proxy->next;
+
+		if (director_username_hash(proxy->client->virtual_user) == hash) {
+			client_destroy(proxy->client, "Connection killed");
+			count++;
+		}
+	}
+	ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
+}
+
 static void
 login_proxy_cmd_list_reply(struct ipc_cmd *cmd,
 			   struct login_proxy *proxy)
@@ -642,6 +685,8 @@ static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
 	args++;
 	if (strcmp(name, "KILL") == 0)
 		login_proxy_cmd_kill(cmd, args);
+	else if (strcmp(name, "KILL-DIRECTOR-HASH") == 0)
+		login_proxy_cmd_kill_director_hash(cmd, args);
 	else if (strcmp(name, "LIST") == 0)
 		login_proxy_cmd_list(cmd, args);
 	else
