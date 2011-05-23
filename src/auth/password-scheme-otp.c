@@ -12,16 +12,14 @@
 #include "randgen.h"
 #include "otp.h"
 
-const char *password_generate_otp(const char *pw, const char *data,
-				  unsigned int algo)
+int password_generate_otp(const char *pw, const char *data,
+			  unsigned int algo, const char **result_r)
 {
 	struct otp_state state;
 
 	if (data != NULL) {
-		if (otp_parse_dbentry(data, &state) != 0) {
-			i_warning("Invalid OTP data in passdb");
-			return "";
-		}
+		if (otp_parse_dbentry(data, &state) != 0)
+			return -1;
 	} else {
 		/* Generate new OTP credentials from plaintext */
 		unsigned char random_data[OTP_MAX_SEED_LEN / 2];
@@ -35,6 +33,6 @@ const char *password_generate_otp(const char *pw, const char *data,
 	}
 
 	otp_hash(state.algo, state.seed, pw, state.seq, state.hash);
-
-	return otp_print_dbentry(&state);
+	*result_r = otp_print_dbentry(&state);
+	return 0;
 }

@@ -15,8 +15,9 @@ struct password_scheme {
 	   hex and base64 encoded passwords. */
 	unsigned int raw_password_len;
 
-	bool (*password_verify)(const char *plaintext, const char *user,
-				const unsigned char *raw_password, size_t size);
+	int (*password_verify)(const char *plaintext, const char *user,
+			       const unsigned char *raw_password, size_t size,
+			       const char **error_r);
 	void (*password_generate)(const char *plaintext, const char *user,
 				  const unsigned char **raw_password_r,
 				  size_t *size_r);
@@ -25,9 +26,11 @@ ARRAY_DEFINE_TYPE(password_scheme_p, const struct password_scheme *);
 
 extern ARRAY_TYPE(password_scheme_p) password_schemes;
 
-/* Returns 1 = matched, 0 = didn't match, -1 = unknown scheme */
+/* Returns 1 = matched, 0 = didn't match, -1 = unknown scheme or invalid
+   raw_password */
 int password_verify(const char *plaintext, const char *user, const char *scheme,
-		    const unsigned char *raw_password, size_t size);
+		    const unsigned char *raw_password, size_t size,
+		    const char **error_r);
 
 /* Extracts scheme from password, or returns NULL if it isn't found.
    If auth_request is given, it's used for debug logging. */
@@ -72,12 +75,13 @@ void password_set_encryption_rounds(unsigned int rounds);
 /* INTERNAL: */
 const char *password_generate_salt(size_t len);
 const char *password_generate_md5_crypt(const char *pw, const char *salt);
-const char *password_generate_otp(const char *pw, const char *state,
-				  unsigned int algo);
+int password_generate_otp(const char *pw, const char *state,
+			  unsigned int algo, const char **result_r);
 void password_generate_rpa(const char *pw, unsigned char result[]);
 
-bool crypt_verify(const char *plaintext, const char *user,
-		  const unsigned char *raw_password, size_t size);
+int crypt_verify(const char *plaintext, const char *user,
+		 const unsigned char *raw_password, size_t size,
+		 const char **error_r);
 
 /* check wich of the algorithms Blowfisch, SHA-256 and SHA-512 are
    supported by the used libc's/glibc's crypt() */
