@@ -1468,6 +1468,7 @@ int auth_request_password_verify(struct auth_request *request,
 {
 	const unsigned char *raw_password;
 	size_t raw_password_size;
+	const char *error;
 	int ret;
 
 	if (request->skip_password_check) {
@@ -1505,17 +1506,22 @@ int auth_request_password_verify(struct auth_request *request,
 	   password schemes (eg. digest-md5). Otherwise the username is used
 	   only for logging purposes. */
 	ret = password_verify(plain_password, request->original_username,
-			      scheme, raw_password, raw_password_size);
-	i_assert(ret >= 0);
-	if (ret == 0) {
+			      scheme, raw_password, raw_password_size, &error);
+	if (ret < 0) {
+		const char *password_str = request->set->debug_passwords ?
+			t_strdup_printf(" '%s'", crypted_password) : "";
+		auth_request_log_error(request, subsystem,
+				       "Invalid password%s in passdb: %s",
+				       password_str, error);
+	} else if (ret == 0) {
 		auth_request_log_password_mismatch(request, subsystem);
-		if (request->set->debug_passwords) T_BEGIN {
-			log_password_failure(request, plain_password,
-					     crypted_password, scheme,
-					     request->original_username,
-					     subsystem);
-		} T_END;
 	}
+	if (ret <= 0 && request->set->debug_passwords) T_BEGIN {
+		log_password_failure(request, plain_password,
+				     crypted_password, scheme,
+				     request->original_username,
+				     subsystem);
+	} T_END;
 	return ret;
 }
 
