@@ -113,7 +113,7 @@ static void ipc_group_cmd_callback(enum ipc_cmd_status status,
 
 }
 
-void ipc_group_cmd(struct ipc_group *group, const char *cmd,
+bool ipc_group_cmd(struct ipc_group *group, const char *cmd,
 		   ipc_cmd_callback_t *callback, void *context)
 {
 	struct ipc_connection *conn, *next;
@@ -121,7 +121,7 @@ void ipc_group_cmd(struct ipc_group *group, const char *cmd,
 
 	if (group->connections == NULL) {
 		callback(IPC_CMD_STATUS_OK, NULL, context);
-		return;
+		return FALSE;
 	}
 
 	group_cmd = i_new(struct ipc_group_cmd, 1);
@@ -135,6 +135,7 @@ void ipc_group_cmd(struct ipc_group *group, const char *cmd,
 		ipc_connection_cmd(conn, cmd,
 				   ipc_group_cmd_callback, group_cmd);
 	}
+	return TRUE;
 }
 
 void ipc_groups_init(void)

@@ -33,8 +33,9 @@ struct ipc_group *ipc_group_lookup_name(const char *name);
 int ipc_group_update_name(struct ipc_group *group, const char *name);
 
 /* Send a command to all connections in a group. All connections are expected
-   to answer something. All replies are  */
-void ipc_group_cmd(struct ipc_group *group, const char *cmd,
+   to answer something. If there are no connections, callback() is called
+   immediately and FALSE is returned. */
+bool ipc_group_cmd(struct ipc_group *group, const char *cmd,
 		   ipc_cmd_callback_t *callback, void *context);
 
 void ipc_groups_init(void);
