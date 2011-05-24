@@ -577,7 +577,7 @@ void login_proxy_kill_idle(void)
 }
 
 static void
-login_proxy_cmd_kill(struct ipc_cmd *cmd, const char *const *args)
+login_proxy_cmd_kick(struct ipc_cmd *cmd, const char *const *args)
 {
 	struct login_proxy *proxy, *next;
 	unsigned int count = 0;
@@ -599,7 +599,7 @@ login_proxy_cmd_kill(struct ipc_cmd *cmd, const char *const *args)
 		next = proxy->next;
 
 		if (strcmp(proxy->client->virtual_user, args[0]) == 0) {
-			client_destroy(proxy->client, "Connection killed");
+			client_destroy(proxy->client, "Connection kicked");
 			count++;
 		}
 	}
@@ -620,7 +620,7 @@ static unsigned int director_username_hash(const char *username)
 }
 
 static void
-login_proxy_cmd_kill_director_hash(struct ipc_cmd *cmd, const char *const *args)
+login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 {
 	struct login_proxy *proxy, *next;
 	unsigned int hash, count = 0;
@@ -642,7 +642,7 @@ login_proxy_cmd_kill_director_hash(struct ipc_cmd *cmd, const char *const *args)
 		next = proxy->next;
 
 		if (director_username_hash(proxy->client->virtual_user) == hash) {
-			client_destroy(proxy->client, "Connection killed");
+			client_destroy(proxy->client, "Connection kicked");
 			count++;
 		}
 	}
@@ -683,10 +683,10 @@ static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
 	const char *name = args[0];
 
 	args++;
-	if (strcmp(name, "KILL") == 0)
-		login_proxy_cmd_kill(cmd, args);
-	else if (strcmp(name, "KILL-DIRECTOR-HASH") == 0)
-		login_proxy_cmd_kill_director_hash(cmd, args);
+	if (strcmp(name, "KICK") == 0)
+		login_proxy_cmd_kick(cmd, args);
+	else if (strcmp(name, "KICK-DIRECTOR-HASH") == 0)
+		login_proxy_cmd_kick_director_hash(cmd, args);
 	else if (strcmp(name, "LIST") == 0)
 		login_proxy_cmd_list(cmd, args);
 	else

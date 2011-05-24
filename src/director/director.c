@@ -488,7 +488,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,
 					    director_user_move_timeout, user);
 		user->kill_state = USER_KILL_STATE_KILLING;
-		cmd = t_strdup_printf("proxy\t*\tKILL-DIRECTOR-HASH\t%u",
+		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
 				      username_hash);
 		ipc_client_cmd(dir->ipc_proxy, cmd,
 			       director_kill_user_callback, ctx);

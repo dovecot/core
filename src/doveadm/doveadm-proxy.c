@@ -80,35 +80,35 @@ static void cmd_proxy_list(int argc, char *argv[])
 	ipc_client_deinit(&ctx->ipc);
 }
 
-static void cmd_proxy_kill_callback(enum ipc_client_cmd_state state,
+static void cmd_proxy_kick_callback(enum ipc_client_cmd_state state,
 				    const char *data, void *context ATTR_UNUSED)
 {
 	switch (state) {
 	case IPC_CLIENT_CMD_STATE_REPLY:
 		return;
 	case IPC_CLIENT_CMD_STATE_OK:
-		printf("%s connections killed\n", data);
+		printf("%s connections kicked\n", data);
 		break;
 	case IPC_CLIENT_CMD_STATE_ERROR:
-		i_error("KILL failed: %s", data);
+		i_error("KICK failed: %s", data);
 		break;
 	}
 	io_loop_stop(current_ioloop);
 }
 
-static void cmd_proxy_kill(int argc, char *argv[])
+static void cmd_proxy_kick(int argc, char *argv[])
 {
 	struct proxy_context *ctx;
 
-	ctx = cmd_proxy_init(argc, argv, "a:", cmd_proxy_kill);
+	ctx = cmd_proxy_init(argc, argv, "a:", cmd_proxy_kick);
 
 	if (argv[optind] == NULL) {
-		proxy_cmd_help(cmd_proxy_kill);
+		proxy_cmd_help(cmd_proxy_kick);
 		return;
 	}
 
-	ipc_client_cmd(ctx->ipc, t_strdup_printf("proxy\t*\tKILL\t%s", argv[optind]),
-		       cmd_proxy_kill_callback, NULL);
+	ipc_client_cmd(ctx->ipc, t_strdup_printf("proxy\t*\tKICK\t%s", argv[optind]),
+		       cmd_proxy_kick_callback, NULL);
 	io_loop_run(current_ioloop);
 	ipc_client_deinit(&ctx->ipc);
 }
@@ -116,7 +116,7 @@ static void cmd_proxy_kill(int argc, char *argv[])
 struct doveadm_cmd doveadm_cmd_proxy[] = {
 	{ cmd_proxy_list, "proxy list",
 	  "[-a <ipc socket path>]" },
-	{ cmd_proxy_kill, "proxy kill",
+	{ cmd_proxy_kick, "proxy kick",
 	  "[-a <ipc socket path>] <user>" }
 };
 
