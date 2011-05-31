@@ -12,7 +12,7 @@ module_LTLIBRARIES = \
 	lib21_fts_lucene_plugin.la
 
 lib21_fts_lucene_plugin_la_LIBADD = \
-	-lclucene
+	-lclucene-shared -lclucene-core
 
 lib21_fts_lucene_plugin_la_SOURCES = \
 	fts-lucene-plugin.c \

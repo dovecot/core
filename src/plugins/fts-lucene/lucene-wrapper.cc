@@ -33,8 +33,7 @@ using namespace lucene::analysis;
 
 struct lucene_index {
 	char *path, *lock_path;
-	char *mailbox_name;
-	TCHAR *tmailbox_name;
+	wchar_t *mailbox_name;
 
 	time_t last_stale_check;
 	bool lock_error;
@@ -46,45 +45,6 @@ struct lucene_index {
 
 	Document *doc;
 	uint32_t prev_uid, last_uid;
-};
-
-class RawTokenStream : public TokenStream {
-	CL_NS(util)::Reader *reader;
-
-public:
-	RawTokenStream(CL_NS(util)::Reader *reader) {
-		this->reader = reader;
-	};
-
-	bool next(Token *token) {
-		const TCHAR *data;
-
-		int32_t len = this->reader->read(data);
-		if (len <= 0)
-			return false;
-
-		token->set(data, 0, len);
-		return true;
-	}
-
-	void close() { }
-};
-
-class DovecotAnalyzer : public standard::StandardAnalyzer {
-public:
-	TokenStream *tokenStream(const TCHAR *fieldName,
-				 CL_NS(util)::Reader *reader) {
-		/* Everything except body/headers should go as-is without any
-		   modifications. Isn't there any easier way to do this than
-		   to implement a whole new RawTokenStream?.. */
-		if (fieldName != 0 &&
-		    wcscmp(fieldName, L"headers") != 0 &&
-		    wcscmp(fieldName, L"body") != 0)
-			return _CLNEW RawTokenStream(reader);
-
-		return standard::StandardAnalyzer::
-			tokenStream(fieldName, reader);
-	}
 };
 
 static bool lucene_dir_scan(const char *dir, const char *skip_path,
@@ -174,7 +134,7 @@ struct lucene_index *lucene_index_init(const char *path, const char *lock_path)
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
 	index->lock_path = i_strdup(lock_path);
-	index->analyzer = _CLNEW DovecotAnalyzer();
+	index->analyzer = _CLNEW standard::StandardAnalyzer();
 
 	lucene_delete_stale_locks(index);
 	return index;
@@ -192,24 +152,54 @@ void lucene_index_deinit(struct lucene_index *index)
 	lucene_index_close(index);
 	_CLDELETE(index->analyzer);
 	i_free(index->mailbox_name);
-	i_free(index->tmailbox_name);
 	i_free(index->path);
 	i_free(index->lock_path);
 	i_free(index);
 }
 
+static void
+lucene_utf8_to_tchar(const char *src, wchar_t *dest, size_t destsize)
+{
+	ARRAY_TYPE(unichars) dest_arr;
+	buffer_t buf = { 0, 0 };
+
+	i_assert(sizeof(wchar_t) == sizeof(unichar_t));
+
+	buffer_create_data(&buf, dest, sizeof(wchar_t) * destsize);
+	array_create_from_buffer(&dest_arr, &buf, sizeof(wchar_t));
+	if (uni_utf8_to_ucs4(src, &dest_arr) < 0)
+		i_unreached();
+	i_assert(array_count(&dest_arr)+1 == destsize);
+	dest[destsize-1] = 0;
+}
+
+static void
+lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
+		       wchar_t *dest, size_t destsize)
+{
+	ARRAY_TYPE(unichars) dest_arr;
+	buffer_t buf = { 0, 0 };
+
+	i_assert(sizeof(wchar_t) == sizeof(unichar_t));
+
+	buffer_create_data(&buf, dest, sizeof(wchar_t) * destsize);
+	array_create_from_buffer(&dest_arr, &buf, sizeof(wchar_t));
+	if (uni_utf8_to_ucs4_n(src, srcsize, &dest_arr) < 0)
+		i_unreached();
+	i_assert(array_count(&dest_arr)+1 == destsize);
+	dest[destsize-1] = 0;
+}
+
 void lucene_index_select_mailbox(struct lucene_index *index,
 				 const char *mailbox_name)
 {
-	size_t len;
+	size_t size;
 
 	i_free(index->mailbox_name);
-	i_free(index->tmailbox_name);
 
-	len = strlen(mailbox_name);
-	index->mailbox_name = i_strdup(mailbox_name);
-	index->tmailbox_name = i_new(TCHAR, len + 1);
-	STRCPY_AtoT(index->tmailbox_name, mailbox_name, len);
+	size = uni_utf8_strlen_n(mailbox_name, (size_t)-1) + 1;
+	index->mailbox_name = i_new(wchar_t, size);
+	lucene_utf8_to_tchar(mailbox_name, index->mailbox_name, size);
 }
 
 static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
@@ -265,7 +255,7 @@ lucene_doc_get_uid(struct lucene_index *index, Document *doc,
 		   const TCHAR *field_name, uint32_t *uid_r)
 {
 	Field *field = doc->getField(field_name);
-	TCHAR *uid = field == NULL ? NULL : field->stringValue();
+	const TCHAR *uid = field == NULL ? NULL : field->stringValue();
 	if (uid == NULL) {
 		i_error("lucene: Corrupted FTS index %s: No UID for document",
 			index->path);
@@ -298,7 +288,7 @@ lucene_index_get_last_uid_int(struct lucene_index *index, bool delete_old)
 	   if there are more than one, delete the smaller ones. this is normal
 	   behavior because we can't update/delete documents in writer, so
 	   we'll do it only in here.. */
-	Term mailbox_term(_T("box"), index->tmailbox_name);
+	Term mailbox_term(_T("box"), index->mailbox_name);
 	Term last_uid_term(_T("last_uid"), _T("*"));
 	TermQuery mailbox_query(&mailbox_term);
 	WildcardQuery last_uid_query(&last_uid_term);
@@ -421,49 +411,43 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 			    const unsigned char *data, size_t size,
 			    bool headers)
 {
-	unsigned int len;
+	size_t destsize;
 
 	i_assert(uid > index->last_uid);
 	i_assert(size > 0);
 
-	len = uni_utf8_strlen_n(data, size);
-	wchar_t dest[len+1];
-	lucene_utf8towcs(dest, (const char *)data, len);
-	dest[len] = 0;
+	destsize = uni_utf8_strlen_n(data, size) + 1;
+	wchar_t dest[destsize];
+	lucene_utf8_n_to_tchar(data, size, dest, destsize);
 
 	if (uid != index->prev_uid) {
-		char id[MAX_INT_STRLEN];
-		TCHAR tid[MAX_INT_STRLEN];
+		wchar_t id[MAX_INT_STRLEN];
 
 		if (lucene_index_build_flush(index) < 0)
 			return -1;
 		index->prev_uid = uid;
 
 		index->doc = _CLNEW Document();
-		i_snprintf(id, sizeof(id), "%u", uid);
-		STRCPY_AtoT(tid, id, MAX_INT_STRLEN);
-		index->doc->add(*Field::Text(_T("uid"), tid));
-		index->doc->add(*Field::Text(_T("box"), index->tmailbox_name));
+		swprintf(id, N_ELEMENTS(id), L"%u", uid);
+		index->doc->add(*new Field(_T("uid"), id, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
+		index->doc->add(*new Field(_T("box"), index->mailbox_name, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
 	}
 
 	if (headers)
-		index->doc->add(*Field::Text(_T("headers"), dest));
+		index->doc->add(*new Field(_T("headers"), dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
 	else
-		index->doc->add(*Field::Text(_T("body"), dest));
+		index->doc->add(*new Field(_T("body"), dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
 	return 0;
 }
 
 static int lucene_index_update_last_uid(struct lucene_index *index)
 {
 	Document doc;
-	char id[MAX_INT_STRLEN];
-	TCHAR tid[MAX_INT_STRLEN];
+	wchar_t id[MAX_INT_STRLEN];
 
-	i_snprintf(id, sizeof(id), "%u", index->last_uid);
-	STRCPY_AtoT(tid, id, MAX_INT_STRLEN);
-
-	doc.add(*Field::Text(_T("last_uid"), tid));
-	doc.add(*Field::Text(_T("box"), index->tmailbox_name));
+	swprintf(id, N_ELEMENTS(id), L"%u", index->last_uid);
+	doc.add(*new Field(_T("last_uid"), id, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
+	doc.add(*new Field(_T("box"), index->mailbox_name, Field::STORE_YES | Field::INDEX_UNTOKENIZED));
 
 	try {
 		index->writer->addDocument(&doc);
@@ -516,18 +500,16 @@ int lucene_index_build_deinit(struct lucene_index *index)
 
 int lucene_index_expunge(struct lucene_index *index, uint32_t uid)
 {
-	char id[MAX_INT_STRLEN];
-	TCHAR tid[MAX_INT_STRLEN];
+	wchar_t id[MAX_INT_STRLEN];
 	int ret;
 
 	if ((ret = lucene_index_open_search(index)) <= 0)
 		return ret;
 
-	i_snprintf(id, sizeof(id), "%u", uid);
-	STRCPY_AtoT(tid, id, MAX_INT_STRLEN);
+	swprintf(id, N_ELEMENTS(id), L"%u", uid);
 
-	Term mailbox_term(_T("box"), index->tmailbox_name);
-	Term uid_term(_T("uid"), tid);
+	Term mailbox_term(_T("box"), index->mailbox_name);
+	Term uid_term(_T("uid"), id);
 	TermQuery mailbox_query(&mailbox_term);
 	TermQuery uid_query(&uid_term);
 
@@ -573,22 +555,21 @@ int lucene_index_lookup(struct lucene_index *index, enum fts_lookup_flags flags,
 	quoted_key = strchr(key, ' ') == NULL ?
 		t_strdup_printf("%s*", key) :
 		t_strdup_printf("\"%s\"", key);
-	unsigned int len = uni_utf8_strlen_n(quoted_key, (size_t)-1);
-	wchar_t tkey[len + 1];
-	lucene_utf8towcs(tkey, quoted_key, len);
-	tkey[len] = 0;
+	unsigned int keysize = uni_utf8_strlen_n(quoted_key, (size_t)-1) + 1;
+	wchar_t wkey[keysize];
+	lucene_utf8_to_tchar(quoted_key, wkey, keysize);
 	t_pop();
 
 	BooleanQuery lookup_query;
 	Query *content_query1 = NULL, *content_query2 = NULL;
 	try {
 		if ((flags & FTS_LOOKUP_FLAG_HEADER) != 0) {
-			content_query1 = QueryParser::parse(tkey, _T("headers"),
+			content_query1 = QueryParser::parse(wkey, _T("headers"),
 							    index->analyzer);
 			lookup_query.add(content_query1, false, false);
 		}
 		if ((flags & FTS_LOOKUP_FLAG_BODY) != 0) {
-			content_query2 = QueryParser::parse(tkey, _T("body"),
+			content_query2 = QueryParser::parse(wkey, _T("body"),
 							    index->analyzer);
 			lookup_query.add(content_query2, false, false);
 		}
@@ -604,7 +585,7 @@ int lucene_index_lookup(struct lucene_index *index, enum fts_lookup_flags flags,
 	}
 
 	BooleanQuery query;
-	Term mailbox_term(_T("box"), index->tmailbox_name);
+	Term mailbox_term(_T("box"), index->mailbox_name);
 	TermQuery mailbox_query(&mailbox_term);
 	query.add(&lookup_query, true, false);
 	query.add(&mailbox_query, true, false);
