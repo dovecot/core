@@ -112,6 +112,26 @@ int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output)
 	return 0;
 }
 
+int uni_utf8_to_ucs4_n(const unsigned char *input, size_t size,
+		       ARRAY_TYPE(unichars) *output)
+{
+	unichar_t chr;
+	unsigned int len;
+
+	while (size > 0) {
+		if (uni_utf8_get_char_n(input, size, &chr) <= 0) {
+			/* invalid input */
+			return -1;
+		}
+		len = uni_utf8_char_bytes(*input);
+		i_assert(len <= size);
+		input += len; size -= len;
+
+		array_append(output, &chr, 1);
+	}
+	return 0;
+}
+
 void uni_ucs4_to_utf8(const unichar_t *input, size_t len, buffer_t *output)
 {
 	for (; len > 0 && *input != '\0'; input++, len--)
