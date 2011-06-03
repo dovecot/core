@@ -89,7 +89,7 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	struct group group;
 	string_t *errmsg;
 	struct stat st;
-	int orig_errno, ret;
+	int orig_errno, ret, missing_mode = 0;
 
 	orig_errno = errno;
 	errmsg = t_str_new(256);
@@ -156,11 +156,15 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	if (ret == 0) {
 		/* dir is the first parent directory we can stat() */
 		if (test_access(dir, X_OK, errmsg) < 0) {
-			if (errno == EACCES)
+			if (errno == EACCES) {
 				str_printfa(errmsg, " missing +x perm: %s", dir);
+				missing_mode = 1;
+			}
 		} else if (creating && test_access(dir, W_OK, errmsg) < 0) {
-			if (errno == EACCES)
+			if (errno == EACCES) {
 				str_printfa(errmsg, " missing +w perm: %s", dir);
+				missing_mode = 2;
+			}
 		} else if (prev_path == path &&
 			   test_access(path, R_OK, errmsg) < 0) {
 			if (errno == EACCES)
@@ -169,13 +173,18 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 			/* this produces a wrong error if the operation didn't
 			   actually need write permissions, but we don't know
 			   it here.. */
-			if (errno == EACCES)
+			if (errno == EACCES) {
 				str_printfa(errmsg, " missing +w perm: %s", path);
-		} else
-			str_printfa(errmsg, " UNIX perms appear ok, "
-				    "some security policy wrong?");
+				missing_mode = 4;
+			}
+		} else {
+			str_append(errmsg, " UNIX perms appear ok "
+				   "(ACL/MAC wrong?)");
+		}
 	}
-	if (ret == 0 && st.st_uid != geteuid()) {
+	if (ret < 0)
+		;
+	else if (st.st_uid != geteuid()) {
 		if (pw_name != NULL && i_getpwuid(st.st_uid, &pw) > 0 &&
 		    strcmp(pw.pw_name, pw_name) == 0) {
 			str_printfa(errmsg, ", conflicting dir uid=%s(%s)",
@@ -185,8 +194,11 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 				    dec2str(st.st_uid), dec2str(st.st_gid),
 				    st.st_mode & 0777);
 		}
+	} else if (missing_mode != 0 &&
+		   (((st.st_mode & 0700) >> 6) & missing_mode) == 0) {
+		str_append(errmsg, ", dir owner missing perms");
 	} else {
-		str_append(errmsg, ", euid is dir owner");
+		str_append(errmsg, ", UNIX perms appear ok (ACL/MAC wrong?)");
 	}
 	if (ret == 0 && gr_name != NULL && st.st_gid != getegid()) {
 		if (i_getgrgid(st.st_gid, &group) > 0 &&
