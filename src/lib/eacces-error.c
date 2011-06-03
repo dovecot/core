@@ -181,8 +181,9 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 			str_printfa(errmsg, ", conflicting dir uid=%s(%s)",
 				    dec2str(st.st_uid), pw_name);
 		} else {
-			str_printfa(errmsg, ", dir owned by %s:%s",
-				    dec2str(st.st_uid), dec2str(st.st_gid));
+			str_printfa(errmsg, ", dir owned by %s:%s mode=0%o",
+				    dec2str(st.st_uid), dec2str(st.st_gid),
+				    st.st_mode & 0777);
 		}
 	} else {
 		str_append(errmsg, ", euid is dir owner");
