@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "network.h"
 #include "str.h"
+#include "ipwd.h"
 #include "mkdir-parents.h"
 #include "safe-mkdir.h"
 #include "settings-parser.h"
@@ -407,6 +408,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	struct service_settings *const *services;
 	const char *const *strings;
 	ARRAY_TYPE(const_string) all_listeners;
+	struct passwd pw;
 	unsigned int i, j, count, len, client_limit, process_limit;
 	unsigned int max_auth_client_processes, max_anvil_client_processes;
 
@@ -424,6 +426,17 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	if (set->last_valid_gid != 0 &&
 	    set->first_valid_gid > set->last_valid_gid) {
 		*error_r = "first_valid_gid can't be larger than last_valid_gid";
+		return FALSE;
+	}
+
+	if (i_getpwnam(set->default_login_user, &pw) == 0) {
+		*error_r = t_strdup_printf("default_login_user doesn't exist: %s",
+					   set->default_login_user);
+		return FALSE;
+	}
+	if (i_getpwnam(set->default_internal_user, &pw) == 0) {
+		*error_r = t_strdup_printf("default_internal_user doesn't exist: %s",
+					   set->default_internal_user);
 		return FALSE;
 	}
 
