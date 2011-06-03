@@ -507,7 +507,6 @@ static bool
 director_cmd_user_killed(struct director_connection *conn,
 			 const char *const *args)
 {
-	struct director_host *dir_host;
 	unsigned int username_hash;
 
 	if (str_array_length(args) != 1 ||
