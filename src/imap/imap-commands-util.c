@@ -59,7 +59,8 @@ client_find_namespace(struct client_command_context *cmd, const char *mailbox,
 		storage_name = t_strndup(storage_name, storage_name_len-1);
 	}
 
-	if (strcmp(mailbox, ns->prefix) == 0) {
+	if (strlen(mailbox) == ns->prefix_len) {
+		/* trying to open "ns prefix/" */
 		client_send_tagline(cmd, "NO Invalid mailbox name.");
 		return NULL;
 	}
