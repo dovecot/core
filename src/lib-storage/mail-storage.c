@@ -645,18 +645,26 @@ static int mailbox_check_mismatching_separators(struct mailbox *box)
 	list_sep = mailbox_list_get_hierarchy_sep(box->list);
 	ns_sep = mail_namespace_get_sep(ns);
 
-	if (ns_sep == list_sep || box->list->set.escape_char != '\0')
-		return 0;
-
 	if (ns->prefix_len > 0) {
-		/* vname is prefix with or without separator */
+		/* vname is either "namespace/box" or "namespace" */
 		i_assert(strncmp(vname, ns->prefix, ns->prefix_len-1) == 0);
 		vname += ns->prefix_len - 1;
 		if (vname[0] != '\0') {
 			i_assert(vname[0] == ns->prefix[ns->prefix_len-1]);
 			vname++;
+
+			if (vname[0] == '\0') {
+				/* "namespace/" isn't a valid mailbox name. */
+				mail_storage_set_error(box->storage,
+						       MAIL_ERROR_PARAMS,
+						       "Invalid mailbox name");
+				return -1;
+			}
 		}
 	}
+
+	if (ns_sep == list_sep || box->list->set.escape_char != '\0')
+		return 0;
 
 	for (p = vname; *p != '\0'; p++) {
 		if (*p == list_sep) {
