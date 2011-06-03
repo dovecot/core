@@ -59,6 +59,11 @@ client_find_namespace(struct client_command_context *cmd, const char *mailbox,
 		storage_name = t_strndup(storage_name, storage_name_len-1);
 	}
 
+	if (strcmp(mailbox, ns->prefix) == 0) {
+		client_send_tagline(cmd, "NO Invalid mailbox name.");
+		return NULL;
+	}
+
 	if (ns->real_sep != ns->sep && ns->prefix_len < strlen(mailbox)) {
 		/* make sure there are no real separators used in the mailbox
 		   name. */
