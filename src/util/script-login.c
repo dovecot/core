@@ -114,13 +114,13 @@ static void client_connected(struct master_service_connection *conn)
 	master_service_init_log(master_service,
 		t_strdup_printf("script-login(%s): ", input.username));
 
-	service_ctx = mail_storage_service_init(master_service, NULL, flags);
-	if (mail_storage_service_lookup(service_ctx, &input, &user, &error) <= 0)
-		i_fatal("%s", error);
-	mail_storage_service_restrict_setenv(service_ctx, user);
-
-	if (drop_to_userdb_privileges)
+	if (drop_to_userdb_privileges) {
+		service_ctx = mail_storage_service_init(master_service, NULL, flags);
+		if (mail_storage_service_lookup(service_ctx, &input, &user, &error) <= 0)
+			i_fatal("%s", error);
+		mail_storage_service_restrict_setenv(service_ctx, user);
 		restrict_access_by_env(getenv("HOME"), TRUE);
+	}
 
 	if (dup2(fd, STDIN_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
