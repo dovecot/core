@@ -152,7 +152,8 @@ winbind_helper_connect(const struct auth_settings *set,
 
 	if (!sigchld_handler_set) {
 		sigchld_handler_set = TRUE;
-		lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+		lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
+					sigchld_handler, NULL);
 	}
 }
 

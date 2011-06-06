@@ -109,7 +109,7 @@ static void sig_chld(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 
 static void main_init(const struct ssl_params_settings *set)
 {
-	lib_signals_set_handler(SIGCHLD, TRUE, sig_chld, NULL);
+	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE, sig_chld, NULL);
 
 	ssl_params = buffer_create_dynamic(default_pool, 1024);
 	param = ssl_params_init(PKG_STATEDIR"/"SSL_BUILD_PARAM_FNAME,

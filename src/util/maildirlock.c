@@ -63,8 +63,8 @@ int main(int argc, const char *argv[])
 	lib_init();
 	lib_signals_init();
 	ioloop = io_loop_create();
-	lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
-	lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
+	lib_signals_set_handler(SIGINT, LIBSIG_FLAG_DELAYED, sig_die, NULL);
+	lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED, sig_die, NULL);
 
 	if (pid != 0) {
 		close(fd[1]);

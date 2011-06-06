@@ -18,7 +18,8 @@ sig_reopen_logs(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 
 static void main_init(void)
 {
-	lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
+	lib_signals_set_handler(SIGUSR1, LIBSIG_FLAGS_SAFE,
+				sig_reopen_logs, NULL);
 
 	log_connections_init();
 }

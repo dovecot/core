@@ -267,8 +267,8 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 service_flags);
-        lib_signals_set_handler(SIGINT, FALSE, sig_die, NULL);
-	lib_signals_set_handler(SIGTERM, FALSE, sig_die, NULL);
+        lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
+	lib_signals_set_handler(SIGTERM, 0, sig_die, NULL);
 
 	ctx->v.init(ctx, (const void *)argv);
 	if (hook_doveadm_mail_init != NULL)
