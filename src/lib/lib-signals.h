@@ -3,6 +3,15 @@
 
 #include <signal.h>
 
+enum libsig_flags {
+	/* Signal handler will be called later from IO loop when it's safe to
+	   do any kind of work */
+	LIBSIG_FLAG_DELAYED	= 0x01,
+	/* Restart syscalls instead of having them fail with EINTR */
+	LIBSIG_FLAG_RESTART	= 0x02
+};
+#define LIBSIG_FLAGS_SAFE (LIBSIG_FLAG_DELAYED | LIBSIG_FLAG_RESTART)
+
 typedef void signal_handler_t(const siginfo_t *si, void *context);
 
 /* Number of times a "termination signal" has been received.
@@ -19,9 +28,8 @@ extern volatile unsigned int signal_term_counter;
 /* Convert si_code to string */
 const char *lib_signal_code_to_str(int signo, int sicode);
 
-/* Set signal handler for specific signal. If delayed is TRUE, the handler
-   will be called later, ie. not as a real signal handler. */
-void lib_signals_set_handler(int signo, bool delayed,
+/* Set signal handler for specific signal. */
+void lib_signals_set_handler(int signo, enum libsig_flags flags,
 			     signal_handler_t *handler, void *context);
 /* Ignore given signal. */
 void lib_signals_ignore(int signo, bool restart_syscalls);

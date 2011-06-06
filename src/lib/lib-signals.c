@@ -24,7 +24,7 @@ struct signal_handler {
 	signal_handler_t *handler;
 	void *context;
 
-	bool delayed;
+	enum libsig_flags flags;
         struct signal_handler *next;
 };
 
@@ -124,7 +124,7 @@ static void sig_handler(int signo)
 	   called at any time. don't do anything that's unsafe. we might also
 	   get interrupted by another signal while inside this handler. */
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
-		if (!h->delayed)
+		if ((h->flags & LIBSIG_FLAG_DELAYED) == 0)
 			h->handler(si, h->context);
 		else if (pending_signals[signo].si_signo == 0) {
 			pending_signals[signo] = *si;
@@ -190,13 +190,13 @@ static void signal_read(void *context ATTR_UNUSED)
 			continue;
 
 		for (h = signal_handlers[signo]; h != NULL; h = h->next) {
-			if (h->delayed)
+			if ((h->flags & LIBSIG_FLAG_DELAYED) != 0)
 				h->handler(&signals[signo], h->context);
 		}
 	}
 }
 
-static void lib_signals_set(int signo)
+static void lib_signals_set(int signo, enum libsig_flags flags)
 {
 	struct sigaction act;
 
@@ -209,11 +209,13 @@ static void lib_signals_set(int signo)
 	act.sa_flags = 0;
 	act.sa_handler = sig_handler;
 #endif
+	if ((flags & LIBSIG_FLAG_RESTART) != 0)
+		act.sa_flags |= SA_RESTART;
 	if (sigaction(signo, &act, NULL) < 0)
 		i_fatal("sigaction(%d): %m", signo);
 }
 
-void lib_signals_set_handler(int signo, bool delayed,
+void lib_signals_set_handler(int signo, enum libsig_flags flags,
 			     signal_handler_t *handler, void *context)
 {
 	struct signal_handler *h;
@@ -226,9 +228,9 @@ void lib_signals_set_handler(int signo, bool delayed,
 	}
 
 	if (signal_handlers[signo] == NULL && signals_initialized)
-		lib_signals_set(signo);
+		lib_signals_set(signo, flags);
 
-	if (delayed && sig_pipe_fd[0] == -1) {
+	if ((flags & LIBSIG_FLAG_DELAYED) != 0 && sig_pipe_fd[0] == -1) {
 		/* first delayed handler */
 		if (pipe(sig_pipe_fd) < 0)
 			i_fatal("pipe() failed: %m");
@@ -245,7 +247,7 @@ void lib_signals_set_handler(int signo, bool delayed,
 	h = i_new(struct signal_handler, 1);
 	h->handler = handler;
 	h->context = context;
-	h->delayed = delayed;
+	h->flags = flags;
 
 	/* atomically set to signal_handlers[] list */
 	h->next = signal_handlers[signo];
@@ -317,7 +319,7 @@ void lib_signals_init(void)
 	/* add signals that were already registered */
 	for (i = 0; i < MAX_SIGNAL_VALUE; i++) {
 		if (signal_handlers[i] != NULL)
-			lib_signals_set(i);
+			lib_signals_set(i, signal_handlers[i]->flags);
 	}
 
 	if (sig_pipe_fd[0] != -1)
