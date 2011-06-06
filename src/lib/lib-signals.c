@@ -196,7 +196,7 @@ static void signal_read(void *context ATTR_UNUSED)
 	}
 }
 
-static void lib_signals_set(int signo, bool ignore)
+static void lib_signals_set(int signo)
 {
 	struct sigaction act;
 
@@ -204,10 +204,10 @@ static void lib_signals_set(int signo, bool ignore)
 		i_fatal("sigemptyset(): %m");
 #ifdef SA_SIGINFO
 	act.sa_flags = SA_SIGINFO;
-	act.sa_sigaction = ignore ? sig_ignore : sig_handler;
+	act.sa_sigaction = sig_handler;
 #else
 	act.sa_flags = 0;
-	act.sa_handler = ignore ? sig_ignore : sig_handler;
+	act.sa_handler = sig_handler;
 #endif
 	if (sigaction(signo, &act, NULL) < 0)
 		i_fatal("sigaction(%d): %m", signo);
@@ -226,7 +226,7 @@ void lib_signals_set_handler(int signo, bool delayed,
 	}
 
 	if (signal_handlers[signo] == NULL && signals_initialized)
-		lib_signals_set(signo, FALSE);
+		lib_signals_set(signo);
 
 	if (delayed && sig_pipe_fd[0] == -1) {
 		/* first delayed handler */
@@ -317,7 +317,7 @@ void lib_signals_init(void)
 	/* add signals that were already registered */
 	for (i = 0; i < MAX_SIGNAL_VALUE; i++) {
 		if (signal_handlers[i] != NULL)
-			lib_signals_set(i, FALSE);
+			lib_signals_set(i);
 	}
 
 	if (sig_pipe_fd[0] != -1)
