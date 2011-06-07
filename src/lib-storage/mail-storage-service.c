@@ -382,13 +382,12 @@ service_drop_privileges(struct mail_storage_service_user *user,
 
 	rset.first_valid_gid = set->first_valid_gid;
 	rset.last_valid_gid = set->last_valid_gid;
-	/* we can't chroot if we want to switch between users. there's not
-	   much point either (from security point of view) */
-	rset.chroot_dir = *chroot == '\0' || keep_setuid_root ? NULL : chroot;
+	rset.chroot_dir = *chroot == '\0' ? NULL : chroot;
 	rset.system_groups_user = user->system_groups_user;
 
 	cur_chroot = restrict_access_get_current_chroot();
 	if (cur_chroot != NULL) {
+		/* we're already chrooted. make sure the chroots are equal. */
 		if (rset.chroot_dir == NULL) {
 			*error_r = "Process is already chrooted, "
 				"can't un-chroot for this user";
@@ -903,6 +902,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		(user->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0;
 	bool temp_priv_drop =
 		(user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
+	bool use_chroot;
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home and chroot sooner so do them separately here. */
@@ -918,12 +918,19 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 		return -2;
 	}
 
+	/* we can't chroot if we want to switch between users. there's
+	   not much point either (from security point of view). but if we're
+	   already chrooted, we'll just have to continue and hope that the
+	   current chroot is the same as the wanted chroot */
+	use_chroot = !temp_priv_drop ||
+		restrict_access_get_current_chroot() != NULL;
+
 	len = strlen(chroot);
 	if (len > 2 && strcmp(chroot + len - 2, "/.") == 0 &&
 	    strncmp(home, chroot, len - 2) == 0) {
 		/* mail_chroot = /chroot/. means that the home dir already
 		   contains the chroot dir. remove it from home. */
-		if (!temp_priv_drop) {
+		if (use_chroot) {
 			home += len - 2;
 			if (*home == '\0')
 				home = "/";
@@ -932,9 +939,9 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			set_keyval(ctx, user, "mail_home", home);
 			set_keyval(ctx, user, "mail_chroot", chroot);
 		}
-	} else if (len > 0 && temp_priv_drop) {
-		/* we're dropping privileges only temporarily, so we can't
-		   chroot. fix home directory so we can access it. */
+	} else if (len > 0 && !use_chroot) {
+		/* we're not going to chroot. fix home directory so we can
+		   access it. */
 		if (*home == '\0' || strcmp(home, "/") == 0)
 			home = chroot;
 		else
