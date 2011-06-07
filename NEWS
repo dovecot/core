@@ -2,6 +2,8 @@ v2.1.UNSTABLE 2011-xx-xx  Timo Sirainen <tss@iki.fi>
 
 	* Plugins now use UTF-8 mailbox names rather than mUTF-7:
 	  acl, autocreate, expire, trash, virtual
+	* auth_username_format default changed to %Lu. If you really want
+	  case sensitive usernames, set it back to empty.
 
 	+ imapc (= IMAP client) storage allows using a remote IMAP server to
 	  be used as storage. This allows using Dovecot as a smart (caching)
