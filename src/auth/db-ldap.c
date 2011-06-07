@@ -328,7 +328,10 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 	struct ldap_request *const *requestp, *request;
 	int ret = -1;
 
-	i_assert(conn->pending_count <= aqueue_count(conn->request_queue));
+	/* connecting may call db_ldap_connect_finish(), which gets us back
+	   here. so do the connection before checking the request queue. */
+	if (db_ldap_connect(conn) < 0)
+		return FALSE;
 
 	if (conn->pending_count == aqueue_count(conn->request_queue)) {
 		/* no non-pending requests */
@@ -338,9 +341,6 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 		/* wait until server has replied to some requests */
 		return FALSE;
 	}
-
-	if (db_ldap_connect(conn) < 0)
-		return FALSE;
 
 	requestp = array_idx(&conn->request_array,
 			     aqueue_idx(conn->request_queue,
