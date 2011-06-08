@@ -107,14 +107,20 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 {
 	struct setting_parser_context *set_parser = user->set_parser;
 	bool mail_debug;
-	const char *key;
+	const char *key, *orig_key;
+	bool append = FALSE;
 	int ret;
 
 	mail_debug = mail_user_set_get_mail_debug(user->user_info,
 						  user->user_set);
 	if (strchr(line, '=') == NULL)
 		line = t_strconcat(line, "=yes", NULL);
-	key = t_strcut(line, '=');
+	orig_key = key = t_strcut(line, '=');
+
+	if (*key == '+') {
+		key++;
+		append = TRUE;
+	}
 
 	if (!settings_parse_is_valid_key(set_parser, key)) {
 		/* assume it's a plugin setting */
@@ -129,6 +135,19 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 				key);
 		}
 		return 1;
+	}
+
+	if (append) {
+		const void *value;
+		enum setting_type type;
+
+		value = settings_parse_get_value(set_parser, key, &type);
+		if (type == SET_STR)
+			line = t_strconcat(line, value, NULL);
+		else {
+			i_error("Ignoring %s userdb setting. "
+				"'+' can only be used for strings.", orig_key);
+		}
 	}
 
 	ret = settings_parse_line(set_parser, line);
