@@ -44,6 +44,7 @@ void index_mailbox_set_recent_uid(struct mailbox *box, uint32_t uid)
 			"Recent flags state corrupted for mailbox %s",
 			box->vname);
 		array_clear(&ibox->recent_flags);
+		ibox->recent_flags_count = 0;
 	}
 	ibox->recent_flags_prev_uid = uid;
 
