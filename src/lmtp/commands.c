@@ -76,25 +76,57 @@ int cmd_lhlo(struct client *client, const char *args)
 	return 0;
 }
 
+static int parse_address(const char *str, const char **address_r,
+			 const char **rest_r)
+{
+	const char *start;
+
+	if (*str++ != '<')
+		return -1;
+	start = str;
+	if (*str == '"') {
+		/* "quoted-string"@domain */
+		for (str++; *str != '"'; str++) {
+			if (*str == '\\')
+				str++;
+			if (*str == '\0')
+				return -1;
+		}
+		str++;
+	}
+	for (; *str != '>'; str++) {
+		if (*str == '\0' || *str == ' ')
+			return -1;
+	}
+	*address_r = t_strdup_until(start, str);
+	if (*str++ != '>')
+		return -1;
+
+	if (*str == ' ')
+		str++;
+	else if (*str != '\0')
+		return -1;
+	*rest_r = str;
+	return 0;
+}
+
 int cmd_mail(struct client *client, const char *args)
 {
 	const char *addr, *const *argv;
-	unsigned int len;
 
 	if (client->state.mail_from != NULL) {
 		client_send_line(client, "503 5.5.1 MAIL already given");
 		return 0;
 	}
 
-	argv = t_strsplit(args, " ");
-	addr = argv[0] == NULL ? "" : argv[0];
-	len = strlen(addr);
-	if (strncasecmp(addr, "FROM:<", 6) != 0 || addr[len-1] != '>') {
+	if (strncasecmp(args, "FROM:", 5) != 0 ||
+	    parse_address(args + 5, &addr, &args) < 0) {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
 		return 0;
 	}
 
-	for (argv++; *argv != NULL; argv++) {
+	argv = t_strsplit(args, " ");
+	for (; *argv != NULL; argv++) {
 		if (strcasecmp(*argv, "BODY=7BIT") == 0)
 			client->state.mail_body_7bit = TRUE;
 		else if (strcasecmp(*argv, "BODY=8BITMIME") == 0)
@@ -106,8 +138,7 @@ int cmd_mail(struct client *client, const char *args)
 		}
 	}
 
-	client->state.mail_from =
-		p_strndup(client->state_pool, addr + 6, len - 7);
+	client->state.mail_from = p_strdup(client->state_pool, addr);
 	p_array_init(&client->state.rcpt_to, client->state_pool, 64);
 	client_send_line(client, "250 2.1.0 OK");
 	return 0;
@@ -351,8 +382,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	struct mail_recipient rcpt;
 	struct mail_storage_service_input input;
 	const char *address, *username, *detail, *prefix;
-	const char *error = NULL, *arg, *const *argv;
-	unsigned int len;
+	const char *error = NULL;
 	int ret = 0;
 
 	if (client->state.mail_from == NULL) {
@@ -360,19 +390,16 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
-	argv = t_strsplit(args, " ");
-	arg = argv[0] == NULL ? "" : argv[0];
-	len = strlen(arg);
-	if (strncasecmp(arg, "TO:<", 4) != 0 || arg[len-1] != '>') {
+	if (strncasecmp(args, "TO:", 3) != 0 ||
+	    parse_address(args + 3, &address, &args) < 0) {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
 		return 0;
 	}
-	argv++;
 
 	memset(&rcpt, 0, sizeof(rcpt));
-	address = lmtp_unescape_address(t_strndup(arg + 4, len - 5));
+	address = lmtp_unescape_address(address);
 
-	if (*argv != NULL) {
+	if (*args != '\0') {
 		client_send_line(client, "501 5.5.4 Unsupported options");
 		return 0;
 	}
