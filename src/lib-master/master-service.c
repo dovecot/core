@@ -334,6 +334,7 @@ static void master_status_error(void *context)
 
 void master_service_init_finish(struct master_service *service)
 {
+	enum libsig_flags sigint_flags = LIBSIG_FLAG_DELAYED;
 	struct stat st;
 	const char *value;
 	unsigned int count;
@@ -343,10 +344,12 @@ void master_service_init_finish(struct master_service *service)
 
 	/* set default signal handlers */
 	lib_signals_init();
-        lib_signals_set_handler(SIGINT, TRUE, sig_die, service);
-	lib_signals_set_handler(SIGTERM, TRUE, sig_die, service);
+	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0)
+		sigint_flags |= LIBSIG_FLAG_RESTART;
+        lib_signals_set_handler(SIGINT, sigint_flags, sig_die, service);
+	lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED, sig_die, service);
 	if ((service->flags & MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE) != 0) {
-		lib_signals_set_handler(SIGUSR1, TRUE,
+		lib_signals_set_handler(SIGUSR1, LIBSIG_FLAGS_SAFE,
 					sig_state_changed, service);
 	}
 

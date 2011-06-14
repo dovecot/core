@@ -20,6 +20,7 @@ struct director_context {
 	const char *socket_path;
 	const char *users_path;
 	struct istream *input;
+	bool explicit_socket_path;
 };
 
 struct user_list {
@@ -91,6 +92,7 @@ cmd_director_init(int argc, char *argv[], const char *getopt_args,
 		switch (c) {
 		case 'a':
 			ctx->socket_path = optarg;
+			ctx->explicit_socket_path = TRUE;
 			break;
 		case 'f':
 			ctx->users_path = optarg;
@@ -404,6 +406,42 @@ static void cmd_director_remove(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
+static void cmd_director_move(int argc, char *argv[])
+{
+	struct director_context *ctx;
+	struct ip_addr *ips;
+	unsigned int ips_count, user_hash;
+	const char *host, *line, *ip_str;
+
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_move);
+	if (argv[optind] == NULL || argv[optind+1] == NULL ||
+	    argv[optind+2] != NULL)
+		director_cmd_help(cmd_director_move);
+
+	user_hash = director_username_hash(argv[optind++]);
+	host = argv[optind];
+
+	director_get_host(host, &ips, &ips_count);
+	ip_str = net_ip2addr(&ips[0]);
+	director_send(ctx, t_strdup_printf(
+		"USER-MOVE\t%u\t%s\n", user_hash, ip_str));
+	line = i_stream_read_next_line(ctx->input);
+	if (line == NULL)
+		fprintf(stderr, "failed\n");
+	else if (strcmp(line, "OK") == 0) {
+		if (doveadm_verbose)
+			printf("User hash %u moved to %s\n", user_hash, ip_str);
+	} else if (strcmp(line, "NOTFOUND") == 0) {
+		fprintf(stderr, "Host '%s' doesn't exist\n", ip_str);
+	} else if (strcmp(line, "TRYAGAIN") == 0) {
+		fprintf(stderr, "User is already being moved, "
+			"wait a while for it to be finished\n");
+	} else {
+		fprintf(stderr, "failed: %s\n", line);
+	}
+	director_disconnect(ctx);
+}
+
 static void cmd_director_flush_all(struct director_context *ctx)
 {
 	const char *line;
@@ -465,6 +503,50 @@ static void cmd_director_flush(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
+static void ATTR_FORMAT(3, 4)
+director_dump_cmd(struct director_context *ctx,
+		  const char *cmd, const char *args, ...)
+{
+	va_list va;
+
+	va_start(va, args);
+	printf("doveadm director %s ", cmd);
+	if (ctx->explicit_socket_path)
+		printf("-a %s ", ctx->socket_path);
+	vprintf(args, va);
+	putchar('\n');
+	va_end(va);
+}
+
+static void cmd_director_dump(int argc, char *argv[])
+{
+	struct director_context *ctx;
+	const char *line, *const *args;
+
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_dump);
+
+	director_send(ctx, "HOST-LIST\n");
+	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+		if (*line == '\0')
+			break;
+		T_BEGIN {
+			args = t_strsplit(line, "\t");
+			if (str_array_length(args) >= 2) {
+				director_dump_cmd(ctx, "add", "%s %s",
+						  args[0], args[1]);
+			}
+		} T_END;
+	}
+
+	director_send(ctx, "HOST-LIST-REMOVED\n");
+	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+		if (*line == '\0')
+			break;
+		director_dump_cmd(ctx, "remove", "%s", line);
+	}
+	director_disconnect(ctx);
+}
+
 struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
 	  "[-a <director socket path>] [<user>]" },
@@ -474,8 +556,12 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	  "[-a <director socket path>] <host> [<vhost count>]" },
 	{ cmd_director_remove, "director remove",
 	  "[-a <director socket path>] <host>" },
+	{ cmd_director_move, "director move",
+	  "[-a <director socket path>] <user> <host>" },
 	{ cmd_director_flush, "director flush",
-	  "[-a <director socket path>] <host>|all" }
+	  "[-a <director socket path>] <host>|all" },
+	{ cmd_director_dump, "director dump",
+	  "[-a <director socket path>]" }
 };
 
 static void director_cmd_help(doveadm_command_t *cmd)

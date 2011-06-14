@@ -1,7 +1,7 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
-#if defined (HAVE_INTTYPES_H) && defined(__osf__)
+#if defined (HAVE_INTTYPES_H) && (defined(__osf__) || defined(_HPUX_SOURCE))
 #  include <inttypes.h>
 #endif
 

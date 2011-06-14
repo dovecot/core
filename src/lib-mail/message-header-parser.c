@@ -268,7 +268,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		line->value_len = 0;
 
 		str_truncate(ctx->name, 0);
-		str_append_n(ctx->name, msg, size);
+		buffer_append(ctx->name, msg, size);
 		line->name = str_c(ctx->name);
 		line->name_len = str_len(ctx->name);
 
@@ -311,7 +311,9 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			colon_pos--;
 
 		str_truncate(ctx->name, 0);
-		str_append_n(ctx->name, msg, colon_pos);
+		/* use buffer_append() so the name won't be truncated if there
+		   are NULs. */
+		buffer_append(ctx->name, msg, colon_pos);
 		str_append_c(ctx->name, '\0');
 
 		/* keep middle stored also in ctx->name so it's available

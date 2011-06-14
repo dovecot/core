@@ -24,8 +24,13 @@ struct lucene_fts_backend {
 	struct fts_backend backend;
 	struct lucene_mail_storage *lstorage;
 	struct mailbox *box;
+};
 
-	uint32_t last_uid;
+struct lucene_fts_backend_build_context {
+	struct fts_backend_build_context ctx;
+
+	uint32_t uid;
+	bool hdr;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_lucene_storage_module,
@@ -110,38 +115,69 @@ fts_backend_lucene_build_init(struct fts_backend *_backend,
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
-	struct fts_backend_build_context *ctx;
+	struct lucene_fts_backend_build_context *ctx;
+	uint32_t last_uid;
 
 	fts_backend_select(backend);
 	if (lucene_index_build_init(backend->lstorage->index,
-				    &backend->last_uid) < 0)
+				    &last_uid) < 0)
 		return -1;
 
-	ctx = i_new(struct fts_backend_build_context, 1);
-	ctx->backend = _backend;
+	ctx = i_new(struct lucene_fts_backend_build_context, 1);
+	ctx->ctx.backend = _backend;
+	ctx->uid = last_uid + 1;
 
-	*last_uid_r = backend->last_uid;
-	*ctx_r = ctx;
+	*last_uid_r = last_uid;
+	*ctx_r = &ctx->ctx;
 	return 0;
 }
 
-static int
-fts_backend_lucene_build_more(struct fts_backend_build_context *ctx,
-			      uint32_t uid, const unsigned char *data,
-			      size_t size, bool headers)
+static void
+fts_backend_lucene_build_hdr(struct fts_backend_build_context *_ctx,
+			     uint32_t uid)
 {
+	struct lucene_fts_backend_build_context *ctx =
+		(struct lucene_fts_backend_build_context *)_ctx;
+
+	i_assert(uid >= ctx->uid);
+
+	ctx->uid = uid;
+	ctx->hdr = TRUE;
+}
+
+static bool
+fts_backend_lucene_build_body_begin(struct fts_backend_build_context *_ctx,
+				    uint32_t uid, const char *content_type,
+				    const char *content_disposition ATTR_UNUSED)
+{
+	struct lucene_fts_backend_build_context *ctx =
+		(struct lucene_fts_backend_build_context *)_ctx;
+
+	i_assert(uid >= ctx->uid);
+
+	if (!fts_backend_default_can_index(content_type))
+		return FALSE;
+
+	ctx->uid = uid;
+	ctx->hdr = FALSE;
+	return TRUE;
+}
+
+static int
+fts_backend_lucene_build_more(struct fts_backend_build_context *_ctx,
+			      const unsigned char *data, size_t size)
+{
+	struct lucene_fts_backend_build_context *ctx =
+		(struct lucene_fts_backend_build_context *)_ctx;
 	struct lucene_fts_backend *backend =
-		(struct lucene_fts_backend *)ctx->backend;
+		(struct lucene_fts_backend *)_ctx->backend;
 
-	if (ctx->failed)
+	if (_ctx->failed)
 		return -1;
-
-	i_assert(uid >= backend->last_uid);
-	backend->last_uid = uid;
 
 	i_assert(backend->lstorage->selected_box == backend->box);
 	return lucene_index_build_more(backend->lstorage->index,
-				       uid, data, size, headers);
+				       ctx->uid, data, size, ctx->hdr);
 }
 
 static int
@@ -212,6 +248,9 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_get_last_uid,
 		NULL,
 		fts_backend_lucene_build_init,
+		fts_backend_lucene_build_hdr,
+		fts_backend_lucene_build_body_begin,
+		NULL,
 		fts_backend_lucene_build_more,
 		fts_backend_lucene_build_deinit,
 		fts_backend_lucene_expunge,

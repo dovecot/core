@@ -134,8 +134,10 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
 	cache->ttl_secs = ttl_secs;
 	cache->neg_ttl_secs = neg_ttl_secs;
 
-	lib_signals_set_handler(SIGHUP, TRUE, sig_auth_cache_clear, cache);
-	lib_signals_set_handler(SIGUSR2, TRUE, sig_auth_cache_stats, cache);
+	lib_signals_set_handler(SIGHUP, LIBSIG_FLAGS_SAFE,
+				sig_auth_cache_clear, cache);
+	lib_signals_set_handler(SIGUSR2, LIBSIG_FLAGS_SAFE,
+				sig_auth_cache_stats, cache);
 	return cache;
 }
 

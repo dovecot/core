@@ -81,6 +81,30 @@ index_sort_list_add_size(struct mail_search_sort_program *program,
 		node->size = 0;
 }
 
+static uoff_t index_sort_get_pop3_order(struct mail *mail)
+{
+	const char *str;
+	uoff_t size;
+
+	if (mail_get_special(mail, MAIL_FETCH_POP3_ORDER, &str) < 0 ||
+	    str_to_uoff(str, &size) < 0)
+		return (uint32_t)-1;
+	else
+		return size;
+}
+
+static void
+index_sort_list_add_pop3_order(struct mail_search_sort_program *program,
+			       struct mail *mail)
+{
+	ARRAY_TYPE(mail_sort_node_size) *nodes = program->context;
+	struct mail_sort_node_size *node;
+
+	node = array_append_space(nodes);
+	node->seq = mail->seq;
+	node->size = index_sort_get_pop3_order(mail);
+}
+
 static float index_sort_get_score(struct mail *mail)
 {
 	const char *str;
@@ -282,6 +306,16 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 		i_array_init(nodes, 128);
 		program->sort_list_add = index_sort_list_add_score;
 		program->sort_list_finish = index_sort_list_finish_float;
+		program->context = nodes;
+		break;
+	}
+	case MAIL_SORT_POP3_ORDER: {
+		ARRAY_TYPE(mail_sort_node_size) *nodes;
+
+		nodes = i_malloc(sizeof(*nodes));
+		i_array_init(nodes, 128);
+		program->sort_list_add = index_sort_list_add_pop3_order;
+		program->sort_list_finish = index_sort_list_finish_size;
 		program->context = nodes;
 		break;
 	}
@@ -487,6 +521,17 @@ int index_sort_node_cmp_type(struct mail *mail,
 
 		ret = float1 < float2 ? -1 :
 			(float1 > float2 ? 1 : 0);
+		break;
+	case MAIL_SORT_POP3_ORDER:
+		/* 32bit numbers would be enough, but since there is already
+		   existing code for uoff_t in sizes, just use them. */
+		mail_set_seq(mail, seq1);
+		size1 = index_sort_get_pop3_order(mail);
+		mail_set_seq(mail, seq2);
+		size2 = index_sort_get_pop3_order(mail);
+
+		ret = size1 < size2 ? -1 :
+			(size1 > size2 ? 1 : 0);
 		break;
 	case MAIL_SORT_END:
 		return seq1 < seq2 ? -1 :

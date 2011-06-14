@@ -24,7 +24,8 @@ struct authtest_input {
 };
 
 static int
-cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
+cmd_user_input(const char *auth_socket_path, const struct authtest_input *input,
+	       const char *show_field)
 {
 	struct auth_master_connection *conn;
 	pool_t pool;
@@ -49,8 +50,17 @@ cmd_user_input(const char *auth_socket_path, const struct authtest_input *input)
 				input->username, fields[0]);
 		}
 	} else if (ret == 0) {
-		printf("userdb lookup: user %s doesn't exist\n",
-		       input->username);
+		fprintf(show_field == NULL ? stdout : stderr,
+			"userdb lookup: user %s doesn't exist\n",
+			input->username);
+	} else if (show_field != NULL) {
+		unsigned int show_field_len = strlen(show_field);
+
+		for (; *fields; fields++) {
+			if (strncmp(*fields, show_field, show_field_len) == 0 &&
+			    (*fields)[show_field_len] == '=')
+				printf("%s\n", *fields + show_field_len + 1);
+		}
 	} else {
 		printf("userdb: %s\n", input->username);
 
@@ -199,13 +209,10 @@ cmd_user_list(const char *auth_socket_path, char *const *users)
 	auth_master_deinit(&conn);
 }
 
-static void
-auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
+static void cmd_auth(int argc, char *argv[])
 {
 	const char *auth_socket_path = NULL;
 	struct authtest_input input;
-	unsigned int i;
-	bool have_wildcards;
 	int c;
 
 	memset(&input, 0, sizeof(input));
@@ -220,12 +227,54 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 			auth_user_info_parse(&input.info, optarg);
 			break;
 		default:
-			help(cmd);
+			help(&doveadm_cmd_auth);
 		}
 	}
 
 	if (optind == argc)
-		help(cmd);
+		help(&doveadm_cmd_auth);
+
+	input.username = argv[optind++];
+	input.password = argv[optind] != NULL ? argv[optind++] :
+		t_askpass("Password: ");
+	if (argv[optind] != NULL)
+			i_fatal("Unexpected parameter: %s", argv[optind]);
+	if (cmd_auth_input(auth_socket_path, &input) < 0)
+		exit(FATAL_DEFAULT);
+	if (!input.success)
+		exit(1);
+}
+
+static void cmd_user(int argc, char *argv[])
+{
+	const char *auth_socket_path = NULL;
+	struct authtest_input input;
+	const char *show_field = NULL;
+	unsigned int i;
+	bool have_wildcards;
+	int c;
+
+	memset(&input, 0, sizeof(input));
+	input.info.service = "doveadm";
+
+	while ((c = getopt(argc, argv, "a:f:x:")) > 0) {
+		switch (c) {
+		case 'a':
+			auth_socket_path = optarg;
+			break;
+		case 'f':
+			show_field = optarg;
+			break;
+		case 'x':
+			auth_user_info_parse(&input.info, optarg);
+			break;
+		default:
+			help(&doveadm_cmd_user);
+		}
+	}
+
+	if (optind == argc)
+		help(&doveadm_cmd_user);
 
 	have_wildcards = FALSE;
 	for (i = optind; argv[i] != NULL; i++) {
@@ -236,19 +285,9 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 		}
 	}
 
-	if (cmd == &doveadm_cmd_auth) {
-		input.username = argv[optind++];
-		input.password = argv[optind] != NULL ? argv[optind++] :
-			t_askpass("Password: ");
-		if (argv[optind] != NULL)
-			i_fatal("Unexpected parameter: %s", argv[optind]);
-		if (cmd_auth_input(auth_socket_path, &input) < 0)
-			exit(FATAL_DEFAULT);
-		if (!input.success)
-			exit(1);
-	} else if (have_wildcards) {
+	if (have_wildcards)
 		cmd_user_list(auth_socket_path, argv + optind);
-	} else {
+	else {
 		bool first = TRUE;
 		bool notfound = FALSE;
 
@@ -257,7 +296,8 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 				first = FALSE;
 			else
 				putchar('\n');
-			switch (cmd_user_input(auth_socket_path, &input)) {
+			switch (cmd_user_input(auth_socket_path, &input,
+					       show_field)) {
 			case -1:
 				exit(1);
 			case 0:
@@ -270,16 +310,6 @@ auth_cmd_common(const struct doveadm_cmd *cmd, int argc, char *argv[])
 	}
 }
 
-static void cmd_auth(int argc, char *argv[])
-{
-	auth_cmd_common(&doveadm_cmd_auth, argc, argv);
-}
-
-static void cmd_user(int argc, char *argv[])
-{
-	auth_cmd_common(&doveadm_cmd_user, argc, argv);
-}
-
 struct doveadm_cmd doveadm_cmd_auth = {
 	cmd_auth, "auth",
 	"[-a <auth socket path>] [-x <auth info>] <user> [<password>]"
@@ -287,5 +317,5 @@ struct doveadm_cmd doveadm_cmd_auth = {
 
 struct doveadm_cmd doveadm_cmd_user = {
 	cmd_user, "user",
-	"[-a <userdb socket path>] [-x <auth info>] <user mask> [...]"
+	"[-a <userdb socket path>] [-x <auth info>] [-f field] <user mask> [...]"
 };

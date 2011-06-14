@@ -322,6 +322,14 @@ acl_mailbox_list_info_is_visible(struct acl_mailbox_list_iterate_context *ctx)
 		return 1;
 	}
 
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0 &&
+	    (ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
+		/* don't waste time doing an ACL check. we're going to list
+		   all subscriptions anyway. */
+		info->flags &= MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED;
+		return 1;
+	}
+
 	acl_name = acl_mailbox_list_iter_get_name(&ctx->ctx, info->name);
 	ret = acl_mailbox_list_have_right(ctx->ctx.list, acl_name, FALSE,
 					  ACL_STORAGE_RIGHT_LOOKUP,

@@ -7,6 +7,7 @@
 #include "crc32.h"
 #include "sha1.h"
 #include "hostpid.h"
+#include "mail-cache.h"
 #include "mail-storage-private.h"
 
 #include <time.h>
@@ -244,6 +245,19 @@ void mail_set_expunged(struct mail *mail)
 	mail_storage_set_error(mail->box->storage, MAIL_ERROR_EXPUNGED,
 			       "Message was expunged");
 	mail->expunged = TRUE;
+}
+
+bool mail_is_cached(struct mail *mail)
+{
+	return mail_cache_field_exists_any(mail->transaction->cache_view,
+					   mail->seq);
+}
+
+void mail_parse(struct mail *mail, bool parse_body)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	p->v.parse(mail, parse_body);
 }
 
 void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)

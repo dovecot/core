@@ -696,7 +696,8 @@ settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
 		if (parent_def == NULL) {
 			/* we'll get here with e.g. "plugin/a/b=val".
 			   not sure if we should ever do anything here.. */
-			if (strcmp(parent_link->full_key, parent_key) != 0)
+			if (parent_link->full_key == NULL ||
+			    strcmp(parent_link->full_key, parent_key) != 0)
 				return FALSE;
 		} else {
 			if (parent_def->type != SET_STRLIST)

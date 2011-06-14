@@ -348,8 +348,8 @@ director_cmd_is_seen(struct director_connection *conn,
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    str_to_uint(args[1], &port) < 0 ||
 	    str_to_uint(args[2], &seq) < 0) {
-		i_error("director(%s): Command is missing parameters",
-			conn->name);
+		i_error("director(%s): Command is missing parameters: %s",
+			conn->name, t_strarray_join(args, " "));
 		return -1;
 	}
 	*_args = args + 3;
@@ -472,6 +472,73 @@ director_cmd_host_flush(struct director_connection *conn,
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host != NULL)
 		director_flush_host(conn->dir, conn->host, dir_host, host);
+	return TRUE;
+}
+
+static bool
+director_cmd_user_move(struct director_connection *conn,
+		       const char *const *args)
+{
+	struct director_host *dir_host;
+	struct mail_host *host;
+	struct ip_addr ip;
+	unsigned int username_hash;
+	int ret;
+
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
+		return ret > 0;
+
+	if (str_array_length(args) != 2 ||
+	    str_to_uint(args[0], &username_hash) < 0 ||
+	    net_addr2ip(args[1], &ip) < 0) {
+		i_error("director(%s): Invalid USER-MOVE args", conn->name);
+		return FALSE;
+	}
+
+	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
+	if (host != NULL) {
+		director_move_user(conn->dir, conn->host, dir_host,
+				   username_hash, host);
+	}
+	return TRUE;
+}
+
+static bool
+director_cmd_user_killed(struct director_connection *conn,
+			 const char *const *args)
+{
+	unsigned int username_hash;
+
+	if (str_array_length(args) != 1 ||
+	    str_to_uint(args[0], &username_hash) < 0) {
+		i_error("director(%s): Invalid USER-KILLED args", conn->name);
+		return FALSE;
+	}
+
+	director_user_killed(conn->dir, username_hash);
+	return TRUE;
+}
+
+static bool
+director_cmd_user_killed_everywhere(struct director_connection *conn,
+				    const char *const *args)
+{
+	struct director_host *dir_host;
+	unsigned int username_hash;
+	int ret;
+
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
+		return ret > 0;
+
+	if (str_array_length(args) != 1 ||
+	    str_to_uint(args[0], &username_hash) < 0) {
+		i_error("director(%s): Invalid USER-KILLED-EVERYWHERE args",
+			conn->name);
+		return FALSE;
+	}
+
+	director_user_killed_everywhere(conn->dir, conn->host,
+					dir_host, username_hash);
 	return TRUE;
 }
 
@@ -766,6 +833,12 @@ director_connection_handle_line(struct director_connection *conn,
 		return director_cmd_host_remove(conn, args);
 	if (strcmp(cmd, "HOST-FLUSH") == 0)
 		return director_cmd_host_flush(conn, args);
+	if (strcmp(cmd, "USER-MOVE") == 0)
+		return director_cmd_user_move(conn, args);
+	if (strcmp(cmd, "USER-KILLED") == 0)
+		return director_cmd_user_killed(conn, args);
+	if (strcmp(cmd, "USER-KILLED-EVERYWHERE") == 0)
+		return director_cmd_user_killed_everywhere(conn, args);
 	if (strcmp(cmd, "DIRECTOR") == 0)
 		return director_cmd_director(conn, args);
 	if (strcmp(cmd, "SYNC") == 0)

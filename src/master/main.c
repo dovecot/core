@@ -440,11 +440,14 @@ static void main_init(const struct master_settings *set)
 	lib_signals_init();
         lib_signals_ignore(SIGPIPE, TRUE);
         lib_signals_ignore(SIGALRM, FALSE);
-        lib_signals_set_handler(SIGHUP, TRUE, sig_settings_reload, NULL);
-        lib_signals_set_handler(SIGUSR1, TRUE, sig_log_reopen, NULL);
-        lib_signals_set_handler(SIGCHLD, TRUE, sig_reap_children, NULL);
-        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
-	lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
+	lib_signals_set_handler(SIGHUP, LIBSIG_FLAGS_SAFE,
+				sig_settings_reload, NULL);
+	lib_signals_set_handler(SIGUSR1, LIBSIG_FLAGS_SAFE,
+				sig_log_reopen, NULL);
+	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
+				sig_reap_children, NULL);
+        lib_signals_set_handler(SIGINT, LIBSIG_FLAGS_SAFE, sig_die, NULL);
+	lib_signals_set_handler(SIGTERM, LIBSIG_FLAGS_SAFE, sig_die, NULL);
 
 	create_pid_file(pidfile_path);
 	create_config_symlink(set);

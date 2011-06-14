@@ -1067,6 +1067,7 @@ int index_mail_get_special(struct mail *_mail,
 	case MAIL_FETCH_SEARCH_SCORE:
 	case MAIL_FETCH_GUID:
 	case MAIL_FETCH_HEADER_MD5:
+	case MAIL_FETCH_POP3_ORDER:
 		*value_r = "";
 		return 0;
 	case MAIL_FETCH_MAILBOX_NAME:
@@ -1549,6 +1550,19 @@ void index_mail_expunge(struct mail *mail)
 		mail_generate_guid_128_hash(value, guid_128);
 		mail_index_expunge_guid(mail->transaction->itrans,
 					mail->seq, guid_128);
+	}
+}
+
+void index_mail_parse(struct mail *mail, bool parse_body)
+{
+	struct index_mail *imail = (struct index_mail *)mail;
+
+	imail->data.access_part |= PARSE_HDR;
+	if (index_mail_parse_headers(imail, NULL) == 0) {
+		if (parse_body) {
+			imail->data.access_part |= PARSE_BODY;
+			(void)index_mail_parse_body(imail, 0);
+		}
 	}
 }
 

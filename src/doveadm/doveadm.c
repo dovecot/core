@@ -316,6 +316,7 @@ int main(int argc, char *argv[])
 	} else {
 		quick_init = FALSE;
 		doveadm_register_director_commands();
+		doveadm_register_proxy_commands();
 		doveadm_register_log_commands();
 		doveadm_dump_init();
 		doveadm_mail_init();

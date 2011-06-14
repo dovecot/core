@@ -140,7 +140,8 @@ none_list_iter_init(struct mailbox_list *list,
 	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns, TRUE,
 						 mail_namespace_get_sep(list->ns));
 	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
-	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    imap_match(ctx->ctx.glob, "INBOX") == IMAP_MATCH_YES) {
 		ctx->list_inbox = TRUE;
 		ctx->inbox_info.ns = list->ns;
 		ctx->inbox_info.name = "INBOX";

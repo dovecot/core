@@ -91,7 +91,8 @@ void child_wait_init(void)
 	child_pids = hash_table_create(default_pool, default_pool, 0,
 				       NULL, NULL);
 
-	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
+				sigchld_handler, NULL);
 }
 
 void child_wait_deinit(void)

@@ -160,7 +160,8 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 			(void)uni_utf8_to_decomposed_titlecase(data, size,
 							       ctx->dest);
 		} else {
-			buffer_append(ctx->dest, data, size);
+			if (uni_utf8_get_valid_data(data, size, ctx->dest))
+				buffer_append(ctx->dest, data, size);
 		}
 		return TRUE;
 	}

@@ -48,6 +48,11 @@ enum maildir_uidlist_rec_ext_key {
 	MAILDIR_UIDLIST_REC_EXT_VSIZE		= 'W',
 	/* POP3 UIDL overriding the default format */
 	MAILDIR_UIDLIST_REC_EXT_POP3_UIDL	= 'P',
+	/* POP3 message ordering number. Lower numbered messages are listed
+	   first. Messages without ordering number are listed after them.
+	   The idea is to be able to preserve POP3 UIDL list and IMAP UIDs
+	   perfectly when migrating from other servers. */
+	MAILDIR_UIDLIST_REC_EXT_POP3_ORDER	= 'O',
 	/* Message GUID (default is the base filename) */
 	MAILDIR_UIDLIST_REC_EXT_GUID		= 'G'
 };

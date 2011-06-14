@@ -14,6 +14,7 @@
 #include "master-login.h"
 #include "master-interface.h"
 #include "var-expand.h"
+#include "mail-error.h"
 #include "mail-user.h"
 #include "mail-storage-service.h"
 
@@ -88,14 +89,18 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			 int fd_in, int fd_out, const buffer_t *input_buf,
 			 const char **error_r)
 {
+	const char *lookup_error_str =
+		"-ERR [IN-USE] "MAIL_ERRSTR_CRITICAL_MSG"\r\n";
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct client *client;
 	const struct pop3_settings *set;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
-					     &user, &mail_user, error_r) <= 0)
+					     &user, &mail_user, error_r) <= 0) {
+		(void)write(fd_out, lookup_error_str, strlen(lookup_error_str));
 		return -1;
+	}
 	restrict_access_allow_coredumps(TRUE);
 
 	set = mail_storage_service_user_get_set(user)[1];

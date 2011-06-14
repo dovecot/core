@@ -4,14 +4,19 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "ipc-client.h"
 #include "user-directory.h"
 #include "mail-host.h"
 #include "director-host.h"
 #include "director-connection.h"
 #include "director.h"
 
+#define DIRECTOR_IPC_PROXY_PATH "ipc"
+
 #define DIRECTOR_RECONNECT_RETRY_SECS 60
 #define DIRECTOR_RECONNECT_TIMEOUT_MSECS (30*1000)
+#define DIRECTOR_USER_MOVE_TIMEOUT_MSECS (30*1000)
+#define DIRECTOR_USER_MOVE_FINISH_DELAY_MSECS (2*1000)
 
 static bool director_is_self_ip_set(struct director *dir)
 {
@@ -346,6 +351,209 @@ void director_update_user(struct director *dir, struct director_host *src,
 		net_ip2addr(&user->host->ip)));
 }
 
+struct director_user_kill_finish_ctx {
+	struct director *dir;
+	struct user *user;
+};
+
+static void
+director_user_kill_finish_delayed_to(struct director_user_kill_finish_ctx *ctx)
+{
+	i_assert(ctx->user->kill_state == USER_KILL_STATE_DELAY);
+
+	ctx->user->kill_state = USER_KILL_STATE_NONE;
+	timeout_remove(&ctx->user->to_move);
+
+	ctx->dir->state_change_callback(ctx->dir);
+	i_free(ctx);
+}
+
+static void
+director_user_kill_finish_delayed(struct director *dir, struct user *user)
+{
+	struct director_user_kill_finish_ctx *ctx;
+
+	ctx = i_new(struct director_user_kill_finish_ctx, 1);
+	ctx->dir = dir;
+	ctx->user = user;
+
+	user->kill_state = USER_KILL_STATE_DELAY;
+	timeout_remove(&user->to_move);
+
+	user->to_move = timeout_add(DIRECTOR_USER_MOVE_FINISH_DELAY_MSECS,
+				    director_user_kill_finish_delayed_to, ctx);
+}
+
+struct director_kill_context {
+	struct director *dir;
+	unsigned int username_hash;
+	bool self;
+};
+
+static void
+director_finish_user_kill(struct director *dir, struct user *user, bool self)
+{
+	if (dir->right == NULL || dir->right == dir->left) {
+		/* we're alone */
+		director_user_kill_finish_delayed(dir, user);
+	} else if (self ||
+		   user->kill_state == USER_KILL_STATE_KILLING_NOTIFY_RECEIVED) {
+		director_connection_send(dir->right, t_strdup_printf(
+			"USER-KILLED\t%u\n", user->username_hash));
+		user->kill_state = USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE;
+	} else {
+		i_assert(user->kill_state == USER_KILL_STATE_KILLING);
+		user->kill_state = USER_KILL_STATE_KILLED_WAITING_FOR_NOTIFY;
+	}
+}
+
+static void director_kill_user_callback(enum ipc_client_cmd_state state,
+					const char *data, void *context)
+{
+	struct director_kill_context *ctx = context;
+	struct user *user;
+
+	switch (state) {
+	case IPC_CLIENT_CMD_STATE_REPLY:
+		return;
+	case IPC_CLIENT_CMD_STATE_OK:
+		break;
+	case IPC_CLIENT_CMD_STATE_ERROR:
+		i_error("Failed to kill user %u connections: %s",
+			ctx->username_hash, data);
+		/* we can't really do anything but continue anyway */
+		break;
+	}
+
+	user = user_directory_lookup(ctx->dir->users, ctx->username_hash);
+	if (user == NULL || user->kill_state == USER_KILL_STATE_NONE)
+		return;
+
+	director_finish_user_kill(ctx->dir, user, ctx->self);
+}
+
+static void director_user_move_timeout(struct user *user)
+{
+	i_error("Finishing user %u move timed out, "
+		"its state may now be inconsistent", user->username_hash);
+
+	user->kill_state = USER_KILL_STATE_NONE;
+	timeout_remove(&user->to_move);
+}
+
+void director_move_user(struct director *dir, struct director_host *src,
+			struct director_host *orig_src,
+			unsigned int username_hash, struct mail_host *host)
+{
+	struct user *user;
+	const char *cmd;
+	struct director_kill_context *ctx;
+
+	/* 1. move this user's host, and set its "killing" flag to delay all of
+	   its future connections until all directors have killed the
+	   connections and notified us about it.
+
+	   2. tell the other directors about the move
+
+	   3. once user kill callback is called, tell the other directors
+	   with USER-KILLED that we're done killing the user.
+
+	   4. when some director gets a duplicate USER-KILLED, it's
+	   responsible for notifying all directors that user is completely
+	   killed.
+
+	   5. after receiving USER-KILLED-EVERYWHERE notification,
+	   new connections are again allowed for the user.
+	*/
+	user = user_directory_lookup(dir->users, username_hash);
+	if (user == NULL) {
+		user = user_directory_add(dir->users, username_hash,
+					  host, ioloop_time);
+	} else {
+		if (user->host == host) {
+			/* user is already in this host */
+			return;
+		}
+		user->host->user_count--;
+		user->host = host;
+		user->host->user_count++;
+		user->timestamp = ioloop_time;
+	}
+	if (user->kill_state == USER_KILL_STATE_NONE) {
+		ctx = i_new(struct director_kill_context, 1);
+		ctx->dir = dir;
+		ctx->username_hash = username_hash;
+		ctx->self = src->self;
+
+		user->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,
+					    director_user_move_timeout, user);
+		user->kill_state = USER_KILL_STATE_KILLING;
+		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
+				      username_hash);
+		ipc_client_cmd(dir->ipc_proxy, cmd,
+			       director_kill_user_callback, ctx);
+	}
+
+	if (orig_src == NULL) {
+		orig_src = dir->self_host;
+		orig_src->last_seq++;
+	}
+	director_update_send(dir, src, t_strdup_printf(
+		"USER-MOVE\t%s\t%u\t%u\t%u\t%s\n",
+		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
+		user->username_hash, net_ip2addr(&user->host->ip)));
+}
+
+void director_user_killed(struct director *dir, unsigned int username_hash)
+{
+	struct user *user;
+
+	user = user_directory_lookup(dir->users, username_hash);
+	if (user == NULL)
+		return;
+
+	switch (user->kill_state) {
+	case USER_KILL_STATE_KILLING:
+		user->kill_state = USER_KILL_STATE_KILLING_NOTIFY_RECEIVED;
+		break;
+	case USER_KILL_STATE_KILLED_WAITING_FOR_NOTIFY:
+		director_finish_user_kill(dir, user, TRUE);
+		break;
+	case USER_KILL_STATE_NONE:
+	case USER_KILL_STATE_DELAY:
+	case USER_KILL_STATE_KILLING_NOTIFY_RECEIVED:
+		break;
+	case USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE:
+		director_user_killed_everywhere(dir, dir->self_host,
+						NULL, username_hash);
+		break;
+	}
+}
+
+void director_user_killed_everywhere(struct director *dir,
+				     struct director_host *src,
+				     struct director_host *orig_src,
+				     unsigned int username_hash)
+{
+	struct user *user;
+
+	user = user_directory_lookup(dir->users, username_hash);
+	if (user == NULL ||
+	    user->kill_state != USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE)
+		return;
+
+	director_user_kill_finish_delayed(dir, user);
+
+	if (orig_src == NULL) {
+		orig_src = dir->self_host;
+		orig_src->last_seq++;
+	}
+	director_update_send(dir, src, t_strdup_printf(
+		"USER-KILLED-EVERYWHERE\t%s\t%u\t%u\t%u\n",
+		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
+		user->username_hash));
+}
+
 void director_set_state_changed(struct director *dir)
 {
 	dir->state_change_callback(dir);
@@ -368,6 +576,7 @@ director_init(const struct director_settings *set,
 	      director_state_change_callback_t *callback)
 {
 	struct director *dir;
+	const char *path;
 
 	dir = i_new(struct director, 1);
 	dir->set = set;
@@ -378,6 +587,9 @@ director_init(const struct director_settings *set,
 	i_array_init(&dir->pending_requests, 16);
 	dir->users = user_directory_init(set->director_user_expire);
 	dir->mail_hosts = mail_hosts_init();
+
+	path = t_strconcat(set->base_dir, "/" DIRECTOR_IPC_PROXY_PATH, NULL);
+	dir->ipc_proxy = ipc_client_init(path);
 	return dir;
 }
 
@@ -392,6 +604,8 @@ void director_deinit(struct director **_dir)
 	user_directory_deinit(&dir->users);
 	mail_hosts_deinit(&dir->mail_hosts);
 	mail_hosts_deinit(&dir->orig_config_hosts);
+
+	ipc_client_deinit(&dir->ipc_proxy);
 	if (dir->to_reconnect != NULL)
 		timeout_remove(&dir->to_reconnect);
 	if (dir->to_handshake_warning != NULL)

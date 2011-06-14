@@ -102,9 +102,14 @@ bool director_request_continue(struct director_request *request)
 	}
 
 	user = user_directory_lookup(dir->users, request->username_hash);
-	if (user != NULL)
+	if (user != NULL) {
+		if (user->kill_state != USER_KILL_STATE_NONE) {
+			/* delay processing this user's connections until
+			   its existing connections have been killed */
+			return FALSE;
+		}
 		user_directory_refresh(dir->users, user);
-	else {
+	} else {
 		if (!dir->ring_synced) {
 			/* delay adding new users until ring is again synced */
 			ring_log_delayed_warning(dir);

@@ -103,6 +103,7 @@ enum mail_sort_type {
 	MAIL_SORT_SEARCH_SCORE	= 0x0080,
 	MAIL_SORT_DISPLAYFROM	= 0x0100,
 	MAIL_SORT_DISPLAYTO	= 0x0200,
+	MAIL_SORT_POP3_ORDER	= 0x0400,
 
 	MAIL_SORT_MASK		= 0x0fff,
 	MAIL_SORT_FLAG_REVERSE	= 0x1000, /* reverse this mask type */
@@ -136,7 +137,8 @@ enum mail_fetch_field {
 	MAIL_FETCH_UIDL_BACKEND		= 0x00040000,
 	MAIL_FETCH_MAILBOX_NAME		= 0x00080000,
 	MAIL_FETCH_SEARCH_SCORE		= 0x00100000,
-	MAIL_FETCH_GUID			= 0x00200000
+	MAIL_FETCH_GUID			= 0x00200000,
+	MAIL_FETCH_POP3_ORDER		= 0x00400000
 };
 
 enum mailbox_transaction_flags {
@@ -722,6 +724,12 @@ void mail_update_modseq(struct mail *mail, uint64_t min_modseq);
 void mail_update_pop3_uidl(struct mail *mail, const char *uidl);
 /* Expunge this message. Sequence numbers don't change until commit. */
 void mail_expunge(struct mail *mail);
+
+/* Returns TRUE if anything is cached for the mail, FALSE if not. */
+bool mail_is_cached(struct mail *mail);
+/* Parse mail's header and optionally body so that fields using them get
+   cached. */
+void mail_parse(struct mail *mail, bool parse_body);
 /* Mark a cached field corrupted and have it recalculated. */
 void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
 

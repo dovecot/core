@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm \- Dovecot\(aqs administration utility
 .\"------------------------------------------------------------------------
@@ -110,6 +110,11 @@ Repair broken mailboxes, in case Dovecot doesn\(aqt automatically do that.
 .B doveadm import
 .BR doveadm\-import (1),
 Import messages matching given search query.
+.\"-------------------------------------
+.TP
+.B doveadm index
+.BR doveadm\-index (1),
+Index messages in a given mailbox.
 .\"-------------------------------------
 .TP
 .B doveadm mailbox

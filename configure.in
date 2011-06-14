@@ -2704,6 +2704,7 @@ src/lmtp/Makefile
 src/dict/Makefile
 src/director/Makefile
 src/dns/Makefile
+src/ipc/Makefile
 src/imap/Makefile
 src/imap-login/Makefile
 src/login-common/Makefile

@@ -113,6 +113,7 @@ int doveadm_mailbox_find_and_sync(struct mail_user *user, const char *mailbox,
 		i_error("Syncing mailbox %s failed: %s", mailbox,
 			mailbox_get_last_error(*box_r, NULL));
 		mailbox_free(box_r);
+		mailbox_free(box_r);
 		return -1;
 	}
 	return 0;
@@ -192,6 +193,12 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 
 	i_set_failure_prefix(t_strdup_printf("doveadm(%s): ", input->username));
 
+	/* see if we want to execute this command via (another)
+	   doveadm server */
+	ret = doveadm_mail_server_user(ctx, input, error_r);
+	if (ret != 0)
+		return ret;
+
 	ret = mail_storage_service_lookup(ctx->storage_service, input,
 					  &service_user, &error);
 	if (ret <= 0) {
@@ -200,13 +207,6 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 						   error);
 		}
 		return ret;
-	}
-
-	if (doveadm_settings->doveadm_worker_count > 0 && !doveadm_server) {
-		/* execute this command via doveadm server */
-		ret = doveadm_mail_server_user(ctx, service_user, error_r);
-		mail_storage_service_user_free(&service_user);
-		return ret < 0 ? -1 : 1;
 	}
 
 	ret = mail_storage_service_next(ctx->storage_service, service_user,
@@ -223,19 +223,14 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	return 1;
 }
 
-void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			      char *argv[], const char *username,
+void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx, char *argv[],
+			      const struct mail_storage_service_input *input,
 			      enum mail_storage_service_flags service_flags)
 {
-	struct mail_storage_service_input input;
 	const char *error;
 	int ret;
 
-	if (username == NULL)
-		i_fatal("USER environment is missing and -u option not used");
-
-	memset(&input, 0, sizeof(input));
-	input.username = username;
+	i_assert(input->username != NULL);
 
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 service_flags);
@@ -243,7 +238,7 @@ void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
-	ret = doveadm_mail_next_user(ctx, &input, &error);
+	ret = doveadm_mail_next_user(ctx, input, &error);
 	if (ret < 0)
 		i_fatal("%s", error);
 	else if (ret == 0)
@@ -272,8 +267,8 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 service_flags);
-        lib_signals_set_handler(SIGINT, FALSE, sig_die, NULL);
-	lib_signals_set_handler(SIGTERM, FALSE, sig_die, NULL);
+        lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
+	lib_signals_set_handler(SIGTERM, 0, sig_die, NULL);
 
 	ctx->v.init(ctx, (const void *)argv);
 	if (hook_doveadm_mail_init != NULL)
@@ -339,11 +334,13 @@ doveadm_mail_cmd_deinit_noop(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED)
 }
 
 struct doveadm_mail_cmd_context *
-doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd)
+doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
+		      const struct doveadm_settings *set)
 {
 	struct doveadm_mail_cmd_context *ctx;
 
 	ctx = cmd->alloc();
+	ctx->set = set;
 	ctx->cmd = cmd;
 	if (ctx->v.init == NULL)
 		ctx->v.init = doveadm_mail_cmd_init_noop;
@@ -368,7 +365,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	if (doveadm_debug)
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
-	ctx = doveadm_mail_cmd_init(cmd);
+	ctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
 
 	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
 	username = getenv("USER");
@@ -413,7 +410,15 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	}
 
 	if (ctx->iterate_single_user) {
-		doveadm_mail_single_user(ctx, argv, username, service_flags);
+		struct mail_storage_service_input input;
+
+		if (username == NULL)
+			i_fatal("USER environment is missing and -u option not used");
+
+		memset(&input, 0, sizeof(input));
+		input.service = "doveadm";
+		input.username = username;
+		doveadm_mail_single_user(ctx, argv, &input, service_flags);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(ctx, argv, wildcard_user, service_flags);
@@ -565,6 +570,7 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_search,
 	&cmd_fetch,
 	&cmd_import,
+	&cmd_index,
 	&cmd_altmove,
 	&cmd_move,
 	&cmd_mailbox_list,

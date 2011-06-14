@@ -22,7 +22,7 @@
 #define SCRIPT_COMM_FD 3
 
 static const char **exec_args;
-static bool drop_privileges = FALSE;
+static bool drop_to_userdb_privileges = FALSE;
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -114,13 +114,13 @@ static void client_connected(struct master_service_connection *conn)
 	master_service_init_log(master_service,
 		t_strdup_printf("script-login(%s): ", input.username));
 
-	service_ctx = mail_storage_service_init(master_service, NULL, flags);
-	if (mail_storage_service_lookup(service_ctx, &input, &user, &error) <= 0)
-		i_fatal("%s", error);
-	mail_storage_service_restrict_setenv(service_ctx, user);
-
-	if (drop_privileges)
+	if (drop_to_userdb_privileges) {
+		service_ctx = mail_storage_service_init(master_service, NULL, flags);
+		if (mail_storage_service_lookup(service_ctx, &input, &user, &error) <= 0)
+			i_fatal("%s", error);
+		mail_storage_service_restrict_setenv(service_ctx, user);
 		restrict_access_by_env(getenv("HOME"), TRUE);
+	}
 
 	if (dup2(fd, STDIN_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'd':
-			drop_privileges = TRUE;
+			drop_to_userdb_privileges = TRUE;
 			break;
 		default:
 			return FATAL_DEFAULT;
@@ -200,12 +200,20 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	master_service_init_log(master_service, "script-login: ");
+
+	if (!drop_to_userdb_privileges &&
+	    (flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
+		/* drop to privileges defined by service settings */
+		restrict_access_by_env(NULL, FALSE);
+	}
+
 	master_service_init_finish(master_service);
 	master_service_set_service_count(master_service, 1);
 
-	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) != 0)
+	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) != 0) {
+		/* The last post-login script is calling us to finish login */
 		script_execute_finish();
-	else {
+	} else {
 		if (argv[0] == NULL)
 			i_fatal("Missing script path");
 		exec_args = i_new(const char *, argc + 2);

@@ -328,6 +328,13 @@ int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 		data[field] == view->cached_exists_value) ? 1 : 0;
 }
 
+bool mail_cache_field_exists_any(struct mail_cache_view *view, uint32_t seq)
+{
+	uint32_t reset_id;
+
+	return mail_cache_lookup_cur_offset(view->view, seq, &reset_id) != 0;
+}
+
 enum mail_cache_decision_type
 mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field_idx)
 {

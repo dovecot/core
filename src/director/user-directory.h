@@ -1,6 +1,25 @@
 #ifndef USER_DIRECTORY_H
 #define USER_DIRECTORY_H
 
+enum user_kill_state {
+	/* User isn't being killed */
+	USER_KILL_STATE_NONE,
+	/* We're still killing the user's connections */
+	USER_KILL_STATE_KILLING,
+	/* Like above, but our left side already announced it was finished
+	   with killing its user connections */
+	USER_KILL_STATE_KILLING_NOTIFY_RECEIVED,
+	/* We're done killing, but we have to wait for the left side to
+	   finish killing its user connections before sending USER-KILLED to
+	   our right side */
+	USER_KILL_STATE_KILLED_WAITING_FOR_NOTIFY,
+	/* We're done killing, but waiting for USER-KILLED-EVERYWHERE
+	   notification until this state gets reset. */
+	USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE,
+	/* Wait for a while for the user connections to actually die */
+	USER_KILL_STATE_DELAY
+};
+
 struct user {
 	/* sorted by time */
 	struct user *prev, *next;
@@ -12,6 +31,13 @@ struct user {
 	unsigned int timestamp;
 
 	struct mail_host *host;
+
+	/* Move timeout to make sure user's connections won't silently hang
+	   indefinitely if there is some trouble moving it. */
+	struct timeout *to_move;
+	/* If not USER_KILL_STATE_NONE, don't allow new connections until all
+	   directors have killed the user's connections. */
+	enum user_kill_state kill_state;
 };
 
 /* Create a new directory. Users are dropped if their time gets older

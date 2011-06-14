@@ -68,14 +68,31 @@ struct user *
 user_directory_add(struct user_directory *dir, unsigned int username_hash,
 		   struct mail_host *host, time_t timestamp)
 {
-	struct user *user;
+	struct user *user, *pos;
 
 	user = i_new(struct user, 1);
 	user->username_hash = username_hash;
 	user->host = host;
 	user->host->user_count++;
 	user->timestamp = timestamp;
-	DLLIST2_APPEND(&dir->head, &dir->tail, user);
+
+	if (dir->tail == NULL || (time_t)dir->tail->timestamp <= timestamp)
+		DLLIST2_APPEND(&dir->head, &dir->tail, user);
+	else {
+		/* need to insert to correct position */
+		for (pos = dir->tail; pos != NULL; pos = pos->prev) {
+			if ((time_t)pos->timestamp <= timestamp)
+				break;
+		}
+		if (pos == NULL)
+			DLLIST2_PREPEND(&dir->head, &dir->tail, user);
+		else {
+			user->prev = pos;
+			user->next = pos->next;
+			user->prev->next = user;
+			user->next->prev = user;
+		}
+	}
 
 	hash_table_insert(dir->hash, POINTER_CAST(user->username_hash), user);
 	return user;
@@ -105,6 +122,8 @@ void user_directory_remove_host(struct user_directory *dir,
 
 unsigned int user_directory_get_username_hash(const char *username)
 {
+	/* NOTE: If you modify this, modify also
+	   director_username_hash() in login-common/login-proxy.c */
 	unsigned char md5[MD5_RESULTLEN];
 	unsigned int i, hash = 0;
 

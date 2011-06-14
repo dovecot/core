@@ -130,8 +130,12 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) T_BEGIN {
 		if (mailbox_list_subscription_fill_one(dest_list, name) < 0) {
 			i_warning("Subscriptions file %s: "
-				  "Ignoring invalid entry: %s",
+				  "Removing invalid entry: %s",
 				  path, name);
+			(void)subsfile_set_subscribed(dest_list, path,
+				mailbox_list_get_temp_prefix(dest_list),
+				name, FALSE);
+
 		}
 	} T_END;
 

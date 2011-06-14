@@ -43,6 +43,7 @@ struct director {
 	/* director hosts are sorted by IP (and port) */
 	ARRAY_DEFINE(dir_hosts, struct director_host *);
 
+	struct ipc_client *ipc_proxy;
 	unsigned int sync_seq;
 
 	/* director ring handshaking is complete.
@@ -83,6 +84,14 @@ void director_flush_host(struct director *dir, struct director_host *src,
 			 struct mail_host *host);
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user);
+void director_move_user(struct director *dir, struct director_host *src,
+			struct director_host *orig_src,
+			unsigned int username_hash, struct mail_host *host);
+void director_user_killed(struct director *dir, unsigned int username_hash);
+void director_user_killed_everywhere(struct director *dir,
+				     struct director_host *src,
+				     struct director_host *orig_src,
+				     unsigned int username_hash);
 
 void director_sync_freeze(struct director *dir);
 void director_sync_thaw(struct director *dir);

@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "unichar.h"
 #include "istream.h"
 #include "time-util.h"
 #include "rfc822-parser.h"
@@ -80,6 +81,8 @@ static int fts_build_mail_flush_headers(struct fts_storage_build_context *ctx)
 {
 	if (str_len(ctx->headers) == 0)
 		return 0;
+
+	i_assert(uni_utf8_data_is_valid(ctx->headers->data, ctx->headers->used));
 
 	fts_backend_build_hdr(ctx->build, ctx->uid);
 	if (fts_backend_build_more(ctx->build, str_data(ctx->headers),

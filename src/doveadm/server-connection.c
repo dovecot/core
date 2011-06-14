@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "base64.h"
 #include "ioloop.h"
 #include "network.h"
 #include "istream.h"
@@ -11,6 +12,7 @@
 #include "doveadm-print.h"
 #include "doveadm-util.h"
 #include "doveadm-server.h"
+#include "doveadm-settings.h"
 #include "server-connection.h"
 
 #include <unistd.h>
@@ -149,10 +151,28 @@ server_handle_input(struct server_connection *conn,
 	i_stream_skip(conn->input, size);
 }
 
-static void
-server_connection_authenticate(struct server_connection *conn ATTR_UNUSED)
+static int
+server_connection_authenticate(struct server_connection *conn)
 {
-	i_fatal("Authentication not supported yet");
+	string_t *plain = t_str_new(128);
+	string_t *cmd = t_str_new(128);
+
+	if (*doveadm_settings->doveadm_password == '\0') {
+		i_error("doveadm_password not set, can't authenticate");
+		return -1;
+	}
+
+	str_append_c(plain, '\0');
+	str_append(plain, "doveadm");
+	str_append_c(plain, '\0');
+	str_append(plain, doveadm_settings->doveadm_password);
+
+	str_append(cmd, "PLAIN\t");
+	base64_encode(plain->data, plain->used, cmd);
+	str_append_c(cmd, '\n');
+
+	o_stream_send(conn->output, cmd->data, cmd->used);
+	return 0;
 }
 
 static void server_connection_input(struct server_connection *conn)
@@ -171,9 +191,12 @@ static void server_connection_input(struct server_connection *conn)
 		conn->handshaked = TRUE;
 		if (strcmp(line, "+") == 0)
 			conn->authenticated = TRUE;
-		else if (strcmp(line, "-") == 0)
-			server_connection_authenticate(conn);
-		else {
+		else if (strcmp(line, "-") == 0) {
+			if (server_connection_authenticate(conn) < 0) {
+				server_connection_destroy(&conn);
+				return;
+			}
+		} else {
 			i_error("doveadm server sent invalid handshake: %s",
 				line);
 			server_connection_destroy(&conn);
@@ -189,6 +212,18 @@ static void server_connection_input(struct server_connection *conn)
 	data = i_stream_get_data(conn->input, &size);
 	if (size == 0)
 		return;
+
+	if (!conn->authenticated) {
+		if ((line = i_stream_next_line(conn->input)) != NULL)
+			return;
+		if (strcmp(line, "+") == 0)
+			conn->authenticated = TRUE;
+		else {
+			i_error("doveadm authentication failed (%s)", line+1);
+			server_connection_destroy(&conn);
+			return;
+		}
+	}
 
 	switch (conn->state) {
 	case SERVER_REPLY_STATE_DONE:

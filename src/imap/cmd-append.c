@@ -24,6 +24,7 @@ struct cmd_append_context {
 	struct mail_storage *storage;
 	struct mailbox *box;
         struct mailbox_transaction_context *t;
+	time_t started;
 
 	struct istream *input;
 	uoff_t msg_size;
@@ -40,10 +41,26 @@ static void cmd_append_finish(struct cmd_append_context *ctx);
 static bool cmd_append_continue_message(struct client_command_context *cmd);
 static bool cmd_append_continue_parsing(struct client_command_context *cmd);
 
+static const char *get_disconnect_reason(struct cmd_append_context *ctx)
+{
+	string_t *str = t_str_new(128);
+	unsigned int secs = ioloop_time - ctx->started;
+
+	str_printfa(str, "Disconnected in APPEND (%u msgs, %u secs",
+		    ctx->count, secs);
+	if (ctx->input != NULL) {
+		str_printfa(str, ", %"PRIuUOFF_T"/%"PRIuUOFF_T" bytes",
+			    ctx->input->v_offset, ctx->msg_size);
+	}
+	str_append_c(str, ')');
+	return str_c(str);
+}
+
 static void client_input_append(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 	struct client *client = cmd->client;
+	const char *reason;
 	bool finished;
 
 	i_assert(!client->destroyed);
@@ -54,11 +71,12 @@ static void client_input_append(struct client_command_context *cmd)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
+		reason = get_disconnect_reason(ctx);
 		cmd_append_finish(cmd->context);
 		/* Reset command so that client_destroy() doesn't try to call
 		   cmd_append_continue_message() anymore. */
 		client_command_free(&cmd);
-		client_destroy(client, "Disconnected in APPEND");
+		client_destroy(client, reason);
 		return;
 	case -2:
 		if (ctx->message_input) {
@@ -468,6 +486,7 @@ bool cmd_append(struct client_command_context *cmd)
 	ctx = p_new(cmd->pool, struct cmd_append_context, 1);
 	ctx->cmd = cmd;
 	ctx->client = client;
+	ctx->started = ioloop_time;
 	if (client_open_save_dest_box(cmd, mailbox, &ctx->box) < 0)
 		ctx->failed = TRUE;
 	else {

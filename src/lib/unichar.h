@@ -35,6 +35,8 @@ unsigned int uni_strlen(const unichar_t *str) ATTR_PURE;
 /* Translates UTF-8 input to UCS-4 output. Returns 0 if ok, -1 if input was
    invalid */
 int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output);
+int uni_utf8_to_ucs4_n(const unsigned char *input, size_t size,
+		       ARRAY_TYPE(unichars) *output);
 /* Translates UCS-4 input to UTF-8 output. */
 void uni_ucs4_to_utf8(const unichar_t *input, size_t len, buffer_t *output);
 void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output);

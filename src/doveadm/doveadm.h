@@ -34,6 +34,7 @@ void help(const struct doveadm_cmd *cmd) ATTR_NORETURN;
 void doveadm_master_send_signal(int signo);
 
 void doveadm_register_director_commands(void);
+void doveadm_register_proxy_commands(void);
 void doveadm_register_log_commands(void);
 
 #endif

@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DIRECTOR 1 "2010-07-16" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-DIRECTOR 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-director \- Manage Dovecot directors
 .\"------------------------------------------------------------------------
@@ -23,6 +23,10 @@ doveadm\-director \- Manage Dovecot directors
 .BR doveadm " [" \-Dv "] " "director remove"
 [\fB\-a\fP \fIdirector_socket_path\fP]
 .I host
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "director dump"
+[\fB\-a\fP \fIdirector_socket_path\fP]
 .\"-------------------------------------
 .br
 .BR doveadm " [" \-Dv "] " "director status"
@@ -138,9 +142,17 @@ given
 [\fB\-a\fP \fIdirector_socket_path\fP]
 .I host
 .PP
-Use this command in oder to remove the given
+Use this command in order to remove the given
 .I host
 from the director.
+.\"-------------------------------------
+.SS director dump
+.B doveadm director dump
+[\fB\-a\fP \fIdirector_socket_path\fP]
+.PP
+Dump the current host configuration as doveadm commands. These commands can
+be easily run after a full director cluster restart to get back to the
+dumped state.
 .\"-------------------------------------
 .SS director status
 .B doveadm director status

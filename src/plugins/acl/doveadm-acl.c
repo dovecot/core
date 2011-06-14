@@ -351,6 +351,50 @@ cmd_acl_delete_alloc(void)
 	return ctx;
 }
 
+static int
+cmd_acl_debug_mailbox_open(struct mail_user *user, const char *mailbox,
+			   struct mailbox **box_r)
+{
+	struct acl_user *auser = ACL_USER_CONTEXT(user);
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	const char *path, *errstr;
+	enum mail_error error;
+
+	ns = mail_namespace_find(user->namespaces, mailbox);
+	if (ns == NULL) {
+		i_error("No namespace found for mailbox %s", mailbox);
+		return -1;
+	}
+	box = mailbox_alloc(ns->list, mailbox,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT |
+			    MAILBOX_FLAG_IGNORE_ACLS);
+	if (mailbox_open(box) < 0) {
+		path = mailbox_list_get_path(ns->list, box->name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		errstr = mail_storage_get_last_error(box->storage, &error);
+		if (error != MAIL_ERROR_NOTFOUND ||
+		    path == NULL || *path == '\0')
+			i_error("Can't open mailbox %s: %s", mailbox, errstr);
+		else {
+			i_error("Mailbox '%s' doesn't exist in %s",
+				mailbox, path);
+		}
+		mailbox_free(&box);
+		return -1;
+	}
+
+	if (auser == NULL) {
+		i_info("ACL not enabled for user %s, mailbox can be accessed",
+		       user->username);
+		mailbox_free(&box);
+		return -1;
+	}
+
+	*box_r = box;
+	return 0;
+}
+
 static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 {
 	struct mail_namespace *ns = mailbox_get_namespace(box);
@@ -456,7 +500,7 @@ cmd_acl_debug_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 	struct mailbox *box;
 	bool ret, retry;
 
-	if (cmd_acl_mailbox_open(user, mailbox, &box) < 0)
+	if (cmd_acl_debug_mailbox_open(user, mailbox, &box) < 0)
 		return;
 
 	ret = cmd_acl_debug_mailbox(box, &retry);
