@@ -159,7 +159,9 @@ enum mailbox_sync_flags {
 	   flag for plugins. */
 	MAILBOX_SYNC_FLAG_EXPUNGE		= 0x80,
 	/* Force doing a full resync of indexes. */
-	MAILBOX_SYNC_FLAG_FORCE_RESYNC		= 0x100
+	MAILBOX_SYNC_FLAG_FORCE_RESYNC		= 0x100,
+	/* Add all missing data to cache and fts index ("doveadm index") */
+	MAILBOX_SYNC_FLAG_PRECACHE		= 0x200
 };
 
 enum mailbox_sync_type {
