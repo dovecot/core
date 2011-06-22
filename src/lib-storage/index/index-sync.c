@@ -383,9 +383,11 @@ static int cache_add(struct mailbox *box, const struct mailbox_status *status,
 	uoff_t size;
 	const char *str;
 
-	if (box->storage->set->mail_debug) {
-		i_debug("%s: Nothing in mailbox cache, skipping",
-			mailbox_get_vname(box));
+	if (cache == 0) {
+		if (box->storage->set->mail_debug) {
+			i_debug("%s: Nothing in mailbox cache, skipping",
+				mailbox_get_vname(box));
+		}
 		return 0;
 	}
 
