@@ -576,10 +576,14 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 
 	i_assert(uni_utf8_str_is_valid(vname));
 
-	if (strcasecmp(vname, "INBOX") == 0 &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    strncasecmp(vname, "INBOX", 5) == 0 &&
+	    strncmp(vname, "INBOX", 5) != 0) {
 		/* make sure INBOX shows up in uppercase everywhere */
-		vname = "INBOX";
+		if (vname[5] == '\0')
+			vname = "INBOX";
+		else if (vname[5] == mail_namespace_get_sep(list->ns))
+			vname = t_strconcat("INBOX", vname + 5, NULL);
 	}
 
 	if (mailbox_list_get_storage(&new_list, vname, &storage) < 0) {
