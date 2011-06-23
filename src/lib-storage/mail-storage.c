@@ -673,7 +673,7 @@ static int mailbox_check_mismatching_separators(struct mailbox *box)
 	for (p = vname; *p != '\0'; p++) {
 		if (*p == list_sep) {
 			mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				t_strdup_printf("NO Character not allowed "
+				t_strdup_printf("Character not allowed "
 						"in mailbox name: '%c'",
 						list_sep));
 			return -1;
