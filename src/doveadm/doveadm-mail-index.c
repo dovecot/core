@@ -22,8 +22,7 @@ cmd_index_box(const struct mailbox_info *info)
 			 MAILBOX_SYNC_FLAG_PRECACHE) < 0) {
 		i_error("Syncing mailbox %s failed: %s", info->name,
 			mail_storage_get_last_error(mailbox_get_storage(box), NULL));
-		mailbox_free(&box);
-		return -1;
+		ret = -1;
 	}
 
 	mailbox_free(&box);
