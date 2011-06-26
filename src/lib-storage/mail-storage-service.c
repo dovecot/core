@@ -107,8 +107,7 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 {
 	struct setting_parser_context *set_parser = user->set_parser;
 	bool mail_debug;
-	const char *key, *orig_key;
-	bool append = FALSE;
+	const char *key, *orig_key, *append_value = NULL;
 	int ret;
 
 	mail_debug = mail_user_set_get_mail_debug(user->user_info,
@@ -118,8 +117,9 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 	orig_key = key = t_strcut(line, '=');
 
 	if (*key == '+') {
+		append_value = line + strlen(key) + 1;
 		key++;
-		append = TRUE;
+		line++;
 	}
 
 	if (!settings_parse_is_valid_key(set_parser, key)) {
@@ -137,14 +137,17 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 		return 1;
 	}
 
-	if (append) {
+	if (append_value != NULL) {
 		const void *value;
 		enum setting_type type;
 
 		value = settings_parse_get_value(set_parser, key, &type);
-		if (type == SET_STR)
-			line = t_strconcat(line, value, NULL);
-		else {
+		if (type == SET_STR) {
+			const char *const *strp = value;
+
+			line = t_strdup_printf("%s=%s%s",
+					       key, *strp, append_value);
+		} else {
 			i_error("Ignoring %s userdb setting. "
 				"'+' can only be used for strings.", orig_key);
 		}
