@@ -108,6 +108,7 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 	struct setting_parser_context *set_parser = user->set_parser;
 	bool mail_debug;
 	const char *key, *orig_key, *append_value = NULL;
+	unsigned int len;
 	int ret;
 
 	mail_debug = mail_user_set_get_mail_debug(user->user_info,
@@ -116,9 +117,11 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 		line = t_strconcat(line, "=yes", NULL);
 	orig_key = key = t_strcut(line, '=');
 
-	if (*key == '+') {
-		append_value = line + strlen(key) + 1;
-		key++;
+	len = strlen(key);
+	if (len > 0 && key[len-1] == '+') {
+		/* key+=value */
+		append_value = line + len + 1;
+		key = t_strndup(key, len-1);
 		line++;
 	}
 
