@@ -19,4 +19,7 @@ void str_tabescape_write(string_t *dest, const char *src);
 void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size);
 char *str_tabunescape(char *str);
 
+char **p_strsplit_tabescaped(pool_t pool, const char *str);
+const char *const *t_strsplit_tabescaped(const char *str);
+
 #endif
