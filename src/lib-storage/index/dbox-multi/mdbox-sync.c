@@ -137,6 +137,9 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
 		/* newly created index file */
+		mail_storage_set_critical(box->storage,
+			"Mailbox %s: Corrupted index, uidvalidity=0",
+			box->vname);
 		return 0;
 	}
 
