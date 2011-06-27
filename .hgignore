@@ -69,6 +69,8 @@ src/doveadm/doveadm-server
 src/dsync/dsync
 src/imap-login/imap-login
 src/imap/imap
+src/indexer/indexer
+src/indexer/indexer-worker
 src/ipc/ipc
 src/lib/unicodemap.c
 src/lib/UnicodeData.txt

@@ -25,6 +25,7 @@ SUBDIRS = \
 	auth \
 	dict \
 	dns \
+	indexer \
 	ipc \
 	master \
 	login-common \
