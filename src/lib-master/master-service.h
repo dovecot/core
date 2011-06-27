@@ -76,6 +76,11 @@ void master_service_set_die_with_master(struct master_service *service,
    done forcibly. If NULL, the service is stopped immediately. */
 void master_service_set_die_callback(struct master_service *service,
 				     void (*callback)(void));
+/* "idle callback" is called when master thinks we're idling and asks us to
+   die. We'll do it only if the idle callback returns TRUE. This callback isn't
+   even called if the master service code knows that we're handling clients. */
+void master_service_set_idle_die_callback(struct master_service *service,
+					  bool (*callback)(void));
 /* Call the given callback when there are no available connections and master
    has indicated that it can't create any more processes to handle requests.
    The callback could decide to kill one of the existing connections. */

@@ -40,6 +40,7 @@ struct master_service {
 	time_t last_sent_status_time;
 	struct timeout *to_status;
 
+	bool (*idle_die_callback)(void);
 	void (*die_callback)(void);
 	struct timeout *to_die;
 

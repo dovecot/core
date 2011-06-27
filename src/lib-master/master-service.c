@@ -67,6 +67,10 @@ static void sig_die(const siginfo_t *si, void *context)
 		if (service->master_status.available_count !=
 		    service->total_available_count)
 			return;
+
+		if (service->idle_die_callback != NULL &&
+		    !service->idle_die_callback())
+			return;
 	}
 
 	service->killed = TRUE;
@@ -269,6 +273,12 @@ void master_service_set_die_callback(struct master_service *service,
 				     void (*callback)(void))
 {
 	service->die_callback = callback;
+}
+
+void master_service_set_idle_die_callback(struct master_service *service,
+					  bool (*callback)(void))
+{
+	service->idle_die_callback = callback;
 }
 
 bool master_service_parse_option(struct master_service *service,
