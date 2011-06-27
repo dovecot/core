@@ -293,8 +293,6 @@ imap_search_##_func(struct mail_search_build_context *ctx) \
 }
 CALLBACK_BODY(body, SEARCH_BODY);
 CALLBACK_BODY(text, SEARCH_TEXT);
-CALLBACK_BODY(x_body_fast, SEARCH_BODY_FAST);
-CALLBACK_BODY(x_text_fast, SEARCH_TEXT_FAST);
 
 static struct mail_search_arg *
 arg_new_interval(struct mail_search_build_context *ctx,
@@ -526,8 +524,6 @@ const struct mail_search_register_arg imap_register_args[] = {
 	/* body */
 	{ "BODY", imap_search_body },
 	{ "TEXT", imap_search_text },
-	{ "X-BODY-FAST", imap_search_x_body_fast },
-	{ "X-TEXT-FAST", imap_search_x_text_fast },
 
 	/* WITHIN extension: */
 	{ "OLDER", imap_search_older },

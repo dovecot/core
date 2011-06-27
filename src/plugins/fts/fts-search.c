@@ -43,8 +43,6 @@ static void fts_uid_results_to_seq(struct fts_search_context *fctx)
 static int fts_search_lookup_arg(struct fts_search_context *fctx,
 				 struct mail_search_arg *arg)
 {
-	struct fts_backend *backend;
-	struct fts_backend_lookup_context **lookup_ctx_p;
 	enum fts_lookup_flags flags = 0;
 	const char *key;
 
@@ -54,7 +52,6 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 		/* we can filter out messages that don't have the header,
 		   but we can't trust definite results list. */
 		flags = FTS_LOOKUP_FLAG_HEADER;
-		backend = fctx->fbox->backend_substr;
 		key = arg->value.str;
 		if (*key == '\0') {
 			/* we're only checking the existence
@@ -63,18 +60,10 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 		}
 		break;
 	case SEARCH_TEXT:
-	case SEARCH_TEXT_FAST:
 		flags = FTS_LOOKUP_FLAG_HEADER;
 	case SEARCH_BODY:
-	case SEARCH_BODY_FAST:
 		flags |= FTS_LOOKUP_FLAG_BODY;
 		key = arg->value.str;
-		backend = fctx->fbox->backend_fast != NULL &&
-			(arg->type == SEARCH_TEXT_FAST ||
-			 arg->type == SEARCH_BODY_FAST) ?
-			fctx->fbox->backend_fast : fctx->fbox->backend_substr;
-		if (backend == NULL)
-			return 0;
 		break;
 	default:
 		/* can't filter this */
@@ -83,25 +72,19 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 	if (arg->not)
 		flags |= FTS_LOOKUP_FLAG_INVERT;
 
-	if (!backend->locked && fts_backend_lock(backend) <= 0)
+	if (!fctx->fbox->backend->locked &&
+	    fts_backend_lock(fctx->fbox->backend) <= 0)
 		return -1;
 
-	if (backend == fctx->fbox->backend_substr)
-		lookup_ctx_p = &fctx->lookup_ctx_substr;
-	else
-		lookup_ctx_p = &fctx->lookup_ctx_fast;
-
 	/* note that the key is in UTF-8 decomposed titlecase */
-	if (*lookup_ctx_p == NULL)
-		*lookup_ctx_p = fts_backend_lookup_init(backend);
-	fts_backend_lookup_add(*lookup_ctx_p, key, flags);
+	fctx->lookup_ctx = fts_backend_lookup_init(fctx->fbox->backend);
+	fts_backend_lookup_add(fctx->lookup_ctx, key, flags);
 	return 0;
 }
 
 void fts_search_lookup(struct fts_search_context *fctx)
 {
 	struct mail_search_arg *arg;
-	bool have_seqs;
 	int ret;
 
 	if (fctx->best_arg == NULL)
@@ -124,47 +107,15 @@ void fts_search_lookup(struct fts_search_context *fctx)
 		}
 	}
 
-	have_seqs = FALSE;
-	if (fctx->fbox->backend_fast != NULL) {
-		if (fctx->lookup_ctx_fast != NULL) {
-			have_seqs = TRUE;
-			fts_backend_lookup_deinit(&fctx->lookup_ctx_fast,
+	if (fctx->fbox->backend != NULL) {
+		if (fctx->lookup_ctx != NULL) {
+			fts_backend_lookup_deinit(&fctx->lookup_ctx,
 						  &fctx->definite_seqs,
 						  &fctx->maybe_seqs,
 						  &fctx->score_map);
 		}
-		if (fctx->fbox->backend_fast->locked)
-			fts_backend_unlock(fctx->fbox->backend_fast);
-	}
-	if (fctx->fbox->backend_substr != NULL) {
-		if (fctx->lookup_ctx_substr == NULL) {
-			/* no substr lookups */
-		} else if (!have_seqs) {
-			fts_backend_lookup_deinit(&fctx->lookup_ctx_substr,
-						  &fctx->definite_seqs,
-						  &fctx->maybe_seqs,
-						  &fctx->score_map);
-		} else {
-			/* have to merge the results */
-			ARRAY_TYPE(seq_range) tmp_def, tmp_maybe;
-			ARRAY_TYPE(fts_score_map) tmp_scores;
-
-			i_array_init(&tmp_def, 64);
-			i_array_init(&tmp_maybe, 64);
-			i_array_init(&tmp_scores, 64);
-			/* FIXME: for now we just ignore the other scores,
-			   since squat doesn't support it anyway */
-			fts_backend_lookup_deinit(&fctx->lookup_ctx_substr,
-						  &tmp_def, &tmp_maybe,
-						  &tmp_scores);
-			fts_filter_uids(&fctx->definite_seqs, &tmp_def,
-					&fctx->maybe_seqs, &tmp_maybe);
-			array_free(&tmp_def);
-			array_free(&tmp_maybe);
-			array_free(&tmp_scores);
-		}
-		if (fctx->fbox->backend_substr->locked)
-			fts_backend_unlock(fctx->fbox->backend_substr);
+		if (fctx->fbox->backend->locked)
+			fts_backend_unlock(fctx->fbox->backend);
 	}
 
 	if (ret == 0) {
@@ -201,22 +152,16 @@ static bool arg_is_better(const struct mail_search_arg *new_arg,
 
 static void
 fts_search_args_find_best(struct mail_search_arg *args,
-			  struct mail_search_arg **best_fast_arg,
-			  struct mail_search_arg **best_substr_arg)
+			  struct mail_search_arg **best_arg)
 {
 	for (; args != NULL; args = args->next) {
 		switch (args->type) {
-		case SEARCH_BODY_FAST:
-		case SEARCH_TEXT_FAST:
-			if (arg_is_better(args, *best_fast_arg))
-				*best_fast_arg = args;
-			break;
 		case SEARCH_BODY:
 		case SEARCH_TEXT:
 		case SEARCH_HEADER:
 		case SEARCH_HEADER_COMPRESS_LWSP:
-			if (arg_is_better(args, *best_substr_arg))
-				*best_substr_arg = args;
+			if (arg_is_better(args, *best_arg))
+				*best_arg = args;
 			break;
 		default:
 			break;
@@ -226,18 +171,5 @@ fts_search_args_find_best(struct mail_search_arg *args,
 
 void fts_search_analyze(struct fts_search_context *fctx)
 {
-	struct mail_search_arg *best_fast_arg = NULL, *best_substr_arg = NULL;
-
-	fts_search_args_find_best(fctx->args->args, &best_fast_arg,
-				  &best_substr_arg);
-
-	if (best_fast_arg != NULL && fctx->fbox->backend_fast != NULL) {
-		/* use fast backend whenever possible */
-		fctx->best_arg = best_fast_arg;
-		fctx->build_backend = fctx->fbox->backend_fast;
-	} else if (best_fast_arg != NULL || best_substr_arg != NULL) {
-		fctx->build_backend = fctx->fbox->backend_substr;
-		fctx->best_arg = arg_is_better(best_substr_arg, best_fast_arg) ?
-			best_substr_arg : best_fast_arg;
-	}
+	fts_search_args_find_best(fctx->args->args, &fctx->best_arg);
 }

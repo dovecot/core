@@ -3,8 +3,7 @@
 
 struct fts_mailbox {
 	union mailbox_module_context module_ctx;
-	struct fts_backend *backend_substr;
-	struct fts_backend *backend_fast;
+	struct fts_backend *backend;
 
 	unsigned int last_messages_count, last_uidnext;
 
@@ -37,13 +36,12 @@ struct fts_search_context {
 	struct mail_search_args *args;
 	struct mail_search_arg *best_arg;
 
-	struct fts_backend_lookup_context *lookup_ctx_substr, *lookup_ctx_fast;
+	struct fts_backend_lookup_context *lookup_ctx;
 	ARRAY_TYPE(seq_range) definite_seqs, maybe_seqs;
 	ARRAY_TYPE(fts_score_map) score_map;
 	unsigned int definite_idx, maybe_idx;
 	uint32_t first_nonindexed_seq;
 
-	struct fts_backend *build_backend;
 	struct fts_storage_build_context *build_ctx;
 	struct fts_search_virtual_context virtual_ctx;
 

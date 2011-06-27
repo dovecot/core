@@ -35,8 +35,6 @@ enum mail_search_arg_type {
 	/* body */
 	SEARCH_BODY,
 	SEARCH_TEXT,
-	SEARCH_BODY_FAST,
-	SEARCH_TEXT_FAST,
 
 	/* extensions */
 	SEARCH_MODSEQ,

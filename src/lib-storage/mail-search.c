@@ -308,8 +308,6 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 	case SEARCH_KEYWORDS:
 	case SEARCH_BODY:
 	case SEARCH_TEXT:
-	case SEARCH_BODY_FAST:
-	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GUID:
@@ -495,11 +493,9 @@ search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
 			      sizeof(const char *));
 		break;
 	case SEARCH_BODY:
-	case SEARCH_BODY_FAST:
 		*have_body = TRUE;
 		break;
 	case SEARCH_TEXT:
-	case SEARCH_TEXT_FAST:
 		*have_text = TRUE;
 		*have_body = TRUE;
 		break;
@@ -848,8 +844,6 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 		/* fall through */
 	case SEARCH_BODY:
 	case SEARCH_TEXT:
-	case SEARCH_BODY_FAST:
-	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GUID:

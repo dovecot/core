@@ -376,8 +376,7 @@ msg_search_arg_context(struct mail_search_arg *arg)
 	enum message_search_flags flags;
 
 	if (arg->context == NULL) {
-		flags = (arg->type == SEARCH_BODY ||
-			 arg->type == SEARCH_BODY_FAST) ?
+		flags = arg->type == SEARCH_BODY ?
 			MESSAGE_SEARCH_FLAG_SKIP_HEADERS : 0;
 		arg->context = message_search_init(arg->value.str, flags);
 	}
@@ -562,9 +561,7 @@ static void search_body(struct mail_search_arg *arg,
 
 	switch (arg->type) {
 	case SEARCH_BODY:
-	case SEARCH_BODY_FAST:
 	case SEARCH_TEXT:
-	case SEARCH_TEXT_FAST:
 		break;
 	default:
 		return;
@@ -1253,8 +1250,6 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_HEADER_COMPRESS_LWSP:
 	case SEARCH_BODY:
 	case SEARCH_TEXT:
-	case SEARCH_BODY_FAST:
-	case SEARCH_TEXT_FAST:
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GUID:
