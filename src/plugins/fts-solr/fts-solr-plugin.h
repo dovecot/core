@@ -10,7 +10,6 @@
 struct fts_solr_settings {
 	const char *url, *default_ns_prefix;
 	bool debug;
-	bool substring_search;
 };
 
 struct fts_solr_user {

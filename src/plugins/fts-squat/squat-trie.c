@@ -274,10 +274,14 @@ static int squat_trie_is_file_stale(struct squat_trie *trie)
 	return 1;
 }
 
-void squat_trie_refresh(struct squat_trie *trie)
+int squat_trie_refresh(struct squat_trie *trie)
 {
-	if (squat_trie_is_file_stale(trie) > 0)
-		(void)squat_trie_open(trie);
+	int ret;
+
+	ret = squat_trie_is_file_stale(trie);
+	if (ret > 0)
+		ret = squat_trie_open(trie);
+	return ret;
 }
 
 static int squat_trie_lock(struct squat_trie *trie, int lock_type,

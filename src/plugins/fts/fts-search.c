@@ -72,9 +72,11 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 	if (arg->not)
 		flags |= FTS_LOOKUP_FLAG_INVERT;
 
-	if (!fctx->fbox->backend->locked &&
-	    fts_backend_lock(fctx->fbox->backend) <= 0)
-		return -1;
+	if (!fctx->refreshed) {
+		if (fts_backend_refresh(fctx->fbox->backend) < 0)
+			return -1;
+		fctx->refreshed = TRUE;
+	}
 
 	/* note that the key is in UTF-8 decomposed titlecase */
 	fctx->lookup_ctx = fts_backend_lookup_init(fctx->fbox->backend);
@@ -107,15 +109,11 @@ void fts_search_lookup(struct fts_search_context *fctx)
 		}
 	}
 
-	if (fctx->fbox->backend != NULL) {
-		if (fctx->lookup_ctx != NULL) {
-			fts_backend_lookup_deinit(&fctx->lookup_ctx,
-						  &fctx->definite_seqs,
-						  &fctx->maybe_seqs,
-						  &fctx->score_map);
-		}
-		if (fctx->fbox->backend->locked)
-			fts_backend_unlock(fctx->fbox->backend);
+	if (fctx->lookup_ctx != NULL) {
+		fts_backend_lookup_deinit(&fctx->lookup_ctx,
+					  &fctx->definite_seqs,
+					  &fctx->maybe_seqs,
+					  &fctx->score_map);
 	}
 
 	if (ret == 0) {

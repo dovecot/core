@@ -149,24 +149,9 @@ void fts_backend_expunge_finish(struct fts_backend *backend,
 	backend->v.expunge_finish(backend, box, committed);
 }
 
-int fts_backend_lock(struct fts_backend *backend)
+int fts_backend_refresh(struct fts_backend *backend)
 {
-	int ret;
-
-	i_assert(!backend->locked);
-
-	ret = backend->v.lock(backend);
-	if (ret > 0)
-		backend->locked = TRUE;
-	return ret;
-}
-
-void fts_backend_unlock(struct fts_backend *backend)
-{
-	i_assert(backend->locked);
-
-	backend->locked = FALSE;
-	backend->v.unlock(backend);
+	return backend->v.refresh(backend);
 }
 
 static void

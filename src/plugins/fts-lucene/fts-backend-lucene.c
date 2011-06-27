@@ -211,14 +211,9 @@ fts_backend_lucene_expunge_finish(struct fts_backend *_backend ATTR_UNUSED,
 }
 
 static int
-fts_backend_lucene_lock(struct fts_backend *_backend ATTR_UNUSED)
+fts_backend_lucene_refresh(struct fts_backend *_backend ATTR_UNUSED)
 {
-	return 1;
-}
-
-static void
-fts_backend_lucene_unlock(struct fts_backend *_backend ATTR_UNUSED)
-{
+	return 0;
 }
 
 static int
@@ -255,8 +250,7 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_build_deinit,
 		fts_backend_lucene_expunge,
 		fts_backend_lucene_expunge_finish,
-		fts_backend_lucene_lock,
-		fts_backend_lucene_unlock,
+		fts_backend_lucene_refresh,
 		fts_backend_lucene_lookup,
 		NULL,
 		NULL

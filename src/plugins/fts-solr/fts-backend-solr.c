@@ -230,8 +230,6 @@ fts_backend_solr_init(struct mailbox *box)
 	backend->id_box_name = i_strdup(box_name);
 	backend->backend = fts_backend_solr;
 
-	if (set->substring_search)
-		backend->backend.flags |= FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS;
 	return &backend->backend;
 }
 
@@ -753,13 +751,9 @@ fts_backend_solr_expunge_finish(struct fts_backend *backend ATTR_UNUSED,
 		"<commit waitFlush=\"false\" waitSearcher=\"false\"/>");
 }
 
-static int fts_backend_solr_lock(struct fts_backend *backend ATTR_UNUSED)
+static int fts_backend_solr_refresh(struct fts_backend *backend ATTR_UNUSED)
 {
-	return 1;
-}
-
-static void fts_backend_solr_unlock(struct fts_backend *backend ATTR_UNUSED)
-{
+	return 0;
 }
 
 static bool solr_virtual_uid_map(const char *ns_prefix, const char *mailbox,
@@ -888,8 +882,7 @@ struct fts_backend fts_backend_solr = {
 		fts_backend_solr_build_deinit,
 		fts_backend_solr_expunge,
 		fts_backend_solr_expunge_finish,
-		fts_backend_solr_lock,
-		fts_backend_solr_unlock,
+		fts_backend_solr_refresh,
 		NULL,
 		NULL,
 		fts_backend_solr_lookup

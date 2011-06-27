@@ -86,14 +86,9 @@ void fts_backend_expunge(struct fts_backend *backend, struct mail *mail);
 void fts_backend_expunge_finish(struct fts_backend *backend,
 				struct mailbox *box, bool committed);
 
-/* Lock/unlock the backend for multiple lookups. Returns 1 if locked, 0 if
-   locking timeouted, -1 if error. If backend doesn't require locking, it
-   always returns 1.
-
-   It's not required to call these functions manually, but if you're doing
-   multiple lookup/filter operations this avoids multiple lock/unlock calls. */
-int fts_backend_lock(struct fts_backend *backend);
-void fts_backend_unlock(struct fts_backend *backend);
+/* Refresh database to make sure we see latest changes from lookups.
+   Returns 0 if ok, -1 if error. */
+int fts_backend_refresh(struct fts_backend *backend);
 
 /* Start building a FTS lookup. */
 struct fts_backend_lookup_context *

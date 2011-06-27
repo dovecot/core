@@ -227,17 +227,12 @@ fts_backend_squat_expunge_finish(struct fts_backend *_backend ATTR_UNUSED,
 	/* FIXME */
 }
 
-static int fts_backend_squat_lock(struct fts_backend *_backend)
+static int fts_backend_squat_refresh(struct fts_backend *_backend)
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
 
-	squat_trie_refresh(backend->trie);
-	return 1;
-}
-
-static void fts_backend_squat_unlock(struct fts_backend *_backend ATTR_UNUSED)
-{
+	return squat_trie_refresh(backend->trie);
 }
 
 static int
@@ -264,7 +259,7 @@ fts_backend_squat_lookup(struct fts_backend *_backend, const char *key,
 
 struct fts_backend fts_backend_squat = {
 	.name = "squat",
-	.flags = FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS,
+	.flags = 0,
 
 	{
 		fts_backend_squat_init,
@@ -279,8 +274,7 @@ struct fts_backend fts_backend_squat = {
 		fts_backend_squat_build_deinit,
 		fts_backend_squat_expunge,
 		fts_backend_squat_expunge_finish,
-		fts_backend_squat_lock,
-		fts_backend_squat_unlock,
+		fts_backend_squat_refresh,
 		fts_backend_squat_lookup,
 		NULL,
 		NULL

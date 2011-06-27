@@ -47,6 +47,7 @@ struct fts_search_context {
 
 	unsigned int build_initialized:1;
 	unsigned int seqs_set:1;
+	unsigned int refreshed:1;
 };
 
 /* Figure out if we want to use full text search indexes and update

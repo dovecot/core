@@ -26,8 +26,7 @@ struct fts_backend_vfuncs {
 	void (*expunge_finish)(struct fts_backend *backend,
 			       struct mailbox *box, bool committed);
 
-	int (*lock)(struct fts_backend *backend);
-	void (*unlock)(struct fts_backend *backend);
+	int (*refresh)(struct fts_backend *backend);
 
 	int (*lookup)(struct fts_backend *backend, const char *key, 
 		      enum fts_lookup_flags flags,
@@ -45,10 +44,6 @@ struct fts_backend_vfuncs {
 };
 
 enum fts_backend_flags {
-	/* If set, the backend is used for TEXT and BODY search
-	   optimizations. Otherwise only TEXT_FAST and BODY_FAST are
-	   optimized. */
-	FTS_BACKEND_FLAG_SUBSTRING_LOOKUPS	= 0x01,
 	/* Backend supports virtual mailbox lookups. */
 	FTS_BACKEND_FLAG_VIRTUAL_LOOKUPS	= 0x02,
 	/* Backend supports indexing binary MIME parts */
@@ -62,7 +57,6 @@ struct fts_backend {
 	struct fts_backend_vfuncs v;
 	struct mailbox *box;
 
-	unsigned int locked:1;
 	unsigned int building:1;
 };
 
