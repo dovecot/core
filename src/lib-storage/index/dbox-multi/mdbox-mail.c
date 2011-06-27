@@ -35,10 +35,8 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 	}
 
 	if (mbox->map_uid_validity == 0) {
-		if (mdbox_read_header(mbox, &hdr) < 0) {
-			mdbox_storage_set_corrupted(mbox->storage);
+		if (mdbox_read_header(mbox, &hdr) < 0)
 			return -1;
-		}
 		mbox->map_uid_validity = hdr.map_uid_validity;
 	}
 	if (mdbox_map_open_or_create(mbox->storage->map) < 0)
