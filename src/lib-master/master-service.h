@@ -87,6 +87,9 @@ void master_service_set_client_limit(struct master_service *service,
 				     unsigned int client_limit);
 /* Returns the maximum number of clients we can handle. */
 unsigned int master_service_get_client_limit(struct master_service *service);
+/* Returns how many processes of this type can be created before reaching the
+   limit. */
+unsigned int master_service_get_process_limit(struct master_service *service);
 
 /* Set maximum number of client connections we will handle before shutting
    down. */

@@ -371,6 +371,12 @@ void master_service_init_finish(struct master_service *service)
 			i_fatal(MASTER_CLIENT_LIMIT_ENV" missing");
 		master_service_set_client_limit(service, count);
 
+		/* seve the process limit */
+		value = getenv(MASTER_PROCESS_LIMIT_ENV);
+		if (value != NULL && str_to_uint(value, &count) == 0 &&
+		    count > 0)
+			service->process_limit = count;
+
 		/* set the default service count */
 		value = getenv(MASTER_SERVICE_COUNT_ENV);
 		if (value != NULL && str_to_uint(value, &count) == 0 &&
@@ -425,6 +431,11 @@ void master_service_set_client_limit(struct master_service *service,
 unsigned int master_service_get_client_limit(struct master_service *service)
 {
 	return service->total_available_count;
+}
+
+unsigned int master_service_get_process_limit(struct master_service *service)
+{
+	return service->process_limit;
 }
 
 void master_service_set_service_count(struct master_service *service,

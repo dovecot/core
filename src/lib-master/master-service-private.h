@@ -33,6 +33,7 @@ struct master_service {
 	struct io *io_status_write, *io_status_error;
 	unsigned int service_count_left;
 	unsigned int total_available_count;
+	unsigned int process_limit;
 
 	struct master_status master_status;
 	unsigned int last_sent_status_avail_count;

@@ -44,6 +44,10 @@ enum master_login_state {
    master_status.available_count as specified in configuration file */
 #define MASTER_CLIENT_LIMIT_ENV "CLIENT_LIMIT"
 
+/* getenv(MASTER_PROCESS_LIMIT_ENV) specifies how many processes of this type
+   can be created before reaching the limit */
+#define MASTER_PROCESS_LIMIT_ENV "PROCESS_LIMIT"
+
 /* getenv(MASTER_SERVICE_COUNT_ENV) specifies how many client connections the
    process can finish handling before it should kill itself. */
 #define MASTER_SERVICE_COUNT_ENV "SERVICE_COUNT"
