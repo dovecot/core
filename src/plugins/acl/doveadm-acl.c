@@ -537,7 +537,7 @@ cmd_acl_debug_alloc(void)
 static struct doveadm_mail_cmd acl_commands[] = {
 	{ cmd_acl_get_alloc, "acl get", "[-m] <mailbox>" },
 	{ cmd_acl_rights_alloc, "acl rights", "<mailbox>" },
-	{ cmd_acl_set_alloc, "acl set", "<mailbox> <id> <rights>" },
+	{ cmd_acl_set_alloc, "acl set", "<mailbox> <id> <right> [<right> ...]" },
 	{ cmd_acl_delete_alloc, "acl delete", "<mailbox> <id>" },
 	{ cmd_acl_debug_alloc, "acl debug", "<mailbox>" }
 };
