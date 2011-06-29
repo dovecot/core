@@ -148,8 +148,6 @@ static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 {
 	string_t *str;
 	enum imapc_capability caps;
-	const struct seq_range *range;
-	unsigned int i, count;
 
 	if (array_count(&ctx->expunged_uids) == 0)
 		return;
@@ -163,14 +161,8 @@ static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 
 	/* build a list of UIDs to expunge */
 	str = t_str_new(128);
-	str_append(str, "UID EXPUNGE");
-
-	range = array_get(&ctx->expunged_uids, &count);
-	for (i = 0; i < count; i++) {
-		str_printfa(str, ",%u", range[i].seq1);
-		if (range[i].seq1 == range[i].seq2)
-			str_printfa(str, ":%u", range[i].seq2);
-	}
+	str_append(str, "UID EXPUNGE ");
+	imap_write_seq_range(str, &ctx->expunged_uids);
 	imapc_sync_cmd(ctx, str_c(str));
 }
 
