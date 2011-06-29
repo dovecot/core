@@ -167,7 +167,7 @@ static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 
 	range = array_get(&ctx->expunged_uids, &count);
 	for (i = 0; i < count; i++) {
-		str_printfa(str, " %u", range[i].seq1);
+		str_printfa(str, ",%u", range[i].seq1);
 		if (range[i].seq1 == range[i].seq2)
 			str_printfa(str, ":%u", range[i].seq2);
 	}
