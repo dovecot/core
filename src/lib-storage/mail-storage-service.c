@@ -221,7 +221,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 	}
 
 	if (home != NULL)
-		set_keyval(ctx, user, "mail_home", reply->home);
+		set_keyval(ctx, user, "mail_home", home);
 
 	if (chroot != NULL) {
 		if (!validate_chroot(user->user_set, chroot)) {
