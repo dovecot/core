@@ -592,8 +592,11 @@ void lmtp_client_send(struct lmtp_client *client, struct istream *data_input)
 
 void lmtp_client_send_more(struct lmtp_client *client)
 {
-	if (client->input_state == LMTP_INPUT_STATE_DATA)
+	if (client->input_state == LMTP_INPUT_STATE_DATA) {
+		o_stream_cork(client->output);
 		lmtp_client_send_data(client);
+		o_stream_uncork(client->output);
+	}
 }
 
 void lmtp_client_set_data_output_callback(struct lmtp_client *client,
