@@ -565,7 +565,7 @@ internal_handler(const struct failure_context *ctx,
 		string_t *str;
 		unsigned int prefix_len;
 
-		if (!log_prefix_sent) {
+		if (!log_prefix_sent && log_prefix != NULL) {
 			log_prefix_sent = TRUE;
 			i_failure_send_option("prefix", log_prefix);
 		}
