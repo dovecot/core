@@ -12,6 +12,7 @@ struct mail_recipient {
 };
 
 struct client_state {
+	const char *name;
 	const char *session_id;
 	const char *mail_from;
 	ARRAY_DEFINE(rcpt_to, struct mail_recipient);

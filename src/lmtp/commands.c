@@ -73,6 +73,7 @@ int cmd_lhlo(struct client *client, const char *args)
 
 	i_free(client->lhlo);
 	client->lhlo = i_strdup(str_c(domain));
+	client->state.name = "LHLO";
 	return 0;
 }
 
@@ -141,6 +142,7 @@ int cmd_mail(struct client *client, const char *args)
 	client->state.mail_from = p_strdup(client->state_pool, addr);
 	p_array_init(&client->state.rcpt_to, client->state_pool, 64);
 	client_send_line(client, "250 2.1.0 OK");
+	client->state.name = "MAIL FROM";
 	return 0;
 }
 
@@ -384,6 +386,8 @@ int cmd_rcpt(struct client *client, const char *args)
 	const char *address, *username, *detail, *prefix;
 	const char *error = NULL;
 	int ret = 0;
+
+	client->state.name = "RCPT TO";
 
 	if (client->state.mail_from == NULL) {
 		client_send_line(client, "503 5.5.1 MAIL needed first");
@@ -897,12 +901,14 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 
 	io_remove(&client->io);
 	if (array_count(&client->state.rcpt_to) == 0) {
+		client->state.name = "DATA (proxy)";
 		timeout_remove(&client->to_idle);
 		lmtp_proxy_start(client->proxy, client->dot_input,
 				 client->state.added_headers,
 				 client_proxy_finish, client);
 		i_stream_unref(&client->dot_input);
 	} else {
+		client->state.name = "DATA";
 		client->io = io_add(client->fd_in, IO_READ,
 				    client_input_data, client);
 		client_input_data_handle(client);
