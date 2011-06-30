@@ -2,6 +2,9 @@ noinst_LTLIBRARIES = libsql.la
 
 SQL_DRIVER_PLUGINS =
 
+# automake seems to force making this unconditional..
+NOPLUGIN_LDFLAGS =
+
 if SQL_PLUGINS
 if BUILD_MYSQL
 MYSQL_LIB = libdriver_mysql.la

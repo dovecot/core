@@ -1,6 +1,9 @@
 noinst_LIBRARIES = libpassword.a
 auth_moduledir = $(moduledir)/auth
 
+# automake seems to force making this unconditional..
+NOPLUGIN_LDFLAGS =
+
 if GSSAPI_PLUGIN
 GSSAPI_LIB = libmech_gssapi.la
 endif
