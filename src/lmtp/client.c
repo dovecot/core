@@ -32,7 +32,7 @@ static void client_idle_timeout(struct client *client)
 {
 	client_destroy(client,
 		       t_strdup_printf("421 4.4.2 %s", client->my_domain),
-		       "Disconnected for inactivity");
+		       "Disconnected client for inactivity");
 }
 
 static int client_input_line(struct client *client, const char *line)
