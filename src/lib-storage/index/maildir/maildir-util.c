@@ -156,7 +156,7 @@ static int maildir_create_path(struct mailbox *box, const char *path,
 		}
 		/* create index/control root directory */
 		parent = t_strdup_until(path, p);
-		if (mailbox_list_mkdir(box->list, parent, type) == 0) {
+		if (mailbox_list_mkdir_root(box->list, parent, type) == 0) {
 			/* should work now, try again */
 			return maildir_create_path(box, path, type, FALSE);
 		}

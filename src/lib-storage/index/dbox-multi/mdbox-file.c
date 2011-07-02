@@ -301,10 +301,10 @@ int mdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 	if (fd == -1 && errno == ENOENT && parents &&
 	    (p = strrchr(path, '/')) != NULL) {
 		dir = t_strdup_until(path, p);
-		if (mailbox_list_mkdir(map->root_list, dir,
-				       path != file->alt_path ?
-				       MAILBOX_LIST_PATH_TYPE_DIR :
-				       MAILBOX_LIST_PATH_TYPE_ALT_DIR) < 0) {
+		if (mailbox_list_mkdir_root(map->root_list, dir,
+					    path != file->alt_path ?
+					    MAILBOX_LIST_PATH_TYPE_DIR :
+					    MAILBOX_LIST_PATH_TYPE_ALT_DIR) < 0) {
 			mail_storage_copy_list_error(&file->storage->storage,
 						     map->root_list);
 			return -1;

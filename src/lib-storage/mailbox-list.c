@@ -767,8 +767,8 @@ get_expanded_path(const char *unexpanded_start, const char *unexpanded_stop,
 	return ret;
 }
 
-int mailbox_list_mkdir(struct mailbox_list *list, const char *path,
-		       enum mailbox_list_path_type type)
+int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
+			    enum mailbox_list_path_type type)
 {
 	const char *expanded, *unexpanded, *root_dir, *p, *origin;
 	struct stat st;
@@ -1616,27 +1616,34 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 	return TRUE;
 }
 
-int mailbox_list_create_parent_dir(struct mailbox_list *list,
-				   const char *mailbox, const char *path)
+int mailbox_list_mkdir(struct mailbox_list *list,
+		       const char *mailbox, const char *path)
 {
-	const char *p, *dir, *origin;
-	gid_t gid;
 	mode_t file_mode, dir_mode;
+	gid_t gid;
+	const char *origin;
+
+	mailbox_list_get_permissions(list, mailbox, &file_mode, &dir_mode,
+				     &gid, &origin);
+	if (mkdir_parents_chgrp(path, dir_mode, gid, origin) < 0 &&
+	    errno != EEXIST) {
+		mailbox_list_set_critical(list, "mkdir_parents(%s) failed: %m",
+					  path);
+		return -1;
+	}
+	return 0;
+}
+
+int mailbox_list_mkdir_parent(struct mailbox_list *list,
+			      const char *mailbox, const char *path)
+{
+	const char *p;
 
 	p = strrchr(path, '/');
 	if (p == NULL)
 		return 0;
 
-	dir = t_strdup_until(path, p);
-	mailbox_list_get_permissions(list, mailbox, &file_mode, &dir_mode,
-				     &gid, &origin);
-	if (mkdir_parents_chgrp(dir, dir_mode, gid, origin) < 0 &&
-	    errno != EEXIST) {
-		mailbox_list_set_critical(list, "mkdir_parents(%s) failed: %m",
-					  dir);
-		return -1;
-	}
-	return 0;
+	return mailbox_list_mkdir(list, mailbox, t_strdup_until(path, p));
 }
 
 int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
@@ -1656,12 +1663,12 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 		return 0;
 
 	if (name == NULL) {
-		mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
-						  &gid, &origin);
-	} else {
-		mailbox_list_get_permissions(list, name, &file_mode, &dir_mode,
-					     &gid, &origin);
+		return mailbox_list_mkdir_root(list, index_dir,
+					       MAILBOX_LIST_PATH_TYPE_INDEX);
 	}
+
+	mailbox_list_get_permissions(list, name, &file_mode, &dir_mode,
+				     &gid, &origin);
 	while (mkdir_chgrp(index_dir, dir_mode, gid, origin) < 0) {
 		if (errno == EEXIST)
 			break;
@@ -1674,8 +1681,8 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 		}
 		/* create the parent directory first */
 		parent_dir = t_strdup_until(index_dir, p);
-		if (mailbox_list_mkdir(list, parent_dir,
-				       MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
+		if (mailbox_list_mkdir_root(list, parent_dir,
+					    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
 			return -1;
 	}
 	return 0;

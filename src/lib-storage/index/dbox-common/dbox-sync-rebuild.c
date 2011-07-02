@@ -212,8 +212,8 @@ int dbox_sync_rebuild_verify_alt_storage(struct mailbox_list *list)
 
 	/* try to create the alt directory. if it fails, it means alt
 	   storage isn't mounted. */
-	if (mailbox_list_mkdir(list, alt_path,
-			       MAILBOX_LIST_PATH_TYPE_ALT_DIR) < 0)
+	if (mailbox_list_mkdir_root(list, alt_path,
+				    MAILBOX_LIST_PATH_TYPE_ALT_DIR) < 0)
 		return -1;
 	return 0;
 }

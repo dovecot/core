@@ -184,11 +184,14 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 void mailbox_list_get_root_permissions(struct mailbox_list *list,
 				       mode_t *file_mode_r, mode_t *dir_mode_r,
 				       gid_t *gid_r, const char **gid_origin_r);
-/* Create path's parent directory with proper permissions. Since most
-   directories are created lazily, this function can be used to easily create
-   them whenever file creation fails with ENOENT. */
-int mailbox_list_create_parent_dir(struct mailbox_list *list,
-				   const char *mailbox, const char *path);
+/* Create path's directory with proper permissions. */
+int mailbox_list_mkdir(struct mailbox_list *list,
+		       const char *mailbox, const char *path);
+/* Like mailbox_list_mkdir(), but create path's parent parent directory.
+   Since most directories are created lazily, this function can be used to
+   easily create them whenever file creation fails with ENOENT. */
+int mailbox_list_mkdir_parent(struct mailbox_list *list,
+			      const char *mailbox, const char *path);
 
 /* Returns TRUE if the name doesn't contain any invalid characters.
    The create name check can be more strict. */

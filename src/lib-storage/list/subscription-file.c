@@ -114,7 +114,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 					 file_mode, gid, origin, &dotlock);
 	if (fd_out == -1 && errno == ENOENT) {
 		/* directory hasn't been created yet. */
-		if (mailbox_list_create_parent_dir(list, NULL, path) < 0)
+		if (mailbox_list_mkdir_parent(list, NULL, path) < 0)
 			return -1;
 		fd_out = file_dotlock_open_group(&dotlock_set, path, 0,
 						 file_mode, gid,

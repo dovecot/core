@@ -231,8 +231,8 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 					  &gid, &origin);
 	fd = safe_mkstemp_group(path, file_mode, gid, origin);
 	if (fd == -1 && errno == ENOENT) {
-		if (mailbox_list_create_parent_dir(backend->backend.list, NULL,
-						   str_c(path)) < 0)
+		if (mailbox_list_mkdir_parent(backend->backend.list, NULL,
+					      str_c(path)) < 0)
 			return -1;
 		fd = safe_mkstemp_group(path, file_mode, gid, origin);
 	}
