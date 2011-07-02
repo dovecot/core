@@ -192,6 +192,9 @@ int mailbox_list_mkdir(struct mailbox_list *list,
    easily create them whenever file creation fails with ENOENT. */
 int mailbox_list_mkdir_parent(struct mailbox_list *list,
 			      const char *mailbox, const char *path);
+/* mkdir() a root directory of given type with proper permissions. */
+int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
+			    enum mailbox_list_path_type type);
 
 /* Returns TRUE if the name doesn't contain any invalid characters.
    The create name check can be more strict. */
