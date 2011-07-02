@@ -69,7 +69,7 @@ static int fts_search_lookup_arg(struct fts_search_context *fctx,
 		/* can't filter this */
 		return 0;
 	}
-	if (arg->not)
+	if (arg->match_not)
 		flags |= FTS_LOOKUP_FLAG_INVERT;
 
 	if (!fctx->refreshed) {
@@ -131,9 +131,9 @@ static bool arg_is_better(const struct mail_search_arg *new_arg,
 		return FALSE;
 
 	/* avoid NOTs */
-	if (old_arg->not && !new_arg->not)
+	if (old_arg->match_not && !new_arg->match_not)
 		return TRUE;
-	if (!old_arg->not && new_arg->not)
+	if (!old_arg->match_not && new_arg->match_not)
 		return FALSE;
 
 	/* prefer not to use headers. they have a larger possibility of

@@ -90,7 +90,7 @@ static void search_init_arg(struct mail_search_arg *arg,
 
 		match = strcmp(mail_guid_128_to_string(metadata.guid),
 			       arg->value.str) == 0;
-		if (match != arg->not)
+		if (match != arg->match_not)
 			arg->match_always = TRUE;
 		else
 			arg->nonmatch_always = TRUE;
@@ -100,7 +100,7 @@ static void search_init_arg(struct mail_search_arg *arg,
 		ctx->have_mailbox_args = TRUE;
 		break;
 	case SEARCH_ALL:
-		if (!arg->not)
+		if (!arg->match_not)
 			arg->match_always = TRUE;
 		else
 			arg->nonmatch_always = TRUE;
@@ -514,7 +514,7 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 		if (arg->value.date_type != MAIL_SEARCH_DATE_TYPE_SENT)
 			break;
 
-		if (arg->not) {
+		if (arg->match_not) {
 			/* date header not found, so we match only for
 			   NOT searches */
 			ARG_SET_RESULT(arg, 0);
@@ -689,8 +689,9 @@ static int search_arg_match_text(struct mail_search_arg *args,
 	return mail_search_args_foreach(args, search_body, &body_ctx);
 }
 
-static bool search_msgset_fix_limits(unsigned int messages_count,
-				     ARRAY_TYPE(seq_range) *seqset, bool not)
+static bool
+search_msgset_fix_limits(unsigned int messages_count,
+			 ARRAY_TYPE(seq_range) *seqset, bool match_not)
 {
 	struct seq_range *range;
 	unsigned int count;
@@ -709,7 +710,7 @@ static bool search_msgset_fix_limits(unsigned int messages_count,
 		seq_range_array_remove_range(seqset, messages_count + 1,
 					     (uint32_t)-1);
 	}
-	if (!not)
+	if (!match_not)
 		return array_count(seqset) > 0;
 	else {
 		/* if all messages are in the range, it can't match */
@@ -719,22 +720,23 @@ static bool search_msgset_fix_limits(unsigned int messages_count,
 	}
 }
 
-static void search_msgset_fix(unsigned int messages_count,
-			      ARRAY_TYPE(seq_range) *seqset,
-			      uint32_t *seq1_r, uint32_t *seq2_r, bool not)
+static void
+search_msgset_fix(unsigned int messages_count,
+		  ARRAY_TYPE(seq_range) *seqset,
+		  uint32_t *seq1_r, uint32_t *seq2_r, bool match_not)
 {
 	const struct seq_range *range;
 	unsigned int count;
 	uint32_t min_seq, max_seq;
 
-	if (!search_msgset_fix_limits(messages_count, seqset, not)) {
+	if (!search_msgset_fix_limits(messages_count, seqset, match_not)) {
 		*seq1_r = (uint32_t)-1;
 		*seq2_r = 0;
 		return;
 	}
 
 	range = array_get(seqset, &count);
-	if (!not) {
+	if (!match_not) {
 		min_seq = range[0].seq1;
 		max_seq = range[count-1].seq2;
 	} else {
@@ -765,20 +767,20 @@ static void search_or_parse_msgset_args(unsigned int messages_count,
 
 		switch (args->type) {
 		case SEARCH_SUB:
-			i_assert(!args->not);
+			i_assert(!args->match_not);
 			search_parse_msgset_args(messages_count,
 						 args->value.subargs,
 						 &seq1, &seq2);
 			break;
 		case SEARCH_OR:
-			i_assert(!args->not);
+			i_assert(!args->match_not);
 			search_or_parse_msgset_args(messages_count,
 						    args->value.subargs,
 						    &seq1, &seq2);
 			break;
 		case SEARCH_SEQSET:
 			search_msgset_fix(messages_count, &args->value.seqset,
-					  &seq1, &seq2, args->not);
+					  &seq1, &seq2, args->match_not);
 			break;
 		default:
 			break;
@@ -809,7 +811,7 @@ static void search_parse_msgset_args(unsigned int messages_count,
 	for (; args != NULL; args = args->next) {
 		switch (args->type) {
 		case SEARCH_SUB:
-			i_assert(!args->not);
+			i_assert(!args->match_not);
 			search_parse_msgset_args(messages_count,
 						 args->value.subargs,
 						 seq1_r, seq2_r);
@@ -817,14 +819,14 @@ static void search_parse_msgset_args(unsigned int messages_count,
 		case SEARCH_OR:
 			/* go through our children and use the widest seqset
 			   range */
-			i_assert(!args->not);
+			i_assert(!args->match_not);
 			search_or_parse_msgset_args(messages_count,
 						    args->value.subargs,
 						    seq1_r, seq2_r);
 			break;
 		case SEARCH_SEQSET:
 			search_msgset_fix(messages_count, &args->value.seqset,
-					  seq1_r, seq2_r, args->not);
+					  seq1_r, seq2_r, args->match_not);
 			break;
 		default:
 			break;
@@ -856,24 +858,24 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 	for (; args != NULL; args = args->next) {
 		if (args->type != SEARCH_FLAGS) {
 			if (args->type == SEARCH_ALL) {
-				if (args->not)
+				if (args->match_not)
 					return FALSE;
 			}
 			continue;
 		}
 		if ((args->value.flags & MAIL_SEEN) != 0) {
 			/* SEEN with 0 seen? */
-			if (!args->not && hdr->seen_messages_count == 0)
+			if (!args->match_not && hdr->seen_messages_count == 0)
 				return FALSE;
 
 			if (hdr->seen_messages_count == hdr->messages_count) {
 				/* UNSEEN with all seen? */
-				if (args->not)
+				if (args->match_not)
 					return FALSE;
 
 				/* SEEN with all seen */
 				args->match_always = TRUE;
-			} else if (args->not) {
+			} else if (args->match_not) {
 				/* UNSEEN with lowwater limiting */
 				search_limit_lowwater(ctx,
                                 	hdr->first_unseen_uid_lowwater, seq1);
@@ -881,18 +883,19 @@ static bool search_limit_by_flags(struct index_search_context *ctx,
 		}
 		if ((args->value.flags & MAIL_DELETED) != 0) {
 			/* DELETED with 0 deleted? */
-			if (!args->not && hdr->deleted_messages_count == 0)
+			if (!args->match_not &&
+			    hdr->deleted_messages_count == 0)
 				return FALSE;
 
 			if (hdr->deleted_messages_count ==
 			    hdr->messages_count) {
 				/* UNDELETED with all deleted? */
-				if (args->not)
+				if (args->match_not)
 					return FALSE;
 
 				/* DELETED with all deleted */
 				args->match_always = TRUE;
-			} else if (!args->not) {
+			} else if (!args->match_not) {
 				/* DELETED with lowwater limiting */
 				search_limit_lowwater(ctx,
                                 	hdr->first_deleted_uid_lowwater, seq1);

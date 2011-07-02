@@ -177,7 +177,7 @@ static int imap_search_get_searchres(struct client_command_context *cmd,
 	} else {
 		/* $ not set yet, match nothing */
 		search_args->args->type = SEARCH_ALL;
-		search_args->args->not = TRUE;
+		search_args->args->match_not = TRUE;
 	}
 	*search_args_r = search_args;
 	return 1;

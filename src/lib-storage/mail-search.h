@@ -91,7 +91,7 @@ struct mail_search_arg {
 
         void *context;
 	const char *hdr_field_name; /* for SEARCH_HEADER* */
-	unsigned int not:1;
+	unsigned int match_not:1; /* result = !result */
 	unsigned int match_always:1; /* result = 1 always */
 	unsigned int nonmatch_always:1; /* result = 0 always */
 
@@ -111,7 +111,7 @@ struct mail_search_args {
 
 #define ARG_SET_RESULT(arg, res) \
 	STMT_START { \
-		(arg)->result = !(arg)->not ? (res) : \
+		(arg)->result = !(arg)->match_not ? (res) : \
 			(res) == -1 ? -1 : !(res); \
 	} STMT_END
 
@@ -173,7 +173,7 @@ bool mail_search_args_match_mailbox(struct mail_search_args *args,
 				    const char *vname, char sep);
 
 /* Simplify/optimize search arguments. Afterwards all OR/SUB args are
-   guaranteed to have not=FALSE. */
+   guaranteed to have match_not=FALSE. */
 void mail_search_args_simplify(struct mail_search_args *args);
 
 /* Serialization for search args' results. */

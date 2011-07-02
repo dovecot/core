@@ -37,7 +37,7 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 			break;
 		case SEARCH_MAILBOX:
 		case SEARCH_MAILBOX_GLOB:
-			if (args->not) {
+			if (args->match_not) {
 				array_clear(patterns);
 				return 0;
 			}

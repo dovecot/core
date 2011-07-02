@@ -44,7 +44,7 @@ imap_search_not(struct mail_search_build_context *ctx)
 	if (mail_search_build_key(ctx, ctx->parent, &sarg) < 0)
 		return NULL;
 
-	sarg->not = !sarg->not;
+	sarg->match_not = !sarg->match_not;
 	return sarg;
 }
 
@@ -113,7 +113,7 @@ imap_search_##_func(struct mail_search_build_context *ctx) \
 	struct mail_search_arg *sarg; \
 	sarg = mail_search_build_new(ctx, SEARCH_FLAGS); \
 	sarg->value.flags = _flag; \
-	sarg->not = _not; \
+	sarg->match_not = _not; \
 	return sarg; \
 }
 CALLBACK_FLAG(answered, MAIL_ANSWERED, FALSE);
@@ -150,7 +150,7 @@ imap_search_unkeyword(struct mail_search_build_context *ctx)
 
 	sarg = imap_search_keyword(ctx);
 	if (sarg != NULL)
-		sarg->not = TRUE;
+		sarg->match_not = TRUE;
 	return sarg;
 }
 

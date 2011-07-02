@@ -265,7 +265,7 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 
 	new_arg = p_new(pool, struct mail_search_arg, 1);
 	new_arg->type = arg->type;
-	new_arg->not = arg->not;
+	new_arg->match_not = arg->match_not;
 	new_arg->match_always = arg->match_always;
 	new_arg->nonmatch_always = arg->nonmatch_always;
 	new_arg->value.search_flags = arg->value.search_flags;
@@ -404,7 +404,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 
 			subarg = subarg->next;
 		}
-		if (arg->not && arg->result != -1)
+		if (arg->match_not && arg->result != -1)
 			arg->result = !arg->result;
 	} else if (arg->type == SEARCH_OR) {
 		/* OR-list of conditions */
@@ -426,7 +426,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 
 			subarg = subarg->next;
 		}
-		if (arg->not && arg->result != -1)
+		if (arg->match_not && arg->result != -1)
 			arg->result = !arg->result;
 	} else {
 		/* just a single condition */
@@ -554,7 +554,7 @@ mail_search_args_match_mailbox_arg(const struct mail_search_arg *arg,
 		return TRUE;
 	case SEARCH_MAILBOX:
 		ret = strcmp(arg->value.str, vname) == 0;
-		return ret != arg->not;
+		return ret != arg->match_not;
 	case SEARCH_MAILBOX_GLOB: {
 		T_BEGIN {
 			struct imap_match_glob *glob;
@@ -563,7 +563,7 @@ mail_search_args_match_mailbox_arg(const struct mail_search_arg *arg,
 					       arg->value.str, TRUE, sep);
 			ret = imap_match(glob, vname) == IMAP_MATCH_YES;
 		} T_END;
-		return ret != arg->not;
+		return ret != arg->match_not;
 	}
 	default:
 		break;
@@ -629,16 +629,16 @@ mail_search_args_simplify_sub(struct mailbox *box,
 	prev_flags_arg = prev_not_flags_arg = NULL;
 	prev_kw_arg = prev_not_kw_arg = NULL;
 	while (args != NULL) {
-		if (args->not && (args->type == SEARCH_SUB ||
-				  args->type == SEARCH_OR)) {
+		if (args->match_not && (args->type == SEARCH_SUB ||
+					args->type == SEARCH_OR)) {
 			/* neg(p and q and ..) == neg(p) or neg(q) or ..
 			   neg(p or q or ..) == neg(p) and neg(q) and .. */
 			args->type = args->type == SEARCH_SUB ?
 				SEARCH_OR : SEARCH_SUB;
-			args->not = FALSE;
+			args->match_not = FALSE;
 			sub = args->value.subargs;
 			do {
-				sub->not = !sub->not;
+				sub->match_not = !sub->match_not;
 				sub = sub->next;
 			} while (sub != NULL);
 		}
@@ -665,7 +665,8 @@ mail_search_args_simplify_sub(struct mailbox *box,
 		}
 
 		/* merge all flags arguments */
-		if (args->type == SEARCH_FLAGS && !args->not && parent_and) {
+		if (args->type == SEARCH_FLAGS &&
+		    !args->match_not && parent_and) {
 			if (prev_flags_arg == NULL)
 				prev_flags_arg = args;
 			else {
@@ -675,7 +676,7 @@ mail_search_args_simplify_sub(struct mailbox *box,
 				args = args->next;
 				continue;
 			}
-		} else if (args->type == SEARCH_FLAGS && args->not &&
+		} else if (args->type == SEARCH_FLAGS && args->match_not &&
 			   !parent_and) {
 			if (prev_not_flags_arg == NULL)
 				prev_not_flags_arg = args;
@@ -689,7 +690,8 @@ mail_search_args_simplify_sub(struct mailbox *box,
 		}
 
 		/* merge all keywords arguments */
-		if (args->type == SEARCH_KEYWORDS && !args->not && parent_and) {
+		if (args->type == SEARCH_KEYWORDS &&
+		    !args->match_not && parent_and) {
 			if (prev_kw_arg == NULL)
 				prev_kw_arg = args;
 			else {
@@ -701,8 +703,8 @@ mail_search_args_simplify_sub(struct mailbox *box,
 				args = args->next;
 				continue;
 			}
-		} else if (args->type == SEARCH_KEYWORDS && args->not &&
-			   !parent_and) {
+		} else if (args->type == SEARCH_KEYWORDS &&
+			   args->match_not && !parent_and) {
 			if (prev_not_kw_arg == NULL)
 				prev_not_kw_arg = args;
 			else {
@@ -803,7 +805,7 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 				       const struct mail_search_arg *arg2)
 {
 	if (arg1->type != arg2->type ||
-	    arg1->not != arg2->not)
+	    arg1->match_not != arg2->match_not)
 		return FALSE;
 
 	switch (arg1->type) {

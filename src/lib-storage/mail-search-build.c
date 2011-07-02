@@ -164,7 +164,7 @@ int mail_search_build(struct mail_search_register *reg,
 		return -1;
 	}
 
-	if (root->type == SEARCH_SUB && !root->not) {
+	if (root->type == SEARCH_SUB && !root->match_not) {
 		/* simple SUB root */
 		args->args = root->value.subargs;
 	} else {
