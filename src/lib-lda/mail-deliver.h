@@ -1,6 +1,8 @@
 #ifndef MAIL_DELIVER_H
 #define MAIL_DELIVER_H
 
+#include "mail-types.h"
+
 enum mail_flags;
 enum mail_error;
 struct mail_storage;
@@ -10,8 +12,8 @@ struct mailbox;
 struct mail_deliver_session {
 	pool_t pool;
 
-	/* List of users who have already saved this mail to their INBOX */
-	ARRAY_TYPE(const_string) inbox_users;
+	/* List of INBOX GUIDs where this mail has already been saved to */
+	ARRAY_DEFINE(inbox_guids, mail_guid_128_t);
 };
 
 struct mail_deliver_context {

@@ -214,20 +214,25 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 }
 
 static bool mail_deliver_check_duplicate(struct mail_deliver_session *session,
-					 struct mail_user *user)
+					 struct mailbox *box)
 {
-	const char *const *usernamep, *username;
+	uint8_t box_guid[MAIL_GUID_128_SIZE];
+	const mail_guid_128_t *guid;
+
+	if (mailbox_get_guid(box, box_guid) < 0) {
+		/* just play it safe and assume a duplicate */
+		return TRUE;
+	}
 
 	/* there shouldn't be all that many recipients,
 	   so just do a linear search */
-	if (!array_is_created(&session->inbox_users))
-		p_array_init(&session->inbox_users, session->pool, 8);
-	array_foreach(&session->inbox_users, usernamep) {
-		if (strcmp(*usernamep, user->username) == 0)
+	if (!array_is_created(&session->inbox_guids))
+		p_array_init(&session->inbox_guids, session->pool, 8);
+	array_foreach(&session->inbox_guids, guid) {
+		if (memcmp(box_guid, guid, sizeof(box_guid)) == 0)
 			return TRUE;
 	}
-	username = p_strdup(session->pool, user->username);
-	array_append(&session->inbox_users, &username, 1);
+	array_append(&session->inbox_guids, &box_guid, 1);
 	return FALSE;
 }
 
@@ -237,8 +242,6 @@ void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *sessio
 	struct mailbox_transaction_context *trans =
 		mailbox_save_get_transaction(save_ctx);
 	struct mailbox *box = mailbox_transaction_get_mailbox(trans);
-	struct mail_storage *storage = mailbox_get_storage(box);
-	struct mail_user *user = mail_storage_get_user(storage);
 	uint8_t guid[MAIL_GUID_128_SIZE];
 
 	if (strcmp(mailbox_get_name(box), "INBOX") != 0)
@@ -248,7 +251,7 @@ void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *sessio
 	   happens if mail is delivered to same user multiple times within a
 	   session. the problem with this is that if GUIDs are used as POP3
 	   UIDLs, some clients can't handle the duplicates well. */
-	if (mail_deliver_check_duplicate(session, user)) {
+	if (mail_deliver_check_duplicate(session, box)) {
 		mail_generate_guid_128(guid);
 		mailbox_save_set_guid(save_ctx, mail_guid_128_to_string(guid));
 	}
