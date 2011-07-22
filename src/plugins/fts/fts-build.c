@@ -131,7 +131,7 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 	struct message_decoder_context *decoder;
 	struct message_block raw_block, block;
 	struct message_part *prev_part, *parts;
-	bool skip_body = FALSE, body_part = FALSE;
+	bool skip_body = FALSE, body_part = FALSE, body_added = FALSE;
 	int ret;
 
 	ctx->uid = mail->uid;
@@ -200,7 +200,12 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 				ret = -1;
 				break;
 			}
+			body_added = TRUE;
 		}
+	}
+	if (ret == 0 && body_part && !skip_body && !body_added) {
+		/* make sure body is added even when it doesn't exist */
+		ret = fts_backend_update_build_more(ctx->update_ctx, NULL, 0);
 	}
 	if (message_parser_deinit(&parser, &parts) < 0)
 		mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS);
