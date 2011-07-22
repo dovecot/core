@@ -179,6 +179,11 @@ void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output)
 	} while (bitpos > 0);
 }
 
+unsigned int uni_utf8_strlen(const char *input)
+{
+	return uni_utf8_strlen_n(input, (size_t)-1);
+}
+
 unsigned int uni_utf8_strlen_n(const void *_input, size_t size)
 {
 	const unsigned char *input = _input;
