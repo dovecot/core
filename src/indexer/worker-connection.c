@@ -73,6 +73,7 @@ static void worker_connection_disconnect(struct worker_connection *conn)
 		conn->callback(-1, *contextp);
 	}
 	aqueue_clear(conn->request_queue);
+	i_free_and_null(conn->request_username);
 }
 
 void worker_connection_destroy(struct worker_connection **_conn)
