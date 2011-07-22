@@ -85,7 +85,7 @@ indexer_client_request_queue(struct indexer_client *client, bool append,
 	}
 
 	indexer_queue_append(client->queue, append, args[1], args[2], ctx);
-	o_stream_send_str(client->output, "OK\n");
+	o_stream_send_str(client->output, t_strdup_printf("%u\tOK\n", tag));
 	return 0;
 }
 
