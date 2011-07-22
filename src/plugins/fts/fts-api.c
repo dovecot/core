@@ -310,20 +310,26 @@ static bool
 fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r,
 		     uint32_t *ext_id_r)
 {
+	struct mail_index_view *view;
 	const void *data;
 	size_t data_size;
+	bool ret;
 
+	(void)mail_index_refresh(box->index);
+	view = mail_index_view_open(box->index);
 	*ext_id_r = mail_index_ext_register(box->index, "fts",
 					    sizeof(struct fts_index_header),
 					    0, 0);
-	mail_index_get_header_ext(box->view, *ext_id_r, &data, &data_size);
+	mail_index_get_header_ext(view, *ext_id_r, &data, &data_size);
 	if (data_size < sizeof(*hdr_r)) {
 		memset(hdr_r, 0, sizeof(*hdr_r));
-		return FALSE;
+		ret = FALSE;
+	} else {
+		memcpy(hdr_r, data, data_size);
+		ret = TRUE;
 	}
-
-	memcpy(hdr_r, data, data_size);
-	return TRUE;
+	mail_index_view_close(&view);
+	return ret;
 }
 
 bool fts_index_get_last_uid(struct mailbox *box, uint32_t *last_uid_r)
