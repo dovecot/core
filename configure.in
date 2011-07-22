@@ -146,9 +146,6 @@ AC_ARG_WITH(lucene,
 AS_HELP_STRING([--with-lucene], [Build with CLucene full text search support]),
   TEST_WITH(lucene, $withval),
   want_lucene=no)
-if test "$want_lucene" = "yes"; then
-  AC_ERROR([CLucene support isn't working very well. Use Solr instead.])
-fi
 AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
 
 AC_ARG_WITH(solr,

@@ -4,10 +4,12 @@
 #include "seq-range-array.h"
 #include "fts-api.h"
 
-/* Returns TRUE if UID conversion was done, FALSE if uid should be skipped. */
-typedef bool solr_uid_map_callback_t(const char *ns_prefix, const char *mailbox,
-				     uint32_t uidvalidity, uint32_t *uid,
-				     void *context);
+struct solr_result {
+	const char *box_id;
+
+	ARRAY_TYPE(seq_range) uids;
+	ARRAY_TYPE(fts_score_map) scores;
+};
 
 struct solr_connection *solr_connection_init(const char *url, bool debug);
 void solr_connection_deinit(struct solr_connection *conn);
@@ -16,9 +18,7 @@ void solr_connection_http_escape(struct solr_connection *conn, string_t *dest,
 				 const char *str);
 
 int solr_connection_select(struct solr_connection *conn, const char *query,
-			   solr_uid_map_callback_t *callback, void *context,
-			   ARRAY_TYPE(seq_range) *uids,
-			   ARRAY_TYPE(fts_score_map) *scores);
+			   pool_t pool, struct solr_result ***box_results_r);
 int solr_connection_post(struct solr_connection *conn, const char *cmd);
 
 struct solr_connection_post *

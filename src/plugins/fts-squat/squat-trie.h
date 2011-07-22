@@ -28,7 +28,7 @@ void squat_trie_set_full_len(struct squat_trie *trie, unsigned int len);
 
 int squat_trie_refresh(struct squat_trie *trie);
 
-int squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r,
+int squat_trie_build_init(struct squat_trie *trie,
 			  struct squat_trie_build_context **ctx_r);
 /* bodies must be added before headers */
 int squat_trie_build_more(struct squat_trie_build_context *ctx,

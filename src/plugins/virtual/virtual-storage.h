@@ -101,16 +101,21 @@ struct virtual_backend_box {
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
 struct virtual_mailbox_vfuncs {
-	bool (*get_virtual_uid)(struct mailbox *box,
-				const char *backend_mailbox,
-				uint32_t backend_uidvalidity,
-				uint32_t backend_uid, uint32_t *uid_r);
+	/* convert backend UIDs to virtual UIDs. if some backend UID doesn't
+	   exist in mailbox, it's simply ignored */
+	void (*get_virtual_uids)(struct mailbox *box,
+				 struct mailbox *backend_mailbox,
+				 const ARRAY_TYPE(seq_range) *backend_uids,
+				 ARRAY_TYPE(seq_range) *virtual_uids_r);
+	/* like get_virtual_uids(), but if a backend UID doesn't exist,
+	   convert it to 0. */
+	void (*get_virtual_uid_map)(struct mailbox *box,
+				    struct mailbox *backend_mailbox,
+				    const ARRAY_TYPE(seq_range) *backend_uids,
+				    ARRAY_TYPE(uint32_t) *virtual_uids_r);
 	void (*get_virtual_backend_boxes)(struct mailbox *box,
 					  ARRAY_TYPE(mailboxes) *mailboxes,
 					  bool only_with_msgs);
-	void (*get_virtual_box_patterns)(struct mailbox *box,
-				ARRAY_TYPE(mailbox_virtual_patterns) *includes,
-				ARRAY_TYPE(mailbox_virtual_patterns) *excludes);
 };
 
 struct virtual_mailbox {
@@ -124,8 +129,7 @@ struct virtual_mailbox {
 	uint32_t highest_mailbox_id;
 	uint32_t search_args_crc32;
 
-	char *vseq_lookup_prev_mailbox;
-	struct virtual_backend_box *vseq_lookup_prev_bbox;
+	struct virtual_backend_box *lookup_prev_bbox;
 	uint32_t sync_virtual_next_uid;
 
 	/* Mailboxes this virtual mailbox consists of, sorted by mailbox_id */

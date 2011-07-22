@@ -2,6 +2,11 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hex-binary.h"
+#include "mail-index.h"
+#include "mail-storage-private.h"
+#include "mail-search.h"
+#include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
 
 static ARRAY_DEFINE(backends, const struct fts_backend *);
@@ -48,23 +53,26 @@ fts_backend_class_lookup(const char *backend_name)
 	return NULL;
 }
 
-struct fts_backend *
-fts_backend_init(const char *backend_name, struct mailbox *box)
+int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
+		     const char **error_r, struct fts_backend **backend_r)
 {
 	const struct fts_backend *be;
 	struct fts_backend *backend;
 
 	be = fts_backend_class_lookup(backend_name);
 	if (be == NULL) {
-		i_error("Unknown FTS backend: %s", backend_name);
-		return NULL;
+		*error_r = "Unknown backend";
+		return -1;
 	}
 
-	backend = be->v.init(box);
-	if (backend == NULL)
-		return NULL;
-	backend->box = box;
-	return backend;
+	backend = be->v.alloc();
+	backend->ns = ns;
+	if (backend->v.init(backend, error_r) < 0) {
+		i_free(backend);
+		return -1;
+	}
+	*backend_r = backend;
+	return 0;
 }
 
 void fts_backend_deinit(struct fts_backend **_backend)
@@ -75,83 +83,109 @@ void fts_backend_deinit(struct fts_backend **_backend)
 	backend->v.deinit(backend);
 }
 
-int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r)
+int fts_backend_get_last_uid(struct fts_backend *backend, struct mailbox *box,
+			     uint32_t *last_uid_r)
 {
-	return backend->v.get_last_uid(backend, last_uid_r);
+	if (strcmp(box->storage->name, VIRTUAL_STORAGE_NAME) == 0) {
+		/* virtual mailboxes themselves don't have any indexes,
+		   so catch this call here */
+		if (!fts_index_get_last_uid(box, last_uid_r))
+			*last_uid_r = 0;
+		return 0;
+	}
+
+	return backend->v.get_last_uid(backend, box, last_uid_r);
 }
 
-int fts_backend_get_all_last_uids(struct fts_backend *backend, pool_t pool,
-				  ARRAY_TYPE(fts_backend_uid_map) *last_uids)
+bool fts_backend_is_updating(struct fts_backend *backend)
 {
-	return backend->v.get_all_last_uids(backend, pool, last_uids);
+	return backend->updating;
 }
 
-int fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
-			   struct fts_backend_build_context **ctx_r)
+struct fts_backend_update_context *
+fts_backend_update_init(struct fts_backend *backend)
 {
-	int ret;
+	i_assert(!backend->updating);
 
-	i_assert(!backend->building);
-
-	ret = backend->v.build_init(backend, last_uid_r, ctx_r);
-	if (ret == 0)
-		backend->building = TRUE;
-	return ret;
+	backend->updating = TRUE;
+	return backend->v.update_init(backend);
 }
 
-void fts_backend_build_hdr(struct fts_backend_build_context *ctx, uint32_t uid)
+static void fts_backend_set_cur_mailbox(struct fts_backend_update_context *ctx)
 {
-	ctx->backend->v.build_hdr(ctx, uid);
+	fts_backend_update_unset_build_key(ctx);
+	if (ctx->backend_box != ctx->cur_box) {
+		ctx->backend->v.update_set_mailbox(ctx, ctx->cur_box);
+		ctx->backend_box = ctx->cur_box;
+	}
 }
 
-bool fts_backend_build_body_begin(struct fts_backend_build_context *ctx,
-				  uint32_t uid, const char *content_type,
-				  const char *content_disposition)
+int fts_backend_update_deinit(struct fts_backend_update_context **_ctx)
 {
-	return ctx->backend->v.build_body_begin(ctx, uid, content_type,
-						content_disposition);
-}
-
-void fts_backend_build_body_end(struct fts_backend_build_context *ctx)
-{
-	if (ctx->backend->v.build_body_end != NULL)
-		ctx->backend->v.build_body_end(ctx);
-}
-
-int fts_backend_build_more(struct fts_backend_build_context *ctx,
-			   const unsigned char *data, size_t size)
-{
-	return ctx->backend->v.build_more(ctx, data, size);
-}
-
-int fts_backend_build_deinit(struct fts_backend_build_context **_ctx)
-{
-	struct fts_backend_build_context *ctx = *_ctx;
+	struct fts_backend_update_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	ctx->backend->building = FALSE;
-	return ctx->backend->v.build_deinit(ctx);
+
+	ctx->cur_box = NULL;
+	fts_backend_set_cur_mailbox(ctx);
+
+	return ctx->backend->v.update_deinit(ctx);
 }
 
-bool fts_backend_is_building(struct fts_backend *backend)
+void fts_backend_update_set_mailbox(struct fts_backend_update_context *ctx,
+				    struct mailbox *box)
 {
-	return backend->building;
+	if (ctx->backend_box != NULL && box != ctx->backend_box) {
+		/* make sure we don't reference the backend box anymore */
+		ctx->backend->v.update_set_mailbox(ctx, NULL);
+		ctx->backend_box = NULL;
+	}
+	ctx->cur_box = box;
 }
 
-void fts_backend_expunge(struct fts_backend *backend, struct mail *mail)
+void fts_backend_update_expunge(struct fts_backend_update_context *ctx,
+				uint32_t uid)
 {
-	backend->v.expunge(backend, mail);
+	fts_backend_set_cur_mailbox(ctx);
+	ctx->backend->v.update_expunge(ctx, uid);
 }
 
-void fts_backend_expunge_finish(struct fts_backend *backend,
-				struct mailbox *box, bool committed)
+bool fts_backend_update_set_build_key(struct fts_backend_update_context *ctx,
+				      const struct fts_backend_build_key *key)
 {
-	backend->v.expunge_finish(backend, box, committed);
+	fts_backend_set_cur_mailbox(ctx);
+
+	if (!ctx->backend->v.update_set_build_key(ctx, key))
+		return FALSE;
+	ctx->build_key_open = TRUE;
+	return TRUE;
+}
+
+void fts_backend_update_unset_build_key(struct fts_backend_update_context *ctx)
+{
+	if (ctx->build_key_open) {
+		ctx->backend->v.update_unset_build_key(ctx);
+		ctx->build_key_open = FALSE;
+	}
+}
+
+int fts_backend_update_build_more(struct fts_backend_update_context *ctx,
+				  const unsigned char *data, size_t size)
+{
+	i_assert(ctx->build_key_open);
+
+	return ctx->backend->v.update_build_more(ctx, data, size);
 }
 
 int fts_backend_refresh(struct fts_backend *backend)
 {
 	return backend->v.refresh(backend);
+}
+
+int fts_backend_optimize(struct fts_backend *backend)
+{
+	return backend->v.optimize == NULL ? 0 :
+		backend->v.optimize(backend);
 }
 
 static void
@@ -203,131 +237,149 @@ void fts_filter_uids(ARRAY_TYPE(seq_range) *definite_dest,
 	seq_range_array_intersect(definite_dest, definite_filter);
 }
 
-static void fts_lookup_invert(ARRAY_TYPE(seq_range) *definite_uids,
-			      const ARRAY_TYPE(seq_range) *maybe_uids)
+bool fts_backend_default_can_lookup(struct fts_backend *backend,
+				    const struct mail_search_arg *args)
 {
-	/* we'll begin by inverting definite UIDs */
-	seq_range_array_invert(definite_uids, 1, (uint32_t)-1);
-
-	/* from that list remove UIDs in the maybe list.
-	   the maybe list itself isn't touched. */
-	(void)seq_range_array_remove_seq_range(definite_uids, maybe_uids);
+	for (; args != NULL; args = args->next) {
+		switch (args->type) {
+		case SEARCH_OR:
+		case SEARCH_SUB:
+		case SEARCH_INTHREAD:
+			if (fts_backend_default_can_lookup(backend,
+							   args->value.subargs))
+				return TRUE;
+			break;
+		case SEARCH_HEADER:
+		case SEARCH_HEADER_ADDRESS:
+		case SEARCH_HEADER_COMPRESS_LWSP:
+		case SEARCH_BODY:
+		case SEARCH_TEXT:
+			return TRUE;
+		default:
+			break;
+		}
+	}
+	return FALSE;
 }
 
-static int fts_backend_lookup(struct fts_backend *backend, const char *key,
-			      enum fts_lookup_flags flags,
-			      ARRAY_TYPE(seq_range) *definite_uids,
-			      ARRAY_TYPE(seq_range) *maybe_uids)
+bool fts_backend_can_lookup(struct fts_backend *backend,
+			    const struct mail_search_arg *args)
 {
-	int ret;
+	return backend->v.can_lookup(backend, args);
+}
 
-	ret = backend->v.lookup(backend, key, flags & ~FTS_LOOKUP_FLAG_INVERT,
-				definite_uids, maybe_uids);
-	if (unlikely(ret < 0))
+static int fts_score_map_sort(const struct fts_score_map *m1,
+			      const struct fts_score_map *m2)
+{
+	if (m1->uid < m2->uid)
 		return -1;
-	if ((flags & FTS_LOOKUP_FLAG_INVERT) != 0)
-		fts_lookup_invert(definite_uids, maybe_uids);
+	if (m1->uid > m2->uid)
+		return 1;
 	return 0;
 }
 
-static int fts_backend_filter(struct fts_backend *backend, const char *key,
-			      enum fts_lookup_flags flags,
-			      ARRAY_TYPE(seq_range) *definite_uids,
-			      ARRAY_TYPE(seq_range) *maybe_uids)
+int fts_backend_lookup(struct fts_backend *backend, struct mailbox *box,
+		       struct mail_search_arg *args, bool and_args,
+		       struct fts_result *result)
 {
-	ARRAY_TYPE(seq_range) tmp_definite, tmp_maybe;
-	int ret;
+	array_clear(&result->definite_uids);
+	array_clear(&result->maybe_uids);
+	array_clear(&result->scores);
 
-	if (backend->v.filter != NULL) {
-		return backend->v.filter(backend, key, flags,
-					 definite_uids, maybe_uids);
-	}
-
-	/* do this ourself */
-	i_array_init(&tmp_definite, 64);
-	i_array_init(&tmp_maybe, 64);
-	ret = fts_backend_lookup(backend, key, flags,
-				 &tmp_definite, &tmp_maybe);
-	if (ret < 0) {
-		array_clear(definite_uids);
-		array_clear(maybe_uids);
-	} else {
-		fts_filter_uids(definite_uids, &tmp_definite,
-				maybe_uids, &tmp_maybe);
-	}
-	array_free(&tmp_maybe);
-	array_free(&tmp_definite);
-	return ret;
-}
-
-struct fts_backend_lookup_context *
-fts_backend_lookup_init(struct fts_backend *backend)
-{
-	struct fts_backend_lookup_context *ctx;
-	pool_t pool;
-
-	pool = pool_alloconly_create("fts backend lookup", 256);
-	ctx = p_new(pool, struct fts_backend_lookup_context, 1);
-	ctx->pool = pool;
-	ctx->backend = backend;
-	p_array_init(&ctx->fields, pool, 8);
-	return ctx;
-}
-
-void fts_backend_lookup_add(struct fts_backend_lookup_context *ctx,
-			    const char *key, enum fts_lookup_flags flags)
-{
-	struct fts_backend_lookup_field *field;
-
-	field = array_append_space(&ctx->fields);
-	field->key = p_strdup(ctx->pool, key);
-	field->flags = flags;
-}
-
-static int fts_backend_lookup_old(struct fts_backend_lookup_context *ctx,
-				  ARRAY_TYPE(seq_range) *definite_uids,
-				  ARRAY_TYPE(seq_range) *maybe_uids)
-{
-	const struct fts_backend_lookup_field *fields;
-	unsigned int i, count;
-
-	fields = array_get(&ctx->fields, &count);
-	i_assert(count > 0);
-
-	if (fts_backend_lookup(ctx->backend, fields[0].key, fields[0].flags,
-			       definite_uids, maybe_uids) < 0)
+	if (backend->v.lookup(backend, box, args, and_args, result) < 0)
 		return -1;
-	for (i = 1; i < count; i++) {
-		if (fts_backend_filter(ctx->backend,
-				       fields[i].key, fields[i].flags,
-				       definite_uids, maybe_uids) < 0)
-			return -1;
+
+	if (!result->scores_sorted && array_is_created(&result->scores)) {
+		array_sort(&result->scores, fts_score_map_sort);
+		result->scores_sorted = TRUE;
 	}
 	return 0;
 }
 
-int fts_backend_lookup_deinit(struct fts_backend_lookup_context **_ctx,
-			      ARRAY_TYPE(seq_range) *definite_uids,
-			      ARRAY_TYPE(seq_range) *maybe_uids,
-			      ARRAY_TYPE(fts_score_map) *scores)
+int fts_backend_lookup_multi(struct fts_backend *backend,
+			     struct mailbox *const boxes[],
+			     struct mail_search_arg *args, bool and_args,
+			     struct fts_multi_result *result)
 {
-	struct fts_backend_lookup_context *ctx = *_ctx;
-	int ret;
+	i_assert(boxes[0] != NULL);
 
-	*_ctx = NULL;
-	if (ctx->backend->v.lookup2 != NULL) {
-		ret = ctx->backend->v.lookup2(ctx, definite_uids, maybe_uids,
-					      scores);
-	} else {
-		array_clear(scores);
-		ret = fts_backend_lookup_old(ctx, definite_uids, maybe_uids);
-	}
-	pool_unref(&ctx->pool);
-	return ret;
+	return backend->v.lookup_multi(backend, boxes, args, and_args, result);
 }
 
-bool fts_backend_default_can_index(const char *content_type)
+static bool
+fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r,
+		     uint32_t *ext_id_r)
 {
-	return strncasecmp(content_type, "text/", 5) == 0 ||
-		strcasecmp(content_type, "message/rfc822") == 0;
+	const void *data;
+	size_t data_size;
+
+	*ext_id_r = mail_index_ext_register(box->index, "fts",
+					    sizeof(struct fts_index_header),
+					    0, 0);
+	mail_index_get_header_ext(box->view, *ext_id_r, &data, &data_size);
+	if (data_size < sizeof(*hdr_r)) {
+		memset(hdr_r, 0, sizeof(*hdr_r));
+		return FALSE;
+	}
+
+	memcpy(hdr_r, data, data_size);
+	return TRUE;
+}
+
+bool fts_index_get_last_uid(struct mailbox *box, uint32_t *last_uid_r)
+{
+	struct fts_index_header hdr;
+	uint32_t ext_id;
+
+	if (!fts_index_get_header(box, &hdr, &ext_id)) {
+		*last_uid_r = 0;
+		return FALSE;
+	}
+
+	*last_uid_r = hdr.last_indexed_uid;
+	return TRUE;
+}
+
+int fts_index_set_last_uid(struct mailbox *box, uint32_t last_uid)
+{
+	struct mail_index_transaction *trans;
+	struct fts_index_header hdr;
+	uint32_t ext_id;
+
+	(void)fts_index_get_header(box, &hdr, &ext_id);
+
+	hdr.last_indexed_uid = last_uid;
+	trans = mail_index_transaction_begin(box->view, 0);
+	mail_index_update_header_ext(trans, ext_id, 0, &hdr, sizeof(hdr));
+	return mail_index_transaction_commit(&trans);
+}
+
+static const char *indexed_headers[] = {
+	"From", "To", "Cc", "Bcc", "Subject"
+};
+
+bool fts_header_want_indexed(const char *hdr_name)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(indexed_headers); i++) {
+		if (strcasecmp(hdr_name, indexed_headers[i]) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+int fts_mailbox_get_guid(struct mailbox *box, const char **guid_r)
+{
+	struct mailbox_metadata metadata;
+	buffer_t buf;
+	unsigned char guid_hex[MAILBOX_GUID_HEX_LENGTH];
+
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
+		return -1;
+
+	buffer_create_data(&buf, guid_hex, sizeof(guid_hex));
+	binary_to_hex_append(&buf, metadata.guid, MAIL_GUID_128_SIZE);
+	*guid_r = t_strndup(guid_hex, sizeof(guid_hex));
+	return 0;
 }

@@ -3,26 +3,40 @@
 
 struct mail;
 struct mailbox;
-struct fts_backend_build_context;
+struct mail_namespace;
+struct mail_search_arg;
+
+struct fts_backend;
 
 #include "seq-range-array.h"
 
-enum fts_lookup_flags {
-	/* Search within header and/or body.
-	   At least one of these must be set. */
-	FTS_LOOKUP_FLAG_HEADER	= 0x01,
-	FTS_LOOKUP_FLAG_BODY	= 0x02,
-
-	/* The key must NOT be found */
-	FTS_LOOKUP_FLAG_INVERT	= 0x04
+enum fts_backend_build_key_type {
+	/* Header */
+	FTS_BACKEND_BUILD_KEY_HDR,
+	/* MIME part header */
+	FTS_BACKEND_BUILD_KEY_MIME_HDR,
+	/* MIME body part */
+	FTS_BACKEND_BUILD_KEY_BODY_PART,
+	/* Binary MIME body part, if backend supports binary data */
+	FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY
 };
 
-struct fts_backend_uid_map {
-	const char *mailbox;
-	uint32_t uidvalidity;
+struct fts_backend_build_key {
 	uint32_t uid;
+	enum fts_backend_build_key_type type;
+
+	/* for _KEY_HDR: */
+	const char *hdr_name;
+
+	/* for _KEY_BODY_PART and _KEY_BODY_PART_BINARY: */
+
+	/* Contains a valid parsed "type/subtype" string. For messages without
+	   (valid) Content-Type: header, it's set to "text/plain". */
+	const char *body_content_type;
+	/* Content-Disposition: header without parsing/validation if it exists,
+	   otherwise NULL. */
+	const char *body_content_disposition;
 };
-ARRAY_DEFINE_TYPE(fts_backend_uid_map, struct fts_backend_uid_map);
 
 struct fts_score_map {
 	uint32_t uid;
@@ -30,80 +44,94 @@ struct fts_score_map {
 };
 ARRAY_DEFINE_TYPE(fts_score_map, struct fts_score_map);
 
-struct fts_backend *
-fts_backend_init(const char *backend_name, struct mailbox *box);
+struct fts_result {
+	struct mailbox *box;
+
+	ARRAY_TYPE(seq_range) definite_uids;
+	/* The maybe_uids is useful with backends that can only filter out
+	   messages, but can't definitively say if the search matched a
+	   message. */
+	ARRAY_TYPE(seq_range) maybe_uids;
+	ARRAY_TYPE(fts_score_map) scores;
+	bool scores_sorted;
+};
+
+struct fts_multi_result {
+	pool_t pool;
+	/* box=NULL-terminated array of mailboxes and matching UIDs,
+	   all allocated from the given pool. */
+	struct fts_result *box_results;
+};
+
+int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
+		     const char **error_r, struct fts_backend **backend_r);
 void fts_backend_deinit(struct fts_backend **backend);
 
 /* Get the last_uid for the mailbox. */
-int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r);
-/* Get last_uids for all mailboxes that might be backend mailboxes for a
-   virtual mailbox. The backend can use mailbox_get_virtual_backend_boxes() or
-   mailbox_get_virtual_box_patterns() functions to get the list of mailboxes.
+int fts_backend_get_last_uid(struct fts_backend *backend, struct mailbox *box,
+			     uint32_t *last_uid_r);
 
-   Depending on virtual mailbox configuration, this function may also return
-   mailboxes that don't even match the virtual mailbox patterns. The caller
-   needs to be able to ignore the unnecessary ones. */
-int fts_backend_get_all_last_uids(struct fts_backend *backend, pool_t pool,
-				  ARRAY_TYPE(fts_backend_uid_map) *last_uids);
+/* Returns TRUE if there exists an update context. */
+bool fts_backend_is_updating(struct fts_backend *backend);
 
-/* Initialize adding new data to the index. last_uid_r is set to the last
-   indexed message's IMAP UID */
-int fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r,
-			   struct fts_backend_build_context **ctx_r);
-/* Switch to building index for mail's headers or MIME part headers. */
-void fts_backend_build_hdr(struct fts_backend_build_context *ctx, uint32_t uid);
-/* Switch to building index for the next body part. If backend doesn't want
-   to index this body part (based on content type/disposition check), it can
-   return FALSE and caller will skip to next part. The backend must return
-   TRUE for all text/xxx and message/rfc822 content types.
+/* Start an index update. */
+struct fts_backend_update_context *
+fts_backend_update_init(struct fts_backend *backend);
+/* Finish an index update. Returns 0 if ok, -1 if some updates failed.
+   If updates failed, the index is in unspecified state. */
+int fts_backend_update_deinit(struct fts_backend_update_context **ctx);
 
-   The content_type contains a valid parsed "type/subtype" string. For messages
-   without (valid) Content-Type header, the content_type is set to "text/plain".
-   The content_disposition is passed without parsing/validation if it exists,
-   otherwise it's NULL. */
-bool fts_backend_build_body_begin(struct fts_backend_build_context *ctx,
-				  uint32_t uid, const char *content_type,
-				  const char *content_disposition);
-/* Called once when the whole body part has been sent. */
-void fts_backend_build_body_end(struct fts_backend_build_context *ctx);
-/* Add more content to the index for the currently selected header/body part.
-   The data must contain only full valid UTF-8 characters, but it doesn't need
-   to be NUL-terminated. size contains the data size in bytes, not characters.
-   This function may be called many times and the data block sizes may be
-   small. Backend returns 0 if ok, -1 if build should be aborted. */
-int fts_backend_build_more(struct fts_backend_build_context *ctx,
-			   const unsigned char *data, size_t size);
-/* Finish adding new data to the index. */
-int fts_backend_build_deinit(struct fts_backend_build_context **ctx);
+/* Switch to updating the specified mailbox. box may also be set to NULL to
+   make sure the previous mailbox won't tried to be accessed anymore. */
+void fts_backend_update_set_mailbox(struct fts_backend_update_context *ctx,
+				    struct mailbox *box);
+/* Expunge the specified mail. */
+void fts_backend_update_expunge(struct fts_backend_update_context *ctx,
+				uint32_t uid);
 
-/* Returns TRUE if there exists a build context. */
-bool fts_backend_is_building(struct fts_backend *backend);
+/* Switch to building index for specified key. If backend doesn't want to
+   index this key, it can return FALSE and caller will skip to next key. */
+bool fts_backend_update_set_build_key(struct fts_backend_update_context *ctx,
+				      const struct fts_backend_build_key *key);
+/* Make sure that if _build_more() is called, we'll assert-crash. */
+void fts_backend_update_unset_build_key(struct fts_backend_update_context *ctx);
+/* Add more content to the index for the currently specified build key.
+   Non-BODY_PART_BINARY data must contain only full valid UTF-8 characters,
+   but it doesn't need to be NUL-terminated. size contains the data size in
+   bytes, not characters. This function may be called many times and the data
+   block sizes may be small. Backend returns 0 if ok, -1 if build should be
+   aborted. */
+int fts_backend_update_build_more(struct fts_backend_update_context *ctx,
+				  const unsigned char *data, size_t size);
 
-/* Expunge given mail from the backend. Note that the transaction may still
-   fail later, so backend shouldn't do anything irreversible. */
-void fts_backend_expunge(struct fts_backend *backend, struct mail *mail);
-/* Called after transaction has been committed or rollbacked. */
-void fts_backend_expunge_finish(struct fts_backend *backend,
-				struct mailbox *box, bool committed);
-
-/* Refresh database to make sure we see latest changes from lookups.
+/* Refresh index to make sure we see latest changes from lookups.
    Returns 0 if ok, -1 if error. */
 int fts_backend_refresh(struct fts_backend *backend);
+/* Optimize the index. This can be a somewhat heavy operation. */
+int fts_backend_optimize(struct fts_backend *backend);
 
-/* Start building a FTS lookup. */
-struct fts_backend_lookup_context *
-fts_backend_lookup_init(struct fts_backend *backend);
-/* Add a new search key to the lookup. The keys are ANDed together. */
-void fts_backend_lookup_add(struct fts_backend_lookup_context *ctx,
-			    const char *key, enum fts_lookup_flags flags);
-/* Finish the lookup and return found UIDs. The definite_uids are returned
-   to client directly, while for maybe_uids Dovecot first verifies (by
-   opening and reading the mail) that they really do contain the searched
-   keys. The maybe_uids is useful with backends that can only filter out
-   messages, but can't definitively say if the search matched a message. */
-int fts_backend_lookup_deinit(struct fts_backend_lookup_context **ctx,
-			      ARRAY_TYPE(seq_range) *definite_uids,
-			      ARRAY_TYPE(seq_range) *maybe_uids,
-			      ARRAY_TYPE(fts_score_map) *scores);
+/* Returns TRUE if fts_backend_lookup() should even be tried for the
+   given args. */
+bool fts_backend_can_lookup(struct fts_backend *backend,
+			    const struct mail_search_arg *args);
+/* Do a FTS lookup for the given search args. Backends can support different
+   kinds of search arguments, so match_always=TRUE must be set to all search
+   args that were actually used to produce the search results. The other args
+   are handled by the regular search code. The backends MUST ignore all args
+   that have subargs (SEARCH_OR, SEARCH_SUB), since they are looked up
+   separately.
+
+   and_args specifies if the args should be ANDed or ORed together.
+
+   The arrays in result must be initialized by caller. */
+int fts_backend_lookup(struct fts_backend *backend, struct mailbox *box,
+		       struct mail_search_arg *args, bool and_args,
+		       struct fts_result *result);
+
+/* Search from multiple mailboxes. result->pool must be initialized. */
+int fts_backend_lookup_multi(struct fts_backend *backend,
+			     struct mailbox *const boxes[],
+			     struct mail_search_arg *args, bool and_args,
+			     struct fts_multi_result *result);
 
 #endif

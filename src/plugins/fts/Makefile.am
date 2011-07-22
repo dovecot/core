@@ -13,14 +13,20 @@ module_LTLIBRARIES = \
 
 lib20_fts_plugin_la_SOURCES = \
 	fts-api.c \
-	fts-mailbox.c \
+	fts-build.c \
+	fts-build-indexer.c \
+	fts-build-mailbox.c \
+	fts-build-virtual.c \
 	fts-plugin.c \
 	fts-search.c \
+	fts-search-serialize.c \
 	fts-storage.c
 
 noinst_HEADERS = \
 	fts-api.h \
 	fts-api-private.h \
-	fts-mailbox.h \
+	fts-build.h \
+	fts-build-private.h \
 	fts-plugin.h \
+	fts-search-serialize.h \
 	fts-storage.h

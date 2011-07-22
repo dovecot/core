@@ -6,7 +6,7 @@ For fts-solr:
 This is the Solr schema file, place it into solr/conf/schema.xml. You may
 want to modify the tokenizers and filters.
 -->
-<schema name="dovecot" version="1.1">
+<schema name="dovecot" version="2.1">
   <types>
     <!-- IMAP has 32bit unsigned ints but java ints are signed, so use longs -->
     <fieldType name="string" class="solr.StrField" omitNorms="true"/>
@@ -38,15 +38,19 @@ want to modify the tokenizers and filters.
 
 
  <fields>
-   <field name="id" type="string" indexed="true" stored="true" required="true" /> 
-   <field name="uid" type="slong" indexed="true" stored="true" required="true" /> 
-   <field name="uidv" type="long" indexed="true" stored="true" required="true" /> 
-   <field name="box" type="string" indexed="true" stored="true" required="true" /> 
-   <field name="user" type="string" indexed="true" stored="true" required="true" /> 
-   <field name="ns" type="string" indexed="true" stored="true" required="false" /> 
-   <field name="last_uid" type="boolean" indexed="true" stored="false" /> 
-   <field name="hdr" type="text" indexed="true" stored="false" /> 
-   <field name="body" type="text" indexed="true" stored="false" /> 
+   <field name="id" type="string" indexed="true" stored="true" required="true" />
+   <field name="uid" type="slong" indexed="true" stored="true" required="true" />
+   <field name="box" type="string" indexed="true" stored="true" required="true" />
+   <field name="user" type="string" indexed="true" stored="true" required="true" />
+
+   <field name="hdr" type="text" indexed="true" stored="false" />
+   <field name="body" type="text" indexed="true" stored="false" />
+
+   <field name="from" type="text" indexed="true" stored="false" />
+   <field name="to" type="text" indexed="true" stored="false" />
+   <field name="cc" type="text" indexed="true" stored="false" />
+   <field name="bcc" type="text" indexed="true" stored="false" />
+   <field name="subject" type="text" indexed="true" stored="false" />
  </fields>
 
  <uniqueKey>id</uniqueKey>

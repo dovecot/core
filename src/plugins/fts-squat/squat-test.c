@@ -47,7 +47,6 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	enum squat_index_type index_type;
 	bool data_header = TRUE, first = TRUE, skip_body = FALSE;
 	bool mime_header = TRUE;
-	uint32_t last_uid;
 	size_t trie_mem, uidlist_mem;
 	clock_t clock_start, clock_end;
 	struct timeval tv_start, tv_end;
@@ -66,7 +65,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	if (fd == -1)
 		return 1;
 
-	if (squat_trie_build_init(trie, &last_uid, &build_ctx) < 0)
+	if (squat_trie_build_init(trie, &build_ctx) < 0)
 		return 1;
 
 	valid = buffer_create_dynamic(default_pool, 4096);

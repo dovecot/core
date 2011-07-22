@@ -22,6 +22,7 @@ lib21_fts_solr_plugin_la_LIBADD = \
 
 lib21_fts_solr_plugin_la_SOURCES = \
 	fts-backend-solr.c \
+	fts-backend-solr-old.c \
 	fts-solr-plugin.c \
 	solr-connection.c
 

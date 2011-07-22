@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
@@ -15,59 +16,104 @@
 
 struct squat_fts_backend {
 	struct fts_backend backend;
+
+	struct mailbox *box;
 	struct squat_trie *trie;
+
+	unsigned int partial_len, full_len;
+	bool refresh;
 };
 
-struct squat_fts_backend_build_context {
-	struct fts_backend_build_context ctx;
+struct squat_fts_backend_update_context {
+	struct fts_backend_update_context ctx;
 	struct squat_trie_build_context *build_ctx;
+
 	enum squat_index_type squat_type;
 	uint32_t uid;
+	string_t *hdr;
+
+	bool failed;
 };
 
-static void
-fts_backend_squat_set(struct squat_fts_backend *backend, const char *str)
+static struct fts_backend *fts_backend_squat_alloc(void)
 {
-	const char *const *tmp;
-	unsigned int len;
+	struct squat_fts_backend *backend;
 
-	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "partial=", 8) == 0) {
-			if (str_to_uint(*tmp + 8, &len) < 0 || len == 0) {
-				i_fatal("fts_squat: Invalid partial len: %s",
-					*tmp + 8);
-			}
-			squat_trie_set_partial_len(backend->trie, len);
-		} else if (strncmp(*tmp, "full=", 5) == 0) {
-			if (str_to_uint(*tmp + 5, &len) < 0 || len == 0) {
-				i_fatal("fts_squat: Invalid full len: %s",
-					*tmp + 5);
-			}
-			squat_trie_set_full_len(backend->trie, len);
-		} else {
-			i_fatal("fts_squat: Invalid setting: %s", *tmp);
-		}
-	}
+	backend = i_new(struct squat_fts_backend, 1);
+	backend->backend = fts_backend_squat;
+	return &backend->backend;
 }
 
-static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
+static int
+fts_backend_squat_init(struct fts_backend *_backend, const char **error_r)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+	const char *const *tmp, *env;
+	unsigned int len;
+
+	env = mail_user_plugin_getenv(_backend->ns->user, "fts_squat");
+	if (env == NULL)
+		return 0;
+
+	for (tmp = t_strsplit_spaces(env, " "); *tmp != NULL; tmp++) {
+		if (strncmp(*tmp, "partial=", 8) == 0) {
+			if (str_to_uint(*tmp + 8, &len) < 0 || len == 0) {
+				*error_r = t_strdup_printf(
+					"Invalid partial length: %s", *tmp + 8);
+				return -1;
+			}
+			backend->partial_len = len;
+		} else if (strncmp(*tmp, "full=", 5) == 0) {
+			if (str_to_uint(*tmp + 5, &len) < 0 || len == 0) {
+				*error_r = t_strdup_printf(
+					"Invalid full length: %s", *tmp + 5);
+				return -1;
+			}
+			backend->full_len = len;
+		} else {
+			*error_r = t_strdup_printf("Invalid setting: %s", *tmp);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static void
+fts_backend_squat_unset_box(struct squat_fts_backend *backend)
+{
+	if (backend->trie != NULL)
+		squat_trie_deinit(&backend->trie);
+	backend->box = NULL;
+}
+
+static void fts_backend_squat_deinit(struct fts_backend *_backend)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+
+	fts_backend_squat_unset_box(backend);
+	i_free(backend);
+}
+
+static void
+fts_backend_squat_set_box(struct squat_fts_backend *backend,
+			  struct mailbox *box)
 {
 	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
-	struct squat_fts_backend *backend;
 	struct mail_storage *storage;
 	struct mailbox_status status;
-	const char *path, *env;
+	const char *path;
 	enum squat_index_flags flags = 0;
+
+	if (backend->box == box)
+		return;
+	fts_backend_squat_unset_box(backend);
 
 	storage = mailbox_get_storage(box);
 	path = mailbox_list_get_path(box->list, box->name,
 				     MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*path == '\0') {
-		/* in-memory indexes */
-		if (storage->set->mail_debug)
-			i_debug("fts squat: Disabled with in-memory indexes");
-		return NULL;
-	}
+	i_assert(*path != '\0'); /* fts already checked this */
 
 	mailbox_get_open_status(box, STATUS_UIDVALIDITY, &status);
 	if (storage->set->mmap_disable)
@@ -77,8 +123,6 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	if (storage->set->dotlock_use_excl)
 		flags |= SQUAT_INDEX_FLAG_DOTLOCK_USE_EXCL;
 
-	backend = i_new(struct squat_fts_backend, 1);
-	backend->backend = fts_backend_squat;
 	backend->trie =
 		squat_trie_init(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL),
 				status.uidvalidity,
@@ -86,86 +130,33 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 				flags, perm->file_create_mode,
 				perm->file_create_gid);
 
-	env = mail_user_plugin_getenv(box->storage->user, "fts_squat");
-	if (env != NULL)
-		fts_backend_squat_set(backend, env);
-	return &backend->backend;
+	if (backend->partial_len != 0)
+		squat_trie_set_partial_len(backend->trie, backend->partial_len);
+	if (backend->full_len != 0)
+		squat_trie_set_full_len(backend->trie, backend->full_len);
+	backend->box = box;
 }
 
-static void fts_backend_squat_deinit(struct fts_backend *_backend)
+static int
+fts_backend_squat_get_last_uid(struct fts_backend *_backend,
+			       struct mailbox *box, uint32_t *last_uid_r)
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
 
-	squat_trie_deinit(&backend->trie);
-	i_free(backend);
-}
-
-static int fts_backend_squat_get_last_uid(struct fts_backend *_backend,
-					  uint32_t *last_uid_r)
-{
-	struct squat_fts_backend *backend =
-		(struct squat_fts_backend *)_backend;
-
+	fts_backend_squat_set_box(backend, box);
 	return squat_trie_get_last_uid(backend->trie, last_uid_r);
 }
 
-static int
-fts_backend_squat_build_init(struct fts_backend *_backend, uint32_t *last_uid_r,
-			     struct fts_backend_build_context **ctx_r)
+static struct fts_backend_update_context *
+fts_backend_squat_update_init(struct fts_backend *_backend)
 {
-	struct squat_fts_backend *backend =
-		(struct squat_fts_backend *)_backend;
-	struct squat_fts_backend_build_context *ctx;
-	struct squat_trie_build_context *build_ctx;
+	struct squat_fts_backend_update_context *ctx;
 
-	if (squat_trie_build_init(backend->trie, last_uid_r, &build_ctx) < 0)
-		return -1;
-
-	ctx = i_new(struct squat_fts_backend_build_context, 1);
+	ctx = i_new(struct squat_fts_backend_update_context, 1);
 	ctx->ctx.backend = _backend;
-	ctx->build_ctx = build_ctx;
-
-	*ctx_r = &ctx->ctx;
-	return 0;
-}
-
-static void
-fts_backend_squat_build_hdr(struct fts_backend_build_context *_ctx,
-			    uint32_t uid)
-{
-	struct squat_fts_backend_build_context *ctx =
-		(struct squat_fts_backend_build_context *)_ctx;
-
-	ctx->squat_type = SQUAT_INDEX_TYPE_HEADER;
-	ctx->uid = uid;
-}
-
-static bool
-fts_backend_squat_build_body_begin(struct fts_backend_build_context *_ctx,
-				   uint32_t uid, const char *content_type,
-				   const char *content_disposition ATTR_UNUSED)
-{
-	struct squat_fts_backend_build_context *ctx =
-		(struct squat_fts_backend_build_context *)_ctx;
-
-	if (!fts_backend_default_can_index(content_type))
-		return FALSE;
-
-	ctx->squat_type = SQUAT_INDEX_TYPE_BODY;
-	ctx->uid = uid;
-	return TRUE;
-}
-
-static int
-fts_backend_squat_build_more(struct fts_backend_build_context *_ctx,
-			     const unsigned char *data, size_t size)
-{
-	struct squat_fts_backend_build_context *ctx =
-		(struct squat_fts_backend_build_context *)_ctx;
-
-	return squat_trie_build_more(ctx->build_ctx, ctx->uid, ctx->squat_type,
-				     data, size);
+	ctx->hdr = str_new(default_pool, 1024*32);
+	return &ctx->ctx;
 }
 
 static int get_all_msg_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
@@ -194,37 +185,140 @@ static int get_all_msg_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
 }
 
 static int
-fts_backend_squat_build_deinit(struct fts_backend_build_context *_ctx)
+fts_backend_squat_update_uid_changed(struct squat_fts_backend_update_context *ctx)
 {
-	struct squat_fts_backend_build_context *ctx =
-		(struct squat_fts_backend_build_context *)_ctx;
+	int ret = 0;
+
+	if (ctx->uid == 0)
+		return 0;
+
+	if (squat_trie_build_more(ctx->build_ctx, ctx->uid,
+				  SQUAT_INDEX_TYPE_HEADER,
+				  str_data(ctx->hdr), str_len(ctx->hdr)) < 0)
+		ret = -1;
+	str_truncate(ctx->hdr, 0);
+	return ret;
+}
+
+static int
+fts_backend_squat_build_deinit(struct squat_fts_backend_update_context *ctx)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)ctx->ctx.backend;
 	ARRAY_TYPE(seq_range) uids;
-	int ret;
+	int ret = 0;
+
+	if (ctx->build_ctx == NULL)
+		return 0;
+
+	if (fts_backend_squat_update_uid_changed(ctx) < 0)
+		ret = -1;
 
 	i_array_init(&uids, 1024);
-	if (get_all_msg_uids(ctx->ctx.backend->box, &uids) < 0)
-		ret = squat_trie_build_deinit(&ctx->build_ctx, NULL);
-	else {
+	if (get_all_msg_uids(backend->box, &uids) < 0) {
+		(void)squat_trie_build_deinit(&ctx->build_ctx, NULL);
+		ret = -1;
+	} else {
 		seq_range_array_invert(&uids, 2, (uint32_t)-2);
-		ret = squat_trie_build_deinit(&ctx->build_ctx, &uids);
+		if (squat_trie_build_deinit(&ctx->build_ctx, &uids) < 0)
+			ret = -1;
 	}
 	array_free(&uids);
+	return ret;
+}
+
+static int
+fts_backend_squat_update_deinit(struct fts_backend_update_context *_ctx)
+{
+	struct squat_fts_backend_update_context *ctx =
+		(struct squat_fts_backend_update_context *)_ctx;
+	int ret = ctx->failed ? -1 : 0;
+
+	if (fts_backend_squat_build_deinit(ctx) < 0)
+		ret = -1;
+	str_free(&ctx->hdr);
 	i_free(ctx);
 	return ret;
 }
 
 static void
-fts_backend_squat_expunge(struct fts_backend *_backend ATTR_UNUSED,
-			  struct mail *mail ATTR_UNUSED)
+fts_backend_squat_update_set_mailbox(struct fts_backend_update_context *_ctx,
+				     struct mailbox *box)
 {
+	struct squat_fts_backend_update_context *ctx =
+		(struct squat_fts_backend_update_context *)_ctx;
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)ctx->ctx.backend;
+
+	if (fts_backend_squat_build_deinit(ctx) < 0)
+		ctx->failed = TRUE;
+	fts_backend_squat_set_box(backend, box);
+
+	if (squat_trie_build_init(backend->trie, &ctx->build_ctx) < 0)
+		ctx->failed = TRUE;
 }
 
 static void
-fts_backend_squat_expunge_finish(struct fts_backend *_backend ATTR_UNUSED,
-				 struct mailbox *box ATTR_UNUSED,
-				 bool committed ATTR_UNUSED)
+fts_backend_squat_update_expunge(struct fts_backend_update_context *_ctx ATTR_UNUSED,
+				 uint32_t last_uid ATTR_UNUSED)
 {
 	/* FIXME */
+}
+
+static bool
+fts_backend_squat_update_set_build_key(struct fts_backend_update_context *_ctx,
+				       const struct fts_backend_build_key *key)
+{
+	struct squat_fts_backend_update_context *ctx =
+		(struct squat_fts_backend_update_context *)_ctx;
+
+	if (ctx->failed)
+		return FALSE;
+
+	if (key->uid != ctx->uid) {
+		if (fts_backend_squat_update_uid_changed(ctx) < 0)
+			ctx->failed = TRUE;
+	}
+
+	switch (key->type) {
+	case FTS_BACKEND_BUILD_KEY_HDR:
+	case FTS_BACKEND_BUILD_KEY_MIME_HDR:
+		str_printfa(ctx->hdr, "%s: ", key->hdr_name);
+		ctx->squat_type = SQUAT_INDEX_TYPE_HEADER;
+		break;
+	case FTS_BACKEND_BUILD_KEY_BODY_PART:
+		ctx->squat_type = SQUAT_INDEX_TYPE_BODY;
+		break;
+	case FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY:
+		i_unreached();
+	}
+	ctx->uid = key->uid;
+	return TRUE;
+}
+
+static void
+fts_backend_squat_update_unset_build_key(struct fts_backend_update_context *_ctx)
+{
+	struct squat_fts_backend_update_context *ctx =
+		(struct squat_fts_backend_update_context *)_ctx;
+
+	if (ctx->squat_type == SQUAT_INDEX_TYPE_HEADER)
+		str_append_c(ctx->hdr, '\n');
+}
+
+static int
+fts_backend_squat_update_build_more(struct fts_backend_update_context *_ctx,
+				    const unsigned char *data, size_t size)
+{
+	struct squat_fts_backend_update_context *ctx =
+		(struct squat_fts_backend_update_context *)_ctx;
+
+	if (ctx->squat_type == SQUAT_INDEX_TYPE_HEADER) {
+		str_append_n(ctx->hdr, data, size);
+		return 0;
+	}
+	return squat_trie_build_more(ctx->build_ctx, ctx->uid, ctx->squat_type,
+				     data, size);
 }
 
 static int fts_backend_squat_refresh(struct fts_backend *_backend)
@@ -232,29 +326,124 @@ static int fts_backend_squat_refresh(struct fts_backend *_backend)
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
 
-	return squat_trie_refresh(backend->trie);
+	backend->refresh = TRUE;
+	return 0;
+}
+
+static int fts_backend_squat_optimize(struct fts_backend *_backend ATTR_UNUSED)
+{
+	/* FIXME: drop expunged messages */
+	return 0;
+}
+
+static int squat_lookup_arg(struct squat_fts_backend *backend,
+			    const struct mail_search_arg *arg, bool and_args,
+			    ARRAY_TYPE(seq_range) *definite_uids,
+			    ARRAY_TYPE(seq_range) *maybe_uids)
+{
+	enum squat_index_type squat_type;
+	ARRAY_TYPE(seq_range) tmp_definite_uids, tmp_maybe_uids;
+	uint32_t last_uid;
+	int ret;
+
+	switch (arg->type) {
+	case SEARCH_TEXT:
+		squat_type = SQUAT_INDEX_TYPE_HEADER |
+			SQUAT_INDEX_TYPE_BODY;
+		break;
+	case SEARCH_BODY:
+		squat_type = SQUAT_INDEX_TYPE_BODY;
+		break;
+	case SEARCH_HEADER:
+	case SEARCH_HEADER_ADDRESS:
+	case SEARCH_HEADER_COMPRESS_LWSP:
+		squat_type = SQUAT_INDEX_TYPE_HEADER;
+		break;
+	default:
+		return 0;
+	}
+
+	i_array_init(&tmp_definite_uids, 128);
+	i_array_init(&tmp_maybe_uids, 128);
+
+	ret = squat_trie_lookup(backend->trie, arg->value.str, squat_type,
+				&tmp_definite_uids, &tmp_maybe_uids);
+	if (arg->match_not) {
+		/* definite -> non-match
+		   maybe -> maybe
+		   non-match -> maybe */
+		array_clear(&tmp_maybe_uids);
+
+		if (squat_trie_get_last_uid(backend->trie, &last_uid) < 0)
+			i_unreached();
+		seq_range_array_add_range(&tmp_maybe_uids, 1, last_uid);
+		seq_range_array_remove_seq_range(&tmp_maybe_uids,
+						 &tmp_definite_uids);
+		array_clear(&tmp_definite_uids);
+	}
+
+	if (and_args) {
+		/* AND:
+		   definite && definite -> definite
+		   definite && maybe -> maybe
+		   maybe && maybe -> maybe */
+
+		/* put definites among maybies, so they can be intersected */
+		seq_range_array_merge(maybe_uids, definite_uids);
+		seq_range_array_merge(&tmp_maybe_uids, &tmp_definite_uids);
+
+		seq_range_array_intersect(maybe_uids, &tmp_maybe_uids);
+		seq_range_array_intersect(definite_uids, &tmp_definite_uids);
+		/* remove duplicate maybies that are also definites */
+		seq_range_array_remove_seq_range(maybe_uids, definite_uids);
+	} else {
+		/* OR:
+		   definite || definite -> definite
+		   definite || maybe -> definite
+		   maybe || maybe -> maybe */
+
+		/* remove maybies that are now definites */
+		seq_range_array_remove_seq_range(&tmp_maybe_uids,
+						 definite_uids);
+		seq_range_array_remove_seq_range(maybe_uids,
+						 &tmp_definite_uids);
+
+		seq_range_array_merge(definite_uids, &tmp_definite_uids);
+		seq_range_array_merge(maybe_uids, &tmp_maybe_uids);
+	}
+
+	array_free(&tmp_definite_uids);
+	array_free(&tmp_maybe_uids);
+	return ret < 0 ? -1 : 1;
 }
 
 static int
-fts_backend_squat_lookup(struct fts_backend *_backend, const char *key,
-			 enum fts_lookup_flags flags,
-			 ARRAY_TYPE(seq_range) *definite_uids,
-			 ARRAY_TYPE(seq_range) *maybe_uids)
+fts_backend_squat_lookup(struct fts_backend *_backend, struct mailbox *box,
+			 struct mail_search_arg *args, bool and_args,
+			 struct fts_result *result)
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
-	enum squat_index_type squat_type = 0;
+	int ret;
 
-	i_assert((flags & FTS_LOOKUP_FLAG_INVERT) == 0);
+	fts_backend_squat_set_box(backend, box);
+	if (backend->refresh) {
+		if (squat_trie_refresh(backend->trie) < 0)
+			return -1;
+		backend->refresh = FALSE;
+	}
 
-	if ((flags & FTS_LOOKUP_FLAG_HEADER) != 0)
-		squat_type |= SQUAT_INDEX_TYPE_HEADER;
-	if ((flags & FTS_LOOKUP_FLAG_BODY) != 0)
-		squat_type |= SQUAT_INDEX_TYPE_BODY;
-	i_assert(squat_type != 0);
+	for (; args != NULL; args = args->next) {
+		ret = squat_lookup_arg(backend, args, and_args,
+				       &result->definite_uids,
+				       &result->maybe_uids);
+		if (ret < 0)
+			return -1;
+		if (ret > 0)
+			args->match_always = TRUE;
 
-	return squat_trie_lookup(backend->trie, key, squat_type,
-				 definite_uids, maybe_uids);
+	}
+	return 0;
 }
 
 struct fts_backend fts_backend_squat = {
@@ -262,21 +451,21 @@ struct fts_backend fts_backend_squat = {
 	.flags = 0,
 
 	{
+		fts_backend_squat_alloc,
 		fts_backend_squat_init,
 		fts_backend_squat_deinit,
 		fts_backend_squat_get_last_uid,
-		NULL,
-		fts_backend_squat_build_init,
-		fts_backend_squat_build_hdr,
-		fts_backend_squat_build_body_begin,
-		NULL,
-		fts_backend_squat_build_more,
-		fts_backend_squat_build_deinit,
-		fts_backend_squat_expunge,
-		fts_backend_squat_expunge_finish,
+		fts_backend_squat_update_init,
+		fts_backend_squat_update_deinit,
+		fts_backend_squat_update_set_mailbox,
+		fts_backend_squat_update_expunge,
+		fts_backend_squat_update_set_build_key,
+		fts_backend_squat_update_unset_build_key,
+		fts_backend_squat_update_build_more,
 		fts_backend_squat_refresh,
+		fts_backend_squat_optimize,
+		fts_backend_default_can_lookup,
 		fts_backend_squat_lookup,
-		NULL,
 		NULL
 	}
 };

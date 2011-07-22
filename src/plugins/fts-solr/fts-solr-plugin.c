@@ -73,12 +73,14 @@ static struct mail_storage_hooks fts_solr_mail_storage_hooks = {
 void fts_solr_plugin_init(struct module *module)
 {
 	fts_backend_register(&fts_backend_solr);
+	fts_backend_register(&fts_backend_solr_old);
 	mail_storage_hooks_add(module, &fts_solr_mail_storage_hooks);
 }
 
 void fts_solr_plugin_deinit(void)
 {
 	fts_backend_unregister(fts_backend_solr.name);
+	fts_backend_unregister(fts_backend_solr_old.name);
 	mail_storage_hooks_remove(&fts_solr_mail_storage_hooks);
 }
 

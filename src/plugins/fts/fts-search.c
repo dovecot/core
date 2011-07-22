@@ -5,12 +5,14 @@
 #include "str.h"
 #include "seq-range-array.h"
 #include "mail-search.h"
-#include "mail-storage-private.h"
+#include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
+#include "fts-search-serialize.h"
 #include "fts-storage.h"
 
 static void
-uid_range_to_seqs(struct mailbox *box, const ARRAY_TYPE(seq_range) *uid_range,
+uid_range_to_seqs(struct fts_search_context *fctx,
+		  const ARRAY_TYPE(seq_range) *uid_range,
 		  ARRAY_TYPE(seq_range) *seq_range)
 {
 	const struct seq_range *range;
@@ -18,156 +20,338 @@ uid_range_to_seqs(struct mailbox *box, const ARRAY_TYPE(seq_range) *uid_range,
 	uint32_t seq1, seq2;
 
 	range = array_get(uid_range, &count);
-	i_array_init(seq_range, count);
+	if (!array_is_created(seq_range))
+		p_array_init(seq_range, fctx->result_pool, count);
 	for (i = 0; i < count; i++) {
-		mailbox_get_seq_range(box, range[i].seq1, range[i].seq2,
+		mailbox_get_seq_range(fctx->box, range[i].seq1, range[i].seq2,
 				      &seq1, &seq2);
 		if (seq1 != 0)
 			seq_range_array_add_range(seq_range, seq1, seq2);
 	}
 }
 
-static void fts_uid_results_to_seq(struct fts_search_context *fctx)
+static int fts_search_lookup_level_single(struct fts_search_context *fctx,
+					  struct mail_search_arg *args,
+					  bool and_args)
 {
-	ARRAY_TYPE(seq_range) uid_range;
+	struct fts_search_level *level;
+	struct fts_result result;
 
-	uid_range = fctx->definite_seqs;
-	uid_range_to_seqs(fctx->t->box, &uid_range, &fctx->definite_seqs);
-	array_free(&uid_range);
+	memset(&result, 0, sizeof(result));
+	p_array_init(&result.definite_uids, fctx->result_pool, 32);
+	p_array_init(&result.maybe_uids, fctx->result_pool, 32);
+	p_array_init(&result.scores, fctx->result_pool, 32);
 
-	uid_range = fctx->maybe_seqs;
-	uid_range_to_seqs(fctx->t->box, &uid_range, &fctx->maybe_seqs);
-	array_free(&uid_range);
+	mail_search_args_reset(args, TRUE);
+	if (fts_backend_lookup(fctx->backend, fctx->box, args, and_args,
+			       &result) < 0)
+		return -1;
+
+	level = array_append_space(&fctx->levels);
+	level->args_matches = buffer_create_dynamic(fctx->result_pool, 16);
+	fts_search_serialize(level->args_matches, args);
+
+	uid_range_to_seqs(fctx, &result.definite_uids, &level->definite_seqs);
+	uid_range_to_seqs(fctx, &result.maybe_uids, &level->maybe_seqs);
+	level->score_map = result.scores;
+	return 0;
 }
 
-static int fts_search_lookup_arg(struct fts_search_context *fctx,
-				 struct mail_search_arg *arg)
+static void
+level_scores_add_vuids(struct virtual_mailbox *vbox,
+		       struct fts_search_level *level, struct fts_result *br)
 {
-	enum fts_lookup_flags flags = 0;
-	const char *key;
+	const struct fts_score_map *scores;
+	unsigned int i, count;
+	ARRAY_TYPE(seq_range) backend_uids;
+	ARRAY_TYPE(uint32_t) vuids_arr;
+	const uint32_t *vuids;
+	struct fts_score_map *score;
 
-	switch (arg->type) {
-	case SEARCH_HEADER:
-	case SEARCH_HEADER_COMPRESS_LWSP:
-		/* we can filter out messages that don't have the header,
-		   but we can't trust definite results list. */
-		flags = FTS_LOOKUP_FLAG_HEADER;
-		key = arg->value.str;
-		if (*key == '\0') {
-			/* we're only checking the existence
-			   of the header. */
-			key = t_str_ucase(arg->hdr_field_name);
-		}
-		break;
-	case SEARCH_TEXT:
-		flags = FTS_LOOKUP_FLAG_HEADER;
-	case SEARCH_BODY:
-		flags |= FTS_LOOKUP_FLAG_BODY;
-		key = arg->value.str;
-		break;
-	default:
-		/* can't filter this */
-		return 0;
+	scores = array_get(&br->scores, &count);
+	t_array_init(&vuids_arr, count);
+	t_array_init(&backend_uids, 64);
+	for (i = 0; i < count; i++)
+		seq_range_array_add(&backend_uids, 0, scores[i].uid);
+	vbox->vfuncs.get_virtual_uid_map(&vbox->box, br->box,
+					 &backend_uids, &vuids_arr);
+
+	i_assert(array_count(&vuids_arr) == array_count(&br->scores));
+	vuids = array_get(&vuids_arr, &count);
+	for (i = 0; i < count; i++) {
+		score = array_append_space(&level->score_map);
+		score->uid = vuids[i];
+		score->score = scores[i].score;
 	}
-	if (arg->match_not)
-		flags |= FTS_LOOKUP_FLAG_INVERT;
+}
 
-	if (!fctx->refreshed) {
-		if (fts_backend_refresh(fctx->fbox->backend) < 0)
-			return -1;
-		fctx->refreshed = TRUE;
-	}
+static int
+mailbox_cmp_fts_backend(struct mailbox *const *m1, struct mailbox *const *m2)
+{
+	struct fts_backend *b1, *b2;
 
-	/* note that the key is in UTF-8 decomposed titlecase */
-	fctx->lookup_ctx = fts_backend_lookup_init(fctx->fbox->backend);
-	fts_backend_lookup_add(fctx->lookup_ctx, key, flags);
+	b1 = fts_mailbox_backend(*m1);
+	b2 = fts_mailbox_backend(*m2);
+	if (b1 < b2)
+		return -1;
+	if (b1 > b2)
+		return 1;
 	return 0;
+}
+
+static int
+multi_add_lookup_result(struct fts_search_context *fctx,
+			struct fts_search_level *level,
+			struct mail_search_arg *args,
+			struct fts_multi_result *result)
+{
+	struct virtual_mailbox *vbox = (struct virtual_mailbox *)fctx->box;
+	ARRAY_TYPE(seq_range) vuids;
+	size_t orig_size;
+	unsigned int i;
+
+	orig_size = level->args_matches->used;
+	fts_search_serialize(level->args_matches, args);
+	if (orig_size > 0) {
+		if (level->args_matches->used != orig_size * 2 ||
+		    memcmp(level->args_matches->data,
+			   CONST_PTR_OFFSET(level->args_matches->data,
+					    orig_size), orig_size) != 0)
+			i_panic("incompatible fts backends for namespaces");
+		buffer_set_used_size(level->args_matches, orig_size);
+	}
+
+	t_array_init(&vuids, 64);
+	for (i = 0; result->box_results[i].box != NULL; i++) {
+		struct fts_result *br = &result->box_results[i];
+
+		array_clear(&vuids);
+		if (array_is_created(&br->definite_uids)) {
+			vbox->vfuncs.get_virtual_uids(fctx->box, br->box,
+						      &br->definite_uids,
+						      &vuids);
+		}
+		uid_range_to_seqs(fctx, &vuids, &level->definite_seqs);
+
+		array_clear(&vuids);
+		if (array_is_created(&br->maybe_uids)) {
+			vbox->vfuncs.get_virtual_uids(fctx->box, br->box,
+						      &br->maybe_uids, &vuids);
+		}
+		uid_range_to_seqs(fctx, &vuids, &level->maybe_seqs);
+
+		if (array_is_created(&br->scores))
+			level_scores_add_vuids(vbox, level, br);
+	}
+	return 0;
+}
+
+static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
+					 struct mail_search_arg *args,
+					 bool and_args)
+{
+	struct virtual_mailbox *vbox = (struct virtual_mailbox *)fctx->box;
+	ARRAY_TYPE(mailboxes) mailboxes_arr, tmp_mailboxes;
+	struct mailbox *const *mailboxes;
+	struct fts_backend *backend;
+	struct fts_search_level *level;
+	struct fts_multi_result result;
+	unsigned int i, j, mailbox_count;
+
+	p_array_init(&mailboxes_arr, fctx->result_pool, 8);
+	vbox->vfuncs.get_virtual_backend_boxes(fctx->box, &mailboxes_arr, TRUE);
+	array_sort(&mailboxes_arr, mailbox_cmp_fts_backend);
+
+	memset(&result, 0, sizeof(result));
+	result.pool = fctx->result_pool;
+
+	level = array_append_space(&fctx->levels);
+	level->args_matches = buffer_create_dynamic(fctx->result_pool, 16);
+	p_array_init(&level->score_map, fctx->result_pool, 1);
+
+	mailboxes = array_get(&mailboxes_arr, &mailbox_count);
+	t_array_init(&tmp_mailboxes, mailbox_count);
+	for (i = 0; i < mailbox_count; i = j) {
+		array_clear(&tmp_mailboxes);
+		array_append(&tmp_mailboxes, &mailboxes[i], 1);
+
+		backend = fts_mailbox_backend(mailboxes[i]);
+		for (j = i + 1; j < mailbox_count; j++) {
+			if (fts_mailbox_backend(mailboxes[j]) != backend)
+				break;
+			array_append(&tmp_mailboxes, &mailboxes[j], 1);
+		}
+		(void)array_append_space(&tmp_mailboxes);
+
+		mail_search_args_reset(args, TRUE);
+		if (fts_backend_lookup_multi(backend,
+					     array_idx(&tmp_mailboxes, 0),
+					     args, and_args, &result) < 0)
+			return -1;
+
+		if (multi_add_lookup_result(fctx, level, args, &result) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int fts_search_lookup_level(struct fts_search_context *fctx,
+				   struct mail_search_arg *args,
+				   bool and_args)
+{
+	if (!fctx->virtual_mailbox) {
+		if (fts_search_lookup_level_single(fctx, args, and_args) < 0)
+			return -1;
+	} else T_BEGIN {
+		if (fts_search_lookup_level_multi(fctx, args, and_args) < 0)
+			return -1;
+	} T_END;
+
+	for (; args != NULL; args = args->next) {
+		if (args->type != SEARCH_OR && args->type != SEARCH_SUB)
+			continue;
+
+		if (fts_search_lookup_level(fctx, args->value.subargs,
+					    args->type == SEARCH_SUB) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static void
+fts_search_merge_scores_and(ARRAY_TYPE(fts_score_map) *dest,
+			    const ARRAY_TYPE(fts_score_map) *src)
+{
+	struct fts_score_map *dest_map;
+	const struct fts_score_map *src_map;
+	unsigned int desti, srci, dest_count, src_count;
+
+	dest_map = array_get_modifiable(dest, &dest_count);
+	src_map = array_get(src, &src_count);
+
+	/* arg_scores are summed to current scores. we could drop UIDs that
+	   don't exist in both, but that's just extra work so don't bother */
+	for (desti = srci = 0; desti < dest_count && srci < src_count;) {
+		if (dest_map[desti].uid < src_map[srci].uid)
+			desti++;
+		else if (dest_map[desti].uid > src_map[srci].uid)
+			srci++;
+		else {
+			if (dest_map[desti].score < src_map[srci].score)
+				dest_map[desti].score = src_map[srci].score;
+			desti++; srci++;
+		}
+	}
+}
+
+static void
+fts_search_merge_scores_or(ARRAY_TYPE(fts_score_map) *dest,
+			   const ARRAY_TYPE(fts_score_map) *src)
+{
+	ARRAY_TYPE(fts_score_map) src2;
+	const struct fts_score_map *src_map, *src2_map;
+	unsigned int srci, src2i, src_count, src2_count;
+
+	t_array_init(&src2, array_count(dest));
+	array_append_array(&src2, dest);
+	array_clear(dest);
+
+	src_map = array_get(src, &src_count);
+	src2_map = array_get(&src2, &src2_count);
+
+	/* add any missing UIDs to current scores. if any existing UIDs have
+	   lower scores than in arg_scores, increase them. */
+	for (srci = src2i = 0; srci < src_count || src2i < src2_count;) {
+		if (src2i == src2_count ||
+		    src_map[srci].uid < src2_map[src2i].uid) {
+			array_append(dest, &src_map[srci], 1);
+			srci++;
+		} else if (srci == src_count ||
+			   src_map[srci].uid > src2_map[src2i].uid) {
+			array_append(dest, &src2_map[src2i], 1);
+			src2i++;
+		} else {
+			i_assert(src_map[srci].uid == src2_map[src2i].uid);
+			if (src_map[srci].score > src2_map[src2i].score)
+				array_append(dest, &src_map[srci], 1);
+			else
+				array_append(dest, &src2_map[src2i], 1);
+			srci++; src2i++;
+		}
+	}
+}
+
+static void
+fts_search_merge_scores_level(struct fts_search_context *fctx,
+			      struct mail_search_arg *args, unsigned int *idx,
+			      bool and_args, ARRAY_TYPE(fts_score_map) *scores)
+{
+	const struct fts_search_level *level;
+	ARRAY_TYPE(fts_score_map) arg_scores;
+
+	i_assert(array_count(scores) == 0);
+
+	/*
+	   The (simplified) args can look like:
+
+	   A and B and (C or D) and (E or F) and ...
+	   A or B or (C and D) or (E and F) or ...
+
+	   The A op B part's scores are in level->scores. The child args'
+	   scores are in the sub levels' scores.
+	*/
+
+	level = array_idx(&fctx->levels, *idx);
+	array_append_array(scores, &level->score_map);
+
+	t_array_init(&arg_scores, 64);
+	for (; args != NULL; args = args->next) {
+		if (args->type != SEARCH_OR && args->type != SEARCH_SUB)
+			continue;
+
+		*idx += 1;
+		array_clear(&arg_scores);
+		fts_search_merge_scores_level(fctx, args->value.subargs, idx,
+					      args->type == SEARCH_OR,
+					      &arg_scores);
+
+		if (and_args)
+			fts_search_merge_scores_and(scores, &arg_scores);
+		else T_BEGIN {
+			fts_search_merge_scores_or(scores, &arg_scores);
+		} T_END;
+	}
+}
+
+static void fts_search_merge_scores(struct fts_search_context *fctx)
+{
+	unsigned int idx = 0;
+
+	fts_search_merge_scores_level(fctx, fctx->args->args, &idx,
+				      TRUE, &fctx->scores->score_map);
 }
 
 void fts_search_lookup(struct fts_search_context *fctx)
 {
-	struct mail_search_arg *arg;
-	int ret;
+	uint32_t last_uid, seq1, seq2;
 
-	if (fctx->best_arg == NULL)
+	i_assert(array_count(&fctx->levels) == 0);
+	i_assert(fctx->args->simplified);
+
+	if (fts_backend_refresh(fctx->backend) < 0)
 		return;
+	if (fts_backend_get_last_uid(fctx->backend, fctx->box, &last_uid) < 0)
+		return;
+	mailbox_get_seq_range(fctx->box, last_uid+1, (uint32_t)-1,
+			      &seq1, &seq2);
+	fctx->first_unindexed_seq = seq1 != 0 ? seq1 : (uint32_t)-1;
 
-	i_array_init(&fctx->definite_seqs, 64);
-	i_array_init(&fctx->maybe_seqs, 64);
-	i_array_init(&fctx->score_map, 64);
+	fts_search_serialize(fctx->orig_matches, fctx->args->args);
 
-	/* start lookup with the best arg */
-	T_BEGIN {
-		ret = fts_search_lookup_arg(fctx, fctx->best_arg);
-	} T_END;
-	/* filter the rest */
-	for (arg = fctx->args->args; arg != NULL && ret == 0; arg = arg->next) {
-		if (arg != fctx->best_arg) {
-			T_BEGIN {
-				ret = fts_search_lookup_arg(fctx, arg);
-			} T_END;
-		}
+	if (fts_search_lookup_level(fctx, fctx->args->args, TRUE) == 0) {
+		fctx->fts_lookup_success = TRUE;
+		fts_search_merge_scores(fctx);
 	}
 
-	if (fctx->lookup_ctx != NULL) {
-		fts_backend_lookup_deinit(&fctx->lookup_ctx,
-					  &fctx->definite_seqs,
-					  &fctx->maybe_seqs,
-					  &fctx->score_map);
-	}
-
-	if (ret == 0) {
-		fctx->seqs_set = TRUE;
-		fts_uid_results_to_seq(fctx);
-	}
-}
-
-static bool arg_is_better(const struct mail_search_arg *new_arg,
-			  const struct mail_search_arg *old_arg)
-{
-	if (old_arg == NULL)
-		return TRUE;
-	if (new_arg == NULL)
-		return FALSE;
-
-	/* avoid NOTs */
-	if (old_arg->match_not && !new_arg->match_not)
-		return TRUE;
-	if (!old_arg->match_not && new_arg->match_not)
-		return FALSE;
-
-	/* prefer not to use headers. they have a larger possibility of
-	   having lots of identical strings */
-	if (old_arg->type == SEARCH_HEADER ||
-	    old_arg->type == SEARCH_HEADER_COMPRESS_LWSP)
-		return TRUE;
-	else if (new_arg->type == SEARCH_HEADER ||
-		 new_arg->type == SEARCH_HEADER_COMPRESS_LWSP)
-		return FALSE;
-
-	return strlen(new_arg->value.str) > strlen(old_arg->value.str);
-}
-
-static void
-fts_search_args_find_best(struct mail_search_arg *args,
-			  struct mail_search_arg **best_arg)
-{
-	for (; args != NULL; args = args->next) {
-		switch (args->type) {
-		case SEARCH_BODY:
-		case SEARCH_TEXT:
-		case SEARCH_HEADER:
-		case SEARCH_HEADER_COMPRESS_LWSP:
-			if (arg_is_better(args, *best_arg))
-				*best_arg = args;
-			break;
-		default:
-			break;
-		}
-	}
-}
-
-void fts_search_analyze(struct fts_search_context *fctx)
-{
-	fts_search_args_find_best(fctx->args->args, &fctx->best_arg);
+	fts_search_deserialize(fctx->args->args, fctx->orig_matches);
 }

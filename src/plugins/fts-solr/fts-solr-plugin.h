@@ -19,6 +19,7 @@ struct fts_solr_user {
 
 extern const char *fts_solr_plugin_dependencies[];
 extern struct fts_backend fts_backend_solr;
+extern struct fts_backend fts_backend_solr_old;
 extern MODULE_CONTEXT_DEFINE(fts_solr_user_module, &mail_user_module_register);
 
 void fts_solr_plugin_init(struct module *module);
