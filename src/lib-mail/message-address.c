@@ -400,3 +400,20 @@ void message_address_write(string_t *str, const struct message_address *addr)
 		addr = addr->next;
 	}
 }
+
+static const char *address_headers[] = {
+	"From", "Sender", "Reply-To",
+	"To", "Cc", "Bcc",
+	"Resent-From", "Resent-Sender", "Resent-To", "Resent-Cc", "Resent-Bcc"
+};
+
+bool message_header_is_address(const char *hdr_name)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(address_headers); i++) {
+		if (strcasecmp(hdr_name, address_headers[i]) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
