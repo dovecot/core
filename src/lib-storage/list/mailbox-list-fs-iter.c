@@ -569,8 +569,11 @@ list_file(struct fs_list_iterate_context *ctx,
 		ret = mailbox_exists(box, &existence);
 		mailbox_free(&box);
 
-		if (ret < 0)
+		if (ret < 0) {
+			/* this can only be an internal error */
+			mailbox_list_set_internal_error(ctx->ctx.list);
 			return -1;
+		}
 		switch (existence) {
 		case MAILBOX_EXISTENCE_NONE:
 			ctx->info.flags |= MAILBOX_NONEXISTENT;
