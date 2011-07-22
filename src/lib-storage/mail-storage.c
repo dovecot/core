@@ -625,9 +625,10 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 int mailbox_exists(struct mailbox *box, enum mailbox_existence *existence_r)
 {
 	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
-				       "Invalid mailbox name");
-		return -1;
+		/* report it as not selectable, since it exists but we won't
+		   let it be opened. */
+		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
+		return 0;
 	}
 
 	if (have_listable_namespace_prefix(box->storage->user->namespaces,
