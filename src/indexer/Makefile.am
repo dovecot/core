@@ -20,8 +20,19 @@ indexer_SOURCES = \
 	worker-connection.c \
 	worker-pool.c
 
-indexer_worker_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT) $(MODULE_LIBS)
-indexer_worker_DEPENDENCIES = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT_DEPS)
+if !BUILD_SHARED_LIBS
+unused_objects = \
+	../lib/mountpoint.o \
+	../lib-imap/imap-util.o \
+	../lib-storage/mail-search-parser-imap.o
+endif
+
+libs = \
+	$(LIBDOVECOT_STORAGE) \
+	$(unused_objects)
+
+indexer_worker_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
+indexer_worker_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 indexer_worker_SOURCES = \
 	indexer-worker.c \
 	indexer-worker-settings.c \
