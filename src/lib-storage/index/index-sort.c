@@ -209,7 +209,12 @@ index_sort_list_finish_float(struct mail_search_sort_program *program)
 {
 	ARRAY_TYPE(mail_sort_node_float) *nodes = program->context;
 
+	/* NOTE: higher relevancy is returned first, unlike with all
+	   other number based sort keys, so temporarily reverse the search */
+	static_node_cmp_context.reverse = !static_node_cmp_context.reverse;
 	array_sort(nodes, sort_node_float_cmp);
+	static_node_cmp_context.reverse = !static_node_cmp_context.reverse;
+
 	memcpy(&program->seqs, nodes, sizeof(program->seqs));
 	i_free(nodes);
 	program->context = NULL;
@@ -519,8 +524,10 @@ int index_sort_node_cmp_type(struct mail *mail,
 		mail_set_seq(mail, seq2);
 		float2 = index_sort_get_relevancy(mail);
 
-		ret = float1 < float2 ? -1 :
-			(float1 > float2 ? 1 : 0);
+		/* NOTE: higher relevancy is returned first, unlike with all
+		   other number based sort keys */
+		ret = float1 < float2 ? 1 :
+			(float1 > float2 ? -1 : 0);
 		break;
 	case MAIL_SORT_POP3_ORDER:
 		/* 32bit numbers would be enough, but since there is already
