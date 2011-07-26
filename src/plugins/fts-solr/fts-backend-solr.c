@@ -451,6 +451,30 @@ static int fts_backend_solr_optimize(struct fts_backend *backend ATTR_UNUSED)
 	return 0;
 }
 
+static bool solr_need_escaping(const char *str)
+{
+	const char *solr_escape_chars = "+-&|!(){}[]^\"~*?:\\ ";
+
+	for (; *str != '\0'; str++) {
+		if (strchr(solr_escape_chars, *str) != NULL)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static void solr_add_str_arg(string_t *str, struct mail_search_arg *arg)
+{
+	/* currently we'll just disable fuzzy searching if there are any
+	   parameters that need escaping. solr doesn't seem to give good
+	   fuzzy results even if we did escape them.. */
+	if (!arg->fuzzy || solr_need_escaping(arg->value.str))
+		solr_quote_http(str, arg->value.str);
+	else {
+		str_append(str, arg->value.str);
+		str_append_c(str, '~');
+	}
+}
+
 static bool
 solr_add_definite_query(string_t *str, struct mail_search_arg *arg)
 {
@@ -459,9 +483,9 @@ solr_add_definite_query(string_t *str, struct mail_search_arg *arg)
 		if (arg->match_not)
 			str_append_c(str, '-');
 		str_append(str, "(hdr:");
-		solr_quote_http(str, arg->value.str);
+		solr_add_str_arg(str, arg);
 		str_append(str, "+OR+body:");
-		solr_quote_http(str, arg->value.str);
+		solr_add_str_arg(str, arg);
 		str_append(str, ")");
 		break;
 	}
@@ -469,7 +493,7 @@ solr_add_definite_query(string_t *str, struct mail_search_arg *arg)
 		if (arg->match_not)
 			str_append_c(str, '-');
 		str_append(str, "body:");
-		solr_quote_http(str, arg->value.str);
+		solr_add_str_arg(str, arg);
 		break;
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
@@ -481,7 +505,7 @@ solr_add_definite_query(string_t *str, struct mail_search_arg *arg)
 			str_append_c(str, '-');
 		str_append(str, arg->hdr_field_name);
 		str_append_c(str, ':');
-		solr_quote_http(str, arg->value.str);
+		solr_add_str_arg(str, arg);
 		break;
 	default:
 		return FALSE;
