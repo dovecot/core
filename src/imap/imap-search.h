@@ -12,7 +12,8 @@ enum search_return_options {
 	SEARCH_RETURN_MODSEQ		= 0x0020,
 	SEARCH_RETURN_SAVE		= 0x0040,
 	SEARCH_RETURN_UPDATE		= 0x0080,
-	SEARCH_RETURN_PARTIAL		= 0x0100
+	SEARCH_RETURN_PARTIAL		= 0x0100,
+	SEARCH_RETURN_RELEVANCY		= 0x0200
 /* Options that don't return any seq/uid results */
 #define SEARCH_RETURN_NORESULTS \
 	(SEARCH_RETURN_ESEARCH | SEARCH_RETURN_MODSEQ | SEARCH_RETURN_SAVE | \
@@ -32,6 +33,9 @@ struct imap_search_context {
 	struct timeout *to;
 	ARRAY_TYPE(seq_range) result;
 	unsigned int result_count;
+
+	ARRAY_DEFINE(relevancy_scores, float);
+	float min_relevancy, max_relevancy;
 
 	uint64_t highest_seen_modseq;
 	struct timeval start_time;

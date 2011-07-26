@@ -14,6 +14,8 @@
 #include "imap-search-args.h"
 #include "imap-search.h"
 
+#include <stdlib.h>
+
 static int imap_search_deinit(struct imap_search_context *ctx);
 
 static int
@@ -67,6 +69,8 @@ search_parse_return_options(struct imap_search_context *ctx,
 			ctx->return_options |= SEARCH_RETURN_SAVE;
 		else if (strcmp(name, "UPDATE") == 0)
 			ctx->return_options |= SEARCH_RETURN_UPDATE;
+		else if (strcmp(name, "RELEVANCY") == 0)
+			ctx->return_options |= SEARCH_RETURN_RELEVANCY;
 		else if (strcmp(name, "PARTIAL") == 0) {
 			if (ctx->partial1 != 0) {
 				client_send_command_error(cmd,
@@ -230,6 +234,34 @@ imap_search_send_partial(struct imap_search_context *ctx, string_t *str)
 	str_append_c(str, ')');
 }
 
+static void
+imap_search_send_relevancy(struct imap_search_context *ctx, string_t *dest)
+{
+	const float *scores;
+	unsigned int i, count;
+	float diff, imap_score;
+
+	scores = array_get(&ctx->relevancy_scores, &count);
+	if (count == 0)
+		return;
+
+	/* we'll need to convert float scores to numbers 1..100
+	   FIXME: would be a good idea to try to detect non-linear score
+	   mappings and convert them better.. */
+	diff = ctx->max_relevancy - ctx->min_relevancy;
+	if (diff == 0)
+		diff = 1.0;
+	for (i = 0; i < count; i++) {
+		if (i > 0)
+			str_append_c(dest, ' ');
+		imap_score = (scores[i] - ctx->min_relevancy) / diff * 100.0;
+		if (imap_score < 1)
+			str_append(dest, "1");
+		else
+			str_printfa(dest, "%u", (unsigned int)imap_score);
+	}
+}
+
 static void imap_search_send_result(struct imap_search_context *ctx)
 {
 	struct client *client = ctx->cmd->client;
@@ -268,6 +300,11 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 			imap_write_seq_range(str, &ctx->result);
 		}
 	}
+	if ((ctx->return_options & SEARCH_RETURN_RELEVANCY) != 0) {
+		str_append(str, " RELEVANCY (");
+		imap_search_send_relevancy(ctx, str);
+		str_append_c(str, ')');
+	}
 
 	if ((ctx->return_options & SEARCH_RETURN_PARTIAL) != 0)
 		imap_search_send_partial(ctx, str);
@@ -296,6 +333,20 @@ search_update_mail(struct imap_search_context *ctx, struct mail *mail)
 	if ((ctx->return_options & SEARCH_RETURN_SAVE) != 0) {
 		seq_range_array_add(&ctx->cmd->client->search_saved_uidset,
 				    0, mail->uid);
+	}
+	if ((ctx->return_options & SEARCH_RETURN_RELEVANCY) != 0) {
+		const char *str;
+		float score;
+
+		if (mail_get_special(mail, MAIL_FETCH_SEARCH_RELEVANCY, &str) < 0)
+			score = 0;
+		else
+			score = strtod(str, NULL);
+		array_append(&ctx->relevancy_scores, &score, 1);
+		if (ctx->min_relevancy > score)
+			ctx->min_relevancy = score;
+		if (ctx->max_relevancy < score)
+			ctx->max_relevancy = score;
 	}
 }
 
@@ -501,6 +552,8 @@ bool imap_search_start(struct imap_search_context *ctx,
 	i_array_init(&ctx->result, 128);
 	if ((ctx->return_options & SEARCH_RETURN_UPDATE) != 0)
 		imap_search_result_save(ctx);
+	if ((ctx->return_options & SEARCH_RETURN_RELEVANCY) != 0)
+		i_array_init(&ctx->relevancy_scores, 128);
 
 	cmd->func = cmd_search_more;
 	cmd->context = ctx;
@@ -533,6 +586,8 @@ static int imap_search_deinit(struct imap_search_context *ctx)
 
 	if (ctx->to != NULL)
 		timeout_remove(&ctx->to);
+	if (array_is_created(&ctx->relevancy_scores))
+		array_free(&ctx->relevancy_scores);
 	array_free(&ctx->result);
 	mail_search_args_deinit(ctx->sargs);
 	mail_search_args_unref(&ctx->sargs);
