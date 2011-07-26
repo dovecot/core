@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "str.h"
 #include "str-find.h"
+#include "unichar.h"
 #include "rfc822-parser.h"
 #include "message-decoder.h"
 #include "message-parser.h"
@@ -20,7 +21,7 @@ struct message_search_context {
 };
 
 struct message_search_context *
-message_search_init(const char *key_utf8_dtc,
+message_search_init(const char *key_utf8,
 		    enum message_search_flags flags)
 {
 	struct message_search_context *ctx;
@@ -28,7 +29,15 @@ message_search_init(const char *key_utf8_dtc,
 	ctx = i_new(struct message_search_context, 1);
 	ctx->flags = flags;
 	ctx->decoder = message_decoder_init(MESSAGE_DECODER_FLAG_DTCASE);
-	ctx->str_find_ctx = str_find_init(default_pool, key_utf8_dtc);
+
+	T_BEGIN {
+		string_t *dtc = t_str_new(128);
+
+		if (uni_utf8_to_decomposed_titlecase(key_utf8, strlen(key_utf8),
+						     dtc) < 0)
+			i_panic("message_search_init(): key not utf8");
+		ctx->str_find_ctx = str_find_init(default_pool, str_c(dtc));
+	} T_END;
 	return ctx;
 }
 

@@ -10,10 +10,9 @@ enum message_search_flags {
 	MESSAGE_SEARCH_FLAG_SKIP_HEADERS	= 0x01
 };
 
-/* The key must be given in UTF-8 charset and decomposed titlecase
-   (CHARSET_FLAG_DECOMP_TITLECASE) */
+/* The key must be given in UTF-8 charset */
 struct message_search_context *
-message_search_init(const char *key_utf8_dtc,
+message_search_init(const char *key_utf8,
 		    enum message_search_flags flags);
 void message_search_deinit(struct message_search_context **ctx);
 
