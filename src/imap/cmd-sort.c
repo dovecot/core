@@ -19,7 +19,8 @@ static struct sort_name sort_names[] = {
 	{ MAIL_SORT_SIZE,		"size" },
 	{ MAIL_SORT_SUBJECT,		"subject" },
 	{ MAIL_SORT_TO,			"to" },
-	{ MAIL_SORT_SEARCH_SCORE,	"x-score" },
+	{ MAIL_SORT_RELEVANCY,		"x-score" }, /* FIXME: obsolete */
+	{ MAIL_SORT_RELEVANCY,		"relevancy" },
 	{ MAIL_SORT_DISPLAYFROM,	"displayfrom" },
 	{ MAIL_SORT_DISPLAYTO,		"displayto" },
 

@@ -289,7 +289,7 @@ static int fts_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
 	const struct fts_score_map *scores;
 
-	if (field != MAIL_FETCH_SEARCH_SCORE || ft->scores == NULL)
+	if (field != MAIL_FETCH_SEARCH_RELEVANCY || ft->scores == NULL)
 		scores = NULL;
 	else {
 		scores = array_bsearch(&ft->scores->score_map, &_mail->uid,

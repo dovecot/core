@@ -105,26 +105,26 @@ index_sort_list_add_pop3_order(struct mail_search_sort_program *program,
 	node->size = index_sort_get_pop3_order(mail);
 }
 
-static float index_sort_get_score(struct mail *mail)
+static float index_sort_get_relevancy(struct mail *mail)
 {
 	const char *str;
 
-	if (mail_get_special(mail, MAIL_FETCH_SEARCH_SCORE, &str) < 0)
+	if (mail_get_special(mail, MAIL_FETCH_SEARCH_RELEVANCY, &str) < 0)
 		return 0;
 	else
 		return strtod(str, NULL);
 }
 
 static void
-index_sort_list_add_score(struct mail_search_sort_program *program,
-			  struct mail *mail)
+index_sort_list_add_relevancy(struct mail_search_sort_program *program,
+			      struct mail *mail)
 {
 	ARRAY_TYPE(mail_sort_node_float) *nodes = program->context;
 	struct mail_sort_node_float *node;
 
 	node = array_append_space(nodes);
 	node->seq = mail->seq;
-	node->num = index_sort_get_score(mail);
+	node->num = index_sort_get_relevancy(mail);
 }
 
 void index_sort_list_add(struct mail_search_sort_program *program,
@@ -299,12 +299,12 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 		program->sort_list_finish = index_sort_list_finish_string;
 		index_sort_list_init_string(program);
 		break;
-	case MAIL_SORT_SEARCH_SCORE: {
+	case MAIL_SORT_RELEVANCY: {
 		ARRAY_TYPE(mail_sort_node_float) *nodes;
 
 		nodes = i_malloc(sizeof(*nodes));
 		i_array_init(nodes, 128);
-		program->sort_list_add = index_sort_list_add_score;
+		program->sort_list_add = index_sort_list_add_relevancy;
 		program->sort_list_finish = index_sort_list_finish_float;
 		program->context = nodes;
 		break;
@@ -513,11 +513,11 @@ int index_sort_node_cmp_type(struct mail *mail,
 		ret = size1 < size2 ? -1 :
 			(size1 > size2 ? 1 : 0);
 		break;
-	case MAIL_SORT_SEARCH_SCORE:
+	case MAIL_SORT_RELEVANCY:
 		mail_set_seq(mail, seq1);
-		float1 = index_sort_get_score(mail);
+		float1 = index_sort_get_relevancy(mail);
 		mail_set_seq(mail, seq2);
-		float2 = index_sort_get_score(mail);
+		float2 = index_sort_get_relevancy(mail);
 
 		ret = float1 < float2 ? -1 :
 			(float1 > float2 ? 1 : 0);
