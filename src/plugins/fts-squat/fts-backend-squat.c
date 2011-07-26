@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "unichar.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
@@ -343,6 +344,7 @@ static int squat_lookup_arg(struct squat_fts_backend *backend,
 {
 	enum squat_index_type squat_type;
 	ARRAY_TYPE(seq_range) tmp_definite_uids, tmp_maybe_uids;
+	string_t *dtc;
 	uint32_t last_uid;
 	int ret;
 
@@ -366,7 +368,12 @@ static int squat_lookup_arg(struct squat_fts_backend *backend,
 	i_array_init(&tmp_definite_uids, 128);
 	i_array_init(&tmp_maybe_uids, 128);
 
-	ret = squat_trie_lookup(backend->trie, arg->value.str, squat_type,
+	dtc = t_str_new(128);
+	if (uni_utf8_to_decomposed_titlecase(arg->value.str,
+					     strlen(arg->value.str), dtc) < 0)
+		i_panic("squat: search key not utf8");
+
+	ret = squat_trie_lookup(backend->trie, str_c(dtc), squat_type,
 				&tmp_definite_uids, &tmp_maybe_uids);
 	if (arg->match_not) {
 		/* definite -> non-match
