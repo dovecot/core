@@ -445,7 +445,7 @@ int lucene_index_optimize_finish(struct lucene_index *index)
 }
 
 // Mostly copy&pasted from CLucene's QueryParser
-static Query* getFieldQuery(Analyzer *analyzer, const TCHAR* _field, const TCHAR* queryText) {
+static Query* getFieldQuery(Analyzer *analyzer, const TCHAR* _field, const TCHAR* queryText, bool fuzzy) {
   // Use the analyzer to get all the tokens, and then build a TermQuery,
   // PhraseQuery, or nothing based on the term count
 
@@ -483,7 +483,11 @@ static Query* getFieldQuery(Analyzer *analyzer, const TCHAR* _field, const TCHAR
     return NULL;
   else if (v.size() == 1) {
     Term* tm = _CLNEW Term(_field, v.at(0)->termBuffer());
-    Query* ret = _CLNEW PrefixQuery( tm );
+    Query* ret;
+    if (fuzzy)
+      ret = _CLNEW FuzzyQuery( tm );
+    else
+      ret = _CLNEW PrefixQuery( tm );
     _CLDECDELETE(tm);
     return ret;
   } else {
@@ -535,10 +539,10 @@ static Query* getFieldQuery(Analyzer *analyzer, const TCHAR* _field, const TCHAR
 
 static Query *
 lucene_get_query(struct lucene_index *index,
-		 const TCHAR *key, const char *value)
+		 const TCHAR *key, const struct mail_search_arg *arg)
 {
-	const TCHAR *wvalue = t_lucene_utf8_to_tchar(value);
-	return getFieldQuery(index->analyzer, key, wvalue);
+	const TCHAR *wvalue = t_lucene_utf8_to_tchar(arg->value.str);
+	return getFieldQuery(index->analyzer, key, wvalue, arg->fuzzy);
 }
 
 static bool
@@ -555,8 +559,8 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 	switch (arg->type) {
 	case SEARCH_TEXT: {
 		BooleanQuery *bq = _CLNEW BooleanQuery();
-		Query *q1 = lucene_get_query(index, _T("hdr"), arg->value.str);
-		Query *q2 = lucene_get_query(index, _T("body"), arg->value.str);
+		Query *q1 = lucene_get_query(index, _T("hdr"), arg);
+		Query *q2 = lucene_get_query(index, _T("body"), arg);
 
 		bq->add(q1, true, BooleanClause::SHOULD);
 		bq->add(q2, true, BooleanClause::SHOULD);
@@ -564,7 +568,7 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 		break;
 	}
 	case SEARCH_BODY:
-		q = lucene_get_query(index, _T("body"), arg->value.str);
+		q = lucene_get_query(index, _T("body"), arg);
 		break;
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
@@ -574,7 +578,7 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 
 		q = lucene_get_query(index,
 				     t_lucene_utf8_to_tchar(arg->hdr_field_name),
-				     arg->value.str);
+				     arg);
 		break;
 	default:
 		return false;
@@ -609,7 +613,7 @@ lucene_add_maybe_query(struct lucene_index *index, BooleanQuery &query,
 
 		/* we can check if the search key exists in some header and
 		   filter out the messages that have no chance of matching */
-		q = lucene_get_query(index, _T("hdr"), arg->value.str);
+		q = lucene_get_query(index, _T("hdr"), arg);
 		break;
 	default:
 		return false;
