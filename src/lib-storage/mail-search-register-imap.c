@@ -426,6 +426,35 @@ imap_search_last_result(struct mail_search_build_context *ctx)
 	return sarg;
 }
 
+static void mail_search_arg_set_fuzzy(struct mail_search_arg *sarg)
+{
+	for (; sarg != NULL; sarg = sarg->next) {
+		sarg->fuzzy = TRUE;
+		switch (sarg->type) {
+		case SEARCH_OR:
+		case SEARCH_SUB:
+		case SEARCH_INTHREAD:
+			mail_search_arg_set_fuzzy(sarg->value.subargs);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+static struct mail_search_arg *
+imap_search_fuzzy(struct mail_search_build_context *ctx)
+{
+	struct mail_search_arg *sarg;
+
+	if (mail_search_build_key(ctx, ctx->parent, &sarg) < 0)
+		return NULL;
+	i_assert(sarg->next == NULL);
+
+	mail_search_arg_set_fuzzy(sarg);
+	return sarg;
+}
+
 static struct mail_search_arg *
 imap_search_inthread(struct mail_search_build_context *ctx)
 {
@@ -534,6 +563,9 @@ const struct mail_search_register_arg imap_register_args[] = {
 
 	/* SEARCHRES extension: */
 	{ "$", imap_search_last_result },
+
+	/* FUZZY extension: */
+	{ "FUZZY", imap_search_fuzzy },
 
 	/* Other Dovecot extensions: */
 	{ "INTHREAD", imap_search_inthread },
