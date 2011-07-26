@@ -29,6 +29,7 @@ struct fts_storage_build_context {
 	char *content_type, *content_disposition;
 
 	unsigned int binary_mime_parts:1;
+	unsigned int dtcase:1;
 	unsigned int notified:1;
 	unsigned int failed:1;
 };

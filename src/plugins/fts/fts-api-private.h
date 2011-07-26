@@ -47,7 +47,10 @@ struct fts_backend_vfuncs {
 
 enum fts_backend_flags {
 	/* Backend supports indexing binary MIME parts */
-	FTS_BACKEND_FLAG_BINARY_MIME_PARTS	= 0x01
+	FTS_BACKEND_FLAG_BINARY_MIME_PARTS	= 0x01,
+	/* Send built text to backend as decomposed titlecase rather than
+	   preserving original case */
+	FTS_BACKEND_FLAG_BUILD_DTCASE		= 0x02
 };
 
 struct fts_backend {

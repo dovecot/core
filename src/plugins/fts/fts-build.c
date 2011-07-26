@@ -125,7 +125,7 @@ static bool fts_build_body_begin(struct fts_storage_build_context *ctx)
 
 int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 {
-	enum message_decoder_flags decoder_flags = MESSAGE_DECODER_FLAG_DTCASE;
+	enum message_decoder_flags decoder_flags = 0;
 	struct istream *input;
 	struct message_parser_ctx *parser;
 	struct message_decoder_context *decoder;
@@ -144,7 +144,8 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
 				     0);
 
-
+	if (ctx->dtcase)
+		decoder_flags |= MESSAGE_DECODER_FLAG_DTCASE;
 	if (ctx->binary_mime_parts)
 		decoder_flags |= MESSAGE_DECODER_FLAG_RETURN_BINARY;
 	decoder = message_decoder_init(decoder_flags);
@@ -280,6 +281,8 @@ int fts_build_init(struct fts_backend *backend, struct mailbox *box,
 
 	(*build_ctx_r)->box = box;
 	(*build_ctx_r)->v = *v;
+	(*build_ctx_r)->dtcase =
+		(backend->flags & FTS_BACKEND_FLAG_BUILD_DTCASE) != 0;
 	(*build_ctx_r)->binary_mime_parts =
 		(backend->flags & FTS_BACKEND_FLAG_BINARY_MIME_PARTS) != 0;
 	return 1;

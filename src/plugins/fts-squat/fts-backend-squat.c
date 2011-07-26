@@ -448,7 +448,7 @@ fts_backend_squat_lookup(struct fts_backend *_backend, struct mailbox *box,
 
 struct fts_backend fts_backend_squat = {
 	.name = "squat",
-	.flags = 0,
+	.flags = FTS_BACKEND_FLAG_BUILD_DTCASE,
 
 	{
 		fts_backend_squat_alloc,
