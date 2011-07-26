@@ -153,7 +153,7 @@ int mail_search_build(struct mail_search_register *reg,
 	ret = mail_search_build_list(&ctx, &root);
 	if (!ctx.charset_checked && ret == 0) {
 		/* make sure we give an error message if charset is invalid */
-		ret = mail_search_build_get_utf8_dtc(&ctx, "", &str);
+		ret = mail_search_build_get_utf8(&ctx, "", &str);
 	}
 	if (ret < 0) {
 		*error_r = ctx._error != NULL ? t_strdup(ctx._error) :
@@ -217,8 +217,8 @@ void mail_search_build_add_seqset(struct mail_search_args *args,
 	seq_range_array_add_range(&arg->value.seqset, seq1, seq2);
 }
 
-int mail_search_build_get_utf8_dtc(struct mail_search_build_context *ctx,
-				   const char *input, const char **output_r)
+int mail_search_build_get_utf8(struct mail_search_build_context *ctx,
+			       const char *input, const char **output_r)
 {
 	int ret;
 
@@ -226,8 +226,7 @@ int mail_search_build_get_utf8_dtc(struct mail_search_build_context *ctx,
 		string_t *utf8 = t_str_new(128);
 		enum charset_result result;
 
-		if (charset_to_utf8_str(ctx->charset,
-					CHARSET_FLAG_DECOMP_TITLECASE,
+		if (charset_to_utf8_str(ctx->charset, 0,
 					input, utf8, &result) < 0) {
 			/* unknown charset */
 			ctx->_error = "Unknown charset";

@@ -39,10 +39,9 @@ void mail_search_build_add_all(struct mail_search_args *args);
 void mail_search_build_add_seqset(struct mail_search_args *args,
 				  uint32_t seq1, uint32_t seq2);
 
-/* Convert input string into UTF-8 decomposed titlecase, suitable for
-   message_search_init() */
-int mail_search_build_get_utf8_dtc(struct mail_search_build_context *ctx,
-				   const char *input, const char **output_r);
+/* Convert input string into UTF-8 */
+int mail_search_build_get_utf8(struct mail_search_build_context *ctx,
+			       const char *input, const char **output_r);
 
 struct mail_search_arg *
 mail_search_build_new(struct mail_search_build_context *ctx,

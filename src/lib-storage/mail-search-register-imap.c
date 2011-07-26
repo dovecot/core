@@ -232,7 +232,7 @@ arg_new_header(struct mail_search_build_context *ctx,
 	if (mail_search_parse_string(ctx->parser, &value) < 0)
 		return NULL;
 
-	if (mail_search_build_get_utf8_dtc(ctx, value, &sarg->value.str) < 0)
+	if (mail_search_build_get_utf8(ctx, value, &sarg->value.str) < 0)
 		return NULL;
 
 	sarg->hdr_field_name = p_strdup(ctx->pool, hdr_name);
@@ -273,8 +273,8 @@ arg_new_body(struct mail_search_build_context *ctx,
 	if (sarg == NULL)
 		return NULL;
 
-	if (mail_search_build_get_utf8_dtc(ctx, sarg->value.str,
-					   &sarg->value.str) < 0)
+	if (mail_search_build_get_utf8(ctx, sarg->value.str,
+				       &sarg->value.str) < 0)
 		return NULL;
 
 	if (mail_search_parse_skip_next(ctx->parser, "")) {
