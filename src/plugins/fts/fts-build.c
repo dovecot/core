@@ -11,6 +11,7 @@
 #include "message-decoder.h"
 #include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
+#include "fts-parser.h"
 #include "fts-build-private.h"
 
 #define FTS_BUILD_NOTIFY_INTERVAL_SECS 10
@@ -103,13 +104,19 @@ static bool fts_build_body_begin(struct fts_storage_build_context *ctx)
 	const char *content_type;
 	struct fts_backend_build_key key;
 
+	i_assert(ctx->body_parser == NULL);
+
 	memset(&key, 0, sizeof(key));
 	key.uid = ctx->uid;
 
 	content_type = ctx->content_type != NULL ?
 		ctx->content_type : "text/plain";
-	if (strncmp(content_type, "text/", 5) == 0 ||
-	    strncmp(content_type, "message/", 8) == 0) {
+	if (fts_parser_init(content_type, ctx->content_disposition,
+			    &ctx->body_parser)) {
+		/* extract text using the the returned parser */
+		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
+	} else if (strncmp(content_type, "text/", 5) == 0 ||
+		   strncmp(content_type, "message/", 8) == 0) {
 		/* text body parts */
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
 	} else {
@@ -161,6 +168,8 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 		if (raw_block.part != prev_part) {
 			/* body part changed. we're now parsing the end of
 			   boundary, possibly followed by message epilogue */
+			if (ctx->body_parser != NULL)
+				fts_parser_deinit(&ctx->body_parser);
 			fts_backend_update_unset_build_key(ctx->update_ctx);
 			prev_part = raw_block.part;
 			i_free_and_null(ctx->content_type);
@@ -195,6 +204,8 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 			/* end of headers */
 		} else {
 			i_assert(body_part);
+			if (ctx->body_parser != NULL)
+				fts_parser_more(ctx->body_parser, &block);
 			if (fts_backend_update_build_more(ctx->update_ctx,
 							  block.data,
 							  block.size) < 0) {

@@ -27,6 +27,7 @@ struct fts_storage_build_context {
 
 	uint32_t uid;
 	char *content_type, *content_disposition;
+	struct fts_parser *body_parser;
 
 	unsigned int binary_mime_parts:1;
 	unsigned int dtcase:1;
