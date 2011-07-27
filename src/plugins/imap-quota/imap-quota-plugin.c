@@ -74,6 +74,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	struct mailbox *box;
 	struct quota_root_iter *iter;
         struct quota_root *root;
+	enum mailbox_name_status status;
 	const char *mailbox, *storage_name, *name;
 	string_t *quotaroot_reply, *quota_reply;
 
@@ -81,7 +82,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
-	ns = client_find_namespace(cmd, mailbox, &storage_name, NULL);
+	ns = client_find_namespace(cmd, mailbox, &storage_name, &status);
 	if (ns == NULL)
 		return TRUE;
 
@@ -92,6 +93,10 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	if (ns->owner != NULL && ns->owner != client->user &&
 	    !client->user->admin) {
 		client_send_tagline(cmd, "NO Not showing other users' quota.");
+		return TRUE;
+	}
+	if (status == MAILBOX_NAME_INVALID) {
+		client_fail_mailbox_name_status(cmd, mailbox, NULL, status);
 		return TRUE;
 	}
 
