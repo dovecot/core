@@ -124,7 +124,7 @@ static void client_input(struct client *client)
 static void client_raw_user_create(struct client *client)
 {
 	struct mail_namespace *raw_ns;
-	struct mail_namespace_settings raw_ns_set;
+	struct mail_namespace_settings *raw_ns_set;
 	const char *error;
 	void **sets;
 
@@ -136,13 +136,14 @@ static void client_raw_user_create(struct client *client)
 	if (mail_user_init(client->raw_mail_user, &error) < 0)
 		i_fatal("Raw user initialization failed: %s", error);
 
-	memset(&raw_ns_set, 0, sizeof(raw_ns_set));
-	raw_ns_set.location = ":LAYOUT=none";
-	raw_ns_set.separator = "/";
+	raw_ns_set = p_new(client->raw_mail_user->pool,
+			   struct mail_namespace_settings, 1);
+	raw_ns_set->location = ":LAYOUT=none";
+	raw_ns_set->separator = "/";
 
 	raw_ns = mail_namespaces_init_empty(client->raw_mail_user);
 	raw_ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
-	raw_ns->set = &raw_ns_set;
+	raw_ns->set = raw_ns_set;
 	if (mail_storage_create(raw_ns, "raw", 0, &error) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", error);
 }
