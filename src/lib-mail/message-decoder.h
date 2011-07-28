@@ -17,6 +17,10 @@ struct message_decoder_context *
 message_decoder_init(enum message_decoder_flags flags);
 void message_decoder_deinit(struct message_decoder_context **ctx);
 
+/* Change the MESSAGE_DECODER_FLAG_RETURN_BINARY flag */
+void message_decoder_set_return_binary(struct message_decoder_context *ctx,
+				       bool set);
+
 /* Decode input and return decoded output. Headers are returned only in their
    full multiline forms.
 

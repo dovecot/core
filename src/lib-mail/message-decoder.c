@@ -48,6 +48,10 @@ struct message_decoder_context {
 	unsigned int binary_input:1;
 };
 
+static void
+message_decode_body_init_charset(struct message_decoder_context *ctx,
+				 struct message_part *part);
+
 struct message_decoder_context *
 message_decoder_init(enum message_decoder_flags flags)
 {
@@ -76,6 +80,16 @@ void message_decoder_deinit(struct message_decoder_context **_ctx)
 	i_free(ctx->charset_trans_charset);
 	i_free(ctx->content_charset);
 	i_free(ctx);
+}
+
+void message_decoder_set_return_binary(struct message_decoder_context *ctx,
+				       bool set)
+{
+	if (set)
+		ctx->flags |= MESSAGE_DECODER_FLAG_RETURN_BINARY;
+	else
+		ctx->flags &= ~MESSAGE_DECODER_FLAG_RETURN_BINARY;
+	message_decode_body_init_charset(ctx, ctx->prev_part);
 }
 
 static void
