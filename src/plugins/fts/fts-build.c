@@ -29,7 +29,8 @@ static void fts_build_parse_content_type(struct fts_storage_build_context *ctx,
 		content_type = t_str_new(64);
 		if (rfc822_parse_content_type(&parser, content_type) >= 0) {
 			i_free(ctx->content_type);
-			ctx->content_type = i_strdup(str_c(content_type));
+			ctx->content_type =
+				str_lcase(i_strdup(str_c(content_type)));
 		}
 	} T_END;
 }
@@ -99,21 +100,30 @@ static void fts_build_mail_header(struct fts_storage_build_context *ctx,
 	} T_END;
 }
 
-static bool fts_build_body_begin(struct fts_storage_build_context *ctx)
+static bool
+fts_build_body_begin(struct fts_storage_build_context *ctx, bool *binary_body_r)
 {
 	const char *content_type;
 	struct fts_backend_build_key key;
 
 	i_assert(ctx->body_parser == NULL);
 
+	*binary_body_r = FALSE;
 	memset(&key, 0, sizeof(key));
 	key.uid = ctx->uid;
 
 	content_type = ctx->content_type != NULL ?
 		ctx->content_type : "text/plain";
-	if (fts_parser_init(content_type, ctx->content_disposition,
+	if (strncmp(content_type, "multipart/", 10) == 0) {
+		/* multiparts are never indexed, only their contents */
+		return FALSE;
+	}
+
+	if (fts_parser_init(ctx->box->storage->user,
+			    content_type, ctx->content_disposition,
 			    &ctx->body_parser)) {
 		/* extract text using the the returned parser */
+		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
 	} else if (strncmp(content_type, "text/", 5) == 0 ||
 		   strncmp(content_type, "message/", 8) == 0) {
@@ -123,11 +133,32 @@ static bool fts_build_body_begin(struct fts_storage_build_context *ctx)
 		/* possibly binary */
 		if (!ctx->binary_mime_parts)
 			return FALSE;
+		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY;
 	}
 	key.body_content_type = content_type;
 	key.body_content_disposition = ctx->content_disposition;
 	return fts_backend_update_set_build_key(ctx->update_ctx, &key);
+}
+
+static int fts_body_parser_finish(struct fts_storage_build_context *ctx)
+{
+	struct message_block block;
+	int ret = 0;
+
+	do {
+		memset(&block, 0, sizeof(block));
+		fts_parser_more(ctx->body_parser, &block);
+		if (fts_backend_update_build_more(ctx->update_ctx,
+						  block.data,
+						  block.size) < 0) {
+			ret = -1;
+			break;
+		}
+	} while (block.size > 0);
+
+	fts_parser_deinit(&ctx->body_parser);
+	return ret;
 }
 
 int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
@@ -139,6 +170,7 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 	struct message_block raw_block, block;
 	struct message_part *prev_part, *parts;
 	bool skip_body = FALSE, body_part = FALSE, body_added = FALSE;
+	bool binary_body;
 	int ret;
 
 	ctx->uid = mail->uid;
@@ -153,8 +185,6 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 
 	if (ctx->dtcase)
 		decoder_flags |= MESSAGE_DECODER_FLAG_DTCASE;
-	if (ctx->binary_mime_parts)
-		decoder_flags |= MESSAGE_DECODER_FLAG_RETURN_BINARY;
 	decoder = message_decoder_init(decoder_flags);
 	for (;;) {
 		ret = message_parser_parse_next_block(parser, &raw_block);
@@ -168,8 +198,13 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 		if (raw_block.part != prev_part) {
 			/* body part changed. we're now parsing the end of
 			   boundary, possibly followed by message epilogue */
-			if (ctx->body_parser != NULL)
-				fts_parser_deinit(&ctx->body_parser);
+			if (ctx->body_parser != NULL) {
+				if (fts_body_parser_finish(ctx) < 0) {
+					ret = -1;
+					break;
+				}
+			}
+			message_decoder_set_return_binary(decoder, FALSE);
 			fts_backend_update_unset_build_key(ctx->update_ctx);
 			prev_part = raw_block.part;
 			i_free_and_null(ctx->content_type);
@@ -186,7 +221,9 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 			/* always handle headers */
 		} else if (raw_block.size == 0) {
 			/* end of headers */
-			skip_body = !fts_build_body_begin(ctx);
+			skip_body = !fts_build_body_begin(ctx, &binary_body);
+			if (binary_body)
+				message_decoder_set_return_binary(decoder, TRUE);
 			body_part = TRUE;
 		} else {
 			if (skip_body)
@@ -215,6 +252,8 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 			body_added = TRUE;
 		}
 	}
+	if (ret == 0 && ctx->body_parser != NULL)
+		ret = fts_body_parser_finish(ctx);
 	if (ret == 0 && body_part && !skip_body && !body_added) {
 		/* make sure body is added even when it doesn't exist */
 		ret = fts_backend_update_build_more(ctx->update_ctx, NULL, 0);

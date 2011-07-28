@@ -44,7 +44,8 @@ struct {
 };
 
 static struct fts_parser *
-fts_parser_html_try_init(const char *content_type ATTR_UNUSED,
+fts_parser_html_try_init(struct mail_user *user ATTR_UNUSED,
+			 const char *content_type,
 			 const char *content_disposition ATTR_UNUSED)
 {
 	struct html_fts_parser *parser;
@@ -53,7 +54,7 @@ fts_parser_html_try_init(const char *content_type ATTR_UNUSED,
 		return NULL;
 
 	parser = i_new(struct html_fts_parser, 1);
-	parser->parser = fts_parser_html;
+	parser->parser.v = fts_parser_html;
 	parser->input = buffer_create_dynamic(default_pool, 512);
 	parser->output = buffer_create_dynamic(default_pool, 4096);
 	return &parser->parser;
@@ -234,7 +235,7 @@ static void fts_parser_html_deinit(struct fts_parser *_parser)
 	i_free(parser);
 }
 
-struct fts_parser fts_parser_html = {
+struct fts_parser_vfuncs fts_parser_html = {
 	fts_parser_html_try_init,
 	fts_parser_html_more,
 	fts_parser_html_deinit

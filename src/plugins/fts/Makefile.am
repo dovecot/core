@@ -19,6 +19,7 @@ lib20_fts_plugin_la_SOURCES = \
 	fts-build-virtual.c \
 	fts-parser.c \
 	fts-parser-html.c \
+	fts-parser-script.c \
 	fts-plugin.c \
 	fts-search.c \
 	fts-search-serialize.c \
@@ -34,3 +35,5 @@ noinst_HEADERS = \
 	fts-plugin.h \
 	fts-search-serialize.h \
 	fts-storage.h
+
+EXTRA_DIST = decode2text.sh

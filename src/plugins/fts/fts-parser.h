@@ -2,18 +2,30 @@
 #define FTS_PARSER_H
 
 struct message_block;
+struct mail_user;
 
-struct fts_parser {
-	struct fts_parser *(*try_init)(const char *content_type,
+struct fts_parser_vfuncs {
+	struct fts_parser *(*try_init)(struct mail_user *user,
+				       const char *content_type,
 				       const char *content_disposition);
 	void (*more)(struct fts_parser *parser, struct message_block *block);
 	void (*deinit)(struct fts_parser *parser);
 };
 
-extern struct fts_parser fts_parser_html;
+struct fts_parser {
+	struct fts_parser_vfuncs v;
+	buffer_t *utf8_output;
+};
 
-bool fts_parser_init(const char *content_type, const char *content_disposition,
+extern struct fts_parser_vfuncs fts_parser_html;
+extern struct fts_parser_vfuncs fts_parser_script;
+
+bool fts_parser_init(struct mail_user *user,
+		     const char *content_type, const char *content_disposition,
 		     struct fts_parser **parser_r);
+/* The parser is initially called with message body blocks. Once message is
+   finished, it's still called with incoming size=0 while the parser increases
+   it to non-zero. */
 void fts_parser_more(struct fts_parser *parser, struct message_block *block);
 void fts_parser_deinit(struct fts_parser **parser);
 
