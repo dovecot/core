@@ -5,14 +5,18 @@
 #include "str.h"
 #include "env-util.h"
 #include "execv-const.h"
+#include "write-full.h"
 #include "restrict-access.h"
 #include "master-interface.h"
 #include "master-service.h"
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
 
-#define SCRIPT_MAJOR_VERSION 2
+#define SCRIPT_MAJOR_VERSION 3
 #define SCRIPT_READ_TIMEOUT_SECS 10
 
 static ARRAY_TYPE(const_string) exec_args;
@@ -26,56 +30,16 @@ static void script_verify_version(const char *line)
 	}
 }
 
-static void client_connected(struct master_service_connection *conn)
+
+static void
+exec_child(struct master_service_connection *conn, const char *const *args)
 {
-	const unsigned char *end;
-	const char *const *args;
-	buffer_t *input;
-	void *buf;
 	unsigned int i, socket_count;
-	size_t prev_size;
-	ssize_t ret;
 
-	net_set_nonblock(conn->fd, FALSE);
-	input = buffer_create_dynamic(pool_datastack_create(), IO_BLOCK_SIZE);
-
-	/* Input contains:
-
-	   VERSION .. <lf>
-	   arg 1 <lf>
-	   arg 2 <lf>
-	   ...
-	   <lf>
-	   [data]
-	*/
-	alarm(SCRIPT_READ_TIMEOUT_SECS);
-	do {
-		prev_size = input->used;
-		buf = buffer_append_space_unsafe(input, IO_BLOCK_SIZE);
-		ret = read(conn->fd, buf, IO_BLOCK_SIZE);
-		if (ret <= 0) {
-			buffer_set_used_size(input, prev_size);
-			if (strchr(str_c(input), '\n') != NULL)
-				script_verify_version(t_strcut(str_c(input), '\t'));
-
-			if (ret < 0)
-				i_fatal("read() failed: %m");
-			else
-				i_fatal("read() failed: disconnected");
-		}
-		buffer_set_used_size(input, prev_size + ret);
-		end = CONST_PTR_OFFSET(input->data, input->used);
-	} while (!(end[-1] == '\n' && (input->used == 1 || end[-2] == '\n')));
-
-	/* drop the last LF */
-	buffer_set_used_size(input, input->used - 1);
-
-	args = t_strsplit(str_c(input), "\n");
-	script_verify_version(*args);
-
-	for (args++; *args != NULL; args++)
-		array_append(&exec_args, args, 1);
-	(void)array_append_space(&exec_args);
+	if (dup2(conn->fd, STDIN_FILENO) < 0)
+		i_fatal("dup2() failed: %m");
+	if (dup2(conn->fd, STDOUT_FILENO) < 0)
+		i_fatal("dup2() failed: %m");
 
 	/* close all fds */
 	socket_count = master_service_get_socket_count(master_service);
@@ -85,19 +49,145 @@ static void client_connected(struct master_service_connection *conn)
 	}
 	if (close(MASTER_STATUS_FD) < 0)
 		i_error("close(status) failed: %m");
-
-	if (write(conn->fd, "1\n", 2) != 2)
-		i_error("write() failed: %m");
-
-	if (dup2(conn->fd, STDIN_FILENO) < 0 ||
-	    dup2(conn->fd, STDOUT_FILENO) < 0)
-		i_error("dup2() failed: %m");
 	if (close(conn->fd) < 0)
-		i_error("close() failed: %m");
+		i_error("close(conn->fd) failed: %m");
+
+	for (; *args != NULL; args++)
+		array_append(&exec_args, args, 1);
+	(void)array_append_space(&exec_args);
 
 	env_clean();
 	args = array_idx(&exec_args, 0);
 	execvp_const(args[0], args);
+}
+
+static bool client_exec_script(struct master_service_connection *conn)
+{
+	const char *const *args;
+	string_t *input;
+	void *buf;
+	size_t prev_size, scanpos;
+	bool header_complete = FALSE;
+	ssize_t ret;
+	int status;
+	pid_t pid;
+
+	net_set_nonblock(conn->fd, FALSE);
+	input = buffer_create_dynamic(pool_datastack_create(), IO_BLOCK_SIZE);
+
+	/* Input contains:
+
+	   VERSION .. <lf>
+
+	   arg 1 <lf>
+	   arg 2 <lf>
+	   ...
+	   <lf>
+	   DATA
+	*/		
+	alarm(SCRIPT_READ_TIMEOUT_SECS);
+	scanpos = 1;
+	while (!header_complete) {
+		const unsigned char *pos, *end;
+
+		prev_size = input->used;
+		buf = buffer_append_space_unsafe(input, IO_BLOCK_SIZE);
+
+		/* peek in socket input buffer */
+		ret = recv(conn->fd, buf, IO_BLOCK_SIZE, MSG_PEEK);
+		if (ret <= 0) {
+			buffer_set_used_size(input, prev_size);
+			if (strchr(str_c(input), '\n') != NULL)
+				script_verify_version(t_strcut(str_c(input), '\n'));
+
+			if (ret < 0)
+				i_fatal("recv(MSG_PEEK) failed: %m");
+
+			i_fatal("recv(MSG_PEEK) failed: disconnected");
+		}
+
+		/* scan for final \n\n */
+		pos = CONST_PTR_OFFSET(input->data, scanpos);
+		end = CONST_PTR_OFFSET(input->data, prev_size + ret);
+		for (; pos < end; pos++) {
+			if (pos[-1] == '\n' && pos[0] == '\n') {
+				header_complete = TRUE;
+				pos++;
+				break;
+			}
+		}
+		scanpos = pos - (const unsigned char *)input->data;
+
+		/* read data for real (up to and including \n\n) */
+		ret = recv(conn->fd, buf, scanpos-prev_size, 0);
+		if (prev_size+ret != scanpos) {
+			if (ret < 0)
+				i_fatal("recv() failed: %m");
+			if (ret == 0)
+				i_fatal("recv() failed: disconnected");
+			i_fatal("recv() failed: size of definitive recv() differs from peek");
+		}
+		buffer_set_used_size(input, scanpos);
+	}
+
+	/* drop the last LF */
+	buffer_set_used_size(input, scanpos-1);
+
+	args = t_strsplit(str_c(input), "\n");
+	script_verify_version(*args); args++;
+	if (*args != NULL) {
+		if (strcmp(*args, "noreply") == 0) {
+			/* no need to fork and check exit status */
+			exec_child(conn, args + 1);
+			i_unreached();
+		}
+		args++;
+	}
+
+	if ((pid = fork()) == (pid_t)-1) {
+		i_error("fork() failed: %m");
+		return FALSE;
+	}
+
+	if (pid == 0) {
+		/* child */
+		exec_child(conn, args);
+		i_unreached();
+	}
+
+	/* parent */
+
+	/* check script exit status */
+	if (waitpid(pid, &status, 0) < 0) {
+		i_error("waitpid() failed: %m");
+		return FALSE;
+	} else if (WIFEXITED(status)) {
+		ret = WEXITSTATUS(status);
+		if (ret != 0) {
+			i_error("Script terminated abnormally, exit status %d", (int)ret);
+			return FALSE;
+		}
+	} else if (WIFSIGNALED(status)) {
+		i_error("Script terminated abnormally, signal %d", WTERMSIG(status));
+		return FALSE;
+	} else if (WIFSTOPPED(status)) {
+		i_fatal("Script stopped, signal %d", WSTOPSIG(status));
+		return FALSE;
+	} else {
+		i_fatal("Script terminated abnormally, return status %d", status);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static void client_connected(struct master_service_connection *conn)
+{
+	char response[2];
+
+	response[0] = client_exec_script(conn) ? '+' : '-';
+	response[1] = '\n';
+	if (write_full(conn->fd, &response, 2) < 0)
+		i_error("write(response) failed: %m");
 }
 
 int main(int argc, char *argv[])
@@ -136,5 +226,5 @@ int main(int argc, char *argv[])
 
 	master_service_run(master_service, client_connected);
 	master_service_deinit(&master_service);
-        return 0;
+	return 0;
 }
