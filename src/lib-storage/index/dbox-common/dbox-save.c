@@ -44,8 +44,7 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 			ctx->mail = mail_alloc(_ctx->transaction, 0, NULL);
 		_ctx->dest_mail = ctx->mail;
 	}
-	mail_set_seq(_ctx->dest_mail, ctx->seq);
-	_ctx->dest_mail->saving = TRUE;
+	mail_set_seq_saving(_ctx->dest_mail, ctx->seq);
 
 	crlf_input = i_stream_create_lf(input);
 	ctx->input = index_mail_cache_parse_init(_ctx->dest_mail, crlf_input);

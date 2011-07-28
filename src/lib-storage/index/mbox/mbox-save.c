@@ -502,8 +502,7 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 			}
 			_ctx->dest_mail = ctx->mail;
 		}
-		mail_set_seq(_ctx->dest_mail, ctx->seq);
-		_ctx->dest_mail->saving = TRUE;
+		mail_set_seq_saving(_ctx->dest_mail, ctx->seq);
 	}
 	mbox_save_append_flag_headers(ctx->headers, save_flags);
 	mbox_save_append_keyword_headers(ctx, _ctx->keywords);

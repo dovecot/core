@@ -211,8 +211,7 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 			ctx->mail = mail_alloc(_ctx->transaction, 0, NULL);
 		_ctx->dest_mail = ctx->mail;
 	}
-	mail_set_seq(_ctx->dest_mail, ctx->seq);
-	_ctx->dest_mail->saving = TRUE;
+	mail_set_seq_saving(_ctx->dest_mail, ctx->seq);
 
 	if (ctx->input == NULL) {
 		/* copying with hardlinking. */

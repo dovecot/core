@@ -1207,7 +1207,7 @@ static void check_envelope(struct index_mail *mail)
 	mail->data.save_envelope = TRUE;
 }
 
-void index_mail_set_seq(struct mail *_mail, uint32_t seq)
+void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
@@ -1224,6 +1224,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	data->seq = seq;
 
 	mail->mail.mail.seq = seq;
+	mail->mail.mail.saving = saving;
 	mail_index_lookup_uid(_mail->transaction->view, seq,
 			      &mail->mail.mail.uid);
 
@@ -1385,7 +1386,7 @@ bool index_mail_set_uid(struct mail *_mail, uint32_t uid)
 	uint32_t seq;
 
 	if (mail_index_lookup_seq(_mail->box->view, uid, &seq)) {
-		index_mail_set_seq(_mail, seq);
+		index_mail_set_seq(_mail, seq, FALSE);
 		return TRUE;
 	} else {
 		index_mail_reset(mail);

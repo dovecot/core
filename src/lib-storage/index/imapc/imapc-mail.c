@@ -165,7 +165,7 @@ imapc_mail_has_headers_in_cache(struct index_mail *mail,
 	return TRUE;
 }
 
-static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq)
+static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct imapc_mail *imail = (struct imapc_mail *)_mail;
 	struct index_mail *mail = &imail->imail;
@@ -173,7 +173,7 @@ static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq)
 	time_t date;
 	uoff_t size;
 
-	index_mail_set_seq(_mail, seq);
+	index_mail_set_seq(_mail, seq, saving);
 
 	if ((mail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		(void)index_mail_get_received_date(_mail, &date);

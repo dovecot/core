@@ -365,11 +365,11 @@ static int mbox_mail_get_stream(struct mail *_mail,
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
-static void mbox_mail_set_seq(struct mail *_mail, uint32_t seq)
+static void mbox_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 
-	index_mail_set_seq(_mail, seq);
+	index_mail_set_seq(_mail, seq, saving);
 	mail->data.dont_cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
 }
 

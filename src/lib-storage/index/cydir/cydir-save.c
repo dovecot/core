@@ -121,8 +121,7 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 			ctx->mail = mail_alloc(trans, 0, NULL);
 		_ctx->dest_mail = ctx->mail;
 	}
-	mail_set_seq(_ctx->dest_mail, ctx->seq);
-	_ctx->dest_mail->saving = TRUE;
+	mail_set_seq_saving(_ctx->dest_mail, ctx->seq);
 
 	crlf_input = i_stream_create_crlf(input);
 	ctx->input = index_mail_cache_parse_init(_ctx->dest_mail, crlf_input);

@@ -106,7 +106,7 @@ virtual_mail_set_backend_mail(struct mail *mail,
 	return vmail->backend_mail;
 }
 
-static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
+static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)mail->box;
@@ -114,6 +114,8 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq)
 	const struct virtual_mail_index_record *vrec;
 	const void *data;
 	bool expunged;
+
+	i_assert(!saving);
 
 	mail_index_lookup_ext(mail->box->view, seq, mbox->virtual_ext_id,
 			      &data, &expunged);
@@ -149,7 +151,7 @@ static bool virtual_mail_set_uid(struct mail *mail, uint32_t uid)
 	if (!mail_index_lookup_seq(mail->box->view, uid, &seq))
 		return FALSE;
 
-	virtual_mail_set_seq(mail, seq);
+	virtual_mail_set_seq(mail, seq, FALSE);
 	return TRUE;
 }
 

@@ -274,7 +274,7 @@ struct mailbox {
 struct mail_vfuncs {
 	void (*close)(struct mail *mail);
 	void (*free)(struct mail *mail);
-	void (*set_seq)(struct mail *mail, uint32_t seq);
+	void (*set_seq)(struct mail *mail, uint32_t seq, bool saving);
 	bool (*set_uid)(struct mail *mail, uint32_t uid);
 	void (*set_uid_cache_updates)(struct mail *mail, bool set);
 	bool (*prefetch)(struct mail *mail);
@@ -485,6 +485,7 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 bool mail_prefetch(struct mail *mail);
 int mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
+void mail_set_seq_saving(struct mail *mail, uint32_t seq);
 void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);
 /* Easy wrapper for getting mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX */

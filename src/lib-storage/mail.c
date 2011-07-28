@@ -38,7 +38,14 @@ void mail_set_seq(struct mail *mail, uint32_t seq)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	p->v.set_seq(mail, seq);
+	p->v.set_seq(mail, seq, FALSE);
+}
+
+void mail_set_seq_saving(struct mail *mail, uint32_t seq)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	p->v.set_seq(mail, seq, TRUE);
 }
 
 bool mail_set_uid(struct mail *mail, uint32_t uid)
