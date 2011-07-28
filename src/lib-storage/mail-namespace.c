@@ -400,11 +400,9 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	}
 	user->namespaces = ns;
 
-	if (hook_mail_namespaces_created != NULL) {
-		T_BEGIN {
-			hook_mail_namespaces_created(ns);
-		} T_END;
-	}
+	T_BEGIN {
+		hook_mail_namespaces_created(ns);
+	} T_END;
 	return 0;
 }
 
