@@ -110,8 +110,7 @@ static int mdbox_map_mkdir_storage_path(struct mdbox_map *map, const char *path)
 	if (stat(path, &st) == 0)
 		return 0;
 
-	if (mailbox_list_mkdir(map->root_list, path,
-			       MAILBOX_LIST_PATH_TYPE_DIR) < 0) {
+	if (mailbox_list_mkdir(map->root_list, NULL, path) < 0) {
 		mail_storage_copy_list_error(MAP_STORAGE(map), map->root_list);
 		return -1;
 	}
