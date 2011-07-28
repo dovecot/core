@@ -773,7 +773,7 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 
 		if (i != 0)
 			str_append_c(str, ' ');
-		arr[i] = t_str_ucase(value);
+		arr[i] = p_strdup(ctx->cmd->pool, t_str_ucase(value));
 
 		if (args[i].type == IMAP_ARG_ATOM)
 			str_append(str, arr[i]);
