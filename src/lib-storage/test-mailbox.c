@@ -21,6 +21,7 @@ static int test_mailbox_enable(struct mailbox *box,
 }
 
 static int test_mailbox_exists(struct mailbox *box ATTR_UNUSED,
+			       bool auto_boxes ATTR_UNUSED,
 			       enum mailbox_existence *existence_r)
 {
 	*existence_r = MAILBOX_EXISTENCE_SELECT;

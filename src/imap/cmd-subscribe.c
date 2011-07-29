@@ -11,7 +11,7 @@ subscribe_is_valid_name(struct client_command_context *cmd, struct mailbox *box)
 	enum mailbox_existence existence;
 	int ret;
 
-	if ((ret = mailbox_exists(box, &existence)) < 0) {
+	if ((ret = mailbox_exists(box, TRUE, &existence)) < 0) {
 		client_send_storage_error(cmd, mailbox_get_storage(box));
 		return FALSE;
 	}

@@ -622,7 +622,8 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 	return FALSE;
 }
 
-int mailbox_exists(struct mailbox *box, enum mailbox_existence *existence_r)
+int mailbox_exists(struct mailbox *box, bool auto_boxes,
+		   enum mailbox_existence *existence_r)
 {
 	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
 		/* report it as not selectable, since it exists but we won't
@@ -638,7 +639,7 @@ int mailbox_exists(struct mailbox *box, enum mailbox_existence *existence_r)
 		return 0;
 	}
 
-	return box->v.exists(box, existence_r);
+	return box->v.exists(box, auto_boxes, existence_r);
 }
 
 static int mailbox_check_mismatching_separators(struct mailbox *box)

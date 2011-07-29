@@ -323,10 +323,11 @@ static bool maildir_storage_is_readonly(struct mailbox *box)
 	return FALSE;
 }
 
-static int maildir_mailbox_exists(struct mailbox *box,
+static int maildir_mailbox_exists(struct mailbox *box, bool auto_boxes,
 				  enum mailbox_existence *existence_r)
 {
-	return index_storage_mailbox_exists_full(box, "cur", existence_r);
+	return index_storage_mailbox_exists_full(box, auto_boxes,
+						 "cur", existence_r);
 }
 
 static int maildir_mailbox_open(struct mailbox *box)

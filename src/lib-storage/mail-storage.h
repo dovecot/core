@@ -365,8 +365,11 @@ bool mail_storage_is_mailbox_file(struct mail_storage *storage) ATTR_PURE;
    with possibly different readonly-state. */
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags);
-/* Get mailbox existence state */
-int mailbox_exists(struct mailbox *box, enum mailbox_existence *existence_r);
+/* Get mailbox existence state. If auto_boxes=FALSE, return
+   MAILBOX_EXISTENCE_NONE for autocreated mailboxes that haven't been
+   physically created yet */
+int mailbox_exists(struct mailbox *box, bool auto_boxes,
+		   enum mailbox_existence *existence_r);
 /* Open the mailbox. If this function isn't called explicitly, it's also called
    internally by lib-storage when necessary. */
 int mailbox_open(struct mailbox *box);

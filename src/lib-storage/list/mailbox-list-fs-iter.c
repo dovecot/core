@@ -563,10 +563,12 @@ list_file(struct fs_list_iterate_context *ctx,
 	if (!MAILBOX_INFO_FLAGS_FINISHED(ctx->info.flags)) {
 		struct mailbox *box;
 		enum mailbox_existence existence;
+		bool auto_boxes =
+			(ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0;
 
 		box = mailbox_alloc(ctx->ctx.list, list_path,
 				    MAILBOX_FLAG_KEEP_RECENT);
-		ret = mailbox_exists(box, &existence);
+		ret = mailbox_exists(box, auto_boxes, &existence);
 		mailbox_free(&box);
 
 		if (ret < 0) {

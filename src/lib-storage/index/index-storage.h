@@ -57,9 +57,10 @@ void index_storage_lock_notify_reset(struct mailbox *box);
 void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 				 enum mailbox_flags flags,
 				 const char *index_prefix);
-int index_storage_mailbox_exists(struct mailbox *box,
+int index_storage_mailbox_exists(struct mailbox *box, bool auto_boxes,
 				 enum mailbox_existence *existence_r);
-int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
+int index_storage_mailbox_exists_full(struct mailbox *box, bool auto_boxes,
+				      const char *subdir,
 				      enum mailbox_existence *existence_r);
 int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory);
 int index_storage_mailbox_enable(struct mailbox *box,

@@ -133,17 +133,17 @@ static int autocreate_mailbox_open(struct mailbox *box)
 	return ret;
 }
 
-static int autocreate_mailbox_exists(struct mailbox *box,
+static int autocreate_mailbox_exists(struct mailbox *box, bool auto_boxes,
 				     enum mailbox_existence *existence_r)
 {
 	union mailbox_module_context *abox = AUTOCREATE_CONTEXT(box);
 
-	if (is_autocreated(box->storage->user, box->vname)) {
+	if (auto_boxes && is_autocreated(box->storage->user, box->vname)) {
 		*existence_r = MAILBOX_EXISTENCE_SELECT;
 		return 0;
 	}
 
-	return abox->super.exists(box, existence_r);
+	return abox->super.exists(box, auto_boxes, existence_r);
 }
 
 static int

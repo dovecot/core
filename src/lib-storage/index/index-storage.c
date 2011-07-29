@@ -151,20 +151,23 @@ index_mailbox_alloc_index(struct mailbox *box)
 					  box->index_prefix);
 }
 
-int index_storage_mailbox_exists(struct mailbox *box,
+int index_storage_mailbox_exists(struct mailbox *box, bool auto_boxes,
 				 enum mailbox_existence *existence_r)
 {
-	return index_storage_mailbox_exists_full(box, NULL, existence_r);
+	return index_storage_mailbox_exists_full(box, auto_boxes,
+						 NULL, existence_r);
 }
 
-int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
+int index_storage_mailbox_exists_full(struct mailbox *box, bool auto_boxes,
+				      const char *subdir,
 				      enum mailbox_existence *existence_r)
 {
 	struct stat st;
 	const char *path, *path2;
 
 	if (strcmp(box->name, "INBOX") == 0 &&
-	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    auto_boxes) {
 		/* INBOX always exists */
 		*existence_r = MAILBOX_EXISTENCE_SELECT;
 		return 0;

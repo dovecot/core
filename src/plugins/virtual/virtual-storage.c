@@ -259,10 +259,11 @@ static void virtual_mailbox_close_internal(struct virtual_mailbox *mbox)
 	}
 }
 
-static int virtual_mailbox_exists(struct mailbox *box,
+static int virtual_mailbox_exists(struct mailbox *box, bool auto_boxes,
 				  enum mailbox_existence *existence_r)
 {
-	return index_storage_mailbox_exists_full(box, VIRTUAL_CONFIG_FNAME,
+	return index_storage_mailbox_exists_full(box, auto_boxes,
+						 VIRTUAL_CONFIG_FNAME,
 						 existence_r);
 }
 
