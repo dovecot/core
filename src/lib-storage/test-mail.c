@@ -32,10 +32,11 @@ static void test_mail_free(struct mail *mail)
 	pool_unref(&pmail->pool);
 }
 
-static void test_mail_set_seq(struct mail *mail, uint32_t seq)
+static void test_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 {
 	mail->seq = seq;
 	mail->uid = seq;
+	mail->saving = saving;
 
 	mail->expunged = TRUE;
 	mail->has_nuls = FALSE;
@@ -44,7 +45,7 @@ static void test_mail_set_seq(struct mail *mail, uint32_t seq)
 
 static bool test_mail_set_uid(struct mail *mail, uint32_t uid)
 {
-	test_mail_set_seq(mail, uid);
+	test_mail_set_seq(mail, uid, FALSE);
 	return TRUE;
 }
 
