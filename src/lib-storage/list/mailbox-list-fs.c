@@ -466,13 +466,38 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 		      struct mailbox_list *newlist, const char *newname,
 		      enum mailbox_list_path_type type, bool rmdir_parent)
 {
-	const char *oldpath, *newpath, *p;
+	struct stat st;
+	const char *oldpath, *newpath, *p, *oldparent, *newparent;
 
 	oldpath = mailbox_list_get_path(oldlist, oldname, type);
 	newpath = mailbox_list_get_path(newlist, newname, type);
 
 	if (strcmp(oldpath, newpath) == 0)
 		return 0;
+
+	p = strrchr(oldpath, '/');
+	oldparent = p == NULL ? "/" : t_strdup_until(oldpath, p);
+	p = strrchr(newpath, '/');
+	newparent = p == NULL ? "/" : t_strdup_until(newpath, p);
+
+	if (strcmp(oldparent, newparent) != 0 && stat(oldpath, &st) == 0) {
+		/* make sure the newparent exists */
+		mode_t mode;
+		gid_t gid;
+		const char *origin;
+
+		mailbox_list_get_dir_permissions(newlist, NULL, &mode,
+						 &gid, &origin);
+		if (mkdir_parents_chgrp(newparent, mode, gid, origin) < 0 &&
+		    errno != EEXIST) {
+			if (mailbox_list_set_error_from_errno(oldlist))
+				return -1;
+
+			mailbox_list_set_critical(oldlist,
+				"mkdir_parents(%s) failed: %m", newparent);
+			return -1;
+		}
+	}
 
 	if (rename(oldpath, newpath) < 0 && errno != ENOENT) {
 		mailbox_list_set_critical(oldlist, "rename(%s, %s) failed: %m",
