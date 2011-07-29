@@ -1266,6 +1266,34 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 
 	*flags_r = 0;
 
+	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    strcasecmp(name, "INBOX") == 0) {
+		/* special handling for INBOX, mainly because with Maildir++
+		   layout it needs to check if the cur/ directory exists,
+		   which the Maildir++ layout backend itself can't do.. */
+		struct mailbox *box;
+		enum mailbox_existence existence;
+		int ret;
+
+		box = mailbox_alloc(list, "INBOX", MAILBOX_FLAG_KEEP_RECENT);
+		ret = mailbox_exists(box, FALSE, &existence);
+		mailbox_free(&box);
+		if (ret < 0) {
+			/* this can only be an internal error */
+			mailbox_list_set_internal_error(list);
+			return -1;
+		}
+		switch (existence) {
+		case MAILBOX_EXISTENCE_NONE:
+		case MAILBOX_EXISTENCE_NOSELECT:
+			*flags_r |= MAILBOX_NONEXISTENT;
+			return 0;
+		case MAILBOX_EXISTENCE_SELECT:
+			break;
+		}
+		return 1;
+	}
+
 	rootdir = mailbox_list_get_path(list, NULL,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
