@@ -56,6 +56,31 @@ static void fts_parse_mail_header(struct fts_storage_build_context *ctx,
 		fts_build_parse_content_disposition(ctx, hdr);
 }
 
+static void
+fts_build_unstructured_header(struct fts_storage_build_context *ctx,
+			      const struct message_header_line *hdr)
+{
+	const unsigned char *data = hdr->full_value;
+	unsigned char *buf = NULL;
+	unsigned int i;
+
+	/* @UNSAFE: if there are any NULs, replace them with spaces */
+	for (i = 0; i < hdr->full_value_len; i++) {
+		if (data[i] == '\0') {
+			if (buf == NULL) {
+				buf = i_malloc(hdr->full_value_len);
+				memcpy(buf, data, i);
+			}
+			buf[i] = ' ';
+		} else if (buf != NULL) {
+			buf[i] = data[i];
+		}
+	}
+	(void)fts_backend_update_build_more(ctx->update_ctx,
+					    data, hdr->full_value_len);
+	i_free(buf);
+}
+
 static void fts_build_mail_header(struct fts_storage_build_context *ctx,
 				  const struct message_block *block)
 {
@@ -78,9 +103,8 @@ static void fts_build_mail_header(struct fts_storage_build_context *ctx,
 
 	if (!message_header_is_address(hdr->name)) {
 		/* regular unstructured header */
-		(void)fts_backend_update_build_more(ctx->update_ctx,
-						    hdr->full_value,
-						    hdr->full_value_len);
+		// FIXME: get rid of potential NULs
+		fts_build_unstructured_header(ctx, hdr);
 	} else T_BEGIN {
 		/* message address. normalize it to give better
 		   search results. */
@@ -136,6 +160,8 @@ fts_build_body_begin(struct fts_storage_build_context *ctx, bool *binary_body_r)
 		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY;
 	}
+	if (ctx->body_parser == NULL)
+		ctx->body_parser = fts_parser_text_init();
 	key.body_content_type = content_type;
 	key.body_content_disposition = ctx->content_disposition;
 	return fts_backend_update_set_build_key(ctx->update_ctx, &key);

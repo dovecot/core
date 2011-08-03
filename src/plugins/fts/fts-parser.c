@@ -26,11 +26,41 @@ bool fts_parser_init(struct mail_user *user,
 	return FALSE;
 }
 
+struct fts_parser *fts_parser_text_init(void)
+{
+	return i_new(struct fts_parser, 1);
+}
+
+static bool data_has_nuls(const unsigned char *data, size_t size)
+{
+	size_t i;
+
+	for (i = 0; i < size; i++) {
+		if (data[i] == '\0')
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static void replace_nul_bytes(buffer_t *buf)
+{
+	unsigned char *data;
+	size_t i, size;
+
+	data = buffer_get_modifiable_data(buf, &size);
+	for (i = 0; i < size; i++) {
+		if (data[i] == '\0')
+			data[i] = ' ';
+	}
+}
+
 void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 {
-	parser->v.more(parser, block);
+	if (parser->v.more != NULL)
+		parser->v.more(parser, block);
 
-	if (!uni_utf8_data_is_valid(block->data, block->size)) {
+	if (!uni_utf8_data_is_valid(block->data, block->size) ||
+	    data_has_nuls(block->data, block->size)) {
 		/* output isn't valid UTF-8. make it. */
 		if (parser->utf8_output == NULL) {
 			parser->utf8_output =
@@ -40,6 +70,7 @@ void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 		}
 		(void)uni_utf8_get_valid_data(block->data, block->size,
 					      parser->utf8_output);
+		replace_nul_bytes(parser->utf8_output);
 		block->data = parser->utf8_output->data;
 		block->size = parser->utf8_output->used;
 	}
@@ -53,5 +84,8 @@ void fts_parser_deinit(struct fts_parser **_parser)
 
 	if (parser->utf8_output != NULL)
 		buffer_free(&parser->utf8_output);
-	parser->v.deinit(parser);
+	if (parser->v.deinit != NULL)
+		parser->v.deinit(parser);
+	else
+		i_free(parser);
 }
