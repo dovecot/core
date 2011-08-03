@@ -101,6 +101,7 @@ smtp_client_open_sendmail(const struct lda_settings *set,
 
 	client = i_new(struct smtp_client, 1);
 	client->f = *file_r = fdopen(fd[1], "w");
+	client->pid = pid;
 	if (client->f == NULL)
 		i_fatal("fdopen() failed: %m");
 	return client;

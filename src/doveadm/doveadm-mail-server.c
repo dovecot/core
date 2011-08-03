@@ -214,10 +214,6 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	i_assert(cmd_ctx == ctx || cmd_ctx == NULL);
 	cmd_ctx = ctx;
 
-	/* server sends the sticky headers for each row as well,
-	   so undo any sticks we might have added already */
-	doveadm_print_unstick_headers();
-
 	ret = doveadm_mail_server_user_get_host(ctx, input, &host, error_r);
 	if (ret < 0)
 		return -1;
@@ -226,6 +222,10 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		/* run it ourself */
 		return 0;
 	}
+
+	/* server sends the sticky headers for each row as well,
+	   so undo any sticks we might have added already */
+	doveadm_print_unstick_headers();
 
 	server = doveadm_server_get(ctx, host);
 	conn = doveadm_server_find_unused_conn(server);

@@ -715,7 +715,7 @@ search_msgset_fix_limits(unsigned int messages_count,
 	else {
 		/* if all messages are in the range, it can't match */
 		range = array_get_modifiable(seqset, &count);
-		return range[0].seq1 != 1 ||
+		return count == 0 || range[0].seq1 != 1 ||
 			range[count-1].seq2 != messages_count;
 	}
 }
@@ -739,6 +739,10 @@ search_msgset_fix(unsigned int messages_count,
 	if (!match_not) {
 		min_seq = range[0].seq1;
 		max_seq = range[count-1].seq2;
+	} else if (count == 0) {
+		/* matches all messages */
+		min_seq = 1;
+		max_seq = messages_count;
 	} else {
 		min_seq = range[0].seq1 > 1 ? 1 : range[0].seq2 + 1;
 		max_seq = range[count-1].seq2 < messages_count ?

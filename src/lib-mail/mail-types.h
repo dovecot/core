@@ -2,6 +2,7 @@
 #define MAIL_TYPES_H
 
 #define MAIL_GUID_128_SIZE 16
+typedef uint8_t mail_guid_128_t[MAIL_GUID_128_SIZE];
 
 enum mail_flags {
 	MAIL_ANSWERED	= 0x01,

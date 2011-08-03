@@ -32,7 +32,7 @@ static void client_idle_timeout(struct client *client)
 {
 	client_destroy(client,
 		       t_strdup_printf("421 4.4.2 %s", client->my_domain),
-		       "Disconnected for inactivity");
+		       "Disconnected client for inactivity");
 }
 
 static int client_input_line(struct client *client, const char *line)
@@ -228,6 +228,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client_io_reset(client);
 	client->state_pool = pool_alloconly_create("client state", 4096);
 	client->state.mail_data_fd = -1;
+	client->state.name = "banner";
 	client_read_settings(client);
 	client_raw_user_create(client);
 	client_generate_session_id(client);
@@ -292,7 +293,8 @@ void client_disconnect(struct client *client, const char *prefix,
 		client_send_line(client, "%s %s", prefix, reason);
 	else
 		reason = client_get_disconnect_reason(client);
-	i_info("Disconnect from %s: %s", client_remote_id(client), reason);
+	i_info("Disconnect from %s: %s (in %s)", client_remote_id(client),
+	       reason, client->state.name);
 
 	client->disconnected = TRUE;
 }
@@ -327,6 +329,7 @@ void client_state_reset(struct client *client)
 	client->state.mail_data_fd = -1;
 
 	client_generate_session_id(client);
+	client->state.name = "reset";
 }
 
 void client_send_line(struct client *client, const char *fmt, ...)
