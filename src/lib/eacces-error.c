@@ -192,7 +192,7 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 		} else {
 			str_printfa(errmsg, ", dir owned by %s:%s mode=0%o",
 				    dec2str(st.st_uid), dec2str(st.st_gid),
-				    st.st_mode & 0777);
+				    (unsigned int)(st.st_mode & 0777));
 		}
 	} else if (missing_mode != 0 &&
 		   (((st.st_mode & 0700) >> 6) & missing_mode) == 0) {
