@@ -114,15 +114,13 @@ static bool script_support_content(struct mail_user *user,
 	const struct content *content;
 
 	if (suser == NULL) {
-		suser = i_new(struct fts_parser_script_user, 1);
+		suser = p_new(user->pool, struct fts_parser_script_user, 1);
 		p_array_init(&suser->content, user->pool, 32);
 		MODULE_CONTEXT_SET(user, fts_parser_script_user_module, suser);
 	}
 	if (array_count(&suser->content) == 0) {
-		if (script_contents_read(user) < 0) {
-			array_free(&suser->content);
+		if (script_contents_read(user) < 0)
 			return FALSE;
-		}
 	}
 
 	if (strcmp(*content_type, "application/octet-stream") == 0) {
