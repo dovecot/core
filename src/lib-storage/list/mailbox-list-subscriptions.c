@@ -61,11 +61,16 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 
 	/* When listing pub/ namespace, skip over the namespace
 	   prefix in the name. the rest of the name is storage_name. */
-	if (ns != NULL) {
-		i_assert(strncmp(name, ns->prefix, ns->prefix_len) == 0);
-		name += ns->prefix_len;
-	} else {
+	if (ns == NULL)
 		ns = default_ns;
+	else if (strncmp(name, ns->prefix, ns->prefix_len) == 0)
+		name += ns->prefix_len;
+	else {
+		/* "pub" entry - this shouldn't be possible normally, because
+		   it should be saved as "pub/", but handle it anyway */
+		i_assert(strncmp(name, ns->prefix, ns->prefix_len-1) == 0 &&
+			 name[ns->prefix_len-1] == '\0');
+		name = "";
 	}
 
 	len = strlen(name);
