@@ -179,7 +179,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 		/* user not found from passdb. it could be in userdb though,
 		   so just continue with the default host */
 	} else {
-		proxy_host = NULL;
+		proxy_host = NULL; proxying = FALSE;
 		for (i = 0; fields[i] != NULL; i++) {
 			if (strncmp(fields[i], "proxy", 5) == 0 &&
 			    (fields[i][5] == '\0' || fields[i][5] == '='))
