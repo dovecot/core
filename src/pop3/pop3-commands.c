@@ -307,6 +307,7 @@ struct fetch_context {
 
 static void fetch_deinit(struct fetch_context *ctx)
 {
+	mail_free(&ctx->mail);
 	i_free(ctx);
 }
 
@@ -429,6 +430,9 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
 	ctx = i_new(struct fetch_context, 1);
 	ctx->byte_counter = byte_counter;
 	ctx->byte_counter_offset = client->output->offset;
+	ctx->mail = mail_alloc(client->trans,
+			       MAIL_FETCH_STREAM_HEADER |
+			       MAIL_FETCH_STREAM_BODY, NULL);
 	mail_set_seq(ctx->mail, msgnum_to_seq(client, msgnum));
 
 	if (mail_get_stream(ctx->mail, NULL, NULL, &ctx->stream) < 0) {
