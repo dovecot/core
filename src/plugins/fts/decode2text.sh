@@ -10,7 +10,7 @@
 #   fts_decoder = decode2text
 # }
 # service decode2text {
-#   executable = script /usr/local/bin/decode2text.sh
+#   executable = script /usr/local/libexec/dovecot/decode2text.sh
 #   user = dovecot
 #   unix_listener decode2text {
 #     mode = 0666

@@ -43,4 +43,4 @@ xml2text_SOURCES = xml2text.c
 xml2text_LDADD = fts-parser-html.lo $(LIBDOVECOT)
 xml2text_DEPENDENCIES = fts-parser-html.lo $(LIBDOVECOT_DEPS)
 
-EXTRA_DIST = decode2text.sh
+pkglibexec_SCRIPTS = decode2text.sh
