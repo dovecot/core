@@ -70,6 +70,7 @@ fts_build_unstructured_header(struct fts_storage_build_context *ctx,
 			if (buf == NULL) {
 				buf = i_malloc(hdr->full_value_len);
 				memcpy(buf, data, i);
+				data = buf;
 			}
 			buf[i] = ' ';
 		} else if (buf != NULL) {
