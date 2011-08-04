@@ -59,8 +59,11 @@ xmlunzip() {
   name=$1
 
   tempdir=`mktemp -d`
+  if [ "$tempdir" = "" ]; then 
+    exit 1
+  fi
   trap "rm -rf $tempdir" 0 1 2 3 15
-  cd $tempdir
+  cd $tempdir || exit 1
   unzip -q "$path"
   find . -name "$name" -print0 | xargs -0 cat |
     /usr/local/libexec/dovecot/xml2text
