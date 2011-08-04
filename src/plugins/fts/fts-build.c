@@ -203,7 +203,7 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 	ctx->uid = mail->uid;
 
 	if (mail_get_stream(mail, NULL, NULL, &input) < 0)
-		return -1;
+		return mail->expunged ? 0 : -1;
 
 	prev_part = NULL;
 	parser = message_parser_init(pool_datastack_create(), input,
