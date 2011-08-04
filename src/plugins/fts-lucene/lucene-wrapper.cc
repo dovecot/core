@@ -224,7 +224,8 @@ int lucene_index_get_doc_count(struct lucene_index *index, uint32_t *count_r)
 			return 0;
 		}
 	}
-	return index->reader->numDocs();
+	*count_r = index->reader->numDocs();
+	return 0;
 }
 
 int lucene_index_build_init(struct lucene_index *index)

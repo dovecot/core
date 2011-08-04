@@ -187,7 +187,8 @@ fts_backend_lucene_need_optimize(struct lucene_fts_backend_update_context *ctx)
 	if (ctx->expunges == 0)
 		return FALSE;
 
-	if (lucene_index_get_doc_count(backend->index, &numdocs) < 0)
+	if (lucene_index_get_doc_count(backend->index, &numdocs) < 0 ||
+	    numdocs == 0)
 		return FALSE;
 
 	/* update pending expunges count */
