@@ -176,10 +176,10 @@ fts_backend_lucene_need_optimize(struct lucene_fts_backend_update_context *ctx)
 	};
 	struct dotlock *dotlock;
 	const char *path;
-	char buf[MAX_INT_STRLEN];
+	char buf[MAX_INT_STRLEN+1];
 	unsigned int expunges = 0;
 	uint32_t numdocs;
-	int fdw, fdr;
+	int fdw, fdr, ret;
 
 	if (ctx->added_msgs >= LUCENE_OPTIMIZE_BATCH_MSGS_COUNT)
 		return TRUE;
@@ -201,10 +201,14 @@ fts_backend_lucene_need_optimize(struct lucene_fts_backend_update_context *ctx)
 		if (errno != ENOENT)
 			i_error("open(%s) failed: %m", path);
 	} else {
-		if (read(fdr, buf, sizeof(buf)) < 0)
+		ret = read(fdr, buf, sizeof(buf)-1);
+		if (ret < 0)
 			i_error("read(%s) failed: %m", path);
-		if (str_to_uint(buf, &expunges) < 0)
-			i_error("%s is corrupted", path);
+		else {
+			buf[ret] = '\0';
+			if (str_to_uint(buf, &expunges) < 0)
+				i_error("%s is corrupted: '%s'", path, buf);
+		}
 		if (close(fdr) < 0)
 			i_error("close(%s) failed: %m", path);
 	}
@@ -213,8 +217,8 @@ fts_backend_lucene_need_optimize(struct lucene_fts_backend_update_context *ctx)
 	i_snprintf(buf, sizeof(buf), "%u", expunges);
 	if (write(fdw, buf, strlen(buf)) < 0)
 		i_error("write(%s) failed: %m", path);
-	if (close(fdw) < 0)
-		i_error("close(%s) failed: %m", path);
+
+	(void)file_dotlock_replace(&dotlock, 0);
 	return numdocs / expunges <= 50; /* >2% of index has been expunged */
 }
 
