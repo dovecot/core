@@ -582,9 +582,15 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 		Query *q1 = lucene_get_query(index, _T("hdr"), arg);
 		Query *q2 = lucene_get_query(index, _T("body"), arg);
 
-		bq->add(q1, true, BooleanClause::SHOULD);
-		bq->add(q2, true, BooleanClause::SHOULD);
-		q = bq;
+		if (q1 == NULL && q2 == NULL)
+			q = NULL;
+		else {
+			if (q1 != NULL)
+				bq->add(q1, true, BooleanClause::SHOULD);
+			if (q2 != NULL)
+				bq->add(q2, true, BooleanClause::SHOULD);
+			q = bq;
+		}
 		break;
 	}
 	case SEARCH_BODY:
@@ -595,6 +601,10 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 	case SEARCH_HEADER_COMPRESS_LWSP:
 		if (!fts_header_want_indexed(arg->hdr_field_name))
 			return false;
+		if (*arg->value.str == '\0') {
+			/* FIXME: handle existence of a search key */
+			return false;
+		}
 
 		q = lucene_get_query(index,
 				     t_lucene_utf8_to_tchar(arg->hdr_field_name),
@@ -604,6 +614,11 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 		return false;
 	}
 
+	if (q == NULL) {
+		/* couldn't handle this search after all (e.g. trying to search
+		   a stop word) */
+		return false;
+	}
 	if (!and_args)
 		query.add(q, true, BooleanClause::SHOULD);
 	else if (!arg->match_not)
