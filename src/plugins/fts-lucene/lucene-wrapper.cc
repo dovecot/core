@@ -450,15 +450,16 @@ int lucene_index_optimize_finish(struct lucene_index *index)
 	if (IndexReader::isLocked(index->path))
 		IndexReader::unlock(index->path);
 
-	IndexWriter *writer =
-		_CLNEW IndexWriter(index->path, index->analyzer, false);
+	IndexWriter *writer = NULL;
 	try {
+		writer = _CLNEW IndexWriter(index->path, index->analyzer, false);
 		writer->optimize();
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "IndexWriter::optimize()");
 		ret = -1;
 	}
-	_CLDELETE(writer);
+	if (writer != NULL)
+		_CLDELETE(writer);
 	return ret;
 }
 
