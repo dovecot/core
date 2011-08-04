@@ -30,6 +30,12 @@ application/vnd.ms-powerpoint ppt
 application/ms-excel xls
 application/x-msexcel xls
 application/vnd.ms-excel xls
+application/vnd.openxmlformats-officedocument.wordprocessingml.document docx
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet xlsx
+application/vnd.openxmlformats-officedocument.presentationml.presentation pptx
+application/vnd.oasis.opendocument.text odt
+application/vnd.oasis.opendocument.spreadsheet ods
+application/vnd.oasis.opendocument.presentation odp
 '
 
 if [ "$content_type" = "" ]; then
@@ -49,6 +55,17 @@ path=`mktemp`
 trap "rm -f $path" 0 1 2 3 15
 cat > $path
 
+xmlunzip() {
+  name=$1
+
+  tempdir=`mktemp -d`
+  trap "rm -rf $tempdir" 0 1 2 3 15
+  cd $tempdir
+  unzip -q "$path"
+  find . -name "$name" -print0 | xargs -0 cat |
+    /usr/local/libexec/dovecot/xml2text
+}
+
 LANG=en_US.UTF-8
 export LANG
 if [ $fmt = "pdf" ]; then
@@ -59,6 +76,14 @@ elif [ $fmt = "ppt" ]; then
   /usr/bin/catppt $path
 elif [ $fmt = "xls" ]; then
   /usr/bin/xls2csv $path
+elif [ $fmt = "odt" -o $fmt = "ods" -o $fmt = "odp" ]; then
+  xmlunzip "content.xml"
+elif [ $fmt = "docx" ]; then
+  xmlunzip "document.xml"
+elif [ $fmt = "xlsx" ]; then
+  xmlunzip "sharedStrings.xml"
+elif [ $fmt = "pptx" ]; then
+  xmlunzip "slide*.xml"
 else
   echo "Buggy decoder script: $fmt not handled" >&2
   exit 1
