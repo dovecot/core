@@ -407,8 +407,14 @@ int lucene_index_optimize_scan(struct lucene_index *index,
 	uint32_t uid;
 	int ret;
 
-	if ((ret = lucene_index_open_search(index)) <= 0)
-		return ret;
+	if ((ret = lucene_index_open_search(index)) <= 0) {
+		if (ret < 0)
+			return -1;
+
+		/* index has been deleted, everything is missing */
+		seq_range_array_merge(missing_uids_r, existing_uids);
+		return 0;
+	}
 
 	i_array_init(&uid_id_map_arr, 128);
 	if (get_mailbox_uid_id_map(index, &uid_id_map_arr) < 0)
