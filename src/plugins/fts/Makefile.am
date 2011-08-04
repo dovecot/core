@@ -36,4 +36,11 @@ noinst_HEADERS = \
 	fts-search-serialize.h \
 	fts-storage.h
 
+pkglibexec_PROGRAMS = xml2text
+
+xml2text_SOURCES = xml2text.c
+
+xml2text_LDADD = fts-parser-html.lo $(LIBDOVECOT)
+xml2text_DEPENDENCIES = fts-parser-html.lo $(LIBDOVECOT_DEPS)
+
 EXTRA_DIST = decode2text.sh

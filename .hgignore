@@ -92,6 +92,7 @@ src/util/rawlog
 src/util/script
 src/util/script-login
 src/util/tcpwrap
+src/plugins/fts/xml2text
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
 
