@@ -421,6 +421,7 @@ static int fts_sync_deinit(struct mailbox_sync_context *ctx,
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(box->list);
 	bool precache, force_resync;
+	int ret = 0;
 
 	precache = (ctx->flags & MAILBOX_SYNC_FLAG_PRECACHE) != 0;
 	force_resync = (ctx->flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0;
@@ -428,11 +429,13 @@ static int fts_sync_deinit(struct mailbox_sync_context *ctx,
 		return -1;
 	ctx = NULL;
 
+	flist->backend->syncing = TRUE;
 	if (force_resync) {
 		if (fts_backend_optimize(flist->backend) < 0) {
 			mail_storage_set_critical(box->storage,
 				"FTS optimize for mailbox %s failed",
 				box->vname);
+			ret = -1;
 		}
 	}
 	if (precache) {
@@ -440,10 +443,11 @@ static int fts_sync_deinit(struct mailbox_sync_context *ctx,
 			mail_storage_set_critical(box->storage,
 				"FTS index update for mailbox %s failed",
 				box->vname);
-			return -1;
+			ret = -1;
 		}
 	}
-	return 0;
+	flist->backend->syncing = FALSE;
+	return ret;
 }
 
 void fts_mailbox_allocated(struct mailbox *box)

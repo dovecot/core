@@ -61,6 +61,7 @@ struct fts_backend {
 	struct mail_namespace *ns;
 
 	unsigned int updating:1;
+	unsigned int syncing:1;
 };
 
 struct fts_backend_update_context {
