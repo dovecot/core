@@ -127,6 +127,15 @@ static size_t parse_entity(struct html_fts_parser *parser,
 	return i + 1;
 }
 
+static void parser_add_space(struct html_fts_parser *parser)
+{
+	const unsigned char *data = parser->output->data;
+
+	if (parser->output->used > 0 &&
+	    data[parser->output->used-1] != ' ')
+		buffer_append_c(parser->output, ' ');
+}
+
 static size_t
 parse_data(struct html_fts_parser *parser,
 	   const unsigned char *data, size_t size)
@@ -158,6 +167,7 @@ parse_data(struct html_fts_parser *parser,
 			else if (c == '>') {
 				parser->state = parser->ignore_next_text ?
 					HTML_STATE_IGNORE : HTML_STATE_TEXT;
+				parser_add_space(parser);
 			}
 			break;
 		case HTML_STATE_TAG_QUOTED:
