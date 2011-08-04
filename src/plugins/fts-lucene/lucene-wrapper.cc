@@ -21,6 +21,8 @@ extern "C" {
 /* Lucene's default is 10000. Use it here also.. */
 #define MAX_TERMS_PER_DOCUMENT 10000
 
+#define LUCENE_LOCK_OVERRIDE_SECS 60
+
 using namespace lucene::document;
 using namespace lucene::index;
 using namespace lucene::search;
@@ -227,7 +229,17 @@ int lucene_index_get_doc_count(struct lucene_index *index, uint32_t *count_r)
 
 int lucene_index_build_init(struct lucene_index *index)
 {
+	const char *lock_path;
+	struct stat st;
+
 	lucene_index_close(index);
+
+	lock_path = t_strdup_printf("%s/write.lock", index->path);
+	if (stat(lock_path, &st) == 0 &&
+	    st.st_mtime < time(NULL) - LUCENE_LOCK_OVERRIDE_SECS) {
+		if (unlink(lock_path) < 0)
+			i_error("unlink(%s) failed: %m");
+	}
 
 	bool exists = IndexReader::indexExists(index->path);
 	try {
