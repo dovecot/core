@@ -379,6 +379,12 @@ static void fts_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 	}
 
 	if (fbox->sync_update_ctx == NULL) {
+		if (fts_backend_is_updating(flist->backend)) {
+			/* FIXME: maildir workaround - we could get here
+			   because we're building an index, which doesn't find
+			   some mail and starts syncing the mailbox.. */
+			return;
+		}
 		fbox->sync_update_ctx = fts_backend_update_init(flist->backend);
 		fts_backend_update_set_mailbox(fbox->sync_update_ctx, box);
 	}
