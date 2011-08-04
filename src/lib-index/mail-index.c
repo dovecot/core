@@ -265,6 +265,10 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 	hash_table_insert(index->keywords_hash,
 			  keyword_dup, POINTER_CAST(*idx_r));
 	array_append(&index->keywords, &keyword, 1);
+
+	/* keep the array NULL-terminated, but the NULL itself invisible */
+	(void)array_append_space(&index->keywords);
+	array_delete(&index->keywords, array_count(&index->keywords)-1, 1);
 }
 
 const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index)
