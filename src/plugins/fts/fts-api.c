@@ -123,13 +123,17 @@ static void fts_backend_set_cur_mailbox(struct fts_backend_update_context *ctx)
 int fts_backend_update_deinit(struct fts_backend_update_context **_ctx)
 {
 	struct fts_backend_update_context *ctx = *_ctx;
+	struct fts_backend *backend = ctx->backend;
+	int ret;
 
 	*_ctx = NULL;
 
 	ctx->cur_box = NULL;
 	fts_backend_set_cur_mailbox(ctx);
 
-	return ctx->backend->v.update_deinit(ctx);
+	ret = backend->v.update_deinit(ctx);
+	backend->updating = FALSE;
+	return ret;
 }
 
 void fts_backend_update_set_mailbox(struct fts_backend_update_context *ctx,
