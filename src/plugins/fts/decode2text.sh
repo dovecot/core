@@ -74,11 +74,11 @@ export LANG
 if [ $fmt = "pdf" ]; then
   /usr/bin/pdftotext $path -
 elif [ $fmt = "doc" ]; then
-  /usr/bin/catdoc $path
+  /usr/bin/catdoc $path 2>/dev/null
 elif [ $fmt = "ppt" ]; then
-  /usr/bin/catppt $path
+  /usr/bin/catppt $path 2>/dev/null
 elif [ $fmt = "xls" ]; then
-  /usr/bin/xls2csv $path
+  /usr/bin/xls2csv $path 2>/dev/null
 elif [ $fmt = "odt" -o $fmt = "ods" -o $fmt = "odp" ]; then
   xmlunzip "content.xml"
 elif [ $fmt = "docx" ]; then
