@@ -37,6 +37,8 @@ struct doveadm_mail_cmd_context {
 	pool_t pool;
 	const struct doveadm_mail_cmd *cmd;
 	const char *const *args;
+	/* args including -options */
+	const char *const *full_args;
 
 	const char *getopt_args;
 	const struct doveadm_settings *set;

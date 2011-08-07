@@ -9,6 +9,9 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "master-service.h"
+#include "master-service-settings.h"
+#include "settings-parser.h"
 #include "doveadm-print.h"
 #include "doveadm-util.h"
 #include "doveadm-server.h"
@@ -28,11 +31,15 @@ enum server_reply_state {
 struct server_connection {
 	struct doveadm_server *server;
 
+	pool_t pool;
+	struct doveadm_settings *set;
+
 	int fd;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
 
+	const char *delayed_cmd;
 	server_cmd_callback_t *callback;
 	void *context;
 
@@ -157,21 +164,26 @@ server_connection_authenticate(struct server_connection *conn)
 	string_t *plain = t_str_new(128);
 	string_t *cmd = t_str_new(128);
 
-	if (*doveadm_settings->doveadm_password == '\0') {
-		i_error("doveadm_password not set, can't authenticate");
+	if (*conn->set->doveadm_password == '\0') {
+		i_error("doveadm_password not set, "
+			"can't authenticate to remote server");
 		return -1;
 	}
 
 	str_append_c(plain, '\0');
 	str_append(plain, "doveadm");
 	str_append_c(plain, '\0');
-	str_append(plain, doveadm_settings->doveadm_password);
+	str_append(plain, conn->set->doveadm_password);
 
 	str_append(cmd, "PLAIN\t");
 	base64_encode(plain->data, plain->used, cmd);
 	str_append_c(cmd, '\n');
 
 	o_stream_send(conn->output, cmd->data, cmd->used);
+	if (conn->delayed_cmd != NULL) {
+		o_stream_send_str(conn->output, conn->delayed_cmd);
+		conn->delayed_cmd = NULL;
+	}
 	return 0;
 }
 
@@ -209,12 +221,9 @@ static void server_connection_input(struct server_connection *conn)
 		server_connection_destroy(&conn);
 		return;
 	}
-	data = i_stream_get_data(conn->input, &size);
-	if (size == 0)
-		return;
 
 	if (!conn->authenticated) {
-		if ((line = i_stream_next_line(conn->input)) != NULL)
+		if ((line = i_stream_next_line(conn->input)) == NULL)
 			return;
 		if (strcmp(line, "+") == 0)
 			conn->authenticated = TRUE;
@@ -224,6 +233,10 @@ static void server_connection_input(struct server_connection *conn)
 			return;
 		}
 	}
+
+	data = i_stream_get_data(conn->input, &size);
+	if (size == 0)
+		return;
 
 	switch (conn->state) {
 	case SERVER_REPLY_STATE_DONE:
@@ -243,13 +256,41 @@ static void server_connection_input(struct server_connection *conn)
 			server_connection_callback(conn, SERVER_CMD_REPLY_OK);
 		else if (data[0] == '-' && data[1] == '\n')
 			server_connection_callback(conn, SERVER_CMD_REPLY_FAIL);
-		else {
+		else
 			i_error("doveadm server sent broken input");
-			server_connection_destroy(&conn);
-			return;
-		}
+		/* we're finished, close the connection */
+		server_connection_destroy(&conn);
 		break;
 	}
+}
+
+static int server_connection_read_settings(struct server_connection *conn)
+{
+	const struct setting_parser_info *set_roots[] = {
+		&doveadm_setting_parser_info,
+		NULL
+	};
+	struct master_service_settings_input input;
+	struct master_service_settings_output output;
+	const char *error;
+	unsigned int port;
+	void *set;
+
+	memset(&input, 0, sizeof(input));
+	input.roots = set_roots;
+	input.service = "doveadm";
+
+	(void)net_getsockname(conn->fd, &input.local_ip, &port);
+	(void)net_getpeername(conn->fd, &input.remote_ip, &port);
+
+	if (master_service_settings_read(master_service, &input,
+					 &output, &error) < 0) {
+		i_error("Error reading configuration: %s", error);
+		return -1;
+	}
+	set = master_service_settings_get_others(master_service)[0];
+	conn->set = settings_dup(&doveadm_setting_parser_info, set, conn->pool);
+	return 0;
 }
 
 struct server_connection *
@@ -257,8 +298,11 @@ server_connection_create(struct doveadm_server *server)
 {
 #define DOVEADM_SERVER_HANDSHAKE "VERSION\tdoveadm-server\t1\t0\n"
 	struct server_connection *conn;
+	pool_t pool;
 
-	conn = i_new(struct server_connection, 1);
+	pool = pool_alloconly_create("doveadm server connection", 1024*16);
+	conn = p_new(pool, struct server_connection, 1);
+	conn->pool = pool;
 	conn->server = server;
 	conn->fd = doveadm_connect(server->name);
 	net_set_nonblock(conn->fd, TRUE);
@@ -269,6 +313,7 @@ server_connection_create(struct doveadm_server *server)
 	o_stream_send_str(conn->output, DOVEADM_SERVER_HANDSHAKE);
 
 	array_append(&conn->server->connections, &conn, 1);
+	server_connection_read_settings(conn);
 	return conn;
 }
 
@@ -301,7 +346,7 @@ void server_connection_destroy(struct server_connection **_conn)
 		io_remove(&conn->io);
 	if (close(conn->fd) < 0)
 		i_error("close(server) failed: %m");
-	i_free(conn);
+	pool_unref(&conn->pool);
 }
 
 struct doveadm_server *
@@ -313,8 +358,13 @@ server_connection_get_server(struct server_connection *conn)
 void server_connection_cmd(struct server_connection *conn, const char *line,
 			   server_cmd_callback_t *callback, void *context)
 {
+	i_assert(conn->delayed_cmd == NULL);
+
 	conn->state = SERVER_REPLY_STATE_PRINT;
-	o_stream_send_str(conn->output, line);
+	if (conn->authenticated)
+		o_stream_send_str(conn->output, line);
+	else
+		conn->delayed_cmd = p_strdup(conn->pool, line);
 	conn->callback = callback;
 	conn->context = context;
 }

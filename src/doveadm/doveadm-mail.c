@@ -366,6 +366,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
 	ctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
+	ctx->full_args = (const void *)argv;
 
 	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
 	username = getenv("USER");

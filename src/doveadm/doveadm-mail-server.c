@@ -125,9 +125,9 @@ static void doveadm_mail_server_handle(struct server_connection *conn,
 	str_tabescape_write(cmd, username);
 	str_append_c(cmd, '\t');
 	str_tabescape_write(cmd, cmd_ctx->cmd->name);
-	for (i = 0; cmd_ctx->args[i] != NULL; i++) {
+	for (i = 0; cmd_ctx->full_args[i] != NULL; i++) {
 		str_append_c(cmd, '\t');
-		str_tabescape_write(cmd, cmd_ctx->args[i]);
+		str_tabescape_write(cmd, cmd_ctx->full_args[i]);
 	}
 	str_append_c(cmd, '\n');
 	server_connection_cmd(conn, str_c(cmd), doveadm_cmd_callback, conn);
