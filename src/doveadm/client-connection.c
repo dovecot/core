@@ -60,13 +60,16 @@ doveadm_mail_cmd_server(const char *cmd_name,
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
 	ctx = doveadm_mail_cmd_init(cmd, set);
-	ctx->full_args = (const void *)argv;
+	ctx->full_args = (const void *)(argv + 1);
 
-	getopt_args = t_strconcat("Au:", ctx->getopt_args, NULL);
+	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'A':
 			add_username_header = TRUE;
+			break;
+		case 'S':
+			/* ignore */
 			break;
 		case 'u':
 			if (strchr(optarg, '*') != NULL ||
