@@ -43,9 +43,26 @@ cmd_index_box(const struct mailbox_info *info)
 	return ret;
 }
 
+static void index_queue_connect(struct index_cmd_context *ctx)
+{
+	const char *path;
+
+	path = t_strconcat(doveadm_settings->base_dir,
+			   "/"INDEXER_SOCKET_NAME, NULL);
+	ctx->queue_fd = net_connect_unix(path);
+	if (ctx->queue_fd == -1)
+		i_fatal("net_connect_unix(%s) failed: %m", path);
+	if (write_full(ctx->queue_fd, INDEXER_HANDSHAKE,
+		       strlen(INDEXER_HANDSHAKE)) < 0)
+		i_fatal("write(indexer) failed: %m");
+}
+
 static void cmd_index_queue(struct index_cmd_context *ctx,
 			    struct mail_user *user, const char *mailbox)
 {
+	if (ctx->queue_fd == -1)
+		index_queue_connect(ctx);
+
 	T_BEGIN {
 		string_t *str = t_str_new(256);
 
@@ -100,7 +117,6 @@ static void cmd_index_init(struct doveadm_mail_cmd_context *_ctx,
 			   const char *const args[])
 {
 	struct index_cmd_context *ctx = (struct index_cmd_context *)_ctx;
-	const char *path;
 	unsigned int i;
 
 	if (args[0] == NULL)
@@ -111,17 +127,6 @@ static void cmd_index_init(struct doveadm_mail_cmd_context *_ctx,
 			ctx->have_wildcards = TRUE;
 			break;
 		}
-	}
-
-	if (ctx->queue) {
-		path = t_strconcat(doveadm_settings->base_dir,
-				   "/"INDEXER_SOCKET_NAME, NULL);
-		ctx->queue_fd = net_connect_unix(path);
-		if (ctx->queue_fd == -1)
-			i_fatal("net_connect_unix(%s) failed: %m", path);
-		if (write_full(ctx->queue_fd, INDEXER_HANDSHAKE,
-			       strlen(INDEXER_HANDSHAKE)) < 0)
-			i_fatal("write(indexer) failed: %m");
 	}
 }
 
