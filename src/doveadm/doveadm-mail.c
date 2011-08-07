@@ -223,7 +223,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	return 1;
 }
 
-void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx, char *argv[],
+void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 			      const struct mail_storage_service_input *input,
 			      enum mail_storage_service_flags service_flags)
 {
@@ -234,7 +234,7 @@ void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx, char *argv[]
 
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 service_flags);
-	ctx->v.init(ctx, (const void *)argv);
+	ctx->v.init(ctx, ctx->args);
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
@@ -418,7 +418,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		memset(&input, 0, sizeof(input));
 		input.service = "doveadm";
 		input.username = username;
-		doveadm_mail_single_user(ctx, argv, &input, service_flags);
+		doveadm_mail_single_user(ctx, &input, service_flags);
 	} else {
 		service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(ctx, argv, wildcard_user, service_flags);

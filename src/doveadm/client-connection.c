@@ -100,7 +100,8 @@ doveadm_mail_cmd_server(const char *cmd_name,
 		doveadm_print_sticky("username", input->username);
 	}
 
-	doveadm_mail_single_user(ctx, argv, input, service_flags);
+	ctx->args = (const void *)argv;
+	doveadm_mail_single_user(ctx, input, service_flags);
 	doveadm_mail_server_flush();
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();
