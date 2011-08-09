@@ -111,9 +111,14 @@ fts_backend_lucene_init(struct fts_backend *_backend,
 	i_assert(path != NULL); /* fts already checked this */
 
 	backend->dir_path = i_strconcat(path, "/"LUCENE_INDEX_DIR_NAME, NULL);
-	backend->index = lucene_index_init(backend->dir_path,
-					   fuser->set.textcat_dir,
-					   fuser->set.textcat_conf);
+	if (fuser != NULL) {
+		backend->index = lucene_index_init(backend->dir_path,
+						   fuser->set.textcat_dir,
+						   fuser->set.textcat_conf);
+	} else {
+		backend->index = lucene_index_init(backend->dir_path,
+						   NULL, NULL);
+	}
 	return 0;
 }
 
