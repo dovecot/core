@@ -123,14 +123,15 @@ int main(int argc, char *argv[])
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 
+	if (master_service_settings_read_simple(master_service, NULL,
+						&error) < 0)
+		i_fatal("Error reading configuration: %s", error);
+	set = master_service_settings_get(master_service);
+
 	master_service_init_log(master_service, "indexer: ");
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
 	master_service_set_idle_die_callback(master_service, idle_die);
-
-	if (master_service_settings_read_simple(master_service, NULL, &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
-	set = master_service_settings_get(master_service);
 
 	master_service_init_finish(master_service);
 	worker_pool = worker_pool_init("indexer-worker",
