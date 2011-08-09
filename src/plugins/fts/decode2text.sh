@@ -64,7 +64,7 @@ xmlunzip() {
   fi
   trap "rm -rf $tempdir" 0 1 2 3 15
   cd $tempdir || exit 1
-  unzip -q "$path"
+  unzip -q "$path" 2>/dev/null || exit 0
   find . -name "$name" -print0 | xargs -0 cat |
     /usr/local/libexec/dovecot/xml2text
 }
