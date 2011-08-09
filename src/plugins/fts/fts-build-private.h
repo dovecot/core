@@ -29,6 +29,8 @@ struct fts_storage_build_context {
 	char *content_type, *content_disposition;
 	struct fts_parser *body_parser;
 
+	unsigned int indexed_msg_count;
+
 	unsigned int binary_mime_parts:1;
 	unsigned int dtcase:1;
 	unsigned int notified:1;

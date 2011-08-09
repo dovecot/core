@@ -104,7 +104,6 @@ static void fts_build_mail_header(struct fts_storage_build_context *ctx,
 
 	if (!message_header_is_address(hdr->name)) {
 		/* regular unstructured header */
-		// FIXME: get rid of potential NULs
 		fts_build_unstructured_header(ctx, hdr);
 	} else T_BEGIN {
 		/* message address. normalize it to give better
@@ -285,6 +284,8 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 		/* make sure body is added even when it doesn't exist */
 		ret = fts_backend_update_build_more(ctx->update_ctx, NULL, 0);
 	}
+	if (ret == 0)
+		ctx->indexed_msg_count++;
 	if (message_parser_deinit(&parser, &parts) < 0)
 		mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS);
 	message_decoder_deinit(&decoder);
@@ -374,6 +375,10 @@ int fts_build_deinit(struct fts_storage_build_context **_ctx)
 
 	if (ctx->v.deinit(ctx) < 0)
 		ret = -1;
+	if (ctx->indexed_msg_count > 0) {
+		i_info("Indexed %u messages in %s", ctx->indexed_msg_count,
+		       mailbox_get_vname(ctx->box));
+	}
 	if (ctx->update_ctx != NULL) {
 		if (fts_backend_update_deinit(&ctx->update_ctx) < 0)
 			ret = -1;
