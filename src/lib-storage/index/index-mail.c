@@ -1342,7 +1342,8 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 bool index_mail_prefetch(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-#ifdef HAVE_POSIX_FADVISE
+/* HAVE_POSIX_FADVISE alone isn't enough for CentOS 4.9 */
+#if defined(HAVE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
 	struct mail_storage *storage = _mail->box->storage;
 	struct istream *input;
 	off_t len;
