@@ -121,6 +121,7 @@ void indexer_queue_append(struct indexer_queue *queue, bool append,
 
 	if (queue->listen_callback != NULL)
 		queue->listen_callback(queue);
+	indexer_refresh_proctitle();
 }
 
 struct indexer_request *indexer_queue_request_peek(struct indexer_queue *queue)
@@ -136,6 +137,7 @@ void indexer_queue_request_remove(struct indexer_queue *queue)
 
 	DLLIST2_REMOVE(&queue->head, &queue->tail, request);
 	hash_table_remove(queue->requests, request);
+	indexer_refresh_proctitle();
 }
 
 static void indexer_queue_request_status_int(struct indexer_queue *queue,
@@ -187,4 +189,9 @@ void indexer_queue_cancel_all(struct indexer_queue *queue)
 bool indexer_queue_is_empty(struct indexer_queue *queue)
 {
 	return queue->head == NULL;
+}
+
+unsigned int indexer_queue_count(struct indexer_queue *queue)
+{
+	return hash_table_count(queue->requests);
 }

@@ -24,6 +24,7 @@ void indexer_queue_append(struct indexer_queue *queue, bool append,
 void indexer_queue_cancel_all(struct indexer_queue *queue);
 
 bool indexer_queue_is_empty(struct indexer_queue *queue);
+unsigned int indexer_queue_count(struct indexer_queue *queue);
 
 /* Return the next request from the queue, without removing it. */
 struct indexer_request *indexer_queue_request_peek(struct indexer_queue *queue);

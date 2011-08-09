@@ -39,6 +39,7 @@ struct indexer_client_request {
 };
 
 struct indexer_client *clients = NULL;
+static unsigned int clients_count = 0;
 
 static void indexer_client_destroy(struct indexer_client *client);
 static void indexer_client_ref(struct indexer_client *client);
@@ -173,7 +174,10 @@ indexer_client_create(int fd, struct indexer_queue *queue)
 	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	client->io = io_add(fd, IO_READ, indexer_client_input, client);
+
 	DLLIST_PREPEND(&clients, client);
+	clients_count++;
+	indexer_refresh_proctitle();
 	return client;
 }
 
@@ -193,7 +197,9 @@ static void indexer_client_destroy(struct indexer_client *client)
 	client->fd = -1;
 	indexer_client_unref(client);
 
+	clients_count--;
 	master_service_client_connection_destroyed(master_service);
+	indexer_refresh_proctitle();
 }
 
 static void indexer_client_ref(struct indexer_client *client)
@@ -212,6 +218,11 @@ static void indexer_client_unref(struct indexer_client *client)
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 	i_free(client);
+}
+
+unsigned int indexer_clients_get_count(void)
+{
+	return clients_count;
 }
 
 void indexer_clients_destroy_all(void)

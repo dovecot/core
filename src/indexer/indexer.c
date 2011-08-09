@@ -2,7 +2,9 @@
 
 #include "lib.h"
 #include "restrict-access.h"
+#include "process-title.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "indexer-client.h"
 #include "indexer-queue.h"
 #include "worker-pool.h"
@@ -13,8 +15,19 @@ struct worker_request {
 	struct indexer_request *request;
 };
 
+static const struct master_service_settings *set;
 static struct indexer_queue *queue;
 static struct worker_pool *worker_pool;
+
+void indexer_refresh_proctitle(void)
+{
+	if (!set->verbose_proctitle)
+		return;
+
+	process_title_set(t_strdup_printf("[%u clients, %u requests]",
+					  indexer_clients_get_count(),
+					  indexer_queue_count(queue)));
+}
 
 static bool idle_die(void)
 {
@@ -104,6 +117,8 @@ static void worker_status_callback(int percentage, void *context)
 
 int main(int argc, char *argv[])
 {
+	const char *error;
+
 	master_service = master_service_init("indexer", 0, &argc, &argv, NULL);
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
@@ -112,6 +127,10 @@ int main(int argc, char *argv[])
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
 	master_service_set_idle_die_callback(master_service, idle_die);
+
+	if (master_service_settings_read_simple(master_service, NULL, &error) < 0)
+		i_fatal("Error reading configuration: %s", error);
+	set = master_service_settings_get(master_service);
 
 	master_service_init_finish(master_service);
 	worker_pool = worker_pool_init("indexer-worker",
