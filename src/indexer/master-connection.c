@@ -5,7 +5,9 @@
 #include "istream.h"
 #include "write-full.h"
 #include "strescape.h"
+#include "process-title.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
@@ -29,6 +31,18 @@ struct master_connection {
 
 	unsigned int version_received:1;
 };
+
+static void
+indexer_worker_refresh_proctitle(const char *username, const char *mailbox)
+{
+	if (!master_service_settings_get(master_service)->verbose_proctitle)
+		return;
+
+	if (username != NULL)
+		process_title_set(t_strdup_printf("[%s %s]", username, mailbox));
+	else
+		process_title_set("[idling]");
+}
 
 static int index_mailbox(struct mail_user *user, const char *mailbox)
 {
@@ -90,7 +104,9 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 		i_error("User %s lookup failed: %s", args[0], error);
 		ret = -1;
 	} else {
+		indexer_worker_refresh_proctitle(user->username, args[1]);
 		ret = index_mailbox(user, args[1]);
+		indexer_worker_refresh_proctitle(NULL, NULL);
 		mail_user_unref(&user);
 		mail_storage_service_user_free(&service_user);
 	}
