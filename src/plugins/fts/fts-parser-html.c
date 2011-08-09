@@ -109,12 +109,12 @@ static size_t parse_entity(struct html_fts_parser *parser,
 	size_t i;
 
 	for (i = 0; i < size; i++) {
-		if (data[i] == ';')
-			break;
 		if (HTML_WHITESPACE(data[i]) || i >= sizeof(entity)) {
 			/* broken entity */
 			return 1;
 		}
+		if (data[i] == ';')
+			break;
 	}
 	if (i == size)
 		return 0;
