@@ -14,6 +14,7 @@ module_LTLIBRARIES = \
 
 if BUILD_LUCENE_TEXTCAT
 TEXTCAT_LIBS = -lstemmer -ltextcat
+SHOWBALL_SOURCES = Snowball.cc
 endif
 
 lib21_fts_lucene_plugin_la_LIBADD = \
@@ -23,7 +24,7 @@ lib21_fts_lucene_plugin_la_SOURCES = \
 	fts-lucene-plugin.c \
 	fts-backend-lucene.c \
 	lucene-wrapper.cc \
-	Snowball.cc
+	$(SHOWBALL_SOURCES)
 
 noinst_HEADERS = \
 	fts-lucene-plugin.h \

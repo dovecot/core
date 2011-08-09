@@ -13,7 +13,9 @@ extern "C" {
 
 #include <dirent.h>
 #include <sys/stat.h>
-#include <libtextcat/textcat.h>
+#ifdef HAVE_LUCENE_TEXTCAT
+#  include <libtextcat/textcat.h>
+#endif
 };
 #include <CLucene.h>
 #include <CLucene/util/CLStreams.h>
