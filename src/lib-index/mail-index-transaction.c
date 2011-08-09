@@ -219,7 +219,7 @@ int mail_index_transaction_commit_full(struct mail_index_transaction **_t,
 		mail_index_transaction_rollback(_t);
 		return -1;
 	}
-	if (!index_undeleted) {
+	if (!index_undeleted && !t->commit_deleted_index) {
 		if (t->view->index->index_deleted ||
 		    (t->view->index->index_delete_requested &&
 		     !t->view->index->syncing)) {

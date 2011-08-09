@@ -390,7 +390,8 @@ mail_index_sync_begin_init(struct mail_index *index,
 		return 0;
 	}
 
-	if (index->index_deleted) {
+	if (index->index_deleted &&
+	    (flags & MAIL_INDEX_SYNC_FLAG_DELETING_INDEX) == 0) {
 		/* index is already deleted. we can't sync. */
 		if (locked)
 			mail_transaction_log_sync_unlock(index->log);
@@ -490,6 +491,8 @@ int mail_index_sync_begin_to(struct mail_index *index,
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_FSYNC;
 	ctx->ext_trans = mail_index_transaction_begin(ctx->view, trans_flags);
 	ctx->ext_trans->sync_transaction = TRUE;
+	ctx->ext_trans->commit_deleted_index =
+		(flags & MAIL_INDEX_SYNC_FLAG_DELETING_INDEX) != 0;
 
 	*ctx_r = ctx;
 	*view_r = ctx->view;
