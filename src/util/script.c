@@ -78,6 +78,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 	/* Input contains:
 
 	   VERSION .. <lf>
+	   [<noreply>] <lf>
 
 	   arg 1 <lf>
 	   arg 2 <lf>
