@@ -50,11 +50,20 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP |
 		MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT;
+	int c;
 
 	master_service = master_service_init("indexer-worker", 0,
-					     &argc, &argv, NULL);
-	if (master_getopt(master_service) > 0)
-		return FATAL_DEFAULT;
+					     &argc, &argv, "D");
+	while ((c = master_getopt(master_service)) > 0) {
+		switch (c) {
+		case 'D':
+			storage_service_flags |=
+				MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS;
+			break;
+		default:
+			return FATAL_DEFAULT;
+		}
+	}
 
 	drop_privileges();
 	master_service_init_log(master_service, "indexer-worker: ");
