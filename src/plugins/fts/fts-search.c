@@ -317,9 +317,8 @@ fts_search_merge_scores_level(struct fts_search_context *fctx,
 
 		if (and_args)
 			fts_search_merge_scores_and(scores, &arg_scores);
-		else T_BEGIN {
+		else
 			fts_search_merge_scores_or(scores, &arg_scores);
-		} T_END;
 	}
 }
 
