@@ -78,7 +78,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 	/* Input contains:
 
 	   VERSION .. <lf>
-	   [<noreply>] <lf>
+	   <noreply> | "-" <lf>
 
 	   arg 1 <lf>
 	   arg 2 <lf>
@@ -142,6 +142,8 @@ static bool client_exec_script(struct master_service_connection *conn)
 			exec_child(conn, args + 1);
 			i_unreached();
 		}
+		if (*args == '\0')
+			i_fatal("empty options");
 		args++;
 	}
 

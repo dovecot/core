@@ -992,7 +992,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd)
 	if (root->quota->set->debug)
 		i_debug("quota: Executing warning: %s", cmd);
 
-	args = t_strsplit(cmd, " ");
+	args = t_strsplit_spaces(cmd, " ");
 	socket_path = args[0];
 	args++;
 
