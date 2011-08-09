@@ -102,15 +102,18 @@ fts_backend_lucene_init(struct fts_backend *_backend,
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
-	struct mailbox_list *list = _backend->ns->list;
+	struct fts_lucene_user *fuser =
+		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
 	const char *path;
 
-	path = mailbox_list_get_path(list, NULL,
+	path = mailbox_list_get_path(_backend->ns->list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_INDEX);
 	i_assert(path != NULL); /* fts already checked this */
 
 	backend->dir_path = i_strconcat(path, "/"LUCENE_INDEX_DIR_NAME, NULL);
-	backend->index = lucene_index_init(backend->dir_path);
+	backend->index = lucene_index_init(backend->dir_path,
+					   fuser->set.textcat_dir,
+					   fuser->set.textcat_conf);
 	return 0;
 }
 

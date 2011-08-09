@@ -12,14 +12,29 @@ lib21_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib21_fts_lucene_plugin.la
 
+if BUILD_LUCENE_TEXTCAT
+TEXTCAT_LIBS = -lstemmer -ltextcat
+endif
+
 lib21_fts_lucene_plugin_la_LIBADD = \
-	-lclucene-shared -lclucene-core
+	-lclucene-shared -lclucene-core $(TEXTCAT_LIBS)
 
 lib21_fts_lucene_plugin_la_SOURCES = \
 	fts-lucene-plugin.c \
 	fts-backend-lucene.c \
-	lucene-wrapper.cc
+	lucene-wrapper.cc \
+	Snowball.cc
 
 noinst_HEADERS = \
 	fts-lucene-plugin.h \
 	lucene-wrapper.h
+	SnowballAnalyzer.h \
+	SnowballFilter.h
+
+if BUILD_LUCENE_TEXTCAT
+exampledir = $(docdir)/example-config
+example_DATA = \
+	textcat.conf
+else
+EXTRA_DIST = textcat.conf
+endif

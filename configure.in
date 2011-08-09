@@ -2607,6 +2607,16 @@ if test "$want_solr" != "no"; then
 fi
 AM_CONDITIONAL(BUILD_SOLR, test "$have_solr" = "yes")
 
+if test "$want_lucene" = "yes"; then
+  AC_CHECK_LIB(textcat, special_textcat_Init, [
+    AC_CHECK_LIB(stemmer, sb_stemmer_new, [
+      have_lucene_textcat=yes
+      AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat and stemming support for CLucene)
+    ])
+  ])
+fi
+AM_CONDITIONAL(BUILD_LUCENE_TEXTCAT, test "$have_lucene_textcat" = "yes")
+
 dnl **
 dnl ** Settings
 dnl **

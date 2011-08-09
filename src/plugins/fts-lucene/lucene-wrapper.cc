@@ -13,15 +13,19 @@ extern "C" {
 
 #include <dirent.h>
 #include <sys/stat.h>
+#include <libtextcat/textcat.h>
 };
 #include <CLucene.h>
 #include <CLucene/util/CLStreams.h>
 #include <CLucene/search/MultiPhraseQuery.h>
+#include "SnowballAnalyzer.h"
 
 /* Lucene's default is 10000. Use it here also.. */
 #define MAX_TERMS_PER_DOCUMENT 10000
 
 #define LUCENE_LOCK_OVERRIDE_SECS 60
+
+#define DEFAULT_LANGUAGE "english"
 
 using namespace lucene::document;
 using namespace lucene::index;
@@ -31,26 +35,49 @@ using namespace lucene::analysis;
 using namespace lucene::analysis;
 using namespace lucene::util;
 
+struct lucene_analyzer {
+	char *lang;
+	Analyzer *analyzer;
+};
+
 struct lucene_index {
 	char *path;
+	char *textcat_dir, *textcat_conf;
 	wchar_t mailbox_guid[MAILBOX_GUID_HEX_LENGTH + 1];
 
 	IndexReader *reader;
 	IndexWriter *writer;
 	IndexSearcher *searcher;
-	Analyzer *analyzer;
+
+	Analyzer *default_analyzer, *cur_analyzer;
+	ARRAY_DEFINE(analyzers, struct lucene_analyzer);
 
 	Document *doc;
 	uint32_t prev_uid;
 };
 
-struct lucene_index *lucene_index_init(const char *path)
+static void *textcat = NULL;
+static bool textcat_broken = FALSE;
+static int textcat_refcount = 0;
+
+struct lucene_index *lucene_index_init(const char *path,
+				       const char *textcat_dir,
+				       const char *textcat_conf)
 {
 	struct lucene_index *index;
 
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
-	index->analyzer = _CLNEW standard::StandardAnalyzer();
+	index->textcat_dir = i_strdup(textcat_dir);
+	index->textcat_conf = i_strdup(textcat_conf);
+#ifdef HAVE_LUCENE_TEXTCAT
+	index->default_analyzer = _CLNEW snowball::SnowballAnalyzer(DEFAULT_LANGUAGE);
+#else
+	index->default_analyzer = _CLNEW standard::StandardAnalyzer();
+#endif
+	i_array_init(&index->analyzers, 32);
+	textcat_refcount++;
+
 	return index;
 }
 
@@ -63,15 +90,29 @@ static void lucene_index_close(struct lucene_index *index)
 
 void lucene_index_deinit(struct lucene_index *index)
 {
+	struct lucene_analyzer *a;
+
 	lucene_index_close(index);
-	_CLDELETE(index->analyzer);
+	array_foreach_modifiable(&index->analyzers, a) {
+		i_free(a->lang);
+		_CLDELETE(a->analyzer);
+	}
+	array_free(&index->analyzers);
+	if (--textcat_refcount == 0 && textcat != NULL) {
+#ifdef HAVE_LUCENE_TEXTCAT
+		textcat_Done(textcat);
+#endif
+		textcat = NULL;
+	}
+	_CLDELETE(index->default_analyzer);
+	i_free(index->textcat_dir);
+	i_free(index->textcat_conf);
 	i_free(index->path);
 	i_free(index);
 }
 
-static void
-lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
-		       wchar_t *dest, size_t destsize)
+void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
+			    wchar_t *dest, size_t destsize)
 {
 	ARRAY_TYPE(unichars) dest_arr;
 	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
@@ -245,7 +286,8 @@ int lucene_index_build_init(struct lucene_index *index)
 	bool exists = IndexReader::indexExists(index->path);
 	try {
 		index->writer = _CLNEW IndexWriter(index->path,
-						   index->analyzer, !exists);
+						   index->default_analyzer,
+						   !exists);
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "IndexWriter()");
 		return -1;
@@ -253,6 +295,64 @@ int lucene_index_build_init(struct lucene_index *index)
 	index->writer->setMaxFieldLength(MAX_TERMS_PER_DOCUMENT);
 	return 0;
 }
+
+static Analyzer *get_analyzer(struct lucene_index *index, const char *lang)
+{
+	const struct lucene_analyzer *a;
+	struct lucene_analyzer new_analyzer;
+	Analyzer *analyzer;
+
+	array_foreach(&index->analyzers, a) {
+		if (strcmp(a->lang, lang) == 0)
+			return a->analyzer;
+	}
+
+	memset(&new_analyzer, 0, sizeof(new_analyzer));
+	new_analyzer.lang = i_strdup(lang);
+	new_analyzer.analyzer = _CLNEW snowball::SnowballAnalyzer(lang);
+	array_append_i(&index->analyzers.arr, &new_analyzer, 1);
+	return new_analyzer.analyzer;
+}
+
+#ifdef HAVE_LUCENE_TEXTCAT
+static Analyzer *
+guess_analyzer(struct lucene_index *index, const void *data, size_t size)
+{
+	const char *lang;
+
+	if (textcat_broken)
+		return NULL;
+
+	if (textcat == NULL) {
+		textcat = index->textcat_conf == NULL ? NULL :
+			special_textcat_Init(index->textcat_conf,
+					     index->textcat_dir);
+		if (textcat == NULL) {
+			textcat_broken = TRUE;
+			return NULL;
+		}
+	}
+
+	/* try to guess the language */
+	lang = textcat_Classify(textcat, (const char *)data,
+				I_MIN(size, 500));
+	const char *p = strchr(lang, ']');
+	if (lang[0] != '[' || p == NULL)
+		return NULL;
+	lang = t_strdup_until(lang+1, p);
+	if (strcmp(lang, DEFAULT_LANGUAGE) == 0)
+		return index->default_analyzer;
+
+	return get_analyzer(index, lang);
+}
+#else
+static Analyzer *
+guess_analyzer(struct lucene_index *index ATTR_UNUSED,
+	       const void *data ATTR_UNUSED, size_t size ATTR_UNUSED)
+{
+	return NULL;
+}
+#endif
 
 static int lucene_index_build_flush(struct lucene_index *index)
 {
@@ -262,7 +362,10 @@ static int lucene_index_build_flush(struct lucene_index *index)
 		return 0;
 
 	try {
-		index->writer->addDocument(index->doc);
+		index->writer->addDocument(index->doc,
+					   index->cur_analyzer != NULL ?
+					   index->cur_analyzer :
+					   index->default_analyzer);
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "IndexWriter::addDocument()");
 		ret = -1;
@@ -270,6 +373,7 @@ static int lucene_index_build_flush(struct lucene_index *index)
 
 	_CLDELETE(index->doc);
 	index->doc = NULL;
+	index->cur_analyzer = NULL;
 	return ret;
 }
 
@@ -307,6 +411,8 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		if (fts_header_want_indexed(hdr_name))
 			index->doc->add(*_CLNEW Field(wname, dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
 	} else if (size > 0) {
+		if (index->cur_analyzer == NULL)
+			index->cur_analyzer = guess_analyzer(index, data, size);
 		index->doc->add(*_CLNEW Field(_T("body"), dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
 	}
 	return 0;
@@ -453,7 +559,7 @@ int lucene_index_optimize_finish(struct lucene_index *index)
 
 	IndexWriter *writer = NULL;
 	try {
-		writer = _CLNEW IndexWriter(index->path, index->analyzer, false);
+		writer = _CLNEW IndexWriter(index->path, index->default_analyzer, false);
 		writer->optimize();
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "IndexWriter::optimize()");
@@ -562,7 +668,12 @@ lucene_get_query(struct lucene_index *index,
 		 const TCHAR *key, const struct mail_search_arg *arg)
 {
 	const TCHAR *wvalue = t_lucene_utf8_to_tchar(arg->value.str);
-	return getFieldQuery(index->analyzer, key, wvalue, arg->fuzzy);
+	Analyzer *analyzer = guess_analyzer(index, arg->value.str,
+					    strlen(arg->value.str));
+	if (analyzer == NULL)
+		analyzer = index->default_analyzer;
+
+	return getFieldQuery(analyzer, key, wvalue, arg->fuzzy);
 }
 
 static bool

@@ -2,10 +2,13 @@
 #define LUCENE_WRAPPER_H
 
 #include "fts-api-private.h"
+#include "mail-types.h"
 
 #define MAILBOX_GUID_HEX_LENGTH (MAIL_GUID_128_SIZE*2)
 
-struct lucene_index *lucene_index_init(const char *path);
+struct lucene_index *lucene_index_init(const char *path,
+				       const char *textcat_dir,
+				       const char *textcat_conf);
 void lucene_index_deinit(struct lucene_index *index);
 
 void lucene_index_select_mailbox(struct lucene_index *index,
@@ -33,5 +36,9 @@ int lucene_index_lookup_multi(struct lucene_index *index,
 			      struct hash_table *guids,
 			      struct mail_search_arg *args, bool and_args,
 			      struct fts_multi_result *result);
+
+/* internal: */
+void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
+			    wchar_t *dest, size_t destsize);
 
 #endif
