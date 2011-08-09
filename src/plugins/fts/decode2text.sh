@@ -72,7 +72,7 @@ xmlunzip() {
 LANG=en_US.UTF-8
 export LANG
 if [ $fmt = "pdf" ]; then
-  /usr/bin/pdftotext $path -
+  /usr/bin/pdftotext $path - 2>/dev/null
 elif [ $fmt = "doc" ]; then
   /usr/bin/catdoc $path 2>/dev/null
 elif [ $fmt = "ppt" ]; then
