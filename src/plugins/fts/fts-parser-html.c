@@ -223,13 +223,15 @@ static void fts_parser_html_more(struct fts_parser *_parser,
 		buffer_append(parser->input, block->data, size);
 		size = parse_data(parser, parser->input->data,
 				  parser->input->used);
-		if (size == 0) {
-			/* we're at EOF and can't finish this */
-			i_assert(block->size == 0);
-		} else {
+		if (size != 0) {
 			i_assert(size >= buf_orig_size);
 			block->data += size - buf_orig_size;
 			block->size -= size - buf_orig_size;
+		} else if (block->size != 0) {
+			/* we're slowly parsing forward */
+			return;
+		} else {
+			/* we're at EOF and can't finish this */
 		}
 		buffer_set_used_size(parser->input, 0);
 	}
