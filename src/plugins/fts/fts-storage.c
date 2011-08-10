@@ -131,7 +131,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	fctx->backend = flist->backend;
 	fctx->t = t;
 	fctx->args = args;
-	fctx->result_pool = pool_alloconly_create("fts results", 1024*32);
+	fctx->result_pool = pool_alloconly_create("fts results", 1024*64);
 	fctx->orig_matches = buffer_create_dynamic(default_pool, 64);
 	i_array_init(&fctx->levels, 8);
 	fctx->scores = i_new(struct fts_scores, 1);
