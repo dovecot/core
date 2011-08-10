@@ -67,8 +67,9 @@ static void worker_connection_disconnect(struct worker_connection *conn)
 
 	/* cancel any pending requests */
 	if (count > 0) {
-		i_error("Indexer worker disconnected, discarding %u requests",
-			count);
+		i_error("Indexer worker disconnected, "
+			"discarding %u requests for %s",
+			count, conn->request_username);
 	}
 	for (i = 0; i < count; i++) {
 		void *const *contextp =
