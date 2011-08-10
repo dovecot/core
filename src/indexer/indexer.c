@@ -108,7 +108,8 @@ static void worker_status_callback(int percentage, void *context)
 
 	indexer_queue_request_finish(queue, &request->request,
 				     percentage == 100);
-	worker_pool_release_connection(worker_pool, request->conn);
+	if (worker_pool != NULL) /* not in deinit */
+		worker_pool_release_connection(worker_pool, request->conn);
 	i_free(request);
 
 	/* if this was the last request for the connection, we can send more
@@ -135,17 +136,17 @@ int main(int argc, char *argv[])
 	master_service_set_idle_die_callback(master_service, idle_die);
 
 	master_service_init_finish(master_service);
-	worker_pool = worker_pool_init("indexer-worker",
-				       worker_status_callback);
 	queue = indexer_queue_init(indexer_client_status_callback);
 	indexer_queue_set_listen_callback(queue, queue_listen_callback);
+	worker_pool = worker_pool_init("indexer-worker",
+				       worker_status_callback);
 
 	master_service_run(master_service, client_connected);
 
 	indexer_queue_cancel_all(queue);
 	indexer_clients_destroy_all();
-	indexer_queue_deinit(&queue);
 	worker_pool_deinit(&worker_pool);
+	indexer_queue_deinit(&queue);
 
 	master_service_deinit(&master_service);
         return 0;
