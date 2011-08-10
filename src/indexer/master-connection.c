@@ -64,11 +64,15 @@ static int index_mailbox(struct mail_user *user, const char *mailbox,
 	   "n% competed" notifications */
 	box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_KEEP_RECENT);
 	if (max_recent_msgs != 0) {
-		/* index only if there aren't too many recent messages */
-		if (mailbox_get_status(box, STATUS_RECENT, &status) < 0) {
-			i_error("Mailbox %s status failed: %s", mailbox,
+		/* index only if there aren't too many recent messages.
+		   don't bother syncing the mailbox, that alone can take a
+		   while with large maildirs. */
+		if (mailbox_open(box) < 0) {
+			i_error("Opening mailbox %s failed: %s", mailbox,
 				mail_storage_get_last_error(mailbox_get_storage(box), NULL));
 			ret = -1;
+		} else {
+			mailbox_get_open_status(box, STATUS_RECENT, &status);
 		}
 		if (ret < 0 || status.recent > max_recent_msgs) {
 			mailbox_free(&box);

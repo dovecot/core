@@ -34,11 +34,15 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 			    MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	if (ctx->max_recent_msgs != 0) {
-		/* index only if there aren't too many recent messages */
-		if (mailbox_get_status(box, STATUS_RECENT, &status) < 0) {
-			i_error("Mailbox %s status failed: %s", info->name,
+		/* index only if there aren't too many recent messages.
+		   don't bother syncing the mailbox, that alone can take a
+		   while with large maildirs. */
+		if (mailbox_open(box) < 0) {
+			i_error("Opening mailbox %s failed: %s", info->name,
 				mail_storage_get_last_error(mailbox_get_storage(box), NULL));
 			ret = -1;
+		} else {
+			mailbox_get_open_status(box, STATUS_RECENT, &status);
 		}
 		if (ret < 0 || status.recent > ctx->max_recent_msgs) {
 			mailbox_free(&box);
