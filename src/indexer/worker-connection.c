@@ -74,7 +74,7 @@ static void worker_connection_disconnect(struct worker_connection *conn)
 	for (i = 0; i < count; i++) {
 		void *const *contextp =
 			array_idx(&conn->request_contexts,
-				  aqueue_idx(conn->request_queue, i));
+				  aqueue_idx(conn->request_queue, 0));
 		void *context = *contextp;
 
 		aqueue_delete_tail(conn->request_queue);
