@@ -190,7 +190,6 @@ index_mailbox_list_sync_names(struct index_mailbox_list_sync_context *ctx)
 	struct index_mailbox_list *ilist = ctx->ilist;
 	ARRAY_TYPE(uint32_t) existing_name_ids;
 	buffer_t *buf;
-	struct mailbox_list_index_header *hdr;
 	const void *ext_data;
 	size_t ext_size;
 	const char *name;
@@ -202,7 +201,7 @@ index_mailbox_list_sync_names(struct index_mailbox_list_sync_context *ctx)
 	array_sort(&existing_name_ids, uint32_cmp);
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 1024);
-	hdr = buffer_append_space_unsafe(buf, sizeof(*hdr));
+	buffer_append_zero(buf, sizeof(struct mailbox_list_index_header));
 
 	array_foreach(&existing_name_ids, id_p) {
 		if (*id_p != prev_id) {

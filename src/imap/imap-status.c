@@ -65,7 +65,7 @@ int imap_status_get(struct client_command_context *cmd,
 	struct client *client = cmd->client;
 	struct mailbox *box;
 	enum mail_error error;
-	int ret;
+	int ret = 0;
 
 	if (client->mailbox != NULL &&
 	    mailbox_equals(client->mailbox, ns, mailbox)) {
@@ -76,10 +76,8 @@ int imap_status_get(struct client_command_context *cmd,
 		box = mailbox_alloc(ns->list, mailbox,
 				    MAILBOX_FLAG_READONLY |
 				    MAILBOX_FLAG_KEEP_RECENT);
-		if (client->enabled_features != 0) {
-			if (mailbox_enable(box, client->enabled_features) < 0)
-				ret = -1;
-		}
+		if (client->enabled_features != 0)
+			(void)mailbox_enable(box, client->enabled_features);
 	}
 
 	if ((items->status & STATUS_HIGHESTMODSEQ) != 0)

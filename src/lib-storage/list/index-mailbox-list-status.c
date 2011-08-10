@@ -189,9 +189,9 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 		hmodseq_changed = data != NULL;
 	}
 
-	hmodseq_changed = old_status.highest_modseq != status->highest_modseq &&
-		(old_status.highest_modseq != 0 ||
-		 (box->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0);
+	if (hmodseq_changed &&
+	    old_status.highest_modseq != status->highest_modseq)
+		hmodseq_changed = TRUE;
 
 	if (!rec_changed && !msgs_changed && !hmodseq_changed)
 		return 0;

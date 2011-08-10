@@ -111,14 +111,11 @@ uint32_t imapc_seqmap_rseq_to_lseq(struct imapc_seqmap *seqmap, uint32_t rseq)
 
 uint32_t imapc_seqmap_lseq_to_rseq(struct imapc_seqmap *seqmap, uint32_t lseq)
 {
-	const uint32_t *seqs;
-	unsigned int idx, count;
+	unsigned int idx;
 
 	i_assert(lseq > 0);
 
 	imapc_seqmap_dequeue(seqmap);
-
-	seqs = array_get(&seqmap->expunges, &count);
 	if (array_bsearch_insert_pos(&seqmap->expunges, &lseq,
 				     uint32_cmp_p, &idx))
 		return 0;
