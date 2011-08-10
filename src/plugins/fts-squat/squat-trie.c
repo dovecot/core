@@ -961,9 +961,9 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx,
 			  uint32_t uid, enum squat_index_type type,
 			  const unsigned char *input, unsigned int size)
 {
-	int ret;
+	int ret = 0;
 
-	T_BEGIN {
+	if (size != 0) T_BEGIN {
 		ret = squat_trie_build_more_real(ctx, uid, type, input, size);
 	} T_END;
 	return ret;
