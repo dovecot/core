@@ -1704,6 +1704,7 @@ if test $want_openssl != no && test $have_ssl = no; then
     ],, $SSL_LIBS)
   fi
 fi
+AM_CONDITIONAL(BUILD_OPENSSL, test "$have_openssl" = "yes")
 
 if test $want_gnutls != no && test $have_ssl = no; then
   AC_CHECK_LIB(gnutls, gnutls_global_init, [
