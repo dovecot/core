@@ -123,7 +123,10 @@ static bool script_support_content(struct mail_user *user,
 			return FALSE;
 	}
 
-	if (strcmp(*content_type, "application/octet-stream") == 0) {
+	if (strcmp(*content_type, "application/octet-stream") != 0) {
+		if (extension == NULL)
+			return FALSE;
+
 		array_foreach(&suser->content, content) {
 			if (content->extensions != NULL &&
 			    str_array_icase_find(content->extensions, extension)) {
