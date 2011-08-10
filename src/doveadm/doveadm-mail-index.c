@@ -18,19 +18,33 @@ struct index_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
 	int queue_fd;
+	unsigned int max_recent_msgs;
 	unsigned int queue:1;
 	unsigned int have_wildcards:1;
 };
 
 static int
-cmd_index_box(const struct mailbox_info *info)
+cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 {
 	struct mailbox *box;
+	struct mailbox_status status;
 	int ret = 0;
 
 	box = mailbox_alloc(info->ns->list, info->name,
 			    MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
+	if (ctx->max_recent_msgs != 0) {
+		/* index only if there aren't too many recent messages */
+		if (mailbox_get_status(box, STATUS_RECENT, &status) < 0) {
+			i_error("Mailbox %s status failed: %s", info->name,
+				mail_storage_get_last_error(mailbox_get_storage(box), NULL));
+			ret = -1;
+		}
+		if (ret < 0 || status.recent > ctx->max_recent_msgs) {
+			mailbox_free(&box);
+			return ret;
+		}
+	}
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ |
 			 MAILBOX_SYNC_FLAG_PRECACHE) < 0) {
@@ -70,7 +84,7 @@ static void cmd_index_queue(struct index_cmd_context *ctx,
 		str_tabescape_write(str, user->username);
 		str_append_c(str, '\t');
 		str_tabescape_write(str, mailbox);
-		str_append_c(str, '\n');
+		str_printfa(str, "\t%u\n", ctx->max_recent_msgs);
 		if (write_full(ctx->queue_fd, str_data(str), str_len(str)) < 0)
 			i_fatal("write(indexer) failed: %m");
 	} T_END;
@@ -106,7 +120,7 @@ cmd_index_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 			if (ctx->queue)
 				cmd_index_queue(ctx, user, info->name);
 			else
-				(void)cmd_index_box(info);
+				(void)cmd_index_box(ctx, info);
 		} T_END;
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0)
@@ -149,6 +163,10 @@ cmd_index_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'q':
 		ctx->queue = TRUE;
 		break;
+	case 'n':
+		if (str_to_uint(optarg, &ctx->max_recent_msgs) < 0)
+			i_fatal("Invalid -n parameter number: %s", optarg);
+		break;
 	default:
 		return FALSE;
 	}
@@ -161,7 +179,7 @@ static struct doveadm_mail_cmd_context *cmd_index_alloc(void)
 
 	ctx = doveadm_mail_cmd_alloc(struct index_cmd_context);
 	ctx->queue_fd = -1;
-	ctx->ctx.getopt_args = "q";
+	ctx->ctx.getopt_args = "qn:";
 	ctx->ctx.v.parse_arg = cmd_index_parse_arg;
 	ctx->ctx.v.init = cmd_index_init;
 	ctx->ctx.v.deinit = cmd_index_deinit;
@@ -170,5 +188,5 @@ static struct doveadm_mail_cmd_context *cmd_index_alloc(void)
 }
 
 struct doveadm_mail_cmd cmd_index = {
-	cmd_index_alloc, "index", "[-q] <mailbox>"
+	cmd_index_alloc, "index", "[-q] [-n <max recent>] <mailbox>"
 };
