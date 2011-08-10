@@ -8,6 +8,8 @@ struct indexer_request {
 
 	char *username;
 	char *mailbox;
+	unsigned int max_recent_msgs;
+
 	void **contexts;
 };
 
@@ -20,7 +22,7 @@ void indexer_queue_set_listen_callback(struct indexer_queue *queue,
 	
 void indexer_queue_append(struct indexer_queue *queue, bool append,
 			  const char *username, const char *mailbox,
-			  void *context);
+			  unsigned int max_recent_msgs, void *context);
 void indexer_queue_cancel_all(struct indexer_queue *queue);
 
 bool indexer_queue_is_empty(struct indexer_queue *queue);

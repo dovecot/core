@@ -23,7 +23,7 @@ bool worker_connection_get_process_limit(struct worker_connection *conn,
    only for the same username. */
 void worker_connection_request(struct worker_connection *conn,
 			       const char *username, const char *mailbox,
-			       void *context);
+			       unsigned int max_recent_msgs, void *context);
 /* Returns TRUE if a request is being handled. */
 bool worker_connection_is_busy(struct worker_connection *conn);
 /* Returns username of the currently pending requests,

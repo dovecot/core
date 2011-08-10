@@ -194,7 +194,7 @@ bool worker_connection_get_process_limit(struct worker_connection *conn,
 
 void worker_connection_request(struct worker_connection *conn,
 			       const char *username, const char *mailbox,
-			       void *context)
+			       unsigned int max_recent_msgs, void *context)
 {
 	i_assert(worker_connection_is_connected(conn));
 	i_assert(context != NULL);
@@ -212,7 +212,7 @@ void worker_connection_request(struct worker_connection *conn,
 		str_tabescape_write(str, username);
 		str_append_c(str, '\t');
 		str_tabescape_write(str, mailbox);
-		str_append_c(str, '\n');
+		str_printfa(str, "\t%u\n", max_recent_msgs);
 		o_stream_send(conn->output, str_data(str), str_len(str));
 	} T_END;
 }

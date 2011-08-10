@@ -93,7 +93,7 @@ static void request_add_context(struct indexer_request *request, void *context)
 
 void indexer_queue_append(struct indexer_queue *queue, bool append,
 			  const char *username, const char *mailbox,
-			  void *context)
+			  unsigned int max_recent_msgs, void *context)
 {
 	struct indexer_request *request;
 
@@ -102,9 +102,12 @@ void indexer_queue_append(struct indexer_queue *queue, bool append,
 		request = i_new(struct indexer_request, 1);
 		request->username = i_strdup(username);
 		request->mailbox = i_strdup(mailbox);
+		request->max_recent_msgs = max_recent_msgs;
 		request_add_context(request, context);
 		hash_table_insert(queue->requests, request, request);
 	} else {
+		if (request->max_recent_msgs > max_recent_msgs)
+			request->max_recent_msgs = max_recent_msgs;
 		request_add_context(request, context);
 		if (append) {
 			/* keep the request in its old position */

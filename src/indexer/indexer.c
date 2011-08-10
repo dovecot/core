@@ -50,7 +50,8 @@ static void worker_send_request(struct worker_connection *conn,
 	wrequest->request = request;
 
 	worker_connection_request(conn, request->username,
-				  request->mailbox, wrequest);
+				  request->mailbox, request->max_recent_msgs,
+				  wrequest);
 }
 
 static void queue_handle_existing_user_requests(struct indexer_queue *queue)

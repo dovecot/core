@@ -44,10 +44,12 @@ indexer_worker_refresh_proctitle(const char *username, const char *mailbox)
 		process_title_set("[idling]");
 }
 
-static int index_mailbox(struct mail_user *user, const char *mailbox)
+static int index_mailbox(struct mail_user *user, const char *mailbox,
+			 unsigned int max_recent_msgs)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
+	struct mailbox_status status;
 	const char *errstr;
 	enum mail_error error;
 	int ret = 0;
@@ -61,6 +63,18 @@ static int index_mailbox(struct mail_user *user, const char *mailbox)
 	/* FIXME: the current lib-storage API doesn't allow sending
 	   "n% competed" notifications */
 	box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_KEEP_RECENT);
+	if (max_recent_msgs != 0) {
+		/* index only if there aren't too many recent messages */
+		if (mailbox_get_status(box, STATUS_RECENT, &status) < 0) {
+			i_error("Mailbox %s status failed: %s", mailbox,
+				mail_storage_get_last_error(mailbox_get_storage(box), NULL));
+			ret = -1;
+		}
+		if (ret < 0 || status.recent > max_recent_msgs) {
+			mailbox_free(&box);
+			return ret;
+		}
+	}
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ |
 			 MAILBOX_SYNC_FLAG_PRECACHE) < 0) {
 		errstr = mail_storage_get_last_error(mailbox_get_storage(box),
@@ -86,10 +100,12 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	const char *str, *error;
+	unsigned int max_recent_msgs;
 	int ret;
 
-	/* <username> <mailbox> */
-	if (str_array_length(args) != 2) {
+	/* <username> <mailbox> <max_recent_msgs> */
+	if (str_array_length(args) != 3 ||
+	    str_to_uint(args[2], &max_recent_msgs) < 0) {
 		i_error("Invalid input from master: %s", line);
 		return -1;
 	}
@@ -105,7 +121,7 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 		ret = -1;
 	} else {
 		indexer_worker_refresh_proctitle(user->username, args[1]);
-		ret = index_mailbox(user, args[1]);
+		ret = index_mailbox(user, args[1], max_recent_msgs);
 		indexer_worker_refresh_proctitle(NULL, NULL);
 		mail_user_unref(&user);
 		mail_storage_service_user_free(&service_user);
