@@ -103,6 +103,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 enum mailbox_sync_type index_sync_type_convert(enum mail_index_sync_type type);
+void index_sync_update_recent_count(struct mailbox *box);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status_r);

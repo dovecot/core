@@ -463,15 +463,31 @@ static int index_sync_precache(struct mailbox *box)
 	return cache_add(box, cache);
 }
 
+void index_sync_update_recent_count(struct mailbox *box)
+{
+	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+	const struct mail_index_header *hdr;
+	uint32_t seq1, seq2;
+
+	hdr = mail_index_get_header(box->view);
+	if (hdr->first_recent_uid > ibox->recent_flags_prev_uid) {
+		mail_index_lookup_seq_range(box->view,
+					    hdr->first_recent_uid,
+					    hdr->next_uid,
+					    &seq1, &seq2);
+		if (seq1 != 0) {
+			index_mailbox_set_recent_seq(box, box->view,
+						     seq1, seq2);
+		}
+	}
+}
+
 int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 			      struct mailbox_sync_status *status_r)
 {
 	struct index_mailbox_sync_context *ctx =
 		(struct index_mailbox_sync_context *)_ctx;
-	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(_ctx->box);
 	struct mailbox_sync_rec sync_rec;
-	const struct mail_index_header *hdr;
-	uint32_t seq1, seq2;
 	bool delayed_expunges = FALSE;
 	int ret = ctx->failed ? -1 : 0;
 
@@ -494,18 +510,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	if ((_ctx->box->flags & MAILBOX_FLAG_KEEP_RECENT) != 0 &&
 	    _ctx->box->opened) {
 		/* mailbox syncing didn't necessarily update our recent state */
-		hdr = mail_index_get_header(_ctx->box->view);
-		if (hdr->first_recent_uid > ibox->recent_flags_prev_uid) {
-			mail_index_lookup_seq_range(_ctx->box->view,
-						    hdr->first_recent_uid,
-						    hdr->next_uid,
-						    &seq1, &seq2);
-			if (seq1 != 0) {
-				index_mailbox_set_recent_seq(_ctx->box,
-							     _ctx->box->view,
-							     seq1, seq2);
-			}
-		}
+		index_sync_update_recent_count(_ctx->box);
 	}
 
 	if (status_r != NULL)

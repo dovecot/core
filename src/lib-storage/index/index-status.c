@@ -26,6 +26,9 @@ int index_storage_get_status(struct mailbox *box,
 	hdr = mail_index_get_header(box->view);
 	status_r->messages = hdr->messages_count;
 	if ((items & STATUS_RECENT) != 0) {
+		/* make sure recent count is set, in case syncing hasn't
+		   been done yet */
+		index_sync_update_recent_count(box);
 		status_r->recent = index_mailbox_get_recent_count(box);
 		i_assert(status_r->recent <= status_r->messages);
 	}
