@@ -472,10 +472,10 @@ const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 #else
 	comp_str = "";
 #endif
-	return t_strdup_printf("%s with cipher %s (%d/%d bits)",
+	return t_strdup_printf("%s with cipher %s (%d/%d bits)%s",
 			       SSL_get_version(ssl_io->ssl),
 			       SSL_CIPHER_get_name(cipher),
-			       bits, alg_bits);
+			       bits, alg_bits, comp_str);
 }
 
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
