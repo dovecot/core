@@ -632,7 +632,8 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return 0;
 	}
 
-	if (have_listable_namespace_prefix(box->storage->user->namespaces,
+	if (!box->inbox_user &&
+	    have_listable_namespace_prefix(box->storage->user->namespaces,
 					   box->vname)) {
 		/* listable namespace prefix always exists */
 		*existence_r = MAILBOX_EXISTENCE_NOSELECT;

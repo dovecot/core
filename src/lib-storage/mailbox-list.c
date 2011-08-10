@@ -405,7 +405,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	else if (list->set.escape_char != '\0')
 		storage_name = mailbox_list_escape_name(list, vname);
 
-	if (prefix_len > 0) {
+	if (prefix_len > 0 && strcmp(storage_name, "INBOX") != 0) {
 		/* skip namespace prefix, except if this is INBOX */
 		if (strncmp(ns->prefix, storage_name, prefix_len) == 0)
 			storage_name += prefix_len;
@@ -414,8 +414,8 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 			/* trying to access the namespace prefix itself */
 			storage_name = "";
 		} else {
-			/* it's either INBOX, or we're converting a nonexistent
-			   mailbox name, such as a LIST pattern. */
+			/* we're converting a nonexistent mailbox name,
+			   such as a LIST pattern. */
 		}
 	}
 
