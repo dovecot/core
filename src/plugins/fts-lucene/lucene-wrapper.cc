@@ -767,6 +767,11 @@ lucene_add_maybe_query(struct lucene_index *index, BooleanQuery &query,
 		return false;
 	}
 
+	if (q == NULL) {
+		/* couldn't handle this search after all (e.g. trying to search
+		   a stop word) */
+		return false;
+	}
 	if (!and_args)
 		query.add(q, true, BooleanClause::SHOULD);
 	else if (!arg->match_not)
