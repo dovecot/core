@@ -66,13 +66,19 @@ static void worker_connection_disconnect(struct worker_connection *conn)
 	}
 
 	/* cancel any pending requests */
+	if (count > 0) {
+		i_error("Indexer worker disconnected, discarding %u requests",
+			count);
+	}
 	for (i = 0; i < count; i++) {
 		void *const *contextp =
 			array_idx(&conn->request_contexts,
 				  aqueue_idx(conn->request_queue, i));
-		conn->callback(-1, *contextp);
+		void *context = *contextp;
+
+		aqueue_delete_tail(conn->request_queue);
+		conn->callback(-1, context);
 	}
-	aqueue_clear(conn->request_queue);
 	i_free_and_null(conn->request_username);
 }
 
