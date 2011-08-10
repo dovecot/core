@@ -36,6 +36,5 @@ if BUILD_LUCENE_TEXTCAT
 exampledir = $(docdir)/example-config
 example_DATA = \
 	textcat.conf
-else
-EXTRA_DIST = textcat.conf
 endif
+EXTRA_DIST = textcat.conf
