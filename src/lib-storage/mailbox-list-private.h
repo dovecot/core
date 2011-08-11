@@ -123,6 +123,10 @@ struct mailbox_list {
 	struct mailbox_log *changelog;
 	time_t changelog_timestamp;
 
+	pool_t guid_cache_pool;
+	struct hash_table *guid_cache;
+	bool guid_cache_errors;
+
 	char *error_string;
 	enum mail_error error;
 	bool temporary_error;

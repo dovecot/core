@@ -6,6 +6,7 @@
 #include "mkdir-parents.h"
 #include "str.h"
 #include "sha1.h"
+#include "hash.h"
 #include "home-expand.h"
 #include "close-keep-errno.h"
 #include "eacces-error.h"
@@ -542,6 +543,11 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 
 	*_list = NULL;
 	i_free_and_null(list->error_string);
+
+	if (list->guid_cache != NULL) {
+		hash_table_destroy(&list->guid_cache);
+		pool_unref(&list->guid_cache_pool);
+	}
 
 	if (list->subscriptions != NULL)
 		mailbox_tree_deinit(&list->subscriptions);

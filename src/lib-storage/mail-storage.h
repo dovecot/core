@@ -365,6 +365,10 @@ bool mail_storage_is_mailbox_file(struct mail_storage *storage) ATTR_PURE;
    with possibly different readonly-state. */
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags);
+/* Like mailbox_alloc(), but use mailbox GUID. */
+struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
+				   uint8_t guid[MAIL_GUID_128_SIZE],
+				   enum mailbox_flags flags);
 /* Get mailbox existence state. If auto_boxes=FALSE, return
    MAILBOX_EXISTENCE_NONE for autocreated mailboxes that haven't been
    physically created yet */

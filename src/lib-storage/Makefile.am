@@ -36,6 +36,7 @@ libstorage_la_SOURCES = \
 	mail-thread.c \
 	mail-user.c \
 	mailbox-get.c \
+	mailbox-guid-cache.c \
 	mailbox-header.c \
 	mailbox-keywords.c \
 	mailbox-list.c \
@@ -62,6 +63,7 @@ headers = \
 	mail-storage-service.h \
 	mail-storage-settings.h \
 	mail-user.h \
+	mailbox-guid-cache.h \
 	mailbox-list.h \
 	mailbox-list-private.h \
 	mailbox-search-result-private.h \

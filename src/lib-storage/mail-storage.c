@@ -18,6 +18,7 @@
 #include "mail-search.h"
 #include "mail-search-register.h"
 #include "mailbox-search-result-private.h"
+#include "mailbox-guid-cache.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -600,6 +601,52 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	return box;
 }
 
+struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
+				   uint8_t guid[MAIL_GUID_128_SIZE],
+				   enum mailbox_flags flags)
+{
+	struct mailbox *box = NULL;
+	struct mailbox_metadata metadata;
+	enum mail_error open_error = MAIL_ERROR_TEMP;
+	const char *vname;
+
+	if (mailbox_guid_cache_find(list, guid, &vname) < 0) {
+		vname = NULL;
+	} else if (vname != NULL) {
+		box = mailbox_alloc(list, vname, flags);
+		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
+					 &metadata) < 0) {
+		} else if (memcmp(metadata.guid, guid,
+				  sizeof(metadata.guid)) != 0) {
+			/* GUID mismatch, refresh cache and try again */
+			mailbox_free(&box);
+			mailbox_guid_cache_refresh(list);
+			return mailbox_alloc_guid(list, guid, flags);
+		} else {
+			/* successfully opened the correct mailbox */
+			return box;
+		}
+		i_error("mailbox_alloc_guid(%s): "
+			"Couldn't verify mailbox GUID: %s",
+			mail_guid_128_to_string(guid),
+			mailbox_get_last_error(box, NULL));
+		vname = NULL;
+		mailbox_free(&box);
+	} else {
+		vname = t_strdup_printf("(nonexistent mailbox with GUID=%s)",
+					mail_guid_128_to_string(guid));
+		open_error = MAIL_ERROR_NOTFOUND;
+	}
+
+	if (vname == NULL) {
+		vname = t_strdup_printf("(error in mailbox with GUID=%s)",
+					mail_guid_128_to_string(guid));
+	}
+	box = mailbox_alloc(list, vname, flags);
+	box->open_error = open_error;
+	return box;
+}
+
 static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 					   const char *name)
 {
@@ -625,6 +672,16 @@ static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		   enum mailbox_existence *existence_r)
 {
+	switch (box->open_error) {
+	case 0:
+		break;
+	case MAIL_ERROR_NOTFOUND:
+		*existence_r = MAILBOX_EXISTENCE_NONE;
+		return 0;
+	default:
+		/* unsure if this exists or not */
+		return -1;
+	}
 	if (!mailbox_list_is_valid_existing_name(box->list, box->name)) {
 		/* report it as not selectable, since it exists but we won't
 		   let it be opened. */
@@ -691,6 +748,18 @@ static int mailbox_open_full(struct mailbox *box, struct istream *input)
 
 	if (box->opened)
 		return 0;
+	switch (box->open_error) {
+	case 0:
+		break;
+	case MAIL_ERROR_NOTFOUND:
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
+		return -1;
+	default:
+		mail_storage_set_internal_error(box->storage);
+		box->storage->error = box->open_error;
+		return -1;
+	}
 
 	if (mailbox_check_mismatching_separators(box) < 0)
 		return -1;
