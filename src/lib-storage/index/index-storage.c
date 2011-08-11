@@ -290,10 +290,12 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 				 enum mailbox_flags flags,
 				 const char *index_prefix)
 {
+	static unsigned int mailbox_generation_sequence = 0;
 	struct index_mailbox_context *ibox;
 
 	i_assert(vname != NULL);
 
+	box->generation_sequence = ++mailbox_generation_sequence;
 	box->vname = p_strdup(box->pool, vname);
 	box->name = p_strdup(box->pool,
 			     mailbox_list_get_storage_name(box->list, vname));

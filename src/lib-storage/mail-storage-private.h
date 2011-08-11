@@ -245,6 +245,9 @@ struct mailbox {
 	mailbox_notify_callback_t *notify_callback;
 	void *notify_context;
 
+	/* Increased by one for each new struct mailbox. */
+	unsigned int generation_sequence;
+
 	/* Saved search results */
 	ARRAY_DEFINE(search_results, struct mail_search_result *);
 
