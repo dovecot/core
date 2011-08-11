@@ -44,8 +44,10 @@ struct fts_search_context {
 void fts_search_analyze(struct fts_search_context *fctx);
 /* Perform the actual index lookup and update definite_uids and maybe_uids. */
 void fts_search_lookup(struct fts_search_context *fctx);
-/* Returns FTS backend for the given mailbox. */
+/* Returns FTS backend for the given mailbox (assumes it has one). */
 struct fts_backend *fts_mailbox_backend(struct mailbox *box);
+/* Returns FTS backend for the given mailbox list, or NULL if it has none. */
+struct fts_backend *fts_list_backend(struct mailbox_list *list);
 
 void fts_mail_allocated(struct mail *mail);
 void fts_mailbox_allocated(struct mailbox *box);

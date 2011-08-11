@@ -528,3 +528,10 @@ struct fts_backend *fts_mailbox_backend(struct mailbox *box)
 
 	return flist->backend;
 }
+
+struct fts_backend *fts_list_backend(struct mailbox_list *list)
+{
+	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(list);
+
+	return flist == NULL ? NULL : flist->backend;
+}
