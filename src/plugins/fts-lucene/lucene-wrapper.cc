@@ -3,15 +3,15 @@
 extern "C" {
 #include "lib.h"
 #include "array.h"
-#include "env-util.h"
 #include "unichar.h"
 #include "hash.h"
-#include "str.h"
-#include "strescape.h"
+#include "hex-binary.h"
+#include "mail-index.h"
 #include "mail-search.h"
+#include "mail-namespace.h"
+#include "mail-storage.h"
 #include "lucene-wrapper.h"
 
-#include <dirent.h>
 #include <sys/stat.h>
 #ifdef HAVE_LUCENE_TEXTCAT
 #  include <libtextcat/textcat.h>
@@ -58,6 +58,22 @@ struct lucene_index {
 	uint32_t prev_uid;
 };
 
+struct rescan_context {
+	struct lucene_index *index;
+	struct mailbox_list *list;
+
+	struct mailbox *box;
+	mail_guid_128_t box_guid;
+	int box_ret;
+
+	ARRAY_TYPE(seq_range) uids;
+	struct seq_range_iter uids_iter;
+	unsigned int uids_iter_n;
+
+	uint32_t last_existing_uid;
+	bool warned;
+};
+
 static void *textcat = NULL;
 static bool textcat_broken = FALSE;
 static int textcat_refcount = 0;
@@ -83,7 +99,7 @@ struct lucene_index *lucene_index_init(const char *path,
 	return index;
 }
 
-static void lucene_index_close(struct lucene_index *index)
+void lucene_index_close(struct lucene_index *index)
 {
 	_CLDELETE(index->reader);
 	_CLDELETE(index->writer);
@@ -440,12 +456,6 @@ int lucene_index_build_deinit(struct lucene_index *index)
 		ret = -1;
 
 	try {
-		index->writer->optimize();
-	} catch (CLuceneError &err) {
-		lucene_handle_error(index, err, "IndexWriter::optimize()");
-		ret = -1;
-	}
-	try {
 		index->writer->close();
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "IndexWriter::close()");
@@ -456,104 +466,203 @@ int lucene_index_build_deinit(struct lucene_index *index)
 	return ret;
 }
 
-struct uid_id_map {
-	uint32_t imap_uid;
-	int32_t lucene_id;
-};
-ARRAY_DEFINE_TYPE(uid_id_map, struct uid_id_map);
-
-static int uid_id_map_cmp(const struct uid_id_map *u1,
-			  const struct uid_id_map *u2)
+static int
+wcharguid_to_guid(mail_guid_128_t *dest, const wchar_t *src)
 {
-	if (u1->imap_uid < u2->imap_uid)
+	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
+	char src_chars[MAIL_GUID_128_SIZE*2 + 1];
+	unsigned int i;
+
+	for (i = 0; i < sizeof(src_chars)-1; i++) {
+		if ((src[i] >= '0' && src[i] <= '9') ||
+		    (src[i] >= 'a' && src[i] <= 'f'))
+			src_chars[i] = src[i];
+		else
+			return -1;
+	}
+	if (src[i] != '\0')
 		return -1;
-	if (u1->imap_uid > u2->imap_uid)
-		return 1;
+	src_chars[i] = '\0';
+
+	buffer_create_data(&buf, dest, sizeof(*dest));
+	return hex_to_binary(src_chars, &buf);
+}
+
+static int
+rescan_get_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
+{
+	struct mailbox_status status;
+
+	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0)
+		return -1;
+
+	if (status.messages > 0) T_BEGIN {
+		ARRAY_TYPE(seq_range) seqs;
+
+		t_array_init(&seqs, 2);
+		seq_range_array_add_range(&seqs, 1, status.messages);
+		mailbox_get_uid_range(box, &seqs, uids);
+	} T_END;
 	return 0;
 }
 
-static int get_mailbox_uid_id_map(struct lucene_index *index,
-				  ARRAY_TYPE(uid_id_map) *uid_id_map)
+static int rescan_finish(struct rescan_context *ctx)
 {
-	int ret = 0;
+	int ret;
 
-	/* get a sorted map of imap uid -> lucene id */
-	Term mailbox_term(_T("box"), index->mailbox_guid);
-	TermQuery query(&mailbox_term);
-
-	try {
-		Hits *hits = index->searcher->search(&query);
-
-		for (size_t i = 0; i < hits->length(); i++) {
-			uint32_t uid;
-
-			if (lucene_doc_get_uid(index, &hits->doc(i),
-					       _T("uid"), &uid) < 0) {
-				ret = -1;
-				break;
-			}
-			struct uid_id_map *ui = array_append_space(uid_id_map);
-			ui->imap_uid = uid;
-			ui->lucene_id = hits->id(i);
-		}
-		_CLDELETE(hits);
-	} catch (CLuceneError &err) {
-		lucene_handle_error(index, err, "expunge search");
-		ret = -1;
-	}
-
-	array_sort(uid_id_map, uid_id_map_cmp);
+	ret = fts_index_set_last_uid(ctx->box, ctx->last_existing_uid);
+	mailbox_free(&ctx->box);
 	return ret;
 }
 
-int lucene_index_optimize_scan(struct lucene_index *index,
-			       const ARRAY_TYPE(seq_range) *existing_uids,
-			       ARRAY_TYPE(seq_range) *missing_uids_r)
+static int
+rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
 {
-	ARRAY_TYPE(uid_id_map) uid_id_map_arr;
-	const struct uid_id_map *uid_id_map;
-	struct seq_range_iter iter;
-	unsigned int n, i, count;
-	uint32_t uid;
 	int ret;
 
-	if ((ret = lucene_index_open_search(index)) <= 0) {
-		if (ret < 0)
-			return -1;
-
-		/* index has been deleted, everything is missing */
-		seq_range_array_merge(missing_uids_r, existing_uids);
+	Field *field = doc->getField(_T("box"));
+	const TCHAR *box_guid = field == NULL ? NULL : field->stringValue();
+	if (box_guid == NULL) {
+		i_error("lucene: Corrupted FTS index %s: No mailbox for document",
+			ctx->index->path);
 		return 0;
 	}
 
-	i_array_init(&uid_id_map_arr, 128);
-	if (get_mailbox_uid_id_map(index, &uid_id_map_arr) < 0)
-		return -1;
-	uid_id_map = array_get(&uid_id_map_arr, &count);
-
-	seq_range_array_iter_init(&iter, existing_uids); n = i = 0;
-	while (seq_range_array_iter_nth(&iter, n++, &uid)) {
-		while (i < count && uid_id_map[i].imap_uid < uid) {
-			/* expunged message */
-			index->reader->deleteDocument(uid_id_map[i].lucene_id);
-			i++;
-		}
-
-		if (i == count || uid_id_map[i].imap_uid > uid) {
-			/* uid is missing from index */
-			seq_range_array_add(missing_uids_r, 0, uid);
-		} else {
-			i++;
-		}
+	mail_guid_128_t guid;
+	if (wcharguid_to_guid(&guid, box_guid) < 0) {
+		i_error("lucene: Corrupted FTS index %s: "
+			"box field not in expected format",
+			ctx->index->path);
+		return 0;
 	}
-	for (; i < count; i++)
-		index->reader->deleteDocument(uid_id_map[i].lucene_id);
 
-	array_free(&uid_id_map_arr);
-	return ret;
+	if (memcmp(guid, ctx->box_guid, sizeof(guid)) == 0) {
+		/* same as last one */
+		return ctx->box_ret;
+	}
+	memcpy(ctx->box_guid, guid, sizeof(ctx->box_guid));
+
+	if (ctx->box != NULL)
+		rescan_finish(ctx);
+	ctx->box = mailbox_alloc_guid(ctx->list, guid, MAILBOX_FLAG_KEEP_RECENT);
+	if (mailbox_open(ctx->box) < 0) {
+		enum mail_error error;
+		const char *errstr;
+
+		errstr = mailbox_get_last_error(ctx->box, &error);
+		if (error == MAIL_ERROR_NOTFOUND)
+			ret = 0;
+		else {
+			i_error("lucene: Couldn't open mailbox %s: %s",
+				mailbox_get_vname(ctx->box), errstr);
+			ret = -1;
+		}
+		mailbox_free(&ctx->box);
+		ctx->box_ret = ret;
+		return ret;
+	}
+	if (mailbox_sync(ctx->box, (enum mailbox_sync_flags)0) < 0) {
+		i_error("lucene: Failed to sync mailbox %s: %s",
+			mailbox_get_vname(ctx->box),
+			mailbox_get_last_error(ctx->box, NULL));
+		mailbox_free(&ctx->box);
+		ctx->box_ret = -1;
+		return -1;
+	}
+
+	array_clear(&ctx->uids);
+	rescan_get_uids(ctx->box, &ctx->uids);
+
+	ctx->warned = FALSE;
+	ctx->last_existing_uid = 0;
+	ctx->uids_iter_n = 0;
+	seq_range_array_iter_init(&ctx->uids_iter, &ctx->uids);
+
+	ctx->box_ret = 1;
+	return 1;
 }
 
-int lucene_index_optimize_finish(struct lucene_index *index)
+static int
+rescan_next(struct rescan_context *ctx, Document *doc)
+{
+	uint32_t lucene_uid, idx_uid;
+
+	if (lucene_doc_get_uid(ctx->index, doc, _T("uid"), &lucene_uid) < 0)
+		return 0;
+
+	if (seq_range_array_iter_nth(&ctx->uids_iter, ctx->uids_iter_n,
+				     &idx_uid)) {
+		if (idx_uid == lucene_uid) {
+			ctx->uids_iter_n++;
+			ctx->last_existing_uid = idx_uid;
+			return 1;
+		}
+		if (idx_uid < lucene_uid) {
+			/* lucene is missing an UID from the middle. delete
+			   the rest of the messages from this mailbox and
+			   reindex. */
+			if (!ctx->warned) {
+				i_warning("lucene: Mailbox %s "
+					  "missing UIDs in the middle",
+					  mailbox_get_vname(ctx->box));
+				ctx->warned = TRUE;
+			}
+		} else {
+			/* UID has been expunged from index. delete from
+			   lucene as well. */
+		}
+		return 0;
+	} else {
+		/* the rest of the messages have been expunged from index */
+		return 0;
+	}
+}
+
+int lucene_index_rescan(struct lucene_index *index,
+			struct mailbox_list *list)
+{
+	static const TCHAR *sort_fields[] = { _T("box"), _T("uid"), NULL };
+	struct rescan_context ctx;
+	mail_guid_128_t guid;
+	bool failed = false;
+	int ret;
+
+	if ((ret = lucene_index_open_search(index)) <= 0)
+		return ret;
+
+	Term term(_T("box"), _T("*"));
+	WildcardQuery query(&term);
+	Sort sort(sort_fields);
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.index = index;
+	ctx.list = list;
+	i_array_init(&ctx.uids, 128);
+
+	try {
+		Hits *hits = index->searcher->search(&query, &sort);
+
+		for (size_t i = 0; i < hits->length(); i++) {
+			ret = rescan_open_mailbox(&ctx, &hits->doc(i));
+			if (ret > 0)
+				ret = rescan_next(&ctx, &hits->doc(i));
+			if (ret < 0)
+				failed = true;
+			else if (ret == 0)
+				index->reader->deleteDocument(hits->id(i));
+		}
+		_CLDELETE(hits);
+	} catch (CLuceneError &err) {
+		lucene_handle_error(index, err, "rescan search");
+		failed = true;
+	}
+	if (ctx.box != NULL)
+		rescan_finish(&ctx);
+	array_free(&ctx.uids);
+	return failed ? -1 : 0;
+}
+
+int lucene_index_optimize(struct lucene_index *index)
 {
 	int ret = 0;
 

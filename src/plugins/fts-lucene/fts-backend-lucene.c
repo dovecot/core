@@ -22,6 +22,7 @@ struct lucene_fts_backend {
 
 	struct lucene_index *index;
 	struct mailbox *selected_box;
+	unsigned int selected_box_generation;
 
 	unsigned int dir_created:1;
 	unsigned int updating:1;
@@ -52,30 +53,41 @@ static int fts_backend_lucene_mkdir(struct lucene_fts_backend *backend)
 }
 
 static int
-fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
+fts_lucene_get_mailbox_guid(struct mailbox *box, mail_guid_128_t *guid_r)
 {
 	struct mailbox_metadata metadata;
-	buffer_t buf;
+
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
+				 &metadata) < 0) {
+		i_error("lucene: Couldn't get mailbox %s GUID: %s",
+			box->vname, mailbox_get_last_error(box, NULL));
+		return -1;
+	}
+	memcpy(guid_r, metadata.guid, MAIL_GUID_128_SIZE);
+	return 0;
+}
+
+static int
+fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
+{
+	mail_guid_128_t guid;
 	unsigned char guid_hex[MAILBOX_GUID_HEX_LENGTH];
 	wchar_t wguid_hex[MAILBOX_GUID_HEX_LENGTH];
+	buffer_t buf;
 	unsigned int i;
 
-	if (backend->selected_box == box)
+	if (backend->selected_box == box &&
+	    backend->selected_box_generation == box->generation_sequence)
 		return 0;
 
 	if (fts_backend_lucene_mkdir(backend) < 0)
 		return -1;
 
 	if (box != NULL) {
-		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
-					 &metadata) < 0) {
-			i_error("fts-lucene: Couldn't get mailbox %s GUID: %s",
-				box->vname, mailbox_get_last_error(box, NULL));
+		if (fts_lucene_get_mailbox_guid(box, &guid) < 0)
 			return -1;
-		}
-
-		buffer_create_data(&buf, guid_hex, sizeof(guid_hex));
-		binary_to_hex_append(&buf, metadata.guid, MAIL_GUID_128_SIZE);
+		buffer_create_data(&buf, guid_hex, MAILBOX_GUID_HEX_LENGTH);
+		binary_to_hex_append(&buf, guid, MAIL_GUID_128_SIZE);
 		for (i = 0; i < N_ELEMENTS(wguid_hex); i++)
 			wguid_hex[i] = guid_hex[i];
 
@@ -84,6 +96,8 @@ fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
 		lucene_index_unselect_mailbox(backend->index);
 	}
 	backend->selected_box = box;
+	backend->selected_box_generation =
+		box == NULL ? 0 : box->generation_sequence;
 	return 0;
 }
 
@@ -356,99 +370,24 @@ fts_backend_lucene_update_build_more(struct fts_backend_update_context *_ctx,
 }
 
 static int
-fts_backend_lucene_refresh(struct fts_backend *_backend ATTR_UNUSED)
+fts_backend_lucene_refresh(struct fts_backend *_backend)
 {
+	struct lucene_fts_backend *backend =
+		(struct lucene_fts_backend *)_backend;
+
+	lucene_index_close(backend->index);
 	return 0;
-}
-
-static int
-optimize_mailbox_get_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
-{
-	struct mailbox_status status;
-
-	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0)
-		return -1;
-
-	if (status.messages > 0) T_BEGIN {
-		ARRAY_TYPE(seq_range) seqs;
-
-		t_array_init(&seqs, 2);
-		seq_range_array_add_range(&seqs, 1, status.messages);
-		mailbox_get_uid_range(box, &seqs, uids);
-	} T_END;
-	return 0;
-}
-
-static int
-optimize_mailbox_update_last_uid(struct mailbox *box,
-				 const ARRAY_TYPE(seq_range) *missing_uids)
-{
-	struct mailbox_status status;
-	const struct seq_range *range;
-	unsigned int count;
-	uint32_t last_uid;
-
-	/* FIXME: missing_uids from the middle of mailbox could probably
-	   be handled better. they now create duplicates on next indexing? */
-
-	range = array_get(missing_uids, &count);
-	if (count > 0)
-		last_uid = range[0].seq1 - 1;
-	else {
-		mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
-		last_uid = status.uidnext - 1;
-	}
-	return fts_index_set_last_uid(box, last_uid);
 }
 
 static int fts_backend_lucene_optimize(struct fts_backend *_backend)
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
-	struct mailbox_list_iterate_context *iter;
-	const struct mailbox_info *info;
-	struct mailbox *box;
-	ARRAY_TYPE(seq_range) uids, missing_uids;
-	const char *path;
-	int ret = 0;
+	int ret;
 
-	i_array_init(&uids, 128);
-	i_array_init(&missing_uids, 32);
-	iter = mailbox_list_iter_init(_backend->ns->list, "*",
-				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
-				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
-	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if ((info->flags &
-		     (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
-			continue;
-
-		box = mailbox_alloc(info->ns->list, info->name,
-				    MAILBOX_FLAG_KEEP_RECENT);
-		if (fts_backend_select(backend, box) < 0 ||
-		    optimize_mailbox_get_uids(box, &uids) < 0 ||
-		    lucene_index_optimize_scan(backend->index, &uids,
-					       &missing_uids) < 0 ||
-		    optimize_mailbox_update_last_uid(box, &missing_uids))
-			ret = -1;
-
-		fts_backend_select(backend, NULL);
-		mailbox_free(&box);
-		array_clear(&uids);
-		array_clear(&missing_uids);
-	}
-	if (mailbox_list_iter_deinit(&iter) < 0)
+	ret = lucene_index_rescan(backend->index, _backend->ns->list);
+	if (lucene_index_optimize(backend->index) < 0)
 		ret = -1;
-
-	/* FIXME: optionally go through mailboxes in index and delete those
-	   that don't exist anymre */
-	if (lucene_index_optimize_finish(backend->index) < 0)
-		ret = -1;
-
-	path = t_strconcat(backend->dir_path, "/"LUCENE_EXPUNGE_FILENAME, NULL);
-	(void)unlink(path);
-
-	array_free(&uids);
-	array_free(&missing_uids);
 	return ret;
 }
 

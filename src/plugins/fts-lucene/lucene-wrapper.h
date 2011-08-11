@@ -23,10 +23,10 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 			    const char *hdr_name);
 int lucene_index_build_deinit(struct lucene_index *index);
 
-int lucene_index_optimize_scan(struct lucene_index *index,
-			       const ARRAY_TYPE(seq_range) *existing_uids,
-			       ARRAY_TYPE(seq_range) *missing_uids_r);
-int lucene_index_optimize_finish(struct lucene_index *index);
+void lucene_index_close(struct lucene_index *index);
+int lucene_index_rescan(struct lucene_index *index,
+			struct mailbox_list *list);
+int lucene_index_optimize(struct lucene_index *index);
 
 int lucene_index_lookup(struct lucene_index *index, 
 			struct mail_search_arg *args, bool and_args,
