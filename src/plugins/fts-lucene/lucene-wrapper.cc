@@ -403,6 +403,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 
 	if (hdr_name != NULL) {
 		/* hdr_name should be ASCII, but don't break in case it isn't */
+		hdr_name = t_str_lcase(hdr_name);
 		namesize = uni_utf8_strlen(hdr_name) + 1;
 		wchar_t wname[namesize];
 		lucene_utf8_n_to_tchar((const unsigned char *)hdr_name,
