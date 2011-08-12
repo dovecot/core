@@ -4,7 +4,16 @@
 #include "fts-api-private.h"
 #include "mail-types.h"
 
+struct hash_table;
+struct mailbox_list;
+struct fts_expunge_log;
+
 #define MAILBOX_GUID_HEX_LENGTH (MAIL_GUID_128_SIZE*2)
+
+struct lucene_index_record {
+	mail_guid_128_t mailbox_guid;
+	uint32_t uid;
+};
 
 struct lucene_index *lucene_index_init(const char *path,
 				       const char *textcat_dir,
@@ -36,6 +45,12 @@ int lucene_index_lookup_multi(struct lucene_index *index,
 			      struct hash_table *guids,
 			      struct mail_search_arg *args, bool and_args,
 			      struct fts_multi_result *result);
+
+struct lucene_index_iter *
+lucene_index_iter_init(struct lucene_index *index);
+const struct lucene_index_record *
+lucene_index_iter_next(struct lucene_index_iter *iter);
+int lucene_index_iter_deinit(struct lucene_index_iter **iter);
 
 /* internal: */
 void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,

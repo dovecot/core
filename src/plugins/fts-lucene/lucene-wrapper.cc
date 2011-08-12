@@ -213,10 +213,9 @@ static int lucene_index_open_search(struct lucene_index *index)
 }
 
 static int
-lucene_doc_get_uid(struct lucene_index *index, Document *doc,
-		   const TCHAR *field_name, uint32_t *uid_r)
+lucene_doc_get_uid(struct lucene_index *index, Document *doc, uint32_t *uid_r)
 {
-	Field *field = doc->getField(field_name);
+	Field *field = doc->getField(_T("uid"));
 	const TCHAR *uid = field == NULL ? NULL : field->stringValue();
 	if (uid == NULL) {
 		i_error("lucene: Corrupted FTS index %s: No UID for document",
@@ -253,7 +252,7 @@ int lucene_index_get_last_uid(struct lucene_index *index, uint32_t *last_uid_r)
 			uint32_t uid;
 
 			if (lucene_doc_get_uid(index, &hits->doc(i),
-					       _T("uid"), &uid) < 0) {
+					       &uid) < 0) {
 				ret = -1;
 				break;
 			}
@@ -516,25 +515,33 @@ static int rescan_finish(struct rescan_context *ctx)
 }
 
 static int
-rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
+fts_lucene_get_mailbox_guid(struct lucene_index *index, Document *doc,
+			    mail_guid_128_t *guid_r)
 {
-	int ret;
-
 	Field *field = doc->getField(_T("box"));
 	const TCHAR *box_guid = field == NULL ? NULL : field->stringValue();
 	if (box_guid == NULL) {
 		i_error("lucene: Corrupted FTS index %s: No mailbox for document",
-			ctx->index->path);
-		return 0;
+			index->path);
+		return -1;
 	}
 
-	mail_guid_128_t guid;
-	if (wcharguid_to_guid(&guid, box_guid) < 0) {
+	if (wcharguid_to_guid(guid_r, box_guid) < 0) {
 		i_error("lucene: Corrupted FTS index %s: "
-			"box field not in expected format",
-			ctx->index->path);
-		return 0;
+			"box field not in expected format", index->path);
+		return -1;
 	}
+	return 0;
+}
+
+static int
+rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
+{
+	mail_guid_128_t guid;
+	int ret;
+
+	if (fts_lucene_get_mailbox_guid(ctx->index, doc, &guid) < 0)
+		return 0;
 
 	if (memcmp(guid, ctx->box_guid, sizeof(guid)) == 0) {
 		/* same as last one */
@@ -587,7 +594,7 @@ rescan_next(struct rescan_context *ctx, Document *doc)
 {
 	uint32_t lucene_uid, idx_uid;
 
-	if (lucene_doc_get_uid(ctx->index, doc, _T("uid"), &lucene_uid) < 0)
+	if (lucene_doc_get_uid(ctx->index, doc, &lucene_uid) < 0)
 		return 0;
 
 	if (seq_range_array_iter_nth(&ctx->uids_iter, ctx->uids_iter_n,
@@ -917,7 +924,7 @@ lucene_index_search(struct lucene_index *index,
 			uint32_t uid;
 
 			if (lucene_doc_get_uid(index, &hits->doc(i),
-					       _T("uid"), &uid) < 0) {
+					       &uid) < 0) {
 				ret = -1;
 				break;
 			}
@@ -1028,7 +1035,7 @@ lucene_index_search_multi(struct lucene_index *index, struct hash_table *guids,
 			}
 
 			if (lucene_doc_get_uid(index, &hits->doc(i),
-					       _T("uid"), &uid) < 0) {
+					       &uid) < 0) {
 				ret = -1;
 				break;
 			}
@@ -1049,6 +1056,7 @@ lucene_index_search_multi(struct lucene_index *index, struct hash_table *guids,
 		return -1;
 	}
 }
+
 int lucene_index_lookup_multi(struct lucene_index *index,
 			      struct hash_table *guids,
 			      struct mail_search_arg *args, bool and_args,
@@ -1075,4 +1083,71 @@ int lucene_index_lookup_multi(struct lucene_index *index,
 			return -1;
 	}
 	return 0;
+}
+
+struct lucene_index_iter {
+	struct lucene_index *index;
+	struct lucene_index_record rec;
+
+	Hits *hits;
+	size_t i;
+	bool failed;
+};
+
+struct lucene_index_iter *
+lucene_index_iter_init(struct lucene_index *index)
+{
+	static const TCHAR *sort_fields[] = { _T("box"), _T("uid"), NULL };
+	struct lucene_index_iter *iter;
+	int ret;
+
+	iter = i_new(struct lucene_index_iter, 1);
+	iter->index = index;
+	if ((ret = lucene_index_open_search(index)) <= 0) {
+		if (ret < 0)
+			iter->failed = true;
+		return iter;
+	}
+
+	Term term(_T("box"), _T("*"));
+	WildcardQuery query(&term);
+	Sort sort(sort_fields);
+
+	try {
+		iter->hits = index->searcher->search(&query, &sort);
+	} catch (CLuceneError &err) {
+		lucene_handle_error(index, err, "rescan search");
+		iter->failed = true;
+	}
+	return iter;
+}
+
+const struct lucene_index_record *
+lucene_index_iter_next(struct lucene_index_iter *iter)
+{
+	if (iter->hits == NULL)
+		return NULL;
+	if (iter->i == iter->hits->length())
+		return NULL;
+
+	Document *doc = &iter->hits->doc(iter->i);
+	iter->i++;
+
+	memset(&iter->rec, 0, sizeof(iter->rec));
+	(void)fts_lucene_get_mailbox_guid(iter->index, doc,
+					  &iter->rec.mailbox_guid);
+	(void)lucene_doc_get_uid(iter->index, doc, &iter->rec.uid);
+	return &iter->rec;
+}
+
+int lucene_index_iter_deinit(struct lucene_index_iter **_iter)
+{
+	struct lucene_index_iter *iter = *_iter;
+	int ret = iter->failed ? -1 : 0;
+
+	*_iter = NULL;
+	if (iter->hits != NULL)
+		_CLDELETE(iter->hits);
+	i_free(iter);
+	return ret;
 }

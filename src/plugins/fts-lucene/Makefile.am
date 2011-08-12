@@ -1,13 +1,16 @@
+doveadm_moduledir = $(moduledir)/doveadm
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/plugins/fts \
-	-I/usr/lib
+	-I$(top_srcdir)/src/doveadm
 
 NOPLUGIN_LDFLAGS =
 lib21_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
+lib20_doveadm_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
 	lib21_fts_lucene_plugin.la
@@ -38,3 +41,9 @@ example_DATA = \
 	textcat.conf
 endif
 EXTRA_DIST = textcat.conf
+
+doveadm_module_LTLIBRARIES = \
+	lib20_doveadm_fts_lucene_plugin.la
+
+lib20_doveadm_fts_lucene_plugin_la_SOURCES = \
+	doveadm-fts-lucene.c
