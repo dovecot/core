@@ -14,16 +14,8 @@ struct mailbox_guid_cache_rec {
 static unsigned int guid_cache_rec_hash(const void *_rec)
 {
 	const struct mailbox_guid_cache_rec *rec = _rec;
-	unsigned int i, g, h = 0;
 
-	for (i = 0; i < sizeof(rec->guid); i++) {
-		h = (h << 4) + rec->guid[i];
-		if ((g = h & 0xf0000000UL)) {
-			h = h ^ (g >> 24);
-			h = h ^ g;
-		}
-	}
-	return h;
+	return mem_hash(rec->guid, sizeof(rec->guid));
 }
 
 static int guid_cache_rec_cmp(const void *_r1, const void *_r2)

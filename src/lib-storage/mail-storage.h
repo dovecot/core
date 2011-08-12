@@ -756,4 +756,8 @@ bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
 /* Returns GUID as a hex string. */
 const char *mail_guid_128_to_string(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
 
+/* guid_128 hash/cmp functions for hash.h */
+unsigned int mail_guid_128_hash(const void *p);
+int mail_guid_128_cmp(const void *p1, const void *p2);
+
 #endif

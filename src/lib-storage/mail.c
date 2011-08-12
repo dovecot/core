@@ -374,3 +374,17 @@ const char *mail_guid_128_to_string(const uint8_t guid_128[MAIL_GUID_128_SIZE])
 {
 	return binary_to_hex(guid_128, MAIL_GUID_128_SIZE);
 }
+
+unsigned int mail_guid_128_hash(const void *p)
+{
+	const uint8_t *guid = p;
+
+	return mem_hash(guid, MAIL_GUID_128_SIZE);
+}
+
+int mail_guid_128_cmp(const void *p1, const void *p2)
+{
+	const uint8_t *g1 = p1, *g2 = p2;
+
+	return memcmp(g1, g2, MAIL_GUID_128_SIZE);
+}
