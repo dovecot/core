@@ -4,16 +4,16 @@
 #include "array.h"
 #include "hash.h"
 #include "hex-binary.h"
-#include "file-dotlock.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
+#include "fts-expunge-log.h"
 #include "lucene-wrapper.h"
 #include "fts-lucene-plugin.h"
 
 #include <wchar.h>
 
 #define LUCENE_INDEX_DIR_NAME "lucene-indexes"
-#define LUCENE_EXPUNGE_FILENAME "pending-expunges"
+#define LUCENE_EXPUNGE_LOG_NAME "dovecot-expunges.log"
 #define LUCENE_OPTIMIZE_BATCH_MSGS_COUNT 100
 
 struct lucene_fts_backend {
@@ -23,6 +23,9 @@ struct lucene_fts_backend {
 	struct lucene_index *index;
 	struct mailbox *selected_box;
 	unsigned int selected_box_generation;
+	mail_guid_128_t selected_box_guid;
+
+	struct fts_expunge_log *expunge_log;
 
 	unsigned int dir_created:1;
 	unsigned int updating:1;
@@ -37,8 +40,10 @@ struct lucene_fts_backend_update_context {
 	uint32_t uid;
 	char *hdr_name;
 
-	unsigned int added_msgs, expunges;
+	unsigned int added_msgs;
 	bool lucene_opened;
+
+	struct fts_expunge_log_append_ctx *expunge_ctx;
 };
 
 static int fts_backend_lucene_mkdir(struct lucene_fts_backend *backend)
@@ -94,8 +99,11 @@ fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
 		lucene_index_select_mailbox(backend->index, wguid_hex);
 	} else {
 		lucene_index_unselect_mailbox(backend->index);
+		memset(&guid, 0, sizeof(guid));
 	}
 	backend->selected_box = box;
+	memcpy(backend->selected_box_guid, guid,
+	       sizeof(backend->selected_box_guid));
 	backend->selected_box_generation =
 		box == NULL ? 0 : box->generation_sequence;
 	return 0;
@@ -133,6 +141,9 @@ fts_backend_lucene_init(struct fts_backend *_backend,
 		backend->index = lucene_index_init(backend->dir_path,
 						   NULL, NULL);
 	}
+
+	path = t_strconcat(backend->dir_path, "/"LUCENE_EXPUNGE_LOG_NAME, NULL);
+	backend->expunge_log = fts_expunge_log_init(path);
 	return 0;
 }
 
@@ -142,6 +153,7 @@ static void fts_backend_lucene_deinit(struct fts_backend *_backend)
 		(struct lucene_fts_backend *)_backend;
 
 	lucene_index_deinit(backend->index);
+	fts_expunge_log_deinit(&backend->expunge_log);
 	i_free(backend->dir_path);
 	i_free(backend);
 }
@@ -190,62 +202,23 @@ fts_backend_lucene_need_optimize(struct lucene_fts_backend_update_context *ctx)
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)ctx->ctx.backend;
-	const struct dotlock_settings dotlock_set = {
-		.timeout = 1,
-		.stale_timeout = 30,
-		.use_excl_lock = TRUE
-	};
-	struct dotlock *dotlock;
-	const char *path;
-	char buf[MAX_INT_STRLEN+1];
-	unsigned int expunges = 0;
+	unsigned int expunges;
 	uint32_t numdocs;
-	int fdw, fdr, ret;
-
-	if (ctx->added_msgs >= LUCENE_OPTIMIZE_BATCH_MSGS_COUNT)
-		return TRUE;
-
-	if (ctx->expunges == 0)
-		return FALSE;
-
-	/* update pending expunges count */
-	path = t_strconcat(backend->dir_path, "/"LUCENE_EXPUNGE_FILENAME, NULL);
-	fdw = file_dotlock_open(&dotlock_set, path, 0, &dotlock);
-	if (fdw == -1)
-		return FALSE;
-
-	fdr = open(path, O_RDONLY);
-	if (fdr == -1) {
-		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path);
-	} else {
-		ret = read(fdr, buf, sizeof(buf)-1);
-		if (ret < 0)
-			i_error("read(%s) failed: %m", path);
-		else {
-			buf[ret] = '\0';
-			if (str_to_uint(buf, &expunges) < 0)
-				i_error("%s is corrupted: '%s'", path, buf);
-		}
-		if (close(fdr) < 0)
-			i_error("close(%s) failed: %m", path);
-	}
-	expunges += ctx->expunges;
-
-	i_snprintf(buf, sizeof(buf), "%u", expunges);
-	if (write(fdw, buf, strlen(buf)) < 0)
-		i_error("write(%s) failed: %m", path);
-	(void)file_dotlock_replace(&dotlock, 0);
 
 	if (!ctx->ctx.backend->syncing) {
 		/* only indexer process can actually do anything
 		   about optimizing */
 		return FALSE;
 	}
+	if (ctx->added_msgs >= LUCENE_OPTIMIZE_BATCH_MSGS_COUNT)
+		return TRUE;
 	if (lucene_index_get_doc_count(backend->index, &numdocs) < 0)
 		return FALSE;
 
-	return numdocs / expunges <= 50; /* >2% of index has been expunged */
+	if (fts_expunge_log_uid_count(backend->expunge_log, &expunges) < 0)
+		return FALSE;
+	return expunges > 0 &&
+		numdocs / expunges <= 50; /* >2% of index has been expunged */
 }
 
 static int
@@ -262,6 +235,11 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 	backend->updating = FALSE;
 	if (ctx->lucene_opened)
 		lucene_index_build_deinit(backend->index);
+
+	if (ctx->expunge_ctx != NULL) {
+		if (fts_expunge_log_append_commit(&ctx->expunge_ctx) < 0)
+			ret = -1;
+	}
 
 	if (fts_backend_lucene_need_optimize(ctx))
 		(void)fts_backend_optimize(_ctx->backend);
@@ -286,12 +264,23 @@ fts_backend_lucene_update_set_mailbox(struct fts_backend_update_context *_ctx,
 
 static void
 fts_backend_lucene_update_expunge(struct fts_backend_update_context *_ctx,
-				  uint32_t uid ATTR_UNUSED)
+				  uint32_t uid)
 {
 	struct lucene_fts_backend_update_context *ctx =
 		(struct lucene_fts_backend_update_context *)_ctx;
+	struct lucene_fts_backend *backend =
+		(struct lucene_fts_backend *)_ctx->backend;
 
-	ctx->expunges++;
+	if (ctx->expunge_ctx == NULL) {
+		ctx->expunge_ctx =
+			fts_expunge_log_append_begin(backend->expunge_log);
+	}
+
+	if (fts_backend_select(backend, ctx->box) < 0)
+		_ctx->failed = TRUE;
+
+	fts_expunge_log_append_next(ctx->expunge_ctx,
+				    backend->selected_box_guid, uid);
 }
 
 static bool
@@ -379,15 +368,28 @@ fts_backend_lucene_refresh(struct fts_backend *_backend)
 	return 0;
 }
 
+static int fts_backend_lucene_rescan(struct fts_backend *_backend)
+{
+	struct lucene_fts_backend *backend =
+		(struct lucene_fts_backend *)_backend;
+
+	return lucene_index_rescan(backend->index, _backend->ns->list);
+}
+
 static int fts_backend_lucene_optimize(struct fts_backend *_backend)
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 	int ret;
 
-	ret = lucene_index_rescan(backend->index, _backend->ns->list);
-	if (lucene_index_optimize(backend->index) < 0)
-		ret = -1;
+	ret = lucene_index_expunge_from_log(backend->index,
+					    backend->expunge_log);
+	if (ret == 0) {
+		/* log was corrupted, need to rescan */
+		ret = lucene_index_rescan(backend->index, _backend->ns->list);
+	}
+	if (ret >= 0)
+		ret = lucene_index_optimize(backend->index);
 	return ret;
 }
 
@@ -504,6 +506,7 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_update_unset_build_key,
 		fts_backend_lucene_update_build_more,
 		fts_backend_lucene_refresh,
+		fts_backend_lucene_rescan,
 		fts_backend_lucene_optimize,
 		fts_backend_default_can_lookup,
 		fts_backend_lucene_lookup,

@@ -35,6 +35,8 @@ int lucene_index_build_deinit(struct lucene_index *index);
 void lucene_index_close(struct lucene_index *index);
 int lucene_index_rescan(struct lucene_index *index,
 			struct mailbox_list *list);
+int lucene_index_expunge_from_log(struct lucene_index *index,
+				  struct fts_expunge_log *log);
 int lucene_index_optimize(struct lucene_index *index);
 
 int lucene_index_lookup(struct lucene_index *index, 

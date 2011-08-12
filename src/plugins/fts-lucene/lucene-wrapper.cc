@@ -10,6 +10,7 @@ extern "C" {
 #include "mail-search.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "fts-expunge-log.h"
 #include "lucene-wrapper.h"
 
 #include <sys/stat.h>
@@ -667,6 +668,88 @@ int lucene_index_rescan(struct lucene_index *index,
 		rescan_finish(&ctx);
 	array_free(&ctx.uids);
 	return failed ? -1 : 0;
+}
+
+static void guid128_to_wguid(const mail_guid_128_t guid,
+			     wchar_t wguid_hex[MAILBOX_GUID_HEX_LENGTH + 1])
+{
+	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
+	unsigned char guid_hex[MAILBOX_GUID_HEX_LENGTH];
+	unsigned int i;
+
+	buffer_create_data(&buf, guid_hex, MAILBOX_GUID_HEX_LENGTH);
+	binary_to_hex_append(&buf, guid, MAIL_GUID_128_SIZE);
+	for (i = 0; i < MAILBOX_GUID_HEX_LENGTH; i++)
+		wguid_hex[i] = guid_hex[i];
+	wguid_hex[i] = '\0';
+}
+
+static int
+lucene_index_expunge_record(struct lucene_index *index,
+			    const struct fts_expunge_log_read_record *rec)
+{
+	const struct seq_range *range;
+	unsigned int count;
+	int ret;
+
+	if ((ret = lucene_index_open_search(index)) <= 0)
+		return ret;
+	range = array_get(&rec->uids, &count);
+
+	BooleanQuery query;
+
+	/* search for UIDs between lowest and highest expunged UID */
+	wchar_t wuid1[MAX_INT_STRLEN], wuid2[MAX_INT_STRLEN];
+	swprintf(wuid1, N_ELEMENTS(wuid1), L"%u", range[0].seq1);
+	swprintf(wuid2, N_ELEMENTS(wuid2), L"%u", range[count-1].seq2);
+	Term wuid1_term(_T("uid"), wuid1);
+	Term wuid2_term(_T("uid"), wuid2);
+	RangeQuery rq(&wuid1_term, &wuid2_term, true);
+	query.add(&rq, BooleanClause::MUST);
+
+	wchar_t wguid[MAILBOX_GUID_HEX_LENGTH + 1];
+	guid128_to_wguid(rec->mailbox_guid, wguid);
+	Term term(_T("box"), wguid);
+	TermQuery mailbox_query(&term);
+	query.add(&mailbox_query, BooleanClause::MUST);
+
+	try {
+		Hits *hits = index->searcher->search(&query);
+
+		for (size_t i = 0; i < hits->length(); i++) {
+			uint32_t uid;
+
+			if (lucene_doc_get_uid(index, &hits->doc(i),
+					       &uid) < 0 ||
+			    seq_range_exists(&rec->uids, uid))
+				index->reader->deleteDocument(hits->id(i));
+		}
+		_CLDELETE(hits);
+	} catch (CLuceneError &err) {
+		lucene_handle_error(index, err, "expunge search");
+		ret = -1;
+	}
+	return ret < 0 ? -1 : 0;
+}
+
+int lucene_index_expunge_from_log(struct lucene_index *index,
+				  struct fts_expunge_log *log)
+{
+	struct fts_expunge_log_read_ctx *ctx;
+	const struct fts_expunge_log_read_record *rec;
+	int ret = 0, ret2;
+
+	ctx = fts_expunge_log_read_begin(log);
+	while ((rec = fts_expunge_log_read_next(ctx)) != NULL) {
+		if (lucene_index_expunge_record(index, rec) < 0) {
+			ret = -1;
+			break;
+		}
+	}
+	ret2 = fts_expunge_log_read_end(&ctx);
+	if (ret < 0 || ret2 < 0)
+		return -1;
+	return ret2;
 }
 
 int lucene_index_optimize(struct lucene_index *index)
