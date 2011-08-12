@@ -107,6 +107,9 @@ int fts_backend_update_build_more(struct fts_backend_update_context *ctx,
 /* Refresh index to make sure we see latest changes from lookups.
    Returns 0 if ok, -1 if error. */
 int fts_backend_refresh(struct fts_backend *backend);
+/* Go through the entire index and make sure all mails are indexed,
+   and delete any extra mails in the index. */
+int fts_backend_rescan(struct fts_backend *backend);
 /* Optimize the index. This can be a somewhat heavy operation. */
 int fts_backend_optimize(struct fts_backend *backend);
 

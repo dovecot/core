@@ -32,6 +32,7 @@ struct fts_backend_vfuncs {
 				 const unsigned char *data, size_t size);
 
 	int (*refresh)(struct fts_backend *backend);
+	int (*rescan)(struct fts_backend *backend);
 	int (*optimize)(struct fts_backend *backend);
 
 	bool (*can_lookup)(struct fts_backend *backend,

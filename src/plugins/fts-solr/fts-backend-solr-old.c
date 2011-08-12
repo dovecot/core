@@ -803,6 +803,7 @@ struct fts_backend fts_backend_solr_old = {
 		fts_backend_solr_update_unset_build_key,
 		fts_backend_solr_update_build_more,
 		fts_backend_solr_refresh,
+		NULL,
 		fts_backend_solr_optimize,
 		fts_backend_default_can_lookup,
 		fts_backend_solr_lookup,

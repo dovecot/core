@@ -186,6 +186,12 @@ int fts_backend_refresh(struct fts_backend *backend)
 	return backend->v.refresh(backend);
 }
 
+int fts_backend_rescan(struct fts_backend *backend)
+{
+	return backend->v.rescan == NULL ? 0 :
+		backend->v.rescan(backend);
+}
+
 int fts_backend_optimize(struct fts_backend *backend)
 {
 	return backend->v.optimize == NULL ? 0 :
