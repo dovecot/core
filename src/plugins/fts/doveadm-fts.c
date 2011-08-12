@@ -66,8 +66,42 @@ cmd_fts_optimize_alloc(void)
 	return ctx;
 }
 
+static void
+cmd_fts_rescan_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
+{
+	const char *ns_prefix = ctx->args[0];
+	struct mail_namespace *ns;
+	struct fts_backend *backend;
+
+	if (fts_namespace_find(user, ns_prefix, &ns) < 0)
+		return;
+	backend = fts_list_backend(ns->list);
+	if (fts_backend_rescan(backend) < 0)
+		i_error("fts rescan failed");
+}
+
+static void
+cmd_fts_rescan_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+		    const char *const args[])
+{
+	if (str_array_length(args) > 1)
+		doveadm_mail_help_name("fts rescan");
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_fts_rescan_alloc(void)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
+	ctx->v.run = cmd_fts_rescan_run;
+	ctx->v.init = cmd_fts_rescan_init;
+	return ctx;
+}
+
 static struct doveadm_mail_cmd fts_commands[] = {
-	{ cmd_fts_optimize_alloc, "fts optimize", "[<namespace>]" }
+	{ cmd_fts_optimize_alloc, "fts optimize", "[<namespace>]" },
+	{ cmd_fts_rescan_alloc, "fts rescan", "[<namespace>]" }
 };
 
 void doveadm_fts_plugin_init(struct module *module ATTR_UNUSED)
