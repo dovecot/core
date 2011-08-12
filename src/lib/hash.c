@@ -511,3 +511,20 @@ unsigned int strcase_hash(const void *p)
 
 	return h;
 }
+
+unsigned int mem_hash(const void *p, unsigned int size)
+{
+	const unsigned char *s = p;
+	unsigned int i, g, h = 0;
+
+	for (i = 0; i < size; i++) {
+		h = (h << 4) + *s;
+		if ((g = h & 0xf0000000UL)) {
+			h = h ^ (g >> 24);
+			h = h ^ g;
+		}
+		s++;
+	}
+	return h;
+}
+

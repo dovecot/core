@@ -53,5 +53,7 @@ void hash_table_copy(struct hash_table *dest, struct hash_table *src);
 /* hash function for strings */
 unsigned int str_hash(const void *p) ATTR_PURE;
 unsigned int strcase_hash(const void *p) ATTR_PURE;
+/* a generic hash for a given memory block */
+unsigned int mem_hash(const void *p, unsigned int size) ATTR_PURE;
 
 #endif
