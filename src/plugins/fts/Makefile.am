@@ -22,6 +22,7 @@ lib20_fts_plugin_la_SOURCES = \
 	fts-build-indexer.c \
 	fts-build-mailbox.c \
 	fts-build-virtual.c \
+	fts-expunge-log.c \
 	fts-parser.c \
 	fts-parser-html.c \
 	fts-parser-script.c \
@@ -31,11 +32,13 @@ lib20_fts_plugin_la_SOURCES = \
 	fts-storage.c
 
 noinst_HEADERS = \
+	doveadm-fts.h \
 	html-entities.h \
 	fts-api.h \
 	fts-api-private.h \
 	fts-build.h \
 	fts-build-private.h \
+	fts-expunge-log.h \
 	fts-parser.h \
 	fts-plugin.h \
 	fts-search-serialize.h \
@@ -55,4 +58,5 @@ doveadm_module_LTLIBRARIES = \
 	lib20_doveadm_fts_plugin.la
 
 lib20_doveadm_fts_plugin_la_SOURCES = \
-	doveadm-fts.c
+	doveadm-fts.c \
+	doveadm-dump-fts-expunge-log.c

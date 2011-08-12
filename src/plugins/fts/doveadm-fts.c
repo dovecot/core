@@ -4,16 +4,9 @@
 #include "mail-namespace.h"
 #include "fts-storage.h"
 #include "doveadm-mail.h"
-
-struct doveadm_fts_cmd_context {
-	struct doveadm_mail_cmd_context ctx;
-	bool get_match_me;
-};
+#include "doveadm-fts.h"
 
 const char *doveadm_fts_plugin_version = DOVECOT_VERSION;
-
-void doveadm_fts_plugin_init(struct module *module);
-void doveadm_fts_plugin_deinit(void);
 
 static int
 fts_namespace_find(struct mail_user *user, const char *ns_prefix,
@@ -83,6 +76,7 @@ void doveadm_fts_plugin_init(struct module *module ATTR_UNUSED)
 
 	for (i = 0; i < N_ELEMENTS(fts_commands); i++)
 		doveadm_mail_register_cmd(&fts_commands[i]);
+	doveadm_dump_fts_expunge_log_init();
 }
 
 void doveadm_fts_plugin_deinit(void)
