@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "strescape.h"
 #include "unichar.h"
+#include "imap-utf7.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 #include "mail-search.h"
@@ -204,7 +205,10 @@ static const char *
 fts_box_get_root(struct mailbox *box, struct mail_namespace **ns_r)
 {
 	struct mail_namespace *ns = mailbox_get_namespace(box);
-	const char *name = box->name;
+	const char *name;
+
+	if (t_imap_utf8_to_utf7(box->name, &name) < 0)
+		i_unreached();
 
 	fts_box_name_get_root(&ns, &name);
 	*ns_r = ns;
