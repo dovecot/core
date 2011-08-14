@@ -784,8 +784,10 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	i_assert(lock_type == F_RDLCK || lock_type == F_WRLCK);
 	i_assert(lock_type == F_RDLCK || mbox->mbox_lock_type != F_RDLCK);
 
-	/* mbox must be locked before index */
-	i_assert(mbox->box.index->lock_type != F_WRLCK);
+	/* mbox must be locked before index (the NULL check is for
+	   MAILBOX_FLAG_KEEP_LOCKED) */
+	i_assert(mbox->box.index == NULL ||
+		 mbox->box.index->lock_type != F_WRLCK);
 
 	if (mbox->mbox_lock_type == F_UNLCK) {
 		ret = mbox_update_locking(mbox, lock_type, &fcntl_locked);
