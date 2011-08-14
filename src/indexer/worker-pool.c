@@ -61,6 +61,11 @@ void worker_pool_deinit(struct worker_pool **_pool)
 	i_free(pool);
 }
 
+bool worker_pool_have_busy_connections(struct worker_pool *pool)
+{
+	return pool->busy_list != NULL;
+}
+
 static int worker_pool_add_connection(struct worker_pool *pool)
 {
 	struct worker_connection *conn;

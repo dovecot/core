@@ -31,7 +31,8 @@ void indexer_refresh_proctitle(void)
 
 static bool idle_die(void)
 {
-	return indexer_queue_is_empty(queue);
+	return indexer_queue_is_empty(queue) &&
+		!worker_pool_have_busy_connections(worker_pool);
 }
 
 static void client_connected(struct master_service_connection *conn)
