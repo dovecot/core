@@ -706,6 +706,11 @@ static int mailbox_check_mismatching_separators(struct mailbox *box)
 	const char *p, *vname = box->vname;
 	char list_sep, ns_sep;
 
+	if (box->inbox_user) {
+		/* this is INBOX - don't bother with further checks */
+		return 0;
+	}
+
 	list_sep = mailbox_list_get_hierarchy_sep(box->list);
 	ns_sep = mail_namespace_get_sep(ns);
 
