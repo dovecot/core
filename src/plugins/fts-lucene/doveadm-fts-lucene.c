@@ -45,14 +45,10 @@ static void cmd_dump_fts_lucene(int argc ATTR_UNUSED, char *argv[])
 
 static bool test_dump_fts_lucene(const char *path)
 {
-	const char *p;
 	struct stat st;
 
-	p = strrchr(path, '/');
-	if (p++ == NULL)
-		p = path;
-	p = t_strconcat(p, "/segments.gen", NULL);
-	return stat(p, &st) == 0;
+	path = t_strconcat(path, "/segments.gen", NULL);
+	return stat(path, &st) == 0;
 }
 
 struct doveadm_cmd_dump doveadm_cmd_dump_fts_lucene = {
