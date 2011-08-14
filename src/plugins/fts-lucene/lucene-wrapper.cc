@@ -660,6 +660,8 @@ int lucene_index_rescan(struct lucene_index *index,
 				index->reader->deleteDocument(hits->id(i));
 		}
 		_CLDELETE(hits);
+		index->reader->close();
+		lucene_index_close(index);
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "rescan search");
 		failed = true;
@@ -746,6 +748,15 @@ int lucene_index_expunge_from_log(struct lucene_index *index,
 			break;
 		}
 	}
+
+	try {
+		index->reader->close();
+		lucene_index_close(index);
+	} catch (CLuceneError &err) {
+		lucene_handle_error(index, err, "expunge delete");
+		ret = -1;
+	}
+
 	ret2 = fts_expunge_log_read_end(&ctx);
 	if (ret < 0 || ret2 < 0)
 		return -1;
