@@ -373,7 +373,9 @@ static int fts_backend_lucene_rescan(struct fts_backend *_backend)
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 
-	return lucene_index_rescan(backend->index, _backend->ns->list);
+	if (lucene_index_rescan(backend->index, _backend->ns->list) < 0)
+		return -1;
+	return lucene_index_optimize(backend->index);
 }
 
 static int fts_backend_lucene_optimize(struct fts_backend *_backend)
