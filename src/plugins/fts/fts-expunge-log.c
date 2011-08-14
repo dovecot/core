@@ -327,8 +327,10 @@ int fts_expunge_log_uid_count(struct fts_expunge_log *log,
 {
 	int ret;
 
-	if ((ret = fts_expunge_log_reopen_if_needed(log, FALSE)) <= 0)
+	if ((ret = fts_expunge_log_reopen_if_needed(log, FALSE)) <= 0) {
+		*expunges_r = 0;
 		return ret;
+	}
 
 	return fts_expunge_log_read_expunge_count(log, expunges_r);
 }
