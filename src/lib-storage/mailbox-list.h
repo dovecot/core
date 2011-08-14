@@ -143,6 +143,21 @@ struct mailbox_info {
 	struct mail_namespace *ns;
 };
 
+struct mailbox_permissions {
+	/* The actual uid/gid of the mailbox */
+	uid_t file_uid;
+	gid_t file_gid;
+
+	/* mode and GID to use for newly created files/dirs.
+	   (gid_t)-1 is used if the default GID can be used. */
+	mode_t file_create_mode, dir_create_mode;
+	gid_t file_create_gid;
+	/* origin (e.g. path) where the file_create_gid was got from */
+	const char *file_create_gid_origin;
+
+	bool mail_index_permissions_set;
+};
+
 /* register all drivers */
 void mailbox_list_register_all(void);
 
@@ -177,8 +192,7 @@ char mailbox_list_get_hierarchy_sep(struct mailbox_list *list);
    directories to the specified mailbox. (gid_t)-1 is returned if it's not
    necessary to change the default gid. */
 void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
-				  mode_t *file_mode_r, mode_t *dir_mode_r,
-				  gid_t *gid_r, const char **gid_origin_r);
+				  struct mailbox_permissions *permissions_r);
 /* Like mailbox_list_get_permissions(), but for creating files/dirs to the
    mail root directory (or even the root dir itself). */
 void mailbox_list_get_root_permissions(struct mailbox_list *list,

@@ -201,16 +201,6 @@ union mailbox_module_context {
 	struct mail_storage_module_register *reg;
 };
 
-struct mailbox_permissions {
-	/* mode and GID to use for newly created files/dirs */
-	mode_t file_create_mode, dir_create_mode;
-	gid_t file_create_gid;
-	/* origin (e.g. path) where the file_create_gid was got from */
-	const char *file_create_gid_origin;
-
-	bool mail_index_permissions_set;
-};
-
 struct mailbox {
 	const char *name;
 	/* mailbox's virtual name (from mail_namespace_get_vname()) */

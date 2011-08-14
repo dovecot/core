@@ -307,9 +307,8 @@ static int
 maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 				enum mailbox_dir_create_type type)
 {
-	const char *path, *root_dir, *gid_origin, *p;
-	mode_t file_mode, dir_mode;
-	gid_t gid;
+	struct mailbox_permissions perm;
+	const char *path, *root_dir, *p;
 	bool create_parent_dir;
 
 	if (type == MAILBOX_DIR_CREATE_TYPE_ONLY_NOSELECT) {
@@ -332,9 +331,10 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 
 	root_dir = mailbox_list_get_path(list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	mailbox_list_get_permissions(list, name, &file_mode, &dir_mode,
-				     &gid, &gid_origin);
-	if (mkdir_parents_chgrp(path, dir_mode, gid, gid_origin) == 0) {
+	mailbox_list_get_permissions(list, name, &perm);
+	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
+				perm.file_create_gid,
+				perm.file_create_gid_origin) == 0) {
 		/* ok */
 	} else if (errno == EEXIST) {
 		if (create_parent_dir)
@@ -357,8 +357,10 @@ maildir_list_create_mailbox_dir(struct mailbox_list *list, const char *name,
 		return -1;
 	}
 	return create_parent_dir || strcmp(path, root_dir) == 0 ? 0 :
-		maildir_list_create_maildirfolder_file(list, path, file_mode,
-						       gid, gid_origin);
+		maildir_list_create_maildirfolder_file(list, path,
+						       perm.file_create_mode,
+						       perm.file_create_gid,
+						       perm.file_create_gid_origin);
 }
 
 static const char *
@@ -576,17 +578,14 @@ maildir_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 	/* if we're renaming under another mailbox, require its permissions
 	   to be same as ours. */
 	if (strchr(newname, mailbox_list_get_hierarchy_sep(newlist)) != NULL) {
-		const char *origin, *old_origin;
-		mode_t file_mode, dir_mode, old_file_mode, old_dir_mode;
-		gid_t gid, old_gid;
+		struct mailbox_permissions old_perm, new_perm;
 
-		mailbox_list_get_permissions(oldlist, oldname, &old_file_mode,
-					     &old_dir_mode, &old_gid, &old_origin);
-		mailbox_list_get_permissions(newlist, newname, &file_mode,
-					     &dir_mode, &gid, &origin);
+		mailbox_list_get_permissions(oldlist, oldname, &old_perm);
+		mailbox_list_get_permissions(newlist, newname, &new_perm);
 
-		if ((file_mode != old_file_mode ||
-		     dir_mode != old_dir_mode || gid != old_gid)) {
+		if ((new_perm.file_create_mode != old_perm.file_create_mode ||
+		     new_perm.dir_create_mode != old_perm.dir_create_mode ||
+		     new_perm.file_create_gid != old_perm.file_create_gid)) {
 			mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
 				"Renaming not supported across conflicting "
 				"directory permissions");

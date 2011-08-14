@@ -609,19 +609,21 @@ char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)
 	return list->v.get_hierarchy_sep(list);
 }
 
-void mailbox_list_get_permissions(struct mailbox_list *list,
-				  const char *name,
-				  mode_t *file_mode_r, mode_t *dir_mode_r,
-				  gid_t *gid_r, const char **gid_origin_r)
+void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
+				  struct mailbox_permissions *permissions_r)
 {
 	const char *path, *parent_name, *p;
 	struct stat st;
 
+	memset(permissions_r, 0, sizeof(permissions_r));
+
 	/* use safe defaults */
-	*file_mode_r = 0600;
-	*dir_mode_r = 0700;
-	*gid_r = (gid_t)-1;
-	*gid_origin_r = "defaults";
+	permissions_r->file_uid = (uid_t)-1;
+	permissions_r->file_gid = (gid_t)-1;
+	permissions_r->file_create_mode = 0600;
+	permissions_r->dir_create_mode = 0700;
+	permissions_r->file_create_gid = (gid_t)-1;
+	permissions_r->file_create_gid_origin = "defaults";
 
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
 	if (path == NULL) {
@@ -644,43 +646,50 @@ void mailbox_list_get_permissions(struct mailbox_list *list,
 				parent_name = t_strdup_until(name, p);
 			}
 			mailbox_list_get_permissions(list, parent_name,
-						     file_mode_r, dir_mode_r,
-						     gid_r, gid_origin_r);
+						     permissions_r);
 			return;
 		}
+		/* assume current defaults for mailboxes that don't exist or
+		   can't be looked up for some other reason */
+		permissions_r->file_uid = geteuid();
+		permissions_r->file_gid = getegid();
 	} else {
-		*file_mode_r = (st.st_mode & 0666) | 0600;
-		*dir_mode_r = (st.st_mode & 0777) | 0700;
-		*gid_origin_r = path;
+		permissions_r->file_uid = st.st_uid;
+		permissions_r->file_gid = st.st_gid;
+		permissions_r->file_create_mode = (st.st_mode & 0666) | 0600;
+		permissions_r->dir_create_mode = (st.st_mode & 0777) | 0700;
+		permissions_r->file_create_gid_origin = path;
 
 		if (!S_ISDIR(st.st_mode)) {
 			/* we're getting permissions from a file.
 			   apply +x modes as necessary. */
-			*dir_mode_r = get_dir_mode(*dir_mode_r);
+			permissions_r->dir_create_mode =
+				get_dir_mode(permissions_r->dir_create_mode);
 		}
 
 		if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
 			/* directory's GID is used automatically for new
 			   files */
-			*gid_r = (gid_t)-1;
+			permissions_r->file_create_gid = (gid_t)-1;
 		} else if ((st.st_mode & 0070) >> 3 == (st.st_mode & 0007)) {
 			/* group has same permissions as world, so don't bother
 			   changing it */
-			*gid_r = (gid_t)-1;
+			permissions_r->file_create_gid = (gid_t)-1;
 		} else if (getegid() == st.st_gid) {
 			/* using our own gid, no need to change it */
-			*gid_r = (gid_t)-1;
+			permissions_r->file_create_gid = (gid_t)-1;
 		} else {
-			*gid_r = st.st_gid;
+			permissions_r->file_create_gid = st.st_gid;
 		}
 	}
 
 	if (name == NULL) {
-		list->file_create_mode = *file_mode_r;
-		list->dir_create_mode = *dir_mode_r;
-		list->file_create_gid = *gid_r;
+		list->file_create_mode = permissions_r->file_create_mode;
+		list->dir_create_mode = permissions_r->dir_create_mode;
+		list->file_create_gid = permissions_r->file_create_gid;
 		list->file_create_gid_origin =
-			p_strdup(list->pool, *gid_origin_r);
+			p_strdup(list->pool,
+				 permissions_r->file_create_gid_origin);
 	}
 
 	if (list->mail_set->mail_debug && name == NULL) {
@@ -697,15 +706,20 @@ void mailbox_list_get_root_permissions(struct mailbox_list *list,
 				       mode_t *file_mode_r, mode_t *dir_mode_r,
 				       gid_t *gid_r, const char **gid_origin_r)
 {
+	struct mailbox_permissions perm;
+
 	if (list->file_create_mode != (mode_t)-1) {
 		*file_mode_r = list->file_create_mode;
 		*dir_mode_r = list->dir_create_mode;
 		*gid_r = list->file_create_gid;
 		*gid_origin_r = list->file_create_gid_origin;
 	} else {
-		mailbox_list_get_permissions(list, NULL,
-					     file_mode_r, dir_mode_r,
-					     gid_r, gid_origin_r);
+		mailbox_list_get_permissions(list, NULL, &perm);
+
+		*file_mode_r = perm.file_create_mode;
+		*dir_mode_r = perm.dir_create_mode;
+		*gid_r = perm.file_create_gid;
+		*gid_origin_r = perm.file_create_gid_origin;
 	}
 }
 
@@ -1653,13 +1667,12 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 int mailbox_list_mkdir(struct mailbox_list *list,
 		       const char *mailbox, const char *path)
 {
-	mode_t file_mode, dir_mode;
-	gid_t gid;
-	const char *origin;
+	struct mailbox_permissions perm;
 
-	mailbox_list_get_permissions(list, mailbox, &file_mode, &dir_mode,
-				     &gid, &origin);
-	if (mkdir_parents_chgrp(path, dir_mode, gid, origin) < 0 &&
+	mailbox_list_get_permissions(list, mailbox, &perm);
+	if (mkdir_parents_chgrp(path, perm.dir_create_mode,
+				perm.file_create_gid,
+				perm.file_create_gid_origin) < 0 &&
 	    errno != EEXIST) {
 		mailbox_list_set_critical(list, "mkdir_parents(%s) failed: %m",
 					  path);
@@ -1683,9 +1696,8 @@ int mailbox_list_mkdir_parent(struct mailbox_list *list,
 int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 					  const char *name)
 {
-	const char *root_dir, *index_dir, *parent_dir, *p, *origin;
-	mode_t file_mode, dir_mode;
-	gid_t gid;
+	const char *root_dir, *index_dir, *parent_dir, *p;
+	struct mailbox_permissions perm;
 	unsigned int n = 0;
 
 	list->index_root_dir_created = TRUE;
@@ -1701,9 +1713,10 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 					       MAILBOX_LIST_PATH_TYPE_INDEX);
 	}
 
-	mailbox_list_get_permissions(list, name, &file_mode, &dir_mode,
-				     &gid, &origin);
-	while (mkdir_chgrp(index_dir, dir_mode, gid, origin) < 0) {
+	mailbox_list_get_permissions(list, name, &perm);
+	while (mkdir_chgrp(index_dir, perm.dir_create_mode,
+			   perm.file_create_gid,
+			   perm.file_create_gid_origin) < 0) {
 		if (errno == EEXIST)
 			break;
 

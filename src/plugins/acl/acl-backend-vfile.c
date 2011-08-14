@@ -863,9 +863,7 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 					  struct dotlock **dotlock_r)
 {
 	struct acl_object *_aclobj = &aclobj->aclobj;
-	const char *gid_origin;
-	mode_t file_mode, dir_mode;
-	gid_t gid;
+	struct mailbox_permissions perm;
 	int fd;
 
 	if (aclobj->local_path == NULL) {
@@ -875,10 +873,12 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 	}
 
 	/* first lock the ACL file */
-	mailbox_list_get_permissions(_aclobj->backend->list, _aclobj->name,
-				     &file_mode, &dir_mode, &gid, &gid_origin);
+	mailbox_list_get_permissions(_aclobj->backend->list,
+				     _aclobj->name, &perm);
 	fd = file_dotlock_open_group(&dotlock_set, aclobj->local_path, 0,
-				     file_mode, gid, gid_origin, dotlock_r);
+				     perm.file_create_mode,
+				     perm.file_create_gid,
+				     perm.file_create_gid_origin, dotlock_r);
 	if (fd == -1) {
 		i_error("file_dotlock_open(%s) failed: %m", aclobj->local_path);
 		return -1;

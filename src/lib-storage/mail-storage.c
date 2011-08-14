@@ -1601,6 +1601,7 @@ static void mailbox_get_permissions_if_not_set(struct mailbox *box)
 		return;
 
 	if (box->input != NULL) {
+		box->_perm.file_uid = geteuid();
 		box->_perm.file_create_mode = 0600;
 		box->_perm.dir_create_mode = 0700;
 		box->_perm.file_create_gid = (gid_t)-1;
@@ -1608,11 +1609,9 @@ static void mailbox_get_permissions_if_not_set(struct mailbox *box)
 		return;
 	}
 
-	mailbox_list_get_permissions(box->list, box->name,
-				     &box->_perm.file_create_mode,
-				     &box->_perm.dir_create_mode,
-				     &box->_perm.file_create_gid, &origin);
-	box->_perm.file_create_gid_origin = p_strdup(box->pool, origin);
+	mailbox_list_get_permissions(box->list, box->name, &box->_perm);
+	box->_perm.file_create_gid_origin =
+		p_strdup(box->pool, box->_perm.file_create_gid_origin);
 }
 
 const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box)
