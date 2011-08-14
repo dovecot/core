@@ -20,6 +20,8 @@
 #define INDEXER_WORKER_NAME "indexer-worker-master"
 
 struct worker_connection {
+	int refcount;
+
 	char *socket_path;
 	indexer_status_callback_t *callback;
 
@@ -43,12 +45,25 @@ worker_connection_create(const char *socket_path,
 	struct worker_connection *conn;
 
 	conn = i_new(struct worker_connection, 1);
+	conn->refcount = 1;
 	conn->socket_path = i_strdup(socket_path);
 	conn->callback = callback;
 	conn->fd = -1;
 	i_array_init(&conn->request_contexts, 32);
 	conn->request_queue = aqueue_init(&conn->request_contexts.arr);
 	return conn;
+}
+
+static void worker_connection_unref(struct worker_connection *conn)
+{
+	i_assert(conn->refcount > 0);
+	if (--conn->refcount > 0)
+		return;
+
+	aqueue_deinit(&conn->request_queue);
+	array_free(&conn->request_contexts);
+	i_free(conn->socket_path);
+	i_free(conn);
 }
 
 static void worker_connection_disconnect(struct worker_connection *conn)
@@ -71,6 +86,9 @@ static void worker_connection_disconnect(struct worker_connection *conn)
 			"discarding %u requests for %s",
 			count, conn->request_username);
 	}
+
+	/* conn->callback() can try to destroy us */
+	conn->refcount++;
 	for (i = 0; i < count; i++) {
 		void *const *contextp =
 			array_idx(&conn->request_contexts,
@@ -81,6 +99,7 @@ static void worker_connection_disconnect(struct worker_connection *conn)
 		conn->callback(-1, context);
 	}
 	i_free_and_null(conn->request_username);
+	worker_connection_unref(conn);
 }
 
 void worker_connection_destroy(struct worker_connection **_conn)
@@ -90,11 +109,7 @@ void worker_connection_destroy(struct worker_connection **_conn)
 	*_conn = NULL;
 
 	worker_connection_disconnect(conn);
-
-	aqueue_deinit(&conn->request_queue);
-	array_free(&conn->request_contexts);
-	i_free(conn->socket_path);
-	i_free(conn);
+	worker_connection_unref(conn);
 }
 
 static int
