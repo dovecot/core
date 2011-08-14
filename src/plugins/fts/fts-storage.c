@@ -346,6 +346,7 @@ static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 
 	if (ft->scores != NULL)
 		fts_scores_unref(&ft->scores);
+	i_free(ft);
 	fbox->module_ctx.super.transaction_rollback(t);
 }
 
@@ -358,6 +359,7 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 
 	if (ft->scores != NULL)
 		fts_scores_unref(&ft->scores);
+	i_free(ft);
 	return fbox->module_ctx.super.transaction_commit(t, changes_r);
 }
 
