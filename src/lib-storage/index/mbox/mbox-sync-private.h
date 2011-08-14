@@ -179,5 +179,6 @@ void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 			   size_t pos, size_t need, size_t have);
 void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 				 size_t size);
+int mbox_sync_get_guid(struct mbox_mailbox *mbox);
 
 #endif

@@ -1376,10 +1376,10 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 }
 
 static void
-mbox_sync_index_update_ext_header(struct mbox_sync_context *sync_ctx)
+mbox_sync_index_update_ext_header(struct mbox_mailbox *mbox,
+				  struct mail_index_transaction *trans)
 {
-	const struct mailbox_update *update = sync_ctx->mbox->sync_hdr_update;
-	struct mbox_mailbox *mbox = sync_ctx->mbox;
+	const struct mailbox_update *update = mbox->sync_hdr_update;
 	const void *data;
 	size_t data_size;
 
@@ -1394,7 +1394,7 @@ mbox_sync_index_update_ext_header(struct mbox_sync_context *sync_ctx)
 				  &data, &data_size);
 	if (data_size != sizeof(mbox->mbox_hdr) ||
 	    memcmp(data, &mbox->mbox_hdr, data_size) != 0) {
-		mail_index_update_header_ext(sync_ctx->t, mbox->mbox_ext_idx,
+		mail_index_update_header_ext(trans, mbox->mbox_ext_idx,
 					     0, &mbox->mbox_hdr,
 					     sizeof(mbox->mbox_hdr));
 	}
@@ -1446,7 +1446,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 
 	sync_ctx->mbox->mbox_hdr.sync_mtime = st->st_mtime;
 	sync_ctx->mbox->mbox_hdr.sync_size = st->st_size;
-	mbox_sync_index_update_ext_header(sync_ctx);
+	mbox_sync_index_update_ext_header(sync_ctx->mbox, sync_ctx->t);
 
 	/* only reason not to have UID validity at this point is if the file
 	   is entirely empty. In that case just make up a new one if needed. */
@@ -1648,6 +1648,27 @@ int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
 	if (mbox->mbox_broken_offsets)
 		mbox->mbox_hdr.dirty_flag = TRUE;
 	return 0;
+}
+
+int mbox_sync_get_guid(struct mbox_mailbox *mbox)
+{
+	struct mail_index_transaction *trans;
+	unsigned int lock_id;
+	int ret;
+
+	if (mbox_lock(mbox, F_WRLCK, &lock_id) <= 0)
+		return -1;
+
+	ret = mbox_sync_header_refresh(mbox);
+	if (ret == 0) {
+		trans = mail_index_transaction_begin(mbox->box.view,
+				MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+		mbox_sync_index_update_ext_header(mbox, trans);
+		ret = mail_index_transaction_commit(&trans);
+	}
+	mbox_unlock(mbox, lock_id);
+	return ret;
+
 }
 
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)

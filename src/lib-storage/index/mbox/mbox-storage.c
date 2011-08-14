@@ -597,7 +597,7 @@ mbox_mailbox_get_guid(struct mbox_mailbox *mbox,
 		return -1;
 	}
 	if (mail_guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
-		if (mailbox_sync(&mbox->box, 0) < 0)
+		if (mbox_sync_get_guid(mbox) < 0)
 			return -1;
 	}
 	memcpy(guid, mbox->mbox_hdr.mailbox_guid, MAIL_GUID_128_SIZE);
