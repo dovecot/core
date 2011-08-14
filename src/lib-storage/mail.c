@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "buffer.h"
+#include "hash.h"
 #include "hex-binary.h"
 #include "crc32.h"
 #include "sha1.h"
