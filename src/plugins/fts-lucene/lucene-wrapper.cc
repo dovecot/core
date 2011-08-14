@@ -1172,6 +1172,10 @@ struct lucene_index_iter {
 	struct lucene_index *index;
 	struct lucene_index_record rec;
 
+	Term *term;
+	WildcardQuery *query;
+	Sort *sort;
+
 	Hits *hits;
 	size_t i;
 	bool failed;
@@ -1192,12 +1196,12 @@ lucene_index_iter_init(struct lucene_index *index)
 		return iter;
 	}
 
-	Term term(_T("box"), _T("*"));
-	WildcardQuery query(&term);
-	Sort sort(sort_fields);
+	iter->term = _CLNEW Term(_T("box"), _T("*"));
+	iter->query = _CLNEW WildcardQuery(iter->term);
+	iter->sort = _CLNEW Sort(sort_fields);
 
 	try {
-		iter->hits = index->searcher->search(&query, &sort);
+		iter->hits = index->searcher->search(iter->query, iter->sort);
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "rescan search");
 		iter->failed = true;
@@ -1231,6 +1235,11 @@ int lucene_index_iter_deinit(struct lucene_index_iter **_iter)
 	*_iter = NULL;
 	if (iter->hits != NULL)
 		_CLDELETE(iter->hits);
+	if (iter->query != NULL) {
+		_CLDELETE(iter->query);
+		_CLDELETE(iter->sort);
+		_CLDELETE(iter->term);
+	}
 	i_free(iter);
 	return ret;
 }
