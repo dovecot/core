@@ -750,7 +750,8 @@ int lucene_index_expunge_from_log(struct lucene_index *index,
 	}
 
 	try {
-		index->reader->close();
+		if (index->reader != NULL)
+			index->reader->close();
 		lucene_index_close(index);
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "expunge delete");
