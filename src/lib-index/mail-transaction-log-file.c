@@ -527,10 +527,9 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	   opened. it shouldn't happen unless the old log file was
 	   corrupted. */
 	for (f = file->log->files; f != NULL; f = f->next) {
-		if (f->hdr.file_seq == file->hdr.file_seq && !f->corrupted) {
+		if (f->hdr.file_seq == file->hdr.file_seq) {
 			/* mark the old file corrupted. we can't safely remove
 			   it from the list however, so return failure. */
-			f->corrupted = TRUE;
 			f->hdr.indexid = 0;
 			if (strcmp(f->filepath, f->log->head->filepath) != 0) {
 				/* only mark .2 corrupted, just to make sure
@@ -541,10 +540,13 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 			} else {
 				ret = -1;
 			}
-			mail_index_set_error(f->log->index,
-				"Transaction log %s: "
-				"duplicate transaction log sequence (%u)",
-				f->filepath, f->hdr.file_seq);
+			if (!f->corrupted) {
+				f->corrupted = TRUE;
+				mail_index_set_error(f->log->index,
+					"Transaction log %s: "
+					"duplicate transaction log sequence (%u)",
+					f->filepath, f->hdr.file_seq);
+			}
 			return ret;
 		}
 	}
