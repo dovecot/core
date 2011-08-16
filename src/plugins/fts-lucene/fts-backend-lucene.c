@@ -37,6 +37,7 @@ struct lucene_fts_backend_update_context {
 
 	struct mailbox *box;
 	uint32_t last_uid;
+	uint32_t last_indexed_uid;
 	char *first_box_vname;
 
 	uint32_t uid;
@@ -46,6 +47,7 @@ struct lucene_fts_backend_update_context {
 	struct fts_expunge_log_append_ctx *expunge_ctx;
 
 	bool lucene_opened;
+	bool last_indexed_uid_set;
 };
 
 static int fts_backend_lucene_mkdir(struct lucene_fts_backend *backend)
@@ -276,6 +278,7 @@ fts_backend_lucene_update_set_mailbox(struct fts_backend_update_context *_ctx,
 	if (ctx->first_box_vname == NULL)
 		ctx->first_box_vname = i_strdup(box->vname);
 	ctx->box = box;
+	ctx->last_indexed_uid_set = FALSE;
 }
 
 static void
@@ -286,6 +289,21 @@ fts_backend_lucene_update_expunge(struct fts_backend_update_context *_ctx,
 		(struct lucene_fts_backend_update_context *)_ctx;
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_ctx->backend;
+
+	if (!ctx->last_indexed_uid_set) {
+		if (!fts_index_get_last_uid(ctx->box, &ctx->last_indexed_uid))
+			ctx->last_indexed_uid = 0;
+		ctx->last_indexed_uid_set = TRUE;
+	}
+	if (ctx->last_indexed_uid == 0 ||
+	    uid > ctx->last_indexed_uid + 100) {
+		/* don't waste time adding expunge to log for a message that
+		   isn't even indexed. this check is racy, because indexer may
+		   just be in the middle of indexing this message. we'll
+		   attempt to avoid that by skipping the expunging only if
+		   indexing hasn't been done for a while (100 msgs). */
+		return;
+	}
 
 	if (ctx->expunge_ctx == NULL) {
 		ctx->expunge_ctx =
