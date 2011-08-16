@@ -183,14 +183,15 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	}
 
 	if (ns->mail_set->mail_debug) {
-		i_debug("%s: root=%s, index=%s, control=%s, inbox=%s",
+		i_debug("%s: root=%s, index=%s, control=%s, inbox=%s, alt=%s",
 			list->name,
 			list->set.root_dir == NULL ? "" : list->set.root_dir,
 			list->set.index_dir == NULL ? "" : list->set.index_dir,
 			list->set.control_dir == NULL ?
 			"" : list->set.control_dir,
 			list->set.inbox_path == NULL ?
-			"" : list->set.inbox_path);
+			"" : list->set.inbox_path,
+			list->set.alt_dir == NULL ? "" : list->set.alt_dir);
 	}
 	mail_namespace_finish_list_init(ns, list);
 
