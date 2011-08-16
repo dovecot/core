@@ -1595,8 +1595,6 @@ const char *mailbox_get_path(struct mailbox *box)
 
 static void mailbox_get_permissions_if_not_set(struct mailbox *box)
 {
-	const char *origin;
-
 	if (box->_perm.file_create_mode != 0)
 		return;
 
