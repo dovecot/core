@@ -25,6 +25,7 @@ extern "C" {
 
 /* Lucene's default is 10000. Use it here also.. */
 #define MAX_TERMS_PER_DOCUMENT 10000
+#define FTS_LUCENE_MAX_SEARCH_TERMS 1000
 
 #define LUCENE_LOCK_OVERRIDE_SECS 60
 
@@ -686,94 +687,31 @@ static void guid128_to_wguid(const mail_guid_128_t guid,
 	wguid_hex[i] = '\0';
 }
 
-static void
-lucene_index_query_range_add(BooleanQuery *query, wchar_t *wuid,
-			     unsigned int idx, wchar_t max_char)
-{
-	wchar_t c;
-
-	if (wuid[idx] == '1' && max_char == '9') {
-		/* 123[1..9]* = 123* */
-		wuid[idx] = '*';
-		wuid[idx+1] = '\0';
-
-		Term *term = _CLNEW Term(_T("uid"), wuid);
-		query->add(_CLNEW WildcardQuery(term), true, BooleanClause::SHOULD);
-		_CLDECDELETE(term);
-		return;
-	}
-
-	if (wuid[idx+1] == '\0') {
-		/* 2..5 */
-	} else {
-		/* 2* .. 5* */
-		wuid[idx+1] = '*';
-		wuid[idx+2] = '\0';
-	}
-
-	for (c = wuid[idx]; c <= max_char; c++) {
-		wuid[idx] = c;
-
-		Term *term = _CLNEW Term(_T("uid"), wuid);
-		query->add(_CLNEW WildcardQuery(term), true, BooleanClause::SHOULD);
-		_CLDECDELETE(term);
-	}
-}
-
 static bool
-lucene_index_add_uid_filter(BooleanQuery *query, uint32_t seq1, uint32_t seq2)
+lucene_index_add_uid_filter(BooleanQuery *query,
+			    const struct fts_expunge_log_read_record *rec)
 {
-	unsigned int i;
+	struct seq_range_iter iter;
+	wchar_t wuid[MAX_INT_STRLEN];
+	unsigned int n;
+	uint32_t uid;
 
-	i_assert(seq1 <= seq2);
+	/* RangeQuery and WildcardQuery work by enumerating through all terms
+	   that match them, and then adding TermQueries for them. So we can
+	   simply do the same directly, and if it looks like there are too
+	   many terms just go through everything. */
 
-	/* RangeQuery actually just adds each term within the range to the
-	   search query, causing "too many clauses" at some point.
-	   So use WildcardQuery to get something approximately true. */
-	wchar_t wuid1[MAX_INT_STRLEN+2], wuid2[MAX_INT_STRLEN+2];
-	swprintf(wuid1, N_ELEMENTS(wuid1), L"%u", seq1);
-	swprintf(wuid2, N_ELEMENTS(wuid2), L"%u", seq2);
+	if (seq_range_count(&rec->uids) > FTS_LUCENE_MAX_SEARCH_TERMS)
+		return false;
 
-	if (wcslen(wuid1) == wcslen(wuid2)) {
-		/* find the common prefix and use it */
-		for (i = 0; wuid1[i] != '\0'; i++) {
-			if (wuid1[i] != wuid2[i])
-				break;
-		}
-		if (i == 0 && wuid1[i] == '1' && wuid2[i] == '9') {
-			/* need to scan everything */
-			return false;
-		}
+	seq_range_array_iter_init(&iter, &rec->uids); n = 0;
+	while (seq_range_array_iter_nth(&iter, n++, &uid)) {
+		swprintf(wuid, N_ELEMENTS(wuid), L"%u", uid);
 
-		if (wuid1[i] != '\0') {
-			lucene_index_query_range_add(query, wuid1, i, wuid2[i]);
-			return true;
-		}
-		/* only a single UID */
-		Term *term = _CLNEW Term(_T("uid"), wuid1);
+		Term *term = _CLNEW Term(_T("uid"), wuid);
 		query->add(_CLNEW TermQuery(term), true, BooleanClause::SHOULD);
 		_CLDECDELETE(term);
-		return true;
 	}
-	if (wcslen(wuid1)+1 != wcslen(wuid2)) {
-		/* need to scan everything */
-		return false;
-	}
-
-	/* we can optimize this only if seq1 starts with >1 higher number than
-	   seq2. For example:
-
-	   40 .. 500 -> have to go through everything
-	   40 .. 400 ->  -''-
-	   40 .. 300 ->  -''-
-	   40 .. 200 -> we can avoid 3*
-	   40 .. 100 -> we can avoid 2* and 3* */
-	if (wuid1[0] <= wuid2[0]+1)
-		return false;
-
-	lucene_index_query_range_add(query, wuid1, 0, '9');
-	wuid1[0] = '1';
-	lucene_index_query_range_add(query, wuid1, 0, wuid2[0]);
 	return true;
 }
 
@@ -781,19 +719,15 @@ static int
 lucene_index_expunge_record(struct lucene_index *index,
 			    const struct fts_expunge_log_read_record *rec)
 {
-	const struct seq_range *range;
-	unsigned int count;
 	int ret;
 
 	if ((ret = lucene_index_open_search(index)) <= 0)
 		return ret;
-	range = array_get(&rec->uids, &count);
 
 	BooleanQuery query;
 	BooleanQuery uids_query;
 
-	if (lucene_index_add_uid_filter(&uids_query, range[0].seq1,
-					range[count-1].seq2))
+	if (lucene_index_add_uid_filter(&uids_query, rec))
 		query.add(&uids_query, BooleanClause::MUST);
 
 	wchar_t wguid[MAILBOX_GUID_HEX_LENGTH + 1];
