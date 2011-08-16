@@ -89,9 +89,6 @@ fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
 	    backend->selected_box_generation == box->generation_sequence)
 		return 0;
 
-	if (fts_backend_lucene_mkdir(backend) < 0)
-		return -1;
-
 	if (box != NULL) {
 		if (fts_lucene_get_mailbox_guid(box, &guid) < 0)
 			return -1;
@@ -195,9 +192,6 @@ fts_backend_lucene_update_init(struct fts_backend *_backend)
 	ctx = i_new(struct lucene_fts_backend_update_context, 1);
 	ctx->ctx.backend = _backend;
 	backend->updating = TRUE;
-
-	if (fts_backend_lucene_mkdir(backend) < 0)
-		ctx->ctx.failed = TRUE;
 	return &ctx->ctx;
 }
 
@@ -327,6 +321,8 @@ fts_backend_lucene_update_set_build_key(struct fts_backend_update_context *_ctx,
 		(struct lucene_fts_backend *)_ctx->backend;
 
 	if (!ctx->lucene_opened) {
+		if (fts_backend_lucene_mkdir(backend) < 0)
+			ctx->ctx.failed = TRUE;
 		if (lucene_index_build_init(backend->index) < 0)
 			ctx->ctx.failed = TRUE;
 		ctx->lucene_opened = TRUE;
@@ -504,9 +500,6 @@ fts_backend_lucene_lookup_multi(struct fts_backend *_backend,
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 	int ret;
-
-	if (fts_backend_lucene_mkdir(backend) < 0)
-		return -1;
 
 	T_BEGIN {
 		struct hash_table *guids;

@@ -789,6 +789,8 @@ int lucene_index_optimize(struct lucene_index *index)
 {
 	int ret = 0;
 
+	if (!IndexReader::indexExists(index->path))
+		return 0;
 	if (IndexReader::isLocked(index->path))
 		IndexReader::unlock(index->path);
 
