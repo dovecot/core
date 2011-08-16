@@ -1184,8 +1184,12 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	array_free(&ctx->mail_ctx.results);
 	array_free(&ctx->mail_ctx.module_contexts);
 
-	array_foreach_modifiable(&ctx->mails, mailp)
+	array_foreach_modifiable(&ctx->mails, mailp) {
+		struct index_mail *imail = (struct index_mail *)*mailp;
+
+		imail->search_mail = FALSE;
 		mail_free(mailp);
+	}
 	array_free(&ctx->mails);
 	i_free(ctx);
 	return ret;
