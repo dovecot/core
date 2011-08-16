@@ -333,21 +333,6 @@ struct mail_private {
 
 	pool_t pool;
 	ARRAY_DEFINE(module_contexts, union mail_module_context *);
-
-	/* these statistics are never reset by mail-storage API: */
-
-	unsigned long stats_open_lookup_count;
-	unsigned long stats_stat_lookup_count;
-	unsigned long stats_fstat_lookup_count;
-	/* number of files we've opened and read */
-	unsigned long stats_files_read_count;
-	/* number of bytes we've had to read from files */
-	unsigned long long stats_files_read_bytes;
-	/* number of cache lookup hits */
-	unsigned long stats_cache_hit_count;
-
-	/* Set to TRUE to update stats_* fields */
-	unsigned int stats_track:1;
 };
 
 struct mailbox_list_context {
@@ -380,6 +365,21 @@ struct mailbox_transaction_context {
 		     union mailbox_transaction_module_context *);
 
 	struct mail_save_context *save_ctx;
+
+	/* these statistics are never reset by mail-storage API: */
+
+	unsigned long stats_open_lookup_count;
+	unsigned long stats_stat_lookup_count;
+	unsigned long stats_fstat_lookup_count;
+	/* number of files we've opened and read */
+	unsigned long stats_files_read_count;
+	/* number of bytes we've had to read from files */
+	unsigned long long stats_files_read_bytes;
+	/* number of cache lookup hits */
+	unsigned long stats_cache_hit_count;
+
+	/* Set to TRUE to update stats_* fields */
+	unsigned int stats_track:1;
 };
 
 union mail_search_module_context {

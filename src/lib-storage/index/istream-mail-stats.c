@@ -8,7 +8,7 @@
 struct mail_stats_istream {
 	struct istream_private istream;
 
-	struct mail_private *mail;
+	struct mailbox_transaction_context *trans;
 	unsigned int files_read_increased:1;
 };
 
@@ -24,10 +24,10 @@ i_stream_mail_stats_read_mail_stats(struct istream_private *stream)
 
 	ret = i_stream_read_copy_from_parent(&stream->istream);
 	if (ret > 0) {
-		mstream->mail->stats_files_read_bytes += ret;
+		mstream->trans->stats_files_read_bytes += ret;
 		if (!mstream->files_read_increased) {
 			mstream->files_read_increased = TRUE;
-			mstream->mail->stats_files_read_count++;
+			mstream->trans->stats_files_read_count++;
 		}
 	}
 	return ret;
@@ -47,13 +47,14 @@ i_stream_mail_stats_stat(struct istream_private *stream, bool exact)
 	return i_stream_stat(stream->parent, exact);
 }
 
-struct istream *i_stream_create_mail_stats_counter(struct mail_private *mail,
-						   struct istream *input)
+struct istream *
+i_stream_create_mail_stats_counter(struct mailbox_transaction_context *trans,
+				   struct istream *input)
 {
 	struct mail_stats_istream *mstream;
 
 	mstream = i_new(struct mail_stats_istream, 1);
-	mstream->mail = mail;
+	mstream->trans = trans;
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	mstream->istream.parent = input;

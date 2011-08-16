@@ -50,7 +50,7 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 	ret = mail_cache_lookup_field(mail->mail.mail.transaction->cache_view,
 				      buf, mail->data.seq, field_idx);
 	if (ret > 0)
-		mail->mail.stats_cache_hit_count++;
+		mail->mail.mail.transaction->stats_cache_hit_count++;
 	return ret;
 }
 
@@ -830,12 +830,14 @@ int index_mail_init_stream(struct index_mail *mail,
 			   struct message_size *body_size,
 			   struct istream **stream_r)
 {
+	struct mail *_mail = &mail->mail.mail;
 	struct index_mail_data *data = &mail->data;
 	struct istream *input;
 	int ret;
 
-	if (!data->initialized_wrapper_stream && mail->mail.stats_track) {
-		input = i_stream_create_mail_stats_counter(&mail->mail,
+	if (!data->initialized_wrapper_stream &&
+	    _mail->transaction->stats_track) {
+		input = i_stream_create_mail_stats_counter(_mail->transaction,
 							   data->stream);
 		i_stream_unref(&data->stream);
 		data->stream = input;

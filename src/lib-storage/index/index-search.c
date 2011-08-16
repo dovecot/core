@@ -1184,41 +1184,36 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	array_free(&ctx->mail_ctx.results);
 	array_free(&ctx->mail_ctx.module_contexts);
 
-	array_foreach_modifiable(&ctx->mails, mailp) {
-		struct index_mail *imail = (struct index_mail *)*mailp;
-
-		imail->search_mail = FALSE;
+	array_foreach_modifiable(&ctx->mails, mailp)
 		mail_free(mailp);
-	}
 	array_free(&ctx->mails);
 	i_free(ctx);
 	return ret;
 }
 
-static unsigned long long search_mail_get_cost(struct mail_private *mail)
+static unsigned long long
+search_get_cost(struct mailbox_transaction_context *trans)
 {
-	return mail->stats_open_lookup_count * SEARCH_COST_DENTRY +
-		mail->stats_stat_lookup_count * SEARCH_COST_DENTRY +
-		mail->stats_fstat_lookup_count * SEARCH_COST_ATTR +
-		mail->stats_cache_hit_count * SEARCH_COST_CACHE +
-		mail->stats_files_read_count * SEARCH_COST_FILES_READ +
-		(mail->stats_files_read_bytes/1024) * SEARCH_COST_KBYTE;
+	return trans->stats_open_lookup_count * SEARCH_COST_DENTRY +
+		trans->stats_stat_lookup_count * SEARCH_COST_DENTRY +
+		trans->stats_fstat_lookup_count * SEARCH_COST_ATTR +
+		trans->stats_cache_hit_count * SEARCH_COST_CACHE +
+		trans->stats_files_read_count * SEARCH_COST_FILES_READ +
+		(trans->stats_files_read_bytes/1024) * SEARCH_COST_KBYTE;
 }
 
 static int search_match_once(struct index_search_context *ctx)
 {
-	struct mail_private *mail_private =
-		(struct mail_private *)ctx->cur_mail;
 	unsigned long long cost1, cost2;
 	int ret;
 
-	cost1 = search_mail_get_cost(mail_private);
+	cost1 = search_get_cost(ctx->cur_mail->transaction);
 	ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_cached_arg, ctx);
 	if (ret < 0)
 		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx);
 
-	cost2 = search_mail_get_cost(mail_private);
+	cost2 = search_get_cost(ctx->cur_mail->transaction);
 	ctx->cost += cost2 - cost1;
 	return ret;
 }
@@ -1471,7 +1466,7 @@ struct mail *index_search_get_mail(struct index_search_context *ctx)
 			  ctx->mail_ctx.wanted_headers);
 	imail = (struct index_mail *)mail;
 	imail->search_mail = TRUE;
-	imail->mail.stats_track = TRUE;
+	ctx->mail_ctx.transaction->stats_track = TRUE;
 
 	array_append(&ctx->mails, &mail, 1);
 	return mail;

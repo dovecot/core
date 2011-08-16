@@ -625,7 +625,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 		*value_r = index_mail_get_parsed_header(mail, field_idx);
 		return 0;
 	}
-	mail->mail.stats_cache_hit_count++;
+	_mail->transaction->stats_cache_hit_count++;
 	data = buffer_get_modifiable_data(dest, &len);
 
 	if (len == 0) {
@@ -807,7 +807,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 	if (mail_cache_lookup_headers(_mail->transaction->cache_view, dest,
 				      _mail->seq, headers->idx,
 				      headers->count) > 0) {
-		mail->mail.stats_cache_hit_count++;
+		_mail->transaction->stats_cache_hit_count++;
 		if (mail->data.filter_stream != NULL)
 			i_stream_destroy(&mail->data.filter_stream);
 		mail->data.filter_stream =
