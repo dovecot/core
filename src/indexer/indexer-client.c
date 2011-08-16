@@ -69,6 +69,7 @@ indexer_client_request_queue(struct indexer_client *client, bool append,
 	struct indexer_client_request *ctx = NULL;
 	unsigned int tag, max_recent_msgs;
 
+	/* <tag> <user> <mailbox> [<max_recent_msgs>] */
 	if (str_array_length(args) < 3) {
 		*error_r = "Wrong parameter count";
 		return -1;
@@ -98,6 +99,35 @@ indexer_client_request_queue(struct indexer_client *client, bool append,
 }
 
 static int
+indexer_client_request_optimize(struct indexer_client *client,
+				const char *const *args, const char **error_r)
+{
+	struct indexer_client_request *ctx = NULL;
+	unsigned int tag;
+
+	/* <tag> <user> <mailbox> */
+	if (str_array_length(args) != 3) {
+		*error_r = "Wrong parameter count";
+		return -1;
+	}
+	if (str_to_uint(args[0], &tag) < 0) {
+		*error_r = "Invalid tag";
+		return -1;
+	}
+
+	if (tag != 0) {
+		ctx = i_new(struct indexer_client_request, 1);
+		ctx->client = client;
+		ctx->tag = tag;
+		indexer_client_ref(client);
+	}
+
+	indexer_queue_append_optimize(client->queue, args[1], args[2], ctx);
+	o_stream_send_str(client->output, t_strdup_printf("%u\tOK\n", tag));
+	return 0;
+}
+
+static int
 indexer_client_request(struct indexer_client *client,
 		       const char *const *args, const char **error_r)
 {
@@ -109,6 +139,8 @@ indexer_client_request(struct indexer_client *client,
 		return indexer_client_request_queue(client, TRUE, args, error_r);
 	else if (strcmp(cmd, "PREPEND") == 0)
 		return indexer_client_request_queue(client, FALSE, args, error_r);
+	else if (strcmp(cmd, "OPTIMIZE") == 0)
+		return indexer_client_request_optimize(client, args, error_r);
 	else {
 		*error_r = t_strconcat("Unknown command: ", cmd, NULL);
 		return -1;

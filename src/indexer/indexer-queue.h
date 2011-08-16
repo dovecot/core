@@ -10,6 +10,11 @@ struct indexer_request {
 	char *mailbox;
 	unsigned int max_recent_msgs;
 
+	/* index messages in this mailbox */
+	unsigned int index:1;
+	/* optimize this mailbox */
+	unsigned int optimize:1;
+
 	void **contexts;
 };
 
@@ -23,6 +28,9 @@ void indexer_queue_set_listen_callback(struct indexer_queue *queue,
 void indexer_queue_append(struct indexer_queue *queue, bool append,
 			  const char *username, const char *mailbox,
 			  unsigned int max_recent_msgs, void *context);
+void indexer_queue_append_optimize(struct indexer_queue *queue,
+				   const char *username, const char *mailbox,
+				   void *context);
 void indexer_queue_cancel_all(struct indexer_queue *queue);
 
 bool indexer_queue_is_empty(struct indexer_queue *queue);

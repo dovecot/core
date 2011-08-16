@@ -3,6 +3,8 @@
 
 #include "indexer.h"
 
+struct indexer_request;
+
 struct worker_connection *
 worker_connection_create(const char *socket_path,
 			 indexer_status_callback_t *callback);
@@ -22,8 +24,8 @@ bool worker_connection_get_process_limit(struct worker_connection *conn,
    called as necessary with the given context. Requests can be queued, but
    only for the same username. */
 void worker_connection_request(struct worker_connection *conn,
-			       const char *username, const char *mailbox,
-			       unsigned int max_recent_msgs, void *context);
+			       const struct indexer_request *request,
+			       void *context);
 /* Returns TRUE if a request is being handled. */
 bool worker_connection_is_busy(struct worker_connection *conn);
 /* Returns username of the currently pending requests,

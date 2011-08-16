@@ -91,9 +91,10 @@ static void request_add_context(struct indexer_request *request, void *context)
 	request->contexts[count] = context;
 }
 
-void indexer_queue_append(struct indexer_queue *queue, bool append,
-			  const char *username, const char *mailbox,
-			  unsigned int max_recent_msgs, void *context)
+static struct indexer_request *
+indexer_queue_append_request(struct indexer_queue *queue, bool append,
+			     const char *username, const char *mailbox,
+			     unsigned int max_recent_msgs, void *context)
 {
 	struct indexer_request *request;
 
@@ -111,7 +112,7 @@ void indexer_queue_append(struct indexer_queue *queue, bool append,
 		request_add_context(request, context);
 		if (append) {
 			/* keep the request in its old position */
-			return;
+			return request;
 		}
 		/* move request to beginning of the queue */
 		DLLIST2_REMOVE(&queue->head, &queue->tail, request);
@@ -121,10 +122,38 @@ void indexer_queue_append(struct indexer_queue *queue, bool append,
 		DLLIST2_APPEND(&queue->head, &queue->tail, request);
 	else
 		DLLIST2_PREPEND(&queue->head, &queue->tail, request);
+	return request;
+}
 
+static void indexer_queue_append_finish(struct indexer_queue *queue)
+{
 	if (queue->listen_callback != NULL)
 		queue->listen_callback(queue);
 	indexer_refresh_proctitle();
+}
+
+void indexer_queue_append(struct indexer_queue *queue, bool append,
+			  const char *username, const char *mailbox,
+			  unsigned int max_recent_msgs, void *context)
+{
+	struct indexer_request *request;
+
+	request = indexer_queue_append_request(queue, append, username, mailbox,
+					       max_recent_msgs, context);
+	request->index = TRUE;
+	indexer_queue_append_finish(queue);
+}
+
+void indexer_queue_append_optimize(struct indexer_queue *queue,
+				   const char *username, const char *mailbox,
+				   void *context)
+{
+	struct indexer_request *request;
+
+	request = indexer_queue_append_request(queue, TRUE, username, mailbox,
+					       0, context);
+	request->optimize = TRUE;
+	indexer_queue_append_finish(queue);
 }
 
 struct indexer_request *indexer_queue_request_peek(struct indexer_queue *queue)

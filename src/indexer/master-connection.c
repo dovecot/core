@@ -45,13 +45,14 @@ indexer_worker_refresh_proctitle(const char *username, const char *mailbox)
 }
 
 static int index_mailbox(struct mail_user *user, const char *mailbox,
-			 unsigned int max_recent_msgs)
+			 unsigned int max_recent_msgs, const char *what)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mailbox_status status;
 	const char *errstr;
 	enum mail_error error;
+	enum mailbox_sync_flags sync_flags = MAILBOX_SYNC_FLAG_FULL_READ;
 	int ret = 0;
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
@@ -79,8 +80,13 @@ static int index_mailbox(struct mail_user *user, const char *mailbox,
 			return ret;
 		}
 	}
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ |
-			 MAILBOX_SYNC_FLAG_PRECACHE) < 0) {
+
+	if (strchr(what, 'i') != NULL)
+		sync_flags |= MAILBOX_SYNC_FLAG_PRECACHE;
+	if (strchr(what, 'o') != NULL)
+		sync_flags |= MAILBOX_SYNC_FLAG_OPTIMIZE;
+
+	if (mailbox_sync(box, sync_flags) < 0) {
 		errstr = mail_storage_get_last_error(mailbox_get_storage(box),
 						     &error);
 		if (error != MAIL_ERROR_NOTFOUND) {
@@ -107,9 +113,9 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 	unsigned int max_recent_msgs;
 	int ret;
 
-	/* <username> <mailbox> <max_recent_msgs> */
-	if (str_array_length(args) != 3 ||
-	    str_to_uint(args[2], &max_recent_msgs) < 0) {
+	/* <username> <mailbox> <max_recent_msgs> [i][o] */
+	if (str_array_length(args) != 4 ||
+	    str_to_uint(args[2], &max_recent_msgs) < 0 || args[3][0] == '\0') {
 		i_error("Invalid input from master: %s", line);
 		return -1;
 	}
@@ -125,7 +131,7 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 		ret = -1;
 	} else {
 		indexer_worker_refresh_proctitle(user->username, args[1]);
-		ret = index_mailbox(user, args[1], max_recent_msgs);
+		ret = index_mailbox(user, args[1], max_recent_msgs, args[3]);
 		indexer_worker_refresh_proctitle(NULL, NULL);
 		mail_user_unref(&user);
 		mail_storage_service_user_free(&service_user);

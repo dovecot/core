@@ -9,6 +9,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "master-service.h"
+#include "indexer-queue.h"
 #include "worker-connection.h"
 
 #include <unistd.h>
@@ -215,26 +216,34 @@ bool worker_connection_get_process_limit(struct worker_connection *conn,
 }
 
 void worker_connection_request(struct worker_connection *conn,
-			       const char *username, const char *mailbox,
-			       unsigned int max_recent_msgs, void *context)
+			       const struct indexer_request *request,
+			       void *context)
 {
 	i_assert(worker_connection_is_connected(conn));
 	i_assert(context != NULL);
+	i_assert(request->index || request->optimize);
 
 	if (conn->request_username == NULL)
-		conn->request_username = i_strdup(username);
-	else
-		i_assert(strcmp(conn->request_username, username) == 0);
+		conn->request_username = i_strdup(request->username);
+	else {
+		i_assert(strcmp(conn->request_username,
+				request->username) == 0);
+	}
 
 	aqueue_append(conn->request_queue, &context);
 
 	T_BEGIN {
 		string_t *str = t_str_new(128);
 
-		str_tabescape_write(str, username);
+		str_tabescape_write(str, request->username);
 		str_append_c(str, '\t');
-		str_tabescape_write(str, mailbox);
-		str_printfa(str, "\t%u\n", max_recent_msgs);
+		str_tabescape_write(str, request->mailbox);
+		str_printfa(str, "\t%u\t", request->max_recent_msgs);
+		if (request->index)
+			str_append_c(str, 'i');
+		if (request->optimize)
+			str_append_c(str, 'o');
+		str_append_c(str, '\n');
 		o_stream_send(conn->output, str_data(str), str_len(str));
 	} T_END;
 }
