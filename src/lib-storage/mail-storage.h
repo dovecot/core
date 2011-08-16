@@ -172,7 +172,10 @@ enum mailbox_sync_flags {
 	/* Force doing a full resync of indexes. */
 	MAILBOX_SYNC_FLAG_FORCE_RESYNC		= 0x100,
 	/* Add all missing data to cache and fts index ("doveadm index") */
-	MAILBOX_SYNC_FLAG_PRECACHE		= 0x200
+	MAILBOX_SYNC_FLAG_PRECACHE		= 0x200,
+	/* FIXME: kludge until something better comes along:
+	   Request full text search index optimization */
+	MAILBOX_SYNC_FLAG_OPTIMIZE		= 0x400
 };
 
 enum mailbox_sync_type {
