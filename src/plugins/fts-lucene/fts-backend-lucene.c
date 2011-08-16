@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "hex-binary.h"
+#include "strescape.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "fts-expunge-log.h"
@@ -36,14 +37,15 @@ struct lucene_fts_backend_update_context {
 
 	struct mailbox *box;
 	uint32_t last_uid;
+	char *first_box_vname;
 
 	uint32_t uid;
 	char *hdr_name;
 
 	unsigned int added_msgs;
-	bool lucene_opened;
-
 	struct fts_expunge_log_append_ctx *expunge_ctx;
+
+	bool lucene_opened;
 };
 
 static int fts_backend_lucene_mkdir(struct lucene_fts_backend *backend)
@@ -205,11 +207,6 @@ fts_backend_lucene_need_optimize(struct lucene_fts_backend_update_context *ctx)
 	unsigned int expunges;
 	uint32_t numdocs;
 
-	if (!ctx->ctx.backend->syncing) {
-		/* only indexer process can actually do anything
-		   about optimizing */
-		return FALSE;
-	}
 	if (ctx->added_msgs >= LUCENE_OPTIMIZE_BATCH_MSGS_COUNT)
 		return TRUE;
 	if (lucene_index_get_doc_count(backend->index, &numdocs) < 0)
@@ -241,9 +238,26 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 			ret = -1;
 	}
 
-	if (fts_backend_lucene_need_optimize(ctx))
-		(void)fts_backend_optimize(_ctx->backend);
+	if (fts_backend_lucene_need_optimize(ctx)) {
+		if (ctx->ctx.backend->syncing)
+			(void)fts_backend_optimize(_ctx->backend);
+		else {
+			struct mail_user *user = backend->backend.ns->user;
+			const char *cmd, *path;
+			int fd;
 
+			/* the optimize affects all mailboxes within namespace,
+			   so just use any mailbox name in it */
+			cmd = t_strdup_printf("OPTIMIZE\t0\t%s\t%s\n",
+				str_tabescape(user->username),
+				str_tabescape(ctx->first_box_vname));
+			fd = fts_indexer_cmd(user, cmd, &path);
+			if (fd != -1)
+				(void)close(fd);
+		}
+	}
+
+	i_free(ctx->first_box_vname);
 	i_free(ctx);
 	return ret;
 }
@@ -259,6 +273,8 @@ fts_backend_lucene_update_set_mailbox(struct fts_backend_update_context *_ctx,
 		(void)fts_index_set_last_uid(ctx->box, ctx->last_uid);
 		ctx->last_uid = 0;
 	}
+	if (ctx->first_box_vname == NULL)
+		ctx->first_box_vname = i_strdup(box->vname);
 	ctx->box = box;
 }
 
