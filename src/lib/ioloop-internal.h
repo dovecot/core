@@ -11,8 +11,7 @@
 struct ioloop {
         struct ioloop *prev;
 
-	struct ioloop_log *cur_log;
-	char *default_log_prefix;
+	struct ioloop_context *cur_ctx;
 
 	struct io_file *io_files;
 	struct io_file *next_io_file;
@@ -35,7 +34,7 @@ struct io {
         void *context;
 
 	struct ioloop *ioloop;
-	struct ioloop_log *log;
+	struct ioloop_context *ctx;
 };
 
 struct io_file {
@@ -58,13 +57,19 @@ struct timeout {
         void *context;
 
 	struct ioloop *ioloop;
-	struct ioloop_log *log;
+	struct ioloop_context *ctx;
 };
 
-struct ioloop_log {
+struct ioloop_context_callback {
+	io_callback_t *activate;
+	io_callback_t *deactivate;
+	void *context;
+};
+
+struct ioloop_context {
 	int refcount;
-	char *prefix;
 	struct ioloop *ioloop;
+	ARRAY_DEFINE(callbacks, struct ioloop_context_callback);
 };
 
 int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);
@@ -80,5 +85,8 @@ void io_loop_handler_deinit(struct ioloop *ioloop);
 
 void io_loop_notify_remove(struct io *io);
 void io_loop_notify_handler_deinit(struct ioloop *ioloop);
+
+void io_loop_context_activate(struct ioloop_context *ctx);
+void io_loop_context_deactivate(struct ioloop_context *ctx);
 
 #endif

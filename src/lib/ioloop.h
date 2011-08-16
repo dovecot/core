@@ -100,16 +100,21 @@ void io_loop_set_time_moved_callback(struct ioloop *ioloop,
 /* Change the current_ioloop. */
 void io_loop_set_current(struct ioloop *ioloop);
 
-/* This log is used for all further I/O and timeout callbacks that are added
-   until returning to ioloop. */
-struct ioloop_log *io_loop_log_new(struct ioloop *ioloop);
-void io_loop_log_ref(struct ioloop_log *log);
-void io_loop_log_unref(struct ioloop_log **log);
-/* Set the log's prefix. Note that this doesn't immediately call
-   i_set_failure_prefix(). */
-void io_loop_log_set_prefix(struct ioloop_log *log, const char *prefix);
-/* Set the default log prefix to use outside callbacks. */
-void io_loop_set_default_log_prefix(struct ioloop *ioloop, const char *prefix);
+/* This context is used for all further I/O and timeout callbacks that are
+   added until returning to ioloop. When a callback is called, this context is
+   again activated. */
+struct ioloop_context *io_loop_context_new(struct ioloop *ioloop);
+void io_loop_context_ref(struct ioloop_context *ctx);
+void io_loop_context_unref(struct ioloop_context **ctx);
+/* Call the activate callback when this context is activated (I/O callback is
+   about to be called), and the deactivate callback when the context is
+   deactivated (I/O callback has returned). You can add multiple callbacks. */
+void io_loop_context_add_callbacks(struct ioloop_context *ctx,
+				   io_callback_t *activate,
+				   io_callback_t *deactivate, void *context);
+/* Remove callbacks with the given context. */
+void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
+				      void *context);
 
 /* Move the given I/O into the current I/O loop if it's not already
    there. New I/O is returned, while the old one is freed. */

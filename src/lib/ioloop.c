@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "time-util.h"
 #include "ioloop-internal.h"
 
@@ -44,9 +45,9 @@ struct io *io_add(int fd, enum io_condition condition,
 	io->refcount = 1;
 	io->fd = fd;
 
-	if (io->io.ioloop->cur_log != NULL) {
-		io->io.log = io->io.ioloop->cur_log;
-		io_loop_log_ref(io->io.log);
+	if (io->io.ioloop->cur_ctx != NULL) {
+		io->io.ctx = io->io.ioloop->cur_ctx;
+		io_loop_context_ref(io->io.ctx);
 	}
 
 	if (io->io.ioloop->handler_context == NULL)
@@ -89,8 +90,8 @@ static void io_remove_full(struct io **_io, bool closed)
 	   kqueue code relies on this. */
 	io->callback = NULL;
 
-	if (io->log != NULL)
-		io_loop_log_unref(&io->log);
+	if (io->ctx != NULL)
+		io_loop_context_unref(&io->ctx);
 
 	if ((io->condition & IO_NOTIFY) != 0)
 		io_loop_notify_remove(io);
@@ -150,9 +151,9 @@ struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 	timeout->callback = callback;
 	timeout->context = context;
 
-	if (timeout->ioloop->cur_log != NULL) {
-		timeout->log = timeout->ioloop->cur_log;
-		io_loop_log_ref(timeout->log);
+	if (timeout->ioloop->cur_ctx != NULL) {
+		timeout->ctx = timeout->ioloop->cur_ctx;
+		io_loop_context_ref(timeout->ctx);
 	}
 
 	timeout_update_next(timeout, timeout->ioloop->running ?
@@ -163,8 +164,8 @@ struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 
 static void timeout_free(struct timeout *timeout)
 {
-	if (timeout->log != NULL)
-		io_loop_log_unref(&timeout->log);
+	if (timeout->ctx != NULL)
+		io_loop_context_unref(&timeout->ctx);
 	i_free(timeout);
 }
 
@@ -345,21 +346,16 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		/* update timeout's next_run and reposition it in the queue */
 		timeout_reset_timeval(timeout, &tv_call);
 
-		if (timeout->log != NULL) {
-			ioloop->cur_log = timeout->log;
-			io_loop_log_ref(ioloop->cur_log);
-			i_set_failure_prefix(timeout->log->prefix);
-		}
+		if (timeout->ctx != NULL)
+			io_loop_context_activate(timeout->ctx);
                 t_id = t_push();
 		timeout->callback(timeout->context);
 		if (t_pop() != t_id) {
 			i_panic("Leaked a t_pop() call in timeout handler %p",
 				(void *)timeout->callback);
 		}
-		if (ioloop->cur_log != NULL) {
-			io_loop_log_unref(&ioloop->cur_log);
-			i_set_failure_prefix(ioloop->default_log_prefix);
-		}
+		if (ioloop->cur_ctx != NULL)
+			io_loop_context_activate(ioloop->cur_ctx);
 	}
 }
 
@@ -375,21 +371,16 @@ void io_loop_call_io(struct io *io)
 	struct ioloop *ioloop = io->ioloop;
 	unsigned int t_id;
 
-	if (io->log != NULL) {
-		ioloop->cur_log = io->log;
-		io_loop_log_ref(ioloop->cur_log);
-		i_set_failure_prefix(io->log->prefix);
-	}
+	if (io->ctx != NULL)
+		io_loop_context_activate(io->ctx);
 	t_id = t_push();
 	io->callback(io->context);
 	if (t_pop() != t_id) {
 		i_panic("Leaked a t_pop() call in I/O handler %p",
 			(void *)io->callback);
 	}
-	if (ioloop->cur_log != NULL) {
-		io_loop_log_unref(&ioloop->cur_log);
-		i_set_failure_prefix(ioloop->default_log_prefix);
-	}
+	if (ioloop->cur_ctx != NULL)
+		io_loop_context_deactivate(ioloop->cur_ctx);
 }
 
 void io_loop_run(struct ioloop *ioloop)
@@ -397,8 +388,8 @@ void io_loop_run(struct ioloop *ioloop)
 	if (ioloop->handler_context == NULL)
 		io_loop_initialize_handler(ioloop);
 
-	if (ioloop->cur_log != NULL)
-		io_loop_log_unref(&ioloop->cur_log);
+	if (ioloop->cur_ctx != NULL)
+		io_loop_context_unref(&ioloop->cur_ctx);
 
 	ioloop->running = TRUE;
 	while (ioloop->running)
@@ -480,7 +471,6 @@ void io_loop_destroy(struct ioloop **_ioloop)
         i_assert(ioloop == current_ioloop);
 	current_ioloop = current_ioloop->prev;
 
-	i_free(ioloop->default_log_prefix);
 	i_free(ioloop);
 }
 
@@ -495,59 +485,117 @@ void io_loop_set_current(struct ioloop *ioloop)
 	current_ioloop = ioloop;
 }
 
-struct ioloop_log *io_loop_log_new(struct ioloop *ioloop)
+struct ioloop_context *io_loop_context_new(struct ioloop *ioloop)
 {
-	struct ioloop_log *log;
+	struct ioloop_context *ctx;
 
-	i_assert(ioloop->default_log_prefix != NULL);
+	ctx = i_new(struct ioloop_context, 1);
+	ctx->refcount = 2;
+	ctx->ioloop = ioloop;
+	i_array_init(&ctx->callbacks, 4);
 
-	log = i_new(struct ioloop_log, 1);
-	log->refcount = 2;
-	log->prefix = i_strdup("");
-
-	log->ioloop = ioloop;
-	if (ioloop->cur_log != NULL)
-		io_loop_log_unref(&ioloop->cur_log);
-	ioloop->cur_log = log;
-	return log;
+	if (ioloop->cur_ctx != NULL)
+		io_loop_context_unref(&ioloop->cur_ctx);
+	ioloop->cur_ctx = ctx;
+	return ctx;
 }
 
-void io_loop_log_ref(struct ioloop_log *log)
+void io_loop_context_ref(struct ioloop_context *ctx)
 {
-	i_assert(log->refcount > 0);
+	i_assert(ctx->refcount > 0);
 
-	log->refcount++;
+	ctx->refcount++;
 }
 
-void io_loop_log_unref(struct ioloop_log **_log)
+void io_loop_context_unref(struct ioloop_context **_ctx)
 {
-	struct ioloop_log *log = *_log;
+	struct ioloop_context *ctx = *_ctx;
 
-	*_log = NULL;
+	*_ctx = NULL;
 
-	i_assert(log->refcount > 0);
-	if (--log->refcount > 0)
+	i_assert(ctx->refcount > 0);
+	if (--ctx->refcount > 0)
 		return;
 
-	/* cur_log itself keeps a reference */
-	i_assert(log->ioloop->cur_log != log);
+	/* cur_ctx itself keeps a reference */
+	i_assert(ctx->ioloop->cur_ctx != ctx);
 
-	i_free(log->prefix);
-	i_free(log);
+	array_free(&ctx->callbacks);
+	i_free(ctx);
 }
 
-void io_loop_log_set_prefix(struct ioloop_log *log, const char *prefix)
+void io_loop_context_add_callbacks(struct ioloop_context *ctx,
+				   io_callback_t *activate,
+				   io_callback_t *deactivate, void *context)
 {
-	i_free(log->prefix);
-	log->prefix = i_strdup(prefix);
+	struct ioloop_context_callback cb;
+
+	memset(&cb, 0, sizeof(cb));
+	cb.activate = activate;
+	cb.deactivate = deactivate;
+	cb.context = context;
+
+	array_append(&ctx->callbacks, &cb, 1);
 }
 
-void io_loop_set_default_log_prefix(struct ioloop *ioloop, const char *prefix)
+void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
+				      void *context)
 {
-	i_assert(prefix != NULL);
+	struct ioloop_context_callback *cb;
 
-	i_free(ioloop->default_log_prefix);
-	ioloop->default_log_prefix = i_strdup(prefix);
+	array_foreach_modifiable(&ctx->callbacks, cb) {
+		if (cb->context == context) {
+			/* simply mark it as deleted, since we could get
+			   here from activate/deactivate loop */
+			cb->activate = NULL;
+			cb->deactivate = NULL;
+			cb->context = NULL;
+			return;
+		}
+	}
+	i_panic("io_loop_context_remove_callbacks() context not found");
+}
+
+static void
+io_loop_context_remove_deleted_callbacks(struct ioloop_context *ctx)
+{
+	const struct ioloop_context_callback *cbs;
+	unsigned int i, count;
+
+	cbs = array_get(&ctx->callbacks, &count);
+	for (i = 0; i < count; ) {
+		if (cbs[i].activate != NULL)
+			i++;
+		else {
+			array_delete(&ctx->callbacks, i, 1);
+			cbs = array_get(&ctx->callbacks, &count);
+		}
+	}
+}
+
+void io_loop_context_activate(struct ioloop_context *ctx)
+{
+	const struct ioloop_context_callback *cb;
+
+	ctx->ioloop->cur_ctx = ctx;
+	io_loop_context_ref(ctx);
+	array_foreach(&ctx->callbacks, cb) {
+		if (cb->activate != NULL)
+			cb->activate(cb->context);
+	}
+}
+
+void io_loop_context_deactivate(struct ioloop_context *ctx)
+{
+	const struct ioloop_context_callback *cb;
+
+	array_foreach(&ctx->callbacks, cb) {
+		if (cb->deactivate != NULL)
+			cb->deactivate(cb->context);
+	}
+	ctx->ioloop->cur_ctx = NULL;
+	io_loop_context_remove_deleted_callbacks(ctx);
+	io_loop_context_unref(&ctx);
 }
 
 struct io *io_loop_move_io(struct io **_io)

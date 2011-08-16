@@ -41,6 +41,8 @@
 struct mail_storage_service_ctx {
 	pool_t pool;
 	struct master_service *service;
+	const char *default_log_prefix;
+
 	struct auth_master_connection *conn;
 	struct auth_master_user_list_ctx *auth_list;
 	const struct setting_parser_info **set_roots;
@@ -55,8 +57,12 @@ struct mail_storage_service_ctx {
 
 struct mail_storage_service_user {
 	pool_t pool;
+	struct mail_storage_service_ctx *service_ctx;
 	struct mail_storage_service_input input;
 	enum mail_storage_service_flags flags;
+
+	struct ioloop_context *ioloop_ctx;
+	const char *log_prefix;
 
 	const char *system_groups_user, *uid_source, *gid_source;
 	const struct mail_user_settings *user_set;
@@ -564,6 +570,20 @@ user_expand_varstr(struct master_service *service,
 	return str_c(ret);
 }
 
+static void mail_storage_service_io_activate(void *context)
+{
+	struct mail_storage_service_user *user = context;
+
+	i_set_failure_prefix(user->log_prefix);
+}
+
+static void mail_storage_service_io_deactivate(void *context)
+{
+	struct mail_storage_service_user *user = context;
+
+	i_set_failure_prefix(user->service_ctx->default_log_prefix);
+}
+
 static void
 mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user)
@@ -571,17 +591,20 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 	ctx->log_initialized = TRUE;
 	T_BEGIN {
 		string_t *str;
-		struct ioloop_log *log;
 
 		str = t_str_new(256);
 		var_expand(str, user->user_set->mail_log_prefix,
 			   get_var_expand_table(ctx->service, &user->input));
-		master_service_init_log(ctx->service, str_c(str));
-
-		log = io_loop_log_new(current_ioloop);
-		io_loop_log_set_prefix(log, str_c(str));
-		io_loop_log_unref(&log);
+		user->log_prefix = p_strdup(user->pool, str_c(str));
 	} T_END;
+
+	master_service_init_log(ctx->service, user->log_prefix);
+
+	user->ioloop_ctx = io_loop_context_new(current_ioloop);
+	io_loop_context_add_callbacks(user->ioloop_ctx,
+				      mail_storage_service_io_activate,
+				      mail_storage_service_io_deactivate,
+				      user);
 }
 
 static void mail_storage_service_time_moved(time_t old_time, time_t new_time)
@@ -657,10 +680,9 @@ mail_storage_service_init(struct master_service *service,
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0) {
 		/* note: we may not have read any settings yet, so this logging
 		   may still be going to wrong location */
-		const char *log_prefix = t_strconcat(service->name, ": ", NULL);
-
-		master_service_init_log(service, log_prefix);
-		io_loop_set_default_log_prefix(current_ioloop, log_prefix);
+		ctx->default_log_prefix =
+			p_strconcat(pool, service->name, ": ", NULL);
+		master_service_init_log(service, ctx->default_log_prefix);
 	}
 	dict_drivers_register_builtin();
 	return ctx;
@@ -871,6 +893,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	user = p_new(user_pool, struct mail_storage_service_user, 1);
 	memset(user_r, 0, sizeof(user_r));
+	user->service_ctx = ctx;
 	user->pool = user_pool;
 	user->input = *input;
 	user->input.userdb_fields = NULL;
@@ -1050,6 +1073,9 @@ void mail_storage_service_user_free(struct mail_storage_service_user **_user)
 	struct mail_storage_service_user *user = *_user;
 
 	*_user = NULL;
+
+	io_loop_context_remove_callbacks(user->ioloop_ctx, user);
+	io_loop_context_unref(&user->ioloop_ctx);
 	settings_parser_deinit(&user->set_parser);
 	pool_unref(&user->pool);
 }

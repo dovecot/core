@@ -87,7 +87,7 @@ static void dnotify_input(struct ioloop *ioloop)
 	for (i = 0; i < ret; i++) {
 		io = io_notify_fd_find(&ctx->fd_ctx, fd_buf[i]);
 		if (io != NULL)
-			io->io.callback(io->io.context);
+			io_loop_call_io(&io->io);
 	}
 }
 

@@ -70,7 +70,7 @@ static bool inotify_input_more(struct ioloop *ioloop)
 				   EINVAL */
 				io->fd = -1;
 			}
-			io->io.callback(io->io.context);
+			io_loop_call_io(&io->io);
 		}
 	}
 	if (pos != ret)

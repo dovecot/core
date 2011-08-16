@@ -71,7 +71,7 @@ static void event_callback(struct ioloop_notify_handler_context *ctx)
 		/* there can be multiple events for a single io.
 		   call the callback only once if that happens. */
 		if (io->refcount == 2 && io->io.callback != NULL)
-			io->io.callback(io->io.context);
+			io_loop_call_io(&io->io);
 
 		if (--io->refcount == 0)
 			i_free(io);
