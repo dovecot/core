@@ -136,10 +136,12 @@ fts_backend_lucene_init(struct fts_backend *_backend,
 	backend->dir_path = i_strconcat(path, "/"LUCENE_INDEX_DIR_NAME, NULL);
 	if (fuser != NULL) {
 		backend->index = lucene_index_init(backend->dir_path,
+						   _backend->ns->list,
 						   fuser->set.textcat_dir,
 						   fuser->set.textcat_conf);
 	} else {
 		backend->index = lucene_index_init(backend->dir_path,
+						   _backend->ns->list,
 						   NULL, NULL);
 	}
 
@@ -403,7 +405,7 @@ static int fts_backend_lucene_rescan(struct fts_backend *_backend)
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 
-	if (lucene_index_rescan(backend->index, _backend->ns->list) < 0)
+	if (lucene_index_rescan(backend->index) < 0)
 		return -1;
 	return lucene_index_optimize(backend->index);
 }
@@ -418,7 +420,7 @@ static int fts_backend_lucene_optimize(struct fts_backend *_backend)
 					    backend->expunge_log);
 	if (ret == 0) {
 		/* log was corrupted, need to rescan */
-		ret = lucene_index_rescan(backend->index, _backend->ns->list);
+		ret = lucene_index_rescan(backend->index);
 	}
 	if (ret >= 0)
 		ret = lucene_index_optimize(backend->index);

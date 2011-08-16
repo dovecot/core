@@ -16,6 +16,7 @@ struct lucene_index_record {
 };
 
 struct lucene_index *lucene_index_init(const char *path,
+				       struct mailbox_list *list,
 				       const char *textcat_dir,
 				       const char *textcat_conf);
 void lucene_index_deinit(struct lucene_index *index);
@@ -33,8 +34,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 int lucene_index_build_deinit(struct lucene_index *index);
 
 void lucene_index_close(struct lucene_index *index);
-int lucene_index_rescan(struct lucene_index *index,
-			struct mailbox_list *list);
+int lucene_index_rescan(struct lucene_index *index);
 int lucene_index_expunge_from_log(struct lucene_index *index,
 				  struct fts_expunge_log *log);
 int lucene_index_optimize(struct lucene_index *index);

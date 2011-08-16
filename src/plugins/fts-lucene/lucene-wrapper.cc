@@ -6,6 +6,7 @@ extern "C" {
 #include "unichar.h"
 #include "hash.h"
 #include "hex-binary.h"
+#include "unlink-directory.h"
 #include "mail-index.h"
 #include "mail-search.h"
 #include "mail-namespace.h"
@@ -46,6 +47,8 @@ struct lucene_analyzer {
 
 struct lucene_index {
 	char *path;
+	struct mailbox_list *list;
+
 	char *textcat_dir, *textcat_conf;
 	wchar_t mailbox_guid[MAILBOX_GUID_HEX_LENGTH + 1];
 
@@ -62,7 +65,6 @@ struct lucene_index {
 
 struct rescan_context {
 	struct lucene_index *index;
-	struct mailbox_list *list;
 
 	struct mailbox *box;
 	mail_guid_128_t box_guid;
@@ -83,7 +85,11 @@ static void *textcat = NULL;
 static bool textcat_broken = FALSE;
 static int textcat_refcount = 0;
 
+static void rescan_clear_unseen_mailboxes(struct mailbox_list *list,
+					  struct hash_table *guids);
+
 struct lucene_index *lucene_index_init(const char *path,
+				       struct mailbox_list *list,
 				       const char *textcat_dir,
 				       const char *textcat_conf)
 {
@@ -91,6 +97,7 @@ struct lucene_index *lucene_index_init(const char *path,
 
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
+	index->list = list;
 	index->textcat_dir = i_strdup(textcat_dir);
 	index->textcat_conf = i_strdup(textcat_conf);
 #ifdef HAVE_LUCENE_TEXTCAT
@@ -183,7 +190,18 @@ static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
 {
 	const char *what = err.what();
 
-	i_error("lucene index %s: %s failed: %s", index->path, msg, what);
+	i_error("lucene index %s: %s failed (#%d): %s",
+		index->path, msg, err.number(), what);
+
+	if (index->list != NULL &&
+	    (err.number() == CL_ERR_CorruptIndex ||
+	     err.number() == CL_ERR_IO)) {
+		/* delete corrupted index. most IO errors are also about
+		   missing files and other such corruption.. */
+		if (unlink_directory(index->path, TRUE) < 0 && errno != ENOENT)
+			i_error("unlink_directory(%s) failed: %m", index->path);
+		rescan_clear_unseen_mailboxes(index->list, NULL);
+	}
 }
 
 static int lucene_index_open(struct lucene_index *index)
@@ -560,7 +578,8 @@ rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
 
 	if (ctx->box != NULL)
 		rescan_finish(ctx);
-	ctx->box = mailbox_alloc_guid(ctx->list, guid, MAILBOX_FLAG_KEEP_RECENT);
+	ctx->box = mailbox_alloc_guid(ctx->index->list,
+				      guid, MAILBOX_FLAG_KEEP_RECENT);
 	if (mailbox_open(ctx->box) < 0) {
 		enum mail_error error;
 		const char *errstr;
@@ -634,7 +653,8 @@ rescan_next(struct rescan_context *ctx, Document *doc)
 	}
 }
 
-static void rescan_clear_unseen_mailboxes(struct rescan_context *ctx)
+static void rescan_clear_unseen_mailboxes(struct mailbox_list *list,
+					  struct hash_table *guids)
 {
 	const enum mailbox_list_iter_flags iter_flags =
 		(enum mailbox_list_iter_flags)
@@ -645,13 +665,14 @@ static void rescan_clear_unseen_mailboxes(struct rescan_context *ctx)
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
 
-	iter = mailbox_list_iter_init(ctx->list, "*", iter_flags);
+	iter = mailbox_list_iter_init(list, "*", iter_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		box = mailbox_alloc(ctx->list, info->name,
+		box = mailbox_alloc(list, info->name,
 				    MAILBOX_FLAG_KEEP_RECENT);
 		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 					 &metadata) == 0 &&
-		    hash_table_lookup(ctx->guids, metadata.guid) == NULL) {
+		    (guids == NULL ||
+		     hash_table_lookup(guids, metadata.guid) == NULL)) {
 			/* this mailbox had no records in lucene index.
 			   make sure its last indexed uid is 0 */
 			(void)fts_index_set_last_uid(box, 0);
@@ -661,14 +682,15 @@ static void rescan_clear_unseen_mailboxes(struct rescan_context *ctx)
 	(void)mailbox_list_iter_deinit(&iter);
 }
 
-int lucene_index_rescan(struct lucene_index *index,
-			struct mailbox_list *list)
+int lucene_index_rescan(struct lucene_index *index)
 {
 	static const TCHAR *sort_fields[] = { _T("box"), _T("uid"), NULL };
 	struct rescan_context ctx;
 	mail_guid_128_t guid;
 	bool failed = false;
 	int ret;
+
+	i_assert(index->list != NULL);
 
 	if ((ret = lucene_index_open_search(index)) < 0)
 		return ret;
@@ -679,7 +701,6 @@ int lucene_index_rescan(struct lucene_index *index,
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.index = index;
-	ctx.list = list;
 	ctx.pool = pool_alloconly_create("guids", 1024);
 	ctx.guids = hash_table_create(default_pool, ctx.pool, 0,
 				      mail_guid_128_hash,
@@ -709,7 +730,7 @@ int lucene_index_rescan(struct lucene_index *index,
 		rescan_finish(&ctx);
 	array_free(&ctx.uids);
 
-	rescan_clear_unseen_mailboxes(&ctx);
+	rescan_clear_unseen_mailboxes(index->list, ctx.guids);
 	hash_table_destroy(&ctx.guids);
 	pool_unref(&ctx.pool);
 	return failed ? -1 : 0;
