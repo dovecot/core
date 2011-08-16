@@ -924,7 +924,7 @@ mailbox_list_get_root_path(const struct mailbox_list_settings *set,
 			return set->root_dir;
 		path = t_strconcat(set->alt_dir, "/",
 				   set->mailbox_dir_name, NULL);
-		return t_strndup(path, strlen(path)-1);
+		return path == NULL ? NULL : t_strndup(path, strlen(path)-1);
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 		return set->control_dir != NULL ?
 			set->control_dir : set->root_dir;
