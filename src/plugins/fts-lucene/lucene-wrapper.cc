@@ -696,7 +696,7 @@ lucene_index_query_range_add(BooleanQuery *query, wchar_t *wuid,
 		wuid[0] = i;
 
 		Term *term = _CLNEW Term(_T("uid"), wuid);
-		query->add(_CLNEW TermQuery(term), true, BooleanClause::SHOULD);
+		query->add(_CLNEW WildcardQuery(term), true, BooleanClause::SHOULD);
 		_CLDECDELETE(term);
 	}
 }
