@@ -686,6 +686,21 @@ static void guid128_to_wguid(const mail_guid_128_t guid,
 	wguid_hex[i] = '\0';
 }
 
+static void
+lucene_index_query_range_add(BooleanQuery *query, wchar_t *wuid,
+			     wchar_t max_char)
+{
+	wchar_t i;
+
+	for (i = wuid[0]; i <= max_char; i++) {
+		wuid[0] = i;
+
+		Term *term = _CLNEW Term(_T("uid"), wuid);
+		query->add(_CLNEW TermQuery(term), true, BooleanClause::SHOULD);
+		_CLDECDELETE(term);
+	}
+}
+
 static int
 lucene_index_expunge_record(struct lucene_index *index,
 			    const struct fts_expunge_log_read_record *rec)
@@ -699,15 +714,42 @@ lucene_index_expunge_record(struct lucene_index *index,
 	range = array_get(&rec->uids, &count);
 
 	BooleanQuery query;
+	BooleanQuery uids_query;
 
-	/* search for UIDs between lowest and highest expunged UID */
-	wchar_t wuid1[MAX_INT_STRLEN], wuid2[MAX_INT_STRLEN];
-	swprintf(wuid1, N_ELEMENTS(wuid1), L"%u", range[0].seq1);
-	swprintf(wuid2, N_ELEMENTS(wuid2), L"%u", range[count-1].seq2);
-	Term wuid1_term(_T("uid"), wuid1);
-	Term wuid2_term(_T("uid"), wuid2);
-	RangeQuery rq(&wuid1_term, &wuid2_term, true);
-	query.add(&rq, BooleanClause::MUST);
+	/* RangeQuery actually just adds each term within the range to the
+	   search query, causing "too many clauses" at some point.
+	   So use WildcardQuery to get something approximately true. */
+	uint32_t seq1 = range[0].seq1, seq2 = range[count-1].seq2;
+
+	if (seq2 / seq1 > 10) {
+		/* just iterate through everything */
+	} else {
+		wchar_t wuid1[MAX_INT_STRLEN], wuid2[MAX_INT_STRLEN];
+		unsigned int i;
+
+		swprintf(wuid1, N_ELEMENTS(wuid1), L"%u", range[0].seq1);
+		swprintf(wuid2, N_ELEMENTS(wuid2), L"%u", range[count-1].seq2);
+
+		for (i = 1; wuid1[i] != '\0'; i++)
+			wuid1[i] = '?';
+		for (i = 1; wuid2[i] != '\0'; i++)
+			wuid2[i] = '?';
+
+		if (wcslen(wuid1) == wcslen(wuid2)) {
+			/* for example: 1???..9??? */
+			lucene_index_query_range_add(&uids_query,
+						     wuid1, wuid2[0]);
+		} else {
+			/* for example: 4?? .. 5??? */
+			lucene_index_query_range_add(&uids_query,
+						     wuid1, '9');
+			wchar_t max = wuid2[0];
+			wuid2[0] = '1';
+			lucene_index_query_range_add(&uids_query,
+						     wuid2, max);
+		}
+		query.add(&uids_query, BooleanClause::MUST);
+	}
 
 	wchar_t wguid[MAILBOX_GUID_HEX_LENGTH + 1];
 	guid128_to_wguid(rec->mailbox_guid, wguid);
