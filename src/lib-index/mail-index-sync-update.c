@@ -552,11 +552,15 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 	case MAIL_TRANSACTION_EXPUNGE_GUID:
 	case MAIL_TRANSACTION_EXPUNGE_GUID|MAIL_TRANSACTION_EXPUNGE_PROT: {
 		const struct mail_transaction_expunge_guid *rec = data, *end;
+		ARRAY_TYPE(seq_range) uids;
+		const struct seq_range *range;
+		unsigned int i, count;
 
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
 			/* this is simply a request for expunge */
 			break;
 		}
+		t_array_init(&uids, 64);
 		end = CONST_PTR_OFFSET(data, hdr->size);
 		for (; rec != end; rec++) {
 			if (rec->uid == 0) {
@@ -565,8 +569,13 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 					rec->uid);
 				break;
 			}
-			sync_expunge(ctx, rec->uid, rec->uid);
+			seq_range_array_add(&uids, 0, rec->uid);
 		}
+
+		/* do this in reverse so the memmove()s are smaller */
+		range = array_get(&uids, &count);
+		for (i = count; i > 0; i--)
+			sync_expunge(ctx, range[i-1].seq1, range[i-1].seq2);
 		break;
 	}
 	case MAIL_TRANSACTION_FLAG_UPDATE: {
