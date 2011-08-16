@@ -62,11 +62,33 @@ static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_user_module,
 				  &mail_user_module_register);
 
 static struct mailbox *
-mailbox_open_or_create(struct mailbox_list *list, const char *name,
+mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 		       const char **error_r)
 {
 	struct mailbox *box;
 	enum mail_error error;
+	const char *name;
+	char src_sep, dest_sep;
+
+	/* get the storage name, so it doesn't have namespace prefix */
+	name = src_box->name;
+	/* replace hierarchy separators with destination separator */
+	src_sep = mailbox_list_get_hierarchy_sep(src_box->list);
+	dest_sep = mailbox_list_get_hierarchy_sep(list);
+	if (src_sep != dest_sep) {
+		string_t *str = t_str_new(128);
+		unsigned int i;
+
+		for (i = 0; name[i] != '\0'; i++) {
+			if (name[i] == src_sep)
+				str_append_c(str, dest_sep);
+			else
+				str_append_c(str, name[i]);
+		}
+		name = str_c(str);
+	}
+	/* add expunge namespace prefix */
+	name = t_strconcat(list->ns->prefix, name, NULL);
 
 	box = mailbox_alloc(list, name, MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_NO_INDEX_FILES);
@@ -105,7 +127,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 
 	if (lt->dest_box == NULL) {
 		lt->dest_box = mailbox_open_or_create(luser->lazy_ns->list,
-						      _mail->box->name, &error);
+						      _mail->box, &error);
 		if (lt->dest_box == NULL) {
 			mail_storage_set_critical(_mail->box->storage,
 				"lazy_expunge: Couldn't open expunge mailbox: "
