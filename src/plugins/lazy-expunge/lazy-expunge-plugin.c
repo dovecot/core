@@ -321,7 +321,9 @@ static void lazy_expunge_user_deinit(struct mail_user *user)
 {
 	struct lazy_expunge_mail_user *luser = LAZY_EXPUNGE_USER_CONTEXT(user);
 
-	mail_namespace_unref(&luser->lazy_ns);
+	/* mail_namespaces_created hook isn't necessarily ever called */
+	if (luser->lazy_ns != NULL)
+		mail_namespace_unref(&luser->lazy_ns);
 	luser->module_ctx.super.deinit(user);
 }
 
