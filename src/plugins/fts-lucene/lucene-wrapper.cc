@@ -913,7 +913,7 @@ static Query* getFieldQuery(Analyzer *analyzer, const TCHAR* _field, const TCHAR
     if (fuzzy)
       ret = _CLNEW FuzzyQuery( tm );
     else
-      ret = _CLNEW PrefixQuery( tm );
+      ret = _CLNEW TermQuery( tm );
     _CLDECDELETE(tm);
     return ret;
   } else {
