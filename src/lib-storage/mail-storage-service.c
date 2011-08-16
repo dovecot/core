@@ -1074,8 +1074,10 @@ void mail_storage_service_user_free(struct mail_storage_service_user **_user)
 
 	*_user = NULL;
 
-	io_loop_context_remove_callbacks(user->ioloop_ctx, user);
-	io_loop_context_unref(&user->ioloop_ctx);
+	if (user->ioloop_ctx != NULL) {
+		io_loop_context_remove_callbacks(user->ioloop_ctx, user);
+		io_loop_context_unref(&user->ioloop_ctx);
+	}
 	settings_parser_deinit(&user->set_parser);
 	pool_unref(&user->pool);
 }
