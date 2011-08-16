@@ -64,7 +64,7 @@ static bool
 parse_tag_name(struct html_fts_parser *parser,
 	       const unsigned char *data, size_t size)
 {
-	size_t i = 1;
+	size_t i;
 
 	if (size >= 3 && memcmp(data, "!--", 3) == 0) {
 		parser->state = HTML_STATE_COMMENT;
@@ -75,10 +75,18 @@ parse_tag_name(struct html_fts_parser *parser,
 		i = 5;
 	} else if (size > 6 && i_memcasecmp(data, "script", 6) == 0) {
 		i = 6;
-	} else if (size <= 6) {
-		/* need more data */
-		return 0;
 	} else {
+		if (size <= 6) {
+			/* can we see the whole tag name? */
+			for (i = 0; i < size; i++) {
+				if (HTML_WHITESPACE(data[i]) || data[i] == '>')
+					break;
+			}
+			if (i == size) {
+				/* need more data */
+				return 0;
+			}
+		}
 		parser->state = HTML_STATE_TAG;
 		return 1;
 	}
