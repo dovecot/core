@@ -3,6 +3,8 @@
 
 #include "fts-api.h"
 
+struct mail_user;
+
 #define MAILBOX_GUID_HEX_LENGTH (MAIL_GUID_128_SIZE*2)
 
 struct fts_backend_vfuncs {
@@ -103,5 +105,9 @@ int fts_index_set_last_uid(struct mailbox *box, uint32_t last_uid);
 bool fts_header_want_indexed(const char *hdr_name);
 
 int fts_mailbox_get_guid(struct mailbox *box, const char **guid_r);
+
+/* Returns fd, which you can either read from or close. */
+int fts_indexer_cmd(struct mail_user *user, const char *cmd,
+		    const char **path_r);
 
 #endif

@@ -23,6 +23,30 @@ struct indexer_fts_storage_build_context {
 	struct istream *input;
 };
 
+int fts_indexer_cmd(struct mail_user *user, const char *cmd,
+		    const char **path_r)
+{
+	const char *path;
+	int fd;
+
+	path = t_strconcat(user->set->base_dir,
+			   "/"INDEXER_SOCKET_NAME, NULL);
+	fd = net_connect_unix_with_retries(path, 1000);
+	if (fd == -1) {
+		i_error("net_connect_unix(%s) failed: %m", path);
+		return -1;
+	}
+
+	cmd = t_strconcat(INDEXER_HANDSHAKE, cmd, NULL);
+	if (write_full(fd, cmd, strlen(cmd)) < 0) {
+		i_error("write(%s) failed: %m", path);
+		(void)close(fd);
+		return -1;
+	}
+	*path_r = path;
+	return fd;
+}
+
 static int
 fts_build_indexer_init(struct fts_backend *backend, struct mailbox *box,
 		       struct fts_storage_build_context **build_ctx_r)
@@ -48,22 +72,12 @@ fts_build_indexer_init(struct fts_backend *backend, struct mailbox *box,
 		return 0;
 	}
 
-	path = t_strconcat(box->storage->user->set->base_dir,
-			   "/"INDEXER_SOCKET_NAME, NULL);
-	fd = net_connect_unix_with_retries(path, 1000);
-	if (fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m", path);
-		return -1;
-	}
-
-	cmd = t_strdup_printf(INDEXER_HANDSHAKE"PREPEND\t1\t%s\t%s\n",
+	cmd = t_strdup_printf("PREPEND\t1\t%s\t%s\n",
 			      str_tabescape(box->storage->user->username),
 			      str_tabescape(box->vname));
-	if (write_full(fd, cmd, strlen(cmd)) < 0) {
-		i_error("write(%s) failed: %m", path);
-		(void)close(fd);
+	fd = fts_indexer_cmd(box->storage->user, cmd, &path);
+	if (fd == -1)
 		return -1;
-	}
 
 	/* connect to indexer and request immediate indexing of the mailbox */
 	ctx = i_new(struct indexer_fts_storage_build_context, 1);
