@@ -291,7 +291,8 @@ mdbox_purge_attachments(struct mdbox_purge_context *ctx,
 }
 
 static int
-mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
+mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file,
+		 uint32_t file_id)
 {
 	struct mdbox_storage *dstorage = (struct mdbox_storage *)file->storage;
 	struct stat st;
@@ -326,8 +327,7 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 	/* get list of map UIDs that exist in this file (again has to be done
 	   after locking) */
 	i_array_init(&msgs_arr, 128);
-	if (mdbox_map_get_file_msgs(dstorage->map,
-				    ((struct mdbox_file *)file)->file_id,
+	if (mdbox_map_get_file_msgs(dstorage->map, file_id,
 				    &msgs_arr) < 0) {
 		array_free(&msgs_arr);
 		dbox_file_unlock(file);
@@ -420,10 +420,12 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file)
 
 	/* unlink only after unlocking map, so readers don't see it
 	   temporarily vanished */
-	if (ret > 0)
+	if (ret > 0) {
 		(void)dbox_file_unlink(file);
-	else
+		mdbox_map_remove_file_id(ctx->storage->map, file_id);
+	} else {
 		dbox_file_unlock(file);
+	}
 	array_free(&copied_map_uids);
 	array_free(&expunged_map_uids);
 
@@ -664,7 +666,7 @@ int mdbox_purge(struct mail_storage *_storage)
 	       seq_range_array_iter_nth(&iter, i++, &file_id)) T_BEGIN {
 		file = mdbox_file_init(storage, file_id);
 		if (dbox_file_open(file, &deleted) > 0 && !deleted) {
-			if (mdbox_file_purge(ctx, file) < 0)
+			if (mdbox_file_purge(ctx, file, file_id) < 0)
 				ret = -1;
 		} else {
 			mdbox_map_remove_file_id(storage->map, file_id);
