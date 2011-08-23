@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "llist.h"
+#include "master-service.h"
 #include "worker-connection.h"
 #include "worker-pool.h"
 
@@ -48,6 +49,7 @@ void worker_pool_deinit(struct worker_pool **_pool)
 		struct worker_connection_list *list = pool->busy_list;
 
 		DLLIST_REMOVE(&pool->busy_list, list);
+		master_service_client_connection_destroyed(master_service);
 		worker_connection_list_free(pool, list);
 	}
 
@@ -142,6 +144,10 @@ bool worker_pool_get_connection(struct worker_pool *pool,
 	list = pool->idle_list;
 	DLLIST_REMOVE(&pool->idle_list, list);
 	DLLIST_PREPEND(&pool->busy_list, list);
+	/* treat worker connection as another client. this is required (once,
+	   at least) so that master doesn't think we are busy doing nothing and
+	   ignoring an idle-kill. */
+	master_service_client_connection_created(master_service);
 
 	*conn_r = list->conn;
 	return TRUE;
@@ -179,6 +185,7 @@ void worker_pool_release_connection(struct worker_pool *pool,
 	i_assert(list != NULL);
 
 	DLLIST_REMOVE(&pool->busy_list, list);
+	master_service_client_connection_destroyed(master_service);
 
 	if (!worker_connection_is_connected(conn))
 		worker_connection_list_free(pool, list);
