@@ -126,6 +126,7 @@ static void ipc_server_disconnect(struct ipc_server *server)
 	o_stream_destroy(&server->output);
 	if (close(server->fd) < 0)
 		i_error("close(%s) failed: %m", server->path);
+	server->fd = -1;
 }
 
 struct ipc_server *
