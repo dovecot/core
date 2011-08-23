@@ -28,7 +28,7 @@ static void sdbox_mail_set_expunged(struct dbox_mail *mail)
 	sdbox_set_mailbox_corrupted(_mail->box);
 }
 
-static bool sdbox_mail_file_set(struct dbox_mail *mail)
+static int sdbox_mail_file_set(struct dbox_mail *mail)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)_mail->box;
@@ -37,10 +37,10 @@ static bool sdbox_mail_file_set(struct dbox_mail *mail)
 
 	if (mail->open_file != NULL) {
 		/* already set */
-		return FALSE;
+		return 0;
 	} else if (!_mail->saving) {
 		mail->open_file = sdbox_file_init(mbox, _mail->uid);
-		return FALSE;
+		return 0;
 	} else {
 		/* mail is being saved in this transaction */
 		mail->open_file =
@@ -50,8 +50,14 @@ static bool sdbox_mail_file_set(struct dbox_mail *mail)
 
 		/* it doesn't have input stream yet */
 		ret = dbox_file_open(mail->open_file, &deleted);
-		i_assert(ret > 0);
-		return TRUE;
+		if (ret <= 0) {
+			mail_storage_set_critical(_mail->box->storage,
+				"dbox %s: Unexpectedly lost mail being saved",
+				  _mail->box->path);
+			sdbox_set_mailbox_corrupted(_mail->box);
+			return -1;
+		}
+		return 1;
 	}
 }
 
@@ -60,13 +66,17 @@ int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 {
 	struct mail *_mail = &mail->imail.mail.mail;
 	bool deleted;
+	int ret;
 
 	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
 		mail_set_aborted(_mail);
 		return -1;
 	}
 
-	if (!sdbox_mail_file_set(mail)) {
+	ret = sdbox_mail_file_set(mail);
+	if (ret < 0)
+		return -1;
+	if (ret == 0) {
 		if (!dbox_file_is_open(mail->open_file))
 			mail->imail.mail.stats_open_lookup_count++;
 		if (dbox_file_open(mail->open_file, &deleted) <= 0)
