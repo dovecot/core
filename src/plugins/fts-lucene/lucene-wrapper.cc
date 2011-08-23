@@ -94,12 +94,20 @@ struct lucene_index *lucene_index_init(const char *path,
 				       const char *textcat_conf)
 {
 	struct lucene_index *index;
+	unsigned int len;
 
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
 	index->list = list;
-	index->textcat_dir = i_strdup(textcat_dir);
-	index->textcat_conf = i_strdup(textcat_conf);
+	if (textcat_dir != NULL) {
+		/* textcat really wants the '/' suffix */
+		len = strlen(textcat_dir);
+		if (len > 0 && textcat_dir[len-1] != '/')
+			index->textcat_dir = i_strconcat(textcat_dir, "/", NULL);
+		else
+			index->textcat_dir = i_strdup(textcat_dir);
+		index->textcat_conf = i_strdup(textcat_conf);
+	}
 #ifdef HAVE_LUCENE_TEXTCAT
 	index->default_analyzer = _CLNEW snowball::SnowballAnalyzer(DEFAULT_LANGUAGE);
 #else
