@@ -129,6 +129,9 @@ bool master_service_is_killed(struct master_service *service);
 void master_service_anvil_send(struct master_service *service, const char *cmd);
 /* Call to accept the client connection. Otherwise the connection is closed. */
 void master_service_client_connection_accept(struct master_service_connection *conn);
+/* Used to create "extra client connections" outside the common accept()
+   method. */
+void master_service_client_connection_created(struct master_service *service);
 /* Call whenever a client connection is destroyed. */
 void master_service_client_connection_destroyed(struct master_service *service);
 

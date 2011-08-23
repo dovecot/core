@@ -564,6 +564,13 @@ void master_service_anvil_send(struct master_service *service, const char *cmd)
 	}
 }
 
+void master_service_client_connection_created(struct master_service *service)
+{
+	i_assert(service->master_status.available_count > 0);
+	service->master_status.available_count--;
+	master_status_update(service);
+}
+
 void master_service_client_connection_accept(struct master_service_connection *conn)
 {
 	conn->accepted = TRUE;
@@ -744,9 +751,7 @@ static void master_service_listen(struct master_service_listener *l)
 	conn.ssl = l->ssl;
 	net_set_nonblock(conn.fd, TRUE);
 
-	i_assert(service->master_status.available_count > 0);
-	service->master_status.available_count--;
-	master_status_update(service);
+	master_service_client_connection_created(service);
 
 	service->callback(&conn);
 
