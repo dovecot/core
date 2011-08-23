@@ -127,6 +127,15 @@ void client_proxy_finish_destroy_client(struct client *client)
 {
 	string_t *str = t_str_new(128);
 
+	if (client->input->closed) {
+		/* input stream got closed in client_send_raw_data().
+		   In most places we don't have to check for this explicitly,
+		   but login_proxy_detach() attempts to get and use the
+		   istream's fd, which is now -1. */
+		client_destroy(client, "Disconnected");
+		return;
+	}
+
 	str_printfa(str, "proxy(%s): started proxying to %s:%u",
 		    client->virtual_user,
 		    login_proxy_get_host(client->login_proxy),
