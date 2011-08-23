@@ -1341,3 +1341,8 @@ int lucene_index_iter_deinit(struct lucene_index_iter **_iter)
 	i_free(iter);
 	return ret;
 }
+
+void lucene_shutdown(void)
+{
+	_lucene_shutdown();
+}

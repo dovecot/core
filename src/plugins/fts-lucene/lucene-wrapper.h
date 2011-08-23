@@ -58,4 +58,6 @@ int lucene_index_iter_deinit(struct lucene_index_iter **iter);
 void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
 			    wchar_t *dest, size_t destsize);
 
+void lucene_shutdown(void);
+
 #endif

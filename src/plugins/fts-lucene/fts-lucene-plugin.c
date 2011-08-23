@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mail-storage-hooks.h"
+#include "lucene-wrapper.h"
 #include "fts-lucene-plugin.h"
 
 const char *fts_lucene_plugin_version = DOVECOT_VERSION;
@@ -80,6 +81,7 @@ void fts_lucene_plugin_deinit(void)
 {
 	fts_backend_unregister(fts_backend_lucene.name);
 	mail_storage_hooks_remove(&fts_lucene_mail_storage_hooks);
+	lucene_shutdown();
 }
 
 const char *fts_lucene_plugin_dependencies[] = { "fts", NULL };
