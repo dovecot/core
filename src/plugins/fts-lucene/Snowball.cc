@@ -29,9 +29,11 @@ CL_NS_DEF2(analysis,snowball)
   SnowballAnalyzer::SnowballAnalyzer(const char* language) {
     this->language = strdup(language);
 	stopSet = NULL;
+    prevstream = NULL;
   }
 
   SnowballAnalyzer::~SnowballAnalyzer(){
+	  if (prevstream) _CLDELETE(prevstream);
 	  _CLDELETE_CARRAY(language);
 	  if ( stopSet != NULL )
 		  _CLDELETE(stopSet);
@@ -69,6 +71,11 @@ CL_NS_DEF2(analysis,snowball)
     return result;
   }
   
+  TokenStream* SnowballAnalyzer::reusableTokenStream(const TCHAR* fieldName, CL_NS(util)::Reader* reader) {
+      if (prevstream) _CLDELETE(prevstream);
+      prevstream = this->tokenStream(fieldName, reader);
+      return prevstream;
+  }
   
   
   
