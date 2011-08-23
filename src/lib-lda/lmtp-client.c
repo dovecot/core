@@ -101,9 +101,9 @@ void lmtp_client_close(struct lmtp_client *client)
 	if (client->io != NULL)
 		io_remove(&client->io);
 	if (client->input != NULL)
-		i_stream_unref(&client->input);
+		i_stream_close(client->input);
 	if (client->output != NULL)
-		o_stream_unref(&client->output);
+		o_stream_close(client->output);
 	if (client->fd != -1) {
 		net_disconnect(client->fd);
 		client->fd = -1;
@@ -120,7 +120,7 @@ void lmtp_client_close(struct lmtp_client *client)
 
 static void lmtp_client_ref(struct lmtp_client *client)
 {
-	pool_ref(client->pool);
+	client->refcount++;
 }
 
 static void lmtp_client_unref(struct lmtp_client **_client)
@@ -128,6 +128,16 @@ static void lmtp_client_unref(struct lmtp_client **_client)
 	struct lmtp_client *client = *_client;
 
 	*_client = NULL;
+
+	i_assert(client->refcount > 0);
+	if (--client->refcount > 0)
+		return;
+
+	i_assert(client->finish_called);
+	if (client->input != NULL)
+		i_stream_unref(&client->input);
+	if (client->output != NULL)
+		o_stream_unref(&client->output);
 	pool_unref(&client->pool);
 }
 
