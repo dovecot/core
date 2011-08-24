@@ -539,12 +539,14 @@ void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 }
 
 void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
-				      void *context)
+				      io_callback_t *activate,
+				      io_callback_t *deactivate, void *context)
 {
 	struct ioloop_context_callback *cb;
 
 	array_foreach_modifiable(&ctx->callbacks, cb) {
-		if (cb->context == context) {
+		if (cb->context == context &&
+		    cb->activate == activate && cb->deactivate == deactivate) {
 			/* simply mark it as deleted, since we could get
 			   here from activate/deactivate loop */
 			cb->activate = NULL;

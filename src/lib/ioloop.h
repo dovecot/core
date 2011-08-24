@@ -112,9 +112,10 @@ void io_loop_context_unref(struct ioloop_context **ctx);
 void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 				   io_callback_t *activate,
 				   io_callback_t *deactivate, void *context);
-/* Remove callbacks with the given context. */
+/* Remove callbacks with the given callbacks and context. */
 void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
-				      void *context);
+				      io_callback_t *activate,
+				      io_callback_t *deactivate, void *context);
 
 /* Move the given I/O into the current I/O loop if it's not already
    there. New I/O is returned, while the old one is freed. */
