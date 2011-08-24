@@ -15,13 +15,16 @@ lib20_doveadm_fts_lucene_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib21_fts_lucene_plugin.la
 
-if BUILD_LUCENE_TEXTCAT
-TEXTCAT_LIBS = -lstemmer -ltextcat
+if BUILD_LUCENE_STEMMER
+STEMMER_LIBS = -lstemmer
 SHOWBALL_SOURCES = Snowball.cc
+endif
+if BUILD_LUCENE_TEXTCAT
+TEXTCAT_LIBS = -ltextcat
 endif
 
 lib21_fts_lucene_plugin_la_LIBADD = \
-	-lclucene-shared -lclucene-core $(TEXTCAT_LIBS)
+	-lclucene-shared -lclucene-core $(TEXTCAT_LIBS) $(STEMMER_LIBS)
 
 lib21_fts_lucene_plugin_la_SOURCES = \
 	fts-lucene-plugin.c \

@@ -9,6 +9,7 @@
 	MODULE_CONTEXT(obj, fts_lucene_user_module)
 
 struct fts_lucene_settings {
+	const char *default_language;
 	const char *textcat_conf, *textcat_dir;
 };
 

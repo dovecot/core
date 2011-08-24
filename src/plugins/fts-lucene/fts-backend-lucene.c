@@ -137,12 +137,11 @@ fts_backend_lucene_init(struct fts_backend *_backend,
 	if (fuser != NULL) {
 		backend->index = lucene_index_init(backend->dir_path,
 						   _backend->ns->list,
-						   fuser->set.textcat_dir,
-						   fuser->set.textcat_conf);
+						   &fuser->set);
 	} else {
 		backend->index = lucene_index_init(backend->dir_path,
 						   _backend->ns->list,
-						   NULL, NULL);
+						   NULL);
 	}
 
 	path = t_strconcat(backend->dir_path, "/"LUCENE_EXPUNGE_LOG_NAME, NULL);

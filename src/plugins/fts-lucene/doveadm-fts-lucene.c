@@ -23,7 +23,7 @@ static void cmd_dump_fts_lucene(int argc ATTR_UNUSED, char *argv[])
 	bool first = TRUE;
 
 	memset(&prev_guid, 0, sizeof(prev_guid));
-	index = lucene_index_init(argv[1], NULL, NULL, NULL);
+	index = lucene_index_init(argv[1], NULL, NULL);
 	iter = lucene_index_iter_init(index);
 	while ((rec = lucene_index_iter_next(iter)) != NULL) {
 		if (memcmp(prev_guid, rec->mailbox_guid,

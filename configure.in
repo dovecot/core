@@ -2609,13 +2609,16 @@ fi
 AM_CONDITIONAL(BUILD_SOLR, test "$have_solr" = "yes")
 
 if test "$want_lucene" = "yes"; then
-  AC_CHECK_LIB(textcat, special_textcat_Init, [
-    AC_CHECK_LIB(stemmer, sb_stemmer_new, [
+  AC_CHECK_LIB(stemmer, sb_stemmer_new, [
+    have_lucene_stemmer=yes
+    AC_DEFINE(HAVE_LUCENE_STEMMER,, Define if you want stemming support for CLucene)
+    AC_CHECK_LIB(textcat, special_textcat_Init, [
       have_lucene_textcat=yes
-      AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat and stemming support for CLucene)
+      AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat support for CLucene)
     ])
   ])
 fi
+AM_CONDITIONAL(BUILD_LUCENE_STEMMER, test "$have_lucene_stemmer" = "yes")
 AM_CONDITIONAL(BUILD_LUCENE_TEXTCAT, test "$have_lucene_textcat" = "yes")
 
 dnl **
@@ -2738,6 +2741,7 @@ src/plugins/notify/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/snarf/Makefile
+src/plugins/stats/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
 src/plugins/zlib/Makefile

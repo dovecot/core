@@ -7,6 +7,7 @@
 struct hash_table;
 struct mailbox_list;
 struct fts_expunge_log;
+struct fts_lucene_settings;
 
 #define MAILBOX_GUID_HEX_LENGTH (MAIL_GUID_128_SIZE*2)
 
@@ -17,8 +18,7 @@ struct lucene_index_record {
 
 struct lucene_index *lucene_index_init(const char *path,
 				       struct mailbox_list *list,
-				       const char *textcat_dir,
-				       const char *textcat_conf);
+				       const struct fts_lucene_settings *set);
 void lucene_index_deinit(struct lucene_index *index);
 
 void lucene_index_select_mailbox(struct lucene_index *index,

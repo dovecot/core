@@ -17,8 +17,12 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 {
 	const char *const *tmp;
 
+	set->default_language = "english";
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "textcat_conf=", 13) == 0) {
+		if (strncmp(*tmp, "default_language=", 17) == 0) {
+			set->default_language =
+				p_strdup(user->pool, *tmp + 17);
+		} else if (strncmp(*tmp, "textcat_conf=", 13) == 0) {
 			set->textcat_conf = p_strdup(user->pool, *tmp + 13);
 		} else if (strncmp(*tmp, "textcat_dir=", 12) == 0) {
 			set->textcat_dir = p_strdup(user->pool, *tmp + 12);
@@ -35,6 +39,13 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 		i_error("fts_lucene: textcat_dir set, but textcat_conf unset");
 		return -1;
 	}
+#ifndef HAVE_LUCENE_STEMMER
+	if (set->default_language != NULL) {
+		i_error("fts_lucene: default_language set, "
+			"but Dovecot built without stemmer support");
+		return -1;
+	}
+#endif
 #ifndef HAVE_LUCENE_TEXTCAT
 	if (set->textcat_conf != NULL) {
 		i_error("fts_lucene: textcat_dir set, "

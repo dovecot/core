@@ -12,6 +12,7 @@ extern "C" {
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "fts-expunge-log.h"
+#include "fts-lucene-plugin.h"
 #include "lucene-wrapper.h"
 
 #include <sys/stat.h>
@@ -30,8 +31,6 @@ extern "C" {
 
 #define LUCENE_LOCK_OVERRIDE_SECS 60
 
-#define DEFAULT_LANGUAGE "english"
-
 using namespace lucene::document;
 using namespace lucene::index;
 using namespace lucene::search;
@@ -48,8 +47,8 @@ struct lucene_analyzer {
 struct lucene_index {
 	char *path;
 	struct mailbox_list *list;
+	struct fts_lucene_settings set;
 
-	char *textcat_dir, *textcat_conf;
 	wchar_t mailbox_guid[MAILBOX_GUID_HEX_LENGTH + 1];
 
 	IndexReader *reader;
@@ -90,8 +89,7 @@ static void rescan_clear_unseen_mailboxes(struct mailbox_list *list,
 
 struct lucene_index *lucene_index_init(const char *path,
 				       struct mailbox_list *list,
-				       const char *textcat_dir,
-				       const char *textcat_conf)
+				       const struct fts_lucene_settings *set)
 {
 	struct lucene_index *index;
 	unsigned int len;
@@ -99,17 +97,11 @@ struct lucene_index *lucene_index_init(const char *path,
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
 	index->list = list;
-	if (textcat_dir != NULL) {
-		/* textcat really wants the '/' suffix */
-		len = strlen(textcat_dir);
-		if (len > 0 && textcat_dir[len-1] != '/')
-			index->textcat_dir = i_strconcat(textcat_dir, "/", NULL);
-		else
-			index->textcat_dir = i_strdup(textcat_dir);
-		index->textcat_conf = i_strdup(textcat_conf);
-	}
-#ifdef HAVE_LUCENE_TEXTCAT
-	index->default_analyzer = _CLNEW snowball::SnowballAnalyzer(DEFAULT_LANGUAGE);
+	if (set != NULL)
+		index->set = *set;
+#ifdef HAVE_LUCENE_STEMMER
+	index->default_analyzer =
+		_CLNEW snowball::SnowballAnalyzer(set->default_language);
 #else
 	index->default_analyzer = _CLNEW standard::StandardAnalyzer();
 #endif
@@ -143,8 +135,6 @@ void lucene_index_deinit(struct lucene_index *index)
 		textcat = NULL;
 	}
 	_CLDELETE(index->default_analyzer);
-	i_free(index->textcat_dir);
-	i_free(index->textcat_conf);
 	i_free(index->path);
 	i_free(index);
 }
@@ -344,6 +334,7 @@ int lucene_index_build_init(struct lucene_index *index)
 	return 0;
 }
 
+#ifdef HAVE_LUCENE_TEXTCAT
 static Analyzer *get_analyzer(struct lucene_index *index, const char *lang)
 {
 	const struct lucene_analyzer *a;
@@ -362,7 +353,22 @@ static Analyzer *get_analyzer(struct lucene_index *index, const char *lang)
 	return new_analyzer.analyzer;
 }
 
-#ifdef HAVE_LUCENE_TEXTCAT
+static void *textcat_init(struct lucene_index *index)
+{
+	const char *textcat_dir = index->set.textcat_dir;
+	unsigned int len;
+
+	if (textcat_dir == NULL)
+		return NULL;
+
+	/* textcat really wants the '/' suffix */
+	len = strlen(textcat_dir);
+	if (len > 0 && textcat_dir[len-1] != '/')
+		textcat_dir = t_strconcat(textcat_dir, "/", NULL);
+
+	return special_textcat_Init(index->set.textcat_conf, textcat_dir);
+}
+
 static Analyzer *
 guess_analyzer(struct lucene_index *index, const void *data, size_t size)
 {
@@ -372,9 +378,7 @@ guess_analyzer(struct lucene_index *index, const void *data, size_t size)
 		return NULL;
 
 	if (textcat == NULL) {
-		textcat = index->textcat_conf == NULL ? NULL :
-			special_textcat_Init(index->textcat_conf,
-					     index->textcat_dir);
+		textcat = textcat_init(index);
 		if (textcat == NULL) {
 			textcat_broken = TRUE;
 			return NULL;
@@ -388,7 +392,7 @@ guess_analyzer(struct lucene_index *index, const void *data, size_t size)
 	if (lang[0] != '[' || p == NULL)
 		return NULL;
 	lang = t_strdup_until(lang+1, p);
-	if (strcmp(lang, DEFAULT_LANGUAGE) == 0)
+	if (strcmp(lang, index->set.default_language) == 0)
 		return index->default_analyzer;
 
 	return get_analyzer(index, lang);
