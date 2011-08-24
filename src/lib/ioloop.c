@@ -600,6 +600,11 @@ void io_loop_context_deactivate(struct ioloop_context *ctx)
 	io_loop_context_unref(&ctx);
 }
 
+struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop)
+{
+	return ioloop->cur_ctx;
+}
+
 struct io *io_loop_move_io(struct io **_io)
 {
 	struct io *new_io, *old_io = *_io;

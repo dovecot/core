@@ -116,6 +116,8 @@ void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 void io_loop_context_remove_callbacks(struct ioloop_context *ctx,
 				      io_callback_t *activate,
 				      io_callback_t *deactivate, void *context);
+/* Returns the current context set to ioloop. */
+struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop);
 
 /* Move the given I/O into the current I/O loop if it's not already
    there. New I/O is returned, while the old one is freed. */
