@@ -2741,7 +2741,6 @@ src/plugins/notify/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/snarf/Makefile
-src/plugins/stats/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
 src/plugins/zlib/Makefile
