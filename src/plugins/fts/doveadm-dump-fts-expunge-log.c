@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "hex-binary.h"
-#include "mail-types.h"
+#include "guid.h"
 #include "doveadm-dump.h"
 #include "doveadm-fts.h"
 
@@ -14,7 +14,7 @@
 struct fts_expunge_log_record {
 	uint32_t checksum;
 	uint32_t record_size;
-	mail_guid_128_t guid;
+	guid_128_t guid;
 };
 
 static int dump_record(int fd, buffer_t *buf)
@@ -46,7 +46,7 @@ static int dump_record(int fd, buffer_t *buf)
 	printf("#%"PRIuUOFF_T":\n", offset);
 	printf("  checksum  = %8x\n", rec.checksum);
 	printf("  size .... = %u\n", rec.record_size);
-	printf("  mailbox . = %s\n", binary_to_hex(rec.guid, sizeof(rec.guid)));
+	printf("  mailbox . = %s\n", guid_128_to_string(rec.guid));
 
 	expunges = CONST_PTR_OFFSET(data, data_size - sizeof(uint32_t));
 	printf("  expunges  = %u\n", *expunges);

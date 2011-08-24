@@ -200,11 +200,10 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 
 void mailbox_list_add_change(struct mailbox_list *list,
 			     enum mailbox_log_record_type type,
-			     const uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
+			     const guid_128_t guid_128);
 int mailbox_list_get_guid_path(struct mailbox_list *list, const char *path,
-			       uint8_t mailbox_guid[MAIL_GUID_128_SIZE]);
-void mailbox_name_get_sha128(const char *name,
-			     uint8_t guid[MAIL_GUID_128_SIZE]);
+			       guid_128_t guid_128_r);
+void mailbox_name_get_sha128(const char *name, guid_128_t guid_128_r);
 
 void mailbox_list_clear_error(struct mailbox_list *list);
 void mailbox_list_set_error(struct mailbox_list *list,

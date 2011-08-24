@@ -2,17 +2,17 @@
 #define LUCENE_WRAPPER_H
 
 #include "fts-api-private.h"
-#include "mail-types.h"
+#include "guid.h"
 
 struct hash_table;
 struct mailbox_list;
 struct fts_expunge_log;
 struct fts_lucene_settings;
 
-#define MAILBOX_GUID_HEX_LENGTH (MAIL_GUID_128_SIZE*2)
+#define MAILBOX_GUID_HEX_LENGTH (GUID_128_SIZE*2)
 
 struct lucene_index_record {
-	mail_guid_128_t mailbox_guid;
+	guid_128_t mailbox_guid;
 	uint32_t uid;
 };
 

@@ -97,7 +97,7 @@ static void status_output(struct status_cmd_context *ctx, struct mailbox *box,
 	if ((ctx->metadata_items & MAILBOX_METADATA_VIRTUAL_SIZE) != 0)
 		doveadm_print_num(metadata->virtual_size);
 	if ((ctx->metadata_items & MAILBOX_METADATA_GUID) != 0)
-		doveadm_print(mail_guid_128_to_string(metadata->guid));
+		doveadm_print(guid_128_to_string(metadata->guid));
 }
 
 static void

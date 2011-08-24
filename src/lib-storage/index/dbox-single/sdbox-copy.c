@@ -58,7 +58,7 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 			sdbox_file_attachment_relpath(src_file, extref->path));
 		dest_relpath = p_strconcat(dest_file->attachment_pool,
 					   extref->path, "-",
-					   mail_generate_guid_string(), NULL);
+					   guid_generate(), NULL);
 		dest = t_strdup_printf("%s/%s", dest_storage->attachment_dir,
 				       dest_relpath);
 		if (fs_link(dest_storage->attachment_fs, src, dest) < 0) {

@@ -172,7 +172,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 static void mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 				       uint32_t uid, bool *sync_expunge_r)
 {
-	uint8_t expunged_guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t expunged_guid_128;
 
 	if (uid == 0 || sync_ctx->index_reset) {
 		/* nothing for this or the future ones */
@@ -1383,11 +1383,11 @@ mbox_sync_index_update_ext_header(struct mbox_mailbox *mbox,
 	const void *data;
 	size_t data_size;
 
-	if (update != NULL && !mail_guid_128_is_empty(update->mailbox_guid)) {
+	if (update != NULL && !guid_128_is_empty(update->mailbox_guid)) {
 		memcpy(mbox->mbox_hdr.mailbox_guid, update->mailbox_guid,
 		       sizeof(mbox->mbox_hdr.mailbox_guid));
-	} else if (mail_guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
-		mail_generate_guid_128(mbox->mbox_hdr.mailbox_guid);
+	} else if (guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
+		guid_128_generate(mbox->mbox_hdr.mailbox_guid);
 	}
 
 	mail_index_get_header_ext(mbox->box.view, mbox->mbox_ext_idx,
@@ -1711,7 +1711,7 @@ int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 	if (mbox_sync_header_refresh(mbox) < 0)
 		return -1;
 
-	if (mail_guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
+	if (guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
 		/* need to assign mailbox GUID */
 		return 1;
 	}

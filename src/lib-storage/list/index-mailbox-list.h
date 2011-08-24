@@ -33,7 +33,7 @@ struct mailbox_list_index_record {
 	/* the following fields are temporarily zero while unknown,
 	   also permanently zero for \NoSelect and \Nonexistent mailboxes: */
 
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	guid_128_t guid;
 	uint32_t uid_validity;
 };
 

@@ -24,7 +24,7 @@ struct lucene_fts_backend {
 	struct lucene_index *index;
 	struct mailbox *selected_box;
 	unsigned int selected_box_generation;
-	mail_guid_128_t selected_box_guid;
+	guid_128_t selected_box_guid;
 
 	struct fts_expunge_log *expunge_log;
 
@@ -62,7 +62,7 @@ static int fts_backend_lucene_mkdir(struct lucene_fts_backend *backend)
 }
 
 static int
-fts_lucene_get_mailbox_guid(struct mailbox *box, mail_guid_128_t *guid_r)
+fts_lucene_get_mailbox_guid(struct mailbox *box, guid_128_t guid_r)
 {
 	struct mailbox_metadata metadata;
 
@@ -72,14 +72,14 @@ fts_lucene_get_mailbox_guid(struct mailbox *box, mail_guid_128_t *guid_r)
 			box->vname, mailbox_get_last_error(box, NULL));
 		return -1;
 	}
-	memcpy(guid_r, metadata.guid, MAIL_GUID_128_SIZE);
+	memcpy(guid_r, metadata.guid, GUID_128_SIZE);
 	return 0;
 }
 
 static int
 fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
 {
-	mail_guid_128_t guid;
+	guid_128_t guid;
 	unsigned char guid_hex[MAILBOX_GUID_HEX_LENGTH];
 	wchar_t wguid_hex[MAILBOX_GUID_HEX_LENGTH];
 	buffer_t buf;
@@ -90,10 +90,10 @@ fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
 		return 0;
 
 	if (box != NULL) {
-		if (fts_lucene_get_mailbox_guid(box, &guid) < 0)
+		if (fts_lucene_get_mailbox_guid(box, guid) < 0)
 			return -1;
 		buffer_create_data(&buf, guid_hex, MAILBOX_GUID_HEX_LENGTH);
-		binary_to_hex_append(&buf, guid, MAIL_GUID_128_SIZE);
+		binary_to_hex_append(&buf, guid, GUID_128_SIZE);
 		for (i = 0; i < N_ELEMENTS(wguid_hex); i++)
 			wguid_hex[i] = guid_hex[i];
 

@@ -98,11 +98,11 @@ void sdbox_update_header(struct sdbox_mailbox *mbox,
 
 	new_hdr = hdr;
 
-	if (update != NULL && !mail_guid_128_is_empty(update->mailbox_guid)) {
+	if (update != NULL && !guid_128_is_empty(update->mailbox_guid)) {
 		memcpy(new_hdr.mailbox_guid, update->mailbox_guid,
 		       sizeof(new_hdr.mailbox_guid));
-	} else if (mail_guid_128_is_empty(new_hdr.mailbox_guid)) {
-		mail_generate_guid_128(new_hdr.mailbox_guid);
+	} else if (guid_128_is_empty(new_hdr.mailbox_guid)) {
+		guid_128_generate(new_hdr.mailbox_guid);
 	}
 
 	if (memcmp(&hdr, &new_hdr, sizeof(hdr)) != 0) {
@@ -185,7 +185,7 @@ sdbox_get_attachment_path_suffix(struct dbox_file *_file)
 	struct sdbox_file *file = (struct sdbox_file *)_file;
 
 	return t_strdup_printf("-%s-%u",
-			mail_guid_128_to_string(file->mbox->mailbox_guid),
+			guid_128_to_string(file->mbox->mailbox_guid),
 			file->uid);
 }
 
@@ -245,7 +245,7 @@ static int sdbox_mailbox_open(struct mailbox *box)
 			memset(&hdr, 0, sizeof(hdr));
 	}
 
-	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
+	if (guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
 		if (sdbox_mailbox_create_indexes(box, NULL, NULL) < 0 ||
 		    sdbox_read_header(mbox, &hdr, TRUE) < 0)
@@ -274,7 +274,7 @@ sdbox_mailbox_get_metadata(struct mailbox *box,
 
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		memcpy(metadata_r->guid, mbox->mailbox_guid,
-		       MAIL_GUID_128_SIZE);
+		       sizeof(metadata_r->guid));
 	}
 	return index_mailbox_get_metadata(box, items, metadata_r);
 }

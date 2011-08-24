@@ -119,7 +119,7 @@ sdbox_file_attachment_relpath(struct sdbox_file *file, const char *srcpath)
 	}
 	return t_strdup_printf("%s-%s-%u",
 			p == NULL ? srcpath : t_strdup_until(srcpath, p),
-			mail_guid_128_to_string(file->mbox->mailbox_guid),
+			guid_128_to_string(file->mbox->mailbox_guid),
 			file->uid);
 }
 

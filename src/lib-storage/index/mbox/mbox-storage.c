@@ -588,19 +588,18 @@ static void mbox_mailbox_close(struct mailbox *box)
 }
 
 static int
-mbox_mailbox_get_guid(struct mbox_mailbox *mbox,
-		      uint8_t guid[MAIL_GUID_128_SIZE])
+mbox_mailbox_get_guid(struct mbox_mailbox *mbox, guid_128_t guid_r)
 {
 	if (mail_index_is_in_memory(mbox->box.index)) {
 		mail_storage_set_error(mbox->box.storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Mailbox GUIDs are not permanent without index files");
 		return -1;
 	}
-	if (mail_guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
+	if (guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
 		if (mbox_sync_get_guid(mbox) < 0)
 			return -1;
 	}
-	memcpy(guid, mbox->mbox_hdr.mailbox_guid, MAIL_GUID_128_SIZE);
+	memcpy(guid_r, mbox->mbox_hdr.mailbox_guid, GUID_128_SIZE);
 	return 0;
 }
 

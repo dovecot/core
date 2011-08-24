@@ -28,7 +28,7 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 				 MAILBOX_METADATA_GUID, &metadata) < 0)
 		ret = -1;
 	else {
-		guid_str = mail_guid_128_to_string(metadata.guid);
+		guid_str = guid_128_to_string(metadata.guid);
 		while (doveadm_mail_iter_next(iter, &mail)) {
 			doveadm_print(guid_str);
 			T_BEGIN {

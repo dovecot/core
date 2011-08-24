@@ -1386,13 +1386,13 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 
 void mailbox_list_add_change(struct mailbox_list *list,
 			     enum mailbox_log_record_type type,
-			     const uint8_t mailbox_guid[MAIL_GUID_128_SIZE])
+			     const guid_128_t mailbox_guid)
 {
 	struct mailbox_log_record rec;
 	time_t stamp;
 
 	if (!mailbox_list_init_changelog(list) ||
-	    mail_guid_128_is_empty(mailbox_guid))
+	    guid_128_is_empty(mailbox_guid))
 		return;
 
 	if (!list->index_root_dir_created) {
@@ -1413,7 +1413,7 @@ void mailbox_list_add_change(struct mailbox_list *list,
 int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set)
 {
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	guid_128_t guid;
 	int ret;
 
 	/* make sure we'll refresh the file on next list */
@@ -1463,12 +1463,12 @@ int mailbox_list_delete_symlink(struct mailbox_list *list, const char *name)
 	return list->v.delete_symlink(list, name);
 }
 
-void mailbox_name_get_sha128(const char *name, uint8_t guid[MAIL_GUID_128_SIZE])
+void mailbox_name_get_sha128(const char *name, guid_128_t guid_128_r)
 {
 	unsigned char sha[SHA1_RESULTLEN];
 
 	sha1_get_digest(name, strlen(name), sha);
-	memcpy(guid, sha, I_MIN(MAIL_GUID_128_SIZE, sizeof(sha)));
+	memcpy(guid_128_r, sha, I_MIN(GUID_128_SIZE, sizeof(sha)));
 }
 
 struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list)

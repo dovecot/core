@@ -1,7 +1,7 @@
 #ifndef MAILBOX_LOG_H
 #define MAILBOX_LOG_H
 
-#include "mail-types.h"
+#include "guid.h"
 
 enum mailbox_log_record_type {
 	MAILBOX_LOG_RECORD_DELETE_MAILBOX = 1,
@@ -14,7 +14,7 @@ enum mailbox_log_record_type {
 struct mailbox_log_record {
 	uint8_t type;
 	uint8_t padding[3];
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	guid_128_t mailbox_guid;
 	uint8_t timestamp[4];
 };
 

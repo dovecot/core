@@ -171,10 +171,10 @@ static void client_read_settings(struct client *client)
 
 static void client_generate_session_id(struct client *client)
 {
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	guid_128_t guid;
 	string_t *id = t_str_new(30);
 
-	mail_generate_guid_128(guid);
+	guid_128_generate(guid);
 	base64_encode(guid, sizeof(guid), id);
 	i_assert(str_c(id)[str_len(id)-2] == '=');
 	str_truncate(id, str_len(id)-2); /* drop trailing "==" */

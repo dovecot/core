@@ -127,7 +127,7 @@ static int mdbox_mailbox_open(struct mailbox *box)
 					sizeof(struct mdbox_index_header), 0, 0);
 	mbox->guid_ext_id =
 		mail_index_ext_register(mbox->box.index, "guid",
-					0, MAIL_GUID_128_SIZE, 1);
+					0, GUID_128_SIZE, 1);
 	return 0;
 }
 
@@ -173,11 +173,11 @@ void mdbox_update_header(struct mdbox_mailbox *mbox,
 
 	new_hdr = hdr;
 
-	if (update != NULL && !mail_guid_128_is_empty(update->mailbox_guid)) {
+	if (update != NULL && !guid_128_is_empty(update->mailbox_guid)) {
 		memcpy(new_hdr.mailbox_guid, update->mailbox_guid,
 		       sizeof(new_hdr.mailbox_guid));
-	} else if (mail_guid_128_is_empty(new_hdr.mailbox_guid)) {
-		mail_generate_guid_128(new_hdr.mailbox_guid);
+	} else if (guid_128_is_empty(new_hdr.mailbox_guid)) {
+		guid_128_generate(new_hdr.mailbox_guid);
 	}
 
 	new_hdr.map_uid_validity =
@@ -306,21 +306,20 @@ static void mdbox_set_file_corrupted(struct dbox_file *file)
 }
 
 static int
-mdbox_mailbox_get_guid(struct mdbox_mailbox *mbox,
-		       uint8_t guid[MAIL_GUID_128_SIZE])
+mdbox_mailbox_get_guid(struct mdbox_mailbox *mbox, guid_128_t guid_r)
 {
 	struct mdbox_index_header hdr;
 
 	if (mdbox_read_header(mbox, &hdr) < 0)
 		memset(&hdr, 0, sizeof(hdr));
 
-	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
+	if (guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */
 		if (mdbox_write_index_header(&mbox->box, NULL, NULL) < 0 ||
 		    mdbox_read_header(mbox, &hdr) < 0)
 			return -1;
 	}
-	memcpy(guid, hdr.mailbox_guid, MAIL_GUID_128_SIZE);
+	memcpy(guid_r, hdr.mailbox_guid, GUID_128_SIZE);
 	return 0;
 }
 

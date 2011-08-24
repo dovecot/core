@@ -16,7 +16,7 @@
 #define MDBOX_INDEX_HEADER_MIN_SIZE (sizeof(uint32_t))
 struct mdbox_index_header {
 	uint32_t map_uid_validity;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	guid_128_t mailbox_guid;
 };
 
 struct mdbox_storage {

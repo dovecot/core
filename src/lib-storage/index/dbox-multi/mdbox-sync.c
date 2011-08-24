@@ -15,7 +15,6 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
-#include "hex-binary.h"
 #include "str.h"
 #include "mdbox-storage.h"
 #include "mdbox-storage-rebuild.h"
@@ -27,7 +26,7 @@
 
 static int
 dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
-			      const uint8_t guid_128[MAIL_GUID_128_SIZE])
+			      const guid_128_t guid_128)
 {
 	const void *data;
 	uint32_t uid;
@@ -35,21 +34,20 @@ dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
 	mail_index_lookup_uid(ctx->sync_view, seq, &uid);
 	mail_index_lookup_ext(ctx->sync_view, seq,
 			      ctx->mbox->guid_ext_id, &data, NULL);
-	if (mail_guid_128_is_empty(guid_128) ||
-	    memcmp(data, guid_128, MAIL_GUID_128_SIZE) == 0)
+	if (guid_128_is_empty(guid_128) ||
+	    memcmp(data, guid_128, GUID_128_SIZE) == 0)
 		return 0;
 
 	mail_storage_set_critical(&ctx->mbox->storage->storage.storage,
 		"Mailbox %s: Expunged GUID mismatch for UID %u: %s vs %s",
 		ctx->mbox->box.vname, uid,
-		binary_to_hex(data, MAIL_GUID_128_SIZE),
-		binary_to_hex(guid_128, MAIL_GUID_128_SIZE));
+		guid_128_to_string(data), guid_128_to_string(guid_128));
 	mdbox_storage_set_corrupted(ctx->mbox->storage);
 	return -1;
 }
 
 static int mdbox_sync_expunge(struct mdbox_sync_context *ctx, uint32_t seq,
-			      const uint8_t guid_128[MAIL_GUID_128_SIZE])
+			      const guid_128_t guid_128)
 {
 	uint32_t map_uid;
 

@@ -4,7 +4,7 @@
 #include "mail-storage.h"
 
 typedef struct {
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	guid_128_t guid;
 } mailbox_guid_t;
 ARRAY_DEFINE_TYPE(mailbox_guid, mailbox_guid_t);
 

@@ -4,7 +4,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str-find.h"
-#include "hex-binary.h"
 #include "message-size.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
@@ -166,7 +165,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 	bool pre, write_header, have_guid;
 	struct message_size body;
 	struct istream *body_input;
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 	int ret;
 
 	i_stream_seek(file->input, 0);
@@ -269,10 +268,10 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 		else
 			dbox_file_copy_metadata(file, output, &have_guid);
 		if (!have_guid) {
-			mail_generate_guid_128(guid_128);
+			guid_128_generate(guid_128);
 			o_stream_send_str(output,
 				t_strdup_printf("%c%s\n", DBOX_METADATA_GUID,
-				binary_to_hex(guid_128, sizeof(guid_128))));
+				guid_128_to_string(guid_128)));
 		}
 		o_stream_send_str(output,
 			t_strdup_printf("%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,

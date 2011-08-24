@@ -375,7 +375,7 @@ static unsigned int mailbox_log_record_hash(const void *p)
 
 static int mailbox_log_record_cmp(const void *p1, const void *p2)
 {
-	return memcmp(p1, p2, MAIL_GUID_128_SIZE);
+	return memcmp(p1, p2, GUID_128_SIZE);
 }
 
 static unsigned int dir_change_hash(const void *p)
@@ -394,7 +394,7 @@ static int dir_change_cmp(const void *p1, const void *p2)
 		return 1;
 
 	return memcmp(c1->name_sha1.guid, c2->name_sha1.guid,
-		      MAIL_GUID_128_SIZE);
+		      GUID_128_SIZE);
 }
 
 static int dsync_worker_get_mailbox_log(struct local_dsync_worker *worker)
@@ -788,7 +788,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 	if (memcmp(metadata.guid, guid->guid, sizeof(guid->guid)) != 0) {
 		i_error("Mailbox %s changed its GUID (%s -> %s)",
 			lbox->name, dsync_guid_to_str(guid),
-			mail_guid_128_to_string(metadata.guid));
+			guid_128_to_string(metadata.guid));
 		mailbox_free(&box);
 		return -1;
 	}
@@ -867,7 +867,7 @@ local_worker_msg_iter_init(struct dsync_worker *worker,
 		       sizeof(iter->mailboxes[i].guid));
 	}
 	i_array_init(&iter->expunges, 32);
-	iter->tmp_guid_str = str_new(default_pool, MAIL_GUID_128_SIZE * 2 + 1);
+	iter->tmp_guid_str = str_new(default_pool, GUID_128_SIZE * 2 + 1);
 	(void)iter_local_mailbox_open(iter);
 	return &iter->iter;
 }
@@ -901,9 +901,9 @@ iter_local_mailbox_next_expunge(struct local_dsync_worker_msg_iter *iter,
 		memset(msg_r, 0, sizeof(*msg_r));
 		str_truncate(iter->tmp_guid_str, 0);
 		guid_128 = expunges[iter->expunge_idx].guid_128;
-		if (!mail_guid_128_is_empty(guid_128)) {
+		if (!guid_128_is_empty(guid_128)) {
 			binary_to_hex_append(iter->tmp_guid_str, guid_128,
-					     MAIL_GUID_128_SIZE);
+					     GUID_128_SIZE);
 		}
 		msg_r->guid = str_c(iter->tmp_guid_str);
 		msg_r->uid = expunges[iter->expunge_idx].uid;
@@ -1090,10 +1090,10 @@ local_worker_convert_mailbox_name(struct local_dsync_worker *worker,
 		if (!mailbox_list_is_valid_create_name(ns->list, name)) {
 			/* name is too long? just give up and generate a
 			   unique name */
-			uint8_t guid[MAIL_GUID_128_SIZE];
+			guid_128_t guid;
 
-			mail_generate_guid_128(guid);
-			name = mail_guid_128_to_string(guid);
+			guid_128_generate(guid);
+			name = guid_128_to_string(guid);
 		}
 		i_assert(mailbox_list_is_valid_create_name(ns->list, name));
 	}

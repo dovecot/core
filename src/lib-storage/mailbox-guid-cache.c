@@ -7,40 +7,23 @@
 #include "mailbox-guid-cache.h"
 
 struct mailbox_guid_cache_rec {
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	guid_128_t guid;
 	const char *vname;
 };
 
-static unsigned int guid_cache_rec_hash(const void *_rec)
-{
-	const struct mailbox_guid_cache_rec *rec = _rec;
-
-	return mem_hash(rec->guid, sizeof(rec->guid));
-}
-
-static int guid_cache_rec_cmp(const void *_r1, const void *_r2)
-{
-	const struct mailbox_guid_cache_rec *r1 = _r1, *r2 = _r2;
-
-	return memcmp(r1->guid, r2->guid, sizeof(r1->guid));
-}
-
 int mailbox_guid_cache_find(struct mailbox_list *list,
-			    uint8_t guid[MAIL_GUID_128_SIZE],
-			    const char **vname_r)
+			    const guid_128_t guid, const char **vname_r)
 {
 	const struct mailbox_guid_cache_rec *rec;
-	struct mailbox_guid_cache_rec lookup_rec;
 
-	memcpy(lookup_rec.guid, guid, sizeof(lookup_rec.guid));
 	if (list->guid_cache == NULL) {
 		mailbox_guid_cache_refresh(list);
-		rec = hash_table_lookup(list->guid_cache, &lookup_rec);
+		rec = hash_table_lookup(list->guid_cache, guid);
 	} else {
-		rec = hash_table_lookup(list->guid_cache, &lookup_rec);
+		rec = hash_table_lookup(list->guid_cache, guid);
 		if (rec == NULL) {
 			mailbox_guid_cache_refresh(list);
-			rec = hash_table_lookup(list->guid_cache, &lookup_rec);
+			rec = hash_table_lookup(list->guid_cache, guid);
 		}
 	}
 	if (rec == NULL) {
@@ -64,8 +47,8 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 			pool_alloconly_create("guid cache", 1024*16);
 		list->guid_cache = hash_table_create(default_pool,
 						     list->guid_cache_pool, 0,
-						     guid_cache_rec_hash,
-						     guid_cache_rec_cmp);
+						     guid_128_hash,
+						     guid_128_cmp);
 	} else {
 		hash_table_clear(list->guid_cache, TRUE);
 		p_clear(list->guid_cache_pool);
@@ -90,7 +73,7 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 				    struct mailbox_guid_cache_rec, 1);
 			memcpy(rec->guid, metadata.guid, sizeof(rec->guid));
 			rec->vname = p_strdup(list->guid_cache_pool, info->name);
-			hash_table_insert(list->guid_cache, rec, rec);
+			hash_table_insert(list->guid_cache, rec->guid, rec);
 		}
 		mailbox_free(&box);
 	}

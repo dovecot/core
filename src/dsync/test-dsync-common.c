@@ -7,12 +7,12 @@
 #include "dsync-data.h"
 #include "test-dsync-common.h"
 
-const uint8_t test_mailbox_guid1[MAIL_GUID_128_SIZE] = {
+const guid_128_t test_mailbox_guid1 = {
 	0x12, 0x34, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
 	0x21, 0x43, 0x54, 0x76, 0x98, 0xba, 0xdc, 0xfe
 };
 
-const uint8_t test_mailbox_guid2[MAIL_GUID_128_SIZE] = {
+const guid_128_t test_mailbox_guid2 = {
 	0xa3, 0xbd, 0x78, 0x24, 0xde, 0xfe, 0x08, 0xf7,
 	0xac, 0xc7, 0xca, 0x8c, 0xe7, 0x39, 0xdb, 0xca
 };
@@ -69,23 +69,10 @@ bool dsync_mailboxes_equal(const struct dsync_mailbox *box1,
 	return TRUE;
 }
 
-void mail_generate_guid_128_hash(const char *guid,
-				 uint8_t guid_128[MAIL_GUID_128_SIZE])
+void mail_generate_guid_128_hash(const char *guid, guid_128_t guid_128_r)
 {
 	unsigned char sha1_sum[SHA1_RESULTLEN];
 
 	sha1_get_digest(guid, strlen(guid), sha1_sum);
-	memcpy(guid_128, sha1_sum, MAIL_GUID_128_SIZE);
-}
-
-bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE])
-{
-	static uint8_t empty_guid[MAIL_GUID_128_SIZE] = { 0, };
-
-	return memcmp(empty_guid, guid_128, sizeof(empty_guid)) == 0;
-}
-
-const char *mail_guid_128_to_string(const uint8_t guid_128[MAIL_GUID_128_SIZE])
-{
-	return binary_to_hex(guid_128, MAIL_GUID_128_SIZE);
+	memcpy(guid_128_r, sha1_sum, GUID_128_SIZE);
 }

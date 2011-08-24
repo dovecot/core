@@ -7,7 +7,7 @@
 #include "mail-storage-private.h"
 
 static uint32_t expunge_uids[] = { 25, 15, 7, 3, 11, 1, 53, 33 };
-static uint8_t mail_guids[N_ELEMENTS(expunge_uids)][MAIL_GUID_128_SIZE];
+static guid_128_t mail_guids[N_ELEMENTS(expunge_uids)];
 static unsigned int expunge_idx;
 static unsigned int nonexternal_idx;
 
@@ -113,8 +113,8 @@ static void test_mailbox_get_expunges(void)
 	test_begin("mailbox get expunges");
 
 	nonexternal_idx = 1;
-	memset(mail_guids + 2, 0, MAIL_GUID_128_SIZE);
-	memset(mail_guids + 4, 0, MAIL_GUID_128_SIZE);
+	memset(mail_guids + 2, 0, GUID_128_SIZE);
+	memset(mail_guids + 4, 0, GUID_128_SIZE);
 
 	t_array_init(&uids_filter, 32);
 	seq_range_array_add_range(&uids_filter, 1, 20);
@@ -128,15 +128,15 @@ static void test_mailbox_get_expunges(void)
 	exp = array_get(&expunges, &count);
 	test_assert(count == 5);
 	test_assert(exp[0].uid == 3);
-	test_assert(memcmp(exp[0].guid_128, mail_guids[3], MAIL_GUID_128_SIZE) == 0);
+	test_assert(memcmp(exp[0].guid_128, mail_guids[3], GUID_128_SIZE) == 0);
 	test_assert(exp[1].uid == 1);
-	test_assert(memcmp(exp[1].guid_128, mail_guids[5], MAIL_GUID_128_SIZE) == 0);
+	test_assert(memcmp(exp[1].guid_128, mail_guids[5], GUID_128_SIZE) == 0);
 	test_assert(exp[2].uid == 53);
-	test_assert(memcmp(exp[2].guid_128, mail_guids[6], MAIL_GUID_128_SIZE) == 0);
+	test_assert(memcmp(exp[2].guid_128, mail_guids[6], GUID_128_SIZE) == 0);
 	test_assert(exp[3].uid == 7);
-	test_assert(memcmp(exp[3].guid_128, mail_guids[2], MAIL_GUID_128_SIZE) == 0);
+	test_assert(memcmp(exp[3].guid_128, mail_guids[2], GUID_128_SIZE) == 0);
 	test_assert(exp[4].uid == 11);
-	test_assert(memcmp(exp[4].guid_128, mail_guids[4], MAIL_GUID_128_SIZE) == 0);
+	test_assert(memcmp(exp[4].guid_128, mail_guids[4], GUID_128_SIZE) == 0);
 
 	test_end();
 }
@@ -150,7 +150,7 @@ int main(void)
 	unsigned int i, j;
 
 	for (i = 0; i < N_ELEMENTS(mail_guids); i++) {
-		for (j = 0; j < MAIL_GUID_128_SIZE; j++)
+		for (j = 0; j < GUID_128_SIZE; j++)
 			mail_guids[i][j] = j + i + 1;
 	}
 	return test_run(test_functions);

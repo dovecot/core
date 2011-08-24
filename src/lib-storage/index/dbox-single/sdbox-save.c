@@ -116,7 +116,7 @@ static int dbox_save_mail_write_metadata(struct dbox_save_context *ctx,
 	const struct mail_attachment_extref *extrefs;
 	struct dbox_message_header dbox_msg_hdr;
 	uoff_t message_size;
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 	unsigned int i, count;
 
 	i_assert(file->msg_header_size == sizeof(dbox_msg_hdr));

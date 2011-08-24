@@ -5,7 +5,7 @@
 
 struct mail_user;
 
-#define MAILBOX_GUID_HEX_LENGTH (MAIL_GUID_128_SIZE*2)
+#define MAILBOX_GUID_HEX_LENGTH (GUID_128_SIZE*2)
 
 struct fts_backend_vfuncs {
 	struct fts_backend *(*alloc)(void);

@@ -135,8 +135,8 @@ static void sdbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 
 	if (sdbox_read_header(mbox, &hdr, FALSE) < 0)
 		memset(&hdr, 0, sizeof(hdr));
-	if (mail_guid_128_is_empty(hdr.mailbox_guid))
-		mail_generate_guid_128(hdr.mailbox_guid);
+	if (guid_128_is_empty(hdr.mailbox_guid))
+		guid_128_generate(hdr.mailbox_guid);
 	if (++hdr.rebuild_count == 0)
 		hdr.rebuild_count = 1;
 	mail_index_update_header_ext(ctx->trans, mbox->hdr_ext_id, 0,

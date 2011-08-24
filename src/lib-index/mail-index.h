@@ -3,6 +3,7 @@
 
 #include "file-lock.h"
 #include "fsync-mode.h"
+#include "guid.h"
 #include "mail-types.h"
 #include "seq-range-array.h"
 
@@ -169,7 +170,7 @@ struct mail_index_sync_rec {
 	unsigned int keyword_idx;
 
 	/* MAIL_INDEX_SYNC_TYPE_EXPUNGE: */
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 };
 
 enum mail_index_view_sync_type {
@@ -430,7 +431,7 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);
 /* Like mail_index_expunge(), but also write message GUID to transaction log. */
 void mail_index_expunge_guid(struct mail_index_transaction *t, uint32_t seq,
-			     const uint8_t guid_128[MAIL_GUID_128_SIZE]);
+			     const guid_128_t guid_128);
 /* Update flags in index. */
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,

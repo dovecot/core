@@ -132,7 +132,7 @@ void imap_status_send(struct client *client, const char *mailbox,
 	}
 	if ((items->metadata & MAILBOX_METADATA_GUID) != 0) {
 		str_printfa(str, "X-GUID %s ",
-			    mail_guid_128_to_string(result->metadata.guid));
+			    guid_128_to_string(result->metadata.guid));
 	}
 
 	if (str_len(str) != prefix_len)

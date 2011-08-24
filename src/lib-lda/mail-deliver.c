@@ -211,7 +211,7 @@ static bool mail_deliver_check_duplicate(struct mail_deliver_session *session,
 					 struct mailbox *box)
 {
 	struct mailbox_metadata metadata;
-	const mail_guid_128_t *guid;
+	const guid_128_t *guid;
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		/* just play it safe and assume a duplicate */
@@ -223,7 +223,7 @@ static bool mail_deliver_check_duplicate(struct mail_deliver_session *session,
 	if (!array_is_created(&session->inbox_guids))
 		p_array_init(&session->inbox_guids, session->pool, 8);
 	array_foreach(&session->inbox_guids, guid) {
-		if (memcmp(metadata.guid, guid, sizeof(metadata.guid)) == 0)
+		if (memcmp(metadata.guid, *guid, sizeof(metadata.guid)) == 0)
 			return TRUE;
 	}
 	array_append(&session->inbox_guids, &metadata.guid, 1);
@@ -236,7 +236,7 @@ void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *sessio
 	struct mailbox_transaction_context *trans =
 		mailbox_save_get_transaction(save_ctx);
 	struct mailbox *box = mailbox_transaction_get_mailbox(trans);
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	guid_128_t guid;
 
 	if (strcmp(mailbox_get_name(box), "INBOX") != 0)
 		return;
@@ -246,8 +246,8 @@ void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *sessio
 	   session. the problem with this is that if GUIDs are used as POP3
 	   UIDLs, some clients can't handle the duplicates well. */
 	if (mail_deliver_check_duplicate(session, box)) {
-		mail_generate_guid_128(guid);
-		mailbox_save_set_guid(save_ctx, mail_guid_128_to_string(guid));
+		guid_128_generate(guid);
+		mailbox_save_set_guid(save_ctx, guid_128_to_string(guid));
 	}
 }
 

@@ -21,7 +21,7 @@
 #include <unistd.h>
 
 struct mdbox_rebuild_msg {
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 	uint32_t file_id;
 	uint32_t offset;
 	uint32_t size;
@@ -58,26 +58,6 @@ struct mdbox_storage_rebuild_context {
 	struct rebuild_msg_mailbox prev_msg;
 };
 
-static unsigned int guid_hash(const void *p)
-{
-        const uint8_t *s = p;
-	unsigned int i, g, h = 0;
-
-	for (i = 0; i < MAIL_GUID_128_SIZE; i++) {
-		h = (h << 4) + s[i];
-		if ((g = h & 0xf0000000UL)) {
-			h = h ^ (g >> 24);
-			h = h ^ g;
-		}
-	}
-	return h;
-}
-
-static int guid_cmp(const void *p1, const void *p2)
-{
-	return memcmp(p1, p2, MAIL_GUID_128_SIZE);
-}
-
 static struct mdbox_storage_rebuild_context *
 mdbox_storage_rebuild_init(struct mdbox_storage *storage,
 			   struct mdbox_map_atomic_context *atomic)
@@ -91,7 +71,7 @@ mdbox_storage_rebuild_init(struct mdbox_storage *storage,
 	ctx->atomic = atomic;
 	ctx->pool = pool_alloconly_create("dbox map rebuild", 1024*256);
 	ctx->guid_hash = hash_table_create(default_pool, ctx->pool, 0,
-					   guid_hash, guid_cmp);
+					   guid_128_hash, guid_128_cmp);
 	i_array_init(&ctx->msgs, 512);
 	i_array_init(&ctx->seen_file_ids, 128);
 
@@ -198,7 +178,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		rec->offset = offset;
 		rec->size = file->input->v_offset - offset;
 		mail_generate_guid_128_hash(guid, rec->guid_128);
-		i_assert(!mail_guid_128_is_empty(rec->guid_128));
+		i_assert(!guid_128_is_empty(rec->guid_128));
 		array_append(&ctx->msgs, &rec, 1);
 
 		if (hash_table_lookup(ctx->guid_hash, rec->guid_128) != NULL) {
@@ -468,12 +448,12 @@ static void mdbox_header_update(struct dbox_sync_rebuild_context *rebuild_ctx,
 	}
 
 	/* make sure we have valid mailbox guid */
-	if (mail_guid_128_is_empty(hdr.mailbox_guid)) {
-		if (!mail_guid_128_is_empty(backup_hdr.mailbox_guid)) {
+	if (guid_128_is_empty(hdr.mailbox_guid)) {
+		if (!guid_128_is_empty(backup_hdr.mailbox_guid)) {
 			memcpy(hdr.mailbox_guid, backup_hdr.mailbox_guid,
 			       sizeof(hdr.mailbox_guid));
 		} else {
-			mail_generate_guid_128(hdr.mailbox_guid);
+			guid_128_generate(hdr.mailbox_guid);
 		}
 	}
 

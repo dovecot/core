@@ -116,19 +116,19 @@ int dsync_guid_cmp(const mailbox_guid_t *guid1, const mailbox_guid_t *guid2)
 
 const char *dsync_guid_to_str(const mailbox_guid_t *guid)
 {
-	return mail_guid_128_to_string(guid->guid);
+	return guid_128_to_string(guid->guid);
 }
 
 const char *dsync_get_guid_128_str(const char *guid, unsigned char *dest,
 				   unsigned int dest_len)
 {
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 	buffer_t guid_128_buf;
 
-	i_assert(dest_len >= MAIL_GUID_128_SIZE * 2 + 1);
+	i_assert(dest_len >= GUID_128_SIZE * 2 + 1);
 	buffer_create_data(&guid_128_buf, dest, dest_len);
 	mail_generate_guid_128_hash(guid, guid_128);
-	if (mail_guid_128_is_empty(guid_128))
+	if (guid_128_is_empty(guid_128))
 		return "";
 	binary_to_hex_append(&guid_128_buf, guid_128, sizeof(guid_128));
 	buffer_append_c(&guid_128_buf, '\0');

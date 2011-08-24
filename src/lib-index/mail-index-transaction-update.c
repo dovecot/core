@@ -336,13 +336,13 @@ mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
 
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
-	static uint8_t null_guid[MAIL_GUID_128_SIZE] =
+	static guid_128_t null_guid =
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	mail_index_expunge_guid(t, seq, null_guid);
 }
 
 void mail_index_expunge_guid(struct mail_index_transaction *t, uint32_t seq,
-			     const uint8_t guid_128[MAIL_GUID_128_SIZE])
+			     const guid_128_t guid_128)
 {
 	const struct mail_transaction_expunge_guid *expunges;
 	struct mail_transaction_expunge_guid *expunge;

@@ -361,7 +361,7 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 static int fs_list_rmdir(struct mailbox_list *list, const char *name,
 			 const char *path)
 {
-	uint8_t dir_sha128[MAIL_GUID_128_SIZE];
+	guid_128_t dir_sha128;
 
 	if (rmdir(path) < 0)
 		return -1;

@@ -66,7 +66,7 @@ struct rescan_context {
 	struct lucene_index *index;
 
 	struct mailbox *box;
-	mail_guid_128_t box_guid;
+	guid_128_t box_guid;
 	int box_ret;
 
 	pool_t pool;
@@ -501,10 +501,10 @@ int lucene_index_build_deinit(struct lucene_index *index)
 }
 
 static int
-wcharguid_to_guid(mail_guid_128_t *dest, const wchar_t *src)
+wcharguid_to_guid(guid_128_t dest, const wchar_t *src)
 {
 	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
-	char src_chars[MAIL_GUID_128_SIZE*2 + 1];
+	char src_chars[GUID_128_SIZE*2 + 1];
 	unsigned int i;
 
 	for (i = 0; i < sizeof(src_chars)-1; i++) {
@@ -551,7 +551,7 @@ static int rescan_finish(struct rescan_context *ctx)
 
 static int
 fts_lucene_get_mailbox_guid(struct lucene_index *index, Document *doc,
-			    mail_guid_128_t *guid_r)
+			    guid_128_t guid_r)
 {
 	Field *field = doc->getField(_T("box"));
 	const TCHAR *box_guid = field == NULL ? NULL : field->stringValue();
@@ -572,10 +572,10 @@ fts_lucene_get_mailbox_guid(struct lucene_index *index, Document *doc,
 static int
 rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
 {
-	mail_guid_128_t guid, *guidp;
+	guid_128_t guid, *guidp;
 	int ret;
 
-	if (fts_lucene_get_mailbox_guid(ctx->index, doc, &guid) < 0)
+	if (fts_lucene_get_mailbox_guid(ctx->index, doc, guid) < 0)
 		return 0;
 
 	if (memcmp(guid, ctx->box_guid, sizeof(guid)) == 0) {
@@ -584,7 +584,7 @@ rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
 	}
 	memcpy(ctx->box_guid, guid, sizeof(ctx->box_guid));
 
-	guidp = p_new(ctx->pool, mail_guid_128_t, 1);
+	guidp = p_new(ctx->pool, guid_128_t, 1);
 	memcpy(guidp, guid, sizeof(*guidp));
 	hash_table_insert(ctx->guids, guidp, guidp);
 
@@ -698,7 +698,7 @@ int lucene_index_rescan(struct lucene_index *index)
 {
 	static const TCHAR *sort_fields[] = { _T("box"), _T("uid"), NULL };
 	struct rescan_context ctx;
-	mail_guid_128_t guid;
+	guid_128_t guid;
 	bool failed = false;
 	int ret;
 
@@ -715,8 +715,7 @@ int lucene_index_rescan(struct lucene_index *index)
 	ctx.index = index;
 	ctx.pool = pool_alloconly_create("guids", 1024);
 	ctx.guids = hash_table_create(default_pool, ctx.pool, 0,
-				      mail_guid_128_hash,
-				      mail_guid_128_cmp);
+				      guid_128_hash, guid_128_cmp);
 	i_array_init(&ctx.uids, 128);
 
 	if (ret > 0) try {
@@ -748,7 +747,7 @@ int lucene_index_rescan(struct lucene_index *index)
 	return failed ? -1 : 0;
 }
 
-static void guid128_to_wguid(const mail_guid_128_t guid,
+static void guid128_to_wguid(const guid_128_t guid,
 			     wchar_t wguid_hex[MAILBOX_GUID_HEX_LENGTH + 1])
 {
 	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
@@ -756,7 +755,7 @@ static void guid128_to_wguid(const mail_guid_128_t guid,
 	unsigned int i;
 
 	buffer_create_data(&buf, guid_hex, MAILBOX_GUID_HEX_LENGTH);
-	binary_to_hex_append(&buf, guid, MAIL_GUID_128_SIZE);
+	binary_to_hex_append(&buf, guid, GUID_128_SIZE);
 	for (i = 0; i < MAILBOX_GUID_HEX_LENGTH; i++)
 		wguid_hex[i] = guid_hex[i];
 	wguid_hex[i] = '\0';
@@ -1332,7 +1331,7 @@ lucene_index_iter_next(struct lucene_index_iter *iter)
 
 	memset(&iter->rec, 0, sizeof(iter->rec));
 	(void)fts_lucene_get_mailbox_guid(iter->index, doc,
-					  &iter->rec.mailbox_guid);
+					  iter->rec.mailbox_guid);
 	(void)lucene_doc_get_uid(iter->index, doc, &iter->rec.uid);
 	return &iter->rec;
 }

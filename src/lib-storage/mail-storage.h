@@ -5,6 +5,7 @@ struct message_size;
 
 #include "seq-range-array.h"
 #include "file-lock.h"
+#include "guid.h"
 #include "mail-types.h"
 #include "mail-error.h"
 #include "mailbox-list.h"
@@ -221,7 +222,7 @@ struct mailbox_status {
 };
 
 struct mailbox_metadata {
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	guid_128_t guid;
 	/* sum of virtual size of all messages in mailbox */
 	uint64_t virtual_size;
 	/* Fields that have "temp" or "yes" caching decision. */
@@ -230,7 +231,7 @@ struct mailbox_metadata {
 
 struct mailbox_update {
 	/* All non-zero fields are changed. */
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	guid_128_t mailbox_guid;
 	uint32_t uid_validity;
 	uint32_t min_next_uid;
 	uint32_t min_first_recent_uid;
@@ -266,7 +267,7 @@ struct mailbox_expunge_rec {
 	uint32_t uid;
 	/* 128 bit GUID. If the actual GUID has a different size, this
 	   contains last bits of its SHA1 sum. */
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 };
 ARRAY_DEFINE_TYPE(mailbox_expunge_rec, struct mailbox_expunge_rec);
 
@@ -370,7 +371,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags);
 /* Like mailbox_alloc(), but use mailbox GUID. */
 struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
-				   uint8_t guid[MAIL_GUID_128_SIZE],
+				   const guid_128_t guid,
 				   enum mailbox_flags flags);
 /* Get mailbox existence state. If auto_boxes=FALSE, return
    MAILBOX_EXISTENCE_NONE for autocreated mailboxes that haven't been
@@ -745,22 +746,9 @@ void mail_parse(struct mail *mail, bool parse_body);
 /* Mark a cached field corrupted and have it recalculated. */
 void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
 
-/* Generate a GUID (contains host name) */
-const char *mail_generate_guid_string(void);
-/* Generate 128 bit GUID */
-void mail_generate_guid_128(uint8_t guid[MAIL_GUID_128_SIZE]);
 /* Return 128 bit GUID using input string. If guid is already 128 bit hex
    encoded, it's returned as-is. Otherwise SHA1 sum is taken and its last
    128 bits are returned. */
-void mail_generate_guid_128_hash(const char *guid,
-				 uint8_t guid_128[MAIL_GUID_128_SIZE]);
-/* Returns TRUE if GUID is empty (not set / unknown). */
-bool mail_guid_128_is_empty(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
-/* Returns GUID as a hex string. */
-const char *mail_guid_128_to_string(const uint8_t guid_128[MAIL_GUID_128_SIZE]);
-
-/* guid_128 hash/cmp functions for hash.h */
-unsigned int mail_guid_128_hash(const void *p);
-int mail_guid_128_cmp(const void *p1, const void *p2);
+void mail_generate_guid_128_hash(const char *guid, guid_128_t guid_128_r);
 
 #endif

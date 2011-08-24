@@ -111,7 +111,7 @@ static void test_dsync_proxy_mailbox(void)
 
 	/* real mailbox */
 	i_assert(sizeof(box_in.mailbox_guid.guid) == sizeof(test_mailbox_guid1));
-	memcpy(box_in.mailbox_guid.guid, test_mailbox_guid2, MAIL_GUID_128_SIZE);
+	memcpy(box_in.mailbox_guid.guid, test_mailbox_guid2, GUID_128_SIZE);
 	box_in.flags = 24242 & ~DSYNC_MAILBOX_FLAG_NOSELECT;
 	box_in.uid_validity = 0xf74d921b;
 	box_in.uid_next = 73529472;

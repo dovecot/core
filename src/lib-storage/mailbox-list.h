@@ -1,7 +1,7 @@
 #ifndef MAILBOX_LIST_H
 #define MAILBOX_LIST_H
 
-#include "mail-types.h"
+#include "guid.h"
 #include "mail-error.h"
 
 #ifdef PATH_MAX

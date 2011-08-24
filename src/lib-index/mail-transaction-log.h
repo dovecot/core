@@ -80,7 +80,7 @@ struct mail_transaction_expunge {
 };
 struct mail_transaction_expunge_guid {
 	uint32_t uid;
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 };
 
 struct mail_transaction_flag_update {

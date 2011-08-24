@@ -88,7 +88,7 @@ static void search_init_arg(struct mail_search_arg *arg,
 			break;
 		}
 
-		match = strcmp(mail_guid_128_to_string(metadata.guid),
+		match = strcmp(guid_128_to_string(metadata.guid),
 			       arg->value.str) == 0;
 		if (match != arg->match_not)
 			arg->match_always = TRUE;

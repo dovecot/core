@@ -1,7 +1,6 @@
 /* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "hex-binary.h"
 #include "doveadm-dump.h"
 #include "doveadm-fts.h"
 #include "lucene-wrapper.h"
@@ -18,7 +17,7 @@ static void cmd_dump_fts_lucene(int argc ATTR_UNUSED, char *argv[])
 {
 	struct lucene_index *index;
 	struct lucene_index_iter *iter;
-	mail_guid_128_t prev_guid;
+	guid_128_t prev_guid;
 	const struct lucene_index_record *rec;
 	bool first = TRUE;
 
@@ -33,7 +32,7 @@ static void cmd_dump_fts_lucene(int argc ATTR_UNUSED, char *argv[])
 			else
 				printf("\n");
 			memcpy(prev_guid, rec->mailbox_guid, sizeof(prev_guid));
-			printf("%s: ", binary_to_hex(prev_guid, sizeof(prev_guid)));
+			printf("%s: ", guid_128_to_string(prev_guid));
 		}
 		printf("%u,", rec->uid);
 	}

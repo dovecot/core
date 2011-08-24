@@ -35,6 +35,7 @@ liblib_la_SOURCES = \
 	file-dotlock.c \
 	file-lock.c \
 	file-set-size.c \
+	guid.c \
 	hash.c \
 	hash-format.c \
 	hash-method.c \
@@ -148,6 +149,7 @@ headers = \
 	file-lock.h \
 	file-set-size.h \
 	fsync-mode.h \
+	guid.h \
 	hash.h \
 	hash-format.h \
 	hash-method.h \

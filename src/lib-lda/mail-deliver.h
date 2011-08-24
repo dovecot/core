@@ -1,7 +1,7 @@
 #ifndef MAIL_DELIVER_H
 #define MAIL_DELIVER_H
 
-#include "mail-types.h"
+#include "guid.h"
 
 enum mail_flags;
 enum mail_error;
@@ -13,7 +13,7 @@ struct mail_deliver_session {
 	pool_t pool;
 
 	/* List of INBOX GUIDs where this mail has already been saved to */
-	ARRAY_DEFINE(inbox_guids, mail_guid_128_t);
+	ARRAY_DEFINE(inbox_guids, guid_128_t);
 };
 
 struct mail_deliver_context {

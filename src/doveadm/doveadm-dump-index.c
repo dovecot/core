@@ -34,11 +34,11 @@ struct mbox_index_header {
 };
 struct sdbox_index_header {
 	uint32_t rebuild_count;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	guid_128_t mailbox_guid;
 };
 struct mdbox_index_header {
 	uint32_t map_uid_validity;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	guid_128_t mailbox_guid;
 };
 struct mdbox_mail_index_record {
 	uint32_t map_uid;
@@ -145,24 +145,21 @@ static void dump_extension_header(struct mail_index *index,
 		       (unsigned long long)hdr->sync_size);
 		printf(" - dirty_flag . = %d\n", hdr->dirty_flag);
 		printf(" - mailbox_guid = %s\n",
-		       binary_to_hex(hdr->mailbox_guid,
-				     sizeof(hdr->mailbox_guid)));
+		       guid_128_to_string(hdr->mailbox_guid));
 	} else if (strcmp(ext->name, "mdbox-hdr") == 0) {
 		const struct mdbox_index_header *hdr = data;
 
 		printf("header\n");
 		printf(" - map_uid_validity .. = %u\n", hdr->map_uid_validity);
 		printf(" - mailbox_guid ...... = %s\n",
-		       binary_to_hex(hdr->mailbox_guid,
-				     sizeof(hdr->mailbox_guid)));
+		       guid_128_to_string(hdr->mailbox_guid));
 	} else if (strcmp(ext->name, "dbox-hdr") == 0) {
 		const struct sdbox_index_header *hdr = data;
 
 		printf("header\n");
 		printf(" - rebuild_count . = %u\n", hdr->rebuild_count);
 		printf(" - mailbox_guid .. = %s\n",
-		       binary_to_hex(hdr->mailbox_guid,
-				     sizeof(hdr->mailbox_guid)));
+		       guid_128_to_string(hdr->mailbox_guid));
 	} else if (strcmp(ext->name, "modseq") == 0) {
 		const struct mail_index_modseq_header *hdr = data;
 

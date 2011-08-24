@@ -602,7 +602,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 }
 
 struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
-				   uint8_t guid[MAIL_GUID_128_SIZE],
+				   const guid_128_t guid,
 				   enum mailbox_flags flags)
 {
 	struct mailbox *box = NULL;
@@ -628,19 +628,19 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 		}
 		i_error("mailbox_alloc_guid(%s): "
 			"Couldn't verify mailbox GUID: %s",
-			mail_guid_128_to_string(guid),
+			guid_128_to_string(guid),
 			mailbox_get_last_error(box, NULL));
 		vname = NULL;
 		mailbox_free(&box);
 	} else {
 		vname = t_strdup_printf("(nonexistent mailbox with GUID=%s)",
-					mail_guid_128_to_string(guid));
+					guid_128_to_string(guid));
 		open_error = MAIL_ERROR_NOTFOUND;
 	}
 
 	if (vname == NULL) {
 		vname = t_strdup_printf("(error in mailbox with GUID=%s)",
-					mail_guid_128_to_string(guid));
+					guid_128_to_string(guid));
 	}
 	box = mailbox_alloc(list, vname, flags);
 	box->open_error = open_error;
@@ -1166,7 +1166,7 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 		return -1;
 
 	i_assert((items & MAILBOX_METADATA_GUID) == 0 ||
-		 !mail_guid_128_is_empty(metadata_r->guid));
+		 !guid_128_is_empty(metadata_r->guid));
 	return 0;
 }
 

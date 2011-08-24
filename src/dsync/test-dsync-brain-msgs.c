@@ -163,7 +163,7 @@ static void test_msg_set_flags(struct test_dsync_mailbox *box,
 			       enum test_box_add_type type,
 			       uint32_t uid, enum mail_flags flags)
 {
-	unsigned char guid_128_data[MAIL_GUID_128_SIZE * 2 + 1];
+	unsigned char guid_128_data[GUID_128_SIZE * 2 + 1];
 	struct dsync_message *msgs;
 	unsigned int i, count;
 

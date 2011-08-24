@@ -421,7 +421,7 @@ maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 	if (maildir_uidlist_lock(uidlist) <= 0)
 		return -1;
 
-	if (!mail_guid_128_is_empty(update->mailbox_guid))
+	if (!guid_128_is_empty(update->mailbox_guid))
 		maildir_uidlist_set_mailbox_guid(uidlist, update->mailbox_guid);
 	if (update->uid_validity != 0)
 		maildir_uidlist_set_uid_validity(uidlist, update->uid_validity);

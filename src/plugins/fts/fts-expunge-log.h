@@ -2,10 +2,10 @@
 #define FTS_EXPUNGE_LOG
 
 #include "seq-range-array.h"
-#include "mail-types.h"
+#include "guid.h"
 
 struct fts_expunge_log_read_record {
-	mail_guid_128_t mailbox_guid;
+	guid_128_t mailbox_guid;
 	ARRAY_TYPE(seq_range) uids;
 };
 
@@ -15,7 +15,7 @@ void fts_expunge_log_deinit(struct fts_expunge_log **log);
 struct fts_expunge_log_append_ctx *
 fts_expunge_log_append_begin(struct fts_expunge_log *log);
 void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
-				 const mail_guid_128_t mailbox_guid,
+				 const guid_128_t mailbox_guid,
 				 uint32_t uid);
 int fts_expunge_log_append_commit(struct fts_expunge_log_append_ctx **ctx);
 

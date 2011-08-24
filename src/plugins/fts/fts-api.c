@@ -388,14 +388,10 @@ bool fts_header_want_indexed(const char *hdr_name)
 int fts_mailbox_get_guid(struct mailbox *box, const char **guid_r)
 {
 	struct mailbox_metadata metadata;
-	buffer_t buf;
-	unsigned char guid_hex[MAILBOX_GUID_HEX_LENGTH];
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
 		return -1;
 
-	buffer_create_data(&buf, guid_hex, sizeof(guid_hex));
-	binary_to_hex_append(&buf, metadata.guid, MAIL_GUID_128_SIZE);
-	*guid_r = t_strndup(guid_hex, sizeof(guid_hex));
+	*guid_r = guid_128_to_string(metadata.guid);
 	return 0;
 }

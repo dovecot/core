@@ -239,7 +239,7 @@ static int dsync_brain_msg_sync_pair(struct dsync_brain_mailbox_sync *sync)
 	struct dsync_message *src_msg = &sync->src_msg_iter->msg;
 	struct dsync_message *dest_msg = &sync->dest_msg_iter->msg;
 	const char *src_guid, *dest_guid;
-	unsigned char guid_128_data[MAIL_GUID_128_SIZE * 2 + 1];
+	unsigned char guid_128_data[GUID_128_SIZE * 2 + 1];
 	bool src_expunged, dest_expunged;
 
 	i_assert(sync->src_msg_iter->mailbox_idx ==

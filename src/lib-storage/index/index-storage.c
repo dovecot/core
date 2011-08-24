@@ -469,7 +469,7 @@ int index_storage_mailbox_update(struct mailbox *box,
 
 int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted)
 {
-	uint8_t dir_sha128[MAIL_GUID_128_SIZE];
+	guid_128_t dir_sha128;
 	enum mail_error error;
 
 	if (mailbox_list_delete_dir(box->list, box->name) == 0)
@@ -578,7 +578,7 @@ int index_storage_mailbox_delete(struct mailbox *box)
 int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 				 bool rename_children)
 {
-	uint8_t guid[MAIL_GUID_128_SIZE];
+	guid_128_t guid;
 
 	if (src->list->v.rename_mailbox(src->list, src->name,
 					dest->list, dest->name,

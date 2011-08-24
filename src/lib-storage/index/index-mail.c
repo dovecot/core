@@ -1546,7 +1546,7 @@ void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq)
 void index_mail_expunge(struct mail *mail)
 {
 	const char *value;
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 
 	if (mail_get_special(mail, MAIL_FETCH_GUID, &value) < 0)
 		mail_index_expunge(mail->transaction->itrans, mail->seq);

@@ -61,7 +61,7 @@ static int fetch_mailbox_guid(struct fetch_cmd_context *ctx)
 	if (mailbox_get_metadata(ctx->mail->box, MAILBOX_METADATA_GUID,
 				 &metadata) < 0)
 		return -1;
-	doveadm_print(mail_guid_128_to_string(metadata.guid));
+	doveadm_print(guid_128_to_string(metadata.guid));
 	return 0;
 }
 

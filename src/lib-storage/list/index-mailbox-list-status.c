@@ -81,7 +81,7 @@ index_list_get_view_status(struct mailbox *box, struct mail_index_view *view,
 			ret = FALSE;
 		else {
 			status_r->uidvalidity = rec->uid_validity;
-			memcpy(mailbox_guid, rec->guid, MAIL_GUID_128_SIZE);
+			memcpy(mailbox_guid, rec->guid, GUID_128_SIZE);
 		}
 	}
 
@@ -158,7 +158,7 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 	struct mail_index_transaction_commit_result result;
 	struct mailbox_metadata metadata;
 	struct mailbox_status old_status;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	guid_128_t mailbox_guid;
 	bool rec_changed, msgs_changed, hmodseq_changed;
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)

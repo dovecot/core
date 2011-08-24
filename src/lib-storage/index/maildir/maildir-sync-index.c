@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
-#include "hex-binary.h"
 #include "maildir-storage.h"
 #include "index-sync-changes.h"
 #include "maildir-uidlist.h"
@@ -51,12 +50,12 @@ void maildir_sync_set_new_msgs_count(struct maildir_index_sync_context *ctx,
 static bool
 maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
 			      uint32_t uid, const char *filename,
-			      uint8_t expunged_guid_128[MAIL_GUID_128_SIZE])
+			      guid_128_t expunged_guid_128)
 {
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 	const char *guid;
 
-	if (mail_guid_128_is_empty(expunged_guid_128)) {
+	if (guid_128_is_empty(expunged_guid_128)) {
 		/* no GUID associated with expunge */
 		return TRUE;
 	}
@@ -75,8 +74,8 @@ maildir_expunge_is_valid_guid(struct maildir_index_sync_context *ctx,
 	mail_storage_set_critical(&ctx->mbox->storage->storage,
 		"Mailbox %s: Expunged GUID mismatch for UID %u: %s vs %s",
 		ctx->mbox->box.vname, ctx->uid,
-		binary_to_hex(guid_128, sizeof(guid_128)),
-		binary_to_hex(expunged_guid_128, MAIL_GUID_128_SIZE));
+		guid_128_to_string(guid_128),
+		guid_128_to_string(expunged_guid_128));
 	return FALSE;
 }
 
@@ -466,7 +465,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	unsigned int changes = 0;
 	int ret = 0;
 	time_t time_before_sync;
-	uint8_t expunged_guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t expunged_guid_128;
 	enum mail_flags private_flags_mask;
 	bool expunged, full_rescan = FALSE;
 

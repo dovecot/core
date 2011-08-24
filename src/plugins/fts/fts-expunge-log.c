@@ -21,7 +21,7 @@ struct fts_expunge_log_record {
 	uint32_t record_size;
 
 	/* Mailbox GUID */
-	mail_guid_128_t guid;
+	guid_128_t guid;
 	/* { uid1, uid2 } pairs */
 	/* uint32_t expunge_uid_ranges[]; */
 
@@ -37,7 +37,7 @@ struct fts_expunge_log {
 };
 
 struct fts_expunge_log_mailbox {
-	mail_guid_128_t guid;
+	guid_128_t guid;
 	ARRAY_TYPE(seq_range) uids;
 	unsigned uids_count;
 };
@@ -179,7 +179,7 @@ fts_expunge_log_append_begin(struct fts_expunge_log *log)
 	ctx->pool = pool;
 	ctx->mailboxes =
 		hash_table_create(default_pool, pool, 0,
-				  mail_guid_128_hash, mail_guid_128_cmp);
+				  guid_128_hash, guid_128_cmp);
 
 	if (fts_expunge_log_reopen_if_needed(log, TRUE) < 0)
 		ctx->failed = TRUE;
@@ -188,7 +188,7 @@ fts_expunge_log_append_begin(struct fts_expunge_log *log)
 
 static struct fts_expunge_log_mailbox *
 fts_expunge_log_mailbox_alloc(struct fts_expunge_log_append_ctx *ctx,
-			      const mail_guid_128_t mailbox_guid)
+			      const guid_128_t mailbox_guid)
 {
 	struct fts_expunge_log_mailbox *mailbox;
 
@@ -200,7 +200,7 @@ fts_expunge_log_mailbox_alloc(struct fts_expunge_log_append_ctx *ctx,
 }
 
 void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
-				 const mail_guid_128_t mailbox_guid,
+				 const guid_128_t mailbox_guid,
 				 uint32_t uid)
 {
 	struct fts_expunge_log_mailbox *mailbox;

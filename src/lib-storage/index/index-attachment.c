@@ -350,7 +350,7 @@ static int index_attachment_save_finish_part(struct mail_save_context *ctx)
 	struct fs_file *file;
 	struct istream *input;
 	struct ostream *output;
-	uint8_t guid_128[MAIL_GUID_128_SIZE];
+	guid_128_t guid_128;
 	const char *attachment_dir, *path, *digest;
 	string_t *digest_str;
 	const unsigned char *data;
@@ -393,12 +393,12 @@ static int index_attachment_save_finish_part(struct mail_save_context *ctx)
 		digest = t_strconcat(digest, "\0\0\0\0", NULL);
 	}
 
-	mail_generate_guid_128(guid_128);
+	guid_128_generate(guid_128);
 	attachment_dir = index_attachment_dir_get(storage);
 	path = t_strdup_printf("%s/%c%c/%c%c/%s-%s", attachment_dir,
 			       digest[0], digest[1],
 			       digest[2], digest[3], digest,
-			       mail_guid_128_to_string(guid_128));
+			       guid_128_to_string(guid_128));
 	if (fs_open(ctx->attach->fs, path,
 		    FS_OPEN_MODE_CREATE | flags, &file) < 0) {
 		mail_storage_set_critical(storage, "%s",

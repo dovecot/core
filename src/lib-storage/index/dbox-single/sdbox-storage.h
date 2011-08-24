@@ -12,7 +12,7 @@
 struct sdbox_index_header {
 	/* increased every time a full mailbox rebuild is done */
 	uint32_t rebuild_count;
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	guid_128_t mailbox_guid;
 };
 
 struct sdbox_storage {
@@ -28,7 +28,7 @@ struct sdbox_mailbox {
 	   has changed from this value) */
 	uint32_t corrupted_rebuild_count;
 
-	uint8_t mailbox_guid[MAIL_GUID_128_SIZE];
+	guid_128_t mailbox_guid;
 };
 
 extern struct mail_vfuncs sdbox_mail_vfuncs;
