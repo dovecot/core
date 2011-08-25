@@ -25,7 +25,7 @@ static int cydir_mail_stat(struct mail *mail, struct stat *st_r)
 	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
 		return mail_set_aborted(mail);
 
-	mail->transaction->stats_stat_lookup_count++;
+	mail->transaction->stats.stat_lookup_count++;
 	path = cydir_mail_get_path(mail);
 	if (stat(path, st_r) < 0) {
 		if (errno == ENOENT)
@@ -99,7 +99,7 @@ cydir_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 	int fd;
 
 	if (mail->data.stream == NULL) {
-		_mail->transaction->stats_open_lookup_count++;
+		_mail->transaction->stats.open_lookup_count++;
 		path = cydir_mail_get_path(_mail);
 		fd = open(path, O_RDONLY);
 		if (fd == -1) {

@@ -1198,12 +1198,12 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 static unsigned long long
 search_get_cost(struct mailbox_transaction_context *trans)
 {
-	return trans->stats_open_lookup_count * SEARCH_COST_DENTRY +
-		trans->stats_stat_lookup_count * SEARCH_COST_DENTRY +
-		trans->stats_fstat_lookup_count * SEARCH_COST_ATTR +
-		trans->stats_cache_hit_count * SEARCH_COST_CACHE +
-		trans->stats_files_read_count * SEARCH_COST_FILES_READ +
-		(trans->stats_files_read_bytes/1024) * SEARCH_COST_KBYTE;
+	return trans->stats.open_lookup_count * SEARCH_COST_DENTRY +
+		trans->stats.stat_lookup_count * SEARCH_COST_DENTRY +
+		trans->stats.fstat_lookup_count * SEARCH_COST_ATTR +
+		trans->stats.cache_hit_count * SEARCH_COST_CACHE +
+		trans->stats.files_read_count * SEARCH_COST_FILES_READ +
+		(trans->stats.files_read_bytes/1024) * SEARCH_COST_KBYTE;
 }
 
 static int search_match_once(struct index_search_context *ctx)

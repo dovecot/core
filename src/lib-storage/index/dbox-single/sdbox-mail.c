@@ -68,7 +68,7 @@ int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 
 	if (!sdbox_mail_file_set(mail)) {
 		if (!dbox_file_is_open(mail->open_file))
-			_mail->transaction->stats_open_lookup_count++;
+			_mail->transaction->stats.open_lookup_count++;
 		if (dbox_file_open(mail->open_file, &deleted) <= 0)
 			return -1;
 		if (deleted) {

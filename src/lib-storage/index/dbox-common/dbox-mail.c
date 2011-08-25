@@ -145,7 +145,7 @@ int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	if (storage->v.mail_open(mail, &offset, &file) < 0)
 		return -1;
 
-	_mail->transaction->stats_fstat_lookup_count++;
+	_mail->transaction->stats.fstat_lookup_count++;
 	if (dbox_file_stat(file, &st) < 0) {
 		if (errno == ENOENT)
 			mail_set_expunged(_mail);

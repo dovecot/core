@@ -50,7 +50,7 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 	ret = mail_cache_lookup_field(mail->mail.mail.transaction->cache_view,
 				      buf, mail->data.seq, field_idx);
 	if (ret > 0)
-		mail->mail.mail.transaction->stats_cache_hit_count++;
+		mail->mail.mail.transaction->stats.cache_hit_count++;
 	return ret;
 }
 

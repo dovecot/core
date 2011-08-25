@@ -24,10 +24,10 @@ i_stream_mail_stats_read_mail_stats(struct istream_private *stream)
 
 	ret = i_stream_read_copy_from_parent(&stream->istream);
 	if (ret > 0) {
-		mstream->trans->stats_files_read_bytes += ret;
+		mstream->trans->stats.files_read_bytes += ret;
 		if (!mstream->files_read_increased) {
 			mstream->files_read_increased = TRUE;
-			mstream->trans->stats_files_read_count++;
+			mstream->trans->stats.files_read_count++;
 		}
 	}
 	return ret;

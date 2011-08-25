@@ -71,7 +71,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 	ctx.fd = -1;
 	ctx.path = NULL;
 
-	mail->transaction->stats_open_lookup_count++;
+	mail->transaction->stats.open_lookup_count++;
 	if (!mail->saving) {
 		if (maildir_file_do(mbox, mail->uid, do_open, &ctx) < 0)
 			return NULL;
@@ -120,13 +120,13 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	}
 
 	if (imail->data.stream != NULL) {
-		mail->transaction->stats_fstat_lookup_count++;
+		mail->transaction->stats.fstat_lookup_count++;
 		stp = i_stream_stat(imail->data.stream, FALSE);
 		if (stp == NULL)
 			return -1;
 		*st = *stp;
 	} else if (!mail->saving) {
-		mail->transaction->stats_stat_lookup_count++;
+		mail->transaction->stats.stat_lookup_count++;
 		ret = maildir_file_do(mbox, mail->uid, do_stat, st);
 		if (ret <= 0) {
 			if (ret == 0)
@@ -134,7 +134,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 			return -1;
 		}
 	} else {
-		mail->transaction->stats_stat_lookup_count++;
+		mail->transaction->stats.stat_lookup_count++;
 		path = maildir_save_file_get_path(mail->transaction, mail->seq);
 		if (stat(path, st) < 0) {
 			mail_storage_set_critical(mail->box->storage,

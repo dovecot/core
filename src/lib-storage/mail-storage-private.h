@@ -345,6 +345,18 @@ union mailbox_transaction_module_context {
 	struct mail_storage_module_register *reg;
 };
 
+struct mailbox_transaction_stats {
+	unsigned long open_lookup_count;
+	unsigned long stat_lookup_count;
+	unsigned long fstat_lookup_count;
+	/* number of files we've opened and read */
+	unsigned long files_read_count;
+	/* number of bytes we've had to read from files */
+	unsigned long long files_read_bytes;
+	/* number of cache lookup hits */
+	unsigned long cache_hit_count;
+};
+
 struct mailbox_transaction_context {
 	struct mailbox *box;
 	enum mailbox_transaction_flags flags;
@@ -367,17 +379,7 @@ struct mailbox_transaction_context {
 	struct mail_save_context *save_ctx;
 
 	/* these statistics are never reset by mail-storage API: */
-
-	unsigned long stats_open_lookup_count;
-	unsigned long stats_stat_lookup_count;
-	unsigned long stats_fstat_lookup_count;
-	/* number of files we've opened and read */
-	unsigned long stats_files_read_count;
-	/* number of bytes we've had to read from files */
-	unsigned long long stats_files_read_bytes;
-	/* number of cache lookup hits */
-	unsigned long stats_cache_hit_count;
-
+	struct mailbox_transaction_stats stats;
 	/* Set to TRUE to update stats_* fields */
 	unsigned int stats_track:1;
 };
