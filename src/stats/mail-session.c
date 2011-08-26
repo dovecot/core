@@ -176,6 +176,8 @@ int mail_session_disconnect_parse(const char *const *args, const char **error_r)
 void mail_session_refresh(struct mail_session *session,
 			  const struct mail_stats *diff_stats)
 {
+	timeout_reset(session->to_idle);
+
 	if (diff_stats != NULL)
 		mail_stats_add(&session->stats, diff_stats);
 	session->last_update = ioloop_time;
