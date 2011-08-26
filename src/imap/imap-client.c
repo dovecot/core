@@ -123,7 +123,8 @@ void client_command_cancel(struct client_command_context **_cmd)
 		i_unreached();
 	}
 
-	cmd_ret = !cmd->cancel || cmd->func == NULL ? TRUE : cmd->func(cmd);
+	cmd_ret = !cmd->cancel || cmd->func == NULL ? TRUE :
+		command_exec(cmd);
 	if (!cmd_ret && cmd->state != CLIENT_COMMAND_STATE_DONE) {
 		if (cmd->client->output->closed)
 			i_panic("command didn't cancel itself: %s", cmd->name);
@@ -669,7 +670,8 @@ static bool client_command_input(struct client_command_context *cmd)
 
         if (cmd->func != NULL) {
 		/* command is being executed - continue it */
-		if (cmd->func(cmd) || cmd->state == CLIENT_COMMAND_STATE_DONE) {
+		if (command_exec(cmd) ||
+		    cmd->state == CLIENT_COMMAND_STATE_DONE) {
 			/* command execution was finished */
 			client_command_free(&cmd);
 			client_add_missing_io(client);
@@ -837,7 +839,7 @@ static void client_output_cmd(struct client_command_context *cmd)
 	bool finished;
 
 	/* continue processing command */
-	finished = cmd->func(cmd) || cmd->state == CLIENT_COMMAND_STATE_DONE;
+	finished = command_exec(cmd) || cmd->state == CLIENT_COMMAND_STATE_DONE;
 
 	if (!finished)
 		(void)client_handle_unfinished_cmd(cmd);

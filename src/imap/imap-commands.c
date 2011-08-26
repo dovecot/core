@@ -7,6 +7,11 @@
 
 #include <stdlib.h>
 
+struct command_hook {
+	command_hook_callback_t *pre;
+	command_hook_callback_t *post;
+};
+
 static const struct command imap4rev1_commands[] = {
 	{ "CAPABILITY",		cmd_capability,  0 },
 	{ "LOGOUT",		cmd_logout,      COMMAND_FLAG_BREAKS_MAILBOX },
@@ -60,6 +65,7 @@ static const struct command imap_ext_commands[] = {
 
 ARRAY_TYPE(command) imap_commands;
 static bool commands_unsorted;
+static ARRAY_DEFINE(command_hooks, struct command_hook);
 
 void command_register(const char *name, command_func_t *func,
 		      enum command_flags flags)
@@ -105,6 +111,45 @@ void command_unregister_array(const struct command *cmdarr, unsigned int count)
 	}
 }
 
+void command_hook_register(command_hook_callback_t *pre,
+			   command_hook_callback_t *post)
+{
+	struct command_hook hook;
+
+	hook.pre = pre;
+	hook.post = post;
+	array_append(&command_hooks, &hook, 1);
+}
+
+void command_hook_unregister(command_hook_callback_t *pre,
+			     command_hook_callback_t *post)
+{
+	const struct command_hook *hooks;
+	unsigned int i, count;
+
+	hooks = array_get(&command_hooks, &count);
+	for (i = 0; i < count; i++) {
+		if (hooks[i].pre == pre && hooks[i].post == post) {
+			array_delete(&command_hooks, i, 1);
+			return;
+		}
+	}
+	i_panic("command_hook_unregister(): hook not registered");
+}
+
+bool command_exec(struct client_command_context *cmd)
+{
+	const struct command_hook *hook;
+	bool ret;
+
+	array_foreach(&command_hooks, hook)
+		hook->pre(cmd);
+	ret = cmd->func(cmd);
+	array_foreach(&command_hooks, hook)
+		hook->post(cmd);
+	return ret;
+}
+
 static int command_cmp(const struct command *c1, const struct command *c2)
 {
 	return strcasecmp(c1->name, c2->name);
@@ -128,6 +173,7 @@ struct command *command_find(const char *name)
 void commands_init(void)
 {
 	i_array_init(&imap_commands, 64);
+	i_array_init(&command_hooks, 4);
 	commands_unsorted = FALSE;
 
         command_register_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
@@ -139,4 +185,5 @@ void commands_deinit(void)
         command_unregister_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
         command_unregister_array(imap_ext_commands, IMAP_EXT_COMMANDS_COUNT);
 	array_free(&imap_commands);
+	array_free(&command_hooks);
 }

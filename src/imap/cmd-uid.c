@@ -24,5 +24,5 @@ bool cmd_uid(struct client_command_context *cmd)
 	cmd->cmd_flags = command->flags;
 	cmd->func = command->func;
 	cmd->uid = TRUE;
-	return cmd->func(cmd);
+	return command_exec(cmd);
 }

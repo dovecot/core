@@ -10,6 +10,7 @@ struct client_command_context;
 #include "imap-commands-util.h"
 
 typedef bool command_func_t(struct client_command_context *cmd);
+typedef void command_hook_callback_t(struct client_command_context *ctx);
 
 enum command_flags {
 	/* Command uses sequences as its input parameters */
@@ -51,6 +52,14 @@ void command_unregister(const char *name);
 /* Register array of commands. */
 void command_register_array(const struct command *cmdarr, unsigned int count);
 void command_unregister_array(const struct command *cmdarr, unsigned int count);
+
+/* Register hook callbacks that are called before and after all commands */
+void command_hook_register(command_hook_callback_t *pre,
+			   command_hook_callback_t *post);
+void command_hook_unregister(command_hook_callback_t *pre,
+			     command_hook_callback_t *post);
+/* Execute command and hooks */
+bool command_exec(struct client_command_context *cmd);
 
 struct command *command_find(const char *name);
 
