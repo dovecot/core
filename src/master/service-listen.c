@@ -108,16 +108,27 @@ static int service_fifo_listener_listen(struct service_listener *l)
 {
         struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
+	unsigned int i;
 	mode_t old_umask;
 	int fd, ret;
 
-	old_umask = umask((set->mode ^ 0777) & 0777);
-	ret = mkfifo(set->path, set->mode);
-	umask(old_umask);
+	for (i = 0;; i++) {
+		old_umask = umask((set->mode ^ 0777) & 0777);
+		ret = mkfifo(set->path, set->mode);
+		umask(old_umask);
 
-	if (ret < 0 && errno != EEXIST) {
-		service_error(service, "mkfifo(%s) failed: %m", set->path);
-		return -1;
+		if (ret == 0)
+			break;
+		if (ret < 0 && (errno != EEXIST || i == 1)) {
+			service_error(service, "mkfifo(%s) failed: %m",
+				      set->path);
+			return -1;
+		}
+		if (unlink(set->path) < 0) {
+			service_error(service, "unlink(%s) failed: %m",
+				      set->path);
+			return -1;
+		}
 	}
 
 	/* open as RDWR, so that even if the last writer closes,
