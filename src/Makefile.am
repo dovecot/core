@@ -42,4 +42,5 @@ SUBDIRS = \
 	doveadm \
 	dsync \
 	ssl-params \
+	stats \
 	plugins

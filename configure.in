@@ -2724,6 +2724,7 @@ src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
 src/ssl-params/Makefile
+src/stats/Makefile
 src/util/Makefile
 src/plugins/Makefile
 src/plugins/acl/Makefile
@@ -2741,6 +2742,8 @@ src/plugins/notify/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/snarf/Makefile
+src/plugins/stats/Makefile
+src/plugins/imap-stats/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
 src/plugins/zlib/Makefile

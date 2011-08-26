@@ -82,6 +82,7 @@ src/log/log
 src/lmtp/lmtp
 src/master/dovecot
 src/ssl-params/ssl-params
+src/stats/stats
 src/plugins/fts-squat/squat-test
 src/pop3-login/pop3-login
 src/pop3/pop3

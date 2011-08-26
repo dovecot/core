@@ -1,0 +1,51 @@
+#ifndef STATS_PLUGIN_H
+#define STATS_PLUGIN_H
+
+#include "module-context.h"
+#include "guid.h"
+#include "mail-user.h"
+#include "mail-storage-private.h"
+
+#define STATS_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, stats_user_module)
+
+struct mail_stats {
+	struct timeval cpu_secs;
+	uint64_t disk_input, disk_output;
+	struct mailbox_transaction_stats trans_stats;
+};
+
+struct stats_user {
+	union mail_user_module_context module_ctx;
+
+	struct ioloop_context *ioloop_ctx;
+	struct stats_connection *stats_conn;
+	guid_128_t session_guid;
+
+	/* current session statistics */
+	struct mail_stats session_stats;
+	/* stats before calling IO callback. after IO callback this value is
+	   compared to current stats to see the difference */
+	struct mail_stats pre_io_stats;
+
+	time_t last_session_update;
+	struct timeout *to_stats_timeout;
+	/* stats that were last sent to stats server */
+	struct mail_stats last_sent_session_stats;
+
+	/* list of all currently existing transactions for this user */
+	struct stats_transaction_context *transactions;
+};
+
+extern MODULE_CONTEXT_DEFINE(stats_user_module, &mail_user_module_register);
+
+void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r);
+void mail_stats_add_diff(struct mail_stats *dest,
+			 const struct mail_stats *old_stats,
+			 const struct mail_stats *new_stats);
+void mail_stats_export(string_t *str, const struct mail_stats *stats);
+
+void stats_plugin_init(struct module *module);
+void stats_plugin_deinit(void);
+
+#endif

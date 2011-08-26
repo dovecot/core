@@ -24,6 +24,8 @@ SUBDIRS = \
 	quota \
 	imap-quota \
 	snarf \
+	stats \
+	imap-stats \
 	trash \
 	virtual \
 	$(ZLIB) \
