@@ -45,6 +45,7 @@ struct net_unix_cred {
 
 #define IPADDR_IS_V4(ip) ((ip)->family == AF_INET)
 #define IPADDR_IS_V6(ip) ((ip)->family == AF_INET6)
+#define IPADDR_BITS(ip) (IPADDR_IS_V4(ip) ? 32 : 128)
 
 /* Returns TRUE if IPs are the same */
 bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2);

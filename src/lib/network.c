@@ -911,7 +911,7 @@ int net_parse_range(const char *network, struct ip_addr *ip_r,
 	if (net_addr2ip(network, ip_r) < 0)
 		return -1;
 
-	max_bits = IPADDR_IS_V4(ip_r) ? 32 : 128;
+	max_bits = IPADDR_BITS(ip_r);
 	if (p == NULL) {
 		/* full IP address must match */
 		bits = max_bits;
