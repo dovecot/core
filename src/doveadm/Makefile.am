@@ -98,6 +98,7 @@ doveadm_SOURCES = \
 	doveadm-proxy.c \
 	doveadm-pw.c \
 	doveadm-sis.c \
+	doveadm-stats.c \
 	doveadm-who.c
 
 doveadm_server_SOURCES = \

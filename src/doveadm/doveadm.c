@@ -259,7 +259,8 @@ static struct doveadm_cmd *doveadm_commands[] = {
 	&doveadm_cmd_kick,
 	&doveadm_cmd_mailbox_mutf7,
 	&doveadm_cmd_sis_deduplicate,
-	&doveadm_cmd_sis_find
+	&doveadm_cmd_sis_find,
+	&doveadm_cmd_stats
 };
 
 int main(int argc, char *argv[])
