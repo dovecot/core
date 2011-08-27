@@ -318,7 +318,7 @@ int lucene_index_build_init(struct lucene_index *index)
 	if (stat(lock_path, &st) == 0 &&
 	    st.st_mtime < time(NULL) - LUCENE_LOCK_OVERRIDE_SECS) {
 		if (unlink(lock_path) < 0)
-			i_error("unlink(%s) failed: %m");
+			i_error("unlink(%s) failed: %m", lock_path);
 	}
 
 	bool exists = IndexReader::indexExists(index->path);
