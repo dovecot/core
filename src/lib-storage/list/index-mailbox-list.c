@@ -603,8 +603,7 @@ index_mailbox_list_update_info(struct index_mailbox_list_iterate_context *ctx)
 						    &ctx->info.flags);
 	}
 
-	box = mailbox_alloc(ctx->ctx.list, ctx->info.name,
-			    MAILBOX_FLAG_KEEP_RECENT);
+	box = mailbox_alloc(ctx->ctx.list, ctx->info.name, 0);
 	index_mailbox_list_status_set_info_flags(box, node->uid,
 						 &ctx->info.flags);
 	mailbox_free(&box);

@@ -62,7 +62,7 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 		     (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
 			continue;
 
-		box = mailbox_alloc(list, info->name, MAILBOX_FLAG_KEEP_RECENT);
+		box = mailbox_alloc(list, info->name, 0);
 		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 					 &metadata) < 0) {
 			i_error("Couldn't get mailbox %s GUID: %s",

@@ -44,8 +44,7 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 		return -1;
 	}
 
-	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY |
-			    MAILBOX_FLAG_KEEP_RECENT);
+	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {

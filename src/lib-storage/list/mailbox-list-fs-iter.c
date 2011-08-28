@@ -566,8 +566,7 @@ list_file(struct fs_list_iterate_context *ctx,
 		bool auto_boxes =
 			(ctx->ctx.flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0;
 
-		box = mailbox_alloc(ctx->ctx.list, list_path,
-				    MAILBOX_FLAG_KEEP_RECENT);
+		box = mailbox_alloc(ctx->ctx.list, list_path, 0);
 		ret = mailbox_exists(box, auto_boxes, &existence);
 		mailbox_free(&box);
 

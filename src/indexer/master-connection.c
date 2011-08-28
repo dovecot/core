@@ -63,7 +63,7 @@ static int index_mailbox(struct mail_user *user, const char *mailbox,
 
 	/* FIXME: the current lib-storage API doesn't allow sending
 	   "n% competed" notifications */
-	box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_KEEP_RECENT);
+	box = mailbox_alloc(ns->list, mailbox, 0);
 	if (max_recent_msgs != 0) {
 		/* index only if there aren't too many recent messages.
 		   don't bother syncing the mailbox, that alone can take a

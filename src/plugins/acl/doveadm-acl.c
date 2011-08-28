@@ -39,8 +39,7 @@ cmd_acl_mailbox_open(struct mail_user *user, const char *mailbox,
 		return -1;
 	}
 	box = mailbox_alloc(ns->list, mailbox,
-			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT |
-			    MAILBOX_FLAG_IGNORE_ACLS);
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
 		i_error("Can't open mailbox %s: %s", mailbox,
 			mailbox_get_last_error(box, NULL));
@@ -367,8 +366,7 @@ cmd_acl_debug_mailbox_open(struct mail_user *user, const char *mailbox,
 		return -1;
 	}
 	box = mailbox_alloc(ns->list, mailbox,
-			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT |
-			    MAILBOX_FLAG_IGNORE_ACLS);
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
 		path = mailbox_list_get_path(ns->list, box->name,
 					     MAILBOX_LIST_PATH_TYPE_MAILBOX);

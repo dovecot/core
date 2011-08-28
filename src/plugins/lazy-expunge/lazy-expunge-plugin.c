@@ -90,8 +90,7 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 	/* add expunge namespace prefix */
 	name = t_strconcat(list->ns->prefix, name, NULL);
 
-	box = mailbox_alloc(list, name, MAILBOX_FLAG_KEEP_RECENT |
-			    MAILBOX_FLAG_NO_INDEX_FILES);
+	box = mailbox_alloc(list, name, MAILBOX_FLAG_NO_INDEX_FILES);
 	if (mailbox_open(box) == 0) {
 		*error_r = NULL;
 		return box;

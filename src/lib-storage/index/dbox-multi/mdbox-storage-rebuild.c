@@ -479,7 +479,6 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	int ret;
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY |
-			    MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	i_assert(box->storage == &ctx->storage->storage.storage);
 	if (mailbox_open(box) < 0) {
@@ -622,7 +621,6 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	while (box == NULL) {
 		box = mailbox_alloc(ctx->default_list, mailbox,
 				    MAILBOX_FLAG_READONLY |
-				    MAILBOX_FLAG_KEEP_RECENT |
 				    MAILBOX_FLAG_IGNORE_ACLS);
 		i_assert(box->storage == storage);
 		if (mailbox_open(box) == 0)

@@ -376,7 +376,7 @@ int fts_index_have_compatible_settings(struct mailbox_list *list,
 	struct fts_index_header hdr;
 	int ret;
 
-	box = mailbox_alloc(list, "INBOX", MAILBOX_FLAG_KEEP_RECENT);
+	box = mailbox_alloc(list, "INBOX", 0);
 	if (mailbox_sync(box, (enum mailbox_sync_flags)0) < 0) {
 		i_error("lucene: Failed to sync mailbox INBOX: %s",
 			mailbox_get_last_error(box, NULL));

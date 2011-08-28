@@ -32,8 +32,8 @@ enum mailbox_flags {
 	MAILBOX_FLAG_READONLY		= 0x01,
 	/* Only saving/copying mails to mailbox works. */
 	MAILBOX_FLAG_SAVEONLY		= 0x02,
-	/* Don't reset MAIL_RECENT flags when syncing */
-	MAILBOX_FLAG_KEEP_RECENT	= 0x08,
+	/* Remove MAIL_RECENT flags when syncing */
+	MAILBOX_FLAG_DROP_RECENT	= 0x04,
 	/* Don't create index files for the mailbox */
 	MAILBOX_FLAG_NO_INDEX_FILES	= 0x10,
 	/* Keep mailbox exclusively locked all the time while it's open */

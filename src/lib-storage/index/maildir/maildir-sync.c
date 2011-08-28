@@ -420,7 +420,7 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final)
 	dest = t_str_new(1024);
 
 	move_new = new_dir && !mailbox_is_readonly(&ctx->mbox->box) &&
-		(ctx->mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0 &&
+		(ctx->mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0 &&
 		ctx->locked;
 
 	errno = 0;
@@ -691,7 +691,7 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 
 	/* if there are files in new/, we'll need to move them. we'll check
 	   this by seeing if we have any recent messages */
-	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
+	if ((mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0) {
 		if (!*new_changed_r)
 			*new_changed_r = have_recent_messages(ctx, FALSE);
 	} else if (*new_changed_r) {
@@ -705,7 +705,7 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 	if (*new_changed_r || *cur_changed_r)
 		return 1;
 
-	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+	if ((mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0)
 		flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
 	if (mbox->synced) {

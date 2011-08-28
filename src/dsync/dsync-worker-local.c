@@ -513,8 +513,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		(struct local_dsync_worker_mailbox_iter *)_iter;
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_iter->worker;
-	const enum mailbox_flags flags =
-		MAILBOX_FLAG_READONLY | MAILBOX_FLAG_KEEP_RECENT;
+	const enum mailbox_flags flags = MAILBOX_FLAG_READONLY;
 	const enum mailbox_status_items status_items =
 		STATUS_UIDNEXT | STATUS_UIDVALIDITY |
 		STATUS_HIGHESTMODSEQ | STATUS_FIRST_RECENT_UID;
@@ -760,7 +759,6 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 			      const mailbox_guid_t *guid,
 			      struct mailbox **box_r)
 {
-	enum mailbox_flags flags = MAILBOX_FLAG_KEEP_RECENT;
 	struct local_dsync_mailbox *lbox;
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
@@ -776,7 +774,7 @@ static int local_mailbox_open(struct local_dsync_worker *worker,
 		return 0;
 	}
 
-	box = mailbox_alloc(lbox->ns->list, lbox->name, flags);
+	box = mailbox_alloc(lbox->ns->list, lbox->name, 0);
 	if (mailbox_sync(box, 0) < 0 ||
 	    mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		i_error("Failed to sync mailbox %s: %s", lbox->name,

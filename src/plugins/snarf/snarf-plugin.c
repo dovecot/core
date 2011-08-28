@@ -160,8 +160,7 @@ static void snarf_mailbox_allocated(struct mailbox *box)
 	sbox->module_ctx.super = *v;
 	box->vlast = &sbox->module_ctx.super;
 
-	sbox->snarf_box = mailbox_alloc(snarf_list, snarf_name,
-					MAILBOX_FLAG_KEEP_RECENT);
+	sbox->snarf_box = mailbox_alloc(snarf_list, snarf_name, 0);
 
 	v->sync_init = snarf_sync_init;
 	v->free = snarf_mailbox_free;

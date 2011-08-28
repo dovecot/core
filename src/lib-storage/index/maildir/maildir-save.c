@@ -741,7 +741,7 @@ maildir_save_sync_index(struct maildir_save_context *ctx)
 		next_uid = maildir_save_set_recent_flags(ctx);
 	} T_END;
 
-	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+	if ((mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0)
 		first_recent_uid = next_uid;
 	else if (ctx->last_nonrecent_uid != 0)
 		first_recent_uid = ctx->last_nonrecent_uid + 1;

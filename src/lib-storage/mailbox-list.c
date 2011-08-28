@@ -1296,7 +1296,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		enum mailbox_existence existence;
 		int ret;
 
-		box = mailbox_alloc(list, "INBOX", MAILBOX_FLAG_KEEP_RECENT);
+		box = mailbox_alloc(list, "INBOX", 0);
 		ret = mailbox_exists(box, FALSE, &existence);
 		mailbox_free(&box);
 		if (ret < 0) {

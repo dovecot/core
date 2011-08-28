@@ -1827,7 +1827,7 @@ again:
 		return ret;
 	}
 
-	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0) {
+	if ((mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0) {
 		/* see if we need to drop recent flags */
 		sync_ctx.hdr = mail_index_get_header(sync_view);
 		if (sync_ctx.hdr->first_recent_uid < sync_ctx.hdr->next_uid)
@@ -1849,7 +1849,7 @@ again:
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
 	sync_ctx.mbox = mbox;
 	sync_ctx.keep_recent =
-		(mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) != 0;
+		(mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0;
 
 	sync_ctx.hdr = mail_index_get_header(sync_view);
 	sync_ctx.from_line = str_new(default_pool, 256);

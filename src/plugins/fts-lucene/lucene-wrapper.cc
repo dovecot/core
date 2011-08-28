@@ -618,8 +618,8 @@ rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
 
 	if (ctx->box != NULL)
 		rescan_finish(ctx);
-	ctx->box = mailbox_alloc_guid(ctx->index->list,
-				      guid, MAILBOX_FLAG_KEEP_RECENT);
+	ctx->box = mailbox_alloc_guid(ctx->index->list, guid,
+				      (enum mailbox_flags)0);
 	if (mailbox_open(ctx->box) < 0) {
 		enum mail_error error;
 		const char *errstr;
@@ -712,7 +712,7 @@ static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 	iter = mailbox_list_iter_init(index->list, "*", iter_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(index->list, info->name,
-				    MAILBOX_FLAG_KEEP_RECENT);
+				    (enum mailbox_flags)0);
 		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 					 &metadata) == 0 &&
 		    (guids == NULL ||

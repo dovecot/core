@@ -83,8 +83,7 @@ doveadm_mailbox_find(struct mail_user *user, const char *mailbox)
 	if (ns == NULL)
 		i_fatal("Can't find namespace for mailbox %s", mailbox);
 
-	return mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_KEEP_RECENT |
-			     MAILBOX_FLAG_IGNORE_ACLS);
+	return mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_IGNORE_ACLS);
 }
 
 static int

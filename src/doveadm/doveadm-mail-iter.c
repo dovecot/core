@@ -26,7 +26,6 @@ int doveadm_mail_iter_init(const struct mailbox_info *info,
 
 	iter = i_new(struct doveadm_mail_iter, 1);
 	iter->box = mailbox_alloc(info->ns->list, info->name,
-				  MAILBOX_FLAG_KEEP_RECENT |
 				  MAILBOX_FLAG_IGNORE_ACLS);
 	iter->search_args = search_args;
 

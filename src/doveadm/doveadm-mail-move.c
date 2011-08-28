@@ -82,9 +82,7 @@ cmd_move_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (ns == NULL)
 		i_fatal("Can't find namespace for: %s", ctx->destname);
 
-	destbox = mailbox_alloc(ns->list, ctx->destname,
-				MAILBOX_FLAG_SAVEONLY |
-				MAILBOX_FLAG_KEEP_RECENT);
+	destbox = mailbox_alloc(ns->list, ctx->destname, MAILBOX_FLAG_SAVEONLY);
 	storage = mailbox_get_storage(destbox);
 	if (mailbox_open(destbox) < 0) {
 		i_error("Can't open mailbox '%s': %s", ctx->destname,

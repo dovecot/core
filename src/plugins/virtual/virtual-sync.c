@@ -1472,7 +1472,7 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 
 	index_sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
 		MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
-	if ((mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+	if ((mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) != 0)
 		index_sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
 	ret = mail_index_sync_begin(ctx->index, &ctx->index_sync_ctx,

@@ -31,7 +31,6 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 	int ret = 0;
 
 	box = mailbox_alloc(info->ns->list, info->name,
-			    MAILBOX_FLAG_KEEP_RECENT |
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	if (ctx->max_recent_msgs != 0) {
 		/* index only if there aren't too many recent messages.

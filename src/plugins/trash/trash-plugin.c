@@ -51,8 +51,7 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
 	struct mail_search_args *search_args;
 
-	trash->box = mailbox_alloc(trash->ns->list, trash->name,
-				   MAILBOX_FLAG_KEEP_RECENT);
+	trash->box = mailbox_alloc(trash->ns->list, trash->name, 0);
 	if (mailbox_open(trash->box) < 0) {
 		mailbox_free(&trash->box);
 		return 0;

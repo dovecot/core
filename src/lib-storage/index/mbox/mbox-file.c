@@ -103,7 +103,7 @@ static void mbox_file_fix_atime(struct mbox_mailbox *mbox)
 	struct stat st;
 
 	if (ibox->recent_flags_count > 0 &&
-	    (mbox->box.flags & MAILBOX_FLAG_KEEP_RECENT) != 0 &&
+	    (mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
 	    mbox->mbox_fd != -1 && !mbox_is_backend_readonly(mbox)) {
 		/* we've seen recent messages which we want to keep recent.
 		   keep file's atime lower than mtime so \Marked status

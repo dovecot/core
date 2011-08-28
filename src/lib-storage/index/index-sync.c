@@ -26,7 +26,7 @@ enum mail_index_sync_flags index_storage_get_sync_flags(struct mailbox *box)
 {
 	enum mail_index_sync_flags sync_flags = 0;
 
-	if ((box->flags & MAILBOX_FLAG_KEEP_RECENT) == 0)
+	if ((box->flags & MAILBOX_FLAG_DROP_RECENT) != 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 	if (box->deleting)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DELETING_INDEX;
@@ -507,7 +507,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	}
 	index_mailbox_expunge_unseen_recent(ctx);
 
-	if ((_ctx->box->flags & MAILBOX_FLAG_KEEP_RECENT) != 0 &&
+	if ((_ctx->box->flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
 	    _ctx->box->opened) {
 		/* mailbox syncing didn't necessarily update our recent state */
 		index_sync_update_recent_count(_ctx->box);

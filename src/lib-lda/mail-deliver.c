@@ -145,8 +145,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	enum mailbox_flags flags =
-		MAILBOX_FLAG_KEEP_RECENT | MAILBOX_FLAG_SAVEONLY |
-		MAILBOX_FLAG_POST_SESSION;
+		MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_POST_SESSION;
 
 	*box_r = NULL;
 	*error_r = MAIL_ERROR_NONE;

@@ -318,8 +318,8 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	client->inbox_ns = ns;
 
 	flags = MAILBOX_FLAG_POP3_SESSION;
-	if (set->pop3_no_flag_updates)
-		flags |= MAILBOX_FLAG_KEEP_RECENT;
+	if (!set->pop3_no_flag_updates)
+		flags |= MAILBOX_FLAG_DROP_RECENT;
 	if (set->pop3_lock_session)
 		flags |= MAILBOX_FLAG_KEEP_LOCKED;
 	client->mailbox = mailbox_alloc(ns->list, "INBOX", flags);
