@@ -47,8 +47,8 @@ struct mdbox_mail_index_record {
 
 struct fts_index_header {
 	uint32_t last_indexed_uid;
-	uint32_t last_optimize_uid;
-	uint32_t last_optimize_msgcount;
+	uint32_t settings_checksum;
+	uint32_t unused;
 };
 struct virtual_mail_index_header {
 	uint32_t change_counter;
@@ -174,10 +174,8 @@ static void dump_extension_header(struct mail_index *index,
 		printf("header\n");
 		printf(" - last_indexed_uid ..... = %u\n",
 		       hdr->last_indexed_uid);
-		printf(" - last_optimize_uid .... = %u\n",
-		       hdr->last_optimize_uid);
-		printf(" - last_optimize_msgcount = %u\n",
-		       hdr->last_optimize_msgcount);
+		printf(" - settings_checksum .... = %u\n",
+		       hdr->settings_checksum);
 	} else if (strcmp(ext->name, "virtual") == 0) {
 		const struct virtual_mail_index_header *hdr = data;
 		const struct virtual_mail_index_mailbox_record *rec;
