@@ -224,6 +224,10 @@ static void stats_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
 	struct stats_mailbox *sbox;
+	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
+
+	if (suser == NULL)
+		return;
 
 	sbox = p_new(box->pool, struct stats_mailbox, 1);
 	sbox->module_ctx.super = *v;
