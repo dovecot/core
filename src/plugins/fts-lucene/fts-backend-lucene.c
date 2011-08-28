@@ -166,9 +166,12 @@ fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
+	struct fts_index_header hdr;
 
-	if (fts_index_get_last_uid(box, last_uid_r))
+	if (fts_index_get_header(box, &hdr)) {
+		*last_uid_r = hdr.last_indexed_uid;
 		return 0;
+	}
 
 	/* either nothing has been indexed, or the index was corrupted.
 	   do it the slow way. */
@@ -284,9 +287,12 @@ fts_backend_lucene_update_expunge(struct fts_backend_update_context *_ctx,
 		(struct lucene_fts_backend_update_context *)_ctx;
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_ctx->backend;
+	struct fts_index_header hdr;
 
 	if (!ctx->last_indexed_uid_set) {
-		if (!fts_index_get_last_uid(ctx->box, &ctx->last_indexed_uid))
+		if (fts_index_get_header(ctx->box, &hdr))
+			ctx->last_indexed_uid = hdr.last_indexed_uid;
+		else
 			ctx->last_indexed_uid = 0;
 		ctx->last_indexed_uid_set = TRUE;
 	}

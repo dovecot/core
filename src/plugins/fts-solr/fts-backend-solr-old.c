@@ -336,9 +336,12 @@ fts_backend_solr_get_last_uid(struct fts_backend *_backend,
 {
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)_backend;
+	struct fts_index_header hdr;
 
-	if (fts_index_get_last_uid(box, last_uid_r))
+	if (fts_index_get_header(box, &hdr)) {
+		*last_uid_r = hdr.last_indexed_uid;
 		return 0;
+	}
 
 	/* either nothing has been indexed, or the index was corrupted.
 	   do it the slow way. */

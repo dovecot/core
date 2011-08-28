@@ -4,6 +4,7 @@
 #include "fts-api.h"
 
 struct mail_user;
+struct mailbox_list;
 
 #define MAILBOX_GUID_HEX_LENGTH (GUID_128_SIZE*2)
 
@@ -79,10 +80,10 @@ struct fts_backend_update_context {
 struct fts_index_header {
 	uint32_t last_indexed_uid;
 
-	/* highest UID and number of messages when optimization was last
-	   time done */
-	uint32_t last_optimize_uid;
-	uint32_t last_optimize_msgcount;
+	/* Checksum of settings. If the settings change, the index should
+	   be rebuilt. */
+	uint32_t settings_checksum;
+	uint32_t unused;
 };
 
 void fts_backend_register(const struct fts_backend *backend);
@@ -97,8 +98,12 @@ void fts_filter_uids(ARRAY_TYPE(seq_range) *definite_dest,
 		     const ARRAY_TYPE(seq_range) *maybe_filter);
 
 /* Returns TRUE if ok, FALSE if no fts header */
-bool fts_index_get_last_uid(struct mailbox *box, uint32_t *last_uid_r);
+bool fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r);
+int fts_index_set_header(struct mailbox *box,
+			 const struct fts_index_header *hdr);
 int fts_index_set_last_uid(struct mailbox *box, uint32_t last_uid);
+int fts_index_have_compatible_settings(struct mailbox_list *list,
+				       uint32_t checksum);
 
 /* Returns TRUE if FTS backend should index the header for optimizing
    separate lookups */

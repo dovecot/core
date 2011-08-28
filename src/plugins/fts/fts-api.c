@@ -86,11 +86,15 @@ void fts_backend_deinit(struct fts_backend **_backend)
 int fts_backend_get_last_uid(struct fts_backend *backend, struct mailbox *box,
 			     uint32_t *last_uid_r)
 {
+	struct fts_index_header hdr;
+
 	if (strcmp(box->storage->name, VIRTUAL_STORAGE_NAME) == 0) {
 		/* virtual mailboxes themselves don't have any indexes,
 		   so catch this call here */
-		if (!fts_index_get_last_uid(box, last_uid_r))
+		if (!fts_index_get_header(box, &hdr))
 			*last_uid_r = 0;
+		else
+			*last_uid_r = hdr.last_indexed_uid;
 		return 0;
 	}
 
@@ -316,9 +320,14 @@ int fts_backend_lookup_multi(struct fts_backend *backend,
 	return backend->v.lookup_multi(backend, boxes, args, and_args, result);
 }
 
-static bool
-fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r,
-		     uint32_t *ext_id_r)
+static uint32_t fts_index_get_ext_id(struct mailbox *box)
+{
+	return mail_index_ext_register(box->index, "fts",
+				       sizeof(struct fts_index_header),
+				       0, 0);
+}
+
+bool fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r)
 {
 	struct mail_index_view *view;
 	const void *data;
@@ -327,10 +336,8 @@ fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r,
 
 	(void)mail_index_refresh(box->index);
 	view = mail_index_view_open(box->index);
-	*ext_id_r = mail_index_ext_register(box->index, "fts",
-					    sizeof(struct fts_index_header),
-					    0, 0);
-	mail_index_get_header_ext(view, *ext_id_r, &data, &data_size);
+	mail_index_get_header_ext(view, fts_index_get_ext_id(box),
+				  &data, &data_size);
 	if (data_size < sizeof(*hdr_r)) {
 		memset(hdr_r, 0, sizeof(*hdr_r));
 		ret = FALSE;
@@ -342,32 +349,44 @@ fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r,
 	return ret;
 }
 
-bool fts_index_get_last_uid(struct mailbox *box, uint32_t *last_uid_r)
+int fts_index_set_header(struct mailbox *box,
+			 const struct fts_index_header *hdr)
 {
-	struct fts_index_header hdr;
-	uint32_t ext_id;
+	struct mail_index_transaction *trans;
+	uint32_t ext_id = fts_index_get_ext_id(box);
 
-	if (!fts_index_get_header(box, &hdr, &ext_id)) {
-		*last_uid_r = 0;
-		return FALSE;
-	}
-
-	*last_uid_r = hdr.last_indexed_uid;
-	return TRUE;
+	trans = mail_index_transaction_begin(box->view, 0);
+	mail_index_update_header_ext(trans, ext_id, 0, hdr, sizeof(*hdr));
+	return mail_index_transaction_commit(&trans);
 }
 
 int fts_index_set_last_uid(struct mailbox *box, uint32_t last_uid)
 {
-	struct mail_index_transaction *trans;
 	struct fts_index_header hdr;
-	uint32_t ext_id;
 
-	(void)fts_index_get_header(box, &hdr, &ext_id);
-
+	(void)fts_index_get_header(box, &hdr);
 	hdr.last_indexed_uid = last_uid;
-	trans = mail_index_transaction_begin(box->view, 0);
-	mail_index_update_header_ext(trans, ext_id, 0, &hdr, sizeof(hdr));
-	return mail_index_transaction_commit(&trans);
+	return fts_index_set_header(box, &hdr);
+}
+
+int fts_index_have_compatible_settings(struct mailbox_list *list,
+				       uint32_t checksum)
+{
+	struct mailbox *box;
+	struct fts_index_header hdr;
+	int ret;
+
+	box = mailbox_alloc(list, "INBOX", MAILBOX_FLAG_KEEP_RECENT);
+	if (mailbox_sync(box, (enum mailbox_sync_flags)0) < 0) {
+		i_error("lucene: Failed to sync mailbox INBOX: %s",
+			mailbox_get_last_error(box, NULL));
+		ret = -1;
+	} else {
+		ret = fts_index_get_header(box, &hdr) &&
+			hdr.settings_checksum == checksum ? 1 : 0;
+	}
+	mailbox_free(&box);
+	return ret;
 }
 
 static const char *indexed_headers[] = {
