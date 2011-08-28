@@ -148,6 +148,11 @@ AS_HELP_STRING([--with-lucene], [Build with CLucene full text search support]),
   want_lucene=no)
 AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
 
+AC_ARG_WITH(stemmer,
+AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for CLucene)]),
+  TEST_WITH(stemmer, $withval),
+  want_stemmer=auto)
+
 AC_ARG_WITH(solr,
 AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   TEST_WITH(solr, $withval),
@@ -2578,6 +2583,14 @@ if test -f /usr/include/rpcsvc/rquota.x && test -n "$RPCGEN"; then
 fi
 AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
 
+dnl
+dnl ** Full text search
+dnl
+
+fts=" squat"
+not_fts=""
+
+have_solr=no
 if test "$want_solr" != "no"; then
   AC_CHECK_PROG(CURLCONFIG, curl-config, curl-config, NO)
   if test $CURLCONFIG != NO; then
@@ -2590,6 +2603,7 @@ if test "$want_solr" != "no"; then
         AC_SUBST(CURL_CFLAGS)
         AC_SUBST(CURL_LIBS)
 	have_solr=yes
+        fts="$fts solr"
       ], [
 	if test $want_solr = yes; then
 	  AC_ERROR([Can't build with Solr support: expat.h not found])
@@ -2608,18 +2622,34 @@ if test "$want_solr" != "no"; then
 fi
 AM_CONDITIONAL(BUILD_SOLR, test "$have_solr" = "yes")
 
+have_lucene=no
 if test "$want_lucene" = "yes"; then
-  AC_CHECK_LIB(stemmer, sb_stemmer_new, [
-    have_lucene_stemmer=yes
-    AC_DEFINE(HAVE_LUCENE_STEMMER,, Define if you want stemming support for CLucene)
-    AC_CHECK_LIB(textcat, special_textcat_Init, [
-      have_lucene_textcat=yes
-      AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat support for CLucene)
+  if test $want_stemmer != no; then
+    AC_CHECK_LIB(stemmer, sb_stemmer_new, [
+      have_lucene_stemmer=yes
+      AC_DEFINE(HAVE_LUCENE_STEMMER,, Define if you want stemming support for CLucene)
+      AC_CHECK_LIB(textcat, special_textcat_Init, [
+	have_lucene_textcat=yes
+	AC_DEFINE(HAVE_LUCENE_TEXTCAT,, Define if you want textcat support for CLucene)
+      ])
+    ], [
+      if test $want_stemmer = yes; then
+	AC_ERROR([Can't build with stemmer support: libstemmer not found])
+      fi
     ])
-  ])
+  fi
+  have_lucene=yes
+  fts="$fts lucene"
 fi
 AM_CONDITIONAL(BUILD_LUCENE_STEMMER, test "$have_lucene_stemmer" = "yes")
 AM_CONDITIONAL(BUILD_LUCENE_TEXTCAT, test "$have_lucene_textcat" = "yes")
+
+if test $have_lucene = no; then
+  not_fts="$not_fts lucene"
+fi
+if test $have_solr = no; then
+  not_fts="$not_fts solr"
+fi
 
 dnl **
 dnl ** Settings
@@ -2760,6 +2790,7 @@ fi
 not_passdb=`echo "$not_passdb"|sed 's/ / -/g'`
 not_userdb=`echo "$not_userdb"|sed 's/ / -/g'`
 not_sql_drivers=`echo "$not_sql_drivers"|sed 's/ / -/g'`
+not_fts=`echo "$not_fts"|sed 's/ / -/g'`
 
 echo
 echo "Install prefix . : $prefix"
@@ -2779,6 +2810,10 @@ fi
 echo "SQL drivers .... :$sql_drivers"
 if test "$not_sql_drivers" != ""; then
   echo "                 :$not_sql_drivers"
+fi
+echo "Full text search :$fts"
+if test "$not_fts" != ""; then
+  echo "                 :$not_fts"
 fi
 
 echo
