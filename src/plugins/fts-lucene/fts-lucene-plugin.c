@@ -1,6 +1,7 @@
 /* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "crc32.h"
 #include "mail-storage-hooks.h"
 #include "lucene-wrapper.h"
 #include "fts-lucene-plugin.h"
@@ -56,26 +57,27 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 	return 0;
 }
 
-static void fts_lucene_mail_user_create(struct mail_user *user, const char *env)
+uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 {
-	struct fts_lucene_user *fuser;
-
-	fuser = p_new(user->pool, struct fts_lucene_user, 1);
-	if (fts_lucene_plugin_init_settings(user, &fuser->set, env) < 0) {
-		/* invalid settings, disabling */
-		return;
-	}
-
-	MODULE_CONTEXT_SET(user, fts_lucene_user_module, fuser);
+	/* only the default language change matters */
+	return crc32_str(set->default_language);
 }
 
 static void fts_lucene_mail_user_created(struct mail_user *user)
 {
+	struct fts_lucene_user *fuser;
 	const char *env;
 
+	fuser = p_new(user->pool, struct fts_lucene_user, 1);
 	env = mail_user_plugin_getenv(user, "fts_lucene");
-	if (env != NULL)
-		fts_lucene_mail_user_create(user, env);
+	if (env == NULL)
+		env = "";
+
+	if (fts_lucene_plugin_init_settings(user, &fuser->set, env) < 0) {
+		/* invalid settings, disabling */
+		return;
+	}
+	MODULE_CONTEXT_SET(user, fts_lucene_user_module, fuser);
 }
 
 static struct mail_storage_hooks fts_lucene_mail_storage_hooks = {

@@ -120,8 +120,7 @@ static struct fts_backend *fts_backend_lucene_alloc(void)
 }
 
 static int
-fts_backend_lucene_init(struct fts_backend *_backend,
-			const char **error_r ATTR_UNUSED)
+fts_backend_lucene_init(struct fts_backend *_backend, const char **error_r)
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
@@ -129,20 +128,19 @@ fts_backend_lucene_init(struct fts_backend *_backend,
 		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
 	const char *path;
 
+	if (fuser == NULL) {
+		/* invalid settings */
+		*error_r = "Invalid fts_lucene settings";
+		return -1;
+	}
+
 	path = mailbox_list_get_path(_backend->ns->list, NULL,
 				     MAILBOX_LIST_PATH_TYPE_INDEX);
 	i_assert(path != NULL); /* fts already checked this */
 
 	backend->dir_path = i_strconcat(path, "/"LUCENE_INDEX_DIR_NAME, NULL);
-	if (fuser != NULL) {
-		backend->index = lucene_index_init(backend->dir_path,
-						   _backend->ns->list,
-						   &fuser->set);
-	} else {
-		backend->index = lucene_index_init(backend->dir_path,
-						   _backend->ns->list,
-						   NULL);
-	}
+	backend->index = lucene_index_init(backend->dir_path,
+					   _backend->ns->list, &fuser->set);
 
 	path = t_strconcat(backend->dir_path, "/"LUCENE_EXPUNGE_LOG_NAME, NULL);
 	backend->expunge_log = fts_expunge_log_init(path);
@@ -166,10 +164,20 @@ fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
+	struct fts_lucene_user *fuser =
+		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
 	struct fts_index_header hdr;
+	uint32_t set_checksum;
 
 	if (fts_index_get_header(box, &hdr)) {
-		*last_uid_r = hdr.last_indexed_uid;
+		set_checksum = fts_lucene_settings_checksum(&fuser->set);
+		if (!fts_index_have_compatible_settings(_backend->ns->list,
+							set_checksum)) {
+			/* need to rebuild the index */
+			*last_uid_r = 0;
+		} else {
+			*last_uid_r = hdr.last_indexed_uid;
+		}
 		return 0;
 	}
 
@@ -290,10 +298,10 @@ fts_backend_lucene_update_expunge(struct fts_backend_update_context *_ctx,
 	struct fts_index_header hdr;
 
 	if (!ctx->last_indexed_uid_set) {
-		if (fts_index_get_header(ctx->box, &hdr))
-			ctx->last_indexed_uid = hdr.last_indexed_uid;
-		else
+		if (!fts_index_get_header(ctx->box, &hdr))
 			ctx->last_indexed_uid = 0;
+		else
+			ctx->last_indexed_uid = hdr.last_indexed_uid;
 		ctx->last_indexed_uid_set = TRUE;
 	}
 	if (ctx->last_indexed_uid == 0 ||

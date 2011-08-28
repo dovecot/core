@@ -21,6 +21,8 @@ struct fts_lucene_user {
 extern struct fts_backend fts_backend_lucene;
 extern MODULE_CONTEXT_DEFINE(fts_lucene_user_module, &mail_user_module_register);
 
+uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set);
+
 void fts_lucene_plugin_init(struct module *module);
 void fts_lucene_plugin_deinit(void);
 

@@ -84,7 +84,7 @@ static void *textcat = NULL;
 static bool textcat_broken = FALSE;
 static int textcat_refcount = 0;
 
-static void rescan_clear_unseen_mailboxes(struct mailbox_list *list,
+static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 					  struct hash_table *guids);
 
 struct lucene_index *lucene_index_init(const char *path,
@@ -99,9 +99,13 @@ struct lucene_index *lucene_index_init(const char *path,
 	index->list = list;
 	if (set != NULL)
 		index->set = *set;
+	else {
+		/* this is valid only for doveadm dump, so it doesn't matter */
+		index->set.default_language = "";
+	}
 #ifdef HAVE_LUCENE_STEMMER
 	index->default_analyzer =
-		_CLNEW snowball::SnowballAnalyzer(set->default_language);
+		_CLNEW snowball::SnowballAnalyzer(index->set.default_language);
 #else
 	index->default_analyzer = _CLNEW standard::StandardAnalyzer();
 #endif
@@ -198,7 +202,7 @@ static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
 		   missing files and other such corruption.. */
 		if (unlink_directory(index->path, TRUE) < 0 && errno != ENOENT)
 			i_error("unlink_directory(%s) failed: %m", index->path);
-		rescan_clear_unseen_mailboxes(index->list, NULL);
+		rescan_clear_unseen_mailboxes(index, NULL);
 	}
 }
 
@@ -307,6 +311,27 @@ int lucene_index_get_doc_count(struct lucene_index *index, uint32_t *count_r)
 	return 0;
 }
 
+static int lucene_settings_check(struct lucene_index *index)
+{
+	struct fts_index_header hdr;
+	uint32_t set_checksum;
+	int ret = 0;
+
+	set_checksum = fts_lucene_settings_checksum(&index->set);
+	ret = fts_index_have_compatible_settings(index->list, set_checksum);
+	if (ret != 0)
+		return ret;
+
+	/* settings changed, rebuild index */
+	if (unlink_directory(index->path, TRUE) < 0) {
+		i_error("unlink_directory(%s) failed: %m", index->path);
+		ret = -1;
+	} else {
+		rescan_clear_unseen_mailboxes(index, NULL);
+	}
+	return ret;
+}
+
 int lucene_index_build_init(struct lucene_index *index)
 {
 	const char *lock_path;
@@ -320,6 +345,9 @@ int lucene_index_build_init(struct lucene_index *index)
 		if (unlink(lock_path) < 0)
 			i_error("unlink(%s) failed: %m", lock_path);
 	}
+
+	if (lucene_settings_check(index) < 0)
+		return -1;
 
 	bool exists = IndexReader::indexExists(index->path);
 	try {
@@ -518,7 +546,7 @@ wcharguid_to_guid(guid_128_t dest, const wchar_t *src)
 		return -1;
 	src_chars[i] = '\0';
 
-	buffer_create_data(&buf, dest, sizeof(*dest));
+	buffer_create_data(&buf, dest, GUID_128_SIZE);
 	return hex_to_binary(src_chars, &buf);
 }
 
@@ -665,7 +693,7 @@ rescan_next(struct rescan_context *ctx, Document *doc)
 	}
 }
 
-static void rescan_clear_unseen_mailboxes(struct mailbox_list *list,
+static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 					  struct hash_table *guids)
 {
 	const enum mailbox_list_iter_flags iter_flags =
@@ -676,10 +704,14 @@ static void rescan_clear_unseen_mailboxes(struct mailbox_list *list,
 	const struct mailbox_info *info;
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
+	struct fts_index_header hdr;
 
-	iter = mailbox_list_iter_init(list, "*", iter_flags);
+	memset(&hdr, 0, sizeof(hdr));
+	hdr.settings_checksum = fts_lucene_settings_checksum(&index->set);
+
+	iter = mailbox_list_iter_init(index->list, "*", iter_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		box = mailbox_alloc(list, info->name,
+		box = mailbox_alloc(index->list, info->name,
 				    MAILBOX_FLAG_KEEP_RECENT);
 		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 					 &metadata) == 0 &&
@@ -687,7 +719,7 @@ static void rescan_clear_unseen_mailboxes(struct mailbox_list *list,
 		     hash_table_lookup(guids, metadata.guid) == NULL)) {
 			/* this mailbox had no records in lucene index.
 			   make sure its last indexed uid is 0 */
-			(void)fts_index_set_last_uid(box, 0);
+			(void)fts_index_set_header(box, &hdr);
 		}
 		mailbox_free(&box);
 	}
@@ -741,7 +773,7 @@ int lucene_index_rescan(struct lucene_index *index)
 		rescan_finish(&ctx);
 	array_free(&ctx.uids);
 
-	rescan_clear_unseen_mailboxes(index->list, ctx.guids);
+	rescan_clear_unseen_mailboxes(index, ctx.guids);
 	hash_table_destroy(&ctx.guids);
 	pool_unref(&ctx.pool);
 	return failed ? -1 : 0;
