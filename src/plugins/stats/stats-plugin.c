@@ -358,9 +358,8 @@ static void stats_user_created(struct mail_user *user)
 		path = t_strconcat(user->set->base_dir,
 				   "/"MAIL_STATS_SOCKET_NAME, NULL);
 		global_stats_conn = stats_connection_create(path);
-	} else {
-		stats_connection_ref(global_stats_conn);
 	}
+	stats_connection_ref(global_stats_conn);
 
 	suser = p_new(user->pool, struct stats_user, 1);
 	suser->module_ctx.super = *v;
@@ -394,5 +393,7 @@ void stats_plugin_init(struct module *module)
 
 void stats_plugin_deinit(void)
 {
+	if (global_stats_conn != NULL)
+		stats_connection_unref(&global_stats_conn);
 	mail_storage_hooks_remove(&stats_mail_storage_hooks);
 }
