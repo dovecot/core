@@ -111,6 +111,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	mail_set = mail_user_set_get_storage_set(user);
 	user->mail_debug = mail_set->mail_debug;
+	user->service = master_service_get_name(master_service);
 
 	user->initialized = TRUE;
 	hook_mail_user_created(user);
