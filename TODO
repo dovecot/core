@@ -18,7 +18,6 @@
    from lib-index
  - dsync: if mailbox is renamed due to it being invalid, its subscription
    isn't renamed
- - doveadm director assign <user> <host> - do it permanently in memory
  - LSUB shows subscribed namespace prefix as prefix/, also SUBSCRIBE adds the /
  - sql pool: if async query is pending and sync query is sent and there
    are no more empty connections, it should flush the async query first
@@ -145,6 +144,7 @@
  - DEBUG: buffer overflow checking code probably doesn't handle a successful
    t_try_realloc() or pool_alloconly_realloc() properly
  - ldap:
+   - sasl bind + auth_bind=yes should probably be doing only sasl binds..
    - support multiple connections for doing auth binds
    - domain lookups which set the base for user lookup
    - same attribute can't be used for multiple values.

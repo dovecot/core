@@ -1,3 +1,26 @@
+v2.0.14 2011-08-29  Timo Sirainen <tss@iki.fi>
+
+	+ doveadm: Added support for running mail commands by proxying to
+	  another doveadm server.
+	+ Added "doveadm proxy list" and "doveadm proxy kick" commands to
+	  list/kick proxy connections (via a new "ipc" service).
+	+ Added "doveadm director move" to assign user from one server to
+	  another, killing any existing connections.
+	+ Added "doveadm director ring status" command.
+	+ userdb extra fields can now return name+=value to append to an
+	  existing name, e.g. "mail_plugins+= quota".
+	- script-login attempted an unnecessary config lookup, which usually
+	  failed with "Permission denied".
+	- lmtp: Fixed parsing quoted strings with spaces as local-part for
+	  MAIL FROM and RCPT TO.
+	- imap: FETCH BODY[HEADER.FIELDS (..)] may have crashed or not
+	  returned all data sometimes.
+	- ldap: Fixed random assert-crashing with with sasl_bind=yes.
+	- Fixes to handling mail chroots
+	- Fixed renaming mailboxes under different parent with FS layout when
+	  using separate ALT, INDEX or CONTROL paths.
+	- zlib: Fixed reading concatenated .gz files.
+
 v2.0.13 2011-05-11  Timo Sirainen <tss@iki.fi>
 
 	+ Added "doveadm index" command to add unindexed messages into
