@@ -23,7 +23,7 @@ static int mail_index_create_backup(struct mail_index *index)
 		   hasn't been written to disk yet */
 		if (fdatasync(index->fd) < 0) {
 			mail_index_set_error(index, "fdatasync(%s) failed: %m",
-					     tmp_backup_path);
+					     index->filepath);
 			return -1;
 		}
 	}
