@@ -14,6 +14,7 @@
 #include "director.h"
 #include "director-host.h"
 #include "director-request.h"
+#include "director-connection.h"
 #include "doveadm-connection.h"
 
 #include <unistd.h>
@@ -93,12 +94,31 @@ static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
 
 static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 {
+	struct director *dir = conn->dir;
 	struct director_host *const *hostp;
 	string_t *str = t_str_new(1024);
+	const char *type;
+	bool left, right;
 
-	array_foreach(&conn->dir->dir_hosts, hostp) {
-		str_printfa(str, "%s\t%u\n",
-			    net_ip2addr(&(*hostp)->ip), (*hostp)->port);
+	array_foreach(&dir->dir_hosts, hostp) {
+		const struct director_host *host = *hostp;
+
+		left = dir->left != NULL &&
+			director_connection_get_host(dir->left) == host;
+		right = dir->right != NULL &&
+			 director_connection_get_host(dir->right) == host;
+
+		if (dir->self_host == host)
+			type = "self";
+		else if (left)
+			type = right ? "l+r" : "left";
+		else if (right)
+			type = "right";
+		else
+			type = "";
+		str_printfa(str, "%s\t%u\t%s\t%lu\n",
+			    net_ip2addr(&host->ip), host->port, type,
+			    (unsigned long)host->last_failed);
 	}
 	str_append_c(str, '\n');
 	o_stream_send(conn->output, str_data(str), str_len(str));
