@@ -214,7 +214,7 @@ static void server_connection_input(struct server_connection *conn)
 		return;
 
 	if (!conn->authenticated) {
-		if ((line = i_stream_next_line(conn->input)) != NULL)
+		if ((line = i_stream_next_line(conn->input)) == NULL)
 			return;
 		if (strcmp(line, "+") == 0)
 			conn->authenticated = TRUE;
