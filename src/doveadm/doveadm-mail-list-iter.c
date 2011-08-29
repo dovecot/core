@@ -26,6 +26,8 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 	for (; args != NULL; args = args->next) {
 		switch (args->type) {
 		case SEARCH_OR:
+			/* we don't currently try to optimize OR. */
+			break;
 		case SEARCH_SUB:
 		case SEARCH_INTHREAD:
 			subargs = args->value.subargs;
