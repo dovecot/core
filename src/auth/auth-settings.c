@@ -107,6 +107,8 @@ struct service_settings auth_worker_service_settings = {
 static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(SET_STR, driver),
 	DEF(SET_STR, args),
+	DEF(SET_STR, default_fields),
+	DEF(SET_STR, override_fields),
 	DEF(SET_BOOL, deny),
 	DEF(SET_BOOL, pass),
 	DEF(SET_BOOL, master),
@@ -117,6 +119,8 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.driver = "",
 	.args = "",
+	.default_fields = "",
+	.override_fields = "",
 	.deny = FALSE,
 	.pass = FALSE,
 	.master = FALSE
@@ -142,13 +146,17 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(SET_STR, driver),
 	DEF(SET_STR, args),
+	DEF(SET_STR, default_fields),
+	DEF(SET_STR, override_fields),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct auth_userdb_settings auth_userdb_default_settings = {
 	.driver = "",
-	.args = ""
+	.args = "",
+	.default_fields = "",
+	.override_fields = ""
 };
 
 const struct setting_parser_info auth_userdb_setting_parser_info = {

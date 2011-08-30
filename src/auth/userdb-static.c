@@ -6,121 +6,9 @@
 #include "str.h"
 #include "var-expand.h"
 #include "userdb.h"
-#include "userdb-static.h"
+#include "userdb-template.h"
 
 #include <stdlib.h>
-
-struct userdb_static_template {
-	ARRAY_DEFINE(args, const char *);
-};
-
-struct userdb_static_template *
-userdb_static_template_build(pool_t pool, const char *userdb_name,
-			     const char *args)
-{
-	struct userdb_static_template *tmpl;
-	const char *const *tmp, *key, *value;
-	uid_t uid;
-	gid_t gid;
-
-	tmpl = p_new(pool, struct userdb_static_template, 1);
-
-	tmp = t_strsplit_spaces(args, " ");
-	p_array_init(&tmpl->args, pool, str_array_length(tmp));
-
-	for (; *tmp != NULL; tmp++) {
-		value = strchr(*tmp, '=');
-		if (value == NULL)
-			key = *tmp;
-		else {
-			key = t_strdup_until(*tmp, value);
-			value++;
-		}
-
-		if (strcasecmp(key, "uid") == 0) {
-			uid = userdb_parse_uid(NULL, value);
-			if (uid == (uid_t)-1) {
-				i_fatal("%s userdb: Invalid uid: %s",
-					userdb_name, value);
-			}
-			value = dec2str(uid);
-		} else if (strcasecmp(key, "gid") == 0) {
-			gid = userdb_parse_gid(NULL, value);
-			if (gid == (gid_t)-1) {
-				i_fatal("%s userdb: Invalid gid: %s",
-					userdb_name, value);
-			}
-			value = dec2str(gid);
-		} else if (*key == '\0') {
-			i_fatal("%s userdb: Empty key (=%s)",
-				userdb_name, value);
-		}
-		key = p_strdup(pool, key);
-		value = p_strdup(pool, value);
-
-		array_append(&tmpl->args, &key, 1);
-		array_append(&tmpl->args, &value, 1);
-	}
-	return tmpl;
-}
-
-bool userdb_static_template_isset(struct userdb_static_template *tmpl,
-				  const char *key)
-{
-	const char *const *args;
-	unsigned int i, count;
-
-	args = array_get(&tmpl->args, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(args[i], key) == 0)
-			return TRUE;
-	}
-	return FALSE;
-}
-
-bool userdb_static_template_remove(struct userdb_static_template *tmpl,
-				   const char *key, const char **value_r)
-{
-	const char *const *args;
-	unsigned int i, count;
-
-	args = array_get(&tmpl->args, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(args[i], key) == 0) {
-			*value_r = args[i+1];
-			array_delete(&tmpl->args, i, 2);
-			return TRUE;
-		}
-	}
-	return FALSE;
-}
-
-void userdb_static_template_export(struct userdb_static_template *tmpl,
-				   struct auth_request *auth_request)
-{
-        const struct var_expand_table *table;
-	string_t *str;
-	const char *const *args, *value;
-	unsigned int i, count;
-
-	str = t_str_new(256);
-	table = auth_request_get_var_expand_table(auth_request, NULL);
-
-	args = array_get(&tmpl->args, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2) {
-		if (args[i+1] == NULL)
-			value = NULL;
-		else {
-			str_truncate(str, 0);
-			var_expand(str, args[i+1], table);
-			value = str_c(str);
-		}
-		auth_request_set_userdb_field(auth_request, args[i], value);
-	}
-}
 
 struct static_context {
 	userdb_callback_t *callback, *old_callback;
@@ -129,7 +17,7 @@ struct static_context {
 
 struct static_userdb_module {
 	struct userdb_module module;
-	struct userdb_static_template *tmpl;
+	struct userdb_template *tmpl;
 
 	unsigned int allow_all_users:1;
 };
@@ -142,7 +30,7 @@ static void static_lookup_real(struct auth_request *auth_request,
 		(struct static_userdb_module *)_module;
 
 	auth_request_init_userdb_reply(auth_request);
-	userdb_static_template_export(module->tmpl, auth_request);
+	userdb_template_export(module->tmpl, auth_request);
 	callback(USERDB_RESULT_OK, auth_request);
 }
 
@@ -223,10 +111,9 @@ static_preinit(pool_t pool, const char *args)
 	const char *value;
 
 	module = p_new(pool, struct static_userdb_module, 1);
-	module->tmpl = userdb_static_template_build(pool, "static", args);
+	module->tmpl = userdb_template_build(pool, "static", args);
 
-	if (userdb_static_template_remove(module->tmpl, "allow_all_users",
-					  &value)) {
+	if (userdb_template_remove(module->tmpl, "allow_all_users", &value)) {
 		module->allow_all_users = value == NULL ||
 			strcasecmp(value, "yes") == 0;
 	}

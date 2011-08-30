@@ -51,6 +51,9 @@ userdb {
   driver = passwd
   # [blocking=no]
   #args = 
+
+  # Override fields from passwd
+  #override_fields = home=/home/virtual/%u
 }
 
 # Static settings generated from template <doc/wiki/UserDatabase.Static.txt>

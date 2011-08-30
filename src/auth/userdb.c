@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ipwd.h"
 #include "auth-worker-server.h"
+#include "userdb-template.h"
 #include "userdb.h"
 
 #include <stdlib.h>
@@ -128,34 +129,45 @@ userdb_find(const char *driver, const char *args, unsigned int *idx_r)
 }
 
 struct userdb_module *
-userdb_preinit(pool_t pool, const char *driver, const char *args)
+userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 {
 	static unsigned int auth_userdb_id = 0;
 	struct userdb_module_interface *iface;
 	struct userdb_module *userdb;
 	unsigned int idx;
 
-	iface = userdb_interface_find(driver);
+	iface = userdb_interface_find(set->driver);
 	if (iface == NULL)
-		i_fatal("Unknown userdb driver '%s'", driver);
+		i_fatal("Unknown userdb driver '%s'", set->driver);
 	if (iface->lookup == NULL) {
 		i_fatal("Support not compiled in for userdb driver '%s'",
-			driver);
+			set->driver);
 	}
-	if (iface->preinit == NULL && iface->init == NULL && *args != '\0')
-		i_fatal("userdb %s: No args are supported: %s", driver, args);
+	if (iface->preinit == NULL && iface->init == NULL &&
+	    *set->args != '\0') {
+		i_fatal("userdb %s: No args are supported: %s",
+			set->driver, set->args);
+	}
 
-	userdb = userdb_find(driver, args, &idx);
+	userdb = userdb_find(set->driver, set->args, &idx);
 	if (userdb != NULL)
 		return userdb;
 
 	if (iface->preinit == NULL)
 		userdb = p_new(pool, struct userdb_module, 1);
 	else
-		userdb = iface->preinit(pool, args);
+		userdb = iface->preinit(pool, set->args);
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
-	userdb->args = p_strdup(pool, args);
+	userdb->args = p_strdup(pool, set->args);
+
+	userdb->default_fields_tmpl =
+		userdb_template_build(pool, set->driver,
+				      set->default_fields);
+	userdb->override_fields_tmpl =
+		userdb_template_build(pool, set->driver,
+				      set->override_fields);
+
 	array_append(&userdb_modules, &userdb, 1);
 	return userdb;
 }

@@ -6,6 +6,7 @@
 
 struct auth;
 struct auth_request;
+struct auth_userdb_settings;
 
 enum userdb_result {
 	USERDB_RESULT_INTERNAL_FAILURE = -1,
@@ -32,6 +33,9 @@ struct userdb_module {
 
 	/* number of time init() has been called */
 	int init_refcount;
+
+	struct userdb_template *default_fields_tmpl;
+	struct userdb_template *override_fields_tmpl;
 
 	const struct userdb_module_interface *iface;
 };
@@ -65,7 +69,7 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str);
 gid_t userdb_parse_gid(struct auth_request *request, const char *str);
 
 struct userdb_module *
-userdb_preinit(pool_t pool, const char *driver, const char *args);
+userdb_preinit(pool_t pool, const struct auth_userdb_settings *set);
 void userdb_init(struct userdb_module *userdb);
 void userdb_deinit(struct userdb_module *userdb);
 

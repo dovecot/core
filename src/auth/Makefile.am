@@ -98,6 +98,7 @@ auth_SOURCES = \
 	passdb-vpopmail.c \
 	passdb-sql.c \
 	passdb-static.c \
+	passdb-template.c \
 	userdb.c \
 	userdb-blocking.c \
 	userdb-checkpassword.c \
@@ -108,6 +109,7 @@ auth_SOURCES = \
 	userdb-static.c \
 	userdb-vpopmail.c \
 	userdb-sql.c \
+	userdb-template.c \
 	$(ldap_sources)
 
 headers = \
@@ -134,10 +136,11 @@ headers = \
 	passdb.h \
 	passdb-blocking.h \
 	passdb-cache.h \
+	passdb-template.h \
 	password-scheme.h \
 	userdb.h \
 	userdb-blocking.h \
-	userdb-static.h \
+	userdb-template.h \
 	userdb-vpopmail.h
 
 if GSSAPI_PLUGIN

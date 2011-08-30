@@ -28,8 +28,7 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	for (dest = passdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_passdb;
 
-	auth_passdb->passdb =
-		passdb_preinit(auth->pool, set->driver, set->args);
+	auth_passdb->passdb = passdb_preinit(auth->pool, set);
 }
 
 static void
@@ -43,8 +42,7 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_userdb;
 
-	auth_userdb->userdb =
-		userdb_preinit(auth->pool, set->driver, set->args);
+	auth_userdb->userdb = userdb_preinit(auth->pool, set);
 }
 
 static struct auth *

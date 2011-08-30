@@ -18,8 +18,10 @@
 #include "auth-master-connection.h"
 #include "passdb.h"
 #include "passdb-blocking.h"
-#include "userdb-blocking.h"
 #include "passdb-cache.h"
+#include "passdb-template.h"
+#include "userdb-blocking.h"
+#include "userdb-template.h"
 #include "password-scheme.h"
 
 #include <stdlib.h>
@@ -510,17 +512,20 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request)
 {
+	struct passdb_module *passdb = request->passdb->passdb;
+
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
+		passdb_template_export(passdb->override_fields_tmpl, request);
 		auth_request_save_cache(request, result);
-	else {
+	} else {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
 		   expired record. */
-		const char *cache_key = request->passdb->passdb->cache_key;
+		const char *cache_key = passdb->cache_key;
 
 		if (passdb_cache_verify_plain(request, cache_key,
 					      request->mech_password,
@@ -603,6 +608,7 @@ void auth_request_verify_plain(struct auth_request *request,
 	} else if (passdb->blocking) {
 		passdb_blocking_verify_plain(request);
 	} else if (passdb->iface.verify_plain != NULL) {
+		passdb_template_export(passdb->default_fields_tmpl, request);
 		passdb->iface.verify_plain(request, password,
 					   auth_request_verify_plain_callback);
 	}
@@ -642,19 +648,21 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      size_t size,
 					      struct auth_request *request)
 {
+	struct passdb_module *passdb = request->passdb->passdb;
 	const char *cache_cred, *cache_scheme;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
+		passdb_template_export(passdb->override_fields_tmpl, request);
 		auth_request_save_cache(request, result);
-	else {
+	} else {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
 		   expired record. */
-		const char *cache_key = request->passdb->passdb->cache_key;
+		const char *cache_key = passdb->cache_key;
 
 		if (passdb_cache_lookup_credentials(request, cache_key,
 						    &cache_cred, &cache_scheme,
@@ -710,6 +718,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	} else if (passdb->blocking) {
 		passdb_blocking_lookup_credentials(request);
 	} else {
+		passdb_template_export(passdb->default_fields_tmpl, request);
 		passdb->iface.lookup_credentials(request,
 			auth_request_lookup_credentials_callback);
 	}
@@ -807,7 +816,9 @@ void auth_request_userdb_callback(enum userdb_result result,
 		return;
 	}
 
-	if (request->userdb_internal_failure && result != USERDB_RESULT_OK) {
+	if (result == USERDB_RESULT_OK)
+		userdb_template_export(userdb->override_fields_tmpl, request);
+	else if (request->userdb_internal_failure) {
 		/* one of the userdb lookups failed. the user might have been
 		   in there, so this is an internal failure */
 		result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -1246,8 +1257,12 @@ void auth_request_set_fields(struct auth_request *request,
 
 void auth_request_init_userdb_reply(struct auth_request *request)
 {
+	struct userdb_module *module = request->userdb->userdb;
+
 	request->userdb_reply = auth_stream_reply_init(request->pool);
 	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
+
+	userdb_template_export(module->default_fields_tmpl, request);
 }
 
 static void auth_request_set_uidgid_file(struct auth_request *request,
@@ -1303,6 +1318,11 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		return;
 	} else if (strcmp(name, "system_user") == 0) {
 		/* FIXME: the system_user is for backwards compatibility */
+		static bool warned = FALSE;
+		if (!warned) {
+			i_warning("userdb: Replace system_user with system_groups_user");
+			warned = TRUE;
+		}
 		name = "system_groups_user";
 	}
 

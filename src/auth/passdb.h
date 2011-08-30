@@ -7,6 +7,7 @@
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
 struct auth_request;
+struct auth_passdb_settings;
 
 enum passdb_result {
 	PASSDB_RESULT_INTERNAL_FAILURE = -1,
@@ -67,6 +68,9 @@ struct passdb_module {
 	/* number of time init() has been called */
 	int init_refcount;
 
+	struct passdb_template *default_fields_tmpl;
+	struct passdb_template *override_fields_tmpl;
+
 	struct passdb_module_interface iface;
 };
 
@@ -88,7 +92,7 @@ void passdb_handle_credentials(enum passdb_result result,
                                struct auth_request *auth_request);
 
 struct passdb_module *
-passdb_preinit(pool_t pool, const char *driver, const char *args);
+passdb_preinit(pool_t pool, const struct auth_passdb_settings *set);
 void passdb_init(struct passdb_module *passdb);
 void passdb_deinit(struct passdb_module *passdb);
 

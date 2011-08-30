@@ -7,13 +7,13 @@
 
 #include "ioloop.h"
 #include "ipwd.h"
-#include "userdb-static.h"
+#include "userdb-template.h"
 
 #define USER_CACHE_KEY "%u"
 
 struct passwd_userdb_module {
 	struct userdb_module module;
-	struct userdb_static_template *tmpl;
+	struct userdb_template *tmpl;
 };
 
 struct passwd_userdb_iterate_context {
@@ -50,25 +50,13 @@ static void passwd_lookup(struct auth_request *auth_request,
 	auth_request_set_field(auth_request, "user", pw.pw_name, NULL);
 
 	auth_request_init_userdb_reply(auth_request);
-	userdb_static_template_export(module->tmpl, auth_request);
+	auth_request_set_userdb_field(auth_request, "system_groups_user",
+				      pw.pw_name);
+	auth_request_set_userdb_field(auth_request, "uid", dec2str(pw.pw_uid));
+	auth_request_set_userdb_field(auth_request, "gid", dec2str(pw.pw_gid));
+	auth_request_set_userdb_field(auth_request, "home", pw.pw_dir);
 
-	/* FIXME: the system_user is for backwards compatibility */
-	if (!userdb_static_template_isset(module->tmpl, "system_groups_user") &&
-	    !userdb_static_template_isset(module->tmpl, "system_user")) {
-		auth_request_set_userdb_field(auth_request,
-					      "system_groups_user",
-					      pw.pw_name);
-	}
-	if (!userdb_static_template_isset(module->tmpl, "uid")) {
-		auth_request_set_userdb_field(auth_request,
-					      "uid", dec2str(pw.pw_uid));
-	}
-	if (!userdb_static_template_isset(module->tmpl, "gid")) {
-		auth_request_set_userdb_field(auth_request,
-					      "gid", dec2str(pw.pw_gid));
-	}
-	if (!userdb_static_template_isset(module->tmpl, "home"))
-		auth_request_set_userdb_field(auth_request, "home", pw.pw_dir);
+	userdb_template_export(module->tmpl, auth_request);
 
 	callback(USERDB_RESULT_OK, auth_request);
 }
@@ -153,13 +141,15 @@ passwd_passwd_preinit(pool_t pool, const char *args)
 
 	module = p_new(pool, struct passwd_userdb_module, 1);
 	module->module.cache_key = USER_CACHE_KEY;
-	module->tmpl = userdb_static_template_build(pool, "passwd", args);
+	module->tmpl = userdb_template_build(pool, "passwd", args);
 
-	if (userdb_static_template_remove(module->tmpl, "blocking",
-					  &value)) {
+	if (userdb_template_remove(module->tmpl, "blocking", &value)) {
 		module->module.blocking = value == NULL ||
 			strcasecmp(value, "yes") == 0;
 	}
+	/* FIXME: backwards compatibility */
+	if (!userdb_template_is_empty(module->tmpl))
+		i_warning("userdb passwd: Move templates args to override_fields setting");
 	return &module->module;
 }
 
