@@ -140,7 +140,10 @@ enum mailbox_transaction_flags {
 	   is done only if it can be done easily. */
 	MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS	= 0x04,
 	/* Refresh the index so lookups return latest flags/modseqs */
-	MAILBOX_TRANSACTION_FLAG_REFRESH	= 0x08
+	MAILBOX_TRANSACTION_FLAG_REFRESH	= 0x08,
+	/* Don't update caching decisions no matter what we do in this
+	   transaction (useful for e.g. precaching) */
+	MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC	= 0x10
 };
 
 enum mailbox_sync_flags {

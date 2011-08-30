@@ -392,7 +392,7 @@ static int cache_add(struct mailbox *box, const struct mailbox_status *status,
 	}
 
 	/* find the first message we need to index */
-	trans = mailbox_transaction_begin(box, 0);
+	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC);
 	mail = mail_alloc(trans, 0, NULL);
 	for (seq = status->messages; seq > 0; seq--) {
 		mail_set_seq(mail, seq);
