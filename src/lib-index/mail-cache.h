@@ -71,6 +71,11 @@ struct mail_cache_view *
 mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview);
 void mail_cache_view_close(struct mail_cache_view *view);
 
+/* Normally cache decisions are updated on lookup/add. Use this function to
+   enable/disable this (useful for precaching data). */
+void mail_cache_view_update_cache_decisions(struct mail_cache_view *view,
+					    bool update);
+
 /* Get index transaction specific cache transaction. */
 struct mail_cache_transaction_ctx *
 mail_cache_get_transaction(struct mail_cache_view *view,

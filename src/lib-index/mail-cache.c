@@ -714,6 +714,12 @@ void mail_cache_view_close(struct mail_cache_view *view)
 	i_free(view);
 }
 
+void mail_cache_view_update_cache_decisions(struct mail_cache_view *view,
+					    bool update)
+{
+	view->no_decision_updates = !update;
+}
+
 uint32_t mail_cache_get_first_new_seq(struct mail_index_view *view)
 {
 	const struct mail_index_header *idx_hdr;
