@@ -547,6 +547,41 @@ static void cmd_director_dump(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
+static void cmd_director_ring_status(int argc, char *argv[])
+{
+	struct director_context *ctx;
+	const char *line, *const *args;
+	unsigned long l;
+
+	ctx = cmd_director_init(argc, argv, "a:", cmd_director_status);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+	doveadm_print_header_simple("director ip");
+	doveadm_print_header_simple("port");
+	doveadm_print_header_simple("type");
+	doveadm_print_header_simple("last failed");
+
+	director_send(ctx, "DIRECTOR-LIST\n");
+	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+		if (*line == '\0')
+			break;
+		T_BEGIN {
+			args = t_strsplit(line, "\t");
+			if (str_array_length(args) >= 4 &&
+			    str_to_ulong(args[3], &l) == 0) {
+				doveadm_print(args[0]);
+				doveadm_print(args[1]);
+				doveadm_print(args[2]);
+				if (l == 0)
+					doveadm_print("never");
+				else
+					doveadm_print(unixdate2str(l));
+			}
+		} T_END;
+	}
+	director_disconnect(ctx);
+}
+
 struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_status, "director status",
 	  "[-a <director socket path>] [<user>]" },
@@ -561,6 +596,8 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_flush, "director flush",
 	  "[-a <director socket path>] <host>|all" },
 	{ cmd_director_dump, "director dump",
+	  "[-a <director socket path>]" },
+	{ cmd_director_ring_status, "director ring status",
 	  "[-a <director socket path>]" }
 };
 

@@ -18,6 +18,16 @@ static int mail_index_create_backup(struct mail_index *index)
 	const char *backup_path, *tmp_backup_path;
 	int ret;
 
+	if (index->fd != -1) {
+		/* we very much want to avoid creating a backup file that
+		   hasn't been written to disk yet */
+		if (fdatasync(index->fd) < 0) {
+			mail_index_set_error(index, "fdatasync(%s) failed: %m",
+					     index->filepath);
+			return -1;
+		}
+	}
+
 	backup_path = t_strconcat(index->filepath, ".backup", NULL);
 	tmp_backup_path = t_strconcat(backup_path, ".tmp", NULL);
 	ret = link(index->filepath, tmp_backup_path);

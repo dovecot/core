@@ -179,6 +179,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
 	uoff_t offset;
+	bool move_offset;
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:
@@ -195,13 +196,19 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		/* i guess in theory the empty_md5 is valid and can happen,
 		   but it's almost guaranteed that it means the MD5 sum is
 		   missing. recalculate it. */
-		offset = mbox->mbox_lock_type == F_UNLCK ? 0 :
-			istream_raw_mbox_get_start_offset(mbox->mbox_stream);
+		if (mbox->mbox_lock_type == F_UNLCK ||
+		    mbox->mbox_stream == NULL) {
+			offset = 0;
+			move_offset = FALSE;
+		} else {
+			offset = istream_raw_mbox_get_start_offset(mbox->mbox_stream);
+			move_offset = TRUE;
+		}
 		mbox->mbox_save_md5 = TRUE;
 		if (mbox_sync(mbox, MBOX_SYNC_FORCE_SYNC |
 			      MBOX_SYNC_READONLY) < 0)
 			return -1;
-		if (mbox->mbox_lock_type != F_UNLCK) {
+		if (move_offset) {
 			if (istream_raw_mbox_seek(mbox->mbox_stream,
 						  offset) < 0) {
 				i_error("mbox %s sync lost during MD5 syncing",

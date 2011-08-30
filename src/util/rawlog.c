@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "process-title.h"
 #include "restrict-access.h"
+#include "master-service.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -361,16 +362,13 @@ static void rawlog_open(enum rawlog_flags flags)
 int main(int argc, char *argv[])
 {
 	char *executable, *p;
-	enum rawlog_flags flags;
+	enum rawlog_flags flags =
+		RAWLOG_FLAG_LOG_INPUT | RAWLOG_FLAG_LOG_OUTPUT;
 	int c;
 
-	flags = RAWLOG_FLAG_LOG_INPUT | RAWLOG_FLAG_LOG_OUTPUT;
-
-	lib_init();
-	i_set_failure_internal();
-	process_title_init(&argv);
-
-	while ((c = getopt(argc, argv, "+iobt")) > 0) {
+	master_service = master_service_init("rawlog", 0,
+					     &argc, &argv, "+iobt");
+	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'i':
 			flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
@@ -385,8 +383,7 @@ int main(int argc, char *argv[])
 			flags |= RAWLOG_FLAG_LOG_TIMESTAMPS;
 			break;
 		default:
-			argc = 0;
-			break;
+			return FATAL_DEFAULT;
 		}
 	}
 	argc -= optind;
@@ -394,6 +391,9 @@ int main(int argc, char *argv[])
 
 	if (argc < 1)
 		i_fatal("Usage: rawlog [-i | -o] [-b] [-t] <binary> <arguments>");
+
+	master_service_init_log(master_service, "rawlog: ");
+	master_service_init_finish(master_service);
 
 	executable = argv[0];
 	rawlog_open(flags);

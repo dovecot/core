@@ -38,6 +38,8 @@ struct zlib_istream {
 	unsigned int zs_closed:1;
 };
 
+static void i_stream_zlib_init(struct zlib_istream *zstream);
+
 static void i_stream_zlib_close(struct iostream_private *stream)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *)stream;
@@ -157,6 +159,7 @@ static int i_stream_zlib_read_trailer(struct zlib_istream *zstream)
 		return -1;
 	}
 	i_stream_skip(stream->parent, GZ_TRAILER_SIZE);
+	zstream->prev_size = 0;
 	zstream->trailer_read = TRUE;
 	return 1;
 }
@@ -180,12 +183,21 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			if (ret <= 0)
 				return ret;
 		}
-		stream->istream.eof = TRUE;
-		return -1;
+		if (!zstream->gz || i_stream_is_eof(stream->parent)) {
+			stream->istream.eof = TRUE;
+			return -1;
+		}
+		/* gzip file with concatenated content */
+		zstream->eof_offset = (uoff_t)-1;
+		zstream->header_read = FALSE;
+		zstream->trailer_read = FALSE;
+		zstream->crc32 = 0;
+
+		(void)inflateEnd(&zstream->zs);
+		i_stream_zlib_init(zstream);
 	}
 
 	if (!zstream->header_read) {
-		i_assert(zstream->high_pos == 0);
 		do {
 			ret = i_stream_zlib_read_header(stream);
 		} while (ret == 0 && stream->istream.blocking);
