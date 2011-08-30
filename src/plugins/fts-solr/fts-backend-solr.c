@@ -559,7 +559,12 @@ solr_add_maybe_query(string_t *str, struct mail_search_arg *arg)
 		/* we can check if the search key exists in some header and
 		   filter out the messages that have no chance of matching */
 		str_append(str, "hdr:");
-		solr_quote_http(str, arg->value.str);
+		if (*arg->value.str != '\0')
+			solr_quote_http(str, arg->value.str);
+		else {
+			/* checking potential existence of the header name */
+			solr_quote_http(str, arg->hdr_field_name);
+		}
 		break;
 	default:
 		return FALSE;

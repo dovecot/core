@@ -1007,16 +1007,22 @@ static Query* getFieldQuery(Analyzer *analyzer, const TCHAR* _field, const TCHAR
 }
 
 static Query *
-lucene_get_query(struct lucene_index *index,
-		 const TCHAR *key, const struct mail_search_arg *arg)
+lucene_get_query_str(struct lucene_index *index,
+		     const TCHAR *key, const char *str, bool fuzzy)
 {
-	const TCHAR *wvalue = t_lucene_utf8_to_tchar(arg->value.str);
-	Analyzer *analyzer = guess_analyzer(index, arg->value.str,
-					    strlen(arg->value.str));
+	const TCHAR *wvalue = t_lucene_utf8_to_tchar(str);
+	Analyzer *analyzer = guess_analyzer(index, str, strlen(str));
 	if (analyzer == NULL)
 		analyzer = index->default_analyzer;
 
-	return getFieldQuery(analyzer, key, wvalue, arg->fuzzy);
+	return getFieldQuery(analyzer, key, wvalue, fuzzy);
+}
+
+static Query *
+lucene_get_query(struct lucene_index *index,
+		 const TCHAR *key, const struct mail_search_arg *arg)
+{
+	return lucene_get_query_str(index, key, arg->value.str, arg->fuzzy);
 }
 
 static bool
@@ -1102,7 +1108,13 @@ lucene_add_maybe_query(struct lucene_index *index, BooleanQuery &query,
 
 		/* we can check if the search key exists in some header and
 		   filter out the messages that have no chance of matching */
-		q = lucene_get_query(index, _T("hdr"), arg);
+		if (*arg->value.str != '\0')
+			q = lucene_get_query(index, _T("hdr"), arg);
+		else {
+			/* checking potential existence of the header name */
+			q = lucene_get_query_str(index, _T("hdr"),
+						 arg->hdr_field_name, FALSE);
+		}
 		break;
 	default:
 		return false;
