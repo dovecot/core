@@ -198,6 +198,8 @@ struct mail_cache_view {
 	buffer_t *cached_exists_buf;
 	uint8_t cached_exists_value;
 	uint32_t cached_exists_seq;
+
+	unsigned int no_decision_updates:1;
 };
 
 struct mail_cache_iterate_field {
