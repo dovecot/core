@@ -85,6 +85,9 @@ void index_transaction_init(struct mailbox_transaction_context *t,
 	t->cache_view = mail_cache_view_open(box->cache, t->view);
 	t->cache_trans = mail_cache_get_transaction(t->cache_view, t->itrans);
 
+	if ((flags & MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC) != 0)
+		mail_cache_view_update_cache_decisions(t->cache_view, FALSE);
+
 	/* set up after mail_cache_get_transaction(), so that we'll still
 	   have the cache_trans available in _index_commit() */
 	t->super = t->itrans->v;
