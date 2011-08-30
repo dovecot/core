@@ -474,6 +474,7 @@ struct fts_backend fts_backend_squat = {
 		fts_backend_squat_optimize,
 		fts_backend_default_can_lookup,
 		fts_backend_squat_lookup,
+		NULL,
 		NULL
 	}
 };

@@ -136,5 +136,8 @@ int fts_backend_lookup_multi(struct fts_backend *backend,
 			     struct mailbox *const boxes[],
 			     struct mail_search_arg *args, bool and_args,
 			     struct fts_multi_result *result);
+/* Called after the lookups are done. The next lookup will be preceded by a
+   refresh. */
+void fts_backend_lookup_done(struct fts_backend *backend);
 
 #endif

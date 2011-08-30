@@ -759,6 +759,7 @@ struct fts_backend fts_backend_solr = {
 		fts_backend_solr_optimize,
 		fts_backend_default_can_lookup,
 		fts_backend_solr_lookup,
-		fts_backend_solr_lookup_multi
+		fts_backend_solr_lookup_multi,
+		NULL
 	}
 };

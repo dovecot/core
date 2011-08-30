@@ -320,6 +320,12 @@ int fts_backend_lookup_multi(struct fts_backend *backend,
 	return backend->v.lookup_multi(backend, boxes, args, and_args, result);
 }
 
+void fts_backend_lookup_done(struct fts_backend *backend)
+{
+	if (backend->v.lookup_done != NULL)
+		backend->v.lookup_done(backend);
+}
+
 static uint32_t fts_index_get_ext_id(struct mailbox *box)
 {
 	return mail_index_ext_register(box->index, "fts",

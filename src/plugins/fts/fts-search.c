@@ -353,4 +353,5 @@ void fts_search_lookup(struct fts_search_context *fctx)
 	}
 
 	fts_search_deserialize(fctx->args->args, fctx->orig_matches);
+	fts_backend_lookup_done(fctx->backend);
 }

@@ -47,6 +47,7 @@ struct fts_backend_vfuncs {
 			    struct mailbox *const boxes[],
 			    struct mail_search_arg *args, bool and_args,
 			    struct fts_multi_result *result);
+	void (*lookup_done)(struct fts_backend *backend);
 };
 
 enum fts_backend_flags {

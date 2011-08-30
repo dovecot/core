@@ -533,6 +533,13 @@ fts_backend_lucene_lookup_multi(struct fts_backend *_backend,
 	return ret;
 }
 
+static void fts_backend_lucene_lookup_done(struct fts_backend *_backend)
+{
+	/* the next refresh is going to close the index anyway, so we might as
+	   well do it now */
+	fts_backend_lucene_refresh(_backend);
+}
+
 struct fts_backend fts_backend_lucene = {
 	.name = "lucene",
 	.flags = 0,
@@ -554,6 +561,7 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_optimize,
 		fts_backend_default_can_lookup,
 		fts_backend_lucene_lookup,
-		fts_backend_lucene_lookup_multi
+		fts_backend_lucene_lookup_multi,
+		fts_backend_lucene_lookup_done
 	}
 };
