@@ -466,6 +466,11 @@ fts_backend_solr_update_set_mailbox(struct fts_backend_update_context *_ctx,
 	struct mailbox_status status;
 	struct mail_namespace *ns;
 
+	if (ctx->prev_uid != 0) {
+		(void)fts_index_set_last_uid(ctx->cur_box, ctx->prev_uid);
+		ctx->prev_uid = 0;
+	}
+
 	ctx->cur_box = box;
 	ctx->uid_validity = 0;
 	i_free_and_null(ctx->id_box_name);

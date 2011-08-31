@@ -317,7 +317,10 @@ fts_backend_solr_update_set_mailbox(struct fts_backend_update_context *_ctx,
 		(struct solr_fts_backend_update_context *)_ctx;
 	const char *box_guid;
 
-	ctx->cur_box = box;
+	if (ctx->prev_uid != 0) {
+		(void)fts_index_set_last_uid(ctx->cur_box, ctx->prev_uid);
+		ctx->prev_uid = 0;
+	}
 
 	if (box != NULL) {
 		if (fts_mailbox_get_guid(box, &box_guid) < 0)
@@ -328,6 +331,7 @@ fts_backend_solr_update_set_mailbox(struct fts_backend_update_context *_ctx,
 	} else {
 		memset(ctx->box_guid, 0, sizeof(ctx->box_guid));
 	}
+	ctx->cur_box = box;
 }
 
 static void
