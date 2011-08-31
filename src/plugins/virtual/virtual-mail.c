@@ -171,6 +171,14 @@ static bool virtual_mail_prefetch(struct mail *mail)
 	return p->v.prefetch(vmail->backend_mail);
 }
 
+static void virtual_mail_precache(struct mail *mail)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
+
+	p->v.precache(vmail->backend_mail);
+}
+
 static int virtual_mail_handle_lost(struct virtual_mail *vmail)
 {
 	if (!vmail->lost)
@@ -378,15 +386,6 @@ static void virtual_mail_expunge(struct mail *mail)
 	mail_expunge(vmail->backend_mail);
 }
 
-static void virtual_mail_parse(struct mail *mail, bool parse_body)
-{
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
-
-	if (virtual_mail_handle_lost(vmail) < 0)
-		return;
-	mail_parse(vmail->backend_mail, parse_body);
-}
-
 static void
 virtual_mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
 {
@@ -404,6 +403,7 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_set_uid,
 	virtual_mail_set_uid_cache_updates,
 	virtual_mail_prefetch,
+	virtual_mail_precache,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,
@@ -426,7 +426,6 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	index_mail_update_modseq,
 	virtual_mail_update_pop3_uidl,
 	virtual_mail_expunge,
-	virtual_mail_parse,
 	virtual_mail_set_cache_corrupted,
 	NULL
 };

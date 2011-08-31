@@ -1557,7 +1557,7 @@ void index_mail_expunge(struct mail *mail)
 	}
 }
 
-void index_mail_parse(struct mail *mail, bool parse_body)
+static void index_mail_parse(struct mail *mail, bool parse_body)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 
@@ -1568,6 +1568,38 @@ void index_mail_parse(struct mail *mail, bool parse_body)
 			(void)index_mail_parse_body(imail, 0);
 		}
 	}
+}
+
+void index_mail_precache(struct mail *mail)
+{
+	struct index_mail *imail = (struct index_mail *)mail;
+	enum mail_fetch_field cache;
+	time_t date;
+	uoff_t size;
+	const char *str;
+
+	if (mail_cache_field_exists_any(mail->transaction->cache_view,
+					mail->seq)) {
+		/* already cached this mail (we should get here only if FTS
+		   plugin decreased the first precached seq) */
+		return;
+	}
+
+	cache = imail->wanted_fields;
+	if ((cache & (MAIL_FETCH_STREAM_HEADER | MAIL_FETCH_STREAM_BODY)) != 0)
+		index_mail_parse(mail, (cache & MAIL_FETCH_STREAM_BODY) != 0);
+	if ((cache & MAIL_FETCH_RECEIVED_DATE) != 0)
+		(void)mail_get_received_date(mail, &date);
+	if ((cache & MAIL_FETCH_SAVE_DATE) != 0)
+		(void)mail_get_save_date(mail, &date);
+	if ((cache & MAIL_FETCH_VIRTUAL_SIZE) != 0)
+		(void)mail_get_virtual_size(mail, &size);
+	if ((cache & MAIL_FETCH_PHYSICAL_SIZE) != 0)
+		(void)mail_get_physical_size(mail, &size);
+	if ((cache & MAIL_FETCH_UIDL_BACKEND) != 0)
+		(void)mail_get_special(mail, MAIL_FETCH_UIDL_BACKEND, &str);
+	if ((cache & MAIL_FETCH_GUID) != 0)
+		(void)mail_get_special(mail, MAIL_FETCH_GUID, &str);
 }
 
 void index_mail_set_cache_corrupted(struct mail *mail,

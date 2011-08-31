@@ -118,6 +118,7 @@ struct mail_vfuncs raw_mail_vfuncs = {
 	index_mail_set_uid,
 	index_mail_set_uid_cache_updates,
 	index_mail_prefetch,
+	index_mail_precache,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,
@@ -140,7 +141,6 @@ struct mail_vfuncs raw_mail_vfuncs = {
 	index_mail_update_modseq,
 	NULL,
 	index_mail_expunge,
-	index_mail_parse,
 	index_mail_set_cache_corrupted,
 	index_mail_opened
 };

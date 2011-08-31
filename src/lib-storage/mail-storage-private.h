@@ -276,6 +276,7 @@ struct mail_vfuncs {
 	bool (*set_uid)(struct mail *mail, uint32_t uid);
 	void (*set_uid_cache_updates)(struct mail *mail, bool set);
 	bool (*prefetch)(struct mail *mail);
+	void (*precache)(struct mail *mail);
 
 	enum mail_flags (*get_flags)(struct mail *mail);
 	const char *const *(*get_keywords)(struct mail *mail);
@@ -313,7 +314,6 @@ struct mail_vfuncs {
 	void (*update_modseq)(struct mail *mail, uint64_t min_modseq);
 	void (*update_pop3_uidl)(struct mail *mail, const char *uidl);
 	void (*expunge)(struct mail *mail);
-	void (*parse)(struct mail *mail, bool parse_body);
 	void (*set_cache_corrupted)(struct mail *mail,
 				    enum mail_fetch_field field);
 	int (*istream_opened)(struct mail *mail, struct istream **input);

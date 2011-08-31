@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -6,21 +6,30 @@
 #include "istream.h"
 #include "write-full.h"
 #include "strescape.h"
+#include "time-util.h"
 #include "mail-user.h"
 #include "mail-storage-private.h"
-#include "fts-api-private.h"
-#include "fts-build-private.h"
+#include "fts-api.h"
+#include "fts-indexer.h"
+
+#define INDEXER_NOTIFY_INTERVAL_SECS 10
 
 #define INDEXER_SOCKET_NAME "indexer"
 #define INDEXER_WAIT_MSECS 250
 #define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
 
-struct indexer_fts_storage_build_context {
-	struct fts_storage_build_context ctx;
+struct fts_indexer_context {
+	struct mailbox *box;
+
+	struct timeval search_start_time, last_notify;
+	unsigned int percentage;
 
 	char *path;
 	int fd;
 	struct istream *input;
+
+	unsigned int notified:1;
+	unsigned int failed:1;
 };
 
 int fts_indexer_cmd(struct mail_user *user, const char *cmd,
@@ -47,11 +56,41 @@ int fts_indexer_cmd(struct mail_user *user, const char *cmd,
 	return fd;
 }
 
-static int
-fts_build_indexer_init(struct fts_backend *backend, struct mailbox *box,
-		       struct fts_storage_build_context **build_ctx_r)
+static void fts_indexer_notify(struct fts_indexer_context *ctx)
 {
-	struct indexer_fts_storage_build_context *ctx;
+	unsigned long long elapsed_msecs, est_total_msecs;
+	unsigned int eta_secs;
+
+	if (ioloop_time - ctx->last_notify.tv_sec < INDEXER_NOTIFY_INTERVAL_SECS)
+		return;
+	ctx->last_notify = ioloop_timeval;
+
+	if (ctx->box->storage->callbacks.notify_ok == NULL ||
+	    ctx->percentage == 0)
+		return;
+
+	elapsed_msecs = timeval_diff_msecs(&ioloop_timeval,
+					   &ctx->search_start_time);
+	est_total_msecs = elapsed_msecs * 100 / ctx->percentage;
+	eta_secs = (est_total_msecs - elapsed_msecs) / 1000;
+
+	T_BEGIN {
+		const char *text;
+
+		text = t_strdup_printf("Indexed %d%% of the mailbox, "
+				       "ETA %d:%02d", ctx->percentage,
+				       eta_secs/60, eta_secs%60);
+		ctx->box->storage->callbacks.
+			notify_ok(ctx->box, text,
+				  ctx->box->storage->callback_context);
+		ctx->notified = TRUE;
+	} T_END;
+}
+
+int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
+		     struct fts_indexer_context **ctx_r)
+{
+	struct fts_indexer_context *ctx;
 	struct mailbox_status status;
 	uint32_t last_uid, seq1, seq2;
 	const char *path, *cmd;
@@ -80,31 +119,39 @@ fts_build_indexer_init(struct fts_backend *backend, struct mailbox *box,
 		return -1;
 
 	/* connect to indexer and request immediate indexing of the mailbox */
-	ctx = i_new(struct indexer_fts_storage_build_context, 1);
-	ctx->ctx.mail_count = 100;
+	ctx = i_new(struct fts_indexer_context, 1);
+	ctx->box = box;
 	ctx->path = i_strdup(path);
 	ctx->fd = fd;
 	ctx->input = i_stream_create_fd(fd, 128, FALSE);
+	ctx->search_start_time = ioloop_timeval;
 
-	*build_ctx_r = &ctx->ctx;
+	*ctx_r = ctx;
 	return 1;
 }
 
-static int
-fts_build_indexer_deinit(struct fts_storage_build_context *_ctx)
+int fts_indexer_deinit(struct fts_indexer_context **_ctx)
 {
-	struct indexer_fts_storage_build_context *ctx =
-		(struct indexer_fts_storage_build_context *)_ctx;
+	struct fts_indexer_context *ctx = *_ctx;
+	int ret = ctx->failed ? -1 : 0;
+
+	*_ctx = NULL;
 
 	i_stream_destroy(&ctx->input);
 	if (close(ctx->fd) < 0)
 		i_error("close(%s) failed: %m", ctx->path);
+	if (ctx->notified) {
+		/* we notified at least once */
+		ctx->box->storage->callbacks.
+			notify_ok(ctx->box, "Mailbox indexing finished",
+				  ctx->box->storage->callback_context);
+	}
 	i_free(ctx->path);
-	return 0;
+	i_free(ctx);
+	return ret;
 }
 
-static int
-fts_build_indexer_input(struct indexer_fts_storage_build_context *ctx)
+static int fts_indexer_input(struct fts_indexer_context *ctx)
 {
 	const char *line;
 	int percentage;
@@ -126,10 +173,10 @@ fts_build_indexer_input(struct indexer_fts_storage_build_context *ctx)
 		if (percentage < 0) {
 			/* indexing failed */
 			i_error("indexer failed to index mailbox %s",
-				ctx->ctx.box->vname);
+				ctx->box->vname);
 			return -1;
 		}
-		ctx->ctx.mail_idx = percentage;
+		ctx->percentage = percentage;
 		if (percentage == 100) {
 			/* finished */
 			return 1;
@@ -142,16 +189,14 @@ fts_build_indexer_input(struct indexer_fts_storage_build_context *ctx)
 	return 0;
 }
 
-static int fts_build_indexer_more(struct fts_storage_build_context *_ctx)
+static int fts_indexer_more_int(struct fts_indexer_context *ctx)
 {
-	struct indexer_fts_storage_build_context *ctx =
-		(struct indexer_fts_storage_build_context *)_ctx;
 	struct ioloop *ioloop;
 	struct io *io;
 	struct timeout *to;
 	int ret;
 
-	if ((ret = fts_build_indexer_input(ctx)) != 0)
+	if ((ret = fts_indexer_input(ctx)) != 0)
 		return ret;
 
 	/* wait for a while for the reply. FIXME: once search API supports
@@ -164,11 +209,18 @@ static int fts_build_indexer_more(struct fts_storage_build_context *_ctx)
 	timeout_remove(&to);
 	io_loop_destroy(&ioloop);
 
-	return fts_build_indexer_input(ctx);
+	return fts_indexer_input(ctx);
 }
 
-const struct fts_storage_build_vfuncs fts_storage_build_indexer_vfuncs = {
-	fts_build_indexer_init,
-	fts_build_indexer_deinit,
-	fts_build_indexer_more
-};
+int fts_indexer_more(struct fts_indexer_context *ctx)
+{
+	int ret;
+
+	if ((ret = fts_indexer_more_int(ctx)) < 0) {
+		ctx->failed = TRUE;
+		return -1;
+	}
+	if (ret == 0)
+		fts_indexer_notify(ctx);
+	return ret;
+}

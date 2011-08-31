@@ -11,6 +11,8 @@
 #include "doveadm-settings.h"
 #include "doveadm-mail.h"
 
+#include <stdio.h>
+
 #define INDEXER_SOCKET_NAME "indexer"
 #define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
 
@@ -22,6 +24,61 @@ struct index_cmd_context {
 	unsigned int queue:1;
 	unsigned int have_wildcards:1;
 };
+
+static int cmd_index_box_precache(struct mailbox *box)
+{
+	struct mailbox_status status;
+	struct mailbox_transaction_context *trans;
+	struct mail_search_args *search_args;
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	struct mailbox_metadata metadata;
+	uint32_t seq;
+	unsigned int counter = 0, max;
+	int ret = 0;
+
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
+				 &metadata) < 0)
+		return -1;
+	mailbox_get_open_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
+				&status);
+
+	seq = status.last_cached_seq + 1;
+	if (seq > status.messages) {
+		if (doveadm_verbose) {
+			i_info("%s: Cache is already up to date",
+			       mailbox_get_vname(box));
+		}
+		return 0;
+	}
+	if (doveadm_verbose) {
+		i_info("%s: Caching mails seq=%u..%u",
+		       mailbox_get_vname(box), seq, status.messages);
+	}
+
+	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC);
+	search_args = mail_search_build_init();
+	mail_search_build_add_seqset(search_args, seq, status.messages);
+	ctx = mailbox_search_init(trans, search_args, NULL,
+				  metadata.precache_fields, NULL);
+	mail_search_args_unref(&search_args);
+
+	max = status.messages - seq + 1;
+	while (mailbox_search_next(ctx, &mail)) {
+		mail_precache(mail);
+		if (doveadm_verbose && ++counter % 100 == 0) {
+			printf("\r%u/%u", counter, max);
+			fflush(stdout);
+		}
+	}
+	if (doveadm_verbose)
+		printf("\r%u/%u\n", counter, max);
+	if (mailbox_search_deinit(&ctx) < 0)
+		ret = -1;
+	if (mailbox_transaction_commit(&trans) < 0)
+		ret = -1;
+	return ret;
+}
 
 static int
 cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
@@ -49,13 +106,13 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 		}
 	}
 
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ |
-			 MAILBOX_SYNC_FLAG_PRECACHE) < 0) {
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Syncing mailbox %s failed: %s", info->name,
 			mail_storage_get_last_error(mailbox_get_storage(box), NULL));
 		ret = -1;
+	} else {
+		ret = cmd_index_box_precache(box);
 	}
-
 	mailbox_free(&box);
 	return ret;
 }

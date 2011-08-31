@@ -112,8 +112,4 @@ bool fts_header_want_indexed(const char *hdr_name);
 
 int fts_mailbox_get_guid(struct mailbox *box, const char **guid_r);
 
-/* Returns fd, which you can either read from or close. */
-int fts_indexer_cmd(struct mail_user *user, const char *cmd,
-		    const char **path_r);
-
 #endif

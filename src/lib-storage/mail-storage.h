@@ -73,13 +73,15 @@ enum mailbox_status_items {
 	STATUS_KEYWORDS		= 0x40,
 	STATUS_HIGHESTMODSEQ	= 0x80,
 	STATUS_PERMANENT_FLAGS	= 0x200,
-	STATUS_FIRST_RECENT_UID	= 0x400
+	STATUS_FIRST_RECENT_UID	= 0x400,
+	STATUS_LAST_CACHED_SEQ	= 0x800
 };
 
 enum mailbox_metadata_items {
-	MAILBOX_METADATA_GUID		= 0x01,
-	MAILBOX_METADATA_VIRTUAL_SIZE	= 0x02,
-	MAILBOX_METADATA_CACHE_FIELDS	= 0x04
+	MAILBOX_METADATA_GUID			= 0x01,
+	MAILBOX_METADATA_VIRTUAL_SIZE		= 0x02,
+	MAILBOX_METADATA_CACHE_FIELDS		= 0x04,
+	MAILBOX_METADATA_PRECACHE_FIELDS	= 0x08
 };
 
 enum mailbox_search_result_flags {
@@ -175,8 +177,6 @@ enum mailbox_sync_flags {
 	MAILBOX_SYNC_FLAG_EXPUNGE		= 0x80,
 	/* Force doing a full resync of indexes. */
 	MAILBOX_SYNC_FLAG_FORCE_RESYNC		= 0x100,
-	/* Add all missing data to cache and fts index ("doveadm index") */
-	MAILBOX_SYNC_FLAG_PRECACHE		= 0x200,
 	/* FIXME: kludge until something better comes along:
 	   Request full text search index optimization */
 	MAILBOX_SYNC_FLAG_OPTIMIZE		= 0x400
@@ -208,6 +208,7 @@ struct mailbox_status {
 
 	uint32_t first_unseen_seq;
 	uint32_t first_recent_uid;
+	uint32_t last_cached_seq;
 	uint64_t highest_modseq;
 
 	/* NULL-terminated array of keywords */
@@ -230,6 +231,8 @@ struct mailbox_metadata {
 	uint64_t virtual_size;
 	/* Fields that have "temp" or "yes" caching decision. */
 	const ARRAY_TYPE(const_string) *cache_fields;
+	/* Fields that should be precached */
+	enum mail_fetch_field precache_fields;
 };
 
 struct mailbox_update {
@@ -741,11 +744,8 @@ void mail_update_pop3_uidl(struct mail *mail, const char *uidl);
 /* Expunge this message. Sequence numbers don't change until commit. */
 void mail_expunge(struct mail *mail);
 
-/* Returns TRUE if anything is cached for the mail, FALSE if not. */
-bool mail_is_cached(struct mail *mail);
-/* Parse mail's header and optionally body so that fields using them get
-   cached. */
-void mail_parse(struct mail *mail, bool parse_body);
+/* Add missing fields to cache. */
+void mail_precache(struct mail *mail);
 /* Mark a cached field corrupted and have it recalculated. */
 void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
 

@@ -11,6 +11,7 @@
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
+#include "mail-search-build.h"
 #include "master-connection.h"
 
 #include <unistd.h>
@@ -33,15 +34,69 @@ struct master_connection {
 };
 
 static void
-indexer_worker_refresh_proctitle(const char *username, const char *mailbox)
+indexer_worker_refresh_proctitle(const char *username, const char *mailbox,
+				 uint32_t seq1, uint32_t seq2)
 {
 	if (!master_service_settings_get(master_service)->verbose_proctitle)
 		return;
 
-	if (username != NULL)
-		process_title_set(t_strdup_printf("[%s %s]", username, mailbox));
-	else
+	if (username == NULL)
 		process_title_set("[idling]");
+	else if (seq1 == 0)
+		process_title_set(t_strdup_printf("[%s %s]", username, mailbox));
+	else {
+		process_title_set(t_strdup_printf("[%s %s - %u/%u]",
+						  username, mailbox, seq1, seq2));
+	}
+}
+
+static int index_mailbox_precache(struct mailbox *box)
+{
+	struct mail_storage *storage = mailbox_get_storage(box);
+	const char *username = mail_storage_get_user(storage)->username;
+	const char *box_vname = mailbox_get_vname(box);
+	struct mailbox_status status;
+	struct mailbox_transaction_context *trans;
+	struct mail_search_args *search_args;
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	struct mailbox_metadata metadata;
+	uint32_t seq;
+	unsigned int counter = 0, max;
+	int ret = 0;
+
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
+				 &metadata) < 0)
+		return -1;
+
+	mailbox_get_open_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
+				&status);
+	seq = status.last_cached_seq + 1;
+
+	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC);
+	search_args = mail_search_build_init();
+	mail_search_build_add_seqset(search_args, seq, status.messages);
+	ctx = mailbox_search_init(trans, search_args, NULL,
+				  metadata.precache_fields, NULL);
+	mail_search_args_unref(&search_args);
+
+	max = status.messages - seq + 1;
+	while (mailbox_search_next(ctx, &mail)) {
+		mail_precache(mail);
+		if (++counter % 100 == 0) {
+			indexer_worker_refresh_proctitle(username, box_vname,
+							 counter, max);
+		}
+	}
+	if (mailbox_search_deinit(&ctx) < 0)
+		ret = -1;
+	if (mailbox_transaction_commit(&trans) < 0)
+		ret = -1;
+	if (ret == 0) {
+		i_info("Indexed %u messages in %s",
+		       counter, mailbox_get_vname(box));
+	}
+	return ret;
 }
 
 static int index_mailbox(struct mail_user *user, const char *mailbox,
@@ -81,8 +136,6 @@ static int index_mailbox(struct mail_user *user, const char *mailbox,
 		}
 	}
 
-	if (strchr(what, 'i') != NULL)
-		sync_flags |= MAILBOX_SYNC_FLAG_PRECACHE;
 	if (strchr(what, 'o') != NULL)
 		sync_flags |= MAILBOX_SYNC_FLAG_OPTIMIZE;
 
@@ -97,6 +150,8 @@ static int index_mailbox(struct mail_user *user, const char *mailbox,
 				mailbox, errstr);
 		}
 		ret = -1;
+	} else if (strchr(what, 'i') != NULL) {
+		index_mailbox_precache(box);
 	}
 	mailbox_free(&box);
 	return ret;
@@ -130,9 +185,9 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 		i_error("User %s lookup failed: %s", args[0], error);
 		ret = -1;
 	} else {
-		indexer_worker_refresh_proctitle(user->username, args[1]);
+		indexer_worker_refresh_proctitle(user->username, args[1], 0, 0);
 		ret = index_mailbox(user, args[1], max_recent_msgs, args[3]);
-		indexer_worker_refresh_proctitle(NULL, NULL);
+		indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
 		mail_user_unref(&user);
 		mail_storage_service_user_free(&service_user);
 	}

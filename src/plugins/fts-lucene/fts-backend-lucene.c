@@ -9,6 +9,7 @@
 #include "mail-storage-private.h"
 #include "fts-expunge-log.h"
 #include "lucene-wrapper.h"
+#include "fts-indexer.h"
 #include "fts-lucene-plugin.h"
 
 #include <wchar.h>
@@ -84,6 +85,8 @@ fts_backend_select(struct lucene_fts_backend *backend, struct mailbox *box)
 	wchar_t wguid_hex[MAILBOX_GUID_HEX_LENGTH];
 	buffer_t buf;
 	unsigned int i;
+
+	i_assert(box != NULL);
 
 	if (backend->selected_box == box &&
 	    backend->selected_box_generation == box->generation_sequence)

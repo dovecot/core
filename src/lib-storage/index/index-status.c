@@ -7,6 +7,28 @@
 #include "index-storage.h"
 #include "mail-index-modseq.h"
 
+static void
+get_last_cached_seq(struct mailbox *box, uint32_t *last_cached_seq_r)
+{
+	const struct mail_index_header *hdr;
+	struct mail_cache_view *cache_view;
+	uint32_t seq;
+
+	*last_cached_seq_r = 0;
+	if (!mail_cache_exists(box->cache))
+		return;
+
+	cache_view = mail_cache_view_open(box->cache, box->view);
+	hdr = mail_index_get_header(box->view);
+	for (seq = hdr->messages_count; seq > 0; seq--) {
+		if (mail_cache_field_exists_any(cache_view, seq)) {
+			*last_cached_seq_r = seq;
+			break;
+		}
+	}
+	mail_cache_view_close(cache_view);
+}
+
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status_r)
@@ -50,6 +72,8 @@ int index_storage_get_status(struct mailbox *box,
 		mail_index_lookup_first(box->view, 0, MAIL_SEEN,
 					&status_r->first_unseen_seq);
 	}
+	if ((items & STATUS_LAST_CACHED_SEQ) != 0)
+		get_last_cached_seq(box, &status_r->last_cached_seq);
 
 	if ((items & STATUS_KEYWORDS) != 0)
 		status_r->keywords = mail_index_get_keywords(box->index);
@@ -84,6 +108,44 @@ get_metadata_cache_fields(struct mailbox *box,
 			array_append(cache_fields, &fields[i].name, 1);
 	}
 	metadata_r->cache_fields = cache_fields;
+}
+
+static void get_metadata_precache_fields(struct mailbox *box,
+					 struct mailbox_metadata *metadata_r)
+{
+	const struct mail_cache_field *fields;
+	unsigned int i, count;
+	enum mail_fetch_field cache = 0;
+
+	fields = mail_cache_register_get_list(box->cache,
+					      pool_datastack_create(), &count);
+	for (i = 0; i < count; i++) {
+		const char *name = fields[i].name;
+
+		if (strncmp(name, "hdr.", 4) == 0 ||
+		    strcmp(name, "date.sent") == 0 ||
+		    strcmp(name, "imap.envelope") == 0)
+			cache |= MAIL_FETCH_STREAM_HEADER;
+		else if (strcmp(name, "mime.parts") == 0 ||
+			 strcmp(name, "imap.body") == 0 ||
+			 strcmp(name, "imap.bodystructure") == 0)
+			cache |= MAIL_FETCH_STREAM_BODY;
+		else if (strcmp(name, "date.received") == 0)
+			cache |= MAIL_FETCH_RECEIVED_DATE;
+		else if (strcmp(name, "date.save") == 0)
+			cache |= MAIL_FETCH_SAVE_DATE;
+		else if (strcmp(name, "size.virtual") == 0)
+			cache |= MAIL_FETCH_VIRTUAL_SIZE;
+		else if (strcmp(name, "size.physical") == 0)
+			cache |= MAIL_FETCH_PHYSICAL_SIZE;
+		else if (strcmp(name, "pop3.uidl") == 0)
+			cache |= MAIL_FETCH_UIDL_BACKEND;
+		else if (strcmp(name, "guid") == 0)
+			cache |= MAIL_FETCH_GUID;
+		else if (box->storage->set->mail_debug)
+			i_debug("Ignoring unknown cache field: %s", name);
+	}
+	metadata_r->precache_fields = cache;
 }
 
 static int
@@ -199,11 +261,13 @@ int index_mailbox_get_metadata(struct mailbox *box,
 			       enum mailbox_metadata_items items,
 			       struct mailbox_metadata *metadata_r)
 {
-	if ((items & MAILBOX_METADATA_CACHE_FIELDS) != 0)
-		get_metadata_cache_fields(box, metadata_r);
 	if ((items & MAILBOX_METADATA_VIRTUAL_SIZE) != 0) {
 		if (get_metadata_virtual_size(box, metadata_r) < 0)
 			return -1;
 	}
+	if ((items & MAILBOX_METADATA_CACHE_FIELDS) != 0)
+		get_metadata_cache_fields(box, metadata_r);
+	if ((items & MAILBOX_METADATA_PRECACHE_FIELDS) != 0)
+		get_metadata_precache_fields(box, metadata_r);
 	return 0;
 }

@@ -336,6 +336,29 @@ virtual_mailbox_update(struct mailbox *box,
 }
 
 static int
+virtual_storage_get_status(struct mailbox *box,
+			   enum mailbox_status_items items,
+			   struct mailbox_status *status_r)
+{
+	if ((items & STATUS_LAST_CACHED_SEQ) != 0)
+		items |= STATUS_MESSAGES;
+
+	if (index_storage_get_status(box, items, status_r) < 0)
+		return -1;
+
+	if ((items & STATUS_LAST_CACHED_SEQ) != 0) {
+		/* Virtual mailboxes have no cached data of their own, so the
+		   current value is always 0. The most important use for this
+		   functionality is for "doveadm index" to do FTS indexing and
+		   it doesn't really matter there if we set this value
+		   correctly or not. So for now just assume that everything is
+		   indexed. */
+		status_r->last_cached_seq = status_r->messages;
+	}
+	return 0;
+}
+
+static int
 virtual_mailbox_get_metadata(struct mailbox *box,
 			     enum mailbox_metadata_items items,
 			     struct mailbox_metadata *metadata_r)
@@ -501,7 +524,7 @@ struct mailbox virtual_mailbox = {
 		virtual_mailbox_update,
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
-		index_storage_get_status,
+		virtual_storage_get_status,
 		virtual_mailbox_get_metadata,
 		NULL,
 		NULL,

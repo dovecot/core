@@ -32,10 +32,9 @@ struct fts_search_context {
 	/* final scores, combined from all levels */
 	struct fts_scores *scores;
 
-	struct fts_storage_build_context *build_ctx;
+	struct fts_indexer_context *indexer_ctx;
 
 	unsigned int virtual_mailbox:1;
-	unsigned int build_initialized:1;
 	unsigned int fts_lookup_success:1;
 };
 

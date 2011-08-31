@@ -1,22 +1,26 @@
 /* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "istream.h"
 #include "str.h"
-#include "time-util.h"
 #include "rfc822-parser.h"
 #include "message-address.h"
 #include "message-parser.h"
 #include "message-decoder.h"
-#include "../virtual/virtual-storage.h"
-#include "fts-api-private.h"
+#include "mail-storage.h"
 #include "fts-parser.h"
-#include "fts-build-private.h"
+#include "fts-api-private.h"
+#include "fts-build-mail.h"
 
-#define FTS_BUILD_NOTIFY_INTERVAL_SECS 10
+struct fts_mail_build_context {
+	struct mail *mail;
+	struct fts_backend_update_context *update_ctx;
 
-static void fts_build_parse_content_type(struct fts_storage_build_context *ctx,
+	char *content_type, *content_disposition;
+	struct fts_parser *body_parser;
+};
+
+static void fts_build_parse_content_type(struct fts_mail_build_context *ctx,
 					 const struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
@@ -36,7 +40,7 @@ static void fts_build_parse_content_type(struct fts_storage_build_context *ctx,
 }
 
 static void
-fts_build_parse_content_disposition(struct fts_storage_build_context *ctx,
+fts_build_parse_content_disposition(struct fts_mail_build_context *ctx,
 				    const struct message_header_line *hdr)
 {
 	/* just pass it as-is to backend. */
@@ -45,7 +49,7 @@ fts_build_parse_content_disposition(struct fts_storage_build_context *ctx,
 		i_strndup(hdr->full_value, hdr->full_value_len);
 }
 
-static void fts_parse_mail_header(struct fts_storage_build_context *ctx,
+static void fts_parse_mail_header(struct fts_mail_build_context *ctx,
 				  const struct message_block *raw_block)
 {
 	const struct message_header_line *hdr = raw_block->hdr;
@@ -57,7 +61,7 @@ static void fts_parse_mail_header(struct fts_storage_build_context *ctx,
 }
 
 static void
-fts_build_unstructured_header(struct fts_storage_build_context *ctx,
+fts_build_unstructured_header(struct fts_mail_build_context *ctx,
 			      const struct message_header_line *hdr)
 {
 	const unsigned char *data = hdr->full_value;
@@ -82,7 +86,7 @@ fts_build_unstructured_header(struct fts_storage_build_context *ctx,
 	i_free(buf);
 }
 
-static void fts_build_mail_header(struct fts_storage_build_context *ctx,
+static void fts_build_mail_header(struct fts_mail_build_context *ctx,
 				  const struct message_block *block)
 {
 	const struct message_header_line *hdr = block->hdr;
@@ -94,7 +98,7 @@ static void fts_build_mail_header(struct fts_storage_build_context *ctx,
 	/* hdr->full_value is always set because we get the block from
 	   message_decoder */
 	memset(&key, 0, sizeof(key));
-	key.uid = ctx->uid;
+	key.uid = ctx->mail->uid;
 	key.type = block->part->physical_pos == 0 ?
 		FTS_BACKEND_BUILD_KEY_HDR : FTS_BACKEND_BUILD_KEY_MIME_HDR;
 	key.hdr_name = hdr->name;
@@ -125,8 +129,9 @@ static void fts_build_mail_header(struct fts_storage_build_context *ctx,
 }
 
 static bool
-fts_build_body_begin(struct fts_storage_build_context *ctx, bool *binary_body_r)
+fts_build_body_begin(struct fts_mail_build_context *ctx, bool *binary_body_r)
 {
+	struct mail_storage *storage;
 	const char *content_type;
 	struct fts_backend_build_key key;
 
@@ -134,7 +139,7 @@ fts_build_body_begin(struct fts_storage_build_context *ctx, bool *binary_body_r)
 
 	*binary_body_r = FALSE;
 	memset(&key, 0, sizeof(key));
-	key.uid = ctx->uid;
+	key.uid = ctx->mail->uid;
 
 	content_type = ctx->content_type != NULL ?
 		ctx->content_type : "text/plain";
@@ -143,7 +148,9 @@ fts_build_body_begin(struct fts_storage_build_context *ctx, bool *binary_body_r)
 		return FALSE;
 	}
 
-	if (fts_parser_init(ctx->box->storage->user,
+	
+	storage = mailbox_get_storage(ctx->mail->box);
+	if (fts_parser_init(mail_storage_get_user(storage),
 			    content_type, ctx->content_disposition,
 			    &ctx->body_parser)) {
 		/* extract text using the the returned parser */
@@ -155,7 +162,8 @@ fts_build_body_begin(struct fts_storage_build_context *ctx, bool *binary_body_r)
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
 	} else {
 		/* possibly binary */
-		if (!ctx->binary_mime_parts)
+		if ((ctx->update_ctx->backend->flags &
+		     FTS_BACKEND_FLAG_BINARY_MIME_PARTS) == 0)
 			return FALSE;
 		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY;
@@ -167,7 +175,7 @@ fts_build_body_begin(struct fts_storage_build_context *ctx, bool *binary_body_r)
 	return fts_backend_update_set_build_key(ctx->update_ctx, &key);
 }
 
-static int fts_body_parser_finish(struct fts_storage_build_context *ctx)
+static int fts_body_parser_finish(struct fts_mail_build_context *ctx)
 {
 	struct message_block block;
 	int ret = 0;
@@ -187,8 +195,11 @@ static int fts_body_parser_finish(struct fts_storage_build_context *ctx)
 	return ret;
 }
 
-int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
+static int
+fts_build_mail_real(struct fts_backend_update_context *update_ctx,
+		    struct mail *mail)
 {
+	struct fts_mail_build_context ctx;
 	enum message_decoder_flags decoder_flags = 0;
 	struct istream *input;
 	struct message_parser_ctx *parser;
@@ -199,17 +210,19 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 	bool binary_body;
 	int ret;
 
-	ctx->uid = mail->uid;
-
 	if (mail_get_stream(mail, NULL, NULL, &input) < 0)
 		return mail->expunged ? 0 : -1;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.update_ctx = update_ctx;
+	ctx.mail = mail;
 
 	prev_part = NULL;
 	parser = message_parser_init(pool_datastack_create(), input,
 				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
 				     0);
 
-	if (ctx->dtcase)
+	if ((update_ctx->backend->flags & FTS_BACKEND_FLAG_BUILD_DTCASE) != 0)
 		decoder_flags |= MESSAGE_DECODER_FLAG_DTCASE;
 	decoder = message_decoder_init(decoder_flags);
 	for (;;) {
@@ -224,17 +237,17 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 		if (raw_block.part != prev_part) {
 			/* body part changed. we're now parsing the end of
 			   boundary, possibly followed by message epilogue */
-			if (ctx->body_parser != NULL) {
-				if (fts_body_parser_finish(ctx) < 0) {
+			if (ctx.body_parser != NULL) {
+				if (fts_body_parser_finish(&ctx) < 0) {
 					ret = -1;
 					break;
 				}
 			}
 			message_decoder_set_return_binary(decoder, FALSE);
-			fts_backend_update_unset_build_key(ctx->update_ctx);
+			fts_backend_update_unset_build_key(update_ctx);
 			prev_part = raw_block.part;
-			i_free_and_null(ctx->content_type);
-			i_free_and_null(ctx->content_disposition);
+			i_free_and_null(ctx.content_type);
+			i_free_and_null(ctx.content_disposition);
 
 			if (raw_block.size != 0) {
 				/* multipart. skip until beginning of next
@@ -247,7 +260,7 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 			/* always handle headers */
 		} else if (raw_block.size == 0) {
 			/* end of headers */
-			skip_body = !fts_build_body_begin(ctx, &binary_body);
+			skip_body = !fts_build_body_begin(&ctx, &binary_body);
 			if (binary_body)
 				message_decoder_set_return_binary(decoder, TRUE);
 			body_part = TRUE;
@@ -261,15 +274,15 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 			continue;
 
 		if (block.hdr != NULL) {
-			fts_parse_mail_header(ctx, &raw_block);
-			fts_build_mail_header(ctx, &block);
+			fts_parse_mail_header(&ctx, &raw_block);
+			fts_build_mail_header(&ctx, &block);
 		} else if (block.size == 0) {
 			/* end of headers */
 		} else {
 			i_assert(body_part);
-			if (ctx->body_parser != NULL)
-				fts_parser_more(ctx->body_parser, &block);
-			if (fts_backend_update_build_more(ctx->update_ctx,
+			if (ctx.body_parser != NULL)
+				fts_parser_more(ctx.body_parser, &block);
+			if (fts_backend_update_build_more(update_ctx,
 							  block.data,
 							  block.size) < 0) {
 				ret = -1;
@@ -278,132 +291,27 @@ int fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 			body_added = TRUE;
 		}
 	}
-	if (ret == 0 && ctx->body_parser != NULL)
-		ret = fts_body_parser_finish(ctx);
+	if (ret == 0 && ctx.body_parser != NULL)
+		ret = fts_body_parser_finish(&ctx);
 	if (ret == 0 && body_part && !skip_body && !body_added) {
 		/* make sure body is added even when it doesn't exist */
-		ret = fts_backend_update_build_more(ctx->update_ctx, NULL, 0);
+		ret = fts_backend_update_build_more(update_ctx, NULL, 0);
 	}
-	if (ret == 0)
-		ctx->indexed_msg_count++;
 	if (message_parser_deinit(&parser, &parts) < 0)
 		mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS);
 	message_decoder_deinit(&decoder);
-	return ret;
+	i_free(ctx.content_type);
+	i_free(ctx.content_disposition);
+	return ret < 0 ? -1 : 1;
 }
 
-static void fts_build_notify(struct fts_storage_build_context *ctx)
+int fts_build_mail(struct fts_backend_update_context *update_ctx,
+		   struct mail *mail)
 {
-	double completed_frac;
-	unsigned int eta_secs;
-
-	if (ioloop_time - ctx->last_notify.tv_sec < FTS_BUILD_NOTIFY_INTERVAL_SECS)
-		return;
-	ctx->last_notify = ioloop_timeval;
-
-	if (ctx->box->storage->callbacks.notify_ok == NULL ||
-	    ctx->mail_idx == 0)
-		return;
-
-	/* mail_count is counted before indexing actually begins.
-	   by the time the mailbox is actually indexed it may already
-	   have more (or less) mails. so mail_idx can be higher than
-	   mail_count. */
-	completed_frac = ctx->mail_idx >= ctx->mail_count ? 1 :
-		(double)ctx->mail_idx / ctx->mail_count;
-
-	if (completed_frac >= 0.000001) {
-		unsigned int elapsed_msecs, est_total_msecs;
-
-		elapsed_msecs = timeval_diff_msecs(&ioloop_timeval,
-						   &ctx->search_start_time);
-		est_total_msecs = elapsed_msecs / completed_frac;
-		eta_secs = (est_total_msecs - elapsed_msecs) / 1000;
-	} else {
-		eta_secs = 0;
-	}
+	int ret;
 
 	T_BEGIN {
-		const char *text;
-
-		text = t_strdup_printf("Indexed %d%% of the mailbox, "
-				       "ETA %d:%02d", (int)(completed_frac * 100.0),
-				       eta_secs/60, eta_secs%60);
-		ctx->box->storage->callbacks.
-			notify_ok(ctx->box, text,
-				  ctx->box->storage->callback_context);
-		ctx->notified = TRUE;
+		ret = fts_build_mail_real(update_ctx, mail);
 	} T_END;
-}
-
-int fts_build_init(struct fts_backend *backend, struct mailbox *box,
-		   bool precache,
-		   struct fts_storage_build_context **build_ctx_r)
-{
-	const struct fts_storage_build_vfuncs *v;
-	int ret;
-
-	*build_ctx_r = NULL;
-
-	/* unless we're precaching (i.e. indexer service, doveadm index)
-	   use the indexer service */
-	if (!precache)
-		v = &fts_storage_build_indexer_vfuncs;
-	else if (strcmp(box->storage->name, VIRTUAL_STORAGE_NAME) == 0)
-		v = &fts_storage_build_virtual_vfuncs;
-	else
-		v = &fts_storage_build_mailbox_vfuncs;
-
-	if ((ret = v->init(backend, box, build_ctx_r)) <= 0)
-		return ret;
-
-	(*build_ctx_r)->box = box;
-	(*build_ctx_r)->v = *v;
-	(*build_ctx_r)->dtcase =
-		(backend->flags & FTS_BACKEND_FLAG_BUILD_DTCASE) != 0;
-	(*build_ctx_r)->binary_mime_parts =
-		(backend->flags & FTS_BACKEND_FLAG_BINARY_MIME_PARTS) != 0;
-	return 1;
-}
-
-int fts_build_deinit(struct fts_storage_build_context **_ctx)
-{
-	struct fts_storage_build_context *ctx = *_ctx;
-	int ret = ctx->failed ? -1 : 0;
-
-	*_ctx = NULL;
-
-	if (ctx->v.deinit(ctx) < 0)
-		ret = -1;
-	if (ctx->indexed_msg_count > 0) {
-		i_info("Indexed %u messages in %s", ctx->indexed_msg_count,
-		       mailbox_get_vname(ctx->box));
-	}
-	if (ctx->update_ctx != NULL) {
-		if (fts_backend_update_deinit(&ctx->update_ctx) < 0)
-			ret = -1;
-	}
-	if (ctx->notified) {
-		/* we notified at least once */
-		ctx->box->storage->callbacks.
-			notify_ok(ctx->box, "Mailbox indexing finished",
-				  ctx->box->storage->callback_context);
-	}
-	i_free(ctx->content_type);
-	i_free(ctx->content_disposition);
-	i_free(ctx);
-	return ret;
-}
-
-int fts_build_more(struct fts_storage_build_context *ctx)
-{
-	int ret;
-
-	if ((ret = ctx->v.more(ctx)) < 0) {
-		ctx->failed = TRUE;
-		return -1;
-	}
-
-	fts_build_notify(ctx);
 	return ret;
 }

@@ -59,6 +59,10 @@ static bool test_mail_prefetch(struct mail *mail ATTR_UNUSED)
 	return TRUE;
 }
 
+static void test_mail_precache(struct mail *mail ATTR_UNUSED)
+{
+}
+
 static enum mail_flags test_mail_get_flags(struct mail *mail ATTR_UNUSED)
 {
 	return 0;
@@ -201,11 +205,6 @@ static void test_mail_expunge(struct mail *mail ATTR_UNUSED)
 {
 }
 
-static void test_mail_parse(struct mail *mail ATTR_UNUSED,
-			    bool parse_body ATTR_UNUSED)
-{
-}
-
 static void
 test_mail_set_cache_corrupted(struct mail *mail ATTR_UNUSED,
 			      enum mail_fetch_field field ATTR_UNUSED)
@@ -219,6 +218,7 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_set_uid,
 	test_mail_set_uid_cache_updates,
 	test_mail_prefetch,
+	test_mail_precache,
 
 	test_mail_get_flags,
 	test_mail_get_keywords,
@@ -241,7 +241,6 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_update_modseq,
 	NULL,
 	test_mail_expunge,
-	test_mail_parse,
 	test_mail_set_cache_corrupted,
 	NULL
 };
