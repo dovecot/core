@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hex-binary.h"
 #include "mail-index.h"
+#include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "mail-search.h"
 #include "../virtual/virtual-storage.h"
@@ -162,6 +163,8 @@ bool fts_backend_update_set_build_key(struct fts_backend_update_context *ctx,
 				      const struct fts_backend_build_key *key)
 {
 	fts_backend_set_cur_mailbox(ctx);
+
+	i_assert(ctx->cur_box != NULL);
 
 	if (!ctx->backend->v.update_set_build_key(ctx, key))
 		return FALSE;
@@ -378,11 +381,23 @@ int fts_index_set_last_uid(struct mailbox *box, uint32_t last_uid)
 int fts_index_have_compatible_settings(struct mailbox_list *list,
 				       uint32_t checksum)
 {
+	struct mail_namespace *ns = mailbox_list_get_namespace(list);
 	struct mailbox *box;
 	struct fts_index_header hdr;
+	const char *vname;
+	unsigned int len;
 	int ret;
 
-	box = mailbox_alloc(list, "INBOX", 0);
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
+		vname = "INBOX";
+	else {
+		len = strlen(ns->prefix);
+		if (len > 0 && ns->prefix[len-1] == mail_namespace_get_sep(ns))
+			len--;
+		vname = t_strndup(ns->prefix, len);
+	}
+
+	box = mailbox_alloc(list, vname, 0);
 	if (mailbox_sync(box, (enum mailbox_sync_flags)0) < 0) {
 		i_error("lucene: Failed to sync mailbox INBOX: %s",
 			mailbox_get_last_error(box, NULL));
