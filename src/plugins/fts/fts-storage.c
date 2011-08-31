@@ -562,7 +562,6 @@ static int fts_sync_deinit(struct mailbox_sync_context *ctx,
 		return -1;
 	ctx = NULL;
 
-	flist->backend->syncing = TRUE;
 	if (optimize) {
 		if (fts_backend_optimize(flist->backend) < 0) {
 			mail_storage_set_critical(box->storage,
@@ -571,7 +570,6 @@ static int fts_sync_deinit(struct mailbox_sync_context *ctx,
 			ret = -1;
 		}
 	}
-	flist->backend->syncing = FALSE;
 	return ret;
 }
 
