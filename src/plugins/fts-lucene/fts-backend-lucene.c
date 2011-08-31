@@ -250,7 +250,7 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 	}
 
 	if (fts_backend_lucene_need_optimize(ctx)) {
-		if (ctx->ctx.backend->syncing)
+		if (ctx->lucene_opened)
 			(void)fts_backend_optimize(_ctx->backend);
 		else {
 			struct mail_user *user = backend->backend.ns->user;
