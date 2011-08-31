@@ -26,7 +26,7 @@ get_last_cached_seq(struct mailbox *box, uint32_t *last_cached_seq_r)
 			break;
 		}
 	}
-	mail_cache_view_close(cache_view);
+	mail_cache_view_close(&cache_view);
 }
 
 int index_storage_get_status(struct mailbox *box,

@@ -7,7 +7,7 @@
 
 static void index_transaction_free(struct mailbox_transaction_context *t)
 {
-	mail_cache_view_close(t->cache_view);
+	mail_cache_view_close(&t->cache_view);
 	mail_index_view_close(&t->view);
 	array_free(&t->module_contexts);
 	i_free(t);

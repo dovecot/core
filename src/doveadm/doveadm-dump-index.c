@@ -579,7 +579,7 @@ static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])
 			} T_END;
 		}
 	}
-	mail_cache_view_close(cache_view);
+	mail_cache_view_close(&cache_view);
 	mail_index_view_close(&view);
 	mail_index_close(index);
 	mail_index_free(&index);

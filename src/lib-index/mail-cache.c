@@ -707,10 +707,13 @@ mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 	return view;
 }
 
-void mail_cache_view_close(struct mail_cache_view *view)
+void mail_cache_view_close(struct mail_cache_view **_view)
 {
+	struct mail_cache_view *view = *_view;
+
 	i_assert(view->trans_view == NULL);
 
+	*_view = NULL;
 	if (view->cache->field_header_write_pending &&
 	    !view->cache->compressing)
                 (void)mail_cache_header_fields_update(view->cache);

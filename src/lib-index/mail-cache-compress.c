@@ -280,7 +280,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	o_stream_seek(output, 0);
 	o_stream_send(output, &hdr, sizeof(hdr));
 
-	mail_cache_view_close(cache_view);
+	mail_cache_view_close(&cache_view);
 
 	if (o_stream_flush(output) < 0) {
 		errno = output->stream_errno;
