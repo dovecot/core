@@ -133,10 +133,12 @@ worker_connection_input_line(struct worker_connection *conn, const char *line)
 	contextp = array_idx(&conn->request_contexts,
 			     aqueue_idx(conn->request_queue, 0));
 	context = *contextp;
-	aqueue_delete_tail(conn->request_queue);
-
-	if (aqueue_count(conn->request_queue) == 0)
-		i_free_and_null(conn->request_username);
+	if (percentage < 0 || percentage == 100) {
+		/* the request is finished */
+		aqueue_delete_tail(conn->request_queue);
+		if (aqueue_count(conn->request_queue) == 0)
+			i_free_and_null(conn->request_username);
+	}
 
 	conn->callback(percentage, context);
 	return 0;

@@ -181,7 +181,6 @@ static void indexer_queue_request_status_int(struct indexer_queue *queue,
 	if (request->contexts != NULL) {
 		for (i = 0; request->contexts[i] != NULL; i++)
 			queue->callback(percentage, request->contexts[i]);
-		i_free(request->contexts);
 	}
 }
 
@@ -203,6 +202,7 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 	*_request = NULL;
 
 	indexer_queue_request_status_int(queue, request, success ? 100 : -1);
+	i_free(request->contexts);
 	i_free(request->username);
 	i_free(request->mailbox);
 	i_free(request);

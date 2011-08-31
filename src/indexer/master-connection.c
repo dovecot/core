@@ -50,7 +50,8 @@ indexer_worker_refresh_proctitle(const char *username, const char *mailbox,
 	}
 }
 
-static int index_mailbox_precache(struct mailbox *box)
+static int
+index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 {
 	struct mail_storage *storage = mailbox_get_storage(box);
 	const char *username = mail_storage_get_user(storage)->username;
@@ -62,7 +63,8 @@ static int index_mailbox_precache(struct mailbox *box)
 	struct mail *mail;
 	struct mailbox_metadata metadata;
 	uint32_t seq;
-	unsigned int counter = 0, max;
+	char percentage_str[2+1+1];
+	unsigned int counter = 0, max, percentage, percentage_sent = 0;
 	int ret = 0;
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
@@ -84,6 +86,17 @@ static int index_mailbox_precache(struct mailbox *box)
 	while (mailbox_search_next(ctx, &mail)) {
 		mail_precache(mail);
 		if (++counter % 100 == 0) {
+			percentage = counter*100 / max;
+			if (percentage != percentage_sent) {
+				i_assert(percentage < 100);
+
+				percentage_sent = percentage;
+				i_snprintf(percentage_str,
+					   sizeof(percentage_str), "%u\n",
+					   percentage);
+				(void)write_full(conn->fd, percentage_str,
+						 strlen(percentage_str));
+			}
 			indexer_worker_refresh_proctitle(username, box_vname,
 							 counter, max);
 		}
@@ -99,8 +112,10 @@ static int index_mailbox_precache(struct mailbox *box)
 	return ret;
 }
 
-static int index_mailbox(struct mail_user *user, const char *mailbox,
-			 unsigned int max_recent_msgs, const char *what)
+static int
+index_mailbox(struct master_connection *conn, struct mail_user *user,
+	      const char *mailbox, unsigned int max_recent_msgs,
+	      const char *what)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
@@ -116,8 +131,6 @@ static int index_mailbox(struct mail_user *user, const char *mailbox,
 		return -1;
 	}
 
-	/* FIXME: the current lib-storage API doesn't allow sending
-	   "n% competed" notifications */
 	box = mailbox_alloc(ns->list, mailbox, 0);
 	if (max_recent_msgs != 0) {
 		/* index only if there aren't too many recent messages.
@@ -151,7 +164,7 @@ static int index_mailbox(struct mail_user *user, const char *mailbox,
 		}
 		ret = -1;
 	} else if (strchr(what, 'i') != NULL) {
-		index_mailbox_precache(box);
+		index_mailbox_precache(conn, box);
 	}
 	mailbox_free(&box);
 	return ret;
@@ -186,7 +199,8 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 		ret = -1;
 	} else {
 		indexer_worker_refresh_proctitle(user->username, args[1], 0, 0);
-		ret = index_mailbox(user, args[1], max_recent_msgs, args[3]);
+		ret = index_mailbox(conn, user, args[1],
+				    max_recent_msgs, args[3]);
 		indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
 		mail_user_unref(&user);
 		mail_storage_service_user_free(&service_user);
