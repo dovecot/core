@@ -688,6 +688,11 @@ int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 	return 0;
 }
 
+bool mail_cache_exists(struct mail_cache *cache)
+{
+	return !MAIL_CACHE_IS_UNUSABLE(cache);
+}
+
 struct mail_cache_view *
 mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 {

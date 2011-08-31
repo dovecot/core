@@ -66,6 +66,8 @@ bool mail_cache_need_compress(struct mail_cache *cache);
 /* Compress cache file. Offsets are updated to given transaction. */
 int mail_cache_compress(struct mail_cache *cache,
 			struct mail_index_transaction *trans);
+/* Returns TRUE if there is at least something in the cache. */
+bool mail_cache_exists(struct mail_cache *cache);
 
 struct mail_cache_view *
 mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview);
