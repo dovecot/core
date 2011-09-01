@@ -26,7 +26,8 @@ extern struct doveadm_cmd doveadm_cmd_kick;
 extern struct doveadm_cmd doveadm_cmd_mailbox_mutf7;
 extern struct doveadm_cmd doveadm_cmd_sis_deduplicate;
 extern struct doveadm_cmd doveadm_cmd_sis_find;
-extern struct doveadm_cmd doveadm_cmd_stats;
+extern struct doveadm_cmd doveadm_cmd_stats_dump;
+extern struct doveadm_cmd doveadm_cmd_stats_top;
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd);
 
