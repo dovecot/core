@@ -1,5 +1,15 @@
+ - anvil crash -> Error: Anvil client not compatible with this server (mixed old and new binaries?)
+ - solr separate attachments (patch)
+ - sql connection pooling: Count lookup latencies, avoid servers with
+   significantly higher latencies.
+ - maildir_storage_sync_force() shouldn't do anything except find the new
+   file, don't go expunging any more stuff or we could get recursively back to
+   where we started, and stuff would break
+ - imap: append/copy could trigger indexing (optionally)
+ - fuzzy: be fuzzy about date/size
  - fix proxy_maybe=fqdn
  - mailbox list index:
+    - indexing name="" probably crashes in index_mailbox_list_sync_name()
     - with in-memory indexes be sure to refresh it more often
     - refreshing could refresh only the parts that are actually requested,
       e.g. %
@@ -14,9 +24,9 @@
      - after LIST "" * is refreshed, delete all unlisted local index dirs
      - fix lib-index assert-crash when >1 messages are expunged while they're
        still in delayed_trans
- - check the pigeonhole pipe plugin thing
- - "protocols = $protocols sieve" when there no explicit protocols setting
-   gives duplicates
+     - if there's no sync after mailbox_notify(), IDLE isn't called again..
+        - mbox->to_idle_delay could get added during imapc_client_run() and its
+          timeout goes to wrong ioloop..
  - check:
     - dsyncing between two namespace separators is probably broken..
  - remove mail_deliver_session after all, do all the stuff transparently
