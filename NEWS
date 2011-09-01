@@ -19,13 +19,13 @@ v2.1.UNSTABLE 2011-xx-xx  Timo Sirainen <tss@iki.fi>
 	+ FTS supports indexing attachments via external programs
 	+ IMAP FUZZY extension, supported by Lucene and Solr FTS backends
 	+ Mailbox list indexes
+	+ Statistics tracking via stats service. Exported via doveadm stats.
 	+ Autocreate plugin creates/subscribes mailboxes physically only when
 	  the mailbox is opened for the first time. Mailbox listing shows the
 	  autocreated mailboxes even if they don't physically exist.
+	+ Password and user databases now support default_fields and
+	  override_fields settings to specify template defaults/overrides.
 	- listescape plugin works perfectly now
-
-	- Fixed potential crashes and other problems when parsing header names
-	  that contained NUL characters.
 
 v2.0.14 2011-08-29  Timo Sirainen <tss@iki.fi>
 
