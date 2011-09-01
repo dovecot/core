@@ -376,6 +376,10 @@ static void stats_user_created(struct mail_user *user)
 		   disable stats tracking. */
 		return;
 	}
+	if (user->autocreated) {
+		/* lda / shared user. we're not tracking this one. */
+		return;
+	}
 
 	if (global_stats_conn == NULL) {
 		path = t_strconcat(user->set->base_dir,
