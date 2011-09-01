@@ -107,7 +107,7 @@ int mail_stats_parse(const char *const *args, struct mail_stats *stats_r,
    is so, FALSE if not */
 bool mail_stats_diff(const struct mail_stats *stats1,
 		     const struct mail_stats *stats2,
-		     struct mail_stats *diff_stats_r);
+		     struct mail_stats *diff_stats_r, const char **error_r);
 void mail_stats_add(struct mail_stats *dest, const struct mail_stats *src);
 
 #endif

@@ -201,6 +201,7 @@ int mail_session_update_parse(const char *const *args, const char **error_r)
 {
 	struct mail_session *session;
 	struct mail_stats stats, diff_stats;
+	const char *error;
 	int ret;
 
 	/* <session guid> [key=value ..] */
@@ -212,8 +213,9 @@ int mail_session_update_parse(const char *const *args, const char **error_r)
 		return -1;
 	}
 
-	if (!mail_stats_diff(&session->stats, &stats, &diff_stats)) {
-		*error_r = "UPDATE-SESSION: stats shrank";
+	if (!mail_stats_diff(&session->stats, &stats, &diff_stats, &error)) {
+		*error_r = t_strconcat("UPDATE-SESSION: stats shrank: ",
+				       error, NULL);
 		return -1;
 	}
 	mail_session_refresh(session, &diff_stats);

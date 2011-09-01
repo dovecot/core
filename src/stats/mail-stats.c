@@ -162,7 +162,7 @@ mail_stats_diff_uint64(uint64_t *dest, const uint64_t *src1,
 
 bool mail_stats_diff(const struct mail_stats *stats1,
 		     const struct mail_stats *stats2,
-		     struct mail_stats *diff_stats_r)
+		     struct mail_stats *diff_stats_r, const char **error_r)
 {
 	unsigned int i;
 
@@ -178,20 +178,39 @@ bool mail_stats_diff(const struct mail_stats *stats1,
 		case TYPE_NUM:
 			switch (parse_map[i].size) {
 			case sizeof(uint32_t):
-				if (!mail_stats_diff_uint32(dest, src1, src2))
+				if (!mail_stats_diff_uint32(dest, src1, src2)) {
+					*error_r = t_strdup_printf("%s %u < %u",
+						parse_map[i].name,
+						*(const uint32_t *)src2,
+						*(const uint32_t *)src1);
 					return FALSE;
+				}
 				break;
 			case sizeof(uint64_t):
-				if (!mail_stats_diff_uint64(dest, src1, src2))
+				if (!mail_stats_diff_uint64(dest, src1, src2)) {
+					const uint64_t *n1 = src1, *n2 = src2;
+
+					*error_r = t_strdup_printf("%s %llu < %llu",
+						parse_map[i].name,
+						(unsigned long long)n2,
+						(unsigned long long)n1);
 					return FALSE;
+				}
 				break;
 			default:
 				i_unreached();
 			}
 			break;
 		case TYPE_TIMEVAL:
-			if (!mail_stats_diff_timeval(dest, src1, src2))
+			if (!mail_stats_diff_timeval(dest, src1, src2)) {
+				const struct timeval *tv1 = src1, *tv2 = src2;
+
+				*error_r = t_strdup_printf("%s %ld.%d < %ld.%d",
+					parse_map[i].name,
+					(long)tv2->tv_sec, (int)tv2->tv_usec,
+					(long)tv1->tv_sec, (int)tv1->tv_usec);
 				return FALSE;
+			}
 			break;
 		}
 	}

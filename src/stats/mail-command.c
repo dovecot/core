@@ -94,6 +94,7 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 	struct mail_session *session;
 	struct mail_command *cmd;
 	struct mail_stats stats, diff_stats;
+	const char *error;
 	unsigned int cmd_id;
 	bool done;
 	int ret;
@@ -134,8 +135,10 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 		if (session->ip != NULL)
 			session->ip->num_cmds++;
 	} else {
-		if (!mail_stats_diff(&cmd->stats, &stats, &diff_stats)) {
-			*error_r = "UPDATE-SESSION: stats shrank";
+		if (!mail_stats_diff(&cmd->stats, &stats, &diff_stats,
+				     &error)) {
+			*error_r = t_strconcat("UPDATE-SESSION: stats shrank: ",
+					       error, NULL);
 			return -1;
 		}
 		cmd->last_update = ioloop_timeval;
