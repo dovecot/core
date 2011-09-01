@@ -132,6 +132,7 @@ static void client_raw_user_create(struct client *client)
 
 	client->raw_mail_user = mail_user_alloc("raw user",
 						client->user_set_info, sets[0]);
+	client->raw_mail_user->autocreated = TRUE;
 	mail_user_set_home(client->raw_mail_user, "/");
 	if (mail_user_init(client->raw_mail_user, &error) < 0)
 		i_fatal("Raw user initialization failed: %s", error);

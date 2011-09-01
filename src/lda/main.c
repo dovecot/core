@@ -372,6 +372,7 @@ int main(int argc, char *argv[])
 	/* create a separate mail user for the internal namespace */
 	sets = master_service_settings_get_others(master_service);
 	raw_mail_user = mail_user_alloc(user, ctx.dest_user->set_info, sets[0]);
+	raw_mail_user->autocreated = TRUE;
 	mail_user_set_home(raw_mail_user, "/");
 	if (mail_user_init(raw_mail_user, &errstr) < 0)
 		i_fatal("Raw user initialization failed: %s", errstr);

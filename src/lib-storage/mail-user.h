@@ -42,6 +42,9 @@ struct mail_user {
 	/* User is an administrator. Allow operations not normally allowed
 	   for other people. */
 	unsigned int admin:1;
+	/* This is an autocreated user (e.g. for shared namespace or
+	   lda raw storage) */
+	unsigned int autocreated:1;
 	/* mail_user_init() has been called */
 	unsigned int initialized:1;
 	/* Shortcut to mail_storage_settings.mail_debug */
