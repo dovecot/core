@@ -46,11 +46,12 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 {
 	struct mail_session *session;
 	guid_128_t session_guid;
+	pid_t pid;
 	struct ip_addr ip;
 	unsigned int i;
 
-	/* <session guid> <username> <service> [key=value ..] */
-	if (str_array_length(args) < 3) {
+	/* <session guid> <username> <service> <pid> [key=value ..] */
+	if (str_array_length(args) < 4) {
 		*error_r = "CONNECT: Too few parameters";
 		return -1;
 	}
@@ -58,6 +59,11 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 		*error_r = "CONNECT: Invalid GUID";
 		return -1;
 	}
+	if (str_to_pid(args[3], &pid) < 0) {
+		*error_r = "CONNECT: Invalid pid";
+		return -1;
+	}
+
 	session = hash_table_lookup(mail_sessions_hash, session_guid);
 	if (session != NULL) {
 		*error_r = "CONNECT: Duplicate session GUID";
@@ -67,6 +73,7 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 	session->refcount = 1; /* unrefed at disconnect */
 	session->service = i_strdup(args[2]);
 	memcpy(session->guid, session_guid, sizeof(session->guid));
+	session->pid = pid;
 	session->last_update = ioloop_timeval;
 	session->to_idle = timeout_add(MAIL_SESSION_IDLE_TIMEOUT_MSECS,
 				       mail_session_idle_timeout, session);

@@ -296,7 +296,7 @@ static int client_export_iter_session(struct client *client)
 
 	if (!cmd->header_sent) {
 		o_stream_send_str(client->output,
-			"session\tuser\tip\tservice\tconnected"
+			"session\tuser\tip\tservice\tpid\tconnected"
 			"\tlast_update\tnum_cmds"
 			MAIL_STATS_HEADER);
 		cmd->header_sent = TRUE;
@@ -321,6 +321,7 @@ static int client_export_iter_session(struct client *client)
 			str_append_c(cmd->str, '\t');
 			str_tabescape_write(cmd->str, session->service);
 		} T_END;
+		str_printfa(cmd->str, "\t%ld", (long)session->pid);
 		str_printfa(cmd->str, "\t%d", !session->disconnected);
 		client_export_timeval(cmd->str, &session->last_update);
 		str_printfa(cmd->str, "\t%u", session->num_cmds);

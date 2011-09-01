@@ -39,6 +39,7 @@ struct mail_session {
 	guid_128_t guid;
 	struct mail_user *user;
 	char *service;
+	pid_t pid;
 	/* ip address may be NULL if there's none */
 	struct mail_ip *ip;
 	struct timeout *to_idle;

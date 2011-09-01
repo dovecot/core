@@ -1,6 +1,7 @@
 /* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "hostpid.h"
 #include "network.h"
 #include "str.h"
 #include "strescape.h"
@@ -92,6 +93,7 @@ void stats_connection_connect(struct stats_connection *conn,
 	str_tabescape_write(str, user->username);
 	str_append_c(str, '\t');
 	str_tabescape_write(str, user->service);
+	str_printfa(str, "\t%s", my_pid);
 
 	/* optional fields */
 	if (user->local_ip != NULL) {
