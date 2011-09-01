@@ -41,6 +41,7 @@ struct stats_user {
 	struct timeout *to_stats_timeout;
 	/* stats that were last sent to stats server */
 	struct mail_stats last_sent_session_stats;
+	bool session_sent_duplicate;
 
 	/* list of all currently existing transactions for this user */
 	struct stats_transaction_context *transactions;

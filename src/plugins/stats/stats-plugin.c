@@ -48,6 +48,8 @@ static struct stats_connection *global_stats_conn = NULL;
 static struct mail_user *stats_global_user = NULL;
 static unsigned int stats_user_count = 0;
 
+static void session_stats_refresh_timeout(struct mail_user *user);
+
 static int
 process_io_buffer_parse(const char *buf, uint64_t *read_bytes_r,
 			uint64_t *write_bytes_r)
@@ -332,28 +334,81 @@ static void stats_add_session(struct mail_user *user)
 	suser->pre_io_stats = new_stats;
 }
 
-static bool session_stats_need_send(struct stats_user *suser)
+static bool session_has_changed(const struct mail_stats *prev,
+				const struct mail_stats *cur)
 {
-	if (memcmp(&suser->last_sent_session_stats, &suser->session_stats,
-		   sizeof(suser->session_stats)) != 0)
+	if (cur->disk_input != prev->disk_input ||
+	    cur->disk_output != prev->disk_output ||
+	    memcmp(&cur->trans_stats, &prev->trans_stats,
+		   sizeof(cur->trans_stats)) != 0)
 		return TRUE;
 
-	return ioloop_time - suser->last_session_update >=
-		SESSION_STATS_FORCE_REFRESH_SECS;
+	/* allow a tiny bit of changes that are caused by this
+	   timeout handling */
+	if (timeval_diff_msecs(&cur->user_cpu, &prev->user_cpu) != 0)
+		return TRUE;
+	if (timeval_diff_msecs(&cur->sys_cpu, &prev->sys_cpu) != 0)
+		return TRUE;
+
+	if (cur->maj_faults > prev->maj_faults+10)
+		return TRUE;
+	if (cur->invol_cs > prev->invol_cs+10)
+		return TRUE;
+	return FALSE;
+}
+
+static bool session_stats_need_send(struct stats_user *suser, bool *changed_r,
+				    unsigned int *to_next_secs_r)
+{
+	unsigned int diff;
+
+	*to_next_secs_r = SESSION_STATS_FORCE_REFRESH_SECS;
+
+	if (session_has_changed(&suser->last_sent_session_stats,
+				&suser->session_stats)) {
+		*to_next_secs_r = suser->refresh_secs;
+		*changed_r = TRUE;
+		return TRUE;
+	}
+	*changed_r = FALSE;
+
+	if (!suser->session_sent_duplicate) {
+		if (suser->last_session_update != ioloop_time) {
+			/* send one duplicate notification so stats reader
+			   knows that this session is idle now */
+			return TRUE;
+		}
+		*to_next_secs_r = 1;
+		return FALSE;
+	}
+
+	diff = ioloop_time - suser->last_session_update;
+	if (diff < SESSION_STATS_FORCE_REFRESH_SECS) {
+		*to_next_secs_r = SESSION_STATS_FORCE_REFRESH_SECS - diff;
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static void session_stats_refresh(struct mail_user *user)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	unsigned int to_next_secs;
+	bool changed;
 
-	if (session_stats_need_send(suser)) {
+	if (session_stats_need_send(suser, &changed, &to_next_secs)) {
+		suser->session_sent_duplicate = !changed;
 		suser->last_session_update = ioloop_time;
 		suser->last_sent_session_stats = suser->session_stats;
 		stats_connection_send_session(suser->stats_conn, user,
 					      &suser->session_stats);
 	}
+
 	if (suser->to_stats_timeout != NULL)
 		timeout_remove(&suser->to_stats_timeout);
+	suser->to_stats_timeout =
+		timeout_add(to_next_secs*1000,
+			    session_stats_refresh_timeout, user);
 }
 
 static void session_stats_refresh_timeout(struct mail_user *user)
