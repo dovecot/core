@@ -25,6 +25,11 @@ union sockaddr_union {
 #endif
 };
 
+union sockaddr_union_unix {
+	struct sockaddr sa;
+	struct sockaddr_un sun;
+};
+
 #ifdef HAVE_IPV6
 #  define SIZEOF_SOCKADDR(so) ((so).sa.sa_family == AF_INET6 ? \
 	sizeof(so.sin6) : sizeof(so.sin))
@@ -677,16 +682,16 @@ int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port)
 
 int net_getunixname(int fd, const char **name_r)
 {
-	struct sockaddr_un sa;
-	socklen_t addrlen = sizeof(sa);
+	union sockaddr_union_unix so;
+	socklen_t addrlen = sizeof(so);
 
-	if (getsockname(fd, (void *)&sa, &addrlen) < 0)
+	if (getsockname(fd, &so.sa, &addrlen) < 0)
 		return -1;
-	if (sa.sun_family != AF_UNIX) {
+	if (so.sun.sun_family != AF_UNIX) {
 		errno = ENOTSOCK;
 		return -1;
 	}
-	*name_r = t_strdup(sa.sun_path);
+	*name_r = t_strdup(so.sun.sun_path);
 	return 0;
 }
 
