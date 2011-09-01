@@ -240,7 +240,7 @@ static int client_export_iter_command(struct client *client)
 	struct client_export_cmd *cmd = client->cmd_export;
 	struct mail_command *command = client->mail_cmd_iter;
 
-	i_assert(cmd->level == MAIL_EXPORT_LEVEL_SESSION);
+	i_assert(cmd->level == MAIL_EXPORT_LEVEL_COMMAND);
 	mail_command_unref(&client->mail_cmd_iter);
 
 	if (!cmd->header_sent) {
@@ -260,6 +260,7 @@ static int client_export_iter_command(struct client *client)
 		str_tabescape_write(cmd->str, command->name);
 		str_append_c(cmd->str, '\t');
 		str_tabescape_write(cmd->str, command->args);
+		str_append_c(cmd->str, '\t');
 		T_BEGIN {
 			str_append(cmd->str,
 				   guid_128_to_string(command->session->guid));
