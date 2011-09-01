@@ -54,7 +54,7 @@ struct mail_user *mail_user_login(const char *username)
 	mail_domain_ref(user->domain);
 
 	user->num_logins++;
-	user->last_update = ioloop_time;
+	user->last_update = ioloop_timeval;
 	global_memory_alloc(mail_user_memsize(user));
 	return user;
 }
@@ -102,7 +102,7 @@ void mail_user_refresh(struct mail_user *user,
 {
 	if (diff_stats != NULL)
 		mail_stats_add(&user->stats, diff_stats);
-	user->last_update = ioloop_time;
+	user->last_update = ioloop_timeval;
 	DLLIST2_REMOVE_FULL(&mail_users_head, &mail_users_tail, user,
 			    sorted_prev, sorted_next);
 	DLLIST2_APPEND_FULL(&mail_users_head, &mail_users_tail, user,
@@ -118,7 +118,7 @@ void mail_users_free_memory(void)
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
 		if (ioloop_time -
-		    mail_users_head->last_update < stats_settings->user_min_time)
+		    mail_users_head->last_update.tv_sec < stats_settings->user_min_time)
 			break;
 	}
 }

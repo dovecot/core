@@ -39,7 +39,7 @@ struct mail_ip *mail_ip_login(const struct ip_addr *ip_addr)
 	DLLIST2_APPEND_FULL(&mail_ips_head, &mail_ips_tail, ip,
 			    sorted_prev, sorted_next);
 	ip->num_logins++;
-	ip->last_update = ioloop_time;
+	ip->last_update = ioloop_timeval;
 	global_memory_alloc(mail_ip_memsize(ip));
 	return ip;
 }
@@ -82,7 +82,7 @@ void mail_ip_refresh(struct mail_ip *ip, const struct mail_stats *diff_stats)
 {
 	if (diff_stats != NULL)
 		mail_stats_add(&ip->stats, diff_stats);
-	ip->last_update = ioloop_time;
+	ip->last_update = ioloop_timeval;
 	DLLIST2_REMOVE_FULL(&mail_ips_head, &mail_ips_tail, ip,
 			    sorted_prev, sorted_next);
 	DLLIST2_APPEND_FULL(&mail_ips_head, &mail_ips_tail, ip,
@@ -97,7 +97,7 @@ void mail_ips_free_memory(void)
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
 		if (ioloop_time -
-		    mail_ips_head->last_update < stats_settings->ip_min_time)
+		    mail_ips_head->last_update.tv_sec < stats_settings->ip_min_time)
 			break;
 	}
 }

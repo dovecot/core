@@ -67,7 +67,7 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 	session->refcount = 1; /* unrefed at disconnect */
 	session->service = i_strdup(args[2]);
 	memcpy(session->guid, session_guid, sizeof(session->guid));
-	session->last_update = ioloop_time;
+	session->last_update = ioloop_timeval;
 	session->to_idle = timeout_add(MAIL_SESSION_IDLE_TIMEOUT_MSECS,
 				       mail_session_idle_timeout, session);
 
@@ -179,7 +179,7 @@ void mail_session_refresh(struct mail_session *session,
 
 	if (diff_stats != NULL)
 		mail_stats_add(&session->stats, diff_stats);
-	session->last_update = ioloop_time;
+	session->last_update = ioloop_timeval;
 	DLLIST2_REMOVE_FULL(&mail_sessions_head, &mail_sessions_tail, session,
 			    sorted_prev, sorted_next);
 	DLLIST2_APPEND_FULL(&mail_sessions_head, &mail_sessions_tail, session,
@@ -223,7 +223,7 @@ void mail_sessions_free_memory(void)
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
 		if (ioloop_time -
-		    mail_sessions_head->last_update < stats_settings->session_min_time)
+		    mail_sessions_head->last_update.tv_sec < stats_settings->session_min_time)
 			break;
 	}
 }

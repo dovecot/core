@@ -23,7 +23,7 @@ struct mail_command {
 	/* non-zero id means the command is still running */
 	unsigned int id;
 
-	time_t last_update;
+	struct timeval last_update;
 	struct mail_stats stats;
 
 	int refcount;
@@ -44,7 +44,7 @@ struct mail_session {
 	struct timeout *to_idle;
 
 	struct mail_stats stats;
-	time_t last_update;
+	struct timeval last_update;
 	unsigned int num_cmds;
 
 	bool disconnected;
@@ -61,7 +61,7 @@ struct mail_user {
 	struct mail_domain *domain;
 	time_t reset_timestamp;
 
-	time_t last_update;
+	struct timeval last_update;
 	struct mail_stats stats;
 	unsigned int num_logins;
 	unsigned int num_cmds;
@@ -76,7 +76,7 @@ struct mail_domain {
 	char *name;
 	time_t reset_timestamp;
 
-	time_t last_update;
+	struct timeval last_update;
 	struct mail_stats stats;
 	unsigned int num_logins;
 	unsigned int num_cmds;
@@ -91,7 +91,7 @@ struct mail_ip {
 	struct ip_addr ip;
 	time_t reset_timestamp;
 
-	time_t last_update;
+	struct timeval last_update;
 	struct mail_stats stats;
 	unsigned int num_logins;
 	unsigned int num_cmds;

@@ -40,7 +40,7 @@ struct mail_domain *mail_domain_login(const char *name)
 	DLLIST2_APPEND_FULL(&mail_domains_head, &mail_domains_tail, domain,
 			    sorted_prev, sorted_next);
 	domain->num_logins++;
-	domain->last_update = ioloop_time;
+	domain->last_update = ioloop_timeval;
 	global_memory_alloc(mail_domain_memsize(domain));
 	return domain;
 }
@@ -86,7 +86,7 @@ void mail_domain_refresh(struct mail_domain *domain,
 {
 	if (diff_stats != NULL)
 		mail_stats_add(&domain->stats, diff_stats);
-	domain->last_update = ioloop_time;
+	domain->last_update = ioloop_timeval;
 	DLLIST2_REMOVE_FULL(&mail_domains_head, &mail_domains_tail, domain,
 			    sorted_prev, sorted_next);
 	DLLIST2_APPEND_FULL(&mail_domains_head, &mail_domains_tail, domain,
@@ -101,7 +101,7 @@ void mail_domains_free_memory(void)
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
 		if (ioloop_time -
-		    mail_domains_head->last_update < stats_settings->domain_min_time)
+		    mail_domains_head->last_update.tv_sec < stats_settings->domain_min_time)
 			break;
 	}
 }

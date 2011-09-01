@@ -124,7 +124,7 @@ mail_export_filter_match_session(const struct mail_export_filter *filter,
 {
 	if (filter->connected && session->disconnected)
 		return FALSE;
-	if (filter->since > session->last_update)
+	if (filter->since > session->last_update.tv_sec)
 		return FALSE;
 	if (filter->user != NULL &&
 	    !wildcard_match(session->user->name, filter->user))
@@ -171,7 +171,7 @@ static bool
 mail_export_filter_match_user(const struct mail_export_filter *filter,
 			      const struct mail_user *user)
 {
-	if (filter->since > user->last_update)
+	if (filter->since > user->last_update.tv_sec)
 		return FALSE;
 	if (filter->domain != NULL &&
 	    !wildcard_match(user->domain->name, filter->domain))
@@ -185,7 +185,7 @@ mail_export_filter_match_domain(const struct mail_export_filter *filter,
 {
 	struct mail_user *user;
 
-	if (filter->since > domain->last_update)
+	if (filter->since > domain->last_update.tv_sec)
 		return FALSE;
 	if (filter->domain != NULL &&
 	    !wildcard_match(domain->name, filter->domain))
@@ -227,12 +227,18 @@ mail_export_filter_match_ip(const struct mail_export_filter *filter,
 		if (filter->domain != NULL && !domain_ok)
 			return FALSE;
 	}
-	if (filter->since > ip->last_update)
+	if (filter->since > ip->last_update.tv_sec)
 		return FALSE;
 	if (filter->ip_bits > 0 &&
 	    !net_is_in_network(&ip->ip, &filter->ip, filter->ip_bits))
 		return FALSE;
 	return TRUE;
+}
+
+static void client_export_timeval(string_t *str, const struct timeval *tv)
+{
+	str_printfa(str, "\t%ld.%06u", (long)tv->tv_sec,
+		    (unsigned int)tv->tv_usec);
 }
 
 static int client_export_iter_command(struct client *client)
@@ -265,7 +271,7 @@ static int client_export_iter_command(struct client *client)
 			str_append(cmd->str,
 				   guid_128_to_string(command->session->guid));
 		} T_END;
-		str_printfa(cmd->str, "\t%ld", (long)command->last_update);
+		client_export_timeval(cmd->str, &command->last_update);
 		client_export_mail_stats(cmd->str, &command->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_send(client->output, str_data(cmd->str),
@@ -315,10 +321,9 @@ static int client_export_iter_session(struct client *client)
 			str_append_c(cmd->str, '\t');
 			str_tabescape_write(cmd->str, session->service);
 		} T_END;
-		str_printfa(cmd->str, "\t%d\t%ld\t%u",
-			    !session->disconnected,
-			    (long)session->last_update,
-			    session->num_cmds);
+		str_printfa(cmd->str, "\t%d", !session->disconnected);
+		client_export_timeval(cmd->str, &session->last_update);
+		str_printfa(cmd->str, "\t%u", session->num_cmds);
 		client_export_mail_stats(cmd->str, &session->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_send(client->output, str_data(cmd->str),
@@ -356,9 +361,9 @@ static int client_export_iter_user(struct client *client)
 
 		str_truncate(cmd->str, 0);
 		str_tabescape_write(cmd->str, user->name);
-		str_printfa(cmd->str, "\t%ld\t%ld\t%u\t%u",
-			    (long)user->reset_timestamp,
-			    (long)user->last_update,
+		str_printfa(cmd->str, "\t%ld", (long)user->reset_timestamp);
+		client_export_timeval(cmd->str, &user->last_update);
+		str_printfa(cmd->str, "\t%u\t%u",
 			    user->num_logins, user->num_cmds);
 		client_export_mail_stats(cmd->str, &user->stats);
 		str_append_c(cmd->str, '\n');
@@ -397,9 +402,9 @@ static int client_export_iter_domain(struct client *client)
 
 		str_truncate(cmd->str, 0);
 		str_tabescape_write(cmd->str, domain->name);
-		str_printfa(cmd->str, "\t%ld\t%ld\t%u\t%u",
-			    (long)domain->reset_timestamp,
-			    (long)domain->last_update,
+		str_printfa(cmd->str, "\t%ld", (long)domain->reset_timestamp);
+		client_export_timeval(cmd->str, &domain->last_update);
+		str_printfa(cmd->str, "\t%u\t%u",
 			    domain->num_logins, domain->num_cmds);
 		client_export_mail_stats(cmd->str, &domain->stats);
 		str_append_c(cmd->str, '\n');
@@ -440,10 +445,9 @@ static int client_export_iter_ip(struct client *client)
 		T_BEGIN {
 			str_append(cmd->str, net_ip2addr(&ip->ip));
 		} T_END;
-		str_printfa(cmd->str, "\t%ld\t%ld\t%u\t%u",
-			    (long)ip->reset_timestamp,
-			    (long)ip->last_update,
-			    ip->num_logins, ip->num_cmds);
+		str_printfa(cmd->str, "\t%ld", (long)ip->reset_timestamp);
+		client_export_timeval(cmd->str, &ip->last_update);
+		str_printfa(cmd->str, "\t%u\t%u", ip->num_logins, ip->num_cmds);
 		client_export_mail_stats(cmd->str, &ip->stats);
 		str_append_c(cmd->str, '\n');
 		o_stream_send(client->output, str_data(cmd->str),

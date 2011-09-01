@@ -47,7 +47,7 @@ mail_command_add(struct mail_session *session, const char *name,
 	cmd->session = session;
 	cmd->name = i_strdup(name);
 	cmd->args = i_strdup(args);
-	cmd->last_update = ioloop_time;
+	cmd->last_update = ioloop_timeval;
 
 	DLLIST_PREPEND_FULL(&stable_mail_commands, cmd,
 			    stable_prev, stable_next);
@@ -138,7 +138,7 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 			*error_r = "UPDATE-SESSION: stats shrank";
 			return -1;
 		}
-		cmd->last_update = ioloop_time;
+		cmd->last_update = ioloop_timeval;
 		mail_stats_add(&session->stats, &diff_stats);
 	}
 	if (done) {
@@ -159,7 +159,7 @@ void mail_commands_free_memory(void)
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
 		if (ioloop_time -
-		    stable_mail_commands->last_update < stats_settings->command_min_time)
+		    stable_mail_commands->last_update.tv_sec < stats_settings->command_min_time)
 			break;
 	}
 }
