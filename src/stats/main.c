@@ -11,6 +11,7 @@
 #include "mail-session.h"
 #include "mail-user.h"
 #include "mail-domain.h"
+#include "mail-ip.h"
 #include "client.h"
 
 struct stats_settings set;
@@ -62,6 +63,7 @@ int main(int argc, char *argv[])
 	mail_sessions_init();
 	mail_users_init();
 	mail_domains_init();
+	mail_ips_init();
 
 	master_service_run(master_service, client_connected);
 
@@ -70,6 +72,7 @@ int main(int argc, char *argv[])
 	mail_sessions_deinit();
 	mail_users_deinit();
 	mail_domains_deinit();
+	mail_ips_deinit();
 
 	if (mail_server_conn != NULL)
 		mail_server_connection_destroy(&mail_server_conn);

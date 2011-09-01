@@ -289,7 +289,7 @@ static int client_export_iter_session(struct client *client)
 
 	if (!cmd->header_sent) {
 		o_stream_send_str(client->output,
-			"session\tuser\tservice\tconnected"
+			"session\tuser\tip\tservice\tconnected"
 			"\tlast_update\tnum_cmds"
 			MAIL_STATS_HEADER);
 		cmd->header_sent = TRUE;
@@ -304,11 +304,16 @@ static int client_export_iter_session(struct client *client)
 		str_truncate(cmd->str, 0);
 		T_BEGIN {
 			str_append(cmd->str, guid_128_to_string(session->guid));
+			str_append_c(cmd->str, '\t');
+			str_tabescape_write(cmd->str, session->user->name);
+			str_append_c(cmd->str, '\t');
+			if (session->ip != NULL) {
+				str_append(cmd->str,
+					   net_ip2addr(&session->ip->ip));
+			}
+			str_append_c(cmd->str, '\t');
+			str_tabescape_write(cmd->str, session->service);
 		} T_END;
-		str_append_c(cmd->str, '\t');
-		str_tabescape_write(cmd->str, session->user->name);
-		str_append_c(cmd->str, '\t');
-		str_tabescape_write(cmd->str, session->service);
 		str_printfa(cmd->str, "\t%d\t%ld\t%u",
 			    !session->disconnected,
 			    (long)session->last_update,
@@ -416,6 +421,13 @@ static int client_export_iter_ip(struct client *client)
 
 	i_assert(cmd->level == MAIL_EXPORT_LEVEL_IP);
 	mail_ip_unref(&client->mail_ip_iter);
+
+	if (!cmd->header_sent) {
+		o_stream_send_str(client->output,
+			"ip\treset_timestamp\tlast_update"
+			"\tnum_logins\tnum_cmds"MAIL_STATS_HEADER);
+		cmd->header_sent = TRUE;
+	}
 
 	for (; ip != NULL; ip = ip->stable_next) {
 		if (client_is_busy(client))

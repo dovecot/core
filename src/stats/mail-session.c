@@ -74,9 +74,8 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 	session->user = mail_user_login(args[1]);
 	for (i = 3; args[i] != NULL; i++) {
 		if (strncmp(args[i], "rip=", 4) == 0 &&
-		    net_addr2ip(args[i] + 4, &ip)) {
+		    net_addr2ip(args[i] + 4, &ip) == 0)
 			session->ip = mail_ip_login(&ip);
-		}
 	}
 
 	hash_table_insert(mail_sessions_hash, session->guid, session);
