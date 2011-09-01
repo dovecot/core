@@ -136,7 +136,7 @@ static void cmd_stats_dump(int argc, char *argv[])
 	cmd = t_strdup_printf("EXPORT\t%s\n",
 			      t_strarray_join((const void *)(argv+1), "\t"));
 
-	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 	stats_dump(path, cmd);
 }
 

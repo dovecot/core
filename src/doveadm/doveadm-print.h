@@ -1,6 +1,7 @@
 #ifndef DOVEADM_PRINT_H
 #define DOVEADM_PRINT_H
 
+#define DOVEADM_PRINT_TYPE_TAB "tab"
 #define DOVEADM_PRINT_TYPE_FLOW "flow"
 #define DOVEADM_PRINT_TYPE_TABLE "table"
 
