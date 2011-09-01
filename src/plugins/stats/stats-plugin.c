@@ -17,7 +17,7 @@
 	MODULE_CONTEXT(obj, stats_storage_module)
 
 /* Refresh session every 10 seconds, if anything has changed */
-#define SESSION_STATS_REFRESH_MSECS (10*1000)
+#define SESSION_STATS_REFRESH_SECS 10
 /* If session isn't refreshed every 15 minutes, it's dropped.
    Must be smaller than MAIL_SESSION_IDLE_TIMEOUT_MSECS in stats server */
 #define SESSION_STATS_FORCE_REFRESH_SECS (5*60)
@@ -46,6 +46,8 @@ static MODULE_CONTEXT_DEFINE_INIT(stats_storage_module,
 				  &mail_storage_module_register);
 
 static struct stats_connection *global_stats_conn = NULL;
+static struct mail_user *stats_global_user = NULL;
+static unsigned int stats_user_count = 0;
 
 static int
 process_io_buffer_parse(const char *buf, uint64_t *read_bytes_r,
@@ -249,7 +251,16 @@ static void stats_io_activate(void *context)
 	struct mail_user *user = context;
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
 
-	mail_stats_get(suser, &suser->pre_io_stats);
+	if (stats_user_count == 1) {
+		/* the first user sets the global user. the second user sets
+		   it to NULL. when we get back to one user we'll need to set
+		   the global user again somewhere. do it here. */
+		stats_global_user = user;
+	} else {
+		i_assert(stats_global_user == NULL);
+
+		mail_stats_get(suser, &suser->pre_io_stats);
+	}
 }
 
 static void timeval_add_diff(struct timeval *dest,
@@ -311,15 +322,15 @@ void mail_stats_export(string_t *str, const struct mail_stats *stats)
 	str_printfa(str, "\tcache=%lu", tstats->cache_hit_count);
 }
 
-static void stats_io_deactivate(void *context)
+static void stats_add_session(struct mail_user *user)
 {
-	struct mail_user *user = context;
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
 	struct mail_stats new_stats;
 
 	mail_stats_get(suser, &new_stats);
 	mail_stats_add_diff(&suser->session_stats, &suser->pre_io_stats,
 			    &new_stats);
+	suser->pre_io_stats = new_stats;
 }
 
 static bool session_stats_need_send(struct stats_user *suser)
@@ -342,12 +353,52 @@ static void session_stats_refresh(struct mail_user *user)
 		stats_connection_send_session(suser->stats_conn, user,
 					      &suser->session_stats);
 	}
+	if (suser->to_stats_timeout != NULL)
+		timeout_remove(&suser->to_stats_timeout);
+}
+
+static void session_stats_refresh_timeout(struct mail_user *user)
+{
+	if (stats_global_user != NULL)
+		stats_add_session(user);
+	session_stats_refresh(user);
+}
+
+static void stats_io_deactivate(void *context)
+{
+	struct mail_user *user = context;
+	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	unsigned int last_update_secs;
+
+	if (stats_global_user == NULL)
+		stats_add_session(user);
+
+	last_update_secs = ioloop_time - suser->last_session_update;
+	if (last_update_secs >= SESSION_STATS_REFRESH_SECS) {
+		if (stats_global_user != NULL)
+			stats_add_session(user);
+		session_stats_refresh(user);
+	} else if (suser->to_stats_timeout == NULL) {
+		suser->to_stats_timeout =
+			timeout_add(SESSION_STATS_REFRESH_SECS*1000,
+				    session_stats_refresh_timeout, user);
+	}
 }
 
 static void stats_user_deinit(struct mail_user *user)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
 	struct stats_connection *stats_conn = suser->stats_conn;
+
+	i_assert(stats_user_count > 0);
+	if (--stats_user_count == 0) {
+		/* we were updating the session lazily. do one final update. */
+		i_assert(stats_global_user == user);
+		stats_add_session(user);
+		stats_global_user = NULL;
+	} else {
+		i_assert(stats_global_user == NULL);
+	}
 
 	io_loop_context_remove_callbacks(suser->ioloop_ctx,
 					 stats_io_activate,
@@ -356,7 +407,8 @@ static void stats_user_deinit(struct mail_user *user)
 	session_stats_refresh(user);
 	stats_connection_disconnect(stats_conn, user);
 
-	timeout_remove(&suser->to_stats_timeout);
+	if (suser->to_stats_timeout != NULL)
+		timeout_remove(&suser->to_stats_timeout);
 	suser->module_ctx.super.deinit(user);
 
 	stats_connection_unref(&stats_conn);
@@ -388,6 +440,17 @@ static void stats_user_created(struct mail_user *user)
 	}
 	stats_connection_ref(global_stats_conn);
 
+	if (stats_user_count == 0) {
+		/* first user connection */
+		stats_global_user = user;
+	} else if (stats_user_count == 1) {
+		/* second user connection. we'll need to start doing
+		   per-io callback tracking now. */
+		stats_add_session(stats_global_user);
+		stats_global_user = NULL;
+	}
+	stats_user_count++;
+
 	suser = p_new(user->pool, struct stats_user, 1);
 	suser->module_ctx.super = *v;
 	user->vlast = &suser->module_ctx.super;
@@ -396,8 +459,6 @@ static void stats_user_created(struct mail_user *user)
 	suser->stats_conn = global_stats_conn;
 	guid_128_generate(suser->session_guid);
 	suser->last_session_update = ioloop_time;
-	suser->to_stats_timeout = timeout_add(SESSION_STATS_REFRESH_MSECS,
-					      session_stats_refresh, user);
 
 	suser->ioloop_ctx = ioloop_ctx;
 	io_loop_context_add_callbacks(ioloop_ctx,
