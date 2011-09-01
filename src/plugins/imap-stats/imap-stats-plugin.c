@@ -30,7 +30,7 @@ static void stats_command_pre(struct client_command_context *cmd)
 	struct stats_client_command *scmd;
 	static unsigned int stats_cmd_id_counter = 0;
 
-	if (suser == NULL)
+	if (suser == NULL || !suser->track_commands)
 		return;
 
 	scmd = IMAP_STATS_IMAP_CONTEXT(cmd);

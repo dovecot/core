@@ -7,6 +7,7 @@
 #include "llist.h"
 #include "str.h"
 #include "time-util.h"
+#include "settings-parser.h"
 #include "stats-connection.h"
 #include "stats-plugin.h"
 
@@ -16,8 +17,6 @@
 #define STATS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, stats_storage_module)
 
-/* Refresh session every 10 seconds, if anything has changed */
-#define SESSION_STATS_REFRESH_SECS 10
 /* If session isn't refreshed every 15 minutes, it's dropped.
    Must be smaller than MAIL_SESSION_IDLE_TIMEOUT_MSECS in stats server */
 #define SESSION_STATS_FORCE_REFRESH_SECS (5*60)
@@ -374,13 +373,13 @@ static void stats_io_deactivate(void *context)
 		stats_add_session(user);
 
 	last_update_secs = ioloop_time - suser->last_session_update;
-	if (last_update_secs >= SESSION_STATS_REFRESH_SECS) {
+	if (last_update_secs >= suser->refresh_secs) {
 		if (stats_global_user != NULL)
 			stats_add_session(user);
 		session_stats_refresh(user);
 	} else if (suser->to_stats_timeout == NULL) {
 		suser->to_stats_timeout =
-			timeout_add(SESSION_STATS_REFRESH_SECS*1000,
+			timeout_add(suser->refresh_secs*1000,
 				    session_stats_refresh_timeout, user);
 	}
 }
@@ -420,7 +419,8 @@ static void stats_user_created(struct mail_user *user)
 		io_loop_get_current_context(current_ioloop);
 	struct stats_user *suser;
 	struct mail_user_vfuncs *v = user->vlast;
-	const char *path;
+	const char *path, *str, *error;
+	unsigned int refresh_secs;
 
 	if (ioloop_ctx == NULL) {
 		/* we're probably running some test program, or at least
@@ -432,6 +432,17 @@ static void stats_user_created(struct mail_user *user)
 		/* lda / shared user. we're not tracking this one. */
 		return;
 	}
+
+	/* get refresh time */
+	str = mail_user_plugin_getenv(user, "stats_refresh");
+	if (str == NULL)
+		return;
+	if (settings_get_time(str, &refresh_secs, &error) < 0) {
+		i_error("stats: Invalid stats_refresh setting: %s", error);
+		return;
+	}
+	if (refresh_secs == 0)
+		return;
 
 	if (global_stats_conn == NULL) {
 		path = t_strconcat(user->set->base_dir,
@@ -455,6 +466,11 @@ static void stats_user_created(struct mail_user *user)
 	suser->module_ctx.super = *v;
 	user->vlast = &suser->module_ctx.super;
 	user->v.deinit = stats_user_deinit;
+
+	suser->refresh_secs = refresh_secs;
+	str = mail_user_plugin_getenv(user, "stats_track_cmds");
+	if (str != NULL && strcmp(str, "yes") == 0)
+		suser->track_commands = TRUE;
 
 	suser->stats_conn = global_stats_conn;
 	guid_128_generate(suser->session_guid);

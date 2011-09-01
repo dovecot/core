@@ -28,6 +28,9 @@ struct stats_user {
 	struct stats_connection *stats_conn;
 	guid_128_t session_guid;
 
+	unsigned int refresh_secs;
+	bool track_commands;
+
 	/* current session statistics */
 	struct mail_stats session_stats;
 	/* stats before calling IO callback. after IO callback this value is
