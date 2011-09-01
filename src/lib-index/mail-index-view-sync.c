@@ -736,10 +736,8 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	if (ctx->sync_map_update && !synced_to_map) {
 		if ((hdr->type & (MAIL_TRANSACTION_EXPUNGE |
 				  MAIL_TRANSACTION_EXPUNGE_GUID)) == 0) {
-			T_BEGIN {
-				ret = mail_index_sync_record(&ctx->sync_map_ctx,
-							     hdr, ctx->data);
-			} T_END;
+			ret = mail_index_sync_record(&ctx->sync_map_ctx,
+						     hdr, ctx->data);
 		}
 		if (ret < 0)
 			return -1;

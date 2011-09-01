@@ -518,9 +518,10 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	return 1;
 }
 
-int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
-			   const struct mail_transaction_header *hdr,
-			   const void *data)
+static int
+mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
+			    const struct mail_transaction_header *hdr,
+			    const void *data)
 {
 	int ret = 0;
 
@@ -813,6 +814,18 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 	return ret;
 }
 
+int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
+			   const struct mail_transaction_header *hdr,
+			   const void *data)
+{
+	int ret;
+
+	T_BEGIN {
+		ret = mail_index_sync_record_real(ctx, hdr, data);
+	} T_END;
+	return ret;
+}
+
 void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 			      struct mail_index_view *view,
 			      enum mail_index_sync_handler_type type)
@@ -1020,10 +1033,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		}
 
 		/* we'll just skip over broken entries */
-		T_BEGIN {
-			(void)mail_index_sync_record(&sync_map_ctx,
-						     thdr, tdata);
-		} T_END;
+		(void)mail_index_sync_record(&sync_map_ctx, thdr, tdata);
 	}
 	map = view->map;
 
