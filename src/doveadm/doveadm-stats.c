@@ -225,7 +225,7 @@ static double sort_cpu_diff(const struct top_line *line)
 {
 	double prev, cur, diff, prev_time, cur_time, time_multiplier;
 
-	if (get_double(line->prev_values[sort_ctx->last_update_idx], &prev_time) < 0 &&
+	if (get_double(line->prev_values[sort_ctx->last_update_idx], &prev_time) < 0 ||
 	    get_double(line->cur_values[sort_ctx->last_update_idx], &cur_time) < 0)
 		i_fatal("sorting: invalid last_update value");
 	time_multiplier = (cur_time - prev_time) * 100;
