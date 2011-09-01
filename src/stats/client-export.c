@@ -97,11 +97,17 @@ mail_export_parse_filter(const char *const *args, pool_t pool,
 static void
 client_export_mail_stats(string_t *str, const struct mail_stats *stats)
 {
-#define MAIL_STATS_HEADER "\tcpu\tdisk_input\tdisk_output" \
+#define MAIL_STATS_HEADER "\tuser_cpu\tsys_cpu" \
+	"\tmin_faults\tmaj_faults\tvol_cs\tinvol_cs" \
+	"\tdisk_input\tdisk_output" \
 	"\tlookup_path\tlookup_attr\tread_count\tread_bytes\tcache_hits\n"
 
-	str_printfa(str, "\t%ld.%u", (long)stats->cpu_secs.tv_sec,
-		    (unsigned int)stats->cpu_secs.tv_usec);
+	str_printfa(str, "\t%ld.%u", (long)stats->user_cpu.tv_sec,
+		    (unsigned int)stats->user_cpu.tv_usec);
+	str_printfa(str, "\t%ld.%u", (long)stats->sys_cpu.tv_sec,
+		    (unsigned int)stats->sys_cpu.tv_usec);
+	str_printfa(str, "\t%u\t%u", stats->min_faults, stats->maj_faults);
+	str_printfa(str, "\t%u\t%u", stats->vol_cs, stats->invol_cs);
 	str_printfa(str, "\t%llu\t%llu",
 		    (unsigned long long)stats->disk_input,
 		    (unsigned long long)stats->disk_output);

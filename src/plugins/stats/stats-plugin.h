@@ -10,7 +10,13 @@
 	MODULE_CONTEXT(obj, stats_user_module)
 
 struct mail_stats {
-	struct timeval cpu_secs;
+	/* user/system CPU time used */
+	struct timeval user_cpu, sys_cpu;
+	/* minor / major page faults */
+	uint32_t min_faults, maj_faults;
+	/* voluntary / involuntary context switches */
+	uint32_t vol_cs, invol_cs;
+	/* disk input/output bytes */
 	uint64_t disk_input, disk_output;
 	struct mailbox_transaction_stats trans_stats;
 };

@@ -4,22 +4,35 @@
 #include "time-util.h"
 #include "mail-stats.h"
 
+enum mail_stats_type {
+	TYPE_NUM,
+	TYPE_TIMEVAL
+};
+
 struct mail_stats_parse_map {
 	const char *name;
 	unsigned int offset;
 	unsigned int size;
+	enum mail_stats_type type;
 } parse_map[] = {
-#define E(parsename, name) { parsename, offsetof(struct mail_stats, name), sizeof(((struct mail_stats *)0)->name) }
-	E("diskin", disk_input),
-	E("diskout", disk_output),
-	E("lpath", lookup_path),
-	E("lattr", lookup_attr),
-	E("rcount", read_count),
-	E("rbytes", read_bytes),
-	E("cache", cache_hits)
+#define E(parsename, name, type) { parsename, offsetof(struct mail_stats, name), sizeof(((struct mail_stats *)0)->name), type }
+#define EN(parsename, name) E(parsename, name, TYPE_NUM)
+	E("ucpu", user_cpu, TYPE_TIMEVAL),
+	E("scpu", sys_cpu, TYPE_TIMEVAL),
+	EN("minflt", min_faults),
+	EN("majflt", maj_faults),
+	EN("volcs", vol_cs),
+	EN("involcs", invol_cs),
+	EN("diskin", disk_input),
+	EN("diskout", disk_output),
+	EN("lpath", lookup_path),
+	EN("lattr", lookup_attr),
+	EN("rcount", read_count),
+	EN("rbytes", read_bytes),
+	EN("cache", cache_hits)
 };
 
-static int mail_stats_parse_cpu(const char *value, struct mail_stats *stats)
+static int mail_stats_parse_timeval(const char *value, struct timeval *tv)
 {
 	const char *p, *secs_str;
 	unsigned long secs, usecs;
@@ -34,8 +47,8 @@ static int mail_stats_parse_cpu(const char *value, struct mail_stats *stats)
 	    usecs > 1000000)
 		return -1;
 
-	stats->cpu_secs.tv_sec = secs;
-	stats->cpu_secs.tv_usec = usecs;
+	tv->tv_sec = secs;
+	tv->tv_usec = usecs;
 	return 0;
 }
 
@@ -63,21 +76,31 @@ mail_stats_parse_one(const char *key, const char *value,
 		return 0;
 
 	dest = PTR_OFFSET(stats, map->offset);
-	switch (map->size) {
-	case sizeof(uint32_t):
-		if (str_to_uint32(value, dest) < 0) {
-			*error_r = "invalid number";
+	switch (map->type) {
+	case TYPE_NUM:
+		switch (map->size) {
+		case sizeof(uint32_t):
+			if (str_to_uint32(value, dest) < 0) {
+				*error_r = "invalid number";
+				return -1;
+			}
+			break;
+		case sizeof(uint64_t):
+			if (str_to_uint64(value, dest) < 0) {
+				*error_r = "invalid number";
+				return -1;
+			}
+			break;
+		default:
+			i_unreached();
+		}
+		break;
+	case TYPE_TIMEVAL:
+		if (mail_stats_parse_timeval(value, dest) < 0) {
+			*error_r = "invalid cpu parameter";
 			return -1;
 		}
 		break;
-	case sizeof(uint64_t):
-		if (str_to_uint64(value, dest) < 0) {
-			*error_r = "invalid number";
-			return -1;
-		}
-		break;
-	default:
-		i_unreached();
 	}
 	return 0;
 }
@@ -97,74 +120,127 @@ int mail_stats_parse(const char *const *args, struct mail_stats *stats_r,
 		}
 		key = t_strdup_until(args[i], p);
 		value = p + 1;
-		if (strcmp(key, "cpu") == 0) {
-			if (mail_stats_parse_cpu(value, stats_r) < 0) {
-				*error_r = "invalid cpu parameter";
-				return -1;
-			}
-		} else {
-			if (mail_stats_parse_one(key, value,
-						 stats_r, error_r) < 0)
-				return -1;
-		}
+		if (mail_stats_parse_one(key, value, stats_r, error_r) < 0)
+			return -1;
 	}
 	return 0;
+}
+
+static bool mail_stats_diff_timeval(struct timeval *dest,
+				    const struct timeval *src1,
+				    const struct timeval *src2)
+{
+	long long diff_usecs;
+
+	diff_usecs = timeval_diff_usecs(src2, src1);
+	if (diff_usecs < 0)
+		return FALSE;
+	dest->tv_sec = diff_usecs / 1000000;
+	dest->tv_usec = diff_usecs % 1000000;
+	return TRUE;
+}
+
+static bool
+mail_stats_diff_uint32(uint32_t *dest, const uint32_t *src1,
+		       const uint32_t *src2)
+{
+	if (*src1 > *src2)
+		return FALSE;
+	*dest = *src2 - *src1;
+	return TRUE;
+}
+
+static bool
+mail_stats_diff_uint64(uint64_t *dest, const uint64_t *src1,
+		       const uint64_t *src2)
+{
+	if (*src1 > *src2)
+		return FALSE;
+	*dest = *src2 - *src1;
+	return TRUE;
 }
 
 bool mail_stats_diff(const struct mail_stats *stats1,
 		     const struct mail_stats *stats2,
 		     struct mail_stats *diff_stats_r)
 {
-	long long diff_usecs;
+	unsigned int i;
 
 	memset(diff_stats_r, 0, sizeof(*diff_stats_r));
 
-	diff_usecs = timeval_diff_usecs(&stats2->cpu_secs, &stats1->cpu_secs);
-	if (diff_usecs < 0)
-		return FALSE;
-	diff_stats_r->cpu_secs.tv_sec = diff_usecs / 1000000;
-	diff_stats_r->cpu_secs.tv_usec = diff_usecs % 1000000;
+	for (i = 0; i < N_ELEMENTS(parse_map); i++) {
+		unsigned int offset = parse_map[i].offset;
+		void *dest = PTR_OFFSET(diff_stats_r, offset);
+		const void *src1 = CONST_PTR_OFFSET(stats1, offset);
+		const void *src2 = CONST_PTR_OFFSET(stats2, offset);
 
-	if (stats1->disk_input > stats2->disk_input)
-		return FALSE;
-	diff_stats_r->disk_input = stats2->disk_input - stats1->disk_input;
-	if (stats1->disk_output > stats2->disk_output)
-		return FALSE;
-	diff_stats_r->disk_output = stats2->disk_output - stats1->disk_output;
-
-	if (stats1->lookup_path > stats2->lookup_path)
-		return FALSE;
-	diff_stats_r->lookup_path = stats2->lookup_path - stats1->lookup_path;
-	if (stats1->lookup_attr > stats2->lookup_attr)
-		return FALSE;
-	diff_stats_r->lookup_attr = stats2->lookup_attr - stats1->lookup_attr;
-	if (stats1->read_count > stats2->read_count)
-		return FALSE;
-	diff_stats_r->read_count = stats2->read_count - stats1->read_count;
-	if (stats1->cache_hits > stats2->cache_hits)
-		return FALSE;
-	diff_stats_r->cache_hits = stats2->cache_hits - stats1->cache_hits;
-	if (stats1->read_bytes > stats2->read_bytes)
-		return FALSE;
-	diff_stats_r->read_bytes = stats2->read_bytes - stats1->read_bytes;
-
+		switch (parse_map[i].type) {
+		case TYPE_NUM:
+			switch (parse_map[i].size) {
+			case sizeof(uint32_t):
+				if (!mail_stats_diff_uint32(dest, src1, src2))
+					return FALSE;
+				break;
+			case sizeof(uint64_t):
+				if (!mail_stats_diff_uint64(dest, src1, src2))
+					return FALSE;
+				break;
+			default:
+				i_unreached();
+			}
+			break;
+		case TYPE_TIMEVAL:
+			if (!mail_stats_diff_timeval(dest, src1, src2))
+				return FALSE;
+			break;
+		}
+	}
 	return TRUE;
+}
+
+static void timeval_add(struct timeval *dest, const struct timeval *src)
+{
+	dest->tv_sec += src->tv_sec;
+	dest->tv_usec += src->tv_usec;
+	if (dest->tv_usec > 1000000) {
+		dest->tv_usec -= 1000000;
+		dest->tv_sec++;
+	}
 }
 
 void mail_stats_add(struct mail_stats *dest, const struct mail_stats *src)
 {
-	dest->cpu_secs.tv_sec += src->cpu_secs.tv_sec;
-	dest->cpu_secs.tv_usec += src->cpu_secs.tv_usec;
-	if (dest->cpu_secs.tv_usec > 1000000) {
-		dest->cpu_secs.tv_usec -= 1000000;
-		dest->cpu_secs.tv_sec++;
-	}
-	dest->disk_input += src->disk_input;
-	dest->disk_output += src->disk_output;
+	unsigned int i;
 
-	dest->lookup_path += src->lookup_path;
-	dest->lookup_attr += src->lookup_attr;
-	dest->read_count += src->read_count;
-	dest->cache_hits += src->cache_hits;
-	dest->read_bytes += src->read_bytes;
+	for (i = 0; i < N_ELEMENTS(parse_map); i++) {
+		unsigned int offset = parse_map[i].offset;
+		void *f_dest = PTR_OFFSET(dest, offset);
+		const void *f_src = CONST_PTR_OFFSET(src, offset);
+
+		switch (parse_map[i].type) {
+		case TYPE_NUM:
+			switch (parse_map[i].size) {
+			case sizeof(uint32_t): {
+				uint32_t *n_dest = f_dest;
+				const uint32_t *n_src = f_src;
+
+				*n_dest += *n_src;
+				break;
+			}
+			case sizeof(uint64_t): {
+				uint64_t *n_dest = f_dest;
+				const uint64_t *n_src = f_src;
+
+				*n_dest += *n_src;
+				break;
+			}
+			default:
+				i_unreached();
+			}
+			break;
+		case TYPE_TIMEVAL:
+			timeval_add(f_dest, f_src);
+			break;
+		}
+	}
 }

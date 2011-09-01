@@ -162,7 +162,12 @@ void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
 	/* cputime */
 	if (getrusage(RUSAGE_SELF, &usage) < 0)
 		memset(&usage, 0, sizeof(usage));
-	stats_r->cpu_secs = usage.ru_utime;
+	stats_r->user_cpu = usage.ru_utime;
+	stats_r->sys_cpu = usage.ru_stime;
+	stats_r->min_faults = usage.ru_minflt;
+	stats_r->maj_faults = usage.ru_majflt;
+	stats_r->vol_cs = usage.ru_nvcsw;
+	stats_r->invol_cs = usage.ru_nivcsw;
 	/* disk io */
 	process_read_io_stats(&stats_r->disk_input, &stats_r->disk_output);
 	user_trans_stats_get(suser, &stats_r->trans_stats);
@@ -247,24 +252,36 @@ static void stats_io_activate(void *context)
 	mail_stats_get(suser, &suser->pre_io_stats);
 }
 
+static void timeval_add_diff(struct timeval *dest,
+			     const struct timeval *newsrc,
+			     const struct timeval *oldsrc)
+{
+	long long usecs;
+
+	usecs = timeval_diff_usecs(newsrc, oldsrc);
+	dest->tv_sec += usecs / USECS_PER_SEC;
+	dest->tv_usec += usecs % USECS_PER_SEC;
+	if (dest->tv_usec > USECS_PER_SEC) {
+		dest->tv_usec -= USECS_PER_SEC;
+		dest->tv_sec++;
+	}
+}
+
 void mail_stats_add_diff(struct mail_stats *dest,
 			 const struct mail_stats *old_stats,
 			 const struct mail_stats *new_stats)
 {
-	struct timeval *tv;
-	long long usecs;
-
 	dest->disk_input += new_stats->disk_input - old_stats->disk_input;
 	dest->disk_output += new_stats->disk_output - old_stats->disk_output;
+	dest->min_faults += new_stats->min_faults - old_stats->min_faults;
+	dest->maj_faults += new_stats->maj_faults - old_stats->maj_faults;
+	dest->vol_cs += new_stats->vol_cs - old_stats->vol_cs;
+	dest->invol_cs += new_stats->invol_cs - old_stats->invol_cs;
 
-	usecs = timeval_diff_usecs(&new_stats->cpu_secs, &old_stats->cpu_secs);
-	tv = &dest->cpu_secs;
-	tv->tv_sec += usecs / USECS_PER_SEC;
-	tv->tv_usec += usecs % USECS_PER_SEC;
-	if (tv->tv_usec > USECS_PER_SEC) {
-		tv->tv_usec -= USECS_PER_SEC;
-		tv->tv_sec++;
-	}
+	timeval_add_diff(&dest->user_cpu, &new_stats->user_cpu,
+			 &old_stats->user_cpu);
+	timeval_add_diff(&dest->sys_cpu, &new_stats->sys_cpu,
+			 &old_stats->sys_cpu);
 	trans_stats_dec(&dest->trans_stats, &old_stats->trans_stats);
 	trans_stats_add(&dest->trans_stats, &new_stats->trans_stats);
 }
@@ -273,8 +290,14 @@ void mail_stats_export(string_t *str, const struct mail_stats *stats)
 {
 	const struct mailbox_transaction_stats *tstats = &stats->trans_stats;
 
-	str_printfa(str, "\tcpu=%ld.%ld", (long)stats->cpu_secs.tv_sec,
-		    (long)stats->cpu_secs.tv_usec);
+	str_printfa(str, "\tucpu=%ld.%ld", (long)stats->user_cpu.tv_sec,
+		    (long)stats->user_cpu.tv_usec);
+	str_printfa(str, "\tscpu=%ld.%ld", (long)stats->sys_cpu.tv_sec,
+		    (long)stats->sys_cpu.tv_usec);
+	str_printfa(str, "\tminflt=%u", stats->min_faults);
+	str_printfa(str, "\tmajflt=%u", stats->maj_faults);
+	str_printfa(str, "\tvolcs=%u", stats->vol_cs);
+	str_printfa(str, "\tinvolcs=%u", stats->invol_cs);
 	str_printfa(str, "\tdiskin=%llu",
 		    (unsigned long long)stats->disk_input);
 	str_printfa(str, "\tdiskout=%llu",
