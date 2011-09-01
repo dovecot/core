@@ -46,21 +46,25 @@ static void stats_lookup(const char *path)
 	args = read_next_line(input);
 	if (args == NULL)
 		i_fatal("read(%s) unexpectedly disconnected", path);
-	for (; *args != NULL; args++)
-		doveadm_print_header_simple(*args);
+	if (*args == NULL)
+		i_info("no statistics available");
+	else {
+		for (; *args != NULL; args++)
+			doveadm_print_header_simple(*args);
 
-	/* read lines */
-	do {
-		T_BEGIN {
-			args = read_next_line(input);
-			if (args[0] == NULL)
-				args = NULL;
-			if (args != NULL) {
-				for (i = 0; args[i] != NULL; i++)
-					doveadm_print(args[i]);
-			}
-		} T_END;
-	} while (args != NULL);
+		/* read lines */
+		do {
+			T_BEGIN {
+				args = read_next_line(input);
+				if (args[0] == NULL)
+					args = NULL;
+				if (args != NULL) {
+					for (i = 0; args[i] != NULL; i++)
+						doveadm_print(args[i]);
+				}
+			} T_END;
+		} while (args != NULL);
+	}
 	if (input->stream_errno != 0)
 		i_fatal("read(%s) failed: %m", path);
 	i_stream_destroy(&input);
