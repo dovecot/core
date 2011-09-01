@@ -2,8 +2,6 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "array.h"
-#include "hostpid.h"
 #include "llist.h"
 #include "str.h"
 #include "time-util.h"
@@ -49,80 +47,6 @@ static struct mail_user *stats_global_user = NULL;
 static unsigned int stats_user_count = 0;
 
 static void session_stats_refresh_timeout(struct mail_user *user);
-
-static int
-process_io_buffer_parse(const char *buf, uint64_t *read_bytes_r,
-			uint64_t *write_bytes_r)
-{
-	const char *const *tmp;
-	uint64_t cbytes;
-
-	tmp = t_strsplit(buf, "\n");
-	for (; *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "read_bytes: ", 12) == 0) {
-			if (str_to_uint64(*tmp + 12, read_bytes_r) < 0)
-				return -1;
-		} else if (strncmp(*tmp, "write_bytes: ", 13) == 0) {
-			if (str_to_uint64(*tmp + 13, write_bytes_r) < 0)
-				return -1;
-		} else if (strncmp(*tmp, "cancelled_write_bytes: ", 23) == 0) {
-			if (str_to_uint64(*tmp + 23, &cbytes) < 0)
-				return -1;
-			/* it's not 100% correct to simply subtract the
-			   cancelled bytes from write bytes, but it's close
-			   enough. */
-			if (*write_bytes_r < cbytes)
-				*write_bytes_r = 0;
-			else
-				*write_bytes_r -= cbytes;
-		}
-	}
-	return 0;
-}
-
-static void
-process_read_io_stats(uint64_t *read_bytes_r, uint64_t *write_bytes_r)
-{
-	static bool io_disabled = FALSE;
-	char path[100], buf[1024];
-	int fd, ret;
-
-	*read_bytes_r = *write_bytes_r = 0;
-
-	if (io_disabled)
-		return;
-
-	i_snprintf(path, sizeof(path), "/proc/%s/io", my_pid);
-	fd = open(path, O_RDONLY);
-	if (fd == -1) {
-		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path);
-		io_disabled = TRUE;
-		return;
-	}
-	ret = read(fd, buf, sizeof(buf));
-	if (ret <= 0) {
-		if (ret == -1)
-			i_error("read(%s) failed: %m", path);
-		else
-			i_error("read(%s) returned EOF", path);
-	} else if (ret == sizeof(buf)) {
-		/* just shouldn't happen.. */
-		i_error("%s is larger than expected", path);
-		io_disabled = TRUE;
-	} else {
-		buf[ret] = '\0';
-		T_BEGIN {
-			if (process_io_buffer_parse(buf, read_bytes_r,
-						    write_bytes_r) < 0) {
-				i_error("Invalid input in file %s", path);
-				io_disabled = TRUE;
-			}
-		} T_END;
-	}
-	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", path);
-}
 
 static void trans_stats_dec(struct mailbox_transaction_stats *dest,
 			    const struct mailbox_transaction_stats *src)
@@ -171,8 +95,8 @@ void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
 	stats_r->maj_faults = usage.ru_majflt;
 	stats_r->vol_cs = usage.ru_nvcsw;
 	stats_r->invol_cs = usage.ru_nivcsw;
-	/* disk io */
-	process_read_io_stats(&stats_r->disk_input, &stats_r->disk_output);
+	stats_r->disk_input = (unsigned long long)usage.ru_inblock * 512ULL;
+	stats_r->disk_output = (unsigned long long)usage.ru_oublock * 512ULL;
 	user_trans_stats_get(suser, &stats_r->trans_stats);
 }
 
