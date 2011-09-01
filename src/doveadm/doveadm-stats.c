@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "str.h"
 #include "strescape.h"
+#include "write-full.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 
@@ -27,9 +28,8 @@ read_next_line(struct istream *input)
 	return (void *)args;
 }
 
-static void stats_lookup(const char *path)
+static void stats_dump(const char *path, const char *cmd)
 {
-#define TOP_CMD "EXPORT\tsession\tconnected\n"
 	struct istream *input;
 	const char *const *args;
 	unsigned int i;
@@ -39,7 +39,7 @@ static void stats_lookup(const char *path)
 	net_set_nonblock(fd, FALSE);
 
 	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
-	if (write(fd, TOP_CMD, strlen(TOP_CMD)) < 0)
+	if (write_full(fd, cmd, strlen(cmd)) < 0)
 		i_fatal("write(%s) failed: %m", path);
 
 	/* read header */
@@ -70,9 +70,9 @@ static void stats_lookup(const char *path)
 	i_stream_destroy(&input);
 }
 
-static void cmd_stats_top(int argc, char *argv[])
+static void cmd_stats_dump(int argc, char *argv[])
 {
-	const char *path;
+	const char *path, *cmd;
 	int c;
 
 	path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
@@ -87,13 +87,15 @@ static void cmd_stats_top(int argc, char *argv[])
 		}
 	}
 	argv += optind - 1;
-	if (argv[1] != NULL)
+	if (argv[1] == NULL)
 		help(&doveadm_cmd_stats);
+	cmd = t_strdup_printf("EXPORT\t%s\n",
+			      t_strarray_join((const void *)(argv+1), "\t"));
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
-	stats_lookup(path);
+	stats_dump(path, cmd);
 }
 
 struct doveadm_cmd doveadm_cmd_stats = {
-	cmd_stats_top, "stats top", "[-s <stats socket path>]"
+	cmd_stats_dump, "stats dump", "[-s <stats socket path>] <type> [<filter>]"
 };
