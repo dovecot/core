@@ -189,7 +189,7 @@ static void doveadm_print_table_init(void)
 	pool_t pool;
 	struct winsize ws;
 
-	pool = pool_alloconly_create("doveadm print table", 1024);
+	pool = pool_alloconly_create("doveadm print table", 2048);
 	ctx = p_new(pool, struct doveadm_print_table_context, 1);
 	ctx->pool = pool;
 	p_array_init(&ctx->headers, pool, 16);
