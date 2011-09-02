@@ -32,9 +32,13 @@ struct solr_fts_backend_update_context {
 	uint32_t prev_uid;
 	string_t *cmd, *hdr, *hdr_fields;
 
-	bool headers_open;
-	bool cur_header_index;
-	bool documents_added;
+	uint32_t last_indexed_uid;
+
+	unsigned int last_indexed_uid_set:1;
+	unsigned int headers_open:1;
+	unsigned int cur_header_index:1;
+	unsigned int documents_added:1;
+	unsigned int expunges:1;
 };
 
 static struct solr_connection *solr_conn = NULL;
@@ -294,13 +298,15 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 	if (fts_backed_solr_build_commit(ctx) < 0)
 		ret = -1;
 
-	/* commit and wait until the documents we just indexed are
-	   visible to the following search */
-	str = t_strdup_printf("<commit waitFlush=\"false\" "
-			      "waitSearcher=\"%s\"/>",
-			      ctx->documents_added ? "true" : "false");
-	if (solr_connection_post(solr_conn, str) < 0)
-		ret = -1;
+	if (ctx->documents_added || ctx->expunges) {
+		/* commit and wait until the documents we just indexed are
+		   visible to the following search */
+		str = t_strdup_printf("<commit waitFlush=\"false\" "
+				      "waitSearcher=\"%s\"/>",
+				      ctx->documents_added ? "true" : "false");
+		if (solr_connection_post(solr_conn, str) < 0)
+			ret = -1;
+	}
 
 	str_free(&ctx->cmd);
 	str_free(&ctx->hdr);
@@ -340,6 +346,22 @@ fts_backend_solr_update_expunge(struct fts_backend_update_context *_ctx,
 {
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
+	struct fts_index_header hdr;
+
+	if (!ctx->last_indexed_uid_set) {
+		if (!fts_index_get_header(ctx->cur_box, &hdr))
+			ctx->last_indexed_uid = 0;
+		else
+			ctx->last_indexed_uid = hdr.last_indexed_uid;
+		ctx->last_indexed_uid_set = TRUE;
+	}
+	if (ctx->last_indexed_uid == 0 ||
+	    uid > ctx->last_indexed_uid + 100) {
+		/* don't waste time asking Solr to expunge a message that is
+		   highly unlikely to be indexed at this time. */
+		return;
+	}
+	ctx->expunges = TRUE;
 
 	T_BEGIN {
 		string_t *cmd;
