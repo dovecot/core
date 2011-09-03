@@ -68,15 +68,18 @@ libdriver_sqlite_la_LDFLAGS = -module -avoid-version
 libdriver_sqlite_la_LIBADD = $(SQLITE_LIBS)
 libdriver_sqlite_la_CPPFLAGS = -I$(top_srcdir)/src/lib $(SQLITE_CFLAGS)
 libdriver_sqlite_la_SOURCES = driver-sqlite.c
+
+sql_libs =
+else
+sql_libs = \
+	$(MYSQL_LIBS) \
+	$(PGSQL_LIBS) \
+	$(SQLITE_LIBS)
 endif
 
 pkglib_LTLIBRARIES = libdovecot-sql.la
 libdovecot_sql_la_SOURCES = 
-libdovecot_sql_la_LIBADD = libsql.la $(deplibs) \
-	$(MYSQL_LIBS) \
-	$(PGSQL_LIBS) \
-	$(SQLITE_LIBS) \
-	$(MODULE_LIBS)
+libdovecot_sql_la_LIBADD = libsql.la $(deplibs) $(MODULE_LIBS) $(sql_libs)
 libdovecot_sql_la_DEPENDENCIES = libsql.la
 libdovecot_sql_la_LDFLAGS = -export-dynamic
 
