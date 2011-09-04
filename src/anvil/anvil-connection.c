@@ -29,6 +29,7 @@ struct anvil_connection {
 	unsigned int version_received:1;
 	unsigned int handshaked:1;
 	unsigned int master:1;
+	unsigned int fifo:1;
 };
 
 struct anvil_connection *anvil_connections = NULL;
@@ -180,12 +181,15 @@ anvil_connection_create(int fd, bool master, bool fifo)
 		conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->io = io_add(fd, IO_READ, anvil_connection_input, conn);
 	conn->master = master;
+	conn->fifo = fifo;
 	DLLIST_PREPEND(&anvil_connections, conn);
 	return conn;
 }
 
 void anvil_connection_destroy(struct anvil_connection *conn)
 {
+	bool fifo = conn->fifo;
+
 	DLLIST_REMOVE(&anvil_connections, conn);
 
 	io_remove(&conn->io);
@@ -196,7 +200,8 @@ void anvil_connection_destroy(struct anvil_connection *conn)
 		i_error("close(anvil conn) failed: %m");
 	i_free(conn);
 
-	master_service_client_connection_destroyed(master_service);
+	if (!fifo)
+		master_service_client_connection_destroyed(master_service);
 }
 
 void anvil_connections_destroy_all(void)
