@@ -510,6 +510,16 @@ static void imapc_idle_timeout(struct imapc_mailbox *mbox)
 				 imapc_async_callback, mbox->storage);
 }
 
+static void imapc_idle_noop_callback(const struct imapc_command_reply *reply,
+				     void *context)
+
+{
+	struct imapc_mailbox *mbox = context;
+
+	imapc_async_callback(reply, mbox->box.storage);
+	imapc_client_mailbox_idle(mbox->client_box);
+}
+
 static void imapc_notify_changes(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
@@ -528,7 +538,7 @@ static void imapc_notify_changes(struct mailbox *box)
 		   here by sending a NOOP. this helps with clients that break
 		   IDLE when clicking "get mail". */
 		imapc_client_mailbox_cmd(mbox->client_box, "NOOP",
-					 imapc_async_callback, mbox->storage);
+					 imapc_idle_noop_callback, mbox);
 	} else {
 		/* remote server doesn't support IDLE.
 		   check for changes with NOOP every once in a while. */
