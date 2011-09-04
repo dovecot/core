@@ -26,14 +26,21 @@ static void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 	imapc_client_mailbox_disconnect(mbox->client_box);
 }
 
+static struct mail_index_view *
+imapc_mailbox_get_sync_view(struct imapc_mailbox *mbox)
+{
+	if (mbox->sync_view == NULL)
+		mbox->sync_view = mail_index_view_open(mbox->box.index);
+	return mbox->sync_view;
+}
+
 static void imapc_mailbox_init_delayed_trans(struct imapc_mailbox *mbox)
 {
 	if (mbox->delayed_sync_trans != NULL)
 		return;
 
-	mbox->sync_view = mail_index_view_open(mbox->box.index);
 	mbox->delayed_sync_trans =
-		mail_index_transaction_begin(mbox->sync_view,
+		mail_index_transaction_begin(imapc_mailbox_get_sync_view(mbox),
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	mbox->delayed_sync_view =
 		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
@@ -120,7 +127,7 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 		return;
 
 	if (view == NULL)
-		view = mbox->box.view;
+		view = imapc_mailbox_get_sync_view(mbox);
 
 	if (rcount == 0) {
 		/* nothing in this mailbox */
@@ -356,7 +363,7 @@ imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 	    str_to_uint32(reply->resp_text_value, &uid_validity) < 0)
 		return;
 
-	hdr = mail_index_get_header(mbox->box.view);
+	hdr = mail_index_get_header(imapc_mailbox_get_sync_view(mbox));
 	if (hdr->uid_validity != uid_validity) {
 		imapc_mailbox_init_delayed_trans(mbox);
 		if (hdr->uid_validity != 0) {
@@ -382,7 +389,7 @@ imapc_resp_text_uidnext(const struct imapc_untagged_reply *reply,
 	    str_to_uint32(reply->resp_text_value, &uid_next) < 0)
 		return;
 
-	hdr = mail_index_get_header(mbox->box.view);
+	hdr = mail_index_get_header(imapc_mailbox_get_sync_view(mbox));
 	if (hdr->next_uid != uid_next) {
 		imapc_mailbox_init_delayed_trans(mbox);
 		mail_index_update_header(mbox->delayed_sync_trans,
