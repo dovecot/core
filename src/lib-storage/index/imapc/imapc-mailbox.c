@@ -44,6 +44,8 @@ static void imapc_mailbox_init_delayed_trans(struct imapc_mailbox *mbox)
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	mbox->delayed_sync_view =
 		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
+	mbox->min_append_uid =
+		mail_index_get_header(mbox->delayed_sync_view)->next_uid;
 }
 
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
@@ -67,53 +69,6 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 	return ret;
 }
 
-static void imapc_mailbox_open_finish(struct imapc_mailbox *mbox)
-{
-	const struct mail_index_record *rec;
-	struct imapc_seqmap *seqmap;
-	uint32_t lseq, rseq, cur_count;
-
-	/* if we haven't seen FETCH reply for some messages at the end of
-	   mailbox they've been externally expunged. */
-	imapc_mailbox_init_delayed_trans(mbox);
-	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-
-	cur_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
-	for (lseq = cur_count; lseq > 0; lseq--) {
-		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
-		if (rec->uid <= mbox->highest_seen_uid)
-			break;
-
-		rseq = imapc_seqmap_lseq_to_rseq(seqmap, lseq);
-		imapc_seqmap_expunge(seqmap, rseq);
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
-	}
-}
-
-static void
-imapc_newmsgs_callback(const struct imapc_command_reply *reply,
-		       void *context)
-{
-	struct imapc_mailbox *mbox = context;
-
-	if (reply->state == IMAPC_COMMAND_STATE_OK)
-		mbox->open_success = TRUE;
-	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
-		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS,
-					    reply);
-	} else if (mbox->opening ||
-		   reply->state != IMAPC_COMMAND_STATE_DISCONNECTED) {
-		mail_storage_set_critical(&mbox->storage->storage,
-			"imapc: Mailbox newmsgs fetch failed: %s",
-			reply->text_full);
-	}
-	if (mbox->opening) {
-		if (reply->state == IMAPC_COMMAND_STATE_OK)
-			imapc_mailbox_open_finish(mbox);
-		imapc_client_stop(mbox->storage->client);
-	}
-}
-
 static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 				  struct imapc_mailbox *mbox)
 {
@@ -121,7 +76,7 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	uint32_t rcount = reply->num;
 	const struct mail_index_header *hdr;
 	struct imapc_seqmap *seqmap;
-	uint32_t first_uid, next_lseq, next_rseq;
+	uint32_t next_lseq, next_rseq;
 
 	if (mbox == NULL)
 		return;
@@ -135,7 +90,7 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	}
 	if (mbox->opening) {
 		/* We don't know the latest flags, refresh them. */
-		first_uid = 1;
+		mbox->sync_fetch_first_uid = 1;
 	} else {
 		seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 		next_lseq = mail_index_view_get_messages_count(view) + 1;
@@ -150,12 +105,8 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 			return;
 		}
 		hdr = mail_index_get_header(view);
-		first_uid = hdr->next_uid;
+		mbox->sync_fetch_first_uid = hdr->next_uid;
 	}
-
-	mbox->new_msgs = TRUE;
-	imapc_client_mailbox_cmdf(mbox->client_box, imapc_newmsgs_callback,
-				  mbox, "UID FETCH %u:* FLAGS", first_uid);
 }
 
 static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)
@@ -205,7 +156,6 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	struct imapc_mail *const *mailp;
 	const struct imap_arg *list, *flags_list;
 	const char *atom;
-	const struct mail_index_header *old_hdr;
 	const struct mail_index_record *rec = NULL;
 	enum mail_flags flags;
 	uint32_t uid, cur_count;
@@ -260,8 +210,6 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	}
 
 	imapc_mailbox_init_delayed_trans(mbox);
-	old_hdr = mail_index_get_header(mbox->sync_view);
-
 	cur_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
 	while (lseq <= cur_count) {
 		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
@@ -282,17 +230,20 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		lseq++;
 	}
 	if (lseq > cur_count) {
+		if (!mbox->syncing)
+			return;
 		if (uid == 0 || lseq != cur_count + 1)
 			return;
-		if (uid < old_hdr->next_uid) {
+		if (uid < mbox->min_append_uid) {
 			imapc_mailbox_set_corrupted(mbox,
 				"Expunged message reappeared "
 				"(uid=%u < next_uid=%u)",
-				uid, old_hdr->next_uid);
+				uid, mbox->min_append_uid);
 			return;
 		}
 		i_assert(lseq == cur_count + 1);
 		mail_index_append(mbox->delayed_sync_trans, uid, &lseq);
+		mbox->min_append_uid = uid + 1;
 		rec = NULL;
 	}
 	if (seen_flags && (rec == NULL || rec->flags != flags)) {
@@ -355,47 +306,26 @@ static void
 imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 			    struct imapc_mailbox *mbox)
 {
-	const struct mail_index_header *hdr;
 	uint32_t uid_validity;
-	bool changes;
 
 	if (mbox == NULL || reply->resp_text_value == NULL ||
 	    str_to_uint32(reply->resp_text_value, &uid_validity) < 0)
 		return;
 
-	hdr = mail_index_get_header(imapc_mailbox_get_sync_view(mbox));
-	if (hdr->uid_validity != uid_validity) {
-		imapc_mailbox_init_delayed_trans(mbox);
-		if (hdr->uid_validity != 0) {
-			/* uidvalidity changed, reset the entire mailbox */
-			mail_index_reset(mbox->delayed_sync_trans);
-			(void)imapc_mailbox_commit_delayed_trans(mbox, &changes);
-			imapc_mailbox_init_delayed_trans(mbox);
-		}
-		mail_index_update_header(mbox->delayed_sync_trans,
-			offsetof(struct mail_index_header, uid_validity),
-			&uid_validity, sizeof(uid_validity), TRUE);
-	}
+	mbox->sync_uid_validity = uid_validity;
 }
 
 static void
 imapc_resp_text_uidnext(const struct imapc_untagged_reply *reply,
 			struct imapc_mailbox *mbox)
 {
-	const struct mail_index_header *hdr;
 	uint32_t uid_next;
 
 	if (mbox == NULL || reply->resp_text_value == NULL ||
 	    str_to_uint32(reply->resp_text_value, &uid_next) < 0)
 		return;
 
-	hdr = mail_index_get_header(imapc_mailbox_get_sync_view(mbox));
-	if (hdr->next_uid != uid_next) {
-		imapc_mailbox_init_delayed_trans(mbox);
-		mail_index_update_header(mbox->delayed_sync_trans,
-			offsetof(struct mail_index_header, next_uid),
-			&uid_next, sizeof(uid_next), FALSE);
-	}
+	mbox->sync_uid_next = uid_next;
 }
 
 void imapc_mailbox_register_untagged(struct imapc_mailbox *mbox,

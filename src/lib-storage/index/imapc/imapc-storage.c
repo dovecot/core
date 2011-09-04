@@ -326,8 +326,7 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 			ctx->mbox->box.name, reply->text_full);
 		ctx->ret = -1;
 	}
-	if (!ctx->mbox->new_msgs)
-		imapc_client_stop(ctx->mbox->storage->client);
+	imapc_client_stop(ctx->mbox->storage->client);
 }
 
 static int imapc_mailbox_open(struct mailbox *box)
@@ -357,7 +356,7 @@ static int imapc_mailbox_open(struct mailbox *box)
 	while (ctx.ret == -2)
 		imapc_storage_run(mbox->storage);
 	mbox->opening = FALSE;
-	if (!mbox->open_success) {
+	if (ctx.ret < 0) {
 		mailbox_close(box);
 		return -1;
 	}

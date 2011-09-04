@@ -166,6 +166,49 @@ static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 	imapc_sync_cmd(ctx, str_c(str));
 }
 
+static void imapc_sync_expunge_eom(struct imapc_sync_context *ctx)
+{
+	const struct mail_index_record *rec;
+	uint32_t lseq, cur_count;
+
+	/* if we haven't seen FETCH reply for some messages at the end of
+	   mailbox they've been externally expunged. */
+	cur_count = mail_index_view_get_messages_count(ctx->sync_view);
+	for (lseq = cur_count; lseq > 0; lseq--) {
+		rec = mail_index_lookup(ctx->sync_view, lseq);
+		if (rec->uid <= ctx->mbox->highest_seen_uid)
+			break;
+
+		mail_index_expunge(ctx->trans, lseq);
+	}
+}
+
+static void imapc_sync_index_header(struct imapc_sync_context *ctx)
+{
+	struct imapc_mailbox *mbox = ctx->mbox;
+	const struct mail_index_header *hdr;
+
+	hdr = mail_index_get_header(ctx->sync_view);
+	if (hdr->uid_validity != mbox->sync_uid_validity &&
+	    mbox->sync_uid_validity != 0) {
+		if (hdr->uid_validity != 0) {
+			/* uidvalidity changed, reset the entire mailbox */
+			mail_index_reset(ctx->trans);
+			mbox->sync_fetch_first_uid = 1;
+		}
+		mail_index_update_header(ctx->trans,
+			offsetof(struct mail_index_header, uid_validity),
+			&mbox->sync_uid_validity,
+			sizeof(mbox->sync_uid_validity), TRUE);
+	}
+	if (hdr->next_uid < mbox->sync_uid_next) {
+		mail_index_update_header(ctx->trans,
+			offsetof(struct mail_index_header, next_uid),
+			&mbox->sync_uid_next, sizeof(mbox->sync_uid_next),
+			FALSE);
+	}
+}
+
 static void imapc_sync_index(struct imapc_sync_context *ctx)
 {
 	struct mailbox *box = &ctx->mbox->box;
@@ -175,6 +218,7 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	i_array_init(&ctx->expunged_uids, 64);
 	ctx->keywords = mail_index_get_keywords(box->index);
 
+	imapc_sync_index_header(ctx);
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) T_BEGIN {
 		if (!mail_index_lookup_seq_range(ctx->sync_view,
 						 sync_rec.uid1, sync_rec.uid2,
@@ -202,11 +246,22 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		}
 	} T_END;
 
+	if (ctx->mbox->sync_fetch_first_uid != 0) {
+		/* we'll resync existing messages' flags and add new messages.
+		   adding new messages requires sync locking to avoid
+		   duplicates. */
+		imapc_sync_cmd(ctx, t_strdup_printf(
+			"UID FETCH %u:* FLAGS",
+			ctx->mbox->sync_fetch_first_uid));
+		ctx->mbox->sync_fetch_first_uid = 0;
+	}
+
 	imapc_sync_expunge_finish(ctx);
 	while (ctx->sync_command_count > 0)
 		imapc_storage_run(ctx->mbox->storage);
 	array_free(&ctx->expunged_uids);
 
+	imapc_sync_expunge_eom(ctx);
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
 }
@@ -218,6 +273,8 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 	struct imapc_sync_context *ctx;
 	enum mail_index_sync_flags sync_flags;
 	int ret;
+
+	i_assert(!mbox->syncing);
 
 	ctx = i_new(struct imapc_sync_context, 1);
 	ctx->mbox = mbox;
@@ -244,6 +301,7 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 		mail_index_transaction_open_updated_view(ctx->trans);
 	mbox->delayed_sync_trans = ctx->trans;
 
+	mbox->syncing = TRUE;
 	imapc_sync_index(ctx);
 
 	mail_index_view_close(&mbox->delayed_sync_view);
@@ -268,6 +326,7 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
+	ctx->mbox->syncing = FALSE;
 	i_free(ctx);
 	return ret;
 }
@@ -276,6 +335,7 @@ static int imapc_sync(struct imapc_mailbox *mbox)
 {
 	struct imapc_sync_context *sync_ctx;
 	struct imapc_seqmap *seqmap;
+	bool force = mbox->sync_fetch_first_uid != 0;
 
 	/* if there are any pending expunges, they're now committed. syncing
 	   will return a view where they no longer exist, so reset the seqmap
@@ -283,7 +343,7 @@ static int imapc_sync(struct imapc_mailbox *mbox)
 	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 	imapc_seqmap_reset(seqmap);
 
-	if (imapc_sync_begin(mbox, &sync_ctx, FALSE) < 0)
+	if (imapc_sync_begin(mbox, &sync_ctx, force) < 0)
 		return -1;
 	if (sync_ctx == NULL)
 		return 0;
@@ -321,7 +381,8 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
 		ret = -1;
-	if ((changes || index_mailbox_want_full_sync(&mbox->box, flags)) &&
+	if ((changes || mbox->sync_fetch_first_uid != 0 ||
+	     index_mailbox_want_full_sync(&mbox->box, flags)) &&
 	    ret == 0)
 		ret = imapc_sync(mbox);
 
