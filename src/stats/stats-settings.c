@@ -55,9 +55,10 @@ struct service_settings stats_service_settings = {
 	.inet_listeners = ARRAY_INIT
 };
 
+/* we're kind of kludging here to avoid "stats_" prefix in the struct fields */
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct stats_settings, name), NULL }
+	{ type, "stats_"#name, offsetof(struct stats_settings, name), NULL }
 
 static const struct setting_define stats_setting_defines[] = {
 	DEF(SET_SIZE, memory_limit),
