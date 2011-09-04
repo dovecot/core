@@ -73,6 +73,7 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 				  struct imapc_mailbox *mbox)
 {
 	struct mail_index_view *view = mbox->delayed_sync_view;
+	uint32_t rcount = reply->num;
 	const struct mail_index_header *hdr;
 
 	if (mbox == NULL)
@@ -183,8 +184,11 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	msg_count = imapc_msgmap_count(msgmap);
 	if (rseq > msg_count) {
 		/* newly seen message */
-		if (!mbox->syncing || fetch_uid == 0 || rseq != msg_count+1)
+		if (fetch_uid == 0 || rseq != msg_count+1) {
+			/* can't handle this one now. we should get another
+			   FETCH reply for it. */
 			return;
+		}
 		uid = fetch_uid;
 
 		if (uid < imapc_msgmap_uidnext(msgmap)) {
@@ -199,7 +203,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		if (uid < mbox->min_append_uid) {
 			/* message is already added to index */
 			lseq = 0;
-		} else {
+		} else if (mbox->syncing) {
 			mail_index_append(mbox->delayed_sync_trans, uid, &lseq);
 			mbox->min_append_uid = uid + 1;
 		}
@@ -213,6 +217,14 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		}
 		lseq = 0;
 	}
+	/* if this is a reply to some FETCH request, update the mail's fields */
+	array_foreach(&mbox->fetch_mails, mailp) {
+		struct imapc_mail *mail = *mailp;
+
+		if (mail->imail.mail.mail.uid == uid)
+			imapc_mail_fetch_update(mail, reply, list);
+	}
+
 	if (lseq == 0) {
 		if (!mail_index_lookup_seq(mbox->delayed_sync_view,
 					   uid, &lseq)) {
@@ -220,14 +232,6 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			return;
 		}
 		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
-	}
-
-	/* if this is a reply to some FETCH request, update the mail's fields */
-	array_foreach(&mbox->fetch_mails, mailp) {
-		struct imapc_mail *mail = *mailp;
-
-		if (mail->imail.mail.mail.uid == uid)
-			imapc_mail_fetch_update(mail, reply, list);
 	}
 
 	if (rseq == mbox->sync_next_rseq) {
@@ -244,6 +248,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		mbox->sync_next_rseq++;
 		mbox->sync_next_lseq++;
 	}
+
 	if (seen_flags && (rec == NULL || rec->flags != flags)) {
 		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
 					MODIFY_REPLACE, flags);
