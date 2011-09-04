@@ -137,7 +137,7 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 	} else {
 		if (!mail_stats_diff(&cmd->stats, &stats, &diff_stats,
 				     &error)) {
-			*error_r = t_strconcat("UPDATE-SESSION: stats shrank: ",
+			*error_r = t_strconcat("UPDATE-CMD: stats shrank: ",
 					       error, NULL);
 			return -1;
 		}
@@ -148,7 +148,7 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 		cmd->id = 0;
 		mail_command_unref(&cmd);
 	}
-	mail_session_refresh(session, &diff_stats);
+	mail_session_refresh(session, NULL);
 	return 0;
 }
 
