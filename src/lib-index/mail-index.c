@@ -771,6 +771,7 @@ void mail_index_mark_corrupted(struct mail_index *index)
 		if (unlink(index->filepath) < 0 &&
 		    errno != ENOENT && errno != ESTALE)
 			mail_index_set_syscall_error(index, "unlink()");
+		(void)mail_transaction_log_unlink(index->log);
 	}
 }
 

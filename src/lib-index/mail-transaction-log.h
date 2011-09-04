@@ -282,5 +282,7 @@ void mail_transaction_log_move_to_memory(struct mail_transaction_log *log);
    If it doesn't exist, mtime_r is set to 0. */
 int mail_transaction_log_get_mtime(struct mail_transaction_log *log,
 				   time_t *mtime_r);
+/* Unlink transaction log files */
+int mail_transaction_log_unlink(struct mail_transaction_log *log);
 
 #endif

@@ -539,6 +539,17 @@ int mail_transaction_log_get_mtime(struct mail_transaction_log *log,
 	return 0;
 }
 
+int mail_transaction_log_unlink(struct mail_transaction_log *log)
+{
+	if (unlink(log->filepath) < 0 &&
+	    errno != ENOENT && errno != ESTALE) {
+		mail_index_file_set_syscall_error(log->index, log->filepath,
+						  "unlink()");
+		return -1;
+	}
+	return 0;
+}
+
 void mail_transaction_log_get_dotlock_set(struct mail_transaction_log *log,
 					  struct dotlock_settings *set_r)
 {
