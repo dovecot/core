@@ -73,7 +73,6 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 				  struct imapc_mailbox *mbox)
 {
 	struct mail_index_view *view = mbox->delayed_sync_view;
-	uint32_t rcount = reply->num;
 	const struct mail_index_header *hdr;
 
 	if (mbox == NULL)
