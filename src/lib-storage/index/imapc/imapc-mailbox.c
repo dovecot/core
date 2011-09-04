@@ -90,16 +90,19 @@ imapc_newmsgs_callback(const struct imapc_command_reply *reply,
 	struct imapc_mailbox *mbox = context;
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK)
-		;
+		mbox->open_success = TRUE;
 	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS,
 					    reply);
-	} else {
+	} else if (mbox->opening ||
+		   reply->state != IMAPC_COMMAND_STATE_DISCONNECTED) {
 		mail_storage_set_critical(&mbox->storage->storage,
-			"imapc: Command failed: %s", reply->text_full);
+			"imapc: Mailbox newmsgs fetch failed: %s",
+			reply->text_full);
 	}
 	if (mbox->opening) {
-		imapc_mailbox_open_finish(mbox);
+		if (reply->state == IMAPC_COMMAND_STATE_OK)
+			imapc_mailbox_open_finish(mbox);
 		imapc_client_stop(mbox->storage->client);
 	}
 }

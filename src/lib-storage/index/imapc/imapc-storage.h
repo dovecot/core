@@ -57,6 +57,7 @@ struct imapc_mailbox {
 	uint32_t highest_seen_uid;
 
 	unsigned int opening:1;
+	unsigned int open_success:1;
 	unsigned int new_msgs:1;
 };
 

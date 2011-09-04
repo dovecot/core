@@ -335,7 +335,7 @@ static int imapc_mailbox_open(struct mailbox *box)
 	while (ctx.ret == -2)
 		imapc_client_run(mbox->storage->client);
 	mbox->opening = FALSE;
-	if (ctx.ret < 0) {
+	if (!mbox->open_success) {
 		mailbox_close(box);
 		return -1;
 	}
