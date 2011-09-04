@@ -34,6 +34,23 @@ static void imapc_mail_free(struct mail *_mail)
 	index_mail_free(_mail);
 }
 
+static bool imapc_mail_is_expunged(struct mail *_mail)
+{
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_msgmap *msgmap;
+	uint32_t lseq, rseq;
+
+	if (mbox->sync_view != NULL) {
+		/* check if another session has already expunged it */
+		if (!mail_index_lookup_seq(mbox->sync_view, _mail->uid, &lseq))
+			return TRUE;
+	}
+
+	/* check if we've received EXPUNGE for it */
+	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
+	return !imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq);
+}
+
 static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -46,8 +63,14 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 		if (imapc_mail_fetch(_mail, MAIL_FETCH_RECEIVED_DATE) < 0)
 			return -1;
 		if (data->received_date == (time_t)-1) {
-			mail_storage_set_critical(_mail->box->storage,
-				"imapc: Remote server didn't send INTERNALDATE");
+			if (_mail->expunged || imapc_mail_is_expunged(_mail))
+				mail_set_expunged(_mail);
+			else {
+				mail_storage_set_critical(_mail->box->storage,
+					"imapc: Remote server didn't send "
+					"INTERNALDATE for UID %u", _mail->uid);
+				sleep(3600);
+			}
 			return -1;
 		}
 	}
@@ -98,25 +121,6 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	return 0;
 }
 
-static bool imapc_mail_is_expunged(struct mail *_mail)
-{
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
-	struct imapc_msgmap *msgmap;
-	uint32_t lseq, rseq;
-
-	/* first we'll need to convert the mail's sequence to sync_view's
-	   sequence. if there's no sync_view, then no mails have been
-	   expunged. */
-	if (mbox->sync_view == NULL)
-		return FALSE;
-
-	if (!mail_index_lookup_seq(mbox->sync_view, _mail->uid, &lseq))
-		return TRUE;
-
-	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
-	return !imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq);
-}
-
 static int
 imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		      struct message_size *body_size, struct istream **stream_r)
@@ -141,7 +145,9 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 				mail_set_expunged(_mail);
 			else {
 				mail_storage_set_critical(_mail->box->storage,
-					"imapc: Remote server didn't send BODY[]");
+					"imapc: Remote server didn't send "
+					"BODY[] for UID %u", _mail->uid);
+				sleep(3600);
 			}
 			return -1;
 		}
