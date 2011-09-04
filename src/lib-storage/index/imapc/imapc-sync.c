@@ -314,7 +314,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		/* IDLE not supported. do NOOP to get latest changes
 		   before starting sync. */
 		imapc_client_mailbox_cmdf(mbox->client_box,
-					  imapc_async_stop_callback,
+					  imapc_noop_stop_callback,
 					  mbox->storage, "NOOP");
 		imapc_client_run(mbox->storage->client);
 	}

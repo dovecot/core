@@ -87,8 +87,8 @@ void imapc_simple_context_init(struct imapc_simple_context *sctx,
 void imapc_simple_run(struct imapc_simple_context *sctx);
 void imapc_simple_callback(const struct imapc_command_reply *reply,
 			   void *context);
-void imapc_async_stop_callback(const struct imapc_command_reply *reply,
-			       void *context);
+void imapc_noop_stop_callback(const struct imapc_command_reply *reply,
+			      void *context);
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 				       bool *changes_r);
 

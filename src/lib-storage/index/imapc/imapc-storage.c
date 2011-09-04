@@ -126,8 +126,8 @@ void imapc_simple_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->storage->client);
 }
 
-static void imapc_async_callback(const struct imapc_command_reply *reply,
-				 void *context)
+static void imapc_noop_callback(const struct imapc_command_reply *reply,
+				void *context)
 
 {
 	struct imapc_storage *storage = context;
@@ -136,18 +136,18 @@ static void imapc_async_callback(const struct imapc_command_reply *reply,
 		;
 	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(storage, MAIL_ERROR_PARAMS, reply);
-	} else {
+	} else if (reply->state != IMAPC_COMMAND_STATE_DISCONNECTED) {
 		mail_storage_set_critical(&storage->storage,
-			"imapc: Command failed: %s", reply->text_full);
+			"imapc: NOOP failed: %s", reply->text_full);
 	}
 }
 
-void imapc_async_stop_callback(const struct imapc_command_reply *reply,
+void imapc_noop_stop_callback(const struct imapc_command_reply *reply,
 			       void *context)
 {
 	struct imapc_storage *storage = context;
 
-	imapc_async_callback(reply, context);
+	imapc_noop_callback(reply, context);
 	imapc_client_stop(storage->client);
 }
 
@@ -507,7 +507,7 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 static void imapc_idle_timeout(struct imapc_mailbox *mbox)
 {
 	imapc_client_mailbox_cmd(mbox->client_box, "NOOP",
-				 imapc_async_callback, mbox->storage);
+				 imapc_noop_callback, mbox->storage);
 }
 
 static void imapc_idle_noop_callback(const struct imapc_command_reply *reply,
@@ -516,7 +516,7 @@ static void imapc_idle_noop_callback(const struct imapc_command_reply *reply,
 {
 	struct imapc_mailbox *mbox = context;
 
-	imapc_async_callback(reply, mbox->box.storage);
+	imapc_noop_callback(reply, mbox->box.storage);
 	imapc_client_mailbox_idle(mbox->client_box);
 }
 
