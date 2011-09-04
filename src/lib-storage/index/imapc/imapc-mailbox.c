@@ -69,8 +69,9 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 	return ret;
 }
 
-static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
-				  struct imapc_mailbox *mbox)
+static void
+imapc_untagged_exists(const struct imapc_untagged_reply *reply ATTR_UNUSED,
+		      struct imapc_mailbox *mbox)
 {
 	struct mail_index_view *view = mbox->delayed_sync_view;
 	const struct mail_index_header *hdr;
