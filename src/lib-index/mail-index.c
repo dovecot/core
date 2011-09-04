@@ -504,8 +504,33 @@ static int mail_index_open_files(struct mail_index *index,
 			return -1;
 	}
 
-	index->cache = created ? mail_cache_create(index) :
-		mail_cache_open_or_create(index);
+	if (index->cache == NULL) {
+		index->cache = created ? mail_cache_create(index) :
+			mail_cache_open_or_create(index);
+	}
+	return 1;
+}
+
+static int
+mail_index_open_opened(struct mail_index *index,
+		       enum mail_index_open_flags flags)
+{
+	int ret;
+
+	i_assert(index->map != NULL);
+
+	if ((index->map->hdr.flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
+		/* index was marked corrupted. we'll probably need to
+		   recreate the files. */
+		if (index->map != NULL)
+			mail_index_unmap(&index->map);
+		mail_index_close_file(index);
+		mail_transaction_log_close(index->log);
+		if ((ret = mail_index_open_files(index, flags)) <= 0)
+			return ret;
+	}
+
+	index->open_count++;
 	return 1;
 }
 
@@ -514,9 +539,12 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	int ret;
 
 	if (index->open_count > 0) {
-		i_assert(index->map != NULL);
-		index->open_count++;
-		return 1;
+		if ((ret = mail_index_open_opened(index, flags)) <= 0) {
+			/* doesn't exist and create flag not used */
+			index->open_count++;
+			mail_index_close(index);
+		}
+		return ret;
 	}
 
 	index->filepath = MAIL_INDEX_IS_IN_MEMORY(index) ?
@@ -542,6 +570,9 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 	    (flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0)
 		i_fatal("nfs flush requires mmap_disable=yes");
 
+	/* NOTE: increase open_count only after mail_index_open_files().
+	   it's used elsewhere to check if we're doing an initial opening
+	   of the index files */
 	if ((ret = mail_index_open_files(index, flags)) <= 0) {
 		/* doesn't exist and create flag not used */
 		index->open_count++;
