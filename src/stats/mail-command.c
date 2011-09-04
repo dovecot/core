@@ -173,6 +173,11 @@ void mail_commands_init(void)
 
 void mail_commands_deinit(void)
 {
-	while (stable_mail_commands != NULL)
+	while (stable_mail_commands != NULL) {
+		struct mail_command *cmd = stable_mail_commands;
+
+		if (cmd->id != 0)
+			mail_command_unref(&cmd);
 		mail_command_free(stable_mail_commands);
+	}
 }
