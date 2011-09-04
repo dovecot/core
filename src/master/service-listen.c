@@ -37,6 +37,25 @@ static unsigned int service_get_backlog(struct service *service)
 	return I_MAX(backlog, MIN_BACKLOG);
 }
 
+static int
+service_file_chown(const struct service_listener *l)
+{
+	uid_t uid = l->set.fileset.uid;
+	uid_t gid = l->set.fileset.gid;
+
+	if ((uid == (uid_t)-1 || uid == master_uid) &&
+	    (gid == (gid_t)-1 || gid == master_gid))
+		return 0;
+
+	if (chown(l->set.fileset.set->path, uid, gid) < 0) {
+		service_error(l->service, "chown(%s, %lld, %lld) failed: %m",
+			      l->set.fileset.set->path,
+			      (long long)uid, (long long)gid);
+		return -1;
+	}
+	return 0;
+}
+
 static int service_unix_listener_listen(struct service_listener *l)
 {
         struct service *service = l->service;
@@ -83,20 +102,10 @@ static int service_unix_listener_listen(struct service_listener *l)
 
 	i_assert(fd != -1);
 
-	/* see if we need to change its owner/group */
-	if ((l->set.fileset.uid != (uid_t)-1 &&
-	     l->set.fileset.uid != master_uid) ||
-	    (l->set.fileset.gid != (gid_t)-1 &&
-	     l->set.fileset.gid != master_gid)) {
-		if (chown(set->path, l->set.fileset.uid, l->set.fileset.gid) < 0) {
-			i_error("chown(%s, %lld, %lld) failed: %m", set->path,
-				(long long)l->set.fileset.uid,
-				(long long)l->set.fileset.gid);
-			(void)close(fd);
-			return -1;
-		}
+	if (service_file_chown(l) < 0) {
+		(void)close(fd);
+		return -1;
 	}
-
 	net_set_nonblock(fd, TRUE);
 	fd_close_on_exec(fd, TRUE);
 
@@ -130,6 +139,8 @@ static int service_fifo_listener_listen(struct service_listener *l)
 			return -1;
 		}
 	}
+	if (service_file_chown(l) < 0)
+		return -1;
 
 	/* open as RDWR, so that even if the last writer closes,
 	   we won't get EOF errors */
@@ -139,17 +150,6 @@ static int service_fifo_listener_listen(struct service_listener *l)
 		return -1;
 	}
 
-	/* see if we need to change its owner/group */
-	if ((service->uid != (uid_t)-1 && service->uid != master_uid) ||
-	    (service->gid != (gid_t)-1 && service->gid != master_gid)) {
-		if (chown(set->path, service->uid, service->gid) < 0) {
-			i_error("chown(%s, %lld, %lld) failed: %m", set->path,
-				(long long)service->uid,
-				(long long)service->gid);
-			(void)close(fd);
-			return -1;
-		}
-	}
 	fd_close_on_exec(fd, TRUE);
 
 	l->fd = fd;
