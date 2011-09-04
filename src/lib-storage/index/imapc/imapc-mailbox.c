@@ -64,15 +64,15 @@ static void imapc_mailbox_open_finish(struct imapc_mailbox *mbox)
 {
 	const struct mail_index_record *rec;
 	struct imapc_seqmap *seqmap;
-	uint32_t lseq, rseq, old_count;
+	uint32_t lseq, rseq, cur_count;
 
 	/* if we haven't seen FETCH reply for some messages at the end of
 	   mailbox they've been externally expunged. */
 	imapc_mailbox_init_delayed_trans(mbox);
 	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
 
-	old_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
-	for (lseq = old_count; lseq > 0; lseq--) {
+	cur_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
+	for (lseq = cur_count; lseq > 0; lseq--) {
 		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
 		if (rec->uid <= mbox->highest_seen_uid)
 			break;
@@ -198,9 +198,10 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	struct imapc_mail *const *mailp;
 	const struct imap_arg *list, *flags_list;
 	const char *atom;
+	const struct mail_index_header *old_hdr;
 	const struct mail_index_record *rec = NULL;
 	enum mail_flags flags;
-	uint32_t uid, old_count;
+	uint32_t uid, cur_count;
 	unsigned int i, j;
 	ARRAY_TYPE(const_string) keywords = ARRAY_INIT;
 	bool seen_flags = FALSE;
@@ -252,8 +253,10 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	}
 
 	imapc_mailbox_init_delayed_trans(mbox);
-	old_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
-	while (lseq <= old_count) {
+	old_hdr = mail_index_get_header(mbox->sync_view);
+
+	cur_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
+	while (lseq <= cur_count) {
 		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
 		if (rec->uid == uid || uid == 0)
 			break;
@@ -271,10 +274,17 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		mail_index_expunge(mbox->delayed_sync_trans, lseq);
 		lseq++;
 	}
-	if (lseq > old_count) {
-		if (uid == 0 || lseq != old_count + 1)
+	if (lseq > cur_count) {
+		if (uid == 0 || lseq != cur_count + 1)
 			return;
-		i_assert(lseq == old_count + 1);
+		if (uid < old_hdr->next_uid) {
+			imapc_mailbox_set_corrupted(mbox,
+				"Expunged message reappeared "
+				"(uid=%u < next_uid=%u)",
+				uid, old_hdr->next_uid);
+			return;
+		}
+		i_assert(lseq == cur_count + 1);
 		mail_index_append(mbox->delayed_sync_trans, uid, &lseq);
 		rec = NULL;
 	}
