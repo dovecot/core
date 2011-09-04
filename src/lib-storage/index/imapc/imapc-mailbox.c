@@ -60,6 +60,29 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 	return ret;
 }
 
+static void imapc_mailbox_open_finish(struct imapc_mailbox *mbox)
+{
+	const struct mail_index_record *rec;
+	struct imapc_seqmap *seqmap;
+	uint32_t lseq, rseq, old_count;
+
+	/* if we haven't seen FETCH reply for some messages at the end of
+	   mailbox they've been externally expunged. */
+	imapc_mailbox_init_delayed_trans(mbox);
+	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
+
+	old_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
+	for (lseq = old_count; lseq > 0; lseq--) {
+		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
+		if (rec->uid <= mbox->highest_seen_uid)
+			break;
+
+		rseq = imapc_seqmap_lseq_to_rseq(seqmap, lseq);
+		imapc_seqmap_expunge(seqmap, rseq);
+		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+	}
+}
+
 static void
 imapc_newmsgs_callback(const struct imapc_command_reply *reply,
 		       void *context)
@@ -75,8 +98,10 @@ imapc_newmsgs_callback(const struct imapc_command_reply *reply,
 		mail_storage_set_critical(&mbox->storage->storage,
 			"imapc: Command failed: %s", reply->text_full);
 	}
-	if (mbox->opening)
+	if (mbox->opening) {
+		imapc_mailbox_open_finish(mbox);
 		imapc_client_stop(mbox->storage->client);
+	}
 }
 
 static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
@@ -94,15 +119,26 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	if (view == NULL)
 		view = mbox->box.view;
 
-	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-	next_lseq = mail_index_view_get_messages_count(view) + 1;
-	next_rseq = imapc_seqmap_lseq_to_rseq(seqmap, next_lseq);
-	if (next_rseq > rcount) {
-		if (rcount == 0 || !mbox->opening)
-			return;
-		/* initial SELECT. we don't know what the flags are. */
+	if (rcount == 0) {
+		/* nothing in this mailbox */
+		return;
+	}
+	if (mbox->opening) {
+		/* We don't know the latest flags, refresh them. */
 		first_uid = 1;
 	} else {
+		seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
+		next_lseq = mail_index_view_get_messages_count(view) + 1;
+		next_rseq = imapc_seqmap_lseq_to_rseq(seqmap, next_lseq);
+		if (rcount < next_rseq) {
+			if (rcount == next_rseq-1) {
+				/* duplicate EXISTS - ignore */
+				return;
+			}
+			imapc_mailbox_set_corrupted(mbox,
+				"EXISTS reply shrank mailbox size");
+			return;
+		}
 		hdr = mail_index_get_header(view);
 		first_uid = hdr->next_uid;
 	}
@@ -225,7 +261,9 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			return;
 		}
 		/* we're opening the mailbox. this message was expunged
-		   externally, so expunge it ourself too. */
+		   externally, so expunge it ourself too. this code assumes
+		   that FETCH responses come in ascending order when opening
+		   mailbox. */
 		imapc_seqmap_expunge(seqmap, rseq);
 		mail_index_expunge(mbox->delayed_sync_trans, lseq);
 		lseq++;
@@ -258,6 +296,8 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		}
 		mail_index_keywords_unref(&kw);
 	} T_END;
+	if (mbox->highest_seen_uid < uid)
+		mbox->highest_seen_uid = uid;
 	imapc_mailbox_idle_notify(mbox);
 }
 

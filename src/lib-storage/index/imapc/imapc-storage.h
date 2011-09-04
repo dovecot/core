@@ -54,6 +54,8 @@ struct imapc_mailbox {
 	ARRAY_DEFINE(untagged_callbacks, struct imapc_mailbox_event_callback);
 	ARRAY_DEFINE(resp_text_callbacks, struct imapc_mailbox_event_callback);
 
+	uint32_t highest_seen_uid;
+
 	unsigned int opening:1;
 	unsigned int new_msgs:1;
 };
