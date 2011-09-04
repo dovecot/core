@@ -542,6 +542,7 @@ static void imapc_notify_changes(struct mailbox *box)
 	} else {
 		/* remote server doesn't support IDLE.
 		   check for changes with NOOP every once in a while. */
+		i_assert(!imapc_client_is_running(mbox->storage->client));
 		mbox->to_idle_check =
 			timeout_add(box->notify_min_interval * 1000,
 				    imapc_idle_timeout, mbox);

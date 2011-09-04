@@ -136,6 +136,11 @@ void imapc_client_stop(struct imapc_client *client)
 		io_loop_stop(client->ioloop);
 }
 
+bool imapc_client_is_running(struct imapc_client *client)
+{
+	return client->ioloop != NULL;
+}
+
 void imapc_client_stop_now(struct imapc_client *client)
 {
 	client->stop_now = TRUE;
