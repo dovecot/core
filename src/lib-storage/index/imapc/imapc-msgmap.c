@@ -1,0 +1,85 @@
+/* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "array.h"
+#include "imapc-msgmap.h"
+
+struct imapc_msgmap {
+	ARRAY_TYPE(uint32_t) uids;
+};
+
+struct imapc_msgmap *imapc_msgmap_init(void)
+{
+	struct imapc_msgmap *msgmap;
+
+	msgmap = i_new(struct imapc_msgmap, 1);
+	i_array_init(&msgmap->uids, 128);
+	return msgmap;
+}
+
+void imapc_msgmap_deinit(struct imapc_msgmap **_msgmap)
+{
+	struct imapc_msgmap *msgmap = *_msgmap;
+
+	*_msgmap = NULL;
+
+	array_free(&msgmap->uids);
+	i_free(msgmap);
+}
+
+uint32_t imapc_msgmap_count(struct imapc_msgmap *msgmap)
+{
+	return array_count(&msgmap->uids);
+}
+
+uint32_t imapc_msgmap_uidnext(struct imapc_msgmap *msgmap)
+{
+	return imapc_msgmap_count(msgmap) == 0 ? 1 :
+		imapc_msgmap_rseq_to_uid(msgmap, 1) + 1;
+}
+
+uint32_t imapc_msgmap_rseq_to_uid(struct imapc_msgmap *msgmap, uint32_t rseq)
+{
+	const uint32_t *uidp;
+
+	uidp = array_idx(&msgmap->uids, rseq-1);
+	return *uidp;
+}
+
+static int uint32_cmp(const uint32_t *p1, const uint32_t *p2)
+{
+	return *p1 < *p2 ? -1 :
+		(*p1 > *p2 ? 1 : 0);
+}
+
+bool imapc_msgmap_uid_to_rseq(struct imapc_msgmap *msgmap,
+			      uint32_t uid, uint32_t *rseq_r)
+{
+	const uint32_t *p, *first;
+
+	p = array_bsearch(&msgmap->uids, &uid, uint32_cmp);
+	if (p == NULL) {
+		*rseq_r = 0;
+		return FALSE;
+	}
+
+	first = array_idx(&msgmap->uids, 0);
+	*rseq_r = (p - first) + 1;
+	return TRUE;
+}
+
+void imapc_msgmap_append(struct imapc_msgmap *msgmap,
+			 uint32_t rseq, uint32_t uid)
+{
+	i_assert(rseq == imapc_msgmap_count(msgmap) + 1);
+
+	array_append(&msgmap->uids, &uid, 1);
+}
+
+void imapc_msgmap_expunge(struct imapc_msgmap *msgmap, uint32_t rseq)
+{
+	i_assert(rseq > 0);
+	i_assert(rseq <= imapc_msgmap_count(msgmap));
+
+	array_delete(&msgmap->uids, rseq-1, 1);
+}

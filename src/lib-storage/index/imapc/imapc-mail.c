@@ -4,7 +4,7 @@
 #include "str.h"
 #include "istream.h"
 #include "imap-envelope.h"
-#include "imapc-seqmap.h"
+#include "imapc-msgmap.h"
 #include "imapc-mail.h"
 #include "imapc-client.h"
 #include "imapc-storage.h"
@@ -101,8 +101,8 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 static bool imapc_mail_is_expunged(struct mail *_mail)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
-	struct imapc_seqmap *seqmap;
-	uint32_t lseq;
+	struct imapc_msgmap *msgmap;
+	uint32_t lseq, rseq;
 
 	/* first we'll need to convert the mail's sequence to sync_view's
 	   sequence. if there's no sync_view, then no mails have been
@@ -113,8 +113,8 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 	if (!mail_index_lookup_seq(mbox->sync_view, _mail->uid, &lseq))
 		return TRUE;
 
-	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-	return imapc_seqmap_lseq_to_rseq(seqmap, lseq) == 0;
+	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
+	return !imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq);
 }
 
 static int

@@ -26,7 +26,7 @@ struct imapc_client {
 struct imapc_client_mailbox {
 	struct imapc_client *client;
 	struct imapc_connection *conn;
-	struct imapc_seqmap *seqmap;
+	struct imapc_msgmap *msgmap;
 
 	void *untagged_box_context;
 	unsigned int pending_box_command_count;

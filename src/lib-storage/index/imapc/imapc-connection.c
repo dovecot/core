@@ -14,7 +14,6 @@
 #include "imap-util.h"
 #include "imap-parser.h"
 #include "imapc-client-private.h"
-#include "imapc-seqmap.h"
 #include "imapc-connection.h"
 
 #include <unistd.h>

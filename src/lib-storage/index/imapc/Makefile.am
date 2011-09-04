@@ -20,8 +20,8 @@ libstorage_imapc_la_SOURCES = \
 	imapc-mail.c \
 	imapc-mail-fetch.c \
 	imapc-mailbox.c \
+	imapc-msgmap.c \
 	imapc-save.c \
-	imapc-seqmap.c \
 	imapc-settings.c \
 	imapc-sync.c \
 	imapc-storage.c
@@ -32,29 +32,10 @@ headers = \
 	imapc-connection.h \
 	imapc-list.h \
 	imapc-mail.h \
-	imapc-seqmap.h \
+	imapc-msgmap.h \
 	imapc-settings.h \
 	imapc-storage.h \
 	imapc-sync.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
-
-test_programs = \
-	test-imapc-seqmap
-
-noinst_PROGRAMS = $(test_programs)
-
-test_libs = \
-	../../../lib-test/libtest.la \
-	../../../lib/liblib.la
-
-test_imapc_seqmap_SOURCES = test-imapc-seqmap.c
-test_imapc_seqmap_LDADD = imapc-seqmap.lo $(test_libs)
-test_imapc_seqmap_DEPENDENCIES = imapc-seqmap.lo $(test_libs)
-
-check: check-am check-test
-check-test: all-am
-	for bin in $(test_programs); do \
-	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
-	done

@@ -5,8 +5,8 @@
 #include "imap-arg.h"
 #include "imap-util.h"
 #include "imapc-client.h"
-#include "imapc-seqmap.h"
 #include "imapc-mail.h"
+#include "imapc-msgmap.h"
 #include "imapc-sync.h"
 #include "imapc-storage.h"
 
@@ -21,6 +21,8 @@ static void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 	i_error("imapc: Mailbox '%s' state corrupted: %s",
 		mbox->box.name, t_strdup_vprintf(reason, va));
 	va_end(va);
+
+	sleep(3600);
 
 	mail_index_mark_corrupted(mbox->box.index);
 	imapc_client_mailbox_disconnect(mbox->client_box);
@@ -44,8 +46,6 @@ static void imapc_mailbox_init_delayed_trans(struct imapc_mailbox *mbox)
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	mbox->delayed_sync_view =
 		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
-	mbox->min_append_uid =
-		mail_index_get_header(mbox->delayed_sync_view)->next_uid;
 }
 
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
@@ -73,10 +73,7 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 				  struct imapc_mailbox *mbox)
 {
 	struct mail_index_view *view = mbox->delayed_sync_view;
-	uint32_t rcount = reply->num;
 	const struct mail_index_header *hdr;
-	struct imapc_seqmap *seqmap;
-	uint32_t next_lseq, next_rseq;
 
 	if (mbox == NULL)
 		return;
@@ -84,26 +81,10 @@ static void imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	if (view == NULL)
 		view = imapc_mailbox_get_sync_view(mbox);
 
-	if (rcount == 0) {
-		/* nothing in this mailbox */
-		return;
-	}
 	if (mbox->opening) {
 		/* We don't know the latest flags, refresh them. */
 		mbox->sync_fetch_first_uid = 1;
-	} else {
-		seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-		next_lseq = mail_index_view_get_messages_count(view) + 1;
-		next_rseq = imapc_seqmap_lseq_to_rseq(seqmap, next_lseq);
-		if (rcount < next_rseq) {
-			if (rcount == next_rseq-1) {
-				/* duplicate EXISTS - ignore */
-				return;
-			}
-			imapc_mailbox_set_corrupted(mbox,
-				"EXISTS reply shrank mailbox size");
-			return;
-		}
+	} else if (mbox->sync_fetch_first_uid != 1) {
 		hdr = mail_index_get_header(view);
 		mbox->sync_fetch_first_uid = hdr->next_uid;
 	}
@@ -152,13 +133,13 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				 struct imapc_mailbox *mbox)
 {
 	uint32_t lseq, rseq = reply->num;
-	struct imapc_seqmap *seqmap;
 	struct imapc_mail *const *mailp;
 	const struct imap_arg *list, *flags_list;
 	const char *atom;
 	const struct mail_index_record *rec = NULL;
+	struct imapc_msgmap *msgmap;
 	enum mail_flags flags;
-	uint32_t uid, cur_count;
+	uint32_t fetch_uid, uid, msg_count;
 	unsigned int i, j;
 	ARRAY_TYPE(const_string) keywords = ARRAY_INIT;
 	bool seen_flags = FALSE;
@@ -166,14 +147,14 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	if (mbox == NULL || rseq == 0 || !imap_arg_get_list(reply->args, &list))
 		return;
 
-	uid = 0; flags = 0;
+	fetch_uid = 0; flags = 0;
 	for (i = 0; list[i].type != IMAP_ARG_EOL; i += 2) {
 		if (!imap_arg_get_atom(&list[i], &atom))
 			return;
 
 		if (strcasecmp(atom, "UID") == 0) {
 			if (!imap_arg_get_atom(&list[i+1], &atom) ||
-			    str_to_uint32(atom, &uid) < 0)
+			    str_to_uint32(atom, &fetch_uid) < 0)
 				return;
 		} else if (strcasecmp(atom, "FLAGS") == 0) {
 			if (!imap_arg_get_list(&list[i+1], &flags_list))
@@ -196,12 +177,52 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	/* FIXME: need to do something about recent flags */
 	flags &= ~MAIL_RECENT;
 
-	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-	lseq = imapc_seqmap_rseq_to_lseq(seqmap, rseq);
+	imapc_mailbox_init_delayed_trans(mbox);
 
-	/* fetch_mails' view is different from sync_view, so we can't compare
-	   their sequences directly. that is why this code supports only
-	   UID FETCH commands which are guaranteed to have UID in the reply. */
+	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
+	msg_count = imapc_msgmap_count(msgmap);
+	if (rseq > msg_count) {
+		/* newly seen message */
+		if (!mbox->syncing || fetch_uid == 0 || rseq != msg_count+1)
+			return;
+		uid = fetch_uid;
+
+		if (uid < imapc_msgmap_uidnext(msgmap)) {
+			imapc_mailbox_set_corrupted(mbox,
+				"Expunged message reappeared "
+				"(uid=%u < next_uid=%u)",
+				uid, imapc_msgmap_uidnext(msgmap));
+			return;
+		}
+
+		imapc_msgmap_append(msgmap, rseq, uid);
+		if (uid < mbox->min_append_uid) {
+			/* message is already added to index */
+			lseq = 0;
+		} else {
+			mail_index_append(mbox->delayed_sync_trans, uid, &lseq);
+			mbox->min_append_uid = uid + 1;
+		}
+	} else {
+		uid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
+		if (uid != fetch_uid && fetch_uid != 0) {
+			imapc_mailbox_set_corrupted(mbox,
+				"FETCH UID mismatch (%u != %u)",
+				fetch_uid, uid);
+			return;
+		}
+		lseq = 0;
+	}
+	if (lseq == 0) {
+		if (!mail_index_lookup_seq(mbox->delayed_sync_view,
+					   uid, &lseq)) {
+			/* already expunged by another session */
+			return;
+		}
+		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
+	}
+
+	/* if this is a reply to some FETCH request, update the mail's fields */
 	array_foreach(&mbox->fetch_mails, mailp) {
 		struct imapc_mail *mail = *mailp;
 
@@ -209,42 +230,19 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			imapc_mail_fetch_update(mail, reply, list);
 	}
 
-	imapc_mailbox_init_delayed_trans(mbox);
-	cur_count = mail_index_view_get_messages_count(mbox->delayed_sync_view);
-	while (lseq <= cur_count) {
-		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
-		if (rec->uid == uid || uid == 0)
-			break;
+	if (rseq == mbox->sync_next_rseq) {
+		/* we're doing the initial full sync of mails. expunge any
+		   mails that no longer exist. */
+		i_assert(mbox->syncing);
 
-		if (!mbox->opening || uid < rec->uid) {
-			imapc_mailbox_set_corrupted(mbox,
-				"Message UID changed %u -> %u", rec->uid, uid);
-			return;
+		while (mbox->sync_next_lseq < lseq) {
+			mail_index_expunge(mbox->delayed_sync_trans,
+					   mbox->sync_next_lseq);
+			mbox->sync_next_lseq++;
 		}
-		/* we're opening the mailbox. this message was expunged
-		   externally, so expunge it ourself too. this code assumes
-		   that FETCH responses come in ascending order when opening
-		   mailbox. */
-		imapc_seqmap_expunge(seqmap, rseq);
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
-		lseq++;
-	}
-	if (lseq > cur_count) {
-		if (!mbox->syncing)
-			return;
-		if (uid == 0 || lseq != cur_count + 1)
-			return;
-		if (uid < mbox->min_append_uid) {
-			imapc_mailbox_set_corrupted(mbox,
-				"Expunged message reappeared "
-				"(uid=%u < next_uid=%u)",
-				uid, mbox->min_append_uid);
-			return;
-		}
-		i_assert(lseq == cur_count + 1);
-		mail_index_append(mbox->delayed_sync_trans, uid, &lseq);
-		mbox->min_append_uid = uid + 1;
-		rec = NULL;
+		i_assert(lseq == mbox->sync_next_lseq);
+		mbox->sync_next_rseq++;
+		mbox->sync_next_lseq++;
 	}
 	if (seen_flags && (rec == NULL || rec->flags != flags)) {
 		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
@@ -267,38 +265,32 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		}
 		mail_index_keywords_unref(&kw);
 	} T_END;
-	if (mbox->highest_seen_uid < uid)
-		mbox->highest_seen_uid = uid;
 	imapc_mailbox_idle_notify(mbox);
 }
 
 static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 				   struct imapc_mailbox *mbox)
 {
-	struct imapc_seqmap *seqmap;
-	uint32_t lseq, rseq = reply->num;
+	struct imapc_msgmap *msgmap;
+	uint32_t lseq, uid, rseq = reply->num;
 	
 	if (mbox == NULL || rseq == 0)
 		return;
 
-	imapc_mailbox_init_delayed_trans(mbox);
-
-	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-	lseq = imapc_seqmap_rseq_to_lseq(seqmap, rseq);
-
-	if (lseq <= mail_index_view_get_messages_count(mbox->sync_view)) {
-		/* expunging a message in index */
-		imapc_seqmap_expunge(seqmap, rseq);
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
-	} else if (lseq <= mail_index_view_get_messages_count(mbox->delayed_sync_view)) {
-		/* expunging a message that was added to transaction,
-		   but not yet committed. expunging it here takes
-		   effect immediately. */
-		mail_index_expunge(mbox->delayed_sync_trans, lseq);
-	} else {
-		/* expunging a message whose UID wasn't known yet */
+	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
+	if (rseq > imapc_msgmap_count(msgmap)) {
+		/* we haven't even seen this message yet */
+		return;
 	}
+	uid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
+	imapc_msgmap_expunge(msgmap, rseq);
 
+	imapc_mailbox_init_delayed_trans(mbox);
+	if (!mail_index_lookup_seq(mbox->delayed_sync_view, uid, &lseq)) {
+		/* already expunged by another session */
+	} else {
+		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+	}
 	imapc_mailbox_idle_notify(mbox);
 }
 

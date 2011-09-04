@@ -135,8 +135,8 @@ void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 			       imapc_command_callback_t *callback,
 			       void *context, const char *cmd_fmt, ...)
 	ATTR_FORMAT(4, 5);
-struct imapc_seqmap *
-imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box);
+struct imapc_msgmap *
+imapc_client_mailbox_get_msgmap(struct imapc_client_mailbox *box);
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box);
 bool imapc_client_mailbox_is_connected(struct imapc_client_mailbox *box);

@@ -54,15 +54,16 @@ struct imapc_mailbox {
 	ARRAY_DEFINE(untagged_callbacks, struct imapc_mailbox_event_callback);
 	ARRAY_DEFINE(resp_text_callbacks, struct imapc_mailbox_event_callback);
 
-	uint32_t min_append_uid;
-	uint32_t highest_seen_uid;
-
 	uint32_t sync_uid_validity;
 	uint32_t sync_uid_next;
 	uint32_t sync_fetch_first_uid;
+	uint32_t sync_next_lseq;
+	uint32_t sync_next_rseq;
+	uint32_t min_append_uid;
 
 	unsigned int opening:1;
 	unsigned int syncing:1;
+	unsigned int initial_sync_done:1;
 };
 
 struct imapc_simple_context {

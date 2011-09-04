@@ -7,7 +7,6 @@
 #include "index-sync-private.h"
 #include "imapc-storage.h"
 #include "imapc-client.h"
-#include "imapc-seqmap.h"
 #include "imapc-sync.h"
 
 static void imapc_sync_callback(const struct imapc_command_reply *reply,
@@ -168,19 +167,27 @@ static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 
 static void imapc_sync_expunge_eom(struct imapc_sync_context *ctx)
 {
-	const struct mail_index_record *rec;
-	uint32_t lseq, cur_count;
+	struct imapc_mailbox *mbox = ctx->mbox;
+	uint32_t lseq, uid, msg_count;
+
+	if (mbox->sync_next_lseq == 0)
+		return;
 
 	/* if we haven't seen FETCH reply for some messages at the end of
 	   mailbox they've been externally expunged. */
-	cur_count = mail_index_view_get_messages_count(ctx->sync_view);
-	for (lseq = cur_count; lseq > 0; lseq--) {
-		rec = mail_index_lookup(ctx->sync_view, lseq);
-		if (rec->uid <= ctx->mbox->highest_seen_uid)
+	msg_count = mail_index_view_get_messages_count(ctx->sync_view);
+	for (lseq = mbox->sync_next_lseq; lseq <= msg_count; lseq++) {
+		mail_index_lookup_uid(ctx->sync_view, lseq, &uid);
+		if (uid >= mbox->sync_uid_next) {
+			/* another process already added new messages to index
+			   that our IMAP connection hasn't seen yet */
 			break;
-
+		}
 		mail_index_expunge(ctx->trans, lseq);
 	}
+
+	mbox->sync_next_lseq = 0;
+	mbox->sync_next_rseq = 0;
 }
 
 static void imapc_sync_index_header(struct imapc_sync_context *ctx)
@@ -211,12 +218,12 @@ static void imapc_sync_index_header(struct imapc_sync_context *ctx)
 
 static void imapc_sync_index(struct imapc_sync_context *ctx)
 {
-	struct mailbox *box = &ctx->mbox->box;
+	struct imapc_mailbox *mbox = ctx->mbox;
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq1, seq2;
 
 	i_array_init(&ctx->expunged_uids, 64);
-	ctx->keywords = mail_index_get_keywords(box->index);
+	ctx->keywords = mail_index_get_keywords(mbox->box.index);
 
 	imapc_sync_index_header(ctx);
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) T_BEGIN {
@@ -246,24 +253,32 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		}
 	} T_END;
 
-	if (ctx->mbox->sync_fetch_first_uid != 0) {
+	if (!mbox->initial_sync_done) {
+		/* with initial syncing we're fetching all messages' flags and
+		   expunge mails from local index that no longer exist on
+		   remote server */
+		i_assert(mbox->sync_fetch_first_uid == 1);
+		mbox->sync_next_lseq = 1;
+		mbox->sync_next_rseq = 1;
+	}
+	if (mbox->sync_fetch_first_uid != 0) {
 		/* we'll resync existing messages' flags and add new messages.
 		   adding new messages requires sync locking to avoid
 		   duplicates. */
 		imapc_sync_cmd(ctx, t_strdup_printf(
-			"UID FETCH %u:* FLAGS",
-			ctx->mbox->sync_fetch_first_uid));
-		ctx->mbox->sync_fetch_first_uid = 0;
+			"UID FETCH %u:* FLAGS", mbox->sync_fetch_first_uid));
+		mbox->sync_fetch_first_uid = 0;
 	}
 
 	imapc_sync_expunge_finish(ctx);
 	while (ctx->sync_command_count > 0)
-		imapc_storage_run(ctx->mbox->storage);
+		imapc_storage_run(mbox->storage);
 	array_free(&ctx->expunged_uids);
 
 	imapc_sync_expunge_eom(ctx);
-	if (box->v.sync_notify != NULL)
-		box->v.sync_notify(box, 0, 0);
+	if (mbox->box.v.sync_notify != NULL)
+		mbox->box.v.sync_notify(&mbox->box, 0, 0);
+	mbox->initial_sync_done = TRUE;
 }
 
 static int
@@ -300,6 +315,7 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 	mbox->delayed_sync_view =
 		mail_index_transaction_open_updated_view(ctx->trans);
 	mbox->delayed_sync_trans = ctx->trans;
+	mbox->min_append_uid = mail_index_get_header(ctx->sync_view)->next_uid;
 
 	mbox->syncing = TRUE;
 	imapc_sync_index(ctx);
@@ -334,14 +350,7 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 static int imapc_sync(struct imapc_mailbox *mbox)
 {
 	struct imapc_sync_context *sync_ctx;
-	struct imapc_seqmap *seqmap;
 	bool force = mbox->sync_fetch_first_uid != 0;
-
-	/* if there are any pending expunges, they're now committed. syncing
-	   will return a view where they no longer exist, so reset the seqmap
-	   before syncing. */
-	seqmap = imapc_client_mailbox_get_seqmap(mbox->client_box);
-	imapc_seqmap_reset(seqmap);
 
 	if (imapc_sync_begin(mbox, &sync_ctx, force) < 0)
 		return -1;
@@ -349,10 +358,6 @@ static int imapc_sync(struct imapc_mailbox *mbox)
 		return 0;
 	if (imapc_sync_finish(&sync_ctx) < 0)
 		return -1;
-
-	/* syncing itself may have also seen new expunges, which are also now
-	   committed and synced. reset the seqmap again. */
-	imapc_seqmap_reset(seqmap);
 	return 0;
 }
 

@@ -6,7 +6,7 @@
 #include "ioloop.h"
 #include "safe-mkstemp.h"
 #include "iostream-ssl.h"
-#include "imapc-seqmap.h"
+#include "imapc-msgmap.h"
 #include "imapc-connection.h"
 #include "imapc-client-private.h"
 
@@ -219,7 +219,7 @@ imapc_client_mailbox_open(struct imapc_client *client,
 	conn = imapc_client_get_unboxed_connection(client);
 	conn->box = box;
 	box->conn = conn->conn;
-	box->seqmap = imapc_seqmap_init();
+	box->msgmap = imapc_msgmap_init();
 
 	imapc_connection_select(box, name, examine, callback, context);
 	return box;
@@ -247,7 +247,7 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 
 	if (box->conn != NULL)
 		imapc_connection_unselect(box);
-	imapc_seqmap_deinit(&box->seqmap);
+	imapc_msgmap_deinit(&box->msgmap);
 	i_free(box);
 }
 
@@ -340,10 +340,10 @@ void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 	va_end(args);
 }
 
-struct imapc_seqmap *
-imapc_client_mailbox_get_seqmap(struct imapc_client_mailbox *box)
+struct imapc_msgmap *
+imapc_client_mailbox_get_msgmap(struct imapc_client_mailbox *box)
 {
-	return box->seqmap;
+	return box->msgmap;
 }
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
