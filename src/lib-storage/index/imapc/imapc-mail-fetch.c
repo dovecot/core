@@ -156,7 +156,7 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	   or until all FETCH replies have been received (i.e. some FETCHes
 	   failed) */
 	while (!imapc_mail_have_fields(imail, fields) && imail->fetch_count > 0)
-		imapc_client_run(storage->client);
+		imapc_storage_run(storage);
 	return 0;
 }
 

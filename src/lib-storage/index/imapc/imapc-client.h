@@ -112,7 +112,8 @@ void imapc_client_register_untagged(struct imapc_client *client,
 				    imapc_untagged_callback_t *callback,
 				    void *context);
 
-void imapc_client_run(struct imapc_client *client);
+void imapc_client_run_pre(struct imapc_client *client);
+void imapc_client_run_post(struct imapc_client *client);
 void imapc_client_stop(struct imapc_client *client);
 /* Stop immediately, don't finish even any already read pending replies.
    They'll be finished when imapc_client_run() is again called. */

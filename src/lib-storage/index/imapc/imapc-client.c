@@ -99,7 +99,7 @@ void imapc_client_register_untagged(struct imapc_client *client,
 	client->untagged_context = context;
 }
 
-void imapc_client_run(struct imapc_client *client)
+void imapc_client_run_pre(struct imapc_client *client)
 {
 	struct imapc_client_connection *const *connp;
 	struct ioloop *prev_ioloop = current_ioloop;
@@ -121,8 +121,13 @@ void imapc_client_run(struct imapc_client *client)
 
 	if (io_loop_is_running(client->ioloop))
 		io_loop_run(client->ioloop);
-
 	current_ioloop = prev_ioloop;
+}
+
+void imapc_client_run_post(struct imapc_client *client)
+{
+	struct imapc_client_connection *const *connp;
+
 	array_foreach(&client->conns, connp)
 		imapc_connection_ioloop_changed((*connp)->conn);
 

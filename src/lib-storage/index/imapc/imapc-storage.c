@@ -6,7 +6,8 @@
 #include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "imapc-mail.h"
-#include "imapc-client.h"
+#include "imapc-client-private.h"
+#include "imapc-connection.h"
 #include "imapc-list.h"
 #include "imapc-sync.h"
 #include "imapc-settings.h"
@@ -105,7 +106,28 @@ void imapc_simple_context_init(struct imapc_simple_context *sctx,
 void imapc_simple_run(struct imapc_simple_context *sctx)
 {
 	while (sctx->ret == -2)
-		imapc_client_run(sctx->storage->client);
+		imapc_storage_run(sctx->storage);
+}
+
+void imapc_storage_run(struct imapc_storage *storage)
+{
+	struct imapc_client_mailbox *client_box;
+	struct imapc_client_connection *const *connp;
+	struct imapc_mailbox *mbox;
+
+	imapc_client_run_pre(storage->client);
+
+	array_foreach(&storage->client->conns, connp) {
+		client_box = imapc_connection_get_mailbox((*connp)->conn);
+		if (client_box == NULL)
+			continue;
+
+		mbox = client_box->untagged_box_context;
+		if (mbox->to_idle_delay != NULL)
+			mbox->to_idle_delay = io_loop_move_timeout(&mbox->to_idle_delay);
+	}
+
+	imapc_client_run_post(storage->client);
 }
 
 void imapc_simple_callback(const struct imapc_command_reply *reply,
@@ -333,7 +355,7 @@ static int imapc_mailbox_open(struct mailbox *box)
 					  imapc_mailbox_open_callback,
 					  &ctx, mbox);
 	while (ctx.ret == -2)
-		imapc_client_run(mbox->storage->client);
+		imapc_storage_run(mbox->storage);
 	mbox->opening = FALSE;
 	if (!mbox->open_success) {
 		mailbox_close(box);

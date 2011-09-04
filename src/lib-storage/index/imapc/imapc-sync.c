@@ -204,7 +204,7 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 
 	imapc_sync_expunge_finish(ctx);
 	while (ctx->sync_command_count > 0)
-		imapc_client_run(ctx->mbox->storage->client);
+		imapc_storage_run(ctx->mbox->storage);
 	array_free(&ctx->expunged_uids);
 
 	if (box->v.sync_notify != NULL)
@@ -316,7 +316,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		imapc_client_mailbox_cmdf(mbox->client_box,
 					  imapc_noop_stop_callback,
 					  mbox->storage, "NOOP");
-		imapc_client_run(mbox->storage->client);
+		imapc_storage_run(mbox->storage);
 	}
 
 	if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)

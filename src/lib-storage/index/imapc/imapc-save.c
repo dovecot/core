@@ -191,7 +191,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 			  ctx->mbox->box.name, flags, internaldate, input);
 	i_stream_unref(&input);
 	while (sctx.ret == -2)
-		imapc_client_run(ctx->mbox->storage->client);
+		imapc_storage_run(ctx->mbox->storage);
 	return sctx.ret;
 }
 
@@ -337,7 +337,7 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 					  "UID COPY %u %s",
 					  mail->uid, _t->box->name);
 		while (sctx.ret == -2)
-			imapc_client_run(src_mbox->storage->client);
+			imapc_storage_run(src_mbox->storage);
 		ctx->finished = TRUE;
 		return sctx.ret;
 	}

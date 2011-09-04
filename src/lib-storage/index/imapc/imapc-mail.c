@@ -210,7 +210,7 @@ static void imapc_mail_close(struct mail *_mail)
 		(struct imapc_storage *)_mail->box->storage;
 
 	while (imail->fetch_count > 0)
-		imapc_client_run(storage->client);
+		imapc_storage_run(storage);
 	index_mail_close(_mail);
 }
 
