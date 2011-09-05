@@ -247,7 +247,12 @@ void mail_sessions_init(void)
 
 void mail_sessions_deinit(void)
 {
-	while (mail_sessions_head != NULL)
+	while (mail_sessions_head != NULL) {
+		struct mail_session *session = mail_sessions_head;
+
+		if (!session->disconnected)
+			mail_session_unref(&session);
 		mail_session_free(mail_sessions_head);
+	}
 	hash_table_destroy(&mail_sessions_hash);
 }
