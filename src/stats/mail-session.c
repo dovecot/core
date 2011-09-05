@@ -37,8 +37,9 @@ static void mail_session_disconnect(struct mail_session *session)
 
 static void mail_session_idle_timeout(struct mail_session *session)
 {
-	i_warning("Session %s appears to have crashed, disconnecting it",
-		  guid_128_to_string(session->guid));
+	i_warning("Session %s (user %s) appears to have crashed, "
+		  "disconnecting it",
+		  guid_128_to_string(session->guid), session->user->name);
 	mail_session_disconnect(session);
 }
 
