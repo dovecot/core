@@ -1688,7 +1688,9 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		}
 	}
 
-	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
+	rec->flags = (rec->flags | flags) &
+		~(MAILDIR_UIDLIST_REC_FLAG_NONSYNCED |
+		  MAILDIR_UIDLIST_REC_FLAG_NEW_DIR);
 	rec->filename = p_strdup(uidlist->record_pool, filename);
 	hash_table_insert(uidlist->files, rec->filename, rec);
 
