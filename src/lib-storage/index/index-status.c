@@ -81,8 +81,8 @@ int index_storage_get_status(struct mailbox *box,
 		if (!mailbox_is_readonly(box)) {
 			status_r->permanent_flags = MAIL_FLAGS_NONRECENT;
 			status_r->permanent_keywords = TRUE;
-			/* FIXME: set to FALSE if we're full */
-			status_r->allow_new_keywords = TRUE;
+			status_r->allow_new_keywords =
+				!box->disallow_new_keywords;
 		}
 	}
 	return 0;

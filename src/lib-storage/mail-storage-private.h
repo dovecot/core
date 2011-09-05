@@ -267,6 +267,8 @@ struct mailbox {
 	   mailbox_save_*() to actually save a new physical copy rather than
 	   simply incrementing a reference count (e.g. via hard link) */
 	unsigned int disable_reflink_copy_to:1;
+	/* Don't allow creating any new keywords */
+	unsigned int disallow_new_keywords:1;
 };
 
 struct mail_vfuncs {
