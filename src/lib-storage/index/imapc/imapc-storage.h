@@ -54,6 +54,9 @@ struct imapc_mailbox {
 	ARRAY_DEFINE(untagged_callbacks, struct imapc_mailbox_event_callback);
 	ARRAY_DEFINE(resp_text_callbacks, struct imapc_mailbox_event_callback);
 
+	enum mail_flags permanent_flags;
+	ARRAY_TYPE(keywords) permanent_keywords;
+
 	uint32_t sync_uid_validity;
 	uint32_t sync_uid_next;
 	uint32_t sync_fetch_first_uid;

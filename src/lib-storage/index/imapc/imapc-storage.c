@@ -304,6 +304,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	p_array_init(&mbox->untagged_callbacks, pool, 16);
 	p_array_init(&mbox->resp_text_callbacks, pool, 16);
 	p_array_init(&mbox->fetch_mails, pool, 16);
+	p_array_init(&mbox->permanent_keywords, pool, 32);
 	imapc_mailbox_register_callbacks(mbox);
 	return &mbox->box;
 }
@@ -456,6 +457,10 @@ static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 					      struct mailbox_status *status_r)
 {
 	index_storage_get_status(&mbox->box, items, status_r);
+	if ((items & STATUS_KEYWORDS) != 0)
+		status_r->keywords = &mbox->permanent_keywords;
+	if ((items & STATUS_PERMANENT_FLAGS) != 0)
+		status_r->permanent_flags = mbox->permanent_flags;
 }
 
 static int imapc_mailbox_get_status(struct mailbox *box,
@@ -474,7 +479,8 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	}
 
 	/* mailbox isn't opened yet */
-	if ((items & (STATUS_FIRST_UNSEEN_SEQ | STATUS_KEYWORDS)) != 0) {
+	if ((items & (STATUS_FIRST_UNSEEN_SEQ | STATUS_KEYWORDS |
+		      STATUS_PERMANENT_FLAGS)) != 0) {
 		/* getting these requires opening the mailbox */
 		if (mailbox_open(box) < 0)
 			return -1;
