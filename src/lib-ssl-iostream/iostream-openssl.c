@@ -264,6 +264,12 @@ static bool ssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 		i_assert(ret == (int)bytes);
 
 		sent = o_stream_send(ssl_io->plain_output, buffer, bytes);
+		if (sent < 0) {
+			i_assert(ssl_io->plain_output->stream_errno != 0);
+			ssl_io->ssl_output->stream_errno =
+				ssl_io->plain_output->stream_errno;
+			break;
+		}
 		i_assert(sent == (ssize_t)bytes);
 		bytes_sent = TRUE;
 	}
