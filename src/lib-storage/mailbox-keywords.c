@@ -109,6 +109,10 @@ bool mailbox_keyword_is_valid(struct mailbox *box, const char *keyword,
 		*error_r = "Empty keywords not allowed";
 		return FALSE;
 	}
+	if (box->disallow_new_keywords) {
+		*error_r = "Can't create new keywords";
+		return FALSE;
+	}
 
 	/* these are IMAP-specific restrictions, but for now IMAP is all we
 	   care about */
