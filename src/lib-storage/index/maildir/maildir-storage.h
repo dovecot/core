@@ -93,6 +93,7 @@ struct maildir_mailbox {
 	unsigned int private_flags_mask_set:1;
 	unsigned int backend_readonly:1;
 	unsigned int backend_readonly_set:1;
+	unsigned int sync_uidlist_refreshed:1;
 };
 
 extern struct mail_vfuncs maildir_mail_vfuncs;

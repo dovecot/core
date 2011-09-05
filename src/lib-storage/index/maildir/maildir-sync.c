@@ -942,26 +942,27 @@ int maildir_sync_lookup(struct maildir_mailbox *mbox, uint32_t uid,
 	int ret;
 
 	ret = maildir_uidlist_lookup(mbox->uidlist, uid, flags_r, fname_r);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		if (maildir_uidlist_is_open(mbox->uidlist)) {
-			/* refresh uidlist and check again in case it was added
-			   after the last mailbox sync */
-			if (maildir_uidlist_refresh(mbox->uidlist) < 0)
-				return -1;
-		} else {
-			/* the uidlist doesn't exist. */
-			if (maildir_storage_sync_force(mbox, uid) < 0)
-				return -1;
-		}
+	if (ret != 0)
+		return ret;
 
-		/* try again */
-		ret = maildir_uidlist_lookup(mbox->uidlist, uid,
-					     flags_r, fname_r);
+	if (maildir_uidlist_is_open(mbox->uidlist)) {
+		/* refresh uidlist and check again in case it was added
+		   after the last mailbox sync */
+		if (mbox->sync_uidlist_refreshed) {
+			/* we've already refreshed it, don't bother again */
+			return ret;
+		}
+		mbox->sync_uidlist_refreshed = TRUE;
+		if (maildir_uidlist_refresh(mbox->uidlist) < 0)
+			return -1;
+	} else {
+		/* the uidlist doesn't exist. */
+		if (maildir_storage_sync_force(mbox, uid) < 0)
+			return -1;
 	}
 
-	return ret;
+	/* try again */
+	return maildir_uidlist_lookup(mbox->uidlist, uid, flags_r, fname_r);
 }
 
 int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
@@ -1046,6 +1047,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		maildir_uidlist_set_all_nonsynced(mbox->uidlist);
 	}
 	mbox->synced = TRUE;
+	mbox->sync_uidlist_refreshed = FALSE;
 	return index_mailbox_sync_init(box, flags, ret < 0);
 }
 
