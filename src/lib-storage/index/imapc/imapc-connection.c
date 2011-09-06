@@ -966,19 +966,24 @@ static int imapc_connection_ssl_handshaked(void *context)
 {
 	struct imapc_connection *conn = context;
 
-	if (ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
+	if (!ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
+		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream)) {
+			i_error("imapc(%s): SSL certificate not received",
+				conn->name);
+		} else {
+			i_error("imapc(%s): Received invalid SSL certificate",
+				conn->name);
+		}
+	} else if (ssl_iostream_cert_match_name(conn->ssl_iostream,
+						conn->client->set.host) < 0) {
+		i_error("imapc(%s): SSL certificate doesn't match host name",
+			conn->name);
+	} else {
 		if (conn->client->set.debug) {
 			i_debug("imapc(%s): SSL handshake successful",
 				conn->name);
 		}
 		return 0;
-	}
-
-	if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream)) {
-		i_error("imapc(%s): SSL certificate not received", conn->name);
-	} else {
-		i_error("imapc(%s): Received invalid SSL certificate",
-			conn->name);
 	}
 	i_stream_close(conn->input);
 	return -1;
