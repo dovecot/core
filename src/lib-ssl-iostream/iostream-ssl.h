@@ -32,6 +32,7 @@ void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
 bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io);
 bool ssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io);
+int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name);
 const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io);

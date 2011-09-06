@@ -6,6 +6,7 @@
 #include "iostream-openssl.h"
 
 #include <openssl/err.h>
+#include <openssl/x509v3.h>
 
 static void ssl_iostream_free(struct ssl_iostream *ssl_io);
 
@@ -94,7 +95,8 @@ ssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		X509_NAME *subject;
 
 		subject = X509_get_subject_name(ctx->current_cert);
-		if (X509_NAME_oneline(subject, buf, sizeof(buf)) == NULL)
+		if (subject == NULL ||
+		    X509_NAME_oneline(subject, buf, sizeof(buf)) == NULL)
 			buf[0] = '\0';
 		else
 			buf[sizeof(buf)-1] = '\0'; /* just in case.. */
@@ -118,6 +120,7 @@ ssl_iostream_set(struct ssl_iostream *ssl_io,
 		 const struct ssl_iostream_settings *set)
 {
 	const struct ssl_iostream_settings *ctx_set = ssl_io->ctx->set;
+	int verify_flags;
 
 	if (set->verbose)
 		SSL_set_info_callback(ssl_io->ssl, ssl_info_callback);
@@ -141,8 +144,11 @@ ssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 	}
 	if (set->verify_remote_cert) {
-		SSL_set_verify(ssl_io->ssl,
-			       SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE,
+		if (ssl_io->ctx->client_ctx)
+			verify_flags = SSL_VERIFY_NONE;
+		else
+			verify_flags = SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE;
+		SSL_set_verify(ssl_io->ssl, verify_flags,
 			       ssl_iostream_verify_client_cert);
 	}
 
@@ -345,6 +351,12 @@ int ssl_iostream_more(struct ssl_iostream *ssl_io)
 	return 1;
 }
 
+static void ssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
+{
+	i_free(ssl_io->last_error);
+	ssl_io->last_error = i_strdup(str);
+}
+
 int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 			      const char *func_name)
 {
@@ -397,11 +409,89 @@ int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 		break;
 	}
 
-	if (errstr != NULL) {
-		i_free(ssl_io->last_error);
-		ssl_io->last_error = i_strdup(errstr);
-	}
+	if (errstr != NULL)
+		ssl_iostream_set_error(ssl_io, errstr);
 	return -1;
+}
+
+static const char *asn1_string_to_c(ASN1_STRING *asn_str)
+{
+	const char *cstr;
+	unsigned int len;
+
+	len = ASN1_STRING_length(asn_str);
+	cstr = t_strndup(ASN1_STRING_data(asn_str), len);
+	if (strlen(cstr) != len) {
+		/* NULs in the name - could be some MITM attack.
+		   never allow. */
+		return "";
+	}
+	return cstr;
+}
+
+static const char *get_general_dns_name(const GENERAL_NAME *name)
+{
+	if (ASN1_STRING_type(name->d.ia5) != V_ASN1_IA5STRING)
+		return "";
+
+	return asn1_string_to_c(name->d.ia5);
+}
+
+static const char *get_cname(X509 *cert)
+{
+	X509_NAME *name;
+	X509_NAME_ENTRY *entry;
+	ASN1_STRING *str;
+	int cn_idx;
+
+	name = X509_get_subject_name(cert);
+	if (name == NULL)
+		return "";
+	cn_idx = X509_NAME_get_index_by_NID(name, NID_commonName, -1);
+	if (cn_idx == -1)
+		return "";
+	entry = X509_NAME_get_entry(name, cn_idx);
+	i_assert(entry != NULL);
+	str = X509_NAME_ENTRY_get_data(entry);
+	i_assert(str != NULL);
+	return asn1_string_to_c(str);
+}
+
+int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
+				 const char *verify_name)
+{
+	X509 *cert;
+	STACK_OF(GENERAL_NAME) *gnames;
+	const GENERAL_NAME *gn;
+	const char *dnsname;
+	bool dns_names = FALSE;
+	unsigned int i, count;
+
+	if (!ssl_iostream_has_valid_client_cert(ssl_io))
+		return -1;
+
+	cert = SSL_get_peer_certificate(ssl_io->ssl);
+	i_assert(cert != NULL);
+
+	/* verify against SubjectAltNames */
+	gnames = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
+	count = gnames == NULL ? 0 : sk_GENERAL_NAME_num(gnames);
+	for (i = 0; i < count; i++) {
+		gn = sk_GENERAL_NAME_value(gnames, i);
+		if (gn->type == GEN_DNS) {
+			dns_names = TRUE;
+			dnsname = get_general_dns_name(gn);
+			if (strcmp(dnsname, verify_name) == 0)
+				break;
+		}
+	}
+	sk_GENERAL_NAME_pop_free(gnames, GENERAL_NAME_free);
+	/* verify against CommonName only when there wasn't any DNS
+	   SubjectAltNames */
+	if (dns_names)
+		return i < count ? 0 : -1;
+
+	return strcmp(get_cname(cert), verify_name) == 0 ? 0 : -1;
 }
 
 int ssl_iostream_handshake(struct ssl_iostream *ssl_io)
@@ -475,8 +565,7 @@ const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 		return NULL;
 
 	x509 = SSL_get_peer_certificate(ssl_io->ssl);
-	if (x509 == NULL)
-		return NULL; /* we should have had it.. */
+	i_assert(x509 != NULL);
 
 	len = X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
 					ssl_io->username_nid, NULL, 0);
