@@ -157,6 +157,39 @@ static int parse_reply(const char *cmd, const char *const *args,
 	return -1;
 }
 
+static const char *const *args_hide_passwords(const char *const *args)
+{
+	ARRAY_TYPE(const_string) new_args;
+	const char *p, *p2;
+	unsigned int i;
+
+	/* if there are any keys that contain "pass" string */
+	for (i = 0; args[i] != NULL; i++) {
+		p = strstr(args[i], "pass");
+		if (p != NULL && p < strchr(args[i], '='))
+			break;
+	}
+	if (args[i] == NULL)
+		return args;
+
+	/* there are. replace their values with <hidden> */
+	t_array_init(&new_args, i + 16);
+	array_append(&new_args, args, i);
+	for (; args[i] != NULL; i++) {
+		p = strstr(args[i], "pass");
+		p2 = strchr(args[i], '=');
+		if (p != NULL && p < p2) {
+			p = t_strconcat(t_strdup_until(args[i], p2),
+					"=<hidden>", NULL);
+			array_append(&new_args, &p, 1);
+		} else {
+			array_append(&new_args, &args[i], 1);
+		}
+	}
+	(void)array_append_space(&new_args);
+	return array_idx(&new_args, 0);
+}
+
 static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 				       void *context)
 {
@@ -185,8 +218,10 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 			}
 		}
 	}
-	if (debug)
+	if (debug) {
+		args = args_hide_passwords(args);
 		i_debug("auth input: %s", t_strarray_join(args, " "));
+	}
 	return TRUE;
 }
 
