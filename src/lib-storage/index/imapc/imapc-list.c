@@ -417,11 +417,18 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	struct imapc_mailbox_list *src_list =
 		(struct imapc_mailbox_list *)_src_list;
 	struct imapc_simple_context ctx;
+	char sep;
 
 	i_assert(src_list->tmp_subscriptions == NULL);
 
-	if (src_list->refreshed_subscriptions)
+	if (src_list->refreshed_subscriptions) {
+		if (dest_list->subscriptions == NULL) {
+			sep = mailbox_list_get_hierarchy_sep(dest_list);
+			dest_list->subscriptions =
+				mailbox_tree_init(sep);
+		}
 		return 0;
+	}
 
 	if (src_list->sep == '\0')
 		(void)mailbox_list_get_hierarchy_sep(_src_list);
