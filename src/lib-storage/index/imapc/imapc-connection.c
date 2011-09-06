@@ -99,6 +99,7 @@ struct imapc_connection {
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;
 	unsigned int idle_plus_waiting:1;
+	unsigned int handshake_failed:1;
 };
 
 static int imapc_connection_output(struct imapc_connection *conn);
@@ -941,6 +942,7 @@ static int imapc_connection_input_one(struct imapc_connection *conn)
 
 static void imapc_connection_input(struct imapc_connection *conn)
 {
+	const char *errstr;
 	ssize_t ret = 0;
 
 	/* we need to read as much as we can with SSL streams to avoid
@@ -953,9 +955,10 @@ static void imapc_connection_input(struct imapc_connection *conn)
 		if (conn->ssl_iostream == NULL) {
 			i_error("imapc(%s): Server disconnected unexpectedly",
 				conn->name);
-		} else {
-			i_error("imapc(%s): Server disconnected: %s", conn->name,
-				ssl_iostream_get_last_error(conn->ssl_iostream));
+		} else if (!conn->handshake_failed) {
+			errstr = ssl_iostream_get_last_error(conn->ssl_iostream);
+			i_error("imapc(%s): Server disconnected: %s",
+				conn->name, errstr != NULL ? errstr : "");
 		}
 		imapc_connection_disconnect(conn);
 		return;
@@ -985,6 +988,7 @@ static int imapc_connection_ssl_handshaked(void *context)
 		}
 		return 0;
 	}
+	conn->handshake_failed = TRUE;
 	i_stream_close(conn->input);
 	return -1;
 }
