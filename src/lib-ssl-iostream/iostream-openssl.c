@@ -178,6 +178,11 @@ int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 		return -1;
 	}
 
+	/* BIO pairs use default buffer sizes (17 kB in OpenSSL 0.9.8e).
+	   Each of the BIOs have one "write buffer". BIO_write() copies data
+	   to them, while BIO_read() reads from the other BIO's write buffer
+	   into the given buffer. The bio_int is used by OpenSSL and bio_ext
+	   is used by this library. */
 	if (BIO_new_bio_pair(&bio_int, 0, &bio_ext, 0) != 1) {
 		i_error("BIO_new_bio_pair() failed: %s", ssl_iostream_error());
 		SSL_free(ssl);
@@ -192,6 +197,7 @@ int io_stream_create_ssl(struct ssl_iostream_context *ctx, const char *source,
 	ssl_io->plain_input = *input;
 	ssl_io->plain_output = *output;
 	ssl_io->source = i_strdup(source);
+	/* bio_int will be freed by SSL_free() */
 	SSL_set_bio(ssl_io->ssl, bio_int, bio_int);
         SSL_set_ex_data(ssl_io->ssl, dovecot_ssl_extdata_index, ssl_io);
 
@@ -244,11 +250,14 @@ static bool ssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 {
 	size_t bytes, max_bytes;
 	ssize_t sent;
-	unsigned char buffer[1024];
+	unsigned char buffer[IO_BLOCK_SIZE];
 	bool bytes_sent = FALSE;
 	int ret;
 
+	o_stream_cork(ssl_io->plain_output);
 	while ((bytes = BIO_ctrl_pending(ssl_io->bio_ext)) > 0) {
+		/* bytes contains how many SSL encrypted bytes we should be
+		   sending out */
 		max_bytes = o_stream_get_buffer_avail_size(ssl_io->plain_output);
 		if (bytes > max_bytes) {
 			if (max_bytes == 0) {
@@ -260,9 +269,14 @@ static bool ssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 		if (bytes > sizeof(buffer))
 			bytes = sizeof(buffer);
 
+		/* BIO_read() is guaranteed to return all the bytes that
+		   BIO_ctrl_pending() returned */
 		ret = BIO_read(ssl_io->bio_ext, buffer, bytes);
 		i_assert(ret == (int)bytes);
 
+		/* we limited number of read bytes to plain_output's
+		   available size. this send() is guaranteed to either
+		   fully succeed or completely fail due to some error. */
 		sent = o_stream_send(ssl_io->plain_output, buffer, bytes);
 		if (sent < 0) {
 			i_assert(ssl_io->plain_output->stream_errno != 0);
@@ -273,22 +287,27 @@ static bool ssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 		i_assert(sent == (ssize_t)bytes);
 		bytes_sent = TRUE;
 	}
+	o_stream_uncork(ssl_io->plain_output);
 	return bytes_sent;
 }
 
 static bool ssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 {
 	const unsigned char *data;
-	size_t size;
+	size_t bytes, size;
 	bool bytes_read = FALSE;
 	int ret;
 
-	while (BIO_ctrl_get_read_request(ssl_io->bio_ext) > 0) {
+	while ((bytes = BIO_ctrl_get_write_guarantee(ssl_io->bio_ext)) > 0) {
+		/* bytes contains how many bytes we can write to bio_ext */
 		(void)i_stream_read_data(ssl_io->plain_input, &data, &size, 0);
 		if (size == 0) {
 			/* wait for more input */
 			break;
 		}
+		if (size > bytes)
+			size = bytes;
+
 		ret = BIO_write(ssl_io->bio_ext, data, size);
 		i_assert(ret == (ssize_t)size);
 
@@ -303,9 +322,27 @@ bool ssl_iostream_bio_sync(struct ssl_iostream *ssl_io)
 	bool ret;
 
 	ret = ssl_iostream_bio_output(ssl_io);
-	if (ssl_iostream_bio_input(ssl_io))
+	if (ssl_iostream_bio_input(ssl_io)) {
+		if (ssl_io->ostream_flush_waiting_input) {
+			ssl_io->ostream_flush_waiting_input = FALSE;
+			o_stream_set_flush_pending(ssl_io->plain_output, TRUE);
+		}
+		ssl_io->want_read = FALSE;
 		ret = TRUE;
+	}
 	return ret;
+}
+
+int ssl_iostream_more(struct ssl_iostream *ssl_io)
+{
+	int ret;
+
+	if (!ssl_io->handshaked) {
+		if ((ret = ssl_iostream_handshake(ssl_io)) <= 0)
+			return ret;
+	}
+	(void)ssl_iostream_bio_sync(ssl_io);
+	return 1;
 }
 
 int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
@@ -317,12 +354,16 @@ int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 	err = SSL_get_error(ssl_io->ssl, ret);
 	switch (err) {
 	case SSL_ERROR_WANT_WRITE:
-		if (!ssl_iostream_bio_sync(ssl_io))
+		if (!ssl_iostream_bio_sync(ssl_io)) {
+			i_panic("SSL ostream buffer size not unlimited");
 			return 0;
+		}
 		return 1;
 	case SSL_ERROR_WANT_READ:
-		if (!ssl_iostream_bio_sync(ssl_io))
+		if (!ssl_iostream_bio_sync(ssl_io)) {
+			ssl_io->want_read = TRUE;
 			return 0;
+		}
 		return 1;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
@@ -384,6 +425,7 @@ int ssl_iostream_handshake(struct ssl_iostream *ssl_io)
 				return ret;
 		}
 	}
+	/* handshake finished */
 	(void)ssl_iostream_bio_sync(ssl_io);
 
 	i_free_and_null(ssl_io->last_error);

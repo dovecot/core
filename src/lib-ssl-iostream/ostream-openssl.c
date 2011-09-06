@@ -66,22 +66,25 @@ o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 {
 	size_t pos = 0;
-	int ret;
+	int ret = 1;
 
 	while (pos < sstream->buffer->used) {
+		/* we're writing plaintext data to OpenSSL, which it encrypts
+		   and writes to bio_int's buffer. ssl_iostream_bio_sync()
+		   reads it from there and adds to plain_output stream. */
 		ret = SSL_write(sstream->ssl_io->ssl,
 				CONST_PTR_OFFSET(sstream->buffer->data, pos),
 				sstream->buffer->used - pos);
 		if (ret <= 0) {
 			ret = ssl_iostream_handle_error(sstream->ssl_io, ret,
 							"SSL_write");
-			if (ret <= 0) {
-				if (ret < 0) {
-					sstream->ostream.ostream.stream_errno =
-						errno;
-				}
-				buffer_delete(sstream->buffer, 0, pos);
-				return ret;
+			if (ret < 0) {
+				sstream->ostream.ostream.stream_errno = errno;
+				break;
+			}
+			if (ret == 0) {
+				/* bio_int's buffer is full */
+				break;
 			}
 		} else {
 			pos += ret;
@@ -89,7 +92,7 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 		}
 	}
 	buffer_delete(sstream->buffer, 0, pos);
-	return 1;
+	return ret <= 0 ? ret : 1;
 }
 
 static int o_stream_ssl_flush(struct ostream_private *stream)
@@ -97,34 +100,33 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 	int ret;
 
-	if (!sstream->ssl_io->handshaked) {
-		if ((ret = ssl_iostream_handshake(sstream->ssl_io)) <= 0) {
-			if (ret < 0)
-				stream->ostream.stream_errno = errno;
-			return ret;
-		}
+	if ((ret = ssl_iostream_more(sstream->ssl_io)) < 0) {
+		/* handshake failed */
+		stream->ostream.stream_errno = errno;
+	} else if (ret > 0 && sstream->buffer != NULL &&
+		   sstream->buffer->used > 0) {
+		/* we can try to send some of our buffered data */
+		ret = o_stream_ssl_flush_buffer(sstream);
 	}
 
-	if (sstream->buffer != NULL && sstream->buffer->used > 0) {
-		if ((ret = o_stream_ssl_flush_buffer(sstream)) <= 0)
-			return ret;
+	if (ret == 0 && sstream->ssl_io->want_read) {
+		/* we need to read more data until we can continue. */
+		sstream->ssl_io->ostream_flush_waiting_input = TRUE;
+		ret = 1;
 	}
-	return 1;
+	return ret;
 }
 
 static ssize_t
-o_stream_ssl_sendv(struct ostream_private *stream,
-		   const struct const_iovec *iov, unsigned int iov_count)
+o_stream_ssl_sendv_try(struct ssl_ostream *sstream,
+		       const struct const_iovec *iov, unsigned int iov_count,
+		       size_t *bytes_sent_r)
 {
-	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 	unsigned int i;
-	size_t bytes_sent = 0;
 	size_t pos;
-	int ret = 0;
+	ssize_t ret;
 
-	if (o_stream_flush(&stream->ostream) <= 0)
-		return o_stream_ssl_buffer(sstream, iov, iov_count, 0);
-
+	*bytes_sent_r = 0;
 	for (i = 0, pos = 0; i < iov_count; ) {
 		ret = SSL_write(sstream->ssl_io->ssl,
 				CONST_PTR_OFFSET(iov[i].iov_base, pos),
@@ -132,13 +134,14 @@ o_stream_ssl_sendv(struct ostream_private *stream,
 		if (ret <= 0) {
 			ret = ssl_iostream_handle_error(sstream->ssl_io, ret,
 							"SSL_write");
-			if (ret <= 0) {
-				if (ret < 0)
-					stream->ostream.stream_errno = errno;
+			if (ret < 0) {
+				sstream->ostream.ostream.stream_errno = errno;
 				break;
 			}
+			if (ret == 0)
+				break;
 		} else {
-			bytes_sent += ret;
+			*bytes_sent_r += ret;
 			if ((size_t)ret < iov[i].iov_len)
 				pos += ret;
 			else {
@@ -148,20 +151,41 @@ o_stream_ssl_sendv(struct ostream_private *stream,
 			(void)ssl_iostream_bio_sync(sstream->ssl_io);
 		}
 	}
+	return ret <= 0 ? ret : 1;
+}
+
+static ssize_t
+o_stream_ssl_sendv(struct ostream_private *stream,
+		   const struct const_iovec *iov, unsigned int iov_count)
+{
+	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
+	size_t bytes_sent = 0;
+	int ret;
+
+	if (!sstream->ssl_io->handshaked)
+		ret = 0;
+	else {
+		ret = o_stream_ssl_sendv_try(sstream, iov, iov_count,
+					     &bytes_sent);
+	}
+
 	bytes_sent = o_stream_ssl_buffer(sstream, iov, iov_count, bytes_sent);
 	return bytes_sent != 0 ? (ssize_t)bytes_sent : ret;
 }
 
 static int plain_flush_callback(struct ssl_ostream *sstream)
 {
-	int ret;
+	int ret, ret2;
 
+	/* try to actually flush the pending data */
 	if ((ret = o_stream_flush(sstream->ssl_io->plain_output)) < 0)
-		return 1;
+		return -1;
 
-	if (ret > 0)
-		return o_stream_flush(&sstream->ostream.ostream);
-	return 1;
+	/* we may be able to copy more data, try it */
+	ret2 = o_stream_flush(&sstream->ostream.ostream);
+	if (ret2 < 0)
+		return -1;
+	return ret > 0 && ret2 > 0 ? 1 : 0;
 }
 
 struct ostream *o_stream_create_ssl(struct ssl_iostream *ssl_io)
