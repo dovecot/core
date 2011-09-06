@@ -164,6 +164,11 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 
 	ret = settings_parse_line(set_parser, line);
 	if (mail_debug && ret >= 0) {
+		if (strstr(key, "pass") != NULL) {
+			/* possibly a password field (e.g. imapc_password).
+			   hide the value. */
+			line = t_strconcat(key, "=<hidden>", NULL);
+		}
 		i_debug(ret == 0 ?
 			"Unknown userdb setting: %s" :
 			"Added userdb setting: %s", line);
