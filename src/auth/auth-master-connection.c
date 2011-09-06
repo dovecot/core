@@ -44,6 +44,30 @@ static void master_input(struct auth_master_connection *conn);
 
 ARRAY_TYPE(auth_master_connections) auth_master_connections;
 
+static const char *
+auth_master_reply_hide_passwords(struct auth_master_connection *conn,
+				 const char *str)
+{
+	char **args, *p, *p2;
+	unsigned int i;
+
+	if (conn->auth->set->debug_passwords)
+		return str;
+
+	/* hide all parameters that have "pass" in their key */
+	args = p_strsplit(pool_datastack_create(), str, "\t");
+	for (i = 0; args[i] != NULL; i++) {
+		p = strstr(args[i], "pass");
+		p2 = strchr(args[i], '=');
+		if (p != NULL && p < p2) {
+			*p2 = '\0';
+			args[i] = p_strconcat(pool_datastack_create(),
+					      args[i], "=<hidden>", NULL);
+		}
+	}
+	return t_strarray_join((void *)args, "\t");
+}
+
 void auth_master_request_callback(struct auth_stream_reply *reply,
 				  void *context)
 {
@@ -53,8 +77,10 @@ void auth_master_request_callback(struct auth_stream_reply *reply,
 
 	reply_str = auth_stream_reply_export(reply);
 
-	if (conn->auth->set->debug)
-		i_debug("master out: %s", reply_str);
+	if (conn->auth->set->debug) {
+		i_debug("master out: %s",
+			auth_master_reply_hide_passwords(conn, reply_str));
+	}
 
 	iov[0].iov_base = reply_str;
 	iov[0].iov_len = strlen(reply_str);
@@ -228,8 +254,10 @@ user_callback(enum userdb_result result,
 		break;
 	}
 
-	if (conn->auth->set->debug)
-		i_debug("master out: %s", str_c(str));
+	if (conn->auth->set->debug) {
+		i_debug("master out: %s",
+			auth_master_reply_hide_passwords(conn, str_c(str)));
+	}
 
 	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
