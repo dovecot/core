@@ -305,6 +305,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	p_array_init(&mbox->resp_text_callbacks, pool, 16);
 	p_array_init(&mbox->fetch_mails, pool, 16);
 	p_array_init(&mbox->permanent_keywords, pool, 32);
+	p_array_init(&mbox->delayed_expunged_uids, pool, 16);
 	imapc_mailbox_register_callbacks(mbox);
 	return &mbox->box;
 }

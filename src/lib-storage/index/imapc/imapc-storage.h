@@ -57,6 +57,7 @@ struct imapc_mailbox {
 	enum mail_flags permanent_flags;
 	ARRAY_TYPE(keywords) permanent_keywords;
 
+	ARRAY_TYPE(uint32_t) delayed_expunged_uids;
 	uint32_t sync_uid_validity;
 	uint32_t sync_uid_next;
 	uint32_t sync_fetch_first_uid;

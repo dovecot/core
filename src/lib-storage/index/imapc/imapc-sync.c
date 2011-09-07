@@ -331,6 +331,7 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 {
 	struct imapc_sync_context *ctx = *_ctx;
+	bool changes;
 	int ret = ctx->failed ? -1 : 0;
 
 	*_ctx = NULL;
@@ -343,6 +344,12 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
 	ctx->mbox->syncing = FALSE;
+
+	/* this is done simply to commit delayed expunges if there are any
+	   (has to be done after sync is committed) */
+	if (imapc_mailbox_commit_delayed_trans(ctx->mbox, &changes) < 0)
+		ctx->failed = TRUE;
+
 	i_free(ctx);
 	return ret;
 }

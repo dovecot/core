@@ -46,6 +46,27 @@ static void imapc_mailbox_init_delayed_trans(struct imapc_mailbox *mbox)
 		mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
 }
 
+static int imapc_mailbox_commit_delayed_expunges(struct imapc_mailbox *mbox)
+{
+	struct mail_index_view *view = imapc_mailbox_get_sync_view(mbox);
+	struct mail_index_transaction *trans;
+	const uint32_t *uidp;
+	uint32_t lseq;
+	int ret;
+
+	trans = mail_index_transaction_begin(view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	array_foreach(&mbox->delayed_expunged_uids, uidp) {
+		if (mail_index_lookup_seq(view, *uidp, &lseq))
+			mail_index_expunge(trans, lseq);
+	}
+	array_clear(&mbox->delayed_expunged_uids);
+	ret = mail_index_transaction_commit(&trans);
+	if (ret < 0)
+		mail_storage_set_index_error(&mbox->box);
+	return ret;
+}
+
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 				       bool *changes_r)
 {
@@ -64,6 +85,13 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 	}
 	if (mbox->sync_view != NULL)
 		mail_index_view_close(&mbox->sync_view);
+
+	if (array_count(&mbox->delayed_expunged_uids) > 0) {
+		/* delayed expunges - commit them now in a separate
+		   transaction */
+		if (imapc_mailbox_commit_delayed_expunges(mbox) < 0)
+			ret = -1;
+	}
 	return ret;
 }
 
@@ -289,10 +317,18 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 	imapc_msgmap_expunge(msgmap, rseq);
 
 	imapc_mailbox_init_delayed_trans(mbox);
-	if (!mail_index_lookup_seq(mbox->delayed_sync_view, uid, &lseq)) {
-		/* already expunged by another session */
-	} else {
+	if (mail_index_lookup_seq(mbox->sync_view, uid, &lseq))
 		mail_index_expunge(mbox->delayed_sync_trans, lseq);
+	else if (mail_index_lookup_seq(mbox->delayed_sync_view, uid, &lseq)) {
+		/* this message exists only in this transaction. lib-index
+		   can't currently handle expunging anything except the last
+		   appended message in a transaction, and fixing it would be
+		   quite a lot of trouble. so instead we'll just delay doing
+		   this expunge until after the current transaction has been
+		   committed. */
+		array_append(&mbox->delayed_expunged_uids, &uid, 1);
+	} else {
+		/* already expunged by another session */
 	}
 	imapc_mailbox_idle_notify(mbox);
 }
