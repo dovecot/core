@@ -268,6 +268,8 @@ static bool ssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 		if (bytes > max_bytes) {
 			if (max_bytes == 0) {
 				/* wait until output buffer clears */
+				o_stream_set_flush_pending(ssl_io->plain_output,
+							   TRUE);
 				break;
 			}
 			bytes = max_bytes;
