@@ -434,6 +434,12 @@ int mail_index_sync_begin_to(struct mail_index *index,
 
 	i_assert(!index->syncing);
 
+	if (index->map != NULL &&
+	    (index->map->hdr.flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
+		/* index is corrupted and need to be reopened */
+		return -1;
+	}
+
 	if (log_file_seq != (uint32_t)-1)
 		flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
