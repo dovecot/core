@@ -148,6 +148,8 @@ void imapc_connection_ioloop_changed(struct imapc_connection *conn)
 		conn->io = io_loop_move_io(&conn->io);
 	if (conn->to != NULL)
 		conn->to = io_loop_move_timeout(&conn->to);
+	if (conn->output != NULL)
+		o_stream_switch_ioloop(conn->output);
 }
 
 static const char *imapc_command_get_readable(struct imapc_command *cmd)
