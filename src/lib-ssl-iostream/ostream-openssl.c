@@ -11,7 +11,14 @@ struct ssl_ostream {
 	buffer_t *buffer;
 };
 
-static void i_stream_ssl_destroy(struct iostream_private *stream)
+static void o_stream_ssl_close(struct iostream_private *stream)
+{
+	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
+
+	o_stream_close(sstream->ssl_io->plain_output);
+}
+
+static void o_stream_ssl_destroy(struct iostream_private *stream)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 
@@ -198,7 +205,8 @@ struct ostream *o_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->ssl_io = ssl_io;
 	sstream->ostream.max_buffer_size =
 		ssl_io->plain_output->real_stream->max_buffer_size;
-	sstream->ostream.iostream.destroy = i_stream_ssl_destroy;
+	sstream->ostream.iostream.close = o_stream_ssl_close;
+	sstream->ostream.iostream.destroy = o_stream_ssl_destroy;
 	sstream->ostream.sendv = o_stream_ssl_sendv;
 	sstream->ostream.flush = o_stream_ssl_flush;
 

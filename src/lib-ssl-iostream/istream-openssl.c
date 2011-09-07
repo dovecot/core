@@ -10,6 +10,13 @@ struct ssl_istream {
 	bool seen_eof;
 };
 
+static void i_stream_ssl_close(struct iostream_private *stream)
+{
+	struct ssl_istream *sstream = (struct ssl_istream *)stream;
+
+	i_stream_close(sstream->ssl_io->plain_input);
+}
+
 static void i_stream_ssl_destroy(struct iostream_private *stream)
 {
 	struct ssl_istream *sstream = (struct ssl_istream *)stream;
@@ -66,6 +73,7 @@ struct istream *i_stream_create_ssl(struct ssl_iostream *ssl_io)
 
 	sstream = i_new(struct ssl_istream, 1);
 	sstream->ssl_io = ssl_io;
+	sstream->istream.iostream.close = i_stream_ssl_close;
 	sstream->istream.iostream.destroy = i_stream_ssl_destroy;
 	sstream->istream.max_buffer_size =
 		ssl_io->plain_input->real_stream->max_buffer_size;
