@@ -322,6 +322,17 @@ static bool ssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 		i_stream_skip(ssl_io->plain_input, size);
 		bytes_read = TRUE;
 	}
+	if (bytes == 0 && !bytes_read && ssl_io->want_read) {
+		/* shouldn't happen */
+		i_panic("SSL BIO buffer size too small");
+	}
+	if (bytes_read) {
+		if (ssl_io->ostream_flush_waiting_input) {
+			ssl_io->ostream_flush_waiting_input = FALSE;
+			o_stream_set_flush_pending(ssl_io->plain_output, TRUE);
+		}
+		ssl_io->want_read = FALSE;
+	}
 	return bytes_read;
 }
 
@@ -330,14 +341,8 @@ bool ssl_iostream_bio_sync(struct ssl_iostream *ssl_io)
 	bool ret;
 
 	ret = ssl_iostream_bio_output(ssl_io);
-	if (ssl_iostream_bio_input(ssl_io)) {
-		if (ssl_io->ostream_flush_waiting_input) {
-			ssl_io->ostream_flush_waiting_input = FALSE;
-			o_stream_set_flush_pending(ssl_io->plain_output, TRUE);
-		}
-		ssl_io->want_read = FALSE;
+	if (ssl_iostream_bio_input(ssl_io))
 		ret = TRUE;
-	}
 	return ret;
 }
 
@@ -374,11 +379,9 @@ int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 		}
 		return 1;
 	case SSL_ERROR_WANT_READ:
-		if (!ssl_iostream_bio_sync(ssl_io)) {
-			ssl_io->want_read = TRUE;
-			return 0;
-		}
-		return 1;
+		ssl_io->want_read = TRUE;
+		(void)ssl_iostream_bio_sync(ssl_io);
+		return ssl_io->want_read ? 0 : 1;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
 		if (ERR_peek_error() != 0) {
