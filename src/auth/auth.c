@@ -11,7 +11,9 @@
 
 struct auth_userdb_settings userdb_dummy_set = {
 	.driver = "static",
-	.args = ""
+	.args = "",
+	.default_fields = "",
+	.override_fields = ""
 };
 
 static ARRAY_DEFINE(auths, struct auth *);
