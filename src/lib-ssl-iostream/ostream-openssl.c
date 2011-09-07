@@ -189,6 +189,7 @@ static void o_stream_ssl_switch_ioloop(struct ostream_private *stream)
 
 static int plain_flush_callback(struct ssl_ostream *sstream)
 {
+	struct ostream *ostream = &sstream->ostream.ostream;
 	int ret, ret2;
 
 	/* try to actually flush the pending data */
@@ -196,7 +197,14 @@ static int plain_flush_callback(struct ssl_ostream *sstream)
 		return -1;
 
 	/* we may be able to copy more data, try it */
-	ret2 = o_stream_flush(&sstream->ostream.ostream);
+	o_stream_ref(ostream);
+	if (sstream->ostream.callback != NULL)
+		ret2 = sstream->ostream.callback(sstream->ostream.context);
+	else
+		ret2 = o_stream_flush(&sstream->ostream.ostream);
+	if (ret2 == 0)
+		o_stream_set_flush_pending(sstream->ssl_io->plain_output, TRUE);
+	o_stream_unref(&ostream);
 	if (ret2 < 0)
 		return -1;
 	return ret > 0 && ret2 > 0 ? 1 : 0;
@@ -218,6 +226,8 @@ struct ostream *o_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->ostream.flush = o_stream_ssl_flush;
 	sstream->ostream.switch_ioloop = o_stream_ssl_switch_ioloop;
 
+	sstream->ostream.callback = ssl_io->plain_output->real_stream->callback;
+	sstream->ostream.context = ssl_io->plain_output->real_stream->context;
 	o_stream_set_flush_callback(ssl_io->plain_output,
 				    plain_flush_callback, sstream);
 
