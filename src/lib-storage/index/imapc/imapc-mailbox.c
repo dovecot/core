@@ -22,8 +22,6 @@ static void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 		mbox->box.name, t_strdup_vprintf(reason, va));
 	va_end(va);
 
-	sleep(3600);
-
 	mail_index_mark_corrupted(mbox->box.index);
 	imapc_client_mailbox_disconnect(mbox->client_box);
 }

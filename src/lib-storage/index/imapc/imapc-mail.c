@@ -69,7 +69,6 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 				mail_storage_set_critical(_mail->box->storage,
 					"imapc: Remote server didn't send "
 					"INTERNALDATE for UID %u", _mail->uid);
-				sleep(3600);
 			}
 			return -1;
 		}
@@ -147,7 +146,6 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 				mail_storage_set_critical(_mail->box->storage,
 					"imapc: Remote server didn't send "
 					"BODY[] for UID %u", _mail->uid);
-				sleep(3600);
 			}
 			return -1;
 		}
