@@ -318,7 +318,8 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 	mbox->min_append_uid = mail_index_get_header(ctx->sync_view)->next_uid;
 
 	mbox->syncing = TRUE;
-	imapc_sync_index(ctx);
+	if (!mbox->box.deleting)
+		imapc_sync_index(ctx);
 
 	mail_index_view_close(&mbox->delayed_sync_view);
 	mbox->delayed_sync_trans = NULL;
