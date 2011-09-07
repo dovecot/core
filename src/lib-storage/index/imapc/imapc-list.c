@@ -189,8 +189,8 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		/* the root dir shouldn't actually ever be used. we just need
 		   it to be different from index_dir so the index directories
 		   get autocreated */
-		list_set.root_dir = t_strconcat(dir, "/", NULL);
-		list_set.index_dir = dir;
+		list_set.root_dir = dir;
+		list_set.index_dir = t_strconcat(dir, "/indexes", NULL);
 		list_set.escape_char = '%';
 
 		if (mailbox_list_create(list_set.layout, list->list.ns,
