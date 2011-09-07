@@ -50,6 +50,7 @@ struct imapc_command {
 	void *context;
 
 	unsigned int idle:1;
+	unsigned int mailboxcmd:1;
 };
 
 struct imapc_connection_literal {
@@ -613,18 +614,18 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	     need_literal(set->username) && need_literal(set->password)) ||
 	    (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0) {
 		/* We can use LOGIN command */
-		imapc_connection_cmdf(conn, imapc_connection_login_cb, conn,
-				      "LOGIN %s %s",
+		imapc_connection_cmdf(conn, FALSE, imapc_connection_login_cb,
+				      conn, "LOGIN %s %s",
 				      set->username, set->password);
 	} else if ((conn->capabilities & IMAPC_CAPABILITY_SASL_IR) != 0) {
 		cmd = t_strdup_printf("AUTHENTICATE PLAIN %s",
 			imapc_connection_get_sasl_plain_request(conn));
-		imapc_connection_cmd(conn, cmd,
+		imapc_connection_cmd(conn, FALSE, cmd,
 				     imapc_connection_login_cb, conn);
 	} else {
 		cmd = t_strdup_printf("AUTHENTICATE PLAIN\r\n%s",
 			imapc_connection_get_sasl_plain_request(conn));
-		imapc_connection_cmd(conn, cmd,
+		imapc_connection_cmd(conn, FALSE, cmd,
 				     imapc_connection_login_cb, conn);
 	}
 }
@@ -658,7 +659,7 @@ static void imapc_connection_starttls(struct imapc_connection *conn)
 			imapc_connection_disconnect(conn);
 			return;
 		}
-		imapc_connection_cmd(conn, "STARTTLS",
+		imapc_connection_cmd(conn, FALSE, "STARTTLS",
 				     imapc_connection_starttls_cb, conn);
 		return;
 	}
@@ -698,7 +699,7 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 
 	if (conn->capabilities == 0) {
 		/* capabilities weren't sent in the banner. ask for them. */
-		imapc_connection_cmd(conn, "CAPABILITY",
+		imapc_connection_cmd(conn, FALSE, "CAPABILITY",
 				     imapc_connection_capability_cb, conn);
 	} else {
 		imapc_connection_starttls(conn);
@@ -1293,7 +1294,7 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 static void imapc_command_send_more(struct imapc_connection *conn,
 				    struct imapc_command *cmd)
 {
-	const unsigned char *p;
+	const unsigned char *p, *data;
 	unsigned int seek_pos, start_pos, end_pos, size;
 	int ret;
 
@@ -1324,9 +1325,9 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 		 p[-1] == '\r' && p[-2] == '}' && p[-3] == '+');
 	end_pos = seek_pos;
 
-	o_stream_send(conn->output,
-		      CONST_PTR_OFFSET(cmd->data->data, cmd->send_pos),
-		      end_pos - cmd->send_pos);
+	data = CONST_PTR_OFFSET(cmd->data->data, cmd->send_pos);
+	size = end_pos - cmd->send_pos;
+	o_stream_send(conn->output, data, size);
 	cmd->send_pos = end_pos;
 
 	if (cmd->send_pos == cmd->data->used) {
@@ -1422,27 +1423,30 @@ imapc_connection_cmd_build(const char *cmdline,
 	return cmd;
 }
 
-void imapc_connection_cmd(struct imapc_connection *conn, const char *cmdline,
+void imapc_connection_cmd(struct imapc_connection *conn, bool mailboxcmd,
+			  const char *cmdline,
 			  imapc_command_callback_t *callback, void *context)
 {
 	struct imapc_command *cmd;
 
 	cmd = imapc_connection_cmd_build(cmdline, callback, context);
+	cmd->mailboxcmd = mailboxcmd;
 	imapc_command_send(conn, cmd);
 }
 
-void imapc_connection_cmdf(struct imapc_connection *conn,
+void imapc_connection_cmdf(struct imapc_connection *conn, bool mailboxcmd,
 			   imapc_command_callback_t *callback, void *context,
 			   const char *cmd_fmt, ...)
 {
 	va_list args;
 
 	va_start(args, cmd_fmt);
-	imapc_connection_cmdvf(conn, callback, context, cmd_fmt, args);
+	imapc_connection_cmdvf(conn, mailboxcmd, callback, context,
+			       cmd_fmt, args);
 	va_end(args);
 }
 
-void imapc_connection_cmdvf(struct imapc_connection *conn,
+void imapc_connection_cmdvf(struct imapc_connection *conn, bool mailboxcmd,
 			   imapc_command_callback_t *callback, void *context,
 			   const char *cmd_fmt, va_list args)
 {
@@ -1450,6 +1454,7 @@ void imapc_connection_cmdvf(struct imapc_connection *conn,
 	unsigned int i;
 
 	cmd = imapc_command_begin(callback, context);
+	cmd->mailboxcmd = mailboxcmd;
 	cmd->data = str_new(cmd->pool, 128);
 	str_printfa(cmd->data, "%u ", cmd->tag);
 
@@ -1546,14 +1551,16 @@ void imapc_connection_select(struct imapc_client_mailbox *box,
 		conn->selected_box = box;
 	}
 
-	imapc_connection_cmdf(conn, callback, context,
+	imapc_connection_cmdf(conn, FALSE, callback, context,
 			      examine ? "EXAMINE %s" : "SELECT %s", name);
 }
 
 void imapc_connection_unselect(struct imapc_client_mailbox *box)
 {
-	struct imapc_command *const *cmdp;
+	struct imapc_connection *conn = box->conn;
+	struct imapc_command *const *cmdp, *cmd;
 	struct imapc_command_reply reply;
+	unsigned int i;
 
 	/* mailbox is being closed. if there are any pending commands, we must
 	   finish them immediately so callbacks don't access any freed
@@ -1562,30 +1569,35 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 	reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 	reply.text_without_resp = reply.text_full = "Closing mailbox";
 
-	imapc_connection_send_idle_done(box->conn);
+	imapc_connection_send_idle_done(conn);
 
-	array_foreach(&box->conn->cmd_wait_list, cmdp) {
-		if ((*cmdp)->callback != NULL) {
+	array_foreach(&conn->cmd_wait_list, cmdp) {
+		if ((*cmdp)->callback != NULL && (*cmdp)->mailboxcmd) {
 			(*cmdp)->callback(&reply, (*cmdp)->context);
 			(*cmdp)->callback = NULL;
 		}
 	}
-	array_foreach(&box->conn->cmd_send_queue, cmdp) {
-		if ((*cmdp)->callback != NULL) {
-			(*cmdp)->callback(&reply, (*cmdp)->context);
-			(*cmdp)->callback = NULL;
+	for (i = 0; i < array_count(&conn->cmd_send_queue); ) {
+		cmdp = array_idx(&conn->cmd_send_queue, i);
+		cmd = *cmdp;
+		if (!cmd->mailboxcmd)
+			i++;
+		else {
+			array_delete(&conn->cmd_send_queue, i, 1);
+			if (cmd->callback != NULL)
+				cmd->callback(&reply, cmd->context);
+			imapc_command_free(cmd);
 		}
 	}
 
-	if (box->conn->selected_box == NULL &&
-	    box->conn->selecting_box == NULL) {
-		i_assert(box->conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED);
+	if (conn->selected_box == NULL && conn->selecting_box == NULL) {
+		i_assert(conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED);
 	} else {
-		i_assert(box->conn->selected_box == box ||
-			 box->conn->selecting_box == box);
+		i_assert(conn->selected_box == box ||
+			 conn->selecting_box == box);
 
-		box->conn->selected_box = NULL;
-		box->conn->selecting_box = NULL;
+		conn->selected_box = NULL;
+		conn->selecting_box = NULL;
 	}
 }
 

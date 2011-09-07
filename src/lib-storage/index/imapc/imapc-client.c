@@ -185,7 +185,7 @@ void imapc_client_cmdf(struct imapc_client *client,
 	conn = imapc_client_find_connection(client);
 
 	va_start(args, cmd_fmt);
-	imapc_connection_cmdvf(conn, callback, context, cmd_fmt, args);
+	imapc_connection_cmdvf(conn, FALSE, callback, context, cmd_fmt, args);
 	va_end(args);
 }
 
@@ -317,7 +317,8 @@ void imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
 	}
 
 	ctx = imapc_client_mailbox_cmd_common(box, callback, context);
-	imapc_connection_cmd(box->conn, cmd, imapc_client_mailbox_cmd_cb, ctx);
+	imapc_connection_cmd(box->conn, TRUE, cmd,
+			     imapc_client_mailbox_cmd_cb, ctx);
 }
 
 void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
@@ -335,7 +336,7 @@ void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 
 	ctx = imapc_client_mailbox_cmd_common(box, callback, context);
 	va_start(args, cmd_fmt);
-	imapc_connection_cmdvf(box->conn, imapc_client_mailbox_cmd_cb,
+	imapc_connection_cmdvf(box->conn, TRUE, imapc_client_mailbox_cmd_cb,
 			       ctx, cmd_fmt, args);
 	va_end(args);
 }
