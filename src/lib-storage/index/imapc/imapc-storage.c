@@ -203,6 +203,30 @@ static void imapc_storage_untagged_cb(const struct imapc_untagged_reply *reply,
 }
 
 static int
+imapc_storage_get_hierarchy_sep(struct imapc_storage *storage,
+				const char **error_r)
+{
+	struct imapc_simple_context sctx;
+
+	imapc_simple_context_init(&sctx, storage);
+	imapc_client_cmdf(storage->client, imapc_simple_callback, &sctx,
+			  "LIST \"\" \"\"");
+	imapc_simple_run(&sctx);
+
+	if (sctx.ret < 0) {
+		*error_r = t_strdup_printf("LIST failed: %s",
+			mail_storage_get_last_error(&storage->storage, NULL));
+		return -1;
+	}
+
+	if (storage->list->sep == '\0') {
+		*error_r = "LIST didn't return hierarchy separator";
+		return -1;
+	}
+	return sctx.ret;
+}
+
+static int
 imapc_storage_create(struct mail_storage *_storage,
 		     struct mail_namespace *ns,
 		     const char **error_r)
@@ -253,6 +277,11 @@ imapc_storage_create(struct mail_storage *_storage,
 	imapc_list_register_callbacks(storage->list);
 	imapc_storage_register_untagged(storage, "STATUS",
 					imapc_untagged_status);
+	/* connect to imap server and get the hierarchy separator. */
+	if (imapc_storage_get_hierarchy_sep(storage, error_r) < 0) {
+		imapc_client_deinit(&storage->client);
+		return -1;
+	}
 	return 0;
 }
 

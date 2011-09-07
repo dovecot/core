@@ -17,9 +17,6 @@ struct imapc_mailbox_list {
 
 	unsigned int iter_count;
 
-	/* we've returned wrong separator. all mailbox list operations must
-	   fail from now on. */
-	unsigned int broken:1;
 	unsigned int refreshed_subscriptions:1;
 	unsigned int refreshed_mailboxes:1;
 	unsigned int index_list_failed:1;

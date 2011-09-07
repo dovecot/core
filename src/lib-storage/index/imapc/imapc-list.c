@@ -165,20 +165,10 @@ imapc_is_valid_create_name(struct mailbox_list *list ATTR_UNUSED,
 static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
-	struct imapc_simple_context ctx;
 
-	if (list->sep == '\0') {
-		imapc_simple_context_init(&ctx, list->storage);
-		imapc_client_cmdf(list->storage->client,
-				  imapc_list_simple_callback, &ctx,
-				  "LIST \"\" \"\"");
-		imapc_simple_run(&ctx);
+	/* storage should have looked this up when it was created */
+	i_assert(list->sep != '\0');
 
-		if (ctx.ret < 0) {
-			list->broken = TRUE;
-			return '/';
-		}
-	}
 	return list->sep;
 }
 
