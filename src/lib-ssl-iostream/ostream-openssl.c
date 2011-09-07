@@ -210,6 +210,23 @@ static int plain_flush_callback(struct ssl_ostream *sstream)
 	return ret > 0 && ret2 > 0 ? 1 : 0;
 }
 
+static void
+o_stream_ssl_flush_pending(struct ostream_private *_stream, bool set)
+{
+	struct ssl_ostream *sstream = (struct ssl_ostream *)_stream;
+
+	o_stream_set_flush_pending(sstream->ssl_io->plain_output, set);
+}
+
+static void o_stream_ssl_set_max_buffer_size(struct iostream_private *_stream,
+					     size_t max_size)
+{
+	struct ssl_ostream *sstream = (struct ssl_ostream *)_stream;
+
+	sstream->ostream.max_buffer_size = max_size;
+	o_stream_set_max_buffer_size(sstream->ssl_io->plain_output, max_size);
+}
+
 struct ostream *o_stream_create_ssl(struct ssl_iostream *ssl_io)
 {
 	struct ssl_ostream *sstream;
@@ -225,6 +242,10 @@ struct ostream *o_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->ostream.sendv = o_stream_ssl_sendv;
 	sstream->ostream.flush = o_stream_ssl_flush;
 	sstream->ostream.switch_ioloop = o_stream_ssl_switch_ioloop;
+
+	sstream->ostream.flush_pending = o_stream_ssl_flush_pending;
+	sstream->ostream.iostream.set_max_buffer_size =
+		o_stream_ssl_set_max_buffer_size;
 
 	sstream->ostream.callback = ssl_io->plain_output->real_stream->callback;
 	sstream->ostream.context = ssl_io->plain_output->real_stream->context;
