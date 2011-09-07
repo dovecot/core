@@ -29,6 +29,7 @@ void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io ATTR_UNUSED
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io ATTR_UNUSED) { return FALSE; }
 bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io ATTR_UNUSED) { return FALSE; }
 bool ssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io ATTR_UNUSED) { return TRUE; }
+int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io ATTR_UNUSED, const char *name ATTR_UNUSED) { return -1; }
 const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io ATTR_UNUSED) { return NULL; }
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io ATTR_UNUSED) { return NULL; }
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io ATTR_UNUSED) { return NULL; }
