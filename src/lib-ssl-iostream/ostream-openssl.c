@@ -124,7 +124,7 @@ o_stream_ssl_sendv_try(struct ssl_ostream *sstream,
 {
 	unsigned int i;
 	size_t pos;
-	ssize_t ret;
+	ssize_t ret = 0;
 
 	*bytes_sent_r = 0;
 	for (i = 0, pos = 0; i < iov_count; ) {
@@ -151,7 +151,7 @@ o_stream_ssl_sendv_try(struct ssl_ostream *sstream,
 			(void)ssl_iostream_bio_sync(sstream->ssl_io);
 		}
 	}
-	return ret <= 0 ? ret : 1;
+	return ret < 0 ? -1 : 0;
 }
 
 static ssize_t
