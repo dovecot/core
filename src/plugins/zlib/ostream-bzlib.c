@@ -146,6 +146,13 @@ static int o_stream_bzlib_flush(struct ostream_private *stream)
 	return ret;
 }
 
+static void o_stream_bzlib_switch_ioloop(struct ostream_private *stream)
+{
+	struct bzlib_ostream *zstream = (struct bzlib_ostream *)stream;
+
+	o_stream_switch_ioloop(zstream->output);
+}
+
 static ssize_t
 o_stream_bzlib_sendv(struct ostream_private *stream,
 		    const struct const_iovec *iov, unsigned int iov_count)
@@ -176,6 +183,7 @@ struct ostream *o_stream_create_bz2(struct ostream *output, int level)
 	zstream->ostream.sendv = o_stream_bzlib_sendv;
 	zstream->ostream.cork = o_stream_bzlib_cork;
 	zstream->ostream.flush = o_stream_bzlib_flush;
+	zstream->ostream.switch_ioloop = o_stream_bzlib_switch_ioloop;
 	zstream->ostream.iostream.close = o_stream_bzlib_close;
 	zstream->output = output;
 	o_stream_ref(output);

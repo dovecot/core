@@ -292,3 +292,11 @@ off_t io_stream_copy(struct ostream *outstream, struct istream *instream,
 
 	return (off_t)(instream->v_offset - start_offset);
 }
+
+void o_stream_switch_ioloop(struct ostream *stream)
+{
+	struct ostream_private *_stream = stream->real_stream;
+
+	if (_stream->switch_ioloop != NULL)
+		_stream->switch_ioloop(_stream);
+}

@@ -870,6 +870,14 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 	return io_stream_copy_stream(outstream, instream, same_stream);
 }
 
+static void o_stream_file_switch_ioloop(struct ostream_private *stream)
+{
+	struct file_ostream *fstream = (struct file_ostream *)stream;
+
+	if (fstream->io != NULL)
+		fstream->io = io_loop_move_io(&fstream->io);
+}
+
 static struct file_ostream *
 o_stream_create_fd_common(int fd, bool autoclose_fd)
 {
@@ -891,6 +899,7 @@ o_stream_create_fd_common(int fd, bool autoclose_fd)
 	fstream->ostream.sendv = o_stream_file_sendv;
 	fstream->ostream.write_at = o_stream_file_write_at;
 	fstream->ostream.send_istream = o_stream_file_send_istream;
+	fstream->ostream.switch_ioloop = o_stream_file_switch_ioloop;
 
 	return fstream;
 }

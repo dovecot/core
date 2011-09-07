@@ -21,6 +21,7 @@ struct ostream_private {
 			const void *data, size_t size, uoff_t offset);
 	off_t (*send_istream)(struct ostream_private *outstream,
 			      struct istream *instream);
+	void (*switch_ioloop)(struct ostream_private *stream);
 
 /* data: */
 	struct ostream ostream;

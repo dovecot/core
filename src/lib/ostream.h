@@ -106,4 +106,8 @@ off_t o_stream_send_istream(struct ostream *outstream,
 int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 		    uoff_t offset);
 
+/* If there are any I/O loop items associated with the stream, move all of
+   them to current_ioloop. */
+void o_stream_switch_ioloop(struct ostream *stream);
+
 #endif
