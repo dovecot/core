@@ -156,9 +156,11 @@ static void imapc_noop_callback(const struct imapc_command_reply *reply,
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK)
 		;
-	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+	else if (reply->state == IMAPC_COMMAND_STATE_NO)
 		imapc_copy_error_from_reply(storage, MAIL_ERROR_PARAMS, reply);
-	} else if (reply->state != IMAPC_COMMAND_STATE_DISCONNECTED) {
+	else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
+		mail_storage_set_internal_error(&storage->storage);
+	else {
 		mail_storage_set_critical(&storage->storage,
 			"imapc: NOOP failed: %s", reply->text_full);
 	}
