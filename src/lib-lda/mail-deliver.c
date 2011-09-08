@@ -284,7 +284,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 				   &error, &errstr) < 0) {
 		if (box != NULL)
 			mailbox_free(&box);
-		mail_deliver_log(ctx, "save failed to %s: %s",
+		mail_deliver_log(ctx, "save failed to open mailbox %s: %s",
 				 mailbox_name, errstr);
 		return -1;
 	}
