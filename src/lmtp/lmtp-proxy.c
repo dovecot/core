@@ -336,6 +336,8 @@ static bool lmtp_proxy_disconnect_hanging_output(struct lmtp_proxy *proxy)
 {
 	struct lmtp_proxy_connection *const *conns;
 	uoff_t min_offset;
+	size_t size;
+	const char *errstr;
 
 	min_offset = lmtp_proxy_find_lowest_offset(proxy);
 	if (min_offset == (uoff_t)-1)
@@ -348,9 +350,13 @@ static bool lmtp_proxy_disconnect_hanging_output(struct lmtp_proxy *proxy)
 
 		if (conn->data_input != NULL &&
 		    conn->data_input->v_offset == min_offset) {
-			lmtp_client_fail(conn->client,
-					 ERRSTR_TEMP_REMOTE_FAILURE
-					 " (DATA output timeout)");
+			(void)i_stream_get_data(conn->data_input, &size);
+			errstr = t_strdup_printf(ERRSTR_TEMP_REMOTE_FAILURE
+				" (DATA output stalled for %u secs, "
+				"%"PRIuUOFF_T"B sent, %"PRIuSIZE_T"B buffered)",
+				proxy->max_timeout_msecs/1000,
+				min_offset, size);
+			lmtp_client_fail(conn->client, errstr);
 		}
 	}
 	return TRUE;
