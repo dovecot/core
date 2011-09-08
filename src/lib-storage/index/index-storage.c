@@ -462,7 +462,7 @@ int index_storage_mailbox_update(struct mailbox *box,
 	}
 
 	if ((ret = mail_index_transaction_commit(&trans)) < 0)
-		mail_storage_set_internal_error(box->storage);
+		mail_storage_set_index_error(box);
 	mail_index_view_close(&view);
 	return ret;
 }
