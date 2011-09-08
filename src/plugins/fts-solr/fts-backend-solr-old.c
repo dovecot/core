@@ -36,6 +36,7 @@ struct solr_fts_backend_update_context {
 	string_t *cmd, *hdr;
 
 	bool headers_open;
+	bool body_open;
 	bool documents_added;
 };
 
@@ -513,6 +514,10 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 		str_append(ctx->cmd, "<add>");
 	} else {
 		ctx->headers_open = FALSE;
+		if (ctx->body_open) {
+			ctx->body_open = FALSE;
+			str_append(ctx->cmd, "</field>");
+		}
 		str_append(ctx->cmd, "<field name=\"hdr\">");
 		str_append_str(ctx->cmd, ctx->hdr);
 		str_append(ctx->cmd, "</field>");
@@ -547,7 +552,10 @@ fts_backend_solr_update_set_build_key(struct fts_backend_update_context *_ctx,
 		break;
 	case FTS_BACKEND_BUILD_KEY_BODY_PART:
 		ctx->headers_open = FALSE;
-		str_append(ctx->cmd, "<field name=\"body\">");
+		if (!ctx->body_open) {
+			ctx->body_open = TRUE;
+			str_append(ctx->cmd, "<field name=\"body\">");
+		}
 		break;
 	case FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY:
 		i_unreached();
@@ -561,10 +569,12 @@ fts_backend_solr_update_unset_build_key(struct fts_backend_update_context *_ctx)
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
 
-	if (!ctx->headers_open)
-		str_append(ctx->cmd, "</field>");
-	else
+	if (ctx->headers_open)
 		str_append_c(ctx->hdr, '\n');
+	else {
+		i_assert(ctx->body_open);
+		str_append_c(ctx->cmd, '\n');
+	}
 }
 
 static int

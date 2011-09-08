@@ -36,6 +36,7 @@ struct solr_fts_backend_update_context {
 
 	unsigned int last_indexed_uid_set:1;
 	unsigned int headers_open:1;
+	unsigned int body_open:1;
 	unsigned int cur_header_index:1;
 	unsigned int documents_added:1;
 	unsigned int expunges:1;
@@ -260,6 +261,10 @@ static void
 fts_backend_solr_doc_close(struct solr_fts_backend_update_context *ctx)
 {
 	ctx->headers_open = FALSE;
+	if (ctx->body_open) {
+		ctx->body_open = FALSE;
+		str_append(ctx->cmd, "</field>");
+	}
 	if (str_len(ctx->hdr) > 0) {
 		str_append(ctx->cmd, "<field name=\"hdr\">");
 		str_append_str(ctx->cmd, ctx->hdr);
@@ -416,7 +421,10 @@ fts_backend_solr_update_set_build_key(struct fts_backend_update_context *_ctx,
 		break;
 	case FTS_BACKEND_BUILD_KEY_BODY_PART:
 		ctx->headers_open = FALSE;
-		str_append(ctx->cmd, "<field name=\"body\">");
+		if (!ctx->body_open) {
+			ctx->body_open = TRUE;
+			str_append(ctx->cmd, "<field name=\"body\">");
+		}
 		break;
 	case FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY:
 		i_unreached();
@@ -430,12 +438,15 @@ fts_backend_solr_update_unset_build_key(struct fts_backend_update_context *_ctx)
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
 
-	if (!ctx->headers_open)
-		str_append(ctx->cmd, "</field>");
-	else {
+	if (ctx->headers_open) {
 		/* this is called individually for each header line.
 		   headers are finished only when key changes to body */
 		str_append_c(ctx->hdr, '\n');
+	} else {
+		i_assert(ctx->body_open);
+		/* messages can have multiple MIME bodies.
+		   add them all as one. */
+		str_append_c(ctx->cmd, '\n');
 	}
 
 	if (ctx->cur_header_index) {
