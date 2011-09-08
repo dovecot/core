@@ -288,8 +288,9 @@ static bool ssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 		sent = o_stream_send(ssl_io->plain_output, buffer, bytes);
 		if (sent < 0) {
 			i_assert(ssl_io->plain_output->stream_errno != 0);
-			ssl_io->ssl_output->stream_errno =
+			ssl_io->plain_stream_errno =
 				ssl_io->plain_output->stream_errno;
+			ssl_io->closed = TRUE;
 			break;
 		}
 		i_assert(sent == (ssize_t)bytes);
@@ -308,7 +309,14 @@ static bool ssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 
 	while ((bytes = BIO_ctrl_get_write_guarantee(ssl_io->bio_ext)) > 0) {
 		/* bytes contains how many bytes we can write to bio_ext */
-		(void)i_stream_read_data(ssl_io->plain_input, &data, &size, 0);
+		if (i_stream_read_data(ssl_io->plain_input,
+				       &data, &size, 0) == -1 &&
+		    size == 0 && !bytes_read) {
+			ssl_io->plain_stream_errno =
+				ssl_io->plain_input->stream_errno;
+			ssl_io->closed = TRUE;
+			return FALSE;
+		}
 		if (size == 0) {
 			/* wait for more input */
 			break;
@@ -377,10 +385,18 @@ int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 			i_panic("SSL ostream buffer size not unlimited");
 			return 0;
 		}
+		if (ssl_io->closed) {
+			errno = ssl_io->plain_stream_errno;
+			return -1;
+		}
 		return 1;
 	case SSL_ERROR_WANT_READ:
 		ssl_io->want_read = TRUE;
 		(void)ssl_iostream_bio_sync(ssl_io);
+		if (ssl_io->closed) {
+			errno = ssl_io->plain_stream_errno;
+			return -1;
+		}
 		return ssl_io->want_read ? 0 : 1;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */

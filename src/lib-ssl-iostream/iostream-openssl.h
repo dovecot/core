@@ -34,6 +34,7 @@ struct ssl_iostream {
 
 	char *source;
 	char *last_error;
+	int plain_stream_errno;
 
 	/* copied settings */
 	bool verbose, verbose_invalid_cert, require_valid_cert;
@@ -47,6 +48,7 @@ struct ssl_iostream {
 	unsigned int cert_broken:1;
 	unsigned int want_read:1;
 	unsigned int ostream_flush_waiting_input:1;
+	unsigned int closed:1;
 };
 
 extern int dovecot_ssl_extdata_index;
