@@ -23,6 +23,8 @@
 #define IMAPC_CONNECT_TIMEOUT_MSECS (1000*30)
 #define IMAPC_COMMAND_TIMEOUT_MSECS (1000*60*5)
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
+/* IMAP protocol requires activity at least every 30 minutes */
+#define IMAPC_MAX_IDLE_MSECS (1000*60*29)
 
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
@@ -72,6 +74,7 @@ struct imapc_connection {
 	struct ostream *output;
 	struct imap_parser *parser;
 	struct timeout *to;
+	struct timeout *to_output;
 
 	struct ssl_iostream *ssl_iostream;
 
@@ -151,6 +154,13 @@ void imapc_connection_ioloop_changed(struct imapc_connection *conn)
 		conn->to = io_loop_move_timeout(&conn->to);
 	if (conn->output != NULL)
 		o_stream_switch_ioloop(conn->output);
+
+	if (conn->client->ioloop == NULL && conn->to_output != NULL) {
+		/* we're only once moving the to_output to the main ioloop,
+		   since timeout moves currently also reset the timeout.
+		   (the rest of the times this is a no-op) */
+		conn->to_output = io_loop_move_timeout(&conn->to_output);
+	}
 }
 
 static const char *imapc_command_get_readable(struct imapc_command *cmd)
@@ -257,6 +267,8 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 	imapc_connection_literal_reset(&conn->literal);
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
+	if (conn->to_output != NULL)
+		timeout_remove(&conn->to_output);
 	imap_parser_destroy(&conn->parser);
 	io_remove(&conn->io);
 	if (conn->ssl_iostream != NULL)
@@ -1075,6 +1087,25 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 	imapc_connection_disconnect(conn);
 }
 
+static void
+imapc_reidle_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
+		      void *context)
+{
+	struct imapc_connection *conn = context;
+
+	imapc_connection_idle(conn);
+}
+
+static void imapc_connection_reset_idle(struct imapc_connection *conn)
+{
+	if (!conn->idling)
+		imapc_connection_cmd(conn, FALSE, "NOOP", NULL, NULL);
+	else {
+		imapc_connection_cmd(conn, FALSE, "NOOP",
+				     imapc_reidle_callback, conn);
+	}
+}
+
 static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip;
@@ -1097,6 +1128,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->parser = imap_parser_create(conn->input, NULL, (size_t)-1);
 	conn->to = timeout_add(IMAPC_CONNECT_TIMEOUT_MSECS,
 			       imapc_connection_timeout, conn);
+	conn->to_output = timeout_add(IMAPC_MAX_IDLE_MSECS,
+				      imapc_connection_reset_idle, conn);
 	if (conn->client->set.debug) {
 		i_debug("imapc(%s): Connecting to %s:%u", conn->name,
 			net_ip2addr(ip), conn->client->set.port);
@@ -1300,6 +1333,7 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 
 	i_assert(cmd->send_pos < cmd->data->used);
 
+	timeout_reset(conn->to_output);
 	if ((ret = imapc_command_try_send_stream(conn, cmd)) == 0)
 		return;
 

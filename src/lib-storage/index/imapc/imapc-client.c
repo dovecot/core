@@ -127,12 +127,14 @@ void imapc_client_run_pre(struct imapc_client *client)
 void imapc_client_run_post(struct imapc_client *client)
 {
 	struct imapc_client_connection *const *connp;
+	struct ioloop *ioloop = client->ioloop;
 
+	client->ioloop = NULL;
 	array_foreach(&client->conns, connp)
 		imapc_connection_ioloop_changed((*connp)->conn);
 
-	current_ioloop = client->ioloop;
-	io_loop_destroy(&client->ioloop);
+	current_ioloop = ioloop;
+	io_loop_destroy(&ioloop);
 }
 
 void imapc_client_stop(struct imapc_client *client)
