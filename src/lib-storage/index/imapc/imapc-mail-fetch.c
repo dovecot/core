@@ -39,6 +39,9 @@ imapc_mail_prefetch_callback(const struct imapc_command_reply *reply,
 	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(mbox->storage, MAIL_ERROR_PARAMS,
 					    reply);
+	} else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
+		/* The disconnection message was already logged */
+		mail_storage_set_internal_error(&mbox->storage->storage);
 	} else {
 		mail_storage_set_critical(&mbox->storage->storage,
 			"imapc: Mail prefetch failed: %s", reply->text_full);
