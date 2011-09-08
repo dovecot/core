@@ -122,7 +122,6 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 		/* key+=value */
 		append_value = line + len + 1;
 		key = t_strndup(key, len-1);
-		line++;
 	}
 
 	if (!settings_parse_is_valid_key(set_parser, key)) {
