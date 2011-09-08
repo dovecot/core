@@ -448,17 +448,14 @@ void mail_storage_set_critical(struct mail_storage *storage,
 {
 	va_list va;
 
-	mail_storage_clear_error(storage);
-	if (fmt != NULL) {
-		va_start(va, fmt);
-		i_error("%s", t_strdup_vprintf(fmt, va));
-		va_end(va);
+	va_start(va, fmt);
+	i_error("%s", t_strdup_vprintf(fmt, va));
+	va_end(va);
 
-		/* critical errors may contain sensitive data, so let user
-		   see only "Internal error" with a timestamp to make it
-		   easier to look from log files the actual error message. */
-		mail_storage_set_internal_error(storage);
-	}
+	/* critical errors may contain sensitive data, so let user
+	   see only "Internal error" with a timestamp to make it
+	   easier to look from log files the actual error message. */
+	mail_storage_set_internal_error(storage);
 }
 
 void mail_storage_copy_list_error(struct mail_storage *storage,
