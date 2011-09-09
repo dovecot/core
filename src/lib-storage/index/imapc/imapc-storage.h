@@ -90,6 +90,7 @@ void imapc_transaction_save_rollback(struct mail_save_context *ctx);
 
 void imapc_storage_run(struct imapc_storage *storage);
 
+const char *imapc_mutf7_mailbox_name(struct mailbox *box);
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,
 				 const struct imapc_command_reply *reply);

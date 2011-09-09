@@ -1,8 +1,10 @@
 /* Copyright (c) 2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "imap-arg.h"
 #include "imap-match.h"
+#include "imap-utf7.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
 #include "imapc-client.h"
@@ -82,10 +84,20 @@ imapc_list_update_tree(struct mailbox_tree_context *tree,
 		flags++;
 	}
 
-	if ((info_flags & MAILBOX_NONEXISTENT) != 0)
-		node = mailbox_tree_lookup(tree, name);
-	else
-		node = mailbox_tree_get(tree, name, &created);
+	T_BEGIN {
+		string_t *utf8_name = t_str_new(64);
+
+		if (imap_utf7_to_utf8(name, utf8_name)) {
+			str_truncate(utf8_name, 0);
+			str_append(utf8_name, name);
+		}
+		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
+			node = mailbox_tree_lookup(tree, str_c(utf8_name));
+		else {
+			node = mailbox_tree_get(tree, str_c(utf8_name),
+						&created);
+		}
+	} T_END;
 	if (node != NULL)
 		node->flags = info_flags;
 	return node;
