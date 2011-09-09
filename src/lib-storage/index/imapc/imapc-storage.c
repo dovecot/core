@@ -5,7 +5,6 @@
 #include "str.h"
 #include "imap-arg.h"
 #include "imap-resp-code.h"
-#include "imap-utf7.h"
 #include "imapc-mail.h"
 #include "imapc-client-private.h"
 #include "imapc-connection.h"

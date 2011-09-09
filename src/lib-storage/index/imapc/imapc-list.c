@@ -58,7 +58,8 @@ static void imapc_list_simple_callback(const struct imapc_command_reply *reply,
 }
 
 static struct mailbox_node *
-imapc_list_update_tree(struct mailbox_tree_context *tree,
+imapc_list_update_tree(struct imapc_mailbox_list *list,
+		       struct mailbox_tree_context *tree,
 		       const struct imap_arg *args)
 {
 	struct mailbox_node *node;
@@ -85,18 +86,13 @@ imapc_list_update_tree(struct mailbox_tree_context *tree,
 	}
 
 	T_BEGIN {
-		string_t *utf8_name = t_str_new(64);
+		const char *vname =
+			mailbox_list_default_get_vname(&list->list, name);
 
-		if (imap_utf7_to_utf8(name, utf8_name) < 0) {
-			str_truncate(utf8_name, 0);
-			str_append(utf8_name, name);
-		}
 		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
-			node = mailbox_tree_lookup(tree, str_c(utf8_name));
-		else {
-			node = mailbox_tree_get(tree, str_c(utf8_name),
-						&created);
-		}
+			node = mailbox_tree_lookup(tree, vname);
+		else
+			node = mailbox_tree_get(tree, vname, &created);
 	} T_END;
 	if (node != NULL)
 		node->flags = info_flags;
@@ -123,7 +119,7 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 		if (list->mailboxes != NULL)
 			mailbox_tree_set_separator(list->mailboxes, list->sep);
 	} else {
-		(void)imapc_list_update_tree(list->mailboxes, args);
+		(void)imapc_list_update_tree(list, list->mailboxes, args);
 	}
 }
 
@@ -138,7 +134,7 @@ static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
 		/* we haven't asked for the separator yet */
 		return;
 	}
-	node = imapc_list_update_tree(list->tmp_subscriptions != NULL ?
+	node = imapc_list_update_tree(list, list->tmp_subscriptions != NULL ?
 				      list->tmp_subscriptions :
 				      list->list.subscriptions, args);
 	if (node != NULL)
