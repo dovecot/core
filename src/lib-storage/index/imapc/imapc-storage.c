@@ -363,15 +363,6 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->mbox->storage->client);
 }
 
-const char *imapc_mutf7_mailbox_name(struct mailbox *box)
-{
-	const char *mutf7_name;
-
-	if (t_imap_utf8_to_utf7(box->name, &mutf7_name) < 0)
-		i_unreached();
-	return mutf7_name;
-}
-
 static int imapc_mailbox_open(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
@@ -392,8 +383,7 @@ static int imapc_mailbox_open(struct mailbox *box)
 	ctx.mbox = mbox;
 	ctx.ret = -2;
 	mbox->client_box =
-		imapc_client_mailbox_open(mbox->storage->client,
-					  imapc_mutf7_mailbox_name(box),
+		imapc_client_mailbox_open(mbox->storage->client, box->name,
 					  examine, imapc_mailbox_open_callback,
 					  &ctx, mbox);
 	while (ctx.ret == -2)
@@ -434,7 +424,7 @@ imapc_mailbox_create(struct mailbox *box,
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 	struct imapc_simple_context sctx;
-	const char *name = imapc_mutf7_mailbox_name(box);
+	const char *name = box->name;
 
 	if (directory) {
 		name = t_strdup_printf("%s%c", name,
@@ -552,10 +542,8 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	imapc_simple_context_init(&sctx, mbox->storage);
 	mbox->storage->cur_status_box = mbox;
 	mbox->storage->cur_status = status_r;
-	imapc_client_cmdf(mbox->storage->client,
-			  imapc_simple_callback, &sctx,
-			  "STATUS %s (%1s)", imapc_mutf7_mailbox_name(box),
-			  str_c(str)+1);
+	imapc_client_cmdf(mbox->storage->client, imapc_simple_callback, &sctx,
+			  "STATUS %s (%1s)", box->name, str_c(str)+1);
 	imapc_simple_run(&sctx);
 	mbox->storage->cur_status_box = NULL;
 	mbox->storage->cur_status = NULL;

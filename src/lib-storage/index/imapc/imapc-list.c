@@ -87,7 +87,7 @@ imapc_list_update_tree(struct mailbox_tree_context *tree,
 	T_BEGIN {
 		string_t *utf8_name = t_str_new(64);
 
-		if (imap_utf7_to_utf8(name, utf8_name)) {
+		if (imap_utf7_to_utf8(name, utf8_name) < 0) {
 			str_truncate(utf8_name, 0);
 			str_append(utf8_name, name);
 		}

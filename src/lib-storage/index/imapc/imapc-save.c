@@ -335,8 +335,7 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 		imapc_client_mailbox_cmdf(src_mbox->client_box,
 					  imapc_copy_callback, &sctx,
 					  "UID COPY %u %s",
-					  mail->uid,
-					  imapc_mutf7_mailbox_name(_t->box));
+					  mail->uid, _t->box->name);
 		while (sctx.ret == -2)
 			imapc_storage_run(src_mbox->storage);
 		ctx->finished = TRUE;
