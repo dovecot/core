@@ -87,9 +87,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		mail_precache(mail);
 		if (++counter % 100 == 0) {
 			percentage = counter*100 / max;
-			if (percentage != percentage_sent) {
-				i_assert(percentage < 100);
-
+			if (percentage != percentage_sent && percentage < 100) {
 				percentage_sent = percentage;
 				i_snprintf(percentage_str,
 					   sizeof(percentage_str), "%u\n",
