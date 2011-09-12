@@ -694,6 +694,12 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return 0;
 	}
 
+	if (strcmp(box->name, "INBOX") == 0 && box->inbox_user && auto_boxes) {
+		/* INBOX always exists */
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+		return 0;
+	}
+
 	return box->v.exists(box, auto_boxes, existence_r);
 }
 
