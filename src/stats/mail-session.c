@@ -15,7 +15,7 @@
    process associated with it has crashed, and forcibly disconnect the
    session. Must be larger than SESSION_STATS_FORCE_REFRESH_SECS in
    stats plugin */
-#define MAIL_SESSION_IDLE_TIMEOUT_MSECS (1000*60*10)
+#define MAIL_SESSION_IDLE_TIMEOUT_MSECS (1000*60*15)
 
 static struct hash_table *mail_sessions_hash;
 /* sessions are sorted by their last_update timestamp, oldest first */
