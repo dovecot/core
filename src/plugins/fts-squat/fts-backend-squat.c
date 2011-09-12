@@ -101,7 +101,7 @@ static void
 fts_backend_squat_set_box(struct squat_fts_backend *backend,
 			  struct mailbox *box)
 {
-	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
+	const struct mailbox_permissions *perm;
 	struct mail_storage *storage;
 	struct mailbox_status status;
 	const char *path;
@@ -110,7 +110,10 @@ fts_backend_squat_set_box(struct squat_fts_backend *backend,
 	if (backend->box == box)
 		return;
 	fts_backend_squat_unset_box(backend);
+	if (box == NULL)
+		return;
 
+	perm = mailbox_get_permissions(box);
 	storage = mailbox_get_storage(box);
 	path = mailbox_list_get_path(box->list, box->name,
 				     MAILBOX_LIST_PATH_TYPE_INDEX);
@@ -255,8 +258,10 @@ fts_backend_squat_update_set_mailbox(struct fts_backend_update_context *_ctx,
 		ctx->failed = TRUE;
 	fts_backend_squat_set_box(backend, box);
 
-	if (squat_trie_build_init(backend->trie, &ctx->build_ctx) < 0)
-		ctx->failed = TRUE;
+	if (box != NULL) {
+		if (squat_trie_build_init(backend->trie, &ctx->build_ctx) < 0)
+			ctx->failed = TRUE;
+	}
 }
 
 static void
