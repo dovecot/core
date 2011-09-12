@@ -1282,7 +1282,6 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r)
 {
 	const char *path, *fname, *rootdir, *dir, *inbox;
-	struct stat st;
 	unsigned int len;
 
 	*flags_r = 0;
@@ -1356,7 +1355,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 	}
 	return list->v.get_mailbox_flags(list, dir, fname,
 					 MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-					 &st, flags_r);
+					 flags_r);
 }
 
 static bool mailbox_list_init_changelog(struct mailbox_list *list)

@@ -66,7 +66,6 @@ struct mailbox_list_vfuncs {
 	int (*get_mailbox_flags)(struct mailbox_list *list,
 				 const char *dir, const char *fname,
 				 enum mailbox_list_file_type type,
-				 struct stat *st_r,
 				 enum mailbox_info_flags *flags_r);
 	/* Returns TRUE if name is mailbox's internal file/directory.
 	   If it does, mailbox deletion assumes it can safely delete it. */

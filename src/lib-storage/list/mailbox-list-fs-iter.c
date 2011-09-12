@@ -523,7 +523,6 @@ list_file(struct fs_list_iterate_context *ctx,
 	const char *fname = entry->fname;
 	const char *list_path, *root_dir;
 	enum imap_match_result match;
-	struct stat st;
 	int ret;
 
 	/* skip . and .. */
@@ -556,7 +555,7 @@ list_file(struct fs_list_iterate_context *ctx,
 	/* get the info.flags using callback */
 	ret = ctx->ctx.list->v.
 		get_mailbox_flags(ctx->ctx.list, ctx->dir->real_path, fname,
-				  entry->type, &st, &ctx->info.flags);
+				  entry->type, &ctx->info.flags);
 	if (ret <= 0)
 		return ret;
 

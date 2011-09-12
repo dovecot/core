@@ -176,7 +176,6 @@ none_list_get_mailbox_flags(struct mailbox_list *list ATTR_UNUSED,
 			    const char *dir ATTR_UNUSED,
 			    const char *fname ATTR_UNUSED,
 			    enum mailbox_list_file_type type ATTR_UNUSED,
-			    struct stat *st_r ATTR_UNUSED,
 			    enum mailbox_info_flags *flags)
 {
 	*flags = MAILBOX_NONEXISTENT;

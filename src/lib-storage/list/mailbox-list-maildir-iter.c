@@ -150,7 +150,6 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 static bool
 maildir_get_type(const char *dir, const char *fname,
 		 enum mailbox_list_file_type *type_r,
-		 struct stat *st_r,
 		 enum mailbox_info_flags *flags)
 {
 	const char *path;
@@ -168,7 +167,6 @@ maildir_get_type(const char *dir, const char *fname,
 		return FALSE;
 	}
 
-	*st_r = st;
 	if (S_ISDIR(st.st_mode)) {
 		*type_r = MAILBOX_LIST_FILE_TYPE_DIR;
 		return TRUE;
@@ -184,10 +182,8 @@ maildir_get_type(const char *dir, const char *fname,
 int maildir_list_get_mailbox_flags(struct mailbox_list *list,
 				   const char *dir, const char *fname,
 				   enum mailbox_list_file_type type,
-				   struct stat *st_r,
 				   enum mailbox_info_flags *flags_r)
 {
-	memset(st_r, 0, sizeof(*st_r));
 	*flags_r = 0;
 
 	switch (type) {
@@ -205,7 +201,7 @@ int maildir_list_get_mailbox_flags(struct mailbox_list *list,
 			return 1;
 		}
 
-		if (!maildir_get_type(dir, fname, &type, st_r, flags_r))
+		if (!maildir_get_type(dir, fname, &type, flags_r))
 			return 0;
 		break;
 	}
@@ -272,7 +268,6 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 	enum imap_match_result match;
 	struct mailbox_node *node;
 	bool created;
-	struct stat st;
 	int ret;
 
 	fname = d->d_name;
@@ -302,7 +297,7 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 
 	T_BEGIN {
 		ret = list->v.get_mailbox_flags(list, ctx->dir, fname,
-				mailbox_list_get_file_type(d), &st, &flags);
+				mailbox_list_get_file_type(d), &flags);
 	} T_END;
 	if (ret <= 0)
 		return ret;
