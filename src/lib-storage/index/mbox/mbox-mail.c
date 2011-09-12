@@ -259,15 +259,19 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	if (!mail_index_lookup_seq(view, mail->mail.mail.uid, &seq))
 		i_panic("Message unexpectedly expunged from index");
 
-	if (seq == hdr->messages_count) {
+	if (seq < hdr->messages_count) {
+		if (mbox_file_lookup_offset(mbox, view, seq + 1,
+					    next_offset_r) <= 0)
+			ret = -1;
+	} else if (mail->mail.mail.box->input != NULL) {
+		/* opened the mailbox as input stream. we can't trust the
+		   sync_size, since it's wrong with compressed mailboxes */
+		ret = 0;
+	} else {
 		/* last message, use the synced mbox size */
 		trailer_size =
 			mbox->storage->storage.set->mail_save_crlf ? 2 : 1;
 		*next_offset_r = mbox->mbox_hdr.sync_size - trailer_size;
-	} else {
-		if (mbox_file_lookup_offset(mbox, view, seq + 1,
-					    next_offset_r) <= 0)
-			ret = -1;
 	}
 	mail_index_view_close(&view);
 	return ret;
