@@ -97,15 +97,14 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 	const char *error;
 	unsigned int cmd_id;
 	bool done;
-	int ret;
 
 	/* <session guid> <cmd id> <done> <name> <args> [key=value ..] */
 	if (str_array_length(args) < 4) {
 		*error_r = "UPDATE-CMD: Too few parameters";
 		return -1;
 	}
-	if ((ret = mail_session_lookup(args[0], &session, error_r)) <= 0)
-		return ret;
+	if (mail_session_get(args[0], &session, error_r) < 0)
+		return -1;
 
 	if (str_to_uint(args[1], &cmd_id) < 0 || cmd_id == 0) {
 		*error_r = "UPDATE-CMD: Invalid command id";

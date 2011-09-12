@@ -16,6 +16,8 @@ void mail_session_unref(struct mail_session **session);
 
 int mail_session_lookup(const char *guid, struct mail_session **session_r,
 			const char **error_r);
+int mail_session_get(const char *guid, struct mail_session **session_r,
+		     const char **error_r);
 void mail_session_refresh(struct mail_session *session,
 			  const struct mail_stats *diff_stats);
 

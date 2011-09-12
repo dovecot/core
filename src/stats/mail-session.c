@@ -160,11 +160,33 @@ int mail_session_lookup(const char *guid, struct mail_session **session_r,
 	}
 	*session_r = hash_table_lookup(mail_sessions_hash, session_guid);
 	if (*session_r == NULL) {
-		i_warning("mail disconnect couldn't find session GUID: %s",
+		i_warning("Couldn't find session GUID: %s",
 			  guid_128_to_string(session_guid));
 		return 0;
 	}
 	return 1;
+}
+
+int mail_session_get(const char *guid, struct mail_session **session_r,
+		     const char **error_r)
+{
+	const char *new_args[5];
+	int ret;
+
+	if ((ret = mail_session_lookup(guid, session_r, error_r)) != 0)
+		return ret;
+
+	/* Create a new dummy session to avoid repeated warnings */
+	new_args[0] = guid;
+	new_args[1] = ""; /* username */
+	new_args[2] = ""; /* service */
+	new_args[3] = "0"; /* pid */
+	new_args[4] = NULL;
+	if (mail_session_connect_parse(new_args, error_r) < 0)
+		i_unreached();
+	if (mail_session_lookup(guid, session_r, error_r) != 1)
+		i_unreached();
+	return 0;
 }
 
 int mail_session_disconnect_parse(const char *const *args, const char **error_r)
@@ -203,11 +225,10 @@ int mail_session_update_parse(const char *const *args, const char **error_r)
 	struct mail_session *session;
 	struct mail_stats stats, diff_stats;
 	const char *error;
-	int ret;
 
 	/* <session guid> [key=value ..] */
-	if ((ret = mail_session_lookup(args[0], &session, error_r)) <= 0)
-		return ret;
+	if (mail_session_get(args[0], &session, error_r) < 0)
+		return -1;
 
 	if (mail_stats_parse(args+1, &stats, error_r) < 0) {
 		*error_r = t_strconcat("UPDATE-SESSION: ", *error_r, NULL);
