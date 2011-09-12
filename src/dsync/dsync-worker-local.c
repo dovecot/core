@@ -521,6 +521,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	struct local_dsync_mailbox_change *change;
 	struct local_dsync_dir_change *dir_change, change_lookup;
 	struct local_dsync_mailbox *old_lbox;
+	enum mail_error error;
 	const char *const *fields;
 	unsigned int i, field_count;
 
@@ -560,8 +561,17 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		struct mail_storage *storage = mailbox_get_storage(box);
 
 		i_error("Failed to sync mailbox %s: %s", info->name,
-			mail_storage_get_last_error(storage, NULL));
+			mail_storage_get_last_error(storage, &error));
 		mailbox_free(&box);
+		if (error == MAIL_ERROR_NOTFOUND ||
+		    error == MAIL_ERROR_NOTPOSSIBLE) {
+			/* Mailbox isn't selectable, try the next one. We
+			   should have already caught \Noselect mailboxes, but
+			   check them anyway here. The NOTPOSSIBLE check is
+			   mainly for invalid mbox files. */
+			return local_worker_mailbox_iter_next(_iter,
+							      dsync_box_r);
+		}
 		_iter->failed = TRUE;
 		return -1;
 	}
