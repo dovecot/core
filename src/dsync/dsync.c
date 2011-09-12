@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "lib-signals.h"
 #include "array.h"
 #include "execv-const.h"
 #include "settings-parser.h"
@@ -230,6 +231,7 @@ int main(int argc, char *argv[])
 		usage();
 	}
 	master_service_init_finish(master_service);
+	lib_signals_ignore(SIGHUP, TRUE);
 
 	if (!dsync_debug) {
 		/* disable debugging unless -D is given */
