@@ -869,7 +869,6 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	}
 
 	user = p_new(user_pool, struct mail_storage_service_user, 1);
-	memset(user_r, 0, sizeof(user_r));
 	user->pool = user_pool;
 	user->input = *input;
 	user->input.userdb_fields = NULL;
