@@ -22,6 +22,11 @@ struct solr_fts_backend {
 	struct fts_backend backend;
 };
 
+struct solr_fts_field {
+	char *key;
+	string_t *value;
+};
+
 struct solr_fts_backend_update_context {
 	struct fts_backend_update_context ctx;
 
@@ -30,14 +35,13 @@ struct solr_fts_backend_update_context {
 
 	struct solr_connection_post *post;
 	uint32_t prev_uid;
-	string_t *cmd, *hdr, *hdr_fields;
+	string_t *cmd, *cur_value, *cur_value2;
+	ARRAY_DEFINE(fields, struct solr_fts_field);
 
 	uint32_t last_indexed_uid;
 
 	unsigned int last_indexed_uid_set:1;
-	unsigned int headers_open:1;
 	unsigned int body_open:1;
-	unsigned int cur_header_index:1;
 	unsigned int documents_added:1;
 	unsigned int expunges:1;
 };
@@ -222,8 +226,7 @@ fts_backend_solr_update_init(struct fts_backend *_backend)
 	ctx = i_new(struct solr_fts_backend_update_context, 1);
 	ctx->ctx.backend = _backend;
 	ctx->cmd = str_new(default_pool, SOLR_CMDBUF_SIZE);
-	ctx->hdr = str_new(default_pool, 4096);
-	ctx->hdr_fields = str_new(default_pool, 1024);
+	i_array_init(&ctx->fields, 16);
 	return &ctx->ctx;
 }
 
@@ -257,23 +260,39 @@ fts_backend_solr_doc_open(struct solr_fts_backend_update_context *ctx,
 	str_append(ctx->cmd, "</field>");
 }
 
+static string_t *
+fts_solr_field_get(struct solr_fts_backend_update_context *ctx, const char *key)
+{
+	const struct solr_fts_field *field;
+	struct solr_fts_field new_field;
+
+	/* there are only a few fields. this lookup is fast enough. */
+	array_foreach(&ctx->fields, field) {
+		if (strcasecmp(field->key, key) == 0)
+			return field->value;
+	}
+
+	memset(&new_field, 0, sizeof(new_field));
+	new_field.key = str_lcase(i_strdup(key));
+	new_field.value = str_new(default_pool, 128);
+	array_append(&ctx->fields, &new_field, 1);
+	return new_field.value;
+}
+
 static void
 fts_backend_solr_doc_close(struct solr_fts_backend_update_context *ctx)
 {
-	ctx->headers_open = FALSE;
+	struct solr_fts_field *field;
+
 	if (ctx->body_open) {
 		ctx->body_open = FALSE;
 		str_append(ctx->cmd, "</field>");
 	}
-	if (str_len(ctx->hdr) > 0) {
-		str_append(ctx->cmd, "<field name=\"hdr\">");
-		str_append_str(ctx->cmd, ctx->hdr);
+	array_foreach_modifiable(&ctx->fields, field) {
+		str_printfa(ctx->cmd, "<field name=\"%s\">", field->key);
+		str_append_str(ctx->cmd, field->value);
 		str_append(ctx->cmd, "</field>");
-		str_truncate(ctx->hdr, 0);
-	}
-	if (str_len(ctx->hdr_fields) > 0) {
-		str_append_str(ctx->cmd, ctx->hdr_fields);
-		str_truncate(ctx->hdr_fields, 0);
+		str_truncate(field->value, 0);
 	}
 	str_append(ctx->cmd, "</doc>");
 }
@@ -297,6 +316,7 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 {
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
+	struct solr_fts_field *field;
 	const char *str;
 	int ret = _ctx->failed ? -1 : 0;
 
@@ -314,8 +334,11 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 	}
 
 	str_free(&ctx->cmd);
-	str_free(&ctx->hdr);
-	str_free(&ctx->hdr_fields);
+	array_foreach_modifiable(&ctx->fields, field) {
+		str_free(&field->value);
+		i_free(field->key);
+	}
+	array_free(&ctx->fields);
 	i_free(ctx);
 	return ret;
 }
@@ -409,22 +432,21 @@ fts_backend_solr_update_set_build_key(struct fts_backend_update_context *_ctx,
 	switch (key->type) {
 	case FTS_BACKEND_BUILD_KEY_HDR:
 		if (fts_header_want_indexed(key->hdr_name)) {
-			ctx->cur_header_index = TRUE;
-			str_printfa(ctx->hdr_fields, "<field name=\"%s\">",
-				    t_str_lcase(key->hdr_name));
+			ctx->cur_value2 =
+				fts_solr_field_get(ctx, key->hdr_name);
 		}
 		/* fall through */
 	case FTS_BACKEND_BUILD_KEY_MIME_HDR:
-		xml_encode(ctx->hdr, key->hdr_name);
-		str_append(ctx->hdr, ": ");
-		ctx->headers_open = TRUE;
+		ctx->cur_value = fts_solr_field_get(ctx, "hdr");
+		xml_encode(ctx->cur_value, key->hdr_name);
+		str_append(ctx->cur_value, ": ");
 		break;
 	case FTS_BACKEND_BUILD_KEY_BODY_PART:
-		ctx->headers_open = FALSE;
 		if (!ctx->body_open) {
 			ctx->body_open = TRUE;
 			str_append(ctx->cmd, "<field name=\"body\">");
 		}
+		ctx->cur_value = ctx->cmd;
 		break;
 	case FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY:
 		i_unreached();
@@ -438,20 +460,14 @@ fts_backend_solr_update_unset_build_key(struct fts_backend_update_context *_ctx)
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
 
-	if (ctx->headers_open) {
-		/* this is called individually for each header line.
-		   headers are finished only when key changes to body */
-		str_append_c(ctx->hdr, '\n');
-	} else {
-		i_assert(ctx->body_open);
-		/* messages can have multiple MIME bodies.
-		   add them all as one. */
-		str_append_c(ctx->cmd, '\n');
-	}
-
-	if (ctx->cur_header_index) {
-		str_append(ctx->hdr_fields, "</field>");
-		ctx->cur_header_index = FALSE;
+	/* There can be multiple duplicate keys (duplicate header lines,
+	   multiple MIME body parts). Make sure they are separated by
+	   whitespace. */
+	str_append_c(ctx->cur_value, '\n');
+	ctx->cur_value = NULL;
+	if (ctx->cur_value2 != NULL) {
+		str_append_c(ctx->cur_value2, '\n');
+		ctx->cur_value2 = NULL;
 	}
 }
 
@@ -465,14 +481,9 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 	if (_ctx->failed)
 		return -1;
 
-	if (ctx->headers_open) {
-		if (ctx->cur_header_index)
-			xml_encode_data(ctx->hdr_fields, data, size);
-		xml_encode_data(ctx->hdr, data, size);
-	} else {
-		i_assert(!ctx->cur_header_index);
-		xml_encode_data(ctx->cmd, data, size);
-	}
+	xml_encode_data(ctx->cur_value, data, size);
+	if (ctx->cur_value2 != NULL)
+		xml_encode_data(ctx->cur_value2, data, size);
 
 	if (str_len(ctx->cmd) > SOLR_CMDBUF_SIZE-128) {
 		solr_connection_post_more(ctx->post, str_data(ctx->cmd),
