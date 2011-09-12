@@ -9,7 +9,7 @@
 void mail_index_view_clone(struct mail_index_view *dest,
 			   const struct mail_index_view *src)
 {
-	memset(dest, 0, sizeof(dest));
+	memset(dest, 0, sizeof(*dest));
 	dest->refcount = 1;
 	dest->v = src->v;
 	dest->index = src->index;
