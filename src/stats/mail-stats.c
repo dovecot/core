@@ -26,6 +26,11 @@ struct mail_stats_parse_map {
 	EN("diskin", disk_input),
 	EN("diskout", disk_output),
 
+	EN("rchar", read_bytes),
+	EN("wchar", write_bytes),
+	EN("syscr", read_count),
+	EN("syscw", write_count),
+
 	EN("mlpath", mail_lookup_path),
 	EN("mlattr", mail_lookup_attr),
 	EN("mrcount", mail_read_count),

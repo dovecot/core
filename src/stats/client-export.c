@@ -100,6 +100,7 @@ client_export_mail_stats(string_t *str, const struct mail_stats *stats)
 #define MAIL_STATS_HEADER "\tuser_cpu\tsys_cpu" \
 	"\tmin_faults\tmaj_faults\tvol_cs\tinvol_cs" \
 	"\tdisk_input\tdisk_output" \
+	"\tread_count\tread_bytes\twrite_count\twrite_bytes" \
 	"\tmail_lookup_path\tmail_lookup_attr" \
 	"\tmail_read_count\tmail_read_bytes\tmail_cache_hits\n"
 
@@ -112,6 +113,9 @@ client_export_mail_stats(string_t *str, const struct mail_stats *stats)
 	str_printfa(str, "\t%llu\t%llu",
 		    (unsigned long long)stats->disk_input,
 		    (unsigned long long)stats->disk_output);
+	str_printfa(str, "\t%u\t%llu\t%u\t%llu",
+		    stats->read_count, (unsigned long long)stats->read_bytes,
+		    stats->write_count, (unsigned long long)stats->write_bytes);
 	str_printfa(str, "\t%u\t%u\t%u\t%llu\t%u",
 		    stats->mail_lookup_path, stats->mail_lookup_attr,
 		    stats->mail_read_count,

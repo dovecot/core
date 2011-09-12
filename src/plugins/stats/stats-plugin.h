@@ -18,6 +18,9 @@ struct mail_stats {
 	uint32_t vol_cs, invol_cs;
 	/* disk input/output bytes */
 	uint64_t disk_input, disk_output;
+	/* read()/write() syscall count and number of bytes */
+	uint32_t read_count, write_count;
+	uint64_t read_bytes, write_bytes;
 	struct mailbox_transaction_stats trans_stats;
 };
 

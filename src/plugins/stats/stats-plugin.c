@@ -81,6 +81,70 @@ static void user_trans_stats_get(struct stats_user *suser,
 		trans_stats_add(dest_r, &strans->trans->stats);
 }
 
+static int
+process_io_buffer_parse(const char *buf, struct mail_stats *stats)
+{
+	const char *const *tmp;
+
+	tmp = t_strsplit(buf, "\n");
+	for (; *tmp != NULL; tmp++) {
+		if (strncmp(*tmp, "rchar: ", 7) == 0) {
+			if (str_to_uint64(*tmp + 7, &stats->read_bytes) < 0)
+				return -1;
+		} else if (strncmp(*tmp, "wchar: ", 7) == 0) {
+			if (str_to_uint64(*tmp + 7, &stats->write_bytes) < 0)
+				return -1;
+		} else if (strncmp(*tmp, "syscr: ", 7) == 0) {
+			if (str_to_uint32(*tmp + 7, &stats->read_count) < 0)
+				return -1;
+		} else if (strncmp(*tmp, "syscw: ", 7) == 0) {
+			if (str_to_uint32(*tmp + 7, &stats->write_count) < 0)
+				return -1;
+		}
+	}
+	return 0;
+}
+
+static void process_read_io_stats(struct mail_stats *stats)
+{
+	const char *path = "/proc/self/io";
+	static bool io_disabled = FALSE;
+	char buf[1024];
+	int fd, ret;
+
+	if (io_disabled)
+		return;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		if (errno != ENOENT)
+			i_error("open(%s) failed: %m", path);
+		io_disabled = TRUE;
+		return;
+	}
+	ret = read(fd, buf, sizeof(buf));
+	if (ret <= 0) {
+		if (ret == -1)
+			i_error("read(%s) failed: %m", path);
+		else
+			i_error("read(%s) returned EOF", path);
+	} else if (ret == sizeof(buf)) {
+		/* just shouldn't happen.. */
+		i_error("%s is larger than expected", path);
+		io_disabled = TRUE;
+	} else {
+		buf[ret] = '\0';
+		T_BEGIN {
+			if (process_io_buffer_parse(buf, stats) < 0) {
+				i_error("Invalid input in file %s", path);
+				io_disabled = TRUE;
+			}
+		} T_END;
+	}
+	if (close(fd) < 0)
+		i_error("close(%s) failed: %m", path);
+}
+
 void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
 {
 	struct rusage usage;
@@ -97,6 +161,7 @@ void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
 	stats_r->invol_cs = usage.ru_nivcsw;
 	stats_r->disk_input = (unsigned long long)usage.ru_inblock * 512ULL;
 	stats_r->disk_output = (unsigned long long)usage.ru_oublock * 512ULL;
+	process_read_io_stats(stats_r);
 	user_trans_stats_get(suser, &stats_r->trans_stats);
 }
 
@@ -213,6 +278,10 @@ void mail_stats_add_diff(struct mail_stats *dest,
 	dest->maj_faults += new_stats->maj_faults - old_stats->maj_faults;
 	dest->vol_cs += new_stats->vol_cs - old_stats->vol_cs;
 	dest->invol_cs += new_stats->invol_cs - old_stats->invol_cs;
+	dest->read_count += new_stats->read_count - old_stats->read_count;
+	dest->write_count += new_stats->write_count - old_stats->write_count;
+	dest->read_bytes += new_stats->read_bytes - old_stats->read_bytes;
+	dest->write_bytes += new_stats->write_bytes - old_stats->write_bytes;
 
 	timeval_add_diff(&dest->user_cpu, &new_stats->user_cpu,
 			 &old_stats->user_cpu);
@@ -238,6 +307,12 @@ void mail_stats_export(string_t *str, const struct mail_stats *stats)
 		    (unsigned long long)stats->disk_input);
 	str_printfa(str, "\tdiskout=%llu",
 		    (unsigned long long)stats->disk_output);
+	str_printfa(str, "\trchar=%llu",
+		    (unsigned long long)stats->read_bytes);
+	str_printfa(str, "\twchar=%llu",
+		    (unsigned long long)stats->write_bytes);
+	str_printfa(str, "\tsyscr=%u", stats->read_count);
+	str_printfa(str, "\tsyscw=%u", stats->write_count);
 	str_printfa(str, "\tmlpath=%lu",
 		    tstats->open_lookup_count + tstats->stat_lookup_count);
 	str_printfa(str, "\tmlattr=%lu",
@@ -278,6 +353,8 @@ static bool session_has_changed(const struct mail_stats *prev,
 		return TRUE;
 	if (cur->invol_cs > prev->invol_cs+10)
 		return TRUE;
+	/* don't check for read/write count/bytes changes, since they get
+	   changed by stats checking itself */
 	return FALSE;
 }
 

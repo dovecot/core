@@ -10,6 +10,9 @@ struct mail_stats {
 	uint32_t vol_cs, invol_cs;
 	uint64_t disk_input, disk_output;
 
+	uint32_t read_count, write_count;
+	uint64_t read_bytes, write_bytes;
+
 	uint32_t mail_lookup_path, mail_lookup_attr, mail_read_count;
 	uint32_t mail_cache_hits;
 	uint64_t mail_read_bytes;
