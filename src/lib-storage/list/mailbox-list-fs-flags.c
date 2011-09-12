@@ -109,13 +109,11 @@ is_inbox_file(struct mailbox_list *list, const char *path, const char *fname)
 int fs_list_get_mailbox_flags(struct mailbox_list *list,
 			      const char *dir, const char *fname,
 			      enum mailbox_list_file_type type,
-			      struct stat *st_r,
 			      enum mailbox_info_flags *flags_r)
 {
 	struct stat st;
 	const char *path;
 
-	memset(st_r, 0, sizeof(*st_r));
 	*flags_r = 0;
 
 	if (*list->set.maildir_name != '\0') {
@@ -165,7 +163,6 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 			return -1;
 		}
 	}
-	*st_r = st;
 
 	if (!S_ISDIR(st.st_mode)) {
 		if (strncmp(fname, ".nfs", 4) == 0) {
