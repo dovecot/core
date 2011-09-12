@@ -14,6 +14,8 @@
 struct imapc_mailbox_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	struct mailbox_tree_context *tree;
+	struct mailbox_node *ns_root;
+
 	struct mailbox_tree_iterate_context *iter;
 	struct mailbox_info info;
 };
@@ -321,6 +323,7 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	struct mailbox_list_iterate_context *_ctx;
 	struct imapc_mailbox_list_iterate_context *ctx;
+	const char *ns_root_name;
 	char sep;
 	int ret = 0;
 
@@ -353,6 +356,13 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 
 	ctx->tree = mailbox_tree_init(sep);
 	imapc_list_build_match_tree(ctx);
+
+	if (list->list.ns->prefix_len > 0) {
+		ns_root_name = t_strndup(_list->ns->prefix,
+					 _list->ns->prefix_len - 1);
+		ctx->ns_root = mailbox_tree_lookup(ctx->tree, ns_root_name);
+	}
+
 	ctx->iter = mailbox_tree_iterate_init(ctx->tree, NULL, 0);
 	if (ret < 0)
 		ctx->ctx.failed = TRUE;
@@ -373,9 +383,11 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
 		return mailbox_list_subscriptions_iter_next(_ctx);
 
-	node = mailbox_tree_iterate_next(ctx->iter, &name);
-	if (node == NULL)
-		return NULL;
+	do {
+		node = mailbox_tree_iterate_next(ctx->iter, &name);
+		if (node == NULL)
+			return NULL;
+	} while (node == ctx->ns_root);
 
 	ctx->info.name = name;
 	ctx->info.flags = node->flags;

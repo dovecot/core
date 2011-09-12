@@ -378,6 +378,16 @@ static int imapc_mailbox_open(struct mailbox *box)
 	examine = (box->flags & MAILBOX_FLAG_READONLY) != 0 &&
 		(box->flags & MAILBOX_FLAG_DROP_RECENT) == 0;
 
+	if (*box->name == '\0' &&
+	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
+		/* trying to open INBOX as the namespace prefix.
+		   Don't allow this. */
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+				       "Mailbox isn't selectable");
+		mailbox_close(box);
+		return -1;
+	}
+
 	mbox->opening = TRUE;
 	ctx.mbox = mbox;
 	ctx.ret = -2;
