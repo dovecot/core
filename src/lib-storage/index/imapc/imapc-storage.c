@@ -5,6 +5,7 @@
 #include "str.h"
 #include "imap-arg.h"
 #include "imap-resp-code.h"
+#include "mailbox-tree.h"
 #include "imapc-mail.h"
 #include "imapc-client-private.h"
 #include "imapc-connection.h"
@@ -341,6 +342,23 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	return &mbox->box;
 }
 
+static int
+imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
+		     enum mailbox_existence *existence_r)
+{
+	enum mailbox_info_flags flags;
+
+	if (imapc_list_get_mailbox_flags(box->list, box->name, &flags) < 0)
+		return -1;
+	if ((flags & MAILBOX_NONEXISTENT) != 0)
+		*existence_r = MAILBOX_EXISTENCE_NONE;
+	else if ((flags & MAILBOX_NOSELECT) != 0)
+		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
+	else
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+	return 0;
+}
+
 static void
 imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 			    void *context)
@@ -647,7 +665,7 @@ struct mailbox imapc_mailbox = {
 	.v = {
 		index_storage_is_readonly,
 		index_storage_mailbox_enable,
-		index_storage_mailbox_exists,
+		imapc_mailbox_exists,
 		imapc_mailbox_open,
 		imapc_mailbox_close,
 		index_storage_mailbox_free,
