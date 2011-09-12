@@ -1314,13 +1314,26 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		return 1;
 	}
 
+	if (list->v.get_mailbox_flags == NULL) {
+		/* can't do this optimized. do it the slow way. */
+		struct mailbox_list_iterate_context *iter;
+		const struct mailbox_info *info;
+		const char *vname;
+
+		vname = mailbox_list_get_vname(list, name);
+		iter = mailbox_list_iter_init(list, vname, 0);
+		info = mailbox_list_iter_next(iter);
+		if (info == NULL)
+			*flags_r = MAILBOX_NONEXISTENT;
+		else
+			*flags_r = info->flags;
+		return mailbox_list_iter_deinit(&iter);
+	}
+
 	rootdir = mailbox_list_get_path(list, NULL,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	i_assert(rootdir != NULL);
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
-	if (rootdir == NULL) {
-		/* shouldn't happen with anything except shared mailboxes */
-		return 0;
-	}
 
 	fname = strrchr(path, '/');
 	if (fname == NULL) {
