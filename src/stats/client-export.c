@@ -100,7 +100,8 @@ client_export_mail_stats(string_t *str, const struct mail_stats *stats)
 #define MAIL_STATS_HEADER "\tuser_cpu\tsys_cpu" \
 	"\tmin_faults\tmaj_faults\tvol_cs\tinvol_cs" \
 	"\tdisk_input\tdisk_output" \
-	"\tlookup_path\tlookup_attr\tread_count\tread_bytes\tcache_hits\n"
+	"\tmail_lookup_path\tmail_lookup_attr" \
+	"\tmail_read_count\tmail_read_bytes\tmail_cache_hits\n"
 
 	str_printfa(str, "\t%ld.%06u", (long)stats->user_cpu.tv_sec,
 		    (unsigned int)stats->user_cpu.tv_usec);
@@ -112,10 +113,10 @@ client_export_mail_stats(string_t *str, const struct mail_stats *stats)
 		    (unsigned long long)stats->disk_input,
 		    (unsigned long long)stats->disk_output);
 	str_printfa(str, "\t%u\t%u\t%u\t%llu\t%u",
-		    stats->lookup_path, stats->lookup_attr,
-		    stats->read_count,
-		    (unsigned long long)stats->read_bytes,
-		    stats->cache_hits);
+		    stats->mail_lookup_path, stats->mail_lookup_attr,
+		    stats->mail_read_count,
+		    (unsigned long long)stats->mail_read_bytes,
+		    stats->mail_cache_hits);
 }
 
 static bool

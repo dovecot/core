@@ -238,13 +238,13 @@ void mail_stats_export(string_t *str, const struct mail_stats *stats)
 		    (unsigned long long)stats->disk_input);
 	str_printfa(str, "\tdiskout=%llu",
 		    (unsigned long long)stats->disk_output);
-	str_printfa(str, "\tlpath=%lu",
+	str_printfa(str, "\tmlpath=%lu",
 		    tstats->open_lookup_count + tstats->stat_lookup_count);
-	str_printfa(str, "\tlattr=%lu",
+	str_printfa(str, "\tmlattr=%lu",
 		    tstats->fstat_lookup_count + tstats->stat_lookup_count);
-	str_printfa(str, "\trcount=%lu", tstats->files_read_count);
-	str_printfa(str, "\trbytes=%llu", tstats->files_read_bytes);
-	str_printfa(str, "\tcache=%lu", tstats->cache_hit_count);
+	str_printfa(str, "\tmrcount=%lu", tstats->files_read_count);
+	str_printfa(str, "\tmrbytes=%llu", tstats->files_read_bytes);
+	str_printfa(str, "\tmcache=%lu", tstats->cache_hit_count);
 }
 
 static void stats_add_session(struct mail_user *user)

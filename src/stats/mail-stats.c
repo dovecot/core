@@ -25,11 +25,12 @@ struct mail_stats_parse_map {
 	EN("involcs", invol_cs),
 	EN("diskin", disk_input),
 	EN("diskout", disk_output),
-	EN("lpath", lookup_path),
-	EN("lattr", lookup_attr),
-	EN("rcount", read_count),
-	EN("rbytes", read_bytes),
-	EN("cache", cache_hits)
+
+	EN("mlpath", mail_lookup_path),
+	EN("mlattr", mail_lookup_attr),
+	EN("mrcount", mail_read_count),
+	EN("mrbytes", mail_read_bytes),
+	EN("mcache", mail_cache_hits)
 };
 
 static int mail_stats_parse_timeval(const char *value, struct timeval *tv)
