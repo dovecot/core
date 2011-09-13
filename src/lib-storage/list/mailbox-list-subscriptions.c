@@ -20,12 +20,13 @@ struct subscriptions_mailbox_list_iterate_context {
 
 static int
 mailbox_list_subscription_fill_one(struct mailbox_list *list,
+				   struct mailbox_list *src_list,
 				   const char *name)
 {
 	struct mail_namespace *ns, *default_ns = list->ns;
 	struct mail_namespace *namespaces = default_ns->user->namespaces;
 	struct mailbox_node *node;
-	const char *vname;
+	const char *vname, *ns_name;
 	unsigned int len;
 	bool created;
 
@@ -35,7 +36,13 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 
 	   1) when listing "" namespace we want to skip over any names
 	   that begin with pub/. */
-	ns = mail_namespace_find_unsubscribable(namespaces, name);
+	if (src_list->ns->prefix_len == 0)
+		ns_name = name;
+	else {
+		/* we could have two-level namespace: ns/ns2/ */
+		ns_name = t_strconcat(src_list->ns->prefix, name, NULL);
+	}
+	ns = mail_namespace_find_unsubscribable(namespaces, ns_name);
 	if (ns != NULL && ns != default_ns)
 		return 0;
 
@@ -54,7 +61,7 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		   one easy way is to just ask if a mailbox name under
 		   it is valid, and it gets created */
 		(void)mailbox_list_is_valid_existing_name(list, name);
-		ns = mail_namespace_find_unsubscribable(namespaces, name);
+		ns = mail_namespace_find_unsubscribable(namespaces, ns_name);
 		i_assert(ns != NULL &&
 			 (ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0);
 	}
@@ -63,14 +70,15 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	   prefix in the name. the rest of the name is storage_name. */
 	if (ns == NULL)
 		ns = default_ns;
-	else if (strncmp(name, ns->prefix, ns->prefix_len) == 0)
-		name += ns->prefix_len;
-	else {
+	else if (strncmp(ns_name, ns->prefix, ns->prefix_len) == 0) {
+		ns_name += ns->prefix_len;
+		name = ns_name;
+	} else {
 		/* "pub" entry - this shouldn't be possible normally, because
 		   it should be saved as "pub/", but handle it anyway */
-		i_assert(strncmp(name, ns->prefix, ns->prefix_len-1) == 0 &&
-			 name[ns->prefix_len-1] == '\0');
-		name = "";
+		i_assert(strncmp(ns_name, ns->prefix, ns->prefix_len-1) == 0 &&
+			 ns_name[ns->prefix_len-1] == '\0');
+		name = ns_name = "";
 	}
 
 	len = strlen(name);
@@ -99,6 +107,7 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	struct stat st;
 	const char *path, *name;
 	char sep;
+	int ret;
 
 	i_assert((src_list->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0);
 
@@ -133,7 +142,11 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	if (subsfile_list_fstat(subsfile_ctx, &st) == 0)
 		dest_list->subscriptions_mtime = st.st_mtime;
 	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) T_BEGIN {
-		if (mailbox_list_subscription_fill_one(dest_list, name) < 0) {
+		T_BEGIN {
+			ret = mailbox_list_subscription_fill_one(dest_list,
+								 src_list, name);
+		} T_END;
+		if (ret < 0) {
 			i_warning("Subscriptions file %s: "
 				  "Removing invalid entry: %s",
 				  path, name);
