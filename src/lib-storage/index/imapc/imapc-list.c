@@ -139,8 +139,15 @@ static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
 	node = imapc_list_update_tree(list, list->tmp_subscriptions != NULL ?
 				      list->tmp_subscriptions :
 				      list->list.subscriptions, args);
-	if (node != NULL)
-		node->flags |= MAILBOX_SUBSCRIBED;
+	if (node != NULL) {
+		if ((node->flags & MAILBOX_NOSELECT) == 0)
+			node->flags |= MAILBOX_SUBSCRIBED;
+		else {
+			/* LSUB \Noselect means that the mailbox isn't
+			   subscribed, but it has children that are */
+			node->flags &= ~MAILBOX_NOSELECT;
+		}
+	}
 }
 
 void imapc_list_register_callbacks(struct imapc_mailbox_list *list)
