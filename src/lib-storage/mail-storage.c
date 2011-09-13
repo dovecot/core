@@ -1146,6 +1146,7 @@ int mailbox_get_status(struct mailbox *box,
 		       enum mailbox_status_items items,
 		       struct mailbox_status *status_r)
 {
+	memset(status_r, 0, sizeof(*status_r));
 	return box->v.get_status(box, items, status_r);
 }
 
@@ -1154,6 +1155,8 @@ void mailbox_get_open_status(struct mailbox *box,
 			     struct mailbox_status *status_r)
 {
 	i_assert(box->opened);
+
+	memset(status_r, 0, sizeof(*status_r));
 	if (box->v.get_status(box, items, status_r) < 0)
 		i_unreached();
 }
@@ -1161,6 +1164,8 @@ void mailbox_get_open_status(struct mailbox *box,
 int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 			 struct mailbox_metadata *metadata_r)
 {
+	memset(metadata_r, 0, sizeof(*metadata_r));
+
 	if (!box->opened) {
 		if (mailbox_open(box) < 0)
 			return -1;
