@@ -238,8 +238,6 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 	struct imapc_client_mailbox *box = *_box;
 	struct imapc_client_connection *const *connp;
 
-	*_box = NULL;
-
 	array_foreach(&box->client->conns, connp) {
 		if ((*connp)->box == box) {
 			(*connp)->box = NULL;
@@ -251,6 +249,10 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 		imapc_connection_unselect(box);
 	imapc_msgmap_deinit(&box->msgmap);
 	i_free(box);
+
+	/* set this only after unselect, which may cancel some commands that
+	   reference this box */
+	*_box = NULL;
 }
 
 static void imapc_client_mailbox_cmd_cb(const struct imapc_command_reply *reply,
