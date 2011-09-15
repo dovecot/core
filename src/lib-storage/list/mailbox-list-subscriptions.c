@@ -26,7 +26,7 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	struct mail_namespace *ns, *default_ns = list->ns;
 	struct mail_namespace *namespaces = default_ns->user->namespaces;
 	struct mailbox_node *node;
-	const char *vname, *ns_name;
+	const char *vname, *ns_name, *list_name;
 	unsigned int len;
 	bool created;
 
@@ -60,7 +60,8 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		/* we'll need to get the namespace autocreated.
 		   one easy way is to just ask if a mailbox name under
 		   it is valid, and it gets created */
-		(void)mailbox_list_is_valid_existing_name(list, name);
+		list_name = ns_name + ns->prefix_len;
+		(void)mailbox_list_is_valid_existing_name(list, list_name);
 		ns = mail_namespace_find_unsubscribable(namespaces, ns_name);
 		i_assert(ns != NULL &&
 			 (ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0);
