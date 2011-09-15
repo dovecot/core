@@ -584,8 +584,19 @@ mbox_mailbox_get_guid(struct mailbox *box, uint8_t guid[MAIL_GUID_128_SIZE])
 		return -1;
 	}
 	if (mail_guid_128_is_empty(mbox->mbox_hdr.mailbox_guid)) {
-		if (mailbox_sync(&mbox->box, 0) < 0)
-			return -1;
+		/* create another mailbox and sync  */
+		struct mailbox *box2;
+		struct mbox_mailbox *mbox2;
+		int ret;
+
+		i_assert(mbox->mbox_lock_type == F_UNLCK);
+		box2 = mailbox_alloc(box->list, box->name,
+				     MAILBOX_FLAG_KEEP_RECENT);
+		ret = mailbox_sync(box2, 0);
+		mbox2 = (struct mbox_mailbox *)box2;
+		memcpy(guid, mbox2->mbox_hdr.mailbox_guid, MAIL_GUID_128_SIZE);
+		mailbox_free(&box2);
+		return ret;
 	}
 	memcpy(guid, mbox->mbox_hdr.mailbox_guid, MAIL_GUID_128_SIZE);
 	return 0;
