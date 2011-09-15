@@ -309,7 +309,7 @@ sqlpool_find_available_connection(struct sqlpool_db *db,
 		if (conns[idx].host_idx == unwanted_host_idx)
 			continue;
 
-		if (!SQL_DB_IS_READY(conndb)) {
+		if (!SQL_DB_IS_READY(conndb) && conndb->to_reconnect == NULL) {
 			/* see if we could reconnect to it immediately */
 			(void)sql_connect(conndb);
 		}
@@ -523,7 +523,8 @@ static int driver_sqlpool_connect(struct sql_db *_db)
 	int ret = -1, ret2;
 
 	array_foreach(&db->all_connections, conn) {
-		ret2 = sql_connect(conn->db);
+		ret2 = conn->db->to_reconnect != NULL ? -1 :
+			sql_connect(conn->db);
 		if (ret2 > 0)
 			return 1;
 		if (ret2 == 0)
