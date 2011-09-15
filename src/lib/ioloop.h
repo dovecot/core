@@ -78,6 +78,9 @@ void timeout_remove(struct timeout **timeout);
 /* Reset timeout so it's next run after now+msecs. */
 void timeout_reset(struct timeout *timeout);
 
+/* Refresh ioloop_time and ioloop_timeval variables. */
+void io_loop_time_refresh(void);
+
 void io_loop_run(struct ioloop *ioloop);
 void io_loop_stop(struct ioloop *ioloop); /* safe to run in signal handler */
 
