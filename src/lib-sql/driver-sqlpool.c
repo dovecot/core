@@ -533,11 +533,18 @@ static const char *
 driver_sqlpool_escape_string(struct sql_db *_db, const char *string)
 {
 	struct sqlpool_db *db = (struct sqlpool_db *)_db;
-	const struct sqlpool_connection *conn;
+	const struct sqlpool_connection *conns;
+	unsigned int i, count;
 
-	/* we always have at least one connection */
-	conn = array_idx(&db->all_connections, 0);
-	return sql_escape_string(conn->db, string);
+	/* use the first ready connection */
+	conns = array_get(&db->all_connections, &count);
+	for (i = 0; i < count; i++) {
+		if (SQL_DB_IS_READY(conns[i].db))
+			return sql_escape_string(conns[i].db, string);
+	}
+	/* no ready connections. just use the first one (we're guaranteed
+	   to always have one) */
+	return sql_escape_string(conns[0].db, string);
 }
 
 static void driver_sqlpool_timeout(struct sqlpool_db *db)
