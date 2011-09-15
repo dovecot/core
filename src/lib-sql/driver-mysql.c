@@ -1,6 +1,7 @@
 /* Copyright (c) 2003-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "array.h"
 #include "str.h"
 #include "sql-api-private.h"
@@ -109,6 +110,11 @@ static int driver_mysql_connect(struct sql_db *_db)
 				    client_flags) == NULL;
 	alarm(0);
 	if (failed) {
+		/* connecting could have taken a while. make sure that any
+		   timeouts that get added soon will get a refreshed
+		   timestamp. */
+		io_loop_time_refresh();
+
 		sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
 		i_error("%s: Connect failed to database (%s): %s - "
 			"waiting for %u seconds before retry",
