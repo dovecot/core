@@ -256,7 +256,7 @@ static int client_export_iter_command(struct client *client)
 
 	if (!cmd->header_sent) {
 		o_stream_send_str(client->output,
-			"cmd\targs\tsession\tlast_update"MAIL_STATS_HEADER);
+			"cmd\targs\tsession\tuser\tlast_update"MAIL_STATS_HEADER);
 		cmd->header_sent = TRUE;
 	}
 
@@ -275,6 +275,9 @@ static int client_export_iter_command(struct client *client)
 		T_BEGIN {
 			str_append(cmd->str,
 				   guid_128_to_string(command->session->guid));
+			str_append_c(cmd->str, '\t');
+			str_tabescape_write(cmd->str,
+					    command->session->user->name);
 		} T_END;
 		client_export_timeval(cmd->str, &command->last_update);
 		client_export_mail_stats(cmd->str, &command->stats);
