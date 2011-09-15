@@ -447,6 +447,19 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string)
 		db->connection_limit = SQL_DEFAULT_CONNECTION_LIMIT;
 }
 
+static void sqlpool_add_all_once(struct sqlpool_db *db)
+{
+	struct sqlpool_host *host;
+	unsigned int host_idx;
+
+	for (;;) {
+		host = sqlpool_find_host_with_least_connections(db, &host_idx);
+		if (host->connection_count > 0)
+			break;
+		(void)sqlpool_add_connection(db, host, host_idx);
+	}
+}
+
 struct sql_db *
 driver_sqlpool_init(const char *connect_string, const struct sql_db *driver)
 {
@@ -465,8 +478,8 @@ driver_sqlpool_init(const char *connect_string, const struct sql_db *driver)
 	} T_END;
 
 	i_array_init(&db->all_connections, 16);
-	/* always have at least one backend connection initialized */
-	(void)sqlpool_add_new_connection(db);
+	/* connect to all databases so we can do load balancing immediately */
+	sqlpool_add_all_once(db);
 	return &db->api;
 }
 
