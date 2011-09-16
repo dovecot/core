@@ -83,6 +83,7 @@ auth_SOURCES = \
 	mech-gssapi.c \
 	mech-ntlm.c \
 	mech-otp.c \
+	mech-scram-sha1.c \
 	mech-skey.c \
 	mech-rpa.c \
 	mech-apop.c \
