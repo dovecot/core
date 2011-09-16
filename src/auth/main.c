@@ -282,6 +282,8 @@ int main(int argc, char *argv[])
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'w':
+			master_service_init_log(master_service,
+						"auth-worker: ");
 			worker = TRUE;
 			break;
 		default:
