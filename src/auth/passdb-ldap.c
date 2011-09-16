@@ -157,6 +157,10 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 			}
 			auth_request_log_info(auth_request, "ldap", "%s", str);
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+		} else if (ret == LDAP_NO_SUCH_OBJECT) {
+			passdb_result = PASSDB_RESULT_USER_UNKNOWN;
+			auth_request_log_info(auth_request, "ldap",
+					      "unknown user");
 		} else {
 			auth_request_log_error(auth_request, "ldap",
 					       "ldap_bind() failed: %s",

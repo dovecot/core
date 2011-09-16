@@ -64,7 +64,7 @@ doveadm_mail_iter_deinit_transaction(struct doveadm_mail_iter *iter,
 	}
 	if (commit) {
 		if (mailbox_transaction_commit(&iter->t) < 0) {
-			i_error("Commiting mailbox %s failed: %s",
+			i_error("Committing mailbox %s failed: %s",
 				mailbox_get_vname(iter->box),
 			mailbox_get_last_error(iter->box, NULL));
 			ret = -1;

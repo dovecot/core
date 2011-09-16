@@ -604,8 +604,18 @@ mbox_mailbox_get_guid(struct mbox_mailbox *mbox, guid_128_t guid_r)
 			"Can't set mailbox GUID to a read-only mailbox");
 		return -1;
 	} else {
-		if (mbox_sync_get_guid(mbox) < 0)
-			return -1;
+		/* create another mailbox and sync  */
+		struct mailbox *box2;
+		struct mbox_mailbox *mbox2;
+		int ret;
+
+		i_assert(mbox->mbox_lock_type == F_UNLCK);
+		box2 = mailbox_alloc(mbox->box.list, mbox->box.name, 0);
+		ret = mailbox_sync(box2, 0);
+		mbox2 = (struct mbox_mailbox *)box2;
+		memcpy(guid_r, mbox2->mbox_hdr.mailbox_guid, GUID_128_SIZE);
+		mailbox_free(&box2);
+		return ret;
 	}
 	memcpy(guid_r, mbox->mbox_hdr.mailbox_guid, GUID_128_SIZE);
 	return 0;

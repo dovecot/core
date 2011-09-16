@@ -25,7 +25,7 @@ enum sql_db_state {
    is never used). */
 #define SQL_CONNECT_RESET_DELAY 15
 /* Abort connect() if it can't connect within this time. */
-#define SQL_CONNECT_TIMEOUT_SECS 10
+#define SQL_CONNECT_TIMEOUT_SECS 5
 /* Abort queries after this many seconds */
 #define SQL_QUERY_TIMEOUT_SECS 60
 /* Default max. number of connections to create per host */

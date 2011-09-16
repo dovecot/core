@@ -303,13 +303,13 @@ sqlpool_find_available_connection(struct sqlpool_db *db,
 
 	conns = array_get(&db->all_connections, &count);
 	for (i = 0; i < count; i++) {
-		unsigned int idx = (i + db->last_query_conn_idx) % count;
+		unsigned int idx = (i + db->last_query_conn_idx + 1) % count;
 		struct sql_db *conndb = conns[idx].db;
 
 		if (conns[idx].host_idx == unwanted_host_idx)
 			continue;
 
-		if (!SQL_DB_IS_READY(conndb)) {
+		if (!SQL_DB_IS_READY(conndb) && conndb->to_reconnect == NULL) {
 			/* see if we could reconnect to it immediately */
 			(void)sql_connect(conndb);
 		}
@@ -447,6 +447,19 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string)
 		db->connection_limit = SQL_DEFAULT_CONNECTION_LIMIT;
 }
 
+static void sqlpool_add_all_once(struct sqlpool_db *db)
+{
+	struct sqlpool_host *host;
+	unsigned int host_idx;
+
+	for (;;) {
+		host = sqlpool_find_host_with_least_connections(db, &host_idx);
+		if (host->connection_count > 0)
+			break;
+		(void)sqlpool_add_connection(db, host, host_idx);
+	}
+}
+
 struct sql_db *
 driver_sqlpool_init(const char *connect_string, const struct sql_db *driver)
 {
@@ -465,8 +478,8 @@ driver_sqlpool_init(const char *connect_string, const struct sql_db *driver)
 	} T_END;
 
 	i_array_init(&db->all_connections, 16);
-	/* always have at least one backend connection initialized */
-	(void)sqlpool_add_new_connection(db);
+	/* connect to all databases so we can do load balancing immediately */
+	sqlpool_add_all_once(db);
 	return &db->api;
 }
 
@@ -510,10 +523,11 @@ static int driver_sqlpool_connect(struct sql_db *_db)
 	int ret = -1, ret2;
 
 	array_foreach(&db->all_connections, conn) {
-		ret2 = sql_connect(conn->db);
+		ret2 = conn->db->to_reconnect != NULL ? -1 :
+			sql_connect(conn->db);
 		if (ret2 > 0)
-			return 1;
-		if (ret2 == 0)
+			ret = 1;
+		else if (ret2 == 0 && ret < 0)
 			ret = 0;
 	}
 	return ret;
@@ -533,11 +547,18 @@ static const char *
 driver_sqlpool_escape_string(struct sql_db *_db, const char *string)
 {
 	struct sqlpool_db *db = (struct sqlpool_db *)_db;
-	const struct sqlpool_connection *conn;
+	const struct sqlpool_connection *conns;
+	unsigned int i, count;
 
-	/* we always have at least one connection */
-	conn = array_idx(&db->all_connections, 0);
-	return sql_escape_string(conn->db, string);
+	/* use the first ready connection */
+	conns = array_get(&db->all_connections, &count);
+	for (i = 0; i < count; i++) {
+		if (SQL_DB_IS_READY(conns[i].db))
+			return sql_escape_string(conns[i].db, string);
+	}
+	/* no ready connections. just use the first one (we're guaranteed
+	   to always have one) */
+	return sql_escape_string(conns[0].db, string);
 }
 
 static void driver_sqlpool_timeout(struct sqlpool_db *db)

@@ -27,6 +27,19 @@ v2.1.UNSTABLE 2011-xx-xx  Timo Sirainen <tss@iki.fi>
 	  override_fields settings to specify template defaults/overrides.
 	- listescape plugin works perfectly now
 
+v2.0.15 2011-09-16  Timo Sirainen <tss@iki.fi>
+
+	+ doveadm altmove: Added -r parameter to move mails back to primary
+	  storage.
+	- v2.0.14: Index reading could have eaten a lot of memory in some
+	  situations
+	- doveadm index no longer affects future caching decisions
+	- mbox: Fixed crash during mail delivery when mailbox didn't yet have
+	  GUID assigned to it.
+	- zlib+mbox: Fetching last message from compressed mailboxes crashed.
+	- lib-sql: Fixed load balancing and error handling when multiple hosts
+	  are used.
+
 v2.0.14 2011-08-29  Timo Sirainen <tss@iki.fi>
 
 	+ doveadm: Added support for running mail commands by proxying to

@@ -244,6 +244,9 @@ void auth_request_handler_reply(struct auth_request *request,
 		   anything but abort this request */
 		request->internal_failure = TRUE;
 		result = AUTH_CLIENT_RESULT_FAILURE;
+		/* make sure this request is set to finished state
+		   (it's not with result=continue) */
+		auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	}
 
 	reply = auth_stream_reply_init(pool_datastack_create());

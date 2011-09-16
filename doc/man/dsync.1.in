@@ -167,7 +167,7 @@ path to a script that executes the
 For example:
 .sp
 .nf
-ssh mailuser@host dsync -u user
+ssh mailuser@host dsync \-u user
 .fi
 .\"------------------------------------------------------------------------
 .SH COMMANDS

@@ -1,19 +1,19 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-ALTMOVE 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
+.\" Copyright (c) 2010-2011 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-ALTMOVE 1 "2011-09-15" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-altmove \- Move matching mails to the alternative storage (dbox\-only)
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " altmove " [" \-S
+.BR doveadm " [" \-Dv "] " altmove " [" \-r "] ["\-S
 .IR socket_path "] " search_query
 .br
 .\"-------------------------------------
-.BR doveadm " [" \-Dv "] " altmove " [" \-S
+.BR doveadm " [" \-Dv "] " altmove " [" \-r "] ["\-S
 .IR socket_path "] "
 .BI \-A " search_query"
 .br
 .\"-------------------------------------
-.BR doveadm " [" \-Dv "] " altmove " [" \-S
+.BR doveadm " [" \-Dv "] " altmove " [" \-r "] ["\-S
 .IR socket_path "] "
 .BI \-u " user search_query"
 .\"------------------------------------------------------------------------
@@ -41,6 +41,16 @@ Command specific
 .IR options :
 .\"-------------------------------------
 @INCLUDE:option-A@
+.\"-------------------------------------
+.TP
+.B \-r
+When the
+.B \-r
+option is given this
+.I command
+works the other way round.
+Mails will be moved from the alternative storage back to the default mail
+location.
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------

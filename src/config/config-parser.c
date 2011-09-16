@@ -52,8 +52,8 @@ static const char *info_type_name_find(const struct setting_parser_info *info)
 	return NULL;
 }
 
-static void config_add_type(struct setting_parser_context *parser,
-			    const char *line, const char *section_name)
+static int config_add_type(struct setting_parser_context *parser,
+			   const char *line, const char *section_name)
 {
 	const struct setting_parser_info *info;
 	const char *p;
@@ -61,21 +61,28 @@ static void config_add_type(struct setting_parser_context *parser,
 	int ret;
 
 	info = settings_parse_get_prev_info(parser);
+	if (info == NULL) {
+		/* section inside strlist */
+		return -1;
+	}
 	if (info->type_offset == (size_t)-1)
-		return;
+		return 0;
 
 	str = t_str_new(256);
 	p = strchr(line, '=');
 	str_append_n(str, line, p-line);
 	str_append_c(str, SETTINGS_SEPARATOR);
 	str_append(str, p+1);
-	str_append_c(str, SETTINGS_SEPARATOR);
-	str_append(str, info_type_name_find(info));
+	if (info != NULL) {
+		str_append_c(str, SETTINGS_SEPARATOR);
+		str_append(str, info_type_name_find(info));
+	}
 	str_append_c(str, '=');
 	str_append(str, section_name);
 
 	ret = settings_parse_line(parser, str_c(str));
 	i_assert(ret > 0);
+	return 0;
 }
 
 static bool
@@ -106,8 +113,12 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 					key, NULL);
 				return -1;
 			}
-			if (section_name != NULL)
-				config_add_type(l->parser, line, section_name);
+			if (section_name != NULL) {
+				if (config_add_type(l->parser, line, section_name) < 0) {
+					ctx->error = "Section not allowed here";
+					return -1;
+				}
+			}
 		} else if (ret < 0) {
 			ctx->error = settings_parser_get_error(l->parser);
 			return -1;

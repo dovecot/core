@@ -634,8 +634,9 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
 						  path);
 		} else if (list->mail_set->mail_debug) {
-			i_debug("Namespace %s: Permission lookup failed from %s",
-			       list->ns->prefix, path);
+			i_debug("Namespace %s: %s doesn't exist yet, "
+				"using default permissions",
+				list->ns->prefix, path);
 		}
 		if (name != NULL) {
 			/* return parent mailbox */

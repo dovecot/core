@@ -416,6 +416,13 @@ bool io_loop_is_running(struct ioloop *ioloop)
         return ioloop->running;
 }
 
+void io_loop_time_refresh(void)
+{
+	if (gettimeofday(&ioloop_timeval, NULL) < 0)
+		i_fatal("gettimeofday(): %m");
+	ioloop_time = ioloop_timeval.tv_sec;
+}
+
 struct ioloop *io_loop_create(void)
 {
 	struct ioloop *ioloop;
