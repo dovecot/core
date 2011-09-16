@@ -805,15 +805,24 @@ int mailbox_delete(struct mailbox *box)
 
 static bool
 mail_storages_rename_compatible(struct mail_storage *storage1,
-				struct mail_storage *storage2)
+				struct mail_storage *storage2,
+				const char **error_r)
 {
 	if (storage1 == storage2)
 		return TRUE;
 
-	if (strcmp(storage1->name, storage2->name) != 0)
+	if (strcmp(storage1->name, storage2->name) != 0) {
+		*error_r = t_strdup_printf("storage %s != %s",
+					   storage1->name, storage2->name);
 		return FALSE;
-	if ((storage1->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) != 0)
+	}
+	if ((storage1->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) != 0) {
+		/* e.g. mdbox where all mails are in storage/ directory and
+		   they can't be easily moved from there. */
+		*error_r = t_strdup_printf("storage %s uses unique root",
+					   storage1->name);
 		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -824,16 +833,29 @@ static bool nullequals(const void *p1, const void *p2)
 
 static bool
 mailbox_lists_rename_compatible(struct mailbox_list *list1,
-				struct mailbox_list *list2)
+				struct mailbox_list *list2,
+				const char **error_r)
 {
-	return nullequals(list1->set.alt_dir, list2->set.alt_dir) &&
-		nullequals(list1->set.index_dir, list2->set.index_dir) &&
-		nullequals(list1->set.control_dir, list2->set.control_dir);
+	if (!nullequals(list1->set.alt_dir, list2->set.alt_dir)) {
+		*error_r = "alt dirs don't match";
+		return FALSE;
+	}
+	if (!nullequals(list1->set.index_dir, list2->set.index_dir)) {
+		*error_r = "index dirs don't match";
+		return FALSE;
+	}
+	if (!nullequals(list1->set.control_dir, list2->set.control_dir)) {
+		*error_r = "control dirs don't match";
+		return FALSE;
+	}
+	return TRUE;
 }
 
 int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 		   bool rename_children)
 {
+	const char *error = NULL;
+
 	if (!mailbox_list_is_valid_existing_name(src->list, src->name) ||
 	    *src->name == '\0' ||
 	    !mailbox_list_is_valid_create_name(dest->list, dest->name)) {
@@ -841,8 +863,14 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest,
 				       "Invalid mailbox name");
 		return -1;
 	}
-	if (!mail_storages_rename_compatible(src->storage, dest->storage) ||
-	    !mailbox_lists_rename_compatible(src->list, dest->list)) {
+	if (!mail_storages_rename_compatible(src->storage,
+					     dest->storage, &error) ||
+	    !mailbox_lists_rename_compatible(src->list,
+					     dest->list, &error)) {
+		if (src->storage->set->mail_debug) {
+			i_debug("Can't rename '%s' to '%s': %s",
+				src->vname, dest->vname, error);
+		}
 		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 			"Can't rename mailboxes across specified storages.");
 		return -1;
