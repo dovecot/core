@@ -434,7 +434,7 @@ static int cache_add(struct mailbox *box, const struct mailbox_status *status,
 	}
 	mail_free(&mail);
 	if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Commiting mailbox %s failed: %s",
+		i_error("Committing mailbox %s failed: %s",
 			mailbox_get_vname(box),
 			mail_storage_get_last_error(mailbox_get_storage(box), NULL));
 		return -1;

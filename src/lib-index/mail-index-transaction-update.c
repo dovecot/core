@@ -358,7 +358,7 @@ void mail_index_expunge_guid(struct mail_index_transaction *t, uint32_t seq,
 	} else {
 		t->log_updates = TRUE;
 
-		/* ignore duplicates here. drop them when commiting. */
+		/* ignore duplicates here. drop them when committing. */
 		if (!array_is_created(&t->expunges))
 			i_array_init(&t->expunges, 64);
 		else if (!t->expunges_nonsorted) {
