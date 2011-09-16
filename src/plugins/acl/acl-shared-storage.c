@@ -65,6 +65,7 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 int acl_shared_namespaces_add(struct mail_namespace *ns)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
 	struct mail_storage *storage = ns->storage;
 	struct acl_lookup_dict_iter *iter;
 	const char *name;
@@ -72,11 +73,11 @@ int acl_shared_namespaces_add(struct mail_namespace *ns)
 	i_assert(ns->type == NAMESPACE_SHARED);
 	i_assert(strcmp(storage->name, SHARED_STORAGE_NAME) == 0);
 
-	if (ioloop_time < auser->last_shared_add_check + SHARED_NS_RETRY_SECS) {
+	if (ioloop_time < alist->last_shared_add_check + SHARED_NS_RETRY_SECS) {
 		/* already added, don't bother rechecking */
 		return 0;
 	}
-	auser->last_shared_add_check = ioloop_time;
+	alist->last_shared_add_check = ioloop_time;
 
 	iter = acl_lookup_dict_iterate_visible_init(auser->acl_lookup_dict);
 	while ((name = acl_lookup_dict_iterate_visible_next(iter)) != NULL) {

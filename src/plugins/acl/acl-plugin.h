@@ -21,7 +21,6 @@ struct acl_user {
 	const char *const *groups;
 
 	struct acl_lookup_dict *acl_lookup_dict;
-	time_t last_shared_add_check;
 };
 
 struct acl_storage_rights_context {
@@ -32,6 +31,8 @@ struct acl_storage_rights_context {
 struct acl_mailbox_list {
 	union mailbox_list_module_context module_ctx;
 	struct acl_storage_rights_context rights;
+
+	time_t last_shared_add_check;
 };
 
 extern MODULE_CONTEXT_DEFINE(acl_storage_module, &mail_storage_module_register);
