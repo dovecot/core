@@ -1,3 +1,4 @@
+ - mdbox/sdbox index rebuild -> quota rebuild?
  - anvil crash -> Error: Anvil client not compatible with this server (mixed old and new binaries?)
  - solr separate attachments (patch)
  - sql connection pooling: Count lookup latencies, avoid servers with
@@ -15,18 +16,10 @@
       e.g. %
     - mailbox_get_metadata(guid) could be optimized
     - virtual could use it to avoid keeping all mailboxes open
- - lib-ssl-iostream:
-    - Verify remote server name. get logic from postfix.
-    - WANT_READ/WANT_WRITE handling isn't done right..
  - imapc:
+     - lda/lmtp crashes because saved mail's seq=0
      - prefetching to THREAD and SORT
-     - fix hangs if remote disconnects (still happening?)
      - after LIST "" * is refreshed, delete all unlisted local index dirs
-     - fix lib-index assert-crash when >1 messages are expunged while they're
-       still in delayed_trans
-     - if there's no sync after mailbox_notify(), IDLE isn't called again..
-        - mbox->to_idle_delay could get added during imapc_client_run() and its
-          timeout goes to wrong ioloop..
  - check:
     - dsyncing between two namespace separators is probably broken..
  - remove mail_deliver_session after all, do all the stuff transparently
@@ -137,9 +130,6 @@
    assertion failed: (file_offset >= log->head->saved_tail_offset)
  - virtual: If last message matching INTHREAD rule gets expunged, the rest of
    the thread doesn't go away
- - virtual: "Searched n% of the mailbox" gives broken numbers since
-   ctx->seq jumps around. And why is it also returned when fts is enabled
-   along with "Indexed n% of the mailbox"?
  - how do shared mailboxes work with plugins?
     - lazy-expunge, fts, etc.?
     - listescape+acl can't handle shared mailboxes with escape chars
@@ -170,7 +160,6 @@
    filesystem block size instead of hardcoded DEV_BSIZE? not with AIX..
  - lucene: handle replacement chars?
  - squat:
-   - support ORs
    - wrong indexid
    - fts_build_init() assertion failed: (last_uid < last_uid_locked)
    - is locking done right? it reads header without file being locked?
@@ -205,9 +194,6 @@
 
  - maildir
    - don't allow more than 26 keywords
-   - physical separator could be configurable
-   - lda+maildir: if new mails are in new/ or cur/ they're not added to
-     dovecot-uidlist but newly saved mails are, so UIDs will be in wrong order
 
  - file_cache: we're growing the mmap in page size blocks, which is horribly
    slow if mremap() doesn't exist.
@@ -277,13 +263,6 @@
       untrusted computers. Maybe always send [ALERT] about the previous
       read-only login time with IP?
 
- - quota
-    - if dovecot-uidlist can't be written, assume the new mails have UIDs 
-      beginning from uidlist.next_uid. Whenever mails are expunged, overwrite
-      the next_uid field with the current highest next_uid. Whenever we have
-      assumed UIDs and uidlist gets updated, throw the client out with
-      "inconsist mailbox".
-
  - ssl
     - add setting: ssl_options = bitmask. by default we enable all openssl
       workarounds, this could be used to disable some of them
@@ -294,8 +273,6 @@
     - message_search_init() could accept multiple search keywords so we
       wouldn't need to call it separately for each one (so we wouldn't need
       to parse the message multiple times).
-    - could optionally support scanning inside file attachments and use
-      plugins to extract text out of them (word, excel, pdf, etc. etc.)
     - Create our own extension: When searching with TEXT/BODY, return
       the message text surrounding the keywords just like web search engines
       do. like: SEARCH X-PRINT-MATCHES TEXT "hello" -> * SEARCH 1 "He said:
