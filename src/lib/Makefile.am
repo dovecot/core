@@ -43,6 +43,7 @@ liblib_la_SOURCES = \
 	hex-binary.c \
 	hex-dec.c \
 	hmac-md5.c \
+	hmac-sha1.c \
 	home-expand.c \
 	hostpid.c \
 	imem.c \
