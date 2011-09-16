@@ -837,15 +837,15 @@ mailbox_lists_rename_compatible(struct mailbox_list *list1,
 				const char **error_r)
 {
 	if (!nullequals(list1->set.alt_dir, list2->set.alt_dir)) {
-		*error_r = "alt dirs don't match";
+		*error_r = "one namespace has alt dir and another doesn't";
 		return FALSE;
 	}
 	if (!nullequals(list1->set.index_dir, list2->set.index_dir)) {
-		*error_r = "index dirs don't match";
+		*error_r = "one namespace has index dir and another doesn't";
 		return FALSE;
 	}
 	if (!nullequals(list1->set.control_dir, list2->set.control_dir)) {
-		*error_r = "control dirs don't match";
+		*error_r = "one namespace has control dir and another doesn't";
 		return FALSE;
 	}
 	return TRUE;
