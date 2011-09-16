@@ -303,7 +303,7 @@ sqlpool_find_available_connection(struct sqlpool_db *db,
 
 	conns = array_get(&db->all_connections, &count);
 	for (i = 0; i < count; i++) {
-		unsigned int idx = (i + db->last_query_conn_idx) % count;
+		unsigned int idx = (i + db->last_query_conn_idx + 1) % count;
 		struct sql_db *conndb = conns[idx].db;
 
 		if (conns[idx].host_idx == unwanted_host_idx)
@@ -526,8 +526,8 @@ static int driver_sqlpool_connect(struct sql_db *_db)
 		ret2 = conn->db->to_reconnect != NULL ? -1 :
 			sql_connect(conn->db);
 		if (ret2 > 0)
-			return 1;
-		if (ret2 == 0)
+			ret = 1;
+		else if (ret2 == 0 && ret < 0)
 			ret = 0;
 	}
 	return ret;
