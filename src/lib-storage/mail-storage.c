@@ -260,6 +260,26 @@ mail_storage_create_root(struct mailbox_list *list,
 	}
 }
 
+static bool
+mail_storage_match_class(struct mail_storage *storage,
+			 const struct mail_storage *storage_class,
+			 const struct mailbox_list_settings *set)
+{
+	if (strcmp(storage->name, storage_class->name) != 0)
+		return FALSE;
+
+	if ((storage->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) != 0 &&
+	    strcmp(storage->unique_root_dir, set->root_dir) != 0)
+		return FALSE;
+
+	if (strcmp(storage->name, "shared") == 0) {
+		/* allow multiple independent shared namespaces */
+		return FALSE;
+	}
+
+	return storage;
+}
+
 static struct mail_storage *
 mail_storage_find(struct mail_user *user,
 		  const struct mail_storage *storage_class,
@@ -268,10 +288,7 @@ mail_storage_find(struct mail_user *user,
 	struct mail_storage *storage = user->storages;
 
 	for (; storage != NULL; storage = storage->next) {
-		if (strcmp(storage->name, storage_class->name) == 0 &&
-		    ((storage->class_flags &
-		      MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) == 0 ||
-		     strcmp(storage->unique_root_dir, set->root_dir) == 0))
+		if (mail_storage_match_class(storage, storage_class, set))
 			return storage;
 	}
 	return NULL;
