@@ -108,6 +108,12 @@ char mail_namespaces_get_root_sep(struct mail_namespace *namespaces)
    namespace could be found. */
 struct mail_namespace *
 mail_namespace_find(struct mail_namespace *namespaces, const char *mailbox);
+/* Find namespace for mailbox and return it. If the namespace has alias_for
+   set, return that namespace instead and change mailbox name to be a valid
+   inside it. */
+struct mail_namespace *
+mail_namespace_find_unalias(struct mail_namespace *namespaces,
+			    const char **mailbox);
 /* Like above, but ignore hidden namespaces. */
 struct mail_namespace *
 mail_namespace_find_visible(struct mail_namespace *namespaces,

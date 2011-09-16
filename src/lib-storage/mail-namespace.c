@@ -581,6 +581,23 @@ mail_namespace_find(struct mail_namespace *namespaces, const char *mailbox)
 }
 
 struct mail_namespace *
+mail_namespace_find_unalias(struct mail_namespace *namespaces,
+			    const char **mailbox)
+{
+	struct mail_namespace *ns;
+	const char *storage_name;
+
+	ns = mail_namespace_find(namespaces, *mailbox);
+	if (ns->alias_for != NULL) {
+		storage_name =
+			mailbox_list_get_storage_name(ns->list, *mailbox);
+		ns = ns->alias_for;
+		*mailbox = mailbox_list_get_vname(ns->list, storage_name);
+	}
+	return ns;
+}
+
+struct mail_namespace *
 mail_namespace_find_visible(struct mail_namespace *namespaces,
 			    const char *mailbox)
 {
