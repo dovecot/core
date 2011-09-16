@@ -604,6 +604,8 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 	   ignore any specific quota rules */
 	enabled = bytes_limit != 0 || count_limit != 0;
 
+	(void)mail_namespace_find_unalias(root->quota->user->namespaces,
+					  &mailbox_name);
 	rule = enabled ? quota_root_rule_find(root->set, mailbox_name) : NULL;
 	if (rule != NULL) {
 		if (!rule->ignore) {
@@ -1093,6 +1095,9 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		ARRAY_DEFINE(warn_roots, struct quota_root *);
 
 		mailbox_name = mailbox_get_vname(ctx->box);
+		(void)mail_namespace_find_unalias(
+			ctx->box->storage->user->namespaces, &mailbox_name);
+
 		roots = array_get(&ctx->quota->roots, &count);
 		t_array_init(&warn_roots, count);
 		for (i = 0; i < count; i++) {
