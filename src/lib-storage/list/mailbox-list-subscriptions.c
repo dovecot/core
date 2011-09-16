@@ -53,8 +53,8 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		return 0;
 
 	/* When listing shared namespace's subscriptions, we need to
-	   autocreate all the visible child namespaces and use the
-	   child namespace. */
+	   autocreate all the visible child namespaces. their subscriptions
+	   are listed later. */
 	if (ns != NULL && ns->type == NAMESPACE_SHARED &&
 	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 		/* we'll need to get the namespace autocreated.
@@ -62,9 +62,6 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		   it is valid, and it gets created */
 		list_name = ns_name + ns->prefix_len;
 		(void)mailbox_list_is_valid_existing_name(list, list_name);
-		ns = mail_namespace_find_unsubscribable(namespaces, ns_name);
-		i_assert(ns != NULL &&
-			 (ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0);
 	}
 
 	/* When listing pub/ namespace, skip over the namespace

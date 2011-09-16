@@ -6,12 +6,6 @@
 #include "index-storage.h"
 #include "shared-storage.h"
 
-struct shared_mailbox_list_iterate_context {
-	struct mailbox_list_iterate_context ctx;
-	struct mail_namespace *cur_ns;
-	struct mailbox_info info;
-};
-
 extern struct mailbox_list shared_mailbox_list;
 
 static struct mailbox_list *shared_list_alloc(void)
@@ -146,67 +140,69 @@ shared_list_join_refpattern(struct mailbox_list *list,
 	return pattern;
 }
 
+static void
+shared_list_create_missing_namespaces(struct mailbox_list *list,
+				      const char *const *patterns)
+{
+	char sep = mail_namespace_get_sep(list->ns);
+	const char *list_pat, *name;
+	unsigned int i;
+
+	for (i = 0; patterns[i] != NULL; i++) {
+		const char *last = NULL, *p;
+
+		/* we'll require that the pattern begins with the list's
+		   namespace prefix. we could also handle other patterns
+		   (e.g. %/user/%), but it's more of a theoretical problem. */
+		if (strncmp(list->ns->prefix, patterns[i],
+			    list->ns->prefix_len) != 0)
+			continue;
+		list_pat = patterns[i] + list->ns->prefix_len;
+
+		for (p = list_pat; *p != '\0'; p++) {
+			if (*p == '%' || *p == '*')
+				break;
+			if (*p == sep)
+				last = p;
+		}
+		if (last != NULL) {
+			name = t_strdup_until(list_pat, last);
+			(void)mailbox_list_is_valid_existing_name(list, name);
+		}
+	}
+}
+
 static struct mailbox_list_iterate_context *
 shared_list_iter_init(struct mailbox_list *list, const char *const *patterns,
 		      enum mailbox_list_iter_flags flags)
 {
-	struct shared_mailbox_list_iterate_context *ctx;
+	struct mailbox_list_iterate_context *ctx;
 	char sep = mail_namespace_get_sep(list->ns);
 
-	ctx = i_new(struct shared_mailbox_list_iterate_context, 1);
-	ctx->ctx.list = list;
-	ctx->ctx.flags = flags;
-	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns,
-						 FALSE, sep);
-	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+	ctx = i_new(struct mailbox_list_iterate_context, 1);
+	ctx->list = list;
+	ctx->flags = flags;
+	ctx->glob = imap_match_init_multiple(default_pool, patterns,
+					     FALSE, sep);
+	array_create(&ctx->module_contexts, default_pool, sizeof(void *), 5);
 
-	ctx->cur_ns = list->ns->user->namespaces;
-	ctx->info.ns = list->ns;
-	ctx->info.flags = MAILBOX_NONEXISTENT;
-	return &ctx->ctx;
+	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 &&
+	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) T_BEGIN {
+		shared_list_create_missing_namespaces(list, patterns);
+	} T_END;
+	return ctx;
 }
 
 static const struct mailbox_info *
-shared_list_iter_next(struct mailbox_list_iterate_context *_ctx)
+shared_list_iter_next(struct mailbox_list_iterate_context *ctx ATTR_UNUSED)
 {
-	struct shared_mailbox_list_iterate_context *ctx =
-		(struct shared_mailbox_list_iterate_context *)_ctx;
-	struct mail_namespace *ns = ctx->cur_ns;
-
-	for (; ns != NULL; ns = ns->next) {
-		if (ns->type != NAMESPACE_SHARED ||
-		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0)
-			continue;
-		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
-				  NAMESPACE_FLAG_LIST_CHILDREN)) == 0)
-			continue;
-
-		if (ns->prefix_len < ctx->info.ns->prefix_len ||
-		    strncmp(ns->prefix, ctx->info.ns->prefix,
-			    ctx->info.ns->prefix_len) != 0)
-			continue;
-
-		/* visible and listable namespace under ourself, see if the
-		   prefix matches without the trailing separator */
-		i_assert(ns->prefix_len > 0);
-		ctx->info.name = t_strndup(ns->prefix, ns->prefix_len - 1);
-		if (imap_match(ctx->ctx.glob, ctx->info.name) == IMAP_MATCH_YES) {
-			ctx->cur_ns = ns->next;
-			return &ctx->info;
-		}
-	}
-
-	ctx->cur_ns = NULL;
 	return NULL;
 }
 
-static int shared_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
+static int shared_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 {
-	struct shared_mailbox_list_iterate_context *ctx =
-		(struct shared_mailbox_list_iterate_context *)_ctx;
-
-	imap_match_deinit(&ctx->ctx.glob);
-	array_free(&ctx->ctx.module_contexts);
+	imap_match_deinit(&ctx->glob);
+	array_free(&ctx->module_contexts);
 	i_free(ctx);
 	return 0;
 }

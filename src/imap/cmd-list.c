@@ -707,7 +707,7 @@ list_namespace_match_pattern(struct cmd_list_context *ctx, bool inboxcase,
 			if (list_want_send_prefix(ctx, orig_cur_pattern))
 				ctx->cur_ns_send_prefix = TRUE;
 		}
-		return (match & IMAP_MATCH_CHILDREN) != 0;
+		return match != IMAP_MATCH_NO;
 	}
 }
 
