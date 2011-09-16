@@ -79,6 +79,12 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		*error_r = "Shared namespace prefix doesn't contain %u or %n";
 		return -1;
 	}
+	if (p[-1] != ns->sep &&
+	    (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+			  NAMESPACE_FLAG_LIST_CHILDREN)) != 0) {
+		*error_r = "Shared namespace prefix doesn't end with hierarchy separator";
+		return -1;
+	}
 
 	/* truncate prefix after the above checks are done, so they can log
 	   the full prefix in error conditions */
