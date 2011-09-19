@@ -158,6 +158,15 @@ server_handle_input(struct server_connection *conn,
 	i_stream_skip(conn->input, size);
 }
 
+static void server_connection_authenticated(struct server_connection *conn)
+{
+	conn->authenticated = TRUE;
+	if (conn->delayed_cmd != NULL) {
+		o_stream_send_str(conn->output, conn->delayed_cmd);
+		conn->delayed_cmd = NULL;
+	}
+}
+
 static int
 server_connection_authenticate(struct server_connection *conn)
 {
@@ -180,10 +189,7 @@ server_connection_authenticate(struct server_connection *conn)
 	str_append_c(cmd, '\n');
 
 	o_stream_send(conn->output, cmd->data, cmd->used);
-	if (conn->delayed_cmd != NULL) {
-		o_stream_send_str(conn->output, conn->delayed_cmd);
-		conn->delayed_cmd = NULL;
-	}
+	server_connection_authenticated(conn);
 	return 0;
 }
 
@@ -202,7 +208,7 @@ static void server_connection_input(struct server_connection *conn)
 
 		conn->handshaked = TRUE;
 		if (strcmp(line, "+") == 0)
-			conn->authenticated = TRUE;
+			server_connection_authenticated(conn);
 		else if (strcmp(line, "-") == 0) {
 			if (server_connection_authenticate(conn) < 0) {
 				server_connection_destroy(&conn);
@@ -220,18 +226,6 @@ static void server_connection_input(struct server_connection *conn)
 		/* disconnected */
 		server_connection_destroy(&conn);
 		return;
-	}
-
-	if (!conn->authenticated) {
-		if ((line = i_stream_next_line(conn->input)) == NULL)
-			return;
-		if (strcmp(line, "+") == 0)
-			conn->authenticated = TRUE;
-		else {
-			i_error("doveadm authentication failed (%s)", line+1);
-			server_connection_destroy(&conn);
-			return;
-		}
 	}
 
 	data = i_stream_get_data(conn->input, &size);
