@@ -2674,7 +2674,15 @@ AC_DEFINE_UNQUOTED(CAPABILITY_BANNER_STRING, "$capability_banner", IMAP capabili
 
 CFLAGS="$CFLAGS $EXTRA_CFLAGS"
 if test "$with_gnu_ld" = yes; then
-  NOPLUGIN_LDFLAGS="-Wl,--as-needed -Wl,--no-undefined"
+  NOPLUGIN_LDFLAGS="-Wl,--as-needed"
+  case "$host_os" in
+    linux*)
+      # This appears to work in Linux, but not in BSDs..
+      NOPLUGIN_LDFLAGS="$NOPLUGIN_LDFLAGS -Wl,--no-undefined"
+      ;;
+    *)
+      ;;
+  esac
   LDFLAGS="\$(NOPLUGIN_LDFLAGS) $LDFLAGS"
   AC_SUBST(NOPLUGIN_LDFLAGS)
 fi
