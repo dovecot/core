@@ -18,7 +18,6 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 {
 	const char *const *tmp;
 
-	set->default_language = "english";
 	for (tmp = t_strsplit_spaces(str, " "); *tmp != NULL; tmp++) {
 		if (strncmp(*tmp, "default_language=", 17) == 0) {
 			set->default_language =
@@ -46,6 +45,9 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 			"but Dovecot built without stemmer support");
 		return -1;
 	}
+#else
+	if (set->default_language == NULL)
+		set->default_language = "english";
 #endif
 #ifndef HAVE_LUCENE_TEXTCAT
 	if (set->textcat_conf != NULL) {
@@ -60,7 +62,8 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 {
 	/* only the default language change matters */
-	return crc32_str(set->default_language);
+	return set->default_language == NULL ? 0 :
+		crc32_str(set->default_language);
 }
 
 static void fts_lucene_mail_user_created(struct mail_user *user)
