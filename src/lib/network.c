@@ -697,7 +697,14 @@ int net_getunixname(int fd, const char **name_r)
 
 int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 {
-#if defined(SO_PEERCRED)
+#if defined(HAVE_GETPEEREID)
+	/* OSX 10.4+, FreeBSD 4.6+, OpenBSD 3.0+, NetBSD 5.0+ */
+	if (getpeereid(fd, &cred_r->uid, &cred_r->gid) < 0) {
+		i_error("getpeereid() failed: %m");
+		return -1;
+	}
+	return 0;
+#elif defined(SO_PEERCRED)
 	/* Linux */
 	struct ucred ucred;
 	socklen_t len = sizeof(ucred);
@@ -708,13 +715,6 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 	}
 	cred_r->uid = ucred.uid;
 	cred_r->gid = ucred.gid;
-	return 0;
-#elif defined(HAVE_GETPEEREID)
-	/* OSX 10.4+, FreeBSD 4.6+, OpenBSD 3.0+, NetBSD 5.0+ */
-	if (getpeereid(fd, &cred_r->uid, &cred_r->gid) < 0) {
-		i_error("getpeereid() failed: %m");
-		return -1;
-	}
 	return 0;
 #elif defined(HAVE_GETPEERUCRED)
 	/* Solaris */
