@@ -45,7 +45,7 @@ static bool inotify_input_more(struct ioloop *ioloop)
 	   only full events are returned by the kernel. */
 	ret = read(ctx->inotify_fd, event_buf, sizeof(event_buf));
 	if (ret <= 0) {
-		if (ret == 0) {
+		if (ret == 0 || errno == EAGAIN) {
 			/* nothing more to read */
 			return FALSE;
 		}
