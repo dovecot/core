@@ -854,7 +854,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	pool_t user_pool, temp_pool;
 	int ret = 1;
 
-	user_pool = pool_alloconly_create("mail storage service user", 1024*6);
+	user_pool = pool_alloconly_create("mail storage service user", 1024*8);
 
 	if (mail_storage_service_read_settings(ctx, input, user_pool,
 					       &user_info, &set_parser,

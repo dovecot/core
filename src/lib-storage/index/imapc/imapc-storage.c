@@ -320,7 +320,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	struct imapc_mailbox *mbox;
 	pool_t pool;
 
-	pool = pool_alloconly_create("imapc mailbox", 1024*3);
+	pool = pool_alloconly_create("imapc mailbox", 1024*4);
 	mbox = p_new(pool, struct imapc_mailbox, 1);
 	mbox->box = imapc_mailbox;
 	mbox->box.pool = pool;
