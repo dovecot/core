@@ -190,7 +190,7 @@ static void imapc_sync_expunge_eom(struct imapc_sync_context *ctx)
 	mbox->sync_next_rseq = 0;
 }
 
-static void imapc_sync_index_header(struct imapc_sync_context *ctx)
+static void imapc_sync_uid_validity(struct imapc_sync_context *ctx)
 {
 	struct imapc_mailbox *mbox = ctx->mbox;
 	const struct mail_index_header *hdr;
@@ -208,11 +208,22 @@ static void imapc_sync_index_header(struct imapc_sync_context *ctx)
 			&mbox->sync_uid_validity,
 			sizeof(mbox->sync_uid_validity), TRUE);
 	}
-	if (hdr->next_uid < mbox->sync_uid_next) {
+}
+
+static void imapc_sync_uid_next(struct imapc_sync_context *ctx)
+{
+	struct imapc_mailbox *mbox = ctx->mbox;
+	const struct mail_index_header *hdr;
+	uint32_t uid_next = mbox->sync_uid_next;
+
+	if (uid_next < mbox->min_append_uid)
+		uid_next = mbox->min_append_uid;
+
+	hdr = mail_index_get_header(ctx->sync_view);
+	if (hdr->next_uid < uid_next) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
-			&mbox->sync_uid_next, sizeof(mbox->sync_uid_next),
-			FALSE);
+			&uid_next, sizeof(uid_next), FALSE);
 	}
 }
 
@@ -225,7 +236,7 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	i_array_init(&ctx->expunged_uids, 64);
 	ctx->keywords = mail_index_get_keywords(mbox->box.index);
 
-	imapc_sync_index_header(ctx);
+	imapc_sync_uid_validity(ctx);
 	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) T_BEGIN {
 		if (!mail_index_lookup_seq_range(ctx->sync_view,
 						 sync_rec.uid1, sync_rec.uid2,
@@ -274,6 +285,9 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	while (ctx->sync_command_count > 0)
 		imapc_storage_run(mbox->storage);
 	array_free(&ctx->expunged_uids);
+
+	/* add uidnext after all appends */
+	imapc_sync_uid_next(ctx);
 
 	imapc_sync_expunge_eom(ctx);
 	if (mbox->box.v.sync_notify != NULL)
