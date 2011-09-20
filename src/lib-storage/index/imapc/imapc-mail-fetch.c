@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "istream.h"
+#include "istream-header-filter.h"
 #include "imap-arg.h"
 #include "imap-date.h"
 #include "imapc-client.h"
@@ -182,6 +183,23 @@ static bool imapc_find_lfile_arg(const struct imapc_untagged_reply *reply,
 	return FALSE;
 }
 
+static void imapc_stream_filter(struct istream **input)
+{
+	static const char *imapc_hide_headers[] = {
+		/* Added by MS Exchange 2010 when \Flagged flag is set.
+		   This violates IMAP guarantee of messages being immutable. */
+		"X-Message-Flag"
+	};
+	struct istream *filter_input;
+
+	filter_input = i_stream_create_header_filter(*input,
+		HEADER_FILTER_EXCLUDE,
+		imapc_hide_headers, N_ELEMENTS(imapc_hide_headers),
+		null_header_filter_callback, NULL);
+	i_stream_unref(input);
+	*input = filter_input;
+}
+
 static void
 imapc_fetch_stream(struct imapc_mail *mail,
 		   const struct imapc_untagged_reply *reply,
@@ -230,6 +248,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 			  t_strdup_printf("imapc mail uid=%u", _mail->uid));
 	index_mail_set_read_buffer_size(_mail, imail->data.stream);
 
+	imapc_stream_filter(&imail->data.stream);
 	if (imail->mail.v.istream_opened != NULL) {
 		if (imail->mail.v.istream_opened(_mail,
 						 &imail->data.stream) < 0) {
