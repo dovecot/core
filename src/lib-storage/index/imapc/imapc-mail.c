@@ -38,6 +38,7 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 	struct imapc_msgmap *msgmap;
+	struct imapc_simple_context sctx;
 	uint32_t lseq, rseq;
 
 	if (mbox->sync_view != NULL) {
@@ -48,6 +49,16 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 
 	/* check if we've received EXPUNGE for it */
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
+	if (!imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq))
+		return TRUE;
+
+	/* we may be running against a server that hasn't bothered sending
+	   us an EXPUNGE. see if NOOP sends it. */
+	imapc_simple_context_init(&sctx, mbox->storage);
+	imapc_client_cmdf(mbox->storage->client, imapc_simple_callback,
+			  &sctx, "NOOP");
+	imapc_simple_run(&sctx);
+
 	return !imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq);
 }
 
