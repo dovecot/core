@@ -413,10 +413,6 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	    ret == 0)
 		ret = imapc_sync(mbox);
 
-	if (changes && ret < 0) {
-		/* we're now out of sync and can't safely continue */
-		mail_index_mark_corrupted(mbox->box.index);
-	}
 	return index_mailbox_sync_init(box, flags, ret < 0);
 }
 
