@@ -6,6 +6,7 @@
 
 struct imapc_msgmap {
 	ARRAY_TYPE(uint32_t) uids;
+	uint32_t uid_next;
 };
 
 struct imapc_msgmap *imapc_msgmap_init(void)
@@ -14,6 +15,7 @@ struct imapc_msgmap *imapc_msgmap_init(void)
 
 	msgmap = i_new(struct imapc_msgmap, 1);
 	i_array_init(&msgmap->uids, 128);
+	msgmap->uid_next = 1;
 	return msgmap;
 }
 
@@ -34,8 +36,7 @@ uint32_t imapc_msgmap_count(struct imapc_msgmap *msgmap)
 
 uint32_t imapc_msgmap_uidnext(struct imapc_msgmap *msgmap)
 {
-	return imapc_msgmap_count(msgmap) == 0 ? 1 :
-		imapc_msgmap_rseq_to_uid(msgmap, 1) + 1;
+	return msgmap->uid_next;
 }
 
 uint32_t imapc_msgmap_rseq_to_uid(struct imapc_msgmap *msgmap, uint32_t rseq)
@@ -72,7 +73,9 @@ void imapc_msgmap_append(struct imapc_msgmap *msgmap,
 			 uint32_t rseq, uint32_t uid)
 {
 	i_assert(rseq == imapc_msgmap_count(msgmap) + 1);
+	i_assert(uid >= msgmap->uid_next);
 
+	msgmap->uid_next = uid + 1;
 	array_append(&msgmap->uids, &uid, 1);
 }
 

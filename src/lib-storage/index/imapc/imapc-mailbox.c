@@ -103,10 +103,11 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 }
 
 static void
-imapc_untagged_exists(const struct imapc_untagged_reply *reply ATTR_UNUSED,
+imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 		      struct imapc_mailbox *mbox)
 {
 	struct mail_index_view *view = mbox->delayed_sync_view;
+	uint32_t exists_count = reply->num;
 	const struct mail_index_header *hdr;
 
 	if (mbox == NULL)
@@ -122,6 +123,7 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply ATTR_UNUSED,
 		hdr = mail_index_get_header(view);
 		mbox->sync_fetch_first_uid = hdr->next_uid;
 	}
+	mbox->exists_count = exists_count;
 }
 
 static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)
@@ -163,6 +165,82 @@ static bool keywords_are_equal(struct mail_keywords *kw,
 	return TRUE;
 }
 
+static int
+imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
+			    uint32_t rseq, uint32_t fetch_uid,
+			    uint32_t *lseq_r, uint32_t *uid_r)
+{
+	struct imapc_msgmap *msgmap;
+	uint32_t uid, msg_count, rseq2;
+
+	*lseq_r = 0;
+	*uid_r = uid = fetch_uid;
+
+	if (rseq > mbox->exists_count) {
+		/* Receiving a FETCH for a message that EXISTS hasn't
+		   announced yet. MS Exchange has a bug where our UID FETCH
+		   request sometimes sends replies where sequences are above
+		   EXISTS value, but their UIDs are for existing messages.
+		   We'll just ignore these replies. */
+		return 0;
+	}
+	if (rseq < mbox->prev_skipped_rseq &&
+	    fetch_uid > mbox->prev_skipped_uid) {
+		/* This was the initial attempt at catching the above
+		   MS Exchange bug, but the above one appears to catch all
+		   these cases. But keep it here just in case. */
+		imapc_mailbox_set_corrupted(mbox,
+			"FETCH sequence/UID order is mixed "
+			"(seq=%u,%u vs uid=%u,%u)",
+			mbox->prev_skipped_rseq, rseq,
+			mbox->prev_skipped_uid, fetch_uid);
+		return -1;
+	}
+
+	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
+	msg_count = imapc_msgmap_count(msgmap);
+	if (rseq <= msg_count) {
+		uid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
+		if (uid != fetch_uid && fetch_uid != 0) {
+			imapc_mailbox_set_corrupted(mbox,
+				"FETCH UID mismatch (%u != %u)",
+				fetch_uid, uid);
+			return -1;
+		}
+	} else if (fetch_uid == 0 || rseq != msg_count+1) {
+		/* probably a flag update for a message we haven't yet
+		   received our initial UID FETCH for. we should get
+		   another one. */
+		if (fetch_uid == 0)
+			return 0;
+
+		if (imapc_msgmap_uid_to_rseq(msgmap, fetch_uid, &rseq2)) {
+			imapc_mailbox_set_corrupted(mbox,
+				"FETCH returned wrong sequence for UID %u "
+				"(%u != %u)", fetch_uid, rseq, rseq2);
+			return -1;
+		}
+		mbox->prev_skipped_rseq = rseq;
+		mbox->prev_skipped_uid = fetch_uid;
+	} else if (fetch_uid < imapc_msgmap_uidnext(msgmap)) {
+		imapc_mailbox_set_corrupted(mbox,
+			"Expunged message reappeared (uid=%u < next_uid=%u)",
+			fetch_uid, imapc_msgmap_uidnext(msgmap));
+		return -1;
+	} else {
+		/* newly seen message */
+		imapc_msgmap_append(msgmap, rseq, uid);
+		if (uid < mbox->min_append_uid) {
+			/* message is already added to index */
+		} else if (mbox->syncing) {
+			mail_index_append(mbox->delayed_sync_trans,
+					  uid, lseq_r);
+			mbox->min_append_uid = uid + 1;
+		}
+	}
+	return 0;
+}
+
 static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				 struct imapc_mailbox *mbox)
 {
@@ -171,9 +249,8 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	const struct imap_arg *list, *flags_list;
 	const char *atom;
 	const struct mail_index_record *rec = NULL;
-	struct imapc_msgmap *msgmap;
 	enum mail_flags flags;
-	uint32_t fetch_uid, uid, msg_count;
+	uint32_t fetch_uid, uid;
 	unsigned int i, j;
 	ARRAY_TYPE(const_string) keywords = ARRAY_INIT;
 	bool seen_flags = FALSE;
@@ -212,44 +289,10 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	flags &= ~MAIL_RECENT;
 
 	imapc_mailbox_init_delayed_trans(mbox);
+	if (imapc_mailbox_msgmap_update(mbox, rseq, fetch_uid,
+					&lseq, &uid) < 0 || uid == 0)
+		return;
 
-	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
-	msg_count = imapc_msgmap_count(msgmap);
-	if (rseq > msg_count) {
-		/* newly seen message */
-		if (fetch_uid == 0 || rseq != msg_count+1) {
-			/* can't handle this one now. we should get another
-			   FETCH reply for it. */
-			return;
-		}
-		uid = fetch_uid;
-
-		if (uid < imapc_msgmap_uidnext(msgmap)) {
-			imapc_mailbox_set_corrupted(mbox,
-				"Expunged message reappeared "
-				"(uid=%u < next_uid=%u)",
-				uid, imapc_msgmap_uidnext(msgmap));
-			return;
-		}
-
-		imapc_msgmap_append(msgmap, rseq, uid);
-		if (uid < mbox->min_append_uid) {
-			/* message is already added to index */
-			lseq = 0;
-		} else if (mbox->syncing) {
-			mail_index_append(mbox->delayed_sync_trans, uid, &lseq);
-			mbox->min_append_uid = uid + 1;
-		}
-	} else {
-		uid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
-		if (uid != fetch_uid && fetch_uid != 0) {
-			imapc_mailbox_set_corrupted(mbox,
-				"FETCH UID mismatch (%u != %u)",
-				fetch_uid, uid);
-			return;
-		}
-		lseq = 0;
-	}
 	/* if this is a reply to some FETCH request, update the mail's fields */
 	array_foreach(&mbox->fetch_mails, mailp) {
 		struct imapc_mail *mail = *mailp;
@@ -314,6 +357,16 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 	
 	if (mbox == NULL || rseq == 0)
 		return;
+
+	mbox->prev_skipped_rseq = 0;
+	mbox->prev_skipped_uid = 0;
+
+	if (mbox->exists_count == 0) {
+		imapc_mailbox_set_corrupted(mbox,
+			"EXPUNGE received for empty mailbox");
+		return;
+	}
+	mbox->exists_count--;
 
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
 	if (rseq > imapc_msgmap_count(msgmap)) {

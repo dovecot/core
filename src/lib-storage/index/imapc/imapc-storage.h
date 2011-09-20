@@ -63,7 +63,10 @@ struct imapc_mailbox {
 	uint32_t sync_fetch_first_uid;
 	uint32_t sync_next_lseq;
 	uint32_t sync_next_rseq;
+	uint32_t exists_count;
 	uint32_t min_append_uid;
+
+	uint32_t prev_skipped_rseq, prev_skipped_uid;
 
 	unsigned int opening:1;
 	unsigned int syncing:1;
