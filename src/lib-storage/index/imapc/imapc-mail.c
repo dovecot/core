@@ -62,8 +62,8 @@ static void imapc_mail_failed(struct mail *mail, const char *field)
 		mail_storage_set_internal_error(mail->box->storage);
 	} else {
 		mail_storage_set_critical(mail->box->storage,
-			"imapc: Remote server didn't send %s for UID %u",
-			field, mail->uid);
+			"imapc: Remote server didn't send %s for UID %u in %s",
+			field, mail->uid, mail->box->vname);
 	}
 }
 
