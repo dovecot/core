@@ -22,7 +22,14 @@ static void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 		mbox->box.name, t_strdup_vprintf(reason, va));
 	va_end(va);
 
-	mail_index_mark_corrupted(mbox->box.index);
+	if (!mbox->initial_sync_done) {
+		/* we failed during initial sync. need to rebuild indexes if
+		   we want to get this fixed */
+		mail_index_mark_corrupted(mbox->box.index);
+	} else {
+		/* maybe the remote server is buggy and has become confused.
+		   try reconnecting. */
+	}
 	imapc_client_mailbox_disconnect(mbox->client_box);
 }
 
