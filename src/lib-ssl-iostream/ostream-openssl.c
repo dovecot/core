@@ -119,6 +119,8 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 
 	if (ret == 0 && sstream->ssl_io->want_read) {
 		/* we need to read more data until we can continue. */
+		o_stream_set_flush_pending(sstream->ssl_io->plain_output,
+					   FALSE);
 		sstream->ssl_io->ostream_flush_waiting_input = TRUE;
 		ret = 1;
 	}
