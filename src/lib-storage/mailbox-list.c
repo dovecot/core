@@ -14,6 +14,7 @@
 #include "write-full.h"
 #include "safe-mkstemp.h"
 #include "unlink-directory.h"
+#include "unichar.h"
 #include "settings-parser.h"
 #include "imap-match.h"
 #include "imap-utf7.h"
@@ -185,6 +186,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		list->set.mailbox_dir_name =
 			p_strconcat(list->pool, set->mailbox_dir_name, "/", NULL);
 	}
+	list->set.utf8 = set->utf8;
 
 	if (ns->mail_set->mail_debug) {
 		i_debug("%s: root=%s, index=%s, control=%s, inbox=%s, alt=%s",
@@ -281,6 +283,11 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 
 	while (*tmp != NULL) {
 		str = split_next_arg(&tmp);
+		if (strcmp(str, "UTF-8") == 0) {
+			set_r->utf8 = TRUE;
+			continue;
+		}
+
 		value = strchr(str, '=');
 		if (value == NULL) {
 			key = str;
@@ -421,11 +428,13 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 		}
 	}
 
-	/* UTF-8 -> mUTF-7 conversion */
-	str = t_str_new(strlen(storage_name)*2);
-	if (imap_utf8_to_utf7(storage_name, str) < 0)
-		i_panic("Mailbox name not UTF-8: %s", vname);
-	storage_name = str_c(str);
+	if (!list->set.utf8) {
+		/* UTF-8 -> mUTF-7 conversion */
+		str = t_str_new(strlen(storage_name)*2);
+		if (imap_utf8_to_utf7(storage_name, str) < 0)
+			i_panic("Mailbox name not UTF-8: %s", vname);
+		storage_name = str_c(str);
+	}
 
 	list_sep = mailbox_list_get_hierarchy_sep(list);
 	ns_sep = mail_namespace_get_sep(ns);
@@ -505,7 +514,7 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 			return t_strndup(list->ns->prefix,
 					 list->ns->prefix_len - 1);
 		}
-	} else {
+	} else if (!list->set.utf8) {
 		/* mUTF-7 -> UTF-8 conversion */
 		string_t *str = t_str_new(strlen(vname));
 		if (imap_utf7_to_utf8(vname, str) == 0)
@@ -885,11 +894,13 @@ bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
 
 	/* safer to just disallow all control characters */
 	for (p = name; *p != '\0'; p++) {
-		if (*p < ' ')
+		if ((unsigned char)*p < ' ')
 			return FALSE;
 	}
 
-	T_BEGIN {
+	if (list->set.utf8)
+		ret = uni_utf8_str_is_valid(name) ? 0 : -1;
+	else T_BEGIN {
 		string_t *str = t_str_new(256);
 		ret = imap_utf7_to_utf8(name, str);
 	} T_END;

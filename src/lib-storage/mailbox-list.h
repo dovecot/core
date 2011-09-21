@@ -135,6 +135,8 @@ struct mailbox_list_settings {
 
 	/* Encode "bad" characters in mailbox names as <escape_char><hex> */
 	char escape_char;
+	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
+	bool utf8;
 };
 
 struct mailbox_info {
