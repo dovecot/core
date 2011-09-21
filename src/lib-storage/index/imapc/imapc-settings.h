@@ -10,6 +10,8 @@ struct imapc_settings {
 
 	const char *imapc_ssl;
 	const char *imapc_ssl_ca_dir;
+
+	const char *imapc_rawlog_dir;
 };
 
 const struct setting_parser_info *imapc_get_setting_parser_info(void);

@@ -9,6 +9,7 @@
 #include "write-full.h"
 #include "str.h"
 #include "dns-lookup.h"
+#include "iostream-rawlog.h"
 #include "iostream-ssl.h"
 #include "imap-quote.h"
 #include "imap-util.h"
@@ -70,8 +71,8 @@ struct imapc_connection {
 
 	int fd;
 	struct io *io;
-	struct istream *input;
-	struct ostream *output;
+	struct istream *input, *raw_input;
+	struct ostream *output, *raw_output;
 	struct imap_parser *parser;
 	struct timeout *to;
 	struct timeout *to_output;
@@ -1026,6 +1027,16 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	if (conn->client->set.debug)
 		i_debug("imapc(%s): Starting SSL handshake", conn->name);
 
+	if (conn->raw_input != conn->input) {
+		/* recreate rawlog after STARTTLS */
+		i_stream_ref(conn->raw_input);
+		o_stream_ref(conn->raw_output);
+		i_stream_destroy(&conn->input);
+		o_stream_destroy(&conn->output);
+		conn->input = conn->raw_input;
+		conn->output = conn->raw_output;
+	}
+
 	source = t_strdup_printf("imapc(%s): ", conn->name);
 	if (io_stream_create_ssl(conn->client->ssl_ctx, source, &ssl_set,
 				 &conn->input, &conn->output,
@@ -1038,9 +1049,16 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 					    imapc_connection_ssl_handshaked,
 					    conn);
 	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
-		i_error("imapc(%s): SSL handshake failed", conn->name);
+		i_error("imapc(%s): SSL handshake failed: %s", conn->name,
+			ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
+
+	if (*conn->client->set.rawlog_dir != '\0') {
+		(void)iostream_rawlog_create(conn->client->set.rawlog_dir,
+					     &conn->input, &conn->output);
+	}
+
 	imap_parser_set_streams(conn->parser, conn->input, NULL);
 	return 0;
 }
@@ -1120,8 +1138,15 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 		return;
 	}
 	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, (size_t)-1, FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->input = conn->raw_input = i_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->output = conn->raw_output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+
+	if (*conn->client->set.rawlog_dir != '\0' &&
+	    conn->client->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
+		(void)iostream_rawlog_create(conn->client->set.rawlog_dir,
+					     &conn->input, &conn->output);
+	}
+
 	o_stream_set_flush_callback(conn->output, imapc_connection_output,
 				    conn);
 	conn->io = io_add(fd, IO_WRITE, imapc_connection_connected, conn);

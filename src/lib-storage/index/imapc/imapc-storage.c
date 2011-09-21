@@ -257,6 +257,8 @@ imapc_storage_create(struct mail_storage *_storage,
 		t_strconcat(_storage->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
 	set.debug = _storage->set->mail_debug;
+	set.rawlog_dir = mail_user_home_expand(_storage->user,
+					       storage->set->imapc_rawlog_dir);
 
 	str = t_str_new(128);
 	mail_user_set_get_temp_prefix(str, _storage->user->set);
