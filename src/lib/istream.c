@@ -349,12 +349,6 @@ char *i_stream_next_line(struct istream *stream)
 		return NULL;
 	}
 
-	if (unlikely(_stream->w_buffer == NULL)) {
-		i_error("i_stream_next_line(%s) called for unmodifiable stream",
-			i_stream_get_name(stream));
-		return NULL;
-	}
-
 	pos = memchr(_stream->buffer + _stream->skip, '\n',
 		     _stream->pos - _stream->skip);
 	if (pos != NULL) {
