@@ -74,6 +74,8 @@ int ssl_iostream_more(struct ssl_iostream *ssl_io);
    read/written, -1 if a fatal error occurred (errno is set). */
 int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 			      const char *func_name);
+int ssl_iostream_handle_write_error(struct ssl_iostream *ssl_io, int ret,
+				    const char *func_name);
 
 const char *ssl_iostream_error(void);
 const char *ssl_iostream_key_load_error(void);

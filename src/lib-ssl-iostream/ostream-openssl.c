@@ -56,6 +56,9 @@ o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 		if (size != iov[i].iov_len)
 			i = iov_count;
 	}
+	if (avail > 0)
+		o_stream_set_flush_pending(sstream->ssl_io->plain_output, TRUE);
+
 	for (; i < iov_count; i++) {
 		size = I_MIN(iov[i].iov_len, avail);
 		buffer_append(sstream->buffer, iov[i].iov_base, size);
@@ -83,16 +86,14 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 				CONST_PTR_OFFSET(sstream->buffer->data, pos),
 				sstream->buffer->used - pos);
 		if (ret <= 0) {
-			ret = ssl_iostream_handle_error(sstream->ssl_io, ret,
-							"SSL_write");
+			ret = ssl_iostream_handle_write_error(sstream->ssl_io,
+							      ret, "SSL_write");
 			if (ret < 0) {
 				sstream->ostream.ostream.stream_errno = errno;
 				break;
 			}
-			if (ret == 0) {
-				/* bio_int's buffer is full */
+			if (ret == 0)
 				break;
-			}
 		} else {
 			pos += ret;
 			(void)ssl_iostream_bio_sync(sstream->ssl_io);
@@ -139,8 +140,8 @@ o_stream_ssl_sendv_try(struct ssl_ostream *sstream,
 				CONST_PTR_OFFSET(iov[i].iov_base, pos),
 				iov[i].iov_len - pos);
 		if (ret <= 0) {
-			ret = ssl_iostream_handle_error(sstream->ssl_io, ret,
-							"SSL_write");
+			ret = ssl_iostream_handle_write_error(sstream->ssl_io,
+							      ret, "SSL_write");
 			if (ret < 0) {
 				sstream->ostream.ostream.stream_errno = errno;
 				break;

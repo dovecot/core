@@ -372,8 +372,9 @@ static void ssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
 	ssl_io->last_error = i_strdup(str);
 }
 
-int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
-			      const char *func_name)
+static int
+ssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
+			       const char *func_name, bool write_error)
 {
 	const char *errstr = NULL;
 	int err;
@@ -382,7 +383,8 @@ int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 	switch (err) {
 	case SSL_ERROR_WANT_WRITE:
 		if (!ssl_iostream_bio_sync(ssl_io)) {
-			i_panic("SSL ostream buffer size not unlimited");
+			if (!write_error)
+				i_panic("SSL ostream buffer size not unlimited");
 			return 0;
 		}
 		if (ssl_io->closed) {
@@ -433,6 +435,18 @@ int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 	if (errstr != NULL)
 		ssl_iostream_set_error(ssl_io, errstr);
 	return -1;
+}
+
+int ssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
+			      const char *func_name)
+{
+	return ssl_iostream_handle_error_full(ssl_io, ret, func_name, FALSE);
+}
+
+int ssl_iostream_handle_write_error(struct ssl_iostream *ssl_io, int ret,
+				    const char *func_name)
+{
+	return ssl_iostream_handle_error_full(ssl_io, ret, func_name, TRUE);
 }
 
 static const char *asn1_string_to_c(ASN1_STRING *asn_str)
