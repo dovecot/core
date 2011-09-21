@@ -511,7 +511,8 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	/* some auth attempts without SSL/TLS */
 	if (client->auth_tried_disabled_plaintext)
 		return "(tried to use disabled plaintext auth)";
-	if (client->set->auth_ssl_require_client_cert)
+	if (client->set->auth_ssl_require_client_cert &&
+	    client->ssl_proxy == NULL)
 		return "(cert required, client didn't start TLS)";
 	if (client->auth_tried_unsupported_mech)
 		return "(tried to use unsupported auth mechanism)";
