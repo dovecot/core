@@ -54,6 +54,7 @@ struct imapc_command {
 
 	unsigned int idle:1;
 	unsigned int mailboxcmd:1;
+	unsigned int wait_for_literal:1;
 };
 
 struct imapc_connection_literal {
@@ -291,6 +292,7 @@ imapc_connection_input_error(struct imapc_connection *conn,
 	va_start(va, fmt);
 	i_error("imapc(%s): Server sent invalid input: %s",
 		conn->name, t_strdup_vprintf(fmt, va));
+	sleep(3600);
 	imapc_connection_disconnect(conn);
 	va_end(va);
 }
@@ -793,20 +795,22 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 
 static int imapc_connection_input_plus(struct imapc_connection *conn)
 {
-	struct imapc_command *const *cmd_p;
+	struct imapc_command *const *cmds;
+	unsigned int cmds_count;
 	const char *line;
 
 	if ((line = i_stream_next_line(conn->input)) == NULL)
 		return 0;
 
+	cmds = array_get(&conn->cmd_send_queue, &cmds_count);
 	if (conn->idle_plus_waiting) {
 		/* "+ idling" reply for IDLE command */
 		conn->idle_plus_waiting = FALSE;
 		conn->idling = TRUE;
-	} else if (array_count(&conn->cmd_send_queue) > 0) {
+	} else if (cmds_count > 0 && cmds[0]->wait_for_literal) {
 		/* reply for literal */
-		cmd_p = array_idx(&conn->cmd_send_queue, 0);
-		imapc_command_send_more(conn, *cmd_p);
+		cmds[0]->wait_for_literal = FALSE;
+		imapc_command_send_more(conn, cmds[0]);
 	} else {
 		imapc_connection_input_error(conn, "Unexpected '+': %s", line);
 		return -1;
@@ -1356,6 +1360,7 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 	unsigned int seek_pos, start_pos, end_pos, size;
 	int ret;
 
+	i_assert(!cmd->wait_for_literal);
 	i_assert(cmd->send_pos < cmd->data->used);
 
 	timeout_reset(conn->to_output);
@@ -1393,6 +1398,8 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 		i_assert(!array_is_created(&cmd->streams) ||
 			 array_count(&cmd->streams) == 0);
 		imapc_command_send_done(conn, cmd);
+	} else {
+		cmd->wait_for_literal = TRUE;
 	}
 }
 
@@ -1460,7 +1467,8 @@ static int imapc_connection_output(struct imapc_connection *conn)
 
 	cmds = array_get(&conn->cmd_send_queue, &count);
 	if (count > 0) {
-		if (imapc_command_get_sending_stream(cmds[0]) != NULL) {
+		if (imapc_command_get_sending_stream(cmds[0]) != NULL &&
+		    !cmds[0]->wait_for_literal) {
 			/* we're sending a stream. send more. */
 			imapc_command_send_more(conn, cmds[0]);
 		}
