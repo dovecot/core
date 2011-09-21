@@ -59,5 +59,5 @@ struct ostream *o_stream_create_buffer(buffer_t *buf)
 	bstream->ostream.write_at = o_stream_buffer_write_at;
 
 	bstream->buf = buf;
-	return o_stream_create(&bstream->ostream);
+	return o_stream_create(&bstream->ostream, NULL);
 }

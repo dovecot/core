@@ -11,6 +11,9 @@ struct ostream_private {
 /* methods: */
 	void (*cork)(struct ostream_private *stream, bool set);
 	int (*flush)(struct ostream_private *stream);
+	void (*set_flush_callback)(struct ostream_private *stream,
+				   stream_flush_callback_t *callback,
+				   void *context);
 	void (*flush_pending)(struct ostream_private *stream, bool set);
 	size_t (*get_used_size)(const struct ostream_private *stream);
 	int (*seek)(struct ostream_private *stream, uoff_t offset);
@@ -27,15 +30,20 @@ struct ostream_private {
 	struct ostream ostream;
 	size_t max_buffer_size;
 
+	struct ostream *parent; /* for filter streams */
+
 	stream_flush_callback_t *callback;
 	void *context;
 
 	unsigned int corked:1;
 };
 
-struct ostream *o_stream_create(struct ostream_private *_stream);
+struct ostream *
+o_stream_create(struct ostream_private *_stream, struct ostream *parent);
 
 off_t io_stream_copy(struct ostream *outstream, struct istream *instream,
 		     size_t block_size);
+
+void o_stream_copy_error_from_parent(struct ostream_private *_stream);
 
 #endif
