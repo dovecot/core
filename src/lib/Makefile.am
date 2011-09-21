@@ -48,6 +48,7 @@ liblib_la_SOURCES = \
 	imem.c \
 	ipwd.c \
 	iostream.c \
+	iostream-rawlog.c \
 	istream.c \
 	istream-base64-encoder.c \
 	istream-concat.c \
@@ -56,6 +57,7 @@ liblib_la_SOURCES = \
 	istream-file.c \
 	istream-limit.c \
 	istream-mmap.c \
+	istream-rawlog.c \
 	istream-seekable.c \
 	istream-tee.c \
 	ioloop.c \
@@ -88,6 +90,7 @@ liblib_la_SOURCES = \
 	ostream.c \
 	ostream-file.c \
 	ostream-buffer.c \
+	ostream-rawlog.c \
 	primes.c \
 	printf-format-fix.c \
 	process-title.c \
@@ -162,11 +165,14 @@ headers = \
 	imem.h \
 	ipwd.h \
 	iostream-private.h \
+	iostream-rawlog.h \
+	iostream-rawlog-private.h \
 	istream.h \
 	istream-base64-encoder.h \
 	istream-concat.h \
 	istream-crlf.h \
 	istream-private.h \
+	istream-rawlog.h \
 	istream-seekable.h \
 	istream-tee.h \
 	ioloop.h \
@@ -189,6 +195,7 @@ headers = \
 	nfs-workarounds.h \
 	ostream.h \
 	ostream-private.h \
+	ostream-rawlog.h \
 	primes.h \
 	printf-format-fix.h \
 	process-title.h \
