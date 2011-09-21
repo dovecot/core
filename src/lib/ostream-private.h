@@ -1,8 +1,8 @@
-#ifndef OSTREAM_INTERNAL_H
-#define OSTREAM_INTERNAL_H
+#ifndef OSTREAM_PRIVATE_H
+#define OSTREAM_PRIVATE_H
 
 #include "ostream.h"
-#include "iostream-internal.h"
+#include "iostream-private.h"
 
 struct ostream_private {
 /* inheritance: */

@@ -1,7 +1,7 @@
 /* Copyright (c) 2009 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "iostream-openssl.h"
 
 struct ssl_istream {

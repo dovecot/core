@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "mmap-util.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 
 #include <unistd.h>
 #include <sys/stat.h>

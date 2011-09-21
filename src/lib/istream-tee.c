@@ -1,7 +1,7 @@
 /* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-tee.h"
 
 struct tee_istream {

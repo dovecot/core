@@ -1,5 +1,5 @@
-#ifndef IOLOOP_INTERNAL_H
-#define IOLOOP_INTERNAL_H
+#ifndef IOLOOP_PRIVATE_H
+#define IOLOOP_PRIVATE_H
 
 #include "priorityq.h"
 #include "ioloop.h"

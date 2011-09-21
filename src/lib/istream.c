@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 
 void i_stream_set_name(struct istream *stream, const char *name)
 {

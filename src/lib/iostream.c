@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "iostream-internal.h"
+#include "iostream-private.h"
 
 static void
 io_stream_default_close_destroy(struct iostream_private *stream ATTR_UNUSED)

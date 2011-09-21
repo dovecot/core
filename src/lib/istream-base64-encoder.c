@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "base64.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-base64-encoder.h"
 
 struct base64_encoder_istream {

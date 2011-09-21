@@ -1,7 +1,7 @@
 /* Copyright (c) 2009-2011 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-concat.h"
 
 #include <stdlib.h>

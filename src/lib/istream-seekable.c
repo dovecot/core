@@ -5,7 +5,7 @@
 #include "close-keep-errno.h"
 #include "read-full.h"
 #include "write-full.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-concat.h"
 #include "istream-seekable.h"
 

@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "time-util.h"
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 
 #include <unistd.h>
 

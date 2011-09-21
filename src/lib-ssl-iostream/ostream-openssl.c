@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "ostream-internal.h"
+#include "ostream-private.h"
 #include "iostream-openssl.h"
 
 struct ssl_ostream {

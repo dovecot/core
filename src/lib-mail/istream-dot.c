@@ -1,7 +1,7 @@
 /* Copyright (c) 2007-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-dot.h"
 
 struct dot_istream {

@@ -161,17 +161,17 @@ headers = \
 	hostpid.h \
 	imem.h \
 	ipwd.h \
-	iostream-internal.h \
+	iostream-private.h \
 	istream.h \
 	istream-base64-encoder.h \
 	istream-concat.h \
 	istream-crlf.h \
-	istream-internal.h \
+	istream-private.h \
 	istream-seekable.h \
 	istream-tee.h \
 	ioloop.h \
 	ioloop-iolist.h \
-	ioloop-internal.h \
+	ioloop-private.h \
 	ioloop-notify-fd.h \
 	lib.h \
 	lib-signals.h \
@@ -188,7 +188,7 @@ headers = \
 	network.h \
 	nfs-workarounds.h \
 	ostream.h \
-	ostream-internal.h \
+	ostream-private.h \
 	primes.h \
 	printf-format-fix.h \
 	process-title.h \

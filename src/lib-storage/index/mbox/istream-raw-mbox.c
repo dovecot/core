@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-raw-mbox.h"
 #include "mbox-from.h"
 

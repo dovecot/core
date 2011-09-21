@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "message-parser.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-header-filter.h"
 
 #include <stdlib.h>

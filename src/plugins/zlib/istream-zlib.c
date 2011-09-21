@@ -5,7 +5,7 @@
 #ifdef HAVE_ZLIB
 
 #include "crc32.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-zlib.h"
 #include <zlib.h>
 

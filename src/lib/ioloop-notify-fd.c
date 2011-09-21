@@ -1,7 +1,7 @@
 /* Copyright (c) 2007-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 #include "ioloop-notify-fd.h"
 
 #if defined(IOLOOP_NOTIFY_DNOTIFY) || defined(IOLOOP_NOTIFY_INOTIFY)

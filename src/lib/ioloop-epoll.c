@@ -9,7 +9,7 @@
 #include "lib.h"
 #include "array.h"
 #include "fd-close-on-exec.h"
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 #include "ioloop-iolist.h"
 
 #ifdef IOLOOP_EPOLL

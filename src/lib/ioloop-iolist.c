@@ -5,7 +5,7 @@
  */
 
 #include "lib.h"
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 #include "ioloop-iolist.h"
 
 bool ioloop_iolist_add(struct io_list *list, struct io_file *io)

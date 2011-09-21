@@ -4,7 +4,7 @@
 
 #ifdef HAVE_BZLIB
 
-#include "ostream-internal.h"
+#include "ostream-private.h"
 #include "ostream-zlib.h"
 #include <bzlib.h>
 

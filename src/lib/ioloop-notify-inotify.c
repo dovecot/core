@@ -7,7 +7,7 @@
 
 #include "fd-close-on-exec.h"
 #include "fd-set-nonblock.h"
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 #include "ioloop-notify-fd.h"
 #include "buffer.h"
 #include "network.h"

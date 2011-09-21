@@ -1,8 +1,8 @@
-#ifndef ISTREAM_INTERNAL_H
-#define ISTREAM_INTERNAL_H
+#ifndef ISTREAM_PRIVATE_H
+#define ISTREAM_PRIVATE_H
 
 #include "istream.h"
-#include "iostream-internal.h"
+#include "iostream-private.h"
 
 #define I_STREAM_MIN_SIZE IO_BLOCK_SIZE
 

@@ -3,7 +3,7 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 
 #ifdef IOLOOP_POLL
 

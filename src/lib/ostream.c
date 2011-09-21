@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "ostream-internal.h"
+#include "ostream-private.h"
 
 void o_stream_set_name(struct ostream *stream, const char *name)
 {

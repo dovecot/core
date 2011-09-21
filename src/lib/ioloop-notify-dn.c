@@ -7,7 +7,7 @@
 
 #ifdef IOLOOP_NOTIFY_DNOTIFY
 
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 #include "ioloop-notify-fd.h"
 #include "fd-set-nonblock.h"
 #include "fd-close-on-exec.h"

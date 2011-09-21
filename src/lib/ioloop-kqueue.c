@@ -10,7 +10,7 @@
 
 #include "array.h"
 #include "fd-close-on-exec.h"
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 
 #include <unistd.h>
 #include <fcntl.h>

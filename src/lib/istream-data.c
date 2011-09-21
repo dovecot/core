@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 
 static ssize_t i_stream_data_read(struct istream_private *stream)
 {

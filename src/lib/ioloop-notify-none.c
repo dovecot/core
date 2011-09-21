@@ -1,7 +1,7 @@
 /* Copyright (c) 2003-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 
 #ifdef IOLOOP_NOTIFY_NONE
 

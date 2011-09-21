@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "mail-storage-private.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-mail-stats.h"
 
 struct mail_stats_istream {

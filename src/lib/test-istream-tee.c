@@ -2,7 +2,7 @@
 
 #include "test-lib.h"
 #include "str.h"
-#include "istream-internal.h"
+#include "istream-private.h"
 #include "istream-tee.h"
 
 #include <stdlib.h>

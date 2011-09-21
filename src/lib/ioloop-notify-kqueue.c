@@ -9,7 +9,7 @@
 
 #ifdef IOLOOP_NOTIFY_KQUEUE
 
-#include "ioloop-internal.h"
+#include "ioloop-private.h"
 #include "fd-close-on-exec.h"
 #include <unistd.h>
 #include <fcntl.h>

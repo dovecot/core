@@ -8,8 +8,8 @@
 #include "network.h"
 #include "sendfile-util.h"
 #include "istream.h"
-#include "istream-internal.h"
-#include "ostream-internal.h"
+#include "istream-private.h"
+#include "ostream-private.h"
 
 #include <unistd.h>
 #include <sys/stat.h>

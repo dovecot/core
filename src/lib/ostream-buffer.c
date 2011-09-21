@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "ostream-internal.h"
+#include "ostream-private.h"
 
 struct buffer_ostream {
 	struct ostream_private ostream;

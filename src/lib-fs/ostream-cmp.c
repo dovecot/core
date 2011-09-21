@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "ostream-internal.h"
+#include "ostream-private.h"
 #include "ostream-cmp.h"
 
 struct cmp_ostream {
