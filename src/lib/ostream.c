@@ -323,14 +323,11 @@ o_stream_default_set_flush_callback(struct ostream_private *_stream,
 				    stream_flush_callback_t *callback,
 				    void *context)
 {
-	if (_stream->parent == NULL) {
-		_stream->callback = callback;
-		_stream->context = context;
-	} else {
-		/* this is a filter stream, we don't have a flush
-		   callback ourself */
+	if (_stream->parent != NULL)
 		o_stream_set_flush_callback(_stream->parent, callback, context);
-	}
+
+	_stream->callback = callback;
+	_stream->context = context;
 }
 
 static void
@@ -385,6 +382,10 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent)
 	if (parent != NULL) {
 		_stream->parent = parent;
 		o_stream_ref(parent);
+
+		_stream->callback = parent->real_stream->callback;
+		_stream->context = parent->real_stream->context;
+		_stream->max_buffer_size = parent->real_stream->max_buffer_size;
 	}
 
 	if (_stream->iostream.close == NULL)
