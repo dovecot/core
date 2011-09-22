@@ -285,7 +285,7 @@ int imapc_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	i_assert(ctx->finished);
 
 	/* expunge all added messages from index before commit */
-	last_seq = mail_index_view_get_messages_count(ctx->trans->view);
+	last_seq = mail_index_view_get_messages_count(_ctx->transaction->view);
 	for (i = 0; i < ctx->save_count; i++)
 		mail_index_expunge(ctx->trans, last_seq - i);
 
