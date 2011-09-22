@@ -12,6 +12,7 @@
 #include "imapc-client.h"
 #include "imapc-storage.h"
 #include "imapc-sync.h"
+#include "imapc-mail.h"
 
 struct imapc_save_context {
 	struct mail_save_context ctx;
@@ -25,6 +26,7 @@ struct imapc_save_context {
 
 	uint32_t dest_uid_validity;
 	ARRAY_TYPE(seq_range) dest_saved_uids;
+	unsigned int save_count;
 
 	unsigned int failed:1;
 	unsigned int finished:1;
@@ -103,10 +105,13 @@ int imapc_save_continue(struct mail_save_context *_ctx)
 }
 
 static void imapc_save_appenduid(struct imapc_save_context *ctx,
-				 const struct imapc_command_reply *reply)
+				 const struct imapc_command_reply *reply,
+				 uint32_t *uid_r)
 {
 	const char *const *args;
 	uint32_t uid_validity, dest_uid;
+
+	*uid_r = 0;
 
 	/* <uidvalidity> <dest uid-set> */
 	args = t_strsplit(reply->resp_text_value, " ");
@@ -120,18 +125,48 @@ static void imapc_save_appenduid(struct imapc_save_context *ctx,
 	else if (ctx->dest_uid_validity != uid_validity)
 		return;
 
-	if (str_to_uint32(args[1], &dest_uid) == 0)
+	if (str_to_uint32(args[1], &dest_uid) == 0) {
 		seq_range_array_add(&ctx->dest_saved_uids, 0, dest_uid);
+		*uid_r = dest_uid;
+	}
+}
+
+static void
+imapc_save_add_to_index(struct imapc_save_context *ctx, uint32_t uid)
+{
+	struct mail *_mail = ctx->ctx.dest_mail;
+	struct index_mail *imail = (struct index_mail *)_mail;
+	uint32_t seq;
+
+	if (_mail == NULL)
+		return;
+
+	/* we'll temporarily append messages and at commit time expunge
+	   them all, since we can't guarantee that no one else has saved
+	   messages to remote server during our transaction */
+	mail_index_append(ctx->trans, uid, &seq);
+	mail_set_seq_saving(_mail, seq);
+	imail->data.forced_no_caching = TRUE;
+
+	if (ctx->fd != -1) {
+		imail->data.stream = i_stream_create_fd(ctx->fd, 0, TRUE);
+		imapc_mail_init_stream((struct imapc_mail *)imail, TRUE);
+		ctx->fd = -1;
+	}
+
+	ctx->save_count++;
 }
 
 static void imapc_save_callback(const struct imapc_command_reply *reply,
 				void *context)
 {
 	struct imapc_save_cmd_context *ctx = context;
+	uint32_t uid = 0;
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		if (strcasecmp(reply->resp_text_key, "APPENDUID") == 0)
-			imapc_save_appenduid(ctx->ctx, reply);
+			imapc_save_appenduid(ctx->ctx, reply, &uid);
+		imapc_save_add_to_index(ctx->ctx, uid);
 		ctx->ret = 0;
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(ctx->ctx->mbox->storage,
@@ -245,8 +280,14 @@ int imapc_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
 	struct mail_transaction_commit_changes *changes =
 		_ctx->transaction->changes;
+	uint32_t i, last_seq;
 
 	i_assert(ctx->finished);
+
+	/* expunge all added messages from index before commit */
+	last_seq = mail_index_view_get_messages_count(ctx->trans->view);
+	for (i = 0; i < ctx->save_count; i++)
+		mail_index_expunge(ctx->trans, last_seq - i);
 
 	if (array_is_created(&ctx->dest_saved_uids)) {
 		changes->uid_validity = ctx->dest_uid_validity;
@@ -277,10 +318,13 @@ void imapc_transaction_save_rollback(struct mail_save_context *_ctx)
 }
 
 static void imapc_save_copyuid(struct imapc_save_context *ctx,
-			       const struct imapc_command_reply *reply)
+			       const struct imapc_command_reply *reply,
+			       uint32_t *uid_r)
 {
 	const char *const *args;
 	uint32_t uid_validity, dest_uid;
+
+	*uid_r = 0;
 
 	/* <uidvalidity> <source uid-set> <dest uid-set> */
 	args = t_strsplit(reply->resp_text_value, " ");
@@ -294,18 +338,22 @@ static void imapc_save_copyuid(struct imapc_save_context *ctx,
 	else if (ctx->dest_uid_validity != uid_validity)
 		return;
 
-	if (str_to_uint32(args[2], &dest_uid) == 0)
+	if (str_to_uint32(args[2], &dest_uid) == 0) {
 		seq_range_array_add(&ctx->dest_saved_uids, 0, dest_uid);
+		*uid_r = dest_uid;
+	}
 }
 
 static void imapc_copy_callback(const struct imapc_command_reply *reply,
 				void *context)
 {
 	struct imapc_save_cmd_context *ctx = context;
+	uint32_t uid = 0;
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		if (strcasecmp(reply->resp_text_key, "COPYUID") == 0)
-			imapc_save_copyuid(ctx->ctx, reply);
+			imapc_save_copyuid(ctx->ctx, reply, &uid);
+		imapc_save_add_to_index(ctx->ctx, uid);
 		ctx->ret = 0;
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(ctx->ctx->mbox->storage,

@@ -67,6 +67,12 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	if (fields == 0)
 		return 0;
 
+	if (_mail->saving) {
+		mail_storage_set_critical(_mail->box->storage,
+			"Can't fetch data from uncommitted message");
+		return -1;
+	}
+
 	/* if we already know that the mail is expunged,
 	   don't try to FETCH it */
 	view = mbox->delayed_sync_view != NULL ?
@@ -200,17 +206,50 @@ static void imapc_stream_filter(struct istream **input)
 	*input = filter_input;
 }
 
+void imapc_mail_init_stream(struct imapc_mail *mail, bool have_body)
+{
+	struct index_mail *imail = &mail->imail;
+	struct mail *_mail = &imail->mail.mail;
+	struct istream *input;
+	uoff_t size;
+	int ret;
+
+	i_stream_set_name(imail->data.stream,
+			  t_strdup_printf("imapc mail uid=%u", _mail->uid));
+	index_mail_set_read_buffer_size(_mail, imail->data.stream);
+
+	imapc_stream_filter(&imail->data.stream);
+	if (imail->mail.v.istream_opened != NULL) {
+		if (imail->mail.v.istream_opened(_mail,
+						 &imail->data.stream) < 0) {
+			i_stream_unref(&imail->data.stream);
+			return;
+		}
+	} else if (have_body) {
+		ret = i_stream_get_size(imail->data.stream, TRUE, &size);
+		if (ret < 0) {
+			i_stream_unref(&imail->data.stream);
+			return;
+		}
+		i_assert(ret != 0);
+		imail->data.physical_size = size;
+		/* we'll assume that the remote server is working properly and
+		   sending CRLF linefeeds */
+		imail->data.virtual_size = size;
+	}
+
+	if (index_mail_init_stream(imail, NULL, NULL, &input) < 0)
+		i_stream_unref(&imail->data.stream);
+}
+
 static void
 imapc_fetch_stream(struct imapc_mail *mail,
 		   const struct imapc_untagged_reply *reply,
 		   const struct imap_arg *arg, bool body)
 {
 	struct index_mail *imail = &mail->imail;
-	struct mail *_mail = &imail->mail.mail;
-	struct istream *input;
-	uoff_t size;
 	const char *value;
-	int fd, ret;
+	int fd;
 
 	if (imail->data.stream != NULL) {
 		if (!body)
@@ -231,7 +270,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 		if (!imap_arg_get_nstring(arg, &value))
 			return;
 		if (value == NULL) {
-			mail_set_expunged(_mail);
+			mail_set_expunged(&imail->mail.mail);
 			return;
 		}
 		if (mail->body == NULL) {
@@ -244,32 +283,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 							       mail->body->used);
 	}
 
-	i_stream_set_name(imail->data.stream,
-			  t_strdup_printf("imapc mail uid=%u", _mail->uid));
-	index_mail_set_read_buffer_size(_mail, imail->data.stream);
-
-	imapc_stream_filter(&imail->data.stream);
-	if (imail->mail.v.istream_opened != NULL) {
-		if (imail->mail.v.istream_opened(_mail,
-						 &imail->data.stream) < 0) {
-			i_stream_unref(&imail->data.stream);
-			return;
-		}
-	} else if (body) {
-		ret = i_stream_get_size(imail->data.stream, TRUE, &size);
-		if (ret < 0) {
-			i_stream_unref(&imail->data.stream);
-			return;
-		}
-		i_assert(ret != 0);
-		imail->data.physical_size = size;
-		/* we'll assume that the remote server is working properly and
-		   sending CRLF linefeeds */
-		imail->data.virtual_size = size;
-	}
-
-	if (index_mail_init_stream(imail, NULL, NULL, &input) < 0)
-		i_stream_unref(&imail->data.stream);
+	imapc_mail_init_stream(mail, body);
 }
 
 void imapc_mail_fetch_update(struct imapc_mail *mail,
