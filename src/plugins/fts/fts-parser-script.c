@@ -152,7 +152,7 @@ static void parse_content_disposition(const char *content_disposition,
 				      const char **filename_r)
 {
 	struct rfc822_parser_context parser;
-	const char *const *results;
+	const char *const *results, *filename2;
 	string_t *str;
 
 	*filename_r = NULL;
@@ -170,11 +170,19 @@ static void parse_content_disposition(const char *content_disposition,
 		return;
 
 	(void)rfc2231_parse(&parser, &results);
+	filename2 = NULL;
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "filename") == 0) {
 			*filename_r = results[1];
 			break;
 		}
+		if (strcasecmp(results[0], "filename*") == 0)
+			filename2 = results[1];
+	}
+	if (*filename_r == NULL) {
+		/* RFC 2231 style non-ascii filename. we don't really care
+		   much about the filename actually, just about its extension */
+		*filename_r = filename2;
 	}
 }
 
