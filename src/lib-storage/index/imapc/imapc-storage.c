@@ -382,11 +382,30 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->mbox->storage->client);
 }
 
+static int imapc_mailbox_select(struct imapc_mailbox *mbox)
+{
+	struct imapc_open_context ctx;
+	bool examine;
+
+	examine = (mbox->box.flags & MAILBOX_FLAG_READONLY) != 0 &&
+		(mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0;
+
+	mbox->selecting = TRUE;
+	ctx.mbox = mbox;
+	ctx.ret = -2;
+	mbox->client_box =
+		imapc_client_mailbox_open(mbox->storage->client, mbox->box.name,
+					  examine, imapc_mailbox_open_callback,
+					  &ctx, mbox);
+	while (ctx.ret == -2)
+		imapc_storage_run(mbox->storage);
+	mbox->selecting = FALSE;
+	return ctx.ret;
+}
+
 static int imapc_mailbox_open(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
-	struct imapc_open_context ctx;
-	bool examine;
 
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
@@ -395,8 +414,6 @@ static int imapc_mailbox_open(struct mailbox *box)
 		/* We don't actually want to SELECT the mailbox. */
 		return 0;
 	}
-	examine = (box->flags & MAILBOX_FLAG_READONLY) != 0 &&
-		(box->flags & MAILBOX_FLAG_DROP_RECENT) == 0;
 
 	if (*box->name == '\0' &&
 	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
@@ -408,17 +425,7 @@ static int imapc_mailbox_open(struct mailbox *box)
 		return -1;
 	}
 
-	mbox->opening = TRUE;
-	ctx.mbox = mbox;
-	ctx.ret = -2;
-	mbox->client_box =
-		imapc_client_mailbox_open(mbox->storage->client, box->name,
-					  examine, imapc_mailbox_open_callback,
-					  &ctx, mbox);
-	while (ctx.ret == -2)
-		imapc_storage_run(mbox->storage);
-	mbox->opening = FALSE;
-	if (ctx.ret < 0) {
+	if (imapc_mailbox_select(mbox) < 0) {
 		mailbox_close(box);
 		return -1;
 	}

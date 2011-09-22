@@ -68,7 +68,7 @@ struct imapc_mailbox {
 
 	uint32_t prev_skipped_rseq, prev_skipped_uid;
 
-	unsigned int opening:1;
+	unsigned int selecting:1;
 	unsigned int syncing:1;
 	unsigned int initial_sync_done:1;
 };

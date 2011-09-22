@@ -116,7 +116,7 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	if (view == NULL)
 		view = imapc_mailbox_get_sync_view(mbox);
 
-	if (mbox->opening) {
+	if (mbox->selecting) {
 		/* We don't know the latest flags, refresh them. */
 		mbox->sync_fetch_first_uid = 1;
 	} else if (mbox->sync_fetch_first_uid != 1) {
