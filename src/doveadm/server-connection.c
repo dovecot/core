@@ -189,7 +189,6 @@ server_connection_authenticate(struct server_connection *conn)
 	str_append_c(cmd, '\n');
 
 	o_stream_send(conn->output, cmd->data, cmd->used);
-	server_connection_authenticated(conn);
 	return 0;
 }
 
@@ -214,6 +213,7 @@ static void server_connection_input(struct server_connection *conn)
 				server_connection_destroy(&conn);
 				return;
 			}
+			return;
 		} else {
 			i_error("doveadm server sent invalid handshake: %s",
 				line);
@@ -226,6 +226,18 @@ static void server_connection_input(struct server_connection *conn)
 		/* disconnected */
 		server_connection_destroy(&conn);
 		return;
+	}
+
+	if (!conn->authenticated) {
+		if ((line = i_stream_next_line(conn->input)) == NULL)
+			return;
+		if (strcmp(line, "+") == 0)
+			server_connection_authenticated(conn);
+		else {
+			i_error("doveadm authentication failed (%s)", line+1);
+			server_connection_destroy(&conn);
+			return;
+		}
 	}
 
 	data = i_stream_get_data(conn->input, &size);
