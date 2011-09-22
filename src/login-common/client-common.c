@@ -5,6 +5,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream-rawlog.h"
 #include "process-title.h"
 #include "str.h"
 #include "str-sanitize.h"
@@ -36,6 +37,12 @@ static void client_open_streams(struct client *client)
 		i_stream_create_fd(client->fd, LOGIN_MAX_INBUF_SIZE, FALSE);
 	client->output =
 		o_stream_create_fd(client->fd, LOGIN_MAX_OUTBUF_SIZE, FALSE);
+
+	if (login_rawlog_dir != NULL) {
+		if (iostream_rawlog_create(login_rawlog_dir, &client->input,
+					   &client->output) < 0)
+			login_rawlog_dir = NULL;
+	}
 }
 
 struct client *

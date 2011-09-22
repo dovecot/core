@@ -36,6 +36,7 @@ struct auth_client *auth_client;
 struct master_auth *master_auth;
 bool closing_down;
 struct anvil_client *anvil;
+const char *login_rawlog_dir = NULL;
 
 const struct login_settings *global_login_settings;
 void **global_other_settings;
@@ -297,6 +298,13 @@ static void main_init(const char *login_socket)
 			i_fatal("chdir(login) failed: %m");
 	}
 
+	if (login_rawlog_dir != NULL &&
+	    access(login_rawlog_dir, W_OK | X_OK) < 0) {
+		i_error("access(%s, wx) failed: %m - disabling rawlog",
+			login_rawlog_dir);
+		login_rawlog_dir = NULL;
+	}
+
 	master_service_set_avail_overflow_callback(master_service,
 						   client_destroy_oldest);
 	master_service_set_die_callback(master_service, login_die);
@@ -340,7 +348,8 @@ int login_binary_run(const struct login_binary *binary,
 	login_binary = binary;
 
 	master_service = master_service_init(login_binary->process_name,
-					     service_flags, &argc, &argv, "DS");
+					     service_flags, &argc, &argv,
+					     "DR:S");
 	master_service_init_log(master_service, t_strconcat(
 		login_binary->process_name, ": ", NULL));
 
@@ -348,6 +357,9 @@ int login_binary_run(const struct login_binary *binary,
 		switch (c) {
 		case 'D':
 			allow_core_dumps = TRUE;
+			break;
+		case 'R':
+			login_rawlog_dir = optarg;
 			break;
 		case 'S':
 			ssl_connections = TRUE;
