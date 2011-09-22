@@ -588,7 +588,7 @@ mail_namespace_find_unalias(struct mail_namespace *namespaces,
 	const char *storage_name;
 
 	ns = mail_namespace_find(namespaces, *mailbox);
-	if (ns->alias_for != NULL) {
+	if (ns != NULL && ns->alias_for != NULL) {
 		storage_name =
 			mailbox_list_get_storage_name(ns->list, *mailbox);
 		ns = ns->alias_for;
