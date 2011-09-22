@@ -108,10 +108,11 @@ static int script_contents_read(struct mail_user *user)
 
 static bool script_support_content(struct mail_user *user,
 				   const char **content_type,
-				   const char *extension)
+				   const char *filename)
 {
 	struct fts_parser_script_user *suser = SCRIPT_USER_CONTEXT(user);
 	const struct content *content;
+	const char *extension;
 
 	if (suser == NULL) {
 		suser = p_new(user->pool, struct fts_parser_script_user, 1);
@@ -123,9 +124,13 @@ static bool script_support_content(struct mail_user *user,
 			return FALSE;
 	}
 
-	if (strcmp(*content_type, "application/octet-stream") != 0) {
+	if (strcmp(*content_type, "application/octet-stream") == 0) {
+		if (filename == NULL)
+			return FALSE;
+		extension = strrchr(filename, '.');
 		if (extension == NULL)
 			return FALSE;
+		extension = filename + 1;
 
 		array_foreach(&suser->content, content) {
 			if (content->extensions != NULL &&
@@ -144,13 +149,13 @@ static bool script_support_content(struct mail_user *user,
 }
 
 static void parse_content_disposition(const char *content_disposition,
-				      const char **extension_r)
+				      const char **filename_r)
 {
 	struct rfc822_parser_context parser;
 	const char *const *results;
 	string_t *str;
 
-	*extension_r = NULL;
+	*filename_r = NULL;
 
 	if (content_disposition == NULL)
 		return;
@@ -167,7 +172,7 @@ static void parse_content_disposition(const char *content_disposition,
 	(void)rfc2231_parse(&parser, &results);
 	for (; *results != NULL; results += 2) {
 		if (strcasecmp(results[0], "filename") == 0) {
-			*extension_r = results[1];
+			*filename_r = results[1];
 			break;
 		}
 	}
@@ -179,11 +184,11 @@ fts_parser_script_try_init(struct mail_user *user,
 			   const char *content_disposition)
 {
 	struct script_fts_parser *parser;
-	const char *extension, *path, *cmd;
+	const char *filename, *path, *cmd;
 	int fd;
 
-	parse_content_disposition(content_disposition, &extension);
-	if (script_support_content(user, &content_type, extension) <= 0)
+	parse_content_disposition(content_disposition, &filename);
+	if (script_support_content(user, &content_type, filename) <= 0)
 		return NULL;
 
 	fd = script_connect(user, &path);
