@@ -713,7 +713,7 @@ static bool file_dotlock_has_mtime_changed(time_t t1, time_t t2)
 	/* with NFS t1 may have been looked up from local cache.
 	   allow it to be a little bit different. */
 	diff = t1 > t2 ? t1-t2 : t2-t1;
-	return diff <= FILE_DOTLOCK_MAX_STAT_MTIME_DIFF;
+	return diff > FILE_DOTLOCK_MAX_STAT_MTIME_DIFF;
 }
 
 int file_dotlock_delete(struct dotlock **dotlock_p)
