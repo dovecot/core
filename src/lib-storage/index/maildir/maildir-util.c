@@ -23,13 +23,16 @@
 
 static const char *
 maildir_filename_guess(struct maildir_mailbox *mbox, uint32_t uid,
-		       const char *fname, bool *have_flags_r)
+		       const char *fname,
+		       enum maildir_uidlist_rec_flag *uidlist_flags,
+		       bool *have_flags_r)
 
 {
 	struct mail_index_view *view = mbox->flags_view;
 	struct maildir_keywords_sync_ctx *kw_ctx;
 	enum mail_flags flags;
 	ARRAY_TYPE(keyword_indexes) keywords;
+	const char *p;
 	uint32_t seq;
 
 	if (view == NULL || !mail_index_lookup_seq(view, uid, &seq)) {
@@ -50,6 +53,20 @@ maildir_filename_guess(struct maildir_mailbox *mbox, uint32_t uid,
 						   flags, &keywords);
 		maildir_keywords_sync_deinit(&kw_ctx);
 	}
+
+	if (*have_flags_r) {
+		/* don't even bother looking into new/ dir */
+		*uidlist_flags &= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
+	} else if ((*uidlist_flags & MAILDIR_UIDLIST_REC_FLAG_MOVED) == 0 &&
+		   ((*uidlist_flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0 ||
+		    index_mailbox_is_recent(&mbox->box, uid))) {
+		/* probably in new/ dir, drop ":2," from fname */
+		*uidlist_flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
+		p = strrchr(fname, MAILDIR_INFO_SEP);
+		if (p != NULL)
+			fname = t_strdup_until(fname, p);
+	}
+
 	return fname;
 }
 
@@ -67,11 +84,8 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
 		/* let's see if we can guess the filename based on index */
-		fname = maildir_filename_guess(mbox, uid, fname, &have_flags);
-		if (have_flags) {
-			/* don't even bother looking into new/ dir */
-			flags &= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
-		}
+		fname = maildir_filename_guess(mbox, uid, fname,
+					       &flags, &have_flags);
 	}
 
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
