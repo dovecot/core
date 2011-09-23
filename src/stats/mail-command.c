@@ -153,9 +153,17 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 
 void mail_commands_free_memory(void)
 {
-	while (stable_mail_commands != NULL &&
-	       stable_mail_commands->refcount == 0) {
-		i_assert(stable_mail_commands->id == 0);
+	while (stable_mail_commands != NULL) {
+		struct mail_command *cmd = stable_mail_commands;
+
+		if (cmd->refcount == 0)
+			i_assert(cmd->id == 0);
+		else if (cmd->refcount == 1 && cmd->session->disconnected) {
+			/* session was probably lost */
+			mail_command_unref(&cmd);
+		} else {
+			break;
+		}
 		mail_command_free(stable_mail_commands);
 
 		if (global_used_memory < stats_settings->memory_limit)
