@@ -1,0 +1,88 @@
+.\" Copyright (c) 2011 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-MOVE 1 "2011-09-25" "Dovecot v2.0" "Dovecot"
+.SH NAME
+doveadm\-move \- Move messages matching the given search query into another
+mailbox
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " move " [" \-S
+.IR socket_path "] " "destination search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " move " [" \-S
+.IR socket_path "] "
+.BI \-A " destination search_query"
+.br
+.\"-------------------------------------
+.BR doveadm " [" \-Dv "] " move " [" \-S
+.IR socket_path "] "
+.BI \-u " user destination search_query"
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm move
+can be used for moving mails between mailboxes for one or more users.
+The
+.I search_query
+is used to restrict which messages are moved into the
+.I destination
+mailbox.
+.PP
+In the first form,
+.BR doveadm (1)
+will executed the
+.B move
+action with the environment of the logged in system user.
+.PP
+In the second form,
+.BR doveadm (1)
+will iterate over all users, found in the configured
+.IR user_db (s),
+and move each user\(aqs messages, matching the given
+.IR search_query ,
+into the user\(aqs
+.IR destination " mailbox."
+.PP
+In the third form, matching mails will be moved only for given
+.IR user (s).
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I destination
+The name of the destination mailbox, into which the mails should be moved.
+The
+.I destination
+mailbox must exist, otherwise this command will fail.
+.\"-------------------------------------
+.TP
+.I search_query
+Move messages matching the given search query.
+See
+.BR doveadm\-search\-query (7)
+for details.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+Move jane\(aqs messages \- received in September 2011 \- from her INBOX
+into her archive.
+.PP
+.nf
+.B doveadm move \-u jane Archive/2011/09 mailbox INBOX BEFORE \(rs
+.B 2011-10-01 SINCE 01-Sep-2011
+.fi
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-search\-query (7)

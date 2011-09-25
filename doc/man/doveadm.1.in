@@ -122,6 +122,11 @@ Index messages in a given mailbox.
 Various commands related to handling mailboxes.
 .\"-------------------------------------
 .TP
+.B doveadm move
+.BR doveadm\-move (1)
+Move messages matching the given search query into another mailbox.
+.\"-------------------------------------
+.TP
 .B doveadm purge
 .BR doveadm\-purge (1)
 Remove messages with refcount=0 from mdbox files.

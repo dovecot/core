@@ -99,5 +99,5 @@ src/plugins/quota/rquota.h
 
 syntax: regexp
 src/.*/test-[^\.]*$
-doc/man/doveadm-(altmove|auth|director|dump|expunge|fetch|import|index|force-resync|help|kick|log|mailbox|penalty|purge|pw|quota|search|user|who)\.1$
+doc/man/doveadm-(altmove|auth|director|dump|expunge|fetch|import|index|force-resync|help|kick|log|mailbox|move|penalty|purge|pw|quota|search|user|who)\.1$
 doc/man/(doveadm|doveconf|dovecot-lda|dovecot|dsync)\.1$
