@@ -153,6 +153,8 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 
 void mail_commands_free_memory(void)
 {
+	unsigned int diff;
+
 	while (stable_mail_commands != NULL) {
 		struct mail_command *cmd = stable_mail_commands;
 
@@ -168,8 +170,9 @@ void mail_commands_free_memory(void)
 
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
-		if (ioloop_time -
-		    stable_mail_commands->last_update.tv_sec < stats_settings->command_min_time)
+
+		diff = ioloop_time - stable_mail_commands->last_update.tv_sec;
+		if (diff < stats_settings->command_min_time)
 			break;
 	}
 }

@@ -91,13 +91,16 @@ void mail_ip_refresh(struct mail_ip *ip, const struct mail_stats *diff_stats)
 
 void mail_ips_free_memory(void)
 {
+	unsigned int diff;
+
 	while (mail_ips_head != NULL && mail_ips_head->refcount == 0) {
 		mail_ip_free(mail_ips_head);
 
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
-		if (ioloop_time -
-		    mail_ips_head->last_update.tv_sec < stats_settings->ip_min_time)
+
+		diff = ioloop_time - mail_ips_head->last_update.tv_sec;
+		if (diff < stats_settings->ip_min_time)
 			break;
 	}
 }

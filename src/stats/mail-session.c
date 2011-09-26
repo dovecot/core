@@ -246,6 +246,8 @@ int mail_session_update_parse(const char *const *args, const char **error_r)
 
 void mail_sessions_free_memory(void)
 {
+	unsigned int diff;
+
 	while (mail_sessions_head != NULL &&
 	       mail_sessions_head->refcount == 0) {
 		i_assert(mail_sessions_head->disconnected);
@@ -253,8 +255,9 @@ void mail_sessions_free_memory(void)
 
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
-		if (ioloop_time -
-		    mail_sessions_head->last_update.tv_sec < stats_settings->session_min_time)
+
+		diff = ioloop_time - mail_sessions_head->last_update.tv_sec;
+		if (diff < stats_settings->session_min_time)
 			break;
 	}
 }

@@ -95,13 +95,16 @@ void mail_domain_refresh(struct mail_domain *domain,
 
 void mail_domains_free_memory(void)
 {
+	unsigned int diff;
+
 	while (mail_domains_head != NULL && mail_domains_head->refcount == 0) {
 		mail_domain_free(mail_domains_head);
 
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
-		if (ioloop_time -
-		    mail_domains_head->last_update.tv_sec < stats_settings->domain_min_time)
+
+		diff = ioloop_time - mail_domains_head->last_update.tv_sec;
+		if (diff < stats_settings->domain_min_time)
 			break;
 	}
 }

@@ -112,13 +112,16 @@ void mail_user_refresh(struct mail_user *user,
 
 void mail_users_free_memory(void)
 {
+	unsigned int diff;
+
 	while (mail_users_head != NULL && mail_users_head->refcount == 0) {
 		mail_user_free(mail_users_head);
 
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
-		if (ioloop_time -
-		    mail_users_head->last_update.tv_sec < stats_settings->user_min_time)
+
+		diff = ioloop_time - mail_users_head->last_update.tv_sec;
+		if (diff < stats_settings->user_min_time)
 			break;
 	}
 }
