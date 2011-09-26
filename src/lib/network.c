@@ -27,7 +27,7 @@ union sockaddr_union {
 
 union sockaddr_union_unix {
 	struct sockaddr sa;
-	struct sockaddr_un sun;
+	struct sockaddr_un un;
 };
 
 #ifdef HAVE_IPV6
@@ -271,10 +271,7 @@ int net_try_bind(const struct ip_addr *ip)
 
 int net_connect_unix(const char *path)
 {
-	union {
-		struct sockaddr sa;
-		struct sockaddr_un un;
-	} sa;
+	union sockaddr_union_unix sa;
 	int fd, ret;
 
 	memset(&sa, 0, sizeof(sa));
@@ -687,11 +684,11 @@ int net_getunixname(int fd, const char **name_r)
 
 	if (getsockname(fd, &so.sa, &addrlen) < 0)
 		return -1;
-	if (so.sun.sun_family != AF_UNIX) {
+	if (so.un.sun_family != AF_UNIX) {
 		errno = ENOTSOCK;
 		return -1;
 	}
-	*name_r = t_strdup(so.sun.sun_path);
+	*name_r = t_strdup(so.un.sun_path);
 	return 0;
 }
 
