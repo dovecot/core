@@ -194,6 +194,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 		if (ret <= 0) {
 			if (ret < 0)
 				mail_storage_set_index_error(&mbox->box);
+			array_free(&ctx->expunged_uids);
 			i_free(ctx);
 			*ctx_r = NULL;
 			return ret;
@@ -225,6 +226,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 		if (ret < 0) {
+			array_free(&ctx->expunged_uids);
 			i_free(ctx);
 			return -1;
 		}
