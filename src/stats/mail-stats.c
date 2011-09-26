@@ -198,8 +198,8 @@ bool mail_stats_diff(const struct mail_stats *stats1,
 
 					*error_r = t_strdup_printf("%s %llu < %llu",
 						parse_map[i].name,
-						(unsigned long long)n2,
-						(unsigned long long)n1);
+						(unsigned long long)*n2,
+						(unsigned long long)*n1);
 					return FALSE;
 				}
 				break;
