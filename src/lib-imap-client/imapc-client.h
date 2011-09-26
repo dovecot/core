@@ -105,6 +105,10 @@ struct imapc_client *
 imapc_client_init(const struct imapc_client_settings *set);
 void imapc_client_deinit(struct imapc_client **client);
 
+/* Explicitly login to server (also done automatically). */
+void imapc_client_login(struct imapc_client *client,
+			imapc_command_callback_t *callback, void *context);
+
 void imapc_client_cmdf(struct imapc_client *client,
 		       imapc_command_callback_t *callback, void *context,
 		       const char *cmd_fmt, ...) ATTR_FORMAT(4, 5);

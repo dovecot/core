@@ -69,6 +69,7 @@ struct imapc_connection_literal {
 struct imapc_connection {
 	struct imapc_client *client;
 	char *name;
+	int refcount;
 
 	int fd;
 	struct io *io;
@@ -90,6 +91,9 @@ struct imapc_connection {
 
 	enum imapc_capability capabilities;
 	char **capabilities_list;
+
+	imapc_command_callback_t *login_callback;
+	void *login_context;
 
 	/* commands pending in queue to be sent */
 	ARRAY_DEFINE(cmd_send_queue, struct imapc_command *);
@@ -120,6 +124,7 @@ imapc_connection_init(struct imapc_client *client)
 	struct imapc_connection *conn;
 
 	conn = i_new(struct imapc_connection, 1);
+	conn->refcount = 1;
 	conn->client = client;
 	conn->fd = -1;
 	conn->name = i_strdup_printf("%s:%u", client->set.host,
@@ -128,24 +133,43 @@ imapc_connection_init(struct imapc_client *client)
 	i_array_init(&conn->cmd_send_queue, 8);
 	i_array_init(&conn->cmd_wait_list, 32);
 	i_array_init(&conn->literal_files, 4);
+
+	imapc_client_ref(client);
 	return conn;
 }
 
-void imapc_connection_deinit(struct imapc_connection **_conn)
+static void imapc_connection_ref(struct imapc_connection *conn)
+{
+	i_assert(conn->refcount > 0);
+
+	conn->refcount++;
+}
+
+static void imapc_connection_unref(struct imapc_connection **_conn)
 {
 	struct imapc_connection *conn = *_conn;
 
-	*_conn = NULL;
+	i_assert(conn->refcount > 0);
 
-	imapc_connection_disconnect(conn);
+	*_conn = NULL;
+	if (--conn->refcount > 0)
+		return;
+
 	if (conn->capabilities_list != NULL)
 		p_strsplit_free(default_pool, conn->capabilities_list);
 	array_free(&conn->cmd_send_queue);
 	array_free(&conn->cmd_wait_list);
 	array_free(&conn->literal_files);
+	imapc_client_unref(&conn->client);
 	i_free(conn->ips);
 	i_free(conn->name);
 	i_free(conn);
+}
+
+void imapc_connection_deinit(struct imapc_connection **_conn)
+{
+	imapc_connection_disconnect(*_conn);
+	imapc_connection_unref(_conn);
 }
 
 void imapc_connection_ioloop_changed(struct imapc_connection *conn)
@@ -204,6 +228,21 @@ imapc_connection_abort_pending_commands(struct imapc_connection *conn,
 	}
 }
 
+static void
+imapc_login_callback(struct imapc_connection *conn,
+		     const struct imapc_command_reply *reply)
+{
+	imapc_command_callback_t *login_callback = conn->login_callback;
+	void *login_context = conn->login_context;
+
+	if (login_callback == NULL)
+		return;
+
+	conn->login_callback = NULL;
+	conn->login_context = NULL;
+	login_callback(reply, login_context);
+}
+
 static void imapc_connection_set_state(struct imapc_connection *conn,
 				       enum imapc_connection_state state)
 {
@@ -215,6 +254,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 		reply.text_without_resp = reply.text_full =
 			"Disconnected from server";
 		imapc_connection_abort_pending_commands(conn, &reply);
+		imapc_login_callback(conn, &reply);
 
 		conn->idling = FALSE;
 		conn->idle_plus_waiting = FALSE;
@@ -574,8 +614,12 @@ static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 	struct imapc_connection *conn = context;
 
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
-		i_error("imapc(%s): Authentication failed: %s",
-			conn->name, reply->text_full);
+		if (conn->login_callback != NULL)
+			imapc_login_callback(conn, reply);
+		else {
+			i_error("imapc(%s): Authentication failed: %s",
+				conn->name, reply->text_full);
+		}
 		imapc_connection_disconnect(conn);
 		return;
 	}
@@ -585,6 +629,7 @@ static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 
 	timeout_remove(&conn->to);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DONE);
+	imapc_login_callback(conn, reply);
 }
 
 static const char *
@@ -967,6 +1012,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 
 	/* we need to read as much as we can with SSL streams to avoid
 	   hanging */
+	imapc_connection_ref(conn);
 	while (conn->input != NULL && (ret = i_stream_read(conn->input)) > 0)
 		imapc_connection_input_pending(conn);
 
@@ -981,8 +1027,8 @@ static void imapc_connection_input(struct imapc_connection *conn)
 				conn->name, errstr != NULL ? errstr : "");
 		}
 		imapc_connection_disconnect(conn);
-		return;
 	}
+	imapc_connection_unref(&conn);
 }
 
 static int imapc_connection_ssl_handshaked(void *context)
@@ -1188,12 +1234,18 @@ imapc_connection_dns_callback(const struct dns_lookup_result *result,
 	imapc_connection_connect_next_ip(conn);
 }
 
-void imapc_connection_connect(struct imapc_connection *conn)
+void imapc_connection_connect(struct imapc_connection *conn,
+			      imapc_command_callback_t *callback, void *context)
 {
 	struct dns_lookup_settings dns_set;
 
-	if (conn->fd != -1)
+	i_assert(conn->login_callback == NULL);
+	if (conn->fd != -1) {
+		i_assert(callback == NULL);
 		return;
+	}
+	conn->login_callback = callback;
+	conn->login_context = context;
 
 	imapc_connection_input_reset(conn);
 
@@ -1465,6 +1517,7 @@ static int imapc_connection_output(struct imapc_connection *conn)
 	if ((ret = o_stream_flush(conn->output)) < 0)
 		return 1;
 
+	imapc_connection_ref(conn);
 	cmds = array_get(&conn->cmd_send_queue, &count);
 	if (count > 0) {
 		if (imapc_command_get_sending_stream(cmds[0]) != NULL &&
@@ -1474,6 +1527,7 @@ static int imapc_connection_output(struct imapc_connection *conn)
 		}
 	}
 	o_stream_uncork(conn->output);
+	imapc_connection_unref(&conn);
 	return ret;
 }
 

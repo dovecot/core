@@ -32,6 +32,12 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ NULL, 0 }
 };
 
+static void
+default_untagged_callback(const struct imapc_untagged_reply *reply ATTR_UNUSED,
+			  void *context ATTR_UNUSED)
+{
+}
+
 struct imapc_client *
 imapc_client_init(const struct imapc_client_settings *set)
 {
@@ -43,6 +49,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 	pool = pool_alloconly_create("imapc client", 1024);
 	client = p_new(pool, struct imapc_client, 1);
 	client->pool = pool;
+	client->refcount = 1;
 
 	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
@@ -71,9 +78,30 @@ imapc_client_init(const struct imapc_client_settings *set)
 				source);
 		}
 	}
+	client->untagged_callback = default_untagged_callback;
 
 	p_array_init(&client->conns, pool, 8);
 	return client;
+}
+
+void imapc_client_ref(struct imapc_client *client)
+{
+	i_assert(client->refcount > 0);
+
+	client->refcount++;
+}
+
+void imapc_client_unref(struct imapc_client **_client)
+{
+	struct imapc_client *client = *_client;
+
+	i_assert(client->refcount > 0);
+	if (--client->refcount > 0)
+		return;
+
+	if (client->ssl_ctx != NULL)
+		ssl_iostream_context_deinit(&client->ssl_ctx);
+	pool_unref(&client->pool);
 }
 
 void imapc_client_deinit(struct imapc_client **_client)
@@ -81,15 +109,12 @@ void imapc_client_deinit(struct imapc_client **_client)
 	struct imapc_client *client = *_client;
 	struct imapc_client_connection **connp;
 
-	*_client = NULL;
-
-	if (client->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&client->ssl_ctx);
 	array_foreach_modifiable(&client->conns, connp) {
 		imapc_connection_deinit(&(*connp)->conn);
 		i_free(*connp);
 	}
-	pool_unref(&client->pool);
+	array_clear(&client->conns);
+	imapc_client_unref(_client);
 }
 
 void imapc_client_register_untagged(struct imapc_client *client,
@@ -115,7 +140,7 @@ void imapc_client_run_pre(struct imapc_client *client)
 
 	array_foreach(&client->conns, connp) {
 		imapc_connection_ioloop_changed((*connp)->conn);
-		imapc_connection_connect((*connp)->conn);
+		imapc_connection_connect((*connp)->conn, NULL, NULL);
 		if (handle_pending)
 			imapc_connection_input_pending((*connp)->conn);
 	}
@@ -206,6 +231,17 @@ imapc_client_get_unboxed_connection(struct imapc_client *client)
 	return imapc_client_add_connection(client);
 }
 
+
+void imapc_client_login(struct imapc_client *client,
+			imapc_command_callback_t *callback, void *context)
+{
+	struct imapc_client_connection *conn;
+
+	i_assert(array_count(&client->conns) == 0);
+
+	conn = imapc_client_add_connection(client);
+	imapc_connection_connect(conn->conn, callback, context);
+}
 
 struct imapc_client_mailbox *
 imapc_client_mailbox_open(struct imapc_client *client,
@@ -381,6 +417,12 @@ int imapc_client_create_temp_fd(struct imapc_client *client,
 {
 	string_t *path;
 	int fd;
+
+	if (client->set.temp_path_prefix == NULL) {
+		i_error("imapc: temp_path_prefix not set, "
+			"can't create temp file");
+		return -1;
+	}
 
 	path = t_str_new(128);
 	str_append(path, client->set.temp_path_prefix);

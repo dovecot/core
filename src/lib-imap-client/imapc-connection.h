@@ -21,7 +21,9 @@ struct imapc_connection *
 imapc_connection_init(struct imapc_client *client);
 void imapc_connection_deinit(struct imapc_connection **conn);
 
-void imapc_connection_connect(struct imapc_connection *conn);
+void imapc_connection_connect(struct imapc_connection *conn,
+			      imapc_command_callback_t *callback,
+			      void *context);
 void imapc_connection_disconnect(struct imapc_connection *conn);
 void imapc_connection_ioloop_changed(struct imapc_connection *conn);
 void imapc_connection_input_pending(struct imapc_connection *conn);

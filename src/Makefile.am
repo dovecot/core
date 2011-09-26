@@ -14,6 +14,7 @@ SUBDIRS = \
 	lib-test \
 	$(LIBDOVECOT_SUBDIRS) \
 	lib-ssl-iostream \
+	lib-imap-client \
 	lib-dovecot \
 	lib-index \
 	lib-storage \

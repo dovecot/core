@@ -10,6 +10,8 @@ struct imapc_client_connection {
 
 struct imapc_client {
 	pool_t pool;
+	int refcount;
+
 	struct imapc_client_settings set;
 	struct ssl_iostream_context *ssl_ctx;
 
@@ -31,5 +33,8 @@ struct imapc_client_mailbox {
 	void *untagged_box_context;
 	unsigned int pending_box_command_count;
 };
+
+void imapc_client_ref(struct imapc_client *client);
+void imapc_client_unref(struct imapc_client **client);
 
 #endif

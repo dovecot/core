@@ -2435,7 +2435,7 @@ dbox_common_libs='$(top_builddir)/src/lib-storage/index/dbox-common/libstorage_d
 sdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-single/libstorage_dbox_single.la'
 mdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-multi/libstorage_dbox_multi.la'
 cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.la'
-imapc_libs='$(top_builddir)/src/lib-storage/index/imapc/libstorage_imapc.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
+imapc_libs='$(top_builddir)/src/lib-storage/index/imapc/libstorage_imapc.la $(top_builddir)/src/lib-imap-client/libimap_client.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.la'
 shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.la'
 
@@ -2719,6 +2719,7 @@ src/lib-dict/Makefile
 src/lib-dns/Makefile
 src/lib-fs/Makefile
 src/lib-imap/Makefile
+src/lib-imap-client/Makefile
 src/lib-index/Makefile
 src/lib-lda/Makefile
 src/lib-mail/Makefile
