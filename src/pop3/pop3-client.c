@@ -118,13 +118,12 @@ msgnum_to_seq_map_add(ARRAY_TYPE(uint32_t) *msgnum_to_seq_map,
 
 	if (!array_is_created(msgnum_to_seq_map))
 		i_array_init(msgnum_to_seq_map, client->messages_count);
-	else {
-		/* add any messages between this and the previous one that had
-		   a POP3 order defined */
-		seq = array_count(msgnum_to_seq_map) + 1;
-		for (; seq <= msgnum; seq++)
-			array_append(msgnum_to_seq_map, &seq, 1);
-	}
+
+	/* add any messages between this and the previous one that had
+	   a POP3 order defined */
+	seq = array_count(msgnum_to_seq_map) + 1;
+	for (; seq <= msgnum; seq++)
+		array_append(msgnum_to_seq_map, &seq, 1);
 	array_append(msgnum_to_seq_map, &mail->seq, 1);
 }
 
