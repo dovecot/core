@@ -3,7 +3,8 @@
 
 struct mail_command;
 
-extern struct mail_command *stable_mail_commands;
+extern struct mail_command *stable_mail_commands_head;
+extern struct mail_command *stable_mail_commands_tail;
 
 int mail_command_update_parse(const char *const *args, const char **error_r);
 

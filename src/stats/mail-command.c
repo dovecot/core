@@ -10,7 +10,8 @@
 #include "mail-command.h"
 
 /* commands are sorted by their last_update timestamp, oldest first */
-struct mail_command *stable_mail_commands;
+struct mail_command *stable_mail_commands_head;
+struct mail_command *stable_mail_commands_tail;
 
 static size_t mail_command_memsize(const struct mail_command *cmd)
 {
@@ -49,7 +50,8 @@ mail_command_add(struct mail_session *session, const char *name,
 	cmd->args = i_strdup(args);
 	cmd->last_update = ioloop_timeval;
 
-	DLLIST_PREPEND_FULL(&stable_mail_commands, cmd,
+	DLLIST2_APPEND_FULL(&stable_mail_commands_head,
+			    &stable_mail_commands_tail, cmd,
 			    stable_prev, stable_next);
 	DLLIST_PREPEND_FULL(&session->commands, cmd,
 			    session_prev, session_next);
@@ -64,7 +66,8 @@ static void mail_command_free(struct mail_command *cmd)
 
 	global_memory_free(mail_command_memsize(cmd));
 
-	DLLIST_REMOVE_FULL(&stable_mail_commands, cmd,
+	DLLIST2_REMOVE_FULL(&stable_mail_commands_head,
+			    &stable_mail_commands_tail, cmd,
 			    stable_prev, stable_next);
 	DLLIST_REMOVE_FULL(&cmd->session->commands, cmd,
 			   session_prev, session_next);
@@ -155,8 +158,8 @@ void mail_commands_free_memory(void)
 {
 	unsigned int diff;
 
-	while (stable_mail_commands != NULL) {
-		struct mail_command *cmd = stable_mail_commands;
+	while (stable_mail_commands_head != NULL) {
+		struct mail_command *cmd = stable_mail_commands_head;
 
 		if (cmd->refcount == 0)
 			i_assert(cmd->id == 0);
@@ -166,12 +169,12 @@ void mail_commands_free_memory(void)
 		} else {
 			break;
 		}
-		mail_command_free(stable_mail_commands);
+		mail_command_free(stable_mail_commands_head);
 
 		if (global_used_memory < stats_settings->memory_limit)
 			break;
 
-		diff = ioloop_time - stable_mail_commands->last_update.tv_sec;
+		diff = ioloop_time - stable_mail_commands_head->last_update.tv_sec;
 		if (diff < stats_settings->command_min_time)
 			break;
 	}
@@ -183,11 +186,11 @@ void mail_commands_init(void)
 
 void mail_commands_deinit(void)
 {
-	while (stable_mail_commands != NULL) {
-		struct mail_command *cmd = stable_mail_commands;
+	while (stable_mail_commands_head != NULL) {
+		struct mail_command *cmd = stable_mail_commands_head;
 
 		if (cmd->id != 0)
 			mail_command_unref(&cmd);
-		mail_command_free(stable_mail_commands);
+		mail_command_free(stable_mail_commands_head);
 	}
 }

@@ -546,7 +546,7 @@ static bool client_export_iter_init(struct client *client)
 
 	switch (cmd->level) {
 	case MAIL_EXPORT_LEVEL_COMMAND:
-		client->mail_cmd_iter = stable_mail_commands;
+		client->mail_cmd_iter = stable_mail_commands_head;
 		if (client->mail_cmd_iter == NULL)
 			return FALSE;
 		mail_command_ref(client->mail_cmd_iter);
