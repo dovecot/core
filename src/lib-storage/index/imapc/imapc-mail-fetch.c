@@ -109,11 +109,39 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	return 0;
 }
 
+static void imapc_mail_cache_get(struct imapc_mail *mail,
+				 struct imapc_mail_cache *cache)
+{
+	if (mail->body_fetched)
+		return;
+
+	if (cache->fd != -1) {
+		mail->fd = cache->fd;
+		mail->imail.data.stream =
+			i_stream_create_fd(mail->fd, 0, FALSE);
+		cache->fd = -1;
+	} else if (cache->buf != NULL) {
+		mail->body = cache->buf;
+		mail->imail.data.stream =
+			i_stream_create_from_data(mail->body->data,
+						  mail->body->used);
+		cache->buf = NULL;
+	} else {
+		return;
+	}
+	mail->body_fetched = TRUE;
+	imapc_mail_init_stream(mail, TRUE);
+}
+
 bool imapc_mail_prefetch(struct mail *_mail)
 {
 	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 	struct index_mail_data *data = &mail->imail.data;
 	enum mail_fetch_field fields = 0;
+
+	if (mbox->prev_mail_cache.uid == _mail->uid)
+		imapc_mail_cache_get(mail, &mbox->prev_mail_cache);
 
 	if ((mail->imail.wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0 &&
 	    data->received_date == (time_t)-1)
@@ -256,6 +284,11 @@ imapc_fetch_stream(struct imapc_mail *mail,
 			return;
 		/* maybe the existing stream has no body. replace it. */
 		i_stream_unref(&imail->data.stream);
+		if (mail->fd != -1) {
+			if (close(mail->fd) < 0)
+				i_error("close(imapc mail) failed: %m");
+			mail->fd = -1;
+		}
 	}
 
 	if (arg->type == IMAP_ARG_LITERAL_SIZE) {
@@ -265,7 +298,8 @@ imapc_fetch_stream(struct imapc_mail *mail,
 			i_error("dup() failed: %m");
 			return;
 		}
-		imail->data.stream = i_stream_create_fd(fd, 0, TRUE);
+		mail->fd = fd;
+		imail->data.stream = i_stream_create_fd(fd, 0, FALSE);
 	} else {
 		if (!imap_arg_get_nstring(arg, &value))
 			return;
@@ -282,6 +316,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 		imail->data.stream = i_stream_create_from_data(mail->body->data,
 							       mail->body->used);
 	}
+	mail->body_fetched = body;
 
 	imapc_mail_init_stream(mail, body);
 }

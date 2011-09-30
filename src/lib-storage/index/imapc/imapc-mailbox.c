@@ -403,7 +403,10 @@ imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 	    str_to_uint32(reply->resp_text_value, &uid_validity) < 0)
 		return;
 
-	mbox->sync_uid_validity = uid_validity;
+	if (mbox->sync_uid_validity != uid_validity) {
+		mbox->sync_uid_validity = uid_validity;
+		imapc_mail_cache_free(&mbox->prev_mail_cache);
+	}
 }
 
 static void

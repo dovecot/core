@@ -12,7 +12,9 @@ struct imapc_mail {
 	enum mail_fetch_field fetching_fields;
 	unsigned int fetch_count;
 
+	int fd;
 	buffer_t *body;
+	bool body_fetched;
 };
 
 extern struct mail_vfuncs imapc_mail_vfuncs;

@@ -340,6 +340,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	p_array_init(&mbox->fetch_mails, pool, 16);
 	p_array_init(&mbox->permanent_keywords, pool, 32);
 	p_array_init(&mbox->delayed_expunged_uids, pool, 16);
+	mbox->prev_mail_cache.fd = -1;
 	imapc_mailbox_register_callbacks(mbox);
 	return &mbox->box;
 }
@@ -430,6 +431,18 @@ static int imapc_mailbox_open(struct mailbox *box)
 		return -1;
 	}
 	return 0;
+}
+
+void imapc_mail_cache_free(struct imapc_mail_cache *cache)
+{
+	if (cache->fd != -1) {
+		if (close(cache->fd) < 0)
+			i_error("close(imapc cached mail) failed: %m");
+		cache->fd = -1;
+	}
+	if (cache->buf != NULL)
+		buffer_free(&cache->buf);
+	cache->uid = 0;
 }
 
 static void imapc_mailbox_close(struct mailbox *box)

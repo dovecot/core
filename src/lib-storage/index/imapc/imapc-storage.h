@@ -40,6 +40,14 @@ struct imapc_storage {
 	ARRAY_DEFINE(untagged_callbacks, struct imapc_storage_event_callback);
 };
 
+struct imapc_mail_cache {
+	uint32_t uid;
+
+	/* either fd != -1 or buf != NULL */
+	int fd;
+	buffer_t *buf;
+};
+
 struct imapc_mailbox {
 	struct mailbox box;
 	struct imapc_storage *storage;
@@ -65,6 +73,10 @@ struct imapc_mailbox {
 	uint32_t sync_next_rseq;
 	uint32_t exists_count;
 	uint32_t min_append_uid;
+
+	/* keep the previous fetched message body cached,
+	   mainly for partial IMAP fetches */
+	struct imapc_mail_cache prev_mail_cache;
 
 	uint32_t prev_skipped_rseq, prev_skipped_uid;
 
@@ -92,6 +104,7 @@ void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
 void imapc_transaction_save_rollback(struct mail_save_context *ctx);
 
 void imapc_storage_run(struct imapc_storage *storage);
+void imapc_mail_cache_free(struct imapc_mail_cache *cache);
 
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,

@@ -20,6 +20,7 @@ imapc_mail_alloc(struct mailbox_transaction_context *t,
 	pool = pool_alloconly_create("mail", 2048);
 	mail = p_new(pool, struct imapc_mail, 1);
 	mail->imail.mail.pool = pool;
+	mail->fd = -1;
 
 	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers);
 	return &mail->imail.mail.mail;
@@ -28,9 +29,27 @@ imapc_mail_alloc(struct mailbox_transaction_context *t,
 static void imapc_mail_free(struct mail *_mail)
 {
 	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_mail_cache *cache = &mbox->prev_mail_cache;
 
+	if (mail->body_fetched) {
+		imapc_mail_cache_free(cache);
+		cache->uid = _mail->uid;
+		if (cache->fd != -1) {
+			cache->fd = mail->fd;
+			mail->fd = -1;
+		} else {
+			cache->buf = mail->body;
+			mail->body = NULL;
+		}
+	}
+	if (mail->fd != -1) {
+		if (close(mail->fd) < 0)
+			i_error("close(imapc mail) failed: %m");
+	}
 	if (mail->body != NULL)
 		buffer_free(&mail->body);
+
 	index_mail_free(_mail);
 }
 
