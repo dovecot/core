@@ -106,8 +106,10 @@ bool cmd_copy(struct client_command_context *cmd)
 	if (ret <= 0)
 		return ret < 0;
 
-	if (client_open_save_dest_box(cmd, mailbox, &destbox) < 0)
+	if (client_open_save_dest_box(cmd, mailbox, &destbox) < 0) {
+		mail_search_args_unref(&search_args);
 		return TRUE;
+	}
 
 	t = mailbox_transaction_begin(destbox,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |

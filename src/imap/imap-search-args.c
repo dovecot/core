@@ -117,6 +117,7 @@ static int imap_search_get_msgset_arg(struct client_command_context *cmd,
 	    !msgset_is_valid(&args->args->value.seqset,
 			     cmd->client->messages_count)) {
 		*error_r = "Invalid messageset";
+		mail_search_args_unref(&args);
 		return -1;
 	}
 	*args_r = args;
@@ -135,6 +136,7 @@ imap_search_get_uidset_arg(const char *uidset, struct mail_search_args **args_r,
 	p_array_init(&args->args->value.seqset, args->pool, 16);
 	if (imap_seq_set_parse(uidset, &args->args->value.seqset) < 0) {
 		*error_r = "Invalid uidset";
+		mail_search_args_unref(&args);
 		return -1;
 	}
 

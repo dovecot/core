@@ -23,15 +23,17 @@ static bool cmd_expunge_finish(struct client_command_context *cmd,
 			       struct mail_search_args *search_args)
 {
 	struct client *client = cmd->client;
+	int ret;
 
-	if (imap_expunge(client->mailbox, search_args == NULL ? NULL :
-			 search_args->args) < 0) {
+	ret = imap_expunge(client->mailbox, search_args == NULL ? NULL :
+			   search_args->args);
+	if (search_args != NULL)
+		mail_search_args_unref(&search_args);
+	if (ret < 0) {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 		return TRUE;
 	}
-	if (search_args != NULL)
-		mail_search_args_unref(&search_args);
 
 	client->sync_seen_deletes = FALSE;
 	client->sync_seen_expunges = FALSE;
