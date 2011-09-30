@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
+#include "nfs-workarounds.h"
 #include "index-mail.h"
 #include "maildir-storage.h"
 #include "maildir-filename.h"
@@ -22,7 +23,7 @@ static int
 do_open(struct maildir_mailbox *mbox, const char *path,
 	struct maildir_open_context *ctx)
 {
-	ctx->fd = open(path, O_RDONLY);
+	ctx->fd = nfs_safe_open(path, O_RDONLY);
 	if (ctx->fd != -1) {
 		ctx->path = i_strdup(path);
 		return 1;
