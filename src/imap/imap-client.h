@@ -2,6 +2,7 @@
 #define IMAP_CLIENT_H
 
 #include "imap-commands.h"
+#include "message-size.h"
 
 #define CLIENT_COMMAND_QUEUE_MAX_SIZE 4
 /* Maximum number of CONTEXT=SEARCH UPDATEs. Clients probably won't need more
@@ -86,6 +87,15 @@ struct client_command_context {
 	unsigned int temp_executed:1; /* temporary execution state tracking */
 };
 
+struct partial_fetch_cache {
+	unsigned int select_counter;
+	unsigned int uid;
+
+	uoff_t physical_start;
+	bool cr_skipped;
+	struct message_size pos;
+};
+
 struct client {
 	struct client *prev, *next;
 
@@ -121,6 +131,8 @@ struct client {
 
 	uint64_t sync_last_full_modseq;
 	uint64_t highest_fetch_modseq;
+
+	struct partial_fetch_cache last_partial;
 
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;
