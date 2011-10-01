@@ -15,7 +15,7 @@ endif
 auth_module_LTLIBRARIES = \
 	$(GSSAPI_LIB) \
 	$(LDAP_LIB) \
-	libpassdb_imap.la
+	libauthdb_imap.la
 
 pkglibexecdir = $(libexecdir)/dovecot
 
@@ -159,15 +159,15 @@ libauthdb_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_ldap_la_SOURCES = $(ldap_sources)
 endif
 
-libpassdb_imap_la_LDFLAGS = -module -avoid-version
-libpassdb_imap_la_LIBADD = \
+libauthdb_imap_la_LDFLAGS = -module -avoid-version
+libauthdb_imap_la_LIBADD = \
 	../lib-imap-client/libimap_client.la \
 	../lib-ssl-iostream/libssl_iostream.la
-libpassdb_imap_la_CPPFLAGS = \
+libauthdb_imap_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-imap-client
-libpassdb_imap_la_SOURCES = passdb-imap.c
+libauthdb_imap_la_SOURCES = passdb-imap.c
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

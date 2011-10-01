@@ -177,15 +177,15 @@ static struct passdb_module_interface passdb_imap_plugin = {
 	NULL
 };
 
-void passdb_imap_init(void);
-void passdb_imap_deinit(void);
+void authdb_imap_init(void);
+void authdb_imap_deinit(void);
 
-void passdb_imap_init(void)
+void authdb_imap_init(void)
 {
 	passdb_register_module(&passdb_imap_plugin);
 
 }
-void passdb_imap_deinit(void)
+void authdb_imap_deinit(void)
 {
 	passdb_unregister_module(&passdb_imap_plugin);
 }
