@@ -366,7 +366,6 @@ imapc_connection_read_literal_init(struct imapc_connection *conn, uoff_t size,
 	const struct imap_arg *parent_arg;
 	unsigned int idx;
 
-	i_assert(size > 0);
 	i_assert(conn->literal.fd == -1);
 
 	if (size <= IMAPC_MAX_INLINE_LITERAL_SIZE ||
