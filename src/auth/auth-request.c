@@ -1509,12 +1509,12 @@ int auth_request_password_verify(struct auth_request *request,
 	}
 
 	ret = password_decode(crypted_password, scheme,
-			      &raw_password, &raw_password_size);
+			      &raw_password, &raw_password_size, &error);
 	if (ret <= 0) {
 		if (ret < 0) {
 			auth_request_log_error(request, subsystem,
-				"Password in passdb is not in expected scheme %s",
-				scheme);
+				"Password data is not valid for scheme %s: %s",
+				scheme, error);
 		} else {
 			auth_request_log_error(request, subsystem,
 					       "Unknown scheme %s", scheme);

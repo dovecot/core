@@ -39,7 +39,8 @@ const char *password_get_scheme(const char **password);
 /* Decode encoded (base64/hex) password to raw form. Returns 1 if ok,
    0 if scheme is unknown, -1 if password is invalid. */
 int password_decode(const char *password, const char *scheme,
-		    const unsigned char **raw_password_r, size_t *size_r);
+		    const unsigned char **raw_password_r, size_t *size_r,
+		    const char **error_r);
 
 /* Create password with wanted scheme out of plaintext password and username.
    Potential base64/hex directives are ignored in scheme. Returns FALSE if

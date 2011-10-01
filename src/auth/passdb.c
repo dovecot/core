@@ -64,7 +64,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			    const unsigned char **credentials_r, size_t *size_r)
 {
 	const char *wanted_scheme = auth_request->credentials_scheme;
-	const char *plaintext, *username;
+	const char *plaintext, *username, *error;
 	int ret;
 
 	if (auth_request->prefer_plain_credentials &&
@@ -74,12 +74,13 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 		wanted_scheme = "";
 	}
 
-	ret = password_decode(input, input_scheme, credentials_r, size_r);
+	ret = password_decode(input, input_scheme,
+			      credentials_r, size_r, &error);
 	if (ret <= 0) {
 		if (ret < 0) {
 			auth_request_log_error(auth_request, "password",
-				"Password in passdb is not in expected scheme %s",
-				input_scheme);
+				"Password data is not valid for scheme %s: %s",
+				input_scheme, error);
 		} else {
 			auth_request_log_error(auth_request, "password",
 				"Unknown scheme %s", input_scheme);
