@@ -148,6 +148,16 @@ static void listeners_init(void)
 	}
 }
 
+static bool auth_module_filter(const char *name, void *context ATTR_UNUSED)
+{
+	if (strncmp(name, "authdb_", 7) == 0 ||
+	    strncmp(name, "mech_", 5) == 0) {
+		/* this is lazily loaded */
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void main_preinit(void)
 {
 	struct module_dir_load_settings mod_set;
@@ -173,6 +183,7 @@ static void main_preinit(void)
 	mod_set.version = master_service_get_version_string(master_service);
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = global_auth_settings->debug;
+	mod_set.filter_callback = auth_module_filter;
 
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
@@ -189,6 +200,21 @@ static void main_preinit(void)
 	/* Password lookups etc. may require roots, allow it. */
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
+}
+
+void auth_module_load(const char *names)
+{
+	struct module_dir_load_settings mod_set;
+
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.version = master_service_get_version_string(master_service);
+	mod_set.require_init_funcs = TRUE;
+	mod_set.debug = global_auth_settings->debug;
+	mod_set.ignore_missing = TRUE;
+
+	modules = module_dir_load_missing(modules, AUTH_MODULE_DIR, names,
+					  &mod_set);
+	module_dir_init(modules);
 }
 
 static void main_init(void)

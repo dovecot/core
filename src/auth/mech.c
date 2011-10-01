@@ -127,17 +127,22 @@ mech_register_init(const struct auth_settings *set)
 
 	mechanisms = t_strsplit_spaces(set->mechanisms, " ");
 	for (; *mechanisms != NULL; mechanisms++) {
-		if (strcasecmp(*mechanisms, "ANONYMOUS") == 0) {
+		const char *name = *mechanisms;
+
+		if (strcasecmp(name, "ANONYMOUS") == 0) {
 			if (*set->anonymous_username == '\0') {
 				i_fatal("ANONYMOUS listed in mechanisms, "
 					"but anonymous_username not set");
 			}
 		}
-		mech = mech_module_find(*mechanisms);
+		mech = mech_module_find(name);
 		if (mech == NULL) {
-			i_fatal("Unknown authentication mechanism '%s'",
-				*mechanisms);
+			/* maybe it's a plugin. try to load it. */
+			auth_module_load(t_strconcat("mech_", name, NULL));
+			mech = mech_module_find(name);
 		}
+		if (mech == NULL)
+			i_fatal("Unknown authentication mechanism '%s'", name);
 		mech_register_add(reg, mech);
 	}
 
