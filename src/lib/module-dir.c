@@ -263,8 +263,13 @@ static int module_name_cmp(const char *const *n1, const char *const *n2)
 	return strcmp(s1, s2);
 }
 
-static bool module_want_load(const char **names, const char *name)
+static bool module_want_load(const struct module_dir_load_settings *set,
+			     const char **names, const char *name)
 {
+	if (set->filter_callback != NULL) {
+		if (!set->filter_callback(name, set->filter_context))
+			return FALSE;
+	}
 	if (names == NULL)
 		return TRUE;
 
@@ -412,7 +417,7 @@ module_dir_load_real(struct module *old_modules,
 		name = names_p[i];
 		stripped_name = module_file_get_name(name);
 		suffixless_name = module_name_drop_suffix(stripped_name);
-		if (!module_want_load(module_names, suffixless_name) ||
+		if (!module_want_load(set, module_names, suffixless_name) ||
 		    module_is_loaded(old_modules, suffixless_name))
 			module = NULL;
 		else {
@@ -428,7 +433,7 @@ module_dir_load_real(struct module *old_modules,
 		}
 	} T_END;
 
-	if (module_names != NULL) {
+	if (module_names != NULL && !set->ignore_missing) {
 		/* make sure all modules were found */
 		for (; *module_names != NULL; module_names++) {
 			if (**module_names != '\0') {

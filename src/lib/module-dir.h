@@ -11,12 +11,18 @@ struct module_dir_load_settings {
 	/* Setting name used in plugin dependency error message */
 	const char *setting_name;
 
+	/* If non-NULL, load only modules where filter_callback returns TRUE */
+	bool (*filter_callback)(const char *name, void *context);
+	void *filter_context;
+
 	/* Require all plugins to have <plugin_name>_init() function */
 	unsigned int require_init_funcs:1;
 	/* Enable debug logging */
 	unsigned int debug:1;
 	/* If dlopen() fails for some modules, silently skip it. */
 	unsigned int ignore_dlopen_errors:1;
+	/* Don't fail if some specified modules weren't found */
+	unsigned int ignore_missing:1;
 };
 
 struct module {
