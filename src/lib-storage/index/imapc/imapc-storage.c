@@ -463,6 +463,7 @@ static void imapc_mailbox_close(struct mailbox *box)
 		timeout_remove(&mbox->to_idle_delay);
 	if (mbox->to_idle_check != NULL)
 		timeout_remove(&mbox->to_idle_check);
+	imapc_mail_cache_free(&mbox->prev_mail_cache);
 	return index_storage_mailbox_close(box);
 }
 
