@@ -133,9 +133,8 @@ imapc_client_mailbox_open(struct imapc_client *client,
 void imapc_client_mailbox_close(struct imapc_client_mailbox **box);
 void imapc_client_mailbox_disconnect(struct imapc_client_mailbox *box);
 void imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
-			      const char *cmd,
 			      imapc_command_callback_t *callback,
-			      void *context);
+			      void *context, const char *cmd);
 void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
 			       imapc_command_callback_t *callback,
 			       void *context, const char *cmd_fmt, ...)

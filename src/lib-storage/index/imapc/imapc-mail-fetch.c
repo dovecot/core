@@ -102,9 +102,9 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	if (mail->fetch_count++ == 0)
 		array_append(&mbox->fetch_mails, &mail, 1);
 
-	imapc_client_mailbox_cmdf(mbox->client_box,
-				  imapc_mail_prefetch_callback,
-				  mail, "%1s", str_c(str));
+	imapc_client_mailbox_cmd(mbox->client_box,
+				 imapc_mail_prefetch_callback,
+				 mail, str_c(str));
 	mail->imail.data.prefetch_sent = TRUE;
 	return 0;
 }

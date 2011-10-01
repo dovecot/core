@@ -39,8 +39,8 @@ static void imapc_sync_callback(const struct imapc_command_reply *reply,
 static void imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd)
 {
 	ctx->sync_command_count++;
-	imapc_client_mailbox_cmd(ctx->mbox->client_box, cmd,
-				 imapc_sync_callback, ctx);
+	imapc_client_mailbox_cmd(ctx->mbox->client_box,
+				 imapc_sync_callback, ctx, cmd);
 }
 
 static void
@@ -400,9 +400,9 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0) {
 		/* IDLE not supported. do NOOP to get latest changes
 		   before starting sync. */
-		imapc_client_mailbox_cmdf(mbox->client_box,
-					  imapc_noop_stop_callback,
-					  mbox->storage, "NOOP");
+		imapc_client_mailbox_cmd(mbox->client_box,
+					 imapc_noop_stop_callback,
+					 mbox->storage, "NOOP");
 		imapc_storage_run(mbox->storage);
 	}
 

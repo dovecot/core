@@ -345,9 +345,8 @@ imapc_client_mailbox_is_selected(struct imapc_client_mailbox *box,
 }
 
 void imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
-			      const char *cmd,
 			      imapc_command_callback_t *callback,
-			      void *context)
+			      void *context, const char *cmd)
 {
 	struct imapc_client_command_context *ctx;
 	struct imapc_command_reply reply;

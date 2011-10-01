@@ -74,8 +74,8 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 	/* we may be running against a server that hasn't bothered sending
 	   us an EXPUNGE. see if NOOP sends it. */
 	imapc_simple_context_init(&sctx, mbox->storage);
-	imapc_client_mailbox_cmdf(mbox->client_box,
-				  imapc_simple_callback, &sctx, "NOOP");
+	imapc_client_mailbox_cmd(mbox->client_box,
+				 imapc_simple_callback, &sctx, "NOOP");
 	imapc_simple_run(&sctx);
 
 	return !imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq);
