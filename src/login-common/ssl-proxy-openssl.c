@@ -87,6 +87,7 @@ struct ssl_server_context {
 	const char *key;
 	const char *ca;
 	const char *cipher_list;
+	const char *protocols;
 	bool verify_client_cert;
 };
 
@@ -135,6 +136,8 @@ static int ssl_server_context_cmp(const void *p1, const void *p2)
 	if (strcmp(ctx1->key, ctx2->key) != 0)
 		return 1;
 	if (null_strcmp(ctx1->cipher_list, ctx2->cipher_list) != 0)
+		return 1;
+	if (null_strcmp(ctx1->protocols, ctx2->protocols) != 0)
 		return 1;
 
 	return ctx1->verify_client_cert == ctx2->verify_client_cert ? 0 : 1;
@@ -603,6 +606,7 @@ ssl_server_context_get(const struct login_settings *set)
 	lookup_ctx.key = set->ssl_key;
 	lookup_ctx.ca = set->ssl_ca;
 	lookup_ctx.cipher_list = set->ssl_cipher_list;
+	lookup_ctx.protocols = set->ssl_protocols;
 	lookup_ctx.verify_client_cert = set->ssl_verify_client_cert;
 
 	ctx = hash_table_lookup(ssl_servers, &lookup_ctx);
@@ -924,7 +928,9 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set)
 	X509_STORE *store;
 	STACK_OF(X509_NAME) *xnames = NULL;
 
-	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2);
+	/* enable all SSL workarounds */
+	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+
 	if (*set->ssl_ca != '\0') {
 		/* set trusted CA certs */
 		store = SSL_CTX_get_cert_store(ssl_ctx);
@@ -1091,6 +1097,57 @@ static void ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 }
 #endif
 
+enum {
+	DOVECOT_SSL_PROTO_SSLv2	= 0x01,
+	DOVECOT_SSL_PROTO_SSLv3	= 0x02,
+	DOVECOT_SSL_PROTO_TLSv1	= 0x04,
+	DOVECOT_SSL_PROTO_ALL	= 0x07
+};
+
+static void
+ssl_proxy_ctx_set_protocols(struct ssl_server_context *ssl_ctx,
+			    const char *protocols)
+{
+	const char *const *tmp;
+	int proto, op = 0, include = 0, exclude = 0;
+	bool neg;
+
+	tmp = t_strsplit_spaces(protocols, " ");
+	for (; *tmp != NULL; tmp++) {
+		const char *name = *tmp;
+
+		if (*name != '!')
+			neg = FALSE;
+		else {
+			name++;
+			neg = TRUE;
+		}
+		if (strcasecmp(name, SSL_TXT_SSLV2) == 0)
+			proto = DOVECOT_SSL_PROTO_SSLv2;
+		else if (strcasecmp(name, SSL_TXT_SSLV3) == 0)
+			proto = DOVECOT_SSL_PROTO_SSLv3;
+		else if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
+			proto = DOVECOT_SSL_PROTO_TLSv1;
+		else {
+			i_fatal("Invalid ssl_protocols setting: "
+				"Unknown protocol '%s'", name);
+		}
+		if (neg)
+			exclude |= proto;
+		else
+			include |= proto;
+	}
+	if (include != 0) {
+		/* exclude everything, except those that are included
+		   (and let excludes still override those) */
+		exclude |= DOVECOT_SSL_PROTO_ALL & ~include;
+	}
+	if ((exclude & DOVECOT_SSL_PROTO_SSLv2) != 0) op |= SSL_OP_NO_SSLv2;
+	if ((exclude & DOVECOT_SSL_PROTO_SSLv3) != 0) op |= SSL_OP_NO_SSLv3;
+	if ((exclude & DOVECOT_SSL_PROTO_TLSv1) != 0) op |= SSL_OP_NO_TLSv1;
+	SSL_CTX_set_options(ssl_ctx->ctx, op);
+}
+
 static struct ssl_server_context *
 ssl_server_context_init(const struct login_settings *set)
 {
@@ -1106,6 +1163,7 @@ ssl_server_context_init(const struct login_settings *set)
 	ctx->key = p_strdup(pool, set->ssl_key);
 	ctx->ca = p_strdup(pool, set->ssl_ca);
 	ctx->cipher_list = p_strdup(pool, set->ssl_cipher_list);
+	ctx->protocols = p_strdup(pool, set->ssl_protocols);
 	ctx->verify_client_cert = set->ssl_verify_client_cert;
 
 	ctx->ctx = ssl_ctx = SSL_CTX_new(SSLv23_server_method());
@@ -1117,6 +1175,7 @@ ssl_server_context_init(const struct login_settings *set)
 		i_fatal("Can't set cipher list to '%s': %s",
 			ctx->cipher_list, ssl_last_error());
 	}
+	ssl_proxy_ctx_set_protocols(ctx, ctx->protocols);
 
 	if (ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->cert) != 1) {
 		i_fatal("Can't load ssl_cert: %s",
