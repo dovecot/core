@@ -604,12 +604,14 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 				      enum mailbox_metadata_items items,
 				      struct mailbox_metadata *metadata_r)
 {
+	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
+		return -1;
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		/* a bit ugly way to do this, but better than nothing for now.
 		   FIXME: if indexes are enabled, keep this there. */
 		mail_generate_guid_128_hash(box->name, metadata_r->guid);
 	}
-	return index_mailbox_get_metadata(box, items, metadata_r);
+	return 0;
 }
 
 static void imapc_idle_timeout(struct imapc_mailbox *mbox)

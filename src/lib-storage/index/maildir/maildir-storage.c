@@ -480,12 +480,15 @@ maildir_mailbox_get_metadata(struct mailbox *box,
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 
+	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
+		return -1;
+
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		if (maildir_uidlist_get_mailbox_guid(mbox->uidlist,
 						     metadata_r->guid) < 0)
 			return -1;
 	}
-	return index_mailbox_get_metadata(box, items, metadata_r);
+	return 0;
 }
 
 static void maildir_mailbox_close(struct mailbox *box)

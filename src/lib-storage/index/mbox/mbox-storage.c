@@ -628,11 +628,13 @@ mbox_mailbox_get_metadata(struct mailbox *box,
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
+	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
+		return -1;
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		if (mbox_mailbox_get_guid(mbox, metadata_r->guid) < 0)
 			return -1;
 	}
-	return index_mailbox_get_metadata(box, items, metadata_r);
+	return 0;
 }
 
 static void mbox_notify_changes(struct mailbox *box)

@@ -263,6 +263,11 @@ int index_mailbox_get_metadata(struct mailbox *box,
 			       enum mailbox_metadata_items items,
 			       struct mailbox_metadata *metadata_r)
 {
+	if (!box->opened) {
+		if (mailbox_open(box) < 0)
+			return -1;
+	}
+
 	if ((items & MAILBOX_METADATA_VIRTUAL_SIZE) != 0) {
 		if (get_metadata_virtual_size(box, metadata_r) < 0)
 			return -1;

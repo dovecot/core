@@ -271,11 +271,13 @@ sdbox_mailbox_get_metadata(struct mailbox *box,
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 
+	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
+		return -1;
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		memcpy(metadata_r->guid, mbox->mailbox_guid,
 		       sizeof(metadata_r->guid));
 	}
-	return index_mailbox_get_metadata(box, items, metadata_r);
+	return 0;
 }
 
 static int

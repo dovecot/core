@@ -1214,10 +1214,6 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 {
 	memset(metadata_r, 0, sizeof(*metadata_r));
 
-	if (!box->opened) {
-		if (mailbox_open(box) < 0)
-			return -1;
-	}
 	if (box->v.get_metadata(box, items, metadata_r) < 0)
 		return -1;
 

@@ -363,12 +363,14 @@ virtual_mailbox_get_metadata(struct mailbox *box,
 			     enum mailbox_metadata_items items,
 			     struct mailbox_metadata *metadata_r)
 {
+	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
+		return -1;
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Virtual mailboxes have no GUIDs");
 		return -1;
 	}
-	return index_mailbox_get_metadata(box, items, metadata_r);
+	return 0;
 }
 
 static void
