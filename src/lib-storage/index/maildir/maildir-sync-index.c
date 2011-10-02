@@ -710,9 +710,13 @@ int maildir_list_index_has_changed(struct mailbox *box,
 	struct stat st;
 	uint32_t ext_id;
 	bool expunged;
+	int ret;
 
+	ret = index_storage_list_index_has_changed(box, list_view, seq);
+	if (ret != 0)
+		return ret;
 	if (mbox->storage->set->maildir_very_dirty_syncs)
-		return index_storage_list_index_has_changed(box, list_view, seq);
+		return 0;
 
 	ext_id = maildir_list_get_ext_id(mbox, list_view);
 	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
@@ -762,10 +766,9 @@ void maildir_list_index_update_sync(struct mailbox *box,
 	uint32_t ext_id;
 	bool expunged;
 
-	if (mbox->storage->set->maildir_very_dirty_syncs) {
-		index_storage_list_index_update_sync(box, trans, seq);
+	index_storage_list_index_update_sync(box, trans, seq);
+	if (mbox->storage->set->maildir_very_dirty_syncs)
 		return;
-	}
 
 	/* get the current record */
 	list_view = mail_index_transaction_get_view(trans);
