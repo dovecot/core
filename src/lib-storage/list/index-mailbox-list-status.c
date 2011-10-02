@@ -130,7 +130,8 @@ index_list_get_cached_status(struct mailbox *box,
 	if (ret <= 0)
 		return ret;
 
-	ret = index_list_get_view_status(box, view, seq, items, status_r, NULL);
+	ret = index_list_get_view_status(box, view, seq, items,
+					 status_r, NULL) ? 1 : 0;
 	mail_index_view_close(&view);
 	return ret;
 }
