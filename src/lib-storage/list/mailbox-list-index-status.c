@@ -151,6 +151,41 @@ index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 }
 
 static int
+index_list_get_cached_guid(struct mailbox *box, guid_128_t guid_r)
+{
+	struct mailbox_status status;
+	struct mail_index_view *view;
+	uint32_t seq;
+	int ret;
+
+	ret = index_list_open_view(box, &view, &seq);
+	if (ret <= 0)
+		return ret;
+
+	ret = index_list_get_view_status(box, view, seq, 0,
+					 &status, guid_r) ? 1 : 0;
+	if (ret > 0 && guid_128_is_empty(guid_r))
+		ret = 0;
+	mail_index_view_close(&view);
+	return ret;
+}
+
+static int
+index_list_get_metadata(struct mailbox *box,
+			enum mailbox_metadata_items items,
+			struct mailbox_metadata *metadata_r)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+
+	if (items == MAILBOX_METADATA_GUID && !box->opened) {
+		if (index_list_get_cached_guid(box, metadata_r->guid) > 0)
+			return 0;
+		/* nonsynced / error, fallback to doing it the slow way */
+	}
+	return ibox->module_ctx.super.get_metadata(box, items, metadata_r);
+}
+
+static int
 index_list_update(struct mailbox *box, struct mail_index_view *view,
 		  uint32_t seq, const struct mailbox_status *status)
 {
@@ -161,6 +196,8 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 	struct mailbox_status old_status;
 	guid_128_t mailbox_guid;
 	bool rec_changed, msgs_changed, hmodseq_changed;
+
+	i_assert(box->opened);
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0)
 		memset(&metadata, 0, sizeof(metadata));
@@ -367,6 +404,7 @@ static void index_list_mail_mailbox_allocated(struct mailbox *box)
 	ibox = p_new(box->pool, struct index_list_mailbox, 1);
 	ibox->module_ctx.super = box->v;
 	box->v.get_status = index_list_get_status;
+	box->v.get_metadata = index_list_get_metadata;
 	box->v.sync_deinit = index_list_sync_deinit;
 	box->v.transaction_commit = index_list_transaction_commit;
 
