@@ -14,6 +14,7 @@ libstorage_list_la_SOURCES = \
 	mailbox-list-fs-flags.c \
 	mailbox-list-fs-iter.c \
 	mailbox-list-index.c \
+	mailbox-list-index-iter.c \
 	mailbox-list-index-status.c \
 	mailbox-list-maildir.c \
 	mailbox-list-maildir-iter.c \

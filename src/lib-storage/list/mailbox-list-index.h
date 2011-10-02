@@ -102,6 +102,14 @@ mailbox_list_index_lookup(struct mailbox_list *list, const char *name);
 int mailbox_list_index_refresh(struct mailbox_list *list);
 void mailbox_list_index_refresh_later(struct mailbox_list *list);
 
+struct mailbox_list_iterate_context *
+mailbox_list_index_iter_init(struct mailbox_list *list,
+			     const char *const *patterns,
+			     enum mailbox_list_iter_flags flags);
+const struct mailbox_info *
+mailbox_list_index_iter_next(struct mailbox_list_iterate_context *ctx);
+int mailbox_list_index_iter_deinit(struct mailbox_list_iterate_context *ctx);
+
 void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 					      enum mailbox_info_flags *flags);
 
