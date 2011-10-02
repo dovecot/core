@@ -626,23 +626,18 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 		NULL
 	};
 	struct mailbox *box;
-	struct raw_mailbox *raw_box;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	enum mail_error error;
 
-	box = mailbox_alloc(client->raw_mail_user->namespaces->list,
-			    "Dovecot Delivery Mail",
-			    MAILBOX_FLAG_NO_INDEX_FILES);
-	if (mailbox_open_stream(box, input) < 0 ||
-	    mailbox_sync(box, 0) < 0) {
+	if (raw_mailbox_alloc_stream(client->raw_mail_user, input,
+				     (time_t)-1, client->state.mail_from,
+				     &box) < 0) {
 		i_error("Can't open delivery mail as raw: %s",
 			mailbox_get_last_error(box, &error));
 		mailbox_free(&box);
 		client_rcpt_fail_all(client);
 		return -1;
 	}
-	raw_box = (struct raw_mailbox *)box;
-	raw_box->envelope_sender = client->state.mail_from;
 
 	client->state.raw_box = box;
 	client->state.raw_trans = mailbox_transaction_begin(box, 0);

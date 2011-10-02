@@ -212,14 +212,13 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
 	struct mail_user *raw_mail_user;
-	struct mail_namespace *raw_ns;
 	struct mail_storage *storage;
 	struct mailbox *box;
-	struct raw_mailbox *raw_box;
 	struct istream *input;
 	struct mailbox_transaction_context *t;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	const char *user_source = "", *destaddr_source = "";
+	const char *envelope_sender;
 	void **sets;
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
@@ -372,35 +371,24 @@ int main(int argc, char *argv[])
 	sets = master_service_settings_get_others(master_service);
 	raw_mail_user =
 		raw_storage_create_from_set(ctx.dest_user->set_info, sets[0]);
-	raw_ns = raw_mail_user->namespaces;
 
+	envelope_sender = ctx.src_envelope_sender != NULL ?
+		ctx.src_envelope_sender : DEFAULT_ENVELOPE_SENDER;
 	if (path == NULL) {
 		input = create_raw_stream(&ctx, 0, &mtime);
 		i_stream_set_name(input, "stdin");
-		box = mailbox_alloc(raw_ns->list, "Dovecot Delivery Mail",
-				    MAILBOX_FLAG_NO_INDEX_FILES);
-		if (mailbox_open_stream(box, input) < 0) {
-			i_fatal("Can't open delivery mail as raw: %s",
-				mailbox_get_last_error(box, &error));
-		}
+		ret = raw_mailbox_alloc_stream(raw_mail_user, input, mtime,
+					       envelope_sender, &box);
 		i_stream_unref(&input);
 	} else {
-		mtime = (time_t)-1;
-		box = mailbox_alloc(raw_ns->list, path,
-				    MAILBOX_FLAG_NO_INDEX_FILES);
-		if (mailbox_open(box) < 0) {
-			i_fatal("Can't open delivery mail as raw: %s",
-				mailbox_get_last_error(box, &error));
-		}
+		ret = raw_mailbox_alloc_path(raw_mail_user, path, (time_t)-1,
+					     envelope_sender, &box);
 	}
-	if (mailbox_sync(box, 0) < 0) {
-		i_fatal("Can't sync delivery mail: %s",
+	if (ret < 0) {
+		i_fatal("Can't open delivery mail as raw: %s",
 			mailbox_get_last_error(box, &error));
 	}
-	raw_box = (struct raw_mailbox *)box;
-	raw_box->envelope_sender = ctx.src_envelope_sender != NULL ?
-		ctx.src_envelope_sender : DEFAULT_ENVELOPE_SENDER;
-	raw_box->mtime = mtime;
+	mail_user_unref(&raw_mail_user);
 
 	t = mailbox_transaction_begin(box, 0);
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
@@ -468,7 +456,6 @@ int main(int argc, char *argv[])
 	mailbox_free(&box);
 
 	mail_user_unref(&ctx.dest_user);
-	mail_user_unref(&raw_mail_user);
 	mail_deliver_session_deinit(&ctx.session);
 
 	mail_storage_service_user_free(&service_user);

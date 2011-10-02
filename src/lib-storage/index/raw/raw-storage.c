@@ -39,6 +39,52 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	return user;
 }
 
+static int
+raw_mailbox_alloc_common(struct mail_user *user, struct istream *input,
+			 const char *path, time_t received_time,
+			 const char *envelope_sender, struct mailbox **box_r)
+{
+	struct mail_namespace *ns = user->namespaces;
+	struct mailbox *box;
+	struct raw_mailbox *raw_box;
+	const char *name;
+
+	name = path != NULL ? path : i_stream_get_name(input);
+	box = *box_r = mailbox_alloc(ns->list, name,
+				     MAILBOX_FLAG_NO_INDEX_FILES);
+	if (input != NULL) {
+		if (mailbox_open_stream(box, input) < 0)
+			return -1;
+	} else {
+		if (mailbox_open(box) < 0)
+			return -1;
+	}
+	if (mailbox_sync(box, 0) < 0)
+		return -1;
+
+	i_assert(strcmp(box->storage->name, RAW_STORAGE_NAME) == 0);
+	raw_box = (struct raw_mailbox *)box;
+	raw_box->envelope_sender = envelope_sender;
+	raw_box->mtime = received_time;
+	return 0;
+}
+
+int raw_mailbox_alloc_stream(struct mail_user *user, struct istream *input,
+			     time_t received_time, const char *envelope_sender,
+			     struct mailbox **box_r)
+{
+	return raw_mailbox_alloc_common(user, input, NULL, received_time,
+					envelope_sender, box_r);
+}
+
+int raw_mailbox_alloc_path(struct mail_user *user, const char *path,
+			   time_t received_time, const char *envelope_sender,
+			   struct mailbox **box_r)
+{
+	return raw_mailbox_alloc_common(user, NULL, path, received_time,
+					envelope_sender, box_r);
+}
+
 static struct mail_storage *raw_storage_alloc(void)
 {
 	struct raw_storage *storage;
