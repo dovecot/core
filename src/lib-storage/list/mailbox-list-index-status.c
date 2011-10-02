@@ -4,7 +4,7 @@
 #include "array.h"
 #include "mail-index-modseq.h"
 #include "mail-storage-private.h"
-#include "index-mailbox-list.h"
+#include "mailbox-list-index.h"
 
 #define INDEX_LIST_STORAGE_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, index_list_storage_module)
@@ -24,16 +24,16 @@ static int
 index_list_mailbox_open_view(struct mailbox *box,
 			     struct mail_index_view **view_r, uint32_t *seq_r)
 {
-	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
-	struct index_mailbox_node *node;
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index_node *node;
 	struct mail_index_view *view;
 	uint32_t seq;
 	int ret;
 
-	if (index_mailbox_list_refresh(box->list) < 0)
+	if (mailbox_list_index_refresh(box->list) < 0)
 		return -1;
 
-	node = index_mailbox_list_lookup(box->list, box->name);
+	node = mailbox_list_index_lookup(box->list, box->name);
 	if (node == NULL) {
 		/* mailbox not found */
 		return 0;
@@ -50,7 +50,7 @@ index_list_mailbox_open_view(struct mailbox *box,
 
 	if (ret != 0) {
 		/* error / mailbox has changed. we'll need to sync it. */
-		index_mailbox_list_refresh_later(box->list);
+		mailbox_list_index_refresh_later(box->list);
 		mail_index_view_close(&view);
 		return ret < 0 ? -1 : 0;
 	}
@@ -66,7 +66,7 @@ index_list_get_view_status(struct mailbox *box, struct mail_index_view *view,
 			   struct mailbox_status *status_r,
 			   uint8_t *mailbox_guid)
 {
-	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	const void *data;
 	bool expunged;
 	bool ret = TRUE;
@@ -154,7 +154,7 @@ static int
 index_list_update(struct mailbox *box, struct mail_index_view *view,
 		  uint32_t seq, const struct mailbox_status *status)
 {
-	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mail_index_transaction *trans;
 	struct mail_index_transaction_commit_result result;
 	struct mailbox_metadata metadata;
@@ -241,22 +241,22 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 static void
 index_list_update_mailbox(struct mailbox *box, struct mail_index_view *view)
 {
-	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
-	struct index_mailbox_node *node;
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index_node *node;
 	const struct mail_index_header *hdr;
 	struct mail_index_view *list_view;
 	struct mailbox_status status;
 	uint32_t seq, seq1, seq2;
 
-	node = index_mailbox_list_lookup(box->list, box->name);
+	node = mailbox_list_index_lookup(box->list, box->name);
 	if (node == NULL) {
-		index_mailbox_list_refresh_later(box->list);
+		mailbox_list_index_refresh_later(box->list);
 		return;
 	}
 
 	list_view = mail_index_view_open(ilist->index);
 	if (!mail_index_lookup_seq(list_view, node->uid, &seq))
-		index_mailbox_list_refresh_later(box->list);
+		mailbox_list_index_refresh_later(box->list);
 	else {
 		/* get STATUS info using the given view, rather than
 		   using whatever state the mailbox is currently in */
@@ -317,10 +317,10 @@ index_list_transaction_commit(struct mailbox_transaction_context *t,
 	return 0;
 }
 
-void index_mailbox_list_status_set_info_flags(struct mailbox *box, uint32_t uid,
+void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 					      enum mailbox_info_flags *flags)
 {
-	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mail_index_view *view;
 	struct mailbox_status status;
 	uint32_t seq;
@@ -354,7 +354,7 @@ void index_mailbox_list_status_set_info_flags(struct mailbox *box, uint32_t uid,
 
 static void index_list_mail_mailbox_allocated(struct mailbox *box)
 {
-	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct index_list_mailbox *ibox;
 
 	if (ilist == NULL)
@@ -369,9 +369,9 @@ static void index_list_mail_mailbox_allocated(struct mailbox *box)
 	MODULE_CONTEXT_SET(box, index_list_storage_module, ibox);
 }
 
-void index_mailbox_list_status_init_list(struct mailbox_list *list)
+void mailbox_list_index_status_init_list(struct mailbox_list *list)
 {
-	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 
 	ilist->msgs_ext_id = mail_index_ext_register(ilist->index, "msgs", 0,
 		sizeof(struct mailbox_list_index_msgs_record),
@@ -382,11 +382,11 @@ void index_mailbox_list_status_init_list(struct mailbox_list *list)
 					sizeof(uint64_t), sizeof(uint64_t));
 }
 
-static struct mail_storage_hooks index_mailbox_list_status_hooks = {
+static struct mail_storage_hooks mailbox_list_index_status_hooks = {
 	.mailbox_allocated = index_list_mail_mailbox_allocated
 };
 
-void index_mailbox_list_status_init(void)
+void mailbox_list_index_status_init(void)
 {
-	mail_storage_hooks_add_internal(&index_mailbox_list_status_hooks);
+	mail_storage_hooks_add_internal(&mailbox_list_index_status_hooks);
 }

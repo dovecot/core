@@ -26,12 +26,12 @@ mailbox-list-register.c: Makefile
 	for i in $(mailbox_list_drivers) ; do \
 		echo "extern struct mailbox_list $${i}_mailbox_list;" >>$@ ; \
 	done
-	echo "void index_mailbox_list_init(void);" >>$@
+	echo "void mailbox_list_index_init(void);" >>$@
 	echo 'void mailbox_list_register_all(void) {' >>$@
 	for i in $(mailbox_list_drivers) ; do \
 		echo "mailbox_list_register(&$${i}_mailbox_list);" >>$@ ; \
 	done
-	echo "index_mailbox_list_init();" >>$@
+	echo "mailbox_list_index_init();" >>$@
 	echo '}' >>$@
 
 AM_CPPFLAGS = \
