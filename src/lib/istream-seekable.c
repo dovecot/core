@@ -54,6 +54,7 @@ static void i_stream_seekable_destroy(struct iostream_private *stream)
 		i_stream_unref(&sstream->input[i]);
 
 	i_free(sstream->temp_path);
+	i_free(sstream->input);
 }
 
 static void
