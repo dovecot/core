@@ -75,8 +75,12 @@ vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
 		password = NULL;
 		*result_r = PASSDB_RESULT_USER_DISABLED;
 	} else {
-		password = t_strdup_noconst(cleartext ? vpw->pw_clear_passwd :
-					   vpw->pw_passwd);
+		if (vpw->pw_clear_passwd != NULL)
+			password = t_strdup_noconst(vpw->pw_clear_passwd);
+		else if (!cleartext)
+			password = t_strdup_noconst(vpw->pw_passwd);
+		else
+			password = NULL;
 		*result_r = password != NULL ? PASSDB_RESULT_OK :
 			PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	}
