@@ -213,7 +213,6 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_input service_input;
 	struct mail_user *raw_mail_user;
 	struct mail_namespace *raw_ns;
-	struct mail_namespace_settings raw_ns_set;
 	struct mail_storage *storage;
 	struct mailbox *box;
 	struct raw_mailbox *raw_box;
@@ -371,21 +370,10 @@ int main(int argc, char *argv[])
 
 	/* create a separate mail user for the internal namespace */
 	sets = master_service_settings_get_others(master_service);
-	raw_mail_user = mail_user_alloc(user, ctx.dest_user->set_info, sets[0]);
-	raw_mail_user->autocreated = TRUE;
-	mail_user_set_home(raw_mail_user, "/");
-	if (mail_user_init(raw_mail_user, &errstr) < 0)
-		i_fatal("Raw user initialization failed: %s", errstr);
+	raw_mail_user =
+		raw_storage_create_from_set(ctx.dest_user->set_info, sets[0]);
+	raw_ns = raw_mail_user->namespaces;
 
-	memset(&raw_ns_set, 0, sizeof(raw_ns_set));
-	raw_ns_set.location = ":LAYOUT=none";
-	raw_ns_set.separator = "/";
-
-	raw_ns = mail_namespaces_init_empty(raw_mail_user);
-	raw_ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
-	raw_ns->set = &raw_ns_set;
-	if (mail_storage_create(raw_ns, "raw", 0, &errstr) < 0)
-		i_fatal("Couldn't create internal raw storage: %s", errstr);
 	if (path == NULL) {
 		input = create_raw_stream(&ctx, 0, &mtime);
 		i_stream_set_name(input, "stdin");

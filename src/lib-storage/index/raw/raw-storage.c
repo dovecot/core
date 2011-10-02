@@ -12,6 +12,33 @@
 extern struct mail_storage raw_storage;
 extern struct mailbox raw_mailbox;
 
+struct mail_user *
+raw_storage_create_from_set(const struct setting_parser_info *set_info,
+			    const struct mail_user_settings *set)
+{
+	struct mail_user *user;
+	struct mail_namespace *ns;
+	struct mail_namespace_settings *ns_set;
+	const char *error;
+
+	user = mail_user_alloc("raw mail user", set_info, set);
+	user->autocreated = TRUE;
+	mail_user_set_home(user, "/");
+	if (mail_user_init(user, &error) < 0)
+		i_fatal("Raw user initialization failed: %s", error);
+
+	ns_set = p_new(user->pool, struct mail_namespace_settings, 1);
+	ns_set->location = ":LAYOUT=none";
+	ns_set->separator = "/";
+
+	ns = mail_namespaces_init_empty(user);
+	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
+	ns->set = ns_set;
+	if (mail_storage_create(ns, "raw", 0, &error) < 0)
+		i_fatal("Couldn't create internal raw storage: %s", error);
+	return user;
+}
+
 static struct mail_storage *raw_storage_alloc(void)
 {
 	struct raw_storage *storage;
