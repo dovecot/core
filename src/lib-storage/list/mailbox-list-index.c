@@ -19,6 +19,8 @@ void mailbox_list_index_set_index_error(struct mailbox_list *list)
 
 void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 {
+	i_assert(ilist->iter_refcount == 0);
+
 	hash_table_clear(ilist->mailbox_names, FALSE);
 	hash_table_clear(ilist->mailbox_hash, FALSE);
 	p_clear(ilist->mailbox_pool);
@@ -48,8 +50,6 @@ mailbox_list_index_lookup_real(struct mailbox_list *list, const char *name)
 	const char *const *path;
 	unsigned int i;
 	char sep[2];
-
-	(void)mailbox_list_index_refresh(list);
 
 	sep[0] = mailbox_list_get_hierarchy_sep(list); sep[1] = '\0';
 	path = t_strsplit(name, sep);
@@ -171,6 +171,8 @@ int mailbox_list_index_parse(struct mailbox_list_index *ilist,
 {
 	const struct mail_index_header *hdr;
 	int ret;
+
+	i_assert(ilist->iter_refcount == 0);
 
 	hdr = mail_index_get_header(view);
 	if (!force &&

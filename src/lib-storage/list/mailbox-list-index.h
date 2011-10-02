@@ -19,7 +19,7 @@ enum mailbox_list_index_flags {
 	MAILBOX_LIST_INDEX_FLAG_NOINFERIORS = MAIL_ANSWERED,
 
 	/* set during syncing for mailboxes that still exist */
-	MAILBOX_LIST_INDEX_FLAG_MARKED
+	MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS = MAIL_FLAGGED
 };
 
 struct mailbox_list_index_header {
