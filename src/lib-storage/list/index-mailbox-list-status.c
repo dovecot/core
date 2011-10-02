@@ -33,7 +33,7 @@ index_list_mailbox_open_view(struct mailbox *box,
 	if (index_mailbox_list_refresh(box->list) < 0)
 		return -1;
 
-	node = index_mailbox_list_lookup(box->list, box->vname);
+	node = index_mailbox_list_lookup(box->list, box->name);
 	if (node == NULL) {
 		/* mailbox not found */
 		return 0;
@@ -248,7 +248,7 @@ index_list_update_mailbox(struct mailbox *box, struct mail_index_view *view)
 	struct mailbox_status status;
 	uint32_t seq, seq1, seq2;
 
-	node = index_mailbox_list_lookup(box->list, box->vname);
+	node = index_mailbox_list_lookup(box->list, box->name);
 	if (node == NULL) {
 		index_mailbox_list_refresh_later(box->list);
 		return;

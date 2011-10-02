@@ -97,7 +97,7 @@ extern MODULE_CONTEXT_DEFINE(index_mailbox_list_module,
 			     &mailbox_list_module_register);
 
 struct index_mailbox_node *
-index_mailbox_list_lookup(struct mailbox_list *list, const char *vname);
+index_mailbox_list_lookup(struct mailbox_list *list, const char *name);
 
 int index_mailbox_list_refresh(struct mailbox_list *list);
 void index_mailbox_list_refresh_later(struct mailbox_list *list);

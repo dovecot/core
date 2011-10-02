@@ -106,7 +106,7 @@ index_mailbox_node_add(struct index_mailbox_list_sync_context *ctx,
 }
 
 struct index_mailbox_node *
-index_mailbox_list_lookup(struct mailbox_list *list, const char *vname)
+index_mailbox_list_lookup(struct mailbox_list *list, const char *name)
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
 	struct index_mailbox_node *node;
@@ -118,8 +118,8 @@ index_mailbox_list_lookup(struct mailbox_list *list, const char *vname)
 		unsigned int i;
 		char sep[2];
 
-		sep[0] = mail_namespace_get_sep(list->ns); sep[1] = '\0';
-		path = t_strsplit(vname, sep);
+		sep[0] = mailbox_list_get_hierarchy_sep(list); sep[1] = '\0';
+		path = t_strsplit(name, sep);
 		node = ilist->mailbox_tree;
 		for (i = 0;; i++) {
 			node = index_mailbox_node_find_sibling(node, path[i]);
@@ -289,7 +289,7 @@ static int index_mailbox_list_sync(struct mailbox_list *list)
 
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
 	sync_ctx.ilist = ilist;
-	sync_ctx.sep[0] = mail_namespace_get_sep(list->ns);
+	sync_ctx.sep[0] = mailbox_list_get_hierarchy_sep(list);
 	if (mail_index_sync_begin(ilist->index, &sync_ctx.sync_ctx,
 				  &sync_ctx.view, &sync_ctx.trans,
 				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0)
@@ -326,8 +326,11 @@ static int index_mailbox_list_sync(struct mailbox_list *list)
 			flags |= MAILBOX_LIST_INDEX_FLAG_NOINFERIORS;
 
 		T_BEGIN {
+			const char *name =
+				mailbox_list_get_storage_name(info->ns->list,
+							      info->name);
 			seq = index_mailbox_list_sync_name(&sync_ctx,
-					info->name, flags);
+							   name, flags);
 		} T_END;
 
 		mail_index_update_flags(sync_ctx.trans, seq,
