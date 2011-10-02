@@ -474,6 +474,9 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	if (ioloop->handler_context != NULL)
 		io_loop_handler_deinit(ioloop);
 
+	if (ioloop->cur_ctx != NULL)
+		io_loop_context_deactivate(ioloop->cur_ctx);
+
 	/* ->prev won't work unless loops are destroyed in create order */
         i_assert(ioloop == current_ioloop);
 	current_ioloop = current_ioloop->prev;
