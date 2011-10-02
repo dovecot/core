@@ -807,8 +807,15 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 		MODULE_CONTEXT_SET(list, index_mailbox_list_module, ilist);
 		return;
 	}
-	if (*dir == '\0')
+	if (*dir == '\0') {
+		/* in-memory indexes */
 		dir = NULL;
+	} else if (list->ns->type != NAMESPACE_PRIVATE) {
+		/* don't create index files for shared/public mailboxes.
+		   their indexes may be shared between multiple users,
+		   each of which may have different ACLs */
+		dir = NULL;
+	}
 
 	ilist = p_new(list->pool, struct index_mailbox_list, 1);
 	ilist->module_ctx.super = list->v;
