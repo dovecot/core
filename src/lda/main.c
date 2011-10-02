@@ -167,6 +167,75 @@ create_raw_stream(struct mail_deliver_context *ctx,
 	return input;
 }
 
+static struct mail *
+lda_raw_mail_open(struct mail_deliver_context *ctx, const char *path)
+{
+	struct mail_user *raw_mail_user;
+	struct mailbox *box;
+	struct mailbox_transaction_context *t;
+	struct mail *mail;
+	struct mailbox_header_lookup_ctx *headers_ctx;
+	struct istream *input;
+	void **sets;
+	const char *envelope_sender;
+	time_t mtime;
+	int ret;
+
+	sets = master_service_settings_get_others(master_service);
+	raw_mail_user =
+		raw_storage_create_from_set(ctx->dest_user->set_info, sets[0]);
+
+	envelope_sender = ctx->src_envelope_sender != NULL ?
+		ctx->src_envelope_sender : DEFAULT_ENVELOPE_SENDER;
+	if (path == NULL) {
+		input = create_raw_stream(ctx, 0, &mtime);
+		i_stream_set_name(input, "stdin");
+		ret = raw_mailbox_alloc_stream(raw_mail_user, input, mtime,
+					       envelope_sender, &box);
+		i_stream_unref(&input);
+	} else {
+		ret = raw_mailbox_alloc_path(raw_mail_user, path, (time_t)-1,
+					     envelope_sender, &box);
+	}
+	if (ret < 0) {
+		i_fatal("Can't open delivery mail as raw: %s",
+			mailbox_get_last_error(box, NULL));
+	}
+	mail_user_unref(&raw_mail_user);
+
+	t = mailbox_transaction_begin(box, 0);
+	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
+	mail = mail_alloc(t, 0, headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
+	mail_set_seq(mail, 1);
+	return mail;
+}
+
+static void
+lda_set_dest_addr(struct mail_deliver_context *ctx, const char *user,
+		  const char *destaddr_source)
+{
+	if (ctx->dest_addr == NULL &&
+	    *ctx->set->lda_original_recipient_header != '\0') {
+		ctx->dest_addr = mail_deliver_get_address(ctx->src_mail,
+					ctx->set->lda_original_recipient_header);
+		destaddr_source = t_strconcat(
+			ctx->set->lda_original_recipient_header, " header", NULL);
+	}
+	if (ctx->dest_addr == NULL) {
+		ctx->dest_addr = strchr(user, '@') != NULL ? user :
+			t_strconcat(user, "@", ctx->set->hostname, NULL);
+		destaddr_source = "user@hostname";
+	}
+	if (ctx->final_dest_addr == NULL)
+		ctx->final_dest_addr = ctx->dest_addr;
+
+	if (ctx->dest_user->mail_debug) {
+		i_debug("Destination address: %s (source: %s)",
+			ctx->dest_addr, destaddr_source);
+	}
+}
+
 static void failure_exit_callback(int *status)
 {
 	/* we want all our exit codes to be sysexits.h compatible.
@@ -211,18 +280,10 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
-	struct mail_user *raw_mail_user;
 	struct mail_storage *storage;
-	struct mailbox *box;
-	struct istream *input;
-	struct mailbox_transaction_context *t;
-	struct mailbox_header_lookup_ctx *headers_ctx;
 	const char *user_source = "", *destaddr_source = "";
-	const char *envelope_sender;
-	void **sets;
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
-	time_t mtime;
 	int ret, c;
 	enum mail_error error;
 
@@ -367,54 +428,8 @@ int main(int argc, char *argv[])
 			user_source);
 	}
 
-	/* create a separate mail user for the internal namespace */
-	sets = master_service_settings_get_others(master_service);
-	raw_mail_user =
-		raw_storage_create_from_set(ctx.dest_user->set_info, sets[0]);
-
-	envelope_sender = ctx.src_envelope_sender != NULL ?
-		ctx.src_envelope_sender : DEFAULT_ENVELOPE_SENDER;
-	if (path == NULL) {
-		input = create_raw_stream(&ctx, 0, &mtime);
-		i_stream_set_name(input, "stdin");
-		ret = raw_mailbox_alloc_stream(raw_mail_user, input, mtime,
-					       envelope_sender, &box);
-		i_stream_unref(&input);
-	} else {
-		ret = raw_mailbox_alloc_path(raw_mail_user, path, (time_t)-1,
-					     envelope_sender, &box);
-	}
-	if (ret < 0) {
-		i_fatal("Can't open delivery mail as raw: %s",
-			mailbox_get_last_error(box, &error));
-	}
-	mail_user_unref(&raw_mail_user);
-
-	t = mailbox_transaction_begin(box, 0);
-	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
-	ctx.src_mail = mail_alloc(t, 0, headers_ctx);
-	mailbox_header_lookup_unref(&headers_ctx);
-	mail_set_seq(ctx.src_mail, 1);
-
-	if (ctx.dest_addr == NULL &&
-	    *ctx.set->lda_original_recipient_header != '\0') {
-		ctx.dest_addr = mail_deliver_get_address(ctx.src_mail,
-					ctx.set->lda_original_recipient_header);
-		destaddr_source = t_strconcat(
-			ctx.set->lda_original_recipient_header, " header", NULL);
-	}
-	if (ctx.dest_addr == NULL) {
-		ctx.dest_addr = strchr(user, '@') != NULL ? user :
-			t_strconcat(user, "@", ctx.set->hostname, NULL);
-		destaddr_source = "user@hostname";
-	}
-	if (ctx.final_dest_addr == NULL)
-		ctx.final_dest_addr = ctx.dest_addr;
-
-	if (ctx.dest_user->mail_debug) {
-		i_debug("Destination address: %s (source: %s)",
-			ctx.dest_addr, destaddr_source);
-	}
+	ctx.src_mail = lda_raw_mail_open(&ctx, path);
+	lda_set_dest_addr(&ctx, user, destaddr_source);
 
 	if (mail_deliver(&ctx, &storage) < 0) {
 		if (storage == NULL) {
@@ -451,9 +466,15 @@ int main(int argc, char *argv[])
 		/* ok, rejection sent */
 	}
 
-	mail_free(&ctx.src_mail);
-	mailbox_transaction_rollback(&t);
-	mailbox_free(&box);
+	{
+		struct mailbox_transaction_context *t =
+			ctx.src_mail->transaction;
+		struct mailbox *box = ctx.src_mail->box;
+
+		mail_free(&ctx.src_mail);
+		mailbox_transaction_rollback(&t);
+		mailbox_free(&box);
+	}
 
 	mail_user_unref(&ctx.dest_user);
 	mail_deliver_session_deinit(&ctx.session);
