@@ -16,6 +16,7 @@ libstorage_list_la_SOURCES = \
 	mailbox-list-index.c \
 	mailbox-list-index-iter.c \
 	mailbox-list-index-status.c \
+	mailbox-list-index-sync.c \
 	mailbox-list-maildir.c \
 	mailbox-list-maildir-iter.c \
 	mailbox-list-none.c \

@@ -9,6 +9,9 @@
 #define INDEX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_index_module)
 
+struct mail_index_view;
+struct mailbox;
+
 /* stored in mail_index_record.flags: */
 enum mailbox_list_index_flags {
 	MAILBOX_LIST_INDEX_FLAG_NONEXISTENT = MAIL_DELETED,
@@ -101,6 +104,14 @@ mailbox_list_index_lookup(struct mailbox_list *list, const char *name);
 
 int mailbox_list_index_refresh(struct mailbox_list *list);
 void mailbox_list_index_refresh_later(struct mailbox_list *list);
+
+struct mailbox_list_index_node *
+mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
+				     const char *name);
+void mailbox_list_index_reset(struct mailbox_list_index *ilist);
+int mailbox_list_index_read(struct mailbox_list_index *ilist,
+			    struct mail_index_view *view, bool force);
+int mailbox_list_index_sync(struct mailbox_list *list);
 
 struct mailbox_list_iterate_context *
 mailbox_list_index_iter_init(struct mailbox_list *list,
