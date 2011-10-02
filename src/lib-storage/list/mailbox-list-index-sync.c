@@ -76,12 +76,13 @@ mailbox_list_index_sync_name(struct mailbox_list_index_sync_context *ctx,
 			     const char *name,
 			     enum mailbox_list_index_flags flags)
 {
-	const char *const *path;
+	const char *const *path, *empty_path[] = { "", NULL };
 	struct mailbox_list_index_node *node, *parent;
 	unsigned int i;
 	uint32_t seq = 0;
 
-	path = t_strsplit(name, ctx->sep);
+	path = *name == '\0' ? empty_path :
+		t_strsplit(name, ctx->sep);
 	/* find the last node that exists in the path */
 	node = ctx->ilist->mailbox_tree; parent = NULL;
 	for (i = 0; path[i] != NULL; i++) {
