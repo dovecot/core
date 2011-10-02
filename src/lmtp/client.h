@@ -27,8 +27,6 @@ struct client_state {
 	struct ostream *mail_data_output;
 	const char *added_headers;
 
-	struct mailbox *raw_box;
-	struct mailbox_transaction_context *raw_trans;
 	struct mail *raw_mail;
 
 	struct mail_user *dest_user;

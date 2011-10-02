@@ -626,6 +626,7 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 		NULL
 	};
 	struct mailbox *box;
+	struct mailbox_transaction_context *trans;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	enum mail_error error;
 
@@ -639,12 +640,10 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 		return -1;
 	}
 
-	client->state.raw_box = box;
-	client->state.raw_trans = mailbox_transaction_begin(box, 0);
+	trans = mailbox_transaction_begin(box, 0);
 
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
-	client->state.raw_mail = mail_alloc(client->state.raw_trans,
-					    0, headers_ctx);
+	client->state.raw_mail = mail_alloc(trans, 0, headers_ctx);
 	mailbox_header_lookup_unref(&headers_ctx);
 	mail_set_seq(client->state.raw_mail, 1);
 	return 0;

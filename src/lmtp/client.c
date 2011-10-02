@@ -291,12 +291,15 @@ void client_state_reset(struct client *client)
 			mail_storage_service_user_free(&rcpt->service_user);
 	}
 
-	if (client->state.raw_mail != NULL)
+	if (client->state.raw_mail != NULL) {
+		struct mailbox_transaction_context *raw_trans =
+			client->state.raw_mail->transaction;
+		struct mailbox *raw_box = client->state.raw_mail->box;
+
 		mail_free(&client->state.raw_mail);
-	if (client->state.raw_trans != NULL)
-		mailbox_transaction_rollback(&client->state.raw_trans);
-	if (client->state.raw_box != NULL)
-		mailbox_free(&client->state.raw_box);
+		mailbox_transaction_rollback(&raw_trans);
+		mailbox_free(&raw_box);
+	}
 
 	if (client->state.mail_data != NULL)
 		buffer_free(&client->state.mail_data);
