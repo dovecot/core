@@ -419,7 +419,8 @@ void mail_storage_obj_ref(struct mail_storage *storage)
 {
 	i_assert(storage->refcount > 0);
 
-	storage->obj_refcount++;
+	if (storage->obj_refcount++ == 0)
+		mail_user_ref(storage->user);
 }
 
 void mail_storage_obj_unref(struct mail_storage *storage)
@@ -427,7 +428,10 @@ void mail_storage_obj_unref(struct mail_storage *storage)
 	i_assert(storage->refcount > 0);
 	i_assert(storage->obj_refcount > 0);
 
-	storage->obj_refcount--;
+	if (--storage->obj_refcount == 0) {
+		struct mail_user *user = storage->user;
+		mail_user_unref(&user);
+	}
 }
 
 void mail_storage_clear_error(struct mail_storage *storage)
