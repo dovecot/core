@@ -21,8 +21,8 @@ static MODULE_CONTEXT_DEFINE_INIT(index_list_storage_module,
 				  &mail_storage_module_register);
 
 static int
-index_list_mailbox_open_view(struct mailbox *box,
-			     struct mail_index_view **view_r, uint32_t *seq_r)
+index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
+		     uint32_t *seq_r)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mailbox_list_index_node *node;
@@ -126,7 +126,7 @@ index_list_get_cached_status(struct mailbox *box,
 
 	memset(status_r, 0, sizeof(*status_r));
 
-	ret = index_list_mailbox_open_view(box, &view, &seq);
+	ret = index_list_open_view(box, &view, &seq);
 	if (ret <= 0)
 		return ret;
 
@@ -235,7 +235,11 @@ index_list_update(struct mailbox *box, struct mail_index_view *view,
 	if (box->v.list_index_update_sync != NULL)
 		box->v.list_index_update_sync(box, trans, seq);
 
-	return mail_index_transaction_commit_full(&trans, &result);
+	if (mail_index_transaction_commit_full(&trans, &result) < 0) {
+		mailbox_list_index_set_index_error(box->list);
+		return -1;
+	}
+	return 0;
 }
 
 static void

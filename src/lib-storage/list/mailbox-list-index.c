@@ -9,6 +9,14 @@
 struct mailbox_list_index_module mailbox_list_index_module =
 	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
 
+void mailbox_list_index_set_index_error(struct mailbox_list *list)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+
+	mailbox_list_set_internal_error(list);
+	mail_index_reset_error(ilist->index);
+}
+
 void mailbox_list_index_reset(struct mailbox_list_index *ilist)
 {
 	hash_table_clear(ilist->mailbox_names, FALSE);
@@ -158,8 +166,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 	return 0;
 }
 
-int mailbox_list_index_read(struct mailbox_list_index *ilist,
-			    struct mail_index_view *view, bool force)
+int mailbox_list_index_parse(struct mailbox_list_index *ilist,
+			     struct mail_index_view *view, bool force)
 {
 	const struct mail_index_header *hdr;
 	int ret;
@@ -211,8 +219,10 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 		return 0;
 	}
 
-	if (mail_index_refresh(ilist->index) < 0)
+	if (mail_index_refresh(ilist->index) < 0) {
+		mailbox_list_index_set_index_error(list);
 		return -1;
+	}
 
 	view = mail_index_view_open(ilist->index);
 	if (ilist->mailbox_tree == NULL ||
@@ -220,7 +230,7 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 		/* refresh list of mailboxes */
 		ret = mailbox_list_index_sync(list);
 	} else {
-		ret = mailbox_list_index_read(ilist, view, FALSE);
+		ret = mailbox_list_index_parse(ilist, view, FALSE);
 	}
 	mail_index_view_close(&view);
 	return ret;

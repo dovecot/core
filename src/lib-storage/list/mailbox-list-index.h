@@ -99,6 +99,7 @@ struct mailbox_list_index_iterate_context {
 extern MODULE_CONTEXT_DEFINE(mailbox_list_index_module,
 			     &mailbox_list_module_register);
 
+void mailbox_list_index_set_index_error(struct mailbox_list *list);
 struct mailbox_list_index_node *
 mailbox_list_index_lookup(struct mailbox_list *list, const char *name);
 
@@ -109,8 +110,8 @@ struct mailbox_list_index_node *
 mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
 				     const char *name);
 void mailbox_list_index_reset(struct mailbox_list_index *ilist);
-int mailbox_list_index_read(struct mailbox_list_index *ilist,
-			    struct mail_index_view *view, bool force);
+int mailbox_list_index_parse(struct mailbox_list_index *ilist,
+			     struct mail_index_view *view, bool force);
 int mailbox_list_index_sync(struct mailbox_list *list);
 
 struct mailbox_list_iterate_context *

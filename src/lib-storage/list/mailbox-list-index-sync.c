@@ -227,7 +227,6 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	const char *patterns[2];
 	enum mailbox_list_index_flags flags;
 	uint32_t seq, orig_highest_name_id;
-	int ret = 0;
 
 	mailbox_list_index_reset(ilist);
 
@@ -236,10 +235,11 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	sync_ctx.sep[0] = mailbox_list_get_hierarchy_sep(list);
 	if (mail_index_sync_begin(ilist->index, &sync_ctx.sync_ctx,
 				  &sync_ctx.view, &sync_ctx.trans,
-				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0)
+				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0) {
+		mailbox_list_index_set_index_error(list);
 		return -1;
-
-	if (mailbox_list_index_read(ilist, sync_ctx.view, TRUE) < 0) {
+	}
+	if (mailbox_list_index_parse(ilist, sync_ctx.view, TRUE) < 0) {
 		mail_index_sync_rollback(&sync_ctx.sync_ctx);
 		return -1;
 	}
@@ -280,10 +280,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 		mail_index_update_flags(sync_ctx.trans, seq,
 					MODIFY_REPLACE, (enum mail_flags)flags);
 	}
-	if (ilist->module_ctx.super.iter_deinit(iter) < 0)
-		ret = -1;
-
-	if (ret < 0) {
+	if (ilist->module_ctx.super.iter_deinit(iter) < 0) {
 		mail_index_sync_rollback(&sync_ctx.sync_ctx);
 		return -1;
 	}
@@ -304,5 +301,9 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 			&new_hdr.refresh_flag, sizeof(new_hdr.refresh_flag));
 	}
 
-	return mail_index_sync_commit(&sync_ctx.sync_ctx);
+	if (mail_index_sync_commit(&sync_ctx.sync_ctx) < 0) {
+		mailbox_list_index_set_index_error(list);
+		return -1;
+	}
+	return 0;
 }
