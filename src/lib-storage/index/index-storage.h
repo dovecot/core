@@ -42,6 +42,7 @@ struct index_mailbox_context {
 	uint32_t vsize_hdr_ext_id;
 
 	time_t sync_last_check;
+	uint32_t list_index_sync_ext_id;
 };
 
 #define INDEX_STORAGE_CONTEXT(obj) \

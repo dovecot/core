@@ -298,6 +298,7 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 		     box->pool, sizeof(void *), 5);
 
 	ibox = p_new(box->pool, struct index_mailbox_context, 1);
+	ibox->list_index_sync_ext_id = (uint32_t)-1;
 	ibox->index_flags = MAIL_INDEX_OPEN_FLAG_CREATE |
 		mail_storage_settings_to_index_flags(box->storage->set);
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;

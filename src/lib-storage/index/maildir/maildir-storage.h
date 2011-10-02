@@ -67,8 +67,6 @@ struct maildir_storage {
 
 	const struct maildir_settings *set;
 	const char *temp_prefix;
-
-	uint32_t maildir_list_ext_id;
 };
 
 struct maildir_mailbox {
@@ -87,6 +85,7 @@ struct maildir_mailbox {
 
 	struct maildir_index_header maildir_hdr;
 	uint32_t maildir_ext_id;
+	uint32_t maildir_list_index_ext_id;
 
 	unsigned int synced:1;
 	unsigned int syncing_commit:1;

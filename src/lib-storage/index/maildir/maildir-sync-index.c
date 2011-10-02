@@ -685,17 +685,18 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
 
-static unsigned int maildir_list_get_ext_id(struct maildir_storage *storage,
-					    struct mail_index_view *view)
+static unsigned int
+maildir_list_get_ext_id(struct maildir_mailbox *mbox,
+			struct mail_index_view *view)
 {
-	if (storage->maildir_list_ext_id == (uint32_t)-1) {
-		storage->maildir_list_ext_id =
+	if (mbox->maildir_list_index_ext_id == (uint32_t)-1) {
+		mbox->maildir_list_index_ext_id =
 			mail_index_ext_register(mail_index_view_get_index(view),
 				"maildir", 0,
 				sizeof(struct maildir_list_index_record),
 				sizeof(uint32_t));
 	}
-	return storage->maildir_list_ext_id;
+	return mbox->maildir_list_index_ext_id;
 }
 
 int maildir_list_index_has_changed(struct mailbox *box,
@@ -713,7 +714,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 	if (mbox->storage->set->maildir_very_dirty_syncs)
 		return index_storage_list_index_has_changed(box, list_view, seq);
 
-	ext_id = maildir_list_get_ext_id(mbox->storage, list_view);
+	ext_id = maildir_list_get_ext_id(mbox, list_view);
 	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
 	rec = data;
 
@@ -768,7 +769,7 @@ void maildir_list_index_update_sync(struct mailbox *box,
 
 	/* get the current record */
 	list_view = mail_index_transaction_get_view(trans);
-	ext_id = maildir_list_get_ext_id(mbox->storage, list_view);
+	ext_id = maildir_list_get_ext_id(mbox, list_view);
 	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
 	if (expunged)
 		return;
@@ -784,9 +785,6 @@ void maildir_list_index_update_sync(struct mailbox *box,
 	}
 
 	if (old_rec == NULL ||
-	    memcmp(old_rec, &new_rec, sizeof(*old_rec)) != 0) {
-		mail_index_update_ext(trans, seq,
-				      mbox->storage->maildir_list_ext_id,
-				      &new_rec, NULL);
-	}
+	    memcmp(old_rec, &new_rec, sizeof(*old_rec)) != 0)
+		mail_index_update_ext(trans, seq, ext_id, &new_rec, NULL);
 }

@@ -87,7 +87,6 @@ struct mail_storage {
 	struct mail_user *user;
 	const char *temp_path_prefix;
 	const struct mail_storage_settings *set;
-	uint32_t list_sync_ext_id;
 
 	enum mail_storage_flags flags;
 
