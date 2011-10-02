@@ -1,6 +1,27 @@
 #ifndef MAILBOX_LIST_INDEX_H
 #define MAILBOX_LIST_INDEX_H
 
+/* Mailbox list index basically contains:
+
+   Header contains ID => name mapping. The name isn't the full mailbox name,
+   but rather each hierarchy level has its own ID and name. For example a
+   mailbox name "foo/bar" (with '/' as separator) would have separate IDs for
+   "foo" and "bar" names.
+
+   The records contain { parent_uid, uid, name_id } field that can be used to
+   build the whole mailbox tree. parent_uid=0 means root, otherwise it's the
+   parent node's uid.
+
+   Each record also contains GUID for each selectable mailbox. If a mailbox
+   is recreated using the same name, its GUID also changes. Note however that
+   the UID doesn't change, because the UID refers to the mailbox name, not to
+   the mailbox itself.
+
+   The records may contain also extensions for allowing mailbox_get_status()
+   to return values directly from the mailbox list index. Storage backends
+   may also add their own extensions to figure out if a record is up to date.
+*/
+
 #include "module-context.h"
 #include "mailbox-list-private.h"
 
