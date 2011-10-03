@@ -79,6 +79,8 @@ static void client_connected(struct master_service_connection *conn)
 	if (fd == -1)
 		i_fatal("client fd not received");
 
+	alarm(0);
+
 	/* put everything to environment */
 	env_clean();
 	keys = t_str_new(256);
