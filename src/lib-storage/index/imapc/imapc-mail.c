@@ -26,33 +26,6 @@ imapc_mail_alloc(struct mailbox_transaction_context *t,
 	return &mail->imail.mail.mail;
 }
 
-static void imapc_mail_free(struct mail *_mail)
-{
-	struct imapc_mail *mail = (struct imapc_mail *)_mail;
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
-	struct imapc_mail_cache *cache = &mbox->prev_mail_cache;
-
-	if (mail->body_fetched) {
-		imapc_mail_cache_free(cache);
-		cache->uid = _mail->uid;
-		if (cache->fd != -1) {
-			cache->fd = mail->fd;
-			mail->fd = -1;
-		} else {
-			cache->buf = mail->body;
-			mail->body = NULL;
-		}
-	}
-	if (mail->fd != -1) {
-		if (close(mail->fd) < 0)
-			i_error("close(imapc mail) failed: %m");
-	}
-	if (mail->body != NULL)
-		buffer_free(&mail->body);
-
-	index_mail_free(_mail);
-}
-
 static bool imapc_mail_is_expunged(struct mail *_mail)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
@@ -243,18 +216,37 @@ static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 
 static void imapc_mail_close(struct mail *_mail)
 {
-	struct imapc_mail *imail = (struct imapc_mail *)_mail;
-	struct imapc_storage *storage =
-		(struct imapc_storage *)_mail->box->storage;
+	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_mail_cache *cache = &mbox->prev_mail_cache;
 
-	while (imail->fetch_count > 0)
-		imapc_storage_run(storage);
+	while (mail->fetch_count > 0)
+		imapc_storage_run(mbox->storage);
+
+	if (mail->body_fetched) {
+		imapc_mail_cache_free(cache);
+		cache->uid = _mail->uid;
+		if (cache->fd != -1) {
+			cache->fd = mail->fd;
+			mail->fd = -1;
+		} else {
+			cache->buf = mail->body;
+			mail->body = NULL;
+		}
+	}
+	if (mail->fd != -1) {
+		if (close(mail->fd) < 0)
+			i_error("close(imapc mail) failed: %m");
+	}
+	if (mail->body != NULL)
+		buffer_free(&mail->body);
+
 	index_mail_close(_mail);
 }
 
 struct mail_vfuncs imapc_mail_vfuncs = {
 	imapc_mail_close,
-	imapc_mail_free,
+	index_mail_free,
 	imapc_mail_set_seq,
 	index_mail_set_uid,
 	index_mail_set_uid_cache_updates,
