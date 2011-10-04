@@ -13,7 +13,7 @@ AM_CPPFLAGS = \
 
 libstorage_index_la_SOURCES = \
 	istream-attachment.c \
-	istream-mail-stats.c \
+	istream-mail.c \
 	index-attachment.c \
 	index-mail.c \
 	index-mail-headers.c \
@@ -37,7 +37,7 @@ libstorage_index_la_DEPENDENCIES = @LINKED_STORAGE_LIBS@
 
 headers = \
 	istream-attachment.h \
-	istream-mail-stats.h \
+	istream-mail.h \
 	index-attachment.h \
 	index-mail.h \
 	index-search-private.h \

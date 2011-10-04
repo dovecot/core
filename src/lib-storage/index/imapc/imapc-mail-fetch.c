@@ -266,6 +266,7 @@ void imapc_mail_init_stream(struct imapc_mail *mail, bool have_body)
 		imail->data.virtual_size = size;
 	}
 
+	imail->data.stream_has_only_header = !have_body;
 	if (index_mail_init_stream(imail, NULL, NULL, &input) < 0)
 		i_stream_unref(&imail->data.stream);
 }

@@ -14,7 +14,7 @@
 #include "mail-cache.h"
 #include "mail-index-modseq.h"
 #include "index-storage.h"
-#include "istream-mail-stats.h"
+#include "istream-mail.h"
 #include "index-mail.h"
 
 #include <fcntl.h>
@@ -837,8 +837,8 @@ int index_mail_init_stream(struct index_mail *mail,
 
 	if (!data->initialized_wrapper_stream &&
 	    _mail->transaction->stats_track) {
-		input = i_stream_create_mail_stats_counter(_mail->transaction,
-							   data->stream);
+		input = i_stream_create_mail(_mail, data->stream,
+					     !data->stream_has_only_header);
 		i_stream_unref(&data->stream);
 		data->stream = input;
 		data->initialized_wrapper_stream = TRUE;
@@ -1615,6 +1615,12 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	switch ((int)field) {
 	case 0:
 		field_name = "fields";
+		break;
+	case MAIL_FETCH_PHYSICAL_SIZE:
+		field_name = "physical size";
+		imail->data.physical_size = (uoff_t)-1;
+		imail->data.virtual_size = (uoff_t)-1;
+		imail->data.parts = NULL;
 		break;
 	case MAIL_FETCH_VIRTUAL_SIZE:
 		field_name = "virtual size";
