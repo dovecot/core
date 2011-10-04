@@ -331,16 +331,24 @@ virtual_mail_get_header_stream(struct mail *mail,
 }
 
 static int
-virtual_mail_get_stream(struct mail *mail, struct message_size *hdr_size,
+virtual_mail_get_stream(struct mail *mail, bool get_body,
+			struct message_size *hdr_size,
 			struct message_size *body_size,
 			struct istream **stream_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	int ret;
 
 	if (virtual_mail_handle_lost(vmail) < 0)
 		return -1;
-	if (mail_get_stream(vmail->backend_mail, hdr_size, body_size,
-			    stream_r) < 0) {
+	if (get_body) {
+		ret = mail_get_stream(vmail->backend_mail, hdr_size, body_size,
+				      stream_r);
+	} else {
+		ret = mail_get_hdr_stream(vmail->backend_mail, hdr_size,
+					  stream_r);
+	}
+	if (ret < 0) {
 		virtual_box_copy_error(mail->box, vmail->backend_mail->box);
 		return -1;
 	}

@@ -300,7 +300,8 @@ struct mail_vfuncs {
 	int (*get_header_stream)(struct mail *mail,
 				 struct mailbox_header_lookup_ctx *headers,
 				 struct istream **stream_r);
-	int (*get_stream)(struct mail *mail, struct message_size *hdr_size,
+	int (*get_stream)(struct mail *mail, bool get_body,
+			  struct message_size *hdr_size,
 			  struct message_size *body_size,
 			  struct istream **stream_r);
 

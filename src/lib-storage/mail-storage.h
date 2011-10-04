@@ -722,6 +722,10 @@ int mail_get_header_stream(struct mail *mail,
    is destroyed automatically, don't unreference it. */
 int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r);
+/* Similar to mail_get_stream(), but the stream may or may not contain the
+   message body. */
+int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
+			struct istream **stream_r);
 
 /* Get any of the "special" fields. Unhandled specials are returned as "". */
 int mail_get_special(struct mail *mail, enum mail_fetch_field field,

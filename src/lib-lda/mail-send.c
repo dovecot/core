@@ -56,7 +56,6 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     struct istream *input;
     struct smtp_client *smtp_client;
     FILE *f;
-    struct message_size hdr_size;
     const char *return_addr, *hdr;
     const unsigned char *data;
     const char *value, *msgid, *orig_msgid, *boundary;
@@ -142,7 +141,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     /* original message's headers */
     fprintf(f, "--%s\r\nContent-Type: message/rfc822\r\n\r\n", boundary);
 
-    if (mail_get_stream(mail, &hdr_size, NULL, &input) == 0) {
+    if (mail_get_hdr_stream(mail, NULL, &input) == 0) {
 	    /* Note: If you add more headers, they need to be sorted.
 	       We'll drop Content-Type because we're not including the message
 	       body, and having a multipart Content-Type may confuse some

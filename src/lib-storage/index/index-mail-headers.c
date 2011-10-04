@@ -412,7 +412,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 
 	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
 
-	if (mail_get_stream(&mail->mail.mail, NULL, NULL, &input) < 0)
+	if (mail_get_hdr_stream(&mail->mail.mail, NULL, &input) < 0)
 		return -1;
 
 	index_mail_parse_header_init(mail, headers);
@@ -819,7 +819,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 	/* not in cache / error */
 	p_free(mail->data_pool, dest);
 
-	if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
+	if (mail_get_hdr_stream(_mail, NULL, &input) < 0)
 		return -1;
 
 	if (mail->data.filter_stream != NULL)

@@ -77,7 +77,8 @@ static int raw_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 }
 
 static int
-raw_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
+raw_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
+		    struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;

@@ -632,7 +632,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		input = NULL;
 	} else if (have_headers) {
 		/* we need to read the entire header */
-		if (mail_get_stream(ctx->cur_mail, NULL, NULL, &input) < 0)
+		if (mail_get_hdr_stream(ctx->cur_mail, NULL, &input) < 0)
 			failed = TRUE;
 		else {
 			hdr_ctx.parse_headers =

@@ -105,7 +105,7 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 	size_t size;
 	int ret = 0;
 
-	if (mail_get_stream(ctx->mail, &hdr_size, NULL, &input) < 0)
+	if (mail_get_hdr_stream(ctx->mail, &hdr_size, &input) < 0)
 		return -1;
 
 	input = i_stream_create_limit(input, hdr_size.physical_size);

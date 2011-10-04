@@ -234,7 +234,8 @@ get_mail_stream(struct dbox_mail *mail, uoff_t offset,
 		return dbox_attachment_file_get_stream(file, stream_r);
 }
 
-int dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
+int dbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
+			 struct message_size *hdr_size,
 			 struct message_size *body_size,
 			 struct istream **stream_r)
 {

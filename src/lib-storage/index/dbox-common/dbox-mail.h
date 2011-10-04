@@ -22,7 +22,8 @@ int dbox_mail_get_received_date(struct mail *mail, time_t *date_r);
 int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r);
 int dbox_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 			  const char **value_r);
-int dbox_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
+int dbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
+			 struct message_size *hdr_size,
 			 struct message_size *body_size,
 			 struct istream **stream_r);
 

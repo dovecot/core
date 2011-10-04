@@ -361,7 +361,7 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 	return 0;
 }
 
-static int mbox_mail_get_stream(struct mail *_mail,
+static int mbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 				struct message_size *hdr_size,
 				struct message_size *body_size,
 				struct istream **stream_r)

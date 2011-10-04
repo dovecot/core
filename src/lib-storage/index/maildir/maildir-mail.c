@@ -550,10 +550,11 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	}
 }
 							
-static int maildir_mail_get_stream(struct mail *_mail,
-				   struct message_size *hdr_size,
-				   struct message_size *body_size,
-				   struct istream **stream_r)
+static int
+maildir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
+			struct message_size *hdr_size,
+			struct message_size *body_size,
+			struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;

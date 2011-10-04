@@ -161,7 +161,7 @@ test_mail_get_header_stream(struct mail *mail ATTR_UNUSED,
 }
 
 static int
-test_mail_get_stream(struct mail *mail ATTR_UNUSED,
+test_mail_get_stream(struct mail *mail ATTR_UNUSED, bool get_body ATTR_UNUSED,
 		     struct message_size *hdr_size ATTR_UNUSED,
 		     struct message_size *body_size ATTR_UNUSED,
 		     struct istream **stream_r ATTR_UNUSED)

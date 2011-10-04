@@ -134,20 +134,27 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 }
 
 static int
-imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
+imapc_mail_get_stream(struct mail *_mail, bool get_body,
+		      struct message_size *hdr_size,
 		      struct message_size *body_size, struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
-	struct index_mail_data *data = &mail->data;
+	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct index_mail_data *data = &mail->imail.data;
 	enum mail_fetch_field fetch_field;
 
+	if (get_body && !mail->body_fetched &&
+	    mail->imail.data.stream != NULL) {
+		/* we've fetched the header, but we need the body now too */
+		i_stream_unref(&mail->imail.data.stream);
+	}
+
 	if (data->stream == NULL) {
-		if (!mail->data.initialized) {
+		if (!data->initialized) {
 			/* coming here from mail_set_seq() */
 			return mail_set_aborted(_mail);
 		}
-		fetch_field = body_size != NULL ||
-			(mail->wanted_fields & MAIL_FETCH_STREAM_BODY) != 0 ?
+		fetch_field = get_body ||
+			(mail->imail.wanted_fields & MAIL_FETCH_STREAM_BODY) != 0 ?
 			MAIL_FETCH_STREAM_BODY : MAIL_FETCH_STREAM_HEADER;
 		if (imapc_mail_fetch(_mail, fetch_field) < 0)
 			return -1;
@@ -158,7 +165,8 @@ imapc_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		}
 	}
 
-	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
+	return index_mail_init_stream(&mail->imail, hdr_size, body_size,
+				      stream_r);
 }
 
 static bool

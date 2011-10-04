@@ -339,42 +339,38 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 	struct istream *input;
 	struct message_size hdr_size, body_size;
 
-	if (body->section[0] == '\0') {
+	switch (body->section[0]) {
+	case '\0':
+		/* BODY[] - fetch everything */
 		if (mail_get_stream(mail, NULL, NULL, &input) < 0 ||
 		    mail_get_virtual_size(mail, &body_size.virtual_size) < 0 ||
 		    mail_get_physical_size(mail, &body_size.physical_size) < 0)
 			return -1;
-	} else {
-		if (mail_get_stream(mail, &hdr_size,
-				    body->section[0] == 'H' ? NULL : &body_size,
-				    &input) < 0)
-			return -1;
-	}
-
-	ctx->cur_input = input;
-	i_stream_ref(ctx->cur_input);
-	ctx->update_partial = TRUE;
-
-	switch (body->section[0]) {
-	case '\0':
-		/* BODY[] - fetch everything */
-                fetch_size = &body_size;
+		fetch_size = &body_size;
 		ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
 		break;
 	case 'H':
 		/* BODY[HEADER] - fetch only header */
+		if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0)
+			return -1;
                 fetch_size = &hdr_size;
 		ctx->cur_size_field = MAIL_FETCH_MESSAGE_PARTS;
 		break;
 	case 'T':
 		/* BODY[TEXT] - skip header */
-		i_stream_skip(ctx->cur_input, hdr_size.physical_size);
+		if (mail_get_stream(mail, &hdr_size, &body_size, &input) < 0)
+			return -1;
+		i_stream_skip(input, hdr_size.physical_size);
                 fetch_size = &body_size;
 		ctx->cur_size_field = MAIL_FETCH_VIRTUAL_SIZE;
 		break;
 	default:
 		i_unreached();
 	}
+
+	ctx->cur_input = input;
+	i_stream_ref(ctx->cur_input);
+	ctx->update_partial = TRUE;
 
 	return fetch_data(ctx, body, fetch_size);
 }
@@ -435,7 +431,7 @@ static int
 fetch_body_header_partial(struct imap_fetch_context *ctx, struct mail *mail,
 			  const struct imap_fetch_body_data *body)
 {
-	if (mail_get_stream(mail, NULL, NULL, &ctx->cur_input) < 0)
+	if (mail_get_hdr_stream(mail, NULL, &ctx->cur_input) < 0)
 		return -1;
 
 	i_stream_ref(ctx->cur_input);
@@ -922,7 +918,7 @@ static int fetch_rfc822_header(struct imap_fetch_context *ctx,
 	struct message_size hdr_size;
 	const char *str;
 
-	if (mail_get_stream(mail, &hdr_size, NULL, &ctx->cur_input) < 0)
+	if (mail_get_hdr_stream(mail, &hdr_size, &ctx->cur_input) < 0)
 		return -1;
 
 	i_stream_ref(ctx->cur_input);
