@@ -40,6 +40,8 @@ static void imapc_list_deinit(struct mailbox_list *_list)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 
+	if (list->index_list != NULL)
+		mailbox_list_destroy(&list->index_list);
 	mailbox_tree_deinit(&list->mailboxes);
 	if (list->tmp_subscriptions != NULL)
 		mailbox_tree_deinit(&list->tmp_subscriptions);

@@ -47,6 +47,7 @@ imapc_mail_prefetch_callback(const struct imapc_command_reply *reply,
 		mail_storage_set_critical(&mbox->storage->storage,
 			"imapc: Mail prefetch failed: %s", reply->text_full);
 	}
+	pool_unref(&mail->imail.mail.pool);
 	imapc_client_stop(mbox->storage->client);
 }
 
