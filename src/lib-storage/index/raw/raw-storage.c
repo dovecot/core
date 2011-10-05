@@ -217,7 +217,7 @@ struct mailbox raw_mailbox = {
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
 		index_storage_get_status,
-		NULL,
+		index_mailbox_get_metadata,
 		index_storage_list_index_has_changed,
 		index_storage_list_index_update_sync,
 		raw_storage_sync_init,
