@@ -245,6 +245,7 @@ static void imapc_mail_close(struct mail *_mail)
 	if (mail->fd != -1) {
 		if (close(mail->fd) < 0)
 			i_error("close(imapc mail) failed: %m");
+		mail->fd = -1;
 	}
 	if (mail->body != NULL)
 		buffer_free(&mail->body);
