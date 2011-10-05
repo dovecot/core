@@ -145,7 +145,7 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 	if (get_body && !mail->body_fetched &&
 	    mail->imail.data.stream != NULL) {
 		/* we've fetched the header, but we need the body now too */
-		i_stream_unref(&mail->imail.data.stream);
+		index_mail_close_streams(&mail->imail);
 	}
 
 	if (data->stream == NULL) {
@@ -231,6 +231,8 @@ static void imapc_mail_close(struct mail *_mail)
 	while (mail->fetch_count > 0)
 		imapc_storage_run(mbox->storage);
 
+	index_mail_close(_mail);
+
 	if (mail->body_fetched) {
 		imapc_mail_cache_free(cache);
 		cache->uid = _mail->uid;
@@ -249,8 +251,6 @@ static void imapc_mail_close(struct mail *_mail)
 	}
 	if (mail->body != NULL)
 		buffer_free(&mail->body);
-
-	index_mail_close(_mail);
 }
 
 struct mail_vfuncs imapc_mail_vfuncs = {

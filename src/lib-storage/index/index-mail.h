@@ -162,6 +162,7 @@ bool index_mail_set_uid(struct mail *mail, uint32_t uid);
 void index_mail_set_uid_cache_updates(struct mail *mail, bool set);
 bool index_mail_prefetch(struct mail *mail);
 void index_mail_close(struct mail *mail);
+void index_mail_close_streams(struct index_mail *mail);
 void index_mail_free(struct mail *mail);
 
 bool index_mail_want_parse_headers(struct index_mail *mail);

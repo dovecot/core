@@ -1126,10 +1126,28 @@ void index_mail_init(struct index_mail *mail,
 	}
 }
 
+void index_mail_close_streams(struct index_mail *mail)
+{
+	struct message_part *parts;
+
+	if (mail->data.parser_ctx != NULL) {
+		if (message_parser_deinit(&mail->data.parser_ctx, &parts) < 0) {
+			mail_set_cache_corrupted(&mail->mail.mail,
+						 MAIL_FETCH_MESSAGE_PARTS);
+		}
+	}
+	if (mail->data.filter_stream != NULL)
+		i_stream_unref(&mail->data.filter_stream);
+	if (mail->data.stream != NULL) {
+		mail->data.destroying_stream = TRUE;
+		i_stream_unref(&mail->data.stream);
+		i_assert(!mail->data.destroying_stream);
+	}
+}
+
 void index_mail_close(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct message_part *parts;
 
 	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
 	   message. If that happens, don't bother checking if anything should
@@ -1141,19 +1159,7 @@ void index_mail_close(struct mail *_mail)
 		index_mail_cache_dates(mail);
 	}
 
-	if (mail->data.parser_ctx != NULL) {
-		if (message_parser_deinit(&mail->data.parser_ctx, &parts) < 0) {
-			mail_set_cache_corrupted(_mail,
-						 MAIL_FETCH_MESSAGE_PARTS);
-		}
-	}
-	if (mail->data.filter_stream != NULL)
-		i_stream_unref(&mail->data.filter_stream);
-	if (mail->data.stream != NULL) {
-		mail->data.destroying_stream = TRUE;
-		i_stream_unref(&mail->data.stream);
-		i_assert(!mail->data.destroying_stream);
-	}
+	index_mail_close_streams(mail);
 }
 
 static void index_mail_reset(struct index_mail *mail)
