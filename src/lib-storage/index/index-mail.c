@@ -1128,20 +1128,24 @@ void index_mail_init(struct index_mail *mail,
 
 void index_mail_close_streams(struct index_mail *mail)
 {
+	struct index_mail_data *data = &mail->data;
 	struct message_part *parts;
 
-	if (mail->data.parser_ctx != NULL) {
-		if (message_parser_deinit(&mail->data.parser_ctx, &parts) < 0) {
+	if (data->parser_ctx != NULL) {
+		if (message_parser_deinit(&data->parser_ctx, &parts) < 0) {
 			mail_set_cache_corrupted(&mail->mail.mail,
 						 MAIL_FETCH_MESSAGE_PARTS);
 		}
 	}
-	if (mail->data.filter_stream != NULL)
-		i_stream_unref(&mail->data.filter_stream);
-	if (mail->data.stream != NULL) {
-		mail->data.destroying_stream = TRUE;
-		i_stream_unref(&mail->data.stream);
-		i_assert(!mail->data.destroying_stream);
+	if (data->filter_stream != NULL)
+		i_stream_unref(&data->filter_stream);
+	if (data->stream != NULL) {
+		data->destroying_stream = TRUE;
+		i_stream_unref(&data->stream);
+		i_assert(!data->destroying_stream);
+
+		data->initialized_wrapper_stream = FALSE;
+		data->destroy_callback_set = FALSE;
 	}
 }
 
