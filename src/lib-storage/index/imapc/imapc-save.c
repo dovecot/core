@@ -146,6 +146,7 @@ imapc_save_add_to_index(struct imapc_save_context *ctx, uint32_t uid)
 	   messages to remote server during our transaction */
 	mail_index_append(ctx->trans, uid, &seq);
 	mail_set_seq_saving(_mail, seq);
+	imail->data.no_caching = TRUE;
 	imail->data.forced_no_caching = TRUE;
 
 	if (ctx->fd != -1) {
