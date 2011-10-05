@@ -383,13 +383,14 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->mbox->storage->client);
 }
 
-static int imapc_mailbox_select(struct imapc_mailbox *mbox)
+int imapc_mailbox_select(struct imapc_mailbox *mbox)
 {
 	struct imapc_open_context ctx;
-	bool examine;
+	bool examine = TRUE;
 
-	examine = (mbox->box.flags & MAILBOX_FLAG_READONLY) != 0 &&
-		(mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0;
+	examine = (mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
+		((mbox->box.flags & MAILBOX_FLAG_READONLY) != 0 ||
+		 (mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0);
 
 	mbox->selecting = TRUE;
 	ctx.mbox = mbox;

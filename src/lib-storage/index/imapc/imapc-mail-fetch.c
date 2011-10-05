@@ -68,20 +68,23 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	if (fields == 0)
 		return 0;
 
-	if (_mail->saving) {
-		mail_storage_set_critical(_mail->box->storage,
-			"Can't fetch data from uncommitted message");
-		return -1;
-	}
+	if (!_mail->saving) {
+		/* if we already know that the mail is expunged,
+		   don't try to FETCH it */
+		view = mbox->delayed_sync_view != NULL ?
+			mbox->delayed_sync_view : mbox->box.view;
+		if (!mail_index_lookup_seq(view, _mail->uid, &seq) ||
+		    mail_index_is_expunged(view, seq)) {
+			mail_set_expunged(_mail);
+			return -1;
+		}
+	} else if (mbox->client_box == NULL) {
+		/* opened as save-only. we'll need to fetch the mail,
+		   so actually SELECT/EXAMINE the mailbox */
+		i_assert(mbox->box.opened);
 
-	/* if we already know that the mail is expunged,
-	   don't try to FETCH it */
-	view = mbox->delayed_sync_view != NULL ?
-		mbox->delayed_sync_view : mbox->box.view;
-	if (!mail_index_lookup_seq(view, _mail->uid, &seq) ||
-	    mail_index_is_expunged(view, seq)) {
-		mail_set_expunged(_mail);
-		return -1;
+		if (imapc_mailbox_select(mbox) < 0)
+			return -1;
 	}
 
 	if ((fields & MAIL_FETCH_STREAM_BODY) != 0)
