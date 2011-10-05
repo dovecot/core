@@ -151,6 +151,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 	ctx = mailbox_search_init(t, search_args, pop3_sort_program,
+				  client->set->pop3_fast_size_lookups ? 0 :
 				  MAIL_FETCH_VIRTUAL_SIZE, NULL);
 	mail_search_args_unref(&search_args);
 
