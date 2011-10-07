@@ -132,9 +132,6 @@ void imapc_client_register_untagged(struct imapc_client *client,
 void imapc_client_run_pre(struct imapc_client *client);
 void imapc_client_run_post(struct imapc_client *client);
 void imapc_client_stop(struct imapc_client *client);
-/* Stop immediately, don't finish even any already read pending replies.
-   They'll be finished when imapc_client_run() is again called. */
-void imapc_client_stop_now(struct imapc_client *client);
 bool imapc_client_is_running(struct imapc_client *client);
 
 struct imapc_client_mailbox *

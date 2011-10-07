@@ -122,11 +122,8 @@ void imapc_client_run_pre(struct imapc_client *client)
 {
 	struct imapc_client_connection *const *connp;
 	struct ioloop *prev_ioloop = current_ioloop;
-	bool handle_pending = client->stop_now;
 
 	i_assert(client->ioloop == NULL);
-
-	client->stop_now = FALSE;
 
 	client->ioloop = io_loop_create();
 	io_loop_set_running(client->ioloop);
@@ -134,8 +131,6 @@ void imapc_client_run_pre(struct imapc_client *client)
 	array_foreach(&client->conns, connp) {
 		imapc_connection_ioloop_changed((*connp)->conn);
 		imapc_connection_connect((*connp)->conn, NULL, NULL);
-		if (handle_pending)
-			imapc_connection_input_pending((*connp)->conn);
 	}
 
 	if (io_loop_is_running(client->ioloop))
@@ -165,12 +160,6 @@ void imapc_client_stop(struct imapc_client *client)
 bool imapc_client_is_running(struct imapc_client *client)
 {
 	return client->ioloop != NULL;
-}
-
-void imapc_client_stop_now(struct imapc_client *client)
-{
-	client->stop_now = TRUE;
-	imapc_client_stop(client);
 }
 
 static struct imapc_client_connection *

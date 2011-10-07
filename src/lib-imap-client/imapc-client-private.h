@@ -21,8 +21,6 @@ struct imapc_client {
 	ARRAY_DEFINE(conns, struct imapc_client_connection *);
 
 	struct ioloop *ioloop;
-
-	unsigned int stop_now:1;
 };
 
 struct imapc_client_mailbox {

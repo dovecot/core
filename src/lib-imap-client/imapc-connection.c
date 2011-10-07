@@ -1294,7 +1294,7 @@ void imapc_connection_input_pending(struct imapc_connection *conn)
 		timeout_reset(conn->to);
 
 	o_stream_cork(conn->output);
-	while (ret > 0 && !conn->client->stop_now && conn->input != NULL) {
+	while (ret > 0 && conn->input != NULL) {
 		T_BEGIN {
 			ret = imapc_connection_input_one(conn);
 		} T_END;
