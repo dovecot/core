@@ -102,6 +102,27 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 	return ret;
 }
 
+static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)
+{
+	timeout_remove(&mbox->to_idle_delay);
+	if (mbox->box.notify_callback != NULL)
+		mbox->box.notify_callback(&mbox->box, mbox->box.notify_context);
+}
+
+static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
+{
+	struct ioloop *old_ioloop = current_ioloop;
+
+	if (mbox->box.notify_callback != NULL &&
+	    mbox->to_idle_delay == NULL) {
+		io_loop_set_current(mbox->storage->root_ioloop);
+		mbox->to_idle_delay =
+			timeout_add(NOTIFY_DELAY_MSECS,
+				    imapc_mailbox_idle_timeout, mbox);
+		io_loop_set_current(old_ioloop);
+	}
+}
+
 static void
 imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 		      struct imapc_mailbox *mbox)
@@ -124,27 +145,7 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 		mbox->sync_fetch_first_uid = hdr->next_uid;
 	}
 	mbox->exists_count = exists_count;
-}
-
-static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)
-{
-	timeout_remove(&mbox->to_idle_delay);
-	if (mbox->box.notify_callback != NULL)
-		mbox->box.notify_callback(&mbox->box, mbox->box.notify_context);
-}
-
-static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
-{
-	struct ioloop *old_ioloop = current_ioloop;
-
-	if (mbox->box.notify_callback != NULL &&
-	    mbox->to_idle_delay == NULL) {
-		io_loop_set_current(mbox->storage->root_ioloop);
-		mbox->to_idle_delay =
-			timeout_add(NOTIFY_DELAY_MSECS,
-				    imapc_mailbox_idle_timeout, mbox);
-		io_loop_set_current(old_ioloop);
-	}
+	imapc_mailbox_idle_notify(mbox);
 }
 
 static bool keywords_are_equal(struct mail_keywords *kw,
