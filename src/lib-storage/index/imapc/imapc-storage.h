@@ -64,7 +64,6 @@ struct imapc_mailbox {
 	ARRAY_DEFINE(resp_text_callbacks, struct imapc_mailbox_event_callback);
 
 	enum mail_flags permanent_flags;
-	ARRAY_TYPE(keywords) permanent_keywords;
 
 	ARRAY_TYPE(uint32_t) delayed_expunged_uids;
 	uint32_t sync_uid_validity;

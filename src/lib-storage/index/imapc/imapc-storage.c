@@ -325,7 +325,6 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	p_array_init(&mbox->untagged_callbacks, pool, 16);
 	p_array_init(&mbox->resp_text_callbacks, pool, 16);
 	p_array_init(&mbox->fetch_mails, pool, 16);
-	p_array_init(&mbox->permanent_keywords, pool, 32);
 	p_array_init(&mbox->delayed_expunged_uids, pool, 16);
 	mbox->prev_mail_cache.fd = -1;
 	imapc_mailbox_register_callbacks(mbox);
@@ -539,8 +538,6 @@ static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 					      struct mailbox_status *status_r)
 {
 	index_storage_get_status(&mbox->box, items, status_r);
-	if ((items & STATUS_KEYWORDS) != 0)
-		status_r->keywords = &mbox->permanent_keywords;
 	if ((items & STATUS_PERMANENT_FLAGS) != 0)
 		status_r->permanent_flags = mbox->permanent_flags;
 }

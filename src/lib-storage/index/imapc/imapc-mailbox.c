@@ -443,6 +443,7 @@ imapc_resp_text_permanentflags(const struct imapc_untagged_reply *reply,
 {
 	const struct imap_arg *flags_args, *arg;
 	const char *flag;
+	unsigned int idx;
 
 	i_assert(reply->args[0].type == IMAP_ARG_ATOM);
 
@@ -450,7 +451,6 @@ imapc_resp_text_permanentflags(const struct imapc_untagged_reply *reply,
 		return;
 
 	mbox->permanent_flags = 0;
-	array_clear(&mbox->permanent_keywords);
 	mbox->box.disallow_new_keywords = TRUE;
 
 	for (arg = flags_args; arg->type != IMAP_ARG_EOL; arg++) {
@@ -462,16 +462,11 @@ imapc_resp_text_permanentflags(const struct imapc_untagged_reply *reply,
 		else if (*flag == '\\')
 			mbox->permanent_flags |= imap_parse_system_flag(flag);
 		else {
-			/* this wastes some memory when called multiple times,
-			   but that should happen quite rarely */
-			flag = p_strdup(mbox->box.pool, flag);
-			array_append(&mbox->permanent_keywords, &flag, 1);
+			/* we'll simply make sure that it exists in the index */
+			mail_index_keyword_lookup_or_create(mbox->box.index,
+							    flag, &idx);
 		}
 	}
-	/* NULL-terminate it */
-	(void)array_append_space(&mbox->permanent_keywords);
-	array_delete(&mbox->permanent_keywords,
-		     array_count(&mbox->permanent_keywords)-1, 1);
 }
 
 void imapc_mailbox_register_untagged(struct imapc_mailbox *mbox,
