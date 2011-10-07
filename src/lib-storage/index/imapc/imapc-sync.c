@@ -36,11 +36,14 @@ static void imapc_sync_callback(const struct imapc_command_reply *reply,
 		imapc_client_stop(ctx->mbox->storage->client);
 }
 
-static void imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd)
+static void imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd_str)
 {
+	struct imapc_command *cmd;
+
 	ctx->sync_command_count++;
-	imapc_client_mailbox_cmd(ctx->mbox->client_box,
-				 imapc_sync_callback, ctx, cmd);
+	cmd = imapc_client_mailbox_cmd(ctx->mbox->client_box,
+				       imapc_sync_callback, ctx);
+	imapc_command_send(cmd, cmd_str);
 }
 
 static void
@@ -387,6 +390,7 @@ struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_command *cmd;
 	enum imapc_capability capabilities;
 	bool changes;
 	int ret = 0;
@@ -400,9 +404,10 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0) {
 		/* IDLE not supported. do NOOP to get latest changes
 		   before starting sync. */
-		imapc_client_mailbox_cmd(mbox->client_box,
-					 imapc_noop_stop_callback,
-					 mbox->storage, "NOOP");
+		cmd = imapc_client_mailbox_cmd(mbox->client_box,
+					       imapc_noop_stop_callback,
+					       mbox->storage);
+		imapc_command_send(cmd, "NOOP");
 		imapc_storage_run(mbox->storage);
 	}
 

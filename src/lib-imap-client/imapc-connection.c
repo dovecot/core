@@ -47,13 +47,19 @@ struct imapc_command {
 	unsigned int send_pos;
 	unsigned int tag;
 
+	struct imapc_connection *conn;
+	/* If non-NULL, points to the mailbox where this command should be
+	   executed */
+	struct imapc_client_mailbox *box;
+
 	ARRAY_DEFINE(streams, struct imapc_command_stream);
 
 	imapc_command_callback_t *callback;
 	void *context;
 
+	/* This is the IDLE command */
 	unsigned int idle:1;
-	unsigned int mailboxcmd:1;
+	/* Waiting for '+' literal reply before we can continue */
 	unsigned int wait_for_literal:1;
 };
 
@@ -657,7 +663,7 @@ imapc_connection_get_sasl_plain_request(struct imapc_connection *conn)
 static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
 	const struct imapc_client_settings *set = &conn->client->set;
-	const char *cmd;
+	struct imapc_command *cmd;
 
 	if (conn->client->set.debug) {
 		if (set->master_user == NULL) {
@@ -669,23 +675,21 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		}
 	}
 
+	cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
+				   conn);
+
 	if ((set->master_user == NULL &&
 	     need_literal(set->username) && need_literal(set->password)) ||
 	    (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0) {
 		/* We can use LOGIN command */
-		imapc_connection_cmdf(conn, FALSE, imapc_connection_login_cb,
-				      conn, "LOGIN %s %s",
-				      set->username, set->password);
+		imapc_command_sendf(cmd, "LOGIN %s %s",
+				    set->username, set->password);
 	} else if ((conn->capabilities & IMAPC_CAPABILITY_SASL_IR) != 0) {
-		cmd = t_strdup_printf("AUTHENTICATE PLAIN %s",
+		imapc_command_sendf(cmd, "AUTHENTICATE PLAIN %1s",
 			imapc_connection_get_sasl_plain_request(conn));
-		imapc_connection_cmd(conn, FALSE, cmd,
-				     imapc_connection_login_cb, conn);
 	} else {
-		cmd = t_strdup_printf("AUTHENTICATE PLAIN\r\n%s",
+		imapc_command_sendf(cmd, "AUTHENTICATE PLAIN\r\n%1s",
 			imapc_connection_get_sasl_plain_request(conn));
-		imapc_connection_cmd(conn, FALSE, cmd,
-				     imapc_connection_login_cb, conn);
 	}
 }
 
@@ -709,6 +713,8 @@ imapc_connection_starttls_cb(const struct imapc_command_reply *reply,
 
 static void imapc_connection_starttls(struct imapc_connection *conn)
 {
+	struct imapc_command *cmd;
+
 	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_STARTTLS &&
 	    conn->ssl_iostream == NULL) {
 		if ((conn->capabilities & IMAPC_CAPABILITY_STARTTLS) == 0) {
@@ -718,8 +724,9 @@ static void imapc_connection_starttls(struct imapc_connection *conn)
 			imapc_connection_disconnect(conn);
 			return;
 		}
-		imapc_connection_cmd(conn, FALSE, "STARTTLS",
-				     imapc_connection_starttls_cb, conn);
+		cmd = imapc_connection_cmd(conn, imapc_connection_starttls_cb,
+					   conn);
+		imapc_command_send(cmd, "STARTTLS");
 		return;
 	}
 	imapc_connection_authenticate(conn);
@@ -746,6 +753,7 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 {
 	const struct imap_arg *imap_args;
 	const char *key, *value;
+	struct imapc_command *cmd;
 	int ret;
 
 	if ((ret = imapc_connection_read_line(conn, &imap_args)) <= 0)
@@ -758,8 +766,9 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 
 	if (conn->capabilities == 0) {
 		/* capabilities weren't sent in the banner. ask for them. */
-		imapc_connection_cmd(conn, FALSE, "CAPABILITY",
-				     imapc_connection_capability_cb, conn);
+		cmd = imapc_connection_cmd(conn, imapc_connection_capability_cb,
+					   conn);
+		imapc_command_send(cmd, "CAPABILITY");
 	} else {
 		imapc_connection_starttls(conn);
 	}
@@ -864,6 +873,15 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 	return 1;
 }
 
+static void
+imapc_command_reply_free(struct imapc_command *cmd,
+			 const struct imapc_command_reply *reply)
+{
+	if (cmd->callback != NULL)
+		cmd->callback(reply, cmd->context);
+	imapc_command_free(cmd);
+}
+
 static int imapc_connection_input_tagged(struct imapc_connection *conn)
 {
 	struct imapc_command *const *cmds, *cmd = NULL;
@@ -951,9 +969,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	}
 
 	imapc_connection_input_reset(conn);
-	if (cmd->callback != NULL)
-		cmd->callback(&reply, cmd->context);
-	imapc_command_free(cmd);
+	imapc_command_reply_free(cmd, &reply);
 	return 1;
 }
 
@@ -1165,12 +1181,13 @@ imapc_reidle_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
 
 static void imapc_connection_reset_idle(struct imapc_connection *conn)
 {
+	struct imapc_command *cmd;
+
 	if (!conn->idling)
-		imapc_connection_cmd(conn, FALSE, "NOOP", NULL, NULL);
-	else {
-		imapc_connection_cmd(conn, FALSE, "NOOP",
-				     imapc_reidle_callback, conn);
-	}
+		cmd = imapc_connection_cmd(conn, NULL, NULL);
+	else
+		cmd = imapc_connection_cmd(conn, imapc_reidle_callback, conn);
+	imapc_command_send(cmd, "NOOP");
 }
 
 static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
@@ -1407,12 +1424,22 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 static void imapc_command_send_more(struct imapc_connection *conn,
 				    struct imapc_command *cmd)
 {
+	struct imapc_command_reply reply;
 	const unsigned char *p, *data;
 	unsigned int seek_pos, start_pos, end_pos, size;
 	int ret;
 
 	i_assert(!cmd->wait_for_literal);
 	i_assert(cmd->send_pos < cmd->data->used);
+
+	if (cmd->box != NULL && !imapc_client_mailbox_is_connected(cmd->box)) {
+		/* shouldn't normally happen */
+		memset(&reply, 0, sizeof(reply));
+		reply.text_without_resp = reply.text_full = "Mailbox not open";
+		reply.state = IMAPC_COMMAND_STATE_BAD;
+		imapc_command_reply_free(cmd, &reply);
+		return;
+	}
 
 	timeout_reset(conn->to_output);
 	if ((ret = imapc_command_try_send_stream(conn, cmd)) == 0)
@@ -1475,9 +1502,10 @@ static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 	}
 }
 
-static void imapc_command_send(struct imapc_connection *conn,
-			       struct imapc_command *cmd)
+static void imapc_connection_cmd_send(struct imapc_command *cmd)
 {
+	struct imapc_connection *conn = cmd->conn;
+
 	imapc_connection_send_idle_done(conn);
 	switch (conn->state) {
 	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
@@ -1530,51 +1558,47 @@ static int imapc_connection_output(struct imapc_connection *conn)
 	return ret;
 }
 
-static struct imapc_command *
-imapc_connection_cmd_build(const char *cmdline,
-			   imapc_command_callback_t *callback, void *context)
+struct imapc_command *
+imapc_connection_cmd(struct imapc_connection *conn,
+		     imapc_command_callback_t *callback, void *context)
 {
 	struct imapc_command *cmd;
-	unsigned int len = strlen(cmdline);
 
 	cmd = imapc_command_begin(callback, context);
-	cmd->data = str_new(cmd->pool, 6 + len + 2);
-	str_printfa(cmd->data, "%u %s\r\n", cmd->tag, cmdline);
+	cmd->conn = conn;
 	return cmd;
 }
 
-void imapc_connection_cmd(struct imapc_connection *conn, bool mailboxcmd,
-			  const char *cmdline,
-			  imapc_command_callback_t *callback, void *context)
+void imapc_command_set_mailbox(struct imapc_command *cmd,
+			       struct imapc_client_mailbox *box)
 {
-	struct imapc_command *cmd;
-
-	cmd = imapc_connection_cmd_build(cmdline, callback, context);
-	cmd->mailboxcmd = mailboxcmd;
-	imapc_command_send(conn, cmd);
+	cmd->box = box;
+	box->pending_box_command_count++;
 }
 
-void imapc_connection_cmdf(struct imapc_connection *conn, bool mailboxcmd,
-			   imapc_command_callback_t *callback, void *context,
-			   const char *cmd_fmt, ...)
+void imapc_command_send(struct imapc_command *cmd, const char *cmd_str)
+{
+	unsigned int len = strlen(cmd_str);
+
+	cmd->data = str_new(cmd->pool, 6 + len + 2);
+	str_printfa(cmd->data, "%u %s\r\n", cmd->tag, cmd_str);
+	imapc_connection_cmd_send(cmd);
+}
+
+void imapc_command_sendf(struct imapc_command *cmd, const char *cmd_fmt, ...)
 {
 	va_list args;
 
 	va_start(args, cmd_fmt);
-	imapc_connection_cmdvf(conn, mailboxcmd, callback, context,
-			       cmd_fmt, args);
+	imapc_command_sendvf(cmd, cmd_fmt, args);
 	va_end(args);
 }
 
-void imapc_connection_cmdvf(struct imapc_connection *conn, bool mailboxcmd,
-			   imapc_command_callback_t *callback, void *context,
-			   const char *cmd_fmt, va_list args)
+void imapc_command_sendvf(struct imapc_command *cmd,
+			  const char *cmd_fmt, va_list args)
 {
-	struct imapc_command *cmd;
 	unsigned int i;
 
-	cmd = imapc_command_begin(callback, context);
-	cmd->mailboxcmd = mailboxcmd;
 	cmd->data = str_new(cmd->pool, 128);
 	str_printfa(cmd->data, "%u ", cmd->tag);
 
@@ -1615,7 +1639,7 @@ void imapc_connection_cmdvf(struct imapc_connection *conn, bool mailboxcmd,
 
 			if (!need_literal(arg))
 				imap_dquote_append(cmd->data, arg);
-			else if ((conn->capabilities &
+			else if ((cmd->conn->capabilities &
 				  IMAPC_CAPABILITY_LITERALPLUS) != 0) {
 				str_printfa(cmd->data, "{%"PRIuSIZE_T"+}\r\n%s",
 					    strlen(arg), arg);
@@ -1637,7 +1661,7 @@ void imapc_connection_cmdvf(struct imapc_connection *conn, bool mailboxcmd,
 	}
 	str_append(cmd->data, "\r\n");
 
-	imapc_command_send(conn, cmd);
+	imapc_connection_cmd_send(cmd);
 }
 
 enum imapc_connection_state
@@ -1657,6 +1681,7 @@ void imapc_connection_select(struct imapc_client_mailbox *box,
 			     imapc_command_callback_t *callback, void *context)
 {
 	struct imapc_connection *conn = box->conn;
+	struct imapc_command *cmd;
 
 	i_assert(conn->selecting_box == NULL);
 
@@ -1671,8 +1696,8 @@ void imapc_connection_select(struct imapc_client_mailbox *box,
 		conn->selected_box = box;
 	}
 
-	imapc_connection_cmdf(conn, FALSE, callback, context,
-			      examine ? "EXAMINE %s" : "SELECT %s", name);
+	cmd = imapc_connection_cmd(conn, callback, context);
+	imapc_command_sendf(cmd, examine ? "EXAMINE %s" : "SELECT %s", name);
 }
 
 void imapc_connection_unselect(struct imapc_client_mailbox *box)
@@ -1692,7 +1717,7 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 	imapc_connection_send_idle_done(conn);
 
 	array_foreach(&conn->cmd_wait_list, cmdp) {
-		if ((*cmdp)->callback != NULL && (*cmdp)->mailboxcmd) {
+		if ((*cmdp)->callback != NULL && (*cmdp)->box != NULL) {
 			(*cmdp)->callback(&reply, (*cmdp)->context);
 			(*cmdp)->callback = NULL;
 		}
@@ -1700,7 +1725,7 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 	for (i = 0; i < array_count(&conn->cmd_send_queue); ) {
 		cmdp = array_idx(&conn->cmd_send_queue, i);
 		cmd = *cmdp;
-		if (!cmd->mailboxcmd)
+		if (cmd->box == NULL)
 			i++;
 		else {
 			array_delete(&conn->cmd_send_queue, i, 1);
@@ -1750,8 +1775,7 @@ void imapc_connection_idle(struct imapc_connection *conn)
 	    (conn->capabilities & IMAPC_CAPABILITY_IDLE) == 0)
 		return;
 
-	cmd = imapc_connection_cmd_build("IDLE", imapc_connection_idle_callback,
-					 conn);
+	cmd = imapc_connection_cmd(conn, imapc_connection_idle_callback, conn);
 	cmd->idle = TRUE;
-	imapc_command_send(conn, cmd);
+	imapc_command_send(cmd, "IDLE");
 }

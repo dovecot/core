@@ -12,13 +12,6 @@
 
 #include <unistd.h>
 
-struct imapc_client_command_context {
-	struct imapc_client_mailbox *box;
-
-	imapc_command_callback_t *callback;
-	void *context;
-};
-
 const struct imapc_capability_name imapc_capability_names[] = {
 	{ "SASL-IR", IMAPC_CAPABILITY_SASL_IR },
 	{ "LITERAL+", IMAPC_CAPABILITY_LITERALPLUS },
@@ -203,18 +196,14 @@ imapc_client_find_connection(struct imapc_client *client)
 	return (*connp)->conn;
 }
 
-void imapc_client_cmdf(struct imapc_client *client,
-		       imapc_command_callback_t *callback, void *context,
-		       const char *cmd_fmt, ...)
+struct imapc_command *
+imapc_client_cmd(struct imapc_client *client,
+		 imapc_command_callback_t *callback, void *context)
 {
 	struct imapc_connection *conn;
-	va_list args;
 
 	conn = imapc_client_find_connection(client);
-
-	va_start(args, cmd_fmt);
-	imapc_connection_cmdvf(conn, FALSE, callback, context, cmd_fmt, args);
-	va_end(args);
+	return imapc_connection_cmd(conn, callback, context);
 }
 
 static struct imapc_client_connection *
@@ -292,93 +281,15 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 	*_box = NULL;
 }
 
-static void imapc_client_mailbox_cmd_cb(const struct imapc_command_reply *reply,
-					void *context)
+struct imapc_command *
+imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
+			 imapc_command_callback_t *callback, void *context)
 {
-	struct imapc_client_command_context *ctx = context;
+	struct imapc_command *cmd;
 
-	ctx->box->pending_box_command_count--;
-
-	ctx->callback(reply, ctx->context);
-	i_free(ctx);
-}
-
-static struct imapc_client_command_context *
-imapc_client_mailbox_cmd_common(struct imapc_client_mailbox *box,
-				imapc_command_callback_t *callback,
-				void *context)
-{
-	struct imapc_client_command_context *ctx;
-
-	ctx = i_new(struct imapc_client_command_context, 1);
-	ctx->box = box;
-	ctx->callback = callback;
-	ctx->context = context;
-
-	box->pending_box_command_count++;
-	return ctx;
-}
-
-static bool
-imapc_client_mailbox_is_selected(struct imapc_client_mailbox *box,
-				 struct imapc_command_reply *reply_r)
-{
-	struct imapc_client_mailbox *selected_box;
-
-	selected_box = box->conn == NULL ? NULL :
-		imapc_connection_get_mailbox(box->conn);
-	if (selected_box == box)
-		return TRUE;
-
-	memset(reply_r, 0, sizeof(*reply_r));
-	reply_r->state = IMAPC_COMMAND_STATE_DISCONNECTED;
-	if (selected_box == NULL) {
-		reply_r->text_full = "Disconnected from server";
-	} else {
-		i_error("imapc: Selected mailbox changed unexpectedly");
-		reply_r->text_full = "Internal error";
-	}
-	reply_r->text_without_resp = reply_r->text_full;
-
-	box->conn = NULL;
-	return FALSE;
-}
-
-void imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
-			      imapc_command_callback_t *callback,
-			      void *context, const char *cmd)
-{
-	struct imapc_client_command_context *ctx;
-	struct imapc_command_reply reply;
-
-	if (!imapc_client_mailbox_is_selected(box, &reply)) {
-		callback(&reply, context);
-		return;
-	}
-
-	ctx = imapc_client_mailbox_cmd_common(box, callback, context);
-	imapc_connection_cmd(box->conn, TRUE, cmd,
-			     imapc_client_mailbox_cmd_cb, ctx);
-}
-
-void imapc_client_mailbox_cmdf(struct imapc_client_mailbox *box,
-			       imapc_command_callback_t *callback,
-			       void *context, const char *cmd_fmt, ...)
-{
-	struct imapc_client_command_context *ctx;
-	va_list args;
-	struct imapc_command_reply reply;
-
-	if (!imapc_client_mailbox_is_selected(box, &reply)) {
-		callback(&reply, context);
-		return;
-	}
-
-	ctx = imapc_client_mailbox_cmd_common(box, callback, context);
-	va_start(args, cmd_fmt);
-	imapc_connection_cmdvf(box->conn, TRUE, imapc_client_mailbox_cmd_cb,
-			       ctx, cmd_fmt, args);
-	va_end(args);
+	cmd = imapc_connection_cmd(box->conn, callback, context);
+	imapc_command_set_mailbox(cmd, box);
+	return cmd;
 }
 
 struct imapc_msgmap *
@@ -389,17 +300,24 @@ imapc_client_mailbox_get_msgmap(struct imapc_client_mailbox *box)
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
 {
-	struct imapc_command_reply reply;
-
-	if (imapc_client_mailbox_is_selected(box, &reply))
+	if (imapc_client_mailbox_is_connected(box))
 		imapc_connection_idle(box->conn);
 }
 
 bool imapc_client_mailbox_is_connected(struct imapc_client_mailbox *box)
 {
-	struct imapc_command_reply reply;
+	struct imapc_client_mailbox *selected_box;
 
-	return imapc_client_mailbox_is_selected(box, &reply);
+	selected_box = box->conn == NULL ? NULL :
+		imapc_connection_get_mailbox(box->conn);
+	if (selected_box == box)
+		return TRUE;
+
+	if (selected_box != NULL)
+		i_error("imapc: Selected mailbox changed unexpectedly");
+
+	box->conn = NULL;
+	return FALSE;
 }
 
 enum imapc_capability

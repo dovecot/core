@@ -278,8 +278,18 @@ imapc_list_join_refpattern(struct mailbox_list *list ATTR_UNUSED,
 	return t_strconcat(ref, pattern, NULL);
 }
 
+static struct imapc_command *
+imapc_list_simple_context_init(struct imapc_simple_context *ctx,
+			       struct imapc_mailbox_list *list)
+{
+	imapc_simple_context_init(ctx, list->storage);
+	return imapc_client_cmd(list->storage->client,
+				imapc_list_simple_callback, ctx);
+}
+
 static int imapc_list_refresh(struct imapc_mailbox_list *list)
 {
+	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
 
 	i_assert(list->sep != '\0');
@@ -287,9 +297,8 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	if (list->refreshed_mailboxes)
 		return 0;
 
-	imapc_simple_context_init(&ctx, list->storage);
-	imapc_client_cmdf(list->storage->client,
-			  imapc_list_simple_callback, &ctx, "LIST \"\" *");
+	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_send(cmd, "LIST \"\" *");
 	mailbox_tree_deinit(&list->mailboxes);
 	list->mailboxes = mailbox_tree_init(list->sep);
 
@@ -434,6 +443,7 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	struct imapc_mailbox_list *src_list =
 		(struct imapc_mailbox_list *)_src_list;
 	struct imapc_simple_context ctx;
+	struct imapc_command *cmd;
 	char sep;
 
 	i_assert(src_list->tmp_subscriptions == NULL);
@@ -452,10 +462,8 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 
 	src_list->tmp_subscriptions = mailbox_tree_init(src_list->sep);
 
-	imapc_simple_context_init(&ctx, src_list->storage);
-	imapc_client_cmdf(src_list->storage->client,
-			  imapc_list_simple_callback, &ctx,
-			  "LSUB \"\" *");
+	cmd = imapc_list_simple_context_init(&ctx, src_list);
+	imapc_command_send(cmd, "LSUB \"\" *");
 	imapc_simple_run(&ctx);
 
 	/* replace subscriptions tree in destination */
@@ -474,12 +482,11 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 				     const char *name, bool set)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
 
-	imapc_simple_context_init(&ctx, list->storage);
-	imapc_client_cmdf(list->storage->client,
-			  imapc_list_simple_callback, &ctx,
-			  set ? "SUBSCRIBE %s" : "UNSUBSCRIBE %s", name);
+	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_sendf(cmd, set ? "SUBSCRIBE %s" : "UNSUBSCRIBE %s", name);
 	imapc_simple_run(&ctx);
 	return ctx.ret;
 }
@@ -498,11 +505,11 @@ static int
 imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
 
-	imapc_simple_context_init(&ctx, list->storage);
-	imapc_client_cmdf(list->storage->client,
-			  imapc_list_simple_callback, &ctx, "DELETE %s", name);
+	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_sendf(cmd, "DELETE %s", name);
 	imapc_simple_run(&ctx);
 	return ctx.ret;
 }
@@ -535,6 +542,7 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)oldlist;
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
 
 	if (!rename_children) {
@@ -549,10 +557,8 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 		return -1;
 	}
 
-	imapc_simple_context_init(&ctx, list->storage);
-	imapc_client_cmdf(list->storage->client,
-			  imapc_list_simple_callback, &ctx,
-			  "RENAME %s %s", oldname, newname);
+	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_sendf(cmd, "RENAME %s %s", oldname, newname);
 	imapc_simple_run(&ctx);
 	if (ctx.ret == 0 && fs_list != NULL && oldlist == newlist) {
 		oldname = imapc_list_get_fs_name(list, oldname);
@@ -568,6 +574,7 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 				 enum mailbox_info_flags *flags_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 	struct mailbox_node *node;
 	const char *vname;
@@ -580,9 +587,8 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 		node->flags |= MAILBOX_NONEXISTENT;
 
 	/* refresh the mailbox flags */
-	imapc_simple_context_init(&sctx, list->storage);
-	imapc_client_cmdf(list->storage->client, imapc_simple_callback,
-			  &sctx, "LIST \"\" %s", name);
+	cmd = imapc_list_simple_context_init(&sctx, list);
+	imapc_command_sendf(cmd, "LIST \"\" %s", name);
 	imapc_simple_run(&sctx);
 	if (sctx.ret < 0)
 		return -1;

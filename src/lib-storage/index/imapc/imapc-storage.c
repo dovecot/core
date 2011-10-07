@@ -209,11 +209,12 @@ static int
 imapc_storage_get_hierarchy_sep(struct imapc_storage *storage,
 				const char **error_r)
 {
+	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 
 	imapc_simple_context_init(&sctx, storage);
-	imapc_client_cmdf(storage->client, imapc_simple_callback, &sctx,
-			  "LIST \"\" \"\"");
+	cmd = imapc_client_cmd(storage->client, imapc_simple_callback, &sctx);
+	imapc_command_send(cmd, "LIST \"\" \"\"");
 	imapc_simple_run(&sctx);
 
 	if (sctx.ret < 0) {
@@ -474,6 +475,7 @@ imapc_mailbox_create(struct mailbox *box,
 		     bool directory)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 	const char *name = box->name;
 
@@ -482,8 +484,9 @@ imapc_mailbox_create(struct mailbox *box,
 				mailbox_list_get_hierarchy_sep(box->list));
 	}
 	imapc_simple_context_init(&sctx, mbox->storage);
-	imapc_client_cmdf(mbox->storage->client, imapc_simple_callback, &sctx,
-			  "CREATE %s", name);
+	cmd = imapc_client_cmd(mbox->storage->client,
+			       imapc_simple_callback, &sctx);
+	imapc_command_sendf(cmd, "CREATE %s", name);
 	imapc_simple_run(&sctx);
 	return sctx.ret;
 }
@@ -551,6 +554,7 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 				    struct mailbox_status *status_r)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 	string_t *str;
 
@@ -593,8 +597,9 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	imapc_simple_context_init(&sctx, mbox->storage);
 	mbox->storage->cur_status_box = mbox;
 	mbox->storage->cur_status = status_r;
-	imapc_client_cmdf(mbox->storage->client, imapc_simple_callback, &sctx,
-			  "STATUS %s (%1s)", box->name, str_c(str)+1);
+	cmd = imapc_client_cmd(mbox->storage->client,
+			       imapc_simple_callback, &sctx);
+	imapc_command_sendf(cmd, "STATUS %s (%1s)", box->name, str_c(str)+1);
 	imapc_simple_run(&sctx);
 	mbox->storage->cur_status_box = NULL;
 	mbox->storage->cur_status = NULL;
@@ -617,8 +622,11 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 
 static void imapc_idle_timeout(struct imapc_mailbox *mbox)
 {
-	imapc_client_mailbox_cmd(mbox->client_box,
-				 imapc_noop_callback, mbox->storage, "NOOP");
+	struct imapc_command *cmd;
+
+	cmd = imapc_client_mailbox_cmd(mbox->client_box,
+				       imapc_noop_callback, mbox->storage);
+	imapc_command_send(cmd, "NOOP");
 }
 
 static void imapc_idle_noop_callback(const struct imapc_command_reply *reply,
@@ -634,6 +642,7 @@ static void imapc_idle_noop_callback(const struct imapc_command_reply *reply,
 static void imapc_notify_changes(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_command *cmd;
 	enum imapc_capability capa;
 
 	if (box->notify_min_interval == 0) {
@@ -648,9 +657,9 @@ static void imapc_notify_changes(struct mailbox *box)
 		   don't notice changes immediately, we'll force them to check
 		   here by sending a NOOP. this helps with clients that break
 		   IDLE when clicking "get mail". */
-		imapc_client_mailbox_cmd(mbox->client_box,
-					 imapc_idle_noop_callback, mbox,
-					 "NOOP");
+		cmd = imapc_client_mailbox_cmd(mbox->client_box,
+					       imapc_idle_noop_callback, mbox);
+		imapc_command_send(cmd, "NOOP");
 	} else {
 		/* remote server doesn't support IDLE.
 		   check for changes with NOOP every once in a while. */

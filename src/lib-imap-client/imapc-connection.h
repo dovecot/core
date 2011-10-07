@@ -28,16 +28,10 @@ void imapc_connection_disconnect(struct imapc_connection *conn);
 void imapc_connection_ioloop_changed(struct imapc_connection *conn);
 void imapc_connection_input_pending(struct imapc_connection *conn);
 
-void imapc_connection_cmd(struct imapc_connection *conn, bool mailboxcmd,
-			  const char *cmdline,
-			  imapc_command_callback_t *callback, void *context);
-void imapc_connection_cmdf(struct imapc_connection *conn, bool mailboxcmd,
-			   imapc_command_callback_t *callback, void *context,
-			   const char *cmd_fmt, ...) ATTR_FORMAT(5, 6);
-void imapc_connection_cmdvf(struct imapc_connection *conn, bool mailboxcmd,
-			    imapc_command_callback_t *callback, void *context,
-			    const char *cmd_fmt, va_list args)
-	ATTR_FORMAT(5, 0);
+struct imapc_command *
+imapc_connection_cmd(struct imapc_connection *conn,
+		     imapc_command_callback_t *callback, void *context);
+
 void imapc_connection_select(struct imapc_client_mailbox *box,
 			     const char *name, bool examine,
 			     imapc_command_callback_t *callback, void *context);

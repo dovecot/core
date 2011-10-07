@@ -200,6 +200,7 @@ imapc_append_keywords(string_t *str, struct mail_keywords *kw)
 static int imapc_save_append(struct imapc_save_context *ctx)
 {
 	struct mail_save_context *_ctx = &ctx->ctx;
+	struct imapc_command *cmd;
 	struct imapc_save_cmd_context sctx;
 	struct istream *input;
 	const char *flags = "", *internaldate = "";
@@ -222,9 +223,10 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 	input = i_stream_create_fd(ctx->fd, IO_BLOCK_SIZE, FALSE);
 	sctx.ctx = ctx;
 	sctx.ret = -2;
-	imapc_client_cmdf(ctx->mbox->storage->client,
-			  imapc_save_callback, &sctx, "APPEND %s%1s%1s %p",
-			  ctx->mbox->box.name, flags, internaldate, input);
+	cmd = imapc_client_cmd(ctx->mbox->storage->client,
+			       imapc_save_callback, &sctx);
+	imapc_command_sendf(cmd, "APPEND %s%1s%1s %p",
+			    ctx->mbox->box.name, flags, internaldate, input);
 	i_stream_unref(&input);
 	while (sctx.ret == -2)
 		imapc_storage_run(ctx->mbox->storage);
@@ -373,6 +375,7 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	struct imapc_mailbox *src_mbox = (struct imapc_mailbox *)mail->box;
+	struct imapc_command *cmd;
 	struct imapc_save_cmd_context sctx;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -381,10 +384,10 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 		/* same server, we can use COPY for the mail */
 		sctx.ret = -2;
 		sctx.ctx = ctx;
-		imapc_client_mailbox_cmdf(src_mbox->client_box,
-					  imapc_copy_callback, &sctx,
-					  "UID COPY %u %s",
-					  mail->uid, _t->box->name);
+		cmd = imapc_client_mailbox_cmd(src_mbox->client_box,
+					       imapc_copy_callback, &sctx);
+		imapc_command_sendf(cmd, "UID COPY %u %s",
+				    mail->uid, _t->box->name);
 		while (sctx.ret == -2)
 			imapc_storage_run(src_mbox->storage);
 		ctx->finished = TRUE;
