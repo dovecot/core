@@ -47,6 +47,7 @@ struct imapc_command {
 	unsigned int send_pos;
 	unsigned int tag;
 
+	enum imapc_command_flags flags;
 	struct imapc_connection *conn;
 	/* If non-NULL, points to the mailbox where this command should be
 	   executed */
@@ -1421,6 +1422,24 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 	return 1;
 }
 
+static void imapc_connection_set_selecting(struct imapc_client_mailbox *box)
+{
+	struct imapc_connection *conn = box->conn;
+
+	i_assert(conn->selecting_box == NULL);
+
+	if (conn->selected_box != NULL &&
+	    (conn->capabilities & IMAPC_CAPABILITY_QRESYNC) != 0) {
+		/* server will send a [CLOSED] once selected mailbox is
+		   closed */
+		conn->selecting_box = box;
+	} else {
+		/* we'll have to assume that all the future untagged messages
+		   are for the mailbox we're selecting */
+		conn->selected_box = box;
+	}
+}
+
 static void imapc_command_send_more(struct imapc_connection *conn,
 				    struct imapc_command *cmd)
 {
@@ -1432,7 +1451,13 @@ static void imapc_command_send_more(struct imapc_connection *conn,
 	i_assert(!cmd->wait_for_literal);
 	i_assert(cmd->send_pos < cmd->data->used);
 
-	if (cmd->box != NULL && !imapc_client_mailbox_is_connected(cmd->box)) {
+	if (cmd->box == NULL) {
+		/* non-mailbox command */
+	} else if (cmd->send_pos == 0 &&
+		   (cmd->flags & IMAPC_COMMAND_FLAG_SELECT) != 0) {
+		/* SELECT/EXAMINE command */
+		imapc_connection_set_selecting(cmd->box);
+	} else if (!imapc_client_mailbox_is_connected(cmd->box)) {
 		/* shouldn't normally happen */
 		memset(&reply, 0, sizeof(reply));
 		reply.text_without_resp = reply.text_full = "Mailbox not open";
@@ -1569,6 +1594,12 @@ imapc_connection_cmd(struct imapc_connection *conn,
 	return cmd;
 }
 
+void imapc_command_set_flags(struct imapc_command *cmd,
+			     enum imapc_command_flags flags)
+{
+	cmd->flags = flags;
+}
+
 void imapc_command_set_mailbox(struct imapc_command *cmd,
 			       struct imapc_client_mailbox *box)
 {
@@ -1674,30 +1705,6 @@ enum imapc_capability
 imapc_connection_get_capabilities(struct imapc_connection *conn)
 {
 	return conn->capabilities;
-}
-
-void imapc_connection_select(struct imapc_client_mailbox *box,
-			     const char *name, bool examine,
-			     imapc_command_callback_t *callback, void *context)
-{
-	struct imapc_connection *conn = box->conn;
-	struct imapc_command *cmd;
-
-	i_assert(conn->selecting_box == NULL);
-
-	if (conn->selected_box != NULL &&
-	    (conn->capabilities & IMAPC_CAPABILITY_QRESYNC) != 0) {
-		/* server will send a [CLOSED] once selected mailbox is
-		   closed */
-		conn->selecting_box = box;
-	} else {
-		/* we'll have to assume that all the future untagged messages
-		   are for the mailbox we're selecting */
-		conn->selected_box = box;
-	}
-
-	cmd = imapc_connection_cmd(conn, callback, context);
-	imapc_command_sendf(cmd, examine ? "EXAMINE %s" : "SELECT %s", name);
 }
 
 void imapc_connection_unselect(struct imapc_client_mailbox *box)

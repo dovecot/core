@@ -386,20 +386,30 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 
 int imapc_mailbox_select(struct imapc_mailbox *mbox)
 {
+	struct imapc_command *cmd;
 	struct imapc_open_context ctx;
 	bool examine = TRUE;
+
+	i_assert(mbox->client_box == NULL);
 
 	examine = (mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
 		((mbox->box.flags & MAILBOX_FLAG_READONLY) != 0 ||
 		 (mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0);
 
+	mbox->client_box =
+		imapc_client_mailbox_open(mbox->storage->client, mbox);
+
 	mbox->selecting = TRUE;
 	ctx.mbox = mbox;
 	ctx.ret = -2;
-	mbox->client_box =
-		imapc_client_mailbox_open(mbox->storage->client, mbox->box.name,
-					  examine, imapc_mailbox_open_callback,
-					  &ctx, mbox);
+	cmd = imapc_client_mailbox_cmd(mbox->client_box,
+				       imapc_mailbox_open_callback, &ctx);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
+	if (examine)
+		imapc_command_sendf(cmd, "EXAMINE %s", mbox->box.name);
+	else
+		imapc_command_sendf(cmd, "SELECT %s", mbox->box.name);
+
 	while (ctx.ret == -2)
 		imapc_storage_run(mbox->storage);
 	mbox->selecting = FALSE;

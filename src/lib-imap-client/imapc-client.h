@@ -25,6 +25,11 @@ struct imapc_capability_name {
 };
 extern const struct imapc_capability_name imapc_capability_names[];
 
+enum imapc_command_flags {
+	/* The command changes the selected mailbox (SELECT, EXAMINE) */
+	IMAPC_COMMAND_FLAG_SELECT	= 0x01
+};
+
 enum imapc_client_ssl_mode {
 	IMAPC_CLIENT_SSL_MODE_NONE,
 	IMAPC_CLIENT_SSL_MODE_IMMEDIATE,
@@ -112,6 +117,8 @@ void imapc_client_login(struct imapc_client *client,
 struct imapc_command *
 imapc_client_cmd(struct imapc_client *client,
 		 imapc_command_callback_t *callback, void *context);
+void imapc_command_set_flags(struct imapc_command *cmd,
+			     enum imapc_command_flags flags);
 void imapc_command_send(struct imapc_command *cmd, const char *cmd_str);
 void imapc_command_sendf(struct imapc_command *cmd, const char *cmd_fmt, ...)
 	ATTR_FORMAT(2, 3);
@@ -132,8 +139,6 @@ bool imapc_client_is_running(struct imapc_client *client);
 
 struct imapc_client_mailbox *
 imapc_client_mailbox_open(struct imapc_client *client,
-			  const char *name, bool examine,
-			  imapc_command_callback_t *callback, void *context,
 			  void *untagged_box_context);
 void imapc_client_mailbox_close(struct imapc_client_mailbox **box);
 void imapc_client_mailbox_disconnect(struct imapc_client_mailbox *box);

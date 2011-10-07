@@ -234,8 +234,6 @@ void imapc_client_login(struct imapc_client *client,
 
 struct imapc_client_mailbox *
 imapc_client_mailbox_open(struct imapc_client *client,
-			  const char *name, bool examine,
-			  imapc_command_callback_t *callback, void *context,
 			  void *untagged_box_context)
 {
 	struct imapc_client_mailbox *box;
@@ -248,8 +246,6 @@ imapc_client_mailbox_open(struct imapc_client *client,
 	conn->box = box;
 	box->conn = conn->conn;
 	box->msgmap = imapc_msgmap_init();
-
-	imapc_connection_select(box, name, examine, callback, context);
 	return box;
 }
 
