@@ -135,11 +135,15 @@ static void imapc_mailbox_idle_timeout(struct imapc_mailbox *mbox)
 
 static void imapc_mailbox_idle_notify(struct imapc_mailbox *mbox)
 {
+	struct ioloop *old_ioloop = current_ioloop;
+
 	if (mbox->box.notify_callback != NULL &&
 	    mbox->to_idle_delay == NULL) {
+		io_loop_set_current(mbox->storage->root_ioloop);
 		mbox->to_idle_delay =
 			timeout_add(NOTIFY_DELAY_MSECS,
 				    imapc_mailbox_idle_timeout, mbox);
+		io_loop_set_current(old_ioloop);
 	}
 }
 

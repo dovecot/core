@@ -31,6 +31,7 @@ struct imapc_storage {
 	struct mail_storage storage;
 	const struct imapc_settings *set;
 
+	struct ioloop *root_ioloop;
 	struct imapc_mailbox_list *list;
 	struct imapc_client *client;
 

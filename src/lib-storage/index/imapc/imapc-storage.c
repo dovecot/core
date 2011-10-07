@@ -7,7 +7,7 @@
 #include "imap-resp-code.h"
 #include "mailbox-tree.h"
 #include "imapc-mail.h"
-#include "imapc-client-private.h"
+#include "imapc-client.h"
 #include "imapc-connection.h"
 #include "imapc-list.h"
 #include "imapc-sync.h"
@@ -78,6 +78,7 @@ static struct mail_storage *imapc_storage_alloc(void)
 	storage = p_new(pool, struct imapc_storage, 1);
 	storage->storage = imapc_storage;
 	storage->storage.pool = pool;
+	storage->root_ioloop = current_ioloop;
 	return &storage->storage;
 }
 
@@ -112,22 +113,7 @@ void imapc_simple_run(struct imapc_simple_context *sctx)
 
 void imapc_storage_run(struct imapc_storage *storage)
 {
-	struct imapc_client_mailbox *client_box;
-	struct imapc_client_connection *const *connp;
-	struct imapc_mailbox *mbox;
-
 	imapc_client_run_pre(storage->client);
-
-	array_foreach(&storage->client->conns, connp) {
-		client_box = imapc_connection_get_mailbox((*connp)->conn);
-		if (client_box == NULL)
-			continue;
-
-		mbox = client_box->untagged_box_context;
-		if (mbox->to_idle_delay != NULL)
-			mbox->to_idle_delay = io_loop_move_timeout(&mbox->to_idle_delay);
-	}
-
 	imapc_client_run_post(storage->client);
 }
 
