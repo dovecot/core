@@ -566,7 +566,8 @@ static int master_output(struct auth_master_connection *conn)
 		return 1;
 	}
 
-	if (o_stream_get_buffer_used_size(conn->output) <= MAX_OUTBUF_SIZE/2) {
+	if (conn->io == NULL &&
+	    o_stream_get_buffer_used_size(conn->output) <= MAX_OUTBUF_SIZE/2) {
 		/* allow input again */
 		conn->io = io_add(conn->fd, IO_READ, master_input, conn);
 	}
