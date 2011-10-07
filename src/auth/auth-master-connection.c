@@ -329,6 +329,13 @@ pass_callback(enum passdb_result result,
 	auth_master_connection_unref(&conn);
 }
 
+static const char *auth_restricted_reason(struct auth_master_connection *conn)
+{
+	return t_strdup_printf("%s mode=0666, but not owned by UID %lu",
+			       conn->path,
+			       (unsigned long)conn->userdb_restricted_uid);
+}
+
 static bool
 master_input_pass(struct auth_master_connection *conn, const char *args)
 {
@@ -347,8 +354,8 @@ master_input_pass(struct auth_master_connection *conn, const char *args)
 	} else if (conn->userdb_restricted_uid != 0) {
 		/* no permissions to do this lookup */
 		auth_request_log_error(auth_request, "passdb",
-			"Remote client doesn't have permissions to do "
-			"a PASS lookup");
+			"Auth client doesn't have permissions to do "
+			"a PASS lookup: %s", auth_restricted_reason(conn));
 		pass_callback(PASSDB_RESULT_INTERNAL_FAILURE,
 			      NULL, 0, auth_request);
 	} else {
@@ -445,7 +452,8 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	}
 
 	if (conn->userdb_restricted_uid != 0) {
-		i_error("Remote client doesn't have permissions to list users");
+		i_error("Auth client doesn't have permissions to list users: %s",
+			auth_restricted_reason(conn));
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		(void)o_stream_send_str(conn->output, str);
 		return TRUE;
@@ -600,14 +608,18 @@ auth_master_connection_set_permissions(struct auth_master_connection *conn,
 
 struct auth_master_connection *
 auth_master_connection_create(struct auth *auth, int fd,
-			      const struct stat *socket_st, bool userdb_only)
+			      const char *path, const struct stat *socket_st,
+			      bool userdb_only)
 {
 	struct auth_master_connection *conn;
 	const char *line;
 
+	i_assert(path != NULL);
+
 	conn = i_new(struct auth_master_connection, 1);
 	conn->refcount = 1;
 	conn->fd = fd;
+	conn->path = i_strdup(path);
 	conn->auth = auth;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
@@ -657,7 +669,7 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 		io_remove(&conn->io);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
-			i_error("close(): %m");
+			i_error("close(%s): %m", conn->path);
 		conn->fd = -1;
 	}
 
@@ -687,6 +699,7 @@ void auth_master_connection_unref(struct auth_master_connection **_conn)
 	if (conn->output != NULL)
 		o_stream_unref(&conn->output);
 
+	i_free(conn->path);
 	i_free(conn);
 }
 

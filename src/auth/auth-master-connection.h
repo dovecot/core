@@ -9,6 +9,7 @@ struct auth_master_connection {
 	int refcount;
 
 	int fd;
+	char *path;
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
@@ -28,7 +29,8 @@ extern ARRAY_TYPE(auth_master_connections) auth_master_connections;
 
 struct auth_master_connection *
 auth_master_connection_create(struct auth *auth, int fd,
-			      const struct stat *socket_st, bool userdb_only);
+			      const char *path, const struct stat *socket_st,
+			      bool userdb_only);
 void auth_master_connection_destroy(struct auth_master_connection **conn);
 
 void auth_master_connection_ref(struct auth_master_connection *conn);

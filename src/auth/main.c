@@ -43,6 +43,7 @@ enum auth_socket_type {
 struct auth_socket_listener {
 	enum auth_socket_type type;
 	struct stat st;
+	char *path;
 };
 
 bool worker = FALSE, shutdown_request = FALSE;
@@ -141,6 +142,7 @@ static void listeners_init(void)
 
 		l = array_idx_modifiable(&listeners, fd);
 		l->type = auth_socket_type_get(fd, &path);
+		l->path = i_strdup(path);
 		if (l->type == AUTH_SOCKET_USERDB) {
 			if (stat(path, &l->st) < 0)
 				i_error("stat(%s) failed: %m", path);
@@ -245,6 +247,8 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
+	struct auth_socket_listener *l;
+
 	if (auth_penalty != NULL) {
 		/* cancel all pending anvil penalty lookups */
 		auth_penalty_deinit(&auth_penalty);
@@ -278,6 +282,8 @@ static void main_deinit(void)
 	sql_drivers_deinit();
 	random_deinit();
 
+	array_foreach_modifiable(&listeners, l)
+		i_free(l->path);
 	array_free(&listeners);
 	pool_unref(&auth_set_pool);
 }
@@ -303,11 +309,11 @@ static void client_connected(struct master_service_connection *conn)
 	switch (l->type) {
 	case AUTH_SOCKET_MASTER:
 		(void)auth_master_connection_create(auth, conn->fd,
-						    NULL, FALSE);
+						    l->path, NULL, FALSE);
 		break;
 	case AUTH_SOCKET_USERDB:
 		(void)auth_master_connection_create(auth, conn->fd,
-						    &l->st, TRUE);
+						    l->path, &l->st, TRUE);
 		break;
 	case AUTH_SOCKET_LOGIN_CLIENT:
 		(void)auth_client_connection_create(auth, conn->fd, TRUE);
