@@ -212,6 +212,7 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 				fetch_uid, uid);
 			return -1;
 		}
+		*uid_r = uid;
 	} else if (fetch_uid == 0 || rseq != msg_count+1) {
 		/* probably a flag update for a message we haven't yet
 		   received our initial UID FETCH for. we should get
@@ -322,8 +323,8 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 			/* already expunged by another session */
 			return;
 		}
-		rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
 	}
+	rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
 
 	if (rseq == mbox->sync_next_rseq) {
 		/* we're doing the initial full sync of mails. expunge any
@@ -340,7 +341,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		mbox->sync_next_lseq++;
 	}
 
-	if (seen_flags && (rec == NULL || rec->flags != flags)) {
+	if (seen_flags && rec->flags != flags) {
 		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
 					MODIFY_REPLACE, flags);
 	}
