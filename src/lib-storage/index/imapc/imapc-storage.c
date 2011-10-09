@@ -137,31 +137,16 @@ void imapc_simple_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->storage->client);
 }
 
-static void imapc_noop_callback(const struct imapc_command_reply *reply,
-				void *context)
-
+void imapc_mailbox_noop(struct imapc_mailbox *mbox)
 {
-	struct imapc_storage *storage = context;
+	struct imapc_command *cmd;
+	struct imapc_simple_context sctx;
 
-	if (reply->state == IMAPC_COMMAND_STATE_OK)
-		;
-	else if (reply->state == IMAPC_COMMAND_STATE_NO)
-		imapc_copy_error_from_reply(storage, MAIL_ERROR_PARAMS, reply);
-	else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
-		mail_storage_set_internal_error(&storage->storage);
-	else {
-		mail_storage_set_critical(&storage->storage,
-			"imapc: NOOP failed: %s", reply->text_full);
-	}
-}
-
-void imapc_noop_stop_callback(const struct imapc_command_reply *reply,
-			       void *context)
-{
-	struct imapc_storage *storage = context;
-
-	imapc_noop_callback(reply, context);
-	imapc_client_stop(storage->client);
+	imapc_simple_context_init(&sctx, mbox->storage);
+	cmd = imapc_client_mailbox_cmd(mbox->client_box,
+				       imapc_simple_callback, &sctx);
+	imapc_command_send(cmd, "NOOP");
+	imapc_simple_run(&sctx);
 }
 
 static void imapc_storage_untagged_cb(const struct imapc_untagged_reply *reply,
@@ -655,6 +640,24 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 		mail_generate_guid_128_hash(box->name, metadata_r->guid);
 	}
 	return 0;
+}
+
+static void imapc_noop_callback(const struct imapc_command_reply *reply,
+				void *context)
+
+{
+	struct imapc_storage *storage = context;
+
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		;
+	else if (reply->state == IMAPC_COMMAND_STATE_NO)
+		imapc_copy_error_from_reply(storage, MAIL_ERROR_PARAMS, reply);
+	else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
+		mail_storage_set_internal_error(&storage->storage);
+	else {
+		mail_storage_set_critical(&storage->storage,
+			"imapc: NOOP failed: %s", reply->text_full);
+	}
 }
 
 static void imapc_idle_timeout(struct imapc_mailbox *mbox)

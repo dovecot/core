@@ -12,8 +12,8 @@
 
 #define NOTIFY_DELAY_MSECS 500
 
-static void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
-					const char *reason, ...)
+void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
+				 const char *reason, ...)
 {
 	va_list va;
 
@@ -239,15 +239,6 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 		imapc_msgmap_append(msgmap, rseq, uid);
 		if (uid < mbox->min_append_uid) {
 			/* message is already added to index */
-			if (!mbox->initial_sync_done &&
-			    !mail_index_lookup_seq(mbox->delayed_sync_view,
-						   uid, lseq_r)) {
-				imapc_mailbox_set_corrupted(mbox,
-					"Expunged message reappeared "
-					"(uid=%u < next_uid=%u)",
-					uid, mbox->min_append_uid);
-				return -1;
-			}
 		} else if (mbox->syncing) {
 			mail_index_append(mbox->delayed_sync_trans,
 					  uid, lseq_r);

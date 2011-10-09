@@ -230,6 +230,26 @@ static void imapc_sync_uid_next(struct imapc_sync_context *ctx)
 	}
 }
 
+static void imapc_initial_sync_check(struct imapc_sync_context *ctx)
+{
+	unsigned int idx_count;
+
+	idx_count = mail_index_view_get_messages_count(ctx->mbox->delayed_sync_view);
+	if (idx_count >= ctx->mbox->exists_count)
+		return;
+
+	/* NOOP should send EXPUNGEs */
+	imapc_mailbox_noop(ctx->mbox);
+
+	idx_count = mail_index_view_get_messages_count(ctx->mbox->delayed_sync_view);
+	if (idx_count < ctx->mbox->exists_count) {
+		imapc_mailbox_set_corrupted(ctx->mbox,
+			"Index is missing messages (%u < %u)",
+			idx_count, ctx->mbox->exists_count);
+		ctx->failed = TRUE;
+	}
+}
+
 static void imapc_sync_index(struct imapc_sync_context *ctx)
 {
 	struct imapc_mailbox *mbox = ctx->mbox;
@@ -292,10 +312,15 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	/* add uidnext after all appends */
 	imapc_sync_uid_next(ctx);
 
-	imapc_sync_expunge_eom(ctx);
+	if (!ctx->failed)
+		imapc_sync_expunge_eom(ctx);
 	if (mbox->box.v.sync_notify != NULL)
 		mbox->box.v.sync_notify(&mbox->box, 0, 0);
-	mbox->initial_sync_done = TRUE;
+
+	if (!mbox->initial_sync_done) {
+		imapc_initial_sync_check(ctx);
+		mbox->initial_sync_done = TRUE;
+	}
 }
 
 static int
@@ -390,7 +415,6 @@ struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
-	struct imapc_command *cmd;
 	enum imapc_capability capabilities;
 	bool changes;
 	int ret = 0;
@@ -404,11 +428,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0) {
 		/* IDLE not supported. do NOOP to get latest changes
 		   before starting sync. */
-		cmd = imapc_client_mailbox_cmd(mbox->client_box,
-					       imapc_noop_stop_callback,
-					       mbox->storage);
-		imapc_command_send(cmd, "NOOP");
-		imapc_storage_run(mbox->storage);
+		imapc_mailbox_noop(mbox);
 	}
 
 	if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
