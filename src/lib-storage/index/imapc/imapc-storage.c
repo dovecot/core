@@ -6,9 +6,10 @@
 #include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "mailbox-tree.h"
-#include "imapc-mail.h"
 #include "imapc-client.h"
 #include "imapc-connection.h"
+#include "imapc-msgmap.h"
+#include "imapc-mail.h"
 #include "imapc-list.h"
 #include "imapc-sync.h"
 #include "imapc-settings.h"
@@ -113,8 +114,9 @@ void imapc_simple_run(struct imapc_simple_context *sctx)
 
 void imapc_storage_run(struct imapc_storage *storage)
 {
-	imapc_client_run_pre(storage->client);
-	imapc_client_run_post(storage->client);
+	do {
+		imapc_client_run(storage->client);
+	} while (storage->reopen_count > 0);
 }
 
 void imapc_simple_callback(const struct imapc_command_reply *reply,
@@ -348,12 +350,58 @@ imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 	return 0;
 }
 
+static bool imapc_mailbox_want_examine(struct imapc_mailbox *mbox)
+{
+	return (mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
+		((mbox->box.flags & MAILBOX_FLAG_READONLY) != 0 ||
+		 (mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0);
+}
+
+static void
+imapc_mailbox_reopen_callback(const struct imapc_command_reply *reply,
+			      void *context)
+{
+	struct imapc_mailbox *mbox = context;
+
+	i_assert(mbox->storage->reopen_count > 0);
+	mbox->storage->reopen_count--;
+	mbox->selecting = FALSE;
+	if (reply->state != IMAPC_COMMAND_STATE_OK) {
+		mail_storage_set_critical(mbox->box.storage,
+			"imapc: Reopening mailbox '%s' failed: %s",
+			mbox->box.name, reply->text_full);
+		imapc_client_mailbox_reconnect(mbox->client_box);
+	}
+	imapc_client_stop(mbox->storage->client);
+}
+
+static void imapc_mailbox_reopen(void *context)
+{
+	struct imapc_mailbox *mbox = context;
+	struct imapc_command *cmd;
+
+	/* we're reconnecting and need to reopen the mailbox */
+	mbox->initial_sync_done = FALSE;
+	mbox->selecting = TRUE;
+	imapc_msgmap_reset(imapc_client_mailbox_get_msgmap(mbox->client_box));
+
+	cmd = imapc_client_mailbox_cmd(mbox->client_box,
+				       imapc_mailbox_reopen_callback, mbox);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
+	if (imapc_mailbox_want_examine(mbox))
+		imapc_command_sendf(cmd, "EXAMINE %s", mbox->box.name);
+	else
+		imapc_command_sendf(cmd, "SELECT %s", mbox->box.name);
+	mbox->storage->reopen_count++;
+}
+
 static void
 imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 			    void *context)
 {
 	struct imapc_open_context *ctx = context;
 
+	ctx->mbox->selecting = FALSE;
 	if (reply->state == IMAPC_COMMAND_STATE_OK)
 		ctx->ret = 0;
 	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
@@ -373,16 +421,13 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 {
 	struct imapc_command *cmd;
 	struct imapc_open_context ctx;
-	bool examine = TRUE;
 
 	i_assert(mbox->client_box == NULL);
 
-	examine = (mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
-		((mbox->box.flags & MAILBOX_FLAG_READONLY) != 0 ||
-		 (mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0);
-
 	mbox->client_box =
 		imapc_client_mailbox_open(mbox->storage->client, mbox);
+	imapc_client_mailbox_set_reopen_cb(mbox->client_box,
+					   imapc_mailbox_reopen, mbox);
 
 	mbox->selecting = TRUE;
 	ctx.mbox = mbox;
@@ -390,14 +435,13 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_mailbox_open_callback, &ctx);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
-	if (examine)
+	if (imapc_mailbox_want_examine(mbox))
 		imapc_command_sendf(cmd, "EXAMINE %s", mbox->box.name);
 	else
 		imapc_command_sendf(cmd, "SELECT %s", mbox->box.name);
 
 	while (ctx.ret == -2)
 		imapc_storage_run(mbox->storage);
-	mbox->selecting = FALSE;
 	return ctx.ret;
 }
 
@@ -670,7 +714,7 @@ static bool imapc_is_inconsistent(struct mailbox *box)
 	if (mail_index_view_is_inconsistent(box->view))
 		return TRUE;
 
-	return !imapc_client_mailbox_is_connected(mbox->client_box);
+	return !imapc_client_mailbox_is_opened(mbox->client_box);
 }
 
 struct mail_storage imapc_storage = {

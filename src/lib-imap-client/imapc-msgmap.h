@@ -13,5 +13,6 @@ bool imapc_msgmap_uid_to_rseq(struct imapc_msgmap *msgmap,
 void imapc_msgmap_append(struct imapc_msgmap *msgmap,
 			 uint32_t rseq, uint32_t uid);
 void imapc_msgmap_expunge(struct imapc_msgmap *msgmap, uint32_t rseq);
+void imapc_msgmap_reset(struct imapc_msgmap *msgmap);
 
 #endif

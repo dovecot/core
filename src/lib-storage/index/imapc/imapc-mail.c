@@ -62,7 +62,7 @@ static void imapc_mail_failed(struct mail *mail, const char *field)
 
 	if (mail->expunged || imapc_mail_is_expunged(mail))
 		mail_set_expunged(mail);
-	else if (!imapc_client_mailbox_is_connected(mbox->client_box)) {
+	else if (!imapc_client_mailbox_is_opened(mbox->client_box)) {
 		/* we've already logged a disconnection error */
 		mail_storage_set_internal_error(mail->box->storage);
 	} else {

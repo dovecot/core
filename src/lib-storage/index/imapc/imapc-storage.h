@@ -37,6 +37,7 @@ struct imapc_storage {
 
 	struct imapc_mailbox *cur_status_box;
 	struct mailbox_status *cur_status;
+	unsigned int reopen_count;
 
 	ARRAY_DEFINE(untagged_callbacks, struct imapc_storage_event_callback);
 };

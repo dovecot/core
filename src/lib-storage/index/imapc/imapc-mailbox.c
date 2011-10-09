@@ -30,7 +30,7 @@ static void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 		/* maybe the remote server is buggy and has become confused.
 		   try reconnecting. */
 	}
-	imapc_client_mailbox_disconnect(mbox->client_box);
+	imapc_client_mailbox_reconnect(mbox->client_box);
 }
 
 static struct mail_index_view *

@@ -27,7 +27,14 @@ extern const struct imapc_capability_name imapc_capability_names[];
 
 enum imapc_command_flags {
 	/* The command changes the selected mailbox (SELECT, EXAMINE) */
-	IMAPC_COMMAND_FLAG_SELECT	= 0x01
+	IMAPC_COMMAND_FLAG_SELECT	= 0x01,
+	/* The command is sent to server before login (or is the login
+	   command itself). Non-prelogin commands will be queued until login
+	   is successful. */
+	IMAPC_COMMAND_FLAG_PRELOGIN	= 0x02,
+	/* Allow command to be automatically retried if disconnected before it
+	   finishes. */
+	IMAPC_COMMAND_FLAG_RETRIABLE	= 0x04
 };
 
 enum imapc_client_ssl_mode {
@@ -129,16 +136,18 @@ void imapc_client_register_untagged(struct imapc_client *client,
 				    imapc_untagged_callback_t *callback,
 				    void *context);
 
-void imapc_client_run_pre(struct imapc_client *client);
-void imapc_client_run_post(struct imapc_client *client);
+void imapc_client_run(struct imapc_client *client);
 void imapc_client_stop(struct imapc_client *client);
 bool imapc_client_is_running(struct imapc_client *client);
 
 struct imapc_client_mailbox *
 imapc_client_mailbox_open(struct imapc_client *client,
 			  void *untagged_box_context);
+void imapc_client_mailbox_set_reopen_cb(struct imapc_client_mailbox *box,
+					void (*callback)(void *context),
+					void *context);
 void imapc_client_mailbox_close(struct imapc_client_mailbox **box);
-void imapc_client_mailbox_disconnect(struct imapc_client_mailbox *box);
+void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box);
 struct imapc_command *
 imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
 			 imapc_command_callback_t *callback, void *context);
@@ -146,7 +155,7 @@ struct imapc_msgmap *
 imapc_client_mailbox_get_msgmap(struct imapc_client_mailbox *box);
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box);
-bool imapc_client_mailbox_is_connected(struct imapc_client_mailbox *box);
+bool imapc_client_mailbox_is_opened(struct imapc_client_mailbox *box);
 
 enum imapc_capability
 imapc_client_get_capabilities(struct imapc_client *client);

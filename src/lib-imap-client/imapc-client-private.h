@@ -28,8 +28,13 @@ struct imapc_client_mailbox {
 	struct imapc_connection *conn;
 	struct imapc_msgmap *msgmap;
 
+	void (*reopen_callback)(void *context);
+	void *reopen_context;
+
 	void *untagged_box_context;
 	unsigned int pending_box_command_count;
+
+	bool reconnect_ok;
 };
 
 void imapc_client_ref(struct imapc_client *client);

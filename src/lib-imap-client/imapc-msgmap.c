@@ -86,3 +86,9 @@ void imapc_msgmap_expunge(struct imapc_msgmap *msgmap, uint32_t rseq)
 
 	array_delete(&msgmap->uids, rseq-1, 1);
 }
+
+void imapc_msgmap_reset(struct imapc_msgmap *msgmap)
+{
+	array_clear(&msgmap->uids);
+	msgmap->uid_next = 1;
+}

@@ -118,7 +118,7 @@ void imapc_client_register_untagged(struct imapc_client *client,
 	client->untagged_context = context;
 }
 
-void imapc_client_run_pre(struct imapc_client *client)
+static void imapc_client_run_pre(struct imapc_client *client)
 {
 	struct imapc_client_connection *const *connp;
 	struct ioloop *prev_ioloop = current_ioloop;
@@ -138,7 +138,7 @@ void imapc_client_run_pre(struct imapc_client *client)
 	current_ioloop = prev_ioloop;
 }
 
-void imapc_client_run_post(struct imapc_client *client)
+static void imapc_client_run_post(struct imapc_client *client)
 {
 	struct imapc_client_connection *const *connp;
 	struct ioloop *ioloop = client->ioloop;
@@ -149,6 +149,12 @@ void imapc_client_run_post(struct imapc_client *client)
 
 	current_ioloop = ioloop;
 	io_loop_destroy(&ioloop);
+}
+
+void imapc_client_run(struct imapc_client *client)
+{
+	imapc_client_run_pre(client);
+	imapc_client_run_post(client);
 }
 
 void imapc_client_stop(struct imapc_client *client)
@@ -238,16 +244,47 @@ imapc_client_mailbox_open(struct imapc_client *client,
 	return box;
 }
 
-void imapc_client_mailbox_disconnect(struct imapc_client_mailbox *box)
+void imapc_client_mailbox_set_reopen_cb(struct imapc_client_mailbox *box,
+					void (*callback)(void *context),
+					void *context)
 {
-	if (box->conn != NULL)
-		imapc_connection_disconnect(box->conn);
+	box->reopen_callback = callback;
+	box->reopen_context = context;
+}
+
+static void
+imapc_client_reconnect_cb(const struct imapc_command_reply *reply,
+			  void *context)
+{
+	struct imapc_client_mailbox *box = context;
+
+	if (reply->state == IMAPC_COMMAND_STATE_OK) {
+		/* reopen the mailbox */
+		box->reopen_callback(box->reopen_context);
+	}
+}
+
+void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box)
+{
+	imapc_connection_disconnect(box->conn);
+	if (box->reopen_callback != NULL && box->reconnect_ok) {
+		imapc_connection_connect(box->conn,
+					 imapc_client_reconnect_cb, box);
+	}
+	box->reconnect_ok = FALSE;
 }
 
 void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 {
 	struct imapc_client_mailbox *box = *_box;
 	struct imapc_client_connection *const *connp;
+
+	/* cancel any pending commands */
+	imapc_connection_unselect(box);
+
+	/* set this only after unselect, which may cancel some commands that
+	   reference this box */
+	*_box = NULL;
 
 	array_foreach(&box->client->conns, connp) {
 		if ((*connp)->box == box) {
@@ -256,14 +293,8 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 		}
 	}
 
-	if (box->conn != NULL)
-		imapc_connection_unselect(box);
 	imapc_msgmap_deinit(&box->msgmap);
 	i_free(box);
-
-	/* set this only after unselect, which may cancel some commands that
-	   reference this box */
-	*_box = NULL;
 }
 
 struct imapc_command *
@@ -285,24 +316,25 @@ imapc_client_mailbox_get_msgmap(struct imapc_client_mailbox *box)
 
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box)
 {
-	if (imapc_client_mailbox_is_connected(box))
+	if (imapc_client_mailbox_is_opened(box))
 		imapc_connection_idle(box->conn);
+	box->reconnect_ok = TRUE;
 }
 
-bool imapc_client_mailbox_is_connected(struct imapc_client_mailbox *box)
+bool imapc_client_mailbox_is_opened(struct imapc_client_mailbox *box)
 {
 	struct imapc_client_mailbox *selected_box;
 
-	selected_box = box->conn == NULL ? NULL :
-		imapc_connection_get_mailbox(box->conn);
-	if (selected_box == box)
-		return TRUE;
+	if (imapc_connection_get_state(box->conn) != IMAPC_CONNECTION_STATE_DONE)
+		return FALSE;
 
-	if (selected_box != NULL)
-		i_error("imapc: Selected mailbox changed unexpectedly");
-
-	box->conn = NULL;
-	return FALSE;
+	selected_box = imapc_connection_get_mailbox(box->conn);
+	if (selected_box != box) {
+		if (selected_box != NULL)
+			i_error("imapc: Selected mailbox changed unexpectedly");
+		return FALSE;
+	}
+	return TRUE;
 }
 
 enum imapc_capability
