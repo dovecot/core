@@ -35,6 +35,7 @@ struct imapc_client_mailbox {
 	unsigned int pending_box_command_count;
 
 	bool reconnect_ok;
+	bool reconnecting;
 };
 
 void imapc_client_ref(struct imapc_client *client);

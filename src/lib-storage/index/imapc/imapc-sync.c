@@ -44,6 +44,7 @@ static void imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd_str)
 	ctx->sync_command_count++;
 	cmd = imapc_client_mailbox_cmd(ctx->mbox->client_box,
 				       imapc_sync_callback, ctx);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, cmd_str);
 }
 
@@ -365,6 +366,20 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	}
 }
 
+void imapc_sync_mailbox_reopened(struct imapc_mailbox *mbox)
+{
+	struct imapc_sync_context *ctx = mbox->sync_ctx;
+
+	i_assert(mbox->syncing);
+
+	/* we got disconnected while syncing. need to
+	   re-fetch everything */
+	mbox->sync_next_lseq = 1;
+	mbox->sync_next_rseq = 1;
+
+	imapc_sync_cmd(ctx, "UID FETCH 1:* FLAGS");
+}
+
 static int
 imapc_sync_begin(struct imapc_mailbox *mbox,
 		 struct imapc_sync_context **ctx_r, bool force)
@@ -402,6 +417,7 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 	mbox->min_append_uid = mail_index_get_header(ctx->sync_view)->next_uid;
 
 	mbox->syncing = TRUE;
+	mbox->sync_ctx = ctx;
 	if (!mbox->box.deleting)
 		imapc_sync_index(ctx);
 
@@ -429,6 +445,7 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
 	ctx->mbox->syncing = FALSE;
+	ctx->mbox->sync_ctx = NULL;
 
 	/* this is done simply to commit delayed expunges if there are any
 	   (has to be done after sync is committed) */

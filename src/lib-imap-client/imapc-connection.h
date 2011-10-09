@@ -25,6 +25,7 @@ void imapc_connection_connect(struct imapc_connection *conn,
 			      imapc_command_callback_t *login_callback,
 			      void *login_context);
 void imapc_connection_disconnect(struct imapc_connection *conn);
+void imapc_connection_abort_commands(struct imapc_connection *conn);
 void imapc_connection_ioloop_changed(struct imapc_connection *conn);
 void imapc_connection_input_pending(struct imapc_connection *conn);
 

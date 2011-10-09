@@ -80,6 +80,7 @@ struct imapc_mailbox {
 	struct imapc_mail_cache prev_mail_cache;
 
 	uint32_t prev_skipped_rseq, prev_skipped_uid;
+	struct imapc_sync_context *sync_ctx;
 
 	unsigned int selecting:1;
 	unsigned int syncing:1;

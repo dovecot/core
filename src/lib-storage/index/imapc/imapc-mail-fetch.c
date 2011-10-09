@@ -109,6 +109,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_mail_prefetch_callback, mail);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, str_c(str));
 	mail->imail.data.prefetch_sent = TRUE;
 	return 0;

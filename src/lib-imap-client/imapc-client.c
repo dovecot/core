@@ -258,16 +258,27 @@ imapc_client_reconnect_cb(const struct imapc_command_reply *reply,
 {
 	struct imapc_client_mailbox *box = context;
 
+	i_assert(box->reconnecting);
+	box->reconnecting = FALSE;
+
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		/* reopen the mailbox */
 		box->reopen_callback(box->reopen_context);
+	} else {
+		imapc_connection_abort_commands(box->conn);
 	}
 }
 
 void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box)
 {
+	bool reconnect = box->reopen_callback != NULL && box->reconnect_ok;
+
+	if (reconnect) {
+		i_assert(!box->reconnecting);
+		box->reconnecting = TRUE;
+	}
 	imapc_connection_disconnect(box->conn);
-	if (box->reopen_callback != NULL && box->reconnect_ok) {
+	if (reconnect) {
 		imapc_connection_connect(box->conn,
 					 imapc_client_reconnect_cb, box);
 	}
@@ -281,6 +292,12 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 
 	/* cancel any pending commands */
 	imapc_connection_unselect(box);
+
+	if (box->reconnecting) {
+		/* need to abort the reconnection so it won't try to access
+		   the box */
+		imapc_connection_disconnect(box->conn);
+	}
 
 	/* set this only after unselect, which may cancel some commands that
 	   reference this box */

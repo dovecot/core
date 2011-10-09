@@ -380,6 +380,9 @@ static void imapc_mailbox_reopen(void *context)
 	else
 		imapc_command_sendf(cmd, "SELECT %s", mbox->box.name);
 	mbox->storage->reopen_count++;
+
+	if (mbox->syncing)
+		imapc_sync_mailbox_reopened(mbox);
 }
 
 static void

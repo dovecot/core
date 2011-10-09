@@ -22,5 +22,6 @@ struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 int imapc_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 			      struct mailbox_sync_status *status_r);
+void imapc_sync_mailbox_reopened(struct imapc_mailbox *mbox);
 
 #endif
