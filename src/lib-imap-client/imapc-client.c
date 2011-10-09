@@ -358,9 +358,17 @@ enum imapc_capability
 imapc_client_get_capabilities(struct imapc_client *client)
 {
 	struct imapc_client_connection *const *connp;
+	struct imapc_connection *conn = NULL;
 
-	connp = array_idx(&client->conns, 0);
-	return imapc_connection_get_capabilities((*connp)->conn);
+	/* try to find a connection that is already logged in */
+	array_foreach(&client->conns, connp) {
+		conn = (*connp)->conn;
+		if (imapc_connection_get_state(conn) == IMAPC_CONNECTION_STATE_DONE)
+			return imapc_connection_get_capabilities(conn);
+	}
+
+	/* fallback to whatever exists (there always exists one) */
+	return imapc_connection_get_capabilities(conn);
 }
 
 int imapc_client_create_temp_fd(struct imapc_client *client,
