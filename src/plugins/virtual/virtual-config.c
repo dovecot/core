@@ -63,7 +63,7 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 		mail_search_parser_deinit(&parser);
 	}
 
-	imap_parser_destroy(&imap_parser);
+	imap_parser_unref(&imap_parser);
 	i_stream_destroy(&input);
 	return sargs;
 }

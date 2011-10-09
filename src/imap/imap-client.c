@@ -44,7 +44,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	net_set_nonblock(fd_in, TRUE);
 	net_set_nonblock(fd_out, TRUE);
 
-	pool = pool_alloconly_create("imap client", 1024);
+	pool = pool_alloconly_create("imap client", 2048);
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
 	client->set = set;
@@ -210,7 +210,7 @@ void client_destroy(struct client *client, const char *reason)
 	mail_user_unref(&client->user);
 
 	if (client->free_parser != NULL)
-		imap_parser_destroy(&client->free_parser);
+		imap_parser_unref(&client->free_parser);
 	if (client->io != NULL)
 		io_remove(&client->io);
 	if (client->to_idle_output != NULL)
@@ -548,7 +548,7 @@ void client_command_free(struct client_command_context **_cmd)
 		client->mailbox_change_lock = NULL;
 
 	if (client->free_parser != NULL)
-		imap_parser_destroy(&cmd->parser);
+		imap_parser_unref(&cmd->parser);
 	else {
 		imap_parser_reset(cmd->parser);
 		client->free_parser = cmd->parser;

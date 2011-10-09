@@ -118,7 +118,7 @@ const char *imap_id_reply_generate(const char *settings)
 	else
 		ret = imap_id_reply_generate_from_imap_args(args);
 
-	imap_parser_destroy(&parser);
+	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
 	return ret;
 }

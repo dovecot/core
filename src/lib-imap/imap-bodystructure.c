@@ -715,7 +715,7 @@ bool imap_body_parse_from_bodystructure(const char *bodystructure,
 	if (!ret)
 		i_error("Error parsing IMAP bodystructure: %s", bodystructure);
 
-	imap_parser_destroy(&parser);
+	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
 	return ret;
 }

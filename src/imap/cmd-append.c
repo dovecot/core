@@ -145,7 +145,7 @@ static int validate_args(const struct imap_arg *args,
 
 static void cmd_append_finish(struct cmd_append_context *ctx)
 {
-	imap_parser_destroy(&ctx->save_parser);
+	imap_parser_unref(&ctx->save_parser);
 
 	i_assert(ctx->client->input_lock == ctx->cmd);
 

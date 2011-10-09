@@ -392,7 +392,7 @@ bool imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
 		ret = FALSE;
 	}
 
-	imap_parser_destroy(&parser);
+	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
 	return ret;
 }

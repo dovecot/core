@@ -275,7 +275,7 @@ static void imap_client_destroy(struct imap_client **_client)
 	}
 
 	DLLIST_REMOVE(&imap_clients, client);
-	imap_parser_destroy(&client->parser);
+	imap_parser_unref(&client->parser);
 	io_remove(&client->io);
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);

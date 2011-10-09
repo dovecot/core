@@ -44,7 +44,7 @@ static void test_imap_parser_crlf(void)
 	test_assert(imap_parser_read_args(parser, 0, 0, &args) == -1);
 	test_assert(strcmp(imap_parser_get_error(parser, &fatal), "CR sent without LF") == 0 && !fatal);
 
-	imap_parser_destroy(&parser);
+	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
 	test_end();
 }

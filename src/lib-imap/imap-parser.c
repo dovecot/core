@@ -22,6 +22,7 @@ enum arg_parse_type {
 
 struct imap_parser {
 	/* permanent */
+	int refcount;
 	pool_t pool;
 	struct istream *input;
 	struct ostream *output;
@@ -56,6 +57,7 @@ imap_parser_create(struct istream *input, struct ostream *output,
 	struct imap_parser *parser;
 
 	parser = i_new(struct imap_parser, 1);
+	parser->refcount = 1;
 	parser->pool = pool_alloconly_create(MEMPOOL_GROWING"IMAP parser",
 					     1024*10);
 	parser->input = input;
@@ -67,8 +69,20 @@ imap_parser_create(struct istream *input, struct ostream *output,
 	return parser;
 }
 
-void imap_parser_destroy(struct imap_parser **parser)
+void imap_parser_ref(struct imap_parser *parser)
 {
+	i_assert(parser->refcount > 0);
+
+	parser->refcount++;
+}
+
+void imap_parser_unref(struct imap_parser **parser)
+{
+	i_assert((*parser)->refcount > 0);
+
+	if (--(*parser)->refcount > 0)
+		return;
+
 	pool_unref(&(*parser)->pool);
 	i_free(*parser);
 	*parser = NULL;

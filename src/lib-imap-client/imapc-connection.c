@@ -318,7 +318,7 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 		timeout_remove(&conn->to);
 	if (conn->to_output != NULL)
 		timeout_remove(&conn->to_output);
-	imap_parser_destroy(&conn->parser);
+	imap_parser_unref(&conn->parser);
 	io_remove(&conn->io);
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
