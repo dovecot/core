@@ -5,8 +5,9 @@
 #include "str.h"
 #include "imap-util.h"
 #include "index-sync-private.h"
-#include "imapc-storage.h"
 #include "imapc-client.h"
+#include "imapc-msgmap.h"
+#include "imapc-storage.h"
 #include "imapc-sync.h"
 
 static void imapc_sync_callback(const struct imapc_command_reply *reply,
@@ -230,23 +231,63 @@ static void imapc_sync_uid_next(struct imapc_sync_context *ctx)
 	}
 }
 
-static void imapc_initial_sync_check(struct imapc_sync_context *ctx)
+static void
+imapc_initial_sync_check(struct imapc_sync_context *ctx, bool nooped)
 {
-	unsigned int idx_count;
+	struct imapc_msgmap *msgmap =
+		imapc_client_mailbox_get_msgmap(ctx->mbox->client_box);
+	struct mail_index_view *view = ctx->mbox->delayed_sync_view;
+	const struct mail_index_header *hdr = mail_index_get_header(view);
+	uint32_t rseq, lseq, ruid, luid, rcount, lcount;
 
-	idx_count = mail_index_view_get_messages_count(ctx->mbox->delayed_sync_view);
-	if (idx_count >= ctx->mbox->exists_count)
-		return;
+	rseq = lseq = 1;
+	rcount = imapc_msgmap_count(msgmap);
+	lcount = mail_index_view_get_messages_count(view);
+	while (rseq <= rcount || lseq <= lcount) {
+		if (rseq <= rcount)
+			ruid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
+		else
+			ruid = (uint32_t)-1;
+		if (lseq <= lcount)
+			mail_index_lookup_uid(view, lseq, &luid);
+		else
+			luid = (uint32_t)-1;
 
-	/* NOOP should send EXPUNGEs */
-	imapc_mailbox_noop(ctx->mbox);
+		if (ruid == luid) {
+			/* message exists in index and in remote server */
+			lseq++; rseq++;
+		} else if (luid < ruid) {
+			/* message exists in index but not in remote server */
+			if (luid >= ctx->mbox->sync_uid_next) {
+				/* the message was added to index by another
+				   imapc session, and it's not visible yet
+				   in this session */
+				break;
+			}
+			/* it's already expunged and we should have marked it */
+			i_assert(mail_index_is_expunged(view, lseq));
+			lseq++;
+		} else {
+			/* message doesn't exist in index, but exists in
+			   remote server */
+			if (lseq > lcount && ruid >= hdr->next_uid) {
+				/* the message hasn't been yet added to index */
+				break;
+			}
 
-	idx_count = mail_index_view_get_messages_count(ctx->mbox->delayed_sync_view);
-	if (idx_count < ctx->mbox->exists_count) {
-		imapc_mailbox_set_corrupted(ctx->mbox,
-			"Index is missing messages (%u < %u)",
-			idx_count, ctx->mbox->exists_count);
-		ctx->failed = TRUE;
+			/* another imapc session expunged it =>
+			   NOOP should send us an EXPUNGE event */
+			if (!nooped) {
+				imapc_mailbox_noop(ctx->mbox);
+				imapc_initial_sync_check(ctx, TRUE);
+				return;
+			}
+			/* already nooped => index is corrupted */
+			imapc_mailbox_set_corrupted(ctx->mbox,
+				"Expunged message uid=%u reappeared", ruid);
+			ctx->failed = TRUE;
+			rseq++;
+		}
 	}
 }
 
@@ -318,7 +359,8 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		mbox->box.v.sync_notify(&mbox->box, 0, 0);
 
 	if (!mbox->initial_sync_done) {
-		imapc_initial_sync_check(ctx);
+		if (!ctx->failed)
+			imapc_initial_sync_check(ctx, FALSE);
 		mbox->initial_sync_done = TRUE;
 	}
 }
