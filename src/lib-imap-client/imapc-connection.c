@@ -618,7 +618,7 @@ imapc_connection_handle_resp_text(struct imapc_connection *conn,
 		*key_r = text;
 		*value_r = NULL;
 	}
-	return 0;
+	return imapc_connection_handle_resp_text_code(conn, *key_r, *value_r);
 }
 
 static int
@@ -640,10 +640,7 @@ imapc_connection_handle_imap_resp_text(struct imapc_connection *conn,
 		}
 		return 0;
 	}
-	if (imapc_connection_handle_resp_text(conn, text, key_r, value_r) < 0)
-		return -1;
-
-	return imapc_connection_handle_resp_text_code(conn, *key_r, *value_r);
+	return imapc_connection_handle_resp_text(conn, text, key_r, value_r);
 }
 
 static bool need_literal(const char *str)
