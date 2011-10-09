@@ -368,6 +368,8 @@ static void imapc_mailbox_reopen(void *context)
 	/* we're reconnecting and need to reopen the mailbox */
 	mbox->initial_sync_done = FALSE;
 	mbox->selecting = TRUE;
+	mbox->prev_skipped_rseq = 0;
+	mbox->prev_skipped_uid = 0;
 	imapc_msgmap_reset(imapc_client_mailbox_get_msgmap(mbox->client_box));
 
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
