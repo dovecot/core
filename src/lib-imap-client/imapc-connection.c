@@ -873,6 +873,9 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 		/* "+ idling" reply for IDLE command */
 		conn->idle_plus_waiting = FALSE;
 		conn->idling = TRUE;
+		/* no timeouting while IDLEing */
+		if (conn->to != NULL)
+			timeout_remove(&conn->to);
 	} else if (cmds_count > 0 && cmds[0]->wait_for_literal) {
 		/* reply for literal */
 		cmds[0]->wait_for_literal = FALSE;
@@ -1372,8 +1375,8 @@ parse_sync_literal(const unsigned char *data, unsigned int pos,
 	return TRUE;
 }
 
-static void imapc_command_send_done(struct imapc_connection *conn,
-				    struct imapc_command *cmd)
+static void imapc_command_send_finished(struct imapc_connection *conn,
+					struct imapc_command *cmd)
 {
 	if (cmd->idle)
 		conn->idle_plus_waiting = TRUE;
@@ -1487,6 +1490,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 
 		array_delete(&conn->cmd_send_queue, 0, 1);
 		imapc_command_reply_free(cmd, &reply);
+		imapc_command_send_more(conn);
 		return;
 	}
 
@@ -1524,7 +1528,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 	if (cmd->send_pos == cmd->data->used) {
 		i_assert(!array_is_created(&cmd->streams) ||
 			 array_count(&cmd->streams) == 0);
-		imapc_command_send_done(conn, cmd);
+		imapc_command_send_finished(conn, cmd);
 	} else {
 		cmd->wait_for_literal = TRUE;
 	}
@@ -1556,27 +1560,25 @@ static void imapc_connection_cmd_send(struct imapc_command *cmd)
 	struct imapc_connection *conn = cmd->conn;
 
 	imapc_connection_send_idle_done(conn);
-	switch (conn->state) {
-	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
+
+	if ((cmd->flags & IMAPC_COMMAND_FLAG_PRELOGIN) != 0 &&
+	    conn->state == IMAPC_CONNECTION_STATE_AUTHENTICATING) {
+		/* pre-login commands get inserted before everything else */
 		array_insert(&conn->cmd_send_queue, 0, &cmd, 1);
 		imapc_command_send_more(conn);
-		break;
-	case IMAPC_CONNECTION_STATE_DONE:
-		if (cmd->idle) {
-			if (conn->to != NULL)
-				timeout_remove(&conn->to);
-		} else if (conn->to == NULL) {
+		return;
+	}
+
+	if (conn->state == IMAPC_CONNECTION_STATE_DONE) {
+		/* add timeout for commands if there's not one yet
+		   (pre-login has its own timeout) */
+		if (conn->to == NULL) {
 			conn->to = timeout_add(IMAPC_COMMAND_TIMEOUT_MSECS,
 					       imapc_command_timeout, conn);
 		}
-
-		array_append(&conn->cmd_send_queue, &cmd, 1);
-		imapc_command_send_more(conn);
-		break;
-	default:
-		array_append(&conn->cmd_send_queue, &cmd, 1);
-		break;
 	}
+	array_append(&conn->cmd_send_queue, &cmd, 1);
+	imapc_command_send_more(conn);
 }
 
 static int imapc_connection_output(struct imapc_connection *conn)
