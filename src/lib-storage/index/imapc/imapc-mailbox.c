@@ -312,10 +312,11 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		if (!mail_index_lookup_seq(mbox->delayed_sync_view,
 					   uid, &lseq)) {
 			/* already expunged by another session */
+			if (rseq == mbox->sync_next_rseq)
+				mbox->sync_next_rseq++;
 			return;
 		}
 	}
-	rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
 
 	if (rseq == mbox->sync_next_rseq) {
 		/* we're doing the initial full sync of mails. expunge any
@@ -332,6 +333,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		mbox->sync_next_lseq++;
 	}
 
+	rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
 	if (seen_flags && rec->flags != flags) {
 		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
 					MODIFY_REPLACE, flags);
