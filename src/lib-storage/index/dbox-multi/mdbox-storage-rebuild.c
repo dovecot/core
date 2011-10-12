@@ -483,6 +483,8 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	i_assert(box->storage == &ctx->storage->storage.storage);
 	if (mailbox_open(box) < 0) {
 		error = mailbox_get_last_mail_error(box);
+		i_error("Couldn't open mailbox '%s': %s",
+			vname, mailbox_get_last_error(box, NULL));
 		mailbox_free(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
