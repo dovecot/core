@@ -278,6 +278,9 @@ struct mail_vfuncs {
 	void (*set_uid_cache_updates)(struct mail *mail, bool set);
 	bool (*prefetch)(struct mail *mail);
 	void (*precache)(struct mail *mail);
+	void (*add_temp_wanted_fields)(struct mail *mail,
+				       enum mail_fetch_field fields,
+				       struct mailbox_header_lookup_ctx *headers);
 
 	enum mail_flags (*get_flags)(struct mail *mail);
 	const char *const *(*get_keywords)(struct mail *mail);
@@ -330,6 +333,7 @@ struct mail_private {
 	struct mail mail;
 	struct mail_vfuncs v, *vlast;
 
+	/* initial wanted fields/headers, set by mail_alloc(): */
 	enum mail_fetch_field wanted_fields;
 	struct mailbox_header_lookup_ctx *wanted_headers;
 

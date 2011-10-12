@@ -231,8 +231,8 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 		MAIL_FETCH_STREAM_BODY | MAIL_FETCH_UIDL_FILE_NAME |
 		MAIL_FETCH_VIRTUAL_SIZE;
 
-	if (mail->wanted_headers != NULL ||
-	    (mail->wanted_fields & ~allowed_pop3_fields) != 0)
+	if (mail->data.wanted_headers != NULL ||
+	    (mail->data.wanted_fields & ~allowed_pop3_fields) != 0)
 		not_pop3_only = TRUE;
 
 	/* get vsize decisions */
@@ -636,6 +636,7 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_set_uid_cache_updates,
 	index_mail_prefetch,
 	index_mail_precache,
+	index_mail_add_temp_wanted_fields,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

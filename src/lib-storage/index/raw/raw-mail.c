@@ -120,6 +120,7 @@ struct mail_vfuncs raw_mail_vfuncs = {
 	index_mail_set_uid_cache_updates,
 	index_mail_prefetch,
 	index_mail_precache,
+	index_mail_add_temp_wanted_fields,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

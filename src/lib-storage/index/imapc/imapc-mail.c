@@ -180,42 +180,60 @@ imapc_mail_has_headers_in_cache(struct index_mail *mail,
 	return TRUE;
 }
 
-static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
+static void index_mail_update_access_parts(struct index_mail *mail)
 {
-	struct imapc_mail *imail = (struct imapc_mail *)_mail;
-	struct index_mail *mail = &imail->imail;
+	struct mail *_mail = &mail->mail.mail;
+	struct index_mail_data *data = &mail->data;
 	struct mailbox_header_lookup_ctx *header_ctx;
 	time_t date;
 	uoff_t size;
 
-	index_mail_set_seq(_mail, seq, saving);
-
-	if ((mail->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
+	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		(void)index_mail_get_received_date(_mail, &date);
-	if ((mail->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0) {
+	if ((data->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0) {
 		if (index_mail_get_physical_size(_mail, &size) < 0)
-			mail->data.access_part |= READ_HDR | READ_BODY;
+			data->access_part |= READ_HDR | READ_BODY;
 	}
 
-	if (mail->data.access_part == 0 && mail->wanted_headers != NULL) {
+	if (data->access_part == 0 && data->wanted_headers != NULL) {
 		/* see if all wanted headers exist in cache */
-		if (!imapc_mail_has_headers_in_cache(mail, mail->wanted_headers))
-			mail->data.access_part |= PARSE_HDR;
+		if (!imapc_mail_has_headers_in_cache(mail, data->wanted_headers))
+			data->access_part |= PARSE_HDR;
 	}
-	if (mail->data.access_part == 0 &&
-	    (mail->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) != 0) {
+	if (data->access_part == 0 &&
+	    (data->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) != 0) {
 		/* the common code already checked this partially,
 		   but we need a guaranteed correct answer */
 		header_ctx = mailbox_header_lookup_init(_mail->box,
 							imap_envelope_headers);
 		if (!imapc_mail_has_headers_in_cache(mail, header_ctx))
-			mail->data.access_part |= PARSE_HDR;
+			data->access_part |= PARSE_HDR;
 		mailbox_header_lookup_unref(&header_ctx);
 	}
+}
+
+static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
+{
+	struct imapc_mail *imail = (struct imapc_mail *)_mail;
+	struct index_mail *mail = &imail->imail;
+
+	index_mail_set_seq(_mail, seq, saving);
+
 	/* searching code handles prefetching internally,
 	   elsewhere we want to do it immediately */
 	if (!mail->search_mail && !_mail->saving)
 		(void)imapc_mail_prefetch(_mail);
+}
+
+static void
+imapc_mail_add_temp_wanted_fields(struct mail *_mail,
+				  enum mail_fetch_field fields,
+				  struct mailbox_header_lookup_ctx *headers)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+
+	index_mail_add_temp_wanted_fields(_mail, fields, headers);
+	index_mail_update_access_parts(mail);
 }
 
 static void imapc_mail_close(struct mail *_mail)
@@ -257,6 +275,7 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_set_uid_cache_updates,
 	imapc_mail_prefetch,
 	index_mail_precache,
+	imapc_mail_add_temp_wanted_fields,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

@@ -149,7 +149,7 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	if (mbox->prev_mail_cache.uid == _mail->uid)
 		imapc_mail_cache_get(mail, &mbox->prev_mail_cache);
 
-	if ((mail->imail.wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0 &&
+	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0 &&
 	    data->received_date == (time_t)-1)
 		fields |= MAIL_FETCH_RECEIVED_DATE;
 

@@ -665,6 +665,12 @@ void mail_set_seq(struct mail *mail, uint32_t seq);
    mail_*() functions shouldn't be called if FALSE is returned. */
 bool mail_set_uid(struct mail *mail, uint32_t uid);
 
+/* Add wanted fields/headers on top of existing ones. These will be forgotten
+   after the next mail_set_seq/uid(). */
+void mail_add_temp_wanted_fields(struct mail *mail,
+				 enum mail_fetch_field fields,
+				 struct mailbox_header_lookup_ctx *headers);
+
 /* Returns message's flags */
 enum mail_flags mail_get_flags(struct mail *mail);
 /* Returns message's keywords */

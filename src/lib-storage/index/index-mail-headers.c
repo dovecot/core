@@ -151,7 +151,7 @@ get_header_field_idx(struct mailbox *box, const char *field,
 
 bool index_mail_want_parse_headers(struct index_mail *mail)
 {
-	if (mail->wanted_headers != NULL ||
+	if (mail->data.wanted_headers != NULL ||
 	    mail->data.save_bodystructure_header)
 		return TRUE;
 
@@ -185,10 +185,11 @@ static void index_mail_parse_header_register_all_wanted(struct index_mail *mail)
 void index_mail_parse_header_init(struct index_mail *mail,
 				  struct mailbox_header_lookup_ctx *headers)
 {
+	struct index_mail_data *data = &mail->data;
 	const uint8_t *match;
 	unsigned int i, field_idx, match_count;
 
-	mail->header_seq = mail->data.seq;
+	mail->header_seq = data->seq;
 	if (mail->header_data == NULL) {
 		mail->header_data = buffer_create_dynamic(default_pool, 4096);
 		i_array_init(&mail->header_lines, 32);
@@ -217,8 +218,8 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		}
 	}
 
-	if (mail->wanted_headers != NULL && mail->wanted_headers != headers) {
-		headers = mail->wanted_headers;
+	if (data->wanted_headers != NULL && data->wanted_headers != headers) {
+		headers = data->wanted_headers;
 		for (i = 0; i < headers->count; i++) {
 			array_idx_set(&mail->header_match, headers->idx[i],
 				      &mail->header_match_value);
@@ -240,10 +241,10 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	if (field_idx < match_count &&
 	    match[field_idx] == mail->header_match_value) {
 		/* cache Date: header */
-	} else if ((mail->data.cache_fetch_fields & MAIL_FETCH_DATE) != 0 ||
-		   mail->data.save_sent_date) {
+	} else if ((data->cache_fetch_fields & MAIL_FETCH_DATE) != 0 ||
+		   data->save_sent_date) {
 		/* parse Date: header, but don't cache it. */
-		mail->data.dont_cache_field_idx = field_idx;
+		data->dont_cache_field_idx = field_idx;
 		array_idx_set(&mail->header_match, field_idx,
 			      &mail->header_match_value);
 	}

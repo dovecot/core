@@ -63,6 +63,15 @@ bool mail_prefetch(struct mail *mail)
 	return p->v.prefetch(mail);
 }
 
+void mail_add_temp_wanted_fields(struct mail *mail,
+				 enum mail_fetch_field fields,
+				 struct mailbox_header_lookup_ctx *headers)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	p->v.add_temp_wanted_fields(mail, fields, headers);
+}
+
 enum mail_flags mail_get_flags(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;

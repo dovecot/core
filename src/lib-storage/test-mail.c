@@ -63,6 +63,13 @@ static void test_mail_precache(struct mail *mail ATTR_UNUSED)
 {
 }
 
+static void
+test_mail_add_temp_wanted_fields(struct mail *mail ATTR_UNUSED,
+				 enum mail_fetch_field fields ATTR_UNUSED,
+				 struct mailbox_header_lookup_ctx *headers ATTR_UNUSED)
+{
+}
+
 static enum mail_flags test_mail_get_flags(struct mail *mail ATTR_UNUSED)
 {
 	return 0;
@@ -219,6 +226,7 @@ struct mail_vfuncs test_mail_vfuncs = {
 	test_mail_set_uid_cache_updates,
 	test_mail_prefetch,
 	test_mail_precache,
+	test_mail_add_temp_wanted_fields,
 
 	test_mail_get_flags,
 	test_mail_get_keywords,

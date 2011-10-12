@@ -179,6 +179,17 @@ static void virtual_mail_precache(struct mail *mail)
 	p->v.precache(vmail->backend_mail);
 }
 
+static void
+virtual_mail_add_temp_wanted_fields(struct mail *mail,
+				    enum mail_fetch_field fields,
+				    struct mailbox_header_lookup_ctx *headers)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail_private *p = (struct mail_private *)vmail->backend_mail;
+
+	p->v.add_temp_wanted_fields(vmail->backend_mail, fields, headers);
+}
+
 static int virtual_mail_handle_lost(struct virtual_mail *vmail)
 {
 	if (!vmail->lost)
@@ -412,6 +423,7 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_set_uid_cache_updates,
 	virtual_mail_prefetch,
 	virtual_mail_precache,
+	virtual_mail_add_temp_wanted_fields,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

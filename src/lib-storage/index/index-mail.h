@@ -87,6 +87,8 @@ struct index_mail_data {
 	/* dont_cache_fields overrides cache_fields */
 	enum mail_fetch_field cache_fetch_fields, dont_cache_fetch_fields;
 	unsigned int dont_cache_field_idx;
+	enum mail_fetch_field wanted_fields;
+	struct mailbox_header_lookup_ctx *wanted_headers;
 
 	buffer_t *search_results;
 
@@ -126,9 +128,6 @@ struct index_mail {
 
 	pool_t data_pool;
 
-	enum mail_fetch_field wanted_fields;
-	struct mailbox_header_lookup_ctx *wanted_headers;
-
 	int pop3_state;
 
 	/* per-mail variables, here for performance reasons: */
@@ -161,6 +160,9 @@ void index_mail_set_seq(struct mail *mail, uint32_t seq, bool saving);
 bool index_mail_set_uid(struct mail *mail, uint32_t uid);
 void index_mail_set_uid_cache_updates(struct mail *mail, bool set);
 bool index_mail_prefetch(struct mail *mail);
+void index_mail_add_temp_wanted_fields(struct mail *mail,
+				       enum mail_fetch_field fields,
+				       struct mailbox_header_lookup_ctx *headers);
 void index_mail_close(struct mail *mail);
 void index_mail_close_streams(struct index_mail *mail);
 void index_mail_free(struct mail *mail);
