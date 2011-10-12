@@ -203,6 +203,34 @@ mail_log_append_uid(struct mail_log_mail_txn_context *ctx,
 }
 
 static void
+mail_log_update_wanted_fields(struct mail *mail, enum mail_log_field fields)
+{
+	enum mail_fetch_field wanted_fields = 0;
+	struct mailbox_header_lookup_ctx *wanted_headers = NULL;
+	const char *headers[4];
+	unsigned int hdr_idx = 0;
+
+	if ((fields & MAIL_LOG_FIELD_MSGID) != 0)
+		headers[hdr_idx++] = "Message-ID";
+	if ((fields & MAIL_LOG_FIELD_FROM) != 0)
+		headers[hdr_idx++] = "From";
+	if ((fields & MAIL_LOG_FIELD_SUBJECT) != 0)
+		headers[hdr_idx++] = "Subject";
+	if (hdr_idx > 0) {
+		i_assert(hdr_idx < N_ELEMENTS(headers));
+		headers[hdr_idx] = NULL;
+		wanted_headers = mailbox_header_lookup_init(mail->box, headers);
+	}
+
+	if ((fields & MAIL_LOG_FIELD_PSIZE) != 0)
+		wanted_fields |= MAIL_FETCH_PHYSICAL_SIZE;
+	if ((fields & MAIL_LOG_FIELD_VSIZE) != 0)
+		wanted_fields |= MAIL_FETCH_VIRTUAL_SIZE;
+
+	mail_add_temp_wanted_fields(mail, wanted_fields, wanted_headers);
+}
+
+static void
 mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 				  struct mail *mail, enum mail_log_event event,
 				  const char *desc)
@@ -212,8 +240,11 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 	struct mail_log_message *msg;
 	string_t *text;
 	uoff_t size;
-	
+
 	msg = p_new(ctx->pool, struct mail_log_message, 1);
+
+	/* avoid parsing through the message multiple times */
+	mail_log_update_wanted_fields(mail, muser->fields);
 
 	text = t_str_new(128);
 	str_append(text, desc);
