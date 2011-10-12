@@ -150,7 +150,7 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 			return mail_set_aborted(_mail);
 		}
 		fetch_field = get_body ||
-			(mail->imail.wanted_fields & MAIL_FETCH_STREAM_BODY) != 0 ?
+			(data->access_part & READ_BODY) != 0 ?
 			MAIL_FETCH_STREAM_BODY : MAIL_FETCH_STREAM_HEADER;
 		if (imapc_mail_fetch(_mail, fetch_field) < 0)
 			return -1;
