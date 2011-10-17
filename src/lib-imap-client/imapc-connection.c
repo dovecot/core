@@ -1123,7 +1123,10 @@ static int imapc_connection_ssl_handshaked(void *context)
 {
 	struct imapc_connection *conn = context;
 
-	if (!ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
+	if (!conn->client->set.ssl_verify) {
+		/* skip certificate checks */
+		return 0;
+	} else if (!ssl_iostream_has_valid_client_cert(conn->ssl_iostream)) {
 		if (!ssl_iostream_has_broken_client_cert(conn->ssl_iostream)) {
 			i_error("imapc(%s): SSL certificate not received",
 				conn->name);
@@ -1158,9 +1161,11 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	}
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
-	ssl_set.verbose_invalid_cert = TRUE;
-	ssl_set.verify_remote_cert = TRUE;
-	ssl_set.require_valid_cert = TRUE;
+	if (conn->client->set.ssl_verify) {
+		ssl_set.verbose_invalid_cert = TRUE;
+		ssl_set.verify_remote_cert = TRUE;
+		ssl_set.require_valid_cert = TRUE;
+	}
 
 	if (conn->client->set.debug)
 		i_debug("imapc(%s): Starting SSL handshake", conn->name);

@@ -10,6 +10,7 @@ struct imapc_settings {
 
 	const char *imapc_ssl;
 	const char *imapc_ssl_ca_dir;
+	bool imapc_ssl_verify;
 
 	const char *imapc_rawlog_dir;
 };
