@@ -50,7 +50,7 @@ i_stream_mail_set_size_corrupted(struct mail_istream *mstream, size_t size)
 		"Cached message size %s than expected "
 		"(%"PRIuUOFF_T" %c %"PRIuUOFF_T")", str,
 		mstream->expected_size, chr, cur_size);
-	index_mail_set_cache_corrupted(mstream->mail, MAIL_FETCH_PHYSICAL_SIZE);
+	mail_set_cache_corrupted(mstream->mail, MAIL_FETCH_PHYSICAL_SIZE);
 	mstream->istream.istream.stream_errno = EIO;
 }
 
