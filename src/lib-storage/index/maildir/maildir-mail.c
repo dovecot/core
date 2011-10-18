@@ -9,6 +9,7 @@
 #include "maildir-uidlist.h"
 #include "maildir-sync.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -595,35 +596,74 @@ static void maildir_update_pop3_uidl(struct mail *_mail, const char *uidl)
 				MAILDIR_UIDLIST_REC_EXT_POP3_UIDL, uidl);
 }
 
+static void maildir_mail_remove_sizes_from_uidlist(struct mail *mail)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
+
+	if (maildir_uidlist_lookup_ext(mbox->uidlist, mail->uid,
+				       MAILDIR_UIDLIST_REC_EXT_VSIZE) != NULL) {
+		maildir_uidlist_set_ext(mbox->uidlist, mail->uid,
+					MAILDIR_UIDLIST_REC_EXT_VSIZE, NULL);
+	}
+	if (maildir_uidlist_lookup_ext(mbox->uidlist, mail->uid,
+				       MAILDIR_UIDLIST_REC_EXT_PSIZE) != NULL) {
+		maildir_uidlist_set_ext(mbox->uidlist, mail->uid,
+					MAILDIR_UIDLIST_REC_EXT_PSIZE, NULL);
+	}
+}
+
+static void
+maildir_mail_remove_sizes_from_filename(struct mail *mail,
+					enum mail_fetch_field field)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
+	enum maildir_uidlist_rec_flag flags;
+	const char *subdir, *fname, *path, *newpath, *p;
+	uoff_t size;
+
+	if (maildir_sync_lookup(mbox, mail->uid, &flags, &fname) <= 0)
+		return;
+
+	p = strchr(fname, MAILDIR_EXTRA_SEP);
+	if (p == NULL)
+		return;
+
+	subdir = (flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0 ?
+		"new" : "cur";
+	path = t_strdup_printf("%s/%s/%s", mailbox_get_path(&mbox->box),
+			       subdir, fname);
+
+	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
+				      &size) &&
+	    field == MAIL_FETCH_VIRTUAL_SIZE) {
+		mail_storage_set_critical(mail->box->storage,
+			"Maildir filename has wrong W value: %s", path);
+	}
+	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE,
+				      &size) &&
+	    field == MAIL_FETCH_PHYSICAL_SIZE) {
+		mail_storage_set_critical(mail->box->storage,
+			"Maildir filename has wrong S value: %s", path);
+	}
+
+	newpath = t_strdup_printf("%s/%s/%s", mailbox_get_path(&mbox->box),
+				  subdir, t_strdup_until(fname, p));
+	if (rename(path, newpath) == 0) {
+		i_warning("Renamed broken maildir filename %s to %s",
+			  path, newpath);
+	} else {
+		mail_storage_set_critical(mail->box->storage,
+			"rename(%s, %s) failed: %m", path, newpath);
+	}
+}
+
 static void maildir_mail_set_cache_corrupted(struct mail *_mail,
 					     enum mail_fetch_field field)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
-	enum maildir_uidlist_rec_flag flags;
-	const char *fname;
-	uoff_t size;
-	int ret;
-
-	if (field == MAIL_FETCH_VIRTUAL_SIZE) {
-		/* make sure it gets removed from uidlist.
-		   if it's in file name, we can't really do more than log it. */
-		ret = maildir_sync_lookup(mbox, _mail->uid, &flags, &fname);
-		if (ret <= 0)
-			return;
-		if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
-					      &size)) {
-			const char *subdir =
-				(flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0 ?
-				"new" : "cur";
-			mail_storage_set_critical(_mail->box->storage,
-				"Maildir filename has wrong W value: %s/%s/%s",
-				mailbox_get_path(&mbox->box), subdir, fname);
-		} else if (maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
-				MAILDIR_UIDLIST_REC_EXT_VSIZE) != NULL) {
-			maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
-						MAILDIR_UIDLIST_REC_EXT_VSIZE,
-						NULL);
-		}
+	if (field == MAIL_FETCH_PHYSICAL_SIZE ||
+	    field == MAIL_FETCH_VIRTUAL_SIZE) {
+		maildir_mail_remove_sizes_from_uidlist(_mail);
+		maildir_mail_remove_sizes_from_filename(_mail, field);
 	}
 	index_mail_set_cache_corrupted(_mail, field);
 }
