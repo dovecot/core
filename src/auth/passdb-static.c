@@ -24,9 +24,13 @@ static_save_fields(struct auth_request *request, const char **password_r)
 	auth_request_log_debug(request, "static", "lookup");
 	passdb_template_export(module->tmpl, request);
 
-	table = auth_request_get_var_expand_table(request, NULL);
-	var_expand(str, module->static_password_tmpl, table);
-	*password_r = str_c(str);
+	if (module->static_password_tmpl == NULL)
+		*password_r = NULL;
+	else {
+		table = auth_request_get_var_expand_table(request, NULL);
+		var_expand(str, module->static_password_tmpl, table);
+		*password_r = str_c(str);
+	}
 }
 
 static void
