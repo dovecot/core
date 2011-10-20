@@ -216,8 +216,8 @@ static void service_drop_connections(struct service_listener *l)
 		   reach connection limit */
 		service_login_notify(service, TRUE);
 
-		service->listen_pending = TRUE;
 		service_monitor_listen_stop(service);
+		service->listen_pending = TRUE;
 	} else {
 		/* just accept and close the connection, so it's clear that
 		   this is happening because of the limit, rather than because
@@ -302,6 +302,7 @@ void service_monitor_listen_stop(struct service *service)
 			io_remove(&l->io);
 	}
 	service->listening = FALSE;
+	service->listen_pending = FALSE;
 }
 
 static int service_login_create_notify_fd(struct service *service)
