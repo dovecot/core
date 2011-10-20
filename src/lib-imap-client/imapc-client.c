@@ -266,7 +266,7 @@ imapc_client_reconnect_cb(const struct imapc_command_reply *reply,
 		/* reopen the mailbox */
 		box->reopen_callback(box->reopen_context);
 	} else {
-		imapc_connection_abort_commands(box->conn);
+		imapc_connection_abort_commands(box->conn, TRUE, FALSE);
 	}
 }
 

@@ -233,21 +233,23 @@ imapc_connection_abort_commands_array(ARRAY_TYPE(imapc_command) *cmd_array,
 	}
 }
 
-static void
-imapc_connection_abort_commands_full(struct imapc_connection *conn,
-				     bool keep_retriable)
+void imapc_connection_abort_commands(struct imapc_connection *conn,
+				     bool disconnected, bool keep_retriable)
 {
 	struct imapc_command *const *cmdp, *cmd;
 	ARRAY_TYPE(imapc_command) tmp_array;
 	struct imapc_command_reply reply;
 
 	t_array_init(&tmp_array, 8);
-	imapc_connection_abort_commands_array(&conn->cmd_wait_list,
-					      &tmp_array, keep_retriable);
+	if (disconnected) {
+		imapc_connection_abort_commands_array(&conn->cmd_wait_list,
+						      &tmp_array,
+						      keep_retriable);
+	}
 	imapc_connection_abort_commands_array(&conn->cmd_send_queue,
 					      &tmp_array, keep_retriable);
 
-	if (array_count(&conn->cmd_wait_list) > 0) {
+	if (array_count(&conn->cmd_wait_list) > 0 && disconnected) {
 		/* need to move all the waiting commands to send queue */
 		array_append_array(&conn->cmd_wait_list,
 				   &conn->cmd_send_queue);
@@ -269,11 +271,6 @@ imapc_connection_abort_commands_full(struct imapc_connection *conn,
 		cmd->callback(&reply, cmd->context);
 		imapc_command_free(cmd);
 	}
-}
-
-void imapc_connection_abort_commands(struct imapc_connection *conn)
-{
-	imapc_connection_abort_commands_full(conn, FALSE);
 }
 
 static void
@@ -368,13 +365,13 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 	net_disconnect(conn->fd);
 	conn->fd = -1;
 
-	imapc_connection_abort_commands_full(conn, reconnecting);
+	imapc_connection_abort_commands(conn, TRUE, reconnecting);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
 }
 
 static void imapc_connection_set_disconnected(struct imapc_connection *conn)
 {
-	imapc_connection_abort_commands(conn);
+	imapc_connection_abort_commands(conn, TRUE, FALSE);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
 }
 
@@ -1808,7 +1805,7 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 	struct imapc_connection *conn = box->conn;
 
 	imapc_connection_send_idle_done(conn);
-	imapc_connection_abort_commands(conn);
+	imapc_connection_abort_commands(conn, FALSE, FALSE);
 
 	if (conn->selected_box != NULL || conn->selecting_box != NULL) {
 		i_assert(conn->selected_box == box ||
