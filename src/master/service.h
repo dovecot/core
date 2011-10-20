@@ -88,6 +88,9 @@ struct service {
 	/* if a process fails before servicing its first request, assume it's
 	   broken and start throtting new process creations */
 	struct timeout *to_throttle;
+	/* when process_limit is reached, wait for a while until we actually
+	   start dropping pending connections */
+	struct timeout *to_drop;
 
 	/* Last time a "dropping client connections" warning was logged */
 	time_t last_drop_warning;

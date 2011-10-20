@@ -22,10 +22,12 @@
 
 #define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
 #define SERVICE_DROP_WARN_INTERVAL_SECS 60
+#define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
 
 static void service_monitor_start_extra_avail(struct service *service);
 static void service_status_more(struct service_process *process,
 				const struct master_status *status);
+static void service_monitor_listen_start_force(struct service *service);
 
 static void service_process_kill_idle(struct service_process *process)
 {
@@ -195,6 +197,32 @@ static void service_monitor_throttle(struct service *service)
 	service_throttle(service, SERVICE_STARTUP_FAILURE_THROTTLE_SECS);
 }
 
+static void service_drop_timeout(struct service *service)
+{
+	struct service_listener *const *lp;
+	int fd;
+
+	i_assert(service->process_avail == 0);
+
+	/* drop all pending connections */
+	array_foreach(&service->listeners, lp) {
+		while ((fd = net_accept((*lp)->fd, NULL, NULL)) > 0)
+			net_disconnect(fd);
+	}
+
+	service_monitor_listen_start_force(service);
+	service->listen_pending = TRUE;
+}
+
+static void service_monitor_listen_pending(struct service *service)
+{
+	service_monitor_listen_stop(service);
+	service->listen_pending = TRUE;
+
+	service->to_drop = timeout_add(SERVICE_DROP_TIMEOUT_MSECS,
+				       service_drop_timeout, service);
+}
+
 static void service_drop_connections(struct service_listener *l)
 {
 	struct service *service = l->service;
@@ -216,12 +244,16 @@ static void service_drop_connections(struct service_listener *l)
 		   reach connection limit */
 		service_login_notify(service, TRUE);
 
-		service_monitor_listen_stop(service);
-		service->listen_pending = TRUE;
+		service_monitor_listen_pending(service);
+	} else if (!service->listen_pending) {
+		/* maybe this is a temporary peak, stop for a while and
+		   see if it goes away */
+		service_monitor_listen_pending(service);
 	} else {
-		/* just accept and close the connection, so it's clear that
-		   this is happening because of the limit, rather than because
-		   the service processes aren't answering fast enough */
+		/* this has been happening for a while now. just accept and
+		   close the connection, so it's clear that this is happening
+		   because of the limit, rather than because the service
+		   processes aren't answering fast enough */
 		fd = net_accept(l->fd, NULL, NULL);
 		if (fd > 0)
 			net_disconnect(fd);
@@ -271,17 +303,14 @@ static void service_monitor_start_extra_avail(struct service *service)
 	}
 }
 
-void service_monitor_listen_start(struct service *service)
+static void service_monitor_listen_start_force(struct service *service)
 {
 	struct service_listener *const *listeners;
 
-	if (service->process_avail > 0 ||
-	    (service->process_count == service->process_limit &&
-	     service->listen_pending))
-		return;
-
 	service->listening = TRUE;
 	service->listen_pending = FALSE;
+	if (service->to_drop != NULL)
+		timeout_remove(&service->to_drop);
 
 	array_foreach(&service->listeners, listeners) {
 		struct service_listener *l = *listeners;
@@ -289,6 +318,16 @@ void service_monitor_listen_start(struct service *service)
 		if (l->io == NULL && l->fd != -1)
 			l->io = io_add(l->fd, IO_READ, service_accept, l);
 	}
+}
+
+void service_monitor_listen_start(struct service *service)
+{
+	if (service->process_avail > 0 ||
+	    (service->process_count == service->process_limit &&
+	     service->listen_pending))
+		return;
+
+	service_monitor_listen_start_force(service);
 }
 
 void service_monitor_listen_stop(struct service *service)
@@ -303,6 +342,8 @@ void service_monitor_listen_stop(struct service *service)
 	}
 	service->listening = FALSE;
 	service->listen_pending = FALSE;
+	if (service->to_drop != NULL)
+		timeout_remove(&service->to_drop);
 }
 
 static int service_login_create_notify_fd(struct service *service)
