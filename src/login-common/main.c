@@ -111,7 +111,7 @@ client_connected_finish(const struct master_service_connection *conn)
 		local_port = 0;
 	}
 
-	pool = pool_alloconly_create("login client", 5*1024);
+	pool = pool_alloconly_create("login client", 8*1024);
 	set = login_settings_read(pool, &local_ip,
 				  &conn->remote_ip, NULL, &other_sets);
 
