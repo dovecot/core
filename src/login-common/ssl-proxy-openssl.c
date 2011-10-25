@@ -1089,9 +1089,13 @@ static void ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 
 	client = proxy->client;
-	client->set = login_settings_read(client->pool,
-					  &client->local_ip, &client->ip, host,
-					  &other_sets);
+	if (!client->ssl_servername_settings_read) {
+		client->ssl_servername_settings_read = TRUE;
+		client->set = login_settings_read(client->pool,
+						  &client->local_ip,
+						  &client->ip, host,
+						  &other_sets);
+	}
 	ctx = ssl_server_context_get(client->set);
 	SSL_set_SSL_CTX(ssl, ctx->ctx);
 }

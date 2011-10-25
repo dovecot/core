@@ -118,6 +118,7 @@ struct client {
 	unsigned int tls:1;
 	unsigned int secured:1;
 	unsigned int trusted:1;
+	unsigned int ssl_servername_settings_read:1;
 	unsigned int authenticating:1;
 	unsigned int auth_tried_disabled_plaintext:1;
 	unsigned int auth_tried_unsupported_mech:1;
