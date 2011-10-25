@@ -216,6 +216,8 @@ static void service_drop_timeout(struct service *service)
 
 static void service_monitor_listen_pending(struct service *service)
 {
+	i_assert(service->process_avail == 0);
+
 	service_monitor_listen_stop(service);
 	service->listen_pending = TRUE;
 
@@ -297,7 +299,7 @@ static void service_monitor_start_extra_avail(struct service *service)
 			break;
 		}
 	}
-	if (i > 0 && service->listening) {
+	if (i > 0) {
 		/* we created some processes, they'll do the listening now */
 		service_monitor_listen_stop(service);
 	}
