@@ -196,4 +196,12 @@
 #define i_unreached() \
 	i_panic("file %s: line %d: unreached", __FILE__, __LINE__)
 
+/* Convenience macros to test the versions of dovecot. */
+#if defined DOVECOT_VERSION_MAJOR && defined DOVECOT_VERSION_MINOR
+#  define DOVECOT_PREREQ(maj, min) \
+          ((DOVECOT_VERSION_MAJOR << 16) + DOVECOT_VERSION_MINOR >= ((maj) << 16) + (min))
+#else
+#  define DOVECOT_PREREQ(maj, min) 0
+#endif
+
 #endif
