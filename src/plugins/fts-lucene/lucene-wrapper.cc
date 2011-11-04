@@ -143,6 +143,21 @@ void lucene_index_deinit(struct lucene_index *index)
 	i_free(index);
 }
 
+static void lucene_data_translate(struct lucene_index *index,
+				  wchar_t *data, unsigned int len)
+{
+	const char *whitespace_chars = index->set.whitespace_chars;
+	unsigned int i;
+
+	if (*whitespace_chars == '\0')
+		return;
+
+	for (i = 0; i < len; i++) {
+		if (strchr(whitespace_chars, data[i]) != NULL)
+			data[i] = ' ';
+	}
+}
+
 void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
 			    wchar_t *dest, size_t destsize)
 {
@@ -159,10 +174,14 @@ void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
 	dest[destsize-1] = 0;
 }
 
-static const wchar_t *t_lucene_utf8_to_tchar(const char *str)
+static const wchar_t *
+t_lucene_utf8_to_tchar(struct lucene_index *index,
+		       const char *str, bool translate)
 {
 	ARRAY_TYPE(unichars) dest_arr;
-	const unichar_t *ret;
+	const unichar_t *chars;
+	wchar_t *ret;
+	unsigned int len;
 
 	i_assert(sizeof(wchar_t) == sizeof(unichar_t));
 
@@ -170,8 +189,11 @@ static const wchar_t *t_lucene_utf8_to_tchar(const char *str)
 	if (uni_utf8_to_ucs4(str, &dest_arr) < 0)
 		i_unreached();
 	(void)array_append_space(&dest_arr);
-	ret = array_idx(&dest_arr, 0);
-	return (const wchar_t *)ret;
+
+	chars = array_get_modifiable(&dest_arr, &len);
+	ret = (wchar_t *)chars;
+	lucene_data_translate(index, ret, len - 1);
+	return ret;
 }
 
 void lucene_index_select_mailbox(struct lucene_index *index,
@@ -478,6 +500,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 	datasize = uni_utf8_strlen_n(data, size) + 1;
 	wchar_t dest[datasize];
 	lucene_utf8_n_to_tchar(data, size, dest, datasize);
+	lucene_data_translate(index, dest, datasize);
 
 	if (hdr_name != NULL) {
 		/* hdr_name should be ASCII, but don't break in case it isn't */
@@ -1010,7 +1033,7 @@ static Query *
 lucene_get_query_str(struct lucene_index *index,
 		     const TCHAR *key, const char *str, bool fuzzy)
 {
-	const TCHAR *wvalue = t_lucene_utf8_to_tchar(str);
+	const TCHAR *wvalue = t_lucene_utf8_to_tchar(index, str, TRUE);
 	Analyzer *analyzer = guess_analyzer(index, str, strlen(str));
 	if (analyzer == NULL)
 		analyzer = index->default_analyzer;
@@ -1067,7 +1090,7 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 		}
 
 		q = lucene_get_query(index,
-				     t_lucene_utf8_to_tchar(arg->hdr_field_name),
+				     t_lucene_utf8_to_tchar(index, arg->hdr_field_name, FALSE),
 				     arg);
 		break;
 	default:

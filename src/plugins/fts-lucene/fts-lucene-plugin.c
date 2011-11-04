@@ -26,6 +26,8 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 			set->textcat_conf = p_strdup(user->pool, *tmp + 13);
 		} else if (strncmp(*tmp, "textcat_dir=", 12) == 0) {
 			set->textcat_dir = p_strdup(user->pool, *tmp + 12);
+		} else if (strncmp(*tmp, "whitespace_chars=", 17) == 0) {
+			set->whitespace_chars = p_strdup(user->pool, *tmp + 17);
 		} else {
 			i_error("fts_lucene: Invalid setting: %s", *tmp);
 			return -1;
@@ -39,6 +41,8 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 		i_error("fts_lucene: textcat_dir set, but textcat_conf unset");
 		return -1;
 	}
+	if (set->whitespace_chars == NULL)
+		set->whitespace_chars = "";
 #ifndef HAVE_LUCENE_STEMMER
 	if (set->default_language != NULL) {
 		i_error("fts_lucene: default_language set, "
@@ -61,9 +65,11 @@ fts_lucene_plugin_init_settings(struct mail_user *user,
 
 uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 {
-	/* only the default language change matters */
-	return set->default_language == NULL ? 0 :
-		crc32_str(set->default_language);
+	uint32_t crc;
+
+	crc = crc32_str(set->default_language);
+	crc = crc32_str_more(crc, set->whitespace_chars);
+	return crc;
 }
 
 static void fts_lucene_mail_user_created(struct mail_user *user)
