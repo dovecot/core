@@ -213,7 +213,8 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		list_set.escape_char = '%';
 
 		if (mailbox_list_create(list_set.layout, list->list.ns,
-					&list_set, MAILBOX_LIST_FLAG_SECONDARY,
+					&list_set, MAILBOX_LIST_FLAG_SECONDARY |
+					MAILBOX_LIST_FLAG_OPTIONAL_BOXES,
 					&list->index_list, &error) < 0) {
 			i_error("imapc: Couldn't create %s mailbox list: %s",
 				list_set.layout, error);
@@ -505,12 +506,18 @@ static int
 imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_sendf(cmd, "DELETE %s", name);
 	imapc_simple_run(&ctx);
+
+	if (fs_list != NULL && ctx.ret == 0) {
+		name = imapc_list_get_fs_name(list, name);
+		(void)fs_list->v.delete_mailbox(fs_list, name);
+	}
 	return ctx.ret;
 }
 
