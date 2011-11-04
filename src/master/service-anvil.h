@@ -17,6 +17,8 @@ struct service_anvil_global {
 	struct io *io_blocking, *io_nonblocking;
 
 	unsigned int process_count;
+	/* anvil crashed and we're now restarting it */
+	bool restarted;
 };
 
 extern struct service_anvil_global *service_anvil_global;

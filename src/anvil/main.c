@@ -13,10 +13,12 @@
 #include "penalty.h"
 #include "anvil-connection.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 
 struct connect_limit *connect_limit;
 struct penalty *penalty;
+bool anvil_restarted;
 static struct io *log_fdpass_io;
 
 static void client_connected(struct master_service_connection *conn)
@@ -65,6 +67,7 @@ int main(int argc, char *argv[])
 
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
+	anvil_restarted = getenv("ANVIL_RESTARTED") != NULL;
 
 	/* delay dying until all of our clients are gone */
 	master_service_set_die_with_master(master_service, FALSE);

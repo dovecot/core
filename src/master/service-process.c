@@ -188,6 +188,10 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 	master_service_env_clean();
 
 	switch (service->type) {
+	case SERVICE_TYPE_ANVIL:
+		if (service_anvil_global->restarted)
+			env_put("ANVIL_RESTARTED=1");
+		break;
 	case SERVICE_TYPE_CONFIG:
 		env_put(t_strconcat(MASTER_CONFIG_FILE_ENV"=",
 				    service->config_file_path, NULL));
