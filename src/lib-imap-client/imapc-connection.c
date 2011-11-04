@@ -1150,6 +1150,7 @@ static int imapc_connection_ssl_handshaked(void *context)
 static int imapc_connection_ssl_init(struct imapc_connection *conn)
 {
 	struct ssl_iostream_settings ssl_set;
+	struct stat st;
 	const char *source;
 
 	if (conn->client->ssl_ctx == NULL) {
@@ -1194,7 +1195,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 		return -1;
 	}
 
-	if (*conn->client->set.rawlog_dir != '\0') {
+	if (*conn->client->set.rawlog_dir != '\0' &&
+	    stat(conn->client->set.rawlog_dir, &st) == 0) {
 		(void)iostream_rawlog_create(conn->client->set.rawlog_dir,
 					     &conn->input, &conn->output);
 	}
@@ -1268,6 +1270,7 @@ static void imapc_connection_reset_idle(struct imapc_connection *conn)
 static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip;
+	struct stat st;
 	int fd;
 
 	conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
@@ -1282,7 +1285,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->output = conn->raw_output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 
 	if (*conn->client->set.rawlog_dir != '\0' &&
-	    conn->client->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
+	    conn->client->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE &&
+	    stat(conn->client->set.rawlog_dir, &st) == 0) {
 		(void)iostream_rawlog_create(conn->client->set.rawlog_dir,
 					     &conn->input, &conn->output);
 	}
