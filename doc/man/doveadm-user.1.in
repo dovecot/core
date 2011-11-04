@@ -1,11 +1,12 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-USER 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.\" Copyright (c) 2010-2011 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-USER 1 "2011-11-04" "Dovecot v2.0" "Dovecot"
 .SH NAME
 doveadm\-user \- Perform a user lookup in Dovecot\(aqs userdbs
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] " user
 [\fB\-a\fP \fIuserdb_socket_path\fP]
+[\fB\-f\fP \fIfield\fP]
 [\fB\-x\fP \fIauth_info\fP]
 .IR user\  ...
 .\"------------------------------------------------------------------------
@@ -56,6 +57,12 @@ The socket may be located in another directory, when the default
 .I base_dir
 setting was overridden in
 .IR @pkgsysconfdir@/dovecot.conf .
+.\"-------------------------------------
+.TP
+.BI \-f\  field
+When this option and the name of a userdb field is given,
+.BR doveadm (1)
+will show only the value of the specified field.
 .\"-------------------------------------
 .TP
 .BI \-x\  auth_info
