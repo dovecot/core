@@ -1307,7 +1307,9 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		enum mailbox_existence existence;
 		int ret;
 
-		box = mailbox_alloc(list, "INBOX", 0);
+		/* kludge: with imapc backend we can get here with
+		   list=Maildir++ (for indexes), but list->ns->list=imapc */
+		box = mailbox_alloc(list->ns->list, "INBOX", 0);
 		ret = mailbox_exists(box, FALSE, &existence);
 		mailbox_free(&box);
 		if (ret < 0) {
@@ -1730,8 +1732,13 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	index_dir = mailbox_list_get_path(list, name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*index_dir == '\0' || strcmp(index_dir, root_dir) == 0)
+	if (*index_dir == '\0')
 		return 0;
+	if (strcmp(index_dir, root_dir) == 0) {
+		if ((list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) == 0)
+			return 0;
+		/* the directory might not have been created yet */
+	}
 
 	if (name == NULL) {
 		return mailbox_list_mkdir_root(list, index_dir,

@@ -361,7 +361,7 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		ret = fs_list_delete_maildir(list, name);
 	}
 
-	if (ret == 0 || (list->flags & MAILBOX_LIST_FLAG_OPTIONAL_BOXES) != 0)
+	if (ret == 0 || (list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) != 0)
 		mailbox_list_delete_finish(list, name);
 	return ret;
 }

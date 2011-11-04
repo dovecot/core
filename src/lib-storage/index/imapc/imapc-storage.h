@@ -5,6 +5,7 @@
 
 #define IMAPC_STORAGE_NAME "imapc"
 #define IMAPC_INDEX_PREFIX "dovecot.index"
+#define IMAPC_LIST_ESCAPE_CHAR '%'
 
 struct imap_arg;
 struct imapc_untagged_reply;

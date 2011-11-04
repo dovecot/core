@@ -205,16 +205,11 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 	} else if (list->index_list == NULL && !list->index_list_failed) {
 		memset(&list_set, 0, sizeof(list_set));
 		list_set.layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
-		/* the root dir shouldn't actually ever be used. we just need
-		   it to be different from index_dir so the index directories
-		   get autocreated */
 		list_set.root_dir = dir;
-		list_set.index_dir = t_strconcat(dir, "/indexes", NULL);
-		list_set.escape_char = '%';
+		list_set.escape_char = IMAPC_LIST_ESCAPE_CHAR;
 
 		if (mailbox_list_create(list_set.layout, list->list.ns,
-					&list_set, MAILBOX_LIST_FLAG_SECONDARY |
-					MAILBOX_LIST_FLAG_OPTIONAL_BOXES,
+					&list_set, MAILBOX_LIST_FLAG_SECONDARY,
 					&list->index_list, &error) < 0) {
 			i_error("imapc: Couldn't create %s mailbox list: %s",
 				list_set.layout, error);
@@ -589,16 +584,18 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 	i_assert(list->sep != '\0');
 
 	vname = mailbox_list_default_get_vname(_list, name);
-	node = mailbox_tree_lookup(list->mailboxes, vname);
-	if (node != NULL)
-		node->flags |= MAILBOX_NONEXISTENT;
+	if (!list->refreshed_mailboxes) {
+		node = mailbox_tree_lookup(list->mailboxes, vname);
+		if (node != NULL)
+			node->flags |= MAILBOX_NONEXISTENT;
 
-	/* refresh the mailbox flags */
-	cmd = imapc_list_simple_context_init(&sctx, list);
-	imapc_command_sendf(cmd, "LIST \"\" %s", name);
-	imapc_simple_run(&sctx);
-	if (sctx.ret < 0)
-		return -1;
+		/* refresh the mailbox flags */
+		cmd = imapc_list_simple_context_init(&sctx, list);
+		imapc_command_sendf(cmd, "LIST \"\" %s", name);
+		imapc_simple_run(&sctx);
+		if (sctx.ret < 0)
+			return -1;
+	}
 
 	node = mailbox_tree_lookup(list->mailboxes, vname);
 	if (node == NULL)
@@ -610,7 +607,7 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 
 struct mailbox_list imapc_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_IMAPC,
-	.props = MAILBOX_LIST_PROP_NO_ROOT,
+	.props = MAILBOX_LIST_PROP_NO_ROOT | MAILBOX_LIST_PROP_AUTOCREATE_DIRS,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	{
