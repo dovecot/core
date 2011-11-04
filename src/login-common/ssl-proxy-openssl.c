@@ -931,6 +931,10 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set)
 	/* enable all SSL workarounds */
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
 
+#ifdef SSL_MODE_RELEASE_BUFFERS
+	SSL_CTX_set_mode(ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
+#endif
+
 	if (*set->ssl_ca != '\0') {
 		/* set trusted CA certs */
 		store = SSL_CTX_get_cert_store(ssl_ctx);
