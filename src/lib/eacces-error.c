@@ -26,32 +26,41 @@ static bool is_in_group(gid_t gid)
 	return FALSE;
 }
 
-static int test_access(const char *path, int mode, string_t *errmsg)
+static void write_eacces_error(string_t *errmsg, const char *path, int mode)
 {
-	struct stat st;
+	char c;
 
-	if (getuid() == geteuid()) {
-		if (access(path, mode) == 0)
-			return 0;
-
-		if (errno != EACCES) {
-			str_printfa(errmsg, " access(%s, %d) failed: %m",
-				    path, mode);
-		}
-		return -1;
-	} 
-
-	/* access() uses real uid, not effective uid.
-	   we'll have to do these checks manually. */
 	switch (mode) {
+	case R_OK:
+		c = 'r';
+		break;
+	case W_OK:
+		c = 'w';
+		break;
 	case X_OK:
-		if (stat(t_strconcat(path, "/test", NULL), &st) == 0)
-			return 0;
-		if (errno == ENOENT || errno == ENOTDIR)
-			return 0;
-		if (errno != EACCES)
-			str_printfa(errmsg, " stat(%s/test) failed: %m", path);
+		c = 'x';
+		break;
+	default:
+		i_unreached();
+	}
+	str_printfa(errmsg, " missing +%c perm: %s", c, path);
+}
+
+static int
+test_manual_access(const char *path, int access_mode, bool write_eacces,
+		   string_t *errmsg)
+{
+	const struct group *group;
+	bool user_not_in_group = FALSE;
+	struct stat st;
+	int mode;
+
+	if (stat(path, &st) < 0) {
+		str_printfa(errmsg, " stat(%s) failed: %m", path);
 		return -1;
+	}
+
+	switch (access_mode) {
 	case R_OK:
 		mode = 04;
 		break;
@@ -62,22 +71,75 @@ static int test_access(const char *path, int mode, string_t *errmsg)
 		i_unreached();
 	}
 
-	if (stat(path, &st) < 0) {
-		str_printfa(errmsg, " stat(%s) failed: %m", path);
-		return -1;
-	}
-
 	if (st.st_uid == geteuid())
 		st.st_mode = (st.st_mode & 0700) >> 6;
 	else if (is_in_group(st.st_gid))
 		st.st_mode = (st.st_mode & 0070) >> 3;
-	else
+	else {
+		if ((((st.st_mode & 0070) >> 3) & mode) != 0)
+			user_not_in_group = TRUE;
 		st.st_mode = (st.st_mode & 0007);
+	}
 
 	if ((st.st_mode & mode) != 0)
 		return 0;
+
+	if (write_eacces)
+		write_eacces_error(errmsg, path, access_mode);
+	if (user_not_in_group) {
+		/* group would have had enough permissions,
+		   but we don't belong to the group */
+		str_printfa(errmsg, ", we're not in group %s",
+			    dec2str(st.st_gid));
+		group = getgrgid(st.st_gid);
+		if (group != NULL)
+			str_printfa(errmsg, "(%s)", group->gr_name);
+	}
 	errno = EACCES;
 	return -1;
+}
+
+static int test_access(const char *path, int access_mode, string_t *errmsg)
+{
+	struct stat st;
+
+	if (getuid() == geteuid()) {
+		if (access(path, access_mode) == 0)
+			return 0;
+
+		if (errno == EACCES) {
+			write_eacces_error(errmsg, path, access_mode);
+			(void)test_manual_access(path, access_mode,
+						 FALSE, errmsg);
+			errno = EACCES;
+		} else {
+			str_printfa(errmsg, " access(%s, %d) failed: %m",
+				    path, access_mode);
+		}
+		return -1;
+	} 
+
+	/* access() uses real uid, not effective uid.
+	   we'll have to do these checks manually. */
+	switch (access_mode) {
+	case X_OK:
+		if (stat(t_strconcat(path, "/test", NULL), &st) == 0)
+			return 0;
+		if (errno == ENOENT || errno == ENOTDIR)
+			return 0;
+		if (errno == EACCES)
+			write_eacces_error(errmsg, path, access_mode);
+		else
+			str_printfa(errmsg, " stat(%s/test) failed: %m", path);
+		return -1;
+	case R_OK:
+	case W_OK:
+		break;
+	default:
+		i_unreached();
+	}
+
+	return test_manual_access(path, access_mode, TRUE, errmsg);
 }
 
 static const char *
@@ -156,27 +218,19 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	if (ret == 0) {
 		/* dir is the first parent directory we can stat() */
 		if (test_access(dir, X_OK, errmsg) < 0) {
-			if (errno == EACCES) {
-				str_printfa(errmsg, " missing +x perm: %s", dir);
+			if (errno == EACCES)
 				missing_mode = 1;
-			}
 		} else if (creating && test_access(dir, W_OK, errmsg) < 0) {
-			if (errno == EACCES) {
-				str_printfa(errmsg, " missing +w perm: %s", dir);
+			if (errno == EACCES)
 				missing_mode = 2;
-			}
 		} else if (prev_path == path &&
 			   test_access(path, R_OK, errmsg) < 0) {
-			if (errno == EACCES)
-				str_printfa(errmsg, " missing +r perm: %s", path);
 		} else if (!creating && test_access(path, W_OK, errmsg) < 0) {
 			/* this produces a wrong error if the operation didn't
 			   actually need write permissions, but we don't know
 			   it here.. */
-			if (errno == EACCES) {
-				str_printfa(errmsg, " missing +w perm: %s", path);
+			if (errno == EACCES)
 				missing_mode = 4;
-			}
 		} else {
 			str_append(errmsg, " UNIX perms appear ok "
 				   "(ACL/MAC wrong?)");
