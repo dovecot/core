@@ -316,46 +316,54 @@ static const char *mailbox_list_fs_get_trash_dir(struct mailbox_list *list)
 	return t_strdup_printf("%s/"MAILBOX_LIST_FS_TRASH_DIR_NAME, root_dir);
 }
 
-static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
+static int
+fs_list_delete_maildir(struct mailbox_list *list, const char *name)
 {
 	const char *path, *trash_dir;
-	int ret = 0;
-
-	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
-		if (mailbox_list_delete_mailbox_file(list, name) < 0)
-			return -1;
-		ret = 1;
-	}
+	bool rmdir_path;
+	int ret;
 
 	if (*list->set.maildir_name != '\0' &&
-	    *list->set.mailbox_dir_name != '\0' && ret == 0) {
+	    *list->set.mailbox_dir_name != '\0') {
 		trash_dir = mailbox_list_fs_get_trash_dir(list);
 		ret = mailbox_list_delete_maildir_via_trash(list, name,
 							    trash_dir);
 		if (ret < 0)
 			return -1;
 
-		/* try to delete the parent directory */
-		path = mailbox_list_get_path(list, name,
-					     MAILBOX_LIST_PATH_TYPE_DIR);
-		if (rmdir(path) < 0 && errno != ENOENT &&
-		    errno != ENOTEMPTY && errno != EEXIST) {
-			mailbox_list_set_critical(list, "rmdir(%s) failed: %m",
-						  path);
+		if (ret > 0) {
+			/* try to delete the parent directory */
+			path = mailbox_list_get_path(list, name,
+						     MAILBOX_LIST_PATH_TYPE_DIR);
+			if (rmdir(path) < 0 && errno != ENOENT &&
+			    errno != ENOTEMPTY && errno != EEXIST) {
+				mailbox_list_set_critical(list,
+					"rmdir(%s) failed: %m", path);
+			}
+			return 0;
 		}
 	}
 
-	if (ret == 0) {
-		bool rmdir_path = *list->set.maildir_name != '\0';
+	rmdir_path = *list->set.maildir_name != '\0';
+	path = mailbox_list_get_path(list, name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	return mailbox_list_delete_mailbox_nonrecursive(list, name, path,
+							rmdir_path);
+}
 
-		path = mailbox_list_get_path(list, name,
-					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		if (mailbox_list_delete_mailbox_nonrecursive(list, name, path,
-							     rmdir_path) < 0)
-			return -1;
+static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
+{
+	int ret;
+
+	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
+		ret = mailbox_list_delete_mailbox_file(list, name);
+	} else {
+		ret = fs_list_delete_maildir(list, name);
 	}
-	mailbox_list_delete_finish(list, name);
-	return 0;
+
+	if (ret == 0 || (list->flags & MAILBOX_LIST_FLAG_OPTIONAL_BOXES) != 0)
+		mailbox_list_delete_finish(list, name);
+	return ret;
 }
 
 static int fs_list_rmdir(struct mailbox_list *list, const char *name,

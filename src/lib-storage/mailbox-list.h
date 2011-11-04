@@ -32,7 +32,11 @@ enum mailbox_list_flags {
 	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x01,
 	/* Namespace already has a mailbox list, don't assign this
 	   mailbox list to it. */
-	MAILBOX_LIST_FLAG_SECONDARY		= 0x02
+	MAILBOX_LIST_FLAG_SECONDARY		= 0x02,
+	/* Don't assume that just because a mailbox directory doesn't exist
+	   its index/control directories don't exist (e.g. this is index-only
+	   mailbox list) */
+	MAILBOX_LIST_FLAG_OPTIONAL_BOXES	= 0x04
 };
 
 enum mailbox_info_flags {

@@ -402,16 +402,17 @@ maildir_list_delete_maildir(struct mailbox_list *list, const char *name)
 static int
 maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
+	int ret;
+
 	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
-		if (mailbox_list_delete_mailbox_file(list, name) < 0)
-			return -1;
+		ret = mailbox_list_delete_mailbox_file(list, name);
 	} else {
-		if (maildir_list_delete_maildir(list, name) < 0)
-			return -1;
+		ret = maildir_list_delete_maildir(list, name);
 	}
 
-	mailbox_list_delete_finish(list, name);
-	return 0;
+	if (ret == 0 || (list->flags & MAILBOX_LIST_FLAG_OPTIONAL_BOXES) != 0)
+		mailbox_list_delete_finish(list, name);
+	return ret;
 }
 
 static int maildir_list_delete_dir(struct mailbox_list *list, const char *name)
