@@ -5,6 +5,8 @@
 #include "str.h"
 #include "hex-binary.h"
 #include "file-lock.h"
+#include "message-parser.h"
+#include "message-part-serialize.h"
 #include "mail-index-private.h"
 #include "mail-cache-private.h"
 #include "mail-cache-private.h"
@@ -346,6 +348,41 @@ static void dump_cache_hdr(struct mail_cache *cache)
 	}
 }
 
+static void dump_message_part(string_t *str, const struct message_part *part)
+{
+	for (; part != NULL; part = part->next) {
+		str_append_c(str, '(');
+		str_printfa(str, "pos=%"PRIuUOFF_T" ", part->physical_pos);
+		str_printfa(str, "hdr.p=%"PRIuUOFF_T" ", part->header_size.physical_size);
+		str_printfa(str, "hdr.v=%"PRIuUOFF_T" ", part->header_size.virtual_size);
+		str_printfa(str, "body.p=%"PRIuUOFF_T" ", part->body_size.physical_size);
+		str_printfa(str, "body.v=%"PRIuUOFF_T" ", part->body_size.virtual_size);
+		str_printfa(str, "flags=%x", part->flags);
+		if (part->children != NULL) {
+			str_append_c(str, ' ');
+			dump_message_part(str, part->children);
+		}
+		str_append_c(str, ')');
+	}
+}
+
+static void
+dump_cache_mime_parts(string_t *str, const void *data, unsigned int size)
+{
+	const struct message_part *part;
+	const char *error;
+
+	str_append_c(str, ' ');
+
+	part = message_part_deserialize(pool_datastack_create(), data, size, &error);
+	if (part == NULL) {
+		str_printfa(str, "error: %s", error);
+		return;
+	}
+
+	dump_message_part(str, part);
+}
+
 static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 {
 	struct mail_cache_lookup_iterate_ctx iter;
@@ -387,6 +424,8 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 		case MAIL_CACHE_FIELD_VARIABLE_SIZE:
 		case MAIL_CACHE_FIELD_BITMASK:
 			str_printfa(str, "(%s)", binary_to_hex(data, size));
+			if (strcmp(field->name, "mime.parts") == 0)
+				dump_cache_mime_parts(str, data, size);
 			break;
 		case MAIL_CACHE_FIELD_STRING:
 			if (size > 0)
