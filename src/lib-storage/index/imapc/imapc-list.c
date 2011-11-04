@@ -283,6 +283,29 @@ imapc_list_simple_context_init(struct imapc_simple_context *ctx,
 				imapc_list_simple_callback, ctx);
 }
 
+static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
+{
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
+	const char *fs_name;
+
+	if (fs_list == NULL)
+		return;
+
+	iter = mailbox_list_iter_init(fs_list, "*",
+				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		if (mailbox_tree_lookup(list->mailboxes, info->name) == NULL) {
+			fs_name = mailbox_list_get_storage_name(fs_list,
+								info->name);
+			(void)fs_list->v.delete_mailbox(fs_list, fs_name);
+		}
+	}
+	(void)mailbox_list_iter_deinit(&iter);
+}
+
 static int imapc_list_refresh(struct imapc_mailbox_list *list)
 {
 	struct imapc_command *cmd;
@@ -299,8 +322,10 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	list->mailboxes = mailbox_tree_init(list->sep);
 
 	imapc_simple_run(&ctx);
-	if (ctx.ret == 0)
+	if (ctx.ret == 0) {
 		list->refreshed_mailboxes = TRUE;
+		imapc_list_delete_unused_indexes(list);
+	}
 	return ctx.ret;
 }
 
