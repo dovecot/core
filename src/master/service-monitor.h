@@ -5,7 +5,7 @@
 void services_monitor_start(struct service_list *service_list);
 
 /* Stop services. */
-void services_monitor_stop(struct service_list *service_list);
+void services_monitor_stop(struct service_list *service_list, bool wait);
 
 /* Call after SIGCHLD has been detected */
 void services_monitor_reap_children(void);

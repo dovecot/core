@@ -615,12 +615,13 @@ static void services_kill_timeout(struct service_list *service_list)
 	}
 }
 
-void services_destroy(struct service_list *service_list)
+void services_destroy(struct service_list *service_list, bool wait)
 {
 	/* make sure we log if child processes died unexpectedly */
-        services_monitor_reap_children();
+	service_list->destroying = TRUE;
+	services_monitor_reap_children();
 
-	services_monitor_stop(service_list);
+	services_monitor_stop(service_list, wait);
 
 	if (service_list->refcount > 1 &&
 	    service_list->service_set->shutdown_clients) {

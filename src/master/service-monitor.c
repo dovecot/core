@@ -23,6 +23,7 @@
 #define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
 #define SERVICE_DROP_WARN_INTERVAL_SECS 60
 #define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
+#define MAX_DIE_WAIT_SECS 5
 
 static void service_monitor_start_extra_avail(struct service *service);
 static void service_status_more(struct service_process *process,
@@ -171,8 +172,10 @@ static void service_status_input(struct service *service)
 	if (ret <= 0) {
 		if (ret == 0)
 			service_error(service, "read(status) failed: EOF");
-		else
+		else if (errno != EAGAIN)
 			service_error(service, "read(status) failed: %m");
+		else
+			return;
 		service_monitor_stop(service);
 		return;
 	}
@@ -467,7 +470,28 @@ void service_monitor_stop(struct service *service)
 		timeout_remove(&service->to_throttle);
 }
 
-void services_monitor_stop(struct service_list *service_list)
+static void services_monitor_wait(struct service_list *service_list)
+{
+	struct service *const *servicep;
+	time_t max_wait_time = time(NULL) + MAX_DIE_WAIT_SECS;
+	bool finished;
+
+	for (;;) {
+		finished = TRUE;
+		services_monitor_reap_children();
+		array_foreach(&service_list->services, servicep) {
+			if ((*servicep)->status_fd[0] != -1)
+				service_status_input(*servicep);
+			if ((*servicep)->process_avail > 0)
+				finished = FALSE;
+		}
+		if (finished || time(NULL) > max_wait_time)
+			break;
+		usleep(100000);
+	}
+}
+
+void services_monitor_stop(struct service_list *service_list, bool wait)
 {
 	struct service *const *services;
 
@@ -478,6 +502,13 @@ void services_monitor_stop(struct service_list *service_list)
 			i_error("close(master dead pipe) failed: %m");
 		service_list->master_dead_pipe_fd[0] = -1;
 		service_list->master_dead_pipe_fd[1] = -1;
+	}
+
+	if (wait) {
+		/* we've notified all children that the master is dead.
+		   now wait for the children to either die or to tell that
+		   they're no longer listening for new connections */
+		services_monitor_wait(service_list);
 	}
 
 	array_foreach(&service_list->services, services)
@@ -516,7 +547,8 @@ void services_monitor_reap_children(void)
 		service = process->service;
 		if (status == 0) {
 			/* success */
-			if (service->listen_pending)
+			if (service->listen_pending &&
+			    !service->list->destroying)
 				service_monitor_listen_start(service);
 			throttle = FALSE;
 		} else {
@@ -535,7 +567,8 @@ void services_monitor_reap_children(void)
 			service_monitor_throttle(service);
 		service_stopped = service->status_fd[0] == -1;
 		if (!service_stopped) {
-			service_monitor_start_extra_avail(service);
+			if (!service->list->destroying)
+				service_monitor_start_extra_avail(service);
 			if (service->to_throttle == NULL)
 				service_monitor_listen_start(service);
 		}

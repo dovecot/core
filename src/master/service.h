@@ -126,6 +126,7 @@ struct service_list {
 
 	ARRAY_DEFINE(services, struct service *);
 
+	unsigned int destroying:1;
 	unsigned int destroyed:1;
 	unsigned int sigterm_sent:1;
 	unsigned int sigterm_sent_to_log:1;
@@ -138,7 +139,7 @@ int services_create(const struct master_settings *set,
 		    struct service_list **services_r, const char **error_r);
 
 /* Destroy services */
-void services_destroy(struct service_list *service_list);
+void services_destroy(struct service_list *service_list, bool wait);
 
 void service_list_ref(struct service_list *service_list);
 void service_list_unref(struct service_list *service_list);

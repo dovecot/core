@@ -330,7 +330,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 			 services->config->config_file_path);
 
 	/* switch to new configuration. */
-	services_monitor_stop(services);
+	services_monitor_stop(services, FALSE);
 	if (services_listen_using(new_services, services) < 0) {
 		services_monitor_start(services);
 		return;
@@ -342,7 +342,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		while (service->processes != NULL)
 			service_process_destroy(service->processes);
 	}
-	services_destroy(services);
+	services_destroy(services, FALSE);
 
 	services = new_services;
         services_monitor_start(services);
@@ -455,13 +455,26 @@ static void main_init(const struct master_settings *set)
 	services_monitor_start(services);
 }
 
+static void global_dead_pipe_close(void)
+{
+	if (close(global_master_dead_pipe_fd[0]) < 0)
+		i_error("close(global dead pipe) failed: %m");
+	if (close(global_master_dead_pipe_fd[1]) < 0)
+		i_error("close(global dead pipe) failed: %m");
+	global_master_dead_pipe_fd[0] = -1;
+	global_master_dead_pipe_fd[1] = -1;
+}
+
 static void main_deinit(void)
 {
+	/* kill services and wait for them to die before unlinking pid file */
+	global_dead_pipe_close();
+	services_destroy(services, TRUE);
+
 	if (unlink(pidfile_path) < 0)
 		i_error("unlink(%s) failed: %m", pidfile_path);
 	i_free(pidfile_path);
 
-	services_destroy(services);
 	service_anvil_global_deinit();
 	service_pids_deinit();
 }
