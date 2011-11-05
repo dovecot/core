@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
+#include "buffer.h"
 #include "str.h"
 #include "rfc822-parser.h"
 #include "message-address.h"
@@ -12,12 +13,21 @@
 #include "fts-api-private.h"
 #include "fts-build-mail.h"
 
+/* there are other characters as well, but this doesn't have to be exact */
+#define IS_WORD_WHITESPACE(c) \
+	((c) == ' ' || (c) == '\t' || (c) == '\n')
+/* if we see a word larger than this, just go ahead and split it from
+   wherever */
+#define MAX_WORD_SIZE 1024
+
 struct fts_mail_build_context {
 	struct mail *mail;
 	struct fts_backend_update_context *update_ctx;
 
 	char *content_type, *content_disposition;
 	struct fts_parser *body_parser;
+
+	buffer_t *word_buf;
 };
 
 static void fts_build_parse_content_type(struct fts_mail_build_context *ctx,
@@ -175,6 +185,65 @@ fts_build_body_begin(struct fts_mail_build_context *ctx, bool *binary_body_r)
 	return fts_backend_update_set_build_key(ctx->update_ctx, &key);
 }
 
+static int fts_build_body_block(struct fts_mail_build_context *ctx,
+				struct message_block *block, bool last)
+{
+	unsigned int i;
+
+	i_assert(block->hdr == NULL);
+
+	if ((ctx->update_ctx->backend->flags &
+	     FTS_BACKEND_FLAG_BUILD_FULL_WORDS) == 0) {
+		return fts_backend_update_build_more(ctx->update_ctx,
+						     block->data, block->size);
+	}
+	/* we'll need to send only full words to the backend */
+
+	if (ctx->word_buf != NULL && ctx->word_buf->used > 0) {
+		/* continuing previous word */
+		for (i = 0; i < block->size; i++) {
+			if (IS_WORD_WHITESPACE(block->data[i]))
+				break;
+		}
+		buffer_append(ctx->word_buf, block->data, i);
+		block->data += i;
+		block->size -= i;
+		if (block->size == 0 && ctx->word_buf->used < MAX_WORD_SIZE &&
+		    !last) {
+			/* word is still not finished */
+			return 0;
+		}
+		/* we have a full word, index it */
+		if (fts_backend_update_build_more(ctx->update_ctx,
+						  ctx->word_buf->data,
+						  ctx->word_buf->used) < 0)
+			return -1;
+		buffer_set_used_size(ctx->word_buf, 0);
+	}
+
+	/* find the boundary for last word */
+	if (last)
+		i = block->size;
+	else {
+		for (i = block->size; i > 0; i--) {
+			if (IS_WORD_WHITESPACE(block->data[i-1]))
+				break;
+		}
+	}
+
+	if (fts_backend_update_build_more(ctx->update_ctx, block->data, i) < 0)
+		return -1;
+
+	if (i < block->size) {
+		if (ctx->word_buf == NULL) {
+			ctx->word_buf =
+				buffer_create_dynamic(default_pool, 128);
+		}
+		buffer_append(ctx->word_buf, block->data + i, block->size - i);
+	}
+	return 0;
+}
+
 static int fts_body_parser_finish(struct fts_mail_build_context *ctx)
 {
 	struct message_block block;
@@ -183,9 +252,7 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx)
 	do {
 		memset(&block, 0, sizeof(block));
 		fts_parser_more(ctx->body_parser, &block);
-		if (fts_backend_update_build_more(ctx->update_ctx,
-						  block.data,
-						  block.size) < 0) {
+		if (fts_build_body_block(ctx, &block, FALSE) < 0) {
 			ret = -1;
 			break;
 		}
@@ -282,9 +349,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			i_assert(body_part);
 			if (ctx.body_parser != NULL)
 				fts_parser_more(ctx.body_parser, &block);
-			if (fts_backend_update_build_more(update_ctx,
-							  block.data,
-							  block.size) < 0) {
+			if (fts_build_body_block(&ctx, &block, FALSE) < 0) {
 				ret = -1;
 				break;
 			}
@@ -295,13 +360,16 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		ret = fts_body_parser_finish(&ctx);
 	if (ret == 0 && body_part && !skip_body && !body_added) {
 		/* make sure body is added even when it doesn't exist */
-		ret = fts_backend_update_build_more(update_ctx, NULL, 0);
+		block.data = NULL; block.size = 0;
+		ret = fts_build_body_block(&ctx, &block, TRUE);
 	}
 	if (message_parser_deinit(&parser, &parts) < 0)
 		mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS);
 	message_decoder_deinit(&decoder);
 	i_free(ctx.content_type);
 	i_free(ctx.content_disposition);
+	if (ctx.word_buf != NULL)
+		buffer_free(&ctx.word_buf);
 	return ret < 0 ? -1 : 1;
 }
 

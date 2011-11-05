@@ -55,7 +55,9 @@ enum fts_backend_flags {
 	FTS_BACKEND_FLAG_BINARY_MIME_PARTS	= 0x01,
 	/* Send built text to backend as decomposed titlecase rather than
 	   preserving original case */
-	FTS_BACKEND_FLAG_BUILD_DTCASE		= 0x02
+	FTS_BACKEND_FLAG_BUILD_DTCASE		= 0x02,
+	/* Send only fully indexable words rather than randomly sized blocks */
+	FTS_BACKEND_FLAG_BUILD_FULL_WORDS	= 0x04
 };
 
 struct fts_backend {
