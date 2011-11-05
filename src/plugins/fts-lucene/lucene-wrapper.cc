@@ -1193,11 +1193,11 @@ lucene_index_search(struct lucene_index *index,
 					result->scores_sorted = false;
 				last_uid = uid;
 
-				seq_range_array_add(uids_r, 0, uid);
 				score = array_append_space(&result->scores);
 				score->uid = uid;
 				score->score = hits->score(i);
 			}
+			seq_range_array_add(uids_r, 0, uid);
 		}
 		_CLDELETE(hits);
 		return ret;
