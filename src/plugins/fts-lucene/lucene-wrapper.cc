@@ -509,7 +509,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		wchar_t wname[namesize];
 		lucene_utf8_n_to_tchar((const unsigned char *)hdr_name,
 				       strlen(hdr_name), wname, namesize);
-		index->doc->add(*_CLNEW Field(_T("hdr"), wname, Field::STORE_NO | Field::INDEX_UNTOKENIZED));
+		index->doc->add(*_CLNEW Field(_T("hdr"), wname, Field::STORE_NO | Field::INDEX_TOKENIZED));
 		index->doc->add(*_CLNEW Field(_T("hdr"), dest, Field::STORE_NO | Field::INDEX_TOKENIZED));
 
 		if (fts_header_want_indexed(hdr_name))
