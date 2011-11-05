@@ -1082,12 +1082,9 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
 	case SEARCH_HEADER_COMPRESS_LWSP:
-		if (!fts_header_want_indexed(arg->hdr_field_name))
+		if (!fts_header_want_indexed(arg->hdr_field_name) ||
+		    *arg->value.str == '\0')
 			return false;
-		if (*arg->value.str == '\0') {
-			/* FIXME: handle existence of a search key */
-			return false;
-		}
 
 		q = lucene_get_query(index,
 				     t_lucene_utf8_to_tchar(index, arg->hdr_field_name, FALSE),
@@ -1115,7 +1112,7 @@ static bool
 lucene_add_maybe_query(struct lucene_index *index, BooleanQuery &query,
 		       struct mail_search_arg *arg, bool and_args)
 {
-	Query *q;
+	Query *q = NULL;
 
 	if (arg->match_not && !and_args) {
 		/* FIXME: we could handle this by doing multiple queries.. */
@@ -1126,18 +1123,19 @@ lucene_add_maybe_query(struct lucene_index *index, BooleanQuery &query,
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
 	case SEARCH_HEADER_COMPRESS_LWSP:
+		if (*arg->value.str == '\0') {
+			/* checking potential existence of the header name */
+			q = lucene_get_query_str(index, _T("hdr"),
+						 arg->hdr_field_name, FALSE);
+			break;
+		}
+
 		if (fts_header_want_indexed(arg->hdr_field_name))
 			return false;
 
 		/* we can check if the search key exists in some header and
 		   filter out the messages that have no chance of matching */
-		if (*arg->value.str != '\0')
-			q = lucene_get_query(index, _T("hdr"), arg);
-		else {
-			/* checking potential existence of the header name */
-			q = lucene_get_query_str(index, _T("hdr"),
-						 arg->hdr_field_name, FALSE);
-		}
+		q = lucene_get_query(index, _T("hdr"), arg);
 		break;
 	default:
 		return false;
