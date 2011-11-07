@@ -118,7 +118,7 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mailbox_status status;
-	const char *errstr;
+	const char *path, *errstr;
 	enum mail_error error;
 	enum mailbox_sync_flags sync_flags = MAILBOX_SYNC_FLAG_FULL_READ;
 	int ret = 0;
@@ -127,6 +127,13 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	if (ns == NULL) {
 		i_error("Namespace not found for mailbox %s: ", mailbox);
 		return -1;
+	}
+
+	path = mailbox_list_get_path(ns->list, mailbox,
+				     MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*path == '\0') {
+		i_info("Indexes disabled for Mailbox %s, skipping", mailbox);
+		return 0;
 	}
 
 	box = mailbox_alloc(ns->list, mailbox, 0);
