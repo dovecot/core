@@ -12,6 +12,7 @@
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "ipwd.h"
 #include "master-service.h"
 #include "userdb.h"
 #include "userdb-blocking.h"
@@ -331,9 +332,17 @@ pass_callback(enum passdb_result result,
 
 static const char *auth_restricted_reason(struct auth_master_connection *conn)
 {
-	return t_strdup_printf("%s mode=0666, but not owned by UID %lu",
+	struct passwd pw;
+	const char *namestr;
+
+	if (i_getpwuid(conn->userdb_restricted_uid, &pw) <= 0)
+		namestr = "";
+	else
+		namestr = t_strdup_printf("(%s)", pw.pw_name);
+	return t_strdup_printf("%s mode=0666, but not owned by UID %lu%s",
 			       conn->path,
-			       (unsigned long)conn->userdb_restricted_uid);
+			       (unsigned long)conn->userdb_restricted_uid,
+			       namestr);
 }
 
 static bool
