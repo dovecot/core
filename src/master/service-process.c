@@ -180,18 +180,11 @@ drop_privileges(struct service *service)
 	}
 }
 
-static void
-service_process_setup_environment(struct service *service, unsigned int uid)
+static void service_rpocess_setup_config_environment(struct service *service)
 {
 	const struct master_service_settings *set = service->list->service_set;
 
-	master_service_env_clean();
-
 	switch (service->type) {
-	case SERVICE_TYPE_ANVIL:
-		if (service_anvil_global->restarted)
-			env_put("ANVIL_RESTARTED=1");
-		break;
 	case SERVICE_TYPE_CONFIG:
 		env_put(t_strconcat(MASTER_CONFIG_FILE_ENV"=",
 				    service->config_file_path, NULL));
@@ -211,8 +204,15 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 			services_get_config_socket_path(service->list), NULL));
 		break;
 	}
+}
+
+static void
+service_process_setup_environment(struct service *service, unsigned int uid)
+{
+	master_service_env_clean();
 
 	env_put(MASTER_IS_PARENT_ENV"=1");
+	service_rpocess_setup_config_environment(service);
 	env_put(t_strdup_printf(MASTER_CLIENT_LIMIT_ENV"=%u",
 				service->client_limit));
 	env_put(t_strdup_printf(MASTER_PROCESS_LIMIT_ENV"=%u",
@@ -232,6 +232,9 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 		env_put(t_strconcat(MASTER_SSL_KEY_PASSWORD_ENV"=",
 				    ssl_manual_key_password, NULL));
 	}
+	if (service->type == SERVICE_TYPE_ANVIL &&
+	    service_anvil_global->restarted)
+		env_put("ANVIL_RESTARTED=1");
 }
 
 static void service_process_status_timeout(struct service_process *process)
