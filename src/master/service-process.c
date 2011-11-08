@@ -264,6 +264,11 @@ struct service_process *service_process_create(struct service *service)
 		/* throttling service, don't create new processes */
 		return NULL;
 	}
+	if (service->list->destroying) {
+		/* these services are being destroyed, no point in creating
+		   new processes now */
+		return NULL;
+	}
 
 	if (service->type == SERVICE_TYPE_ANVIL &&
 	    service_anvil_global->pid != 0) {
