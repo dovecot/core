@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-DPKG_STATEDIR=\""$(statedir)"\"
 
 liblogin_la_SOURCES = \
@@ -39,6 +40,6 @@ pkginc_lib_HEADERS = $(headers)
 
 pkglib_LTLIBRARIES = libdovecot-login.la
 libdovecot_login_la_SOURCES = 
-libdovecot_login_la_LIBADD = liblogin.la ../lib-dovecot/libdovecot.la
+libdovecot_login_la_LIBADD = liblogin.la ../lib-ssl-iostream/libssl_iostream.la ../lib-dovecot/libdovecot.la
 libdovecot_login_la_DEPENDENCIES = liblogin.la
 libdovecot_login_la_LDFLAGS = -export-dynamic

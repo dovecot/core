@@ -24,6 +24,7 @@ void ssl_proxy_start(struct ssl_proxy *proxy);
 void ssl_proxy_set_client(struct ssl_proxy *proxy, struct client *client);
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy) ATTR_PURE;
 bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy);
+int ssl_proxy_cert_match_name(struct ssl_proxy *proxy, const char *verify_name);
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy);
 bool ssl_proxy_is_handshaked(const struct ssl_proxy *proxy) ATTR_PURE;
 const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy) ATTR_PURE;

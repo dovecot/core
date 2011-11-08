@@ -2487,7 +2487,7 @@ else
   LIBDOVECOT_STORAGE_LAST='$(top_builddir)/src/lib-storage/list/libstorage_list.la $(top_builddir)/src/lib-storage/index/libstorage_index.la $(top_builddir)/src/lib-storage/libstorage.la $(top_builddir)/src/lib-index/libindex.la'
   LIBDOVECOT_STORAGE_FIRST='$(top_builddir)/src/lib-storage/libstorage_service.la $(top_builddir)/src/lib-storage/register/libstorage_register.la'
   LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_FIRST $LINKED_STORAGE_LIBS $LIBDOVECOT_STORAGE_LAST"
-  LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
+  LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
 fi
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'

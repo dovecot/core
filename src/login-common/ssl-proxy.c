@@ -46,6 +46,12 @@ bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy ATTR_UNUSED)
 	return FALSE;
 }
 
+int ssl_proxy_cert_match_name(struct ssl_proxy *proxy ATTR_UNUSED,
+			      const char *verify_name ATTR_UNUSED)
+{
+	return -1;
+}
+
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy ATTR_UNUSED)
 {
 	return NULL;

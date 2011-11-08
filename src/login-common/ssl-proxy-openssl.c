@@ -19,6 +19,7 @@
 
 #ifdef HAVE_OPENSSL
 
+#include "iostream-openssl.h"
 #include <openssl/crypto.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
@@ -663,6 +664,11 @@ bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy)
 bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy)
 {
 	return proxy->cert_received && proxy->cert_broken;
+}
+
+int ssl_proxy_cert_match_name(struct ssl_proxy *proxy, const char *verify_name)
+{
+	return openssl_cert_match_name(proxy->ssl, verify_name);
 }
 
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)

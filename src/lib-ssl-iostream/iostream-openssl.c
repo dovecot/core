@@ -492,8 +492,7 @@ static const char *get_cname(X509 *cert)
 	return asn1_string_to_c(str);
 }
 
-int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
-				 const char *verify_name)
+int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 {
 	X509 *cert;
 	STACK_OF(GENERAL_NAME) *gnames;
@@ -502,10 +501,7 @@ int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 	bool dns_names = FALSE;
 	unsigned int i, count;
 
-	if (!ssl_iostream_has_valid_client_cert(ssl_io))
-		return -1;
-
-	cert = SSL_get_peer_certificate(ssl_io->ssl);
+	cert = SSL_get_peer_certificate(ssl);
 	i_assert(cert != NULL);
 
 	/* verify against SubjectAltNames */
@@ -527,6 +523,15 @@ int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 		return i < count ? 0 : -1;
 
 	return strcmp(get_cname(cert), verify_name) == 0 ? 0 : -1;
+}
+
+int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
+				 const char *verify_name)
+{
+	if (!ssl_iostream_has_valid_client_cert(ssl_io))
+		return -1;
+
+	return openssl_cert_match_name(ssl_io->ssl, verify_name);
 }
 
 int ssl_iostream_handshake(struct ssl_iostream *ssl_io)
