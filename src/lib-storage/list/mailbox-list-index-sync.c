@@ -98,6 +98,7 @@ mailbox_list_index_sync_name(struct mailbox_list_index_sync_context *ctx,
 	node = parent;
 	if (path[i] == NULL) {
 		/* the entire path exists */
+		i_assert(node != NULL);
 		if (!mail_index_lookup_seq(ctx->view, node->uid, &seq))
 			i_panic("mailbox list index: lost uid=%u", node->uid);
 	} else {
