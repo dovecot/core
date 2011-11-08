@@ -1,5 +1,14 @@
+ - imapc:
+     - prefetching to THREAD and SORT
+     - check all imap extensions and see if some don't work (condstore)
+     - imapc: replacing existing imapc stream in error recovery crashes with
+       file index-mail.c: line 812 (index_mail_stream_destroy_callback):
+       assertion failed: (mail->data.destroying_stream)
+ - SASL success data response: convert to extra roundtrip with imap/pop3,
+   implement somehow to managesieve
+ - per-namespace imapc_* settings?
+
  - mdbox/sdbox index rebuild -> quota rebuild?
- - anvil crash -> Error: Anvil client not compatible with this server (mixed old and new binaries?)
  - solr separate attachments (patch)
  - sql connection pooling: Count lookup latencies, avoid servers with
    significantly higher latencies.
@@ -10,16 +19,11 @@
  - fuzzy: be fuzzy about date/size
  - fix proxy_maybe=fqdn
  - mailbox list index:
-    - indexing name="" probably crashes in index_mailbox_list_sync_name()
     - with in-memory indexes be sure to refresh it more often
     - refreshing could refresh only the parts that are actually requested,
       e.g. %
     - mailbox_get_metadata(guid) could be optimized
     - virtual could use it to avoid keeping all mailboxes open
- - imapc:
-     - lda/lmtp crashes because saved mail's seq=0
-     - prefetching to THREAD and SORT
-     - after LIST "" * is refreshed, delete all unlisted local index dirs
  - check:
     - dsyncing between two namespace separators is probably broken..
  - remove mail_deliver_session after all, do all the stuff transparently
@@ -56,9 +60,6 @@
  - NTLMv1 and LM should be disabled if disable_plaintext_auth=yes
  - SEARCH SENT*/HEADER/etc. doesn't seem optimized when using with TEXT/BODY
  - dict sql: support ignoring some search key hierarchies (e.g. acl "anyone")
-
- - fts-solr: crashes if expunge is done while search is indexing
- - fts-solr: handle DELETE, RENAME. use mailbox GUIDs (optionally)
 
  - mdbox
     - dotlocking: cleanup should delete stale *.lock files
@@ -108,7 +109,6 @@
  - search: use mail_get_parts() only when it's already cached. if it's not,
    add it to cache afterwards.
  - move ssl proxying code to lib-master
- - proxy: verify ssl cert's cname
  - dict pooling
 
 	/* currently non-external transactions can be applied multiple times,
@@ -158,7 +158,6 @@
    - recent_uids assert at least with mbox
  - quota fs: Should values returned by quota be divided by the actual
    filesystem block size instead of hardcoded DEV_BSIZE? not with AIX..
- - lucene: handle replacement chars?
  - squat:
    - wrong indexid
    - fts_build_init() assertion failed: (last_uid < last_uid_locked)
