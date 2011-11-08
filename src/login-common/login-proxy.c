@@ -199,7 +199,8 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 
 	err = net_geterror(proxy->server_fd);
 	if (err != 0) {
-		i_error("proxy: connect(%s, %u) failed: %s",
+		i_error("proxy(%s): connect(%s, %u) failed: %s",
+			proxy->client->virtual_user,
 			proxy->host, proxy->port, strerror(err));
 		proxy_fail_connect(proxy);
                 login_proxy_free(&proxy);
@@ -226,7 +227,8 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 
 static void proxy_connect_timeout(struct login_proxy *proxy)
 {
-	i_error("proxy: connect(%s, %u) timed out", proxy->host, proxy->port);
+	i_error("proxy(%s): connect(%s, %u) timed out",
+		proxy->client->virtual_user, proxy->host, proxy->port);
 	proxy_fail_connect(proxy);
 	login_proxy_free(&proxy);
 }
