@@ -67,6 +67,9 @@ test_manual_access(const char *path, int access_mode, bool write_eacces,
 	case W_OK:
 		mode = 02;
 		break;
+	case X_OK:
+		mode = 01;
+		break;
 	default:
 		i_unreached();
 	}
