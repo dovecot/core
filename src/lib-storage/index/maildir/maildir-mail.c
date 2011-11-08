@@ -620,6 +620,7 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 	enum maildir_uidlist_rec_flag flags;
 	const char *subdir, *fname, *path, *newpath, *p;
 	uoff_t size;
+	char wrong_key;
 
 	if (maildir_sync_lookup(mbox, mail->uid, &flags, &fname) <= 0)
 		return;
@@ -633,27 +634,31 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 	path = t_strdup_printf("%s/%s/%s", mailbox_get_path(&mbox->box),
 			       subdir, fname);
 
-	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
-				      &size) &&
-	    field == MAIL_FETCH_VIRTUAL_SIZE) {
-		mail_storage_set_critical(mail->box->storage,
-			"Maildir filename has wrong W value: %s", path);
-	}
-	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE,
-				      &size) &&
-	    field == MAIL_FETCH_PHYSICAL_SIZE) {
-		mail_storage_set_critical(mail->box->storage,
-			"Maildir filename has wrong S value: %s", path);
+	if (field == MAIL_FETCH_VIRTUAL_SIZE &&
+	    maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
+				      &size)) {
+		wrong_key = 'W';
+	} else if (field == MAIL_FETCH_PHYSICAL_SIZE &&
+		   maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE,
+					     &size)) {
+		wrong_key = 'S';
+	} else {
+		/* the broken size isn't in filename */
+		return;
 	}
 
 	newpath = t_strdup_printf("%s/%s/%s", mailbox_get_path(&mbox->box),
 				  subdir, t_strdup_until(fname, p));
 	if (rename(path, newpath) == 0) {
-		i_warning("Renamed broken maildir filename %s to %s",
-			  path, newpath);
+		mail_storage_set_critical(mail->box->storage,
+			"Maildir filename has wrong %c value, "
+			"renamed the file from %s to %s",
+			wrong_key, path, newpath);
 	} else {
 		mail_storage_set_critical(mail->box->storage,
-			"rename(%s, %s) failed: %m", path, newpath);
+			"Maildir filename has wrong %c value, "
+			"but rename(%s, %s) failed: %m",
+			wrong_key, path, newpath);
 	}
 }
 
