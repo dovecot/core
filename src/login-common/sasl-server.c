@@ -221,6 +221,7 @@ authenticate_callback(struct auth_client_request *request,
 		break;
 	case AUTH_REQUEST_STATUS_OK:
 		client->auth_request = NULL;
+		client->auth_successes++;
 
 		nologin = FALSE;
 		for (i = 0; args[i] != NULL; i++) {

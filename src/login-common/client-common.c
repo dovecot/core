@@ -528,6 +528,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (client->auth_try_aborted && client->auth_attempts == 1)
 		return "(aborted authentication)";
 
+	if (client->auth_successes > 0) {
+		return t_strdup_printf("(internal failure, %u succesful auths)",
+				       client->auth_successes);
+	}
 	return t_strdup_printf("(auth failed, %u attempts)",
 			       client->auth_attempts);
 }

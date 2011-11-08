@@ -106,7 +106,7 @@ struct client {
 	sasl_server_callback_t *sasl_callback;
 
 	unsigned int bad_counter;
-	unsigned int auth_attempts;
+	unsigned int auth_attempts, auth_successes;
 	pid_t mail_pid;
 
 	char *virtual_user;
