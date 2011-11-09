@@ -157,7 +157,7 @@ drop_privileges(struct service *service)
 	unsigned int len;
 
 	if (service->vsz_limit != 0)
-		restrict_process_size(service->vsz_limit/1024, -1U);
+		restrict_process_size(service->vsz_limit/1024/1024, -1U);
 
 	restrict_access_init(&rset);
 	rset.uid = service->uid;
