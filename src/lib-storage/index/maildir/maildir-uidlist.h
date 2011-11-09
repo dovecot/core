@@ -127,6 +127,8 @@ void maildir_uidlist_sync_set_ext(struct maildir_uidlist_sync_ctx *ctx,
 				  struct maildir_uidlist_rec *rec,
 				  enum maildir_uidlist_rec_ext_key key,
 				  const char *value);
+void maildir_uidlist_update_fname(struct maildir_uidlist *uidlist,
+				  const char *filename);
 const char *
 maildir_uidlist_sync_get_full_filename(struct maildir_uidlist_sync_ctx *ctx,
 				       const char *filename);

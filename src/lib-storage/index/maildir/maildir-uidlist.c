@@ -1868,6 +1868,20 @@ bool maildir_uidlist_get_uid(struct maildir_uidlist *uidlist,
 	return TRUE;
 }
 
+void maildir_uidlist_update_fname(struct maildir_uidlist *uidlist,
+				  const char *filename)
+{
+	struct maildir_uidlist_rec *rec;
+
+	rec = hash_table_lookup(uidlist->files, filename);
+	if (rec == NULL)
+		return;
+
+	rec->flags &= ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
+	if (strcmp(rec->filename, filename) != 0)
+		rec->filename = p_strdup(uidlist->record_pool, filename);
+}
+
 const char *
 maildir_uidlist_get_full_filename(struct maildir_uidlist *uidlist,
 				  const char *filename)

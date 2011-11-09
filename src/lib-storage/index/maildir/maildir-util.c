@@ -88,17 +88,22 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 					       &flags, &have_flags);
 	}
 
+	ret = 0;
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
 		path = t_strconcat(mailbox_get_path(&mbox->box),
 				   "/new/", fname, NULL);
 		ret = callback(mbox, path, context);
-		if (ret != 0)
-			return ret;
 	}
-
-	path = t_strconcat(mailbox_get_path(&mbox->box), "/cur/", fname, NULL);
-	ret = callback(mbox, path, context);
+	if (ret == 0) {
+		path = t_strconcat(mailbox_get_path(&mbox->box), "/cur/",
+				   fname, NULL);
+		ret = callback(mbox, path, context);
+	}
+	if (ret > 0 && (flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
+		/* file was found. make sure we remember its latest name. */
+		maildir_uidlist_update_fname(mbox->uidlist, fname);
+	}
 	return ret;
 }
 
