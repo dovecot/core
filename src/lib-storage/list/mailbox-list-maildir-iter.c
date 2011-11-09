@@ -5,12 +5,15 @@
 #include "str.h"
 #include "ioloop.h"
 #include "unlink-directory.h"
+#include "unichar.h"
 #include "imap-match.h"
+#include "imap-utf7.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-delete.h"
 #include "mailbox-list-subscriptions.h"
 #include "mailbox-list-maildir.h"
 
+#include <stdio.h>
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -285,6 +288,28 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 		return 0;
 
 	vname = mailbox_list_get_vname(list, storage_name);
+	if (!uni_utf8_str_is_valid(vname)) {
+		/* the storage_name is completely invalid, rename it to
+		   something more sensible. we could do this for all names that
+		   aren't valid mUTF-7, but that might lead to accidents in
+		   future when UTF-8 storage names are used */
+		const char *src = t_strdup_printf("%s/%s", ctx->dir, fname);
+		string_t *destvname = t_str_new(128);
+		string_t *dest = t_str_new(128);
+
+		(void)uni_utf8_get_valid_data((const void *)fname,
+					      strlen(fname), destvname);
+
+		str_append(dest, ctx->dir);
+		str_append_c(dest, '/');
+		(void)imap_utf8_to_utf7(str_c(destvname), dest);
+
+		if (rename(src, str_c(dest)) < 0 && errno != ENOENT)
+			i_error("rename(%s, %s) failed: %m", src, str_c(dest));
+		/* just skip this in this iteration, we'll see it on the
+		   next list */
+		return 0;
+	}
 
 	/* make sure the pattern matches */
 	match = imap_match(glob, vname);
