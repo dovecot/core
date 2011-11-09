@@ -618,7 +618,7 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
 	enum maildir_uidlist_rec_flag flags;
-	const char *subdir, *fname, *path, *newpath, *p;
+	const char *subdir, *fname, *path, *newpath, *p, *fname_info;
 	uoff_t size;
 	char wrong_key;
 
@@ -647,8 +647,12 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 		return;
 	}
 
-	newpath = t_strdup_printf("%s/%s/%s", mailbox_get_path(&mbox->box),
-				  subdir, t_strdup_until(fname, p));
+	fname_info = strchr(fname, MAILDIR_INFO_SEP);
+	if (fname_info == NULL)
+		fname_info = "";
+
+	newpath = t_strdup_printf("%s/%s/%s%s", mailbox_get_path(&mbox->box),
+				  subdir, t_strdup_until(fname, p), fname_info);
 	if (rename(path, newpath) == 0) {
 		mail_storage_set_critical(mail->box->storage,
 			"Maildir filename has wrong %c value, "
