@@ -291,7 +291,7 @@ static void main_preinit(bool allow_core_dumps)
 static void main_init(const char *login_socket)
 {
 	/* make sure we can't fork() */
-	restrict_process_size((unsigned int)-1, 1);
+	restrict_process_count(1);
 
 	if (restrict_access_get_current_chroot() == NULL) {
 		if (chdir("login") < 0)

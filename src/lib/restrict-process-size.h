@@ -6,13 +6,16 @@
 #  include <sys/resource.h>
 #endif
 
-/* Restrict max. process size. The size is in megabytes, setting it to
-   (unsigned int)-1 sets it unlimited. */
-void restrict_process_size(unsigned int size, unsigned int max_processes);
+/* Restrict max. process size. */
+void restrict_process_size(rlim_t bytes);
+/* Restrict max. number of processes. */
+void restrict_process_count(rlim_t count);
 /* Set fd limit to count. */
-void restrict_fd_limit(unsigned int count);
+void restrict_fd_limit(rlim_t count);
 
 /* Get the core dump size limit. Returns 0 if ok, -1 if lookup failed. */
 int restrict_get_core_limit(rlim_t *limit_r);
+/* Get the process count limit. Returns 0 if ok, -1 if lookup failed. */
+int restrict_get_process_limit(rlim_t *limit_r);
 
 #endif
