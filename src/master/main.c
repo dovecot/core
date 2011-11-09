@@ -428,8 +428,30 @@ static void main_log_startup(void)
 		i_info(STARTUP_STRING);
 }
 
+static void master_set_process_limit(void)
+{
+	struct service *const *servicep;
+	unsigned int process_limit = 0;
+	rlim_t nproc;
+
+	/* we'll just count all the processes that can exist and set the
+	   process limit so that we won't reach it. it's usually higher than
+	   needed, since we'd only need to set it high enough for each
+	   separate UID not to reach the limit, but this is difficult to
+	   guess: mail processes should probably be counted together for a
+	   common vmail user (unless system users are being used), but
+	   we can't really guess what the mail processes are. */
+	array_foreach(&services->services, servicep)
+		process_limit += (*servicep)->process_limit;
+
+	if (restrict_get_process_limit(&nproc) == 0 &&
+	    process_limit > nproc)
+		restrict_process_count(process_limit);
+}
+
 static void main_init(const struct master_settings *set)
 {
+	master_set_process_limit();
 	drop_capabilities();
 
 	/* deny file access from everyone else except owner */
