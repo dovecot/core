@@ -44,7 +44,7 @@ struct service_settings lmtp_service_settings = {
 	.client_limit = 1,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = 0,
+	.vsz_limit = (uoff_t)-1,
 
 	.unix_listeners = { { &lmtp_unix_listeners_buf,
 			      sizeof(lmtp_unix_listeners[0]) } },
