@@ -612,27 +612,53 @@ static void maildir_mail_remove_sizes_from_uidlist(struct mail *mail)
 	}
 }
 
+static int
+do_fix_size(struct maildir_mailbox *mbox, const char *path,
+	    const char *wrong_key_p)
+{
+	const char *fname, *newpath, *extra, *info, *dir;
+
+	fname = strrchr(path, '/');
+	i_assert(fname != NULL);
+	dir = t_strdup_until(path, fname++);
+
+	extra = strchr(fname, MAILDIR_EXTRA_SEP);
+	i_assert(extra != NULL);
+	info = strchr(fname, MAILDIR_INFO_SEP);
+	if (info == NULL) info = "";
+
+	newpath = t_strdup_printf("%s/%s%s", dir,
+				  t_strdup_until(fname, extra), info);
+
+	if (rename(path, newpath) == 0) {
+		mail_storage_set_critical(mbox->box.storage,
+			"Maildir filename has wrong %c value, "
+			"renamed the file from %s to %s",
+			*wrong_key_p, path, newpath);
+		return 1;
+	}
+	if (errno == ENOENT)
+		return 0;
+
+	mail_storage_set_critical(&mbox->storage->storage,
+				  "rename(%s, %s) failed: %m", path, newpath);
+	return -1;
+}
+
 static void
 maildir_mail_remove_sizes_from_filename(struct mail *mail,
 					enum mail_fetch_field field)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
 	enum maildir_uidlist_rec_flag flags;
-	const char *subdir, *fname, *path, *newpath, *p, *fname_info;
+	const char *fname;
 	uoff_t size;
 	char wrong_key;
 
 	if (maildir_sync_lookup(mbox, mail->uid, &flags, &fname) <= 0)
 		return;
-
-	p = strchr(fname, MAILDIR_EXTRA_SEP);
-	if (p == NULL)
+	if (strchr(fname, MAILDIR_EXTRA_SEP) == NULL)
 		return;
-
-	subdir = (flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0 ?
-		"new" : "cur";
-	path = t_strdup_printf("%s/%s/%s", mailbox_get_path(&mbox->box),
-			       subdir, fname);
 
 	if (field == MAIL_FETCH_VIRTUAL_SIZE &&
 	    maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
@@ -647,23 +673,7 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 		return;
 	}
 
-	fname_info = strchr(fname, MAILDIR_INFO_SEP);
-	if (fname_info == NULL)
-		fname_info = "";
-
-	newpath = t_strdup_printf("%s/%s/%s%s", mailbox_get_path(&mbox->box),
-				  subdir, t_strdup_until(fname, p), fname_info);
-	if (rename(path, newpath) == 0) {
-		mail_storage_set_critical(mail->box->storage,
-			"Maildir filename has wrong %c value, "
-			"renamed the file from %s to %s",
-			wrong_key, path, newpath);
-	} else {
-		mail_storage_set_critical(mail->box->storage,
-			"Maildir filename has wrong %c value, "
-			"but rename(%s, %s) failed: %m",
-			wrong_key, path, newpath);
-	}
+	(void)maildir_file_do(mbox, mail->uid, do_fix_size, &wrong_key);
 }
 
 static void maildir_mail_set_cache_corrupted(struct mail *_mail,
