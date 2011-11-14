@@ -33,6 +33,12 @@ static void stats_command_pre(struct client_command_context *cmd)
 	if (suser == NULL || !suser->track_commands)
 		return;
 
+	if (strcasecmp(cmd->name, "IDLE") == 0) {
+		/* IDLE can run forever and waste stats process's memory while
+		   waiting for it to timeout. don't send them. */
+		return;
+	}
+
 	scmd = IMAP_STATS_IMAP_CONTEXT(cmd);
 	if (scmd == NULL) {
 		scmd = p_new(cmd->pool, struct stats_client_command, 1);
