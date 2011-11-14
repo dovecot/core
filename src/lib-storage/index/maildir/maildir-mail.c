@@ -294,11 +294,12 @@ static int maildir_quick_size_lookup(struct index_mail *mail, bool vsize,
 	}
 
 	/* size can be included in filename */
-	if (maildir_filename_get_size(fname,
-				      vsize ? MAILDIR_EXTRA_VIRTUAL_SIZE :
-				      MAILDIR_EXTRA_FILE_SIZE,
-				      size_r))
-		return 1;
+	if (vsize || !mbox->storage->set->maildir_broken_filename_sizes) {
+		if (maildir_filename_get_size(fname,
+				vsize ? MAILDIR_EXTRA_VIRTUAL_SIZE :
+					MAILDIR_EXTRA_FILE_SIZE, size_r))
+			return 1;
+	}
 
 	/* size can be included in uidlist entry */
 	if (!_mail->saving) {
