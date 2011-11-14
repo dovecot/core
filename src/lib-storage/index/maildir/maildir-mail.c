@@ -617,6 +617,7 @@ do_fix_size(struct maildir_mailbox *mbox, const char *path,
 	    const char *wrong_key_p)
 {
 	const char *fname, *newpath, *extra, *info, *dir;
+	struct stat st;
 
 	fname = strrchr(path, '/');
 	i_assert(fname != NULL);
@@ -627,8 +628,17 @@ do_fix_size(struct maildir_mailbox *mbox, const char *path,
 	info = strchr(fname, MAILDIR_INFO_SEP);
 	if (info == NULL) info = "";
 
-	newpath = t_strdup_printf("%s/%s%s", dir,
-				  t_strdup_until(fname, extra), info);
+	if (stat(path, &st) < 0) {
+		if (errno == ENOENT)
+			return 0;
+		mail_storage_set_critical(&mbox->storage->storage,
+					  "stat(%s) failed: %m", path);
+		return -1;
+	}
+
+	newpath = t_strdup_printf("%s/%s,S=%"PRIuUOFF_T"%s", dir,
+				  t_strdup_until(fname, extra),
+				  (uoff_t)st.st_size, info);
 
 	if (rename(path, newpath) == 0) {
 		mail_storage_set_critical(mbox->box.storage,
