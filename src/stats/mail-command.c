@@ -9,6 +9,8 @@
 #include "mail-session.h"
 #include "mail-command.h"
 
+#define MAIL_COMMAND_TIMEOUT_SECS (60*15)
+
 /* commands are sorted by their last_update timestamp, oldest first */
 struct mail_command *stable_mail_commands_head;
 struct mail_command *stable_mail_commands_tail;
@@ -154,6 +156,13 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 	return 0;
 }
 
+static bool mail_command_is_timed_out(struct mail_command *cmd)
+{
+	/* some commands like IDLE can run forever */
+	return ioloop_time - cmd->last_update.tv_sec >
+		MAIL_COMMAND_TIMEOUT_SECS;
+}
+
 void mail_commands_free_memory(void)
 {
 	unsigned int diff;
@@ -163,7 +172,9 @@ void mail_commands_free_memory(void)
 
 		if (cmd->refcount == 0)
 			i_assert(cmd->id == 0);
-		else if (cmd->refcount == 1 && cmd->session->disconnected) {
+		else if (cmd->refcount == 1 &&
+			 (cmd->session->disconnected ||
+			  mail_command_is_timed_out(cmd))) {
 			/* session was probably lost */
 			mail_command_unref(&cmd);
 		} else {
