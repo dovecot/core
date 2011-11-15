@@ -81,6 +81,61 @@ static void mdbox_storage_destroy(struct mail_storage *_storage)
 	dbox_storage_destroy(_storage);
 }
 
+static const char *
+mdbox_storage_find_root_dir(const struct mail_namespace *ns)
+{
+	bool debug = ns->mail_set->mail_debug;
+	const char *home, *path;
+
+	if (mail_user_get_home(ns->user, &home) > 0) {
+		path = t_strconcat(home, "/mdbox", NULL);
+		if (access(path, R_OK|W_OK|X_OK) == 0) {
+			if (debug)
+				i_debug("mdbox: root exists (%s)", path);
+			return path;
+		} 
+		if (debug)
+			i_debug("mdbox: access(%s, rwx): failed: %m", path);
+	}
+	return NULL;
+}
+
+static bool mdbox_storage_autodetect(const struct mail_namespace *ns,
+				     struct mailbox_list_settings *set)
+{
+	bool debug = ns->mail_set->mail_debug;
+	struct stat st;
+	const char *path, *root_dir;
+
+	if (set->root_dir != NULL)
+		root_dir = set->root_dir;
+	else {
+		root_dir = mdbox_storage_find_root_dir(ns);
+		if (root_dir == NULL) {
+			if (debug)
+				i_debug("mdbox: couldn't find root dir");
+			return FALSE;
+		}
+	}
+
+	path = t_strconcat(root_dir, "/"MDBOX_GLOBAL_DIR_NAME, NULL);
+	if (stat(path, &st) < 0) {
+		if (debug)
+			i_debug("mdbox autodetect: stat(%s) failed: %m", path);
+		return FALSE;
+	}
+
+	if (!S_ISDIR(st.st_mode)) {
+		if (debug)
+			i_debug("mdbox autodetect: %s not a directory", path);
+		return FALSE;
+	}
+
+	set->root_dir = root_dir;
+	dbox_storage_get_list_settings(ns, set);
+	return TRUE;
+}
+
 static struct mailbox *
 mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    const char *vname, enum mailbox_flags flags)
@@ -362,7 +417,7 @@ struct mail_storage mdbox_storage = {
 		mdbox_storage_destroy,
 		NULL,
 		dbox_storage_get_list_settings,
-		NULL,
+		mdbox_storage_autodetect,
 		mdbox_mailbox_alloc,
 		mdbox_purge
 	}
