@@ -241,13 +241,19 @@ AS_HELP_STRING([--with-gc], [Use Boehm garbage collector]),
   want_gc=no)
 
 AC_ARG_WITH(storages,
-AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (maildir mbox sdbox mdbox cydir)]), [
+AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (mdbox sdbox maildir mbox cydir imapc)]), [
 	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
-	mail_storages="shared maildir mbox sdbox mdbox cydir imapc")
+	mail_storages="shared mdbox sdbox maildir mbox cydir imapc")
 AC_SUBST(mail_storages)
+mail_storages="$mail_storages raw"
+# drop duplicates
+duplicates=`(for i in $mail_storages; do echo $i; done)|sort|uniq -d|xargs echo`
+if test "$duplicates" != ""; then
+  AC_ERROR([Duplicate --with-storages: $duplicates])
+fi
 
 DC_DOVECOT_MODULEDIR
 
@@ -2443,9 +2449,6 @@ CORE_LIBS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
 STORAGE_LIB='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
 
 LINKED_STORAGE_LIBS=
-mail_storages="$mail_storages raw"
-# drop duplicates
-mail_storages=`(for i in $mail_storages; do echo $i; done)|sort|uniq|xargs echo`
 
 mailbox_list_drivers="maildir imapdir none fs shared"
 have_sdbox=no
