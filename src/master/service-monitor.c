@@ -523,7 +523,7 @@ service_process_failure(struct service_process *process, int status)
 	bool throttle;
 
 	service_process_log_status_error(process, status);
-	throttle = process->total_count == 0;
+	throttle = process->to_status != NULL;
 	service_process_notify_add(service_anvil_global->kills, process);
 	return throttle;
 }
