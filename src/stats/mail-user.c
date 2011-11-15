@@ -85,6 +85,7 @@ static void mail_user_free(struct mail_user *user)
 	i_assert(user->sessions == NULL);
 
 	global_memory_free(mail_user_memsize(user));
+	hash_table_remove(mail_users_hash, user->name);
 	DLLIST_REMOVE_FULL(&stable_mail_users, user,
 			   stable_prev, stable_next);
 	DLLIST2_REMOVE_FULL(&mail_users_head, &mail_users_tail, user,
