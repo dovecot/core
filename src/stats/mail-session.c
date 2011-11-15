@@ -16,10 +16,19 @@
    session. Must be larger than SESSION_STATS_FORCE_REFRESH_SECS in
    stats plugin */
 #define MAIL_SESSION_IDLE_TIMEOUT_MSECS (1000*60*15)
+/* If stats process crashes/restarts, existing processes keep sending status
+   updates to it, but this process doesn't know their GUIDs. If these missing
+   GUIDs are found within this many seconds of starting the stats process,
+   don't log a warning about them. (On a larger installation this avoids
+   flooding the error log with hundreds of warnings.) */
+#define SESSION_GUID_WARN_HIDE_SECS (60*5)
 
 static struct hash_table *mail_sessions_hash;
 /* sessions are sorted by their last_update timestamp, oldest first */
 static struct mail_session *mail_sessions_head, *mail_sessions_tail;
+static time_t session_guid_warn_hide_until;
+static bool session_guid_hide_warned = FALSE;
+
 struct mail_session *stable_mail_sessions;
 
 static size_t mail_session_memsize(const struct mail_session *session)
@@ -145,6 +154,21 @@ static void mail_session_free(struct mail_session *session)
 	i_free(session);
 }
 
+static void mail_session_guid_lost(guid_128_t session_guid)
+{
+	if (ioloop_time < session_guid_warn_hide_until) {
+		if (session_guid_hide_warned)
+			return;
+		session_guid_hide_warned = TRUE;
+		i_warning("stats process appears to have crashed/restarted, "
+			  "hiding missing session GUID warnings for %d seconds",
+			  (int)(session_guid_warn_hide_until - ioloop_time));
+		return;
+	}
+	i_warning("Couldn't find session GUID: %s",
+		  guid_128_to_string(session_guid));
+}
+
 int mail_session_lookup(const char *guid, struct mail_session **session_r,
 			const char **error_r)
 {
@@ -160,8 +184,7 @@ int mail_session_lookup(const char *guid, struct mail_session **session_r,
 	}
 	*session_r = hash_table_lookup(mail_sessions_hash, session_guid);
 	if (*session_r == NULL) {
-		i_warning("Couldn't find session GUID: %s",
-			  guid_128_to_string(session_guid));
+		mail_session_guid_lost(session_guid);
 		return 0;
 	}
 	return 1;
@@ -264,6 +287,8 @@ void mail_sessions_free_memory(void)
 
 void mail_sessions_init(void)
 {
+	session_guid_warn_hide_until =
+		ioloop_time + SESSION_GUID_WARN_HIDE_SECS;
 	mail_sessions_hash =
 		hash_table_create(default_pool, default_pool, 0,
 				  guid_128_hash, guid_128_cmp);
