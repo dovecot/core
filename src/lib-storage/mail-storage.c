@@ -132,7 +132,15 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	struct mail_storage *storage_class = NULL;
 	const char *home;
 
-	if (driver != NULL) {
+	if (driver == NULL) {
+		/* no mail_location, autodetect */
+	} else if (strcmp(driver, "auto") == 0) {
+		/* explicit autodetection with "auto" driver. */
+		if (*list_set->root_dir == '\0') {
+			/* handle the same as with driver=NULL */
+			list_set->root_dir = NULL;
+		}
+	} else {
 		storage_class = mail_storage_find_class(driver);
 		if (storage_class == NULL) {
 			*error_r = t_strdup_printf(
