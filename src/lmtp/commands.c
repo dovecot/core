@@ -426,6 +426,8 @@ int cmd_rcpt(struct client *client, const char *args)
 	input.username = username;
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;
+	input.local_port = client->local_port;
+	input.remote_port = client->remote_port;
 
 	ret = mail_storage_service_lookup(storage_service, &input,
 					  &rcpt.service_user, &error);
