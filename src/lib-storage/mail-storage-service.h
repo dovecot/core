@@ -41,6 +41,7 @@ struct mail_storage_service_input {
 	const char *service;
 	const char *username;
 	struct ip_addr local_ip, remote_ip;
+	unsigned int local_port, remote_port;
 
 	const char *const *userdb_fields;
 
