@@ -857,6 +857,10 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		else
 			i_info("Valid certificate: %s", buf);
 	}
+	if (ctx->error == X509_V_ERR_UNABLE_TO_GET_CRL && proxy->client_proxy) {
+		/* no CRL given with the CA list. don't worry about it. */
+		preverify_ok = 1;
+	}
 	if (!preverify_ok)
 		proxy->cert_broken = TRUE;
 
