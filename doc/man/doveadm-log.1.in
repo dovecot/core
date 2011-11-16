@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-LOG 1 "2010-06-13" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-LOG 1 "2010-06-13" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-log \- Locate, test or reopen Dovecot\(aqs log files
 .\"------------------------------------------------------------------------

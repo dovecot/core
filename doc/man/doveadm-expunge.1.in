@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-EXPUNGE 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-EXPUNGE 1 "2010-11-25" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-expunge \- Expunge messages matching given search query
 .\"------------------------------------------------------------------------

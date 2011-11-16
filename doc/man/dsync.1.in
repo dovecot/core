@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DSYNC 1 "2011-01-16" "Dovecot v2.0" "Dovecot"
+.TH DSYNC 1 "2011-01-16" "Dovecot v2.1" "Dovecot"
 .SH NAME
 dsync \- Dovecot\(aqs mailbox synchronization utility
 .\"------------------------------------------------------------------------

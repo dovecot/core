@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVECONF 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
+.TH DOVECONF 1 "2011-05-11" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveconf \- Dovecot\(aqs configuration dumping utility
 .\"------------------------------------------------------------------------
@@ -141,7 +141,7 @@ for a specific connection.
 .fi
 .PP
 .B doveconf
-can be also used to convert v1.x configuration files into v2.0 format.
+can be also used to convert v1.x configuration files into v2.x format.
 .sp
 .nf
 .B doveconf \-n \-c /oldpath/dovecot.conf > \

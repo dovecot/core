@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-SEARCH 1 "2010-11-25" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-SEARCH 1 "2010-11-25" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-search \- Show a list of mailbox GUIDs and message UIDs matching \
 given search query.

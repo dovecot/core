@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2011 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-INDEX 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-INDEX 1 "2011-05-11" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-index \- Index mailboxes
 .\"------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 .\" Copyright (c) 2011 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-MOVE 1 "2011-09-25" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-MOVE 1 "2011-09-25" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-move \- Move messages matching the given search query into another
 mailbox

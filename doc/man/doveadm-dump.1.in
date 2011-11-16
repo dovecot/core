@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DUMP 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-DUMP 1 "2010-06-22" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-dump \- Dump the content of Dovecot\(aqs binary mailbox index/log
 .\"------------------------------------------------------------------------

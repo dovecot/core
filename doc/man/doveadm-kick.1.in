@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-KICK 1 "2010-06-12" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-KICK 1 "2010-06-12" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-kick \- Disconnect users by user name and/or IP address
 .\"------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-PW 1 "2010-06-22" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-PW 1 "2010-06-22" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-pw \- Dovecot\(aqs password hash generator
 .\"------------------------------------------------------------------------

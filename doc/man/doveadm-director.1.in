@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DIRECTOR 1 "2011-05-11" "Dovecot v2.0" "Dovecot"
+.TH DOVEADM\-DIRECTOR 1 "2011-05-11" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-director \- Manage Dovecot directors
 .\"------------------------------------------------------------------------
