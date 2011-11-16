@@ -224,7 +224,10 @@ mailbox_list_subscriptions_iter_init(struct mailbox_list *list,
 	mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree);
 
 	ctx->info.ns = list->ns;
-	ctx->iter = mailbox_tree_iterate_init(ctx->tree, NULL, 0);
+	/* the tree usually has only those entries we want to iterate through,
+	   but there are also non-matching root entries (e.g. "LSUB foo/%" will
+	   include the "foo"), which we'll drop with MAILBOX_MATCHED. */
+	ctx->iter = mailbox_tree_iterate_init(ctx->tree, NULL, MAILBOX_MATCHED);
 	return &ctx->ctx;
 }
 
