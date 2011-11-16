@@ -612,6 +612,7 @@ config_parse_line(struct config_parser_context *ctx,
 		while (IS_WHITE(*line)) line++;
 
 		if (*line == '<') {
+			while (IS_WHITE(line[1])) line++;
 			*value_r = line + 1;
 			return CONFIG_LINE_TYPE_KEYFILE;
 		}
