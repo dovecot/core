@@ -97,7 +97,7 @@ maildir_storage_find_root_dir(const struct mail_namespace *ns)
 
 	/* we'll need to figure out the maildir location ourself.
 	   It's ~/Maildir unless we are chrooted. */
-	if (mail_user_get_home(ns->user, &home) > 0) {
+	if (mail_user_get_home(ns->owner, &home) > 0) {
 		path = t_strconcat(home, "/Maildir", NULL);
 		if (access(path, R_OK|W_OK|X_OK) == 0) {
 			if (debug)
