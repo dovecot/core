@@ -1154,7 +1154,11 @@ int mailbox_set_subscribed(struct mailbox *box, bool set)
 
 		list = ns->list;
 	}
-	return mailbox_list_set_subscribed(list, subs_name, set);
+	if (mailbox_list_set_subscribed(list, subs_name, set) < 0) {
+		mail_storage_copy_list_error(box->storage, list);
+		return -1;
+	}
+	return 0;
 }
 
 struct mail_storage *mailbox_get_storage(const struct mailbox *box)
