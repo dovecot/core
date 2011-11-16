@@ -504,6 +504,9 @@ bool client_is_trusted(struct client *client)
 
 const char *client_get_extra_disconnect_reason(struct client *client)
 {
+	unsigned int auth_secs = client->auth_first_started == 0 ? 0 :
+		ioloop_time - client->auth_first_started;
+
 	if (client->set->auth_ssl_require_client_cert &&
 	    client->ssl_proxy != NULL) {
 		if (ssl_proxy_has_broken_client_cert(client->ssl_proxy))
@@ -512,8 +515,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			return "(client didn't send a cert)";
 	}
 
-	if (client->auth_attempts == 0)
-		return "(no auth attempts)";
+	if (client->auth_attempts == 0) {
+		return t_strdup_printf("(no auth attempts in %u secs)",
+			(unsigned int)(ioloop_time - client->created));
+	}
 
 	/* some auth attempts without SSL/TLS */
 	if (client->auth_tried_disabled_plaintext)
@@ -523,8 +528,14 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return "(cert required, client didn't start TLS)";
 	if (client->auth_tried_unsupported_mech)
 		return "(tried to use unsupported auth mechanism)";
-	if (client->auth_request != NULL && client->auth_attempts == 1)
-		return "(disconnected while authenticating)";
+	if (client->auth_request != NULL && client->auth_attempts == 1) {
+		return t_strdup_printf("(disconnected while authenticating, "
+				       "waited %u secs)", auth_secs);
+	}
+	if (client->authenticating && client->auth_attempts == 1) {
+		return t_strdup_printf("(disconnected while finishing login, "
+				       "waited %u secs)", auth_secs);
+	}
 	if (client->auth_try_aborted && client->auth_attempts == 1)
 		return "(aborted authentication)";
 
@@ -532,8 +543,8 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return t_strdup_printf("(internal failure, %u succesful auths)",
 				       client->auth_successes);
 	}
-	return t_strdup_printf("(auth failed, %u attempts)",
-			       client->auth_attempts);
+	return t_strdup_printf("(auth failed, %u attempts in %u secs)",
+			       client->auth_attempts, auth_secs);
 }
 
 void client_send_line(struct client *client, enum client_cmd_reply reply,

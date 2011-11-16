@@ -100,6 +100,7 @@ struct client {
 	char *auth_mech_name;
 	struct auth_client_request *auth_request;
 	string_t *auth_response;
+	time_t auth_first_started;
 
 	unsigned int master_auth_id;
 	unsigned int master_tag;

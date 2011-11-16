@@ -4,6 +4,7 @@
 #include "base64.h"
 #include "buffer.h"
 #include "hex-binary.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "write-full.h"
 #include "strescape.h"
@@ -277,6 +278,8 @@ void sasl_server_auth_begin(struct client *client,
 
 	client->auth_attempts++;
 	client->authenticating = TRUE;
+	if (client->auth_first_started == 0)
+		client->auth_first_started = ioloop_time;
 	i_free(client->auth_mech_name);
 	client->auth_mech_name = str_ucase(i_strdup(mech_name));
 	client->sasl_callback = callback;
