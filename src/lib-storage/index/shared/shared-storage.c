@@ -31,6 +31,7 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		      const char **error_r)
 {
 	struct shared_storage *storage = (struct shared_storage *)_storage;
+	struct mail_storage *storage_class;
 	const char *driver, *p;
 	char *wildcardp, key;
 	bool have_username;
@@ -45,13 +46,14 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	storage->location = p_strdup(_storage->pool, ns->set->location);
 	storage->unexpanded_location =
 		p_strdup(_storage->pool, ns->unexpanded_set->location);
-	storage->storage_class = mail_storage_find_class(driver);
-	if (storage->storage_class == NULL) {
+	storage_class = mail_storage_find_class(driver);
+	if (storage_class != NULL)
+		_storage->class_flags = storage_class->class_flags;
+	else if (strcmp(driver, "auto") != 0) {
 		*error_r = t_strconcat("Unknown shared storage driver: ",
 				       driver, NULL);
 		return -1;
 	}
-	_storage->class_flags = storage->storage_class->class_flags;
 
 	wildcardp = strchr(ns->prefix, '%');
 	if (wildcardp == NULL) {
@@ -106,7 +108,7 @@ get_nonexistent_user_location(struct shared_storage *storage,
 {
 	/* user wasn't found. we'll still need to create the storage
 	   to avoid exposing which users exist and which don't. */
-	str_append(location, storage->storage_class->name);
+	str_append(location, storage->storage_class_name);
 	str_append_c(location, ':');
 
 	/* use a reachable but nonexistent path as the mail root directory */
@@ -309,6 +311,10 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	*_name = mailbox_list_get_storage_name(new_ns->list,
 				t_strconcat(new_ns->prefix, name, NULL));
 	*_ns = new_ns;
+	if (_storage->class_flags == 0) {
+		/* flags are unset if we were using "auto" storage */
+		_storage->class_flags = new_ns->storage->class_flags;
+	}
 
 	mail_user_add_namespace(user, &new_ns);
 	return 0;

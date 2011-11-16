@@ -10,7 +10,7 @@ struct shared_storage {
 	const char *ns_prefix_pattern;
 	const char *location, *unexpanded_location;
 
-	struct mail_storage *storage_class;
+	const char *storage_class_name;
 };
 
 struct mailbox_list *shared_mailbox_list_alloc(void);
