@@ -136,7 +136,8 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		/* no mail_location, autodetect */
 	} else if (strcmp(driver, "auto") == 0) {
 		/* explicit autodetection with "auto" driver. */
-		if (*list_set->root_dir == '\0') {
+		if (list_set->root_dir != NULL &&
+		    *list_set->root_dir == '\0') {
 			/* handle the same as with driver=NULL */
 			list_set->root_dir = NULL;
 		}
