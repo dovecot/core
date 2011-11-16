@@ -86,6 +86,21 @@ checkpassword_sigchld_handler(const struct child_wait_status *child_wait_status,
 	}
 }
 
+static void env_put_auth_vars(struct auth_request *request)
+{
+	const struct var_expand_table *tab;
+	unsigned int i;
+
+	tab = auth_request_get_var_expand_table(request, NULL);
+	for (i = 0; tab[i].key != '\0' || tab[i].long_key != NULL; i++) {
+		if (tab[i].long_key != NULL && tab[i].value != NULL) {
+			env_put(t_strdup_printf("AUTH_%s=%s",
+						t_str_ucase(tab[i].long_key),
+						tab[i].value));
+		}
+	}
+}
+
 void checkpassword_setup_env(struct auth_request *request)
 {
 	/* Besides passing the standard username and password in a
@@ -128,6 +143,7 @@ void checkpassword_setup_env(struct auth_request *request)
 		/* extra fields could come from master db */
 		env_put_extra_fields(fields);
 	}
+	env_put_auth_vars(request);
 }
 
 const char *
