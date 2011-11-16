@@ -289,7 +289,8 @@ static void service_monitor_start_extra_avail(struct service *service)
 {
 	unsigned int i, count;
 
-	if (service->process_avail >= service->set->process_min_avail)
+	if (service->process_avail >= service->set->process_min_avail ||
+	    service->list->destroying)
 		return;
 
 	count = service->set->process_min_avail - service->process_avail;
@@ -567,8 +568,7 @@ void services_monitor_reap_children(void)
 			service_monitor_throttle(service);
 		service_stopped = service->status_fd[0] == -1;
 		if (!service_stopped) {
-			if (!service->list->destroying)
-				service_monitor_start_extra_avail(service);
+			service_monitor_start_extra_avail(service);
 			if (service->to_throttle == NULL)
 				service_monitor_listen_start(service);
 		}
