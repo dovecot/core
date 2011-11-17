@@ -763,6 +763,7 @@ static void ssl_proxy_unref(struct ssl_proxy *proxy)
 
 	if (proxy->client != NULL)
 		client_unref(&proxy->client);
+	i_free(proxy->last_error);
 	i_free(proxy);
 }
 
