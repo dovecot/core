@@ -156,11 +156,12 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->ssl_proxy != NULL)
 		ssl_proxy_free(&client->ssl_proxy);
 	client->v.destroy(client);
-	if (client_unref(&client) &&
-	    master_service_get_service_count(master_service) == 1) {
+	if (client_unref(&client) && initial_service_count == 1) {
 		/* as soon as this connection is done with proxying
 		   (or whatever), the process will die. there's no need for
-		   authentication anymore, so close the connection. */
+		   authentication anymore, so close the connection.
+		   do this only with initial service_count=1, in case there
+		   are other clients with pending authentications */
 		auth_client_disconnect(auth_client);
 	}
 	login_client_destroyed();

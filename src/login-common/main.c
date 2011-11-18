@@ -37,6 +37,7 @@ struct master_auth *master_auth;
 bool closing_down;
 struct anvil_client *anvil;
 const char *login_rawlog_dir = NULL;
+unsigned int initial_service_count;
 
 const struct login_settings *global_login_settings;
 void **global_other_settings;
@@ -286,6 +287,7 @@ static void main_preinit(bool allow_core_dumps)
 	restrict_access_by_env(NULL, TRUE);
 	if (allow_core_dumps)
 		restrict_access_allow_coredumps(TRUE);
+	initial_service_count = master_service_get_service_count(master_service);
 }
 
 static void main_init(const char *login_socket)

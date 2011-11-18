@@ -35,6 +35,7 @@ extern struct master_auth *master_auth;
 extern bool closing_down;
 extern struct anvil_client *anvil;
 extern const char *login_rawlog_dir;
+extern unsigned int initial_service_count;
 
 extern const struct login_settings *global_login_settings;
 extern void **global_other_settings;
