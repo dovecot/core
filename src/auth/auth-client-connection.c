@@ -26,6 +26,7 @@
 
 static ARRAY_DEFINE(auth_client_connections, struct auth_client_connection *);
 
+static void auth_client_disconnected(struct auth_client_connection **_conn);
 static void auth_client_connection_unref(struct auth_client_connection **_conn);
 static void auth_client_input(struct auth_client_connection *conn);
 
@@ -100,7 +101,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 		   see if the old connection is still there. */
 		i_assert(old != conn);
 		if (i_stream_read(old->input) == -1) {
-                        auth_client_connection_destroy(&old);
+			auth_client_disconnected(&old);
 			old = NULL;
 		}
 	}
@@ -128,7 +129,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 static int auth_client_output(struct auth_client_connection *conn)
 {
 	if (o_stream_flush(conn->output) < 0) {
-		auth_client_connection_destroy(&conn);
+		auth_client_disconnected(&conn);
 		return 1;
 	}
 
@@ -221,7 +222,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		auth_client_connection_destroy(&conn);
+		auth_client_disconnected(&conn);
 		return;
 	case -2:
 		/* buffer full */
@@ -314,7 +315,7 @@ auth_client_connection_create(struct auth *auth, int fd, bool login_requests)
 	str_append(str, "\nDONE\n");
 
 	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0)
-		auth_client_connection_destroy(&conn);
+		auth_client_disconnected(&conn);
 
 	return conn;
 }
@@ -354,6 +355,31 @@ void auth_client_connection_destroy(struct auth_client_connection **_conn)
 
         master_service_client_connection_destroyed(master_service);
         auth_client_connection_unref(&conn);
+}
+
+static void auth_client_disconnected(struct auth_client_connection **_conn)
+{
+	struct auth_client_connection *conn = *_conn;
+	unsigned int request_count;
+	int err;
+
+	*_conn = NULL;
+
+	if (conn->input->stream_errno != 0)
+		err = conn->input->stream_errno;
+	else if (conn->output->stream_errno != 0)
+		err = conn->output->stream_errno;
+	else
+		err = 0;
+
+	request_count = conn->request_handler == NULL ? 0 :
+		auth_request_handler_get_request_count(conn->request_handler);
+	if (request_count > 0) {
+		i_warning("auth client %u disconnected with %u "
+			  "pending requests: %s", conn->pid, request_count,
+			  err == 0 ? "EOF" : strerror(err));
+	}
+	auth_client_connection_destroy(&conn);
 }
 
 static void auth_client_connection_unref(struct auth_client_connection **_conn)

@@ -59,6 +59,12 @@ auth_request_handler_create(auth_request_callback_t *callback, void *context,
 	return handler;
 }
 
+unsigned int
+auth_request_handler_get_request_count(struct auth_request_handler *handler)
+{
+	return hash_table_count(handler->requests);
+}
+
 void auth_request_handler_abort_requests(struct auth_request_handler *handler)
 {
 	struct hash_iterate_context *iter;

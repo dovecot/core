@@ -46,6 +46,8 @@ void auth_request_handler_reply(struct auth_request *request,
 				const void *reply, size_t reply_size);
 void auth_request_handler_reply_continue(struct auth_request *request,
 					 const void *reply, size_t reply_size);
+unsigned int
+auth_request_handler_get_request_count(struct auth_request_handler *handler);
 bool auth_request_handler_master_request(struct auth_request_handler *handler,
 					 struct auth_master_connection *master,
 					 unsigned int id,
