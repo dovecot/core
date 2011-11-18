@@ -243,6 +243,7 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
+		i_error("Authentication server disconnected, reconnecting");
 		auth_server_connection_reconnect(conn);
 		return;
 	case -2:
@@ -314,8 +315,8 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn)
 		struct auth_client_request *request = value;
 
 		auth_client_request_server_input(request,
-						 AUTH_REQUEST_STATUS_FAIL,
-						 temp_failure_args);
+			AUTH_REQUEST_STATUS_INTERNAL_FAIL,
+			temp_failure_args);
 	}
 	hash_table_iterate_deinit(&iter);
 	hash_table_clear(conn->requests, FALSE);

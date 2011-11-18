@@ -245,7 +245,11 @@ authenticate_callback(struct auth_client_request *request,
 			anvil_check_too_many_connections(client, request);
 		}
 		break;
+	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
+		client->auth_process_comm_fail = TRUE;
+		/* fall through */
 	case AUTH_REQUEST_STATUS_FAIL:
+	case AUTH_REQUEST_STATUS_ABORT:
 		client->auth_request = NULL;
 
 		if (args != NULL) {

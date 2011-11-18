@@ -125,6 +125,7 @@ struct client {
 	unsigned int auth_tried_unsupported_mech:1;
 	unsigned int auth_try_aborted:1;
 	unsigned int auth_initializing:1;
+	unsigned int auth_process_comm_fail:1;
 	/* ... */
 };
 

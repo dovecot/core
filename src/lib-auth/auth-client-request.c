@@ -133,7 +133,7 @@ void auth_client_request_abort(struct auth_client_request **_request)
 	*_request = NULL;
 
 	auth_client_send_cancel(request->conn->client, request->id);
-	call_callback(request, AUTH_REQUEST_STATUS_FAIL, NULL, NULL);
+	call_callback(request, AUTH_REQUEST_STATUS_ABORT, NULL, NULL);
 }
 
 unsigned int auth_client_request_get_id(struct auth_client_request *request)
@@ -182,6 +182,8 @@ void auth_client_request_server_input(struct auth_client_request *request,
 		args = NULL;
 		break;
 	case AUTH_REQUEST_STATUS_FAIL:
+	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
+	case AUTH_REQUEST_STATUS_ABORT:
 		break;
 	}
 
