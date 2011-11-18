@@ -382,10 +382,8 @@ int login_binary_run(const struct login_binary *binary,
 		login_settings_read(set_pool, NULL, NULL, NULL,
 				    &global_other_settings);
 
-	/* main_preinit() needs to know the client limit, which is set by
-	   this. so call it first. */
-	master_service_init_finish(master_service);
 	main_preinit(allow_core_dumps);
+	master_service_init_finish(master_service);
 	main_init(login_socket);
 
 	master_service_run(master_service, client_connected);
