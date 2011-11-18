@@ -993,20 +993,17 @@ static const char *ssl_proxy_get_use_certificate_error(const char *cert)
 	}
 }
 
-static EVP_PKEY *ssl_proxy_load_key(const struct login_settings *set)
+static EVP_PKEY *
+ssl_proxy_load_key(const char *key, const char *password)
 {
 	EVP_PKEY *pkey;
 	BIO *bio;
-	const char *password;
 	char *dup_password;
 
-	bio = BIO_new_mem_buf(t_strdup_noconst(set->ssl_key),
-			      strlen(set->ssl_key));
+	bio = BIO_new_mem_buf(t_strdup_noconst(key), strlen(key));
 	if (bio == NULL)
 		i_fatal("BIO_new_mem_buf() failed");
 
-	password = *set->ssl_key_password != '\0' ? set->ssl_key_password :
-		getenv(MASTER_SSL_KEY_PASSWORD_ENV);
 	dup_password = t_strdup_noconst(password);
 	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback,
 				       dup_password);
@@ -1030,8 +1027,11 @@ static const char *ssl_key_load_error(void)
 static void ssl_proxy_ctx_use_key(SSL_CTX *ctx, const struct login_settings *set)
 {
 	EVP_PKEY *pkey;
+	const char *password;
 
-	pkey = ssl_proxy_load_key(set);
+	password = *set->ssl_key_password != '\0' ? set->ssl_key_password :
+		getenv(MASTER_SSL_KEY_PASSWORD_ENV);
+	pkey = ssl_proxy_load_key(set->ssl_key, password);
 	if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1)
 		i_fatal("Can't load private ssl_key: %s", ssl_key_load_error());
 	EVP_PKEY_free(pkey);
@@ -1227,6 +1227,28 @@ static void ssl_server_context_deinit(struct ssl_server_context **_ctx)
 	pool_unref(&ctx->pool);
 }
 
+static void
+ssl_proxy_client_ctx_set_client_cert(SSL_CTX *ctx,
+				     const struct login_settings *set)
+{
+	EVP_PKEY *pkey;
+
+	if (*set->ssl_client_cert == '\0')
+		return;
+
+	if (ssl_proxy_ctx_use_certificate_chain(ctx, set->ssl_client_cert) != 1) {
+		i_fatal("Can't load ssl_client_cert: %s",
+			ssl_proxy_get_use_certificate_error(set->ssl_client_cert));
+	}
+
+	pkey = ssl_proxy_load_key(set->ssl_client_key, NULL);
+	if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1) {
+		i_fatal("Can't load private ssl_client_key: %s",
+			ssl_key_load_error());
+	}
+	EVP_PKEY_free(pkey);
+}
+
 static void ssl_proxy_init_client(const struct login_settings *set)
 {
 	STACK_OF(X509_NAME) *xnames;
@@ -1235,6 +1257,8 @@ static void ssl_proxy_init_client(const struct login_settings *set)
 		i_fatal("SSL_CTX_new() failed");
 	xnames = ssl_proxy_ctx_init(ssl_client_ctx, set);
 	ssl_proxy_ctx_verify_client(ssl_client_ctx, xnames);
+
+	ssl_proxy_client_ctx_set_client_cert(ssl_client_ctx, set);
 }
 
 void ssl_proxy_init(void)
