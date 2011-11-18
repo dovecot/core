@@ -174,7 +174,7 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 			arg++;
 		}
 
-		(void)auth_request_import(auth_request, name, arg);
+		(void)auth_request_import_info(auth_request, name, arg);
 	}
 
 	if (auth_request->service == NULL) {

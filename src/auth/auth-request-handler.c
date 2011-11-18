@@ -433,7 +433,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			arg++;
 		}
 
-		if (auth_request_import(request, name, arg))
+		if (auth_request_import_auth(request, name, arg))
 			;
 		else if (strcmp(name, "resp") == 0) {
 			initial_resp = arg;

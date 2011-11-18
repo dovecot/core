@@ -139,6 +139,10 @@ void auth_request_export(struct auth_request *request,
 			 struct auth_stream_reply *reply);
 bool auth_request_import(struct auth_request *request,
 			 const char *key, const char *value);
+bool auth_request_import_info(struct auth_request *request,
+			      const char *key, const char *value);
+bool auth_request_import_auth(struct auth_request *request,
+			      const char *key, const char *value);
 
 void auth_request_initial(struct auth_request *request);
 void auth_request_continue(struct auth_request *request,
