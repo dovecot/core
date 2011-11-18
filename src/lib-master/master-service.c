@@ -101,7 +101,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 		    int *argc, char **argv[], const char *getopt_str)
 {
 	struct master_service *service;
-	const char *str;
+	const char *value;
+	unsigned int count;
 
 	i_assert(name != NULL);
 
@@ -110,8 +111,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 	    (flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		int count;
 
-		str = getenv("SOCKET_COUNT");
-		count = str == NULL ? 0 : atoi(str);
+		value = getenv("SOCKET_COUNT");
+		count = value == NULL ? 0 : atoi(value);
 		fd_debug_verify_leaks(MASTER_LISTEN_FD_FIRST + count, 1024);
 	}
 #endif
@@ -165,12 +166,12 @@ master_service_init(const char *name, enum master_service_flags flags,
 	} else {
 		service->version_string = PACKAGE_VERSION;
 	}
-	str = getenv("SOCKET_COUNT");
-	if (str != NULL)
-		service->socket_count = atoi(str);
-	str = getenv("SSL_SOCKET_COUNT");
-	if (str != NULL)
-		service->ssl_socket_count = atoi(str);
+	value = getenv("SOCKET_COUNT");
+	if (value != NULL)
+		service->socket_count = atoi(value);
+	value = getenv("SSL_SOCKET_COUNT");
+	if (value != NULL)
+		service->ssl_socket_count = atoi(value);
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
@@ -181,6 +182,37 @@ master_service_init(const char *name, enum master_service_flags flags,
 						     name, getenv("USER")));
 	} else {
 		i_set_failure_prefix(t_strdup_printf("%s: ", name));
+	}
+
+	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
+		/* initialize master_status structure */
+		value = getenv(MASTER_UID_ENV);
+		if (value == NULL ||
+		    str_to_uint(value, &service->master_status.uid) < 0)
+			i_fatal(MASTER_UID_ENV" missing");
+		service->master_status.pid = getpid();
+
+		/* set the default limit */
+		value = getenv(MASTER_CLIENT_LIMIT_ENV);
+		if (value == NULL || str_to_uint(value, &count) < 0 ||
+		    count == 0)
+			i_fatal(MASTER_CLIENT_LIMIT_ENV" missing");
+		master_service_set_client_limit(service, count);
+
+		/* seve the process limit */
+		value = getenv(MASTER_PROCESS_LIMIT_ENV);
+		if (value != NULL && str_to_uint(value, &count) == 0 &&
+		    count > 0)
+			service->process_limit = count;
+
+		/* set the default service count */
+		value = getenv(MASTER_SERVICE_COUNT_ENV);
+		if (value != NULL && str_to_uint(value, &count) == 0 &&
+		    count > 0)
+			master_service_set_service_count(service, count);
+	} else {
+		master_service_set_client_limit(service, 1);
+		master_service_set_service_count(service, 1);
 	}
 
 	master_service_verify_version_string(service);
@@ -346,11 +378,6 @@ void master_service_init_finish(struct master_service *service)
 {
 	enum libsig_flags sigint_flags = LIBSIG_FLAG_DELAYED;
 	struct stat st;
-	const char *value;
-	unsigned int count;
-
-	i_assert(service->total_available_count == 0);
-	i_assert(service->service_count_left == (unsigned int)-1);
 
 	/* set default signal handlers */
 	lib_signals_init();
@@ -367,40 +394,10 @@ void master_service_init_finish(struct master_service *service)
 		if (fstat(MASTER_STATUS_FD, &st) < 0 || !S_ISFIFO(st.st_mode))
 			i_fatal("Must be started by dovecot master process");
 
-		/* initialize master_status structure */
-		value = getenv(MASTER_UID_ENV);
-		if (value == NULL ||
-		    str_to_uint(value, &service->master_status.uid) < 0)
-			i_fatal(MASTER_UID_ENV" missing");
-		service->master_status.pid = getpid();
-
-		/* set the default limit */
-		value = getenv(MASTER_CLIENT_LIMIT_ENV);
-		if (value == NULL || str_to_uint(value, &count) < 0 ||
-		    count == 0)
-			i_fatal(MASTER_CLIENT_LIMIT_ENV" missing");
-		master_service_set_client_limit(service, count);
-
-		/* seve the process limit */
-		value = getenv(MASTER_PROCESS_LIMIT_ENV);
-		if (value != NULL && str_to_uint(value, &count) == 0 &&
-		    count > 0)
-			service->process_limit = count;
-
-		/* set the default service count */
-		value = getenv(MASTER_SERVICE_COUNT_ENV);
-		if (value != NULL && str_to_uint(value, &count) == 0 &&
-		    count > 0)
-			master_service_set_service_count(service, count);
-
 		/* start listening errors for status fd, it means master died */
 		service->io_status_error = io_add(MASTER_DEAD_FD, IO_ERROR,
 						  master_status_error, service);
-	} else {
-		master_service_set_client_limit(service, 1);
-		master_service_set_service_count(service, 1);
 	}
-
 	master_service_io_listeners_add(service);
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STD_CLIENT) != 0) {
