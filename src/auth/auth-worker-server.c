@@ -155,12 +155,13 @@ static struct auth_worker_connection *auth_worker_create(void)
 	fd = net_connect_unix_with_retries(worker_socket_path, 5000);
 	if (fd == -1) {
 		if (errno == EACCES) {
-			i_fatal("%s", eacces_error_get("net_connect_unix",
+			i_error("%s", eacces_error_get("net_connect_unix",
 						       worker_socket_path));
 		} else {
-			i_fatal("net_connect_unix(%s) failed: %m",
+			i_error("net_connect_unix(%s) failed: %m",
 				worker_socket_path);
 		}
+		return NULL;
 	}
 
 	conn = i_new(struct auth_worker_connection, 1);
@@ -217,7 +218,8 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 
 	if (idle_count == 0 && restart) {
 		conn = auth_worker_create();
-		auth_worker_request_send_next(conn);
+		if (conn != NULL)
+			auth_worker_request_send_next(conn);
 	}
 }
 
