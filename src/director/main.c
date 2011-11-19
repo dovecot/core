@@ -140,11 +140,14 @@ static void director_state_changed(struct director *dir)
 		timeout_remove(&dir->to_request);
 }
 
-static void main_init(void)
+static void main_preinit(void)
 {
 	const struct director_settings *set;
 	struct ip_addr listen_ip;
 	unsigned int listen_port;
+
+	restrict_access_by_env(NULL, FALSE);
+	restrict_access_allow_coredumps(TRUE);
 
 	set = master_service_settings_get_others(master_service)[0];
 
@@ -215,11 +218,8 @@ int main(int argc, char *argv[])
 
 	master_service_init_log(master_service, "director: ");
 
-	restrict_access_by_env(NULL, FALSE);
-	restrict_access_allow_coredumps(TRUE);
+	main_preinit();
 	master_service_init_finish(master_service);
-
-	main_init();
 	director->test_port = test_port;
 	director->debug = debug;
 	director_connect(director);
