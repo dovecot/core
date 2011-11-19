@@ -416,8 +416,12 @@ static bool have_key(const struct var_expand_table *table, const char *str)
 	key = var_get_key(str);
 	for (i = 0; table[i].key != '\0'; i++) {
 		if (table[i].key == key) {
-			return table[i].value != NULL &&
-				table[i].value[0] != '\0';
+			if (table[i].value == NULL)
+				return FALSE;
+			if (table[i].value[0] != '\0')
+				return TRUE;
+			/* "" key - hide except in username */
+			return key == 'u' || key == 'n';
 		}
 	}
 	return FALSE;
