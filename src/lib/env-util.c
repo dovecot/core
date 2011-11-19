@@ -59,7 +59,7 @@ void env_clean(void)
 	if (clearenv() < 0)
 		i_fatal("clearenv() failed");
 #else
-	extern char **environ;
+	char **environ = *env_get_environ_p();
 
 	/* Try to clear the environment.
 
