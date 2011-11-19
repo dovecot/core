@@ -371,6 +371,7 @@ static void client_auth_input(struct client *client)
 	if (client->v.auth_parse_response(client) <= 0)
 		return;
 
+	client->auth_waiting = FALSE;
 	client_set_auth_waiting(client);
 	auth_client_request_continue(client->auth_request,
 				     str_c(client->auth_response));
@@ -468,6 +469,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		str_truncate(client->auth_response, 0);
 
 		i_assert(client->io == NULL);
+		client->auth_waiting = TRUE;
 		client->io = io_add(client->fd, IO_READ,
 				    client_auth_input, client);
 		client_auth_input(client);

@@ -529,6 +529,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return "(cert required, client didn't start TLS)";
 	if (client->auth_tried_unsupported_mech)
 		return "(tried to use unsupported auth mechanism)";
+	if (client->auth_waiting && client->auth_attempts == 1) {
+		return t_strdup_printf("(client didn't finish SASL auth, "
+				       "waited %u secs)", auth_secs);
+	}
 	if (client->auth_request != NULL && client->auth_attempts == 1) {
 		return t_strdup_printf("(disconnected while authenticating, "
 				       "waited %u secs)", auth_secs);
