@@ -61,16 +61,21 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 	callback(PASSDB_RESULT_OK, request);
 }
 
-static void passwd_init(struct passdb_module *module)
+static struct passdb_module *
+passwd_preinit(pool_t pool, const char *args)
 {
+	struct passdb_module *module;
+
+	module = p_new(pool, struct passdb_module, 1);
 	module->blocking = TRUE;
-	if (strcmp(module->args, "blocking=no") == 0)
+	if (strcmp(args, "blocking=no") == 0)
 		module->blocking = FALSE;
-	else if (*module->args != '\0')
-		i_fatal("passdb passwd: Unknown setting: %s", module->args);
+	else if (*args != '\0')
+		i_fatal("passdb passwd: Unknown setting: %s", args);
 
 	module->cache_key = PASSWD_CACHE_KEY;
 	module->default_pass_scheme = PASSWD_PASS_SCHEME;
+	return module;
 }
 
 static void passwd_deinit(struct passdb_module *module ATTR_UNUSED)
@@ -81,8 +86,8 @@ static void passwd_deinit(struct passdb_module *module ATTR_UNUSED)
 struct passdb_module_interface passdb_passwd = {
 	"passwd",
 
+	passwd_preinit,
 	NULL,
-	passwd_init,
 	passwd_deinit,
 
 	passwd_verify_plain,

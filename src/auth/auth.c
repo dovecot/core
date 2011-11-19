@@ -47,66 +47,6 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 	auth_userdb->userdb = userdb_preinit(auth->pool, set);
 }
 
-static struct auth *
-auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
-	     const struct mechanisms_register *reg)
-{
-	struct auth_passdb_settings *const *passdbs;
-	struct auth_userdb_settings *const *userdbs;
-	struct auth *auth;
-	unsigned int i, count, db_count, passdb_count, last_passdb = 0;
-
-	auth = p_new(pool, struct auth, 1);
-	auth->pool = pool;
-	auth->service = p_strdup(pool, service);
-	auth->set = set;
-	auth->reg = reg;
-
-	if (array_is_created(&set->passdbs))
-		passdbs = array_get(&set->passdbs, &db_count);
-	else {
-		passdbs = NULL;
-		db_count = 0;
-	}
-
-	/* initialize passdbs first and count them */
-	for (passdb_count = 0, i = 0; i < db_count; i++) {
-		if (passdbs[i]->master)
-			continue;
-
-		auth_passdb_preinit(auth, passdbs[i], &auth->passdbs);
-		passdb_count++;
-		last_passdb = i;
-	}
-	if (passdb_count != 0 && passdbs[last_passdb]->pass)
-		i_fatal("Last passdb can't have pass=yes");
-
-	for (i = 0; i < db_count; i++) {
-		if (!passdbs[i]->master)
-			continue;
-
-		if (passdbs[i]->deny)
-			i_fatal("Master passdb can't have deny=yes");
-		if (passdbs[i]->pass && passdb_count == 0) {
-			i_fatal("Master passdb can't have pass=yes "
-				"if there are no passdbs");
-		}
-		auth_passdb_preinit(auth, passdbs[i], &auth->masterdbs);
-	}
-
-	if (array_is_created(&set->userdbs)) {
-		userdbs = array_get(&set->userdbs, &count);
-		for (i = 0; i < count; i++)
-			auth_userdb_preinit(auth, userdbs[i]);
-	}
-
-	if (auth->userdbs == NULL) {
-		/* use a dummy userdb static. */
-		auth_userdb_preinit(auth, &userdb_dummy_set);
-	}
-	return auth;
-}
-
 static bool auth_passdb_list_have_verify_plain(struct auth *auth)
 {
 	struct auth_passdb *passdb;
@@ -185,6 +125,67 @@ static void auth_mech_list_verify_passdb(struct auth *auth)
 	}
 }
 
+static struct auth *
+auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
+	     const struct mechanisms_register *reg)
+{
+	struct auth_passdb_settings *const *passdbs;
+	struct auth_userdb_settings *const *userdbs;
+	struct auth *auth;
+	unsigned int i, count, db_count, passdb_count, last_passdb = 0;
+
+	auth = p_new(pool, struct auth, 1);
+	auth->pool = pool;
+	auth->service = p_strdup(pool, service);
+	auth->set = set;
+	auth->reg = reg;
+
+	if (array_is_created(&set->passdbs))
+		passdbs = array_get(&set->passdbs, &db_count);
+	else {
+		passdbs = NULL;
+		db_count = 0;
+	}
+
+	/* initialize passdbs first and count them */
+	for (passdb_count = 0, i = 0; i < db_count; i++) {
+		if (passdbs[i]->master)
+			continue;
+
+		auth_passdb_preinit(auth, passdbs[i], &auth->passdbs);
+		passdb_count++;
+		last_passdb = i;
+	}
+	if (passdb_count != 0 && passdbs[last_passdb]->pass)
+		i_fatal("Last passdb can't have pass=yes");
+
+	for (i = 0; i < db_count; i++) {
+		if (!passdbs[i]->master)
+			continue;
+
+		if (passdbs[i]->deny)
+			i_fatal("Master passdb can't have deny=yes");
+		if (passdbs[i]->pass && passdb_count == 0) {
+			i_fatal("Master passdb can't have pass=yes "
+				"if there are no passdbs");
+		}
+		auth_passdb_preinit(auth, passdbs[i], &auth->masterdbs);
+	}
+
+	if (array_is_created(&set->userdbs)) {
+		userdbs = array_get(&set->userdbs, &count);
+		for (i = 0; i < count; i++)
+			auth_userdb_preinit(auth, userdbs[i]);
+	}
+
+	if (auth->userdbs == NULL) {
+		/* use a dummy userdb static. */
+		auth_userdb_preinit(auth, &userdb_dummy_set);
+	}
+	auth_mech_list_verify_passdb(auth);
+	return auth;
+}
+
 static void auth_init(struct auth *auth)
 {
 	struct auth_passdb *passdb;
@@ -196,8 +197,6 @@ static void auth_init(struct auth *auth)
 		passdb_init(passdb->passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_init(userdb->userdb);
-
-	auth_mech_list_verify_passdb(auth);
 }
 
 static void auth_deinit(struct auth *auth)
