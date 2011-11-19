@@ -290,12 +290,6 @@ static void main_preinit(bool allow_core_dumps)
 	if (allow_core_dumps)
 		restrict_access_allow_coredumps(TRUE);
 	initial_service_count = master_service_get_service_count(master_service);
-}
-
-static void main_init(const char *login_socket)
-{
-	/* make sure we can't fork() */
-	restrict_process_count(1);
 
 	if (restrict_access_get_current_chroot() == NULL) {
 		if (chdir("login") < 0)
@@ -308,6 +302,12 @@ static void main_init(const char *login_socket)
 			login_rawlog_dir);
 		login_rawlog_dir = NULL;
 	}
+}
+
+static void main_init(const char *login_socket)
+{
+	/* make sure we can't fork() */
+	restrict_process_count(1);
 
 	master_service_set_avail_overflow_callback(master_service,
 						   client_destroy_oldest);
