@@ -299,6 +299,10 @@ void auth_request_handler_reply(struct auth_request *request,
 		auth_stream_reply_add(reply, NULL, dec2str(request->id));
 		if (request->user != NULL)
 			auth_stream_reply_add(reply, "user", request->user);
+		else if (request->original_username != NULL) {
+			auth_stream_reply_add(reply, "user",
+					      request->original_username);
+		}
 
 		if (request->internal_failure)
 			auth_stream_reply_add(reply, "temp", NULL);
