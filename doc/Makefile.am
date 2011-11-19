@@ -5,7 +5,6 @@ endif
 SUBDIRS = man $(DOCDIRS)
 
 docfiles = \
-	auth-protocol.txt \
 	documentation.txt \
 	securecoding.txt \
 	thread-refs.txt
