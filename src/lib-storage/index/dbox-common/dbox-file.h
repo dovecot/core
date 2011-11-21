@@ -27,6 +27,7 @@
 #endif
 
 struct dbox_file;
+struct stat;
 
 enum dbox_header_key {
 	/* Must be sizeof(struct dbox_message_header) when appending (hex) */
