@@ -58,7 +58,7 @@ mdbox_copy_file_get_file(struct mailbox_transaction_context *t,
 	rec = data;
 
 	if (mdbox_map_lookup(ctx->mbox->storage->map, rec->map_uid,
-			     &file_id, offset_r) <= 0)
+			     &file_id, offset_r) < 0)
 		i_unreached();
 
 	return mdbox_file_init(ctx->mbox->storage, file_id);
