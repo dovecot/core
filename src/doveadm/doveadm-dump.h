@@ -9,6 +9,7 @@ struct doveadm_cmd_dump {
 	doveadm_command_t *cmd;
 };
 
+extern struct doveadm_cmd_dump doveadm_cmd_dump_dbox;
 extern struct doveadm_cmd_dump doveadm_cmd_dump_index;
 extern struct doveadm_cmd_dump doveadm_cmd_dump_log;
 extern struct doveadm_cmd_dump doveadm_cmd_dump_mailboxlog;

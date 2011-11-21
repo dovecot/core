@@ -82,6 +82,7 @@ doveadm_SOURCES = \
 	doveadm-auth.c \
 	doveadm-director.c \
 	doveadm-dump.c \
+	doveadm-dump-dbox.c \
 	doveadm-dump-index.c \
 	doveadm-dump-log.c \
 	doveadm-dump-mailboxlog.c \

@@ -79,6 +79,7 @@ struct doveadm_cmd doveadm_cmd_dump = {
 };
 
 static const struct doveadm_cmd_dump *dumps_builtin[] = {
+	&doveadm_cmd_dump_dbox,
 	&doveadm_cmd_dump_index,
 	&doveadm_cmd_dump_log,
 	&doveadm_cmd_dump_mailboxlog,
