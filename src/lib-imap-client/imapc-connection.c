@@ -1394,6 +1394,8 @@ imapc_command_begin(imapc_command_callback_t *callback, void *context)
 	struct imapc_command *cmd;
 	pool_t pool;
 
+	i_assert(callback != NULL);
+
 	pool = pool_alloconly_create("imapc command", 2048);
 	cmd = p_new(pool, struct imapc_command, 1);
 	cmd->pool = pool;
