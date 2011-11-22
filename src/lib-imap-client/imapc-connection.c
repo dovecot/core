@@ -1248,6 +1248,12 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 }
 
 static void
+imapc_noop_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
+		    void *context ATTR_UNUSED)
+{
+}
+
+static void
 imapc_reidle_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
 		      void *context)
 {
@@ -1261,7 +1267,7 @@ static void imapc_connection_reset_idle(struct imapc_connection *conn)
 	struct imapc_command *cmd;
 
 	if (!conn->idling)
-		cmd = imapc_connection_cmd(conn, NULL, NULL);
+		cmd = imapc_connection_cmd(conn, imapc_noop_callback, NULL);
 	else
 		cmd = imapc_connection_cmd(conn, imapc_reidle_callback, conn);
 	imapc_command_send(cmd, "NOOP");
