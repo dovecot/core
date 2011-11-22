@@ -1447,11 +1447,14 @@ parse_sync_literal(const unsigned char *data, unsigned int pos,
 static void imapc_command_send_finished(struct imapc_connection *conn,
 					struct imapc_command *cmd)
 {
+	struct imapc_command *const *cmdp;
+
 	if (cmd->idle)
 		conn->idle_plus_waiting = TRUE;
 
 	/* everything sent. move command to wait list. */
-	i_assert(*array_idx(&conn->cmd_send_queue, 0) == cmd);
+	cmdp = array_idx(&conn->cmd_send_queue, 0);
+	i_assert(*cmdp == cmd);
 	array_delete(&conn->cmd_send_queue, 0, 1);
 	array_append(&conn->cmd_wait_list, &cmd, 1);
 
