@@ -281,6 +281,7 @@ static void main_deinit(void)
         password_schemes_deinit();
 	sql_drivers_deinit();
 	random_deinit();
+	child_wait_deinit();
 
 	array_foreach_modifiable(&listeners, l)
 		i_free(l->path);
