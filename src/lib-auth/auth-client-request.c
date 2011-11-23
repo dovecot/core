@@ -34,6 +34,8 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 	str_append(str, "\tservice=");
 	str_tabescape_write(str, info->service);
 
+	if ((info->flags & AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP) != 0)
+		str_append(str, "\tfinal-resp-ok");
 	if ((info->flags & AUTH_REQUEST_FLAG_SECURED) != 0)
 		str_append(str, "\tsecured");
 	if ((info->flags & AUTH_REQUEST_FLAG_NO_PENALTY) != 0)
