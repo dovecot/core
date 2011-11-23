@@ -153,7 +153,8 @@ static void anvil_connection_input(void *context)
 			if (anvil_restarted && (conn->master || conn->fifo)) {
 				/* old pending data. ignore input until we get
 				   the handshake. */
-				return anvil_connection_input(context);
+				anvil_connection_input(context);
+				return;
 			}
 			i_error("Anvil client not compatible with this server "
 				"(mixed old and new binaries?) %s", line);
