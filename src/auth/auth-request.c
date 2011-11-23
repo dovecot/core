@@ -111,8 +111,15 @@ void auth_request_success(struct auth_request *request,
 		return;
 	}
 
-	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	request->successful = TRUE;
+	if (data_size > 0 && !request->final_resp_ok) {
+		/* we'll need one more SASL round, since client doesn't support
+		   the final SASL response */
+		auth_request_handler_reply_continue(request, data, data_size);
+		return;
+	}
+
+	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
 	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_SUCCESS,
 				   data, data_size);
@@ -235,6 +242,8 @@ bool auth_request_import_auth(struct auth_request *request,
 	/* auth client may set these */
 	if (strcmp(key, "secured") == 0)
 		request->secured = TRUE;
+	else if (strcmp(key, "final-resp-ok") == 0)
+		request->final_resp_ok = TRUE;
 	else if (strcmp(key, "no-penalty") == 0)
 		request->no_penalty = TRUE;
 	else if (strcmp(key, "valid-client-cert") == 0)
@@ -295,6 +304,11 @@ void auth_request_continue(struct auth_request *request,
 			   const unsigned char *data, size_t data_size)
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	if (request->successful) {
+		auth_request_success(request, NULL, 0);
+		return;
+	}
 
 	auth_request_refresh_last_access(request);
 	request->mech->auth_continue(request, data, data_size);

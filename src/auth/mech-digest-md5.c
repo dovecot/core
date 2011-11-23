@@ -34,7 +34,6 @@ struct digest_auth_request {
 	struct auth_request auth_request;
 
 	pool_t pool;
-	unsigned int authenticated:1;
 
 	/* requested: */
 	char *nonce;
@@ -505,10 +504,8 @@ static void credentials_callback(enum passdb_result result,
 			return;
 		}
 
-		request->authenticated = TRUE;
-		auth_request_handler_reply_continue(auth_request,
-						    request->rspauth,
-						    strlen(request->rspauth));
+		auth_request_success(auth_request, request->rspauth,
+				     strlen(request->rspauth));
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -526,13 +523,6 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	struct digest_auth_request *request =
 		(struct digest_auth_request *)auth_request;
 	const char *username, *error;
-
-	if (request->authenticated) {
-		/* authentication is done, we were just waiting the last
-		   word from client */
-		auth_request_success(auth_request, NULL, 0);
-		return;
-	}
 
 	if (parse_digest_response(request, data, data_size, &error)) {
 		if (auth_request->realm != NULL &&

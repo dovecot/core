@@ -25,7 +25,6 @@ struct scram_auth_request {
 	struct auth_request auth_request;
 
 	pool_t pool;
-	unsigned int authenticated:1;
 
 	/* sent: */
 	const char *server_first_message;
@@ -265,11 +264,9 @@ static void credentials_callback(enum passdb_result result,
 					      "password mismatch");
 			auth_request_fail(auth_request);
 		} else {
-			request->authenticated = TRUE;
 			server_final_message = get_scram_server_final(request);
-			auth_request_handler_reply_continue(auth_request,
-				server_final_message,
-				strlen(server_final_message));
+			auth_request_success(auth_request, server_final_message,
+					     strlen(server_final_message));
 		}
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
@@ -347,13 +344,6 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 	struct scram_auth_request *request =
 		(struct scram_auth_request *)auth_request;
 	const char *error = NULL;
-
-	if (request->authenticated) {
-		/* authentication is done, we were just waiting the last (empty)
-		   client response */
-		auth_request_success(auth_request, NULL, 0);
-		return;
-	}
 
 	if (!request->client_first_message_bare) {
 		/* Received client-first-message */

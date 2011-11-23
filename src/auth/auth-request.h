@@ -111,6 +111,7 @@ struct auth_request {
 	unsigned int userdb_lookup:1;
 	unsigned int userdb_lookup_failed:1;
 	unsigned int secured:1;
+	unsigned int final_resp_ok:1;
 	unsigned int removed_from_handler:1;
 
 	/* ... mechanism specific data ... */
