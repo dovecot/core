@@ -438,6 +438,7 @@ static void ssl_iostream_init_global(void)
 	ssl_global_initialized = TRUE;
 	SSL_library_init();
 	SSL_load_error_strings();
+	OpenSSL_add_all_algorithms();
 
 	dovecot_ssl_extdata_index =
 		SSL_get_ex_new_index(0, dovecot, NULL, NULL, NULL);
