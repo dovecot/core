@@ -21,6 +21,7 @@
 
 #include "iostream-openssl.h"
 #include <openssl/crypto.h>
+#include <openssl/engine.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
@@ -99,6 +100,7 @@ static unsigned int ssl_proxy_count;
 static struct ssl_proxy *ssl_proxies;
 static struct ssl_parameters ssl_params;
 static int ssl_username_nid;
+static ENGINE *ssl_engine;
 
 static void plain_read(struct ssl_proxy *proxy);
 static void ssl_read(struct ssl_proxy *proxy);
@@ -1274,6 +1276,19 @@ void ssl_proxy_init(void)
 	SSL_load_error_strings();
 	OpenSSL_add_all_algorithms();
 
+	if (*set->ssl_crypto_device != '\0') {
+		ENGINE_load_builtin_engines();
+		ssl_engine = ENGINE_by_id(set->ssl_crypto_device);
+		if (ssl_engine == NULL) {
+			i_fatal("Unknown ssl_crypto_device: %s",
+				set->ssl_crypto_device);
+		}
+		ENGINE_init(ssl_engine);
+		ENGINE_set_default_RSA(ssl_engine);
+		ENGINE_set_default_DSA(ssl_engine);
+		ENGINE_set_default_ciphers(ssl_engine);
+	}
+
 	extdata_index = SSL_get_ex_new_index(0, dovecot, NULL, NULL, NULL);
 
 	ssl_servers = hash_table_create(default_pool, default_pool, 0,
@@ -1324,6 +1339,10 @@ void ssl_proxy_deinit(void)
 
 	ssl_free_parameters(&ssl_params);
 	SSL_CTX_free(ssl_client_ctx);
+	if (ssl_engine != NULL) {
+		ENGINE_cleanup();
+		ENGINE_finish(ssl_engine);
+	}
 	EVP_cleanup();
 	ERR_free_strings();
 }
