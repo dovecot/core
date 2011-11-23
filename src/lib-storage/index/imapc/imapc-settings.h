@@ -13,6 +13,7 @@ struct imapc_settings {
 	bool imapc_ssl_verify;
 
 	const char *imapc_rawlog_dir;
+	const char *ssl_crypto_device;
 };
 
 const struct setting_parser_info *imapc_get_setting_parser_info(void);

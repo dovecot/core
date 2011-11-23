@@ -64,6 +64,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 		memset(&ssl_set, 0, sizeof(ssl_set));
 		ssl_set.ca_dir = set->ssl_ca_dir;
 		ssl_set.verify_remote_cert = set->ssl_verify;
+		ssl_set.crypto_device = set->ssl_crypto_device;
 
 		source = t_strdup_printf("%s:%u", set->host, set->port);
 		if (ssl_iostream_context_init_client(source, &ssl_set,

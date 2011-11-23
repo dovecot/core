@@ -25,6 +25,7 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_BOOL, imapc_ssl_verify),
 
 	DEF(SET_STR, imapc_rawlog_dir),
+	DEF(SET_STR, ssl_crypto_device),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -40,7 +41,8 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_ssl_ca_dir = "",
 	.imapc_ssl_verify = TRUE,
 
-	.imapc_rawlog_dir = ""
+	.imapc_rawlog_dir = "",
+	.ssl_crypto_device = ""
 };
 
 static const struct setting_parser_info imapc_setting_parser_info = {

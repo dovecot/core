@@ -59,6 +59,7 @@ struct imapc_client_settings {
 	bool ssl_verify;
 
 	const char *rawlog_dir;
+	const char *ssl_crypto_device;
 	bool debug;
 };
 

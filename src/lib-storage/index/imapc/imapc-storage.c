@@ -246,6 +246,7 @@ imapc_storage_create(struct mail_storage *_storage,
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
 	else
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
+	set.ssl_crypto_device = storage->set->ssl_crypto_device;
 
 	storage->list = (struct imapc_mailbox_list *)ns->list;
 	storage->list->storage = storage;
