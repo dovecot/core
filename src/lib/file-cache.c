@@ -70,6 +70,7 @@ int file_cache_set_size(struct file_cache *cache, uoff_t size)
 		cache->mmap_base = mmap_anon(size);
 		if (cache->mmap_base == MAP_FAILED) {
 			i_error("mmap_anon(%"PRIuUOFF_T") failed: %m", size);
+			cache->mmap_base = NULL;
 			cache->mmap_length = 0;
 			return -1;
 		}
