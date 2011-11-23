@@ -17,7 +17,7 @@ enum imapc_capability {
 	IMAPC_CAPABILITY_AUTH_PLAIN	= 0x20,
 	IMAPC_CAPABILITY_STARTTLS	= 0x40,
 
-	IMAPC_CAPABILITY_IMAP4REV1	= 0x400000000
+	IMAPC_CAPABILITY_IMAP4REV1	= 0x40000000
 };
 struct imapc_capability_name {
 	const char *name;
