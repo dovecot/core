@@ -11,6 +11,7 @@ struct ssl_iostream_settings {
 	const char *key;
 	const char *key_password;
 	const char *cert_username_field;
+	const char *crypto_device;
 
 	bool verbose, verbose_invalid_cert;
 	bool verify_remote_cert;

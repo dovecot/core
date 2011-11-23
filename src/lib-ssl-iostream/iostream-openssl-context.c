@@ -6,6 +6,7 @@
 
 #include <openssl/crypto.h>
 #include <openssl/x509.h>
+#include <openssl/engine.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -17,9 +18,10 @@ struct ssl_iostream_password_context {
 };
 
 static bool ssl_global_initialized = FALSE;
+static ENGINE *ssl_iostream_engine;
 int dovecot_ssl_extdata_index;
 
-static void ssl_iostream_init_global(void);
+static void ssl_iostream_init_global(const struct ssl_iostream_settings *set);
 
 const char *ssl_iostream_error(void)
 {
@@ -369,7 +371,7 @@ int ssl_iostream_context_init_client(const char *source,
 	struct ssl_iostream_context *ctx;
 	SSL_CTX *ssl_ctx;
 
-	ssl_iostream_init_global();
+	ssl_iostream_init_global(set);
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_client_method())) == NULL) {
 		i_error("SSL_CTX_new() failed: %s", ssl_iostream_error());
 		return -1;
@@ -393,7 +395,7 @@ int ssl_iostream_context_init_server(const char *source,
 	struct ssl_iostream_context *ctx;
 	SSL_CTX *ssl_ctx;
 
-	ssl_iostream_init_global();
+	ssl_iostream_init_global(set);
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL) {
 		i_error("SSL_CTX_new() failed: %s", ssl_iostream_error());
 		return -1;
@@ -422,11 +424,14 @@ void ssl_iostream_context_deinit(struct ssl_iostream_context **_ctx)
 
 static void ssl_iostream_deinit_global(void)
 {
+	if (ssl_iostream_engine != NULL)
+		ENGINE_finish(ssl_iostream_engine);
+	ENGINE_cleanup();
 	EVP_cleanup();
 	ERR_free_strings();
 }
 
-static void ssl_iostream_init_global(void)
+static void ssl_iostream_init_global(const struct ssl_iostream_settings *set)
 {
 	static char dovecot[] = "dovecot";
 	unsigned char buf;
@@ -448,4 +453,18 @@ static void ssl_iostream_init_global(void)
 	   the first try, so this function may fail. It's still been
 	   initialized though. */
 	(void)RAND_bytes(&buf, 1);
+
+	if (set->crypto_device != NULL && *set->crypto_device != '\0') {
+		ENGINE_load_builtin_engines();
+		ssl_iostream_engine = ENGINE_by_id(set->crypto_device);
+		if (ssl_iostream_engine == NULL) {
+			i_error("Unknown ssl_crypto_device: %s",
+				set->crypto_device);
+		} else {
+			ENGINE_init(ssl_iostream_engine);
+			ENGINE_set_default_RSA(ssl_iostream_engine);
+			ENGINE_set_default_DSA(ssl_iostream_engine);
+			ENGINE_set_default_ciphers(ssl_iostream_engine);
+		}
+	}
 }
