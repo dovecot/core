@@ -412,6 +412,10 @@ void mail_storage_unref(struct mail_storage **_storage)
 		return;
 	}
 
+	if (storage->mailboxes != NULL) {
+		i_panic("Trying to deinit storage without freeing mailbox %s",
+			storage->mailboxes->vname);
+	}
 	if (storage->obj_refcount != 0)
 		i_panic("Trying to deinit storage before freeing its objects");
 
@@ -627,6 +631,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		hook_mailbox_allocated(box);
 	} T_END;
 
+	DLLIST_PREPEND(&box->storage->mailboxes, box);
 	mail_storage_obj_ref(box->storage);
 	return box;
 }
@@ -893,6 +898,8 @@ void mailbox_free(struct mailbox **_box)
 
 	mailbox_close(box);
 	box->v.free(box);
+
+	DLLIST_REMOVE(&box->storage->mailboxes, box);
 	mail_storage_obj_unref(box->storage);
 	pool_unref(&box->pool);
 }

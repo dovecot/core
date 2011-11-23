@@ -78,6 +78,8 @@ struct mail_storage {
 	/* counting number of objects (e.g. mailbox) that have a pointer
 	   to this storage. */
 	int obj_refcount;
+	/* Linked list of all mailboxes in the storage */
+	struct mailbox *mailboxes;
 	const char *unique_root_dir;
 
 	char *error_string;
@@ -210,6 +212,8 @@ struct mailbox {
         struct mailbox_vfuncs v, *vlast;
 /* private: */
 	pool_t pool;
+	/* Linked list of all mailboxes in this storage */
+	struct mailbox *prev, *next;
 
 	/* these won't be set until mailbox is opened: */
 	struct mail_index *index;
