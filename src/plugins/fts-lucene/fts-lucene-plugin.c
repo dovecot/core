@@ -67,7 +67,9 @@ uint32_t fts_lucene_settings_checksum(const struct fts_lucene_settings *set)
 {
 	uint32_t crc;
 
-	crc = crc32_str(set->default_language);
+	/* checksum is always different when compiling with/without stemmer */
+	crc = set->default_language == NULL ? 0 :
+		crc32_str(set->default_language);
 	crc = crc32_str_more(crc, set->whitespace_chars);
 	return crc;
 }
