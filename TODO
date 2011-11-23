@@ -4,14 +4,13 @@
      - imapc: replacing existing imapc stream in error recovery crashes with
        file index-mail.c: line 812 (index_mail_stream_destroy_callback):
        assertion failed: (mail->data.destroying_stream)
- - SASL success data response: convert to extra roundtrip with imap/pop3,
-   implement somehow to managesieve
  - per-namespace imapc_* settings?
 
  - mdbox/sdbox index rebuild -> quota rebuild?
  - solr separate attachments (patch)
  - sql connection pooling: Count lookup latencies, avoid servers with
-   significantly higher latencies.
+   significantly higher latencies. optionally use the secondary server only
+   as fallback
  - maildir_storage_sync_force() shouldn't do anything except find the new
    file, don't go expunging any more stuff or we could get recursively back to
    where we started, and stuff would break
