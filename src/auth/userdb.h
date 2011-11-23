@@ -41,7 +41,7 @@ struct userdb_module {
 };
 
 struct userdb_iterate_context {
-	struct userdb_module *userdb;
+	struct auth_request *auth_request;
 	userdb_iter_callback_t *callback;
 	void *context;
 	bool failed;
@@ -58,7 +58,7 @@ struct userdb_module_interface {
 		       userdb_callback_t *callback);
 
 	struct userdb_iterate_context *
-		(*iterate_init)(struct userdb_module *userdb,
+		(*iterate_init)(struct auth_request *auth_request,
 				userdb_iter_callback_t *callback,
 				void *context);
 	void (*iterate_next)(struct userdb_iterate_context *ctx);

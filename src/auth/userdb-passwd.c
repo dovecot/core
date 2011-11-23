@@ -19,7 +19,6 @@ struct passwd_userdb_module {
 struct passwd_userdb_iterate_context {
 	struct userdb_iterate_context ctx;
 	struct passwd_userdb_iterate_context *next_waiting;
-	const struct auth_settings *set;
 };
 
 static struct passwd_userdb_iterate_context *cur_userdb_iter = NULL;
@@ -62,16 +61,15 @@ static void passwd_lookup(struct auth_request *auth_request,
 }
 
 static struct userdb_iterate_context *
-passwd_iterate_init(struct userdb_module *userdb,
+passwd_iterate_init(struct auth_request *auth_request,
 		    userdb_iter_callback_t *callback, void *context)
 {
 	struct passwd_userdb_iterate_context *ctx;
 
 	ctx = i_new(struct passwd_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb;
+	ctx->ctx.auth_request = auth_request;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
-	ctx->set = auth_find_service("")->set;
 	setpwent();
 
 	if (cur_userdb_iter == NULL)
@@ -83,6 +81,7 @@ static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 {
 	struct passwd_userdb_iterate_context *ctx =
 		(struct passwd_userdb_iterate_context *)_ctx;
+	const struct auth_settings *set = _ctx->auth_request->set;
 	struct passwd *pw;
 
 	if (cur_userdb_iter != NULL && cur_userdb_iter != ctx) {
@@ -97,9 +96,9 @@ static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 	while ((pw = getpwent()) != NULL) {
 		/* skip entries not in valid UID range.
 		   they're users for daemons and such. */
-		if (pw->pw_uid >= (uid_t)ctx->set->first_valid_uid &&
-		    (ctx->set->last_valid_uid == 0 ||
-		     pw->pw_uid <= (uid_t)ctx->set->last_valid_uid)) {
+		if (pw->pw_uid >= (uid_t)set->first_valid_uid &&
+		    (set->last_valid_uid == 0 ||
+		     pw->pw_uid <= (uid_t)set->last_valid_uid)) {
 			_ctx->callback(pw->pw_name, _ctx->context);
 			return;
 		}

@@ -29,15 +29,13 @@
 
 struct master_userdb_request {
 	struct auth_master_connection *conn;
-	unsigned int id;
 	struct auth_request *auth_request;
 };
 
 struct master_list_iter_ctx {
 	struct auth_master_connection *conn;
-	struct auth_userdb *userdb;
 	struct userdb_iterate_context *iter;
-	unsigned int id;
+	struct auth_request *auth_request;
 	bool failed;
 };
 
@@ -383,6 +381,8 @@ static void master_input_list_finish(struct master_list_iter_ctx *ctx)
 	if (ctx->iter != NULL)
 		(void)userdb_blocking_iter_deinit(&ctx->iter);
 	o_stream_unset_flush_callback(ctx->conn->output);
+	auth_request_unref(&ctx->auth_request);
+	auth_master_connection_unref(&ctx->conn);
 	i_free(ctx);
 }
 
@@ -402,6 +402,7 @@ static int master_output_list(struct master_list_iter_ctx *ctx)
 static void master_input_list_callback(const char *user, void *context)
 {
 	struct master_list_iter_ctx *ctx = context;
+	struct auth_userdb *userdb = ctx->auth_request->userdb;
 	int ret;
 
 	if (user == NULL) {
@@ -409,14 +410,15 @@ static void master_input_list_callback(const char *user, void *context)
 			ctx->failed = TRUE;
 
 		do {
-			ctx->userdb = ctx->userdb->next;
-		} while (ctx->userdb != NULL &&
-			 ctx->userdb->userdb->iface->iterate_init == NULL);
-		if (ctx->userdb == NULL) {
+			userdb = userdb->next;
+		} while (userdb != NULL &&
+			 userdb->userdb->iface->iterate_init == NULL);
+		if (userdb == NULL) {
 			/* iteration is finished */
 			const char *str;
 
-			str = t_strdup_printf("DONE\t%u\t%s\n", ctx->id,
+			str = t_strdup_printf("DONE\t%u\t%s\n",
+					      ctx->auth_request->id,
 					      ctx->failed ? "fail" : "");
 			(void)o_stream_send_str(ctx->conn->output, str);
 			master_input_list_finish(ctx);
@@ -424,7 +426,8 @@ static void master_input_list_callback(const char *user, void *context)
 		}
 
 		/* continue iterating next userdb */
-		ctx->iter = userdb_blocking_iter_init(ctx->userdb->userdb,
+		ctx->auth_request->userdb = userdb;
+		ctx->iter = userdb_blocking_iter_init(ctx->auth_request,
 					master_input_list_callback, ctx);
 		userdb_blocking_iter_next(ctx->iter);
 		return;
@@ -433,7 +436,7 @@ static void master_input_list_callback(const char *user, void *context)
 	T_BEGIN {
 		const char *str;
 
-		str = t_strdup_printf("LIST\t%u\t%s\n", ctx->id,
+		str = t_strdup_printf("LIST\t%u\t%s\n", ctx->auth_request->id,
 				      str_tabescape(user));
 		ret = o_stream_send_str(ctx->conn->output, str);
 	} T_END;
@@ -450,15 +453,18 @@ static bool
 master_input_list(struct auth_master_connection *conn, const char *args)
 {
 	struct auth_userdb *userdb = conn->auth->userdbs;
+	struct auth_request *auth_request;
 	struct master_list_iter_ctx *ctx;
-	const char *str;
+	const char *str, *name, *arg, *const *list;
 	unsigned int id;
 
-	/* <id> */
-	if (str_to_uint(args, &id) < 0) {
+	/* <id> [<parameters>] */
+	list = t_strsplit(args, "\t");
+	if (list[0] == NULL || str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Master sent broken LIST");
-		return FALSE;
+		return -1;
 	}
+	list++;
 
 	if (conn->userdb_restricted_uid != 0) {
 		i_error("Auth client doesn't have permissions to list users: %s",
@@ -477,14 +483,42 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 		return TRUE;
 	}
 
+	auth_request = auth_request_new_dummy();
+	auth_request->id = id;
+	auth_request->master = conn;
+	auth_master_connection_ref(conn);
+
+	for (; *list != NULL; list++) {
+		arg = strchr(*list, '=');
+		if (arg == NULL) {
+			name = *list;
+			arg = "";
+		} else {
+			name = t_strdup_until(*list, arg);
+			arg++;
+		}
+
+		if (!auth_request_import_info(auth_request, name, arg) &&
+		    strcmp(name, "user") == 0) {
+			/* username mask */
+			auth_request->user = p_strdup(auth_request->pool, arg);
+		}
+	}
+
+	/* rest of the code doesn't like NULL user or service */
+	if (auth_request->user == NULL)
+		auth_request->user = "";
+	if (auth_request->service == NULL)
+		auth_request->service = "";
+
 	ctx = i_new(struct master_list_iter_ctx, 1);
 	ctx->conn = conn;
-	ctx->userdb = userdb;
-	ctx->id = id;
+	ctx->auth_request = auth_request;
+	ctx->auth_request->userdb = userdb;
 
 	io_remove(&conn->io);
 	o_stream_set_flush_callback(conn->output, master_output_list, ctx);
-	ctx->iter = userdb_blocking_iter_init(ctx->userdb->userdb,
+	ctx->iter = userdb_blocking_iter_init(auth_request,
 					      master_input_list_callback, ctx);
 	return TRUE;
 }

@@ -349,6 +349,7 @@ auth_settings_read(const char *service, pool_t pool,
 	};
  	struct master_service_settings_input input;
 	struct setting_parser_context *set_parser;
+	struct auth_settings *set;
 	const char *error;
 
 	memset(&input, 0, sizeof(input));
@@ -359,9 +360,12 @@ auth_settings_read(const char *service, pool_t pool,
 					 output_r, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
+	pool_ref(pool);
 	set_parser = settings_parser_dup(master_service->set_parser, pool);
 	if (!settings_parser_check(set_parser, pool, &error))
 		i_unreached();
 
-	return settings_parser_get_list(set_parser)[1];
+	set = settings_parser_get_list(set_parser)[1];
+	settings_parser_deinit(&set_parser);
+	return set;
 }

@@ -85,16 +85,17 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 }
 
 static struct userdb_iterate_context *
-passwd_file_iterate_init(struct userdb_module *userdb,
+passwd_file_iterate_init(struct auth_request *auth_request,
 			 userdb_iter_callback_t *callback, void *context)
 {
+	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct passwd_file_userdb_module *module =
-		(struct passwd_file_userdb_module *)userdb;
+		(struct passwd_file_userdb_module *)_module;
 	struct passwd_file_userdb_iterate_context *ctx;
 	int fd;
 
 	ctx = i_new(struct passwd_file_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb;
+	ctx->ctx.auth_request = auth_request;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
 	if (module->pwf->default_file == NULL) {

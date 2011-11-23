@@ -31,9 +31,8 @@ struct auth_worker_client {
 
 struct auth_worker_list_context {
 	struct auth_worker_client *client;
-	struct userdb_module *userdb;
+	struct auth_request *auth_request;
 	struct userdb_iterate_context *iter;
-	unsigned int id;
 	bool sending, sent, done;
 };
 
@@ -415,14 +414,16 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	i_assert(client->io == NULL);
 
 	str = t_str_new(32);
-	if (ctx->userdb->iface->iterate_deinit(ctx->iter) < 0)
-		str_printfa(str, "%u\tFAIL\n", ctx->id);
+	if (ctx->auth_request->userdb->userdb->iface->
+	    		iterate_deinit(ctx->iter) < 0)
+		str_printfa(str, "%u\tFAIL\n", ctx->auth_request->id);
 	else
-		str_printfa(str, "%u\tOK\n", ctx->id);
+		str_printfa(str, "%u\tOK\n", ctx->auth_request->id);
 	auth_worker_send_reply(client, str);
 
 	client->io = io_add(client->fd, IO_READ, auth_worker_input, client);
 	o_stream_set_flush_callback(client->output, auth_worker_output, client);
+	auth_request_unref(&ctx->auth_request);
 	auth_worker_client_unref(&client);
 	i_free(ctx);
 }
@@ -442,7 +443,7 @@ static void list_iter_callback(const char *user, void *context)
 
 	T_BEGIN {
 		str = t_str_new(128);
-		str_printfa(str, "%u\t*\t%s\n", ctx->id, user);
+		str_printfa(str, "%u\t*\t%s\n", ctx->auth_request->id, user);
 		o_stream_send(ctx->client->output, str_data(str), str_len(str));
 	} T_END;
 
@@ -455,7 +456,8 @@ static void list_iter_callback(const char *user, void *context)
 	do {
 		ctx->sending = TRUE;
 		ctx->sent = FALSE;
-		ctx->userdb->iface->iterate_next(ctx->iter);
+		ctx->auth_request->userdb->userdb->iface->
+			iterate_next(ctx->iter);
 	} while (ctx->sent &&
 		 o_stream_get_buffer_used_size(ctx->client->output) == 0);
 	ctx->sending = FALSE;
@@ -471,8 +473,10 @@ static int auth_worker_list_output(struct auth_worker_list_context *ctx)
 		list_iter_deinit(ctx);
 		return 1;
 	}
-	if (ret > 0)
-		ctx->userdb->iface->iterate_next(ctx->iter);
+	if (ret > 0) {
+		ctx->auth_request->userdb->userdb->iface->
+			iterate_next(ctx->iter);
+	}
 	return 1;
 }
 
@@ -497,16 +501,22 @@ auth_worker_handle_list(struct auth_worker_client *client,
 
 	ctx = i_new(struct auth_worker_list_context, 1);
 	ctx->client = client;
-	ctx->id = id;
-	ctx->userdb = userdb->userdb;
+	ctx->auth_request = worker_auth_request_new(client, id, args + 1);
+	ctx->auth_request->userdb = userdb;
+	if (ctx->auth_request->user == NULL ||
+	    ctx->auth_request->service == NULL) {
+		i_error("BUG: LIST had missing parameters");
+		auth_request_unref(&ctx->auth_request);
+		i_free(ctx);
+		return FALSE;
+	}
 
 	io_remove(&ctx->client->io);
 	o_stream_set_flush_callback(ctx->client->output,
 				    auth_worker_list_output, ctx);
-	client->refcount++;
-	ctx->iter = ctx->userdb->iface->
-		iterate_init(userdb->userdb, list_iter_callback, ctx);
-	ctx->userdb->iface->iterate_next(ctx->iter);
+	ctx->iter = ctx->auth_request->userdb->userdb->iface->
+		iterate_init(ctx->auth_request, list_iter_callback, ctx);
+	ctx->auth_request->userdb->userdb->iface->iterate_next(ctx->iter);
 	return TRUE;
 }
 

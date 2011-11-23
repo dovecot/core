@@ -140,28 +140,29 @@ static void sql_iter_query_callback(struct sql_result *sql_result,
 }
 
 static struct userdb_iterate_context *
-userdb_sql_iterate_init(struct userdb_module *userdb,
+userdb_sql_iterate_init(struct auth_request *auth_request,
 			userdb_iter_callback_t *callback, void *context)
 {
-	static struct var_expand_table static_tab[] = {
-		/* nothing for now, but e.g. %{hostname} can be used */
-		{ '\0', NULL, NULL }
-	};
+	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct sql_userdb_module *module =
-		(struct sql_userdb_module *)userdb;
+		(struct sql_userdb_module *)_module;
 	struct sql_userdb_iterate_context *ctx;
 	string_t *query;
 
 	query = t_str_new(512);
-	var_expand(query, module->conn->set.iterate_query, static_tab);
+	var_expand(query, module->conn->set.iterate_query,
+		   auth_request_get_var_expand_table(auth_request,
+						     userdb_sql_escape));
 
 	ctx = i_new(struct sql_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb;
+	ctx->ctx.auth_request = auth_request;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
+	auth_request_ref(auth_request);
 
 	sql_query(module->conn->db, str_c(query),
 		  sql_iter_query_callback, ctx);
+	auth_request_log_debug(auth_request, "sql", "%s", str_c(query));
 	return &ctx->ctx;
 }
 
@@ -199,7 +200,7 @@ static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
 {
 	struct sql_userdb_iterate_context *ctx =
 		(struct sql_userdb_iterate_context *)_ctx;
-	struct userdb_module *_module = _ctx->userdb;
+	struct userdb_module *_module = _ctx->auth_request->userdb->userdb;
 	struct sql_userdb_module *module = (struct sql_userdb_module *)_module;
 	const char *user;
 	int ret;
@@ -242,6 +243,7 @@ static int userdb_sql_iterate_deinit(struct userdb_iterate_context *_ctx)
 		(struct sql_userdb_iterate_context *)_ctx;
 	int ret = _ctx->failed ? -1 : 0;
 
+	auth_request_unref(&_ctx->auth_request);
 	if (ctx->result == NULL) {
 		/* sql query hasn't finished yet */
 		ctx->freed = TRUE;

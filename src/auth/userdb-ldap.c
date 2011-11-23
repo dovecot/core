@@ -185,37 +185,39 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 }
 
 static struct userdb_iterate_context *
-userdb_ldap_iterate_init(struct userdb_module *userdb,
+userdb_ldap_iterate_init(struct auth_request *auth_request,
 			 userdb_iter_callback_t *callback, void *context)
 {
-	static struct var_expand_table static_tab[] = {
-		/* nothing for now, but e.g. %{hostname} can be used */
-		{ '\0', NULL, NULL }
-	};
+	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct ldap_userdb_module *module =
-		(struct ldap_userdb_module *)userdb;
+		(struct ldap_userdb_module *)_module;
 	struct ldap_connection *conn = module->conn;
 	struct ldap_userdb_iterate_context *ctx;
 	struct userdb_iter_ldap_request *request;
+        const struct var_expand_table *vars;
 	const char **attr_names = (const char **)conn->iterate_attr_names;
 	string_t *str;
 
 	ctx = i_new(struct ldap_userdb_iterate_context, 1);
-	ctx->ctx.userdb = userdb;
+	ctx->ctx.auth_request = auth_request;
 	ctx->ctx.callback = callback;
 	ctx->ctx.context = context;
 	ctx->conn = conn;
 	request = &ctx->request;
 	request->ctx = ctx;
 
-	request->request.request.auth_request = auth_request_new_dummy();
-	request->request.base = conn->set.base;
+	auth_request_ref(auth_request);
+	request->request.request.auth_request = auth_request;
+
+	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
 
 	str = t_str_new(512);
-	var_expand(str, conn->set.iterate_filter, static_tab);
-	request->request.filter =
-		p_strdup(request->request.request.auth_request->pool,
-			 str_c(str));
+	var_expand(str, conn->set.base, vars);
+	request->request.base = p_strdup(auth_request->pool, str_c(str));
+
+	str_truncate(str, 0);
+	var_expand(str, conn->set.iterate_filter, vars);
+	request->request.filter = p_strdup(auth_request->pool, str_c(str));
 	request->request.attributes = conn->iterate_attr_names;
 
 	if (global_auth_settings->debug) {
