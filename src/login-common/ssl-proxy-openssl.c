@@ -1340,8 +1340,8 @@ void ssl_proxy_deinit(void)
 	ssl_free_parameters(&ssl_params);
 	SSL_CTX_free(ssl_client_ctx);
 	if (ssl_engine != NULL) {
-		ENGINE_cleanup();
 		ENGINE_finish(ssl_engine);
+		ENGINE_cleanup();
 	}
 	EVP_cleanup();
 	ERR_free_strings();
