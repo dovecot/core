@@ -43,9 +43,13 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 void auth_user_fields_parse(const char *const *fields, pool_t pool,
 			    struct auth_user_reply *reply_r);
 
-/* Iterate through all users. */
+/* Iterate through all users. If user_mask is non-NULL, it contains a string
+   with wildcards ('*', '?') that the auth server MAY use to limit what users
+   are returned (but it may as well return all users anyway). */
 struct auth_master_user_list_ctx *
-auth_master_user_list_init(struct auth_master_connection *conn);
+auth_master_user_list_init(struct auth_master_connection *conn,
+			   const char *user_mask,
+			   const struct auth_user_info *info);
 const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx);
 unsigned int auth_master_user_list_count(struct auth_master_user_list_ctx *ctx);
 /* Returns -1 if anything failed, 0 if ok */

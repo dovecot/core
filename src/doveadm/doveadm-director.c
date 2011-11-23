@@ -211,7 +211,7 @@ userdb_get_user_list(const char *auth_socket_path, pool_t pool,
 	}
 
 	conn = auth_master_init(auth_socket_path, 0);
-	ctx = auth_master_user_list_init(conn);
+	ctx = auth_master_user_list_init(conn, NULL, NULL);
 	while ((username = auth_master_user_list_next(ctx)) != NULL)
 		user_list_add(username, pool, users);
 	if (auth_master_user_list_deinit(&ctx) < 0) {

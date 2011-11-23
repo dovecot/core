@@ -434,8 +434,10 @@ auth_master_next_request_id(struct auth_master_connection *conn)
 static void
 auth_user_info_export(string_t *str, const struct auth_user_info *info)
 {
-	str_append(str, "service=");
-	str_append(str, info->service);
+	if (info->service != NULL) {
+		str_append(str, "\tservice=");
+		str_append(str, info->service);
+	}
 
 	if (info->local_ip.family != 0)
 		str_printfa(str, "\tlip=%s", net_ip2addr(&info->local_ip));
@@ -473,7 +475,7 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	conn->reply_context = &ctx;
 
 	str = t_str_new(128);
-	str_printfa(str, "USER\t%u\t%s\t",
+	str_printfa(str, "USER\t%u\t%s",
 		    auth_master_next_request_id(conn), user);
 	auth_user_info_export(str, info);
 	str_append_c(str, '\n');
@@ -547,7 +549,7 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	conn->reply_context = &ctx;
 
 	str = t_str_new(128);
-	str_printfa(str, "PASS\t%u\t%s\t",
+	str_printfa(str, "PASS\t%u\t%s",
 		    auth_master_next_request_id(conn), user);
 	auth_user_info_export(str, info);
 	str_append_c(str, '\n');
@@ -591,10 +593,12 @@ auth_user_list_reply_callback(const char *cmd, const char *const *args,
 }
 
 struct auth_master_user_list_ctx *
-auth_master_user_list_init(struct auth_master_connection *conn)
+auth_master_user_list_init(struct auth_master_connection *conn,
+			   const char *user_mask,
+			   const struct auth_user_info *info)
 {
 	struct auth_master_user_list_ctx *ctx;
-	const char *str;
+	string_t *str;
 	pool_t pool;
 
 	pool = pool_alloconly_create("auth master user list", 10240);
@@ -606,9 +610,17 @@ auth_master_user_list_init(struct auth_master_connection *conn)
 	conn->reply_callback = auth_user_list_reply_callback;
 	conn->reply_context = ctx;
 
-	str = t_strdup_printf("LIST\t%u\n", auth_master_next_request_id(conn));
+	str = t_str_new(128);
+	str_printfa(str, "LIST\t%u",
+		    auth_master_next_request_id(conn));
+	if (user_mask != NULL && *user_mask != '\0')
+		str_printfa(str, "\tuser=%s", user_mask);
+	if (info != NULL)
+		auth_user_info_export(str, info);
+	str_append_c(str, '\n');
+
 	conn->prefix = "userdb list";
-	if (auth_master_run_cmd(conn, str) < 0)
+	if (auth_master_run_cmd(conn, str_c(str)) < 0)
 		ctx->failed = TRUE;
 	ctx->user_strings = array_get(&ctx->users, &ctx->user_count);
 	conn->prefix = DEFAULT_USERDB_LOOKUP_PREFIX;

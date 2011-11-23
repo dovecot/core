@@ -180,11 +180,12 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 }
 
 static void
-cmd_user_list(const char *auth_socket_path, char *const *users)
+cmd_user_list(const char *auth_socket_path, const struct authtest_input *input,
+	      char *const *users)
 {
 	struct auth_master_user_list_ctx *ctx;
 	struct auth_master_connection *conn;
-	const char *username;
+	const char *username, *user_mask = NULL;
 	unsigned int i;
 
 	if (auth_socket_path == NULL) {
@@ -192,8 +193,11 @@ cmd_user_list(const char *auth_socket_path, char *const *users)
 					       "/auth-userdb", NULL);
 	}
 
+	if (users[0] != NULL && users[1] == NULL)
+		user_mask = users[0];
+
 	conn = auth_master_init(auth_socket_path, 0);
-	ctx = auth_master_user_list_init(conn);
+	ctx = auth_master_user_list_init(conn, user_mask, &input->info);
 	while ((username = auth_master_user_list_next(ctx)) != NULL) {
 		for (i = 0; users[i] != NULL; i++) {
 			if (wildcard_match_icase(username, users[i]))
@@ -286,7 +290,7 @@ static void cmd_user(int argc, char *argv[])
 	}
 
 	if (have_wildcards)
-		cmd_user_list(auth_socket_path, argv + optind);
+		cmd_user_list(auth_socket_path, &input, argv + optind);
 	else {
 		bool first = TRUE;
 		bool notfound = FALSE;
