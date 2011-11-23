@@ -17,5 +17,7 @@ void restrict_fd_limit(rlim_t count);
 int restrict_get_core_limit(rlim_t *limit_r);
 /* Get the process count limit. Returns 0 if ok, -1 if lookup failed. */
 int restrict_get_process_limit(rlim_t *limit_r);
+/* Get the fd limit. Returns 0 if ok, -1 if lookup failed. */
+int restrict_get_fd_limit(rlim_t *limit_r);
 
 #endif
