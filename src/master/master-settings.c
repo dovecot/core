@@ -9,6 +9,7 @@
 #include "ipwd.h"
 #include "mkdir-parents.h"
 #include "safe-mkdir.h"
+#include "restrict-process-size.h"
 #include "settings-parser.h"
 #include "master-settings.h"
 
@@ -403,6 +404,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	static int warned_auth = FALSE, warned_anvil = FALSE;
 #ifdef CONFIG_BINARY
 	const struct service_settings *default_service;
+#else
+	rlim_t fd_limit;
 #endif
 	struct master_settings *set = _set;
 	struct service_settings *const *services;
@@ -411,6 +414,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	struct passwd pw;
 	unsigned int i, j, count, len, client_limit, process_limit;
 	unsigned int max_auth_client_processes, max_anvil_client_processes;
+	const char *max_client_limit_source = "default_client_count";
+	unsigned int max_client_limit;
 
 	len = strlen(set->base_dir);
 	if (len > 0 && set->base_dir[len-1] == '/') {
@@ -484,6 +489,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		}
 	}
 	t_array_init(&all_listeners, 64);
+	max_client_limit = set->default_client_limit;
 	max_auth_client_processes = 0;
 	max_anvil_client_processes = 2; /* blocking, nonblocking pipes */
 	for (i = 0; i < count; i++) {
@@ -524,6 +530,11 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			*error_r = t_strdup_printf("service(%s): "
 				"vsz_limit is too low", service->name);
 			return FALSE;
+		}
+		if (max_client_limit < service->client_limit) {
+			max_client_limit = service->client_limit;
+			max_client_limit_source = t_strdup_printf(
+				"service %s { client_limit }", service->name);
 		}
 
 #ifdef CONFIG_BINARY
@@ -570,6 +581,15 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			  "required under max. load (%u)",
 			  client_limit, max_anvil_client_processes);
 	}
+#ifndef CONFIG_BINARY
+	if (restrict_get_fd_limit(&fd_limit) == 0 &&
+	    fd_limit < (rlim_t)max_client_limit) {
+		i_warning("fd limit (ulimit -n) is lower than required "
+			  "under max. load (%u < %u), because of %s",
+			  (unsigned int)fd_limit, max_client_limit,
+			  max_client_limit_source);
+	}
+#endif
 
 	/* check for duplicate listeners */
 	array_sort(&all_listeners, i_strcmp_p);
