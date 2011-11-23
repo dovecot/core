@@ -243,7 +243,6 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		i_error("Authentication server disconnected, reconnecting");
 		auth_server_connection_reconnect(conn);
 		return;
 	case -2:
@@ -309,7 +308,13 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn)
 	static const char *const temp_failure_args[] = { "temp", NULL };
 	struct hash_iterate_context *iter;
 	void *key, *value;
+	unsigned int request_count = hash_table_count(conn->requests);
 
+	if (request_count == 0)
+		return;
+
+	i_warning("Auth connection closed with %u pending requests",
+		  request_count);
 	iter = hash_table_iterate_init(conn->requests);
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct auth_client_request *request = value;
@@ -378,6 +383,7 @@ void auth_server_connection_deinit(struct auth_server_connection **_conn)
 	*_conn = NULL;
 
 	auth_server_connection_disconnect(conn);
+	i_assert(hash_table_count(conn->requests) == 0);
 	hash_table_destroy(&conn->requests);
 	array_free(&conn->available_auth_mechs);
 	pool_unref(&conn->pool);
