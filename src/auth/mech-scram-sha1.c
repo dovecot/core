@@ -16,6 +16,11 @@
 #include "strfuncs.h"
 #include "mech.h"
 
+/* SCRAM hash iteration count. RFC says it SHOULD be at least 4096 */
+#define SCRAM_ITERATE_COUNT 4096
+/* s-nonce length */
+#define SCRAM_SERVER_NONCE_LEN 64
+
 struct scram_auth_request {
 	struct auth_request auth_request;
 
@@ -23,16 +28,16 @@ struct scram_auth_request {
 	unsigned int authenticated:1;
 
 	/* sent: */
-	char *server_first_message;
+	const char *server_first_message;
 	unsigned char salt[16];
 	unsigned char salted_password[SHA1_RESULTLEN];
 
 	/* received: */
-	char *gs2_cbind_flag;
-	char *cnonce;
-	char *snonce;
-	char *client_first_message_bare;
-	char *client_final_message_without_proof;
+	const char *gs2_cbind_flag;
+	const char *cnonce;
+	const char *snonce;
+	const char *client_first_message_bare;
+	const char *client_final_message_without_proof;
 	buffer_t *proof;
 };
 
@@ -42,7 +47,7 @@ static void Hi(const unsigned char *str, size_t str_size,
 {
 	struct hmac_sha1_context ctx;
 	unsigned char U[SHA1_RESULTLEN];
-	size_t j, k;
+	unsigned int j, k;
 
 	/* Calculate U1 */
 	hmac_sha1_init(&ctx, str, str_size);
@@ -52,7 +57,7 @@ static void Hi(const unsigned char *str, size_t str_size,
 
 	memcpy(result, U, SHA1_RESULTLEN);
 
-	/* Calculate U2 to Ui and Hi*/
+	/* Calculate U2 to Ui and Hi */
 	for (j = 2; j <= i; j++) {
 		hmac_sha1_init(&ctx, str, str_size);
 		hmac_sha1_update(&ctx, U, sizeof(U));
@@ -64,7 +69,7 @@ static void Hi(const unsigned char *str, size_t str_size,
 
 static const char *get_scram_server_first(struct scram_auth_request *request)
 {
-	unsigned char snonce[65];
+	unsigned char snonce[SCRAM_SERVER_NONCE_LEN+1];
 	string_t *str;
 	size_t i;
 
@@ -77,16 +82,15 @@ static const char *get_scram_server_first(struct scram_auth_request *request)
 			snonce[i] = '~';
 	}
 	snonce[sizeof(snonce)-1] = '\0';
-
 	request->snonce = p_strndup(request->pool, snonce, sizeof(snonce));
 
 	random_fill(request->salt, sizeof(request->salt));
 
 	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(request->salt)));
+	str_printfa(str, "r=%s%s,s=", request->cnonce, request->snonce);
 	base64_encode(request->salt, sizeof(request->salt), str);
-
-	return t_strdup_printf("r=%s%s,s=%s,i=%i", request->cnonce,
-			request->snonce, str_c(str), 4096);
+	str_printfa(str, ",i=%d", SCRAM_ITERATE_COUNT);
+	return str_c(str);
 }
 
 static const char *get_scram_server_final(struct scram_auth_request *request)
@@ -102,97 +106,101 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 			request->client_final_message_without_proof, NULL);
 
 	hmac_sha1_init(&ctx, request->salted_password,
-			sizeof(request->salted_password));
+		       sizeof(request->salted_password));
 	hmac_sha1_update(&ctx, "Server Key", 10);
 	hmac_sha1_final(&ctx, server_key);
 
 	safe_memset(request->salted_password, 0,
-			sizeof(request->salted_password));
+		    sizeof(request->salted_password));
 
 	hmac_sha1_init(&ctx, server_key, sizeof(server_key));
 	hmac_sha1_update(&ctx, auth_message, strlen(auth_message));
 	hmac_sha1_final(&ctx, server_signature);
 
 	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(server_signature)));
+	str_append(str, "v=");
 	base64_encode(server_signature, sizeof(server_signature), str);
 
-	return t_strdup_printf("v=%s", str_c(str));
+	return str_c(str);
+}
+
+static const char *scram_unescape_username(const char *in)
+{
+	string_t *out;
+
+	out = t_str_new(64);
+	for (; *in != '\0'; in++) {
+		i_assert(in[0] != ','); /* strsplit should have caught this */
+
+		if (in[0] == '=') {
+			if (in[1] == '2' && in[2] == 'C')
+				str_append_c(out, ',');
+			else if (in[1] == '3' && in[2] == 'D')
+				str_append_c(out, '=');
+			else
+				return NULL;
+			in += 2;
+		} else {
+			str_append_c(out, *in);
+		}
+	}
+	return str_c(out);
 }
 
 static bool parse_scram_client_first(struct scram_auth_request *request,
 				     const unsigned char *data, size_t size,
-				     const char **error)
+				     const char **error_r)
 {
 	const char *const *fields;
-	const char *p;
-	string_t *username;
 
 	fields = t_strsplit(t_strndup(data, size), ",");
-
 	if (str_array_length(fields) < 4) {
-		*error = "Invalid initial client message";
+		*error_r = "Invalid initial client message";
 		return FALSE;
 	}
 
 	switch (fields[0][0]) {
 	case 'p':
-		*error = "Channel binding not supported";
+		*error_r = "Channel binding not supported";
 		return FALSE;
 	case 'y':
 	case 'n':
 		request->gs2_cbind_flag = p_strdup(request->pool, fields[0]);
 		break;
 	default:
-		*error = "Invalid GS2 header";
+		*error_r = "Invalid GS2 header";
 		return FALSE;
 	}
 
 	if (fields[1][0] != '\0') {
-		*error = "authzid not supported";
+		*error_r = "authzid not supported";
 		return FALSE;
 	}
-
 	if (fields[2][0] == 'm') {
-		*error = "Mandatory extension(s) not supported";
+		*error_r = "Mandatory extension(s) not supported";
 		return FALSE;
 	}
-
 	if (fields[2][0] == 'n') {
 		/* Unescape username */
-		username = t_str_new(0);
+		const char *username =
+			scram_unescape_username(fields[2] + 2);
 
-		for (p = fields[2] + 2; *p != '\0'; p++) {
-			if (p[0] == '=') {
-				if (p[1] == '2' && p[2] == 'C') {
-					str_append_c(username, ',');
-				} else if (p[1] == '3' && p[2] == 'D') {
-					str_append_c(username, '=');
-				} else {
-					*error = "Username contains "
-						 "forbidden character(s)";
-					return FALSE;
-				}
-				p += 2;
-			} else if (p[0] == ',') {
-				*error = "Username contains "
-					 "forbidden character(s)";
-				return FALSE;
-			} else {
-				str_append_c(username, *p);
-			}
+		if (username == NULL) {
+			*error_r = "Username escaping is invalid";
+			return FALSE;
 		}
 		if (!auth_request_set_username(&request->auth_request,
-					str_c(username), error))
-				return FALSE;
+					       username, error_r))
+			return FALSE;
 	} else {
-		*error = "Invalid username";
+		*error_r = "Invalid username field";
 		return FALSE;
 	}
 
 	if (fields[3][0] == 'r')
 		request->cnonce = p_strdup(request->pool, fields[3]+2);
 	else {
-		*error = "Invalid client nonce";
+		*error_r = "Invalid client nonce";
 		return FALSE;
 	}
 
@@ -200,7 +208,6 @@ static bool parse_scram_client_first(struct scram_auth_request *request,
 	   otherwise the GS2 header doesn't have a fixed length */
 	request->client_first_message_bare =
 		p_strndup(request->pool, data + 3, size - 3);
-
 	return TRUE;
 }
 
@@ -215,8 +222,8 @@ static bool verify_credentials(struct scram_auth_request *request,
 	size_t i;
 
 	/* FIXME: credentials should be SASLprepped UTF8 data here */
-	Hi(credentials, size, request->salt, sizeof(request->salt), 4096,
-			request->salted_password);
+	Hi(credentials, size, request->salt, sizeof(request->salt),
+	   SCRAM_ITERATE_COUNT, request->salted_password);
 
 	hmac_sha1_init(&ctx, request->salted_password,
 			sizeof(request->salted_password));
@@ -239,11 +246,8 @@ static bool verify_credentials(struct scram_auth_request *request,
 	safe_memset(client_key, 0, sizeof(client_key));
 	safe_memset(stored_key, 0, sizeof(stored_key));
 
-	if (!memcmp(client_signature, request->proof->data,
-				request->proof->used))
-		return TRUE;
-
-	return FALSE;
+	return memcmp(client_signature, request->proof->data,
+		      request->proof->used) == 0;
 }
 
 static void credentials_callback(enum passdb_result result,
@@ -258,14 +262,14 @@ static void credentials_callback(enum passdb_result result,
 	case PASSDB_RESULT_OK:
 		if (!verify_credentials(request, credentials, size)) {
 			auth_request_log_info(auth_request, "scram-sha-1",
-					"password mismatch");
+					      "password mismatch");
 			auth_request_fail(auth_request);
 		} else {
 			request->authenticated = TRUE;
 			server_final_message = get_scram_server_final(request);
 			auth_request_handler_reply_continue(auth_request,
-					server_final_message,
-					strlen(server_final_message));
+				server_final_message,
+				strlen(server_final_message));
 		}
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
@@ -278,35 +282,33 @@ static void credentials_callback(enum passdb_result result,
 }
 
 static bool parse_scram_client_final(struct scram_auth_request *request,
-				     const unsigned char *data,
-				     size_t size ATTR_UNUSED,
-				     const char **error)
+				     const unsigned char *data, size_t size,
+				     const char **error_r)
 {
-	const char **fields;
+	const char **fields, *cbind_input, *nonce_str;
 	unsigned int field_count;
-	const char *cbind_input;
 	string_t *str;
 
-	fields = t_strsplit((const char*)data, ",");
+	fields = t_strsplit(t_strndup(data, size), ",");
 	field_count = str_array_length(fields);
-
 	if (field_count < 3) {
-		*error = "Invalid final client message";
+		*error_r = "Invalid final client message";
 		return FALSE;
 	}
 
 	cbind_input = t_strconcat(request->gs2_cbind_flag, ",,", NULL);
 	str = t_str_new(MAX_BASE64_ENCODED_SIZE(strlen(cbind_input)));
+	str_append(str, "c=");
 	base64_encode(cbind_input, strlen(cbind_input), str);
 
-	if (strcmp(fields[0], t_strconcat("c=", str_c(str), NULL))) {
-		*error = "Invalid channel binding data";
+	if (strcmp(fields[0], str_c(str)) != 0) {
+		*error_r = "Invalid channel binding data";
 		return FALSE;
 	}
 
-	if (strcmp(fields[1], t_strconcat("r=", request->cnonce,
-					request->snonce, NULL))) {
-		*error = "Wrong nonce";
+	nonce_str = t_strconcat("r=", request->cnonce, request->snonce, NULL);
+	if (strcmp(fields[1], nonce_str) != 0) {
+		*error_r = "Wrong nonce";
 		return FALSE;
 	}
 
@@ -314,27 +316,27 @@ static bool parse_scram_client_final(struct scram_auth_request *request,
 		size_t len = strlen(&fields[field_count-1][2]);
 
 		request->proof = buffer_create_dynamic(request->pool,
-				MAX_BASE64_DECODED_SIZE(len));
-
-		if ((base64_decode(&fields[field_count-1][2], len, NULL,
-						request->proof) < 0)
-				|| (request->proof->used != SHA1_RESULTLEN)) {
-			*error = "Invalid base64 encoding "
-				"or length for ClientProof";
+					MAX_BASE64_DECODED_SIZE(len));
+		if (base64_decode(&fields[field_count-1][2], len, NULL,
+				  request->proof) < 0) {
+			*error_r = "Invalid base64 encoding";
+			return FALSE;
+		}
+		if (request->proof->used != SHA1_RESULTLEN) {
+			*error_r = "Invalid ClientProof length";
 			return FALSE;
 		}
 	} else {
-		*error = "Invalid ClientProof";
+		*error_r = "Invalid ClientProof";
 		return FALSE;
 	}
 
 	str_array_remove(fields, fields[field_count-1]);
-	request->client_final_message_without_proof = p_strdup(request->pool,
-			t_strarray_join(fields, ","));
+	request->client_final_message_without_proof =
+		p_strdup(request->pool, t_strarray_join(fields, ","));
 
 	auth_request_lookup_credentials(&request->auth_request, "PLAIN",
-			credentials_callback);
-
+					credentials_callback);
 	return TRUE;
 }
 
@@ -356,7 +358,7 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 	if (!request->client_first_message_bare) {
 		/* Received client-first-message */
 		if (parse_scram_client_first(request, data,
-					data_size, &error)) {
+					     data_size, &error)) {
 			request->server_first_message = p_strdup(request->pool,
 					get_scram_server_first(request));
 			auth_request_handler_reply_continue(auth_request,
@@ -370,10 +372,8 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 			return;
 	}
 
-	if (error == NULL)
-		error = "authentication failed";
-
-        auth_request_log_info(auth_request, "scram-sha-1", "%s", error);
+	if (error != NULL)
+		auth_request_log_info(auth_request, "scram-sha-1", "%s", error);
 	auth_request_fail(auth_request);
 }
 
@@ -385,8 +385,6 @@ static struct auth_request *mech_scram_sha1_auth_new(void)
 	pool = pool_alloconly_create("scram_sha1_auth_request", 2048);
 	request = p_new(pool, struct scram_auth_request, 1);
 	request->pool = pool;
-
-	request->client_first_message_bare = NULL;
 
 	request->auth_request.pool = pool;
 	return &request->auth_request;
