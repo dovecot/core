@@ -402,11 +402,6 @@ static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
 	static int warned_auth = FALSE, warned_anvil = FALSE;
-#ifdef CONFIG_BINARY
-	const struct service_settings *default_service;
-#else
-	rlim_t fd_limit;
-#endif
 	struct master_settings *set = _set;
 	struct service_settings *const *services;
 	const char *const *strings;
@@ -414,8 +409,13 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	struct passwd pw;
 	unsigned int i, j, count, len, client_limit, process_limit;
 	unsigned int max_auth_client_processes, max_anvil_client_processes;
+#ifdef CONFIG_BINARY
+	const struct service_settings *default_service;
+#else
+	rlim_t fd_limit;
 	const char *max_client_limit_source = "default_client_count";
-	unsigned int max_client_limit;
+	unsigned int max_client_limit = set->default_client_limit;
+#endif
 
 	len = strlen(set->base_dir);
 	if (len > 0 && set->base_dir[len-1] == '/') {
@@ -489,7 +489,6 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		}
 	}
 	t_array_init(&all_listeners, 64);
-	max_client_limit = set->default_client_limit;
 	max_auth_client_processes = 0;
 	max_anvil_client_processes = 2; /* blocking, nonblocking pipes */
 	for (i = 0; i < count; i++) {
@@ -531,11 +530,6 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				"vsz_limit is too low", service->name);
 			return FALSE;
 		}
-		if (max_client_limit < service->client_limit) {
-			max_client_limit = service->client_limit;
-			max_client_limit_source = t_strdup_printf(
-				"service %s { client_limit }", service->name);
-		}
 
 #ifdef CONFIG_BINARY
 		default_service =
@@ -545,6 +539,12 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			*error_r = t_strdup_printf("service(%s): "
 				"process_limit must be 1", service->name);
 			return FALSE;
+		}
+#else
+		if (max_client_limit < service->client_limit) {
+			max_client_limit = service->client_limit;
+			max_client_limit_source = t_strdup_printf(
+				"service %s { client_limit }", service->name);
 		}
 #endif
 
