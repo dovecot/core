@@ -426,8 +426,8 @@ static void mail_index_modseq_sync_init(struct mail_index_modseq_sync *ctx)
 					    I_MAX(1, hdr->log_seq),
 					    hdr->log_offset,
 					    end_seq, end_offset, &reset);
-	if (ret == 0) {
-		/* missing files - try with only the last file */
+	if (ret <= 0) {
+		/* missing files / error - try with only the last file */
 		ret = mail_transaction_log_view_set(ctx->log_view, end_seq, 0,
 						    end_seq, end_offset,
 						    &reset);

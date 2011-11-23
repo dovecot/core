@@ -210,8 +210,8 @@ struct mail_transaction_log_view *
 mail_transaction_log_view_open(struct mail_transaction_log *log);
 void mail_transaction_log_view_close(struct mail_transaction_log_view **view);
 
-/* Set view boundaries. Returns -1 if error, 0 if files are lost, 1 if ok.
-   reset_r=TRUE if the whole index should be reset before applying any
+/* Set view boundaries. Returns -1 if error, 0 if files are lost or corrupted,
+   1 if ok. reset_r=TRUE if the whole index should be reset before applying any
    changes. */
 int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				  uint32_t min_file_seq, uoff_t min_file_offset,
