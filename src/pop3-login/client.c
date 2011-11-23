@@ -252,7 +252,9 @@ static const struct login_binary pop3_login_binary = {
 	.client_vfuncs = &pop3_client_vfuncs,
 	.preinit = pop3_login_preinit,
 	.init = pop3_login_init,
-	.deinit = pop3_login_deinit
+	.deinit = pop3_login_deinit,
+
+	.sasl_support_final_reply = FALSE
 };
 
 int main(int argc, char *argv[])

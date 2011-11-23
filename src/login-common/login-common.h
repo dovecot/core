@@ -27,6 +27,8 @@ struct login_binary {
 	void (*preinit)(void);
 	void (*init)(void);
 	void (*deinit)(void);
+
+	bool sasl_support_final_reply;
 };
 
 extern const struct login_binary *login_binary;

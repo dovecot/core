@@ -499,7 +499,9 @@ static const struct login_binary imap_login_binary = {
 	.client_vfuncs = &imap_client_vfuncs,
 	.preinit = imap_login_preinit,
 	.init = imap_login_init,
-	.deinit = imap_login_deinit
+	.deinit = imap_login_deinit,
+
+	.sasl_support_final_reply = FALSE
 };
 
 int main(int argc, char *argv[])

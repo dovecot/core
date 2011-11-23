@@ -72,6 +72,8 @@ client_get_auth_flags(struct client *client)
 		/* e.g. webmail */
 		auth_flags |= AUTH_REQUEST_FLAG_NO_PENALTY;
 	}
+	if (login_binary->sasl_support_final_reply)
+		auth_flags |= AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP;
 	return auth_flags;
 }
 
