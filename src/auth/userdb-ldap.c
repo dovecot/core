@@ -222,7 +222,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 
 	if (global_auth_settings->debug) {
 		i_debug("ldap: iterate: base=%s scope=%s filter=%s fields=%s",
-			conn->set.base, conn->set.scope,
+			request->request.base, conn->set.scope,
 			request->request.filter, attr_names == NULL ? "(all)" :
 			t_strarray_join(attr_names, ","));
 	}
