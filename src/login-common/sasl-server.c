@@ -232,11 +232,14 @@ authenticate_callback(struct auth_client_request *request,
 			if (strncmp(args[i], "user=", 5) == 0) {
 				i_free(client->virtual_user);
 				client->virtual_user = i_strdup(args[i] + 5);
-			}
-			if (strcmp(args[i], "nologin") == 0 ||
-			    strcmp(args[i], "proxy") == 0) {
+			} else if (strcmp(args[i], "nologin") == 0 ||
+				   strcmp(args[i], "proxy") == 0) {
 				/* user can't login */
 				nologin = TRUE;
+			} else if (strncmp(args[i], "resp=", 5) == 0 &&
+				   login_binary->sasl_support_final_reply) {
+				client->sasl_final_resp =
+					p_strdup(client->pool, args[i] + 5);
 			}
 		}
 
