@@ -330,7 +330,6 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 
 static void lmtp_client_send_handshake(struct lmtp_client *client)
 {
-	o_stream_cork(client->output);
 	switch (client->protocol) {
 	case LMTP_CLIENT_PROTOCOL_LMTP:
 		o_stream_send_str(client->output,
@@ -343,9 +342,6 @@ static void lmtp_client_send_handshake(struct lmtp_client *client)
 					client->set.my_hostname));
 		break;
 	}
-	o_stream_send_str(client->output,
-		t_strdup_printf("MAIL FROM:%s\r\n", client->set.mail_from));
-	o_stream_uncork(client->output);
 }
 
 static int lmtp_input_get_reply_code(const char *line, int *reply_code_r)
@@ -395,6 +391,11 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 			lmtp_client_fail(client, line);
 			return -1;
 		}
+		if (client->input_state == LMTP_INPUT_STATE_LHLO) {
+			o_stream_send_str(client->output,
+				t_strdup_printf("MAIL FROM:%s\r\n",
+						client->set.mail_from));
+		}
 		client->input_state++;
 		lmtp_client_send_rcpts(client);
 		break;
@@ -412,11 +413,9 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 			return -1;
 		}
 		client->input_state++;
-		o_stream_cork(client->output);
 		if (client->data_header != NULL)
 			o_stream_send_str(client->output, client->data_header);
 		lmtp_client_send_data(client);
-		o_stream_uncork(client->output);
 		break;
 	case LMTP_INPUT_STATE_DATA:
 		/* DATA replies */
@@ -432,8 +431,10 @@ static void lmtp_client_input(struct lmtp_client *client)
 	const char *line;
 
 	lmtp_client_ref(client);
+	o_stream_cork(client->output);
 	while ((line = i_stream_read_next_line(client->input)) != NULL) {
 		if (lmtp_client_input_line(client, line) < 0) {
+			o_stream_uncork(client->output);
 			lmtp_client_unref(&client);
 			return;
 		}
@@ -448,6 +449,7 @@ static void lmtp_client_input(struct lmtp_client *client)
 		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
 				 " (disconnected in input)");
 	}
+	o_stream_uncork(client->output);
 	lmtp_client_unref(&client);
 }
 
