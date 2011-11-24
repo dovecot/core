@@ -161,6 +161,7 @@ headers = \
 	hex-binary.h \
 	hex-dec.h \
 	hmac-md5.h \
+	hmac-sha1.h \
 	home-expand.h \
 	hostpid.h \
 	imem.h \
