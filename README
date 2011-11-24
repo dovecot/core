@@ -26,6 +26,8 @@ RFCs conformed
  2595       - Using TLS with IMAP, POP3 and ACAP
  2831       - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)
  2245       - Anonymous SASL Mechanism.
+ 5802       - Salted Challenge Response Authentication Mechanism (SCRAM)
+              SASL and GSS-API Mechanisms
 
  2087       - IMAP4 QUOTA extension
  2088       - IMAP4 non-synchronizing literals (LITERAL+)

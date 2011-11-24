@@ -25,6 +25,7 @@ v2.1.rc1 2011-11-24  Timo Sirainen <tss@iki.fi>
 	  autocreated mailboxes even if they don't physically exist.
 	+ Password and user databases now support default_fields and
 	  override_fields settings to specify template defaults/overrides.
+	+ SCRAM-SHA-1 authentication mechanism by Florian Zeitz
 	- listescape plugin works perfectly now
 
 v2.0.15 2011-09-16  Timo Sirainen <tss@iki.fi>
