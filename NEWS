@@ -1,4 +1,4 @@
-v2.1.beta1 2011-11-08  Timo Sirainen <tss@iki.fi>
+v2.1.rc1 2011-11-24  Timo Sirainen <tss@iki.fi>
 
 	* Plugins now use UTF-8 mailbox names rather than mUTF-7:
 	  acl, autocreate, expire, trash, virtual
