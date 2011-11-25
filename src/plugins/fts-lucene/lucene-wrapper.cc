@@ -39,6 +39,12 @@ using namespace lucene::analysis;
 using namespace lucene::analysis;
 using namespace lucene::util;
 
+struct lucene_query {
+	Query *query;
+	BooleanClause::Occur occur;
+};
+ARRAY_DEFINE_TYPE(lucene_query, struct lucene_query);
+
 struct lucene_analyzer {
 	char *lang;
 	Analyzer *analyzer;
@@ -1049,7 +1055,8 @@ lucene_get_query(struct lucene_index *index,
 }
 
 static bool
-lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
+lucene_add_definite_query(struct lucene_index *index,
+			  ARRAY_TYPE(lucene_query) &queries,
 			  struct mail_search_arg *arg, bool and_args)
 {
 	Query *q;
@@ -1099,22 +1106,26 @@ lucene_add_definite_query(struct lucene_index *index, BooleanQuery &query,
 		   a stop word) */
 		return false;
 	}
+
+	struct lucene_query *lq = array_append_space(&queries);
+	lq->query = q;
 	if (!and_args)
-		query.add(q, true, BooleanClause::SHOULD);
+		lq->occur = BooleanClause::SHOULD;
 	else if (!arg->match_not)
-		query.add(q, true, BooleanClause::MUST);
+		lq->occur = BooleanClause::MUST;
 	else
-		query.add(q, true, BooleanClause::MUST_NOT);
+		lq->occur = BooleanClause::MUST_NOT;
 	return true;
 }
 
 static bool
-lucene_add_maybe_query(struct lucene_index *index, BooleanQuery &query,
+lucene_add_maybe_query(struct lucene_index *index,
+		       ARRAY_TYPE(lucene_query) &queries,
 		       struct mail_search_arg *arg, bool and_args)
 {
 	Query *q = NULL;
 
-	if (arg->match_not && !and_args) {
+	if (arg->match_not) {
 		/* FIXME: we could handle this by doing multiple queries.. */
 		return false;
 	}
@@ -1146,25 +1157,56 @@ lucene_add_maybe_query(struct lucene_index *index, BooleanQuery &query,
 		   a stop word) */
 		return false;
 	}
+	struct lucene_query *lq = array_append_space(&queries);
+	lq->query = q;
 	if (!and_args)
-		query.add(q, true, BooleanClause::SHOULD);
+		lq->occur = BooleanClause::SHOULD;
 	else if (!arg->match_not)
-		query.add(q, true, BooleanClause::MUST);
+		lq->occur = BooleanClause::MUST;
 	else
-		query.add(q, true, BooleanClause::MUST_NOT);
+		lq->occur = BooleanClause::MUST_NOT;
 	return true;
+	return true;
+}
+
+static bool queries_have_non_must_nots(ARRAY_TYPE(lucene_query) &queries)
+{
+	const struct lucene_query *lq;
+
+	array_foreach(&queries, lq) {
+		if (lq->occur != BooleanClause::MUST_NOT)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static void search_query_add(BooleanQuery &query,
+			     ARRAY_TYPE(lucene_query) &queries)
+{
+	BooleanQuery *search_query = _CLNEW BooleanQuery();
+	const struct lucene_query *lq;
+
+	if (queries_have_non_must_nots(queries)) {
+		array_foreach(&queries, lq)
+			search_query->add(lq->query, true, lq->occur);
+		query.add(search_query, true, BooleanClause::MUST);
+	} else {
+		array_foreach(&queries, lq)
+			search_query->add(lq->query, true, BooleanClause::SHOULD);
+		query.add(search_query, true, BooleanClause::MUST_NOT);
+	}
 }
 
 static int
 lucene_index_search(struct lucene_index *index,
-		    Query &search_query, struct fts_result *result,
-		    ARRAY_TYPE(seq_range) *uids_r)
+		    ARRAY_TYPE(lucene_query) &queries,
+		    struct fts_result *result, ARRAY_TYPE(seq_range) *uids_r)
 {
 	struct fts_score_map *score;
 	int ret = 0;
 
 	BooleanQuery query;
-	query.add(&search_query, BooleanClause::MUST);
+	search_query_add(query, queries);
 
 	Term mailbox_term(_T("box"), index->mailbox_guid);
 	TermQuery mailbox_query(&mailbox_term);
@@ -1214,34 +1256,36 @@ int lucene_index_lookup(struct lucene_index *index,
 	if (lucene_index_open_search(index) <= 0)
 		return -1;
 
-	BooleanQuery def_query;
+	ARRAY_TYPE(lucene_query) def_queries;
+	t_array_init(&def_queries, 16);
 	bool have_definites = false;
 
 	for (arg = args; arg != NULL; arg = arg->next) {
-		if (lucene_add_definite_query(index, def_query, arg, and_args)) {
+		if (lucene_add_definite_query(index, def_queries, arg, and_args)) {
 			arg->match_always = true;
 			have_definites = true;
 		}
 	}
 
 	if (have_definites) {
-		if (lucene_index_search(index, def_query, result,
+		if (lucene_index_search(index, def_queries, result,
 					&result->definite_uids) < 0)
 			return -1;
 	}
 
-	BooleanQuery maybe_query;
+	ARRAY_TYPE(lucene_query) maybe_queries;
+	t_array_init(&maybe_queries, 16);
 	bool have_maybies = false;
 
 	for (arg = args; arg != NULL; arg = arg->next) {
-		if (lucene_add_maybe_query(index, maybe_query, arg, and_args)) {
+		if (lucene_add_maybe_query(index, maybe_queries, arg, and_args)) {
 			arg->match_always = true;
 			have_maybies = true;
 		}
 	}
 
 	if (have_maybies) {
-		if (lucene_index_search(index, maybe_query, NULL,
+		if (lucene_index_search(index, maybe_queries, NULL,
 					&result->maybe_uids) < 0)
 			return -1;
 	}
@@ -1250,13 +1294,14 @@ int lucene_index_lookup(struct lucene_index *index,
 
 static int
 lucene_index_search_multi(struct lucene_index *index, struct hash_table *guids,
-			  Query &search_query, struct fts_multi_result *result)
+			  ARRAY_TYPE(lucene_query) &queries,
+			  struct fts_multi_result *result)
 {
 	struct fts_score_map *score;
 	int ret = 0;
 
 	BooleanQuery query;
-	query.add(&search_query, BooleanClause::MUST);
+	search_query_add(query, queries);
 
 	BooleanQuery mailbox_query;
 	struct hash_iterate_context *iter;
@@ -1324,11 +1369,12 @@ int lucene_index_lookup_multi(struct lucene_index *index,
 	if (lucene_index_open_search(index) <= 0)
 		return -1;
 
-	BooleanQuery def_query;
+	ARRAY_TYPE(lucene_query) def_queries;
+	t_array_init(&def_queries, 16);
 	bool have_definites = false;
 
 	for (arg = args; arg != NULL; arg = arg->next) {
-		if (lucene_add_definite_query(index, def_query, arg, and_args)) {
+		if (lucene_add_definite_query(index, def_queries, arg, and_args)) {
 			arg->match_always = true;
 			have_definites = true;
 		}
@@ -1336,7 +1382,7 @@ int lucene_index_lookup_multi(struct lucene_index *index,
 
 	if (have_definites) {
 		if (lucene_index_search_multi(index, guids,
-					      def_query, result) < 0)
+					      def_queries, result) < 0)
 			return -1;
 	}
 	return 0;
