@@ -83,7 +83,8 @@ static void auth_worker_request_send(struct auth_worker_connection *conn,
 	    AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS) {
 		auth_worker_last_warn = ioloop_time;
 		i_warning("auth workers: Auth request was queued for %d "
-			  "seconds, %d left in queue",
+			  "seconds, %d left in queue "
+			  "(see auth_worker_max_count)",
 			  (int)(ioloop_time - request->created),
 			  aqueue_count(worker_request_queue));
 	}
