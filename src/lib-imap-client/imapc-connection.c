@@ -1108,8 +1108,12 @@ static void imapc_connection_input(struct imapc_connection *conn)
 				conn->name);
 		} else if (!conn->handshake_failed) {
 			errstr = ssl_iostream_get_last_error(conn->ssl_iostream);
+			if (errstr == NULL) {
+				errstr = conn->input->stream_errno == 0 ? "EOF" :
+					strerror(conn->input->stream_errno);
+			}
 			i_error("imapc(%s): Server disconnected: %s",
-				conn->name, errstr != NULL ? errstr : "");
+				conn->name, errstr);
 		}
 		imapc_connection_reconnect(conn);
 	}
