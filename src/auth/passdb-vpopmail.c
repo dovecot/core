@@ -75,7 +75,8 @@ vpopmail_password_lookup(struct auth_request *auth_request, bool *cleartext,
 		password = NULL;
 		*result_r = PASSDB_RESULT_USER_DISABLED;
 	} else {
-		if (vpw->pw_clear_passwd != NULL) {
+		if (vpw->pw_clear_passwd != NULL &&
+		    *vpw->pw_clear_passwd != '\0') {
 			password = t_strdup_noconst(vpw->pw_clear_passwd);
 			*cleartext = TRUE;
 		} else if (!*cleartext)
@@ -120,7 +121,7 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	enum passdb_result result;
 	const char *scheme, *tmp_pass;
 	char *crypted_pass;
-	bool cleartext;
+	bool cleartext = FALSE;
 	int ret;
 
 	crypted_pass = vpopmail_password_lookup(request, &cleartext, &result);
