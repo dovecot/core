@@ -85,7 +85,9 @@ enum mailbox_list_iter_flags {
 	/* Return MAILBOX_SUBSCRIBED flag */
 	MAILBOX_LIST_ITER_RETURN_SUBSCRIBED	= 0x002000,
 	/* Return children flags */
-	MAILBOX_LIST_ITER_RETURN_CHILDREN	= 0x004000
+	MAILBOX_LIST_ITER_RETURN_CHILDREN	= 0x004000,
+	/* Return IMAP special use flags */
+	MAILBOX_LIST_ITER_RETURN_SPECIALUSE	= 0x008000
 };
 
 enum mailbox_list_path_type {
@@ -143,7 +145,9 @@ struct mailbox_list_settings {
 
 struct mailbox_info {
 	const char *name;
+	const char *special_use;
 	enum mailbox_info_flags flags;
+
 	struct mail_namespace *ns;
 };
 

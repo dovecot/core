@@ -602,7 +602,7 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 	return TRUE;
 }
 
-static struct mailbox_settings *
+const struct mailbox_settings *
 mailbox_settings_find(struct mail_user *user, const char *vname)
 {
 	struct mailbox_settings *const *box_set;

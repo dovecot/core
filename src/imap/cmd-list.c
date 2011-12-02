@@ -37,7 +37,7 @@ struct cmd_list_context {
 
 static void
 mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
-		  enum mailbox_info_flags flags)
+		  const char *special_use, enum mailbox_info_flags flags)
 {
 	unsigned int orig_len = str_len(str);
 
@@ -76,6 +76,11 @@ mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
 	if ((flags & MAILBOX_UNMARKED) != 0)
 		str_append(str, "\\UnMarked ");
 
+	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0 &&
+	    special_use != NULL) {
+		str_append(str, special_use);
+		str_append_c(str, ' ');
+	}
 	if (str_len(str) != orig_len)
 		str_truncate(str, str_len(str)-1);
 }
@@ -150,6 +155,8 @@ parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 			list_flags |= MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		else if (strcasecmp(str, "CHILDREN") == 0)
 			list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
+		else if (strcasecmp(str, "SPECIAL-USE") == 0)
+			list_flags |= MAILBOX_LIST_ITER_RETURN_SPECIALUSE;
 		else if (strcasecmp(str, "STATUS") == 0 &&
 			 imap_arg_get_list(&args[1], &list_args)) {
 			if (imap_status_parse_items(ctx->cmd, list_args,
@@ -262,6 +269,7 @@ static void
 list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 {
 	struct mail_namespace *const *listed;
+	const struct mailbox_settings *mailbox_set;
 	unsigned int len;
 	enum mailbox_info_flags flags;
 	const char *name;
@@ -330,7 +338,10 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	str_printfa(str, "* %s (", ctx->lsub ? "LSUB" : "LIST");
 	if (ctx->lsub)
 		flags |= MAILBOX_NONEXISTENT;
-	mailbox_flags2str(ctx, str, flags);
+	mailbox_set = (ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) == 0 ? NULL :
+		mailbox_settings_find(ctx->cmd->client->user, name);
+	mailbox_flags2str(ctx, str, mailbox_set == NULL ? NULL :
+			  mailbox_set->special_use, flags);
 	str_append(str, ") ");
 	list_reply_append_ns_sep_param(str, ns_sep);
 	str_append_c(str, ' ');
@@ -447,7 +458,7 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 
 		str_truncate(str, 0);
 		str_printfa(str, "* %s (", ctx->lsub ? "LSUB" : "LIST");
-		mailbox_flags2str(ctx, str, flags);
+		mailbox_flags2str(ctx, str, info->special_use, flags);
 		str_append(str, ") ");
 		list_reply_append_ns_sep_param(str,
 			mail_namespace_get_sep(ctx->ns));
@@ -954,8 +965,9 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		     WORKAROUND_TB_LSUB_FLAGS) == 0)
 			ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	} else if (!ctx->used_listext) {
-		/* non-extended LIST - return children flags always */
-		ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
+		/* non-extended LIST: use default flags */
+		ctx->list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN |
+			MAILBOX_LIST_ITER_RETURN_SPECIALUSE;
 	}
 	ctx->list_flags |= MAILBOX_LIST_ITER_SHOW_EXISTING_PARENT;
 

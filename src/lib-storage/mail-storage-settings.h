@@ -63,6 +63,7 @@ struct mail_namespace_settings {
 struct mailbox_settings {
 	const char *name;
 	const char *autocreate;
+	const char *special_use;
 };
 
 struct mail_user_settings {

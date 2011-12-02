@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "imap-match.h"
+#include "mail-storage.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-private.h"
 
@@ -17,6 +18,7 @@ enum autocreate_match_result {
 
 struct autocreate_box {
 	const char *name;
+	const struct mailbox_settings *set;
 	enum mailbox_info_flags flags;
 	bool child_listed;
 };
@@ -103,6 +105,7 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 			array_append(&actx->box_sets, &box_sets[i], 1);
 			autobox = array_append_space(&actx->boxes);
 			autobox->name = box_sets[i]->name;
+			autobox->set = box_sets[i];
 		}
 	}
 }
@@ -530,18 +533,41 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 }
 
 static const struct mailbox_info *
+mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
+{
+	const struct mailbox_info *info;
+	const struct mailbox_settings *set;
+
+	info = ctx->list->v.iter_next(ctx);
+	if (info == NULL)
+		return NULL;
+
+	ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
+	if ((ctx->list->flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0) {
+		set = mailbox_settings_find(ctx->list->ns->user, info->name);
+		if (set != NULL && *set->special_use != '\0') {
+			ctx->specialuse_info = *info;
+			ctx->specialuse_info.special_use =
+				*set->special_use == '\0' ? NULL :
+				set->special_use;
+			info = &ctx->specialuse_info;
+		}
+	}
+	return info;
+}
+
+static const struct mailbox_info *
 autocreate_iter_next(struct mailbox_list_iterate_context *ctx)
 {
 	struct mailbox_list_autocreate_iterate_context *actx =
 		ctx->autocreate_ctx;
 	const struct mailbox_info *info;
-	const struct autocreate_box *autoboxes;
+	const struct autocreate_box *autoboxes, *autobox;
 	unsigned int count;
 
 	if (actx->idx == 0) {
-		info = ctx->list->v.iter_next(ctx);
+		info = mailbox_list_iter_next_call(ctx);
 		if (info != NULL) {
-			ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
 			actx->new_info = *info;
 			return autocreate_iter_existing(ctx);
 		}
@@ -550,8 +576,13 @@ autocreate_iter_next(struct mailbox_list_iterate_context *ctx)
 	/* list missing mailboxes */
 	autoboxes = array_get(&actx->boxes, &count);
 	while (actx->idx < count) {
-		if (autocreate_iter_autobox(ctx, &autoboxes[actx->idx++]))
+		autobox = &autoboxes[actx->idx++];
+		if (autocreate_iter_autobox(ctx, autobox)) {
+			actx->new_info.special_use =
+				*autobox->set->special_use == '\0' ? NULL :
+				autobox->set->special_use;
 			return &actx->new_info;
+		}
 	}
 	i_assert(array_count(&actx->boxes) == array_count(&actx->box_sets));
 	return NULL;
@@ -560,16 +591,10 @@ autocreate_iter_next(struct mailbox_list_iterate_context *ctx)
 const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
-	const struct mailbox_info *info;
-
 	if (ctx->autocreate_ctx != NULL)
-		info = autocreate_iter_next(ctx);
-	else {
-		info = ctx->list->v.iter_next(ctx);
-		if (info != NULL)
-			ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
-	}
-	return info;
+		return autocreate_iter_next(ctx);
+	else
+		return mailbox_list_iter_next_call(ctx);
 }
 
 int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)

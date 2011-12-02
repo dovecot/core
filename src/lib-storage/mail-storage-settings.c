@@ -150,6 +150,7 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 static const struct setting_define mailbox_setting_defines[] = {
 	DEF(SET_STR, name),
 	{ SET_ENUM, "auto", offsetof(struct mailbox_settings, autocreate), NULL } ,
+	DEF(SET_STR, special_use),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -158,7 +159,8 @@ const struct mailbox_settings mailbox_default_settings = {
 	.name = "",
 	.autocreate = MAILBOX_SET_AUTO_NO":"
 		MAILBOX_SET_AUTO_CREATE":"
-		MAILBOX_SET_AUTO_SUBSCRIBE
+		MAILBOX_SET_AUTO_SUBSCRIBE,
+	.special_use = ""
 };
 
 const struct setting_parser_info mailbox_setting_parser_info = {
@@ -460,7 +462,53 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 
-static bool mailbox_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+static bool mailbox_special_use_exists(const char *name)
+{
+	if (name[0] != '\\')
+		return FALSE;
+	name++;
+
+	if (strcasecmp(name, "All") == 0)
+		return TRUE;
+	if (strcasecmp(name, "Archive") == 0)
+		return TRUE;
+	if (strcasecmp(name, "Drafts") == 0)
+		return TRUE;
+	if (strcasecmp(name, "Flagged") == 0)
+		return TRUE;
+	if (strcasecmp(name, "Junk") == 0)
+		return TRUE;
+	if (strcasecmp(name, "Sent") == 0)
+		return TRUE;
+	if (strcasecmp(name, "Trash") == 0)
+		return TRUE;
+	return FALSE;
+}
+
+static bool
+mailbox_special_use_check(struct mailbox_settings *set, pool_t pool,
+			  const char **error_r)
+{
+	const char *const *uses, *str;
+	unsigned int i;
+
+	uses = t_strsplit_spaces(set->special_use, " ");
+	for (i = 0; uses[i] != NULL; i++) {
+		if (!mailbox_special_use_exists(uses[i])) {
+			*error_r = t_strdup_printf(
+				"mailbox %s: unknown special_use: %s",
+				set->name, uses[i]);
+			return FALSE;
+		}
+	}
+	/* make sure there are no extra spaces */
+	str = t_strarray_join(uses, " ");
+	if (strcmp(str, set->special_use) != 0)
+		set->special_use = p_strdup(pool, str);
+	return TRUE;
+}
+
+static bool mailbox_settings_check(void *_set, pool_t pool,
 				   const char **error_r)
 {
 	struct mailbox_settings *set = _set;
@@ -469,6 +517,10 @@ static bool mailbox_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = t_strdup_printf("mailbox %s: name isn't valid UTF-8",
 					   set->name);
 		return FALSE;
+	}
+	if (*set->special_use != '\0') {
+		if (!mailbox_special_use_check(set, pool, error_r))
+			return FALSE;
 	}
 	return TRUE;
 }

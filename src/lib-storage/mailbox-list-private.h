@@ -147,6 +147,7 @@ struct mailbox_list_iterate_context {
 
 	struct imap_match_glob *glob;
 	struct mailbox_list_autocreate_iterate_context *autocreate_ctx;
+	struct mailbox_info specialuse_info;
 
 	ARRAY_DEFINE(module_contexts,
 		     union mailbox_list_iterate_module_context *);
