@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash-format.h"
 #include "var-expand.h"
+#include "unichar.h"
 #include "settings-parser.h"
 #include "mail-index.h"
 #include "mail-user.h"
@@ -15,6 +16,7 @@
 
 static bool mail_storage_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool namespace_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
@@ -142,6 +144,37 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 };
 
 #undef DEF
+#define DEF(type, name) \
+	{ type, #name, offsetof(struct mailbox_settings, name), NULL }
+
+static const struct setting_define mailbox_setting_defines[] = {
+	DEF(SET_STR, name),
+	{ SET_ENUM, "auto", offsetof(struct mailbox_settings, autocreate), NULL } ,
+
+	SETTING_DEFINE_LIST_END
+};
+
+const struct mailbox_settings mailbox_default_settings = {
+	.name = "",
+	.autocreate = MAILBOX_SET_AUTO_NO":"
+		MAILBOX_SET_AUTO_CREATE":"
+		MAILBOX_SET_AUTO_SUBSCRIBE
+};
+
+const struct setting_parser_info mailbox_setting_parser_info = {
+	.defines = mailbox_setting_defines,
+	.defaults = &mailbox_default_settings,
+
+	.type_offset = offsetof(struct mailbox_settings, name),
+	.struct_size = sizeof(struct mailbox_settings),
+
+	.parent_offset = (size_t)-1,
+	.parent = &mail_user_setting_parser_info,
+
+	.check_func = mailbox_settings_check
+};
+
+#undef DEF
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct mail_user_settings, name), NULL }
@@ -173,6 +206,7 @@ static const struct setting_define mail_user_setting_defines[] = {
 	DEF(SET_STR, mail_log_prefix),
 
 	DEFLIST_UNIQUE(namespaces, "namespace", &mail_namespace_setting_parser_info),
+	DEFLIST_UNIQUE(mailboxes, "mailbox", &mailbox_setting_parser_info),
 	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
@@ -202,6 +236,7 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.mail_log_prefix = "%s(%u): ",
 
 	.namespaces = ARRAY_INIT,
+	.mailboxes = ARRAY_INIT,
 	.plugin_envs = ARRAY_INIT
 };
 
@@ -421,6 +456,19 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				namespaces[i]->alias_for);
 			return FALSE;
 		}
+	}
+	return TRUE;
+}
+
+static bool mailbox_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				   const char **error_r)
+{
+	struct mailbox_settings *set = _set;
+
+	if (!uni_utf8_str_is_valid(set->name)) {
+		*error_r = t_strdup_printf("mailbox %s: name isn't valid UTF-8",
+					   set->name);
+		return FALSE;
 	}
 	return TRUE;
 }

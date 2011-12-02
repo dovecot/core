@@ -226,6 +226,8 @@ struct mailbox {
 
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
+	/* Mailbox settings, or NULL if defaults */
+	const struct mailbox_settings *set;
 
 	/* If non-zero, fail mailbox_open() with this error. mailbox_alloc()
 	   can set this to force open to fail. */

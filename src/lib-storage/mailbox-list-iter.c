@@ -1,9 +1,34 @@
 /* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "imap-match.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-private.h"
+
+enum autocreate_match_result {
+	/* list contains the mailbox */
+	AUTOCREATE_MATCH_RESULT_YES		= 0x01,
+	/* list contains children of the mailbox */
+	AUTOCREATE_MATCH_RESULT_CHILDREN	= 0x02,
+	/* list contains parents of the mailbox */
+	AUTOCREATE_MATCH_RESULT_PARENT		= 0x04
+};
+
+struct autocreate_box {
+	const char *name;
+	enum mailbox_info_flags flags;
+	bool child_listed;
+};
+
+ARRAY_DEFINE_TYPE(mailbox_settings, struct mailbox_settings *);
+struct mailbox_list_autocreate_iterate_context {
+	unsigned int idx;
+	struct mailbox_info new_info;
+	ARRAY_DEFINE(boxes, struct autocreate_box);
+	ARRAY_TYPE(mailbox_settings) box_sets;
+	ARRAY_TYPE(mailbox_settings) all_ns_box_sets;
+};
 
 struct ns_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
@@ -41,6 +66,47 @@ static int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
 	return ns->list->v.subscriptions_refresh(ns->list, list);
 }
 
+static void
+mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
+{
+	struct mail_user *user = ctx->list->ns->user;
+	struct mailbox_list_autocreate_iterate_context *actx;
+	struct mailbox_settings *const *box_sets;
+	struct mail_namespace *ns;
+	struct autocreate_box *autobox;
+	unsigned int i, count;
+
+	box_sets = array_get(&user->set->mailboxes, &count);
+	if (count == 0)
+		return;
+
+	actx = p_new(ctx->pool, struct mailbox_list_autocreate_iterate_context, 1);
+	ctx->autocreate_ctx = actx;
+
+	/* build the list of mailboxes we need to consider as existing */
+	p_array_init(&actx->boxes, ctx->pool, 16);
+	p_array_init(&actx->box_sets, ctx->pool, 16);
+	p_array_init(&actx->all_ns_box_sets, ctx->pool, 16);
+	for (i = 0; i < count; i++) {
+		if (strcmp(box_sets[i]->autocreate, MAILBOX_SET_AUTO_NO) == 0)
+			continue;
+
+		ns = mail_namespace_find(user->namespaces, box_sets[i]->name);
+		if (ns != ctx->list->ns)
+			continue;
+
+		/* autocreate mailbox belongs to listed namespace */
+		array_append(&actx->all_ns_box_sets, &box_sets[i], 1);
+		if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
+		    strcmp(box_sets[i]->autocreate,
+			   MAILBOX_SET_AUTO_SUBSCRIBE) == 0) {
+			array_append(&actx->box_sets, &box_sets[i], 1);
+			autobox = array_append_space(&actx->boxes);
+			autobox->name = box_sets[i]->name;
+		}
+	}
+}
+
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init_multiple(struct mailbox_list *list,
 				const char *const *patterns,
@@ -58,6 +124,8 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 	ctx = list->v.iter_init(list, patterns, flags);
 	if (ret < 0)
 		ctx->failed = TRUE;
+	else if ((flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0)
+		mailbox_list_iter_init_autocreate(ctx);
 	return ctx;
 }
 
@@ -297,14 +365,210 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	return &ctx->ctx;
 }
 
+static enum autocreate_match_result
+autocreate_box_match(const ARRAY_TYPE(mailbox_settings) *boxes,
+		     struct mail_namespace *ns, const char *name,
+		     bool only_subscribed, unsigned int *idx_r)
+{
+	struct mailbox_settings *const *sets;
+	unsigned int i, count, len, name_len = strlen(name);
+	enum autocreate_match_result result = 0;
+	char sep = mail_namespace_get_sep(ns);
+
+	*idx_r = -1U;
+
+	sets = array_get(boxes, &count);
+	for (i = 0; i < count; i++) {
+		if (only_subscribed &&
+		    strcmp(sets[i]->autocreate, MAILBOX_SET_AUTO_SUBSCRIBE) != 0)
+			continue;
+		len = I_MIN(name_len, strlen(sets[i]->name));
+		if (strncmp(name, sets[i]->name, len) != 0)
+			continue;
+
+		if (name[len] == '\0' && sets[i]->name[len] == '\0') {
+			result |= AUTOCREATE_MATCH_RESULT_YES;
+			*idx_r = i;
+		} else if (name[len] == '\0' && sets[i]->name[len] == sep)
+			result |= AUTOCREATE_MATCH_RESULT_CHILDREN;
+		else if (name[len] == sep && sets[i]->name[len] == '\0')
+			result |= AUTOCREATE_MATCH_RESULT_PARENT;
+	}
+	return result;
+}
+
+static const struct mailbox_info *
+autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
+{
+	struct mailbox_list_autocreate_iterate_context *actx =
+		ctx->autocreate_ctx;
+	struct mailbox_info *info = &actx->new_info;
+	enum autocreate_match_result match, match2;
+	unsigned int idx;
+
+	match = autocreate_box_match(&actx->box_sets, ctx->list->ns,
+				     info->name, FALSE, &idx);
+
+	if ((match & AUTOCREATE_MATCH_RESULT_YES) != 0) {
+		/* we have an exact match in the list.
+		   don't list it at the end. */
+		array_delete(&actx->boxes, idx, 1);
+		array_delete(&actx->box_sets, idx, 1);
+	}
+
+	if ((match & AUTOCREATE_MATCH_RESULT_CHILDREN) != 0) {
+		if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
+			info->flags |= MAILBOX_CHILD_SUBSCRIBED;
+		else {
+			info->flags &= ~MAILBOX_NOCHILDREN;
+			info->flags |= MAILBOX_CHILDREN;
+		}
+	}
+
+	/* make sure the mailbox existence flags are correct. */
+	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0)
+		match2 = match;
+	else {
+		info->flags |= MAILBOX_SUBSCRIBED;
+		match2 = autocreate_box_match(&actx->all_ns_box_sets,
+					      ctx->list->ns, info->name,
+					      FALSE, &idx);
+	}
+	if ((match2 & AUTOCREATE_MATCH_RESULT_YES) != 0)
+		info->flags &= ~MAILBOX_NONEXISTENT;
+	if ((match2 & AUTOCREATE_MATCH_RESULT_CHILDREN) != 0) {
+		info->flags &= ~MAILBOX_NOCHILDREN;
+		info->flags |= MAILBOX_CHILDREN;
+	}
+
+	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 &&
+	    (ctx->flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
+		/* we're listing all mailboxes and want \Subscribed flag */
+		match2 = autocreate_box_match(&actx->all_ns_box_sets,
+					      ctx->list->ns, info->name,
+					      TRUE, &idx);
+		if ((match2 & AUTOCREATE_MATCH_RESULT_YES) != 0) {
+			/* mailbox is also marked as autosubscribe */
+			info->flags |= MAILBOX_SUBSCRIBED;
+		}
+		if ((match2 & AUTOCREATE_MATCH_RESULT_CHILDREN) != 0) {
+			/* mailbox also has a children marked as
+			   autosubscribe */
+			info->flags |= MAILBOX_CHILD_SUBSCRIBED;
+		}
+	}
+
+	if ((match & AUTOCREATE_MATCH_RESULT_PARENT) != 0) {
+		/* there are autocreate parent boxes.
+		   set their children flag states. */
+		struct autocreate_box *autobox;
+		unsigned int name_len;
+		char sep = mail_namespace_get_sep(ctx->list->ns);
+
+		array_foreach_modifiable(&actx->boxes, autobox) {
+			name_len = strlen(autobox->name);
+			if (strncmp(info->name, autobox->name, name_len) != 0 ||
+			    info->name[name_len] != sep)
+				continue;
+
+			if ((info->flags & MAILBOX_NONEXISTENT) == 0)
+				autobox->flags |= MAILBOX_CHILDREN;
+			if ((info->flags & MAILBOX_SUBSCRIBED) != 0)
+				autobox->flags |= MAILBOX_CHILD_SUBSCRIBED;
+			autobox->child_listed = TRUE;
+		}
+	}
+	return info;
+}
+
+static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
+				    const struct autocreate_box *autobox)
+{
+	struct mailbox_list_autocreate_iterate_context *actx =
+		ctx->autocreate_ctx;
+	enum imap_match_result match;
+
+	memset(&actx->new_info, 0, sizeof(actx->new_info));
+	actx->new_info.ns = ctx->list->ns;
+	actx->new_info.name = autobox->name;
+	actx->new_info.flags = autobox->flags;
+
+	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
+		actx->new_info.flags |= MAILBOX_SUBSCRIBED;
+
+	if ((actx->new_info.flags & MAILBOX_CHILDREN) == 0)
+		actx->new_info.flags |= MAILBOX_NOCHILDREN;
+
+	match = imap_match(ctx->glob, actx->new_info.name);
+	if (match == IMAP_MATCH_YES)
+		return TRUE;
+	if ((match & IMAP_MATCH_PARENT) != 0 && !autobox->child_listed) {
+		enum mailbox_info_flags old_flags = actx->new_info.flags;
+		char sep = mail_namespace_get_sep(ctx->list->ns);
+		const char *p;
+
+		/* e.g. autocreate=foo/bar and we're listing % */
+		actx->new_info.flags = MAILBOX_NONEXISTENT |
+			(old_flags & (MAILBOX_CHILDREN |
+				      MAILBOX_CHILD_SUBSCRIBED));
+		if ((old_flags & MAILBOX_NONEXISTENT) == 0) {
+			actx->new_info.flags |= MAILBOX_CHILDREN;
+			actx->new_info.flags &= ~MAILBOX_NOCHILDREN;
+		}
+		if ((old_flags & MAILBOX_SUBSCRIBED) != 0)
+			actx->new_info.flags |= MAILBOX_CHILD_SUBSCRIBED;
+		do {
+			p = strrchr(actx->new_info.name, sep);
+			i_assert(p != NULL);
+			actx->new_info.name =
+				t_strdup_until(actx->new_info.name, p);
+			match = imap_match(ctx->glob, actx->new_info.name);
+		} while (match != IMAP_MATCH_YES);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static const struct mailbox_info *
+autocreate_iter_next(struct mailbox_list_iterate_context *ctx)
+{
+	struct mailbox_list_autocreate_iterate_context *actx =
+		ctx->autocreate_ctx;
+	const struct mailbox_info *info;
+	const struct autocreate_box *autoboxes;
+	unsigned int count;
+
+	if (actx->idx == 0) {
+		info = ctx->list->v.iter_next(ctx);
+		if (info != NULL) {
+			ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
+			actx->new_info = *info;
+			return autocreate_iter_existing(ctx);
+		}
+	}
+
+	/* list missing mailboxes */
+	autoboxes = array_get(&actx->boxes, &count);
+	while (actx->idx < count) {
+		if (autocreate_iter_autobox(ctx, &autoboxes[actx->idx++]))
+			return &actx->new_info;
+	}
+	i_assert(array_count(&actx->boxes) == array_count(&actx->box_sets));
+	return NULL;
+}
+
 const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
 	const struct mailbox_info *info;
 
-	info = ctx->list->v.iter_next(ctx);
-	if (info != NULL)
-		ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
+	if (ctx->autocreate_ctx != NULL)
+		info = autocreate_iter_next(ctx);
+	else {
+		info = ctx->list->v.iter_next(ctx);
+		if (info != NULL)
+			ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
+	}
 	return info;
 }
 

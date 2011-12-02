@@ -55,6 +55,16 @@ struct mail_namespace_settings {
 	struct mail_user_settings *user_set;
 };
 
+/* <settings checks> */
+#define MAILBOX_SET_AUTO_NO "no"
+#define MAILBOX_SET_AUTO_CREATE "create"
+#define MAILBOX_SET_AUTO_SUBSCRIBE "subscribe"
+/* </settings checks> */
+struct mailbox_settings {
+	const char *name;
+	const char *autocreate;
+};
+
 struct mail_user_settings {
 	const char *base_dir;
 	const char *auth_socket_path;
@@ -77,6 +87,7 @@ struct mail_user_settings {
 	const char *mail_log_prefix;
 
 	ARRAY_DEFINE(namespaces, struct mail_namespace_settings *);
+	ARRAY_DEFINE(mailboxes, struct mailbox_settings *);
 	ARRAY_DEFINE(plugin_envs, const char *);
 };
 
@@ -84,6 +95,7 @@ extern const struct setting_parser_info mail_user_setting_parser_info;
 extern const struct setting_parser_info mail_namespace_setting_parser_info;
 extern const struct setting_parser_info mail_storage_setting_parser_info;
 extern const struct mail_namespace_settings mail_namespace_default_settings;
+extern const struct mailbox_settings mailbox_default_settings;
 
 const void *
 mail_user_set_get_driver_settings(const struct setting_parser_info *info,
