@@ -36,7 +36,7 @@ struct list_dir_context {
 struct fs_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 
-	ARRAY_DEFINE(valid_patterns, char *);
+	ARRAY_DEFINE(valid_patterns, const char *);
 	char sep;
 
 	enum mailbox_info_flags inbox_flags;
@@ -128,7 +128,7 @@ pattern_has_wildcard_at(struct fs_list_iterate_context *ctx,
 static int list_opendir(struct fs_list_iterate_context *ctx,
 			const char *path, const char *list_path, DIR **dirp)
 {
-	char *const *patterns;
+	const char *const *patterns;
 	unsigned int i;
 
 	/* if no patterns have wildcards at this point of the path, we don't
@@ -209,7 +209,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 {
 	struct fs_list_iterate_context *ctx;
 	const char *path, *vpath, *rootdir, *test_pattern, *real_pattern;
-	char *pattern;
+	pool_t pool;
+	const char *pattern;
 	DIR *dirp;
 	unsigned int prefix_len;
 	int ret;
@@ -221,10 +222,12 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 							    flags);
 	}
 
-	ctx = i_new(struct fs_list_iterate_context, 1);
+	pool = pool_alloconly_create("mailbox list fs iter", 1024);
+	ctx = p_new(pool, struct fs_list_iterate_context, 1);
+	ctx->ctx.pool = pool;
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
-	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
 	ctx->next = fs_list_next;
@@ -232,7 +235,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->info.ns = _list->ns;
 
 	prefix_len = strlen(_list->ns->prefix);
-	i_array_init(&ctx->valid_patterns, 8);
+	p_array_init(&ctx->valid_patterns, pool, 8);
 	for (; *patterns != NULL; patterns++) {
 		/* check that we're not trying to do any "../../" lists */
 		test_pattern = *patterns;
@@ -251,7 +254,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 				ctx->inbox_match = TRUE;
 				continue;
 			}
-			pattern = i_strdup(*patterns);
+			pattern = p_strdup(pool, *patterns);
 			array_append(&ctx->valid_patterns, &pattern, 1);
 		}
 	}
@@ -262,7 +265,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		return &ctx->ctx;
 	}
 	patterns = (const void *)array_idx(&ctx->valid_patterns, 0);
-	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns, TRUE,
+	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, TRUE,
 						 ctx->sep);
 
 	vpath = _list->ns->prefix;
@@ -300,17 +303,10 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 {
 	struct fs_list_iterate_context *ctx =
 		(struct fs_list_iterate_context *)_ctx;
-	char **patterns;
-	unsigned int i, count;
 	int ret = _ctx->failed ? -1 : 0;
 
 	if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
 		return mailbox_list_subscriptions_iter_deinit(_ctx);
-
-	patterns = array_get_modifiable(&ctx->valid_patterns, &count);
-	for (i = 0; i < count; i++)
-		i_free(patterns[i]);
-	array_free(&ctx->valid_patterns);
 
 	while (ctx->dir != NULL) {
 		struct list_dir_context *dir = ctx->dir;
@@ -321,11 +317,7 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 
 	if (ctx->info_pool != NULL)
 		pool_unref(&ctx->info_pool);
-	if (_ctx->glob != NULL)
-		imap_match_deinit(&_ctx->glob);
-	array_free(&_ctx->module_contexts);
-	i_free(ctx);
-
+	pool_unref(&_ctx->pool);
 	return ret;
 }
 
@@ -639,7 +631,7 @@ fs_list_dir_next(struct fs_list_iterate_context *ctx)
 {
 	struct list_dir_context *dir = ctx->dir;
 	struct dirent *d;
-	char *const *patterns;
+	const char *const *patterns;
 	const char *fname, *path, *p;
 	unsigned int pos;
 	struct stat st;

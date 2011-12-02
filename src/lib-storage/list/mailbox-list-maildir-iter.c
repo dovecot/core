@@ -19,7 +19,6 @@
 
 struct maildir_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
-	pool_t pool;
 
 	const char *dir;
 	char prefix_char;
@@ -419,14 +418,14 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	char ns_sep = mail_namespace_get_sep(_list->ns);
 	int ret;
 
-	pool = pool_alloconly_create("maildir_list", 1024);
+	pool = pool_alloconly_create("mailbox list maildir iter", 1024);
 	ctx = p_new(pool, struct maildir_list_iterate_context, 1);
+	ctx->ctx.pool = pool;
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
 	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, TRUE, ns_sep);
 	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 
-	ctx->pool = pool;
 	ctx->tree_ctx = mailbox_tree_init(ns_sep);
 	ctx->info.ns = _list->ns;
 	ctx->prefix_char = strcmp(_list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0 ?
@@ -470,7 +469,7 @@ int maildir_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	if (ctx->tree_iter != NULL)
 		mailbox_tree_iterate_deinit(&ctx->tree_iter);
 	mailbox_tree_deinit(&ctx->tree_ctx);
-	pool_unref(&ctx->pool);
+	pool_unref(&ctx->ctx.pool);
 	return ret;
 }
 

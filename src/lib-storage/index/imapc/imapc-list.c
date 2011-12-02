@@ -360,6 +360,7 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	struct mailbox_list_iterate_context *_ctx;
 	struct imapc_mailbox_list_iterate_context *ctx;
+	pool_t pool;
 	const char *ns_root_name;
 	char sep;
 	int ret = 0;
@@ -382,12 +383,13 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 
 	sep = mailbox_list_get_hierarchy_sep(_list);
 
-	ctx = i_new(struct imapc_mailbox_list_iterate_context, 1);
+	pool = pool_alloconly_create("mailbox list imapc iter", 1024);
+	ctx = p_new(pool, struct imapc_mailbox_list_iterate_context, 1);
+	ctx->ctx.pool = pool;
 	ctx->ctx.list = _list;
 	ctx->ctx.flags = flags;
-	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns,
-						 FALSE, sep);
-	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, FALSE, sep);
+	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 
 	ctx->info.ns = _list->ns;
 
@@ -451,9 +453,7 @@ static int imapc_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 
 	mailbox_tree_iterate_deinit(&ctx->iter);
 	mailbox_tree_deinit(&ctx->tree);
-	imap_match_deinit(&_ctx->glob);
-	array_free(&_ctx->module_contexts);
-	i_free(ctx);
+	pool_unref(&_ctx->pool);
 	return ret;
 }
 

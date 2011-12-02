@@ -162,17 +162,20 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	struct acl_mailbox_list_iterate_context *ctx;
+	pool_t pool;
 	const char *p;
 	unsigned int i;
 	bool inboxcase;
 
-	ctx = i_new(struct acl_mailbox_list_iterate_context, 1);
+	pool = pool_alloconly_create("mailbox list acl iter", 1024);
+	ctx = p_new(pool, struct acl_mailbox_list_iterate_context, 1);
+	ctx->ctx.pool = pool;
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
 
 	inboxcase = (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
 	ctx->sep = mail_namespace_get_sep(list->ns);
-	ctx->glob = imap_match_init_multiple(default_pool, patterns,
+	ctx->glob = imap_match_init_multiple(pool, patterns,
 					     inboxcase, ctx->sep);
 	/* see if all patterns have only a single '*' and it's at the end.
 	   we can use it to do some optimizations. */
@@ -410,9 +413,7 @@ acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		ret = -1;
 	if (ctx->lookup_boxes != NULL)
 		mailbox_tree_deinit(&ctx->lookup_boxes);
-	if (ctx->glob != NULL)
-		imap_match_deinit(&ctx->glob);
-	i_free(ctx);
+	pool_unref(&_ctx->pool);
 	return ret;
 }
 

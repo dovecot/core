@@ -14,14 +14,16 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	struct mailbox_list_index_iterate_context *ctx;
+	pool_t pool;
 	char ns_sep = mail_namespace_get_sep(list->ns);
 
-	ctx = i_new(struct mailbox_list_index_iterate_context, 1);
+	pool = pool_alloconly_create("mailbox list index iter", 1024);
+	ctx = p_new(pool, struct mailbox_list_index_iterate_context, 1);
+	ctx->ctx.pool = pool;
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
-	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns,
-						 TRUE, ns_sep);
-	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, TRUE, ns_sep);
+	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 	ctx->sep = ns_sep;
 
 	if (mailbox_list_index_refresh(ctx->ctx.list) < 0) {
@@ -31,7 +33,7 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 	} else {
 		/* listing mailboxes from index */
 		ctx->info.ns = list->ns;
-		ctx->path = str_new(default_pool, 128);
+		ctx->path = str_new(pool, 128);
 		ctx->next_node = ilist->mailbox_tree;
 		ilist->iter_refcount++;
 	}
@@ -162,11 +164,8 @@ int mailbox_list_index_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	else {
 		i_assert(ilist->iter_refcount > 0);
 		ilist->iter_refcount--;
-		str_free(&ctx->path);
 	}
 
-	imap_match_deinit(&ctx->ctx.glob);
-	array_free(&ctx->ctx.module_contexts);
-	i_free(ctx);
+	pool_unref(&_ctx->pool);
 	return ret;
 }

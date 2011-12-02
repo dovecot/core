@@ -211,14 +211,16 @@ mailbox_list_subscriptions_iter_init(struct mailbox_list *list,
 				     enum mailbox_list_iter_flags flags)
 {
 	struct subscriptions_mailbox_list_iterate_context *ctx;
+	pool_t pool;
 	char sep = mail_namespace_get_sep(list->ns);
 
-	ctx = i_new(struct subscriptions_mailbox_list_iterate_context, 1);
+	pool = pool_alloconly_create("mailbox list subscriptions iter", 1024);
+	ctx = p_new(pool, struct subscriptions_mailbox_list_iterate_context, 1);
+	ctx->ctx.pool = pool;
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
-	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns,
-						 TRUE, sep);
-	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, TRUE, sep);
+	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 
 	ctx->tree = mailbox_tree_init(sep);
 	mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree);
@@ -292,9 +294,6 @@ int mailbox_list_subscriptions_iter_deinit(struct mailbox_list_iterate_context *
 
 	mailbox_tree_iterate_deinit(&ctx->iter);
 	mailbox_tree_deinit(&ctx->tree);
-	if (_ctx->glob != NULL)
-		imap_match_deinit(&_ctx->glob);
-	array_free(&_ctx->module_contexts);
-	i_free(ctx);
+	pool_unref(&_ctx->pool);
 	return ret;
 }

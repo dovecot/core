@@ -133,13 +133,16 @@ none_list_iter_init(struct mailbox_list *list,
 		    enum mailbox_list_iter_flags flags)
 {
 	struct noop_list_iterate_context *ctx;
+	pool_t pool;
 
-	ctx = i_new(struct noop_list_iterate_context, 1);
+	pool = pool_alloconly_create("mailbox list none iter", 1024);
+	ctx = p_new(pool, struct noop_list_iterate_context, 1);
+	ctx->ctx.pool = pool;
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
-	ctx->ctx.glob = imap_match_init_multiple(default_pool, patterns, TRUE,
+	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, TRUE,
 						 mail_namespace_get_sep(list->ns));
-	array_create(&ctx->ctx.module_contexts, default_pool, sizeof(void *), 5);
+	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 	    imap_match(ctx->ctx.glob, "INBOX") == IMAP_MATCH_YES) {
 		ctx->list_inbox = TRUE;
@@ -152,9 +155,7 @@ none_list_iter_init(struct mailbox_list *list,
 static int
 none_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 {
-	array_free(&ctx->module_contexts);
-	imap_match_deinit(&ctx->glob);
-	i_free(ctx);
+	pool_unref(&ctx->pool);
 	return 0;
 }
 

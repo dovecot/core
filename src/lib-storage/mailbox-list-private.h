@@ -141,6 +141,7 @@ union mailbox_list_iterate_module_context {
 
 struct mailbox_list_iterate_context {
 	struct mailbox_list *list;
+	pool_t pool;
 	enum mailbox_list_iter_flags flags;
 	bool failed;
 

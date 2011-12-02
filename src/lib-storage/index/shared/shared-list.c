@@ -177,14 +177,16 @@ shared_list_iter_init(struct mailbox_list *list, const char *const *patterns,
 		      enum mailbox_list_iter_flags flags)
 {
 	struct mailbox_list_iterate_context *ctx;
+	pool_t pool;
 	char sep = mail_namespace_get_sep(list->ns);
 
-	ctx = i_new(struct mailbox_list_iterate_context, 1);
+	pool = pool_alloconly_create("mailbox list shared iter", 1024);
+	ctx = p_new(pool, struct mailbox_list_iterate_context, 1);
+	ctx->pool = pool;
 	ctx->list = list;
 	ctx->flags = flags;
-	ctx->glob = imap_match_init_multiple(default_pool, patterns,
-					     FALSE, sep);
-	array_create(&ctx->module_contexts, default_pool, sizeof(void *), 5);
+	ctx->glob = imap_match_init_multiple(pool, patterns, FALSE, sep);
+	array_create(&ctx->module_contexts, pool, sizeof(void *), 5);
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 &&
 	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) T_BEGIN {
@@ -201,9 +203,7 @@ shared_list_iter_next(struct mailbox_list_iterate_context *ctx ATTR_UNUSED)
 
 static int shared_list_iter_deinit(struct mailbox_list_iterate_context *ctx)
 {
-	imap_match_deinit(&ctx->glob);
-	array_free(&ctx->module_contexts);
-	i_free(ctx);
+	pool_unref(&ctx->pool);
 	return 0;
 }
 
