@@ -732,7 +732,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 
 	if ((set->master_user == NULL &&
-	     need_literal(set->username) && need_literal(set->password)) ||
+	     !need_literal(set->username) && !need_literal(set->password)) ||
 	    (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0) {
 		/* We can use LOGIN command */
 		imapc_command_sendf(cmd, "LOGIN %s %s",
