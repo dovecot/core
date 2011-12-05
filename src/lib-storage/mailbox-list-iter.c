@@ -78,6 +78,8 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 	struct autocreate_box *autobox;
 	unsigned int i, count;
 
+	if (!array_is_created(&user->set->mailboxes))
+		return;
 	box_sets = array_get(&user->set->mailboxes, &count);
 	if (count == 0)
 		return;

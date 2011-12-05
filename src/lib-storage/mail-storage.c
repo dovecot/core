@@ -607,6 +607,9 @@ mailbox_settings_find(struct mail_user *user, const char *vname)
 {
 	struct mailbox_settings *const *box_set;
 
+	if (!array_is_created(&user->set->mailboxes))
+		return NULL;
+
 	array_foreach(&user->set->mailboxes, box_set) {
 		if (strcmp((*box_set)->name, vname) == 0)
 			return *box_set;
