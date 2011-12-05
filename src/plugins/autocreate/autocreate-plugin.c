@@ -67,6 +67,9 @@ read_autobox_settings(struct mail_user *user, const char *env_name_base,
 static void
 autocreate_mail_user_created(struct mail_user *user)
 {
+	if (!array_is_created(&user->set->mailboxes))
+		p_array_init(&user->set->mailboxes, user->pool, 16);
+
 	read_autobox_settings(user, "autocreate", FALSE);
 	read_autobox_settings(user, "autosubscribe", TRUE);
 }
