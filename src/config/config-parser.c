@@ -642,14 +642,25 @@ config_parse_line(struct config_parser_context *ctx,
 		*value_r = "";
 	else {
 		/* get section name */
-		*value_r = line;
-		while (!IS_WHITE(*line) && *line != '\0')
-			line++;
-
-		if (*line != '\0') {
-			*line++ = '\0';
-			while (IS_WHITE(*line))
+		if (*line != '"') {
+			*value_r = line;
+			while (!IS_WHITE(*line) && *line != '\0')
 				line++;
+			if (*line != '\0') {
+				*line++ = '\0';
+				while (IS_WHITE(*line))
+					line++;
+			}
+		} else {
+			char *value = ++line;
+			while (*line != '"' && *line != '\0')
+				line++;
+			if (*line == '"') {
+				*line++ = '\0';
+				while (IS_WHITE(*line))
+					line++;
+				*value_r = str_unescape(value);
+			}
 		}
 		if (*line != '{') {
 			*value_r = "Expecting '='";

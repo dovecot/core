@@ -270,8 +270,12 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					str_append_n(ctx->list_prefix, key2, p - key2);
 				else
 					str_append(ctx->list_prefix, key2);
-				if (unique_key && *value != '\0')
-					str_printfa(ctx->list_prefix, " %s", value);
+				if (unique_key && *value != '\0') {
+					if (strchr(value, ' ') == NULL)
+						str_printfa(ctx->list_prefix, " %s", value);
+					else
+						str_printfa(ctx->list_prefix, " \"%s\"", str_escape(value));
+				}
 				str_append(ctx->list_prefix, " {\n");
 				indent++;
 
