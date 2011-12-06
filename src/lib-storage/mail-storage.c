@@ -606,11 +606,24 @@ const struct mailbox_settings *
 mailbox_settings_find(struct mail_user *user, const char *vname)
 {
 	struct mailbox_settings *const *box_set;
+	struct mail_namespace *ns;
 
-	if (!array_is_created(&user->set->mailboxes))
+	ns = mail_namespace_find(user->namespaces, vname);
+	if (ns == NULL)
+		return NULL;
+	if (!array_is_created(&ns->set->mailboxes))
 		return NULL;
 
-	array_foreach(&user->set->mailboxes, box_set) {
+	if (ns->prefix_len > 0 &&
+	    strncmp(ns->prefix, vname, ns->prefix_len-1) == 0) {
+		if (vname[ns->prefix_len-1] == mail_namespace_get_sep(ns))
+			vname += ns->prefix_len;
+		else if (vname[ns->prefix_len-1] == '\0') {
+			/* namespace prefix itself */
+			vname = "";
+		}
+	}
+	array_foreach(&ns->set->mailboxes, box_set) {
 		if (strcmp((*box_set)->name, vname) == 0)
 			return *box_set;
 	}

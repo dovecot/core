@@ -73,19 +73,39 @@ static int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
 	return ns->list->v.subscriptions_refresh(ns->list, list);
 }
 
+static struct mailbox_settings *
+mailbox_settings_add_ns_prefix(pool_t pool, struct mail_namespace *ns,
+			       struct mailbox_settings *in_set)
+{
+	struct mailbox_settings *out_set;
+
+	if (ns->prefix_len == 0 || strcasecmp(in_set->name, "INBOX") == 0)
+		return in_set;
+
+	out_set = p_new(pool, struct mailbox_settings, 1);
+	*out_set = *in_set;
+	if (*in_set->name == '\0') {
+		/* namespace prefix itself */
+		out_set->name = p_strndup(pool, ns->prefix, ns->prefix_len-1);
+	} else {
+		out_set->name =
+			p_strconcat(pool, ns->prefix, in_set->name, NULL);
+	}
+	return out_set;
+}
+
 static void
 mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 {
-	struct mail_user *user = ctx->list->ns->user;
+	struct mail_namespace *ns = ctx->list->ns;
 	struct mailbox_list_autocreate_iterate_context *actx;
-	struct mailbox_settings *const *box_sets;
-	struct mail_namespace *ns;
+	struct mailbox_settings *const *box_sets, *set;
 	struct autocreate_box *autobox;
 	unsigned int i, count;
 
-	if (!array_is_created(&user->set->mailboxes))
+	if (!array_is_created(&ns->set->mailboxes))
 		return;
-	box_sets = array_get(&user->set->mailboxes, &count);
+	box_sets = array_get(&ns->set->mailboxes, &count);
 	if (count == 0)
 		return;
 
@@ -100,19 +120,17 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 		if (strcmp(box_sets[i]->autocreate, MAILBOX_SET_AUTO_NO) == 0)
 			continue;
 
-		ns = mail_namespace_find(user->namespaces, box_sets[i]->name);
-		if (ns != ctx->list->ns)
-			continue;
+		set = mailbox_settings_add_ns_prefix(ctx->pool,
+						     ns, box_sets[i]);
 
 		/* autocreate mailbox belongs to listed namespace */
-		array_append(&actx->all_ns_box_sets, &box_sets[i], 1);
+		array_append(&actx->all_ns_box_sets, &set, 1);
 		if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
-		    strcmp(box_sets[i]->autocreate,
-			   MAILBOX_SET_AUTO_SUBSCRIBE) == 0) {
-			array_append(&actx->box_sets, &box_sets[i], 1);
+		    strcmp(set->autocreate, MAILBOX_SET_AUTO_SUBSCRIBE) == 0) {
+			array_append(&actx->box_sets, &set, 1);
 			autobox = array_append_space(&actx->boxes);
-			autobox->name = box_sets[i]->name;
-			autobox->set = box_sets[i];
+			autobox->name = set->name;
+			autobox->set = set;
 		}
 	}
 }

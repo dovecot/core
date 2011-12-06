@@ -52,6 +52,7 @@ struct mail_namespace_settings {
 	const char *list;
 	bool subscriptions;
 
+	ARRAY_DEFINE(mailboxes, struct mailbox_settings *);
 	struct mail_user_settings *user_set;
 };
 
@@ -88,7 +89,6 @@ struct mail_user_settings {
 	const char *mail_log_prefix;
 
 	ARRAY_DEFINE(namespaces, struct mail_namespace_settings *);
-	ARRAY_DEFINE(mailboxes, struct mailbox_settings *);
 	ARRAY_DEFINE(plugin_envs, const char *);
 };
 

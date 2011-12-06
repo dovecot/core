@@ -96,55 +96,6 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct mail_namespace_settings, name), NULL }
-
-static const struct setting_define mail_namespace_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_ENUM, type),
-	DEF(SET_STR, separator),
-	DEF(SET_STR_VARS, prefix),
-	DEF(SET_STR_VARS, location),
-	{ SET_ALIAS, "mail", 0, NULL },
-	{ SET_ALIAS, "mail_location", 0, NULL },
-	DEF(SET_STR_VARS, alias_for),
-
-	DEF(SET_BOOL, inbox),
-	DEF(SET_BOOL, hidden),
-	DEF(SET_ENUM, list),
-	DEF(SET_BOOL, subscriptions),
-
-	SETTING_DEFINE_LIST_END
-};
-
-const struct mail_namespace_settings mail_namespace_default_settings = {
-	.name = "",
-	.type = "private:shared:public",
-	.separator = "",
-	.prefix = "",
-	.location = "",
-	.alias_for = NULL,
-
-	.inbox = FALSE,
-	.hidden = FALSE,
-	.list = "yes:no:children",
-	.subscriptions = TRUE
-};
-
-const struct setting_parser_info mail_namespace_setting_parser_info = {
-	.defines = mail_namespace_setting_defines,
-	.defaults = &mail_namespace_default_settings,
-
-	.type_offset = offsetof(struct mail_namespace_settings, name),
-	.struct_size = sizeof(struct mail_namespace_settings),
-
-	.parent_offset = offsetof(struct mail_namespace_settings, user_set),
-	.parent = &mail_user_setting_parser_info,
-
-	.check_func = namespace_settings_check
-};
-
-#undef DEF
-#define DEF(type, name) \
 	{ type, #name, offsetof(struct mailbox_settings, name), NULL }
 
 static const struct setting_define mailbox_setting_defines[] = {
@@ -179,6 +130,63 @@ const struct setting_parser_info mailbox_setting_parser_info = {
 #undef DEF
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
+	{ type, #name, offsetof(struct mail_namespace_settings, name), NULL }
+#define DEFLIST_UNIQUE(field, name, defines) \
+	{ SET_DEFLIST_UNIQUE, name, \
+	  offsetof(struct mail_namespace_settings, field), defines }
+
+static const struct setting_define mail_namespace_setting_defines[] = {
+	DEF(SET_STR, name),
+	DEF(SET_ENUM, type),
+	DEF(SET_STR, separator),
+	DEF(SET_STR_VARS, prefix),
+	DEF(SET_STR_VARS, location),
+	{ SET_ALIAS, "mail", 0, NULL },
+	{ SET_ALIAS, "mail_location", 0, NULL },
+	DEF(SET_STR_VARS, alias_for),
+
+	DEF(SET_BOOL, inbox),
+	DEF(SET_BOOL, hidden),
+	DEF(SET_ENUM, list),
+	DEF(SET_BOOL, subscriptions),
+
+	DEFLIST_UNIQUE(mailboxes, "mailbox", &mailbox_setting_parser_info),
+
+	SETTING_DEFINE_LIST_END
+};
+
+const struct mail_namespace_settings mail_namespace_default_settings = {
+	.name = "",
+	.type = "private:shared:public",
+	.separator = "",
+	.prefix = "",
+	.location = "",
+	.alias_for = NULL,
+
+	.inbox = FALSE,
+	.hidden = FALSE,
+	.list = "yes:no:children",
+	.subscriptions = TRUE,
+
+	.mailboxes = ARRAY_INIT
+};
+
+const struct setting_parser_info mail_namespace_setting_parser_info = {
+	.defines = mail_namespace_setting_defines,
+	.defaults = &mail_namespace_default_settings,
+
+	.type_offset = offsetof(struct mail_namespace_settings, name),
+	.struct_size = sizeof(struct mail_namespace_settings),
+
+	.parent_offset = offsetof(struct mail_namespace_settings, user_set),
+	.parent = &mail_user_setting_parser_info,
+
+	.check_func = namespace_settings_check
+};
+
+#undef DEF
+#undef DEFLIST_UNIQUE
+#define DEF(type, name) \
 	{ type, #name, offsetof(struct mail_user_settings, name), NULL }
 #define DEFLIST_UNIQUE(field, name, defines) \
 	{ SET_DEFLIST_UNIQUE, name, \
@@ -208,7 +216,6 @@ static const struct setting_define mail_user_setting_defines[] = {
 	DEF(SET_STR, mail_log_prefix),
 
 	DEFLIST_UNIQUE(namespaces, "namespace", &mail_namespace_setting_parser_info),
-	DEFLIST_UNIQUE(mailboxes, "mailbox", &mailbox_setting_parser_info),
 	{ SET_STRLIST, "plugin", offsetof(struct mail_user_settings, plugin_envs), NULL },
 
 	SETTING_DEFINE_LIST_END
@@ -238,7 +245,6 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.mail_log_prefix = "%s(%u): ",
 
 	.namespaces = ARRAY_INIT,
-	.mailboxes = ARRAY_INIT,
 	.plugin_envs = ARRAY_INIT
 };
 

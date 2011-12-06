@@ -66,7 +66,7 @@ struct mail_namespace {
 	/* FIXME: we should support multiple storages in one namespace */
 	struct mail_storage *storage;
 
-	const struct mail_namespace_settings *set, *unexpanded_set;
+	struct mail_namespace_settings *set, *unexpanded_set;
 	const struct mail_storage_settings *mail_set;
 
 	unsigned int destroyed:1;
