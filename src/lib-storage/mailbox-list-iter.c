@@ -61,7 +61,12 @@ static int mailbox_list_subscriptions_refresh(struct mailbox_list *list)
 		ns = mail_namespace_find_subscribable(ns->user->namespaces,
 						      ns->prefix);
 		if (ns == NULL) {
-			/* no subscriptions */
+			/* no subscriptions. avoid crashes by initializing
+			   a subscriptions tree. */
+			if (list->subscriptions == NULL) {
+				char sep = mail_namespace_get_sep(list->ns);
+				list->subscriptions = mailbox_tree_init(sep);
+			}
 			return 0;
 		}
 	}
