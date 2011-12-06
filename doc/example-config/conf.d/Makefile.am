@@ -18,6 +18,7 @@ example_DATA = \
 	10-master.conf \
 	10-ssl.conf \
 	15-lda.conf \
+	15-mailboxes.conf \
 	20-imap.conf \
 	20-lmtp.conf \
 	20-pop3.conf \
