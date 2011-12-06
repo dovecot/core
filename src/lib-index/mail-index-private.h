@@ -241,6 +241,7 @@ struct mail_index {
 	unsigned int modseqs_enabled:1;
 	unsigned int initial_create:1;
 	unsigned int initial_mapped:1;
+	unsigned int fscked:1;
 };
 
 extern struct mail_index_module_register mail_index_module_register;

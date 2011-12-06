@@ -431,6 +431,8 @@ int mail_index_fsck(struct mail_index *index)
 
 	i_warning("fscking index file %s", index->filepath);
 
+	index->fscked = TRUE;
+
 	if (index->log->head == NULL) {
 		/* we're trying to open the index files, but there wasn't
 		   any .log file. */
@@ -468,4 +470,12 @@ void mail_index_fsck_locked(struct mail_index *index)
 	i_assert(index->log_sync_locked);
 	ret = mail_index_fsck(index);
 	i_assert(ret == 0);
+}
+
+bool mail_index_reset_fscked(struct mail_index *index)
+{
+	bool ret = index->fscked;
+
+	index->fscked = FALSE;
+	return ret;
 }

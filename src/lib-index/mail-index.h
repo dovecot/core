@@ -360,6 +360,9 @@ void mail_index_mark_corrupted(struct mail_index *index);
 /* Check and fix any found problems. Returns -1 if we couldn't lock for sync,
    0 if everything went ok. */
 int mail_index_fsck(struct mail_index *index);
+/* Returns TRUE if mail_index_fsck() has been called since the last
+   mail_index_reset_fscked() call. */
+bool mail_index_reset_fscked(struct mail_index *index);
 
 /* Synchronize changes in view. You have to go through all records, or view
    will be marked inconsistent. Only sync_mask type records are
