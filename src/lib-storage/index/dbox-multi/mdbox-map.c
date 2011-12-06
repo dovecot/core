@@ -222,6 +222,8 @@ int mdbox_map_refresh(struct mdbox_map *map)
 
 	ctx = mail_index_view_sync_begin(map->view,
 				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
+	if (mail_index_reset_fscked(map->view->index))
+		mdbox_storage_set_corrupted(map->storage);
 	if (mail_index_view_sync_commit(&ctx, &delayed_expunges) < 0) {
 		mail_storage_set_internal_error(MAP_STORAGE(map));
 		mail_index_reset_error(map->index);
@@ -473,6 +475,8 @@ int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic)
 	   log's head_offset = tail_offset */
 	ret = mail_index_sync_begin(atomic->map->index, &atomic->sync_ctx,
 				    &atomic->sync_view, &atomic->sync_trans, 0);
+	if (mail_index_reset_fscked(atomic->map->index))
+		mdbox_storage_set_corrupted(atomic->map->storage);
 	if (ret <= 0) {
 		i_assert(ret != 0);
 		mail_storage_set_internal_error(MAP_STORAGE(atomic->map));

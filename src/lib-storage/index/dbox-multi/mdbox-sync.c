@@ -190,6 +190,8 @@ static int mdbox_sync_try_begin(struct mdbox_sync_context *ctx,
 
 	ret = mail_index_sync_begin(mbox->box.index, &ctx->index_sync_ctx,
 				    &ctx->sync_view, &ctx->trans, sync_flags);
+	if (mail_index_reset_fscked(mbox->box.index))
+		mdbox_storage_set_corrupted(mbox->storage);
 	if (ret < 0) {
 		mail_storage_set_index_error(&mbox->box);
 		return -1;
@@ -328,6 +330,8 @@ mdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
+	if (mail_index_reset_fscked(box->index))
+		mdbox_storage_set_corrupted(mbox->storage);
 	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->box, flags) ||
 			 mbox->storage->corrupted)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
