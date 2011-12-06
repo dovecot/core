@@ -568,7 +568,7 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 		return NULL;
 
 	ctx->list->ns->flags |= NAMESPACE_FLAG_USABLE;
-	if ((ctx->list->flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0) {
+	if ((ctx->flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0) {
 		set = mailbox_settings_find(ctx->list->ns->user, info->name);
 		if (set != NULL && *set->special_use != '\0') {
 			ctx->specialuse_info = *info;
