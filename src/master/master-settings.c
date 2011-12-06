@@ -553,7 +553,9 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 				   service->protocol)) {
 			/* each imap/pop3/lmtp process can use up a connection,
 			   although if service_count=1 it's only temporary */
-			max_auth_client_processes += process_limit;
+			if (service->service_count != 1 ||
+			    strcmp(service->type, "login") == 0)
+				max_auth_client_processes += process_limit;
 		}
 		if (strcmp(service->type, "login") == 0 ||
 		    strcmp(service->name, "auth") == 0)
