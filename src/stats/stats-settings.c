@@ -37,7 +37,7 @@ struct service_settings stats_service_settings = {
 	.group = "",
 	.privileged_group = "",
 	.extra_groups = "",
-	.chroot = "",
+	.chroot = "empty",
 
 	.drop_priv_before_exec = FALSE,
 
