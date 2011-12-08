@@ -519,7 +519,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	if (dctx.dest_addr == NULL)
 		dctx.dest_addr = rcpt->address;
 	dctx.final_dest_addr = rcpt->address;
-	if (rcpt->detail == '\0' ||
+	if (*rcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
 		dctx.dest_mailbox_name = "INBOX";
 	else {
