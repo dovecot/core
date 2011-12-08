@@ -4,6 +4,8 @@ director_count=3
 
 echo "Add to /etc/hosts:"
 
+curpath=`pwd`
+
 hosts=""
 dirs=""
 i=0
@@ -64,7 +66,7 @@ service imap-login {
   }
 }
 service director-test {
-  executable = director-test /var/run/dovecot1/director-admin
+  executable = $curpath/director-test /var/run/dovecot1/director-admin
   process_limit = 1
 
   inet_listener {
