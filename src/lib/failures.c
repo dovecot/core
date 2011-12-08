@@ -694,9 +694,14 @@ void i_set_failure_timestamp_format(const char *fmt)
         log_stamp_format = i_strdup(fmt);
 }
 
-void i_set_failure_ip(const struct ip_addr *ip)
+void i_set_failure_send_ip(const struct ip_addr *ip)
 {
 	i_failure_send_option("ip", net_ip2addr(ip));
+}
+
+void i_set_failure_send_prefix(const char *prefix)
+{
+	i_failure_send_option("prefix", prefix);
 }
 
 void i_set_failure_exit_callback(void (*callback)(int *status))

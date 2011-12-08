@@ -114,9 +114,10 @@ void i_set_failure_prefix(const char *prefix);
 /* Prefix failures with a timestamp. fmt is in strftime() format. */
 void i_set_failure_timestamp_format(const char *fmt);
 /* When logging with internal error protocol, update the process's current
-   IP address. This is mainly used by the master process to log some IP
-   address if the process crash. */
-void i_set_failure_ip(const struct ip_addr *ip);
+   IP address / log prefix by sending it to log process. This is mainly used to
+   improve the error message if the process crashes. */
+void i_set_failure_send_ip(const struct ip_addr *ip);
+void i_set_failure_send_prefix(const char *prefix);
 
 /* Call the callback before exit()ing. The callback may update the status. */
 void i_set_failure_exit_callback(void (*callback)(int *status));
