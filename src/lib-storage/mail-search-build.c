@@ -58,7 +58,11 @@ mail_search_build_key_int(struct mail_search_build_context *ctx,
 	if (strcmp(key, MAIL_SEARCH_PARSER_KEY_LIST) == 0) {
 		if (mail_search_build_list(ctx, &sarg) < 0)
 			return -1;
-		i_assert(sarg->value.subargs != NULL);
+		if (sarg->value.subargs == NULL) {
+			ctx->_error = "No search parameters inside list";
+			return -1;
+		}
+
 		ctx->parent = old_parent;
 		*arg_r = sarg;
 		return 1;
