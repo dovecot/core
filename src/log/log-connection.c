@@ -76,7 +76,34 @@ static void log_parse_option(struct log_connection *log,
 	}
 }
 
-static void log_parse_master_line(const char *line)
+static void
+client_log_fatal(struct log_connection *log, struct log_client *client,
+		 const char *line, const struct tm *tm)
+{
+	struct failure_context failure_ctx;
+	const char *prefix = log->default_prefix;
+
+	memset(&failure_ctx, 0, sizeof(failure_ctx));
+	failure_ctx.type = LOG_TYPE_FATAL;
+	failure_ctx.timestamp = tm;
+
+	if (client != NULL) {
+		if (client->prefix != NULL)
+			prefix = client->prefix;
+		else if (client->ip.family != 0) {
+			line = t_strdup_printf("%s [last ip=%s]",
+					       line, net_ip2addr(&client->ip));
+		}
+	}
+	prefix = client != NULL && client->prefix != NULL ?
+		client->prefix : log->default_prefix;
+	i_set_failure_prefix(prefix);
+	i_log_type(&failure_ctx, "master: %s", line);
+	i_set_failure_prefix("log: ");
+}
+
+static void
+log_parse_master_line(const char *line, const struct tm *tm)
 {
 	struct log_connection *const *logs, *log;
 	struct log_client *client;
@@ -110,11 +137,13 @@ static void log_parse_master_line(const char *line)
 			return;
 		}
 		log_client_free(log, client, pid);
+	} else if (strncmp(line, "FATAL ", 6) == 0) {
+		client_log_fatal(log, client, line + 6, tm);
 	} else if (strncmp(line, "DEFAULT-FATAL ", 14) == 0) {
 		/* If the client has logged a fatal/panic, don't log this
 		   message. */
 		if (client == NULL || !client->fatal_logged)
-			i_error("%s", line + 14);
+			client_log_fatal(log, client, line + 14, tm);
 	} else {
 		i_error("Received unknown command from master: %s", line);
 	}
@@ -129,7 +158,9 @@ log_it(struct log_connection *log, const char *line, const struct tm *tm)
 	const char *prefix;
 
 	if (log->master) {
-		log_parse_master_line(line);
+		T_BEGIN {
+			log_parse_master_line(line, tm);
+		} T_END;
 		return;
 	}
 

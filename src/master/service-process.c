@@ -479,16 +479,17 @@ static void service_process_log(struct service_process *process,
 {
 	const char *data;
 
-	if (!default_fatal || process->service->log_fd[1] == -1) {
+	if (process->service->log_fd[1] == -1) {
 		i_error("%s", str);
 		return;
 	}
 
 	/* log it via the log process in charge of handling
 	   this process's logging */
-	data = t_strdup_printf("%d %s DEFAULT-FATAL %s\n",
+	data = t_strdup_printf("%d %s %s %s\n",
 			       process->service->log_process_internal_fd,
-			       dec2str(process->pid), str);
+			       dec2str(process->pid),
+			       default_fatal ? "DEFAULT-FATAL" : "FATAL", str);
 	if (write(process->service->list->master_log_fd[1],
 		  data, strlen(data)) < 0) {
 		i_error("write(log process) failed: %m");
