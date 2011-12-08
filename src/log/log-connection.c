@@ -115,8 +115,6 @@ static void log_parse_master_line(const char *line)
 		   message. */
 		if (client == NULL || !client->fatal_logged)
 			i_error("%s", line + 14);
-		else
-			log_client_free(log, client, pid);
 	} else {
 		i_error("Received unknown command from master: %s", line);
 	}
