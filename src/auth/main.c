@@ -57,11 +57,16 @@ static ARRAY_DEFINE(listeners, struct auth_socket_listener);
 
 void auth_refresh_proctitle(void)
 {
+	const char *auth_worker_prefix;
+
 	if (!global_auth_settings->verbose_proctitle)
 		return;
 
+	auth_worker_prefix = worker ? "worker " : "";
+
 	process_title_set(t_strdup_printf(
-		"[%u wait, %u passdb, %u userdb]",
+		"%s[%u wait, %u passdb, %u userdb]",
+		auth_worker_prefix,
 		auth_request_state_count[AUTH_REQUEST_STATE_NEW] +
 		auth_request_state_count[AUTH_REQUEST_STATE_MECH_CONTINUE] +
 		auth_request_state_count[AUTH_REQUEST_STATE_FINISHED],
