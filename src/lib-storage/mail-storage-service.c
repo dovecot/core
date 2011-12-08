@@ -606,6 +606,8 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 
 	master_service_init_log(ctx->service, user->log_prefix);
 
+	if (master_service_get_client_limit(master_service) == 1)
+		i_set_failure_send_prefix(user->log_prefix);
 	user->ioloop_ctx = io_loop_context_new(current_ioloop);
 	io_loop_context_add_callbacks(user->ioloop_ctx,
 				      mail_storage_service_io_activate,
