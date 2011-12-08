@@ -349,8 +349,7 @@ static void inbox_flags_set(struct fs_list_iterate_context *ctx)
 	ctx->info.flags &= ~(MAILBOX_NOSELECT | MAILBOX_NONEXISTENT);
 
 	if (*ns->prefix != '\0' &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-	    (ctx->ctx.list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
+	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
 		/* we're listing INBOX for a namespace with a prefix.
 		   if there are children for the INBOX, they're returned under
 		   the mailbox prefix, not under the INBOX itself. */
