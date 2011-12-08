@@ -956,22 +956,16 @@ driver_pgsql_transaction_commit_multi(struct pgsql_transaction_context *ctx)
 				       "ROLLBACK" : "COMMIT");
 }
 
-static int
-driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
-				  const char **error_r)
+static void
+driver_pgsql_try_commit_s(struct pgsql_transaction_context *ctx,
+			  const char **error_r)
 {
-	struct pgsql_transaction_context *ctx =
-		(struct pgsql_transaction_context *)_ctx;
+	struct sql_transaction_context *_ctx = &ctx->ctx;
 	struct pgsql_db *db = (struct pgsql_db *)_ctx->db;
 	struct sql_transaction_query *single_query = NULL;
 	struct sql_result *result;
 
-	*error_r = NULL;
-
-	if (ctx->failed || _ctx->head == NULL) {
-		/* nothing to be done */
-		result = NULL;
-	} else if (_ctx->head->next == NULL) {
+	if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
 		single_query = _ctx->head;
 		result = sql_query_s(_ctx->db, single_query->query);
@@ -999,6 +993,31 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 	}
 	if (result != NULL)
 		sql_result_unref(result);
+}
+
+static int
+driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
+				  const char **error_r)
+{
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)_ctx;
+	struct pgsql_db *db = (struct pgsql_db *)_ctx->db;
+
+	*error_r = NULL;
+
+	if (_ctx->head != NULL) {
+		driver_pgsql_try_commit_s(ctx, error_r);
+		if (_ctx->db->state == SQL_DB_STATE_DISCONNECTED) {
+			*error_r = t_strdup(*error_r);
+			i_info("%s: Disconnected from database, "
+			       "retrying commit", pgsql_prefix(db));
+			if (sql_connect(_ctx->db) >= 0) {
+				ctx->failed = FALSE;
+				*error_r = NULL;
+				driver_pgsql_try_commit_s(ctx, error_r);
+			}
+		}
+	}
 
 	i_assert(ctx->refcount == 1);
 	driver_pgsql_transaction_unref(ctx);

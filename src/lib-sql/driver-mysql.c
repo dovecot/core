@@ -506,31 +506,54 @@ transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
 	return ret;
 }
 
+static int driver_mysql_try_commit_s(struct mysql_transaction_context *ctx)
+{
+	struct sql_transaction_context *_ctx = &ctx->ctx;
+
+	/* try to use a transaction in any case,
+	   even if it's not actually functional. */
+	if (transaction_send_query(ctx, "BEGIN", NULL) < 0) {
+		if (_ctx->db->state != SQL_DB_STATE_DISCONNECTED)
+			return -1;
+		/* we got disconnected, retry */
+		return 0;
+	}
+	while (_ctx->head != NULL) {
+		if (transaction_send_query(ctx, _ctx->head->query,
+					   _ctx->head->affected_rows) < 0)
+			return -1;
+		_ctx->head = _ctx->head->next;
+	}
+	if (transaction_send_query(ctx, "COMMIT", NULL) < 0)
+		return -1;
+	return 1;
+}
+
 static int
 driver_mysql_transaction_commit_s(struct sql_transaction_context *_ctx,
 				  const char **error_r)
 {
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
-	int ret = 0;
+	struct mysql_db *db = (struct mysql_db *)_ctx->db;
+	int ret = 1;
 
 	*error_r = NULL;
 
 	if (_ctx->head != NULL) {
-		/* try to use a transaction in any case,
-		   even if it doesn't work. */
-		(void)transaction_send_query(ctx, "BEGIN", NULL);
-		while (_ctx->head != NULL) {
-			if (transaction_send_query(ctx, _ctx->head->query,
-						   _ctx->head->affected_rows) < 0)
-				break;
-			_ctx->head = _ctx->head->next;
+		ret = driver_mysql_try_commit_s(ctx);
+		*error_r = t_strdup(ctx->error);
+		if (ret == 0) {
+			i_info("%s: Disconnected from database, "
+			       "retrying commit", db->dbname);
+			if (sql_connect(_ctx->db) >= 0) {
+				ctx->failed = FALSE;
+				ret = driver_mysql_try_commit_s(ctx);
+			}
 		}
-		ret = transaction_send_query(ctx, "COMMIT", NULL);
-		*error_r = ctx->error;
 	}
 	sql_transaction_rollback(&_ctx);
-	return ret;
+	return ret <= 0 ? -1 : 0;
 }
 
 static void
