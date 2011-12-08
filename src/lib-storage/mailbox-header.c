@@ -11,8 +11,8 @@ mailbox_header_lookup_init_real(struct mailbox *box,
 				const char *const headers[])
 {
 	struct mail_cache_field *fields, header_field = {
-		NULL, 0, MAIL_CACHE_FIELD_HEADER, 0,
-		MAIL_CACHE_DECISION_TEMP
+		.type = MAIL_CACHE_FIELD_HEADER,
+		.decision = MAIL_CACHE_DECISION_TEMP
 	};
 	struct mailbox_header_lookup_ctx *ctx;
 	const char *const *name;

@@ -136,11 +136,10 @@ static unsigned int
 get_header_field_idx(struct mailbox *box, const char *field,
 		     enum mail_cache_decision_type decision)
 {
-	struct mail_cache_field header_field = {
-		NULL, 0, MAIL_CACHE_FIELD_HEADER, 0,
-		MAIL_CACHE_DECISION_NO
-	};
+	struct mail_cache_field header_field;
 
+	memset(&header_field, 0, sizeof(header_field));
+	header_field.type = MAIL_CACHE_FIELD_HEADER;
 	header_field.decision = decision;
 	T_BEGIN {
 		header_field.name = t_strconcat("hdr.", field, NULL);
