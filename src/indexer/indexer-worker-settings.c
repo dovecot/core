@@ -9,7 +9,7 @@
 
 /* <settings checks> */
 static struct file_listener_settings indexer_worker_unix_listeners_array[] = {
-	{ "indexer-worker", 0666, "", "" }
+	{ "indexer-worker", 0600, "$default_internal_user", "" }
 };
 static struct file_listener_settings *indexer_worker_unix_listeners[] = {
 	&indexer_worker_unix_listeners_array[0]
