@@ -34,7 +34,7 @@ lib21_fts_lucene_plugin_la_SOURCES = \
 
 noinst_HEADERS = \
 	fts-lucene-plugin.h \
-	lucene-wrapper.h
+	lucene-wrapper.h \
 	SnowballAnalyzer.h \
 	SnowballFilter.h
 
