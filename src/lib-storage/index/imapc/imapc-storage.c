@@ -684,7 +684,8 @@ static void imapc_idle_noop_callback(const struct imapc_command_reply *reply,
 	struct imapc_mailbox *mbox = context;
 
 	imapc_noop_callback(reply, mbox->box.storage);
-	imapc_client_mailbox_idle(mbox->client_box);
+	if (mbox->client_box != NULL)
+		imapc_client_mailbox_idle(mbox->client_box);
 }
 
 static void imapc_notify_changes(struct mailbox *box)
