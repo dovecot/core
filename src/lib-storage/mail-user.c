@@ -26,7 +26,6 @@ struct auth_master_connection *mail_user_auth_master_conn;
 static void mail_user_deinit_base(struct mail_user *user)
 {
 	mail_namespaces_deinit(&user->namespaces);
-	pool_unref(&user->pool);
 }
 
 struct mail_user *mail_user_alloc(const char *username,
@@ -137,8 +136,16 @@ void mail_user_unref(struct mail_user **_user)
 	i_assert(user->refcount > 0);
 
 	*_user = NULL;
-	if (--user->refcount == 0)
-		user->v.deinit(user);
+	if (user->refcount > 1) {
+		user->refcount--;
+		return;
+	}
+
+	/* call deinit() with refcount=1, otherwise we may assert-crash in
+	   mail_user_ref() that is called by some deinit() handler. */
+	user->v.deinit(user);
+	i_assert(user->refcount == 1);
+	pool_unref(&user->pool);
 }
 
 struct mail_user *mail_user_find(struct mail_user *user, const char *name)
