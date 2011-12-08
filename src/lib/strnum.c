@@ -233,6 +233,17 @@ int str_to_uoff(const char *str, uoff_t *num_r)
 	return 0;
 }
 
+int str_to_time(const char *str, time_t *num_r)
+{
+	intmax_t l;
+
+	if (str_to_intmax(str, &l) < 0)
+		return -1;
+
+	*num_r = (time_t)l;
+	return 0;
+}
+
 bool str_uint_equals(const char *str, uintmax_t num)
 {
 	uintmax_t l;

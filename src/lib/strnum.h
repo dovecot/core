@@ -24,6 +24,7 @@ int str_to_uid(const char *str, uid_t *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_gid(const char *str, gid_t *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_pid(const char *str, pid_t *num_r) ATTR_WARN_UNUSED_RESULT;
 int str_to_uoff(const char *str, uoff_t *num_r) ATTR_WARN_UNUSED_RESULT;
+int str_to_time(const char *str, time_t *num_r) ATTR_WARN_UNUSED_RESULT;
 
 /* Returns TRUE if str is a valid unsigned number that equals to num. */
 bool str_uint_equals(const char *str, uintmax_t num);
