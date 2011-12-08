@@ -218,6 +218,12 @@ static void client_connected(struct master_service_connection *conn)
 	struct login_access_lookup *lookup;
 
 	master_service_client_connection_accept(conn);
+	if (conn->remote_ip.family != 0) {
+		/* log the connection's IP address in case we crash. it's of
+		   course possible that another earlier client causes the
+		   crash, but this is better than nothing. */
+		i_set_failure_send_ip(&conn->remote_ip);
+	}
 
 	/* make sure we're connected (or attempting to connect) to auth */
 	auth_client_connect(auth_client);
