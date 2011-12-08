@@ -2,7 +2,6 @@
 #define DIRECTOR_SETTINGS_H
 
 struct director_settings {
-	const char *base_dir;
 	const char *master_user_separator;
 
 	const char *director_servers;

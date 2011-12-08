@@ -576,7 +576,6 @@ director_init(const struct director_settings *set,
 	      director_state_change_callback_t *callback)
 {
 	struct director *dir;
-	const char *path;
 
 	dir = i_new(struct director, 1);
 	dir->set = set;
@@ -588,8 +587,7 @@ director_init(const struct director_settings *set,
 	dir->users = user_directory_init(set->director_user_expire);
 	dir->mail_hosts = mail_hosts_init();
 
-	path = t_strconcat(set->base_dir, "/" DIRECTOR_IPC_PROXY_PATH, NULL);
-	dir->ipc_proxy = ipc_client_init(path);
+	dir->ipc_proxy = ipc_client_init(DIRECTOR_IPC_PROXY_PATH);
 	return dir;
 }
 

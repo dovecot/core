@@ -25,7 +25,6 @@
 
 static struct director *director;
 static struct notify_connection *notify_conn;
-static char *auth_socket_path, *userdb_socket_path;
 
 static int director_client_connected(int fd, const struct ip_addr *ip)
 {
@@ -93,7 +92,7 @@ static void client_connected(struct master_service_connection *conn)
 	   Both of them are handled exactly the same, except for which
 	   auth socket they connect to. */
 	userdb = len > 7 && strcmp(name + len - 7, "-userdb") == 0;
-	socket_path = userdb ? userdb_socket_path : auth_socket_path;
+	socket_path = userdb ? AUTH_USERDB_SOCKET_PATH : AUTH_SOCKET_PATH;
 	auth = auth_connection_init(socket_path);
 	if (auth_connection_connect(auth) == 0) {
 		master_service_client_connection_accept(conn);
@@ -151,11 +150,6 @@ static void main_preinit(void)
 
 	set = master_service_settings_get_others(master_service)[0];
 
-	auth_socket_path = i_strconcat(set->base_dir,
-				       "/"AUTH_SOCKET_PATH, NULL);
-	userdb_socket_path = i_strconcat(set->base_dir,
-					 "/"AUTH_USERDB_SOCKET_PATH, NULL);
-
 	listen_port = find_inet_listener_port(&listen_ip, set);
 	if (listen_port == 0 && *set->director_servers != '\0') {
 		i_fatal("No inet_listeners defined for director service "
@@ -179,8 +173,6 @@ static void main_deinit(void)
 	doveadm_connections_deinit();
 	login_connections_deinit();
 	auth_connections_deinit();
-	i_free(auth_socket_path);
-	i_free(userdb_socket_path);
 }
 
 int main(int argc, char *argv[])
