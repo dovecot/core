@@ -58,13 +58,13 @@ struct service_settings ssl_params_service_settings = {
 	{ type, #name, offsetof(struct ssl_params_settings, name), NULL }
 
 static const struct setting_define ssl_params_setting_defines[] = {
-	DEF(SET_UINT, ssl_parameters_regenerate),
+	DEF(SET_TIME, ssl_parameters_regenerate),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct ssl_params_settings ssl_params_default_settings = {
-	.ssl_parameters_regenerate = 24*7
+	.ssl_parameters_regenerate = 3600*24*7
 };
 
 const struct setting_parser_info ssl_params_setting_parser_info = {

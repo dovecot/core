@@ -140,6 +140,12 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		set_rename(ctx, key, "ssl", value);
 		return TRUE;
 	}
+	if (strcmp(key, "ssl_parameters_regenerate") == 0 &&
+	    str_is_numeric(value, '\0')) {
+		obsolete(ctx, "%s should have 'hours' suffix", key);
+		config_apply_line(ctx, "", t_strconcat(key, "=", value, "h", NULL), NULL);
+		return TRUE;
+	}
 	if (strcmp(key, "sieve") == 0 ||
 	    strcmp(key, "sieve_storage") == 0) {
 		if (strcmp(key, "sieve_storage") == 0)
