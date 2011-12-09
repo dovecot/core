@@ -11,6 +11,7 @@
 #include "var-expand.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <ctype.h>
 
 #define TABLE_LAST(t) \
@@ -160,6 +161,10 @@ var_expand_long(const struct var_expand_table *table,
 		case 3:
 			if (strcmp(key, "pid") == 0)
 				value = my_pid;
+			else if (strcmp(key, "uid") == 0)
+				value = dec2str(geteuid());
+			else if (strcmp(key, "gid") == 0)
+				value = dec2str(getegid());
 			break;
 		case 8:
 			if (strcmp(key, "hostname") == 0)
