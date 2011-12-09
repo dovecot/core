@@ -1423,6 +1423,8 @@ static int search_more_with_mail(struct index_search_context *ctx,
 	    SEARCH_NOTIFY_INTERVAL_SECS)
 		index_storage_search_notify(box, ctx);
 
+	mail_search_args_reset(_ctx->args->args, FALSE);
+
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
 
