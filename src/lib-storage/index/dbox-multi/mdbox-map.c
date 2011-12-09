@@ -108,7 +108,7 @@ static int mdbox_map_mkdir_storage_path(struct mdbox_map *map, const char *path)
 	struct stat st;
 
 	if (stat(path, &st) == 0)
-		return 0;
+		return 1;
 
 	if (mailbox_list_mkdir(map->root_list, NULL, path) < 0) {
 		mail_storage_copy_list_error(MAP_STORAGE(map), map->root_list);
@@ -119,14 +119,16 @@ static int mdbox_map_mkdir_storage_path(struct mdbox_map *map, const char *path)
 
 static int mdbox_map_mkdir_storage(struct mdbox_map *map)
 {
-	if (mdbox_map_mkdir_storage_path(map, map->path) < 0)
+	int ret;
+
+	if ((ret = mdbox_map_mkdir_storage_path(map, map->path)) < 0)
 		return -1;
 
 	if (strcmp(map->path, map->index_path) != 0) {
 		if (mdbox_map_mkdir_storage_path(map, map->index_path) < 0)
 			return -1;
 	}
-	return 0;
+	return ret;
 }
 
 static void mdbox_map_cleanup(struct mdbox_map *map)
@@ -150,7 +152,7 @@ static void mdbox_map_cleanup(struct mdbox_map *map)
 static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 {
 	enum mail_index_open_flags open_flags;
-	int ret;
+	int ret = 0;
 
 	if (map->view != NULL) {
 		/* already opened */
@@ -160,11 +162,24 @@ static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 	open_flags = MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY |
 		mail_storage_settings_to_index_flags(MAP_STORAGE(map)->set);
 	if (create_missing) {
-		open_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
-		if (mdbox_map_mkdir_storage(map) < 0)
+		if ((ret = mdbox_map_mkdir_storage(map)) < 0)
 			return -1;
+		if (ret > 0) {
+			/* storage/ directory already existed.
+			   the index should exist also. */
+		} else {
+			open_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
+		}
 	}
 	ret = mail_index_open(map->index, open_flags);
+	if (ret == 0 && create_missing) {
+		/* storage/ already existed, but indexes didn't. we'll need to
+		   take extra steps to make sure we won't overwrite any m.*
+		   files that may already exist. */
+		map->verify_existing_file_ids = TRUE;
+		open_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
+		ret = mail_index_open(map->index, open_flags);
+	}
 	if (ret < 0) {
 		mail_storage_set_internal_error(MAP_STORAGE(map));
 		mail_index_reset_error(map->index);
@@ -1147,13 +1162,39 @@ void mdbox_map_append_abort(struct mdbox_map_append_context *ctx)
 	array_delete(&ctx->appends, count-1, 1);
 }
 
+static int
+mdbox_find_highest_file_id(struct mdbox_map *map, uint32_t *file_id_r)
+{
+	const unsigned int prefix_len = strlen(MDBOX_MAIL_FILE_PREFIX);
+	DIR *dir;
+	struct dirent *d;
+	unsigned int id, highest_id = 0;
+
+	dir = opendir(map->path);
+	if (dir == NULL) {
+		i_error("opendir(%s) failed: %m", map->path);
+		return -1;
+	}
+	while ((d = readdir(dir)) != NULL) {
+		if (strncmp(d->d_name, MDBOX_MAIL_FILE_PREFIX, prefix_len) == 0 &&
+		    str_to_uint(d->d_name + prefix_len, &id) == 0) {
+			if (highest_id < id)
+				highest_id = id;
+		}
+	}
+	(void)closedir(dir);
+
+	*file_id_r = highest_id;
+	return 0;
+}
+
 static int mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 				     bool separate_transaction)
 {
 	struct dbox_file_append_context *const *file_appends;
 	unsigned int i, count;
 	struct mdbox_map_mail_index_header hdr;
-	uint32_t first_file_id, file_id;
+	uint32_t first_file_id, file_id, existing_id;
 
 	/* start the syncing. we'll need it even if there are no file ids to
 	   be assigned. */
@@ -1162,6 +1203,17 @@ static int mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 
 	mdbox_map_get_ext_hdr(ctx->map, ctx->atomic->sync_view, &hdr);
 	file_id = hdr.highest_file_id + 1;
+
+	if (ctx->map->verify_existing_file_ids) {
+		/* storage/ directory had been already created but
+		   without indexes. scan to see if there exists a higher
+		   m.* file id than what is in header, so we won't
+		   accidentally overwrite any existing files. */
+		if (mdbox_find_highest_file_id(ctx->map, &existing_id) < 0)
+			return -1;
+		if (file_id < existing_id+1)
+			file_id = existing_id+1;
+	}
 
 	/* assign file_ids for newly created files */
 	first_file_id = file_id;

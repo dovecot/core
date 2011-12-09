@@ -23,6 +23,8 @@ struct mdbox_map {
 	mode_t create_mode;
 	gid_t create_gid;
 	const char *create_gid_origin;
+
+	unsigned int verify_existing_file_ids:1;
 };
 
 struct mdbox_map_append {
