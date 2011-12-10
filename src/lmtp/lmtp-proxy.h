@@ -11,7 +11,7 @@ struct lmtp_proxy_settings {
 	enum lmtp_client_protocol protocol;
 };
 
-typedef void lmtp_proxy_finish_callback_t(bool timeout, void *context);
+typedef void lmtp_proxy_finish_callback_t(void *context);
 
 struct lmtp_proxy *
 lmtp_proxy_init(const char *my_hostname, const char *dns_client_socket_path,

@@ -717,18 +717,12 @@ static void client_input_data_finish(struct client *client)
 		client_input_handle(client);
 }
 
-static void client_proxy_finish(bool timeout, void *context)
+static void client_proxy_finish(void *context)
 {
 	struct client *client = context;
 
 	lmtp_proxy_deinit(&client->proxy);
-	if (timeout) {
-		client_destroy(client,
-			t_strdup_printf("421 4.4.2 %s", client->my_domain),
-			"Disconnected for inactivity");
-	} else {
-		client_input_data_finish(client);
-	}
+	client_input_data_finish(client);
 }
 
 static const char *client_get_added_headers(struct client *client)
@@ -765,10 +759,12 @@ static bool client_input_data_write(struct client *client)
 	struct istream *input;
 	bool ret = TRUE;
 
+	io_remove(&client->io);
 	i_stream_destroy(&client->dot_input);
 
 	input = client_get_input(client);
-	client_input_data_write_local(client, input);
+	if (array_count(&client->state.rcpt_to) != 0)
+		client_input_data_write_local(client, input);
 	if (client->proxy != NULL) {
 		lmtp_proxy_start(client->proxy, input, NULL,
 				 client_proxy_finish, client);
@@ -896,18 +892,8 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 	client_send_line(client, "354 OK");
 
 	io_remove(&client->io);
-	if (array_count(&client->state.rcpt_to) == 0) {
-		client->state.name = "DATA (proxy)";
-		timeout_remove(&client->to_idle);
-		lmtp_proxy_start(client->proxy, client->dot_input,
-				 client->state.added_headers,
-				 client_proxy_finish, client);
-		i_stream_unref(&client->dot_input);
-	} else {
-		client->state.name = "DATA";
-		client->io = io_add(client->fd_in, IO_READ,
-				    client_input_data, client);
-		client_input_data_handle(client);
-	}
+	client->state.name = "DATA";
+	client->io = io_add(client->fd_in, IO_READ, client_input_data, client);
+	client_input_data_handle(client);
 	return -1;
 }
