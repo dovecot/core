@@ -20,6 +20,7 @@ struct mail_user {
 	const char *_home;
 
 	uid_t uid;
+	gid_t gid;
 	const char *service;
 	struct ip_addr *local_ip, *remote_ip;
 	const struct var_expand_table *var_expand_table;
@@ -77,8 +78,8 @@ void mail_user_unref(struct mail_user **user);
 struct mail_user *mail_user_find(struct mail_user *user, const char *name);
 
 /* Specify mail location %variable expansion data. */
-void mail_user_set_vars(struct mail_user *user, uid_t uid, const char *service,
-			const struct ip_addr *local_ip,
+void mail_user_set_vars(struct mail_user *user, uid_t uid, gid_t gid,
+			const char *service, const struct ip_addr *local_ip,
 			const struct ip_addr *remote_ip);
 /* Return %variable expansion table for the user. */
 const struct var_expand_table *

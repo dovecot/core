@@ -484,7 +484,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user = mail_user_alloc(user->input.username, user->user_info,
 				    user->user_set);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
-	mail_user_set_vars(mail_user, geteuid(), ctx->service->name,
+	mail_user_set_vars(mail_user, geteuid(), getegid(), ctx->service->name,
 			   &user->input.local_ip, &user->input.remote_ip);
 
 	mail_set = mail_user_set_get_storage_set(mail_user);

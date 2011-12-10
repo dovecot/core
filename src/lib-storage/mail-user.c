@@ -159,11 +159,12 @@ struct mail_user *mail_user_find(struct mail_user *user, const char *name)
 	return NULL;
 }
 
-void mail_user_set_vars(struct mail_user *user, uid_t uid, const char *service,
-			const struct ip_addr *local_ip,
+void mail_user_set_vars(struct mail_user *user, uid_t uid, gid_t gid,
+			const char *service, const struct ip_addr *local_ip,
 			const struct ip_addr *remote_ip)
 {
 	user->uid = uid;
+	user->gid = gid;
 	user->service = p_strdup(user->pool, service);
 	if (local_ip != NULL && local_ip->family != 0) {
 		user->local_ip = p_new(user->pool, struct ip_addr, 1);
@@ -188,6 +189,7 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ 'r', NULL, "rip" },
 		{ 'p', NULL, "pid" },
 		{ 'i', NULL, "uid" },
+		{ '\0', NULL, "gid" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
