@@ -69,8 +69,8 @@ void index_storage_mailbox_close(struct mailbox *box);
 void index_storage_mailbox_free(struct mailbox *box);
 int index_storage_mailbox_update(struct mailbox *box,
 				 const struct mailbox_update *update);
-void index_storage_mailbox_update_cache_fields(struct mailbox *box,
-					       const struct mailbox_update *update);
+void index_storage_mailbox_update_cache(struct mailbox *box,
+					const struct mailbox_update *update);
 int index_storage_mailbox_delete(struct mailbox *box);
 int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted);
 int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest,

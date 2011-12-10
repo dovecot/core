@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "mail-cache.h"
 #include "dsync-proxy.h"
 #include "test-dsync-common.h"
 #include "test-common.h"
@@ -85,8 +86,10 @@ static void test_dsync_proxy_msg(void)
 
 static void test_dsync_proxy_mailbox(void)
 {
-	static const char *cache1 = "cache1";
-	static const char *cache2 = "cache2";
+	static struct mailbox_cache_field cache1 =
+		{ "cache1", MAIL_CACHE_DECISION_NO, 1234 };
+	static struct mailbox_cache_field cache2 =
+		{ "cache2", MAIL_CACHE_DECISION_TEMP | MAIL_CACHE_DECISION_FORCED, 0 };
 	string_t *str;
 	struct dsync_mailbox box_in, box_out;
 	const char *error;

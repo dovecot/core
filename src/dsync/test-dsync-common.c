@@ -44,7 +44,7 @@ bool dsync_messages_equal(const struct dsync_message *m1,
 bool dsync_mailboxes_equal(const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2)
 {
-	const char *const *f1 = NULL, *const *f2 = NULL;
+	const struct mailbox_cache_field *f1 = NULL, *f2 = NULL;
 	unsigned int i, f1_count = 0, f2_count = 0;
 
 	if (strcmp(box1->name, box2->name) != 0 ||
@@ -63,7 +63,9 @@ bool dsync_mailboxes_equal(const struct dsync_mailbox *box1,
 	if (f1_count != f2_count)
 		return FALSE;
 	for (i = 0; i < f1_count; i++) {
-		if (strcmp(f1[i], f2[i]) != 0)
+		if (strcmp(f1[i].name, f2[i].name) != 0 ||
+		    f1[i].decision != f2[i].decision ||
+		    f1[i].last_used != f2[i].last_used)
 			return FALSE;
 	}
 	return TRUE;

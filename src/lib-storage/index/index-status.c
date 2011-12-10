@@ -94,18 +94,23 @@ get_metadata_cache_fields(struct mailbox *box,
 {
 	const struct mail_cache_field *fields;
 	enum mail_cache_decision_type dec;
-	ARRAY_TYPE(const_string) *cache_fields;
+	ARRAY_TYPE(mailbox_cache_field) *cache_fields;
+	struct mailbox_cache_field *cf;
 	unsigned int i, count;
 
 	fields = mail_cache_register_get_list(box->cache,
 					      pool_datastack_create(), &count);
 
-	cache_fields = t_new(ARRAY_TYPE(const_string), 1);
+	cache_fields = t_new(ARRAY_TYPE(mailbox_cache_field), 1);
 	t_array_init(cache_fields, count);
 	for (i = 0; i < count; i++) {
 		dec = fields[i].decision & ~MAIL_CACHE_DECISION_FORCED;
-		if (dec != MAIL_CACHE_DECISION_NO)
-			array_append(cache_fields, &fields[i].name, 1);
+		if (dec != MAIL_CACHE_DECISION_NO) {
+			cf = array_append_space(cache_fields);
+			cf->name = fields[i].name;
+			cf->decision = fields[i].decision;
+			cf->last_used = fields[i].last_used;
+		}
 	}
 	metadata_r->cache_fields = cache_fields;
 }

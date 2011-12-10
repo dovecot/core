@@ -8,25 +8,102 @@
 #include "hex-binary.h"
 #include "mail-types.h"
 #include "imap-util.h"
+#include "mail-cache.h"
 #include "dsync-data.h"
 #include "dsync-proxy.h"
 
 #include <stdlib.h>
 
-void dsync_proxy_strings_export(string_t *str,
-				const ARRAY_TYPE(const_string) *strings)
+#define DSYNC_CACHE_DECISION_NO 'n'
+#define DSYNC_CACHE_DECISION_YES 'y'
+#define DSYNC_CACHE_DECISION_TEMP 't'
+#define DSYNC_CACHE_DECISION_FORCED 'f'
+
+void dsync_proxy_cache_fields_export(string_t *str,
+				     const ARRAY_TYPE(mailbox_cache_field) *_fields)
 {
-	const char *const *fields;
+	const struct mailbox_cache_field *fields;
 	unsigned int i, count;
 
-	if (!array_is_created(strings))
+	if (!array_is_created(_fields))
 		return;
 
-	fields = array_get(strings, &count);
+	fields = array_get(_fields, &count);
 	for (i = 0; i < count; i++) {
 		str_append_c(str, '\t');
-		str_tabescape_write(str, fields[i]);
+		str_tabescape_write(str, fields[i].name);
+		str_append_c(str, '\t');
+		switch (fields[i].decision & ~MAIL_CACHE_DECISION_FORCED) {
+		case MAIL_CACHE_DECISION_NO:
+			str_append_c(str, DSYNC_CACHE_DECISION_NO);
+			break;
+		case MAIL_CACHE_DECISION_YES:
+			str_append_c(str, DSYNC_CACHE_DECISION_YES);
+			break;
+		case MAIL_CACHE_DECISION_TEMP:
+			str_append_c(str, DSYNC_CACHE_DECISION_TEMP);
+			break;
+		}
+		if ((fields[i].decision & MAIL_CACHE_DECISION_FORCED) != 0)
+			str_append_c(str, DSYNC_CACHE_DECISION_FORCED);
+		str_printfa(str, "\t%ld", fields[i].last_used);
 	}
+}
+
+static int dsync_proxy_cache_dec_parse(const char *str,
+				       enum mail_cache_decision_type *dec_r)
+{
+	switch (*str++) {
+	case DSYNC_CACHE_DECISION_NO:
+		*dec_r = MAIL_CACHE_DECISION_NO;
+		break;
+	case DSYNC_CACHE_DECISION_YES:
+		*dec_r = MAIL_CACHE_DECISION_YES;
+		break;
+	case DSYNC_CACHE_DECISION_TEMP:
+		*dec_r = MAIL_CACHE_DECISION_TEMP;
+		break;
+	default:
+		return -1;
+	}
+	if (*str == DSYNC_CACHE_DECISION_FORCED) {
+		*dec_r |= MAIL_CACHE_DECISION_FORCED;
+		str++;
+	}
+	if (*str != '\0')
+		return -1;
+	return 0;
+}
+
+int dsync_proxy_cache_fields_import(const char *const *args, pool_t pool,
+				    ARRAY_TYPE(mailbox_cache_field) *fields,
+				    const char **error_r)
+{
+	struct mailbox_cache_field *cache_field;
+	enum mail_cache_decision_type dec;
+	unsigned int i, count = str_array_length(args);
+
+	if (count % 3 != 0) {
+		*error_r = "Invalid mailbox cache fields";
+		return -1;
+	}
+	if (!array_is_created(fields))
+		p_array_init(fields, pool, (count/3) + 1);
+	for (i = 0; i < count; i += 3) {
+		cache_field = array_append_space(fields);
+		cache_field->name = p_strdup(pool, args[i]);
+
+		if (dsync_proxy_cache_dec_parse(args[i+1], &dec) < 0) {
+			*error_r = "Invalid cache decision";
+			return -1;
+		}
+		cache_field->decision = dec;
+		if (str_to_time(args[i+2], &cache_field->last_used) < 0) {
+			*error_r = "Invalid cache last_used";
+			return -1;
+		}
+	}
+	return 0;
 }
 
 void dsync_proxy_msg_export(string_t *str,
@@ -178,7 +255,7 @@ void dsync_proxy_mailbox_export(string_t *str,
 		    box->uid_validity, box->uid_next, box->message_count,
 		    (unsigned long long)box->highest_modseq,
 		    box->first_recent_uid);
-	dsync_proxy_strings_export(str, &box->cache_fields);
+	dsync_proxy_cache_fields_export(str, &box->cache_fields);
 }
 
 int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
@@ -270,11 +347,9 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 
 	args += i;
 	count -= i;
-	p_array_init(&box_r->cache_fields, pool, count + 1);
-	for (i = 0; i < count; i++) {
-		const char *field_name = p_strdup(pool, args[i]);
-		array_append(&box_r->cache_fields, &field_name, 1);
-	}
+	if (dsync_proxy_cache_fields_import(args, pool, &box_r->cache_fields,
+					    error_r) < 0)
+		return -1;
 	return 0;
 }
 

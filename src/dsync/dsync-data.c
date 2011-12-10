@@ -10,7 +10,8 @@ struct dsync_mailbox *
 dsync_mailbox_dup(pool_t pool, const struct dsync_mailbox *box)
 {
 	struct dsync_mailbox *dest;
-	const char *const *cache_fields = NULL, *dup;
+	const struct mailbox_cache_field *cache_fields = NULL;
+	struct mailbox_cache_field *dup;
 	unsigned int i, count = 0;
 
 	dest = p_new(pool, struct dsync_mailbox, 1);
@@ -24,8 +25,9 @@ dsync_mailbox_dup(pool_t pool, const struct dsync_mailbox *box)
 	else {
 		p_array_init(&dest->cache_fields, pool, count);
 		for (i = 0; i < count; i++) {
-			dup = p_strdup(pool, cache_fields[i]);
-			array_append(&dest->cache_fields, &dup, 1);
+			dup = array_append_space(&dest->cache_fields);
+			*dup = cache_fields[i];
+			dup->name = p_strdup(pool, dup->name);
 		}
 	}
 	return dest;

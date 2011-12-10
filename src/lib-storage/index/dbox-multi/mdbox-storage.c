@@ -401,8 +401,8 @@ mdbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		if (mailbox_open(box) < 0)
 			return -1;
 	}
-	if (update->cache_fields != NULL)
-		index_storage_mailbox_update_cache_fields(box, update);
+	if (update->cache_updates != NULL)
+		index_storage_mailbox_update_cache(box, update);
 	return mdbox_write_index_header(box, update, NULL);
 }
 

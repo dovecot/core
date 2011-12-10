@@ -353,10 +353,10 @@ void index_storage_mailbox_free(struct mailbox *box)
 		mail_index_alloc_cache_unref(&box->index);
 }
 
-void index_storage_mailbox_update_cache_fields(struct mailbox *box,
-					       const struct mailbox_update *update)
+void index_storage_mailbox_update_cache(struct mailbox *box,
+					const struct mailbox_update *update)
 {
-	const char *const *field_names = update->cache_fields;
+	const struct mailbox_cache_field *updates = update->cache_updates;
 	ARRAY_DEFINE(new_fields, struct mail_cache_field);
 	const struct mail_cache_field *old_fields;
 	struct mail_cache_field field;
@@ -368,28 +368,28 @@ void index_storage_mailbox_update_cache_fields(struct mailbox *box,
 
 	/* There shouldn't be many fields, so don't worry about O(n^2). */
 	t_array_init(&new_fields, 32);
-	for (i = 0; field_names[i] != NULL; i++) {
+	for (i = 0; updates[i].name != NULL; i++) {
 		/* see if it's an existing field */
 		for (j = 0; j < old_count; j++) {
-			if (strcmp(field_names[i], old_fields[j].name) == 0)
+			if (strcmp(updates[i].name, old_fields[j].name) == 0)
 				break;
 		}
 		if (j != old_count) {
 			field = old_fields[j];
-			if (field.decision == MAIL_CACHE_DECISION_NO)
-				field.decision = MAIL_CACHE_DECISION_TEMP;
-			array_append(&new_fields, &field, 1);
-		} else if (strncmp(field_names[i], "hdr.", 4) == 0) {
+		} else if (strncmp(updates[i].name, "hdr.", 4) == 0) {
 			/* new header */
 			memset(&field, 0, sizeof(field));
-			field.name = field_names[i];
+			field.name = updates[i].name;
 			field.type = MAIL_CACHE_FIELD_HEADER;
-			field.decision = MAIL_CACHE_DECISION_TEMP;
-			array_append(&new_fields, &field, 1);
 		} else {
 			/* new unknown field. we can't do anything about
 			   this since we don't know its type */
+			continue;
 		}
+		field.decision = updates[i].decision;
+		if (updates[i].last_used != (time_t)-1)
+			field.last_used = updates[i].last_used;
+		array_append(&new_fields, &field, 1);
 	}
 	if (array_count(&new_fields) > 0) {
 		mail_cache_register_fields(box->cache,
@@ -408,8 +408,8 @@ int index_storage_mailbox_update(struct mailbox *box,
 
 	if (mailbox_open(box) < 0)
 		return -1;
-	if (update->cache_fields != NULL)
-		index_storage_mailbox_update_cache_fields(box, update);
+	if (update->cache_updates != NULL)
+		index_storage_mailbox_update_cache(box, update);
 
 	/* make sure we get the latest index info */
 	(void)mail_index_refresh(box->index);
@@ -641,7 +641,7 @@ void index_copy_cache_fields(struct mail_save_context *ctx,
 {
 	T_BEGIN {
 		struct mailbox_metadata src_metadata;
-		const char *const *namep;
+		const struct mailbox_cache_field *field;
 		buffer_t *buf;
 
 		if (mailbox_get_metadata(src_mail->box,
@@ -650,9 +650,9 @@ void index_copy_cache_fields(struct mail_save_context *ctx,
 			i_unreached();
 
 		buf = buffer_create_dynamic(pool_datastack_create(), 1024);
-		array_foreach(src_metadata.cache_fields, namep) {
+		array_foreach(src_metadata.cache_fields, field) {
 			mail_copy_cache_field(ctx, src_mail, dest_seq,
-					      *namep, buf);
+					      field->name, buf);
 		}
 	} T_END;
 }

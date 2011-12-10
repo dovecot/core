@@ -28,7 +28,7 @@ struct dsync_mailbox {
 	   otherwise it's the last rename timestamp. */
 	time_t last_change;
 	enum dsync_mailbox_flags flags;
-	ARRAY_TYPE(const_string) cache_fields;
+	ARRAY_TYPE(mailbox_cache_field) cache_fields;
 };
 ARRAY_DEFINE_TYPE(dsync_mailbox, struct dsync_mailbox *);
 #define dsync_mailbox_is_noselect(dsync_box) \

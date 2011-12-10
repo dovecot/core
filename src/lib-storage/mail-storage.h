@@ -225,12 +225,20 @@ struct mailbox_status {
 	unsigned int allow_new_keywords:1;
 };
 
+struct mailbox_cache_field {
+	const char *name;
+	int decision; /* enum mail_cache_decision_type */
+	/* last_used is unchanged, if it's (time_t)-1 */
+	time_t last_used;
+};
+ARRAY_DEFINE_TYPE(mailbox_cache_field, struct mailbox_cache_field);
+
 struct mailbox_metadata {
 	guid_128_t guid;
 	/* sum of virtual size of all messages in mailbox */
 	uint64_t virtual_size;
 	/* Fields that have "temp" or "yes" caching decision. */
-	const ARRAY_TYPE(const_string) *cache_fields;
+	const ARRAY_TYPE(mailbox_cache_field) *cache_fields;
 	/* Fields that should be precached */
 	enum mail_fetch_field precache_fields;
 };
@@ -242,8 +250,8 @@ struct mailbox_update {
 	uint32_t min_next_uid;
 	uint32_t min_first_recent_uid;
 	uint64_t min_highest_modseq;
-	/* Add these fields to be temporarily cached, if they aren't already. */
-	const char *const *cache_fields;
+	/* Modify caching decisions, terminated by name=NULL */
+	const struct mailbox_cache_field *cache_updates;
 };
 
 struct mail_transaction_commit_changes {

@@ -315,7 +315,7 @@ static int
 cmd_box_select(struct dsync_proxy_server *server, const char *const *args)
 {
 	struct dsync_mailbox box;
-	unsigned int i, count;
+	const char *error;
 
 	memset(&box, 0, sizeof(box));
 	if (args[0] == NULL ||
@@ -325,10 +325,11 @@ cmd_box_select(struct dsync_proxy_server *server, const char *const *args)
 	}
 	args++;
 
-	count = str_array_length(args);
-	t_array_init(&box.cache_fields, count + 1);
-	for (i = 0; i < count; i++)
-		array_append(&box.cache_fields, &args[i], 1);
+	if (dsync_proxy_cache_fields_import(args, pool_datastack_create(),
+					    &box.cache_fields, &error) < 0) {
+		i_error("box-select: %s", error);
+		return -1;
+	}
 	dsync_worker_select_mailbox(server->worker, &box);
 	return 1;
 }

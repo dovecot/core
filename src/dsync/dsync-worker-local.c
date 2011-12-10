@@ -528,8 +528,8 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	struct local_dsync_dir_change *dir_change, change_lookup;
 	struct local_dsync_mailbox *old_lbox;
 	enum mail_error error;
-	const char *const *fields;
-	unsigned int i, field_count;
+	struct mailbox_cache_field *cache_fields;
+	unsigned int i, cache_field_count;
 
 	memset(dsync_box_r, 0, sizeof(*dsync_box_r));
 
@@ -595,12 +595,14 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	dsync_box_r->highest_modseq = status.highest_modseq;
 
 	p_clear(iter->ret_pool);
-	fields = array_get(metadata.cache_fields, &field_count);
-	p_array_init(&dsync_box_r->cache_fields, iter->ret_pool, field_count);
-	for (i = 0; i < field_count; i++) {
-		const char *field_name = p_strdup(iter->ret_pool, fields[i]);
-
-		array_append(&dsync_box_r->cache_fields, &field_name, 1);
+	p_array_init(&dsync_box_r->cache_fields, iter->ret_pool,
+		     array_count(metadata.cache_fields));
+	array_append_array(&dsync_box_r->cache_fields, metadata.cache_fields);
+	cache_fields = array_get_modifiable(&dsync_box_r->cache_fields,
+					    &cache_field_count);
+	for (i = 0; i < cache_field_count; i++) {
+		cache_fields[i].name =
+			p_strdup(iter->ret_pool, cache_fields[i].name);
 	}
 
 	old_lbox = hash_table_lookup(worker->mailbox_hash,
@@ -1443,25 +1445,26 @@ local_worker_update_mailbox(struct dsync_worker *_worker,
 
 static void
 local_worker_set_cache_fields(struct local_dsync_worker *worker,
-			      const ARRAY_TYPE(const_string) *cache_fields)
+			      const ARRAY_TYPE(mailbox_cache_field) *cache_fields)
 {
 	struct mailbox_update update;
-	const char *const *fields, **new_fields;
+	const struct mailbox_cache_field *fields;
+	struct mailbox_cache_field *new_fields;
 	unsigned int count;
 
 	fields = array_get(cache_fields, &count);
-	new_fields = t_new(const char *, count + 1);
-	memcpy(new_fields, fields, sizeof(const char *) * count);
+	new_fields = t_new(struct mailbox_cache_field, count + 1);
+	memcpy(new_fields, fields, sizeof(struct mailbox_cache_field) * count);
 
 	memset(&update, 0, sizeof(update));
-	update.cache_fields = new_fields;
+	update.cache_updates = new_fields;
 	mailbox_update(worker->selected_box, &update);
 }
 
 static void
 local_worker_select_mailbox(struct dsync_worker *_worker,
 			    const mailbox_guid_t *mailbox,
-			    const ARRAY_TYPE(const_string) *cache_fields)
+			    const ARRAY_TYPE(mailbox_cache_field) *cache_fields)
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;

@@ -50,7 +50,7 @@ struct dsync_worker_vfuncs {
 
 	void (*select_mailbox)(struct dsync_worker *worker,
 			       const mailbox_guid_t *mailbox,
-			       const ARRAY_TYPE(const_string) *cache_fields);
+			       const ARRAY_TYPE(mailbox_cache_field) *cache_fields);
 	void (*msg_update_metadata)(struct dsync_worker *worker,
 				    const struct dsync_message *msg);
 	void (*msg_update_uid)(struct dsync_worker *worker,

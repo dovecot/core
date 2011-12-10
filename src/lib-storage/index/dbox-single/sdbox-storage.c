@@ -287,8 +287,8 @@ dbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		if (mailbox_open(box) < 0)
 			return -1;
 	}
-	if (update->cache_fields != NULL)
-		index_storage_mailbox_update_cache_fields(box, update);
+	if (update->cache_updates != NULL)
+		index_storage_mailbox_update_cache(box, update);
 	return sdbox_mailbox_create_indexes(box, update, NULL);
 }
 

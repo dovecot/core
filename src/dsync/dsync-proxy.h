@@ -6,14 +6,17 @@
 #define DSYNC_PROXY_CLIENT_TIMEOUT_MSECS (14*60*1000)
 #define DSYNC_PROXY_SERVER_TIMEOUT_MSECS (15*60*1000)
 
-#define DSYNC_PROXY_CLIENT_GREETING_LINE "dsync-client\t1"
-#define DSYNC_PROXY_SERVER_GREETING_LINE "dsync-server\t1"
+#define DSYNC_PROXY_CLIENT_GREETING_LINE "dsync-client\t2"
+#define DSYNC_PROXY_SERVER_GREETING_LINE "dsync-server\t2"
 
 struct dsync_message;
 struct dsync_mailbox;
 
-void dsync_proxy_strings_export(string_t *str,
-				const ARRAY_TYPE(const_string) *strings);
+void dsync_proxy_cache_fields_export(string_t *str,
+				     const ARRAY_TYPE(mailbox_cache_field) *fields);
+int dsync_proxy_cache_fields_import(const char *const *args, pool_t pool,
+				    ARRAY_TYPE(mailbox_cache_field) *fields,
+				    const char **error_r);
 
 void dsync_proxy_msg_export(string_t *str, const struct dsync_message *msg);
 int dsync_proxy_msg_parse_flags(pool_t pool, const char *str,
