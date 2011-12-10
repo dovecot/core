@@ -9,7 +9,6 @@
 #include "message-part-serialize.h"
 #include "mail-index-private.h"
 #include "mail-cache-private.h"
-#include "mail-cache-private.h"
 #include "mail-index-modseq.h"
 #include "doveadm-dump.h"
 
@@ -344,7 +343,7 @@ static void dump_cache_hdr(struct mail_cache *cache)
 			printf("   - ");
 		printf("%-4s %.16s\n",
 		       cache_decision2str(field->decision),
-		       unixdate2str(cache->fields[cache_idx].last_used));
+		       unixdate2str(field->last_used));
 	}
 }
 
