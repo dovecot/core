@@ -141,7 +141,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (strcmp(key, "ssl_parameters_regenerate") == 0 &&
-	    str_is_numeric(value, '\0')) {
+	    str_is_numeric(value, '\0') && strcmp(value, "0") != 0) {
 		obsolete(ctx, "%s should have 'hours' suffix", key);
 		config_apply_line(ctx, "", t_strconcat(key, "=", value, "h", NULL), NULL);
 		return TRUE;
