@@ -129,7 +129,12 @@ static int o_stream_zlib_send_flush(struct zlib_ostream *zstream)
 	bool done = FALSE;
 	int ret;
 
-	i_assert(zs->avail_in == 0);
+	if (zs->avail_in != 0) {
+		i_assert(zstream->ostream.ostream.last_failed_errno != 0);
+		zstream->ostream.ostream.stream_errno =
+			zstream->ostream.ostream.last_failed_errno;
+		return -1;
+	}
 
 	if (zstream->flushed)
 		return 0;
