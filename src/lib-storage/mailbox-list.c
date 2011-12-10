@@ -486,10 +486,12 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 	char list_sep, ns_sep, *ret;
 
 	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-	    strcasecmp(vname, "INBOX") == 0 &&
+	    strcmp(vname, "INBOX") == 0 &&
 	    list->ns->user == list->ns->owner) {
-		/* user's INBOX - use as-is */
-		return "INBOX";
+		/* user's INBOX - use as-is. NOTE: don't do case-insensitive
+		   comparison, otherwise we can't differentiate between INBOX
+		   and <ns prefix>/inBox. */
+		return vname;
 	}
 	if (*vname == '\0') {
 		/* return namespace prefix without the separator */
