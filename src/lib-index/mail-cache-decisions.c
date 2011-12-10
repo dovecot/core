@@ -89,9 +89,9 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 		return;
 	}
 
-	if (ioloop_time - cache->fields[field].last_used > 3600*24) {
+	if (ioloop_time - cache->fields[field].field.last_used > 3600*24) {
 		/* update last_used about once a day */
-		cache->fields[field].last_used = (uint32_t)ioloop_time;
+		cache->fields[field].field.last_used = (uint32_t)ioloop_time;
 		if (cache->field_file_map[field] != (uint32_t)-1)
 			cache->field_header_write_pending = TRUE;
 	}

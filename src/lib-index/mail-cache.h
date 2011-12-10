@@ -38,6 +38,8 @@ struct mail_cache_field {
 	enum mail_cache_field_type type;
 	unsigned int field_size;
 	enum mail_cache_decision_type decision;
+	/* If higher than the current last_used field, update it */
+	time_t last_used;
 };
 
 struct mail_cache *mail_cache_open_or_create(struct mail_index *index);

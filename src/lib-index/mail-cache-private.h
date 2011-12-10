@@ -117,7 +117,6 @@ struct mail_cache_field_private {
 	struct mail_cache_field field;
 
 	uint32_t uid_highwater;
-	uint32_t last_used;
 
 	/* Unused fields aren't written to cache file */
 	unsigned int used:1;

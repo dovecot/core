@@ -65,11 +65,35 @@ static int field_type_verify(struct mail_cache *cache, unsigned int idx,
 	return 0;
 }
 
+static void
+mail_cache_field_update(struct mail_cache *cache,
+			const struct mail_cache_field *newfield)
+{
+	struct mail_cache_field_private *orig;
+
+	i_assert(newfield->type < MAIL_CACHE_FIELD_COUNT);
+
+	orig = &cache->fields[newfield->idx];
+	if (newfield->decision != MAIL_CACHE_DECISION_NO &&
+	    orig->field.decision != newfield->decision) {
+		orig->field.decision = newfield->decision;
+		orig->decision_dirty = TRUE;
+	}
+	if (orig->field.last_used < newfield->last_used) {
+		orig->field.last_used = newfield->last_used;
+		orig->decision_dirty = TRUE;
+	}
+	if (orig->decision_dirty)
+		cache->field_header_write_pending = TRUE;
+
+	(void)field_type_verify(cache, newfield->idx,
+				newfield->type, newfield->field_size);
+}
+
 void mail_cache_register_fields(struct mail_cache *cache,
 				struct mail_cache_field *fields,
 				unsigned int fields_count)
 {
-	struct mail_cache_field *orig_field;
 	void *orig_key, *orig_value;
 	char *name;
 	unsigned int new_idx;
@@ -80,18 +104,9 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		if (hash_table_lookup_full(cache->field_name_hash,
 					   fields[i].name,
 					   &orig_key, &orig_value)) {
-			i_assert(fields[i].type < MAIL_CACHE_FIELD_COUNT);
-
 			fields[i].idx =
 				POINTER_CAST_TO(orig_value, unsigned int);
-
-			orig_field = &cache->fields[fields[i].idx].field;
-			if (orig_field->decision == MAIL_CACHE_DECISION_NO)
-				orig_field->decision = fields[i].decision;
-
-			(void)field_type_verify(cache, fields[i].idx,
-						fields[i].type,
-						fields[i].field_size);
+			mail_cache_field_update(cache, &fields[i]);
 			continue;
 		}
 
@@ -130,6 +145,7 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		name = p_strdup(cache->field_pool, fields[i].name);
 		cache->fields[idx].field = fields[i];
 		cache->fields[idx].field.name = name;
+		cache->fields[idx].field.last_used = fields[i].last_used;
 		cache->field_file_map[idx] = (uint32_t)-1;
 
 		if (!field_has_fixed_size(cache->fields[idx].field.type))
@@ -387,12 +403,12 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		cache->file_field_map[i] = fidx;
 
 		/* update last_used if it's newer than ours */
-		if (last_used[i] > cache->fields[fidx].last_used)
-			cache->fields[fidx].last_used = last_used[i];
+		if (last_used[i] > cache->fields[fidx].field.last_used)
+			cache->fields[fidx].field.last_used = last_used[i];
 
 		dec = cache->fields[fidx].field.decision;
-		if ((time_t)cache->fields[fidx].last_used < max_drop_time &&
-		    cache->fields[fidx].last_used != 0 &&
+		if (cache->fields[fidx].field.last_used < max_drop_time &&
+		    cache->fields[fidx].field.last_used != 0 &&
 		    (dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
 		    dec != MAIL_CACHE_DECISION_NO) {
 			/* time to drop this field. don't bother dropping
@@ -469,7 +485,7 @@ static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	copy_to_buf(cache, buffer, FALSE,
-		    offsetof(struct mail_cache_field_private, last_used),
+		    offsetof(struct mail_cache_field, last_used),
 		    sizeof(uint32_t));
 	ret = mail_cache_write(cache, buffer->data, buffer->used,
 			       offset + MAIL_CACHE_FIELD_LAST_USED());
@@ -532,7 +548,7 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 
 	/* we have to keep the field order for the existing fields. */
 	copy_to_buf(cache, dest, TRUE,
-		    offsetof(struct mail_cache_field_private, last_used),
+		    offsetof(struct mail_cache_field, last_used),
 		    sizeof(uint32_t));
 	copy_to_buf(cache, dest, TRUE,
 		    offsetof(struct mail_cache_field, field_size),
