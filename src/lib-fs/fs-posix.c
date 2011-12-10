@@ -13,12 +13,14 @@
 #include "fs-api-private.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 
 #define FS_POSIX_DOTLOCK_STALE_TIMEOUT_SECS (60*10)
 #define MAX_MKDIR_RETRY_COUNT 5
+#define FS_DEFAULT_MODE 0600
 
 enum fs_posix_lock_method {
 	FS_POSIX_LOCK_METHOD_FLOCK,
@@ -29,6 +31,7 @@ struct posix_fs {
 	struct fs fs;
 	char *temp_file_prefix;
 	enum fs_posix_lock_method lock_method;
+	mode_t mode, dir_mode;
 };
 
 struct posix_fs_file {
@@ -61,14 +64,33 @@ fs_posix_init(const char *args, const struct fs_settings *set)
 		i_strdup(set->temp_file_prefix) : i_strdup("temp.dovecot.");
 	fs->fs.set.temp_file_prefix = fs->temp_file_prefix;
 
-	if (*args == '\0')
-		fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
-	else if (strcmp(args, "lock=flock") == 0)
-		fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
-	else if (strcmp(args, "lock=dotlock") == 0)
-		fs->lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
-	else
-		i_fatal("fs-posix: Unknown args '%s'", args);
+	fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
+	fs->mode = FS_DEFAULT_MODE;
+	T_BEGIN {
+		const char *const *tmp = t_strsplit_spaces(args, " ");
+
+		for (; *tmp != NULL; tmp++) {
+			const char *arg = *tmp;
+
+			if (strcmp(arg, "lock=flock") == 0)
+				fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
+			else if (strcmp(arg, "lock=dotlock") == 0)
+				fs->lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
+			else if (strncmp(arg, "mode=", 5) == 0) {
+				fs->mode = strtoul(arg+5, NULL, 8) & 0666;
+				if (fs->mode == 0) {
+					i_fatal("fs-posix: Invalid mode: %s",
+						arg+5);
+				}
+			} else
+				i_fatal("fs-posix: Unknown arg '%s'", arg);
+		}
+	} T_END;
+	fs->dir_mode = fs->mode;
+	if ((fs->dir_mode & 0600) != 0) fs->dir_mode |= 0100;
+	if ((fs->dir_mode & 0060) != 0) fs->dir_mode |= 0010;
+	if ((fs->dir_mode & 0006) != 0) fs->dir_mode |= 0001;
+
 	return &fs->fs;
 }
 
@@ -80,7 +102,7 @@ static void fs_posix_deinit(struct fs *_fs)
 	i_free(fs);
 }
 
-static int fs_posix_create_parent_dir(struct fs *fs, const char *path)
+static int fs_posix_create_parent_dir(struct posix_fs *fs, const char *path)
 {
 	const char *dir, *fname;
 
@@ -88,12 +110,12 @@ static int fs_posix_create_parent_dir(struct fs *fs, const char *path)
 	if (fname == NULL)
 		return 1;
 	dir = t_strdup_until(path, fname);
-	if (mkdir_parents(dir, 0700) == 0)
+	if (mkdir_parents(dir, fs->dir_mode) == 0)
 		return 0;
 	else if (errno == EEXIST)
 		return 1;
 	else {
-		fs_set_error(fs, "mkdir_parents(%s) failed: %m", dir);
+		fs_set_error(&fs->fs, "mkdir_parents(%s) failed: %m", dir);
 		return -1;
 	}
 }
@@ -112,13 +134,13 @@ fs_posix_create(struct posix_fs *fs, const char *path, enum fs_open_flags flags,
 		str_append_n(str, path, slash-path + 1);
 	str_append(str, fs->temp_file_prefix);
 
-	fd = safe_mkstemp_hostpid(str, 0600, (uid_t)-1, (gid_t)-1);
+	fd = safe_mkstemp_hostpid(str, fs->mode, (uid_t)-1, (gid_t)-1);
 	while (fd == -1 && errno == ENOENT &&
 	       try_count <= MAX_MKDIR_RETRY_COUNT &&
 	       (flags & FS_OPEN_FLAG_MKDIR) != 0) {
-		if (fs_posix_create_parent_dir(_fs, path) < 0)
+		if (fs_posix_create_parent_dir(fs, path) < 0)
 			return -1;
-		fd = safe_mkstemp_hostpid(str, 0600, (uid_t)-1, (gid_t)-1);
+		fd = safe_mkstemp_hostpid(str, fs->mode, (uid_t)-1, (gid_t)-1);
 		try_count++;
 	}
 	if (fd == -1) {
@@ -462,8 +484,9 @@ static int fs_posix_stat(struct fs *fs, const char *path, struct stat *st_r)
 	return 0;
 }
 
-static int fs_posix_link(struct fs *fs, const char *src, const char *dest)
+static int fs_posix_link(struct fs *_fs, const char *src, const char *dest)
 {
+	struct posix_fs *fs = (struct posix_fs *)_fs;
 	unsigned int try_count = 0;
 	int ret;
 
@@ -476,14 +499,15 @@ static int fs_posix_link(struct fs *fs, const char *src, const char *dest)
 		try_count++;
 	}
 	if (ret < 0) {
-		fs_set_error(fs, "link(%s, %s) failed: %m", src, dest);
+		fs_set_error(_fs, "link(%s, %s) failed: %m", src, dest);
 		return -1;
 	}
 	return 0;
 }
 
-static int fs_posix_rename(struct fs *fs, const char *src, const char *dest)
+static int fs_posix_rename(struct fs *_fs, const char *src, const char *dest)
 {
+	struct posix_fs *fs = (struct posix_fs *)_fs;
 	unsigned int try_count = 0;
 	int ret;
 
@@ -496,7 +520,7 @@ static int fs_posix_rename(struct fs *fs, const char *src, const char *dest)
 		try_count++;
 	}
 	if (ret < 0) {
-		fs_set_error(fs, "link(%s, %s) failed: %m", src, dest);
+		fs_set_error(_fs, "link(%s, %s) failed: %m", src, dest);
 		return -1;
 	}
 	return 0;
