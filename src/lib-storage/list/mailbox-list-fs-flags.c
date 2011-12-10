@@ -117,7 +117,7 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 	*flags_r = 0;
 
 	if (*list->set.maildir_name != '\0') {
-		/* maildir_name is set: we the code is common for all
+		/* maildir_name is set: the code is common for all
 		   storage types */
 		return list_is_maildir_mailbox(list, dir, fname, type, flags_r);
 	}
@@ -131,7 +131,7 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 	switch (type) {
 	case MAILBOX_LIST_FILE_TYPE_DIR:
 		if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
-			*flags_r |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
+			*flags_r |= MAILBOX_NOSELECT;
 			return 1;
 		}
 		break;
