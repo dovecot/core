@@ -212,6 +212,7 @@ mail_user_var_expand_table(struct mail_user *user)
 		p_strdup(user->pool, net_ip2addr(user->remote_ip));
 	tab[7].value = my_pid;
 	tab[8].value = p_strdup(user->pool, dec2str(user->uid));
+	tab[9].value = p_strdup(user->pool, dec2str(user->gid));
 
 	user->var_expand_table = tab;
 	return user->var_expand_table;
