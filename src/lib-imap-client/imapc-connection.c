@@ -951,12 +951,13 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	unsigned int i, count;
 	char *line, *linep;
 	const char *p;
-	struct imap_parser *parser;
 	struct imapc_command_reply reply;
 
 	line = i_stream_next_line(conn->input);
 	if (line == NULL)
 		return 0;
+	/* make sure reply texts stays valid if input stream gets freed */
+	line = t_strdup_noconst(line);
 
 	memset(&reply, 0, sizeof(reply));
 
@@ -1033,12 +1034,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	}
 
 	imapc_connection_input_reset(conn);
-
-	parser = conn->parser;
-	imap_parser_ref(parser);
 	imapc_command_reply_free(cmd, &reply);
-	imap_parser_unref(&parser);
-
 	imapc_command_send_more(conn);
 	return 1;
 }
