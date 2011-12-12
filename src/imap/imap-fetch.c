@@ -774,6 +774,7 @@ static bool
 fetch_guid_init(struct imap_fetch_context *ctx ATTR_UNUSED, const char *name,
 		const struct imap_arg **args ATTR_UNUSED)
 {
+	ctx->fetch_data |= MAIL_FETCH_GUID;
 	imap_fetch_add_handler(ctx, TRUE, FALSE, name, "", fetch_guid, NULL);
 	return TRUE;
 }
