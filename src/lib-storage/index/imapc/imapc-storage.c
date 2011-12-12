@@ -565,8 +565,6 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 			status->uidvalidity = num;
 		else if (strcasecmp(key, "UNSEEN") == 0)
 			status->unseen = num;
-		else if (strcasecmp(key, "HIGHESTMODSEQ") == 0)
-			status->highest_modseq = num;
 	}
 }
 
@@ -616,8 +614,6 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 		str_append(str, " UIDVALIDITY");
 	if ((items & STATUS_UNSEEN) != 0)
 		str_append(str, " UNSEEN");
-	if ((items & STATUS_HIGHESTMODSEQ) != 0)
-		str_append(str, " HIGHESTMODSEQ");
 
 	if (str_len(str) == 0) {
 		/* nothing requested */
