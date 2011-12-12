@@ -889,9 +889,10 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 	struct client *client = cmd->client;
 	const struct imap_arg *args, *list_args;
 	unsigned int arg_count;
-        struct cmd_list_context *ctx;
+	struct cmd_list_context *ctx;
 	ARRAY_DEFINE(patterns, const char *) = ARRAY_INIT;
 	const char *pattern, *const *patterns_strarr;
+	string_t *str;
 
 	/* [(<selection options>)] <reference> <pattern>|(<pattern list>)
 	   [RETURN (<return options>)] */
@@ -917,6 +918,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 		client_send_command_error(cmd, "Invalid reference.");
 		return TRUE;
 	}
+	str = t_str_new(64);
 	if (imap_arg_get_list_full(&args[1], &list_args, &arg_count)) {
 		ctx->used_listext = TRUE;
 		/* convert pattern list to string array */
@@ -927,7 +929,10 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 					"Invalid pattern list.");
 				return TRUE;
 			}
+			if (imap_utf7_to_utf8(pattern, str) == 0)
+				pattern = t_strdup(str_c(str));
 			array_append(&patterns, &pattern, 1);
+			str_truncate(str, 0);
 		}
 		args += 2;
 	} else {
@@ -935,6 +940,8 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 			client_send_command_error(cmd, "Invalid pattern.");
 			return TRUE;
 		}
+		if (imap_utf7_to_utf8(pattern, str) == 0)
+			pattern = str_c(str);
 
 		p_array_init(&patterns, cmd->pool, 1);
 		array_append(&patterns, &pattern, 1);
