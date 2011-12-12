@@ -296,6 +296,8 @@ pass_callback(enum passdb_result result,
 	struct auth_stream_reply *reply = auth_request->extra_fields;
 	string_t *str;
 
+	auth_request_proxy_finish(auth_request, result == PASSDB_RESULT_OK);
+
 	str = t_str_new(128);
 	switch (result) {
 	case PASSDB_RESULT_OK:
