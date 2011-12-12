@@ -83,6 +83,8 @@ struct imapc_mailbox {
 	uint32_t prev_skipped_rseq, prev_skipped_uid;
 	struct imapc_sync_context *sync_ctx;
 
+	const char *guid_fetch_field_name;
+
 	unsigned int selecting:1;
 	unsigned int syncing:1;
 	unsigned int initial_sync_done:1;

@@ -410,6 +410,20 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->mbox->storage->client);
 }
 
+static void imapc_mailbox_get_extensions(struct imapc_mailbox *mbox)
+{
+	enum imapc_capability capa =
+		imapc_client_get_capabilities(mbox->storage->client);
+
+	if (mbox->guid_fetch_field_name == NULL) {
+		/* see if we can get message GUIDs somehow */
+		if ((capa & IMAPC_CAPABILITY_X_GM_EXT_1) != 0) {
+			/* GMail */
+			mbox->guid_fetch_field_name = "X-GM-MSGID";
+		}
+	}
+}
+
 int imapc_mailbox_select(struct imapc_mailbox *mbox)
 {
 	struct imapc_command *cmd;
@@ -421,6 +435,8 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 		imapc_client_mailbox_open(mbox->storage->client, mbox);
 	imapc_client_mailbox_set_reopen_cb(mbox->client_box,
 					   imapc_mailbox_reopen, mbox);
+
+	imapc_mailbox_get_extensions(mbox);
 
 	mbox->selecting = TRUE;
 	ctx.mbox = mbox;

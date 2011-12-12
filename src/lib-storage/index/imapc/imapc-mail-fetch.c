@@ -95,6 +95,11 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	str_printfa(str, "UID FETCH %u (", _mail->uid);
 	if ((fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		str_append(str, "INTERNALDATE ");
+	if ((fields & MAIL_FETCH_GUID) != 0) {
+		str_append(str, mbox->guid_fetch_field_name);
+		str_append_c(str, ' ');
+	}
+
 	if ((fields & MAIL_FETCH_STREAM_BODY) != 0)
 		str_append(str, "BODY.PEEK[] ");
 	else if ((fields & MAIL_FETCH_STREAM_HEADER) != 0)
@@ -152,6 +157,9 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0 &&
 	    data->received_date == (time_t)-1)
 		fields |= MAIL_FETCH_RECEIVED_DATE;
+	if ((data->wanted_fields & MAIL_FETCH_GUID) != 0 &&
+	    data->guid == NULL && mbox->guid_fetch_field_name != NULL)
+		fields |= MAIL_FETCH_GUID;
 
 	if (data->stream == NULL && data->access_part != 0) {
 		if ((data->access_part & (READ_BODY | PARSE_BODY)) != 0)
@@ -173,6 +181,11 @@ imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 			return FALSE;
 		fields &= ~MAIL_FETCH_RECEIVED_DATE;
 	}
+	if ((fields & MAIL_FETCH_GUID) != 0) {
+		if (imail->imail.data.guid == NULL)
+			return FALSE;
+		fields &= ~MAIL_FETCH_GUID;
+	}
 	if ((fields & (MAIL_FETCH_STREAM_HEADER |
 		       MAIL_FETCH_STREAM_BODY)) != 0) {
 		if (imail->imail.data.stream == NULL)
@@ -186,9 +199,17 @@ imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields)
 {
 	struct imapc_mail *imail = (struct imapc_mail *)_mail;
-	struct imapc_storage *storage =
-		(struct imapc_storage *)_mail->box->storage;
+	struct imapc_mailbox *mbox =
+		(struct imapc_mailbox *)_mail->box;
 	int ret;
+
+	if ((fields & MAIL_FETCH_GUID) != 0 &&
+	    mbox->guid_fetch_field_name == NULL) {
+		mail_storage_set_error(_mail->box->storage,
+			MAIL_ERROR_NOTPOSSIBLE,
+			"Message GUID not available in this server");
+		return -1;
+	}
 
 	T_BEGIN {
 		ret = imapc_mail_send_fetch(_mail, fields);
@@ -200,7 +221,7 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	   or until all FETCH replies have been received (i.e. some FETCHes
 	   failed) */
 	while (!imapc_mail_have_fields(imail, fields) && imail->fetch_count > 0)
-		imapc_storage_run(storage);
+		imapc_storage_run(mbox->storage);
 	return 0;
 }
 
@@ -355,6 +376,13 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 			if (imap_arg_get_astring(&args[i+1], &value) &&
 			    imap_parse_datetime(value, &t, &tz))
 				mail->imail.data.received_date = t;
+			match = TRUE;
+		} else if (strcasecmp(key, "X-GM-MSGID") == 0 ||
+			   strcasecmp(key, "X-GUID") == 0) {
+			if (imap_arg_get_astring(&args[i+1], &value)) {
+				mail->imail.data.guid =
+					p_strdup(mail->imail.mail.pool, value);
+			}
 			match = TRUE;
 		}
 	}

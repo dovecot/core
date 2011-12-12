@@ -267,6 +267,55 @@ static void imapc_mail_close(struct mail *_mail)
 		buffer_free(&mail->body);
 }
 
+static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
+{
+	struct index_mail *imail = (struct index_mail *)_mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	const enum index_cache_field cache_idx =
+		imail->ibox->cache_fields[MAIL_CACHE_GUID].idx;
+	string_t *str;
+
+	if (imail->data.guid != NULL) {
+		*value_r = imail->data.guid;
+		return 0;
+	}
+
+	str = str_new(imail->data_pool, 64);
+	if (mail_cache_lookup_field(_mail->transaction->cache_view,
+				    str, imail->mail.mail.seq, cache_idx) > 0) {
+		*value_r = str_c(str);
+		return 0;
+	}
+
+	/* GUID not in cache, fetch it */
+	if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID) < 0)
+		return -1;
+	if (imail->data.guid == NULL) {
+		imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
+		return -1;
+	}
+
+	index_mail_cache_add_idx(imail, cache_idx,
+				 imail->data.guid, strlen(imail->data.guid)+1);
+	*value_r = imail->data.guid;
+	return 0;
+}
+
+static int
+imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+		       const char **value_r)
+{
+	switch (field) {
+	case MAIL_FETCH_GUID:
+		*value_r = "";
+		return imapc_mail_get_guid(_mail, value_r);
+	default:
+		break;
+	}
+
+	return index_mail_get_special(_mail, field, value_r);
+}
+
 struct mail_vfuncs imapc_mail_vfuncs = {
 	imapc_mail_close,
 	index_mail_free,
@@ -291,7 +340,7 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_get_headers,
 	index_mail_get_header_stream,
 	imapc_mail_get_stream,
-	index_mail_get_special,
+	imapc_mail_get_special,
 	index_mail_get_real_mail,
 	index_mail_update_flags,
 	index_mail_update_keywords,
