@@ -50,19 +50,22 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 	return !imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq);
 }
 
-static void imapc_mail_failed(struct mail *mail, const char *field)
+static int imapc_mail_failed(struct mail *mail, const char *field)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 
-	if (mail->expunged || imapc_mail_is_expunged(mail))
+	if (mail->expunged || imapc_mail_is_expunged(mail)) {
 		mail_set_expunged(mail);
-	else if (!imapc_client_mailbox_is_opened(mbox->client_box)) {
+		return -1;
+	} else if (!imapc_client_mailbox_is_opened(mbox->client_box)) {
 		/* we've already logged a disconnection error */
 		mail_storage_set_internal_error(mail->box->storage);
+		return -1;
 	} else {
 		mail_storage_set_critical(mail->box->storage,
 			"imapc: Remote server didn't send %s for UID %u in %s",
 			field, mail->uid, mail->box->vname);
+		return 0;
 	}
 }
 
@@ -78,7 +81,8 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 		if (imapc_mail_fetch(_mail, MAIL_FETCH_RECEIVED_DATE) < 0)
 			return -1;
 		if (data->received_date == (time_t)-1) {
-			imapc_mail_failed(_mail, "INTERNALDATE");
+			if (imapc_mail_failed(_mail, "INTERNALDATE") < 0)
+				return -1;
 			/* assume that the server never returns INTERNALDATE
 			   for this mail (see BODY[] failure handling) */
 			data->received_date = 0;
@@ -158,7 +162,10 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 			return -1;
 
 		if (data->stream == NULL) {
-			imapc_mail_failed(_mail, "BODY[]");
+			if (imapc_mail_failed(_mail, "BODY[]") < 0)
+				return -1;
+			i_assert(data->stream == NULL);
+
 			/* this could be either a temporary server bug, or the
 			   server may permanently just not return anything for
 			   this mail. the latter happens at least with Exchange
@@ -301,7 +308,7 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 	if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID) < 0)
 		return -1;
 	if (imail->data.guid == NULL) {
-		imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
+		(void)imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
 		return -1;
 	}
 
