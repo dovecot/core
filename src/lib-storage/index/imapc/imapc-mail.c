@@ -157,7 +157,15 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 
 		if (data->stream == NULL) {
 			imapc_mail_failed(_mail, "BODY[]");
-			return -1;
+			/* this could be either a temporary server bug, or the
+			   server may permanently just not return anything for
+			   this mail. the latter happens at least with Exchange
+			   when trying to fetch calendar "mails", so we'll just
+			   return them as empty mails instead of disconnecting
+			   the client. */
+			mail->body_fetched = TRUE;
+			data->stream = i_stream_create_from_data(NULL, 0);
+			imapc_mail_init_stream(mail, TRUE);
 		}
 	}
 
