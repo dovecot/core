@@ -1137,7 +1137,7 @@ void index_mail_init(struct index_mail *mail,
 	}
 }
 
-void index_mail_close_streams(struct index_mail *mail)
+static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 {
 	struct index_mail_data *data = &mail->data;
 	struct message_part *parts;
@@ -1152,12 +1152,29 @@ void index_mail_close_streams(struct index_mail *mail)
 		i_stream_unref(&data->filter_stream);
 	if (data->stream != NULL) {
 		data->destroying_stream = TRUE;
+		if (!closing) {
+			/* we're replacing the stream with a new one. it's
+			   allowed to have references until the mail is closed
+			   (but we can't really check that) */
+			i_stream_unset_destroy_callback(data->stream);
+		}
 		i_stream_unref(&data->stream);
-		i_assert(!data->destroying_stream);
+		if (closing) {
+			/* there must be no references to the mail when the
+			   mail is being closed. */
+			i_assert(!mail->data.destroying_stream);
+		} else {
+			data->destroying_stream = FALSE;
+		}
 
 		data->initialized_wrapper_stream = FALSE;
 		data->destroy_callback_set = FALSE;
 	}
+}
+
+void index_mail_close_streams(struct index_mail *mail)
+{
+	index_mail_close_streams_full(mail, FALSE);
 }
 
 void index_mail_close(struct mail *_mail)
@@ -1174,7 +1191,8 @@ void index_mail_close(struct mail *_mail)
 		index_mail_cache_dates(mail);
 	}
 
-	index_mail_close_streams(mail);
+	index_mail_close_streams_full(mail, TRUE);
+
 	if (mail->data.wanted_headers != NULL)
 		mailbox_header_lookup_unref(&mail->data.wanted_headers);
 }

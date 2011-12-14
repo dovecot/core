@@ -277,13 +277,13 @@ void imapc_mail_init_stream(struct imapc_mail *mail, bool have_body)
 	if (imail->mail.v.istream_opened != NULL) {
 		if (imail->mail.v.istream_opened(_mail,
 						 &imail->data.stream) < 0) {
-			i_stream_unref(&imail->data.stream);
+			index_mail_close_streams(imail);
 			return;
 		}
 	} else if (have_body) {
 		ret = i_stream_get_size(imail->data.stream, TRUE, &size);
 		if (ret < 0) {
-			i_stream_unref(&imail->data.stream);
+			index_mail_close_streams(imail);
 			return;
 		}
 		i_assert(ret != 0);
@@ -295,7 +295,7 @@ void imapc_mail_init_stream(struct imapc_mail *mail, bool have_body)
 
 	imail->data.stream_has_only_header = !have_body;
 	if (index_mail_init_stream(imail, NULL, NULL, &input) < 0)
-		i_stream_unref(&imail->data.stream);
+		index_mail_close_streams(imail);
 }
 
 static void
@@ -311,7 +311,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 		if (!body)
 			return;
 		/* maybe the existing stream has no body. replace it. */
-		i_stream_unref(&imail->data.stream);
+		index_mail_close_streams(imail);
 		if (mail->fd != -1) {
 			if (close(mail->fd) < 0)
 				i_error("close(imapc mail) failed: %m");
