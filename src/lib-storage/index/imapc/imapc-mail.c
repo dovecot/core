@@ -79,7 +79,9 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 			return -1;
 		if (data->received_date == (time_t)-1) {
 			imapc_mail_failed(_mail, "INTERNALDATE");
-			return -1;
+			/* assume that the server never returns INTERNALDATE
+			   for this mail (see BODY[] failure handling) */
+			data->received_date = 0;
 		}
 	}
 	*date_r = data->received_date;
