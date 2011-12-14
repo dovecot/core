@@ -334,8 +334,7 @@ void db_passwd_file_parse(struct db_passwd_file *db)
 {
 	if (db->default_file != NULL && db->default_file->stamp == 0) {
 		/* no variables, open the file immediately */
-		if (!passwd_file_open(db->default_file))
-			exit(FATAL_DEFAULT);
+		(void)passwd_file_open(db->default_file);
 	}
 }
 
