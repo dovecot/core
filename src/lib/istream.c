@@ -54,6 +54,14 @@ void i_stream_set_destroy_callback(struct istream *stream,
 	iostream->destroy_context = context;
 }
 
+void i_stream_unset_destroy_callback(struct istream *stream)
+{
+	struct iostream_private *iostream = &stream->real_stream->iostream;
+
+	iostream->destroy_callback = NULL;
+	iostream->destroy_context = NULL;
+}
+
 int i_stream_get_fd(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;

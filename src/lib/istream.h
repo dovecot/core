@@ -54,6 +54,8 @@ void i_stream_set_destroy_callback(struct istream *stream,
 #define i_stream_set_destroy_callback(stream, callback, context) \
 	CONTEXT_CALLBACK(i_stream_set_destroy_callback, istream_callback_t, \
 			 callback, context, stream)
+/* Remove the destroy callback. */
+void i_stream_unset_destroy_callback(struct istream *stream);
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int i_stream_get_fd(struct istream *stream);
