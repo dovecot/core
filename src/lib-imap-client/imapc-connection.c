@@ -365,14 +365,14 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 	net_disconnect(conn->fd);
 	conn->fd = -1;
 
-	imapc_connection_abort_commands(conn, TRUE, reconnecting);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
+	imapc_connection_abort_commands(conn, TRUE, reconnecting);
 }
 
 static void imapc_connection_set_disconnected(struct imapc_connection *conn)
 {
-	imapc_connection_abort_commands(conn, TRUE, FALSE);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
+	imapc_connection_abort_commands(conn, TRUE, FALSE);
 }
 
 static void imapc_connection_reconnect(struct imapc_connection *conn)
@@ -1819,9 +1819,6 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 {
 	struct imapc_connection *conn = box->conn;
 
-	imapc_connection_send_idle_done(conn);
-	imapc_connection_abort_commands(conn, FALSE, FALSE);
-
 	if (conn->selected_box != NULL || conn->selecting_box != NULL) {
 		i_assert(conn->selected_box == box ||
 			 conn->selecting_box == box);
@@ -1829,6 +1826,8 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 		conn->selected_box = NULL;
 		conn->selecting_box = NULL;
 	}
+	imapc_connection_send_idle_done(conn);
+	imapc_connection_abort_commands(conn, FALSE, FALSE);
 }
 
 struct imapc_client_mailbox *

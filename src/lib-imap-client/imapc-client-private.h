@@ -36,6 +36,7 @@ struct imapc_client_mailbox {
 
 	bool reconnect_ok;
 	bool reconnecting;
+	bool closing;
 };
 
 void imapc_client_ref(struct imapc_client *client);

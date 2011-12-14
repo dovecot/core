@@ -107,6 +107,7 @@ void imapc_client_deinit(struct imapc_client **_client)
 	struct imapc_client_connection **connp;
 
 	array_foreach_modifiable(&client->conns, connp) {
+		i_assert(imapc_connection_get_mailbox((*connp)->conn) == NULL);
 		imapc_connection_deinit(&(*connp)->conn);
 		i_free(*connp);
 	}
@@ -294,6 +295,8 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 	struct imapc_client_mailbox *box = *_box;
 	struct imapc_client_connection *const *connp;
 
+	box->closing = TRUE;
+
 	/* cancel any pending commands */
 	imapc_connection_unselect(box);
 
@@ -324,6 +327,8 @@ imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
 {
 	struct imapc_command *cmd;
 
+	i_assert(!box->closing);
+
 	cmd = imapc_connection_cmd(box->conn, callback, context);
 	imapc_command_set_mailbox(cmd, box);
 	return cmd;
@@ -346,7 +351,8 @@ bool imapc_client_mailbox_is_opened(struct imapc_client_mailbox *box)
 {
 	struct imapc_client_mailbox *selected_box;
 
-	if (imapc_connection_get_state(box->conn) != IMAPC_CONNECTION_STATE_DONE)
+	if (box->closing ||
+	    imapc_connection_get_state(box->conn) != IMAPC_CONNECTION_STATE_DONE)
 		return FALSE;
 
 	selected_box = imapc_connection_get_mailbox(box->conn);
