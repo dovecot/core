@@ -258,7 +258,7 @@ fs_list_read_dir(struct fs_list_iterate_context *ctx, const char *storage_name,
 	struct list_dir_context *dir;
 	pool_t pool;
 
-	pool = pool_alloconly_create("fs iter dir", 256);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"fs iter dir", 256);
 	dir = p_new(pool, struct list_dir_context, 1);
 	dir->pool = pool;
 	dir->storage_name = p_strdup(pool, storage_name);
