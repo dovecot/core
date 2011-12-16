@@ -612,7 +612,7 @@ void mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
 	const char *path, *parent_name, *p;
 	struct stat st;
 
-	memset(permissions_r, 0, sizeof(permissions_r));
+	memset(permissions_r, 0, sizeof(*permissions_r));
 
 	/* use safe defaults */
 	permissions_r->file_uid = (uid_t)-1;
