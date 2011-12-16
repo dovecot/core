@@ -206,8 +206,7 @@ void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
 	struct fts_expunge_log_mailbox *mailbox;
 
 	if (ctx->prev_mailbox != NULL &&
-	    memcmp(mailbox_guid, ctx->prev_mailbox->guid,
-		   sizeof(mailbox_guid)) == 0)
+	    memcmp(mailbox_guid, ctx->prev_mailbox->guid, GUID_128_SIZE) == 0)
 		mailbox = ctx->prev_mailbox;
 	else {
 		mailbox = hash_table_lookup(ctx->mailboxes, mailbox_guid);
