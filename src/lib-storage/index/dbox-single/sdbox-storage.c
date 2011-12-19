@@ -28,6 +28,63 @@ static struct mail_storage *sdbox_storage_alloc(void)
 	return &storage->storage.storage;
 }
 
+static const char *
+sdbox_storage_find_root_dir(const struct mail_namespace *ns)
+{
+	bool debug = ns->mail_set->mail_debug;
+	const char *home, *path;
+
+	if (mail_user_get_home(ns->owner, &home) > 0) {
+		path = t_strconcat(home, "/sdbox", NULL);
+		if (access(path, R_OK|W_OK|X_OK) == 0) {
+			if (debug)
+				i_debug("sdbox: root exists (%s)", path);
+			return path;
+		} 
+		if (debug)
+			i_debug("sdbox: access(%s, rwx): failed: %m", path);
+	}
+	return NULL;
+}
+
+static bool sdbox_storage_autodetect(const struct mail_namespace *ns,
+				     struct mailbox_list_settings *set)
+{
+	bool debug = ns->mail_set->mail_debug;
+	struct stat st;
+	const char *path, *root_dir;
+
+	if (set->root_dir != NULL)
+		root_dir = set->root_dir;
+	else {
+		root_dir = sdbox_storage_find_root_dir(ns);
+		if (root_dir == NULL) {
+			if (debug)
+				i_debug("sdbox: couldn't find root dir");
+			return FALSE;
+		}
+	}
+
+	/* NOTE: this check works for mdbox as well. we'll rely on the
+	   autodetect ordering to catch mdbox before we get here. */
+	path = t_strconcat(root_dir, "/"DBOX_MAILBOX_DIR_NAME, NULL);
+	if (stat(path, &st) < 0) {
+		if (debug)
+			i_debug("sdbox autodetect: stat(%s) failed: %m", path);
+		return FALSE;
+	}
+
+	if (!S_ISDIR(st.st_mode)) {
+		if (debug)
+			i_debug("sdbox autodetect: %s not a directory", path);
+		return FALSE;
+	}
+
+	set->root_dir = root_dir;
+	dbox_storage_get_list_settings(ns, set);
+	return TRUE;
+}
+
 static struct mailbox *
 sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    const char *vname, enum mailbox_flags flags)
@@ -303,7 +360,7 @@ struct mail_storage sdbox_storage = {
 		dbox_storage_destroy,
 		NULL,
 		dbox_storage_get_list_settings,
-		NULL,
+		sdbox_storage_autodetect,
 		sdbox_mailbox_alloc,
 		NULL
 	}
@@ -314,13 +371,13 @@ struct mail_storage dbox_storage = {
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG,
 
 	.v = {
-                NULL,
+		NULL,
 		sdbox_storage_alloc,
 		dbox_storage_create,
 		dbox_storage_destroy,
 		NULL,
 		dbox_storage_get_list_settings,
-		NULL,
+		sdbox_storage_autodetect,
 		sdbox_mailbox_alloc,
 		NULL
 	}
