@@ -128,9 +128,13 @@ static void client_connected(struct master_service_connection *conn)
 		i_fatal("dup2() failed: %m");
 	if (dup2(fd, STDOUT_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
+	if (close(fd) < 0)
+		i_fatal("close() failed: %m");
 	if (conn->fd != SCRIPT_COMM_FD) {
 		if (dup2(conn->fd, SCRIPT_COMM_FD) < 0)
 			i_fatal("dup2() failed: %m");
+		if (close(conn->fd) < 0)
+			i_fatal("close() failed: %m");
 	}
 
 	/* close all listener sockets */
