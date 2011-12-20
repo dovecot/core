@@ -64,8 +64,9 @@ struct file_dict_transaction_context {
 };
 
 static struct dotlock_settings file_dict_dotlock_settings = {
-	.timeout = 30,
-	.stale_timeout = 5
+	.timeout = 60*2,
+	.stale_timeout = 60,
+	.use_io_notify = TRUE
 };
 
 static struct dict *file_dict_init(struct dict *driver, const char *uri,
