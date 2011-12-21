@@ -294,6 +294,7 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 		return;
 
 	iter = mailbox_list_iter_init(fs_list, "*",
+				      MAILBOX_LIST_ITER_RAW_LIST |
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
