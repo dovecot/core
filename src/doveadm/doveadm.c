@@ -12,6 +12,7 @@
 #include "doveadm-dump.h"
 #include "doveadm-mail.h"
 #include "doveadm-settings.h"
+#include "dsync/doveadm-dsync.h"
 #include "doveadm.h"
 
 #include <stdlib.h>
@@ -273,6 +274,8 @@ int main(int argc, char *argv[])
 	unsigned int i;
 	bool quick_init = FALSE;
 	int c;
+
+	doveadm_dsync_main(&argc, &argv);
 
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */

@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
-#include "master-service.h"
 #include "dsync-worker.h"
 #include "dsync-brain-private.h"
 
@@ -45,7 +44,7 @@ dsync_brain_init(struct dsync_worker *src_worker,
 void dsync_brain_fail(struct dsync_brain *brain)
 {
 	brain->failed = TRUE;
-	master_service_stop(master_service);
+	io_loop_stop(current_ioloop);
 }
 
 int dsync_brain_deinit(struct dsync_brain **_brain)
@@ -880,7 +879,7 @@ void dsync_brain_sync(struct dsync_brain *brain)
 	case DSYNC_STATE_SYNC_FLUSH2:
 		break;
 	case DSYNC_STATE_SYNC_END:
-		master_service_stop(master_service);
+		io_loop_stop(current_ioloop);
 		break;
 	default:
 		i_unreached();

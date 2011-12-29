@@ -10,6 +10,7 @@ struct doveadm_settings {
 	unsigned int doveadm_proxy_port;
 	const char *doveadm_password;
 	const char *doveadm_allowed_commands;
+	const char *dsync_alt_char;
 
 	ARRAY_DEFINE(plugin_envs, const char *);
 };

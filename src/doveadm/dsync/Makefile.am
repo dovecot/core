@@ -1,4 +1,4 @@
-bin_PROGRAMS = dsync
+noinst_LIBRARIES = libdsync.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -8,22 +8,14 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
-	-I$(top_srcdir)/src/lib-storage
-
-if !BUILD_SHARED_LIBS
-unused_objects = \
-	../lib/mountpoint.o \
-	../lib-storage/mail-search-parser-imap.o
-endif
+	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/doveadm
 
 libs = \
-	$(LIBDOVECOT_STORAGE) \
-	$(unused_objects)
+	$(LIBDOVECOT_STORAGE)
 
-dsync_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
-dsync_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
-dsync_SOURCES = \
-	dsync.c \
+libdsync_a_SOURCES = \
+	doveadm-dsync.c \
 	dsync-brain.c \
 	dsync-brain-msgs.c \
 	dsync-brain-msgs-new.c \
@@ -55,11 +47,11 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
-	../lib-test/libtest.la \
-	../lib-mail/libmail.la \
-	../lib-imap/libimap.la \
-	../lib-charset/libcharset.la \
-	../lib/liblib.la
+	../../lib-test/libtest.la \
+	../../lib-mail/libmail.la \
+	../../lib-imap/libimap.la \
+	../../lib-charset/libcharset.la \
+	../../lib/liblib.la
 
 test_ldadd = \
 	$(test_libs) \

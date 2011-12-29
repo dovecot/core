@@ -222,6 +222,8 @@ dsync_worker_init_local(struct mail_user *user, char alt_char)
 	i_array_init(&worker->msg_get_queue, 32);
 	p_array_init(&worker->subs_namespaces, pool, 8);
 	dsync_drop_extra_namespaces(worker);
+
+	mail_user_ref(worker->user);
 	return &worker->worker;
 }
 
@@ -238,6 +240,8 @@ static void local_worker_deinit(struct dsync_worker *_worker)
 
 	local_worker_msg_box_close(worker);
 	local_worker_mailbox_close(worker);
+	mail_user_unref(&worker->user);
+
 	hash_table_destroy(&worker->mailbox_hash);
 	if (worker->mailbox_changes_hash != NULL)
 		hash_table_destroy(&worker->mailbox_changes_hash);

@@ -41,9 +41,6 @@ doveadm_mail_cmd_server(const char *cmd_name,
 			const struct mail_storage_service_input *input,
 			int argc, char *argv[])
 {
-	enum mail_storage_service_flags service_flags =
-		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
-		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 	struct doveadm_mail_cmd_context *ctx;
 	const struct doveadm_mail_cmd *cmd;
 	const char *getopt_args;
@@ -56,11 +53,14 @@ doveadm_mail_cmd_server(const char *cmd_name,
 		return FALSE;
 	}
 
-	if (doveadm_debug)
-		service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
-
 	ctx = doveadm_mail_cmd_init(cmd, set);
 	ctx->full_args = (const void *)(argv + 1);
+
+	ctx->service_flags |=
+		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
+		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+	if (doveadm_debug)
+		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
 	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
@@ -106,7 +106,10 @@ doveadm_mail_cmd_server(const char *cmd_name,
 	}
 
 	ctx->args = (const void *)argv;
-	doveadm_mail_single_user(ctx, input, service_flags);
+	if (ctx->v.preinit != NULL)
+		ctx->v.preinit(ctx);
+
+	doveadm_mail_single_user(ctx, input);
 	doveadm_mail_server_flush();
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();

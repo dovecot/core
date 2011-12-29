@@ -1,6 +1,8 @@
 doveadm_moduledir = $(moduledir)/doveadm
 pkglibexecdir = $(libexecdir)/dovecot
 
+SUBDIRS = dsync
+
 bin_PROGRAMS = doveadm
 pkglibexec_PROGRAMS = doveadm-server
 
@@ -35,6 +37,7 @@ cmd_pw_libs = \
 	../lib-otp/libotp.a
 
 libs = \
+	dsync/libdsync.a \
 	$(LIBDOVECOT_STORAGE) \
 	$(unused_objects)
 
@@ -122,3 +125,7 @@ noinst_HEADERS = \
 	doveadm-settings.h \
 	doveadm-util.h \
 	doveadm-who.h
+
+install-exec-local:
+	rm -f $(DESTDIR)$(bindir)/dsync
+	$(LN_S) doveadm $(DESTDIR)$(bindir)/dsync

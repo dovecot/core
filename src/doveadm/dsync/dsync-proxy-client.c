@@ -9,7 +9,6 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
-#include "master-service.h"
 #include "imap-util.h"
 #include "dsync-proxy.h"
 #include "dsync-worker-private.h"
@@ -82,7 +81,7 @@ static void proxy_client_fail(struct proxy_client_dsync_worker *worker)
 {
 	i_stream_close(worker->input);
 	dsync_worker_set_failure(&worker->worker);
-	master_service_stop(master_service);
+	io_loop_stop(current_ioloop);
 }
 
 static int

@@ -2,17 +2,12 @@
 
 #include "lib.h"
 #include "array.h"
-#include "master-service.h"
 #include "dsync-brain-private.h"
 #include "test-dsync-worker.h"
 #include "test-dsync-common.h"
 
 struct master_service *master_service;
 static struct test_dsync_worker *src_test_worker, *dest_test_worker;
-
-void master_service_stop(struct master_service *master_service ATTR_UNUSED)
-{
-}
 
 struct dsync_brain_mailbox_sync *
 dsync_brain_msg_sync_init(struct dsync_brain *brain,

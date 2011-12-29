@@ -5,7 +5,6 @@
 #include "fd-set-nonblock.h"
 #include "istream.h"
 #include "ostream.h"
-#include "master-service.h"
 #include "dsync-worker.h"
 #include "dsync-proxy.h"
 #include "dsync-proxy-server.h"
@@ -21,13 +20,13 @@ proxy_server_read_line(struct dsync_proxy_server *server,
 		if (server->input->stream_errno != 0) {
 			errno = server->input->stream_errno;
 			i_error("read() from proxy client failed: %m");
-			master_service_stop(master_service);
+			io_loop_stop(current_ioloop);
 			return -1;
 		}
 		if (server->input->eof) {
 			if (!server->finished)
 				i_error("read() from proxy client failed: EOF");
-			master_service_stop(master_service);
+			io_loop_stop(current_ioloop);
 			return -1;
 		}
 	}
@@ -37,7 +36,7 @@ proxy_server_read_line(struct dsync_proxy_server *server,
 	if (!server->handshake_received) {
 		if (strcmp(*line_r, DSYNC_PROXY_CLIENT_GREETING_LINE) != 0) {
 			i_error("Invalid client handshake: %s", *line_r);
-			master_service_stop(master_service);
+			io_loop_stop(current_ioloop);
 			return -1;
 		}
 		server->handshake_received = TRUE;
@@ -121,7 +120,7 @@ static void proxy_server_input(struct dsync_proxy_server *server)
 		ret = -1;
 
 	if (ret < 0)
-		master_service_stop(master_service);
+		io_loop_stop(current_ioloop);
 	timeout_reset(server->to);
 }
 
@@ -147,7 +146,7 @@ static int proxy_server_output(struct dsync_proxy_server *server)
 		}
 	}
 	if (output->closed)
-		master_service_stop(master_service);
+		io_loop_stop(current_ioloop);
 	timeout_reset(server->to);
 	return ret;
 }
@@ -155,7 +154,7 @@ static int proxy_server_output(struct dsync_proxy_server *server)
 static void dsync_proxy_server_timeout(void *context ATTR_UNUSED)
 {
 	i_error("proxy server timed out");
-	master_service_stop(master_service);
+	io_loop_stop(current_ioloop);
 }
 
 struct dsync_proxy_server *

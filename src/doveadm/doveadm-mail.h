@@ -4,17 +4,15 @@
 #include <stdio.h>
 #include "doveadm-util.h"
 #include "module-context.h"
+#include "mail-storage-service.h"
 
-enum mail_storage_service_flags;
 struct mailbox;
 struct mail_user;
-struct mail_storage_service_ctx;
-struct mail_storage_service_input;
-struct mail_storage_service_user;
 struct doveadm_mail_cmd_context;
 
 struct doveadm_mail_cmd_vfuncs {
 	bool (*parse_arg)(struct doveadm_mail_cmd_context *ctx,int c);
+	void (*preinit)(struct doveadm_mail_cmd_context *ctx);
 	void (*init)(struct doveadm_mail_cmd_context *ctx,
 		     const char *const args[]);
 	int (*get_next_user)(struct doveadm_mail_cmd_context *ctx,
@@ -42,14 +40,20 @@ struct doveadm_mail_cmd_context {
 
 	const char *getopt_args;
 	const struct doveadm_settings *set;
+	enum mail_storage_service_flags service_flags;
 	struct mail_storage_service_ctx *storage_service;
 	/* search args aren't set for all mail commands */
 	struct mail_search_args *search_args;
 
+	const char *cur_username;
+	struct mail_storage_service_user *cur_service_user;
 	struct mail_user *cur_mail_user;
 	struct doveadm_mail_cmd_vfuncs v;
 
 	ARRAY_DEFINE(module_contexts, union doveadm_mail_cmd_module_context *);
+
+	/* if non-zero, exit with this code */
+	int exit_code;
 
 	/* We're handling only a single user */
 	unsigned int iterate_single_user:1;
@@ -86,8 +90,7 @@ struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 		      const struct doveadm_settings *set);
 void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			      const struct mail_storage_service_input *input,
-			      enum mail_storage_service_flags service_flags);
+			      const struct mail_storage_service_input *input);
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			     const struct mail_storage_service_input *input,
 			     const char **error_r);
