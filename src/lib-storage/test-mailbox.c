@@ -82,6 +82,14 @@ static int test_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
 	return 0;
 }
 
+static int test_mailbox_set_subscribed(struct mailbox *box,
+				       bool set ATTR_UNUSED)
+{
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+			       "Test mailbox subscribing isn't supported");
+	return -1;
+}
+
 static struct mailbox_sync_context *
 test_mailbox_sync_init(struct mailbox *box,
 		       enum mailbox_sync_flags flags ATTR_UNUSED)
@@ -244,6 +252,7 @@ struct mailbox test_mailbox = {
 		test_mailbox_rename,
 		test_mailbox_get_status,
 		NULL,
+		test_mailbox_set_subscribed,
 		NULL,
 		NULL,
 		test_mailbox_sync_init,

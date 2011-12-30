@@ -126,6 +126,7 @@ struct mailbox_vfuncs {
 	int (*get_metadata)(struct mailbox *box,
 			    enum mailbox_metadata_items items,
 			    struct mailbox_metadata *metadata_r);
+	int (*set_subscribed)(struct mailbox *box, bool set);
 
 	/* Lookup sync extension record and figure out if it mailbox has
 	   changed since. Returns 1 = yes, 0 = no, -1 = error. */

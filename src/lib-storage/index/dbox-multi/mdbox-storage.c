@@ -437,6 +437,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_mailbox_rename,
 		index_storage_get_status,
 		mdbox_mailbox_get_metadata,
+		index_storage_set_subscribed,
 		index_storage_list_index_has_changed,
 		index_storage_list_index_update_sync,
 		mdbox_storage_sync_init,

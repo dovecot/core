@@ -772,6 +772,7 @@ struct mailbox imapc_mailbox = {
 		index_storage_mailbox_rename,
 		imapc_mailbox_get_status,
 		imapc_mailbox_get_metadata,
+		index_storage_set_subscribed,
 		NULL,
 		NULL,
 		imapc_mailbox_sync_init,

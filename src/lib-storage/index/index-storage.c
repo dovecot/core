@@ -664,3 +664,38 @@ void index_copy_cache_fields(struct mail_save_context *ctx,
 		}
 	} T_END;
 }
+
+int index_storage_set_subscribed(struct mailbox *box, bool set)
+{
+	struct mail_namespace *ns;
+	struct mailbox_list *list = box->list;
+	const char *subs_name;
+
+	if ((list->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0)
+		subs_name = box->name;
+	else {
+		/* subscriptions=no namespace, find another one where we can
+		   add the subscription to */
+		ns = mail_namespace_find_subscribable(list->ns->user->namespaces,
+						      box->vname);
+		if (ns == NULL) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				"This namespace has no subscriptions");
+			return -1;
+		}
+		/* use <orig ns prefix><orig storage name> as the
+		   subscription name */
+		subs_name = t_strconcat(list->ns->prefix, box->name, NULL);
+		/* drop the common prefix (typically there isn't one) */
+		i_assert(strncmp(ns->prefix, subs_name, strlen(ns->prefix)) == 0);
+		subs_name += strlen(ns->prefix);
+
+		list = ns->list;
+	}
+	if (mailbox_list_set_subscribed(list, subs_name, set) < 0) {
+		mail_storage_copy_list_error(box->storage, list);
+		return -1;
+	}
+	return 0;
+}
+

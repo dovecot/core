@@ -397,6 +397,7 @@ struct mailbox sdbox_mailbox = {
 		index_storage_mailbox_rename,
 		index_storage_get_status,
 		sdbox_mailbox_get_metadata,
+		index_storage_set_subscribed,
 		index_storage_list_index_has_changed,
 		index_storage_list_index_update_sync,
 		sdbox_storage_sync_init,

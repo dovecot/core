@@ -528,6 +528,7 @@ struct mailbox virtual_mailbox = {
 		index_storage_mailbox_rename,
 		virtual_storage_get_status,
 		virtual_mailbox_get_metadata,
+		index_storage_set_subscribed,
 		NULL,
 		NULL,
 		virtual_storage_sync_init,
