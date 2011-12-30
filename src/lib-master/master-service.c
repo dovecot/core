@@ -4,6 +4,7 @@
 #include "lib-signals.h"
 #include "ioloop.h"
 #include "array.h"
+#include "strescape.h"
 #include "env-util.h"
 #include "home-expand.h"
 #include "process-title.h"
@@ -172,6 +173,13 @@ master_service_init(const char *name, enum master_service_flags flags,
 	value = getenv("SSL_SOCKET_COUNT");
 	if (value != NULL)
 		service->ssl_socket_count = atoi(value);
+	value = getenv("SOCKET_NAMES");
+	if (value != NULL) {
+		service->listener_names =
+			p_strsplit_tabescaped(default_pool, value);
+		service->listener_names_count =
+			str_array_length((void *)service->listener_names);
+	}
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
@@ -746,6 +754,7 @@ static void master_service_listen(struct master_service_listener *l)
 		l->fd = -1;
 	}
 	conn.ssl = l->ssl;
+	conn.name = l->name;
 	net_set_nonblock(conn.fd, TRUE);
 
 	master_service_client_connection_created(service);
@@ -779,6 +788,8 @@ static void io_listeners_init(struct master_service *service)
 
 		l->service = service;
 		l->fd = MASTER_LISTEN_FD_FIRST + i;
+		l->name = i < service->listener_names_count ?
+			service->listener_names[i] : "";
 
 		if (i >= service->socket_count - service->ssl_socket_count)
 			l->ssl = TRUE;

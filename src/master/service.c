@@ -46,6 +46,11 @@ service_create_file_listener(struct service *service,
 	l->type = type;
 	l->fd = -1;
 	l->set.fileset.set = set;
+	l->name = strrchr(set->path, '/');
+	if (l->name != NULL)
+		l->name++;
+	else
+		l->name = set->path;
 
 	if (get_uidgid(set->user, &l->set.fileset.uid, &gid, error_r) < 0)
 		set_name = "user";
@@ -123,6 +128,7 @@ service_create_one_inet_listener(struct service *service,
 	l->set.inetset.set = set;
 	l->set.inetset.ip = *ip;
 	l->inet_address = p_strdup(service->list->pool, address);
+	l->name = set->name;
 
 	if (set->port > 65535) {
 		*error_r = t_strdup_printf("Invalid port: %u", set->port);

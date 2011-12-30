@@ -21,6 +21,7 @@ struct service_listener {
 	int fd; /* may be -1 */
 	struct io *io;
 
+	const char *name;
 	const char *inet_address;
 
 	union {

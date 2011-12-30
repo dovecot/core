@@ -28,6 +28,7 @@ enum master_service_flags {
 struct master_service_connection {
 	int fd;
 	int listen_fd;
+	const char *name;
 
 	struct ip_addr remote_ip;
 	unsigned int remote_port;

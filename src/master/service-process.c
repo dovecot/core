@@ -10,6 +10,7 @@
 #include "base64.h"
 #include "hash.h"
 #include "str.h"
+#include "strescape.h"
 #include "llist.h"
 #include "hostpid.h"
 #include "env-util.h"
@@ -38,6 +39,7 @@ service_dup_fds(struct service *service)
 {
 	struct service_listener *const *listeners;
 	ARRAY_TYPE(dup2) dups;
+	string_t *listener_names;
 	unsigned int i, count, n = 0, socket_listener_count, ssl_socket_count;
 
 	/* stdin/stdout is already redirected to /dev/null. Other master fds
@@ -50,6 +52,7 @@ service_dup_fds(struct service *service)
         socket_listener_count = 0;
 	listeners = array_get(&service->listeners, &count);
 	t_array_init(&dups, count + 10);
+	listener_names = t_str_new(256);
 
 	switch (service->type) {
 	case SERVICE_TYPE_LOG:
@@ -73,11 +76,17 @@ service_dup_fds(struct service *service)
 		break;
 	}
 
+	/* anvil/log fds have no names */
+	for (i = MASTER_LISTEN_FD_FIRST; i < n; i++)
+		str_append_c(listener_names, '\t');
+
 	/* first add non-ssl listeners */
 	for (i = 0; i < count; i++) {
 		if (listeners[i]->fd != -1 &&
 		    (listeners[i]->type != SERVICE_LISTENER_INET ||
 		     !listeners[i]->set.inetset.set->ssl)) {
+			str_tabescape_write(listener_names, listeners[i]->name);
+			str_append_c(listener_names, '\t');
 			dup2_append(&dups, listeners[i]->fd,
 				    MASTER_LISTEN_FD_FIRST + n);
 			n++; socket_listener_count++;
@@ -89,6 +98,8 @@ service_dup_fds(struct service *service)
 		if (listeners[i]->fd != -1 &&
 		    listeners[i]->type == SERVICE_LISTENER_INET &&
 		    listeners[i]->set.inetset.set->ssl) {
+			str_tabescape_write(listener_names, listeners[i]->name);
+			str_append_c(listener_names, '\t');
 			dup2_append(&dups, listeners[i]->fd,
 				    MASTER_LISTEN_FD_FIRST + n);
 			n++; socket_listener_count++;
@@ -147,6 +158,7 @@ service_dup_fds(struct service *service)
 
 	env_put(t_strdup_printf("SOCKET_COUNT=%d", socket_listener_count));
 	env_put(t_strdup_printf("SSL_SOCKET_COUNT=%d", ssl_socket_count));
+	env_put(t_strdup_printf("SOCKET_NAMES=%s", str_c(listener_names)));
 }
 
 static void
