@@ -41,7 +41,7 @@ static int director_client_connected(int fd, const struct ip_addr *ip)
 static void client_connected(struct master_service_connection *conn)
 {
 	struct auth_connection *auth;
-	const char *path, *name, *socket_path;
+	const char *socket_path;
 	struct ip_addr ip;
 	unsigned int local_port, len;
 	bool userdb;
@@ -70,17 +70,8 @@ static void client_connected(struct master_service_connection *conn)
 		return;
 	}
 
-	if (net_getunixname(conn->listen_fd, &path) < 0)
-		i_fatal("getunixname(%d) failed: %m", conn->listen_fd);
-
-	name = strrchr(path, '/');
-	if (name == NULL)
-		name = path;
-	else
-		name++;
-
-	len = strlen(name);
-	if (len > 6 && strcmp(name + len - 6, "-admin") == 0) {
+	len = strlen(conn->name);
+	if (len > 6 && strcmp(conn->name + len - 6, "-admin") == 0) {
 		/* doveadm connection */
 		master_service_client_connection_accept(conn);
 		(void)doveadm_connection_init(director, conn->fd);
@@ -91,7 +82,7 @@ static void client_connected(struct master_service_connection *conn)
 	   b) login connection
 	   Both of them are handled exactly the same, except for which
 	   auth socket they connect to. */
-	userdb = len > 7 && strcmp(name + len - 7, "-userdb") == 0;
+	userdb = len > 7 && strcmp(conn->name + len - 7, "-userdb") == 0;
 	socket_path = userdb ? AUTH_USERDB_SOCKET_PATH : AUTH_SOCKET_PATH;
 	auth = auth_connection_init(socket_path);
 	if (auth_connection_connect(auth) == 0) {

@@ -96,21 +96,9 @@ static const char *const *read_global_settings(void)
 }
 
 static enum auth_socket_type
-auth_socket_type_get(int listen_fd, const char **path_r)
+auth_socket_type_get(const char *path)
 {
-	const char *path, *name, *suffix;
-
-	/* figure out if this is a server or network socket by
-	   checking the socket path name. */
-	if (net_getunixname(listen_fd, &path) < 0) {
-		if (errno != ENOTSOCK)
-			i_fatal("getunixname(%d) failed: %m", listen_fd);
-		/* not UNIX socket. let's just assume it's an
-		   auth client. */
-		*path_r = NULL;
-		return AUTH_SOCKET_CLIENT;
-	}
-	*path_r = path;
+	const char *name, *suffix;
 
 	name = strrchr(path, '/');
 	if (name == NULL)
@@ -146,11 +134,17 @@ static void listeners_init(void)
 		struct auth_socket_listener *l;
 
 		l = array_idx_modifiable(&listeners, fd);
-		l->type = auth_socket_type_get(fd, &path);
-		l->path = i_strdup(path);
-		if (l->type == AUTH_SOCKET_USERDB) {
-			if (stat(path, &l->st) < 0)
-				i_error("stat(%s) failed: %m", path);
+		if (net_getunixname(fd, &path) < 0) {
+			if (errno != ENOTSOCK)
+				i_fatal("getunixname(%d) failed: %m", fd);
+			/* not a unix socket, set its name and type lazily */
+		} else {
+			l->type = auth_socket_type_get(path);
+			l->path = i_strdup(path);
+			if (l->type == AUTH_SOCKET_USERDB) {
+				if (stat(path, &l->st) < 0)
+					i_error("stat(%s) failed: %m", path);
+			}
 		}
 	}
 }
@@ -311,6 +305,12 @@ static void client_connected(struct master_service_connection *conn)
 	struct auth *auth;
 
 	l = array_idx_modifiable(&listeners, conn->listen_fd);
+	if (l->type == AUTH_SOCKET_UNKNOWN) {
+		/* first connection from inet socket, figure out its type
+		   from the listener name */
+		l->type = auth_socket_type_get(conn->name);
+		l->path = i_strdup(conn->name);
+	}
 	auth = auth_find_service(NULL);
 	switch (l->type) {
 	case AUTH_SOCKET_MASTER:
