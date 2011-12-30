@@ -48,6 +48,8 @@ struct top_context {
 };
 
 static struct top_context *sort_ctx = NULL;
+static const char *disk_input_field = "disk_input";
+static const char *disk_output_field = "disk_output";
 
 static char **
 p_read_next_line(pool_t pool, struct istream *input)
@@ -318,8 +320,8 @@ static void stats_top_get_sorting(struct top_context *ctx)
 		return;
 	}
 	if (strcmp(ctx->sort_type, "disk") == 0) {
-		if (!stats_header_find(ctx, "disk_input", &ctx->sort_idx1) ||
-		    !stats_header_find(ctx, "disk_output", &ctx->sort_idx2))
+		if (!stats_header_find(ctx, disk_input_field, &ctx->sort_idx1) ||
+		    !stats_header_find(ctx, disk_output_field, &ctx->sort_idx2))
 			i_fatal("disk sort type is missing fields");
 		return;
 	}
@@ -407,11 +409,14 @@ static void stats_top_output(struct top_context *ctx)
 {
 	static const char *names[] = {
 		"user", "service", "user_cpu", "sys_cpu",
-		"disk_input", "disk_output"
+		"", ""
 	};
 	struct winsize ws;
 	struct top_line *const *lines;
 	unsigned int i, j, row, maxrow, count, indexes[N_ELEMENTS(names)];
+
+	names[4] = disk_input_field;
+	names[5] = disk_output_field;
 
 	/* ANSI clear screen and move cursor to top of screen */
 	printf("\x1b[2J\x1b[1;1H"); fflush(stdout);
@@ -499,8 +504,12 @@ static void cmd_stats_top(int argc, char *argv[])
 
 	path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
 
-	while ((c = getopt(argc, argv, "s:")) > 0) {
+	while ((c = getopt(argc, argv, "bs:")) > 0) {
 		switch (c) {
+		case 'b':
+			disk_input_field = "read_bytes";
+			disk_output_field = "write_bytes";
+			break;
 		case 's':
 			path = optarg;
 			break;
@@ -525,5 +534,5 @@ struct doveadm_cmd doveadm_cmd_stats_dump = {
 };
 
 struct doveadm_cmd doveadm_cmd_stats_top = {
-	cmd_stats_top, "stats top", "[-s <stats socket path>] [<sort field>]"
+	cmd_stats_top, "stats top", "[-s <stats socket path>] [-b] [<sort field>]"
 };
