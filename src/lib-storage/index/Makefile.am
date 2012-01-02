@@ -1,4 +1,4 @@
-SUBDIRS = maildir mbox dbox-common dbox-multi dbox-single cydir imapc raw shared
+SUBDIRS = maildir mbox dbox-common dbox-multi dbox-single cydir imapc pop3c raw shared
 
 noinst_LTLIBRARIES = libstorage_index.la
 

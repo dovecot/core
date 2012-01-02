@@ -242,12 +242,12 @@ AS_HELP_STRING([--with-gc], [Use Boehm garbage collector]),
   want_gc=no)
 
 AC_ARG_WITH(storages,
-AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (mdbox sdbox maildir mbox cydir imapc)]), [
+AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (mdbox sdbox maildir mbox cydir imapc pop3c)]), [
 	if test "$withval" = "yes" || test "$withval" = "no"; then
 		AC_MSG_ERROR([--with-storages needs storage list as parameter])
 	fi
 	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
-	mail_storages="shared mdbox sdbox maildir mbox cydir imapc")
+	mail_storages="shared mdbox sdbox maildir mbox cydir imapc pop3c")
 AC_SUBST(mail_storages)
 mail_storages="$mail_storages raw"
 # drop duplicates
@@ -2448,7 +2448,8 @@ dbox_common_libs='$(top_builddir)/src/lib-storage/index/dbox-common/libstorage_d
 sdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-single/libstorage_dbox_single.la'
 mdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-multi/libstorage_dbox_multi.la'
 cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.la'
-imapc_libs='$(top_builddir)/src/lib-storage/index/imapc/libstorage_imapc.la $(top_builddir)/src/lib-imap-client/libimap_client.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
+imapc_libs='$(top_builddir)/src/lib-storage/index/imapc/libstorage_imapc.la $(top_builddir)/src/lib-imap-client/libimap_client.la'
+pop3c_libs='$(top_builddir)/src/lib-storage/index/pop3c/libstorage_pop3c.la'
 raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.la'
 shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.la'
 
@@ -2470,8 +2471,15 @@ for storage in $mail_storages; do
   fi
   if test $storage = imapc; then
     mailbox_list_drivers="$mailbox_list_drivers imapc"
+    want_ssl_libs=yes
+  fi
+  if test $storage = pop3c; then
+    want_ssl_libs=yes
   fi
 done
+if test "$want_ssl_libs" = yes; then
+  LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS \$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la"
+fi
 AC_SUBST(LINKED_STORAGE_LIBS)
 AC_SUBST(mailbox_list_drivers)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
@@ -2737,6 +2745,7 @@ src/lib-storage/Makefile
 src/lib-storage/list/Makefile
 src/lib-storage/index/Makefile
 src/lib-storage/index/imapc/Makefile
+src/lib-storage/index/pop3c/Makefile
 src/lib-storage/index/maildir/Makefile
 src/lib-storage/index/mbox/Makefile
 src/lib-storage/index/dbox-common/Makefile
