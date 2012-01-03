@@ -1288,15 +1288,24 @@ local_worker_delete_dir(struct dsync_worker *_worker,
 		(struct local_dsync_worker *)_worker;
 	struct mail_namespace *ns;
 	const char *storage_name;
+	enum mail_error error;
 
 	ns = mail_namespace_find(worker->user->namespaces, dsync_box->name);
 	storage_name = mailbox_list_get_storage_name(ns->list, dsync_box->name);
 
 	mailbox_list_set_changelog_timestamp(ns->list, dsync_box->last_change);
 	if (mailbox_list_delete_dir(ns->list, storage_name) < 0) {
-		i_error("Can't delete mailbox directory %s: %s",
-			dsync_box->name,
-			mailbox_list_get_last_error(ns->list, NULL));
+		(void)mailbox_list_get_last_error(ns->list, &error);
+		if (error == MAIL_ERROR_EXISTS) {
+			/* we're probably doing Maildir++ -> FS layout sync,
+			   where a nonexistent Maildir++ mailbox had to be
+			   created as \Noselect FS directory.
+			   just ignore this. */
+		} else {
+			i_error("Can't delete mailbox directory %s: %s",
+				dsync_box->name,
+				mailbox_list_get_last_error(ns->list, NULL));
+		}
 	}
 	mailbox_list_set_changelog_timestamp(ns->list, (time_t)-1);
 }
