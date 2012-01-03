@@ -94,7 +94,7 @@ struct local_dsync_worker {
 	struct hash_table *dir_changes_hash;
 
 	char alt_char;
-	ARRAY_DEFINE(wanted_namespaces, struct mail_namespace *);
+	ARRAY_DEFINE(subs_namespaces, struct mail_namespace *);
 
 	mailbox_guid_t selected_box_guid;
 	struct mailbox *selected_box;
@@ -151,23 +151,56 @@ static unsigned int mailbox_guid_hash(const void *p)
 	return h;
 }
 
-static bool local_worker_want_namespace(struct mail_namespace *ns)
-{
-	return strcmp(ns->unexpanded_set->location,
-		      SETTING_STRVAR_UNEXPANDED) == 0;
-}
-
-static void dsync_check_namespaces(struct local_dsync_worker *worker)
+static struct mail_namespace *
+namespace_find_set(struct mail_user *user,
+		   const struct mail_namespace_settings *set)
 {
 	struct mail_namespace *ns;
 
-	for (ns = worker->user->namespaces; ns != NULL; ns = ns->next) {
-		if (local_worker_want_namespace(ns))
-			return;
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		/* compare settings pointers so that it'll work
+		   for shared namespaces */
+		if (ns->set == set)
+			return ns;
 	}
-	i_fatal("All your namespaces have a location setting. "
-		"It should be empty (default mail_location) in the "
-		"namespace to be converted.");
+	return NULL;
+}
+
+static void dsync_drop_extra_namespaces(struct local_dsync_worker *worker)
+{
+	struct mail_user *user = worker->user;
+	struct mail_namespace_settings *const *ns_unset, *const *ns_set;
+	struct mail_namespace *ns;
+	unsigned int i, count, count2;
+
+	if (!array_is_created(&user->unexpanded_set->namespaces))
+		return;
+
+	/* drop all namespaces that have a location defined internally */
+	ns_unset = array_get(&user->unexpanded_set->namespaces, &count);
+	ns_set = array_get(&user->set->namespaces, &count2);
+	i_assert(count == count2);
+	for (i = 0; i < count; i++) {
+		if (strcmp(ns_unset[i]->location,
+			   SETTING_STRVAR_UNEXPANDED) == 0)
+			continue;
+
+		ns = namespace_find_set(user, ns_set[i]);
+		i_assert(ns != NULL);
+		if ((ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0) {
+			/* remember the subscriptions=no namespaces so we can
+			   handle their subscriptions in parent namespaces
+			   properly */
+			mail_namespace_ref(ns);
+			array_append(&worker->subs_namespaces, &ns, 1);
+		}
+		mail_namespace_destroy(ns);
+	}
+	if (user->namespaces == NULL) {
+		i_fatal("All your namespaces have a location setting. "
+			"It should be empty (default mail_location) in the "
+			"namespace to be converted.");
+	}
 }
 
 struct dsync_worker *
@@ -187,8 +220,8 @@ dsync_worker_init_local(struct mail_user *user, char alt_char)
 				  mailbox_guid_hash, mailbox_guid_cmp);
 	i_array_init(&worker->saved_uids, 128);
 	i_array_init(&worker->msg_get_queue, 32);
-	p_array_init(&worker->wanted_namespaces, pool, 8);
-	dsync_check_namespaces(worker);
+	p_array_init(&worker->subs_namespaces, pool, 8);
+	dsync_drop_extra_namespaces(worker);
 
 	mail_user_ref(worker->user);
 	return &worker->worker;
@@ -198,8 +231,12 @@ static void local_worker_deinit(struct dsync_worker *_worker)
 {
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
+	struct mail_namespace **nsp;
 
 	i_assert(worker->save_input == NULL);
+
+	array_foreach_modifiable(&worker->subs_namespaces, nsp)
+		mail_namespace_unref(nsp);
 
 	local_worker_msg_box_close(worker);
 	local_worker_mailbox_close(worker);
@@ -380,7 +417,7 @@ static int dsync_worker_get_mailbox_log(struct local_dsync_worker *worker)
 		hash_table_create(default_pool, worker->pool, 0,
 				  dir_change_hash, dir_change_cmp);
 	for (ns = worker->user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->alias_for != NULL || !local_worker_want_namespace(ns))
+		if (ns->alias_for != NULL)
 			continue;
 
 		if (dsync_worker_get_list_mailbox_log(worker, ns->list) < 0)
@@ -500,10 +537,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 
 	memset(dsync_box_r, 0, sizeof(*dsync_box_r));
 
-	while ((info = mailbox_list_iter_next(iter->list_iter)) != NULL) {
-		if (local_worker_want_namespace(info->ns))
-			break;
-	}
+	info = mailbox_list_iter_next(iter->list_iter);
 	if (info == NULL)
 		return iter_next_deleted(iter, worker, dsync_box_r);
 
@@ -612,18 +646,16 @@ local_worker_subs_iter_init(struct dsync_worker *_worker)
 	struct local_dsync_worker *worker =
 		(struct local_dsync_worker *)_worker;
 	struct local_dsync_worker_subs_iter *iter;
-	const enum mailbox_list_iter_flags list_flags =
+	enum mailbox_list_iter_flags list_flags =
 		MAILBOX_LIST_ITER_SKIP_ALIASES |
 		MAILBOX_LIST_ITER_SELECT_SUBSCRIBED;
-	const enum namespace_type namespace_mask =
-		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
 	static const char *patterns[] = { "*", NULL };
 
 	iter = i_new(struct local_dsync_worker_subs_iter, 1);
 	iter->iter.worker = _worker;
 	iter->list_iter =
 		mailbox_list_iter_init_namespaces(worker->user->namespaces,
-						  patterns, namespace_mask,
+						  patterns, NAMESPACE_PRIVATE,
 						  list_flags);
 	(void)dsync_worker_get_mailbox_log(worker);
 	return &iter->iter;
@@ -643,18 +675,11 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 
 	memset(rec_r, 0, sizeof(*rec_r));
 
-	while ((info = mailbox_list_iter_next(iter->list_iter)) != NULL) {
-		if (local_worker_want_namespace(info->ns) ||
-		    (info->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0)
-			break;
-	}
+	info = mailbox_list_iter_next(iter->list_iter);
 	if (info == NULL)
 		return -1;
 
 	storage_name = mailbox_list_get_storage_name(info->ns->list, info->name);
-	if ((info->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0)
-		storage_name = t_strconcat(info->ns->prefix, storage_name, NULL);
-
 	dsync_str_sha_to_guid(storage_name, &change_lookup.name_sha1);
 	change_lookup.list = info->ns->list;
 
@@ -666,10 +691,7 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 		change->unsubscribed = FALSE;
 		rec_r->last_change = change->last_subs_change;
 	}
-	if ((info->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0)
-		rec_r->ns_prefix = "";
-	else
-		rec_r->ns_prefix = info->ns->prefix;
+	rec_r->ns_prefix = info->ns->prefix;
 	rec_r->vname = info->name;
 	rec_r->storage_name = storage_name;
 	return 1;
@@ -1266,24 +1288,15 @@ local_worker_delete_dir(struct dsync_worker *_worker,
 		(struct local_dsync_worker *)_worker;
 	struct mail_namespace *ns;
 	const char *storage_name;
-	enum mail_error error;
 
 	ns = mail_namespace_find(worker->user->namespaces, dsync_box->name);
 	storage_name = mailbox_list_get_storage_name(ns->list, dsync_box->name);
 
 	mailbox_list_set_changelog_timestamp(ns->list, dsync_box->last_change);
 	if (mailbox_list_delete_dir(ns->list, storage_name) < 0) {
-		(void)mailbox_list_get_last_error(ns->list, &error);
-		if (error == MAIL_ERROR_EXISTS) {
-			/* we're probably doing Maildir++ -> FS layout sync,
-			   where a nonexistent Maildir++ mailbox had to be
-			   created as \Noselect FS directory.
-			   just ignore this. */
-		} else {
-			i_error("Can't delete mailbox directory %s: %s",
-				dsync_box->name,
-				mailbox_list_get_last_error(ns->list, NULL));
-		}
+		i_error("Can't delete mailbox directory %s: %s",
+			dsync_box->name,
+			mailbox_list_get_last_error(ns->list, NULL));
 	}
 	mailbox_list_set_changelog_timestamp(ns->list, (time_t)-1);
 }
