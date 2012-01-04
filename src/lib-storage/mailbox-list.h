@@ -79,6 +79,8 @@ enum mailbox_list_iter_flags {
 	/* Return MAILBOX_CHILD_* if mailbox's children match selection
 	   criteria, even if the mailbox itself wouldn't match. */
 	MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH	= 0x000200,
+	/* Return only mailboxes that have special use flags */
+	MAILBOX_LIST_ITER_SELECT_SPECIALUSE	= 0x000400,
 
 	/* Don't return any flags unless it can be done without cost */
 	MAILBOX_LIST_ITER_RETURN_NO_FLAGS	= 0x001000,

@@ -528,8 +528,12 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 		actx->new_info.flags |= MAILBOX_NOCHILDREN;
 
 	match = imap_match(ctx->glob, actx->new_info.name);
-	if (match == IMAP_MATCH_YES)
+	if (match == IMAP_MATCH_YES) {
+		actx->new_info.special_use =
+			*autobox->set->special_use == '\0' ? NULL :
+			autobox->set->special_use;
 		return TRUE;
+	}
 	if ((match & IMAP_MATCH_PARENT) != 0 && !autobox->child_listed) {
 		enum mailbox_info_flags old_flags = actx->new_info.flags;
 		char sep = mail_namespace_get_sep(ctx->list->ns);
@@ -602,24 +606,33 @@ autocreate_iter_next(struct mailbox_list_iterate_context *ctx)
 	autoboxes = array_get(&actx->boxes, &count);
 	while (actx->idx < count) {
 		autobox = &autoboxes[actx->idx++];
-		if (autocreate_iter_autobox(ctx, autobox)) {
-			actx->new_info.special_use =
-				*autobox->set->special_use == '\0' ? NULL :
-				autobox->set->special_use;
+		if (autocreate_iter_autobox(ctx, autobox))
 			return &actx->new_info;
-		}
 	}
 	i_assert(array_count(&actx->boxes) == array_count(&actx->box_sets));
 	return NULL;
 }
 
+static bool
+special_use_selection(struct mailbox_list_iterate_context *ctx,
+		      const struct mailbox_info *info)
+{
+	return (ctx->flags & MAILBOX_LIST_ITER_SELECT_SPECIALUSE) == 0 ||
+		info->special_use != NULL;
+}
+
 const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
-	if (ctx->autocreate_ctx != NULL)
-		return autocreate_iter_next(ctx);
-	else
-		return mailbox_list_iter_next_call(ctx);
+	const struct mailbox_info *info;
+
+	do {
+		if (ctx->autocreate_ctx != NULL)
+			info = autocreate_iter_next(ctx);
+		else
+			info = mailbox_list_iter_next_call(ctx);
+	} while (info != NULL && !special_use_selection(ctx, info));
+	return info;
 }
 
 int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)

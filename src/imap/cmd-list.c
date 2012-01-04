@@ -115,6 +115,8 @@ parse_select_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 				MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		} else if (strcasecmp(str, "RECURSIVEMATCH") == 0)
 			list_flags |= MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH;
+		else if (strcasecmp(str, "SPECIAL-USE") == 0)
+			list_flags |= MAILBOX_LIST_ITER_SELECT_SPECIALUSE;
 		else if (strcasecmp(str, "REMOTE") == 0) {
 			/* not supported, ignore */
 		} else {
@@ -127,7 +129,8 @@ parse_select_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 	}
 
 	if ((list_flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0 &&
-	    (list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
+	    (list_flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+			   MAILBOX_LIST_ITER_SELECT_SPECIALUSE)) == 0) {
 		client_send_command_error(ctx->cmd,
 			"RECURSIVEMATCH must not be the only selection.");
 		return FALSE;
