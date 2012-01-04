@@ -83,6 +83,8 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 	uint32_t uid;
 	size_t uidset_offset, i, size;
 
+	i_assert(u->name_size > 0);
+
 	uidset_offset = sizeof(*u) + u->name_size;
 	if ((uidset_offset % 4) != 0)
 		uidset_offset += 4 - (uidset_offset % 4);

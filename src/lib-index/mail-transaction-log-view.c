@@ -519,6 +519,11 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		if ((seqset_offset % 4) != 0)
 			seqset_offset += 4 - (seqset_offset % 4);
 
+		if (rec->name_size == 0) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Trying to use empty keyword");
+			return FALSE;
+		}
 		if (seqset_offset > rec_size) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid keyword update record size");
