@@ -460,6 +460,8 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 {
 	size_t old_size;
 
+	i_assert(stream->max_buffer_size > 0);
+
 	old_size = stream->buffer_size;
 
 	stream->buffer_size = stream->pos + bytes;
@@ -468,8 +470,7 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 	else
 		stream->buffer_size = nearest_power(stream->buffer_size);
 
-	if (stream->max_buffer_size > 0 &&
-	    stream->buffer_size > stream->max_buffer_size)
+	if (stream->buffer_size > stream->max_buffer_size)
 		stream->buffer_size = stream->max_buffer_size;
 
 	if (stream->buffer_size <= old_size)
