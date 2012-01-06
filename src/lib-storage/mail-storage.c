@@ -1613,6 +1613,7 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 		return -1;
 	}
 
+	(*ctx)->saving = TRUE;
 	if (box->v.save_begin == NULL) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Saving messages not supported");
@@ -1683,6 +1684,12 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
 	return ret;
+}
+
+int mailbox_save_using_mail(struct mail_save_context **ctx, struct mail *mail)
+{
+	(*ctx)->saving = TRUE;
+	return mailbox_copy(ctx, mail);
 }
 
 bool mailbox_is_inconsistent(struct mailbox *box)

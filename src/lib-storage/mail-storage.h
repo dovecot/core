@@ -666,6 +666,10 @@ mailbox_save_get_transaction(struct mail_save_context *ctx);
 /* Copy the given message. You'll need to specify the flags etc. using the
    mailbox_save_*() functions. */
 int mailbox_copy(struct mail_save_context **ctx, struct mail *mail);
+/* Same as mailbox_copy(), but treat the message as if it's being saved,
+   not copied. (For example: New mail delivered to multiple maildirs, with
+   each mails being hard link copies.) */
+int mailbox_save_using_mail(struct mail_save_context **ctx, struct mail *mail);
 
 struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
