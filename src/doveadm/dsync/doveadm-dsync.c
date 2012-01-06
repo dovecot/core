@@ -379,7 +379,7 @@ struct doveadm_mail_cmd cmd_dsync_backup = {
 	"[-fR] [-m <mailbox>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_server = {
-	cmd_dsync_server_alloc, "dsync-server", NULL
+	cmd_dsync_server_alloc, "dsync-server", &doveadm_mail_cmd_hide
 };
 
 void doveadm_dsync_main(int *_argc, char **_argv[])

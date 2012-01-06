@@ -29,6 +29,7 @@ ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 void (*hook_doveadm_mail_init)(struct doveadm_mail_cmd_context *ctx);
 struct doveadm_mail_cmd_module_register
 	doveadm_mail_cmd_module_register = { 0 };
+char doveadm_mail_cmd_hide = '\0';
 
 static int killed_signo = 0;
 
@@ -518,6 +519,8 @@ void doveadm_mail_usage(string_t *out)
 	const struct doveadm_mail_cmd *cmd;
 
 	array_foreach(&doveadm_mail_cmds, cmd) {
+		if (cmd->usage_args == &doveadm_mail_cmd_hide)
+			continue;
 		str_printfa(out, "%s\t[-u <user>|-A] [-S <socket_path>]",
 			    cmd->name);
 		if (cmd->usage_args != NULL)

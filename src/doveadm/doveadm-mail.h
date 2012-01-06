@@ -72,6 +72,7 @@ ARRAY_DEFINE_TYPE(doveadm_mail_cmd, struct doveadm_mail_cmd);
 extern ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 extern void (*hook_doveadm_mail_init)(struct doveadm_mail_cmd_context *ctx);
 extern struct doveadm_mail_cmd_module_register doveadm_mail_cmd_module_register;
+extern char doveadm_mail_cmd_hide;
 
 bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[]);
 void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd);
