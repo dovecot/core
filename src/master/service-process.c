@@ -40,7 +40,8 @@ service_dup_fds(struct service *service)
 	struct service_listener *const *listeners;
 	ARRAY_TYPE(dup2) dups;
 	string_t *listener_names;
-	unsigned int i, count, n = 0, socket_listener_count, ssl_socket_count;
+	int fd = MASTER_LISTEN_FD_FIRST;
+	unsigned int i, count, socket_listener_count, ssl_socket_count;
 
 	/* stdin/stdout is already redirected to /dev/null. Other master fds
 	   should have been opened with fd_close_on_exec() so we don't have to
@@ -56,20 +57,18 @@ service_dup_fds(struct service *service)
 
 	switch (service->type) {
 	case SERVICE_TYPE_LOG:
-		i_assert(n == 0);
-		services_log_dup2(&dups, service->list, MASTER_LISTEN_FD_FIRST,
+		i_assert(fd == MASTER_LISTEN_FD_FIRST);
+		services_log_dup2(&dups, service->list, fd,
 				  &socket_listener_count);
-		n += socket_listener_count;
+		fd += socket_listener_count;
 		break;
 	case SERVICE_TYPE_ANVIL:
 		dup2_append(&dups, service_anvil_global->log_fdpass_fd[0],
 			    MASTER_ANVIL_LOG_FDPASS_FD);
 		/* nonblocking anvil fd must be the first one. anvil treats it
 		   as the master's fd */
-		dup2_append(&dups, service_anvil_global->nonblocking_fd[0],
-			    MASTER_LISTEN_FD_FIRST + n++);
-		dup2_append(&dups, service_anvil_global->blocking_fd[0],
-			    MASTER_LISTEN_FD_FIRST + n++);
+		dup2_append(&dups, service_anvil_global->nonblocking_fd[0], fd++);
+		dup2_append(&dups, service_anvil_global->blocking_fd[0], fd++);
 		socket_listener_count += 2;
 		break;
 	default:
@@ -77,7 +76,7 @@ service_dup_fds(struct service *service)
 	}
 
 	/* anvil/log fds have no names */
-	for (i = MASTER_LISTEN_FD_FIRST; i < n; i++)
+	for (i = MASTER_LISTEN_FD_FIRST; i < (unsigned int)fd; i++)
 		str_append_c(listener_names, '\t');
 
 	/* first add non-ssl listeners */
@@ -87,9 +86,8 @@ service_dup_fds(struct service *service)
 		     !listeners[i]->set.inetset.set->ssl)) {
 			str_tabescape_write(listener_names, listeners[i]->name);
 			str_append_c(listener_names, '\t');
-			dup2_append(&dups, listeners[i]->fd,
-				    MASTER_LISTEN_FD_FIRST + n);
-			n++; socket_listener_count++;
+			dup2_append(&dups, listeners[i]->fd, fd++);
+			socket_listener_count++;
 		}
 	}
 	/* then ssl-listeners */
@@ -100,9 +98,8 @@ service_dup_fds(struct service *service)
 		    listeners[i]->set.inetset.set->ssl) {
 			str_tabescape_write(listener_names, listeners[i]->name);
 			str_append_c(listener_names, '\t');
-			dup2_append(&dups, listeners[i]->fd,
-				    MASTER_LISTEN_FD_FIRST + n);
-			n++; socket_listener_count++;
+			dup2_append(&dups, listeners[i]->fd, fd++);
+			socket_listener_count++;
 			ssl_socket_count++;
 		}
 	}
@@ -156,6 +153,7 @@ service_dup_fds(struct service *service)
 	if (dup2_array(&dups) < 0)
 		i_fatal("service(%s): dup2s failed", service->set->name);
 
+	i_assert(fd == MASTER_LISTEN_FD_FIRST + (int)socket_listener_count);
 	env_put(t_strdup_printf("SOCKET_COUNT=%d", socket_listener_count));
 	env_put(t_strdup_printf("SSL_SOCKET_COUNT=%d", ssl_socket_count));
 	env_put(t_strdup_printf("SOCKET_NAMES=%s", str_c(listener_names)));
