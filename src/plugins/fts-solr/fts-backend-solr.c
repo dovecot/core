@@ -16,6 +16,8 @@
 #include <ctype.h>
 
 #define SOLR_CMDBUF_SIZE (1024*64)
+#define SOLR_CMDBUF_FLUSH_SIZE (SOLR_CMDBUF_SIZE-128)
+#define SOLR_BUFFER_WARN_SIZE (1024*1024)
 #define SOLR_MAX_MULTI_ROWS 100000
 
 struct solr_fts_backend {
@@ -39,6 +41,7 @@ struct solr_fts_backend_update_context {
 	ARRAY_DEFINE(fields, struct solr_fts_field);
 
 	uint32_t last_indexed_uid;
+	uint32_t size_warned_uid;
 
 	unsigned int last_indexed_uid_set:1;
 	unsigned int body_open:1;
@@ -63,13 +66,18 @@ static bool is_valid_xml_char(unichar_t chr)
 	return chr < 0x10ffff;
 }
 
-static void
-xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
+static unsigned int
+xml_encode_data_max(string_t *dest, const unsigned char *data, unsigned int len,
+		    unsigned int max_len)
 {
 	unichar_t chr;
 	unsigned int i;
 
-	for (i = 0; i < len; i++) {
+	i_assert(max_len > 0 || len == 0);
+
+	if (max_len > len)
+		max_len = len;
+	for (i = 0; i < max_len; i++) {
 		switch (data[i]) {
 		case '&':
 			str_append(dest, "&amp;");
@@ -111,6 +119,13 @@ xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
 			break;
 		}
 	}
+	return i;
+}
+
+static void
+xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
+{
+	(void)xml_encode_data_max(dest, data, len, len);
 }
 
 static void xml_encode(string_t *dest, const char *str)
@@ -477,18 +492,48 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 {
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
+	unsigned int len;
 
 	if (_ctx->failed)
 		return -1;
 
-	xml_encode_data(ctx->cur_value, data, size);
-	if (ctx->cur_value2 != NULL)
-		xml_encode_data(ctx->cur_value2, data, size);
+	if (ctx->cur_value2 == NULL && ctx->cur_value == ctx->cmd) {
+		/* we're writing to message body. if size is huge,
+		   flush it once in a while */
+		while (size >= SOLR_CMDBUF_FLUSH_SIZE) {
+			if (str_len(ctx->cmd) >= SOLR_CMDBUF_FLUSH_SIZE) {
+				solr_connection_post_more(ctx->post,
+							  str_data(ctx->cmd),
+							  str_len(ctx->cmd));
+				str_truncate(ctx->cmd, 0);
+			}
+			len = xml_encode_data_max(ctx->cmd, data, size,
+						  SOLR_CMDBUF_FLUSH_SIZE -
+						  str_len(ctx->cmd));
+			i_assert(len > 0);
+			data += len;
+			size -= len;
+		}
+	} else {
+		xml_encode_data(ctx->cur_value, data, size);
+		if (ctx->cur_value2 != NULL)
+			xml_encode_data(ctx->cur_value2, data, size);
+	}
 
-	if (str_len(ctx->cmd) > SOLR_CMDBUF_SIZE-128) {
+	if (str_len(ctx->cmd) >= SOLR_CMDBUF_FLUSH_SIZE) {
 		solr_connection_post_more(ctx->post, str_data(ctx->cmd),
 					  str_len(ctx->cmd));
 		str_truncate(ctx->cmd, 0);
+	}
+	if (str_len(ctx->cur_value) >= SOLR_BUFFER_WARN_SIZE &&
+	    ctx->size_warned_uid != ctx->prev_uid) {
+		/* a large header */
+		i_assert(ctx->cur_value != ctx->cmd);
+
+		ctx->size_warned_uid = ctx->prev_uid;
+		i_warning("fts-solr(%s): Mailbox %s UID=%u header size is huge",
+			  ctx->cur_box->storage->user->username,
+			  mailbox_get_vname(ctx->cur_box), ctx->prev_uid);
 	}
 	return 0;
 }
