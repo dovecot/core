@@ -87,11 +87,14 @@ mirror_get_remote_cmd_line(const char *const *argv,
 
 	p = strchr(argv[0], '/');
 	if (p == NULL) p = argv[0];
-	if (strstr(p, "dsync") == NULL) {
-		/* we're executing doveadm (not dsync) */
-		p = "dsync"; array_append(&cmd_args, &p, 1);
+	if (strstr(p, "dsync") != NULL) {
+		/* we're executing dsync */
+		p = "server";
+	} else {
+		/* we're executing doveadm */
+		p = "dsync-server";
 	}
-	p = "server"; array_append(&cmd_args, &p, 1);
+	array_append(&cmd_args, &p, 1);
 	(void)array_append_space(&cmd_args);
 	*cmd_args_r = array_idx(&cmd_args, 0);
 }
@@ -141,8 +144,7 @@ static bool mirror_get_remote_cmd(const char *const *argv, const char *user,
 	array_append(&cmd_args, &ssh_cmd, 1);
 	array_append(&cmd_args, &host, 1);
 	p = "doveadm"; array_append(&cmd_args, &p, 1);
-	p = "dsync"; array_append(&cmd_args, &p, 1);
-	p = "server"; array_append(&cmd_args, &p, 1);
+	p = "dsync-server"; array_append(&cmd_args, &p, 1);
 	if (*user != '\0') {
 		p = "-u"; array_append(&cmd_args, &p, 1);
 		array_append(&cmd_args, &user, 1);
@@ -256,7 +258,7 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
 	const char *username = "";
 
 	if (args[0] == NULL)
-		doveadm_mail_help_name("dsync");
+		doveadm_mail_help_name(_ctx->cmd->name);
 
 	lib_signals_ignore(SIGHUP, TRUE);
 
@@ -272,7 +274,7 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
 	if (!mirror_get_remote_cmd(args, username, &ctx->remote_cmd_args)) {
 		/* it's a mail_location */
 		if (args[1] != NULL)
-			doveadm_mail_help_name("dsync");
+			doveadm_mail_help_name(_ctx->cmd->name);
 		ctx->local_location = args[0];
 	}
 
@@ -298,6 +300,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 
 	switch (c) {
+	case 'E':
+		/* dsync backup wrapper detection flag */
+		break;
 	case 'f':
 		ctx->brain_flags |= DSYNC_BRAIN_FLAG_FULL_SYNC;
 		break;
@@ -318,7 +323,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "fRm:";
+	ctx->ctx.getopt_args = "EfRm:";
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_parse_arg;
 	ctx->ctx.v.preinit = cmd_dsync_preinit;
 	ctx->ctx.v.init = cmd_dsync_init;
@@ -367,14 +372,14 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 }
 
 struct doveadm_mail_cmd cmd_dsync_mirror = {
-	cmd_dsync_alloc, "dsync mirror", "[-fR] [-m <mailbox>] <dest>"
+	cmd_dsync_alloc, "sync", "[-fR] [-m <mailbox>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_backup = {
-	cmd_dsync_backup_alloc, "dsync backup",
+	cmd_dsync_backup_alloc, "backup",
 	"[-fR] [-m <mailbox>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_server = {
-	cmd_dsync_server_alloc, "dsync server", NULL
+	cmd_dsync_server_alloc, "dsync-server", NULL
 };
 
 void doveadm_dsync_main(int *_argc, char **_argv[])
@@ -383,9 +388,10 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	const char *getopt_str;
 	char **argv = *_argv;
 	char **new_argv, *mailbox = NULL, *alt_char = NULL;
-	char *p, *dup, new_flags[5];
+	char *p, *dup, new_flags[6];
 	int max_argc, src, dest, i, j;
 	bool flag_f = FALSE, flag_R = FALSE, flag_m, flag_C, has_arg;
+	bool backup_flag = FALSE;
 
 	p = strrchr(argv[0], '/');
 	if (p == NULL) p = argv[0];
@@ -453,20 +459,35 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 				    "dsync_alt_char=", alt_char, NULL);
 	}
 
-	new_argv[dest++] = "dsync";
-	if (src < argc) {
-		/* mirror|backup|server */
-		if (strcmp(argv[src], "dsync") == 0) {
-			/* looks like we executed doveconf, which
-			   re-executed ourself with new parameters.
-			   no need to change them anymore. */
-			return;
-		}
-		new_argv[dest++] = argv[src++];
+	/* mirror|backup|server */
+	if (src == argc)
+		i_fatal("Missing mirror or backup parameter");
+	if (strcmp(argv[src], "sync") == 0 ||
+	    strcmp(argv[src], "dsync-server") == 0) {
+		/* we're re-executing dsync due to doveconf.
+		   "backup" re-exec detection is later. */
+		return;
+	}
+	if (strcmp(argv[src], "mirror") == 0)
+		new_argv[dest] = "sync";
+	else if (strcmp(argv[src], "backup") == 0) {
+		backup_flag = TRUE;
+		new_argv[dest] = "backup";
+	} else if (strcmp(argv[src], "server") == 0)
+		new_argv[dest] = "dsync-server";
+	else
+		i_fatal("Invalid parameter: %s", argv[src]);
+	src++; dest++;
+
+	if (src < argc && strncmp(argv[src], "-E", 2) == 0) {
+		/* we're re-executing dsync due to doveconf */
+		return;
 	}
 
 	/* dsync flags */
 	new_flags[0] = '-'; i = 1;
+	if (backup_flag)
+		new_flags[i++] = 'E';
 	if (flag_f)
 		new_flags[i++] = 'f';
 	if (flag_R)
