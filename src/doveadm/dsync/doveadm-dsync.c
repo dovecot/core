@@ -79,6 +79,8 @@ mirror_get_remote_cmd_line(const char *const *argv,
 	unsigned int i;
 	const char *p;
 
+	i_assert(argv[0] != NULL);
+
 	t_array_init(&cmd_args, 16);
 	for (i = 0; argv[i] != NULL; i++) {
 		p = argv[i];

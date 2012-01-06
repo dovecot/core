@@ -345,10 +345,8 @@ int dsync_proxy_mailbox_import_unescaped(pool_t pool, const char *const *args,
 		return -1;
 	}
 
-	args += i;
-	count -= i;
-	if (dsync_proxy_cache_fields_import(args, pool, &box_r->cache_fields,
-					    error_r) < 0)
+	if (dsync_proxy_cache_fields_import(args + i, pool,
+					    &box_r->cache_fields, error_r) < 0)
 		return -1;
 	return 0;
 }
