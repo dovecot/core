@@ -1,11 +1,13 @@
  - imapc:
      - prefetching to THREAD and SORT
      - check all imap extensions and see if some don't work (condstore)
-     - imapc: replacing existing imapc stream in error recovery crashes with
-       file index-mail.c: line 812 (index_mail_stream_destroy_callback):
-       assertion failed: (mail->data.destroying_stream)
- - per-namespace imapc_* settings?
+ - per-namespace imapc_* settings? create a way to "copy" a settings struct,
+   so mail_storage_settings are copied to mail_namespace_settings. use the
+   change tracking to figure out what settings are namespace-specific.
 
+ - imap: list (special-use recursivematch) "" % doesn't work
+ - passdb, userdb { username_format } that doesn't permanently change
+   the username
  - mdbox/sdbox index rebuild -> quota rebuild?
  - solr separate attachments (patch)
  - sql connection pooling: Count lookup latencies, avoid servers with

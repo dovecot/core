@@ -1,3 +1,22 @@
+v2.1.rc2 2012-01-06  Timo Sirainen <tss@iki.fi>
+
+	* dsync was merged into doveadm. There is still "dsync" symlink
+	  pointing to "doveadm", which you can use the old way for now.
+	  The preferred ways to run dsync are "doveadm sync" (for old "dsync
+	  mirror") and "doveadm backup".
+
+	+ IMAP SPECIAL-USE extension to describe mailboxes
+	+ Added mailbox {} sections, which deprecate autocreate plugin
+	+ lib-fs: Added "mode" parameter to "posix" backend to specify mode
+	  for created files/dirs (for mail_attachment_dir).
+	+ inet_listener names are now used to figure out what type the socket
+	  is when useful. For example naming service auth { inet_listener } to
+	  auth-client vs. auth-userdb has different behavior.
+	+ Added pop3c (= POP3 client) storage backend.
+	- LMTP proxying code was simplified, hopefully fixing its problems.
+	- dsync: Don't remove user's subscriptions for subscriptions=no
+	  namespaces.
+
 v2.1.rc1 2011-11-24  Timo Sirainen <tss@iki.fi>
 
 	* Plugins now use UTF-8 mailbox names rather than mUTF-7:
@@ -18,6 +37,7 @@ v2.1.rc1 2011-11-24  Timo Sirainen <tss@iki.fi>
 	+ FTS finally supports "OR" search operation
 	+ FTS supports indexing attachments via external programs
 	+ IMAP FUZZY extension, supported by Lucene and Solr FTS backends
+	+ IMAP SPECIAL-USE extension to describe mailboxes
 	+ Mailbox list indexes
 	+ Statistics tracking via stats service. Exported via doveadm stats.
 	+ Autocreate plugin creates/subscribes mailboxes physically only when
