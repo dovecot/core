@@ -95,8 +95,6 @@ client_log_fatal(struct log_connection *log, struct log_client *client,
 					       line, net_ip2addr(&client->ip));
 		}
 	}
-	prefix = client != NULL && client->prefix != NULL ?
-		client->prefix : log->default_prefix;
 	i_set_failure_prefix(prefix);
 	i_log_type(&failure_ctx, "master: %s", line);
 	i_set_failure_prefix("log: ");
