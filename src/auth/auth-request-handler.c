@@ -597,7 +597,9 @@ static void userdb_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		auth_stream_reply_add(reply, "USER", NULL);
 		auth_stream_reply_add(reply, NULL, dec2str(request->id));
-		if (request->master_user != NULL) {
+		if (request->master_user != NULL &&
+		    auth_stream_reply_find(request->userdb_reply,
+					   "master_user") == NULL) {
 			auth_stream_reply_add(request->userdb_reply,
 					      "master_user",
 					      request->master_user);
