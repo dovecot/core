@@ -289,8 +289,7 @@ mail_storage_match_class(struct mail_storage *storage,
 		/* allow multiple independent shared namespaces */
 		return FALSE;
 	}
-
-	return storage;
+	return TRUE;
 }
 
 static struct mail_storage *
