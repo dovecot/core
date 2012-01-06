@@ -28,6 +28,7 @@ libdsync_a_SOURCES = \
 	dsync-worker-local.c
 
 noinst_HEADERS = \
+	doveadm-dsync.h \
 	dsync-brain.h \
 	dsync-brain-private.h \
 	dsync-data.h \
