@@ -308,7 +308,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	mailbox_save_set_dest_mail(save_ctx, ctx->dest_mail);
 	mail_deliver_deduplicate_guid_if_needed(ctx->session, save_ctx);
 
-	if (mailbox_copy(&save_ctx, ctx->src_mail) < 0)
+	if (mailbox_save_using_mail(&save_ctx, ctx->src_mail) < 0)
 		ret = -1;
 	else
 		mail_deliver_log_cache_var_expand_table(ctx);
