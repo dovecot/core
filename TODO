@@ -1,3 +1,5 @@
+ - add message/mime limits
+ - stephan's message-parser patch
  - imapc:
      - prefetching to THREAD and SORT
      - check all imap extensions and see if some don't work (condstore)
