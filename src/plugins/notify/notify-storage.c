@@ -128,7 +128,7 @@ notify_save_finish(struct mail_save_context *ctx)
 {
 	union mailbox_module_context *lbox =
 		NOTIFY_CONTEXT(ctx->transaction->box);
-	struct mail *dest_mail = ctx->copying ? NULL : ctx->dest_mail;
+	struct mail *dest_mail = ctx->copying_via_save ? NULL : ctx->dest_mail;
 
 	if (lbox->super.save_finish(ctx) < 0)
 		return -1;

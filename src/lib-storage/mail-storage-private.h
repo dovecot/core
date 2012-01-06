@@ -447,8 +447,8 @@ struct mail_save_context {
 	bool (*part_is_attachment)(struct mail_save_context *ctx,
 				   const struct mail_attachment_part *part);
 
-	/* we came here from mailbox_copy() */
-	unsigned int copying:1;
+	/* mail was copied using saving */
+	unsigned int copying_via_save:1;
 };
 
 struct mailbox_sync_context {

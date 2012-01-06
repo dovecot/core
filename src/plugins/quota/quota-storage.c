@@ -171,7 +171,7 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 		return -1;
 
 	/* if copying used saving internally, we already checked the quota */
-	return ctx->copying ? 0 : quota_check(t, ctx->dest_mail);
+	return ctx->copying_via_save ? 0 : quota_check(t, ctx->dest_mail);
 }
 
 static int
