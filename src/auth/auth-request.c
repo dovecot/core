@@ -647,7 +647,7 @@ void auth_request_verify_plain(struct auth_request *request,
 			PASSDB_RESULT_INTERNAL_FAILURE, request);
 	} else if (passdb->blocking) {
 		passdb_blocking_verify_plain(request);
-	} else if (passdb->iface.verify_plain != NULL) {
+	} else {
 		passdb_template_export(passdb->default_fields_tmpl, request);
 		passdb->iface.verify_plain(request, password,
 					   auth_request_verify_plain_callback);
