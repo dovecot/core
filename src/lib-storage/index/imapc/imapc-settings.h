@@ -6,6 +6,7 @@ struct imapc_settings {
 	unsigned int imapc_port;
 
 	const char *imapc_user;
+	const char *imapc_master_user;
 	const char *imapc_password;
 
 	const char *imapc_ssl;

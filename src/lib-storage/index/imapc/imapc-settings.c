@@ -18,6 +18,7 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_UINT, imapc_port),
 
 	DEF(SET_STR_VARS, imapc_user),
+	DEF(SET_STR_VARS, imapc_master_user),
 	DEF(SET_STR, imapc_password),
 
 	DEF(SET_ENUM, imapc_ssl),
@@ -35,6 +36,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_port = 143,
 
 	.imapc_user = "%u",
+	.imapc_master_user = "",
 	.imapc_password = "",
 
 	.imapc_ssl = "no:imaps:starttls",

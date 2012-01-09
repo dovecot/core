@@ -222,6 +222,7 @@ imapc_storage_create(struct mail_storage *_storage,
 	}
 	set.port = storage->set->imapc_port;
 	set.username = storage->set->imapc_user;
+	set.master_user = storage->set->imapc_master_user;
 	set.password = storage->set->imapc_password;
 	if (*set.password == '\0') {
 		*error_r = "missing imapc_password";
