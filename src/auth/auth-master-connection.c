@@ -1,8 +1,9 @@
 /* Copyright (c) 2002-2011 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "array.h"
+#include "buffer.h"
 #include "hash.h"
+#include "llist.h"
 #include "str.h"
 #include "strescape.h"
 #include "str-sanitize.h"
@@ -41,7 +42,7 @@ struct master_list_iter_ctx {
 
 static void master_input(struct auth_master_connection *conn);
 
-ARRAY_TYPE(auth_master_connections) auth_master_connections;
+static struct auth_master_connection *auth_master_connections;
 
 static const char *
 auth_master_reply_hide_passwords(struct auth_master_connection *conn,
@@ -678,7 +679,7 @@ auth_master_connection_create(struct auth *auth, int fd,
 			       AUTH_MASTER_PROTOCOL_MINOR_VERSION,
 			       my_pid);
 	(void)o_stream_send_str(conn->output, line);
-	array_append(&auth_master_connections, &conn, 1);
+	DLLIST_PREPEND(&auth_master_connections, conn);
 
 	if (auth_master_connection_set_permissions(conn, socket_st) < 0) {
 		auth_master_connection_destroy(&conn);
@@ -690,22 +691,13 @@ auth_master_connection_create(struct auth *auth, int fd,
 void auth_master_connection_destroy(struct auth_master_connection **_conn)
 {
         struct auth_master_connection *conn = *_conn;
-        struct auth_master_connection *const *masters;
-	unsigned int idx;
 
 	*_conn = NULL;
 	if (conn->destroyed)
 		return;
 	conn->destroyed = TRUE;
 
-	array_foreach(&auth_master_connections, masters) {
-		if (*masters == conn) {
-			idx = array_foreach_idx(&auth_master_connections,
-						masters);
-			array_delete(&auth_master_connections, idx, 1);
-			break;
-		}
-	}
+	DLLIST_REMOVE(&auth_master_connections, conn);
 
 	if (conn->input != NULL)
 		i_stream_close(conn->input);
@@ -749,18 +741,12 @@ void auth_master_connection_unref(struct auth_master_connection **_conn)
 	i_free(conn);
 }
 
-void auth_master_connections_init(void)
+void auth_master_connections_destroy_all(void)
 {
-	i_array_init(&auth_master_connections, 16);
-}
+	struct auth_master_connection *conn;
 
-void auth_master_connections_deinit(void)
-{
-	struct auth_master_connection **masters;
-	unsigned int i, count;
-
-	masters = array_get_modifiable(&auth_master_connections, &count);
-	for (i = count; i > 0; i--)
-		auth_master_connection_destroy(&masters[i-1]);
-	array_free(&auth_master_connections);
+	while (auth_master_connections != NULL) {
+		conn = auth_master_connections;
+		auth_master_connection_destroy(&conn);
+	}
 }

@@ -1,13 +1,13 @@
 /* Copyright (c) 2002-2011 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "array.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
 #include "network.h"
 #include "hex-binary.h"
 #include "hostpid.h"
+#include "llist.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "randgen.h"
@@ -24,11 +24,11 @@
 
 #define OUTBUF_THROTTLE_SIZE (1024*50)
 
-static ARRAY_DEFINE(auth_client_connections, struct auth_client_connection *);
-
 static void auth_client_disconnected(struct auth_client_connection **_conn);
 static void auth_client_connection_unref(struct auth_client_connection **_conn);
 static void auth_client_input(struct auth_client_connection *conn);
+
+static struct auth_client_connection *auth_client_connections;
 
 static const char *reply_line_hide_pass(const char *line)
 {
@@ -304,7 +304,7 @@ auth_client_connection_create(struct auth *auth, int fd, bool login_requests)
 	o_stream_set_flush_callback(conn->output, auth_client_output, conn);
 	conn->io = io_add(fd, IO_READ, auth_client_input, conn);
 
-	array_append(&auth_client_connections, &conn, 1);
+	DLLIST_PREPEND(&auth_client_connections, conn);
 
 	str = t_str_new(128);
 	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
@@ -323,21 +323,12 @@ auth_client_connection_create(struct auth *auth, int fd, bool login_requests)
 void auth_client_connection_destroy(struct auth_client_connection **_conn)
 {
         struct auth_client_connection *conn = *_conn;
-	struct auth_client_connection *const *clients;
-	unsigned int idx;
 
 	*_conn = NULL;
 	if (conn->fd == -1)
 		return;
 
-	array_foreach(&auth_client_connections, clients) {
-		if (*clients == conn) {
-			idx = array_foreach_idx(&auth_client_connections,
-						clients);
-			array_delete(&auth_client_connections, idx, 1);
-			break;
-		}
-	}
+	DLLIST_REMOVE(&auth_client_connections, conn);
 
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
@@ -398,30 +389,21 @@ static void auth_client_connection_unref(struct auth_client_connection **_conn)
 struct auth_client_connection *
 auth_client_connection_lookup(unsigned int pid)
 {
-	struct auth_client_connection *const *clients;
+	struct auth_client_connection *conn;
 
-	array_foreach(&auth_client_connections, clients) {
-		struct auth_client_connection *client = *clients;
-
-		if (client->pid == pid)
-			return client;
+	for (conn = auth_client_connections; conn != NULL; conn = conn->next) {
+		if (conn->pid == pid)
+			return conn;
 	}
-
 	return NULL;
 }
 
-void auth_client_connections_init(void)
+void auth_client_connections_destroy_all(void)
 {
-	i_array_init(&auth_client_connections, 16);
-}
+	struct auth_client_connection *conn;
 
-void auth_client_connections_deinit(void)
-{
-	struct auth_client_connection **clients;
-	unsigned int i, count;
-
-	clients = array_get_modifiable(&auth_client_connections, &count);
-	for (i = count; i > 0; i--)
-		auth_client_connection_destroy(&clients[i-1]);
-	array_free(&auth_client_connections);
+	while (auth_client_connections != NULL) {
+		conn = auth_client_connections;
+		auth_client_connection_destroy(&conn);
+	}
 }

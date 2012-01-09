@@ -261,8 +261,8 @@ static void main_deinit(void)
 	/* there are no more auth requests */
 	auths_free();
 
-	auth_client_connections_deinit();
-	auth_master_connections_deinit();
+	auth_client_connections_destroy_all();
+	auth_master_connections_destroy_all();
 
 	if (auth_worker_client != NULL)
 		auth_worker_client_destroy(&auth_worker_client);
