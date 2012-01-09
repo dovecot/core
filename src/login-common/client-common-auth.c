@@ -199,6 +199,7 @@ static void proxy_input(struct client *client)
 {
 	struct istream *input;
 	const char *line;
+	unsigned int duration;
 
 	if (client->login_proxy == NULL) {
 		/* we're just freeing the proxy */
@@ -225,11 +226,14 @@ static void proxy_input(struct client *client)
 		client_proxy_failed(client, TRUE);
 		return;
 	case -1:
+		duration = ioloop_time - client->created;
 		client_log_err(client, t_strdup_printf(
-			"proxy: Remote %s:%u disconnected: %s (state=%u)",
+			"proxy: Remote %s:%u disconnected: %s "
+			"(state=%u, duration=%us)",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
-			get_disconnect_reason(input), client->proxy_state));
+			get_disconnect_reason(input),
+			client->proxy_state, duration));
 		client_proxy_failed(client, TRUE);
 		return;
 	}
