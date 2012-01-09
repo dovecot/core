@@ -26,6 +26,7 @@
 #include "auth-worker-client.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
+#include "auth-postfix-connection.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -37,7 +38,8 @@ enum auth_socket_type {
 	AUTH_SOCKET_CLIENT,
 	AUTH_SOCKET_LOGIN_CLIENT,
 	AUTH_SOCKET_MASTER,
-	AUTH_SOCKET_USERDB
+	AUTH_SOCKET_USERDB,
+	AUTH_SOCKET_POSTFIX
 };
 
 struct auth_socket_listener {
@@ -118,6 +120,8 @@ auth_socket_type_get(const char *path)
 		return AUTH_SOCKET_MASTER;
 	else if (strcmp(suffix, "userdb") == 0)
 		return AUTH_SOCKET_USERDB;
+	else if (strcmp(suffix, "postmap") == 0)
+		return AUTH_SOCKET_POSTFIX;
 	else
 		return AUTH_SOCKET_CLIENT;
 }
@@ -230,8 +234,6 @@ static void main_init(void)
 	auth_worker_server_init();
 	auths_init();
 	auth_request_handler_init();
-	auth_master_connections_init();
-	auth_client_connections_init();
 
 	if (worker) {
 		/* workers have only a single connection from the master
@@ -263,6 +265,7 @@ static void main_deinit(void)
 
 	auth_client_connections_destroy_all();
 	auth_master_connections_destroy_all();
+	auth_postfix_connections_destroy_all();
 
 	if (auth_worker_client != NULL)
 		auth_worker_client_destroy(&auth_worker_client);
@@ -320,6 +323,9 @@ static void client_connected(struct master_service_connection *conn)
 	case AUTH_SOCKET_USERDB:
 		(void)auth_master_connection_create(auth, conn->fd,
 						    l->path, &l->st, TRUE);
+		break;
+	case AUTH_SOCKET_POSTFIX:
+		(void)auth_postfix_connection_create(auth, conn->fd);
 		break;
 	case AUTH_SOCKET_LOGIN_CLIENT:
 		(void)auth_client_connection_create(auth, conn->fd, TRUE);
