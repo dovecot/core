@@ -153,6 +153,8 @@ void lmtp_client_deinit(struct lmtp_client **_client)
 
 const char *lmtp_client_state_to_string(struct lmtp_client *client)
 {
+	uoff_t size;
+
 	switch (client->input_state) {
 	case LMTP_INPUT_STATE_GREET:
 		return "greeting";
@@ -163,9 +165,18 @@ const char *lmtp_client_state_to_string(struct lmtp_client *client)
 	case LMTP_INPUT_STATE_RCPT_TO:
 		return "RCPT TO";
 	case LMTP_INPUT_STATE_DATA_CONTINUE:
-		return "DATA";
+		return "DATA init";
 	case LMTP_INPUT_STATE_DATA:
-		return "end-of-DATA";
+		if (client->output_finished)
+			return "DATA reply";
+		else if (i_stream_get_size(client->data_input, FALSE, &size) > 0) {
+			return t_strdup_printf(
+				"DATA (%"PRIuUOFF_T"/%"PRIuUOFF_T")",
+				client->data_input->v_offset, size);
+		} else {
+			return t_strdup_printf("DATA (%"PRIuUOFF_T"/?)",
+					       client->data_input->v_offset);
+		}
 	}
 	return "??";
 }
