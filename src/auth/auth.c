@@ -51,6 +51,10 @@ static bool auth_passdb_list_have_verify_plain(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 
+	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next) {
+		if (passdb->passdb->iface.verify_plain != NULL)
+			return TRUE;
+	}
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next) {
 		if (passdb->passdb->iface.verify_plain != NULL)
 			return TRUE;
@@ -62,6 +66,10 @@ static bool auth_passdb_list_have_lookup_credentials(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 
+	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next) {
+		if (passdb->passdb->iface.lookup_credentials != NULL)
+			return TRUE;
+	}
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next) {
 		if (passdb->passdb->iface.lookup_credentials != NULL)
 			return TRUE;
@@ -73,6 +81,10 @@ static int auth_passdb_list_have_set_credentials(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 
+	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next) {
+		if (passdb->passdb->iface.set_credentials != NULL)
+			return TRUE;
+	}
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next) {
 		if (passdb->passdb->iface.set_credentials != NULL)
 			return TRUE;
