@@ -389,8 +389,9 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 	case FATAL_OUTOFMEM:
 		if (service->vsz_limit == 0)
 			return "Out of memory";
-		return t_strdup_printf("Out of memory (vsz_limit=%u MB, "
+		return t_strdup_printf("Out of memory (service %s { vsz_limit=%u MB }, "
 				"you may need to increase it)",
+				service->set->name,
 				(unsigned int)(service->vsz_limit/1024/1024));
 	case FATAL_EXEC:
 		return "exec() failed";
