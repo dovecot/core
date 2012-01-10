@@ -600,7 +600,7 @@ solr_add_definite_query(string_t *str, struct mail_search_arg *arg)
 
 		if (arg->match_not)
 			str_append_c(str, '-');
-		str_append(str, arg->hdr_field_name);
+		str_append(str, t_str_lcase(arg->hdr_field_name));
 		str_append_c(str, ':');
 		solr_add_str_arg(str, arg);
 		break;
@@ -656,7 +656,7 @@ solr_add_maybe_query(string_t *str, struct mail_search_arg *arg)
 			solr_quote_http(str, arg->value.str);
 		else {
 			/* checking potential existence of the header name */
-			solr_quote_http(str, arg->hdr_field_name);
+			solr_quote_http(str, t_str_lcase(arg->hdr_field_name));
 		}
 		break;
 	default:
