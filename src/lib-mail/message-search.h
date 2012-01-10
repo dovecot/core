@@ -7,7 +7,10 @@ struct message_search_context;
 
 enum message_search_flags {
 	/* Skip the main header and all the MIME headers. */
-	MESSAGE_SEARCH_FLAG_SKIP_HEADERS	= 0x01
+	MESSAGE_SEARCH_FLAG_SKIP_HEADERS	= 0x01,
+	/* Search with decomposed titlecase (instead of exact case matching).
+	   The search key must be given with dtcase also. */
+	MESSAGE_SEARCH_FLAG_DTCASE		= 0x02
 };
 
 /* The key must be given in UTF-8 charset */

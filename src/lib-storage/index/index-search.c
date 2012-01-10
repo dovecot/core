@@ -7,6 +7,7 @@
 #include "utc-offset.h"
 #include "str.h"
 #include "time-util.h"
+#include "unichar.h"
 #include "imap-match.h"
 #include "message-address.h"
 #include "message-date.h"
@@ -373,13 +374,24 @@ static int search_sent(enum mail_search_arg_type type, time_t search_time,
 static struct message_search_context *
 msg_search_arg_context(struct mail_search_arg *arg)
 {
-	enum message_search_flags flags;
+	enum message_search_flags flags = MESSAGE_SEARCH_FLAG_DTCASE;
 
-	if (arg->context == NULL) {
-		flags = arg->type == SEARCH_BODY ?
-			MESSAGE_SEARCH_FLAG_SKIP_HEADERS : 0;
-		arg->context = message_search_init(arg->value.str, flags);
-	}
+	if (arg->context == NULL) T_BEGIN {
+		string_t *dtc = t_str_new(128);
+
+		if (uni_utf8_to_decomposed_titlecase(arg->value.str,
+						     strlen(arg->value.str),
+						     dtc) < 0)
+			i_panic("search key not utf8: %s", arg->value.str);
+
+		if (arg->type == SEARCH_BODY)
+			flags |= MESSAGE_SEARCH_FLAG_SKIP_HEADERS;
+		/* we don't get here if arg is "", but dtc can be "" if it
+		   only contains characters that we need to ignore. handle
+		   those searches by returning them as non-matched. */
+		if (str_len(dtc) > 0)
+			arg->context = message_search_init(str_c(dtc), flags);
+	} T_END;
 	return arg->context;
 }
 
