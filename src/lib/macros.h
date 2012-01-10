@@ -93,6 +93,8 @@
 	__attribute__((format_arg (arg_idx)))
 #  define ATTR_SCANF(format_idx, arg_idx) \
 	__attribute__((format (scanf, format_idx, arg_idx)))
+#  define ATTR_STRFTIME(format_idx) \
+	__attribute__((format (strftime, format_idx, 0)))
 #  define ATTR_UNUSED __attribute__((unused))
 #  define ATTR_NORETURN __attribute__((noreturn))
 #  define ATTR_CONST __attribute__((const))
@@ -100,7 +102,8 @@
 #else
 #  define ATTR_FORMAT(format_idx, arg_idx)
 #  define ATTR_FORMAT_ARG(arg_idx)
-#  define ATTR_SCANF
+#  define ATTR_SCANF(format_idx, arg_idx)
+#  define ATTR_STRFTIME(format_idx)
 #  define ATTR_UNUSED
 #  define ATTR_NORETURN
 #  define ATTR_CONST

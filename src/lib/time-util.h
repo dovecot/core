@@ -11,4 +11,7 @@ int timeval_diff_msecs(const struct timeval *tv1, const struct timeval *tv2);
 long long timeval_diff_usecs(const struct timeval *tv1,
 			     const struct timeval *tv2);
 
+/* Wrapper to strftime() */
+const char *t_strflocaltime(const char *fmt, time_t t) ATTR_STRFTIME(1);
+
 #endif
