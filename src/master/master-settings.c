@@ -180,7 +180,7 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, default_login_user),
 	DEF(SET_UINT, default_process_limit),
 	DEF(SET_UINT, default_client_limit),
-	DEF(SET_UINT, default_idle_kill),
+	DEF(SET_TIME, default_idle_kill),
 	DEF(SET_SIZE, default_vsz_limit),
 
 	DEF(SET_BOOL, version_ignore),
