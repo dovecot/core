@@ -8,6 +8,7 @@
 #include "istream.h"
 #include "eacces-error.h"
 #include "mkdir-parents.h"
+#include "time-util.h"
 #include "var-expand.h"
 #include "mail-index-private.h"
 #include "mail-index-alloc-cache.h"
@@ -466,16 +467,12 @@ void mail_storage_set_error(struct mail_storage *storage,
 
 void mail_storage_set_internal_error(struct mail_storage *storage)
 {
-	struct tm *tm;
-	char str[256];
+	const char *str;
 
-	tm = localtime(&ioloop_time);
+	str = t_strflocaltime(MAIL_ERRSTR_CRITICAL_MSG_STAMP, ioloop_time);
 
 	i_free(storage->error_string);
-	storage->error_string =
-		strftime(str, sizeof(str),
-			 MAIL_ERRSTR_CRITICAL_MSG_STAMP, tm) > 0 ?
-		i_strdup(str) : i_strdup(MAIL_ERRSTR_CRITICAL_MSG);
+	storage->error_string = i_strdup(str);
 	storage->error = MAIL_ERROR_TEMP;
 }
 

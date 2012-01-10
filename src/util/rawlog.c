@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "process-title.h"
 #include "restrict-access.h"
+#include "time-util.h"
 #include "master-service.h"
 
 #include <stdlib.h>
@@ -226,15 +227,9 @@ static int client_output(struct rawlog_proxy *proxy)
 
 static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 {
-	time_t now;
-	struct tm *tm;
-	const char *fname;
-	char timestamp[50];
+	const char *fname, *timestamp;
 
-	now = time(NULL);
-	tm = localtime(&now);
-	if (strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", tm) <= 0)
-		i_fatal("strftime() failed");
+	timestamp = t_strflocaltime("%Y%m%d-%H%M%S", time(NULL));
 
 	if ((proxy->flags & RAWLOG_FLAG_LOG_INPUT) != 0) {
 		fname = t_strdup_printf("%s/%s-%s.in", path, timestamp,

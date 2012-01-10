@@ -8,6 +8,7 @@
 #include "sha1.h"
 #include "hash.h"
 #include "home-expand.h"
+#include "time-util.h"
 #include "unichar.h"
 #include "settings-parser.h"
 #include "imap-utf7.h"
@@ -1401,16 +1402,11 @@ void mailbox_list_set_error(struct mailbox_list *list,
 
 void mailbox_list_set_internal_error(struct mailbox_list *list)
 {
-	struct tm *tm;
-	char str[256];
+	const char *str;
 
-	tm = localtime(&ioloop_time);
-
+	str = t_strflocaltime(MAIL_ERRSTR_CRITICAL_MSG_STAMP, ioloop_time);
 	i_free(list->error_string);
-	list->error_string =
-		strftime(str, sizeof(str),
-			 MAIL_ERRSTR_CRITICAL_MSG_STAMP, tm) > 0 ?
-		i_strdup(str) : i_strdup(MAIL_ERRSTR_CRITICAL_MSG);
+	list->error_string = i_strdup(str);
 	list->error = MAIL_ERROR_TEMP;
 }
 

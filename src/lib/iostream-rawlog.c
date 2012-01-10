@@ -77,16 +77,12 @@ int iostream_rawlog_create(const char *dir, struct istream **input,
 			   struct ostream **output)
 {
 	static unsigned int counter = 0;
-	const char *in_path, *out_path;
+	const char *timestamp, *in_path, *out_path;
 	struct istream *old_input;
 	struct ostream *old_output;
-	struct tm *tm;
-	char timestamp[50];
 	int in_fd, out_fd;
 
-	tm = localtime(&ioloop_time);
-	if (strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", tm) <= 0)
-		i_fatal("strftime() failed");
+	timestamp = t_strflocaltime("%Y%m%d-%H%M%S", ioloop_time);
 
 	counter++;
 	in_path = t_strdup_printf("%s/%s.%s.%u.in",

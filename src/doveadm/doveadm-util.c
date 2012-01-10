@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "network.h"
+#include "time-util.h"
 #include "master-service.h"
 #include "module-dir.h"
 #include "doveadm-settings.h"
@@ -76,12 +77,7 @@ bool doveadm_has_unloaded_plugin(const char *name)
 
 const char *unixdate2str(time_t timestamp)
 {
-	static char buf[64];
-	struct tm *tm;
-
-	tm = localtime(&timestamp);
-	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
-	return buf;
+	return t_strflocaltime("%Y-%m-%d %H:%M:%S", timestamp);
 }
 
 const char *doveadm_plugin_getenv(const char *name)
