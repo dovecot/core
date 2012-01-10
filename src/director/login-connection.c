@@ -30,7 +30,7 @@ struct login_connection {
 
 struct login_host_request {
 	struct login_connection *conn;
-	char *line;
+	char *line, *username;
 };
 
 static struct login_connection *login_connections;
@@ -70,29 +70,31 @@ login_connection_send_line(struct login_connection *conn, const char *line)
 	(void)o_stream_sendv(conn->output, iov, N_ELEMENTS(iov));
 }
 
-static void login_host_callback(const struct ip_addr *ip, void *context)
+static void
+login_host_callback(const struct ip_addr *ip, const char *errormsg,
+		    void *context)
 {
 	struct login_host_request *request = context;
 	struct director *dir = request->conn->dir;
 	const char *line;
 	unsigned int secs;
 
-	T_BEGIN {
-		if (ip != NULL) {
-			secs = dir->set->director_user_expire / 2;
-			line = t_strdup_printf("%s\thost=%s\tproxy_refresh=%u",
-					       request->line, net_ip2addr(ip),
-					       secs);
-		} else {
-			i_assert(strncmp(request->line, "OK\t", 3) == 0);
-			line = t_strconcat("FAIL\t",
-					   t_strcut(request->line + 3, '\t'),
-					   "\ttemp", NULL);
-		}
-		login_connection_send_line(request->conn, line);
-	} T_END;
+	if (ip != NULL) {
+		secs = dir->set->director_user_expire / 2;
+		line = t_strdup_printf("%s\thost=%s\tproxy_refresh=%u",
+				       request->line, net_ip2addr(ip), secs);
+	} else {
+		i_assert(strncmp(request->line, "OK\t", 3) == 0);
+
+		i_error("director: User %s host lookup failed: %s",
+			request->username, errormsg);
+		line = t_strconcat("FAIL\t", t_strcut(request->line + 3, '\t'),
+				   "\ttemp", NULL);
+	}
+	login_connection_send_line(request->conn, line);
 
 	login_connection_unref(&request->conn);
+	i_free(request->username);
 	i_free(request->line);
 	i_free(request);
 }
@@ -155,6 +157,7 @@ static void auth_input_line(const char *line, void *context)
 	request = i_new(struct login_host_request, 1);
 	request->conn = conn;
 	request->line = i_strdup(line);
+	request->username = i_strdup(username);
 
 	conn->refcount++;
 	director_request(conn->dir, username, login_host_callback, request);

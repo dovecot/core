@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "str.h"
 #include "mail-host.h"
 #include "user-directory.h"
 #include "director.h"
@@ -21,9 +22,32 @@ struct director_request {
 	void *context;
 };
 
+static const char *
+director_request_get_timeout_error(struct director_request *request)
+{
+	string_t *str = t_str_new(128);
+	unsigned int secs;
+
+	str_printfa(str, "Timeout - queued for %u secs (",
+		    (unsigned int)(ioloop_time - request->create_time));
+
+	if (request->dir->ring_last_sync_time == 0)
+		str_append(str, "Ring has never been synced");
+	else {
+		secs =ioloop_time - request->dir->ring_last_sync_time;
+		if (request->dir->ring_synced)
+			str_printfa(str, "Ring synced for %u secs", secs);
+		else
+			str_printfa(str, "Ring not synced for %u secs", secs);
+	}
+	str_append_c(str, ')');
+	return str_c(str);
+}
+
 static void director_request_timeout(struct director *dir)
 {
 	struct director_request **requestp, *request;
+	const char *errormsg;
 
 	while (array_count(&dir->pending_requests) > 0) {
 		requestp = array_idx_modifiable(&dir->pending_requests, 0);
@@ -34,7 +58,10 @@ static void director_request_timeout(struct director *dir)
 			break;
 
 		array_delete(&dir->pending_requests, 0, 1);
-		request->callback(NULL, request->context);
+		errormsg = director_request_get_timeout_error(request);
+		T_BEGIN {
+			request->callback(NULL, errormsg, request->context);
+		} T_END;
 		i_free(request);
 	}
 
@@ -126,7 +153,9 @@ bool director_request_continue(struct director_request *request)
 	}
 
 	director_update_user(dir, dir->self_host, user);
-	request->callback(&user->host->ip, request->context);
+	T_BEGIN {
+		request->callback(&user->host->ip, NULL, request->context);
+	} T_END;
 	i_free(request);
 	return TRUE;
 }

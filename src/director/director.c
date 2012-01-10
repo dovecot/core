@@ -226,7 +226,16 @@ void director_set_ring_synced(struct director *dir)
 	}
 
 	dir->ring_synced = TRUE;
+	dir->ring_last_sync_time = ioloop_time;
 	director_set_state_changed(dir);
+}
+
+void director_set_ring_unsynced(struct director *dir)
+{
+	if (dir->ring_synced) {
+		dir->ring_synced = FALSE;
+		dir->ring_last_sync_time = ioloop_time;
+	}
 }
 
 static void director_sync(struct director *dir)
@@ -243,7 +252,7 @@ static void director_sync(struct director *dir)
 
 	/* we're synced again when we receive this SYNC back */
 	dir->sync_seq++;
-	dir->ring_synced = FALSE;
+	director_set_ring_unsynced(dir);
 
 	if (dir->debug) {
 		i_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
