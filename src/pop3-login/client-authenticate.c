@@ -4,12 +4,14 @@
 #include "base64.h"
 #include "buffer.h"
 #include "hex-binary.h"
+#include "hostpid.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "time-util.h"
 #include "auth-client.h"
 #include "../pop3/pop3-capability.h"
 #include "ssl-proxy.h"
@@ -52,6 +54,8 @@ bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 bool pop3_client_auth_handle_reply(struct client *client,
 				   const struct client_auth_reply *reply)
 {
+	const char *timestamp, *msg;
+
 	if (!reply->nologin)
 		return FALSE;
 
@@ -59,8 +63,10 @@ bool pop3_client_auth_handle_reply(struct client *client,
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAILED,
 				 reply->reason);
 	} else if (reply->temp) {
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 AUTH_TEMP_FAILED_MSG);
+		timestamp = t_strflocaltime("%Y-%m-%d %H:%M:%S", ioloop_time);
+		msg = t_strdup_printf(AUTH_TEMP_FAILED_MSG" [%s:%s]",
+				      my_hostname, timestamp);
+		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP, msg);
 	} else {
 		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAILED,
 				 AUTH_FAILED_MSG);

@@ -3,12 +3,14 @@
 #include "login-common.h"
 #include "base64.h"
 #include "buffer.h"
+#include "hostpid.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "time-util.h"
 #include "imap-resp-code.h"
 #include "imap-parser.h"
 #include "auth-client.h"
@@ -36,6 +38,7 @@ bool imap_client_auth_handle_reply(struct client *client,
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
 	string_t *str;
+	const char *timestamp, *msg;
 
 	if (reply->host != NULL) {
 		/* IMAP referral
@@ -71,27 +74,24 @@ bool imap_client_auth_handle_reply(struct client *client,
 			client_destroy_success(client, "Login with referral");
 			return TRUE;
 		}
-	} else if (reply->nologin) {
-		/* Authentication went ok, but for some reason user isn't
-		   allowed to log in. Shouldn't probably happen. */
-		if (reply->reason != NULL) {
-			client_send_line(client,
-					 CLIENT_CMD_REPLY_AUTH_FAIL_REASON,
-					 reply->reason);
-		} else if (reply->temp) {
-			client_send_line(client,
-					 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-					 AUTH_TEMP_FAILED_MSG);
-		} else if (reply->authz_failure) {
-			client_send_line(client, CLIENT_CMD_REPLY_AUTHZ_FAILED,
-					 "Authorization failed");
-		} else {
-			client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAILED,
-					 AUTH_FAILED_MSG);
-		}
-	} else {
+	} else if (!reply->nologin) {
 		/* normal login/failure */
 		return FALSE;
+	} else if (reply->reason != NULL) {
+		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_REASON,
+				 reply->reason);
+	} else if (reply->temp) {
+		timestamp = t_strflocaltime("%Y-%m-%d %H:%M:%S", ioloop_time);
+		msg = t_strdup_printf(AUTH_TEMP_FAILED_MSG" [%s:%s]",
+				      my_hostname, timestamp);
+		client_send_line(client,
+				 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP, msg);
+	} else if (reply->authz_failure) {
+		client_send_line(client, CLIENT_CMD_REPLY_AUTHZ_FAILED,
+				 "Authorization failed");
+	} else {
+		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAILED,
+				 AUTH_FAILED_MSG);
 	}
 
 	i_assert(reply->nologin);
