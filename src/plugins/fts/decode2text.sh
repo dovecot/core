@@ -91,3 +91,4 @@ else
   echo "Buggy decoder script: $fmt not handled" >&2
   exit 1
 fi
+exit 0
