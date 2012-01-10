@@ -4,6 +4,7 @@
 #include "hostpid.h"
 #include "ioloop.h"
 #include "write-full.h"
+#include "time-util.h"
 #include "istream.h"
 #include "ostream.h"
 #include "istream-rawlog.h"
