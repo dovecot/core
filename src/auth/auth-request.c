@@ -571,7 +571,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 					      request->mech_password,
 					      &result, TRUE)) {
 			auth_request_log_info(request, "passdb",
-				"Fallbacking to expired data from cache");
+				"Falling back to expired data from cache");
 		}
 	}
 
@@ -708,7 +708,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 						    &cache_cred, &cache_scheme,
 						    &result, TRUE)) {
 			auth_request_log_info(request, "passdb",
-				"Fallbacking to expired data from cache");
+				"Falling back to expired data from cache");
 			passdb_handle_credentials(
 				result, cache_cred, cache_scheme,
 				auth_request_lookup_credentials_finish,
@@ -891,7 +891,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 						   &result, TRUE)) {
 			request->userdb_reply = reply;
 			auth_request_log_info(request, "userdb",
-				"Fallbacking to expired data from cache");
+				"Falling back to expired data from cache");
 		}
 	}
 
