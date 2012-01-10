@@ -296,13 +296,10 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 		return -1;
 	}
 
-	/* keep the fd open since we might want to update it later */
-	if (file_dotlock_replace(&dotlock,
-				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
+	if (file_dotlock_replace(&dotlock, 0) < 0) {
 		i_error("file_dotlock_replace(%s) failed: %m", path);
 		return -1;
 	}
-	root->fd = fd;
 	return 0;
 }
 
@@ -872,8 +869,11 @@ maildir_quota_update(struct quota_root *_root,
 		(void)close(root->fd);
 		root->fd = -1;
 		(void)maildirsize_recalculate(root);
-	} else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0)
+	} else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0) {
+		(void)close(root->fd);
+		root->fd = -1;
 		maildirsize_rebuild_later(root);
+	}
 
 	return 0;
 }
