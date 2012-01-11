@@ -301,6 +301,9 @@ if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	# -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
 	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 
+	# This is simply to avoid warning when building strftime() wrappers..
+	CFLAGS="$CFLAGS -fno-builtin-strftime"
+
 	AC_TRY_COMPILE([
 	#if __GNUC__ < 4
 	#  error old gcc
