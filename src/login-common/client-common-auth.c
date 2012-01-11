@@ -226,14 +226,17 @@ static void proxy_input(struct client *client)
 		client_proxy_failed(client, TRUE);
 		return;
 	case -1:
+		line = i_stream_next_line(input);
 		duration = ioloop_time - client->created;
 		client_log_err(client, t_strdup_printf(
 			"proxy: Remote %s:%u disconnected: %s "
-			"(state=%u, duration=%us)",
+			"(state=%u, duration=%us)%s",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
 			get_disconnect_reason(input),
-			client->proxy_state, duration));
+			client->proxy_state, duration,
+			line == NULL ? "" : t_strdup_printf(
+				" - BUG: line not read: %s", line)));
 		client_proxy_failed(client, TRUE);
 		return;
 	}
