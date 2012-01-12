@@ -389,10 +389,10 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	int argc = *_argc;
 	const char *getopt_str;
 	char **argv = *_argv;
-	char **new_argv, *mailbox = NULL, *alt_char = NULL;
+	char **new_argv, *mailbox = NULL, *alt_char = NULL, *username = NULL;
 	char *p, *dup, new_flags[6];
 	int max_argc, src, dest, i, j;
-	bool flag_f = FALSE, flag_R = FALSE, flag_m, flag_C, has_arg;
+	bool flag_f = FALSE, flag_R = FALSE, flag_m, flag_u, flag_C, has_arg;
 	bool backup_flag = FALSE;
 
 	p = strrchr(argv[0], '/');
@@ -402,7 +402,7 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 
 	/* @UNSAFE: this is called when the "doveadm" binary is called as
 	   "dsync" (for backwards compatibility) */
-	max_argc = argc + 5;
+	max_argc = argc + 7;
 	new_argv = calloc(sizeof(char *), max_argc);
 	new_argv[0] = argv[0];
 	dest = 1;
@@ -413,7 +413,7 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 		if (argv[src][0] != '-')
 			break;
 
-		flag_m = FALSE; flag_C = FALSE; has_arg = FALSE;
+		flag_m = FALSE; flag_C = FALSE; has_arg = FALSE; flag_u = FALSE;
 		dup = strdup(argv[src]);
 		for (i = j = 1; argv[src][i] != '\0'; i++) {
 			switch (argv[src][i]) {
@@ -428,6 +428,9 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 				break;
 			case 'm':
 				flag_m = TRUE;
+				break;
+			case 'u':
+				flag_u = TRUE;
 				break;
 			default:
 				p = strchr(getopt_str, argv[src][i]);
@@ -447,6 +450,11 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 			if (src+1 == argc)
 				i_fatal("-m missing parameter");
 			mailbox = argv[++src];
+		}
+		if (flag_u) {
+			if (src+1 == argc)
+				i_fatal("-u missing parameter");
+			username = argv[++src];
 		}
 		if (flag_C) {
 			if (src+1 == argc)
@@ -503,6 +511,10 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 		new_argv[dest++] = strdup(new_flags);
 		if (mailbox != NULL)
 			new_argv[dest++] = mailbox;
+	}
+	if (username != NULL) {
+		new_argv[dest++] = "-u";
+		new_argv[dest++] = username;
 	}
 
 	/* rest of the parameters */
