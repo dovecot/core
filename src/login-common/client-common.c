@@ -484,6 +484,13 @@ void client_log_err(struct client *client, const char *msg)
 	} T_END;
 }
 
+void client_log_warn(struct client *client, const char *msg)
+{
+	T_BEGIN {
+		i_warning("%s", client_get_log_str(client, msg));
+	} T_END;
+}
+
 bool client_is_trusted(struct client *client)
 {
 	const char *const *net;
@@ -519,6 +526,11 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		if (!ssl_proxy_has_valid_client_cert(client->ssl_proxy))
 			return "(client didn't send a cert)";
 	}
+
+	if (!client->greeting_sent)
+		return t_strdup_printf(
+			"(disconnected before greeting, waited %u secs)",
+			(unsigned int)(ioloop_time - client->created));
 
 	if (client->auth_attempts == 0) {
 		return t_strdup_printf("(no auth attempts in %u secs)",

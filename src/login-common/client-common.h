@@ -152,6 +152,7 @@ unsigned int clients_get_count(void) ATTR_PURE;
 void client_set_title(struct client *client);
 void client_log(struct client *client, const char *msg);
 void client_log_err(struct client *client, const char *msg);
+void client_log_warn(struct client *client, const char *msg);
 const char *client_get_extra_disconnect_reason(struct client *client);
 bool client_is_trusted(struct client *client);
 void client_auth_failed(struct client *client);

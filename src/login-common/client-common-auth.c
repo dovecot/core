@@ -17,6 +17,7 @@
 /* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
+#define GREETING_WARNING_TIMEOUT_MSECS (10*1000)
 
 #define CLIENT_AUTH_BUF_MAX_SIZE 8192
 
@@ -36,6 +37,10 @@ void client_auth_failed(struct client *client)
 
 static void client_auth_waiting_timeout(struct client *client)
 {
+	if (!client->greeting_sent) {
+		client_log_warn(client, "Auth process not responding, "
+				"delayed sending greeting");
+	}
 	client_send_line(client, CLIENT_CMD_REPLY_STATUS,
 			 client->master_tag == 0 ?
 			 AUTH_SERVER_WAITING_MSG : AUTH_MASTER_WAITING_MSG);
@@ -46,7 +51,9 @@ void client_set_auth_waiting(struct client *client)
 {
 	i_assert(client->to_auth_waiting == NULL);
 	client->to_auth_waiting =
-		timeout_add(AUTH_WAITING_TIMEOUT_MSECS,
+		timeout_add(!client->greeting_sent ?
+			    GREETING_WARNING_TIMEOUT_MSECS :
+			    AUTH_WAITING_TIMEOUT_MSECS,
 			    client_auth_waiting_timeout, client);
 }
 
