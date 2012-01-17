@@ -312,6 +312,7 @@ static void lmtp_client_send_data(struct lmtp_client *client)
 				break;
 			if (ret == 0) {
 				/* continue later */
+				o_stream_set_flush_pending(client->output, TRUE);
 				return;
 			}
 		}
