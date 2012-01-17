@@ -48,7 +48,7 @@ static void director_find_self_ip(struct director *dir)
 	i_fatal("director_servers doesn't list ourself");
 }
 
-static void director_find_self(struct director *dir)
+void director_find_self(struct director *dir)
 {
 	if (dir->self_host != NULL)
 		return;
@@ -126,7 +126,6 @@ void director_connect(struct director *dir)
 	struct director_host *const *hosts;
 	unsigned int i, count, self_idx;
 
-	director_find_self(dir);
 	self_idx = director_find_self_idx(dir);
 
 	/* try to connect to first working server on our right side.

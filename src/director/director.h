@@ -66,6 +66,7 @@ director_init(const struct director_settings *set,
 	      const struct ip_addr *listen_ip, unsigned int listen_port,
 	      director_state_change_callback_t *callback);
 void director_deinit(struct director **dir);
+void director_find_self(struct director *dir);
 
 /* Start connecting to other directors */
 void director_connect(struct director *dir);
