@@ -136,9 +136,6 @@ static void main_preinit(void)
 	struct ip_addr listen_ip;
 	unsigned int listen_port;
 
-	restrict_access_by_env(NULL, FALSE);
-	restrict_access_allow_coredumps(TRUE);
-
 	set = master_service_settings_get_others(master_service)[0];
 
 	listen_port = find_inet_listener_port(&listen_ip, set);
@@ -155,6 +152,9 @@ static void main_preinit(void)
 				     set->director_mail_servers) < 0)
 		i_fatal("Invalid value for director_mail_servers setting");
 	director->orig_config_hosts = mail_hosts_dup(director->mail_hosts);
+
+	restrict_access_by_env(NULL, FALSE);
+	restrict_access_allow_coredumps(TRUE);
 }
 
 static void main_deinit(void)
