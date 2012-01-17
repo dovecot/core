@@ -255,13 +255,6 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 	return 0;
 }
 
-static void lmtp_proxy_more_data_sent(void *context)
-{
-	struct lmtp_proxy_connection *conn = context;
-
-	lmtp_client_send_more(conn->client);
-}
-
 static void lmtp_proxy_conn_timeout(struct lmtp_proxy_connection *conn)
 {
 	const char *line;
@@ -295,9 +288,6 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 
 		conn->to = timeout_add(proxy->max_timeout_msecs,
 				       lmtp_proxy_conn_timeout, conn);
-		lmtp_client_set_data_output_callback(conn->client,
-						     lmtp_proxy_more_data_sent,
-						     conn);
 
 		conn->data_input = i_stream_create_limit(data_input, (uoff_t)-1);
 		lmtp_client_set_data_header(conn->client, header);
