@@ -45,6 +45,7 @@ struct digest_auth_request {
 	char *nonce_count;
 	char *qop_value;
 	char *digest_uri; /* may be NULL */
+	char *authzid; /* may be NULL, authorization ID */
 	unsigned char response[32];
 	unsigned long maxbuf;
 	unsigned int nonce_found:1;
@@ -132,7 +133,12 @@ static bool verify_credentials(struct digest_auth_request *request,
 		     { nonce-value, ":" nc-value, ":",
 		       cnonce-value, ":", qop-value, ":", HEX(H(A2)) }))
 
-	   and since we don't support authzid yet:
+	   and if authzid is not empty:
+
+	   A1 = { H( { username-value, ":", realm-value, ":", passwd } ),
+		":", nonce-value, ":", cnonce-value, ":", authzid }
+
+	   else:
 
 	   A1 = { H( { username-value, ":", realm-value, ":", passwd } ),
 		":", nonce-value, ":", cnonce-value }
@@ -154,6 +160,10 @@ static bool verify_credentials(struct digest_auth_request *request,
 	md5_update(&ctx, request->nonce, strlen(request->nonce));
 	md5_update(&ctx, ":", 1);
 	md5_update(&ctx, request->cnonce, strlen(request->cnonce));
+	if (request->authzid != NULL) {
+		md5_update(&ctx, ":", 1);
+		md5_update(&ctx, request->authzid, strlen(request->authzid));
+	}
 	md5_final(&ctx, digest);
 	a1_hex = binary_to_hex(digest, 16);
 
@@ -416,8 +426,18 @@ static bool auth_handle_response(struct digest_auth_request *request,
 	}
 
 	if (strcmp(key, "authzid") == 0) {
-		/* not supported, abort */
-		return FALSE;
+		if (request->authzid != NULL) {
+		    *error = "authzid must not exist more than once";
+		    return FALSE;
+		}
+
+		if (*value == '\0') {
+		    *error = "empty authzid";
+		    return FALSE;
+		}
+
+		request->authzid = p_strdup(request->pool, value);
+		return TRUE;
 	}
 
 	/* unknown key, ignore */
@@ -534,7 +554,11 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 			username = request->username;
 		}
 
-		if (auth_request_set_username(auth_request, username, &error)) {
+		if (auth_request_set_username(auth_request, username, &error) &&
+				(request->authzid == NULL ||
+				 auth_request_set_login_username(auth_request,
+								 request->authzid,
+								 &error))) {
 			auth_request_lookup_credentials(auth_request,
 					"DIGEST-MD5", credentials_callback);
 			return;
