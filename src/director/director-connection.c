@@ -675,6 +675,41 @@ director_connection_handle_handshake(struct director_connection *conn,
 	return FALSE;
 }
 
+static void
+director_connection_sync_host(struct director_connection *conn,
+			      struct director_host *host,
+			      uint32_t seq, const char *line)
+{
+	struct director *dir = conn->dir;
+
+	if (host->self) {
+		if (dir->sync_seq != seq) {
+			/* stale SYNC event */
+			return;
+		}
+
+		if (!dir->ring_handshaked) {
+			/* the ring is handshaked */
+			director_set_ring_handshaked(dir);
+		} else if (dir->ring_synced) {
+			/* duplicate SYNC (which was sent just in case the
+			   previous one got lost) */
+		} else {
+			if (dir->debug) {
+				i_debug("Ring is synced (%s sent seq=%u)",
+					conn->name, seq);
+			}
+			director_set_ring_synced(dir);
+		}
+	} else {
+		/* forward it to the connection on right */
+		if (dir->right != NULL) {
+			director_connection_send(dir->right,
+				t_strconcat(line, "\n", NULL));
+		}
+	}
+}
+
 static bool director_connection_sync(struct director_connection *conn,
 				     const char *const *args, const char *line)
 {
@@ -693,36 +728,16 @@ static bool director_connection_sync(struct director_connection *conn,
 	/* find the originating director. if we don't see it, it was already
 	   removed and we can ignore this sync. */
 	host = director_host_lookup(dir, &ip, port);
-	if (host == NULL)
-		return TRUE;
+	if (host != NULL)
+		director_connection_sync_host(conn, host, seq, line);
 
-	if (host->self) {
-		if (dir->sync_seq != seq) {
-			/* stale SYNC event */
-			return TRUE;
-		}
-
-		if (!dir->ring_handshaked) {
-			/* the ring is handshaked */
-			director_set_ring_handshaked(dir);
-		} else if (dir->ring_synced) {
-			i_error("Received SYNC from %s (seq=%u) "
-				"while already synced", conn->name, seq);
-			return TRUE;
-		} else {
-			if (dir->debug) {
-				i_debug("Ring is synced (%s sent seq=%u)",
-					conn->name, seq);
-			}
-			director_set_ring_synced(dir);
-		}
-		return TRUE;
-	}
-
-	/* forward it to the connection on right */
-	if (dir->right != NULL) {
+	if (!dir->ring_synced && dir->left != NULL && dir->right != NULL &&
+	    (host == NULL || !host->self)) {
+		/* send a new SYNC in case the previous one got dropped */
 		director_connection_send(dir->right,
-					 t_strconcat(line, "\n", NULL));
+			t_strdup_printf("SYNC\t%s\t%u\t%u\n",
+					net_ip2addr(&dir->self_ip),
+					dir->self_port, dir->sync_seq));
 	}
 	return TRUE;
 }
