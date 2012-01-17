@@ -731,14 +731,8 @@ static bool director_connection_sync(struct director_connection *conn,
 	if (host != NULL)
 		director_connection_sync_host(conn, host, seq, line);
 
-	if (!dir->ring_synced && dir->left != NULL && dir->right != NULL &&
-	    (host == NULL || !host->self)) {
-		/* send a new SYNC in case the previous one got dropped */
-		director_connection_send(dir->right,
-			t_strdup_printf("SYNC\t%s\t%u\t%u\n",
-					net_ip2addr(&dir->self_ip),
-					dir->self_port, dir->sync_seq));
-	}
+	if (host == NULL || !host->self)
+		director_resend_sync(dir);
 	return TRUE;
 }
 

@@ -24,6 +24,7 @@ struct director {
 	/* all director connections */
 	struct director_connection *connections;
 	struct timeout *to_reconnect;
+	struct timeout *to_sync;
 
 	/* current mail hosts */
 	struct mail_host_list *mail_hosts;
@@ -75,6 +76,7 @@ void director_set_ring_handshaked(struct director *dir);
 void director_set_ring_synced(struct director *dir);
 void director_set_ring_unsynced(struct director *dir);
 void director_set_state_changed(struct director *dir);
+bool director_resend_sync(struct director *dir);
 
 void director_update_host(struct director *dir, struct director_host *src,
 			  struct director_host *orig_src,

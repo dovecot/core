@@ -17,6 +17,7 @@
 #define DIRECTOR_RECONNECT_TIMEOUT_MSECS (30*1000)
 #define DIRECTOR_USER_MOVE_TIMEOUT_MSECS (30*1000)
 #define DIRECTOR_USER_MOVE_FINISH_DELAY_MSECS (2*1000)
+#define DIRECTOR_SYNC_TIMEOUT_MSECS (15*1000)
 
 static bool director_is_self_ip_set(struct director *dir)
 {
@@ -224,9 +225,34 @@ void director_set_ring_synced(struct director *dir)
 			timeout_remove(&dir->to_reconnect);
 	}
 
+	if (dir->to_sync != NULL)
+		timeout_remove(&dir->to_sync);
 	dir->ring_synced = TRUE;
 	dir->ring_last_sync_time = ioloop_time;
 	director_set_state_changed(dir);
+}
+
+bool director_resend_sync(struct director *dir)
+{
+	if (!dir->ring_synced && dir->left != NULL && dir->right != NULL) {
+		/* send a new SYNC in case the previous one got dropped */
+		director_connection_send(dir->right,
+			t_strdup_printf("SYNC\t%s\t%u\t%u\n",
+					net_ip2addr(&dir->self_ip),
+					dir->self_port, dir->sync_seq));
+		if (dir->to_sync != NULL)
+			timeout_reset(dir->to_sync);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static void director_sync_timeout(struct director *dir)
+{
+	i_assert(!dir->ring_synced);
+
+	if (director_resend_sync(dir))
+		i_error("Ring SYNC appears to have got lost, resending");
 }
 
 void director_set_ring_unsynced(struct director *dir)
@@ -234,6 +260,13 @@ void director_set_ring_unsynced(struct director *dir)
 	if (dir->ring_synced) {
 		dir->ring_synced = FALSE;
 		dir->ring_last_sync_time = ioloop_time;
+	}
+
+	if (dir->to_sync == NULL) {
+		dir->to_sync = timeout_add(DIRECTOR_SYNC_TIMEOUT_MSECS,
+					   director_sync_timeout, dir);
+	} else {
+		timeout_reset(dir->to_sync);
 	}
 }
 
@@ -618,6 +651,8 @@ void director_deinit(struct director **_dir)
 		timeout_remove(&dir->to_handshake_warning);
 	if (dir->to_request != NULL)
 		timeout_remove(&dir->to_request);
+	if (dir->to_sync != NULL)
+		timeout_remove(&dir->to_sync);
 	array_foreach(&dir->dir_hosts, hostp)
 		director_host_free(*hostp);
 	array_free(&dir->pending_requests);
