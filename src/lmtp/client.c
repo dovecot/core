@@ -8,6 +8,8 @@
 #include "istream.h"
 #include "ostream.h"
 #include "hostpid.h"
+#include "var-expand.h"
+#include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "mail-namespace.h"
@@ -136,17 +138,23 @@ static void client_read_settings(struct client *client)
 	struct mail_storage_service_input input;
 	const struct setting_parser_context *set_parser;
 	const char *error;
+	void **sets;
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "lmtp";
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;
+	input.username = "";
 
 	if (mail_storage_service_read_settings(storage_service, &input,
 					       client->pool,
 					       &client->user_set_info,
 					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
+
+	sets = settings_parser_get_list(set_parser) + 1;
+	settings_var_expand(&lmtp_setting_parser_info, sets[2], client->pool,
+		mail_storage_service_get_var_expand_table(storage_service, &input));
 
 	lmtp_settings_dup(set_parser, client->pool,
 			  &client->lmtp_set, &client->set);
@@ -221,8 +229,8 @@ struct client *client_create(int fd_in, int fd_out,
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
-	client_send_line(client, "220 %s Dovecot LMTP ready",
-			 client->my_domain);
+	client_send_line(client, "220 %s %s", client->my_domain,
+			 client->lmtp_set->login_greeting);
 	i_info("Connect from %s", client_remote_id(client));
 	return client;
 }
