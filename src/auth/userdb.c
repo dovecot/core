@@ -137,7 +137,7 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 	unsigned int idx;
 
 	iface = userdb_interface_find(set->driver);
-	if (iface == NULL) {
+	if (iface == NULL || iface->lookup == NULL) {
 		/* maybe it's a plugin. try to load it. */
 		auth_module_load(t_strconcat("authdb_", set->driver, NULL));
 		iface = userdb_interface_find(set->driver);
