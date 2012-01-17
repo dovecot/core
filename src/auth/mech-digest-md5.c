@@ -323,7 +323,7 @@ static bool auth_handle_response(struct digest_auth_request *request,
 		return TRUE;
 	}
 
-	if (strcmp(key, "nonce-count") == 0) {
+	if (strcmp(key, "nc") == 0) {
 		if (request->nonce_count != NULL) {
 			*error = "nonce-count must not exist more than once";
 			return FALSE;
