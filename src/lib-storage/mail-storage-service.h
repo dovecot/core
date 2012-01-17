@@ -109,6 +109,9 @@ mail_storage_service_user_get_input(struct mail_storage_service_user *user);
 struct setting_parser_context *
 mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *user);
 
+const struct var_expand_table *
+mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
+					  struct mail_storage_service_input *input);
 /* Return the settings pointed to by set_root parameter in _init() */
 void *mail_storage_service_get_settings(struct master_service *service);
 

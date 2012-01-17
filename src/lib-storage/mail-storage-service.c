@@ -392,6 +392,18 @@ get_var_expand_table(struct master_service *service,
 	return tab;
 }
 
+const struct var_expand_table *
+mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
+					  struct mail_storage_service_input *input)
+{
+	struct mail_storage_service_privileges priv;
+
+	memset(&priv, 0, sizeof(priv));
+	priv.uid = (uid_t)-1;
+	priv.gid = (gid_t)-1;
+	return get_var_expand_table(ctx->service, input, &priv);
+}
+
 static const char *
 user_expand_varstr(struct master_service *service,
 		   struct mail_storage_service_input *input,
