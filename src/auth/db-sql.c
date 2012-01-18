@@ -23,6 +23,7 @@ static struct setting_def setting_defs[] = {
  	DEF_STR(update_query),
  	DEF_STR(iterate_query),
 	DEF_STR(default_pass_scheme),
+	DEF_BOOL(userdb_warning_disable),
 
 	{ 0, NULL, 0 }
 };
@@ -34,7 +35,8 @@ static struct sql_settings default_sql_settings = {
 	.user_query = "SELECT home, uid, gid FROM users WHERE username = '%n' AND domain = '%d'",
 	.update_query = "UPDATE users SET password = '%w' WHERE username = '%n' AND domain = '%d'",
 	.iterate_query = "SELECT username, domain FROM users",
-	.default_pass_scheme = "MD5"
+	.default_pass_scheme = "MD5",
+	.userdb_warning_disable = FALSE
 };
 
 static struct sql_connection *connections = NULL;
@@ -58,13 +60,15 @@ static const char *parse_setting(const char *key, const char *value,
 				       &conn->set, key, value);
 }
 
-struct sql_connection *db_sql_init(const char *config_path)
+struct sql_connection *db_sql_init(const char *config_path, bool userdb)
 {
 	struct sql_connection *conn;
 	pool_t pool;
 
 	conn = sql_conn_find(config_path);
 	if (conn != NULL) {
+		if (userdb)
+			conn->userdb_used = TRUE;
 		conn->refcount++;
 		return conn;
 	}
@@ -75,6 +79,7 @@ struct sql_connection *db_sql_init(const char *config_path)
 	pool = pool_alloconly_create("sql_connection", 1024);
 	conn = p_new(pool, struct sql_connection, 1);
 	conn->pool = pool;
+	conn->userdb_used = userdb;
 
 	conn->refcount = 1;
 
@@ -122,6 +127,26 @@ void db_sql_unref(struct sql_connection **_conn)
 
 	sql_deinit(&conn->db);
 	pool_unref(&conn->pool);
+}
+
+void db_sql_check_userdb_warning(struct sql_connection *conn)
+{
+	if (worker || conn->userdb_used || conn->set.userdb_warning_disable)
+		return;
+
+	if (strcmp(conn->set.user_query,
+		   default_sql_settings.user_query) != 0) {
+		i_warning("sql: Ignoring changed user_query in %s, "
+			  "because userdb sql not used. "
+			  "(If this is intentional, set userdb_warning_disable=yes)",
+			  conn->config_path);
+	} else if (strcmp(conn->set.iterate_query,
+			  default_sql_settings.iterate_query) != 0) {
+		i_warning("sql: Ignoring changed iterate_query in %s, "
+			  "because userdb sql not used. "
+			  "(If this is intentional, set userdb_warning_disable=yes)",
+			  conn->config_path);
+	}
 }
 
 #endif

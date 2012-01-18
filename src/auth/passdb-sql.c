@@ -251,7 +251,7 @@ passdb_sql_preinit(pool_t pool, const char *args)
 	struct sql_connection *conn;
 
 	module = p_new(pool, struct sql_passdb_module, 1);
-	module->conn = conn = db_sql_init(args);
+	module->conn = conn = db_sql_init(args, FALSE);
 
 	module->module.cache_key =
 		auth_cache_parse_key(pool, conn->set.password_query);
@@ -269,7 +269,8 @@ static void passdb_sql_init(struct passdb_module *_module)
 	module->module.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 
 	if (!module->module.blocking || worker)
-                sql_connect(module->conn->db);
+		sql_connect(module->conn->db);
+	db_sql_check_userdb_warning(module->conn);
 }
 
 static void passdb_sql_deinit(struct passdb_module *_module)
