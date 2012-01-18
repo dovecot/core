@@ -617,7 +617,7 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 			fs_list_next_root(ctx);
 	}
 
-	if (!ctx->inbox_found &&
+	if (!ctx->inbox_found && ctx->ctx.glob != NULL &&
 	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 	    imap_match(ctx->ctx.glob,
 		       fs_list_get_inbox_vname(ctx)) == IMAP_MATCH_YES) {
