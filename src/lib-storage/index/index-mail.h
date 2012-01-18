@@ -78,6 +78,7 @@ struct index_mail_data {
 
 	struct message_part *parts;
 	const char *envelope, *body, *bodystructure, *uid_string, *guid;
+	const char *from_envelope;
 	struct message_part_envelope_data *envelope_data;
 
 	uint32_t seq;
@@ -235,5 +236,6 @@ void index_mail_cache_parse_deinit(struct mail *mail, time_t received_date,
 
 int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 				  unsigned int field_idx);
+void index_mail_save_finish(struct mail_save_context *ctx);
 
 #endif

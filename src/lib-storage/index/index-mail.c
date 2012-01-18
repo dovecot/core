@@ -1077,6 +1077,9 @@ int index_mail_get_special(struct mail *_mail,
 		*value_r = data->envelope;
 		return 0;
 	case MAIL_FETCH_FROM_ENVELOPE:
+		*value_r = data->from_envelope != NULL ?
+			data->from_envelope : "";
+		return 0;
 	case MAIL_FETCH_UIDL_FILE_NAME:
 	case MAIL_FETCH_UIDL_BACKEND:
 	case MAIL_FETCH_SEARCH_RELEVANCY:
@@ -1748,4 +1751,17 @@ int index_mail_opened(struct mail *mail ATTR_UNUSED,
 		      struct istream **stream ATTR_UNUSED)
 {
 	return 0;
+}
+
+void index_mail_save_finish(struct mail_save_context *ctx)
+{
+	struct index_mail *imail = (struct index_mail *)ctx->dest_mail;
+
+	if (imail == NULL)
+		return;
+
+	if (ctx->from_envelope != NULL && imail->data.from_envelope == NULL) {
+		imail->data.from_envelope =
+			p_strdup(imail->data_pool, ctx->from_envelope);
+	}
 }

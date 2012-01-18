@@ -606,6 +606,7 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 
 void index_save_context_free(struct mail_save_context *ctx)
 {
+	index_mail_save_finish(ctx);
 	i_free_and_null(ctx->from_envelope);
 	i_free_and_null(ctx->guid);
 	i_free_and_null(ctx->pop3_uidl);
@@ -698,4 +699,3 @@ int index_storage_set_subscribed(struct mailbox *box, bool set)
 	}
 	return 0;
 }
-
