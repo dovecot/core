@@ -46,11 +46,13 @@ mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
 		{ 'm', NULL, "msgid" },
 		{ 's', NULL, "subject" },
 		{ 'f', NULL, "from" },
+		{ 'e', NULL, "from_envelope" },
 		{ 'p', NULL, "size" },
 		{ 'w', NULL, "vsize" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
+	const char *str;
 	uoff_t size;
 
 	tab = t_malloc(sizeof(static_tab));
@@ -65,10 +67,14 @@ mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
 	tab[2].value = str_sanitize(tab[2].value, 80);
 	tab[3].value = str_sanitize(mail_deliver_get_address(mail, "From"), 80);
 
+	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &str) < 0)
+		str = "";
+	tab[4].value = str_sanitize(str, 80);
+
 	if (mail_get_physical_size(mail, &size) == 0)
-		tab[4].value = dec2str(size);
-	if (mail_get_virtual_size(mail, &size) == 0)
 		tab[5].value = dec2str(size);
+	if (mail_get_virtual_size(mail, &size) == 0)
+		tab[6].value = dec2str(size);
 	return tab;
 }
 
