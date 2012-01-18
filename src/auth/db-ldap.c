@@ -107,6 +107,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(iterate_attrs),
 	DEF_STR(iterate_filter),
 	DEF_STR(default_pass_scheme),
+	DEF_BOOL(userdb_warning_disable),
 
 	{ 0, NULL, 0 }
 };
@@ -141,7 +142,8 @@ static struct ldap_settings default_ldap_settings = {
 	.pass_filter = "(&(objectClass=posixAccount)(uid=%u))",
 	.iterate_attrs = "uid=user",
 	.iterate_filter = "(objectClass=posixAccount)",
-	.default_pass_scheme = "crypt"
+	.default_pass_scheme = "crypt",
+	.userdb_warning_disable = FALSE
 };
 
 static struct ldap_connection *ldap_connections = NULL;
@@ -1253,7 +1255,7 @@ static struct ldap_connection *ldap_conn_find(const char *config_path)
 	return NULL;
 }
 
-struct ldap_connection *db_ldap_init(const char *config_path)
+struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 {
 	struct ldap_connection *conn;
 	const char *str;
@@ -1262,6 +1264,8 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	/* see if it already exists */
 	conn = ldap_conn_find(config_path);
 	if (conn != NULL) {
+		if (userdb)
+			conn->userdb_used = TRUE;
 		conn->refcount++;
 		return conn;
 	}
@@ -1274,6 +1278,7 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	conn->pool = pool;
 	conn->refcount = 1;
 
+	conn->userdb_used = userdb;
 	conn->conn_state = LDAP_CONN_STATE_DISCONNECTED;
 	conn->default_bind_msgid = -1;
 	conn->fd = -1;
@@ -1346,6 +1351,33 @@ void db_ldap_unref(struct ldap_connection **_conn)
 	if (conn->user_attr_map != NULL)
 		hash_table_destroy(&conn->user_attr_map);
 	pool_unref(&conn->pool);
+}
+
+void db_ldap_check_userdb_warning(struct ldap_connection *conn)
+{
+	const struct ldap_settings *def = &default_ldap_settings;
+	const char *set_name;
+
+	if (worker || conn->userdb_used || conn->set.userdb_warning_disable)
+		return;
+
+	if (strcmp(conn->set.user_attrs, def->user_attrs) != 0)
+		set_name = "user_attrs";
+	else if (strcmp(conn->set.user_filter, def->user_filter) != 0)
+		set_name = "user_filter";
+	else if (strcmp(conn->set.iterate_attrs, def->iterate_attrs) != 0)
+		set_name = "iterate_attrs";
+	else if (strcmp(conn->set.iterate_filter, def->iterate_filter) != 0)
+		set_name = "iterate_filter";
+	else
+		set_name = NULL;
+
+	if (set_name != NULL) {
+		i_warning("ldap: Ignoring changed %s in %s, "
+			  "because userdb ldap not used. "
+			  "(If this is intentional, set userdb_warning_disable=yes)",
+			  set_name, conn->config_path);
+	}
 }
 
 #ifndef BUILTIN_LDAP

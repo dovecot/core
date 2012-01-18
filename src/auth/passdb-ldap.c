@@ -407,7 +407,7 @@ passdb_ldap_preinit(pool_t pool, const char *args)
 	struct ldap_connection *conn;
 
 	module = p_new(pool, struct ldap_passdb_module, 1);
-	module->conn = conn = db_ldap_init(args);
+	module->conn = conn = db_ldap_init(args, FALSE);
 	conn->pass_attr_map =
 		hash_table_create(default_pool, conn->pool, 0, strcase_hash,
 				  (hash_cmp_callback_t *)strcasecmp);
@@ -434,6 +434,7 @@ static void passdb_ldap_init(struct passdb_module *_module)
 		/* Credential lookups can't be done with authentication binds */
 		_module->iface.lookup_credentials = NULL;
 	}
+	db_ldap_check_userdb_warning(module->conn);
 }
 
 static void passdb_ldap_deinit(struct passdb_module *_module)

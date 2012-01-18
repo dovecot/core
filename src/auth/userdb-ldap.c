@@ -260,7 +260,7 @@ userdb_ldap_preinit(pool_t pool, const char *args)
 	struct ldap_connection *conn;
 
 	module = p_new(pool, struct ldap_userdb_module, 1);
-	module->conn = conn = db_ldap_init(args);
+	module->conn = conn = db_ldap_init(args, TRUE);
 	conn->user_attr_map =
 		hash_table_create(default_pool, conn->pool, 0, strcase_hash,
 				  (hash_cmp_callback_t *)strcasecmp);

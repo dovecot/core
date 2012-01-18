@@ -63,6 +63,7 @@ struct ldap_settings {
 	const char *iterate_filter;
 
 	const char *default_pass_scheme;
+	bool userdb_warning_disable;
 
 	/* ... */
 	int ldap_deref, ldap_scope;
@@ -147,6 +148,7 @@ struct ldap_connection {
 
 	char **pass_attr_names, **user_attr_names, **iterate_attr_names;
 	struct hash_table *pass_attr_map, *user_attr_map, *iterate_attr_map;
+	bool userdb_used;
 };
 
 /* Send/queue request */
@@ -157,9 +159,10 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,
 		       const char *skip_attr);
 
-struct ldap_connection *db_ldap_init(const char *config_path);
+struct ldap_connection *db_ldap_init(const char *config_path, bool userdb);
 void db_ldap_unref(struct ldap_connection **conn);
 
+void db_ldap_check_userdb_warning(struct ldap_connection *conn);
 int db_ldap_connect(struct ldap_connection *conn);
 
 void db_ldap_enable_input(struct ldap_connection *conn, bool enable);
