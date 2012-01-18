@@ -231,16 +231,19 @@ static void service_monitor_listen_pending(struct service *service)
 static void service_drop_connections(struct service_listener *l)
 {
 	struct service *service = l->service;
+	unsigned int limit;
 	int fd;
 
 	if (service->last_drop_warning +
 	    SERVICE_DROP_WARN_INTERVAL_SECS < ioloop_time) {
 		service->last_drop_warning = ioloop_time;
-		i_warning("service(%s): %s reached, "
+		limit = service->process_limit > 1 ?
+			service->process_limit : service->client_limit;
+		i_warning("service(%s): %s (%u) reached, "
 			  "client connections are being dropped",
 			  service->set->name,
 			  service->process_limit > 1 ?
-			  "process_limit" : "client_limit");
+			  "process_limit" : "client_limit", limit);
 	}
 
 	if (service->type == SERVICE_TYPE_LOGIN) {
