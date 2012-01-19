@@ -39,8 +39,7 @@ static bool user_callback(const char *reply, void *context)
 	if (*args != '\0') {
 		request->userdb_reply = auth_stream_reply_init(request->pool);
 		auth_stream_reply_import(request->userdb_reply, args);
-		if (auth_stream_reply_find(request->userdb_reply,
-					   "tempfail") != NULL)
+		if (auth_stream_reply_exists(request->userdb_reply, "tempfail"))
 			request->userdb_lookup_failed = TRUE;
 	}
 

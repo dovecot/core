@@ -108,6 +108,13 @@ const char *auth_stream_reply_find(struct auth_stream_reply *reply,
 	}
 }
 
+bool auth_stream_reply_exists(struct auth_stream_reply *reply, const char *key)
+{
+	unsigned int idx, len;
+
+	return auth_stream_reply_find_area(reply, key, &idx, &len);
+}
+
 void auth_stream_reply_reset(struct auth_stream_reply *reply)
 {
 	str_truncate(reply->str, 0);
