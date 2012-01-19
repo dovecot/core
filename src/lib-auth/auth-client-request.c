@@ -82,9 +82,9 @@ auth_client_request_new(struct auth_client *client,
 	request->request_info.mech = p_strdup(pool, request_info->mech);
 	request->request_info.service = p_strdup(pool, request_info->service);
 	request->request_info.cert_username =
-		p_strdup(pool, request_info->cert_username);
+		p_strdup_empty(pool, request_info->cert_username);
 	request->request_info.initial_resp_base64 =
-		p_strdup(pool, request_info->initial_resp_base64);
+		p_strdup_empty(pool, request_info->initial_resp_base64);
 	
 	request->callback = callback;
 	request->context = context;
