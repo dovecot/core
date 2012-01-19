@@ -71,16 +71,6 @@ void auth_refresh_proctitle(void)
 		auth_request_state_count[AUTH_REQUEST_STATE_USERDB]));
 }
 
-void auth_worker_refresh_proctitle(const char *state)
-{
-	if (!global_auth_settings->verbose_proctitle || !worker)
-		return;
-
-	if (state == NULL)
-		state = "waiting for connection";
-	process_title_set(t_strdup_printf("worker: %s", state));
-}
-
 static const char *const *read_global_settings(void)
 {
 	struct master_service_settings_output set_output;
@@ -235,6 +225,10 @@ static void main_init(void)
 	lib_signals_ignore(SIGHUP, TRUE);
 	lib_signals_ignore(SIGUSR2, TRUE);
 
+	/* set proctitles before init()s, since they may set them to error */
+	auth_refresh_proctitle();
+	auth_worker_refresh_proctitle(NULL);
+
 	child_wait_init();
 	auth_worker_server_init();
 	auths_init();
@@ -248,8 +242,6 @@ static void main_init(void)
 		/* caching is handled only by the main auth process */
 		passdb_cache_init(global_auth_settings);
 	}
-	auth_refresh_proctitle();
-	auth_worker_refresh_proctitle(NULL);
 }
 
 static void main_deinit(void)

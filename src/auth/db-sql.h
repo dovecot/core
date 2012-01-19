@@ -34,6 +34,9 @@ struct sql_connection {
 struct sql_connection *db_sql_init(const char *config_path, bool userdb);
 void db_sql_unref(struct sql_connection **conn);
 
+void db_sql_connect(struct sql_connection *conn);
+void db_sql_success(struct sql_connection *conn);
+
 void db_sql_check_userdb_warning(struct sql_connection *conn);
 
 #endif

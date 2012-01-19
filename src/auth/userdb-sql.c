@@ -67,6 +67,8 @@ static void sql_query_callback(struct sql_result *sql_result,
 	int ret;
 
 	ret = sql_result_next_row(sql_result);
+	if (ret >= 0)
+		db_sql_success(module->conn);
 	if (ret < 0) {
 		if (!module->conn->default_user_query) {
 			auth_request_log_error(auth_request, "sql",
@@ -212,6 +214,8 @@ static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
 	}
 
 	ret = sql_result_next_row(ctx->result);
+	if (ret >= 0)
+		db_sql_success(module->conn);
 	if (ret > 0) {
 		if (userdb_sql_iterate_get_user(ctx, &user) < 0)
 			i_error("sql: Iterate query didn't return 'user' field");
@@ -278,7 +282,7 @@ static void userdb_sql_init(struct userdb_module *_module)
 	_module->blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 
 	if (!_module->blocking || worker)
-		sql_connect(module->conn->db);
+		db_sql_connect(module->conn);
 }
 
 static void userdb_sql_deinit(struct userdb_module *_module)

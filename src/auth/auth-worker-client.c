@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "process-title.h"
 #include "master-service.h"
 #include "auth-request.h"
 #include "auth-worker-client.h"
@@ -30,6 +31,7 @@ struct auth_worker_client {
 
 	unsigned int version_received:1;
 	unsigned int dbhash_received:1;
+	unsigned int error_sent:1;
 };
 
 struct auth_worker_list_context {
@@ -40,9 +42,22 @@ struct auth_worker_list_context {
 };
 
 struct auth_worker_client *auth_worker_client;
+static bool auth_worker_client_error = FALSE;
 
 static void auth_worker_input(struct auth_worker_client *client);
 static int auth_worker_output(struct auth_worker_client *client);
+
+void auth_worker_refresh_proctitle(const char *state)
+{
+	if (!global_auth_settings->verbose_proctitle || !worker)
+		return;
+
+	if (auth_worker_client_error)
+		state = "error";
+	else if (auth_worker_client == NULL)
+		state = "waiting for connection";
+	process_title_set(t_strdup_printf("worker: %s", state));
+}
 
 static void
 auth_worker_client_check_throttle(struct auth_worker_client *client)
@@ -673,6 +688,8 @@ auth_worker_client_create(struct auth *auth, int fd)
 	auth_worker_refresh_proctitle(CLIENT_STATE_HANDSHAKE);
 
 	auth_worker_client = client;
+	if (auth_worker_client_error)
+		auth_worker_client_send_error();
 	return client;
 }
 
@@ -694,8 +711,8 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 	client->fd = -1;
 	auth_worker_client_unref(&client);
 
-	auth_worker_refresh_proctitle(NULL);
 	auth_worker_client = NULL;
+	auth_worker_refresh_proctitle("");
 	master_service_client_connection_destroyed(master_service);
 }
 
@@ -711,4 +728,26 @@ void auth_worker_client_unref(struct auth_worker_client **_client)
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
 	i_free(client);
+}
+
+void auth_worker_client_send_error(void)
+{
+	auth_worker_client_error = TRUE;
+	if (auth_worker_client != NULL &&
+	    !auth_worker_client->error_sent) {
+		o_stream_send_str(auth_worker_client->output, "ERROR\n");
+		auth_worker_client->error_sent = TRUE;
+	}
+	auth_worker_refresh_proctitle("");
+}
+
+void auth_worker_client_send_success(void)
+{
+	auth_worker_client_error = FALSE;
+	if (auth_worker_client != NULL &&
+	    auth_worker_client->error_sent) {
+		o_stream_send_str(auth_worker_client->output, "SUCCESS\n");
+		auth_worker_client->error_sent = FALSE;
+	}
+	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 }

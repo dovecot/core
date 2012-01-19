@@ -66,6 +66,8 @@ static void sql_query_callback(struct sql_result *result,
 	password = NULL;
 
 	ret = sql_result_next_row(result);
+	if (ret >= 0)
+		db_sql_success(module->conn);
 	if (ret < 0) {
 		if (!module->conn->default_password_query) {
 			auth_request_log_error(auth_request, "sql",
@@ -269,7 +271,7 @@ static void passdb_sql_init(struct passdb_module *_module)
 	module->module.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 
 	if (!module->module.blocking || worker)
-		sql_connect(module->conn->db);
+		db_sql_connect(module->conn);
 	db_sql_check_userdb_warning(module->conn);
 }
 

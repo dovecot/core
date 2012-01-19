@@ -282,6 +282,11 @@ static bool auth_settings_check(void *_set, pool_t pool,
 	if (set->debug)
 		set->verbose = TRUE;
 
+	if (set->worker_max_count == 0) {
+		*error_r = "auth_worker_max_count must be above zero";
+		return FALSE;
+	}
+
 	if (set->cache_size > 0 && set->cache_size < 1024) {
 		/* probably a configuration error.
 		   older versions used megabyte numbers */
