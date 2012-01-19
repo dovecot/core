@@ -16,6 +16,9 @@
 
 #define OUTBUF_THROTTLE_SIZE (1024*10)
 
+#define CLIENT_STATE_HANDSHAKE "handshaking"
+#define CLIENT_STATE_IDLE "idling"
+
 struct auth_worker_client {
 	int refcount;
 
@@ -534,6 +537,7 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 		return FALSE;
 	}
 
+	auth_worker_refresh_proctitle(args[1]);
 	if (strcmp(args[1], "PASSV") == 0)
 		ret = auth_worker_handle_passv(client, id, args + 2);
 	else if (strcmp(args[1], "PASSL") == 0)
@@ -548,6 +552,7 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 		i_error("BUG: Auth-worker received unknown command: %s",
 			args[1]);
 	}
+	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
         return ret;
 }
 
@@ -616,6 +621,7 @@ static void auth_worker_input(struct auth_worker_client *client)
 			return;
 		}
 		client->dbhash_received = TRUE;
+		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 	}
 
         client->refcount++;
@@ -664,6 +670,7 @@ auth_worker_client_create(struct auth *auth, int fd)
 	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	o_stream_set_flush_callback(client->output, auth_worker_output, client);
 	client->io = io_add(fd, IO_READ, auth_worker_input, client);
+	auth_worker_refresh_proctitle(CLIENT_STATE_HANDSHAKE);
 
 	auth_worker_client = client;
 	return client;
@@ -687,6 +694,7 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 	client->fd = -1;
 	auth_worker_client_unref(&client);
 
+	auth_worker_refresh_proctitle(NULL);
 	auth_worker_client = NULL;
 	master_service_client_connection_destroyed(master_service);
 }

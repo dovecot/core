@@ -59,21 +59,26 @@ static ARRAY_DEFINE(listeners, struct auth_socket_listener);
 
 void auth_refresh_proctitle(void)
 {
-	const char *auth_worker_prefix;
-
-	if (!global_auth_settings->verbose_proctitle)
+	if (!global_auth_settings->verbose_proctitle || worker)
 		return;
 
-	auth_worker_prefix = worker ? "worker " : "";
-
 	process_title_set(t_strdup_printf(
-		"%s[%u wait, %u passdb, %u userdb]",
-		auth_worker_prefix,
+		"[%u wait, %u passdb, %u userdb]",
 		auth_request_state_count[AUTH_REQUEST_STATE_NEW] +
 		auth_request_state_count[AUTH_REQUEST_STATE_MECH_CONTINUE] +
 		auth_request_state_count[AUTH_REQUEST_STATE_FINISHED],
 		auth_request_state_count[AUTH_REQUEST_STATE_PASSDB],
 		auth_request_state_count[AUTH_REQUEST_STATE_USERDB]));
+}
+
+void auth_worker_refresh_proctitle(const char *state)
+{
+	if (!global_auth_settings->verbose_proctitle || !worker)
+		return;
+
+	if (state == NULL)
+		state = "waiting for connection";
+	process_title_set(t_strdup_printf("worker: %s", state));
 }
 
 static const char *const *read_global_settings(void)
@@ -244,6 +249,7 @@ static void main_init(void)
 		passdb_cache_init(global_auth_settings);
 	}
 	auth_refresh_proctitle();
+	auth_worker_refresh_proctitle(NULL);
 }
 
 static void main_deinit(void)
