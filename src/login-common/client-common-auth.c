@@ -335,7 +335,7 @@ client_auth_handle_reply(struct client *client,
 	return client->v.auth_handle_reply(client, reply);
 }
 
-static int client_auth_read_line(struct client *client)
+int client_auth_read_line(struct client *client)
 {
 	const unsigned char *data;
 	size_t i, size;
@@ -351,6 +351,8 @@ static int client_auth_read_line(struct client *client)
 		if (data[i] == '\n')
 			break;
 	}
+	if (client->auth_response == NULL)
+		client->auth_response = str_new(default_pool, I_MAX(i+1, 256));
 	if (str_len(client->auth_response) + i > CLIENT_AUTH_BUF_MAX_SIZE) {
 		client_destroy(client, "Authentication response too large");
 		return -1;
@@ -480,7 +482,8 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
 
-		str_truncate(client->auth_response, 0);
+		if (client->auth_response != NULL)
+			str_truncate(client->auth_response, 0);
 
 		i_assert(client->io == NULL);
 		client->auth_waiting = TRUE;
@@ -507,9 +510,6 @@ int client_auth_begin(struct client *client, const char *mech_name,
 		return 1;
 	}
 
-
-	if (client->auth_response == NULL)
-		client->auth_response = str_new(default_pool, 256);
 
 	client_ref(client);
 	client->auth_initializing = TRUE;

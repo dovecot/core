@@ -4,6 +4,9 @@
 #include "network.h"
 #include "client-common.h"
 
+/* Master prefix is: <1|0><imap tag><NUL> */
+#define IMAP_TAG_MAX_LEN (LOGIN_MAX_MASTER_PREFIX_LEN-2)
+
 struct imap_client {
 	struct client common;
 

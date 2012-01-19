@@ -13,9 +13,8 @@ struct master_service;
 /* Authentication client process's cookie size */
 #define MASTER_AUTH_COOKIE_SIZE (128/8)
 
-/* This should be kept in sync with LOGIN_MAX_INBUF_SIZE. Multiply it by two
-   to make sure there's space to transfer the command tag  */
-#define MASTER_AUTH_MAX_DATA_SIZE (1024*2)
+/* LOGIN_MAX_INBUF_SIZE should be based on this.*/
+#define MASTER_AUTH_MAX_DATA_SIZE 1024
 
 #define MASTER_AUTH_ERRMSG_INTERNAL_FAILURE \
 	"Internal error occurred. Refer to server log for more information."

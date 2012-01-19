@@ -5,13 +5,16 @@
 #include "login-proxy.h"
 #include "sasl-server.h"
 
+#define LOGIN_MAX_MASTER_PREFIX_LEN 128
+
 /* max. size of input buffer. this means:
 
-   IMAP: Max. length of a single parameter. SASL initial response can be
-         long with GSSAPI.
+   IMAP: Max. length of command's all parameters. SASL-IR is read into
+         a separate larger buffer.
    POP3: Max. length of a command line (spec says 512 would be enough)
 */
-#define LOGIN_MAX_INBUF_SIZE 4096
+#define LOGIN_MAX_INBUF_SIZE \
+	(MASTER_AUTH_MAX_DATA_SIZE - LOGIN_MAX_MASTER_PREFIX_LEN)
 /* max. size of output buffer. if it gets full, the client is disconnected.
    SASL authentication gives the largest output. */
 #define LOGIN_MAX_OUTBUF_SIZE 4096
@@ -171,6 +174,7 @@ int client_auth_parse_response(struct client *client);
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp);
 bool client_check_plaintext_auth(struct client *client, bool pass_sent);
+int client_auth_read_line(struct client *client);
 
 void client_proxy_finish_destroy_client(struct client *client);
 void client_proxy_log_failure(struct client *client, const char *line);
