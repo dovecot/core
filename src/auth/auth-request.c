@@ -1151,6 +1151,7 @@ static void auth_request_set_reply_field(struct auth_request *request,
 
 	if (request->extra_fields == NULL)
 		request->extra_fields = auth_stream_reply_init(request->pool);
+	auth_stream_reply_remove(request->extra_fields, name);
 	auth_stream_reply_add(request->extra_fields, name, value);
 }
 
@@ -1366,6 +1367,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		name = "system_groups_user";
 	}
 
+	auth_stream_reply_remove(request->userdb_reply, name);
 	auth_stream_reply_add(request->userdb_reply, name, value);
 }
 
