@@ -51,7 +51,7 @@ void passdb_template_export(struct passdb_template *tmpl,
 	i_assert((count % 2) == 0);
 	for (i = 0; i < count; i += 2) {
 		if (args[i+1] == NULL)
-			value = NULL;
+			value = "";
 		else {
 			str_truncate(str, 0);
 			var_expand(str, args[i+1], table);
