@@ -162,7 +162,7 @@ void client_destroy(struct client *client, const char *reason)
 		   authentication anymore, so close the connection.
 		   do this only with initial service_count=1, in case there
 		   are other clients with pending authentications */
-		auth_client_disconnect(auth_client);
+		auth_client_disconnect(auth_client, "unnecessary connection");
 	}
 	login_client_destroyed();
 	login_refresh_proctitle();

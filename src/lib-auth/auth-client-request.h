@@ -4,6 +4,7 @@
 struct auth_server_connection;
 
 bool auth_client_request_is_aborted(struct auth_client_request *request);
+time_t auth_client_request_get_create_time(struct auth_client_request *request);
 
 void auth_client_request_server_input(struct auth_client_request *request,
 				      enum auth_request_status status,

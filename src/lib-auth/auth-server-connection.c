@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
+#include "hostpid.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -20,7 +21,8 @@
 #define AUTH_SERVER_RECONNECT_TIMEOUT_SECS 5
 
 static void
-auth_server_connection_reconnect(struct auth_server_connection *conn);
+auth_server_connection_reconnect(struct auth_server_connection *conn,
+				 const char *disconnect_reason);
 
 static int
 auth_server_input_mech(struct auth_server_connection *conn,
@@ -235,7 +237,7 @@ auth_server_connection_input_line(struct auth_server_connection *conn,
 static void auth_server_connection_input(struct auth_server_connection *conn)
 {
 	struct istream *input;
-	const char *line;
+	const char *line, *error;
 	int ret;
 
 	switch (i_stream_read(conn->input)) {
@@ -243,13 +245,15 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		auth_server_connection_reconnect(conn);
+		error = conn->input->stream_errno != 0 ?
+			strerror(conn->input->stream_errno) : "EOF";
+		auth_server_connection_reconnect(conn, error);
 		return;
 	case -2:
 		/* buffer full - can't happen unless auth is buggy */
 		i_error("BUG: Auth server sent us more than %d bytes of data",
 			AUTH_SERVER_CONN_MAX_LINE_LENGTH);
-		auth_server_connection_disconnect(conn);
+		auth_server_connection_disconnect(conn, "buffer full");
 		return;
 	}
 
@@ -264,7 +268,8 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 				     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Authentication server not compatible with "
 				"this client (mixed old and new binaries?)");
-			auth_server_connection_disconnect(conn);
+			auth_server_connection_disconnect(conn,
+				"incompatible serevr");
 			return;
 		}
 		conn->version_received = TRUE;
@@ -278,7 +283,8 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 		} T_END;
 
 		if (ret < 0) {
-			auth_server_connection_disconnect(conn);
+			auth_server_connection_disconnect(conn, t_strdup_printf(
+				"Received broken input: %s", line));
 			break;
 		}
 	}
@@ -303,31 +309,45 @@ auth_server_connection_init(struct auth_client *client)
 }
 
 static void
-auth_server_connection_remove_requests(struct auth_server_connection *conn)
+auth_server_connection_remove_requests(struct auth_server_connection *conn,
+				       const char *disconnect_reason)
 {
 	static const char *const temp_failure_args[] = { "temp", NULL };
 	struct hash_iterate_context *iter;
 	void *key, *value;
-	unsigned int request_count = hash_table_count(conn->requests);
+	time_t created, oldest = 0;
+	unsigned int request_count = 0;
 
-	if (request_count == 0)
+	if (hash_table_count(conn->requests) == 0)
 		return;
 
-	i_warning("Auth connection closed with %u pending requests",
-		  request_count);
 	iter = hash_table_iterate_init(conn->requests);
 	while (hash_table_iterate(iter, &key, &value)) {
 		struct auth_client_request *request = value;
+
+		if (!auth_client_request_is_aborted(request)) {
+			request_count++;
+			created = auth_client_request_get_create_time(request);
+			if (oldest > created || oldest == 0)
+				oldest = created;
+		}
 
 		auth_client_request_server_input(request,
 			AUTH_REQUEST_STATUS_INTERNAL_FAIL,
 			temp_failure_args);
 	}
+
+	i_warning("Auth connection closed with %u pending requests "
+		  "(max %u secs, pid=%s, %s)", request_count,
+		  (unsigned int)(ioloop_time - oldest),
+		  my_pid, disconnect_reason);
+
 	hash_table_iterate_deinit(&iter);
 	hash_table_clear(conn->requests, FALSE);
 }
 
-void auth_server_connection_disconnect(struct auth_server_connection *conn)
+void auth_server_connection_disconnect(struct auth_server_connection *conn,
+				       const char *reason)
 {
 	conn->handshake_received = FALSE;
 	conn->version_received = FALSE;
@@ -350,7 +370,7 @@ void auth_server_connection_disconnect(struct auth_server_connection *conn)
 		conn->fd = -1;
 	}
 
-	auth_server_connection_remove_requests(conn);
+	auth_server_connection_remove_requests(conn, reason);
 
 	if (conn->client->connect_notify_callback != NULL) {
 		conn->client->connect_notify_callback(conn->client, FALSE,
@@ -364,11 +384,12 @@ static void auth_server_reconnect_timeout(struct auth_server_connection *conn)
 }
 
 static void
-auth_server_connection_reconnect(struct auth_server_connection *conn)
+auth_server_connection_reconnect(struct auth_server_connection *conn,
+				 const char *disconnect_reason)
 {
 	time_t next_connect;
 
-	auth_server_connection_disconnect(conn);
+	auth_server_connection_disconnect(conn, disconnect_reason);
 
 	next_connect = conn->last_connect + AUTH_SERVER_RECONNECT_TIMEOUT_SECS;
 	conn->to = timeout_add(ioloop_time >= next_connect ? 0 :
@@ -382,7 +403,7 @@ void auth_server_connection_deinit(struct auth_server_connection **_conn)
 
 	*_conn = NULL;
 
-	auth_server_connection_disconnect(conn);
+	auth_server_connection_disconnect(conn, "deinitializing");
 	i_assert(hash_table_count(conn->requests) == 0);
 	hash_table_destroy(&conn->requests);
 	array_free(&conn->available_auth_mechs);
@@ -394,7 +415,7 @@ static void auth_client_handshake_timeout(struct auth_server_connection *conn)
 	i_error("Timeout waiting for handshake from auth server. "
 		"my pid=%u, input bytes=%"PRIuUOFF_T,
 		conn->client->client_pid, conn->input->v_offset);
-	auth_server_connection_reconnect(conn);
+	auth_server_connection_reconnect(conn, "auth server timeout");
 }
 
 int auth_server_connection_connect(struct auth_server_connection *conn)
@@ -434,7 +455,8 @@ int auth_server_connection_connect(struct auth_server_connection *conn)
 				    conn->client->client_pid);
 	if (o_stream_send_str(conn->output, handshake) < 0) {
 		i_warning("Error sending handshake to auth server: %m");
-		auth_server_connection_disconnect(conn);
+		auth_server_connection_disconnect(conn,
+			strerror(conn->output->last_failed_errno));
 		return -1;
 	}
 

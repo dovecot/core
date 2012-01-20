@@ -73,7 +73,7 @@ static void auth_client_idle_timeout(struct auth_client *auth_client)
 {
 	i_assert(clients == NULL);
 
-	auth_client_disconnect(auth_client);
+	auth_client_disconnect(auth_client, "idle disconnect");
 	timeout_remove(&auth_client_to);
 }
 

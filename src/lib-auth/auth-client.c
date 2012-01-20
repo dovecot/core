@@ -37,9 +37,9 @@ void auth_client_connect(struct auth_client *client)
 		auth_server_connection_connect(client->conn);
 }
 
-void auth_client_disconnect(struct auth_client *client)
+void auth_client_disconnect(struct auth_client *client, const char *reason)
 {
-	auth_server_connection_disconnect(client->conn);
+	auth_server_connection_disconnect(client->conn, reason);
 }
 
 bool auth_client_is_connected(struct auth_client *client)

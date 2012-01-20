@@ -15,6 +15,7 @@ struct auth_client_request {
 
 	struct auth_server_connection *conn;
 	unsigned int id;
+	time_t created;
 
 	struct auth_request_info request_info;
 
@@ -91,6 +92,7 @@ auth_client_request_new(struct auth_client *client,
 
 	request->id =
 		auth_server_connection_add_request(request->conn, request);
+	request->created = ioloop_time;
 	T_BEGIN {
 		auth_server_send_new_request(request->conn, request);
 	} T_END;
@@ -157,6 +159,11 @@ const char *auth_client_request_get_cookie(struct auth_client_request *request)
 bool auth_client_request_is_aborted(struct auth_client_request *request)
 {
 	return request->callback == NULL;
+}
+
+time_t auth_client_request_get_create_time(struct auth_client_request *request)
+{
+	return request->created;
 }
 
 void auth_client_request_server_input(struct auth_client_request *request,
