@@ -706,6 +706,14 @@ static int maildirsize_update(struct maildir_quota_root *root,
 			i_error("write_full(%s) failed: %m",
 				root->maildirsize_path);
 		}
+	} else {
+		/* close the file to force a flush with NFS */
+		if (close(root->fd) < 0) {
+			ret = -1;
+			if (errno != ESTALE)
+				i_error("close(%s) failed: %m", root->maildirsize_path);
+		}
+		root->fd = -1;
 	}
 	return ret;
 }
@@ -870,8 +878,10 @@ maildir_quota_update(struct quota_root *_root,
 		root->fd = -1;
 		(void)maildirsize_recalculate(root);
 	} else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0) {
-		(void)close(root->fd);
-		root->fd = -1;
+		if (root->fd != -1) {
+			(void)close(root->fd);
+			root->fd = -1;
+		}
 		maildirsize_rebuild_later(root);
 	}
 
