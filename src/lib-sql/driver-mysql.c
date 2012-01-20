@@ -21,6 +21,7 @@ struct mysql_db {
 	const char *ssl_cert, *ssl_key, *ssl_ca, *ssl_ca_path, *ssl_cipher;
 	const char *option_file, *option_group;
 	unsigned int port, client_flags;
+	time_t last_success;
 
 	MYSQL *mysql;
 	unsigned int next_query_connection;
@@ -128,6 +129,7 @@ static int driver_mysql_connect(struct sql_db *_db)
 		i_info("%s: Connected to database %s%s", mysql_prefix(db),
 		       db->dbname, db->ssl_set ? " using SSL" : "");
 
+		db->last_success = ioloop_time;
 		sql_db_set_state(&db->api, SQL_DB_STATE_IDLE);
 		return 1;
 	}
@@ -354,6 +356,7 @@ static int driver_mysql_result_next_row(struct sql_result *_result)
 {
 	struct mysql_result *result = (struct mysql_result *)_result;
 	struct mysql_db *db = (struct mysql_db *)_result->db;
+	int ret;
 
 	if (result->result == NULL) {
 		/* no results */
@@ -362,9 +365,14 @@ static int driver_mysql_result_next_row(struct sql_result *_result)
 
 	result->row = mysql_fetch_row(result->result);
 	if (result->row != NULL)
-		return 1;
-
-	return mysql_errno(db->mysql) != 0 ? -1 : 0;
+		ret = 1;
+	else {
+		if (mysql_errno(db->mysql) != 0)
+			return -1;
+		ret = 0;
+	}
+	db->last_success = ioloop_time;
+	return ret;
 }
 
 static void driver_mysql_result_fetch_fields(struct mysql_result *result)
@@ -454,8 +462,17 @@ driver_mysql_result_get_values(struct sql_result *_result)
 static const char *driver_mysql_result_get_error(struct sql_result *_result)
 {
 	struct mysql_db *db = (struct mysql_db *)_result->db;
+	const char *errstr;
+	unsigned int idle_time;
 
-	return mysql_error(db->mysql);
+	errstr = mysql_error(db->mysql);
+	if (mysql_errno(db->mysql) == CR_SERVER_GONE_ERROR &&
+	    db->last_success != 0) {
+		idle_time = ioloop_time - db->last_success;
+		errstr = t_strdup_printf("%s (idled for %u secs)",
+					 errstr, idle_time);
+	}
+	return errstr;
 }
 
 static struct sql_transaction_context *
