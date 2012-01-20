@@ -48,7 +48,7 @@ struct auth_socket_listener {
 	char *path;
 };
 
-bool worker = FALSE, shutdown_request = FALSE;
+bool worker = FALSE, worker_restart_request = FALSE;
 time_t process_start_time;
 struct auth_penalty *auth_penalty;
 
@@ -339,7 +339,12 @@ static void client_connected(struct master_service_connection *conn)
 
 static void auth_die(void)
 {
-	/* do nothing. auth clients should disconnect soon. */
+	if (!worker) {
+		/* do nothing. auth clients should disconnect soon. */
+	} else {
+		/* ask auth master to disconnect us */
+		auth_worker_client_send_shutdown();
+	}
 }
 
 int main(int argc, char *argv[])

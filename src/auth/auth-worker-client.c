@@ -28,6 +28,7 @@ struct auth_worker_client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct timeout *to_idle;
 
 	unsigned int version_received:1;
 	unsigned int dbhash_received:1;
@@ -99,8 +100,8 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 static void auth_worker_send_reply(struct auth_worker_client *client,
 				   string_t *str)
 {
-	if (shutdown_request)
-		o_stream_send_str(client->output, "SHUTDOWN\n");
+	if (worker_restart_request)
+		o_stream_send_str(client->output, "RESTART\n");
 	o_stream_send(client->output, str_data(str), str_len(str));
 }
 
@@ -594,6 +595,9 @@ static void auth_worker_input(struct auth_worker_client *client)
 	char *line;
 	bool ret;
 
+	if (client->to_idle != NULL)
+		timeout_reset(client->to_idle);
+
 	switch (i_stream_read(client->input)) {
 	case 0:
 		return;
@@ -670,10 +674,17 @@ static int auth_worker_output(struct auth_worker_client *client)
 	return 1;
 }
 
+static void
+auth_worker_client_idle_kill(struct auth_worker_client *client ATTR_UNUSED)
+{
+	auth_worker_client_send_shutdown();
+}
+
 struct auth_worker_client *
 auth_worker_client_create(struct auth *auth, int fd)
 {
         struct auth_worker_client *client;
+	unsigned int idle_kill_secs;
 
 	client = i_new(struct auth_worker_client, 1);
 	client->refcount = 1;
@@ -686,6 +697,13 @@ auth_worker_client_create(struct auth *auth, int fd)
 	o_stream_set_flush_callback(client->output, auth_worker_output, client);
 	client->io = io_add(fd, IO_READ, auth_worker_input, client);
 	auth_worker_refresh_proctitle(CLIENT_STATE_HANDSHAKE);
+
+	idle_kill_secs = master_service_get_idle_kill_secs(master_service);
+	if (idle_kill_secs > 0) {
+		client->to_idle = timeout_add(idle_kill_secs * 1000,
+					      auth_worker_client_idle_kill,
+					      client);
+	}
 
 	auth_worker_client = client;
 	if (auth_worker_client_error)
@@ -704,6 +722,8 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
+	if (client->to_idle != NULL)
+		timeout_remove(&client->to_idle);
 	if (client->io != NULL)
 		io_remove(&client->io);
 
@@ -750,4 +770,10 @@ void auth_worker_client_send_success(void)
 		auth_worker_client->error_sent = FALSE;
 	}
 	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
+}
+
+void auth_worker_client_send_shutdown(void)
+{
+	if (auth_worker_client != NULL)
+		o_stream_send_str(auth_worker_client->output, "SHUTDOWN\n");
 }

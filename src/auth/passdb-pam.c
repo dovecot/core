@@ -312,7 +312,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 	if (module->requests_left > 0) {
 		if (--module->requests_left == 0)
-			shutdown_request = TRUE;
+			worker_restart_request = TRUE;
 	}
 
 	expanded_service = t_str_new(64);

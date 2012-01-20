@@ -42,6 +42,7 @@ struct auth_worker_connection {
 	unsigned int id_counter;
 
 	unsigned int received_error:1;
+	unsigned int restart:1;
 	unsigned int shutdown:1;
 };
 
@@ -335,6 +336,10 @@ static void worker_input(struct auth_worker_connection *conn)
 	}
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
+		if (strcmp(line, "RESTART") == 0) {
+			conn->restart = TRUE;
+			continue;
+		}
 		if (strcmp(line, "SHUTDOWN") == 0) {
 			conn->shutdown = TRUE;
 			continue;
@@ -372,8 +377,10 @@ static void worker_input(struct auth_worker_connection *conn)
 
 	if (conn->request != NULL) {
 		/* there's still a pending request */
-	} else if (conn->shutdown)
+	} else if (conn->restart)
 		auth_worker_destroy(&conn, "Max requests limit", TRUE);
+	else if (conn->shutdown)
+		auth_worker_destroy(&conn, "Idle kill", FALSE);
 	else
 		auth_worker_request_send_next(conn);
 }

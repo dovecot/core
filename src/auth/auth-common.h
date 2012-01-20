@@ -4,7 +4,7 @@
 #include "lib.h"
 #include "auth.h"
 
-extern bool worker, shutdown_request;
+extern bool worker, worker_restart_request;
 extern time_t process_start_time;
 extern struct auth_penalty *auth_penalty;
 
