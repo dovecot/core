@@ -227,6 +227,8 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 				service->client_limit));
 	env_put(t_strdup_printf(MASTER_PROCESS_LIMIT_ENV"=%u",
 				service->process_limit));
+	env_put(t_strdup_printf(MASTER_SERVICE_IDLE_KILL_ENV"=%u",
+				service->idle_kill));
 	if (service->set->service_count != 0) {
 		env_put(t_strdup_printf(MASTER_SERVICE_COUNT_ENV"=%u",
 					service->set->service_count));

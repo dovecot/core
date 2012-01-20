@@ -218,6 +218,11 @@ master_service_init(const char *name, enum master_service_flags flags,
 		if (value != NULL && str_to_uint(value, &count) == 0 &&
 		    count > 0)
 			master_service_set_service_count(service, count);
+
+		/* set the idle kill timeout */
+		value = getenv(MASTER_SERVICE_IDLE_KILL_ENV);
+		if (value != NULL && str_to_uint(value, &count) == 0)
+			service->idle_kill_secs = count;
 	} else {
 		master_service_set_client_limit(service, 1);
 		master_service_set_service_count(service, 1);
@@ -451,6 +456,11 @@ unsigned int master_service_get_client_limit(struct master_service *service)
 unsigned int master_service_get_process_limit(struct master_service *service)
 {
 	return service->process_limit;
+}
+
+unsigned int master_service_get_idle_kill_secs(struct master_service *service)
+{
+	return service->idle_kill_secs;
 }
 
 void master_service_set_service_count(struct master_service *service,

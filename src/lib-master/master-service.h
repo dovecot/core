@@ -96,6 +96,10 @@ unsigned int master_service_get_client_limit(struct master_service *service);
 /* Returns how many processes of this type can be created before reaching the
    limit. */
 unsigned int master_service_get_process_limit(struct master_service *service);
+/* Returns the service's idle_kill timeout in seconds. Normally master handles
+   sending the kill request when the process has no clients, but some services
+   with permanent client connections may need to handle this themselves. */
+unsigned int master_service_get_idle_kill_secs(struct master_service *service);
 
 /* Set maximum number of client connections we will handle before shutting
    down. */
