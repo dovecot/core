@@ -535,7 +535,7 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 		   (child_dir_match & IMAP_MATCH_CHILDREN) == 0) {
 		/* mailbox has children, but we don't want to list them */
 	} else if (((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) != 0 ||
-		    (match & IMAP_MATCH_CHILDREN) != 0) &&
+		    (child_dir_match & IMAP_MATCH_CHILDREN) != 0) &&
 		   *entry->fname != '\0') {
 		/* a) mailbox has children and we want to return them
 		   b) we don't want to return mailbox's children, but we need
