@@ -15,8 +15,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define MASTER_LOGIN_POSTLOGIN_TIMEOUT_MSECS (60*1000)
-
 #define master_login_conn_is_closed(conn) \
 	((conn)->fd == -1)
 #define master_login_conn_has_clients(conn) \
@@ -51,6 +49,7 @@ struct master_login {
 	struct master_login_connection *conns;
 	struct master_login_auth *auth;
 	char *postlogin_socket_path;
+	unsigned int postlogin_timeout_secs;
 
 	unsigned int stopping:1;
 };
@@ -59,19 +58,21 @@ static void master_login_conn_close(struct master_login_connection *conn);
 static void master_login_conn_unref(struct master_login_connection **_conn);
 
 struct master_login *
-master_login_init(struct master_service *service, const char *auth_socket_path,
-		  const char *postlogin_socket_path,
-		  master_login_callback_t *callback,
-		  master_login_failure_callback_t *failure_callback)
+master_login_init(struct master_service *service,
+		  const struct master_login_settings *set)
 {
 	struct master_login *login;
 
+	i_assert(set->postlogin_socket_path == NULL ||
+		 set->postlogin_timeout_secs > 0);
+
 	login = i_new(struct master_login, 1);
 	login->service = service;
-	login->callback = callback;
-	login->failure_callback = failure_callback;
-	login->auth = master_login_auth_init(auth_socket_path);
-	login->postlogin_socket_path = i_strdup(postlogin_socket_path);
+	login->callback = set->callback;
+	login->failure_callback = set->failure_callback;
+	login->auth = master_login_auth_init(set->auth_socket_path);
+	login->postlogin_socket_path = i_strdup(set->postlogin_socket_path);
+	login->postlogin_timeout_secs = set->postlogin_timeout_secs;
 
 	i_assert(service->login == NULL);
 	service->login = login;
@@ -337,7 +338,7 @@ static int master_login_postlogin(struct master_login_client *client,
 	pl->username = i_strdup(auth_args[0]);
 	pl->fd = fd;
 	pl->io = io_add(fd, IO_READ, master_login_postlogin_input, pl);
-	pl->to = timeout_add(MASTER_LOGIN_POSTLOGIN_TIMEOUT_MSECS,
+	pl->to = timeout_add(login->postlogin_timeout_secs * 1000,
 			     master_login_postlogin_timeout, pl);
 	pl->input = str_new(default_pool, 512);
 	return 0;

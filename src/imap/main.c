@@ -306,10 +306,14 @@ int main(int argc, char *argv[])
 		&imap_setting_parser_info,
 		NULL
 	};
+	struct master_login_settings login_set;
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags = 0;
-	const char *postlogin_socket_path, *username = NULL;
+	const char *username = NULL;
 	int c;
+
+	memset(&login_set, 0, sizeof(login_set));
+	login_set.postlogin_timeout_secs = MASTER_POSTLOGIN_TIMEOUT_DEFAULT;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
 	    net_getpeername(1, NULL, NULL) == 0) {
@@ -328,9 +332,14 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("imap", service_flags,
-					     &argc, &argv, "u:");
+					     &argc, &argv, "t:u:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
+		case 't':
+			if (str_to_uint(optarg, &login_set.postlogin_timeout_secs) < 0 ||
+			    login_set.postlogin_timeout_secs == 0)
+				i_fatal("Invalid -t parameter: %s", optarg);
+			break;
 		case 'u':
 			storage_service_flags |=
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
@@ -340,8 +349,12 @@ int main(int argc, char *argv[])
 			return FATAL_DEFAULT;
 		}
 	}
-	postlogin_socket_path = argv[optind] == NULL ? NULL :
-		t_abspath(argv[optind]);
+
+	login_set.auth_socket_path = t_abspath("auth-master");
+	if (argv[optind] != NULL)
+		login_set.postlogin_socket_path = t_abspath(argv[optind]);
+	login_set.callback = login_client_connected;
+	login_set.failure_callback = login_client_failed;
 
 	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, imap_die);
@@ -363,11 +376,7 @@ int main(int argc, char *argv[])
 			main_stdio_run(username);
 		} T_END;
 	} else {
-		master_login = master_login_init(master_service,
-						 t_abspath("auth-master"),
-						 postlogin_socket_path,
-						 login_client_connected,
-						 login_client_failed);
+		master_login = master_login_init(master_service, &login_set);
 		io_loop_set_running(current_ioloop);
 	}
 

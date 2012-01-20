@@ -3,6 +3,8 @@
 
 #include "master-auth.h"
 
+#define MASTER_POSTLOGIN_TIMEOUT_DEFAULT 60
+
 struct master_login_client {
 	struct master_login_connection *conn;
 	int fd;
@@ -18,11 +20,18 @@ typedef void
 master_login_failure_callback_t(const struct master_login_client *client,
 				const char *errormsg);
 
+struct master_login_settings {
+	const char *auth_socket_path;
+	const char *postlogin_socket_path;
+	unsigned int postlogin_timeout_secs;
+
+	master_login_callback_t *callback;
+	master_login_failure_callback_t *failure_callback;
+};
+
 struct master_login *
-master_login_init(struct master_service *service, const char *auth_socket_path,
-		  const char *postlogin_socket_path,
-		  master_login_callback_t *callback,
-		  master_login_failure_callback_t *failure_callback);
+master_login_init(struct master_service *service,
+		  const struct master_login_settings *set);
 void master_login_deinit(struct master_login **login);
 
 void master_login_add(struct master_login *login, int fd);
