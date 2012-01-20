@@ -190,7 +190,7 @@ drop_privileges(struct service *service)
 	}
 }
 
-static void service_rpocess_setup_config_environment(struct service *service)
+static void service_process_setup_config_environment(struct service *service)
 {
 	const struct master_service_settings *set = service->list->service_set;
 
@@ -222,7 +222,7 @@ service_process_setup_environment(struct service *service, unsigned int uid)
 	master_service_env_clean();
 
 	env_put(MASTER_IS_PARENT_ENV"=1");
-	service_rpocess_setup_config_environment(service);
+	service_process_setup_config_environment(service);
 	env_put(t_strdup_printf(MASTER_CLIENT_LIMIT_ENV"=%u",
 				service->client_limit));
 	env_put(t_strdup_printf(MASTER_PROCESS_LIMIT_ENV"=%u",
