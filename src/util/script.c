@@ -78,6 +78,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 	/* Input contains:
 
 	   VERSION .. <lf>
+	   [timeout=<timeout>]
 	   <noreply> | "-" <lf>
 
 	   arg 1 <lf>
@@ -130,6 +131,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 		}
 		buffer_set_used_size(input, scanpos);
 	}
+	alarm(0);
 
 	/* drop the last LF */
 	buffer_set_used_size(input, scanpos-1);
@@ -137,6 +139,10 @@ static bool client_exec_script(struct master_service_connection *conn)
 	args = t_strsplit(str_c(input), "\n");
 	script_verify_version(*args); args++;
 	if (*args != NULL) {
+		if (strncmp(*args, "alarm=", 6) == 0) {
+			alarm(atoi(*args + 6));
+			args++;
+		}
 		if (strcmp(*args, "noreply") == 0) {
 			/* no need to fork and check exit status */
 			exec_child(conn, args + 1);
