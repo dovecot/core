@@ -172,6 +172,7 @@ const struct setting_parser_info service_setting_parser_info = {
 static const struct setting_define master_setting_defines[] = {
 	DEF(SET_STR, base_dir),
 	DEF(SET_STR, libexec_dir),
+	DEF(SET_STR, instance_name),
 	DEF(SET_STR, import_environment),
 	DEF(SET_STR, protocols),
 	DEF(SET_STR, listen),
@@ -211,6 +212,7 @@ static const struct setting_define master_setting_defines[] = {
 static const struct master_settings master_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.libexec_dir = PKG_LIBEXECDIR,
+	.instance_name = PACKAGE,
 	.import_environment = "TZ" ENV_SYSTEMD ENV_GDB,
 	.protocols = "imap pop3 lmtp",
 	.listen = "*, ::",
