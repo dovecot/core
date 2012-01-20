@@ -177,7 +177,8 @@ fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
 		/* non-absolute path. add the mailbox root dir as prefix. */
 		root = mailbox_list_get_path(ctx->ctx.list, NULL,
 					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		path = t_strconcat(root, "/", path, NULL);
+		path = *path == '\0' ? root :
+			t_strconcat(root, "/", path, NULL);
 	}
 	*path_r = path;
 	return TRUE;
