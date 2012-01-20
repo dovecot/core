@@ -157,6 +157,16 @@ void notify_contexts_mailbox_create(struct mailbox *box)
 	}
 }
 
+void notify_contexts_mailbox_update(struct mailbox *box)
+{
+	struct notify_context *ctx;
+
+	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mailbox_update != NULL)
+			ctx->v.mailbox_update(box);
+	}
+}
+
 void notify_contexts_mailbox_delete_begin(struct mailbox *box)
 {
 	struct notify_context *ctx;
@@ -199,6 +209,17 @@ void notify_contexts_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next)
 		ctx->v.mailbox_rename(src, dest, rename_children);
+}
+
+void notify_contexts_mailbox_set_subscribed(struct mailbox *box,
+					    bool subscribed)
+{
+	struct notify_context *ctx;
+
+	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mailbox_set_subscribed != NULL)
+			ctx->v.mailbox_set_subscribed(box, subscribed);
+	}
 }
 
 struct notify_context *

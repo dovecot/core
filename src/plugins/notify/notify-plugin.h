@@ -24,14 +24,15 @@ struct notify_vfuncs {
 			struct mail_transaction_commit_changes *changes);
 	void (*mail_transaction_rollback)(void *txn);
 	void (*mailbox_create)(struct mailbox *box);
+	void (*mailbox_update)(struct mailbox *box);
 	void *(*mailbox_delete_begin)(struct mailbox *box);
 	void (*mailbox_delete_commit)(void *txn, struct mailbox *box);
 	void (*mailbox_delete_rollback)(void *txn);
 	void (*mailbox_rename)(struct mailbox *src, struct mailbox *dest,
 			       bool rename_children);
+	void (*mailbox_set_subscribed)(struct mailbox *box, bool subscribed);
 };
 
-void notify_noop_mailbox_create(struct mailbox *box);
 struct notify_context *
 notify_register(const struct notify_vfuncs *vfuncs);
 void notify_unregister(struct notify_context *ctx);

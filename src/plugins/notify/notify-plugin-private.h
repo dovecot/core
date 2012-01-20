@@ -15,11 +15,14 @@ void notify_contexts_mail_transaction_commit(struct mailbox_transaction_context 
 					     struct mail_transaction_commit_changes *changes);
 void notify_contexts_mail_transaction_rollback(struct mailbox_transaction_context *t);
 void notify_contexts_mailbox_create(struct mailbox *box);
+void notify_contexts_mailbox_update(struct mailbox *box);
 void notify_contexts_mailbox_delete_begin(struct mailbox *box);
 void notify_contexts_mailbox_delete_commit(struct mailbox *box);
 void notify_contexts_mailbox_delete_rollback(void);
 void notify_contexts_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 				    bool rename_children);
+void notify_contexts_mailbox_set_subscribed(struct mailbox *box,
+					    bool subscribed);
 
 void notify_plugin_init_storage(struct module *module);
 void notify_plugin_deinit_storage(void);
