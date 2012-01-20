@@ -336,14 +336,15 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn,
 			AUTH_REQUEST_STATUS_INTERNAL_FAIL,
 			temp_failure_args);
 	}
-
-	i_warning("Auth connection closed with %u pending requests "
-		  "(max %u secs, pid=%s, %s)", request_count,
-		  (unsigned int)(ioloop_time - oldest),
-		  my_pid, disconnect_reason);
-
 	hash_table_iterate_deinit(&iter);
 	hash_table_clear(conn->requests, FALSE);
+
+	if (request_count > 0) {
+		i_warning("Auth connection closed with %u pending requests "
+			  "(max %u secs, pid=%s, %s)", request_count,
+			  (unsigned int)(ioloop_time - oldest),
+			  my_pid, disconnect_reason);
+	}
 }
 
 void auth_server_connection_disconnect(struct auth_server_connection *conn,
