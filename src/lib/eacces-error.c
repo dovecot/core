@@ -254,8 +254,6 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	} else if (missing_mode != 0 &&
 		   (((st.st_mode & 0700) >> 6) & missing_mode) == 0) {
 		str_append(errmsg, ", dir owner missing perms");
-	} else {
-		str_append(errmsg, ", UNIX perms appear ok (ACL/MAC wrong?)");
 	}
 	if (ret == 0 && gr_name != NULL && st.st_gid != getegid()) {
 		if (i_getgrgid(st.st_gid, &group) > 0 &&
