@@ -137,8 +137,9 @@ static void client_read_settings(struct client *client)
 {
 	struct mail_storage_service_input input;
 	const struct setting_parser_context *set_parser;
+	struct lmtp_settings *lmtp_set;
+	struct lda_settings *lda_set;
 	const char *error;
-	void **sets;
 
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "lmtp";
@@ -152,12 +153,11 @@ static void client_read_settings(struct client *client)
 					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
 
-	sets = settings_parser_get_list(set_parser) + 1;
-	settings_var_expand(&lmtp_setting_parser_info, sets[2], client->pool,
+	lmtp_settings_dup(set_parser, client->pool, &lmtp_set, &lda_set);
+	settings_var_expand(&lmtp_setting_parser_info, lmtp_set, client->pool,
 		mail_storage_service_get_var_expand_table(storage_service, &input));
-
-	lmtp_settings_dup(set_parser, client->pool,
-			  &client->lmtp_set, &client->set);
+	client->lmtp_set = lmtp_set;
+	client->set = lda_set;
 }
 
 static void client_generate_session_id(struct client *client)
