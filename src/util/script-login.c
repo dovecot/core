@@ -177,12 +177,19 @@ static void script_execute_finish(void)
 	}
 	str_append_c(reply, '\n');
 
+	/* finish by sending the fd to the mail process */
 	ret = fd_send(SCRIPT_COMM_FD, STDOUT_FILENO,
 		      str_data(reply), str_len(reply));
-	if (ret < 0)
-		i_fatal("fd_send() failed: %m");
-	else if (ret != (ssize_t)str_len(reply))
-		i_fatal("fd_send() sent partial output");
+	if (ret == (ssize_t)str_len(reply)) {
+		/* success */
+	} else {
+		if (ret < 0)
+			i_error("fd_send() failed: %m");
+		else
+			i_error("fd_send() sent partial output");
+		/* exit with 0 even though we failed. non-0 exit just makes
+		   master log an unnecessary error. */
+	}
 }
 
 int main(int argc, char *argv[])
