@@ -207,8 +207,10 @@ void notify_contexts_mailbox_rename(struct mailbox *src, struct mailbox *dest,
 {
 	struct notify_context *ctx;
 
-	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next)
-		ctx->v.mailbox_rename(src, dest, rename_children);
+	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
+		if (ctx->v.mailbox_rename != NULL)
+			ctx->v.mailbox_rename(src, dest, rename_children);
+	}
 }
 
 void notify_contexts_mailbox_set_subscribed(struct mailbox *box,
