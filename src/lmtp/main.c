@@ -25,7 +25,7 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
-const char *dns_client_socket_path;
+const char *dns_client_socket_path, *base_dir;
 struct mail_storage_service_ctx *storage_service;
 
 static void client_connected(struct master_service_connection *conn)
@@ -107,6 +107,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (t_get_current_dir(&base_dir) < 0)
+		i_fatal("getcwd() failed: %m");
 	drop_privileges();
 	master_service_init_finish(master_service);
 	master_service_init_log(master_service,

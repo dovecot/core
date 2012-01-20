@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
+#include "restrict-access.h"
 #include "master-service.h"
 #include "rfc822-parser.h"
 #include "message-date.h"
@@ -706,6 +707,10 @@ client_input_data_write_local(struct client *client, struct istream *input)
 		   lose e.g. config connection and need to reconnect to it. */
 		if (seteuid(0) < 0)
 			i_fatal("seteuid(0) failed: %m");
+		/* enable core dumping again. we need to chdir also to
+		   root-owned directory to get core dumps. */
+		restrict_access_allow_coredumps(TRUE);
+		(void)chdir(base_dir);
 	}
 }
 
