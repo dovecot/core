@@ -24,6 +24,8 @@
 void client_auth_failed(struct client *client)
 {
 	i_free_and_null(client->master_data_prefix);
+	if (client->auth_response != NULL)
+		str_truncate(client->auth_response, 0);
 
 	if (client->auth_initializing || client->destroyed)
 		return;

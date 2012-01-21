@@ -248,6 +248,7 @@ static int client_parse_command(struct imap_client *client,
 static bool client_handle_input(struct imap_client *client)
 {
 	const struct imap_arg *args;
+	bool parsed;
 	int ret;
 
 	i_assert(!client->common.authenticating);
@@ -293,8 +294,8 @@ static bool client_handle_input(struct imap_client *client)
 	if (strcasecmp(client->cmd_name, "AUTHENTICATE") == 0) {
 		/* SASL-IR may need more space than input buffer's size,
 		   so we'll handle it as a special case. */
-		ret = cmd_authenticate(client);
-		if (ret == 0)
+		ret = cmd_authenticate(client, &parsed);
+		if (ret == 0 && !parsed)
 			return FALSE;
 	} else {
 		ret = client_parse_command(client, &args);

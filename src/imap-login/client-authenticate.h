@@ -9,6 +9,6 @@ bool imap_client_auth_handle_reply(struct client *client,
 				   const struct client_auth_reply *reply);
 
 int cmd_login(struct imap_client *client, const struct imap_arg *args);
-int cmd_authenticate(struct imap_client *client);
+int cmd_authenticate(struct imap_client *imap_client, bool *parsed_r);
 
 #endif

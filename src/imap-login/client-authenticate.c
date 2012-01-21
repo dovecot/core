@@ -118,7 +118,7 @@ imap_client_auth_begin(struct imap_client *imap_client, const char *mech_name,
 	return client_auth_begin(&imap_client->common, mech_name, init_resp);
 }
 
-int cmd_authenticate(struct imap_client *imap_client)
+int cmd_authenticate(struct imap_client *imap_client, bool *parsed_r)
 {
 	/* NOTE: This command's input is handled specially because the
 	   SASL-IR can be large. */
@@ -127,8 +127,10 @@ int cmd_authenticate(struct imap_client *imap_client)
 	size_t i, size;
 	int ret;
 
+	*parsed_r = FALSE;
+
 	/* <auth mechanism name> [<initial SASL response>] */
-	if (client->auth_mech_name == NULL) {
+	if (!imap_client->auth_mech_name_parsed) {
 		data = i_stream_get_data(client->input, &size);
 		for (i = 0; i < size; i++) {
 			if (data[i] == ' ' ||
@@ -142,7 +144,9 @@ int cmd_authenticate(struct imap_client *imap_client)
 			imap_client->skip_line = TRUE;
 			return -1;
 		}
+		i_free(client->auth_mech_name);
 		client->auth_mech_name = i_strndup(data, i);
+		imap_client->auth_mech_name_parsed = TRUE;
 		if (data[i] == ' ')
 			i++;
 		i_stream_skip(client->input, i);
@@ -152,9 +156,11 @@ int cmd_authenticate(struct imap_client *imap_client)
 	if ((ret = client_auth_read_line(client)) <= 0)
 		return ret;
 
+	*parsed_r = TRUE;
+	imap_client->auth_mech_name_parsed = FALSE;
 	return imap_client_auth_begin(imap_client,
 				      t_strdup(client->auth_mech_name),
-				      str_c(client->auth_response));
+				      t_strdup(str_c(client->auth_response)));
 }
 
 int cmd_login(struct imap_client *imap_client, const struct imap_arg *args)

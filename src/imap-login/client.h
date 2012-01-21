@@ -23,6 +23,7 @@ struct imap_client {
 	unsigned int skip_line:1;
 	unsigned int id_logged:1;
 	unsigned int client_ignores_capability_resp_code:1;
+	unsigned int auth_mech_name_parsed:1;
 };
 
 bool client_skip_line(struct imap_client *client);
