@@ -32,7 +32,7 @@ static const struct setting_define pop3c_setting_defines[] = {
 
 static const struct pop3c_settings pop3c_default_settings = {
 	.pop3c_host = "",
-	.pop3c_port = 143,
+	.pop3c_port = 110,
 
 	.pop3c_user = "%u",
 	.pop3c_password = "",
