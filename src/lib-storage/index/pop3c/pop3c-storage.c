@@ -89,7 +89,8 @@ pop3c_storage_get_list_settings(const struct mail_namespace *ns,
 				struct mailbox_list_settings *set)
 {
 	set->layout = MAILBOX_LIST_NAME_FS;
-	if (*set->root_dir != '\0' && set->index_dir == NULL) {
+	if (set->root_dir != NULL && *set->root_dir != '\0' &&
+	    set->index_dir == NULL) {
 		/* we don't really care about root_dir, but we
 		   just need to get index_dir autocreated.
 		   it happens when index_dir differs from root_dir. */
@@ -221,8 +222,7 @@ static bool pop3c_storage_is_inconsistent(struct mailbox *box)
 
 struct mail_storage pop3c_storage = {
 	.name = POP3C_STORAGE_NAME,
-	.class_flags = MAIL_STORAGE_CLASS_FLAG_MAILBOX_IS_FILE |
-		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT,
 
 	.v = {
 		pop3c_get_setting_parser_info,
