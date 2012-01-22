@@ -19,6 +19,9 @@
    SASL authentication gives the largest output. */
 #define LOGIN_MAX_OUTBUF_SIZE 4096
 
+/* Max. length of SASL authentication buffer. */
+#define LOGIN_MAX_AUTH_BUF_SIZE 8192
+
 /* Disconnect client after this many milliseconds if it hasn't managed
    to log in yet. */
 #define CLIENT_LOGIN_TIMEOUT_MSECS (MASTER_LOGIN_TIMEOUT_SECS*1000)

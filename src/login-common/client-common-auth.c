@@ -19,8 +19,6 @@
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
 #define GREETING_WARNING_TIMEOUT_MSECS (10*1000)
 
-#define CLIENT_AUTH_BUF_MAX_SIZE 8192
-
 void client_auth_failed(struct client *client)
 {
 	i_free_and_null(client->master_data_prefix);
@@ -355,7 +353,7 @@ int client_auth_read_line(struct client *client)
 	}
 	if (client->auth_response == NULL)
 		client->auth_response = str_new(default_pool, I_MAX(i+1, 256));
-	if (str_len(client->auth_response) + i > CLIENT_AUTH_BUF_MAX_SIZE) {
+	if (str_len(client->auth_response) + i > LOGIN_MAX_AUTH_BUF_SIZE) {
 		client_destroy(client, "Authentication response too large");
 		return -1;
 	}
