@@ -14,7 +14,7 @@ struct bzlib_istream {
 	struct istream_private istream;
 
 	bz_stream zs;
-	uoff_t eof_offset;
+	uoff_t eof_offset, stream_size;
 	size_t prev_size, high_pos;
 	struct stat last_parent_statbuf;
 
@@ -155,6 +155,7 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 	case BZ_STREAM_END:
 		zstream->eof_offset = stream->istream.v_offset +
 			(stream->pos - stream->skip);
+		zstream->stream_size = zstream->eof_offset;
 		if (size == 0) {
 			stream->istream.eof = TRUE;
 			return -1;
@@ -282,7 +283,7 @@ i_stream_bzlib_stat(struct istream_private *stream, bool exact)
 		return st;
 
 	stream->statbuf = *st;
-	if (zstream->eof_offset == (uoff_t)-1) {
+	if (zstream->stream_size == (uoff_t)-1) {
 		uoff_t old_offset = stream->istream.v_offset;
 
 		do {
@@ -291,10 +292,10 @@ i_stream_bzlib_stat(struct istream_private *stream, bool exact)
 		} while (i_stream_read(&stream->istream) > 0);
 
 		i_stream_seek(&stream->istream, old_offset);
-		if (zstream->eof_offset == (uoff_t)-1)
+		if (zstream->stream_size == (uoff_t)-1)
 			return NULL;
 	}
-	stream->statbuf.st_size = zstream->eof_offset;
+	stream->statbuf.st_size = zstream->stream_size;
 	return &stream->statbuf;
 }
 
@@ -322,6 +323,7 @@ struct istream *i_stream_create_bz2(struct istream *input, bool log_errors)
 
 	zstream = i_new(struct bzlib_istream, 1);
 	zstream->eof_offset = (uoff_t)-1;
+	zstream->stream_size = (uoff_t)-1;
 	zstream->log_errors = log_errors;
 
 	i_stream_bzlib_init(zstream);
