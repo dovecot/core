@@ -208,7 +208,7 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 				(*stream)->v_offset, psize);
 			ret = 0;
 		} else {
-			uoff_t trailer_size = psize - (*stream)->v_offset;
+			uoff_t trailer_size = psize - last_voffset;
 
 			input = i_stream_create_limit(*stream, trailer_size);
 			array_append(&streams, &input, 1);
