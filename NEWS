@@ -1,3 +1,19 @@
+v2.1.rc4 2012-01-24  Timo Sirainen <tss@iki.fi>
+
+	* Temporary authentication failures sent to IMAP/POP3 clients
+	  now includes the server's hostname and timestamp. This makes it
+	  easier to find the error message from logs.
+
+	+ auth: Implemented support for Postfix's "TCP map" sockets for
+	  user existence lookups.
+	+ auth: Idling auth worker processes are now stopped. This reduces
+	  error messages about MySQL disconnections.
+	- director: With >2 directors ring syncing might have stalled during
+	  director connect/disconnect, causing logins to fail.
+	- LMTP client/proxy: Fixed potential hanging when sending (big) mails
+	- Compressed mails with external attachments (dbox + SIS + zlib) failed
+	  sometimes with bogus "cached message size wrong" errors.
+
 v2.1.rc3 2012-01-06  Timo Sirainen <tss@iki.fi>
 
 	- Added missing file that prevented v2.1.rc2 from compiling..
