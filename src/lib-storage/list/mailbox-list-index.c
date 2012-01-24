@@ -79,7 +79,6 @@ mailbox_list_index_lookup(struct mailbox_list *list, const char *name)
 static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 					   struct mail_index_view *view)
 {
-	const struct mailbox_list_index_header *hdr;
 	const void *data, *p;
 	size_t i, len, size;
 	uint32_t id, prev_id = 0;
@@ -89,8 +88,7 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 	if (size == 0)
 		return 0;
 
-	hdr = data;
-	for (i = sizeof(*hdr); i < size; ) {
+	for (i = sizeof(struct mailbox_list_index_header); i < size; ) {
 		/* get id */
 		if (i + sizeof(id) > size)
 			return -1;
