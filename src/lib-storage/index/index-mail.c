@@ -134,8 +134,7 @@ static bool index_mail_get_fixed_field(struct index_mail *mail,
 bool index_mail_get_cached_uoff_t(struct index_mail *mail,
 				  enum index_cache_field field, uoff_t *size_r)
 {
-	return index_mail_get_fixed_field(mail,
-					  mail->ibox->cache_fields[field].idx,
+	return index_mail_get_fixed_field(mail, field,
 					  size_r, sizeof(*size_r));
 }
 
