@@ -1,4 +1,4 @@
-v2.1.rc4 2012-01-24  Timo Sirainen <tss@iki.fi>
+v2.1.rc5 2012-01-26  Timo Sirainen <tss@iki.fi>
 
 	* Temporary authentication failures sent to IMAP/POP3 clients
 	  now includes the server's hostname and timestamp. This makes it
@@ -13,6 +13,8 @@ v2.1.rc4 2012-01-24  Timo Sirainen <tss@iki.fi>
 	- LMTP client/proxy: Fixed potential hanging when sending (big) mails
 	- Compressed mails with external attachments (dbox + SIS + zlib) failed
 	  sometimes with bogus "cached message size wrong" errors.
+
+v2.1.rc4 was never actually released, but was accidentally tagged in hg.
 
 v2.1.rc3 2012-01-06  Timo Sirainen <tss@iki.fi>
 
