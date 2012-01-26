@@ -164,10 +164,15 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 			if (add_lf)
 				str_append_c(str, '\n');
 			if (strcmp(filter, "address") == 0) {
-				str_printfa(str, "%s@%s",
-					    addr->mailbox, addr->domain);
+				if (addr->mailbox != NULL)
+					str_append(str, addr->mailbox);
+				if (addr->domain != NULL) {
+					str_append_c(str, '@');
+					str_append(str, addr->domain);
+				}
 			} else {
-				str_append(str, addr->name);
+				if (addr->name != NULL)
+					str_append(str, addr->name);
 			}
 			add_lf = TRUE;
 		}
