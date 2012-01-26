@@ -615,6 +615,36 @@ plain_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	*size_r = strlen(plaintext);
 }
 
+static int
+plain_trunc_verify(const char *plaintext, const char *user ATTR_UNUSED,
+		   const unsigned char *raw_password, size_t size,
+		   const char **error_r)
+{
+	unsigned int i, plaintext_len, trunc_len = 0;
+
+	/* format: <length>-<password> */
+	for (i = 0; i < size; i++) {
+		if (raw_password[i] >= '0' && raw_password[i] <= '9')
+			trunc_len = trunc_len*10 + raw_password[i]-'0';
+		else
+			break;
+	}
+	if (i == size || raw_password[i] != '-') {
+		*error_r = "PLAIN-TRUNC missing length: prefix";
+		return -1;
+	}
+	i++;
+
+	plaintext_len = strlen(plaintext);
+	if (size-i == trunc_len && plaintext_len >= trunc_len) {
+		/* possibly truncated password. allow the given password as
+		   long as the prefix matches. */
+		return memcmp(raw_password+i, plaintext, trunc_len) == 0 ? 1 : 0;
+	}
+	return plaintext_len == size-i &&
+		memcmp(raw_password+i, plaintext, plaintext_len) == 0 ? 1 : 0;
+}
+
 static void
 cram_md5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 		  const unsigned char **raw_password_r, size_t *size_r)
@@ -782,6 +812,7 @@ static const struct password_scheme builtin_schemes[] = {
 	{ "SSHA512", PW_ENCODING_BASE64, 0, ssha512_verify, ssha512_generate },
 	{ "PLAIN", PW_ENCODING_NONE, 0, NULL, plain_generate },
 	{ "CLEARTEXT", PW_ENCODING_NONE, 0, NULL, plain_generate },
+	{ "PLAIN-TRUNC", PW_ENCODING_NONE, 0, plain_trunc_verify, plain_generate },
 	{ "CRAM-MD5", PW_ENCODING_HEX, CRAM_MD5_CONTEXTLEN,
 	  NULL, cram_md5_generate },
 	{ "HMAC-MD5", PW_ENCODING_HEX, CRAM_MD5_CONTEXTLEN,
