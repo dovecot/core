@@ -6,6 +6,8 @@
 #include "ostream.h"
 #include "str.h"
 #include "message-size.h"
+#include "message-parser.h"
+#include "message-decoder.h"
 #include "imap-util.h"
 #include "mail-user.h"
 #include "mail-storage.h"
@@ -199,6 +201,57 @@ static int fetch_text(struct fetch_cmd_context *ctx)
 	return ret;
 }
 
+static int fetch_text_utf8(struct fetch_cmd_context *ctx)
+{
+	struct istream *input;
+	struct message_parser_ctx *parser;
+	struct message_decoder_context *decoder;
+	struct message_block raw_block, block;
+	struct message_part *parts;
+	int ret = 0;
+
+	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
+		return -1;
+
+	parser = message_parser_init(pool_datastack_create(), input,
+				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
+				     0);
+	decoder = message_decoder_init(0);
+
+	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
+		if (!message_decoder_decode_next_block(decoder, &raw_block,
+						       &block))
+			continue;
+
+		if (block.hdr == NULL) {
+			if (block.size > 0)
+				doveadm_print_stream(block.data, block.size);
+		} else if (block.hdr->eoh)
+			doveadm_print_stream("\n", 1);
+		else {
+			i_assert(block.hdr->name_len > 0);
+			doveadm_print_stream(block.hdr->name,
+					     block.hdr->name_len);
+			doveadm_print_stream(": ", 2);
+			if (block.hdr->full_value_len > 0) {
+				doveadm_print_stream(block.hdr->full_value,
+						     block.hdr->full_value_len);
+			}
+			doveadm_print_stream("\n", 1);
+		}
+	}
+	i_assert(ret != 0);
+	message_decoder_deinit(&decoder);
+	(void)message_parser_deinit(&parser, &parts);
+
+	if (input->stream_errno != 0) {
+		i_error("read() failed: %m");
+		ret = -1;
+	}
+	doveadm_print_stream(NULL, 0);
+	return ret;
+}
+
 static int fetch_size_physical(struct fetch_cmd_context *ctx)
 {
 	uoff_t size;
@@ -306,6 +359,8 @@ static const struct fetch_field fetch_fields[] = {
 	{ "body",          MAIL_FETCH_STREAM_BODY,   fetch_body },
 	{ "text",          MAIL_FETCH_STREAM_HEADER |
 	                   MAIL_FETCH_STREAM_BODY,   fetch_text },
+	{ "text.utf8",     MAIL_FETCH_STREAM_HEADER |
+	                   MAIL_FETCH_STREAM_BODY,   fetch_text_utf8 },
 	{ "size.physical", MAIL_FETCH_PHYSICAL_SIZE, fetch_size_physical },
 	{ "size.virtual",  MAIL_FETCH_VIRTUAL_SIZE,  fetch_size_virtual },
 	{ "date.received", MAIL_FETCH_RECEIVED_DATE, fetch_date_received },
