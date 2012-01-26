@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "message-address.h"
 #include "message-size.h"
 #include "message-parser.h"
 #include "message-decoder.h"
@@ -130,11 +131,15 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 
 static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 {
-	const char *const *value;
+	const char *const *value, *filter, *name = ctx->cur_field->name;
 	string_t *str = t_str_new(256);
 	bool add_lf = FALSE;
 
-	if (mail_get_headers(ctx->mail, ctx->cur_field->name, &value) < 0)
+	filter = strchr(name, '.');
+	if (filter != NULL)
+		name = t_strdup_until(name, filter++);
+
+	if (mail_get_headers(ctx->mail, name, &value) < 0)
 		return -1;
 
 	for (; *value != NULL; value++) {
@@ -142,6 +147,32 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 			str_append_c(str, '\n');
 		str_append(str, *value);
 		add_lf = TRUE;
+	}
+
+	if (filter == NULL) {
+		/* print the header as-is */
+	} else if (strcmp(filter, "address") == 0 ||
+		   strcmp(filter, "address_name") == 0) {
+		struct message_address *addr;
+
+		addr = message_address_parse(pool_datastack_create(),
+					     str_data(str), str_len(str), -1U,
+					     FALSE);
+		str_truncate(str, 0);
+		add_lf = FALSE;
+		for (; addr != NULL; addr = addr->next) {
+			if (add_lf)
+				str_append_c(str, '\n');
+			if (strcmp(filter, "address") == 0) {
+				str_printfa(str, "%s@%s",
+					    addr->mailbox, addr->domain);
+			} else {
+				str_append(str, addr->name);
+			}
+			add_lf = TRUE;
+		}
+	} else {
+		i_fatal("Unknown header filter: %s", filter);
 	}
 	doveadm_print(str_c(str));
 	return 0;
@@ -413,6 +444,7 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 			name += 4;
 			hdr_field.name = name;
 			array_append(&ctx->fields, &hdr_field, 1);
+			name = t_strcut(name, '.');
 			array_append(&ctx->header_fields, &name, 1);
 		} else {
 			field = fetch_field_find(name);
