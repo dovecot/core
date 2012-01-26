@@ -244,12 +244,12 @@ static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 	message_decoder_deinit(&decoder);
 	(void)message_parser_deinit(&parser, &parts);
 
+	doveadm_print_stream(NULL, 0);
 	if (input->stream_errno != 0) {
 		i_error("read() failed: %m");
-		ret = -1;
+		return -1;
 	}
-	doveadm_print_stream(NULL, 0);
-	return ret;
+	return 0;
 }
 
 static int fetch_size_physical(struct fetch_cmd_context *ctx)
