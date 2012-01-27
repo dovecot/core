@@ -80,6 +80,9 @@ struct service {
 	int status_fd[2];
 	struct io *io_status;
 
+	time_t exit_failure_last;
+	unsigned int exit_failures_in_sec;
+
 	/* Login process's notify fd. We change its seek position to
 	   communicate state to login processes. */
 	int login_notify_fd;

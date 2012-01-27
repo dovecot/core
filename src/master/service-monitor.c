@@ -24,6 +24,7 @@
 #define SERVICE_DROP_WARN_INTERVAL_SECS 60
 #define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
 #define MAX_DIE_WAIT_SECS 5
+#define SERVICE_MAX_EXIT_FAILURES_IN_SEC 10
 
 static void service_monitor_start_extra_avail(struct service *service);
 static void service_status_more(struct service_process *process,
@@ -524,10 +525,17 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 static bool
 service_process_failure(struct service_process *process, int status)
 {
+	struct service *service = process->service;
 	bool throttle;
 
 	service_process_log_status_error(process, status);
 	throttle = process->to_status != NULL;
+	if (service->exit_failure_last != ioloop_time) {
+		service->exit_failure_last = ioloop_time;
+		service->exit_failures_in_sec = 0;
+	}
+	if (++service->exit_failures_in_sec > SERVICE_MAX_EXIT_FAILURES_IN_SEC)
+		throttle = TRUE;
 	service_process_notify_add(service_anvil_global->kills, process);
 	return throttle;
 }
@@ -554,6 +562,8 @@ void services_monitor_reap_children(void)
 			if (service->listen_pending &&
 			    !service->list->destroying)
 				service_monitor_listen_start(service);
+			/* one success resets all failures */
+			service->exit_failures_in_sec = 0;
 			throttle = FALSE;
 		} else {
 			throttle = service_process_failure(process, status);
