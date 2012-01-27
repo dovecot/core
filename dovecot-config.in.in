@@ -15,7 +15,7 @@ LIBDOVECOT_SQL_DEPS="@LIBDOVECOT_SQL@"
 LIBDOVECOT_LDA_DEPS="@LIBDOVECOT_LDA@"
 LIBDOVECOT_STORAGE_DEPS="@LIBDOVECOT_STORAGE@"
 
-LIBDOVECOT_INCLUDE="-I$(incdir) -I$(incdir)/src/lib -I$(incdir)/src/lib-dict -I$(incdir)/src/lib-mail -I$(incdir)/src/lib-imap -I$(incdir)/src/lib-charset"
+LIBDOVECOT_INCLUDE="-I$(incdir) -I$(incdir)/src/lib -I$(incdir)/src/lib-dict -I$(incdir)/src/lib-dns -I$(incdir)/src/lib-mail -I$(incdir)/src/lib-imap -I$(incdir)/src/lib-fs -I$(incdir)/src/lib-charset"
 LIBDOVECOT_LDA_INCLUDE="-I$(incdir)/src/lib-lda -I$(incdir)/src/lda"
 LIBDOVECOT_SERVICE_INCLUDE="-I$(incdir)/src/lib-master -I$(incdir)/src/lib-settings"
 LIBDOVECOT_STORAGE_INCLUDE="-I$(incdir)/src/lib-index -I$(incdir)/src/lib-storage -I$(incdir)/src/lib-storage/index -I$(incdir)/src/lib-storage/index/raw"
