@@ -8,6 +8,9 @@
    this many seconds, kill the process */
 #define SERVICE_FIRST_STATUS_TIMEOUT_SECS 30
 
+#define SERVICE_STARTUP_FAILURE_THROTTLE_MIN_SECS 2
+#define SERVICE_STARTUP_FAILURE_THROTTLE_MAX_SECS 60
+
 enum service_listener_type {
 	SERVICE_LISTENER_UNIX,
 	SERVICE_LISTENER_FIFO,
@@ -80,6 +83,7 @@ struct service {
 	int status_fd[2];
 	struct io *io_status;
 
+	unsigned int throttle_secs;
 	time_t exit_failure_last;
 	unsigned int exit_failures_in_sec;
 

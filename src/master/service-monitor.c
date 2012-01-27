@@ -20,7 +20,6 @@
 #include <syslog.h>
 #include <signal.h>
 
-#define SERVICE_STARTUP_FAILURE_THROTTLE_SECS 60
 #define SERVICE_DROP_WARN_INTERVAL_SECS 60
 #define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
 #define MAX_DIE_WAIT_SECS 5
@@ -197,8 +196,14 @@ static void service_monitor_throttle(struct service *service)
 	if (service->to_throttle != NULL)
 		return;
 
-	service_error(service, "command startup failed, throttling");
-	service_throttle(service, SERVICE_STARTUP_FAILURE_THROTTLE_SECS);
+	i_assert(service->throttle_secs > 0);
+
+	service_error(service, "command startup failed, throttling for %u secs",
+		      service->throttle_secs);
+	service_throttle(service, service->throttle_secs);
+	service->throttle_secs *= 2;
+	if (service->throttle_secs > SERVICE_STARTUP_FAILURE_THROTTLE_MAX_SECS)
+		service->throttle_secs = SERVICE_STARTUP_FAILURE_THROTTLE_MAX_SECS;
 }
 
 static void service_drop_timeout(struct service *service)
@@ -564,6 +569,8 @@ void services_monitor_reap_children(void)
 				service_monitor_listen_start(service);
 			/* one success resets all failures */
 			service->exit_failures_in_sec = 0;
+			service->throttle_secs =
+				SERVICE_STARTUP_FAILURE_THROTTLE_MIN_SECS;
 			throttle = FALSE;
 		} else {
 			throttle = service_process_failure(process, status);

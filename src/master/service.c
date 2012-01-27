@@ -218,6 +218,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	service = p_new(pool, struct service, 1);
 	service->list = service_list;
 	service->set = set;
+	service->throttle_secs = SERVICE_STARTUP_FAILURE_THROTTLE_MIN_SECS;
 
 	service->client_limit = set->client_limit != 0 ? set->client_limit :
 		set->master_set->default_client_limit;
