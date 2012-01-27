@@ -42,7 +42,7 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(SET_BOOL, verbose_ssl),
 
 	DEF(SET_BOOL, disable_plaintext_auth),
-	DEF(SET_BOOL, verbose_auth),
+	DEF(SET_BOOL, auth_verbose),
 	DEF(SET_BOOL, auth_debug),
 	DEF(SET_BOOL, verbose_proctitle),
 
@@ -75,7 +75,7 @@ static const struct login_settings login_default_settings = {
 	.verbose_ssl = FALSE,
 
 	.disable_plaintext_auth = TRUE,
-	.verbose_auth = FALSE,
+	.auth_verbose = FALSE,
 	.auth_debug = FALSE,
 	.verbose_proctitle = FALSE,
 
@@ -142,6 +142,9 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r)
 		/* if we require valid cert, make sure we also ask for it */
 		set->ssl_verify_client_cert = TRUE;
 	}
+
+	if (set->auth_debug)
+		set->auth_verbose = TRUE;
 
 	if (strcmp(set->ssl, "no") == 0) {
 		/* disabled */

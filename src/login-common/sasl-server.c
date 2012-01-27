@@ -332,7 +332,7 @@ static void sasl_server_auth_cancel(struct client *client, const char *reason,
 {
 	i_assert(client->authenticating);
 
-	if (client->set->verbose_auth && reason != NULL) {
+	if (client->set->auth_verbose && reason != NULL) {
 		const char *auth_name =
 			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
 		client_log(client, t_strdup_printf(

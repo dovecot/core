@@ -24,7 +24,7 @@ struct login_settings {
 	bool verbose_ssl;
 
 	bool disable_plaintext_auth;
-	bool verbose_auth;
+	bool auth_verbose;
 	bool auth_debug;
 	bool verbose_proctitle;
 

@@ -848,7 +848,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	proxy->cert_received = TRUE;
 
 	if (proxy->set->verbose_ssl ||
-	    (proxy->set->verbose_auth && !preverify_ok)) {
+	    (proxy->set->auth_verbose && !preverify_ok)) {
 		char buf[1024];
 		X509_NAME *subject;
 

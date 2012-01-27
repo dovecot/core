@@ -500,7 +500,7 @@ int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp)
 {
 	if (!client->secured && strcmp(client->set->ssl, "required") == 0) {
-		if (client->set->verbose_auth) {
+		if (client->set->auth_verbose) {
 			client_log(client, "Login failed: "
 				   "SSL required for authentication");
 		}
@@ -531,7 +531,7 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 	if (client->secured || !client->set->disable_plaintext_auth)
 		return TRUE;
 
-	if (client->set->verbose_auth) {
+	if (client->set->auth_verbose) {
 		client_log(client, "Login failed: "
 			   "Plaintext authentication disabled");
 	}
