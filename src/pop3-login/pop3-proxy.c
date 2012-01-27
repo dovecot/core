@@ -151,7 +151,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 	}
 
-	if (client->set->verbose_auth) {
+	if (client->set->auth_verbose) {
 		if (strncmp(line, "-ERR ", 5) == 0)
 			line += 5;
 		client_proxy_log_failure(client, line);

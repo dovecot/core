@@ -164,7 +164,7 @@ bool cmd_apop(struct pop3_client *pop3_client, const char *args)
 	unsigned int server_pid, connect_uid;
 
 	if (pop3_client->apop_challenge == NULL) {
-		if (client->set->verbose_auth)
+		if (client->set->auth_verbose)
 			client_log(client, "APOP failed: APOP not enabled");
 		client_send_line(client, CLIENT_CMD_REPLY_BAD,
 				 "APOP not enabled.");
@@ -174,7 +174,7 @@ bool cmd_apop(struct pop3_client *pop3_client, const char *args)
 	/* <username> <md5 sum in hex> */
 	p = strchr(args, ' ');
 	if (p == NULL || strlen(p+1) != 32) {
-		if (client->set->verbose_auth)
+		if (client->set->auth_verbose)
 			client_log(client, "APOP failed: Invalid parameters");
 		client_send_line(client, CLIENT_CMD_REPLY_BAD,
 				 "Invalid parameters.");
@@ -189,7 +189,7 @@ bool cmd_apop(struct pop3_client *pop3_client, const char *args)
 	buffer_append_c(apop_data, '\0');
 
 	if (hex_to_binary(p+1, apop_data) < 0) {
-		if (client->set->verbose_auth) {
+		if (client->set->auth_verbose) {
 			client_log(client, "APOP failed: "
 				   "Invalid characters in MD5 response");
 		}

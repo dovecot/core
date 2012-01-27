@@ -231,7 +231,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 1;
 	} else if (strncmp(line, "L ", 2) == 0) {
 		line += 2;
-		if (client->set->verbose_auth) {
+		if (client->set->auth_verbose) {
 			const char *log_line = line;
 
 			if (strncasecmp(log_line, "NO ", 3) == 0)
