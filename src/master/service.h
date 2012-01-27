@@ -111,6 +111,8 @@ struct service {
 	unsigned int have_inet_listeners:1;
 	/* service_login_notify()'s last notification state */
 	unsigned int last_login_full_notify:1;
+	/* service has exited at least once with exit code 0 */
+	unsigned int have_successful_exits:1;
 };
 
 struct service_list {

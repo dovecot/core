@@ -535,12 +535,19 @@ service_process_failure(struct service_process *process, int status)
 
 	service_process_log_status_error(process, status);
 	throttle = process->to_status != NULL;
-	if (service->exit_failure_last != ioloop_time) {
-		service->exit_failure_last = ioloop_time;
-		service->exit_failures_in_sec = 0;
+	if (!throttle && !service->have_successful_exits) {
+		/* this service has seen no successful exits yet.
+		   try to avoid failure storms by throttling the service if it
+		   only keeps failing rapidly. this is no longer done after
+		   one success to avoid intentional DoSing, in case attacker
+		   finds a way to quickly crash his own session. */
+		if (service->exit_failure_last != ioloop_time) {
+			service->exit_failure_last = ioloop_time;
+			service->exit_failures_in_sec = 0;
+		}
+		if (++service->exit_failures_in_sec > SERVICE_MAX_EXIT_FAILURES_IN_SEC)
+			throttle = TRUE;
 	}
-	if (++service->exit_failures_in_sec > SERVICE_MAX_EXIT_FAILURES_IN_SEC)
-		throttle = TRUE;
 	service_process_notify_add(service_anvil_global->kills, process);
 	return throttle;
 }
@@ -568,6 +575,7 @@ void services_monitor_reap_children(void)
 			    !service->list->destroying)
 				service_monitor_listen_start(service);
 			/* one success resets all failures */
+			service->have_successful_exits = TRUE;
 			service->exit_failures_in_sec = 0;
 			service->throttle_secs =
 				SERVICE_STARTUP_FAILURE_THROTTLE_MIN_SECS;
