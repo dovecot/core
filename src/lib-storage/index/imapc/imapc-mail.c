@@ -322,8 +322,14 @@ static int
 imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+
 	switch (field) {
 	case MAIL_FETCH_GUID:
+		if (mbox->guid_fetch_field_name == NULL) {
+			/* GUIDs not supported by server */
+			break;
+		}
 		*value_r = "";
 		return imapc_mail_get_guid(_mail, value_r);
 	default:
