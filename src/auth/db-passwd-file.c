@@ -17,7 +17,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 #include <sys/stat.h>
+
+#define PARSE_TIME_STARTUP_WARN_SECS 60
+#define PARSE_TIME_RELOAD_WARN_SECS 10
 
 static struct db_passwd_file *passwd_files;
 
@@ -155,12 +159,14 @@ passwd_file_new(struct db_passwd_file *db, const char *expanded_path)
 	return pw;
 }
 
-static bool passwd_file_open(struct passwd_file *pw)
+static bool passwd_file_open(struct passwd_file *pw, bool startup)
 {
 	const char *no_args = NULL;
 	struct istream *input;
 	const char *line;
 	struct stat st;
+	time_t start_time, end_time;
+	unsigned int time_secs;
 	int fd;
 
 	fd = open(pw->path, O_RDONLY);
@@ -189,6 +195,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 	pw->users = hash_table_create(default_pool, pw->pool, 100,
 				      str_hash, (hash_cmp_callback_t *)strcmp);
 
+	start_time = time(NULL);
 	input = i_stream_create_fd(pw->fd, 4096, FALSE);
 	i_stream_set_return_partial_line(input, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
@@ -207,10 +214,16 @@ static bool passwd_file_open(struct passwd_file *pw)
 		} T_END;
 	}
 	i_stream_destroy(&input);
+	end_time = time(NULL);
+	time_secs = end_time - start_time;
 
-	if (pw->db->debug) {
-		i_debug("passwd-file %s: Read %u users",
-			pw->path, hash_table_count(pw->users));
+	if ((time_secs > PARSE_TIME_STARTUP_WARN_SECS && startup) ||
+	    (time_secs > PARSE_TIME_RELOAD_WARN_SECS && !startup)) {
+		i_warning("passwd-file %s: Reading %u users took %u secs",
+			  pw->path, hash_table_count(pw->users), time_secs);
+	} else if (pw->db->debug) {
+		i_debug("passwd-file %s: Read %u users in %u secs",
+			pw->path, hash_table_count(pw->users), time_secs);
 	}
 	return TRUE;
 }
@@ -260,7 +273,7 @@ static bool passwd_file_sync(struct passwd_file *pw)
 
 	if (st.st_mtime != pw->stamp || st.st_size != pw->size) {
 		passwd_file_close(pw);
-		return passwd_file_open(pw);
+		return passwd_file_open(pw, FALSE);
 	}
 	return TRUE;
 }
@@ -334,7 +347,7 @@ void db_passwd_file_parse(struct db_passwd_file *db)
 {
 	if (db->default_file != NULL && db->default_file->stamp == 0) {
 		/* no variables, open the file immediately */
-		(void)passwd_file_open(db->default_file);
+		(void)passwd_file_open(db->default_file, TRUE);
 	}
 }
 
