@@ -143,6 +143,8 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r)
 		set->ssl_verify_client_cert = TRUE;
 	}
 
+	if (set->auth_debug_passwords)
+		set->auth_debug = TRUE;
 	if (set->auth_debug)
 		set->auth_verbose = TRUE;
 
