@@ -7,13 +7,21 @@
 
 #include "ioloop.h"
 #include "ipwd.h"
+#include "time-util.h"
 #include "userdb-template.h"
 
 #define USER_CACHE_KEY "%u"
+#define PASSWD_SLOW_WARN_MSECS (10*1000)
+#define PASSWD_SLOW_MASTER_WARN_MSECS 50
+#define PASSDB_SLOW_MASTER_WARN_COUNT_INTERVAL 100
+#define PASSDB_SLOW_MASTER_WARN_MIN_PERCENTAGE 5
 
 struct passwd_userdb_module {
 	struct userdb_module module;
 	struct userdb_template *tmpl;
+
+	unsigned int fast_count, slow_count;
+	unsigned int slow_warned:1;
 };
 
 struct passwd_userdb_iterate_context {
@@ -24,6 +32,50 @@ struct passwd_userdb_iterate_context {
 static struct passwd_userdb_iterate_context *cur_userdb_iter = NULL;
 static struct timeout *cur_userdb_iter_to = NULL;
 
+static void
+passwd_check_warnings(struct auth_request *auth_request,
+		      struct passwd_userdb_module *module,
+		      const struct timeval *start_tv)
+{
+	struct timeval end_tv;
+	unsigned int msecs, percentage;
+
+	if (gettimeofday(&end_tv, NULL) < 0)
+		return;
+
+	msecs = timeval_diff_msecs(&end_tv, start_tv);
+	if (msecs >= PASSWD_SLOW_WARN_MSECS) {
+		i_warning("passwd: Lookup for %s took %u secs",
+			  auth_request->user, msecs/1000);
+		return;
+	}
+	if (worker || module->slow_warned)
+		return;
+
+	if (msecs < PASSWD_SLOW_MASTER_WARN_MSECS) {
+		module->fast_count++;
+		return;
+	}
+	module->slow_count++;
+	if (module->fast_count + module->slow_count <
+	    PASSDB_SLOW_MASTER_WARN_COUNT_INTERVAL)
+		return;
+
+	percentage = module->slow_count * 100 /
+		(module->slow_count + module->fast_count);
+	if (percentage < PASSDB_SLOW_MASTER_WARN_MIN_PERCENTAGE) {
+		/* start from beginning */
+		module->slow_count = module->fast_count = 0;
+	} else {
+		i_warning("passwd: %u%% of last %u lookups took over "
+			  "%u milliseconds, "
+			  "you may want to set blocking=yes for userdb",
+			  percentage, PASSDB_SLOW_MASTER_WARN_COUNT_INTERVAL,
+			  PASSWD_SLOW_MASTER_WARN_MSECS);
+		module->slow_warned = TRUE;
+	}
+}
+
 static void passwd_lookup(struct auth_request *auth_request,
 			  userdb_callback_t *callback)
 {
@@ -31,10 +83,18 @@ static void passwd_lookup(struct auth_request *auth_request,
 	struct passwd_userdb_module *module =
 		(struct passwd_userdb_module *)_module;
 	struct passwd pw;
+	struct timeval start_tv;
+	int ret;
 
 	auth_request_log_debug(auth_request, "passwd", "lookup");
 
-	switch (i_getpwnam(auth_request->user, &pw)) {
+	if (gettimeofday(&start_tv, NULL) < 0)
+		start_tv.tv_sec = 0;
+	ret = i_getpwnam(auth_request->user, &pw);
+	if (start_tv.tv_sec != 0)
+		passwd_check_warnings(auth_request, module, &start_tv);
+
+	switch (ret) {
 	case -1:
 		auth_request_log_error(auth_request, "passwd",
 				       "getpwnam() failed: %m");
