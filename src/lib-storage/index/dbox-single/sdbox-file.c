@@ -13,6 +13,7 @@
 #include "sdbox-file.h"
 
 #include <stdio.h>
+#include <utime.h>
 
 static void sdbox_file_init_paths(struct sdbox_file *file, const char *fname)
 {
@@ -271,6 +272,7 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 	struct ostream *output;
 	const char *dest_dir, *temp_path, *dest_path, *p;
 	struct stat st;
+	struct utimbuf ut;
 	bool deleted;
 	int out_fd, ret = 0;
 
@@ -334,6 +336,14 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 	if (ret < 0) {
 		(void)unlink(temp_path);
 		return -1;
+	}
+	/* preserve the original atime/mtime. this isn't necessary for Dovecot,
+	   but could be useful for external reasons. */
+	ut.actime = st.st_atime;
+	ut.modtime = st.st_mtime;
+	if (utime(temp_path, &ut) < 0) {
+		mail_storage_set_critical(storage,
+			"utime(%s) failed: %m", temp_path);
 	}
 
 	/* the temp file was successfully written. rename it now to the
