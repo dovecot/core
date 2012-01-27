@@ -1340,6 +1340,7 @@ void imapc_connection_connect(struct imapc_connection *conn,
 			      void *login_context)
 {
 	struct dns_lookup_settings dns_set;
+	struct ip_addr ip;
 
 	if (conn->fd != -1) {
 		i_assert(login_callback == NULL);
@@ -1360,6 +1361,13 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	dns_set.timeout_msecs = IMAPC_DNS_LOOKUP_TIMEOUT_MSECS;
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
+	if (conn->ips_count == 0 &&
+	    net_addr2ip(conn->client->set.host, &ip) == 0) {
+		conn->ips_count = 1;
+		conn->ips = i_new(struct ip_addr, conn->ips_count);
+		conn->ips[0] = ip;
+	}
+
 	if (conn->ips_count == 0) {
 		(void)dns_lookup(conn->client->set.host, &dns_set,
 				 imapc_connection_dns_callback, conn);
