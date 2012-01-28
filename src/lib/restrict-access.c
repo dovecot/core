@@ -267,6 +267,10 @@ void restrict_access(const struct restrict_access_settings *set,
 	/* set the primary/privileged group */
 	process_primary_gid = set->gid;
 	process_privileged_gid = set->privileged_gid;
+	if (process_privileged_gid == process_primary_gid) {
+		/* a pointless configuration, ignore it */
+		process_privileged_gid = (gid_t)-1;
+	}
 
 	have_root_group = process_primary_gid == 0;
 	if (process_primary_gid != (gid_t)-1 ||
