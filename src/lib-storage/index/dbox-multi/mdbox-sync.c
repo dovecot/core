@@ -229,7 +229,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	   headers until syncing has locked the mailbox */
 	rebuild = mbox->storage->corrupted ||
 		(flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
-	if (rebuild) {
+	if (rebuild && (flags & MDBOX_SYNC_FLAG_NO_REBUILD) == 0) {
 		if (mdbox_storage_rebuild_in_context(mbox->storage, atomic) < 0)
 			return -1;
 		index_mailbox_reset_uidvalidity(&mbox->box);
@@ -330,8 +330,10 @@ mdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
-	if (mail_index_reset_fscked(box->index))
-		mdbox_storage_set_corrupted(mbox->storage);
+	if (box->opened) {
+		if (mail_index_reset_fscked(box->index))
+			mdbox_storage_set_corrupted(mbox->storage);
+	}
 	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->box, flags) ||
 			 mbox->storage->corrupted)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)

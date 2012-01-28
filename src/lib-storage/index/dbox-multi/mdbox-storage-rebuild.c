@@ -50,7 +50,6 @@ struct mdbox_storage_rebuild_context {
 	ARRAY_TYPE(seq_range) seen_file_ids;
 
 	uint32_t rebuild_count;
-	uint32_t highest_seen_map_uid;
 	uint32_t highest_file_id;
 
 	struct mailbox_list *default_list;

@@ -301,10 +301,13 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		return -1;
 	}
 
-	/* lock the mailbox after map to avoid deadlocks. */
+	/* lock the mailbox after map to avoid deadlocks. if we've noticed
+	   any corruption, deal with it later, otherwise we won't have
+	   up-to-date atomic->sync_view */
 	if (mdbox_sync_begin(ctx->mbox, MDBOX_SYNC_FLAG_NO_PURGE |
 			     MDBOX_SYNC_FLAG_FORCE |
-			     MDBOX_SYNC_FLAG_FSYNC, ctx->atomic,
+			     MDBOX_SYNC_FLAG_FSYNC |
+			     MDBOX_SYNC_FLAG_NO_REBUILD, ctx->atomic,
 			     &ctx->sync_ctx) < 0) {
 		mdbox_transaction_save_rollback(_ctx);
 		return -1;

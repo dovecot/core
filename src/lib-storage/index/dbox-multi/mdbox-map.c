@@ -796,10 +796,25 @@ static bool dbox_try_open(struct dbox_file *file, bool want_altpath)
 	return TRUE;
 }
 
+static bool dbox_file_is_ok_at(struct dbox_file *file, uoff_t offset)
+{
+	bool last;
+	int ret;
+
+	if (dbox_file_seek(file, offset) == 0)
+		return FALSE;
+
+	while ((ret = dbox_file_seek_next(file, &offset, &last)) > 0);
+	if (ret == 0 && !last)
+		return FALSE;
+	return TRUE;
+}
+
 static bool
 mdbox_map_file_try_append(struct mdbox_map_append_context *ctx,
 			  bool want_altpath,
-			  uint32_t file_id, time_t stamp, uoff_t mail_size,
+			  const struct mdbox_map_mail_index_record *rec,
+			  time_t stamp, uoff_t mail_size,
 			  struct dbox_file_append_context **file_append_r,
 			  struct ostream **output_r, bool *retry_later_r)
 {
@@ -815,7 +830,7 @@ mdbox_map_file_try_append(struct mdbox_map_append_context *ctx,
 	*output_r = NULL;
 	*retry_later_r = FALSE;
 
-	file = mdbox_file_init(storage, file_id);
+	file = mdbox_file_init(storage, rec->file_id);
 	if (!dbox_try_open(file, want_altpath)) {
 		dbox_file_unref(&file);
 		return TRUE;
@@ -830,6 +845,13 @@ mdbox_map_file_try_append(struct mdbox_map_append_context *ctx,
 		if (errno != ENOENT)
 			i_error("stat(%s) failed: %m", file->cur_path);
 		/* the file was unlinked between opening and locking it. */
+	} else if (st.st_size != rec->offset + rec->size &&
+		   /* check if there's any garbage at the end of file.
+		      note that there may be valid messages added by another
+		      session before we locked it (but after we refreshed
+		      map index). */
+		   !dbox_file_is_ok_at(file, rec->offset + rec->size)) {
+		/* error message was already logged */
 	} else {
 		file_append = dbox_file_append_init(file);
 		if (dbox_file_get_append_stream(file_append, output_r) <= 0) {
@@ -1037,7 +1059,7 @@ mdbox_map_find_appendable_file(struct mdbox_map_append_context *ctx,
 		}
 
 		mail_index_lookup_uid(map->view, seq, &uid);
-		if (!mdbox_map_file_try_append(ctx, want_altpath, rec->file_id,
+		if (!mdbox_map_file_try_append(ctx, want_altpath, rec,
 					       stamp, mail_size, file_append_r,
 					       output_r, &retry_later)) {
 			/* file is too old. the rest of the files are too. */
