@@ -1052,10 +1052,11 @@ static const char *mailbox_name_force_cleanup(const char *input, char alt_char)
 
 static const char *
 local_worker_convert_mailbox_name(struct local_dsync_worker *worker,
-				  const char *name, struct mail_namespace *ns,
+				  const char *vname, struct mail_namespace *ns,
 				  const struct dsync_mailbox *dsync_box,
 				  bool creating)
 {
+	const char *name = vname;
 	char list_sep, ns_sep = mail_namespace_get_sep(ns);
 
 	if (dsync_box->name_sep != ns_sep) {
@@ -1063,6 +1064,8 @@ local_worker_convert_mailbox_name(struct local_dsync_worker *worker,
 		name = mailbox_name_convert(worker, name,
 					    dsync_box->name_sep, ns_sep);
 	}
+	name = mailbox_list_get_storage_name(ns->list, name);
+
 	if (creating) {
 		list_sep = mailbox_list_get_hierarchy_sep(ns->list);
 		if (!mailbox_list_is_valid_create_name(ns->list, name)) {
@@ -1091,7 +1094,7 @@ local_worker_convert_mailbox_name(struct local_dsync_worker *worker,
 		}
 		i_assert(mailbox_list_is_valid_create_name(ns->list, name));
 	}
-	return name;
+	return mailbox_list_get_vname(ns->list, name);
 }
 
 static struct mailbox *
@@ -1185,7 +1188,7 @@ local_worker_create_allocated_mailbox(struct local_dsync_worker *worker,
 
 	local_dsync_worker_add_mailbox(worker,
 				       mailbox_get_namespace(box),
-				       mailbox_get_name(box),
+				       mailbox_get_vname(box),
 				       &dsync_box->mailbox_guid);
 	return 1;
 }
@@ -1215,7 +1218,7 @@ local_worker_create_mailbox(struct dsync_worker *_worker,
 
 	/* mailbox name already exists. add mailbox guid to the name,
 	   that shouldn't exist. */
-	new_name = t_strconcat(mailbox_get_name(box), "_",
+	new_name = t_strconcat(mailbox_get_vname(box), "_",
 			       dsync_guid_to_str(&dsync_box->mailbox_guid),
 			       NULL);
 	ns = mailbox_get_namespace(box);
