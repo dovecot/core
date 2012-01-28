@@ -655,6 +655,11 @@ mail_thread_iterate_next(struct mail_thread_iterate_context *iter,
 		*child_iter_r = shadow->first_child_idx == 0 ? NULL :
 			mail_thread_iterate_children(iter, child->idx);
 	}
+	if (child->uid == 0 && *child_iter_r == NULL) {
+		/* this is a dummy node without children,
+		   there's no point in returning it */
+		return mail_thread_iterate_next(iter, child_iter_r);
+	}
 	return child;
 }
 
