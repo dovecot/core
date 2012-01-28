@@ -47,7 +47,7 @@ struct sqlpool_request {
 	time_t created;
 
 	unsigned int host_idx;
-	unsigned int retried:1;
+	unsigned int retry_count;
 
 	/* requests are a) queries */
 	char *query;
@@ -609,13 +609,14 @@ driver_sqlpool_query_callback(struct sql_result *result,
 			      struct sqlpool_request *request)
 {
 	struct sqlpool_db *db = request->db;
-	const struct sqlpool_connection *conn;
+	const struct sqlpool_connection *conn = NULL;
 	struct sql_db *conndb;
 
-	if (result->failed_try_retry && !request->retried) {
+	if (result->failed_try_retry &&
+	    request->retry_count < array_count(&db->hosts)) {
 		i_error("%s: Query failed, retrying: %s",
 			db->driver->name, sql_result_get_error(result));
-		request->retried = TRUE;
+		request->retry_count++;
 		driver_sqlpool_prepend_request(db, request);
 
 		if (driver_sqlpool_get_connection(request->db,
