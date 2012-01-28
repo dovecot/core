@@ -67,7 +67,9 @@ search_parse_return_options(struct imap_search_context *ctx,
 			ctx->return_options |= SEARCH_RETURN_COUNT;
 		else if (strcmp(name, "SAVE") == 0)
 			ctx->return_options |= SEARCH_RETURN_SAVE;
-		else if (strcmp(name, "UPDATE") == 0)
+		else if (strcmp(name, "CONTEXT") == 0) {
+			/* no-op */
+		} else if (strcmp(name, "UPDATE") == 0)
 			ctx->return_options |= SEARCH_RETURN_UPDATE;
 		else if (strcmp(name, "RELEVANCY") == 0)
 			ctx->return_options |= SEARCH_RETURN_RELEVANCY;
