@@ -301,6 +301,7 @@ static int zlib_mailbox_open_input(struct mailbox *box)
 {
 	const struct zlib_handler *handler;
 	struct istream *input;
+	struct stat st;
 	int fd;
 
 	handler = zlib_get_zlib_handler_ext(box->name);
@@ -314,9 +315,13 @@ static int zlib_mailbox_open_input(struct mailbox *box)
 
 		fd = open(box_path, O_RDONLY);
 		if (fd == -1) {
-			mail_storage_set_critical(box->storage,
-				"open(%s) failed: %m", box_path);
-			return -1;
+			/* let the standard handler figure out what to do
+			   with the failure */
+			return 0;
+		}
+		if (fstat(fd, &st) == 0 && S_ISDIR(st.st_mode)) {
+			(void)close(fd);
+			return 0;
 		}
 		input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 		i_stream_set_name(input, box_path);
