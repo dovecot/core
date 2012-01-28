@@ -894,8 +894,7 @@ void dsync_brain_sync_all(struct dsync_brain *brain)
 		old_state = brain->state;
 		dsync_brain_sync(brain);
 
-		if (dsync_worker_has_failed(brain->src_worker) ||
-		    dsync_worker_has_failed(brain->dest_worker))
+		if (dsync_brain_has_failed(brain))
 			break;
 
 		i_assert(brain->state != old_state);
