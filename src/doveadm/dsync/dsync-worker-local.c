@@ -313,6 +313,8 @@ dsync_worker_get_list_mailbox_log(struct local_dsync_worker *worker,
 	const struct mailbox_log_record *rec;
 
 	log = mailbox_list_get_changelog(list);
+	if (log == NULL)
+		return 0;
 	iter = mailbox_log_iter_init(log);
 	while ((rec = mailbox_log_iter_next(iter)) != NULL) {
 		switch (rec->type) {
