@@ -684,7 +684,9 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 	(void)array_append_space(&ctx->all_parsers);
 	config_filter_add_all(new_filter, array_idx(&ctx->all_parsers, 0));
 
-	if ((ret = config_all_parsers_check(ctx, new_filter, &error)) < 0) {
+	if (ctx->hide_errors)
+		ret = 0;
+	else if ((ret = config_all_parsers_check(ctx, new_filter, &error)) < 0) {
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
 	}
@@ -886,15 +888,21 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 	int fd, ret = 0;
 	bool handled;
 
-	fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		*error_r = t_strdup_printf("open(%s) failed: %m", path);
-		return 0;
+	if (path == NULL) {
+		path = "<defaults>";
+		fd = -1;
+	} else {
+		fd = open(path, O_RDONLY);
+		if (fd < 0) {
+			*error_r = t_strdup_printf("open(%s) failed: %m", path);
+			return 0;
+		}
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool_alloconly_create("config file parser", 1024*256);
 	ctx.path = path;
+	ctx.hide_errors = fd == -1;
 
 	for (count = 0; all_roots[count] != NULL; count++) ;
 	ctx.root_parsers =
@@ -918,7 +926,9 @@ int config_parse_file(const char *path, bool expand_values, const char *module,
 
 	ctx.str = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
-	ctx.cur_input->input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	ctx.cur_input->input = fd != -1 ?
+		i_stream_create_fd(fd, (size_t)-1, TRUE) :
+		i_stream_create_from_data("", 0);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
 	if (hook_config_parser_begin != NULL)

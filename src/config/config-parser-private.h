@@ -55,6 +55,7 @@ struct config_parser_context {
 
 	struct config_filter_context *filter;
 	unsigned int expand_values:1;
+	unsigned int hide_errors:1;
 };
 
 extern void (*hook_config_parser_begin)(struct config_parser_context *ctx);

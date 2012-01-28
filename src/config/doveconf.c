@@ -596,6 +596,7 @@ int main(int argc, char *argv[])
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
 	bool parse_full_config = FALSE, simple_output = FALSE;
+	bool dump_defaults = FALSE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -605,7 +606,7 @@ int main(int argc, char *argv[])
 	memset(&filter, 0, sizeof(filter));
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
-					     &argc, &argv, "af:hm:nNpexS");
+					     &argc, &argv, "adf:hm:nNpexS");
 	orig_config_path = master_service_get_config_path(master_service);
 
 	i_set_failure_prefix("doveconf: ");
@@ -616,6 +617,9 @@ int main(int argc, char *argv[])
 		}
 		switch (c) {
 		case 'a':
+			break;
+		case 'd':
+			dump_defaults = TRUE;
 			break;
 		case 'f':
 			filter_parse_arg(&filter, optarg);
@@ -666,7 +670,8 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	config_parse_load_modules();
 
-	if ((ret = config_parse_file(config_path, expand_vars,
+	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
+				     expand_vars,
 				     parse_full_config ? "" : module,
 				     &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
