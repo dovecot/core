@@ -123,6 +123,13 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 		}
 		i_stream_set_name(input, t_strcut(cmd, '\r'));
 		mail->data.stream = input;
+		if (mail->mail.v.istream_opened != NULL) {
+			if (mail->mail.v.istream_opened(_mail,
+							&mail->data.stream) < 0) {
+				index_mail_close_streams(mail);
+				return -1;
+			}
+		}
 		pop3c_mail_cache_size(mail);
 	}
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
