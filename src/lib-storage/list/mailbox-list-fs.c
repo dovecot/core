@@ -207,6 +207,8 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 			return set->inbox_path;
 	}
 
+	if (root_dir == NULL)
+		return type == MAILBOX_LIST_PATH_TYPE_INDEX ? "" : NULL;
 	if (*set->maildir_name == '\0') {
 		return t_strdup_printf("%s/%s%s", root_dir,
 				       set->mailbox_dir_name, name);
