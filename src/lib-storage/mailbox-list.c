@@ -157,13 +157,13 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.subscription_fname =
 		p_strdup(list->pool, set->subscription_fname);
-	list->set.maildir_name = set->maildir_name == NULL ? "" :
+	list->set.maildir_name =
 		p_strdup(list->pool, set->maildir_name);
 	list->set.mailbox_dir_name =
 		p_strdup(list->pool, set->mailbox_dir_name);
 	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
 
-	if (set->mailbox_dir_name == NULL || *set->mailbox_dir_name == '\0')
+	if (*set->mailbox_dir_name == '\0')
 		list->set.mailbox_dir_name = "";
 	else if (set->mailbox_dir_name[strlen(set->mailbox_dir_name)-1] == '/') {
 		list->set.mailbox_dir_name =
@@ -249,6 +249,8 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 	*error_r = NULL;
 
 	memset(set_r, 0, sizeof(*set_r));
+	set_r->maildir_name = "";
+	set_r->mailbox_dir_name = "";
 
 	if (*data == '\0')
 		return 0;
