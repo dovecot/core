@@ -35,6 +35,8 @@ struct mail_user {
 	struct mail_storage *storages;
 	ARRAY_DEFINE(hooks, const struct mail_storage_hooks *);
 
+	struct mountpoint_list *mountpoints;
+
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mail_user_module_context *);
 
@@ -118,5 +120,11 @@ const char *mail_user_home_expand(struct mail_user *user, const char *path);
 int mail_user_try_home_expand(struct mail_user *user, const char **path);
 /* Returns unique user+ip identifier for anvil. */
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user);
+/* Returns FALSE if path is in a mountpoint that should be mounted,
+   but isn't mounted. In such a situation it's better to fail than to attempt
+   any kind of automatic file/dir creations. error_r gives an error about which
+   mountpoint should be mounted. */
+bool mail_user_is_path_mounted(struct mail_user *user, const char *path,
+			       const char **error_r);
 
 #endif

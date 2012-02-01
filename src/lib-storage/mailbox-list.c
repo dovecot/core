@@ -789,10 +789,22 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 			    enum mailbox_list_path_type type,
 			    const char **error_r)
 {
-	const char *expanded, *unexpanded, *root_dir, *p, *origin;
+	const char *expanded, *unexpanded, *root_dir, *p, *origin, *error;
 	struct stat st;
 	mode_t file_mode, dir_mode;
 	gid_t gid;
+
+	if (stat(path, &st) == 0) {
+		/* looks like it already exists, don't bother checking
+		   further. */
+		return 0;
+	}
+
+	if (!mail_user_is_path_mounted(list->ns->user, path, &error)) {
+		*error_r = t_strdup_printf(
+			"Can't create mailbox root dir %s: %s", path, error);
+		return -1;
+	}
 
 	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
 					  &gid, &origin);

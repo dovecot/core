@@ -18,6 +18,7 @@ struct mountpoint_list {
 	pool_t pool;
 	const char *perm_path, *state_path;
 	ARRAY_DEFINE(recs, struct mountpoint_list_rec *);
+	struct stat load_st;
 	bool load_failed;
 };
 
@@ -49,8 +50,6 @@ const char *const mountpoint_list_default_ignore_types[] = {
 	NULL
 };
 
-static int mountpoint_list_load(struct mountpoint_list *list);
-
 struct mountpoint_list *
 mountpoint_list_init(const char *perm_path, const char *state_path)
 {
@@ -64,8 +63,14 @@ mountpoint_list_init(const char *perm_path, const char *state_path)
 	list->state_path = p_strdup(pool, state_path);
 	p_array_init(&list->recs, pool, 16);
 
-	(void)mountpoint_list_load(list);
+	(void)mountpoint_list_refresh(list);
 	return list;
+}
+
+struct mountpoint_list *
+mountpoint_list_init_readonly(const char *state_path)
+{
+	return mountpoint_list_init(NULL, state_path);
 }
 
 void mountpoint_list_deinit(struct mountpoint_list **_list)
@@ -92,6 +97,10 @@ static int mountpoint_list_load(struct mountpoint_list *list)
 			i_error("open(%s) failed: %m", list->state_path);
 			return -1;
 		}
+		if (list->perm_path == NULL) {
+			/* we're in read-only mode */
+			return 0;
+		}
 		if (file_copy(list->perm_path, list->state_path, FALSE) < 0)
 			return -1;
 		fd = open(list->perm_path, O_RDONLY);
@@ -104,6 +113,8 @@ static int mountpoint_list_load(struct mountpoint_list *list)
 			return -1;
 		}
 	}
+	if (fstat(fd, &list->load_st) < 0)
+		i_error("fstat(%s) failed: %m", list->state_path);
 	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		p = strchr(line, ' ');
@@ -129,6 +140,28 @@ static int mountpoint_list_load(struct mountpoint_list *list)
 	}
 	i_stream_destroy(&input);
 	return ret;
+}
+
+int mountpoint_list_refresh(struct mountpoint_list *list)
+{
+	struct stat st;
+
+	if (list->load_st.st_mtime != 0) {
+		if (stat(list->state_path, &st) < 0) {
+			if (errno == ENOENT)
+				return 0;
+			i_error("stat(%s) failed: %m", list->state_path);
+			return -1;
+		}
+		if (st.st_mtime == list->load_st.st_mtime &&
+		    ST_MTIME_NSEC(st) == ST_MTIME_NSEC(list->load_st) &&
+		    st.st_ino == list->load_st.st_ino) {
+			/* unchanged */
+			return 0;
+		}
+	}
+	array_clear(&list->recs);
+	return mountpoint_list_load(list);
 }
 
 static int
@@ -174,6 +207,8 @@ mountpoint_list_save_to(struct mountpoint_list *list, const char *path)
 int mountpoint_list_save(struct mountpoint_list *list)
 {
 	int ret;
+
+	i_assert(list->perm_path != NULL);
 
 	if (list->load_failed)
 		return -1;

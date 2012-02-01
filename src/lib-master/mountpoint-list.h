@@ -24,8 +24,13 @@ extern const char *const mountpoint_list_default_ignore_types[];
 
 struct mountpoint_list *
 mountpoint_list_init(const char *perm_path, const char *state_path);
+struct mountpoint_list *
+mountpoint_list_init_readonly(const char *state_path);
 void mountpoint_list_deinit(struct mountpoint_list **list);
 
+/* Reload the mountpoints if they have changed. Returns 0 if ok,
+   -1 if I/O error. */
+int mountpoint_list_refresh(struct mountpoint_list *list);
 /* Save the current list of mountpoints. Returns 0 if successful,
    -1 if I/O error. */
 int mountpoint_list_save(struct mountpoint_list *list);
