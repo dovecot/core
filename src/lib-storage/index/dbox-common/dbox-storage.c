@@ -21,9 +21,9 @@ void dbox_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 		set->layout = MAILBOX_LIST_NAME_FS;
 	if (set->subscription_fname == NULL)
 		set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
-	if (set->maildir_name == NULL)
+	if (*set->maildir_name == '\0')
 		set->maildir_name = DBOX_MAILDIR_NAME;
-	if (set->mailbox_dir_name == NULL)
+	if (*set->mailbox_dir_name == '\0')
 		set->mailbox_dir_name = DBOX_MAILBOX_DIR_NAME;
 }
 

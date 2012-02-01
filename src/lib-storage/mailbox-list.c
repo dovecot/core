@@ -119,7 +119,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 
 	class_p = array_idx(&mailbox_list_drivers, idx);
 	if (((*class_p)->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 &&
-	    set->maildir_name != NULL && *set->maildir_name != '\0') {
+	    *set->maildir_name != '\0') {
 		*error_r = "maildir_name not supported by this driver";
 		return -1;
 	}

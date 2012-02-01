@@ -80,7 +80,7 @@ static void maildir_storage_get_list_settings(const struct mail_namespace *ns,
 	if (set->subscription_fname == NULL)
 		set->subscription_fname = MAILDIR_SUBSCRIPTION_FILE_NAME;
 
-	if (set->inbox_path == NULL && set->maildir_name == NULL &&
+	if (set->inbox_path == NULL && *set->maildir_name == '\0' &&
 	    (strcmp(set->layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
 	     strcmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
