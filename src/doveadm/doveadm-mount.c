@@ -19,7 +19,7 @@ static struct mountpoint_list *mountpoint_list_get(void)
 	return mountpoint_list_init(perm_path, state_path);
 }
 
-static void cmd_mount_status(int argc, char *argv[])
+static void cmd_mount_list(int argc, char *argv[])
 {
 	struct mountpoint_list *mountpoints;
 	struct mountpoint_list_iter *iter;
@@ -27,7 +27,7 @@ static void cmd_mount_status(int argc, char *argv[])
 	bool mounts_known;
 
 	if (argc > 2)
-		mount_cmd_help(cmd_mount_status);
+		mount_cmd_help(cmd_mount_list);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header_simple(" ");
@@ -113,7 +113,7 @@ static void cmd_mount_remove(int argc, char *argv[])
 }
 
 struct doveadm_cmd doveadm_cmd_mount[] = {
-	{ cmd_mount_status, "mount status", "[<path>]" },
+	{ cmd_mount_list, "mount list", "[<path>]" },
 	{ cmd_mount_add, "mount add", "[<path> [<state>]]" },
 	{ cmd_mount_remove, "mount remove", "<path>" }
 };
