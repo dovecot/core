@@ -395,7 +395,7 @@ dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsyslog writev pread uname unsetenv \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
-	       strtoull strtoll strtouq strtoq \
+	       strtoull strtoll strtouq strtoq getmntinfo \
 	       setpriority quotactl getmntent kqueue kevent backtrace_symbols \
 	       walkcontext dirfd clearenv malloc_usable_size glob fallocate \
 	       posix_fadvise getpeereid getpeerucred)
