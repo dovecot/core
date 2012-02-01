@@ -53,13 +53,20 @@ struct lucene_fts_backend_update_context {
 
 static int fts_backend_lucene_mkdir(struct lucene_fts_backend *backend)
 {
+	const char *error;
+
 	if (backend->dir_created)
 		return 0;
 
 	backend->dir_created = TRUE;
-	return mailbox_list_mkdir_root(backend->backend.ns->list,
-				       backend->dir_path,
-				       MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (mailbox_list_mkdir_root(backend->backend.ns->list,
+				    backend->dir_path,
+				    MAILBOX_LIST_PATH_TYPE_INDEX, &error) < 0) {
+		i_error("lucene: Couldn't create root dir %s: %s",
+			backend->dir_path, error);
+		return -1;
+	}
+	return 0;
 }
 
 static int

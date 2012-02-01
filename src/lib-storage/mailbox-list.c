@@ -723,15 +723,14 @@ void mailbox_list_get_root_permissions(struct mailbox_list *list,
 }
 
 static int
-mailbox_list_stat_parent(struct mailbox_list *list, const char *path,
-			 const char **root_dir_r, struct stat *st_r)
+mailbox_list_stat_parent(const char *path, const char **root_dir_r,
+			 struct stat *st_r, const char **error_r)
 {
 	const char *p;
 
 	while (stat(path, st_r) < 0) {
 		if (errno != ENOENT || strcmp(path, "/") == 0) {
-			mailbox_list_set_critical(list, "stat(%s) failed: %m",
-						  path);
+			*error_r = t_strdup_printf("stat(%s) failed: %m", path);
 			return -1;
 		}
 		p = strrchr(path, '/');
@@ -787,7 +786,8 @@ get_expanded_path(const char *unexpanded_start, const char *unexpanded_stop,
 }
 
 int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
-			    enum mailbox_list_path_type type)
+			    enum mailbox_list_path_type type,
+			    const char **error_r)
 {
 	const char *expanded, *unexpanded, *root_dir, *p, *origin;
 	struct stat st;
@@ -818,14 +818,14 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 		/* up to this directory get the permissions from the first
 		   parent directory that exists, if it has setgid bit
 		   enabled. */
-		if (mailbox_list_stat_parent(list, expanded,
-					     &root_dir, &st) < 0)
+		if (mailbox_list_stat_parent(expanded, &root_dir, &st,
+					     error_r) < 0)
 			return -1;
 		if ((st.st_mode & S_ISGID) != 0 && root_dir != expanded) {
 			if (mkdir_parents_chgrp(expanded, st.st_mode,
 						(gid_t)-1, root_dir) < 0 &&
 			    errno != EEXIST) {
-				mailbox_list_set_critical(list,
+				*error_r = t_strdup_printf(
 					"mkdir(%s) failed: %m", expanded);
 				return -1;
 			}
@@ -840,7 +840,10 @@ int mailbox_list_mkdir_root(struct mailbox_list *list, const char *path,
 	   with default directory permissions */
 	if (mkdir_parents_chgrp(path, dir_mode, gid, origin) < 0 &&
 	    errno != EEXIST) {
-		mailbox_list_set_critical(list, "mkdir(%s) failed: %m", path);
+		if (errno == EACCES)
+			*error_r = mail_error_create_eacces_msg("mkdir", path);
+		else
+			*error_r = t_strdup_printf("mkdir(%s) failed: %m", path);
 		return -1;
 	}
 	return 0;
@@ -1330,7 +1333,7 @@ int mailbox_list_mkdir_parent(struct mailbox_list *list,
 int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 					  const char *name)
 {
-	const char *root_dir, *index_dir, *parent_dir, *p;
+	const char *root_dir, *index_dir, *parent_dir, *p, *error;
 	struct mailbox_permissions perm;
 	unsigned int n = 0;
 
@@ -1348,8 +1351,15 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 	}
 
 	if (name == NULL) {
-		return mailbox_list_mkdir_root(list, index_dir,
-					       MAILBOX_LIST_PATH_TYPE_INDEX);
+		if (mailbox_list_mkdir_root(list, index_dir,
+					    MAILBOX_LIST_PATH_TYPE_INDEX,
+					    &error) < 0) {
+			mailbox_list_set_critical(list,
+				"Couldn't create index root dir %s: %s",
+				index_dir, error);
+			return -1;
+		}
+		return 0;
 	}
 
 	mailbox_list_get_permissions(list, name, &perm);
@@ -1368,8 +1378,13 @@ int mailbox_list_create_missing_index_dir(struct mailbox_list *list,
 		/* create the parent directory first */
 		parent_dir = t_strdup_until(index_dir, p);
 		if (mailbox_list_mkdir_root(list, parent_dir,
-					    MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
+					    MAILBOX_LIST_PATH_TYPE_INDEX,
+					    &error) < 0) {
+			mailbox_list_set_critical(list,
+				"Couldn't create index dir %s: %s",
+				parent_dir, error);
 			return -1;
+		}
 	}
 	return 0;
 }

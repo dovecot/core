@@ -230,9 +230,7 @@ static int
 mail_storage_create_root(struct mailbox_list *list,
 			 enum mail_storage_flags flags, const char **error_r)
 {
-	const char *root_dir, *origin, *error;
-	mode_t file_mode, dir_mode;
-	gid_t gid;
+	const char *root_dir, *error;
 	bool autocreate;
 	int ret;
 
@@ -258,20 +256,12 @@ mail_storage_create_root(struct mailbox_list *list,
 
 	autocreate = (flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) == 0;
 	ret = mail_storage_verify_root(root_dir, autocreate, error_r);
-	if (ret != 0)
-		return ret;
-
-	/* we need to create the root directory. */
-	mailbox_list_get_root_permissions(list, &file_mode, &dir_mode,
-					  &gid, &origin);
-	if (mkdir_parents_chgrp(root_dir, dir_mode, gid, origin) < 0 &&
-	    errno != EEXIST) {
-		*error_r = mail_error_create_eacces_msg("mkdir", root_dir);
-		return -1;
-	} else {
-		/* created */
-		return 0;
+	if (ret == 0) {
+		ret = mailbox_list_mkdir_root(list, root_dir,
+					      MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					      error_r);
 	}
+	return ret < 0 ? -1 : 0;
 }
 
 static bool
