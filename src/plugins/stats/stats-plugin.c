@@ -521,7 +521,7 @@ static void stats_user_created(struct mail_user *user)
 	suser = p_new(user->pool, struct stats_user, 1);
 	suser->module_ctx.super = *v;
 	user->vlast = &suser->module_ctx.super;
-	user->v.deinit = stats_user_deinit;
+	v->deinit = stats_user_deinit;
 
 	suser->refresh_secs = refresh_secs;
 	str = mail_user_plugin_getenv(user, "stats_track_cmds");
