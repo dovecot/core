@@ -54,11 +54,23 @@ static void cmd_mount_status(int argc, char *argv[])
 	mountpoint_list_deinit(&mountpoints);
 }
 
+static bool mount_path_get_wildcard(const char **path)
+{
+	unsigned int len;
+
+	len = strlen(*path);
+	if (len > 0 && (*path)[len-1] == '*') {
+		*path = t_strndup(*path, len-1);
+		return TRUE;
+	} else {
+		return FALSE;
+	}
+}
+
 static void cmd_mount_add(int argc, char *argv[])
 {
 	struct mountpoint_list *mountpoints;
 	struct mountpoint_list_rec rec;
-	unsigned int len;
 
 	if (argc > 3)
 		mount_cmd_help(cmd_mount_add);
@@ -73,11 +85,8 @@ static void cmd_mount_add(int argc, char *argv[])
 		rec.state = argv[2] != NULL ? argv[2] :
 			MOUNTPOINT_STATE_DEFAULT;
 
-		len = strlen(rec.mount_path);
-		if (len > 0 && rec.mount_path[len-1] == '*') {
+		if (mount_path_get_wildcard(&rec.mount_path))
 			rec.wildcard = TRUE;
-			rec.mount_path = t_strndup(rec.mount_path, len-1);
-		}
 		mountpoint_list_add(mountpoints, &rec);
 	}
 	(void)mountpoint_list_save(mountpoints);
@@ -87,13 +96,17 @@ static void cmd_mount_add(int argc, char *argv[])
 static void cmd_mount_remove(int argc, char *argv[])
 {
 	struct mountpoint_list *mountpoints;
+	const char *mount_path;
 
 	if (argc != 2)
 		mount_cmd_help(cmd_mount_remove);
 
+	mount_path = argv[1];
+	(void)mount_path_get_wildcard(&mount_path);
+
 	mountpoints = mountpoint_list_get();
-	if (!mountpoint_list_remove(mountpoints, argv[1]))
-		i_error("Mountpoint not found: %s", argv[1]);
+	if (!mountpoint_list_remove(mountpoints, mount_path))
+		i_error("Mountpoint not found: %s", mount_path);
 	else
 		(void)mountpoint_list_save(mountpoints);
 	mountpoint_list_deinit(&mountpoints);
