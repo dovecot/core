@@ -103,8 +103,15 @@ static void doveadm_calc_header_length(void)
 			break;
 		}
 	}
-	if (max_length < ctx->columns)
-		headers[0].length += (ctx->columns - max_length) / 2;
+	if (max_length < ctx->columns) {
+		for (i = 0; i < hdr_count; i++) {
+			if ((headers[i].flags & DOVEADM_PRINT_HEADER_FLAG_EXPAND) != 0) {
+				i++;
+				break;
+			}
+		}
+		headers[i-1].length += (ctx->columns - max_length) / 2;
+	}
 }
 
 static void doveadm_print_next(const char *value)

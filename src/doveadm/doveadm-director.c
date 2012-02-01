@@ -290,7 +290,7 @@ static void cmd_director_map(int argc, char *argv[])
 		user_file_get_user_list(ctx->users_path, pool, users);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
-	doveadm_print_header_simple("user");
+	doveadm_print_header("user", "user", DOVEADM_PRINT_HEADER_FLAG_EXPAND);
 	doveadm_print_header_simple("mail server ip");
 	doveadm_print_header_simple("expire time");
 

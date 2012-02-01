@@ -423,7 +423,7 @@ static void stats_top_output(struct top_context *ctx)
 	doveadm_print_deinit();
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 
-	doveadm_print_header_simple("USER");
+	doveadm_print_header("USER", "USER", DOVEADM_PRINT_HEADER_FLAG_EXPAND);
 	doveadm_print_header_simple("SERVICE");
 	doveadm_print_header_simple("%CPU");
 	doveadm_print_header_simple("%SYS");

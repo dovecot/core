@@ -68,7 +68,7 @@ static void cmd_proxy_list(int argc, char *argv[])
 	ctx = cmd_proxy_init(argc, argv, "a:", cmd_proxy_list);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
-	doveadm_print_header_simple("username");
+	doveadm_print_header("username", "username", DOVEADM_PRINT_HEADER_FLAG_EXPAND);
 	doveadm_print_header("service", "proto", 0);
 	doveadm_print_header("src-ip", "src ip", 0);
 	doveadm_print_header("dest-ip", "dest ip", 0);
