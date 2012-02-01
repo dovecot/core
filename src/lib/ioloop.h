@@ -46,10 +46,11 @@ extern struct ioloop *current_ioloop;
    Don't try to add multiple handlers for the same type. It's not checked and
    the behavior will be undefined. */
 struct io *io_add(int fd, enum io_condition condition,
+		  unsigned int source_linenum,
 		  io_callback_t *callback, void *context);
 #define io_add(fd, condition, callback, context) \
 	CONTEXT_CALLBACK(io_add, io_callback_t, \
-			 callback, context, fd, condition)
+			 callback, context, fd, condition, __LINE__)
 enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 				    void *context, struct io **io_r);
 #ifdef CONTEXT_TYPE_SAFETY
@@ -68,11 +69,11 @@ void io_remove(struct io **io);
 void io_remove_closed(struct io **io);
 
 /* Timeout handlers */
-struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
-			    void *context);
+struct timeout *timeout_add(unsigned int msecs, unsigned int source_linenum,
+			    timeout_callback_t *callback, void *context);
 #define timeout_add(msecs, callback, context) \
 	CONTEXT_CALLBACK(timeout_add, timeout_callback_t, \
-			 callback, context, msecs)
+			 callback, context, msecs, __LINE__)
 /* Remove timeout handler, and set timeout pointer to NULL. */
 void timeout_remove(struct timeout **timeout);
 /* Reset timeout so it's next run after now+msecs. */

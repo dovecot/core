@@ -29,6 +29,7 @@ struct ioloop {
 
 struct io {
 	enum io_condition condition;
+	unsigned int source_linenum;
 
 	io_callback_t *callback;
         void *context;
@@ -49,6 +50,7 @@ struct io_file {
 
 struct timeout {
 	struct priorityq_item item;
+	unsigned int source_linenum;
 
         unsigned int msecs;
 	struct timeval next_run;

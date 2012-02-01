@@ -29,6 +29,7 @@ static void io_loop_initialize_handler(struct ioloop *ioloop)
 
 #undef io_add
 struct io *io_add(int fd, enum io_condition condition,
+		  unsigned int source_linenum,
 		  io_callback_t *callback, void *context)
 {
 	struct io_file *io;
@@ -42,6 +43,7 @@ struct io *io_add(int fd, enum io_condition condition,
 	io->io.callback = callback;
         io->io.context = context;
 	io->io.ioloop = current_ioloop;
+	io->io.source_linenum = source_linenum;
 	io->refcount = 1;
 	io->fd = fd;
 
@@ -139,12 +141,13 @@ static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 }
 
 #undef timeout_add
-struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
-			    void *context)
+struct timeout *timeout_add(unsigned int msecs, unsigned int source_linenum,
+			    timeout_callback_t *callback, void *context)
 {
 	struct timeout *timeout;
 
 	timeout = i_new(struct timeout, 1);
+        timeout->source_linenum = source_linenum;
         timeout->msecs = msecs;
 	timeout->ioloop = current_ioloop;
 
@@ -459,14 +462,17 @@ void io_loop_destroy(struct ioloop **_ioloop)
 		struct io_file *io = ioloop->io_files;
 		struct io *_io = &io->io;
 
-		i_warning("I/O leak: %p (%d)", (void *)io->io.callback, io->fd);
+		i_warning("I/O leak: %p (line %u, fd %d)",
+			  (void *)io->io.callback,
+			  io->io.source_linenum, io->fd);
 		io_remove(&_io);
 	}
 
 	while ((item = priorityq_pop(ioloop->timeouts)) != NULL) {
 		struct timeout *to = (struct timeout *)item;
 
-		i_warning("Timeout leak: %p", (void *)to->callback);
+		i_warning("Timeout leak: %p (line %u)", (void *)to->callback,
+			  to->source_linenum);
 		timeout_free(to);
 	}
 	priorityq_deinit(&ioloop->timeouts);
@@ -627,6 +633,7 @@ struct io *io_loop_move_io(struct io **_io)
 
 	old_io_file = (struct io_file *)old_io;
 	new_io = io_add(old_io_file->fd, old_io->condition,
+			old_io->source_linenum,
 			old_io->callback, old_io->context);
 	io_remove(_io);
 	return new_io;
@@ -639,7 +646,8 @@ struct timeout *io_loop_move_timeout(struct timeout **_timeout)
 	if (old_to->ioloop == current_ioloop)
 		return old_to;
 
-	new_to = timeout_add(old_to->msecs, old_to->callback, old_to->context);
+	new_to = timeout_add(old_to->msecs, old_to->source_linenum,
+			     old_to->callback, old_to->context);
 	timeout_remove(_timeout);
 	return new_to;
 }
