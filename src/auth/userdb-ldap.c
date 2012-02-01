@@ -6,7 +6,7 @@
 #if defined(USERDB_LDAP) && (defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD))
 
 #include "ioloop.h"
-#include "hash.h"
+#include "array.h"
 #include "str.h"
 #include "var-expand.h"
 #include "auth-cache.h"
@@ -51,11 +51,12 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 	auth_request_init_userdb_reply(auth_request);
 
 	ldap_iter = db_ldap_result_iterate_init(conn, entry, auth_request,
-						conn->user_attr_map);
+						&conn->user_attr_map);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		auth_request_set_userdb_field_values(auth_request,
 						     name, values);
 	}
+	db_ldap_result_iterate_deinit(&ldap_iter);
 }
 
 static void
@@ -167,7 +168,7 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 	ctx->in_callback = TRUE;
 	ldap_iter = db_ldap_result_iterate_init(conn, res,
 						request->auth_request,
-						conn->iterate_attr_map);
+						&conn->iterate_attr_map);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (strcmp(name, "user") != 0) {
 			i_warning("ldap: iterate: "
@@ -179,6 +180,7 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 			ctx->ctx.callback(*values, ctx->ctx.context);
 		}
 	}
+	db_ldap_result_iterate_deinit(&ldap_iter);
 	if (!ctx->continued)
 		db_ldap_enable_input(conn, FALSE);
 	ctx->in_callback = FALSE;
@@ -261,18 +263,14 @@ userdb_ldap_preinit(pool_t pool, const char *args)
 
 	module = p_new(pool, struct ldap_userdb_module, 1);
 	module->conn = conn = db_ldap_init(args, TRUE);
-	conn->user_attr_map =
-		hash_table_create(default_pool, conn->pool, 0, strcase_hash,
-				  (hash_cmp_callback_t *)strcasecmp);
-	conn->iterate_attr_map =
-		hash_table_create(default_pool, conn->pool, 0, strcase_hash,
-				  (hash_cmp_callback_t *)strcasecmp);
+	p_array_init(&conn->user_attr_map, pool, 16);
+	p_array_init(&conn->iterate_attr_map, pool, 16);
 
 	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
-			  conn->user_attr_map, NULL);
+			  &conn->user_attr_map, NULL);
 	db_ldap_set_attrs(conn, conn->set.iterate_attrs,
 			  &conn->iterate_attr_names,
-			  conn->iterate_attr_map, NULL);
+			  &conn->iterate_attr_map, NULL);
 	module->module.cache_key =
 		auth_cache_parse_key(pool,
 				     t_strconcat(conn->set.base,

@@ -6,7 +6,7 @@
 #if defined(PASSDB_LDAP) && (defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD))
 
 #include "ioloop.h"
-#include "hash.h"
+#include "array.h"
 #include "str.h"
 #include "var-expand.h"
 #include "password-scheme.h"
@@ -46,7 +46,7 @@ ldap_query_save_result(struct ldap_connection *conn,
 	const char *name, *const *values;
 
 	ldap_iter = db_ldap_result_iterate_init(conn, entry, auth_request,
-						conn->pass_attr_map);
+						&conn->pass_attr_map);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (values[1] != NULL) {
 			auth_request_log_warning(auth_request, "ldap",
@@ -56,6 +56,7 @@ ldap_query_save_result(struct ldap_connection *conn,
 		auth_request_set_field(auth_request, name, values[0],
 				       conn->set.default_pass_scheme);
 	}
+	db_ldap_result_iterate_deinit(&ldap_iter);
 }
 
 static void
@@ -408,12 +409,9 @@ passdb_ldap_preinit(pool_t pool, const char *args)
 
 	module = p_new(pool, struct ldap_passdb_module, 1);
 	module->conn = conn = db_ldap_init(args, FALSE);
-	conn->pass_attr_map =
-		hash_table_create(default_pool, conn->pool, 0, strcase_hash,
-				  (hash_cmp_callback_t *)strcasecmp);
-
+	p_array_init(&conn->pass_attr_map, pool, 16);
 	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
-			  conn->pass_attr_map,
+			  &conn->pass_attr_map,
 			  conn->set.auth_bind ? "password" : NULL);
 	module->module.cache_key =
 		auth_cache_parse_key(pool,
