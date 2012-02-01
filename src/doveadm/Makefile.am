@@ -21,6 +21,7 @@ AM_CPPFLAGS = \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DDOVEADM_MODULEDIR=\""$(doveadm_moduledir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
+	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DBINDIR=\""$(bindir)"\" \
 	-DMANDIR=\""$(mandir)"\"
 
@@ -93,6 +94,7 @@ doveadm_SOURCES = \
 	doveadm-kick.c \
 	doveadm-log.c \
 	doveadm-master.c \
+	doveadm-mount.c \
 	doveadm-mutf7.c \
 	doveadm-penalty.c \
 	doveadm-print-flow.c \

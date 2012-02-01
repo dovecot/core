@@ -11,6 +11,7 @@
 #include "abspath.h"
 #include "ipwd.h"
 #include "execv-const.h"
+#include "mountpoint-list.h"
 #include "restrict-process-size.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -283,6 +284,40 @@ static void create_config_symlink(const struct master_settings *set)
 	}
 }
 
+static void mountpoints_warn_missing(struct mountpoint_list *mountpoints)
+{
+	struct mountpoint_list_iter *iter;
+	struct mountpoint_list_rec *rec;
+
+	/* warn about mountpoints that no longer exist */
+	iter = mountpoint_list_iter_init(mountpoints);
+	while ((rec = mountpoint_list_iter_next(iter)) != NULL) {
+		if (MOUNTPOINT_WRONGLY_NOT_MOUNTED(rec)) {
+			i_warning("%s is no longer mounted. "
+				  "If this is intentional, "
+				  "remove it with doveadm mount",
+				  rec->mount_path);
+		}
+	}
+	mountpoint_list_iter_deinit(&iter);
+}
+
+static void mountpoints_update(const struct master_settings *set)
+{
+	struct mountpoint_list *mountpoints;
+	const char *perm_path, *state_path;
+
+	perm_path = t_strconcat(PKG_STATEDIR"/"MOUNTPOINT_LIST_FNAME, NULL);
+	state_path = t_strconcat(set->base_dir, "/"MOUNTPOINT_LIST_FNAME, NULL);
+	mountpoints = mountpoint_list_init(perm_path, state_path);
+
+	if (mountpoint_list_add_missing(mountpoints, MOUNTPOINT_STATE_DEFAULT,
+				mountpoint_list_default_ignore_types) == 0)
+		mountpoints_warn_missing(mountpoints);
+	(void)mountpoint_list_save(mountpoints);
+	mountpoint_list_deinit(&mountpoints);
+}
+
 static void
 sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		    void *context ATTR_UNUSED)
@@ -474,6 +509,7 @@ static void main_init(const struct master_settings *set)
 
 	create_pid_file(pidfile_path);
 	create_config_symlink(set);
+	mountpoints_update(set);
 
 	services_monitor_start(services);
 }
@@ -832,7 +868,9 @@ int main(int argc, char *argv[])
 	if (!foreground)
 		daemonize();
 
-	main_init(set);
+	T_BEGIN {
+		main_init(set);
+	} T_END;
 	master_service_run(master_service, NULL);
 	main_deinit();
 	master_service_deinit(&master_service);
