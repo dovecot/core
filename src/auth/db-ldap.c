@@ -977,25 +977,48 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	}
 }
 
+struct ldap_field_find_context {
+	ARRAY_TYPE(string) attr_names;
+	pool_t pool;
+};
+
+static const char *
+db_ldap_field_find(const char *data, void *context)
+{
+	struct ldap_field_find_context *ctx = context;
+	char *ldap_attr;
+
+	if (*data != '\0') {
+		ldap_attr = p_strdup(ctx->pool, data);
+		array_append(&ctx->attr_names, &ldap_attr, 1);
+	}
+	return NULL;
+}
+
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, ARRAY_TYPE(ldap_field) *attr_map,
 		       const char *skip_attr)
 {
+	static struct var_expand_func_table var_funcs_table[] = {
+		{ "ldap", db_ldap_field_find },
+		{ NULL, NULL }
+	};
+	struct ldap_field_find_context ctx;
 	struct ldap_field *field;
+	string_t *tmp_str;
 	const char *const *attr, *attr_data, *p;
 	char *ldap_attr, *name, *templ;
-	unsigned int i, j, size;
+	unsigned int i;
 
 	if (*attrlist == '\0')
 		return;
 
 	attr = t_strsplit_spaces(attrlist, ",");
 
-	/* @UNSAFE */
-	for (size = 0; attr[size] != NULL; size++) ;
-	*attr_names_r = p_new(conn->pool, char *, size + 1);
-
-	for (i = j = 0; i < size; i++) {
+	tmp_str = t_str_new(128);
+	ctx.pool = conn->pool;
+	p_array_init(&ctx.attr_names, conn->pool, 16);
+	for (i = 0; attr[i] != NULL; i++) {
 		/* allow spaces here so "foo=1, bar=2" works */
 		attr_data = attr[i];
 		while (*attr_data == ' ') attr_data++;
@@ -1011,8 +1034,12 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		templ = strchr(name, '=');
 		if (templ == NULL)
 			templ = "";
-		else
+		else {
 			*templ++ = '\0';
+			str_truncate(tmp_str, 0);
+			var_expand_with_funcs(tmp_str, templ, NULL,
+					      var_funcs_table, &ctx);
+		}
 
 		if (*name == '\0')
 			i_error("ldap: Invalid attrs entry: %s", attr_data);
@@ -1022,9 +1049,11 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			field->value = templ;
 			field->ldap_attr_name = ldap_attr;
 			if (*ldap_attr != '\0')
-				(*attr_names_r)[j++] = ldap_attr;
+				array_append(&ctx.attr_names, &ldap_attr, 1);
 		}
 	}
+	(void)array_append_space(&ctx.attr_names);
+	*attr_names_r = array_idx_modifiable(&ctx.attr_names, 0);
 }
 
 static struct var_expand_table *
