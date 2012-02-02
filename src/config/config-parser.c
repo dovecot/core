@@ -744,7 +744,7 @@ static int config_write_value(struct config_parser_context *ctx,
 	string_t *str = ctx->str;
 	const void *var_name, *var_value, *p;
 	enum setting_type var_type;
-	const char *error;
+	const char *error, *path;
 	bool dump, expand_parent;
 
 	switch (type) {
@@ -758,10 +758,13 @@ static int config_write_value(struct config_parser_context *ctx,
 		} else {
 			if (!config_require_key(ctx, key)) {
 				/* don't even try to open the file */
-			} else if (str_append_file(str, key, value, &error) < 0) {
-				/* file reading failed */
-				ctx->error = p_strdup(ctx->pool, error);
-				return -1;
+			} else {
+				path = fix_relative_path(value, ctx->cur_input);
+				if (str_append_file(str, key, path, &error) < 0) {
+					/* file reading failed */
+					ctx->error = p_strdup(ctx->pool, error);
+					return -1;
+				}
 			}
 		}
 		break;
