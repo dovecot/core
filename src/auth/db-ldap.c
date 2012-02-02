@@ -1164,11 +1164,41 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 	return ctx;
 }
 
+static const char *db_ldap_field_expand(const char *data, void *context)
+{
+	struct db_ldap_result_iterate_context *ctx = context;
+	struct db_ldap_value *ldap_value;
+
+	ldap_value = hash_table_lookup(ctx->ldap_attrs, data);
+	if (ldap_value == NULL) {
+		/* ldap attribute wasn't requested */
+		if (ctx->debug)
+			str_printfa(ctx->debug, "; %s missing", data);
+		return "";
+	}
+	ldap_value->used = TRUE;
+
+	if (ldap_value->values[0] == NULL) {
+		/* no value for ldap attribute */
+		return "";
+	}
+	if (ldap_value->values[1] != NULL) {
+		auth_request_log_warning(ctx->auth_request, "ldap",
+			"Multiple values found for '%s', using value '%s'",
+			data, ldap_value->values[0]);
+	}
+	return ldap_value->values[0];
+}
+
 static const char *const *
 db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 			    const struct ldap_field *field,
 			    struct db_ldap_value *ldap_value)
 {
+	static struct var_expand_func_table var_funcs_table[] = {
+		{ "ldap", db_ldap_field_expand },
+		{ NULL, NULL }
+	};
 	const char *const *values;
 
 	if (ldap_value != NULL)
@@ -1196,7 +1226,8 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 		}
 		ctx->var_table[0].value = values[0];
 		str_truncate(ctx->var, 0);
-		var_expand(ctx->var, field->value, ctx->var_table);
+		var_expand_with_funcs(ctx->var, field->value, ctx->var_table,
+				      var_funcs_table, ctx);
 		ctx->val_1_arr[0] = str_c(ctx->var);
 		values = ctx->val_1_arr;
 	}
