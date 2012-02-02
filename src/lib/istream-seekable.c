@@ -321,7 +321,9 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 
 		if (ret == 0) {
 			i_panic("i_stream_stat() used for non-blocking "
-				"seekable stream");
+				"seekable stream %s offset %"PRIuUOFF_T,
+				i_stream_get_name(sstream->cur_input),
+				sstream->cur_input->v_offset);
 		}
 		i_stream_skip(&stream->istream, stream->pos - stream->skip);
 		i_stream_seek(&stream->istream, old_offset);
