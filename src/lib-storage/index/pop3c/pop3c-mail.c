@@ -121,7 +121,6 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 				MAIL_ERROR_TEMP : MAIL_ERROR_EXPUNGED, error);
 			return -1;
 		}
-		i_stream_set_name(input, t_strcut(cmd, '\r'));
 		mail->data.stream = input;
 		if (mail->mail.v.istream_opened != NULL) {
 			if (mail->mail.v.istream_opened(_mail,
@@ -130,6 +129,7 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 				return -1;
 			}
 		}
+		i_stream_set_name(mail->data.stream, t_strcut(cmd, '\r'));
 		pop3c_mail_cache_size(mail);
 	}
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);

@@ -774,6 +774,9 @@ int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmd,
 	}
 	io_remove(&client->io);
 	i_stream_seek(client->dot_input, 0);
+	/* if this stream is used by some filter stream, make the filter
+	   stream blocking */
+	client->dot_input->blocking = TRUE;
 
 	*input_r = client->dot_input;
 	client->dot_input = NULL;
