@@ -1340,7 +1340,9 @@ void imapc_connection_connect(struct imapc_connection *conn,
 			      void *login_context)
 {
 	struct dns_lookup_settings dns_set;
-	struct ip_addr ip;
+	struct ip_addr ip, *ips;
+	unsigned int ips_count;
+	int ret;
 
 	if (conn->fd != -1) {
 		i_assert(login_callback == NULL);
@@ -1366,6 +1368,19 @@ void imapc_connection_connect(struct imapc_connection *conn,
 		conn->ips_count = 1;
 		conn->ips = i_new(struct ip_addr, conn->ips_count);
 		conn->ips[0] = ip;
+	} else if (*dns_set.dns_client_socket_path == '\0') {
+		ret = net_gethostbyname(conn->client->set.host,
+					&ips, &ips_count);
+		if (ret != 0) {
+			i_error("imapc(%s): net_gethostbyname(%s) failed: %s",
+				conn->name, conn->client->set.host,
+				net_gethosterror(ret));
+			imapc_connection_set_disconnected(conn);
+			return;
+		}
+		conn->ips_count = ips_count;
+		conn->ips = i_new(struct ip_addr, ips_count);
+		memcpy(conn->ips, ips, ips_count * sizeof(*ips));
 	}
 
 	if (conn->ips_count == 0) {
