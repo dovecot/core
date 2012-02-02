@@ -7,10 +7,22 @@ struct var_expand_table {
 	const char *long_key;
 };
 
+struct var_expand_func_table {
+	const char *key;
+	/* %{key:data}, or data is "" with %{key}, */
+	const char *(*func)(const char *data, void *context);
+};
+
 /* Expand % variables in src and append the string in dest.
    table must end with key = 0. */
 void var_expand(string_t *dest, const char *str,
 		const struct var_expand_table *table);
+/* Like var_expand(), but support also callback functions for
+   variable expansion. */
+void var_expand_with_funcs(string_t *dest, const char *str,
+			   const struct var_expand_table *table,
+			   const struct var_expand_func_table *func_table,
+			   void *func_context);
 
 /* Returns the actual key character for given string, ie. skip any modifiers
    that are before it. The string should be the data after the '%' character. */

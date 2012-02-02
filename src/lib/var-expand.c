@@ -139,8 +139,25 @@ static const struct var_expand_modifier modifiers[] = {
 };
 
 static const char *
+var_expand_func(const struct var_expand_func_table *func_table,
+		const char *key, const char *data, void *context)
+{
+	if (strcmp(key, "env") == 0)
+		return getenv(data);
+	if (func_table == NULL)
+		return NULL;
+
+	for (; func_table->key != NULL; func_table++) {
+		if (strcmp(func_table->key, key) == 0)
+			return func_table->func(data, context);
+	}
+	return NULL;
+}
+
+static const char *
 var_expand_long(const struct var_expand_table *table,
-		const void *key_start, unsigned int key_len)
+		const struct var_expand_func_table *func_table,
+		const void *key_start, unsigned int key_len, void *context)
 {
         const struct var_expand_table *t;
 	const char *value = NULL;
@@ -171,14 +188,23 @@ var_expand_long(const struct var_expand_table *table,
 				value = my_hostname;
 			break;
 		}
-		if (strncmp(key, "env:", 4) == 0)
-			value = getenv(key + 4);
+		if (value == NULL) {
+			const char *data = strchr(key, ':');
+
+			if (data != NULL)
+				key = t_strdup_until(key, data++);
+			else
+				data = "";
+			value = var_expand_func(func_table, key, data, context);
+		}
 	} T_END;
 	return value;
 }
 
-void var_expand(string_t *dest, const char *str,
-		const struct var_expand_table *table)
+void var_expand_with_funcs(string_t *dest, const char *str,
+			   const struct var_expand_table *table,
+			   const struct var_expand_func_table *func_table,
+			   void *context)
 {
         const struct var_expand_modifier *m;
         const struct var_expand_table *t;
@@ -257,7 +283,8 @@ void var_expand(string_t *dest, const char *str,
 			if (*str == '{' && (end = strchr(str, '}')) != NULL) {
 				/* %{long_key} */
 				len = end - (str + 1);
-				var = var_expand_long(table, str+1, len);
+				var = var_expand_long(table, func_table,
+						      str+1, len, context);
 				if (var != NULL)
 					str = end;
 			} else {
@@ -309,6 +336,12 @@ void var_expand(string_t *dest, const char *str,
 			}
 		}
 	}
+}
+
+void var_expand(string_t *dest, const char *str,
+		const struct var_expand_table *table)
+{
+	var_expand_with_funcs(dest, str, table, NULL, NULL);
 }
 
 char var_get_key(const char *str)
