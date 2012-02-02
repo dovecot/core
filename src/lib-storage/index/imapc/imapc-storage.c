@@ -229,6 +229,7 @@ imapc_storage_create(struct mail_storage *_storage,
 		return -1;
 	}
 	set.dns_client_socket_path =
+		*_storage->user->set->base_dir == '\0' ? "" :
 		t_strconcat(_storage->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
 	set.debug = _storage->set->mail_debug;
