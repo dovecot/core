@@ -8,6 +8,7 @@
 #include "message-address.h"
 #include "message-size.h"
 #include "message-parser.h"
+#include "message-header-decode.h"
 #include "message-decoder.h"
 #include "imap-util.h"
 #include "mail-user.h"
@@ -133,6 +134,7 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 {
 	const char *const *value, *filter, *name = ctx->cur_field->name;
 	string_t *str = t_str_new(256);
+	unsigned int pos;
 	bool add_lf = FALSE;
 
 	filter = strchr(name, '.');
@@ -151,8 +153,14 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 
 	if (filter == NULL) {
 		/* print the header as-is */
+	} else if (strcmp(filter, "utf8") == 0) {
+		pos = str_len(str);
+		message_header_decode_utf8(str_data(str), str_len(str),
+					   str, FALSE);
+		str_delete(str, 0, pos);
 	} else if (strcmp(filter, "address") == 0 ||
-		   strcmp(filter, "address_name") == 0) {
+		   strcmp(filter, "address_name") == 0 ||
+		   strcmp(filter, "address_name.utf8") == 0) {
 		struct message_address *addr;
 
 		addr = message_address_parse(pool_datastack_create(),
@@ -170,9 +178,14 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 					str_append_c(str, '@');
 					str_append(str, addr->domain);
 				}
-			} else {
-				if (addr->name != NULL)
+			} else if (addr->name != NULL) {
+				if (strcmp(filter, "address_name") == 0)
 					str_append(str, addr->name);
+				else {
+					message_header_decode_utf8(
+						(const void *)addr->name,
+						strlen(addr->name), str, FALSE);
+				}
 			}
 			add_lf = TRUE;
 		}
