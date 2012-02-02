@@ -752,7 +752,7 @@ int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmd,
 	if (pop3c_client_cmd_line(client, cmd, error_r) < 0)
 		return -1;
 	/* read the stream */
-	inputs[0] = i_stream_create_dot(client->input, FALSE);
+	inputs[0] = i_stream_create_dot(client->input, TRUE);
 	inputs[1] = NULL;
 	client->dot_input =
 		i_stream_create_seekable(inputs, POP3C_MAX_INBUF_SIZE,
