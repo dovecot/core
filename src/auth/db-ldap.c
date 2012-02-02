@@ -1027,8 +1027,9 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	}
 }
 
-struct var_expand_table *
-db_ldap_value_get_var_expand_table(struct auth_request *auth_request)
+static struct var_expand_table *
+db_ldap_value_get_var_expand_table(pool_t pool,
+				   struct auth_request *auth_request)
 {
 	const struct var_expand_table *auth_table = NULL;
 	struct var_expand_table *table;
@@ -1038,7 +1039,7 @@ db_ldap_value_get_var_expand_table(struct auth_request *auth_request)
 	for (count = 0; auth_table[count].key != '\0'; count++) ;
 	count++;
 
-	table = t_new(struct var_expand_table, count + 1);
+	table = p_new(pool, struct var_expand_table, count + 2);
 	table[0].key = '$';
 	memcpy(table + 1, auth_table, sizeof(*table) * count);
 	return table;
@@ -1170,30 +1171,30 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 {
 	const char *const *values;
 
+	if (ldap_value != NULL)
+		values = ldap_value->values;
+	else {
+		/* LDAP attribute doesn't exist */
+		ctx->val_1_arr[0] = NULL;
+		values = ctx->val_1_arr;
+	}
+
 	if (*field->value == '\0') {
 		/* use the LDAP attribute's value */
-		if (ldap_value != NULL)
-			values = ldap_value->values;
-		else {
-			/* LDAP attribute doesn't exist */
-			ctx->val_1_arr[0] = NULL;
-			values = ctx->val_1_arr;
-		}
 	} else {
 		/* template */
-		if (ldap_value->values[0] != NULL &&
-		    ldap_value->values[1] != NULL) {
+		if (values[0] != NULL && values[1] != NULL) {
 			auth_request_log_warning(ctx->auth_request, "ldap",
 				"Multiple values found for '%s', "
 				"using value '%s'",
-				field->name, ldap_value->values[0]);
+				field->name, values[0]);
 		}
 		if (ctx->var_table == NULL) {
 			ctx->var_table = db_ldap_value_get_var_expand_table(
-							ctx->auth_request);
+						ctx->pool, ctx->auth_request);
 			ctx->var = str_new(ctx->pool, 256);
 		}
-		ctx->var_table[0].value = ldap_value->values[0];
+		ctx->var_table[0].value = values[0];
 		str_truncate(ctx->var, 0);
 		var_expand(ctx->var, field->value, ctx->var_table);
 		ctx->val_1_arr[0] = str_c(ctx->var);

@@ -177,9 +177,6 @@ int db_ldap_connect(struct ldap_connection *conn);
 
 void db_ldap_enable_input(struct ldap_connection *conn, bool enable);
 
-struct var_expand_table *
-db_ldap_value_get_var_expand_table(struct auth_request *auth_request);
-
 const char *ldap_escape(const char *str,
 			const struct auth_request *auth_request);
 const char *ldap_get_error(struct ldap_connection *conn);
