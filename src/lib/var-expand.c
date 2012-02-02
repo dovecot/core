@@ -162,11 +162,13 @@ var_expand_long(const struct var_expand_table *table,
         const struct var_expand_table *t;
 	const char *value = NULL;
 
-	for (t = table; !TABLE_LAST(t); t++) {
-		if (t->long_key != NULL &&
-		    strncmp(t->long_key, key_start, key_len) == 0 &&
-		    t->long_key[key_len] == '\0') {
-			return t->value != NULL ? t->value : "";
+	if (table != NULL) {
+		for (t = table; !TABLE_LAST(t); t++) {
+			if (t->long_key != NULL &&
+			    strncmp(t->long_key, key_start, key_len) == 0 &&
+			    t->long_key[key_len] == '\0') {
+				return t->value != NULL ? t->value : "";
+			}
 		}
 	}
 
@@ -287,7 +289,7 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 						      str+1, len, context);
 				if (var != NULL)
 					str = end;
-			} else {
+			} else if (table != NULL) {
 				for (t = table; !TABLE_LAST(t); t++) {
 					if (t->key == *str) {
 						var = t->value != NULL ?
