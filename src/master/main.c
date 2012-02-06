@@ -85,6 +85,8 @@ void process_exec(const char *cmd, const char *extra_args[])
 	/* prefix with dovecot/ */
 	argv[0] = t_strdup_printf("%s/%s", services->set->instance_name,
 				  argv[0]);
+	if (strncmp(argv[0], PACKAGE, strlen(PACKAGE)) != 0)
+		argv[0] = t_strconcat(PACKAGE"-", argv[0], NULL);
 	(void)execv_const(executable, argv);
 }
 
