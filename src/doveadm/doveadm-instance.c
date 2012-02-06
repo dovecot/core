@@ -52,6 +52,7 @@ static void cmd_instance_list(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("path", "path", DOVEADM_PRINT_HEADER_FLAG_EXPAND);
 	doveadm_print_header_simple("name");
+	doveadm_print_header_simple("last used");
 	doveadm_print_header_simple("running");
 
 	list = master_instance_list_init(MASTER_INSTANCE_PATH);
@@ -59,6 +60,7 @@ static void cmd_instance_list(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 	while ((inst = master_instance_iterate_list_next(iter)) != NULL) {
 		doveadm_print(inst->base_dir);
 		doveadm_print(inst->name);
+		doveadm_print(unixdate2str(inst->last_used));
 		pidfile_path = t_strconcat(inst->base_dir, "/master.pid", NULL);
 		if (pid_file_read(pidfile_path))
 			doveadm_print("yes");
