@@ -2,8 +2,6 @@
 #define MASTER_INSTANCE_H
 
 #define MASTER_INSTANCE_PATH PKG_STATEDIR"/instances"
-/* Delete instances whose last_used is older than this and has no name. */
-#define MASTER_INSTANCE_AUTO_STALE_SECS (3600*24)
 
 struct master_instance_list;
 

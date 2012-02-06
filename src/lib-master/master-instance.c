@@ -50,24 +50,6 @@ void master_instance_list_deinit(struct master_instance_list **_list)
 	pool_unref(&list->pool);
 }
 
-static void master_instance_list_drop_stale(struct master_instance_list *list)
-{
-	const struct master_instance *instances;
-	unsigned int i, count;
-	time_t stale_timestamp = time(NULL) - MASTER_INSTANCE_AUTO_STALE_SECS;
-
-	instances = array_get(&list->instances, &count);
-	for (i = 0; i < count; ) {
-		if (instances[i].name[0] == '\0' &&
-		    instances[i].last_used < stale_timestamp) {
-			array_delete(&list->instances, i, 1);
-			instances = array_get(&list->instances, &count);
-		} else {
-			i++;
-		}
-	}
-}
-
 static int
 master_instance_list_add_line(struct master_instance_list *list,
 			      const char *line)
@@ -173,8 +155,6 @@ static int master_instance_write_finish(struct master_instance_list *list,
 {
 	const char *lock_path = file_dotlock_get_lock_path(*dotlock);
 	int ret;
-
-	master_instance_list_drop_stale(list);
 
 	T_BEGIN {
 		ret = master_instance_list_write(list, fd, lock_path);
@@ -309,7 +289,6 @@ master_instance_list_iterate_init(struct master_instance_list *list)
 	iter = i_new(struct master_instance_list_iter, 1);
 	iter->list = list;
 	(void)master_instance_list_refresh(list);
-	master_instance_list_drop_stale(list);
 	return iter;
 }
 
