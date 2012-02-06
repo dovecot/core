@@ -44,6 +44,7 @@ typedef void failure_callback_t(const struct failure_context *ctx,
 				const char *format, va_list args);
 
 extern const char *failure_log_type_prefixes[];
+extern const char *failure_log_type_names[];
 
 void i_log_type(const struct failure_context *ctx, const char *format, ...)
 	ATTR_FORMAT(2, 3);

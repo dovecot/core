@@ -26,6 +26,10 @@ const char *failure_log_type_prefixes[LOG_TYPE_COUNT] = {
 	"Panic: "
 };
 
+const char *failure_log_type_names[LOG_TYPE_COUNT] = {
+	"debug", "info", "warning", "error", "fatal", "panic"
+};
+
 /* Initialize working defaults */
 static failure_callback_t *fatal_handler ATTR_NORETURN =
 	default_fatal_handler;
