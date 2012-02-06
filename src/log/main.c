@@ -6,9 +6,13 @@
 #include "master-interface.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "log-error-buffer.h"
 #include "log-connection.h"
+#include "doveadm-connection.h"
 
 #include <unistd.h>
+
+static struct log_error_buffer *errorbuf;
 
 static void
 sig_reopen_logs(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
@@ -21,18 +25,28 @@ static void main_init(void)
 	lib_signals_set_handler(SIGUSR1, LIBSIG_FLAGS_SAFE,
 				sig_reopen_logs, NULL);
 
+	errorbuf = log_error_buffer_init();
 	log_connections_init();
 }
 
 static void main_deinit(void)
 {
 	log_connections_deinit();
+	log_error_buffer_deinit(&errorbuf);
 }
 
 static void client_connected(struct master_service_connection *conn)
 {
+	if (conn->fifo)
+		log_connection_create(errorbuf, conn->fd, conn->listen_fd);
+	else if (strcmp(conn->name, "log-errors") == 0)
+		doveadm_connection_create(errorbuf, conn->fd);
+	else {
+		i_error("Unknown listener name: %s", conn->name);
+		return;
+	}
+
 	master_service_client_connection_accept(conn);
-	log_connection_create(conn->fd, conn->listen_fd);
 }
 
 int main(int argc, char *argv[])

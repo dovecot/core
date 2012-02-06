@@ -11,9 +11,13 @@ log_LDADD = $(LIBDOVECOT)
 log_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 log_SOURCES = \
+	doveadm-connection.c \
 	log-connection.c \
+	log-error-buffer.c \
 	log-settings.c \
 	main.c
 
 noinst_HEADERS = \
-	log-connection.h
+	doveadm-connection.h \
+	log-connection.h \
+	log-error-buffer.h

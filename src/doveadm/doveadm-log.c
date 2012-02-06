@@ -2,9 +2,11 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "istream.h"
 #include "hash.h"
 #include "str.h"
-#include "istream.h"
+#include "strescape.h"
+#include "time-util.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
 #include "doveadm.h"
@@ -18,6 +20,8 @@
 
 #define LAST_LOG_TYPE LOG_TYPE_PANIC
 #define TEST_LOG_MSG_PREFIX "This is Dovecot's "
+#define LOG_ERRORS_FNAME "log-errors"
+#define LOG_TIMESTAMP_FORMAT "%b %d %H:%M:%S"
 
 static void cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 {
@@ -274,10 +278,59 @@ static void cmd_log_find(int argc, char *argv[])
 	}
 }
 
+static void cmd_log_error_write(const char *const *args)
+{
+	/* <type> <timestamp> <prefix> <text> */
+	const char *type_prefix = "?";
+	unsigned int type;
+	time_t t;
+
+	/* find type's prefix */
+	for (type = 0; type < LOG_TYPE_COUNT; type++) {
+		if (strcmp(args[0], failure_log_type_names[type]) == 0) {
+			type_prefix = failure_log_type_prefixes[type];
+			break;
+		}
+	}
+
+	if (str_to_time(args[1], &t) < 0) {
+		i_error("Invalid timestamp: %s", args[1]);
+		t = 0;
+	}
+
+	printf("%s %s%s%s\n", t_strflocaltime(LOG_TIMESTAMP_FORMAT, t),
+	       args[2], type_prefix, args[3]);
+}
+
+static void cmd_log_errors(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+{
+	struct istream *input;
+	const char *path, *line, *const *args;
+	int fd;
+
+	path = t_strconcat(doveadm_settings->base_dir,
+			   "/"LOG_ERRORS_FNAME, NULL);
+	fd = net_connect_unix(path);
+	if (fd == -1)
+		i_fatal("net_connect_unix(%s) failed: %m", path);
+	net_set_nonblock(fd, FALSE);
+
+	input = i_stream_create_fd(fd, (size_t)-1, TRUE);
+	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
+		args = t_strsplit_tabescaped(line);
+		if (str_array_length(args) == 4)
+			cmd_log_error_write(args);
+		else
+			i_error("Invalid input from log: %s", line);
+	} T_END;
+	i_stream_destroy(&input);
+}
+
 struct doveadm_cmd doveadm_cmd_log[] = {
 	{ cmd_log_test, "log test", "" },
 	{ cmd_log_reopen, "log reopen", "" },
-	{ cmd_log_find, "log find", "[<dir>]" }
+	{ cmd_log_find, "log find", "[<dir>]" },
+	{ cmd_log_errors, "log errors", "" }
 };
 
 void doveadm_register_log_commands(void)

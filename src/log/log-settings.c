@@ -1,10 +1,24 @@
 /* Copyright (c) 2009-2011 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "settings-parser.h"
 #include "service-settings.h"
 
 #include <stddef.h>
+
+/* <settings checks> */
+static struct file_listener_settings log_unix_listeners_array[] = {
+	{ "log-errors", 0600, "", "" }
+};
+static struct file_listener_settings *log_unix_listeners[] = {
+	&log_unix_listeners_array[0]
+};
+static buffer_t log_unix_listeners_buf = {
+	log_unix_listeners,
+	sizeof(log_unix_listeners), { 0, }
+};
+/* </settings checks> */
 
 struct service_settings log_service_settings = {
 	.name = "log",
@@ -23,10 +37,11 @@ struct service_settings log_service_settings = {
 	.process_limit = 1,
 	.client_limit = 0,
 	.service_count = 0,
-	.idle_kill = 0,
+	.idle_kill = -1U,
 	.vsz_limit = (uoff_t)-1,
 
-	.unix_listeners = ARRAY_INIT,
+	.unix_listeners = { { &log_unix_listeners_buf,
+			      sizeof(log_unix_listeners[0]) } },
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT,
 
