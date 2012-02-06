@@ -321,6 +321,7 @@ int main(int argc, char *argv[])
 	} else {
 		quick_init = FALSE;
 		doveadm_register_director_commands();
+		doveadm_register_instance_commands();
 		doveadm_register_mount_commands();
 		doveadm_register_proxy_commands();
 		doveadm_register_log_commands();

@@ -14,6 +14,7 @@ libmaster_la_SOURCES = \
 	ipc-client.c \
 	ipc-server.c \
 	master-auth.c \
+	master-instance.c \
 	master-login.c \
 	master-login-auth.c \
 	master-service.c \
@@ -27,6 +28,7 @@ headers = \
 	ipc-client.h \
 	ipc-server.h \
 	master-auth.h \
+	master-instance.h \
 	master-interface.h \
 	master-login.h \
 	master-login-auth.h \

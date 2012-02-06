@@ -38,6 +38,7 @@ void doveadm_master_send_signal(int signo);
 void doveadm_register_director_commands(void);
 void doveadm_register_proxy_commands(void);
 void doveadm_register_log_commands(void);
+void doveadm_register_instance_commands(void);
 void doveadm_register_mount_commands(void);
 
 #endif

@@ -91,6 +91,7 @@ doveadm_SOURCES = \
 	doveadm-dump-log.c \
 	doveadm-dump-mailboxlog.c \
 	doveadm-dump-thread.c \
+	doveadm-instance.c \
 	doveadm-kick.c \
 	doveadm-log.c \
 	doveadm-master.c \

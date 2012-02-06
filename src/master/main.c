@@ -13,6 +13,7 @@
 #include "execv-const.h"
 #include "mountpoint-list.h"
 #include "restrict-process-size.h"
+#include "master-instance.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "askpass.h"
@@ -46,6 +47,8 @@ int null_fd, global_master_dead_pipe_fd[2];
 struct service_list *services;
 
 static char *pidfile_path;
+static struct master_instance_list *instances;
+static struct timeout *to_instance;
 static failure_callback_t *orig_fatal_callback;
 static failure_callback_t *orig_error_callback;
 
@@ -318,6 +321,29 @@ static void mountpoints_update(const struct master_settings *set)
 	mountpoint_list_deinit(&mountpoints);
 }
 
+static void instance_update_now(struct master_instance_list *list)
+{
+	int ret;
+
+	ret = master_instance_list_set_name(list, services->set->base_dir,
+					    services->set->instance_name);
+	if (ret == 0) {
+		/* duplicate instance names. allow without warning.. */
+		master_instance_list_update(list, services->set->base_dir);
+	}
+	
+	if (to_instance != NULL)
+		timeout_remove(&to_instance);
+	to_instance = timeout_add((3600*12 + rand()%(60*30)) * 1000,
+				  instance_update_now, list);
+}
+
+static void instance_update(void)
+{
+	instances = master_instance_list_init(MASTER_INSTANCE_PATH);
+	instance_update_now(instances);
+}
+
 static void
 sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		    void *context ATTR_UNUSED)
@@ -510,6 +536,7 @@ static void main_init(const struct master_settings *set)
 	create_pid_file(pidfile_path);
 	create_config_symlink(set);
 	mountpoints_update(set);
+	instance_update();
 
 	services_monitor_start(services);
 }
@@ -526,6 +553,10 @@ static void global_dead_pipe_close(void)
 
 static void main_deinit(void)
 {
+	instance_update_now(instances);
+	timeout_remove(&to_instance);
+	master_instance_list_deinit(&instances);
+
 	/* kill services and wait for them to die before unlinking pid file */
 	global_dead_pipe_close();
 	services_destroy(services, TRUE);
