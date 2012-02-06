@@ -362,14 +362,16 @@ int main(int argc, char *argv[])
 	int c;
 
 	master_service = master_service_init("rawlog", 0,
-					     &argc, &argv, "+iobt");
+					     &argc, &argv, "+f:obt");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
-		case 'i':
-			flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
-			break;
-		case 'o':
-			flags &= ~RAWLOG_FLAG_LOG_INPUT;
+		case 'f':
+			if (strcmp(optarg, "in") == 0)
+				flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
+			else if (strcmp(optarg, "out") == 0)
+				flags &= ~RAWLOG_FLAG_LOG_INPUT;
+			else
+				i_fatal("Invalid filter: %s", optarg);
 			break;
 		case 'b':
 			flags |= RAWLOG_FLAG_LOG_BOUNDARIES;
@@ -385,7 +387,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	if (argc < 1)
-		i_fatal("Usage: rawlog [-i | -o] [-b] [-t] <binary> <arguments>");
+		i_fatal("Usage: rawlog [-f in|out] [-b] [-t] <binary> <arguments>");
 
 	master_service_init_log(master_service, "rawlog: ");
 	master_service_init_finish(master_service);
