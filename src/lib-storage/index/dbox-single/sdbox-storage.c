@@ -297,8 +297,12 @@ static int sdbox_mailbox_open(struct mailbox *box)
 					  &view, &trans, 0) > 0)
 			(void)mail_index_sync_commit(&sync_ctx);
 
-		if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
-			memset(&hdr, 0, sizeof(hdr));
+		if (sdbox_read_header(mbox, &hdr, TRUE) < 0) {
+			/* looks like the mailbox is corrupted */
+			(void)sdbox_sync(mbox, SDBOX_SYNC_FLAG_FORCE);
+			if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
+				memset(&hdr, 0, sizeof(hdr));
+		}
 	}
 
 	if (guid_128_is_empty(hdr.mailbox_guid)) {
