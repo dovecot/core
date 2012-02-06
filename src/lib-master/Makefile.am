@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
+	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DSYSCONFDIR=\""$(pkgsysconfdir)"\" \
 	-DBINDIR=\""$(bindir)"\"
 

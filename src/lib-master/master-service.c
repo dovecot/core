@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "lib-signals.h"
 #include "ioloop.h"
+#include "abspath.h"
 #include "array.h"
 #include "strescape.h"
 #include "env-util.h"
@@ -12,6 +13,7 @@
 #include "fd-close-on-exec.h"
 #include "settings-parser.h"
 #include "syslog-util.h"
+#include "master-instance.h"
 #include "master-login.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
@@ -45,7 +47,7 @@ static void master_service_refresh_login_state(struct master_service *service);
 
 const char *master_service_getopt_string(void)
 {
-	return "c:ko:Os:L";
+	return "c:i:ko:Os:L";
 }
 
 static void sig_die(const siginfo_t *si, void *context)
@@ -155,9 +157,9 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->service_count_left = (unsigned int)-1;
 	service->config_fd = -1;
 
-	service->config_path = getenv(MASTER_CONFIG_FILE_ENV);
+	service->config_path = i_strdup(getenv(MASTER_CONFIG_FILE_ENV));
 	if (service->config_path == NULL) {
-		service->config_path = DEFAULT_CONFIG_FILE_PATH;
+		service->config_path = i_strdup(DEFAULT_CONFIG_FILE_PATH);
 		service->config_path_is_default = TRUE;
 	}
 
@@ -326,13 +328,38 @@ void master_service_set_idle_die_callback(struct master_service *service,
 	service->idle_die_callback = callback;
 }
 
+static bool get_instance_config(const char *name, const char **config_path_r)
+{
+	struct master_instance_list *list;
+	const struct master_instance *inst;
+	const char *path;
+
+	list = master_instance_list_init(MASTER_INSTANCE_PATH);
+	inst = master_instance_list_find_by_name(list, name);
+	if (inst != NULL) {
+		path = t_strdup_printf("%s/dovecot.conf", inst->base_dir);
+		if (t_readlink(path, config_path_r) < 0)
+			i_fatal("readlink(%s) failed: %m", path);
+	}
+	master_instance_list_deinit(&list);
+	return inst != NULL;
+}
+
 bool master_service_parse_option(struct master_service *service,
 				 int opt, const char *arg)
 {
+	const char *path;
+
 	switch (opt) {
 	case 'c':
-		service->config_path = arg;
+		service->config_path = i_strdup(arg);
 		service->config_path_is_default = FALSE;
+		break;
+	case 'i':
+		if (!get_instance_config(arg, &path))
+			i_fatal("Unknown instance name: %s", arg);
+		service->config_path = i_strdup(path);
+		service->keep_environment = TRUE;
 		break;
 	case 'k':
 		service->keep_environment = TRUE;
@@ -710,6 +737,7 @@ void master_service_deinit(struct master_service **_service)
 	i_free(service->listeners);
 	i_free(service->getopt_str);
 	i_free(service->name);
+	i_free(service->config_path);
 	i_free(service);
 
 	lib_deinit();

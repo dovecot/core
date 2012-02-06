@@ -23,7 +23,7 @@ struct master_service {
 	char **argv;
 
 	const char *version_string;
-	const char *config_path;
+	char *config_path;
 	ARRAY_TYPE(const_string) config_overrides;
 	int config_fd;
 	int syslog_facility;
