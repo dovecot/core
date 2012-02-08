@@ -375,14 +375,6 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 	return fetch_data(ctx, body, fetch_size);
 }
 
-static void header_filter_eoh(struct message_header_line *hdr,
-			      bool *matched ATTR_UNUSED,
-			      struct imap_fetch_context *ctx)
-{
-	if (hdr != NULL && hdr->eoh)
-		ctx->cur_have_eoh = TRUE;
-}
-
 static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 				     const struct imap_fetch_body_data *body,
 				     const char *header_section)
@@ -393,19 +385,16 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 
 	/* MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
 
-	ctx->cur_have_eoh = FALSE;
 	if (strncmp(header_section, "HEADER.FIELDS ", 14) == 0) {
 		input = i_stream_create_header_filter(ctx->cur_input,
-						      HEADER_FILTER_INCLUDE,
-						      body->fields,
-						      body->fields_count,
-						      header_filter_eoh, ctx);
+					HEADER_FILTER_INCLUDE,
+					body->fields, body->fields_count,
+					null_header_filter_callback, NULL);
 	} else if (strncmp(header_section, "HEADER.FIELDS.NOT ", 18) == 0) {
 		input = i_stream_create_header_filter(ctx->cur_input,
-						      HEADER_FILTER_EXCLUDE,
-						      body->fields,
-						      body->fields_count,
-						      header_filter_eoh, ctx);
+					HEADER_FILTER_EXCLUDE,
+					body->fields, body->fields_count,
+					null_header_filter_callback, NULL);
 	} else {
 		i_error("BUG: Accepted invalid section from user: '%s'",
 			header_section);

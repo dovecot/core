@@ -64,7 +64,6 @@ struct imap_fetch_context {
 	unsigned int seen_flags_changed:1;
 	unsigned int flags_show_only_seen_changes:1;
 	unsigned int update_partial:1;
-	unsigned int cur_have_eoh:1;
 	unsigned int cur_append_eoh:1;
 	unsigned int first:1;
 	unsigned int line_partial:1;
