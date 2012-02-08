@@ -88,13 +88,16 @@ int o_stream_flush(struct ostream *stream)
 	struct ostream_private *_stream = stream->real_stream;
 	int ret = 1;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed)) {
+		errno = stream->stream_errno;
 		return -1;
+	}
 
 	stream->stream_errno = 0;
 	if (unlikely((ret = _stream->flush(_stream)) < 0)) {
 		i_assert(stream->stream_errno != 0);
 		stream->last_failed_errno = stream->stream_errno;
+		errno = stream->stream_errno;
 	}
 	return ret;
 }
@@ -128,13 +131,16 @@ int o_stream_seek(struct ostream *stream, uoff_t offset)
 {
 	struct ostream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed)) {
+		errno = stream->stream_errno;
 		return -1;
+	}
 
 	stream->stream_errno = 0;
 	if (unlikely(_stream->seek(_stream, offset) < 0)) {
 		i_assert(stream->stream_errno != 0);
 		stream->last_failed_errno = stream->stream_errno;
+		errno = stream->stream_errno;
 		return -1;
 	}
 	return 1;
@@ -158,8 +164,10 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 	size_t total_size;
 	ssize_t ret;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed)) {
+		errno = stream->stream_errno;
 		return -1;
+	}
 
 	stream->stream_errno = 0;
 	for (i = 0, total_size = 0; i < iov_count; i++)
@@ -172,6 +180,7 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 		if (ret < 0) {
 			i_assert(stream->stream_errno != 0);
 			stream->last_failed_errno = stream->stream_errno;
+			errno = stream->stream_errno;
 		} else {
 			stream->overflow = TRUE;
 		}
@@ -190,13 +199,18 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	struct ostream_private *_outstream = outstream->real_stream;
 	off_t ret;
 
-	if (unlikely(outstream->closed || instream->closed))
+	if (unlikely(outstream->closed || instream->closed)) {
+		errno = outstream->stream_errno;
 		return -1;
+	}
 
 	outstream->stream_errno = 0;
 	ret = _outstream->send_istream(_outstream, instream);
-	if (unlikely(ret < 0))
+	if (unlikely(ret < 0)) {
+		i_assert(outstream->stream_errno != 0);
+		outstream->last_failed_errno = outstream->stream_errno;
 		errno = outstream->stream_errno;
+	}
 	return ret;
 }
 
@@ -205,14 +219,17 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 {
 	int ret;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed)) {
+		errno = stream->stream_errno;
 		return -1;
+	}
 
 	ret = stream->real_stream->write_at(stream->real_stream,
 					    data, size, offset);
 	if (unlikely(ret < 0)) {
 		i_assert(stream->stream_errno != 0);
 		stream->last_failed_errno = stream->stream_errno;
+		errno = stream->stream_errno;
 	}
 	return ret;
 }
