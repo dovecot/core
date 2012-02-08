@@ -113,6 +113,7 @@ find_inet_listener_port(struct ip_addr *ip_r,
 static void director_state_changed(struct director *dir)
 {
 	struct director_request *const *requestp;
+	ARRAY_DEFINE(new_requests, struct director_request *);
 	bool ret;
 
 	if (!dir->ring_synced ||
@@ -120,11 +121,16 @@ static void director_state_changed(struct director *dir)
 		return;
 
 	/* if there are any pending client requests, finish them now */
+	t_array_init(&new_requests, 8);
 	array_foreach(&dir->pending_requests, requestp) {
 		ret = director_request_continue(*requestp);
-		i_assert(ret);
+		if (!ret) {
+			/* request for a user being killed */
+			array_append(&new_requests, requestp, 1);
+		}
 	}
 	array_clear(&dir->pending_requests);
+	array_append_array(&dir->pending_requests, &new_requests);
 
 	if (dir->to_request != NULL)
 		timeout_remove(&dir->to_request);
