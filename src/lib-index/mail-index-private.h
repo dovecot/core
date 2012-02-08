@@ -181,6 +181,9 @@ struct mail_index {
 	pool_t extension_pool;
 	ARRAY_DEFINE(extensions, struct mail_index_registered_ext);
 
+	uint32_t ext_hdr_init_id;
+	void *ext_hdr_init_data;
+
 	ARRAY_DEFINE(sync_lost_handlers, mail_index_sync_lost_handler_t *);
 
 	char *filepath;

@@ -77,6 +77,7 @@ void mail_index_free(struct mail_index **_index)
 	array_free(&index->keywords);
 	array_free(&index->module_contexts);
 
+	i_free(index->ext_hdr_init_data);
 	i_free(index->gid_origin);
 	i_free(index->error);
 	i_free(index->dir);
@@ -108,6 +109,23 @@ void mail_index_set_lock_method(struct mail_index *index,
 {
 	index->lock_method = lock_method;
 	index->max_lock_timeout_secs = max_timeout_secs;
+}
+
+void mail_index_set_ext_init_data(struct mail_index *index, uint32_t ext_id,
+				  const void *data, size_t size)
+{
+	const struct mail_index_registered_ext *rext;
+
+	i_assert(index->ext_hdr_init_data == NULL ||
+		 index->ext_hdr_init_id == ext_id);
+
+	rext = array_idx(&index->extensions, ext_id);
+	i_assert(rext->hdr_size == size);
+
+	index->ext_hdr_init_id = ext_id;
+	i_free(index->ext_hdr_init_data);
+	index->ext_hdr_init_data = i_malloc(size);
+	memcpy(index->ext_hdr_init_data, data, size);
 }
 
 uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
