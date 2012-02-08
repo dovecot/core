@@ -195,7 +195,8 @@ static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 	mdbox_map_cleanup(map);
 
 	if (mail_index_get_header(map->view)->uid_validity == 0) {
-		if (mdbox_map_generate_uid_validity(map) < 0) {
+		if (mdbox_map_generate_uid_validity(map) < 0 ||
+		    mdbox_map_refresh(map) < 0) {
 			mail_storage_set_internal_error(MAP_STORAGE(map));
 			mail_index_reset_error(map->index);
 			mail_index_close(map->index);
