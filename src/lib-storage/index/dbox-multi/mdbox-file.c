@@ -185,6 +185,7 @@ mdbox_file_init_new_alt(struct mdbox_storage *storage)
 
 int mdbox_file_assign_file_id(struct mdbox_file *file, uint32_t file_id)
 {
+	struct stat st;
 	const char *old_path;
 	const char *new_dir, *new_fname, *new_path;
 
@@ -196,6 +197,13 @@ int mdbox_file_assign_file_id(struct mdbox_file *file, uint32_t file_id)
 	new_dir = !dbox_file_is_in_alt(&file->file) ?
 		file->storage->storage_dir : file->storage->alt_storage_dir;
 	new_path = t_strdup_printf("%s/%s", new_dir, new_fname);
+
+	if (stat(new_path, &st) == 0) {
+		mail_storage_set_critical(&file->file.storage->storage,
+			"mdbox: %s already exists, rebuilding index", new_path);
+		mdbox_storage_set_corrupted(file->storage);
+		return -1;
+	}
 	if (rename(old_path, new_path) < 0) {
 		mail_storage_set_critical(&file->storage->storage.storage,
 					  "rename(%s, %s) failed: %m",

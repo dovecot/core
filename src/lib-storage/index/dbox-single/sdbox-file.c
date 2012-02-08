@@ -146,6 +146,7 @@ static int sdbox_file_rename_attachments(struct sdbox_file *file)
 int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 {
 	const char *old_path, *new_fname, *new_path;
+	struct stat st;
 
 	i_assert(file->uid == 0);
 	i_assert(uid != 0);
@@ -154,6 +155,13 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 	new_fname = t_strdup_printf(SDBOX_MAIL_FILE_FORMAT, uid);
 	new_path = t_strdup_printf("%s/%s", mailbox_get_path(&file->mbox->box),
 				   new_fname);
+
+	if (stat(new_path, &st) == 0) {
+		mail_storage_set_critical(&file->file.storage->storage,
+			"sdbox: %s already exists, rebuilding index", new_path);
+		sdbox_set_mailbox_corrupted(&file->mbox->box);
+		return -1;
+	}
 	if (rename(old_path, new_path) < 0) {
 		mail_storage_set_critical(&file->file.storage->storage,
 					  "rename(%s, %s) failed: %m",
