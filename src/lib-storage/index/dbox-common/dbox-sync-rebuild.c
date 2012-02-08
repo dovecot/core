@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "mail-cache.h"
 #include "mail-index-modseq.h"
 #include "mailbox-list-private.h"
 #include "index-storage.h"
@@ -159,6 +160,12 @@ dbox_sync_index_rebuild_init(struct mailbox *box,
 	index_mailbox_reset_uidvalidity(box);
 	mail_index_ext_lookup(box->index, "cache", &ctx->cache_ext_id);
 
+	/* open cache and read the caching decisions. we'll reset the cache in
+	   case it contains any invalid data, but we want to preserve the
+	   decisions. */
+	(void)mail_cache_open_and_verify(ctx->box->cache);
+	mail_cache_reset(box->cache);
+
 	/* if backup index file exists, try to use it */
 	index_dir = mailbox_list_get_path(box->list, box->name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
@@ -183,6 +190,9 @@ void dbox_sync_index_rebuild_deinit(struct dbox_sync_rebuild_context **_ctx)
 	struct dbox_sync_rebuild_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+
+	/* initialize cache file with the old field decisions */
+	(void)mail_cache_compress(ctx->box->cache, ctx->trans);
 	dbox_sync_rebuild_header(ctx);
 	if (ctx->backup_index != NULL) {
 		mail_index_view_close(&ctx->backup_view);

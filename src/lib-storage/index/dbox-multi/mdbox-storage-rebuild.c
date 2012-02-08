@@ -501,9 +501,6 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 		return -1;
 	}
 
-	/* reset cache, just in case it contains invalid data */
-	mail_cache_reset(box->cache);
-
 	rebuild_ctx = dbox_sync_index_rebuild_init(&mbox->box, view, trans);
 	mdbox_header_update(rebuild_ctx, mbox);
 	rebuild_mailbox_multi(ctx, rebuild_ctx, mbox, view, trans);

@@ -195,8 +195,6 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force)
 		return -1;
 	}
 
-	mail_cache_reset(mbox->box.cache);
-
 	view = mail_index_view_open(mbox->box.index);
 	trans = mail_index_transaction_begin(view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
