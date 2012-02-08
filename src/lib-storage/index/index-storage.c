@@ -191,7 +191,7 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 	return 0;
 }
 
-static int index_storage_mailbox_alloc_index(struct mailbox *box)
+int index_storage_mailbox_alloc_index(struct mailbox *box)
 {
 	if (box->index != NULL)
 		return 0;

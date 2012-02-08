@@ -39,9 +39,6 @@ int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list);
 int sdbox_read_header(struct sdbox_mailbox *mbox,
 		      struct sdbox_index_header *hdr, bool log_error);
-void sdbox_update_header(struct sdbox_mailbox *mbox,
-			 struct mail_index_transaction *trans,
-			 const struct mailbox_update *update);
 void sdbox_set_mailbox_corrupted(struct mailbox *box);
 
 struct mail_save_context *

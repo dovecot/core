@@ -139,7 +139,8 @@ static void sdbox_sync_update_header(struct dbox_sync_rebuild_context *ctx)
 		guid_128_generate(hdr.mailbox_guid);
 	if (++hdr.rebuild_count == 0)
 		hdr.rebuild_count = 1;
-	mail_index_update_header_ext(ctx->trans, mbox->hdr_ext_id, 0,
+	/* mailbox is being reset. this gets written directly there */
+	mail_index_set_ext_init_data(ctx->box->index, mbox->hdr_ext_id,
 				     &hdr, sizeof(hdr));
 }
 

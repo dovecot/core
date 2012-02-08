@@ -138,15 +138,23 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 	} else {
 		memset(hdr, 0, sizeof(*hdr));
 		memcpy(hdr, data, I_MIN(data_size, sizeof(*hdr)));
-		ret = 0;
+		if (guid_128_is_empty(hdr->mailbox_guid))
+			ret = -1;
+		else {
+			/* data is valid. remember it in case mailbox
+			   is being reset */
+			mail_index_set_ext_init_data(mbox->box.index,
+						     mbox->hdr_ext_id,
+						     hdr, sizeof(*hdr));
+		}
 	}
 	mail_index_view_close(&view);
 	return ret;
 }
 
-void sdbox_update_header(struct sdbox_mailbox *mbox,
-			 struct mail_index_transaction *trans,
-			 const struct mailbox_update *update)
+static void sdbox_update_header(struct sdbox_mailbox *mbox,
+				struct mail_index_transaction *trans,
+				const struct mailbox_update *update)
 {
 	struct sdbox_index_header hdr, new_hdr;
 
@@ -263,16 +271,34 @@ static void sdbox_set_file_corrupted(struct dbox_file *_file)
 	sdbox_set_mailbox_corrupted(&file->mbox->box);
 }
 
+static int sdbox_mailbox_alloc_index(struct sdbox_mailbox *mbox)
+{
+	struct sdbox_index_header hdr;
+
+	if (index_storage_mailbox_alloc_index(&mbox->box) < 0)
+		return -1;
+
+	mbox->hdr_ext_id =
+		mail_index_ext_register(mbox->box.index, "dbox-hdr",
+					sizeof(struct sdbox_index_header), 0, 0);
+	/* set the initialization data in case the mailbox is created */
+	memset(&hdr, 0, sizeof(hdr));
+	guid_128_generate(hdr.mailbox_guid);
+	mail_index_set_ext_init_data(mbox->box.index, mbox->hdr_ext_id,
+				     &hdr, sizeof(hdr));
+	return 0;
+}
+
 static int sdbox_mailbox_open(struct mailbox *box)
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 	struct sdbox_index_header hdr;
 
+	if (sdbox_mailbox_alloc_index(mbox) < 0)
+		return -1;
+
 	if (dbox_mailbox_open(box) < 0)
 		return -1;
-	mbox->hdr_ext_id =
-		mail_index_ext_register(box->index, "dbox-hdr",
-					sizeof(struct sdbox_index_header), 0, 0);
 
 	if (box->creating) {
 		/* wait for mailbox creation to initialize the index */
@@ -286,23 +312,10 @@ static int sdbox_mailbox_open(struct mailbox *box)
 
 	/* get/generate mailbox guid */
 	if (sdbox_read_header(mbox, &hdr, FALSE) < 0) {
-		/* it's possible that this mailbox is just now being created
-		   by another process. lock it first and see if the header is
-		   available then. */
-		struct mail_index_sync_ctx *sync_ctx;
-		struct mail_index_view *view;
-		struct mail_index_transaction *trans;
-
-		if (mail_index_sync_begin(box->index, &sync_ctx,
-					  &view, &trans, 0) > 0)
-			(void)mail_index_sync_commit(&sync_ctx);
-
-		if (sdbox_read_header(mbox, &hdr, TRUE) < 0) {
-			/* looks like the mailbox is corrupted */
-			(void)sdbox_sync(mbox, SDBOX_SYNC_FLAG_FORCE);
-			if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
-				memset(&hdr, 0, sizeof(hdr));
-		}
+		/* looks like the mailbox is corrupted */
+		(void)sdbox_sync(mbox, SDBOX_SYNC_FLAG_FORCE);
+		if (sdbox_read_header(mbox, &hdr, TRUE) < 0)
+			memset(&hdr, 0, sizeof(hdr));
 	}
 
 	if (guid_128_is_empty(hdr.mailbox_guid)) {
