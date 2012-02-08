@@ -56,7 +56,7 @@ mountpoint_list_init(const char *perm_path, const char *state_path)
 	struct mountpoint_list *list;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mountpoint list", 512);
+	pool = pool_alloconly_create("mountpoint list", 1024);
 	list = p_new(pool, struct mountpoint_list, 1);
 	list->pool = pool;
 	list->perm_path = p_strdup(pool, perm_path);
