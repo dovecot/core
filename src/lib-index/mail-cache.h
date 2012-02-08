@@ -70,6 +70,8 @@ int mail_cache_compress(struct mail_cache *cache,
 			struct mail_index_transaction *trans);
 /* Returns TRUE if there is at least something in the cache. */
 bool mail_cache_exists(struct mail_cache *cache);
+/* Open and read cache header. Returns 0 if ok, -1 if error/corrupted. */
+int mail_cache_open_and_verify(struct mail_cache *cache);
 
 struct mail_cache_view *
 mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview);
