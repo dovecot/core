@@ -74,13 +74,17 @@ static void cmd_instance_list(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 static void cmd_instance_remove(int argc, char *argv[])
 {
 	struct master_instance_list *list;
+	const struct master_instance *inst;
+	const char *base_dir;
 	int ret;
 
 	if (argc != 2)
 		instance_cmd_help(cmd_instance_remove);
 
 	list = master_instance_list_init(MASTER_INSTANCE_PATH);
-	if ((ret = master_instance_list_remove(list, argv[1])) < 0)
+	inst = master_instance_list_find_by_name(list, argv[1]);
+	base_dir = inst != NULL ? inst->base_dir : argv[1];
+	if ((ret = master_instance_list_remove(list, base_dir)) < 0)
 		i_error("Failed to remove instance");
 	else if (ret == 0)
 		i_error("Instance already didn't exist");
@@ -89,7 +93,7 @@ static void cmd_instance_remove(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_instance[] = {
 	{ cmd_instance_list, "instance list", "" },
-	{ cmd_instance_remove, "instance remove", "<base dir>" }
+	{ cmd_instance_remove, "instance remove", "<name> | <base dir>" }
 };
 
 static void instance_cmd_help(doveadm_command_t *cmd)
