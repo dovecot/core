@@ -220,7 +220,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	struct virtual_mailbox *mbox;
 	pool_t pool;
 
-	pool = pool_alloconly_create("virtual mailbox", 1024+512);
+	pool = pool_alloconly_create("virtual mailbox", 2048);
 	mbox = p_new(pool, struct virtual_mailbox, 1);
 	mbox->box = virtual_mailbox;
 	mbox->box.pool = pool;
