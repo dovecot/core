@@ -356,7 +356,6 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 		      struct mail_index_view *view,
 		      struct mail_index_transaction *trans)
 {
-	const struct mdbox_mail_index_record *dbox_rec;
 	struct mdbox_mail_index_record new_dbox_rec;
 	const struct mail_index_header *hdr;
 	struct mdbox_rebuild_msg *rec;
@@ -368,9 +367,13 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		mail_index_lookup_ext(view, seq, mbox->ext_id,
 				      &data, &expunged);
-		dbox_rec = data;
-		new_dbox_rec = *dbox_rec;
-		map_uid = dbox_rec == NULL ? 0 : dbox_rec->map_uid;
+		if (data == NULL) {
+			memset(&new_dbox_rec, 0, sizeof(new_dbox_rec));
+			map_uid = 0;
+		} else {
+			memcpy(&new_dbox_rec, data, sizeof(new_dbox_rec));
+			map_uid = new_dbox_rec.map_uid;
+		}
 
 		mail_index_lookup_ext(view, seq, mbox->guid_ext_id,
 				      &data, &expunged);
