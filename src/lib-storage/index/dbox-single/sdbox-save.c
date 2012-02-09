@@ -184,9 +184,10 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 			ctx->ctx.failed = TRUE;
 	} T_END;
 
-	if (ctx->ctx.failed)
+	if (ctx->ctx.failed) {
+		mail_index_expunge(ctx->ctx.trans, ctx->ctx.seq);
 		dbox_file_append_rollback(&ctx->append_ctx);
-	else {
+	} else {
 		dbox_file_append_checkpoint(ctx->append_ctx);
 		if (dbox_file_append_commit(&ctx->append_ctx) < 0)
 			ctx->ctx.failed = TRUE;
