@@ -7,6 +7,7 @@
 #include "var-expand.h"
 #include "index-storage.h"
 #include "mailbox-list-private.h"
+#include "fail-mail-storage.h"
 #include "shared-storage.h"
 
 #include <stdlib.h>
@@ -334,7 +335,7 @@ struct mail_storage shared_storage = {
 		NULL,
 		shared_storage_get_list_settings,
 		NULL,
-		NULL,
+		fail_mailbox_alloc,
 		NULL
 	}
 };
