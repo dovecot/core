@@ -312,6 +312,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	if (!validate_args(args, &flags_list, &internal_date_str,
 			   &ctx->msg_size, &nonsync)) {
 		client_send_command_error(cmd, "Invalid arguments.");
+		client->input_skip_line = TRUE;
 		return cmd_append_cancel(ctx, nonsync);
 	}
 
