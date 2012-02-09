@@ -127,7 +127,7 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 			      struct dbox_file *file, uint32_t file_id)
 {
 	const char *guid;
-	struct mdbox_rebuild_msg *rec;
+	struct mdbox_rebuild_msg *rec, *old_rec;
 	uoff_t offset, prev_offset;
 	bool last, first, fixed = FALSE;
 	int ret;
@@ -180,12 +180,20 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 		i_assert(!guid_128_is_empty(rec->guid_128));
 		array_append(&ctx->msgs, &rec, 1);
 
-		if (hash_table_lookup(ctx->guid_hash, rec->guid_128) != NULL) {
+		old_rec = hash_table_lookup(ctx->guid_hash, rec->guid_128);
+		if (old_rec == NULL)
+			hash_table_insert(ctx->guid_hash, rec->guid_128, rec);
+		else if (rec->size == old_rec->size) {
 			/* duplicate. save this as a refcount=0 to map,
 			   so it will eventually be deleted. */
 			rec->seen_zero_ref_in_map = TRUE;
 		} else {
-			hash_table_insert(ctx->guid_hash, rec->guid_128, rec);
+			/* duplicate GUID, but not a duplicate message. */
+			i_error("mdbox %s: Duplicate GUID %s in "
+				"m.%u:%u and m.%u:%u",
+				ctx->storage->storage_dir, guid,
+				old_rec->file_id, old_rec->offset,
+				rec->file_id, rec->offset);
 		}
 	}
 	if (ret < 0)
