@@ -1628,7 +1628,7 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 	dsync_worker_save_callback_t *callback;
 	ssize_t ret;
 
-	while ((ret = i_stream_read(worker->save_input)) > 0) {
+	while ((ret = i_stream_read(worker->save_input)) > 0 || ret == -2) {
 		if (mailbox_save_continue(worker->save_ctx) < 0)
 			break;
 	}
