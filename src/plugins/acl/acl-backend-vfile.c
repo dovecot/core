@@ -128,13 +128,14 @@ static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 static const char *
 acl_backend_vfile_get_local_dir(struct acl_backend *backend, const char *name)
 {
-	struct mail_namespace *ns;
+	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
 	const char *dir, *inbox;
 
 	if (*name == '\0')
 		name = NULL;
+	else if (!mailbox_list_is_valid_existing_name(ns->list, name))
+		return NULL;
 
-	ns = mailbox_list_get_namespace(backend->list);
 	if (mail_storage_is_mailbox_file(ns->storage)) {
 		dir = mailbox_list_get_path(ns->list, name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
