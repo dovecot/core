@@ -55,15 +55,15 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 	return 1;
 }
 
-struct doveadm_mail_list_iter *
-doveadm_mail_list_iter_init(struct mail_user *user,
-			    struct mail_search_args *search_args,
-			    enum mailbox_list_iter_flags iter_flags)
+static struct doveadm_mail_list_iter *
+doveadm_mail_list_iter_init_nsmask(struct mail_user *user,
+				   struct mail_search_args *search_args,
+				   enum mailbox_list_iter_flags iter_flags,
+				   enum namespace_type ns_mask)
 {
 	static const char *all_pattern = "*";
 	struct doveadm_mail_list_iter *iter;
 	ARRAY_TYPE(const_string) patterns;
-	enum namespace_type ns_mask = NAMESPACE_PRIVATE;
 	bool have_guid = FALSE;
 
 	iter = i_new(struct doveadm_mail_list_iter, 1);
@@ -92,13 +92,27 @@ doveadm_mail_list_iter_init(struct mail_user *user,
 }
 
 struct doveadm_mail_list_iter *
+doveadm_mail_list_iter_init(struct mail_user *user,
+			    struct mail_search_args *search_args,
+			    enum mailbox_list_iter_flags iter_flags)
+{
+	enum namespace_type ns_mask = NAMESPACE_PRIVATE;
+
+	return doveadm_mail_list_iter_init_nsmask(user, search_args,
+						  iter_flags, ns_mask);
+}
+
+struct doveadm_mail_list_iter *
 doveadm_mail_list_iter_full_init(struct mail_user *user,
 				 struct mail_search_args *search_args,
 				 enum mailbox_list_iter_flags iter_flags)
 {
+	enum namespace_type ns_mask =
+		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
 	struct doveadm_mail_list_iter *iter;
 
-	iter = doveadm_mail_list_iter_init(user, search_args, iter_flags);
+	iter = doveadm_mail_list_iter_init_nsmask(user, search_args,
+						  iter_flags, ns_mask);
 	iter->only_selectable = FALSE;
 	return iter;
 }
