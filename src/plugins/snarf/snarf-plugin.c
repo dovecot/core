@@ -38,7 +38,8 @@ static int snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	enum mail_error error;
 	int ret;
 
-	/* make sure the destination mailbox has been opened */
+	/* make sure the destination mailbox has been opened.
+	   note that this locks the mailbox. */
 	if (mailbox_open(destbox) < 0)
 		return -1;
 
@@ -103,6 +104,8 @@ snarf_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	struct snarf_mailbox *sbox = SNARF_CONTEXT(box);
 
 	(void)snarf(sbox->snarf_box, box);
+	/* close the mailbox so that we don't have to keep it locked */
+	(void)mailbox_close(sbox->snarf_box);
 	return sbox->module_ctx.super.sync_init(box, flags);
 }
 
@@ -160,7 +163,8 @@ static void snarf_mailbox_allocated(struct mailbox *box)
 	sbox->module_ctx.super = *v;
 	box->vlast = &sbox->module_ctx.super;
 
-	sbox->snarf_box = mailbox_alloc(snarf_list, snarf_name, 0);
+	sbox->snarf_box = mailbox_alloc(snarf_list, snarf_name,
+					MAILBOX_FLAG_KEEP_LOCKED);
 
 	v->sync_init = snarf_sync_init;
 	v->free = snarf_mailbox_free;
