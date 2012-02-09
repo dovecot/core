@@ -202,7 +202,7 @@ int quota_user_read_settings(struct mail_user *user,
 	i_strocpy(root_name, "quota", sizeof(root_name));
 	for (i = 2;; i++) {
 		env = mail_user_plugin_getenv(user, root_name);
-		if (env == NULL)
+		if (env == NULL || *env == '\0')
 			break;
 
 		if (quota_root_add(quota_set, user, env, root_name,
