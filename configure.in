@@ -294,6 +294,12 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   xfs/xqm.h execinfo.h ucontext.h malloc_np.h sys/utsname.h sys/vmount.h \
   sys/utsname.h glob.h linux/falloc.h ucred.h)
 
+dnl * clang check
+have_clang=no
+if $CC -dM -E -x c /dev/null | grep __clang__ > /dev/null 2>&1; then
+  have_clang=yes
+fi
+
 dnl * gcc specific options
 if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	# -Wcast-qual -Wcast-align -Wconversion -Wunreachable-code # too many warnings
@@ -301,8 +307,10 @@ if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	# -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
 	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 
-	# This is simply to avoid warning when building strftime() wrappers..
-	CFLAGS="$CFLAGS -fno-builtin-strftime"
+	if test "$have_clang" != "yes"; then
+	  # This is simply to avoid warning when building strftime() wrappers..
+	  CFLAGS="$CFLAGS -fno-builtin-strftime"
+	fi
 
 	AC_TRY_COMPILE([
 	#if __GNUC__ < 4
@@ -323,7 +331,7 @@ if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	  CFLAGS="$old_cflags"
 	])
 fi
-if $CC -dM -E -x c /dev/null | grep __clang__ > /dev/null 2>&1; then
+if test "$have_clang" = "yes"; then
   # clang specific options
   if test "$want_devel_checks" = "yes"; then
     CFLAGS="$CFLAGS -fcatch-undefined-behavior -ftrapv"
