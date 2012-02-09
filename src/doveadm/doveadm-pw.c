@@ -21,16 +21,17 @@ static void cmd_pw(int argc, char *argv[])
 	const char *user = NULL;
 	const char *scheme = NULL;
 	const char *plaintext = NULL;
-	int ch, lflag = 0, Vflag = 0;
+	bool list_schemes = FALSE, reverse_verify = FALSE;
 	unsigned int rounds = 0;
+	int c;
 
 	random_init();
 	password_schemes_init();
 	
-	while ((ch = getopt(argc, argv, "lp:r:s:u:V")) != -1) {
-		switch (ch) {
+	while ((c = getopt(argc, argv, "lp:r:s:u:V")) > 0) {
+		switch (c) {
 		case 'l':
-			lflag = 1;
+			list_schemes = 1;
 			break;
 		case 'p':
 			plaintext = optarg;
@@ -46,7 +47,7 @@ static void cmd_pw(int argc, char *argv[])
 			user = optarg;
 			break;
 		case 'V':
-			Vflag = 1;
+			reverse_verify = TRUE;
 			break;
 		case '?':
 		default:
@@ -54,7 +55,7 @@ static void cmd_pw(int argc, char *argv[])
 		}
 	}
 
-	if (lflag) {
+	if (list_schemes) {
 		const struct password_scheme *const *schemes;
 		unsigned int i, count;
 
@@ -90,7 +91,7 @@ static void cmd_pw(int argc, char *argv[])
 		fprintf(stderr, "Unknown scheme: %s\n", scheme);
 		exit(1);
 	}
-	if (Vflag == 1) {
+	if (reverse_verify) {
 		const unsigned char *raw_password;
 		size_t size;
 		const char *error;
@@ -110,8 +111,9 @@ static void cmd_pw(int argc, char *argv[])
 		}
 
 		printf("{%s}%s (verified)\n", scheme, hash);
-	} else
+	} else {
 		printf("{%s}%s\n", scheme, hash);
+	}
 
 	password_schemes_deinit();
 	random_deinit();
