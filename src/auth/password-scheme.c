@@ -81,6 +81,7 @@ int password_verify(const char *plaintext, const char *user, const char *scheme,
 	enum password_encoding encoding;
 	const unsigned char *generated;
 	size_t generated_size;
+	int ret;
 
 	s = password_scheme_lookup(scheme, &encoding);
 	if (s == NULL) {
@@ -89,15 +90,20 @@ int password_verify(const char *plaintext, const char *user, const char *scheme,
 	}
 
 	if (s->password_verify != NULL) {
-		return s->password_verify(plaintext, user, raw_password, size,
-					  error_r);
+		ret = s->password_verify(plaintext, user, raw_password, size,
+					 error_r);
+	} else {
+		/* generic verification handler: generate the password and
+		   compare it to the one in database */
+		s->password_generate(plaintext, user,
+				     &generated, &generated_size);
+		ret = size != generated_size ? 0 :
+			memcmp(generated, raw_password, size) == 0 ? 1 : 0;
 	}
 
-	/* generic verification handler: generate the password and compare it
-	   to the one in database */
-	s->password_generate(plaintext, user, &generated, &generated_size);
-	return size != generated_size ? 0 :
-		memcmp(generated, raw_password, size) == 0 ? 1 : 0;
+	if (ret == 0)
+		*error_r = "Password mismatch";
+	return ret;
 }
 
 const char *password_get_scheme(const char **password)
