@@ -97,14 +97,15 @@ static void cmd_pw(int argc, char *argv[])
 
 		if (password_decode(hash, scheme, &raw_password, &size,
 				    &error) <= 0) {
-			fprintf(stderr, "reverse decode check failed\n");
+			fprintf(stderr, "reverse decode check failed: %s\n",
+				error);
 			exit(2);
 		}
 
 		if (password_verify(plaintext, user, scheme,
 				    raw_password, size, &error) != 1) {
 			fprintf(stderr,
-				"reverse password verification check failed\n");
+				"reverse password verification check failed: %s\n", error);
 			exit(2);
 		}
 
