@@ -3,57 +3,56 @@
 #include "lib.h"
 #include "array.h"
 #include "mail-storage-private.h"
-#include "test-mail-storage.h"
+#include "fail-mail-storage.h"
 
-extern struct mail_storage test_storage;
-struct mail_index_module_register mail_index_module_register = { 0 };
+extern struct mail_storage fail_storage;
 
-static struct mail_storage *test_storage_alloc(void)
+static struct mail_storage *fail_storage_alloc(void)
 {
 	struct mail_storage *storage;
 	pool_t pool;
 
-	pool = pool_alloconly_create("test mail storage", 1024);
+	pool = pool_alloconly_create("fail mail storage", 1024);
 	storage = p_new(pool, struct mail_storage, 1);
-	*storage = test_storage;
+	*storage = fail_storage;
 	storage->pool = pool;
 	return storage;
 }
 
 static void
-test_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
+fail_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 			      struct mailbox_list_settings *set)
 {
 	if (set->layout == NULL)
-		set->layout = "test";
+		set->layout = "fail";
 	if (set->subscription_fname == NULL)
 		set->subscription_fname = "subscriptions";
 }
 
-struct mail_storage test_storage = {
-	.name = "test",
+struct mail_storage fail_storage = {
+	.name = "fail",
 	.class_flags = 0,
 
 	.v = {
 		NULL,
-		test_storage_alloc,
+		fail_storage_alloc,
 		NULL,
 		NULL,
 		NULL,
-		test_storage_get_list_settings,
+		fail_storage_get_list_settings,
 		NULL,
-		test_mailbox_alloc,
+		fail_mailbox_alloc,
 		NULL
 	}
 };
 
-struct mail_storage *test_mail_storage_create(void)
+struct mail_storage *fail_mail_storage_create(void)
 {
 	struct mail_storage *storage;
 
-	storage = test_storage_alloc();
+	storage = fail_storage_alloc();
 	storage->refcount = 1;
-	storage->storage_class = &test_storage;
+	storage->storage_class = &fail_storage;
 	p_array_init(&storage->module_contexts, storage->pool, 5);
 	return storage;
 }

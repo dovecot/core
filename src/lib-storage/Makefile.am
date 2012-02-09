@@ -1,7 +1,6 @@
 SUBDIRS = list index register
 
 noinst_LTLIBRARIES = libstorage.la libstorage_service.la
-noinst_LIBRARIES = libstorage_test.a
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -18,6 +17,9 @@ AM_CPPFLAGS = \
 	-DMODULEDIR=\""$(moduledir)"\"
 
 libstorage_la_SOURCES = \
+	fail-mail-storage.c \
+	fail-mailbox.c \
+	fail-mail.c \
 	mail.c \
 	mail-copy.c \
 	mail-error.c \
@@ -49,6 +51,7 @@ libstorage_service_la_SOURCES = \
 	mail-storage-service.c
 
 headers = \
+	fail-mail-storage.h \
 	mail-copy.h \
 	mail-error.h \
 	mail-namespace.h \
@@ -85,14 +88,6 @@ libdovecot_storage_la_SOURCES =
 libdovecot_storage_la_LIBADD = $(shlibs) $(MODULE_LIBS)
 libdovecot_storage_la_DEPENDENCIES = $(shlibs)
 libdovecot_storage_la_LDFLAGS = -export-dynamic
-
-libstorage_test_a_SOURCES = \
-	test-mail-storage.c \
-	test-mailbox.c \
-	test-mail.c
-
-test_headers = \
-	test-mail-storage.h
 
 test_programs = \
 	test-mailbox-get

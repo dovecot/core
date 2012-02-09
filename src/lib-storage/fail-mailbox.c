@@ -4,94 +4,102 @@
 #include "array.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
-#include "test-mail-storage.h"
+#include "fail-mail-storage.h"
 
 #define TEST_UID_VALIDITY 1
 
-static bool test_mailbox_is_readonly(struct mailbox *box ATTR_UNUSED)
+static bool fail_mailbox_is_readonly(struct mailbox *box ATTR_UNUSED)
 {
 	return FALSE;
 }
 
-static int test_mailbox_enable(struct mailbox *box,
+static int fail_mailbox_enable(struct mailbox *box,
 			       enum mailbox_feature features)
 {
-	box->enabled_features |= features;
-	return 0;
+	box->enabled_features = features;
+	return -1;
 }
 
-static int test_mailbox_exists(struct mailbox *box ATTR_UNUSED,
+static int fail_mailbox_exists(struct mailbox *box ATTR_UNUSED,
 			       bool auto_boxes ATTR_UNUSED,
 			       enum mailbox_existence *existence_r)
 {
-	*existence_r = MAILBOX_EXISTENCE_SELECT;
-	return 0;
+	*existence_r = MAILBOX_EXISTENCE_NONE;
+	return -1;
 }
 
-static int test_mailbox_open(struct mailbox *box ATTR_UNUSED)
+static int fail_mailbox_open(struct mailbox *box)
 {
-	return 0;
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			       T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
+	return -1;
 }
 
-static void test_mailbox_close(struct mailbox *box ATTR_UNUSED)
+static void fail_mailbox_close(struct mailbox *box ATTR_UNUSED)
+{
+}
+
+static void fail_mailbox_free(struct mailbox *box ATTR_UNUSED)
 {
 }
 
 static int
-test_mailbox_create(struct mailbox *box,
+fail_mailbox_create(struct mailbox *box,
 		    const struct mailbox_update *update ATTR_UNUSED,
 		    bool directory ATTR_UNUSED)
 {
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Test mailbox creation isn't supported");
+			       "Mailbox can't be created");
 	return -1;
 }
 
 static int
-test_mailbox_update(struct mailbox *box,
+fail_mailbox_update(struct mailbox *box,
 		    const struct mailbox_update *update ATTR_UNUSED)
 {
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Test mailbox update isn't supported");
+			       "Mailbox can't be updated");
 	return -1;
 }
 
-static int test_mailbox_delete(struct mailbox *box)
+static int fail_mailbox_delete(struct mailbox *box)
 {
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Test mailbox delete isn't supported");
+			       "Mailbox can't be deleted");
 	return -1;
 }
 
-static int test_mailbox_rename(struct mailbox *src,
+static int fail_mailbox_rename(struct mailbox *src,
 			       struct mailbox *dest ATTR_UNUSED,
 			       bool rename_children ATTR_UNUSED)
 {
 	mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Test mailbox rename isn't supported");
+			       "Mailbox can't be renamed");
 	return -1;
 }
 
-static int test_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
+static int fail_mailbox_get_status(struct mailbox *box ATTR_UNUSED,
 				   enum mailbox_status_items items ATTR_UNUSED,
 				   struct mailbox_status *status_r)
 {
 	memset(status_r, 0, sizeof(*status_r));
 	status_r->uidvalidity = TEST_UID_VALIDITY;
 	status_r->uidnext = 1;
-	return 0;
+	mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+			       T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
+	return -1;
 }
 
-static int test_mailbox_set_subscribed(struct mailbox *box,
+static int fail_mailbox_set_subscribed(struct mailbox *box,
 				       bool set ATTR_UNUSED)
 {
 	mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-			       "Test mailbox subscribing isn't supported");
+			       "Mailbox can't be subscribed");
 	return -1;
 }
 
 static struct mailbox_sync_context *
-test_mailbox_sync_init(struct mailbox *box,
+fail_mailbox_sync_init(struct mailbox *box,
 		       enum mailbox_sync_flags flags ATTR_UNUSED)
 {
 	struct mailbox_sync_context *ctx;
@@ -102,28 +110,30 @@ test_mailbox_sync_init(struct mailbox *box,
 }
 
 static bool
-test_mailbox_sync_next(struct mailbox_sync_context *ctx ATTR_UNUSED,
+fail_mailbox_sync_next(struct mailbox_sync_context *ctx ATTR_UNUSED,
 		       struct mailbox_sync_rec *sync_rec_r ATTR_UNUSED)
 {
 	return FALSE;
 }
 
 static int
-test_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+fail_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 			 struct mailbox_sync_status *status_r)
 {
 	if (status_r != NULL)
 		memset(status_r, 0, sizeof(*status_r));
 	i_free(ctx);
-	return 0;
+	mail_storage_set_error(ctx->box->storage, MAIL_ERROR_NOTFOUND,
+			       T_MAIL_ERR_MAILBOX_NOT_FOUND(ctx->box->vname));
+	return -1;
 }
 
-static void test_mailbox_notify_changes(struct mailbox *box ATTR_UNUSED)
+static void fail_mailbox_notify_changes(struct mailbox *box ATTR_UNUSED)
 {
 }
 
 static struct mailbox_transaction_context *
-test_mailbox_transaction_begin(struct mailbox *box,
+fail_mailbox_transaction_begin(struct mailbox *box,
 			       enum mailbox_transaction_flags flags)
 {
 	struct mailbox_transaction_context *ctx;
@@ -136,23 +146,23 @@ test_mailbox_transaction_begin(struct mailbox *box,
 }
 
 static void
-test_mailbox_transaction_rollback(struct mailbox_transaction_context *t)
+fail_mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 {
 	array_free(&t->module_contexts);
 	i_free(t);
 }
 
 static int
-test_mailbox_transaction_commit(struct mailbox_transaction_context *t,
+fail_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 				struct mail_transaction_commit_changes *changes_r)
 {
 	changes_r->uid_validity = TEST_UID_VALIDITY;
-	test_mailbox_transaction_rollback(t);
+	fail_mailbox_transaction_rollback(t);
 	return 0;
 }
 
 static struct mail_search_context *
-test_mailbox_search_init(struct mailbox_transaction_context *t,
+fail_mailbox_search_init(struct mailbox_transaction_context *t,
 			 struct mail_search_args *args,
 			 const enum mail_sort_type *sort_program ATTR_UNUSED,
 			 enum mail_fetch_field wanted_fields ATTR_UNUSED,
@@ -169,7 +179,7 @@ test_mailbox_search_init(struct mailbox_transaction_context *t,
 	return ctx;
 }
 
-static int test_mailbox_search_deinit(struct mail_search_context *ctx)
+static int fail_mailbox_search_deinit(struct mail_search_context *ctx)
 {
 	array_free(&ctx->results);
 	array_free(&ctx->module_contexts);
@@ -178,7 +188,7 @@ static int test_mailbox_search_deinit(struct mail_search_context *ctx)
 }
 
 static bool
-test_mailbox_search_next_nonblock(struct mail_search_context *ctx ATTR_UNUSED,
+fail_mailbox_search_next_nonblock(struct mail_search_context *ctx ATTR_UNUSED,
 				  struct mail **mail_r, bool *tryagain_r)
 {
 	*tryagain_r = FALSE;
@@ -187,13 +197,13 @@ test_mailbox_search_next_nonblock(struct mail_search_context *ctx ATTR_UNUSED,
 }
 
 static bool
-test_mailbox_search_next_update_seq(struct mail_search_context *ctx ATTR_UNUSED)
+fail_mailbox_search_next_update_seq(struct mail_search_context *ctx ATTR_UNUSED)
 {
 	return FALSE;
 }
 
 static struct mail_save_context *
-test_mailbox_save_alloc(struct mailbox_transaction_context *t)
+fail_mailbox_save_alloc(struct mailbox_transaction_context *t)
 {
 	struct mail_save_context *ctx;
 
@@ -203,95 +213,95 @@ test_mailbox_save_alloc(struct mailbox_transaction_context *t)
 }
 
 static int
-test_mailbox_save_begin(struct mail_save_context *ctx ATTR_UNUSED,
+fail_mailbox_save_begin(struct mail_save_context *ctx ATTR_UNUSED,
 			struct istream *input ATTR_UNUSED)
 {
 	return -1;
 }
 
 static int
-test_mailbox_save_continue(struct mail_save_context *ctx ATTR_UNUSED)
+fail_mailbox_save_continue(struct mail_save_context *ctx ATTR_UNUSED)
 {
 	return -1;
 }
 
 static int
-test_mailbox_save_finish(struct mail_save_context *ctx ATTR_UNUSED)
+fail_mailbox_save_finish(struct mail_save_context *ctx ATTR_UNUSED)
 {
 	return -1;
 }
 
 static void
-test_mailbox_save_cancel(struct mail_save_context *ctx ATTR_UNUSED)
+fail_mailbox_save_cancel(struct mail_save_context *ctx ATTR_UNUSED)
 {
 }
 
 static int
-test_mailbox_copy(struct mail_save_context *ctx ATTR_UNUSED,
+fail_mailbox_copy(struct mail_save_context *ctx ATTR_UNUSED,
 		  struct mail *mail ATTR_UNUSED)
 {
 	return -1;
 }
 
-static bool test_mailbox_is_inconsistent(struct mailbox *box ATTR_UNUSED)
+static bool fail_mailbox_is_inconsistent(struct mailbox *box ATTR_UNUSED)
 {
 	return FALSE;
 }
 
-struct mailbox test_mailbox = {
+struct mailbox fail_mailbox = {
 	.v = {
-		test_mailbox_is_readonly,
-		test_mailbox_enable,
-		test_mailbox_exists,
-		test_mailbox_open,
-		test_mailbox_close,
+		fail_mailbox_is_readonly,
+		fail_mailbox_enable,
+		fail_mailbox_exists,
+		fail_mailbox_open,
+		fail_mailbox_close,
+		fail_mailbox_free,
+		fail_mailbox_create,
+		fail_mailbox_update,
+		fail_mailbox_delete,
+		fail_mailbox_rename,
+		fail_mailbox_get_status,
 		NULL,
-		test_mailbox_create,
-		test_mailbox_update,
-		test_mailbox_delete,
-		test_mailbox_rename,
-		test_mailbox_get_status,
-		NULL,
-		test_mailbox_set_subscribed,
-		NULL,
-		NULL,
-		test_mailbox_sync_init,
-		test_mailbox_sync_next,
-		test_mailbox_sync_deinit,
-		NULL,
-		test_mailbox_notify_changes,
-		test_mailbox_transaction_begin,
-		test_mailbox_transaction_commit,
-		test_mailbox_transaction_rollback,
-		NULL,
-		test_mailbox_mail_alloc,
-		test_mailbox_search_init,
-		test_mailbox_search_deinit,
-		test_mailbox_search_next_nonblock,
-		test_mailbox_search_next_update_seq,
-		test_mailbox_save_alloc,
-		test_mailbox_save_begin,
-		test_mailbox_save_continue,
-		test_mailbox_save_finish,
-		test_mailbox_save_cancel,
-		test_mailbox_copy,
+		fail_mailbox_set_subscribed,
 		NULL,
 		NULL,
+		fail_mailbox_sync_init,
+		fail_mailbox_sync_next,
+		fail_mailbox_sync_deinit,
 		NULL,
-		test_mailbox_is_inconsistent
+		fail_mailbox_notify_changes,
+		fail_mailbox_transaction_begin,
+		fail_mailbox_transaction_commit,
+		fail_mailbox_transaction_rollback,
+		NULL,
+		fail_mailbox_mail_alloc,
+		fail_mailbox_search_init,
+		fail_mailbox_search_deinit,
+		fail_mailbox_search_next_nonblock,
+		fail_mailbox_search_next_update_seq,
+		fail_mailbox_save_alloc,
+		fail_mailbox_save_begin,
+		fail_mailbox_save_continue,
+		fail_mailbox_save_finish,
+		fail_mailbox_save_cancel,
+		fail_mailbox_copy,
+		NULL,
+		NULL,
+		NULL,
+		fail_mailbox_is_inconsistent
 	}
 };
 
 struct mailbox *
-test_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
+fail_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		   const char *vname, enum mailbox_flags flags)
 {
 	struct mailbox *box;
 	pool_t pool;
 
-	pool = pool_alloconly_create("test mailbox", 1024);
+	pool = pool_alloconly_create("fail mailbox", 1024);
 	box = p_new(pool, struct mailbox, 1);
-	*box = test_mailbox;
+	*box = fail_mailbox;
 	box->vname = p_strdup(pool, vname);
 	box->name = p_strdup(pool, mailbox_list_get_storage_name(list, vname));
 	box->storage = storage;
