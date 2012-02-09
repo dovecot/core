@@ -304,6 +304,8 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 	unsigned int count;
 
 	array_sort(&ctx->msgs, mdbox_rebuild_msg_offset_cmp);
+	/* msgs now contains a list of all messages that exists in m.* files,
+	   sorted by file_id,offset */
 
 	msgs = array_get_modifiable(&ctx->msgs, &count);
 	hdr = mail_index_get_header(ctx->atomic->sync_view);
@@ -312,7 +314,8 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 					      seq, &rec) < 0)
 			return -1;
 
-		/* look up the rebuild msg record for this message */
+		/* look up the rebuild msg record for this message based on
+		   the (file_id, offset, size) triplet */
 		search_msg.file_id = rec.rec.file_id;
 		search_msg.offset = rec.rec.offset;
 		search_msg.size = rec.rec.size;
@@ -323,6 +326,7 @@ static int rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 			   a duplicate message. */
 			mail_index_expunge(ctx->atomic->sync_trans, seq);
 		} else {
+			/* remember this message's map_uid */
 			(*pos)->map_uid = rec.map_uid;
 			if (rec.refcount == 0)
 				(*pos)->seen_zero_ref_in_map = TRUE;
@@ -361,11 +365,14 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 	struct mdbox_rebuild_msg *rec;
 	const void *data;
 	bool expunged;
-	uint32_t seq, uid, new_seq, map_uid;
+	uint32_t old_seq, new_seq, uid, map_uid;
 
+	/* Rebuild the mailbox's index. Note that index is reset at this point,
+	   so although we can still access the old messages, we'll need to
+	   append anything we want to keep as new messages. */
 	hdr = mail_index_get_header(view);
-	for (seq = 1; seq <= hdr->messages_count; seq++) {
-		mail_index_lookup_ext(view, seq, mbox->ext_id,
+	for (old_seq = 1; old_seq <= hdr->messages_count; old_seq++) {
+		mail_index_lookup_ext(view, old_seq, mbox->ext_id,
 				      &data, &expunged);
 		if (data == NULL) {
 			memset(&new_dbox_rec, 0, sizeof(new_dbox_rec));
@@ -375,7 +382,7 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 			map_uid = new_dbox_rec.map_uid;
 		}
 
-		mail_index_lookup_ext(view, seq, mbox->guid_ext_id,
+		mail_index_lookup_ext(view, old_seq, mbox->guid_ext_id,
 				      &data, &expunged);
 
 		/* see if we can find this message based on
@@ -383,34 +390,25 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 		rec = data == NULL ? NULL :
 			hash_table_lookup(ctx->guid_hash, data);
 		if (rec == NULL) {
-			if (map_uid == 0) {
-				/* not a multi-dbox message, ignore. */
-				continue;
-			}
 			/* multi-dbox message that wasn't found with GUID.
 			   either it's lost or GUID has been corrupted. we can
 			   still try to look it up using map_uid. */
-			rec = rebuild_lookup_map_uid(ctx, map_uid);
-			if (rec != NULL) {
-				mail_index_update_ext(trans, seq,
-						      mbox->guid_ext_id,
-						      rec->guid_128, NULL);
-			}
+			rec = map_uid == 0 ? NULL :
+				rebuild_lookup_map_uid(ctx, map_uid);
 		} else if (map_uid != rec->map_uid) {
-			/* map_uid is wrong, update it */
-			i_assert(rec->map_uid != 0);
-			new_dbox_rec.map_uid = rec->map_uid;
-			mail_index_update_ext(trans, seq, mbox->ext_id,
-					      &new_dbox_rec, NULL);
+			/* message's GUID and map_uid point to different
+			   physical messages. assume that GUID is correct and
+			   map_uid is wrong. */
 		} else {
 			/* everything was ok */
 		}
 
 		if (rec != NULL) T_BEGIN {
-			/* keep this message */
+			/* keep this message. add it to mailbox index. */
+			i_assert(rec->map_uid != 0);
 			rec->refcount++;
 
-			mail_index_lookup_uid(view, seq, &uid);
+			mail_index_lookup_uid(view, old_seq, &uid);
 			mail_index_append(trans, uid, &new_seq);
 			dbox_sync_rebuild_index_metadata(rebuild_ctx,
 							 new_seq, uid);
