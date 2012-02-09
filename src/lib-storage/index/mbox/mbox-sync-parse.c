@@ -468,7 +468,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	ctx->content_length = (uoff_t)-1;
 	str_truncate(ctx->header, 0);
 
-        mbox_md5_ctx = mbox_md5_init();
+        mbox_md5_ctx = ctx->sync_ctx->mbox->md5_v.init();
 
         line_start_pos = 0;
 	hdr_ctx = message_parse_header_init(input, NULL, 0);
@@ -507,7 +507,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			buffer_append(ctx->header, hdr->full_value,
 				      hdr->full_value_len);
 		} else {
-			mbox_md5_continue(mbox_md5_ctx, hdr);
+			ctx->sync_ctx->mbox->md5_v.more(mbox_md5_ctx, hdr);
 			buffer_append(ctx->header, hdr->value,
 				      hdr->value_len);
 		}
@@ -520,7 +520,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	i_assert(ret != 0);
 	message_parse_header_deinit(&hdr_ctx);
 
-	mbox_md5_finish(mbox_md5_ctx, ctx->hdr_md5_sum);
+	ctx->sync_ctx->mbox->md5_v.finish(mbox_md5_ctx, ctx->hdr_md5_sum);
 
 	if ((ctx->seq == 1 && !ctx->seen_imapbase) ||
 	    (ctx->seq > 1 && sync_ctx->dest_first_mail)) {
@@ -559,7 +559,7 @@ bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 
 	mail_index_lookup_uid(view, seq, &uid);
 	memset(&ctx, 0, sizeof(ctx));
-        mbox_md5_ctx = mbox_md5_init();
+        mbox_md5_ctx = mbox->md5_v.init();
 
 	hdr_ctx = message_parse_header_init(mbox->mbox_stream, NULL, 0);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
@@ -581,13 +581,13 @@ bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 					break;
 			}
 		} else {
-			mbox_md5_continue(mbox_md5_ctx, hdr);
+			mbox->md5_v.more(mbox_md5_ctx, hdr);
 		}
 	}
 	i_assert(ret != 0);
 	message_parse_header_deinit(&hdr_ctx);
 
-	mbox_md5_finish(mbox_md5_ctx, ctx.hdr_md5_sum);
+	mbox->md5_v.finish(mbox_md5_ctx, ctx.hdr_md5_sum);
 
 	if (ctx.mail.uid == uid)
 		return TRUE;

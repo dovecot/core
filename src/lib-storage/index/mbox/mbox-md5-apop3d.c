@@ -85,7 +85,7 @@ static int bsearch_header_func_cmp(const void *p1, const void *p2)
 	return strcasecmp(key, func->header);
 }
 
-struct mbox_md5_context *mbox_md5_init(void)
+static struct mbox_md5_context *mbox_md5_apop3d_init(void)
 {
 	struct mbox_md5_context *ctx;
 
@@ -94,8 +94,8 @@ struct mbox_md5_context *mbox_md5_init(void)
 	return ctx;
 }
 
-void mbox_md5_continue(struct mbox_md5_context *ctx,
-		       struct message_header_line *hdr)
+static void mbox_md5_apop3d_more(struct mbox_md5_context *ctx,
+				 struct message_header_line *hdr)
 {
 	struct mbox_md5_header_func *func;
 
@@ -106,9 +106,15 @@ void mbox_md5_continue(struct mbox_md5_context *ctx,
 		(void)func->func(ctx, hdr);
 }
 
-void mbox_md5_finish(struct mbox_md5_context *ctx,
-		     unsigned char result[16])
+static void mbox_md5_apop3d_finish(struct mbox_md5_context *ctx,
+				   unsigned char result[16])
 {
 	md5_final(&ctx->hdr_md5_ctx, result);
 	i_free(ctx);
 }
+
+struct mbox_md5_vfuncs mbox_md5_apop3d = {
+	mbox_md5_apop3d_init,
+	mbox_md5_apop3d_more,
+	mbox_md5_apop3d_finish
+};

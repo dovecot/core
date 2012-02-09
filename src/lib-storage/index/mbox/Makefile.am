@@ -15,7 +15,8 @@ libstorage_mbox_la_SOURCES = \
 	mbox-file.c \
 	mbox-lock.c \
 	mbox-mail.c \
-	mbox-md5.c \
+	mbox-md5-apop3d.c \
+	mbox-md5-all.c \
 	mbox-save.c \
 	mbox-settings.c \
 	mbox-sync-parse.c \

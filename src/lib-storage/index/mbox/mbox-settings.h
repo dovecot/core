@@ -10,6 +10,7 @@ struct mbox_settings {
 	bool mbox_dirty_syncs;
 	bool mbox_very_dirty_syncs;
 	bool mbox_lazy_writes;
+	const char *mbox_md5;
 };
 
 const struct setting_parser_info *mbox_get_setting_parser_info(void);

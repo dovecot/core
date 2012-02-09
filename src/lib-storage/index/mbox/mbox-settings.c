@@ -20,6 +20,7 @@ static const struct setting_define mbox_setting_defines[] = {
 	DEF(SET_BOOL, mbox_dirty_syncs),
 	DEF(SET_BOOL, mbox_very_dirty_syncs),
 	DEF(SET_BOOL, mbox_lazy_writes),
+	DEF(SET_ENUM, mbox_md5),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -32,7 +33,8 @@ static const struct mbox_settings mbox_default_settings = {
 	.mbox_min_index_size = 0,
 	.mbox_dirty_syncs = TRUE,
 	.mbox_very_dirty_syncs = FALSE,
-	.mbox_lazy_writes = TRUE
+	.mbox_lazy_writes = TRUE,
+	.mbox_md5 = "apop3d:all"
 };
 
 static const struct setting_parser_info mbox_setting_parser_info = {

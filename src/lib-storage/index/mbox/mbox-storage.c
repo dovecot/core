@@ -365,6 +365,15 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	mbox->mbox_fd = -1;
 	mbox->mbox_lock_type = F_UNLCK;
 
+	if (strcmp(mbox->storage->set->mbox_md5, "apop3d") == 0)
+		mbox->md5_v = mbox_md5_apop3d;
+	else if (strcmp(mbox->storage->set->mbox_md5, "all") == 0)
+		mbox->md5_v = mbox_md5_all;
+	else {
+		i_fatal("Invalid mbox_md5 setting: %s",
+			mbox->storage->set->mbox_md5);
+	}
+
 	if ((storage->flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
 		mbox->mbox_save_md5 = TRUE;
 	return &mbox->box;

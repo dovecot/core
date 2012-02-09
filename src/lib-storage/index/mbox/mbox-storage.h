@@ -3,6 +3,7 @@
 
 #include "index-storage.h"
 #include "mbox-settings.h"
+#include "mbox-md5.h"
 
 /* Padding to leave in X-Keywords header when rewriting mbox */
 #define MBOX_HEADER_PADDING 50
@@ -48,6 +49,8 @@ struct mbox_mailbox {
 	uint32_t mbox_ext_idx, md5hdr_ext_idx;
 	struct mbox_index_header mbox_hdr;
 	const struct mailbox_update *sync_hdr_update;
+
+	struct mbox_md5_vfuncs md5_v;
 
 	unsigned int no_mbox_file:1;
 	unsigned int invalid_mbox_file:1;
