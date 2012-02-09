@@ -47,7 +47,7 @@ static void master_service_refresh_login_state(struct master_service *service);
 
 const char *master_service_getopt_string(void)
 {
-	return "c:i:ko:Os:L";
+	return "c:i:ko:OL";
 }
 
 static void sig_die(const siginfo_t *si, void *context)
