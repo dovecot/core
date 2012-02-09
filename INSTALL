@@ -21,18 +21,13 @@ See http://wiki2.dovecot.org/CompilingSource for more information.
 Running
 -------
 
-Rename configuration file:
+Start with the example configuration:
 
-  mv /usr/local/etc/dovecot-example.conf /usr/local/etc/dovecot.conf
+  cp -r /usr/local/share/doc/dovecot/example-config/* /usr/local/etc/dovecot/
 
 Read through, and make needed modifications.
 
-Once everything is configured, there's two ways to start Dovecot:
-
- 1) Run "dovecot" binary which does everything.
-
- 2) Start it via inetd or similiar by executing "imap-login" or "pop3-login"
-    binaries. If you're listening in SSL port, add --ssl parameter.
+Once everything is configured, start Dovecot by running "dovecot" binary.
 
 See Wiki for more information about configuration. If you're in a hurry, go
 at least through http://wiki2.dovecot.org/QuickConfiguration
