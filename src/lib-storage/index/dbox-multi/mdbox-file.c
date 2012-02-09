@@ -84,7 +84,8 @@ mdbox_close_open_files(struct mdbox_storage *storage, unsigned int close_count)
 	}
 }
 
-static void mdbox_file_init_paths(struct mdbox_file *file, const char *fname)
+static void
+mdbox_file_init_paths(struct mdbox_file *file, const char *fname, bool alt)
 {
 	i_free(file->file.primary_path);
 	i_free(file->file.alt_path);
@@ -95,7 +96,8 @@ static void mdbox_file_init_paths(struct mdbox_file *file, const char *fname)
 			i_strdup_printf("%s/%s", file->storage->alt_storage_dir,
 					fname);
 	}
-	file->file.cur_path = file->file.primary_path;
+	file->file.cur_path = !alt ? file->file.primary_path :
+		file->file.alt_path;
 }
 
 static int mdbox_file_create(struct mdbox_file *file)
@@ -159,7 +161,7 @@ mdbox_file_init_full(struct mdbox_storage *storage,
 	file->file_id = file_id;
 	fname = file_id == 0 ? dbox_generate_tmp_filename() :
 		t_strdup_printf(MDBOX_MAIL_FILE_FORMAT, file_id);
-	mdbox_file_init_paths(file, fname);
+	mdbox_file_init_paths(file, fname, FALSE);
 	dbox_file_init(&file->file);
 	if (alt_dir)
 		file->file.cur_path = file->file.alt_path;
@@ -210,7 +212,8 @@ int mdbox_file_assign_file_id(struct mdbox_file *file, uint32_t file_id)
 					  old_path, new_path);
 		return -1;
 	}
-	mdbox_file_init_paths(file, new_fname);
+	mdbox_file_init_paths(file, new_fname,
+			      dbox_file_is_in_alt(&file->file));
 	file->file_id = file_id;
 	array_append(&file->storage->open_files, &file, 1);
 	return 0;

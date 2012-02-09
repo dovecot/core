@@ -937,22 +937,21 @@ mdbox_map_find_existing_append(struct mdbox_map_append_context *ctx,
 }
 
 static int
-mdbox_map_find_first_alt(struct mdbox_map_append_context *ctx,
-			 uint32_t *min_file_id_r, uint32_t *seq_r)
+mdbox_map_find_primary_files(struct mdbox_map_append_context *ctx,
+			     ARRAY_TYPE(seq_range) *file_ids_r)
 {
 	struct mdbox_storage *dstorage = ctx->map->storage;
 	struct mail_storage *storage = &dstorage->storage.storage;
 	DIR *dir;
 	struct dirent *d;
-	const struct mail_index_header *hdr;
-	const struct mdbox_map_mail_index_record *rec;
-	uint32_t seq, file_id, min_file_id = -1U;
+	uint32_t file_id;
 	int ret = 0;
 
 	/* we want to quickly find the latest alt file, but we also want to
-	   avoid accessing the alt storage as much as possible. so we'll do
-	   this by finding the lowest numbered file (n) from primary storage.
-	   hopefully one of n-[1..m] is appendable in alt storage. */
+	   avoid accessing the alt storage as much as possible. typically most
+	   of the older mails would be in alt storage, so we'll just put the
+	   few m.* files in primary storage to checked_file_ids array. other
+	   files are then known to exist in alt storage. */
 	dir = opendir(dstorage->storage_dir);
 	if (dir == NULL) {
 		mail_storage_set_critical(storage,
@@ -968,8 +967,7 @@ mdbox_map_find_first_alt(struct mdbox_map_append_context *ctx,
 				  &file_id) < 0)
 			continue;
 
-		if (min_file_id > file_id)
-			min_file_id = file_id;
+		seq_range_array_add(file_ids_r, 0, file_id);
 	}
 	if (errno != 0) {
 		mail_storage_set_critical(storage,
@@ -981,22 +979,7 @@ mdbox_map_find_first_alt(struct mdbox_map_append_context *ctx,
 			"closedir(%s) failed: %m", dstorage->storage_dir);
 		ret = -1;
 	}
-	if (ret < 0)
-		return -1;
-
-	/* find the newest message in alt storage from map view */
-	hdr = mail_index_get_header(ctx->map->view);
-	for (seq = hdr->messages_count; seq > 0; seq--) {
-		if (mdbox_map_lookup_seq(ctx->map, seq, &rec) < 0)
-			return -1;
-
-		if (rec->file_id < min_file_id)
-			break;
-	}
-
-	*min_file_id_r = min_file_id;
-	*seq_r = seq;
-	return 0;
+	return ret;
 }
 
 static int
@@ -1010,7 +993,7 @@ mdbox_map_find_appendable_file(struct mdbox_map_append_context *ctx,
 	const struct mail_index_header *hdr;
 	const struct mdbox_map_mail_index_record *rec;
 	unsigned int backwards_lookup_count;
-	uint32_t seq, seq1, uid, min_file_id;
+	uint32_t seq, seq1, uid;
 	time_t stamp;
 	bool retry_later;
 
@@ -1024,17 +1007,13 @@ mdbox_map_find_appendable_file(struct mdbox_map_append_context *ctx,
 	backwards_lookup_count = 0;
 	t_array_init(&checked_file_ids, 16);
 
-	if (!want_altpath)
-		seq = hdr->messages_count;
-	else {
+	if (want_altpath) {
 		/* we want to save to alt storage. */
-		if (mdbox_map_find_first_alt(ctx, &min_file_id, &seq) < 0)
+		if (mdbox_map_find_primary_files(ctx, &checked_file_ids) < 0)
 			return -1;
-		seq_range_array_add_range(&checked_file_ids,
-					  min_file_id, (uint32_t)-1);
 	}
 
-	for (; seq > 0; seq--) {
+	for (seq = hdr->messages_count; seq > 0; seq--) {
 		if (mdbox_map_lookup_seq(map, seq, &rec) < 0)
 			return -1;
 
