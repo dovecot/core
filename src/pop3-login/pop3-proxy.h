@@ -4,4 +4,6 @@
 void pop3_proxy_reset(struct client *client);
 int pop3_proxy_parse_line(struct client *client, const char *line);
 
+void pop3_proxy_error(struct client *client, const char *text);
+
 #endif

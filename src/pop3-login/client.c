@@ -24,13 +24,13 @@
 
 static bool cmd_stls(struct pop3_client *client)
 {
-	client_cmd_starttls(&client->common);
+	client_cmd_starttls(&client->common);	
 	return TRUE;
 }
 
 static bool cmd_quit(struct pop3_client *client)
 {
-	client_send_line(&client->common, CLIENT_CMD_REPLY_OK, "Logging out");
+	client_send_reply(&client->common, POP3_CMD_REPLY_OK, "Logging out");
 	client_destroy(&client->common, "Aborted login");
 	return TRUE;
 }
@@ -54,8 +54,8 @@ static bool client_command_execute(struct pop3_client *client, const char *cmd,
 	if (strcmp(cmd, "QUIT") == 0)
 		return cmd_quit(client);
 
-	client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
-			 "Unknown command.");
+	client_send_reply(&client->common, POP3_CMD_REPLY_ERROR,
+			  "Unknown command.");
 	return FALSE;
 }
 
@@ -85,7 +85,7 @@ static void pop3_client_input(struct client *client)
 					   args != NULL ? args : ""))
 			client->bad_counter = 0;
 		else if (++client->bad_counter > CLIENT_MAX_BAD_COMMANDS) {
-			client_send_line(client, CLIENT_CMD_REPLY_BYE,
+			client_send_reply(client, POP3_CMD_REPLY_ERROR,
 				"Too many invalid bad commands.");
 			client_destroy(client,
 				       "Disconnected: Too many bad commands");
@@ -146,7 +146,7 @@ static char *get_apop_challenge(struct pop3_client *client)
 			       (const char *)buf.data, my_hostname);
 }
 
-static void pop3_client_send_greeting(struct client *client)
+static void pop3_client_notify_auth_ready(struct client *client)
 {
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
 
@@ -154,44 +154,43 @@ static void pop3_client_send_greeting(struct client *client)
 
 	pop3_client->apop_challenge = get_apop_challenge(pop3_client);
 	if (pop3_client->apop_challenge == NULL) {
-		client_send_line(client, CLIENT_CMD_REPLY_OK,
-				 client->set->login_greeting);
+		client_send_reply(client, POP3_CMD_REPLY_OK,
+				  client->set->login_greeting);
 	} else {
-		client_send_line(client, CLIENT_CMD_REPLY_OK,
+		client_send_reply(client, POP3_CMD_REPLY_OK,
 			t_strconcat(client->set->login_greeting, " ",
 				    pop3_client->apop_challenge, NULL));
 	}
-	client->greeting_sent = TRUE;
+}
+
+static void
+pop3_client_notify_starttls(struct client *client,
+			    bool success, const char *text)
+{
+	if (success)
+		client_send_reply(client, POP3_CMD_REPLY_OK, text);
+	else
+		client_send_reply(client, POP3_CMD_REPLY_ERROR, text);
 }
 
 static void pop3_client_starttls(struct client *client ATTR_UNUSED)
 {
 }
 
-static void
-pop3_client_send_line(struct client *client, enum client_cmd_reply reply,
-		      const char *text)
+void client_send_reply(struct client *client, enum pop3_cmd_reply reply,
+		       const char *text)
 {
 	const char *prefix = "-ERR";
 
 	switch (reply) {
-	case CLIENT_CMD_REPLY_OK:
+	case POP3_CMD_REPLY_OK:
 		prefix = "+OK";
 		break;
-	case CLIENT_CMD_REPLY_AUTH_FAIL_TEMP:
+	case POP3_CMD_REPLY_TEMPFAIL:
 		prefix = "-ERR [IN-USE]";
 		break;
-	case CLIENT_CMD_REPLY_AUTH_FAILED:
-	case CLIENT_CMD_REPLY_AUTHZ_FAILED:
-	case CLIENT_CMD_REPLY_AUTH_FAIL_REASON:
-	case CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL:
-	case CLIENT_CMD_REPLY_BAD:
-	case CLIENT_CMD_REPLY_BYE:
+	case POP3_CMD_REPLY_ERROR:
 		break;
-	case CLIENT_CMD_REPLY_STATUS:
-	case CLIENT_CMD_REPLY_STATUS_BAD:
-		/* can't send status notifications */
-		return;
 	}
 
 	T_BEGIN {
@@ -202,9 +201,19 @@ pop3_client_send_line(struct client *client, enum client_cmd_reply reply,
 		str_append(line, text);
 		str_append(line, "\r\n");
 
-		client_send_raw_data(client, str_data(line),
-				     str_len(line));
+		client_send_raw_data(client, str_data(line), str_len(line));
 	} T_END;
+}
+
+static void 
+pop3_client_notify_disconnect(struct client *client,
+			      enum client_disconnect_reason reason,
+			      const char *text)
+{
+	if (reason == CLIENT_DISCONNECT_INTERNAL_ERROR)
+		client_send_reply(client, POP3_CMD_REPLY_TEMPFAIL, text);
+	else
+		client_send_reply(client, POP3_CMD_REPLY_ERROR, text);
 }
 
 static void pop3_login_die(void)
@@ -232,15 +241,18 @@ static struct client_vfuncs pop3_client_vfuncs = {
 	pop3_client_alloc,
 	pop3_client_create,
 	pop3_client_destroy,
-	pop3_client_send_greeting,
+	pop3_client_notify_auth_ready,
+	pop3_client_notify_disconnect,
+	NULL,
+	pop3_client_notify_starttls,
 	pop3_client_starttls,
 	pop3_client_input,
-	pop3_client_send_line,
-	pop3_client_auth_handle_reply,
 	NULL,
 	NULL,
+	pop3_client_auth_result,
 	pop3_proxy_reset,
-	pop3_proxy_parse_line
+	pop3_proxy_parse_line,
+	pop3_proxy_error
 };
 
 static const struct login_binary pop3_login_binary = {

@@ -145,8 +145,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	   shouldn't be a real problem since of course everyone will
 	   be using only Dovecot as their backend :) */
 	if (strncmp(line, "-ERR ", 5) != 0) {
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAILED,
-				 AUTH_FAILED_MSG);
+		client_send_reply(client, POP3_CMD_REPLY_ERROR,
+				  AUTH_FAILED_MSG);
 	} else {
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 	}
@@ -164,4 +164,9 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 void pop3_proxy_reset(struct client *client)
 {
 	client->proxy_state = POP3_PROXY_BANNER;
+}
+
+void pop3_proxy_error(struct client *client, const char *text)
+{
+	client_send_reply(client, POP3_CMD_REPLY_ERROR, text);
 }

@@ -1,10 +1,12 @@
 /* Copyright (c) 2002-2012 Dovecot authors, see the included COPYING file */
 
+#include "hostpid.h"
 #include "login-common.h"
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
 #include "safe-memset.h"
+#include "time-util.h"
 #include "login-proxy.h"
 #include "auth-client.h"
 #include "client-common.h"
@@ -17,9 +19,9 @@
 /* If we've been waiting auth server to respond for over this many milliseconds,
    send a "waiting" message. */
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
-#define GREETING_WARNING_TIMEOUT_MSECS (10*1000)
+#define AUTH_WAITING_WARNING_TIMEOUT_MSECS (10*1000)
 
-void client_auth_failed(struct client *client)
+static void client_auth_failed(struct client *client)
 {
 	i_free_and_null(client->master_data_prefix);
 	if (client->auth_response != NULL)
@@ -37,13 +39,12 @@ void client_auth_failed(struct client *client)
 
 static void client_auth_waiting_timeout(struct client *client)
 {
-	if (!client->greeting_sent) {
+	if (!client->notified_auth_ready) {
 		client_log_warn(client, "Auth process not responding, "
-				"delayed sending greeting");
+				"delayed sending initial response (greeting)");
 	}
-	client_send_line(client, CLIENT_CMD_REPLY_STATUS,
-			 client->master_tag == 0 ?
-			 AUTH_SERVER_WAITING_MSG : AUTH_MASTER_WAITING_MSG);
+	client_notify_status(client, FALSE, client->master_tag == 0 ?
+			     AUTH_SERVER_WAITING_MSG : AUTH_MASTER_WAITING_MSG);
 	timeout_remove(&client->to_auth_waiting);
 }
 
@@ -51,8 +52,8 @@ void client_set_auth_waiting(struct client *client)
 {
 	i_assert(client->to_auth_waiting == NULL);
 	client->to_auth_waiting =
-		timeout_add(!client->greeting_sent ?
-			    GREETING_WARNING_TIMEOUT_MSECS :
+		timeout_add(!client->notified_auth_ready ?
+			    AUTH_WAITING_WARNING_TIMEOUT_MSECS :
 			    AUTH_WAITING_TIMEOUT_MSECS,
 			    client_auth_waiting_timeout, client);
 }
@@ -159,6 +160,11 @@ void client_proxy_finish_destroy_client(struct client *client)
 	client_destroy_success(client, str_c(str));
 }
 
+static void client_proxy_error(struct client *client, const char *text)
+{
+	client->v.proxy_error(client, text);
+}
+
 void client_proxy_log_failure(struct client *client, const char *line)
 {
 	string_t *str = t_str_new(128);
@@ -182,8 +188,7 @@ void client_proxy_log_failure(struct client *client, const char *line)
 void client_proxy_failed(struct client *client, bool send_line)
 {
 	if (send_line) {
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 PROXY_FAILURE_MSG);
+		client_proxy_error(client, PROXY_FAILURE_MSG);
 	}
 
 	login_proxy_free(&client->login_proxy);
@@ -266,14 +271,12 @@ static int proxy_start(struct client *client,
 
 	if (reply->password == NULL) {
 		client_log_err(client, "proxy: password not given");
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 PROXY_FAILURE_MSG);
+		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 	if (reply->host == NULL || *reply->host == '\0') {
 		client_log_err(client, "proxy: host not given");
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 PROXY_FAILURE_MSG);
+		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 
@@ -287,8 +290,7 @@ static int proxy_start(struct client *client,
 	if (login_proxy_is_ourself(client, reply->host, reply->port,
 				   reply->destuser)) {
 		client_log_err(client, "Proxying loops to itself");
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 PROXY_FAILURE_MSG);
+		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 
@@ -301,8 +303,7 @@ static int proxy_start(struct client *client,
 	proxy_set.ssl_flags = reply->ssl_flags;
 
 	if (login_proxy_new(client, &proxy_set, proxy_input) < 0) {
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-				 PROXY_FAILURE_MSG);
+		client_proxy_error(client, PROXY_FAILURE_MSG);
 		return -1;
 	}
 
@@ -314,6 +315,13 @@ static int proxy_start(struct client *client,
 	if (client->io != NULL)
 		io_remove(&client->io);
 	return 0;
+}
+
+static void
+client_auth_result(struct client *client, enum client_auth_result result,
+		   const struct client_auth_reply *reply, const char *text)
+{
+	client->v.auth_result(client, result, reply, text);
 }
 
 static bool
@@ -332,7 +340,79 @@ client_auth_handle_reply(struct client *client,
 			client_auth_failed(client);
 		return TRUE;
 	}
-	return client->v.auth_handle_reply(client, reply);
+
+	if (reply->host != NULL) {
+		const char *reason;
+
+		if (reply->reason != NULL)
+			reason = reply->reason;
+		else if (reply->nologin)
+			reason = "Try this server instead.";
+		else
+			reason = "Logged in, but you should use this server instead.";
+
+		if (reply->nologin) {
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_REFERRAL_NOLOGIN,
+				reply, reason);
+		} else {
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_REFERRAL_SUCCESS,
+				reply, reason);
+			return TRUE;
+		}
+	} else if (reply->nologin) {
+		/* Authentication went ok, but for some reason user isn't
+		   allowed to log in. Shouldn't probably happen. */
+		if (reply->reason != NULL) {
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_AUTHFAILED_REASON,
+				reply, reply->reason);
+		} else if (reply->temp) {
+			const char *timestamp, *msg;
+
+			timestamp = t_strflocaltime("%Y-%m-%d %H:%M:%S", ioloop_time);
+			msg = t_strdup_printf(AUTH_TEMP_FAILED_MSG" [%s:%s]",
+				      my_hostname, timestamp);
+			client_auth_result(client, CLIENT_AUTH_RESULT_TEMPFAIL,
+					   reply, msg);
+		} else if (reply->authz_failure) {
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_AUTHZFAILED, reply,
+				"Authorization failed");
+		} else {
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_AUTHFAILED, reply,
+				AUTH_FAILED_MSG);
+		}
+	} else {
+		/* normal login/failure */
+		return FALSE;
+	}
+
+	i_assert(reply->nologin);
+
+	if (!client->destroyed)
+		client_auth_failed(client);
+	return TRUE;
+}
+
+void client_auth_respond(struct client *client, const char *response)
+{
+	client->auth_waiting = FALSE;
+	client_set_auth_waiting(client);
+	auth_client_request_continue(client->auth_request, response);
+	io_remove(&client->io);
+}
+
+void client_auth_abort(struct client *client)
+{
+	sasl_server_auth_abort(client);
+}
+
+void client_auth_fail(struct client *client, const char *text)
+{
+	sasl_server_auth_failed(client, text);
 }
 
 int client_auth_read_line(struct client *client)
@@ -368,33 +448,24 @@ int client_auth_read_line(struct client *client)
 	return i < size;
 }
 
-int client_auth_parse_response(struct client *client)
+void client_auth_parse_response(struct client *client)
 {
-	int ret;
-
-	if ((ret = client_auth_read_line(client)) <= 0)
-		return ret;
+	if (client_auth_read_line(client) <= 0)
+		return;
 
 	if (strcmp(str_c(client->auth_response), "*") == 0) {
 		sasl_server_auth_abort(client);
-		return -1;
+		return;
 	}
-	return 1;
+
+	client_auth_respond(client, str_c(client->auth_response));
+	memset(str_c_modifiable(client->auth_response), 0,
+	       str_len(client->auth_response));
 }
 
 static void client_auth_input(struct client *client)
 {
-	if (client->v.auth_parse_response(client) <= 0)
-		return;
-
-	client->auth_waiting = FALSE;
-	client_set_auth_waiting(client);
-	auth_client_request_continue(client->auth_request,
-				     str_c(client->auth_response));
-	io_remove(&client->io);
-
-	memset(str_c_modifiable(client->auth_response), 0,
-	       str_len(client->auth_response));
+	client->v.auth_parse_response(client);
 }
 
 void client_auth_send_challenge(struct client *client, const char *data)
@@ -430,6 +501,8 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			if (client_auth_handle_reply(client, &reply, TRUE))
 				break;
 		}
+		client_auth_result(client, CLIENT_AUTH_RESULT_SUCCESS,
+				   NULL, NULL);
 		client_destroy_success(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
@@ -444,15 +517,16 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		}
 
 		if (sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED) {
-			client_send_line(client, CLIENT_CMD_REPLY_BAD,
-					 "Authentication aborted by client.");
+			client_auth_result(client, CLIENT_AUTH_RESULT_ABORTED,
+				NULL, "Authentication aborted by client.");
 		} else if (data == NULL) {
-			client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAILED,
-					 AUTH_FAILED_MSG);
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_AUTHFAILED, NULL,
+				AUTH_FAILED_MSG);
 		} else {
-			client_send_line(client,
-					 CLIENT_CMD_REPLY_AUTH_FAIL_REASON,
-					 data);
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_AUTHFAILED_REASON, NULL,
+				AUTH_FAILED_MSG);
 		}
 
 		if (!client->destroyed)
@@ -462,8 +536,8 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (data != NULL) {
 			/* authentication itself succeeded, we just hit some
 			   internal failure. */
-			client_send_line(client,
-					 CLIENT_CMD_REPLY_AUTH_FAIL_TEMP, data);
+			client_auth_result(client, CLIENT_AUTH_RESULT_TEMPFAIL,
+					   NULL, data);
 		}
 
 		/* the fd may still be hanging somewhere in kernel or another
@@ -505,7 +579,7 @@ int client_auth_begin(struct client *client, const char *mech_name,
 				   "SSL required for authentication");
 		}
 		client->auth_attempts++;
-		client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
+		client_auth_result(client, CLIENT_AUTH_RESULT_SSL_REQUIRED, NULL,
 			"Authentication not allowed until SSL/TLS is enabled.");
 		return 1;
 	}
@@ -536,13 +610,13 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 			   "Plaintext authentication disabled");
 	}
 	if (pass_sent) {
-		client_send_line(client, CLIENT_CMD_REPLY_STATUS_BAD,
+		client_notify_status(client, TRUE,
 			 "Plaintext authentication not allowed "
 			 "without SSL/TLS, but your client did it anyway. "
 			 "If anyone was listening, the password was exposed.");
 	}
-	client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
-			 AUTH_PLAINTEXT_DISABLED_MSG);
+	client_auth_result(client, CLIENT_AUTH_RESULT_SSL_REQUIRED, NULL,
+			   AUTH_PLAINTEXT_DISABLED_MSG);
 	client->auth_tried_disabled_plaintext = TRUE;
 	client->auth_attempts++;
 	return FALSE;
@@ -557,8 +631,9 @@ void clients_notify_auth_connected(void)
 
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
-		if (!client->greeting_sent)
-			client->v.send_greeting(client);
+
+		client_notify_auth_ready(client);
+
 		if (client->input_blocked) {
 			client->input_blocked = FALSE;
 			client_input(client);

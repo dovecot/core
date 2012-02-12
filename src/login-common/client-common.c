@@ -26,8 +26,8 @@ static unsigned int clients_count = 0;
 
 static void client_idle_disconnect_timeout(struct client *client)
 {
-	client_send_line(client, CLIENT_CMD_REPLY_BYE,
-			 "Disconnected for inactivity.");
+	client_notify_disconnect(client, CLIENT_DISCONNECT_TIMEOUT,
+				 "Disconnected for inactivity.");
 	client_destroy(client, "Disconnected: Inactivity");
 }
 
@@ -87,7 +87,7 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->v.create(client, other_sets);
 
 	if (auth_client_is_connected(auth_client))
-		client->v.send_greeting(client);
+		client_notify_auth_ready(client);
 	else
 		client_set_auth_waiting(client);
 
@@ -176,9 +176,9 @@ void client_destroy_success(struct client *client, const char *reason)
 
 void client_destroy_internal_failure(struct client *client)
 {
-	client_send_line(client, CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-			 "Internal login failure. "
-			 "Refer to server log for more information.");
+	client_notify_disconnect(client, CLIENT_DISCONNECT_INTERNAL_ERROR,
+		"Internal login failure. "
+		"Refer to server log for more information.");
 	client_destroy(client, t_strdup_printf(
 		"Internal login failure (pid=%s id=%u)",
 		my_pid, client->master_auth_id));
@@ -241,6 +241,8 @@ void client_destroy_oldest(void)
 	if (client == NULL)
 		client = last_client;
 
+	client_notify_disconnect(client, CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
+				 "Connection queue full");
 	client_destroy(client, "Disconnected: Connection queue full");
 }
 
@@ -250,6 +252,8 @@ void clients_destroy_all(void)
 
 	for (client = clients; client != NULL; client = next) {
 		next = client->next;
+		client_notify_disconnect(client,
+			CLIENT_DISCONNECT_SYSTEM_SHUTDOWN, "Shutting down.");
 		client_destroy(client, "Disconnected: Shutting down");
 	}
 }
@@ -265,10 +269,11 @@ static void client_start_tls(struct client *client)
 	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip,
 				 client->set, &client->ssl_proxy);
 	if (fd_ssl == -1) {
-		client_send_line(client, CLIENT_CMD_REPLY_BYE,
-				 "TLS initialization failed.");
+		client_notify_disconnect(client,
+			CLIENT_DISCONNECT_INTERNAL_ERROR,
+			"TLS initialization failed.");
 		client_destroy(client,
-			       "Disconnected: TLS initialization failed.");
+			"Disconnected: TLS initialization failed.");
 		return;
 	}
 	ssl_proxy_set_client(client->ssl_proxy, client);
@@ -307,14 +312,12 @@ static int client_output_starttls(struct client *client)
 void client_cmd_starttls(struct client *client)
 {
 	if (client->tls) {
-		client_send_line(client, CLIENT_CMD_REPLY_BAD,
-				 "TLS is already active.");
+		client->v.notify_starttls(client, FALSE, "TLS is already active.");
 		return;
 	}
 
 	if (!ssl_initialized) {
-		client_send_line(client, CLIENT_CMD_REPLY_BAD,
-				 "TLS support isn't enabled.");
+		client->v.notify_starttls(client, FALSE, "TLS support isn't enabled.");
 		return;
 	}
 
@@ -323,8 +326,7 @@ void client_cmd_starttls(struct client *client)
 	if (client->io != NULL)
 		io_remove(&client->io);
 
-	client_send_line(client, CLIENT_CMD_REPLY_OK,
-			 "Begin TLS negotiation now.");
+	client->v.notify_starttls(client, TRUE, "Begin TLS negotiation now.");
 
 	/* uncork the old fd */
 	o_stream_uncork(client->output);
@@ -527,9 +529,9 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			return "(client didn't send a cert)";
 	}
 
-	if (!client->greeting_sent)
+	if (!client->notified_auth_ready)
 		return t_strdup_printf(
-			"(disconnected before greeting, waited %u secs)",
+			"(disconnected before auth was ready, waited %u secs)",
 			(unsigned int)(ioloop_time - client->created));
 
 	if (client->auth_attempts == 0) {
@@ -572,10 +574,28 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			       client->auth_attempts, auth_secs);
 }
 
-void client_send_line(struct client *client, enum client_cmd_reply reply,
-		      const char *text)
+void client_notify_disconnect(struct client *client,
+			      enum client_disconnect_reason reason,
+			      const char *text)
 {
-	client->v.send_line(client, reply, text);
+	if (!client->notified_disconnect) {
+		client->v.notify_disconnect(client, reason, text);
+		client->notified_disconnect = TRUE;
+	}
+}
+
+void client_notify_auth_ready(struct client *client)
+{
+	if (!client->notified_auth_ready) {
+		client->v.notify_auth_ready(client);
+		client->notified_auth_ready = TRUE;
+	}
+}
+
+void client_notify_status(struct client *client, bool bad, const char *text)
+{
+	if (client->v.notify_status != NULL)
+		client->v.notify_status(client, bad, text);
 }
 
 void client_send_raw_data(struct client *client, const void *data, size_t size)
@@ -602,8 +622,9 @@ bool client_read(struct client *client)
 	switch (i_stream_read(client->input)) {
 	case -2:
 		/* buffer full */
-		client_send_line(client, CLIENT_CMD_REPLY_BYE,
-				 "Input buffer full, aborting");
+		client_notify_disconnect(client,
+			CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
+			"Input buffer full, aborting");
 		client_destroy(client, "Disconnected: Input buffer full");
 		return FALSE;
 	case -1:

@@ -82,8 +82,8 @@ static int cmd_capability(struct imap_client *imap_client)
 		imap_client->client_ignores_capability_resp_code = TRUE;
 	client_send_raw(client, t_strconcat(
 		"* CAPABILITY ", get_capability(client), "\r\n", NULL));
-	client_send_line(client, CLIENT_CMD_REPLY_OK,
-			 "Pre-login capabilities listed, post-login capabilities have more.");
+	client_send_reply(client, IMAP_CMD_REPLY_OK,
+		"Pre-login capabilities listed, post-login capabilities have more.");
 	return 1;
 }
 
@@ -91,6 +91,16 @@ static int cmd_starttls(struct imap_client *client)
 {
 	client_cmd_starttls(&client->common);
 	return 1;
+}
+
+static void
+imap_client_notify_starttls(struct client *client,
+			    bool success, const char *text)
+{
+	if (success)
+		client_send_reply(client, IMAP_CMD_REPLY_OK, text);
+	else
+		client_send_reply(client, IMAP_CMD_REPLY_BAD, text);
 }
 
 static void
@@ -135,22 +145,22 @@ static int cmd_id(struct imap_client *client, const struct imap_arg *args)
 	env = getenv("IMAP_ID_SEND");
 	client_send_raw(&client->common,
 		t_strdup_printf("* ID %s\r\n", imap_id_reply_generate(env)));
-	client_send_line(&client->common, CLIENT_CMD_REPLY_OK, "ID completed.");
+	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, "ID completed.");
 	return 1;
 }
 
 static int cmd_noop(struct imap_client *client)
 {
-	client_send_line(&client->common, CLIENT_CMD_REPLY_OK,
-			 "NOOP completed.");
+	client_send_reply(&client->common, IMAP_CMD_REPLY_OK,
+			  "NOOP completed.");
 	return 1;
 }
 
 static int cmd_logout(struct imap_client *client)
 {
-	client_send_line(&client->common, CLIENT_CMD_REPLY_BYE, "Logging out");
-	client_send_line(&client->common, CLIENT_CMD_REPLY_OK,
-			 "Logout completed.");
+	client_send_reply(&client->common, IMAP_CMD_REPLY_BYE, "Logging out");
+	client_send_reply(&client->common, IMAP_CMD_REPLY_OK,
+			  "Logout completed.");
 	client_destroy(&client->common, "Aborted login");
 	return 1;
 }
@@ -158,8 +168,8 @@ static int cmd_logout(struct imap_client *client)
 static int cmd_enable(struct imap_client *client)
 {
 	client_send_raw(&client->common, "* ENABLED\r\n");
-	client_send_line(&client->common, CLIENT_CMD_REPLY_OK,
-			 "ENABLE ignored in non-authenticated state.");
+	client_send_reply(&client->common, IMAP_CMD_REPLY_OK,
+			  "ENABLE ignored in non-authenticated state.");
 	return 1;
 }
 
@@ -223,14 +233,14 @@ static int client_parse_command(struct imap_client *client,
 		/* error */
 		msg = imap_parser_get_error(client->parser, &fatal);
 		if (fatal) {
-			client_send_line(&client->common,
-					 CLIENT_CMD_REPLY_BYE, msg);
+			client_send_reply(&client->common,
+					  IMAP_CMD_REPLY_BYE, msg);
 			client_destroy(&client->common,
 				t_strconcat("Disconnected: ", msg, NULL));
 			return FALSE;
 		}
 
-		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD, msg);
+		client_send_reply(&client->common, IMAP_CMD_REPLY_BAD, msg);
 		client->cmd_finished = TRUE;
 		client->skip_line = TRUE;
 		return -1;
@@ -309,7 +319,7 @@ static bool client_handle_input(struct imap_client *client)
 
 	client->cmd_finished = TRUE;
 	if (ret == -2 && strcasecmp(client->cmd_tag, "LOGIN") == 0) {
-		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+		client_send_reply(&client->common, IMAP_CMD_REPLY_BAD,
 			"First parameter in line is IMAP's command tag, "
 			"not the command name. Add that before the command, "
 			"like: a login user pass");
@@ -317,13 +327,13 @@ static bool client_handle_input(struct imap_client *client)
 		if (*client->cmd_tag == '\0')
 			client->cmd_tag = "*";
 		if (++client->common.bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
-			client_send_line(&client->common, CLIENT_CMD_REPLY_BYE,
+			client_send_reply(&client->common, IMAP_CMD_REPLY_BYE,
 				"Too many invalid IMAP commands.");
 			client_destroy(&client->common,
 				"Disconnected: Too many invalid commands");
 			return FALSE;
 		}
-		client_send_line(&client->common, CLIENT_CMD_REPLY_BAD,
+		client_send_reply(&client->common, IMAP_CMD_REPLY_BAD,
 			"Error in IMAP command received by server.");
 	}
 
@@ -343,8 +353,8 @@ static void imap_client_input(struct client *client)
 		if (!auth_client_is_connected(auth_client)) {
 			/* we're not currently connected to auth process -
 			   don't allow any commands */
-			client_send_line(client, CLIENT_CMD_REPLY_STATUS,
-					 AUTH_SERVER_WAITING_MSG);
+			client_notify_status(client, FALSE,
+					     AUTH_SERVER_WAITING_MSG);
 			if (client->to_auth_waiting != NULL)
 				timeout_remove(&client->to_auth_waiting);
 
@@ -386,7 +396,7 @@ static void imap_client_destroy(struct client *client)
 	imap_parser_unref(&imap_client->parser);
 }
 
-static void imap_client_send_greeting(struct client *client)
+static void imap_client_notify_auth_ready(struct client *client)
 {
 	string_t *greet;
 
@@ -397,7 +407,6 @@ static void imap_client_send_greeting(struct client *client)
 	str_append(greet, "\r\n");
 
 	client_send_raw(client, str_c(greet));
-	client->greeting_sent = TRUE;
 }
 
 static void imap_client_starttls(struct client *client)
@@ -414,50 +423,11 @@ static void imap_client_starttls(struct client *client)
 }
 
 static void
-imap_client_send_line(struct client *client, enum client_cmd_reply reply,
-		      const char *text)
+client_send_reply_raw(struct client *client,
+		      const char *prefix, const char *resp_code,
+		      const char *text, bool tagged)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
-	const char *resp_code = NULL;
-	const char *prefix = "NO";
-	bool tagged = TRUE;
-
-	switch (reply) {
-	case CLIENT_CMD_REPLY_OK:
-		prefix = "OK";
-		break;
-	case CLIENT_CMD_REPLY_AUTH_FAILED:
-		resp_code = IMAP_RESP_CODE_AUTHFAILED;
-		break;
-	case CLIENT_CMD_REPLY_AUTHZ_FAILED:
-		resp_code = IMAP_RESP_CODE_AUTHZFAILED;
-		break;
-	case CLIENT_CMD_REPLY_AUTH_FAIL_TEMP:
-		resp_code = IMAP_RESP_CODE_UNAVAILABLE;
-		break;
-	case CLIENT_CMD_REPLY_AUTH_FAIL_REASON:
-		resp_code = "ALERT";
-		break;
-	case CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL:
-		resp_code = IMAP_RESP_CODE_PRIVACYREQUIRED;
-		break;
-	case CLIENT_CMD_REPLY_BAD:
-		prefix = "BAD";
-		break;
-	case CLIENT_CMD_REPLY_BYE:
-		prefix = "BYE";
-		tagged = FALSE;
-		break;
-	case CLIENT_CMD_REPLY_STATUS:
-		prefix = "OK";
-		tagged = FALSE;
-		break;
-	case CLIENT_CMD_REPLY_STATUS_BAD:
-		prefix = "BAD";
-		tagged = FALSE;
-		resp_code = "ALERT";
-		break;
-	}
 
 	T_BEGIN {
 		string_t *line = t_str_new(256);
@@ -474,9 +444,59 @@ imap_client_send_line(struct client *client, enum client_cmd_reply reply,
 		str_append(line, text);
 		str_append(line, "\r\n");
 
-		client_send_raw_data(client, str_data(line),
-				     str_len(line));
+		client_send_raw_data(client, str_data(line), str_len(line));
 	} T_END;
+}
+
+void client_send_reply_code(struct client *client, enum imap_cmd_reply reply,
+			    const char *resp_code, const char *text)
+{
+	const char *prefix = "NO";
+	bool tagged = TRUE;
+
+	switch (reply) {
+	case IMAP_CMD_REPLY_OK:
+		prefix = "OK";
+		break;
+	case IMAP_CMD_REPLY_NO:
+		break;
+	case IMAP_CMD_REPLY_BAD:
+		prefix = "BAD";
+		break;
+	case IMAP_CMD_REPLY_BYE:
+		prefix = "BYE";
+		tagged = FALSE;
+		break;
+	}
+	client_send_reply_raw(client, prefix, resp_code, text, tagged);
+}
+
+void client_send_reply(struct client *client, enum imap_cmd_reply reply,
+		       const char *text)
+{
+	client_send_reply_code(client, reply, NULL, text);
+}
+
+static void
+imap_client_notify_status(struct client *client, bool bad, const char *text)
+{
+	if (bad)
+		client_send_reply_raw(client, "BAD", "ALERT", text, FALSE);
+	else
+		client_send_reply_raw(client, "OK", NULL, text, FALSE);
+}
+
+static void 
+imap_client_notify_disconnect(struct client *client,
+			      enum client_disconnect_reason reason,
+			      const char *text)
+{
+	if (reason == CLIENT_DISCONNECT_INTERNAL_ERROR) {
+		client_send_reply_code(client, IMAP_CMD_REPLY_BYE,
+				       IMAP_RESP_CODE_UNAVAILABLE, text);
+	} else {
+		client_send_reply_code(client, IMAP_CMD_REPLY_BYE, NULL, text);
+	}
 }
 
 static void imap_login_preinit(void)
@@ -497,15 +517,18 @@ static struct client_vfuncs imap_client_vfuncs = {
 	imap_client_alloc,
 	imap_client_create,
 	imap_client_destroy,
-	imap_client_send_greeting,
+	imap_client_notify_auth_ready,
+	imap_client_notify_disconnect,
+	imap_client_notify_status,
+	imap_client_notify_starttls,
 	imap_client_starttls,
 	imap_client_input,
-	imap_client_send_line,
-	imap_client_auth_handle_reply,
 	NULL,
 	NULL,
+	imap_client_auth_result,
 	imap_proxy_reset,
-	imap_proxy_parse_line
+	imap_proxy_parse_line,
+	imap_proxy_error
 };
 
 static const struct login_binary imap_login_binary = {

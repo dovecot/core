@@ -31,17 +31,23 @@
 #define AUTH_MASTER_WAITING_MSG \
 	"Waiting for authentication master process to respond.."
 
-enum client_cmd_reply {
-	CLIENT_CMD_REPLY_OK,
-	CLIENT_CMD_REPLY_AUTH_FAILED,
-	CLIENT_CMD_REPLY_AUTHZ_FAILED,
-	CLIENT_CMD_REPLY_AUTH_FAIL_TEMP,
-	CLIENT_CMD_REPLY_AUTH_FAIL_REASON,
-	CLIENT_CMD_REPLY_AUTH_FAIL_NOSSL,
-	CLIENT_CMD_REPLY_BAD,
-	CLIENT_CMD_REPLY_BYE,
-	CLIENT_CMD_REPLY_STATUS,
-	CLIENT_CMD_REPLY_STATUS_BAD
+enum client_disconnect_reason {
+	CLIENT_DISCONNECT_TIMEOUT,
+	CLIENT_DISCONNECT_SYSTEM_SHUTDOWN,
+	CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
+	CLIENT_DISCONNECT_INTERNAL_ERROR
+};
+
+enum client_auth_result {
+	CLIENT_AUTH_RESULT_SUCCESS,
+	CLIENT_AUTH_RESULT_REFERRAL_SUCCESS,
+	CLIENT_AUTH_RESULT_REFERRAL_NOLOGIN,
+	CLIENT_AUTH_RESULT_ABORTED,
+	CLIENT_AUTH_RESULT_AUTHFAILED,
+	CLIENT_AUTH_RESULT_AUTHFAILED_REASON,
+	CLIENT_AUTH_RESULT_AUTHZFAILED,
+	CLIENT_AUTH_RESULT_TEMPFAIL,
+	CLIENT_AUTH_RESULT_SSL_REQUIRED
 };
 
 struct client_auth_reply {
@@ -63,17 +69,25 @@ struct client_vfuncs {
 	struct client *(*alloc)(pool_t pool);
 	void (*create)(struct client *client, void **other_sets);
 	void (*destroy)(struct client *client);
-	void (*send_greeting)(struct client *client);
+	void (*notify_auth_ready)(struct client *client);
+	void (*notify_disconnect)(struct client *client,
+				  enum client_disconnect_reason reason,
+				  const char *text);
+	void (*notify_status)(struct client *client,
+			      bool bad, const char *text);
+	void (*notify_starttls)(struct client *client,
+				bool success, const char *text);
 	void (*starttls)(struct client *client);
 	void (*input)(struct client *client);
-	void (*send_line)(struct client *client, enum client_cmd_reply reply,
-			  const char *text);
-	bool (*auth_handle_reply)(struct client *client,
-				  const struct client_auth_reply *reply);
 	void (*auth_send_challenge)(struct client *client, const char *data);
-	int (*auth_parse_response)(struct client *client);
+	void (*auth_parse_response)(struct client *client);
+	void (*auth_result)(struct client *client,
+			    enum client_auth_result result,
+			    const struct client_auth_reply *reply,
+			    const char *text);
 	void (*proxy_reset)(struct client *client);
 	int (*proxy_parse_line)(struct client *client, const char *line);
+	void (*proxy_error)(struct client *client, const char *text);
 };
 
 struct client {
@@ -122,7 +136,6 @@ struct client {
 	unsigned int destroyed:1;
 	unsigned int input_blocked:1;
 	unsigned int login_success:1;
-	unsigned int greeting_sent:1;
 	unsigned int starttls:1;
 	unsigned int tls:1;
 	unsigned int secured:1;
@@ -136,6 +149,8 @@ struct client {
 	unsigned int auth_process_comm_fail:1;
 	unsigned int proxy_auth_failed:1;
 	unsigned int auth_waiting:1;
+	unsigned int notified_auth_ready:1;
+	unsigned int notified_disconnect:1;
 	/* ... */
 };
 
@@ -162,19 +177,26 @@ void client_log_err(struct client *client, const char *msg);
 void client_log_warn(struct client *client, const char *msg);
 const char *client_get_extra_disconnect_reason(struct client *client);
 bool client_is_trusted(struct client *client);
-void client_auth_failed(struct client *client);
+
+void client_auth_respond(struct client *client, const char *response);
+void client_auth_abort(struct client *client);
+void client_auth_fail(struct client *client, const char *text);
 
 bool client_read(struct client *client);
 void client_input(struct client *client);
 
-void client_send_line(struct client *client, enum client_cmd_reply reply,
-		      const char *text);
+void client_notify_auth_ready(struct client *client);
+void client_notify_status(struct client *client, bool bad, const char *text);
+void client_notify_disconnect(struct client *client,
+			      enum client_disconnect_reason reason,
+			      const char *text);
+
 void client_send_raw_data(struct client *client, const void *data, size_t size);
 void client_send_raw(struct client *client, const char *data);
 
 void client_set_auth_waiting(struct client *client);
 void client_auth_send_challenge(struct client *client, const char *data);
-int client_auth_parse_response(struct client *client);
+void client_auth_parse_response(struct client *client);
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp);
 bool client_check_plaintext_auth(struct client *client, bool pass_sent);
