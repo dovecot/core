@@ -272,6 +272,13 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 }
 
+static int i_strcmp_reverse_p(const void *p1, const void *p2)
+{
+	const char *const *s1 = p1, *const *s2 = p2;
+
+	return -strcmp(*s1, *s2);
+}
+
 static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx,
 				    const char *const args[])
 {
@@ -287,6 +294,7 @@ static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx,
 		name = p_strdup(ctx->ctx.ctx.pool, args[i]);
 		array_append(&ctx->mailboxes, &name, 1);
 	}
+	array_sort(&ctx->mailboxes, i_strcmp_reverse_p);
 }
 
 static struct doveadm_mail_cmd_context *cmd_mailbox_delete_alloc(void)
