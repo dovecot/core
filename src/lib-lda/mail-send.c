@@ -99,7 +99,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     fprintf(f, "To: <%s>\r\n", return_addr);
     fprintf(f, "MIME-Version: 1.0\r\n");
     fprintf(f, "Content-Type: "
-	    "multipart/report; report-type=disposition-notification;\r\n"
+	    "multipart/report; report-type=delivery-status;\r\n"
 	    "\tboundary=\"%s\"\r\n", boundary);
 
     str = t_str_new(256);
@@ -122,20 +122,18 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	       get_var_expand_table(mail, reason, recipient));
     fprintf(f, "%s\r\n", str_c(str));
 
-    /* MDN status report */
+    /* DSN status report */
     fprintf(f, "--%s\r\n"
-	    "Content-Type: message/disposition-notification\r\n\r\n",
+	    "Content-Type: message/delivery-status\r\n\r\n",
 	    boundary);
-    fprintf(f, "Reporting-UA: %s; Dovecot Mail Delivery Agent\r\n",
+    fprintf(f, "Reporting-MTA: dns; %s\r\n",
 	    ctx->set->hostname);
     if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 	    fprintf(f, "Original-Recipient: rfc822; %s\r\n", hdr);
     fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
 
-    if (orig_msgid != NULL)
-	fprintf(f, "Original-Message-ID: %s\r\n", orig_msgid);
-    fprintf(f, "Disposition: "
-	    "automatic-action/MDN-sent-automatically; deleted\r\n");
+    fprintf(f, "Action: failed\r\n");
+    fprintf(f, "Status: 5.2.0\r\n");
     fprintf(f, "\r\n");
 
     /* original message's headers */
