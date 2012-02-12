@@ -66,6 +66,8 @@ doveadm_mail_list_iter_init_nsmask(struct mail_user *user,
 	ARRAY_TYPE(const_string) patterns;
 	bool have_guid = FALSE;
 
+	iter_flags |= MAILBOX_LIST_ITER_LIST_PREFIXES;
+
 	iter = i_new(struct doveadm_mail_list_iter, 1);
 	iter->search_args = search_args;
 
