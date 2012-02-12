@@ -1627,10 +1627,14 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 	struct mailbox *dest_box = worker->ext_mail->box;
 	dsync_worker_save_callback_t *callback;
 	ssize_t ret;
+	bool save_failed = FALSE;
 
 	while ((ret = i_stream_read(worker->save_input)) > 0 || ret == -2) {
-		if (mailbox_save_continue(worker->save_ctx) < 0)
+		if (mailbox_save_continue(worker->save_ctx) < 0) {
+			save_failed = TRUE;
+			ret = -1;
 			break;
+		}
 	}
 	if (ret == 0) {
 		if (worker->save_io != NULL)
@@ -1649,6 +1653,9 @@ local_worker_save_msg_continue(struct local_dsync_worker *worker)
 	if (worker->save_input->stream_errno != 0) {
 		errno = worker->save_input->stream_errno;
 		i_error("read(msg input) failed: %m");
+		mailbox_save_cancel(&worker->save_ctx);
+		dsync_worker_set_failure(&worker->worker);
+	} else if (save_failed) {
 		mailbox_save_cancel(&worker->save_ctx);
 		dsync_worker_set_failure(&worker->worker);
 	} else {
