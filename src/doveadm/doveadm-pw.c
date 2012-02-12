@@ -87,17 +87,15 @@ static void cmd_pw(int argc, char *argv[])
 		plaintext = t_askpass("Enter new password: ");
 		check = t_askpass("Retype new password: ");
 		if (strcmp(plaintext, check) != 0) {
-			fprintf(stderr, "Passwords don't match!\n");
+			i_error("Passwords don't match!");
 			if (--lives == 0)
 				exit(1);
 			plaintext = NULL;
 		}
 	}
 
-	if (!password_generate_encoded(plaintext, user, scheme, &hash)) {
-		fprintf(stderr, "Unknown scheme: %s\n", scheme);
-		exit(1);
-	}
+	if (!password_generate_encoded(plaintext, user, scheme, &hash))
+		i_fatal("Unknown scheme: %s", scheme);
 	if (reverse_verify) {
 		const unsigned char *raw_password;
 		size_t size;
@@ -105,25 +103,19 @@ static void cmd_pw(int argc, char *argv[])
 
 		if (test_hash != NULL) {
 			scheme = password_get_scheme(&test_hash);
-			if (scheme == NULL) {
-				fprintf(stderr, "Missing {scheme} prefix from hash\n");
-				exit(2);
-			}
+			if (scheme == NULL)
+				i_fatal("Missing {scheme} prefix from hash");
 			hash = test_hash;
 		}
 
 		if (password_decode(hash, scheme, &raw_password, &size,
-				    &error) <= 0) {
-			fprintf(stderr, "reverse decode check failed: %s\n",
-				error);
-			exit(2);
-		}
+				    &error) <= 0)
+			i_fatal("reverse decode check failed: %s", error);
 
 		if (password_verify(plaintext, user, scheme,
 				    raw_password, size, &error) <= 0) {
-			fprintf(stderr,
-				"reverse password verification check failed: %s\n", error);
-			exit(2);
+			i_fatal("reverse password verification check failed: %s",
+				error);
 		}
 
 		printf("{%s}%s (verified)\n", scheme, hash);
