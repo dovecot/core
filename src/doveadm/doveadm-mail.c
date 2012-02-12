@@ -288,13 +288,14 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 	lib_signals_set_handler(SIGTERM, 0, sig_die, NULL);
 
 	ctx->v.init(ctx, (const void *)argv);
-	if (hook_doveadm_mail_init != NULL)
-		hook_doveadm_mail_init(ctx);
 
 	user_count = mail_storage_service_all_init(ctx->storage_service);
 	n = user_count / 10000;
 	for (interval = 10; n > 0 && interval < 1000; interval *= 10)
 		n /= 10;
+
+	if (hook_doveadm_mail_init != NULL)
+		hook_doveadm_mail_init(ctx);
 
 	user_idx = 0;
 	while ((ret = ctx->v.get_next_user(ctx, &user)) > 0) {
