@@ -320,6 +320,7 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 			i_error("Can't find namespace for: %s", name);
 			doveadm_mail_failed_error(_ctx, MAIL_ERROR_NOTFOUND);
 			ret = -1;
+			continue;
 		}
 
 		box = mailbox_alloc(ns->list, name, 0);
