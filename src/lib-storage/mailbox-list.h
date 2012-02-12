@@ -73,6 +73,9 @@ enum mailbox_list_iter_flags {
 	   namespace prefixes, if there exists a parent namespace whose children
 	   it matches. */
 	MAILBOX_LIST_ITER_STAR_WITHIN_NS	= 0x000010,
+	/* For mailbox_list_iter_init_namespaces(): List also namespace
+	   prefixes if they match */
+	MAILBOX_LIST_ITER_LIST_PREFIXES		= 0x000020,
 
 	/* List only subscribed mailboxes */
 	MAILBOX_LIST_ITER_SELECT_SUBSCRIBED	= 0x000100,

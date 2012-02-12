@@ -39,7 +39,13 @@ struct ns_list_iterate_context {
 	pool_t pool;
 	const char **patterns, **patterns_ns_match;
 	enum namespace_type type_mask;
+
+	struct mail_namespace *iter_namespaces;
+	struct mailbox_info ns_info;
 };
+
+static bool ns_match_next(struct ns_list_iterate_context *ctx, 
+			  struct mail_namespace *ns, const char *pattern);
 
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
@@ -184,46 +190,10 @@ ns_match_inbox(struct mail_namespace *ns, const char *pattern)
 }
 
 static bool
-ns_match_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns,
-	      const char *pattern)
+ns_is_match_within_ns(struct ns_list_iterate_context *ctx, 
+		      struct mail_namespace *ns, const char *prefix_without_sep,
+		      const char *pattern, enum imap_match_result result)
 {
-	struct imap_match_glob *glob;
-	enum imap_match_result result;
-	const char *prefix_without_sep;
-	unsigned int len;
-
-	len = ns->prefix_len;
-	if (len > 0 && ns->prefix[len-1] == mail_namespace_get_sep(ns))
-		len--;
-
-	if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
-			  NAMESPACE_FLAG_LIST_CHILDREN)) == 0) {
-		/* non-listable namespace matches only with exact prefix */
-		if (strncmp(ns->prefix, pattern, ns->prefix_len) != 0)
-			return FALSE;
-	}
-
-	prefix_without_sep = t_strndup(ns->prefix, len);
-	if (*prefix_without_sep == '\0')
-		result = IMAP_MATCH_CHILDREN;
-	else {
-		glob = imap_match_init(pool_datastack_create(), pattern,
-				       TRUE, mail_namespace_get_sep(ns));
-		result = imap_match(glob, prefix_without_sep);
-	}
-
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) == 0) {
-		switch (result) {
-		case IMAP_MATCH_YES:
-		case IMAP_MATCH_CHILDREN:
-			return TRUE;
-		case IMAP_MATCH_NO:
-		case IMAP_MATCH_PARENT:
-			break;
-		}
-		return FALSE;
-	}
-
 	switch (result) {
 	case IMAP_MATCH_YES:
 		/* allow matching prefix only when it's done without
@@ -253,6 +223,50 @@ ns_match_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns,
 		break;
 	}
 	return FALSE;
+}
+
+static bool ns_match_next(struct ns_list_iterate_context *ctx, 
+			  struct mail_namespace *ns, const char *pattern)
+{
+	struct imap_match_glob *glob;
+	enum imap_match_result result;
+	const char *prefix_without_sep;
+	unsigned int len;
+
+	len = ns->prefix_len;
+	if (len > 0 && ns->prefix[len-1] == mail_namespace_get_sep(ns))
+		len--;
+
+	if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+			  NAMESPACE_FLAG_LIST_CHILDREN)) == 0) {
+		/* non-listable namespace matches only with exact prefix */
+		if (strncmp(ns->prefix, pattern, ns->prefix_len) != 0)
+			return FALSE;
+	}
+
+	prefix_without_sep = t_strndup(ns->prefix, len);
+	if (*prefix_without_sep == '\0')
+		result = IMAP_MATCH_CHILDREN;
+	else {
+		glob = imap_match_init(pool_datastack_create(), pattern,
+				       TRUE, mail_namespace_get_sep(ns));
+		result = imap_match(glob, prefix_without_sep);
+	}
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) != 0) {
+		return ns_is_match_within_ns(ctx, ns, prefix_without_sep,
+					     pattern, result);
+	} else {
+		switch (result) {
+		case IMAP_MATCH_YES:
+		case IMAP_MATCH_CHILDREN:
+			return TRUE;
+		case IMAP_MATCH_NO:
+		case IMAP_MATCH_PARENT:
+			break;
+		}
+		return FALSE;
+	}
 }
 
 static bool
@@ -288,12 +302,67 @@ ns_next(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 	return ns;
 }
 
+static bool
+iter_next_try_prefix_pattern(struct ns_list_iterate_context *ctx,
+			     struct mail_namespace *ns, const char *pattern)
+{
+	struct imap_match_glob *glob;
+	enum imap_match_result result;
+	const char *prefix_without_sep;
+
+	i_assert(ns->prefix_len > 0);
+
+	if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+			  NAMESPACE_FLAG_LIST_CHILDREN)) == 0) {
+		/* non-listable namespace matches only with exact prefix */
+		if (strncmp(ns->prefix, pattern, ns->prefix_len) != 0)
+			return FALSE;
+	}
+
+	prefix_without_sep = t_strndup(ns->prefix, ns->prefix_len-1);
+	glob = imap_match_init(pool_datastack_create(), pattern,
+			       TRUE, mail_namespace_get_sep(ns));
+	result = imap_match(glob, prefix_without_sep);
+	return result == IMAP_MATCH_YES &&
+		ns_is_match_within_ns(ctx, ns, prefix_without_sep,
+				      pattern, result);
+}
+
+static bool iter_next_try_prefix(struct ns_list_iterate_context *ctx,
+				 struct mail_namespace *ns)
+{
+	unsigned int i;
+	bool ret = FALSE;
+
+	for (i = 0; ctx->patterns_ns_match[i] != NULL; i++) {
+		T_BEGIN {
+			ret = iter_next_try_prefix_pattern(ctx, ns,
+						ctx->patterns_ns_match[i]);
+		} T_END;
+		if (ret)
+			break;
+	}
+	return ret;
+}
+
 static const struct mailbox_info *
 mailbox_list_ns_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct ns_list_iterate_context *ctx =
 		(struct ns_list_iterate_context *)_ctx;
 	const struct mailbox_info *info;
+
+	while (ctx->iter_namespaces != NULL) {
+		struct mail_namespace *ns = ctx->iter_namespaces;
+
+		ctx->iter_namespaces = ns->next;
+		if (ns->prefix_len > 0 && iter_next_try_prefix(ctx, ns)) {
+			ctx->ns_info.ns = ns;
+			ctx->ns_info.name = p_strndup(ctx->pool, ns->prefix,
+						      ns->prefix_len-1);
+			return &ctx->ns_info;
+		}
+	}
 
 	info = ctx->backend_ctx == NULL ? NULL :
 		mailbox_list_iter_next(ctx->backend_ctx);
@@ -368,6 +437,7 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 	ctx->ctx.list = p_new(pool, struct mailbox_list, 1);
 	ctx->ctx.list->v.iter_next = mailbox_list_ns_iter_next;
 	ctx->ctx.list->v.iter_deinit = mailbox_list_ns_iter_deinit;
+	ctx->iter_namespaces = namespaces;
 
 	count = str_array_length(patterns);
 	ctx->patterns = p_new(pool, const char *, count + 1);
