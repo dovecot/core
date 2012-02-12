@@ -650,11 +650,9 @@ mail_thread_iterate_next(struct mail_thread_iterate_context *iter,
 		return NULL;
 
 	child = &children[iter->next_idx++];
-	if (child_iter_r != NULL) {
-		shadow = array_idx(&iter->ctx->shadow_nodes, child->idx);
-		*child_iter_r = shadow->first_child_idx == 0 ? NULL :
-			mail_thread_iterate_children(iter, child->idx);
-	}
+	shadow = array_idx(&iter->ctx->shadow_nodes, child->idx);
+	*child_iter_r = shadow->first_child_idx == 0 ? NULL :
+		mail_thread_iterate_children(iter, child->idx);
 	if (child->uid == 0 && *child_iter_r == NULL) {
 		/* this is a dummy node without children,
 		   there's no point in returning it */
