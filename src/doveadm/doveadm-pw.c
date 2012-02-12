@@ -21,6 +21,7 @@ static void cmd_pw(int argc, char *argv[])
 	const char *user = NULL;
 	const char *scheme = NULL;
 	const char *plaintext = NULL;
+	const char *test_hash = NULL;
 	bool list_schemes = FALSE, reverse_verify = FALSE;
 	unsigned int rounds = 0;
 	int c;
@@ -28,7 +29,7 @@ static void cmd_pw(int argc, char *argv[])
 	random_init();
 	password_schemes_init();
 	
-	while ((c = getopt(argc, argv, "lp:r:s:u:V")) > 0) {
+	while ((c = getopt(argc, argv, "lp:r:s:t:u:V")) > 0) {
 		switch (c) {
 		case 'l':
 			list_schemes = 1;
@@ -42,6 +43,10 @@ static void cmd_pw(int argc, char *argv[])
 			break;
 		case 's':
 			scheme = optarg;
+			break;
+		case 't':
+			test_hash = optarg;
+			reverse_verify = TRUE;
 			break;
 		case 'u':
 			user = optarg;
@@ -73,6 +78,8 @@ static void cmd_pw(int argc, char *argv[])
 	if (rounds > 0)
 		password_set_encryption_rounds(rounds);
 
+	if (test_hash != NULL)
+		plaintext = t_askpass("Enter password to verify: ");
 	while (plaintext == NULL) {
 		const char *check;
 		static int lives = 3;
@@ -96,6 +103,15 @@ static void cmd_pw(int argc, char *argv[])
 		size_t size;
 		const char *error;
 
+		if (test_hash != NULL) {
+			scheme = password_get_scheme(&test_hash);
+			if (scheme == NULL) {
+				fprintf(stderr, "Missing {scheme} prefix from hash\n");
+				exit(2);
+			}
+			hash = test_hash;
+		}
+
 		if (password_decode(hash, scheme, &raw_password, &size,
 				    &error) <= 0) {
 			fprintf(stderr, "reverse decode check failed: %s\n",
@@ -104,7 +120,7 @@ static void cmd_pw(int argc, char *argv[])
 		}
 
 		if (password_verify(plaintext, user, scheme,
-				    raw_password, size, &error) != 1) {
+				    raw_password, size, &error) <= 0) {
 			fprintf(stderr,
 				"reverse password verification check failed: %s\n", error);
 			exit(2);
