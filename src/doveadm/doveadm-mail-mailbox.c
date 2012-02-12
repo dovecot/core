@@ -24,6 +24,12 @@ struct mailbox_cmd_context {
 	ARRAY_TYPE(const_string) mailboxes;
 };
 
+struct delete_cmd_context {
+	struct doveadm_mailbox_cmd_context ctx;
+	ARRAY_TYPE(const_string) mailboxes;
+	bool recursive;
+};
+
 struct rename_cmd_context {
 	struct doveadm_mailbox_cmd_context ctx;
 	const char *oldname, *newname;
@@ -239,17 +245,59 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_create_alloc(void)
 	return &ctx->ctx.ctx;
 }
 
+static int i_strcmp_reverse_p(const void *p1, const void *p2)
+{
+	const char *const *s1 = p1, *const *s2 = p2;
+
+	return -strcmp(*s1, *s2);
+}
+
+static void
+get_child_mailboxes(struct mail_user *user, ARRAY_TYPE(const_string) *mailboxes,
+		    const char *name)
+{
+	struct mailbox_list_iterate_context *iter;
+	struct mail_namespace *ns;
+	const struct mailbox_info *info;
+	const char *pattern, *child_name;
+
+	ns = mail_namespace_find(user->namespaces, name);
+	if (ns == NULL)
+		return;
+
+	pattern = t_strdup_printf("%s%c*", name, mail_namespace_get_sep(ns));
+	iter = mailbox_list_iter_init(ns->list, pattern,
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		child_name = t_strdup(info->name);
+		array_append(mailboxes, &child_name, 1);
+	}
+	(void)mailbox_list_iter_deinit(&iter);
+}
+
 static void
 cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 		       struct mail_user *user)
 {
-	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
+	struct delete_cmd_context *ctx = (struct delete_cmd_context *)_ctx;
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mail_storage *storage;
 	const char *const *namep;
+	ARRAY_TYPE(const_string) recursive_mailboxes;
+	const ARRAY_TYPE(const_string) *mailboxes = &ctx->mailboxes;
 
-	array_foreach(&ctx->mailboxes, namep) {
+	if (ctx->recursive) {
+		t_array_init(&recursive_mailboxes, 32);
+		array_foreach(&ctx->mailboxes, namep) {
+			get_child_mailboxes(user, &recursive_mailboxes, *namep);
+			array_append(&recursive_mailboxes, namep, 1);
+		}
+		array_sort(&recursive_mailboxes, i_strcmp_reverse_p);
+		mailboxes = &recursive_mailboxes;
+	}
+
+	array_foreach(mailboxes, namep) {
 		const char *name = *namep;
 
 		ns = mail_namespace_find(user->namespaces, name);
@@ -272,17 +320,10 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 }
 
-static int i_strcmp_reverse_p(const void *p1, const void *p2)
-{
-	const char *const *s1 = p1, *const *s2 = p2;
-
-	return -strcmp(*s1, *s2);
-}
-
 static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx,
 				    const char *const args[])
 {
-	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
+	struct delete_cmd_context *ctx = (struct delete_cmd_context *)_ctx;
 	const char *name;
 	unsigned int i;
 
@@ -297,13 +338,30 @@ static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx,
 	array_sort(&ctx->mailboxes, i_strcmp_reverse_p);
 }
 
+static bool
+cmd_mailbox_delete_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+{
+	struct delete_cmd_context *ctx = (struct delete_cmd_context *)_ctx;
+
+	switch (c) {
+	case 'r':
+		ctx->recursive = TRUE;
+		break;
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static struct doveadm_mail_cmd_context *cmd_mailbox_delete_alloc(void)
 {
-	struct mailbox_cmd_context *ctx;
+	struct delete_cmd_context *ctx;
 
-	ctx = doveadm_mailbox_cmd_alloc(struct mailbox_cmd_context);
+	ctx = doveadm_mailbox_cmd_alloc(struct delete_cmd_context);
 	ctx->ctx.ctx.v.init = cmd_mailbox_delete_init;
 	ctx->ctx.ctx.v.run = cmd_mailbox_delete_run;
+	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_delete_parse_arg;
+	ctx->ctx.ctx.getopt_args = "r";
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
