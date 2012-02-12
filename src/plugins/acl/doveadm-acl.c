@@ -13,6 +13,7 @@
 struct doveadm_acl_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	bool get_match_me;
+	enum acl_modify_mode modify_mode;
 };
 
 const char *doveadm_acl_plugin_version = DOVECOT_VERSION;
@@ -229,10 +230,12 @@ static bool is_standard_right(const char *name)
 }
 
 static void
-cmd_acl_set_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
+cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	const char *mailbox = ctx->args[0], *id = ctx->args[1];
-	const char *const *rights = ctx->args + 2;
+	struct doveadm_acl_cmd_context *ctx =
+		(struct doveadm_acl_cmd_context *)_ctx;
+	const char *mailbox = _ctx->args[0], *id = _ctx->args[1];
+	const char *const *rights = _ctx->args + 2;
 	ARRAY_TYPE(const_string) dest_rights, dest_neg_rights, *dest;
 	struct mailbox *box;
 	struct acl_object *aclobj;
@@ -243,8 +246,8 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 		return;
 
 	memset(&update, 0, sizeof(update));
-	update.modify_mode = ACL_MODIFY_MODE_REPLACE;
-	update.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+	update.modify_mode = ctx->modify_mode;
+	update.neg_modify_mode = ctx->modify_mode;
 
 	if (acl_identifier_parse(id, &update.rights) < 0)
 		i_fatal("Invalid ID: %s", id);
@@ -278,13 +281,13 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 	if (array_count(&dest_rights) > 0) {
 		(void)array_append_space(&dest_rights);
 		update.rights.rights = array_idx(&dest_rights, 0);
-	} else {
+	} else if (update.modify_mode == ACL_MODIFY_MODE_REPLACE) {
 		update.modify_mode = ACL_MODIFY_MODE_CLEAR;
 	}
 	if (array_count(&dest_neg_rights) > 0) {
 		(void)array_append_space(&dest_neg_rights);
 		update.rights.neg_rights = array_idx(&dest_neg_rights, 0);
-	} else {
+	} else if (update.neg_modify_mode == ACL_MODIFY_MODE_REPLACE) {
 		update.neg_modify_mode = ACL_MODIFY_MODE_CLEAR;
 	}
 
@@ -302,14 +305,30 @@ static void cmd_acl_set_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 }
 
 static struct doveadm_mail_cmd_context *
-cmd_acl_set_alloc(void)
+cmd_acl_change_alloc(enum acl_modify_mode modify_mode)
 {
-	struct doveadm_mail_cmd_context *ctx;
+	struct doveadm_acl_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
-	ctx->v.run = cmd_acl_set_run;
-	ctx->v.init = cmd_acl_set_init;
-	return ctx;
+	ctx = doveadm_mail_cmd_alloc(struct doveadm_acl_cmd_context);
+	ctx->ctx.v.run = cmd_acl_set_run;
+	ctx->ctx.v.init = cmd_acl_set_init;
+	ctx->modify_mode = modify_mode;
+	return &ctx->ctx;
+}
+
+static struct doveadm_mail_cmd_context *cmd_acl_set_alloc(void)
+{
+	return cmd_acl_change_alloc(ACL_MODIFY_MODE_REPLACE);
+}
+
+static struct doveadm_mail_cmd_context *cmd_acl_add_alloc(void)
+{
+	return cmd_acl_change_alloc(ACL_MODIFY_MODE_ADD);
+}
+
+static struct doveadm_mail_cmd_context *cmd_acl_remove_alloc(void)
+{
+	return cmd_acl_change_alloc(ACL_MODIFY_MODE_REMOVE);
 }
 
 static void
@@ -539,6 +558,8 @@ static struct doveadm_mail_cmd acl_commands[] = {
 	{ cmd_acl_get_alloc, "acl get", "[-m] <mailbox>" },
 	{ cmd_acl_rights_alloc, "acl rights", "<mailbox>" },
 	{ cmd_acl_set_alloc, "acl set", "<mailbox> <id> <right> [<right> ...]" },
+	{ cmd_acl_add_alloc, "acl add", "<mailbox> <id> <right> [<right> ...]" },
+	{ cmd_acl_remove_alloc, "acl remove", "<mailbox> <id> <right> [<right> ...]" },
 	{ cmd_acl_delete_alloc, "acl delete", "<mailbox> <id>" },
 	{ cmd_acl_debug_alloc, "acl debug", "<mailbox>" }
 };
