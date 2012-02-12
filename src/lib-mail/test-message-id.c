@@ -10,11 +10,13 @@ static void test_message_id_get_next(void)
 		"<foo@bar>",
 		"<foo@bar>,skipped,<foo2@bar2>",
 		"(c) < (c) foo (c) @ (c) bar (c) > (c)",
+		"<\"foo 2\"@bar>"
 	};
 	const char *output[] = {
 		"foo@bar", NULL,
 		"foo@bar", "foo2@bar2", NULL,
-		"foo@bar", NULL
+		"foo@bar", NULL,
+		"foo 2@bar", NULL
 	};
 	const char *msgid, *next_msgid;
 	unsigned int i, j;

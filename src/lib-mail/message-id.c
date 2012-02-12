@@ -8,6 +8,7 @@
 static bool get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 {
 	struct rfc822_parser_context parser;
+	int ret;
 
 	rfc822_parser_init(&parser, (const unsigned char *)*msgid_p,
 			   strlen(*msgid_p), NULL);
@@ -22,7 +23,11 @@ static bool get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 
 	(void)rfc822_skip_lwsp(&parser);
 
-	if (rfc822_parse_dot_atom(&parser, msgid) <= 0)
+	if (*parser.data == '"')
+		ret = rfc822_parse_quoted_string(&parser, msgid);
+	else
+		ret = rfc822_parse_dot_atom(&parser, msgid);
+	if (ret <= 0)
 		return FALSE;
 
 	if (*parser.data != '@')
