@@ -1,6 +1,5 @@
  - lmtp client/proxy: Handle multiline replies better
  - lib-ssl-iostream: Support ssl_protocols setting
- - doveadm: Many commands are exiting with 0 even when they fail
  - recreate mailbox -> existing sessions log "indexid changed" error
  - expire plugin should probably ignore users not in iterate_query
  - message-id normalization
