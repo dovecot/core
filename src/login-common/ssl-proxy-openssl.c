@@ -941,8 +941,10 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set)
 	X509_STORE *store;
 	STACK_OF(X509_NAME) *xnames = NULL;
 
-	/* enable all SSL workarounds */
-	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+	/* enable all SSL workarounds, except empty fragments as it
+	   makes SSL more vulnerable against attacks */
+	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL &
+			    ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
 
 #ifdef SSL_MODE_RELEASE_BUFFERS
 	SSL_CTX_set_mode(ssl_ctx, SSL_MODE_RELEASE_BUFFERS);

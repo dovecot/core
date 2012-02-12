@@ -356,7 +356,10 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 	ctx->pool = pool_alloconly_create("ssl iostream context", 4096);
 	ctx->source = p_strdup(ctx->pool, source);
 
-	SSL_CTX_set_options(ctx->ssl_ctx, SSL_OP_ALL | SSL_OP_NO_SSLv2);
+	/* enable all SSL workarounds, except empty fragments as it
+	   makes SSL more vulnerable against attacks */
+	SSL_CTX_set_options(ctx->ssl_ctx, SSL_OP_NO_SSLv2 |
+			    (SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS));
 	if (SSL_CTX_need_tmp_RSA(ctx->ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ctx->ssl_ctx, ssl_gen_rsa_key);
 	SSL_CTX_set_tmp_dh_callback(ctx->ssl_ctx, ssl_tmp_dh_callback);
