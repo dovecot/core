@@ -25,8 +25,9 @@ static void sdbox_sync_set_uidvalidity(struct dbox_sync_rebuild_context *ctx)
 		&uid_validity, sizeof(uid_validity), TRUE);
 }
 
-static int sdbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
-				     struct dbox_file *file, uint32_t uid)
+static int
+sdbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
+			  struct dbox_file *file, uint32_t uid, bool primary)
 {
 	uint32_t seq;
 	bool deleted;
@@ -47,6 +48,13 @@ static int sdbox_sync_add_file_index(struct dbox_sync_rebuild_context *ctx,
 			return -1;
 
 		i_warning("sdbox: Skipping unfixable file: %s", file->cur_path);
+		return 0;
+	}
+
+	if (!dbox_file_is_in_alt(file) && !primary) {
+		/* we were supposed to open the file in alt storage, but it
+		   exists in primary storage as well. skip it to avoid adding
+		   it twice. */
 		return 0;
 	}
 
@@ -80,7 +88,7 @@ sdbox_sync_add_file(struct dbox_sync_rebuild_context *ctx,
 	file = sdbox_file_init(mbox, uid);
 	if (!primary)
 		file->cur_path = file->alt_path;
-	ret = sdbox_sync_add_file_index(ctx, file, uid);
+	ret = sdbox_sync_add_file_index(ctx, file, uid, primary);
 	dbox_file_unref(&file);
 	return ret;
 }
