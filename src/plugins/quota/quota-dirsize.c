@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2011 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2005-2012 Dovecot authors, see the included COPYING file */
 
 /* Quota reporting based on simply summing sizes of all files in mailbox
    together. */

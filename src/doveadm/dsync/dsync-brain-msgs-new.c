@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2012 Dovecot authors, see the included COPYING file */
 
 /*
    This code contains the step 6 explained in dsync-brain-msgs.c:

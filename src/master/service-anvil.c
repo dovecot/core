@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2012 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
 #include "ioloop.h"

@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2011 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2012 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "settings-parser.h"

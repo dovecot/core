@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2011 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2012 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
 #include "str-sanitize.h"

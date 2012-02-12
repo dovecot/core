@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2011 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2007-2012 Dovecot authors, see the included COPYING file */
 
 /* FIXME: this plugin is only for backwards compatibility. log a warning in
    v2.2 about this and in later versions remove completely */
