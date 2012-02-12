@@ -253,7 +253,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 	}
 
 	str = array_get(&reply->extra_fields, &count);
-	for (i = 0; i < count && ret >= 0; i++) {
+	for (i = 0; i < count; i++) {
 		line = str[i];
 		if (strncmp(line, "system_groups_user=", 19) == 0) {
 			user->system_groups_user =
@@ -270,6 +270,8 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 		} else T_BEGIN {
 			ret = set_line(ctx, user, line);
 		} T_END;
+		if (ret < 0)
+			break;
 	}
 
 	if (ret < 0) {
