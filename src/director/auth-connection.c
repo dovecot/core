@@ -38,6 +38,7 @@ static void auth_connection_input(struct auth_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
+		i_error("Auth server disconnected unexpectedly");
 		auth_connection_disconnected(&conn);
 		return;
 	case -2:
