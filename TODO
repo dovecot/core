@@ -1,3 +1,7 @@
+ - lmtp client/proxy: Handle multiline replies better
+ - lib-ssl-iostream: Support ssl_protocols setting
+ - doveadm: Many commands are exiting with 0 even when they fail
+ - recreate mailbox -> existing sessions log "indexid changed" error
  - expire plugin should probably ignore users not in iterate_query
  - message-id normalization
  - mdbox index rebuild: don't lose save dates
@@ -178,9 +182,8 @@
    - sasl bind + auth_bind=yes should probably be doing only sasl binds..
    - support multiple connections for doing auth binds
    - domain lookups which set the base for user lookup
-   - same attribute can't be used for multiple values.
-   - multiple attributes can't be merged to a single value.
-   - multiple value could be joined with specified separator (per-field)
+   - multiple ldap values could be joined into one field with specified
+     separator (e.g. mail_access_groups=%{ldap:gidNumber:,})
    - implement something like:
        user_attrs {
 	 uid = %{ldap:uidNumber}

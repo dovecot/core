@@ -1,3 +1,34 @@
+v2.1.rc6 2012-02-12  Timo Sirainen <tss@iki.fi>
+
+	* Added automatic mountpoint tracking and doveadm mount commands to
+	  manage the list. If a mountpoint is unmounted, error handling is
+	  done by assuming that the files are only temporarily lost. This is
+	  especially helpful if dbox alt storage becomes unmounted.
+	* Expire plugin: Only go through users listed by userdb iteration.
+	  Delete dict rows for nonexistent users, unless
+	  expire_keep_nonexistent_users=yes.
+	* LDA's out-of-quota and Sieve's reject mails now include DSN report
+	  instead of MDN report.
+
+	+ LDAP: Allow building passdb/userdb extra fields from multiple LDAP
+	  attributes by using %{ldap:attributeName} variables in the template.
+	+ doveadm log errors shows the last 1000 warnings and errors since
+	  Dovecot was started.
+	+ Improved multi-instance support: Track automatically which instances
+	  are started up and manage the list with doveadm instance commands.
+	  All Dovecot commands now support -i <instance_name> parameter to
+	  select the instance (instead of having to use -c <config path>).
+	  See instance_name setting.
+	+ doveadm mailbox delete: Added -r parameter to delete recursively
+	+ doveadm acl: Added "add" and "remove" commands.
+	+ Updated to Unicode v6.1
+	- mdbox: When saving to alt storage, Dovecot didn't append as much
+	  data to m.* files as it could have.
+	- dbox: Fixed error handling when saving failed or was aborted
+	- IMAP: Using COMPRESS extension may have caused assert-crashes
+	- IMAP: THREAD REFS sometimes returned invalid (0) nodes.
+	- dsync: Fixed handling non-ASCII characters in mailbox names.
+
 v2.1.rc5 2012-01-26  Timo Sirainen <tss@iki.fi>
 
 	* Temporary authentication failures sent to IMAP/POP3 clients
