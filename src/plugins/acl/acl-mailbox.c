@@ -122,13 +122,18 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
+	int ret;
 
-	/* we already checked permissions in list.mailbox_create_dir(). */
-	if (abox->module_ctx.super.create(box, update, directory) < 0)
-		return -1;
-
-	acl_mailbox_copy_acls_from_parent(box);
-	return 0;
+	/* we already checked permissions in list.mailbox_create_dir().
+	   ignore ACLs in this mailbox until creation is complete, because
+	   super.create() may call e.g. mailbox_open() which will fail since
+	   we haven't yet copied ACLs to this mailbox. */
+	abox->skip_acl_checks = TRUE;
+	ret = abox->module_ctx.super.create(box, update, directory);
+	abox->skip_acl_checks = FALSE;
+	if (ret == 0)
+		acl_mailbox_copy_acls_from_parent(box);
+	return ret;
 }
 
 static int
