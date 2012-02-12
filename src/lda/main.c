@@ -454,6 +454,7 @@ int main(int argc, char *argv[])
 			return EX_TEMPFAIL;
 		}
 		ctx.mailbox_full = TRUE;
+		ctx.dsn = TRUE;
 
 		/* we'll have to reply with permanent failure */
 		mail_deliver_log(&ctx, "rejected: %s",

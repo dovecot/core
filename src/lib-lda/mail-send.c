@@ -99,8 +99,10 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     fprintf(f, "To: <%s>\r\n", return_addr);
     fprintf(f, "MIME-Version: 1.0\r\n");
     fprintf(f, "Content-Type: "
-	    "multipart/report; report-type=delivery-status;\r\n"
-	    "\tboundary=\"%s\"\r\n", boundary);
+	    "multipart/report; report-type=%s;\r\n"
+	    "\tboundary=\"%s\"\r\n",
+	    ctx->dsn ? "delivery-status" : "disposition-notification",
+	    boundary);
 
     str = t_str_new(256);
     var_expand(str, ctx->set->rejection_subject,
@@ -122,18 +124,35 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	       get_var_expand_table(mail, reason, recipient));
     fprintf(f, "%s\r\n", str_c(str));
 
-    /* DSN status report */
-    fprintf(f, "--%s\r\n"
-	    "Content-Type: message/delivery-status\r\n\r\n",
-	    boundary);
-    fprintf(f, "Reporting-MTA: dns; %s\r\n",
-	    ctx->set->hostname);
-    if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
-	    fprintf(f, "Original-Recipient: rfc822; %s\r\n", hdr);
-    fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
+    if (ctx->dsn) {
+	    /* DSN status report: For LDA rejects. currently only used when
+	       user is out of quota */
+	    fprintf(f, "--%s\r\n"
+		    "Content-Type: message/delivery-status\r\n\r\n",
+		    boundary);
+	    fprintf(f, "Reporting-MTA: dns; %s\r\n",
+		    ctx->set->hostname);
+	    if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
+		    fprintf(f, "Original-Recipient: rfc822; %s\r\n", hdr);
+	    fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
+	    fprintf(f, "Action: failed\r\n");
+	    fprintf(f, "Status: %s\r\n", ctx->mailbox_full ? "5.2.2" : "5.2.0");
+    } else {
+	    /* MDN status report: For Sieve "reject" */
+	    fprintf(f, "--%s\r\n"
+		    "Content-Type: message/disposition-notification\r\n\r\n",
+		    boundary);
+	    fprintf(f, "Reporting-UA: %s; Dovecot Mail Delivery Agent\r\n",
+		    ctx->set->hostname);
+	    if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
+		    fprintf(f, "Original-Recipient: rfc822; %s\r\n", hdr);
+	    fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
 
-    fprintf(f, "Action: failed\r\n");
-    fprintf(f, "Status: %s\r\n", ctx->mailbox_full ? "5.2.2" : "5.2.0");
+	    if (orig_msgid != NULL)
+		    fprintf(f, "Original-Message-ID: %s\r\n", orig_msgid);
+	    fprintf(f, "Disposition: "
+		    "automatic-action/MDN-sent-automatically; deleted\r\n");
+    }
     fprintf(f, "\r\n");
 
     /* original message's headers */
