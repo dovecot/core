@@ -4,9 +4,11 @@
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "mail-search.h"
+#include "doveadm-mail.h"
 #include "doveadm-mail-iter.h"
 
 struct doveadm_mail_iter {
+	struct doveadm_mail_cmd_context *ctx;
 	struct mail_search_args *search_args;
 
 	struct mailbox *box;
@@ -14,7 +16,8 @@ struct doveadm_mail_iter {
 	struct mail_search_context *search_ctx;
 };
 
-int doveadm_mail_iter_init(const struct mailbox_info *info,
+int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
+			   const struct mailbox_info *info,
 			   struct mail_search_args *search_args,
 			   enum mail_fetch_field wanted_fields,
 			   const char *const *wanted_headers,
@@ -25,6 +28,7 @@ int doveadm_mail_iter_init(const struct mailbox_info *info,
 	struct mailbox_header_lookup_ctx *headers_ctx;
 
 	iter = i_new(struct doveadm_mail_iter, 1);
+	iter->ctx = ctx;
 	iter->box = mailbox_alloc(info->ns->list, info->name,
 				  MAILBOX_FLAG_IGNORE_ACLS);
 	iter->search_args = search_args;
@@ -32,6 +36,7 @@ int doveadm_mail_iter_init(const struct mailbox_info *info,
 	if (mailbox_sync(iter->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Syncing mailbox %s failed: %s", info->name,
 			mailbox_get_last_error(iter->box, NULL));
+		doveadm_mail_failed_mailbox(ctx, iter->box);
 		mailbox_free(&iter->box);
 		i_free(iter);
 		return -1;
@@ -66,7 +71,7 @@ doveadm_mail_iter_deinit_transaction(struct doveadm_mail_iter *iter,
 		if (mailbox_transaction_commit(&iter->t) < 0) {
 			i_error("Committing mailbox %s failed: %s",
 				mailbox_get_vname(iter->box),
-			mailbox_get_last_error(iter->box, NULL));
+				mailbox_get_last_error(iter->box, NULL));
 			ret = -1;
 		}
 	} else {
@@ -88,6 +93,8 @@ doveadm_mail_iter_deinit_full(struct doveadm_mail_iter **_iter,
 	ret = doveadm_mail_iter_deinit_transaction(iter, commit);
 	if (ret == 0 && sync)
 		ret = mailbox_sync(iter->box, 0);
+	if (ret < 0)
+		doveadm_mail_failed_mailbox(iter->ctx, iter->box);
 	mailbox_free(&iter->box);
 	i_free(iter);
 	return ret;

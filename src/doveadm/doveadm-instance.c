@@ -84,10 +84,13 @@ static void cmd_instance_remove(int argc, char *argv[])
 	list = master_instance_list_init(MASTER_INSTANCE_PATH);
 	inst = master_instance_list_find_by_name(list, argv[1]);
 	base_dir = inst != NULL ? inst->base_dir : argv[1];
-	if ((ret = master_instance_list_remove(list, base_dir)) < 0)
+	if ((ret = master_instance_list_remove(list, base_dir)) < 0) {
 		i_error("Failed to remove instance");
-	else if (ret == 0)
+		doveadm_exit_code = EX_TEMPFAIL;
+	} else if (ret == 0) {
 		i_error("Instance already didn't exist");
+		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
+	}
 	master_instance_list_deinit(&list);
 }
 

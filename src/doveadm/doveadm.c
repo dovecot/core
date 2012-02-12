@@ -26,7 +26,25 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 	NULL
 };
 
+int doveadm_exit_code = 0;
+
 static ARRAY_DEFINE(doveadm_cmds, struct doveadm_cmd);
+
+static void failure_exit_callback(int *status)
+{
+	enum fatal_exit_status fatal_status = *status;
+
+	switch (fatal_status) {
+	case FATAL_LOGWRITE:
+	case FATAL_LOGERROR:
+	case FATAL_LOGOPEN:
+	case FATAL_OUTOFMEM:
+	case FATAL_EXEC:
+	case FATAL_DEFAULT:
+		*status = EX_TEMPFAIL;
+		break;
+	}
+}
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd)
 {
@@ -105,7 +123,7 @@ usage_to(FILE *out, const char *prefix)
 	doveadm_mail_usage(str);
 	doveadm_usage_compress_lines(out, str_c(str), prefix);
 
-	exit(1);
+	exit(EX_USAGE);
 }
 
 void usage(void)
@@ -117,7 +135,7 @@ static void ATTR_NORETURN
 help_to(const struct doveadm_cmd *cmd, FILE *out)
 {
 	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->short_usage);
-	exit(1);
+	exit(EX_USAGE);
 }
 
 void help(const struct doveadm_cmd *cmd)
@@ -275,6 +293,7 @@ int main(int argc, char *argv[])
 	bool quick_init = FALSE;
 	int c;
 
+	i_set_failure_exit_callback(failure_exit_callback);
 	doveadm_dsync_main(&argc, &argv);
 
 	/* "+" is GNU extension to stop at the first non-option.
@@ -370,5 +389,5 @@ int main(int argc, char *argv[])
 	}
 	array_free(&doveadm_cmds);
 	master_service_deinit(&master_service);
-	return 0;
+	return doveadm_exit_code;
 }

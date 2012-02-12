@@ -33,6 +33,59 @@ char doveadm_mail_cmd_hide = '\0';
 
 static int killed_signo = 0;
 
+void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
+			       enum mail_error error)
+{
+	int exit_code = 0;
+
+	switch (error) {
+	case MAIL_ERROR_NONE:
+		i_unreached();
+	case MAIL_ERROR_TEMP:
+		exit_code = EX_TEMPFAIL;
+		break;
+	case MAIL_ERROR_NOTPOSSIBLE:
+	case MAIL_ERROR_EXISTS:
+		exit_code = DOVEADM_EX_NOTPOSSIBLE;
+		break;
+	case MAIL_ERROR_PARAMS:
+		exit_code = EX_USAGE;
+		break;
+	case MAIL_ERROR_PERM:
+		exit_code = EX_NOPERM;
+		break;
+	case MAIL_ERROR_NOSPACE:
+		exit_code = EX_CANTCREAT;
+		break;
+	case MAIL_ERROR_NOTFOUND:
+		exit_code = DOVEADM_EX_NOTFOUND;
+		break;
+	case MAIL_ERROR_EXPUNGED:
+	case MAIL_ERROR_INUSE:
+		exit_code = EX_TEMPFAIL;
+		break;
+	}
+	/* tempfail overrides all other exit codes, otherwise use whatever
+	   error happened first */
+	if (ctx->exit_code == 0 || exit_code == EX_TEMPFAIL)
+		ctx->exit_code = exit_code;
+}
+
+void doveadm_mail_failed_storage(struct doveadm_mail_cmd_context *ctx,
+				 struct mail_storage *storage)
+{
+	enum mail_error error;
+
+	(void)mail_storage_get_last_error(storage, &error);
+	doveadm_mail_failed_error(ctx, error);
+}
+
+void doveadm_mail_failed_mailbox(struct doveadm_mail_cmd_context *ctx,
+				 struct mailbox *box)
+{
+	doveadm_mail_failed_storage(ctx, mailbox_get_storage(box));
+}
+
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_alloc_size(size_t size)
 {
@@ -47,11 +100,11 @@ doveadm_mail_cmd_alloc_size(size_t size)
 	return ctx;
 }
 
-static void
-cmd_purge_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
-	      struct mail_user *user)
+static int
+cmd_purge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
 	struct mail_namespace *ns;
+	int ret = 0;
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
 		if (ns->type != NAMESPACE_PRIVATE || ns->alias_for != NULL)
@@ -60,8 +113,11 @@ cmd_purge_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 		if (mail_storage_purge(ns->storage) < 0) {
 			i_error("Purging namespace '%s' failed: %s", ns->prefix,
 				mail_storage_get_last_error(ns->storage, NULL));
+			doveadm_mail_failed_storage(ctx, ns->storage);
+			ret = -1;
 		}
 	}
+	return ret;
 }
 
 static struct doveadm_mail_cmd_context *cmd_purge_alloc(void)
@@ -78,12 +134,16 @@ doveadm_mailbox_find(struct mail_user *user, const char *mailbox)
 {
 	struct mail_namespace *ns;
 
-	if (!uni_utf8_str_is_valid(mailbox))
-		i_fatal("Mailbox name not valid UTF-8: %s", mailbox);
+	if (!uni_utf8_str_is_valid(mailbox)) {
+		i_fatal_status(EX_DATAERR,
+			       "Mailbox name not valid UTF-8: %s", mailbox);
+	}
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
-	if (ns == NULL)
-		i_fatal("Can't find namespace for mailbox %s", mailbox);
+	if (ns == NULL) {
+		i_fatal_status(DOVEADM_EX_NOTFOUND,
+			       "Can't find namespace for mailbox %s", mailbox);
+	}
 
 	return mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_IGNORE_ACLS);
 }
@@ -135,7 +195,8 @@ doveadm_mail_build_search_args(const char *const args[])
 	return sargs;
 }
 
-static int cmd_force_resync_box(const struct mailbox_info *info)
+static int cmd_force_resync_box(struct doveadm_mail_cmd_context *ctx,
+				const struct mailbox_info *info)
 {
 	struct mailbox *box;
 	int ret = 0;
@@ -145,19 +206,21 @@ static int cmd_force_resync_box(const struct mailbox_info *info)
 	if (mailbox_open(box) < 0) {
 		i_error("Opening mailbox %s failed: %s", info->name,
 			mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(ctx, box);
 		ret = -1;
 	} else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
 				MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
 		i_error("Forcing a resync on mailbox %s failed: %s",
 			info->name, mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(ctx, box);
 		ret = -1;
 	}
 	mailbox_free(&box);
 	return ret;
 }
 
-static void cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
-				 struct mail_user *user)
+static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
+				struct mail_user *user)
 {
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RAW_LIST |
@@ -168,18 +231,22 @@ static void cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
+	int ret = 0;
 
-	iter = mailbox_list_iter_init_namespaces(user->namespaces, _ctx->args,
+	iter = mailbox_list_iter_init_namespaces(user->namespaces, ctx->args,
 						 ns_mask, iter_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if ((info->flags & (MAILBOX_NOSELECT |
 				    MAILBOX_NONEXISTENT)) == 0) T_BEGIN {
-			if (cmd_force_resync_box(info) < 0)
-				_ctx->failed = TRUE;
+			if (cmd_force_resync_box(ctx, info) < 0)
+				ret = -1;
 		} T_END;
 	}
-	if (mailbox_list_iter_deinit(&iter) < 0)
+	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Listing mailboxes failed");
+		ret = -1;
+	}
+	return ret;
 }
 
 static void
@@ -235,7 +302,9 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
-	ctx->v.run(ctx, ctx->cur_mail_user);
+	if (ctx->v.run(ctx, ctx->cur_mail_user) < 0) {
+		i_assert(ctx->exit_code != 0);
+	}
 	mail_user_unref(&ctx->cur_mail_user);
 	mail_storage_service_user_free(&ctx->cur_service_user);
 	return 1;
@@ -260,7 +329,7 @@ void doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	if (ret < 0)
 		i_fatal("%s", error);
 	else if (ret == 0)
-		i_fatal("User doesn't exist");
+		i_fatal_status(EX_NOUSER, "User doesn't exist");
 }
 
 static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
@@ -329,8 +398,10 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 	if (doveadm_verbose)
 		printf("\n");
 	i_set_failure_prefix("doveadm: ");
-	if (ret < 0)
+	if (ret < 0) {
 		i_error("Failed to iterate through some users");
+		ctx->exit_code = EX_TEMPFAIL;
+	}
 }
 
 static void
@@ -416,8 +487,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	}
 	argv += optind;
 	if (argv[0] != NULL && cmd->usage_args == NULL) {
-		i_fatal("doveadm %s: Unknown parameter: %s",
-			cmd->name, argv[0]);
+		i_fatal_status(EX_USAGE, "doveadm %s: Unknown parameter: %s",
+			       cmd->name, argv[0]);
 	}
 	ctx->args = (const void *)argv;
 	if (ctx->v.preinit != NULL)
@@ -435,7 +506,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		struct mail_storage_service_input input;
 
 		if (ctx->cur_username == NULL)
-			i_fatal("USER environment is missing and -u option not used");
+			i_fatal_status(EX_USAGE, "USER environment is missing and -u option not used");
 
 		memset(&input, 0, sizeof(input));
 		input.service = "doveadm";
@@ -455,9 +526,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	mail_storage_service_deinit(&ctx->storage_service);
 
 	if (ctx->exit_code != 0)
-		exit(ctx->exit_code);
-	if (ctx->failed)
-		exit(FATAL_DEFAULT);
+		doveadm_exit_code = ctx->exit_code;
 	pool_unref(&ctx->pool);
 }
 
@@ -551,7 +620,7 @@ void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
 {
 	fprintf(stderr, "doveadm %s [-u <user>|-A] [-S <socket_path>] %s\n",
 		cmd->name, cmd->usage_args == NULL ? "" : cmd->usage_args);
-	exit(1);
+	exit(EX_USAGE);
 }
 
 void doveadm_mail_try_help_name(const char *cmd_name)

@@ -6,9 +6,11 @@
 #include "mail-search.h"
 #include "mail-namespace.h"
 #include "mailbox-list.h"
-#include "doveadm-mail-list-iter.h"
+#include "doveadm-mail.h"
+#include "doveadm-mailbox-list-iter.h"
 
-struct doveadm_mail_list_iter {
+struct doveadm_mailbox_list_iter {
+	struct doveadm_mail_cmd_context *ctx;
 	struct mail_search_args *search_args;
 	enum mailbox_list_iter_flags iter_flags;
 
@@ -55,20 +57,22 @@ search_args_get_mailbox_patterns(const struct mail_search_arg *args,
 	return 1;
 }
 
-static struct doveadm_mail_list_iter *
-doveadm_mail_list_iter_init_nsmask(struct mail_user *user,
-				   struct mail_search_args *search_args,
-				   enum mailbox_list_iter_flags iter_flags,
-				   enum namespace_type ns_mask)
+static struct doveadm_mailbox_list_iter *
+doveadm_mailbox_list_iter_init_nsmask(struct doveadm_mail_cmd_context *ctx,
+				      struct mail_user *user,
+				      struct mail_search_args *search_args,
+				      enum mailbox_list_iter_flags iter_flags,
+				      enum namespace_type ns_mask)
 {
 	static const char *all_pattern = "*";
-	struct doveadm_mail_list_iter *iter;
+	struct doveadm_mailbox_list_iter *iter;
 	ARRAY_TYPE(const_string) patterns;
 	bool have_guid = FALSE;
 
 	iter_flags |= MAILBOX_LIST_ITER_LIST_PREFIXES;
 
-	iter = i_new(struct doveadm_mail_list_iter, 1);
+	iter = i_new(struct doveadm_mailbox_list_iter, 1);
+	iter->ctx = ctx;
 	iter->search_args = search_args;
 
 	t_array_init(&patterns, 16);
@@ -93,45 +97,51 @@ doveadm_mail_list_iter_init_nsmask(struct mail_user *user,
 	return iter;
 }
 
-struct doveadm_mail_list_iter *
-doveadm_mail_list_iter_init(struct mail_user *user,
-			    struct mail_search_args *search_args,
-			    enum mailbox_list_iter_flags iter_flags)
+struct doveadm_mailbox_list_iter *
+doveadm_mailbox_list_iter_init(struct doveadm_mail_cmd_context *ctx,
+			       struct mail_user *user,
+			       struct mail_search_args *search_args,
+			       enum mailbox_list_iter_flags iter_flags)
 {
 	enum namespace_type ns_mask = NAMESPACE_PRIVATE;
 
-	return doveadm_mail_list_iter_init_nsmask(user, search_args,
-						  iter_flags, ns_mask);
+	return doveadm_mailbox_list_iter_init_nsmask(ctx, user, search_args,
+						     iter_flags, ns_mask);
 }
 
-struct doveadm_mail_list_iter *
-doveadm_mail_list_iter_full_init(struct mail_user *user,
-				 struct mail_search_args *search_args,
-				 enum mailbox_list_iter_flags iter_flags)
+struct doveadm_mailbox_list_iter *
+doveadm_mailbox_list_iter_full_init(struct doveadm_mail_cmd_context *ctx,
+				    struct mail_user *user,
+				    struct mail_search_args *search_args,
+				    enum mailbox_list_iter_flags iter_flags)
 {
 	enum namespace_type ns_mask =
 		NAMESPACE_PRIVATE | NAMESPACE_SHARED | NAMESPACE_PUBLIC;
-	struct doveadm_mail_list_iter *iter;
+	struct doveadm_mailbox_list_iter *iter;
 
-	iter = doveadm_mail_list_iter_init_nsmask(user, search_args,
-						  iter_flags, ns_mask);
+	iter = doveadm_mailbox_list_iter_init_nsmask(ctx, user, search_args,
+						     iter_flags, ns_mask);
 	iter->only_selectable = FALSE;
 	return iter;
 }
 
-void doveadm_mail_list_iter_deinit(struct doveadm_mail_list_iter **_iter)
+int doveadm_mailbox_list_iter_deinit(struct doveadm_mailbox_list_iter **_iter)
 {
-	struct doveadm_mail_list_iter *iter = *_iter;
+	struct doveadm_mailbox_list_iter *iter = *_iter;
+	int ret;
 
 	*_iter = NULL;
 
-	if (mailbox_list_iter_deinit(&iter->iter) < 0)
+	if ((ret = mailbox_list_iter_deinit(&iter->iter)) < 0) {
 		i_error("Listing mailboxes failed");
+		doveadm_mail_failed_error(iter->ctx, MAIL_ERROR_TEMP);
+	}
 	i_free(iter);
+	return ret;
 }
 
 const struct mailbox_info *
-doveadm_mail_list_iter_next(struct doveadm_mail_list_iter *iter)
+doveadm_mailbox_list_iter_next(struct doveadm_mailbox_list_iter *iter)
 {
 	const struct mailbox_info *info;
 

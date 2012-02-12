@@ -17,6 +17,7 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 };
 
 struct client_connection *doveadm_client;
+int doveadm_exit_code = 0;
 
 static void doveadm_die(void)
 {

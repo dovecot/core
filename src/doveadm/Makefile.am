@@ -72,7 +72,7 @@ common = \
 	doveadm-mail-mailbox.c \
 	doveadm-mail-mailbox-status.c \
 	doveadm-mail-move.c \
-	doveadm-mail-list-iter.c \
+	doveadm-mailbox-list-iter.c \
 	doveadm-mail-search.c \
 	doveadm-mail-server.c \
 	doveadm-print.c \
@@ -121,7 +121,7 @@ noinst_HEADERS = \
 	doveadm-dump.h \
 	doveadm-mail.h \
 	doveadm-mail-iter.h \
-	doveadm-mail-list-iter.h \
+	doveadm-mailbox-list-iter.h \
 	doveadm-print.h \
 	doveadm-print-private.h \
 	doveadm-server.h \

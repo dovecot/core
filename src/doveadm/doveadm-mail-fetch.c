@@ -17,7 +17,7 @@
 #include "mail-namespace.h"
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
-#include "doveadm-mail-list-iter.h"
+#include "doveadm-mailbox-list-iter.h"
 #include "doveadm-mail-iter.h"
 
 #include <stdio.h>
@@ -477,10 +477,11 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 	(void)array_append_space(&ctx->header_fields);
 }
 
-static void cmd_fetch_mail(struct fetch_cmd_context *ctx)
+static int cmd_fetch_mail(struct fetch_cmd_context *ctx)
 {
 	const struct fetch_field *field;
 	struct mail *mail = ctx->mail;
+	int ret = 0;
 
 	array_foreach(&ctx->fields, field) {
 		ctx->cur_field = field;
@@ -488,8 +489,11 @@ static void cmd_fetch_mail(struct fetch_cmd_context *ctx)
 			i_error("fetch(%s) failed for box=%s uid=%u: %s",
 				field->name, mailbox_get_vname(mail->box),
 				mail->uid, mailbox_get_last_error(mail->box, NULL));
+			doveadm_mail_failed_mailbox(&ctx->ctx, mail->box);
+			ret = -1;
 		}
 	}
+	return ret;
 }
 
 static int
@@ -497,8 +501,9 @@ cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 {
 	struct doveadm_mail_iter *iter;
 	struct mailbox_transaction_context *trans;
+	int ret = 0;
 
-	if (doveadm_mail_iter_init(info, ctx->ctx.search_args,
+	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args,
 				   ctx->wanted_fields,
 				   array_idx(&ctx->header_fields, 0),
 				   &trans, &iter) < 0)
@@ -506,27 +511,35 @@ cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 
 	while (doveadm_mail_iter_next(iter, &ctx->mail)) {
 		T_BEGIN {
-			cmd_fetch_mail(ctx);
+			if (cmd_fetch_mail(ctx) < 0)
+				ret = -1;
 		} T_END;
 	}
-	return doveadm_mail_iter_deinit(&iter);
+	if (doveadm_mail_iter_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
 }
 
-static void
+static int
 cmd_fetch_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct fetch_cmd_context *ctx = (struct fetch_cmd_context *)_ctx;
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	struct doveadm_mail_list_iter *iter;
+	struct doveadm_mailbox_list_iter *iter;
 	const struct mailbox_info *info;
+	int ret = 0;
 
-	iter = doveadm_mail_list_iter_init(user, _ctx->search_args, iter_flags);
-	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
-		(void)cmd_fetch_box(ctx, info);
+	iter = doveadm_mailbox_list_iter_init(_ctx, user, _ctx->search_args,
+					      iter_flags);
+	while ((info = doveadm_mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+		if (cmd_fetch_box(ctx, info) < 0)
+			ret = -1;
 	} T_END;
-	doveadm_mail_list_iter_deinit(&iter);
+	if (doveadm_mailbox_list_iter_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
 }
 
 static void cmd_fetch_deinit(struct doveadm_mail_cmd_context *_ctx)

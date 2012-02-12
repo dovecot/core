@@ -6,7 +6,7 @@
 #include "mail-storage.h"
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
-#include "doveadm-mail-list-iter.h"
+#include "doveadm-mailbox-list-iter.h"
 
 #define ALL_STATUS_ITEMS \
 	(STATUS_MESSAGES | STATUS_RECENT | \
@@ -36,7 +36,7 @@ static void status_parse_fields(struct status_cmd_context *ctx,
 				const char *const *fields)
 {
 	if (*fields == NULL)
-		i_fatal("No status fields");
+		i_fatal_status(EX_USAGE, "No status fields");
 
 	for (; *fields != NULL; fields++) {
 		const char *field = *fields;
@@ -65,13 +65,17 @@ static void status_parse_fields(struct status_cmd_context *ctx,
 			ctx->metadata_items |= MAILBOX_METADATA_VIRTUAL_SIZE;
 		else if (strcmp(field, "guid") == 0)
 			ctx->metadata_items |= MAILBOX_METADATA_GUID;
-		else
-			i_fatal("Unknown status field: %s", field);
+		else {
+			i_fatal_status(EX_USAGE,
+				       "Unknown status field: %s", field);
+		}
 
 		if (ctx->total_sum &&
 		    ((ctx->status_items & ~TOTAL_STATUS_ITEMS) != 0 ||
-		     (ctx->metadata_items & ~TOTAL_METADATA_ITEMS) != 0))
-			i_fatal("Status field %s can't be used with -t", field);
+		     (ctx->metadata_items & ~TOTAL_METADATA_ITEMS) != 0)) {
+			i_fatal_status(EX_USAGE,
+				"Status field %s can't be used with -t", field);
+		}
 	}
 }
 
@@ -113,7 +117,7 @@ status_sum(struct status_cmd_context *ctx,
 	ctx->total_metadata.virtual_size += metadata->virtual_size;
 }
 
-static void
+static int
 status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 {
 	struct mailbox *box;
@@ -123,18 +127,19 @@ status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 	box = doveadm_mailbox_find(ctx->ctx.cur_mail_user, info->name);
 	if (mailbox_get_status(box, ctx->status_items, &status) < 0 ||
 	    mailbox_get_metadata(box, ctx->metadata_items, &metadata) < 0) {
-		ctx->ctx.failed = TRUE;
+		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		mailbox_free(&box);
-		return;
+		return -1;
 	}
 	if (!ctx->total_sum)
 		status_output(ctx, box, &status, &metadata);
 	else
 		status_sum(ctx, &status, &metadata);
 	mailbox_free(&box);
+	return 0;
 }
 
-static void
+static int
 cmd_mailbox_status_run(struct doveadm_mail_cmd_context *_ctx,
 		       struct mail_user *user)
 {
@@ -143,23 +148,28 @@ cmd_mailbox_status_run(struct doveadm_mail_cmd_context *_ctx,
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	struct doveadm_mail_list_iter *iter;
+	struct doveadm_mailbox_list_iter *iter;
 	const struct mailbox_info *info;
+	int ret = 0;
 
 	memset(&ctx->total_status, 0, sizeof(ctx->total_status));
 
-	iter = doveadm_mail_list_iter_init(user, ctx->search_args, iter_flags);
-	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) {
+	iter = doveadm_mailbox_list_iter_init(_ctx, user, ctx->search_args,
+					      iter_flags);
+	while ((info = doveadm_mailbox_list_iter_next(iter)) != NULL) {
 		T_BEGIN {
-			status_mailbox(ctx, info);
+			if (status_mailbox(ctx, info) < 0)
+				ret = -1;
 		} T_END;
 	}
-	doveadm_mail_list_iter_deinit(&iter);
+	if (doveadm_mailbox_list_iter_deinit(&iter) < 0)
+		ret = -1;
 
 	if (ctx->total_sum) {
 		status_output(ctx, NULL, &ctx->total_status,
 			      &ctx->total_metadata);
 	}
+	return ret;
 }
 
 static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx,

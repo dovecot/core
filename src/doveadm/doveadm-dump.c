@@ -64,9 +64,11 @@ static void cmd_dump(int argc, char *argv[])
 	dump = type != NULL ? dump_find_name(type) : dump_find_test(argv[1]);
 	if (dump == NULL) {
 		if (type != NULL)
-			i_fatal("Unknown type: %s", type);
-		else
-			i_fatal("Can't autodetect file type: %s", argv[1]);
+			i_fatal_status(EX_USAGE, "Unknown type: %s", type);
+		else {
+			i_fatal_status(EX_DATAERR,
+				"Can't autodetect file type: %s", argv[1]);
+		}
 	} else {
 		if (type == NULL)
 			printf("Detected file type: %s\n", dump->name);

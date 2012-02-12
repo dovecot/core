@@ -4,7 +4,7 @@
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "doveadm-print.h"
-#include "doveadm-mail-list-iter.h"
+#include "doveadm-mailbox-list-iter.h"
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
@@ -23,13 +23,12 @@ cmd_move_box(struct move_cmd_context *ctx, struct mailbox *destbox,
 	struct doveadm_mail_iter *iter;
 	struct mailbox_transaction_context *trans;
 	struct mailbox_transaction_context *desttrans;
-	struct mail_storage *deststorage = mailbox_get_storage(destbox);
 	struct mail_save_context *save_ctx;
 	struct mail *mail;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(info, ctx->ctx.search_args, 0, NULL,
-				   &trans, &iter) < 0)
+	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0,
+				   NULL, &trans, &iter) < 0)
 		return -1;
 
 	/* use a separately committed transaction for each mailbox.
@@ -46,14 +45,16 @@ cmd_move_box(struct move_cmd_context *ctx, struct mailbox *destbox,
 		else {
 			i_error("Copying message UID %u from '%s' failed: %s",
 				mail->uid, info->name,
-				mail_storage_get_last_error(deststorage, NULL));
+				mailbox_get_last_error(destbox, NULL));
+			doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
 			ret = -1;
 		}
 	}
 
 	if (mailbox_transaction_commit(&desttrans) < 0) {
 		i_error("Committing moved mails failed: %s",
-			mail_storage_get_last_error(deststorage, NULL));
+			mailbox_get_last_error(destbox, NULL));
+		doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
 		/* rollback expunges */
 		doveadm_mail_iter_deinit_rollback(&iter);
 		ret = -1;
@@ -64,7 +65,7 @@ cmd_move_box(struct move_cmd_context *ctx, struct mailbox *destbox,
 	return ret;
 }
 
-static void
+static int
 cmd_move_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct move_cmd_context *ctx = (struct move_cmd_context *)_ctx;
@@ -72,33 +73,44 @@ cmd_move_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	struct doveadm_mail_list_iter *iter;
+	struct doveadm_mailbox_list_iter *iter;
 	struct mail_namespace *ns;
 	struct mailbox *destbox;
-	struct mail_storage *storage;
 	const struct mailbox_info *info;
+	int ret = 0;
 
 	ns = mail_namespace_find(user->namespaces, ctx->destname);
-	if (ns == NULL)
-		i_fatal("Can't find namespace for: %s", ctx->destname);
-
-	destbox = mailbox_alloc(ns->list, ctx->destname, MAILBOX_FLAG_SAVEONLY);
-	storage = mailbox_get_storage(destbox);
-	if (mailbox_open(destbox) < 0) {
-		i_error("Can't open mailbox '%s': %s", ctx->destname,
-			mail_storage_get_last_error(storage, NULL));
-		mailbox_free(&destbox);
-		return;
+	if (ns == NULL) {
+		i_fatal_status(DOVEADM_EX_NOTFOUND,
+			       "Can't find namespace for: %s", ctx->destname);
 	}
 
-	iter = doveadm_mail_list_iter_init(user, _ctx->search_args, iter_flags);
-	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
-		(void)cmd_move_box(ctx, destbox, info);
-	} T_END;
-	doveadm_mail_list_iter_deinit(&iter);
+	destbox = mailbox_alloc(ns->list, ctx->destname, MAILBOX_FLAG_SAVEONLY);
+	if (mailbox_open(destbox) < 0) {
+		i_error("Can't open mailbox '%s': %s", ctx->destname,
+			mailbox_get_last_error(destbox, NULL));
+		doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
+		mailbox_free(&destbox);
+		return -1;
+	}
 
-	(void)mailbox_sync(destbox, 0);
+	iter = doveadm_mailbox_list_iter_init(_ctx, user, _ctx->search_args,
+					      iter_flags);
+	while ((info = doveadm_mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+		if (cmd_move_box(ctx, destbox, info) < 0)
+			ret = -1;
+	} T_END;
+	if (doveadm_mailbox_list_iter_deinit(&iter) < 0)
+		ret = -1;
+
+	if (mailbox_sync(destbox, 0) < 0) {
+		i_error("Syncing mailbox '%s' failed: %s", ctx->destname,
+			mailbox_get_last_error(destbox, NULL));
+		doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
+		ret = -1;
+	}
 	mailbox_free(&destbox);
+	return ret;
 
 }
 

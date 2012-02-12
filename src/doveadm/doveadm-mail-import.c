@@ -5,7 +5,7 @@
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-namespace.h"
-#include "doveadm-mail-list-iter.h"
+#include "doveadm-mailbox-list-iter.h"
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
@@ -33,6 +33,7 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 		if (ns == NULL) {
 			i_error("Can't find namespace for parent mailbox %s",
 				ctx->dest_parent);
+			doveadm_mail_failed_error(&ctx->ctx, MAIL_ERROR_NOTFOUND);
 			return -1;
 		}
 		name = t_strdup_printf("%s%c%s", ctx->dest_parent,
@@ -42,6 +43,7 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	ns = mail_namespace_find(user->namespaces, name);
 	if (ns == NULL) {
 		i_error("Can't find namespace for mailbox %s", name);
+		doveadm_mail_failed_error(&ctx->ctx, MAIL_ERROR_NOTFOUND);
 		return -1;
 	}
 
@@ -50,6 +52,7 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 		errstr = mailbox_get_last_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
 			i_error("Couldn't create mailbox %s: %s", name, errstr);
+			doveadm_mail_failed_mailbox(&ctx->ctx, box);
 			mailbox_free(&box);
 			return -1;
 		}
@@ -63,6 +66,7 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Syncing mailbox %s failed: %s", name,
 			mailbox_get_last_error(box, NULL));
+		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -114,16 +118,20 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 	struct mail *mail;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(info, search_args, 0, NULL,
+	if (doveadm_mail_iter_init(&ctx->ctx, info, search_args, 0, NULL,
 				   &trans, &iter) < 0)
 		return -1;
 
 	if (doveadm_mail_iter_next(iter, &mail)) {
 		/* at least one mail matches in this mailbox */
 		if (dest_mailbox_open_or_create(ctx, dest_user, info->name,
-						&box) == 0) {
-			if (cmd_import_box_contents(iter, mail, box) < 0)
+						&box) < 0)
+			ret = -1;
+		else {
+			if (cmd_import_box_contents(iter, mail, box) < 0) {
+				doveadm_mail_failed_mailbox(&ctx->ctx, mail->box);
 				ret = -1;
+			}
 			mailbox_free(&box);
 		}
 	}
@@ -132,7 +140,7 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 	return ret;
 }
 
-static void
+static int
 cmd_import_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
@@ -140,15 +148,19 @@ cmd_import_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	struct doveadm_mail_list_iter *iter;
+	struct doveadm_mailbox_list_iter *iter;
 	const struct mailbox_info *info;
+	int ret = 0;
 
-	iter = doveadm_mail_list_iter_init(ctx->src_user,
-					   _ctx->search_args, iter_flags);
-	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
-		(void)cmd_import_box(ctx, user, info, _ctx->search_args);
+	iter = doveadm_mailbox_list_iter_init(_ctx, ctx->src_user,
+					      _ctx->search_args, iter_flags);
+	while ((info = doveadm_mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+		if (cmd_import_box(ctx, user, info, _ctx->search_args) < 0)
+			ret = -1;
 	} T_END;
-	doveadm_mail_list_iter_deinit(&iter);
+	if (doveadm_mailbox_list_iter_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
 }
 
 static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx,

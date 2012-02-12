@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "mail-storage.h"
 #include "doveadm-print.h"
-#include "doveadm-mail-list-iter.h"
+#include "doveadm-mailbox-list-iter.h"
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
@@ -14,20 +14,22 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	       const struct mailbox_info *info)
 {
 	struct doveadm_mail_iter *iter;
+	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
 	struct mail *mail;
 	struct mailbox_metadata metadata;
 	const char *guid_str;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(info, ctx->search_args, 0, NULL,
+	if (doveadm_mail_iter_init(ctx, info, ctx->search_args, 0, NULL,
 				   &trans, &iter) < 0)
 		return -1;
+	box = mailbox_transaction_get_mailbox(trans);
 
-	if (mailbox_get_metadata(mailbox_transaction_get_mailbox(trans),
-				 MAILBOX_METADATA_GUID, &metadata) < 0)
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		ret = -1;
-	else {
+		doveadm_mail_failed_mailbox(ctx, box);
+	} else {
 		guid_str = guid_128_to_string(metadata.guid);
 		while (doveadm_mail_iter_next(iter, &mail)) {
 			doveadm_print(guid_str);
@@ -41,21 +43,26 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	return ret;
 }
 
-static void
+static int
 cmd_search_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RAW_LIST |
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	struct doveadm_mail_list_iter *iter;
+	struct doveadm_mailbox_list_iter *iter;
 	const struct mailbox_info *info;
+	int ret = 0;
 
-	iter = doveadm_mail_list_iter_init(user, ctx->search_args, iter_flags);
-	while ((info = doveadm_mail_list_iter_next(iter)) != NULL) T_BEGIN {
-		(void)cmd_search_box(ctx, info);
+	iter = doveadm_mailbox_list_iter_init(ctx, user, ctx->search_args,
+					      iter_flags);
+	while ((info = doveadm_mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+		if (cmd_search_box(ctx, info) < 0)
+			ret = -1;
 	} T_END;
-	doveadm_mail_list_iter_deinit(&iter);
+	if (doveadm_mailbox_list_iter_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
 }
 
 static void cmd_search_init(struct doveadm_mail_cmd_context *ctx,

@@ -42,18 +42,22 @@ static void cmd_quota_get_root(struct quota_root *root)
 	}
 }
 
-static void
+static int
 cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 		  struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct quota_root *const *root;
 
-	if (quser == NULL)
-		i_fatal("Quota not enabled");
+	if (quser == NULL) {
+		i_error("Quota not enabled");
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
+		return -1;
+	}
 
 	array_foreach(&quser->quota->roots, root)
 		cmd_quota_get_root(*root);
+	return 0;
 }
 
 static void cmd_quota_get_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
@@ -81,7 +85,7 @@ cmd_quota_get_alloc(void)
 	return ctx;
 }
 
-static void
+static int
 cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 		     struct mail_user *user)
 {
@@ -89,8 +93,11 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 	struct quota_root *const *root;
 	struct quota_transaction_context trans;
 
-	if (quser == NULL)
-		i_fatal("Quota not enabled");
+	if (quser == NULL) {
+		i_error("Quota not enabled");
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
+		return -1;
+	}
 
 	memset(&trans, 0, sizeof(trans));
 	trans.quota = quser->quota;
@@ -98,6 +105,7 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 
 	array_foreach(&quser->quota->roots, root)
 		(void)(*root)->backend.v.update(*root, &trans);
+	return 0;
 }
 
 static struct doveadm_mail_cmd_context *

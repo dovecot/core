@@ -90,7 +90,7 @@ static void doveadm_cmd_callback(enum server_cmd_reply reply, void *context)
 	}
 
 	if (reply != SERVER_CMD_REPLY_OK)
-		cmd_ctx->failed = TRUE;
+		doveadm_mail_failed_error(cmd_ctx, MAIL_ERROR_TEMP);
 
 	server = server_connection_get_server(conn);
 	if (array_count(&server->queue) > 0) {
@@ -302,7 +302,7 @@ void doveadm_mail_server_flush(void)
 	if (master_service_is_killed(master_service))
 		i_error("Aborted");
 	if (DOVEADM_MAIL_SERVER_FAILED())
-		cmd_ctx->failed = TRUE;
+		doveadm_mail_failed_error(cmd_ctx, MAIL_ERROR_TEMP);
 
 	hash_table_destroy(&servers);
 	pool_unref(&server_pool);

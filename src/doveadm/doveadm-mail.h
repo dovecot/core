@@ -2,11 +2,14 @@
 #define DOVEADM_MAIL_H
 
 #include <stdio.h>
+#include "doveadm.h"
 #include "doveadm-util.h"
 #include "module-context.h"
 #include "mail-storage-service.h"
 
+enum mail_error;
 struct mailbox;
+struct mail_storage;
 struct mail_user;
 struct doveadm_mail_cmd_context;
 
@@ -17,8 +20,8 @@ struct doveadm_mail_cmd_vfuncs {
 		     const char *const args[]);
 	int (*get_next_user)(struct doveadm_mail_cmd_context *ctx,
 			     const char **username_r);
-	void (*run)(struct doveadm_mail_cmd_context *ctx,
-		    struct mail_user *mail_user);
+	int (*run)(struct doveadm_mail_cmd_context *ctx,
+		   struct mail_user *mail_user);
 	void (*deinit)(struct doveadm_mail_cmd_context *ctx);
 };
 
@@ -59,7 +62,6 @@ struct doveadm_mail_cmd_context {
 	unsigned int iterate_single_user:1;
 	/* We're going through all users (not set for wildcard usernames) */
 	unsigned int iterate_all_users:1;
-	unsigned int failed:1;
 };
 
 struct doveadm_mail_cmd {
@@ -113,6 +115,13 @@ struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_alloc_size(size_t size);
 #define doveadm_mail_cmd_alloc(type) \
 	(type *)doveadm_mail_cmd_alloc_size(sizeof(type))
+
+void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
+			       enum mail_error error);
+void doveadm_mail_failed_storage(struct doveadm_mail_cmd_context *ctx,
+				 struct mail_storage *storage);
+void doveadm_mail_failed_mailbox(struct doveadm_mail_cmd_context *ctx,
+				 struct mailbox *box);
 
 struct doveadm_mail_cmd cmd_expunge;
 struct doveadm_mail_cmd cmd_search;

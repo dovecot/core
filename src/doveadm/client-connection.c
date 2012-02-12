@@ -114,7 +114,7 @@ doveadm_mail_cmd_server(const char *cmd_name,
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();
 	mail_storage_service_deinit(&ctx->storage_service);
-	ret = !ctx->failed;
+	ret = ctx->exit_code == 0;
 	pool_unref(&ctx->pool);
 
 	return ret;

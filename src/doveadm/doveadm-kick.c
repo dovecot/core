@@ -103,6 +103,7 @@ kick_print_kicked(struct kick_context *ctx, const bool show_warning)
 
 	if (array_count(&ctx->kicked_users) == 0) {
 		printf("no users kicked\n");
+		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 		return;
 	}
 
@@ -194,8 +195,10 @@ static void cmd_kick(int argc, char *argv[])
 	}
 
 	argv += optind - 1;
-	if (argv[1] == NULL)
-		i_fatal("user and/or ip[/bits] must be specified.");
+	if (argv[1] == NULL) {
+		i_fatal_status(EX_USAGE,
+			       "user and/or ip[/bits] must be specified.");
+	}
 	who_parse_args(&ctx.who, argv);
 
 	who_lookup(&ctx.who, kick_aggregate_line);

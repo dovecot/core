@@ -32,7 +32,7 @@ fts_namespace_find(struct mail_user *user, const char *ns_prefix,
 	return 0;
 }
 
-static void
+static int
 cmd_fts_optimize_run(struct doveadm_mail_cmd_context *ctx,
 		     struct mail_user *user)
 {
@@ -40,11 +40,17 @@ cmd_fts_optimize_run(struct doveadm_mail_cmd_context *ctx,
 	struct mail_namespace *ns;
 	struct fts_backend *backend;
 
-	if (fts_namespace_find(user, ns_prefix, &ns) < 0)
-		return;
+	if (fts_namespace_find(user, ns_prefix, &ns) < 0) {
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
+		return -1;
+	}
 	backend = fts_list_backend(ns->list);
-	if (fts_backend_optimize(backend) < 0)
+	if (fts_backend_optimize(backend) < 0) {
 		i_error("fts optimize failed");
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
+		return -1;
+	}
+	return 0;
 }
 
 static void
@@ -66,18 +72,24 @@ cmd_fts_optimize_alloc(void)
 	return ctx;
 }
 
-static void
+static int
 cmd_fts_rescan_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 {
 	const char *ns_prefix = ctx->args[0];
 	struct mail_namespace *ns;
 	struct fts_backend *backend;
 
-	if (fts_namespace_find(user, ns_prefix, &ns) < 0)
-		return;
+	if (fts_namespace_find(user, ns_prefix, &ns) < 0) {
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
+		return -1;
+	}
 	backend = fts_list_backend(ns->list);
-	if (fts_backend_rescan(backend) < 0)
+	if (fts_backend_rescan(backend) < 0) {
 		i_error("fts rescan failed");
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
+		return -1;
+	}
+	return 0;
 }
 
 static void

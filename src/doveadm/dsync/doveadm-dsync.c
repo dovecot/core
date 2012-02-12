@@ -209,12 +209,13 @@ cmd_dsync_run_remote(struct dsync_cmd_context *ctx, struct mail_user *user)
 	return dsync_worker_init_proxy_client(ctx->fd_in, ctx->fd_out);
 }
 
-static void
+static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct dsync_worker *worker1, *worker2, *workertmp;
 	struct dsync_brain *brain;
+	int ret = 0;
 
 	user->admin = TRUE;
 
@@ -246,11 +247,14 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 			  "You may want to run dsync again.");
 		_ctx->exit_code = 2;
 	}
-	if (dsync_brain_deinit(&brain) < 0)
-		_ctx->exit_code = 1;
+	if (dsync_brain_deinit(&brain) < 0) {
+		_ctx->exit_code = EX_TEMPFAIL;
+		ret = -1;
+	}
 
 	dsync_worker_deinit(&worker1);
 	dsync_worker_deinit(&worker2);
+	return ret;
 }
 
 static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
@@ -344,7 +348,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_backup_alloc(void)
 	return _ctx;
 }
 
-static void
+static int
 cmd_dsync_server_run(struct doveadm_mail_cmd_context *ctx,
 		     struct mail_user *user)
 {
@@ -362,6 +366,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *ctx,
 
 	dsync_proxy_server_deinit(&server);
 	dsync_worker_deinit(&worker);
+	return 0;
 }
 
 static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)

@@ -320,8 +320,10 @@ static void cmd_log_errors(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 		args = t_strsplit_tabescaped(line);
 		if (str_array_length(args) == 4)
 			cmd_log_error_write(args);
-		else
+		else {
 			i_error("Invalid input from log: %s", line);
+			doveadm_exit_code = EX_PROTOCOL;
+		}
 	} T_END;
 	i_stream_destroy(&input);
 }
