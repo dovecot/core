@@ -453,6 +453,7 @@ int main(int argc, char *argv[])
 			   configuration problem. */
 			return EX_TEMPFAIL;
 		}
+		ctx.mailbox_full = TRUE;
 
 		/* we'll have to reply with permanent failure */
 		mail_deliver_log(&ctx, "rejected: %s",

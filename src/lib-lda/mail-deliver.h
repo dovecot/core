@@ -51,6 +51,8 @@ struct mail_deliver_context {
 	bool tried_default_save;
 	bool saved_mail;
 	bool save_dest_mail;
+	/* Delivery failed because user is out of quota / disk space */
+	bool mailbox_full;
 };
 
 struct mail_deliver_save_open_context {

@@ -133,7 +133,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
 
     fprintf(f, "Action: failed\r\n");
-    fprintf(f, "Status: 5.2.0\r\n");
+    fprintf(f, "Status: %s\r\n", ctx->mailbox_full ? "5.2.2" : "5.2.0");
     fprintf(f, "\r\n");
 
     /* original message's headers */
