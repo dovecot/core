@@ -280,9 +280,16 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	}
 	for (i = 0; i < count; i++) {
 		if (namespace_add(user, ns_set[i], unexpanded_ns_set[i],
-				  mail_set, ns_p, error_r) < 0)
-			return -1;
-		ns_p = &(*ns_p)->next;
+				  mail_set, ns_p, error_r) < 0) {
+			if (!ns_set[i]->ignore_on_failure)
+				return -1;
+			if (mail_set->mail_debug) {
+				i_debug("Skipping namespace %s: %s",
+					ns_set[i]->prefix, *error_r);
+			}
+		} else {
+			ns_p = &(*ns_p)->next;
+		}
 	}
 
 	if (namespaces != NULL) {

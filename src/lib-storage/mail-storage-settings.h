@@ -51,6 +51,7 @@ struct mail_namespace_settings {
 	bool hidden;
 	const char *list;
 	bool subscriptions;
+	bool ignore_on_failure;
 
 	ARRAY_DEFINE(mailboxes, struct mailbox_settings *);
 	struct mail_user_settings *user_set;
