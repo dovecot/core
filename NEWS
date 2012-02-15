@@ -1,3 +1,9 @@
+v2.1.rc7 2012-02-15  Timo Sirainen <tss@iki.fi>
+
+	+ Added ignore_on_failure setting for namespaces. If namespace
+	  initialization fails with this enabled (e.g. permission denied),
+	  the namespace is silently skipped for the user.
+
 v2.1.rc6 2012-02-12  Timo Sirainen <tss@iki.fi>
 
 	* Added automatic mountpoint tracking and doveadm mount commands to
