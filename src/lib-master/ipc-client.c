@@ -113,6 +113,7 @@ static void ipc_client_disconnect(struct ipc_client *client)
 	o_stream_destroy(&client->output);
 	if (close(client->fd) < 0)
 		i_error("close(%s) failed: %m", client->path);
+	client->fd = -1;
 }
 
 struct ipc_client *
