@@ -1,3 +1,53 @@
+v2.1.0 2012-02-16  Timo Sirainen <tss@iki.fi>
+
+	* Plugins now use UTF-8 mailbox names rather than mUTF-7:
+	  acl, autocreate, expire, trash, virtual
+	* auth_username_format default changed to %Lu. If you really want
+	  case sensitive usernames, set it back to empty.
+	* Solr full text search backend changed to use mailbox GUIDs instead of
+	  mailbox names, requiring reindexing everything. solr_old backend can
+	  be used with old indexes to avoid reindexing, but it doesn't support
+	  some newer features.
+	* Expire plugin: Only go through users listed by userdb iteration.
+	  Delete dict rows for nonexistent users, unless
+	  expire_keep_nonexistent_users=yes.
+	* Temporary authentication failures sent to IMAP/POP3 clients
+	  now includes the server's hostname and timestamp. This makes it
+	  easier to find the error message from logs.
+	* dsync was merged into doveadm. There is still "dsync" symlink
+	  pointing to "doveadm", which you can use the old way for now.
+	  The preferred ways to run dsync are "doveadm sync" (for old "dsync
+	  mirror") and "doveadm backup".
+
+	+ imapc (= IMAP client) storage allows using a remote IMAP server to
+	  be used as storage. This allows using Dovecot as a smart (caching)
+	  proxy or using dsync to do migration from remote IMAP server.
+	+ Mailbox indexing via queuing indexer service (required for Lucene)
+	+ Lucene full text search (FTS) backend rewritten with support for
+	  different languages
+	+ FTS finally supports "OR" search operation
+	+ FTS supports indexing attachments via external programs
+	+ IMAP FUZZY extension, supported by Lucene and Solr FTS backends
+	+ IMAP SPECIAL-USE extension to describe mailboxes
+	+ Mailbox list indexes
+	+ Statistics tracking via stats service. Exported via doveadm stats.
+	+ Autocreate plugin creates/subscribes mailboxes physically only when
+	  the mailbox is opened for the first time. Mailbox listing shows the
+	  autocreated mailboxes even if they don't physically exist.
+	+ Password and user databases now support default_fields and
+	  override_fields settings to specify template defaults/overrides.
+	+ SCRAM-SHA-1 authentication mechanism by Florian Zeitz
+	+ LDAP: Allow building passdb/userdb extra fields from multiple LDAP
+	  attributes by using %{ldap:attributeName} variables in the template.
+	+ Improved multi-instance support: Track automatically which instances
+	  are started up and manage the list with doveadm instance commands.
+	  All Dovecot commands now support -i <instance_name> parameter to
+	  select the instance (instead of having to use -c <config path>).
+	  See instance_name setting.
+	+ auth: Implemented support for Postfix's "TCP map" sockets for
+	  user existence lookups.
+	- listescape plugin works perfectly now
+
 v2.1.rc7 2012-02-15  Timo Sirainen <tss@iki.fi>
 
 	+ Added ignore_on_failure setting for namespaces. If namespace
