@@ -1,0 +1,63 @@
+.\" Copyright (c) 2012 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-INSTANCE 1 "2012-02-16" "Dovecot v2.1" "Dovecot"
+.SH NAME
+doveadm\-instance \- Manage the list of running Dovecot instances
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.B instance list
+.br
+.BR doveadm " [" \-Dv "] " "instance remove"
+.IR name " | " base_dir
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B doveadm instance
+commands are used to manage the list of Dovecot instances running on the
+server.
+In most installations there is only one Dovecot instance, but in some cases
+is may be useful to have more (e.g. running director proxy and backend in
+the same server).
+.PP
+Instances are added to the list automatically when Dovecot is started.
+Each instance is uniquely identified by its
+.I base_dir
+setting.
+Instances can be named by setting
+.I instance_name
+in each instance\(aqs
+.IR dovecot.conf .
+When an instance is named, it can be accessed easily by giving
+.BI \-i\  instance_name
+command line parameter for Dovecot binaries (e.g. doveadm).
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I name
+The value of an instance\(aqs
+.I instance_name
+setting.
+.\"-------------------------------------
+.TP
+.I base_dir
+The base directory of a Dovecot instance.
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS instance list
+.B doveadm instance list
+.PP
+This command lists the seen Dovecot instances.
+.\"-------------------------------------
+.SS instance remove
+.B doveadm instance remove
+.IR name " | " base_dir
+.PP
+This command removes the specified instance.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)
