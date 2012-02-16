@@ -262,6 +262,9 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 
 static bool anvil_reconnect_callback(void)
 {
+	/* we got disconnected from anvil. we can't reconnect to it since we're
+	   chrooted, so just die after we've finished handling the current
+	   connections. */
 	master_service_stop_new_connections(master_service);
 	return FALSE;
 }
