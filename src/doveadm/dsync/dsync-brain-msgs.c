@@ -50,21 +50,23 @@
 #include "dsync-worker.h"
 #include "dsync-brain-private.h"
 
-static void dsync_brain_guid_add(struct dsync_brain_msg_iter *iter)
+void dsync_brain_guid_add(struct dsync_brain_msg_iter *iter,
+			  unsigned int mailbox_idx,
+			  const struct dsync_message *msg)
 {
 	struct dsync_brain_guid_instance *inst, *prev_inst;
 
-	if ((iter->msg.flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0)
+	if ((msg->flags & DSYNC_MAIL_FLAG_EXPUNGED) != 0)
 		return;
 
 	inst = p_new(iter->sync->pool, struct dsync_brain_guid_instance, 1);
-	inst->mailbox_idx = iter->mailbox_idx;
-	inst->uid = iter->msg.uid;
+	inst->mailbox_idx = mailbox_idx;
+	inst->uid = msg->uid;
 
-	prev_inst = hash_table_lookup(iter->guid_hash, iter->msg.guid);
+	prev_inst = hash_table_lookup(iter->guid_hash, msg->guid);
 	if (prev_inst == NULL) {
 		hash_table_insert(iter->guid_hash,
-				  p_strdup(iter->sync->pool, iter->msg.guid),
+				  p_strdup(iter->sync->pool, msg->guid),
 				  inst);
 	} else {
 		inst->next = prev_inst->next;
@@ -80,8 +82,10 @@ static int dsync_brain_msg_iter_next(struct dsync_brain_msg_iter *iter)
 		ret = dsync_worker_msg_iter_next(iter->iter,
 						 &iter->mailbox_idx,
 						 &iter->msg);
-		if (ret > 0)
-			dsync_brain_guid_add(iter);
+		if (ret > 0) {
+			dsync_brain_guid_add(iter, iter->mailbox_idx,
+					     &iter->msg);
+		}
 	}
 
 	if (iter->sync->wanted_mailbox_idx != iter->mailbox_idx) {

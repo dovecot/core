@@ -52,6 +52,7 @@ static void msg_save_callback(void *context)
 {
 	struct dsync_brain_msg_save_context *ctx = context;
 
+	dsync_brain_guid_add(ctx->iter, ctx->mailbox_idx, ctx->msg);
 	if (--ctx->iter->save_results_left == 0 && !ctx->iter->adding_msgs)
 		dsync_brain_msg_sync_add_new_msgs(ctx->iter);
 	i_free(ctx);
