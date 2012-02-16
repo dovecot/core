@@ -112,9 +112,19 @@ Repair broken mailboxes, in case Dovecot doesn\(aqt automatically do that.
 Import messages matching given search query.
 .\"-------------------------------------
 .TP
+.B doveadm instance
+.BR doveadm\-instance (1),
+Various commands related to handling Dovecot instances.
+.\"-------------------------------------
+.TP
 .B doveadm index
 .BR doveadm\-index (1),
 Index messages in a given mailbox.
+.\"-------------------------------------
+.TP
+.B doveadm mount
+.BR doveadm\-mount (1),
+Various commands related to handling mail storage mountpoints.
 .\"-------------------------------------
 .TP
 .B doveadm mailbox

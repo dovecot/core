@@ -18,12 +18,14 @@ nodist_man1_MANS = \
 	doveadm-expunge.1 \
 	doveadm-fetch.1 \
 	doveadm-import.1 \
+	doveadm-instance.1 \
 	doveadm-index.1 \
 	doveadm-force-resync.1 \
 	doveadm-help.1 \
 	doveadm-kick.1 \
 	doveadm-log.1 \
 	doveadm-mailbox.1 \
+	doveadm-mount.1 \
 	doveadm-move.1 \
 	doveadm-penalty.1 \
 	doveadm-purge.1 \
@@ -54,12 +56,14 @@ EXTRA_DIST = \
 	doveadm-expunge.1.in \
 	doveadm-fetch.1.in \
 	doveadm-import.1.in \
+	doveadm-instance.1.in \
 	doveadm-index.1.in \
 	doveadm-force-resync.1.in \
 	doveadm-help.1.in \
 	doveadm-kick.1.in \
 	doveadm-log.1.in \
 	doveadm-mailbox.1.in \
+	doveadm-mount.1.in \
 	doveadm-move.1.in \
 	doveadm-penalty.1.in \
 	doveadm-purge.1.in \
@@ -109,6 +113,10 @@ doveadm-import.1: $(srcdir)/doveadm-import.1.in $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
 		< $(srcdir)/doveadm-import.1.in > doveadm-import.1
 
+doveadm-instance.1: $(srcdir)/doveadm-instance.1.in $(man_includefiles) Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
+		< $(srcdir)/doveadm-instance.1.in > doveadm-instance.1
+
 doveadm-index.1: $(srcdir)/doveadm-index.1.in $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
 		< $(srcdir)/doveadm-index.1.in > doveadm-index.1
@@ -132,6 +140,10 @@ doveadm-log.1: $(srcdir)/doveadm-log.1.in $(man_includefiles) Makefile
 doveadm-mailbox.1: $(srcdir)/doveadm-mailbox.1.in $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
 		< $(srcdir)/doveadm-mailbox.1.in > doveadm-mailbox.1
+
+doveadm-mount.1: $(srcdir)/doveadm-mount.1.in $(man_includefiles) Makefile
+	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
+		< $(srcdir)/doveadm-mount.1.in > doveadm-mount.1
 
 doveadm-move.1: $(srcdir)/doveadm-move.1.in $(man_includefiles) Makefile
 	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \

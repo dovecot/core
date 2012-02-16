@@ -1,0 +1,94 @@
+.\" Copyright (c) 2012 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-MOUNT 1 "2012-02-16" "Dovecot v2.1" "Dovecot"
+.SH NAME
+doveadm\-mount \- Manage the list of mountpoints where mails are stored
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.B mount
+.IR command " [" arguments ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The doveadm
+.B mount
+.IR command s
+can be used to manage the list of mountpoints where mails are stored.
+This is used mainly for better error handling when a mountpoint isn\(aqt
+mounted for some reason:
+.TP 4
+*
+If a mail directory doesn\(aqt exist, it\(aqs autocreated.
+If the user\(aqs mails aren\(aqt mounted and filesystem permissions still
+allow the autocreation, the user will see an empty mailbox and later will
+have to redownload all mails.
+If the mountpoint is known to be unmounted, Dovecot will simply fail
+opening any mailboxes.
+.TP
+*
+If dbox alternate storage isn\(aqt mounted and a mail in it is attempted to
+be accessed, Dovecot normally rebuilds the indexes and notices that all the
+mails in alt storage are expunged.
+When the alt storage is mounted back and even if index is again rebuilt,
+the mails won\(aqt necessarily become visible anymore for IMAP clients.
+If the mountpoint is known to be unmounted, Dovecot won\(aqt rebuild
+indexes and lose the mails.
+.PP
+Dovecot automatically adds mountpoints to this list at startup.
+If you don\(aqt want some of the mountpoints added, you can add a wildcard
+ignore for it.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I path
+The directory name of a mountpoint
+.\"-------------------------------------
+.TP
+.I state
+The
+.I state
+of a mountpoint.
+Either
+.BR online " or " ignore .
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS mount add
+.B doveadm mount add
+.RI [ path " [" state ]]
+.PP
+If this command is run without any parameters, doveadm detects all missing
+mountpoints and adds them (the same way as when Dovecot does at startup).
+.PP
+When a mountpoint
+.I path
+is given, it\(aqs added as a mountpoint.
+The
+.I state
+can currently be either
+.RB \(dq online \(dq
+(default) or
+.RB \(dq ignore \(dq.
+The ignore state is mainly useful with path wildcards to add mountpoints
+that you never want Dovecot to automatically add, such as:
+.B  doveadm mount add '/mnt/*' ignore
+.\"-------------------------------------
+.SS mount list
+.BR doveadm " [" \-Dv " ] [" \-f
+.IR formatter ]
+.B mount list
+.PP
+This command lists the mountpoints known to Dovecot and their state.
+.\"-------------------------------------
+.SS mount remove
+.BI "doveadm mount remove " path
+.PP
+This command removes the specified
+.I path
+from the mountpoint list.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)
