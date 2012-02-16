@@ -451,8 +451,8 @@ dsync_brain_msg_iter_init(struct dsync_brain_mailbox_sync *sync,
 	i_array_init(&iter->uid_conflicts, 128);
 	i_array_init(&iter->new_msgs, 128);
 	iter->guid_hash = hash_table_create(default_pool, sync->pool, 10000,
-					    strcase_hash,
-					    (hash_cmp_callback_t *)strcasecmp);
+					    str_hash,
+					    (hash_cmp_callback_t *)strcmp);
 
 	iter->iter = dsync_worker_msg_iter_init(worker, mailboxes,
 						mailbox_count);
