@@ -1039,6 +1039,13 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			str_truncate(tmp_str, 0);
 			var_expand_with_funcs(tmp_str, templ, NULL,
 					      var_funcs_table, &ctx);
+			if (strchr(templ, '%') == NULL) {
+				/* backwards compatibility:
+				   attr=name=prefix means same as
+				   attr=name=prefix%$ when %vars are missing */
+				templ = p_strconcat(conn->pool, templ,
+						    "%$", NULL);
+			}
 		}
 
 		if (*name == '\0')
