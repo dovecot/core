@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-DUMP 1 "2010-06-22" "Dovecot v2.1" "Dovecot"
+.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-DUMP 1 "2012-02-21" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-dump \- Dump the content of Dovecot\(aqs binary mailbox index/log
 .\"------------------------------------------------------------------------
@@ -36,6 +36,11 @@ tries to detect the type of
 can be:
 .RS
 .TP 12
+.B dbox
+\(rA m.\c
+.I n
+(sdbox or mdbox mailbox file)
+.TP
 .B index
 \(rA dovecot.index, dovecot.map.index
 .TP
@@ -52,10 +57,9 @@ can be:
 .SH ARGUMENTS
 .TP
 .I path
-The path to the corresponding index or log file. If only a directory is
-specified, doveadm tries to find and dump
-.B index
-type file under it.
+The path to the corresponding dbox storage, index or log file.
+If only a directory is specified, doveadm tries to detect the type of files
+under it and dumps them.
 .\"------------------------------------------------------------------------
 .SH EXAMPLE
 Look at the contents of a mailbox\(aqs index:
