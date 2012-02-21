@@ -53,7 +53,7 @@ static void sdbox_sync_file(struct sdbox_sync_context *ctx,
 		modify_type = type == SDBOX_SYNC_ENTRY_TYPE_MOVE_TO_ALT ?
 			MODIFY_ADD : MODIFY_REMOVE;
 		mail_index_update_flags(ctx->trans, seq, modify_type,
-					DBOX_INDEX_FLAG_ALT);
+					(enum mail_flags)DBOX_INDEX_FLAG_ALT);
 		file = sdbox_file_init(ctx->mbox, uid);
 		dbox_sync_file_move_if_needed(file, type);
 		dbox_file_unref(&file);
