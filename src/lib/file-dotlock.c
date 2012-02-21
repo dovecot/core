@@ -534,8 +534,13 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 				try_create_lock_excl(&lock_info, write_pid) :
 				try_create_lock_hardlink(&lock_info, write_pid,
 							 tmp_path, now);
-			if (ret != 0)
+			if (ret != 0) {
+				/* if we succeeded, get the current time once
+				   more in case disk I/O usage was really high
+				   and it took a long time to create the lock */
+				now = time(NULL);
 				break;
+			}
 		}
 
 		if (last_notify != now && set->callback != NULL) {
