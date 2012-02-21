@@ -44,6 +44,7 @@ passdb_imap_login_callback(const struct imapc_command_reply *reply,
 			   void *context)
 {
 	struct imap_auth_request *request = context;
+	struct imapc_client *client = request->client;
 	enum passdb_result result = PASSDB_RESULT_INTERNAL_FAILURE;
 
 	switch (reply->state) {
@@ -62,7 +63,7 @@ passdb_imap_login_callback(const struct imapc_command_reply *reply,
 		break;
 	}
 	request->verify_callback(result, request->auth_request);
-	imapc_client_deinit(&request->client);
+	imapc_client_deinit(&client);
 }
 
 static void
