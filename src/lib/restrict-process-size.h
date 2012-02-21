@@ -15,6 +15,8 @@ void restrict_fd_limit(rlim_t count);
 
 /* Get the core dump size limit. Returns 0 if ok, -1 if lookup failed. */
 int restrict_get_core_limit(rlim_t *limit_r);
+/* Get the process VSZ size limit. Returns 0 if ok, -1 if lookup failed. */
+int restrict_get_process_size(rlim_t *limit_r);
 /* Get the process count limit. Returns 0 if ok, -1 if lookup failed. */
 int restrict_get_process_limit(rlim_t *limit_r);
 /* Get the fd limit. Returns 0 if ok, -1 if lookup failed. */
