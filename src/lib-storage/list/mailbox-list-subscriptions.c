@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "unichar.h"
 #include "imap-match.h"
 #include "subscription-file.h"
 #include "mailbox-tree.h"
@@ -92,6 +93,8 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 		return -1;
 	} else {
 		vname = mailbox_list_get_vname(list, name);
+		if (!uni_utf8_str_is_valid(vname))
+			return -1;
 		node = mailbox_tree_get(list->subscriptions, vname, &created);
 		node->flags = MAILBOX_SUBSCRIBED;
 	}
