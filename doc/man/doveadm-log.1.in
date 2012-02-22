@@ -1,9 +1,12 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-LOG 1 "2010-06-13" "Dovecot v2.1" "Dovecot"
+.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-LOG 1 "2012-02-22" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-log \- Locate, test or reopen Dovecot\(aqs log files
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
+.BR doveadm " [" \-Dv "] " "log errors"
+.\"-------------------------------------
+.br
 .BR doveadm " [" \-Dv "] " "log find"
 .RI [ directory ]
 .\"-------------------------------------
@@ -26,6 +29,14 @@ settings.
 @INCLUDE:global-options@
 .\"------------------------------------------------------------------------
 .SH COMMANDS
+.SS log errors
+.B doveadm log errors
+.PP
+The
+.B log errors
+command is used to show the last  \- up to 1,000 \- errors and warnings.
+If no output is generated, no errors have occurred since the last start.
+.\"-------------------------------------
 .SS log find
 .B doveadm log find
 .RI [ directory ]
