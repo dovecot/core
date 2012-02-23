@@ -68,6 +68,8 @@ static int client_input_line(struct client *client, const char *line)
 		return cmd_rset(client, args);
 	if (strcmp(cmd, "NOOP") == 0)
 		return cmd_noop(client, args);
+	if (strcmp(cmd, "XCLIENT") == 0)
+		return cmd_xclient(client, args);
 
 	client_send_line(client, "502 5.5.2 Unknown command");
 	return 0;
@@ -340,6 +342,29 @@ void client_send_line(struct client *client, const char *fmt, ...)
 		o_stream_send(client->output, str_data(str), str_len(str));
 	} T_END;
 	va_end(args);
+}
+
+bool client_is_trusted(struct client *client)
+{
+	const char *const *net;
+	struct ip_addr net_ip;
+	unsigned int bits;
+
+	if (client->lmtp_set->login_trusted_networks == NULL)
+		return FALSE;
+
+	net = t_strsplit_spaces(client->lmtp_set->login_trusted_networks, ", ");
+	for (; *net != NULL; net++) {
+		if (net_parse_range(*net, &net_ip, &bits) < 0) {
+			i_error("login_trusted_networks: "
+				"Invalid network '%s'", *net);
+			break;
+		}
+
+		if (net_is_in_network(&client->remote_ip, &net_ip, bits))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 void clients_destroy(void)

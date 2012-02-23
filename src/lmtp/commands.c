@@ -68,6 +68,8 @@ int cmd_lhlo(struct client *client, const char *args)
 
 	client_state_reset(client);
 	client_send_line(client, "250-%s", client->my_domain);
+	if (client_is_trusted(client))
+		client_send_line(client, "250-XCLIENT ADDR PORT");
 	client_send_line(client, "250-8BITMIME");
 	client_send_line(client, "250-ENHANCEDSTATUSCODES");
 	client_send_line(client, "250 PIPELINING");
@@ -901,4 +903,42 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 	client->io = io_add(client->fd_in, IO_READ, client_input_data, client);
 	client_input_data_handle(client);
 	return -1;
+}
+
+int cmd_xclient(struct client *client, const char *args)
+{
+	const char *const *tmp;
+	struct ip_addr remote_ip;
+	unsigned int remote_port = 0;
+	bool args_ok = TRUE;
+
+	if (!client_is_trusted(client)) {
+		client_send_line(client, "550 You are not from trusted IP");
+		return 0;
+	}
+	remote_ip.family = 0;
+	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
+		if (strncasecmp(*tmp, "ADDR=", 5) == 0) {
+			if (net_addr2ip(*tmp + 5, &remote_ip) < 0)
+				args_ok = FALSE;
+		} else if (strncasecmp(*tmp, "PORT=", 5) == 0) {
+			if (str_to_uint(*tmp + 5, &remote_port) < 0 ||
+			    remote_port == 0 || remote_port > 65535)
+				args_ok = FALSE;
+		}
+	}
+	if (!args_ok) {
+		client_send_line(client, "501 Invalid parameters");
+		return 0;
+	}
+
+	/* args ok, set them and reset the state */
+	client_state_reset(client);
+	if (remote_ip.family != 0)
+		client->remote_ip = remote_ip;
+	if (remote_port != 0)
+		client->remote_port = remote_port;
+	client_send_line(client, "220 %s %s", client->my_domain,
+			 client->lmtp_set->login_greeting);
+	return 0;
 }

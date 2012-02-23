@@ -8,6 +8,7 @@ struct lmtp_settings {
 	bool lmtp_proxy;
 	bool lmtp_save_to_detail_mailbox;
 	const char *login_greeting;
+	const char *login_trusted_networks;
 };
 
 extern const struct setting_parser_info lmtp_setting_parser_info;

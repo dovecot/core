@@ -11,5 +11,6 @@ int cmd_vrfy(struct client *client, const char *args);
 int cmd_rset(struct client *client, const char *args);
 int cmd_noop(struct client *client, const char *args);
 int cmd_data(struct client *client, const char *args);
+int cmd_xclient(struct client *client, const char *args);
 
 #endif

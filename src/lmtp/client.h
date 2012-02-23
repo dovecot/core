@@ -82,6 +82,7 @@ int client_input_read(struct client *client);
 
 void client_send_line(struct client *client, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
+bool client_is_trusted(struct client *client);
 
 void clients_destroy(void);
 
