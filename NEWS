@@ -1,3 +1,15 @@
+v2.1.1 2012-02-23  Timo Sirainen <tss@iki.fi>
+
+	+ dsync: If message with same GUID is saved multiple times in session,
+	  copy it instead of re-saving. 
+	- acl plugin + autocreated mailboxes crashed when listing mailboxes
+	- doveadm force-resync: Don't skip autocreated mailboxes (especially
+	  INBOX). 
+	- If process runs out of fds, stop listening for new connections only
+	  temporarily, not permanently (avoids hangs with process_limit=1
+	  services)
+	- auth: passdb imap crashed for non-login authentication (e.g. smtp).
+
 v2.1.0 2012-02-16  Timo Sirainen <tss@iki.fi>
 
 	* Plugins now use UTF-8 mailbox names rather than mUTF-7:
