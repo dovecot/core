@@ -199,9 +199,10 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 
 	err = net_geterror(proxy->server_fd);
 	if (err != 0) {
-		i_error("proxy(%s): connect(%s, %u) failed: %s",
+		i_error("proxy(%s): connect(%s, %u) failed: %s (after %u secs)",
 			proxy->client->virtual_user,
-			proxy->host, proxy->port, strerror(err));
+			proxy->host, proxy->port, strerror(err),
+			(unsigned int)(ioloop_time - proxy->created.tv_sec));
 		proxy_fail_connect(proxy);
                 login_proxy_free(&proxy);
 		return;
