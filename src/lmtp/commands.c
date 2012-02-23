@@ -150,7 +150,7 @@ int cmd_mail(struct client *client, const char *args)
 }
 
 static bool
-client_proxy_rcpt_parse_fields(struct lmtp_proxy_settings *set,
+client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 			       const char *const *args, const char **address)
 {
 	const char *p, *key, *value;
@@ -203,7 +203,7 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_settings *set,
 
 static bool
 client_proxy_is_ourself(const struct client *client,
-			const struct lmtp_proxy_settings *set)
+			const struct lmtp_proxy_rcpt_settings *set)
 {
 	struct ip_addr ip;
 
@@ -237,7 +237,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 			      const char *username, const char *detail)
 {
 	struct auth_master_connection *auth_conn;
-	struct lmtp_proxy_settings set;
+	struct lmtp_proxy_rcpt_settings set;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
 	const char *args, *const *fields, *errstr, *orig_username = username;
@@ -304,9 +304,15 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		return TRUE;
 	}
 	if (client->proxy == NULL) {
-		client->proxy = lmtp_proxy_init(client->set->hostname,
-						dns_client_socket_path,
-						client->output);
+		struct lmtp_proxy_settings proxy_set;
+
+		memset(&proxy_set, 0, sizeof(proxy_set));
+		proxy_set.my_hostname = client->set->hostname;
+		proxy_set.dns_client_socket_path = dns_client_socket_path;
+		proxy_set.source_ip = client->remote_ip;
+		proxy_set.source_port = client->remote_port;
+
+		client->proxy = lmtp_proxy_init(&proxy_set, client->output);
 		if (client->state.mail_body_8bitmime)
 			args = " BODY=8BITMIME";
 		else if (client->state.mail_body_7bit)

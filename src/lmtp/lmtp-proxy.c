@@ -21,7 +21,7 @@ struct lmtp_proxy_recipient {
 
 struct lmtp_proxy_connection {
 	struct lmtp_proxy *proxy;
-	struct lmtp_proxy_settings set;
+	struct lmtp_proxy_rcpt_settings set;
 
 	struct lmtp_client *client;
 	struct istream *data_input;
@@ -33,8 +33,8 @@ struct lmtp_proxy_connection {
 
 struct lmtp_proxy {
 	pool_t pool;
-	const char *mail_from, *my_hostname;
-	const char *dns_client_socket_path;
+	const char *mail_from;
+	struct lmtp_proxy_settings set;
 
 	ARRAY_DEFINE(connections, struct lmtp_proxy_connection *);
 	ARRAY_DEFINE(rcpt_to, struct lmtp_proxy_recipient *);
@@ -55,7 +55,7 @@ struct lmtp_proxy {
 static void lmtp_conn_finish(void *context);
 
 struct lmtp_proxy *
-lmtp_proxy_init(const char *my_hostname, const char *dns_client_socket_path,
+lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 		struct ostream *client_output)
 {
 	struct lmtp_proxy *proxy;
@@ -66,9 +66,12 @@ lmtp_proxy_init(const char *my_hostname, const char *dns_client_socket_path,
 	pool = pool_alloconly_create("lmtp proxy", 1024);
 	proxy = p_new(pool, struct lmtp_proxy, 1);
 	proxy->pool = pool;
-	proxy->my_hostname = p_strdup(pool, my_hostname);
 	proxy->client_output = client_output;
-	proxy->dns_client_socket_path = p_strdup(pool, dns_client_socket_path);
+	proxy->set.my_hostname = p_strdup(pool, set->my_hostname);
+	proxy->set.dns_client_socket_path =
+		p_strdup(pool, set->dns_client_socket_path);
+	proxy->set.source_ip = set->source_ip;
+	proxy->set.source_port = set->source_port;
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
 	return proxy;
@@ -110,7 +113,7 @@ void lmtp_proxy_mail_from(struct lmtp_proxy *proxy, const char *value)
 
 static struct lmtp_proxy_connection *
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
-			  const struct lmtp_proxy_settings *set)
+			  const struct lmtp_proxy_rcpt_settings *set)
 {
 	struct lmtp_proxy_connection *const *conns, *conn;
 	struct lmtp_client_settings client_set;
@@ -127,8 +130,10 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	memset(&client_set, 0, sizeof(client_set));
 	client_set.mail_from = proxy->mail_from;
-	client_set.my_hostname = proxy->my_hostname;
-	client_set.dns_client_socket_path = proxy->dns_client_socket_path;
+	client_set.my_hostname = proxy->set.my_hostname;
+	client_set.dns_client_socket_path = proxy->set.dns_client_socket_path;
+	client_set.source_ip = proxy->set.source_ip;
+	client_set.source_port = proxy->set.source_port;
 
 	conn = p_new(proxy->pool, struct lmtp_proxy_connection, 1);
 	conn->proxy = proxy;
@@ -236,7 +241,7 @@ lmtp_proxy_conn_data(bool success ATTR_UNUSED, const char *reply, void *context)
 }
 
 int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
-			const struct lmtp_proxy_settings *set)
+			const struct lmtp_proxy_rcpt_settings *set)
 {
 	struct lmtp_proxy_connection *conn;
 	struct lmtp_proxy_recipient *rcpt;
@@ -294,4 +299,5 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 		lmtp_client_send(conn->client, conn->data_input);
 		lmtp_client_send_more(conn->client);
 	}
+	lmtp_proxy_try_finish(proxy);
 }
