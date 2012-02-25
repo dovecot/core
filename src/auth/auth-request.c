@@ -1148,6 +1148,12 @@ static void auth_request_set_reply_field(struct auth_request *request,
 		   password back if using plaintext authentication. */
 		request->proxy = TRUE;
 		value = NULL;
+	} else if (strcmp(name, "proxy_always") == 0) {
+		/* when proxy_maybe=yes and proxying wouldn't normally be done,
+		   with this enabled proxy=y is still returned without host.
+		   this can be used to make director set the host. */
+		request->proxy_always = TRUE;
+		value = NULL;
 	} else if (strcmp(name, "proxy_maybe") == 0) {
 		/* like "proxy", but log in normally if we're proxying to
 		   ourself */
@@ -1466,6 +1472,11 @@ static void auth_request_proxy_finish_ip(struct auth_request *request)
 		/* proxying to ourself - log in without proxying by dropping
 		   all the proxying fields. */
 		auth_request_proxy_finish_failure(request);
+		if (request->proxy_always) {
+			/* director adds the host */
+			auth_stream_reply_add(request->extra_fields,
+					      "proxy", NULL);
+		}
 	}
 }
 

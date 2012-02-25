@@ -105,6 +105,7 @@ struct auth_request {
 	unsigned int prefer_plain_credentials:1;
 	unsigned int proxy:1;
 	unsigned int proxy_maybe:1;
+	unsigned int proxy_always:1;
 	unsigned int proxy_host_is_self:1;
 	unsigned int valid_client_cert:1;
 	unsigned int no_penalty:1;
