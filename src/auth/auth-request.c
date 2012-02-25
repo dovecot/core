@@ -11,6 +11,7 @@
 #include "str-sanitize.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "dns-lookup.h"
 #include "auth-cache.h"
 #include "auth-request.h"
 #include "auth-request-handler.h"
@@ -27,6 +28,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+#define AUTH_DNS_SOCKET_PATH "dns-client"
+#define AUTH_DNS_TIMEOUT_MSECS (1000*10)
 #define CACHED_PASSWORD_SCHEME "SHA1"
 
 unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
@@ -157,6 +160,11 @@ void auth_request_unref(struct auth_request **_request)
 
 	auth_request_state_count[request->state]--;
 	auth_refresh_proctitle();
+
+	if (request->mech_password != NULL) {
+		safe_memset(request->mech_password, 0,
+			    strlen(request->mech_password));
+	}
 
 	if (request->to_abort != NULL)
 		timeout_remove(&request->to_abort);
@@ -543,8 +551,6 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 	} else {
 		auth_request_ref(request);
 		request->private_callback.verify_plain(result, request);
-		safe_memset(request->mech_password, 0,
-			    strlen(request->mech_password));
 		auth_request_unref(&request);
 	}
 }
@@ -1410,25 +1416,18 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 
 static bool auth_request_proxy_is_self(struct auth_request *request)
 {
-	const char *const *tmp, *host = NULL, *port = NULL, *destuser = NULL;
-	struct ip_addr ip;
+	const char *const *tmp, *port = NULL, *destuser = NULL;
+
+	if (!request->proxy_host_is_self)
+		return FALSE;
 
 	tmp = auth_stream_split(request->extra_fields);
 	for (; *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "host=", 5) == 0)
-			host = *tmp + 5;
-		else if (strncmp(*tmp, "port=", 5) == 0)
+		if (strncmp(*tmp, "port=", 5) == 0)
 			port = *tmp + 5;
-		if (strncmp(*tmp, "destuser=", 9) == 0)
+		else if (strncmp(*tmp, "destuser=", 9) == 0)
 			destuser = *tmp + 9;
 	}
-
-	if (host == NULL || net_addr2ip(host, &ip) < 0) {
-		/* broken setup */
-		return FALSE;
-	}
-	if (!net_ip_compare(&ip, &request->local_ip))
-		return FALSE;
 
 	if (port != NULL && !str_uint_equals(port, request->local_port))
 		return FALSE;
@@ -1436,27 +1435,125 @@ static bool auth_request_proxy_is_self(struct auth_request *request)
 		strcmp(destuser, request->original_username) == 0;
 }
 
-void auth_request_proxy_finish(struct auth_request *request, bool success)
+static bool
+auth_request_proxy_ip_is_self(struct auth_request *request,
+			      const struct ip_addr *ip)
 {
-	if (!request->proxy || request->no_login)
-		return;
+	return net_ip_compare(ip, &request->local_ip);
+}
 
-	if (!success) {
-		/* drop all proxy fields */
-	} else if (!request->proxy_maybe) {
+static void auth_request_proxy_finish_ip(struct auth_request *request)
+{
+	if (!request->proxy_maybe) {
 		/* proxying */
 		request->no_login = TRUE;
-		return;
 	} else if (!auth_request_proxy_is_self(request)) {
 		/* proxy destination isn't ourself - proxy */
 		auth_stream_reply_remove(request->extra_fields, "proxy_maybe");
 		auth_stream_reply_add(request->extra_fields, "proxy", NULL);
 		request->no_login = TRUE;
-		return;
 	} else {
 		/* proxying to ourself - log in without proxying by dropping
 		   all the proxying fields. */
+		auth_request_proxy_finish_failure(request);
 	}
+}
+
+struct auth_request_proxy_dns_lookup_ctx {
+	struct auth_request *request;
+	auth_request_proxy_cb_t *callback;
+};
+
+static void
+auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
+				void *context)
+{
+	struct auth_request_proxy_dns_lookup_ctx *ctx = context;
+	struct auth_request *request = ctx->request;
+	const char *host;
+	unsigned int i;
+
+	if (result->ret != 0) {
+		host = auth_stream_reply_find(request->extra_fields, "host");
+		i_assert(host != NULL);
+		auth_request_log_error(request, "dns",
+			"dns_lookup(%s) failed: %s", host, result->error);
+		request->internal_failure = TRUE;
+		auth_request_proxy_finish_failure(request);
+	} else {
+		auth_stream_reply_remove(request->extra_fields, "host");
+		auth_stream_reply_add(request->extra_fields, "host",
+				      net_ip2addr(&result->ips[0]));
+		for (i = 0; i < result->ips_count; i++) {
+			if (auth_request_proxy_ip_is_self(request,
+							  &result->ips[i])) {
+				request->proxy_host_is_self = TRUE;
+				break;
+			}
+		}
+		auth_request_proxy_finish_ip(request);
+	}
+	if (ctx->callback != NULL)
+		ctx->callback(result->ret == 0, request);
+	i_free(ctx);
+}
+
+static int auth_request_proxy_host_lookup(struct auth_request *request,
+					  auth_request_proxy_cb_t *callback)
+{
+	struct auth_request_proxy_dns_lookup_ctx *ctx;
+	struct dns_lookup_settings dns_set;
+	const char *host;
+	struct ip_addr ip;
+
+	host = auth_stream_reply_find(request->extra_fields, "host");
+	if (host == NULL)
+		return 1;
+	if (net_addr2ip(host, &ip) == 0) {
+		if (auth_request_proxy_ip_is_self(request, &ip))
+			request->proxy_host_is_self = TRUE;
+		return 1;
+	}
+
+	/* need to do dns lookup for the host */
+	memset(&dns_set, 0, sizeof(dns_set));
+	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
+	dns_set.timeout_msecs = AUTH_DNS_TIMEOUT_MSECS;
+
+	ctx = i_new(struct auth_request_proxy_dns_lookup_ctx, 1);
+	ctx->request = request;
+
+	if (dns_lookup(host, &dns_set, auth_request_proxy_dns_callback, ctx) < 0) {
+		/* failed early */
+		request->internal_failure = TRUE;
+		auth_request_proxy_finish_failure(request);
+		return -1;
+	}
+	ctx->callback = callback;
+	return 0;
+}
+
+int auth_request_proxy_finish(struct auth_request *request,
+			      auth_request_proxy_cb_t *callback)
+{
+	int ret;
+
+	if (!request->proxy)
+		return 1;
+
+	if ((ret = auth_request_proxy_host_lookup(request, callback)) <= 0)
+		return ret;
+
+	auth_request_proxy_finish_ip(request);
+	return 1;
+}
+
+void auth_request_proxy_finish_failure(struct auth_request *request)
+{
+	if (!request->proxy)
+		return;
+
+	/* drop all proxying fields */
 	auth_stream_reply_remove(request->extra_fields, "proxy");
 	auth_stream_reply_remove(request->extra_fields, "proxy_maybe");
 	auth_stream_reply_remove(request->extra_fields, "host");
