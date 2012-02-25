@@ -18,6 +18,7 @@ struct pop3_client {
 	char *last_user;
 	char *apop_challenge;
 	unsigned int apop_server_pid, apop_connect_uid;
+	bool proxy_xclient;
 };
 
 enum pop3_cmd_reply {
