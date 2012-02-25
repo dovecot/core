@@ -29,7 +29,8 @@
 #include <sys/stat.h>
 
 #define AUTH_DNS_SOCKET_PATH "dns-client"
-#define AUTH_DNS_TIMEOUT_MSECS (1000*10)
+#define AUTH_DNS_DEFAULT_TIMEOUT_MSECS (1000*10)
+#define AUTH_DNS_WARN_MSECS 500
 #define CACHED_PASSWORD_SCHEME "SHA1"
 
 unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
@@ -1473,14 +1474,20 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 	const char *host;
 	unsigned int i;
 
+	host = auth_stream_reply_find(request->extra_fields, "host");
+	i_assert(host != NULL);
+
 	if (result->ret != 0) {
-		host = auth_stream_reply_find(request->extra_fields, "host");
-		i_assert(host != NULL);
-		auth_request_log_error(request, "dns",
-			"dns_lookup(%s) failed: %s", host, result->error);
+		auth_request_log_error(request, "proxy",
+			"DNS lookup for %s failed: %s", host, result->error);
 		request->internal_failure = TRUE;
 		auth_request_proxy_finish_failure(request);
 	} else {
+		if (result->msecs > AUTH_DNS_WARN_MSECS) {
+			auth_request_log_warning(request, "proxy",
+				"DNS lookup for %s took %u.%03u s",
+				host, result->msecs/1000, result->msecs % 1000);
+		}
 		auth_stream_reply_remove(request->extra_fields, "host");
 		auth_stream_reply_add(request->extra_fields, "host",
 				      net_ip2addr(&result->ips[0]));
@@ -1503,8 +1510,9 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 {
 	struct auth_request_proxy_dns_lookup_ctx *ctx;
 	struct dns_lookup_settings dns_set;
-	const char *host;
+	const char *host, *value;
 	struct ip_addr ip;
+	unsigned int secs;
 
 	host = auth_stream_reply_find(request->extra_fields, "host");
 	if (host == NULL)
@@ -1518,7 +1526,16 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	/* need to do dns lookup for the host */
 	memset(&dns_set, 0, sizeof(dns_set));
 	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
-	dns_set.timeout_msecs = AUTH_DNS_TIMEOUT_MSECS;
+	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
+	value = auth_stream_reply_find(request->extra_fields, "proxy_timeout");
+	if (value != NULL) {
+		if (str_to_uint(value, &secs) < 0) {
+			auth_request_log_error(request, "proxy",
+				"Invalid proxy_timeout value: %s", value);
+		} else {
+			dns_set.timeout_msecs = secs*1000;
+		}
+	}
 
 	ctx = i_new(struct auth_request_proxy_dns_lookup_ctx, 1);
 	ctx->request = request;
