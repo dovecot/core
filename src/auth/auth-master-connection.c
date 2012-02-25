@@ -287,17 +287,12 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
-static void
-pass_callback(enum passdb_result result,
-	      const unsigned char *credentials ATTR_UNUSED,
-	      size_t size ATTR_UNUSED,
-	      struct auth_request *auth_request)
+static void pass_callback_finish(struct auth_request *auth_request,
+				 enum passdb_result result)
 {
 	struct auth_master_connection *conn = auth_request->master;
 	struct auth_stream_reply *reply = auth_request->extra_fields;
 	string_t *str;
-
-	auth_request_proxy_finish(auth_request, result == PASSDB_RESULT_OK);
 
 	str = t_str_new(128);
 	switch (result) {
@@ -329,6 +324,34 @@ pass_callback(enum passdb_result result,
 
 	auth_request_unref(&auth_request);
 	auth_master_connection_unref(&conn);
+}
+
+static void
+auth_master_pass_proxy_finish(bool success, struct auth_request *auth_request)
+{
+	pass_callback_finish(auth_request, success ? PASSDB_RESULT_OK :
+			     PASSDB_RESULT_INTERNAL_FAILURE);
+}
+
+static void
+pass_callback(enum passdb_result result,
+	      const unsigned char *credentials ATTR_UNUSED,
+	      size_t size ATTR_UNUSED,
+	      struct auth_request *auth_request)
+{
+	int ret;
+
+	if (result != PASSDB_RESULT_OK)
+		auth_request_proxy_finish_failure(auth_request);
+	else {
+		ret = auth_request_proxy_finish(auth_request,
+						auth_master_pass_proxy_finish);
+		if (ret == 0)
+			return;
+		if (ret < 0)
+			result = PASSDB_RESULT_INTERNAL_FAILURE;
+	}
+	pass_callback_finish(auth_request, result);
 }
 
 static const char *auth_restricted_reason(struct auth_master_connection *conn)

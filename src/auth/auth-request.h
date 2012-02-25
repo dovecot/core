@@ -105,6 +105,7 @@ struct auth_request {
 	unsigned int prefer_plain_credentials:1;
 	unsigned int proxy:1;
 	unsigned int proxy_maybe:1;
+	unsigned int proxy_host_is_self:1;
 	unsigned int valid_client_cert:1;
 	unsigned int no_penalty:1;
 	unsigned int cert_username:1;
@@ -116,6 +117,8 @@ struct auth_request {
 
 	/* ... mechanism specific data ... */
 };
+
+typedef void auth_request_proxy_cb_t(bool success, struct auth_request *);
 
 extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
@@ -177,7 +180,10 @@ void auth_request_set_userdb_field(struct auth_request *request,
 void auth_request_set_userdb_field_values(struct auth_request *request,
 					  const char *name,
 					  const char *const *values);
-void auth_request_proxy_finish(struct auth_request *request, bool success);
+/* returns -1 = failed, 0 = callback is called later, 1 = finished */
+int auth_request_proxy_finish(struct auth_request *request,
+			      auth_request_proxy_cb_t *callback);
+void auth_request_proxy_finish_failure(struct auth_request *request);
 
 void auth_request_log_password_mismatch(struct auth_request *request,
 					const char *subsystem);

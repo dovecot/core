@@ -24,6 +24,7 @@ pkglibexec_PROGRAMS = auth checkpassword-reply
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ntlm \
