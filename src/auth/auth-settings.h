@@ -36,6 +36,7 @@ struct auth_settings {
 	const char *krb5_keytab;
 	const char *gssapi_hostname;
 	const char *winbind_helper_path;
+	const char *proxy_self;
 	unsigned int failure_delay;
 	unsigned int first_valid_uid;
 	unsigned int last_valid_uid;
@@ -58,6 +59,7 @@ struct auth_settings {
 	char username_chars_map[256];
 	char username_translation_map[256];
 	const char *const *realms_arr;
+	const struct ip_addr *proxy_self_ips;
 };
 
 extern const struct setting_parser_info auth_setting_parser_info;
