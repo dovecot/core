@@ -76,15 +76,16 @@ void auth_stream_reply_remove(struct auth_stream_reply *reply, const char *key)
 	if (!auth_stream_reply_find_area(reply, key, &idx, &len))
 		return;
 
-	if (str_len(reply->str) < idx + len) {
-		/* remove also trailing tab */
-		len++;
-	} else if (str_len(reply->str) == idx + len && idx > 0) {
-		/* removing last item, remove preceding tab */
+	if (idx == 0 && str_len(reply->str) == len) {
+		/* removing the only item */
+	} else if (str_len(reply->str) == idx + len) {
+		/* removing the last item -> remove the preceding tab */
 		len++;
 		idx--;
+	} else {
+		/* remove the trailing tab */
+		len++;
 	}
-
 	str_delete(reply->str, idx, len);
 }
 
