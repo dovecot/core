@@ -117,6 +117,7 @@ struct client {
 	struct login_proxy *login_proxy;
 	char *proxy_user, *proxy_master_user, *proxy_password;
 	unsigned int proxy_state;
+	unsigned int proxy_ttl;
 
 	char *auth_mech_name;
 	struct auth_client_request *auth_request;

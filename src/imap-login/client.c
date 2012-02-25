@@ -121,6 +121,8 @@ client_update_info(struct imap_client *client, const struct imap_arg *args)
 			(void)net_addr2ip(value, &client->common.local_ip);
 		else if (strcasecmp(key, "x-connected-port") == 0)
 			client->common.local_port = atoi(value);
+		else if (strcasecmp(key, "x-proxy-ttl") == 0)
+			client->common.proxy_ttl = atoi(value);
 		args += 2;
 	}
 }

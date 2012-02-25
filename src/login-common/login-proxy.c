@@ -277,6 +277,12 @@ int login_proxy_new(struct client *client,
 		return -1;
 	}
 
+	if (client->proxy_ttl == 0) {
+		i_error("proxy(%s): TTL reached zero - "
+			"proxies appear to be looping?", client->virtual_user);
+		return -1;
+	}
+
 	proxy = i_new(struct login_proxy, 1);
 	proxy->client = client;
 	proxy->client_fd = -1;

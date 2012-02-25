@@ -4,6 +4,8 @@
 #include "network.h"
 #include "lmtp-client.h"
 
+#define LMTP_PROXY_DEFAULT_TTL 5
+
 struct lmtp_proxy_settings {
 	const char *my_hostname;
 	const char *dns_client_socket_path;
@@ -11,6 +13,7 @@ struct lmtp_proxy_settings {
 	/* the original client's IP/port that connected to the proxy */
 	struct ip_addr source_ip;
 	unsigned int source_port;
+	unsigned int proxy_ttl;
 };
 
 struct lmtp_proxy_rcpt_settings {

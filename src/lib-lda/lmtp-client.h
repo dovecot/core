@@ -21,6 +21,8 @@ struct lmtp_client_settings {
 	   send the these as ADDR/PORT */
 	struct ip_addr source_ip;
 	unsigned int source_port;
+	/* send TTL as this -1, so the default 0 means "don't send it" */
+	unsigned int proxy_ttl_plus_1;
 };
 
 /* reply contains the reply coming from remote server, or NULL

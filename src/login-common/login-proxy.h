@@ -1,6 +1,13 @@
 #ifndef LOGIN_PROXY_H
 #define LOGIN_PROXY_H
 
+/* Max. number of embedded proxying connections until proxying fails.
+   This is intended to avoid an accidental configuration where two proxies
+   keep connecting to each others, both thinking the other one is supposed to
+   handle the user. This only works if both proxies support the Dovecot
+   TTL extension feature. */
+#define LOGIN_PROXY_TTL 5
+
 struct client;
 struct login_proxy;
 

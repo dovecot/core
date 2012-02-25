@@ -69,7 +69,7 @@ int cmd_lhlo(struct client *client, const char *args)
 	client_state_reset(client);
 	client_send_line(client, "250-%s", client->my_domain);
 	if (client_is_trusted(client))
-		client_send_line(client, "250-XCLIENT ADDR PORT");
+		client_send_line(client, "250-XCLIENT ADDR PORT TTL");
 	client_send_line(client, "250-8BITMIME");
 	client_send_line(client, "250-ENHANCEDSTATUSCODES");
 	client_send_line(client, "250 PIPELINING");
@@ -296,6 +296,15 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		return TRUE;
 	}
 
+	if (client->proxy_ttl == 0) {
+		i_error("Proxying to <%s> appears to be looping (TTL=0)",
+			username);
+		client_send_line(client, "554 5.4.6 <%s> "
+				 "Proxying appears to be looping (TTL=0)",
+				 username);
+		pool_unref(&pool);
+		return TRUE;
+	}
 	if (array_count(&client->state.rcpt_to) != 0) {
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
@@ -311,6 +320,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		proxy_set.dns_client_socket_path = dns_client_socket_path;
 		proxy_set.source_ip = client->remote_ip;
 		proxy_set.source_port = client->remote_port;
+		proxy_set.proxy_ttl = client->proxy_ttl-1;
 
 		client->proxy = lmtp_proxy_init(&proxy_set, client->output);
 		if (client->state.mail_body_8bitmime)
@@ -915,7 +925,7 @@ int cmd_xclient(struct client *client, const char *args)
 {
 	const char *const *tmp;
 	struct ip_addr remote_ip;
-	unsigned int remote_port = 0;
+	unsigned int remote_port = 0, ttl = -1U;
 	bool args_ok = TRUE;
 
 	if (!client_is_trusted(client)) {
@@ -931,6 +941,9 @@ int cmd_xclient(struct client *client, const char *args)
 			if (str_to_uint(*tmp + 5, &remote_port) < 0 ||
 			    remote_port == 0 || remote_port > 65535)
 				args_ok = FALSE;
+		} else if (strncasecmp(*tmp, "TTL=", 4) == 0) {
+			if (str_to_uint(*tmp + 4, &ttl) < 0)
+				args_ok = FALSE;
 		}
 	}
 	if (!args_ok) {
@@ -944,6 +957,8 @@ int cmd_xclient(struct client *client, const char *args)
 		client->remote_ip = remote_ip;
 	if (remote_port != 0)
 		client->remote_port = remote_port;
+	if (ttl != -1U)
+		client->proxy_ttl = ttl;
 	client_send_line(client, "220 %s %s", client->my_domain,
 			 client->lmtp_set->login_greeting);
 	return 0;

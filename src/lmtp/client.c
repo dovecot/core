@@ -227,6 +227,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client_generate_session_id(client);
 	client->my_domain = client->set->hostname;
 	client->lhlo = i_strdup("missing");
+	client->proxy_ttl = LMTP_PROXY_DEFAULT_TTL;
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;

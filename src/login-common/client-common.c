@@ -96,6 +96,7 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->trusted = client_is_trusted(client);
 	client->secured = ssl || client->trusted ||
 		net_ip_compare(remote_ip, local_ip);
+	client->proxy_ttl = LOGIN_PROXY_TTL;
 
 	if (last_client == NULL)
 		last_client = client;

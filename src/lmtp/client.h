@@ -62,6 +62,7 @@ struct client {
 	struct client_state state;
 	struct istream *dot_input;
 	struct lmtp_proxy *proxy;
+	unsigned int proxy_ttl;
 
 	unsigned int disconnected:1;
 };

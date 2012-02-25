@@ -72,6 +72,7 @@ lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 		p_strdup(pool, set->dns_client_socket_path);
 	proxy->set.source_ip = set->source_ip;
 	proxy->set.source_port = set->source_port;
+	proxy->set.proxy_ttl = set->proxy_ttl;
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
 	return proxy;
@@ -134,6 +135,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	client_set.dns_client_socket_path = proxy->set.dns_client_socket_path;
 	client_set.source_ip = proxy->set.source_ip;
 	client_set.source_port = proxy->set.source_port;
+	client_set.proxy_ttl_plus_1 = proxy->set.proxy_ttl+1;
 
 	conn = p_new(proxy->pool, struct lmtp_proxy_connection, 1);
 	conn->proxy = proxy;

@@ -56,6 +56,9 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 				args_ok = FALSE;
 			else
 				client->common.remote_port = remote_port;
+		} else if (strncasecmp(*tmp, "TTL=", 4) == 0) {
+			if (str_to_uint(*tmp + 4, &client->common.proxy_ttl) < 0)
+				args_ok = FALSE;
 		}
 	}
 	if (!args_ok) {
