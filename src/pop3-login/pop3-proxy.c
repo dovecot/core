@@ -43,6 +43,9 @@ static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 			"XCLIENT ADDR=%s PORT=%u\r\n",
 			net_ip2addr(&client->common.ip),
 			client->common.remote_port));
+		client->common.proxy_state = POP3_PROXY_XCLIENT;
+	} else {
+		client->common.proxy_state = POP3_PROXY_LOGIN1;
 	}
 
 	str = t_str_new(128);
@@ -56,7 +59,6 @@ static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 		str_append(str, "AUTH PLAIN\r\n");
 	}
 	(void)o_stream_send(output, str_data(str), str_len(str));
-	client->common.proxy_state = POP3_PROXY_LOGIN1;
 }
 
 int pop3_proxy_parse_line(struct client *client, const char *line)
@@ -105,6 +107,16 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		/* i/ostreams changed. */
 		output = login_proxy_get_ostream(client->login_proxy);
 		proxy_send_login(pop3_client, output);
+		return 1;
+	case POP3_PROXY_XCLIENT:
+		if (strncmp(line, "+OK", 3) != 0) {
+			client_log_err(client, t_strdup_printf(
+				"proxy: Remote XCLIENT failed: %s",
+				str_sanitize(line, 160)));
+			client_proxy_failed(client, TRUE);
+			return -1;
+		}
+		client->proxy_state = POP3_PROXY_LOGIN1;
 		return 1;
 	case POP3_PROXY_LOGIN1:
 		str = t_str_new(128);
