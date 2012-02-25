@@ -198,7 +198,6 @@ static void pop3_client_notify_auth_ready(struct client *client)
 		str_append(str, "[XCLIENT] ");
 	}
 	str_append(str, client->set->login_greeting);
-	pop3_client->apop_challenge = get_apop_challenge(pop3_client);
 	if (pop3_client->apop_challenge != NULL)
 		str_printfa(str, " %s", pop3_client->apop_challenge);
 	client_send_reply(client, POP3_CMD_REPLY_OK, str_c(str));

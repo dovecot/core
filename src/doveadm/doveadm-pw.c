@@ -129,5 +129,5 @@ static void cmd_pw(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_pw = {
 	cmd_pw, "pw",
-	"[-l] [-p plaintext] [-r rounds] [-s scheme] [-u user] [-V]"
+	"[-l] [-p plaintext] [-r rounds] [-s scheme] [-t hash] [-u user] [-V]"
 };

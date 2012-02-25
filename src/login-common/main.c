@@ -45,6 +45,7 @@ void **global_other_settings;
 static struct timeout *auth_client_to;
 static bool shutting_down = FALSE;
 static bool ssl_connections = FALSE;
+static bool auth_connected_once = FALSE;
 
 static void login_access_lookup_next(struct login_access_lookup *lookup);
 
@@ -246,14 +247,24 @@ static void client_connected(struct master_service_connection *conn)
 static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 				bool connected, void *context ATTR_UNUSED)
 {
-	if (connected)
+	if (connected) {
+		auth_connected_once = TRUE;
 		clients_notify_auth_connected();
-	else if (shutting_down)
+	} else if (shutting_down)
 		clients_destroy_all();
+	else if (!auth_connected_once) {
+		/* auth disconnected without having ever succeeded, so the
+		   auth process is probably misconfigured. no point in
+		   keeping the client connections hanging. */
+		clients_destroy_all_reason("Disconnected: Auth process broken");
+	}
 }
 
 static bool anvil_reconnect_callback(void)
 {
+	/* we got disconnected from anvil. we can't reconnect to it since we're
+	   chrooted, so just die after we've finished handling the current
+	   connections. */
 	master_service_stop_new_connections(master_service);
 	return FALSE;
 }

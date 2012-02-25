@@ -245,6 +245,20 @@ static void virtual_config_copy_expanded(struct virtual_parse_context *ctx,
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 }
 
+static bool virtual_ns_match(struct mail_namespace *config_ns,
+			     struct mail_namespace *iter_ns)
+{
+	/* we match only one namespace for each pattern, except with shared
+	   namespaces match also autocreated children */
+	if (config_ns == iter_ns)
+		return TRUE;
+	if (config_ns->type == iter_ns->type &&
+	    (config_ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0 &&
+	    (iter_ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0)
+		return TRUE;
+	return FALSE;
+}
+
 static bool virtual_config_match(const struct mailbox_info *info,
 				 ARRAY_TYPE(virtual_backend_box) *boxes_arr,
 				 unsigned int *idx_r)
@@ -255,8 +269,7 @@ static bool virtual_config_match(const struct mailbox_info *info,
 	boxes = array_get_modifiable(boxes_arr, &count);
 	for (i = 0; i < count; i++) {
 		if (boxes[i]->glob != NULL) {
-			/* we match only one namespace for each pattern. */
-			if (boxes[i]->ns == info->ns &&
+			if (virtual_ns_match(boxes[i]->ns, info->ns) &&
 			    imap_match(boxes[i]->glob,
 				       info->name) == IMAP_MATCH_YES) {
 				*idx_r = i;

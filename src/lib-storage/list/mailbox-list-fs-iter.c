@@ -407,7 +407,10 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->info.ns = _list->ns;
 
 	if (!fs_list_get_valid_patterns(ctx, patterns)) {
-		/* we've only invalid patterns (or INBOX) */
+		/* we've only invalid patterns (or INBOX). create a glob
+		   anyway to avoid any crashes due to glob being accessed
+		   elsewhere */
+		ctx->ctx.glob = imap_match_init(pool, "", TRUE, ctx->sep);
 		return &ctx->ctx;
 	}
 	ctx->ctx.glob = imap_match_init_multiple(pool, ctx->valid_patterns,

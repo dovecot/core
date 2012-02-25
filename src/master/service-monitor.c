@@ -398,7 +398,8 @@ void services_monitor_start(struct service_list *service_list)
 {
 	struct service *const *services;
 
-	services_log_init(service_list);
+	if (services_log_init(service_list) < 0)
+		return;
 	service_anvil_monitor_start(service_list);
 
 	if (pipe(service_list->master_dead_pipe_fd) < 0)
@@ -434,14 +435,17 @@ void services_monitor_start(struct service_list *service_list)
 		service_monitor_listen_start(service);
 	}
 
-	if (service_process_create(service_list->log) != NULL)
-		service_monitor_listen_stop(service_list->log);
+	if (service_list->log->status_fd[0] != -1) {
+		if (service_process_create(service_list->log) != NULL)
+			service_monitor_listen_stop(service_list->log);
+	}
 
 	/* start up a process for startup-services */
 	array_foreach(&service_list->services, services) {
 		struct service *service = *services;
 
-		if (service->type == SERVICE_TYPE_STARTUP) {
+		if (service->type == SERVICE_TYPE_STARTUP &&
+		    service->status_fd[0] != -1) {
 			if (service_process_create(service) != NULL)
 				service_monitor_listen_stop(service);
 		}

@@ -270,16 +270,21 @@ void client_destroy_oldest(void)
 	client_destroy(client, "Disconnected: Connection queue full");
 }
 
-void clients_destroy_all(void)
+void clients_destroy_all_reason(const char *reason)
 {
 	struct client *client, *next;
 
 	for (client = clients; client != NULL; client = next) {
 		next = client->next;
 		client_notify_disconnect(client,
-			CLIENT_DISCONNECT_SYSTEM_SHUTDOWN, "Shutting down.");
-		client_destroy(client, "Disconnected: Shutting down");
+			CLIENT_DISCONNECT_SYSTEM_SHUTDOWN, reason);
+		client_destroy(client, reason);
 	}
+}
+
+void clients_destroy_all(void)
+{
+	clients_destroy_all_reason("Disconnected: Shutting down");
 }
 
 static void client_start_tls(struct client *client)

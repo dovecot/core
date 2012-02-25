@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-FETCH 1 "2010-11-25" "Dovecot v2.1" "Dovecot"
+.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-FETCH 1 "2012-02-13" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-fetch \- Fetch partial/full messages or message information
 .\"------------------------------------------------------------------------
@@ -117,6 +117,10 @@ The globally unique identifier of the mailbox, in which the message is
 located.
 .\"-----------------
 .TP
+.B pop3.uidl
+A message\(aqs unique (POP3) identifier within a mailbox.
+.\"-----------------
+.TP
 .B seq
 A message\(aqs sequence number in a mailbox.
 .\"-----------------
@@ -131,6 +135,10 @@ A message\(aqs virtual size, computed with CRLF line terminators.
 .TP
 .B text
 The entire message (header and body).
+.\"-----------------
+.TP
+.B text.utf8
+The entire message (header and body) \(em UTF\-8 encoded.
 .\"-----------------
 .TP
 .B uid

@@ -129,24 +129,23 @@ client_update_info(struct imap_client *client, const struct imap_arg *args)
 
 static int cmd_id(struct imap_client *client, const struct imap_arg *args)
 {
-	const char *env, *value;
+	const char *value;
 
 	if (!client->id_logged) {
 		client->id_logged = TRUE;
 		if (client->common.trusted)
 			client_update_info(client, args);
 
-		env = getenv("IMAP_ID_LOG");
-		value = imap_id_args_get_log_reply(args, env);
+		value = imap_id_args_get_log_reply(args, client->set->imap_id_log);
 		if (value != NULL) {
 			client_log(&client->common,
 				   t_strdup_printf("ID sent: %s", value));
 		}
 	}
 
-	env = getenv("IMAP_ID_SEND");
 	client_send_raw(&client->common,
-		t_strdup_printf("* ID %s\r\n", imap_id_reply_generate(env)));
+		t_strdup_printf("* ID %s\r\n",
+			imap_id_reply_generate(client->set->imap_id_send)));
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, "ID completed.");
 	return 1;
 }

@@ -779,7 +779,9 @@ static void master_service_listen(struct master_service_listener *l)
 		} else {
 			errno = orig_errno;
 			i_error("net_accept() failed: %m");
-			master_service_error(service);
+			/* try again later after one of the existing
+			   connections has died */
+			master_service_io_listeners_remove(service);
 			return;
 		}
 		/* use the "listener" as the connection fd and stop the

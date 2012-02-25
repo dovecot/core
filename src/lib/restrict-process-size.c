@@ -49,6 +49,25 @@ void restrict_fd_limit(rlim_t count)
 #endif
 }
 
+int restrict_get_process_size(rlim_t *limit_r)
+{
+	struct rlimit rlim;
+
+#ifdef HAVE_RLIMIT_AS
+	if (getrlimit(RLIMIT_AS, &rlim) < 0) {
+		i_error("getrlimit(RLIMIT_AS): %m");
+		return -1;
+	}
+#else
+	if (getrlimit(RLIMIT_DATA, &rlim) < 0) {
+		i_error("getrlimit(RLIMIT_DATA): %m");
+		return -1;
+	}
+#endif
+	*limit_r = rlim.rlim_cur;
+	return 0;
+}
+
 int restrict_get_core_limit(rlim_t *limit_r)
 {
 #ifdef HAVE_RLIMIT_CORE

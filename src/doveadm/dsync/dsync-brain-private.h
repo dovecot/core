@@ -141,4 +141,8 @@ void dsync_brain_msg_sync_deinit(struct dsync_brain_mailbox_sync **_sync);
 
 void dsync_brain_msg_sync_new_msgs(struct dsync_brain_mailbox_sync *sync);
 
+void dsync_brain_guid_add(struct dsync_brain_msg_iter *iter,
+			  unsigned int mailbox_idx,
+			  const struct dsync_message *msg);
+
 #endif

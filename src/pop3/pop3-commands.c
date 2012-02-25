@@ -578,7 +578,8 @@ static bool pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 				     &tab[2].value) < 0 ||
 		    *tab[2].value == '\0') {
 			/* broken */
-			i_fatal("UIDL: Header MD5 not found");
+			i_fatal("UIDL: Header MD5 not found "
+				"(pop3_uidl_format=%%m not supported by storage?)");
 		}
 	}
 	if ((client->uidl_keymask & UIDL_FILE_NAME) != 0) {
@@ -587,7 +588,8 @@ static bool pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 				     &tab[3].value) < 0 ||
 		    *tab[3].value == '\0') {
 			/* broken */
-			i_fatal("UIDL: File name not found");
+			i_fatal("UIDL: File name not found "
+				"(pop3_uidl_format=%%f not supported by storage?)");
 		}
 	}
 	if ((client->uidl_keymask & UIDL_GUID) != 0) {
@@ -595,7 +597,8 @@ static bool pop3_get_uid(struct client *client, struct cmd_uidl_context *ctx,
 				     &tab[4].value) < 0 ||
 		    *tab[4].value == '\0') {
 			/* broken */
-			i_fatal("UIDL: Message GUID not found");
+			i_fatal("UIDL: Message GUID not found "
+				"(pop3_uidl_format=%%g not supported by storage?)");
 		}
 	}
 	var_expand(str, client->mail_set->pop3_uidl_format, tab);

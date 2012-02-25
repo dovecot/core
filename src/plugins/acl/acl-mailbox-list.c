@@ -21,7 +21,6 @@ struct acl_mailbox_list_iterate_context {
 	struct mailbox_tree_context *lookup_boxes;
 	struct mailbox_info info;
 
-	struct imap_match_glob *glob;
 	char sep;
 	unsigned int simple_star_glob:1;
 };
@@ -175,8 +174,8 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 
 	inboxcase = (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
 	ctx->sep = mail_namespace_get_sep(list->ns);
-	ctx->glob = imap_match_init_multiple(pool, patterns,
-					     inboxcase, ctx->sep);
+	ctx->ctx.glob = imap_match_init_multiple(pool, patterns,
+						 inboxcase, ctx->sep);
 	/* see if all patterns have only a single '*' and it's at the end.
 	   we can use it to do some optimizations. */
 	ctx->simple_star_glob = TRUE;
@@ -249,7 +248,7 @@ iter_is_listing_all_children(struct acl_mailbox_list_iterate_context *ctx)
 	   this by simply checking if name/child mailbox matches. */
 	child = t_strdup_printf("%s%cx", ctx->info.name, ctx->sep);
 	return ctx->simple_star_glob &&
-		imap_match(ctx->glob, child) == IMAP_MATCH_YES;
+		imap_match(ctx->ctx.glob, child) == IMAP_MATCH_YES;
 }
 
 static bool
@@ -299,7 +298,7 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (only_nonpatterns &&
-		    imap_match(ctx->glob, info->name) == IMAP_MATCH_YES) {
+		    imap_match(ctx->ctx.glob, info->name) == IMAP_MATCH_YES) {
 			/* at least one child matches also the original list
 			   patterns. we don't need to show this mailbox. */
 			ret = FALSE;

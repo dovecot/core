@@ -1,5 +1,5 @@
-.\" Copyright (c) 2010 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-PW 1 "2010-06-22" "Dovecot v2.1" "Dovecot"
+.\" Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-PW 1 "2012-02-13" "Dovecot v2.1" "Dovecot"
 .SH NAME
 doveadm\-pw \- Dovecot\(aqs password hash generator
 .\"------------------------------------------------------------------------
@@ -13,6 +13,11 @@ doveadm\-pw \- Dovecot\(aqs password hash generator
 [\fB\-s\fP \fIscheme\fP]
 [\fB\-u\fP \fIuser\fP]
 .RB [ \-V ]
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " "pw \-t"
+.I hash
+[\fB\-u\fP \fIuser\fP]
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 .B doveadm pw
@@ -104,6 +109,12 @@ Supported encoding suffixes are:
 .br
 See also http://wiki2.dovecot.org/Authentication/PasswordSchemes for more
 details about password schemes.
+.\"-------------------------------------
+.TP
+.BI \-t\  hash
+Test if the given password
+.IR hash
+matches a given plain text password.
 .\"-------------------------------------
 .TP
 .BI \-u\  user

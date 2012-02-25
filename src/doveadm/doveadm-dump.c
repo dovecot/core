@@ -63,9 +63,10 @@ static void cmd_dump(int argc, char *argv[])
 
 	dump = type != NULL ? dump_find_name(type) : dump_find_test(argv[1]);
 	if (dump == NULL) {
-		if (type != NULL)
+		if (type != NULL) {
+			print_dump_types();
 			i_fatal_status(EX_USAGE, "Unknown type: %s", type);
-		else {
+		} else {
 			i_fatal_status(EX_DATAERR,
 				"Can't autodetect file type: %s", argv[1]);
 		}
@@ -87,6 +88,16 @@ static const struct doveadm_cmd_dump *dumps_builtin[] = {
 	&doveadm_cmd_dump_mailboxlog,
 	&doveadm_cmd_dump_thread
 };
+
+void print_dump_types(void)
+{
+	unsigned int i;
+
+	fprintf(stderr, "Available dump types: %s", dumps_builtin[0]->name);
+	for (i = 1; i < N_ELEMENTS(dumps_builtin); i++)
+		fprintf(stderr, " %s", dumps_builtin[i]->name);
+	fprintf(stderr, "\n");
+}
 
 void doveadm_dump_init(void)
 {

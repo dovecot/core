@@ -44,6 +44,11 @@ and all its child processes.
 Manage Dovecot directors (if used by proxy servers).
 .\"-------------------------------------
 .TP
+.B doveadm instance
+.BR doveadm\-instance (1),
+Manage the list of running Dovecot instances.
+.\"-------------------------------------
+.TP
 .B doveadm kick
 .BR doveadm\-kick (1),
 Disconnect users by user name and/or IP address.
@@ -52,6 +57,11 @@ Disconnect users by user name and/or IP address.
 .B doveadm log
 .BR doveadm\-log (1),
 Locate, test or reopen Dovecot\(aqs log files.
+.\"-------------------------------------
+.TP
+.B doveadm mount
+.BR doveadm\-mount (1),
+Manage the list of mountpoints where mails are stored.
 .\"-------------------------------------
 .TP
 .B doveadm penalty

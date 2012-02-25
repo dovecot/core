@@ -280,9 +280,16 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	}
 	for (i = 0; i < count; i++) {
 		if (namespace_add(user, ns_set[i], unexpanded_ns_set[i],
-				  mail_set, ns_p, error_r) < 0)
-			return -1;
-		ns_p = &(*ns_p)->next;
+				  mail_set, ns_p, error_r) < 0) {
+			if (!ns_set[i]->ignore_on_failure)
+				return -1;
+			if (mail_set->mail_debug) {
+				i_debug("Skipping namespace %s: %s",
+					ns_set[i]->prefix, *error_r);
+			}
+		} else {
+			ns_p = &(*ns_p)->next;
+		}
 	}
 
 	if (namespaces != NULL) {
@@ -313,8 +320,9 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 {
 	struct mail_namespace_settings *inbox_set, *unexpanded_inbox_set;
 	struct mail_namespace *ns;
-	const struct mail_storage_settings *mail_set, *unexpanded_mail_set;
+	const struct mail_storage_settings *mail_set;
 	const char *error, *driver, *location_source;
+	bool default_location = FALSE;
 
 	i_assert(location == NULL || *location != '\0');
 
@@ -338,14 +346,9 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 		inbox_set->location = p_strdup(user->pool, location);
 		location_source = "mail_location parameter";
 	} else if (*mail_set->mail_location != '\0') {
-		unexpanded_mail_set = mail_user_set_get_driver_settings(
-			user->set_info, user->unexpanded_set,
-			MAIL_STORAGE_SET_DRIVER_NAME);
-
-		inbox_set->location = mail_set->mail_location;
-		unexpanded_inbox_set->location =
-			unexpanded_mail_set->mail_location;
 		location_source = "mail_location setting";
+		inbox_set->location = mail_set->mail_location;
+		default_location = TRUE;
 	} else {
 		location_source = "environment MAIL";
 		inbox_set->location = getenv("MAIL");
@@ -360,7 +363,12 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 			location_source = "environment MAILDIR";
 		}
 	}
-	if (*unexpanded_inbox_set->location == '\0') {
+	if (default_location) {
+		/* treat this the same as if a namespace was created with
+		   default settings. dsync relies on finding a namespace
+		   without explicit location setting. */
+		unexpanded_inbox_set->location = SETTING_STRVAR_UNEXPANDED;
+	} else {
 		unexpanded_inbox_set->location =
 			p_strconcat(user->pool, SETTING_STRVAR_EXPANDED,
 				    inbox_set->location, NULL);
