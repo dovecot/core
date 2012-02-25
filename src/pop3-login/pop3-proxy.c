@@ -37,6 +37,14 @@ static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 {
 	string_t *str;
 
+	if (client->proxy_xclient) {
+		/* remote supports XCLIENT, send it */
+		(void)o_stream_send_str(output, t_strdup_printf(
+			"XCLIENT ADDR=%s PORT=%u\r\n",
+			net_ip2addr(&client->common.ip),
+			client->common.remote_port));
+	}
+
 	str = t_str_new(128);
 	if (client->common.proxy_master_user == NULL) {
 		/* send USER command */
@@ -71,6 +79,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
+		pop3_client->proxy_xclient =
+			strncmp(line+3, " [XCLIENT]", 10) == 0;
 
 		ssl_flags = login_proxy_get_ssl_flags(client->login_proxy);
 		if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
