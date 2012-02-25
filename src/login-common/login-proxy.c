@@ -10,7 +10,6 @@
 #include "time-util.h"
 #include "master-service.h"
 #include "ipc-server.h"
-#include "dns-lookup.h"
 #include "client-common.h"
 #include "ssl-proxy.h"
 #include "login-proxy-state.h"
@@ -19,7 +18,6 @@
 #define MAX_PROXY_INPUT_SIZE 4096
 #define OUTBUF_THRESHOLD 1024
 #define LOGIN_PROXY_DIE_IDLE_SECS 2
-#define LOGIN_PROXY_DNS_WARN_MSECS 500
 #define LOGIN_PROXY_IPC_PATH "ipc-proxy"
 #define LOGIN_PROXY_IPC_NAME "proxy"
 #define KILLED_BY_ADMIN_REASON "Killed by admin"
@@ -266,32 +264,11 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	return 0;
 }
 
-static void login_proxy_dns_done(const struct dns_lookup_result *result,
-				 struct login_proxy *proxy)
-{
-	if (result->ret != 0) {
-		i_error("proxy(%s): DNS lookup of %s failed: %s",
-			proxy->client->virtual_user, proxy->host,
-			result->error);
-		login_proxy_free(&proxy);
-	} else {
-		if (result->msecs > LOGIN_PROXY_DNS_WARN_MSECS) {
-			i_warning("proxy(%s): DNS lookup for %s took %u.%03u s",
-				  proxy->client->virtual_user, proxy->host,
-				  result->msecs/1000, result->msecs % 1000);
-		}
-
-		proxy->ip = result->ips[0];
-		(void)login_proxy_connect(proxy);
-	}
-}
-
 int login_proxy_new(struct client *client,
 		    const struct login_proxy_settings *set,
 		    proxy_callback_t *callback)
 {
 	struct login_proxy *proxy;
-	struct dns_lookup_settings dns_lookup_set;
 
 	i_assert(client->login_proxy == NULL);
 
@@ -312,14 +289,10 @@ int login_proxy_new(struct client *client,
 	proxy->ssl_flags = set->ssl_flags;
 	client_ref(client);
 
-	memset(&dns_lookup_set, 0, sizeof(dns_lookup_set));
-	dns_lookup_set.dns_client_socket_path = set->dns_client_socket_path;
-	dns_lookup_set.timeout_msecs = set->connect_timeout_msecs;
-
 	if (net_addr2ip(set->host, &proxy->ip) < 0) {
-		if (dns_lookup(set->host, &dns_lookup_set,
-			       login_proxy_dns_done, proxy) < 0)
-			return -1;
+		i_error("proxy(%s): BUG: host %s is not an IP "
+			"(auth should have changed it)",
+			client->virtual_user, set->host);
 	} else {
 		if (login_proxy_connect(proxy) < 0)
 			return -1;

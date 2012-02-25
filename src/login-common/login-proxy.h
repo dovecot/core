@@ -15,7 +15,6 @@ enum login_proxy_ssl_flags {
 
 struct login_proxy_settings {
 	const char *host;
-	const char *dns_client_socket_path;
 	unsigned int port;
 	unsigned int connect_timeout_msecs;
 	/* send a notification about proxy connection to proxy-notify pipe
