@@ -45,6 +45,29 @@ static void client_open_streams(struct client *client)
 	}
 }
 
+static bool client_is_trusted(struct client *client)
+{
+	const char *const *net;
+	struct ip_addr net_ip;
+	unsigned int bits;
+
+	if (client->set->login_trusted_networks == NULL)
+		return FALSE;
+
+	net = t_strsplit_spaces(client->set->login_trusted_networks, ", ");
+	for (; *net != NULL; net++) {
+		if (net_parse_range(*net, &net_ip, &bits) < 0) {
+			i_error("login_trusted_networks: "
+				"Invalid network '%s'", *net);
+			break;
+		}
+
+		if (net_is_in_network(&client->ip, &net_ip, bits))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 struct client *
 client_create(int fd, bool ssl, pool_t pool,
 	      const struct login_settings *set, void **other_sets,
@@ -491,29 +514,6 @@ void client_log_warn(struct client *client, const char *msg)
 	T_BEGIN {
 		i_warning("%s", client_get_log_str(client, msg));
 	} T_END;
-}
-
-bool client_is_trusted(struct client *client)
-{
-	const char *const *net;
-	struct ip_addr net_ip;
-	unsigned int bits;
-
-	if (client->set->login_trusted_networks == NULL)
-		return FALSE;
-
-	net = t_strsplit_spaces(client->set->login_trusted_networks, ", ");
-	for (; *net != NULL; net++) {
-		if (net_parse_range(*net, &net_ip, &bits) < 0) {
-			i_error("login_trusted_networks: "
-				"Invalid network '%s'", *net);
-			break;
-		}
-
-		if (net_is_in_network(&client->ip, &net_ip, bits))
-			return TRUE;
-	}
-	return FALSE;
 }
 
 const char *client_get_extra_disconnect_reason(struct client *client)

@@ -176,7 +176,6 @@ void client_log(struct client *client, const char *msg);
 void client_log_err(struct client *client, const char *msg);
 void client_log_warn(struct client *client, const char *msg);
 const char *client_get_extra_disconnect_reason(struct client *client);
-bool client_is_trusted(struct client *client);
 
 void client_auth_respond(struct client *client, const char *response);
 void client_auth_abort(struct client *client);
