@@ -117,7 +117,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		}
 		client->proxy_state = POP3_PROXY_LOGIN1;
-		return 1;
+		return 0;
 	case POP3_PROXY_LOGIN1:
 		str = t_str_new(128);
 		if (client->proxy_master_user == NULL) {
