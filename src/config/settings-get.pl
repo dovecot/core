@@ -8,6 +8,7 @@ print '#include "var-expand.h"'."\n";
 print '#include "file-lock.h"'."\n";
 print '#include "fsync-mode.h"'."\n";
 print '#include "hash-format.h"'."\n";
+print '#include "network.h"'."\n";
 print '#include "unichar.h"'."\n";
 print '#include "settings-parser.h"'."\n";
 print '#include "all-settings.h"'."\n";

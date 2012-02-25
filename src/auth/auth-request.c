@@ -1440,7 +1440,16 @@ static bool
 auth_request_proxy_ip_is_self(struct auth_request *request,
 			      const struct ip_addr *ip)
 {
-	return net_ip_compare(ip, &request->local_ip);
+	unsigned int i;
+
+	if (net_ip_compare(ip, &request->local_ip))
+		return TRUE;
+
+	for (i = 0; request->set->proxy_self_ips[i].family != 0; i++) {
+		if (net_ip_compare(ip, &request->set->proxy_self_ips[i]))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 static void auth_request_proxy_finish_ip(struct auth_request *request)
