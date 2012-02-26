@@ -1343,10 +1343,9 @@ int mailbox_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 }
 
 #undef mailbox_notify_changes
-void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
+void mailbox_notify_changes(struct mailbox *box,
 			    mailbox_notify_callback_t *callback, void *context)
 {
-	box->notify_min_interval = min_interval;
 	box->notify_callback = callback;
 	box->notify_context = context;
 
@@ -1355,7 +1354,7 @@ void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 
 void mailbox_notify_changes_stop(struct mailbox *box)
 {
-	mailbox_notify_changes(box, 0, NULL, NULL);
+	mailbox_notify_changes(box, NULL, NULL);
 }
 
 struct mail_search_context *

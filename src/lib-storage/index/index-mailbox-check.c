@@ -67,12 +67,13 @@ static void notify_callback(struct mailbox *box)
 void index_mailbox_check_add(struct mailbox *box, const char *path)
 {
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
+	const struct mail_storage_settings *set = box->storage->set;
 	struct index_notify_file *file;
 	struct stat st;
 	struct io *io = NULL;
 	struct index_notify_io *aio;
 
-	i_assert(box->notify_min_interval > 0);
+	i_assert(set->mailbox_idle_check_interval > 0);
 
 	(void)io_add_notify(path, notify_callback, box, &io);
 	if (io != NULL) {
@@ -94,7 +95,7 @@ void index_mailbox_check_add(struct mailbox *box, const char *path)
 	 * when the filesystem is remote (NFS, ...) */
 	if (ibox->notify_to == NULL) {
 		ibox->notify_to =
-			timeout_add(box->notify_min_interval * 1000,
+			timeout_add(set->mailbox_idle_check_interval * 1000,
 				    check_timeout, box);
 	}
 }

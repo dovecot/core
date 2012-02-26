@@ -253,14 +253,8 @@ bool cmd_idle(struct client_command_context *cmd)
 	ctx->client = client;
 	idle_add_keepalive_timeout(ctx);
 
-	if (client->mailbox != NULL) {
-		const struct mail_storage_settings *set;
-
-		set = mailbox_get_settings(client->mailbox);
-		mailbox_notify_changes(client->mailbox,
-				       set->mailbox_idle_check_interval,
-				       idle_callback, ctx);
-	}
+	if (client->mailbox != NULL)
+		mailbox_notify_changes(client->mailbox, idle_callback, ctx);
 	client_send_line(client, "+ idling");
 
 	io_remove(&client->io);

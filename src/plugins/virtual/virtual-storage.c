@@ -391,10 +391,8 @@ static void virtual_notify_changes(struct mailbox *box)
 
 		if (box->notify_callback == NULL)
 			mailbox_notify_changes_stop(bbox);
-		else {
-			mailbox_notify_changes(bbox, box->notify_min_interval,
-					       virtual_notify_callback, box);
-		}
+		else
+			mailbox_notify_changes(bbox, virtual_notify_callback, box);
 	}
 }
 

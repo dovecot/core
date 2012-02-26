@@ -241,7 +241,6 @@ struct mailbox {
 	enum mailbox_feature enabled_features;
 
 	/* Mailbox notification settings: */
-	unsigned int notify_min_interval;
 	mailbox_notify_callback_t *notify_callback;
 	void *notify_context;
 
