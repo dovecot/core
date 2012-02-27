@@ -464,9 +464,11 @@ static const char *driver_mysql_result_get_error(struct sql_result *_result)
 	struct mysql_db *db = (struct mysql_db *)_result->db;
 	const char *errstr;
 	unsigned int idle_time;
+	int err;
 
+	err = mysql_errno(db->mysql);
 	errstr = mysql_error(db->mysql);
-	if (mysql_errno(db->mysql) == CR_SERVER_GONE_ERROR &&
+	if ((err == CR_SERVER_GONE_ERROR || err == CR_SERVER_LOST) &&
 	    db->last_success != 0) {
 		idle_time = ioloop_time - db->last_success;
 		errstr = t_strdup_printf("%s (idled for %u secs)",
