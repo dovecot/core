@@ -44,15 +44,6 @@ enum client_command_state {
 	CLIENT_COMMAND_STATE_DONE
 };
 
-struct imap_module_register {
-	unsigned int id;
-};
-
-union imap_module_context {
-	struct imap_module_register *reg;
-};
-extern struct imap_module_register imap_module_register;
-
 struct client_command_context {
 	struct client_command_context *prev, *next;
 	struct client *client;
@@ -96,8 +87,14 @@ struct partial_fetch_cache {
 	struct message_size pos;
 };
 
+struct imap_client_vfuncs {
+	void (*destroy)(struct client *client, const char *reason);
+};
+
 struct client {
 	struct client *prev, *next;
+
+	struct imap_client_vfuncs v;
 
 	int fd_in, fd_out;
 	struct io *io;
@@ -164,6 +161,16 @@ struct client {
 					   found a new line */
 	unsigned int modseqs_sent_since_sync:1;
 };
+
+struct imap_module_register {
+	unsigned int id;
+};
+
+union imap_module_context {
+	struct imap_client_vfuncs super;
+	struct imap_module_register *reg;
+};
+extern struct imap_module_register imap_module_register;
 
 extern struct client *imap_clients;
 extern unsigned int imap_client_count;
