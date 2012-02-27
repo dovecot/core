@@ -47,7 +47,7 @@ static const struct imap_acl_letter_map imap_acl_letter_map[] = {
 const char *imap_acl_plugin_version = DOVECOT_VERSION;
 
 static struct module *imap_acl_module;
-static void (*next_hook_client_created)(struct client **client);
+static imap_client_created_func_t *next_hook_client_created;
 
 static struct mailbox *
 acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)

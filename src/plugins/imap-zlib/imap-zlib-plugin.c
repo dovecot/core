@@ -25,7 +25,7 @@ struct zlib_client {
 const char *imap_zlib_plugin_version = DOVECOT_VERSION;
 
 static struct module *imap_zlib_module;
-static void (*next_hook_client_created)(struct client **client);
+static imap_client_created_func_t *next_hook_client_created;
 
 static MODULE_CONTEXT_DEFINE_INIT(imap_zlib_imap_module,
 				  &imap_module_register);

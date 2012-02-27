@@ -17,7 +17,7 @@
 const char *imap_quota_plugin_version = DOVECOT_VERSION;
 
 static struct module *imap_quota_module;
-static void (*next_hook_client_created)(struct client **client);
+static imap_client_created_func_t *next_hook_client_created;
 
 static const char *
 imap_quota_root_get_name(struct mail_user *user, struct mail_user *owner,
