@@ -596,9 +596,6 @@ static void auth_worker_input(struct auth_worker_client *client)
 	char *line;
 	bool ret;
 
-	if (client->to_idle != NULL)
-		timeout_reset(client->to_idle);
-
 	switch (i_stream_read(client->input)) {
 	case 0:
 		return;
@@ -656,6 +653,8 @@ static void auth_worker_input(struct auth_worker_client *client)
 			break;
 		}
 	}
+	if (client->to_idle != NULL)
+		timeout_reset(client->to_idle);
 	auth_worker_client_unref(&client);
 }
 
