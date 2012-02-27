@@ -2,11 +2,13 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "buffer.h"
 #include "str.h"
 #include "close-keep-errno.h"
 #include "safe-mkstemp.h"
 #include "execv-const.h"
 #include "istream.h"
+#include "ostream.h"
 #include "master-service.h"
 #include "lmtp-client.h"
 #include "lda-settings.h"
@@ -20,7 +22,9 @@
 #define DEFAULT_SUBMISSION_PORT 25
 
 struct smtp_client {
-	FILE *f;
+	struct ostream *output;
+	buffer_t *buf;
+	int temp_fd;
 	pid_t pid;
 
 	bool use_smtp;
@@ -33,15 +37,17 @@ struct smtp_client {
 	char *return_path;
 };
 
-static struct smtp_client *smtp_client_devnull(FILE **file_r)
+static struct smtp_client *smtp_client_devnull(struct ostream **output_r)
 {
 	struct smtp_client *client;
-
+	
 	client = i_new(struct smtp_client, 1);
-	client->f = *file_r = fopen("/dev/null", "w");
-	if (client->f == NULL)
-		i_fatal("fopen() failed: %m");
+	client->buf = buffer_create_dynamic(default_pool, 1);
+	client->output = o_stream_create_buffer(client->buf);
+	o_stream_close(client->output);
 	client->pid = (pid_t)-1;
+
+	*output_r = client->output;
 	return client;
 }
 
@@ -76,7 +82,7 @@ smtp_client_run_sendmail(const struct lda_settings *set,
 static struct smtp_client *
 smtp_client_open_sendmail(const struct lda_settings *set,
 			  const char *destination, const char *return_path,
-			  FILE **file_r)
+			  struct ostream **output_r)
 {
 	struct smtp_client *client;
 	int fd[2];
@@ -84,13 +90,13 @@ smtp_client_open_sendmail(const struct lda_settings *set,
 
 	if (pipe(fd) < 0) {
 		i_error("pipe() failed: %m");
-		return smtp_client_devnull(file_r);
+		return smtp_client_devnull(output_r);
 	}
 
 	if ((pid = fork()) == (pid_t)-1) {
 		i_error("fork() failed: %m");
 		(void)close(fd[0]); (void)close(fd[1]);
-		return smtp_client_devnull(file_r);
+		return smtp_client_devnull(output_r);
 	}
 	if (pid == 0) {
 		/* child */
@@ -100,10 +106,10 @@ smtp_client_open_sendmail(const struct lda_settings *set,
 	(void)close(fd[0]);
 
 	client = i_new(struct smtp_client, 1);
-	client->f = *file_r = fdopen(fd[1], "w");
+	client->output = o_stream_create_fd(fd[1], IO_BLOCK_SIZE, TRUE);
 	client->pid = pid;
-	if (client->f == NULL)
-		i_fatal("fdopen() failed: %m");
+
+	*output_r = client->output;
 	return client;
 }
 
@@ -137,7 +143,7 @@ static int create_temp_file(const char **path_r)
 
 struct smtp_client *
 smtp_client_open(const struct lda_settings *set, const char *destination,
-		 const char *return_path, FILE **file_r)
+		 const char *return_path, struct ostream **output_r)
 {
 	struct smtp_client *client;
 	const char *path;
@@ -145,21 +151,22 @@ smtp_client_open(const struct lda_settings *set, const char *destination,
 
 	if (*set->submission_host == '\0') {
 		return smtp_client_open_sendmail(set, destination,
-						 return_path, file_r);
+						 return_path, output_r);
 	}
 
 	if ((fd = create_temp_file(&path)) == -1)
-		return smtp_client_devnull(file_r);
+		return smtp_client_devnull(output_r);
 
 	client = i_new(struct smtp_client, 1);
 	client->set = set;
 	client->temp_path = i_strdup(path);
 	client->destination = i_strdup(destination);
 	client->return_path = i_strdup(return_path);
-	client->f = *file_r = fdopen(fd, "w");
-	if (client->f == NULL)
-		i_fatal("fdopen() failed: %m");
+	client->temp_fd = fd;
+	client->output = o_stream_create_fd(fd, IO_BLOCK_SIZE, TRUE);
 	client->use_smtp = TRUE;
+
+	*output_r = client->output;
 	return client;
 }
 
@@ -167,7 +174,7 @@ static int smtp_client_close_sendmail(struct smtp_client *client)
 {
 	int ret = EX_TEMPFAIL, status;
 
-	fclose(client->f);
+	o_stream_destroy(&client->output);
 
 	if (client->pid == (pid_t)-1) {
 		/* smtp_client_open() failed already */
@@ -189,6 +196,8 @@ static int smtp_client_close_sendmail(struct smtp_client *client)
 		i_error("Sendmail process terminated abnormally, "
 			"return status %d", status);
 	}
+	if (client->buf != NULL)
+		buffer_free(&client->buf);
 	i_free(client);
 	return ret;
 }
@@ -247,12 +256,12 @@ static int smtp_client_send(struct smtp_client *smtp_client)
 		}
 	}
 
-	if (fflush(smtp_client->f) != 0) {
-		i_error("fflush(%s) failed: %m", smtp_client->temp_path);
+	if (o_stream_flush(smtp_client->output) < 0) {
+		i_error("write(%s) failed: %m", smtp_client->temp_path);
 		return -1;
 	}
 
-	if (lseek(fileno(smtp_client->f), 0, SEEK_SET) < 0) {
+	if (o_stream_seek(smtp_client->output, 0) < 0) {
 		i_error("lseek(%s) failed: %m", smtp_client->temp_path);
 		return -1;
 	}
@@ -276,7 +285,7 @@ static int smtp_client_send(struct smtp_client *smtp_client)
 	lmtp_client_add_rcpt(client, smtp_client->destination,
 			     rcpt_to_callback, data_callback, smtp_client);
 
-	input = i_stream_create_fd(fileno(smtp_client->f), (size_t)-1, FALSE);
+	input = i_stream_create_fd(smtp_client->temp_fd, (size_t)-1, FALSE);
 	lmtp_client_send(client, input);
 	i_stream_unref(&input);
 
@@ -296,7 +305,7 @@ int smtp_client_close(struct smtp_client *client)
 	/* the mail has been written to a file. now actually send it. */
 	ret = smtp_client_send(client);
 
-	fclose(client->f);
+	o_stream_destroy(&client->output);
 	i_free(client->return_path);
 	i_free(client->destination);
 	i_free(client->temp_path);
