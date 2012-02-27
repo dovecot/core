@@ -35,6 +35,7 @@ struct dsync_cmd_context {
 };
 
 static const char *ssh_cmd = "ssh";
+static bool legacy_dsync = FALSE;
 
 static void run_cmd(const char *const *args, int *fd_in_r, int *fd_out_r)
 {
@@ -87,13 +88,12 @@ mirror_get_remote_cmd_line(const char *const *argv,
 		array_append(&cmd_args, &p, 1);
 	}
 
-	p = strchr(argv[0], '/');
-	if (p == NULL) p = argv[0];
-	if (strstr(p, "dsync") != NULL) {
+	if (legacy_dsync) {
 		/* we're executing dsync */
 		p = "server";
 	} else {
 		/* we're executing doveadm */
+		abort();
 		p = "dsync-server";
 	}
 	array_append(&cmd_args, &p, 1);
@@ -307,7 +307,8 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 
 	switch (c) {
 	case 'E':
-		/* dsync backup wrapper detection flag */
+		/* dsync wrapper detection flag */
+		legacy_dsync = TRUE;
 		break;
 	case 'f':
 		ctx->brain_flags |= DSYNC_BRAIN_FLAG_FULL_SYNC;
@@ -329,7 +330,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "EfRm:";
+	ctx->ctx.getopt_args = "+EfRm:";
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_parse_arg;
 	ctx->ctx.v.preinit = cmd_dsync_preinit;
 	ctx->ctx.v.init = cmd_dsync_init;
@@ -369,11 +370,27 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *ctx,
 	return 0;
 }
 
+static bool
+cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+{
+	switch (c) {
+	case 'E':
+		/* dsync wrapper detection flag */
+		legacy_dsync = TRUE;
+		break;
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 {
 	struct doveadm_mail_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
+	ctx->getopt_args = "E";
+	ctx->v.parse_arg = cmd_mailbox_dsync_server_parse_arg;
 	ctx->v.run = cmd_dsync_server_run;
 	return ctx;
 }
@@ -500,9 +517,8 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	}
 
 	/* dsync flags */
-	new_flags[0] = '-'; i = 1;
-	if (backup_flag)
-		new_flags[i++] = 'E';
+	new_flags[0] = '-';
+	new_flags[1] = 'E'; i = 2;
 	if (flag_f)
 		new_flags[i++] = 'f';
 	if (flag_R)
@@ -528,6 +544,7 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	i_assert(dest < max_argc);
 	new_argv[dest] = NULL;
 
+	legacy_dsync = TRUE;
 	*_argc = dest;
 	*_argv = new_argv;
 	optind = 1;
