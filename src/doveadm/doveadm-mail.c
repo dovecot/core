@@ -455,7 +455,10 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	if (doveadm_debug)
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
-	getopt_args = t_strconcat("AS:u:", ctx->getopt_args, NULL);
+	getopt_args = "AS:u:";
+	/* keep context's getopt_args first in case it contains '+' */
+	if (ctx->getopt_args != NULL)
+		getopt_args = t_strconcat(ctx->getopt_args, getopt_args, NULL);
 	ctx->cur_username = getenv("USER");
 	wildcard_user = NULL;
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
