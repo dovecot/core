@@ -13,7 +13,14 @@ enum uidl_keys {
 #include "pop3-client.h"
 #include "pop3-settings.h"
 
-extern void (*hook_client_created)(struct client **client);
+typedef void pop3_client_created_func_t(struct client **client);
+
+extern pop3_client_created_func_t *hook_client_created;
+
+/* Sets the hook_client_created and returns the previous hook,
+   which the new_hook should call if it's non-NULL. */
+pop3_client_created_func_t *
+pop3_client_created_hook_set(pop3_client_created_func_t *new_hook);
 
 void pop3_refresh_proctitle(void);
 
