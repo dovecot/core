@@ -19,6 +19,7 @@
 
 #define CLIENT_STATE_HANDSHAKE "handshaking"
 #define CLIENT_STATE_IDLE "idling"
+#define CLIENT_STATE_STOP "waiting for shutdown"
 
 struct auth_worker_client {
 	int refcount;
@@ -776,4 +777,5 @@ void auth_worker_client_send_shutdown(void)
 {
 	if (auth_worker_client != NULL)
 		o_stream_send_str(auth_worker_client->output, "SHUTDOWN\n");
+	auth_worker_refresh_proctitle(CLIENT_STATE_STOP);
 }
