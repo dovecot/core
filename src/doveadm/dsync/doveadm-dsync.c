@@ -93,7 +93,6 @@ mirror_get_remote_cmd_line(const char *const *argv,
 		p = "server";
 	} else {
 		/* we're executing doveadm */
-		abort();
 		p = "dsync-server";
 	}
 	array_append(&cmd_args, &p, 1);
