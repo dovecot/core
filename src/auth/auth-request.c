@@ -1431,23 +1431,28 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 
 static bool auth_request_proxy_is_self(struct auth_request *request)
 {
-	const char *const *tmp, *port = NULL, *destuser = NULL;
+	const char *const *tmp, *port = NULL;
 
 	if (!request->proxy_host_is_self)
 		return FALSE;
 
+	/* check if the port is the same */
 	tmp = auth_stream_split(request->extra_fields);
 	for (; *tmp != NULL; tmp++) {
 		if (strncmp(*tmp, "port=", 5) == 0)
 			port = *tmp + 5;
-		else if (strncmp(*tmp, "destuser=", 9) == 0)
-			destuser = *tmp + 9;
 	}
 
 	if (port != NULL && !str_uint_equals(port, request->local_port))
 		return FALSE;
-	return destuser == NULL ||
-		strcmp(destuser, request->original_username) == 0;
+	/* don't check destuser. in some systems destuser is intentionally
+	   changed to proxied connections, but that shouldn't affect the
+	   proxying decision.
+
+	   it's unlikely any systems would actually want to proxy a connection
+	   to itself only to change the username, since it can already be done
+	   without proxying by changing the "user" field. */
+	return TRUE;
 }
 
 static bool
