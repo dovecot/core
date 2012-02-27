@@ -86,6 +86,7 @@ struct imapc_connection {
 	struct imap_parser *parser;
 	struct timeout *to;
 	struct timeout *to_output;
+	struct dns_lookup *dns_lookup;
 
 	struct ssl_iostream *ssl_iostream;
 
@@ -352,6 +353,8 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 	if (conn->client->set.debug)
 		i_debug("imapc(%s): Disconnected", conn->name);
 
+	if (conn->dns_lookup != NULL)
+		dns_lookup_abort(&conn->dns_lookup);
 	imapc_connection_lfiles_free(conn);
 	imapc_connection_literal_reset(&conn->literal);
 	if (conn->to != NULL)
@@ -1315,9 +1318,9 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 
 static void
 imapc_connection_dns_callback(const struct dns_lookup_result *result,
-			      void *context)
+			      struct imapc_connection *conn)
 {
-	struct imapc_connection *conn = context;
+	conn->dns_lookup = NULL;
 
 	if (result->ret != 0) {
 		i_error("imapc(%s): dns_lookup(%s) failed: %s",
@@ -1385,7 +1388,8 @@ void imapc_connection_connect(struct imapc_connection *conn,
 
 	if (conn->ips_count == 0) {
 		(void)dns_lookup(conn->client->set.host, &dns_set,
-				 imapc_connection_dns_callback, conn);
+				 imapc_connection_dns_callback, conn,
+				 &conn->dns_lookup);
 	} else {
 		imapc_connection_connect_next_ip(conn);
 	}

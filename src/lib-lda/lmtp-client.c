@@ -49,6 +49,7 @@ struct lmtp_client {
 	string_t *input_multiline;
 	const char **xclient_args;
 
+	struct dns_lookup *dns_lookup;
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
@@ -107,6 +108,8 @@ lmtp_client_init(const struct lmtp_client_settings *set,
 
 void lmtp_client_close(struct lmtp_client *client)
 {
+	if (client->dns_lookup != NULL)
+		dns_lookup_abort(&client->dns_lookup);
 	if (client->io != NULL)
 		io_remove(&client->io);
 	if (client->input != NULL)
@@ -600,6 +603,8 @@ static int lmtp_client_connect(struct lmtp_client *client)
 static void lmtp_client_dns_done(const struct dns_lookup_result *result,
 				 struct lmtp_client *client)
 {
+	client->dns_lookup = NULL;
+
 	if (result->ret != 0) {
 		i_error("lmtp client: DNS lookup of %s failed: %s",
 			client->host, result->error);
@@ -651,7 +656,8 @@ int lmtp_client_connect_tcp(struct lmtp_client *client,
 		client->ip = ips[0];
 	} else {
 		if (dns_lookup(host, &dns_lookup_set,
-			       lmtp_client_dns_done, client) < 0)
+			       lmtp_client_dns_done, client,
+			       &client->dns_lookup) < 0)
 			return -1;
 		return 0;
 	}

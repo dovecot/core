@@ -50,6 +50,7 @@ struct pop3c_client {
 	struct ostream *output, *raw_output;
 	struct ssl_iostream *ssl_iostream;
 	struct timeout *to;
+	struct dns_lookup *dns_lookup;
 
 	enum pop3c_client_state state;
 	enum pop3c_capability capabilities;
@@ -66,7 +67,8 @@ struct pop3c_client {
 };
 
 static void
-pop3c_dns_callback(const struct dns_lookup_result *result, void *context);
+pop3c_dns_callback(const struct dns_lookup_result *result,
+		   struct pop3c_client *client);
 
 struct pop3c_client *
 pop3c_client_init(const struct pop3c_client_settings *set)
@@ -134,6 +136,8 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 	if (client->running)
 		io_loop_stop(current_ioloop);
 
+	if (client->dns_lookup != NULL)
+		dns_lookup_abort(&client->dns_lookup);
 	if (client->to != NULL)
 		timeout_remove(&client->to);
 	if (client->io != NULL)
@@ -215,7 +219,8 @@ void pop3c_client_run(struct pop3c_client *client)
 			client->set.dns_client_socket_path;
 		dns_set.timeout_msecs = POP3C_DNS_LOOKUP_TIMEOUT_MSECS;
 		(void)dns_lookup(client->set.host, &dns_set,
-				 pop3c_dns_callback, client);
+				 pop3c_dns_callback, client,
+				 &client->dns_lookup);
 	} else if (client->to == NULL) {
 		client->to = timeout_add(POP3C_COMMAND_TIMEOUT_MSECS,
 					 pop3c_client_timeout, client);
@@ -542,9 +547,10 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 }
 
 static void
-pop3c_dns_callback(const struct dns_lookup_result *result, void *context)
+pop3c_dns_callback(const struct dns_lookup_result *result,
+		   struct pop3c_client *client)
 {
-	struct pop3c_client *client = context;
+	client->dns_lookup = NULL;
 
 	if (result->ret != 0) {
 		i_error("pop3c(%s): dns_lookup() failed: %s",

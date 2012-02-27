@@ -121,6 +121,7 @@ static void dns_lookup_timeout(struct dns_lookup *lookup)
 
 #undef dns_lookup
 int dns_lookup(const char *host, const struct dns_lookup_settings *set,
+	       struct dns_lookup **lookup_r,
 	       dns_lookup_callback_t *callback, void *context)
 {
 	struct dns_lookup *lookup;
@@ -162,6 +163,8 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 	lookup->context = context;
 	if (gettimeofday(&lookup->start_time, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
+
+	*lookup_r = lookup;
 	return 0;
 }
 
@@ -181,4 +184,9 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 	i_free(lookup->ips);
 	i_free(lookup->path);
 	i_free(lookup);
+}
+
+void dns_lookup_abort(struct dns_lookup **lookup)
+{
+	dns_lookup_free(lookup);
 }
