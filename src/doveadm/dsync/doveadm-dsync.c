@@ -370,7 +370,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *ctx,
 }
 
 static bool
-cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
+				   int c)
 {
 	switch (c) {
 	case 'E':
@@ -414,7 +415,6 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	char *p, *dup, new_flags[6];
 	int max_argc, src, dest, i, j;
 	bool flag_f = FALSE, flag_R = FALSE, flag_m, flag_u, flag_C, has_arg;
-	bool backup_flag = FALSE;
 
 	p = strrchr(argv[0], '/');
 	if (p == NULL) p = argv[0];
@@ -501,10 +501,9 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	}
 	if (strcmp(argv[src], "mirror") == 0)
 		new_argv[dest] = "sync";
-	else if (strcmp(argv[src], "backup") == 0) {
-		backup_flag = TRUE;
+	else if (strcmp(argv[src], "backup") == 0)
 		new_argv[dest] = "backup";
-	} else if (strcmp(argv[src], "server") == 0)
+	else if (strcmp(argv[src], "server") == 0)
 		new_argv[dest] = "dsync-server";
 	else
 		i_fatal("Invalid parameter: %s", argv[src]);
