@@ -57,7 +57,9 @@ enum fts_backend_flags {
 	   preserving original case */
 	FTS_BACKEND_FLAG_BUILD_DTCASE		= 0x02,
 	/* Send only fully indexable words rather than randomly sized blocks */
-	FTS_BACKEND_FLAG_BUILD_FULL_WORDS	= 0x04
+	FTS_BACKEND_FLAG_BUILD_FULL_WORDS	= 0x04,
+	/* Fuzzy search works */
+	FTS_BACKEND_FLAG_FUZZY_SEARCH		= 0x08
 };
 
 struct fts_backend {

@@ -54,6 +54,8 @@ struct mail_user {
 	unsigned int mail_debug:1;
 	/* If INBOX can't be opened, log an error, but only once. */
 	unsigned int inbox_open_error_logged:1;
+	/* Fuzzy search works for this user (FTS enabled) */
+	unsigned int fuzzy_search:1;
 };
 
 struct mail_user_module_register {

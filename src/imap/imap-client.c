@@ -82,6 +82,11 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 		str_append_c(client->capability_string, ' ');
 		str_append(client->capability_string, set->imap_capability + 1);
 	}
+	if (user->fuzzy_search) {
+		/* Enable FUZZY capability only when it actually has
+		   a chance of working */
+		str_append(client->capability_string, " SEARCH=FUZZY");
+	}
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {

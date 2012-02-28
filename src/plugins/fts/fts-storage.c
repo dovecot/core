@@ -637,6 +637,9 @@ void fts_mailbox_list_created(struct mailbox_list *list)
 		struct fts_mailbox_list *flist;
 		struct mailbox_list_vfuncs *v = list->vlast;
 
+		if ((backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
+			list->ns->user->fuzzy_search = TRUE;
+
 		flist = p_new(list->pool, struct fts_mailbox_list, 1);
 		flist->module_ctx.super = *v;
 		flist->backend = backend;
