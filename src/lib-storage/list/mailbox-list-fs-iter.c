@@ -360,7 +360,8 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 		childp = array_idx(&ctx->roots, i);
 		parentlen = strlen(*parentp);
 		if (strncmp(*parentp, *childp, parentlen) == 0 &&
-		    ((*childp)[parentlen] == ctx->sep ||
+		    (parentlen == 0 ||
+		     (*childp)[parentlen] == ctx->sep ||
 		     (*childp)[parentlen] == '\0'))
 			array_delete(&ctx->roots, i, 1);
 	}
