@@ -301,7 +301,7 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 		T_BEGIN {
 			mailbox_list_index_sync_names(&sync_ctx);
 		} T_END;
-	} else {
+	} else if (mailbox_list_index_need_refresh(ilist, sync_ctx.view)) {
 		/* we're synced, reset refresh flag */
 		struct mailbox_list_index_header new_hdr;
 

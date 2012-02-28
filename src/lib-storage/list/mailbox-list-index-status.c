@@ -289,6 +289,8 @@ index_list_update_mailbox(struct mailbox *box, struct mail_index_view *view)
 	struct mailbox_status status;
 	uint32_t seq, seq1, seq2;
 
+	(void)mailbox_list_index_refresh(box->list);
+
 	node = mailbox_list_index_lookup(box->list, box->name);
 	if (node == NULL) {
 		mailbox_list_index_refresh_later(box->list);

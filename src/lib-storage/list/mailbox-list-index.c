@@ -197,9 +197,8 @@ int mailbox_list_index_parse(struct mailbox_list_index *ilist,
 	return 0;
 }
 
-static bool
-mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
-				struct mail_index_view *view)
+bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
+				     struct mail_index_view *view)
 {
 	const struct mailbox_list_index_header *hdr;
 	const void *data;

@@ -124,6 +124,8 @@ void mailbox_list_index_set_index_error(struct mailbox_list *list);
 struct mailbox_list_index_node *
 mailbox_list_index_lookup(struct mailbox_list *list, const char *name);
 
+bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
+				     struct mail_index_view *view);
 int mailbox_list_index_refresh(struct mailbox_list *list);
 void mailbox_list_index_refresh_later(struct mailbox_list *list);
 
