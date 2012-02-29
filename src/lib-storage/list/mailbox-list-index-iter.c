@@ -51,7 +51,7 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		str_append_c(ctx->path, ctx->sep);
 	str_append(ctx->path, node->name);
 
-	ctx->info.name = str_c(ctx->path);
+	ctx->info.name = mailbox_list_get_vname(ctx->ctx.list, str_c(ctx->path));
 	ctx->info.flags = 0;
 	if ((node->flags & MAILBOX_LIST_INDEX_FLAG_NONEXISTENT) != 0)
 		ctx->info.flags |= MAILBOX_NONEXISTENT;
