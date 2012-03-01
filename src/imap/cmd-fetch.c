@@ -21,13 +21,14 @@ static const char *full_macro[] = {
 };
 
 static bool
-fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
-		 const struct imap_arg **next_arg_r)
+fetch_parse_args(struct imap_fetch_context *ctx,
+		 struct client_command_context *cmd,
+		 const struct imap_arg *arg, const struct imap_arg **next_arg_r)
 {
 	const char *str, *const *macro;
 
-	if (ctx->cmd->uid) {
-		if (!imap_fetch_init_handler(ctx, "UID", &arg))
+	if (cmd->uid) {
+		if (!imap_fetch_cmd_init_handler(ctx, cmd, "UID", &arg))
 			return FALSE;
 	}
 	if (imap_arg_get_atom(arg, &str)) {
@@ -43,12 +44,12 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
 			macro = full_macro;
 		else {
 			macro = NULL;
-			if (!imap_fetch_init_handler(ctx, str, &arg))
+			if (!imap_fetch_cmd_init_handler(ctx, cmd, str, &arg))
 				return FALSE;
 		}
 		if (macro != NULL) {
 			while (*macro != NULL) {
-				if (!imap_fetch_init_handler(ctx, *macro, &arg))
+				if (!imap_fetch_cmd_init_handler(ctx, cmd, *macro, &arg))
 					return FALSE;
 				macro++;
 			}
@@ -60,11 +61,11 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
 		while (imap_arg_get_atom(arg, &str)) {
 			str = t_str_ucase(str);
 			arg++;
-			if (!imap_fetch_init_handler(ctx, str, &arg))
+			if (!imap_fetch_cmd_init_handler(ctx, cmd, str, &arg))
 				return FALSE;
 		}
 		if (!IMAP_ARG_IS_EOL(arg)) {
-			client_send_command_error(ctx->cmd,
+			client_send_command_error(cmd,
 				"FETCH list contains non-atoms.");
 			return FALSE;
 		}
@@ -74,6 +75,7 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
 
 static bool
 fetch_parse_modifier(struct imap_fetch_context *ctx,
+		     struct client_command_context *cmd,
 		     const char *name, const struct imap_arg **args)
 {
 	const char *str;
@@ -82,58 +84,59 @@ fetch_parse_modifier(struct imap_fetch_context *ctx,
 	if (strcmp(name, "CHANGEDSINCE") == 0) {
 		if (!imap_arg_get_atom(*args, &str) ||
 		    str_to_uint64(str, &modseq) < 0) {
-			client_send_command_error(ctx->cmd,
+			client_send_command_error(cmd,
 				"Invalid CHANGEDSINCE modseq.");
 			return FALSE;
 		}
 		*args += 1;
-		return imap_fetch_add_changed_since(ctx, modseq);
+		imap_fetch_add_changed_since(ctx, modseq);
+		return TRUE;
 	}
-	if (strcmp(name, "VANISHED") == 0 && ctx->cmd->uid) {
+	if (strcmp(name, "VANISHED") == 0 && cmd->uid) {
 		if ((ctx->client->enabled_features &
 		     MAILBOX_FEATURE_QRESYNC) == 0) {
-			client_send_command_error(ctx->cmd,
-						  "QRESYNC not enabled");
+			client_send_command_error(cmd, "QRESYNC not enabled");
 			return FALSE;
 		}
 		ctx->send_vanished = TRUE;
 		return TRUE;
 	}
 
-	client_send_command_error(ctx->cmd, "Unknown FETCH modifier");
+	client_send_command_error(cmd, "Unknown FETCH modifier");
 	return FALSE;
 }
 
 static bool
 fetch_parse_modifiers(struct imap_fetch_context *ctx,
+		      struct client_command_context *cmd,
 		      const struct imap_arg *args)
 {
 	const char *name;
 
 	while (!IMAP_ARG_IS_EOL(args)) {
 		if (!imap_arg_get_atom(args, &name)) {
-			client_send_command_error(ctx->cmd,
+			client_send_command_error(cmd,
 				"FETCH modifiers contain non-atoms.");
 			return FALSE;
 		}
 		args++;
-		if (!fetch_parse_modifier(ctx, t_str_ucase(name), &args))
+		if (!fetch_parse_modifier(ctx, cmd, t_str_ucase(name), &args))
 			return FALSE;
 	}
 	if (ctx->send_vanished &&
 	    (ctx->search_args->args->next == NULL ||
 	     ctx->search_args->args->next->type != SEARCH_MODSEQ)) {
-		client_send_command_error(ctx->cmd,
+		client_send_command_error(cmd,
 			"VANISHED used without CHANGEDSINCE");
 		return FALSE;
 	}
 	return TRUE;
 }
 
-static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
+static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
+			     struct client_command_context *cmd)
 {
 	static const char *ok_message = "OK Fetch completed.";
-	struct client_command_context *cmd = ctx->cmd;
 	const char *tagged_reply = ok_message;
 
 	if (ctx->partial_fetch) {
@@ -170,11 +173,11 @@ static bool cmd_fetch_continue(struct client_command_context *cmd)
 {
         struct imap_fetch_context *ctx = cmd->context;
 
-	if (imap_fetch_more(ctx) == 0) {
+	if (imap_fetch_more(ctx, cmd) == 0) {
 		/* unfinished */
 		return FALSE;
 	}
-	return cmd_fetch_finish(ctx);
+	return cmd_fetch_finish(ctx, cmd);
 }
 
 bool cmd_fetch(struct client_command_context *cmd)
@@ -213,15 +216,15 @@ bool cmd_fetch(struct client_command_context *cmd)
 	}
 	ctx->search_args = search_args;
 
-	if (!fetch_parse_args(ctx, &args[1], &next_arg) ||
+	if (!fetch_parse_args(ctx, cmd, &args[1], &next_arg) ||
 	    (imap_arg_get_list(next_arg, &list_arg) &&
-	     !fetch_parse_modifiers(ctx, list_arg))) {
+	     !fetch_parse_modifiers(ctx, cmd, list_arg))) {
 		imap_fetch_deinit(ctx);
 		return TRUE;
 	}
 
 	if (imap_fetch_begin(ctx) == 0) {
-		if (imap_fetch_more(ctx) == 0) {
+		if (imap_fetch_more(ctx, cmd) == 0) {
 			/* unfinished */
 			cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
 
@@ -230,5 +233,5 @@ bool cmd_fetch(struct client_command_context *cmd)
 			return FALSE;
 		}
 	}
-	return cmd_fetch_finish(ctx);
+	return cmd_fetch_finish(ctx, cmd);
 }

@@ -3,17 +3,29 @@
 
 struct imap_fetch_context;
 
+enum imap_fetch_handler_flags {
+	IMAP_FETCH_HANDLER_FLAG_BUFFERED	= 0x01,
+	IMAP_FETCH_HANDLER_FLAG_WANT_DEINIT	= 0x02
+};
+
 /* Returns 1 = ok, 0 = client output buffer full, call again, -1 = error.
    mail = NULL for deinit. */
 typedef int imap_fetch_handler_t(struct imap_fetch_context *ctx,
 				 struct mail *mail, void *context);
 
+struct imap_fetch_init_context {
+	struct imap_fetch_context *fetch_ctx;
+	const char *name;
+	const struct imap_arg *args;
+
+	const char *error;
+};
+
 struct imap_fetch_handler {
 	const char *name;
 
-	/* Returns FALSE if arg is invalid. */
-	bool (*init)(struct imap_fetch_context *ctx, const char *name,
-		     const struct imap_arg **args);
+	/* Returns FALSE and sets ctx->error if arg is invalid */
+	bool (*init)(struct imap_fetch_init_context *ctx);
 };
 
 struct imap_fetch_context_handler {
@@ -29,8 +41,8 @@ struct imap_fetch_context_handler {
 
 struct imap_fetch_context {
 	struct client *client;
-	struct client_command_context *cmd;
 	struct mailbox *box;
+	pool_t pool;
 
 	struct mailbox_transaction_context *trans;
 	struct mail_search_args *search_args;
@@ -76,40 +88,45 @@ struct imap_fetch_context {
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 				  size_t count);
 
-void imap_fetch_add_handler(struct imap_fetch_context *ctx,
-			    bool buffered, bool want_deinit,
-			    const char *name, const char *nil_reply,
+void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
+			    enum imap_fetch_handler_flags flags,
+			    const char *nil_reply,
 			    imap_fetch_handler_t *handler, void *context);
 #ifdef CONTEXT_TYPE_SAFETY
-#  define imap_fetch_add_handler(ctx, buffered, want_deinit, name, nil_reply, \
-				 handler, context) \
+#  define imap_fetch_add_handler(ctx, flags, nil_reply, handler, context) \
 	({(void)(1 ? 0 : handler((struct imap_fetch_context *)NULL, \
 				 (struct mail *)NULL, context)); \
-	  imap_fetch_add_handler(ctx, buffered, want_deinit, name, nil_reply, \
+	  imap_fetch_add_handler(ctx, flags, nil_reply, \
 		(imap_fetch_handler_t *)handler, context); })
 #else
-#  define imap_fetch_add_handler(ctx, buffered, want_deinit, name, nil_reply, \
-				 handler, context) \
-	  imap_fetch_add_handler(ctx, buffered, want_deinit, name, nil_reply, \
+#  define imap_fetch_add_handler(ctx, flags, nil_reply, handler, context) \
+	  imap_fetch_add_handler(ctx, flags, nil_reply, \
 		(imap_fetch_handler_t *)handler, context)
 #endif
 
 struct imap_fetch_context *
 imap_fetch_init(struct client_command_context *cmd, struct mailbox *box);
 int imap_fetch_deinit(struct imap_fetch_context *ctx);
-bool imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
-			     const struct imap_arg **args);
+bool imap_fetch_init_handler(struct imap_fetch_init_context *init_ctx);
+void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
+				    bool (*init)(struct imap_fetch_init_context *));
+bool imap_fetch_cmd_init_handler(struct imap_fetch_context *ctx,
+				 struct client_command_context *cmd,
+				 const char *name, const struct imap_arg **args);
 
-bool imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
+void imap_fetch_add_changed_since(struct imap_fetch_context *ctx,
 				  uint64_t modseq);
 
 int imap_fetch_begin(struct imap_fetch_context *ctx);
-int imap_fetch_more(struct imap_fetch_context *ctx);
+int imap_fetch_more(struct imap_fetch_context *ctx,
+		    struct client_command_context *cmd);
 
-bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
-			     const struct imap_arg **args);
-bool fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
-		       const struct imap_arg **args);
+bool imap_fetch_flags_init(struct imap_fetch_init_context *ctx);
+bool imap_fetch_modseq_init(struct imap_fetch_init_context *ctx);
+bool imap_fetch_uid_init(struct imap_fetch_init_context *ctx);
+
+bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx);
+bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx);
 
 void imap_fetch_handlers_init(void);
 void imap_fetch_handlers_deinit(void);

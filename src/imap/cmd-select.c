@@ -214,7 +214,7 @@ static bool cmd_select_continue(struct client_command_context *cmd)
         struct imap_select_context *ctx = cmd->context;
 	int ret;
 
-	if (imap_fetch_more(ctx->fetch_ctx) == 0) {
+	if (imap_fetch_more(ctx->fetch_ctx, cmd) == 0) {
 		/* unfinished */
 		return FALSE;
 	}
@@ -247,16 +247,13 @@ static int select_qresync(struct imap_select_context *ctx)
 	fetch_ctx->qresync_sample_seqset = &ctx->qresync_sample_seqset;
 	fetch_ctx->qresync_sample_uidset = &ctx->qresync_sample_uidset;
 
-	if (!imap_fetch_add_changed_since(fetch_ctx, ctx->qresync_modseq) ||
-	    !imap_fetch_init_handler(fetch_ctx, "UID", NULL) ||
-	    !imap_fetch_init_handler(fetch_ctx, "FLAGS", NULL) ||
-	    !imap_fetch_init_handler(fetch_ctx, "MODSEQ", NULL)) {
-		(void)imap_fetch_deinit(fetch_ctx);
-		return -1;
-	}
+	imap_fetch_add_changed_since(fetch_ctx, ctx->qresync_modseq);
+	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_uid_init);
+	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);
+	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_modseq_init);
 
 	if (imap_fetch_begin(fetch_ctx) == 0) {
-		if (imap_fetch_more(fetch_ctx) == 0) {
+		if (imap_fetch_more(fetch_ctx, ctx->cmd) == 0) {
 			/* unfinished */
 			ctx->fetch_ctx = fetch_ctx;
 			ctx->cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;

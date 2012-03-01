@@ -305,7 +305,7 @@ static int fetch_data(struct imap_fetch_context *ctx,
 {
 	string_t *str;
 
-	ctx->cur_name = p_strconcat(ctx->cmd->pool,
+	ctx->cur_name = p_strconcat(ctx->pool,
 				    "[", body->section, "]", NULL);
 	ctx->cur_size = get_send_size(body, size->virtual_size);
 
@@ -607,63 +607,60 @@ static bool fetch_body_header_fields_check(const char *section)
 	return TRUE;
 }
 
-static bool fetch_body_header_fields_init(struct imap_fetch_context *ctx,
+static bool fetch_body_header_fields_init(struct imap_fetch_init_context *ctx,
 					  struct imap_fetch_body_data *body,
 					  const char *section)
 {
-	const char *const *arr, *name;
+	const char *const *arr;
 
 	if (!fetch_body_header_fields_check(section))
 		return FALSE;
 
-	name = get_body_name(body);
-	if ((ctx->fetch_data & (MAIL_FETCH_STREAM_HEADER |
-				MAIL_FETCH_STREAM_BODY)) != 0) {
+	if ((ctx->fetch_ctx->fetch_data & (MAIL_FETCH_STREAM_HEADER |
+					   MAIL_FETCH_STREAM_BODY)) != 0) {
 		/* we'll need to open the file anyway, don't try to get the
 		   headers from cache. */
-		imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
+		imap_fetch_add_handler(ctx, 0, "NIL",
 				       fetch_body_header_partial, body);
 		return TRUE;
 	}
 
 	for (arr = body->fields; *arr != NULL; arr++) {
-		const char *hdr = p_strdup(ctx->cmd->pool, *arr);
-		array_append(&ctx->all_headers, &hdr, 1);
+		const char *hdr = p_strdup(ctx->fetch_ctx->pool, *arr);
+		array_append(&ctx->fetch_ctx->all_headers, &hdr, 1);
 	}
 
-	body->header_ctx = mailbox_header_lookup_init(ctx->box, body->fields);
-	imap_fetch_add_handler(ctx, FALSE, TRUE, name, "NIL",
+	body->header_ctx = mailbox_header_lookup_init(ctx->fetch_ctx->box,
+						      body->fields);
+	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_WANT_DEINIT, "NIL",
 			       fetch_body_header_fields, body);
 	return TRUE;
 }
 
-static bool fetch_body_section_name_init(struct imap_fetch_context *ctx,
-					 struct imap_fetch_body_data *body)
+static bool
+fetch_body_section_name_init(struct imap_fetch_init_context *ctx,
+			     struct imap_fetch_body_data *body)
 {
-	const char *name, *section = body->section;
+	const char *section = body->section;
 
-	name = get_body_name(body);
 	if (*section == '\0') {
-		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |
+		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |
 			MAIL_FETCH_STREAM_BODY;
-		imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
-				       fetch_body, body);
+		imap_fetch_add_handler(ctx, 0, "NIL", fetch_body, body);
 		return TRUE;
 	}
 
 	if (strcmp(section, "TEXT") == 0) {
-		ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
-		imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
-				       fetch_body, body);
+		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
+		imap_fetch_add_handler(ctx, 0, "NIL", fetch_body, body);
 		return TRUE;
 	}
 
 	if (strncmp(section, "HEADER", 6) == 0) {
 		/* exact header matches could be cached */
 		if (section[6] == '\0') {
-			ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
-			imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
-					       fetch_body, body);
+			ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
+			imap_fetch_add_handler(ctx, 0, "NIL", fetch_body, body);
 			return TRUE;
 		}
 
@@ -673,12 +670,12 @@ static bool fetch_body_section_name_init(struct imap_fetch_context *ctx,
 
 		if (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0 &&
 		    fetch_body_header_fields_check(section+18)) {
-			imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
+			imap_fetch_add_handler(ctx, 0, "NIL",
 					       fetch_body_header_partial, body);
 			return TRUE;
 		}
 	} else if (*section >= '0' && *section <= '9') {
-		ctx->fetch_data |= MAIL_FETCH_STREAM_BODY |
+		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_BODY |
 			MAIL_FETCH_MESSAGE_PARTS;
 
 		while ((*section >= '0' && *section <= '9') ||
@@ -692,14 +689,13 @@ static bool fetch_body_section_name_init(struct imap_fetch_context *ctx,
 		     fetch_body_header_fields_check(section+14)) ||
 		    (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0 &&
 		     fetch_body_header_fields_check(section+18))) {
-			imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
+			imap_fetch_add_handler(ctx, 0, "NIL",
 					       fetch_body_mime, body);
 			return TRUE;
 		}
 	}
 
-	client_send_command_error(ctx->cmd,
-		"Invalid BODY[..] parameter: Unknown or broken section");
+	ctx->error = "Invalid BODY[..] parameter: Unknown or broken section";
 	return FALSE;
 }
 
@@ -723,34 +719,32 @@ static bool read_uoff_t(const char **p, uoff_t *value)
 	return TRUE;
 }
 
-static bool body_section_build(struct imap_fetch_context *ctx,
-			       struct imap_fetch_body_data *body,
-			       const char *prefix,
-			       const struct imap_arg *args,
-			       unsigned int args_count)
+static bool
+body_section_build(struct imap_fetch_init_context *ctx,
+		   struct imap_fetch_body_data *body, const char *prefix,
+		   const struct imap_arg *args, unsigned int args_count)
 {
 	string_t *str;
 	const char **arr, *value;
 	size_t i;
 
-	str = str_new(ctx->cmd->pool, 128);
+	str = str_new(ctx->fetch_ctx->pool, 128);
 	str_append(str, prefix);
 	str_append(str, " (");
 
 	/* @UNSAFE: NULL-terminated list of headers */
-	arr = p_new(ctx->cmd->pool, const char *, args_count + 1);
+	arr = p_new(ctx->fetch_ctx->pool, const char *, args_count + 1);
 
 	for (i = 0; i < args_count; i++) {
 		if (!imap_arg_get_astring(&args[i], &value)) {
-			client_send_command_error(ctx->cmd,
-				"Invalid BODY[..] parameter: "
-				"Header list contains non-strings");
+			ctx->error = "Invalid BODY[..] parameter: "
+				"Header list contains non-strings";
 			return FALSE;
 		}
 
 		if (i != 0)
 			str_append_c(str, ' ');
-		arr[i] = p_strdup(ctx->cmd->pool, t_str_ucase(value));
+		arr[i] = p_strdup(ctx->fetch_ctx->pool, t_str_ucase(value));
 
 		if (args[i].type == IMAP_ARG_ATOM)
 			str_append(str, arr[i]);
@@ -769,53 +763,51 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 	return TRUE;
 }
   
-bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
-			     const struct imap_arg **args)
+bool imap_fetch_body_section_init(struct imap_fetch_init_context *ctx)
 {
 	struct imap_fetch_body_data *body;
 	const struct imap_arg *list_args;
 	unsigned int list_count;
-	const char *partial, *str;
-	const char *p = name + 4;
+	const char *partial, *str, *p;
 
-	body = p_new(ctx->cmd->pool, struct imap_fetch_body_data, 1);
+	i_assert(strncmp(ctx->name, "BODY", 4) == 0);
+	p = ctx->name + 4;
+
+	body = p_new(ctx->fetch_ctx->pool, struct imap_fetch_body_data, 1);
 	body->max_size = (uoff_t)-1;
 
 	if (strncmp(p, ".PEEK", 5) == 0) {
 		body->peek = TRUE;
 		p += 5;
 	} else {
-		ctx->flags_update_seen = TRUE;
+		ctx->fetch_ctx->flags_update_seen = TRUE;
 	}
 
 	if (*p != '[') {
-		client_send_command_error(ctx->cmd,
-			"Invalid BODY[..] parameter: Missing '['");
+		ctx->error = "Invalid BODY[..] parameter: Missing '['";
 		return FALSE;
 	}
 
-	if (imap_arg_get_list_full(&(*args)[0], &list_args, &list_count)) {
+	if (imap_arg_get_list_full(&ctx->args[0], &list_args, &list_count)) {
 		/* BODY[HEADER.FIELDS.. (headers list)] */
-		if (!imap_arg_get_atom(&(*args)[1], &str) ||
+		if (!imap_arg_get_atom(&ctx->args[1], &str) ||
 		    str[0] != ']') {
-			client_send_command_error(ctx->cmd,
-				"Invalid BODY[..] parameter: Missing ']'");
+			ctx->error = "Invalid BODY[..] parameter: Missing ']'";
 			return FALSE;
 		}
 		if (!body_section_build(ctx, body, p+1, list_args, list_count))
 			return FALSE;
 		p = str;
-		*args += 2;
+		ctx->args += 2;
 	} else {
 		/* no headers list */
 		body->section = p+1;
 		p = strchr(body->section, ']');
 		if (p == NULL) {
-			client_send_command_error(ctx->cmd,
-				"Invalid BODY[..] parameter: Missing ']'");
+			ctx->error = "Invalid BODY[..] parameter: Missing ']'";
 			return FALSE;
 		}
-		body->section = p_strdup_until(ctx->cmd->pool,
+		body->section = p_strdup_until(ctx->fetch_ctx->pool,
 					       body->section, p);
 	}
 
@@ -827,9 +819,8 @@ bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 
 		if (!read_uoff_t(&p, &body->skip) || body->skip > OFF_T_MAX) {
 			/* wrapped */
-			client_send_command_error(ctx->cmd,
-				"Invalid BODY[..] parameter: "
-				"Too big partial start");
+			ctx->error = "Invalid BODY[..] parameter: "
+				"Too big partial start";
 			return FALSE;
 		}
 
@@ -838,22 +829,22 @@ bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 			if (!read_uoff_t(&p, &body->max_size) ||
 			    body->max_size > OFF_T_MAX) {
 				/* wrapped */
-				client_send_command_error(ctx->cmd,
-					"Invalid BODY[..] parameter: "
-					"Too big partial end");
+				ctx->error = "Invalid BODY[..] parameter: "
+					"Too big partial end";
 				return FALSE;
 			}
 		}
 
 		if (*p != '>') {
-			client_send_command_error(ctx->cmd,
-				t_strdup_printf("Invalid BODY[..] parameter: "
-						"Missing '>' in '%s'",
-						partial));
+			ctx->error = t_strdup_printf(
+				"Invalid BODY[..] parameter: "
+				"Missing '>' in '%s'", partial);
 			return FALSE;
 		}
 	}
 
+	/* sanitize the name */
+	ctx->name = get_body_name(body);
 	return fetch_body_section_name_init(ctx, body);
 }
 
@@ -954,39 +945,37 @@ static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 	return fetch_stream(ctx, &body_size);
 }
 
-bool fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
-		       const struct imap_arg **args ATTR_UNUSED)
+bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx)
 {
+	const char *name = ctx->name;
+
 	if (name[6] == '\0') {
-		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |
+		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |
 			MAIL_FETCH_STREAM_BODY;
-		ctx->flags_update_seen = TRUE;
-		imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
-				       fetch_rfc822, NULL);
+		ctx->fetch_ctx->flags_update_seen = TRUE;
+		imap_fetch_add_handler(ctx, 0, "NIL", fetch_rfc822, NULL);
 		return TRUE;
 	}
 
 	if (strcmp(name+6, ".SIZE") == 0) {
-		ctx->fetch_data |= MAIL_FETCH_VIRTUAL_SIZE;
-		imap_fetch_add_handler(ctx, TRUE, FALSE, name, "0",
-				       fetch_rfc822_size, NULL);
+		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_VIRTUAL_SIZE;
+		imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
+				       "0", fetch_rfc822_size, NULL);
 		return TRUE;
 	}
 	if (strcmp(name+6, ".HEADER") == 0) {
-		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
-		imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
+		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
+		imap_fetch_add_handler(ctx, 0, "NIL",
 				       fetch_rfc822_header, NULL);
 		return TRUE;
 	}
 	if (strcmp(name+6, ".TEXT") == 0) {
-		ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
-		ctx->flags_update_seen = TRUE;
-		imap_fetch_add_handler(ctx, FALSE, FALSE, name, "NIL",
-				       fetch_rfc822_text, NULL);
+		ctx->fetch_ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
+		ctx->fetch_ctx->flags_update_seen = TRUE;
+		imap_fetch_add_handler(ctx, 0, "NIL", fetch_rfc822_text, NULL);
 		return TRUE;
 	}
 
-	client_send_command_error(ctx->cmd, t_strconcat(
-		"Unknown parameter ", name, NULL));
+	ctx->error = t_strconcat("Unknown parameter ", name, NULL);
 	return FALSE;
 }
