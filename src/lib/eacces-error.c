@@ -113,12 +113,12 @@ static int test_access(const char *path, int access_mode, string_t *errmsg)
 			write_eacces_error(errmsg, path, access_mode);
 			if (test_manual_access(path, access_mode,
 					       FALSE, errmsg) == 0) {
-				str_append(errmsg, " UNIX perms appear ok "
+				str_append(errmsg, ", UNIX perms appear ok "
 					   "(ACL/MAC wrong?)");
 			}
 			errno = EACCES;
 		} else {
-			str_printfa(errmsg, " access(%s, %d) failed: %m",
+			str_printfa(errmsg, ", access(%s, %d) failed: %m",
 				    path, access_mode);
 		}
 		return -1;
@@ -135,7 +135,7 @@ static int test_access(const char *path, int access_mode, string_t *errmsg)
 		if (errno == EACCES)
 			write_eacces_error(errmsg, path, access_mode);
 		else
-			str_printfa(errmsg, " stat(%s/test) failed: %m", path);
+			str_printfa(errmsg, ", stat(%s/test) failed: %m", path);
 		return -1;
 	case R_OK:
 	case W_OK:
