@@ -31,7 +31,8 @@ struct dsync_cmd_context {
 	const char *const *remote_cmd_args;
 	const char *local_location;
 
-	int fd_in, fd_out;
+	int fd_in, fd_out, fd_err;
+	struct io *io_err;
 
 	unsigned int lock_timeout;
 
@@ -42,39 +43,61 @@ struct dsync_cmd_context {
 static const char *ssh_cmd = "ssh";
 static bool legacy_dsync = FALSE;
 
-static void run_cmd(const char *const *args, int *fd_in_r, int *fd_out_r)
+static void remote_error_input(struct dsync_cmd_context *ctx)
 {
-	int fd_in[2], fd_out[2];
+	char buf[1024];
+	ssize_t ret;
 
-	if (pipe(fd_in) < 0 || pipe(fd_out) < 0)
+	ret = read(ctx->fd_err, buf, sizeof(buf)-1);
+	if (ret == -1) {
+		io_remove(&ctx->io_err);
+		return;
+	}
+	if (ret > 0) {
+		buf[ret-1] = '\0';
+		i_error("remote: %s", buf);
+	}
+}
+
+static void
+run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
+{
+	int fd_in[2], fd_out[2], fd_err[2];
+
+	if (pipe(fd_in) < 0 || pipe(fd_out) < 0 || pipe(fd_err) < 0)
 		i_fatal("pipe() failed: %m");
 
 	switch (fork()) {
 	case -1:
 		i_fatal("fork() failed: %m");
-		break;
 	case 0:
 		/* child, which will execute the proxy server. stdin/stdout
 		   goes to pipes which we'll pass to proxy client. */
 		if (dup2(fd_in[0], STDIN_FILENO) < 0 ||
-		    dup2(fd_out[1], STDOUT_FILENO) < 0)
+		    dup2(fd_out[1], STDOUT_FILENO) < 0 ||
+		    dup2(fd_err[1], STDERR_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
 		(void)close(fd_in[0]);
 		(void)close(fd_in[1]);
 		(void)close(fd_out[0]);
 		(void)close(fd_out[1]);
+		(void)close(fd_err[0]);
+		(void)close(fd_err[1]);
 
 		execvp_const(args[0], args);
-		break;
 	default:
 		/* parent */
-		(void)close(fd_in[0]);
-		(void)close(fd_out[1]);
-		*fd_in_r = fd_out[0];
-		*fd_out_r = fd_in[1];
 		break;
 	}
+
+	(void)close(fd_in[0]);
+	(void)close(fd_out[1]);
+	(void)close(fd_err[1]);
+	ctx->fd_in = fd_out[0];
+	ctx->fd_out = fd_in[1];
+	ctx->fd_err = fd_err[0];
+	ctx->io_err = io_add(ctx->fd_err, IO_READ, remote_error_input, ctx);
 }
 
 static void
@@ -318,6 +341,12 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 	dsync_worker_deinit(&worker1);
 	dsync_worker_deinit(&worker2);
+	if (ctx->io_err != NULL)
+		io_remove(&ctx->io_err);
+	if (ctx->fd_err != -1) {
+		(void)close(ctx->fd_err);
+		ctx->fd_err = -1;
+	}
 	return ret;
 }
 
@@ -326,6 +355,10 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	const char *username = "";
+
+	ctx->fd_in = STDIN_FILENO;
+	ctx->fd_out = STDOUT_FILENO;
+	ctx->fd_err = -1;
 
 	if (args[0] == NULL)
 		doveadm_mail_help_name(_ctx->cmd->name);
@@ -351,10 +384,7 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
 	if (ctx->remote_cmd_args != NULL) {
 		/* do this before mail_storage_service_next() in case it
 		   drops process privileges */
-		run_cmd(ctx->remote_cmd_args, &ctx->fd_in, &ctx->fd_out);
-	} else {
-		ctx->fd_in = STDIN_FILENO;
-		ctx->fd_out = STDOUT_FILENO;
+		run_cmd(ctx, ctx->remote_cmd_args);
 	}
 }
 
