@@ -395,6 +395,8 @@ struct mailbox_transaction_context {
 	struct mailbox_transaction_stats stats;
 	/* Set to TRUE to update stats_* fields */
 	unsigned int stats_track:1;
+	/* We've done some non-transactional (e.g. dovecot-uidlist updates) */
+	unsigned int nontransactional_changes:1;
 };
 
 union mail_search_module_context {

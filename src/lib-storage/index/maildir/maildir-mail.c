@@ -593,6 +593,7 @@ static void maildir_update_pop3_uidl(struct mail *_mail, const char *uidl)
 		uidl = "";
 	}
 
+	_mail->transaction->nontransactional_changes = TRUE;
 	maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
 				MAILDIR_UIDLIST_REC_EXT_POP3_UIDL, uidl);
 }

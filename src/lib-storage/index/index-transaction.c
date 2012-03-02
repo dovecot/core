@@ -21,10 +21,15 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		MAIL_STORAGE_CONTEXT(index_trans);
 	int ret = 0;
 
+	if (t->nontransactional_changes)
+		t->changes->changed = TRUE;
+
 	if (t->save_ctx != NULL) {
 		if (t->box->v.transaction_save_commit_pre(t->save_ctx) < 0) {
 			t->save_ctx = NULL;
 			ret = -1;
+		} else {
+			t->changes->changed = TRUE;
 		}
 	}
 
@@ -35,6 +40,9 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		if (t->super.commit(index_trans, result_r) < 0) {
 			mail_storage_set_index_error(t->box);
 			ret = -1;
+		} else if (result_r->commit_size > 0) {
+			/* something was written to the transaction log */
+			t->changes->changed = TRUE;
 		}
 	}
 

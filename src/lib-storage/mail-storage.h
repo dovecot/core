@@ -265,6 +265,9 @@ struct mail_transaction_commit_changes {
 
 	/* number of modseq changes that couldn't be changed as requested */
 	unsigned int ignored_modseq_changes;
+
+	/* TRUE if anything actually changed with this commit */
+	bool changed;
 };
 
 struct mailbox_sync_rec {
