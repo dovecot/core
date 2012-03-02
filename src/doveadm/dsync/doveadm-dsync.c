@@ -21,6 +21,8 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#define DSYNC_LOCK_FILENAME ".dovecot-sync.lock"
+
 struct dsync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum dsync_brain_flags brain_flags;
@@ -31,6 +33,9 @@ struct dsync_cmd_context {
 
 	int fd_in, fd_out;
 
+	unsigned int lock_timeout;
+
+	unsigned int lock:1;
 	unsigned int reverse_workers:1;
 };
 
@@ -100,7 +105,8 @@ mirror_get_remote_cmd_line(const char *const *argv,
 	*cmd_args_r = array_idx(&cmd_args, 0);
 }
 
-static bool mirror_get_remote_cmd(const char *const *argv, const char *user,
+static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
+				  const char *const *argv, const char *user,
 				  const char *const **cmd_args_r)
 {
 	ARRAY_TYPE(const_string) cmd_args;
@@ -146,6 +152,10 @@ static bool mirror_get_remote_cmd(const char *const *argv, const char *user,
 	array_append(&cmd_args, &host, 1);
 	p = "doveadm"; array_append(&cmd_args, &p, 1);
 	p = "dsync-server"; array_append(&cmd_args, &p, 1);
+	if (ctx->lock) {
+		p = "-l"; array_append(&cmd_args, &p, 1);
+		p = dec2str(ctx->lock_timeout); array_append(&cmd_args, &p, 1);
+	}
 	if (*user != '\0') {
 		p = "-u"; array_append(&cmd_args, &p, 1);
 		array_append(&cmd_args, &user, 1);
@@ -208,27 +218,43 @@ cmd_dsync_run_remote(struct dsync_cmd_context *ctx, struct mail_user *user)
 	return dsync_worker_init_proxy_client(ctx->fd_in, ctx->fd_out);
 }
 
-static int
-cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
+static int dsync_lock(struct mail_user *user, unsigned int lock_timeout,
+		      const char **path_r, struct file_lock **lock_r)
 {
-	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
-	struct dsync_worker *worker1, *worker2, *workertmp;
-	struct dsync_brain *brain;
-	int ret = 0;
+	const char *home, *path;
+	int ret, fd;
 
-	user->admin = TRUE;
-
-	/* create workers */
-	worker1 = dsync_worker_init_local(user, *_ctx->set->dsync_alt_char);
-	if (ctx->remote_cmd_args == NULL)
-		worker2 = cmd_dsync_run_local(ctx, user);
-	else
-		worker2 = cmd_dsync_run_remote(ctx, user);
-	if (ctx->reverse_workers) {
-		workertmp = worker1;
-		worker1 = worker2;
-		worker2 = workertmp;
+	if ((ret = mail_user_get_home(user, &home)) < 0) {
+		i_error("Couldn't look up user's home dir");
+		return -1;
 	}
+	if (ret == 0) {
+		i_error("User has no home directory");
+		return -1;
+	}
+
+	path = t_strconcat(home, "/"DSYNC_LOCK_FILENAME, NULL);
+	fd = creat(path, 0600);
+	if (fd == -1) {
+		i_error("Couldn't create lock %s: %m", path);
+		return -1;
+	}
+
+	if (file_wait_lock(fd, path, F_WRLCK, FILE_LOCK_METHOD_FCNTL,
+			   lock_timeout, lock_r) <= 0) {
+		i_error("Couldn't lock %s: %m", path);
+		(void)close(fd);
+		return -1;
+	}
+	*path_r = path;
+	return fd;
+}
+
+static int
+cmd_dsync_start(struct dsync_cmd_context *ctx, struct dsync_worker *worker1,
+		struct dsync_worker *worker2)
+{
+	struct dsync_brain *brain;
 
 	/* create and run the brain */
 	brain = dsync_brain_init(worker1, worker2, ctx->mailbox,
@@ -244,13 +270,52 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (dsync_brain_has_unexpected_changes(brain)) {
 		i_warning("Mailbox changes caused a desync. "
 			  "You may want to run dsync again.");
-		_ctx->exit_code = 2;
+		ctx->ctx.exit_code = 2;
 	}
 	if (dsync_brain_deinit(&brain) < 0) {
-		_ctx->exit_code = EX_TEMPFAIL;
-		ret = -1;
+		ctx->ctx.exit_code = EX_TEMPFAIL;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
+{
+	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	struct dsync_worker *worker1, *worker2, *workertmp;
+	const char *lock_path;
+	struct file_lock *lock;
+	int lock_fd, ret = 0;
+
+	user->admin = TRUE;
+
+	/* create workers */
+	worker1 = dsync_worker_init_local(user, *_ctx->set->dsync_alt_char);
+	if (ctx->remote_cmd_args == NULL)
+		worker2 = cmd_dsync_run_local(ctx, user);
+	else
+		worker2 = cmd_dsync_run_remote(ctx, user);
+	if (ctx->reverse_workers) {
+		workertmp = worker1;
+		worker1 = worker2;
+		worker2 = workertmp;
 	}
 
+	if (!ctx->lock)
+		ret = cmd_dsync_start(ctx, worker1, worker2);
+	else {
+		lock_fd = dsync_lock(user, ctx->lock_timeout, &lock_path, &lock);
+		if (lock_fd == -1) {
+			_ctx->exit_code = EX_TEMPFAIL;
+			ret = -1;
+		} else {
+			ret = cmd_dsync_start(ctx, worker1, worker2);
+			file_lock_free(&lock);
+			if (close(lock_fd) < 0)
+				i_error("close(%s) failed: %m", lock_path);
+		}
+	}
 	dsync_worker_deinit(&worker1);
 	dsync_worker_deinit(&worker2);
 	return ret;
@@ -276,7 +341,7 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
 	if ((_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0 &&
 	    _ctx->cur_username != NULL)
 		username = _ctx->cur_username;
-	if (!mirror_get_remote_cmd(args, username, &ctx->remote_cmd_args)) {
+	if (!mirror_get_remote_cmd(ctx, args, username, &ctx->remote_cmd_args)) {
 		/* it's a mail_location */
 		if (args[1] != NULL)
 			doveadm_mail_help_name(_ctx->cmd->name);
@@ -312,6 +377,11 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'f':
 		ctx->brain_flags |= DSYNC_BRAIN_FLAG_FULL_SYNC;
 		break;
+	case 'l':
+		ctx->lock = TRUE;
+		if (str_to_uint(optarg, &ctx->lock_timeout) < 0)
+			i_error("Invalid -l parameter: %s", optarg);
+		break;
 	case 'm':
 		ctx->mailbox = optarg;
 		break;
@@ -329,7 +399,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "+EfRm:";
+	ctx->ctx.getopt_args = "+Efl:m:R";
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_parse_arg;
 	ctx->ctx.v.preinit = cmd_dsync_preinit;
 	ctx->ctx.v.init = cmd_dsync_init;
@@ -349,34 +419,57 @@ static struct doveadm_mail_cmd_context *cmd_dsync_backup_alloc(void)
 }
 
 static int
-cmd_dsync_server_run(struct doveadm_mail_cmd_context *ctx,
+cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
+	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct dsync_proxy_server *server;
 	struct dsync_worker *worker;
+	struct file_lock *lock;
+	const char *lock_path;
+	int lock_fd, ret = 0;
 
 	user->admin = TRUE;
 
 	i_set_failure_prefix(t_strdup_printf("dsync-remote(%s): ",
 					     user->username));
-	worker = dsync_worker_init_local(user, *ctx->set->dsync_alt_char);
+	worker = dsync_worker_init_local(user, *_ctx->set->dsync_alt_char);
 	server = dsync_proxy_server_init(STDIN_FILENO, STDOUT_FILENO, worker);
 
-	io_loop_run(current_ioloop);
+	if (!ctx->lock)
+		io_loop_run(current_ioloop);
+	else {
+		lock_fd = dsync_lock(user, ctx->lock_timeout, &lock_path, &lock);
+		if (lock_fd == -1) {
+			_ctx->exit_code = EX_TEMPFAIL;
+			ret = -1;
+		} else {
+			io_loop_run(current_ioloop);
+			file_lock_free(&lock);
+			if (close(lock_fd) < 0)
+				i_error("close(%s) failed: %m", lock_path);
+		}
+	}
 
 	dsync_proxy_server_deinit(&server);
 	dsync_worker_deinit(&worker);
-	return 0;
+	return ret;
 }
 
 static bool
-cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
-				   int c)
+cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 {
+	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+
 	switch (c) {
 	case 'E':
 		/* dsync wrapper detection flag */
 		legacy_dsync = TRUE;
+		break;
+	case 'l':
+		ctx->lock = TRUE;
+		if (str_to_uint(optarg, &ctx->lock_timeout) < 0)
+			i_error("Invalid -l parameter: %s", optarg);
 		break;
 	default:
 		return FALSE;
@@ -386,21 +479,21 @@ cmd_mailbox_dsync_server_parse_arg(struct doveadm_mail_cmd_context *_ctx ATTR_UN
 
 static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 {
-	struct doveadm_mail_cmd_context *ctx;
+	struct dsync_cmd_context *ctx;
 
-	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
-	ctx->getopt_args = "E";
-	ctx->v.parse_arg = cmd_mailbox_dsync_server_parse_arg;
-	ctx->v.run = cmd_dsync_server_run;
-	return ctx;
+	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
+	ctx->ctx.getopt_args = "El:";
+	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_server_parse_arg;
+	ctx->ctx.v.run = cmd_dsync_server_run;
+	return &ctx->ctx;
 }
 
 struct doveadm_mail_cmd cmd_dsync_mirror = {
-	cmd_dsync_alloc, "sync", "[-fR] [-m <mailbox>] <dest>"
+	cmd_dsync_alloc, "sync", "[-fR] [-l <secs>] [-m <mailbox>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_backup = {
 	cmd_dsync_backup_alloc, "backup",
-	"[-fR] [-m <mailbox>] <dest>"
+	"[-fR] [-l <secs>] [-m <mailbox>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_server = {
 	cmd_dsync_server_alloc, "dsync-server", &doveadm_mail_cmd_hide
