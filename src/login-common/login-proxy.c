@@ -23,6 +23,7 @@
 #define LOGIN_PROXY_IPC_PATH "ipc-proxy"
 #define LOGIN_PROXY_IPC_NAME "proxy"
 #define KILLED_BY_ADMIN_REASON "Killed by admin"
+#define PROXY_IMMEDIATE_FAILURE_SECS 30
 
 struct login_proxy {
 	struct login_proxy *prev, *next;
@@ -240,6 +241,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 
 	rec = login_proxy_state_get(proxy_state, &proxy->ip, proxy->port);
 	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
+	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
 	    rec->num_waiting_connections != 0) {
 		/* the server is down. fail immediately */
 		i_error("proxy(%s): Host %s:%u is down",
