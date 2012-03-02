@@ -167,7 +167,7 @@ dsync_proxy_server_init(int fd_in, int fd_out, struct dsync_worker *worker)
 	server->fd_in = fd_in;
 	server->fd_out = fd_out;
 
-	server->cmd_pool = pool_alloconly_create("worker server cmd", 1024);
+	server->cmd_pool = pool_alloconly_create("worker server cmd", 2048);
 	server->io = io_add(fd_in, IO_READ, proxy_server_input, server);
 	server->input = i_stream_create_fd(fd_in, (size_t)-1, FALSE);
 	server->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);

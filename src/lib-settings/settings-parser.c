@@ -200,7 +200,8 @@ settings_parser_init_list(pool_t set_pool,
 
 	i_assert(count > 0);
 
-	parser_pool = pool_alloconly_create("settings parser", 16384);
+	parser_pool = pool_alloconly_create(MEMPOOL_GROWING"settings parser",
+					    8192);
 	ctx = p_new(parser_pool, struct setting_parser_context, 1);
 	ctx->set_pool = set_pool;
 	ctx->parser_pool = parser_pool;
@@ -1720,7 +1721,8 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	pool_t parser_pool;
 
 	pool_ref(new_pool);
-	parser_pool = pool_alloconly_create("dup settings parser", 8192);
+	parser_pool = pool_alloconly_create(MEMPOOL_GROWING"dup settings parser",
+					    8192);
 	new_ctx = p_new(parser_pool, struct setting_parser_context, 1);
 	new_ctx->set_pool = new_pool;
 	new_ctx->parser_pool = parser_pool;

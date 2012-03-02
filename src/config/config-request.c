@@ -350,7 +350,7 @@ config_export_init(const char *module, enum config_dump_scope scope,
 
 	i_assert(module != NULL);
 
-	pool = pool_alloconly_create("config export", 1024*64);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"config export", 1024*64);
 	ctx = p_new(pool, struct config_export_context, 1);
 	ctx->pool = pool;
 
