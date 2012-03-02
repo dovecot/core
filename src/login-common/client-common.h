@@ -107,7 +107,7 @@ struct client {
 	char *auth_mech_name;
 	struct auth_client_request *auth_request;
 	string_t *auth_response;
-	time_t auth_first_started;
+	time_t auth_first_started, auth_finished;
 	const char *sasl_final_resp;
 
 	unsigned int master_auth_id;

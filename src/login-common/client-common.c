@@ -26,9 +26,36 @@ static unsigned int clients_count = 0;
 
 static void client_idle_disconnect_timeout(struct client *client)
 {
-	client_send_line(client, CLIENT_CMD_REPLY_BYE,
-			 "Disconnected for inactivity.");
-	client_destroy(client, "Disconnected: Inactivity");
+	const char *user_reason, *destroy_reason;
+	unsigned int secs;
+
+	if (client->master_tag != 0) {
+		secs = ioloop_time - client->auth_finished;
+		user_reason = "Timeout while finishing login.";
+		destroy_reason = t_strdup_printf(
+			"Timeout while finishing login (waited %u secs)", secs);
+		client_log_err(client, destroy_reason);
+	} else if (client->auth_request != NULL) {
+		user_reason =
+			"Disconnected for inactivity during authentication.";
+		destroy_reason =
+			"Disconnected: Inactivity during authentication";
+	} else if (client->login_proxy != NULL) {
+		secs = ioloop_time - client->created;
+		user_reason = "Timeout while finishing login.";
+		destroy_reason = t_strdup_printf(
+			"proxy: Logging in to %s:%u timed out "
+			"(state=%u, duration=%us)",
+			login_proxy_get_host(client->login_proxy),
+			login_proxy_get_port(client->login_proxy),
+			client->proxy_state, secs);
+		client_log_err(client, destroy_reason);
+	} else {
+		user_reason = "Disconnected for inactivity.";
+		destroy_reason = "Disconnected: Inactivity";
+	}
+	client_send_line(client, CLIENT_CMD_REPLY_BYE, user_reason);
+	client_destroy(client, destroy_reason);
 }
 
 static void client_open_streams(struct client *client)

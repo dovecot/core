@@ -144,6 +144,7 @@ static void master_send_request(struct anvil_request *anvil_request)
 	buffer_append(buf, data, size);
 	req.data_size = buf->used;
 
+	client->auth_finished = ioloop_time;
 	client->master_auth_id = req.auth_id;
 	master_auth_request(master_auth, client->fd, &req, buf->data,
 			    master_auth_callback, client, &client->master_tag);
