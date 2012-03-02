@@ -109,11 +109,13 @@ static int test_access(const char *path, int access_mode, string_t *errmsg)
 	if (getuid() == geteuid()) {
 		if (access(path, access_mode) == 0)
 			return 0;
-
 		if (errno == EACCES) {
 			write_eacces_error(errmsg, path, access_mode);
-			(void)test_manual_access(path, access_mode,
-						 FALSE, errmsg);
+			if (test_manual_access(path, access_mode,
+					       FALSE, errmsg) == 0) {
+				str_append(errmsg, " UNIX perms appear ok "
+					   "(ACL/MAC wrong?)");
+			}
 			errno = EACCES;
 		} else {
 			str_printfa(errmsg, " access(%s, %d) failed: %m",
