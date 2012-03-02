@@ -614,8 +614,8 @@ driver_sqlpool_query_callback(struct sql_result *result,
 
 	if (result->failed_try_retry &&
 	    request->retry_count < array_count(&db->hosts)) {
-		i_error("%s: Query failed, retrying: %s",
-			db->driver->name, sql_result_get_error(result));
+		i_warning("%s: Query failed, retrying: %s",
+			  db->driver->name, sql_result_get_error(result));
 		request->retry_count++;
 		driver_sqlpool_prepend_request(db, request);
 
