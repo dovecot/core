@@ -20,6 +20,9 @@ struct doveadm_mail_cmd_vfuncs {
 		     const char *const args[]);
 	int (*get_next_user)(struct doveadm_mail_cmd_context *ctx,
 			     const char **username_r);
+	int (*prerun)(struct doveadm_mail_cmd_context *ctx,
+		      struct mail_storage_service_user *service_user,
+		      const char **error_r);
 	int (*run)(struct doveadm_mail_cmd_context *ctx,
 		   struct mail_user *mail_user);
 	void (*deinit)(struct doveadm_mail_cmd_context *ctx);

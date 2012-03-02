@@ -292,6 +292,13 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
+	if (ctx->v.prerun != NULL) {
+		if (ctx->v.prerun(ctx, ctx->cur_service_user, error_r) < 0) {
+			mail_storage_service_user_free(&ctx->cur_service_user);
+			return -1;
+		}
+	}
+
 	ret = mail_storage_service_next(ctx->storage_service,
 					ctx->cur_service_user,
 					&ctx->cur_mail_user);
@@ -372,6 +379,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx, char *argv[],
 				continue;
 		}
 		input.username = user;
+		ctx->cur_username = user;
 		doveadm_print_sticky("username", user);
 		T_BEGIN {
 			ret = doveadm_mail_next_user(ctx, &input, &error);
