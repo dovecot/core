@@ -94,7 +94,7 @@ struct local_dsync_worker {
 	struct hash_table *dir_changes_hash;
 
 	char alt_char;
-	ARRAY_DEFINE(wanted_namespaces, struct mail_namespace *);
+	const char *namespace_prefix;
 
 	mailbox_guid_t selected_box_guid;
 	struct mailbox *selected_box;
@@ -151,18 +151,33 @@ static unsigned int mailbox_guid_hash(const void *p)
 	return h;
 }
 
-static bool local_worker_want_namespace(struct mail_namespace *ns)
+static bool local_worker_want_namespace(struct local_dsync_worker *worker,
+					struct mail_namespace *ns)
 {
-	return strcmp(ns->unexpanded_set->location,
-		      SETTING_STRVAR_UNEXPANDED) == 0;
+	if (worker->namespace_prefix == NULL) {
+		return strcmp(ns->unexpanded_set->location,
+			      SETTING_STRVAR_UNEXPANDED) == 0;
+	} else {
+		return strcmp(ns->prefix, worker->namespace_prefix) == 0;
+	}
 }
 
 static void dsync_check_namespaces(struct local_dsync_worker *worker)
 {
 	struct mail_namespace *ns;
 
+	if (worker->namespace_prefix != NULL) {
+		ns = mail_namespace_find_prefix(worker->user->namespaces,
+						worker->namespace_prefix);
+		if (ns == NULL) {
+			i_fatal("Namespace prefix '%s' not found",
+				worker->namespace_prefix);
+		}
+		return;
+	}
+
 	for (ns = worker->user->namespaces; ns != NULL; ns = ns->next) {
-		if (local_worker_want_namespace(ns))
+		if (local_worker_want_namespace(worker, ns))
 			return;
 	}
 	i_fatal("All your namespaces have a location setting. "
@@ -171,7 +186,8 @@ static void dsync_check_namespaces(struct local_dsync_worker *worker)
 }
 
 struct dsync_worker *
-dsync_worker_init_local(struct mail_user *user, char alt_char)
+dsync_worker_init_local(struct mail_user *user, const char *namespace_prefix,
+			char alt_char)
 {
 	struct local_dsync_worker *worker;
 	pool_t pool;
@@ -181,13 +197,13 @@ dsync_worker_init_local(struct mail_user *user, char alt_char)
 	worker->worker.v = local_dsync_worker;
 	worker->user = user;
 	worker->pool = pool;
+	worker->namespace_prefix = p_strdup(pool, namespace_prefix);
 	worker->alt_char = alt_char;
 	worker->mailbox_hash =
 		hash_table_create(default_pool, pool, 0,
 				  mailbox_guid_hash, mailbox_guid_cmp);
 	i_array_init(&worker->saved_uids, 128);
 	i_array_init(&worker->msg_get_queue, 32);
-	p_array_init(&worker->wanted_namespaces, pool, 8);
 	dsync_check_namespaces(worker);
 
 	mail_user_ref(worker->user);
@@ -382,7 +398,8 @@ static int dsync_worker_get_mailbox_log(struct local_dsync_worker *worker)
 		hash_table_create(default_pool, worker->pool, 0,
 				  dir_change_hash, dir_change_cmp);
 	for (ns = worker->user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->alias_for != NULL || !local_worker_want_namespace(ns))
+		if (ns->alias_for != NULL ||
+		    !local_worker_want_namespace(worker, ns))
 			continue;
 
 		if (dsync_worker_get_list_mailbox_log(worker, ns->list) < 0)
@@ -503,7 +520,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 	memset(dsync_box_r, 0, sizeof(*dsync_box_r));
 
 	while ((info = mailbox_list_iter_next(iter->list_iter)) != NULL) {
-		if (local_worker_want_namespace(info->ns))
+		if (local_worker_want_namespace(worker, info->ns))
 			break;
 	}
 	if (info == NULL)
@@ -646,7 +663,7 @@ local_worker_subs_iter_next(struct dsync_worker_subs_iter *_iter,
 	memset(rec_r, 0, sizeof(*rec_r));
 
 	while ((info = mailbox_list_iter_next(iter->list_iter)) != NULL) {
-		if (local_worker_want_namespace(info->ns) ||
+		if (local_worker_want_namespace(worker, info->ns) ||
 		    (info->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) == 0)
 			break;
 	}
