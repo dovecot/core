@@ -38,6 +38,7 @@ struct dsync_cmd_context {
 	unsigned int lock_timeout;
 
 	unsigned int lock:1;
+	unsigned int default_replica_location:1;
 	unsigned int reverse_workers:1;
 	unsigned int remote:1;
 };
@@ -404,7 +405,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    struct mail_storage_service_user *service_user,
-			    const char **error_r ATTR_UNUSED)
+			    const char **error_r)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	const char *const *remote_cmd_args = NULL;
@@ -418,16 +419,27 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	ctx->fd_err = -1;
 	ctx->remote = FALSE;
 
-	/* if we're executing remotely, give -u parameter if we also
-	   did a userdb lookup. */
-	if ((_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0)
-		username = _ctx->cur_username;
+	if (ctx->default_replica_location) {
+		ctx->local_location =
+			mail_user_set_plugin_getenv(user_set, "mail_replica");
+		if (ctx->local_location == NULL ||
+		    *ctx->local_location == '\0') {
+			*error_r = "User has no mail_replica in userdb";
+			_ctx->exit_code = DOVEADM_EX_NOTFOUND;
+			return -1;
+		}
+	} else {
+		/* if we're executing remotely, give -u parameter if we also
+		   did a userdb lookup. */
+		if ((_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0)
+			username = _ctx->cur_username;
 
-	if (!mirror_get_remote_cmd(ctx, username, &remote_cmd_args)) {
-		/* it's a mail_location */
-		if (_ctx->args[1] != NULL)
-			doveadm_mail_help_name(_ctx->cmd->name);
-		ctx->local_location = _ctx->args[0];
+		if (!mirror_get_remote_cmd(ctx, username, &remote_cmd_args)) {
+			/* it's a mail_location */
+			if (_ctx->args[1] != NULL)
+				doveadm_mail_help_name(_ctx->cmd->name);
+			ctx->local_location = _ctx->args[0];
+		}
 	}
 
 	if (remote_cmd_args == NULL && ctx->local_location != NULL &&
@@ -451,8 +463,13 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 
-	if (args[0] == NULL)
-		doveadm_mail_help_name(_ctx->cmd->name);
+	if (ctx->default_replica_location) {
+		if (args[0] != NULL)
+			i_error("Don't give mail location with -d parameter");
+	} else {
+		if (args[0] == NULL)
+			doveadm_mail_help_name(_ctx->cmd->name);
+	}
 
 	lib_signals_ignore(SIGHUP, TRUE);
 
@@ -472,6 +489,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 
 	switch (c) {
+	case 'd':
+		ctx->default_replica_location = TRUE;
+		break;
 	case 'E':
 		/* dsync wrapper detection flag */
 		legacy_dsync = TRUE;
@@ -501,7 +521,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	struct dsync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
-	ctx->ctx.getopt_args = "+Efl:m:R";
+	ctx->ctx.getopt_args = "+dEfl:m:R";
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_parse_arg;
 	ctx->ctx.v.preinit = cmd_dsync_preinit;
 	ctx->ctx.v.init = cmd_dsync_init;
@@ -592,11 +612,11 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 }
 
 struct doveadm_mail_cmd cmd_dsync_mirror = {
-	cmd_dsync_alloc, "sync", "[-fR] [-l <secs>] [-m <mailbox>] <dest>"
+	cmd_dsync_alloc, "sync", "[-dfR] [-l <secs>] [-m <mailbox>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_backup = {
 	cmd_dsync_backup_alloc, "backup",
-	"[-fR] [-l <secs>] [-m <mailbox>] <dest>"
+	"[-dfR] [-l <secs>] [-m <mailbox>] <dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_server = {
 	cmd_dsync_server_alloc, "dsync-server", &doveadm_mail_cmd_hide
