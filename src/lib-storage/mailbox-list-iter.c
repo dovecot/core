@@ -334,6 +334,12 @@ static bool iter_next_try_prefix(struct ns_list_iterate_context *ctx,
 	unsigned int i;
 	bool ret = FALSE;
 
+	if (strncasecmp(ns->prefix, "INBOX", ns->prefix_len-1) == 0) {
+		/* INBOX is going to be listed in any case,
+		   don't duplicate it */
+		return FALSE;
+	}
+
 	for (i = 0; ctx->patterns_ns_match[i] != NULL; i++) {
 		T_BEGIN {
 			ret = iter_next_try_prefix_pattern(ctx, ns,
