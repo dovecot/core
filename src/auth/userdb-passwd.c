@@ -150,7 +150,8 @@ passwd_iterate_want_pw(struct passwd *pw, const struct auth_settings *set)
 	/* skip entries that don't have a valid shell.
 	   they're again probably not real users. */
 	if (strcmp(pw->pw_shell, "/bin/false") == 0 ||
-	    strcmp(pw->pw_shell, "/sbin/nologin") == 0)
+	    strcmp(pw->pw_shell, "/sbin/nologin") == 0 ||
+	    strcmp(pw->pw_shell, "/usr/sbin/nologin") == 0)
 		return FALSE;
 	return TRUE;
 }
