@@ -317,6 +317,7 @@ static void mountpoints_update(const struct master_settings *set)
 	mountpoints = mountpoint_list_init(perm_path, state_path);
 
 	if (mountpoint_list_add_missing(mountpoints, MOUNTPOINT_STATE_DEFAULT,
+				mountpoint_list_default_ignore_prefixes,
 				mountpoint_list_default_ignore_types) == 0)
 		mountpoints_warn_missing(mountpoints);
 	(void)mountpoint_list_save(mountpoints);

@@ -50,6 +50,12 @@ const char *const mountpoint_list_default_ignore_types[] = {
 	NULL
 };
 
+const char *const mountpoint_list_default_ignore_prefixes[] = {
+	"/cdrom",
+	"/media",
+	NULL
+};
+
 struct mountpoint_list *
 mountpoint_list_init(const char *perm_path, const char *state_path)
 {
@@ -251,8 +257,20 @@ bool mountpoint_list_remove(struct mountpoint_list *list,
 	return FALSE;
 }
 
+static bool str_array_find_prefix(const char *const *prefixes, const char *str)
+{
+	if (prefixes == NULL)
+		return FALSE;
+	for (; *prefixes != NULL; prefixes++) {
+		if (strncmp(*prefixes, str, strlen(*prefixes)) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 int mountpoint_list_add_missing(struct mountpoint_list *list,
 				const char *default_state,
+				const char *const *ignore_prefixes,
 				const char *const *ignore_types)
 {
 	struct mountpoint_list_rec new_rec, *rec, *const *recp;
@@ -269,15 +287,15 @@ int mountpoint_list_add_missing(struct mountpoint_list *list,
 	/* get a sorted list of all current mountpoints */
 	iter = mountpoint_iter_init();
 	while ((mnt = mountpoint_iter_next(iter)) != NULL) {
-		if (str_array_find(ignore_types, mnt->type))
-			continue;
-
 		rec = mountpoint_list_find(list, mnt->mount_path);
-		if (rec == NULL) {
+		if (rec != NULL) {
+			if (!rec->wildcard)
+				rec->mounted = TRUE;
+		} else if (!str_array_find(ignore_types, mnt->type) &&
+			   !str_array_find_prefix(ignore_prefixes,
+						  mnt->mount_path)) {
 			new_rec.mount_path = mnt->mount_path;
 			mountpoint_list_add(list, &new_rec);
-		} else if (!rec->wildcard) {
-			rec->mounted = TRUE;
 		}
 	}
 	return mountpoint_iter_deinit(&iter);
