@@ -2785,6 +2785,9 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
+src/replication/Makefile
+src/replication/aggregator/Makefile
+src/replication/replicator/Makefile
 src/ssl-params/Makefile
 src/stats/Makefile
 src/util/Makefile
@@ -2803,6 +2806,7 @@ src/plugins/mail-log/Makefile
 src/plugins/notify/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
+src/plugins/replication/Makefile
 src/plugins/snarf/Makefile
 src/plugins/stats/Makefile
 src/plugins/imap-stats/Makefile

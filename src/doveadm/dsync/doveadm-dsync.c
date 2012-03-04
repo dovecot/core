@@ -368,6 +368,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	int lock_fd, ret = 0;
 
 	user->admin = TRUE;
+	user->dsyncing = TRUE;
 
 	/* create workers */
 	worker1 = dsync_worker_init_local(user, ctx->namespace_prefix,

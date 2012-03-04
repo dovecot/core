@@ -39,6 +39,7 @@ SUBDIRS = \
 	log \
 	config \
 	director \
+	replication \
 	util \
 	doveadm \
 	ssl-params \
