@@ -341,6 +341,8 @@ void log_connection_destroy(struct log_connection *log)
 		i_error("close(log connection fd) failed: %m");
 	i_free(log->default_prefix);
 	i_free(log);
+
+	master_service_client_connection_destroyed(master_service);
 }
 
 void log_connections_init(void)
