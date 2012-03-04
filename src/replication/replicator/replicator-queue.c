@@ -111,6 +111,7 @@ replicator_queue_add_int(struct replicator_queue *queue, const char *username,
 	if (user == NULL) {
 		user = i_new(struct replicator_user, 1);
 		user->username = i_strdup(username);
+		hash_table_insert(queue->user_hash, user->username, user);
 	} else {
 		if (user->priority > priority) {
 			/* user already has a higher priority than this */
@@ -237,6 +238,8 @@ replicator_queue_handle_sync_lookups(struct replicator_queue *queue,
 void replicator_queue_push(struct replicator_queue *queue,
 			   struct replicator_user *user)
 {
+	i_assert(user->popped);
+
 	priorityq_add(queue->user_queue, &user->item);
 	user->popped = FALSE;
 
