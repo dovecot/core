@@ -116,8 +116,7 @@ static int doveadm_input_line(struct doveadm_connection *conn, const char *line)
 	conn->end_of_print = FALSE;
 	/* FIXME: disconnect after each request for now.
 	   doveadm server's getopt() handling seems to break otherwise */
-	doveadm_disconnect(conn);
-	return 0;
+	return -1;
 }
 
 static void doveadm_input(struct doveadm_connection *conn)
