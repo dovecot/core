@@ -644,6 +644,7 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	char *p, *dup, new_flags[6];
 	int max_argc, src, dest, i, j;
 	bool flag_f = FALSE, flag_R = FALSE, flag_m, flag_u, flag_C, has_arg;
+	bool dsync_server = FALSE;
 
 	p = strrchr(argv[0], '/');
 	if (p == NULL) p = argv[0];
@@ -732,9 +733,10 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 		new_argv[dest] = "sync";
 	else if (strcmp(argv[src], "backup") == 0)
 		new_argv[dest] = "backup";
-	else if (strcmp(argv[src], "server") == 0)
+	else if (strcmp(argv[src], "server") == 0) {
 		new_argv[dest] = "dsync-server";
-	else
+		dsync_server = TRUE;
+	} else
 		i_fatal("Invalid parameter: %s", argv[src]);
 	src++; dest++;
 
@@ -746,12 +748,14 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	/* dsync flags */
 	new_flags[0] = '-';
 	new_flags[1] = 'E'; i = 2;
-	if (flag_f)
-		new_flags[i++] = 'f';
-	if (flag_R)
-		new_flags[i++] = 'R';
-	if (mailbox != NULL)
-		new_flags[i++] = 'm';
+	if (!dsync_server) {
+		if (flag_f)
+			new_flags[i++] = 'f';
+		if (flag_R)
+			new_flags[i++] = 'R';
+		if (mailbox != NULL)
+			new_flags[i++] = 'm';
+	}
 	i_assert((unsigned int)i < sizeof(new_flags));
 	new_flags[i] = '\0';
 
