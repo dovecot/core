@@ -83,6 +83,8 @@ void replicator_queue_deinit(struct replicator_queue **_queue)
 
 	while ((item = priorityq_pop(queue->user_queue)) != NULL) {
 		struct replicator_user *user = (struct replicator_user *)item;
+
+		user->popped = TRUE;
 		replicator_queue_remove(queue, &user);
 	}
 
