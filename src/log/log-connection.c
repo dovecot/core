@@ -136,7 +136,7 @@ log_parse_master_line(const char *line, time_t log_time, const struct tm *tm)
 {
 	struct log_connection *const *logs, *log;
 	struct log_client *client;
-	const char *p, *p2;
+	const char *p, *p2, *cmd;
 	unsigned int count;
 	int service_fd;
 	long pid;
@@ -148,33 +148,38 @@ log_parse_master_line(const char *line, time_t log_time, const struct tm *tm)
 	}
 	service_fd = atoi(t_strcut(line, ' '));
 	pid = strtol(t_strcut(p, ' '), NULL, 10);
+	cmd = p2 + 1;
 
 	logs = array_get(&logs_by_fd, &count);
 	if (service_fd >= (int)count || logs[service_fd] == NULL) {
+		if (strcmp(cmd, "BYE") == 0 && service_fd < (int)count) {
+			/* master is probably shutting down and we already
+			   noticed the log fd closing */
+			return;
+		}
 		i_error("Received master input for invalid service_fd %d: %s",
 			service_fd, line);
 		return;
 	}
 	log = logs[service_fd];
 	client = hash_table_lookup(log->clients, POINTER_CAST(pid));
-	line = p2 + 1;
 
-	if (strcmp(line, "BYE") == 0) {
+	if (strcmp(cmd, "BYE") == 0) {
 		if (client == NULL) {
 			/* we haven't seen anything important from this client.
 			   it's not an error. */
 			return;
 		}
 		log_client_free(log, client, pid);
-	} else if (strncmp(line, "FATAL ", 6) == 0) {
-		client_log_fatal(log, client, line + 6, log_time, tm);
-	} else if (strncmp(line, "DEFAULT-FATAL ", 14) == 0) {
+	} else if (strncmp(cmd, "FATAL ", 6) == 0) {
+		client_log_fatal(log, client, cmd + 6, log_time, tm);
+	} else if (strncmp(cmd, "DEFAULT-FATAL ", 14) == 0) {
 		/* If the client has logged a fatal/panic, don't log this
 		   message. */
 		if (client == NULL || !client->fatal_logged)
-			client_log_fatal(log, client, line + 14, log_time, tm);
+			client_log_fatal(log, client, cmd + 14, log_time, tm);
 	} else {
-		i_error("Received unknown command from master: %s", line);
+		i_error("Received unknown command from master: %s", cmd);
 	}
 }
 
