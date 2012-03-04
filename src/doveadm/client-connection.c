@@ -364,7 +364,7 @@ struct client_connection *client_connection_create(int fd, int listen_fd)
 	   fstat() always returns mode as 0777 */
 	if (net_getunixname(listen_fd, &listen_path) == 0 &&
 	    stat(listen_path, &st) == 0 && S_ISSOCK(st.st_mode) &&
-	    (st.st_mode & 0777) == 0600 && st.st_uid == geteuid()) {
+	    (st.st_mode & 0777) == 0600) {
 		/* no need for client to authenticate */
 		conn->authenticated = TRUE;
 		o_stream_send(conn->output, "+\n", 2);
