@@ -19,12 +19,15 @@ unused_objects = \
 	../lib-storage/mail-search-parser-imap.o
 endif
 
-libs = \
+pop3_LDADD = \
+	$(unused_objects) \
 	$(LIBDOVECOT_STORAGE) \
-	$(unused_objects)
-
-pop3_LDADD = $(libs) $(LIBDOVECOT) $(MODULE_LIBS)
-pop3_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
+	$(LIBDOVECOT) \
+	$(MODULE_LIBS)
+pop3_DEPENDENCIES = \
+	$(unused_objects) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
 
 pop3_SOURCES = \
 	main.c \

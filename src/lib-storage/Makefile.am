@@ -75,6 +75,7 @@ headers = \
 	mailbox-uidvalidity.h
 
 shlibs = \
+	@LINKED_STORAGE_LIBS@ \
 	libstorage.la \
 	libstorage_service.la \
 	list/libstorage_list.la \

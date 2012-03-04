@@ -32,9 +32,6 @@ libstorage_index_la_SOURCES = \
 	index-thread-links.c \
 	index-transaction.c
 
-libstorage_index_la_LIBADD = @LINKED_STORAGE_LIBS@
-libstorage_index_la_DEPENDENCIES = @LINKED_STORAGE_LIBS@
-
 headers = \
 	istream-attachment.h \
 	istream-mail.h \

@@ -39,26 +39,29 @@ cmd_pw_libs = \
 
 libs = \
 	dsync/libdsync.a \
-	$(LIBDOVECOT_STORAGE) \
 	$(unused_objects)
 
 doveadm_LDADD = \
 	$(libs) \
 	$(cmd_pw_libs) \
 	$(CRYPT_LIBS) \
+	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
 doveadm_DEPENDENCIES = \
 	$(libs) \
 	$(cmd_pw_libs) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
 doveadm_server_LDADD = \
 	$(libs) \
+	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(MODULE_LIBS)
 doveadm_server_DEPENDENCIES = \
 	$(libs) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
 common = \

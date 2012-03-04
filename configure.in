@@ -2488,10 +2488,13 @@ for storage in $mail_storages; do
     want_ssl_libs=yes
   fi
 done
+LINKED_STORAGE_LDADD=
 if test "$want_ssl_libs" = yes; then
   LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS \$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la"
+  LINKED_STORAGE_LDADD="$SSL_LIBS"
 fi
 AC_SUBST(LINKED_STORAGE_LIBS)
+AC_SUBST(LINKED_STORAGE_LDADD)
 AC_SUBST(mailbox_list_drivers)
 AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", List of compiled in mail storages)
 
@@ -2507,7 +2510,7 @@ dnl **
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
   LIBDOVECOT="$LIBDOVECOT_DEPS"
-  LIBDOVECOT_STORAGE='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
+  LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/libdovecot-login.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/libdovecot-lda.la'
 else
@@ -2515,14 +2518,16 @@ else
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(LIBICONV)"
   LIBDOVECOT_STORAGE_LAST='$(top_builddir)/src/lib-storage/list/libstorage_list.la $(top_builddir)/src/lib-storage/index/libstorage_index.la $(top_builddir)/src/lib-storage/libstorage.la $(top_builddir)/src/lib-index/libindex.la'
   LIBDOVECOT_STORAGE_FIRST='$(top_builddir)/src/lib-storage/libstorage_service.la $(top_builddir)/src/lib-storage/register/libstorage_register.la'
-  LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_FIRST $LINKED_STORAGE_LIBS $LIBDOVECOT_STORAGE_LAST"
+  LIBDOVECOT_STORAGE_DEPS="$LIBDOVECOT_STORAGE_FIRST $LINKED_STORAGE_LIBS $LIBDOVECOT_STORAGE_LAST"
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
 fi
+LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_DEPS $LINKED_STORAGE_LDADD"
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
 AC_SUBST(LIBDOVECOT)
 AC_SUBST(LIBDOVECOT_DEPS)
 AC_SUBST(LIBDOVECOT_STORAGE)
+AC_SUBST(LIBDOVECOT_STORAGE_DEPS)
 AC_SUBST(LIBDOVECOT_LOGIN)
 AC_SUBST(LIBDOVECOT_SQL)
 AC_SUBST(LIBDOVECOT_LDA)
