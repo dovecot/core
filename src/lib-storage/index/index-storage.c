@@ -316,8 +316,11 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 int index_storage_mailbox_enable(struct mailbox *box,
 				 enum mailbox_feature feature)
 {
-	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0)
+	if ((feature & MAILBOX_FEATURE_CONDSTORE) != 0) {
 		box->enabled_features |= MAILBOX_FEATURE_CONDSTORE;
+		if (box->opened)
+			mail_index_modseq_enable(box->index);
+	}
 	return 0;
 }
 
