@@ -1,5 +1,8 @@
 aclocaldir = $(datadir)/aclocal
 
+# automake 1.11.2+ doesn't like allow using pkglib_DATA, but we really it.
+dovecotlibdir = $(libdir)/dovecot
+
 SUBDIRS = \
 	. \
 	src \
@@ -21,7 +24,7 @@ datafiles = \
 	dovecot-config
 
 nodist_pkginclude_HEADERS = config.h
-pkglib_DATA = $(datafiles)
+dovecotlib_DATA = $(datafiles)
 
 if MAINTAINER_MODE
 ChangeLog: .hg/dirstate
