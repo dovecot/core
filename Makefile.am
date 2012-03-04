@@ -1,8 +1,5 @@
 aclocaldir = $(datadir)/aclocal
 
-# automake 1.11.2+ doesn't like allow using pkglib_DATA, but we really it.
-dovecotlibdir = $(libdir)/dovecot
-
 SUBDIRS = \
 	. \
 	src \
@@ -20,11 +17,7 @@ EXTRA_DIST = \
 	update-version.sh \
 	$(conf_DATA)
 
-datafiles = \
-	dovecot-config
-
 nodist_pkginclude_HEADERS = config.h
-dovecotlib_DATA = $(datafiles)
 
 if MAINTAINER_MODE
 ChangeLog: .hg/dirstate
@@ -64,7 +57,7 @@ EXTRA_DIST += dovecot.socket dovecot.service.in
 endif
 
 install-exec-hook:
-	rm $(DESTDIR)$(pkglibdir)/dovecot-config && \
+	$(MKDIR_P) $(DESTDIR)$(pkglibdir); \
 	grep -v '^LIBDOVECOT_.*_INCLUDE' dovecot-config | \
 	grep -v '^LIBDOVECOT.*_DEPS' | sed \
 	-e "s|^\(LIBDOVECOT\)=.*$$|\1='-L$(pkglibdir) -ldovecot'|" \
