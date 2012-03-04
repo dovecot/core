@@ -9,6 +9,7 @@
 #include "network.h"
 #include "write-full.h"
 #include "mail-user.h"
+#include "mail-namespace.h"
 #include "mail-storage-private.h"
 #include "notify-plugin.h"
 #include "replication-common.h"
@@ -35,7 +36,7 @@ struct replication_user {
 };
 
 struct replication_mail_txn_context {
-	struct mail_user *user;
+	struct mail_namespace *ns;
 	bool new_messages;
 };
 
@@ -175,19 +176,25 @@ static int replication_notify_sync(struct mail_user *user)
 	return ret;
 }
 
-static void replication_notify(struct mail_user *user,
+static void replication_notify(struct mail_namespace *ns,
 			       enum replication_priority priority)
 {
-	struct replication_user *ruser = REPLICATION_USER_CONTEXT(user);
+	struct replication_user *ruser;
 
-	if (user->dsyncing) {
+	if (ns->user->dsyncing) {
 		/* we're running dsync, which means that the remote is telling
 		   us about a change. don't trigger a replication back to it */
 		return;
 	}
 
+	if (ns->owner == NULL) {
+		/* public namespace. we can't handle this for now. */
+		return;
+	}
+	ruser = REPLICATION_USER_CONTEXT(ns->owner);
+
 	if (priority == REPLICATION_PRIORITY_SYNC) {
-		if (replication_notify_sync(user) == 0) {
+		if (replication_notify_sync(ns->owner) == 0) {
 			timeout_remove(&ruser->to);
 			ruser->priority = REPLICATION_PRIORITY_NONE;
 			return;
@@ -200,7 +207,7 @@ static void replication_notify(struct mail_user *user,
 		ruser->priority = priority;
 	if (ruser->to == NULL) {
 		ruser->to = timeout_add(REPLICATION_NOTIFY_DELAY_MSECS,
-					replication_notify_now, user);
+					replication_notify_now, ns->owner);
 	}
 }
 
@@ -210,7 +217,7 @@ replication_mail_transaction_begin(struct mailbox_transaction_context *t)
 	struct replication_mail_txn_context *ctx;
 
 	ctx = i_new(struct replication_mail_txn_context, 1);
-	ctx->user = t->box->storage->user;
+	ctx->ns = mailbox_get_namespace(t->box);
 	return ctx;
 }
 
@@ -237,28 +244,31 @@ replication_mail_transaction_commit(void *txn,
 {
 	struct replication_mail_txn_context *ctx =
 		(struct replication_mail_txn_context *)txn;
-	struct replication_user *ruser = REPLICATION_USER_CONTEXT(ctx->user);
+	struct replication_user *ruser =
+		REPLICATION_USER_CONTEXT(ctx->ns->user);
 	enum replication_priority priority;
 
 	if (ctx->new_messages || changes->changed) {
 		priority = !ctx->new_messages ? REPLICATION_PRIORITY_LOW :
 			ruser->sync_secs == 0 ? REPLICATION_PRIORITY_HIGH :
 			REPLICATION_PRIORITY_SYNC;
-		replication_notify(ctx->user, priority);
+		replication_notify(ctx->ns, priority);
 	}
 	i_free(ctx);
 }
 
 static void replication_mailbox_create(struct mailbox *box)
 {
-	replication_notify(box->storage->user, REPLICATION_PRIORITY_LOW);
+	replication_notify(mailbox_get_namespace(box),
+			   REPLICATION_PRIORITY_LOW);
 }
 
 static void
 replication_mailbox_delete_commit(void *txn ATTR_UNUSED,
 				  struct mailbox *box)
 {
-	replication_notify(box->storage->user, REPLICATION_PRIORITY_LOW);
+	replication_notify(mailbox_get_namespace(box),
+			   REPLICATION_PRIORITY_LOW);
 }
 
 static void
@@ -266,13 +276,15 @@ replication_mailbox_rename(struct mailbox *src ATTR_UNUSED,
 			   struct mailbox *dest,
 			   bool rename_children ATTR_UNUSED)
 {
-	replication_notify(dest->storage->user, REPLICATION_PRIORITY_LOW);
+	replication_notify(mailbox_get_namespace(dest),
+			   REPLICATION_PRIORITY_LOW);
 }
 
 static void replication_mailbox_set_subscribed(struct mailbox *box,
 					       bool subscribed ATTR_UNUSED)
 {
-	replication_notify(box->storage->user, REPLICATION_PRIORITY_LOW);
+	replication_notify(mailbox_get_namespace(box),
+			   REPLICATION_PRIORITY_LOW);
 }
 
 static void replication_user_deinit(struct mail_user *user)
