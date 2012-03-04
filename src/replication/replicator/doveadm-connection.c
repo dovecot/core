@@ -105,8 +105,10 @@ static int doveadm_input_line(struct doveadm_connection *conn, const char *line)
 	if (line[0] == '+')
 		doveadm_callback(conn, DOVEADM_REPLY_OK);
 	else if (line[0] == '-') {
-		/* FIXME: handle DOVEADM_REPLY_NOUSER */
-		doveadm_callback(conn, DOVEADM_REPLY_FAIL);
+		if (strcmp(line+1, "NOUSER") == 0)
+			doveadm_callback(conn, DOVEADM_REPLY_NOUSER);
+		else
+			doveadm_callback(conn, DOVEADM_REPLY_FAIL);
 	} else {
 		i_error("%s: Invalid input: %s", conn->path, line);
 		return -1;
