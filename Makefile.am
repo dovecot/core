@@ -17,6 +17,8 @@ EXTRA_DIST = \
 	update-version.sh \
 	$(conf_DATA)
 
+noinst_DATA = dovecot-config
+
 nodist_pkginclude_HEADERS = config.h
 
 if MAINTAINER_MODE
