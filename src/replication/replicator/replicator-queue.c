@@ -81,6 +81,8 @@ void replicator_queue_deinit(struct replicator_queue **_queue)
 
 	*_queue = NULL;
 
+	queue->change_callback = NULL;
+
 	while ((item = priorityq_pop(queue->user_queue)) != NULL) {
 		struct replicator_user *user = (struct replicator_user *)item;
 
