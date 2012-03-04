@@ -27,16 +27,11 @@
 struct replication_user {
 	union mail_user_module_context module_ctx;
 
-	const char *fifo_path;
 	const char *socket_path;
-
-	int fifo_fd;
 
 	struct timeout *to;
 	enum replication_priority priority;
 	unsigned int sync_secs;
-
-	bool fifo_failed;
 };
 
 struct replication_mail_txn_context {
@@ -46,25 +41,27 @@ struct replication_mail_txn_context {
 
 static MODULE_CONTEXT_DEFINE_INIT(replication_user_module,
 				  &mail_user_module_register);
+static int fifo_fd;
+static bool fifo_failed;
+static char *fifo_path;
 
 static int
 replication_fifo_notify(struct mail_user *user,
 			enum replication_priority priority)
 {
-	struct replication_user *ruser = REPLICATION_USER_CONTEXT(user);
 	string_t *str;
 	ssize_t ret;
 
-	if (ruser->fifo_failed)
+	if (fifo_failed)
 		return -1;
-	if (ruser->fifo_fd == -1) {
-		ruser->fifo_fd = open(ruser->fifo_path, O_WRONLY);
-		if (ruser->fifo_fd == -1) {
-			i_error("open(%s) failed: %m", ruser->fifo_path);
-			ruser->fifo_failed = TRUE;
+	if (fifo_fd == -1) {
+		fifo_fd = open(fifo_path, O_WRONLY);
+		if (fifo_fd == -1) {
+			i_error("open(%s) failed: %m", fifo_path);
+			fifo_failed = TRUE;
 			return -1;
 		}
-		fd_set_nonblock(ruser->fifo_fd, TRUE);
+		fd_set_nonblock(fifo_fd, TRUE);
 	}
 	/* <username> \t <priority> */
 	str = t_str_new(256);
@@ -82,21 +79,19 @@ replication_fifo_notify(struct mail_user *user,
 		break;
 	}
 	str_append_c(str, '\n');
-	ret = write(ruser->fifo_fd, str_data(str), str_len(str));
+	ret = write(fifo_fd, str_data(str), str_len(str));
 	if (ret == 0) {
 		/* busy, try again later */
 		return 0;
 	}
 	if (ret != (ssize_t)str_len(str)) {
 		if (ret < 0)
-			i_error("write(%s) failed: %m", ruser->fifo_path);
-		else {
-			i_error("write(%s) wrote partial data",
-				ruser->fifo_path);
-		}
-		if (close(ruser->fifo_fd) < 0)
-			i_error("close(%s) failed: %m", ruser->fifo_path);
-		ruser->fifo_fd = -1;
+			i_error("write(%s) failed: %m", fifo_path);
+		else
+			i_error("write(%s) wrote partial data", fifo_path);
+		if (close(fifo_fd) < 0)
+			i_error("close(%s) failed: %m", fifo_path);
+		fifo_fd = -1;
 		return -1;
 	}
 	return 1;
@@ -111,7 +106,7 @@ static void replication_notify_now(struct mail_user *user)
 	i_assert(ruser->priority != REPLICATION_PRIORITY_SYNC);
 
 	if ((ret = replication_fifo_notify(user, ruser->priority)) < 0 &&
-	    !ruser->fifo_failed) {
+	    !fifo_failed) {
 		/* retry once, in case replication server was restarted */
 		ret = replication_fifo_notify(user, ruser->priority);
 	}
@@ -288,7 +283,7 @@ static void replication_user_deinit(struct mail_user *user)
 		replication_notify_now(user);
 		if (ruser->to != NULL) {
 			i_warning("%s: Couldn't send final notification "
-				  "due to fifo being busy", ruser->fifo_path);
+				  "due to fifo being busy", fifo_path);
 			timeout_remove(&ruser->to);
 		}
 	}
@@ -308,9 +303,12 @@ static void replication_user_created(struct mail_user *user)
 	v->deinit = replication_user_deinit;
 	MODULE_CONTEXT_SET(user, replication_user_module, ruser);
 
-	ruser->fifo_fd = -1;
-	ruser->fifo_path = p_strconcat(user->pool, user->set->base_dir,
-				       "/"REPLICATION_FIFO_NAME, NULL);
+	if (fifo_path == NULL) {
+		/* we'll assume that all users have the same base_dir.
+		   they really should. */
+		fifo_path = i_strconcat(user->set->base_dir,
+					"/"REPLICATION_FIFO_NAME, NULL);
+	}
 	ruser->socket_path = p_strconcat(user->pool, user->set->base_dir,
 					 "/"REPLICATION_SOCKET_NAME, NULL);
 	value = mail_user_plugin_getenv(user, "replication_sync_timeout");
@@ -340,12 +338,18 @@ static struct mail_storage_hooks replication_mail_storage_hooks = {
 
 void replication_plugin_init(struct module *module)
 {
+	fifo_fd = -1;
 	replication_ctx = notify_register(&replication_vfuncs);
 	mail_storage_hooks_add(module, &replication_mail_storage_hooks);
 }
 
 void replication_plugin_deinit(void)
 {
+	if (close(fifo_fd) < 0)
+		i_error("close(%s) failed: %m", fifo_path);
+	fifo_fd = -1;
+	i_free_and_null(fifo_path);
+
 	mail_storage_hooks_remove(&replication_mail_storage_hooks);
 	notify_unregister(replication_ctx);
 }
