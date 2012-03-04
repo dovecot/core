@@ -357,9 +357,11 @@ void replication_plugin_init(struct module *module)
 
 void replication_plugin_deinit(void)
 {
-	if (close(fifo_fd) < 0)
-		i_error("close(%s) failed: %m", fifo_path);
-	fifo_fd = -1;
+	if (fifo_fd != -1) {
+		if (close(fifo_fd) < 0)
+			i_error("close(%s) failed: %m", fifo_path);
+		fifo_fd = -1;
+	}
 	i_free_and_null(fifo_path);
 
 	mail_storage_hooks_remove(&replication_mail_storage_hooks);
