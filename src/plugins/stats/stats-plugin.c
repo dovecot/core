@@ -165,77 +165,6 @@ void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
 	user_trans_stats_get(suser, &stats_r->trans_stats);
 }
 
-static struct mailbox_transaction_context *
-stats_transaction_begin(struct mailbox *box,
-			enum mailbox_transaction_flags flags)
-{
-	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
-	struct stats_mailbox *sbox = STATS_CONTEXT(box);
-	struct mailbox_transaction_context *trans;
-	struct stats_transaction_context *strans;
-
-	trans = sbox->module_ctx.super.transaction_begin(box, flags);
-	trans->stats_track = TRUE;
-
-	strans = i_new(struct stats_transaction_context, 1);
-	strans->trans = trans;
-	DLLIST_PREPEND(&suser->transactions, strans);
-
-	MODULE_CONTEXT_SET(trans, stats_storage_module, strans);
-	return trans;
-}
-
-static void stats_transaction_free(struct stats_user *suser,
-				   struct stats_transaction_context *strans)
-{
-	DLLIST_REMOVE(&suser->transactions, strans);
-
-	trans_stats_add(&suser->session_stats.trans_stats,
-			&strans->trans->stats);
-}
-
-static int
-stats_transaction_commit(struct mailbox_transaction_context *ctx,
-			 struct mail_transaction_commit_changes *changes_r)
-{
-	struct stats_transaction_context *strans = STATS_CONTEXT(ctx);
-	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->box);
-	struct stats_user *suser = STATS_USER_CONTEXT(ctx->box->storage->user);
-
-	stats_transaction_free(suser, strans);
-	return sbox->module_ctx.super.transaction_commit(ctx, changes_r);
-}
-
-static void
-stats_transaction_rollback(struct mailbox_transaction_context *ctx)
-{
-	struct stats_transaction_context *strans = STATS_CONTEXT(ctx);
-	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->box);
-	struct stats_user *suser = STATS_USER_CONTEXT(ctx->box->storage->user);
-
-	stats_transaction_free(suser, strans);
-	sbox->module_ctx.super.transaction_rollback(ctx);
-}
-
-static void stats_mailbox_allocated(struct mailbox *box)
-{
-	struct mailbox_vfuncs *v = box->vlast;
-	struct stats_mailbox *sbox;
-	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
-
-	if (suser == NULL)
-		return;
-
-	sbox = p_new(box->pool, struct stats_mailbox, 1);
-	sbox->module_ctx.super = *v;
-	box->vlast = &sbox->module_ctx.super;
-
-	v->transaction_begin = stats_transaction_begin;
-	v->transaction_commit = stats_transaction_commit;
-	v->transaction_rollback = stats_transaction_rollback;
-	MODULE_CONTEXT_SET(box, stats_storage_module, sbox);
-}
-
 static void stats_io_activate(void *context)
 {
 	struct mail_user *user = context;
@@ -398,6 +327,7 @@ static void session_stats_refresh(struct mail_user *user)
 	bool changed;
 
 	if (session_stats_need_send(suser, &changed, &to_next_secs)) {
+		suser->last_refresh = time(NULL);
 		suser->session_sent_duplicate = !changed;
 		suser->last_session_update = ioloop_time;
 		suser->last_sent_session_stats = suser->session_stats;
@@ -410,6 +340,98 @@ static void session_stats_refresh(struct mail_user *user)
 	suser->to_stats_timeout =
 		timeout_add(to_next_secs*1000,
 			    session_stats_refresh_timeout, user);
+}
+
+static struct mailbox_transaction_context *
+stats_transaction_begin(struct mailbox *box,
+			enum mailbox_transaction_flags flags)
+{
+	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
+	struct stats_mailbox *sbox = STATS_CONTEXT(box);
+	struct mailbox_transaction_context *trans;
+	struct stats_transaction_context *strans;
+
+	trans = sbox->module_ctx.super.transaction_begin(box, flags);
+	trans->stats_track = TRUE;
+
+	strans = i_new(struct stats_transaction_context, 1);
+	strans->trans = trans;
+	DLLIST_PREPEND(&suser->transactions, strans);
+
+	MODULE_CONTEXT_SET(trans, stats_storage_module, strans);
+	return trans;
+}
+
+static void stats_transaction_free(struct stats_user *suser,
+				   struct stats_transaction_context *strans)
+{
+	DLLIST_REMOVE(&suser->transactions, strans);
+
+	trans_stats_add(&suser->session_stats.trans_stats,
+			&strans->trans->stats);
+}
+
+static int
+stats_transaction_commit(struct mailbox_transaction_context *ctx,
+			 struct mail_transaction_commit_changes *changes_r)
+{
+	struct stats_transaction_context *strans = STATS_CONTEXT(ctx);
+	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->box);
+	struct stats_user *suser = STATS_USER_CONTEXT(ctx->box->storage->user);
+
+	stats_transaction_free(suser, strans);
+	return sbox->module_ctx.super.transaction_commit(ctx, changes_r);
+}
+
+static void
+stats_transaction_rollback(struct mailbox_transaction_context *ctx)
+{
+	struct stats_transaction_context *strans = STATS_CONTEXT(ctx);
+	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->box);
+	struct stats_user *suser = STATS_USER_CONTEXT(ctx->box->storage->user);
+
+	stats_transaction_free(suser, strans);
+	sbox->module_ctx.super.transaction_rollback(ctx);
+}
+
+static bool stats_search_next_nonblock(struct mail_search_context *ctx,
+				       struct mail **mail_r, bool *tryagain_r)
+{
+	struct stats_mailbox *sbox = STATS_CONTEXT(ctx->transaction->box);
+	struct mail_user *user = ctx->transaction->box->storage->user;
+	struct stats_user *suser = STATS_USER_CONTEXT(user);
+	bool ret;
+
+	ret = sbox->module_ctx.super.
+		search_next_nonblock(ctx, mail_r, tryagain_r);
+	if (ret || !*tryagain_r)
+		return ret;
+
+	/* retrying, so this is a long running search. update the stats once
+	   a second */
+	if (time(NULL) != suser->last_refresh)
+		session_stats_refresh(user);
+	return FALSE;
+}
+
+static void stats_mailbox_allocated(struct mailbox *box)
+{
+	struct mailbox_vfuncs *v = box->vlast;
+	struct stats_mailbox *sbox;
+	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
+
+	if (suser == NULL)
+		return;
+
+	sbox = p_new(box->pool, struct stats_mailbox, 1);
+	sbox->module_ctx.super = *v;
+	box->vlast = &sbox->module_ctx.super;
+
+	v->transaction_begin = stats_transaction_begin;
+	v->transaction_commit = stats_transaction_commit;
+	v->transaction_rollback = stats_transaction_rollback;
+	v->search_next_nonblock = stats_search_next_nonblock;
+	MODULE_CONTEXT_SET(box, stats_storage_module, sbox);
 }
 
 static void session_stats_refresh_timeout(struct mail_user *user)
