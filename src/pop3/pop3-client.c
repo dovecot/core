@@ -188,6 +188,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 			array_free(&msgnum_to_seq_map);
 		return ret;
 	}
+	i_assert(msgnum == client->messages_count);
 
 	client->trans = t;
 	client->message_sizes =
