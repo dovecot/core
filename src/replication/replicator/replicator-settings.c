@@ -53,7 +53,7 @@ static const struct setting_define replicator_setting_defines[] = {
 	DEF(SET_STR, doveadm_socket_path),
 
 	DEF(SET_TIME, replication_full_sync_interval),
-	DEF(SET_TIME, replication_max_conns),
+	DEF(SET_UINT, replication_max_conns),
 
 	SETTING_DEFINE_LIST_END
 };
