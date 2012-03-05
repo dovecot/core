@@ -1501,6 +1501,14 @@ static int search_more_with_prefetching(struct index_search_context *ctx,
 		ret = search_more_with_mail(ctx, mail);
 		if (ret <= 0)
 			break;
+
+		if (ctx->mail_ctx.sort_program != NULL) {
+			/* don't prefetch when using a sort program,
+			   since the mails' access order will change */
+			i_assert(ctx->unused_mail_idx == 0);
+			*mail_r = mail;
+			return 1;
+		}
 		if (mail_prefetch(mail) && ctx->unused_mail_idx == 0) {
 			/* no prefetching done, return it immediately */
 			*mail_r = mail;
