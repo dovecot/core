@@ -8,6 +8,7 @@ AM_CPPFLAGS = \
 libmail_la_SOURCES = \
 	istream-dot.c \
 	istream-header-filter.c \
+	mail-user-hash.c \
 	mbox-from.c \
 	message-address.c \
 	message-date.c \
@@ -28,6 +29,7 @@ libmail_la_SOURCES = \
 headers = \
 	istream-dot.h \
 	istream-header-filter.h \
+	mail-user-hash.h \
 	mbox-from.h \
 	mail-types.h \
 	message-address.h \

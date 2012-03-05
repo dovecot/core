@@ -625,7 +625,8 @@ director_init(const struct director_settings *set,
 	dir->state_change_callback = callback;
 	i_array_init(&dir->dir_hosts, 16);
 	i_array_init(&dir->pending_requests, 16);
-	dir->users = user_directory_init(set->director_user_expire);
+	dir->users = user_directory_init(set->director_user_expire,
+					 set->director_username_hash);
 	dir->mail_hosts = mail_hosts_init();
 
 	dir->ipc_proxy = ipc_client_init(DIRECTOR_IPC_PROXY_PATH);

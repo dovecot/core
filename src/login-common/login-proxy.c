@@ -5,12 +5,12 @@
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
-#include "md5.h"
 #include "str-sanitize.h"
 #include "time-util.h"
 #include "master-service.h"
 #include "ipc-server.h"
 #include "dns-lookup.h"
+#include "mail-user-hash.h"
 #include "client-common.h"
 #include "ssl-proxy.h"
 #include "login-proxy-state.h"
@@ -617,17 +617,10 @@ login_proxy_cmd_kick(struct ipc_cmd *cmd, const char *const *args)
 	ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
 }
 
-static unsigned int director_username_hash(const char *username)
+static unsigned int director_username_hash(struct client *client)
 {
-	/* NOTE: If you modify this, modify also
-	   user_directory_get_username_hash() in director/user-director.c */
-	unsigned char md5[MD5_RESULTLEN];
-	unsigned int i, hash = 0;
-
-	md5_get_digest(username, strlen(username), md5);
-	for (i = 0; i < sizeof(hash); i++)
-		hash = (hash << CHAR_BIT) | md5[i];
-	return hash;
+	return mail_user_hash(client->virtual_user,
+			      client->set->director_username_hash);
 }
 
 static void
@@ -644,7 +637,7 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 	for (proxy = login_proxies; proxy != NULL; proxy = next) {
 		next = proxy->next;
 
-		if (director_username_hash(proxy->client->virtual_user) == hash) {
+		if (director_username_hash(proxy->client) == hash) {
 			login_proxy_free_reason(&proxy, KILLED_BY_ADMIN_REASON);
 			count++;
 		}
@@ -652,7 +645,7 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) {
 		next = proxy->next;
 
-		if (director_username_hash(proxy->client->virtual_user) == hash) {
+		if (director_username_hash(proxy->client) == hash) {
 			client_destroy(proxy->client, "Connection kicked");
 			count++;
 		}

@@ -3,9 +3,9 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
-#include "md5.h"
 #include "hash.h"
 #include "llist.h"
+#include "mail-user-hash.h"
 #include "mail-host.h"
 #include "user-directory.h"
 
@@ -24,6 +24,7 @@ struct user_directory {
 
 	ARRAY_DEFINE(iters, struct user_directory_iter *);
 
+	char *username_hash_fmt;
 	unsigned int timeout_secs;
 };
 
@@ -120,17 +121,10 @@ void user_directory_remove_host(struct user_directory *dir,
 	}
 }
 
-unsigned int user_directory_get_username_hash(const char *username)
+unsigned int user_directory_get_username_hash(struct user_directory *dir,
+					      const char *username)
 {
-	/* NOTE: If you modify this, modify also
-	   director_username_hash() in login-common/login-proxy.c */
-	unsigned char md5[MD5_RESULTLEN];
-	unsigned int i, hash = 0;
-
-	md5_get_digest(username, strlen(username), md5);
-	for (i = 0; i < sizeof(hash); i++)
-		hash = (hash << CHAR_BIT) | md5[i];
-	return hash;
+	return mail_user_hash(username, dir->username_hash_fmt);
 }
 
 bool user_directory_user_has_connections(struct user_directory *dir,
@@ -141,12 +135,14 @@ bool user_directory_user_has_connections(struct user_directory *dir,
 	return expire_timestamp - MAX_CLOCK_DRIFT_SECS >= ioloop_time;
 }
 
-struct user_directory *user_directory_init(unsigned int timeout_secs)
+struct user_directory *
+user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt)
 {
 	struct user_directory *dir;
 
 	dir = i_new(struct user_directory, 1);
 	dir->timeout_secs = timeout_secs;
+	dir->username_hash_fmt = i_strdup(username_hash_fmt);
 	dir->hash = hash_table_create(default_pool, default_pool,
 				      0, NULL, NULL);
 	i_array_init(&dir->iters, 8);
@@ -165,6 +161,7 @@ void user_directory_deinit(struct user_directory **_dir)
 		user_free(dir, dir->head);
 	hash_table_destroy(&dir->hash);
 	array_free(&dir->iters);
+	i_free(dir->username_hash_fmt);
 	i_free(dir);
 }
 

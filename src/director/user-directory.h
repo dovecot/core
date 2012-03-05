@@ -42,7 +42,8 @@ struct user {
 
 /* Create a new directory. Users are dropped if their time gets older
    than timeout_secs. */
-struct user_directory *user_directory_init(unsigned int timeout_secs);
+struct user_directory *
+user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt);
 void user_directory_deinit(struct user_directory **dir);
 
 /* Look up username from directory. Returns NULL if not found. */
@@ -59,7 +60,8 @@ void user_directory_refresh(struct user_directory *dir, struct user *user);
 void user_directory_remove_host(struct user_directory *dir,
 				struct mail_host *host);
 
-unsigned int user_directory_get_username_hash(const char *username);
+unsigned int user_directory_get_username_hash(struct user_directory *dir,
+					      const char *username);
 
 /* Returns TRUE if user still potentially has connections. */
 bool user_directory_user_has_connections(struct user_directory *dir,

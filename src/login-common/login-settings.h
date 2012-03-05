@@ -6,6 +6,7 @@ struct login_settings {
 	const char *login_greeting;
 	const char *login_log_format_elements, *login_log_format;
 	const char *login_access_sockets;
+	const char *director_username_hash;
 
 	const char *ssl;
 	const char *ssl_ca;

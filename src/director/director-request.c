@@ -73,7 +73,8 @@ void director_request(struct director *dir, const char *username,
 		      director_request_callback *callback, void *context)
 {
 	struct director_request *request;
-	unsigned int username_hash = user_directory_get_username_hash(username);
+	unsigned int username_hash =
+		user_directory_get_username_hash(dir->users, username);
 
 	request = i_new(struct director_request, 1);
 	request->dir = dir;

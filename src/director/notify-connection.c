@@ -24,7 +24,7 @@ static void notify_connection_input(struct notify_connection *conn)
 	unsigned int hash;
 
 	while ((line = i_stream_read_next_line(conn->input)) != NULL) {
-		hash = user_directory_get_username_hash(line);
+		hash = user_directory_get_username_hash(conn->dir->users, line);
 		user = user_directory_lookup(conn->dir->users, hash);
 		if (user != NULL) {
 			user_directory_refresh(conn->dir->users, user);
