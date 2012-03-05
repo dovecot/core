@@ -561,6 +561,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	int lock_fd, ret = 0;
 
 	user->admin = TRUE;
+	user->dsyncing = TRUE;
 
 	i_set_failure_prefix(t_strdup_printf("dsync-remote(%s): ",
 					     user->username));
