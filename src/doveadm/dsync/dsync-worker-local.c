@@ -850,6 +850,7 @@ static int iter_local_mailbox_open(struct local_dsync_worker_msg_iter *iter)
 static void
 iter_local_mailbox_close(struct local_dsync_worker_msg_iter *iter)
 {
+	iter->prev_uid = 0;
 	iter->expunges_set = FALSE;
 	if (mailbox_search_deinit(&iter->search_ctx) < 0) {
 		i_error("msg search failed: %s",
