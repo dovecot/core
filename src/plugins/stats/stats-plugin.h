@@ -31,9 +31,9 @@ struct stats_user {
 	struct stats_connection *stats_conn;
 	guid_128_t session_guid;
 
-	time_t last_refresh;
 	unsigned int refresh_secs;
 	bool track_commands;
+	unsigned int refresh_check_counter;
 
 	/* current session statistics */
 	struct mail_stats session_stats;

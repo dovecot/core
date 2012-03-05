@@ -18,6 +18,7 @@
 /* If session isn't refreshed every 15 minutes, it's dropped.
    Must be smaller than MAIL_SESSION_IDLE_TIMEOUT_MSECS in stats server */
 #define SESSION_STATS_FORCE_REFRESH_SECS (5*60)
+#define REFRESH_CHECK_INTERVAL 100
 #define MAIL_STATS_SOCKET_NAME "stats-mail"
 
 #define USECS_PER_SEC 1000000
@@ -287,8 +288,9 @@ static bool session_has_changed(const struct mail_stats *prev,
 	return FALSE;
 }
 
-static bool session_stats_need_send(struct stats_user *suser, bool *changed_r,
-				    unsigned int *to_next_secs_r)
+static bool
+session_stats_need_send(struct stats_user *suser, time_t now,
+			bool *changed_r, unsigned int *to_next_secs_r)
 {
 	unsigned int diff;
 
@@ -303,7 +305,7 @@ static bool session_stats_need_send(struct stats_user *suser, bool *changed_r,
 	*changed_r = FALSE;
 
 	if (!suser->session_sent_duplicate) {
-		if (suser->last_session_update != ioloop_time) {
+		if (suser->last_session_update != now) {
 			/* send one duplicate notification so stats reader
 			   knows that this session is idle now */
 			return TRUE;
@@ -312,7 +314,7 @@ static bool session_stats_need_send(struct stats_user *suser, bool *changed_r,
 		return FALSE;
 	}
 
-	diff = ioloop_time - suser->last_session_update;
+	diff = now - suser->last_session_update;
 	if (diff < SESSION_STATS_FORCE_REFRESH_SECS) {
 		*to_next_secs_r = SESSION_STATS_FORCE_REFRESH_SECS - diff;
 		return FALSE;
@@ -324,12 +326,12 @@ static void session_stats_refresh(struct mail_user *user)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
 	unsigned int to_next_secs;
+	time_t now = time(NULL);
 	bool changed;
 
-	if (session_stats_need_send(suser, &changed, &to_next_secs)) {
-		suser->last_refresh = time(NULL);
+	if (session_stats_need_send(suser, now, &changed, &to_next_secs)) {
 		suser->session_sent_duplicate = !changed;
-		suser->last_session_update = ioloop_time;
+		suser->last_session_update = now;
 		suser->last_sent_session_stats = suser->session_stats;
 		stats_connection_send_session(suser->stats_conn, user,
 					      &suser->session_stats);
@@ -404,14 +406,19 @@ static bool stats_search_next_nonblock(struct mail_search_context *ctx,
 
 	ret = sbox->module_ctx.super.
 		search_next_nonblock(ctx, mail_r, tryagain_r);
-	if (ret || !*tryagain_r)
-		return ret;
+	if (!ret && !*tryagain_r) {
+		/* end of search */
+		return FALSE;
+	}
 
-	/* retrying, so this is a long running search. update the stats once
-	   a second */
-	if (time(NULL) != suser->last_refresh)
-		session_stats_refresh(user);
-	return FALSE;
+	if (*tryagain_r ||
+	    ++suser->refresh_check_counter % REFRESH_CHECK_INTERVAL == 0) {
+		/* a) retrying, so this is a long running search.
+		   b) we've returned enough matches */
+		if (time(NULL) != suser->last_session_update)
+			session_stats_refresh(user);
+	}
+	return ret;
 }
 
 static void stats_mailbox_allocated(struct mailbox *box)
@@ -450,7 +457,7 @@ static void stats_io_deactivate(void *context)
 	if (stats_global_user == NULL)
 		stats_add_session(user);
 
-	last_update_secs = ioloop_time - suser->last_session_update;
+	last_update_secs = time(NULL) - suser->last_session_update;
 	if (last_update_secs >= suser->refresh_secs) {
 		if (stats_global_user != NULL)
 			stats_add_session(user);
@@ -552,7 +559,7 @@ static void stats_user_created(struct mail_user *user)
 
 	suser->stats_conn = global_stats_conn;
 	guid_128_generate(suser->session_guid);
-	suser->last_session_update = ioloop_time;
+	suser->last_session_update = time(NULL);
 
 	suser->ioloop_ctx = ioloop_ctx;
 	io_loop_context_add_callbacks(ioloop_ctx,
