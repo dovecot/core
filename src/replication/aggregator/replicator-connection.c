@@ -137,6 +137,9 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 	unsigned int n;
 	int fd = -1;
 
+	if (conn->fd != -1)
+		return;
+
 	if (conn->port == 0) {
 		fd = net_connect_unix(conn->path);
 		if (fd == -1)
@@ -195,6 +198,7 @@ static void replicator_connection_disconnect(struct replicator_connection *conn)
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	net_disconnect(conn->fd);
+	conn->fd = -1;
 }
 
 static struct replicator_connection *replicator_connection_create(void)
