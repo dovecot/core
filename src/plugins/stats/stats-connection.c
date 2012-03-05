@@ -14,7 +14,23 @@ struct stats_connection {
 
 	int fd;
 	char *path;
+
+	bool open_failed;
 };
+
+static bool stats_connection_open(struct stats_connection *conn)
+{
+	if (conn->open_failed)
+		return FALSE;
+
+	conn->fd = open(conn->path, O_WRONLY);
+	if (conn->fd == -1) {
+		i_error("stats: open(%s) failed: %m", conn->path);
+		conn->open_failed = TRUE;
+		return FALSE;
+	}
+	return TRUE;
+}
 
 struct stats_connection *
 stats_connection_create(const char *path)
@@ -24,9 +40,7 @@ stats_connection_create(const char *path)
 	conn = i_new(struct stats_connection, 1);
 	conn->refcount = 1;
 	conn->path = i_strdup(path);
-	conn->fd = open(path, O_WRONLY);
-	if (conn->fd == -1)
-		i_error("stats: open(%s) failed: %m", path);
+	stats_connection_open(conn);
 	return conn;
 }
 
@@ -57,8 +71,10 @@ void stats_connection_send(struct stats_connection *conn, const string_t *str)
 	static bool pipe_warned = FALSE;
 	ssize_t ret;
 
-	if (conn->fd == -1)
-		return;
+	if (conn->fd == -1) {
+		if (!stats_connection_open(conn))
+			return;
+	}
 
 	if (str_len(str) > PIPE_BUF && !pipe_warned) {
 		i_warning("stats update sent more bytes that PIPE_BUF "
@@ -69,11 +85,13 @@ void stats_connection_send(struct stats_connection *conn, const string_t *str)
 
 	ret = write(conn->fd, str_data(str), str_len(str));
 	if (ret != (ssize_t)str_len(str)) {
-		if (ret < 0)
-			i_error("write(%s) failed: %m", conn->path);
-		else if ((size_t)ret != str_len(str))
+		if (ret < 0) {
+			/* don't log EPIPE errors. they can happen when
+			   Dovecot is stopped. */
+			if (errno != EPIPE)
+				i_error("write(%s) failed: %m", conn->path);
+		} else if ((size_t)ret != str_len(str))
 			i_error("write(%s) wrote partial update", conn->path);
-		/* this shouldn't happen, just stop sending updates */
 		if (close(conn->fd) < 0)
 			i_error("close(%s) failed: %m", conn->path);
 		conn->fd = -1;
