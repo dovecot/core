@@ -19,10 +19,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define DIRECTOR_VERSION_NAME "director"
-#define DIRECTOR_VERSION_MAJOR 1
-#define DIRECTOR_VERSION_MINOR 0
-
 #define MAX_INBUF_SIZE 1024
 #define MAX_OUTBUF_SIZE (1024*1024*10)
 #define OUTBUF_FLUSH_THRESHOLD (1024*128)
@@ -586,10 +582,8 @@ static void director_handshake_cmd_done(struct director_connection *conn)
 		   finished by sending a SYNC. if we get it back, it's done. */
 		dir->sync_seq++;
 		director_set_ring_unsynced(dir);
-		director_connection_send(dir->right,
-			t_strdup_printf("SYNC\t%s\t%u\t%u\n",
-					net_ip2addr(&dir->self_ip),
-					dir->self_port, dir->sync_seq));
+		director_sync_send(dir, dir->self_host, dir->sync_seq,
+				   DIRECTOR_VERSION_MINOR);
 	}
 	if (conn->to_ping != NULL)
 		timeout_remove(&conn->to_ping);
@@ -693,9 +687,14 @@ director_connection_handle_handshake(struct director_connection *conn,
 static void
 director_connection_sync_host(struct director_connection *conn,
 			      struct director_host *host,
-			      uint32_t seq, const char *line)
+			      uint32_t seq, unsigned int minor_version)
 {
 	struct director *dir = conn->dir;
+
+	if (minor_version > DIRECTOR_VERSION_MINOR) {
+		/* we're not up to date */
+		minor_version = DIRECTOR_VERSION_MINOR;
+	}
 
 	if (host->self) {
 		if (dir->sync_seq != seq) {
@@ -703,6 +702,7 @@ director_connection_sync_host(struct director_connection *conn,
 			return;
 		}
 
+		dir->synced_minor_version = minor_version;
 		if (!dir->ring_handshaked) {
 			/* the ring is handshaked */
 			director_set_ring_handshaked(dir);
@@ -716,35 +716,36 @@ director_connection_sync_host(struct director_connection *conn,
 			}
 			director_set_ring_synced(dir);
 		}
-	} else {
+	} else if (dir->right != NULL) {
 		/* forward it to the connection on right */
-		if (dir->right != NULL) {
-			director_connection_send(dir->right,
-				t_strconcat(line, "\n", NULL));
-		}
+		director_sync_send(dir, host, seq, minor_version);
 	}
 }
 
 static bool director_connection_sync(struct director_connection *conn,
-				     const char *const *args, const char *line)
+				     const char *const *args)
 {
 	struct director *dir = conn->dir;
 	struct director_host *host;
 	struct ip_addr ip;
-	unsigned int port, seq;
+	unsigned int port, seq, minor_version = 0;
 
-	if (str_array_length(args) != 3 ||
+	if (str_array_length(args) < 3 ||
 	    !director_args_parse_ip_port(conn, args, &ip, &port) ||
 	    str_to_uint(args[2], &seq) < 0) {
 		i_error("director(%s): Invalid SYNC args", conn->name);
 		return FALSE;
 	}
+	if (args[3] != NULL)
+		minor_version = atoi(args[3]);
 
 	/* find the originating director. if we don't see it, it was already
 	   removed and we can ignore this sync. */
 	host = director_host_lookup(dir, &ip, port);
-	if (host != NULL)
-		director_connection_sync_host(conn, host, seq, line);
+	if (host != NULL) {
+		director_connection_sync_host(conn, host, seq,
+					      minor_version);
+	}
 
 	if (host == NULL || !host->self)
 		director_resend_sync(dir);
@@ -866,7 +867,7 @@ director_connection_handle_line(struct director_connection *conn,
 	if (strcmp(cmd, "DIRECTOR") == 0)
 		return director_cmd_director(conn, args);
 	if (strcmp(cmd, "SYNC") == 0)
-		return director_connection_sync(conn, args, line);
+		return director_connection_sync(conn, args);
 	if (strcmp(cmd, "CONNECT") == 0)
 		return director_cmd_connect(conn, args);
 

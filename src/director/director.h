@@ -4,6 +4,10 @@
 #include "network.h"
 #include "director-settings.h"
 
+#define DIRECTOR_VERSION_NAME "director"
+#define DIRECTOR_VERSION_MAJOR 1
+#define DIRECTOR_VERSION_MINOR 0
+
 struct director;
 struct mail_host;
 struct user;
@@ -46,6 +50,8 @@ struct director {
 
 	struct ipc_client *ipc_proxy;
 	unsigned int sync_seq;
+	/* the lowest minor version supported by the ring */
+	unsigned int synced_minor_version;
 	time_t ring_last_sync_time;
 
 	/* director ring handshaking is complete.
@@ -76,6 +82,8 @@ void director_set_ring_handshaked(struct director *dir);
 void director_set_ring_synced(struct director *dir);
 void director_set_ring_unsynced(struct director *dir);
 void director_set_state_changed(struct director *dir);
+void director_sync_send(struct director *dir, struct director_host *host,
+			uint32_t seq, unsigned int minor_version);
 bool director_resend_sync(struct director *dir);
 
 void director_update_host(struct director *dir, struct director_host *src,
