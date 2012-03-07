@@ -197,6 +197,7 @@ static void server_connection_input(struct server_connection *conn)
 	const unsigned char *data;
 	size_t size;
 	const char *line;
+	enum server_cmd_reply reply;
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -254,15 +255,18 @@ static void server_connection_input(struct server_connection *conn)
 		if (conn->state != SERVER_REPLY_STATE_RET)
 			break;
 		/* fall through */
-		data = i_stream_get_data(conn->input, &size);
 	case SERVER_REPLY_STATE_RET:
-		if (size < 2)
+		line = i_stream_next_line(conn->input);
+		if (line == NULL)
 			return;
-		if (data[0] == '+' && data[1] == '\n')
+		if (line[0] == '+')
 			server_connection_callback(conn, SERVER_CMD_REPLY_OK);
-		else if (data[0] == '-' && data[1] == '\n')
-			server_connection_callback(conn, SERVER_CMD_REPLY_FAIL);
-		else
+		else if (line[0] == '-') {
+			reply = strcmp(line+1, "NOUSER") == 0 ?
+				SERVER_CMD_REPLY_UNKNOWN_USER :
+				SERVER_CMD_REPLY_FAIL;
+			server_connection_callback(conn, reply);
+		} else
 			i_error("doveadm server sent broken input");
 		/* we're finished, close the connection */
 		server_connection_destroy(&conn);
