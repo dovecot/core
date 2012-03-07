@@ -376,31 +376,33 @@ unsigned int clients_get_count(void)
 	return clients_count;
 }
 
+static struct var_expand_table login_var_expand_empty_tab[] = {
+	{ 'u', NULL, "user" },
+	{ 'n', NULL, "username" },
+	{ 'd', NULL, "domain" },
+	{ 's', NULL, "service" },
+	{ 'h', NULL, "home" },
+	{ 'l', NULL, "lip" },
+	{ 'r', NULL, "rip" },
+	{ 'p', NULL, "pid" },
+	{ 'm', NULL, "mech" },
+	{ 'a', NULL, "lport" },
+	{ 'b', NULL, "rport" },
+	{ 'c', NULL, "secured" },
+	{ 'k', NULL, "ssl_security" },
+	{ 'e', NULL, "mail_pid" },
+	{ '\0', NULL, NULL }
+};
+
 static const struct var_expand_table *
 get_var_expand_table(struct client *client)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ 's', NULL, "service" },
-		{ 'h', NULL, "home" },
-		{ 'l', NULL, "lip" },
-		{ 'r', NULL, "rip" },
-		{ 'p', NULL, "pid" },
-		{ 'm', NULL, "mech" },
-		{ 'a', NULL, "lport" },
-		{ 'b', NULL, "rport" },
-		{ 'c', NULL, "secured" },
-		{ 'k', NULL, "ssl_security" },
-		{ 'e', NULL, "mail_pid" },
-		{ '\0', NULL, NULL }
-	};
 	struct var_expand_table *tab;
 	unsigned int i;
 
-	tab = t_malloc(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
+	tab = t_malloc(sizeof(login_var_expand_empty_tab));
+	memcpy(tab, login_var_expand_empty_tab,
+	       sizeof(login_var_expand_empty_tab));
 
 	if (client->virtual_user != NULL) {
 		tab[0].value = client->virtual_user;
@@ -440,20 +442,16 @@ get_var_expand_table(struct client *client)
 	return tab;
 }
 
-static bool have_key(const struct var_expand_table *table, const char *str)
+static bool have_username_key(const char *str)
 {
 	char key;
-	unsigned int i;
 
-	key = var_get_key(str);
-	for (i = 0; table[i].key != '\0'; i++) {
-		if (table[i].key == key) {
-			if (table[i].value == NULL)
-				return FALSE;
-			if (table[i].value[0] != '\0')
+	for (; *str != '\0'; str++) {
+		if (str[0] == '%' && str[1] != '\0') {
+			str++;
+			key = var_get_key(str);
+			if (key == 'u' || key == 'n')
 				return TRUE;
-			/* "" key - hide except in username */
-			return key == 'u' || key == 'n';
 		}
 	}
 	return FALSE;
@@ -469,9 +467,9 @@ client_get_log_str(struct client *client, const char *msg)
 	};
 	const struct var_expand_table *var_expand_table;
 	struct var_expand_table *tab;
-	const char *p;
 	char *const *e;
-	string_t *str;
+	string_t *str, *str2;
+	unsigned int pos;
 
 	var_expand_table = get_var_expand_table(client);
 
@@ -479,20 +477,28 @@ client_get_log_str(struct client *client, const char *msg)
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	str = t_str_new(256);
+	str2 = t_str_new(128);
 	for (e = client->set->log_format_elements_split; *e != NULL; e++) {
-		for (p = *e; *p != '\0'; p++) {
-			if (*p != '%' || p[1] == '\0')
+		pos = str_len(str);
+		var_expand(str, *e, var_expand_table);
+		if (have_username_key(*e)) {
+			/* username is added even if it's empty */
+		} else {
+			str_truncate(str2, 0);
+			var_expand(str2, *e, login_var_expand_empty_tab);
+			if (strcmp(str_c(str)+pos, str_c(str2)) == 0) {
+				/* empty %variables, don't add */
+				str_truncate(str, pos);
 				continue;
-
-			p++;
-			if (have_key(var_expand_table, p)) {
-				if (str_len(str) > 0)
-					str_append(str, ", ");
-				var_expand(str, *e, var_expand_table);
-				break;
 			}
 		}
+
+		if (str_len(str) > 0)
+			str_append(str, ", ");
 	}
+
+	if (str_len(str) > 0)
+		str_truncate(str, str_len(str)-2);
 
 	tab[0].value = t_strdup(str_c(str));
 	tab[1].value = msg;
