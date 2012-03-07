@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "network.h"
+#include "ioloop.h"
 #include "hash.h"
 #include "strescape.h"
 #include "fd-set-nonblock.h"
@@ -10,6 +11,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#define NOTIFY_RETRY_REOPEN_MSECS (60*1000)
+
 struct login_proxy_state {
 	struct hash_table *hash;
 	pool_t pool;
@@ -17,8 +20,10 @@ struct login_proxy_state {
 	const char *notify_path;
 	int notify_fd;
 
-	unsigned int notify_fd_broken:1;
+	struct timeout *to_reopen;
 };
+
+static int login_proxy_state_notify_open(struct login_proxy_state *state);
 
 static unsigned int login_proxy_record_hash(const void *p)
 {
@@ -51,16 +56,24 @@ struct login_proxy_state *login_proxy_state_init(const char *notify_path)
 	return state;
 }
 
+static void login_proxy_state_close(struct login_proxy_state *state)
+{
+	if (state->notify_fd != -1) {
+		if (close(state->notify_fd) < 0)
+			i_error("close(%s) failed: %m", state->notify_path);
+		state->notify_fd = -1;
+	}
+}
+
 void login_proxy_state_deinit(struct login_proxy_state **_state)
 {
 	struct login_proxy_state *state = *_state;
 
 	*_state = NULL;
 
-	if (state->notify_fd != -1) {
-		if (close(state->notify_fd) < 0)
-			i_error("close(%s) failed: %m", state->notify_path);
-	}
+	if (state->to_reopen != NULL)
+		timeout_remove(&state->to_reopen);
+	login_proxy_state_close(state);
 	hash_table_destroy(&state->hash);
 	pool_unref(&state->pool);
 	i_free(state);
@@ -86,31 +99,39 @@ login_proxy_state_get(struct login_proxy_state *state,
 	return rec;
 }
 
+static void login_proxy_state_reopen(struct login_proxy_state *state)
+{
+	timeout_remove(&state->to_reopen);
+	(void)login_proxy_state_notify_open(state);
+}
+
 static int login_proxy_state_notify_open(struct login_proxy_state *state)
 {
-	if (state->notify_fd_broken)
+	if (state->to_reopen != NULL) {
+		/* reopen later */
 		return -1;
+	}
 
 	state->notify_fd = open(state->notify_path, O_WRONLY);
 	if (state->notify_fd == -1) {
-		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", state->notify_path);
-		state->notify_fd_broken = TRUE;
+		i_error("open(%s) failed: %m", state->notify_path);
+		state->to_reopen = timeout_add(NOTIFY_RETRY_REOPEN_MSECS,
+					       login_proxy_state_reopen, state);
 		return -1;
 	}
 	fd_set_nonblock(state->notify_fd, TRUE);
 	return 0;
 }
 
-void login_proxy_state_notify(struct login_proxy_state *state,
-			      const char *user)
+static bool login_proxy_state_try_notify(struct login_proxy_state *state,
+					 const char *user)
 {
 	unsigned int len;
 	ssize_t ret;
 
 	if (state->notify_fd == -1) {
 		if (login_proxy_state_notify_open(state) < 0)
-			return;
+			return TRUE;
 	}
 
 	T_BEGIN {
@@ -128,5 +149,16 @@ void login_proxy_state_notify(struct login_proxy_state *state,
 			i_error("write(%s) wrote partial update",
 				state->notify_path);
 		}
+		login_proxy_state_close(state);
+		/* retry sending */
+		return FALSE;
 	}
+	return TRUE;
+}
+
+void login_proxy_state_notify(struct login_proxy_state *state,
+			      const char *user)
+{
+	if (!login_proxy_state_try_notify(state, user))
+		login_proxy_state_try_notify(state, user);
 }
