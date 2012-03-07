@@ -271,7 +271,8 @@ static enum uidl_keys parse_uidl_keymask(const char *format)
 	return mask;
 }
 
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+struct client *client_create(int fd_in, int fd_out, const char *session_id,
+			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set)
 {
@@ -290,6 +291,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	client = i_new(struct client, 1);
 	client->service_user = service_user;
 	client->set = set;
+	client->session_id = i_strdup(session_id);
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE, FALSE);
@@ -424,6 +426,7 @@ static const char *client_stats(struct client *client)
 		{ 'i', NULL, "input" },
 		{ 'o', NULL, "output" },
 		{ 'u', NULL, "uidl_change" },
+		{ '\0', NULL, "session" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -442,6 +445,7 @@ static const char *client_stats(struct client *client)
 	tab[7].value = dec2str(client->input->v_offset);
 	tab[8].value = dec2str(client->output->offset);
 	tab[9].value = client_build_uidl_change_string(client);
+	tab[10].value = client->session_id;
 
 	str = t_str_new(128);
 	var_expand(str, client->set->pop3_logout_format, tab);
@@ -513,6 +517,7 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->fd_in != client->fd_out)
 		net_disconnect(client->fd_out);
 	mail_storage_service_user_free(&client->service_user);
+	i_free(client->session_id);
 	i_free(client);
 
 	master_service_client_connection_destroyed(master_service);

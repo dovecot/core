@@ -124,6 +124,7 @@ static void master_send_request(struct anvil_request *anvil_request)
 	const unsigned char *data;
 	size_t size;
 	buffer_t *buf;
+	const char *session_id = client_get_session_id(client);
 
 	memset(&req, 0, sizeof(req));
 	req.auth_pid = anvil_request->auth_pid;
@@ -137,9 +138,12 @@ static void master_send_request(struct anvil_request *anvil_request)
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	/* session ID */
+	buffer_append(buf, session_id, strlen(session_id)+1);
+	/* protocol specific data (e.g. IMAP tag) */
 	buffer_append(buf, client->master_data_prefix,
 		      client->master_data_prefix_len);
-
+	/* buffered client input */
 	data = i_stream_get_data(client->input, &size);
 	buffer_append(buf, data, size);
 	req.data_size = buf->used;

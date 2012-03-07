@@ -7,7 +7,9 @@
 #include "ostream.h"
 #include "iostream-rawlog.h"
 #include "process-title.h"
+#include "buffer.h"
 #include "str.h"
+#include "base64.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
 #include "var-expand.h"
@@ -376,6 +378,41 @@ unsigned int clients_get_count(void)
 	return clients_count;
 }
 
+const char *client_get_session_id(struct client *client)
+{
+	buffer_t *buf, *base64_buf;
+	struct timeval tv;
+	uint64_t timestamp;
+	unsigned int i;
+
+	if (client->session_id != NULL)
+		return client->session_id;
+
+	buf = buffer_create_dynamic(pool_datastack_create(), 24);
+	base64_buf = buffer_create_dynamic(pool_datastack_create(), 24*2);
+
+	if (gettimeofday(&tv, NULL) < 0)
+		i_fatal("gettimeofday(): %m");
+	timestamp = tv.tv_usec + (long long)tv.tv_sec * 1000ULL*1000ULL;
+
+	/* add lowest 48 bits of the timestamp. this gives us a bit less than
+	   9 years until it wraps */
+	for (i = 0; i < 48; i += 8)
+		buffer_append_c(buf, (timestamp >> i) & 0xff);
+
+	buffer_append_c(buf, client->remote_port & 0xff);
+	buffer_append_c(buf, (client->remote_port >> 16) & 0xff);
+#ifdef HAVE_IPV6
+	if (IPADDR_IS_V6(&client->ip))
+		buffer_append(buf, &client->ip.u.ip6, sizeof(client->ip.u.ip6));
+	else
+#endif
+		buffer_append(buf, &client->ip.u.ip4, sizeof(client->ip.u.ip4));
+	base64_encode(buf->data, buf->used, base64_buf);
+	client->session_id = p_strdup(client->pool, str_c(base64_buf));
+	return client->session_id;
+}
+
 static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ 'u', NULL, "user" },
 	{ 'n', NULL, "username" },
@@ -391,6 +428,7 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ 'c', NULL, "secured" },
 	{ 'k', NULL, "ssl_security" },
 	{ 'e', NULL, "mail_pid" },
+	{ '\0', NULL, "session" },
 	{ '\0', NULL, NULL }
 };
 
@@ -439,6 +477,7 @@ get_var_expand_table(struct client *client)
 	}
 	tab[13].value = client->mail_pid == 0 ? "" :
 		dec2str(client->mail_pid);
+	tab[14].value = client_get_session_id(client);
 	return tab;
 }
 

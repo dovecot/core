@@ -32,7 +32,8 @@ static void client_idle_timeout(struct client *client)
 	client_destroy(client, "Disconnected for inactivity");
 }
 
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+struct client *client_create(int fd_in, int fd_out, const char *session_id,
+			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set)
 {
@@ -49,6 +50,7 @@ struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
 	client->pool = pool;
 	client->set = set;
 	client->service_user = service_user;
+	client->session_id = p_strdup(pool, session_id);
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in,
@@ -143,6 +145,7 @@ static const char *client_stats(struct client *client)
 	static struct var_expand_table static_tab[] = {
 		{ 'i', NULL, "input" },
 		{ 'o', NULL, "output" },
+		{ '\0', NULL, "session" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -153,6 +156,7 @@ static const char *client_stats(struct client *client)
 
 	tab[0].value = dec2str(i_stream_get_absolute_offset(client->input));
 	tab[1].value = dec2str(client->output->offset);
+	tab[2].value = client->session_id;
 
 	str = t_str_new(128);
 	var_expand(str, client->set->imap_logout_format, tab);

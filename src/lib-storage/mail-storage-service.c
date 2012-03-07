@@ -374,6 +374,7 @@ get_var_expand_table(struct master_service *service,
 		{ 'p', NULL, "pid" },
 		{ 'i', NULL, "uid" },
 		{ '\0', NULL, "gid" },
+		{ '\0', NULL, "session" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -391,6 +392,7 @@ get_var_expand_table(struct master_service *service,
 	tab[6].value = my_pid;
 	tab[7].value = dec2str(priv->uid == (uid_t)-1 ? geteuid() : priv->uid);
 	tab[8].value = dec2str(priv->gid == (gid_t)-1 ? getegid() : priv->gid);
+	tab[9].value = input->session_id;
 	return tab;
 }
 

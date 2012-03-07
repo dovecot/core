@@ -18,6 +18,7 @@ typedef void command_func_t(struct client *client);
 struct client {
 	struct client *prev, *next;
 
+	char *session_id;
 	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;
@@ -77,7 +78,8 @@ extern unsigned int pop3_client_count;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out, struct mail_user *user,
+struct client *client_create(int fd_in, int fd_out, const char *session_id,
+			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set);
 void client_destroy(struct client *client, const char *reason);

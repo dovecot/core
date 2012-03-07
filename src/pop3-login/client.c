@@ -56,6 +56,9 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 				args_ok = FALSE;
 			else
 				client->common.remote_port = remote_port;
+		} else if (strncasecmp(*tmp, "SESSION=", 8) == 0) {
+			client->common.session_id =
+				p_strdup(client->common.pool, *tmp + 8);
 		}
 	}
 	if (!args_ok) {

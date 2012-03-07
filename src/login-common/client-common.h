@@ -4,6 +4,7 @@
 #include "network.h"
 #include "login-proxy.h"
 #include "sasl-server.h"
+#include "master-login.h" /* for LOGIN_MAX_SESSION_ID_LEN */
 
 #define LOGIN_MAX_MASTER_PREFIX_LEN 128
 
@@ -14,7 +15,8 @@
    POP3: Max. length of a command line (spec says 512 would be enough)
 */
 #define LOGIN_MAX_INBUF_SIZE \
-	(MASTER_AUTH_MAX_DATA_SIZE - LOGIN_MAX_MASTER_PREFIX_LEN)
+	(MASTER_AUTH_MAX_DATA_SIZE - LOGIN_MAX_MASTER_PREFIX_LEN - \
+	 LOGIN_MAX_SESSION_ID_LEN)
 /* max. size of output buffer. if it gets full, the client is disconnected.
    SASL authentication gives the largest output. */
 #define LOGIN_MAX_OUTBUF_SIZE 4096
@@ -89,6 +91,7 @@ struct client {
 	unsigned int local_port, remote_port;
 	struct ssl_proxy *ssl_proxy;
 	const struct login_settings *set;
+	const char *session_id;
 
 	int fd;
 	struct istream *input;
@@ -163,6 +166,7 @@ void client_log_warn(struct client *client, const char *msg);
 const char *client_get_extra_disconnect_reason(struct client *client);
 bool client_is_trusted(struct client *client);
 void client_auth_failed(struct client *client);
+const char *client_get_session_id(struct client *client);
 
 bool client_read(struct client *client);
 void client_input(struct client *client);

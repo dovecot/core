@@ -208,7 +208,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	client = client_create(fd_in, fd_out, mail_user, user, set);
+	client = client_create(fd_in, fd_out, login_client->session_id,
+			       mail_user, user, set);
 	T_BEGIN {
 		client_add_input(client, input_buf);
 	} T_END;
@@ -261,6 +262,7 @@ login_client_connected(const struct master_login_client *client,
 	input.remote_ip = client->auth_req.remote_ip;
 	input.username = username;
 	input.userdb_fields = extra_fields;
+	input.session_id = client->session_id;
 
 	buffer_create_const_data(&input_buf, client->data,
 				 client->auth_req.data_size);

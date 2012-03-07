@@ -40,9 +40,10 @@ static void proxy_send_login(struct pop3_client *client, struct ostream *output)
 	if (client->proxy_xclient) {
 		/* remote supports XCLIENT, send it */
 		(void)o_stream_send_str(output, t_strdup_printf(
-			"XCLIENT ADDR=%s PORT=%u\r\n",
+			"XCLIENT ADDR=%s PORT=%u SESSION=%s\r\n",
 			net_ip2addr(&client->common.ip),
-			client->common.remote_port));
+			client->common.remote_port,
+			client_get_session_id(&client->common)));
 		client->common.proxy_state = POP3_PROXY_XCLIENT;
 	} else {
 		client->common.proxy_state = POP3_PROXY_LOGIN1;

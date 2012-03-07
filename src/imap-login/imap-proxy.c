@@ -30,10 +30,12 @@ enum imap_proxy_state {
 static void proxy_write_id(struct imap_client *client, string_t *str)
 {
 	str_printfa(str, "I ID ("
+		    "\"x-session-id\" \"%s\" "
 		    "\"x-originating-ip\" \"%s\" "
 		    "\"x-originating-port\" \"%u\" "
 		    "\"x-connected-ip\" \"%s\" "
 		    "\"x-connected-port\" \"%u\")\r\n",
+		    client_get_session_id(&client->common),
 		    net_ip2addr(&client->common.ip),
 		    client->common.remote_port,
 		    net_ip2addr(&client->common.local_ip),
