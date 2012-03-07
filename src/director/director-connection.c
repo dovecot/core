@@ -183,10 +183,11 @@ static bool director_cmd_me(struct director_connection *conn,
 }
 
 static bool
-director_user_refresh(struct director *dir, unsigned int username_hash,
-		      struct mail_host *host, time_t timestamp,
-		      struct user **user_r)
+director_user_refresh(struct director_connection *conn,
+		      unsigned int username_hash, struct mail_host *host,
+		      time_t timestamp, struct user **user_r)
 {
+	struct director *dir = conn->dir;
 	struct user *user;
 	bool ret = FALSE;
 
@@ -196,16 +197,26 @@ director_user_refresh(struct director *dir, unsigned int username_hash,
 					     host, timestamp);
 		return TRUE;
 	}
-	if (timestamp == ioloop_time && (time_t)user->timestamp != timestamp) {
-		user_directory_refresh(dir->users, user);
-		ret = TRUE;
-	}
 
 	if (user->host != host) {
-		i_error("User hash %u is being redirected to two hosts: "
-			"%s and %s", username_hash,
-			net_ip2addr(&user->host->ip),
-			net_ip2addr(&host->ip));
+		string_t *str = t_str_new(128);
+
+		str_printfa(str, "User hash %u "
+			    "is being redirected to two hosts: %s and %s",
+			    username_hash, net_ip2addr(&user->host->ip),
+			    net_ip2addr(&host->ip));
+		str_printfa(str, " (old_ts=%ld", (long)user->timestamp);
+
+		if (!conn->handshake_received) {
+			str_printfa(str, ",handshaking,recv_ts=%ld",
+				    (long)timestamp);
+		}
+		if (user->to_move != NULL)
+			str_append(str, ",moving");
+		if (user->kill_state == USER_KILL_STATE_NONE)
+			str_printfa(str, ",kill_state=%d", user->kill_state);
+		str_append_c(str, ')');
+		i_error("%s", str_c(str));
 
 		/* we want all the directors to redirect the user to same
 		   server, but we don't want two directors fighting over which
@@ -218,6 +229,10 @@ director_user_refresh(struct director *dir, unsigned int username_hash,
 			user->host = host;
 			user->host->user_count++;
 		}
+		ret = TRUE;
+	}
+	if (timestamp == ioloop_time && (time_t)user->timestamp != timestamp) {
+		user_directory_refresh(dir->users, user);
 		ret = TRUE;
 	}
 	*user_r = user;
@@ -249,7 +264,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 		return FALSE;
 	}
 
-	director_user_refresh(conn->dir, username_hash, host, timestamp, &user);
+	director_user_refresh(conn, username_hash, host, timestamp, &user);
 	return TRUE;
 }
 
@@ -274,7 +289,7 @@ director_cmd_user(struct director_connection *conn, const char *const *args)
 		return TRUE;
 	}
 
-	if (director_user_refresh(conn->dir, username_hash,
+	if (director_user_refresh(conn, username_hash,
 				  host, ioloop_time, &user))
 		director_update_user(conn->dir, conn->host, user);
 	return TRUE;
