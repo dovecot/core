@@ -370,10 +370,11 @@ login_proxy_free_reason(struct login_proxy **_proxy, const char *reason)
 		DLLIST_REMOVE(&login_proxies, proxy);
 
 		ipstr = net_ip2addr(&proxy->client->ip);
-		i_info("proxy(%s): disconnecting %s%s",
-		       proxy->client->virtual_user,
-		       ipstr != NULL ? ipstr : "",
-		       reason == NULL ? "" : t_strdup_printf(" (%s)", reason));
+		client_log(proxy->client, t_strdup_printf(
+			"proxy(%s): disconnecting %s%s",
+			proxy->client->virtual_user,
+			ipstr != NULL ? ipstr : "",
+			reason == NULL ? "" : t_strdup_printf(" (%s)", reason)));
 
 		if (proxy->client_io != NULL)
 			io_remove(&proxy->client_io);
