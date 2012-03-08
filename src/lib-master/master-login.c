@@ -422,12 +422,13 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	}
 
 	/* @UNSAFE: we have a request. do userdb lookup for it. */
+	req.data_size -= i;
 	client = i_malloc(sizeof(struct master_login_client) + req.data_size);
 	client->conn = conn;
 	client->fd = client_fd;
 	client->auth_req = req;
 	memcpy(client->session_id, data, session_len);
-	memcpy(client->data, data+i, req.data_size-i);
+	memcpy(client->data, data+i, req.data_size);
 	conn->refcount++;
 
 	master_login_auth_request(login->auth, &req,
