@@ -208,13 +208,13 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	client = client_create(fd_in, fd_out, login_client->session_id,
+	client = client_create(fd_in, fd_out, input->session_id,
 			       mail_user, user, set);
 	T_BEGIN {
 		client_add_input(client, input_buf);
 	} T_END;
 
-	flags = login_client == NULL ? 0 : login_client->auth_req.flags;
+	flags = login_client->auth_req.flags;
 	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
 		client->tls_compression = TRUE;
 	return 0;
@@ -222,6 +222,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 static void main_stdio_run(const char *username)
 {
+	struct master_login_client login_client;
 	struct mail_storage_service_input input;
 	const char *value, *error, *input_base64;
 	buffer_t *input_buf;
@@ -242,7 +243,9 @@ static void main_stdio_run(const char *username)
 	input_buf = input_base64 == NULL ? NULL :
 		t_base64_decode_str(input_base64);
 
-	if (client_create_from_input(&input, NULL, STDIN_FILENO, STDOUT_FILENO,
+	memset(&login_client, 0, sizeof(login_client));
+	if (client_create_from_input(&input, &login_client,
+				     STDIN_FILENO, STDOUT_FILENO,
 				     input_buf, &error) < 0)
 		i_fatal("%s", error);
 }
