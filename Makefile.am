@@ -59,7 +59,7 @@ EXTRA_DIST += dovecot.socket dovecot.service.in
 endif
 
 install-exec-hook:
-	$(MKDIR_P) $(DESTDIR)$(pkglibdir); \
+	$(mkdir_p) $(DESTDIR)$(pkglibdir); \
 	grep -v '^LIBDOVECOT_.*_INCLUDE' dovecot-config | \
 	grep -v '^LIBDOVECOT.*_DEPS' | sed \
 	-e "s|^\(LIBDOVECOT\)=.*$$|\1='-L$(pkglibdir) -ldovecot'|" \
