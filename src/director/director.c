@@ -155,7 +155,7 @@ void director_connect(struct director *dir)
 			   it must have failed recently */
 			director_connection_deinit(&dir->left);
 		}
-		dir->synced_minor_version = DIRECTOR_VERSION_MINOR;
+		dir->ring_min_version = DIRECTOR_VERSION_MINOR;
 		if (!dir->ring_handshaked)
 			director_set_ring_handshaked(dir);
 		else
@@ -400,9 +400,29 @@ void director_flush_host(struct director *dir, struct director_host *src,
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user)
 {
+	i_assert(src != NULL);
+
+	i_assert(!user->weak);
+	director_update_send(dir, src, t_strdup_printf("USER\t%u\t%s\n",
+		user->username_hash, net_ip2addr(&user->host->ip)));
+}
+
+void director_update_user_weak(struct director *dir, struct director_host *src,
+			       struct director_host *orig_src,
+			       struct user *user)
+{
+	i_assert(src != NULL);
+	i_assert(user->weak);
+
+	if (orig_src == NULL) {
+		orig_src = dir->self_host;
+		orig_src->last_seq++;
+	}
+
 	director_update_send(dir, src, t_strdup_printf(
-		"USER\t%u\t%s\n", user->username_hash,
-		net_ip2addr(&user->host->ip)));
+		"USER-WEAK\t%s\t%u\t%u\t%u\t%s\n",
+		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
+		user->username_hash, net_ip2addr(&user->host->ip)));
 }
 
 struct director_user_kill_finish_ctx {
@@ -643,6 +663,7 @@ director_init(const struct director_settings *set,
 	dir->mail_hosts = mail_hosts_init();
 
 	dir->ipc_proxy = ipc_client_init(DIRECTOR_IPC_PROXY_PATH);
+	dir->ring_min_version = DIRECTOR_VERSION_MINOR;
 	return dir;
 }
 

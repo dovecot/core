@@ -6,7 +6,10 @@
 
 #define DIRECTOR_VERSION_NAME "director"
 #define DIRECTOR_VERSION_MAJOR 1
-#define DIRECTOR_VERSION_MINOR 0
+#define DIRECTOR_VERSION_MINOR 1
+
+/* weak users supported in protocol v1.1+ */
+#define DIRECTOR_VERSION_WEAK_USERS 1
 
 struct director;
 struct mail_host;
@@ -51,7 +54,7 @@ struct director {
 	struct ipc_client *ipc_proxy;
 	unsigned int sync_seq;
 	/* the lowest minor version supported by the ring */
-	unsigned int synced_minor_version;
+	unsigned int ring_min_version;
 	time_t ring_last_sync_time;
 
 	/* director ring handshaking is complete.
@@ -97,6 +100,9 @@ void director_flush_host(struct director *dir, struct director_host *src,
 			 struct mail_host *host);
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user);
+void director_update_user_weak(struct director *dir, struct director_host *src,
+			       struct director_host *orig_src,
+			       struct user *user);
 void director_move_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src,
 			unsigned int username_hash, struct mail_host *host);
@@ -105,6 +111,7 @@ void director_user_killed_everywhere(struct director *dir,
 				     struct director_host *src,
 				     struct director_host *orig_src,
 				     unsigned int username_hash);
+void director_user_weak(struct director *dir, struct user *user);
 
 void director_sync_freeze(struct director *dir);
 void director_sync_thaw(struct director *dir);

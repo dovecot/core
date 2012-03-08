@@ -9,7 +9,10 @@
 #include "mail-host.h"
 #include "user-directory.h"
 
-#define MAX_CLOCK_DRIFT_SECS 2
+/* n% of timeout_secs */
+#define USER_NEAR_EXPIRING_PERCENTAGE 10
+/* but max. of this many secs */
+#define USER_NEAR_EXPIRING_MAX 30
 
 struct user_directory_iter {
 	struct user_directory *dir;
@@ -26,6 +29,9 @@ struct user_directory {
 
 	char *username_hash_fmt;
 	unsigned int timeout_secs;
+	/* If user's expire time is less than this many seconds away,
+	   don't assume that other directors haven't yet expired it */
+	unsigned int user_near_expiring_secs;
 };
 
 static void user_move_iters(struct user_directory *dir, struct user *user)
@@ -48,6 +54,14 @@ static void user_free(struct user_directory *dir, struct user *user)
 	hash_table_remove(dir->hash, POINTER_CAST(user->username_hash));
 	DLLIST2_REMOVE(&dir->head, &dir->tail, user);
 	i_free(user);
+}
+
+static bool user_directory_user_has_connections(struct user_directory *dir,
+						struct user *user)
+{
+	time_t expire_timestamp = user->timestamp + dir->timeout_secs;
+
+	return expire_timestamp >= ioloop_time;
 }
 
 static void user_directory_drop_expired(struct user_directory *dir)
@@ -127,12 +141,20 @@ unsigned int user_directory_get_username_hash(struct user_directory *dir,
 	return mail_user_hash(username, dir->username_hash_fmt);
 }
 
-bool user_directory_user_has_connections(struct user_directory *dir,
-					 struct user *user)
+bool user_directory_user_is_recently_updated(struct user_directory *dir,
+					     struct user *user)
 {
-	time_t expire_timestamp = user->timestamp + dir->timeout_secs;
+	return user->timestamp + dir->timeout_secs/2 >= ioloop_time;
+}
 
-	return expire_timestamp - MAX_CLOCK_DRIFT_SECS >= ioloop_time;
+bool user_directory_user_is_near_expiring(struct user_directory *dir,
+					  struct user *user)
+{
+	time_t expire_timestamp;
+
+	expire_timestamp = user->timestamp +
+		(dir->timeout_secs - dir->user_near_expiring_secs);
+	return expire_timestamp < ioloop_time;
 }
 
 struct user_directory *
@@ -142,6 +164,13 @@ user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt)
 
 	dir = i_new(struct user_directory, 1);
 	dir->timeout_secs = timeout_secs;
+	dir->user_near_expiring_secs =
+		timeout_secs * USER_NEAR_EXPIRING_PERCENTAGE / 100;
+	dir->user_near_expiring_secs =
+		I_MIN(dir->user_near_expiring_secs, USER_NEAR_EXPIRING_MAX);
+	dir->user_near_expiring_secs =
+		I_MAX(dir->user_near_expiring_secs, 1);
+
 	dir->username_hash_fmt = i_strdup(username_hash_fmt);
 	dir->hash = hash_table_create(default_pool, default_pool,
 				      0, NULL, NULL);
@@ -174,6 +203,7 @@ user_directory_iter_init(struct user_directory *dir)
 	iter->dir = dir;
 	iter->pos = dir->head;
 	array_append(&dir->iters, &iter, 1);
+	user_directory_drop_expired(dir);
 	return iter;
 }
 

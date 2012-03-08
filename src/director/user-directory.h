@@ -38,6 +38,11 @@ struct user {
 	/* If not USER_KILL_STATE_NONE, don't allow new connections until all
 	   directors have killed the user's connections. */
 	enum user_kill_state kill_state;
+
+	/* TRUE, if the user's timestamp was close to being expired and we're
+	   now doing a ring-wide sync for this user to make sure we don't
+	   assign conflicting hosts to it */
+	unsigned int weak:1;
 };
 
 /* Create a new directory. Users are dropped if their time gets older
@@ -63,9 +68,10 @@ void user_directory_remove_host(struct user_directory *dir,
 unsigned int user_directory_get_username_hash(struct user_directory *dir,
 					      const char *username);
 
-/* Returns TRUE if user still potentially has connections. */
-bool user_directory_user_has_connections(struct user_directory *dir,
-					 struct user *user);
+bool user_directory_user_is_recently_updated(struct user_directory *dir,
+					     struct user *user);
+bool user_directory_user_is_near_expiring(struct user_directory *dir,
+					  struct user *user);
 
 struct user_directory_iter *
 user_directory_iter_init(struct user_directory *dir);

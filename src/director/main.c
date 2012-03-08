@@ -125,7 +125,8 @@ static void director_state_changed(struct director *dir)
 	array_foreach(&dir->pending_requests, requestp) {
 		ret = director_request_continue(*requestp);
 		if (!ret) {
-			/* request for a user being killed */
+			/* a) request for a user being killed
+			   b) user is weak */
 			array_append(&new_requests, requestp, 1);
 		}
 	}

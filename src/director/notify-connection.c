@@ -33,6 +33,7 @@ static void notify_connection_input(struct notify_connection *conn)
 				i_warning("notify: User %s refreshed too late "
 					  "(%d secs)", line, diff);
 			}
+			user->weak = FALSE;
 			user_directory_refresh(conn->dir->users, user);
 			director_update_user(conn->dir, conn->dir->self_host,
 					     user);
