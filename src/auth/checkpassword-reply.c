@@ -54,10 +54,21 @@ int main(void)
 	if (!gid_found)
 		str_printfa(str, "userdb_gid=%s\t",  dec2str(getgid()));
 
+	i_assert(str_len(str) > 0);
+
 	if (write_full(4, str_data(str), str_len(str)) < 0) {
 		i_error("checkpassword: write_full() failed: %m");
 		exit(111);
 	}
 	authorized = getenv("AUTHORIZED");
-	return authorized != NULL && strcmp(authorized, "2") == 0 ? 2 : 0;
+	if (authorized == NULL) {
+		/* authentication */
+		return 0;
+	} else if (strcmp(authorized, "2") == 0) {
+		/* successful passdb/userdb lookup */
+		return 2;
+	} else {
+		i_error("checkpassword: Script doesn't support passdb/userdb lookup");
+		return 111;
+	}
 }
