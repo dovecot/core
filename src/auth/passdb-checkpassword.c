@@ -14,7 +14,9 @@ struct checkpassword_passdb_module {
 
 static void
 auth_checkpassword_callback(struct auth_request *request,
-			    enum db_checkpassword_status status, void *context)
+			    enum db_checkpassword_status status,
+			    const char *const *extra_fields,
+			    void *context)
 {
 	verify_plain_callback_t *callback = context;
 
@@ -26,6 +28,7 @@ auth_checkpassword_callback(struct auth_request *request,
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		break;
 	case DB_CHECKPASSWORD_STATUS_OK:
+		auth_request_set_fields(request, extra_fields, NULL);
 		callback(PASSDB_RESULT_OK, request);
 		break;
 	}

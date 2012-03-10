@@ -12,6 +12,7 @@
 #include "execv-const.h"
 #include "env-util.h"
 #include "safe-memset.h"
+#include "strescape.h"
 #include "child-wait.h"
 #include "var-expand.h"
 #include "db-checkpassword.h"
@@ -107,9 +108,13 @@ static void checkpassword_finish(struct chkpw_auth_request **_request,
 				 enum db_checkpassword_status status)
 {
 	struct chkpw_auth_request *request = *_request;
+	const char *const *extra_fields;
 
 	*_request = NULL;
-	request->callback(request->request, status, request->context);
+
+	extra_fields = t_strsplit_tabescaped(str_c(request->input_buf));
+	request->callback(request->request, status, extra_fields,
+			  request->context);
 	checkpassword_request_free(&request);
 }
 
@@ -148,9 +153,6 @@ checkpassword_request_finish_auth(struct chkpw_auth_request *request)
 			checkpassword_internal_failure(&request);
 			break;
 		}
-
-		auth_request_set_fields(request->request,
-			t_strsplit(str_c(request->input_buf), "\t"), NULL);
 		checkpassword_finish(&request, DB_CHECKPASSWORD_STATUS_OK);
 		break;
 	case 2:
@@ -192,9 +194,6 @@ checkpassword_request_finish_lookup(struct chkpw_auth_request *request)
 			checkpassword_internal_failure(&request);
 			break;
 		}
-
-		auth_request_set_fields(request->request,
-			t_strsplit(str_c(request->input_buf), "\t"), NULL);
 		checkpassword_finish(&request, DB_CHECKPASSWORD_STATUS_OK);
 		break;
 	default:
@@ -457,7 +456,8 @@ void db_checkpassword_call(struct db_checkpassword *db,
 		auth_request_log_info(request, "checkpassword",
 			"Username+password combination too long (%u bytes)",
 			output_len);
-		callback(request, DB_CHECKPASSWORD_STATUS_FAILURE, context);
+		callback(request, DB_CHECKPASSWORD_STATUS_FAILURE,
+			 NULL, context);
 		return;
 	}
 
@@ -470,7 +470,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 			(void)close(fd_in[1]);
 		}
 		callback(request, DB_CHECKPASSWORD_STATUS_INTERNAL_FAILURE,
-			 context);
+			 NULL, context);
 		return;
 	}
 
@@ -483,7 +483,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 		(void)close(fd_out[0]);
 		(void)close(fd_out[1]);
 		callback(request, DB_CHECKPASSWORD_STATUS_INTERNAL_FAILURE,
-			 context);
+			 NULL, context);
 		return;
 	}
 

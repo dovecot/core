@@ -1287,25 +1287,31 @@ void auth_request_set_field(struct auth_request *request,
 	}
 }
 
+void auth_request_set_field_keyvalue(struct auth_request *request,
+				     const char *field,
+				     const char *default_scheme)
+{
+	const char *key, *value;
+
+	value = strchr(field, '=');
+	if (value == NULL) {
+		key = field;
+		value = "";
+	} else {
+		key = t_strdup_until(field, value);
+		value++;
+	}
+	auth_request_set_field(request, key, value, default_scheme);
+}
+
 void auth_request_set_fields(struct auth_request *request,
 			     const char *const *fields,
 			     const char *default_scheme)
 {
-	const char *key, *value;
-
 	for (; *fields != NULL; fields++) {
 		if (**fields == '\0')
 			continue;
-
-		value = strchr(*fields, '=');
-		if (value == NULL) {
-			key = *fields;
-			value = "";
-		} else {
-			key = t_strdup_until(*fields, value);
-			value++;
-		}
-		auth_request_set_field(request, key, value, default_scheme);
+		auth_request_set_field_keyvalue(request, *fields, default_scheme);
 	}
 }
 

@@ -12,6 +12,7 @@ enum db_checkpassword_status {
 
 typedef void db_checkpassword_callback_t(struct auth_request *request,
 					 enum db_checkpassword_status status,
+					 const char *const *extra_fields,
 					 void *context);
 
 struct db_checkpassword *

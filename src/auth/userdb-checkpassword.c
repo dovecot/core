@@ -15,9 +15,11 @@ struct checkpassword_userdb_module {
 static void
 userdb_checkpassword_callback(struct auth_request *request,
 			      enum db_checkpassword_status status,
+			      const char *const *extra_fields,
 			      void *context)
 {
 	userdb_callback_t *callback = context;
+	unsigned int i;
 
 	switch (status) {
 	case DB_CHECKPASSWORD_STATUS_INTERNAL_FAILURE:
@@ -27,6 +29,12 @@ userdb_checkpassword_callback(struct auth_request *request,
 		callback(USERDB_RESULT_USER_UNKNOWN, request);
 		break;
 	case DB_CHECKPASSWORD_STATUS_OK:
+		for (i = 0; extra_fields[i] != NULL; i++) {
+			if (strncmp(extra_fields[i], "userdb_", 7) != 0)
+				continue;
+			auth_request_set_field_keyvalue(request,
+							extra_fields[i], NULL);
+		}
 		callback(USERDB_RESULT_OK, request);
 		break;
 	}
