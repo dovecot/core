@@ -131,7 +131,6 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 		cmd = mail_command_add(session, args[3], args[4]);
 		cmd->id = cmd_id;
 		cmd->stats = stats;
-		diff_stats = stats;
 
 		session->num_cmds++;
 		session->user->num_cmds++;
@@ -146,7 +145,7 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 			return -1;
 		}
 		cmd->last_update = ioloop_timeval;
-		mail_stats_add(&session->stats, &diff_stats);
+		mail_stats_add(&cmd->stats, &diff_stats);
 	}
 	if (done) {
 		cmd->id = 0;
