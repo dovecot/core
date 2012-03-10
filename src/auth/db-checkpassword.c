@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#define CHECKPASSWORD_MAX_REQUEST_LEN 512
+
 struct chkpw_auth_request {
 	struct db_checkpassword *db;
 	struct auth_request *request;
@@ -32,7 +34,7 @@ struct chkpw_auth_request {
 	struct io *io_out, *io_in;
 
 	string_t *input_buf;
-	unsigned int write_pos;
+	unsigned int output_pos, output_len;
 
 	int exit_status;
 	unsigned int exited:1;
@@ -326,7 +328,8 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 	size_t size;
 	ssize_t ret;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 512+1);
+	buf = buffer_create_dynamic(pool_datastack_create(),
+				    CHECKPASSWORD_MAX_REQUEST_LEN);
 	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
 	if (request->auth_password != NULL) {
 		buffer_append(buf, request->auth_password,
@@ -337,15 +340,12 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 	buffer_append_c(buf, '\0');
 	data = buffer_get_data(buf, &size);
 
-	if (size > 512) {
-		auth_request_log_error(request->request, "checkpassword",
-			"output larger than 512 bytes: %"PRIuSIZE_T, size);
-		checkpassword_internal_failure(&request);
-		return;
-	}
+	i_assert(size == request->output_len);
+	/* already checked this */
+	i_assert(size <= CHECKPASSWORD_MAX_REQUEST_LEN);
 
-	ret = write(request->fd_out, data + request->write_pos,
-		    size - request->write_pos);
+	ret = write(request->fd_out, data + request->output_pos,
+		    size - request->output_pos);
 	if (ret <= 0) {
 		if (ret < 0) {
 			auth_request_log_error(request->request,
@@ -358,8 +358,8 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 		return;
 	}
 
-	request->write_pos += ret;
-	if (request->write_pos < size)
+	request->output_pos += ret;
+	if (request->output_pos < size)
 		return;
 
 	/* finished sending the data */
@@ -442,8 +442,21 @@ void db_checkpassword_call(struct db_checkpassword *db,
 			   void *context)
 {
 	struct chkpw_auth_request *chkpw_auth_request;
+	unsigned int output_len;
 	int fd_in[2], fd_out[2];
 	pid_t pid;
+
+	/* <username> \0 <password> \0 timestamp \0 */
+	output_len = strlen(request->user) + 3;
+	if (auth_password != NULL)
+		output_len += strlen(auth_password);
+	if (output_len > CHECKPASSWORD_MAX_REQUEST_LEN) {
+		auth_request_log_info(request, "checkpassword",
+			"Username+password combination too long (%u bytes)",
+			output_len);
+		callback(request, DB_CHECKPASSWORD_STATUS_FAILURE, context);
+		return;
+	}
 
 	fd_in[0] = -1;
 	if (pipe(fd_in) < 0 || pipe(fd_out) < 0) {
@@ -497,7 +510,8 @@ void db_checkpassword_call(struct db_checkpassword *db,
 	chkpw_auth_request->fd_out = fd_out[1];
 	chkpw_auth_request->auth_password = i_strdup(auth_password);
 	chkpw_auth_request->request = request;
-	chkpw_auth_request->input_buf = str_new(default_pool, 512);
+	chkpw_auth_request->output_len = output_len;
+	chkpw_auth_request->input_buf = str_new(default_pool, 256);
 	chkpw_auth_request->callback = callback;
 	chkpw_auth_request->context = context;
 
