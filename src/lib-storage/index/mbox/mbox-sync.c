@@ -1394,6 +1394,13 @@ mbox_sync_index_update_ext_header(struct mbox_mailbox *mbox,
 				  &data, &data_size);
 	if (data_size != sizeof(mbox->mbox_hdr) ||
 	    memcmp(data, &mbox->mbox_hdr, data_size) != 0) {
+		if (data_size != sizeof(mbox->mbox_hdr)) {
+			/* upgrading from v1.x */
+			mail_index_ext_resize(trans, mbox->mbox_ext_idx,
+					      sizeof(mbox->mbox_hdr),
+					      sizeof(uint64_t),
+					      sizeof(uint64_t));
+		}
 		mail_index_update_header_ext(trans, mbox->mbox_ext_idx,
 					     0, &mbox->mbox_hdr,
 					     sizeof(mbox->mbox_hdr));
