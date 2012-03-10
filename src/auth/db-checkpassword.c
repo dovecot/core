@@ -396,6 +396,7 @@ checkpassword_exec(struct db_checkpassword *db, struct auth_request *request,
 		env_put("AUTHORIZED=1");
 		if (request->credentials_scheme != NULL) {
 			/* passdb credentials lookup */
+			env_put("CREDENTIALS_LOOKUP=1");
 			env_put(t_strdup_printf("SCHEME=%s",
 						request->credentials_scheme));
 		}
