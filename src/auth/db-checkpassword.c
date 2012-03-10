@@ -86,8 +86,11 @@ static void checkpassword_request_free(struct chkpw_auth_request **_request)
 
 	*_request = NULL;
 
-	if (!request->exited)
+	if (!request->exited) {
+		hash_table_remove(request->db->clients,
+				  POINTER_CAST(request->pid));
 		child_wait_remove_pid(request->db->child_wait, request->pid);
+	}
 	checkpassword_request_close(request);
 
 	if (request->auth_password != NULL) {
