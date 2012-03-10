@@ -394,6 +394,11 @@ checkpassword_exec(struct db_checkpassword *db, struct auth_request *request,
 		   special checkpassword program which knows how to
 		   handle this. */
 		env_put("AUTHORIZED=1");
+		if (request->credentials_scheme != NULL) {
+			/* passdb credentials lookup */
+			env_put(t_strdup_printf("SCHEME=%s",
+						request->credentials_scheme));
+		}
 	}
 	checkpassword_setup_env(request);
 	cmd = checkpassword_get_cmd(request, db->checkpassword_path,
