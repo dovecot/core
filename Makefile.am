@@ -17,11 +17,9 @@ EXTRA_DIST = \
 	update-version.sh \
 	$(conf_DATA)
 
-datafiles = \
-	dovecot-config
+noinst_DATA = dovecot-config
 
 nodist_pkginclude_HEADERS = config.h
-pkglib_DATA = $(datafiles)
 
 if MAINTAINER_MODE
 ChangeLog: .hg/dirstate
@@ -61,7 +59,7 @@ EXTRA_DIST += dovecot.socket dovecot.service.in
 endif
 
 install-exec-hook:
-	rm $(DESTDIR)$(pkglibdir)/dovecot-config && \
+	$(mkdir_p) $(DESTDIR)$(pkglibdir); \
 	grep -v '^LIBDOVECOT_.*_INCLUDE' dovecot-config | \
 	grep -v '^LIBDOVECOT.*_DEPS' | sed \
 	-e "s|^\(LIBDOVECOT\)=.*$$|\1='-L$(pkglibdir) -ldovecot'|" \
