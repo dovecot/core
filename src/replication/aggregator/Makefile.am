@@ -23,4 +23,4 @@ aggregator_SOURCES = \
 noinst_HEADERS = \
 	aggregator-settings.h \
 	notify-connection.h \
-	replicator-connection.c
+	replicator-connection.h
