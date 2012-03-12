@@ -206,30 +206,26 @@ static bool fts_mailbox_build_continue(struct mail_search_context *ctx)
 	enum mail_error error;
 	int ret;
 
-	if (fctx == NULL)
-		return TRUE;
+	ret = fts_indexer_more(fctx->indexer_ctx);
+	if (ret == 0)
+		return FALSE;
 
-	if (fctx->indexer_ctx != NULL) {
-		/* this command is still building the indexes */
-		ret = fts_indexer_more(fctx->indexer_ctx);
-		if (ret == 0)
-			return FALSE;
-		ctx->progress_hidden = FALSE;
-		if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
-			ret = -1;
-		if (ret > 0)
-			fts_search_lookup(fctx);
-		if (ret < 0) {
-			/* if indexing timed out, it probably means that
-			   the mailbox is still being indexed, but it's a large
-			   mailbox and it takes a while. in this situation
-			   we'll simply abort the search.
+	/* indexing finished */
+	ctx->progress_hidden = FALSE;
+	if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
+		ret = -1;
+	if (ret > 0)
+		fts_search_lookup(fctx);
+	if (ret < 0) {
+		/* if indexing timed out, it probably means that
+		   the mailbox is still being indexed, but it's a large
+		   mailbox and it takes a while. in this situation
+		   we'll simply abort the search.
 
-			   if indexing failed for any other reason, just
-			   fallback to searching the slow way. */
-			(void)mailbox_get_last_error(fctx->box, &error);
-			fctx->indexing_timed_out = error == MAIL_ERROR_INUSE;
-		}
+		   if indexing failed for any other reason, just
+		   fallback to searching the slow way. */
+		(void)mailbox_get_last_error(fctx->box, &error);
+		fctx->indexing_timed_out = error == MAIL_ERROR_INUSE;
 	}
 	return TRUE;
 }
@@ -241,13 +237,16 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 
-	if (!fts_mailbox_build_continue(ctx)) {
-		*tryagain_r = TRUE;
-		return FALSE;
-	}
-	if (fctx->indexing_timed_out) {
-		*tryagain_r = FALSE;
-		return FALSE;
+	if (fctx != NULL && fctx->indexer_ctx != NULL) {
+		/* this command is still building the indexes */
+		if (!fts_mailbox_build_continue(ctx)) {
+			*tryagain_r = TRUE;
+			return FALSE;
+		}
+		if (fctx->indexing_timed_out) {
+			*tryagain_r = FALSE;
+			return FALSE;
+		}
 	}
 
 	return fbox->module_ctx.super.
