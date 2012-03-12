@@ -26,6 +26,7 @@ static const char *
 director_request_get_timeout_error(struct director_request *request)
 {
 	string_t *str = t_str_new(128);
+	struct user *user;
 	unsigned int secs;
 
 	str_printfa(str, "Timeout - queued for %u secs (",
@@ -39,6 +40,14 @@ director_request_get_timeout_error(struct director_request *request)
 			str_printfa(str, "Ring synced for %u secs", secs);
 		else
 			str_printfa(str, "Ring not synced for %u secs", secs);
+	}
+
+	user = user_directory_lookup(request->dir->users,
+				     request->username_hash);
+	if (user != NULL) {
+		if (user->weak)
+			str_append(str, ", weak user");
+		str_printfa(str, ", ts=%u", user->timestamp);
 	}
 	str_append_c(str, ')');
 	return str_c(str);
