@@ -35,7 +35,7 @@ director_request_get_timeout_error(struct director_request *request)
 	if (request->dir->ring_last_sync_time == 0)
 		str_append(str, "Ring has never been synced");
 	else {
-		secs =ioloop_time - request->dir->ring_last_sync_time;
+		secs = ioloop_time - request->dir->ring_last_sync_time;
 		if (request->dir->ring_synced)
 			str_printfa(str, "Ring synced for %u secs", secs);
 		else
@@ -47,7 +47,8 @@ director_request_get_timeout_error(struct director_request *request)
 	if (user != NULL) {
 		if (user->weak)
 			str_append(str, ", weak user");
-		str_printfa(str, ", ts=%u", user->timestamp);
+		str_printfa(str, ", user refreshed %u secs ago",
+			    ioloop_time - user->timestamp);
 	}
 	str_append_c(str, ')');
 	return str_c(str);
