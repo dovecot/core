@@ -75,7 +75,9 @@ if HAVE_SYSTEMD
 CLEANFILES += $systedmsystemunit_DATA
 endif
 
-DISTCLEANFILES = $(top_builddir)/dovecot-version.h
+DISTCLEANFILES = \
+	$(top_builddir)/dovecot-version.h \
+	$(top_builddir)/dovecot-config
 
 distcheck-hook:
 	if which scan-build > /dev/null; then \
