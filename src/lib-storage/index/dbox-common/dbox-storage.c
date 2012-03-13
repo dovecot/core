@@ -172,7 +172,7 @@ int dbox_mailbox_open(struct mailbox *box)
 
 	if (dbox_cleanup_if_exists(box->list, box_path))
 		;
-	else if (errno == ENOENT) {
+	else if (errno == ENOENT || errno == ENAMETOOLONG) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;

@@ -207,7 +207,7 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 	/* if tmp/ directory exists, we need to clean it up once in a while */
 	path = t_strconcat(dir, "/tmp", NULL);
 	if (stat(path, &st) < 0) {
-		if (errno == ENOENT)
+		if (errno == ENOENT || errno == ENAMETOOLONG)
 			return 0;
 		if (errno == EACCES) {
 			mail_storage_set_critical(storage, "%s",
@@ -361,7 +361,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 		return maildir_mailbox_open_existing(box);
 	}
 
-	if (errno == ENOENT) {
+	if (errno == ENOENT || errno == ENAMETOOLONG) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 		return -1;
