@@ -703,10 +703,12 @@ mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 	const struct mailbox_info *info;
 
 	do {
-		if (ctx->autocreate_ctx != NULL)
-			info = autocreate_iter_next(ctx);
-		else
-			info = mailbox_list_iter_next_call(ctx);
+		T_BEGIN {
+			if (ctx->autocreate_ctx != NULL)
+				info = autocreate_iter_next(ctx);
+			else
+				info = mailbox_list_iter_next_call(ctx);
+		} T_END;
 	} while (info != NULL && !special_use_selection(ctx, info));
 	return info;
 }
