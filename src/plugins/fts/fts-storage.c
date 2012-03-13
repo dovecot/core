@@ -286,7 +286,7 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 
 	if (fctx == NULL || !fctx->fts_lookup_success) {
 		/* fts lookup not done for this search */
-		if (fctx->indexing_timed_out)
+		if (fctx != NULL && fctx->indexing_timed_out)
 			return FALSE;
 		return fbox->module_ctx.super.search_next_update_seq(ctx);
 	}
