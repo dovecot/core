@@ -25,6 +25,7 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, TRUE, ns_sep);
 	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 	ctx->sep = ns_sep;
+	ctx->info_pool = pool_alloconly_create("mailbox list index iter info", 128);
 
 	if (mailbox_list_index_refresh(ctx->ctx.list) < 0) {
 		/* no indexing */
@@ -46,12 +47,15 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 	struct mailbox_list_index_node *node = ctx->next_node;
 	struct mailbox *box;
 
+	p_clear(ctx->info_pool);
+
 	str_truncate(ctx->path, ctx->parent_len);
 	if (str_len(ctx->path) > 0)
 		str_append_c(ctx->path, ctx->sep);
 	str_append(ctx->path, node->name);
 
 	ctx->info.name = mailbox_list_get_vname(ctx->ctx.list, str_c(ctx->path));
+	ctx->info.name = p_strdup(ctx->info_pool, ctx->info.name);
 	ctx->info.flags = 0;
 	if ((node->flags & MAILBOX_LIST_INDEX_FLAG_NONEXISTENT) != 0)
 		ctx->info.flags |= MAILBOX_NONEXISTENT;
@@ -166,6 +170,7 @@ int mailbox_list_index_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		ilist->iter_refcount--;
 	}
 
+	pool_unref(&ctx->info_pool);
 	pool_unref(&_ctx->pool);
 	return ret;
 }

@@ -109,6 +109,8 @@ struct mailbox_list_index_iterate_context {
 	struct mailbox_list_iterate_context *backend_ctx;
 
 	struct mailbox_info info;
+	pool_t info_pool;
+
 	unsigned int parent_len;
 	string_t *path;
 	struct mailbox_list_index_node *next_node;
