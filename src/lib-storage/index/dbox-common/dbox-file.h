@@ -116,6 +116,7 @@ struct dbox_file {
 	ARRAY_DEFINE(metadata, const char *);
 	uoff_t metadata_read_offset;
 
+	unsigned int created:1; /* this file is now being created */
 	unsigned int appending:1;
 	unsigned int deleted:1;
 	unsigned int corrupted:1;
