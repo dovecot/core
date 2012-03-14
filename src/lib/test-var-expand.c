@@ -11,6 +11,11 @@ struct var_expand_test {
 	const char *out;
 };
 
+struct var_get_key_range_test {
+	const char *in;
+	unsigned int idx, size;
+};
+
 static void test_var_expand_builtin(void)
 {
 	static struct var_expand_test tests[] = {
@@ -37,7 +42,33 @@ static void test_var_expand_builtin(void)
 	test_end();
 }
 
+static void test_var_get_key_range(void)
+{
+	static struct var_get_key_range_test tests[] = {
+		{ "", 0, 0 },
+		{ "{", 1, 0 },
+		{ "k", 0, 1 },
+		{ "{key}", 1, 3 },
+		{ "5.5Rk", 4, 1 },
+		{ "5.5R{key}", 5, 3 },
+		{ "{key", 1, 3 }
+	};
+	unsigned int i, idx, size;
+
+	test_begin("var_get_key_range");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		var_get_key_range(tests[i].in, &idx, &size);
+		test_assert(tests[i].idx == idx);
+		test_assert(tests[i].size == size);
+
+		if (tests[i].size == 1)
+			test_assert(tests[i].in[idx] == var_get_key(tests[i].in));
+	}
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_builtin();
+	test_var_get_key_range();
 }

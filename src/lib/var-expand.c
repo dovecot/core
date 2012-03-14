@@ -348,28 +348,50 @@ void var_expand(string_t *dest, const char *str,
 
 char var_get_key(const char *str)
 {
+	unsigned int idx, size;
+
+	var_get_key_range(str, &idx, &size);
+	return str[idx];
+}
+
+void var_get_key_range(const char *str, unsigned int *idx_r,
+		       unsigned int *size_r)
+{
 	const struct var_expand_modifier *m;
+	unsigned int i = 0;
 
 	/* [<offset>.]<width>[<modifiers>]<variable> */
-	while ((*str >= '0' && *str <= '9') || *str == '-')
-		str++;
+	while ((str[i] >= '0' && str[i] <= '9') || str[i] == '-')
+		i++;
 
-	if (*str == '.') {
-		str++;
-		while (*str >= '0' && *str <= '9')
-			str++;
+	if (str[i] == '.') {
+		i++;
+		while (str[i] >= '0' && str[i] <= '9')
+			i++;
 	}
 
 	do {
 		for (m = modifiers; m->key != '\0'; m++) {
-			if (m->key == *str) {
-				str++;
+			if (m->key == str[i]) {
+				i++;
 				break;
 			}
 		}
 	} while (m->key != '\0');
 
-	return *str;
+	if (str[i] != '{') {
+		/* short key */
+		*idx_r = i;
+		*size_r = str[i] == '\0' ? 0 : 1;
+	} else {
+		/* long key */
+		*idx_r = ++i;
+		for (; str[i] != '\0'; i++) {
+			if (str[i] == '}')
+				break;
+		}
+		*size_r = i - *idx_r;
+	}
 }
 
 static bool var_has_long_key(const char **str, const char *long_key)
