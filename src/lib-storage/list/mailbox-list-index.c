@@ -298,7 +298,8 @@ static void mailbox_list_index_deinit(struct mailbox_list *list)
 	hash_table_destroy(&ilist->mailbox_hash);
 	hash_table_destroy(&ilist->mailbox_names);
 	pool_unref(&ilist->mailbox_pool);
-	mail_index_close(ilist->index);
+	if (ilist->opened)
+		mail_index_close(ilist->index);
 	mail_index_free(&ilist->index);
 	ilist->module_ctx.super.deinit(list);
 }
