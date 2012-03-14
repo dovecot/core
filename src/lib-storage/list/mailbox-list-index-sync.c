@@ -267,8 +267,11 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	/* clear EXISTS-flags, so after sync we know what can be expunged */
 	mailbox_list_index_node_clear_exists(ilist->mailbox_tree);
 
+	/* don't include autocreated mailboxes in index until they're
+	   actually created. */
 	patterns[0] = "*"; patterns[1] = NULL;
-	iter = ilist->module_ctx.super.iter_init(list, patterns, 0);
+	iter = ilist->module_ctx.super.
+		iter_init(list, patterns, MAILBOX_LIST_ITER_NO_AUTO_BOXES);
 	while ((info = ilist->module_ctx.super.iter_next(iter)) != NULL) {
 		flags = 0;
 		if ((info->flags & MAILBOX_NONEXISTENT) != 0)
