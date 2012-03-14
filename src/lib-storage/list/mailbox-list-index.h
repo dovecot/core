@@ -102,6 +102,8 @@ struct mailbox_list_index {
 	/* uint32_t uid => struct mailbox_list_index_node* */
 	struct hash_table *mailbox_hash;
 	struct mailbox_list_index_node *mailbox_tree;
+
+	unsigned int opened:1;
 };
 
 struct mailbox_list_index_iterate_context {
