@@ -24,6 +24,7 @@ pkglibexec_PROGRAMS = auth checkpassword-reply
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
@@ -182,3 +183,22 @@ checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 checkpassword_reply_sources = \
 	checkpassword-reply.c
+
+test_programs = \
+	test-auth-cache
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_auth_cache_SOURCES = test-auth-cache.c
+test_auth_cache_LDADD = auth-cache.o $(test_libs)
+test_auth_cache_DEPENDENCIES = auth-cache.o $(test_libs)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done

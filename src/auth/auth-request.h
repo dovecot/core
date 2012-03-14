@@ -2,6 +2,7 @@
 #define AUTH_REQUEST_H
 
 #include "network.h"
+#include "var-expand.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
@@ -122,6 +123,7 @@ struct auth_request {
 typedef void auth_request_proxy_cb_t(bool success, struct auth_request *);
 
 extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
+extern const struct var_expand_table auth_request_var_expand_static_tab[];
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech);

@@ -23,29 +23,75 @@ struct auth_cache {
 	unsigned long long pos_size, neg_size;
 };
 
+static const struct var_expand_table *
+auth_request_var_expand_tab_find(const char *key, unsigned int size)
+{
+	const struct var_expand_table *tab = auth_request_var_expand_static_tab;
+	unsigned int i;
+
+	for (i = 0; tab[i].key != '\0' || tab[i].long_key != NULL; i++) {
+		if (size == 1) {
+			if (key[0] == tab[i].key)
+				return &tab[i];
+		} else if (tab[i].long_key != NULL) {
+			if (strncmp(key, tab[i].long_key, size) == 0 &&
+			    tab[i].long_key[size] == '\0')
+				return &tab[i];
+		}
+	}
+	return NULL;
+}
+
 char *auth_cache_parse_key(pool_t pool, const char *query)
 {
+	const struct var_expand_table *tab;
 	string_t *str;
-	char key_seen[256];
-	uint8_t key;
+	bool key_seen[100];
+	unsigned int idx, size, tab_idx;
+	bool add_key;
 
 	memset(key_seen, 0, sizeof(key_seen));
 
 	str = str_new(pool, 32);
-	for (; *query != '\0'; query++) {
-		if (*query == '%' && query[1] != '\0') {
+	for (; *query != '\0'; ) {
+		if (*query != '%') {
 			query++;
-                        key = var_get_key(query);
-			if (key != '\0' && key != '%' && !key_seen[key]) {
-				if (str_len(str) != 0)
-					str_append_c(str, '\t');
-				str_append_c(str, '%');
-				str_append_c(str, key);
+			continue;
+		}
 
-				/* @UNSAFE */
-                                key_seen[key] = 1;
+		var_get_key_range(++query, &idx, &size);
+		if (size == 0) {
+			/* broken %variable ending too early */
+			break;
+		}
+		query += idx;
+
+		tab = auth_request_var_expand_tab_find(query, size);
+		if (tab == NULL) {
+			/* just add the key. it would be nice to prevent
+			   duplicates here as well, but that's just too
+			   much trouble and probably very rare. */
+			add_key = TRUE;
+		} else {
+			tab_idx = tab - auth_request_var_expand_static_tab;
+			i_assert(tab_idx < N_ELEMENTS(key_seen));
+			/* @UNSAFE */
+			add_key = !key_seen[tab_idx];
+			key_seen[tab_idx] = TRUE;
+		}
+		if (add_key) {
+			if (str_len(str) != 0)
+				str_append_c(str, '\t');
+			str_append_c(str, '%');
+			if (size == 1)
+				str_append_c(str, query[0]);
+			else {
+				str_append_c(str, '{');
+				str_append_n(str, query, size);
+				str_append_c(str, '}');
 			}
 		}
+		query += size;
 	}
 	return str_free_without_data(&str);
 }

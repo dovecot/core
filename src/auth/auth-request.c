@@ -1741,38 +1741,40 @@ auth_request_str_escape(const char *string,
 	return str_escape(string);
 }
 
+const struct var_expand_table auth_request_var_expand_static_tab[] = {
+	{ 'u', NULL, "user" },
+	{ 'n', NULL, "username" },
+	{ 'd', NULL, "domain" },
+	{ 's', NULL, "service" },
+	{ 'h', NULL, "home" },
+	{ 'l', NULL, "lip" },
+	{ 'r', NULL, "rip" },
+	{ 'p', NULL, "pid" },
+	{ 'w', NULL, "password" },
+	{ '!', NULL, NULL },
+	{ 'm', NULL, "mech" },
+	{ 'c', NULL, "secured" },
+	{ 'a', NULL, "lport" },
+	{ 'b', NULL, "rport" },
+	{ 'k', NULL, "cert" },
+	{ '\0', NULL, "login_user" },
+	{ '\0', NULL, "login_username" },
+	{ '\0', NULL, "login_domain" },
+	{ '\0', NULL, NULL }
+};
+
 const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  auth_request_escape_func_t *escape_func)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ 's', NULL, "service" },
-		{ 'h', NULL, "home" },
-		{ 'l', NULL, "lip" },
-		{ 'r', NULL, "rip" },
-		{ 'p', NULL, "pid" },
-		{ 'w', NULL, "password" },
-		{ '!', NULL, NULL },
-		{ 'm', NULL, "mech" },
-		{ 'c', NULL, "secured" },
-		{ 'a', NULL, "lport" },
-		{ 'b', NULL, "rport" },
-		{ 'k', NULL, "cert" },
-		{ '\0', NULL, "login_user" },
-		{ '\0', NULL, "login_username" },
-		{ '\0', NULL, "login_domain" },
-		{ '\0', NULL, NULL }
-	};
 	struct var_expand_table *tab;
 
 	if (escape_func == NULL)
 		escape_func = escape_none;
 
-	tab = t_malloc(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
+	tab = t_malloc(sizeof(auth_request_var_expand_static_tab));
+	memcpy(tab, auth_request_var_expand_static_tab,
+	       sizeof(auth_request_var_expand_static_tab));
 
 	tab[0].value = escape_func(auth_request->user, auth_request);
 	tab[1].value = escape_func(t_strcut(auth_request->user, '@'),
