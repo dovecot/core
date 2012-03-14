@@ -207,6 +207,15 @@ void auth_cache_clear(struct auth_cache *cache)
 	hash_table_clear(cache->hash, FALSE);
 }
 
+static const char *
+auth_cache_escape(const char *string,
+		  const struct auth_request *auth_request ATTR_UNUSED)
+{
+	/* cache key %variables are separated by tabs, make sure that there
+	   are no tabs in the string */
+	return str_tabescape(string);
+}
+
 const char *
 auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 		  const char *key, struct auth_cache_node **node_r,
@@ -225,7 +234,7 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 	str = t_str_new(256);
 	var_expand(str, t_strconcat(request->userdb_lookup ? "U" : "P",
 				    "%!/", key, NULL),
-		   auth_request_get_var_expand_table(request, NULL));
+		   auth_request_get_var_expand_table(request, auth_cache_escape));
 
 	node = hash_table_lookup(cache->hash, str_c(str));
 	if (node == NULL) {
@@ -281,7 +290,7 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 	str = t_str_new(256);
 	var_expand(str, t_strconcat(request->userdb_lookup ? "U" : "P",
 				    "%!/", key, NULL),
-		   auth_request_get_var_expand_table(request, NULL));
+		   auth_request_get_var_expand_table(request, auth_cache_escape));
 
 	request->user = current_username;
 
@@ -330,7 +339,7 @@ void auth_cache_remove(struct auth_cache *cache,
 
 	str = t_str_new(256);
 	var_expand(str, key,
-		   auth_request_get_var_expand_table(request, NULL));
+		   auth_request_get_var_expand_table(request, auth_cache_escape));
 
 	node = hash_table_lookup(cache->hash, str_c(str));
 	if (node == NULL)
