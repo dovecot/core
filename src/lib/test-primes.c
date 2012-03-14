@@ -14,7 +14,7 @@ void test_primes(void)
 			success = FALSE;
 	}
 	for (i = 10; i < 32; i++) {
-		num = (1 << i) - 100;
+		num = (1U << i) - 100;
 		for (j = 0; j < 200; j++, num++) {
 			if (primes_closest(num) < num)
 				success = FALSE;
