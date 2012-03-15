@@ -135,16 +135,20 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 		node = mailbox_tree_lookup(ctx->tree_ctx, inbox_name);
 		if (node != NULL)
 			node->flags &= ~MAILBOX_NONEXISTENT;
-	} else {
+		return 0;
+	}
+
+	/* add the INBOX only if it matches the patterns */
+	match = imap_match(glob, inbox_name);
+	if (match == IMAP_MATCH_PARENT)
+		maildir_fill_parents(ctx, glob, FALSE, inbox_name);
+	else if (match == IMAP_MATCH_YES) {
 		node = mailbox_tree_get(ctx->tree_ctx, inbox_name, &created);
 		if (created)
 			node->flags = MAILBOX_NOCHILDREN;
 		else
 			node->flags &= ~MAILBOX_NONEXISTENT;
-
-		match = imap_match(glob, inbox_name);
-		if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0)
-			node->flags |= MAILBOX_MATCHED;
+		node->flags |= MAILBOX_MATCHED;
 	}
 	return 0;
 }
