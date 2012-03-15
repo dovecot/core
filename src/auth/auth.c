@@ -194,7 +194,6 @@ auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 		/* use a dummy userdb static. */
 		auth_userdb_preinit(auth, &userdb_dummy_set);
 	}
-	auth_mech_list_verify_passdb(auth);
 	return auth;
 }
 
@@ -251,9 +250,10 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 {
 	struct master_service_settings_output set_output;
 	const struct auth_settings *service_set;
-	struct auth *auth;
+	struct auth *auth, *const *authp;
 	unsigned int i;
 	const char *not_service = NULL;
+	bool check_default = TRUE;
 
 	i_array_init(&auths, 8);
 
@@ -273,6 +273,14 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 						 &set_output);
 		auth = auth_preinit(service_set, services[i], pool, reg);
 		array_append(&auths, &auth, 1);
+	}
+
+	if (not_service != NULL && str_array_find(services, not_service+1))
+		check_default = FALSE;
+
+	array_foreach(&auths, authp) {
+		if ((*authp)->service != NULL || check_default)
+			auth_mech_list_verify_passdb(*authp);
 	}
 }
 
