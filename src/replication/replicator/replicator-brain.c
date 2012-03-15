@@ -103,14 +103,16 @@ doveadm_replicate(struct replicator_brain *brain, struct replicator_user *user)
 {
 	struct replicator_sync_context *ctx;
 	struct doveadm_connection *conn;
+	time_t next_full_sync;
 	bool full;
 
 	conn = get_doveadm_connection(brain);
 	if (conn == NULL)
 		return FALSE;
 
-	full = user->last_full_sync +
-		brain->set->replication_full_sync_interval < ioloop_time;
+	next_full_sync = user->last_full_sync +
+		brain->set->replication_full_sync_interval;
+	full = next_full_sync <= ioloop_time;
 	/* update the sync times immediately. if the replication fails we still
 	   wouldn't want it to be retried immediately. */
 	user->last_fast_sync = ioloop_time;
