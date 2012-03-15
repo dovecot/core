@@ -749,20 +749,23 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return 0;
 	}
 
-	if (!box->inbox_user &&
-	    have_listable_namespace_prefix(box->storage->user->namespaces,
-					   box->vname)) {
-		/* listable namespace prefix always exists */
-		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
-		return 0;
-	}
-
 	if (auto_boxes && box->set != NULL && mailbox_is_autocreated(box)) {
 		*existence_r = MAILBOX_EXISTENCE_SELECT;
 		return 0;
 	}
 
-	return box->v.exists(box, auto_boxes, existence_r);
+	if (box->v.exists(box, auto_boxes, existence_r) < 0)
+		return -1;
+
+	if (!box->inbox_user && *existence_r == MAILBOX_EXISTENCE_NOSELECT &&
+	    have_listable_namespace_prefix(box->storage->user->namespaces,
+					   box->vname)) {
+	       /* listable namespace prefix always exists. */
+		*existence_r = MAILBOX_EXISTENCE_NOSELECT;
+		return 0;
+	}
+
+	return 0;
 }
 
 static int mailbox_check_mismatching_separators(struct mailbox *box)
