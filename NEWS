@@ -1,3 +1,35 @@
+v2.1.2 2012-03-15  Timo Sirainen <tss@iki.fi>
+
+	+ Initial implementation of dsync-based replication. For now this
+	  should be used only on non-critical systems.
+	+ Proxying: POP3 now supports sending remote IP+port from proxy to
+	  backend server via Dovecot-specific XCLIENT extension.
+	+ Proxying: proxy_maybe=yes with host=<hostname> (instead of IP)
+	  works now properly.
+	+ Proxying: Added auth_proxy_self setting
+	+ Proxying: Added proxy_always extra field (see wiki docs)
+	+ Added director_username_hash setting to specify what part of the
+	  username is hashed. This can be used to implement per-domain
+	  backends (which allows safely accessing shared mailboxes within
+	  domain).
+	+ Added a "session ID" string for imap/pop3 connections, available
+	  in %{session} variable. The session ID passes through Dovecot
+	  IMAP/POP3 proxying to backend server. The same session ID is can be
+	  reused after a long time (currently a bit under 9 years). 
+	+ passdb checkpassword: Support "credentials lookups" (for
+	  non-plaintext auth and for lmtp_proxy lookups)
+	+ fts: Added fts_index_timeout setting to abort search if indexing
+	  hasn't finished by then (default is to wait forever). 
+	- doveadm sync: If mailbox was expunged empty, messages may have
+	  become back instead of also being expunged in the other side.
+	- director: If user logged into two directors while near user
+	  expiration, the directors might have redirected the user to two
+	  different backends.
+	- imap_id_* settings were ignored before login.
+	- Several fixes to mailbox_list_index=yes
+	- Previous v2.1.x didn't log all messages at shutdown.
+	- mbox: Fixed accessing Dovecot v1.x mbox index files without errors.
+
 v2.1.1 2012-02-23  Timo Sirainen <tss@iki.fi>
 
 	+ dsync: If message with same GUID is saved multiple times in session,

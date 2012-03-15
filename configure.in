@@ -1,5 +1,5 @@
 AC_PREREQ([2.59])
-AC_INIT([Dovecot],[2.1.1],[dovecot@dovecot.org])
+AC_INIT([Dovecot],[2.1.2],[dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AM_INIT_AUTOMAKE([foreign])
