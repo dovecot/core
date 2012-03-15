@@ -403,7 +403,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		cache->file_field_map[i] = fidx;
 
 		/* update last_used if it's newer than ours */
-		if (last_used[i] > cache->fields[fidx].field.last_used)
+		if ((time_t)last_used[i] > cache->fields[fidx].field.last_used)
 			cache->fields[fidx].field.last_used = last_used[i];
 
 		dec = cache->fields[fidx].field.decision;

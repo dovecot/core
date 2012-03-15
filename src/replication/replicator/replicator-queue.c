@@ -188,6 +188,7 @@ replicator_queue_pop(struct replicator_queue *queue,
 {
 	struct priorityq_item *item;
 	struct replicator_user *user;
+	time_t next_full_sync;
 
 	item = priorityq_peek(queue->user_queue);
 	if (item == NULL) {
@@ -197,11 +198,11 @@ replicator_queue_pop(struct replicator_queue *queue,
 	}
 	user = (struct replicator_user *)item;
 
+	next_full_sync = user->last_full_sync + queue->full_sync_interval;
 	if (user->priority == REPLICATION_PRIORITY_NONE &&
-	    user->last_full_sync + queue->full_sync_interval > ioloop_time) {
+	    next_full_sync > ioloop_time) {
 		/* we don't want to do a full sync yet */
-		*next_secs_r = user->last_full_sync +
-			queue->full_sync_interval - ioloop_time;
+		*next_secs_r = next_full_sync - ioloop_time;
 		return NULL;
 	}
 	priorityq_remove(queue->user_queue, &user->item);

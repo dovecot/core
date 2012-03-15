@@ -144,7 +144,7 @@ unsigned int user_directory_get_username_hash(struct user_directory *dir,
 bool user_directory_user_is_recently_updated(struct user_directory *dir,
 					     struct user *user)
 {
-	return user->timestamp + dir->timeout_secs/2 >= ioloop_time;
+	return (time_t)(user->timestamp + dir->timeout_secs/2) >= ioloop_time;
 }
 
 bool user_directory_user_is_near_expiring(struct user_directory *dir,
