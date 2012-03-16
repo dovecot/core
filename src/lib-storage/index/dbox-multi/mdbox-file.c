@@ -106,7 +106,6 @@ static int mdbox_file_create(struct mdbox_file *file)
 	bool create_parents;
 	int ret;
 
-	_file->created = TRUE;
 	create_parents = dbox_file_is_in_alt(_file);
 	_file->fd = _file->storage->v.
 		file_create_fd(_file, _file->cur_path, create_parents);

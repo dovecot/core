@@ -588,7 +588,7 @@ int dbox_file_get_append_stream(struct dbox_file_append_context *ctx,
 		return 0;
 	}
 
-	if (ctx->output->offset == 0 && !file->created) {
+	if (ctx->output->offset == 0) {
 		/* first append to existing file. seek to eof first. */
 		if (fstat(file->fd, &st) < 0) {
 			dbox_file_set_syscall_error(file, "fstat()");

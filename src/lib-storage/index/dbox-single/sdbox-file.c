@@ -60,7 +60,6 @@ struct dbox_file *sdbox_file_create(struct sdbox_mailbox *mbox)
 	struct dbox_file *file;
 
 	file = sdbox_file_init(mbox, 0);
-	file->created = TRUE;
 	file->fd = file->storage->v.
 		file_create_fd(file, file->primary_path, FALSE);
 	return file;
