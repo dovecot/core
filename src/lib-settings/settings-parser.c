@@ -1379,17 +1379,31 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 	case SET_STRLIST: {
 		const ARRAY_TYPE(const_string) *src_arr = src;
 		ARRAY_TYPE(const_string) *dest_arr = dest;
-		const char *const *strings, *dup;
-		unsigned int i, count;
+		const char *const *strings, *const *dest_strings, *dup;
+		unsigned int i, j, count, dest_count;
 
 		if (!array_is_created(src_arr))
 			break;
 
 		strings = array_get(src_arr, &count);
+		i_assert(count % 2 == 0);
 		if (!array_is_created(dest_arr))
 			p_array_init(dest_arr, pool, count);
-		for (i = 0; i < count; i++) {
+		dest_count = array_count(dest_arr);
+		i_assert(dest_count % 2 == 0);
+		for (i = 0; i < count; i += 2) {
+			if (dest_count > 0) {
+				dest_strings = array_idx(dest_arr, 0);
+				for (j = 0; j < dest_count; j += 2) {
+					if (strcmp(strings[i], dest_strings[j]) == 0)
+						break;
+				}
+				if (j < dest_count)
+					continue;
+			}
 			dup = p_strdup(pool, strings[i]);
+			array_append(dest_arr, &dup, 1);
+			dup = p_strdup(pool, strings[i+1]);
 			array_append(dest_arr, &dup, 1);
 		}
 		break;
