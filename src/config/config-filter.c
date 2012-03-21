@@ -314,6 +314,11 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 	const char *error = NULL, **error_p;
 	unsigned int i, count;
 
+	/* get the matching filters. the most specific ones are handled first,
+	   so that if more generic filters try to override settings we'll fail
+	   with an error. Merging SET_STRLIST types requires
+	   settings_parser_apply_changes() to work a bit unintuitively by
+	   letting the destination settings override the source settings. */
 	src = config_filter_find_all(ctx, module, filter, output_r);
 
 	/* all of them should have the same number of parsers.
