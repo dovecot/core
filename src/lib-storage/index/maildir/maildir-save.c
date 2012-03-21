@@ -516,6 +516,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *path;
 	off_t real_size;
+	uoff_t size;
 	int output_errno;
 
 	ctx->last_save_finished = TRUE;
@@ -575,10 +576,16 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	if (real_size == (off_t)-1) {
 		mail_storage_set_critical(storage,
 					  "lseek(%s) failed: %m", path);
-	} else if (real_size != (off_t)ctx->file_last->size) {
+	} else if (real_size != (off_t)ctx->file_last->size &&
+		   (!maildir_filename_get_size(ctx->file_last->dest_basename,
+					       MAILDIR_EXTRA_FILE_SIZE, &size) ||
+		    size != ctx->file_last->size)) {
 		/* e.g. zlib plugin was used. the "physical size" must be in
 		   the maildir filename, since stat() will return wrong size */
 		ctx->file_last->preserve_filename = FALSE;
+		/* reset the base name as well, just in case there's a
+		   ,W=vsize */
+		ctx->file_last->dest_basename = ctx->file_last->tmp_name;
 	}
 	if (close(ctx->fd) < 0) {
 		if (!mail_storage_set_error_from_errno(storage)) {
