@@ -59,7 +59,8 @@ static const struct command imap_ext_commands[] = {
 	{ "UID SORT",		cmd_sort,        COMMAND_FLAG_BREAKS_SEQS },
 	{ "UID THREAD",		cmd_thread,      COMMAND_FLAG_BREAKS_SEQS },
 	{ "UNSELECT",		cmd_unselect,    COMMAND_FLAG_BREAKS_MAILBOX },
-	{ "X-CANCEL",		cmd_x_cancel,    0 }
+	{ "X-CANCEL",		cmd_x_cancel,    0 },
+	{ "XLIST",		cmd_list,        0 }
 };
 #define IMAP_EXT_COMMANDS_COUNT N_ELEMENTS(imap_ext_commands)
 
