@@ -492,6 +492,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	}
 	hdr_next_uid = hdr->next_uid;
 
+	ctx->mbox->box.tmp_sync_view = view;
 	private_flags_mask = mailbox_get_private_flags_mask(&mbox->box);
 	time_before_sync = time(NULL);
 	mbox->syncing_commit = TRUE;
@@ -647,6 +648,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 	if (mbox->box.v.sync_notify != NULL)
 		mbox->box.v.sync_notify(&mbox->box, 0, 0);
+	ctx->mbox->box.tmp_sync_view = NULL;
 
 	/* check cur/ mtime later. if we came here from saving messages they
 	   could still be moved to cur/ directory. */

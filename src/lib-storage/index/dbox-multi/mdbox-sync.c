@@ -115,11 +115,13 @@ static int dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
 
 	if (box->v.sync_notify != NULL) {
 		/* do notifications after commit finished successfully */
+		box->tmp_sync_view = ctx->sync_view;
 		seq_range_array_iter_init(&iter, &ctx->expunged_seqs); n = 0;
 		while (seq_range_array_iter_nth(&iter, n++, &seq)) {
 			mail_index_lookup_uid(ctx->sync_view, seq, &uid);
 			box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
 		}
+		box->tmp_sync_view = NULL;
 	}
 	return 0;
 }

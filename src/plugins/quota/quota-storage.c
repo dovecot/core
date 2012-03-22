@@ -298,7 +298,15 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 
 	/* try to look up the size. this works only if it's cached. */
 	if (qbox->expunge_qt->tmp_mail == NULL) {
+		/* FIXME: ugly kludge to open the transaction for sync_view.
+		   box->view may not have all the new messages that
+		   sync_notify() notifies about, and those messages would
+		   cause a quota recalculation. */
+		struct mail_index_view *box_view = box->view;
+		if (box->tmp_sync_view != NULL)
+			box->view = box->tmp_sync_view;
 		qbox->expunge_trans = mailbox_transaction_begin(box, 0);
+		box->view = box_view;
 		qbox->expunge_qt->tmp_mail =
 			mail_alloc(qbox->expunge_trans,
 				   MAIL_FETCH_PHYSICAL_SIZE, NULL);
