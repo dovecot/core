@@ -52,6 +52,7 @@ struct ssl_proxy {
 	struct client *client;
 	struct ip_addr ip;
 	const struct login_settings *set;
+	pool_t set_pool;
 
 	int fd_ssl, fd_plain;
 	struct io *io_ssl_read, *io_ssl_write, *io_plain_read, *io_plain_write;
@@ -543,7 +544,7 @@ static void ssl_step(struct ssl_proxy *proxy)
 
 static int
 ssl_proxy_alloc_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
-		       const struct login_settings *set,
+		       pool_t set_pool, const struct login_settings *set,
 		       struct ssl_proxy **proxy_r)
 {
 	struct ssl_proxy *proxy;
@@ -590,7 +591,9 @@ ssl_proxy_alloc_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
 	proxy->fd_ssl = fd;
 	proxy->fd_plain = sfd[0];
 	proxy->ip = *ip;
-        SSL_set_ex_data(ssl, extdata_index, proxy);
+	proxy->set_pool = set_pool;
+	pool_ref(set_pool);
+	SSL_set_ex_data(ssl, extdata_index, proxy);
 
 	ssl_proxy_count++;
 	DLLIST_PREPEND(&ssl_proxies, proxy);
@@ -618,24 +621,26 @@ ssl_server_context_get(const struct login_settings *set)
 	return ctx;
 }
 
-int ssl_proxy_alloc(int fd, const struct ip_addr *ip,
+int ssl_proxy_alloc(int fd, const struct ip_addr *ip, pool_t set_pool,
 		    const struct login_settings *set,
 		    struct ssl_proxy **proxy_r)
 {
 	struct ssl_server_context *ctx;
 
 	ctx = ssl_server_context_get(set);
-	return ssl_proxy_alloc_common(ctx->ctx, fd, ip, set, proxy_r);
+	return ssl_proxy_alloc_common(ctx->ctx, fd, ip,
+				      set_pool, set, proxy_r);
 }
 
-int ssl_proxy_client_alloc(int fd, struct ip_addr *ip,
+int ssl_proxy_client_alloc(int fd, struct ip_addr *ip, pool_t set_pool,
 			   const struct login_settings *set,
 			   ssl_handshake_callback_t *callback, void *context,
 			   struct ssl_proxy **proxy_r)
 {
 	int ret;
 
-	ret = ssl_proxy_alloc_common(ssl_client_ctx, fd, ip, set, proxy_r);
+	ret = ssl_proxy_alloc_common(ssl_client_ctx, fd, ip,
+				     set_pool, set, proxy_r);
 	if (ret < 0)
 		return -1;
 
@@ -767,6 +772,7 @@ static void ssl_proxy_unref(struct ssl_proxy *proxy)
 
 	SSL_free(proxy->ssl);
 
+	pool_unref(&proxy->set_pool);
 	i_free(proxy->last_error);
 	i_free(proxy);
 }

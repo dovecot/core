@@ -13,10 +13,10 @@ typedef int ssl_handshake_callback_t(void *context);
 /* establish SSL connection with the given fd, returns a new fd which you
    must use from now on, or -1 if error occurred. Unless -1 is returned,
    the given fd must be simply forgotten. */
-int ssl_proxy_alloc(int fd, const struct ip_addr *ip,
+int ssl_proxy_alloc(int fd, const struct ip_addr *ip, pool_t set_pool,
 		    const struct login_settings *set,
 		    struct ssl_proxy **proxy_r);
-int ssl_proxy_client_alloc(int fd, struct ip_addr *ip,
+int ssl_proxy_client_alloc(int fd, struct ip_addr *ip, pool_t set_pool,
 			   const struct login_settings *set,
 			   ssl_handshake_callback_t *callback, void *context,
 			   struct ssl_proxy **proxy_r);

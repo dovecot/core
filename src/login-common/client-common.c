@@ -297,7 +297,7 @@ static void client_start_tls(struct client *client)
 	if (!client_unref(&client) || client->destroyed)
 		return;
 
-	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip,
+	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip, client->pool,
 				 client->set, &client->ssl_proxy);
 	if (fd_ssl == -1) {
 		client_send_line(client, CLIENT_CMD_REPLY_BYE,
