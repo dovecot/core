@@ -442,7 +442,7 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 	if (set->mail_cache_min_mail_count > 0) {
 		/* First check if we've configured caching not to be used with
 		   low enough message count. */
-		hdr = mail_index_get_header(_mail->box->view);
+		hdr = mail_index_get_header(_mail->transaction->view);
 		if (hdr->messages_count < set->mail_cache_min_mail_count)
 			return;
 	}
@@ -1357,7 +1357,7 @@ static void index_mail_update_access_parts(struct index_mail *mail)
 
 		/* open the stream only if we didn't get here from
 		   mailbox_save_init() */
-		hdr = mail_index_get_header(_mail->box->view);
+		hdr = mail_index_get_header(_mail->transaction->view);
 		if (!_mail->saving && _mail->uid < hdr->next_uid) {
 			if ((data->access_part & READ_BODY) != 0)
 				(void)mail_get_stream(_mail, NULL, NULL, &input);
@@ -1453,7 +1453,7 @@ bool index_mail_set_uid(struct mail *_mail, uint32_t uid)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	uint32_t seq;
 
-	if (mail_index_lookup_seq(_mail->box->view, uid, &seq)) {
+	if (mail_index_lookup_seq(_mail->transaction->view, uid, &seq)) {
 		index_mail_set_seq(_mail, seq, FALSE);
 		return TRUE;
 	} else {

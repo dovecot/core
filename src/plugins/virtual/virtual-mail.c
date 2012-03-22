@@ -117,8 +117,8 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 
 	i_assert(!saving);
 
-	mail_index_lookup_ext(mail->box->view, seq, mbox->virtual_ext_id,
-			      &data, &expunged);
+	mail_index_lookup_ext(mail->transaction->view, seq,
+			      mbox->virtual_ext_id, &data, &expunged);
 	vrec = data;
 
 	bbox = virtual_backend_box_lookup(mbox, vrec->mailbox_id);
@@ -131,7 +131,7 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 
 	vmail->imail.data.seq = seq;
 	mail->seq = seq;
-	mail_index_lookup_uid(mail->box->view, seq, &mail->uid);
+	mail_index_lookup_uid(mail->transaction->view, seq, &mail->uid);
 
 	if (!vmail->lost) {
 		mail->expunged = vmail->backend_mail->expunged;
@@ -148,7 +148,7 @@ static bool virtual_mail_set_uid(struct mail *mail, uint32_t uid)
 {
 	uint32_t seq;
 
-	if (!mail_index_lookup_seq(mail->box->view, uid, &seq))
+	if (!mail_index_lookup_seq(mail->transaction->view, uid, &seq))
 		return FALSE;
 
 	virtual_mail_set_seq(mail, seq, FALSE);
