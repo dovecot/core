@@ -242,6 +242,7 @@ bool client_unref(struct client **_client)
 	i_free(client->proxy_master_user);
 	i_free(client->virtual_user);
 	i_free(client->auth_mech_name);
+	i_free(client->master_data_prefix);
 	pool_unref(&client->pool);
 
 	i_assert(clients_count > 0);
