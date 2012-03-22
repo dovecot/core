@@ -237,8 +237,6 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 				ret = -1;
 			} else {
 				/* do a full resync and try again. */
-				i_warning("sdbox %s: Rebuilding index",
-					  mailbox_get_path(&ctx->mbox->box));
 				rebuild = FALSE;
 				ret = sdbox_sync_index_rebuild(mbox,
 							       force_rebuild);
