@@ -274,6 +274,12 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		/* we'll need to rebuild storage.
 		   try again from the beginning. */
 		mdbox_storage_set_corrupted(mbox->storage);
+		if ((flags & MDBOX_SYNC_FLAG_NO_REBUILD) != 0) {
+			mail_storage_set_critical(storage,
+				"mdbox %s: Can't rebuild storage",
+				mailbox_get_path(&mbox->box));
+			return -1;
+		}
 		return mdbox_sync_begin(mbox, flags, atomic, ctx_r);
 	}
 
