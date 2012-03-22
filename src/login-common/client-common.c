@@ -180,10 +180,10 @@ void client_destroy(struct client *client, const char *reason)
 		i_free_and_null(client->proxy_password);
 	}
 
+	if (client->ssl_proxy != NULL)
+		ssl_proxy_unset_client(client->ssl_proxy);
 	if (client->login_proxy != NULL)
 		login_proxy_free(&client->login_proxy);
-	if (client->ssl_proxy != NULL)
-		ssl_proxy_free(&client->ssl_proxy);
 	client->v.destroy(client);
 	if (client_unref(&client) && initial_service_count == 1) {
 		/* as soon as this connection is done with proxying
@@ -229,9 +229,10 @@ bool client_unref(struct client **_client)
 	*_client = NULL;
 
 	i_assert(client->destroyed);
-	i_assert(client->ssl_proxy == NULL);
 	i_assert(client->login_proxy == NULL);
 
+	if (client->ssl_proxy != NULL)
+		ssl_proxy_free(&client->ssl_proxy);
 	if (client->input != NULL)
 		i_stream_unref(&client->input);
 	if (client->output != NULL)

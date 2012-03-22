@@ -22,6 +22,7 @@ int ssl_proxy_client_alloc(int fd, struct ip_addr *ip,
 			   struct ssl_proxy **proxy_r);
 void ssl_proxy_start(struct ssl_proxy *proxy);
 void ssl_proxy_set_client(struct ssl_proxy *proxy, struct client *client);
+void ssl_proxy_unset_client(struct ssl_proxy *proxy);
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy) ATTR_PURE;
 bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy);
 int ssl_proxy_cert_match_name(struct ssl_proxy *proxy, const char *verify_name);

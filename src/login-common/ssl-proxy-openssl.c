@@ -654,8 +654,12 @@ void ssl_proxy_set_client(struct ssl_proxy *proxy, struct client *client)
 {
 	i_assert(proxy->client == NULL);
 
-	client_ref(client);
 	proxy->client = client;
+}
+
+void ssl_proxy_unset_client(struct ssl_proxy *proxy)
+{
+	proxy->client = NULL;
 }
 
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy)
@@ -763,8 +767,6 @@ static void ssl_proxy_unref(struct ssl_proxy *proxy)
 
 	SSL_free(proxy->ssl);
 
-	if (proxy->client != NULL)
-		client_unref(&proxy->client);
 	i_free(proxy->last_error);
 	i_free(proxy);
 }
