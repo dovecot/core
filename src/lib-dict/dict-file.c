@@ -254,7 +254,7 @@ file_dict_transaction_init(struct dict *_dict)
 	struct file_dict_transaction_context *ctx;
 	pool_t pool;
 
-	pool = pool_alloconly_create("file dict transaction", 1024);
+	pool = pool_alloconly_create("file dict transaction", 2048);
 	ctx = p_new(pool, struct file_dict_transaction_context, 1);
 	ctx->ctx.dict = _dict;
 	ctx->pool = pool;

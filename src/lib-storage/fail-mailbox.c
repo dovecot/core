@@ -299,7 +299,7 @@ fail_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	struct mailbox *box;
 	pool_t pool;
 
-	pool = pool_alloconly_create("fail mailbox", 1024);
+	pool = pool_alloconly_create("fail mailbox", 1024+512);
 	box = p_new(pool, struct mailbox, 1);
 	*box = fail_mailbox;
 	box->vname = p_strdup(pool, vname);
