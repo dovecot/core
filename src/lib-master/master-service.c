@@ -734,6 +734,8 @@ void master_service_deinit(struct master_service **_service)
 	lib_signals_deinit();
 	io_loop_destroy(&service->ioloop);
 
+	if (service->listener_names != NULL)
+		p_strsplit_free(default_pool, service->listener_names);
 	i_free(service->listeners);
 	i_free(service->getopt_str);
 	i_free(service->name);
