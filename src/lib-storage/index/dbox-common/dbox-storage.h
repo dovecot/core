@@ -18,8 +18,6 @@ struct dbox_save_context;
 #define DBOX_TRASH_DIR_NAME "trash"
 #define DBOX_MAILDIR_NAME "dbox-Mails"
 
-/* How often to scan for stale temp files (based on dir's atime) */
-#define DBOX_TMP_SCAN_SECS (8*60*60)
 /* Delete temp files having ctime older than this. */
 #define DBOX_TMP_DELETE_SECS (36*60*60)
 

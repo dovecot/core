@@ -201,6 +201,7 @@ mkdir_verify(struct mail_storage *storage, struct mail_namespace *ns,
 
 static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 {
+	unsigned int interval = storage->set->mail_temp_scan_interval;
 	const char *path;
 	struct stat st;
 
@@ -218,10 +219,12 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 		return -1;
 	}
 
-	if (st.st_atime > st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
+	if (interval == 0) {
+		/* disabled */
+	} else if (st.st_atime > st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
 		/* the directory should be empty. we won't do anything
 		   until ctime changes. */
-	} else if (st.st_atime < ioloop_time - MAILDIR_TMP_SCAN_SECS) {
+	} else if (st.st_atime < ioloop_time - interval) {
 		/* time to scan */
 		(void)unlink_old_files(path, "",
 				       ioloop_time - MAILDIR_TMP_DELETE_SECS);
