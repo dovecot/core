@@ -715,7 +715,7 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 	return 0;
 #elif defined(HAVE_GETPEERUCRED)
 	/* Solaris */
-	ucred_t *ucred;
+	ucred_t *ucred = NULL;
 
 	if (getpeerucred(fd, &ucred) < 0) {
 		i_error("getpeerucred() failed: %m");
