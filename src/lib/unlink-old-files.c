@@ -28,6 +28,11 @@ unlink_old_files_real(const char *dir, const char *prefix, time_t min_time)
 		return -1;
 	}
 
+	/* update atime immediately, so if this scanning is done based on
+	   atime it won't be done by multiple processes if the scan is slow */
+	if (utime(dir, NULL) < 0 && errno != ENOENT)
+		i_error("utime(%s) failed: %m", dir);
+
 	path = t_str_new(256);
 	str_printfa(path, "%s/", dir);
 	dir_len = str_len(path);
@@ -52,19 +57,6 @@ unlink_old_files_real(const char *dir, const char *prefix, time_t min_time)
 			if (unlink(str_c(path)) < 0 && errno != ENOENT)
 				i_error("unlink(%s) failed: %m", str_c(path));
 		}
-	}
-
-#ifdef HAVE_DIRFD
-	if (fstat(dirfd(dirp), &st) < 0)
-		i_error("fstat(%s) failed: %m", dir);
-#else
-	if (stat(dir, &st) < 0)
-		i_error("stat(%s) failed: %m", dir);
-#endif
-	else if (st.st_atime < ioloop_time) {
-		/* mounted with noatime. update it ourself. */
-		if (utime(dir, NULL) < 0 && errno != ENOENT)
-			i_error("utime(%s) failed: %m", dir);
 	}
 
 	if (closedir(dirp) < 0)
