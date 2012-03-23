@@ -124,7 +124,7 @@ int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 				       bool *changes_r);
 void imapc_mailbox_noop(struct imapc_mailbox *mbox);
 void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
-				 const char *reason, ...);
+				 const char *reason, ...) ATTR_FORMAT(2, 3);
 
 void imapc_storage_register_untagged(struct imapc_storage *storage,
 				     const char *name,

@@ -164,7 +164,7 @@ master_fatal_callback(const struct failure_context *ctx,
 	abort(); /* just to silence the noreturn attribute warnings */
 }
 
-static void ATTR_NORETURN
+static void ATTR_NORETURN ATTR_FORMAT(2, 0)
 startup_fatal_handler(const struct failure_context *ctx,
 		      const char *fmt, va_list args)
 {
@@ -177,7 +177,7 @@ startup_fatal_handler(const struct failure_context *ctx,
 	abort();
 }
 
-static void
+static void ATTR_FORMAT(2, 0)
 startup_error_handler(const struct failure_context *ctx,
 		      const char *fmt, va_list args)
 {

@@ -86,7 +86,7 @@ const char **p_strarray_dup(pool_t pool, const char *const *arr);
 
 /* INTERNAL */
 char *t_noalloc_strdup_vprintf(const char *format, va_list args,
-			       unsigned int *size_r);
+			       unsigned int *size_r) ATTR_FORMAT(1, 0);
 char *vstrconcat(const char *str1, va_list args, size_t *ret_len) ATTR_MALLOC;
 
 #endif
