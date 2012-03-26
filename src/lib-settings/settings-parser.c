@@ -773,7 +773,8 @@ static int settings_parse_keyvalue(struct setting_parser_context *ctx,
 	}
 
 	do {
-		if (link->info == &strlist_info) {
+		if (def == NULL) {
+			i_assert(link->info == &strlist_info);
 			settings_parse_strlist(ctx, link, key, value);
 			return 1;
 		}
@@ -804,6 +805,7 @@ const char *settings_parse_unalias(struct setting_parser_context *ctx,
 		return NULL;
 	if (def == NULL) {
 		/* strlist */
+		i_assert(link->info == &strlist_info);
 		return key;
 	}
 
@@ -823,7 +825,7 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 
 	if (!settings_find_key(ctx, key, &def, &link))
 		return NULL;
-	if (link->set_struct == NULL)
+	if (link->set_struct == NULL || def == NULL)
 		return NULL;
 
 	*type_r = def->type;
@@ -839,7 +841,7 @@ bool settings_parse_is_changed(struct setting_parser_context *ctx,
 
 	if (!settings_find_key(ctx, key, &def, &link))
 		return FALSE;
-	if (link->change_struct == NULL)
+	if (link->change_struct == NULL || def == NULL)
 		return FALSE;
 
 	p = STRUCT_MEMBER_P(link->change_struct, def->offset);
@@ -1159,8 +1161,9 @@ void settings_parse_set_key_expandeded(struct setting_parser_context *ctx,
 
 	if (!settings_find_key(ctx, key, &def, &link))
 		return;
-	if (link->info == &strlist_info) {
+	if (def == NULL) {
 		/* parent is strlist, no expansion needed */
+		i_assert(link->info == &strlist_info);
 		return;
 	}
 
