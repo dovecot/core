@@ -659,12 +659,8 @@ void ssl_proxy_set_client(struct ssl_proxy *proxy, struct client *client)
 {
 	i_assert(proxy->client == NULL);
 
+	client_ref(client);
 	proxy->client = client;
-}
-
-void ssl_proxy_unset_client(struct ssl_proxy *proxy)
-{
-	proxy->client = NULL;
 }
 
 bool ssl_proxy_has_valid_client_cert(const struct ssl_proxy *proxy)
@@ -800,6 +796,8 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 	(void)net_disconnect(proxy->fd_ssl);
 	(void)net_disconnect(proxy->fd_plain);
 
+	if (proxy->client != NULL)
+		client_unref(&proxy->client);
 	ssl_proxy_unref(proxy);
 }
 

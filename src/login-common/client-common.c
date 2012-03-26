@@ -180,8 +180,6 @@ void client_destroy(struct client *client, const char *reason)
 		i_free_and_null(client->proxy_password);
 	}
 
-	if (client->ssl_proxy != NULL)
-		ssl_proxy_unset_client(client->ssl_proxy);
 	if (client->login_proxy != NULL)
 		login_proxy_free(&client->login_proxy);
 	client->v.destroy(client);
