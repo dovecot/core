@@ -16,7 +16,8 @@ static bool test_str_find_substring(const char *key, int expected_pos)
 	ctx = str_find_init(pool_datastack_create(), key);
 	/* divide text into every possible block combination and test that
 	   it matches */
-	max = 1 << (text_len-1);
+	i_assert(text_len > 0);
+	max = 1U << (text_len-1);
 	for (i = 0; i < max; i++) {
 		str_find_reset(ctx);
 		pos = 0; offset = 0; ret = FALSE;

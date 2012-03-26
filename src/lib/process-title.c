@@ -27,6 +27,8 @@ static void proctitle_hack_init(char *argv[], char *env[])
 	unsigned int i;
 	bool clear_env;
 
+	i_assert(argv[0] != NULL);
+
 	/* find the last argv or environment string. it should always be the
 	   last string in environ, but don't rely on it. this is what openssh
 	   does, so hopefully it's safe enough. */

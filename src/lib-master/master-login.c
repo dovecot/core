@@ -187,8 +187,10 @@ static void master_login_client_free(struct master_login_client **_client)
 
 	/* FIXME: currently we create a separate connection for each request,
 	   so close the connection after we're done with this client */
-	if (!master_login_conn_is_closed(client->conn))
-		master_login_conn_unref(&client->conn);
+	if (!master_login_conn_is_closed(client->conn)) {
+		i_assert(client->conn->refcount > 1);
+		client->conn->refcount--;
+	}
 	master_login_conn_unref(&client->conn);
 	i_free(client);
 }

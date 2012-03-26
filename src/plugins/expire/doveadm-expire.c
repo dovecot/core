@@ -304,6 +304,8 @@ static bool doveadm_expire_analyze_query(struct doveadm_mail_cmd_context *ctx)
 	const struct expire_query *queries;
 	unsigned int i, count;
 
+	i_assert(args != NULL);
+
 	/* we support two kinds of queries:
 
 	   1) mailbox-pattern savedbefore <stamp> ...

@@ -102,7 +102,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 	return input;
 }
 
-static int maildir_mail_stat(struct mail *mail, struct stat *st)
+static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
 	struct index_mail *imail = (struct index_mail *)mail;
@@ -110,8 +110,10 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	const char *path;
 	int ret;
 
-	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE)
-		return mail_set_aborted(mail);
+	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
+		mail_set_aborted(mail);
+		return -1;
+	}
 
 	if (imail->data.access_part != 0 &&
 	    imail->data.stream == NULL) {
@@ -126,10 +128,10 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 		stp = i_stream_stat(imail->data.stream, FALSE);
 		if (stp == NULL)
 			return -1;
-		*st = *stp;
+		*st_r = *stp;
 	} else if (!mail->saving) {
 		mail->transaction->stats.stat_lookup_count++;
-		ret = maildir_file_do(mbox, mail->uid, do_stat, st);
+		ret = maildir_file_do(mbox, mail->uid, do_stat, st_r);
 		if (ret <= 0) {
 			if (ret == 0)
 				mail_set_expunged(mail);
@@ -138,7 +140,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	} else {
 		mail->transaction->stats.stat_lookup_count++;
 		path = maildir_save_file_get_path(mail->transaction, mail->seq);
-		if (stat(path, st) < 0) {
+		if (stat(path, st_r) < 0) {
 			mail_storage_set_critical(mail->box->storage,
 						  "stat(%s) failed: %m", path);
 			return -1;

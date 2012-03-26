@@ -655,7 +655,7 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	/* @UNSAFE: this is called when the "doveadm" binary is called as
 	   "dsync" (for backwards compatibility) */
 	max_argc = argc + 7;
-	new_argv = calloc(sizeof(char *), max_argc);
+	new_argv = t_new(char *, max_argc);
 	new_argv[0] = argv[0];
 	dest = 1;
 	getopt_str = master_service_getopt_string();
@@ -666,7 +666,7 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 			break;
 
 		flag_m = FALSE; flag_C = FALSE; has_arg = FALSE; flag_u = FALSE;
-		dup = strdup(argv[src]);
+		dup = t_strdup_noconst(argv[src]);
 		for (i = j = 1; argv[src][i] != '\0'; i++) {
 			switch (argv[src][i]) {
 			case 'C':

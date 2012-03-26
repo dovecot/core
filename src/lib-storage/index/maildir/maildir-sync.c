@@ -595,6 +595,8 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox, bool undirty,
 	struct stat new_st, cur_st;
 	bool refreshed = FALSE, check_new = FALSE, check_cur = FALSE;
 
+	*why_r = 0;
+
 	if (mbox->maildir_hdr.new_mtime == 0) {
 		maildir_sync_get_header(mbox);
 		if (mbox->maildir_hdr.new_mtime == 0) {
@@ -710,6 +712,8 @@ static int maildir_sync_get_changes(struct maildir_sync_context *ctx,
 	enum mail_index_sync_flags flags = 0;
 	bool undirty = (ctx->flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0;
 
+	*why_r = 0;
+
 	if (maildir_sync_quick_check(mbox, undirty, ctx->new_dir, ctx->cur_dir,
 				     new_changed_r, cur_changed_r, why_r) < 0)
 		return -1;
@@ -752,7 +756,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	enum maildir_uidlist_rec_flag flags;
 	bool new_changed, cur_changed, lock_failure;
 	const char *fname;
-	enum maildir_scan_why why = 0;
+	enum maildir_scan_why why;
 	int ret;
 
 	*lost_files_r = FALSE;

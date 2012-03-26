@@ -411,6 +411,7 @@ node_add_child(struct squat_trie *trie, struct squat_node *node,
 	}
 
 	chars = NODE_CHILDREN_CHARS(node);
+	i_assert(chars != NULL);
 	chars[node->child_count - 1] = chr;
 	return node->child_count - 1;
 }

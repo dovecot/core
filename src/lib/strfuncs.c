@@ -313,11 +313,15 @@ char *str_lcase(char *str)
 
 const char *t_str_lcase(const char *str)
 {
+	i_assert(str != NULL);
+
 	return str_lcase(t_strdup_noconst(str));
 }
 
 const char *t_str_ucase(const char *str)
 {
+	i_assert(str != NULL);
+
 	return str_ucase(t_strdup_noconst(str));
 }
 

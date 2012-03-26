@@ -102,7 +102,7 @@ static void stats_dump(const char *path, const char *cmd)
 		do {
 			T_BEGIN {
 				args = read_next_line(input);
-				if (args[0] == NULL)
+				if (args != NULL && args[0] == NULL)
 					args = NULL;
 				if (args != NULL) {
 					for (i = 0; args[i] != NULL; i++)
