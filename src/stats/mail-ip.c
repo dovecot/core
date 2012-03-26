@@ -96,7 +96,8 @@ void mail_ips_free_memory(void)
 	while (mail_ips_head != NULL && mail_ips_head->refcount == 0) {
 		mail_ip_free(mail_ips_head);
 
-		if (global_used_memory < stats_settings->memory_limit)
+		if (global_used_memory < stats_settings->memory_limit ||
+		    mail_ips_head == NULL)
 			break;
 
 		diff = ioloop_time - mail_ips_head->last_update.tv_sec;

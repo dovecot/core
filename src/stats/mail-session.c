@@ -277,7 +277,8 @@ void mail_sessions_free_memory(void)
 		i_assert(mail_sessions_head->disconnected);
 		mail_session_free(mail_sessions_head);
 
-		if (global_used_memory < stats_settings->memory_limit)
+		if (global_used_memory < stats_settings->memory_limit ||
+		    mail_sessions_head == NULL)
 			break;
 
 		diff = ioloop_time - mail_sessions_head->last_update.tv_sec;

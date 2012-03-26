@@ -206,7 +206,8 @@ void mail_commands_free_memory(void)
 		}
 		mail_command_free(stable_mail_commands_head);
 
-		if (global_used_memory < stats_settings->memory_limit)
+		if (global_used_memory < stats_settings->memory_limit ||
+		    stable_mail_commands_head == NULL)
 			break;
 
 		diff = ioloop_time - stable_mail_commands_head->last_update.tv_sec;
