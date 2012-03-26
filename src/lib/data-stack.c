@@ -64,7 +64,11 @@ static struct stack_block *unused_block; /* largest unused block is kept here */
 
 static struct stack_block *last_buffer_block;
 static size_t last_buffer_size;
+#ifdef DEBUG
+static bool clean_after_pop = TRUE;
+#else
 static bool clean_after_pop = FALSE;
+#endif
 static bool outofmem = FALSE;
 
 static union {
@@ -490,26 +494,26 @@ void data_stack_set_clean_after_pop(bool enable ATTR_UNUSED)
 
 void data_stack_init(void)
 {
-#ifdef DEBUG
-	clean_after_pop = TRUE;
-#endif
-	if (data_stack_frame == 0) {
-		data_stack_frame = 1;
-
-		outofmem_area.block.size = outofmem_area.block.left =
-			sizeof(outofmem_area) - sizeof(outofmem_area.block);
-
-		current_block = mem_block_alloc(INITIAL_STACK_SIZE);
-		current_block->left = current_block->size;
-		current_block->next = NULL;
-
-		current_frame_block = NULL;
-		unused_frame_blocks = NULL;
-		frame_pos = BLOCK_FRAME_COUNT-1;
-
-		last_buffer_block = NULL;
-		last_buffer_size = 0;
+	if (data_stack_frame > 0) {
+		/* already initialized (we did auto-initialization in
+		   t_malloc/t_push) */
+		return;
 	}
+	data_stack_frame = 1;
+
+	outofmem_area.block.size = outofmem_area.block.left =
+		sizeof(outofmem_area) - sizeof(outofmem_area.block);
+
+	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
+	current_block->left = current_block->size;
+	current_block->next = NULL;
+
+	current_frame_block = NULL;
+	unused_frame_blocks = NULL;
+	frame_pos = BLOCK_FRAME_COUNT-1;
+
+	last_buffer_block = NULL;
+	last_buffer_size = 0;
 
 	t_push();
 }
