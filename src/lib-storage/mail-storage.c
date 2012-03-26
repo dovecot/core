@@ -1667,7 +1667,7 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 
 	if (mail_index_is_deleted(box->index)) {
 		mailbox_set_deleted(box);
-		mailbox_save_cancel(_ctx);
+		mailbox_save_cancel(&ctx);
 		return -1;
 	}
 
