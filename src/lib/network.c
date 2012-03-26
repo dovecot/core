@@ -408,7 +408,7 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 	if (ret < 0) {
 		if (errno != EADDRINUSE) {
 			i_error("bind(%s, %u) failed: %m",
-				net_ip2addr(my_ip), *port);
+				my_ip == NULL ? "" : net_ip2addr(my_ip), *port);
 		}
 	} else {
 		/* get the actual port we started listen */
