@@ -115,8 +115,10 @@ director_get_preferred_right_host(struct director *dir)
 	unsigned int count, self_idx;
 
 	hosts = array_get(&dir->dir_hosts, &count);
-	if (count == 1)
+	if (count == 1) {
+		/* self */
 		return NULL;
+	}
 
 	self_idx = director_find_self_idx(dir);
 	return hosts[(self_idx + 1) % count];
@@ -189,7 +191,9 @@ static void director_reconnect_timeout(struct director *dir)
 	cur_host = dir->right == NULL ? NULL :
 		director_connection_get_host(dir->right);
 
-	if (cur_host != preferred_host)
+	if (preferred_host == NULL) {
+		/* all directors have been removed, try again later */
+	} else if (cur_host != preferred_host)
 		(void)director_connect_host(dir, preferred_host);
 	else {
 		/* the connection hasn't finished sync yet.
