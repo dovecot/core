@@ -514,6 +514,7 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 			data += len;
 			size -= len;
 		}
+		xml_encode_data(ctx->cur_value, data, size);
 	} else {
 		xml_encode_data(ctx->cur_value, data, size);
 		if (ctx->cur_value2 != NULL)
