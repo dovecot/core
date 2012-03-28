@@ -511,10 +511,11 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 						  SOLR_CMDBUF_FLUSH_SIZE -
 						  str_len(ctx->cmd));
 			i_assert(len > 0);
+			i_assert(len <= size);
 			data += len;
 			size -= len;
 		}
-		xml_encode_data(ctx->cur_value, data, size);
+		xml_encode_data(ctx->cmd, data, size);
 	} else {
 		xml_encode_data(ctx->cur_value, data, size);
 		if (ctx->cur_value2 != NULL)
