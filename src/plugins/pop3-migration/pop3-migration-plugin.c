@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "istream-header-filter.h"
 #include "sha1.h"
+#include "message-size.h"
 #include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
@@ -17,6 +18,7 @@
 
 struct pop3_uidl_map {
 	uint32_t pop3_seq;
+	uint32_t imap_uid;
 
 	/* UIDL */
 	const char *pop3_uidl;
@@ -25,11 +27,10 @@ struct pop3_uidl_map {
 	/* sha1(TOP 0) - set only when needed */
 	unsigned char hdr_sha1[SHA1_RESULTLEN];
 	unsigned int hdr_sha1_set:1;
-	unsigned int imap_uid_found:1;
 };
 
 struct imap_msg_map {
-	uint32_t uid;
+	uint32_t uid, pop3_seq;
 	uoff_t psize;
 	const char *pop3_uidl;
 
@@ -57,6 +58,7 @@ struct pop3_migration_mailbox {
 
 	unsigned int uidl_synced:1;
 	unsigned int uidl_sync_failed:1;
+	unsigned int uidl_ordered:1;
 };
 
 static const char *hdr_hash_skip_headers[] = {
@@ -111,22 +113,25 @@ static int imap_msg_map_hdr_cmp(const struct imap_msg_map *map1,
 
 static int get_hdr_sha1(struct mail *mail, unsigned char sha1[SHA1_RESULTLEN])
 {
-	struct istream *input;
+	struct message_size hdr_size;
+	struct istream *input, *input2;
 	const unsigned char *data;
 	size_t size;
 	struct sha1_ctxt sha1_ctx;
 
-	if (mail_get_hdr_stream(mail, NULL, &input) < 0) {
+	if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0) {
 		i_error("pop3_migration: Failed to get header for msg %u",
 			mail->seq);
 		return -1;
 	}
+	input2 = i_stream_create_limit(input, hdr_size.physical_size);
 	/* hide headers that might change or be different in IMAP vs. POP3 */
-	input = i_stream_create_header_filter(input,
+	input = i_stream_create_header_filter(input2,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
 				hdr_hash_skip_headers,
 				N_ELEMENTS(hdr_hash_skip_headers),
 				null_header_filter_callback, NULL);
+	i_stream_unref(&input2);
 
 	sha1_init(&sha1_ctx);
 	while (i_stream_read_data(input, &data, &size, 0) > 0) {
@@ -186,7 +191,7 @@ static int pop3_map_read(struct mail_storage *storage)
 	if (array_is_created(&mstorage->pop3_uidl_map)) {
 		/* already read these, just reset the imap_uids */
 		array_foreach_modifiable(&mstorage->pop3_uidl_map, map)
-			map->imap_uid_found = FALSE;
+			map->imap_uid = 0;
 		return 0;
 	}
 	i_array_init(&mstorage->pop3_uidl_map, 128);
@@ -378,9 +383,14 @@ static bool pop3_uidl_assign_by_size(struct mailbox *box)
 	for (i = 0; i < count; i++) {
 		if (pop3_map[i].size != imap_map[i].psize)
 			break;
+		if (i+1 < count && pop3_map[i].size == pop3_map[i+1].size) {
+			/* two messages with same size, don't trust them */
+			break;
+		}
 
-		pop3_map[i].imap_uid_found = TRUE;
+		pop3_map[i].imap_uid = imap_map[i].uid;
 		imap_map[i].pop3_uidl = pop3_map[i].pop3_uidl;
+		imap_map[i].pop3_seq = pop3_map[i].pop3_seq;
 	}
 	mbox->first_unfound_idx = i;
 	return i == count;
@@ -411,7 +421,7 @@ static int pop3_uidl_assign_by_hdr_hash(struct mailbox *box)
 	pop3_idx = imap_idx = 0;
 	while (pop3_idx < pop3_count && imap_idx < imap_count) {
 		if (!pop3_map[pop3_idx].hdr_sha1_set ||
-		    pop3_map[pop3_idx].imap_uid_found) {
+		    pop3_map[pop3_idx].imap_uid != 0) {
 			pop3_idx++;
 			continue;
 		}
@@ -428,28 +438,35 @@ static int pop3_uidl_assign_by_hdr_hash(struct mailbox *box)
 		else if (ret > 0)
 			imap_idx++;
 		else {
-			pop3_map[pop3_idx].imap_uid_found = TRUE;
+			pop3_map[pop3_idx].imap_uid = imap_map[imap_idx].uid;
 			imap_map[imap_idx].pop3_uidl =
 				pop3_map[pop3_idx].pop3_uidl;
+			imap_map[imap_idx].pop3_seq =
+				pop3_map[pop3_idx].pop3_seq;
 		}
 	}
 	missing_uids_count = 0;
 	for (pop3_idx = 0; pop3_idx < pop3_count; pop3_idx++) {
-		if (!pop3_map[pop3_idx].imap_uid_found)
+		if (pop3_map[pop3_idx].imap_uid == 0)
 			missing_uids_count++;
 	}
 	if (missing_uids_count > 0 && !mstorage->all_mailboxes) {
 		i_warning("pop3_migration: %u POP3 messages have no "
 			  "matching IMAP messages", missing_uids_count);
 	}
-
 	array_sort(&mstorage->pop3_uidl_map, pop3_uidl_map_pop3_seq_cmp);
+	array_sort(&mbox->imap_msg_map, imap_msg_map_uid_cmp);
 	return 0;
 }
 
 static int pop3_migration_uidl_sync(struct mailbox *box)
 {
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(box);
+	struct pop3_migration_mail_storage *mstorage =
+		POP3_MIGRATION_CONTEXT(box->storage);
+	const struct pop3_uidl_map *pop3_map;
+	unsigned int i, count;
+	uint32_t prev_uid;
 
 	if (mbox->uidl_synced)
 		return 0;
@@ -467,6 +484,21 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 			return -1;
 	}
 
+	/* see if the POP3 UIDL order is the same as IMAP UID order */
+	mbox->uidl_ordered = TRUE;
+	pop3_map = array_get(&mstorage->pop3_uidl_map, &count);
+	prev_uid = 0;
+	for (i = 0; i < count; i++) {
+		if (pop3_map[i].imap_uid == 0)
+			continue;
+
+		if (prev_uid > pop3_map[i].imap_uid) {
+			mbox->uidl_ordered = FALSE;
+			break;
+		}
+		prev_uid = pop3_map[i].imap_uid;
+	}
+
 	mbox->uidl_synced = TRUE;
 	return 0;
 }
@@ -480,7 +512,8 @@ pop3_migration_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(_mail->box);
 	struct imap_msg_map map_key, *map;
 
-	if (field == MAIL_FETCH_UIDL_BACKEND) {
+	if (field == MAIL_FETCH_UIDL_BACKEND ||
+	    field == MAIL_FETCH_POP3_ORDER) {
 		if (mbox->uidl_sync_failed ||
 		    pop3_migration_uidl_sync(_mail->box) < 0) {
 			mbox->uidl_sync_failed = TRUE;
@@ -489,14 +522,19 @@ pop3_migration_get_special(struct mail *_mail, enum mail_fetch_field field,
 					       "POP3 UIDLs couldn't be synced");
 			return -1;
 		}
+
 		memset(&map_key, 0, sizeof(map_key));
 		map_key.uid = _mail->uid;
 		map = array_bsearch(&mbox->imap_msg_map, &map_key,
 				    imap_msg_map_uid_cmp);
 		if (map != NULL && map->pop3_uidl != NULL) {
-			*value_r = map->pop3_uidl;
+			if (field == MAIL_FETCH_UIDL_BACKEND)
+				*value_r = map->pop3_uidl;
+			else
+				*value_r = t_strdup_printf("%u", map->pop3_seq);
 			return 0;
 		}
+		/* not found from POP3 server, fallback to default */
 	}
 	return mmail->super.get_special(_mail, field, value_r);
 }
