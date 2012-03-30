@@ -95,6 +95,8 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields)
 	str_printfa(str, "UID FETCH %u (", _mail->uid);
 	if ((fields & MAIL_FETCH_RECEIVED_DATE) != 0)
 		str_append(str, "INTERNALDATE ");
+	if ((fields & MAIL_FETCH_PHYSICAL_SIZE) != 0)
+		str_append(str, "RFC822.SIZE ");
 	if ((fields & MAIL_FETCH_GUID) != 0) {
 		str_append(str, mbox->guid_fetch_field_name);
 		str_append_c(str, ' ');
@@ -157,6 +159,10 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	if ((data->wanted_fields & MAIL_FETCH_RECEIVED_DATE) != 0 &&
 	    data->received_date == (time_t)-1)
 		fields |= MAIL_FETCH_RECEIVED_DATE;
+	if ((data->wanted_fields & MAIL_FETCH_PHYSICAL_SIZE) != 0 &&
+	    data->physical_size == (uoff_t)-1 &&
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
+		fields |= MAIL_FETCH_PHYSICAL_SIZE;
 	if ((data->wanted_fields & MAIL_FETCH_GUID) != 0 &&
 	    data->guid == NULL && mbox->guid_fetch_field_name != NULL)
 		fields |= MAIL_FETCH_GUID;
@@ -180,6 +186,11 @@ imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 		if (imail->imail.data.received_date == (time_t)-1)
 			return FALSE;
 		fields &= ~MAIL_FETCH_RECEIVED_DATE;
+	}
+	if ((fields & MAIL_FETCH_PHYSICAL_SIZE) != 0) {
+		if (imail->imail.data.physical_size == (uoff_t)-1)
+			return FALSE;
+		fields &= ~MAIL_FETCH_PHYSICAL_SIZE;
 	}
 	if ((fields & MAIL_FETCH_GUID) != 0) {
 		if (imail->imail.data.guid == NULL)
@@ -357,6 +368,7 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 		(struct imapc_mailbox *)mail->imail.mail.mail.box;
 	const char *key, *value;
 	unsigned int i;
+	uoff_t size;
 	time_t t;
 	int tz;
 	bool match = FALSE;
@@ -376,6 +388,12 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 			if (imap_arg_get_astring(&args[i+1], &value) &&
 			    imap_parse_datetime(value, &t, &tz))
 				mail->imail.data.received_date = t;
+			match = TRUE;
+		} else if (strcasecmp(key, "RFC822.SIZE") == 0) {
+			if (imap_arg_get_atom(&args[i+1], &value) &&
+			    str_to_uoff(value, &size) == 0 &&
+			    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
+				mail->imail.data.physical_size = size;
 			match = TRUE;
 		} else if (strcasecmp(key, "X-GM-MSGID") == 0 ||
 			   strcasecmp(key, "X-GUID") == 0) {

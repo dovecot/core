@@ -1,6 +1,12 @@
 #ifndef IMAPC_SETTINGS_H
 #define IMAPC_SETTINGS_H
 
+/* <settings checks> */
+enum imapc_features {
+	IMAPC_FEATURE_RFC822_SIZE	= 0x01
+};
+/* </settings checks> */
+
 struct imapc_settings {
 	const char *imapc_host;
 	unsigned int imapc_port;
@@ -13,8 +19,11 @@ struct imapc_settings {
 	const char *imapc_ssl_ca_dir;
 	bool imapc_ssl_verify;
 
+	const char *imapc_features;
 	const char *imapc_rawlog_dir;
 	const char *ssl_crypto_device;
+
+	enum imapc_features parsed_features;
 };
 
 const struct setting_parser_info *imapc_get_setting_parser_info(void);
