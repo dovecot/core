@@ -234,6 +234,10 @@ fs_list_dir_read(struct fs_list_iterate_context *ctx,
 
 	if (!fs_list_get_storage_path(ctx, dir->storage_name, &path))
 		return 0;
+	if (path == NULL) {
+		/* no mailbox root dir */
+		return 0;
+	}
 
 	fsdir = opendir(path);
 	if (fsdir == NULL) {
