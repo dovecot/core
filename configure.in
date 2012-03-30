@@ -2809,6 +2809,7 @@ src/plugins/lazy-expunge/Makefile
 src/plugins/listescape/Makefile
 src/plugins/mail-log/Makefile
 src/plugins/notify/Makefile
+src/plugins/pop3-migration/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/replication/Makefile
