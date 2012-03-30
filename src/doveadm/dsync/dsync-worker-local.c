@@ -1717,6 +1717,8 @@ local_worker_msg_save(struct dsync_worker *_worker,
 					   save_ctx, msg);
 	if (*data->pop3_uidl != '\0')
 		mailbox_save_set_pop3_uidl(save_ctx, data->pop3_uidl);
+	if (data->pop3_order > 0)
+		mailbox_save_set_pop3_order(save_ctx, data->pop3_order);
 
 	mailbox_save_set_received_date(save_ctx, data->received_date, 0);
 
@@ -1793,6 +1795,7 @@ local_worker_msg_get_next(struct local_dsync_worker *worker,
 	struct dsync_msg_static_data data;
 	struct mailbox_transaction_context *trans;
 	struct mailbox *box;
+	const char *value;
 
 	i_assert(!worker->reading_mail);
 
@@ -1824,6 +1827,9 @@ local_worker_msg_get_next(struct local_dsync_worker *worker,
 		data.pop3_uidl = "";
 	else
 		data.pop3_uidl = t_strdup(data.pop3_uidl);
+	if (mail_get_special(worker->get_mail, MAIL_FETCH_POP3_ORDER, &value) < 0 ||
+	    str_to_uint(value, &data.pop3_order) < 0)
+		data.pop3_order = 0;
 	if (mail_get_received_date(worker->get_mail, &data.received_date) < 0 ||
 	    mail_get_stream(worker->get_mail, NULL, NULL, &data.input) < 0) {
 		get->callback(worker->get_mail->expunged ?

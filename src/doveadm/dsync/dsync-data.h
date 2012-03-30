@@ -51,6 +51,7 @@ struct dsync_message {
 
 struct dsync_msg_static_data {
 	const char *pop3_uidl;
+	unsigned int pop3_order;
 	time_t received_date;
 	struct istream *input;
 };
