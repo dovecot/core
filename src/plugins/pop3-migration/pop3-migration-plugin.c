@@ -309,8 +309,7 @@ static int imap_map_read(struct mailbox *box)
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 	ctx = mailbox_search_init(t, search_args, NULL,
-				  MAIL_FETCH_PHYSICAL_SIZE |
-				  MAIL_FETCH_VIRTUAL_SIZE, NULL);
+				  MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(ctx, &mail)) {
