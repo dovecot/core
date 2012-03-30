@@ -647,6 +647,10 @@ void mailbox_save_set_guid(struct mail_save_context *ctx, const char *guid);
 /* Set message's POP3 UIDL, if the backend supports it. */
 void mailbox_save_set_pop3_uidl(struct mail_save_context *ctx,
 				const char *uidl);
+/* Specify ordering for POP3 messages. The default is to add them to the end
+   of the mailbox. Not all backends support this. */
+void mailbox_save_set_pop3_order(struct mail_save_context *ctx,
+				 unsigned int order);
 /* If dest_mail is set, the saved message can be accessed using it. Note that
    setting it may require mailbox syncing, so don't set it unless you need
    it. Also you shouldn't try to access it before mailbox_save_finish() is

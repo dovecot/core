@@ -1588,6 +1588,14 @@ void mailbox_save_set_pop3_uidl(struct mail_save_context *ctx, const char *uidl)
 	ctx->pop3_uidl = i_strdup(uidl);
 }
 
+void mailbox_save_set_pop3_order(struct mail_save_context *ctx,
+				 unsigned int order)
+{
+	i_assert(order > 0);
+
+	ctx->pop3_order = order;
+}
+
 void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
 				struct mail *mail)
 {

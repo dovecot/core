@@ -444,6 +444,7 @@ struct mail_save_context {
 	uint32_t uid;
 	char *guid, *pop3_uidl, *from_envelope;
 	struct ostream *output;
+	unsigned int pop3_order;
 
 	struct mail_save_attachment *attach;
 

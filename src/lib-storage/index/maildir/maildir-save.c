@@ -34,6 +34,7 @@ struct maildir_filename {
 
 	uoff_t size, vsize;
 	enum mail_flags flags;
+	unsigned int pop3_order;
 	unsigned int preserve_filename:1;
 	unsigned int keywords_count;
 	/* unsigned int keywords[]; */
@@ -187,6 +188,7 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	}
 	if (_ctx->pop3_uidl != NULL)
 		mf->pop3_uidl = p_strdup(ctx->pool, _ctx->pop3_uidl);
+	mf->pop3_order = _ctx->pop3_order;
 
 	/* insert into index */
 	mail_index_append(ctx->trans, _ctx->uid, &ctx->seq);
@@ -928,6 +930,11 @@ static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
 			maildir_uidlist_sync_set_ext(ctx->uidlist_sync_ctx, rec,
 				MAILDIR_UIDLIST_REC_EXT_POP3_UIDL,
 				mf->pop3_uidl);
+		}
+		if (mf->pop3_order > 0) {
+			maildir_uidlist_sync_set_ext(ctx->uidlist_sync_ctx, rec,
+				MAILDIR_UIDLIST_REC_EXT_POP3_ORDER,
+				t_strdup_printf("%u", mf->pop3_order));
 		}
 	} T_END;
 	i_assert(!seq_range_array_iter_nth(&iter, n, &uid));
