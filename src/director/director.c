@@ -81,12 +81,26 @@ static unsigned int director_find_self_idx(struct director *dir)
 	i_unreached();
 }
 
+static bool
+director_has_outgoing_connection(struct director *dir,
+				 struct director_host *host)
+{
+	struct director_connection *const *connp;
+
+	array_foreach(&dir->connections, connp) {
+		if (director_connection_get_host(*connp) == host &&
+		    !director_connection_is_incoming(*connp))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 int director_connect_host(struct director *dir, struct director_host *host)
 {
 	unsigned int port;
 	int fd;
 
-	if (director_connection_find_outgoing(dir, host) != NULL)
+	if (director_has_outgoing_connection(dir, host))
 		return 0;
 
 	if (dir->debug) {
@@ -669,6 +683,7 @@ director_init(const struct director_settings *set,
 	dir->state_change_callback = callback;
 	i_array_init(&dir->dir_hosts, 16);
 	i_array_init(&dir->pending_requests, 16);
+	i_array_init(&dir->connections, 8);
 	dir->users = user_directory_init(set->director_user_expire,
 					 set->director_username_hash);
 	dir->mail_hosts = mail_hosts_init();
@@ -682,10 +697,16 @@ void director_deinit(struct director **_dir)
 {
 	struct director *dir = *_dir;
 	struct director_host *const *hostp;
+	struct director_connection *conn, *const *connp;
 
 	*_dir = NULL;
 
-	director_connections_deinit(dir);
+	while (array_count(&dir->connections) > 0) {
+		connp = array_idx(&dir->connections, 0);
+		conn = *connp;
+		director_connection_deinit(&conn);
+	}
+
 	user_directory_deinit(&dir->users);
 	mail_hosts_deinit(&dir->mail_hosts);
 	mail_hosts_deinit(&dir->orig_config_hosts);
@@ -703,5 +724,6 @@ void director_deinit(struct director **_dir)
 		director_host_free(*hostp);
 	array_free(&dir->pending_requests);
 	array_free(&dir->dir_hosts);
+	array_free(&dir->connections);
 	i_free(dir);
 }

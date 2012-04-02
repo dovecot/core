@@ -7,7 +7,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
-#include "llist.h"
 #include "master-service.h"
 #include "mail-host.h"
 #include "director.h"
@@ -35,8 +34,6 @@
 #define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 10
 
 struct director_connection {
-	struct director_connection *prev, *next;
-
 	struct director *dir;
 	char *name;
 	time_t created;
@@ -1116,7 +1113,7 @@ director_connection_init_common(struct director *dir, int fd)
 				    director_connection_output, conn);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_INIT_TIMEOUT_MSECS,
 				    director_connection_init_timeout, conn);
-	DLLIST_PREPEND(&dir->connections, conn);
+	array_append(&dir->connections, &conn, 1);
 	return conn;
 }
 
@@ -1212,8 +1209,9 @@ director_connection_init_out(struct director *dir, int fd,
 
 void director_connection_deinit(struct director_connection **_conn)
 {
-	struct director_connection *conn = *_conn;
+	struct director_connection *const *conns, *conn = *_conn;
 	struct director *dir = conn->dir;
+	unsigned int i, count;
 
 	*_conn = NULL;
 
@@ -1224,7 +1222,14 @@ void director_connection_deinit(struct director_connection **_conn)
 	    conn->created + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time)
 		conn->host->last_failed = ioloop_time;
 
-	DLLIST_REMOVE(&dir->connections, conn);
+	conns = array_get(&dir->connections, &count);
+	for (i = 0; i < count; i++) {
+		if (conns[i] == conn) {
+			array_delete(&dir->connections, i, 1);
+			break;
+		}
+	}
+	i_assert(i < count);
 	if (dir->left == conn)
 		dir->left = NULL;
 	if (dir->right == conn)
@@ -1328,17 +1333,9 @@ director_connection_get_host(struct director_connection *conn)
 	return conn->host;
 }
 
-struct director_connection *
-director_connection_find_outgoing(struct director *dir,
-				  struct director_host *host)
+bool director_connection_is_incoming(struct director_connection *conn)
 {
-	struct director_connection *conn;
-
-	for (conn = dir->connections; conn != NULL; conn = conn->next) {
-		if (conn->host == host && !conn->in)
-			return conn;
-	}
-	return NULL;
+	return conn->in;
 }
 
 void director_connection_cork(struct director_connection *conn)
@@ -1363,15 +1360,4 @@ void director_connection_set_synced(struct director_connection *conn,
 		return;
 
 	director_connection_set_ping_timeout(conn);
-}
-
-void director_connections_deinit(struct director *dir)
-{
-	struct director_connection *conn;
-
-	while (dir->connections != NULL) {
-		conn = dir->connections;
-		dir->connections = conn->next;
-		director_connection_deinit(&conn);
-	}
 }

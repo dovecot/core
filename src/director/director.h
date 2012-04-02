@@ -29,7 +29,7 @@ struct director {
 	struct director_host *self_host;
 	struct director_connection *left, *right;
 	/* all director connections */
-	struct director_connection *connections;
+	ARRAY_DEFINE(connections, struct director_connection *);
 	struct timeout *to_reconnect;
 	struct timeout *to_sync;
 
