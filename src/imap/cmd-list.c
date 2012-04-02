@@ -115,9 +115,10 @@ parse_select_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 				MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		} else if (strcasecmp(str, "RECURSIVEMATCH") == 0)
 			list_flags |= MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH;
-		else if (strcasecmp(str, "SPECIAL-USE") == 0)
-			list_flags |= MAILBOX_LIST_ITER_SELECT_SPECIALUSE;
-		else if (strcasecmp(str, "REMOTE") == 0) {
+		else if (strcasecmp(str, "SPECIAL-USE") == 0) {
+			list_flags |= MAILBOX_LIST_ITER_SELECT_SPECIALUSE |
+				MAILBOX_LIST_ITER_RETURN_SPECIALUSE;
+		} else if (strcasecmp(str, "REMOTE") == 0) {
 			/* not supported, ignore */
 		} else {
 			/* skip also optional list value */
