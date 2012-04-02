@@ -258,8 +258,14 @@ void director_set_ring_synced(struct director *dir)
 void director_sync_send(struct director *dir, struct director_host *host,
 			uint32_t seq, unsigned int minor_version)
 {
-	string_t *str = t_str_new(128);
+	string_t *str;
 
+	if (!director_connection_is_handshaked(dir->right)) {
+		/* wait until handshake is finished */
+		return;
+	}
+
+	str = t_str_new(128);
 	str_printfa(str, "SYNC\t%s\t%u\t%u",
 		    net_ip2addr(&host->ip), host->port, seq);
 	if (minor_version > 0) {

@@ -1,5 +1,28 @@
 /* Copyright (c) 2010-2012 Dovecot authors, see the included COPYING file */
 
+/*
+   Handshaking:
+
+   Incoming director connections send:
+
+   VERSION
+   ME
+   <wait for remote handshake>
+   DONE
+
+   Outgoing director connections send:
+
+   VERSION
+   ME
+   [0..n] DIRECTOR
+   HOST-HAND-START
+   [0..n] HOST
+   HOST-HAND-END
+   [0..n] USER
+   <possibly other non-handshake commands between USERs>
+   DONE
+*/
+
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
@@ -32,6 +55,9 @@
 /* If outgoing director connection exists for less than this many seconds,
    mark the host as failed so we won't try to reconnect to it immediately */
 #define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 10
+
+#define CMD_IS_USER_HANDHAKE(args) \
+	(str_array_length(args) > 2)
 
 struct director_connection {
 	struct director *dir;
@@ -109,6 +135,10 @@ static bool director_cmd_me(struct director_connection *conn,
 
 	if (!director_args_parse_ip_port(conn, args, &ip, &port))
 		return FALSE;
+	if (conn->me_received) {
+		director_cmd_error(conn, "Duplicate ME");
+		return FALSE;
+	}
 
 	if (!conn->in && (!net_ip_compare(&conn->host->ip, &ip) ||
 			  conn->host->port != port)) {
@@ -317,6 +347,8 @@ director_cmd_user(struct director_connection *conn,
 	struct mail_host *host;
 	struct user *user;
 
+	/* NOTE: if more parameters are added, update also
+	   CMD_IS_USER_HANDHAKE() macro */
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
 	    net_addr2ip(args[1], &ip) < 0) {
@@ -694,7 +726,7 @@ static void director_handshake_cmd_done(struct director_connection *conn)
 	director_connection_set_ping_timeout(conn);
 }
 
-static bool
+static int
 director_connection_handle_handshake(struct director_connection *conn,
 				     const char *cmd, const char *const *args)
 {
@@ -708,29 +740,33 @@ director_connection_handle_handshake(struct director_connection *conn,
 			i_error("director(%s): Wrong protocol in socket "
 				"(%s vs %s)",
 				conn->name, args[0], DIRECTOR_VERSION_NAME);
-			return FALSE;
+			return -1;
 		} else if (atoi(args[1]) != DIRECTOR_VERSION_MAJOR) {
 			i_error("director(%s): Incompatible protocol version: "
 				"%u vs %u", conn->name, atoi(args[1]),
 				DIRECTOR_VERSION_MAJOR);
-			return FALSE;
+			return -1;
 		}
 		conn->version_received = TRUE;
-		return TRUE;
+		return 1;
 	}
 	if (!conn->version_received) {
 		director_cmd_error(conn, "Incompatible protocol");
-		return FALSE;
+		return -1;
 	}
 
-	if (strcmp(cmd, "ME") == 0 && !conn->me_received)
-		return director_cmd_me(conn, args);
+	if (strcmp(cmd, "ME") == 0)
+		return director_cmd_me(conn, args) ? 1 : -1;
 
-	/* only outgoing connections get a CONNECT reference */
-	if (!conn->in && strcmp(cmd, "CONNECT") == 0) {
+	if (strcmp(cmd, "CONNECT") == 0) {
 		/* remote wants us to connect elsewhere */
 		if (!director_args_parse_ip_port(conn, args, &ip, &port))
-			return FALSE;
+			return -1;
+		if (conn->in) {
+			director_cmd_error(conn,
+				"Incoming connections can't request CONNECT");
+			return -1;
+		}
 
 		conn->dir->right = NULL;
 		host = director_host_get(conn->dir, &ip, port);
@@ -740,53 +776,44 @@ director_connection_handle_handshake(struct director_connection *conn,
 		if (conn->dir->debug)
 			i_debug("Received CONNECT reference to %s", host->name);
 		(void)director_connect_host(conn->dir, host);
-		return FALSE;
+		return 1;
 	}
-	/* only incoming connections get DIRECTOR and HOST lists */
-	if (conn->in && strcmp(cmd, "DIRECTOR") == 0 && conn->me_received)
-		return director_cmd_director(conn, args);
-
-	if (strcmp(cmd, "HOST") == 0) {
-		/* allow hosts from all connections always,
-		   this could be an host update */
-		if (conn->handshake_sending_hosts)
-			return director_cmd_host_handshake(conn, args);
-		else
-			return director_cmd_host(conn, args);
-	}
-	if (conn->handshake_sending_hosts &&
-	    strcmp(cmd, "HOST-HAND-END") == 0) {
-		conn->ignore_host_events = FALSE;
-		conn->handshake_sending_hosts = FALSE;
-		return TRUE;
-	}
-	if (conn->in && strcmp(cmd, "HOST-HAND-START") == 0 &&
-	    conn->me_received)
-		return director_cmd_host_hand_start(conn, args);
-
-	/* only incoming connections get a full USER list, but outgoing
-	   connections can also receive USER updates during handshake and
-	   it wouldn't be safe to ignore them. */
+	/* Only VERSION and CONNECT commands are allowed before ME */
 	if (!conn->me_received) {
-		/* no USER updates until ME */
-	} else if (conn->in && strcmp(cmd, "USER") == 0) {
-		return director_handshake_cmd_user(conn, args);
-	} else if (!conn->in) {
-		if (strcmp(cmd, "USER") == 0)
-			return director_cmd_user(conn, args);
-		if (strcmp(cmd, "USER-WEAK") == 0)
-			return director_cmd_user_weak(conn, args);
+		director_cmd_error(conn, "Expecting ME command first");
+		return -1;
 	}
+
+	/* incoming connections get a HOST list */
+	if (conn->handshake_sending_hosts) {
+		if (strcmp(cmd, "HOST") == 0)
+			return director_cmd_host_handshake(conn, args) ? 1 : -1;
+		if (strcmp(cmd, "HOST-HAND-END") == 0) {
+			conn->ignore_host_events = FALSE;
+			conn->handshake_sending_hosts = FALSE;
+			return 1;
+		}
+		director_cmd_error(conn, "Unexpected command during host list");
+		return -1;
+	}
+	if (strcmp(cmd, "HOST-HAND-START") == 0) {
+		if (!conn->in) {
+			director_cmd_error(conn,
+				"Host list is only for incoming connections");
+			return -1;
+		}
+		return director_cmd_host_hand_start(conn, args) ? 1 : -1;
+	}
+
+	if (conn->in && strcmp(cmd, "USER") == 0 && CMD_IS_USER_HANDHAKE(args))
+		return director_handshake_cmd_user(conn, args) ? 1 : -1;
+
 	/* both get DONE */
-	if (strcmp(cmd, "DONE") == 0 && !conn->handshake_received &&
-	    !conn->handshake_sending_hosts) {
+	if (strcmp(cmd, "DONE") == 0) {
 		director_handshake_cmd_done(conn);
-		return TRUE;
+		return 1;
 	}
-	i_error("director(%s): Invalid handshake command: %s "
-		"(in=%d me_received=%d)", conn->name, cmd,
-		conn->in, conn->me_received);
-	return FALSE;
+	return 0;
 }
 
 static void
@@ -806,6 +833,9 @@ director_connection_sync_host(struct director_connection *conn,
 			/* stale SYNC event */
 			return;
 		}
+		/* sync_seq increases when we get disconnected, so we must be
+		   successfully connected to both directions */
+		i_assert(dir->left != NULL && dir->right != NULL);
 
 		dir->ring_min_version = minor_version;
 		if (!dir->ring_handshaked) {
@@ -921,6 +951,8 @@ static bool
 director_connection_handle_cmd(struct director_connection *conn,
 			       const char *cmd, const char *const *args)
 {
+	int ret;
+
 	/* ping/pong is always handled */
 	if (strcmp(cmd, "PING") == 0) {
 		director_connection_send(conn, "PONG\n");
@@ -930,7 +962,10 @@ director_connection_handle_cmd(struct director_connection *conn,
 		return director_cmd_pong(conn);
 
 	if (!conn->handshake_received) {
-		if (!director_connection_handle_handshake(conn, cmd, args)) {
+		ret = director_connection_handle_handshake(conn, cmd, args);
+		if (ret > 0)
+			return TRUE;
+		if (ret < 0) {
 			/* invalid commands during handshake,
 			   we probably don't want to reconnect here */
 			if (conn->dir->debug) {
@@ -941,7 +976,7 @@ director_connection_handle_cmd(struct director_connection *conn,
 				conn->host->last_failed = ioloop_time;
 			return FALSE;
 		}
-		return TRUE;
+		/* allow also other commands during handshake */
 	}
 
 	if (strcmp(cmd, "USER") == 0)
@@ -1103,21 +1138,27 @@ static int director_connection_send_users(struct director_connection *conn)
 
 static int director_connection_output(struct director_connection *conn)
 {
-	if (conn->user_iter != NULL)
+	if (conn->user_iter != NULL) {
+		/* still handshaking USER list */
 		return director_connection_send_users(conn);
-	else
-		return o_stream_flush(conn->output);
+	}
+	return o_stream_flush(conn->output);
 }
 
 static void
 director_connection_init_timeout(struct director_connection *conn)
 {
+	unsigned int secs = ioloop_time - conn->created;
+
 	if (conn->host != NULL)
 		conn->host->last_failed = ioloop_time;
-	if (!conn->connected)
-		i_error("director(%s): Connect timed out", conn->name);
-	else
-		i_error("director(%s): Handshaking timed out", conn->name);
+	if (!conn->connected) {
+		i_error("director(%s): Connect timed out (%u secs)",
+			conn->name, secs);
+	} else {
+		i_error("director(%s): Handshaking timed out (%u secs)",
+			conn->name, secs);
+	}
 	director_connection_disconnected(&conn);
 }
 
@@ -1354,6 +1395,11 @@ struct director_host *
 director_connection_get_host(struct director_connection *conn)
 {
 	return conn->host;
+}
+
+bool director_connection_is_handshaked(struct director_connection *conn)
+{
+	return conn->handshake_received;
 }
 
 bool director_connection_is_incoming(struct director_connection *conn)
