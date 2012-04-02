@@ -23,13 +23,13 @@
 #define MAX_OUTBUF_SIZE (1024*1024*10)
 #define OUTBUF_FLUSH_THRESHOLD (1024*128)
 /* Max idling time while connecting/handshaking before disconnecting */
-#define DIRECTOR_CONNECTION_INIT_TIMEOUT_MSECS (2*1000)
+#define DIRECTOR_CONNECTION_INIT_TIMEOUT_MSECS (10*1000)
 /* How long to wait for PONG after PING request */
-#define DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS (2*1000)
+#define DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS (10*1000)
 /* How long to wait to send PING when connection is idle */
 #define DIRECTOR_CONNECTION_PING_INTERVAL_MSECS (15*1000)
 /* How long to wait before sending PING while waiting for SYNC reply */
-#define DIRECTOR_CONNECTION_SYNC_TIMEOUT_MSECS 1000
+#define DIRECTOR_CONNECTION_PING_SYNC_INTERVAL_MSECS 1000
 /* If outgoing director connection exists for less than this many seconds,
    mark the host as failed so we won't try to reconnect to it immediately */
 #define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 10
@@ -61,7 +61,7 @@ struct director_connection {
 	unsigned int ignore_host_events:1;
 	unsigned int handshake_sending_hosts:1;
 	unsigned int ping_waiting:1;
-	unsigned int sync_ping:1;
+	unsigned int synced:1;
 };
 
 static void director_connection_ping(struct director_connection *conn);
@@ -636,6 +636,19 @@ director_cmd_user_killed_everywhere(struct director_connection *conn,
 	return TRUE;
 }
 
+static void
+director_connection_set_ping_timeout(struct director_connection *conn)
+{
+	unsigned int msecs;
+
+	msecs = conn->synced || !conn->handshake_received ?
+		DIRECTOR_CONNECTION_PING_INTERVAL_MSECS :
+		DIRECTOR_CONNECTION_PING_SYNC_INTERVAL_MSECS;
+
+	timeout_remove(&conn->to_ping);
+	conn->to_ping = timeout_add(msecs, director_connection_ping, conn);
+}
+
 static void director_handshake_cmd_done(struct director_connection *conn)
 {
 	struct director *dir = conn->dir;
@@ -668,10 +681,7 @@ static void director_handshake_cmd_done(struct director_connection *conn)
 		director_sync_send(dir, dir->self_host, dir->sync_seq,
 				   DIRECTOR_VERSION_MINOR);
 	}
-	if (conn->to_ping != NULL)
-		timeout_remove(&conn->to_ping);
-	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_INTERVAL_MSECS,
-				    director_connection_ping, conn);
+	director_connection_set_ping_timeout(conn);
 }
 
 static bool
@@ -893,11 +903,9 @@ static bool director_cmd_pong(struct director_connection *conn)
 {
 	if (!conn->ping_waiting)
 		return TRUE;
-
 	conn->ping_waiting = FALSE;
-	timeout_remove(&conn->to_ping);
-	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_INTERVAL_MSECS,
-				    director_connection_ping, conn);
+
+	director_connection_set_ping_timeout(conn);
 	return TRUE;
 }
 
@@ -971,8 +979,6 @@ static void director_connection_input(struct director_connection *conn)
 	char *line;
 	bool ret;
 
-	if (conn->to_ping != NULL)
-		timeout_reset(conn->to_ping);
 	switch (i_stream_read(conn->input)) {
 	case 0:
 		return;
@@ -1007,6 +1013,8 @@ static void director_connection_input(struct director_connection *conn)
 		}
 	}
 	director_sync_thaw(dir);
+	if (conn != NULL)
+		timeout_reset(conn->to_ping);
 }
 
 static void director_connection_send_directors(struct director_connection *conn,
@@ -1056,6 +1064,7 @@ static int director_connection_send_users(struct director_connection *conn)
 		if (o_stream_get_buffer_used_size(conn->output) >= OUTBUF_FLUSH_THRESHOLD) {
 			if ((ret = o_stream_flush(conn->output)) <= 0) {
 				/* continue later */
+				timeout_reset(conn->to_ping);
 				return ret;
 			}
 		}
@@ -1068,6 +1077,7 @@ static int director_connection_send_users(struct director_connection *conn)
 
 	ret = o_stream_flush(conn->output);
 	o_stream_uncork(conn->output);
+	timeout_reset(conn->to_ping);
 	return ret;
 }
 
@@ -1224,8 +1234,7 @@ void director_connection_deinit(struct director_connection **_conn)
 		user_directory_iter_deinit(&conn->user_iter);
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
-	if (conn->to_ping != NULL)
-		timeout_remove(&conn->to_ping);
+	timeout_remove(&conn->to_ping);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
 	i_stream_unref(&conn->input);
@@ -1298,12 +1307,10 @@ static void director_connection_ping_timeout(struct director_connection *conn)
 
 static void director_connection_ping(struct director_connection *conn)
 {
-	conn->sync_ping = FALSE;
 	if (conn->ping_waiting)
 		return;
 
-	if (conn->to_ping != NULL)
-		timeout_remove(&conn->to_ping);
+	timeout_remove(&conn->to_ping);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS,
 				    director_connection_ping_timeout, conn);
 	director_connection_send(conn, "PING\n");
@@ -1344,18 +1351,18 @@ void director_connection_uncork(struct director_connection *conn)
 	o_stream_uncork(conn->output);
 }
 
-void director_connection_wait_sync(struct director_connection *conn)
+void director_connection_set_synced(struct director_connection *conn,
+				    bool synced)
 {
-	/* switch to faster ping timeout. avoid reseting the timeout if it's
-	   already fast. */
-	if (conn->ping_waiting || conn->sync_ping)
+	if (conn->synced == synced)
+		return;
+	conn->synced = synced;
+
+	/* switch ping timeout, unless we're already waiting for PONG */
+	if (conn->ping_waiting)
 		return;
 
-	if (conn->to_ping != NULL)
-		timeout_remove(&conn->to_ping);
-	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_SYNC_TIMEOUT_MSECS,
-				    director_connection_ping, conn);
-	conn->sync_ping = TRUE;
+	director_connection_set_ping_timeout(conn);
 }
 
 void director_connections_deinit(struct director *dir)

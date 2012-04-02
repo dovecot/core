@@ -230,6 +230,10 @@ void director_set_ring_synced(struct director *dir)
 			timeout_remove(&dir->to_reconnect);
 	}
 
+	if (dir->left != NULL)
+		director_connection_set_synced(dir->left, TRUE);
+	if (dir->right != NULL)
+		director_connection_set_synced(dir->right, TRUE);
 	if (dir->to_sync != NULL)
 		timeout_remove(&dir->to_sync);
 	dir->ring_synced = TRUE;
@@ -310,9 +314,12 @@ static void director_sync(struct director *dir)
 			director_connection_get_name(dir->right));
 	}
 
+	/* send PINGs to our connections more rapidly until we've synced again.
+	   if the connection has actually died, we don't need to wait (and
+	   delay requests) for as long to detect it */
 	if (dir->left != NULL)
-		director_connection_wait_sync(dir->left);
-	director_connection_wait_sync(dir->right);
+		director_connection_set_synced(dir->left, FALSE);
+	director_connection_set_synced(dir->right, FALSE);
 	director_sync_send(dir, dir->self_host, dir->sync_seq,
 			   DIRECTOR_VERSION_MINOR);
 }
