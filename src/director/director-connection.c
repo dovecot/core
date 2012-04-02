@@ -50,6 +50,9 @@ struct director_connection {
 
 	struct user_directory_iter *user_iter;
 
+	/* set during command execution */
+	const char *cur_cmd, *cur_line;
+
 	unsigned int in:1;
 	unsigned int connected:1;
 	unsigned int version_received:1;
@@ -64,19 +67,32 @@ struct director_connection {
 static void director_connection_ping(struct director_connection *conn);
 static void director_connection_disconnected(struct director_connection **conn);
 
+static void ATTR_FORMAT(2, 3)
+director_cmd_error(struct director_connection *conn, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	i_error("director(%s): Command %s: %s (input: %s)", conn->name,
+		conn->cur_cmd, t_strdup_vprintf(fmt, args), conn->cur_line);
+	va_end(args);
+}
+
 static bool
 director_args_parse_ip_port(struct director_connection *conn,
 			    const char *const *args,
 			    struct ip_addr *ip_r, unsigned int *port_r)
 {
+	if (args[0] == NULL || args[1] == NULL) {
+		director_cmd_error(conn, "Missing IP+port parameters");
+		return FALSE;
+	}
 	if (net_addr2ip(args[0], ip_r) < 0) {
-		i_error("director(%s): Command has invalid IP address: %s",
-			conn->name, args[0]);
+		director_cmd_error(conn, "Invalid IP address: %s", args[0]);
 		return FALSE;
 	}
 	if (str_to_uint(args[1], port_r) < 0) {
-		i_error("director(%s): Command has invalid port: %s",
-			conn->name, args[1]);
+		director_cmd_error(conn, "Invalid port: %s", args[1]);
 		return FALSE;
 	}
 	return TRUE;
@@ -276,8 +292,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 	    str_to_uint(args[0], &username_hash) < 0 ||
 	    net_addr2ip(args[1], &ip) < 0 ||
 	    str_to_uint(args[2], &timestamp) < 0) {
-		i_error("director(%s): Invalid USER handshake args",
-			conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 	weak = args[3] != NULL && args[3][0] == 'w';
@@ -305,7 +320,7 @@ director_cmd_user(struct director_connection *conn,
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
 	    net_addr2ip(args[1], &ip) < 0) {
-		i_error("director(%s): Invalid USER args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -356,9 +371,9 @@ director_cmd_host_hand_start(struct director_connection *conn,
 	struct mail_host *const *hostp;
 	unsigned int remote_ring_completed;
 
-	if (args == NULL || str_to_uint(args[0], &remote_ring_completed) < 0) {
-		i_error("director(%s): Invalid HOST-HAND-START args",
-			conn->name);
+	if (args[0] == NULL ||
+	    str_to_uint(args[0], &remote_ring_completed) < 0) {
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -391,8 +406,7 @@ director_cmd_is_seen(struct director_connection *conn,
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    str_to_uint(args[1], &port) < 0 ||
 	    str_to_uint(args[2], &seq) < 0) {
-		i_error("director(%s): Command is missing parameters: %s",
-			conn->name, t_strarray_join(args, " "));
+		director_cmd_error(conn, "Invalid parameters");
 		return -1;
 	}
 	*_args = args + 3;
@@ -433,7 +447,7 @@ director_cmd_user_weak(struct director_connection *conn,
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
 	    net_addr2ip(args[1], &ip) < 0) {
-		i_error("director(%s): Invalid USER-WEAK args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -474,7 +488,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	if (str_array_length(args) != 2 ||
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    str_to_uint(args[1], &vhost_count) < 0) {
-		i_error("director(%s): Invalid HOST args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 	if (conn->ignore_host_events) {
@@ -532,7 +546,7 @@ director_cmd_host_remove(struct director_connection *conn,
 
 	if (str_array_length(args) != 1 ||
 	    net_addr2ip(args[0], &ip) < 0) {
-		i_error("director(%s): Invalid HOST-REMOVE args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -556,7 +570,7 @@ director_cmd_host_flush(struct director_connection *conn,
 
 	if (str_array_length(args) != 1 ||
 	    net_addr2ip(args[0], &ip) < 0) {
-		i_error("director(%s): Invalid HOST-FLUSH args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -582,7 +596,7 @@ director_cmd_user_move(struct director_connection *conn,
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
 	    net_addr2ip(args[1], &ip) < 0) {
-		i_error("director(%s): Invalid USER-MOVE args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -602,7 +616,7 @@ director_cmd_user_killed(struct director_connection *conn,
 
 	if (str_array_length(args) != 1 ||
 	    str_to_uint(args[0], &username_hash) < 0) {
-		i_error("director(%s): Invalid USER-KILLED args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -623,8 +637,7 @@ director_cmd_user_killed_everywhere(struct director_connection *conn,
 
 	if (str_array_length(args) != 1 ||
 	    str_to_uint(args[0], &username_hash) < 0) {
-		i_error("director(%s): Invalid USER-KILLED-EVERYWHERE args",
-			conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -706,17 +719,15 @@ director_connection_handle_handshake(struct director_connection *conn,
 		return TRUE;
 	}
 	if (!conn->version_received) {
-		i_error("director(%s): Incompatible protocol", conn->name);
+		director_cmd_error(conn, "Incompatible protocol");
 		return FALSE;
 	}
 
-	if (strcmp(cmd, "ME") == 0 && !conn->me_received &&
-	    str_array_length(args) == 2)
+	if (strcmp(cmd, "ME") == 0 && !conn->me_received)
 		return director_cmd_me(conn, args);
 
 	/* only outgoing connections get a CONNECT reference */
-	if (!conn->in && strcmp(cmd, "CONNECT") == 0 &&
-	    str_array_length(args) == 2) {
+	if (!conn->in && strcmp(cmd, "CONNECT") == 0) {
 		/* remote wants us to connect elsewhere */
 		if (!director_args_parse_ip_port(conn, args, &ip, &port))
 			return FALSE;
@@ -827,7 +838,7 @@ static bool director_connection_sync(struct director_connection *conn,
 	if (str_array_length(args) < 3 ||
 	    !director_args_parse_ip_port(conn, args, &ip, &port) ||
 	    str_to_uint(args[2], &seq) < 0) {
-		i_error("director(%s): Invalid SYNC args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 	if (args[3] != NULL)
@@ -856,7 +867,7 @@ static bool director_cmd_connect(struct director_connection *conn,
 
 	if (str_array_length(args) != 2 ||
 	    !director_args_parse_ip_port(conn, args, &ip, &port)) {
-		i_error("director(%s): Invalid CONNECT args", conn->name);
+		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
 
@@ -907,18 +918,9 @@ static bool director_cmd_pong(struct director_connection *conn)
 }
 
 static bool
-director_connection_handle_line(struct director_connection *conn,
-				const char *line)
+director_connection_handle_cmd(struct director_connection *conn,
+			       const char *cmd, const char *const *args)
 {
-	const char *cmd, *const *args;
-
-	args = t_strsplit(line, "\t");
-	cmd = args[0]; args++;
-	if (cmd == NULL) {
-		i_error("director(%s): Received empty line", conn->name);
-		return FALSE;
-	}
-
 	/* ping/pong is always handled */
 	if (strcmp(cmd, "PING") == 0) {
 		director_connection_send(conn, "PONG\n");
@@ -965,9 +967,30 @@ director_connection_handle_line(struct director_connection *conn,
 	if (strcmp(cmd, "CONNECT") == 0)
 		return director_cmd_connect(conn, args);
 
-	i_error("director(%s): Unknown command (in this state): %s",
-		conn->name, cmd);
+	director_cmd_error(conn, "Unknown command %s", cmd);
 	return FALSE;
+}
+
+static bool
+director_connection_handle_line(struct director_connection *conn,
+				const char *line)
+{
+	const char *cmd, *const *args;
+	bool ret;
+
+	args = t_strsplit(line, "\t");
+	cmd = args[0]; args++;
+	if (cmd == NULL) {
+		i_error("director(%s): Received empty line", conn->name);
+		return FALSE;
+	}
+
+	conn->cur_cmd = cmd;
+	conn->cur_line = line;
+	ret = director_connection_handle_cmd(conn, cmd, args);
+	conn->cur_cmd = NULL;
+	conn->cur_line = NULL;
+	return ret;
 }
 
 static void director_connection_input(struct director_connection *conn)
