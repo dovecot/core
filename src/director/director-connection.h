@@ -16,9 +16,7 @@ void director_connection_send(struct director_connection *conn,
 			      const char *data);
 void director_connection_set_synced(struct director_connection *conn,
 				    bool synced);
-void director_connection_send_except(struct director_connection *conn,
-				     struct director_host *skip_host,
-				     const char *data);
+void director_connection_ping(struct director_connection *conn);
 
 const char *director_connection_get_name(struct director_connection *conn);
 struct director_host *

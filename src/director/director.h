@@ -27,6 +27,10 @@ struct director {
 	unsigned int test_port;
 
 	struct director_host *self_host;
+	/* left and right connections are set only after they have finished
+	   handshaking. until then they're in the connections list, although
+	   updates are still sent to them during handshaking if the USER list
+	   is long. */
 	struct director_connection *left, *right;
 	/* all director connections */
 	ARRAY_DEFINE(connections, struct director_connection *);

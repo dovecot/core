@@ -260,11 +260,6 @@ void director_sync_send(struct director *dir, struct director_host *host,
 {
 	string_t *str;
 
-	if (!director_connection_is_handshaked(dir->right)) {
-		/* wait until handshake is finished */
-		return;
-	}
-
 	str = t_str_new(128);
 	str_printfa(str, "SYNC\t%s\t%u\t%u",
 		    net_ip2addr(&host->ip), host->port, seq);
@@ -274,6 +269,13 @@ void director_sync_send(struct director *dir, struct director_host *host,
 	}
 	str_append_c(str, '\n');
 	director_connection_send(dir->right, str_c(str));
+
+	/* ping our connections in case either of them are hanging.
+	   if they are, we want to know it fast. */
+	if (dir->left != NULL)
+		director_connection_ping(dir->left);
+	if (dir->right != NULL)
+		director_connection_ping(dir->right);
 }
 
 bool director_resend_sync(struct director *dir)
@@ -346,18 +348,20 @@ static void director_sync(struct director *dir)
 
 void director_sync_freeze(struct director *dir)
 {
+	struct director_connection *const *connp;
+
 	i_assert(!dir->sync_frozen);
 	i_assert(!dir->sync_pending);
 
-	if (dir->left != NULL)
-		director_connection_cork(dir->left);
-	if (dir->right != NULL)
-		director_connection_cork(dir->right);
+	array_foreach(&dir->connections, connp)
+		director_connection_cork(*connp);
 	dir->sync_frozen = TRUE;
 }
 
 void director_sync_thaw(struct director *dir)
 {
+	struct director_connection *const *connp;
+
 	i_assert(dir->sync_frozen);
 
 	dir->sync_frozen = FALSE;
@@ -365,10 +369,8 @@ void director_sync_thaw(struct director *dir)
 		dir->sync_pending = FALSE;
 		director_sync(dir);
 	}
-	if (dir->left != NULL)
-		director_connection_uncork(dir->left);
-	if (dir->right != NULL)
-		director_connection_uncork(dir->right);
+	array_foreach(&dir->connections, connp)
+		director_connection_uncork(*connp);
 }
 
 void director_update_host(struct director *dir, struct director_host *src,
@@ -498,7 +500,7 @@ struct director_kill_context {
 static void
 director_finish_user_kill(struct director *dir, struct user *user, bool self)
 {
-	if (dir->right == NULL || dir->right == dir->left) {
+	if (dir->right == NULL) {
 		/* we're alone */
 		director_user_kill_finish_delayed(dir, user);
 	} else if (self ||
@@ -667,12 +669,14 @@ void director_set_state_changed(struct director *dir)
 void director_update_send(struct director *dir, struct director_host *src,
 			  const char *cmd)
 {
+	struct director_connection *const *connp;
+
 	i_assert(src != NULL);
 
-	if (dir->left != NULL)
-		director_connection_send_except(dir->left, src, cmd);
-	if (dir->right != NULL && dir->right != dir->left)
-		director_connection_send_except(dir->right, src, cmd);
+	array_foreach(&dir->connections, connp) {
+		if (director_connection_get_host(*connp) != src)
+			director_connection_send(*connp, cmd);
+	}
 }
 
 struct director *
