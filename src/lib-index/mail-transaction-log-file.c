@@ -945,8 +945,8 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 			   modseq_ext_len) == 0) {
 			/* modseq tracking started */
 			*cur_modseq += 1;
-			return;
 		}
+		return;
 	} else {
 		/* not tracking modseqs */
 		return;
