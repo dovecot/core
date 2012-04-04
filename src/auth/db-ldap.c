@@ -1464,33 +1464,6 @@ void db_ldap_unref(struct ldap_connection **_conn)
 	pool_unref(&conn->pool);
 }
 
-void db_ldap_check_userdb_warning(struct ldap_connection *conn)
-{
-	const struct ldap_settings *def = &default_ldap_settings;
-	const char *set_name;
-
-	if (worker || conn->userdb_used || conn->set.userdb_warning_disable)
-		return;
-
-	if (strcmp(conn->set.user_attrs, def->user_attrs) != 0)
-		set_name = "user_attrs";
-	else if (strcmp(conn->set.user_filter, def->user_filter) != 0)
-		set_name = "user_filter";
-	else if (strcmp(conn->set.iterate_attrs, def->iterate_attrs) != 0)
-		set_name = "iterate_attrs";
-	else if (strcmp(conn->set.iterate_filter, def->iterate_filter) != 0)
-		set_name = "iterate_filter";
-	else
-		set_name = NULL;
-
-	if (set_name != NULL) {
-		i_warning("ldap: Ignoring changed %s in %s, "
-			  "because userdb ldap not used. "
-			  "(If this is intentional, set userdb_warning_disable=yes)",
-			  set_name, conn->config_path);
-	}
-}
-
 #ifndef BUILTIN_LDAP
 /* Building a plugin */
 extern struct passdb_module_interface passdb_ldap_plugin;

@@ -432,7 +432,6 @@ static void passdb_ldap_init(struct passdb_module *_module)
 		/* Credential lookups can't be done with authentication binds */
 		_module->iface.lookup_credentials = NULL;
 	}
-	db_ldap_check_userdb_warning(module->conn);
 }
 
 static void passdb_ldap_deinit(struct passdb_module *_module)

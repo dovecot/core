@@ -63,7 +63,7 @@ struct ldap_settings {
 	const char *iterate_filter;
 
 	const char *default_pass_scheme;
-	bool userdb_warning_disable;
+	bool userdb_warning_disable; /* deprecated for now at least */
 
 	/* ... */
 	int ldap_deref, ldap_scope;
@@ -172,7 +172,6 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 struct ldap_connection *db_ldap_init(const char *config_path, bool userdb);
 void db_ldap_unref(struct ldap_connection **conn);
 
-void db_ldap_check_userdb_warning(struct ldap_connection *conn);
 int db_ldap_connect(struct ldap_connection *conn);
 
 void db_ldap_enable_input(struct ldap_connection *conn, bool enable);
