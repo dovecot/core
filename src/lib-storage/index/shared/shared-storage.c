@@ -120,6 +120,19 @@ get_nonexistent_user_location(struct shared_storage *storage,
 	str_append(location, username);
 }
 
+static bool shared_namespace_exists(struct mail_namespace *ns)
+{
+	const char *path;
+	struct stat st;
+
+	path = mailbox_list_get_path(ns->list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
+	if (path == NULL) {
+		/* we can't know if this exists */
+		return TRUE;
+	}
+	return stat(path, &st) == 0;
+}
+
 int shared_storage_get_namespace(struct mail_namespace **_ns,
 				 const char **_name)
 {
@@ -310,7 +323,11 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		mail_namespace_destroy(new_ns);
 		return -1;
 	}
-	ns->flags |= NAMESPACE_FLAG_USABLE;
+	if ((new_ns->flags & NAMESPACE_FLAG_UNUSABLE) == 0 &&
+	    !shared_namespace_exists(new_ns)) {
+		/* this user doesn't have a usable storage */
+		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
+	}
 	*_name = mailbox_list_get_storage_name(new_ns->list,
 				t_strconcat(new_ns->prefix, name, NULL));
 	*_ns = new_ns;
