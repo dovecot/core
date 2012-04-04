@@ -341,7 +341,7 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 {
 	const char *home, *path = *pathp;
 
-	if (mail_user_get_home(user, &home) < 0)
+	if (mail_user_get_home(user, &home) <= 0)
 		return -1;
 
 	path = home_expand_tilde(path, home);
