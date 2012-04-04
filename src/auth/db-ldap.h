@@ -122,7 +122,7 @@ enum ldap_connection_state {
 struct ldap_field {
 	/* Dovecot field name. */
 	const char *name;
-	/* Field value template with %vars. "" = same as LDAP value. */
+	/* Field value template with %vars. NULL = same as LDAP value. */
 	const char *value;
 	/* LDAP attribute name, or "" if this is a static field. */
 	const char *ldap_attr_name;

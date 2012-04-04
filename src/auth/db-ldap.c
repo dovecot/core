@@ -1032,9 +1032,12 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		}
 
 		templ = strchr(name, '=');
-		if (templ == NULL)
-			templ = "";
-		else {
+		if (templ == NULL) {
+			if (*ldap_attr == '\0') {
+				/* =foo static value */
+				templ = "";
+			}
+		} else {
 			*templ++ = '\0';
 			str_truncate(tmp_str, 0);
 			var_expand_with_funcs(tmp_str, templ, NULL,
@@ -1245,7 +1248,7 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 		values = ctx->val_1_arr;
 	}
 
-	if (*field->value == '\0') {
+	if (field->value == NULL) {
 		/* use the LDAP attribute's value */
 	} else {
 		/* template */
