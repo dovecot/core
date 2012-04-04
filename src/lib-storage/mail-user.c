@@ -272,7 +272,7 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 	int ret;
 
 	memset(&info, 0, sizeof(info));
-	info.service = "lib-storage";
+	info.service = user->service;
 	if (user->local_ip != NULL)
 		info.local_ip = *user->local_ip;
 	if (user->remote_ip != NULL)
