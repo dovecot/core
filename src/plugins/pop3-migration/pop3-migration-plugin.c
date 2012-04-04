@@ -120,8 +120,8 @@ static int get_hdr_sha1(struct mail *mail, unsigned char sha1[SHA1_RESULTLEN])
 	struct sha1_ctxt sha1_ctx;
 
 	if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0) {
-		i_error("pop3_migration: Failed to get header for msg %u",
-			mail->seq);
+		i_error("pop3_migration: Failed to get header for msg %u: %s",
+			mail->seq, mailbox_get_last_error(mail->box, NULL));
 		return -1;
 	}
 	input2 = i_stream_create_limit(input, hdr_size.physical_size);
