@@ -328,6 +328,9 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		/* this user doesn't have a usable storage */
 		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
 	}
+	/* mark the shared namespace root as usable, since it now has
+	   child namespaces */
+	ns->flags |= NAMESPACE_FLAG_USABLE;
 	*_name = mailbox_list_get_storage_name(new_ns->list,
 				t_strconcat(new_ns->prefix, name, NULL));
 	*_ns = new_ns;
