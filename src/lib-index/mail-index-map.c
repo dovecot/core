@@ -174,6 +174,12 @@ mail_index_map_ext_hdr_check_record(const struct mail_index_header *hdr,
 		return -1;
 	}
 
+	if (ext_hdr->record_offset == 0) {
+		/* if we get here from extension introduction, record_offset=0
+		   and hdr->record_size hasn't been updated yet */
+		return 0;
+	}
+
 	if (ext_hdr->record_offset + ext_hdr->record_size > hdr->record_size) {
 		*error_r = t_strdup_printf("Record field points "
 					   "outside record size (%u+%u > %u)",
@@ -210,9 +216,7 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 		return -1;
 	}
 
-	/* if we get here from extension introduction, record_offset=0 and
-	   hdr->record_size hasn't been updated yet */
-	if (ext_hdr->record_offset != 0 && ext_hdr->record_size != 0) {
+	if (ext_hdr->record_size != 0) {
 		if (mail_index_map_ext_hdr_check_record(hdr, ext_hdr,
 							error_r) < 0)
 			return -1;
