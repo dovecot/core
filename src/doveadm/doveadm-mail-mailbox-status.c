@@ -182,7 +182,7 @@ static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_mail_help_name("mailbox status");
 
 	status_parse_fields(ctx, t_strsplit_spaces(fields, " "));
-	ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
+	ctx->search_args = doveadm_mail_mailbox_search_args_build(args+1);
 
 	if (!ctx->total_sum) {
 		doveadm_print_header("mailbox", "mailbox",
