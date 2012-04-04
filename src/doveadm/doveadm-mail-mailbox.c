@@ -139,12 +139,18 @@ doveadm_mail_mailbox_search_args_build(const char *const args[])
 {
 	struct mail_search_args *search_args;
 	struct mail_search_arg *arg;
+	enum mail_search_arg_type type;
 	unsigned int i;
 
 	doveadm_mailbox_args_check(args);
 	search_args = mail_search_build_init();
 	for (i = 0; args[i] != NULL; i++) {
-		arg = mail_search_build_add(search_args, SEARCH_MAILBOX_GLOB);
+		if (strchr(args[i], '*') != NULL ||
+		    strchr(args[i], '%') != NULL)
+			type = SEARCH_MAILBOX_GLOB;
+		else
+			type = SEARCH_MAILBOX;
+		arg = mail_search_build_add(search_args, type);
 		arg->value.str = p_strdup(search_args->pool, args[i]);
 	}
 	if (i > 1) {
