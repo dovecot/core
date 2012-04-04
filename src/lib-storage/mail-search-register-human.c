@@ -136,9 +136,13 @@ human_search_mailbox(struct mail_search_build_context *ctx)
 {
 	struct mail_search_arg *sarg;
 
-	sarg = mail_search_build_str(ctx, SEARCH_MAILBOX_GLOB);
+	sarg = mail_search_build_str(ctx, SEARCH_MAILBOX);
 	if (sarg == NULL)
 		return NULL;
+
+	if (strchr(sarg->value.str, '*') != NULL ||
+	    strchr(sarg->value.str, '%') != NULL)
+		sarg->type = SEARCH_MAILBOX_GLOB;
 
 	if (!uni_utf8_str_is_valid(sarg->value.str)) {
 		ctx->_error = p_strconcat(ctx->pool,
