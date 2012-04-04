@@ -440,7 +440,11 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* Listing only subscribed mailboxes.
 		   Flags are set later if needed. */
-		mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx);
+		bool default_nonexistent =
+			(flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0;
+
+		mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx,
+						default_nonexistent);
 	}
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
