@@ -268,7 +268,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail_keywords *kw;
 	enum mail_error error;
-	const char *mailbox_name, *errstr;
+	const char *mailbox_name, *errstr, *guid;
 	struct mail_transaction_commit_changes changes;
 	const struct seq_range *range;
 	bool default_save;
@@ -338,7 +338,11 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 			t = mailbox_transaction_begin(box, 0);
 			ctx->dest_mail = mail_alloc(t, MAIL_FETCH_STREAM_BODY,
 						    NULL);
-			if (!mail_set_uid(ctx->dest_mail, range[0].seq1)) {
+			/* copying needs the message body. with maildir we also
+			   need to get the GUID in case the message gets
+			   expunged */
+			if (!mail_set_uid(ctx->dest_mail, range[0].seq1) ||
+			    mail_get_special(ctx->dest_mail, MAIL_FETCH_GUID, &guid) < 0) {
 				mail_free(&ctx->dest_mail);
 				mailbox_transaction_rollback(&t);
 			}
