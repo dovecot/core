@@ -371,6 +371,9 @@ cmd_mailbox_delete_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'r':
 		ctx->recursive = TRUE;
 		break;
+	case 's':
+		ctx->ctx.subscriptions = TRUE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -385,7 +388,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_delete_alloc(void)
 	ctx->ctx.ctx.v.init = cmd_mailbox_delete_init;
 	ctx->ctx.ctx.v.run = cmd_mailbox_delete_run;
 	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_delete_parse_arg;
-	ctx->ctx.ctx.getopt_args = "r";
+	ctx->ctx.ctx.getopt_args = "rs";
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
