@@ -482,6 +482,11 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		/* use GUID from uidlist if it exists */
 		i_assert(!_mail->saving);
 
+		if (mail->data.guid != NULL) {
+			*value_r = mail->data.guid;
+			return 0;
+		}
+
 		/* first make sure that we have a refreshed uidlist */
 		if (maildir_mail_get_fname(mbox, _mail, &fname) <= 0)
 			return -1;
@@ -490,7 +495,8 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 						  MAILDIR_UIDLIST_REC_EXT_GUID);
 		if (guid != NULL) {
 			if (*guid != '\0') {
-				*value_r = p_strdup(mail->data_pool, guid);
+				*value_r = mail->data.guid =
+					p_strdup(mail->data_pool, guid);
 				return 0;
 			}
 
@@ -503,9 +509,14 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		}
 
 		/* default to base filename: */
+		if (maildir_mail_get_special(_mail, MAIL_FETCH_UIDL_FILE_NAME,
+					     value_r) < 0)
+			return -1;
+		mail->data.guid = mail->data.filename;
+		return 0;
 	case MAIL_FETCH_UIDL_FILE_NAME:
-		if (mail->data.guid != NULL) {
-			*value_r = mail->data.guid;
+		if (mail->data.filename != NULL) {
+			*value_r = mail->data.filename;
 			return 0;
 		}
 		if (fname != NULL) {
@@ -521,10 +532,10 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			fname = fname != NULL ? fname + 1 : path;
 		}
 		end = strchr(fname, MAILDIR_INFO_SEP);
-		mail->data.guid = end == NULL ?
+		mail->data.filename = end == NULL ?
 			p_strdup(mail->data_pool, fname) :
 			p_strdup_until(mail->data_pool, fname, end);
-		*value_r = mail->data.guid;
+		*value_r = mail->data.filename;
 		return 0;
 	case MAIL_FETCH_UIDL_BACKEND:
 		uidl = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
