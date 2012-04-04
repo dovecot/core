@@ -104,9 +104,12 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 	if (ret < 0) {
 		if (ECANTLINK(errno))
 			ret = 0;
-		else if (errno == ENOENT)
-			mail_set_expunged(mail);
-		else {
+		else if (errno == ENOENT) {
+			/* try if the fallback copying code can still
+			   read the file (the mail could still have the
+			   stream open) */
+			ret = 0;
+		} else {
 			mail_storage_set_critical(
 				_ctx->transaction->box->storage,
 				"link(%s, %s) failed: %m",
