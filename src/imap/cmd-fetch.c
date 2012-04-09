@@ -57,6 +57,11 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
 	} else {
 		*next_arg_r = arg + 1;
 		arg = imap_arg_as_list(arg);
+		if (IMAP_ARG_IS_EOL(arg)) {
+			client_send_command_error(ctx->cmd,
+						  "FETCH list is empty.");
+			return FALSE;
+		}
 		while (imap_arg_get_atom(arg, &str)) {
 			str = t_str_ucase(str);
 			arg++;
