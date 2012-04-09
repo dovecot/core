@@ -50,6 +50,7 @@ struct mail_user *mail_user_alloc(const char *username,
 	user->set_info = set_info;
 	user->unexpanded_set = settings_dup(set_info, set, pool);
 	user->set = settings_dup(set_info, set, pool);
+	user->service = master_service_get_name(master_service);
 
 	/* check settings so that the duplicated structure will again
 	   contain the parsed fields */
@@ -113,7 +114,6 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	mail_set = mail_user_set_get_storage_set(user);
 	user->mail_debug = mail_set->mail_debug;
-	user->service = master_service_get_name(master_service);
 
 	user->initialized = TRUE;
 	hook_mail_user_created(user);
@@ -166,6 +166,8 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 			const struct ip_addr *local_ip,
 			const struct ip_addr *remote_ip)
 {
+	i_assert(service != NULL);
+
 	user->service = p_strdup(user->pool, service);
 	if (local_ip != NULL && local_ip->family != 0) {
 		user->local_ip = p_new(user->pool, struct ip_addr, 1);
