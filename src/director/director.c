@@ -263,7 +263,8 @@ void director_sync_send(struct director *dir, struct director_host *host,
 	str = t_str_new(128);
 	str_printfa(str, "SYNC\t%s\t%u\t%u",
 		    net_ip2addr(&host->ip), host->port, seq);
-	if (minor_version > 0) {
+	if (minor_version > 0 &&
+	    director_connection_get_minor_version(dir->right) > 0) {
 		/* only minor_version>0 supports this parameter */
 		str_printfa(str, "\t%u", minor_version);
 	}

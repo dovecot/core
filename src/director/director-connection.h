@@ -23,6 +23,8 @@ struct director_host *
 director_connection_get_host(struct director_connection *conn);
 bool director_connection_is_handshaked(struct director_connection *conn);
 bool director_connection_is_incoming(struct director_connection *conn);
+unsigned int
+director_connection_get_minor_version(struct director_connection *conn);
 
 void director_connection_cork(struct director_connection *conn);
 void director_connection_uncork(struct director_connection *conn);

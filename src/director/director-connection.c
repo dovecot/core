@@ -82,6 +82,7 @@ struct director_connection {
 	struct director *dir;
 	char *name;
 	time_t created;
+	unsigned int minor_version;
 
 	/* for incoming connections the director host isn't known until
 	   ME-line is received */
@@ -890,6 +891,7 @@ director_connection_handle_handshake(struct director_connection *conn,
 				DIRECTOR_VERSION_MAJOR);
 			return -1;
 		}
+		conn->minor_version = atoi(args[2]);
 		conn->version_received = TRUE;
 		return 1;
 	}
@@ -1526,6 +1528,12 @@ bool director_connection_is_handshaked(struct director_connection *conn)
 bool director_connection_is_incoming(struct director_connection *conn)
 {
 	return conn->in;
+}
+
+unsigned int
+director_connection_get_minor_version(struct director_connection *conn)
+{
+	return conn->minor_version;
 }
 
 void director_connection_cork(struct director_connection *conn)
