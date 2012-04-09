@@ -65,7 +65,7 @@
 #define DIRECTOR_CONNECTION_PING_SYNC_INTERVAL_MSECS 1000
 /* If outgoing director connection exists for less than this many seconds,
    mark the host as failed so we won't try to reconnect to it immediately */
-#define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 10
+#define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 40
 
 #if DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS <= DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS
 #  error DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS is too low
@@ -113,6 +113,7 @@ struct director_connection {
 };
 
 static void director_connection_disconnected(struct director_connection **conn);
+static void director_connection_protocol_error(struct director_connection **conn);
 
 static void ATTR_FORMAT(2, 3)
 director_cmd_error(struct director_connection *conn, const char *fmt, ...)
@@ -318,6 +319,7 @@ static bool director_cmd_me(struct director_connection *conn,
 	const char *connect_str;
 	struct ip_addr ip;
 	unsigned int port;
+	time_t next_comm_attempt;
 
 	if (!director_args_parse_ip_port(conn, args, &ip, &port))
 		return FALSE;
@@ -362,10 +364,19 @@ static bool director_cmd_me(struct director_connection *conn,
 	/* make sure we don't keep old sequence values across restarts */
 	conn->host->last_seq = 0;
 
-	if (dir->left == NULL) {
+	next_comm_attempt = conn->host->last_protocol_failure +
+		DIRECTOR_PROTOCOL_FAILURE_RETRY_SECS;
+	if (next_comm_attempt > ioloop_time) {
+		/* the director recently sent invalid protocol data,
+		   don't try retrying yet */
+		i_error("director(%s): Remote sent invalid protocol data recently, "
+			"waiting %u secs before allowing further communication",
+			conn->name, (unsigned int)(next_comm_attempt-ioloop_time));
+		return FALSE;
+	} else if (dir->left == NULL) {
 		/* a) - just in case the left is also our right side reset
 		   its failed state, so we can connect to it */
-		conn->host->last_failed = 0;
+		conn->host->last_network_failure = 0;
 		if (!director_has_outgoing_connections(dir))
 			director_connect(dir);
 	} else if (dir->left->host == conn->host) {
@@ -548,9 +559,9 @@ static bool director_cmd_director(struct director_connection *conn,
 
 	host = director_host_lookup(conn->dir, &ip, port);
 	if (host != NULL) {
-		/* already have this. just reset its last_failed timestamp,
-		   since it might be up now. */
-		host->last_failed = 0;
+		/* already have this. just reset its last_network_failure
+		   timestamp, since it might be up now. */
+		host->last_network_failure = 0;
 		return TRUE;
 	}
 
@@ -853,7 +864,7 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 
 	/* the host is up now, make sure we can connect to it immediately
 	   if needed */
-	conn->host->last_failed = 0;
+	conn->host->last_network_failure = 0;
 
 	conn->handshake_received = TRUE;
 	if (conn->in) {
@@ -1024,7 +1035,7 @@ static bool director_cmd_connect(struct director_connection *conn,
 
 	host = director_host_get(conn->dir, &ip, port);
 	/* reset failure timestamp so we'll actually try to connect there. */
-	host->last_failed = 0;
+	host->last_network_failure = 0;
 
 	/* remote suggests us to connect elsewhere */
 	if (dir->right != NULL &&
@@ -1193,7 +1204,7 @@ static void director_connection_input(struct director_connection *conn)
 		/* buffer full */
 		i_error("BUG: Director %s sent us more than %d bytes",
 			conn->name, MAX_INBUF_SIZE);
-		director_connection_disconnected(&conn);
+		director_connection_protocol_error(&conn);
 		return;
 	}
 
@@ -1208,7 +1219,7 @@ static void director_connection_input(struct director_connection *conn)
 				i_debug("director(%s): Invalid input, disconnecting",
 					conn->name);
 			}
-			director_connection_disconnected(&conn);
+			director_connection_protocol_error(&conn);
 			break;
 		}
 	}
@@ -1394,13 +1405,6 @@ void director_connection_deinit(struct director_connection **_conn)
 	if (dir->debug && conn->host != NULL)
 		i_debug("Disconnecting from %s", conn->host->name);
 
-	if (conn->host != NULL && !conn->wrong_host &&
-	    (!conn->handshake_received ||
-	     conn->created + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time)) {
-		/* avoid reconnecting back here immediately */
-		conn->host->last_failed = ioloop_time;
-	}
-
 	conns = array_get(&dir->connections, &count);
 	for (i = 0; i < count; i++) {
 		if (conns[i] == conn) {
@@ -1448,6 +1452,24 @@ void director_connection_disconnected(struct director_connection **_conn)
 {
 	struct director_connection *conn = *_conn;
 	struct director *dir = conn->dir;
+
+	if (conn->created + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time) {
+		/* connection didn't exist for very long, assume it has a
+		   network problem */
+		conn->host->last_network_failure = ioloop_time;
+	}
+
+	director_connection_deinit(_conn);
+	if (dir->right == NULL)
+		director_connect(dir);
+}
+
+void director_connection_protocol_error(struct director_connection **_conn)
+{
+	struct director_connection *conn = *_conn;
+	struct director *dir = conn->dir;
+
+	conn->host->last_protocol_failure = ioloop_time;
 
 	director_connection_deinit(_conn);
 	if (dir->right == NULL)

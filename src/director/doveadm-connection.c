@@ -99,6 +99,7 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 	string_t *str = t_str_new(1024);
 	const char *type;
 	bool left, right;
+	time_t last_failed;
 
 	array_foreach(&dir->dir_hosts, hostp) {
 		const struct director_host *host = *hostp;
@@ -116,9 +117,12 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 			type = "right";
 		else
 			type = "";
+
+		last_failed = I_MAX(host->last_network_failure,
+				    host->last_protocol_failure);
 		str_printfa(str, "%s\t%u\t%s\t%lu\n",
 			    net_ip2addr(&host->ip), host->port, type,
-			    (unsigned long)host->last_failed);
+			    (unsigned long)last_failed);
 	}
 	str_append_c(str, '\n');
 	o_stream_send(conn->output, str_data(str), str_len(str));

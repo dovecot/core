@@ -17,8 +17,9 @@ struct director_host {
 	   it can be ignored (or: it must be ignored to avoid potential command
 	   loops) */
 	unsigned int last_seq;
-	/* Last time host was detected to be down/broken */
-	time_t last_failed;
+	/* Last time host was detected to be down */
+	time_t last_network_failure;
+	time_t last_protocol_failure;
 	/* we are this director */
 	unsigned int self:1;
 };

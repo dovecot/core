@@ -11,6 +11,10 @@
 /* weak users supported in protocol v1.1+ */
 #define DIRECTOR_VERSION_WEAK_USERS 1
 
+/* Minimum time between even attempting to communicate with a director that
+   failed due to a protocol error. */
+#define DIRECTOR_PROTOCOL_FAILURE_RETRY_SECS 60
+
 struct director;
 struct mail_host;
 struct user;

@@ -110,13 +110,13 @@ int director_connect_host(struct director *dir, struct director_host *host)
 	port = dir->test_port != 0 ? dir->test_port : host->port;
 	fd = net_connect_ip(&host->ip, port, &dir->self_ip);
 	if (fd == -1) {
-		host->last_failed = ioloop_time;
+		host->last_network_failure = ioloop_time;
 		i_error("connect(%s) failed: %m", host->name);
 		return -1;
 	}
 	/* Reset timestamp so that director_connect() won't skip this host
 	   while we're still trying to connect to it */
-	host->last_failed = 0;
+	host->last_network_failure = 0;
 
 	director_connection_init_out(dir, fd, host);
 	return 0;
@@ -151,9 +151,15 @@ void director_connect(struct director *dir)
 	for (i = 1; i < count; i++) {
 		unsigned int idx = (self_idx + i) % count;
 
-		if (hosts[idx]->last_failed +
+		if (hosts[idx]->last_network_failure +
 		    DIRECTOR_RECONNECT_RETRY_SECS > ioloop_time) {
-			/* failed recently, don't try retrying here */
+			/* connection failed recently, don't try retrying here */
+			continue;
+		}
+		if (hosts[idx]->last_protocol_failure +
+		    DIRECTOR_PROTOCOL_FAILURE_RETRY_SECS > ioloop_time) {
+			/* the director recently sent invalid protocol data,
+			   don't try retrying yet */
 			continue;
 		}
 
