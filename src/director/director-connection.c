@@ -244,7 +244,7 @@ static void director_assign_left(struct director *dir)
 			/* either use this or disconnect it */
 			if (!director_connection_assign_left(conn)) {
 				/* we don't want this */
-				director_connection_deinit(&dir->left);
+				director_connection_deinit(&conn);
 				director_assign_left(dir);
 				break;
 			}
