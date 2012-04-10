@@ -80,19 +80,25 @@ static struct dict *file_dict_init(struct dict *driver, const char *uri,
 				   const char *base_dir ATTR_UNUSED)
 {
 	struct file_dict *dict;
+	const char *p;
 
 	dict = i_new(struct file_dict, 1);
-	if (strncmp(uri, "lock=fcntl ", 11) == 0) {
-		dict->lock_method = FILE_LOCK_METHOD_FCNTL;
-		uri += 11;
-	} else if (strncmp(uri, "lock=flock ", 11) == 0) {
-		dict->lock_method = FILE_LOCK_METHOD_FLOCK;
-		uri += 11;
+	dict->lock_method = FILE_LOCK_METHOD_DOTLOCK;
+
+	p = strchr(uri, ':');
+	if (p == NULL) {
+		/* no parameters */
+		dict->path = i_strdup(uri);
 	} else {
-		dict->lock_method = FILE_LOCK_METHOD_DOTLOCK;
+		dict->path = i_strdup_until(uri, p++);
+		if (strcmp(p, "lock=fcntl") == 0)
+			dict->lock_method = FILE_LOCK_METHOD_FCNTL;
+		else if (strcmp(p, "lock=flock") == 0)
+			dict->lock_method = FILE_LOCK_METHOD_FLOCK;
+		else
+			i_error("dict file: Invalid parameter: %s", p+1);
 	}
 	dict->dict = *driver;
-	dict->path = i_strdup(uri);
 	dict->hash_pool = pool_alloconly_create("file dict", 1024);
 	dict->hash = hash_table_create(default_pool, dict->hash_pool, 0,
 				       str_hash, (hash_cmp_callback_t *)strcmp);
@@ -178,14 +184,16 @@ static int file_dict_refresh(struct file_dict *dict)
 	hash_table_clear(dict->hash, TRUE);
 	p_clear(dict->hash_pool);
 
-	input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
-	while ((key = i_stream_read_next_line(input)) != NULL &&
-	       (value = i_stream_read_next_line(input)) != NULL) {
-		key = p_strdup(dict->hash_pool, key);
-		value = p_strdup(dict->hash_pool, value);
-		hash_table_insert(dict->hash, key, value);
+	if (dict->fd != -1) {
+		input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
+		while ((key = i_stream_read_next_line(input)) != NULL &&
+		       (value = i_stream_read_next_line(input)) != NULL) {
+			key = p_strdup(dict->hash_pool, key);
+			value = p_strdup(dict->hash_pool, value);
+			hash_table_insert(dict->hash, key, value);
+		}
+		i_stream_destroy(&input);
 	}
-	i_stream_destroy(&input);
 	dict->refreshed = TRUE;
 	return 0;
 }
