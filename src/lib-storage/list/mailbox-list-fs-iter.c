@@ -323,13 +323,14 @@ fs_list_read_dir(struct fs_list_iterate_context *ctx, const char *storage_name,
 	dir->info_flags = info_flags;
 	p_array_init(&dir->entries, pool, 16);
 
-	if ((dir->info_flags & MAILBOX_CHILDREN) == 0) {
-		/* start with the assumption of not having children */
-		dir->info_flags |= MAILBOX_NOCHILDREN;
-	}
-
 	if (fs_list_dir_read(ctx, dir) < 0)
 		ctx->ctx.failed = TRUE;
+
+	if ((dir->info_flags & (MAILBOX_CHILDREN | MAILBOX_NOCHILDREN |
+				MAILBOX_NOINFERIORS)) == 0) {
+		/* assume this directory has no children */
+		dir->info_flags |= MAILBOX_NOCHILDREN;
+	}
 	return dir;
 }
 
