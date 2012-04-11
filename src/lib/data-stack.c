@@ -371,7 +371,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 
 		ret = STACK_BLOCK_DATA(current_block);
 #ifdef DEBUG
-		if (warn) {
+		if (warn && getenv("DEBUG_SILENT") == NULL) {
 			/* warn after allocation, so if i_warning() wants to
 			   allocate more memory we don't go to infinite loop */
 			i_warning("Growing data stack with: %"PRIuSIZE_T,
