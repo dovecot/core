@@ -533,7 +533,6 @@ autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
 	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0)
 		match2 = match;
 	else {
-		info->flags |= MAILBOX_SUBSCRIBED;
 		match2 = autocreate_box_match(&actx->all_ns_box_sets,
 					      ctx->list->ns, info->name,
 					      FALSE, &idx);
