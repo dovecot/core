@@ -422,20 +422,20 @@ fd_copy_parent_dir_permissions(const char *src_path, int dest_fd,
 static int
 file_dict_lock(struct file_dict *dict, struct file_lock **lock_r)
 {
-	int fd, ret;
+	int ret;
 
 	if (file_dict_open_latest(dict) < 0)
 		return -1;
 
 	if (dict->fd == -1) {
 		/* quota file doesn't exist yet, we need to create it */
-		fd = open(dict->path, O_CREAT | O_RDWR, 0600);
-		if (fd == -1) {
+		dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
+		if (dict->fd == -1) {
 			i_error("creat(%s) failed: %m", dict->path);
 			return -1;
 		}
-		(void)fd_copy_parent_dir_permissions(dict->path, fd, dict->path);
-		(void)close(fd);
+		(void)fd_copy_parent_dir_permissions(dict->path, dict->fd,
+						     dict->path);
 	}
 
 	do {
