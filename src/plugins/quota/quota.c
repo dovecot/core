@@ -723,7 +723,7 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 		return -1;
 
 	warning = array_append_space(&root_set->warning_rules);
-	warning->command = i_strdup(p+1);
+	warning->command = p_strdup(root_set->set->pool, p+1);
 	warning->rule = rule;
 	warning->reverse = reverse;
 
