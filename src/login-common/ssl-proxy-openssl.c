@@ -942,8 +942,7 @@ static STACK_OF(X509_NAME) *load_ca(X509_STORE *store, const char *ca)
 }
 
 static STACK_OF(X509_NAME) *
-ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set,
-		   bool load_xnames)
+ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set)
 {
 	X509_STORE *store;
 	STACK_OF(X509_NAME) *xnames = NULL;
@@ -957,7 +956,7 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct login_settings *set,
 	SSL_CTX_set_mode(ssl_ctx, SSL_MODE_RELEASE_BUFFERS);
 #endif
 
-	if (*set->ssl_ca != '\0' && load_xnames) {
+	if (*set->ssl_ca != '\0') {
 		/* set trusted CA certs */
 		store = SSL_CTX_get_cert_store(ssl_ctx);
 		xnames = load_ca(store, set->ssl_ca);
@@ -1199,7 +1198,7 @@ ssl_server_context_init(const struct login_settings *set)
 	ctx->ctx = ssl_ctx = SSL_CTX_new(SSLv23_server_method());
 	if (ssl_ctx == NULL)
 		i_fatal("SSL_CTX_new() failed");
-	xnames = ssl_proxy_ctx_init(ssl_ctx, set, ctx->verify_client_cert);
+	xnames = ssl_proxy_ctx_init(ssl_ctx, set);
 
 	if (SSL_CTX_set_cipher_list(ssl_ctx, ctx->cipher_list) != 1) {
 		i_fatal("Can't set cipher list to '%s': %s",
@@ -1266,7 +1265,7 @@ static void ssl_proxy_init_client(const struct login_settings *set)
 
 	if ((ssl_client_ctx = SSL_CTX_new(SSLv23_client_method())) == NULL)
 		i_fatal("SSL_CTX_new() failed");
-	xnames = ssl_proxy_ctx_init(ssl_client_ctx, set, TRUE);
+	xnames = ssl_proxy_ctx_init(ssl_client_ctx, set);
 	ssl_proxy_ctx_verify_client(ssl_client_ctx, xnames);
 
 	ssl_proxy_client_ctx_set_client_cert(ssl_client_ctx, set);
