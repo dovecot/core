@@ -139,6 +139,8 @@ static int ssl_server_context_cmp(const void *p1, const void *p2)
 		return 1;
 	if (strcmp(ctx1->key, ctx2->key) != 0)
 		return 1;
+	if (null_strcmp(ctx1->ca, ctx2->ca) != 0)
+		return 1;
 	if (null_strcmp(ctx1->cipher_list, ctx2->cipher_list) != 0)
 		return 1;
 	if (null_strcmp(ctx1->protocols, ctx2->protocols) != 0)
