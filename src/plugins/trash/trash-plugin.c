@@ -158,9 +158,10 @@ err:
 		trash->mail = NULL;
 		(void)mailbox_search_deinit(&trash->search_ctx);
 
-		if (size_expunged >= size_needed)
+		if (size_expunged >= size_needed) {
 			(void)mailbox_transaction_commit(&trash->trans);
-		else {
+			(void)mailbox_sync(trash->box, 0);
+		} else {
 			/* couldn't get enough space, don't expunge anything */
                         mailbox_transaction_rollback(&trash->trans);
 		}
@@ -175,14 +176,12 @@ err:
 				(unsigned long long)size_needed,
 				(unsigned long long)size_expunged);
 		}
-		return FALSE;
+		return 0;
 	}
 
-	ctx->bytes_used = ctx->bytes_used > (int64_t)size_expunged ?
-		ctx->bytes_used - size_expunged : 0;
-	ctx->count_used = ctx->count_used > (int64_t)expunged_count ?
-		ctx->count_used - expunged_count : 0;
-	return TRUE;
+	ctx->bytes_ceil += size_expunged;
+	ctx->count_ceil += expunged_count;
+	return 1;
 }
 
 static int
@@ -214,7 +213,6 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 		if (ret <= 0)
 			return 0;
 	}
-
 	return 0;
 }
 
