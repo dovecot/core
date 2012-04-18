@@ -309,7 +309,7 @@ static void imapc_mail_close(struct mail *_mail)
 		buffer_free(&mail->body);
 }
 
-static int imapc_mail_get_body_hash(struct index_mail *imail)
+static int imapc_mail_get_hdr_hash(struct index_mail *imail)
 {
 	struct istream *input;
 	const unsigned char *data;
@@ -322,7 +322,7 @@ static int imapc_mail_get_body_hash(struct index_mail *imail)
 	sha1_init(&sha1_ctx);
 	old_offset = imail->data.stream == NULL ? 0 :
 		imail->data.stream->v_offset;
-	if (mail_get_stream(&imail->mail.mail, NULL, NULL, &input) < 0)
+	if (mail_get_hdr_stream(&imail->mail.mail, NULL, &input) < 0)
 		return -1;
 	while (i_stream_read_data(input, &data, &size, 0) > 0) {
 		sha1_loop(&sha1_ctx, data, size);
@@ -365,8 +365,8 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 			return -1;
 		}
 	} else {
-		/* use hash of message body as the GUID */
-		if (imapc_mail_get_body_hash(imail) < 0)
+		/* use hash of message headers as the GUID */
+		if (imapc_mail_get_hdr_hash(imail) < 0)
 			return -1;
 	}
 
