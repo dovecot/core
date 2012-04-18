@@ -76,6 +76,7 @@ struct imapc_feature_list {
 
 static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "rfc822.size", IMAPC_FEATURE_RFC822_SIZE },
+	{ "guid-forced", IMAPC_FEATURE_GUID_FORCED },
 	{ NULL, 0 }
 };
 

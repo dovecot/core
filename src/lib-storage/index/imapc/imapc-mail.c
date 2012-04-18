@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "str.h"
+#include "hex-binary.h"
+#include "sha1.h"
 #include "istream.h"
 #include "imap-envelope.h"
 #include "imapc-msgmap.h"
@@ -307,6 +309,33 @@ static void imapc_mail_close(struct mail *_mail)
 		buffer_free(&mail->body);
 }
 
+static int imapc_mail_get_body_hash(struct index_mail *imail)
+{
+	struct istream *input;
+	const unsigned char *data;
+	size_t size;
+	uoff_t old_offset;
+	struct sha1_ctxt sha1_ctx;
+	unsigned char sha1_output[SHA1_RESULTLEN];
+	const char *sha1_str;
+
+	sha1_init(&sha1_ctx);
+	old_offset = imail->data.stream == NULL ? 0 :
+		imail->data.stream->v_offset;
+	if (mail_get_stream(&imail->mail.mail, NULL, NULL, &input) < 0)
+		return -1;
+	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+		sha1_loop(&sha1_ctx, data, size);
+		i_stream_skip(input, size);
+	}
+	i_stream_seek(imail->data.stream, old_offset);
+	sha1_result(&sha1_ctx, sha1_output);
+
+	sha1_str = binary_to_hex(sha1_output, sizeof(sha1_output));
+	imail->data.guid = p_strdup(imail->data_pool, sha1_str);
+	return 0;
+}
+
 static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 {
 	struct index_mail *imail = (struct index_mail *)_mail;
@@ -328,11 +357,17 @@ static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 	}
 
 	/* GUID not in cache, fetch it */
-	if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID) < 0)
-		return -1;
-	if (imail->data.guid == NULL) {
-		(void)imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
-		return -1;
+	if (mbox->guid_fetch_field_name != NULL) {
+		if (imapc_mail_fetch(_mail, MAIL_FETCH_GUID) < 0)
+			return -1;
+		if (imail->data.guid == NULL) {
+			(void)imapc_mail_failed(_mail, mbox->guid_fetch_field_name);
+			return -1;
+		}
+	} else {
+		/* use hash of message body as the GUID */
+		if (imapc_mail_get_body_hash(imail) < 0)
+			return -1;
 	}
 
 	index_mail_cache_add_idx(imail, cache_idx,
@@ -349,7 +384,8 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 
 	switch (field) {
 	case MAIL_FETCH_GUID:
-		if (mbox->guid_fetch_field_name == NULL) {
+		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GUID_FORCED) &&
+		    mbox->guid_fetch_field_name == NULL) {
 			/* GUIDs not supported by server */
 			break;
 		}
