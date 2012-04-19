@@ -51,12 +51,12 @@
 #define OUTBUF_FLUSH_THRESHOLD (1024*128)
 /* Max idling time before "ME" command must have been received,
    or we'll disconnect. */
-#define DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS (2*1000)
+#define DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS (10*1000)
 /* Max idling time before "DONE" command must have been received,
    or we'll disconnect. */
 #define DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS (30*1000)
 /* How long to wait for PONG for an idling connection */
-#define DIRECTOR_CONNECTION_PING_IDLE_TIMEOUT_MSECS (2*1000)
+#define DIRECTOR_CONNECTION_PING_IDLE_TIMEOUT_MSECS (10*1000)
 /* Maximum time to wait for PONG reply */
 #define DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS (60*1000)
 /* How long to wait to send PING when connection is idle */
