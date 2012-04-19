@@ -52,6 +52,10 @@
 /* Max idling time before "ME" command must have been received,
    or we'll disconnect. */
 #define DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS (10*1000)
+/* Max time to wait for USERs in handshake to be sent. With a lot of users the
+   kernel may quickly eat up everything we send, while the receiver is busy
+   parsing the data. */
+#define DIRECTOR_CONNECTION_SEND_USERS_TIMEOUT_MSECS (120*1000)
 /* Max idling time before "DONE" command must have been received,
    or we'll disconnect. */
 #define DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS (30*1000)
@@ -1368,6 +1372,9 @@ static void director_connection_connected(struct director_connection *conn)
 				    director_connection_output, conn);
 
 	io_remove(&conn->io);
+	timeout_remove(&conn->to_ping);
+	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_SEND_USERS_TIMEOUT_MSECS,
+				    director_connection_init_timeout, conn);
 
 	o_stream_cork(conn->output);
 	director_connection_send_handshake(conn);
