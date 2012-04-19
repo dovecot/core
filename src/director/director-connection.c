@@ -1374,6 +1374,8 @@ static void director_connection_connected(struct director_connection *conn)
 				    director_connection_output, conn);
 
 	io_remove(&conn->io);
+	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
+
 	timeout_remove(&conn->to_ping);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_SEND_USERS_TIMEOUT_MSECS,
 				    director_connection_init_timeout, conn);
