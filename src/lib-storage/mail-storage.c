@@ -1106,6 +1106,18 @@ int mailbox_delete(struct mailbox *box)
 	return ret;
 }
 
+int mailbox_delete_empty(struct mailbox *box)
+{
+	int ret;
+
+	/* FIXME: should be a parameter to delete(), but since it changes API
+	   don't do it for now */
+	box->deleting_must_be_empty = TRUE;
+	ret = mailbox_delete(box);
+	box->deleting_must_be_empty = FALSE;
+	return ret;
+}
+
 static bool
 mail_storages_rename_compatible(struct mail_storage *storage1,
 				struct mail_storage *storage2,

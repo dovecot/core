@@ -535,8 +535,10 @@ int index_storage_mailbox_delete(struct mailbox *box)
 	     no) finish deleting the mailbox
 	*/
 
-	if (mailbox_expunge_all_mails(box) < 0)
-		return -1;
+	if (!box->deleting_must_be_empty) {
+		if (mailbox_expunge_all_mails(box) < 0)
+			return -1;
+	}
 	if (mailbox_mark_index_deleted(box, TRUE) < 0)
 		return -1;
 

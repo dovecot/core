@@ -265,6 +265,8 @@ struct mailbox {
 	unsigned int creating:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
+	/* Delete mailbox only if it's empty */
+	unsigned int deleting_must_be_empty:1;
 	/* Mailbox was already marked as deleted within this allocation. */
 	unsigned int marked_deleted:1;
 	/* TRUE if this is an INBOX for this user */

@@ -417,6 +417,9 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 int mailbox_update(struct mailbox *box, const struct mailbox_update *update);
 /* Delete mailbox (and its parent directory, if it has no siblings) */
 int mailbox_delete(struct mailbox *box);
+/* Delete mailbox, but only if it's empty. If it's not, fails with
+   MAIL_ERROR_EXISTS. */
+int mailbox_delete_empty(struct mailbox *box);
 /* Rename mailbox. Renaming across different mailbox lists is possible only
    between private namespaces and storages of the same type. If the rename
    fails, the error is set to src's storage. */
