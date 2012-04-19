@@ -132,11 +132,12 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 	struct user *user;
 
 	if (timestamp == (time_t)-1) {
-		/* make sure we add it at the end */
+		/* add it at the end */
 		timestamp = ioloop_time;
-		if (dir->tail != NULL &&
-		    timestamp < (time_t)dir->tail->timestamp)
-			timestamp = (time_t)dir->tail->timestamp;
+	} else {
+		/* make sure we don't add timestamps higher than ioloop time */
+		if (timestamp > ioloop_time)
+			timestamp = ioloop_time;
 	}
 
 	user = i_new(struct user, 1);
