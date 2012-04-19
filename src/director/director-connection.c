@@ -866,8 +866,14 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 {
 	struct director *dir = conn->dir;
 
-	if (dir->debug)
-		i_debug("Handshaked to %s", conn->host->name);
+	if (dir->debug) {
+		unsigned int secs = time(NULL)-conn->created;
+
+		i_debug("director(%s): Handshake took %u secs, "
+			"bytes in=%"PRIuUOFF_T" out=%"PRIuUOFF_T,
+			conn->name, secs, conn->input->v_offset,
+			conn->output->offset);
+	}
 
 	/* the host is up now, make sure we can connect to it immediately
 	   if needed */
