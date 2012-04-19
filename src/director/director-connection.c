@@ -1312,6 +1312,8 @@ static int director_connection_output(struct director_connection *conn)
 		o_stream_uncork(conn->output);
 		if (ret < 0)
 			director_connection_disconnected(&conn);
+		else
+			o_stream_set_flush_pending(conn->output, TRUE);
 		return ret;
 	}
 	return o_stream_flush(conn->output);
