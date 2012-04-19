@@ -1282,9 +1282,6 @@ static int director_connection_send_users(struct director_connection *conn)
 	user_directory_iter_deinit(&conn->user_iter);
 	director_connection_send(conn, "DONE\n");
 
-	i_assert(conn->io == NULL);
-	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
-
 	ret = o_stream_flush(conn->output);
 	timeout_reset(conn->to_ping);
 	return ret;
@@ -1365,6 +1362,7 @@ static void director_connection_connected(struct director_connection *conn)
 				    director_connection_output, conn);
 
 	io_remove(&conn->io);
+	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
 
 	o_stream_cork(conn->output);
 	director_connection_send_handshake(conn);
