@@ -103,6 +103,12 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 	if (ret > 0 && (flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
 		/* file was found. make sure we remember its latest name. */
 		maildir_uidlist_update_fname(mbox->uidlist, fname);
+	} else if (ret == 0 &&
+		   (flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) == 0) {
+		/* file wasn't found. mark this message nonsynced, so we can
+		   retry the lookup by guessing the flags */
+		maildir_uidlist_add_flags(mbox->uidlist, fname,
+					  MAILDIR_UIDLIST_REC_FLAG_NONSYNCED);
 	}
 	return ret;
 }
@@ -132,6 +138,11 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 
 	T_BEGIN {
 		ret = maildir_file_do_try(mbox, uid, callback, context);
+	} T_END;
+	if (ret == 0 && mbox->storage->set->maildir_very_dirty_syncs) T_BEGIN {
+		/* try guessing again with refreshed flags */
+		if (maildir_sync_refresh_flags_view(mbox) == 0)
+			ret = maildir_file_do_try(mbox, uid, callback, context);
 	} T_END;
 	for (i = 0; i < MAILDIR_RESYNC_RETRY_COUNT && ret == 0; i++) {
 		/* file is either renamed or deleted. sync the maildir and

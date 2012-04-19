@@ -993,6 +993,34 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox, uint32_t uid)
 	return ret;
 }
 
+int maildir_sync_refresh_flags_view(struct maildir_mailbox *mbox)
+{
+	struct mail_index_view_sync_ctx *sync_ctx;
+	bool delayed_expunges;
+
+	(void)mail_index_refresh(mbox->box.index);
+	if (mbox->flags_view == NULL)
+		mbox->flags_view = mail_index_view_open(mbox->box.index);
+
+	sync_ctx = mail_index_view_sync_begin(mbox->flags_view,
+			MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
+	if (mail_index_view_sync_commit(&sync_ctx, &delayed_expunges) < 0) {
+		mail_storage_set_index_error(&mbox->box);
+		return -1;
+	}
+	/* make sure the map stays in private memory */
+	if (mbox->flags_view->map->refcount > 1) {
+		struct mail_index_map *map;
+
+		map = mail_index_map_clone(mbox->flags_view->map);
+		mail_index_unmap(&mbox->flags_view->map);
+		mbox->flags_view->map = map;
+	}
+	mail_index_record_map_move_to_private(mbox->flags_view->map);
+	mail_index_map_move_to_memory(mbox->flags_view->map);
+	return 0;
+}
+
 struct mailbox_sync_context *
 maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
@@ -1025,29 +1053,8 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	}
 
 	if (mbox->storage->set->maildir_very_dirty_syncs) {
-		struct mail_index_view_sync_ctx *sync_ctx;
-		bool b;
-
-		if (mbox->flags_view == NULL) {
-			mbox->flags_view =
-				mail_index_view_open(mbox->box.index);
-		}
-		sync_ctx = mail_index_view_sync_begin(mbox->flags_view,
-				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
-		if (mail_index_view_sync_commit(&sync_ctx, &b) < 0) {
-			mail_storage_set_index_error(&mbox->box);
+		if (maildir_sync_refresh_flags_view(mbox) < 0)
 			ret = -1;
-		}
-		/* make sure the map stays in private memory */
-		if (mbox->flags_view->map->refcount > 1) {
-			struct mail_index_map *map;
-
-			map = mail_index_map_clone(mbox->flags_view->map);
-			mail_index_unmap(&mbox->flags_view->map);
-			mbox->flags_view->map = map;
-		}
-		mail_index_record_map_move_to_private(mbox->flags_view->map);
-		mail_index_map_move_to_memory(mbox->flags_view->map);
 		maildir_uidlist_set_all_nonsynced(mbox->uidlist);
 	}
 	mbox->synced = TRUE;
