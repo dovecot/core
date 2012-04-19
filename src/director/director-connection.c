@@ -540,7 +540,7 @@ director_cmd_user(struct director_connection *conn,
 	}
 
 	if (director_user_refresh(conn, username_hash,
-				  host, ioloop_time, FALSE, &user)) {
+				  host, (time_t)-1, FALSE, &user)) {
 		i_assert(!user->weak);
 		director_update_user(conn->dir, conn->host, user);
 	}
@@ -674,7 +674,7 @@ director_cmd_user_weak(struct director_connection *conn,
 	}
 
 	if (director_user_refresh(conn, username_hash,
-				  host, ioloop_time, weak, &user)) {
+				  host, (time_t)-1, weak, &user)) {
 		if (!user->weak)
 			director_update_user(conn->dir, src_host, user);
 		else {

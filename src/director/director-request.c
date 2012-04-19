@@ -225,7 +225,7 @@ bool director_request_continue(struct director_request *request)
 			return FALSE;
 		}
 		user = user_directory_add(dir->users, request->username_hash,
-					  host, ioloop_time);
+					  host, (time_t)-1);
 	}
 
 	i_assert(!user->weak);

@@ -24,6 +24,7 @@ struct user_directory {
 	struct hash_table *hash;
 	/* sorted by time */
 	struct user *head, *tail;
+	struct user *prev_insert_pos;
 
 	ARRAY_DEFINE(iters, struct user_directory_iter *);
 
@@ -42,6 +43,9 @@ static void user_move_iters(struct user_directory *dir, struct user *user)
 		if ((*iterp)->pos == user)
 			(*iterp)->pos = user->next;
 	}
+
+	if (dir->prev_insert_pos == user)
+		dir->prev_insert_pos = user->next;
 }
 
 static void user_free(struct user_directory *dir, struct user *user)
@@ -79,11 +83,61 @@ struct user *user_directory_lookup(struct user_directory *dir,
 	return hash_table_lookup(dir->hash, POINTER_CAST(username_hash));
 }
 
+static void
+user_directory_insert_backwards(struct user_directory *dir,
+				struct user *pos, struct user *user)
+{
+	for (; pos != NULL; pos = pos->prev) {
+		if ((time_t)pos->timestamp <= user->timestamp)
+			break;
+	}
+	if (pos == NULL)
+		DLLIST2_PREPEND(&dir->head, &dir->tail, user);
+	else {
+		user->prev = pos;
+		user->next = pos->next;
+		user->prev->next = user;
+		if (user->next != NULL)
+			user->next->prev = user;
+		else
+			dir->tail = user;
+	}
+}
+
+static void
+user_directory_insert_forwards(struct user_directory *dir,
+			       struct user *pos, struct user *user)
+{
+	for (; pos != NULL; pos = pos->next) {
+		if ((time_t)pos->timestamp >= user->timestamp)
+			break;
+	}
+	if (pos == NULL)
+		DLLIST2_APPEND(&dir->head, &dir->tail, user);
+	else {
+		user->prev = pos->prev;
+		user->next = pos;
+		if (user->prev != NULL)
+			user->prev->next = user;
+		else
+			dir->head = user;
+		user->next->prev = user;
+	}
+}
+
 struct user *
 user_directory_add(struct user_directory *dir, unsigned int username_hash,
 		   struct mail_host *host, time_t timestamp)
 {
-	struct user *user, *pos;
+	struct user *user;
+
+	if (timestamp == (time_t)-1) {
+		/* make sure we add it at the end */
+		timestamp = ioloop_time;
+		if (dir->tail != NULL &&
+		    timestamp < (time_t)dir->tail->timestamp)
+			timestamp = (time_t)dir->tail->timestamp;
+	}
 
 	user = i_new(struct user, 1);
 	user->username_hash = username_hash;
@@ -94,21 +148,24 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 	if (dir->tail == NULL || (time_t)dir->tail->timestamp <= timestamp)
 		DLLIST2_APPEND(&dir->head, &dir->tail, user);
 	else {
-		/* need to insert to correct position */
-		for (pos = dir->tail; pos != NULL; pos = pos->prev) {
-			if ((time_t)pos->timestamp <= timestamp)
-				break;
-		}
-		if (pos == NULL)
-			DLLIST2_PREPEND(&dir->head, &dir->tail, user);
-		else {
-			user->prev = pos;
-			user->next = pos->next;
-			user->prev->next = user;
-			user->next->prev = user;
+		/* need to insert to correct position. we should get here
+		   only when handshaking. the handshaking USER requests should
+		   come sorted by timestamp. so keep track of the previous
+		   insert position, the next USER should be inserted after
+		   it. */
+		if (dir->prev_insert_pos == NULL) {
+			/* find the position starting from tail */
+			user_directory_insert_backwards(dir, dir->tail, user);
+		} else if (timestamp < dir->prev_insert_pos->timestamp) {
+			user_directory_insert_backwards(dir, dir->prev_insert_pos,
+							user);
+		} else {
+			user_directory_insert_forwards(dir, dir->prev_insert_pos,
+						       user);
 		}
 	}
 
+	dir->prev_insert_pos = user;
 	hash_table_insert(dir->hash, POINTER_CAST(user->username_hash), user);
 	return user;
 }
