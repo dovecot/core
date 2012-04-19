@@ -55,7 +55,7 @@
 /* Max time to wait for USERs in handshake to be sent. With a lot of users the
    kernel may quickly eat up everything we send, while the receiver is busy
    parsing the data. */
-#define DIRECTOR_CONNECTION_SEND_USERS_TIMEOUT_MSECS (120*1000)
+#define DIRECTOR_CONNECTION_SEND_USERS_TIMEOUT_MSECS (30*1000)
 /* Max idling time before "DONE" command must have been received,
    or we'll disconnect. */
 #define DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS (30*1000)
