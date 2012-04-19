@@ -30,7 +30,7 @@ auth_worker_reply_parse(struct auth_request *request, const char *reply)
 	enum passdb_result ret;
 	const char *const *args;
 
-	args = t_strsplit(reply, "\t");
+	args = t_strsplit_tab(reply);
 
 	if (strcmp(*args, "OK") == 0 && args[1] != NULL && args[2] != NULL) {
 		/* OK \t user \t password [\t extra] */

@@ -54,7 +54,7 @@ static void env_put_extra_fields(const char *extra_fields)
 	const char *const *tmp;
 	const char *key, *p;
 
-	for (tmp = t_strsplit(extra_fields, "\t"); *tmp != NULL; tmp++) {
+	for (tmp = t_strsplit_tab(extra_fields); *tmp != NULL; tmp++) {
 		key = t_str_ucase(t_strcut(*tmp, '='));
 		p = strchr(*tmp, '=');
 		if (p == NULL)

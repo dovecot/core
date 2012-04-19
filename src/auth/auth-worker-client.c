@@ -547,7 +547,7 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 	unsigned int id;
 	bool ret = FALSE;
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (args[0] == NULL || args[1] == NULL || args[2] == NULL ||
 	    str_to_uint(args[0], &id) < 0) {
 		i_error("BUG: Invalid input: %s", line);

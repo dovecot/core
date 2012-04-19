@@ -227,7 +227,7 @@ master_login_auth_input_user(struct master_login_auth *auth, const char *args)
 
 	/* <id> <userid> [..] */
 
-	list = t_strsplit(args, "\t");
+	list = t_strsplit_tab(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0) {
 		i_error("Auth server sent corrupted USER line");
@@ -273,7 +273,7 @@ master_login_auth_input_fail(struct master_login_auth *auth,
  	const char *const *args, *error = NULL;
 	unsigned int i, id;
 
-	args = t_strsplit(args_line, "\t");
+	args = t_strsplit_tab(args_line);
 	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
 		i_error("Auth server sent broken FAIL line");
 		return FALSE;

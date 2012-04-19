@@ -84,7 +84,7 @@ static void client_connected(struct master_service_connection *conn)
 	/* put everything to environment */
 	env_clean();
 	keys = t_str_new(256);
-	args = t_strsplit(data_line, "\t");
+	args = t_strsplit_tab(data_line);
 
 	if (str_array_length(args) < 3)
 		i_fatal("Missing input fields");

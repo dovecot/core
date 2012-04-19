@@ -47,7 +47,7 @@ static void cmd_proxy_list_callback(enum ipc_client_cmd_state state,
 	switch (state) {
 	case IPC_CLIENT_CMD_STATE_REPLY:
 		T_BEGIN {
-			const char *const *args = t_strsplit(data, "\t");
+			const char *const *args = t_strsplit_tab(data);
 			for (; *args != NULL; args++)
 				doveadm_print(*args);
 		} T_END;

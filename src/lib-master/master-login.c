@@ -276,7 +276,7 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 		return;
 	}
 
-	auth_args = t_strsplit(str_c(pl->input), "\t");
+	auth_args = t_strsplit_tab(str_c(pl->input));
 	for (p = auth_args; *p != NULL; p++)
 		*p = str_tabunescape(t_strdup_noconst(*p));
 

@@ -1169,7 +1169,7 @@ director_connection_handle_line(struct director_connection *conn,
 	const char *cmd, *const *args;
 	bool ret;
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	cmd = args[0]; args++;
 	if (cmd == NULL) {
 		i_error("director(%s): Received empty line", conn->name);

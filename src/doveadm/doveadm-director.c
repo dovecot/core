@@ -120,7 +120,7 @@ cmd_director_status_user(struct director_context *ctx, const char *user)
 		return;
 	}
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (str_array_length(args) != 4 ||
 	    str_to_uint(args[1], &expires) < 0) {
 		i_error("Invalid reply from director");
@@ -162,7 +162,7 @@ static void cmd_director_status(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit(line, "\t");
+			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 3) {
 				doveadm_print(args[0]);
 				doveadm_print(args[1]);
@@ -315,7 +315,7 @@ static void cmd_director_map(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit(line, "\t");
+			args = t_strsplit_tab(line);
 			if (str_array_length(args) < 3 ||
 			    str_to_uint(args[0], &user_hash) < 0 ||
 			    str_to_uint(args[1], &expires) < 0 ||
@@ -559,7 +559,7 @@ static void cmd_director_dump(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit(line, "\t");
+			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 2) {
 				director_dump_cmd(ctx, "add", "%s %s",
 						  args[0], args[1]);
@@ -599,7 +599,7 @@ static void cmd_director_ring_status(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit(line, "\t");
+			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 4 &&
 			    str_to_ulong(args[3], &l) == 0) {
 				doveadm_print(args[0]);

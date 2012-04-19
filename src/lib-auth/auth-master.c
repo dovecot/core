@@ -117,7 +117,7 @@ static int auth_input_handshake(struct auth_master_connection *conn)
 	const char *line, *const *tmp;
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		tmp = t_strsplit(line, "\t");
+		tmp = t_strsplit_tab(line);
 		if (strcmp(tmp[0], "VERSION") == 0 &&
 		    tmp[1] != NULL && tmp[2] != NULL) {
 			if (strcmp(tmp[1], dec2str(AUTH_PROTOCOL_MAJOR)) != 0) {
@@ -230,7 +230,7 @@ auth_handle_line(struct auth_master_connection *conn, const char *line)
 {
 	const char *cmd, *const *args, *id, *wanted_id;
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	cmd = *args; args++;
 	if (*args == NULL)
 		id = "";

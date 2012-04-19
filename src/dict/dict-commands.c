@@ -90,7 +90,7 @@ static int cmd_iterate(struct dict_connection *conn, const char *line)
 		return -1;
 	}
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (str_array_length(args) < 2 ||
 	    str_to_uint(args[0], &flags) < 0) {
 		i_error("dict client: ITERATE: broken input");
@@ -272,7 +272,7 @@ static int cmd_set(struct dict_connection *conn, const char *line)
 	const char *const *args;
 
 	/* <id> <key> <value> */
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (str_array_length(args) != 3) {
 		i_error("dict client: SET: broken input");
 		return -1;
@@ -291,7 +291,7 @@ static int cmd_unset(struct dict_connection *conn, const char *line)
 	const char *const *args;
 
 	/* <id> <key> */
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (str_array_length(args) != 2) {
 		i_error("dict client: UNSET: broken input");
 		return -1;
@@ -311,7 +311,7 @@ static int cmd_atomic_inc(struct dict_connection *conn, const char *line)
 	long long diff;
 
 	/* <id> <key> <diff> */
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (str_array_length(args) != 3 ||
 	    str_to_llong(args[2], &diff) < 0) {
 		i_error("dict client: ATOMIC_INC: broken input");

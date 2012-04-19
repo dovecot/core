@@ -170,7 +170,7 @@ static void get_client_extra_fields(struct auth_request *request,
 		}
 	}
 
-	fields = t_strsplit(extra_fields, "\t");
+	fields = t_strsplit_tab(extra_fields);
 	for (src = 0; fields[src] != NULL; src++) {
 		if (strncmp(fields[src], "userdb_", 7) != 0) {
 			if (!seen_pass && strncmp(fields[src], "pass=", 5) == 0)
@@ -439,7 +439,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	i_assert(!handler->destroyed);
 
 	/* <id> <mechanism> [...] */
-	list = t_strsplit(args, "\t");
+	list = t_strsplit_tab(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Authentication client %u "

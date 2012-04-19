@@ -137,7 +137,7 @@ doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
 	struct ip_addr ip;
 	unsigned int vhost_count = -1U;
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (args[0] == NULL ||
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && str_to_uint(args[1], &vhost_count) < 0)) {
@@ -300,7 +300,7 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
 	struct mail_host *host;
 	struct ip_addr ip;
 
-	args = t_strsplit(line, "\t");
+	args = t_strsplit_tab(line);
 	if (args[0] == NULL || args[1] == NULL ||
 	    net_addr2ip(args[1], &ip) < 0) {
 		i_error("doveadm sent invalid USER-MOVE parameters: %s", line);
