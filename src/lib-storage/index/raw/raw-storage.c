@@ -28,6 +28,7 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 		i_fatal("Raw user initialization failed: %s", error);
 
 	ns_set = p_new(user->pool, struct mail_namespace_settings, 1);
+	ns_set->name = "raw-storage";
 	ns_set->location = ":LAYOUT=none";
 	ns_set->separator = "/";
 
