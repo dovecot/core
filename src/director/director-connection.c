@@ -134,6 +134,9 @@ director_connection_init_timeout(struct director_connection *conn)
 	if (!conn->connected) {
 		i_error("director(%s): Connect timed out (%u secs)",
 			conn->name, secs);
+	} else if (conn->io == NULL) {
+		i_error("director(%s): Sending handshake (%u secs)",
+			conn->name, secs);
 	} else if (!conn->me_received) {
 		i_error("director(%s): Handshaking ME timed out (%u secs)",
 			conn->name, secs);
