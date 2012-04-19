@@ -117,7 +117,7 @@ struct director_connection {
 };
 
 static void director_connection_disconnected(struct director_connection **conn);
-static void director_connection_protocol_error(struct director_connection **conn);
+static void director_connection_reconnect(struct director_connection **conn);
 
 static void ATTR_FORMAT(2, 3)
 director_cmd_error(struct director_connection *conn, const char *fmt, ...)
@@ -128,6 +128,8 @@ director_cmd_error(struct director_connection *conn, const char *fmt, ...)
 	i_error("director(%s): Command %s: %s (input: %s)", conn->name,
 		conn->cur_cmd, t_strdup_vprintf(fmt, args), conn->cur_line);
 	va_end(args);
+
+	conn->host->last_protocol_failure = ioloop_time;
 }
 
 static void
@@ -1133,10 +1135,8 @@ director_connection_handle_cmd(struct director_connection *conn,
 		if (ret < 0) {
 			/* invalid commands during handshake,
 			   we probably don't want to reconnect here */
-			if (conn->dir->debug) {
-				i_debug("director(%s): Handshaking failed",
-					conn->host->name);
-			}
+			i_error("director(%s): Handshaking failed",
+				conn->name);
 			return FALSE;
 		}
 		/* allow also other commands during handshake */
@@ -1185,7 +1185,7 @@ director_connection_handle_line(struct director_connection *conn,
 	args = t_strsplit_tab(line);
 	cmd = args[0]; args++;
 	if (cmd == NULL) {
-		i_error("director(%s): Received empty line", conn->name);
+		director_cmd_error(conn, "Received empty line");
 		return FALSE;
 	}
 
@@ -1215,9 +1215,9 @@ static void director_connection_input(struct director_connection *conn)
 		return;
 	case -2:
 		/* buffer full */
-		i_error("BUG: Director %s sent us more than %d bytes",
-			conn->name, MAX_INBUF_SIZE);
-		director_connection_protocol_error(&conn);
+		director_cmd_error(conn, "Director sent us more than %d bytes",
+				   MAX_INBUF_SIZE);
+		director_connection_reconnect(&conn);
 		return;
 	}
 
@@ -1228,11 +1228,9 @@ static void director_connection_input(struct director_connection *conn)
 		} T_END;
 
 		if (!ret) {
-			if (dir->debug) {
-				i_debug("director(%s): Invalid input, disconnecting",
-					conn->name);
-			}
-			director_connection_protocol_error(&conn);
+			i_error("director(%s): Invalid input, disconnecting",
+				conn->name);
+			director_connection_reconnect(&conn);
 			break;
 		}
 	}
@@ -1480,12 +1478,10 @@ void director_connection_disconnected(struct director_connection **_conn)
 		director_connect(dir);
 }
 
-void director_connection_protocol_error(struct director_connection **_conn)
+void director_connection_reconnect(struct director_connection **_conn)
 {
 	struct director_connection *conn = *_conn;
 	struct director *dir = conn->dir;
-
-	conn->host->last_protocol_failure = ioloop_time;
 
 	director_connection_deinit(_conn);
 	if (dir->right == NULL)
