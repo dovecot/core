@@ -1389,7 +1389,8 @@ static void director_connection_connected(struct director_connection *conn)
 	director_connection_send(conn, str_c(str));
 
 	conn->user_iter = user_directory_iter_init(dir->users);
-	(void)director_connection_send_users(conn);
+	if (director_connection_send_users(conn) == 0)
+		o_stream_set_flush_pending(conn->output, TRUE);
 	o_stream_uncork(conn->output);
 }
 
