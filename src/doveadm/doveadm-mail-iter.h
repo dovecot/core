@@ -13,6 +13,8 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 			   struct doveadm_mail_iter **iter_r);
 int doveadm_mail_iter_deinit(struct doveadm_mail_iter **iter);
 int doveadm_mail_iter_deinit_sync(struct doveadm_mail_iter **iter);
+int doveadm_mail_iter_deinit_keep_box(struct doveadm_mail_iter **iter,
+				      struct mailbox **box_r);
 void doveadm_mail_iter_deinit_rollback(struct doveadm_mail_iter **iter);
 
 bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter,
