@@ -206,8 +206,7 @@ timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 
 void timeout_reset(struct timeout *timeout)
 {
-	timeout_reset_timeval(timeout, timeout->ioloop->running ? NULL :
-			      &ioloop_timeval);
+	timeout_reset_timeval(timeout, NULL);
 }
 
 static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
