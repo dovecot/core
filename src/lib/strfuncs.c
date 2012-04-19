@@ -463,6 +463,47 @@ char **p_strsplit_spaces(pool_t pool, const char *data,
 	return split_str(pool, data, separators, TRUE);
 }
 
+const char **t_strsplit_tab(const char *data)
+{
+        const char **array;
+	char *dest;
+        unsigned int i, array_idx, array_size, dest_size;
+
+	if (*data == '\0')
+		return t_new(const char *, 1);
+
+	array_size = 1;
+	dest_size = 128;
+	dest = t_buffer_get(dest_size+1);
+	for (i = 0; data[i] != '\0'; i++) {
+		if (i >= dest_size) {
+			dest_size = nearest_power(dest_size+1);
+			dest = t_buffer_reget(dest, dest_size+1);
+		}
+		if (data[i] != '\t')
+			dest[i] = data[i];
+		else {
+			dest[i] = '\0';
+			array_size++;
+		}
+	}
+	i_assert(i <= dest_size);
+	dest[i] = '\0';
+	t_buffer_alloc(i+1);
+	dest_size = i;
+
+	array = t_new(const char *, array_size + 1);
+	array[0] = dest; array_idx = 1;
+
+	for (i = 0; i < dest_size; i++) {
+		if (dest[i] == '\0')
+			array[array_idx++] = dest+i+1;
+	}
+	i_assert(array_idx == array_size);
+	array[array_idx] = NULL;
+        return array;
+}
+
 void p_strsplit_free(pool_t pool, char **arr)
 {
 	p_free(pool, arr[0]);
