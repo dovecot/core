@@ -1135,8 +1135,6 @@ director_connection_handle_cmd(struct director_connection *conn,
 		if (ret < 0) {
 			/* invalid commands during handshake,
 			   we probably don't want to reconnect here */
-			i_error("director(%s): Handshaking failed",
-				conn->name);
 			return FALSE;
 		}
 		/* allow also other commands during handshake */
@@ -1228,8 +1226,6 @@ static void director_connection_input(struct director_connection *conn)
 		} T_END;
 
 		if (!ret) {
-			i_error("director(%s): Invalid input, disconnecting",
-				conn->name);
 			director_connection_reconnect(&conn);
 			break;
 		}
