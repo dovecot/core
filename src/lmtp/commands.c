@@ -416,6 +416,9 @@ int cmd_rcpt(struct client *client, const char *args)
 	}
 
 	if (client->proxy != NULL) {
+		/* NOTE: if this restriction is ever removed, we'll also need
+		   to send different message bodies to local and proxy
+		   (with and without Return-Path: header) */
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
 			address);
@@ -742,9 +745,13 @@ static const char *client_get_added_headers(struct client *client)
 		rcpt_to = rcpt->address;
 	}
 
-	str_printfa(str, "Return-Path: <%s>\r\n", client->state.mail_from);
-	if (rcpt_to != NULL)
-		str_printfa(str, "Delivered-To: <%s>\r\n", rcpt_to);
+	/* don't set Return-Path when proxying so it won't get added twice */
+	if (array_count(&client->state.rcpt_to) > 0) {
+		str_printfa(str, "Return-Path: <%s>\r\n",
+			    client->state.mail_from);
+		if (rcpt_to != NULL)
+			str_printfa(str, "Delivered-To: <%s>\r\n", rcpt_to);
+	}
 
 	str_printfa(str, "Received: from %s", client->lhlo);
 	if ((host = net_ip2addr(&client->remote_ip)) != NULL)
