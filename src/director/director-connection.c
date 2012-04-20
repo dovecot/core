@@ -571,6 +571,8 @@ static bool director_cmd_director(struct director_connection *conn,
 		/* already have this. just reset its last_network_failure
 		   timestamp, since it might be up now. */
 		host->last_network_failure = 0;
+		/* it also may have been restarted, so reset last_seq */
+		host->last_seq = 0;
 		return TRUE;
 	}
 
