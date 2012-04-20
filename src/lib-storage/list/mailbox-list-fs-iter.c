@@ -373,6 +373,7 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 {
 	bool full_fs_access =
 		ctx->ctx.list->mail_set->mail_full_filesystem_access;
+	char ns_sep = mail_namespace_get_sep(ctx->ctx.list->ns);
 	const char *const *patterns, *pattern, *const *parentp, *const *childp;
 	const char *p, *last, *root;
 	unsigned int i, parentlen;
@@ -387,10 +388,10 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 		for (p = last = pattern; *p != '\0'; p++) {
 			if (*p == '%' || *p == '*')
 				break;
-			if (*p == '/')
+			if (*p == ns_sep)
 				last = p;
 		}
-		if (p == last+1 && *pattern == '/')
+		if (p == last+1 && *pattern == ns_sep)
 			root = "/";
 		else {
 			root = mailbox_list_get_storage_name(ctx->ctx.list,
