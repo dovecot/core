@@ -65,6 +65,8 @@ struct director {
 	unsigned int ring_min_version;
 	time_t ring_last_sync_time;
 
+	time_t ring_first_alone;
+
 	/* director ring handshaking is complete.
 	   director can start serving clients. */
 	unsigned int ring_handshaked:1;

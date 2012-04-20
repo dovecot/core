@@ -18,6 +18,8 @@
 #define DIRECTOR_USER_MOVE_TIMEOUT_MSECS (30*1000)
 #define DIRECTOR_USER_MOVE_FINISH_DELAY_MSECS (2*1000)
 #define DIRECTOR_SYNC_TIMEOUT_MSECS (5*1000)
+#define DIRECTOR_RING_MIN_WAIT_SECS 20
+#define DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS 1000
 
 static bool director_is_self_ip_set(struct director *dir)
 {
@@ -138,6 +140,30 @@ director_get_preferred_right_host(struct director *dir)
 	return hosts[(self_idx + 1) % count];
 }
 
+static bool director_wait_for_others(struct director *dir)
+{
+	struct director_host *const *hostp;
+
+	/* don't assume we're alone until we've attempted to connect
+	   to others for a while */
+	if (dir->ring_first_alone != 0 &&
+	    ioloop_time - dir->ring_first_alone > DIRECTOR_RING_MIN_WAIT_SECS)
+		return FALSE;
+
+	if (dir->ring_first_alone == 0)
+		dir->ring_first_alone = ioloop_time;
+	/* reset all failures and try again */
+	array_foreach(&dir->dir_hosts, hostp) {
+		(*hostp)->last_network_failure = 0;
+		(*hostp)->last_protocol_failure = 0;
+	}
+	if (dir->to_reconnect != NULL)
+		timeout_remove(&dir->to_reconnect);
+	dir->to_reconnect = timeout_add(DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS,
+					director_connect, dir);
+	return TRUE;
+}
+
 void director_connect(struct director *dir)
 {
 	struct director_host *const *hosts;
@@ -163,26 +189,30 @@ void director_connect(struct director *dir)
 			continue;
 		}
 
-		if (director_connect_host(dir, hosts[idx]) == 0)
-			break;
-	}
-	if (i == count) {
-		/* we're the only one */
-		if (dir->debug) {
-			i_debug("director: Couldn't connect to right side, "
-				"we must be the only director left");
+		if (director_connect_host(dir, hosts[idx]) == 0) {
+			/* success */
+			return;
 		}
-		if (dir->left != NULL) {
-			/* since we couldn't connect to it,
-			   it must have failed recently */
-			director_connection_deinit(&dir->left);
-		}
-		dir->ring_min_version = DIRECTOR_VERSION_MINOR;
-		if (!dir->ring_handshaked)
-			director_set_ring_handshaked(dir);
-		else
-			director_set_ring_synced(dir);
 	}
+
+	if (count > 1 && director_wait_for_others(dir))
+		return;
+
+	/* we're the only one */
+	if (count > 1) {
+		i_warning("director: Couldn't connect to right side, "
+			  "we must be the only director left");
+	}
+	if (dir->left != NULL) {
+		/* since we couldn't connect to it,
+		   it must have failed recently */
+		director_connection_deinit(&dir->left);
+	}
+	dir->ring_min_version = DIRECTOR_VERSION_MINOR;
+	if (!dir->ring_handshaked)
+		director_set_ring_handshaked(dir);
+	else
+		director_set_ring_synced(dir);
 }
 
 void director_set_ring_handshaked(struct director *dir)
@@ -238,16 +268,14 @@ void director_set_ring_synced(struct director *dir)
 
 	host = dir->right == NULL ? NULL :
 		director_connection_get_host(dir->right);
+
+	if (dir->to_reconnect != NULL)
+		timeout_remove(&dir->to_reconnect);
 	if (host != director_get_preferred_right_host(dir)) {
 		/* try to reconnect to preferred host later */
-		if (dir->to_reconnect == NULL) {
-			dir->to_reconnect =
-				timeout_add(DIRECTOR_RECONNECT_TIMEOUT_MSECS,
-					    director_reconnect_timeout, dir);
-		}
-	} else {
-		if (dir->to_reconnect != NULL)
-			timeout_remove(&dir->to_reconnect);
+		dir->to_reconnect =
+			timeout_add(DIRECTOR_RECONNECT_TIMEOUT_MSECS,
+				    director_reconnect_timeout, dir);
 	}
 
 	if (dir->left != NULL)
