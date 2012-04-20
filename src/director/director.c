@@ -323,6 +323,10 @@ void director_set_ring_unsynced(struct director *dir)
 
 static void director_sync(struct director *dir)
 {
+	/* we're synced again when we receive this SYNC back */
+	dir->sync_seq++;
+	director_set_ring_unsynced(dir);
+
 	if (dir->sync_frozen) {
 		dir->sync_pending = TRUE;
 		return;
@@ -332,10 +336,6 @@ static void director_sync(struct director *dir)
 			 (dir->left == NULL && dir->right == NULL));
 		return;
 	}
-
-	/* we're synced again when we receive this SYNC back */
-	dir->sync_seq++;
-	director_set_ring_unsynced(dir);
 
 	if (dir->debug) {
 		i_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
