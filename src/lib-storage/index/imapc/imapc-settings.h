@@ -22,6 +22,7 @@ struct imapc_settings {
 
 	const char *imapc_features;
 	const char *imapc_rawlog_dir;
+	const char *imapc_list_prefix;
 	const char *ssl_crypto_device;
 
 	enum imapc_features parsed_features;

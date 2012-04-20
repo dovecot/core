@@ -92,7 +92,7 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 
 	T_BEGIN {
 		const char *vname =
-			mailbox_list_default_get_vname(&list->list, name);
+			mailbox_list_get_vname(&list->list, name);
 
 		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
 			node = mailbox_tree_lookup(tree, vname);
@@ -189,6 +189,37 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 	i_assert(list->sep != '\0');
 
 	return list->sep;
+}
+
+static const char *
+imapc_list_get_storage_name(struct mailbox_list *_list, const char *vname)
+{
+	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	const char *prefix = list->storage->set->imapc_list_prefix;
+	const char *storage_name;
+
+	storage_name = mailbox_list_default_get_storage_name(_list, vname);
+	if (*prefix != '\0') {
+		storage_name = t_strdup_printf("%s%c%s", prefix, list->sep,
+					       storage_name);
+	}
+	return storage_name;
+}
+
+static const char *
+imapc_list_get_vname(struct mailbox_list *_list, const char *storage_name)
+{
+	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
+	const char *prefix = list->storage->set->imapc_list_prefix;
+	unsigned int prefix_len;
+
+	if (*prefix != '\0') {
+		prefix_len = strlen(prefix);
+		i_assert(strncmp(prefix, storage_name, prefix_len) == 0 &&
+			 storage_name[prefix_len] == list->sep);
+		storage_name += prefix_len+1;
+	}
+	return mailbox_list_default_get_vname(_list, storage_name);
 }
 
 static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
@@ -313,14 +344,22 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 {
 	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
+	const char *pattern;
 
 	i_assert(list->sep != '\0');
 
 	if (list->refreshed_mailboxes)
 		return 0;
 
+	if (*list->storage->set->imapc_list_prefix == '\0')
+		pattern = "*";
+	else {
+		pattern = t_strdup_printf("%s%c*",
+			list->storage->set->imapc_list_prefix, list->sep);
+	}
+
 	cmd = imapc_list_simple_context_init(&ctx, list);
-	imapc_command_send(cmd, "LIST \"\" *");
+	imapc_command_sendf(cmd, "LIST \"\" %s", pattern);
 	mailbox_tree_deinit(&list->mailboxes);
 	list->mailboxes = mailbox_tree_init(list->sep);
 
@@ -611,7 +650,7 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 
 	i_assert(list->sep != '\0');
 
-	vname = mailbox_list_default_get_vname(_list, name);
+	vname = mailbox_list_get_vname(_list, name);
 	if (!list->refreshed_mailboxes) {
 		node = mailbox_tree_lookup(list->mailboxes, vname);
 		if (node != NULL)
@@ -646,8 +685,8 @@ struct mailbox_list imapc_mailbox_list = {
 		imapc_is_valid_existing_name,
 		imapc_is_valid_create_name,
 		imapc_list_get_hierarchy_sep,
-		mailbox_list_default_get_vname,
-		mailbox_list_default_get_storage_name,
+		imapc_list_get_vname,
+		imapc_list_get_storage_name,
 		imapc_list_get_path,
 		imapc_list_get_temp_prefix,
 		imapc_list_join_refpattern,
