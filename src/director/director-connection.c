@@ -562,24 +562,37 @@ static bool director_cmd_director(struct director_connection *conn,
 	struct director_host *host;
 	struct ip_addr ip;
 	unsigned int port;
+	bool forward = FALSE;
 
 	if (!director_args_parse_ip_port(conn, args, &ip, &port))
 		return FALSE;
 
 	host = director_host_lookup(conn->dir, &ip, port);
 	if (host != NULL) {
+		if (host == conn->dir->self_host) {
+			/* ignore updates to ourself */
+			return TRUE;
+		}
+
 		/* already have this. just reset its last_network_failure
 		   timestamp, since it might be up now. */
 		host->last_network_failure = 0;
-		/* it also may have been restarted, so reset last_seq */
-		host->last_seq = 0;
-		return TRUE;
+		if (host->last_seq != 0) {
+			/* it also may have been restarted, reset last_seq */
+			host->last_seq = 0;
+			forward = TRUE;
+		}
+	} else {
+		/* save the director and forward it */
+		director_host_add(conn->dir, &ip, port);
+		forward = TRUE;
 	}
-
-	/* save the director and forward it */
-	director_host_add(conn->dir, &ip, port);
-	director_update_send(conn->dir, director_connection_get_host(conn),
-		t_strdup_printf("DIRECTOR\t%s\t%u\n", net_ip2addr(&ip), port));
+	if (forward) {
+		director_update_send(conn->dir,
+			director_connection_get_host(conn),
+			t_strdup_printf("DIRECTOR\t%s\t%u\n",
+					net_ip2addr(&ip), port));
+	}
 	return TRUE;
 }
 
