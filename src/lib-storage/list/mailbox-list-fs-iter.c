@@ -371,11 +371,12 @@ fs_list_get_valid_patterns(struct fs_list_iterate_context *ctx,
 
 static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 {
+	struct mail_namespace *ns = ctx->ctx.list->ns;
+	char ns_sep = mail_namespace_get_sep(ns);
 	bool full_fs_access =
 		ctx->ctx.list->mail_set->mail_full_filesystem_access;
-	char ns_sep = mail_namespace_get_sep(ctx->ctx.list->ns);
 	const char *const *patterns, *pattern, *const *parentp, *const *childp;
-	const char *p, *last, *root;
+	const char *p, *last, *root, *prefix_vname;
 	unsigned int i, parentlen;
 
 	i_assert(*ctx->valid_patterns != NULL);
@@ -391,11 +392,20 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 			if (*p == ns_sep)
 				last = p;
 		}
+		prefix_vname = t_strdup_until(pattern, last);
+
 		if (p == last+1 && *pattern == ns_sep)
 			root = "/";
-		else {
+		else if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+			 strcasecmp(prefix_vname, "INBOX") == 0 &&
+			 strncasecmp(ns->prefix, pattern, ns->prefix_len) == 0) {
+			/* special case: Namespace prefix is INBOX/ and
+			   we just want to see its contents (not the
+			   INBOX's children). */
+			root = "";
+		} else {
 			root = mailbox_list_get_storage_name(ctx->ctx.list,
-						t_strdup_until(pattern, last));
+							     prefix_vname);
 		}
 
 		if (*root == '/') {
