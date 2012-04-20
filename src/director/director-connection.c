@@ -70,6 +70,7 @@
 /* If outgoing director connection exists for less than this many seconds,
    mark the host as failed so we won't try to reconnect to it immediately */
 #define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 40
+#define DIRECTOR_WAIT_DISCONNECT_MSECS 10
 
 #if DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS <= DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS
 #  error DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS is too low
@@ -96,7 +97,7 @@ struct director_connection {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
-	struct timeout *to, *to_ping, *to_pong;
+	struct timeout *to_disconnect, *to_ping, *to_pong;
 
 	struct user_directory_iter *user_iter;
 
@@ -166,16 +167,28 @@ director_connection_set_ping_timeout(struct director_connection *conn)
 	conn->to_ping = timeout_add(msecs, director_connection_ping, conn);
 }
 
+static void director_connection_wait_timeout(struct director_connection *conn)
+{
+	director_connection_deinit(&conn);
+}
+
 static void director_connection_send_connect(struct director_connection *conn,
 					     struct director_host *host)
 {
 	const char *connect_str;
+
+	if (conn->to_disconnect != NULL)
+		return;
 
 	connect_str = t_strdup_printf("CONNECT\t%s\t%u\n",
 				      net_ip2addr(&host->ip), host->port);
 	director_connection_send(conn, connect_str);
 	(void)o_stream_flush(conn->output);
 	o_stream_uncork(conn->output);
+
+	conn->to_disconnect =
+		timeout_add(DIRECTOR_WAIT_DISCONNECT_MSECS,
+			    director_connection_wait_timeout, conn);
 }
 
 static void director_connection_assigned(struct director_connection *conn)
@@ -226,7 +239,7 @@ static bool director_connection_assign_left(struct director_connection *conn)
 			  "us, should use %s instead",
 			  conn->name, dir->left->host->name);
 		director_connection_send_connect(conn, dir->left->host);
-		return FALSE;
+		return TRUE;
 	} else {
 		/* this new connection is the correct one, but wait until the
 		   old connection gets disconnected before using this one.
@@ -249,7 +262,8 @@ static void director_assign_left(struct director *dir)
 	array_foreach(&dir->connections, connp) {
 		conn = *connp;
 
-		if (conn->in && conn->handshake_received && conn != dir->left) {
+		if (conn->in && conn->handshake_received &&
+		    conn->to_disconnect == NULL && conn != dir->left) {
 			/* either use this or disconnect it */
 			if (!director_connection_assign_left(conn)) {
 				/* we don't want this */
@@ -266,7 +280,7 @@ static bool director_has_outgoing_connections(struct director *dir)
 	struct director_connection *const *connp;
 
 	array_foreach(&dir->connections, connp) {
-		if (!(*connp)->in)
+		if (!(*connp)->in && (*connp)->to_disconnect == NULL)
 			return TRUE;
 	}
 	return FALSE;
@@ -1104,15 +1118,13 @@ static void director_disconnect_wrong_lefts(struct director *dir)
 		conn = *connp;
 
 		if (conn->in && conn != dir->left && conn->me_received &&
+		    conn->to_disconnect == NULL &&
 		    director_host_cmp_to_self(dir->left->host, conn->host,
 					      dir->self_host) < 0) {
 			i_warning("Director connection %s tried to connect to "
 				  "us, should use %s instead",
 				  conn->name, dir->left->host->name);
 			director_connection_send_connect(conn, dir->left->host);
-			director_connection_deinit(&conn);
-			director_disconnect_wrong_lefts(dir);
-			return;
 		}
 	}
 }
@@ -1231,6 +1243,17 @@ static void director_connection_input(struct director_connection *conn)
 		director_cmd_error(conn, "Director sent us more than %d bytes",
 				   MAX_INBUF_SIZE);
 		director_connection_reconnect(&conn);
+		return;
+	}
+
+	if (conn->to_disconnect != NULL) {
+		/* just read everything the remote sends, and wait for it
+		   to disconnect. we mainly just want the remote to read the
+		   CONNECT we sent it. */
+		size_t size;
+
+		(void)i_stream_get_data(conn->input, &size);
+		i_stream_skip(conn->input, size);
 		return;
 	}
 
@@ -1451,8 +1474,8 @@ void director_connection_deinit(struct director_connection **_conn)
 
 	if (conn->user_iter != NULL)
 		user_directory_iter_deinit(&conn->user_iter);
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	if (conn->to_disconnect != NULL)
+		timeout_remove(&conn->to_disconnect);
 	if (conn->to_pong != NULL)
 		timeout_remove(&conn->to_pong);
 	timeout_remove(&conn->to_ping);
@@ -1501,11 +1524,6 @@ void director_connection_reconnect(struct director_connection **_conn)
 		director_connect(dir);
 }
 
-static void director_connection_timeout(struct director_connection *conn)
-{
-	director_connection_disconnected(&conn);
-}
-
 void director_connection_send(struct director_connection *conn,
 			      const char *data)
 {
@@ -1524,7 +1542,6 @@ void director_connection_send(struct director_connection *conn,
 				"disconnecting", conn->name);
 		}
 		o_stream_close(conn->output);
-		conn->to = timeout_add(0, director_connection_timeout, conn);
 	}
 }
 
