@@ -582,7 +582,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 	user = user_directory_lookup(dir->users, username_hash);
 	if (user == NULL) {
 		user = user_directory_add(dir->users, username_hash,
-					  host, (time_t)-1);
+					  host, ioloop_time);
 	} else {
 		if (user->host == host) {
 			/* user is already in this host */

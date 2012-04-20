@@ -81,7 +81,7 @@ static void test_user_directory_random(void)
 	dir = user_directory_init(USER_DIR_TIMEOUT, "%u");
 	for (i = 0; i < count; i++) {
 		if (rand() % 10 == 0)
-			timestamp = (time_t)-1;
+			timestamp = ioloop_time;
 		else
 			timestamp = ioloop_time-rand()%100;
 		user_directory_add(dir, i+1, host, timestamp);

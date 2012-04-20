@@ -131,14 +131,9 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 {
 	struct user *user;
 
-	if (timestamp == (time_t)-1) {
-		/* add it at the end */
+	/* make sure we don't add timestamps higher than ioloop time */
+	if (timestamp > ioloop_time)
 		timestamp = ioloop_time;
-	} else {
-		/* make sure we don't add timestamps higher than ioloop time */
-		if (timestamp > ioloop_time)
-			timestamp = ioloop_time;
-	}
 
 	user = i_new(struct user, 1);
 	user->username_hash = username_hash;

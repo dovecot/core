@@ -54,8 +54,7 @@ void user_directory_deinit(struct user_directory **dir);
 /* Look up username from directory. Returns NULL if not found. */
 struct user *user_directory_lookup(struct user_directory *dir,
 				   unsigned int username_hash);
-/* Add a user to directory and return it. If timestamp is (time_t)-1,
-   the current time is used. */
+/* Add a user to directory and return it. */
 struct user *
 user_directory_add(struct user_directory *dir, unsigned int username_hash,
 		   struct mail_host *host, time_t timestamp);
