@@ -455,7 +455,7 @@ director_user_refresh(struct director_connection *conn,
 		}
 		if (user->to_move != NULL)
 			str_append(str, ",moving");
-		if (user->kill_state == USER_KILL_STATE_NONE)
+		if (user->kill_state != USER_KILL_STATE_NONE)
 			str_printfa(str, ",kill_state=%d", user->kill_state);
 		str_append_c(str, ')');
 		i_error("%s", str_c(str));
