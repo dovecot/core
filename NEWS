@@ -1,3 +1,25 @@
+v2.1.5 2012-04-23  Timo Sirainen <tss@iki.fi>
+
+	* IMAP: When neither the session nor the mailbox has modseq tracking
+	  enabled, return the mailbox as having NOMODSEQ in SELECT/EXAMINE
+	  reply. Old versions in this situation always simply returned
+	  HIGHESTMODSEQ as 1, which could have broken some clients.
+
+	+ dict file: Added optional fcntl/flock locking (default is dotlock)
+	+ fts-solr: doveadm fts rescan now resets indexes, which allows
+	  reindexing mails. (This isn't a full rescan implementation like
+	  fts-lucene has.)
+	+ doveadm expunge: Added -d parameter to delete mailbox if it's
+	  empty after expunging.
+	- IMAP: Several fixes related to mailbox listing in some configs
+	- director: A lot of fixes and performance improvements
+	- v2.1.4 didn't work without a mail home directory set
+	- mbox: Deleting a mailbox didn't delete its index files.
+	- pop3c: TOP command was sent incorrectly
+	- trash plugin didn't work properly
+	- LMTP: Don't add a duplicate Return-Path: header when proxying.
+	- listescape: Don't unescape namespace prefixes.
+
 v2.1.4 2012-04-09  Timo Sirainen <tss@iki.fi>
 
 	+ Added mail_temp_scan_interval setting and changed its default value

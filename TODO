@@ -46,7 +46,6 @@
    non-userdb_* extra fields too?
  - imap, pop3: if client init fails, wait a second or two before disconnecting
    client.
- - doveadm expunge parameter to delete empty mailboxes (for lazy-expunge)
  - doveadm search savedbefore 7d could be optimized in large mailboxes..
  - mdbox: storage rebuilding could log about changes it does
  - mdbox: broken extrefs header keeps causing index rebuilds
