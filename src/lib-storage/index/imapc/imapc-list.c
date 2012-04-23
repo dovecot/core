@@ -471,7 +471,7 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		node = mailbox_tree_iterate_next(ctx->iter, &name);
 		if (node == NULL)
 			return NULL;
-	} while (node == ctx->ns_root);
+	} while (node == ctx->ns_root || (node->flags & MAILBOX_MATCHED) == 0);
 
 	ctx->info.name = name;
 	ctx->info.flags = node->flags;
