@@ -37,10 +37,8 @@ static void strsplit_verify(const char *str)
 
 		s1 = t_strsplit_tab(str);
 		s2 = t_strsplit(str, "\t");
-		for (i = 0; s1[i] != NULL; i++) {
-			test_assert(s2[i] != NULL);
-			test_assert(strcmp(s1[i], s2[i]) == 0);
-		}
+		for (i = 0; s1[i] != NULL; i++)
+			test_assert(null_strcmp(s1[i], s2[i]) == 0);
 		test_assert(s2[i] == NULL);
 	} T_END;
 }
