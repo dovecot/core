@@ -26,6 +26,7 @@ const struct mail_index_modseq_header *
 mail_index_map_get_modseq_header(struct mail_index_map *map);
 uint64_t mail_index_map_modseq_get_highest(struct mail_index_map *map);
 void mail_index_modseq_enable(struct mail_index *index);
+bool mail_index_have_modseq_tracking(struct mail_index *index);
 uint64_t mail_index_modseq_get_highest(struct mail_index_view *view);
 
 uint64_t mail_index_modseq_lookup(struct mail_index_view *view, uint32_t seq);
