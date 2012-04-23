@@ -8,6 +8,8 @@
 struct mailbox_tree_context {
 	pool_t pool;
 	char separator;
+	bool parents_nonexistent;
+
 	struct mailbox_node *nodes;
 };
 
@@ -49,6 +51,11 @@ void mailbox_tree_set_separator(struct mailbox_tree_context *tree,
 	tree->separator = separator;
 }
 
+void mailbox_tree_set_parents_nonexistent(struct mailbox_tree_context *tree)
+{
+	tree->parents_nonexistent = TRUE;
+}
+
 void mailbox_tree_clear(struct mailbox_tree_context *tree)
 {
 	p_clear(tree->pool);
@@ -57,14 +64,13 @@ void mailbox_tree_clear(struct mailbox_tree_context *tree)
 
 static struct mailbox_node *
 mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
-		      bool create, bool *created)
+		      bool create, bool *created_r)
 {
 	struct mailbox_node **node, *parent;
 	const char *name;
 	string_t *str;
 
-	if (created != NULL)
-		*created = FALSE;
+	*created_r = FALSE;
 
 	if (path == NULL)
 		return tree->nodes;
@@ -101,9 +107,10 @@ mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 			*node = p_new(tree->pool, struct mailbox_node, 1);
 			(*node)->parent = parent;
 			(*node)->name = p_strdup(tree->pool, name);
+			if (tree->parents_nonexistent)
+				(*node)->flags = MAILBOX_NONEXISTENT;
 
-			if (created != NULL)
-				*created = TRUE;
+			*created_r = TRUE;
 		}
 
 		if (*path == '\0')
@@ -120,13 +127,19 @@ mailbox_tree_traverse(struct mailbox_tree_context *tree, const char *path,
 
 struct mailbox_node *
 mailbox_tree_get(struct mailbox_tree_context *tree, const char *path,
-		 bool *created)
+		 bool *created_r)
 {
 	struct mailbox_node *node;
+	bool created;
 
 	T_BEGIN {
-		node = mailbox_tree_traverse(tree, path, TRUE, created);
+		node = mailbox_tree_traverse(tree, path, TRUE, &created);
 	} T_END;
+	if (created && tree->parents_nonexistent)
+		node->flags = 0;
+
+	if (created_r != NULL)
+		*created_r = created;
 	return node;
 }
 
@@ -134,9 +147,10 @@ struct mailbox_node *
 mailbox_tree_lookup(struct mailbox_tree_context *tree, const char *path)
 {
 	struct mailbox_node *node;
+	bool created;
 
 	T_BEGIN {
-		node = mailbox_tree_traverse(tree, path, FALSE, NULL);
+		node = mailbox_tree_traverse(tree, path, FALSE, &created);
 	} T_END;
 	return node;
 }

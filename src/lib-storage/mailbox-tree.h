@@ -17,11 +17,12 @@ void mailbox_tree_deinit(struct mailbox_tree_context **tree);
 
 void mailbox_tree_set_separator(struct mailbox_tree_context *tree,
 				char separator);
+void mailbox_tree_set_parents_nonexistent(struct mailbox_tree_context *tree);
 void mailbox_tree_clear(struct mailbox_tree_context *tree);
 
 struct mailbox_node *
 mailbox_tree_get(struct mailbox_tree_context *tree, const char *path,
-		 bool *created);
+		 bool *created_r);
 
 struct mailbox_node *
 mailbox_tree_lookup(struct mailbox_tree_context *tree, const char *path);

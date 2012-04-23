@@ -33,6 +33,7 @@ static struct mailbox_list *imapc_list_alloc(void)
 	list->list.pool = pool;
 	/* separator is set when storage is created */
 	list->mailboxes = mailbox_tree_init('\0');
+	mailbox_tree_set_parents_nonexistent(list->mailboxes);
 	return &list->list;
 }
 
@@ -362,6 +363,7 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	imapc_command_sendf(cmd, "LIST \"\" %s", pattern);
 	mailbox_tree_deinit(&list->mailboxes);
 	list->mailboxes = mailbox_tree_init(list->sep);
+	mailbox_tree_set_parents_nonexistent(list->mailboxes);
 
 	imapc_simple_run(&ctx);
 	if (ctx.ret == 0) {
@@ -436,6 +438,7 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->info.ns = _list->ns;
 
 	ctx->tree = mailbox_tree_init(sep);
+	mailbox_tree_set_parents_nonexistent(ctx->tree);
 	imapc_list_build_match_tree(ctx);
 
 	if (list->list.ns->prefix_len > 0) {
