@@ -458,6 +458,11 @@ mailbox_list_unescape_name(struct mailbox_list *list, const char *src)
 	string_t *dest = t_str_new(strlen(src));
 	unsigned int num;
 
+	if (strncmp(src, list->ns->prefix, list->ns->prefix_len) == 0) {
+		str_append_n(dest, src, list->ns->prefix_len);
+		src += list->ns->prefix_len;
+	}
+
 	for (; *src != '\0'; src++) {
 		if (*src == list->set.escape_char &&
 		    i_isxdigit(src[1]) && i_isxdigit(src[2])) {
