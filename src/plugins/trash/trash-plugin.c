@@ -97,13 +97,15 @@ static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
 }
 
 static int trash_try_clean_mails(struct quota_transaction_context *ctx,
-				 uint64_t size_needed)
+				 uint64_t size_needed,
+				 unsigned int count_needed)
 {
 	struct trash_user *tuser = TRASH_USER_CONTEXT(ctx->quota->user);
 	struct trash_mailbox *trashes;
 	unsigned int i, j, count, oldest_idx;
 	time_t oldest, received = 0;
-	uint64_t size, size_expunged = 0, expunged_count = 0;
+	uint64_t size, size_expunged = 0;
+	unsigned int expunged_count = 0;
 	int ret = 0;
 
 	trashes = array_get_modifiable(&tuser->trash_boxes, &count);
@@ -139,7 +141,8 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 			mail_expunge(trashes[oldest_idx].mail);
 			expunged_count++;
 			size_expunged += size;
-			if (size_expunged >= size_needed)
+			if (size_expunged >= size_needed &&
+			    expunged_count >= count_needed)
 				break;
 			trashes[oldest_idx].mail = NULL;
 		} else {
@@ -158,7 +161,8 @@ err:
 		trash->mail = NULL;
 		(void)mailbox_search_deinit(&trash->search_ctx);
 
-		if (size_expunged >= size_needed) {
+		if (size_expunged >= size_needed &&
+		    expunged_count >= count_needed) {
 			(void)mailbox_transaction_commit(&trash->trans);
 			(void)mailbox_sync(trash->box, 0);
 		} else {
@@ -177,6 +181,27 @@ err:
 				(unsigned long long)size_expunged);
 		}
 		return 0;
+	}
+	if (expunged_count < count_needed) {
+		if (ctx->quota->user->mail_debug) {
+			i_debug("trash plugin: Failed to remove enough messages "
+				"(needed %u messages, expunged only %u messages)",
+				count_needed, expunged_count);
+		}
+		return 0;
+	}
+
+	if (ctx->bytes_over > 0) {
+		/* user is over quota. drop the over-bytes first. */
+		i_assert(ctx->bytes_over <= size_expunged);
+		size_expunged -= ctx->bytes_over;
+		ctx->bytes_over = 0;
+	}
+	if (ctx->count_over > 0) {
+		/* user is over quota. drop the over-count first. */
+		i_assert(ctx->count_over <= expunged_count);
+		expunged_count -= ctx->count_over;
+		ctx->count_over = 0;
 	}
 
 	ctx->bytes_ceil += size_expunged;
@@ -209,7 +234,8 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 		}
 
 		/* not enough space. try deleting some from mailbox. */
-		ret = trash_try_clean_mails(ctx, size);
+		ret = trash_try_clean_mails(ctx, size + ctx->bytes_over,
+					    1 + ctx->count_over);
 		if (ret <= 0)
 			return 0;
 	}
