@@ -30,6 +30,7 @@ bool ssl_proxy_is_handshaked(const struct ssl_proxy *proxy) ATTR_PURE;
 const char *ssl_proxy_get_last_error(const struct ssl_proxy *proxy) ATTR_PURE;
 const char *ssl_proxy_get_security_string(struct ssl_proxy *proxy);
 const char *ssl_proxy_get_compression(struct ssl_proxy *proxy);
+const char *ssl_proxy_get_cert_error(struct ssl_proxy *proxy);
 void ssl_proxy_free(struct ssl_proxy **proxy);
 
 /* Return number of active SSL proxies */

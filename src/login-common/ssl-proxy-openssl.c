@@ -66,6 +66,7 @@ struct ssl_proxy {
 	ssl_handshake_callback_t *handshake_callback;
 	void *handshake_context;
 
+	const char *cert_error;
 	char *last_error;
 	unsigned int handshaked:1;
 	unsigned int destroyed:1;
@@ -754,6 +755,12 @@ const char *ssl_proxy_get_compression(struct ssl_proxy *proxy ATTR_UNUSED)
 #endif
 }
 
+const char *ssl_proxy_get_cert_error(struct ssl_proxy *proxy)
+{
+	return proxy->cert_error != NULL ? proxy->cert_error :
+		"(Unknown error)";
+}
+
 void ssl_proxy_free(struct ssl_proxy **_proxy)
 {
 	struct ssl_proxy *proxy = *_proxy;
@@ -849,31 +856,39 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 {
 	SSL *ssl;
         struct ssl_proxy *proxy;
+	char buf[1024];
+	X509_NAME *subject;
 
 	ssl = X509_STORE_CTX_get_ex_data(ctx,
 					 SSL_get_ex_data_X509_STORE_CTX_idx());
 	proxy = SSL_get_ex_data(ssl, extdata_index);
 	proxy->cert_received = TRUE;
 
-	if (proxy->set->verbose_ssl ||
-	    (proxy->set->auth_verbose && !preverify_ok)) {
-		char buf[1024];
-		X509_NAME *subject;
-
-		subject = X509_get_subject_name(ctx->current_cert);
-		(void)X509_NAME_oneline(subject, buf, sizeof(buf));
-		buf[sizeof(buf)-1] = '\0'; /* just in case.. */
-		if (!preverify_ok)
-			i_info("Invalid certificate: %s: %s", X509_verify_cert_error_string(ctx->error),buf);
-		else
-			i_info("Valid certificate: %s", buf);
-	}
-	if (ctx->error == X509_V_ERR_UNABLE_TO_GET_CRL && proxy->client_proxy) {
+	if (proxy->client_proxy && ctx->error == X509_V_ERR_UNABLE_TO_GET_CRL) {
 		/* no CRL given with the CA list. don't worry about it. */
 		preverify_ok = 1;
 	}
 	if (!preverify_ok)
 		proxy->cert_broken = TRUE;
+
+	subject = X509_get_subject_name(ctx->current_cert);
+	(void)X509_NAME_oneline(subject, buf, sizeof(buf));
+	buf[sizeof(buf)-1] = '\0'; /* just in case.. */
+
+	if (proxy->cert_error == NULL) {
+		proxy->cert_error = p_strdup_printf(proxy->client->pool, "%s: %s",
+			X509_verify_cert_error_string(ctx->error), buf);
+	}
+
+	if (proxy->set->verbose_ssl ||
+	    (proxy->set->auth_verbose && !preverify_ok)) {
+		if (preverify_ok)
+			i_info("Valid certificate: %s", buf);
+		else {
+			i_info("Invalid certificate: %s: %s",
+			       X509_verify_cert_error_string(ctx->error), buf);
+		}
+	}
 
 	/* Return success anyway, because if ssl_require_client_cert=no we
 	   could still allow authentication. */

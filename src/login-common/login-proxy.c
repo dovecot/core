@@ -516,8 +516,9 @@ static int login_proxy_ssl_handshaked(void *context)
 
 	if (ssl_proxy_has_broken_client_cert(proxy->ssl_server_proxy)) {
 		client_log_err(proxy->client, t_strdup_printf(
-			"proxy: Received invalid SSL certificate from %s:%u",
-			proxy->host, proxy->port));
+			"proxy: Received invalid SSL certificate from %s:%u: %s",
+			proxy->host, proxy->port,
+			ssl_proxy_get_cert_error(proxy->ssl_server_proxy)));
 	} else if (!ssl_proxy_has_valid_client_cert(proxy->ssl_server_proxy)) {
 		client_log_err(proxy->client, t_strdup_printf(
 			"proxy: SSL certificate not received from %s:%u",
