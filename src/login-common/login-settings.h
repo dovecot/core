@@ -20,6 +20,7 @@ struct login_settings {
 	const char *ssl_client_key;
 	const char *ssl_crypto_device;
 	bool ssl_verify_client_cert;
+	bool ssl_require_crl;
 	bool auth_ssl_require_client_cert;
 	bool auth_ssl_username_from_cert;
 	bool verbose_ssl;
