@@ -365,6 +365,14 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	list->mailboxes = mailbox_tree_init(list->sep);
 	mailbox_tree_set_parents_nonexistent(list->mailboxes);
 
+	if ((list->list.ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		/* INBOX always exists in IMAP server. since this namespace is
+		   marked with inbox=yes, show the INBOX even if
+		   imapc_list_prefix doesn't match it */
+		bool created;
+		(void)mailbox_tree_get(list->mailboxes, "INBOX", &created);
+	}
+
 	imapc_simple_run(&ctx);
 	if (ctx.ret == 0) {
 		list->refreshed_mailboxes = TRUE;
@@ -471,7 +479,7 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		node = mailbox_tree_iterate_next(ctx->iter, &name);
 		if (node == NULL)
 			return NULL;
-	} while (node == ctx->ns_root || (node->flags & MAILBOX_MATCHED) == 0);
+	} while ((node->flags & MAILBOX_MATCHED) == 0);
 
 	ctx->info.name = name;
 	ctx->info.flags = node->flags;
