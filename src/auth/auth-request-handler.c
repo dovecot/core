@@ -162,12 +162,11 @@ static void get_client_extra_fields(struct auth_request *request,
 
 	extra_fields = auth_stream_reply_export(request->extra_fields);
 
-	if (!request->proxy) {
-		/* we only wish to remove all fields prefixed with "userdb_" */
-		if (strstr(extra_fields, "userdb_") == NULL) {
-			auth_stream_reply_import(reply, extra_fields);
-			return;
-		}
+	if (!request->proxy && strstr(extra_fields, "userdb_") == NULL) {
+		/* optimization: there are no userdb_* fields, we can just
+		   import */
+		auth_stream_reply_import(reply, extra_fields);
+		return;
 	}
 
 	fields = t_strsplit_tab(extra_fields);
