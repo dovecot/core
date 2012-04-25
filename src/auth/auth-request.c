@@ -517,6 +517,10 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
                 request->passdb = request->passdb->next;
 		request->passdb_password = NULL;
 
+		request->proxy = FALSE;
+		request->proxy_maybe = FALSE;
+		request->proxy_always = FALSE;
+
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
 			/* remember that we did at least one successful
 			   passdb lookup */
@@ -1477,11 +1481,14 @@ static void auth_request_proxy_finish_ip(struct auth_request *request)
 	} else {
 		/* proxying to ourself - log in without proxying by dropping
 		   all the proxying fields. */
+		bool proxy_always = request->proxy_always;
+
 		auth_request_proxy_finish_failure(request);
-		if (request->proxy_always) {
+		if (proxy_always) {
 			/* director adds the host */
 			auth_stream_reply_add(request->extra_fields,
 					      "proxy", NULL);
+			request->proxy = TRUE;
 		}
 	}
 }
@@ -1602,6 +1609,10 @@ void auth_request_proxy_finish_failure(struct auth_request *request)
 	auth_stream_reply_remove(request->extra_fields, "host");
 	auth_stream_reply_remove(request->extra_fields, "port");
 	auth_stream_reply_remove(request->extra_fields, "destuser");
+
+	request->proxy = FALSE;
+	request->proxy_maybe = FALSE;
+	request->proxy_always = FALSE;
 }
 
 static void log_password_failure(struct auth_request *request,
