@@ -1,6 +1,8 @@
 #ifndef LOGIN_PROXY_H
 #define LOGIN_PROXY_H
 
+#include "network.h"
+
 struct client;
 struct login_proxy;
 
@@ -15,6 +17,7 @@ enum login_proxy_ssl_flags {
 
 struct login_proxy_settings {
 	const char *host;
+	struct ip_addr ip;
 	const char *dns_client_socket_path;
 	unsigned int port;
 	unsigned int connect_timeout_msecs;

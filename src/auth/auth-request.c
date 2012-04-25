@@ -1521,8 +1521,8 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 				"DNS lookup for %s took %u.%03u s",
 				host, result->msecs/1000, result->msecs % 1000);
 		}
-		auth_stream_reply_remove(request->extra_fields, "host");
-		auth_stream_reply_add(request->extra_fields, "host",
+		auth_stream_reply_remove(request->extra_fields, "hostip");
+		auth_stream_reply_add(request->extra_fields, "hostip",
 				      net_ip2addr(&result->ips[0]));
 		for (i = 0; i < result->ips_count; i++) {
 			if (auth_request_proxy_ip_is_self(request,

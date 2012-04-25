@@ -86,6 +86,8 @@ static void client_auth_parse_args(struct client *client,
 			reply_r->reason = value;
 		else if (strcmp(key, "host") == 0)
 			reply_r->host = value;
+		else if (strcmp(key, "hostip") == 0)
+			reply_r->hostip = value;
 		else if (strcmp(key, "port") == 0)
 			reply_r->port = atoi(value);
 		else if (strcmp(key, "destuser") == 0)
@@ -294,6 +296,9 @@ static int proxy_start(struct client *client,
 
 	memset(&proxy_set, 0, sizeof(proxy_set));
 	proxy_set.host = reply->host;
+	if (reply->hostip != NULL &&
+	    net_addr2ip(reply->hostip, &proxy_set.ip) < 0)
+		proxy_set.ip.family = 0;
 	proxy_set.port = reply->port;
 	proxy_set.dns_client_socket_path = LOGIN_DNS_CLIENT_SOCKET_PATH;
 	proxy_set.connect_timeout_msecs = reply->proxy_timeout_msecs;

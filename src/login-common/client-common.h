@@ -49,7 +49,7 @@ enum client_cmd_reply {
 struct client_auth_reply {
 	const char *master_user, *reason;
 	/* for proxying */
-	const char *host, *destuser, *password;
+	const char *host, *hostip, *destuser, *password;
 	unsigned int port;
 	unsigned int proxy_timeout_msecs;
 	unsigned int proxy_refresh_secs;

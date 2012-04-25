@@ -308,6 +308,7 @@ int login_proxy_new(struct client *client,
 	proxy->client_fd = -1;
 	proxy->server_fd = -1;
 	proxy->created = ioloop_timeval;
+	proxy->ip = set->ip;
 	proxy->host = i_strdup(set->host);
 	proxy->port = set->port;
 	proxy->connect_timeout_msecs = set->connect_timeout_msecs;
@@ -319,7 +320,8 @@ int login_proxy_new(struct client *client,
 	dns_lookup_set.dns_client_socket_path = set->dns_client_socket_path;
 	dns_lookup_set.timeout_msecs = set->connect_timeout_msecs;
 
-	if (net_addr2ip(set->host, &proxy->ip) < 0) {
+	if (set->ip.family == 0 &&
+	    net_addr2ip(set->host, &proxy->ip) < 0) {
 		if (dns_lookup(set->host, &dns_lookup_set,
 			       login_proxy_dns_done, proxy) < 0)
 			return -1;
