@@ -343,7 +343,7 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 {
 	const char *home, *path = *pathp;
 
-	if (strncmp(path, "~/", 2) != 0) {
+	if (*path != '~') {
 		/* no need to expand home */
 		return 0;
 	}
