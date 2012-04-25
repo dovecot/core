@@ -20,6 +20,7 @@
 #define SESSION_STATS_FORCE_REFRESH_SECS (5*60)
 #define REFRESH_CHECK_INTERVAL 100
 #define MAIL_STATS_SOCKET_NAME "stats-mail"
+#define PROC_IO_PATH "/proc/self/io"
 
 #define USECS_PER_SEC 1000000
 
@@ -42,6 +43,9 @@ struct stats_user_module stats_user_module =
 	MODULE_CONTEXT_INIT(&mail_user_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(stats_storage_module,
 				  &mail_storage_module_register);
+
+static bool proc_io_disabled = FALSE;
+static int proc_io_fd = -1;
 
 static struct stats_connection *global_stats_conn = NULL;
 static struct mail_user *stats_global_user = NULL;
@@ -106,44 +110,50 @@ process_io_buffer_parse(const char *buf, struct mail_stats *stats)
 	return 0;
 }
 
+static int process_io_open(void)
+{
+	if (proc_io_fd == -1) {
+		if (proc_io_disabled)
+			return -1;
+		proc_io_fd = open(PROC_IO_PATH, O_RDONLY);
+		if (proc_io_fd == -1) {
+			if (errno != ENOENT)
+				i_error("open(%s) failed: %m", PROC_IO_PATH);
+			proc_io_disabled = TRUE;
+			return -1;
+		}
+	}
+	return proc_io_fd;
+}
+
 static void process_read_io_stats(struct mail_stats *stats)
 {
-	const char *path = "/proc/self/io";
-	static bool io_disabled = FALSE;
 	char buf[1024];
 	int fd, ret;
 
-	if (io_disabled)
+	if ((fd = process_io_open()) == -1)
 		return;
 
-	fd = open(path, O_RDONLY);
-	if (fd == -1) {
-		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path);
-		io_disabled = TRUE;
-		return;
-	}
-	ret = read(fd, buf, sizeof(buf));
+	ret = pread(fd, buf, sizeof(buf), 0);
 	if (ret <= 0) {
 		if (ret == -1)
-			i_error("read(%s) failed: %m", path);
+			i_error("read(%s) failed: %m", PROC_IO_PATH);
 		else
-			i_error("read(%s) returned EOF", path);
+			i_error("read(%s) returned EOF", PROC_IO_PATH);
 	} else if (ret == sizeof(buf)) {
 		/* just shouldn't happen.. */
-		i_error("%s is larger than expected", path);
-		io_disabled = TRUE;
+		i_error("%s is larger than expected", PROC_IO_PATH);
+		proc_io_disabled = TRUE;
 	} else {
 		buf[ret] = '\0';
 		T_BEGIN {
 			if (process_io_buffer_parse(buf, stats) < 0) {
-				i_error("Invalid input in file %s", path);
-				io_disabled = TRUE;
+				i_error("Invalid input in file %s",
+					PROC_IO_PATH);
+				proc_io_disabled = TRUE;
 			}
 		} T_END;
 	}
-	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", path);
 }
 
 void mail_stats_get(struct stats_user *suser, struct mail_stats *stats_r)
