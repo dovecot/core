@@ -543,7 +543,7 @@ local_worker_mailbox_iter_next(struct dsync_worker_mailbox_iter *_iter,
 		dsync_box_r->last_change = dir_change->last_rename;
 	}
 
-	if ((info->flags & MAILBOX_NOSELECT) != 0) {
+	if ((info->flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0) {
 		dsync_box_r->flags |= DSYNC_MAILBOX_FLAG_NOSELECT;
 		local_dsync_worker_add_mailbox(worker, info->ns, info->name,
 					       &dsync_box_r->name_sha1);
