@@ -3,6 +3,8 @@
 
 #include "mail-storage-private.h"
 
+#include <sys/time.h>
+
 struct index_search_context {
         struct mail_search_context mail_ctx;
 	struct mail_index_view *view;

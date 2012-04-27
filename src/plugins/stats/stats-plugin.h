@@ -6,6 +6,8 @@
 #include "mail-user.h"
 #include "mail-storage-private.h"
 
+#include <sys/time.h>
+
 #define STATS_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, stats_user_module)
 
