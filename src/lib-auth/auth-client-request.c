@@ -44,6 +44,10 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 	if ((info->flags & AUTH_REQUEST_FLAG_VALID_CLIENT_CERT) != 0)
 		str_append(str, "\tvalid-client-cert");
 
+	if (info->session_id != NULL) {
+		str_append(str, "\tsession=");
+		str_tabescape_write(str, info->session_id);
+	}
 	if (info->cert_username != NULL) {
 		str_append(str, "\tcert_username=");
 		str_tabescape_write(str, info->cert_username);
@@ -82,6 +86,8 @@ auth_client_request_new(struct auth_client *client,
 	request->request_info = *request_info;
 	request->request_info.mech = p_strdup(pool, request_info->mech);
 	request->request_info.service = p_strdup(pool, request_info->service);
+	request->request_info.session_id =
+		p_strdup_empty(pool, request_info->session_id);
 	request->request_info.cert_username =
 		p_strdup_empty(pool, request_info->cert_username);
 	request->request_info.initial_resp_base64 =

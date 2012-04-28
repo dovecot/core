@@ -237,6 +237,8 @@ bool auth_request_import_info(struct auth_request *request,
 		request->local_port = atoi(value);
 	else if (strcmp(key, "rport") == 0)
 		request->remote_port = atoi(value);
+	else if (strcmp(key, "session") == 0)
+		request->session_id = p_strdup(request->pool, value);
 	else
 		return FALSE;
 	return TRUE;
@@ -1856,6 +1858,8 @@ static void get_log_prefix(string_t *str, struct auth_request *auth_request,
 	}
 	if (auth_request->requested_login_user != NULL)
 		str_append(str, ",master");
+	if (auth_request->session_id != NULL)
+		str_printfa(str, ",<%s>", auth_request->session_id);
 	str_append(str, "): ");
 }
 

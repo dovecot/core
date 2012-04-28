@@ -318,6 +318,7 @@ void sasl_server_auth_begin(struct client *client,
 	memset(&info, 0, sizeof(info));
 	info.mech = mech->name;
 	info.service = service;
+	info.session_id = client_get_session_id(client);
 	info.cert_username = client->ssl_proxy == NULL ? NULL :
 		ssl_proxy_get_peer_name(client->ssl_proxy);
 	info.flags = client_get_auth_flags(client);

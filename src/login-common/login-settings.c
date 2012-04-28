@@ -56,7 +56,7 @@ static const struct setting_define login_setting_defines[] = {
 static const struct login_settings login_default_settings = {
 	.login_trusted_networks = "",
 	.login_greeting = PACKAGE_NAME" ready.",
-	.login_log_format_elements = "user=<%u> method=%m rip=%r lip=%l mpid=%e %c",
+	.login_log_format_elements = "user=<%u> method=%m rip=%r lip=%l mpid=%e %c session=<%{session}>",
 	.login_log_format = "%$: %s",
 	.login_access_sockets = "",
 	.director_username_hash = "%u",
