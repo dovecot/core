@@ -134,6 +134,14 @@ array_clear_i(struct array *array)
 #define array_clear(array) \
 	array_clear_i(&(array)->arr)
 
+static inline unsigned int ATTR_PURE
+array_count_i(const struct array *array)
+{
+	return array->buffer->used / array->element_size;
+}
+#define array_count(array) \
+	array_count_i(&(array)->arr)
+
 static inline void
 array_append_i(struct array *array, const void *data, unsigned int count)
 {
@@ -177,7 +185,7 @@ array_delete_i(struct array *array, unsigned int idx, unsigned int count)
 static inline const void *
 array_get_i(const struct array *array, unsigned int *count_r)
 {
-	*count_r = array->buffer->used / array->element_size;
+	*count_r = array_count_i(array);
 	return array->buffer->data;
 }
 #define array_get(array, count) \
@@ -195,7 +203,7 @@ array_idx_i(const struct array *array, unsigned int idx)
 static inline void *
 array_get_modifiable_i(struct array *array, unsigned int *count_r)
 {
-	*count_r = array->buffer->used / array->element_size;
+	*count_r = array_count_i(array);
 	return buffer_get_modifiable_data(array->buffer, NULL);
 }
 #define array_get_modifiable(array, count) \
@@ -243,14 +251,6 @@ array_copy(struct array *dest, unsigned int dest_idx,
 		    src->buffer, src_idx * src->element_size,
 		    count * dest->element_size);
 }
-
-static inline unsigned int ATTR_PURE
-array_count_i(const struct array *array)
-{
-	return array->buffer->used / array->element_size;
-}
-#define array_count(array) \
-	array_count_i(&(array)->arr)
 
 bool array_cmp_i(const struct array *array1,
 		 const struct array *array2) ATTR_PURE;

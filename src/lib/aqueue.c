@@ -10,8 +10,7 @@ struct aqueue *aqueue_init(struct array *array)
 
 	aqueue = i_new(struct aqueue, 1);
 	aqueue->arr = array;
-	aqueue->area_size = buffer_get_size(aqueue->arr->buffer) /
-		aqueue->arr->element_size;
+	aqueue->area_size = array_count_i(array);
 	i_assert(aqueue->area_size > 0);
 	return aqueue;
 }
@@ -32,8 +31,7 @@ static void aqueue_grow(struct aqueue *aqueue)
 
 	orig_area_size = aqueue->area_size;
 	(void)array_append_space_i(aqueue->arr);
-	aqueue->area_size = buffer_get_size(aqueue->arr->buffer) /
-		aqueue->arr->element_size;
+	aqueue->area_size = array_count_i(aqueue->arr);
 	i_assert(orig_area_size < aqueue->area_size);
 
 	count = I_MIN(aqueue->area_size - orig_area_size, aqueue->head);
