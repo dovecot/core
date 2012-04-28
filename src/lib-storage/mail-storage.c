@@ -989,6 +989,8 @@ void mailbox_free(struct mailbox **_box)
 
 	DLLIST_REMOVE(&box->storage->mailboxes, box);
 	mail_storage_obj_unref(box->storage);
+	if (box->metadata_pool != NULL)
+		pool_unref(&box->metadata_pool);
 	pool_unref(&box->pool);
 }
 
@@ -1281,6 +1283,9 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 			 struct mailbox_metadata *metadata_r)
 {
 	memset(metadata_r, 0, sizeof(*metadata_r));
+
+	if (box->metadata_pool != NULL)
+		p_clear(box->metadata_pool);
 
 	if (box->v.get_metadata(box, items, metadata_r) < 0)
 		return -1;

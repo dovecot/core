@@ -212,7 +212,7 @@ struct mailbox {
 
         struct mailbox_vfuncs v, *vlast;
 /* private: */
-	pool_t pool;
+	pool_t pool, metadata_pool;
 	/* Linked list of all mailboxes in this storage */
 	struct mailbox *prev, *next;
 
