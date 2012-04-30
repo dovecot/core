@@ -102,7 +102,7 @@ get_metadata_cache_fields(struct mailbox *box,
 
 	if (box->metadata_pool == NULL) {
 		box->metadata_pool =
-			pool_alloconly_create("mailbox metadata", 256);
+			pool_alloconly_create("mailbox metadata", 2048);
 	}
 
 	fields = mail_cache_register_get_list(box->cache,
