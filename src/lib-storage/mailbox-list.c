@@ -427,6 +427,12 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	list_sep = mailbox_list_get_hierarchy_sep(list);
 	ns_sep = mail_namespace_get_sep(ns);
 
+	if (*storage_name == '\0' && ns->type == NAMESPACE_SHARED &&
+	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
+		/* opening shared/$user. it's the same as INBOX. */
+		storage_name = "INBOX";
+	}
+
 	if (list_sep == ns_sep)
 		return storage_name;
 	if (ns->type == NAMESPACE_SHARED &&
@@ -500,6 +506,12 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 		   comparison, otherwise we can't differentiate between INBOX
 		   and <ns prefix>/inBox. */
 		return vname;
+	}
+	if (strcmp(vname, "INBOX") == 0 &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
+		/* convert to shared/$user, we don't really care about the
+		   INBOX suffix here. */
+		vname = "";
 	}
 	if (*vname == '\0') {
 		/* return namespace prefix without the separator */
