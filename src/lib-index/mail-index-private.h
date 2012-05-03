@@ -205,7 +205,7 @@ struct mail_index {
 	/* syncing will update this if non-NULL */
 	struct mail_index_transaction_commit_result *sync_commit_result;
 
-	int lock_type, shared_lock_count, excl_lock_count;
+	int lock_type, shared_lock_count;
 	unsigned int lock_id_counter;
 	enum file_lock_method lock_method;
 	unsigned int max_lock_timeout_secs;
@@ -275,9 +275,6 @@ void mail_index_flush_read_cache(struct mail_index *index, const char *path,
 
 /* Returns 0 = ok, -1 = error. */
 int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r);
-/* Returns 1 = ok, 0 = already locked, -1 = error. */
-int mail_index_try_lock_exclusive(struct mail_index *index,
-				  unsigned int *lock_id_r);
 void mail_index_unlock(struct mail_index *index, unsigned int *lock_id);
 /* Returns TRUE if given lock_id is valid. */
 bool mail_index_is_locked(struct mail_index *index, unsigned int lock_id);

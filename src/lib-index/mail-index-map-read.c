@@ -400,7 +400,6 @@ int mail_index_map(struct mail_index *index,
 {
 	int ret;
 
-	i_assert(index->lock_type != F_WRLCK);
 	i_assert(!index->mapping);
 
 	index->mapping = TRUE;
