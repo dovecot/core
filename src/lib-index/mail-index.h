@@ -120,7 +120,10 @@ enum mail_index_transaction_flags {
 	   have already committed a transaction that had changed the flags. */
 	MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES	= 0x04,
 	/* fsync() this transaction (unless fsyncs are disabled) */
-	MAIL_INDEX_TRANSACTION_FLAG_FSYNC		= 0x08
+	MAIL_INDEX_TRANSACTION_FLAG_FSYNC		= 0x08,
+	/* Sync transaction describes changes to mailbox that already happened
+	   to another mailbox with whom we're syncing with (dsync) */
+	MAIL_INDEX_TRANSACTION_FLAG_SYNC		= 0x10
 };
 
 enum mail_index_sync_type {

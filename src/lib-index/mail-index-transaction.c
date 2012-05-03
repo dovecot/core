@@ -140,13 +140,18 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 				   uoff_t *commit_size_r)
 {
 	struct mail_transaction_log *log = t->view->index->log;
-	bool external = (t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0;
 	struct mail_transaction_log_append_ctx *ctx;
+	enum mail_transaction_type trans_flags = 0;
 	uint32_t log_seq1, log_seq2;
 	uoff_t log_offset1, log_offset2;
 	int ret;
 
-	if (mail_transaction_log_append_begin(log->index, external, &ctx) < 0)
+	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
+		trans_flags |= MAIL_TRANSACTION_EXTERNAL;
+	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_SYNC) != 0)
+		trans_flags |= MAIL_TRANSACTION_SYNC;
+
+	if (mail_transaction_log_append_begin(log->index, trans_flags, &ctx) < 0)
 		return -1;
 	ret = mail_transaction_log_file_refresh(t, ctx);
 	if (ret > 0) T_BEGIN {

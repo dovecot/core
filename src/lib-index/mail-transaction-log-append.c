@@ -19,11 +19,11 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 		return;
 
 	memset(&hdr, 0, sizeof(hdr));
-	hdr.type = type;
+	hdr.type = type | ctx->trans_flags;
 	if (type == MAIL_TRANSACTION_EXPUNGE ||
 	    type == MAIL_TRANSACTION_EXPUNGE_GUID)
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
-	if (ctx->external || type == MAIL_TRANSACTION_BOUNDARY)
+	if (type == MAIL_TRANSACTION_BOUNDARY)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
 	hdr.size = sizeof(hdr) + size;
 	hdr.size = mail_index_uint32_to_offset(hdr.size);
@@ -208,7 +208,8 @@ mail_transaction_log_append_locked(struct mail_transaction_log_append_ctx *ctx)
 	return 0;
 }
 
-int mail_transaction_log_append_begin(struct mail_index *index, bool external,
+int mail_transaction_log_append_begin(struct mail_index *index,
+				      enum mail_transaction_type flags,
 				      struct mail_transaction_log_append_ctx **ctx_r)
 {
 	struct mail_transaction_log_append_ctx *ctx;
@@ -220,7 +221,7 @@ int mail_transaction_log_append_begin(struct mail_index *index, bool external,
 	ctx = i_new(struct mail_transaction_log_append_ctx, 1);
 	ctx->log = index->log;
 	ctx->output = buffer_create_dynamic(default_pool, 1024);
-	ctx->external = external;
+	ctx->trans_flags = flags;
 
 	*ctx_r = ctx;
 	return 0;

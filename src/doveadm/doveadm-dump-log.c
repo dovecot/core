@@ -119,8 +119,10 @@ static const char *log_record_type(unsigned int type)
 		break;
 	}
 
-	if (type & MAIL_TRANSACTION_EXTERNAL)
+	if ((type & MAIL_TRANSACTION_EXTERNAL) != 0)
 		name = t_strconcat(name, " (ext)", NULL);
+	if ((type & MAIL_TRANSACTION_SYNC) != 0)
+		name = t_strconcat(name, " (sync)", NULL);
 	return name;
 }
 
