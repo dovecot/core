@@ -129,10 +129,8 @@ struct mail_index_record_map {
 	struct mail_index_map_modseq *modseq;
 	uint32_t last_appended_uid;
 
-	/* If this mapping is written to disk and write_atomic=FALSE,
-	   write_seq_* specify the message sequence range that needs to be
-	   written. */
-	uint32_t write_seq_first, write_seq_last;
+	/* The records have changed since it was read */
+	bool records_changed;
 };
 
 struct mail_index_map {
@@ -151,9 +149,7 @@ struct mail_index_map {
 
 	struct mail_index_record_map *rec_map;
 
-	unsigned int write_base_header:1;
-	unsigned int write_ext_header:1;
-	unsigned int write_atomic:1; /* write to a new file and rename() */
+	unsigned int header_changed:1;
 };
 
 struct mail_index_module_register {

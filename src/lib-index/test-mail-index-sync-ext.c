@@ -32,9 +32,6 @@ bool mail_index_lookup_seq(struct mail_index_view *view ATTR_UNUSED,
 	*seq_r = uid;
 	return TRUE;
 }
-void mail_index_sync_write_seq_update(struct mail_index_sync_map_ctx *ctx ATTR_UNUSED,
-				      uint32_t seq1 ATTR_UNUSED,
-				      uint32_t seq2 ATTR_UNUSED) {}
 
 static void test_mail_index_sync_ext_atomic_inc(void)
 {

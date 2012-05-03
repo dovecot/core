@@ -458,8 +458,7 @@ static void mail_index_modseq_sync_init(struct mail_index_modseq_sync *ctx)
 			} T_END;
 		}
 	}
-	mail_index_sync_write_seq_update(ctx->sync_map_ctx, 1,
-					 map->hdr.messages_count);
+	map->rec_map->records_changed = TRUE;
 	mail_transaction_log_view_close(&ctx->log_view);
 }
 
@@ -510,7 +509,7 @@ static void mail_index_modseq_update_header(struct mail_index_view *view,
 		buffer_write(map->hdr_copy_buf, ext->hdr_offset,
 			     &new_modseq_hdr, sizeof(new_modseq_hdr));
 		map->hdr_base = map->hdr_copy_buf->data;
-		map->write_ext_header = TRUE;
+		map->header_changed = TRUE;
 	}
 }
 
