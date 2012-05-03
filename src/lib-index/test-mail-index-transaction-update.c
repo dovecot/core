@@ -43,6 +43,12 @@ uint32_t mail_index_view_get_messages_count(struct mail_index_view *view ATTR_UN
 	return hdr.messages_count;
 }
 
+void mail_index_transaction_lookup_latest_keywords(struct mail_index_transaction *t ATTR_UNUSED,
+						   uint32_t seq ATTR_UNUSED,
+						   ARRAY_TYPE(keyword_indexes) *keywords ATTR_UNUSED)
+{
+}
+
 static struct mail_index_transaction *
 mail_index_transaction_new(void)
 {

@@ -977,7 +977,7 @@ keyword_update_has_changes(struct mail_index_transaction *t, uint32_t seq,
 
 	t_array_init(&existing, 32);
 	if (seq < t->first_new_seq)
-		mail_index_lookup_keywords(t->view, seq, &existing);
+		mail_index_transaction_lookup_latest_keywords(t, seq, &existing);
 	existing_idx = array_get(&existing, &existing_count);
 
 	if (modify_type == MODIFY_REPLACE && existing_count != keywords->count)
