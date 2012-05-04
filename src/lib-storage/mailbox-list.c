@@ -428,7 +428,8 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	ns_sep = mail_namespace_get_sep(ns);
 
 	if (*storage_name == '\0' && ns->type == NAMESPACE_SHARED &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
+	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+	    !list->mail_set->mail_shared_explicit_inbox) {
 		/* opening shared/$user. it's the same as INBOX. */
 		storage_name = "INBOX";
 	}
@@ -508,7 +509,8 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 		return vname;
 	}
 	if (strcmp(vname, "INBOX") == 0 &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+	    !list->mail_set->mail_shared_explicit_inbox) {
 		/* convert to shared/$user, we don't really care about the
 		   INBOX suffix here. */
 		vname = "";

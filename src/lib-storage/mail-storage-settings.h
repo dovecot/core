@@ -33,6 +33,7 @@ struct mail_storage_settings {
 	bool mail_debug;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;
+	bool mail_shared_explicit_inbox;
 	const char *lock_method;
 	const char *pop3_uidl_format;
 
