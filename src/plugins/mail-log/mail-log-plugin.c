@@ -228,6 +228,8 @@ mail_log_update_wanted_fields(struct mail *mail, enum mail_log_field fields)
 		wanted_fields |= MAIL_FETCH_VIRTUAL_SIZE;
 
 	mail_add_temp_wanted_fields(mail, wanted_fields, wanted_headers);
+	if (wanted_headers != NULL)
+		mailbox_header_lookup_unref(&wanted_headers);
 }
 
 static void
