@@ -256,6 +256,13 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	owner = mail_user_alloc(userdomain, user->set_info,
 				user->unexpanded_set);
 	owner->autocreated = TRUE;
+	if (mail_user_init(owner, &error) < 0) {
+		mailbox_list_set_critical(list,
+			"Couldn't create namespace '%s' for user %s: %s",
+			ns->prefix, userdomain, error);
+		mail_user_unref(&owner);
+		return -1;
+	}
 	if (!var_has_key(storage->location, 'h', "home"))
 		ret = 1;
 	else {
@@ -267,13 +274,6 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 			mail_user_unref(&owner);
 			return -1;
 		}
-	}
-	if (mail_user_init(owner, &error) < 0) {
-		mailbox_list_set_critical(list,
-			"Couldn't create namespace '%s' for user %s: %s",
-			ns->prefix, userdomain, error);
-		mail_user_unref(&owner);
-		return -1;
 	}
 
 	/* create the new namespace */
