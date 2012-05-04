@@ -1773,6 +1773,7 @@ const struct var_expand_table auth_request_var_expand_static_tab[] = {
 	{ '\0', NULL, "login_user" },
 	{ '\0', NULL, "login_username" },
 	{ '\0', NULL, "login_domain" },
+	{ '\0', NULL, "session" },
 	{ '\0', NULL, NULL }
 };
 
@@ -1832,6 +1833,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 						    auth_request);
 		}
 	}
+	tab[18].value = escape_func(auth_request->session_id, auth_request);
 	return tab;
 }
 
