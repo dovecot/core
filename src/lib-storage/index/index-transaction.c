@@ -80,6 +80,8 @@ void index_transaction_init(struct mailbox_transaction_context *t,
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_HIDE;
 	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)
 		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
+	if ((flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0)
+		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_SYNC;
 	if ((flags & MAILBOX_TRANSACTION_FLAG_REFRESH) != 0)
 		(void)mail_index_refresh(box->index);
 

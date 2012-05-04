@@ -157,7 +157,10 @@ enum mailbox_transaction_flags {
 	MAILBOX_TRANSACTION_FLAG_REFRESH	= 0x08,
 	/* Don't update caching decisions no matter what we do in this
 	   transaction (useful for e.g. precaching) */
-	MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC	= 0x10
+	MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC	= 0x10,
+	/* Sync transaction describes changes to mailbox that already happened
+	   to another mailbox with whom we're syncing with (dsync) */
+	MAILBOX_TRANSACTION_FLAG_SYNC		= 0x20
 };
 
 enum mailbox_sync_flags {
