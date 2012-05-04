@@ -1630,7 +1630,8 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 		return -1;
 	}
 
-	(*ctx)->saving = TRUE;
+	if (!(*ctx)->copying_via_save)
+		(*ctx)->saving = TRUE;
 	if (box->v.save_begin == NULL) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Saving messages not supported");
