@@ -1833,7 +1833,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 						    auth_request);
 		}
 	}
-	tab[18].value = escape_func(auth_request->session_id, auth_request);
+	tab[18].value = auth_request->session_id == NULL ? NULL :
+		escape_func(auth_request->session_id, auth_request);
 	return tab;
 }
 
