@@ -123,7 +123,8 @@ dir_get_storage_name(struct list_dir_context *dir, const char *fname)
 		return t_strconcat("/", fname, NULL);
 	} else {
 		/* child */
-		return t_strconcat(dir->storage_name, "/", fname, NULL);
+		return *fname == '\0' ? dir->storage_name :
+			t_strconcat(dir->storage_name, "/", fname, NULL);
 	}
 }
 
@@ -402,6 +403,11 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 			/* special case: Namespace prefix is INBOX/ and
 			   we just want to see its contents (not the
 			   INBOX's children). */
+			root = "";
+		} else if (*prefix_vname == '\0') {
+			/* we need to handle "" explicitly here, because getting
+			   storage name with mail_shared_explicit_inbox=no
+			   would return root=INBOX. */
 			root = "";
 		} else {
 			root = mailbox_list_get_storage_name(ctx->ctx.list,
