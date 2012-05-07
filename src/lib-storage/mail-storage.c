@@ -765,6 +765,10 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return 0;
 	}
 
+	/* if this is a shared namespace with only INBOX and
+	   mail_shared_explicit_inbox=no, we'll need to mark the namespace as
+	   usable here since nothing else will. */
+	box->list->ns->flags |= NAMESPACE_FLAG_USABLE;
 	return 0;
 }
 
