@@ -508,7 +508,7 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 		   and <ns prefix>/inBox. */
 		return vname;
 	}
-	if (strcmp(vname, "INBOX") == 0 &&
+	if (strcmp(vname, "INBOX") == 0 && list->ns->type == NAMESPACE_SHARED &&
 	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 	    !list->mail_set->mail_shared_explicit_inbox) {
 		/* convert to shared/$user, we don't really care about the
