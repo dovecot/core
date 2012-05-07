@@ -1,3 +1,21 @@
+v2.1.6 2012-05-07  Timo Sirainen <tss@iki.fi>
+
+	* Session ID is now included by default in auth and login process
+	  log lines. It can be added to mail processes also by adding
+	  %{session} to mail_log_prefix.
+
+	+ Added ssl_require_crl setting, which specifies if CRL check must
+	  be successful when verifying client certificates.
+	+ Added mail_shared_explicit_inbox setting to specify if a shared INBOX
+	  should be accessible as "shared/$user" or "shared/$user/INBOX".
+	- v2.1.5: Using "~/" as mail_location or elsewhere failed to actually
+	  expand it to home directory.
+	- dbox: Fixed potential assert-crash when reading dbox files.
+	- trash plugin: Fixed behavior when quota is already over limit.
+	- mail_log plugin: Logging "copy" event didn't work.
+	- Proxying to backend server with SSL: Verifying server certificate
+	  name always failed, because it was compared to an IP address.
+
 v2.1.5 2012-04-23  Timo Sirainen <tss@iki.fi>
 
 	* IMAP: When neither the session nor the mailbox has modseq tracking
