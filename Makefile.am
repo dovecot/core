@@ -70,6 +70,9 @@ install-exec-hook:
 	-e "s|^\(LIBDOVECOT_INCLUDE\)=.*$$|\1=-I$(pkgincludedir)|" \
 	> $(DESTDIR)$(pkglibdir)/dovecot-config
 
+uninstall-hook:
+	rm $(DESTDIR)$(pkglibdir)/dovecot-config
+
 CLEANFILES = $(datafiles)
 if HAVE_SYSTEMD
 CLEANFILES += $systedmsystemunit_DATA
