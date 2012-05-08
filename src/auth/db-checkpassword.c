@@ -29,7 +29,7 @@ struct chkpw_auth_request {
 	char *auth_password;
 
 	db_checkpassword_callback_t *callback;
-	void *context;
+	void (*request_callback)();
 
 	pid_t pid;
 	int fd_out, fd_in;
@@ -115,7 +115,7 @@ static void checkpassword_finish(struct chkpw_auth_request **_request,
 
 	extra_fields = t_strsplit_tabescaped(str_c(request->input_buf));
 	request->callback(request->request, status, extra_fields,
-			  request->context);
+			  request->request_callback);
 	checkpassword_request_free(&request);
 }
 
@@ -448,7 +448,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 			   struct auth_request *request,
 			   const char *auth_password,
 			   db_checkpassword_callback_t *callback,
-			   void *context)
+			   void (*request_callback)())
 {
 	struct chkpw_auth_request *chkpw_auth_request;
 	unsigned int output_len;
@@ -464,7 +464,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 			"Username+password combination too long (%u bytes)",
 			output_len);
 		callback(request, DB_CHECKPASSWORD_STATUS_FAILURE,
-			 NULL, context);
+			 NULL, request_callback);
 		return;
 	}
 
@@ -477,7 +477,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 			(void)close(fd_in[1]);
 		}
 		callback(request, DB_CHECKPASSWORD_STATUS_INTERNAL_FAILURE,
-			 NULL, context);
+			 NULL, request_callback);
 		return;
 	}
 
@@ -490,7 +490,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 		(void)close(fd_out[0]);
 		(void)close(fd_out[1]);
 		callback(request, DB_CHECKPASSWORD_STATUS_INTERNAL_FAILURE,
-			 NULL, context);
+			 NULL, request_callback);
 		return;
 	}
 
@@ -523,7 +523,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 	chkpw_auth_request->output_len = output_len;
 	chkpw_auth_request->input_buf = str_new(default_pool, 256);
 	chkpw_auth_request->callback = callback;
-	chkpw_auth_request->context = context;
+	chkpw_auth_request->request_callback = request_callback;
 
 	chkpw_auth_request->io_in =
 		io_add(fd_in[0], IO_READ, checkpassword_child_input,

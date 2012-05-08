@@ -17,9 +17,9 @@ static void
 auth_checkpassword_callback(struct auth_request *request,
 			    enum db_checkpassword_status status,
 			    const char *const *extra_fields,
-			    void *context)
+			    void (*request_callback)())
 {
-	verify_plain_callback_t *callback = context;
+	verify_plain_callback_t *callback = request_callback;
 	const char *scheme, *crypted_pass = NULL;
 	unsigned int i;
 
@@ -71,9 +71,9 @@ static void
 credentials_checkpassword_callback(struct auth_request *request,
 				   enum db_checkpassword_status status,
 				   const char *const *extra_fields,
-				   void *context)
+				   void (*request_callback)())
 {
-	lookup_credentials_callback_t *callback = context;
+	lookup_credentials_callback_t *callback = request_callback;
 	const char *scheme, *crypted_pass = NULL;
 	unsigned int i;
 

@@ -33,7 +33,7 @@ static void test_array_foreach(void)
 static void test_array_reverse(void)
 {
 	ARRAY_DEFINE(intarr, int);
-	int input[] = { -1234567890, -272585721, 2724859223U, 824725652 };
+	int input[] = { -1234567890, -272585721, 272485922, 824725652 };
 	const int *output;
 	unsigned int i, j;
 
