@@ -339,7 +339,7 @@ int services_listen(struct service_list *service_list)
 	}
 
 #ifdef HAVE_SYSTEMD
-	if (ret == 0)
+	if (ret > 0)
 		services_verify_systemd(service_list);
 #endif
 	return ret;
