@@ -279,6 +279,8 @@ struct mailbox {
 	unsigned int disable_reflink_copy_to:1;
 	/* Don't allow creating any new keywords */
 	unsigned int disallow_new_keywords:1;
+	/* Mailbox has been synced at least once */
+	unsigned int synced:1;
 };
 
 struct mail_vfuncs {

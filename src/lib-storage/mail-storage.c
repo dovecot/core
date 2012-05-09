@@ -1349,6 +1349,8 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 			i_error("Syncing INBOX failed: %s", errormsg);
 		}
 	}
+	if (ret == 0)
+		box->synced = TRUE;
 	return ret;
 }
 
