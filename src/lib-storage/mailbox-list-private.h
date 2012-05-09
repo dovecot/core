@@ -180,9 +180,6 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 					   const char *storage_name);
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 					     enum mailbox_list_path_type type);
-const char *mailbox_list_get_storage_name(struct mailbox_list *list,
-					  const char *vname);
-const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name);
 const char *
 mailbox_list_get_root_path(const struct mailbox_list_settings *set,
 			   enum mailbox_list_path_type type);

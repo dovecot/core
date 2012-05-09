@@ -230,6 +230,10 @@ bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
 				       const char *name);
 
+const char *mailbox_list_get_storage_name(struct mailbox_list *list,
+					  const char *vname);
+const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name);
+
 /* Return full path for the given mailbox name. The name must be a valid
    existing mailbox name, or NULL to get the root directory.
    For INDEX=MEMORY it returns "" as the path. */
