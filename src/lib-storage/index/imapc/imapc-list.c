@@ -518,6 +518,7 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 		(struct imapc_mailbox_list *)_src_list;
 	struct imapc_simple_context ctx;
 	struct imapc_command *cmd;
+	const char *pattern;
 	char sep;
 
 	i_assert(src_list->tmp_subscriptions == NULL);
@@ -537,7 +538,14 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	src_list->tmp_subscriptions = mailbox_tree_init(src_list->sep);
 
 	cmd = imapc_list_simple_context_init(&ctx, src_list);
-	imapc_command_send(cmd, "LSUB \"\" *");
+	if (*src_list->storage->set->imapc_list_prefix == '\0')
+		pattern = "*";
+	else {
+		pattern = t_strdup_printf("%s%c*",
+				src_list->storage->set->imapc_list_prefix,
+				src_list->sep);
+	}
+	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx);
 
 	/* replace subscriptions tree in destination */
