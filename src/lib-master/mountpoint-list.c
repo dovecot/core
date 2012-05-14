@@ -53,6 +53,8 @@ const char *const mountpoint_list_default_ignore_types[] = {
 const char *const mountpoint_list_default_ignore_prefixes[] = {
 	"/cdrom",
 	"/media",
+	"/sys",
+	"/proc",
 	NULL
 };
 
