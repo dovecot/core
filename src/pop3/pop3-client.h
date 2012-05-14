@@ -55,7 +55,7 @@ struct client {
 	unsigned int retr_count;
 
 	/* [msgnum] */
-	uint32_t *message_uidl_hashes;
+	const char **message_uidls;
 	uoff_t *message_sizes;
 	/* [msgnum/8] & msgnum%8 */
 	unsigned char *deleted_bitmask;
@@ -64,13 +64,14 @@ struct client {
 	/* settings: */
 	const struct pop3_settings *set;
 	const struct mail_storage_settings *mail_set;
+	pool_t uidl_pool;
 	enum uidl_keys uidl_keymask;
 
 	unsigned int disconnected:1;
 	unsigned int deleted:1;
 	unsigned int waiting_input:1;
 	unsigned int anvil_sent:1;
-	unsigned int message_uidl_hashes_save:1;
+	unsigned int message_uidls_save:1;
 };
 
 extern struct client *pop3_clients;

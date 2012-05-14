@@ -22,6 +22,7 @@ struct pop3_settings {
 	bool pop3_fast_size_lookups;
 	const char *pop3_client_workarounds;
 	const char *pop3_logout_format;
+	const char *pop3_uidl_duplicates;
 
 	enum pop3_client_workarounds parsed_workarounds;
 };
