@@ -324,6 +324,7 @@ static int services_verify_systemd(struct service_list *service_list)
 			}
 		}
 	}
+	return 0;
 }
 #endif
 
