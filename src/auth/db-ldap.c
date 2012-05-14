@@ -1252,6 +1252,11 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 		/* use the LDAP attribute's value */
 	} else {
 		/* template */
+		if (values[0] == NULL && *field->ldap_attr_name != '\0') {
+			/* ldapAttr=key=template%$, but ldapAttr doesn't
+			   exist. */
+			return values;
+		}
 		if (values[0] != NULL && values[1] != NULL) {
 			auth_request_log_warning(ctx->auth_request, "ldap",
 				"Multiple values found for '%s', "
