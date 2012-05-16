@@ -56,6 +56,8 @@ struct auth_request {
 	struct auth_stream_reply *extra_cache_fields;
 	/* the whole userdb result reply */
 	struct auth_stream_reply *userdb_reply;
+	/* Result of passdb lookup */
+	enum passdb_result passdb_result;
 
 	const struct mech_module *mech;
 	const struct auth_settings *set;

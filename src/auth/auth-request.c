@@ -557,6 +557,7 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 			request->private_callback.verify_plain);
 	} else {
 		auth_request_ref(request);
+		request->passdb_result = result;
 		request->private_callback.verify_plain(result, request);
 		auth_request_unref(&request);
 	}
@@ -691,6 +692,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 			   but the user was unknown there */
 			result = PASSDB_RESULT_USER_UNKNOWN;
 		}
+		request->passdb_result = result;
 		request->private_callback.
 			lookup_credentials(result, credentials, size, request);
 	}

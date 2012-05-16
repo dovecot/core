@@ -287,6 +287,21 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 		auth_stream_reply_add(reply, "nodelay", NULL);
 	get_client_extra_fields(request, reply);
 
+	switch (request->passdb_result) {
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+	case PASSDB_RESULT_USER_UNKNOWN:
+	case PASSDB_RESULT_PASSWORD_MISMATCH:
+	case PASSDB_RESULT_OK:
+		break;
+	case PASSDB_RESULT_USER_DISABLED:
+		auth_stream_reply_add(reply, "user_disabled", NULL);
+		break;
+	case PASSDB_RESULT_PASS_EXPIRED:
+		auth_stream_reply_add(reply, "pass_expired", NULL);
+		break;
+	}
+
 	auth_request_handle_failure(request, reply);
 }
 
