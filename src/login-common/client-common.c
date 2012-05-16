@@ -645,6 +645,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return t_strdup_printf("(internal failure, %u succesful auths)",
 				       client->auth_successes);
 	}
+	if (client->auth_user_disabled)
+		return "(user disabled)";
+	if (client->auth_pass_expired)
+		return "(password expired)";
 	return t_strdup_printf("(auth failed, %u attempts in %u secs)",
 			       client->auth_attempts, auth_secs);
 }

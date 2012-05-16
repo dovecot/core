@@ -82,6 +82,10 @@ static void client_auth_parse_args(struct client *client,
 			reply_r->temp = TRUE;
 		else if (strcmp(key, "authz") == 0)
 			reply_r->authz_failure = TRUE;
+		else if (strcmp(key, "user_disabled") == 0)
+			client->auth_user_disabled = TRUE;
+		else if (strcmp(key, "pass_expired") == 0)
+			client->auth_pass_expired = TRUE;
 		else if (strcmp(key, "reason") == 0)
 			reply_r->reason = value;
 		else if (strcmp(key, "host") == 0)
