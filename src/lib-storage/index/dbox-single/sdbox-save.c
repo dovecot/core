@@ -78,9 +78,18 @@ sdbox_save_alloc(struct mailbox_transaction_context *t)
 void sdbox_save_add_file(struct mail_save_context *_ctx, struct dbox_file *file)
 {
 	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
+	struct dbox_file *const *files;
+	unsigned int count;
 
 	if (ctx->first_saved_seq == 0)
 		ctx->first_saved_seq = ctx->ctx.seq;
+
+	files = array_get(&ctx->files, &count);
+	if (count > 0) {
+		/* a plugin may leave a previously saved file open.
+		   we'll close it here to avoid eating too many fds. */
+		dbox_file_close(files[count-1]);
+	}
 	array_append(&ctx->files, &file, 1);
 }
 
