@@ -34,6 +34,7 @@ ARRAY_DEFINE_TYPE(ip_addr, struct ip_addr);
 struct net_unix_cred {
 	uid_t uid;
 	gid_t gid;
+	pid_t pid;
 };
 
 /* maxmimum string length of IP address */
@@ -115,7 +116,8 @@ int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port);
 int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port);
 /* Get UNIX socket name. */
 int net_getunixname(int fd, const char **name_r);
-/* Get UNIX socket peer process's credentials. */
+/* Get UNIX socket peer process's credentials. The pid may be (pid_t)-1 if
+   unavailable. */
 int net_getunixcred(int fd, struct net_unix_cred *cred_r);
 
 /* Returns ip_addr as string, or NULL if ip is invalid. */
