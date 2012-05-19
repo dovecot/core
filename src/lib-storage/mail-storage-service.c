@@ -907,6 +907,21 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 					user_set->mail_plugins, &mod_set);
 }
 
+static int extra_field_key_cmp_p(const char *const *s1, const char *const *s2)
+{
+	const char *p1 = *s1, *p2 = *s2;
+
+	for (; *p1 == *p2; p1++, p2++) {
+		if (*p1 == '\0')
+			return 0;
+	}
+	if (*p1 == '=')
+		return -1;
+	if (*p2 == '=')
+		return 1;
+	return *p1 - *p2;
+}
+
 int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				const struct mail_storage_service_input *input,
 				struct mail_storage_service_user **user_r,
@@ -992,6 +1007,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	if (userdb_fields != NULL) {
 		auth_user_fields_parse(userdb_fields, temp_pool, &reply);
+		array_sort(&reply.extra_fields, extra_field_key_cmp_p);
 		if (user_reply_handle(ctx, user, &reply, &error) < 0) {
 			i_error("user %s: Invalid settings in userdb: %s",
 				username, error);
