@@ -162,8 +162,14 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 			   this is the first mail in the database */
 			ret = dict_lookup(euser->db, pool_datastack_create(),
 					  key, &value);
-			if (ret == 0) {
-				/* first time saving here with expire enabled */
+			if (ret <= 0) {
+				/* first time saving here with expire enabled.
+				   also handle lookup errors by just assuming
+				   it didn't exist */
+				if (ret < 0) {
+					i_warning("expire: dict lookup failed, "
+						  "assuming update is needed");
+				}
 				first_save_timestamp(box, &new_stamp);
 				update_dict = TRUE;
 			} else if (strcmp(value, "0") == 0) {
@@ -188,7 +194,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 
 			dctx = dict_transaction_begin(euser->db);
 			dict_set(dctx, key, dec2str(new_stamp));
-			dict_transaction_commit(&dctx);
+			if (dict_transaction_commit(&dctx) < 0)
+				i_error("expire: dict commit failed");
 		}
 	} T_END;
 	i_free(xt);
