@@ -383,7 +383,12 @@ static bool director_cmd_me(struct director_connection *conn,
 	   elsewhere with CONNECT. however, before disconnecting it verify
 	   first that our left side is actually still functional.
 	*/
+	i_assert(conn->host == NULL);
 	conn->host = director_host_get(dir, &ip, port);
+	/* the host shouldn't be removed at this point, but if for some
+	   reason it is we don't want to crash */
+	conn->host->removed = FALSE;
+	director_host_ref(conn->host);
 	/* make sure we don't keep old sequence values across restarts */
 	conn->host->last_seq = 0;
 
@@ -587,6 +592,10 @@ static bool director_cmd_director(struct director_connection *conn,
 			/* ignore updates to ourself */
 			return TRUE;
 		}
+		if (host->removed) {
+			/* ignore re-adds of removed directors */
+			return TRUE;
+		}
 
 		/* already have this. just reset its last_network_failure
 		   timestamp, since it might be up now. */
@@ -598,15 +607,29 @@ static bool director_cmd_director(struct director_connection *conn,
 		}
 	} else {
 		/* save the director and forward it */
-		director_host_add(conn->dir, &ip, port);
+		host = director_host_add(conn->dir, &ip, port);
 		forward = TRUE;
 	}
 	if (forward) {
-		director_update_send(conn->dir,
-			director_connection_get_host(conn),
-			t_strdup_printf("DIRECTOR\t%s\t%u\n",
-					net_ip2addr(&ip), port));
+		director_notify_ring_added(host,
+			director_connection_get_host(conn));
 	}
+	return TRUE;
+}
+
+static bool director_cmd_director_remove(struct director_connection *conn,
+					 const char *const *args)
+{
+	struct director_host *host;
+	struct ip_addr ip;
+	unsigned int port;
+
+	if (!director_args_parse_ip_port(conn, args, &ip, &port))
+		return FALSE;
+
+	host = director_host_lookup(conn->dir, &ip, port);
+	if (host != NULL && !host->removed)
+		director_ring_remove(host, director_connection_get_host(conn));
 	return TRUE;
 }
 
@@ -659,7 +682,7 @@ director_cmd_is_seen(struct director_connection *conn,
 	*_args = args + 3;
 
 	host = director_host_lookup(conn->dir, &ip, port);
-	if (host == NULL) {
+	if (host == NULL || host->removed) {
 		/* director is already gone, but we can't be sure if this
 		   command was sent everywhere. re-send it as if it was from
 		   ourself. */
@@ -1191,6 +1214,8 @@ director_connection_handle_cmd(struct director_connection *conn,
 		return director_cmd_user_killed_everywhere(conn, args);
 	if (strcmp(cmd, "DIRECTOR") == 0)
 		return director_cmd_director(conn, args);
+	if (strcmp(cmd, "DIRECTOR-REMOVE") == 0)
+		return director_cmd_director_remove(conn, args);
 	if (strcmp(cmd, "SYNC") == 0)
 		return director_connection_sync(conn, args);
 	if (strcmp(cmd, "CONNECT") == 0)
@@ -1279,6 +1304,8 @@ static void director_connection_send_directors(struct director_connection *conn,
 	struct director_host *const *hostp;
 
 	array_foreach(&conn->dir->dir_hosts, hostp) {
+		if ((*hostp)->removed)
+			continue;
 		str_printfa(str, "DIRECTOR\t%s\t%u\n",
 			    net_ip2addr(&(*hostp)->ip), (*hostp)->port);
 	}
@@ -1433,12 +1460,15 @@ director_connection_init_out(struct director *dir, int fd,
 {
 	struct director_connection *conn;
 
+	i_assert(!host->removed);
+
 	/* make sure we don't keep old sequence values across restarts */
 	host->last_seq = 0;
 
 	conn = director_connection_init_common(dir, fd);
 	conn->name = i_strdup_printf("%s/out", host->name);
 	conn->host = host;
+	director_host_ref(host);
 	conn->io = io_add(conn->fd, IO_WRITE,
 			  director_connection_connected, conn);
 	return conn;
@@ -1471,6 +1501,8 @@ void director_connection_deinit(struct director_connection **_conn)
 	}
 	if (dir->right == conn)
 		dir->right = NULL;
+	if (conn->host != NULL)
+		director_host_unref(conn->host);
 
 	if (conn->user_iter != NULL)
 		user_directory_iter_deinit(&conn->user_iter);

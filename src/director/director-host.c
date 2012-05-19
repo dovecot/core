@@ -29,6 +29,8 @@ director_host_add(struct director *dir,
 	struct director_host *host;
 
 	host = i_new(struct director_host, 1);
+	host->dir = dir;
+	host->refcount = 1;
 	host->ip = *ip;
 	host->port = port;
 	host->name = i_strdup_printf("%s:%u", net_ip2addr(ip), port);
@@ -41,8 +43,39 @@ director_host_add(struct director *dir,
 	return host;
 }
 
-void director_host_free(struct director_host *host)
+void director_host_free(struct director_host **_host)
 {
+	struct director_host *host = *_host;
+
+	i_assert(host->refcount == 1);
+
+	*_host = NULL;
+	director_host_unref(host);
+}
+
+void director_host_ref(struct director_host *host)
+{
+	i_assert(host->refcount > 0);
+	host->refcount++;
+}
+
+void director_host_unref(struct director_host *host)
+{
+	struct director_host *const *hosts;
+	unsigned int i, count;
+
+	i_assert(host->refcount > 0);
+
+	if (--host->refcount > 0)
+		return;
+
+	hosts = array_get(&host->dir->dir_hosts, &count);
+	for (i = 0; i < count; i++) {
+		if (hosts[i] == host) {
+			array_delete(&host->dir->dir_hosts, i, 1);
+			break;
+		}
+	}
 	i_free(host->name);
 	i_free(host);
 }

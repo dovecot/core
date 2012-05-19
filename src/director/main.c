@@ -28,7 +28,10 @@ static struct notify_connection *notify_conn;
 
 static int director_client_connected(int fd, const struct ip_addr *ip)
 {
-	if (director_host_lookup_ip(director, ip) == NULL) {
+	struct director_host *host;
+
+	host = director_host_lookup_ip(director, ip);
+	if (host == NULL || host->removed) {
 		i_warning("Connection from %s: Server not listed in "
 			  "director_servers, dropping", net_ip2addr(ip));
 		return -1;
