@@ -80,7 +80,7 @@ static void anvil_reconnect(struct anvil_client *client)
 	if (ioloop_time - client->last_reconnect < ANVIL_RECONNECT_MIN_SECS) {
 		if (client->to_reconnect == NULL) {
 			client->to_reconnect =
-				timeout_add(ANVIL_RECONNECT_MIN_SECS,
+				timeout_add(ANVIL_RECONNECT_MIN_SECS*1000,
 					    anvil_reconnect, client);
 		}
 	} else {
