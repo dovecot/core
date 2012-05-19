@@ -604,8 +604,13 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_set = mail_user_set_get_storage_set(mail_user);
 
 	if (mail_set->mail_debug) {
-		i_debug("Effective uid=%s, gid=%s, home=%s",
-			dec2str(geteuid()), dec2str(getegid()), home);
+		string_t *str = t_str_new(64);
+
+		str_printfa(str, "Effective uid=%s, gid=%s, home=%s",
+			    dec2str(geteuid()), dec2str(getegid()), home);
+		if (*priv->chroot != '\0')
+			str_printfa(str, ", chroot=%s", priv->chroot);
+		i_debug("%s", str_c(str));
 	}
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
@@ -909,6 +914,21 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 					user_set->mail_plugins, &mod_set);
 }
 
+static int extra_field_key_cmp_p(const char *const *s1, const char *const *s2)
+{
+	const char *p1 = *s1, *p2 = *s2;
+
+	for (; *p1 == *p2; p1++, p2++) {
+		if (*p1 == '\0')
+			return 0;
+	}
+	if (*p1 == '=')
+		return -1;
+	if (*p2 == '=')
+		return 1;
+	return *p1 - *p2;
+}
+
 int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				const struct mail_storage_service_input *input,
 				struct mail_storage_service_user **user_r,
@@ -994,6 +1014,7 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 
 	if (userdb_fields != NULL) {
 		auth_user_fields_parse(userdb_fields, temp_pool, &reply);
+		array_sort(&reply.extra_fields, extra_field_key_cmp_p);
 		if (user_reply_handle(ctx, user, &reply, &error) < 0) {
 			i_error("user %s: Invalid settings in userdb: %s",
 				username, error);
