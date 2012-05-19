@@ -609,6 +609,20 @@ static bool password_has_illegal_chars(const char *password)
 	return FALSE;
 }
 
+static bool auth_request_is_disabled_master_user(struct auth_request *request)
+{
+	if (request->passdb != NULL)
+		return FALSE;
+
+	/* no masterdbs, master logins not supported */
+	i_assert(request->requested_login_user != NULL);
+	auth_request_log_info(request, "passdb",
+			      "Attempted master login with no master passdbs "
+			      "(trying to log in as user: %s)",
+			      request->requested_login_user);
+	return TRUE;
+}
+
 void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,
 			       verify_plain_callback_t *callback)
@@ -619,13 +633,7 @@ void auth_request_verify_plain(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-        if (request->passdb == NULL) {
-                /* no masterdbs, master logins not supported */
-                i_assert(request->requested_login_user != NULL);
-		auth_request_log_info(request, "passdb",
-			"Attempted master login with no master passdbs "
-			"(trying to log in as user: %s)",
-			request->requested_login_user);
+	if (auth_request_is_disabled_master_user(request)) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
@@ -745,6 +753,11 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	enum passdb_result result;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	if (auth_request_is_disabled_master_user(request)) {
+		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, 0, request);
+		return;
+	}
 
 	request->credentials_scheme = p_strdup(request->pool, scheme);
 	request->private_callback.lookup_credentials = callback;
