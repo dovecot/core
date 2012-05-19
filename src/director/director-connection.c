@@ -1503,7 +1503,8 @@ void director_connection_disconnected(struct director_connection **_conn)
 	struct director_connection *conn = *_conn;
 	struct director *dir = conn->dir;
 
-	if (conn->created + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time) {
+	if (conn->created + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time &&
+	    conn->host != NULL) {
 		/* connection didn't exist for very long, assume it has a
 		   network problem */
 		conn->host->last_network_failure = ioloop_time;
