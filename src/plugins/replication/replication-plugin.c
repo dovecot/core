@@ -206,8 +206,8 @@ static void replication_notify(struct mail_namespace *ns,
 	if (ruser->priority < priority)
 		ruser->priority = priority;
 	if (ruser->to == NULL) {
-		ruser->to = timeout_add(REPLICATION_NOTIFY_DELAY_MSECS,
-					replication_notify_now, ns->owner);
+		ruser->to = timeout_add_short(REPLICATION_NOTIFY_DELAY_MSECS,
+					      replication_notify_now, ns->owner);
 	}
 }
 

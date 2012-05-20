@@ -73,6 +73,13 @@ struct timeout *timeout_add(unsigned int msecs, unsigned int source_linenum,
 			    timeout_callback_t *callback, void *context);
 #define timeout_add(msecs, callback, context) \
 	CONTEXT_CALLBACK(timeout_add, timeout_callback_t, \
+			 callback, context, msecs, __LINE__), \
+	(void)COMPILE_ERROR_IF_TRUE(__builtin_constant_p(msecs) && (msecs > 0 && msecs < 1000))
+struct timeout *
+timeout_add_short(unsigned int msecs, unsigned int source_linenum,
+		  timeout_callback_t *callback, void *context);
+#define timeout_add_short(msecs, callback, context) \
+	CONTEXT_CALLBACK(timeout_add_short, timeout_callback_t, \
 			 callback, context, msecs, __LINE__)
 /* Remove timeout handler, and set timeout pointer to NULL. */
 void timeout_remove(struct timeout **timeout);

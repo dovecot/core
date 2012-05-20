@@ -59,8 +59,8 @@ static void notify_callback(struct mailbox *box)
 
 	if (ibox->notify_delay_to == NULL) {
 		ibox->notify_delay_to =
-			timeout_add(NOTIFY_DELAY_MSECS,
-				    notify_delay_callback, box);
+			timeout_add_short(NOTIFY_DELAY_MSECS,
+					  notify_delay_callback, box);
 	}
 }
 

@@ -450,8 +450,8 @@ static struct admin_connection *admin_connect(const char *path)
 	if (conn->fd == -1)
 		i_fatal("net_connect_unix(%s) failed: %m", path);
 	conn->io = io_add(conn->fd, IO_READ, admin_input, conn);
-	conn->to_random = timeout_add(ADMIN_RANDOM_TIMEOUT_MSECS,
-				      admin_random_action, conn);
+	conn->to_random = timeout_add_short(ADMIN_RANDOM_TIMEOUT_MSECS,
+					    admin_random_action, conn);
 
 	net_set_nonblock(conn->fd, FALSE);
 	conn->input = i_stream_create_fd(conn->fd, (size_t)-1, TRUE);
