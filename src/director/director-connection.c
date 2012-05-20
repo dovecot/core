@@ -70,7 +70,7 @@
 /* If outgoing director connection exists for less than this many seconds,
    mark the host as failed so we won't try to reconnect to it immediately */
 #define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 40
-#define DIRECTOR_WAIT_DISCONNECT_MSECS 10
+#define DIRECTOR_WAIT_DISCONNECT_SECS 10
 
 #if DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS <= DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS
 #  error DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS is too low
@@ -187,7 +187,7 @@ static void director_connection_send_connect(struct director_connection *conn,
 	o_stream_uncork(conn->output);
 
 	conn->to_disconnect =
-		timeout_add(DIRECTOR_WAIT_DISCONNECT_MSECS,
+		timeout_add(DIRECTOR_WAIT_DISCONNECT_SECS*1000,
 			    director_connection_wait_timeout, conn);
 }
 
